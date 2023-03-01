@@ -16,7 +16,7 @@
 
 //! Logic for checking Substrate storage proofs.
 
-use codec::{Decode, Encode};
+use codec::Decode;
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 use sp_runtime::RuntimeDebug;
 use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
@@ -36,9 +36,6 @@ pub enum ProofSize {
 	/// The proof is expected to be minimal. If value size may be changed, then it is expected to
 	/// have given size.
 	Minimal(u32),
-	/// The proof is expected to have at least given size and grow by increasing number of trie
-	/// nodes included in the proof.
-	HasExtraNodes(u32),
 	/// The proof is expected to have at least given size and grow by increasing value that is
 	/// stored in the trie.
 	HasLargeLeaf(u32),
@@ -46,7 +43,8 @@ pub enum ProofSize {
 
 /// This struct is used to read storage values from a subset of a Merklized database. The "proof"
 /// is a subset of the nodes in the Merkle structure of the database, so that it provides
-/// authentication against a known Merkle root as well as the values in the database themselves.
+/// authentication against a known Merkle root as well as the values in the
+/// database themselves.
 pub struct StorageProofChecker<H>
 where
 	H: Hasher,
@@ -157,6 +155,7 @@ impl From<Error> for &'static str {
 /// NOTE: This should only be used for **testing**.
 #[cfg(feature = "std")]
 pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
+	use codec::Encode;
 	use sp_state_machine::{backend::Backend, prove_read, InMemoryBackend};
 
 	let state_version = sp_runtime::StateVersion::default();

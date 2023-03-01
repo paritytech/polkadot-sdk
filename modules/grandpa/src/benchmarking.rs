@@ -41,6 +41,7 @@
 
 use crate::*;
 
+use bp_header_chain::justification::required_justification_precommits;
 use bp_runtime::BasicOperatingMode;
 use bp_test_utils::{
 	accounts, make_justification_for_header, JustificationGeneratorParams, TEST_GRANDPA_ROUND,
@@ -66,13 +67,14 @@ const MAX_VOTE_ANCESTRIES_RANGE_END: u32 =
 	MAX_VOTE_ANCESTRIES_RANGE_BEGIN + MAX_VOTE_ANCESTRIES_RANGE_BEGIN;
 
 // the same with validators - if there are too much validators, let's run benchmarks on subrange
-fn validator_set_range_end<T: Config<I>, I: 'static>() -> u32 {
+fn precommits_range_end<T: Config<I>, I: 'static>() -> u32 {
 	let max_bridged_authorities = T::BridgedChain::MAX_AUTHORITIES_COUNT;
 	if max_bridged_authorities > 128 {
 		sp_std::cmp::max(128, max_bridged_authorities / 5)
 	} else {
 		max_bridged_authorities
-	}
+	};
+	required_justification_precommits(max_bridged_authorities)
 }
 
 /// Prepare header and its justification to submit using `submit_finality_proof`.
@@ -80,7 +82,10 @@ fn prepare_benchmark_data<T: Config<I>, I: 'static>(
 	precommits: u32,
 	ancestors: u32,
 ) -> (BridgedHeader<T, I>, GrandpaJustification<BridgedHeader<T, I>>) {
-	let authority_list = accounts(precommits as u16)
+	// going from precommits to total authorities count
+	let total_authorities_count = (3 * precommits - 1) / 2;
+
+	let authority_list = accounts(total_authorities_count as u16)
 		.iter()
 		.map(|id| (AuthorityId::from(*id), 1))
 		.collect::<Vec<_>>();
@@ -114,7 +119,7 @@ benchmarks_instance_pallet! {
 	// This is the "gold standard" benchmark for this extrinsic, and it's what should be used to
 	// annotate the weight in the pallet.
 	submit_finality_proof {
-		let p in 1 .. validator_set_range_end::<T, I>();
+		let p in 1 .. precommits_range_end::<T, I>();
 		let v in MAX_VOTE_ANCESTRIES_RANGE_BEGIN..MAX_VOTE_ANCESTRIES_RANGE_END;
 		let caller: T::AccountId = whitelisted_caller();
 		let (header, justification) = prepare_benchmark_data::<T, I>(p, v);

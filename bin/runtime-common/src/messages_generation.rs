@@ -25,7 +25,6 @@ use bp_messages::{
 };
 use bp_runtime::{record_all_trie_keys, RawStorageProof, StorageProofSize};
 use codec::Encode;
-use sp_core::Hasher;
 use sp_std::{ops::RangeInclusive, prelude::*};
 use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 
@@ -65,10 +64,15 @@ where
 			TrieDBMutBuilderV1::<HasherOf<BridgedChain<B>>>::new(&mut mdb, &mut root).build();
 
 		// insert messages
-		for nonce in message_nonces {
+		for (i, nonce) in message_nonces.into_iter().enumerate() {
 			let message_key = MessageKey { lane_id: lane, nonce };
 			let message_payload = match encode_message(nonce, &message_payload) {
-				Some(message_payload) => message_payload,
+				Some(message_payload) =>
+					if i == 0 {
+						grow_trie_leaf_value(message_payload, size)
+					} else {
+						message_payload
+					},
 				None => continue,
 			};
 			let storage_key = storage_keys::message_key(
@@ -94,46 +98,22 @@ where
 			storage_keys.push(storage_key);
 		}
 	}
-	root = grow_trie(root, &mut mdb, size);
 
 	// generate storage proof to be delivered to This chain
 	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>>, _>(&mdb, &root)
 		.map_err(|_| "record_all_trie_keys has failed")
 		.expect("record_all_trie_keys should not fail in benchmarks");
-
 	(root, storage_proof)
 }
 
-/// Populate trie with dummy keys+values until trie has at least given size.
-pub fn grow_trie<H: Hasher>(
-	mut root: H::Out,
-	mdb: &mut MemoryDB<H>,
-	trie_size: StorageProofSize,
-) -> H::Out {
-	let (iterations, leaf_size, minimal_trie_size) = match trie_size {
-		StorageProofSize::Minimal(_) => return root,
-		StorageProofSize::HasLargeLeaf(size) => (1, size, size),
-		StorageProofSize::HasExtraNodes(size) => (8, 1, size),
-	};
-
-	let mut key_index = 0;
-	loop {
-		// generate storage proof to be delivered to This chain
-		let storage_proof = record_all_trie_keys::<LayoutV1<H>, _>(mdb, &root)
-			.map_err(|_| "record_all_trie_keys has failed")
-			.expect("record_all_trie_keys should not fail in benchmarks");
-		let size: usize = storage_proof.iter().map(|n| n.len()).sum();
-		if size > minimal_trie_size as _ {
-			return root
-		}
-
-		let mut trie = TrieDBMutBuilderV1::<H>::from_existing(mdb, &mut root).build();
-		for _ in 0..iterations {
-			trie.insert(&key_index.encode(), &vec![42u8; leaf_size as _])
-				.map_err(|_| "TrieMut::insert has failed")
-				.expect("TrieMut::insert should not fail in benchmarks");
-			key_index += 1;
-		}
-		trie.commit();
+/// Add extra data to the trie leaf value so that it'll be of given size.
+pub fn grow_trie_leaf_value(mut value: Vec<u8>, size: StorageProofSize) -> Vec<u8> {
+	match size {
+		StorageProofSize::Minimal(_) => (),
+		StorageProofSize::HasLargeLeaf(size) if size as usize > value.len() => {
+			value.extend(sp_std::iter::repeat(42u8).take(size as usize - value.len()));
+		},
+		StorageProofSize::HasLargeLeaf(_) => (),
 	}
+	value
 }

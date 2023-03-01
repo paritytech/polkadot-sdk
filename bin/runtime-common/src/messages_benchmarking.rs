@@ -25,7 +25,7 @@ use crate::{
 		AccountIdOf, BridgedChain, HashOf, HasherOf, MessageBridge, ThisChain,
 	},
 	messages_generation::{
-		encode_all_messages, encode_lane_data, grow_trie, prepare_messages_storage_proof,
+		encode_all_messages, encode_lane_data, grow_trie_leaf_value, prepare_messages_storage_proof,
 	},
 };
 
@@ -204,11 +204,12 @@ where
 	{
 		let mut trie =
 			TrieDBMutBuilderV1::<HasherOf<BridgedChain<B>>>::new(&mut mdb, &mut root).build();
-		trie.insert(&storage_key, &params.inbound_lane_data.encode())
+		let inbound_lane_data =
+			grow_trie_leaf_value(params.inbound_lane_data.encode(), params.size);
+		trie.insert(&storage_key, &inbound_lane_data)
 			.map_err(|_| "TrieMut::insert has failed")
 			.expect("TrieMut::insert should not fail in benchmarks");
 	}
-	root = grow_trie(root, &mut mdb, params.size);
 
 	// generate storage proof to be delivered to This chain
 	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>>, _>(&mdb, &root)
