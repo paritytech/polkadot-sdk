@@ -238,7 +238,7 @@ benchmarks_instance_pallet! {
 			lane: T::bench_lane_id(),
 			message_nonces: 21..=21,
 			outbound_lane_data: None,
-			size: StorageProofSize::HasExtraNodes(1024),
+			size: StorageProofSize::HasLargeLeaf(1024),
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
 	verify {
@@ -272,7 +272,7 @@ benchmarks_instance_pallet! {
 			lane: T::bench_lane_id(),
 			message_nonces: 21..=21,
 			outbound_lane_data: None,
-			size: StorageProofSize::HasExtraNodes(16 * 1024),
+			size: StorageProofSize::HasLargeLeaf(16 * 1024),
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
 	verify {
