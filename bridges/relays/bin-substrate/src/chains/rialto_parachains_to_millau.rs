@@ -17,7 +17,6 @@
 //! Rialto-to-Millau parachains sync entrypoint.
 
 use crate::cli::bridge::{CliBridgeBase, MessagesCliBridge, ParachainToRelayHeadersCliBridge};
-use parachains_relay::ParachainsPipeline;
 use relay_millau_client::Millau;
 use relay_rialto_client::Rialto;
 use relay_rialto_parachain_client::RialtoParachain;
@@ -28,11 +27,6 @@ use substrate_relay_helper::parachains::{
 /// Rialto-to-Millau parachains sync description.
 #[derive(Clone, Debug)]
 pub struct RialtoParachainsToMillau;
-
-impl ParachainsPipeline for RialtoParachainsToMillau {
-	type SourceChain = Rialto;
-	type TargetChain = Millau;
-}
 
 impl SubstrateParachainsPipeline for RialtoParachainsToMillau {
 	type SourceParachain = RialtoParachain;

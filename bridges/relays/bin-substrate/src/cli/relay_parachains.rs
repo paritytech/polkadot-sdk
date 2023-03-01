@@ -22,20 +22,14 @@ use crate::chains::{
 };
 use async_std::sync::Mutex;
 use async_trait::async_trait;
-use bp_polkadot_core::parachains::ParaId;
-use parachains_relay::parachains_loop::{
-	AvailableHeader, ParachainSyncParams, SourceClient, TargetClient,
-};
-use relay_substrate_client::{Parachain, ParachainBase};
+use parachains_relay::parachains_loop::{AvailableHeader, SourceClient, TargetClient};
+use relay_substrate_client::Parachain;
 use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
 use std::sync::Arc;
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
 use substrate_relay_helper::{
-	parachains::{
-		source::ParachainsSource, target::ParachainsTarget, ParachainsPipelineAdapter,
-		SubstrateParachainsPipeline,
-	},
+	parachains::{source::ParachainsSource, target::ParachainsTarget, ParachainsPipelineAdapter},
 	TransactionParams,
 };
 
@@ -105,13 +99,6 @@ where
 		parachains_relay::parachains_loop::run(
 			source_client,
 			target_client,
-			ParachainSyncParams {
-				parachains: vec![
-					ParaId(<Self::ParachainFinality as SubstrateParachainsPipeline>::SourceParachain::PARACHAIN_ID)
-				],
-				stall_timeout: std::time::Duration::from_secs(60),
-				strategy: parachains_relay::parachains_loop::ParachainSyncStrategy::Any,
-			},
 			metrics_params,
 			futures::future::pending(),
 		)
