@@ -933,9 +933,10 @@ impl_runtime_apis! {
 
 			let mut list = Vec::<BenchmarkList>::new();
 
-			list_benchmark!(list, extra, pallet_bridge_messages, MessagesBench::<Runtime, WithRialtoMessagesInstance>);
+			list_benchmark!(list, extra, RialtoParachainMessages, MessagesBench::<Runtime, WithRialtoParachainMessagesInstance>);
+			list_benchmark!(list, extra, RialtoMessages, MessagesBench::<Runtime, WithRialtoMessagesInstance>);
 			list_benchmark!(list, extra, pallet_bridge_grandpa, BridgeRialtoGrandpa);
-			list_benchmark!(list, extra, pallet_bridge_parachains, ParachainsBench::<Runtime, WithRialtoMessagesInstance>);
+			list_benchmark!(list, extra, pallet_bridge_parachains, ParachainsBench::<Runtime, WithRialtoParachainsInstance>);
 			list_benchmark!(list, extra, pallet_bridge_relayers, RelayersBench::<Runtime>);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
@@ -964,7 +965,12 @@ impl_runtime_apis! {
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
 
-			use bridge_runtime_common::messages_benchmarking::{prepare_message_delivery_proof_from_grandpa_chain, prepare_message_proof_from_grandpa_chain};
+			use bridge_runtime_common::messages_benchmarking::{
+				prepare_message_delivery_proof_from_grandpa_chain,
+				prepare_message_delivery_proof_from_parachain,
+				prepare_message_proof_from_grandpa_chain,
+				prepare_message_proof_from_parachain,
+			};
 			use pallet_bridge_messages::benchmarking::{
 				Pallet as MessagesBench,
 				Config as MessagesConfig,
@@ -980,28 +986,66 @@ impl_runtime_apis! {
 				Config as RelayersConfig,
 			};
 			use rialto_messages::WithRialtoMessageBridge;
+			use rialto_parachain_messages::WithRialtoParachainMessageBridge;
 
-			impl MessagesConfig<WithRialtoMessagesInstance> for Runtime {
+			impl MessagesConfig<WithRialtoParachainMessagesInstance> for Runtime {
 				fn prepare_message_proof(
 					params: MessageProofParams,
 				) -> (rialto_messages::FromRialtoMessagesProof, Weight) {
-					prepare_message_proof_from_grandpa_chain::<Runtime, RialtoGrandpaInstance, WithRialtoMessageBridge>(
-						params,
-					)
+					prepare_message_proof_from_parachain::<
+						Runtime,
+						WithRialtoParachainsInstance,
+						WithRialtoParachainMessageBridge,
+					>(params)
 				}
 
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<Self::AccountId>,
 				) -> rialto_messages::ToRialtoMessagesDeliveryProof {
-					prepare_message_delivery_proof_from_grandpa_chain::<Runtime, RialtoGrandpaInstance, WithRialtoMessageBridge>(
-						params,
-					)
+					prepare_message_delivery_proof_from_parachain::<
+						Runtime,
+						WithRialtoParachainsInstance,
+						WithRialtoParachainMessageBridge,
+					>(params)
 				}
 
 				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
 					use bridge_runtime_common::messages::MessageBridge;
 
-					let lane = Self::bench_lane_id();
+					let lane = <Self as MessagesConfig<WithRialtoParachainMessagesInstance>>::bench_lane_id();
+					let bridged_chain_id = WithRialtoParachainMessageBridge::BRIDGED_CHAIN_ID;
+					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
+						relayer,
+						RewardsAccountParams::new(lane, bridged_chain_id, RewardsAccountOwner::BridgedChain)
+					).is_some()
+				}
+			}
+
+			impl MessagesConfig<WithRialtoMessagesInstance> for Runtime {
+				fn prepare_message_proof(
+					params: MessageProofParams,
+				) -> (rialto_messages::FromRialtoMessagesProof, Weight) {
+					prepare_message_proof_from_grandpa_chain::<
+						Runtime,
+						RialtoGrandpaInstance,
+						WithRialtoMessageBridge,
+					>(params)
+				}
+
+				fn prepare_message_delivery_proof(
+					params: MessageDeliveryProofParams<Self::AccountId>,
+				) -> rialto_messages::ToRialtoMessagesDeliveryProof {
+					prepare_message_delivery_proof_from_grandpa_chain::<
+						Runtime,
+						RialtoGrandpaInstance,
+						WithRialtoMessageBridge,
+					>(params)
+				}
+
+				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
+					use bridge_runtime_common::messages::MessageBridge;
+
+					let lane = <Self as MessagesConfig<WithRialtoMessagesInstance>>::bench_lane_id();
 					let bridged_chain_id = WithRialtoMessageBridge::BRIDGED_CHAIN_ID;
 					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
 						relayer,
@@ -1026,7 +1070,10 @@ impl_runtime_apis! {
 					bp_polkadot_core::parachains::ParaHeadsProof,
 					Vec<(bp_polkadot_core::parachains::ParaId, bp_polkadot_core::parachains::ParaHash)>,
 				) {
-					bridge_runtime_common::parachains_benchmarking::prepare_parachain_heads_proof::<Runtime, WithRialtoParachainsInstance>(
+					bridge_runtime_common::parachains_benchmarking::prepare_parachain_heads_proof::<
+						Runtime,
+						WithRialtoParachainsInstance,
+					>(
 						parachains,
 						parachain_head_size,
 						proof_size,
@@ -1051,7 +1098,13 @@ impl_runtime_apis! {
 			add_benchmark!(
 				params,
 				batches,
-				pallet_bridge_messages,
+				RialtoParachainMessages,
+				MessagesBench::<Runtime, WithRialtoParachainMessagesInstance>
+			);
+			add_benchmark!(
+				params,
+				batches,
+				RialtoMessages,
 				MessagesBench::<Runtime, WithRialtoMessagesInstance>
 			);
 			add_benchmark!(params, batches, pallet_bridge_grandpa, BridgeRialtoGrandpa);
