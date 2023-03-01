@@ -27,5 +27,5 @@ impl CliChain for Wococo {
 
 impl CliChain for BridgeHubWococo {
 	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
-		Some(SimpleRuntimeVersion { spec_version: 9371, transaction_version: 1 });
+		Some(SimpleRuntimeVersion { spec_version: 9372, transaction_version: 1 });
 }
