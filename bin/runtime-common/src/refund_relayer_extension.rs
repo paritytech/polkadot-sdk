@@ -746,8 +746,9 @@ mod tests {
 
 	fn dispatch_info() -> DispatchInfo {
 		DispatchInfo {
-			weight: Weight::from_ref_time(
+			weight: Weight::from_parts(
 				frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND,
+				0,
 			),
 			class: frame_support::dispatch::DispatchClass::Normal,
 			pays_fee: frame_support::dispatch::Pays::Yes,
@@ -1037,8 +1038,9 @@ mod tests {
 			initialize_environment(200, 200, [1u8; 32].into(), 200);
 
 			let mut dispatch_info = dispatch_info();
-			dispatch_info.weight = Weight::from_ref_time(
+			dispatch_info.weight = Weight::from_parts(
 				frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND * 2,
+				0,
 			);
 
 			// without any size/weight refund: we expect regular reward

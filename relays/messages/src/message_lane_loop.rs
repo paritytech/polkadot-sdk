@@ -723,7 +723,7 @@ pub(crate) mod tests {
 					(
 						nonce,
 						MessageDetails {
-							dispatch_weight: Weight::from_ref_time(1),
+							dispatch_weight: Weight::from_parts(1, 0),
 							size: 1,
 							reward: 1,
 						},
@@ -949,7 +949,7 @@ pub(crate) mod tests {
 						max_unrewarded_relayer_entries_at_target: 4,
 						max_unconfirmed_nonces_at_target: 4,
 						max_messages_in_single_batch: 4,
-						max_messages_weight_in_single_batch: Weight::from_ref_time(4),
+						max_messages_weight_in_single_batch: Weight::from_parts(4, 0),
 						max_messages_size_in_single_batch: 4,
 					},
 				},
