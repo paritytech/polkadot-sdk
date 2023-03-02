@@ -123,8 +123,22 @@ impl<P: SubstrateMessageLane> RelayClient for SubstrateMessagesTarget<P> {
 	type Error = SubstrateError;
 
 	async fn reconnect(&mut self) -> Result<(), SubstrateError> {
+		// since the client calls RPC methods on both sides, we need to reconnect both
 		self.target_client.reconnect().await?;
-		self.source_client.reconnect().await
+		self.source_client.reconnect().await?;
+
+		// call reconnect on on-demand headers relay, because we may use different chains there
+		// and the error that has lead to reconnect may have came from those other chains
+		// (see `require_source_header_on_target`)
+		//
+		// this may lead to multiple reconnects to the same node during the same call and it
+		// needs to be addressed in the future
+		// TODO: https://github.com/paritytech/parity-bridges-common/issues/1928
+		if let Some(ref mut source_to_target_headers_relay) = self.source_to_target_headers_relay {
+			source_to_target_headers_relay.reconnect().await?;
+		}
+
+		Ok(())
 	}
 }
 

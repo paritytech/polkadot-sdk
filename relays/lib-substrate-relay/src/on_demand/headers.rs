@@ -60,6 +60,8 @@ pub struct OnDemandHeadersRelay<P: SubstrateFinalitySyncPipeline> {
 	required_header_number: RequiredHeaderNumberRef<P::SourceChain>,
 	/// Client of the source chain.
 	source_client: Client<P::SourceChain>,
+	/// Client of the target chain.
+	target_client: Client<P::TargetChain>,
 }
 
 impl<P: SubstrateFinalitySyncPipeline> OnDemandHeadersRelay<P> {
@@ -83,6 +85,7 @@ impl<P: SubstrateFinalitySyncPipeline> OnDemandHeadersRelay<P> {
 			relay_task_name: on_demand_headers_relay_name::<P::SourceChain, P::TargetChain>(),
 			required_header_number: required_header_number.clone(),
 			source_client: source_client.clone(),
+			target_client: target_client.clone(),
 		};
 		async_std::task::spawn(async move {
 			background_task::<P>(
@@ -104,6 +107,13 @@ impl<P: SubstrateFinalitySyncPipeline> OnDemandHeadersRelay<P> {
 impl<P: SubstrateFinalitySyncPipeline> OnDemandRelay<P::SourceChain, P::TargetChain>
 	for OnDemandHeadersRelay<P>
 {
+	async fn reconnect(&self) -> Result<(), SubstrateError> {
+		// using clone is fine here (to avoid mut requirement), because clone on Client clones
+		// internal references
+		self.source_client.clone().reconnect().await?;
+		self.target_client.clone().reconnect().await
+	}
+
 	async fn require_more_headers(&self, required_header: BlockNumberOf<P::SourceChain>) {
 		let mut required_header_number = self.required_header_number.lock().await;
 		if required_header > *required_header_number {

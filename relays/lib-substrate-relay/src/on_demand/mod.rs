@@ -26,6 +26,9 @@ pub mod parachains;
 /// On-demand headers relay that is relaying finalizing headers only when requested.
 #[async_trait]
 pub trait OnDemandRelay<SourceChain: Chain, TargetChain: Chain>: Send + Sync {
+	/// Reconnect to source and target nodes.
+	async fn reconnect(&self) -> Result<(), SubstrateError>;
+
 	/// Ask relay to relay source header with given number  to the target chain.
 	///
 	/// Depending on implementation, on-demand relay may also relay `required_header` ancestors
