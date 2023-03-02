@@ -588,7 +588,7 @@ mod tests {
 
 	use super::*;
 
-	const DEFAULT_DISPATCH_WEIGHT: Weight = Weight::from_ref_time(1);
+	const DEFAULT_DISPATCH_WEIGHT: Weight = Weight::from_parts(1, 0);
 	const DEFAULT_SIZE: u32 = 1;
 
 	type TestRaceState = RaceState<TestSourceHeaderId, TestTargetHeaderId, TestMessagesProof>;
@@ -632,7 +632,7 @@ mod tests {
 			max_unrewarded_relayer_entries_at_target: 4,
 			max_unconfirmed_nonces_at_target: 4,
 			max_messages_in_single_batch: 4,
-			max_messages_weight_in_single_batch: Weight::from_ref_time(4),
+			max_messages_weight_in_single_batch: Weight::from_parts(4, 0),
 			max_messages_size_in_single_batch: 4,
 			latest_confirmed_nonces_at_source: vec![(header_id(1), 19)].into_iter().collect(),
 			lane_source_client: TestSourceClient::default(),
@@ -671,7 +671,7 @@ mod tests {
 	fn proof_parameters(state_required: bool, weight: u32) -> MessageProofParameters {
 		MessageProofParameters {
 			outbound_state_proof_required: state_required,
-			dispatch_weight: Weight::from_ref_time(weight as u64),
+			dispatch_weight: Weight::from_parts(weight as u64, 0),
 		}
 	}
 
@@ -685,7 +685,7 @@ mod tests {
 					(
 						idx,
 						MessageDetails {
-							dispatch_weight: Weight::from_ref_time(idx),
+							dispatch_weight: Weight::from_parts(idx, 0),
 							size: idx as _,
 							reward: idx as _,
 						},
@@ -813,7 +813,7 @@ mod tests {
 		let (state, mut strategy) = prepare_strategy();
 
 		// not all queued messages may fit in the batch, because batch has max weight
-		strategy.max_messages_weight_in_single_batch = Weight::from_ref_time(3);
+		strategy.max_messages_weight_in_single_batch = Weight::from_parts(3, 0);
 		assert_eq!(
 			strategy.select_nonces_to_deliver(state).await,
 			Some(((20..=22), proof_parameters(false, 3)))
@@ -828,7 +828,7 @@ mod tests {
 		// first message doesn't fit in the batch, because it has weight (10) that overflows max
 		// weight (4)
 		strategy.strategy.source_queue_mut()[0].1.get_mut(&20).unwrap().dispatch_weight =
-			Weight::from_ref_time(10);
+			Weight::from_parts(10, 0);
 		assert_eq!(
 			strategy.select_nonces_to_deliver(state).await,
 			Some(((20..=20), proof_parameters(false, 10)))
@@ -1014,7 +1014,7 @@ mod tests {
 		strategy.max_unrewarded_relayer_entries_at_target = 100;
 		strategy.max_unconfirmed_nonces_at_target = 100;
 		strategy.max_messages_in_single_batch = 5;
-		strategy.max_messages_weight_in_single_batch = Weight::from_ref_time(100);
+		strategy.max_messages_weight_in_single_batch = Weight::from_parts(100, 0);
 		strategy.max_messages_size_in_single_batch = 100;
 		state.best_finalized_source_header_id_at_best_target = Some(header_id(2));
 
@@ -1031,7 +1031,7 @@ mod tests {
 			max_unrewarded_relayer_entries_at_target: 4,
 			max_unconfirmed_nonces_at_target: 4,
 			max_messages_in_single_batch: 4,
-			max_messages_weight_in_single_batch: Weight::from_ref_time(4),
+			max_messages_weight_in_single_batch: Weight::from_parts(4, 0),
 			max_messages_size_in_single_batch: 4,
 			latest_confirmed_nonces_at_source: VecDeque::new(),
 			lane_source_client: TestSourceClient::default(),
