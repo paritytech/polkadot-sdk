@@ -49,6 +49,7 @@ pallet-state-trie-migration = { git = "https://github.com/paritytech/substrate",
 # Polkadot
 kusama-runtime-constants = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 pallet-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+pallet-xcm-benchmarks = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false, optional = true }
 polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
@@ -69,8 +70,7 @@ cumulus-primitives-utility = { path = "../../../../primitives/utility", default-
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
 parachain-info = { path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
-pallet-xcm-benchmarks = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false, optional = true }
-
+assets-common = { path = "../common", default-features = false }
 
 [dev-dependencies]
 asset-test-utils = { path = "../test-utils"}
@@ -187,4 +187,5 @@ std = [
 	"pallet-collator-selection/std",
 	"parachain-info/std",
 	"parachains-common/std",
+	"assets-common/std",
 ]

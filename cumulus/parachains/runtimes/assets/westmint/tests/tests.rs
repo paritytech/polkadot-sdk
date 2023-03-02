@@ -3,19 +3,28 @@ use codec::{DecodeLimit, Encode};
 use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
 	assert_noop, assert_ok, sp_io,
-	traits::PalletInfo,
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
-use parachains_common::{AccountId, AuraId};
+use parachains_common::{AccountId, AuraId, Balance};
 pub use westmint_runtime::{
-	constants::fee::WeightToFee, xcm_config::XcmConfig, Assets, Balances, ExistentialDeposit,
-	ReservedDmpWeight, Runtime, SessionKeys, System,
+	constants::fee::WeightToFee,
+	xcm_config::{TrustBackedAssetsPalletLocation, XcmConfig},
+	Assets, Balances, ExistentialDeposit, ReservedDmpWeight, Runtime, SessionKeys, System,
 };
-use westmint_runtime::{xcm_config::AssetFeeAsExistentialDepositMultiplierFeeCharger, RuntimeCall};
+use westmint_runtime::{
+	xcm_config::{AssetFeeAsExistentialDepositMultiplierFeeCharger, WestendLocation},
+	RuntimeCall,
+};
 use xcm::{latest::prelude::*, VersionedXcm, MAX_XCM_DECODE_DEPTH};
-use xcm_executor::{traits::WeightTrader, XcmExecutor};
+use xcm_executor::{
+	traits::{Convert, WeightTrader},
+	XcmExecutor,
+};
 
 pub const ALICE: [u8; 32] = [1u8; 32];
+
+type AssetIdForTrustBackedAssetsConvert =
+	assets_common::AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>;
 
 #[test]
 fn test_asset_xcm_trader() {
@@ -48,16 +57,8 @@ fn test_asset_xcm_trader() {
 			));
 
 			// get asset id as multilocation
-			let asset_multilocation = MultiLocation::new(
-				0,
-				X2(
-					PalletInstance(
-						<Runtime as frame_system::Config>::PalletInfo::index::<Assets>().unwrap()
-							as u8,
-					),
-					GeneralIndex(local_asset_id.into()),
-				),
-			);
+			let asset_multilocation =
+				AssetIdForTrustBackedAssetsConvert::reverse_ref(local_asset_id).unwrap();
 
 			// Set Alice as block author, who will receive fees
 			RuntimeHelper::<Runtime>::run_to_block(2, Some(AccountId::from(ALICE)));
@@ -95,12 +96,15 @@ fn test_asset_xcm_trader() {
 
 			// Make sure author(Alice) has received the amount
 			assert_eq!(
-				Assets::balance(1, AccountId::from(ALICE)),
+				Assets::balance(local_asset_id, AccountId::from(ALICE)),
 				minimum_asset_balance + asset_amount_needed
 			);
 
 			// We also need to ensure the total supply increased
-			assert_eq!(Assets::total_supply(1), minimum_asset_balance + asset_amount_needed);
+			assert_eq!(
+				Assets::total_supply(local_asset_id),
+				minimum_asset_balance + asset_amount_needed
+			);
 		});
 }
 
@@ -140,16 +144,7 @@ fn test_asset_xcm_trader_with_refund() {
 
 			// We are going to buy 4e9 weight
 			let bought = Weight::from_ref_time(4_000_000_000u64);
-			let asset_multilocation = MultiLocation::new(
-				0,
-				X2(
-					PalletInstance(
-						<Runtime as frame_system::Config>::PalletInfo::index::<Assets>().unwrap()
-							as u8,
-					),
-					GeneralIndex(1),
-				),
-			);
+			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::reverse_ref(1).unwrap();
 
 			// lets calculate amount needed
 			let amount_bought = WeightToFee::weight_to_fee(&bought);
@@ -218,16 +213,7 @@ fn test_asset_xcm_trader_refund_not_possible_since_amount_less_than_ed() {
 			// We are going to buy 5e9 weight
 			let bought = Weight::from_ref_time(500_000_000u64);
 
-			let asset_multilocation = MultiLocation::new(
-				0,
-				X2(
-					PalletInstance(
-						<Runtime as frame_system::Config>::PalletInfo::index::<Assets>().unwrap()
-							as u8,
-					),
-					GeneralIndex(1),
-				),
-			);
+			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::reverse_ref(1).unwrap();
 
 			let amount_bought = WeightToFee::weight_to_fee(&bought);
 
@@ -277,16 +263,7 @@ fn test_that_buying_ed_refund_does_not_refund() {
 
 			let bought = Weight::from_ref_time(500_000_000u64);
 
-			let asset_multilocation = MultiLocation::new(
-				0,
-				X2(
-					PalletInstance(
-						<Runtime as frame_system::Config>::PalletInfo::index::<Assets>().unwrap()
-							as u8,
-					),
-					GeneralIndex(1),
-				),
-			);
+			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::reverse_ref(1).unwrap();
 
 			let amount_bought = WeightToFee::weight_to_fee(&bought);
 
@@ -361,16 +338,7 @@ fn test_asset_xcm_trader_not_possible_for_non_sufficient_assets() {
 			// lets calculate amount needed
 			let asset_amount_needed = WeightToFee::weight_to_fee(&bought);
 
-			let asset_multilocation = MultiLocation::new(
-				0,
-				X2(
-					PalletInstance(
-						<Runtime as frame_system::Config>::PalletInfo::index::<Assets>().unwrap()
-							as u8,
-					),
-					GeneralIndex(1),
-				),
-			);
+			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::reverse_ref(1).unwrap();
 
 			let asset: MultiAsset = (asset_multilocation, asset_amount_needed).into();
 
@@ -385,6 +353,75 @@ fn test_asset_xcm_trader_not_possible_for_non_sufficient_assets() {
 
 			// We also need to ensure the total supply NOT increased
 			assert_eq!(Assets::total_supply(1), minimum_asset_balance);
+		});
+}
+
+#[test]
+fn test_assets_balances_api_works() {
+	use assets_common::runtime_api::runtime_decl_for_FungiblesApi::FungiblesApi;
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(vec![(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+		)])
+		.build()
+		.execute_with(|| {
+			let local_asset_id = 1;
+
+			// check before
+			assert_eq!(Assets::balance(local_asset_id, AccountId::from(ALICE)), 0);
+			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), 0);
+			assert!(Runtime::query_account_balances(AccountId::from(ALICE)).unwrap().is_empty());
+
+			// Drip some balance
+			use frame_support::traits::fungible::Mutate;
+			let some_currency = ExistentialDeposit::get();
+			Balances::mint_into(&AccountId::from(ALICE), some_currency).unwrap();
+
+			// We need root origin to create a sufficient asset
+			let minimum_asset_balance = 3333333_u128;
+			assert_ok!(Assets::force_create(
+				RuntimeHelper::<Runtime>::root_origin(),
+				local_asset_id.into(),
+				AccountId::from(ALICE).into(),
+				true,
+				minimum_asset_balance
+			));
+
+			// We first mint enough asset for the account to exist for assets
+			assert_ok!(Assets::mint(
+				RuntimeHelper::<Runtime>::origin_of(AccountId::from(ALICE)),
+				local_asset_id.into(),
+				AccountId::from(ALICE).into(),
+				minimum_asset_balance
+			));
+
+			// check after
+			assert_eq!(
+				Assets::balance(local_asset_id, AccountId::from(ALICE)),
+				minimum_asset_balance
+			);
+			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), some_currency);
+
+			let result = Runtime::query_account_balances(AccountId::from(ALICE)).unwrap();
+			assert_eq!(result.len(), 2);
+
+			// check currency
+			assert!(result.iter().any(|asset| asset.eq(
+				&assets_common::fungible_conversion::convert_balance::<WestendLocation, Balance>(
+					some_currency
+				)
+				.unwrap()
+			)));
+			// check trusted asset
+			assert!(result.iter().any(|asset| asset.eq(&(
+				AssetIdForTrustBackedAssetsConvert::reverse_ref(local_asset_id).unwrap(),
+				minimum_asset_balance
+			)
+				.into())));
 		});
 }
 

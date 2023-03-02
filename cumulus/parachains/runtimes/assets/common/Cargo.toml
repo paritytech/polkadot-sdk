@@ -1,0 +1,38 @@
+[package]
+name = "assets-common"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+description = "Assets common utilities"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+
+# Substrate
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+
+# Polkadot
+xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+
+# Cumulus
+parachains-common = { path = "../../../common", default-features = false }
+
+[build-dependencies]
+substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+[features]
+default = [ "std" ]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"parachains-common/std",
+	"sp-api/std",
+	"sp-std/std",
+	"xcm/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+]
