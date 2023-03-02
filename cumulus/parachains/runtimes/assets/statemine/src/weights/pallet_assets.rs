@@ -433,4 +433,16 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	/// Storage: Assets Asset (r:1 w:1)
+	/// Proof: Assets Asset (max_values: None, max_size: Some(210), added: 2685, mode: MaxEncodedLen)
+	fn set_min_balance() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `383`
+		//  Estimated: `3675`
+		// Minimum execution time: 16_213 nanoseconds.
+		Weight::from_ref_time(16_575_000)
+			.saturating_add(Weight::from_proof_size(3675))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
