@@ -119,6 +119,15 @@ impl<P: SubstrateParachainsPipeline> OnDemandRelay<P::SourceParachain, P::Target
 where
 	P::SourceParachain: Chain<Hash = ParaHash>,
 {
+	async fn reconnect(&self) -> Result<(), SubstrateError> {
+		// using clone is fine here (to avoid mut requirement), because clone on Client clones
+		// internal references
+		self.source_relay_client.clone().reconnect().await?;
+		self.target_client.clone().reconnect().await?;
+		// we'll probably need to reconnect relay chain relayer clients also
+		self.on_demand_source_relay_to_target_headers.reconnect().await
+	}
+
 	async fn require_more_headers(&self, required_header: BlockNumberOf<P::SourceParachain>) {
 		if let Err(e) = self.required_header_number_sender.send(required_header).await {
 			log::trace!(
