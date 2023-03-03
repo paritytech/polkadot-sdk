@@ -154,7 +154,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Service a single overweight message.
 		#[pallet::call_index(0)]
-		#[pallet::weight(weight_limit.saturating_add(Weight::from_ref_time(1_000_000)))]
+		#[pallet::weight(weight_limit.saturating_add(Weight::from_parts(1_000_000, 0)))]
 		pub fn service_overweight(
 			origin: OriginFor<T>,
 			index: OverweightIndex,
@@ -167,7 +167,7 @@ pub mod pallet {
 				.map_err(|_| Error::<T>::OverLimit)?;
 			Overweight::<T>::remove(index);
 			Self::deposit_event(Event::OverweightServiced { overweight_index: index, weight_used });
-			Ok(Some(weight_used.saturating_add(Weight::from_ref_time(1_000_000))).into())
+			Ok(Some(weight_used.saturating_add(Weight::from_parts(1_000_000, 0))).into())
 		}
 	}
 

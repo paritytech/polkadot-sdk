@@ -56,8 +56,8 @@ impl<T: frame_system::Config> pallet_timestamp::WeightInfo for WeightInfo<T> {
 		//  Measured:  `49`
 		//  Estimated: `1006`
 		// Minimum execution time: 6_885 nanoseconds.
-		Weight::from_ref_time(7_281_000)
-			.saturating_add(Weight::from_proof_size(1006))
+		Weight::from_parts(7_281_000, 0)
+			.saturating_add(Weight::from_parts(0, 1006))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -66,7 +66,7 @@ impl<T: frame_system::Config> pallet_timestamp::WeightInfo for WeightInfo<T> {
 		//  Measured:  `57`
 		//  Estimated: `0`
 		// Minimum execution time: 3_222 nanoseconds.
-		Weight::from_ref_time(3_321_000)
-			.saturating_add(Weight::from_proof_size(0))
+		Weight::from_parts(3_321_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
 	}
 }

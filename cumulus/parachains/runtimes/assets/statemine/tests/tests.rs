@@ -62,7 +62,7 @@ fn test_asset_xcm_trader() {
 			RuntimeHelper::<Runtime>::run_to_block(2, Some(AccountId::from(ALICE)));
 
 			// We are going to buy 4e9 weight
-			let bought = Weight::from_ref_time(4_000_000_000u64);
+			let bought = Weight::from_parts(4_000_000_000u64, 0);
 
 			// Lets calculate amount needed
 			let asset_amount_needed =
@@ -141,7 +141,7 @@ fn test_asset_xcm_trader_with_refund() {
 			RuntimeHelper::<Runtime>::run_to_block(2, Some(AccountId::from(ALICE)));
 
 			// We are going to buy 4e9 weight
-			let bought = Weight::from_ref_time(4_000_000_000u64);
+			let bought = Weight::from_parts(4_000_000_000u64, 0);
 
 			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::reverse_ref(1).unwrap();
 
@@ -211,7 +211,7 @@ fn test_asset_xcm_trader_refund_not_possible_since_amount_less_than_ed() {
 			RuntimeHelper::<Runtime>::run_to_block(2, Some(AccountId::from(ALICE)));
 
 			// We are going to buy small amount
-			let bought = Weight::from_ref_time(500_000_000u64);
+			let bought = Weight::from_parts(500_000_000u64, 0);
 
 			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::reverse_ref(1).unwrap();
 
@@ -262,7 +262,7 @@ fn test_that_buying_ed_refund_does_not_refund() {
 			RuntimeHelper::<Runtime>::run_to_block(2, Some(AccountId::from(ALICE)));
 
 			// We are gonna buy ED
-			let bought = Weight::from_ref_time(ExistentialDeposit::get().try_into().unwrap());
+			let bought = Weight::from_parts(ExistentialDeposit::get().try_into().unwrap(), 0);
 
 			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::reverse_ref(1).unwrap();
 
@@ -334,7 +334,7 @@ fn test_asset_xcm_trader_not_possible_for_non_sufficient_assets() {
 			RuntimeHelper::<Runtime>::run_to_block(2, Some(AccountId::from(ALICE)));
 
 			// We are going to buy 4e9 weight
-			let bought = Weight::from_ref_time(4_000_000_000u64);
+			let bought = Weight::from_parts(4_000_000_000u64, 0);
 
 			// lets calculate amount needed
 			let asset_amount_needed = WeightToFee::weight_to_fee(&bought);

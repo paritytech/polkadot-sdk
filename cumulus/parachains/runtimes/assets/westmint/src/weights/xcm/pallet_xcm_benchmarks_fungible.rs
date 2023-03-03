@@ -51,14 +51,14 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Storage: System Account (r:1 w:1)
 	// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
 	pub(crate) fn withdraw_asset() -> Weight {
-		Weight::from_ref_time(20_735_000 as u64)
+		Weight::from_parts(20_735_000 as u64, 0)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: System Account (r:2 w:2)
 	// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
 	pub(crate) fn transfer_asset() -> Weight {
-		Weight::from_ref_time(28_940_000 as u64)
+		Weight::from_parts(28_940_000 as u64, 0)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
@@ -77,17 +77,17 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Storage: ParachainSystem PendingUpwardMessages (r:1 w:1)
 	// Proof Skipped: ParachainSystem PendingUpwardMessages (max_values: Some(1), max_size: None, mode: Measured)
 	pub(crate) fn transfer_reserve_asset() -> Weight {
-		Weight::from_ref_time(50_175_000 as u64)
+		Weight::from_parts(50_175_000 as u64, 0)
 			.saturating_add(T::DbWeight::get().reads(8 as u64))
 			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
 	pub(crate) fn receive_teleported_asset() -> Weight {
-		Weight::from_ref_time(4_059_000 as u64)
+		Weight::from_parts(4_059_000 as u64, 0)
 	}
 	// Storage: System Account (r:1 w:1)
 	// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
 	pub(crate) fn deposit_asset() -> Weight {
-		Weight::from_ref_time(22_181_000 as u64)
+		Weight::from_parts(22_181_000 as u64, 0)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -106,7 +106,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Storage: ParachainSystem PendingUpwardMessages (r:1 w:1)
 	// Proof Skipped: ParachainSystem PendingUpwardMessages (max_values: Some(1), max_size: None, mode: Measured)
 	pub(crate) fn deposit_reserve_asset() -> Weight {
-		Weight::from_ref_time(45_905_000 as u64)
+		Weight::from_parts(45_905_000 as u64, 0)
 			.saturating_add(T::DbWeight::get().reads(7 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
@@ -123,7 +123,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Storage: ParachainSystem PendingUpwardMessages (r:1 w:1)
 	// Proof Skipped: ParachainSystem PendingUpwardMessages (max_values: Some(1), max_size: None, mode: Measured)
 	pub(crate) fn initiate_teleport() -> Weight {
-		Weight::from_ref_time(29_820_000 as u64)
+		Weight::from_parts(29_820_000 as u64, 0)
 			.saturating_add(T::DbWeight::get().reads(6 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
