@@ -271,6 +271,10 @@ impl<C: Chain> Client<C> {
 			Ok(SubstrateChainClient::<C>::finalized_head(&*client).await?)
 		})
 		.await
+		.map_err(|e| Error::FailedToReadBestFinalizedHeaderHash {
+			chain: C::NAME.into(),
+			error: e.boxed(),
+		})
 	}
 
 	/// Return number of the best finalized block.
@@ -292,6 +296,7 @@ impl<C: Chain> Client<C> {
 			Ok(SubstrateChainClient::<C>::header(&*client, None).await?)
 		})
 		.await
+		.map_err(|e| Error::FailedToReadBestHeader { chain: C::NAME.into(), error: e.boxed() })
 	}
 
 	/// Get a Substrate block from its hash.
@@ -311,6 +316,11 @@ impl<C: Chain> Client<C> {
 			Ok(SubstrateChainClient::<C>::header(&*client, Some(block_hash)).await?)
 		})
 		.await
+		.map_err(|e| Error::FailedToReadHeaderByHash {
+			chain: C::NAME.into(),
+			hash: format!("{block_hash}"),
+			error: e.boxed(),
+		})
 	}
 
 	/// Get a Substrate block hash by its number.
@@ -394,10 +404,17 @@ impl<C: Chain> Client<C> {
 		storage_key: StorageKey,
 		block_hash: Option<C::Hash>,
 	) -> Result<Option<StorageData>> {
+		let cloned_storage_key = storage_key.clone();
 		self.jsonrpsee_execute(move |client| async move {
-			Ok(SubstrateStateClient::<C>::storage(&*client, storage_key, block_hash).await?)
+			Ok(SubstrateStateClient::<C>::storage(&*client, storage_key.clone(), block_hash)
+				.await?)
 		})
 		.await
+		.map_err(|e| Error::FailedToReadRuntimeStorageValue {
+			chain: C::NAME.into(),
+			key: cloned_storage_key,
+			error: e.boxed(),
+		})
 	}
 
 	/// Return native tokens balance of the account.
@@ -640,7 +657,14 @@ impl<C: Chain> Client<C> {
 		input: Input,
 		at_block: Option<C::Hash>,
 	) -> Result<Output> {
-		let encoded_output = self.state_call(method_name, Bytes(input.encode()), at_block).await?;
+		let encoded_output = self
+			.state_call(method_name.clone(), Bytes(input.encode()), at_block)
+			.await
+			.map_err(|e| Error::ErrorExecutingRuntimeCall {
+				chain: C::NAME.into(),
+				method: method_name,
+				error: e.boxed(),
+			})?;
 		Output::decode(&mut &encoded_output.0[..]).map_err(Error::ResponseParseFailed)
 	}
 

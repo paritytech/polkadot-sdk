@@ -20,6 +20,7 @@ use bp_polkadot_core::parachains::ParaId;
 use jsonrpsee::core::Error as RpcError;
 use relay_utils::MaybeConnectionError;
 use sc_rpc_api::system::Health;
+use sp_core::storage::StorageKey;
 use sp_runtime::transaction_validity::TransactionValidityError;
 use thiserror::Error;
 
@@ -55,6 +56,52 @@ pub enum Error {
 	/// The client we're connected to is not synced, so we can't rely on its state.
 	#[error("Substrate client is not synced {0}.")]
 	ClientNotSynced(Health),
+	/// Failed to read best finalized header hash from given chain.
+	#[error("Failed to read best finalized header hash of {chain}: {error:?}.")]
+	FailedToReadBestFinalizedHeaderHash {
+		/// Name of the chain where the error has happened.
+		chain: String,
+		/// Underlying error.
+		error: Box<Error>,
+	},
+	/// Failed to read best finalized header from given chain.
+	#[error("Failed to read best header of {chain}: {error:?}.")]
+	FailedToReadBestHeader {
+		/// Name of the chain where the error has happened.
+		chain: String,
+		/// Underlying error.
+		error: Box<Error>,
+	},
+	/// Failed to read header by hash from given chain.
+	#[error("Failed to read header {hash} of {chain}: {error:?}.")]
+	FailedToReadHeaderByHash {
+		/// Name of the chain where the error has happened.
+		chain: String,
+		/// Hash of the header we've tried to read.
+		hash: String,
+		/// Underlying error.
+		error: Box<Error>,
+	},
+	/// Failed to execute runtime call at given chain.
+	#[error("Failed to execute runtime call {method} at {chain}: {error:?}.")]
+	ErrorExecutingRuntimeCall {
+		/// Name of the chain where the error has happened.
+		chain: String,
+		/// Runtime method name.
+		method: String,
+		/// Underlying error.
+		error: Box<Error>,
+	},
+	/// Failed to read sotrage value at given chain.
+	#[error("Failed to read storage value {key:?} at {chain}: {error:?}.")]
+	FailedToReadRuntimeStorageValue {
+		/// Name of the chain where the error has happened.
+		chain: String,
+		/// Runtime storage key
+		key: StorageKey,
+		/// Underlying error.
+		error: Box<Error>,
+	},
 	/// The bridge pallet is halted and all transactions will be rejected.
 	#[error("Bridge pallet is halted.")]
 	BridgePalletIsHalted,
@@ -81,16 +128,28 @@ impl From<tokio::task::JoinError> for Error {
 	}
 }
 
+impl Error {
+	/// Box the error.
+	pub fn boxed(self) -> Box<Self> {
+		Box::new(self)
+	}
+}
+
 impl MaybeConnectionError for Error {
 	fn is_connection_error(&self) -> bool {
-		matches!(
-			*self,
+		match *self {
 			Error::RpcError(RpcError::Transport(_))
 				// right now if connection to the ws server is dropped (after it is already established),
 				// we're getting this error
 				| Error::RpcError(RpcError::Internal(_))
 				| Error::RpcError(RpcError::RestartNeeded(_))
-				| Error::ClientNotSynced(_),
-		)
+				| Error::ClientNotSynced(_) => true,
+			Error::FailedToReadBestFinalizedHeaderHash { ref error, .. } => error.is_connection_error(),
+			Error::FailedToReadBestHeader { ref error, .. } => error.is_connection_error(),
+			Error::FailedToReadHeaderByHash { ref error, .. } => error.is_connection_error(),
+			Error::ErrorExecutingRuntimeCall { ref error, .. } => error.is_connection_error(),
+			Error::FailedToReadRuntimeStorageValue { ref error, .. } => error.is_connection_error(),
+			_ => false,
+		}
 	}
 }
