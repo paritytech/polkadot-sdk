@@ -42,6 +42,7 @@ use frame_support::{
 	storage,
 	traits::Get,
 	weights::Weight,
+	RuntimeDebug,
 };
 use frame_system::{ensure_none, ensure_root};
 use polkadot_parachain::primitives::RelayChainBlockNumber;
@@ -1126,11 +1127,33 @@ pub trait OnSystemEvent {
 	fn on_validation_code_applied();
 }
 
-/// Implements [`BlockNumberProvider`] that returns relay chain block number fetched from
-/// validation data.
-/// NTOE: When validation data is not available (e.g. within on_initialize), 0 will be returned.
+/// Holds the most recent relay-parent state root and block number of the current parachain block.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Default, RuntimeDebug)]
+pub struct RelayChainState {
+	/// Current relay chain height.
+	pub number: relay_chain::BlockNumber,
+	/// State root for current relay chain height.
+	pub state_root: relay_chain::Hash,
+}
+
+/// This exposes the [`RelayChainState`] to other runtime modules.
+///
+/// Enables parachains to read relay chain state via state proofs.
+pub trait RelaychainStateProvider {
+	/// May be called by any runtime module to obtain the current state of the relay chain.
+	///
+	/// **NOTE**: This is not guaranteed to return monotonically increasing relay parents.
+	fn current_relay_chain_state() -> RelayChainState;
+}
+
+/// Implements [`BlockNumberProvider`] that returns relay chain block number fetched from validation data.
+/// When validation data is not available (e.g. within on_initialize), 0 will be returned.
+///
+/// **NOTE**: This has been deprecated, please use [`RelaychainDataProvider`]
+#[deprecated = "Use `RelaychainDataProvider` instead"]
 pub struct RelaychainBlockNumberProvider<T>(sp_std::marker::PhantomData<T>);
 
+#[allow(deprecated)]
 impl<T: Config> BlockNumberProvider for RelaychainBlockNumberProvider<T> {
 	type BlockNumber = relay_chain::BlockNumber;
 
@@ -1139,6 +1162,47 @@ impl<T: Config> BlockNumberProvider for RelaychainBlockNumberProvider<T> {
 			.map(|d| d.relay_parent_number)
 			.unwrap_or_default()
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_block_number(block: Self::BlockNumber) {
+		let mut validation_data = Pallet::<T>::validation_data().unwrap_or_else(||
+			// PersistedValidationData does not impl default in non-std
+			PersistedValidationData {
+				parent_head: vec![].into(),
+				relay_parent_number: Default::default(),
+				max_pov_size: Default::default(),
+				relay_parent_storage_root: Default::default(),
+			});
+		validation_data.relay_parent_number = block;
+		ValidationData::<T>::put(validation_data)
+	}
+}
+
+impl<T: Config> RelaychainStateProvider for RelaychainDataProvider<T> {
+	fn current_relay_chain_state() -> RelayChainState {
+		Pallet::<T>::validation_data()
+			.map(|d| RelayChainState {
+				number: d.relay_parent_number,
+				state_root: d.relay_parent_storage_root,
+			})
+			.unwrap_or_default()
+	}
+}
+
+/// Implements [`BlockNumberProvider`] and [`RelaychainStateProvider`] that returns relevant relay data fetched from
+/// validation data.
+/// NOTE: When validation data is not available (e.g. within on_initialize), default values will be returned.
+pub struct RelaychainDataProvider<T>(sp_std::marker::PhantomData<T>);
+
+impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
+	type BlockNumber = relay_chain::BlockNumber;
+
+	fn current_block_number() -> relay_chain::BlockNumber {
+		Pallet::<T>::validation_data()
+			.map(|d| d.relay_parent_number)
+			.unwrap_or_default()
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_block_number(block: Self::BlockNumber) {
 		let mut validation_data = Pallet::<T>::validation_data().unwrap_or_else(||
