@@ -56,6 +56,8 @@ pub(crate) struct CollatorOverseerGenArgs<'a> {
 	pub runtime_client: Arc<BlockChainRpcClient>,
 	/// Underlying network service implementation.
 	pub network_service: Arc<sc_network::NetworkService<Block, PHash>>,
+	/// Syncing oracle.
+	pub sync_oracle: Box<dyn sp_consensus::SyncOracle + Send>,
 	/// Underlying authority discovery service.
 	pub authority_discovery_service: AuthorityDiscoveryService,
 	/// Receiver for collation request protocol
@@ -79,6 +81,7 @@ fn build_overseer<'a>(
 	CollatorOverseerGenArgs {
 		runtime_client,
 		network_service,
+		sync_oracle,
 		authority_discovery_service,
 		collation_req_receiver,
 		available_data_req_receiver,
@@ -121,7 +124,7 @@ fn build_overseer<'a>(
 		.network_bridge_rx(NetworkBridgeRxSubsystem::new(
 			network_service.clone(),
 			authority_discovery_service.clone(),
-			Box::new(network_service.clone()),
+			sync_oracle,
 			network_bridge_metrics.clone(),
 			peer_set_protocol_names.clone(),
 		))

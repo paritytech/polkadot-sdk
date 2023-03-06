@@ -34,8 +34,13 @@ use polkadot_primitives::{CollatorPair, OccupiedCoreAssumption};
 use sc_client_api::{
 	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, ProofProvider, UsageProvider,
 };
-use sc_consensus::{import_queue::ImportQueueService, BlockImport, ImportQueue};
-use sc_network::{config::SyncMode, NetworkService};
+use sc_consensus::{
+	import_queue::{ImportQueue, ImportQueueService},
+	BlockImport,
+};
+use sc_network::NetworkService;
+use sc_network_common::config::SyncMode;
+use sc_network_sync::SyncingService;
 use sc_network_transactions::TransactionsHandlerController;
 use sc_service::{Configuration, NetworkStarter, SpawnTaskHandle, TaskManager, WarpSyncParams};
 use sc_telemetry::{log, TelemetryWorkerHandle};
@@ -315,6 +320,7 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ>(
 	TracingUnboundedSender<sc_rpc::system::Request<Block>>,
 	TransactionsHandlerController<Block::Hash>,
 	NetworkStarter,
+	Arc<SyncingService<Block>>,
 )>
 where
 	Block: BlockT,
