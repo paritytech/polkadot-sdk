@@ -41,8 +41,11 @@ pub struct BasicStrategy<
 	Proof,
 > {
 	/// All queued nonces.
+	///
+	/// The queue may contain already delivered nonces. We only remove entries from this
+	/// queue after corresponding nonces are finalized by the target chain.
 	source_queue: SourceRangesQueue<SourceHeaderHash, SourceHeaderNumber, SourceNoncesRange>,
-	/// The best nonce known to target node (at its best block). `None` if it has not been received
+	/// The best nonce known to target node at its best block. `None` if it has not been received
 	/// yet.
 	best_target_nonce: Option<MessageNonce>,
 	/// Unused generic types dump.
@@ -93,21 +96,26 @@ impl<
 		&mut self.source_queue
 	}
 
-	/// Returns index of the latest source queue entry, that may be delivered to the target node.
+	/// Returns indices of source queue entries, which may be delivered to the target node.
 	///
-	/// Returns `None` if no entries may be delivered. All entries before and including the
-	/// `Some(_)` index are guaranteed to be witnessed at source blocks that are known to be
-	/// finalized at the target node.
-	pub fn maximal_available_source_queue_index(
+	/// The function may skip some nonces from the queue front if nonces from this entry are
+	/// already available at the **best** target block. After this block is finalized, the entry
+	/// will be removed from the queue.
+	///
+	/// All entries before and including the range end index, are guaranteed to be witnessed
+	/// at source blocks that are known to be finalized at the target node.
+	///
+	/// Returns `None` if no entries may be delivered.
+	pub fn available_source_queue_indices(
 		&self,
 		race_state: RaceState<
 			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
 			HeaderId<TargetHeaderHash, TargetHeaderNumber>,
 			Proof,
 		>,
-	) -> Option<usize> {
+	) -> Option<RangeInclusive<usize>> {
 		// if we do not know best nonce at target node, we can't select anything
-		let _ = self.best_target_nonce?;
+		let best_target_nonce = self.best_target_nonce?;
 
 		// if we have already selected nonces that we want to submit, do nothing
 		if race_state.nonces_to_submit.is_some() {
@@ -119,6 +127,15 @@ impl<
 			return None
 		}
 
+		// find first entry that may be delivered to the target node
+		let begin_index = self
+			.source_queue
+			.iter()
+			.enumerate()
+			.skip_while(|(_, (_, nonces))| nonces.end() <= best_target_nonce)
+			.map(|(index, _)| index)
+			.next()?;
+
 		// 1) we want to deliver all nonces, starting from `target_nonce + 1`
 		// 2) we can't deliver new nonce until header, that has emitted this nonce, is finalized
 		// by target client
@@ -127,12 +144,16 @@ impl<
 		// => let's first select range of entries inside deque that are already finalized at
 		// the target client and pass this range to the selector
 		let best_header_at_target = race_state.best_finalized_source_header_id_at_best_target?;
-		self.source_queue
+		let end_index = self
+			.source_queue
 			.iter()
 			.enumerate()
+			.skip(begin_index)
 			.take_while(|(_, (queued_at, _))| queued_at.0 <= best_header_at_target.0)
 			.map(|(index, _)| index)
-			.last()
+			.last()?;
+
+		Some(begin_index..=end_index)
 	}
 
 	/// Remove all nonces that are less than or equal to given nonce from the source queue.
@@ -237,22 +258,6 @@ impl<
 	) {
 		let nonce = nonces.latest_nonce;
 
-		if let Some(best_target_nonce) = self.best_target_nonce {
-			if nonce < best_target_nonce {
-				return
-			}
-		}
-
-		while let Some(true) = self.source_queue.front().map(|(_, range)| range.begin() <= nonce) {
-			let maybe_subrange = self.source_queue.pop_front().and_then(|(at_block, range)| {
-				range.greater_than(nonce).map(|subrange| (at_block, subrange))
-			});
-			if let Some((at_block, subrange)) = maybe_subrange {
-				self.source_queue.push_front((at_block, subrange));
-				break
-			}
-		}
-
 		let need_to_select_new_nonces = race_state
 			.nonces_to_submit
 			.as_ref()
@@ -271,8 +276,7 @@ impl<
 			race_state.nonces_submitted = None;
 		}
 
-		self.best_target_nonce =
-			Some(std::cmp::max(self.best_target_nonce.unwrap_or(nonces.latest_nonce), nonce));
+		self.best_target_nonce = Some(nonce);
 	}
 
 	fn finalized_target_nonces_updated(
@@ -284,7 +288,7 @@ impl<
 			Proof,
 		>,
 	) {
-		self.remove_le_nonces_from_source_queue(nonces.latest_nonce); // TODO: does it means that we'll try to submit old nonces in next tx???
+		self.remove_le_nonces_from_source_queue(nonces.latest_nonce);
 		self.best_target_nonce = Some(std::cmp::max(
 			self.best_target_nonce.unwrap_or(nonces.latest_nonce),
 			nonces.latest_nonce,
@@ -299,9 +303,12 @@ impl<
 			Proof,
 		>,
 	) -> Option<(RangeInclusive<MessageNonce>, Self::ProofParameters)> {
-		let maximal_source_queue_index = self.maximal_available_source_queue_index(race_state)?;
-		let range_begin = self.source_queue[0].1.begin();
-		let range_end = self.source_queue[maximal_source_queue_index].1.end();
+		let available_indices = self.available_source_queue_indices(race_state)?;
+		let range_begin = std::cmp::max(
+			self.best_target_nonce? + 1,
+			self.source_queue[*available_indices.start()].1.begin(),
+		);
+		let range_end = self.source_queue[*available_indices.end()].1.end();
 		Some((range_begin..=range_end, ()))
 	}
 }
@@ -351,7 +358,7 @@ mod tests {
 		strategy.source_nonces_updated(header_id(1), source_nonces(1..=5));
 		assert_eq!(strategy.best_at_source(), None);
 		strategy.best_target_nonces_updated(target_nonces(10), &mut Default::default());
-		assert_eq!(strategy.source_queue, vec![]);
+		assert_eq!(strategy.source_queue, vec![(header_id(1), 1..=5)]);
 		assert_eq!(strategy.best_at_source(), Some(10));
 	}
 
@@ -373,25 +380,15 @@ mod tests {
 	}
 
 	#[test]
-	fn target_nonce_is_never_lower_than_latest_known_target_nonce() {
-		let mut strategy = BasicStrategy::<TestMessageLane>::new();
-		assert_eq!(strategy.best_target_nonce, None);
-		strategy.best_target_nonces_updated(target_nonces(10), &mut Default::default());
-		assert_eq!(strategy.best_target_nonce, Some(10));
-		strategy.best_target_nonces_updated(target_nonces(5), &mut Default::default());
-		assert_eq!(strategy.best_target_nonce, Some(10));
-	}
-
-	#[test]
 	fn updated_target_nonce_removes_queued_entries() {
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		strategy.source_nonces_updated(header_id(1), source_nonces(1..=5));
 		strategy.source_nonces_updated(header_id(2), source_nonces(6..=10));
 		strategy.source_nonces_updated(header_id(3), source_nonces(11..=15));
 		strategy.source_nonces_updated(header_id(4), source_nonces(16..=20));
-		strategy.best_target_nonces_updated(target_nonces(15), &mut Default::default());
+		strategy.finalized_target_nonces_updated(target_nonces(15), &mut Default::default());
 		assert_eq!(strategy.source_queue, vec![(header_id(4), 16..=20)]);
-		strategy.best_target_nonces_updated(target_nonces(17), &mut Default::default());
+		strategy.finalized_target_nonces_updated(target_nonces(17), &mut Default::default());
 		assert_eq!(strategy.source_queue, vec![(header_id(4), 18..=20)]);
 	}
 
@@ -459,7 +456,7 @@ mod tests {
 	}
 
 	#[test]
-	fn maximal_available_source_queue_index_works() {
+	fn available_source_queue_indices_works() {
 		let mut state = RaceState::<_, _, TestMessagesProof>::default();
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		strategy.best_target_nonces_updated(target_nonces(0), &mut state);
@@ -468,19 +465,19 @@ mod tests {
 		strategy.source_nonces_updated(header_id(3), source_nonces(7..=9));
 
 		state.best_finalized_source_header_id_at_best_target = Some(header_id(0));
-		assert_eq!(strategy.maximal_available_source_queue_index(state.clone()), None);
+		assert_eq!(strategy.available_source_queue_indices(state.clone()), None);
 
 		state.best_finalized_source_header_id_at_best_target = Some(header_id(1));
-		assert_eq!(strategy.maximal_available_source_queue_index(state.clone()), Some(0));
+		assert_eq!(strategy.available_source_queue_indices(state.clone()), Some(0..=0));
 
 		state.best_finalized_source_header_id_at_best_target = Some(header_id(2));
-		assert_eq!(strategy.maximal_available_source_queue_index(state.clone()), Some(1));
+		assert_eq!(strategy.available_source_queue_indices(state.clone()), Some(0..=1));
 
 		state.best_finalized_source_header_id_at_best_target = Some(header_id(3));
-		assert_eq!(strategy.maximal_available_source_queue_index(state.clone()), Some(2));
+		assert_eq!(strategy.available_source_queue_indices(state.clone()), Some(0..=2));
 
 		state.best_finalized_source_header_id_at_best_target = Some(header_id(4));
-		assert_eq!(strategy.maximal_available_source_queue_index(state), Some(2));
+		assert_eq!(strategy.available_source_queue_indices(state), Some(0..=2));
 	}
 
 	#[test]
@@ -513,5 +510,68 @@ mod tests {
 
 		strategy.remove_le_nonces_from_source_queue(100);
 		assert_eq!(source_queue_nonces(&strategy.source_queue), Vec::<MessageNonce>::new(),);
+	}
+
+	#[async_std::test]
+	async fn previous_nonces_are_selected_if_reorg_happens_at_target_chain() {
+		let source_header_1 = header_id(1);
+		let target_header_1 = header_id(1);
+
+		// we start in perfec sync state - all headers are synced and finalized on both ends
+		let mut state = RaceState::<_, _, TestMessagesProof> {
+			best_finalized_source_header_id_at_source: Some(source_header_1),
+			best_finalized_source_header_id_at_best_target: Some(source_header_1),
+			best_target_header_id: Some(target_header_1),
+			best_finalized_target_header_id: Some(target_header_1),
+			nonces_to_submit: None,
+			nonces_submitted: None,
+		};
+
+		// in this state we have 1 available nonce for delivery
+		let mut strategy = BasicStrategy::<TestMessageLane> {
+			source_queue: vec![(header_id(1), 1..=1)].into_iter().collect(),
+			best_target_nonce: Some(0),
+			_phantom: PhantomData,
+		};
+		assert_eq!(strategy.select_nonces_to_deliver(state.clone()).await, Some((1..=1, ())),);
+
+		// let's say we have submitted 1..=1
+		state.nonces_submitted = Some(1..=1);
+
+		// then new nonce 2 appear at the source block 2
+		let source_header_2 = header_id(2);
+		state.best_finalized_source_header_id_at_source = Some(source_header_2);
+		strategy.source_nonces_updated(
+			source_header_2,
+			SourceClientNonces { new_nonces: 2..=2, confirmed_nonce: None },
+		);
+		// and nonce 1 appear at the best block of the target node (best finalized still has 0
+		// nonces)
+		let target_header_2 = header_id(2);
+		state.best_target_header_id = Some(target_header_2);
+		strategy.best_target_nonces_updated(
+			TargetClientNonces { latest_nonce: 1, nonces_data: () },
+			&mut state,
+		);
+
+		// then best target header is retracted
+		strategy.best_target_nonces_updated(
+			TargetClientNonces { latest_nonce: 0, nonces_data: () },
+			&mut state,
+		);
+
+		// ... and some fork with zero delivered nonces is finalized
+		let target_header_2_fork = header_id(2_1);
+		state.best_finalized_source_header_id_at_source = Some(source_header_2);
+		state.best_finalized_source_header_id_at_best_target = Some(source_header_2);
+		state.best_target_header_id = Some(target_header_2_fork);
+		state.best_finalized_target_header_id = Some(target_header_2_fork);
+		strategy.finalized_target_nonces_updated(
+			TargetClientNonces { latest_nonce: 0, nonces_data: () },
+			&mut state,
+		);
+
+		// now we have to select nonce 1 for delivery again
+		assert_eq!(strategy.select_nonces_to_deliver(state.clone()).await, Some((1..=2, ())),);
 	}
 }
