@@ -17,7 +17,7 @@
 //! enforcement strategy
 
 use num_traits::Zero;
-use std::ops::Range;
+use std::ops::RangeInclusive;
 
 use bp_messages::{MessageNonce, Weight};
 
@@ -76,14 +76,17 @@ pub struct RelayMessagesBatchReference<
 	pub lane_target_client: TargetClient,
 	/// Metrics reference.
 	pub metrics: Option<MessageLaneLoopMetrics>,
+	/// Best available nonce at the **best** target block. We do not want to deliver nonces
+	/// less than this nonce, even though the block may be retracted.
+	pub best_target_nonce: MessageNonce,
 	/// Source queue.
 	pub nonces_queue: SourceRangesQueue<
 		P::SourceHeaderHash,
 		P::SourceHeaderNumber,
 		MessageDetailsMap<P::SourceChainBalance>,
 	>,
-	/// Source queue range
-	pub nonces_queue_range: Range<usize>,
+	/// Range of indices within the `nonces_queue` that are available for selection.
+	pub nonces_queue_range: RangeInclusive<usize>,
 }
 
 /// Limits of the message race transactions.
@@ -97,14 +100,16 @@ impl MessageRaceLimits {
 		TargetClient: MessageLaneTargetClient<P>,
 	>(
 		reference: RelayMessagesBatchReference<P, SourceClient, TargetClient>,
-	) -> Option<MessageNonce> {
+	) -> Option<RangeInclusive<MessageNonce>> {
 		let mut hard_selected_count = 0;
 
 		let mut selected_weight = Weight::zero();
 		let mut selected_count: MessageNonce = 0;
 
-		let hard_selected_begin_nonce =
-			reference.nonces_queue[reference.nonces_queue_range.start].1.begin();
+		let hard_selected_begin_nonce = std::cmp::max(
+			reference.best_target_nonce + 1,
+			reference.nonces_queue[*reference.nonces_queue_range.start()].1.begin(),
+		);
 
 		// relay reference
 		let mut relay_reference = RelayReference {
@@ -129,6 +134,7 @@ impl MessageRaceLimits {
 			.nonces_queue
 			.range(reference.nonces_queue_range.clone())
 			.flat_map(|(_, ready_nonces)| ready_nonces.iter())
+			.filter(|(nonce, _)| **nonce >= hard_selected_begin_nonce)
 			.enumerate();
 		for (index, (nonce, details)) in all_ready_nonces {
 			relay_reference.index = index;
@@ -192,7 +198,7 @@ impl MessageRaceLimits {
 		if hard_selected_count != 0 {
 			let selected_max_nonce =
 				hard_selected_begin_nonce + hard_selected_count as MessageNonce - 1;
-			Some(selected_max_nonce)
+			Some(hard_selected_begin_nonce..=selected_max_nonce)
 		} else {
 			None
 		}
