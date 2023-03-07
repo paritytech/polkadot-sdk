@@ -158,7 +158,8 @@ async fn new_minimal_relay_chain(
 			client: relay_chain_rpc_client.clone(),
 			spawn_handle: task_manager.spawn_handle(),
 			genesis_hash,
-		})?;
+		})
+		.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?;
 
 	let authority_discovery_service = build_authority_discovery_service(
 		&task_manager,
@@ -186,7 +187,8 @@ async fn new_minimal_relay_chain(
 		overseer_args,
 		&task_manager,
 		relay_chain_rpc_client.clone(),
-	)?;
+	)
+	.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?;
 
 	network_starter.start_network();
 

@@ -17,7 +17,6 @@
 use std::{collections::BTreeMap, pin::Pin, sync::Arc};
 
 use polkadot_overseer::prometheus::PrometheusError;
-use polkadot_service::SubstrateServiceError;
 use sc_client_api::StorageProof;
 
 use futures::Stream;
@@ -61,10 +60,8 @@ pub enum RelayChainError {
 	WorkerCommunicationError(String),
 	#[error("Scale codec deserialization error: {0}")]
 	DeserializationError(CodecError),
-	#[error("Polkadot service error: {0}")]
-	ServiceError(#[from] polkadot_service::Error),
-	#[error("Substrate service error: {0}")]
-	SubServiceError(#[from] SubstrateServiceError),
+	#[error(transparent)]
+	Application(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
 	#[error("Prometheus error: {0}")]
 	PrometheusError(#[from] PrometheusError),
 	#[error("Unspecified error occured: {0}")]

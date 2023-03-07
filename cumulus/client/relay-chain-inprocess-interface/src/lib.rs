@@ -367,7 +367,8 @@ pub fn build_inprocess_relay_chain(
 		parachain_config,
 		telemetry_worker_handle,
 		hwbench,
-	)?;
+	)
+	.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?;
 
 	let relay_chain_interface_builder = RelayChainInProcessInterfaceBuilder {
 		polkadot_client: full_node.client.clone(),

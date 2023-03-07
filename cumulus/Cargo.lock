@@ -2250,7 +2250,6 @@ dependencies = [
  "jsonrpsee-core",
  "parity-scale-codec",
  "polkadot-overseer",
- "polkadot-service",
  "sc-client-api",
  "sp-api",
  "sp-blockchain",
