@@ -48,7 +48,6 @@ use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_api::{ApiExt, ConstructRuntimeApi};
-use sp_consensus::CacheKeyId;
 use sp_consensus_aura::AuraApi;
 use sp_keystore::SyncCryptoStorePtr;
 use sp_runtime::{
@@ -1034,7 +1033,7 @@ where
 	async fn verify(
 		&mut self,
 		block_import: BlockImportParams<Block, ()>,
-	) -> Result<(BlockImportParams<Block, ()>, Option<Vec<(CacheKeyId, Vec<u8>)>>), String> {
+	) -> Result<BlockImportParams<Block, ()>, String> {
 		if self
 			.client
 			.runtime_api()

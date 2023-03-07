@@ -456,7 +456,7 @@ where
 	block_import_params.fork_choice = Some(ForkChoiceStrategy::Custom(true));
 	block_import_params.import_existing = true;
 
-	if let Err(err) = (&*parachain).import_block(block_import_params, Default::default()).await {
+	if let Err(err) = (&*parachain).import_block(block_import_params).await {
 		tracing::warn!(
 			target: LOG_TARGET,
 			block_hash = ?hash,

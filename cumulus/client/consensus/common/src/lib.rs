@@ -140,7 +140,6 @@ where
 	async fn import_block(
 		&mut self,
 		mut params: sc_consensus::BlockImportParams<Block, Self::Transaction>,
-		cache: std::collections::HashMap<sp_consensus::CacheKeyId, Vec<u8>>,
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
 		// Blocks are stored within the backend by using POST hash.
 		let hash = params.post_hash();
@@ -158,7 +157,7 @@ where
 			monitor.release_mutex()
 		});
 
-		let res = self.inner.import_block(params, cache).await?;
+		let res = self.inner.import_block(params).await?;
 
 		if let (Some(mut monitor_lock), ImportResult::Imported(_)) = (maybe_lock, &res) {
 			let mut monitor = monitor_lock.upgrade();

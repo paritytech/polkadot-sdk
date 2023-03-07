@@ -197,13 +197,7 @@ where
 			sc_consensus::StorageChanges::Changes(storage_changes),
 		);
 
-		if let Err(err) = self
-			.block_import
-			.lock()
-			.await
-			.import_block(block_import_params, Default::default())
-			.await
-		{
+		if let Err(err) = self.block_import.lock().await.import_block(block_import_params).await {
 			tracing::error!(
 				target: LOG_TARGET,
 				at = ?parent.hash(),

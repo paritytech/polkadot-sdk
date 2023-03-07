@@ -25,7 +25,7 @@ use sc_consensus::{
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::Result as ClientResult;
-use sp_consensus::{error::Error as ConsensusError, CacheKeyId};
+use sp_consensus::error::Error as ConsensusError;
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
@@ -54,13 +54,13 @@ where
 	async fn verify(
 		&mut self,
 		mut block_params: BlockImportParams<Block, ()>,
-	) -> Result<(BlockImportParams<Block, ()>, Option<Vec<(CacheKeyId, Vec<u8>)>>), String> {
+	) -> Result<BlockImportParams<Block, ()>, String> {
 		// Skip checks that include execution, if being told so, or when importing only state.
 		//
 		// This is done for example when gap syncing and it is expected that the block after the gap
 		// was checked/chosen properly, e.g. by warp syncing to this block using a finality proof.
 		if block_params.state_action.skip_execution_checks() || block_params.with_state() {
-			return Ok((block_params, Default::default()))
+			return Ok(block_params)
 		}
 
 		if let Some(inner_body) = block_params.body.take() {
@@ -101,7 +101,7 @@ where
 
 		block_params.post_hash = Some(block_params.header.hash());
 
-		Ok((block_params, None))
+		Ok(block_params)
 	}
 }
 

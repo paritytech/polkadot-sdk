@@ -248,7 +248,7 @@ async fn import_block<I: BlockImport<Block>>(
 	block_import_params.body = Some(body);
 	block_import_params.post_digests.push(post_digest);
 
-	importer.import_block(block_import_params, Default::default()).await.unwrap();
+	importer.import_block(block_import_params).await.unwrap();
 }
 
 fn import_block_sync<I: BlockImport<Block>>(
@@ -508,7 +508,7 @@ fn follow_new_best_sets_best_after_it_is_imported() {
 		block_import_params.body = Some(body);
 
 		// Now import the unkown block to make it "known"
-		client.import_block(block_import_params, Default::default()).await.unwrap();
+		client.import_block(block_import_params).await.unwrap();
 
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
