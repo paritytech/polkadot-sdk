@@ -138,6 +138,9 @@ impl<P: SubstrateFinalitySyncPipeline> OnDemandRelay<P::SourceChain, P::TargetCh
 		let (header, proof) = finality_source.prove_block_finality(required_header).await?;
 		let header_id = header.id();
 
+		// optimize justification before including it into the call
+		let proof = P::FinalityEngine::optimize_proof(&self.target_client, &header, proof).await?;
+
 		log::debug!(
 			target: "bridge",
 			"[{}] Requested to prove {} head {:?}. Selected to prove {} head {:?}",
