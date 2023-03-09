@@ -531,6 +531,37 @@ macro_rules! generate_static_str_provider {
 	};
 }
 
+#[derive(Encode, Decode, Clone, Eq, PartialEq, PalletError, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct StrippableError<T> {
+	_phantom_data: sp_std::marker::PhantomData<T>,
+	#[codec(skip)]
+	#[cfg(feature = "std")]
+	message: String,
+}
+
+impl<T: Debug> From<T> for StrippableError<T> {
+	fn from(err: T) -> Self {
+		Self {
+			_phantom_data: Default::default(),
+			#[cfg(feature = "std")]
+			message: format!("{:?}", err),
+		}
+	}
+}
+
+impl<T> Debug for StrippableError<T> {
+	#[cfg(feature = "std")]
+	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+		f.write_str(&self.message)
+	}
+
+	#[cfg(not(feature = "std"))]
+	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+		f.write_str("Stripped error")
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
