@@ -72,6 +72,7 @@ extern crate self as sp_api;
 
 #[doc(hidden)]
 pub use codec::{self, Decode, DecodeLimit, Encode};
+use core::marker::PhantomData;
 #[doc(hidden)]
 #[cfg(feature = "std")]
 pub use hash_db::Hasher;
@@ -791,3 +792,56 @@ decl_runtime_apis! {
 
 sp_core::generate_feature_enabled_macro!(std_enabled, feature = "std", $);
 sp_core::generate_feature_enabled_macro!(std_disabled, not(feature = "std"), $);
+
+pub struct RuntimeInstanceBuilder<C, B: BlockT> {
+	call_api_at: C,
+	block: B::Hash,
+}
+
+impl<C, B: BlockT> RuntimeInstanceBuilder<C, B> {
+	pub fn create(call_api_at: C, block: B::Hash) -> Self {
+		Self { call_api_at, block }
+	}
+
+	pub fn on_chain_context(self) -> RuntimeInstanceBuilderStage2<C, B> {
+		RuntimeInstanceBuilderStage2 {
+			call_api_at: self.call_api_at,
+			block: self.block,
+			call_context: CallContext::Onchain,
+		}
+	}
+
+	pub fn off_chain_context(self) -> RuntimeInstanceBuilderStage2<C, B> {
+		RuntimeInstanceBuilderStage2 {
+			call_api_at: self.call_api_at,
+			block: self.block,
+			call_context: CallContext::Offchain,
+		}
+	}
+}
+
+pub struct RuntimeInstanceBuilderStage2<C, B: BlockT> {
+	call_api_at: C,
+	block: B::Hash,
+	call_context: CallContext,
+}
+
+impl<C, B: BlockT> RuntimeInstanceBuilderStage2<C, B> {
+	pub fn with_recorder(mut self) -> Self {
+		self
+	}
+
+	pub fn build(self) -> RuntimeInstance<C, B> {
+		RuntimeInstance {
+			call_api_at: self.call_api_at,
+			block: self.block,
+			call_context: self.call_context,
+		}
+	}
+}
+
+pub struct RuntimeInstance<C, B: BlockT> {
+	call_api_at: C,
+	block: B::Hash,
+	call_context: CallContext,
+}
