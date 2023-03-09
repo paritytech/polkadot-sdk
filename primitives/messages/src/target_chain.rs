@@ -59,7 +59,7 @@ pub struct DispatchMessage<DispatchPayload> {
 /// that's stuck) and/or processing messages without paying fees.
 pub trait SourceHeaderChain {
 	/// Error type.
-	type Error: Debug + Into<&'static str>;
+	type Error: Debug;
 
 	/// Proof that messages are sent from source chain. This may also include proof
 	/// of corresponding outbound lane states.

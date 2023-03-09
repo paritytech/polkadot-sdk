@@ -16,9 +16,11 @@
 
 //! Logic for checking Substrate storage proofs.
 
-use codec::Decode;
+use crate::StrippableError;
+use codec::{Decode, Encode};
+use frame_support::PalletError;
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
-use sp_runtime::RuntimeDebug;
+use scale_info::TypeInfo;
 use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use sp_trie::{
 	read_trie_value, LayoutV1, MemoryDB, Recorder, StorageProof, Trie, TrieConfiguration,
@@ -116,14 +118,32 @@ where
 	/// read, but decoding fails, this function returns an error.
 	pub fn read_and_decode_value<T: Decode>(&mut self, key: &[u8]) -> Result<Option<T>, Error> {
 		self.read_value(key).and_then(|v| {
-			v.map(|v| T::decode(&mut &v[..]).map_err(Error::StorageValueDecodeFailed))
+			v.map(|v| T::decode(&mut &v[..]).map_err(|e| Error::StorageValueDecodeFailed(e.into())))
 				.transpose()
 		})
+	}
+
+	/// Reads and decodes a value from the available subset of storage. If the value cannot be read
+	/// due to an incomplete or otherwise invalid proof, or if the value is `None`, this function
+	/// returns an error. If value is read, but decoding fails, this function returns an error.
+	pub fn read_and_decode_mandatory_value<T: Decode>(&mut self, key: &[u8]) -> Result<T, Error> {
+		self.read_and_decode_value(key)?.ok_or(Error::StorageValueEmpty)
+	}
+
+	/// Reads and decodes a value from the available subset of storage. If the value cannot be read
+	/// due to an incomplete or otherwise invalid proof, this function returns `Ok(None)`.
+	/// If value is read, but decoding fails, this function returns an error.
+	pub fn read_and_decode_opt_value<T: Decode>(&mut self, key: &[u8]) -> Result<Option<T>, Error> {
+		match self.read_and_decode_value(key) {
+			Ok(outbound_lane_data) => Ok(outbound_lane_data),
+			Err(Error::StorageValueUnavailable) => Ok(None),
+			Err(e) => Err(e),
+		}
 	}
 }
 
 /// Storage proof related errors.
-#[derive(Clone, Eq, PartialEq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, PalletError, Debug, TypeInfo)]
 pub enum Error {
 	/// Duplicate trie nodes are found in the proof.
 	DuplicateNodesInProof,
@@ -133,21 +153,10 @@ pub enum Error {
 	StorageRootMismatch,
 	/// Unable to reach expected storage value using provided trie nodes.
 	StorageValueUnavailable,
+	/// The storage value is `None`.
+	StorageValueEmpty,
 	/// Failed to decode storage value.
-	StorageValueDecodeFailed(codec::Error),
-}
-
-impl From<Error> for &'static str {
-	fn from(err: Error) -> &'static str {
-		match err {
-			Error::DuplicateNodesInProof => "Storage proof contains duplicate nodes",
-			Error::UnusedNodesInTheProof => "Storage proof contains unused nodes",
-			Error::StorageRootMismatch => "Storage root is missing from the storage proof",
-			Error::StorageValueUnavailable => "Storage value is missing from the storage proof",
-			Error::StorageValueDecodeFailed(_) =>
-				"Failed to decode storage value from the storage proof",
-		}
-	}
+	StorageValueDecodeFailed(StrippableError<codec::Error>),
 }
 
 /// Return valid storage proof and state root.
@@ -155,7 +164,6 @@ impl From<Error> for &'static str {
 /// NOTE: This should only be used for **testing**.
 #[cfg(feature = "std")]
 pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
-	use codec::Encode;
 	use sp_state_machine::{backend::Backend, prove_read, InMemoryBackend};
 
 	let state_version = sp_runtime::StateVersion::default();
