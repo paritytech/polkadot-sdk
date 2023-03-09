@@ -41,7 +41,7 @@ pub type RelayersRewards<AccountId> = BTreeMap<AccountId, MessageNonce>;
 /// type used by the source chain.
 pub trait TargetHeaderChain<Payload, AccountId> {
 	/// Error type.
-	type Error: Debug + Into<&'static str>;
+	type Error: Debug;
 
 	/// Proof that messages have been received by target chain.
 	type MessagesDeliveryProof: Parameter + Size;
