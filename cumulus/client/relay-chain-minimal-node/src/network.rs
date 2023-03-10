@@ -15,7 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use polkadot_core_primitives::{Block, Hash};
-use polkadot_service::{BlockT, NumberFor};
+use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use sc_network::NetworkService;
 

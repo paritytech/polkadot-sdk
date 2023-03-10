@@ -14,10 +14,23 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::reconnecting_ws_client::ReconnectingWsClient;
+use futures::channel::mpsc::Receiver;
+use jsonrpsee::{core::params::ArrayParams, rpc_params};
+use parity_scale_codec::{Decode, Encode};
+use serde::de::DeserializeOwned;
+pub use url::Url;
+
+use sc_client_api::StorageData;
+use sc_rpc_api::{state::ReadProof, system::Health};
+use sc_service::TaskManager;
+use sp_api::RuntimeVersion;
+use sp_consensus_babe::Epoch;
+use sp_core::sp_std::collections::btree_map::BTreeMap;
+use sp_storage::StorageKey;
+
 use cumulus_primitives_core::{
 	relay_chain::{
-		vstaging::ExecutorParams, CandidateCommitments, CandidateEvent, CandidateHash,
+		vstaging::ExecutorParams, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 		CommittedCandidateReceipt, CoreState, DisputeState, GroupRotationInfo, Hash as RelayHash,
 		Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption, PvfCheckStatement,
 		ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
@@ -26,18 +39,8 @@ use cumulus_primitives_core::{
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainResult};
-use futures::channel::mpsc::Receiver;
-use jsonrpsee::{core::params::ArrayParams, rpc_params};
-use parity_scale_codec::{Decode, Encode};
-use polkadot_service::{BlockNumber, TaskManager};
-use sc_client_api::StorageData;
-use sc_rpc_api::{state::ReadProof, system::Health};
-use serde::de::DeserializeOwned;
-use sp_api::RuntimeVersion;
-use sp_consensus_babe::Epoch;
-use sp_core::sp_std::collections::btree_map::BTreeMap;
-use sp_storage::StorageKey;
-pub use url::Url;
+
+use crate::reconnecting_ws_client::ReconnectingWsClient;
 
 const LOG_TARGET: &str = "relay-chain-rpc-client";
 
@@ -261,7 +264,7 @@ impl RelayChainRpcClient {
 	/// Get hash of n-th block.
 	pub async fn chain_get_block_hash(
 		&self,
-		block_number: Option<polkadot_service::BlockNumber>,
+		block_number: Option<BlockNumber>,
 	) -> Result<Option<RelayHash>, RelayChainError> {
 		let params = rpc_params![block_number];
 		self.request("chain_getBlockHash", params).await

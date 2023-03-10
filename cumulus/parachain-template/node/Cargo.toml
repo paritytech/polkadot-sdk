@@ -29,7 +29,6 @@ sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-executor = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-network = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-network-common = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-network-sync = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -45,12 +44,9 @@ sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "mas
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-session = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate", branch = "master" }
 try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
@@ -58,14 +54,12 @@ try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "m
 # Polkadot
 polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
 # Cumulus
 cumulus-client-cli = { path = "../../client/cli" }
 cumulus-client-consensus-aura = { path = "../../client/consensus/aura" }
 cumulus-client-consensus-common = { path = "../../client/consensus/common" }
-cumulus-client-network = { path = "../../client/network" }
 cumulus-client-service = { path = "../../client/service" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }

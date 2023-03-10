@@ -41,7 +41,6 @@ frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", bran
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-session = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -86,7 +85,6 @@ cumulus-client-consensus-aura = { path = "../client/consensus/aura" }
 cumulus-client-consensus-relay-chain = { path = "../client/consensus/relay-chain" }
 cumulus-client-consensus-common = { path = "../client/consensus/common" }
 cumulus-client-service = { path = "../client/service" }
-cumulus-client-network = { path = "../client/network" }
 cumulus-primitives-core = { path = "../primitives/core" }
 cumulus-primitives-parachain-inherent = { path = "../primitives/parachain-inherent" }
 cumulus-relay-chain-interface = { path = "../client/relay-chain-interface" }

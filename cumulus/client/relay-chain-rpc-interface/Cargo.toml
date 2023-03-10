@@ -6,7 +6,7 @@ edition = "2021"
 
 
 [dependencies]
-polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
@@ -19,6 +19,8 @@ sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "
 sp-storage = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
 tokio = { version = "1.25.0", features = ["sync"] }
 
 futures = "0.3.26"

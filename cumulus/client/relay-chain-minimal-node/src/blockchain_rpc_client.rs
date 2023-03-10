@@ -19,13 +19,12 @@ use std::pin::Pin;
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainResult};
 use cumulus_relay_chain_rpc_interface::RelayChainRpcClient;
 use futures::{Future, Stream, StreamExt};
-use polkadot_core_primitives::{Block, Hash, Header};
+use polkadot_core_primitives::{Block, BlockNumber, Hash, Header};
 use polkadot_overseer::RuntimeApiSubsystemClient;
-use polkadot_service::{AuxStore, HeaderBackend};
 use sc_authority_discovery::AuthorityDiscovery;
-
 use sp_api::{ApiError, RuntimeApiInfo};
-use sp_blockchain::Info;
+use sp_blockchain::{HeaderBackend, Info};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 
 #[derive(Clone)]
 pub struct BlockChainRpcClient {
@@ -46,31 +45,9 @@ impl BlockChainRpcClient {
 
 	pub async fn block_get_hash(
 		&self,
-		number: Option<polkadot_service::BlockNumber>,
+		number: Option<BlockNumber>,
 	) -> Result<Option<Hash>, RelayChainError> {
 		self.rpc_client.chain_get_block_hash(number).await
-	}
-}
-
-// Implementation required by Availability-Distribution subsystem
-// but never called in our case.
-impl AuxStore for BlockChainRpcClient {
-	fn insert_aux<
-		'a,
-		'b: 'a,
-		'c: 'a,
-		I: IntoIterator<Item = &'a (&'c [u8], &'c [u8])>,
-		D: IntoIterator<Item = &'a &'b [u8]>,
-	>(
-		&self,
-		_insert: I,
-		_delete: D,
-	) -> sp_blockchain::Result<()> {
-		unimplemented!("Not supported on the RPC collator")
-	}
-
-	fn get_aux(&self, _key: &[u8]) -> sp_blockchain::Result<Option<Vec<u8>>> {
-		unimplemented!("Not supported on the RPC collator")
 	}
 }
 
@@ -359,8 +336,8 @@ fn block_local<T>(fut: impl Future<Output = T>) -> T {
 impl HeaderBackend<Block> for BlockChainRpcClient {
 	fn header(
 		&self,
-		hash: <Block as polkadot_service::BlockT>::Hash,
-	) -> sp_blockchain::Result<Option<<Block as polkadot_service::BlockT>::Header>> {
+		hash: <Block as BlockT>::Hash,
+	) -> sp_blockchain::Result<Option<<Block as BlockT>::Header>> {
 		Ok(block_local(self.rpc_client.chain_get_header(Some(hash)))?)
 	}
 
@@ -389,7 +366,7 @@ impl HeaderBackend<Block> for BlockChainRpcClient {
 
 	fn status(
 		&self,
-		hash: <Block as polkadot_service::BlockT>::Hash,
+		hash: <Block as BlockT>::Hash,
 	) -> sp_blockchain::Result<sp_blockchain::BlockStatus> {
 		if self.header(hash)?.is_some() {
 			Ok(sc_client_api::blockchain::BlockStatus::InChain)
@@ -400,10 +377,8 @@ impl HeaderBackend<Block> for BlockChainRpcClient {
 
 	fn number(
 		&self,
-		hash: <Block as polkadot_service::BlockT>::Hash,
-	) -> sp_blockchain::Result<
-		Option<<<Block as polkadot_service::BlockT>::Header as polkadot_service::HeaderT>::Number>,
-	> {
+		hash: <Block as BlockT>::Hash,
+	) -> sp_blockchain::Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>> {
 		let result = block_local(self.rpc_client.chain_get_header(Some(hash)))?
 			.map(|maybe_header| maybe_header.number);
 		Ok(result)
@@ -411,8 +386,8 @@ impl HeaderBackend<Block> for BlockChainRpcClient {
 
 	fn hash(
 		&self,
-		number: polkadot_service::NumberFor<Block>,
-	) -> sp_blockchain::Result<Option<<Block as polkadot_service::BlockT>::Hash>> {
+		number: NumberFor<Block>,
+	) -> sp_blockchain::Result<Option<<Block as BlockT>::Hash>> {
 		Ok(block_local(self.rpc_client.chain_get_block_hash(number.into()))?)
 	}
 }
