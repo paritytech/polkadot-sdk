@@ -25,7 +25,9 @@
     "/dns/bridge-hub-kusama-bootnode.turboflakes.io/tcp/30615/p2p/12D3KooWE3dJXbwA5SQqbDNxHfj7BXJRcy2KiXWjJY4VUMKoa7S2",
     "/dns/bridge-hub-kusama-bootnode.turboflakes.io/tcp/30715/wss/p2p/12D3KooWE3dJXbwA5SQqbDNxHfj7BXJRcy2KiXWjJY4VUMKoa7S2",
     "/dns/boot-node.helikon.io/tcp/10250/p2p/12D3KooWDJLkhqQdXcVKWX7CqJHnpAY6PzrPc4ZG2CUWnARbmguy",
-    "/dns/boot-node.helikon.io/tcp/10252/wss/p2p/12D3KooWDJLkhqQdXcVKWX7CqJHnpAY6PzrPc4ZG2CUWnARbmguy"
+    "/dns/boot-node.helikon.io/tcp/10252/wss/p2p/12D3KooWDJLkhqQdXcVKWX7CqJHnpAY6PzrPc4ZG2CUWnARbmguy",
+    "/dns/bridge-hub-kusama.bootnode.amforc.com/tcp/30337/p2p/12D3KooWGNeQJ5rXnEJkVUuQqwHd8aV5GkTAheaRoCaK8ZwW94id",
+    "/dns/bridge-hub-kusama.bootnode.amforc.com/tcp/30333/wss/p2p/12D3KooWGNeQJ5rXnEJkVUuQqwHd8aV5GkTAheaRoCaK8ZwW94id"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

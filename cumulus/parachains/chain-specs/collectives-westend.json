@@ -29,7 +29,9 @@
     "/dns/collectives-westend-bootnode.turboflakes.io/tcp/30600/p2p/12D3KooWAe9CFXp6je3TAPQJE135KRemTLSqEqQBZMFwJontrThZ",
     "/dns/collectives-westend-bootnode.turboflakes.io/tcp/30700/wss/p2p/12D3KooWAe9CFXp6je3TAPQJE135KRemTLSqEqQBZMFwJontrThZ",
     "/dns/boot-node.helikon.io/tcp/10260/p2p/12D3KooWMzfnt29VAmrJHQcJU6Vfn4RsMbqPqgyWHqt9VTTAbSrL",
-    "/dns/boot-node.helikon.io/tcp/10262/wss/p2p/12D3KooWMzfnt29VAmrJHQcJU6Vfn4RsMbqPqgyWHqt9VTTAbSrL"
+    "/dns/boot-node.helikon.io/tcp/10262/wss/p2p/12D3KooWMzfnt29VAmrJHQcJU6Vfn4RsMbqPqgyWHqt9VTTAbSrL",
+    "/dns/collectives-westend.bootnode.amforc.com/tcp/30340/p2p/12D3KooWERPzUhHau6o2XZRUi3tn7544rYiaHL418Nw5t8fYWP1F",
+    "/dns/collectives-westend.bootnode.amforc.com/tcp/30333/wss/p2p/12D3KooWERPzUhHau6o2XZRUi3tn7544rYiaHL418Nw5t8fYWP1F"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

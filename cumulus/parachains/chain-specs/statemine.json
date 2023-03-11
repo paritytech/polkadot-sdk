@@ -23,7 +23,9 @@
     "/dns/statemine-bootnode.turboflakes.io/tcp/30320/p2p/12D3KooWN2Qqvp5wWgjbBMpbqhKgvSibSHfomP5VWVD9VCn3VrV4",
     "/dns/statemine-bootnode.turboflakes.io/tcp/30420/wss/p2p/12D3KooWN2Qqvp5wWgjbBMpbqhKgvSibSHfomP5VWVD9VCn3VrV4",
     "/dns/boot-node.helikon.io/tcp/10210/p2p/12D3KooWFXRQce3aMgZMn5SxvHtYH4PsR63TZLf8LrnBsEVTyzdr",
-    "/dns/boot-node.helikon.io/tcp/10212/wss/p2p/12D3KooWFXRQce3aMgZMn5SxvHtYH4PsR63TZLf8LrnBsEVTyzdr"
+    "/dns/boot-node.helikon.io/tcp/10212/wss/p2p/12D3KooWFXRQce3aMgZMn5SxvHtYH4PsR63TZLf8LrnBsEVTyzdr",
+    "/dns/statemine.bootnode.amforc.com/tcp/30336/p2p/12D3KooWHmSyrBWsc6fdpq8HtCFWasmLVLYGKWA2a78m4xAHKyBq",
+    "/dns/statemine.bootnode.amforc.com/tcp/30333/wss/p2p/12D3KooWHmSyrBWsc6fdpq8HtCFWasmLVLYGKWA2a78m4xAHKyBq"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

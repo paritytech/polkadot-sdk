@@ -17,7 +17,9 @@
     "/dns/westmint-bootnode.turboflakes.io/tcp/30325/p2p/12D3KooWHU4qqSyqKdbXdrCTMXUJxxueaZjqpqSaQqYiFPw6XqEx",
     "/dns/westmint-bootnode.turboflakes.io/tcp/30425/wss/p2p/12D3KooWHU4qqSyqKdbXdrCTMXUJxxueaZjqpqSaQqYiFPw6XqEx",
     "/dns/boot-node.helikon.io/tcp/10200/p2p/12D3KooWMRY8wb7rMT81LLuivvsy6ahUxKHQgYJw4zm1hC1uYLxb",
-    "/dns/boot-node.helikon.io/tcp/10202/wss/p2p/12D3KooWMRY8wb7rMT81LLuivvsy6ahUxKHQgYJw4zm1hC1uYLxb"
+    "/dns/boot-node.helikon.io/tcp/10202/wss/p2p/12D3KooWMRY8wb7rMT81LLuivvsy6ahUxKHQgYJw4zm1hC1uYLxb",
+    "/dns/westmint.bootnode.amforc.com/tcp/30339/p2p/12D3KooWNjKeaANaeZxBAPctmx8jugSYzuw4vnSCJmEDPB5mtRd6",
+    "/dns/westmint.bootnode.amforc.com/tcp/30333/wss/p2p/12D3KooWNjKeaANaeZxBAPctmx8jugSYzuw4vnSCJmEDPB5mtRd6"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

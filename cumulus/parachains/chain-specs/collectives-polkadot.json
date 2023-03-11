@@ -25,7 +25,9 @@
     "/dns/collectives-polkadot-bootnode.turboflakes.io/tcp/30605/p2p/12D3KooWPyzM7eX64J4aG8uRfSARakDVtiEtthEM8FUjrLWAg2sC",
     "/dns/collectives-polkadot-bootnode.turboflakes.io/tcp/30705/wss/p2p/12D3KooWPyzM7eX64J4aG8uRfSARakDVtiEtthEM8FUjrLWAg2sC",
     "/dns/boot-node.helikon.io/tcp/10230/p2p/12D3KooWS8CBz4P5CBny9aBy2EQUvAExFo9PUVT57X8r3zWMFkXT",
-    "/dns/boot-node.helikon.io/tcp/10232/wss/p2p/12D3KooWS8CBz4P5CBny9aBy2EQUvAExFo9PUVT57X8r3zWMFkXT"
+    "/dns/boot-node.helikon.io/tcp/10232/wss/p2p/12D3KooWS8CBz4P5CBny9aBy2EQUvAExFo9PUVT57X8r3zWMFkXT",
+    "/dns/collectives-polkadot.bootnode.amforc.com/tcp/30335/p2p/12D3KooWQeAjDnGkrPe5vtpfnB6ydZfWyMxyrXLkBFmA6o4k9aiU",
+    "/dns/collectives-polkadot.bootnode.amforc.com/tcp/30333/wss/p2p/12D3KooWQeAjDnGkrPe5vtpfnB6ydZfWyMxyrXLkBFmA6o4k9aiU"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
