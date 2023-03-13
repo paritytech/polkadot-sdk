@@ -16,7 +16,7 @@
 
 //! A module that is responsible for migration of storage.
 
-use crate::{Config, Pallet, Store, DEFAULT_POV_SIZE};
+use crate::{Config, Overweight, Pallet, QueueConfig, DEFAULT_POV_SIZE};
 use frame_support::{
 	pallet_prelude::*,
 	traits::StorageVersion,
@@ -94,7 +94,7 @@ pub fn migrate_to_v2<T: Config>() -> Weight {
 		}
 	};
 
-	if let Err(_) = <Pallet<T> as Store>::QueueConfig::translate(|pre| pre.map(translate)) {
+	if let Err(_) = QueueConfig::<T>::translate(|pre| pre.map(translate)) {
 		log::error!(
 			target: super::LOG_TARGET,
 			"unexpected error when performing translation of the QueueConfig type during storage upgrade to v2"
@@ -105,7 +105,7 @@ pub fn migrate_to_v2<T: Config>() -> Weight {
 }
 
 pub fn migrate_to_v3<T: Config>() -> Weight {
-	let overweight_messages = <Pallet<T> as Store>::Overweight::initialize_counter() as u64;
+	let overweight_messages = Overweight::<T>::initialize_counter() as u64;
 
 	T::DbWeight::get().reads_writes(overweight_messages, 1)
 }

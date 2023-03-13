@@ -79,7 +79,6 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
 	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
@@ -763,13 +762,13 @@ impl<T: Config> Pallet<T> {
 		sent_at: RelayBlockNumber,
 		xcm: Vec<u8>,
 	) -> OverweightIndex {
-		let index = <Self as Store>::OverweightCount::mutate(|count| {
+		let index = OverweightCount::<T>::mutate(|count| {
 			let index = *count;
 			*count += 1;
 			index
 		});
 
-		<Self as Store>::Overweight::insert(index, (sender, sent_at, xcm));
+		Overweight::<T>::insert(index, (sender, sent_at, xcm));
 		index
 	}
 

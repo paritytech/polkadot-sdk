@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Config, Pallet, Store};
+use crate::{Config, Pallet, ReservedDmpWeightOverride, ReservedXcmpWeightOverride};
 use frame_support::{
 	traits::{Get, StorageVersion},
 	weights::Weight,
@@ -52,18 +52,14 @@ mod v2 {
 	pub fn migrate<T: Config>() -> Weight {
 		let translate = |pre: u64| -> Weight { Weight::from_parts(pre, DEFAULT_POV_SIZE) };
 
-		if <Pallet<T> as Store>::ReservedXcmpWeightOverride::translate(|pre| pre.map(translate))
-			.is_err()
-		{
+		if ReservedXcmpWeightOverride::<T>::translate(|pre| pre.map(translate)).is_err() {
 			log::error!(
 				target: "parachain_system",
 				"unexpected error when performing translation of the ReservedXcmpWeightOverride type during storage upgrade to v2"
 			);
 		}
 
-		if <Pallet<T> as Store>::ReservedDmpWeightOverride::translate(|pre| pre.map(translate))
-			.is_err()
-		{
+		if ReservedDmpWeightOverride::<T>::translate(|pre| pre.map(translate)).is_err() {
 			log::error!(
 				target: "parachain_system",
 				"unexpected error when performing translation of the ReservedDmpWeightOverride type during storage upgrade to v2"
