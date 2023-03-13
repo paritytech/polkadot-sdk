@@ -285,17 +285,31 @@ where
 
 				custom_extensions.into_iter().for_each(|ext| runtime.register_extension(ext));
 
-				// runtime.register_extension():
+				if let Some(keystore) = self.keystore.as_ref() {
+					runtime.register_extension(KeystoreExt(keystore.clone()));
+				}
 
-				let context = ExecutionContext::OffchainCall(Some((api, capabilities)));
+				if let Some(pool) = self.transaction_pool.as_ref() {
+					runtime.register_extension(offchain::TransactionPoolExt(Box::new(
+						TransactionPoolAdapter { hash, pool },
+					) as _));
+				}
+
+				if let Some(offchain_db) = self.offchain_db.as_ref() {
+					runtime.register_extension(offchain::OffchainDbExt::new(
+						offchain::LimitedExternalities::new(capabilities, offchain_db.create()),
+					));
+				}
+
+				runtime.register_extension(offchain::OffchainWorkerExt::new(
+					offchain::LimitedExternalities::new(capabilities, api),
+				));
+
 				let run = if version == 2 {
 					runtime.offchain_worker(hash, &header)
 				} else {
 					#[allow(deprecated)]
-					runtime.offchain_worker_before_version_2(
-						hash,
-						*header.number(),
-					)
+					runtime.offchain_worker_before_version_2(hash, *header.number())
 				};
 
 				if let Err(e) = run {
