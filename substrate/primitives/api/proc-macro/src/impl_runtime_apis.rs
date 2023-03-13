@@ -367,6 +367,15 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 				}
 			}
 
+			fn set_call_context(&mut self, call_context: #crate_::CallContext) {
+				self.call_context = call_context;
+			}
+
+			fn register_extension<E: #crate_::Extension>(&mut self, extension: E) {
+				std::cell::RefCell::borrow_mut(&self.extensions).register(extension);
+			}
+		}
+
 			impl<Block: #crate_::BlockT, C> #crate_::ConstructRuntimeApi<Block, C>
 				for RuntimeApi
 			where
@@ -554,7 +563,7 @@ impl<'a> ApiRuntimeImplToApiRuntimeApiImpl<'a> {
 		input.items.push(parse_quote! {
 			fn __runtime_api_internal_call_api_at(
 				&self,
-				at: <__SrApiBlock__ as #crate_::BlockT>::Hash,
+				at: <__SR_API_BLOCK__ as #crate_::BlockT>::Hash,
 				params: std::vec::Vec<u8>,
 				fn_name: &dyn Fn(#crate_::RuntimeVersion) -> &'static str,
 			) -> std::result::Result<std::vec::Vec<u8>, #crate_::ApiError> {

@@ -1724,7 +1724,6 @@ where
 				params.overlayed_changes,
 				params.recorder,
 				params.call_context,
-				params.extensions,
 			)
 			.map_err(Into::into)
 	}

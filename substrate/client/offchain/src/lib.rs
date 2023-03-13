@@ -285,11 +285,17 @@ where
 
 				custom_extensions.into_iter().for_each(|ext| runtime.register_extension(ext));
 
+				// runtime.register_extension():
+
+				let context = ExecutionContext::OffchainCall(Some((api, capabilities)));
 				let run = if version == 2 {
 					runtime.offchain_worker(hash, &header)
 				} else {
 					#[allow(deprecated)]
-					runtime.offchain_worker_before_version_2(hash, *header.number())
+					runtime.offchain_worker_before_version_2(
+						hash,
+						*header.number(),
+					)
 				};
 
 				if let Err(e) = run {
