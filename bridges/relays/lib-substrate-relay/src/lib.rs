@@ -91,18 +91,21 @@ impl<AccountId> TaggedAccount<AccountId> {
 }
 
 /// Batch call builder.
-pub trait BatchCallBuilder<Call>: Send {
+pub trait BatchCallBuilder<Call>: Clone + Send {
 	/// Create batch call from given calls vector.
 	fn build_batch_call(&self, _calls: Vec<Call>) -> Call;
 }
 
 /// Batch call builder constructor.
-pub trait BatchCallBuilderConstructor<Call> {
+pub trait BatchCallBuilderConstructor<Call>: Clone {
+	/// Call builder, used by this constructor.
+	type CallBuilder: BatchCallBuilder<Call>;
 	/// Create a new instance of a batch call builder.
-	fn new_builder() -> Option<Box<dyn BatchCallBuilder<Call>>>;
+	fn new_builder() -> Option<Self::CallBuilder>;
 }
 
 /// Batch call builder based on `pallet-utility`.
+#[derive(Clone)]
 pub struct UtilityPalletBatchCallBuilder<C: Chain>(PhantomData<C>);
 
 impl<C: Chain> BatchCallBuilder<C::Call> for UtilityPalletBatchCallBuilder<C>
@@ -118,14 +121,25 @@ impl<C: Chain> BatchCallBuilderConstructor<C::Call> for UtilityPalletBatchCallBu
 where
 	C: ChainWithUtilityPallet,
 {
-	fn new_builder() -> Option<Box<dyn BatchCallBuilder<C::Call>>> {
-		Some(Box::new(Self(Default::default())))
+	type CallBuilder = Self;
+
+	fn new_builder() -> Option<Self::CallBuilder> {
+		Some(Self(Default::default()))
 	}
 }
 
-/// A `BatchCallBuilderConstructor` that always returns `None`.
+// A `BatchCallBuilderConstructor` that always returns `None`.
 impl<Call> BatchCallBuilderConstructor<Call> for () {
-	fn new_builder() -> Option<Box<dyn BatchCallBuilder<Call>>> {
+	type CallBuilder = ();
+	fn new_builder() -> Option<Self::CallBuilder> {
 		None
+	}
+}
+
+// Dummy `BatchCallBuilder` implementation that must never be used outside
+// of the `impl BatchCallBuilderConstructor for ()` code.
+impl<Call> BatchCallBuilder<Call> for () {
+	fn build_batch_call(&self, _calls: Vec<Call>) -> Call {
+		unreachable!("never called, because ()::new_builder() returns None; qed")
 	}
 }
