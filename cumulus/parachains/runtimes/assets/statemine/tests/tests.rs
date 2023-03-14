@@ -359,7 +359,7 @@ fn test_asset_xcm_trader_not_possible_for_non_sufficient_assets() {
 
 #[test]
 fn test_assets_balances_api_works() {
-	use assets_common::runtime_api::runtime_decl_for_FungiblesApi::FungiblesApi;
+	use assets_common::runtime_api::runtime_decl_for_fungibles_api::FungiblesApi;
 
 	ExtBuilder::<Runtime>::default()
 		.with_collators(vec![AccountId::from(ALICE)])
