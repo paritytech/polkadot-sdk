@@ -37,6 +37,39 @@ and treat as best.
 A Polkadot [collator](https://wiki.polkadot.network/docs/en/learn-collator) for the parachain is
 implemented by the `polkadot-parachain` binary (previously called `polkadot-collator`).
 
+### Relaychain Interaction
+To operate a parachain node a connection to the corresponding relaychain is necessary. This can be achieved in one of two ways:
+1. Run a full relaychain node within the parachain node (default)
+2. Connect to an external relaychain node via websocket RPC
+
+#### In-process Relaychain Node
+If an external relaychain node is not specified (default behavior) then a full relaychain node will be spawned within the same process.
+
+This node has all of the typical components of a normal Polkadot node, and will have to fully sync with the relaychain to work.
+
+##### Example command
+```shell=
+#                                                          In-process node with this chainspec is spawned
+#                                                                                |
+#                                                                    |-----------------------|
+polkadot-parachain --chain parachain-chainspec.json --tmp -- --chain relaychain-chainspec.json
+```
+
+#### External Relaychain Node
+An external relaychain node can be connected via websocket RPC by using the  `--relay-chain-rpc-urls` command line argument. This option accepts one or more space-separated websocket URLs to a full relay chain node. By default only the first URL will be used, with the rest acting as a backup in case the connection to the first node will be lost.
+
+Parachain nodes using this feature won't have to fully sync with the relay chain to work, so in general they will use significantly less system resources.
+
+**Note:** At this time any parachain nodes using this feature will still spawn a very cut down relaychain node in-process, hence even though they lack the majority of normal Polkadot subsystems they will still need to be able to directly connect to the relay chain network.
+##### Example command
+```shell=
+#                                                                                     Perform runtime calls and fetch                                                     Still required since we connect
+#                                                                                     data via RPC from here.                      Backup node                            to the relaychain network
+#                                                                                               |                                       |                                           |
+#                                                                                |---------------------------------| |----------------------------------------|            |-----------------------|
+polkadot-parachain --chain parachain-chainspec.json --tmp --relay-chain-rpc-urls "ws://relaychain-rpc-endpoint:9944" "ws://relaychain-rpc-endpoint-backup:9944" -- --chain relaychain-chainspec.json
+```
+
 ## Installation and Setup
 Before building Cumulus SDK based nodes / runtimes prepare your environment by following Substrate [installation instructions](https://docs.substrate.io/main-docs/install/).
 
