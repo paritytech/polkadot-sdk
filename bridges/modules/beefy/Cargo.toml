@@ -25,7 +25,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
 [dev-dependencies]
-sp-beefy = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-consensus-beefy = { git = "https://github.com/paritytech/substrate", branch = "master" }
 mmr-lib = { package = "ckb-merkle-mountain-range", version = "0.3.2" }
 pallet-beefy-mmr = { git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-mmr = { git = "https://github.com/paritytech/substrate", branch = "master" }

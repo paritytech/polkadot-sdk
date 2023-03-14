@@ -75,8 +75,8 @@ impl From<UtilityCall<Call>> for Call {
 mod tests {
 	use super::*;
 	use bp_runtime::BasicOperatingMode;
+	use sp_consensus_grandpa::AuthorityList;
 	use sp_core::hexdisplay::HexDisplay;
-	use sp_finality_grandpa::AuthorityList;
 	use sp_runtime::traits::Header;
 	use std::str::FromStr;
 
