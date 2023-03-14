@@ -18,7 +18,7 @@ bp-runtime = { path = "../runtime", default-features = false }
 # Substrate Dependencies
 
 binary-merkle-tree = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-beefy = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-consensus-beefy = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-beefy-mmr = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-mmr = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
@@ -35,7 +35,7 @@ std = [
 	"pallet-mmr/std",
 	"scale-info/std",
 	"serde",
-	"sp-beefy/std",
+	"sp-consensus-beefy/std",
 	"sp-runtime/std",
 	"sp-std/std"
 ]

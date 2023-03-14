@@ -27,7 +27,7 @@ use bp_test_utils::{
 	JustificationGeneratorParams, ALICE, BOB, CHARLIE, DAVE, EVE, FERDIE, TEST_GRANDPA_SET_ID,
 };
 use finality_grandpa::voter_set::VoterSet;
-use sp_finality_grandpa::{AuthorityId, AuthorityWeight};
+use sp_consensus_grandpa::{AuthorityId, AuthorityWeight};
 use sp_runtime::traits::Header as HeaderT;
 
 type TestHeader = sp_runtime::testing::Header;

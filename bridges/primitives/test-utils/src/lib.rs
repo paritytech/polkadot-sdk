@@ -20,7 +20,7 @@
 
 use bp_header_chain::justification::{required_justification_precommits, GrandpaJustification};
 use codec::Encode;
-use sp_finality_grandpa::{AuthorityId, AuthoritySignature, AuthorityWeight, SetId};
+use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, AuthorityWeight, SetId};
 use sp_runtime::traits::{Header as HeaderT, One, Zero};
 use sp_std::prelude::*;
 
@@ -170,7 +170,7 @@ pub fn signed_precommit<H: HeaderT>(
 ) -> finality_grandpa::SignedPrecommit<H::Hash, H::Number, AuthoritySignature, AuthorityId> {
 	let precommit = finality_grandpa::Precommit { target_hash: target.0, target_number: target.1 };
 
-	let encoded = sp_finality_grandpa::localized_payload(
+	let encoded = sp_consensus_grandpa::localized_payload(
 		round,
 		set_id,
 		&finality_grandpa::Message::Precommit(precommit.clone()),
