@@ -111,7 +111,7 @@ pub struct NoncesSubmitArtifacts<T> {
 
 /// Batch transaction that already submit some headers and needs to be extended with
 /// messages/delivery proof before sending.
-pub trait BatchTransaction<HeaderId>: Send {
+pub trait BatchTransaction<HeaderId>: Debug + Send {
 	/// Header that was required in the original call and which is bundled within this
 	/// batch transaction.
 	fn required_header_id(&self) -> HeaderId;
@@ -121,7 +121,7 @@ pub trait BatchTransaction<HeaderId>: Send {
 #[async_trait]
 pub trait SourceClient<P: MessageLane>: RelayClient {
 	/// Type of batch transaction that submits finality and message receiving proof.
-	type BatchTransaction: BatchTransaction<TargetHeaderIdOf<P>>;
+	type BatchTransaction: BatchTransaction<TargetHeaderIdOf<P>> + Clone;
 	/// Transaction tracker to track submitted transactions.
 	type TransactionTracker: TransactionTracker<HeaderId = SourceHeaderIdOf<P>>;
 
@@ -186,7 +186,7 @@ pub trait SourceClient<P: MessageLane>: RelayClient {
 #[async_trait]
 pub trait TargetClient<P: MessageLane>: RelayClient {
 	/// Type of batch transaction that submits finality and messages proof.
-	type BatchTransaction: BatchTransaction<SourceHeaderIdOf<P>>;
+	type BatchTransaction: BatchTransaction<SourceHeaderIdOf<P>> + Clone;
 	/// Transaction tracker to track submitted transactions.
 	type TransactionTracker: TransactionTracker<HeaderId = TargetHeaderIdOf<P>>;
 
@@ -1212,6 +1212,9 @@ pub(crate) mod tests {
 			original_data,
 			Arc::new(|_| {}),
 			Arc::new(move |data: &mut TestClientData| {
+				data.source_state.best_self =
+					HeaderId(data.source_state.best_self.0 + 1, data.source_state.best_self.1 + 1);
+				data.source_state.best_finalized_self = data.source_state.best_self;
 				if let Some(target_to_source_header_required) =
 					data.target_to_source_header_required.take()
 				{
@@ -1223,6 +1226,10 @@ pub(crate) mod tests {
 			}),
 			Arc::new(|_| {}),
 			Arc::new(move |data: &mut TestClientData| {
+				data.target_state.best_self =
+					HeaderId(data.target_state.best_self.0 + 1, data.target_state.best_self.1 + 1);
+				data.target_state.best_finalized_self = data.target_state.best_self;
+
 				if let Some(source_to_target_header_required) =
 					data.source_to_target_header_required.take()
 				{

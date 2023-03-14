@@ -106,24 +106,25 @@ impl<
 	/// at source blocks that are known to be finalized at the target node.
 	///
 	/// Returns `None` if no entries may be delivered.
-	pub fn available_source_queue_indices(
-		&self,
-		race_state: RaceState<
+	pub fn available_source_queue_indices<
+		RS: RaceState<
 			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
 			HeaderId<TargetHeaderHash, TargetHeaderNumber>,
-			Proof,
 		>,
+	>(
+		&self,
+		race_state: RS,
 	) -> Option<RangeInclusive<usize>> {
 		// if we do not know best nonce at target node, we can't select anything
 		let best_target_nonce = self.best_target_nonce?;
 
 		// if we have already selected nonces that we want to submit, do nothing
-		if race_state.nonces_to_submit.is_some() {
+		if race_state.nonces_to_submit().is_some() {
 			return None
 		}
 
 		// if we already submitted some nonces, do nothing
-		if race_state.nonces_submitted.is_some() {
+		if race_state.nonces_submitted().is_some() {
 			return None
 		}
 
@@ -143,7 +144,7 @@ impl<
 		//
 		// => let's first select range of entries inside deque that are already finalized at
 		// the target client and pass this range to the selector
-		let best_header_at_target = race_state.best_finalized_source_header_id_at_best_target?;
+		let best_header_at_target = race_state.best_finalized_source_header_id_at_best_target()?;
 		let end_index = self
 			.source_queue
 			.iter()
@@ -204,9 +205,15 @@ impl<
 		self.source_queue.is_empty()
 	}
 
-	fn required_source_header_at_target(
+	fn required_source_header_at_target<
+		RS: RaceState<
+			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
+			HeaderId<TargetHeaderHash, TargetHeaderNumber>,
+		>,
+	>(
 		&self,
 		current_best: &HeaderId<SourceHeaderHash, SourceHeaderNumber>,
+		_race_state: RS,
 	) -> Option<HeaderId<SourceHeaderHash, SourceHeaderNumber>> {
 		self.source_queue
 			.back()
@@ -247,46 +254,46 @@ impl<
 		)
 	}
 
-	fn best_target_nonces_updated(
-		&mut self,
-		nonces: TargetClientNonces<()>,
-		race_state: &mut RaceState<
+	fn best_target_nonces_updated<
+		RS: RaceState<
 			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
 			HeaderId<TargetHeaderHash, TargetHeaderNumber>,
-			Proof,
 		>,
+	>(
+		&mut self,
+		nonces: TargetClientNonces<()>,
+		race_state: &mut RS,
 	) {
 		let nonce = nonces.latest_nonce;
 
 		let need_to_select_new_nonces = race_state
-			.nonces_to_submit
-			.as_ref()
-			.map(|(_, nonces, _)| *nonces.end() <= nonce)
+			.nonces_to_submit()
+			.map(|nonces| *nonces.end() <= nonce)
 			.unwrap_or(false);
 		if need_to_select_new_nonces {
-			race_state.nonces_to_submit = None;
+			race_state.reset_nonces_to_submit();
 		}
 
 		let need_new_nonces_to_submit = race_state
-			.nonces_submitted
-			.as_ref()
+			.nonces_submitted()
 			.map(|nonces| *nonces.end() <= nonce)
 			.unwrap_or(false);
 		if need_new_nonces_to_submit {
-			race_state.nonces_submitted = None;
+			race_state.reset_nonces_submitted();
 		}
 
 		self.best_target_nonce = Some(nonce);
 	}
 
-	fn finalized_target_nonces_updated(
-		&mut self,
-		nonces: TargetClientNonces<()>,
-		_race_state: &mut RaceState<
+	fn finalized_target_nonces_updated<
+		RS: RaceState<
 			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
 			HeaderId<TargetHeaderHash, TargetHeaderNumber>,
-			Proof,
 		>,
+	>(
+		&mut self,
+		nonces: TargetClientNonces<()>,
+		_race_state: &mut RS,
 	) {
 		self.remove_le_nonces_from_source_queue(nonces.latest_nonce);
 		self.best_target_nonce = Some(std::cmp::max(
@@ -295,13 +302,14 @@ impl<
 		));
 	}
 
-	async fn select_nonces_to_deliver(
-		&self,
-		race_state: RaceState<
+	async fn select_nonces_to_deliver<
+		RS: RaceState<
 			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
 			HeaderId<TargetHeaderHash, TargetHeaderNumber>,
-			Proof,
 		>,
+	>(
+		&self,
+		race_state: RS,
 	) -> Option<(RangeInclusive<MessageNonce>, Self::ProofParameters)> {
 		let available_indices = self.available_source_queue_indices(race_state)?;
 		let range_begin = std::cmp::max(
@@ -317,14 +325,22 @@ impl<
 mod tests {
 	use super::*;
 	use crate::{
-		message_lane::MessageLane,
+		message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
 		message_lane_loop::tests::{
 			header_id, TestMessageLane, TestMessagesProof, TestSourceHeaderHash,
 			TestSourceHeaderNumber,
 		},
+		message_race_loop::RaceStateImpl,
 	};
 
 	type SourceNoncesRange = RangeInclusive<MessageNonce>;
+
+	type TestRaceStateImpl = RaceStateImpl<
+		SourceHeaderIdOf<TestMessageLane>,
+		TargetHeaderIdOf<TestMessageLane>,
+		TestMessagesProof,
+		(),
+	>;
 
 	type BasicStrategy<P> = super::BasicStrategy<
 		<P as MessageLane>::SourceHeaderNumber,
@@ -357,7 +373,7 @@ mod tests {
 		assert_eq!(strategy.best_at_source(), None);
 		strategy.source_nonces_updated(header_id(1), source_nonces(1..=5));
 		assert_eq!(strategy.best_at_source(), None);
-		strategy.best_target_nonces_updated(target_nonces(10), &mut Default::default());
+		strategy.best_target_nonces_updated(target_nonces(10), &mut TestRaceStateImpl::default());
 		assert_eq!(strategy.source_queue, vec![(header_id(1), 1..=5)]);
 		assert_eq!(strategy.best_at_source(), Some(10));
 	}
@@ -365,7 +381,7 @@ mod tests {
 	#[test]
 	fn source_nonce_is_never_lower_than_known_target_nonce() {
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
-		strategy.best_target_nonces_updated(target_nonces(10), &mut Default::default());
+		strategy.best_target_nonces_updated(target_nonces(10), &mut TestRaceStateImpl::default());
 		strategy.source_nonces_updated(header_id(1), source_nonces(1..=5));
 		assert_eq!(strategy.source_queue, vec![]);
 	}
@@ -386,15 +402,17 @@ mod tests {
 		strategy.source_nonces_updated(header_id(2), source_nonces(6..=10));
 		strategy.source_nonces_updated(header_id(3), source_nonces(11..=15));
 		strategy.source_nonces_updated(header_id(4), source_nonces(16..=20));
-		strategy.finalized_target_nonces_updated(target_nonces(15), &mut Default::default());
+		strategy
+			.finalized_target_nonces_updated(target_nonces(15), &mut TestRaceStateImpl::default());
 		assert_eq!(strategy.source_queue, vec![(header_id(4), 16..=20)]);
-		strategy.finalized_target_nonces_updated(target_nonces(17), &mut Default::default());
+		strategy
+			.finalized_target_nonces_updated(target_nonces(17), &mut TestRaceStateImpl::default());
 		assert_eq!(strategy.source_queue, vec![(header_id(4), 18..=20)]);
 	}
 
 	#[test]
 	fn selected_nonces_are_dropped_on_target_nonce_update() {
-		let mut state = RaceState::default();
+		let mut state = TestRaceStateImpl::default();
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		state.nonces_to_submit = Some((header_id(1), 5..=10, (5..=10, None)));
 		strategy.best_target_nonces_updated(target_nonces(7), &mut state);
@@ -405,7 +423,7 @@ mod tests {
 
 	#[test]
 	fn submitted_nonces_are_dropped_on_target_nonce_update() {
-		let mut state = RaceState::default();
+		let mut state = TestRaceStateImpl::default();
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		state.nonces_submitted = Some(5..=10);
 		strategy.best_target_nonces_updated(target_nonces(7), &mut state);
@@ -416,7 +434,7 @@ mod tests {
 
 	#[async_std::test]
 	async fn nothing_is_selected_if_something_is_already_selected() {
-		let mut state = RaceState::default();
+		let mut state = TestRaceStateImpl::default();
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		state.nonces_to_submit = Some((header_id(1), 1..=10, (1..=10, None)));
 		strategy.best_target_nonces_updated(target_nonces(0), &mut state);
@@ -426,7 +444,7 @@ mod tests {
 
 	#[async_std::test]
 	async fn nothing_is_selected_if_something_is_already_submitted() {
-		let mut state = RaceState::default();
+		let mut state = TestRaceStateImpl::default();
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		state.nonces_submitted = Some(1..=10);
 		strategy.best_target_nonces_updated(target_nonces(0), &mut state);
@@ -436,7 +454,7 @@ mod tests {
 
 	#[async_std::test]
 	async fn select_nonces_to_deliver_works() {
-		let mut state = RaceState::<_, _, TestMessagesProof>::default();
+		let mut state = TestRaceStateImpl::default();
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		strategy.best_target_nonces_updated(target_nonces(0), &mut state);
 		strategy.source_nonces_updated(header_id(1), source_nonces(1..=1));
@@ -457,7 +475,7 @@ mod tests {
 
 	#[test]
 	fn available_source_queue_indices_works() {
-		let mut state = RaceState::<_, _, TestMessagesProof>::default();
+		let mut state = TestRaceStateImpl::default();
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		strategy.best_target_nonces_updated(target_nonces(0), &mut state);
 		strategy.source_nonces_updated(header_id(1), source_nonces(1..=3));
@@ -482,7 +500,7 @@ mod tests {
 
 	#[test]
 	fn remove_le_nonces_from_source_queue_works() {
-		let mut state = RaceState::<_, _, TestMessagesProof>::default();
+		let mut state = TestRaceStateImpl::default();
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		strategy.best_target_nonces_updated(target_nonces(0), &mut state);
 		strategy.source_nonces_updated(header_id(1), source_nonces(1..=3));
@@ -518,12 +536,13 @@ mod tests {
 		let target_header_1 = header_id(1);
 
 		// we start in perfec sync state - all headers are synced and finalized on both ends
-		let mut state = RaceState::<_, _, TestMessagesProof> {
+		let mut state = TestRaceStateImpl {
 			best_finalized_source_header_id_at_source: Some(source_header_1),
 			best_finalized_source_header_id_at_best_target: Some(source_header_1),
 			best_target_header_id: Some(target_header_1),
 			best_finalized_target_header_id: Some(target_header_1),
 			nonces_to_submit: None,
+			nonces_to_submit_batch: None,
 			nonces_submitted: None,
 		};
 
