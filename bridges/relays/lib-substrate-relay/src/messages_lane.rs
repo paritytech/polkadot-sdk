@@ -111,13 +111,24 @@ pub struct MessagesRelayParams<P: SubstrateMessageLane> {
 
 /// Batch transaction that brings headers + and messages delivery/receiving confirmations to the
 /// source node.
+#[derive(Clone)]
 pub struct BatchProofTransaction<SC: Chain, TC: Chain, B: BatchCallBuilderConstructor<CallOf<SC>>> {
-	builder: Box<dyn BatchCallBuilder<CallOf<SC>>>,
+	builder: B::CallBuilder,
 	proved_header: HeaderIdOf<TC>,
 	prove_calls: Vec<CallOf<SC>>,
 
 	/// Using `fn() -> B` in order to avoid implementing `Send` for `B`.
 	_phantom: PhantomData<fn() -> B>,
+}
+
+impl<SC: Chain, TC: Chain, B: BatchCallBuilderConstructor<CallOf<SC>>> std::fmt::Debug
+	for BatchProofTransaction<SC, TC, B>
+{
+	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+		fmt.debug_struct("BatchProofTransaction")
+			.field("proved_header", &self.proved_header)
+			.finish()
+	}
 }
 
 impl<SC: Chain, TC: Chain, B: BatchCallBuilderConstructor<CallOf<SC>>>
