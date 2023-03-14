@@ -22,7 +22,7 @@ use bp_header_chain::{AuthoritySet, ChainWithGrandpa};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, BoundedVec, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use sp_finality_grandpa::{AuthorityId, AuthorityList, AuthorityWeight, SetId};
+use sp_consensus_grandpa::{AuthorityId, AuthorityList, AuthorityWeight, SetId};
 use sp_std::marker::PhantomData;
 
 /// A bounded list of Grandpa authorities with associated weights.

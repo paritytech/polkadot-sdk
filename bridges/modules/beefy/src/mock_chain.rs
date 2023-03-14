@@ -30,7 +30,7 @@ use bp_beefy::{BeefyPayload, Commitment, ValidatorSetId, MMR_ROOT_PAYLOAD_ID};
 use codec::Encode;
 use pallet_mmr::NodeIndex;
 use rand::Rng;
-use sp_beefy::mmr::{BeefyNextAuthoritySet, MmrLeafVersion};
+use sp_consensus_beefy::mmr::{BeefyNextAuthoritySet, MmrLeafVersion};
 use sp_core::Pair;
 use sp_runtime::traits::{Hash, Header as HeaderT};
 use std::collections::HashMap;
@@ -188,7 +188,7 @@ impl HeaderBuilder {
 			next_validator_keys.iter().map(|pair| pair.public()).collect::<Vec<_>>();
 		let next_validators_mmr_root =
 			get_authorities_mmr_root::<TestRuntime, (), _>(next_validators.iter());
-		let leaf = sp_beefy::mmr::MmrLeaf {
+		let leaf = sp_consensus_beefy::mmr::MmrLeaf {
 			version: MmrLeafVersion::new(1, 0),
 			parent_number_and_hash: (header.number().saturating_sub(1), *header.parent_hash()),
 			beefy_next_authority_set: BeefyNextAuthoritySet {

@@ -419,7 +419,7 @@ mod tests {
 	use frame_support::{assert_noop, assert_ok, traits::Get};
 	use mock::*;
 	use mock_chain::*;
-	use sp_beefy::mmr::BeefyAuthoritySet;
+	use sp_consensus_beefy::mmr::BeefyAuthoritySet;
 	use sp_runtime::DispatchError;
 
 	fn next_block() {
