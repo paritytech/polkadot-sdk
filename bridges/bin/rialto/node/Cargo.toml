@@ -18,7 +18,7 @@ rialto-runtime = { path = "../runtime" }
 
 # Substrate Dependencies
 
-sp-beefy = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-consensus-beefy = { git = "https://github.com/paritytech/substrate", branch = "master" }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master" }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -29,7 +29,7 @@ sc-service = { git = "https://github.com/paritytech/substrate", branch = "master
 sp-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot Dependencies

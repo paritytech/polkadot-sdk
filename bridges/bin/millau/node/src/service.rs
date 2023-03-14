@@ -20,8 +20,8 @@ use jsonrpsee::RpcModule;
 use millau_runtime::{self, opaque::Block, RuntimeApi};
 use sc_client_api::BlockBackend;
 use sc_consensus_aura::{CompatibilityMode, ImportQueueParams, SlotProportion, StartAuraParams};
+use sc_consensus_grandpa::SharedVoterState;
 pub use sc_executor::NativeElseWasmExecutor;
-use sc_finality_grandpa::SharedVoterState;
 use sc_keystore::LocalKeystore;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
@@ -64,15 +64,15 @@ pub fn new_partial(
 		sc_consensus::DefaultImportQueue<Block, FullClient>,
 		sc_transaction_pool::FullPool<Block, FullClient>,
 		(
-			sc_finality_grandpa::GrandpaBlockImport<
+			sc_consensus_grandpa::GrandpaBlockImport<
 				FullBackend,
 				Block,
 				FullClient,
 				FullSelectChain,
 			>,
-			sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
-			beefy_gadget::BeefyVoterLinks<Block>,
-			beefy_gadget::BeefyRPCLinks<Block>,
+			sc_consensus_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
+			sc_consensus_beefy::BeefyVoterLinks<Block>,
+			sc_consensus_beefy::BeefyRPCLinks<Block>,
 			Option<Telemetry>,
 		),
 	>,
@@ -123,7 +123,7 @@ pub fn new_partial(
 		client.clone(),
 	);
 
-	let (grandpa_block_import, grandpa_link) = sc_finality_grandpa::block_import(
+	let (grandpa_block_import, grandpa_link) = sc_consensus_grandpa::block_import(
 		client.clone(),
 		&client,
 		select_chain.clone(),
@@ -131,10 +131,11 @@ pub fn new_partial(
 	)?;
 
 	let (beefy_block_import, beefy_voter_links, beefy_rpc_links) =
-		beefy_gadget::beefy_block_import_and_links(
+		sc_consensus_beefy::beefy_block_import_and_links(
 			grandpa_block_import.clone(),
 			backend.clone(),
 			client.clone(),
+			config.prometheus_registry().cloned(),
 		);
 
 	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
@@ -183,6 +184,8 @@ fn remote_keystore(_url: &str) -> Result<Arc<LocalKeystore>, &'static str> {
 
 /// Builds a new service for a full client.
 pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> {
+	use sc_network_common::sync::warp::WarpSyncParams;
+
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -209,38 +212,41 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	// Note: GrandPa is pushed before the Polkadot-specific protocols. This doesn't change
 	// anything in terms of behaviour, but makes the logs more consistent with the other
 	// Substrate nodes.
-	let grandpa_protocol_name = sc_finality_grandpa::protocol_standard_name(
+	let grandpa_protocol_name = sc_consensus_grandpa::protocol_standard_name(
 		&client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
 		&config.chain_spec,
 	);
 	config
 		.network
 		.extra_sets
-		.push(sc_finality_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone()));
+		.push(sc_consensus_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone()));
 
 	let beefy_gossip_proto_name =
-		beefy_gadget::gossip_protocol_name(genesis_hash, config.chain_spec.fork_id());
+		sc_consensus_beefy::gossip_protocol_name(genesis_hash, config.chain_spec.fork_id());
 	// `beefy_on_demand_justifications_handler` is given to `beefy-gadget` task to be run,
 	// while `beefy_req_resp_cfg` is added to `config.network.request_response_protocols`.
 	let (beefy_on_demand_justifications_handler, beefy_req_resp_cfg) =
-		beefy_gadget::communication::request_response::BeefyJustifsRequestHandler::new(
+		sc_consensus_beefy::communication::request_response::BeefyJustifsRequestHandler::new(
 			genesis_hash,
 			config.chain_spec.fork_id(),
 			client.clone(),
+			config.prometheus_registry().cloned(),
 		);
 	config
 		.network
 		.extra_sets
-		.push(beefy_gadget::communication::beefy_peers_set_config(beefy_gossip_proto_name.clone()));
+		.push(sc_consensus_beefy::communication::beefy_peers_set_config(
+			beefy_gossip_proto_name.clone(),
+		));
 	config.network.request_response_protocols.push(beefy_req_resp_cfg);
 
-	let warp_sync = Arc::new(sc_finality_grandpa::warp_proof::NetworkProvider::new(
+	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
 		grandpa_link.shared_authority_set().clone(),
 		Vec::default(),
 	));
 
-	let (network, system_rpc_tx, tx_handler_controller, network_starter) =
+	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
 			client: client.clone(),
@@ -248,7 +254,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			warp_sync: Some(warp_sync),
+			warp_sync_params: Some(WarpSyncParams::WithProvider(warp_sync)),
 		})?;
 
 	if config.offchain_worker.enabled {
@@ -269,12 +275,12 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	let shared_voter_state = SharedVoterState::empty();
 
 	let rpc_extensions_builder = {
-		use sc_finality_grandpa::FinalityProofProvider as GrandpaFinalityProofProvider;
+		use sc_consensus_grandpa::FinalityProofProvider as GrandpaFinalityProofProvider;
 
-		use beefy_gadget_rpc::{Beefy, BeefyApiServer};
 		use mmr_rpc::{Mmr, MmrApiServer};
 		use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
-		use sc_finality_grandpa_rpc::{Grandpa, GrandpaApiServer};
+		use sc_consensus_beefy_rpc::{Beefy, BeefyApiServer};
+		use sc_consensus_grandpa_rpc::{Grandpa, GrandpaApiServer};
 		use sc_rpc::DenyUnsafe;
 		use substrate_frame_rpc_system::{System, SystemApiServer};
 
@@ -329,6 +335,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		keystore: keystore_container.sync_keystore(),
 		task_manager: &mut task_manager,
 		transaction_pool: transaction_pool.clone(),
+		sync_service: sync_service.clone(),
 		rpc_builder: rpc_extensions_builder,
 		backend: backend.clone(),
 		system_rpc_tx,
@@ -369,8 +376,8 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 				force_authoring,
 				backoff_authoring_blocks,
 				keystore: keystore_container.sync_keystore(),
-				sync_oracle: network.clone(),
-				justification_sync_link: network.clone(),
+				sync_oracle: sync_service.clone(),
+				justification_sync_link: sync_service.clone(),
 				block_proposal_slot_portion: SlotProportion::new(2f32 / 3f32),
 				max_block_proposal_slot_portion: None,
 				telemetry: telemetry.as_ref().map(|x| x.handle()),
@@ -391,15 +398,16 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		if role.is_authority() { Some(keystore_container.sync_keystore()) } else { None };
 
 	let justifications_protocol_name = beefy_on_demand_justifications_handler.protocol_name();
-	let payload_provider = sp_beefy::mmr::MmrRootProvider::new(client.clone());
-	let beefy_params = beefy_gadget::BeefyParams {
+	let payload_provider = sp_consensus_beefy::mmr::MmrRootProvider::new(client.clone());
+	let beefy_params = sc_consensus_beefy::BeefyParams {
 		client: client.clone(),
 		backend,
 		payload_provider,
 		runtime: client,
 		key_store: keystore.clone(),
-		network_params: beefy_gadget::BeefyNetworkParams {
+		network_params: sc_consensus_beefy::BeefyNetworkParams {
 			network: network.clone(),
+			sync: sync_service.clone(),
 			gossip_protocol_name: beefy_gossip_proto_name,
 			justifications_protocol_name,
 			_phantom: core::marker::PhantomData::<Block>,
@@ -414,10 +422,10 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	task_manager.spawn_essential_handle().spawn_blocking(
 		"beefy-gadget",
 		None,
-		beefy_gadget::start_beefy_gadget::<_, _, _, _, _, _>(beefy_params),
+		sc_consensus_beefy::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params),
 	);
 
-	let grandpa_config = sc_finality_grandpa::Config {
+	let grandpa_config = sc_consensus_grandpa::Config {
 		// FIXME #1578 make this available through chainspec
 		gossip_duration: Duration::from_millis(333),
 		justification_period: 512,
@@ -436,11 +444,12 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		// and vote data availability than the observer. The observer has not
 		// been tested extensively yet and having most nodes in a network run it
 		// could lead to finality stalls.
-		let grandpa_config = sc_finality_grandpa::GrandpaParams {
+		let grandpa_config = sc_consensus_grandpa::GrandpaParams {
 			config: grandpa_config,
 			link: grandpa_link,
 			network,
-			voting_rule: sc_finality_grandpa::VotingRulesBuilder::default().build(),
+			sync: sync_service,
+			voting_rule: sc_consensus_grandpa::VotingRulesBuilder::default().build(),
 			prometheus_registry,
 			shared_voter_state,
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
@@ -451,7 +460,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"grandpa-voter",
 			None,
-			sc_finality_grandpa::run_grandpa_voter(grandpa_config)?,
+			sc_consensus_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
 	}
 
