@@ -38,8 +38,7 @@ use sc_consensus::{
 	import_queue::{ImportQueue, ImportQueueService},
 	BlockImport,
 };
-use sc_network::NetworkService;
-use sc_network_common::config::SyncMode;
+use sc_network::{config::SyncMode, NetworkService};
 use sc_network_sync::SyncingService;
 use sc_network_transactions::TransactionsHandlerController;
 use sc_service::{Configuration, NetworkStarter, SpawnTaskHandle, TaskManager, WarpSyncParams};
