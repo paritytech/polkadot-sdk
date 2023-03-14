@@ -11,7 +11,7 @@ codec = { package = "parity-scale-codec", version = "3.1.5", default-features = 
 ed25519-dalek = { version = "1.0", default-features = false, features = ["u64_backend"] }
 finality-grandpa = { version = "0.16.0", default-features = false }
 sp-application-crypto = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false  }
+sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false  }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
@@ -23,7 +23,7 @@ std = [
 	"ed25519-dalek/std",
 	"finality-grandpa/std",
 	"sp-application-crypto/std",
-	"sp-finality-grandpa/std",
+	"sp-consensus-grandpa/std",
 	"sp-runtime/std",
 	"sp-std/std",
 ]

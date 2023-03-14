@@ -17,7 +17,7 @@
 //! Relay errors.
 
 use relay_substrate_client as client;
-use sp_finality_grandpa::AuthorityList;
+use sp_consensus_grandpa::AuthorityList;
 use sp_runtime::traits::MaybeDisplay;
 use std::fmt::Debug;
 use thiserror::Error;

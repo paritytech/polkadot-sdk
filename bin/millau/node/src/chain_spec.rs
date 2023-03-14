@@ -19,10 +19,10 @@ use millau_runtime::{
 	BridgeRialtoParachainMessagesConfig, BridgeWestendGrandpaConfig, GenesisConfig, GrandpaConfig,
 	SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
-use sp_beefy::crypto::AuthorityId as BeefyId;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_consensus_beefy::crypto::AuthorityId as BeefyId;
+use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{sr25519, Pair, Public};
-use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 /// "Names" of the authorities accounts at local testnet.

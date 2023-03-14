@@ -22,7 +22,7 @@ bp-header-chain = { path = "../../primitives/header-chain", default-features = f
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
@@ -48,7 +48,7 @@ std = [
 	"frame-benchmarking/std",
 	"log/std",
 	"scale-info/std",
-	"sp-finality-grandpa/std",
+	"sp-consensus-grandpa/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-trie/std",

@@ -17,7 +17,7 @@
 //! Pallet for checking GRANDPA Finality Proofs.
 //!
 //! Adapted copy of substrate/client/finality-grandpa/src/justification.rs. If origin
-//! will ever be moved to the sp_finality_grandpa, we should reuse that implementation.
+//! will ever be moved to the sp_consensus_grandpa, we should reuse that implementation.
 
 use crate::ChainWithGrandpa;
 
@@ -26,7 +26,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use finality_grandpa::voter_set::VoterSet;
 use frame_support::RuntimeDebug;
 use scale_info::TypeInfo;
-use sp_finality_grandpa::{AuthorityId, AuthoritySignature, SetId};
+use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, SetId};
 use sp_runtime::{traits::Header as HeaderT, SaturatedConversion};
 use sp_std::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
@@ -307,7 +307,7 @@ where
 		);
 
 		// verify authority signature
-		if !sp_finality_grandpa::check_message_signature_with_buffer(
+		if !sp_consensus_grandpa::check_message_signature_with_buffer(
 			&finality_grandpa::Message::Precommit(signed.precommit.clone()),
 			&signed.id,
 			&signed.signature,

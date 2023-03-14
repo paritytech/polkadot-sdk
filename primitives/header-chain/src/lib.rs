@@ -29,7 +29,7 @@ use frame_support::PalletError;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_finality_grandpa::{AuthorityList, ConsensusLog, SetId, GRANDPA_ENGINE_ID};
+use sp_consensus_grandpa::{AuthorityList, ConsensusLog, SetId, GRANDPA_ENGINE_ID};
 use sp_runtime::{traits::Header as HeaderT, Digest, RuntimeDebug};
 use sp_std::boxed::Box;
 
@@ -145,7 +145,7 @@ pub struct GrandpaConsensusLogReader<Number>(sp_std::marker::PhantomData<Number>
 impl<Number: Codec> GrandpaConsensusLogReader<Number> {
 	pub fn find_authorities_change(
 		digest: &Digest,
-	) -> Option<sp_finality_grandpa::ScheduledChange<Number>> {
+	) -> Option<sp_consensus_grandpa::ScheduledChange<Number>> {
 		// find the first consensus digest with the right ID which converts to
 		// the right kind of consensus log.
 		digest

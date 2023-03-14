@@ -25,7 +25,7 @@ pub use pallet_mmr::{
 	primitives::{DataOrHash as MmrDataOrHash, Proof as MmrProof},
 	verify_leaves_proof as verify_mmr_leaves_proof,
 };
-pub use sp_beefy::{
+pub use sp_consensus_beefy::{
 	crypto::{AuthorityId as EcdsaValidatorId, AuthoritySignature as EcdsaValidatorSignature},
 	known_payloads::MMR_ROOT_ID as MMR_ROOT_PAYLOAD_ID,
 	mmr::{BeefyAuthoritySet, MmrLeafVersion},
@@ -51,7 +51,7 @@ use sp_std::prelude::*;
 pub trait ChainWithBeefy: Chain {
 	/// The hashing algorithm used to compute the digest of the BEEFY commitment.
 	///
-	/// Corresponds to the hashing algorithm, used by `beefy_gadget::BeefyKeystore`.
+	/// Corresponds to the hashing algorithm, used by `sc_consensus_beefy::BeefyKeystore`.
 	type CommitmentHasher: sp_runtime::traits::Hash;
 
 	/// The hashing algorithm used to build the MMR.
@@ -95,7 +95,7 @@ pub type BeefyAuthorityIdOf<C> = <C as ChainWithBeefy>::AuthorityId;
 /// BEEFY validator set, containing both validator identifiers and the numeric set id.
 pub type BeefyAuthoritySetOf<C> = ValidatorSet<BeefyAuthorityIdOf<C>>;
 /// BEEFY authority set, containing both validator identifiers and the numeric set id.
-pub type BeefyAuthoritySetInfoOf<C> = sp_beefy::mmr::BeefyAuthoritySet<MmrHashOf<C>>;
+pub type BeefyAuthoritySetInfoOf<C> = sp_consensus_beefy::mmr::BeefyAuthoritySet<MmrHashOf<C>>;
 /// BEEFY validator signature used by given Substrate chain.
 pub type BeefyValidatorSignatureOf<C> =
 	<<C as ChainWithBeefy>::AuthorityId as RuntimeAppPublic>::Signature;
@@ -116,8 +116,12 @@ pub type BeefyMmrLeafExtraOf<C> = <C as ChainWithBeefy>::BeefyMmrLeafExtra;
 /// the given Substrate chain.
 pub type BeefyAuthorityIdToMerkleLeafOf<C> = <C as ChainWithBeefy>::AuthorityIdToMerkleLeaf;
 /// Actual type of leafs in the BEEFY MMR.
-pub type BeefyMmrLeafOf<C> =
-	sp_beefy::mmr::MmrLeaf<BlockNumberOf<C>, HashOf<C>, MmrHashOf<C>, BeefyMmrLeafExtraOf<C>>;
+pub type BeefyMmrLeafOf<C> = sp_consensus_beefy::mmr::MmrLeaf<
+	BlockNumberOf<C>,
+	HashOf<C>,
+	MmrHashOf<C>,
+	BeefyMmrLeafExtraOf<C>,
+>;
 
 /// Data required for initializing the BEEFY pallet.
 ///

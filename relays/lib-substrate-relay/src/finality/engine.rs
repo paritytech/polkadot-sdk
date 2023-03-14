@@ -30,8 +30,8 @@ use relay_substrate_client::{
 	BlockNumberOf, Chain, ChainWithGrandpa, Client, Error as SubstrateError, HashOf, HeaderOf,
 	Subscription, SubstrateFinalityClient, SubstrateGrandpaFinalityClient,
 };
+use sp_consensus_grandpa::{AuthorityList as GrandpaAuthoritiesSet, GRANDPA_ENGINE_ID};
 use sp_core::{storage::StorageKey, Bytes};
-use sp_finality_grandpa::{AuthorityList as GrandpaAuthoritiesSet, GRANDPA_ENGINE_ID};
 use sp_runtime::{traits::Header, ConsensusEngineId};
 use std::marker::PhantomData;
 
@@ -155,8 +155,8 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 			C::WITH_CHAIN_GRANDPA_PALLET_NAME,
 		);
 		let (authority_set, authority_set_id): (
-			sp_finality_grandpa::AuthorityList,
-			sp_finality_grandpa::SetId,
+			sp_consensus_grandpa::AuthorityList,
+			sp_consensus_grandpa::SetId,
 		) = target_client
 			.storage_value(current_authority_set_key, None)
 			.await?

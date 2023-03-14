@@ -7034,7 +7034,7 @@ pub mod api {
 				)]
 				pub struct StoredAuthoritySet {
 					pub authorities: runtime_types::sp_core::bounded::bounded_vec::BoundedVec<(
-						runtime_types::sp_finality_grandpa::app::Public,
+						runtime_types::sp_consensus_grandpa::app::Public,
 						::core::primitive::u64,
 					)>,
 					pub set_id: ::core::primitive::u64,
@@ -8115,7 +8115,7 @@ pub mod api {
 				pub struct Signature(pub [::core::primitive::u8; 64usize]);
 			}
 		}
-		pub mod sp_finality_grandpa {
+		pub mod sp_consensus_grandpa {
 			use super::runtime_types;
 			pub mod app {
 				use super::runtime_types;
