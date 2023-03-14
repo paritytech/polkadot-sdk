@@ -178,7 +178,6 @@ pub mod pallet {
 		>>::MessagesDeliveryProof;
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	impl<T: Config<I>, I: 'static> OwnedBridgeModule<T> for Pallet<T, I> {
