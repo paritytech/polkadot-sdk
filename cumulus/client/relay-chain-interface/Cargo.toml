@@ -15,7 +15,7 @@ sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 futures = "0.3.26"
-async-trait = "0.1.63"
+async-trait = "0.1.66"
 thiserror = "1.0.38"
 jsonrpsee-core = "0.16.2"
 parity-scale-codec = "3.4.0"
