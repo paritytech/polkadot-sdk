@@ -95,7 +95,7 @@ substrate-build-script-utils = { git = "https://github.com/paritytech/substrate"
 assert_cmd = "2.0"
 nix = { version = "0.26.1", features = ["signal"] }
 tempfile = "3.4.0"
-tokio = { version = "1.25.0", features = ["macros", "time", "parking_lot"] }
+tokio = { version = "1.26.0", features = ["macros", "time", "parking_lot"] }
 wait-timeout = "0.2"
 # purge_chain_works works with rococo-local and needs to allow this
 polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "master", features = ["rococo-native"] }
