@@ -45,17 +45,20 @@ fn calling_runtime_function() {
 }
 
 #[test]
-fn calling_native_runtime_signature_changed_function() {
+fn calling_runtime_signature_changed_old_function() {
 	let client = TestClientBuilder::new().build();
 	let runtime_api = client.runtime_api();
 	let best_hash = client.chain_info().best_hash;
 
-	assert_eq!(runtime_api.function_signature_changed(best_hash).unwrap(), 1);
+	#[allow(deprecated)]
+	let res = runtime_api.function_signature_changed_before_version_2(best_hash).unwrap();
+	assert_eq!(&res, &[1, 2]);
 }
 
 #[test]
 fn use_trie_function() {
-	let client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new()
+		.build();
 	let runtime_api = client.runtime_api();
 	let best_hash = client.chain_info().best_hash;
 	assert_eq!(runtime_api.use_trie(best_hash).unwrap(), 2);
@@ -83,7 +86,8 @@ fn initialize_block_works() {
 
 #[test]
 fn record_proof_works() {
-	let (client, longest_chain) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, longest_chain) = TestClientBuilder::new()
+		.build_with_longest_chain();
 
 	let storage_root =
 		*futures::executor::block_on(longest_chain.best_chain()).unwrap().state_root();
