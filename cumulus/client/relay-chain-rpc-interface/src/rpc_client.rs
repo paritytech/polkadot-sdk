@@ -30,11 +30,11 @@ use sp_storage::StorageKey;
 
 use cumulus_primitives_core::{
 	relay_chain::{
-		vstaging::ExecutorParams, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-		CommittedCandidateReceipt, CoreState, DisputeState, GroupRotationInfo, Hash as RelayHash,
-		Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption, PvfCheckStatement,
-		ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-		ValidatorId, ValidatorIndex, ValidatorSignature,
+		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
+		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
+		PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
+		ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };

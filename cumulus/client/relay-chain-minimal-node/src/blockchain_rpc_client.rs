@@ -234,7 +234,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		&self,
 		at: Hash,
 		session_index: polkadot_primitives::SessionIndex,
-	) -> Result<Option<polkadot_primitives::vstaging::ExecutorParams>, sp_api::ApiError> {
+	) -> Result<Option<polkadot_primitives::ExecutorParams>, sp_api::ApiError> {
 		Ok(self
 			.rpc_client
 			.parachain_host_session_executor_params(at, session_index)
