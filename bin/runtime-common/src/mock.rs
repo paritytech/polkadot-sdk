@@ -107,7 +107,7 @@ frame_support::construct_runtime! {
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>},
-		BridgeGrandpa: pallet_bridge_grandpa::{Pallet, Call, Storage},
+		BridgeGrandpa: pallet_bridge_grandpa::{Pallet, Call, Storage, Event<T>},
 		BridgeParachains: pallet_bridge_parachains::{Pallet, Call, Storage, Event<T>},
 		BridgeMessages: pallet_bridge_messages::{Pallet, Call, Storage, Event<T>, Config<T>},
 	}
@@ -194,6 +194,7 @@ impl pallet_transaction_payment::Config for TestRuntime {
 }
 
 impl pallet_bridge_grandpa::Config for TestRuntime {
+	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = BridgedUnderlyingChain;
 	type MaxRequests = ConstU32<50>;
 	type HeadersToKeep = ConstU32<8>;

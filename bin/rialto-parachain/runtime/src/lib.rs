@@ -525,6 +525,7 @@ impl pallet_bridge_relayers::Config for Runtime {
 
 pub type MillauGrandpaInstance = ();
 impl pallet_bridge_grandpa::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = bp_millau::Millau;
 	/// This is a pretty unscientific cap.
 	///
@@ -604,7 +605,7 @@ construct_runtime!(
 
 		// Millau bridge modules.
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>},
-		BridgeMillauGrandpa: pallet_bridge_grandpa::{Pallet, Call, Storage},
+		BridgeMillauGrandpa: pallet_bridge_grandpa::{Pallet, Call, Storage, Event<T>},
 		BridgeMillauMessages: pallet_bridge_messages::{Pallet, Call, Storage, Event<T>, Config<T>},
 	}
 );

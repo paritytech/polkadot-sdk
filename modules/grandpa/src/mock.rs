@@ -49,7 +49,7 @@ construct_runtime! {
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Grandpa: grandpa::{Pallet, Call},
+		Grandpa: grandpa::{Pallet, Call, Event<T>},
 	}
 }
 
@@ -69,7 +69,7 @@ impl frame_system::Config for TestRuntime {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type RuntimeEvent = ();
+	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = ConstU64<250>;
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -94,6 +94,7 @@ parameter_types! {
 }
 
 impl grandpa::Config for TestRuntime {
+	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = TestBridgedChain;
 	type MaxRequests = MaxRequests;
 	type HeadersToKeep = HeadersToKeep;

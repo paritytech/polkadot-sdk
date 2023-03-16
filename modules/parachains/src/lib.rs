@@ -735,14 +735,18 @@ mod tests {
 			},
 		)
 		.unwrap();
+
+		System::<TestRuntime>::set_block_number(1);
+		System::<TestRuntime>::reset_events();
 	}
 
-	fn proceed(num: RelayBlockNumber, state_root: RelayBlockHash) {
+	fn proceed(num: RelayBlockNumber, state_root: RelayBlockHash) -> ParaHash {
 		pallet_bridge_grandpa::Pallet::<TestRuntime, BridgesGrandpaPalletInstance>::on_initialize(
 			0,
 		);
 
 		let header = test_relay_header(num, state_root);
+		let hash = header.hash();
 		let justification = make_default_justification(&header);
 		assert_ok!(
 			pallet_bridge_grandpa::Pallet::<TestRuntime, BridgesGrandpaPalletInstance>::submit_finality_proof(
@@ -751,6 +755,8 @@ mod tests {
 				justification,
 			)
 		);
+
+		hash
 	}
 
 	fn prepare_parachain_heads_proof(
@@ -1010,7 +1016,7 @@ mod tests {
 			);
 
 			// import head#10 of parachain#1 at relay block #1
-			proceed(1, state_root_10);
+			let relay_1_hash = proceed(1, state_root_10);
 			assert_ok!(import_parachain_1_head(1, state_root_10, parachains_10, proof_10));
 			assert_eq!(
 				ParasInfo::<TestRuntime>::get(ParaId(1)),
@@ -1041,6 +1047,16 @@ mod tests {
 							parachain: ParaId(1),
 							parachain_head_hash: head_data(1, 5).hash(),
 						}),
+						topics: vec![],
+					},
+					EventRecord {
+						phase: Phase::Initialization,
+						event: TestEvent::Grandpa1(
+							pallet_bridge_grandpa::Event::UpdatedBestFinalizedHeader {
+								number: 1,
+								hash: relay_1_hash,
+							}
+						),
 						topics: vec![],
 					},
 					EventRecord {
@@ -1155,7 +1171,7 @@ mod tests {
 
 			// try to import head#0 of parachain#1 at relay block#1
 			// => call succeeds, but nothing is changed
-			proceed(1, state_root);
+			let relay_1_hash = proceed(1, state_root);
 			assert_ok!(import_parachain_1_head(1, state_root, parachains, proof));
 			assert_eq!(ParasInfo::<TestRuntime>::get(ParaId(1)), Some(initial_best_head(1)));
 			assert_eq!(
@@ -1167,6 +1183,16 @@ mod tests {
 							parachain: ParaId(1),
 							parachain_head_hash: initial_best_head(1).best_head_hash.head_hash,
 						}),
+						topics: vec![],
+					},
+					EventRecord {
+						phase: Phase::Initialization,
+						event: TestEvent::Grandpa1(
+							pallet_bridge_grandpa::Event::UpdatedBestFinalizedHeader {
+								number: 1,
+								hash: relay_1_hash,
+							}
+						),
 						topics: vec![],
 					},
 					EventRecord {
@@ -1193,7 +1219,7 @@ mod tests {
 			initialize(state_root_5);
 
 			// head#10 of parachain#1 at relay block#1
-			proceed(1, state_root_10);
+			let relay_1_hash = proceed(1, state_root_10);
 			assert_ok!(import_parachain_1_head(1, state_root_10, parachains_10, proof_10));
 			assert_eq!(
 				ParasInfo::<TestRuntime>::get(ParaId(1)),
@@ -1207,14 +1233,26 @@ mod tests {
 			);
 			assert_eq!(
 				System::<TestRuntime>::events(),
-				vec![EventRecord {
-					phase: Phase::Initialization,
-					event: TestEvent::Parachains(Event::UpdatedParachainHead {
-						parachain: ParaId(1),
-						parachain_head_hash: head_data(1, 10).hash(),
-					}),
-					topics: vec![],
-				}],
+				vec![
+					EventRecord {
+						phase: Phase::Initialization,
+						event: TestEvent::Grandpa1(
+							pallet_bridge_grandpa::Event::UpdatedBestFinalizedHeader {
+								number: 1,
+								hash: relay_1_hash,
+							}
+						),
+						topics: vec![],
+					},
+					EventRecord {
+						phase: Phase::Initialization,
+						event: TestEvent::Parachains(Event::UpdatedParachainHead {
+							parachain: ParaId(1),
+							parachain_head_hash: head_data(1, 10).hash(),
+						}),
+						topics: vec![],
+					}
+				],
 			);
 
 			// now try to import head#5 at relay block#0
@@ -1233,6 +1271,16 @@ mod tests {
 			assert_eq!(
 				System::<TestRuntime>::events(),
 				vec![
+					EventRecord {
+						phase: Phase::Initialization,
+						event: TestEvent::Grandpa1(
+							pallet_bridge_grandpa::Event::UpdatedBestFinalizedHeader {
+								number: 1,
+								hash: relay_1_hash,
+							}
+						),
+						topics: vec![],
+					},
 					EventRecord {
 						phase: Phase::Initialization,
 						event: TestEvent::Parachains(Event::UpdatedParachainHead {
