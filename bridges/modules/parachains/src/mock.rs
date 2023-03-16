@@ -150,8 +150,8 @@ construct_runtime! {
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Grandpa1: pallet_bridge_grandpa::<Instance1>::{Pallet},
-		Grandpa2: pallet_bridge_grandpa::<Instance2>::{Pallet},
+		Grandpa1: pallet_bridge_grandpa::<Instance1>::{Pallet, Event<T>},
+		Grandpa2: pallet_bridge_grandpa::<Instance2>::{Pallet, Event<T>},
 		Parachains: pallet_bridge_parachains::{Call, Pallet, Event<T>},
 	}
 }
@@ -197,6 +197,7 @@ parameter_types! {
 }
 
 impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance1> for TestRuntime {
+	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = TestBridgedChain;
 	type MaxRequests = ConstU32<2>;
 	type HeadersToKeep = HeadersToKeep;
@@ -204,6 +205,7 @@ impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance1> for TestRun
 }
 
 impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance2> for TestRuntime {
+	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = TestBridgedChain;
 	type MaxRequests = ConstU32<2>;
 	type HeadersToKeep = HeadersToKeep;
