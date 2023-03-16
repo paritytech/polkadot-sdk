@@ -96,6 +96,10 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
+		/// The overarching event type.
+		type RuntimeEvent: From<Event<Self, I>>
+			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
 		/// The chain we are bridging to here.
 		type BridgedChain: ChainWithGrandpa;
 
@@ -164,19 +168,19 @@ pub mod pallet {
 
 			ensure!(Self::request_count() < T::MaxRequests::get(), <Error<T, I>>::TooManyRequests);
 
-			let (hash, number) = (finality_target.hash(), finality_target.number());
+			let (hash, number) = (finality_target.hash(), *finality_target.number());
 			log::trace!(
 				target: LOG_TARGET,
 				"Going to try and finalize header {:?}",
 				finality_target
 			);
 
-			SubmitFinalityProofHelper::<T, I>::check_obsolete(*number)?;
+			SubmitFinalityProofHelper::<T, I>::check_obsolete(number)?;
 
 			let authority_set = <CurrentAuthoritySet<T, I>>::get();
 			let unused_proof_size = authority_set.unused_proof_size();
 			let set_id = authority_set.set_id;
-			verify_justification::<T, I>(&justification, hash, *number, authority_set.into())?;
+			verify_justification::<T, I>(&justification, hash, number, authority_set.into())?;
 
 			let is_authorities_change_enacted =
 				try_enact_authority_change::<T, I>(&finality_target, set_id)?;
@@ -211,6 +215,8 @@ pub mod pallet {
 			);
 			let actual_weight = pre_dispatch_weight
 				.set_proof_size(pre_dispatch_weight.proof_size().saturating_sub(unused_proof_size));
+
+			Self::deposit_event(Event::UpdatedBestFinalizedHeader { number, hash });
 
 			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee })
 		}
@@ -368,6 +374,16 @@ pub mod pallet {
 				<PalletOperatingMode<T, I>>::put(BasicOperatingMode::Halted);
 			}
 		}
+	}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config<I>, I: 'static = ()> {
+		/// Best finalized chain header has been updated to the header with given number and hash.
+		UpdatedBestFinalizedHeader {
+			number: BridgedBlockNumber<T, I>,
+			hash: BridgedBlockHash<T, I>,
+		},
 	}
 
 	#[pallet::error]
@@ -635,8 +651,8 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static>(header: BridgedHeader
 mod tests {
 	use super::*;
 	use crate::mock::{
-		run_test, test_header, RuntimeOrigin, TestBridgedChain, TestHeader, TestNumber,
-		TestRuntime, MAX_BRIDGED_AUTHORITIES,
+		run_test, test_header, RuntimeEvent as TestEvent, RuntimeOrigin, System, TestBridgedChain,
+		TestHeader, TestNumber, TestRuntime, MAX_BRIDGED_AUTHORITIES,
 	};
 	use bp_header_chain::BridgeGrandpaCall;
 	use bp_runtime::BasicOperatingMode;
@@ -649,10 +665,14 @@ mod tests {
 		assert_err, assert_noop, assert_ok, dispatch::PostDispatchInfo,
 		storage::generator::StorageValue,
 	};
+	use frame_system::{EventRecord, Phase};
 	use sp_core::Get;
 	use sp_runtime::{Digest, DigestItem, DispatchError};
 
 	fn initialize_substrate_bridge() {
+		System::set_block_number(1);
+		System::reset_events();
+
 		assert_ok!(init_with_origin(RuntimeOrigin::root()));
 	}
 
@@ -847,6 +867,18 @@ mod tests {
 			let header = test_header(1);
 			assert_eq!(<BestFinalized<TestRuntime>>::get().unwrap().1, header.hash());
 			assert!(<ImportedHeaders<TestRuntime>>::contains_key(header.hash()));
+
+			assert_eq!(
+				System::events(),
+				vec![EventRecord {
+					phase: Phase::Initialization,
+					event: TestEvent::Grandpa(Event::UpdatedBestFinalizedHeader {
+						number: *header.number(),
+						hash: header.hash(),
+					}),
+					topics: vec![],
+				}],
+			);
 		})
 	}
 
