@@ -393,6 +393,7 @@ impl pallet_bridge_relayers::Config for Runtime {
 
 pub type RialtoGrandpaInstance = ();
 impl pallet_bridge_grandpa::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = bp_rialto::Rialto;
 	// This is a pretty unscientific cap.
 	//
@@ -405,6 +406,7 @@ impl pallet_bridge_grandpa::Config for Runtime {
 
 pub type WestendGrandpaInstance = pallet_bridge_grandpa::Instance1;
 impl pallet_bridge_grandpa::Config<WestendGrandpaInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = bp_westend::Westend;
 	type MaxRequests = ConstU32<50>;
 	type HeadersToKeep = ConstU32<{ bp_westend::DAYS }>;
@@ -559,11 +561,11 @@ construct_runtime!(
 
 		// Rialto bridge modules.
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>},
-		BridgeRialtoGrandpa: pallet_bridge_grandpa::{Pallet, Call, Storage},
+		BridgeRialtoGrandpa: pallet_bridge_grandpa::{Pallet, Call, Storage, Event<T>},
 		BridgeRialtoMessages: pallet_bridge_messages::{Pallet, Call, Storage, Event<T>, Config<T>},
 
 		// Westend bridge modules.
-		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Config<T>, Storage},
+		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Config<T>, Storage, Event<T>},
 		BridgeWestendParachains: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage, Event<T>},
 
 		// RialtoParachain bridge modules.
