@@ -19,17 +19,14 @@
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
-pub use bp_bridge_hub_rococo::rewarding_bridge_signed_extension;
+pub use bp_bridge_hub_rococo::SignedExtension;
 pub use bp_header_chain::BridgeGrandpaCallOf;
 pub use bp_parachains::BridgeParachainCall;
 pub use bridge_runtime_common::messages::BridgeMessagesCallOf;
 pub use relay_substrate_client::calls::{SystemCall, UtilityCall};
 
 /// Unchecked BridgeHubRococo extrinsic.
-pub type UncheckedExtrinsic = bp_bridge_hub_rococo::UncheckedExtrinsic<
-	Call,
-	rewarding_bridge_signed_extension::RewardingBridgeSignedExtension,
->;
+pub type UncheckedExtrinsic = bp_bridge_hub_rococo::UncheckedExtrinsic<Call, SignedExtension>;
 
 // The indirect pallet call used to sync `Wococo` GRANDPA finality to `BHRococo`.
 pub type BridgeWococoGrandpaCall = BridgeGrandpaCallOf<bp_wococo::Wococo>;

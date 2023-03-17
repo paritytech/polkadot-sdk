@@ -28,14 +28,19 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use crate::millau_messages::{WithMillauMessageBridge, XCM_LANE};
 
-use bridge_runtime_common::messages::source::{XcmBridge, XcmBridgeAdapter};
+use bridge_runtime_common::{
+	generate_bridge_reject_obsolete_headers_and_messages,
+	messages::source::{XcmBridge, XcmBridgeAdapter},
+};
+use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::AnyRelayNumber;
+use scale_info::TypeInfo;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, Block as BlockT},
-	transaction_validity::{TransactionSource, TransactionValidity},
+	traits::{AccountIdLookup, Block as BlockT, DispatchInfoOf, SignedExtension},
+	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
 	ApplyExtrinsicResult,
 };
 
@@ -93,6 +98,44 @@ use xcm_executor::{Config, XcmExecutor};
 
 pub mod millau_messages;
 
+// generate signed extension that rejects obsolete bridge transactions
+generate_bridge_reject_obsolete_headers_and_messages! {
+	RuntimeCall, AccountId,
+	// Grandpa
+	BridgeMillauGrandpa,
+	// Messages
+	BridgeMillauMessages
+}
+
+/// Dummy signed extension that does nothing.
+///
+/// We're using it to have the same set of signed extensions on all parachains with bridge pallets
+/// deployed (bridge hubs and rialto parachain).
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
+pub struct DummyBridgeRefundMillauMessages;
+
+impl SignedExtension for DummyBridgeRefundMillauMessages {
+	const IDENTIFIER: &'static str = "DummyBridgeRefundMillauMessages";
+	type AccountId = AccountId;
+	type Call = RuntimeCall;
+	type AdditionalSigned = ();
+	type Pre = ();
+
+	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
+		Ok(())
+	}
+
+	fn pre_dispatch(
+		self,
+		_who: &Self::AccountId,
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		Ok(())
+	}
+}
+
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
 /// Block type as expected by this runtime.
@@ -111,6 +154,8 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	BridgeRejectObsoleteHeadersAndMessages,
+	DummyBridgeRefundMillauMessages,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
@@ -909,9 +954,11 @@ mod tests {
 			frame_system::CheckNonce::from(10),
 			frame_system::CheckWeight::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::from(10),
+			BridgeRejectObsoleteHeadersAndMessages,
+			DummyBridgeRefundMillauMessages,
 		);
 		let indirect_payload = bp_rialto_parachain::SignedExtension::new(
-			((), (), (), (), Era::Immortal, 10.into(), (), 10.into()),
+			((), (), (), (), Era::Immortal, 10.into(), (), 10.into(), (), ()),
 			None,
 		);
 		assert_eq!(payload.encode(), indirect_payload.encode());
