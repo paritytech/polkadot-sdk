@@ -40,7 +40,7 @@ use sp_consensus::{EnableProofRecording, Environment, ProofRecording, Proposer, 
 use sp_consensus_aura::{AuraApi, SlotDuration};
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
-use sp_keystore::SyncCryptoStorePtr;
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, NumberFor};
 use std::{convert::TryFrom, hash::Hash, marker::PhantomData, sync::Arc};
 
@@ -79,7 +79,7 @@ pub struct BuildAuraConsensusParams<PF, BI, CIDP, Client, BS, SO> {
 	pub para_client: Arc<Client>,
 	pub backoff_authoring_blocks: Option<BS>,
 	pub sync_oracle: SO,
-	pub keystore: SyncCryptoStorePtr,
+	pub keystore: KeystorePtr,
 	pub force_authoring: bool,
 	pub slot_duration: SlotDuration,
 	pub telemetry: Option<TelemetryHandle>,
