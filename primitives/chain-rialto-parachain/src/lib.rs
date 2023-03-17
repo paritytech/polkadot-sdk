@@ -133,7 +133,9 @@ impl Parachain for RialtoParachain {
 	const PARACHAIN_ID: u32 = RIALTO_PARACHAIN_ID;
 }
 
-pub use bp_polkadot_core::DefaultSignedExtension as SignedExtension;
+// Technically this is incorrect, because rialto-parachain isn't a bridge hub, but we're
+// trying to keep it close to the bridge hubs code (at least in this aspect).
+pub use bp_bridge_hub_cumulus::SignedExtension;
 
 frame_support::parameter_types! {
 	pub BlockLength: limits::BlockLength =
