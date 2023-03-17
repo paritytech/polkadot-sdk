@@ -3,7 +3,7 @@ use core::{marker::PhantomData, ops::ControlFlow};
 use frame_support::{
 	log,
 	traits::{fungibles::Inspect, tokens::BalanceConversion, ContainsPair},
-	weights::{Weight, WeightToFee, WeightToFeePolynomial},
+	weights::Weight,
 };
 use sp_runtime::traits::Get;
 use xcm::{latest::prelude::*, CreateMatcher, MatchXcm};
@@ -95,7 +95,7 @@ impl<CurrencyBalance, Runtime, WeightToFee, BalanceConverter, AssetInstance>
 	> for AssetFeeAsExistentialDepositMultiplier<Runtime, WeightToFee, BalanceConverter, AssetInstance>
 where
 	Runtime: pallet_assets::Config<AssetInstance>,
-	WeightToFee: WeightToFeePolynomial<Balance = CurrencyBalance>,
+	WeightToFee: frame_support::weights::WeightToFee<Balance = CurrencyBalance>,
 	BalanceConverter: BalanceConversion<
 		CurrencyBalance,
 		<Runtime as pallet_assets::Config<AssetInstance>>::AssetId,
