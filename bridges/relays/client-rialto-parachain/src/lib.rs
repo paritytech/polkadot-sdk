@@ -18,8 +18,8 @@
 
 pub mod codegen_runtime;
 
+use bp_bridge_hub_cumulus::BridgeHubSignedExtension;
 use bp_messages::MessageNonce;
-use bp_polkadot_core::PolkadotSignedExtension;
 use bp_runtime::ChainId;
 use codec::Encode;
 use relay_substrate_client::{

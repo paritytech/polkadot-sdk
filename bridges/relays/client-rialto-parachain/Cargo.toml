@@ -12,6 +12,7 @@ subxt = { git = "https://github.com/paritytech/subxt", branch = "master", defaul
 
 # Bridge dependencies
 
+bp-bridge-hub-cumulus = { path = "../../primitives/chain-bridge-hub-cumulus" }
 bp-header-chain = { path = "../../primitives/header-chain" }
 bp-messages = { path = "../../primitives/messages" }
 bp-millau = { path = "../../primitives/chain-millau" }

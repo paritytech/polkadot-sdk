@@ -16,7 +16,6 @@
 
 //! Primitives that may be used for creating signed extensions for indirect runtimes.
 
-use crate::{BalanceOf, HashOf};
 use codec::{Compact, Decode, Encode};
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{StaticTypeInfo, TypeInfo};
@@ -59,19 +58,19 @@ pub type CheckSpecVersion = GenericSignedExtensionSchema<(), u32>;
 pub type CheckTxVersion = GenericSignedExtensionSchema<(), u32>;
 
 /// The `SignedExtensionSchema` for `frame_system::CheckGenesis`.
-pub type CheckGenesis<C> = GenericSignedExtensionSchema<(), HashOf<C>>;
+pub type CheckGenesis<Hash> = GenericSignedExtensionSchema<(), Hash>;
 
 /// The `SignedExtensionSchema` for `frame_system::CheckEra`.
-pub type CheckEra<C> = GenericSignedExtensionSchema<sp_runtime::generic::Era, HashOf<C>>;
+pub type CheckEra<Hash> = GenericSignedExtensionSchema<sp_runtime::generic::Era, Hash>;
 
 /// The `SignedExtensionSchema` for `frame_system::CheckNonce`.
-pub type CheckNonce<TxIndex> = GenericSignedExtensionSchema<Compact<TxIndex>, ()>;
+pub type CheckNonce<TxNonce> = GenericSignedExtensionSchema<Compact<TxNonce>, ()>;
 
 /// The `SignedExtensionSchema` for `frame_system::CheckWeight`.
 pub type CheckWeight = GenericSignedExtensionSchema<(), ()>;
 
 /// The `SignedExtensionSchema` for `pallet_transaction_payment::ChargeTransactionPayment`.
-pub type ChargeTransactionPayment<C> = GenericSignedExtensionSchema<Compact<BalanceOf<C>>, ()>;
+pub type ChargeTransactionPayment<Balance> = GenericSignedExtensionSchema<Compact<Balance>, ()>;
 
 /// The `SignedExtensionSchema` for `BridgeRejectObsoleteHeadersAndMessages`.
 pub type BridgeRejectObsoleteHeadersAndMessages = GenericSignedExtensionSchema<(), ()>;
