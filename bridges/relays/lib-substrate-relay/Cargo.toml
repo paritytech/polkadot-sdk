@@ -24,7 +24,7 @@ bp-polkadot-core = { path = "../../primitives/polkadot-core" }
 bp-relayers = { path = "../../primitives/relayers" }
 bridge-runtime-common = { path = "../../bin/runtime-common" }
 
-finality-grandpa = { version = "0.16.0" }
+finality-grandpa = { version = "0.16.2" }
 finality-relay = { path = "../finality" }
 parachains-relay = { path = "../parachains" }
 relay-utils = { path = "../utils" }
