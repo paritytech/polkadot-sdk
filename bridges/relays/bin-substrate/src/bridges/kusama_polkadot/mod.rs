@@ -14,16 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Substrate-to-substrate relay entrypoint.
+//! Declaration of all bridges between Kusama Bridge Hub and Polkadot Bridge Hub.
 
-#![warn(missing_docs)]
-
-mod bridges;
-mod chains;
-mod cli;
-
-fn main() {
-	let command = cli::parse_args();
-	let run = command.run();
-	async_std::task::block_on(run);
-}
+pub mod bridge_hub_kusama_messages_to_bridge_hub_polkadot;
+pub mod bridge_hub_polkadot_messages_to_bridge_hub_kusama;
+pub mod kusama_headers_to_bridge_hub_polkadot;
+pub mod kusama_parachains_to_bridge_hub_polkadot;
+pub mod polkadot_headers_to_bridge_hub_kusama;
+pub mod polkadot_parachains_to_bridge_hub_kusama;

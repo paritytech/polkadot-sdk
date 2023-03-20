@@ -56,6 +56,9 @@ impl ChainWithGrandpa for Kusama {
 	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = AVERAGE_HEADER_SIZE_IN_JUSTIFICATION;
 }
 
+/// Name of the parachains pallet in the Kusama runtime.
+pub const PARAS_PALLET_NAME: &str = "Paras";
+
 /// Name of the With-Kusama GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_KUSAMA_GRANDPA_PALLET_NAME: &str = "BridgeKusamaGrandpa";
 

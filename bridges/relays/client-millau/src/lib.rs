@@ -57,8 +57,6 @@ impl ChainWithMessages for Millau {
 impl Chain for Millau {
 	const ID: ChainId = bp_runtime::MILLAU_CHAIN_ID;
 	const NAME: &'static str = "Millau";
-	// Rialto token has no value, but we associate it with KSM token
-	const TOKEN_ID: Option<&'static str> = Some("kusama");
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_millau::BEST_FINALIZED_MILLAU_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);

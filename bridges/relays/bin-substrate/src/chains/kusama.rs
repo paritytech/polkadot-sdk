@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright 2022 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -14,16 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Substrate-to-substrate relay entrypoint.
+//! Kusama + Kusama parachains specification for CLI.
 
-#![warn(missing_docs)]
+use crate::cli::CliChain;
+use relay_bridge_hub_kusama_client::BridgeHubKusama;
+use relay_kusama_client::Kusama;
+use relay_substrate_client::SimpleRuntimeVersion;
 
-mod bridges;
-mod chains;
-mod cli;
+impl CliChain for Kusama {
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> = None;
+}
 
-fn main() {
-	let command = cli::parse_args();
-	let run = command.run();
-	async_std::task::block_on(run);
+impl CliChain for BridgeHubKusama {
+	// TODO: fix me (https://github.com/paritytech/parity-bridges-common/issues/1945)
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
+		Some(SimpleRuntimeVersion { spec_version: 4242, transaction_version: 42 });
 }
