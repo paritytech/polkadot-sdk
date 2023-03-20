@@ -39,13 +39,19 @@ use relay_to_parachain::*;
 use relay_to_relay::*;
 
 use crate::{
-	chains::{
-		millau_headers_to_rialto::MillauToRialtoCliBridge,
-		millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
-		rialto_headers_to_millau::RialtoToMillauCliBridge,
-		rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
-		rococo_parachains_to_bridge_hub_wococo::BridgeHubRococoToBridgeHubWococoCliBridge,
-		wococo_parachains_to_bridge_hub_rococo::BridgeHubWococoToBridgeHubRococoCliBridge,
+	bridges::{
+		rialto_millau::{
+			millau_headers_to_rialto::MillauToRialtoCliBridge,
+			rialto_headers_to_millau::RialtoToMillauCliBridge,
+		},
+		rialto_parachain_millau::{
+			millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
+			rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
+		},
+		rococo_wococo::{
+			rococo_parachains_to_bridge_hub_wococo::BridgeHubRococoToBridgeHubWococoCliBridge,
+			wococo_parachains_to_bridge_hub_rococo::BridgeHubWococoToBridgeHubRococoCliBridge,
+		},
 	},
 	cli::{
 		bridge::{

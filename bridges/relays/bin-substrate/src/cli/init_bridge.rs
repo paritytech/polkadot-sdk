@@ -18,13 +18,17 @@ use async_trait::async_trait;
 use codec::Encode;
 
 use crate::{
-	chains::{
-		millau_headers_to_rialto::MillauToRialtoCliBridge,
-		millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
-		rialto_headers_to_millau::RialtoToMillauCliBridge,
-		rococo_headers_to_bridge_hub_wococo::RococoToBridgeHubWococoCliBridge,
-		westend_headers_to_millau::WestendToMillauCliBridge,
-		wococo_headers_to_bridge_hub_rococo::WococoToBridgeHubRococoCliBridge,
+	bridges::{
+		rialto_millau::{
+			millau_headers_to_rialto::MillauToRialtoCliBridge,
+			rialto_headers_to_millau::RialtoToMillauCliBridge,
+		},
+		rialto_parachain_millau::millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
+		rococo_wococo::{
+			rococo_headers_to_bridge_hub_wococo::RococoToBridgeHubWococoCliBridge,
+			wococo_headers_to_bridge_hub_rococo::WococoToBridgeHubRococoCliBridge,
+		},
+		westend_millau::westend_headers_to_millau::WestendToMillauCliBridge,
 	},
 	cli::{bridge::CliBridgeBase, chain_schema::*},
 };

@@ -61,7 +61,7 @@ impl ParachainToRelayHeadersCliBridge for BridgeHubWococoToBridgeHubRococoCliBri
 	type SourceRelay = relay_wococo_client::Wococo;
 	type ParachainFinality = BridgeHubWococoToBridgeHubRococo;
 	type RelayFinality =
-		crate::chains::wococo_headers_to_bridge_hub_rococo::WococoFinalityToBridgeHubRococo;
+		crate::bridges::rococo_wococo::wococo_headers_to_bridge_hub_rococo::WococoFinalityToBridgeHubRococo;
 }
 
 impl CliBridgeBase for BridgeHubWococoToBridgeHubRococoCliBridge {
@@ -71,5 +71,5 @@ impl CliBridgeBase for BridgeHubWococoToBridgeHubRococoCliBridge {
 
 impl MessagesCliBridge for BridgeHubWococoToBridgeHubRococoCliBridge {
 	type MessagesLane =
-	crate::chains::bridge_hub_wococo_messages_to_bridge_hub_rococo::BridgeHubWococoMessagesToBridgeHubRococoMessageLane;
+	crate::bridges::rococo_wococo::bridge_hub_wococo_messages_to_bridge_hub_rococo::BridgeHubWococoMessagesToBridgeHubRococoMessageLane;
 }
