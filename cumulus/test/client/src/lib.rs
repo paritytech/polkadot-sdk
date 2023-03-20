@@ -165,7 +165,7 @@ pub fn transfer(
 	dest: sp_keyring::AccountKeyring,
 	value: Balance,
 ) -> UncheckedExtrinsic {
-	let function = RuntimeCall::Balances(pallet_balances::Call::transfer {
+	let function = RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 		dest: dest.public().into(),
 		value,
 	});

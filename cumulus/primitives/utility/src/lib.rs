@@ -121,7 +121,7 @@ pub struct TakeFirstAssetTrader<
 	AccountId,
 	FeeCharger: ChargeWeightInFungibles<AccountId, ConcreteAssets>,
 	Matcher: MatchesFungibles<ConcreteAssets::AssetId, ConcreteAssets::Balance>,
-	ConcreteAssets: fungibles::Mutate<AccountId> + fungibles::Transfer<AccountId> + fungibles::Balanced<AccountId>,
+	ConcreteAssets: fungibles::Mutate<AccountId> + fungibles::Balanced<AccountId>,
 	HandleRefund: TakeRevenue,
 >(
 	Option<AssetTraderRefunder>,
@@ -131,9 +131,7 @@ impl<
 		AccountId,
 		FeeCharger: ChargeWeightInFungibles<AccountId, ConcreteAssets>,
 		Matcher: MatchesFungibles<ConcreteAssets::AssetId, ConcreteAssets::Balance>,
-		ConcreteAssets: fungibles::Mutate<AccountId>
-			+ fungibles::Transfer<AccountId>
-			+ fungibles::Balanced<AccountId>,
+		ConcreteAssets: fungibles::Mutate<AccountId> + fungibles::Balanced<AccountId>,
 		HandleRefund: TakeRevenue,
 	> WeightTrader
 	for TakeFirstAssetTrader<AccountId, FeeCharger, Matcher, ConcreteAssets, HandleRefund>
@@ -260,9 +258,7 @@ impl<
 		AccountId,
 		FeeCharger: ChargeWeightInFungibles<AccountId, ConcreteAssets>,
 		Matcher: MatchesFungibles<ConcreteAssets::AssetId, ConcreteAssets::Balance>,
-		ConcreteAssets: fungibles::Mutate<AccountId>
-			+ fungibles::Transfer<AccountId>
-			+ fungibles::Balanced<AccountId>,
+		ConcreteAssets: fungibles::Mutate<AccountId> + fungibles::Balanced<AccountId>,
 		HandleRefund: TakeRevenue,
 	> Drop for TakeFirstAssetTrader<AccountId, FeeCharger, Matcher, ConcreteAssets, HandleRefund>
 {
@@ -317,10 +313,11 @@ mod tests {
 	use cumulus_primitives_core::UpwardMessage;
 	use frame_support::{
 		assert_ok,
-		dispatch::DispatchResult,
-		traits::tokens::{DepositConsequence, WithdrawConsequence},
+		dispatch::DispatchError,
+		traits::tokens::{
+			DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence,
+		},
 	};
-	use sp_runtime::DispatchError;
 	use xcm_executor::{traits::Error, Assets};
 
 	/// Validates [`validate`] for required Some(destination) and Some(message)
@@ -451,7 +448,16 @@ mod tests {
 				todo!()
 			}
 
-			fn reducible_balance(_: Self::AssetId, _: &TestAccountId, _: bool) -> Self::Balance {
+			fn total_balance(_: Self::AssetId, _: &TestAccountId) -> Self::Balance {
+				todo!()
+			}
+
+			fn reducible_balance(
+				_: Self::AssetId,
+				_: &TestAccountId,
+				_: Preservation,
+				_: Fortitude,
+			) -> Self::Balance {
 				todo!()
 			}
 
@@ -459,7 +465,7 @@ mod tests {
 				_: Self::AssetId,
 				_: &TestAccountId,
 				_: Self::Balance,
-				_: bool,
+				_: Provenance,
 			) -> DepositConsequence {
 				todo!()
 			}
@@ -476,36 +482,20 @@ mod tests {
 				todo!()
 			}
 		}
-		impl fungibles::Mutate<TestAccountId> for TestAssets {
-			fn mint_into(_: Self::AssetId, _: &TestAccountId, _: Self::Balance) -> DispatchResult {
-				todo!()
-			}
-
-			fn burn_from(
-				_: Self::AssetId,
-				_: &TestAccountId,
-				_: Self::Balance,
-			) -> Result<Self::Balance, DispatchError> {
-				todo!()
-			}
-		}
-		impl fungibles::Transfer<TestAccountId> for TestAssets {
-			fn transfer(
-				_: Self::AssetId,
-				_: &TestAccountId,
-				_: &TestAccountId,
-				_: Self::Balance,
-				_: bool,
-			) -> Result<Self::Balance, DispatchError> {
-				todo!()
-			}
+		impl fungibles::Mutate<TestAccountId> for TestAssets {}
+		impl fungibles::Balanced<TestAccountId> for TestAssets {
+			type OnDropCredit = fungibles::DecreaseIssuance<TestAccountId, Self>;
+			type OnDropDebt = fungibles::IncreaseIssuance<TestAccountId, Self>;
 		}
 		impl fungibles::Unbalanced<TestAccountId> for TestAssets {
-			fn set_balance(
+			fn handle_dust(_: fungibles::Dust<TestAccountId, Self>) {
+				todo!()
+			}
+			fn write_balance(
 				_: Self::AssetId,
 				_: &TestAccountId,
 				_: Self::Balance,
-			) -> DispatchResult {
+			) -> Result<Option<Self::Balance>, DispatchError> {
 				todo!()
 			}
 

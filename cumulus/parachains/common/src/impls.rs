@@ -17,7 +17,7 @@
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
 use frame_support::traits::{
-	fungibles::{self, Balanced, CreditOf},
+	fungibles::{self, Balanced, Credit},
 	Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced,
 };
 use pallet_asset_tx_payment::HandleCredit;
@@ -75,7 +75,7 @@ where
 	R: pallet_authorship::Config + pallet_assets::Config<I>,
 	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
 {
-	fn handle_credit(credit: CreditOf<AccountIdOf<R>, pallet_assets::Pallet<R, I>>) {
+	fn handle_credit(credit: Credit<AccountIdOf<R>, pallet_assets::Pallet<R, I>>) {
 		if let Some(author) = pallet_authorship::Pallet::<R>::author() {
 			// In case of error: Will drop the result triggering the `OnDrop` of the imbalance.
 			let _ = pallet_assets::Pallet::<R, I>::resolve(&author, credit);
@@ -111,13 +111,13 @@ mod tests {
 	use super::*;
 	use frame_support::{
 		parameter_types,
-		traits::{FindAuthor, ValidatorRegistration},
+		traits::{ConstU32, FindAuthor, ValidatorRegistration},
 		PalletId,
 	};
 	use frame_system::{limits, EnsureRoot};
 	use pallet_collator_selection::IdentityCollator;
 	use polkadot_primitives::AccountId;
-	use sp_core::H256;
+	use sp_core::{ConstU64, H256};
 	use sp_runtime::{
 		testing::Header,
 		traits::{BlakeTwo256, IdentityLookup},
@@ -179,12 +179,16 @@ mod tests {
 		type Balance = u64;
 		type RuntimeEvent = RuntimeEvent;
 		type DustRemoval = ();
-		type ExistentialDeposit = ();
+		type ExistentialDeposit = ConstU64<1>;
 		type AccountStore = System;
 		type MaxLocks = ();
 		type WeightInfo = ();
 		type MaxReserves = MaxReserves;
 		type ReserveIdentifier = [u8; 8];
+		type HoldIdentifier = ();
+		type FreezeIdentifier = ();
+		type MaxHolds = ConstU32<1>;
+		type MaxFreezes = ConstU32<1>;
 	}
 
 	pub struct OneAuthor;

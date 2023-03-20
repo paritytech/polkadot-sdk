@@ -214,6 +214,10 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
+	type HoldIdentifier = ();
+	type FreezeIdentifier = ();
+	type MaxHolds = ConstU32<0>;
+	type MaxFreezes = ConstU32<0>;
 }
 
 parameter_types! {
@@ -1091,7 +1095,8 @@ mod tests {
 		use pallet_balances::WeightInfo;
 		let block = RuntimeBlockWeights::get().max_block;
 		let base = RuntimeBlockWeights::get().get(DispatchClass::Normal).base_extrinsic;
-		let transfer = base + weights::pallet_balances::WeightInfo::<Runtime>::transfer();
+		let transfer =
+			base + weights::pallet_balances::WeightInfo::<Runtime>::transfer_allow_death();
 
 		let fit = block.checked_div_per_component(&transfer).unwrap_or_default();
 		assert!(fit >= 1000, "{} should be at least 1000", fit);
@@ -1102,7 +1107,8 @@ mod tests {
 	fn sane_transfer_fee() {
 		use pallet_balances::WeightInfo;
 		let base = RuntimeBlockWeights::get().get(DispatchClass::Normal).base_extrinsic;
-		let transfer = base + weights::pallet_balances::WeightInfo::<Runtime>::transfer();
+		let transfer =
+			base + weights::pallet_balances::WeightInfo::<Runtime>::transfer_allow_death();
 
 		let fee: Balance = fee::WeightToFee::weight_to_fee(&transfer);
 		assert!(fee <= CENTS, "{} MILLICENTS should be at most 1000", fee / MILLICENTS);

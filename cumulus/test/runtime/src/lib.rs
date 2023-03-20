@@ -31,7 +31,7 @@ mod test_pallet;
 
 use frame_support::traits::OnRuntimeUpgrade;
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
-use sp_core::OpaqueMetadata;
+use sp_core::{ConstU32, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, Verify},
@@ -244,6 +244,10 @@ impl pallet_balances::Config for Runtime {
 	type MaxLocks = ();
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
+	type HoldIdentifier = ();
+	type FreezeIdentifier = ();
+	type MaxHolds = ConstU32<0>;
+	type MaxFreezes = ConstU32<0>;
 }
 
 impl pallet_transaction_payment::Config for Runtime {
