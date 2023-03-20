@@ -116,6 +116,11 @@ impl<Block: BlockT> ExecutionExtensions<Block> {
 		*self.extensions_factory.write() = Box::new(maker);
 	}
 
+	/// Set the new extensions_factory
+	pub fn set_extensions_factory(&self, maker: impl ExtensionsFactory<Block> + 'static) {
+		*self.extensions_factory.write() = Box::new(maker);
+	}
+
 	/// Based on the execution context and capabilities it produces
 	/// the extensions object to support desired set of APIs.
 	pub fn extensions(

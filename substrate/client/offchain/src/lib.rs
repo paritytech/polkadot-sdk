@@ -358,6 +358,7 @@ mod tests {
 	use sc_network::{config::MultiaddrWithPeerId, types::ProtocolName, ReputationChange};
 	use sc_transaction_pool::BasicPool;
 	use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
+	use sp_api::offchain::testing::TestPersistentOffchainDB;
 	use sp_consensus::BlockOrigin;
 	use std::{collections::HashSet, sync::Arc};
 	use substrate_test_runtime_client::{
