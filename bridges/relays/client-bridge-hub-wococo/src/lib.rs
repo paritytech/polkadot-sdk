@@ -44,7 +44,6 @@ impl UnderlyingChainProvider for BridgeHubWococo {
 impl Chain for BridgeHubWococo {
 	const ID: ChainId = bp_runtime::BRIDGE_HUB_WOCOCO_CHAIN_ID;
 	const NAME: &'static str = "BridgeHubWococo";
-	const TOKEN_ID: Option<&'static str> = None;
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_bridge_hub_wococo::BEST_FINALIZED_BRIDGE_HUB_WOCOCO_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = AVERAGE_BLOCK_INTERVAL;

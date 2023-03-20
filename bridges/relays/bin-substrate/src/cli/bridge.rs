@@ -33,6 +33,8 @@ pub enum FullBridge {
 	RialtoParachainToMillau,
 	BridgeHubRococoToBridgeHubWococo,
 	BridgeHubWococoToBridgeHubRococo,
+	BridgeHubKusamaToBridgeHubPolkadot,
+	BridgeHubPolkadotToBridgeHubKusama,
 }
 
 impl FullBridge {
@@ -43,7 +45,10 @@ impl FullBridge {
 			Self::RialtoToMillau => RIALTO_TO_MILLAU_INDEX,
 			Self::MillauToRialtoParachain => MILLAU_TO_RIALTO_PARACHAIN_INDEX,
 			Self::RialtoParachainToMillau => RIALTO_PARACHAIN_TO_MILLAU_INDEX,
-			Self::BridgeHubRococoToBridgeHubWococo | Self::BridgeHubWococoToBridgeHubRococo =>
+			Self::BridgeHubRococoToBridgeHubWococo |
+			Self::BridgeHubWococoToBridgeHubRococo |
+			Self::BridgeHubKusamaToBridgeHubPolkadot |
+			Self::BridgeHubPolkadotToBridgeHubKusama =>
 				unimplemented!("Relay doesn't support send-message subcommand on bridge hubs"),
 		}
 	}

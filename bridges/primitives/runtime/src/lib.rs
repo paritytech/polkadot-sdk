@@ -25,8 +25,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use scale_info::TypeInfo;
-use sp_core::{hash::H256, storage::StorageKey};
-use sp_io::hashing::blake2_256;
+use sp_core::storage::StorageKey;
 use sp_runtime::traits::{BadOrigin, Header as HeaderT, UniqueSaturatedInto};
 use sp_std::{convert::TryFrom, fmt::Debug, vec, vec::Vec};
 
@@ -59,47 +58,44 @@ pub use sp_runtime::paste;
 /// Use this when something must be shared among all instances.
 pub const NO_INSTANCE_ID: ChainId = [0, 0, 0, 0];
 
-/// Bridge-with-Rialto instance id.
+/// Rialto chain id.
 pub const RIALTO_CHAIN_ID: ChainId = *b"rlto";
 
-/// Bridge-with-RialtoParachain instance id.
+/// RialtoParachain chain id.
 pub const RIALTO_PARACHAIN_CHAIN_ID: ChainId = *b"rlpa";
 
-/// Bridge-with-Millau instance id.
+/// Millau chain id.
 pub const MILLAU_CHAIN_ID: ChainId = *b"mlau";
 
-/// Bridge-with-Polkadot instance id.
+/// Polkadot chain id.
 pub const POLKADOT_CHAIN_ID: ChainId = *b"pdot";
 
-/// Bridge-with-Kusama instance id.
+/// Kusama chain id.
 pub const KUSAMA_CHAIN_ID: ChainId = *b"ksma";
 
-/// Bridge-with-Westend instance id.
+/// Westend chain id.
 pub const WESTEND_CHAIN_ID: ChainId = *b"wend";
 
-/// Bridge-with-Westend instance id.
+/// Westend chain id.
 pub const WESTMINT_CHAIN_ID: ChainId = *b"wmnt";
 
-/// Bridge-with-Rococo instance id.
+/// Rococo chain id.
 pub const ROCOCO_CHAIN_ID: ChainId = *b"roco";
 
-/// Bridge-with-Wococo instance id.
+/// Wococo chain id.
 pub const WOCOCO_CHAIN_ID: ChainId = *b"woco";
 
-/// Bridge-with-BridgeHubRococo instance id.
+/// BridgeHubRococo chain id.
 pub const BRIDGE_HUB_ROCOCO_CHAIN_ID: ChainId = *b"bhro";
 
-/// Bridge-with-BridgeHubWococo instance id.
+/// BridgeHubWococo chain id.
 pub const BRIDGE_HUB_WOCOCO_CHAIN_ID: ChainId = *b"bhwo";
 
-/// Call-dispatch module prefix.
-pub const CALL_DISPATCH_MODULE_PREFIX: &[u8] = b"pallet-bridge/dispatch";
+/// BridgeHubKusama chain id.
+pub const BRIDGE_HUB_KUSAMA_CHAIN_ID: ChainId = *b"bhks";
 
-/// A unique prefix for entropy when generating cross-chain account IDs.
-pub const ACCOUNT_DERIVATION_PREFIX: &[u8] = b"pallet-bridge/account-derivation/account";
-
-/// A unique prefix for entropy when generating a cross-chain account ID for the Root account.
-pub const ROOT_ACCOUNT_DERIVATION_PREFIX: &[u8] = b"pallet-bridge/account-derivation/root";
+/// BridgeHubPolkadot chain id.
+pub const BRIDGE_HUB_POLKADOT_CHAIN_ID: ChainId = *b"bhwo";
 
 /// Generic header Id.
 #[derive(
@@ -163,41 +159,6 @@ impl<Header: HeaderT> HeaderIdProvider<Header> for Header {
 /// Chain2. Sometimes we need to be able to identify deployed instance dynamically. This type may be
 /// used for that.
 pub type ChainId = [u8; 4];
-
-/// Type of accounts on the source chain.
-pub enum SourceAccount<T> {
-	/// An account that belongs to Root (privileged origin).
-	Root,
-	/// A non-privileged account.
-	///
-	/// The embedded account ID may or may not have a private key depending on the "owner" of the
-	/// account (private key, pallet, proxy, etc.).
-	Account(T),
-}
-
-/// Derive an account ID from a foreign account ID.
-///
-/// This function returns an encoded Blake2 hash. It is the responsibility of the caller to ensure
-/// this can be successfully decoded into an AccountId.
-///
-/// The `bridge_id` is used to provide extra entropy when producing account IDs. This helps prevent
-/// AccountId collisions between different bridges on a single target chain.
-///
-/// Note: If the same `bridge_id` is used across different chains (for example, if one source chain
-/// is bridged to multiple target chains), then all the derived accounts would be the same across
-/// the different chains. This could negatively impact users' privacy across chains.
-pub fn derive_account_id<AccountId>(bridge_id: ChainId, id: SourceAccount<AccountId>) -> H256
-where
-	AccountId: Encode,
-{
-	match id {
-		SourceAccount::Root =>
-			(ROOT_ACCOUNT_DERIVATION_PREFIX, bridge_id).using_encoded(blake2_256),
-		SourceAccount::Account(id) =>
-			(ACCOUNT_DERIVATION_PREFIX, bridge_id, id).using_encoded(blake2_256),
-	}
-	.into()
-}
 
 /// Anything that has size.
 pub trait Size {

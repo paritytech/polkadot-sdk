@@ -53,7 +53,6 @@ impl bp_runtime::Chain for TestChain {
 impl Chain for TestChain {
 	const ID: ChainId = *b"test";
 	const NAME: &'static str = "Test";
-	const TOKEN_ID: Option<&'static str> = None;
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str = "TestMethod";
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(0);
 
@@ -108,7 +107,6 @@ impl bp_runtime::UnderlyingChainProvider for TestParachain {
 impl Chain for TestParachain {
 	const ID: ChainId = *b"test";
 	const NAME: &'static str = "TestParachain";
-	const TOKEN_ID: Option<&'static str> = None;
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str = "TestParachainMethod";
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(0);
 
