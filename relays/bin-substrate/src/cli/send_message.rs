@@ -15,11 +15,15 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	chains::{
-		millau_headers_to_rialto::MillauToRialtoCliBridge,
-		millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
-		rialto_headers_to_millau::RialtoToMillauCliBridge,
-		rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
+	bridges::{
+		rialto_millau::{
+			millau_headers_to_rialto::MillauToRialtoCliBridge,
+			rialto_headers_to_millau::RialtoToMillauCliBridge,
+		},
+		rialto_parachain_millau::{
+			millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
+			rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
+		},
 	},
 	cli::{
 		bridge::{FullBridge, MessagesCliBridge},
@@ -113,6 +117,12 @@ impl SendMessage {
 			),
 			FullBridge::BridgeHubWococoToBridgeHubRococo => unimplemented!(
 				"Sending message from BridgeHubWococo to BridgeHubRococo is not supported"
+			),
+			FullBridge::BridgeHubKusamaToBridgeHubPolkadot => unimplemented!(
+				"Sending message from BridgeHubKusama to BridgeHubPolkadot is not supported"
+			),
+			FullBridge::BridgeHubPolkadotToBridgeHubKusama => unimplemented!(
+				"Sending message from BridgeHubPolkadot to BridgeHubKusama is not supported"
 			),
 		}
 		.await

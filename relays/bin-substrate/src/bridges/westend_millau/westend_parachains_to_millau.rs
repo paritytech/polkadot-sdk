@@ -49,7 +49,8 @@ pub struct WestmintToMillauCliBridge {}
 impl ParachainToRelayHeadersCliBridge for WestmintToMillauCliBridge {
 	type SourceRelay = Westend;
 	type ParachainFinality = WestendParachainsToMillau;
-	type RelayFinality = crate::chains::westend_headers_to_millau::WestendFinalityToMillau;
+	type RelayFinality =
+		crate::bridges::westend_millau::westend_headers_to_millau::WestendFinalityToMillau;
 }
 
 impl CliBridgeBase for WestmintToMillauCliBridge {

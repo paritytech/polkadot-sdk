@@ -51,5 +51,6 @@ impl RelayToRelayHeadersCliBridge for RialtoToMillauCliBridge {
 }
 
 impl MessagesCliBridge for RialtoToMillauCliBridge {
-	type MessagesLane = crate::chains::rialto_messages_to_millau::RialtoMessagesToMillau;
+	type MessagesLane =
+		crate::bridges::rialto_millau::rialto_messages_to_millau::RialtoMessagesToMillau;
 }

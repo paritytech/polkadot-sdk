@@ -1,0 +1,32 @@
+[package]
+name = "relay-bridge-hub-polkadot-client"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.1.5", features = ["derive"] }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+relay-substrate-client = { path = "../client-substrate" }
+
+# Bridge dependencies
+
+bp-bridge-hub-kusama = { path = "../../primitives/chain-bridge-hub-kusama" }
+bp-bridge-hub-polkadot = { path = "../../primitives/chain-bridge-hub-polkadot" }
+bp-header-chain = { path = "../../primitives/header-chain" }
+bp-messages = { path = "../../primitives/messages" }
+bp-parachains = { path = "../../primitives/parachains" }
+bp-kusama = { path = "../../primitives/chain-kusama" }
+bp-runtime = { path = "../../primitives/runtime" }
+
+bridge-runtime-common = { path = "../../bin/runtime-common" }
+
+# Substrate Dependencies
+
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+[dev-dependencies]
+bp-polkadot-core = { path = "../../primitives/polkadot-core" }
+sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" }

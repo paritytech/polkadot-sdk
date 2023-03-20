@@ -39,11 +39,6 @@ pub trait Chain: ChainBase + Clone {
 	const ID: ChainId;
 	/// Chain name.
 	const NAME: &'static str;
-	/// Identifier of the basic token of the chain (if applicable).
-	///
-	/// This identifier is used to fetch token price. In case of testnets, you may either
-	/// set it to `None`, or associate testnet with one of the existing tokens.
-	const TOKEN_ID: Option<&'static str>;
 	/// Name of the runtime API method that is returning best known finalized header number
 	/// and hash (as tuple).
 	///

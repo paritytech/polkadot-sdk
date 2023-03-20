@@ -38,7 +38,6 @@ impl UnderlyingChainProvider for Wococo {
 impl Chain for Wococo {
 	const ID: ChainId = bp_runtime::WOCOCO_CHAIN_ID;
 	const NAME: &'static str = "Wococo";
-	const TOKEN_ID: Option<&'static str> = None;
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_wococo::BEST_FINALIZED_WOCOCO_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);

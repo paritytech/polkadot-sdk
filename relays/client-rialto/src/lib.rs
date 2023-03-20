@@ -42,8 +42,6 @@ impl UnderlyingChainProvider for Rialto {
 impl Chain for Rialto {
 	const ID: ChainId = bp_runtime::RIALTO_CHAIN_ID;
 	const NAME: &'static str = "Rialto";
-	// Rialto token has no value, but we associate it with DOT token
-	const TOKEN_ID: Option<&'static str> = Some("polkadot");
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_rialto::BEST_FINALIZED_RIALTO_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);

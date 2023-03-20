@@ -55,10 +55,11 @@ impl CliBridgeBase for RialtoParachainToMillauCliBridge {
 impl ParachainToRelayHeadersCliBridge for RialtoParachainToMillauCliBridge {
 	type SourceRelay = Rialto;
 	type ParachainFinality = RialtoParachainsToMillau;
-	type RelayFinality = crate::chains::rialto_headers_to_millau::RialtoFinalityToMillau;
+	type RelayFinality =
+		crate::bridges::rialto_millau::rialto_headers_to_millau::RialtoFinalityToMillau;
 }
 
 impl MessagesCliBridge for RialtoParachainToMillauCliBridge {
 	type MessagesLane =
-		crate::chains::rialto_parachain_messages_to_millau::RialtoParachainMessagesToMillau;
+	crate::bridges::rialto_parachain_millau::rialto_parachain_messages_to_millau::RialtoParachainMessagesToMillau;
 }

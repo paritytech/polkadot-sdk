@@ -20,13 +20,21 @@ use sp_core::Pair;
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
 
-use crate::chains::{
-	millau_headers_to_rialto::MillauToRialtoCliBridge,
-	millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
-	rialto_headers_to_millau::RialtoToMillauCliBridge,
-	rococo_headers_to_bridge_hub_wococo::RococoToBridgeHubWococoCliBridge,
-	westend_headers_to_millau::WestendToMillauCliBridge,
-	wococo_headers_to_bridge_hub_rococo::WococoToBridgeHubRococoCliBridge,
+use crate::bridges::{
+	kusama_polkadot::{
+		kusama_headers_to_bridge_hub_polkadot::KusamaToBridgeHubPolkadotCliBridge,
+		polkadot_headers_to_bridge_hub_kusama::PolkadotToBridgeHubKusamaCliBridge,
+	},
+	rialto_millau::{
+		millau_headers_to_rialto::MillauToRialtoCliBridge,
+		rialto_headers_to_millau::RialtoToMillauCliBridge,
+	},
+	rialto_parachain_millau::millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
+	rococo_wococo::{
+		rococo_headers_to_bridge_hub_wococo::RococoToBridgeHubWococoCliBridge,
+		wococo_headers_to_bridge_hub_rococo::WococoToBridgeHubRococoCliBridge,
+	},
+	westend_millau::westend_headers_to_millau::WestendToMillauCliBridge,
 };
 use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
 use substrate_relay_helper::finality::SubstrateFinalitySyncPipeline;
@@ -63,6 +71,8 @@ pub enum RelayHeadersBridge {
 	MillauToRialtoParachain,
 	RococoToBridgeHubWococo,
 	WococoToBridgeHubRococo,
+	KusamaToBridgeHubPolkadot,
+	PolkadotToBridgeHubKusama,
 }
 
 #[async_trait]
@@ -109,6 +119,8 @@ impl HeadersRelayer for WestendToMillauCliBridge {}
 impl HeadersRelayer for MillauToRialtoParachainCliBridge {}
 impl HeadersRelayer for RococoToBridgeHubWococoCliBridge {}
 impl HeadersRelayer for WococoToBridgeHubRococoCliBridge {}
+impl HeadersRelayer for KusamaToBridgeHubPolkadotCliBridge {}
+impl HeadersRelayer for PolkadotToBridgeHubKusamaCliBridge {}
 
 impl RelayHeaders {
 	/// Run the command.
@@ -123,6 +135,10 @@ impl RelayHeaders {
 				RococoToBridgeHubWococoCliBridge::relay_headers(self),
 			RelayHeadersBridge::WococoToBridgeHubRococo =>
 				WococoToBridgeHubRococoCliBridge::relay_headers(self),
+			RelayHeadersBridge::KusamaToBridgeHubPolkadot =>
+				KusamaToBridgeHubPolkadotCliBridge::relay_headers(self),
+			RelayHeadersBridge::PolkadotToBridgeHubKusama =>
+				PolkadotToBridgeHubKusamaCliBridge::relay_headers(self),
 		}
 		.await
 	}

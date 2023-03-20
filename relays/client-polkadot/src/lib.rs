@@ -18,12 +18,15 @@
 
 use bp_polkadot::AccountInfoStorageMapKeyProvider;
 use bp_runtime::ChainId;
-use relay_substrate_client::{Chain, ChainWithBalances, UnderlyingChainProvider};
+use relay_substrate_client::{Chain, ChainWithBalances, RelayChain, UnderlyingChainProvider};
 use sp_core::storage::StorageKey;
 use std::time::Duration;
 
 /// Polkadot header id.
 pub type HeaderId = relay_utils::HeaderId<bp_polkadot::Hash, bp_polkadot::BlockNumber>;
+
+/// Polkadot header type used in headers sync.
+pub type SyncHeader = relay_substrate_client::SyncHeader<bp_polkadot::Header>;
 
 /// Polkadot chain definition
 #[derive(Debug, Clone, Copy)]
@@ -36,7 +39,6 @@ impl UnderlyingChainProvider for Polkadot {
 impl Chain for Polkadot {
 	const ID: ChainId = bp_runtime::POLKADOT_CHAIN_ID;
 	const NAME: &'static str = "Polkadot";
-	const TOKEN_ID: Option<&'static str> = Some("polkadot");
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_polkadot::BEST_FINALIZED_POLKADOT_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
@@ -51,5 +53,8 @@ impl ChainWithBalances for Polkadot {
 	}
 }
 
-/// Polkadot header type used in headers sync.
-pub type SyncHeader = relay_substrate_client::SyncHeader<bp_polkadot::Header>;
+impl RelayChain for Polkadot {
+	const PARAS_PALLET_NAME: &'static str = bp_polkadot::PARAS_PALLET_NAME;
+	// TODO: check me (https://github.com/paritytech/parity-bridges-common/issues/1945)
+	const PARACHAINS_FINALITY_PALLET_NAME: &'static str = "BridgePolkadotParachain";
+}

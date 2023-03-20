@@ -38,7 +38,6 @@ impl UnderlyingChainProvider for Rococo {
 impl Chain for Rococo {
 	const ID: ChainId = bp_runtime::ROCOCO_CHAIN_ID;
 	const NAME: &'static str = "Rococo";
-	const TOKEN_ID: Option<&'static str> = None;
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_rococo::BEST_FINALIZED_ROCOCO_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);

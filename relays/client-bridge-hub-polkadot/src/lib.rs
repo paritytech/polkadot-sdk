@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Types used to connect to the BridgeHub-Rococo-Substrate parachain.
+//! Types used to connect to the BridgeHub-Polkadot-Substrate parachain.
 
-use bp_bridge_hub_rococo::{BridgeHubSignedExtension, AVERAGE_BLOCK_INTERVAL};
+use bp_bridge_hub_polkadot::{BridgeHubSignedExtension, AVERAGE_BLOCK_INTERVAL};
 use bp_messages::MessageNonce;
 use bp_runtime::ChainId;
 use codec::Encode;
@@ -33,36 +33,36 @@ use std::time::Duration;
 pub mod runtime_wrapper;
 pub use runtime_wrapper as runtime;
 
-/// Rococo chain definition
+/// Polkadot chain definition
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BridgeHubRococo;
+pub struct BridgeHubPolkadot;
 
-impl UnderlyingChainProvider for BridgeHubRococo {
-	type Chain = bp_bridge_hub_rococo::BridgeHubRococo;
+impl UnderlyingChainProvider for BridgeHubPolkadot {
+	type Chain = bp_bridge_hub_polkadot::BridgeHubPolkadot;
 }
 
-impl Chain for BridgeHubRococo {
-	const ID: ChainId = bp_runtime::BRIDGE_HUB_ROCOCO_CHAIN_ID;
-	const NAME: &'static str = "BridgeHubRococo";
+impl Chain for BridgeHubPolkadot {
+	const ID: ChainId = bp_runtime::BRIDGE_HUB_POLKADOT_CHAIN_ID;
+	const NAME: &'static str = "BridgeHubPolkadot";
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
-		bp_bridge_hub_rococo::BEST_FINALIZED_BRIDGE_HUB_ROCOCO_HEADER_METHOD;
+		bp_bridge_hub_polkadot::BEST_FINALIZED_BRIDGE_HUB_POLKADOT_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = AVERAGE_BLOCK_INTERVAL;
 
-	type SignedBlock = bp_bridge_hub_rococo::SignedBlock;
+	type SignedBlock = bp_bridge_hub_polkadot::SignedBlock;
 	type Call = runtime::Call;
 }
 
-impl ChainWithBalances for BridgeHubRococo {
+impl ChainWithBalances for BridgeHubPolkadot {
 	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
-		bp_bridge_hub_rococo::AccountInfoStorageMapKeyProvider::final_key(account_id)
+		bp_bridge_hub_polkadot::AccountInfoStorageMapKeyProvider::final_key(account_id)
 	}
 }
 
-impl ChainWithUtilityPallet for BridgeHubRococo {
+impl ChainWithUtilityPallet for BridgeHubPolkadot {
 	type UtilityPallet = MockedRuntimeUtilityPallet<runtime::Call>;
 }
 
-impl ChainWithTransactions for BridgeHubRococo {
+impl ChainWithTransactions for BridgeHubPolkadot {
 	type AccountKeyPair = sp_core::sr25519::Pair;
 	type SignedTransaction = runtime::UncheckedExtrinsic;
 
@@ -102,7 +102,7 @@ impl ChainWithTransactions for BridgeHubRococo {
 		tx.signature
 			.as_ref()
 			.map(|(address, _, _)| {
-				*address == bp_bridge_hub_rococo::Address::Id(signer.public().into())
+				*address == bp_bridge_hub_polkadot::Address::Id(signer.public().into())
 			})
 			.unwrap_or(false)
 	}
@@ -113,21 +113,21 @@ impl ChainWithTransactions for BridgeHubRococo {
 	}
 }
 
-impl ChainWithMessages for BridgeHubRococo {
+impl ChainWithMessages for BridgeHubPolkadot {
 	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
-		bp_bridge_hub_rococo::WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME;
+		bp_bridge_hub_polkadot::WITH_BRIDGE_HUB_POLKADOT_MESSAGES_PALLET_NAME;
 	const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str> =
-		Some(bp_bridge_hub_rococo::WITH_BRIDGE_HUB_ROCOCO_RELAYERS_PALLET_NAME);
+		Some(bp_bridge_hub_polkadot::WITH_BRIDGE_HUB_POLKADOT_RELAYERS_PALLET_NAME);
 
 	const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
-		bp_bridge_hub_rococo::TO_BRIDGE_HUB_ROCOCO_MESSAGE_DETAILS_METHOD;
+		bp_bridge_hub_polkadot::TO_BRIDGE_HUB_POLKADOT_MESSAGE_DETAILS_METHOD;
 	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
-		bp_bridge_hub_rococo::FROM_BRIDGE_HUB_ROCOCO_MESSAGE_DETAILS_METHOD;
+		bp_bridge_hub_polkadot::FROM_BRIDGE_HUB_POLKADOT_MESSAGE_DETAILS_METHOD;
 
 	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
-		bp_bridge_hub_rococo::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
+		bp_bridge_hub_polkadot::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
-		bp_bridge_hub_rococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
+		bp_bridge_hub_polkadot::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 }
 
 #[cfg(test)]
@@ -138,15 +138,13 @@ mod tests {
 	#[test]
 	fn parse_transaction_works() {
 		let unsigned = UnsignedTransaction {
-			call: runtime::Call::System(relay_substrate_client::calls::SystemCall::remark(
-				b"Hello world!".to_vec(),
-			))
-			.into(),
+			call: runtime::Call::System(runtime::SystemCall::remark(b"Hello world!".to_vec()))
+				.into(),
 			nonce: 777,
 			tip: 888,
 			era: TransactionEra::immortal(),
 		};
-		let signed_transaction = BridgeHubRococo::sign_transaction(
+		let signed_transaction = BridgeHubPolkadot::sign_transaction(
 			SignParam {
 				spec_version: 42,
 				transaction_version: 50000,
@@ -156,7 +154,7 @@ mod tests {
 			unsigned.clone(),
 		)
 		.unwrap();
-		let parsed_transaction = BridgeHubRococo::parse_transaction(signed_transaction).unwrap();
+		let parsed_transaction = BridgeHubPolkadot::parse_transaction(signed_transaction).unwrap();
 		assert_eq!(parsed_transaction, unsigned);
 	}
 }

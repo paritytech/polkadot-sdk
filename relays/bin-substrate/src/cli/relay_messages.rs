@@ -19,13 +19,23 @@ use sp_core::Pair;
 use structopt::StructOpt;
 use strum::VariantNames;
 
-use crate::chains::{
-	bridge_hub_rococo_messages_to_bridge_hub_wococo::BridgeHubRococoToBridgeHubWococoMessagesCliBridge,
-	bridge_hub_wococo_messages_to_bridge_hub_rococo::BridgeHubWococoToBridgeHubRococoMessagesCliBridge,
-	millau_headers_to_rialto::MillauToRialtoCliBridge,
-	millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
-	rialto_headers_to_millau::RialtoToMillauCliBridge,
-	rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
+use crate::bridges::{
+	kusama_polkadot::{
+		bridge_hub_kusama_messages_to_bridge_hub_polkadot::BridgeHubKusamaToBridgeHubPolkadotMessagesCliBridge,
+		bridge_hub_polkadot_messages_to_bridge_hub_kusama::BridgeHubPolkadotToBridgeHubKusamaMessagesCliBridge,
+	},
+	rialto_millau::{
+		millau_headers_to_rialto::MillauToRialtoCliBridge,
+		rialto_headers_to_millau::RialtoToMillauCliBridge,
+	},
+	rialto_parachain_millau::{
+		millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
+		rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
+	},
+	rococo_wococo::{
+		bridge_hub_rococo_messages_to_bridge_hub_wococo::BridgeHubRococoToBridgeHubWococoMessagesCliBridge,
+		bridge_hub_wococo_messages_to_bridge_hub_rococo::BridgeHubWococoToBridgeHubRococoMessagesCliBridge,
+	},
 };
 use relay_substrate_client::{AccountIdOf, AccountKeyPairOf, BalanceOf, ChainWithTransactions};
 use substrate_relay_helper::{messages_lane::MessagesRelayParams, TransactionParams};
@@ -96,6 +106,8 @@ impl MessagesRelayer for MillauToRialtoParachainCliBridge {}
 impl MessagesRelayer for RialtoParachainToMillauCliBridge {}
 impl MessagesRelayer for BridgeHubRococoToBridgeHubWococoMessagesCliBridge {}
 impl MessagesRelayer for BridgeHubWococoToBridgeHubRococoMessagesCliBridge {}
+impl MessagesRelayer for BridgeHubKusamaToBridgeHubPolkadotMessagesCliBridge {}
+impl MessagesRelayer for BridgeHubPolkadotToBridgeHubKusamaMessagesCliBridge {}
 
 impl RelayMessages {
 	/// Run the command.
@@ -111,6 +123,10 @@ impl RelayMessages {
 				BridgeHubRococoToBridgeHubWococoMessagesCliBridge::relay_messages(self),
 			FullBridge::BridgeHubWococoToBridgeHubRococo =>
 				BridgeHubWococoToBridgeHubRococoMessagesCliBridge::relay_messages(self),
+			FullBridge::BridgeHubKusamaToBridgeHubPolkadot =>
+				BridgeHubKusamaToBridgeHubPolkadotMessagesCliBridge::relay_messages(self),
+			FullBridge::BridgeHubPolkadotToBridgeHubKusama =>
+				BridgeHubPolkadotToBridgeHubKusamaMessagesCliBridge::relay_messages(self),
 		}
 		.await
 	}

@@ -18,12 +18,15 @@
 
 use bp_kusama::AccountInfoStorageMapKeyProvider;
 use bp_runtime::ChainId;
-use relay_substrate_client::{Chain, ChainWithBalances, UnderlyingChainProvider};
+use relay_substrate_client::{Chain, ChainWithBalances, RelayChain, UnderlyingChainProvider};
 use sp_core::storage::StorageKey;
 use std::time::Duration;
 
 /// Kusama header id.
 pub type HeaderId = relay_utils::HeaderId<bp_kusama::Hash, bp_kusama::BlockNumber>;
+
+/// Kusama header type used in headers sync.
+pub type SyncHeader = relay_substrate_client::SyncHeader<bp_kusama::Header>;
 
 /// Kusama chain definition
 #[derive(Debug, Clone, Copy)]
@@ -36,7 +39,6 @@ impl UnderlyingChainProvider for Kusama {
 impl Chain for Kusama {
 	const ID: ChainId = bp_runtime::KUSAMA_CHAIN_ID;
 	const NAME: &'static str = "Kusama";
-	const TOKEN_ID: Option<&'static str> = Some("kusama");
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_kusama::BEST_FINALIZED_KUSAMA_HEADER_METHOD;
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
@@ -51,5 +53,8 @@ impl ChainWithBalances for Kusama {
 	}
 }
 
-/// Kusama header type used in headers sync.
-pub type SyncHeader = relay_substrate_client::SyncHeader<bp_kusama::Header>;
+impl RelayChain for Kusama {
+	const PARAS_PALLET_NAME: &'static str = bp_kusama::PARAS_PALLET_NAME;
+	// TODO: check me (https://github.com/paritytech/parity-bridges-common/issues/1945)
+	const PARACHAINS_FINALITY_PALLET_NAME: &'static str = "BridgeKusamaParachain";
+}
