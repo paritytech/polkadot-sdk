@@ -6,7 +6,7 @@ edition = "2021"
 description = "Rococo's BridgeHub  parachain runtime"
 
 [build-dependencies]
-substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
+substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
@@ -126,6 +126,7 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"substrate-wasm-builder",
 ]
 
 runtime-benchmarks = [

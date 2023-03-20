@@ -77,7 +77,7 @@ hex-literal = "0.3.4"
 asset-test-utils = { path = "../test-utils"}
 
 [build-dependencies]
-substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
+substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
 
 [features]
 default = [ "std" ]
@@ -179,4 +179,5 @@ std = [
 	"parachain-info/std",
 	"parachains-common/std",
 	"assets-common/std",
+	"substrate-wasm-builder",
 ]

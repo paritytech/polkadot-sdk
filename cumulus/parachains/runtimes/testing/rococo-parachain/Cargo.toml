@@ -55,7 +55,7 @@ parachains-common = { path = "../../../common", default-features = false }
 parachain-info = { path = "../../../pallets/parachain-info", default-features = false }
 
 [build-dependencies]
-substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
+substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
 
 [features]
 default = [ "std" ]
@@ -99,6 +99,7 @@ std = [
 	"cumulus-primitives-utility/std",
 	"parachain-info/std",
 	"parachains-common/std",
+	"substrate-wasm-builder",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

@@ -72,7 +72,7 @@ parachains-common = { path = "../../../common", default-features = false }
 hex-literal = "0.3.4"
 
 [build-dependencies]
-substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
+substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
 
 [features]
 default = [ "std" ]
@@ -170,4 +170,5 @@ std = [
 	"pallet-collator-selection/std",
 	"parachain-info/std",
 	"parachains-common/std",
+	"substrate-wasm-builder",
 ]
