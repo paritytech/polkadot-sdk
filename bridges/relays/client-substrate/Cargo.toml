@@ -16,7 +16,7 @@ num-traits = "0.2"
 rand = "0.8"
 scale-info = { version = "2.1.1", features = ["derive"] }
 tokio = { version = "1.26", features = ["rt-multi-thread"] }
-thiserror = "1.0.39"
+thiserror = "1.0.40"
 
 # Bridge dependencies
 
