@@ -66,4 +66,4 @@ bp-test-utils = { path = "../../primitives/test-utils" }
 hex-literal = "0.3"
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
 tempfile = "3.4"
-finality-grandpa = { version = "0.16.0" }
+finality-grandpa = { version = "0.16.2" }
