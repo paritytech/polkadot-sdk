@@ -210,6 +210,44 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				pallet_assets::Call::touch { .. } |
 				pallet_assets::Call::refund { .. },
 			) |
+			RuntimeCall::Nfts(
+				pallet_nfts::Call::create { .. } |
+				pallet_nfts::Call::force_create { .. } |
+				pallet_nfts::Call::destroy { .. } |
+				pallet_nfts::Call::mint { .. } |
+				pallet_nfts::Call::force_mint { .. } |
+				pallet_nfts::Call::burn { .. } |
+				pallet_nfts::Call::transfer { .. } |
+				pallet_nfts::Call::lock_item_transfer { .. } |
+				pallet_nfts::Call::unlock_item_transfer { .. } |
+				pallet_nfts::Call::lock_collection { .. } |
+				pallet_nfts::Call::transfer_ownership { .. } |
+				pallet_nfts::Call::set_team { .. } |
+				pallet_nfts::Call::force_collection_owner { .. } |
+				pallet_nfts::Call::force_collection_config { .. } |
+				pallet_nfts::Call::approve_transfer { .. } |
+				pallet_nfts::Call::cancel_approval { .. } |
+				pallet_nfts::Call::clear_all_transfer_approvals { .. } |
+				pallet_nfts::Call::lock_item_properties { .. } |
+				pallet_nfts::Call::set_attribute { .. } |
+				pallet_nfts::Call::force_set_attribute { .. } |
+				pallet_nfts::Call::clear_attribute { .. } |
+				pallet_nfts::Call::approve_item_attributes { .. } |
+				pallet_nfts::Call::cancel_item_attributes_approval { .. } |
+				pallet_nfts::Call::set_metadata { .. } |
+				pallet_nfts::Call::clear_metadata { .. } |
+				pallet_nfts::Call::set_collection_metadata { .. } |
+				pallet_nfts::Call::clear_collection_metadata { .. } |
+				pallet_nfts::Call::set_accept_ownership { .. } |
+				pallet_nfts::Call::set_collection_max_supply { .. } |
+				pallet_nfts::Call::update_mint_settings { .. } |
+				pallet_nfts::Call::set_price { .. } |
+				pallet_nfts::Call::buy_item { .. } |
+				pallet_nfts::Call::pay_tips { .. } |
+				pallet_nfts::Call::create_swap { .. } |
+				pallet_nfts::Call::cancel_swap { .. } |
+				pallet_nfts::Call::claim_swap { .. },
+			) |
 			RuntimeCall::Uniques(
 				pallet_uniques::Call::create { .. } |
 				pallet_uniques::Call::force_create { .. } |
