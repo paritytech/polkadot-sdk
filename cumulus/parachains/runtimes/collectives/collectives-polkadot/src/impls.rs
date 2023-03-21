@@ -13,14 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::OriginCaller;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResultWithPostInfo},
 	log,
-	traits::{Currency, Get, Imbalance, OnUnbalanced, OriginTrait},
+	traits::{Currency, Get, Imbalance, OnUnbalanced, OriginTrait, PrivilegeCmp},
 	weights::Weight,
 };
 use pallet_alliance::{ProposalIndex, ProposalProvider};
-use sp_std::{marker::PhantomData, prelude::*};
+use parachains_common::impls::NegativeImbalance;
+use sp_std::{cmp::Ordering, marker::PhantomData, prelude::*};
 use xcm::latest::{Fungibility, Junction, Parent};
 
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -29,40 +31,38 @@ type ProposalOf<T, I> = <T as pallet_collective::Config<I>>::Proposal;
 
 type HashOf<T> = <T as frame_system::Config>::Hash;
 
-type NegativeImbalanceOf<T, I> = <<T as pallet_alliance::Config<I>>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
-
-type CurrencyOf<T, I> = <T as pallet_alliance::Config<I>>::Currency;
-
-type BalanceOf<T, I> = <<T as pallet_alliance::Config<I>>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::Balance;
+/// Type alias to conveniently refer to the `Currency::Balance` associated type.
+pub type BalanceOf<T> =
+	<pallet_balances::Pallet<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// Implements `OnUnbalanced::on_unbalanced` to teleport slashed assets to relay chain treasury account.
-pub struct ToParentTreasury<TreasuryAcc, TempAcc, T, I = ()>(
-	PhantomData<(TreasuryAcc, TempAcc, T, I)>,
+pub struct ToParentTreasury<TreasuryAccount, PalletAccount, T>(
+	PhantomData<(TreasuryAccount, PalletAccount, T)>,
 );
 
-impl<TreasuryAcc, TempAcc, T, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>>
-	for ToParentTreasury<TreasuryAcc, TempAcc, T, I>
+impl<TreasuryAccount, PalletAccount, T> OnUnbalanced<NegativeImbalance<T>>
+	for ToParentTreasury<TreasuryAccount, PalletAccount, T>
 where
-	TreasuryAcc: Get<AccountIdOf<T>>,
-	TempAcc: Get<AccountIdOf<T>>,
-	T: pallet_xcm::Config + frame_system::Config + pallet_alliance::Config<I>,
-	[u8; 32]: From<AccountIdOf<T>>,
-	BalanceOf<T, I>: Into<Fungibility>,
+	T: pallet_balances::Config + pallet_xcm::Config + frame_system::Config,
 	<<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId: From<AccountIdOf<T>>,
+	[u8; 32]: From<<T as frame_system::Config>::AccountId>,
+	TreasuryAccount: Get<AccountIdOf<T>>,
+	PalletAccount: Get<AccountIdOf<T>>,
+	BalanceOf<T>: Into<Fungibility>,
 {
-	fn on_unbalanced(amount: NegativeImbalanceOf<T, I>) {
-		let temp_account: AccountIdOf<T> = TempAcc::get();
-		let treasury_acc: AccountIdOf<T> = TreasuryAcc::get();
+	fn on_unbalanced(amount: NegativeImbalance<T>) {
+		let amount = match amount.drop_zero() {
+			Ok(..) => return,
+			Err(amount) => amount,
+		};
 		let imbalance = amount.peek();
+		let pallet_acc: AccountIdOf<T> = PalletAccount::get();
+		let treasury_acc: AccountIdOf<T> = TreasuryAccount::get();
 
-		<CurrencyOf<T, I>>::resolve_creating(&temp_account, amount);
+		<pallet_balances::Pallet<T>>::resolve_creating(&pallet_acc.clone(), amount);
 
-		let result = pallet_xcm::Pallet::<T>::teleport_assets(
-			<T as frame_system::Config>::RuntimeOrigin::signed(temp_account.into()),
+		let result = <pallet_xcm::Pallet<T>>::teleport_assets(
+			<<T as frame_system::Config>::RuntimeOrigin>::signed(pallet_acc.into()),
 			Box::new(Parent.into()),
 			Box::new(
 				Junction::AccountId32 { network: None, id: treasury_acc.into() }
@@ -129,5 +129,21 @@ where
 
 	fn proposal_of(proposal_hash: HashOf<T>) -> Option<ProposalOf<T, I>> {
 		pallet_collective::Pallet::<T, I>::proposal_of(proposal_hash)
+	}
+}
+
+/// Used to compare the privilege of an origin inside the scheduler.
+pub struct EqualOrGreatestRootCmp;
+
+impl PrivilegeCmp<OriginCaller> for EqualOrGreatestRootCmp {
+	fn cmp_privilege(left: &OriginCaller, right: &OriginCaller) -> Option<Ordering> {
+		if left == right {
+			return Some(Ordering::Equal)
+		}
+		match (left, right) {
+			// Root is greater than anything.
+			(OriginCaller::system(frame_system::RawOrigin::Root), _) => Some(Ordering::Greater),
+			_ => None,
+		}
 	}
 }

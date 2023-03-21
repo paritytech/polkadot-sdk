@@ -41,16 +41,19 @@ pub mod constants;
 pub mod impls;
 mod weights;
 pub mod xcm_config;
+// Fellowship configurations.
+pub mod fellowship;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use impls::{AllianceProposalProvider, ToParentTreasury};
+use fellowship::{pallet_fellowship_origins, Fellows};
+use impls::{AllianceProposalProvider, EqualOrGreatestRootCmp, ToParentTreasury};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, Perbill,
 };
 
 use sp_std::prelude::*;
@@ -75,16 +78,16 @@ use frame_system::{
 pub use parachains_common as common;
 use parachains_common::{
 	impls::DealWithFees, opaque, AccountId, AuraId, Balance, BlockNumber, Hash, Header, Index,
-	Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT,
+	Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT, MINUTES,
 	NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
-use xcm_config::{DotLocation, XcmConfig, XcmOriginToTransactDispatchOrigin};
+use xcm_config::{GovernanceLocation, XcmConfig, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
 // Polkadot imports
-use pallet_xcm::{EnsureXcm, IsMajorityOfBody};
+use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm::latest::BodyId;
 use xcm_executor::XcmExecutor;
@@ -115,9 +118,6 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-/// Privileged origin that represents Root or the majority of the Relay Chain Council.
-pub type RootOrExecutiveSimpleMajority =
-	EitherOfDiverse<EnsureRoot<AccountId>, EnsureXcm<IsMajorityOfBody<DotLocation, ExecutiveBody>>>;
 /// Privileged origin that represents Root or more than two thirds of the Alliance.
 pub type RootOrAllianceTwoThirdsMajority = EitherOfDiverse<
 	EnsureRoot<AccountId>,
@@ -285,6 +285,8 @@ pub enum ProxyType {
 	Collator,
 	/// Alliance proxy. Allows calls related to the Alliance.
 	Alliance,
+	/// Fellowship proxy. Allows calls related to the Fellowship.
+	Fellowship,
 }
 impl Default for ProxyType {
 	fn default() -> Self {
@@ -312,6 +314,13 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				c,
 				RuntimeCall::AllianceMotion { .. } |
 					RuntimeCall::Alliance { .. } |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
+			),
+			ProxyType::Fellowship => matches!(
+				c,
+				RuntimeCall::FellowshipCollective { .. } |
+					RuntimeCall::FellowshipReferenda { .. } |
 					RuntimeCall::Utility { .. } |
 					RuntimeCall::Multisig { .. }
 			),
@@ -370,7 +379,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ChannelInfo = ParachainSystem;
 	type VersionWrapper = PolkadotXcm;
 	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
-	type ControllerOrigin = RootOrExecutiveSimpleMajority;
+	type ControllerOrigin = EitherOfDiverse<EnsureRoot<AccountId>, Fellows>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
 	type PriceForSiblingDelivery = ();
@@ -408,11 +417,15 @@ impl pallet_aura::Config for Runtime {
 parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"PotStake");
 	pub const SessionLength: BlockNumber = 6 * HOURS;
-	pub const ExecutiveBody: BodyId = BodyId::Executive;
+	// `StakingAdmin` pluralistic body.
+	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
 }
 
-/// We allow root and the Relay Chain council to execute privileged collator selection operations.
-pub type CollatorSelectionUpdateOrigin = RootOrExecutiveSimpleMajority;
+/// We allow root and the `StakingAdmin` to execute privileged collator selection operations.
+pub type CollatorSelectionUpdateOrigin = EitherOfDiverse<
+	EnsureRoot<AccountId>,
+	EnsureXcm<IsVoiceOfBody<GovernanceLocation, StakingAdminBodyId>>,
+>;
 
 impl pallet_collator_selection::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -456,9 +469,10 @@ pub const MAX_ALLIES: u32 = 100;
 
 parameter_types! {
 	pub const AllyDeposit: Balance = 1_000 * UNITS; // 1,000 DOT bond to join as an Ally
-	// account used to temporarily deposit slashed imbalance before teleporting
-	pub SlashedImbalanceAccId: AccountId = constants::account::SLASHED_IMBALANCE_ACC_ID.into();
-	pub RelayTreasuryAccId: AccountId = constants::account::RELAY_TREASURY_PALL_ID.into_account_truncating();
+	// The Alliance pallet account, used as a temporary place to deposit a slashed imbalance
+	// before the teleport to the Treasury.
+	pub AlliancePalletAccount: AccountId = constants::account::ALLIANCE_PALLET_ID.into_account_truncating();
+	pub RelayTreasuryAccount: AccountId = constants::account::RELAY_TREASURY_PALLET_ID.into_account_truncating();
 	// The number of blocks a member must wait between giving a retirement notice and retiring.
 	// Supposed to be greater than time required to `kick_member` with alliance motion.
 	pub const AllianceRetirementPeriod: BlockNumber = (90 * DAYS) + ALLIANCE_MOTION_DURATION;
@@ -471,7 +485,7 @@ impl pallet_alliance::Config for Runtime {
 	type MembershipManager = RootOrAllianceTwoThirdsMajority;
 	type AnnouncementOrigin = RootOrAllianceTwoThirdsMajority;
 	type Currency = Balances;
-	type Slashed = ToParentTreasury<RelayTreasuryAccId, SlashedImbalanceAccId, Runtime>;
+	type Slashed = ToParentTreasury<RelayTreasuryAccount, AlliancePalletAccount, Runtime>;
 	type InitializeMembers = AllianceMotion;
 	type MembershipChanged = AllianceMotion;
 	type RetirementPeriod = AllianceRetirementPeriod;
@@ -486,6 +500,47 @@ impl pallet_alliance::Config for Runtime {
 	type MaxMembersCount = ConstU32<ALLIANCE_MAX_MEMBERS>;
 	type AllyDeposit = AllyDeposit;
 	type WeightInfo = weights::pallet_alliance::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
+}
+
+#[cfg(not(feature = "runtime-benchmarks"))]
+parameter_types! {
+	pub const MaxScheduledPerBlock: u32 = 50;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+	pub const MaxScheduledPerBlock: u32 = 200;
+}
+
+impl pallet_scheduler::Config for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeEvent = RuntimeEvent;
+	type PalletsOrigin = OriginCaller;
+	type RuntimeCall = RuntimeCall;
+	type MaximumWeight = MaximumSchedulerWeight;
+	type ScheduleOrigin = EnsureRoot<AccountId>;
+	type MaxScheduledPerBlock = MaxScheduledPerBlock;
+	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
+	type OriginPrivilegeCmp = EqualOrGreatestRootCmp;
+	type Preimages = Preimage;
+}
+
+parameter_types! {
+	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
+	pub const PreimageByteDeposit: Balance = deposit(0, 1);
+}
+
+impl pallet_preimage::Config for Runtime {
+	type WeightInfo = weights::pallet_preimage::WeightInfo<Runtime>;
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type ManagerOrigin = EnsureRoot<AccountId>;
+	type BaseDeposit = PreimageBaseDeposit;
+	type ByteDeposit = PreimageByteDeposit;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -524,10 +579,21 @@ construct_runtime!(
 		Utility: pallet_utility::{Pallet, Call, Event} = 40,
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 41,
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 42,
+		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 43,
+		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 44,
 
 		// The main stage.
+
+		// The Alliance.
 		Alliance: pallet_alliance::{Pallet, Call, Storage, Event<T>, Config<T>} = 50,
 		AllianceMotion: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 51,
+
+		// The Fellowship.
+		// pub type FellowshipCollectiveInstance = pallet_ranked_collective::Instance1;
+		FellowshipCollective: pallet_ranked_collective::<Instance1>::{Pallet, Call, Storage, Event<T>} = 60,
+		// pub type FellowshipReferendaInstance = pallet_referenda::Instance1;
+		FellowshipReferenda: pallet_referenda::<Instance1>::{Pallet, Call, Storage, Event<T>} = 61,
+		FellowshipOrigins: pallet_fellowship_origins::{Origin} = 62,
 	}
 );
 
@@ -587,6 +653,10 @@ mod benches {
 		[pallet_alliance, Alliance]
 		[pallet_collective, AllianceMotion]
 		[pallet_xcm, PolkadotXcm]
+		[pallet_preimage, Preimage]
+		[pallet_scheduler, Scheduler]
+		[pallet_referenda, FellowshipReferenda]
+		[pallet_ranked_collective, FellowshipCollective]
 	);
 }
 

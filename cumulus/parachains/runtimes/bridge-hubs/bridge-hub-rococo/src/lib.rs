@@ -76,7 +76,6 @@ use parachains_common::{
 	opaque, AccountId, Balance, BlockNumber, Hash, Header, Index, Signature,
 	AVERAGE_ON_INITIALIZE_RATIO, HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
-use xcm::latest::prelude::BodyId;
 use xcm_executor::XcmExecutor;
 
 /// The address format for describing accounts.
@@ -404,7 +403,6 @@ impl pallet_aura::Config for Runtime {
 parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"PotStake");
 	pub const SessionLength: BlockNumber = 6 * HOURS;
-	pub const ExecutiveBody: BodyId = BodyId::Executive;
 }
 
 pub type CollatorSelectionUpdateOrigin = EnsureRoot<AccountId>;

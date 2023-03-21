@@ -52,6 +52,8 @@ parameter_types! {
 	pub TrustBackedAssetsPalletLocation: MultiLocation =
 		PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
+	pub FellowshipLocation: MultiLocation = MultiLocation::new(1, Parachain(1001));
+	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
 }
 
 /// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
@@ -142,6 +144,9 @@ match_types! {
 		MultiLocation { parents: 1, interior: Here } |
 		MultiLocation { parents: 1, interior: X1(_) }
 	};
+	pub type FellowsPlurality: impl Contains<MultiLocation> = {
+		MultiLocation { parents: 1, interior: X2(Parachain(1001), Plurality { id: BodyId::Technical, ..}) }
+	};
 }
 
 /// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
@@ -176,7 +181,8 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				pallet_collator_selection::Call::set_desired_candidates { .. } |
 				pallet_collator_selection::Call::set_candidacy_bond { .. } |
 				pallet_collator_selection::Call::register_as_candidate { .. } |
-				pallet_collator_selection::Call::leave_intent { .. },
+				pallet_collator_selection::Call::leave_intent { .. } |
+				pallet_collator_selection::Call::set_invulnerables { .. },
 			) |
 			RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
 			RuntimeCall::XcmpQueue(..) |
@@ -253,8 +259,8 @@ pub type Barrier = DenyThenTry<
 			(
 				// If the message is one that immediately attemps to pay for execution, then allow it.
 				AllowTopLevelPaidExecutionFrom<Everything>,
-				// Parent and its plurality (i.e. governance bodies) gets free execution.
-				AllowExplicitUnpaidExecutionFrom<ParentOrParentsPlurality>,
+				// Parent, its plurality (i.e. governance bodies) and Fellows plurality gets free execution.
+				AllowExplicitUnpaidExecutionFrom<(ParentOrParentsPlurality, FellowsPlurality)>,
 				// Subscriptions for version tracking are OK.
 				AllowSubscriptionsFrom<ParentOrSiblings>,
 			),
