@@ -177,7 +177,7 @@ where
 
 		let runtime_code = self.check_override(runtime_code, &state, at_hash)?.0;
 
-		let extensions = self.execution_extensions.extensions(at_hash, at_number);
+		let mut extensions = self.execution_extensions.extensions(at_hash, at_number);
 
 		let mut sm = StateMachine::new(
 			&state,
@@ -202,10 +202,11 @@ where
 		changes: &RefCell<OverlayedChanges<HashingFor<Block>>>,
 		recorder: &Option<ProofRecorder<Block>>,
 		call_context: CallContext,
+		extensions: &RefCell<Extensions>,
 	) -> Result<Vec<u8>, sp_blockchain::Error> {
 		let state = self.backend.state_at(at_hash)?;
 
-		let extensions = self.execution_extensions.extensions(at_hash, at_number);
+		// let extensions = self.execution_extensions.extensions(at_hash, at_number);
 
 		let changes = &mut *changes.borrow_mut();
 
@@ -291,7 +292,7 @@ where
 			method,
 			call_data,
 			&runtime_code,
-			self.execution_extensions.extensions(at_hash, at_number),
+			&mut self.execution_extensions.extensions(at_hash, at_number),
 		)
 		.map_err(Into::into)
 	}
