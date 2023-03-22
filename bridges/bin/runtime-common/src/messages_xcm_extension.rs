@@ -159,23 +159,24 @@ impl<HaulerOrigin, H: XcmBlobHauler<MessageSenderOrigin = HaulerOrigin>> HaulBlo
 {
 	fn haul_blob(blob: sp_std::prelude::Vec<u8>) -> Result<(), HaulBlobError> {
 		let lane = H::xcm_lane();
-		let result = H::MessageSender::send_message(H::message_sender_origin(), lane, blob);
-		let result = result
-			.map(|artifacts| (lane, artifacts.nonce).using_encoded(sp_io::hashing::blake2_256));
-		match &result {
-			Ok(result) => log::info!(
-				target: crate::LOG_TARGET_BRIDGE_DISPATCH,
-				"haul_blob result - ok: {:?} on lane: {:?}",
-				result,
-				lane
-			),
-			Err(error) => log::error!(
-				target: crate::LOG_TARGET_BRIDGE_DISPATCH,
-				"haul_blob result - error: {:?} on lane: {:?}",
-				error,
-				lane
-			),
-		};
-		result.map(|_| ()).map_err(|_| HaulBlobError::Transport("MessageSenderError"))
+		H::MessageSender::send_message(H::message_sender_origin(), lane, blob)
+			.map(|artifacts| (lane, artifacts.nonce).using_encoded(sp_io::hashing::blake2_256))
+			.map(|result| {
+				log::info!(
+					target: crate::LOG_TARGET_BRIDGE_DISPATCH,
+					"haul_blob result - ok: {:?} on lane: {:?}",
+					result,
+					lane
+				)
+			})
+			.map_err(|error| {
+				log::error!(
+					target: crate::LOG_TARGET_BRIDGE_DISPATCH,
+					"haul_blob result - error: {:?} on lane: {:?}",
+					error,
+					lane
+				);
+				HaulBlobError::Transport("MessageSenderError")
+			})
 	}
 }
