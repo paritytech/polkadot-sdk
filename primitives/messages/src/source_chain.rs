@@ -20,7 +20,7 @@ use crate::{InboundLaneData, LaneId, MessageNonce, OutboundLaneData};
 
 use crate::UnrewardedRelayer;
 use bp_runtime::Size;
-use frame_support::{weights::Weight, Parameter, RuntimeDebug};
+use frame_support::{Parameter, RuntimeDebug};
 use sp_std::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	fmt::Debug,
@@ -124,8 +124,6 @@ impl<AccountId> DeliveryConfirmationPayments<AccountId> for () {
 pub struct SendMessageArtifacts {
 	/// Nonce of the message.
 	pub nonce: MessageNonce,
-	/// Actual weight of send message call.
-	pub weight: Weight,
 }
 
 /// Messages bridge API to be used from other pallets.
@@ -155,7 +153,7 @@ impl<SenderOrigin, Payload> MessagesBridge<SenderOrigin, Payload> for NoopMessag
 		_lane: LaneId,
 		_message: Payload,
 	) -> Result<SendMessageArtifacts, Self::Error> {
-		Ok(SendMessageArtifacts { nonce: 0, weight: Weight::zero() })
+		Ok(SendMessageArtifacts { nonce: 0 })
 	}
 }
 
