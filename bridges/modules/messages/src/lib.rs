@@ -749,15 +749,7 @@ fn send_message<T: Config<I>, I: 'static>(
 
 	Pallet::<T, I>::deposit_event(Event::MessageAccepted { lane_id, nonce });
 
-	// we may introduce benchmarks for that, but no heavy ops planned here apart from
-	// db reads and writes. There are currently 2 db reads and 2 db writes:
-	// - one db read for operation mode check (`ensure_normal_operating_mode`);
-	// - one db read for outbound lane state (`outbound_lane`);
-	// - one db write for outbound lane state (`send_message`);
-	// - one db write for the message (`send_message`);
-	let actual_weight = T::DbWeight::get().reads_writes(2, 2);
-
-	Ok(SendMessageArtifacts { nonce, weight: actual_weight })
+	Ok(SendMessageArtifacts { nonce })
 }
 
 /// Ensure that the pallet is in normal operational mode.
@@ -970,18 +962,13 @@ mod tests {
 		}
 	}
 
-	fn send_regular_message() -> Weight {
+	fn send_regular_message() {
 		get_ready_for_events();
 
 		let message_nonce =
 			outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().latest_generated_nonce + 1;
-		let weight = send_message::<TestRuntime, ()>(
-			RuntimeOrigin::signed(1),
-			TEST_LANE_ID,
-			REGULAR_PAYLOAD,
-		)
-		.expect("send_message has failed")
-		.weight;
+		send_message::<TestRuntime, ()>(RuntimeOrigin::signed(1), TEST_LANE_ID, REGULAR_PAYLOAD)
+			.expect("send_message has failed");
 
 		// check event with assigned nonce
 		assert_eq!(
@@ -995,8 +982,6 @@ mod tests {
 				topics: vec![],
 			}],
 		);
-
-		weight
 	}
 
 	fn receive_messages_delivery_proof() {
