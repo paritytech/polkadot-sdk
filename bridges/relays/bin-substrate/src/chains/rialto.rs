@@ -16,29 +16,18 @@
 
 //! Rialto chain specification for CLI.
 
-use crate::cli::{bridge, encode_message::CliEncodeMessage, CliChain};
+use crate::cli::{encode_message::CliEncodeMessage, CliChain};
 use bp_runtime::EncodedOrDecodedCall;
 use relay_rialto_client::Rialto;
 use relay_substrate_client::SimpleRuntimeVersion;
-use xcm::latest::prelude::*;
 
 impl CliEncodeMessage for Rialto {
-	fn encode_send_xcm(
-		message: xcm::VersionedXcm<()>,
-		bridge_instance_index: u8,
+	fn encode_execute_xcm(
+		message: xcm::VersionedXcm<Self::Call>,
 	) -> anyhow::Result<EncodedOrDecodedCall<Self::Call>> {
-		let dest = match bridge_instance_index {
-			bridge::RIALTO_TO_MILLAU_INDEX =>
-				(Parent, X1(GlobalConsensus(rialto_runtime::xcm_config::MillauNetwork::get()))),
-			_ => anyhow::bail!(
-				"Unsupported target bridge pallet with instance index: {}",
-				bridge_instance_index
-			),
-		};
-
-		Ok(rialto_runtime::RuntimeCall::XcmPallet(rialto_runtime::XcmCall::send {
-			dest: Box::new(dest.into()),
+		Ok(rialto_runtime::RuntimeCall::XcmPallet(rialto_runtime::XcmCall::execute {
 			message: Box::new(message),
+			max_weight: Self::estimate_execute_xcm_weight(),
 		})
 		.into())
 	}
