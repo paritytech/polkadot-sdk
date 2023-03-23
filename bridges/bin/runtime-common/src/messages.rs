@@ -25,28 +25,18 @@ pub use bp_runtime::{UnderlyingChainOf, UnderlyingChainProvider};
 use bp_header_chain::{HeaderChain, HeaderChainError};
 use bp_messages::{
 	source_chain::{LaneMessageVerifier, TargetHeaderChain},
-	target_chain::{
-		DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages, SourceHeaderChain,
-	},
+	target_chain::{ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
 	InboundLaneData, LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData,
 };
-use bp_runtime::{
-	messages::MessageDispatchResult, Chain, ChainId, RawStorageProof, Size, StorageProofChecker,
-	StorageProofError,
-};
-use codec::{Decode, DecodeLimit, Encode};
+use bp_runtime::{Chain, RawStorageProof, Size, StorageProofChecker, StorageProofError};
+use codec::{Decode, Encode};
 use frame_support::{traits::Get, weights::Weight, RuntimeDebug};
 use hash_db::Hasher;
 use scale_info::TypeInfo;
 use sp_std::{convert::TryFrom, fmt::Debug, marker::PhantomData, vec::Vec};
-use xcm::latest::prelude::*;
 
 /// Bidirectional message bridge.
 pub trait MessageBridge {
-	/// Identifier of this chain.
-	const THIS_CHAIN_ID: ChainId;
-	/// Identifier of the Bridged chain.
-	const BRIDGED_CHAIN_ID: ChainId;
 	/// Name of the paired messages pallet instance at the Bridged chain.
 	///
 	/// Should be the name that is used in the `construct_runtime!()` macro.
@@ -64,24 +54,10 @@ pub trait MessageBridge {
 pub trait ThisChainWithMessages: UnderlyingChainProvider {
 	/// Call origin on the chain.
 	type RuntimeOrigin;
-	/// Call type on the chain.
-	type RuntimeCall: Encode + Decode;
-
-	/// Do we accept message sent by given origin to given lane?
-	fn is_message_accepted(origin: &Self::RuntimeOrigin, lane: &LaneId) -> bool;
-
-	/// Maximal number of pending (not yet delivered) messages at This chain.
-	///
-	/// Any messages over this limit, will be rejected.
-	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce;
 }
 
 /// Bridged chain that has `pallet-bridge-messages` module.
-pub trait BridgedChainWithMessages: UnderlyingChainProvider {
-	/// Returns `true` if message dispatch weight is withing expected limits. `false` means
-	/// that the message is too heavy to be sent over the bridge and shall be rejected.
-	fn verify_dispatch_weight(message_payload: &[u8]) -> bool;
-}
+pub trait BridgedChainWithMessages: UnderlyingChainProvider {}
 
 /// This chain in context of message bridge.
 pub type ThisChain<B> = <B as MessageBridge>::ThisChain;
@@ -97,8 +73,6 @@ pub type AccountIdOf<C> = bp_runtime::AccountIdOf<UnderlyingChainOf<C>>;
 pub type BalanceOf<C> = bp_runtime::BalanceOf<UnderlyingChainOf<C>>;
 /// Type of origin that is used on the chain.
 pub type OriginOf<C> = <C as ThisChainWithMessages>::RuntimeOrigin;
-/// Type of call that is used on this chain.
-pub type CallOf<C> = <C as ThisChainWithMessages>::RuntimeCall;
 
 /// Error that happens during message verification.
 #[derive(Debug, PartialEq, Eq)]
@@ -128,7 +102,7 @@ pub mod source {
 	use super::*;
 
 	/// Message payload for This -> Bridged chain messages.
-	pub type FromThisChainMessagePayload = Vec<u8>;
+	pub type FromThisChainMessagePayload = crate::messages_xcm_extension::XcmAsPlainPayload;
 
 	/// Maximal size of outbound message payload.
 	pub struct FromThisChainMaximalOutboundPayloadSize<B>(PhantomData<B>);
@@ -186,13 +160,6 @@ pub mod source {
 	#[derive(RuntimeDebug)]
 	pub struct FromThisChainMessageVerifier<B>(PhantomData<B>);
 
-	/// The error message returned from `LaneMessageVerifier` when outbound lane is disabled.
-	pub const MESSAGE_REJECTED_BY_OUTBOUND_LANE: &str =
-		"The outbound message lane has rejected the message.";
-	/// The error message returned from `LaneMessageVerifier` when too many pending messages at the
-	/// lane.
-	pub const TOO_MANY_PENDING_MESSAGES: &str = "Too many pending messages at the lane.";
-
 	impl<B> LaneMessageVerifier<OriginOf<ThisChain<B>>, FromThisChainMessagePayload>
 		for FromThisChainMessageVerifier<B>
 	where
@@ -205,24 +172,16 @@ pub mod source {
 		type Error = &'static str;
 
 		fn verify_message(
-			submitter: &OriginOf<ThisChain<B>>,
-			lane: &LaneId,
-			lane_outbound_data: &OutboundLaneData,
+			_submitter: &OriginOf<ThisChain<B>>,
+			_lane: &LaneId,
+			_lane_outbound_data: &OutboundLaneData,
 			_payload: &FromThisChainMessagePayload,
 		) -> Result<(), Self::Error> {
-			// reject message if lane is blocked
-			if !ThisChain::<B>::is_message_accepted(submitter, lane) {
-				return Err(MESSAGE_REJECTED_BY_OUTBOUND_LANE)
-			}
-
-			// reject message if there are too many pending messages at this lane
-			let max_pending_messages = ThisChain::<B>::maximal_pending_messages_at_outbound_lane();
-			let pending_messages = lane_outbound_data
-				.latest_generated_nonce
-				.saturating_sub(lane_outbound_data.latest_received_nonce);
-			if pending_messages > max_pending_messages {
-				return Err(TOO_MANY_PENDING_MESSAGES)
-			}
+			// IMPORTANT: any error that is returned here is fatal for the bridge, because
+			// this code is executed at the bridge hub and message sender actually lives
+			// at some sibling parachain. So we are failing **after** the message has been
+			// sent and we can't report it back to sender (unless error report mechanism is
+			// embedded into message and its dispatcher).
 
 			Ok(())
 		}
@@ -263,9 +222,15 @@ pub mod source {
 	pub fn verify_chain_message<B: MessageBridge>(
 		payload: &FromThisChainMessagePayload,
 	) -> Result<(), Error> {
-		if !BridgedChain::<B>::verify_dispatch_weight(payload) {
-			return Err(Error::InvalidMessageWeight)
-		}
+		// IMPORTANT: any error that is returned here is fatal for the bridge, because
+		// this code is executed at the bridge hub and message sender actually lives
+		// at some sibling parachain. So we are failing **after** the message has been
+		// sent and we can't report it back to sender (unless error report mechanism is
+		// embedded into message and its dispatcher).
+
+		// apart from maximal message size check (see below), we should also check the message
+		// dispatch weight here. But we assume that the bridged chain will just push the message
+		// to some queue (XCMP, UMP, DMP), so the weight is constant and fits the block.
 
 		// The maximal size of extrinsic at Substrate-based chain depends on the
 		// `frame_system::Config::MaximumBlockLength` and
@@ -316,92 +281,6 @@ pub mod source {
 		)
 		.map_err(Error::HeaderChain)?
 	}
-
-	/// XCM bridge.
-	pub trait XcmBridge {
-		/// Runtime message bridge configuration.
-		type MessageBridge: MessageBridge;
-		/// Runtime message sender adapter.
-		type MessageSender: bp_messages::source_chain::MessagesBridge<
-			OriginOf<ThisChain<Self::MessageBridge>>,
-			FromThisChainMessagePayload,
-		>;
-
-		/// Our location within the Consensus Universe.
-		fn universal_location() -> InteriorMultiLocation;
-		/// Verify that the adapter is responsible for handling given XCM destination.
-		fn verify_destination(dest: &MultiLocation) -> bool;
-		/// Build route from this chain to the XCM destination.
-		fn build_destination() -> MultiLocation;
-		/// Return message lane used to deliver XCM messages.
-		fn xcm_lane() -> LaneId;
-	}
-
-	/// XCM bridge adapter for `bridge-messages` pallet.
-	pub struct XcmBridgeAdapter<T>(PhantomData<T>);
-
-	impl<T: XcmBridge> SendXcm for XcmBridgeAdapter<T>
-	where
-		BalanceOf<ThisChain<T::MessageBridge>>: Into<Fungibility>,
-		OriginOf<ThisChain<T::MessageBridge>>: From<pallet_xcm::Origin>,
-	{
-		type Ticket = FromThisChainMessagePayload;
-
-		fn validate(
-			dest: &mut Option<MultiLocation>,
-			msg: &mut Option<Xcm<()>>,
-		) -> SendResult<Self::Ticket> {
-			let d = dest.take().ok_or(SendError::MissingArgument)?;
-			if !T::verify_destination(&d) {
-				*dest = Some(d);
-				return Err(SendError::NotApplicable)
-			}
-
-			let route = T::build_destination();
-			let msg = (route, msg.take().ok_or(SendError::MissingArgument)?).encode();
-
-			// let's just take fixed (out of thin air) fee per message in our test bridges
-			// (this code won't be used in production anyway)
-			let fee_assets = MultiAssets::from((Here, 1_000_000_u128));
-
-			Ok((msg, fee_assets))
-		}
-
-		fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
-			use bp_messages::source_chain::MessagesBridge;
-
-			let lane = T::xcm_lane();
-			let msg = ticket;
-			let result = T::MessageSender::send_message(
-				pallet_xcm::Origin::from(MultiLocation::from(T::universal_location())).into(),
-				lane,
-				msg,
-			);
-			result
-				.map(|artifacts| {
-					let hash = (lane, artifacts.nonce).using_encoded(sp_io::hashing::blake2_256);
-					log::debug!(
-						target: "runtime::bridge",
-						"Sent XCM message {:?}/{} to {:?}: {:?}",
-						lane,
-						artifacts.nonce,
-						T::MessageBridge::BRIDGED_CHAIN_ID,
-						hash,
-					);
-					hash
-				})
-				.map_err(|e| {
-					log::debug!(
-						target: "runtime::bridge",
-						"Failed to send XCM message over lane {:?} to {:?}: {:?}",
-						lane,
-						T::MessageBridge::BRIDGED_CHAIN_ID,
-						e,
-					);
-					SendError::Transport("Bridge has rejected the message")
-				})
-		}
-	}
 }
 
 /// Sub-module that is declaring types required for processing Bridged -> This chain messages.
@@ -409,35 +288,7 @@ pub mod target {
 	use super::*;
 
 	/// Decoded Bridged -> This message payload.
-	#[derive(RuntimeDebug, PartialEq, Eq)]
-	pub struct FromBridgedChainMessagePayload<Call> {
-		/// Data that is actually sent over the wire.
-		pub xcm: (xcm::v3::MultiLocation, xcm::v3::Xcm<Call>),
-		/// Weight of the message, computed by the weigher. Unknown initially.
-		pub weight: Option<Weight>,
-	}
-
-	impl<Call: Decode> Decode for FromBridgedChainMessagePayload<Call> {
-		fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-			let _: codec::Compact<u32> = Decode::decode(input)?;
-			type XcmPairType<Call> = (xcm::v3::MultiLocation, xcm::v3::Xcm<Call>);
-			Ok(FromBridgedChainMessagePayload {
-				xcm: XcmPairType::<Call>::decode_with_depth_limit(
-					sp_api::MAX_EXTRINSIC_DEPTH,
-					input,
-				)?,
-				weight: None,
-			})
-		}
-	}
-
-	impl<Call> From<(xcm::v3::MultiLocation, xcm::v3::Xcm<Call>)>
-		for FromBridgedChainMessagePayload<Call>
-	{
-		fn from(xcm: (xcm::v3::MultiLocation, xcm::v3::Xcm<Call>)) -> Self {
-			FromBridgedChainMessagePayload { xcm, weight: None }
-		}
-	}
+	pub type FromBridgedChainMessagePayload = crate::messages_xcm_extension::XcmAsPlainPayload;
 
 	/// Messages proof from bridged chain:
 	///
@@ -467,118 +318,6 @@ pub mod target {
 					.fold(0usize, |sum, node| sum.saturating_add(node.len())),
 			)
 			.unwrap_or(u32::MAX)
-		}
-	}
-
-	/// Dispatching Bridged -> This chain messages.
-	#[derive(RuntimeDebug, Clone, Copy)]
-	pub struct FromBridgedChainMessageDispatch<B, XcmExecutor, XcmWeigher, WeightCredit> {
-		_marker: PhantomData<(B, XcmExecutor, XcmWeigher, WeightCredit)>,
-	}
-
-	impl<B: MessageBridge, XcmExecutor, XcmWeigher, WeightCredit>
-		MessageDispatch<AccountIdOf<ThisChain<B>>>
-		for FromBridgedChainMessageDispatch<B, XcmExecutor, XcmWeigher, WeightCredit>
-	where
-		XcmExecutor: xcm::v3::ExecuteXcm<CallOf<ThisChain<B>>>,
-		XcmWeigher: xcm_executor::traits::WeightBounds<CallOf<ThisChain<B>>>,
-		WeightCredit: Get<Weight>,
-	{
-		type DispatchPayload = FromBridgedChainMessagePayload<CallOf<ThisChain<B>>>;
-		type DispatchLevelResult = ();
-
-		fn dispatch_weight(
-			message: &mut DispatchMessage<Self::DispatchPayload>,
-		) -> frame_support::weights::Weight {
-			match message.data.payload {
-				Ok(ref mut payload) => {
-					// I have no idea why this method takes `&mut` reference and there's nothing
-					// about that in documentation. Hope it'll only mutate iff error is returned.
-					let weight = XcmWeigher::weight(&mut payload.xcm.1);
-					let weight = weight.unwrap_or_else(|e| {
-						log::debug!(
-							target: crate::LOG_TARGET_BRIDGE_DISPATCH,
-							"Failed to compute dispatch weight of incoming XCM message {:?}/{}: {:?}",
-							message.key.lane_id,
-							message.key.nonce,
-							e,
-						);
-
-						// we shall return 0 and then the XCM executor will fail to execute XCM
-						// if we'll return something else (e.g. maximal value), the lane may stuck
-						Weight::zero()
-					});
-
-					payload.weight = Some(weight);
-					weight
-				},
-				_ => Weight::zero(),
-			}
-		}
-
-		fn dispatch(
-			_relayer_account: &AccountIdOf<ThisChain<B>>,
-			message: DispatchMessage<Self::DispatchPayload>,
-		) -> MessageDispatchResult<Self::DispatchLevelResult> {
-			let message_id = (message.key.lane_id, message.key.nonce);
-			let do_dispatch = move || -> sp_std::result::Result<Outcome, codec::Error> {
-				let FromBridgedChainMessagePayload { xcm: (location, xcm), weight: weight_limit } =
-					message.data.payload?;
-				log::trace!(
-					target: crate::LOG_TARGET_BRIDGE_DISPATCH,
-					"Going to execute message {:?} (weight limit: {:?}): {:?} {:?}",
-					message_id,
-					weight_limit,
-					location,
-					xcm,
-				);
-				let hash = message_id.using_encoded(sp_io::hashing::blake2_256);
-
-				// if this cod will end up in production, this most likely needs to be set to zero
-				let weight_credit = WeightCredit::get();
-
-				let xcm_outcome = XcmExecutor::execute_xcm_in_credit(
-					location,
-					xcm,
-					hash,
-					weight_limit.unwrap_or_else(Weight::zero),
-					weight_credit,
-				);
-				Ok(xcm_outcome)
-			};
-
-			let xcm_outcome = do_dispatch();
-			match xcm_outcome {
-				Ok(outcome) => {
-					log::trace!(
-						target: crate::LOG_TARGET_BRIDGE_DISPATCH,
-						"Incoming message {:?} dispatched with result: {:?}",
-						message_id,
-						outcome,
-					);
-					match outcome.ensure_execution() {
-						Ok(_weight) => (),
-						Err(e) => {
-							log::error!(
-								target: crate::LOG_TARGET_BRIDGE_DISPATCH,
-								"Incoming message {:?} was not dispatched, error: {:?}",
-								message_id,
-								e,
-							);
-						},
-					}
-				},
-				Err(e) => {
-					log::error!(
-						target: crate::LOG_TARGET_BRIDGE_DISPATCH,
-						"Incoming message {:?} was not dispatched, codec error: {:?}",
-						message_id,
-						e,
-					);
-				},
-			}
-
-			MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result: () }
 		}
 	}
 
@@ -744,54 +483,6 @@ mod tests {
 	use codec::Encode;
 	use sp_core::H256;
 	use sp_runtime::traits::Header as _;
-
-	fn test_lane_outbound_data() -> OutboundLaneData {
-		OutboundLaneData::default()
-	}
-
-	fn regular_outbound_message_payload() -> source::FromThisChainMessagePayload {
-		vec![42]
-	}
-
-	#[test]
-	fn message_is_rejected_when_sent_using_disabled_lane() {
-		assert_eq!(
-			source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
-				&frame_system::RawOrigin::Root.into(),
-				&LaneId(*b"dsbl"),
-				&test_lane_outbound_data(),
-				&regular_outbound_message_payload(),
-			),
-			Err(source::MESSAGE_REJECTED_BY_OUTBOUND_LANE)
-		);
-	}
-
-	#[test]
-	fn message_is_rejected_when_there_are_too_many_pending_messages_at_outbound_lane() {
-		assert_eq!(
-			source::FromThisChainMessageVerifier::<OnThisChainBridge>::verify_message(
-				&frame_system::RawOrigin::Root.into(),
-				&TEST_LANE_ID,
-				&OutboundLaneData {
-					latest_received_nonce: 100,
-					latest_generated_nonce: 100 + MAXIMAL_PENDING_MESSAGES_AT_TEST_LANE + 1,
-					..Default::default()
-				},
-				&regular_outbound_message_payload(),
-			),
-			Err(source::TOO_MANY_PENDING_MESSAGES)
-		);
-	}
-
-	#[test]
-	fn verify_chain_message_rejects_message_with_too_small_declared_weight() {
-		assert!(source::verify_chain_message::<OnThisChainBridge>(&vec![
-			42;
-			BRIDGED_CHAIN_MIN_EXTRINSIC_WEIGHT -
-				1
-		])
-		.is_err());
-	}
 
 	#[test]
 	fn verify_chain_message_rejects_message_with_too_large_declared_weight() {

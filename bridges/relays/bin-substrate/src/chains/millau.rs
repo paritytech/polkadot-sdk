@@ -16,37 +16,18 @@
 
 //! Millau chain specification for CLI.
 
-use crate::cli::{bridge, encode_message::CliEncodeMessage, CliChain};
-use bp_rialto_parachain::RIALTO_PARACHAIN_ID;
+use crate::cli::{encode_message::CliEncodeMessage, CliChain};
 use bp_runtime::EncodedOrDecodedCall;
 use relay_millau_client::Millau;
 use relay_substrate_client::SimpleRuntimeVersion;
-use xcm::latest::prelude::*;
 
 impl CliEncodeMessage for Millau {
-	fn encode_send_xcm(
-		message: xcm::VersionedXcm<()>,
-		bridge_instance_index: u8,
+	fn encode_execute_xcm(
+		message: xcm::VersionedXcm<Self::Call>,
 	) -> anyhow::Result<EncodedOrDecodedCall<Self::Call>> {
-		let dest = match bridge_instance_index {
-			bridge::MILLAU_TO_RIALTO_INDEX =>
-				(Parent, X1(GlobalConsensus(millau_runtime::xcm_config::RialtoNetwork::get()))),
-			bridge::MILLAU_TO_RIALTO_PARACHAIN_INDEX => (
-				Parent,
-				X2(
-					GlobalConsensus(millau_runtime::xcm_config::RialtoNetwork::get()),
-					Parachain(RIALTO_PARACHAIN_ID),
-				),
-			),
-			_ => anyhow::bail!(
-				"Unsupported target bridge pallet with instance index: {}",
-				bridge_instance_index
-			),
-		};
-
-		Ok(millau_runtime::RuntimeCall::XcmPallet(millau_runtime::XcmCall::send {
-			dest: Box::new(dest.into()),
+		Ok(millau_runtime::RuntimeCall::XcmPallet(millau_runtime::XcmCall::execute {
 			message: Box::new(message),
+			max_weight: Self::estimate_execute_xcm_weight(),
 		})
 		.into())
 	}

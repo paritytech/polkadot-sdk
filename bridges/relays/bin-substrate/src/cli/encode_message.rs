@@ -17,6 +17,7 @@
 use crate::cli::{ExplicitOrMaximal, HexBytes};
 use bp_runtime::EncodedOrDecodedCall;
 use codec::Encode;
+use frame_support::weights::Weight;
 use relay_substrate_client::Chain;
 use structopt::StructOpt;
 
@@ -42,11 +43,16 @@ pub enum Message {
 pub type RawMessage = Vec<u8>;
 
 pub trait CliEncodeMessage: Chain {
-	/// Encode a send XCM call of the XCM pallet.
-	fn encode_send_xcm(
-		message: xcm::VersionedXcm<()>,
-		bridge_instance_index: u8,
+	/// Encode an `execute` XCM call of the XCM pallet.
+	fn encode_execute_xcm(
+		message: xcm::VersionedXcm<Self::Call>,
 	) -> anyhow::Result<EncodedOrDecodedCall<Self::Call>>;
+
+	/// Estimate value of `max_weight` argument for the `execute` XCM call of the XCM pallet.
+	fn estimate_execute_xcm_weight() -> Weight {
+		// we are only executing XCM on our testnets and 1/100 of max extrinsic weight is ok
+		Self::max_extrinsic_weight() / 100
+	}
 }
 
 /// Encode message payload passed through CLI flags.
@@ -125,7 +131,7 @@ mod tests {
 		.unwrap();
 		assert_eq!(msg.len(), 100);
 		// check that it decodes to valid xcm
-		let _ = decode_xcm(msg).unwrap();
+		let _ = decode_xcm::<()>(msg).unwrap();
 	}
 
 	#[test]
@@ -140,6 +146,6 @@ mod tests {
 				.unwrap();
 		assert_eq!(msg.len(), maximal_size as usize);
 		// check that it decodes to valid xcm
-		let _ = decode_xcm(msg).unwrap();
+		let _ = decode_xcm::<()>(msg).unwrap();
 	}
 }

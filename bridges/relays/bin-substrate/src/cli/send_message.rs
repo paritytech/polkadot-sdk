@@ -75,10 +75,7 @@ where
 		let source_sign = data.source_sign.to_keypair::<Self::Source>()?;
 
 		let payload_len = payload.encoded_size();
-		let send_message_call = Self::Source::encode_send_xcm(
-			decode_xcm(payload)?,
-			data.bridge.bridge_instance_index(),
-		)?;
+		let send_message_call = Self::Source::encode_execute_xcm(decode_xcm(payload)?)?;
 
 		source_client
 			.submit_signed_extrinsic(&source_sign, move |_, transaction_nonce| {
@@ -130,7 +127,7 @@ impl SendMessage {
 }
 
 /// Decode SCALE encoded raw XCM message.
-pub(crate) fn decode_xcm(message: RawMessage) -> anyhow::Result<xcm::VersionedXcm<()>> {
+pub(crate) fn decode_xcm<Call>(message: RawMessage) -> anyhow::Result<xcm::VersionedXcm<Call>> {
 	Decode::decode(&mut &message[..])
 		.map_err(|e| anyhow::format_err!("Failed to decode XCM program: {:?}", e))
 }

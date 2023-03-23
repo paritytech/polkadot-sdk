@@ -83,7 +83,7 @@ macro_rules! assert_bridge_messages_pallet_types(
 			use $crate::messages::{
 				source::{FromThisChainMessagePayload, TargetHeaderChainAdapter},
 				target::{FromBridgedChainMessagePayload, SourceHeaderChainAdapter},
-				AccountIdOf, BalanceOf, BridgedChain, CallOf, ThisChain,
+				AccountIdOf, BalanceOf, BridgedChain, ThisChain,
 			};
 			use pallet_bridge_messages::Config as MessagesConfig;
 			use static_assertions::assert_type_eq_all;

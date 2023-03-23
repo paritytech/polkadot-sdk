@@ -17,14 +17,11 @@
 //! XCM configurations for the Rialto runtime.
 
 use super::{
-	millau_messages::WithMillauMessageBridge, AccountId, AllPalletsWithSystem, Balances, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeOrigin, WithMillauMessagesInstance, XcmPallet,
+	millau_messages::ToMillauBlobExporter, AccountId, AllPalletsWithSystem, Balances, Runtime,
+	RuntimeCall, RuntimeEvent, RuntimeOrigin, XcmPallet,
 };
 use bp_rialto::WeightToFee;
-use bridge_runtime_common::{
-	messages::source::{XcmBridge, XcmBridgeAdapter},
-	CustomNetworkId,
-};
+use bridge_runtime_common::CustomNetworkId;
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, Everything, Nothing},
@@ -32,9 +29,9 @@ use frame_support::{
 };
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AccountId32Aliases, AllowKnownQueryResponses, AllowTopLevelPaidExecutionFrom,
-	CurrencyAdapter as XcmCurrencyAdapter, IsConcrete, MintLocation, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, UsingComponents,
+	AccountId32Aliases, CurrencyAdapter as XcmCurrencyAdapter, IsConcrete, MintLocation,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	UsingComponents,
 };
 
 parameter_types! {
@@ -95,22 +92,20 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 }
 
-/// The XCM router. When we want to send an XCM message, we use this type. It amalgamates all of our
-/// individual routers.
-pub type XcmRouter = (
-	// Router to send messages to Millau.
-	XcmBridgeAdapter<ToMillauBridge>,
-);
+/// The XCM router. We are not sending messages to sibling/parent/child chains here.
+pub type XcmRouter = ();
 
 /// The barriers one of which must be passed for an XCM message to be executed.
 pub type Barrier = (
 	// Weight that is paid for may be consumed.
 	TakeWeightCredit,
-	// If the message is one that immediately attemps to pay for execution, then allow it.
-	AllowTopLevelPaidExecutionFrom<Everything>,
-	// Expected responses are OK.
-	AllowKnownQueryResponses<XcmPallet>,
 );
+
+/// Dispatches received XCM messages from other chain.
+pub type OnRialtoBlobDispatcher = xcm_builder::BridgeBlobDispatcher<
+	crate::xcm_config::XcmRouter,
+	crate::xcm_config::UniversalLocation,
+>;
 
 /// Incoming XCM weigher type.
 pub type XcmWeigher = xcm_builder::FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
@@ -118,7 +113,7 @@ pub type XcmWeigher = xcm_builder::FixedWeightBounds<BaseXcmWeight, RuntimeCall,
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
-	type XcmSender = XcmRouter;
+	type XcmSender = ();
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = LocalOriginConverter;
 	type IsReserve = ();
@@ -137,7 +132,7 @@ impl xcm_executor::Config for XcmConfig {
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = ConstU32<64>;
 	type FeeManager = ();
-	type MessageExporter = ();
+	type MessageExporter = ToMillauBlobExporter;
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
@@ -152,7 +147,7 @@ pub type LocalOriginToLocation = (
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = todo!("We dont use benchmarks for pallet_xcm, so if you hit this message, you need to remove this and define value instead");
+	pub ReachableDest: Option<MultiLocation> = None;
 }
 
 impl pallet_xcm::Config for Runtime {
@@ -189,43 +184,24 @@ impl pallet_xcm::Config for Runtime {
 	type ReachableDest = ReachableDest;
 }
 
-/// With-Millau bridge.
-pub struct ToMillauBridge;
-
-impl XcmBridge for ToMillauBridge {
-	type MessageBridge = WithMillauMessageBridge;
-	type MessageSender = pallet_bridge_messages::Pallet<Runtime, WithMillauMessagesInstance>;
-
-	fn universal_location() -> InteriorMultiLocation {
-		UniversalLocation::get()
-	}
-
-	fn verify_destination(dest: &MultiLocation) -> bool {
-		matches!(*dest, MultiLocation { parents: 1, interior: X1(GlobalConsensus(r)) } if r == MillauNetwork::get())
-	}
-
-	fn build_destination() -> MultiLocation {
-		let dest: InteriorMultiLocation = MillauNetwork::get().into();
-		let here = UniversalLocation::get();
-		dest.relative_to(&here)
-	}
-
-	fn xcm_lane() -> bp_messages::LaneId {
-		bp_messages::LaneId([0, 0, 0, 0])
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::millau_messages::WeightCredit;
+	use crate::{
+		millau_messages::{FromMillauMessageDispatch, XCM_LANE},
+		DbWeight, WithMillauMessagesInstance,
+	};
 	use bp_messages::{
 		target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
 		LaneId, MessageKey,
 	};
-	use bp_runtime::messages::MessageDispatchResult;
-	use bridge_runtime_common::messages::target::FromBridgedChainMessageDispatch;
+	use bridge_runtime_common::messages_xcm_extension::{
+		XcmBlobMessageDispatchResult, XcmRouterWeigher,
+	};
 	use codec::Encode;
+	use pallet_bridge_messages::OutboundLanes;
+	use sp_core::Get;
+	use xcm_executor::XcmExecutor;
 
 	fn new_test_ext() -> sp_io::TestExternalities {
 		sp_io::TestExternalities::new(
@@ -233,53 +209,72 @@ mod tests {
 		)
 	}
 
-	#[test]
-	fn xcm_messages_to_millau_are_sent() {
-		new_test_ext().execute_with(|| {
-			// the encoded message (origin ++ xcm) is 0x010109030419A8
-			let dest = (Parent, X1(GlobalConsensus(MillauNetwork::get())));
-			let xcm: Xcm<()> = vec![Instruction::Trap(42)].into();
+	fn prepare_outbound_xcm_message(destination: NetworkId) -> Xcm<RuntimeCall> {
+		vec![ExportMessage {
+			network: destination,
+			destination: destination.into(),
+			xcm: vec![Instruction::Trap(42)].into(),
+		}]
+		.into()
+	}
 
-			let send_result = send_xcm::<XcmRouter>(dest.into(), xcm);
-			let expected_fee = MultiAssets::from((Here, 1_000_000_u128));
-			let expected_hash =
-				([0u8, 0u8, 0u8, 0u8], 1u64).using_encoded(sp_io::hashing::blake2_256);
-			assert_eq!(send_result, Ok((expected_hash, expected_fee)),);
+	#[test]
+	fn xcm_messages_to_millau_are_sent_using_bridge_exporter() {
+		new_test_ext().execute_with(|| {
+			// ensure that the there are no messages queued
+			assert_eq!(
+				OutboundLanes::<Runtime, WithMillauMessagesInstance>::get(XCM_LANE)
+					.latest_generated_nonce,
+				0,
+			);
+
+			// export message instruction "sends" message to Rialto
+			XcmExecutor::<XcmConfig>::execute_xcm_in_credit(
+				Here,
+				prepare_outbound_xcm_message(MillauNetwork::get()),
+				Default::default(),
+				Weight::MAX,
+				Weight::MAX,
+			)
+			.ensure_complete()
+			.expect("runtime configuration must be correct");
+
+			// ensure that the message has been queued
+			assert_eq!(
+				OutboundLanes::<Runtime, WithMillauMessagesInstance>::get(XCM_LANE)
+					.latest_generated_nonce,
+				1,
+			);
 		})
+	}
+
+	fn prepare_inbound_bridge_message() -> DispatchMessage<Vec<u8>> {
+		let xcm = xcm::VersionedXcm::<RuntimeCall>::V3(vec![Instruction::Trap(42)].into());
+		let location =
+			xcm::VersionedInteriorMultiLocation::V3(X1(GlobalConsensus(ThisNetwork::get())));
+		// this is the `BridgeMessage` from polkadot xcm builder, but it has no constructor
+		// or public fields, so just tuple
+		let bridge_message = (location, xcm).encode();
+		DispatchMessage {
+			key: MessageKey { lane_id: LaneId([0, 0, 0, 0]), nonce: 1 },
+			data: DispatchMessageData { payload: Ok(bridge_message) },
+		}
 	}
 
 	#[test]
 	fn xcm_messages_from_millau_are_dispatched() {
-		type XcmExecutor = xcm_executor::XcmExecutor<XcmConfig>;
-		type MessageDispatcher = FromBridgedChainMessageDispatch<
-			WithMillauMessageBridge,
-			XcmExecutor,
-			XcmWeigher,
-			WeightCredit,
-		>;
+		let mut incoming_message = prepare_inbound_bridge_message();
 
-		new_test_ext().execute_with(|| {
-			let location: MultiLocation =
-				(Parent, X1(GlobalConsensus(MillauNetwork::get()))).into();
-			let xcm: Xcm<RuntimeCall> = vec![Instruction::Trap(42)].into();
+		let dispatch_weight = FromMillauMessageDispatch::dispatch_weight(&mut incoming_message);
+		assert_eq!(dispatch_weight, XcmRouterWeigher::<DbWeight>::get());
 
-			let mut incoming_message = DispatchMessage {
-				key: MessageKey { lane_id: LaneId([0, 0, 0, 0]), nonce: 1 },
-				data: DispatchMessageData { payload: Ok((location, xcm).into()) },
-			};
-
-			let dispatch_weight = MessageDispatcher::dispatch_weight(&mut incoming_message);
-			assert_eq!(dispatch_weight, BaseXcmWeight::get());
-
-			let dispatch_result =
-				MessageDispatcher::dispatch(&AccountId::from([0u8; 32]), incoming_message);
-			assert_eq!(
-				dispatch_result,
-				MessageDispatchResult {
-					unspent_weight: frame_support::weights::Weight::zero(),
-					dispatch_level_result: (),
-				}
-			);
-		})
+		// we care only about handing message to the XCM dispatcher, so we don't care about its
+		// actual dispatch
+		let dispatch_result =
+			FromMillauMessageDispatch::dispatch(&AccountId::from([0u8; 32]), incoming_message);
+		assert!(matches!(
+			dispatch_result.dispatch_level_result,
+			XcmBlobMessageDispatchResult::NotDispatched(_),
+		));
 	}
 }
