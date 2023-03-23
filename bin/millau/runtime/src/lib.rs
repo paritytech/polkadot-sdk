@@ -1021,10 +1021,8 @@ impl_runtime_apis! {
 				}
 
 				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
-					use bridge_runtime_common::messages::MessageBridge;
-
 					let lane = <Self as MessagesConfig<WithRialtoParachainMessagesInstance>>::bench_lane_id();
-					let bridged_chain_id = WithRialtoParachainMessageBridge::BRIDGED_CHAIN_ID;
+					let bridged_chain_id = bp_runtime::RIALTO_PARACHAIN_CHAIN_ID;
 					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
 						relayer,
 						RewardsAccountParams::new(lane, bridged_chain_id, RewardsAccountOwner::BridgedChain)
@@ -1054,10 +1052,8 @@ impl_runtime_apis! {
 				}
 
 				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
-					use bridge_runtime_common::messages::MessageBridge;
-
 					let lane = <Self as MessagesConfig<WithRialtoMessagesInstance>>::bench_lane_id();
-					let bridged_chain_id = WithRialtoMessageBridge::BRIDGED_CHAIN_ID;
+					let bridged_chain_id = bp_runtime::RIALTO_CHAIN_ID;
 					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
 						relayer,
 						RewardsAccountParams::new(lane, bridged_chain_id, RewardsAccountOwner::BridgedChain)

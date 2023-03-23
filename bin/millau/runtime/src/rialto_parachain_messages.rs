@@ -16,14 +16,20 @@
 
 //! Everything required to serve Millau <-> RialtoParachain messages.
 
-use crate::{Runtime, RuntimeCall, RuntimeOrigin, WithRialtoParachainsInstance};
+use crate::{
+	Runtime, RuntimeOrigin, WithRialtoParachainMessagesInstance, WithRialtoParachainsInstance,
+};
 
-use bp_messages::{LaneId, MessageNonce};
-use bp_runtime::{ChainId, MILLAU_CHAIN_ID, RIALTO_PARACHAIN_CHAIN_ID};
-use bridge_runtime_common::messages::{
-	self, source::TargetHeaderChainAdapter, target::SourceHeaderChainAdapter, MessageBridge,
+use bp_messages::LaneId;
+use bridge_runtime_common::{
+	messages::{
+		self, source::TargetHeaderChainAdapter, target::SourceHeaderChainAdapter, MessageBridge,
+	},
+	messages_xcm_extension::{XcmBlobHauler, XcmBlobHaulerAdapter},
 };
 use frame_support::{parameter_types, weights::Weight, RuntimeDebug};
+use xcm::latest::prelude::*;
+use xcm_builder::HaulBlobExporter;
 
 /// Default lane that is used to send messages to Rialto parachain.
 pub const XCM_LANE: LaneId = LaneId([0, 0, 0, 0]);
@@ -48,16 +54,16 @@ pub type ToRialtoParachainMessageVerifier =
 	messages::source::FromThisChainMessageVerifier<WithRialtoParachainMessageBridge>;
 
 /// Message payload for RialtoParachain -> Millau messages.
-pub type FromRialtoParachainMessagePayload =
-	messages::target::FromBridgedChainMessagePayload<RuntimeCall>;
+pub type FromRialtoParachainMessagePayload = messages::target::FromBridgedChainMessagePayload;
 
 /// Call-dispatch based message dispatch for RialtoParachain -> Millau messages.
-pub type FromRialtoParachainMessageDispatch = messages::target::FromBridgedChainMessageDispatch<
-	WithRialtoParachainMessageBridge,
-	xcm_executor::XcmExecutor<crate::xcm_config::XcmConfig>,
-	crate::xcm_config::XcmWeigher,
-	WeightCredit,
->;
+pub type FromRialtoParachainMessageDispatch =
+	bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatch<
+		bp_millau::Millau,
+		bp_rialto::Rialto,
+		crate::xcm_config::OnMillauBlobDispatcher,
+		bridge_runtime_common::messages_xcm_extension::XcmRouterWeigher<crate::DbWeight>,
+	>;
 
 /// Maximal outbound payload size of Millau -> RialtoParachain messages.
 pub type ToRialtoParachainMaximalOutboundPayloadSize =
@@ -68,8 +74,6 @@ pub type ToRialtoParachainMaximalOutboundPayloadSize =
 pub struct WithRialtoParachainMessageBridge;
 
 impl MessageBridge for WithRialtoParachainMessageBridge {
-	const THIS_CHAIN_ID: ChainId = MILLAU_CHAIN_ID;
-	const BRIDGED_CHAIN_ID: ChainId = RIALTO_PARACHAIN_CHAIN_ID;
 	const BRIDGED_MESSAGES_PALLET_NAME: &'static str = bp_millau::WITH_MILLAU_MESSAGES_PALLET_NAME;
 
 	type ThisChain = Millau;
@@ -90,16 +94,7 @@ impl messages::UnderlyingChainProvider for Millau {
 }
 
 impl messages::ThisChainWithMessages for Millau {
-	type RuntimeCall = RuntimeCall;
 	type RuntimeOrigin = RuntimeOrigin;
-
-	fn is_message_accepted(_send_origin: &Self::RuntimeOrigin, _lane: &LaneId) -> bool {
-		true
-	}
-
-	fn maximal_pending_messages_at_outbound_lane() -> MessageNonce {
-		MessageNonce::MAX
-	}
 }
 
 /// RialtoParachain chain from message lane point of view.
@@ -116,8 +111,29 @@ impl messages::UnderlyingChainProvider for RialtoParachain {
 	type Chain = bp_rialto_parachain::RialtoParachain;
 }
 
-impl messages::BridgedChainWithMessages for RialtoParachain {
-	fn verify_dispatch_weight(_message_payload: &[u8]) -> bool {
-		true
+impl messages::BridgedChainWithMessages for RialtoParachain {}
+
+/// Export XCM messages to be relayed to Rialto.
+pub type ToRialtoParachainBlobExporter = HaulBlobExporter<
+	XcmBlobHaulerAdapter<ToRialtoParachainXcmBlobHauler>,
+	crate::xcm_config::RialtoParachainNetwork,
+	(),
+>;
+
+/// To-RialtoParachain XCM hauler.
+pub struct ToRialtoParachainXcmBlobHauler;
+
+impl XcmBlobHauler for ToRialtoParachainXcmBlobHauler {
+	type MessageSender =
+		pallet_bridge_messages::Pallet<Runtime, WithRialtoParachainMessagesInstance>;
+	type MessageSenderOrigin = RuntimeOrigin;
+
+	fn message_sender_origin() -> RuntimeOrigin {
+		pallet_xcm::Origin::from(MultiLocation::new(1, crate::xcm_config::UniversalLocation::get()))
+			.into()
+	}
+
+	fn xcm_lane() -> LaneId {
+		XCM_LANE
 	}
 }

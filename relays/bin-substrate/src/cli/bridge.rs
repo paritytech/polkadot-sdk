@@ -37,28 +37,6 @@ pub enum FullBridge {
 	BridgeHubPolkadotToBridgeHubKusama,
 }
 
-impl FullBridge {
-	/// Return instance index of the bridge pallet in source runtime.
-	pub fn bridge_instance_index(&self) -> u8 {
-		match self {
-			Self::MillauToRialto => MILLAU_TO_RIALTO_INDEX,
-			Self::RialtoToMillau => RIALTO_TO_MILLAU_INDEX,
-			Self::MillauToRialtoParachain => MILLAU_TO_RIALTO_PARACHAIN_INDEX,
-			Self::RialtoParachainToMillau => RIALTO_PARACHAIN_TO_MILLAU_INDEX,
-			Self::BridgeHubRococoToBridgeHubWococo |
-			Self::BridgeHubWococoToBridgeHubRococo |
-			Self::BridgeHubKusamaToBridgeHubPolkadot |
-			Self::BridgeHubPolkadotToBridgeHubKusama =>
-				unimplemented!("Relay doesn't support send-message subcommand on bridge hubs"),
-		}
-	}
-}
-
-pub const RIALTO_TO_MILLAU_INDEX: u8 = 0;
-pub const MILLAU_TO_RIALTO_INDEX: u8 = 0;
-pub const MILLAU_TO_RIALTO_PARACHAIN_INDEX: u8 = 1;
-pub const RIALTO_PARACHAIN_TO_MILLAU_INDEX: u8 = 0;
-
 /// Minimal bridge representation that can be used from the CLI.
 /// It connects a source chain to a target chain.
 pub trait CliBridgeBase: Sized {
