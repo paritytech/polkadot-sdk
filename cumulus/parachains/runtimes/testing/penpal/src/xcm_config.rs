@@ -35,6 +35,7 @@ use frame_support::{
 	},
 	weights::Weight,
 };
+use frame_system::EnsureRoot;
 use pallet_asset_tx_payment::HandleCredit;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::xcm_config::{DenyReserveTransferToRelayChain, DenyThenTry};
@@ -337,6 +338,7 @@ impl pallet_xcm::Config for Runtime {
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	#[cfg(feature = "runtime-benchmarks")]
 	type ReachableDest = ReachableDest;
+	type AdminOrigin = EnsureRoot<AccountId>;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {
