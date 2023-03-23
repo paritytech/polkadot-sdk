@@ -49,7 +49,6 @@ parameter_types! {
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorMultiLocation =
 		X2(GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into()));
-	pub const Local: MultiLocation = MultiLocation::here();
 	pub TrustBackedAssetsPalletLocation: MultiLocation =
 		PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
@@ -83,7 +82,7 @@ pub type CurrencyTransactor = CurrencyAdapter<
 	(),
 >;
 
-/// `AssetId/Balancer` converter for `TrustBackedAssets``
+/// `AssetId/Balance` converter for `TrustBackedAssets``
 pub type TrustBackedAssetsConvertedConcreteId =
 	assets_common::TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, Balance>;
 

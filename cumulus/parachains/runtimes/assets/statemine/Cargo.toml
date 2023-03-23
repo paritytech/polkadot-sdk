@@ -112,6 +112,7 @@ runtime-benchmarks = [
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-state-trie-migration/runtime-benchmarks",
+	"assets-common/runtime-benchmarks",
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",

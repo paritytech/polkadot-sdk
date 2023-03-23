@@ -1,27 +1,25 @@
-// This file is part of Substrate.
+// Copyright (C) 2023 Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
 
-// Copyright (C) 2018-2022 Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
-
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <https://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Runtime API definition for assets.
 
 use crate::runtime_api::FungiblesAccessError;
+use frame_support::traits::Contains;
 use sp_std::{borrow::Borrow, vec::Vec};
 use xcm::latest::{MultiAsset, MultiLocation};
-use xcm_builder::ConvertedConcreteId;
+use xcm_builder::{ConvertedConcreteId, MatchedConvertedConcreteId};
 use xcm_executor::traits::{Convert, MatchesFungibles};
 
 /// Converting any [`(AssetId, Balance)`] to [`MultiAsset`]
@@ -45,6 +43,29 @@ impl<
 		ConvertBalance: Convert<u128, Balance>,
 	> MultiAssetConverter<AssetId, Balance, ConvertAssetId, ConvertBalance>
 	for ConvertedConcreteId<AssetId, Balance, ConvertAssetId, ConvertBalance>
+{
+	fn convert_ref(
+		value: impl Borrow<(AssetId, Balance)>,
+	) -> Result<MultiAsset, FungiblesAccessError> {
+		let (asset_id, balance) = value.borrow();
+		match ConvertAssetId::reverse_ref(asset_id) {
+			Ok(asset_id_as_multilocation) => match ConvertBalance::reverse_ref(balance) {
+				Ok(amount) => Ok((asset_id_as_multilocation, amount).into()),
+				Err(_) => Err(FungiblesAccessError::AmountToBalanceConversionFailed),
+			},
+			Err(_) => Err(FungiblesAccessError::AssetIdConversionFailed),
+		}
+	}
+}
+
+impl<
+		AssetId: Clone,
+		Balance: Clone,
+		MatchAssetId: Contains<MultiLocation>,
+		ConvertAssetId: Convert<MultiLocation, AssetId>,
+		ConvertBalance: Convert<u128, Balance>,
+	> MultiAssetConverter<AssetId, Balance, ConvertAssetId, ConvertBalance>
+	for MatchedConvertedConcreteId<AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance>
 {
 	fn convert_ref(
 		value: impl Borrow<(AssetId, Balance)>,
@@ -90,11 +111,12 @@ pub fn convert_balance<
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use frame_support::traits::Everything;
 
 	use xcm::latest::prelude::*;
 	use xcm_executor::traits::{Identity, JustTry};
 
-	type Converter = ConvertedConcreteId<MultiLocation, u64, Identity, JustTry>;
+	type Converter = MatchedConvertedConcreteId<MultiLocation, u64, Everything, Identity, JustTry>;
 
 	#[test]
 	fn converted_concrete_id_fungible_multi_asset_conversion_roundtrip_works() {

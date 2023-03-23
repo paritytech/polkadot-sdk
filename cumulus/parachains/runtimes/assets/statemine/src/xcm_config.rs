@@ -14,9 +14,12 @@
 // limitations under the License.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, ParachainInfo,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
+	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, ForeignAssets,
+	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
 	TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
+};
+use assets_common::matching::{
+	FromSiblingParachain, IsForeignConcreteAsset, StartsWith, StartsWithExplicitGlobalConsensus,
 };
 use frame_support::{
 	match_types, parameter_types,
@@ -36,8 +39,8 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter, EnsureXcmOrigin,
-	FungiblesAdapter, IsConcrete, LocalMint, NativeAsset, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	FungiblesAdapter, IsConcrete, LocalMint, NativeAsset, NoChecking, ParentAsSuperuser,
+	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	UsingComponents, WeightInfoBounds, WithComputedOrigin,
 };
@@ -49,7 +52,7 @@ parameter_types! {
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorMultiLocation =
 		X2(GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into()));
-	pub const Local: MultiLocation = Here.into_location();
+	pub UniversalLocationNetworkId: NetworkId = UniversalLocation::get().global_consensus().unwrap();
 	pub TrustBackedAssetsPalletLocation: MultiLocation =
 		PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
@@ -83,7 +86,7 @@ pub type CurrencyTransactor = CurrencyAdapter<
 	(),
 >;
 
-/// `AssetId/Balancer` converter for `TrustBackedAssets`
+/// `AssetId/Balance` converter for `TrustBackedAssets`
 pub type TrustBackedAssetsConvertedConcreteId =
 	assets_common::TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, Balance>;
 
@@ -103,8 +106,38 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	// The account to use for tracking teleports.
 	CheckingAccount,
 >;
+
+/// `AssetId/Balance` converter for `TrustBackedAssets`
+pub type ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConvertedConcreteId<
+	(
+		// Ignore `TrustBackedAssets` explicitly
+		StartsWith<TrustBackedAssetsPalletLocation>,
+		// Ignore asset which starts explicitly with our `GlobalConsensus(NetworkId)`, means:
+		// - foreign assets from our consensus should be: `MultiLocation {parent: 1, X*(Parachain(xyz))}
+		// - foreign assets outside our consensus with the same `GlobalConsensus(NetworkId)` wont be accepted here
+		StartsWithExplicitGlobalConsensus<UniversalLocationNetworkId>,
+	),
+	Balance,
+>;
+
+/// Means for transacting foreign assets from different global consensus.
+pub type ForeignFungiblesTransactor = FungiblesAdapter<
+	// Use this fungibles implementation:
+	ForeignAssets,
+	// Use this currency when it is a fungible asset matching the given location or name:
+	ForeignAssetsConvertedConcreteId,
+	// Convert an XCM MultiLocation into a local account id:
+	LocationToAccountId,
+	// Our chain's account ID type (we can't get away without mentioning it explicitly):
+	AccountId,
+	// We dont need to check teleports here.
+	NoChecking,
+	// The account to use for tracking teleports.
+	CheckingAccount,
+>;
+
 /// Means for transacting assets on this chain.
-pub type AssetTransactors = (CurrencyTransactor, FungiblesTransactor);
+pub type AssetTransactors = (CurrencyTransactor, FungiblesTransactor, ForeignFungiblesTransactor);
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
@@ -203,6 +236,35 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				pallet_assets::Call::thaw_asset { .. } |
 				pallet_assets::Call::transfer_ownership { .. } |
 				pallet_assets::Call::set_team { .. } |
+				pallet_assets::Call::clear_metadata { .. } |
+				pallet_assets::Call::force_clear_metadata { .. } |
+				pallet_assets::Call::force_asset_status { .. } |
+				pallet_assets::Call::approve_transfer { .. } |
+				pallet_assets::Call::cancel_approval { .. } |
+				pallet_assets::Call::force_cancel_approval { .. } |
+				pallet_assets::Call::transfer_approved { .. } |
+				pallet_assets::Call::touch { .. } |
+				pallet_assets::Call::refund { .. },
+			) |
+			RuntimeCall::ForeignAssets(
+				pallet_assets::Call::create { .. } |
+				pallet_assets::Call::force_create { .. } |
+				pallet_assets::Call::start_destroy { .. } |
+				pallet_assets::Call::destroy_accounts { .. } |
+				pallet_assets::Call::destroy_approvals { .. } |
+				pallet_assets::Call::finish_destroy { .. } |
+				pallet_assets::Call::mint { .. } |
+				pallet_assets::Call::burn { .. } |
+				pallet_assets::Call::transfer { .. } |
+				pallet_assets::Call::transfer_keep_alive { .. } |
+				pallet_assets::Call::force_transfer { .. } |
+				pallet_assets::Call::freeze { .. } |
+				pallet_assets::Call::thaw { .. } |
+				pallet_assets::Call::freeze_asset { .. } |
+				pallet_assets::Call::thaw_asset { .. } |
+				pallet_assets::Call::transfer_ownership { .. } |
+				pallet_assets::Call::set_team { .. } |
+				pallet_assets::Call::set_metadata { .. } |
 				pallet_assets::Call::clear_metadata { .. } |
 				pallet_assets::Call::force_clear_metadata { .. } |
 				pallet_assets::Call::force_asset_status { .. } |
@@ -322,7 +384,13 @@ impl xcm_executor::Config for XcmConfig {
 	// Statemine acting _as_ a reserve location for KSM and assets created under `pallet-assets`.
 	// For KSM, users must use teleport where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
-	type IsTeleporter = NativeAsset; // <- should be enough to allow teleportation of KSM
+	// We allow:
+	// - teleportation of KSM
+	// - teleportation of sibling parachain's assets (as ForeignCreators)
+	type IsTeleporter = (
+		NativeAsset,
+		IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
+	);
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
@@ -414,4 +482,21 @@ impl pallet_xcm::Config for Runtime {
 impl cumulus_pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
+}
+
+pub type ForeignCreatorsSovereignAccountOf = (
+	SiblingParachainConvertsVia<Sibling, AccountId>,
+	AccountId32Aliases<RelayNetwork, AccountId>,
+	ParentIsPreset<AccountId>,
+);
+
+/// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
+pub struct XcmBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+use pallet_assets::BenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl BenchmarkHelper<MultiLocation> for XcmBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> MultiLocation {
+		MultiLocation { parents: 1, interior: X1(Parachain(id)) }
+	}
 }

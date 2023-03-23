@@ -1,25 +1,27 @@
 use asset_test_utils::{ExtBuilder, RuntimeHelper};
-use codec::Encode;
+use codec::Decode;
 use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
-	assert_noop, assert_ok, sp_io,
+	assert_noop, assert_ok,
+	traits::fungibles::InspectEnumerable,
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
-use parachains_common::{AccountId, Balance, StatemintAuraId as AuraId};
+use parachains_common::{
+	AccountId, AssetIdForTrustBackedAssets, Balance, StatemintAuraId as AuraId,
+};
 use statemint_runtime::xcm_config::{
-	AssetFeeAsExistentialDepositMultiplierFeeCharger, DotLocation, TrustBackedAssetsPalletLocation,
+	AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount, DotLocation,
+	TrustBackedAssetsPalletLocation,
 };
 pub use statemint_runtime::{
-	constants::fee::WeightToFee, xcm_config::XcmConfig, Assets, Balances, ExistentialDeposit,
-	ReservedDmpWeight, Runtime, SessionKeys, System,
+	constants::fee::WeightToFee, xcm_config::XcmConfig, AssetDeposit, Assets, Balances,
+	ExistentialDeposit, ParachainSystem, Runtime, RuntimeEvent, SessionKeys, System,
+	TrustBackedAssetsInstance,
 };
 use xcm::latest::prelude::*;
-use xcm_executor::{
-	traits::{Convert, WeightTrader},
-	XcmExecutor,
-};
+use xcm_executor::traits::{Convert, WeightTrader};
 
-pub const ALICE: [u8; 32] = [1u8; 32];
+const ALICE: [u8; 32] = [1u8; 32];
 
 type AssetIdForTrustBackedAssetsConvert =
 	assets_common::AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>;
@@ -438,50 +440,63 @@ fn test_assets_balances_api_works() {
 		});
 }
 
-#[test]
-fn receive_teleported_asset_works() {
-	ExtBuilder::<Runtime>::default()
-		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::ed25519::Public::from_raw(ALICE)) },
-		)])
-		.build()
-		.execute_with(|| {
-			let xcm = Xcm(vec![
-				ReceiveTeleportedAsset(MultiAssets::from(vec![MultiAsset {
-					id: Concrete(MultiLocation { parents: 1, interior: Here }),
-					fun: Fungible(10000000000000),
-				}])),
-				ClearOrigin,
-				BuyExecution {
-					fees: MultiAsset {
-						id: Concrete(MultiLocation { parents: 1, interior: Here }),
-						fun: Fungible(10000000000000),
-					},
-					weight_limit: Limited(Weight::from_parts(303531000, 65536)),
-				},
-				DepositAsset {
-					assets: Wild(AllCounted(1)),
-					beneficiary: MultiLocation {
-						parents: 0,
-						interior: X1(AccountId32 {
-							network: None,
-							id: [
-								18, 153, 85, 112, 1, 245, 88, 21, 211, 252, 181, 60, 116, 70, 58,
-								203, 12, 246, 209, 77, 70, 57, 179, 64, 152, 44, 96, 135, 127, 56,
-								70, 9,
-							],
-						}),
-					},
-				},
-			]);
-			let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+asset_test_utils::include_teleports_for_native_asset_works!(
+	Runtime,
+	XcmConfig,
+	CheckingAccount,
+	WeightToFee,
+	ParachainSystem,
+	asset_test_utils::CollatorSessionKeys::new(
+		AccountId::from(ALICE),
+		AccountId::from(ALICE),
+		SessionKeys { aura: AuraId::from(sp_core::ed25519::Public::from_raw(ALICE)) }
+	),
+	ExistentialDeposit::get(),
+	Box::new(|runtime_event_encoded: Vec<u8>| {
+		match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+			Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
+			_ => None,
+		}
+	}),
+	Box::new(|runtime_event_encoded: Vec<u8>| {
+		match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+			Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
+			_ => None,
+		}
+	})
+);
 
-			let weight_limit = ReservedDmpWeight::get();
+asset_test_utils::include_asset_transactor_transfer_with_local_consensus_currency_works!(
+	Runtime,
+	XcmConfig,
+	asset_test_utils::CollatorSessionKeys::new(
+		AccountId::from(ALICE),
+		AccountId::from(ALICE),
+		SessionKeys { aura: AuraId::from(sp_core::ed25519::Public::from_raw(ALICE)) }
+	),
+	ExistentialDeposit::get(),
+	Box::new(|| {
+		assert!(Assets::asset_ids().collect::<Vec<_>>().is_empty());
+	}),
+	Box::new(|| {
+		assert!(Assets::asset_ids().collect::<Vec<_>>().is_empty());
+	})
+);
 
-			let outcome = XcmExecutor::<XcmConfig>::execute_xcm(Parent, xcm, hash, weight_limit);
-			assert_eq!(outcome.ensure_complete(), Ok(()));
-		})
-}
+asset_test_utils::include_asset_transactor_transfer_with_pallet_assets_instance_works!(
+	asset_transactor_transfer_with_pallet_assets_instance_works,
+	Runtime,
+	XcmConfig,
+	TrustBackedAssetsInstance,
+	AssetIdForTrustBackedAssets,
+	AssetIdForTrustBackedAssetsConvert,
+	asset_test_utils::CollatorSessionKeys::new(
+		AccountId::from(ALICE),
+		AccountId::from(ALICE),
+		SessionKeys { aura: AuraId::from(sp_core::ed25519::Public::from_raw(ALICE)) }
+	),
+	ExistentialDeposit::get(),
+	12345,
+	Box::new(|| {}),
+	Box::new(|| {})
+);

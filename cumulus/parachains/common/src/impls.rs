@@ -95,6 +95,18 @@ where
 	}
 }
 
+/// Allow checking in assets that exists.
+pub struct AssetExists<AccountId, Assets>(PhantomData<(AccountId, Assets)>);
+impl<AccountId, Assets> Contains<<Assets as fungibles::Inspect<AccountId>>::AssetId>
+	for AssetExists<AccountId, Assets>
+where
+	Assets: fungibles::Inspect<AccountId>,
+{
+	fn contains(id: &<Assets as fungibles::Inspect<AccountId>>::AssetId) -> bool {
+		Assets::asset_exists(*id)
+	}
+}
+
 /// Asset filter that allows all assets from a certain location.
 pub struct AssetsFrom<T>(PhantomData<T>);
 impl<T: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation> for AssetsFrom<T> {

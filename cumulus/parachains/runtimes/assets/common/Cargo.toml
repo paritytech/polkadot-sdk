@@ -7,6 +7,7 @@ description = "Assets common utilities"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+log = { version = "0.4.17", default-features = false }
 
 # Substrate
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
@@ -14,12 +15,14 @@ sp-api = { git = "https://github.com/paritytech/substrate", default-features = f
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 # Polkadot
+pallet-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
 # Cumulus
 parachains-common = { path = "../../../common", default-features = false }
+cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -28,11 +31,20 @@ substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", bran
 default = [ "std" ]
 std = [
 	"codec/std",
+	"log/std",
 	"frame-support/std",
 	"parachains-common/std",
+	"cumulus-primitives-core/std",
 	"sp-api/std",
 	"sp-std/std",
+	"pallet-xcm/std",
 	"xcm/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
+]
+
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
 ]
