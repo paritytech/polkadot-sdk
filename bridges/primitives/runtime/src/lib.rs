@@ -502,11 +502,11 @@ pub struct StrippableError<T> {
 }
 
 impl<T: Debug> From<T> for StrippableError<T> {
-	fn from(err: T) -> Self {
+	fn from(_err: T) -> Self {
 		Self {
 			_phantom_data: Default::default(),
 			#[cfg(feature = "std")]
-			message: format!("{:?}", err),
+			message: format!("{:?}", _err),
 		}
 	}
 }

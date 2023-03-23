@@ -215,18 +215,19 @@ In this section we'll show you how to quickly send a bridge message. The message
 After sending a message you will see the following logs showing a message was successfully sent:
 
 ```
-INFO bridge Sending message to Rialto. Size: 5.
+INFO bridge Sending message to Rialto. Size: 11.
 TRACE bridge Sent transaction to Millau node: 0x5e68...
 ```
 
 And at the Rialto node logs you'll something like this:
 
 ```
-... runtime::bridge-dispatch: Going to execute message ([0, 0, 0, 0], 1) (...), Trap(43)])    
-... runtime::bridge-dispatch: Incoming message ([0, 0, 0, 0], 1) dispatched with result: Incomplete(2000000000, Trap(43))    
+... runtime::bridge-messages: Received messages: total=1, valid=1. Weight used: Weight(ref_time: 1215065371, proof_size: 48559)/Weight(ref_time: 1215065371, proof_size: 54703).
 ``` 
 
-It means that the message has been delivered and successfully dispatched.
+It means that the message has been delivered and dispatched. Message may be dispatched with an
+error, though - the goal of our test bridge is to ensure that messages are successfully delivered
+and all involved components are working.
 
 ## Full Network Docker Compose Setup
 
