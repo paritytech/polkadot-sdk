@@ -86,12 +86,12 @@ pub const MAX_AUTHORITIES_COUNT: u32 = 5;
 
 /// Reasonable number of headers in the `votes_ancestries` on Millau chain.
 ///
-/// See [`bp_header_chain::ChainWithGrandpa`] for more details.
+/// See [`bp-header-chain::ChainWithGrandpa`] for more details.
 pub const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
 
 /// Approximate average header size in `votes_ancestries` field of justification on Millau chain.
 ///
-/// See [`bp_header_chain::ChainWithGrandpa`] for more details.
+/// See [`bp-header-chain::ChainWithGrandpa`] for more details.
 pub const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 256;
 
 /// Approximate maximal header size on Millau chain.
@@ -100,7 +100,7 @@ pub const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 256;
 /// engine (GRANDPA, Babe, BEEFY, ...) - so we multiply it by 3. And also
 /// `AVERAGE_HEADER_SIZE_IN_JUSTIFICATION` bytes for other stuff.
 ///
-/// See [`bp_header_chain::ChainWithGrandpa`] for more details.
+/// See [`bp-header-chain::ChainWithGrandpa`] for more details.
 pub const MAX_HEADER_SIZE: u32 = MAX_AUTHORITIES_COUNT
 	.saturating_mul(3)
 	.saturating_add(AVERAGE_HEADER_SIZE_IN_JUSTIFICATION);
