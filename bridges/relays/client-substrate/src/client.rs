@@ -739,12 +739,12 @@ impl<C: Chain> Client<C> {
 	async fn jsonrpsee_execute<MF, F, T>(&self, make_jsonrpsee_future: MF) -> Result<T>
 	where
 		MF: FnOnce(Arc<RpcClient>) -> F + Send + 'static,
-		F: Future<Output = Result<T>> + Send,
+		F: Future<Output = Result<T>> + Send + 'static,
 		T: Send + 'static,
 	{
 		let data = self.data.read().await;
 		let client = data.client.clone();
-		data.tokio.spawn(async move { make_jsonrpsee_future(client).await }).await?
+		data.tokio.spawn(make_jsonrpsee_future(client)).await?
 	}
 
 	/// Returns `true` if version guard can be started.
