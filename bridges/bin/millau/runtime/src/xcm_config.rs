@@ -28,6 +28,7 @@ use frame_support::{
 	traits::{ConstU32, Everything, Nothing},
 	weights::Weight,
 };
+use frame_system::EnsureRoot;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, CurrencyAdapter as XcmCurrencyAdapter, IsConcrete, MintLocation,
@@ -186,6 +187,7 @@ impl pallet_xcm::Config for Runtime {
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	#[cfg(feature = "runtime-benchmarks")]
 	type ReachableDest = ReachableDest;
+	type AdminOrigin = EnsureRoot<AccountId>;
 }
 
 pub struct ToRialtoOrRialtoParachainSwitchExporter;
