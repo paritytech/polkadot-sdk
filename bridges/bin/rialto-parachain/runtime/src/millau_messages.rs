@@ -63,7 +63,7 @@ pub type FromMillauMessageDispatch =
 		bp_rialto_parachain::RialtoParachain,
 		bp_millau::Millau,
 		crate::OnRialtoParachainBlobDispatcher,
-		bridge_runtime_common::messages_xcm_extension::XcmRouterWeigher<()>,
+		(),
 	>;
 
 /// Messages proof for Millau -> RialtoParachain messages.
