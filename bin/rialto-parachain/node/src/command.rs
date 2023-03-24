@@ -286,7 +286,7 @@ pub fn run() -> Result<()> {
 				let id = ParaId::from(cli.parachain_id.or(para_id).expect("Missing ParaId"));
 
 				let parachain_account =
-					AccountIdConversion::<polkadot_primitives::v2::AccountId>::into_account_truncating(&id);
+					AccountIdConversion::<polkadot_primitives::v4::AccountId>::into_account_truncating(&id);
 
 				let state_version =
 					RelayChainCli::native_runtime_version(&config.chain_spec).state_version();

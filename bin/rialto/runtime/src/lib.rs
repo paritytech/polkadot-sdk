@@ -330,6 +330,10 @@ impl pallet_balances::Config for Runtime {
 	type MaxLocks = ConstU32<50>;
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
+	type HoldIdentifier = ();
+	type FreezeIdentifier = ();
+	type MaxHolds = ConstU32<0>;
+	type MaxFreezes = ConstU32<0>;
 }
 
 parameter_types! {
@@ -579,6 +583,14 @@ impl_runtime_apis! {
 		fn metadata() -> OpaqueMetadata {
 			OpaqueMetadata::new(Runtime::metadata().into())
 		}
+
+		fn metadata_at_version(version: u32) -> Option<OpaqueMetadata> {
+			Runtime::metadata_at_version(version)
+		}
+
+		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+			Runtime::metadata_versions()
+		}
 	}
 
 	impl sp_block_builder::BlockBuilder<Block> for Runtime {
@@ -754,55 +766,55 @@ impl_runtime_apis! {
 	}
 
 	impl polkadot_primitives::runtime_api::ParachainHost<Block, Hash, BlockNumber> for Runtime {
-		fn validators() -> Vec<polkadot_primitives::v2::ValidatorId> {
-			polkadot_runtime_parachains::runtime_api_impl::v2::validators::<Runtime>()
+		fn validators() -> Vec<polkadot_primitives::v4::ValidatorId> {
+			polkadot_runtime_parachains::runtime_api_impl::v4::validators::<Runtime>()
 		}
 
-		fn validator_groups() -> (Vec<Vec<polkadot_primitives::v2::ValidatorIndex>>, polkadot_primitives::v2::GroupRotationInfo<BlockNumber>) {
-			polkadot_runtime_parachains::runtime_api_impl::v2::validator_groups::<Runtime>()
+		fn validator_groups() -> (Vec<Vec<polkadot_primitives::v4::ValidatorIndex>>, polkadot_primitives::v4::GroupRotationInfo<BlockNumber>) {
+			polkadot_runtime_parachains::runtime_api_impl::v4::validator_groups::<Runtime>()
 		}
 
-		fn availability_cores() -> Vec<polkadot_primitives::v2::CoreState<Hash, BlockNumber>> {
-			polkadot_runtime_parachains::runtime_api_impl::v2::availability_cores::<Runtime>()
+		fn availability_cores() -> Vec<polkadot_primitives::v4::CoreState<Hash, BlockNumber>> {
+			polkadot_runtime_parachains::runtime_api_impl::v4::availability_cores::<Runtime>()
 		}
 
-		fn persisted_validation_data(para_id: polkadot_primitives::v2::Id, assumption: polkadot_primitives::v2::OccupiedCoreAssumption)
-			-> Option<polkadot_primitives::v2::PersistedValidationData<Hash, BlockNumber>> {
-			polkadot_runtime_parachains::runtime_api_impl::v2::persisted_validation_data::<Runtime>(para_id, assumption)
+		fn persisted_validation_data(para_id: polkadot_primitives::v4::Id, assumption: polkadot_primitives::v4::OccupiedCoreAssumption)
+			-> Option<polkadot_primitives::v4::PersistedValidationData<Hash, BlockNumber>> {
+			polkadot_runtime_parachains::runtime_api_impl::v4::persisted_validation_data::<Runtime>(para_id, assumption)
 		}
 
 		fn assumed_validation_data(
-			para_id: polkadot_primitives::v2::Id,
+			para_id: polkadot_primitives::v4::Id,
 			expected_persisted_validation_data_hash: Hash,
-		) -> Option<(polkadot_primitives::v2::PersistedValidationData<Hash, BlockNumber>, polkadot_primitives::v2::ValidationCodeHash)> {
-			polkadot_runtime_parachains::runtime_api_impl::v2::assumed_validation_data::<Runtime>(
+		) -> Option<(polkadot_primitives::v4::PersistedValidationData<Hash, BlockNumber>, polkadot_primitives::v4::ValidationCodeHash)> {
+			polkadot_runtime_parachains::runtime_api_impl::v4::assumed_validation_data::<Runtime>(
 				para_id,
 				expected_persisted_validation_data_hash,
 			)
 		}
 
 		fn check_validation_outputs(
-			para_id: polkadot_primitives::v2::Id,
-			outputs: polkadot_primitives::v2::CandidateCommitments,
+			para_id: polkadot_primitives::v4::Id,
+			outputs: polkadot_primitives::v4::CandidateCommitments,
 		) -> bool {
-			polkadot_runtime_parachains::runtime_api_impl::v2::check_validation_outputs::<Runtime>(para_id, outputs)
+			polkadot_runtime_parachains::runtime_api_impl::v4::check_validation_outputs::<Runtime>(para_id, outputs)
 		}
 
-		fn session_index_for_child() -> polkadot_primitives::v2::SessionIndex {
-			polkadot_runtime_parachains::runtime_api_impl::v2::session_index_for_child::<Runtime>()
+		fn session_index_for_child() -> polkadot_primitives::v4::SessionIndex {
+			polkadot_runtime_parachains::runtime_api_impl::v4::session_index_for_child::<Runtime>()
 		}
 
-		fn validation_code(para_id: polkadot_primitives::v2::Id, assumption: polkadot_primitives::v2::OccupiedCoreAssumption)
-			-> Option<polkadot_primitives::v2::ValidationCode> {
-			polkadot_runtime_parachains::runtime_api_impl::v2::validation_code::<Runtime>(para_id, assumption)
+		fn validation_code(para_id: polkadot_primitives::v4::Id, assumption: polkadot_primitives::v4::OccupiedCoreAssumption)
+			-> Option<polkadot_primitives::v4::ValidationCode> {
+			polkadot_runtime_parachains::runtime_api_impl::v4::validation_code::<Runtime>(para_id, assumption)
 		}
 
-		fn candidate_pending_availability(para_id: polkadot_primitives::v2::Id) -> Option<polkadot_primitives::v2::CommittedCandidateReceipt<Hash>> {
-			polkadot_runtime_parachains::runtime_api_impl::v2::candidate_pending_availability::<Runtime>(para_id)
+		fn candidate_pending_availability(para_id: polkadot_primitives::v4::Id) -> Option<polkadot_primitives::v4::CommittedCandidateReceipt<Hash>> {
+			polkadot_runtime_parachains::runtime_api_impl::v4::candidate_pending_availability::<Runtime>(para_id)
 		}
 
-		fn candidate_events() -> Vec<polkadot_primitives::v2::CandidateEvent<Hash>> {
-			polkadot_runtime_parachains::runtime_api_impl::v2::candidate_events::<Runtime, _>(|ev| {
+		fn candidate_events() -> Vec<polkadot_primitives::v4::CandidateEvent<Hash>> {
+			polkadot_runtime_parachains::runtime_api_impl::v4::candidate_events::<Runtime, _>(|ev| {
 				match ev {
 					RuntimeEvent::Inclusion(ev) => {
 						Some(ev)
@@ -812,46 +824,54 @@ impl_runtime_apis! {
 			})
 		}
 
-		fn session_info(index: polkadot_primitives::v2::SessionIndex) -> Option<polkadot_primitives::v2::SessionInfo> {
-			polkadot_runtime_parachains::runtime_api_impl::v2::session_info::<Runtime>(index)
+		fn session_info(index: polkadot_primitives::v4::SessionIndex) -> Option<polkadot_primitives::v4::SessionInfo> {
+			polkadot_runtime_parachains::runtime_api_impl::v4::session_info::<Runtime>(index)
 		}
 
-		fn dmq_contents(recipient: polkadot_primitives::v2::Id) -> Vec<polkadot_primitives::v2::InboundDownwardMessage<BlockNumber>> {
-			polkadot_runtime_parachains::runtime_api_impl::v2::dmq_contents::<Runtime>(recipient)
+		fn dmq_contents(recipient: polkadot_primitives::v4::Id) -> Vec<polkadot_primitives::v4::InboundDownwardMessage<BlockNumber>> {
+			polkadot_runtime_parachains::runtime_api_impl::v4::dmq_contents::<Runtime>(recipient)
 		}
 
 		fn inbound_hrmp_channels_contents(
-			recipient: polkadot_primitives::v2::Id
-		) -> BTreeMap<polkadot_primitives::v2::Id, Vec<polkadot_primitives::v2::InboundHrmpMessage<BlockNumber>>> {
-			polkadot_runtime_parachains::runtime_api_impl::v2::inbound_hrmp_channels_contents::<Runtime>(recipient)
+			recipient: polkadot_primitives::v4::Id
+		) -> BTreeMap<polkadot_primitives::v4::Id, Vec<polkadot_primitives::v4::InboundHrmpMessage<BlockNumber>>> {
+			polkadot_runtime_parachains::runtime_api_impl::v4::inbound_hrmp_channels_contents::<Runtime>(recipient)
 		}
 
-		fn validation_code_by_hash(hash: polkadot_primitives::v2::ValidationCodeHash) -> Option<polkadot_primitives::v2::ValidationCode> {
-			polkadot_runtime_parachains::runtime_api_impl::v2::validation_code_by_hash::<Runtime>(hash)
+		fn validation_code_by_hash(hash: polkadot_primitives::v4::ValidationCodeHash) -> Option<polkadot_primitives::v4::ValidationCode> {
+			polkadot_runtime_parachains::runtime_api_impl::v4::validation_code_by_hash::<Runtime>(hash)
 		}
 
-		fn on_chain_votes() -> Option<polkadot_primitives::v2::ScrapedOnChainVotes<Hash>> {
-			polkadot_runtime_parachains::runtime_api_impl::v2::on_chain_votes::<Runtime>()
+		fn on_chain_votes() -> Option<polkadot_primitives::v4::ScrapedOnChainVotes<Hash>> {
+			polkadot_runtime_parachains::runtime_api_impl::v4::on_chain_votes::<Runtime>()
 		}
 
-		fn submit_pvf_check_statement(stmt: polkadot_primitives::v2::PvfCheckStatement, signature: polkadot_primitives::v2::ValidatorSignature) {
-			polkadot_runtime_parachains::runtime_api_impl::v2::submit_pvf_check_statement::<Runtime>(stmt, signature)
+		fn submit_pvf_check_statement(stmt: polkadot_primitives::v4::PvfCheckStatement, signature: polkadot_primitives::v4::ValidatorSignature) {
+			polkadot_runtime_parachains::runtime_api_impl::v4::submit_pvf_check_statement::<Runtime>(stmt, signature)
 		}
 
-		fn pvfs_require_precheck() -> Vec<polkadot_primitives::v2::ValidationCodeHash> {
-			polkadot_runtime_parachains::runtime_api_impl::v2::pvfs_require_precheck::<Runtime>()
+		fn pvfs_require_precheck() -> Vec<polkadot_primitives::v4::ValidationCodeHash> {
+			polkadot_runtime_parachains::runtime_api_impl::v4::pvfs_require_precheck::<Runtime>()
 		}
 
-		fn validation_code_hash(para_id: polkadot_primitives::v2::Id, assumption: polkadot_primitives::v2::OccupiedCoreAssumption)
-			-> Option<polkadot_primitives::v2::ValidationCodeHash>
+		fn validation_code_hash(para_id: polkadot_primitives::v4::Id, assumption: polkadot_primitives::v4::OccupiedCoreAssumption)
+			-> Option<polkadot_primitives::v4::ValidationCodeHash>
 		{
-			polkadot_runtime_parachains::runtime_api_impl::v2::validation_code_hash::<Runtime>(para_id, assumption)
+			polkadot_runtime_parachains::runtime_api_impl::v4::validation_code_hash::<Runtime>(para_id, assumption)
+		}
+
+		fn disputes() -> Vec<(polkadot_primitives::v4::SessionIndex, polkadot_primitives::v4::CandidateHash, polkadot_primitives::v4::DisputeState<BlockNumber>)> {
+			polkadot_runtime_parachains::runtime_api_impl::v4::get_session_disputes::<Runtime>()
+		}
+
+		fn session_executor_params(session_index: polkadot_primitives::v4::SessionIndex) -> Option<polkadot_primitives::v4::ExecutorParams> {
+			polkadot_runtime_parachains::runtime_api_impl::v4::session_executor_params::<Runtime>(session_index)
 		}
 	}
 
 	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
 		fn authorities() -> Vec<AuthorityDiscoveryId> {
-			polkadot_runtime_parachains::runtime_api_impl::v2::relevant_authority_ids::<Runtime>()
+			polkadot_runtime_parachains::runtime_api_impl::v4::relevant_authority_ids::<Runtime>()
 		}
 	}
 
