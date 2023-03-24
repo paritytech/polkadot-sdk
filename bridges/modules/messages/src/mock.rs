@@ -40,7 +40,7 @@ use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, ConstU32, IdentityLookup},
 	Perbill,
 };
 use std::{
@@ -133,6 +133,10 @@ impl pallet_balances::Config for TestRuntime {
 	type WeightInfo = ();
 	type MaxReserves = ();
 	type ReserveIdentifier = ();
+	type HoldIdentifier = ();
+	type FreezeIdentifier = ();
+	type MaxHolds = ConstU32<0>;
+	type MaxFreezes = ConstU32<0>;
 }
 
 parameter_types! {

@@ -23,7 +23,7 @@ use crate::{
 
 use frame_support::{parameter_types, traits::KeyOwnerProofSystem};
 use frame_system::EnsureRoot;
-use polkadot_primitives::v2::{ValidatorId, ValidatorIndex};
+use polkadot_primitives::v4::{ValidatorId, ValidatorIndex};
 use polkadot_runtime_common::{paras_registrar, paras_sudo_wrapper, slots};
 use polkadot_runtime_parachains::{
 	configuration as parachains_configuration, disputes as parachains_disputes,
