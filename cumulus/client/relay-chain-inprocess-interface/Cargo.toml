@@ -5,7 +5,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-async-trait = "0.1.66"
+async-trait = "0.1.68"
 futures = "0.3.26"
 futures-timer = "3.0.2"
 
