@@ -15,7 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use frame_support::weights::Weight;
-use polkadot_primitives::v2::{AssignmentId, ValidatorId};
+use polkadot_primitives::v4::{AssignmentId, ValidatorId};
 use rialto_runtime::{
 	AccountId, BabeConfig, BalancesConfig, BeefyConfig, BridgeMillauMessagesConfig,
 	ConfigurationConfig, GenesisConfig, GrandpaConfig, SessionConfig, SessionKeys, Signature,
@@ -244,8 +244,8 @@ fn testnet_genesis(
 				validation_upgrade_cooldown: 2u32,
 				validation_upgrade_delay: 2,
 				code_retention_period: 1200,
-				max_code_size: polkadot_primitives::v2::MAX_CODE_SIZE,
-				max_pov_size: polkadot_primitives::v2::MAX_POV_SIZE,
+				max_code_size: polkadot_primitives::v4::MAX_CODE_SIZE,
+				max_pov_size: polkadot_primitives::v4::MAX_POV_SIZE,
 				max_head_data_size: 32 * 1024,
 				group_rotation_frequency: 20,
 				chain_availability_period: 4,
@@ -255,7 +255,7 @@ fn testnet_genesis(
 				max_downward_message_size: 1024 * 1024,
 				ump_service_total_weight: Weight::from_parts(
 					100_000_000_000,
-					polkadot_primitives::v2::MAX_POV_SIZE as u64,
+					polkadot_primitives::v4::MAX_POV_SIZE as u64,
 				),
 				max_upward_message_size: 50 * 1024,
 				max_upward_message_num_per_candidate: 5,
