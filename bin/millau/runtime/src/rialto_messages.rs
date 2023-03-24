@@ -67,7 +67,7 @@ pub type FromRialtoMessageDispatch =
 		bp_millau::Millau,
 		bp_rialto::Rialto,
 		crate::xcm_config::OnMillauBlobDispatcher,
-		bridge_runtime_common::messages_xcm_extension::XcmRouterWeigher<crate::DbWeight>,
+		(),
 	>;
 
 /// Maximal outbound payload size of Millau -> Rialto messages.

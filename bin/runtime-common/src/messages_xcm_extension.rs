@@ -28,42 +28,14 @@ use bp_messages::{
 };
 use bp_runtime::{messages::MessageDispatchResult, AccountIdOf, Chain};
 use codec::{Decode, Encode};
-use frame_support::{
-	dispatch::Weight, traits::Get, weights::RuntimeDbWeight, CloneNoBound, EqNoBound,
-	PartialEqNoBound,
-};
+use frame_support::{dispatch::Weight, CloneNoBound, EqNoBound, PartialEqNoBound};
+use pallet_bridge_messages::WeightInfoExt as MessagesPalletWeights;
 use scale_info::TypeInfo;
-use sp_std::marker::PhantomData;
+use sp_runtime::SaturatedConversion;
 use xcm_builder::{DispatchBlob, DispatchBlobError, HaulBlob, HaulBlobError};
 
 /// Plain "XCM" payload, which we transfer through bridge
 pub type XcmAsPlainPayload = sp_std::prelude::Vec<u8>;
-
-// TODO: below are just rough estimations. Other things also happen there (including hashing and so
-// on). Shall we do some benchmarking??? TODO: add proof_size component here
-// https://github.com/paritytech/parity-bridges-common/issues/1986
-
-/// Simple weigher for incoming XCM dispatch at **bridge hubs** to use with
-/// `XcmBlobMessageDispatch`.
-///
-/// By our design, message at bridge hub is simply pushed to some other queue. This implementation
-/// is for this case only. If your runtime performs some other actions with incoming XCM messages,
-/// you shall use your own implementation.
-///
-/// If message is redirected to the relay chain, then `ParentAsUmp` is used and it roughly does
-/// 1 db read and 1 db write (in its `send_upward_message` method).
-///
-/// If message is redirected to some sibling parachain, then `XcmpQueue` is used and
-/// it roughly does 2 db reads and 2 db writes (in its `SendXcm` implementation).
-///
-/// The difference is not that big, so let's choose maximal.
-pub struct XcmRouterWeigher<T>(PhantomData<T>);
-
-impl<T: Get<RuntimeDbWeight>> Get<Weight> for XcmRouterWeigher<T> {
-	fn get() -> Weight {
-		T::get().reads_writes(2, 2)
-	}
-}
 
 /// Message dispatch result type for single message
 #[derive(CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, Debug, TypeInfo)]
@@ -74,17 +46,13 @@ pub enum XcmBlobMessageDispatchResult {
 }
 
 /// [`XcmBlobMessageDispatch`] is responsible for dispatching received messages
-pub struct XcmBlobMessageDispatch<
-	SourceBridgeHubChain,
-	TargetBridgeHubChain,
-	DispatchBlob,
-	DispatchBlobWeigher,
-> {
+pub struct XcmBlobMessageDispatch<SourceBridgeHubChain, TargetBridgeHubChain, DispatchBlob, Weights>
+{
 	_marker: sp_std::marker::PhantomData<(
 		SourceBridgeHubChain,
 		TargetBridgeHubChain,
 		DispatchBlob,
-		DispatchBlobWeigher,
+		Weights,
 	)>,
 }
 
@@ -92,20 +60,21 @@ impl<
 		SourceBridgeHubChain: Chain,
 		TargetBridgeHubChain: Chain,
 		BlobDispatcher: DispatchBlob,
-		DispatchBlobWeigher: Get<Weight>,
+		Weights: MessagesPalletWeights,
 	> MessageDispatch<AccountIdOf<SourceBridgeHubChain>>
-	for XcmBlobMessageDispatch<
-		SourceBridgeHubChain,
-		TargetBridgeHubChain,
-		BlobDispatcher,
-		DispatchBlobWeigher,
-	>
+	for XcmBlobMessageDispatch<SourceBridgeHubChain, TargetBridgeHubChain, BlobDispatcher, Weights>
 {
 	type DispatchPayload = XcmAsPlainPayload;
 	type DispatchLevelResult = XcmBlobMessageDispatchResult;
 
-	fn dispatch_weight(_message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {
-		DispatchBlobWeigher::get()
+	fn dispatch_weight(message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {
+		match message.data.payload {
+			Ok(ref payload) => {
+				let payload_size = payload.encoded_size().saturated_into();
+				Weights::message_dispatch_weight(payload_size)
+			},
+			Err(_) => Weight::zero(),
+		}
 	}
 
 	fn dispatch(
@@ -122,7 +91,6 @@ impl<
 					message.key.nonce
 				);
 				return MessageDispatchResult {
-					// TODO:check-parameter - setup uspent_weight? https://github.com/paritytech/polkadot/issues/6629
 					unspent_weight: Weight::zero(),
 					dispatch_level_result: XcmBlobMessageDispatchResult::InvalidPayload,
 				}
@@ -158,11 +126,7 @@ impl<
 				XcmBlobMessageDispatchResult::NotDispatched(e)
 			},
 		};
-		MessageDispatchResult {
-			// TODO:check-parameter - setup uspent_weight?  https://github.com/paritytech/polkadot/issues/6629
-			unspent_weight: Weight::zero(),
-			dispatch_level_result,
-		}
+		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result }
 	}
 }
 

@@ -233,20 +233,16 @@ impl ExportXcm for ToRialtoOrRialtoParachainSwitchExporter {
 mod tests {
 	use super::*;
 	use crate::{
-		rialto_messages::FromRialtoMessageDispatch,
-		rialto_parachain_messages::FromRialtoParachainMessageDispatch, DbWeight,
-		WithRialtoMessagesInstance, WithRialtoParachainMessagesInstance,
+		rialto_messages::FromRialtoMessageDispatch, WithRialtoMessagesInstance,
+		WithRialtoParachainMessagesInstance,
 	};
 	use bp_messages::{
 		target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
 		LaneId, MessageKey,
 	};
-	use bridge_runtime_common::messages_xcm_extension::{
-		XcmBlobMessageDispatchResult, XcmRouterWeigher,
-	};
+	use bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchResult;
 	use codec::Encode;
 	use pallet_bridge_messages::OutboundLanes;
-	use sp_core::Get;
 	use xcm_executor::XcmExecutor;
 
 	fn new_test_ext() -> sp_io::TestExternalities {
@@ -347,10 +343,7 @@ mod tests {
 
 	#[test]
 	fn xcm_messages_from_rialto_are_dispatched() {
-		let mut incoming_message = prepare_inbound_bridge_message();
-
-		let dispatch_weight = FromRialtoMessageDispatch::dispatch_weight(&mut incoming_message);
-		assert_eq!(dispatch_weight, XcmRouterWeigher::<DbWeight>::get());
+		let incoming_message = prepare_inbound_bridge_message();
 
 		// we care only about handing message to the XCM dispatcher, so we don't care about its
 		// actual dispatch
@@ -364,11 +357,7 @@ mod tests {
 
 	#[test]
 	fn xcm_messages_from_rialto_parachain_are_dispatched() {
-		let mut incoming_message = prepare_inbound_bridge_message();
-
-		let dispatch_weight =
-			FromRialtoParachainMessageDispatch::dispatch_weight(&mut incoming_message);
-		assert_eq!(dispatch_weight, XcmRouterWeigher::<DbWeight>::get());
+		let incoming_message = prepare_inbound_bridge_message();
 
 		// we care only about handing message to the XCM dispatcher, so we don't care about its
 		// actual dispatch
