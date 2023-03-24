@@ -48,6 +48,11 @@ pub struct MessageProofParams {
 	pub message_nonces: RangeInclusive<MessageNonce>,
 	/// If `Some`, the proof needs to include this outbound lane data.
 	pub outbound_lane_data: Option<OutboundLaneData>,
+	/// If `true`, the caller expects that the proof will contain correct messages that will
+	/// be successfully dispatched. This is only called from the "optional"
+	/// `receive_single_message_proof_with_dispatch` benchmark. If you don't need it, just
+	/// return `true` from the `is_message_successfully_dispatched`.
+	pub is_successful_dispatch_expected: bool,
 	/// Proof size requirements.
 	pub size: StorageProofSize,
 }
@@ -95,32 +100,25 @@ pub trait Config<I: 'static>: crate::Config<I> {
 		params: MessageDeliveryProofParams<Self::AccountId>,
 	) -> <Self::TargetHeaderChain as TargetHeaderChain<Self::OutboundPayload, Self::AccountId>>::MessagesDeliveryProof;
 
-	/// Returns true if message has been dispatched (either successfully or not).
-	///
-	/// We assume that messages have near-zero dispatch weight, so most of times it
-	/// is hard to determine whether messages has been dispatched or not. For example,
-	/// XCM message can be a call that leaves entry in `frame_system::Events` vector,
-	/// but not all XCM messages do that and we don't want to include weight of this
-	/// action to the base weight of message delivery. Hence, the default `true` return
-	/// value.
-	fn is_message_dispatched(_nonce: MessageNonce) -> bool {
+	/// Returns true if message has been successfully dispatched or not.
+	fn is_message_successfully_dispatched(_nonce: MessageNonce) -> bool {
 		true
 	}
+
 	/// Returns true if given relayer has been rewarded for some of its actions.
 	fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool;
 }
 
 benchmarks_instance_pallet! {
 	//
-	// Benchmarks that are used directly by the runtime.
+	// Benchmarks that are used directly by the runtime calls weight formulae.
 	//
 
 	// Benchmark `receive_messages_proof` extrinsic with single minimal-weight message and following conditions:
 	// * proof does not include outbound lane state proof;
 	// * inbound lane already has state, so it needs to be read and decoded;
-	// * message is successfully dispatched;
-	// * message requires all heavy checks done by dispatcher;
-	// * message dispatch fee is paid at target (this) chain.
+	// * message is dispatched (reminder: dispatch weight should be minimal);
+	// * message requires all heavy checks done by dispatcher.
 	//
 	// This is base benchmark for all other message delivery benchmarks.
 	receive_single_message_proof {
@@ -135,6 +133,7 @@ benchmarks_instance_pallet! {
 			lane: T::bench_lane_id(),
 			message_nonces: 21..=21,
 			outbound_lane_data: None,
+			is_successful_dispatch_expected: false,
 			size: StorageProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
@@ -143,15 +142,13 @@ benchmarks_instance_pallet! {
 			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
 			21,
 		);
-		assert!(T::is_message_dispatched(21));
 	}
 
 	// Benchmark `receive_messages_proof` extrinsic with two minimal-weight messages and following conditions:
 	// * proof does not include outbound lane state proof;
 	// * inbound lane already has state, so it needs to be read and decoded;
-	// * message is successfully dispatched;
-	// * message requires all heavy checks done by dispatcher;
-	// * message dispatch fee is paid at target (this) chain.
+	// * message is dispatched (reminder: dispatch weight should be minimal);
+	// * message requires all heavy checks done by dispatcher.
 	//
 	// The weight of single message delivery could be approximated as
 	// `weight(receive_two_messages_proof) - weight(receive_single_message_proof)`.
@@ -169,6 +166,7 @@ benchmarks_instance_pallet! {
 			lane: T::bench_lane_id(),
 			message_nonces: 21..=22,
 			outbound_lane_data: None,
+			is_successful_dispatch_expected: false,
 			size: StorageProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 2, dispatch_weight)
@@ -177,15 +175,13 @@ benchmarks_instance_pallet! {
 			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
 			22,
 		);
-		assert!(T::is_message_dispatched(22));
 	}
 
 	// Benchmark `receive_messages_proof` extrinsic with single minimal-weight message and following conditions:
 	// * proof includes outbound lane state proof;
 	// * inbound lane already has state, so it needs to be read and decoded;
-	// * message is successfully dispatched;
-	// * message requires all heavy checks done by dispatcher;
-	// * message dispatch fee is paid at target (this) chain.
+	// * message is successfully dispatched (reminder: dispatch weight should be minimal);
+	// * message requires all heavy checks done by dispatcher.
 	//
 	// The weight of outbound lane state delivery would be
 	// `weight(receive_single_message_proof_with_outbound_lane_state) - weight(receive_single_message_proof)`.
@@ -207,6 +203,7 @@ benchmarks_instance_pallet! {
 				latest_received_nonce: 20,
 				latest_generated_nonce: 21,
 			}),
+			is_successful_dispatch_expected: false,
 			size: StorageProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
@@ -214,14 +211,13 @@ benchmarks_instance_pallet! {
 		let lane_state = crate::InboundLanes::<T, I>::get(&T::bench_lane_id());
 		assert_eq!(lane_state.last_delivered_nonce(), 21);
 		assert_eq!(lane_state.last_confirmed_nonce, 20);
-		assert!(T::is_message_dispatched(21));
 	}
 
 	// Benchmark `receive_messages_proof` extrinsic with single minimal-weight message and following conditions:
-	// * the proof has many redundand trie nodes with total size of approximately 1KB;
+	// * the proof has large leaf with total size of approximately 1KB;
 	// * proof does not include outbound lane state proof;
 	// * inbound lane already has state, so it needs to be read and decoded;
-	// * message is successfully dispatched;
+	// * message is dispatched (reminder: dispatch weight should be minimal);
 	// * message requires all heavy checks done by dispatcher.
 	//
 	// With single KB of messages proof, the weight of the call is increased (roughly) by
@@ -238,6 +234,7 @@ benchmarks_instance_pallet! {
 			lane: T::bench_lane_id(),
 			message_nonces: 21..=21,
 			outbound_lane_data: None,
+			is_successful_dispatch_expected: false,
 			size: StorageProofSize::HasLargeLeaf(1024),
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
@@ -246,14 +243,13 @@ benchmarks_instance_pallet! {
 			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
 			21,
 		);
-		assert!(T::is_message_dispatched(21));
 	}
 
 	// Benchmark `receive_messages_proof` extrinsic with single minimal-weight message and following conditions:
-	// * the proof has many redundand trie nodes with total size of approximately 16KB;
+	// * the proof has large leaf with total size of approximately 16KB;
 	// * proof does not include outbound lane state proof;
 	// * inbound lane already has state, so it needs to be read and decoded;
-	// * message is successfully dispatched;
+	// * message is dispatched (reminder: dispatch weight should be minimal);
 	// * message requires all heavy checks done by dispatcher.
 	//
 	// Size of proof grows because it contains extra trie nodes in it.
@@ -272,6 +268,7 @@ benchmarks_instance_pallet! {
 			lane: T::bench_lane_id(),
 			message_nonces: 21..=21,
 			outbound_lane_data: None,
+			is_successful_dispatch_expected: false,
 			size: StorageProofSize::HasLargeLeaf(16 * 1024),
 		});
 	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
@@ -280,7 +277,6 @@ benchmarks_instance_pallet! {
 			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
 			21,
 		);
-		assert!(T::is_message_dispatched(21));
 	}
 
 	// Benchmark `receive_messages_delivery_proof` extrinsic with following conditions:
@@ -399,6 +395,47 @@ benchmarks_instance_pallet! {
 		assert_eq!(OutboundLanes::<T, I>::get(T::bench_lane_id()).latest_received_nonce, 2);
 		assert!(T::is_relayer_rewarded(&relayer1_id));
 		assert!(T::is_relayer_rewarded(&relayer2_id));
+	}
+
+	//
+	// Benchmarks that the runtime developers may use for proper pallet configuration.
+	//
+
+	// This benchmark is optional and may be used when runtime developer need a way to compute
+	// message dispatch weight. In this case, he needs to provide messages that can go the whole
+	// dispatch
+	//
+	// Benchmark `receive_messages_proof` extrinsic with single message and following conditions:
+	//
+	// * proof does not include outbound lane state proof;
+	// * inbound lane already has state, so it needs to be read and decoded;
+	// * message is **SUCCESSFULLY** dispatched;
+	// * message requires all heavy checks done by dispatcher.
+	receive_single_message_proof_with_dispatch {
+		// maybe dispatch weight relies on the message size too?
+		let i in EXPECTED_DEFAULT_MESSAGE_LENGTH .. EXPECTED_DEFAULT_MESSAGE_LENGTH * 16;
+
+		let relayer_id_on_source = T::bridged_relayer_id();
+		let relayer_id_on_target = account("relayer", 0, SEED);
+		T::endow_account(&relayer_id_on_target);
+
+		// mark messages 1..=20 as delivered
+		receive_messages::<T, I>(20);
+
+		let (proof, dispatch_weight) = T::prepare_message_proof(MessageProofParams {
+			lane: T::bench_lane_id(),
+			message_nonces: 21..=21,
+			outbound_lane_data: None,
+			is_successful_dispatch_expected: true,
+			size: StorageProofSize::Minimal(i),
+		});
+	}: receive_messages_proof(RawOrigin::Signed(relayer_id_on_target), relayer_id_on_source, proof, 1, dispatch_weight)
+	verify {
+		assert_eq!(
+			crate::InboundLanes::<T, I>::get(&T::bench_lane_id()).last_delivered_nonce(),
+			21,
+		);
+		assert!(T::is_message_successfully_dispatched(21));
 	}
 }
 

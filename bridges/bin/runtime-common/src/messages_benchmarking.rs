@@ -40,6 +40,39 @@ use pallet_bridge_messages::benchmarking::{MessageDeliveryProofParams, MessagePr
 use sp_runtime::traits::{Header, Zero};
 use sp_std::prelude::*;
 use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
+use xcm::v3::prelude::*;
+
+/// Prepare inbound bridge message according to given message proof parameters.
+fn prepare_inbound_message(
+	params: &MessageProofParams,
+	destination: InteriorMultiLocation,
+) -> Vec<u8> {
+	// we only care about **this** message size when message proof needs to be `Minimal`
+	let expected_size = match params.size {
+		StorageProofSize::Minimal(size) => size as usize,
+		_ => 0,
+	};
+
+	// if we don't need a correct message, then we may just return some random blob
+	if !params.is_successful_dispatch_expected {
+		return vec![0u8; expected_size]
+	}
+
+	// else let's prepare successful message. For XCM bridge hubs, it is the message that
+	// will be pushed further to some XCM queue (XCMP/UMP)
+	let location = xcm::VersionedInteriorMultiLocation::V3(destination);
+	let location_encoded_size = location.encoded_size();
+
+	// we don't need to be super-precise with `expected_size` here
+	let xcm_size = expected_size.saturating_sub(location_encoded_size);
+	let xcm = xcm::VersionedXcm::<()>::V3(vec![Instruction::ClearOrigin; xcm_size].into());
+
+	// this is the `BridgeMessage` from polkadot xcm builder, but it has no constructor
+	// or public fields, so just tuple
+	// (double encoding, because `.encode()` is called on original Xcm BLOB when it is pushed
+	// to the storage)
+	(location, xcm).encode().encode()
+}
 
 /// Prepare proof of messages for the `receive_messages_proof` call.
 ///
@@ -51,6 +84,7 @@ use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 /// function.
 pub fn prepare_message_proof_from_grandpa_chain<R, FI, B>(
 	params: MessageProofParams,
+	message_destination: InteriorMultiLocation,
 ) -> (FromBridgedChainMessagesProof<HashOf<BridgedChain<B>>>, Weight)
 where
 	R: pallet_bridge_grandpa::Config<FI, BridgedChain = UnderlyingChainOf<BridgedChain<B>>>,
@@ -61,12 +95,9 @@ where
 	let (state_root, storage_proof) = prepare_messages_storage_proof::<B>(
 		params.lane,
 		params.message_nonces.clone(),
-		params.outbound_lane_data,
+		params.outbound_lane_data.clone(),
 		params.size,
-		match params.size {
-			StorageProofSize::Minimal(ref size) => vec![0u8; *size as _],
-			_ => vec![],
-		},
+		prepare_inbound_message(&params, message_destination),
 		encode_all_messages,
 		encode_lane_data,
 	);
@@ -82,7 +113,7 @@ where
 			nonces_start: *params.message_nonces.start(),
 			nonces_end: *params.message_nonces.end(),
 		},
-		Weight::zero(),
+		Weight::MAX / 1000,
 	)
 }
 
@@ -96,6 +127,7 @@ where
 /// `prepare_message_proof_from_grandpa_chain` function.
 pub fn prepare_message_proof_from_parachain<R, PI, B>(
 	params: MessageProofParams,
+	message_destination: InteriorMultiLocation,
 ) -> (FromBridgedChainMessagesProof<HashOf<BridgedChain<B>>>, Weight)
 where
 	R: pallet_bridge_parachains::Config<PI>,
@@ -107,12 +139,9 @@ where
 	let (state_root, storage_proof) = prepare_messages_storage_proof::<B>(
 		params.lane,
 		params.message_nonces.clone(),
-		params.outbound_lane_data,
+		params.outbound_lane_data.clone(),
 		params.size,
-		match params.size {
-			StorageProofSize::Minimal(ref size) => vec![0u8; *size as _],
-			_ => vec![],
-		},
+		prepare_inbound_message(&params, message_destination),
 		encode_all_messages,
 		encode_lane_data,
 	);
@@ -129,7 +158,7 @@ where
 			nonces_start: *params.message_nonces.start(),
 			nonces_end: *params.message_nonces.end(),
 		},
-		Weight::zero(),
+		Weight::MAX / 1000,
 	)
 }
 
