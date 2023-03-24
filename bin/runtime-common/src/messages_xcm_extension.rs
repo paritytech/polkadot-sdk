@@ -15,11 +15,11 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Module provides utilities for easier XCM handling, e.g:
-//! [`XcmExecutor`] -> [`MessageSender`] -> <outbound message queue>
+//! `XcmExecutor` -> `MessageSender` -> `OutboundMessageQueue`
 //!                                             |
-//!                                          <relayer>
+//!                                          `Relayer`
 //!                                             |
-//! [`XcmRouter`] <- [`MessageDispatch`] <- <inbound message queue>
+//! `XcmRouter` <- `MessageDispatch` <- `InboundMessageQueue`
 
 use bp_messages::{
 	source_chain::MessagesBridge,
@@ -136,7 +136,7 @@ pub trait XcmBlobHauler {
 	/// Runtime message sender adapter.
 	type MessageSender: MessagesBridge<Self::MessageSenderOrigin, XcmAsPlainPayload>;
 
-	/// Runtime message sender origin, which is used by [`MessageSender`].
+	/// Runtime message sender origin, which is used by [`Self::MessageSender`].
 	type MessageSenderOrigin;
 	/// Our location within the Consensus Universe.
 	fn message_sender_origin() -> Self::MessageSenderOrigin;
@@ -145,8 +145,8 @@ pub trait XcmBlobHauler {
 	fn xcm_lane() -> LaneId;
 }
 
-/// XCM bridge adapter which connects [`XcmBlobHauler`] with [`MessageSender`] and makes sure that
-/// XCM blob is sent to the [`pallet_bridge_messages`] queue to be relayed.
+/// XCM bridge adapter which connects [`XcmBlobHauler`] with [`XcmBlobHauler::MessageSender`] and
+/// makes sure that XCM blob is sent to the [`pallet_bridge_messages`] queue to be relayed.
 pub struct XcmBlobHaulerAdapter<XcmBlobHauler>(sp_std::marker::PhantomData<XcmBlobHauler>);
 impl<HaulerOrigin, H: XcmBlobHauler<MessageSenderOrigin = HaulerOrigin>> HaulBlob
 	for XcmBlobHaulerAdapter<H>

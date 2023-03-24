@@ -54,7 +54,7 @@ pub const MAX_AUTHORITIES_COUNT: u32 = 1_256;
 
 /// Reasonable number of headers in the `votes_ancestries` on Polkadot-like chains.
 ///
-/// See [`bp_header_chain::ChainWithGrandpa`] for more details.
+/// See [`bp-header-chain::ChainWithGrandpa`] for more details.
 ///
 /// This value comes from recent (February, 2023) Kusama and Polkadot headers. There are no
 /// justifications with any additional headers in votes ancestry, so reasonable headers may
@@ -65,7 +65,7 @@ pub const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 2;
 /// Approximate average header size in `votes_ancestries` field of justification on Polkadot-like
 /// chains.
 ///
-/// See [`bp_header_chain::ChainWithGrandpa`] for more details.
+/// See [`bp-header-chain::ChainWithGrandpa`] for more details.
 ///
 /// This value comes from recent (February, 2023) Kusama headers. Average is `336` there, but some
 /// non-mandatory headers has size `40kb` (they contain the BABE epoch descriptor with all
@@ -75,7 +75,7 @@ pub const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 20 * 1024;
 
 /// Approximate maximal header size on Polkadot-like chains.
 ///
-/// See [`bp_header_chain::ChainWithGrandpa`] for more details.
+/// See [`bp-header-chain::ChainWithGrandpa`] for more details.
 ///
 /// This value comes from recent (February, 2023) Kusama headers. Maximal header is a mandatory
 /// header. In its SCALE-encoded form it is `80348` bytes. Let's have some reserve here.

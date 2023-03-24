@@ -16,7 +16,7 @@
 
 //! Substrate client as Substrate messages target. The chain we connect to should have
 //! runtime that implements `<BridgedChainName>HeaderApi` to allow bridging with
-//! <BridgedName> chain.
+//! `<BridgedName>` chain.
 
 use crate::{
 	messages_lane::{
