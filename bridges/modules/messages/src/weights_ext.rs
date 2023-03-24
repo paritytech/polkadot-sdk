@@ -403,6 +403,21 @@ pub trait WeightInfoExt: WeightInfo {
 			(15 * 1024);
 		proof_size_in_bytes * byte_weight
 	}
+
+	// Functions that may be used by runtime developers.
+
+	/// Returns dispatch weight of message of given size.
+	///
+	/// This function would return correct value only if your runtime is configured to run
+	/// `receive_single_message_proof_with_dispatch` benchmark. See its requirements for
+	/// details.
+	fn message_dispatch_weight(message_size: u32) -> Weight {
+		// There may be a tiny overweight/underweight here, because we don't account how message
+		// size affects all steps before dispatch. But the effect should be small enough and we
+		// may ignore it.
+		Self::receive_single_message_proof_with_dispatch(message_size)
+			.saturating_sub(Self::receive_single_message_proof())
+	}
 }
 
 impl WeightInfoExt for () {

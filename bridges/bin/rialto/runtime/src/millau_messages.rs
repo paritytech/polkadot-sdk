@@ -60,7 +60,7 @@ pub type FromMillauMessageDispatch =
 		bp_rialto::Rialto,
 		bp_millau::Millau,
 		crate::xcm_config::OnRialtoBlobDispatcher,
-		bridge_runtime_common::messages_xcm_extension::XcmRouterWeigher<crate::DbWeight>,
+		(),
 	>;
 
 /// Messages proof for Millau -> Rialto messages.

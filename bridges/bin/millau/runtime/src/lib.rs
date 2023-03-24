@@ -1007,7 +1007,7 @@ impl_runtime_apis! {
 						Runtime,
 						WithRialtoParachainsInstance,
 						WithRialtoParachainMessageBridge,
-					>(params)
+					>(params, xcm::v3::Junctions::Here)
 				}
 
 				fn prepare_message_delivery_proof(
@@ -1038,7 +1038,7 @@ impl_runtime_apis! {
 						Runtime,
 						RialtoGrandpaInstance,
 						WithRialtoMessageBridge,
-					>(params)
+					>(params, xcm::v3::Junctions::Here)
 				}
 
 				fn prepare_message_delivery_proof(
