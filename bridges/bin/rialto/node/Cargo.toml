@@ -45,5 +45,6 @@ frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", bran
 [features]
 default = []
 runtime-benchmarks = [
+	"polkadot-service/runtime-benchmarks",
 	"rialto-runtime/runtime-benchmarks",
 ]
