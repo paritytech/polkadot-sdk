@@ -54,4 +54,6 @@ benchmarks! {
 		// payment logic, so we assume that if call has succeeded, the procedure has
 		// also completed successfully
 	}
+
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime)
 }
