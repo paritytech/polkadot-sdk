@@ -37,7 +37,7 @@ use sp_std::{ops::RangeInclusive, prelude::*};
 const SEED: u32 = 0;
 
 /// Pallet we're benchmarking here.
-pub struct Pallet<T: Config<I>, I: 'static>(crate::Pallet<T, I>);
+pub struct Pallet<T: Config<I>, I: 'static = ()>(crate::Pallet<T, I>);
 
 /// Benchmark-specific message proof parameters.
 #[derive(Debug)]
@@ -437,6 +437,8 @@ benchmarks_instance_pallet! {
 		);
 		assert!(T::is_message_successfully_dispatched(21));
 	}
+
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime)
 }
 
 fn send_regular_message<T: Config<I>, I: 'static>() {
