@@ -30,8 +30,8 @@
 //!
 //! Consider the following:
 //!
-//!   / [B'] <- [C']
-//! [A] <- [B] <- [C]
+//!   / B <- C'
+//! A <- B <- C
 //!
 //! The common ancestor of both forks is block A, so this is what GRANDPA will finalize. In order to
 //! verify this we will have vote ancestries of `[B, C, B', C']` and pre-commits `[C, C']`.
