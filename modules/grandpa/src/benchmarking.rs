@@ -136,4 +136,6 @@ benchmarks_instance_pallet! {
 		// check that the header#0 has been pruned
 		assert!(!<ImportedHeaders<T, I>>::contains_key(genesis_header.hash()));
 	}
+
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime)
 }

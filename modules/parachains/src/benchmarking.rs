@@ -28,7 +28,7 @@ use frame_system::RawOrigin;
 use sp_std::prelude::*;
 
 /// Pallet we're benchmarking here.
-pub struct Pallet<T: Config<I>, I: 'static>(crate::Pallet<T, I>);
+pub struct Pallet<T: Config<I>, I: 'static = ()>(crate::Pallet<T, I>);
 
 /// Trait that must be implemented by runtime to benchmark the parachains finality pallet.
 pub trait Config<I: 'static>: crate::Config<I> {
@@ -111,4 +111,6 @@ benchmarks_instance_pallet! {
 			assert!(crate::Pallet::<T, I>::best_parachain_head(parachain).is_some());
 		}
 	}
+
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime)
 }

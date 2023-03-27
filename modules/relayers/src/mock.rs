@@ -99,6 +99,18 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 	type WeightInfo = ();
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_bridge_relayers::benchmarking::Config for TestRuntime {
+	fn prepare_environment(account_params: RewardsAccountParams, reward: Balance) {
+		use frame_support::traits::fungible::Mutate;
+		let rewards_account =
+			bp_relayers::PayRewardFromAccount::<Balances, AccountId>::rewards_account(
+				account_params,
+			);
+		Balances::mint_into(&rewards_account, reward).unwrap();
+	}
+}
+
 /// Message lane that we're using in tests.
 pub const TEST_REWARDS_ACCOUNT_PARAMS: RewardsAccountParams =
 	RewardsAccountParams::new(LaneId([0, 0, 0, 0]), *b"test", RewardsAccountOwner::ThisChain);
@@ -127,9 +139,13 @@ impl PaymentProcedure<AccountId, Balance> for TestPaymentProcedure {
 	}
 }
 
+/// Return test externalities to use in tests.
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+	sp_io::TestExternalities::new(t)
+}
+
 /// Run pallet test.
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
-	let t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(test)
+	new_test_ext().execute_with(test)
 }

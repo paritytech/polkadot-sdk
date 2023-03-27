@@ -170,6 +170,44 @@ impl Config for TestRuntime {
 	type BridgedChainId = TestBridgedChainId;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+impl crate::benchmarking::Config<()> for TestRuntime {
+	fn bench_lane_id() -> LaneId {
+		TEST_LANE_ID
+	}
+
+	fn prepare_message_proof(
+		params: crate::benchmarking::MessageProofParams,
+	) -> (TestMessagesProof, Weight) {
+		// in mock run we only care about benchmarks correctness, not the benchmark results
+		// => ignore size related arguments
+		let (messages, total_dispatch_weight) =
+			params.message_nonces.into_iter().map(|n| message(n, REGULAR_PAYLOAD)).fold(
+				(Vec::new(), Weight::zero()),
+				|(mut messages, total_dispatch_weight), message| {
+					let weight = REGULAR_PAYLOAD.declared_weight;
+					messages.push(message);
+					(messages, total_dispatch_weight.saturating_add(weight))
+				},
+			);
+		let mut proof: TestMessagesProof = Ok(messages).into();
+		proof.result.as_mut().unwrap().get_mut(0).unwrap().1.lane_state = params.outbound_lane_data;
+		(proof, total_dispatch_weight)
+	}
+
+	fn prepare_message_delivery_proof(
+		params: crate::benchmarking::MessageDeliveryProofParams<AccountId>,
+	) -> TestMessagesDeliveryProof {
+		// in mock run we only care about benchmarks correctness, not the benchmark results
+		// => ignore size related arguments
+		TestMessagesDeliveryProof(Ok((params.lane, params.inbound_lane_data)))
+	}
+
+	fn is_relayer_rewarded(_relayer: &AccountId) -> bool {
+		true
+	}
+}
+
 impl Size for TestPayload {
 	fn size(&self) -> u32 {
 		16 + self.extra.len() as u32
@@ -439,12 +477,16 @@ pub fn unrewarded_relayer(
 	UnrewardedRelayer { relayer, messages: DeliveredMessages { begin, end } }
 }
 
-/// Run pallet test.
-pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
+/// Return test externalities to use in tests.
+pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 	pallet_balances::GenesisConfig::<TestRuntime> { balances: vec![(ENDOWED_ACCOUNT, 1_000_000)] }
 		.assimilate_storage(&mut t)
 		.unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(test)
+	sp_io::TestExternalities::new(t)
+}
+
+/// Run pallet test.
+pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
+	new_test_ext().execute_with(test)
 }
