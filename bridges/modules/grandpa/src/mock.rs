@@ -131,10 +131,17 @@ impl ChainWithGrandpa for TestBridgedChain {
 	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 64;
 }
 
-pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
-	sp_io::TestExternalities::new(Default::default()).execute_with(test)
+/// Return test externalities to use in tests.
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	sp_io::TestExternalities::new(Default::default())
 }
 
+/// Return test within default test externalities context.
+pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
+	new_test_ext().execute_with(test)
+}
+
+/// Return test header with given number.
 pub fn test_header(num: TestNumber) -> TestHeader {
 	// We wrap the call to avoid explicit type annotations in our tests
 	bp_test_utils::test_header(num)
