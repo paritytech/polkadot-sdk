@@ -27,9 +27,9 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
 [dev-dependencies]
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" }
 bp-test-utils = { path = "../../primitives/test-utils" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 [features]
 default = ["std"]
