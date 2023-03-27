@@ -550,7 +550,7 @@ version = "0.60.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "062dddbc1ba4aca46de6338e2bf87771414c335f7b2f2036e8f3e9befebf88e6"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags",
  "cexpr",
  "clang-sys",
  "lazy_static",
@@ -568,12 +568,6 @@ name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
-
-[[package]]
-name = "bitflags"
-version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "487f1e0fcbe47deb8b0574e646def1c903389d95241dd1bbcc6ce4a715dfc0c1"
 
 [[package]]
 name = "bitvec"
@@ -1196,7 +1190,7 @@ version = "3.2.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86447ad904c7fb335a790c9d7fe3d0d971dc523b8ccd1561a520de9a85302750"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags",
  "clap_lex 0.2.2",
  "indexmap",
  "textwrap",
@@ -1204,11 +1198,11 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.1.11"
+version = "4.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42dfd32784433290c51d92c438bb72ea5063797fc3cc9a21a8c4346bebbb2098"
+checksum = "3c911b090850d79fc64fe9ea01e28e465f65e821e08813ced95bced72f7a8a9b"
 dependencies = [
- "bitflags 2.0.2",
+ "bitflags",
  "clap_derive",
  "clap_lex 0.3.0",
  "is-terminal",
@@ -1219,15 +1213,14 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.1.9"
+version = "4.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fddf67631444a3a3e3e5ac51c36a5e01335302de677bd78759eaa90ab1f46644"
+checksum = "9a932373bab67b984c790ddf2c9ca295d8e3af3b7ef92de5a5bacdccdee4b09b"
 dependencies = [
  "heck",
- "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.9",
 ]
 
 [[package]]
@@ -1818,7 +1811,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
- "clap 4.1.11",
+ "clap 4.1.13",
  "parity-scale-codec",
  "sc-chain-spec",
  "sc-cli",
@@ -2456,7 +2449,7 @@ name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 4.1.11",
+ "clap 4.1.13",
  "criterion",
  "cumulus-client-cli",
  "cumulus-client-consensus-common",
@@ -3384,7 +3377,7 @@ dependencies = [
  "Inflector",
  "array-bytes 4.2.0",
  "chrono",
- "clap 4.1.11",
+ "clap 4.1.13",
  "comfy-table",
  "frame-benchmarking",
  "frame-support",
@@ -3501,7 +3494,7 @@ name = "frame-support"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#bf395c8308c481a9774373e0b0b14bd7a2e4b8d2"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags",
  "environmental",
  "frame-metadata",
  "frame-support-procedural",
@@ -5714,7 +5707,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9ea4302b9759a7a88242299225ea3688e63c85ea136371bb6cf94fd674efaab"
 dependencies = [
  "anyhow",
- "bitflags 1.3.2",
+ "bitflags",
  "byteorder",
  "libc",
  "netlink-packet-core",
@@ -5767,7 +5760,7 @@ version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "195cdbc1741b8134346d515b3a56a1c94b0912758009cfd53f99ea0f57b065fc"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags",
  "cfg-if",
  "libc",
  "memoffset 0.6.5",
@@ -5779,7 +5772,7 @@ version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfdda3d196821d6af13126e40375cdf7da646a96114af134d5f417a9a1dc8e1a"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags",
  "cfg-if",
  "libc",
  "memoffset 0.7.1",
@@ -6305,7 +6298,7 @@ name = "pallet-contracts"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#bf395c8308c481a9774373e0b0b14bd7a2e4b8d2"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags",
  "environmental",
  "frame-benchmarking",
  "frame-support",
@@ -6335,7 +6328,7 @@ name = "pallet-contracts-primitives"
 version = "7.0.0"
 source = "git+https://github.com/paritytech/substrate?branch=master#bf395c8308c481a9774373e0b0b14bd7a2e4b8d2"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime",
@@ -7198,7 +7191,7 @@ dependencies = [
 name = "parachain-template-node"
 version = "0.1.0"
 dependencies = [
- "clap 4.1.11",
+ "clap 4.1.13",
  "cumulus-client-cli",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
@@ -7784,7 +7777,7 @@ name = "polkadot-cli"
 version = "0.9.39"
 source = "git+https://github.com/paritytech/polkadot?branch=master#27ddd270c3979fd2a5e2ac6fb3c9d474962c9260"
 dependencies = [
- "clap 4.1.11",
+ "clap 4.1.13",
  "frame-benchmarking-cli",
  "futures",
  "log",
@@ -8456,7 +8449,7 @@ dependencies = [
  "bridge-hub-kusama-runtime",
  "bridge-hub-polkadot-runtime",
  "bridge-hub-rococo-runtime",
- "clap 4.1.11",
+ "clap 4.1.13",
  "collectives-polkadot-runtime",
  "contracts-rococo-runtime",
  "cumulus-client-cli",
@@ -8772,7 +8765,7 @@ name = "polkadot-runtime-parachains"
 version = "0.9.39"
 source = "git+https://github.com/paritytech/polkadot?branch=master#27ddd270c3979fd2a5e2ac6fb3c9d474962c9260"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags",
  "bitvec",
  "derive_more",
  "frame-benchmarking",
@@ -9574,7 +9567,7 @@ version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8383f39639269cde97d255a32bdb68c047337295414940c68bdd30c2e13203ff"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags",
 ]
 
 [[package]]
@@ -9664,7 +9657,7 @@ version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76e189c2369884dce920945e2ddf79b3dff49e071a167dd1817fa9c4c00d512e"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags",
  "libc",
  "mach",
  "winapi",
@@ -9975,7 +9968,7 @@ version = "0.35.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "727a1a6d65f786ec22df8a81ca3121107f235970dc1705ed681d3e6e8b9cd5f9"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags",
  "errno",
  "io-lifetimes 0.7.5",
  "libc",
@@ -9989,7 +9982,7 @@ version = "0.36.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4fdebc4b395b7fbb9ab11e462e20ed9051e7b16e42d24042c776eca0ac81b03"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags",
  "errno",
  "io-lifetimes 1.0.2",
  "libc",
@@ -10207,7 +10200,7 @@ source = "git+https://github.com/paritytech/substrate?branch=master#bf395c8308c4
 dependencies = [
  "array-bytes 4.2.0",
  "chrono",
- "clap 4.1.11",
+ "clap 4.1.13",
  "fdlimit",
  "futures",
  "libp2p",
@@ -10727,7 +10720,7 @@ source = "git+https://github.com/paritytech/substrate?branch=master#bf395c8308c4
 dependencies = [
  "array-bytes 4.2.0",
  "async-trait",
- "bitflags 1.3.2",
+ "bitflags",
  "bytes",
  "futures",
  "futures-timer",
@@ -11068,7 +11061,7 @@ name = "sc-storage-monitor"
 version = "0.1.0"
 source = "git+https://github.com/paritytech/substrate?branch=master#bf395c8308c481a9774373e0b0b14bd7a2e4b8d2"
 dependencies = [
- "clap 4.1.11",
+ "clap 4.1.13",
  "fs4",
  "futures",
  "log",
@@ -11404,7 +11397,7 @@ version = "2.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "525bc1abfda2e1998d152c45cf13e696f76d0a4972310b22fac1658b05df7c87"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags",
  "core-foundation",
  "core-foundation-sys",
  "libc",
@@ -12004,7 +11997,7 @@ source = "git+https://github.com/paritytech/substrate?branch=master#bf395c8308c4
 dependencies = [
  "array-bytes 4.2.0",
  "base58",
- "bitflags 1.3.2",
+ "bitflags",
  "blake2",
  "bounded-collections",
  "dyn-clonable",
@@ -12704,7 +12697,7 @@ version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a2a1c578e98c1c16fc3b8ec1328f7659a500737d7a0c6d625e73e830ff9c1f6"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags",
  "cfg_aliases",
  "libc",
  "parking_lot 0.11.2",
@@ -12989,7 +12982,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d75182f12f490e953596550b65ee31bda7c8e043d9386174b353bda50838c3fd"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags",
  "core-foundation",
  "system-configuration-sys",
 ]
@@ -13367,7 +13360,7 @@ version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f873044bf02dd1e8239e9c1293ea39dad76dc594ec16185d0a1bf31d8dc8d858"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags",
  "bytes",
  "futures-core",
  "futures-util",
@@ -13582,7 +13575,7 @@ version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=master#bf395c8308c481a9774373e0b0b14bd7a2e4b8d2"
 dependencies = [
  "async-trait",
- "clap 4.1.11",
+ "clap 4.1.13",
  "frame-remote-externalities",
  "frame-try-runtime",
  "hex",
@@ -14481,7 +14474,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93f1db1727772c05cf7a2cfece52c3aca8045ca1e176cd517d323489aa3c6d87"
 dependencies = [
  "async-trait",
- "bitflags 1.3.2",
+ "bitflags",
  "bytes",
  "cc",
  "ipnet",
