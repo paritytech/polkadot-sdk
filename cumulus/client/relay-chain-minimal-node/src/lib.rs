@@ -18,6 +18,7 @@ use collator_overseer::{CollatorOverseerGenArgs, NewMinimalNode};
 
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_rpc_interface::{RelayChainRpcInterface, Url};
+use network::build_collator_network;
 use polkadot_network_bridge::{peer_sets_info, IsAuthority};
 use polkadot_node_network_protocol::{
 	peer_set::PeerSetProtocolNames,
@@ -149,14 +150,12 @@ async fn new_minimal_relay_chain(
 	let (collation_req_receiver, available_data_req_receiver) =
 		build_request_response_protocol_receivers(&request_protocol_names, &mut config);
 
+	let best_header = relay_chain_rpc_client.chain_get_header(None).await?.ok_or_else(|| {
+		RelayChainError::RpcCallError("Unable to fetch best header".to_string().into())
+	})?;
 	let (network, network_starter, sync_oracle) =
-		network::build_collator_network(network::BuildCollatorNetworkParams {
-			config: &config,
-			client: relay_chain_rpc_client.clone(),
-			spawn_handle: task_manager.spawn_handle(),
-			genesis_hash,
-		})
-		.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?;
+		build_collator_network(&config, task_manager.spawn_handle(), genesis_hash, best_header)
+			.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?;
 
 	let authority_discovery_service = build_authority_discovery_service(
 		&task_manager,
@@ -180,12 +179,9 @@ async fn new_minimal_relay_chain(
 		peer_set_protocol_names,
 	};
 
-	let overseer_handle = collator_overseer::spawn_overseer(
-		overseer_args,
-		&task_manager,
-		relay_chain_rpc_client.clone(),
-	)
-	.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?;
+	let overseer_handle =
+		collator_overseer::spawn_overseer(overseer_args, &task_manager, relay_chain_rpc_client)
+			.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?;
 
 	network_starter.start_network();
 

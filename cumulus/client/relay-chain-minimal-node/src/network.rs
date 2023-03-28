@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_core_primitives::{Block, Hash};
+use polkadot_core_primitives::{Block, Hash, Header};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use sc_network::{
@@ -24,45 +24,32 @@ use sc_network::{
 	NetworkService,
 };
 
-use sc_client_api::HeaderBackend;
 use sc_network_common::{role::Roles, sync::message::BlockAnnouncesHandshake};
 use sc_service::{error::Error, Configuration, NetworkStarter, SpawnTaskHandle};
 
 use std::{iter, sync::Arc};
 
-use crate::BlockChainRpcClient;
-
-pub(crate) struct BuildCollatorNetworkParams<'a> {
-	/// The service configuration.
-	pub config: &'a Configuration,
-	/// A shared client returned by `new_full_parts`.
-	pub client: Arc<BlockChainRpcClient>,
-	/// A handle for spawning tasks.
-	pub spawn_handle: SpawnTaskHandle,
-	/// Genesis hash
-	pub genesis_hash: Hash,
-}
-
 /// Build the network service, the network status sinks and an RPC sender.
 pub(crate) fn build_collator_network(
-	params: BuildCollatorNetworkParams,
+	config: &Configuration,
+	spawn_handle: SpawnTaskHandle,
+	genesis_hash: Hash,
+	best_header: Header,
 ) -> Result<
 	(Arc<NetworkService<Block, Hash>>, NetworkStarter, Box<dyn sp_consensus::SyncOracle + Send>),
 	Error,
 > {
-	let BuildCollatorNetworkParams { config, client, spawn_handle, genesis_hash } = params;
-
 	let protocol_id = config.protocol_id();
 	let block_announce_config = get_block_announce_proto_config::<Block>(
 		protocol_id.clone(),
 		&None,
 		Roles::from(&config.role),
-		client.info().best_number,
-		client.info().best_hash,
+		best_header.number,
+		best_header.hash(),
 		genesis_hash,
 	);
 
-	let network_params = sc_network::config::Params {
+	let network_params = sc_network::config::Params::<Block> {
 		role: config.role.clone(),
 		executor: {
 			let spawn_handle = Clone::clone(&spawn_handle);
@@ -72,7 +59,7 @@ pub(crate) fn build_collator_network(
 		},
 		fork_id: None,
 		network_config: config.network.clone(),
-		chain: client.clone(),
+		genesis_hash,
 		protocol_id,
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
 		block_announce_config,
