@@ -103,14 +103,17 @@ pub mod pallet {
 		/// The chain we are bridging to here.
 		type BridgedChain: ChainWithGrandpa;
 
-		/// The upper bound on the number of requests allowed by the pallet.
+		/// Maximal number of "free" mandatory header transactions per block.
 		///
-		/// A request refers to an action which writes a header to storage.
-		///
-		/// Once this bound is reached the pallet will not allow any dispatchables to be called
-		/// until the request count has decreased.
+		/// To be able to track the bridged chain, the pallet requires all headers that are
+		/// changing GRANDPA authorities set at the bridged chain (we call them mandatory).
+		/// So it is a common good deed to submit mandatory headers to the pallet. However, if the
+		/// bridged chain gets compromised, its validators may generate as many mandatory headers
+		/// as they want. And they may fill the whole block (at this chain) for free. This constants
+		/// limits number of calls that we may refund in a single block. All calls above this
+		/// limit are accepted, but are not refunded.
 		#[pallet::constant]
-		type MaxRequests: Get<u32>;
+		type MaxFreeMandatoryHeadersPerBlock: Get<u32>;
 
 		/// Maximal number of finalized headers to keep in the storage.
 		///
@@ -131,10 +134,13 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
-		fn on_initialize(_n: T::BlockNumber) -> frame_support::weights::Weight {
-			<RequestCount<T, I>>::mutate(|count| *count = count.saturating_sub(1));
+		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+			FreeMandatoryHeadersRemaining::<T, I>::put(T::MaxFreeMandatoryHeadersPerBlock::get());
+			Weight::zero()
+		}
 
-			T::DbWeight::get().reads_writes(1, 1)
+		fn on_finalize(_n: BlockNumberFor<T>) {
+			FreeMandatoryHeadersRemaining::<T, I>::kill();
 		}
 	}
 
@@ -166,8 +172,6 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_not_halted().map_err(Error::<T, I>::BridgeModule)?;
 
-			ensure!(Self::request_count() < T::MaxRequests::get(), <Error<T, I>>::TooManyRequests);
-
 			let (hash, number) = (finality_target.hash(), *finality_target.number());
 			log::trace!(
 				target: LOG_TARGET,
@@ -185,9 +189,16 @@ pub mod pallet {
 			let is_authorities_change_enacted =
 				try_enact_authority_change::<T, I>(&finality_target, set_id)?;
 			let may_refund_call_fee = is_authorities_change_enacted &&
+				// if we have seen too many mandatory headers in this block, we don't want to refund
+				Self::free_mandatory_headers_remaining() > 0 &&
+				// if arguments out of expected bounds, we don't want to refund
 				submit_finality_proof_info_from_args::<T, I>(&finality_target, &justification)
 					.fits_limits();
-			<RequestCount<T, I>>::mutate(|count| *count += 1);
+			if may_refund_call_fee {
+				FreeMandatoryHeadersRemaining::<T, I>::mutate(|count| {
+					*count = count.saturating_sub(1)
+				});
+			}
 			insert_header::<T, I>(*finality_target, hash);
 			log::info!(
 				target: LOG_TARGET,
@@ -273,16 +284,20 @@ pub mod pallet {
 		}
 	}
 
-	/// The current number of requests which have written to storage.
+	/// Number mandatory headers that we may accept in the current block for free (returning
+	/// `Pays::No`).
 	///
-	/// If the `RequestCount` hits `MaxRequests`, no more calls will be allowed to the pallet until
-	/// the request capacity is increased.
+	/// If the `FreeMandatoryHeadersRemaining` hits zero, all following mandatory headers in the
+	/// current block are accepted with fee (`Pays::Yes` is returned).
 	///
-	/// The `RequestCount` is decreased by one at the beginning of every block. This is to ensure
-	/// that the pallet can always make progress.
+	/// The `FreeMandatoryHeadersRemaining` is an ephemeral value that is set to
+	/// `MaxFreeMandatoryHeadersPerBlock` at each block initialization and is killed on block
+	/// finalization. So it never ends up in the storage trie.
 	#[pallet::storage]
-	#[pallet::getter(fn request_count)]
-	pub(super) type RequestCount<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery>;
+	#[pallet::whitelist_storage]
+	#[pallet::getter(fn free_mandatory_headers_remaining)]
+	pub(super) type FreeMandatoryHeadersRemaining<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, u32, ValueQuery>;
 
 	/// Hash of the header used to bootstrap the pallet.
 	#[pallet::storage]
@@ -392,8 +407,6 @@ pub mod pallet {
 		InvalidJustification,
 		/// The authority set from the underlying header chain is invalid.
 		InvalidAuthoritySet,
-		/// There are too many requests for the current window to handle.
-		TooManyRequests,
 		/// The header being imported is older than the best finalized header known to the pallet.
 		OldHeader,
 		/// The scheduled authority set change found in the header is unsupported by the pallet.
@@ -662,7 +675,8 @@ mod tests {
 	};
 	use codec::Encode;
 	use frame_support::{
-		assert_err, assert_noop, assert_ok, dispatch::PostDispatchInfo,
+		assert_err, assert_noop, assert_ok,
+		dispatch::{Pays, PostDispatchInfo},
 		storage::generator::StorageValue,
 	};
 	use frame_system::{EventRecord, Phase};
@@ -697,6 +711,51 @@ mod tests {
 	fn submit_finality_proof(header: u8) -> frame_support::dispatch::DispatchResultWithPostInfo {
 		let header = test_header(header.into());
 		let justification = make_default_justification(&header);
+
+		Pallet::<TestRuntime>::submit_finality_proof(
+			RuntimeOrigin::signed(1),
+			Box::new(header),
+			justification,
+		)
+	}
+
+	fn submit_finality_proof_with_set_id(
+		header: u8,
+		set_id: u64,
+	) -> frame_support::dispatch::DispatchResultWithPostInfo {
+		let header = test_header(header.into());
+		let justification = make_justification_for_header(JustificationGeneratorParams {
+			header: header.clone(),
+			set_id,
+			..Default::default()
+		});
+
+		Pallet::<TestRuntime>::submit_finality_proof(
+			RuntimeOrigin::signed(1),
+			Box::new(header),
+			justification,
+		)
+	}
+
+	fn submit_mandatory_finality_proof(
+		number: u8,
+		set_id: u64,
+	) -> frame_support::dispatch::DispatchResultWithPostInfo {
+		let mut header = test_header(number.into());
+		// to ease tests that are using `submit_mandatory_finality_proof`, we'll be using the
+		// same set for all sessions
+		let consensus_log =
+			ConsensusLog::<TestNumber>::ScheduledChange(sp_consensus_grandpa::ScheduledChange {
+				next_authorities: authority_list(),
+				delay: 0,
+			});
+		header.digest =
+			Digest { logs: vec![DigestItem::Consensus(GRANDPA_ENGINE_ID, consensus_log.encode())] };
+		let justification = make_justification_for_header(JustificationGeneratorParams {
+			header: header.clone(),
+			set_id,
+			..Default::default()
+		});
 
 		Pallet::<TestRuntime>::submit_finality_proof(
 			RuntimeOrigin::signed(1),
@@ -1169,13 +1228,18 @@ mod tests {
 	}
 
 	#[test]
-	fn rate_limiter_disallows_imports_once_limit_is_hit_in_single_block() {
+	fn rate_limiter_disallows_free_imports_once_limit_is_hit_in_single_block() {
 		run_test(|| {
 			initialize_substrate_bridge();
 
-			assert_ok!(submit_finality_proof(1));
-			assert_ok!(submit_finality_proof(2));
-			assert_err!(submit_finality_proof(3), <Error<TestRuntime>>::TooManyRequests);
+			let result = submit_mandatory_finality_proof(1, 1);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::No);
+
+			let result = submit_mandatory_finality_proof(2, 2);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::No);
+
+			let result = submit_mandatory_finality_proof(3, 3);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::Yes);
 		})
 	}
 
@@ -1183,7 +1247,8 @@ mod tests {
 	fn rate_limiter_invalid_requests_do_not_count_towards_request_count() {
 		run_test(|| {
 			let submit_invalid_request = || {
-				let header = test_header(1);
+				let mut header = test_header(1);
+				header.digest = change_log(0);
 				let mut invalid_justification = make_default_justification(&header);
 				invalid_justification.round = 42;
 
@@ -1196,15 +1261,19 @@ mod tests {
 
 			initialize_substrate_bridge();
 
-			for _ in 0..<TestRuntime as Config>::MaxRequests::get() + 1 {
-				// Notice that the error here *isn't* `TooManyRequests`
+			for _ in 0..<TestRuntime as Config>::MaxFreeMandatoryHeadersPerBlock::get() + 1 {
 				assert_err!(submit_invalid_request(), <Error<TestRuntime>>::InvalidJustification);
 			}
 
-			// Can still submit `MaxRequests` requests afterwards
-			assert_ok!(submit_finality_proof(1));
-			assert_ok!(submit_finality_proof(2));
-			assert_err!(submit_finality_proof(3), <Error<TestRuntime>>::TooManyRequests);
+			// Can still submit free mandatory headers afterwards
+			let result = submit_mandatory_finality_proof(1, 1);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::No);
+
+			let result = submit_mandatory_finality_proof(2, 2);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::No);
+
+			let result = submit_mandatory_finality_proof(3, 3);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::Yes);
 		})
 	}
 
@@ -1212,40 +1281,51 @@ mod tests {
 	fn rate_limiter_allows_request_after_new_block_has_started() {
 		run_test(|| {
 			initialize_substrate_bridge();
-			assert_ok!(submit_finality_proof(1));
-			assert_ok!(submit_finality_proof(2));
+
+			let result = submit_mandatory_finality_proof(1, 1);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::No);
+
+			let result = submit_mandatory_finality_proof(2, 2);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::No);
+
+			let result = submit_mandatory_finality_proof(3, 3);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::Yes);
 
 			next_block();
-			assert_ok!(submit_finality_proof(3));
+
+			let result = submit_mandatory_finality_proof(4, 4);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::No);
+
+			let result = submit_mandatory_finality_proof(5, 5);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::No);
+
+			let result = submit_mandatory_finality_proof(6, 6);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::Yes);
 		})
 	}
 
 	#[test]
-	fn rate_limiter_disallows_imports_once_limit_is_hit_across_different_blocks() {
+	fn rate_limiter_ignores_non_mandatory_headers() {
 		run_test(|| {
 			initialize_substrate_bridge();
-			assert_ok!(submit_finality_proof(1));
-			assert_ok!(submit_finality_proof(2));
 
-			next_block();
-			assert_ok!(submit_finality_proof(3));
-			assert_err!(submit_finality_proof(4), <Error<TestRuntime>>::TooManyRequests);
-		})
-	}
+			let result = submit_finality_proof(1);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::Yes);
 
-	#[test]
-	fn rate_limiter_allows_max_requests_after_long_time_with_no_activity() {
-		run_test(|| {
-			initialize_substrate_bridge();
-			assert_ok!(submit_finality_proof(1));
-			assert_ok!(submit_finality_proof(2));
+			let result = submit_mandatory_finality_proof(2, 1);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::No);
 
-			next_block();
-			next_block();
+			let result = submit_finality_proof_with_set_id(3, 2);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::Yes);
 
-			next_block();
-			assert_ok!(submit_finality_proof(5));
-			assert_ok!(submit_finality_proof(7));
+			let result = submit_mandatory_finality_proof(4, 2);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::No);
+
+			let result = submit_finality_proof_with_set_id(5, 3);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::Yes);
+
+			let result = submit_mandatory_finality_proof(6, 3);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::Yes);
 		})
 	}
 

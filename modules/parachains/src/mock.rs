@@ -199,7 +199,7 @@ parameter_types! {
 impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance1> for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = TestBridgedChain;
-	type MaxRequests = ConstU32<2>;
+	type MaxFreeMandatoryHeadersPerBlock = ConstU32<2>;
 	type HeadersToKeep = HeadersToKeep;
 	type WeightInfo = ();
 }
@@ -207,7 +207,7 @@ impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance1> for TestRun
 impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance2> for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = TestBridgedChain;
-	type MaxRequests = ConstU32<2>;
+	type MaxFreeMandatoryHeadersPerBlock = ConstU32<2>;
 	type HeadersToKeep = HeadersToKeep;
 	type WeightInfo = ();
 }
