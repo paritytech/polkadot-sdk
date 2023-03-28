@@ -178,9 +178,9 @@ where
 	GI: 'static,
 {
 	assert!(
-		R::MaxRequests::get() > 0,
-		"MaxRequests ({}) must be larger than zero",
-		R::MaxRequests::get(),
+		R::HeadersToKeep::get() > 0,
+		"HeadersToKeep ({}) must be larger than zero",
+		R::HeadersToKeep::get(),
 	);
 }
 
