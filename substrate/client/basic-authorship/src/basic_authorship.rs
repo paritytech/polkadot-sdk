@@ -31,7 +31,11 @@ use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
 use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
-use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed, HeaderBackend};
+use sp_blockchain::{
+	ApplyExtrinsicFailed::{TooBigStorageProof, Validity},
+	Error::ApplyExtrinsicFailed,
+	HeaderBackend,
+};
 use sp_consensus::{DisableProofRecording, EnableProofRecording, ProofRecording, Proposal};
 use sp_core::traits::SpawnNamed;
 use sp_inherents::InherentData;
@@ -432,6 +436,7 @@ where
 			now + time::Duration::from_micros(self.soft_deadline_percent.mul_floor(left_micros));
 		let mut skipped = 0;
 		let mut unqueue_invalid = Vec::new();
+		let mut suspicious_txs = Vec::new();
 
 		let delay = deadline.saturating_duration_since((self.now)()) / 8;
 		let mut pending_iterator =
@@ -465,12 +470,13 @@ where
 			}
 
 			let pending_tx_data = (**pending_tx.data()).clone();
+			let pending_tx_encoded_size = pending_tx_data.encoded_size();
 			let pending_tx_hash = pending_tx.hash().clone();
 
 			let block_size =
 				block_builder.estimate_block_size(self.include_proof_in_block_size_estimation);
 			if let Some(remaining_size) =
-				block_size_limit.checked_sub(block_size + pending_tx_data.encoded_size())
+				block_size_limit.checked_sub(block_size + pending_tx_encoded_size)
 			{
 				// There is enough space left in the block, we push the transaction
 				trace!("[{:?}] Pushing to the block.", pending_tx_hash);
@@ -482,6 +488,21 @@ where
 					Ok(()) => {
 						transaction_pushed = true;
 						debug!("[{:?}] Pushed to the block.", pending_tx_hash);
+					},
+					Err(ApplyExtrinsicFailed(TooBigStorageProof(proof_diff, _))) => {
+						pending_iterator.report_invalid(&pending_tx);
+						if pending_tx_encoded_size + proof_diff > block_size_limit {
+							// The transaction and its storage proof are too big to be included
+							// in a future block, we must ban the transaction right away
+							debug!(
+								"[{:?}] Invalid transaction: too big storage proof",
+								pending_tx_hash
+							);
+							unqueue_invalid.push(pending_tx_hash.clone());
+						} else {
+							// The transaction is suspicious, but it could be a false positive
+							suspicious_txs.push(pending_tx_hash.clone());
+						}
 					},
 					Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
 						pending_iterator.report_invalid(&pending_tx);
@@ -539,6 +560,12 @@ where
 				}
 			}
 		};
+
+		if matches!(end_reason, EndProposingReason::HitDeadline) && !transaction_pushed {
+			warn!("Hit deadline `{}` without including any transaction!", block_size_limit,);
+			// If we hits the hard deadline but the block still empty, we ban suspicious txs
+			self.transaction_pool.remove_invalid(&suspicious_txs);
+		}
 
 		if matches!(end_reason, EndProposingReason::HitBlockSizeLimit) && !transaction_pushed {
 			warn!(
