@@ -40,6 +40,9 @@ pub enum ApplyExtrinsicFailed {
 
 	#[error("Application specific error")]
 	Application(#[source] Box<dyn 'static + std::error::Error + Send + Sync>),
+
+	#[error("Extrinsic execution generated a too big storage proof: {0}/{1}")]
+	TooBigStorageProof(usize, usize),
 }
 
 /// Substrate Client error

@@ -37,7 +37,6 @@ use sp_core::traits::CallContext;
 use sp_runtime::{
 	legacy,
 	traits::{Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One},
-	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	Digest, ExtrinsicInclusionMode,
 };
 use std::marker::PhantomData;
@@ -318,9 +317,10 @@ where
 							// we should rollback and return the error
 							// `InvalidTransaction::ExhaustsResources`.
 							return TransactionOutcome::Rollback(Err(
-								ApplyExtrinsicFailed::Validity(TransactionValidityError::Invalid(
-									InvalidTransaction::ExhaustsResources,
-								))
+								ApplyExtrinsicFailed::TooBigStorageProof(
+									estimate_proof_inflation,
+									remaining_size_for_proof,
+								)
 								.into(),
 							))
 						}
