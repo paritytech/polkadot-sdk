@@ -16,6 +16,6 @@ sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "mas
 
 futures = "0.3.27"
 async-trait = "0.1.68"
-thiserror = "1.0.38"
+thiserror = "1.0.40"
 jsonrpsee-core = "0.16.2"
 parity-scale-codec = "3.4.0"
