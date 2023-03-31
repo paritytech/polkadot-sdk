@@ -45,6 +45,7 @@ pub struct RelayStateSproofBuilder {
 	pub current_slot: relay_chain::Slot,
 	pub current_epoch: u64,
 	pub randomness: relay_chain::Hash,
+	pub additional_key_values: Vec<(Vec<u8>, Vec<u8>)>,
 }
 
 impl Default for RelayStateSproofBuilder {
@@ -71,6 +72,7 @@ impl Default for RelayStateSproofBuilder {
 			current_slot: 0.into(),
 			current_epoch: 0u64,
 			randomness: relay_chain::Hash::default(),
+			additional_key_values: vec![],
 		}
 	}
 }
@@ -163,6 +165,10 @@ impl RelayStateSproofBuilder {
 				self.randomness.encode(),
 			);
 			insert(relay_chain::well_known_keys::CURRENT_SLOT.to_vec(), self.current_slot.encode());
+
+			for (key, value) in self.additional_key_values {
+				insert(key, value);
+			}
 		}
 
 		let root = backend.root().clone();
