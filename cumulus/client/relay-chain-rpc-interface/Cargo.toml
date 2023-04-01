@@ -23,7 +23,7 @@ sc-service = { git = "https://github.com/paritytech/substrate", branch = "master
 
 tokio = { version = "1.27.0", features = ["sync"] }
 
-futures = "0.3.27"
+futures = "0.3.28"
 futures-timer = "3.0.2"
 parity-scale-codec = "3.4.0"
 jsonrpsee = { version = "0.16.2", features = ["ws-client"] }
