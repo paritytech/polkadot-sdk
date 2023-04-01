@@ -69,7 +69,7 @@ fn build_authority_discovery_service<Block: BlockT>(
 		network.clone(),
 		Box::pin(dht_event_stream),
 		authority_discovery_role,
-		prometheus_registry.clone(),
+		prometheus_registry,
 	);
 
 	task_manager.spawn_handle().spawn(
@@ -150,9 +150,10 @@ async fn new_minimal_relay_chain(
 	let (collation_req_receiver, available_data_req_receiver) =
 		build_request_response_protocol_receivers(&request_protocol_names, &mut config);
 
-	let best_header = relay_chain_rpc_client.chain_get_header(None).await?.ok_or_else(|| {
-		RelayChainError::RpcCallError("Unable to fetch best header".to_string().into())
-	})?;
+	let best_header = relay_chain_rpc_client
+		.chain_get_header(None)
+		.await?
+		.ok_or_else(|| RelayChainError::RpcCallError("Unable to fetch best header".to_string()))?;
 	let (network, network_starter, sync_oracle) =
 		build_collator_network(&config, task_manager.spawn_handle(), genesis_hash, best_header)
 			.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?;

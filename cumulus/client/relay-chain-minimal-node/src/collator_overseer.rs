@@ -114,7 +114,7 @@ fn build_overseer<'a>(
 		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
 		.collator_protocol({
 			let side = ProtocolSide::Collator(
-				network_service.local_peer_id().clone(),
+				network_service.local_peer_id(),
 				collator_pair,
 				collation_req_receiver,
 				Metrics::register(registry)?,
@@ -129,8 +129,8 @@ fn build_overseer<'a>(
 			peer_set_protocol_names.clone(),
 		))
 		.network_bridge_tx(NetworkBridgeTxSubsystem::new(
-			network_service.clone(),
-			authority_discovery_service.clone(),
+			network_service,
+			authority_discovery_service,
 			network_bridge_metrics,
 			req_protocol_names,
 			peer_set_protocol_names,
@@ -170,7 +170,7 @@ pub(crate) fn spawn_overseer(
 		e
 	})?;
 
-	let overseer_handle = Handle::new(overseer_handle.clone());
+	let overseer_handle = Handle::new(overseer_handle);
 	{
 		let handle = overseer_handle.clone();
 		task_manager.spawn_essential_handle().spawn_blocking(

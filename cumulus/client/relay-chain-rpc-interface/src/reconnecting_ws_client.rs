@@ -381,7 +381,7 @@ impl ReconnectingWebsocketWorker {
 		}
 
 		if client_manager.connect_to_new_rpc_server().await.is_err() {
-			return Err(format!("Unable to find valid external RPC server, shutting down."))
+			return Err("Unable to find valid external RPC server, shutting down.".to_string())
 		};
 
 		for item in requests_to_retry.into_iter() {

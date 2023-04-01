@@ -87,6 +87,7 @@ cumulus-client-service = { path = "../client/service" }
 cumulus-primitives-core = { path = "../primitives/core" }
 cumulus-primitives-parachain-inherent = { path = "../primitives/parachain-inherent" }
 cumulus-relay-chain-interface = { path = "../client/relay-chain-interface" }
+color-print = "0.3.4"
 
 [build-dependencies]
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "master" }
