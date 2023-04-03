@@ -11,7 +11,7 @@ thiserror = "1.0.40"
 async-std = "1.9.0"
 async-trait = "0.1"
 codec = { package = "parity-scale-codec", version = "3.1.5" }
-futures = "0.3.27"
+futures = "0.3.28"
 hex = "0.4"
 num-traits = "0.2"
 log = "0.4.17"
