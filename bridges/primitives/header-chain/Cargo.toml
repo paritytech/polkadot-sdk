@@ -27,7 +27,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", d
 [dev-dependencies]
 bp-test-utils = { path = "../test-utils" }
 hex = "0.4"
-hex-literal = "0.3"
+hex-literal = "0.4"
 
 [features]
 default = ["std"]
