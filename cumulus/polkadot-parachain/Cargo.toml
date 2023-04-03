@@ -15,7 +15,7 @@ async-trait = "0.1.68"
 clap = { version = "4.1.14", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 futures = "0.3.28"
-hex-literal = "0.3.4"
+hex-literal = "0.4.0"
 log = "0.4.17"
 serde = { version = "1.0.159", features = ["derive"] }
 

@@ -36,7 +36,7 @@ cumulus-primitives-core = { path = "../../primitives/core", default-features = f
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent", default-features = false }
 
 [dev-dependencies]
-hex-literal = "0.3.4"
+hex-literal = "0.4.0"
 lazy_static = "1.4"
 
 # Substrate
