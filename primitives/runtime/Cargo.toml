@@ -27,7 +27,7 @@ sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master", 
 trie-db = { version = "0.27.1", default-features = false }
 
 [dev-dependencies]
-hex-literal = "0.3"
+hex-literal = "0.4"
 
 [features]
 default = ["std"]
