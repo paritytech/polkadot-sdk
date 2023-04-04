@@ -19,24 +19,24 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2023-03-23, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `bm2`, CPU: `Intel(R) Core(TM) i7-7700K CPU @ 4.20GHz`
+//! HOSTNAME: `bm5`, CPU: `Intel(R) Core(TM) i7-7700K CPU @ 4.20GHz`
 //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: Some("bridge-hub-polkadot-dev"), DB CACHE: 1024
 
 // Executed Command:
-// ./target/production/polkadot-parachain
+// ./artifacts/polkadot-parachain
 // benchmark
 // pallet
-// --steps=50
-// --repeat=20
-// --extrinsic=
+// --template=./templates/xcm-bench-template.hbs
+// --chain=bridge-hub-polkadot-dev
 // --execution=wasm
 // --wasm-execution=compiled
-// --heap-pages=4096
 // --pallet=pallet_xcm_benchmarks::fungible
-// --chain=bridge-hub-polkadot-dev
+// --extrinsic=*
+// --steps=50
+// --repeat=20
+// --json
 // --header=./file_header.txt
-// --template=./templates/xcm-bench-template.hbs
-// --output=./parachains/runtimes/bridge-hubs/bridge-hub-polkadot/src/weights/xcm/
+// --output=./parachains/runtimes/bridge-hubs/bridge-hub-polkadot/src/weights/xcm/pallet_xcm_benchmarks_fungible.rs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -54,8 +54,8 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `101`
 		//  Estimated: `3593`
-		// Minimum execution time: 22_155_000 picoseconds.
-		Weight::from_parts(22_991_000, 3593)
+		// Minimum execution time: 20_647_000 picoseconds.
+		Weight::from_parts(20_978_000, 3593)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -65,8 +65,8 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `153`
 		//  Estimated: `6196`
-		// Minimum execution time: 48_986_000 picoseconds.
-		Weight::from_parts(49_467_000, 6196)
+		// Minimum execution time: 32_995_000 picoseconds.
+		Weight::from_parts(33_365_000, 6196)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -88,8 +88,8 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `223`
 		//  Estimated: `18205`
-		// Minimum execution time: 72_291_000 picoseconds.
-		Weight::from_parts(72_898_000, 18205)
+		// Minimum execution time: 56_568_000 picoseconds.
+		Weight::from_parts(57_462_000, 18205)
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
@@ -97,8 +97,8 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 4_225_000 picoseconds.
-		Weight::from_parts(4_328_000, 0)
+		// Minimum execution time: 4_070_000 picoseconds.
+		Weight::from_parts(4_200_000, 0)
 	}
 	// Storage: System Account (r:1 w:1)
 	// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
@@ -106,8 +106,8 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `52`
 		//  Estimated: `3593`
-		// Minimum execution time: 26_357_000 picoseconds.
-		Weight::from_parts(26_841_000, 3593)
+		// Minimum execution time: 24_036_000 picoseconds.
+		Weight::from_parts(24_587_000, 3593)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -129,8 +129,8 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `122`
 		//  Estimated: `15097`
-		// Minimum execution time: 50_981_000 picoseconds.
-		Weight::from_parts(51_488_000, 15097)
+		// Minimum execution time: 49_836_000 picoseconds.
+		Weight::from_parts(50_507_000, 15097)
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -150,8 +150,8 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `70`
 		//  Estimated: `11244`
-		// Minimum execution time: 28_333_000 picoseconds.
-		Weight::from_parts(28_863_000, 11244)
+		// Minimum execution time: 28_353_000 picoseconds.
+		Weight::from_parts(29_151_000, 11244)
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}

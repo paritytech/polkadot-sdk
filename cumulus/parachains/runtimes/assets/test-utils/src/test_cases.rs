@@ -1131,17 +1131,17 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 				BuyExecution { fees: buy_execution_fee.clone().into(), weight_limit: Unlimited },
 				Transact {
 					origin_kind: OriginKind::Xcm,
-					require_weight_at_most: Weight::from_parts(40_000_000_000, 6000),
+					require_weight_at_most: Weight::from_parts(40_000_000_000, 8000),
 					call: foreign_asset_create.into(),
 				},
 				Transact {
 					origin_kind: OriginKind::SovereignAccount,
-					require_weight_at_most: Weight::from_parts(20_000_000_000, 6000),
+					require_weight_at_most: Weight::from_parts(20_000_000_000, 8000),
 					call: foreign_asset_set_metadata.into(),
 				},
 				Transact {
 					origin_kind: OriginKind::SovereignAccount,
-					require_weight_at_most: Weight::from_parts(20_000_000_000, 6000),
+					require_weight_at_most: Weight::from_parts(20_000_000_000, 8000),
 					call: foreign_asset_set_team.into(),
 				},
 				ExpectTransactStatus(MaybeErrorCode::Success),
@@ -1248,7 +1248,7 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 				BuyExecution { fees: buy_execution_fee.clone().into(), weight_limit: Unlimited },
 				Transact {
 					origin_kind: OriginKind::Xcm,
-					require_weight_at_most: Weight::from_parts(20_000_000_000, 6000),
+					require_weight_at_most: Weight::from_parts(20_000_000_000, 8000),
 					call: foreign_asset_create.into(),
 				},
 				ExpectTransactStatus(MaybeErrorCode::from(DispatchError::BadOrigin.encode())),
