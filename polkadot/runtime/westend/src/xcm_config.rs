@@ -31,7 +31,7 @@ use runtime_common::{
 	ToAuthor,
 };
 use sp_core::ConstU32;
-use westend_runtime_constants::currency::CENTS;
+use westend_runtime_constants::{currency::CENTS, system_parachain::*};
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -92,8 +92,8 @@ pub type XcmRouter = WithUniqueTopic<(
 )>;
 
 parameter_types! {
-	pub const Westmint: MultiLocation = Parachain(1000).into_location();
-	pub const Collectives: MultiLocation = Parachain(1001).into_location();
+	pub const Westmint: MultiLocation = Parachain(WESTMINT_ID).into_location();
+	pub const Collectives: MultiLocation = Parachain(COLLECTIVES_ID).into_location();
 	pub const Wnd: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
 	pub const WndForWestmint: (MultiAssetFilter, MultiLocation) = (Wnd::get(), Westmint::get());
 	pub const WndForCollectives: (MultiAssetFilter, MultiLocation) = (Wnd::get(), Collectives::get());
@@ -103,7 +103,7 @@ parameter_types! {
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
+	pub ReachableDest: Option<MultiLocation> = Some(Parachain(WESTMINT_ID).into());
 }
 
 pub type TrustedTeleporters =
@@ -245,7 +245,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 
 match_types! {
 	pub type SystemParachains: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(1000 | 1001)) }
+		MultiLocation { parents: 0, interior: X1(Parachain(WESTMINT_ID | COLLECTIVES_ID)) }
 	};
 }
 

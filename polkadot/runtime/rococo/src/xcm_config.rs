@@ -26,7 +26,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
-use rococo_runtime_constants::currency::CENTS;
+use rococo_runtime_constants::{currency::CENTS, system_parachain::*};
 use runtime_common::{
 	crowdloan, paras_registrar,
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
@@ -108,8 +108,8 @@ pub type XcmRouter = WithUniqueTopic<(
 
 parameter_types! {
 	pub const Roc: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
-	pub const Rockmine: MultiLocation = Parachain(1000).into_location();
-	pub const Contracts: MultiLocation = Parachain(1002).into_location();
+	pub const Statemine: MultiLocation = Parachain(STATEMINE_ID).into_location();
+	pub const Contracts: MultiLocation = Parachain(CONTRACTS_ID).into_location();
 	pub const Encointer: MultiLocation = Parachain(1003).into_location();
 	pub const Tick: MultiLocation = Parachain(100).into_location();
 	pub const Trick: MultiLocation = Parachain(110).into_location();
@@ -137,7 +137,7 @@ match_types! {
 		MultiLocation { parents: 0, interior: X1(Parachain(_)) }
 	};
 	pub type SystemParachains: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(1000 | 1002)) }
+		MultiLocation { parents: 0, interior: X1(Parachain(STATEMINE_ID | CONTRACTS_ID)) }
 	};
 }
 
@@ -328,7 +328,7 @@ impl xcm_executor::Config for XcmConfig {
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
+	pub ReachableDest: Option<MultiLocation> = Some(Parachain(STATEMINE_ID).into());
 }
 
 /// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
