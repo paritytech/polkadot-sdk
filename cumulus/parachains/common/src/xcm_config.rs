@@ -2,7 +2,7 @@ use crate::impls::AccountIdOf;
 use core::{marker::PhantomData, ops::ControlFlow};
 use frame_support::{
 	log,
-	traits::{fungibles::Inspect, tokens::BalanceConversion, ContainsPair},
+	traits::{fungibles::Inspect, tokens::ConversionToAssetBalance, ContainsPair},
 	weights::Weight,
 };
 use sp_runtime::traits::Get;
@@ -96,7 +96,7 @@ impl<CurrencyBalance, Runtime, WeightToFee, BalanceConverter, AssetInstance>
 where
 	Runtime: pallet_assets::Config<AssetInstance>,
 	WeightToFee: frame_support::weights::WeightToFee<Balance = CurrencyBalance>,
-	BalanceConverter: BalanceConversion<
+	BalanceConverter: ConversionToAssetBalance<
 		CurrencyBalance,
 		<Runtime as pallet_assets::Config<AssetInstance>>::AssetId,
 		<Runtime as pallet_assets::Config<AssetInstance>>::Balance,
