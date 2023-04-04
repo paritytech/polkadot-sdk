@@ -133,6 +133,8 @@ impl<Block: BlockT> ExecutionExtensions<Block> {
 
 		extensions.register(ReadRuntimeVersionExt::new(self.read_runtime_version.clone()));
 
+		extensions.register(ReadRuntimeVersionExt::new(self.read_runtime_version.clone()));
+
 		extensions
 	}
 }
