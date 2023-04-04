@@ -18,6 +18,14 @@ use futures::{select, StreamExt};
 use lru::LruCache;
 use std::sync::Arc;
 
+use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
+use polkadot_collator_protocol::{CollatorProtocolSubsystem, ProtocolSide};
+use polkadot_network_bridge::{
+	Metrics as NetworkBridgeMetrics, NetworkBridgeRx as NetworkBridgeRxSubsystem,
+	NetworkBridgeTx as NetworkBridgeTxSubsystem,
+};
+use polkadot_node_collation_generation::CollationGenerationSubsystem;
+use polkadot_node_core_runtime_api::RuntimeApiSubsystem;
 use polkadot_node_network_protocol::{
 	peer_set::PeerSetProtocolNames,
 	request_response::{
@@ -27,18 +35,10 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_subsystem_util::metrics::{prometheus::Registry, Metrics};
 use polkadot_overseer::{
-	BlockInfo, DummySubsystem, Handle, MetricsTrait, Overseer, OverseerHandle, OverseerMetrics,
-	SpawnGlue, KNOWN_LEAVES_CACHE_SIZE,
+	BlockInfo, DummySubsystem, Handle, Overseer, OverseerConnector, OverseerHandle, SpawnGlue,
+	KNOWN_LEAVES_CACHE_SIZE,
 };
 use polkadot_primitives::CollatorPair;
-use polkadot_service::{
-	overseer::{
-		AvailabilityRecoverySubsystem, CollationGenerationSubsystem, CollatorProtocolSubsystem,
-		NetworkBridgeMetrics, NetworkBridgeRxSubsystem, NetworkBridgeTxSubsystem, ProtocolSide,
-		RuntimeApiSubsystem,
-	},
-	Error, OverseerConnector,
-};
 
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_network::NetworkStateInfo;
@@ -93,9 +93,8 @@ fn build_overseer<'a>(
 	}: CollatorOverseerGenArgs<'a>,
 ) -> Result<
 	(Overseer<SpawnGlue<sc_service::SpawnTaskHandle>, Arc<BlockChainRpcClient>>, OverseerHandle),
-	Error,
+	RelayChainError,
 > {
-	let metrics = <OverseerMetrics as MetricsTrait>::register(registry)?;
 	let spawner = SpawnGlue(spawner);
 	let network_bridge_metrics: NetworkBridgeMetrics = Metrics::register(registry)?;
 	let builder = Overseer::builder()
@@ -153,17 +152,19 @@ fn build_overseer<'a>(
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)
 		.known_leaves(LruCache::new(KNOWN_LEAVES_CACHE_SIZE))
-		.metrics(metrics)
+		.metrics(Metrics::register(registry)?)
 		.spawner(spawner);
 
-	builder.build_with_connector(connector).map_err(|e| e.into())
+	builder
+		.build_with_connector(connector)
+		.map_err(|e| RelayChainError::Application(e.into()))
 }
 
 pub(crate) fn spawn_overseer(
 	overseer_args: CollatorOverseerGenArgs,
 	task_manager: &TaskManager,
 	relay_chain_rpc_client: Arc<BlockChainRpcClient>,
-) -> Result<polkadot_overseer::Handle, polkadot_service::Error> {
+) -> Result<polkadot_overseer::Handle, RelayChainError> {
 	let (overseer, overseer_handle) = build_overseer(OverseerConnector::default(), overseer_args)
 		.map_err(|e| {
 		tracing::error!("Failed to initialize overseer: {}", e);

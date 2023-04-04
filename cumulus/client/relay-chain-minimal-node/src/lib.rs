@@ -181,8 +181,7 @@ async fn new_minimal_relay_chain(
 	};
 
 	let overseer_handle =
-		collator_overseer::spawn_overseer(overseer_args, &task_manager, relay_chain_rpc_client)
-			.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?;
+		collator_overseer::spawn_overseer(overseer_args, &task_manager, relay_chain_rpc_client)?;
 
 	network_starter.start_network();
 
