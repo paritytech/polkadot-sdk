@@ -42,7 +42,7 @@ pub type XcmAsPlainPayload = sp_std::prelude::Vec<u8>;
 pub enum XcmBlobMessageDispatchResult {
 	InvalidPayload,
 	Dispatched,
-	NotDispatched(#[codec(skip)] &'static str),
+	NotDispatched(#[codec(skip)] Option<DispatchBlobError>),
 }
 
 /// [`XcmBlobMessageDispatch`] is responsible for dispatching received messages
@@ -106,24 +106,12 @@ impl<
 				XcmBlobMessageDispatchResult::Dispatched
 			},
 			Err(e) => {
-				let e = match e {
-					DispatchBlobError::Unbridgable => "DispatchBlobError::Unbridgable",
-					DispatchBlobError::InvalidEncoding => "DispatchBlobError::InvalidEncoding",
-					DispatchBlobError::UnsupportedLocationVersion =>
-						"DispatchBlobError::UnsupportedLocationVersion",
-					DispatchBlobError::UnsupportedXcmVersion =>
-						"DispatchBlobError::UnsupportedXcmVersion",
-					DispatchBlobError::RoutingError => "DispatchBlobError::RoutingError",
-					DispatchBlobError::NonUniversalDestination =>
-						"DispatchBlobError::NonUniversalDestination",
-					DispatchBlobError::WrongGlobal => "DispatchBlobError::WrongGlobal",
-				};
 				log::error!(
 					target: crate::LOG_TARGET_BRIDGE_DISPATCH,
 					"[XcmBlobMessageDispatch] DispatchBlob::dispatch_blob failed, error: {:?} - message_nonce: {:?}",
 					e, message.key.nonce
 				);
-				XcmBlobMessageDispatchResult::NotDispatched(e)
+				XcmBlobMessageDispatchResult::NotDispatched(Some(e))
 			},
 		};
 		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result }
