@@ -492,7 +492,7 @@ pub mod pallet {
 		///
 		/// All origins are allowed.
 		#[pallet::call_index(3)]
-		#[pallet::weight(1_000_000)]
+		#[pallet::weight({1_000_000})]
 		pub fn enact_authorized_upgrade(
 			_: OriginFor<T>,
 			code: Vec<u8>,

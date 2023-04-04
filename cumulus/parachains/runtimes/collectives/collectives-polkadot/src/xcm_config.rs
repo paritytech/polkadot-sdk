@@ -163,7 +163,6 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				// but the call can be initiated only by root origin.
 				pallet_alliance::Call::init_members { .. } |
 				pallet_alliance::Call::vote { .. } |
-				pallet_alliance::Call::close_old_weight { .. } |
 				pallet_alliance::Call::disband { .. } |
 				pallet_alliance::Call::set_rule { .. } |
 				pallet_alliance::Call::announce { .. } |
@@ -179,7 +178,6 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 			) |
 			RuntimeCall::AllianceMotion(
 				pallet_collective::Call::vote { .. } |
-				pallet_collective::Call::close_old_weight { .. } |
 				pallet_collective::Call::disapprove_proposal { .. } |
 				pallet_collective::Call::close { .. },
 			) |
