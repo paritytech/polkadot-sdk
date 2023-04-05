@@ -290,7 +290,7 @@ impl<
 				&(X1(AccountId32 { network: None, id: receiver.into() }).into()),
 				// We aren't able to track the XCM that initiated the fee deposit, so we create a
 				// fake message hash here
-				&XcmContext::with_message_id([0; 32]),
+				None,
 			)
 			.is_ok();
 
