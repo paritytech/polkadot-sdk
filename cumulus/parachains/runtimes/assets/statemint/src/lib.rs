@@ -120,10 +120,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("statemint"),
 	impl_name: create_runtime_str!("statemint"),
 	authoring_version: 1,
-	spec_version: 9381,
+	spec_version: 9400,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 12,
+	transaction_version: 13,
 	state_version: 0,
 };
 

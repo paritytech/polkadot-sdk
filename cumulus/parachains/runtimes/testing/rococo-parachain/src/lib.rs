@@ -101,10 +101,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("test-parachain"),
 	impl_name: create_runtime_str!("test-parachain"),
 	authoring_version: 1,
-	spec_version: 9381,
+	spec_version: 9400,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 5,
+	transaction_version: 6,
 	state_version: 0,
 };
 

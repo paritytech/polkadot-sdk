@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-parachain-bin"
-version = "0.9.380"
+version = "0.9.400"
 authors = ["Parity Technologies <admin@parity.io>"]
 build = "build.rs"
 edition = "2021"
