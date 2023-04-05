@@ -52,14 +52,14 @@ pallet-contracts = { path = "../../../../../substrate/frame/contracts", default-
 pallet-contracts-primitives = { path = "../../../../../substrate/frame/contracts/primitives", default-features = false}
 
 # Polkadot
-kusama-runtime-constants = { path = "../../../../../polkadot/runtime/kusama/constants", default-features = false}
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
-polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false}
-polkadot-parachain = { path = "../../../../../polkadot/parachain", default-features = false}
-polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false}
-xcm = { path = "../../../../../polkadot/xcm", default-features = false}
-xcm-builder = { path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
-xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
+pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }
+polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false }
+polkadot-parachain = { path = "../../../../../polkadot/parachain", default-features = false }
+polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false }
+rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/constants", default-features = false }
+xcm = { path = "../../../../../polkadot/xcm", default-features = false }
+xcm-builder = { path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
@@ -90,7 +90,6 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime/std",
-	"kusama-runtime-constants/std",
 	"log/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
@@ -112,6 +111,7 @@ std = [
 	"polkadot-core-primitives/std",
 	"polkadot-parachain/std",
 	"polkadot-runtime-common/std",
+	"rococo-runtime-constants/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
