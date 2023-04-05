@@ -479,7 +479,7 @@ pub type AssetFeeAsExistentialDepositMultiplierFeeCharger = AssetFeeAsExistentia
 >;
 
 match_types! {
-	pub type RelayOrSystemParachains: impl Contains<MultiLocation> = {
+	pub type RelayOrOtherSystemParachains: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 0, interior: X1(Parachain(
 			westend_runtime_constants::system_parachain::COLLECTIVES_ID |
 			westend_runtime_constants::system_parachain::BRIDGE_HUB_ID)) } |
@@ -533,7 +533,8 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type FeeManager = XcmFeesToAccount<Self, RelayOrSystemParachains, AccountId, TreasuryAccount>;
+	type FeeManager =
+		XcmFeesToAccount<Self, RelayOrOtherSystemParachains, AccountId, TreasuryAccount>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
