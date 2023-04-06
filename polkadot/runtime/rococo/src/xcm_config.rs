@@ -108,7 +108,7 @@ pub type XcmRouter = WithUniqueTopic<(
 
 parameter_types! {
 	pub const Roc: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
-	pub const Statemine: MultiLocation = Parachain(STATEMINE_ID).into_location();
+	pub const Rockmine: MultiLocation = Parachain(ROCKMINE_ID).into_location();
 	pub const Contracts: MultiLocation = Parachain(CONTRACTS_ID).into_location();
 	pub const Encointer: MultiLocation = Parachain(ENCOINTER_ID).into_location();
 	pub const Tick: MultiLocation = Parachain(100).into_location();
@@ -135,9 +135,6 @@ pub type TrustedTeleporters = (
 match_types! {
 	pub type OnlyParachains: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 0, interior: X1(Parachain(_)) }
-	};
-	pub type SystemParachains: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(STATEMINE_ID | CONTRACTS_ID | ENCOINTER_ID)) }
 	};
 }
 
@@ -328,7 +325,7 @@ impl xcm_executor::Config for XcmConfig {
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(STATEMINE_ID).into());
+	pub ReachableDest: Option<MultiLocation> = Some(Parachain(ROCKMINE_ID).into());
 }
 
 /// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior

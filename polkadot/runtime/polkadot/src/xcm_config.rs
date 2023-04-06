@@ -152,9 +152,6 @@ match_types! {
 		MultiLocation { parents: 0, interior: X1(Parachain(COLLECTIVES_ID)) } |
 		MultiLocation { parents: 0, interior: X2(Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }) }
 	};
-	pub type SystemParachains: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(STATEMINT_ID | COLLECTIVES_ID)) }
-	};
 }
 
 /// The barriers one of which must be passed for an XCM message to be executed.

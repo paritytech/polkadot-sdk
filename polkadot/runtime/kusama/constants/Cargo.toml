@@ -15,6 +15,8 @@ sp-runtime = { path = "../../../../substrate/primitives/runtime", default-featur
 sp-weights = { path = "../../../../substrate/primitives/weights", default-features = false }
 sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
 
+xcm = { package = "xcm", path = "../../../xcm", default-features = false }
+
 [features]
 default = [ "std" ]
 std = [
@@ -24,4 +26,5 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-weights/std",
+	"xcm/std",
 ]
