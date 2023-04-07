@@ -23,10 +23,11 @@ use frame_support::{
 	traits::{ConstU32, Contains, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
+use kusama_runtime_constants::system_parachain::SystemParachains;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
-	xcm_config::ConcreteNativeAssetFrom,
+	xcm_config::{ConcreteNativeAssetFrom, RelayOrOtherSystemParachains},
 	TREASURY_PALLET_ID,
 };
 use polkadot_parachain::primitives::Sibling;
@@ -184,15 +185,6 @@ pub type Barrier = TrailingSetTopicAsId<
 	>,
 >;
 
-match_types! {
-	pub type RelayOrOtherSystemParachains: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(
-			kusama_runtime_constants::system_parachain::STATEMINE_ID |
-			kusama_runtime_constants::system_parachain::ENCOINTER_ID)) } |
-		MultiLocation { parents: 1, interior: Here }
-	};
-}
-
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -221,8 +213,12 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type FeeManager =
-		XcmFeesToAccount<Self, RelayOrOtherSystemParachains, AccountId, TreasuryAccount>;
+	type FeeManager = XcmFeesToAccount<
+		Self,
+		RelayOrOtherSystemParachains<SystemParachains, Runtime>,
+		AccountId,
+		TreasuryAccount,
+	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
