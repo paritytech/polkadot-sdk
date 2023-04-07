@@ -249,6 +249,22 @@ pub mod pallet {
 		/// The weight of the call assumes that the transaction always brings outbound lane
 		/// state update. Because of that, the submitter (relayer) has no benefit of not including
 		/// this data in the transaction, so reward confirmations lags should be minimal.
+		///
+		/// The call fails if:
+		///
+		/// - the pallet is halted;
+		///
+		/// - the call origin is not `Signed(_)`;
+		///
+		/// - there are too many messages in the proof;
+		///
+		/// - the proof verification procedure returns an error - e.g. because header used to craft
+		///   proof is not imported by the associated finality pallet;
+		///
+		/// - the `dispatch_weight` argument is not sufficient to dispatch all bundled messages.
+		///
+		/// The call may succeed, but some messages may not be delivered e.g. if they are not fit
+		/// into the unrewarded relayers vector.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::receive_messages_proof_weight(proof, *messages_count, *dispatch_weight))]
 		pub fn receive_messages_proof(
@@ -324,17 +340,9 @@ pub mod pallet {
 
 				let mut lane_messages_received_status =
 					ReceivedMessages::new(lane_id, Vec::with_capacity(lane_data.messages.len()));
-				let mut is_lane_processing_stopped_no_weight_left = false;
-
 				for mut message in lane_data.messages {
 					debug_assert_eq!(message.key.lane_id, lane_id);
 					total_messages += 1;
-
-					if is_lane_processing_stopped_no_weight_left {
-						lane_messages_received_status
-							.push_skipped_for_not_enough_weight(message.key.nonce);
-						continue
-					}
 
 					// ensure that relayer has declared enough weight for dispatching next message
 					// on this lane. We can't dispatch lane messages out-of-order, so if declared
@@ -348,10 +356,8 @@ pub mod pallet {
 							message_dispatch_weight,
 							dispatch_weight_left,
 						);
-						lane_messages_received_status
-							.push_skipped_for_not_enough_weight(message.key.nonce);
-						is_lane_processing_stopped_no_weight_left = true;
-						continue
+
+						fail!(Error::<T, I>::InsufficientDispatchWeight);
 					}
 
 					let receival_result = lane.receive_message::<T::MessageDispatch, T::AccountId>(
@@ -554,8 +560,9 @@ pub mod pallet {
 		/// The relayer has declared invalid unrewarded relayers state in the
 		/// `receive_messages_delivery_proof` call.
 		InvalidUnrewardedRelayersState,
-		/// The message someone is trying to work with (i.e. increase fee) is already-delivered.
-		MessageIsAlreadyDelivered,
+		/// The cumulative dispatch weight, passed by relayer is not enough to cover dispatch
+		/// of all bundled messages.
+		InsufficientDispatchWeight,
 		/// The message someone is trying to work with (i.e. increase fee) is not yet sent.
 		MessageIsNotYetSent,
 		/// The number of actually confirmed messages is going to be larger than the number of
@@ -1277,13 +1284,16 @@ mod tests {
 		run_test(|| {
 			let mut declared_weight = REGULAR_PAYLOAD.declared_weight;
 			*declared_weight.ref_time_mut() -= 1;
-			assert_ok!(Pallet::<TestRuntime>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
-				TEST_RELAYER_A,
-				Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
-				1,
-				declared_weight,
-			));
+			assert_noop!(
+				Pallet::<TestRuntime>::receive_messages_proof(
+					RuntimeOrigin::signed(1),
+					TEST_RELAYER_A,
+					Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
+					1,
+					declared_weight,
+				),
+				Error::<TestRuntime, ()>::InsufficientDispatchWeight
+			);
 			assert_eq!(InboundLanes::<TestRuntime>::get(TEST_LANE_ID).last_delivered_nonce(), 0);
 		});
 	}
@@ -1541,15 +1551,18 @@ mod tests {
 			let message2 = message(2, message_payload(0, u64::MAX / 2));
 			let message3 = message(3, message_payload(0, u64::MAX / 2));
 
-			assert_ok!(Pallet::<TestRuntime, ()>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
-				TEST_RELAYER_A,
-				// this may cause overflow if source chain storage is invalid
-				Ok(vec![message1, message2, message3]).into(),
-				3,
-				Weight::MAX,
-			));
-			assert_eq!(InboundLanes::<TestRuntime>::get(TEST_LANE_ID).last_delivered_nonce(), 2);
+			assert_noop!(
+				Pallet::<TestRuntime, ()>::receive_messages_proof(
+					RuntimeOrigin::signed(1),
+					TEST_RELAYER_A,
+					// this may cause overflow if source chain storage is invalid
+					Ok(vec![message1, message2, message3]).into(),
+					3,
+					Weight::MAX,
+				),
+				Error::<TestRuntime, ()>::InsufficientDispatchWeight
+			);
+			assert_eq!(InboundLanes::<TestRuntime>::get(TEST_LANE_ID).last_delivered_nonce(), 0);
 		});
 	}
 

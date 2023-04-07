@@ -6043,7 +6043,6 @@ pub mod api {
 					::core::primitive::u64,
 					runtime_types::bp_messages::ReceivalResult<_0>,
 				)>,
-				pub skipped_for_not_enough_weight: ::std::vec::Vec<::core::primitive::u64>,
 			}
 			#[derive(
 				:: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Clone, Debug,
@@ -7508,8 +7507,9 @@ pub mod api {
 					#[doc = "`receive_messages_delivery_proof` call."]
 					InvalidUnrewardedRelayersState,
 					#[codec(index = 11)]
-					#[doc = "The message someone is trying to work with (i.e. increase fee) is already-delivered."]
-					MessageIsAlreadyDelivered,
+					#[doc = "The cumulative dispatch weight, passed by relayer is not enough to cover dispatch"]
+					#[doc = "of all bundled messages."]
+					InsufficientDispatchWeight,
 					#[codec(index = 12)]
 					#[doc = "The message someone is trying to work with (i.e. increase fee) is not yet sent."]
 					MessageIsNotYetSent,

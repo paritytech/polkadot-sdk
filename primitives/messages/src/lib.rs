@@ -238,8 +238,6 @@ pub struct ReceivedMessages<DispatchLevelResult> {
 	pub lane: LaneId,
 	/// Result of messages which we tried to dispatch
 	pub receive_results: Vec<(MessageNonce, ReceivalResult<DispatchLevelResult>)>,
-	/// Messages which were skipped and never dispatched
-	pub skipped_for_not_enough_weight: Vec<MessageNonce>,
 }
 
 impl<DispatchLevelResult> ReceivedMessages<DispatchLevelResult> {
@@ -247,15 +245,11 @@ impl<DispatchLevelResult> ReceivedMessages<DispatchLevelResult> {
 		lane: LaneId,
 		receive_results: Vec<(MessageNonce, ReceivalResult<DispatchLevelResult>)>,
 	) -> Self {
-		ReceivedMessages { lane, receive_results, skipped_for_not_enough_weight: Vec::new() }
+		ReceivedMessages { lane, receive_results }
 	}
 
 	pub fn push(&mut self, message: MessageNonce, result: ReceivalResult<DispatchLevelResult>) {
 		self.receive_results.push((message, result));
-	}
-
-	pub fn push_skipped_for_not_enough_weight(&mut self, message: MessageNonce) {
-		self.skipped_for_not_enough_weight.push(message);
 	}
 }
 
