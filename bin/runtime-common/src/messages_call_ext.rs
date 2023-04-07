@@ -25,8 +25,11 @@ use sp_runtime::transaction_validity::TransactionValidity;
 /// Generic info about a messages delivery/confirmation proof.
 #[derive(PartialEq, RuntimeDebug)]
 pub struct BaseMessagesProofInfo {
+	/// Message lane, used by the call.
 	pub lane_id: LaneId,
+	/// Nonce of the best message, included in the call.
 	pub best_bundled_nonce: MessageNonce,
+	/// Nonce of the best message, stored by this chain before the call is dispatched.
 	pub best_stored_nonce: MessageNonce,
 }
 
@@ -58,19 +61,23 @@ pub struct CallHelper<T: Config<I>, I: 'static> {
 }
 
 impl<T: Config<I>, I: 'static> CallHelper<T, I> {
-	/// Check if a call delivered proof/confirmation for at least some of the messages that it
-	/// contained.
-	pub fn was_partially_successful(info: &CallInfo) -> bool {
+	/// Returns true if:
+	///
+	/// - call is `receive_messages_proof` and all messages have been delivered;
+	///
+	/// - call is `receive_messages_delivery_proof` and all messages confirmations have been
+	///   received.
+	pub fn was_successful(info: &CallInfo) -> bool {
 		match info {
 			CallInfo::ReceiveMessagesProof(info) => {
 				let inbound_lane_data =
 					pallet_bridge_messages::InboundLanes::<T, I>::get(info.0.lane_id);
-				inbound_lane_data.last_delivered_nonce() > info.0.best_stored_nonce
+				inbound_lane_data.last_delivered_nonce() == info.0.best_bundled_nonce
 			},
 			CallInfo::ReceiveMessagesDeliveryProof(info) => {
 				let outbound_lane_data =
 					pallet_bridge_messages::OutboundLanes::<T, I>::get(info.0.lane_id);
-				outbound_lane_data.latest_received_nonce > info.0.best_stored_nonce
+				outbound_lane_data.latest_received_nonce == info.0.best_bundled_nonce
 			},
 		}
 	}
