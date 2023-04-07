@@ -87,11 +87,7 @@ pub trait TransactAsset {
 	/// Deposit the `what` asset into the account of `who`.
 	///
 	/// Implementations should return `XcmError::FailedToTransactAsset` if deposit failed.
-	fn deposit_asset(
-		_what: &MultiAsset,
-		_who: &MultiLocation,
-		_context: &XcmContext,
-	) -> XcmResult {
+	fn deposit_asset(_what: &MultiAsset, _who: &MultiLocation, _context: &XcmContext) -> XcmResult {
 		Err(XcmError::Unimplemented)
 	}
 
@@ -199,11 +195,7 @@ impl TransactAsset for Tuple {
 		)* );
 	}
 
-	fn deposit_asset(
-		what: &MultiAsset,
-		who: &MultiLocation,
-		context: &XcmContext,
-	) -> XcmResult {
+	fn deposit_asset(what: &MultiAsset, who: &MultiLocation, context: &XcmContext) -> XcmResult {
 		for_tuples!( #(
 			match Tuple::deposit_asset(what, who, context) {
 				Err(XcmError::AssetNotFound) | Err(XcmError::Unimplemented) => (),
