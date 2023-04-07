@@ -294,6 +294,16 @@ pub mod pallet {
 		/// `polkadot-runtime-parachains::paras` pallet instance, deployed at the bridged chain.
 		/// The proof is supposed to be crafted at the `relay_header_hash` that must already be
 		/// imported by corresponding GRANDPA pallet at this chain.
+		///
+		/// The call fails if:
+		///
+		/// - the pallet is halted;
+		///
+		/// - the relay chain block `at_relay_block` is not imported by the associated bridge
+		///   GRANDPA pallet.
+		///
+		/// The call may succeed, but some heads may not be updated e.g. because pallet knows
+		/// better head or it isn't tracked by the pallet.
 		#[pallet::call_index(0)]
 		#[pallet::weight(WeightInfoOf::<T, I>::submit_parachain_heads_weight(
 			T::DbWeight::get(),

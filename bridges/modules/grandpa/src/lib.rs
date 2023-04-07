@@ -160,6 +160,16 @@ pub mod pallet {
 		///
 		/// If successful in verification, it will write the target header to the underlying storage
 		/// pallet.
+		///
+		/// The call fails if:
+		///
+		/// - the pallet is halted;
+		///
+		/// - the pallet knows better header than the `finality_target`;
+		///
+		/// - verification is not optimized or invalid;
+		///
+		/// - header contains forced authorities set change or change with non-zero delay.
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T::WeightInfo as WeightInfo>::submit_finality_proof(
 			justification.commit.precommits.len().saturated_into(),
