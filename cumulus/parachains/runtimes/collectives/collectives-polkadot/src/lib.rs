@@ -45,7 +45,10 @@ pub mod xcm_config;
 pub mod fellowship;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use fellowship::{pallet_fellowship_origins, Fellows};
+use fellowship::{
+	migration::import_kusama_fellowship, pallet_fellowship_origins, Fellows,
+	FellowshipCollectiveInstance,
+};
 use impls::{AllianceProposalProvider, EqualOrGreatestRootCmp, ToParentTreasury};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -622,7 +625,7 @@ pub type UncheckedExtrinsic =
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 // All migrations executed on runtime upgrade as a nested tuple of types implementing
 // `OnRuntimeUpgrade`. Included migrations must be idempotent.
-type Migrations = ();
+type Migrations = import_kusama_fellowship::Migration<Runtime, FellowshipCollectiveInstance>;
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
