@@ -137,3 +137,73 @@ impl XcmBlobHauler for ToRialtoParachainXcmBlobHauler {
 		XCM_LANE
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{
+		PriorityBoostPerMessage, RialtoGrandpaInstance, Runtime,
+		WithRialtoParachainMessagesInstance,
+	};
+
+	use bridge_runtime_common::{
+		assert_complete_bridge_types,
+		integrity::{
+			assert_complete_bridge_constants, check_message_lane_weights,
+			AssertBridgeMessagesPalletConstants, AssertBridgePalletNames, AssertChainConstants,
+			AssertCompleteBridgeConstants,
+		},
+	};
+
+	#[test]
+	fn ensure_millau_message_lane_weights_are_correct() {
+		check_message_lane_weights::<bp_millau::Millau, Runtime>(
+			bp_rialto_parachain::EXTRA_STORAGE_PROOF_SIZE,
+			bp_millau::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
+			bp_millau::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
+		);
+	}
+
+	#[test]
+	fn ensure_bridge_integrity() {
+		assert_complete_bridge_types!(
+			runtime: Runtime,
+			with_bridged_chain_grandpa_instance: RialtoGrandpaInstance,
+			with_bridged_chain_messages_instance: WithRialtoParachainMessagesInstance,
+			bridge: WithRialtoParachainMessageBridge,
+			this_chain: bp_millau::Millau,
+			bridged_chain: bp_rialto::Rialto,
+		);
+
+		assert_complete_bridge_constants::<
+			Runtime,
+			RialtoGrandpaInstance,
+			WithRialtoParachainMessagesInstance,
+			WithRialtoParachainMessageBridge,
+		>(AssertCompleteBridgeConstants {
+			this_chain_constants: AssertChainConstants {
+				block_length: bp_millau::BlockLength::get(),
+				block_weights: bp_millau::BlockWeights::get(),
+			},
+			messages_pallet_constants: AssertBridgeMessagesPalletConstants {
+				max_unrewarded_relayers_in_bridged_confirmation_tx:
+					bp_rialto_parachain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
+				max_unconfirmed_messages_in_bridged_confirmation_tx:
+					bp_rialto_parachain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
+				bridged_chain_id: bp_runtime::RIALTO_PARACHAIN_CHAIN_ID,
+			},
+			pallet_names: AssertBridgePalletNames {
+				with_this_chain_messages_pallet_name: bp_millau::WITH_MILLAU_MESSAGES_PALLET_NAME,
+				with_bridged_chain_grandpa_pallet_name: bp_rialto::WITH_RIALTO_GRANDPA_PALLET_NAME,
+				with_bridged_chain_messages_pallet_name:
+					bp_rialto_parachain::WITH_RIALTO_PARACHAIN_MESSAGES_PALLET_NAME,
+			},
+		});
+
+		bridge_runtime_common::priority_calculator::ensure_priority_boost_is_sane::<
+			Runtime,
+			WithRialtoParachainMessagesInstance,
+			PriorityBoostPerMessage,
+		>(1_000_000);
+	}
+}
