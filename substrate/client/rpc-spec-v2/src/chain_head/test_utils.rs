@@ -241,6 +241,7 @@ impl<Block: BlockT, Client: CallApiAt<Block>> CallApiAt<Block> for ChainHeadMock
 	}
 }
 
+
 impl<Block: BlockT, Client: BlockBackend<Block>> BlockBackend<Block>
 	for ChainHeadMockClient<Client>
 {

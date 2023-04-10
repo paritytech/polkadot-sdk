@@ -206,8 +206,6 @@ where
 	) -> Result<Vec<u8>, sp_blockchain::Error> {
 		let state = self.backend.state_at(at_hash)?;
 
-		// let extensions = self.execution_extensions.extensions(at_hash, at_number);
-
 		let changes = &mut *changes.borrow_mut();
 
 		// It is important to extract the runtime code here before we create the proof
