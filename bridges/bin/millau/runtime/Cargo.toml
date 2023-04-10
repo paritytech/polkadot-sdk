@@ -69,7 +69,7 @@ xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "master
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
 
 [dev-dependencies]
-bridge-runtime-common = { path = "../../runtime-common", features = ["integrity-test"] }
+bridge-runtime-common = { path = "../../runtime-common", features = ["integrity-test", "std"] }
 env_logger = "0.10"
 static_assertions = "1.1"
 
