@@ -17,25 +17,74 @@
 use crate::messages::{
 	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 };
-use bp_messages::{LaneId, MessageNonce};
-use frame_support::{dispatch::CallableCallFor, traits::IsSubType, RuntimeDebug};
+use bp_messages::{InboundLaneData, LaneId, MessageNonce};
+use frame_support::{
+	dispatch::CallableCallFor,
+	traits::{Get, IsSubType},
+	RuntimeDebug,
+};
 use pallet_bridge_messages::{Config, Pallet};
 use sp_runtime::transaction_validity::TransactionValidity;
+use sp_std::ops::RangeInclusive;
 
 /// Generic info about a messages delivery/confirmation proof.
 #[derive(PartialEq, RuntimeDebug)]
 pub struct BaseMessagesProofInfo {
 	/// Message lane, used by the call.
 	pub lane_id: LaneId,
-	/// Nonce of the best message, included in the call.
-	pub best_bundled_nonce: MessageNonce,
+	/// Nonces of messages, included in the call.
+	///
+	/// For delivery transaction, it is nonces of bundled messages. For confirmation
+	/// transaction, it is nonces that are to be confirmed during the call.
+	pub bundled_range: RangeInclusive<MessageNonce>,
 	/// Nonce of the best message, stored by this chain before the call is dispatched.
+	///
+	/// For delivery transaction, it is the nonce of best delivered message before the call.
+	/// For confirmation transaction, it is the nonce of best confirmed message before the call.
 	pub best_stored_nonce: MessageNonce,
+	/// For message delivery transactions, the state of unrewarded relayers vector before the
+	/// call is dispatched.
+	pub unrewarded_relayers: Option<UnrewardedRelayerOccupation>,
+}
+
+/// Occupation state of the unrewarded relayers vector.
+#[derive(PartialEq, RuntimeDebug)]
+#[cfg_attr(test, derive(Default))]
+pub struct UnrewardedRelayerOccupation {
+	/// The number of remaining unoccupied entries for new relayers.
+	pub free_relayer_slots: MessageNonce,
+	/// The number of messages that we are ready to accept.
+	pub free_message_slots: MessageNonce,
 }
 
 impl BaseMessagesProofInfo {
+	/// Returns true if `bundled_range` cannot be directly appended to the `best_stored_nonce`
+	/// or if the `bundled_range` is empty (unless we're confirming rewards when unrewarded
+	/// relayers vector is full).
 	fn is_obsolete(&self) -> bool {
-		self.best_bundled_nonce <= self.best_stored_nonce
+		// transactions with zero bundled nonces are not allowed, unless they're message
+		// delivery transactions, which brings reward confirmations required to unblock
+		// the lane
+		if self.bundled_range.is_empty() {
+			let (free_relayer_slots, free_message_slots) = self
+				.unrewarded_relayers
+				.as_ref()
+				.map(|s| (s.free_relayer_slots, s.free_message_slots))
+				.unwrap_or((MessageNonce::MAX, MessageNonce::MAX));
+			let empty_transactions_allowed =
+				// we allow empty transactions when we can't accept delivery from new relayers
+				free_relayer_slots == 0 ||
+				// or if we can't accept new messages at all
+				free_message_slots == 0;
+			if empty_transactions_allowed {
+				return false
+			}
+
+			return true
+		}
+
+		// otherwise we require bundled messages to continue stored range
+		*self.bundled_range.start() != self.best_stored_nonce + 1
 	}
 }
 
@@ -72,12 +121,31 @@ impl<T: Config<I>, I: 'static> CallHelper<T, I> {
 			CallInfo::ReceiveMessagesProof(info) => {
 				let inbound_lane_data =
 					pallet_bridge_messages::InboundLanes::<T, I>::get(info.0.lane_id);
-				inbound_lane_data.last_delivered_nonce() == info.0.best_bundled_nonce
+				if info.0.bundled_range.is_empty() {
+					match info.0.unrewarded_relayers {
+						Some(ref pre_occupation) => {
+							let post_occupation =
+								unrewarded_relayers_occupation::<T, I>(&inbound_lane_data);
+							// we don't care about `free_relayer_slots` here - it is checked in
+							// `is_obsolete` and every relayer has delivered at least one message,
+							// so if relayer slots are released, then message slots are also
+							// released
+							return post_occupation.free_message_slots >
+								pre_occupation.free_message_slots
+						},
+						None => {
+							// shouldn't happen in practice, given our code
+							return false
+						},
+					}
+				}
+
+				inbound_lane_data.last_delivered_nonce() == *info.0.bundled_range.end()
 			},
 			CallInfo::ReceiveMessagesDeliveryProof(info) => {
 				let outbound_lane_data =
 					pallet_bridge_messages::OutboundLanes::<T, I>::get(info.0.lane_id);
-				outbound_lane_data.latest_received_nonce == info.0.best_bundled_nonce
+				outbound_lane_data.latest_received_nonce == *info.0.bundled_range.end()
 			},
 		}
 	}
@@ -133,8 +201,13 @@ impl<
 
 			return Some(ReceiveMessagesProofInfo(BaseMessagesProofInfo {
 				lane_id: proof.lane,
-				best_bundled_nonce: proof.nonces_end,
+				// we want all messages in this range to be new for us. Otherwise transaction will
+				// be considered obsolete.
+				bundled_range: proof.nonces_start..=proof.nonces_end,
 				best_stored_nonce: inbound_lane_data.last_delivered_nonce(),
+				unrewarded_relayers: Some(unrewarded_relayers_occupation::<T, I>(
+					&inbound_lane_data,
+				)),
 			}))
 		}
 
@@ -152,8 +225,14 @@ impl<
 
 			return Some(ReceiveMessagesDeliveryProofInfo(BaseMessagesProofInfo {
 				lane_id: proof.lane,
-				best_bundled_nonce: relayers_state.last_delivered_nonce,
+				// there's a time frame between message delivery, message confirmation and reward
+				// confirmation. Because of that, we can't assume that our state has been confirmed
+				// to the bridged chain. So we are accepting any proof that brings new
+				// confirmations.
+				bundled_range: outbound_lane_data.latest_received_nonce + 1..=
+					relayers_state.last_delivered_nonce,
 				best_stored_nonce: outbound_lane_data.latest_received_nonce,
+				unrewarded_relayers: None,
 			}))
 		}
 
@@ -211,20 +290,74 @@ impl<
 	}
 }
 
+/// Returns occupation state of unrewarded relayers vector.
+fn unrewarded_relayers_occupation<T: Config<I>, I: 'static>(
+	inbound_lane_data: &InboundLaneData<T::InboundRelayer>,
+) -> UnrewardedRelayerOccupation {
+	UnrewardedRelayerOccupation {
+		free_relayer_slots: T::MaxUnrewardedRelayerEntriesAtInboundLane::get()
+			.saturating_sub(inbound_lane_data.relayers.len() as MessageNonce),
+		free_message_slots: {
+			// 5 - 0 = 5 ==> 1,2,3,4,5
+			// 5 - 3 = 2 ==> 4,5
+			let unconfirmed_messages = inbound_lane_data
+				.last_delivered_nonce()
+				.saturating_sub(inbound_lane_data.last_confirmed_nonce);
+			T::MaxUnconfirmedMessagesAtInboundLane::get().saturating_sub(unconfirmed_messages)
+		},
+	}
+}
+
 #[cfg(test)]
 mod tests {
+	use super::*;
 	use crate::{
 		messages::{
 			source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 		},
 		messages_call_ext::MessagesCallSubType,
-		mock::{TestRuntime, ThisChainRuntimeCall},
+		mock::{
+			MaxUnconfirmedMessagesAtInboundLane, MaxUnrewardedRelayerEntriesAtInboundLane,
+			TestRuntime, ThisChainRuntimeCall,
+		},
 	};
-	use bp_messages::UnrewardedRelayersState;
+	use bp_messages::{DeliveredMessages, UnrewardedRelayer, UnrewardedRelayersState};
+	use sp_std::ops::RangeInclusive;
+
+	fn fill_unrewarded_relayers() {
+		let mut inbound_lane_state =
+			pallet_bridge_messages::InboundLanes::<TestRuntime>::get(LaneId([0, 0, 0, 0]));
+		for n in 0..MaxUnrewardedRelayerEntriesAtInboundLane::get() {
+			inbound_lane_state.relayers.push_back(UnrewardedRelayer {
+				relayer: Default::default(),
+				messages: DeliveredMessages { begin: n + 1, end: n + 1 },
+			});
+		}
+		pallet_bridge_messages::InboundLanes::<TestRuntime>::insert(
+			LaneId([0, 0, 0, 0]),
+			inbound_lane_state,
+		);
+	}
+
+	fn fill_unrewarded_messages() {
+		let mut inbound_lane_state =
+			pallet_bridge_messages::InboundLanes::<TestRuntime>::get(LaneId([0, 0, 0, 0]));
+		inbound_lane_state.relayers.push_back(UnrewardedRelayer {
+			relayer: Default::default(),
+			messages: DeliveredMessages {
+				begin: 1,
+				end: MaxUnconfirmedMessagesAtInboundLane::get(),
+			},
+		});
+		pallet_bridge_messages::InboundLanes::<TestRuntime>::insert(
+			LaneId([0, 0, 0, 0]),
+			inbound_lane_state,
+		);
+	}
 
 	fn deliver_message_10() {
 		pallet_bridge_messages::InboundLanes::<TestRuntime>::insert(
-			bp_messages::LaneId([0, 0, 0, 0]),
+			LaneId([0, 0, 0, 0]),
 			bp_messages::InboundLaneData { relayers: Default::default(), last_confirmed_nonce: 10 },
 		);
 	}
@@ -236,12 +369,13 @@ mod tests {
 		ThisChainRuntimeCall::BridgeMessages(
 			pallet_bridge_messages::Call::<TestRuntime, ()>::receive_messages_proof {
 				relayer_id_at_bridged_chain: 42,
-				messages_count: (nonces_end - nonces_start + 1) as u32,
+				messages_count: nonces_end.checked_sub(nonces_start).map(|x| x + 1).unwrap_or(0)
+					as u32,
 				dispatch_weight: frame_support::weights::Weight::zero(),
 				proof: FromBridgedChainMessagesProof {
 					bridged_header_hash: Default::default(),
 					storage_proof: vec![],
-					lane: bp_messages::LaneId([0, 0, 0, 0]),
+					lane: LaneId([0, 0, 0, 0]),
 					nonces_start,
 					nonces_end,
 				},
@@ -254,8 +388,8 @@ mod tests {
 	#[test]
 	fn extension_rejects_obsolete_messages() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best delivered is message#10 and we're trying to deliver message#5 => tx
-			// is rejected
+			// when current best delivered is message#10 and we're trying to deliver messages 8..=9
+			// => tx is rejected
 			deliver_message_10();
 			assert!(!validate_message_delivery(8, 9));
 		});
@@ -264,26 +398,77 @@ mod tests {
 	#[test]
 	fn extension_rejects_same_message() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best delivered is message#10 and we're trying to import message#10 => tx
-			// is rejected
+			// when current best delivered is message#10 and we're trying to import messages 10..=10
+			// => tx is rejected
 			deliver_message_10();
 			assert!(!validate_message_delivery(8, 10));
 		});
 	}
 
 	#[test]
-	fn extension_accepts_new_message() {
+	fn extension_rejects_call_with_some_obsolete_messages() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best delivered is message#10 and we're trying to deliver message#15 =>
-			// tx is accepted
+			// when current best delivered is message#10 and we're trying to deliver messages
+			// 10..=15 => tx is rejected
 			deliver_message_10();
-			assert!(validate_message_delivery(10, 15));
+			assert!(!validate_message_delivery(10, 15));
+		});
+	}
+
+	#[test]
+	fn extension_rejects_call_with_future_messages() {
+		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+			// when current best delivered is message#10 and we're trying to deliver messages
+			// 13..=15 => tx is rejected
+			deliver_message_10();
+			assert!(!validate_message_delivery(13, 15));
+		});
+	}
+
+	#[test]
+	fn extension_rejects_empty_delivery_with_rewards_confirmations_if_there_are_free_relayer_and_message_slots(
+	) {
+		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+			deliver_message_10();
+			assert!(!validate_message_delivery(10, 9));
+		});
+	}
+
+	#[test]
+	fn extension_accepts_empty_delivery_with_rewards_confirmations_if_there_are_no_free_relayer_slots(
+	) {
+		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+			deliver_message_10();
+			fill_unrewarded_relayers();
+			assert!(validate_message_delivery(10, 9));
+		});
+	}
+
+	#[test]
+	fn extension_accepts_empty_delivery_with_rewards_confirmations_if_there_are_no_free_message_slots(
+	) {
+		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+			fill_unrewarded_messages();
+			assert!(validate_message_delivery(
+				MaxUnconfirmedMessagesAtInboundLane::get(),
+				MaxUnconfirmedMessagesAtInboundLane::get() - 1
+			));
+		});
+	}
+
+	#[test]
+	fn extension_accepts_new_messages() {
+		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+			// when current best delivered is message#10 and we're trying to deliver message 11..=15
+			// => tx is accepted
+			deliver_message_10();
+			assert!(validate_message_delivery(11, 15));
 		});
 	}
 
 	fn confirm_message_10() {
 		pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(
-			bp_messages::LaneId([0, 0, 0, 0]),
+			LaneId([0, 0, 0, 0]),
 			bp_messages::OutboundLaneData {
 				oldest_unpruned_nonce: 0,
 				latest_received_nonce: 10,
@@ -298,7 +483,7 @@ mod tests {
 				proof: FromBridgedChainMessagesDeliveryProof {
 					bridged_header_hash: Default::default(),
 					storage_proof: Vec::new(),
-					lane: bp_messages::LaneId([0, 0, 0, 0]),
+					lane: LaneId([0, 0, 0, 0]),
 				},
 				relayers_state: UnrewardedRelayersState {
 					last_delivered_nonce,
@@ -331,12 +516,118 @@ mod tests {
 	}
 
 	#[test]
+	fn extension_rejects_empty_confirmation_even_if_there_are_no_free_unrewarded_entries() {
+		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+			confirm_message_10();
+			fill_unrewarded_relayers();
+			assert!(!validate_message_confirmation(10));
+		});
+	}
+
+	#[test]
 	fn extension_accepts_new_confirmation() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
 			// when current best confirmed is message#10 and we're trying to confirm message#15 =>
 			// tx is accepted
 			confirm_message_10();
 			assert!(validate_message_confirmation(15));
+		});
+	}
+
+	fn was_message_delivery_successful(
+		bundled_range: RangeInclusive<MessageNonce>,
+		is_empty: bool,
+	) -> bool {
+		CallHelper::<TestRuntime, ()>::was_successful(&CallInfo::ReceiveMessagesProof(
+			ReceiveMessagesProofInfo(BaseMessagesProofInfo {
+				lane_id: LaneId([0, 0, 0, 0]),
+				bundled_range,
+				best_stored_nonce: 0, // doesn't matter for `was_successful`
+				unrewarded_relayers: Some(UnrewardedRelayerOccupation {
+					free_relayer_slots: 0, // doesn't matter for `was_successful`
+					free_message_slots: if is_empty {
+						0
+					} else {
+						MaxUnconfirmedMessagesAtInboundLane::get()
+					},
+				}),
+			}),
+		))
+	}
+
+	#[test]
+	#[allow(clippy::reversed_empty_ranges)]
+	fn was_successful_returns_false_for_failed_reward_confirmation_transaction() {
+		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+			fill_unrewarded_messages();
+			assert!(!was_message_delivery_successful(10..=9, true));
+		});
+	}
+
+	#[test]
+	#[allow(clippy::reversed_empty_ranges)]
+	fn was_successful_returns_true_for_successful_reward_confirmation_transaction() {
+		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+			assert!(was_message_delivery_successful(10..=9, true));
+		});
+	}
+
+	#[test]
+	fn was_successful_returns_false_for_failed_delivery() {
+		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+			deliver_message_10();
+			assert!(!was_message_delivery_successful(10..=12, false));
+		});
+	}
+
+	#[test]
+	fn was_successful_returns_false_for_partially_successful_delivery() {
+		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+			deliver_message_10();
+			assert!(!was_message_delivery_successful(9..=12, false));
+		});
+	}
+
+	#[test]
+	fn was_successful_returns_true_for_successful_delivery() {
+		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+			deliver_message_10();
+			assert!(was_message_delivery_successful(9..=10, false));
+		});
+	}
+
+	fn was_message_confirmation_successful(bundled_range: RangeInclusive<MessageNonce>) -> bool {
+		CallHelper::<TestRuntime, ()>::was_successful(&CallInfo::ReceiveMessagesDeliveryProof(
+			ReceiveMessagesDeliveryProofInfo(BaseMessagesProofInfo {
+				lane_id: LaneId([0, 0, 0, 0]),
+				bundled_range,
+				best_stored_nonce: 0, // doesn't matter for `was_successful`
+				unrewarded_relayers: None,
+			}),
+		))
+	}
+
+	#[test]
+	fn was_successful_returns_false_for_failed_confirmation() {
+		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+			confirm_message_10();
+			assert!(!was_message_confirmation_successful(10..=12));
+		});
+	}
+
+	#[test]
+	fn was_successful_returns_false_for_partially_successful_confirmation() {
+		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+			confirm_message_10();
+			assert!(!was_message_confirmation_successful(9..=12));
+		});
+	}
+
+	#[test]
+	fn was_successful_returns_true_for_successful_confirmation() {
+		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+			confirm_message_10();
+			assert!(was_message_confirmation_successful(9..=10));
 		});
 	}
 }
