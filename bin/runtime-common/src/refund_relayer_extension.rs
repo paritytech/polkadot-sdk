@@ -46,7 +46,9 @@ use pallet_utility::{Call as UtilityCall, Config as UtilityConfig, Pallet as Uti
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{DispatchInfoOf, Get, PostDispatchInfoOf, SignedExtension, Zero},
-	transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
+	transaction_validity::{
+		TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransactionBuilder,
+	},
 	DispatchResult, FixedPointOperand,
 };
 use sp_std::{marker::PhantomData, vec, vec::Vec};
@@ -58,7 +60,7 @@ type CallOf<R> = <R as frame_system::Config>::RuntimeCall;
 
 /// Trait identifying a bridged parachain. A relayer might be refunded for delivering messages
 /// coming from this parachain.
-trait RefundableParachainId {
+pub trait RefundableParachainId {
 	/// The instance of the bridge parachains pallet.
 	type Instance;
 	/// The parachain Id.
@@ -78,7 +80,7 @@ where
 
 /// Trait identifying a bridged messages lane. A relayer might be refunded for delivering messages
 /// coming from this lane.
-trait RefundableMessagesLaneId {
+pub trait RefundableMessagesLaneId {
 	/// The instance of the bridge messages pallet.
 	type Instance;
 	/// The messages lane id.
@@ -201,36 +203,75 @@ impl CallInfo {
 	RuntimeDebugNoBound,
 	TypeInfo,
 )]
-#[scale_info(skip_type_params(Runtime, Para, Msgs, Refund, Id))]
-pub struct RefundBridgedParachainMessages<Runtime, Para, Msgs, Refund, Id>(
-	PhantomData<(Runtime, Para, Msgs, Refund, Id)>,
+#[scale_info(skip_type_params(Runtime, Para, Msgs, Refund, Priority, Id))]
+pub struct RefundBridgedParachainMessages<Runtime, Para, Msgs, Refund, Priority, Id>(
+	PhantomData<(Runtime, Para, Msgs, Refund, Priority, Id)>,
 );
 
-impl<Runtime, Para, Msgs, Refund, Id>
-	RefundBridgedParachainMessages<Runtime, Para, Msgs, Refund, Id>
+impl<Runtime, Para, Msgs, Refund, Priority, Id>
+	RefundBridgedParachainMessages<Runtime, Para, Msgs, Refund, Priority, Id>
 where
-	Runtime: UtilityConfig<RuntimeCall = CallOf<Runtime>>,
-	CallOf<Runtime>: IsSubType<CallableCallFor<UtilityPallet<Runtime>, Runtime>>,
+	Self: 'static + Send + Sync,
+	Runtime: UtilityConfig<RuntimeCall = CallOf<Runtime>>
+		+ BoundedBridgeGrandpaConfig<Runtime::BridgesGrandpaPalletInstance>
+		+ ParachainsConfig<Para::Instance>
+		+ MessagesConfig<Msgs::Instance>,
+	Para: RefundableParachainId,
+	Msgs: RefundableMessagesLaneId,
+	CallOf<Runtime>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+		+ IsSubType<CallableCallFor<UtilityPallet<Runtime>, Runtime>>
+		+ GrandpaCallSubType<Runtime, Runtime::BridgesGrandpaPalletInstance>
+		+ ParachainsCallSubType<Runtime, Para::Instance>
+		+ MessagesCallSubType<Runtime, Msgs::Instance>,
 {
-	fn expand_call<'a>(&self, call: &'a CallOf<Runtime>) -> Option<Vec<&'a CallOf<Runtime>>> {
-		let calls = match call.is_sub_type() {
-			Some(UtilityCall::<Runtime>::batch_all { ref calls }) => {
-				if calls.len() > 3 {
-					return None
-				}
-
-				calls.iter().collect()
-			},
-			Some(_) => return None,
+	fn expand_call<'a>(&self, call: &'a CallOf<Runtime>) -> Vec<&'a CallOf<Runtime>> {
+		match call.is_sub_type() {
+			Some(UtilityCall::<Runtime>::batch_all { ref calls }) if calls.len() <= 3 =>
+				calls.iter().collect(),
+			Some(_) => vec![],
 			None => vec![call],
-		};
+		}
+	}
 
-		Some(calls)
+	fn parse_and_check_for_obsolete_call(
+		&self,
+		call: &CallOf<Runtime>,
+	) -> Result<Option<CallInfo>, TransactionValidityError> {
+		let calls = self.expand_call(call);
+		let total_calls = calls.len();
+		let mut calls = calls.into_iter().map(Self::check_obsolete_call).rev();
+
+		let msgs_call = calls.next().transpose()?.and_then(|c| c.call_info_for(Msgs::Id::get()));
+		let para_finality_call = calls
+			.next()
+			.transpose()?
+			.and_then(|c| c.submit_parachain_heads_info_for(Para::Id::get()));
+		let relay_finality_call =
+			calls.next().transpose()?.and_then(|c| c.submit_finality_proof_info());
+
+		Ok(match (total_calls, relay_finality_call, para_finality_call, msgs_call) {
+			(3, Some(relay_finality_call), Some(para_finality_call), Some(msgs_call)) => Some(
+				CallInfo::AllFinalityAndMsgs(relay_finality_call, para_finality_call, msgs_call),
+			),
+			(2, None, Some(para_finality_call), Some(msgs_call)) =>
+				Some(CallInfo::ParachainFinalityAndMsgs(para_finality_call, msgs_call)),
+			(1, None, None, Some(msgs_call)) => Some(CallInfo::Msgs(msgs_call)),
+			_ => None,
+		})
+	}
+
+	fn check_obsolete_call(
+		call: &CallOf<Runtime>,
+	) -> Result<&CallOf<Runtime>, TransactionValidityError> {
+		call.check_obsolete_submit_finality_proof()?;
+		call.check_obsolete_submit_parachain_heads()?;
+		call.check_obsolete_call()?;
+		Ok(call)
 	}
 }
 
-impl<Runtime, Para, Msgs, Refund, Id> SignedExtension
-	for RefundBridgedParachainMessages<Runtime, Para, Msgs, Refund, Id>
+impl<Runtime, Para, Msgs, Refund, Priority, Id> SignedExtension
+	for RefundBridgedParachainMessages<Runtime, Para, Msgs, Refund, Priority, Id>
 where
 	Self: 'static + Send + Sync,
 	Runtime: UtilityConfig<RuntimeCall = CallOf<Runtime>>
@@ -241,6 +282,7 @@ where
 	Para: RefundableParachainId,
 	Msgs: RefundableMessagesLaneId,
 	Refund: RefundCalculator<Balance = Runtime::Reward>,
+	Priority: Get<TransactionPriority>,
 	Id: StaticStrProvider,
 	CallOf<Runtime>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
 		+ IsSubType<CallableCallFor<UtilityPallet<Runtime>, Runtime>>
@@ -265,46 +307,46 @@ where
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> TransactionValidity {
-		if let Some(calls) = self.expand_call(call) {
-			for nested_call in calls {
-				nested_call.check_obsolete_submit_finality_proof()?;
-				nested_call.check_obsolete_submit_parachain_heads()?;
-				nested_call.check_obsolete_call()?;
+		// this is the only relevant line of code for the `pre_dispatch`
+		//
+		// we're not calling `validato` from `pre_dispatch` directly because of performance
+		// reasons, so if you're adding some code that may fail here, please check if it needs
+		// to be added to the `pre_dispatch` as well
+		let parsed_call = self.parse_and_check_for_obsolete_call(call)?;
+
+		// the following code just plays with transaction priority and never returns an error
+		let mut valid_transaction = ValidTransactionBuilder::default();
+		if let Some(parsed_call) = parsed_call {
+			// we give delivery transactions some boost, that depends on number of messages inside
+			let messages_call_info = parsed_call.messages_call_info();
+			if let MessagesCallInfo::ReceiveMessagesProof(_) = messages_call_info {
+				// compute total number of messages in transaction
+				let bundled_messages = messages_call_info.bundled_messages();
+
+				// a quick check to avoid invalid high-priority transactions
+				if bundled_messages <= Runtime::MaxUnconfirmedMessagesAtInboundLane::get() {
+					let priority_boost = crate::priority_calculator::compute_priority_boost::<
+						Priority,
+					>(bundled_messages);
+					valid_transaction = valid_transaction.priority(priority_boost);
+				}
 			}
 		}
 
-		Ok(ValidTransaction::default())
+		valid_transaction.build()
 	}
 
 	fn pre_dispatch(
 		self,
 		who: &Self::AccountId,
 		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		// reject batch transactions with obsolete headers
-		self.validate(who, call, info, len).map(drop)?;
+		// this is a relevant piece of `validate` that we need here (in `pre_dispatch`)
+		let parsed_call = self.parse_and_check_for_obsolete_call(call)?;
 
-		// Try to check if the tx matches one of types we support.
-		let parse_call = || {
-			let mut calls = self.expand_call(call)?.into_iter();
-			match calls.len() {
-				3 => Some(CallInfo::AllFinalityAndMsgs(
-					calls.next()?.submit_finality_proof_info()?,
-					calls.next()?.submit_parachain_heads_info_for(Para::Id::get())?,
-					calls.next()?.call_info_for(Msgs::Id::get())?,
-				)),
-				2 => Some(CallInfo::ParachainFinalityAndMsgs(
-					calls.next()?.submit_parachain_heads_info_for(Para::Id::get())?,
-					calls.next()?.call_info_for(Msgs::Id::get())?,
-				)),
-				1 => Some(CallInfo::Msgs(calls.next()?.call_info_for(Msgs::Id::get())?)),
-				_ => None,
-			}
-		};
-
-		Ok(parse_call().map(|call_info| {
+		Ok(parsed_call.map(|call_info| {
 			log::trace!(
 				target: "runtime::bridge",
 				"{} from parachain {} via {:?} parsed bridge transaction in pre-dispatch: {:?}",
@@ -475,14 +517,24 @@ mod tests {
 	use pallet_bridge_messages::Call as MessagesCall;
 	use pallet_bridge_parachains::{Call as ParachainsCall, RelayBlockHash};
 	use sp_runtime::{
-		traits::Header as HeaderT, transaction_validity::InvalidTransaction, DispatchError,
+		traits::{ConstU64, Header as HeaderT},
+		transaction_validity::{InvalidTransaction, ValidTransaction},
+		DispatchError,
 	};
 
 	parameter_types! {
 		TestParachain: u32 = 1000;
 		pub TestLaneId: LaneId = TEST_LANE_ID;
-		pub MsgProofsRewardsAccount: RewardsAccountParams = RewardsAccountParams::new(TEST_LANE_ID, TEST_BRIDGED_CHAIN_ID, RewardsAccountOwner::ThisChain);
-		pub MsgDeliveryProofsRewardsAccount: RewardsAccountParams = RewardsAccountParams::new(TEST_LANE_ID, TEST_BRIDGED_CHAIN_ID, RewardsAccountOwner::BridgedChain);
+		pub MsgProofsRewardsAccount: RewardsAccountParams = RewardsAccountParams::new(
+			TEST_LANE_ID,
+			TEST_BRIDGED_CHAIN_ID,
+			RewardsAccountOwner::ThisChain,
+		);
+		pub MsgDeliveryProofsRewardsAccount: RewardsAccountParams = RewardsAccountParams::new(
+			TEST_LANE_ID,
+			TEST_BRIDGED_CHAIN_ID,
+			RewardsAccountOwner::BridgedChain,
+		);
 	}
 
 	bp_runtime::generate_static_str_provider!(TestExtension);
@@ -491,6 +543,7 @@ mod tests {
 		RefundableParachain<(), TestParachain>,
 		RefundableMessagesLane<(), TestLaneId>,
 		ActualFeeRefund<TestRuntime>,
+		ConstU64<1>,
 		StrTestExtension,
 	>;
 
@@ -832,31 +885,97 @@ mod tests {
 	}
 
 	#[test]
+	fn validate_boosts_priority_of_message_delivery_transactons() {
+		run_test(|| {
+			initialize_environment(100, 100, Default::default(), 100);
+
+			let priority_of_100_messages_delivery =
+				run_validate(message_delivery_call(200)).unwrap().priority;
+			let priority_of_200_messages_delivery =
+				run_validate(message_delivery_call(300)).unwrap().priority;
+			assert!(
+				priority_of_200_messages_delivery > priority_of_100_messages_delivery,
+				"Invalid priorities: {} for 200 messages vs {} for 100 messages",
+				priority_of_200_messages_delivery,
+				priority_of_100_messages_delivery,
+			);
+
+			let priority_of_100_messages_confirmation =
+				run_validate(message_confirmation_call(200)).unwrap().priority;
+			let priority_of_200_messages_confirmation =
+				run_validate(message_confirmation_call(300)).unwrap().priority;
+			assert_eq!(
+				priority_of_100_messages_confirmation,
+				priority_of_200_messages_confirmation
+			);
+		});
+	}
+
+	#[test]
+	fn validate_does_not_boost_priority_of_message_delivery_transactons_with_too_many_messages() {
+		run_test(|| {
+			initialize_environment(100, 100, Default::default(), 100);
+
+			let priority_of_max_messages_delivery = run_validate(message_delivery_call(
+				100 + MaxUnconfirmedMessagesAtInboundLane::get(),
+			))
+			.unwrap()
+			.priority;
+			let priority_of_more_than_max_messages_delivery = run_validate(message_delivery_call(
+				100 + MaxUnconfirmedMessagesAtInboundLane::get() + 1,
+			))
+			.unwrap()
+			.priority;
+
+			assert!(
+				priority_of_max_messages_delivery > priority_of_more_than_max_messages_delivery,
+				"Invalid priorities: {} for MAX messages vs {} for MAX+1 messages",
+				priority_of_max_messages_delivery,
+				priority_of_more_than_max_messages_delivery,
+			);
+		});
+	}
+
+	#[test]
 	fn validate_allows_non_obsolete_transactions() {
 		run_test(|| {
 			initialize_environment(100, 100, Default::default(), 100);
 
-			assert_eq!(run_validate(message_delivery_call(200)), Ok(ValidTransaction::default()),);
+			fn run_validate_ignore_priority(call: RuntimeCall) -> TransactionValidity {
+				run_validate(call).map(|mut tx| {
+					tx.priority = 0;
+					tx
+				})
+			}
+
 			assert_eq!(
-				run_validate(message_confirmation_call(200)),
+				run_validate_ignore_priority(message_delivery_call(200)),
+				Ok(ValidTransaction::default()),
+			);
+			assert_eq!(
+				run_validate_ignore_priority(message_confirmation_call(200)),
 				Ok(ValidTransaction::default()),
 			);
 
 			assert_eq!(
-				run_validate(parachain_finality_and_delivery_batch_call(200, 200)),
+				run_validate_ignore_priority(parachain_finality_and_delivery_batch_call(200, 200)),
 				Ok(ValidTransaction::default()),
 			);
 			assert_eq!(
-				run_validate(parachain_finality_and_confirmation_batch_call(200, 200)),
+				run_validate_ignore_priority(parachain_finality_and_confirmation_batch_call(
+					200, 200
+				)),
 				Ok(ValidTransaction::default()),
 			);
 
 			assert_eq!(
-				run_validate(all_finality_and_delivery_batch_call(200, 200, 200)),
+				run_validate_ignore_priority(all_finality_and_delivery_batch_call(200, 200, 200)),
 				Ok(ValidTransaction::default()),
 			);
 			assert_eq!(
-				run_validate(all_finality_and_confirmation_batch_call(200, 200, 200)),
+				run_validate_ignore_priority(all_finality_and_confirmation_batch_call(
+					200, 200, 200
+				)),
 				Ok(ValidTransaction::default()),
 			);
 		});

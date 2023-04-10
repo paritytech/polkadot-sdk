@@ -104,6 +104,22 @@ pub enum CallInfo {
 	ReceiveMessagesDeliveryProof(ReceiveMessagesDeliveryProofInfo),
 }
 
+impl CallInfo {
+	/// Returns number of messages, bundled with this transaction.
+	pub fn bundled_messages(&self) -> MessageNonce {
+		let bundled_range = match *self {
+			Self::ReceiveMessagesProof(ref info) => &info.0.bundled_range,
+			Self::ReceiveMessagesDeliveryProof(ref info) => &info.0.bundled_range,
+		};
+
+		bundled_range
+			.end()
+			.checked_sub(*bundled_range.start())
+			.map(|d| d.saturating_add(1))
+			.unwrap_or(0)
+	}
+}
+
 /// Helper struct that provides methods for working with a call supported by `CallInfo`.
 pub struct CallHelper<T: Config<I>, I: 'static> {
 	pub _phantom_data: sp_std::marker::PhantomData<(T, I)>,
@@ -321,6 +337,7 @@ mod tests {
 			TestRuntime, ThisChainRuntimeCall,
 		},
 	};
+	use bitvec::prelude::*;
 	use bp_messages::{DeliveredMessages, UnrewardedRelayer, UnrewardedRelayersState};
 	use sp_std::ops::RangeInclusive;
 
@@ -330,7 +347,11 @@ mod tests {
 		for n in 0..MaxUnrewardedRelayerEntriesAtInboundLane::get() {
 			inbound_lane_state.relayers.push_back(UnrewardedRelayer {
 				relayer: Default::default(),
-				messages: DeliveredMessages { begin: n + 1, end: n + 1 },
+				messages: DeliveredMessages {
+					begin: n + 1,
+					end: n + 1,
+					dispatch_results: bitvec![u8, Msb0; 1; 1],
+				},
 			});
 		}
 		pallet_bridge_messages::InboundLanes::<TestRuntime>::insert(
@@ -347,6 +368,7 @@ mod tests {
 			messages: DeliveredMessages {
 				begin: 1,
 				end: MaxUnconfirmedMessagesAtInboundLane::get(),
+				dispatch_results: bitvec![u8, Msb0; 1; MaxUnconfirmedMessagesAtInboundLane::get() as _],
 			},
 		});
 		pallet_bridge_messages::InboundLanes::<TestRuntime>::insert(

@@ -30,6 +30,7 @@ pub mod messages_benchmarking;
 pub mod messages_call_ext;
 pub mod messages_xcm_extension;
 pub mod parachains_benchmarking;
+pub mod priority_calculator;
 pub mod refund_relayer_extension;
 
 mod messages_generation;

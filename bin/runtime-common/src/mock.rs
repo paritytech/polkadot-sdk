@@ -127,7 +127,7 @@ parameter_types! {
 	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000u128);
 	pub MaximumMultiplier: Multiplier = sp_runtime::traits::Bounded::max_value();
 	pub const MaxUnrewardedRelayerEntriesAtInboundLane: MessageNonce = 16;
-	pub const MaxUnconfirmedMessagesAtInboundLane: MessageNonce = 32;
+	pub const MaxUnconfirmedMessagesAtInboundLane: MessageNonce = 1_000;
 }
 
 impl frame_system::Config for TestRuntime {
