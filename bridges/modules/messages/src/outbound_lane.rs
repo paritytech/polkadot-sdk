@@ -18,8 +18,10 @@
 
 use crate::Config;
 
+use bitvec::prelude::*;
 use bp_messages::{
-	DeliveredMessages, LaneId, MessageNonce, MessagePayload, OutboundLaneData, UnrewardedRelayer,
+	DeliveredMessages, DispatchResultsBitVec, LaneId, MessageNonce, MessagePayload,
+	OutboundLaneData, UnrewardedRelayer,
 };
 use frame_support::{
 	weights::{RuntimeDbWeight, Weight},
@@ -65,6 +67,9 @@ pub enum ReceivalConfirmationResult {
 	/// The unrewarded relayers vec contains non-consecutive entries. May be a result of invalid
 	/// bridged chain storage.
 	NonConsecutiveUnrewardedRelayerEntries,
+	/// The unrewarded relayers vec contains entry with mismatched number of dispatch results. May
+	/// be a result of invalid bridged chain storage.
+	InvalidNumberOfDispatchResults,
 	/// The chain has more messages that need to be confirmed than there is in the proof.
 	TryingToConfirmMoreMessagesThanExpected(MessageNonce),
 }
@@ -124,9 +129,14 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 			)
 		}
 
-		if let Err(e) = ensure_unrewarded_relayers_are_correct(latest_delivered_nonce, relayers) {
-			return e
-		}
+		let dispatch_results = match extract_dispatch_results(
+			data.latest_received_nonce,
+			latest_delivered_nonce,
+			relayers,
+		) {
+			Ok(dispatch_results) => dispatch_results,
+			Err(extract_error) => return extract_error,
+		};
 
 		let prev_latest_received_nonce = data.latest_received_nonce;
 		data.latest_received_nonce = latest_delivered_nonce;
@@ -135,6 +145,7 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 		ReceivalConfirmationResult::ConfirmedMessages(DeliveredMessages {
 			begin: prev_latest_received_nonce + 1,
 			end: latest_delivered_nonce,
+			dispatch_results,
 		})
 	}
 
@@ -169,30 +180,34 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 	}
 }
 
-/// Verifies unrewarded relayers vec.
+/// Extract new dispatch results from the unrewarded relayers vec.
 ///
 /// Returns `Err(_)` if unrewarded relayers vec contains invalid data, meaning that the bridged
 /// chain has invalid runtime storage.
-fn ensure_unrewarded_relayers_are_correct<RelayerId>(
+fn extract_dispatch_results<RelayerId>(
+	prev_latest_received_nonce: MessageNonce,
 	latest_received_nonce: MessageNonce,
 	relayers: &VecDeque<UnrewardedRelayer<RelayerId>>,
-) -> Result<(), ReceivalConfirmationResult> {
-	let mut last_entry_end: Option<MessageNonce> = None;
+) -> Result<DispatchResultsBitVec, ReceivalConfirmationResult> {
+	// the only caller of this functions checks that the
+	// prev_latest_received_nonce..=latest_received_nonce is valid, so we're ready to accept
+	// messages in this range => with_capacity call must succeed here or we'll be unable to receive
+	// confirmations at all
+	let mut received_dispatch_result =
+		BitVec::with_capacity((latest_received_nonce - prev_latest_received_nonce + 1) as _);
+	let mut expected_entry_begin = relayers.front().map(|entry| entry.messages.begin);
 	for entry in relayers {
 		// unrewarded relayer entry must have at least 1 unconfirmed message
 		// (guaranteed by the `InboundLane::receive_message()`)
-		if entry.messages.end < entry.messages.begin {
+		if entry.messages.total_messages() == 0 {
 			return Err(ReceivalConfirmationResult::EmptyUnrewardedRelayerEntry)
 		}
 		// every entry must confirm range of messages that follows previous entry range
 		// (guaranteed by the `InboundLane::receive_message()`)
-		if let Some(last_entry_end) = last_entry_end {
-			let expected_entry_begin = last_entry_end.checked_add(1);
-			if expected_entry_begin != Some(entry.messages.begin) {
-				return Err(ReceivalConfirmationResult::NonConsecutiveUnrewardedRelayerEntries)
-			}
+		if expected_entry_begin != Some(entry.messages.begin) {
+			return Err(ReceivalConfirmationResult::NonConsecutiveUnrewardedRelayerEntries)
 		}
-		last_entry_end = Some(entry.messages.end);
+		expected_entry_begin = entry.messages.end.checked_add(1);
 		// entry can't confirm messages larger than `inbound_lane_data.latest_received_nonce()`
 		// (guaranteed by the `InboundLane::receive_message()`)
 		if entry.messages.end > latest_received_nonce {
@@ -201,9 +216,30 @@ fn ensure_unrewarded_relayers_are_correct<RelayerId>(
 			// this is detected now
 			return Err(ReceivalConfirmationResult::FailedToConfirmFutureMessages)
 		}
+		// entry must have single dispatch result for every message
+		// (guaranteed by the `InboundLane::receive_message()`)
+		if entry.messages.dispatch_results.len() as MessageNonce != entry.messages.total_messages()
+		{
+			return Err(ReceivalConfirmationResult::InvalidNumberOfDispatchResults)
+		}
+
+		// now we know that the entry is valid
+		// => let's check if it brings new confirmations
+		let new_messages_begin =
+			sp_std::cmp::max(entry.messages.begin, prev_latest_received_nonce + 1);
+		if entry.messages.end < new_messages_begin {
+			continue
+		}
+
+		// now we know that entry brings new confirmations
+		// => let's extract dispatch results
+		received_dispatch_result.extend_from_bitslice(
+			&entry.messages.dispatch_results
+				[(new_messages_begin - entry.messages.begin) as usize..],
+		);
 	}
 
-	Ok(())
+	Ok(received_dispatch_result)
 }
 
 #[cfg(test)]
@@ -228,7 +264,11 @@ mod tests {
 	}
 
 	fn delivered_messages(nonces: RangeInclusive<MessageNonce>) -> DeliveredMessages {
-		DeliveredMessages { begin: *nonces.start(), end: *nonces.end() }
+		DeliveredMessages {
+			begin: *nonces.start(),
+			end: *nonces.end(),
+			dispatch_results: bitvec![u8, Msb0; 1; (nonces.end() - nonces.start() + 1) as _],
+		}
 	}
 
 	fn assert_3_messages_confirmation_fails(
@@ -358,6 +398,20 @@ mod tests {
 					.collect(),
 			),
 			ReceivalConfirmationResult::NonConsecutiveUnrewardedRelayerEntries,
+		);
+	}
+
+	#[test]
+	fn confirm_delivery_fails_if_number_of_dispatch_results_in_entry_is_invalid() {
+		let mut relayers: VecDeque<_> = unrewarded_relayers(1..=1)
+			.into_iter()
+			.chain(unrewarded_relayers(2..=2).into_iter())
+			.chain(unrewarded_relayers(3..=3).into_iter())
+			.collect();
+		relayers[0].messages.dispatch_results.clear();
+		assert_eq!(
+			assert_3_messages_confirmation_fails(3, &relayers),
+			ReceivalConfirmationResult::InvalidNumberOfDispatchResults,
 		);
 	}
 
