@@ -514,6 +514,10 @@ pub mod pallet {
 				lane_id,
 			);
 
+			// TODO: https://github.com/paritytech/parity-bridges-common/issues/2020
+			// we need to refund unused weight (because the inbound lane state may contain
+			// already confirmed messages and already rewarded relayer entries)
+
 			Ok(())
 		}
 	}
