@@ -20,6 +20,7 @@
 // RuntimeApi generated functions
 #![allow(clippy::too_many_arguments)]
 
+use bitvec::prelude::*;
 use bp_runtime::{BasicOperatingMode, OperatingMode};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::RuntimeDebug;
@@ -156,18 +157,68 @@ impl<RelayerId> Default for InboundLaneData<RelayerId> {
 }
 
 impl<RelayerId> InboundLaneData<RelayerId> {
+	fn dispatch_results_encoded_size_hint(
+		relayers_entries: usize,
+		message_count: usize,
+	) -> Option<usize>
+	where
+		RelayerId: MaxEncodedLen,
+	{
+		// The worst-case scenario for the bitvecs size is the one in which we have as many relayer
+		// entries as possible taking an extra 1 byte slot with just 1 bit of actual information.
+		// For example:
+		// 11111111 1-------
+		// 11111111 1-------
+		// 1-------
+		// 1-------
+
+		// If there are less msgs than relayer entries, in the worst case, each dispatch result
+		// belongs to a different relayer slot. This means 1 byte for the len prefix and 1 byte
+		// for the actual data.
+		if relayers_entries >= message_count {
+			return relayers_entries.checked_add(message_count)
+		}
+
+		let msgs_per_byte = 8;
+		// At the begining each relayer slot has 1 message, using 1 byte
+		let mut num_result_bytes = relayers_entries;
+		// Then we add batches of 8 messages to some relayer slot until there are no more messages.
+		// Each batch takes up 1 more byte.
+		num_result_bytes =
+			num_result_bytes.checked_add((message_count - relayers_entries) / msgs_per_byte)?;
+
+		// The len is stored in a `Compact<u32>`. `Compact<u32>` can store a max value of
+		// 63 on 1 byte, 16383 on 2 bytes, etc.
+		let max_len_per_first_byte = 0b0011_1111;
+		// At the begining each relayer slot uses 1 byte for the len prefix
+		// (each relayer slot contains 1 message)
+		let mut num_len_bytes = relayers_entries;
+		// Then we add batches of 63 messages to as many relayer slots as possible, requiring 2
+		// bytes for the `len` prefix. It's hard to believe that we'll need more than 2 bytes
+		// (more than 16383 messages in 1 relayer slot).
+		num_len_bytes = num_len_bytes.checked_add(sp_std::cmp::min(
+			(message_count - relayers_entries) / max_len_per_first_byte,
+			relayers_entries,
+		))?;
+
+		num_result_bytes.checked_add(num_len_bytes)
+	}
+
 	/// Returns approximate size of the struct, given a number of entries in the `relayers` set and
 	/// size of each entry.
 	///
 	/// Returns `None` if size overflows `usize` limits.
-	pub fn encoded_size_hint(relayers_entries: usize) -> Option<usize>
+	pub fn encoded_size_hint(relayers_entries: usize, message_count: usize) -> Option<usize>
 	where
 		RelayerId: MaxEncodedLen,
 	{
 		let message_nonce_size = MessageNonce::max_encoded_len();
 		let relayer_id_encoded_size = RelayerId::max_encoded_len();
 		let relayers_entry_size = relayer_id_encoded_size.checked_add(2 * message_nonce_size)?;
-		let relayers_size = relayers_entries.checked_mul(relayers_entry_size)?;
+		let relayers_size = relayers_entries.checked_mul(relayers_entry_size)?.checked_add(
+			Self::dispatch_results_encoded_size_hint(relayers_entries, message_count)?,
+		)?;
+
 		relayers_size.checked_add(message_nonce_size)
 	}
 
@@ -175,11 +226,11 @@ impl<RelayerId> InboundLaneData<RelayerId> {
 	/// `relayers` set and the size of each entry.
 	///
 	/// Returns `u32::MAX` if size overflows `u32` limits.
-	pub fn encoded_size_hint_u32(relayers_entries: usize) -> u32
+	pub fn encoded_size_hint_u32(relayers_entries: usize, messages_count: usize) -> u32
 	where
 		RelayerId: MaxEncodedLen,
 	{
-		Self::encoded_size_hint(relayers_entries)
+		Self::encoded_size_hint(relayers_entries, messages_count)
 			.and_then(|x| u32::try_from(x).ok())
 			.unwrap_or(u32::MAX)
 	}
@@ -218,6 +269,9 @@ pub struct InboundMessageDetails {
 	/// message cannot be dispatched.
 	pub dispatch_weight: Weight,
 }
+
+/// Bit vector of message dispatch results.
+pub type DispatchResultsBitVec = BitVec<u8, Msb0>;
 
 /// Unrewarded relayer entry stored in the inbound lane data.
 ///
@@ -276,13 +330,19 @@ pub struct DeliveredMessages {
 	pub begin: MessageNonce,
 	/// Nonce of the last message that has been delivered (inclusive).
 	pub end: MessageNonce,
+	/// Dispatch result (`false`/`true`), returned by the message dispatcher for every
+	/// message in the `[begin; end]` range. See `dispatch_result` field of the
+	/// `bp_runtime::messages::MessageDispatchResult` structure for more information.
+	pub dispatch_results: DispatchResultsBitVec,
 }
 
 impl DeliveredMessages {
 	/// Create new `DeliveredMessages` struct that confirms delivery of single nonce with given
 	/// dispatch result.
-	pub fn new(nonce: MessageNonce) -> Self {
-		DeliveredMessages { begin: nonce, end: nonce }
+	pub fn new(nonce: MessageNonce, dispatch_result: bool) -> Self {
+		let mut dispatch_results = BitVec::with_capacity(1);
+		dispatch_results.push(dispatch_result);
+		DeliveredMessages { begin: nonce, end: nonce, dispatch_results }
 	}
 
 	/// Return total count of delivered messages.
@@ -295,13 +355,24 @@ impl DeliveredMessages {
 	}
 
 	/// Note new dispatched message.
-	pub fn note_dispatched_message(&mut self) {
+	pub fn note_dispatched_message(&mut self, dispatch_result: bool) {
 		self.end += 1;
+		self.dispatch_results.push(dispatch_result);
 	}
 
 	/// Returns true if delivered messages contain message with given nonce.
 	pub fn contains_message(&self, nonce: MessageNonce) -> bool {
 		(self.begin..=self.end).contains(&nonce)
+	}
+
+	/// Get dispatch result flag by message nonce.
+	///
+	/// Dispatch result flag must be interpreted using the knowledge of dispatch mechanism
+	/// at the target chain. See `dispatch_result` field of the
+	/// `bp_runtime::messages::MessageDispatchResult` structure for more information.
+	pub fn message_dispatch_result(&self, nonce: MessageNonce) -> Option<bool> {
+		let index = nonce.checked_sub(self.begin)? as usize;
+		self.dispatch_results.get(index).map(|bit| *bit)
 	}
 }
 
@@ -414,10 +485,10 @@ mod tests {
 		assert_eq!(
 			total_unrewarded_messages(
 				&vec![
-					UnrewardedRelayer { relayer: 1, messages: DeliveredMessages::new(0) },
+					UnrewardedRelayer { relayer: 1, messages: DeliveredMessages::new(0, true) },
 					UnrewardedRelayer {
 						relayer: 2,
-						messages: DeliveredMessages::new(MessageNonce::MAX)
+						messages: DeliveredMessages::new(MessageNonce::MAX, true)
 					},
 				]
 				.into_iter()
@@ -438,12 +509,21 @@ mod tests {
 			(13u8, 128u8),
 		];
 		for (relayer_entries, messages_count) in test_cases {
-			let expected_size = InboundLaneData::<u8>::encoded_size_hint(relayer_entries as _);
+			let expected_size =
+				InboundLaneData::<u8>::encoded_size_hint(relayer_entries as _, messages_count as _);
 			let actual_size = InboundLaneData {
 				relayers: (1u8..=relayer_entries)
-					.map(|i| UnrewardedRelayer {
-						relayer: i,
-						messages: DeliveredMessages::new(i as _),
+					.map(|i| {
+						let mut entry = UnrewardedRelayer {
+							relayer: i,
+							messages: DeliveredMessages::new(i as _, true),
+						};
+						entry.messages.dispatch_results = bitvec![
+							u8, Msb0;
+							1;
+							(messages_count / relayer_entries) as _
+						];
+						entry
 					})
 					.collect(),
 				last_confirmed_nonce: messages_count as _,
@@ -459,13 +539,16 @@ mod tests {
 	}
 
 	#[test]
-	fn contains_result_works() {
-		let delivered_messages = DeliveredMessages { begin: 100, end: 150 };
+	fn message_dispatch_result_works() {
+		let delivered_messages =
+			DeliveredMessages { begin: 100, end: 150, dispatch_results: bitvec![u8, Msb0; 1; 151] };
 
 		assert!(!delivered_messages.contains_message(99));
 		assert!(delivered_messages.contains_message(100));
 		assert!(delivered_messages.contains_message(150));
 		assert!(!delivered_messages.contains_message(151));
+
+		assert_eq!(delivered_messages.message_dispatch_result(125), Some(true));
 	}
 
 	#[test]

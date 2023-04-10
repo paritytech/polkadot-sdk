@@ -242,7 +242,7 @@ mod tests {
 		target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
 		LaneId, MessageKey,
 	};
-	use bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchResult;
+	use bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchError;
 	use codec::Encode;
 	use pallet_bridge_messages::OutboundLanes;
 	use xcm_executor::XcmExecutor;
@@ -352,8 +352,8 @@ mod tests {
 		let dispatch_result =
 			FromRialtoMessageDispatch::dispatch(&AccountId::from([0u8; 32]), incoming_message);
 		assert!(matches!(
-			dispatch_result.dispatch_level_result,
-			XcmBlobMessageDispatchResult::NotDispatched(_),
+			dispatch_result.dispatch_result,
+			Err(XcmBlobMessageDispatchError::NotDispatched(_)),
 		));
 	}
 
@@ -366,8 +366,8 @@ mod tests {
 		let dispatch_result =
 			FromRialtoMessageDispatch::dispatch(&AccountId::from([0u8; 32]), incoming_message);
 		assert!(matches!(
-			dispatch_result.dispatch_level_result,
-			XcmBlobMessageDispatchResult::NotDispatched(_),
+			dispatch_result.dispatch_result,
+			Err(XcmBlobMessageDispatchError::NotDispatched(_)),
 		));
 	}
 }
