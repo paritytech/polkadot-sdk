@@ -40,7 +40,7 @@ build-test-parachain:
       artifacts: false
   script:
     - echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
-    - time cargo +nightly build --release --locked --bin test-parachain
+    - time cargo build --release --locked --bin test-parachain
     - echo "___Packing the artifacts___"
     - mkdir -p ./artifacts
     - mv ./target/release/test-parachain ./artifacts/.

@@ -109,8 +109,6 @@ variables:
     - !reference [.common-before-script, before_script]
     - rustup show
     - cargo --version
-    - rustup +nightly show
-    - cargo +nightly --version
     - bash --version
   tags:
     - linux-docker-vm-c2
