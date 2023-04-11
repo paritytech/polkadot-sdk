@@ -21,7 +21,7 @@ use sp_std::vec::Vec;
 use xcm::latest::MultiAsset;
 
 /// The possible errors that can happen querying the storage of assets.
-#[derive(Eq, PartialEq, Encode, Decode, RuntimeDebug)]
+#[derive(Eq, PartialEq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo)]
 pub enum FungiblesAccessError {
 	/// `MultiLocation` to `AssetId`/`ClassId` conversion failed.
 	AssetIdConversionFailed,

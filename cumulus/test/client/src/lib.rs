@@ -22,7 +22,7 @@ use runtime::{
 	Balance, Block, BlockHashCount, GenesisConfig, Runtime, RuntimeCall, Signature, SignedExtra,
 	SignedPayload, UncheckedExtrinsic, VERSION,
 };
-use sc_executor::{WasmExecutionMethod, WasmExecutor};
+use sc_executor::{HeapAllocStrategy, WasmExecutionMethod, WasmExecutor};
 use sc_executor_common::runtime_blob::RuntimeBlob;
 use sc_service::client;
 use sp_blockchain::HeaderBackend;
@@ -181,13 +181,14 @@ pub fn validate_block(
 	let mut ext = TestExternalities::default();
 	let mut ext_ext = ext.ext();
 
-	let executor = WasmExecutor::<sp_io::SubstrateHostFunctions>::new(
-		WasmExecutionMethod::Interpreted,
-		Some(1024),
-		1,
-		None,
-		2,
-	);
+	let heap_pages = HeapAllocStrategy::Static { extra_pages: 1024 };
+	let executor = WasmExecutor::<sp_io::SubstrateHostFunctions>::builder()
+		.with_execution_method(WasmExecutionMethod::Interpreted)
+		.with_max_runtime_instances(1)
+		.with_runtime_cache_size(2)
+		.with_onchain_heap_alloc_strategy(heap_pages)
+		.with_offchain_heap_alloc_strategy(heap_pages)
+		.build();
 
 	executor
 		.uncached_call(

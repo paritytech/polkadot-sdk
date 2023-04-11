@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 
 # Substrate
 sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
@@ -23,6 +24,7 @@ xcm = { git = "https://github.com/paritytech/polkadot", default-features = false
 default = [ "std" ]
 std = [
 	"codec/std",
+	"scale-info/std",
 	"sp-api/std",
 	"sp-runtime/std",
 	"sp-std/std",

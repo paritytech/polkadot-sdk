@@ -20,6 +20,7 @@
 
 use codec::{Decode, Encode};
 use polkadot_parachain::primitives::HeadData;
+use scale_info::TypeInfo;
 use sp_runtime::{traits::Block as BlockT, RuntimeDebug};
 use sp_std::prelude::*;
 
@@ -229,7 +230,7 @@ impl CollationInfoV1 {
 }
 
 /// Information about a collation.
-#[derive(Clone, Debug, codec::Decode, codec::Encode, PartialEq)]
+#[derive(Clone, Debug, codec::Decode, codec::Encode, PartialEq, TypeInfo)]
 pub struct CollationInfo {
 	/// Messages destined to be interpreted by the Relay chain itself.
 	pub upward_messages: Vec<UpwardMessage>,
