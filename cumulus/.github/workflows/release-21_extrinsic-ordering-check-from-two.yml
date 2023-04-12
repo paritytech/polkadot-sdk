@@ -42,7 +42,7 @@ jobs:
             relay: polkadot-local
 
     steps:
-      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v3.0.2
+      - uses: actions/checkout@83b7061638ee4956cf7545a6f7efe594e5ad0247 # v3.5.1
 
       - name: Create tmp dir
         run: |
