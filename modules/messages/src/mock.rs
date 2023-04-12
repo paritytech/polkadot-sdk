@@ -148,9 +148,12 @@ parameter_types! {
 	pub const ActiveOutboundLanes: &'static [LaneId] = &[TEST_LANE_ID, TEST_LANE_ID_2];
 }
 
+/// weights of messages pallet calls we use in tests.
+pub type TestWeightInfo = ();
+
 impl Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
+	type WeightInfo = TestWeightInfo;
 	type ActiveOutboundLanes = ActiveOutboundLanes;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
@@ -381,12 +384,15 @@ impl DeliveryConfirmationPayments<AccountId> for TestDeliveryConfirmationPayment
 		messages_relayers: VecDeque<UnrewardedRelayer<AccountId>>,
 		_confirmation_relayer: &AccountId,
 		received_range: &RangeInclusive<MessageNonce>,
-	) {
+	) -> MessageNonce {
 		let relayers_rewards = calc_relayers_rewards(messages_relayers, received_range);
+		let rewarded_relayers = relayers_rewards.len();
 		for (relayer, reward) in &relayers_rewards {
 			let key = (b":relayer-reward:", relayer, reward).encode();
 			frame_support::storage::unhashed::put(&key, &true);
 		}
+
+		rewarded_relayers as _
 	}
 }
 
