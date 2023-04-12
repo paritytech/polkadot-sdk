@@ -20,7 +20,7 @@ use crate::{Config, Pallet};
 
 use bp_messages::{
 	source_chain::{DeliveryConfirmationPayments, RelayersRewards},
-	LaneId,
+	LaneId, MessageNonce,
 };
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use frame_support::{sp_runtime::SaturatedConversion, traits::Get};
@@ -47,9 +47,10 @@ where
 		messages_relayers: VecDeque<bp_messages::UnrewardedRelayer<T::AccountId>>,
 		confirmation_relayer: &T::AccountId,
 		received_range: &RangeInclusive<bp_messages::MessageNonce>,
-	) {
+	) -> MessageNonce {
 		let relayers_rewards =
 			bp_messages::calc_relayers_rewards::<T::AccountId>(messages_relayers, received_range);
+		let rewarded_relayers = relayers_rewards.len();
 
 		register_relayers_rewards::<T>(
 			confirmation_relayer,
@@ -61,6 +62,8 @@ where
 			),
 			DeliveryReward::get(),
 		);
+
+		rewarded_relayers as _
 	}
 }
 
