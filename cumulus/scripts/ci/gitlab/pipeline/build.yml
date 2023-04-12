@@ -65,7 +65,7 @@ build-test-parachain:
       echo "_____Running cargo check for ${directory} ______";
       cd ${directory};
       pwd;
-      SKIP_WASM_BUILD=1 cargo check;
+      SKIP_WASM_BUILD=1 cargo check --locked;
       cd ..;
       done
 
