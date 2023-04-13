@@ -94,7 +94,7 @@ pub struct ImportedCommitmentsInfoData<BlockNumber> {
 	next_block_number_index: u32,
 }
 
-#[frame_support::pallet]
+#[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
 	use bp_runtime::{BasicOperatingMode, OwnedBridgeModule};
