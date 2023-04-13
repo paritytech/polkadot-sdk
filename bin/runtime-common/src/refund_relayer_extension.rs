@@ -24,7 +24,7 @@ use crate::messages_call_ext::{
 };
 use bp_messages::LaneId;
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
-use bp_runtime::StaticStrProvider;
+use bp_runtime::{RangeInclusiveExt, StaticStrProvider};
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{CallableCallFor, DispatchInfo, Dispatchable, PostDispatchInfo},
@@ -319,9 +319,9 @@ where
 		if let Some(parsed_call) = parsed_call {
 			// we give delivery transactions some boost, that depends on number of messages inside
 			let messages_call_info = parsed_call.messages_call_info();
-			if let MessagesCallInfo::ReceiveMessagesProof(_) = messages_call_info {
+			if let MessagesCallInfo::ReceiveMessagesProof(info) = messages_call_info {
 				// compute total number of messages in transaction
-				let bundled_messages = messages_call_info.bundled_messages();
+				let bundled_messages = info.base.bundled_range.checked_len().unwrap_or(0);
 
 				// a quick check to avoid invalid high-priority transactions
 				if bundled_messages <= Runtime::MaxUnconfirmedMessagesAtInboundLane::get() {

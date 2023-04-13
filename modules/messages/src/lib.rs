@@ -90,6 +90,7 @@ pub const LOG_TARGET: &str = "runtime::bridge-messages";
 pub mod pallet {
 	use super::*;
 	use bp_messages::{ReceivalResult, ReceivedMessages};
+	use bp_runtime::RangeInclusiveExt;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -514,11 +515,7 @@ pub mod pallet {
 				);
 				relayers_state.total_messages = sp_std::cmp::min(
 					relayers_state.total_messages,
-					received_range
-						.end()
-						.checked_sub(*received_range.start())
-						.and_then(|x| x.checked_add(1))
-						.unwrap_or(MessageNonce::MAX),
+					received_range.checked_len().unwrap_or(MessageNonce::MAX),
 				);
 			};
 
