@@ -27,7 +27,7 @@ use frame_system::RawOrigin;
 use scale_info::TypeInfo;
 use sp_core::storage::StorageKey;
 use sp_runtime::traits::{BadOrigin, Header as HeaderT, UniqueSaturatedInto};
-use sp_std::{convert::TryFrom, fmt::Debug, vec, vec::Vec};
+use sp_std::{convert::TryFrom, fmt::Debug, ops::RangeInclusive, vec, vec::Vec};
 
 pub use chain::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, EncodedOrDecodedCall, HashOf,
@@ -35,7 +35,7 @@ pub use chain::{
 	UnderlyingChainProvider,
 };
 pub use frame_support::storage::storage_prefix as storage_value_final_key;
-use num_traits::{CheckedSub, One};
+use num_traits::{CheckedAdd, CheckedSub, One};
 pub use storage_proof::{
 	record_all_keys as record_all_trie_keys, Error as StorageProofError,
 	ProofSize as StorageProofSize, RawStorageProof, StorageProofChecker,
@@ -520,6 +520,23 @@ impl<T> Debug for StrippableError<T> {
 	#[cfg(not(feature = "std"))]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
 		f.write_str("Stripped error")
+	}
+}
+
+/// A trait defining helper methods for `RangeInclusive` (start..=end)
+pub trait RangeInclusiveExt<Idx> {
+	/// Computes the length of the `RangeInclusive`, checking for underflow and overflow.
+	fn checked_len(&self) -> Option<Idx>;
+}
+
+impl<Idx> RangeInclusiveExt<Idx> for RangeInclusive<Idx>
+where
+	Idx: CheckedSub + CheckedAdd + One,
+{
+	fn checked_len(&self) -> Option<Idx> {
+		self.end()
+			.checked_sub(self.start())
+			.and_then(|len| len.checked_add(&Idx::one()))
 	}
 }
 
