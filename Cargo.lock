@@ -20459,6 +20459,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-weights",
+ "xcm",
 ]
 
 [[package]]
