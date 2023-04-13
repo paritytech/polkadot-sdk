@@ -713,17 +713,17 @@ mod tests {
 					para_id: ParaId(TestParachain::get()),
 					para_head_hash: [1u8; 32].into(),
 				},
-				MessagesCallInfo::ReceiveMessagesProof(ReceiveMessagesProofInfo(
-					BaseMessagesProofInfo {
+				MessagesCallInfo::ReceiveMessagesProof(ReceiveMessagesProofInfo {
+					base: BaseMessagesProofInfo {
 						lane_id: TEST_LANE_ID,
 						bundled_range: 101..=200,
 						best_stored_nonce: 100,
-						unrewarded_relayers: Some(UnrewardedRelayerOccupation {
-							free_relayer_slots: MaxUnrewardedRelayerEntriesAtInboundLane::get(),
-							free_message_slots: MaxUnconfirmedMessagesAtInboundLane::get(),
-						}),
 					},
-				)),
+					unrewarded_relayers: UnrewardedRelayerOccupation {
+						free_relayer_slots: MaxUnrewardedRelayerEntriesAtInboundLane::get(),
+						free_message_slots: MaxUnconfirmedMessagesAtInboundLane::get(),
+					},
+				}),
 			),
 		}
 	}
@@ -747,7 +747,6 @@ mod tests {
 						lane_id: TEST_LANE_ID,
 						bundled_range: 101..=200,
 						best_stored_nonce: 100,
-						unrewarded_relayers: None,
 					},
 				)),
 			),
@@ -763,17 +762,17 @@ mod tests {
 					para_id: ParaId(TestParachain::get()),
 					para_head_hash: [1u8; 32].into(),
 				},
-				MessagesCallInfo::ReceiveMessagesProof(ReceiveMessagesProofInfo(
-					BaseMessagesProofInfo {
+				MessagesCallInfo::ReceiveMessagesProof(ReceiveMessagesProofInfo {
+					base: BaseMessagesProofInfo {
 						lane_id: TEST_LANE_ID,
 						bundled_range: 101..=200,
 						best_stored_nonce: 100,
-						unrewarded_relayers: Some(UnrewardedRelayerOccupation {
-							free_relayer_slots: MaxUnrewardedRelayerEntriesAtInboundLane::get(),
-							free_message_slots: MaxUnconfirmedMessagesAtInboundLane::get(),
-						}),
 					},
-				)),
+					unrewarded_relayers: UnrewardedRelayerOccupation {
+						free_relayer_slots: MaxUnrewardedRelayerEntriesAtInboundLane::get(),
+						free_message_slots: MaxUnconfirmedMessagesAtInboundLane::get(),
+					},
+				}),
 			),
 		}
 	}
@@ -792,7 +791,6 @@ mod tests {
 						lane_id: TEST_LANE_ID,
 						bundled_range: 101..=200,
 						best_stored_nonce: 100,
-						unrewarded_relayers: None,
 					},
 				)),
 			),
@@ -803,15 +801,17 @@ mod tests {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::Msgs(MessagesCallInfo::ReceiveMessagesProof(
-				ReceiveMessagesProofInfo(BaseMessagesProofInfo {
-					lane_id: TEST_LANE_ID,
-					bundled_range: 101..=200,
-					best_stored_nonce: 100,
-					unrewarded_relayers: Some(UnrewardedRelayerOccupation {
+				ReceiveMessagesProofInfo {
+					base: BaseMessagesProofInfo {
+						lane_id: TEST_LANE_ID,
+						bundled_range: 101..=200,
+						best_stored_nonce: 100,
+					},
+					unrewarded_relayers: UnrewardedRelayerOccupation {
 						free_relayer_slots: MaxUnrewardedRelayerEntriesAtInboundLane::get(),
 						free_message_slots: MaxUnconfirmedMessagesAtInboundLane::get(),
-					}),
-				}),
+					},
+				},
 			)),
 		}
 	}
@@ -824,7 +824,6 @@ mod tests {
 					lane_id: TEST_LANE_ID,
 					bundled_range: 101..=200,
 					best_stored_nonce: 100,
-					unrewarded_relayers: None,
 				}),
 			)),
 		}

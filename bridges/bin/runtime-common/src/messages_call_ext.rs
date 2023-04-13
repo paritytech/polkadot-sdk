@@ -42,9 +42,13 @@ pub struct BaseMessagesProofInfo {
 	/// For delivery transaction, it is the nonce of best delivered message before the call.
 	/// For confirmation transaction, it is the nonce of best confirmed message before the call.
 	pub best_stored_nonce: MessageNonce,
-	/// For message delivery transactions, the state of unrewarded relayers vector before the
-	/// call is dispatched.
-	pub unrewarded_relayers: Option<UnrewardedRelayerOccupation>,
+}
+
+impl BaseMessagesProofInfo {
+	/// Returns true if `bundled_range` continues the `0..=best_stored_nonce` range.
+	fn appends_to_stored_nonce(&self) -> bool {
+		*self.bundled_range.start() == self.best_stored_nonce + 1
+	}
 }
 
 /// Occupation state of the unrewarded relayers vector.
@@ -57,44 +61,51 @@ pub struct UnrewardedRelayerOccupation {
 	pub free_message_slots: MessageNonce,
 }
 
-impl BaseMessagesProofInfo {
-	/// Returns true if `bundled_range` cannot be directly appended to the `best_stored_nonce`
-	/// or if the `bundled_range` is empty (unless we're confirming rewards when unrewarded
-	/// relayers vector is full).
+/// Info about a `ReceiveMessagesProof` call which tries to update a single lane.
+#[derive(PartialEq, RuntimeDebug)]
+pub struct ReceiveMessagesProofInfo {
+	/// Base messages proof info
+	pub base: BaseMessagesProofInfo,
+	/// State of unrewarded relayers vector.
+	pub unrewarded_relayers: UnrewardedRelayerOccupation,
+}
+
+impl ReceiveMessagesProofInfo {
+	/// Returns true if:
+	///
+	/// - either inbound lane is ready to accept bundled messages;
+	///
+	/// - or there are no bundled messages, but the inbound lane is blocked by too many unconfirmed
+	///   messages and/or unrewarded relayers.
 	fn is_obsolete(&self) -> bool {
 		// transactions with zero bundled nonces are not allowed, unless they're message
 		// delivery transactions, which brings reward confirmations required to unblock
 		// the lane
-		if self.bundled_range.is_empty() {
-			let (free_relayer_slots, free_message_slots) = self
-				.unrewarded_relayers
-				.as_ref()
-				.map(|s| (s.free_relayer_slots, s.free_message_slots))
-				.unwrap_or((MessageNonce::MAX, MessageNonce::MAX));
+		if self.base.bundled_range.is_empty() {
 			let empty_transactions_allowed =
 				// we allow empty transactions when we can't accept delivery from new relayers
-				free_relayer_slots == 0 ||
+				self.unrewarded_relayers.free_relayer_slots == 0 ||
 				// or if we can't accept new messages at all
-				free_message_slots == 0;
-			if empty_transactions_allowed {
-				return false
-			}
+				self.unrewarded_relayers.free_message_slots == 0;
 
-			return true
+			return !empty_transactions_allowed
 		}
 
 		// otherwise we require bundled messages to continue stored range
-		*self.bundled_range.start() != self.best_stored_nonce + 1
+		!self.base.appends_to_stored_nonce()
 	}
 }
-
-/// Info about a `ReceiveMessagesProof` call which tries to update a single lane.
-#[derive(PartialEq, RuntimeDebug)]
-pub struct ReceiveMessagesProofInfo(pub BaseMessagesProofInfo);
 
 /// Info about a `ReceiveMessagesDeliveryProof` call which tries to update a single lane.
 #[derive(PartialEq, RuntimeDebug)]
 pub struct ReceiveMessagesDeliveryProofInfo(pub BaseMessagesProofInfo);
+
+impl ReceiveMessagesDeliveryProofInfo {
+	/// Returns true if outbound lane is ready to accept confirmations of bundled messages.
+	fn is_obsolete(&self) -> bool {
+		self.0.bundled_range.is_empty() || !self.0.appends_to_stored_nonce()
+	}
+}
 
 /// Info about a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call
 /// which tries to update a single lane.
@@ -108,7 +119,7 @@ impl CallInfo {
 	/// Returns number of messages, bundled with this transaction.
 	pub fn bundled_messages(&self) -> MessageNonce {
 		let bundled_range = match *self {
-			Self::ReceiveMessagesProof(ref info) => &info.0.bundled_range,
+			Self::ReceiveMessagesProof(ref info) => &info.base.bundled_range,
 			Self::ReceiveMessagesDeliveryProof(ref info) => &info.0.bundled_range,
 		};
 
@@ -136,27 +147,19 @@ impl<T: Config<I>, I: 'static> CallHelper<T, I> {
 		match info {
 			CallInfo::ReceiveMessagesProof(info) => {
 				let inbound_lane_data =
-					pallet_bridge_messages::InboundLanes::<T, I>::get(info.0.lane_id);
-				if info.0.bundled_range.is_empty() {
-					match info.0.unrewarded_relayers {
-						Some(ref pre_occupation) => {
-							let post_occupation =
-								unrewarded_relayers_occupation::<T, I>(&inbound_lane_data);
-							// we don't care about `free_relayer_slots` here - it is checked in
-							// `is_obsolete` and every relayer has delivered at least one message,
-							// so if relayer slots are released, then message slots are also
-							// released
-							return post_occupation.free_message_slots >
-								pre_occupation.free_message_slots
-						},
-						None => {
-							// shouldn't happen in practice, given our code
-							return false
-						},
-					}
+					pallet_bridge_messages::InboundLanes::<T, I>::get(info.base.lane_id);
+				if info.base.bundled_range.is_empty() {
+					let post_occupation =
+						unrewarded_relayers_occupation::<T, I>(&inbound_lane_data);
+					// we don't care about `free_relayer_slots` here - it is checked in
+					// `is_obsolete` and every relayer has delivered at least one message,
+					// so if relayer slots are released, then message slots are also
+					// released
+					return post_occupation.free_message_slots >
+						info.unrewarded_relayers.free_message_slots
 				}
 
-				inbound_lane_data.last_delivered_nonce() == *info.0.bundled_range.end()
+				inbound_lane_data.last_delivered_nonce() == *info.base.bundled_range.end()
 			},
 			CallInfo::ReceiveMessagesDeliveryProof(info) => {
 				let outbound_lane_data =
@@ -215,16 +218,16 @@ impl<
 		{
 			let inbound_lane_data = pallet_bridge_messages::InboundLanes::<T, I>::get(proof.lane);
 
-			return Some(ReceiveMessagesProofInfo(BaseMessagesProofInfo {
-				lane_id: proof.lane,
-				// we want all messages in this range to be new for us. Otherwise transaction will
-				// be considered obsolete.
-				bundled_range: proof.nonces_start..=proof.nonces_end,
-				best_stored_nonce: inbound_lane_data.last_delivered_nonce(),
-				unrewarded_relayers: Some(unrewarded_relayers_occupation::<T, I>(
-					&inbound_lane_data,
-				)),
-			}))
+			return Some(ReceiveMessagesProofInfo {
+				base: BaseMessagesProofInfo {
+					lane_id: proof.lane,
+					// we want all messages in this range to be new for us. Otherwise transaction
+					// will be considered obsolete.
+					bundled_range: proof.nonces_start..=proof.nonces_end,
+					best_stored_nonce: inbound_lane_data.last_delivered_nonce(),
+				},
+				unrewarded_relayers: unrewarded_relayers_occupation::<T, I>(&inbound_lane_data),
+			})
 		}
 
 		None
@@ -248,7 +251,6 @@ impl<
 				bundled_range: outbound_lane_data.latest_received_nonce + 1..=
 					relayers_state.last_delivered_nonce,
 				best_stored_nonce: outbound_lane_data.latest_received_nonce,
-				unrewarded_relayers: None,
 			}))
 		}
 
@@ -270,7 +272,7 @@ impl<
 	fn call_info_for(&self, lane_id: LaneId) -> Option<CallInfo> {
 		self.call_info().filter(|info| {
 			let actual_lane_id = match info {
-				CallInfo::ReceiveMessagesProof(info) => info.0.lane_id,
+				CallInfo::ReceiveMessagesProof(info) => info.base.lane_id,
 				CallInfo::ReceiveMessagesDeliveryProof(info) => info.0.lane_id,
 			};
 			actual_lane_id == lane_id
@@ -279,7 +281,7 @@ impl<
 
 	fn check_obsolete_call(&self) -> TransactionValidity {
 		match self.call_info() {
-			Some(CallInfo::ReceiveMessagesProof(proof_info)) if proof_info.0.is_obsolete() => {
+			Some(CallInfo::ReceiveMessagesProof(proof_info)) if proof_info.is_obsolete() => {
 				log::trace!(
 					target: pallet_bridge_messages::LOG_TARGET,
 					"Rejecting obsolete messages delivery transaction: {:?}",
@@ -289,7 +291,7 @@ impl<
 				return sp_runtime::transaction_validity::InvalidTransaction::Stale.into()
 			},
 			Some(CallInfo::ReceiveMessagesDeliveryProof(proof_info))
-				if proof_info.0.is_obsolete() =>
+				if proof_info.is_obsolete() =>
 			{
 				log::trace!(
 					target: pallet_bridge_messages::LOG_TARGET,
@@ -314,8 +316,6 @@ fn unrewarded_relayers_occupation<T: Config<I>, I: 'static>(
 		free_relayer_slots: T::MaxUnrewardedRelayerEntriesAtInboundLane::get()
 			.saturating_sub(inbound_lane_data.relayers.len() as MessageNonce),
 		free_message_slots: {
-			// 5 - 0 = 5 ==> 1,2,3,4,5
-			// 5 - 3 = 2 ==> 4,5
 			let unconfirmed_messages = inbound_lane_data
 				.last_delivered_nonce()
 				.saturating_sub(inbound_lane_data.last_confirmed_nonce);
@@ -561,19 +561,21 @@ mod tests {
 		is_empty: bool,
 	) -> bool {
 		CallHelper::<TestRuntime, ()>::was_successful(&CallInfo::ReceiveMessagesProof(
-			ReceiveMessagesProofInfo(BaseMessagesProofInfo {
-				lane_id: LaneId([0, 0, 0, 0]),
-				bundled_range,
-				best_stored_nonce: 0, // doesn't matter for `was_successful`
-				unrewarded_relayers: Some(UnrewardedRelayerOccupation {
+			ReceiveMessagesProofInfo {
+				base: BaseMessagesProofInfo {
+					lane_id: LaneId([0, 0, 0, 0]),
+					bundled_range,
+					best_stored_nonce: 0, // doesn't matter for `was_successful`
+				},
+				unrewarded_relayers: UnrewardedRelayerOccupation {
 					free_relayer_slots: 0, // doesn't matter for `was_successful`
 					free_message_slots: if is_empty {
 						0
 					} else {
 						MaxUnconfirmedMessagesAtInboundLane::get()
 					},
-				}),
-			}),
+				},
+			},
 		))
 	}
 
@@ -624,7 +626,6 @@ mod tests {
 				lane_id: LaneId([0, 0, 0, 0]),
 				bundled_range,
 				best_stored_nonce: 0, // doesn't matter for `was_successful`
-				unrewarded_relayers: None,
 			}),
 		))
 	}
