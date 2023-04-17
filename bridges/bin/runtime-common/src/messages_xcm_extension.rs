@@ -39,8 +39,9 @@ pub type XcmAsPlainPayload = sp_std::prelude::Vec<u8>;
 
 /// Message dispatch result type for single message
 #[derive(CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, Debug, TypeInfo)]
-pub enum XcmBlobMessageDispatchError {
+pub enum XcmBlobMessageDispatchResult {
 	InvalidPayload,
+	Dispatched,
 	NotDispatched(#[codec(skip)] Option<DispatchBlobError>),
 }
 
@@ -64,7 +65,7 @@ impl<
 	for XcmBlobMessageDispatch<SourceBridgeHubChain, TargetBridgeHubChain, BlobDispatcher, Weights>
 {
 	type DispatchPayload = XcmAsPlainPayload;
-	type DispatchError = XcmBlobMessageDispatchError;
+	type DispatchLevelResult = XcmBlobMessageDispatchResult;
 
 	fn dispatch_weight(message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {
 		match message.data.payload {
@@ -79,7 +80,7 @@ impl<
 	fn dispatch(
 		_relayer_account: &AccountIdOf<SourceBridgeHubChain>,
 		message: DispatchMessage<Self::DispatchPayload>,
-	) -> MessageDispatchResult<Self::DispatchError> {
+	) -> MessageDispatchResult<Self::DispatchLevelResult> {
 		let payload = match message.data.payload {
 			Ok(payload) => payload,
 			Err(e) => {
@@ -91,7 +92,7 @@ impl<
 				);
 				return MessageDispatchResult {
 					unspent_weight: Weight::zero(),
-					dispatch_result: Err(XcmBlobMessageDispatchError::InvalidPayload),
+					dispatch_level_result: XcmBlobMessageDispatchResult::InvalidPayload,
 				}
 			},
 		};
@@ -102,7 +103,7 @@ impl<
 					"[XcmBlobMessageDispatch] DispatchBlob::dispatch_blob was ok - message_nonce: {:?}",
 					message.key.nonce
 				);
-				Ok(())
+				XcmBlobMessageDispatchResult::Dispatched
 			},
 			Err(e) => {
 				log::error!(
@@ -110,13 +111,10 @@ impl<
 					"[XcmBlobMessageDispatch] DispatchBlob::dispatch_blob failed, error: {:?} - message_nonce: {:?}",
 					e, message.key.nonce
 				);
-				Err(XcmBlobMessageDispatchError::NotDispatched(Some(e)))
+				XcmBlobMessageDispatchResult::NotDispatched(Some(e))
 			},
 		};
-		MessageDispatchResult {
-			unspent_weight: Weight::zero(),
-			dispatch_result: dispatch_level_result,
-		}
+		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result }
 	}
 }
 
