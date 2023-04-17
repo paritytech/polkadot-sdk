@@ -307,10 +307,8 @@ pub fn check_message_lane_weights<C: Chain, T: frame_system::Config>(
 		messages::target::maximal_incoming_message_dispatch_weight(C::max_extrinsic_weight()),
 	);
 
-	let max_incoming_inbound_lane_data_proof_size = InboundLaneData::<()>::encoded_size_hint_u32(
-		this_chain_max_unrewarded_relayers as _,
-		this_chain_max_unconfirmed_messages as _,
-	);
+	let max_incoming_inbound_lane_data_proof_size =
+		InboundLaneData::<()>::encoded_size_hint_u32(this_chain_max_unrewarded_relayers as _);
 	pallet_bridge_messages::ensure_able_to_receive_confirmation::<Weights<T>>(
 		C::max_extrinsic_size(),
 		C::max_extrinsic_weight(),

@@ -853,7 +853,7 @@ mod tests {
 		LaneId, MessageKey,
 	};
 	use bridge_runtime_common::{
-		integrity::check_additional_signed, messages_xcm_extension::XcmBlobMessageDispatchError,
+		integrity::check_additional_signed, messages_xcm_extension::XcmBlobMessageDispatchResult,
 	};
 	use codec::Encode;
 	use pallet_bridge_messages::OutboundLanes;
@@ -928,8 +928,8 @@ mod tests {
 			let dispatch_result =
 				FromMillauMessageDispatch::dispatch(&AccountId::from([0u8; 32]), incoming_message);
 			assert!(matches!(
-				dispatch_result.dispatch_result,
-				Err(XcmBlobMessageDispatchError::NotDispatched(_)),
+				dispatch_result.dispatch_level_result,
+				XcmBlobMessageDispatchResult::NotDispatched(_),
 			));
 		});
 	}

@@ -90,7 +90,7 @@ pub trait MessageDispatch<AccountId> {
 	type DispatchPayload: Decode;
 
 	/// Fine-grained result of single message dispatch (for better diagnostic purposes)
-	type DispatchError: Clone + sp_std::fmt::Debug + Eq;
+	type DispatchLevelResult: Clone + sp_std::fmt::Debug + Eq;
 
 	/// Estimate dispatch weight.
 	///
@@ -109,7 +109,7 @@ pub trait MessageDispatch<AccountId> {
 	fn dispatch(
 		relayer_account: &AccountId,
 		message: DispatchMessage<Self::DispatchPayload>,
-	) -> MessageDispatchResult<Self::DispatchError>;
+	) -> MessageDispatchResult<Self::DispatchLevelResult>;
 }
 
 /// Manages payments that are happening at the target chain during message delivery transaction.
@@ -190,7 +190,7 @@ impl<MessagesProof, DispatchPayload: Decode, AccountId> MessageDispatch<AccountI
 	for ForbidInboundMessages<MessagesProof, DispatchPayload>
 {
 	type DispatchPayload = DispatchPayload;
-	type DispatchError = ();
+	type DispatchLevelResult = ();
 
 	fn dispatch_weight(_message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {
 		Weight::MAX
@@ -199,7 +199,7 @@ impl<MessagesProof, DispatchPayload: Decode, AccountId> MessageDispatch<AccountI
 	fn dispatch(
 		_: &AccountId,
 		_: DispatchMessage<Self::DispatchPayload>,
-	) -> MessageDispatchResult<Self::DispatchError> {
-		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_result: Err(()) }
+	) -> MessageDispatchResult<Self::DispatchLevelResult> {
+		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result: () }
 	}
 }

@@ -47,7 +47,6 @@ xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "maste
 
 [dev-dependencies]
 bp-test-utils = { path = "../../primitives/test-utils" }
-bitvec = { version = "1", features = ["alloc"] }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 [features]

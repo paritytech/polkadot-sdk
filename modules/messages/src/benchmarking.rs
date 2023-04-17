@@ -301,7 +301,7 @@ benchmarks_instance_pallet! {
 			inbound_lane_data: InboundLaneData {
 				relayers: vec![UnrewardedRelayer {
 					relayer: relayer_id.clone(),
-					messages: DeliveredMessages::new(1, true),
+					messages: DeliveredMessages::new(1),
 				}].into_iter().collect(),
 				last_confirmed_nonce: 0,
 			},
@@ -333,8 +333,8 @@ benchmarks_instance_pallet! {
 			total_messages: 2,
 			last_delivered_nonce: 2,
 		};
-		let mut delivered_messages = DeliveredMessages::new(1, true);
-		delivered_messages.note_dispatched_message(true);
+		let mut delivered_messages = DeliveredMessages::new(1);
+		delivered_messages.note_dispatched_message();
 		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
 			lane: T::bench_lane_id(),
 			inbound_lane_data: InboundLaneData {
@@ -379,11 +379,11 @@ benchmarks_instance_pallet! {
 				relayers: vec![
 					UnrewardedRelayer {
 						relayer: relayer1_id.clone(),
-						messages: DeliveredMessages::new(1, true),
+						messages: DeliveredMessages::new(1),
 					},
 					UnrewardedRelayer {
 						relayer: relayer2_id.clone(),
-						messages: DeliveredMessages::new(2, true),
+						messages: DeliveredMessages::new(2),
 					},
 				].into_iter().collect(),
 				last_confirmed_nonce: 0,
@@ -451,7 +451,7 @@ fn receive_messages<T: Config<I>, I: 'static>(nonce: MessageNonce) {
 	inbound_lane_storage.set_data(InboundLaneData {
 		relayers: vec![UnrewardedRelayer {
 			relayer: T::bridged_relayer_id(),
-			messages: DeliveredMessages::new(nonce, true),
+			messages: DeliveredMessages::new(nonce),
 		}]
 		.into_iter()
 		.collect(),
