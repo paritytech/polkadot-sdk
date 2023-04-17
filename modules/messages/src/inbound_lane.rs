@@ -198,19 +198,17 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 		);
 
 		// now let's update inbound lane storage
-		let push_new = match data.relayers.back_mut() {
+		match data.relayers.back_mut() {
 			Some(entry) if entry.relayer == *relayer_at_bridged_chain => {
 				entry.messages.note_dispatched_message();
-				false
 			},
-			_ => true,
+			_ => {
+				data.relayers.push_back(UnrewardedRelayer {
+					relayer: relayer_at_bridged_chain.clone(),
+					messages: DeliveredMessages::new(nonce),
+				});
+			},
 		};
-		if push_new {
-			data.relayers.push_back(UnrewardedRelayer {
-				relayer: (*relayer_at_bridged_chain).clone(),
-				messages: DeliveredMessages::new(nonce),
-			});
-		}
 		self.storage.set_data(data);
 
 		ReceivalResult::Dispatched(dispatch_result)
