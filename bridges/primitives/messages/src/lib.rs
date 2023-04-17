@@ -164,11 +164,9 @@ impl<RelayerId> InboundLaneData<RelayerId> {
 	where
 		RelayerId: MaxEncodedLen,
 	{
-		let message_nonce_size = MessageNonce::max_encoded_len();
-		let relayer_id_encoded_size = RelayerId::max_encoded_len();
-		let relayers_entry_size = relayer_id_encoded_size.checked_add(2 * message_nonce_size)?;
-		let relayers_size = relayers_entries.checked_mul(relayers_entry_size)?;
-		relayers_size.checked_add(message_nonce_size)
+		relayers_entries
+			.checked_mul(UnrewardedRelayer::<RelayerId>::max_encoded_len())?
+			.checked_add(MessageNonce::max_encoded_len())
 	}
 
 	/// Returns the approximate size of the struct as u32, given a number of entries in the
@@ -223,7 +221,7 @@ pub struct InboundMessageDetails {
 ///
 /// This struct represents a continuous range of messages that have been delivered by the same
 /// relayer and whose confirmations are still pending.
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, TypeInfo)]
+#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub struct UnrewardedRelayer<RelayerId> {
 	/// Identifier of the relayer.
 	pub relayer: RelayerId,
@@ -270,7 +268,7 @@ pub enum ReceivalResult<DispatchLevelResult> {
 }
 
 /// Delivered messages with their dispatch result.
-#[derive(Clone, Default, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
+#[derive(Clone, Default, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub struct DeliveredMessages {
 	/// Nonce of the first message that has been delivered (inclusive).
 	pub begin: MessageNonce,
