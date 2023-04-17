@@ -855,7 +855,7 @@ impl_runtime_apis! {
 		AccountId,
 	> for Runtime
 	{
-		fn query_account_balances(account: AccountId) -> Result<Vec<xcm::latest::MultiAsset>, assets_common::runtime_api::FungiblesAccessError> {
+		fn query_account_balances(account: AccountId) -> Result<xcm::VersionedMultiAssets, assets_common::runtime_api::FungiblesAccessError> {
 			use assets_common::fungible_conversion::{convert, convert_balance};
 			Ok([
 				// collect pallet_balance
@@ -874,7 +874,7 @@ impl_runtime_apis! {
 						.filter(|(_, balance)| balance > &0)
 				)?,
 				// collect ... e.g. pallet_assets ForeignAssets
-			].concat())
+			].concat().into())
 		}
 	}
 

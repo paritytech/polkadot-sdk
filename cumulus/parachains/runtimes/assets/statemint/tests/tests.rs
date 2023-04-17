@@ -389,7 +389,11 @@ fn test_assets_balances_api_works() {
 			// check before
 			assert_eq!(Assets::balance(local_asset_id, AccountId::from(ALICE)), 0);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), 0);
-			assert!(Runtime::query_account_balances(AccountId::from(ALICE)).unwrap().is_empty());
+			assert!(Runtime::query_account_balances(AccountId::from(ALICE))
+				.unwrap()
+				.try_as::<MultiAssets>()
+				.unwrap()
+				.is_none());
 
 			// Drip some balance
 			use frame_support::traits::fungible::Mutate;
@@ -421,18 +425,21 @@ fn test_assets_balances_api_works() {
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), some_currency);
 
-			let result = Runtime::query_account_balances(AccountId::from(ALICE)).unwrap();
+			let result: MultiAssets = Runtime::query_account_balances(AccountId::from(ALICE))
+				.unwrap()
+				.try_into()
+				.unwrap();
 			assert_eq!(result.len(), 2);
 
 			// check currency
-			assert!(result.iter().any(|asset| asset.eq(
+			assert!(result.inner().iter().any(|asset| asset.eq(
 				&assets_common::fungible_conversion::convert_balance::<DotLocation, Balance>(
 					some_currency
 				)
 				.unwrap()
 			)));
 			// check trusted asset
-			assert!(result.iter().any(|asset| asset.eq(&(
+			assert!(result.inner().iter().any(|asset| asset.eq(&(
 				AssetIdForTrustBackedAssetsConvert::reverse_ref(local_asset_id).unwrap(),
 				minimum_asset_balance
 			)
