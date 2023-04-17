@@ -22,7 +22,7 @@ use scale_info::TypeInfo;
 
 /// Message dispatch result.
 #[derive(Encode, Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
-pub struct MessageDispatchResult<DispatchError> {
+pub struct MessageDispatchResult<DispatchLevelResult> {
 	/// Unspent dispatch weight. This weight that will be deducted from total delivery transaction
 	/// weight, thus reducing the transaction cost. This shall not be zero in (at least) two cases:
 	///
@@ -31,5 +31,5 @@ pub struct MessageDispatchResult<DispatchError> {
 	/// 2) if message has not been dispatched at all.
 	pub unspent_weight: Weight,
 	/// Fine-grained result of single message dispatch (for better diagnostic purposes)
-	pub dispatch_result: Result<(), DispatchError>,
+	pub dispatch_level_result: DispatchLevelResult,
 }
