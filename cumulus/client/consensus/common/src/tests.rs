@@ -765,6 +765,12 @@ fn restore_limit_monitor() {
 		LevelLimit::Some(LEVEL_LIMIT),
 	);
 
+	let monitor_sd = para_import.monitor.clone().unwrap();
+
+	let monitor = monitor_sd.shared_data();
+	assert_eq!(monitor.import_counter, 3);
+	std::mem::drop(monitor);
+
 	let block13 = build_and_import_block_ext(
 		&*client,
 		BlockOrigin::Own,
@@ -783,14 +789,13 @@ fn restore_limit_monitor() {
 	let expected = vec![blocks1[1].header.hash(), block13.header.hash()];
 	assert_eq!(leaves, expected);
 
-	let monitor = para_import.monitor.unwrap();
-	let monitor = monitor.shared_data();
-	assert_eq!(monitor.import_counter, 5);
+	let monitor = monitor_sd.shared_data();
+	assert_eq!(monitor.import_counter, 4);
 	assert!(monitor.levels.iter().all(|(number, hashes)| {
 		hashes
 			.iter()
 			.filter(|hash| **hash != block13.header.hash())
 			.all(|hash| *number == *monitor.freshness.get(hash).unwrap())
 	}));
-	assert_eq!(*monitor.freshness.get(&block13.header.hash()).unwrap(), monitor.import_counter - 1);
+	assert_eq!(*monitor.freshness.get(&block13.header.hash()).unwrap(), monitor.import_counter);
 }
