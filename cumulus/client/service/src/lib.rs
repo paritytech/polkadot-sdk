@@ -70,6 +70,7 @@ pub struct StartCollatorParams<'a, Block: BlockT, BS, Client, RCInterface, Spawn
 	pub collator_key: CollatorPair,
 	pub relay_chain_slot_duration: Duration,
 	pub recovery_handle: Box<dyn RecoveryHandle>,
+	pub sync_service: Arc<SyncingService<Block>>,
 }
 
 /// Start a collator node for a parachain.
@@ -91,6 +92,7 @@ pub async fn start_collator<'a, Block, BS, Client, Backend, RCInterface, Spawner
 		collator_key,
 		relay_chain_slot_duration,
 		recovery_handle,
+		sync_service,
 	}: StartCollatorParams<'a, Block, BS, Client, RCInterface, Spawner>,
 ) -> sc_service::error::Result<()>
 where
@@ -136,6 +138,7 @@ where
 		relay_chain_interface.clone(),
 		para_id,
 		recovery_chan_rx,
+		sync_service,
 	);
 
 	task_manager
@@ -170,6 +173,7 @@ pub struct StartFullNodeParams<'a, Block: BlockT, Client, RCInterface> {
 	pub relay_chain_slot_duration: Duration,
 	pub import_queue: Box<dyn ImportQueueService<Block>>,
 	pub recovery_handle: Box<dyn RecoveryHandle>,
+	pub sync_service: Arc<SyncingService<Block>>,
 }
 
 /// Start a full node for a parachain.
@@ -186,6 +190,7 @@ pub fn start_full_node<Block, Client, Backend, RCInterface>(
 		relay_chain_slot_duration,
 		import_queue,
 		recovery_handle,
+		sync_service,
 	}: StartFullNodeParams<Block, Client, RCInterface>,
 ) -> sc_service::error::Result<()>
 where
@@ -231,6 +236,7 @@ where
 		relay_chain_interface,
 		para_id,
 		recovery_chan_rx,
+		sync_service,
 	);
 
 	task_manager

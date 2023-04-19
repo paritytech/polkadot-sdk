@@ -433,6 +433,7 @@ where
 			import_queue: import_queue_service,
 			relay_chain_slot_duration: Duration::from_secs(6),
 			recovery_handle,
+			sync_service,
 		};
 
 		start_collator(params).await?;
@@ -446,6 +447,7 @@ where
 			import_queue: import_queue_service,
 			relay_chain_slot_duration: Duration::from_secs(6),
 			recovery_handle,
+			sync_service,
 		};
 
 		start_full_node(params)?;
