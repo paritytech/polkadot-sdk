@@ -68,15 +68,15 @@ pub enum Subcommand {
 	Inspect(node_inspect::cli::InspectCmd),
 
 	/// Benchmark runtime pallets.
-	#[clap(subcommand)]
+	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
 	/// FOR INTERNAL USE: analog of the "prepare-worker" command of the polkadot binary.
-	#[clap(name = "prepare-worker", hide = true)]
+	#[command(name = "prepare-worker", hide = true)]
 	PvfPrepareWorker(ValidationWorkerCommand),
 
 	/// FOR INTERNAL USE: analog of the "execute-worker" command of the polkadot binary.
-	#[clap(name = "execute-worker", hide = true)]
+	#[command(name = "execute-worker", hide = true)]
 	PvfExecuteWorker(ValidationWorkerCommand),
 }
 
@@ -84,5 +84,9 @@ pub enum Subcommand {
 #[derive(Debug, Parser)]
 pub struct ValidationWorkerCommand {
 	/// The path to the validation host's socket.
+	#[arg(long)]
 	pub socket_path: String,
+	/// Calling node implementation version
+	#[arg(long)]
+	pub node_impl_version: String,
 }
