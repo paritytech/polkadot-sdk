@@ -20,7 +20,7 @@
 //! pallet is used to dispatch incoming messages. Message identified by a tuple
 //! of to elements - message lane id and message nonce.
 
-pub use bp_runtime::{UnderlyingChainOf, UnderlyingChainProvider};
+pub use bp_runtime::{RangeInclusiveExt, UnderlyingChainOf, UnderlyingChainProvider};
 
 use bp_header_chain::{HeaderChain, HeaderChainError};
 use bp_messages::{
@@ -365,6 +365,7 @@ pub mod target {
 			nonces_start,
 			nonces_end,
 		} = proof;
+		let nonces_range = nonces_start..=nonces_end;
 
 		B::BridgedHeaderChain::parse_finalized_storage_proof(
 			bridged_header_hash,
@@ -374,26 +375,17 @@ pub mod target {
 					StorageProofCheckerAdapter::<_, B> { storage, _dummy: Default::default() };
 
 				// receiving proofs where end < begin is ok (if proof includes outbound lane state)
-				let messages_in_the_proof =
-					if let Some(nonces_difference) = nonces_end.checked_sub(nonces_start) {
-						// let's check that the user (relayer) has passed correct `messages_count`
-						// (this bounds maximal capacity of messages vec below)
-						let messages_in_the_proof = nonces_difference.saturating_add(1);
-						if messages_in_the_proof != MessageNonce::from(messages_count) {
-							return Err(Error::MessagesCountMismatch)
-						}
-
-						messages_in_the_proof
-					} else {
-						0
-					};
+				let messages_in_the_proof = nonces_range.checked_len().unwrap_or(0);
+				if messages_in_the_proof != MessageNonce::from(messages_count) {
+					return Err(Error::MessagesCountMismatch)
+				}
 
 				// Read messages first. All messages that are claimed to be in the proof must
 				// be in the proof. So any error in `read_value`, or even missing value is fatal.
 				//
 				// Mind that we allow proofs with no messages if outbound lane state is proved.
 				let mut messages = Vec::with_capacity(messages_in_the_proof as _);
-				for nonce in nonces_start..=nonces_end {
+				for nonce in nonces_range {
 					let message_key = MessageKey { lane_id: lane, nonce };
 					let message_payload = parser.read_and_decode_message_payload(&message_key)?;
 					messages.push(Message { key: message_key, payload: message_payload });
