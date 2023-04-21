@@ -55,7 +55,7 @@ pub trait Chain: ChainBase + Clone {
 	/// Block type.
 	type SignedBlock: Member + Serialize + DeserializeOwned + BlockWithJustification<Self::Header>;
 	/// The aggregated `Call` type.
-	type Call: Clone + Codec + Debug + Send;
+	type Call: Clone + Codec + Debug + Send + Sync;
 }
 
 /// Substrate-based relay chain that supports parachains.

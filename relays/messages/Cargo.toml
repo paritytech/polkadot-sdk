@@ -8,6 +8,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 [dependencies]
 async-std = { version = "1.6.5", features = ["attributes"] }
 async-trait = "0.1"
+env_logger = "0.10"
 futures = "0.3.28"
 hex = "0.4"
 log = "0.4.17"

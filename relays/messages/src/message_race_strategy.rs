@@ -205,16 +205,16 @@ impl<
 		self.source_queue.is_empty()
 	}
 
-	fn required_source_header_at_target<
+	async fn required_source_header_at_target<
 		RS: RaceState<
 			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
 			HeaderId<TargetHeaderHash, TargetHeaderNumber>,
 		>,
 	>(
 		&self,
-		current_best: &HeaderId<SourceHeaderHash, SourceHeaderNumber>,
-		_race_state: RS,
+		race_state: RS,
 	) -> Option<HeaderId<SourceHeaderHash, SourceHeaderNumber>> {
+		let current_best = race_state.best_finalized_source_header_id_at_best_target()?;
 		self.source_queue
 			.back()
 			.and_then(|(h, _)| if h.0 > current_best.0 { Some(h.clone()) } else { None })
