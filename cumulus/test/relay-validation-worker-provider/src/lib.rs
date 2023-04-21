@@ -21,7 +21,7 @@
 //!
 //! !!This should only be used for tests!!
 
-pub use polkadot_node_core_pvf;
+pub use polkadot_node_core_pvf_worker;
 
 /// The path to the validation worker.
 pub const VALIDATION_WORKER: &str = concat!(env!("OUT_DIR"), "/validation-worker");
