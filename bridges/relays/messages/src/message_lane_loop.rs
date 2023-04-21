@@ -111,7 +111,7 @@ pub struct NoncesSubmitArtifacts<T> {
 
 /// Batch transaction that already submit some headers and needs to be extended with
 /// messages/delivery proof before sending.
-pub trait BatchTransaction<HeaderId>: Debug + Send {
+pub trait BatchTransaction<HeaderId>: Debug + Send + Sync {
 	/// Header that was required in the original call and which is bundled within this
 	/// batch transaction.
 	fn required_header_id(&self) -> HeaderId;
@@ -622,11 +622,19 @@ pub(crate) mod tests {
 	}
 
 	impl TestClientData {
-		fn receive_messages(&mut self, proof: TestMessagesProof) {
+		fn receive_messages(
+			&mut self,
+			maybe_batch_tx: Option<TestMessagesBatchTransaction>,
+			proof: TestMessagesProof,
+		) {
 			self.target_state.best_self =
 				HeaderId(self.target_state.best_self.0 + 1, self.target_state.best_self.1 + 1);
 			self.target_state.best_finalized_self = self.target_state.best_self;
 			self.target_latest_received_nonce = *proof.0.end();
+			if let Some(maybe_batch_tx) = maybe_batch_tx {
+				self.target_state.best_finalized_peer_at_best_self =
+					Some(maybe_batch_tx.required_header_id());
+			}
 			if let Some(target_latest_confirmed_received_nonce) = proof.1 {
 				self.target_latest_confirmed_received_nonce =
 					target_latest_confirmed_received_nonce;
@@ -634,10 +642,18 @@ pub(crate) mod tests {
 			self.submitted_messages_proofs.push(proof);
 		}
 
-		fn receive_messages_delivery_proof(&mut self, proof: TestMessagesReceivingProof) {
+		fn receive_messages_delivery_proof(
+			&mut self,
+			maybe_batch_tx: Option<TestConfirmationBatchTransaction>,
+			proof: TestMessagesReceivingProof,
+		) {
 			self.source_state.best_self =
 				HeaderId(self.source_state.best_self.0 + 1, self.source_state.best_self.1 + 1);
 			self.source_state.best_finalized_self = self.source_state.best_self;
+			if let Some(maybe_batch_tx) = maybe_batch_tx {
+				self.source_state.best_finalized_peer_at_best_self =
+					Some(maybe_batch_tx.required_header_id());
+			}
 			self.submitted_messages_receiving_proofs.push(proof);
 			self.source_latest_confirmed_received_nonce = proof;
 		}
@@ -760,13 +776,13 @@ pub(crate) mod tests {
 
 		async fn submit_messages_receiving_proof(
 			&self,
-			_maybe_batch_tx: Option<Self::BatchTransaction>,
+			maybe_batch_tx: Option<Self::BatchTransaction>,
 			_generated_at_block: TargetHeaderIdOf<TestMessageLane>,
 			proof: TestMessagesReceivingProof,
 		) -> Result<Self::TransactionTracker, TestError> {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
-			data.receive_messages_delivery_proof(proof);
+			data.receive_messages_delivery_proof(maybe_batch_tx, proof);
 			(self.post_tick)(&mut data);
 			Ok(TestTransactionTracker(data.source_tracked_transaction_status))
 		}
@@ -885,7 +901,7 @@ pub(crate) mod tests {
 
 		async fn submit_messages_proof(
 			&self,
-			_maybe_batch_tx: Option<Self::BatchTransaction>,
+			maybe_batch_tx: Option<Self::BatchTransaction>,
 			_generated_at_header: SourceHeaderIdOf<TestMessageLane>,
 			nonces: RangeInclusive<MessageNonce>,
 			proof: TestMessagesProof,
@@ -895,7 +911,7 @@ pub(crate) mod tests {
 			if data.is_target_fails {
 				return Err(TestError)
 			}
-			data.receive_messages(proof);
+			data.receive_messages(maybe_batch_tx, proof);
 			(self.post_tick)(&mut data);
 			Ok(NoncesSubmitArtifacts {
 				nonces,
