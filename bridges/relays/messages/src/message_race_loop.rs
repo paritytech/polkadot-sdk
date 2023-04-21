@@ -41,14 +41,14 @@ use std::{
 /// One of races within lane.
 pub trait MessageRace {
 	/// Header id of the race source.
-	type SourceHeaderId: Debug + Clone + PartialEq + Send;
+	type SourceHeaderId: Debug + Clone + PartialEq + Send + Sync;
 	/// Header id of the race source.
-	type TargetHeaderId: Debug + Clone + PartialEq + Send;
+	type TargetHeaderId: Debug + Clone + PartialEq + Send + Sync;
 
 	/// Message nonce used in the race.
 	type MessageNonce: Debug + Clone;
 	/// Proof that is generated and delivered in this race.
-	type Proof: Debug + Clone + Send;
+	type Proof: Debug + Clone + Send + Sync;
 
 	/// Name of the race source.
 	fn source_name() -> String;
@@ -175,9 +175,8 @@ pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, Proof>: Debug {
 	/// Should return true if nothing has to be synced.
 	fn is_empty(&self) -> bool;
 	/// Return id of source header that is required to be on target to continue synchronization.
-	fn required_source_header_at_target<RS: RaceState<SourceHeaderId, TargetHeaderId>>(
+	async fn required_source_header_at_target<RS: RaceState<SourceHeaderId, TargetHeaderId>>(
 		&self,
-		current_best: &SourceHeaderId,
 		race_state: RS,
 	) -> Option<SourceHeaderId>;
 	/// Return the best nonce at source node.
@@ -218,7 +217,11 @@ pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, Proof>: Debug {
 }
 
 /// State of the race.
-pub trait RaceState<SourceHeaderId, TargetHeaderId>: Send {
+pub trait RaceState<SourceHeaderId, TargetHeaderId>: Clone + Send + Sync {
+	/// Set best finalized source header id at the best block on the target
+	/// client (at the `best_finalized_source_header_id_at_best_target`).
+	fn set_best_finalized_source_header_id_at_best_target(&mut self, id: SourceHeaderId);
+
 	/// Best finalized source header id at the source client.
 	fn best_finalized_source_header_id_at_source(&self) -> Option<SourceHeaderId>;
 	/// Best finalized source header id at the best block on the target
@@ -281,11 +284,15 @@ impl<SourceHeaderId, TargetHeaderId, Proof, BatchTx> Default
 impl<SourceHeaderId, TargetHeaderId, Proof, BatchTx> RaceState<SourceHeaderId, TargetHeaderId>
 	for RaceStateImpl<SourceHeaderId, TargetHeaderId, Proof, BatchTx>
 where
-	SourceHeaderId: Clone + Send,
-	TargetHeaderId: Clone + Send,
-	Proof: Clone + Send,
-	BatchTx: Clone + Send,
+	SourceHeaderId: Clone + Send + Sync,
+	TargetHeaderId: Clone + Send + Sync,
+	Proof: Clone + Send + Sync,
+	BatchTx: Clone + Send + Sync,
 {
+	fn set_best_finalized_source_header_id_at_best_target(&mut self, id: SourceHeaderId) {
+		self.best_finalized_source_header_id_at_best_target = Some(id);
+	}
+
 	fn best_finalized_source_header_id_at_source(&self) -> Option<SourceHeaderId> {
 		self.best_finalized_source_header_id_at_source.clone()
 	}
@@ -430,10 +437,9 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 				).fail_if_connection_error(FailedClient::Source)?;
 
 				// ask for more headers if we have nonces to deliver and required headers are missing
-				source_required_header = race_state
-					.best_finalized_source_header_id_at_best_target
-					.as_ref()
-					.and_then(|best| strategy.required_source_header_at_target(best, race_state.clone()));
+				source_required_header = strategy
+					.required_source_header_at_target(race_state.clone())
+					.await;
 			},
 			nonces = target_best_nonces => {
 				target_best_nonces_required = false;

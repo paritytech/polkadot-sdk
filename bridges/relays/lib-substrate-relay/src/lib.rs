@@ -91,7 +91,7 @@ impl<AccountId> TaggedAccount<AccountId> {
 }
 
 /// Batch call builder.
-pub trait BatchCallBuilder<Call>: Clone + Send {
+pub trait BatchCallBuilder<Call>: Clone + Send + Sync {
 	/// Create batch call from given calls vector.
 	fn build_batch_call(&self, _calls: Vec<Call>) -> Call;
 }
