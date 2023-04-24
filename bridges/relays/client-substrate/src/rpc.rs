@@ -73,7 +73,7 @@ pub(crate) trait SubstrateAuthor<C> {
 	async fn pending_extrinsics(&self) -> RpcResult<Vec<Bytes>>;
 	/// Submit and watch for extrinsic state.
 	#[subscription(name = "submitAndWatchExtrinsic", unsubscribe = "unwatchExtrinsic", item = TransactionStatusOf<C>)]
-	fn submit_and_watch_extrinsic(&self, extrinsic: Bytes);
+	async fn submit_and_watch_extrinsic(&self, extrinsic: Bytes);
 }
 
 /// RPC methods of Substrate `state` namespace, that we are using.
@@ -118,7 +118,7 @@ pub trait SubstrateFinalityClient<C: Chain> {
 pub(crate) trait SubstrateGrandpa<C> {
 	/// Subscribe to GRANDPA justifications.
 	#[subscription(name = "subscribeJustifications", unsubscribe = "unsubscribeJustifications", item = Bytes)]
-	fn subscribe_justifications(&self);
+	async fn subscribe_justifications(&self);
 }
 
 /// RPC finality methods of Substrate `grandpa` namespace, that we are using.
@@ -136,7 +136,7 @@ impl<C: ChainWithGrandpa> SubstrateFinalityClient<C> for SubstrateGrandpaFinalit
 pub(crate) trait SubstrateBeefy<C> {
 	/// Subscribe to BEEFY justifications.
 	#[subscription(name = "subscribeJustifications", unsubscribe = "unsubscribeJustifications", item = Bytes)]
-	fn subscribe_justifications(&self);
+	async fn subscribe_justifications(&self);
 }
 
 /// RPC finality methods of Substrate `beefy` namespace, that we are using.
