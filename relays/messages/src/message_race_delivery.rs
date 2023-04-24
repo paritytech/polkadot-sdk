@@ -322,6 +322,16 @@ where
 		&self,
 		race_state: RS,
 	) -> Option<(RangeInclusive<MessageNonce>, MessageProofParameters)> {
+		// if we have already selected nonces that we want to submit, do nothing
+		if race_state.nonces_to_submit().is_some() {
+			return None
+		}
+
+		// if we already submitted some nonces, do nothing
+		if race_state.nonces_submitted().is_some() {
+			return None
+		}
+
 		let best_target_nonce = self.strategy.best_at_target()?;
 		let best_finalized_source_header_id_at_best_target =
 			race_state.best_finalized_source_header_id_at_best_target()?;
@@ -1301,8 +1311,6 @@ mod tests {
 			},
 		));
 
-		// TODO: also fix + test `required_source_header_at_target`
-
 		// when lane is NOT blocked
 		let (mut state, mut strategy) = prepare_strategy();
 		at_target_block_2_deliver_messages(
@@ -1369,5 +1377,31 @@ mod tests {
 			at_target_block_3_select_nonces_to_deliver(&strategy, state).await,
 			expected_rewards_proof
 		);
+
+		// when we have already selected some nonces to deliver, we don't need to select anything
+		let (mut state, mut strategy) = prepare_strategy();
+		at_target_block_2_deliver_messages(
+			&mut strategy,
+			&mut state,
+			max_unrewarded_relayer_entries_at_target - 1,
+			max_unconfirmed_nonces_at_target,
+		);
+		at_source_block_2_deliver_confirmations(&mut strategy, &mut state);
+		state.nonces_to_submit = Some((header_id(2), 1..=0, (1..=0, None)));
+		assert_eq!(strategy.required_source_header_at_target(state.clone()).await, None);
+		assert_eq!(at_target_block_3_select_nonces_to_deliver(&strategy, state).await, None);
+
+		// when we have already submitted some nonces, we don't need to select anything
+		let (mut state, mut strategy) = prepare_strategy();
+		at_target_block_2_deliver_messages(
+			&mut strategy,
+			&mut state,
+			max_unrewarded_relayer_entries_at_target - 1,
+			max_unconfirmed_nonces_at_target,
+		);
+		at_source_block_2_deliver_confirmations(&mut strategy, &mut state);
+		state.nonces_submitted = Some(1..=0);
+		assert_eq!(strategy.required_source_header_at_target(state.clone()).await, None);
+		assert_eq!(at_target_block_3_select_nonces_to_deliver(&strategy, state).await, None);
 	}
 }
