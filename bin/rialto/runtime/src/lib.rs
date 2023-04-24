@@ -495,7 +495,7 @@ construct_runtime!(
 		Scheduler: polkadot_runtime_parachains::scheduler::{Pallet, Storage},
 		Paras: polkadot_runtime_parachains::paras::{Pallet, Call, Storage, Event, Config},
 		Initializer: polkadot_runtime_parachains::initializer::{Pallet, Call, Storage},
-		Dmp: polkadot_runtime_parachains::dmp::{Pallet, Call, Storage},
+		Dmp: polkadot_runtime_parachains::dmp::{Pallet, Storage},
 		Ump: polkadot_runtime_parachains::ump::{Pallet, Call, Storage, Event},
 		Hrmp: polkadot_runtime_parachains::hrmp::{Pallet, Call, Storage, Event<T>, Config},
 		SessionInfo: polkadot_runtime_parachains::session_info::{Pallet, Storage},

@@ -138,13 +138,11 @@ impl Error {
 impl MaybeConnectionError for Error {
 	fn is_connection_error(&self) -> bool {
 		match *self {
-			Error::RpcError(RpcError::Transport(_))
-				// right now if connection to the ws server is dropped (after it is already established),
-				// we're getting this error
-				| Error::RpcError(RpcError::Internal(_))
-				| Error::RpcError(RpcError::RestartNeeded(_))
-				| Error::ClientNotSynced(_) => true,
-			Error::FailedToReadBestFinalizedHeaderHash { ref error, .. } => error.is_connection_error(),
+			Error::RpcError(RpcError::Transport(_)) |
+			Error::RpcError(RpcError::RestartNeeded(_)) |
+			Error::ClientNotSynced(_) => true,
+			Error::FailedToReadBestFinalizedHeaderHash { ref error, .. } =>
+				error.is_connection_error(),
 			Error::FailedToReadBestHeader { ref error, .. } => error.is_connection_error(),
 			Error::FailedToReadHeaderByHash { ref error, .. } => error.is_connection_error(),
 			Error::ErrorExecutingRuntimeCall { ref error, .. } => error.is_connection_error(),
