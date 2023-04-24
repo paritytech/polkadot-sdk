@@ -335,10 +335,10 @@ where
 		let best_target_nonce = self.strategy.best_at_target()?;
 		let best_finalized_source_header_id_at_best_target =
 			race_state.best_finalized_source_header_id_at_best_target()?;
+		let target_nonces = self.target_nonces.as_ref()?;
 		let latest_confirmed_nonce_at_source = self
 			.latest_confirmed_nonce_at_source(&best_finalized_source_header_id_at_best_target)
-			.unwrap_or(best_target_nonce);
-		let target_nonces = self.target_nonces.as_ref()?;
+			.unwrap_or(target_nonces.nonces_data.confirmed_nonce);
 
 		// There's additional condition in the message delivery race: target would reject messages
 		// if there are too much unconfirmed messages at the inbound lane.
@@ -1403,5 +1403,38 @@ mod tests {
 		state.nonces_submitted = Some(1..=0);
 		assert_eq!(strategy.required_source_header_at_target(state.clone()).await, None);
 		assert_eq!(at_target_block_3_select_nonces_to_deliver(&strategy, state).await, None);
+	}
+
+	#[async_std::test]
+	async fn outbound_state_proof_is_not_required_when_we_have_no_new_confirmations() {
+		let (mut state, mut strategy) = prepare_strategy();
+
+		// pretend that we haven't seen any confirmations yet (or they're at the future target chain
+		// blocks)
+		strategy.latest_confirmed_nonces_at_source.clear();
+
+		// emulate delivery of some nonces (20..=23 are generated, but we only deliver 20..=21)
+		let nonces_at_target = TargetClientNonces {
+			latest_nonce: 21,
+			nonces_data: DeliveryRaceTargetNoncesData {
+				confirmed_nonce: 19,
+				unrewarded_relayers: UnrewardedRelayersState {
+					unrewarded_relayer_entries: 1,
+					total_messages: 2,
+					..Default::default()
+				},
+			},
+		};
+		state.best_target_header_id = Some(header_id(2));
+		state.best_finalized_target_header_id = Some(header_id(2));
+		strategy.best_target_nonces_updated(nonces_at_target.clone(), &mut state);
+		strategy.finalized_target_nonces_updated(nonces_at_target, &mut state);
+
+		// we won't include outbound lane state proof into 22..=23 delivery transaction
+		// because it brings no new reward confirmations
+		assert_eq!(
+			strategy.select_nonces_to_deliver(state).await,
+			Some(((22..=23), proof_parameters(false, 2)))
+		);
 	}
 }
