@@ -231,7 +231,7 @@ impl<C: Chain> Client<C> {
 		let client = tokio
 			.spawn(async move {
 				RpcClientBuilder::default()
-					.max_notifs_per_subscription(MAX_SUBSCRIPTION_CAPACITY)
+					.max_buffer_capacity_per_subscription(MAX_SUBSCRIPTION_CAPACITY)
 					.build(&uri)
 					.await
 			})
