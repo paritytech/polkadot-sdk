@@ -78,6 +78,7 @@ pub fn teleports_for_native_asset_works<
 	unwrap_xcmp_queue_event: Box<
 		dyn Fn(Vec<u8>) -> Option<cumulus_pallet_xcmp_queue::Event<Runtime>>,
 	>,
+	runtime_para_id: u32,
 ) where
 	Runtime: frame_system::Config
 		+ pallet_balances::Config
@@ -102,7 +103,6 @@ pub fn teleports_for_native_asset_works<
 		Call = cumulus_pallet_parachain_system::Call<Runtime>,
 	>,
 {
-	let runtime_para_id = 1000;
 	ExtBuilder::<Runtime>::default()
 		.with_collators(collator_session_keys.collators())
 		.with_session_keys(collator_session_keys.session_keys())
@@ -273,14 +273,15 @@ macro_rules! include_teleports_for_native_asset_works(
 		$collator_session_key:expr,
 		$existential_deposit:expr,
 		$unwrap_pallet_xcm_event:expr,
-		$unwrap_xcmp_queue_event:expr
+		$unwrap_xcmp_queue_event:expr,
+		$runtime_para_id:expr
 	) => {
 		#[test]
 		fn teleports_for_native_asset_works() {
 			const BOB: [u8; 32] = [2u8; 32];
 			let target_account = parachains_common::AccountId::from(BOB);
 
-			asset_test_utils::test_cases::teleports_for_native_asset_works::<
+			$crate::test_cases::teleports_for_native_asset_works::<
 				$runtime,
 				$xcm_config,
 				$checking_account,
@@ -291,7 +292,8 @@ macro_rules! include_teleports_for_native_asset_works(
 				$existential_deposit,
 				target_account,
 				$unwrap_pallet_xcm_event,
-				$unwrap_xcmp_queue_event
+				$unwrap_xcmp_queue_event,
+				$runtime_para_id
 			)
 		}
 	}
@@ -598,7 +600,7 @@ macro_rules! include_teleports_for_foreign_assets_works(
 			const SOME_ASSET_OWNER: [u8; 32] = [5u8; 32];
 			let asset_owner = parachains_common::AccountId::from(SOME_ASSET_OWNER);
 
-			asset_test_utils::test_cases::teleports_for_foreign_assets_works::<
+			$crate::test_cases::teleports_for_foreign_assets_works::<
 				$runtime,
 				$xcm_config,
 				$checking_account,
@@ -715,7 +717,7 @@ macro_rules! include_asset_transactor_transfer_with_local_consensus_currency_wor
 			const BOB: [u8; 32] = [2u8; 32];
 			let target_account = parachains_common::AccountId::from(BOB);
 
-			asset_test_utils::test_cases::asset_transactor_transfer_with_local_consensus_currency_works::<
+			$crate::test_cases::asset_transactor_transfer_with_local_consensus_currency_works::<
 				$runtime,
 				$xcm_config
 			>(
@@ -969,7 +971,7 @@ macro_rules! include_asset_transactor_transfer_with_pallet_assets_instance_works
 			const CHARLIE: [u8; 32] = [3u8; 32];
 			let charlie_account = parachains_common::AccountId::from(CHARLIE);
 
-			asset_test_utils::test_cases::asset_transactor_transfer_with_pallet_assets_instance_works::<
+			$crate::test_cases::asset_transactor_transfer_with_pallet_assets_instance_works::<
 				$runtime,
 				$xcm_config,
 				$assets_pallet_instance,
@@ -1297,7 +1299,7 @@ macro_rules! include_create_and_manage_foreign_assets_for_local_consensus_parach
 			const BOB: [u8; 32] = [2u8; 32];
 			let bob_account = parachains_common::AccountId::from(BOB);
 
-			asset_test_utils::test_cases::create_and_manage_foreign_assets_for_local_consensus_parachain_assets_works::<
+			$crate::test_cases::create_and_manage_foreign_assets_for_local_consensus_parachain_assets_works::<
 				$runtime,
 				$xcm_config,
 				$weight_to_fee,

@@ -123,7 +123,7 @@ for `release-parachains-v0.9.270`
 5. Clone `it/release-<version>-fast-sudo` from Polkadot
 In case the branch does not exists (it is a manual process): cherry pick paritytech/polkadot@791c8b8 and run
 `find . -type f -name "*.toml" -print0 | xargs -0 sed -i '' -e 's/polkadot-vX.X.X/polkadot-v<version>/g'`
-6. `cargo build --release features --fast-runtime`
+6. `cargo build --release --features fast-runtime`
 7. Copy `./target/polkadot` into `./bin` (in Cumulus)
 8. Run the tests:
 	- Statemint: `yarn zombienet-test -c ./examples/statemint/config.toml -t ./examples/statemint`

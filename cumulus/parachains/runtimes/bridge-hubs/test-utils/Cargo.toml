@@ -1,0 +1,17 @@
+[package]
+name = "bridge-hub-test-utils"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+description = "Utils for BridgeHub testing"
+
+[dependencies]
+
+# Cumulus
+asset-test-utils = { path = "../../assets/test-utils"}
+
+[features]
+default = [ "std" ]
+std = [
+	"asset-test-utils/std",
+]

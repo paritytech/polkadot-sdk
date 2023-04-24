@@ -22,9 +22,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
 
-use polkadot_parachain::primitives::{
-	HeadData, RelayChainBlockNumber, ValidationParams, ValidationResult,
-};
+use polkadot_parachain::primitives::{HeadData, RelayChainBlockNumber, ValidationResult};
 
 use codec::Encode;
 
@@ -238,7 +236,7 @@ where
 		.expect("Could not find `set_validation_data` inherent")
 }
 
-/// Validate the given [`PersistedValidationData`] against the [`ValidationParams`].
+/// Validate the given [`PersistedValidationData`] against the [`MemoryOptimizedValidationParams`].
 fn validate_validation_data(
 	validation_data: &PersistedValidationData,
 	relay_parent_number: RelayChainBlockNumber,

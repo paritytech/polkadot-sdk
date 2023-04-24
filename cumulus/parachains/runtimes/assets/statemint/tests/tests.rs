@@ -470,7 +470,8 @@ asset_test_utils::include_teleports_for_native_asset_works!(
 			Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
 			_ => None,
 		}
-	})
+	}),
+	1000
 );
 
 asset_test_utils::include_asset_transactor_transfer_with_local_consensus_currency_works!(
