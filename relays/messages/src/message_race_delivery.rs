@@ -343,31 +343,6 @@ where
 		// There's additional condition in the message delivery race: target would reject messages
 		// if there are too much unconfirmed messages at the inbound lane.
 
-		// The receiving race is responsible to deliver confirmations back to the source chain. So
-		// if there's a lot of unconfirmed messages, let's wait until it'll be able to do its job.
-		let latest_received_nonce_at_target = target_nonces.latest_nonce;
-		let confirmations_missing =
-			latest_received_nonce_at_target.checked_sub(latest_confirmed_nonce_at_source);
-		match confirmations_missing {
-			Some(confirmations_missing)
-				if confirmations_missing >= self.max_unconfirmed_nonces_at_target =>
-			{
-				log::debug!(
-					target: "bridge",
-					"Cannot deliver any more messages from {} to {}. Too many unconfirmed nonces \
-					at target: target.latest_received={:?}, source.latest_confirmed={:?}, max={:?}",
-					MessageDeliveryRace::<P>::source_name(),
-					MessageDeliveryRace::<P>::target_name(),
-					latest_received_nonce_at_target,
-					latest_confirmed_nonce_at_source,
-					self.max_unconfirmed_nonces_at_target,
-				);
-
-				return None
-			},
-			_ => (),
-		}
-
 		// Ok - we may have new nonces to deliver. But target may still reject new messages, because
 		// we haven't notified it that (some) messages have been confirmed. So we may want to
 		// include updated `source.latest_confirmed` in the proof.
@@ -375,6 +350,7 @@ where
 		// Important note: we're including outbound state lane proof whenever there are unconfirmed
 		// nonces on the target chain. Other strategy is to include it only if it's absolutely
 		// necessary.
+		let latest_received_nonce_at_target = target_nonces.latest_nonce;
 		let latest_confirmed_nonce_at_target = target_nonces.nonces_data.confirmed_nonce;
 		let outbound_state_proof_required =
 			latest_confirmed_nonce_at_target < latest_confirmed_nonce_at_source;
@@ -583,6 +559,11 @@ where
 			}
 		}
 		self.strategy.source_nonces_updated(at_block, nonces)
+	}
+
+	fn reset_best_target_nonces(&mut self) {
+		self.target_nonces = None;
+		self.strategy.reset_best_target_nonces();
 	}
 
 	fn best_target_nonces_updated<RS: RaceState<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>>>(
@@ -806,22 +787,6 @@ mod tests {
 			strategy.select_nonces_to_deliver(state).await,
 			Some(((20..=23), proof_parameters(false, 4)))
 		);
-	}
-
-	#[async_std::test]
-	async fn message_delivery_strategy_selects_nothing_if_too_many_confirmations_missing() {
-		let (state, mut strategy) = prepare_strategy();
-
-		// if there are already `max_unconfirmed_nonces_at_target` messages on target,
-		// we need to wait until confirmations will be delivered by receiving race
-		strategy.latest_confirmed_nonces_at_source = vec![(
-			header_id(1),
-			strategy.target_nonces.as_ref().unwrap().latest_nonce -
-				strategy.max_unconfirmed_nonces_at_target,
-		)]
-		.into_iter()
-		.collect();
-		assert_eq!(strategy.select_nonces_to_deliver(state).await, None);
 	}
 
 	#[async_std::test]

@@ -254,6 +254,10 @@ impl<
 		)
 	}
 
+	fn reset_best_target_nonces(&mut self) {
+		self.best_target_nonce = None;
+	}
+
 	fn best_target_nonces_updated<
 		RS: RaceState<
 			HeaderId<SourceHeaderHash, SourceHeaderNumber>,
@@ -266,19 +270,37 @@ impl<
 	) {
 		let nonce = nonces.latest_nonce;
 
+		// if **some** of nonces that we have selected to submit already present at the
+		// target chain => select new nonces
 		let need_to_select_new_nonces = race_state
 			.nonces_to_submit()
-			.map(|nonces| *nonces.end() <= nonce)
+			.map(|nonces| nonce >= *nonces.start())
 			.unwrap_or(false);
 		if need_to_select_new_nonces {
+			log::trace!(
+				target: "bridge",
+				"Latest nonce at target is {}. Clearing nonces to submit: {:?}",
+				nonce,
+				race_state.nonces_to_submit(),
+			);
+
 			race_state.reset_nonces_to_submit();
 		}
 
+		// if **some** of nonces that we have submitted already present at the
+		// target chain => select new nonces
 		let need_new_nonces_to_submit = race_state
 			.nonces_submitted()
-			.map(|nonces| *nonces.end() <= nonce)
+			.map(|nonces| nonce >= *nonces.start())
 			.unwrap_or(false);
 		if need_new_nonces_to_submit {
+			log::trace!(
+				target: "bridge",
+				"Latest nonce at target is {}. Clearing submitted nonces: {:?}",
+				nonce,
+				race_state.nonces_submitted(),
+			);
+
 			race_state.reset_nonces_submitted();
 		}
 
@@ -415,10 +437,15 @@ mod tests {
 		let mut state = TestRaceStateImpl::default();
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		state.nonces_to_submit = Some((header_id(1), 5..=10, (5..=10, None)));
-		strategy.best_target_nonces_updated(target_nonces(7), &mut state);
+		// we are going to submit 5..=10, so having latest nonce 4 at target is fine
+		strategy.best_target_nonces_updated(target_nonces(4), &mut state);
 		assert!(state.nonces_to_submit.is_some());
-		strategy.best_target_nonces_updated(target_nonces(10), &mut state);
-		assert!(state.nonces_to_submit.is_none());
+		// any nonce larger than 4 invalidates the `nonces_to_submit`
+		for nonce in 5..=11 {
+			state.nonces_to_submit = Some((header_id(1), 5..=10, (5..=10, None)));
+			strategy.best_target_nonces_updated(target_nonces(nonce), &mut state);
+			assert!(state.nonces_to_submit.is_none());
+		}
 	}
 
 	#[test]
@@ -426,10 +453,15 @@ mod tests {
 		let mut state = TestRaceStateImpl::default();
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		state.nonces_submitted = Some(5..=10);
-		strategy.best_target_nonces_updated(target_nonces(7), &mut state);
+		// we have submitted 5..=10, so having latest nonce 4 at target is fine
+		strategy.best_target_nonces_updated(target_nonces(4), &mut state);
 		assert!(state.nonces_submitted.is_some());
-		strategy.best_target_nonces_updated(target_nonces(10), &mut state);
-		assert!(state.nonces_submitted.is_none());
+		// any nonce larger than 4 invalidates the `nonces_submitted`
+		for nonce in 5..=11 {
+			state.nonces_submitted = Some(5..=10);
+			strategy.best_target_nonces_updated(target_nonces(nonce), &mut state);
+			assert!(state.nonces_submitted.is_none());
+		}
 	}
 
 	#[async_std::test]

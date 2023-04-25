@@ -195,6 +195,9 @@ pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, Proof>: Debug {
 		at_block: SourceHeaderId,
 		nonces: SourceClientNonces<Self::SourceNoncesRange>,
 	);
+	/// Called when we want to wait until next `best_target_nonces_updated` before selecting
+	/// any nonces for delivery.
+	fn reset_best_target_nonces(&mut self);
 	/// Called when best nonces are updated at target node of the race.
 	fn best_target_nonces_updated<RS: RaceState<SourceHeaderId, TargetHeaderId>>(
 		&mut self,
@@ -542,14 +545,22 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 							P::target_name(),
 						);
 
-						race_state.reset_nonces_to_submit();
 						race_state.nonces_submitted = Some(artifacts.nonces);
 						target_tx_tracker.set(artifacts.tx_tracker.wait().fuse());
 					},
 					&mut target_go_offline_future,
 					async_std::task::sleep,
 					|| format!("Error submitting proof {}", P::target_name()),
-				).fail_if_error(FailedClient::Target).map(|_| true)?;
+				).fail_if_connection_error(FailedClient::Target)?;
+
+				// in any case - we don't need to retry submitting the same nonces again until
+				// we read nonces from the target client
+				race_state.reset_nonces_to_submit();
+				// if we have failed to submit transaction AND that is not the connection issue,
+				// then we need to read best target nonces before selecting nonces again
+				if !target_client_is_online {
+					strategy.reset_best_target_nonces();
+				}
 			},
 			target_transaction_status = target_tx_tracker => {
 				match (target_transaction_status, race_state.nonces_submitted.as_ref()) {
@@ -699,7 +710,13 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 						.fuse(),
 				);
 			} else if let Some(source_required_header) = source_required_header.clone() {
-				log::debug!(target: "bridge", "Going to require {} header {:?} at {}", P::source_name(), source_required_header, P::target_name());
+				log::debug!(
+					target: "bridge",
+					"Going to require {} header {:?} at {}",
+					P::source_name(),
+					source_required_header,
+					P::target_name(),
+				);
 				target_require_source_header
 					.set(race_target.require_source_header(source_required_header).fuse());
 			} else if target_best_nonces_required {
