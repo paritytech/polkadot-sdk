@@ -115,6 +115,16 @@ pub enum CallInfo {
 	ReceiveMessagesDeliveryProof(ReceiveMessagesDeliveryProofInfo),
 }
 
+impl CallInfo {
+	/// Returns range of messages, bundled with the call.
+	pub fn bundled_messages(&self) -> RangeInclusive<MessageNonce> {
+		match *self {
+			Self::ReceiveMessagesProof(ref info) => info.base.bundled_range.clone(),
+			Self::ReceiveMessagesDeliveryProof(ref info) => info.0.bundled_range.clone(),
+		}
+	}
+}
+
 /// Helper struct that provides methods for working with a call supported by `CallInfo`.
 pub struct CallHelper<T: Config<I>, I: 'static> {
 	pub _phantom_data: sp_std::marker::PhantomData<(T, I)>,

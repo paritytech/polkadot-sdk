@@ -19,6 +19,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use registration::{Registration, StakeAndSlash};
+
 use bp_messages::LaneId;
 use bp_runtime::{ChainId, StorageDoubleMapKeyProvider};
 use frame_support::{traits::tokens::Preservation, Blake2_128Concat, Identity};
@@ -29,6 +31,8 @@ use sp_runtime::{
 	TypeId,
 };
 use sp_std::{fmt::Debug, marker::PhantomData};
+
+mod registration;
 
 /// The owner of the sovereign account that should pay the rewards.
 ///
