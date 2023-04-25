@@ -19,8 +19,10 @@
 use crate as pallet_bridge_relayers;
 
 use bp_messages::LaneId;
-use bp_relayers::{PaymentProcedure, RewardsAccountOwner, RewardsAccountParams};
-use frame_support::{parameter_types, weights::RuntimeDbWeight};
+use bp_relayers::{
+	PayRewardFromAccount, PaymentProcedure, RewardsAccountOwner, RewardsAccountParams,
+};
+use frame_support::{parameter_types, traits::fungible::Mutate, weights::RuntimeDbWeight};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
@@ -29,6 +31,16 @@ use sp_runtime::{
 
 pub type AccountId = u64;
 pub type Balance = u64;
+pub type BlockNumber = u64;
+
+pub type TestStakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
+	AccountId,
+	BlockNumber,
+	Balances,
+	ReserveId,
+	Stake,
+	Lease,
+>;
 
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
@@ -47,13 +59,17 @@ frame_support::construct_runtime! {
 
 parameter_types! {
 	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight { read: 1, write: 2 };
+	pub const ExistentialDeposit: Balance = 1;
+	pub const ReserveId: [u8; 8] = *b"brdgrlrs";
+	pub const Stake: Balance = 1_000;
+	pub const Lease: BlockNumber = 8;
 }
 
 impl frame_system::Config for TestRuntime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Index = u64;
 	type RuntimeCall = RuntimeCall;
-	type BlockNumber = u64;
+	type BlockNumber = BlockNumber;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
@@ -81,11 +97,11 @@ impl pallet_balances::Config for TestRuntime {
 	type Balance = Balance;
 	type DustRemoval = ();
 	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = frame_support::traits::ConstU64<1>;
+	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = frame_system::Pallet<TestRuntime>;
 	type WeightInfo = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = ();
+	type MaxReserves = ConstU32<1>;
+	type ReserveIdentifier = [u8; 8];
 	type HoldIdentifier = ();
 	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<0>;
@@ -96,6 +112,7 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type Reward = Balance;
 	type PaymentProcedure = TestPaymentProcedure;
+	type StakeAndSlash = TestStakeAndSlash;
 	type WeightInfo = ();
 }
 
@@ -121,8 +138,17 @@ pub const REGULAR_RELAYER: AccountId = 1;
 /// Relayer that can't receive rewards.
 pub const FAILING_RELAYER: AccountId = 2;
 
+/// Relayer that is able to register.
+pub const REGISTER_RELAYER: AccountId = 42;
+
 /// Payment procedure that rejects payments to the `FAILING_RELAYER`.
 pub struct TestPaymentProcedure;
+
+impl TestPaymentProcedure {
+	pub fn rewards_account(params: RewardsAccountParams) -> AccountId {
+		PayRewardFromAccount::<(), AccountId>::rewards_account(params)
+	}
+}
 
 impl PaymentProcedure<AccountId, Balance> for TestPaymentProcedure {
 	type Error = ();
@@ -147,5 +173,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 /// Run pallet test.
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
-	new_test_ext().execute_with(test)
+	new_test_ext().execute_with(|| {
+		Balances::mint_into(&REGISTER_RELAYER, ExistentialDeposit::get() + 10 * Stake::get())
+			.unwrap();
+
+		test()
+	})
 }

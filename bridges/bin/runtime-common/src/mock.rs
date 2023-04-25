@@ -35,6 +35,7 @@ use crate::messages::{
 use bp_header_chain::{ChainWithGrandpa, HeaderChain};
 use bp_messages::{target_chain::ForbidInboundMessages, LaneId, MessageNonce};
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
+use bp_relayers::PayRewardFromAccount;
 use bp_runtime::{Chain, ChainId, Parachain, UnderlyingChainProvider};
 use codec::{Decode, Encode};
 use frame_support::{
@@ -83,6 +84,20 @@ pub type BridgedChainHasher = BlakeTwo256;
 pub type BridgedChainHeader =
 	sp_runtime::generic::Header<BridgedChainBlockNumber, BridgedChainHasher>;
 
+/// Rewards payment procedure.
+pub type TestPaymentProcedure = PayRewardFromAccount<Balances, ThisChainAccountId>;
+/// Stake that we are using in tests.
+pub type TestStake = ConstU64<5_000>;
+/// Stake and slash mechanism to use in tests.
+pub type TestStakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
+	ThisChainAccountId,
+	ThisChainBlockNumber,
+	Balances,
+	ReserveId,
+	TestStake,
+	ConstU32<8>,
+>;
+
 /// Message lane used in tests.
 pub const TEST_LANE_ID: LaneId = LaneId([0, 0, 0, 0]);
 /// Bridged chain id used in tests.
@@ -128,6 +143,7 @@ parameter_types! {
 	pub MaximumMultiplier: Multiplier = sp_runtime::traits::Bounded::max_value();
 	pub const MaxUnrewardedRelayerEntriesAtInboundLane: MessageNonce = 16;
 	pub const MaxUnconfirmedMessagesAtInboundLane: MessageNonce = 1_000;
+	pub const ReserveId: [u8; 8] = *b"brdgrlrs";
 }
 
 impl frame_system::Config for TestRuntime {
@@ -244,7 +260,8 @@ impl pallet_bridge_messages::Config for TestRuntime {
 impl pallet_bridge_relayers::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type Reward = ThisChainBalance;
-	type PaymentProcedure = ();
+	type PaymentProcedure = TestPaymentProcedure;
+	type StakeAndSlash = TestStakeAndSlash;
 	type WeightInfo = ();
 }
 
@@ -400,3 +417,8 @@ impl ThisChainWithMessages for BridgedChain {
 }
 
 impl BridgedChainWithMessages for BridgedChain {}
+
+/// Run test within test externalities.
+pub fn run_test(test: impl FnOnce()) {
+	sp_io::TestExternalities::new(Default::default()).execute_with(test)
+}
