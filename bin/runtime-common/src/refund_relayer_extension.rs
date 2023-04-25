@@ -22,7 +22,7 @@
 use crate::messages_call_ext::{
 	CallHelper as MessagesCallHelper, CallInfo as MessagesCallInfo, MessagesCallSubType,
 };
-use bp_messages::LaneId;
+use bp_messages::{LaneId, MessageNonce};
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::{RangeInclusiveExt, StaticStrProvider};
 use codec::{Decode, Encode};
@@ -30,7 +30,7 @@ use frame_support::{
 	dispatch::{CallableCallFor, DispatchInfo, Dispatchable, PostDispatchInfo},
 	traits::IsSubType,
 	weights::Weight,
-	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebug, RuntimeDebugNoBound,
 };
 use pallet_bridge_grandpa::{
 	CallSubType as GrandpaCallSubType, SubmitFinalityProofHelper, SubmitFinalityProofInfo,
@@ -53,6 +53,7 @@ use sp_runtime::{
 };
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
+type AccountIdOf<R> = <R as frame_system::Config>::AccountId;
 // without this typedef rustfmt fails with internal err
 type BalanceOf<R> =
 	<<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance;
@@ -158,6 +159,14 @@ pub enum CallInfo {
 }
 
 impl CallInfo {
+	/// Returns true if call is a message delivery call (with optional finality calls).
+	fn is_receive_messages_proof_call(&self) -> bool {
+		match self.messages_call_info() {
+			MessagesCallInfo::ReceiveMessagesProof(_) => true,
+			MessagesCallInfo::ReceiveMessagesDeliveryProof(_) => false,
+		}
+	}
+
 	/// Returns the pre-dispatch `finality_target` sent to the `SubmitFinalityProof` call.
 	fn submit_finality_proof_info(&self) -> Option<SubmitFinalityProofInfo<RelayBlockNumber>> {
 		match *self {
@@ -185,6 +194,17 @@ impl CallInfo {
 	}
 }
 
+/// The actions on relayer account that need to be performed because of his actions.
+#[derive(RuntimeDebug, PartialEq)]
+enum RelayerAccountAction<AccountId, Reward> {
+	/// Do nothing with relayer account.
+	None,
+	/// Reward the relayer.
+	Reward(AccountId, RewardsAccountParams, Reward),
+	/// Slash the relayer.
+	Slash(AccountId, RewardsAccountParams),
+}
+
 /// Signed extension that refunds a relayer for new messages coming from a parachain.
 ///
 /// Also refunds relayer for successful finality delivery if it comes in batch (`utility.batchAll`)
@@ -205,7 +225,25 @@ impl CallInfo {
 )]
 #[scale_info(skip_type_params(Runtime, Para, Msgs, Refund, Priority, Id))]
 pub struct RefundBridgedParachainMessages<Runtime, Para, Msgs, Refund, Priority, Id>(
-	PhantomData<(Runtime, Para, Msgs, Refund, Priority, Id)>,
+	PhantomData<(
+		// runtime with `frame-utility`, `pallet-bridge-grandpa`, `pallet-bridge-parachains`,
+		// `pallet-bridge-messages` and `pallet-bridge-relayers` pallets deployed
+		Runtime,
+		// implementation of `RefundableParachainId` trait, which specifies the instance of
+		// the used `pallet-bridge-parachains` pallet and the bridged parachain id
+		Para,
+		// implementation of `RefundableMessagesLaneId` trait, which specifies the instance of
+		// the used `pallet-bridge-messages` pallet and the lane within this pallet
+		Msgs,
+		// implementation of the `RefundCalculator` trait, that is used to compute refund that
+		// we give to relayer for his transaction
+		Refund,
+		// getter for per-message `TransactionPriority` boost that we give to message
+		// delivery transactions
+		Priority,
+		// the runtime-unique identifier of this signed extension
+		Id,
+	)>,
 );
 
 impl<Runtime, Para, Msgs, Refund, Priority, Id>
@@ -215,9 +253,13 @@ where
 	Runtime: UtilityConfig<RuntimeCall = CallOf<Runtime>>
 		+ BoundedBridgeGrandpaConfig<Runtime::BridgesGrandpaPalletInstance>
 		+ ParachainsConfig<Para::Instance>
-		+ MessagesConfig<Msgs::Instance>,
+		+ MessagesConfig<Msgs::Instance>
+		+ RelayersConfig,
 	Para: RefundableParachainId,
 	Msgs: RefundableMessagesLaneId,
+	Refund: RefundCalculator<Balance = Runtime::Reward>,
+	Priority: Get<TransactionPriority>,
+	Id: StaticStrProvider,
 	CallOf<Runtime>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
 		+ IsSubType<CallableCallFor<UtilityPallet<Runtime>, Runtime>>
 		+ GrandpaCallSubType<Runtime, Runtime::BridgesGrandpaPalletInstance>
@@ -268,6 +310,179 @@ where
 		call.check_obsolete_call()?;
 		Ok(call)
 	}
+
+	/// Given post-dispatch information, analyze the outcome of relayer call and return
+	/// actions that need to be performed on relayer account.
+	fn analyze_call_result(
+		pre: Option<Option<PreDispatchData<Runtime::AccountId>>>,
+		info: &DispatchInfo,
+		post_info: &PostDispatchInfo,
+		len: usize,
+		result: &DispatchResult,
+	) -> RelayerAccountAction<AccountIdOf<Runtime>, Runtime::Reward> {
+		let mut extra_weight = Weight::zero();
+		let mut extra_size = 0;
+
+		// We don't refund anything for transactions that we don't support.
+		let (relayer, call_info) = match pre {
+			Some(Some(pre)) => (pre.relayer, pre.call_info),
+			_ => return RelayerAccountAction::None,
+		};
+
+		// now we know that the relayer either needs to be rewarded, or slashed
+		// => let's prepare the correspondent account that pays reward/receives slashed amount
+		let reward_account_params = RewardsAccountParams::new(
+			Msgs::Id::get(),
+			Runtime::BridgedChainId::get(),
+			if call_info.is_receive_messages_proof_call() {
+				RewardsAccountOwner::ThisChain
+			} else {
+				RewardsAccountOwner::BridgedChain
+			},
+		);
+
+		// prepare return value for the case if the call has failed or it has not caused
+		// expected side effects (e.g. not all messages have been accepted)
+		//
+		// we are not checking if relayer is registered here - it happens during the slash attempt
+		//
+		// there are couple of edge cases here:
+		//
+		// - when the relayer becomes registered during message dispatch: this is unlikely + relayer
+		//   should be ready for slashing after registration;
+		//
+		// - when relayer is registered after `validate` is called and priority is not boosted:
+		//   relayer should be ready for slashing after registration.
+		let may_slash_relayer =
+			Self::bundled_messages_for_priority_boost(Some(&call_info)).is_some();
+		let slash_relayer_if_delivery_result = may_slash_relayer
+			.then(|| RelayerAccountAction::Slash(relayer.clone(), reward_account_params))
+			.unwrap_or(RelayerAccountAction::None);
+
+		// We don't refund anything if the transaction has failed.
+		if let Err(e) = result {
+			log::trace!(
+				target: "runtime::bridge",
+				"{} from parachain {} via {:?}: relayer {:?} has submitted invalid messages transaction: {:?}",
+				Self::IDENTIFIER,
+				Para::Id::get(),
+				Msgs::Id::get(),
+				relayer,
+				e,
+			);
+			return slash_relayer_if_delivery_result
+		}
+
+		// check if relay chain state has been updated
+		if let Some(finality_proof_info) = call_info.submit_finality_proof_info() {
+			if !SubmitFinalityProofHelper::<Runtime, Runtime::BridgesGrandpaPalletInstance>::was_successful(
+				finality_proof_info.block_number,
+			) {
+				// we only refund relayer if all calls have updated chain state
+				log::trace!(
+					target: "runtime::bridge",
+					"{} from parachain {} via {:?}: relayer {:?} has submitted invalid relay chain finality proof",
+					Self::IDENTIFIER,
+					Para::Id::get(),
+					Msgs::Id::get(),
+					relayer,
+				);
+				return slash_relayer_if_delivery_result;
+			}
+
+			// there's a conflict between how bridge GRANDPA pallet works and a `utility.batchAll`
+			// transaction. If relay chain header is mandatory, the GRANDPA pallet returns
+			// `Pays::No`, because such transaction is mandatory for operating the bridge. But
+			// `utility.batchAll` transaction always requires payment. But in both cases we'll
+			// refund relayer - either explicitly here, or using `Pays::No` if he's choosing
+			// to submit dedicated transaction.
+
+			// submitter has means to include extra weight/bytes in the `submit_finality_proof`
+			// call, so let's subtract extra weight/size to avoid refunding for this extra stuff
+			extra_weight = finality_proof_info.extra_weight;
+			extra_size = finality_proof_info.extra_size;
+		}
+
+		// check if parachain state has been updated
+		if let Some(para_proof_info) = call_info.submit_parachain_heads_info() {
+			if !SubmitParachainHeadsHelper::<Runtime, Para::Instance>::was_successful(
+				para_proof_info,
+			) {
+				// we only refund relayer if all calls have updated chain state
+				log::trace!(
+					target: "runtime::bridge",
+					"{} from parachain {} via {:?}: relayer {:?} has submitted invalid parachain finality proof",
+					Self::IDENTIFIER,
+					Para::Id::get(),
+					Msgs::Id::get(),
+					relayer,
+				);
+				return slash_relayer_if_delivery_result
+			}
+		}
+
+		// Check if the `ReceiveMessagesProof` call delivered at least some of the messages that
+		// it contained. If this happens, we consider the transaction "helpful" and refund it.
+		let msgs_call_info = call_info.messages_call_info();
+		if !MessagesCallHelper::<Runtime, Msgs::Instance>::was_successful(msgs_call_info) {
+			log::trace!(
+				target: "runtime::bridge",
+				"{} from parachain {} via {:?}: relayer {:?} has submitted invalid messages call",
+				Self::IDENTIFIER,
+				Para::Id::get(),
+				Msgs::Id::get(),
+				relayer,
+			);
+			return slash_relayer_if_delivery_result
+		}
+
+		// regarding the tip - refund that happens here (at this side of the bridge) isn't the whole
+		// relayer compensation. He'll receive some amount at the other side of the bridge. It shall
+		// (in theory) cover the tip there. Otherwise, if we'll be compensating tip here, some
+		// malicious relayer may use huge tips, effectively depleting account that pay rewards. The
+		// cost of this attack is nothing. Hence we use zero as tip here.
+		let tip = Zero::zero();
+
+		// decrease post-dispatch weight/size using extra weight/size that we know now
+		let post_info_len = len.saturating_sub(extra_size as usize);
+		let mut post_info = *post_info;
+		post_info.actual_weight =
+			Some(post_info.actual_weight.unwrap_or(info.weight).saturating_sub(extra_weight));
+
+		// compute the relayer refund
+		let refund = Refund::compute_refund(info, &post_info, post_info_len, tip);
+
+		// we can finally reward relayer
+		RelayerAccountAction::Reward(relayer, reward_account_params, refund)
+	}
+
+	/// Returns number of bundled messages `Some(_)`, if the given call info is a:
+	///
+	/// - message delivery transaction;
+	///
+	/// - with reasonable bundled messages that may be accepted by the messages pallet.
+	///
+	/// This function is used to check whether the transaction priority should be
+	/// virtually boosted. The relayer registration (we only boost priority for registered
+	/// relayer transactions) must be checked outside.
+	fn bundled_messages_for_priority_boost(call_info: Option<&CallInfo>) -> Option<MessageNonce> {
+		// we only boost priority of message delivery transactions
+		let parsed_call = match call_info {
+			Some(parsed_call) if parsed_call.is_receive_messages_proof_call() => parsed_call,
+			_ => return None,
+		};
+
+		// compute total number of messages in transaction
+		let bundled_messages =
+			parsed_call.messages_call_info().bundled_messages().checked_len().unwrap_or(0);
+
+		// a quick check to avoid invalid high-priority transactions
+		if bundled_messages > Runtime::MaxUnconfirmedMessagesAtInboundLane::get() {
+			return None
+		}
+
+		Some(bundled_messages)
+	}
 }
 
 impl<Runtime, Para, Msgs, Refund, Priority, Id> SignedExtension
@@ -302,36 +517,48 @@ where
 
 	fn validate(
 		&self,
-		_who: &Self::AccountId,
+		who: &Self::AccountId,
 		call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> TransactionValidity {
 		// this is the only relevant line of code for the `pre_dispatch`
 		//
-		// we're not calling `validato` from `pre_dispatch` directly because of performance
+		// we're not calling `validate` from `pre_dispatch` directly because of performance
 		// reasons, so if you're adding some code that may fail here, please check if it needs
 		// to be added to the `pre_dispatch` as well
 		let parsed_call = self.parse_and_check_for_obsolete_call(call)?;
 
 		// the following code just plays with transaction priority and never returns an error
-		let mut valid_transaction = ValidTransactionBuilder::default();
-		if let Some(parsed_call) = parsed_call {
-			// we give delivery transactions some boost, that depends on number of messages inside
-			let messages_call_info = parsed_call.messages_call_info();
-			if let MessagesCallInfo::ReceiveMessagesProof(info) = messages_call_info {
-				// compute total number of messages in transaction
-				let bundled_messages = info.base.bundled_range.checked_len().unwrap_or(0);
 
-				// a quick check to avoid invalid high-priority transactions
-				if bundled_messages <= Runtime::MaxUnconfirmedMessagesAtInboundLane::get() {
-					let priority_boost = crate::priority_calculator::compute_priority_boost::<
-						Priority,
-					>(bundled_messages);
-					valid_transaction = valid_transaction.priority(priority_boost);
-				}
-			}
+		// we only boost priority of presumably correct message delivery transactions
+		let bundled_messages = match Self::bundled_messages_for_priority_boost(parsed_call.as_ref())
+		{
+			Some(bundled_messages) => bundled_messages,
+			None => return Ok(Default::default()),
+		};
+
+		// we only boost priority if relayer has staked required balance
+		if !RelayersPallet::<Runtime>::is_registration_active(who) {
+			return Ok(Default::default())
 		}
+
+		// compute priority boost
+		let priority_boost =
+			crate::priority_calculator::compute_priority_boost::<Priority>(bundled_messages);
+		let valid_transaction = ValidTransactionBuilder::default().priority(priority_boost);
+
+		log::trace!(
+			target: "runtime::bridge",
+			"{} from parachain {} via {:?} has boosted priority of message delivery transaction \
+			of relayer {:?}: {} messages -> {} priority",
+			Self::IDENTIFIER,
+			Para::Id::get(),
+			Msgs::Id::get(),
+			who,
+			bundled_messages,
+			priority_boost,
+		);
 
 		valid_transaction.build()
 	}
@@ -366,129 +593,30 @@ where
 		len: usize,
 		result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		let mut extra_weight = Weight::zero();
-		let mut extra_size = 0;
+		let call_result = Self::analyze_call_result(pre, info, post_info, len, result);
 
-		// We don't refund anything if the transaction has failed.
-		if result.is_err() {
-			return Ok(())
-		}
+		match call_result {
+			RelayerAccountAction::None => (),
+			RelayerAccountAction::Reward(relayer, reward_account, reward) => {
+				RelayersPallet::<Runtime>::register_relayer_reward(
+					reward_account,
+					&relayer,
+					reward,
+				);
 
-		// We don't refund anything for transactions that we don't support.
-		let (relayer, call_info) = match pre {
-			Some(Some(pre)) => (pre.relayer, pre.call_info),
-			_ => return Ok(()),
-		};
-
-		// check if relay chain state has been updated
-		if let Some(finality_proof_info) = call_info.submit_finality_proof_info() {
-			if !SubmitFinalityProofHelper::<Runtime, Runtime::BridgesGrandpaPalletInstance>::was_successful(
-				finality_proof_info.block_number,
-			) {
-				// we only refund relayer if all calls have updated chain state
 				log::trace!(
 					target: "runtime::bridge",
-					"{} from parachain {} via {:?}: failed to refund relayer {:?}, because \
-					relay chain finality proof has not been accepted",
+					"{} from parachain {} via {:?} has registered reward: {:?} for {:?}",
 					Self::IDENTIFIER,
 					Para::Id::get(),
 					Msgs::Id::get(),
+					reward,
 					relayer,
 				);
-
-				return Ok(())
-			}
-
-			// there's a conflict between how bridge GRANDPA pallet works and a `utility.batchAll`
-			// transaction. If relay chain header is mandatory, the GRANDPA pallet returns
-			// `Pays::No`, because such transaction is mandatory for operating the bridge. But
-			// `utility.batchAll` transaction always requires payment. But in both cases we'll
-			// refund relayer - either explicitly here, or using `Pays::No` if he's choosing
-			// to submit dedicated transaction.
-
-			// submitter has means to include extra weight/bytes in the `submit_finality_proof`
-			// call, so let's subtract extra weight/size to avoid refunding for this extra stuff
-			extra_weight = finality_proof_info.extra_weight;
-			extra_size = finality_proof_info.extra_size;
+			},
+			RelayerAccountAction::Slash(relayer, slash_account) =>
+				RelayersPallet::<Runtime>::slash_and_deregister(&relayer, slash_account),
 		}
-
-		// check if parachain state has been updated
-		if let Some(para_proof_info) = call_info.submit_parachain_heads_info() {
-			if !SubmitParachainHeadsHelper::<Runtime, Para::Instance>::was_successful(
-				para_proof_info,
-			) {
-				// we only refund relayer if all calls have updated chain state
-				log::trace!(
-					target: "runtime::bridge",
-					"{} from parachain {} via {:?}: failed to refund relayer {:?}, because \
-					parachain finality proof has not been accepted",
-					Self::IDENTIFIER,
-					Para::Id::get(),
-					Msgs::Id::get(),
-					relayer,
-				);
-
-				return Ok(())
-			}
-		}
-
-		// Check if the `ReceiveMessagesProof` call delivered all the messages that
-		// it contained. If this happens, we consider the transaction "helpful" and refund it.
-		let msgs_call_info = call_info.messages_call_info();
-		if !MessagesCallHelper::<Runtime, Msgs::Instance>::was_successful(msgs_call_info) {
-			log::trace!(
-				target: "runtime::bridge",
-				"{} from parachain {} via {:?}: failed to refund relayer {:?}, because \
-				some of messages have not been accepted",
-				Self::IDENTIFIER,
-				Para::Id::get(),
-				Msgs::Id::get(),
-				relayer,
-			);
-
-			return Ok(())
-		}
-
-		// regarding the tip - refund that happens here (at this side of the bridge) isn't the whole
-		// relayer compensation. He'll receive some amount at the other side of the bridge. It shall
-		// (in theory) cover the tip there. Otherwise, if we'll be compensating tip here, some
-		// malicious relayer may use huge tips, effectively depleting account that pay rewards. The
-		// cost of this attack is nothing. Hence we use zero as tip here.
-		let tip = Zero::zero();
-
-		// decrease post-dispatch weight/size using extra weight/size that we know now
-		let post_info_len = len.saturating_sub(extra_size as usize);
-		let mut post_info = *post_info;
-		post_info.actual_weight =
-			Some(post_info.actual_weight.unwrap_or(info.weight).saturating_sub(extra_weight));
-
-		// compute the relayer refund
-		let refund = Refund::compute_refund(info, &post_info, post_info_len, tip);
-
-		// finally - register refund in relayers pallet
-		let rewards_account_owner = match msgs_call_info {
-			MessagesCallInfo::ReceiveMessagesProof(_) => RewardsAccountOwner::ThisChain,
-			MessagesCallInfo::ReceiveMessagesDeliveryProof(_) => RewardsAccountOwner::BridgedChain,
-		};
-		RelayersPallet::<Runtime>::register_relayer_reward(
-			RewardsAccountParams::new(
-				Msgs::Id::get(),
-				Runtime::BridgedChainId::get(),
-				rewards_account_owner,
-			),
-			&relayer,
-			refund,
-		);
-
-		log::trace!(
-			target: "runtime::bridge",
-			"{} from parachain {} via {:?} has registered reward: {:?} for {:?}",
-			Self::IDENTIFIER,
-			Para::Id::get(),
-			Msgs::Id::get(),
-			refund,
-			relayer,
-		);
 
 		Ok(())
 	}
@@ -509,10 +637,14 @@ mod tests {
 	};
 	use bp_messages::{InboundLaneData, MessageNonce, OutboundLaneData, UnrewardedRelayersState};
 	use bp_parachains::{BestParaHeadHash, ParaInfo};
-	use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
+	use bp_polkadot_core::parachains::{ParaHeadsProof, ParaId};
 	use bp_runtime::HeaderId;
 	use bp_test_utils::{make_default_justification, test_keyring};
-	use frame_support::{assert_storage_noop, parameter_types, weights::Weight};
+	use frame_support::{
+		assert_storage_noop, parameter_types,
+		traits::{fungible::Mutate, ReservableCurrency},
+		weights::Weight,
+	};
 	use pallet_bridge_grandpa::{Call as GrandpaCall, StoredAuthoritySet};
 	use pallet_bridge_messages::Call as MessagesCall;
 	use pallet_bridge_parachains::{Call as ParachainsCall, RelayBlockHash};
@@ -547,6 +679,22 @@ mod tests {
 		StrTestExtension,
 	>;
 
+	fn initial_balance_of_relayer_account_at_this_chain() -> ThisChainBalance {
+		let test_stake: ThisChainBalance = TestStake::get();
+		ExistentialDeposit::get().saturating_add(test_stake * 100)
+	}
+
+	// in tests, the following accounts are equal (because of how `into_sub_account_truncating`
+	// works)
+
+	fn delivery_rewards_account() -> ThisChainAccountId {
+		TestPaymentProcedure::rewards_account(MsgProofsRewardsAccount::get())
+	}
+
+	fn confirmation_rewards_account() -> ThisChainAccountId {
+		TestPaymentProcedure::rewards_account(MsgDeliveryProofsRewardsAccount::get())
+	}
+
 	fn relayer_account_at_this_chain() -> ThisChainAccountId {
 		0
 	}
@@ -558,7 +706,6 @@ mod tests {
 	fn initialize_environment(
 		best_relay_header_number: RelayBlockNumber,
 		parachain_head_at_relay_header_number: RelayBlockNumber,
-		parachain_head_hash: ParaHash,
 		best_message: MessageNonce,
 	) {
 		let authorities = test_keyring().into_iter().map(|(a, w)| (a.into(), w)).collect();
@@ -572,7 +719,7 @@ mod tests {
 		let para_info = ParaInfo {
 			best_head_hash: BestParaHeadHash {
 				at_relay_block_number: parachain_head_at_relay_header_number,
-				head_hash: parachain_head_hash,
+				head_hash: [parachain_head_at_relay_header_number as u8; 32].into(),
 			},
 			next_imported_hash_position: 0,
 		};
@@ -586,6 +733,14 @@ mod tests {
 		let out_lane_data =
 			OutboundLaneData { latest_received_nonce: best_message, ..Default::default() };
 		pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(lane_id, out_lane_data);
+
+		Balances::mint_into(&delivery_rewards_account(), ExistentialDeposit::get()).unwrap();
+		Balances::mint_into(&confirmation_rewards_account(), ExistentialDeposit::get()).unwrap();
+		Balances::mint_into(
+			&relayer_account_at_this_chain(),
+			initial_balance_of_relayer_account_at_this_chain(),
+		)
+		.unwrap();
 	}
 
 	fn submit_relay_header_call(relay_header_number: RelayBlockNumber) -> RuntimeCall {
@@ -609,7 +764,10 @@ mod tests {
 	) -> RuntimeCall {
 		RuntimeCall::BridgeParachains(ParachainsCall::submit_parachain_heads {
 			at_relay_block: (parachain_head_at_relay_header_number, RelayBlockHash::default()),
-			parachains: vec![(ParaId(TestParachain::get()), [1u8; 32].into())],
+			parachains: vec![(
+				ParaId(TestParachain::get()),
+				[parachain_head_at_relay_header_number as u8; 32].into(),
+			)],
 			parachain_heads_proof: ParaHeadsProof(vec![]),
 		})
 	}
@@ -711,7 +869,7 @@ mod tests {
 				SubmitParachainHeadsInfo {
 					at_relay_block_number: 200,
 					para_id: ParaId(TestParachain::get()),
-					para_head_hash: [1u8; 32].into(),
+					para_head_hash: [200u8; 32].into(),
 				},
 				MessagesCallInfo::ReceiveMessagesProof(ReceiveMessagesProofInfo {
 					base: BaseMessagesProofInfo {
@@ -740,7 +898,7 @@ mod tests {
 				SubmitParachainHeadsInfo {
 					at_relay_block_number: 200,
 					para_id: ParaId(TestParachain::get()),
-					para_head_hash: [1u8; 32].into(),
+					para_head_hash: [200u8; 32].into(),
 				},
 				MessagesCallInfo::ReceiveMessagesDeliveryProof(ReceiveMessagesDeliveryProofInfo(
 					BaseMessagesProofInfo {
@@ -760,7 +918,7 @@ mod tests {
 				SubmitParachainHeadsInfo {
 					at_relay_block_number: 200,
 					para_id: ParaId(TestParachain::get()),
-					para_head_hash: [1u8; 32].into(),
+					para_head_hash: [200u8; 32].into(),
 				},
 				MessagesCallInfo::ReceiveMessagesProof(ReceiveMessagesProofInfo {
 					base: BaseMessagesProofInfo {
@@ -784,7 +942,7 @@ mod tests {
 				SubmitParachainHeadsInfo {
 					at_relay_block_number: 200,
 					para_id: ParaId(TestParachain::get()),
-					para_head_hash: [1u8; 32].into(),
+					para_head_hash: [200u8; 32].into(),
 				},
 				MessagesCallInfo::ReceiveMessagesDeliveryProof(ReceiveMessagesDeliveryProofInfo(
 					BaseMessagesProofInfo {
@@ -829,13 +987,33 @@ mod tests {
 		}
 	}
 
-	fn run_test(test: impl FnOnce()) {
-		sp_io::TestExternalities::new(Default::default()).execute_with(test)
+	fn set_bundled_range_end(
+		mut pre_dispatch_data: PreDispatchData<ThisChainAccountId>,
+		end: MessageNonce,
+	) -> PreDispatchData<ThisChainAccountId> {
+		let msg_info = match pre_dispatch_data.call_info {
+			CallInfo::AllFinalityAndMsgs(_, _, ref mut info) => info,
+			CallInfo::ParachainFinalityAndMsgs(_, ref mut info) => info,
+			CallInfo::Msgs(ref mut info) => info,
+		};
+
+		if let MessagesCallInfo::ReceiveMessagesProof(ref mut msg_info) = msg_info {
+			msg_info.base.bundled_range = *msg_info.base.bundled_range.start()..=end
+		}
+
+		pre_dispatch_data
 	}
 
 	fn run_validate(call: RuntimeCall) -> TransactionValidity {
 		let extension: TestExtension = RefundBridgedParachainMessages(PhantomData);
 		extension.validate(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
+	}
+
+	fn run_validate_ignore_priority(call: RuntimeCall) -> TransactionValidity {
+		run_validate(call).map(|mut tx| {
+			tx.priority = 0;
+			tx
+		})
 	}
 
 	fn run_pre_dispatch(
@@ -884,9 +1062,48 @@ mod tests {
 	}
 
 	#[test]
+	fn validate_doesnt_boost_transaction_priority_if_relayer_is_not_registered() {
+		run_test(|| {
+			initialize_environment(100, 100, 100);
+			Balances::set_balance(&relayer_account_at_this_chain(), ExistentialDeposit::get());
+
+			// message delivery is failing
+			assert_eq!(run_validate(message_delivery_call(200)), Ok(Default::default()),);
+			assert_eq!(
+				run_validate(parachain_finality_and_delivery_batch_call(200, 200)),
+				Ok(Default::default()),
+			);
+			assert_eq!(
+				run_validate(all_finality_and_delivery_batch_call(200, 200, 200)),
+				Ok(Default::default()),
+			);
+			// message confirmation validation is passing
+			assert_eq!(
+				run_validate_ignore_priority(message_confirmation_call(200)),
+				Ok(Default::default()),
+			);
+			assert_eq!(
+				run_validate_ignore_priority(parachain_finality_and_confirmation_batch_call(
+					200, 200
+				)),
+				Ok(Default::default()),
+			);
+			assert_eq!(
+				run_validate_ignore_priority(all_finality_and_confirmation_batch_call(
+					200, 200, 200
+				)),
+				Ok(Default::default()),
+			);
+		});
+	}
+
+	#[test]
 	fn validate_boosts_priority_of_message_delivery_transactons() {
 		run_test(|| {
-			initialize_environment(100, 100, Default::default(), 100);
+			initialize_environment(100, 100, 100);
+
+			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+				.unwrap();
 
 			let priority_of_100_messages_delivery =
 				run_validate(message_delivery_call(200)).unwrap().priority;
@@ -913,7 +1130,10 @@ mod tests {
 	#[test]
 	fn validate_does_not_boost_priority_of_message_delivery_transactons_with_too_many_messages() {
 		run_test(|| {
-			initialize_environment(100, 100, Default::default(), 100);
+			initialize_environment(100, 100, 100);
+
+			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+				.unwrap();
 
 			let priority_of_max_messages_delivery = run_validate(message_delivery_call(
 				100 + MaxUnconfirmedMessagesAtInboundLane::get(),
@@ -938,14 +1158,7 @@ mod tests {
 	#[test]
 	fn validate_allows_non_obsolete_transactions() {
 		run_test(|| {
-			initialize_environment(100, 100, Default::default(), 100);
-
-			fn run_validate_ignore_priority(call: RuntimeCall) -> TransactionValidity {
-				run_validate(call).map(|mut tx| {
-					tx.priority = 0;
-					tx
-				})
-			}
+			initialize_environment(100, 100, 100);
 
 			assert_eq!(
 				run_validate_ignore_priority(message_delivery_call(200)),
@@ -983,7 +1196,7 @@ mod tests {
 	#[test]
 	fn ext_rejects_batch_with_obsolete_relay_chain_header() {
 		run_test(|| {
-			initialize_environment(100, 100, Default::default(), 100);
+			initialize_environment(100, 100, 100);
 
 			assert_eq!(
 				run_pre_dispatch(all_finality_and_delivery_batch_call(100, 200, 200)),
@@ -1000,7 +1213,7 @@ mod tests {
 	#[test]
 	fn ext_rejects_batch_with_obsolete_parachain_head() {
 		run_test(|| {
-			initialize_environment(100, 100, Default::default(), 100);
+			initialize_environment(100, 100, 100);
 
 			assert_eq!(
 				run_pre_dispatch(all_finality_and_delivery_batch_call(101, 100, 200)),
@@ -1025,7 +1238,7 @@ mod tests {
 	#[test]
 	fn ext_rejects_batch_with_obsolete_messages() {
 		run_test(|| {
-			initialize_environment(100, 100, Default::default(), 100);
+			initialize_environment(100, 100, 100);
 
 			assert_eq!(
 				run_pre_dispatch(all_finality_and_delivery_batch_call(200, 200, 100)),
@@ -1068,7 +1281,7 @@ mod tests {
 	#[test]
 	fn pre_dispatch_parses_batch_with_relay_chain_and_parachain_headers() {
 		run_test(|| {
-			initialize_environment(100, 100, Default::default(), 100);
+			initialize_environment(100, 100, 100);
 
 			assert_eq!(
 				run_pre_dispatch(all_finality_and_delivery_batch_call(200, 200, 200)),
@@ -1084,7 +1297,7 @@ mod tests {
 	#[test]
 	fn pre_dispatch_parses_batch_with_parachain_header() {
 		run_test(|| {
-			initialize_environment(100, 100, Default::default(), 100);
+			initialize_environment(100, 100, 100);
 
 			assert_eq!(
 				run_pre_dispatch(parachain_finality_and_delivery_batch_call(200, 200)),
@@ -1100,7 +1313,7 @@ mod tests {
 	#[test]
 	fn pre_dispatch_fails_to_parse_batch_with_multiple_parachain_headers() {
 		run_test(|| {
-			initialize_environment(100, 100, Default::default(), 100);
+			initialize_environment(100, 100, 100);
 
 			let call = RuntimeCall::Utility(UtilityCall::batch_all {
 				calls: vec![
@@ -1123,7 +1336,7 @@ mod tests {
 	#[test]
 	fn pre_dispatch_parses_message_transaction() {
 		run_test(|| {
-			initialize_environment(100, 100, Default::default(), 100);
+			initialize_environment(100, 100, 100);
 
 			assert_eq!(
 				run_pre_dispatch(message_delivery_call(200)),
@@ -1156,7 +1369,7 @@ mod tests {
 	#[test]
 	fn post_dispatch_ignores_transaction_that_has_not_updated_relay_chain_state() {
 		run_test(|| {
-			initialize_environment(100, 200, Default::default(), 200);
+			initialize_environment(100, 200, 200);
 
 			assert_storage_noop!(run_post_dispatch(Some(all_finality_pre_dispatch_data()), Ok(())));
 		});
@@ -1165,7 +1378,7 @@ mod tests {
 	#[test]
 	fn post_dispatch_ignores_transaction_that_has_not_updated_parachain_state() {
 		run_test(|| {
-			initialize_environment(200, 100, Default::default(), 200);
+			initialize_environment(200, 100, 200);
 
 			assert_storage_noop!(run_post_dispatch(Some(all_finality_pre_dispatch_data()), Ok(())));
 			assert_storage_noop!(run_post_dispatch(
@@ -1178,7 +1391,7 @@ mod tests {
 	#[test]
 	fn post_dispatch_ignores_transaction_that_has_not_delivered_any_messages() {
 		run_test(|| {
-			initialize_environment(200, 200, Default::default(), 100);
+			initialize_environment(200, 200, 100);
 
 			assert_storage_noop!(run_post_dispatch(Some(all_finality_pre_dispatch_data()), Ok(())));
 			assert_storage_noop!(run_post_dispatch(
@@ -1202,7 +1415,7 @@ mod tests {
 	#[test]
 	fn post_dispatch_ignores_transaction_that_has_not_delivered_all_messages() {
 		run_test(|| {
-			initialize_environment(200, 200, Default::default(), 150);
+			initialize_environment(200, 200, 150);
 
 			assert_storage_noop!(run_post_dispatch(Some(all_finality_pre_dispatch_data()), Ok(())));
 			assert_storage_noop!(run_post_dispatch(
@@ -1226,7 +1439,7 @@ mod tests {
 	#[test]
 	fn post_dispatch_refunds_relayer_in_all_finality_batch_with_extra_weight() {
 		run_test(|| {
-			initialize_environment(200, 200, [1u8; 32].into(), 200);
+			initialize_environment(200, 200, 200);
 
 			let mut dispatch_info = dispatch_info();
 			dispatch_info.weight = Weight::from_parts(
@@ -1275,7 +1488,7 @@ mod tests {
 	#[test]
 	fn post_dispatch_refunds_relayer_in_all_finality_batch() {
 		run_test(|| {
-			initialize_environment(200, 200, [1u8; 32].into(), 200);
+			initialize_environment(200, 200, 200);
 
 			run_post_dispatch(Some(all_finality_pre_dispatch_data()), Ok(()));
 			assert_eq!(
@@ -1300,7 +1513,7 @@ mod tests {
 	#[test]
 	fn post_dispatch_refunds_relayer_in_parachain_finality_batch() {
 		run_test(|| {
-			initialize_environment(200, 200, [1u8; 32].into(), 200);
+			initialize_environment(200, 200, 200);
 
 			run_post_dispatch(Some(parachain_finality_pre_dispatch_data()), Ok(()));
 			assert_eq!(
@@ -1325,7 +1538,7 @@ mod tests {
 	#[test]
 	fn post_dispatch_refunds_relayer_in_message_transaction() {
 		run_test(|| {
-			initialize_environment(200, 200, Default::default(), 200);
+			initialize_environment(200, 200, 200);
 
 			run_post_dispatch(Some(delivery_pre_dispatch_data()), Ok(()));
 			assert_eq!(
@@ -1343,6 +1556,151 @@ mod tests {
 					MsgDeliveryProofsRewardsAccount::get()
 				),
 				Some(expected_reward()),
+			);
+		});
+	}
+
+	#[test]
+	fn post_dispatch_slashing_relayer_stake() {
+		run_test(|| {
+			initialize_environment(200, 200, 100);
+
+			let delivery_rewards_account_balance =
+				Balances::free_balance(delivery_rewards_account());
+
+			let test_stake: ThisChainBalance = TestStake::get();
+			Balances::set_balance(
+				&relayer_account_at_this_chain(),
+				ExistentialDeposit::get() + test_stake * 10,
+			);
+
+			// slashing works for message delivery calls
+			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+				.unwrap();
+			assert_eq!(Balances::reserved_balance(relayer_account_at_this_chain()), test_stake);
+			run_post_dispatch(Some(delivery_pre_dispatch_data()), Ok(()));
+			assert_eq!(Balances::reserved_balance(relayer_account_at_this_chain()), 0);
+			assert_eq!(
+				delivery_rewards_account_balance + test_stake,
+				Balances::free_balance(delivery_rewards_account())
+			);
+
+			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+				.unwrap();
+			assert_eq!(Balances::reserved_balance(relayer_account_at_this_chain()), test_stake);
+			run_post_dispatch(Some(parachain_finality_pre_dispatch_data()), Ok(()));
+			assert_eq!(Balances::reserved_balance(relayer_account_at_this_chain()), 0);
+			assert_eq!(
+				delivery_rewards_account_balance + test_stake * 2,
+				Balances::free_balance(delivery_rewards_account())
+			);
+
+			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+				.unwrap();
+			assert_eq!(Balances::reserved_balance(relayer_account_at_this_chain()), test_stake);
+			run_post_dispatch(Some(all_finality_pre_dispatch_data()), Ok(()));
+			assert_eq!(Balances::reserved_balance(relayer_account_at_this_chain()), 0);
+			assert_eq!(
+				delivery_rewards_account_balance + test_stake * 3,
+				Balances::free_balance(delivery_rewards_account())
+			);
+
+			// reserve doesn't work for message confirmation calls
+			let confirmation_rewards_account_balance =
+				Balances::free_balance(confirmation_rewards_account());
+
+			Balances::reserve(&relayer_account_at_this_chain(), test_stake).unwrap();
+			assert_eq!(Balances::reserved_balance(relayer_account_at_this_chain()), test_stake);
+
+			assert_eq!(
+				confirmation_rewards_account_balance,
+				Balances::free_balance(confirmation_rewards_account())
+			);
+			run_post_dispatch(Some(confirmation_pre_dispatch_data()), Ok(()));
+			assert_eq!(Balances::reserved_balance(relayer_account_at_this_chain()), test_stake);
+
+			run_post_dispatch(Some(parachain_finality_confirmation_pre_dispatch_data()), Ok(()));
+			assert_eq!(Balances::reserved_balance(relayer_account_at_this_chain()), test_stake);
+
+			run_post_dispatch(Some(all_finality_confirmation_pre_dispatch_data()), Ok(()));
+			assert_eq!(Balances::reserved_balance(relayer_account_at_this_chain()), test_stake);
+
+			// check that unreserve has happened, not slashing
+			assert_eq!(
+				delivery_rewards_account_balance + test_stake * 3,
+				Balances::free_balance(delivery_rewards_account())
+			);
+			assert_eq!(
+				confirmation_rewards_account_balance,
+				Balances::free_balance(confirmation_rewards_account())
+			);
+		});
+	}
+
+	fn run_analyze_call_result(
+		pre_dispatch_data: PreDispatchData<ThisChainAccountId>,
+		dispatch_result: DispatchResult,
+	) -> RelayerAccountAction<ThisChainAccountId, ThisChainBalance> {
+		TestExtension::analyze_call_result(
+			Some(Some(pre_dispatch_data)),
+			&dispatch_info(),
+			&post_dispatch_info(),
+			1024,
+			&dispatch_result,
+		)
+	}
+
+	#[test]
+	fn analyze_call_result_shall_not_slash_for_transactions_with_too_many_messages() {
+		run_test(|| {
+			initialize_environment(100, 100, 100);
+
+			// the `analyze_call_result` should return slash if number of bundled messages is
+			// within reasonable limits
+			assert_eq!(
+				run_analyze_call_result(all_finality_pre_dispatch_data(), Ok(())),
+				RelayerAccountAction::Slash(
+					relayer_account_at_this_chain(),
+					MsgProofsRewardsAccount::get()
+				),
+			);
+			assert_eq!(
+				run_analyze_call_result(parachain_finality_pre_dispatch_data(), Ok(())),
+				RelayerAccountAction::Slash(
+					relayer_account_at_this_chain(),
+					MsgProofsRewardsAccount::get()
+				),
+			);
+			assert_eq!(
+				run_analyze_call_result(delivery_pre_dispatch_data(), Ok(())),
+				RelayerAccountAction::Slash(
+					relayer_account_at_this_chain(),
+					MsgProofsRewardsAccount::get()
+				),
+			);
+
+			// the `analyze_call_result` should not return slash if number of bundled messages is
+			// larger than the
+			assert_eq!(
+				run_analyze_call_result(
+					set_bundled_range_end(all_finality_pre_dispatch_data(), 1_000_000),
+					Ok(())
+				),
+				RelayerAccountAction::None,
+			);
+			assert_eq!(
+				run_analyze_call_result(
+					set_bundled_range_end(parachain_finality_pre_dispatch_data(), 1_000_000),
+					Ok(())
+				),
+				RelayerAccountAction::None,
+			);
+			assert_eq!(
+				run_analyze_call_result(
+					set_bundled_range_end(delivery_pre_dispatch_data(), 1_000_000),
+					Ok(())
+				),
+				RelayerAccountAction::None,
 			);
 		});
 	}

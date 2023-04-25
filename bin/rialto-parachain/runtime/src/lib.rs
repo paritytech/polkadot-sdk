@@ -533,6 +533,7 @@ impl pallet_bridge_relayers::Config for Runtime {
 	type Reward = Balance;
 	type PaymentProcedure =
 		bp_relayers::PayRewardFromAccount<pallet_balances::Pallet<Runtime>, AccountId>;
+	type StakeAndSlash = ();
 	type WeightInfo = ();
 }
 

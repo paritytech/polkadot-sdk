@@ -372,6 +372,7 @@ parameter_types! {
 	/// Authorities are changing every 5 minutes.
 	pub const Period: BlockNumber = bp_millau::SESSION_LENGTH;
 	pub const Offset: BlockNumber = 0;
+	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";
 }
 
 impl pallet_session::Config for Runtime {
@@ -392,6 +393,14 @@ impl pallet_bridge_relayers::Config for Runtime {
 	type Reward = Balance;
 	type PaymentProcedure =
 		bp_relayers::PayRewardFromAccount<pallet_balances::Pallet<Runtime>, AccountId>;
+	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
+		AccountId,
+		BlockNumber,
+		Balances,
+		RelayerStakeReserveId,
+		ConstU64<1_000>,
+		ConstU64<8>,
+	>;
 	type WeightInfo = ();
 }
 
