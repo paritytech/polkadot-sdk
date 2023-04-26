@@ -131,7 +131,7 @@ jobs:
           ruby-version: 3.0.0
 
       - name: Download srtool json output
-        uses: actions/download-artifact@fb598a63ae348fa914e94cd0ff38f362e927b741 # v3.0.0
+        uses: actions/download-artifact@9782bd6a9848b53b110e712e20e42d89988822b7 # v3.0.1
 
       - name: Prepare tooling
         run: |
@@ -251,7 +251,7 @@ jobs:
           ref: ${{ github.event.inputs.ref2 }}
 
       - name: Download artifacts
-        uses: actions/download-artifact@fb598a63ae348fa914e94cd0ff38f362e927b741 # v3.0.0
+        uses: actions/download-artifact@9782bd6a9848b53b110e712e20e42d89988822b7 # v3.0.1
 
       - uses: ruby/setup-ruby@6cecb48364174b0952995175c55f9bf5527e6682 # v1.147.0
         with:
