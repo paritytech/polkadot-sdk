@@ -834,6 +834,7 @@ mod tests {
 		run_test(|| {
 			assert_eq!(BestFinalized::<TestRuntime>::get(), None,);
 			assert_eq!(Pallet::<TestRuntime>::best_finalized(), None);
+			assert_eq!(PalletOperatingMode::<TestRuntime>::try_get(), Err(()));
 
 			let init_data = init_with_origin(RuntimeOrigin::root()).unwrap();
 
@@ -843,7 +844,10 @@ mod tests {
 				CurrentAuthoritySet::<TestRuntime>::get().authorities,
 				init_data.authority_list
 			);
-			assert_eq!(PalletOperatingMode::<TestRuntime>::get(), BasicOperatingMode::Normal);
+			assert_eq!(
+				PalletOperatingMode::<TestRuntime>::try_get(),
+				Ok(BasicOperatingMode::Normal)
+			);
 		})
 	}
 
