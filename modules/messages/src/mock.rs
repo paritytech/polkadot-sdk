@@ -416,7 +416,7 @@ impl SourceHeaderChain for TestSourceHeaderChain {
 #[derive(Debug)]
 pub struct TestMessageDispatch;
 
-impl MessageDispatch<AccountId> for TestMessageDispatch {
+impl MessageDispatch for TestMessageDispatch {
 	type DispatchPayload = TestPayload;
 	type DispatchLevelResult = TestDispatchLevelResult;
 
@@ -428,7 +428,6 @@ impl MessageDispatch<AccountId> for TestMessageDispatch {
 	}
 
 	fn dispatch(
-		_relayer_account: &AccountId,
 		message: DispatchMessage<TestPayload>,
 	) -> MessageDispatchResult<TestDispatchLevelResult> {
 		match message.data.payload.as_ref() {

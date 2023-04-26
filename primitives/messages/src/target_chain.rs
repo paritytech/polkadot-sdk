@@ -83,7 +83,7 @@ pub trait SourceHeaderChain {
 }
 
 /// Called when inbound message is received.
-pub trait MessageDispatch<AccountId> {
+pub trait MessageDispatch {
 	/// Decoded message payload type. Valid message may contain invalid payload. In this case
 	/// message is delivered, but dispatch fails. Therefore, two separate types of payload
 	/// (opaque `MessagePayload` used in delivery and this `DispatchPayload` used in dispatch).
@@ -103,11 +103,7 @@ pub trait MessageDispatch<AccountId> {
 	///
 	/// It is up to the implementers of this trait to determine whether the message
 	/// is invalid (i.e. improperly encoded, has too large weight, ...) or not.
-	///
-	/// If your configuration allows paying dispatch fee at the target chain, then
-	/// it must be paid inside this method to the `relayer_account`.
 	fn dispatch(
-		relayer_account: &AccountId,
 		message: DispatchMessage<Self::DispatchPayload>,
 	) -> MessageDispatchResult<Self::DispatchLevelResult>;
 }
@@ -186,7 +182,7 @@ impl<MessagesProof: Parameter + Size, DispatchPayload> SourceHeaderChain
 	}
 }
 
-impl<MessagesProof, DispatchPayload: Decode, AccountId> MessageDispatch<AccountId>
+impl<MessagesProof, DispatchPayload: Decode> MessageDispatch
 	for ForbidInboundMessages<MessagesProof, DispatchPayload>
 {
 	type DispatchPayload = DispatchPayload;
@@ -197,7 +193,6 @@ impl<MessagesProof, DispatchPayload: Decode, AccountId> MessageDispatch<AccountI
 	}
 
 	fn dispatch(
-		_: &AccountId,
 		_: DispatchMessage<Self::DispatchPayload>,
 	) -> MessageDispatchResult<Self::DispatchLevelResult> {
 		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result: () }

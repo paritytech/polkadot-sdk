@@ -60,8 +60,6 @@ pub type FromMillauMessagePayload = messages::target::FromBridgedChainMessagePay
 /// Call-dispatch based message dispatch for Millau -> RialtoParachain messages.
 pub type FromMillauMessageDispatch =
 	bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatch<
-		bp_rialto_parachain::RialtoParachain,
-		bp_millau::Millau,
 		crate::OnRialtoParachainBlobDispatcher,
 		(),
 	>;

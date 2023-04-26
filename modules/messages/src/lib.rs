@@ -162,10 +162,7 @@ pub mod pallet {
 		/// Source header chain, as it is represented on target chain.
 		type SourceHeaderChain: SourceHeaderChain;
 		/// Message dispatch.
-		type MessageDispatch: MessageDispatch<
-			Self::AccountId,
-			DispatchPayload = Self::InboundPayload,
-		>;
+		type MessageDispatch: MessageDispatch<DispatchPayload = Self::InboundPayload>;
 	}
 
 	/// Shortcut to messages proof type for Config.
@@ -361,9 +358,8 @@ pub mod pallet {
 						fail!(Error::<T, I>::InsufficientDispatchWeight);
 					}
 
-					let receival_result = lane.receive_message::<T::MessageDispatch, T::AccountId>(
+					let receival_result = lane.receive_message::<T::MessageDispatch>(
 						&relayer_id_at_bridged_chain,
-						&relayer_id_at_this_chain,
 						message.key.nonce,
 						message.data,
 					);
@@ -545,11 +541,7 @@ pub mod pallet {
 		MessageAccepted { lane_id: LaneId, nonce: MessageNonce },
 		/// Messages have been received from the bridged chain.
 		MessagesReceived(
-			Vec<
-				ReceivedMessages<
-					<T::MessageDispatch as MessageDispatch<T::AccountId>>::DispatchLevelResult,
-				>,
-			>,
+			Vec<ReceivedMessages<<T::MessageDispatch as MessageDispatch>::DispatchLevelResult>>,
 		),
 		/// Messages in the inclusive range have been delivered to the bridged chain.
 		MessagesDelivered { lane_id: LaneId, messages: DeliveredMessages },
