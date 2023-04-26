@@ -61,8 +61,7 @@ impl Chain for RialtoParachain {
 
 impl ChainWithBalances for RialtoParachain {
 	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey {
-		let key = codegen_runtime::api::storage().system().account(account_id);
-		StorageKey(key.to_bytes())
+		bp_polkadot_core::AccountInfoStorageMapKeyProvider::final_key(account_id)
 	}
 }
 
