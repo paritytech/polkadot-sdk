@@ -153,7 +153,7 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 		// Note: There will be max. 1 record to update as we don't allow messages from relayers to
 		// overlap.
 		match data.relayers.front_mut() {
-			Some(entry) if entry.messages.begin < new_confirmed_nonce => {
+			Some(entry) if entry.messages.begin <= new_confirmed_nonce => {
 				entry.messages.begin = new_confirmed_nonce + 1;
 			},
 			_ => {},
@@ -221,12 +221,13 @@ mod tests {
 	use crate::{
 		inbound_lane,
 		mock::{
-			dispatch_result, inbound_message_data, run_test, unrewarded_relayer,
-			TestMessageDispatch, TestRuntime, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_RELAYER_A,
-			TEST_RELAYER_B, TEST_RELAYER_C,
+			dispatch_result, inbound_message_data, inbound_unrewarded_relayers_state, run_test,
+			unrewarded_relayer, TestMessageDispatch, TestRuntime, REGULAR_PAYLOAD, TEST_LANE_ID,
+			TEST_RELAYER_A, TEST_RELAYER_B, TEST_RELAYER_C,
 		},
 		RuntimeInboundLaneStorage,
 	};
+	use bp_messages::UnrewardedRelayersState;
 
 	fn receive_regular_message(
 		lane: &mut InboundLane<RuntimeInboundLaneStorage<TestRuntime, ()>>,
@@ -542,6 +543,31 @@ mod tests {
 					inbound_message_data(payload)
 				),
 				ReceivalResult::Dispatched(dispatch_result(1))
+			);
+		});
+	}
+
+	#[test]
+	fn first_message_is_confirmed_correctly() {
+		run_test(|| {
+			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			receive_regular_message(&mut lane, 1);
+			receive_regular_message(&mut lane, 2);
+			assert_eq!(
+				lane.receive_state_update(OutboundLaneData {
+					latest_received_nonce: 1,
+					..Default::default()
+				}),
+				Some(1),
+			);
+			assert_eq!(
+				inbound_unrewarded_relayers_state(TEST_LANE_ID),
+				UnrewardedRelayersState {
+					unrewarded_relayer_entries: 1,
+					messages_in_oldest_entry: 1,
+					total_messages: 1,
+					last_delivered_nonce: 2,
+				},
 			);
 		});
 	}
