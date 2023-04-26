@@ -26,8 +26,8 @@ use bp_messages::{
 		DeliveryPayments, DispatchMessage, DispatchMessageData, MessageDispatch,
 		ProvedLaneMessages, ProvedMessages, SourceHeaderChain,
 	},
-	DeliveredMessages, InboundLaneData, LaneId, Message, MessageKey, MessageNonce, MessagePayload,
-	OutboundLaneData, UnrewardedRelayer,
+	total_unrewarded_messages, DeliveredMessages, InboundLaneData, LaneId, Message, MessageKey,
+	MessageNonce, MessagePayload, OutboundLaneData, UnrewardedRelayer, UnrewardedRelayersState,
 };
 use bp_runtime::{messages::MessageDispatchResult, Size};
 use codec::{Decode, Encode};
@@ -142,7 +142,7 @@ impl pallet_balances::Config for TestRuntime {
 parameter_types! {
 	pub const MaxMessagesToPruneAtOnce: u64 = 10;
 	pub const MaxUnrewardedRelayerEntriesAtInboundLane: u64 = 16;
-	pub const MaxUnconfirmedMessagesAtInboundLane: u64 = 32;
+	pub const MaxUnconfirmedMessagesAtInboundLane: u64 = 128;
 	pub const TestBridgedChainId: bp_runtime::ChainId = *b"test";
 	pub const ActiveOutboundLanes: &'static [LaneId] = &[TEST_LANE_ID, TEST_LANE_ID_2];
 }
@@ -481,6 +481,22 @@ pub fn unrewarded_relayer(
 	relayer: TestRelayer,
 ) -> UnrewardedRelayer<TestRelayer> {
 	UnrewardedRelayer { relayer, messages: DeliveredMessages { begin, end } }
+}
+
+/// Returns unrewarded relayers state at given lane.
+pub fn inbound_unrewarded_relayers_state(lane: bp_messages::LaneId) -> UnrewardedRelayersState {
+	let inbound_lane_data = crate::InboundLanes::<TestRuntime, ()>::get(lane).0;
+	let last_delivered_nonce = inbound_lane_data.last_delivered_nonce();
+	let relayers = inbound_lane_data.relayers;
+	UnrewardedRelayersState {
+		unrewarded_relayer_entries: relayers.len() as _,
+		messages_in_oldest_entry: relayers
+			.front()
+			.map(|entry| 1 + entry.messages.end - entry.messages.begin)
+			.unwrap_or(0),
+		total_messages: total_unrewarded_messages(&relayers).unwrap_or(MessageNonce::MAX),
+		last_delivered_nonce,
+	}
 }
 
 /// Return test externalities to use in tests.
