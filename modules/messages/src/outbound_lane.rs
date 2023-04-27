@@ -196,9 +196,6 @@ fn ensure_unrewarded_relayers_are_correct<RelayerId>(
 		// entry can't confirm messages larger than `inbound_lane_data.latest_received_nonce()`
 		// (guaranteed by the `InboundLane::receive_message()`)
 		if entry.messages.end > latest_received_nonce {
-			// technically this will be detected in the next loop iteration as
-			// `InvalidNumberOfDispatchResults` but to guarantee safety of loop operations below
-			// this is detected now
 			return Err(ReceivalConfirmationResult::FailedToConfirmFutureMessages)
 		}
 	}
