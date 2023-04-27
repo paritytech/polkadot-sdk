@@ -2,11 +2,14 @@ use crate::impls::AccountIdOf;
 use core::{marker::PhantomData, ops::ControlFlow};
 use frame_support::{
 	log,
-	traits::{fungibles::Inspect, tokens::ConversionToAssetBalance, ContainsPair},
+	traits::{
+		fungibles::Inspect, tokens::ConversionToAssetBalance, ContainsPair, ProcessMessageError,
+	},
 	weights::Weight,
 };
 use sp_runtime::traits::Get;
-use xcm::{latest::prelude::*, CreateMatcher, MatchXcm};
+use xcm::latest::prelude::*;
+use xcm_builder::{CreateMatcher, MatchXcm};
 use xcm_executor::traits::ShouldExecute;
 
 //TODO: move DenyThenTry to polkadot's xcm module.
@@ -27,7 +30,7 @@ where
 		message: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		weight_credit: &mut Weight,
-	) -> Result<(), ()> {
+	) -> Result<(), ProcessMessageError> {
 		Deny::should_execute(origin, message, max_weight, weight_credit)?;
 		Allow::should_execute(origin, message, max_weight, weight_credit)
 	}
@@ -41,7 +44,7 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 		message: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
 		_weight_credit: &mut Weight,
-	) -> Result<(), ()> {
+	) -> Result<(), ProcessMessageError> {
 		message.matcher().match_next_inst_while(
 			|_| true,
 			|inst| match inst {
@@ -55,7 +58,7 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 				TransferReserveAsset {
 					dest: MultiLocation { parents: 1, interior: Here }, ..
 				} => {
-					Err(()) // Deny
+					Err(ProcessMessageError::Unsupported) // Deny
 				},
 
 				// An unexpected reserve transfer has arrived from the Relay Chain. Generally,
