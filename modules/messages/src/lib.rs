@@ -329,9 +329,10 @@ pub mod pallet {
 					if let Some(updated_latest_confirmed_nonce) = updated_latest_confirmed_nonce {
 						log::trace!(
 							target: LOG_TARGET,
-							"Received lane {:?} state update: latest_confirmed_nonce={}",
+							"Received lane {:?} state update: latest_confirmed_nonce={}. Unrewarded relayers: {:?}",
 							lane_id,
 							updated_latest_confirmed_nonce,
+							UnrewardedRelayersState::from(&lane.storage().data()),
 						);
 					}
 				}
