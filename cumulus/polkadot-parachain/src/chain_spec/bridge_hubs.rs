@@ -130,13 +130,10 @@ impl BridgeHubRuntimeType {
 				Ok(Box::new(westend::BridgeHubChainSpec::from_json_bytes(
 					&include_bytes!("../../../parachains/chain-specs/bridge-hub-westend.json")[..],
 				)?)),
-			BridgeHubRuntimeType::Rococo => Ok(Box::new(rococo::live_config(
-				rococo::BRIDGE_HUB_ROCOCO,
-				"Rococo BridgeHub",
-				"rococo",
-				ParaId::new(1013),
-				|_| (),
-			))),
+			BridgeHubRuntimeType::Rococo =>
+				Ok(Box::new(rococo::BridgeHubChainSpec::from_json_bytes(
+					&include_bytes!("../../../parachains/chain-specs/bridge-hub-rococo.json")[..],
+				)?)),
 			BridgeHubRuntimeType::RococoLocal => Ok(Box::new(rococo::local_config(
 				rococo::BRIDGE_HUB_ROCOCO_LOCAL,
 				"Rococo BridgeHub Local",
@@ -151,12 +148,10 @@ impl BridgeHubRuntimeType {
 				ParaId::new(1013),
 				|_| (),
 			))),
-			BridgeHubRuntimeType::Wococo => Ok(Box::new(wococo::live_config(
-				wococo::BRIDGE_HUB_WOCOCO,
-				"Wococo BridgeHub",
-				"wococo",
-				ParaId::new(1014),
-			))),
+			BridgeHubRuntimeType::Wococo =>
+				Ok(Box::new(wococo::BridgeHubChainSpec::from_json_bytes(
+					&include_bytes!("../../../parachains/chain-specs/bridge-hub-wococo.json")[..],
+				)?)),
 			BridgeHubRuntimeType::WococoLocal => Ok(Box::new(wococo::local_config(
 				wococo::BRIDGE_HUB_WOCOCO_LOCAL,
 				"Wococo BridgeHub Local",
@@ -221,65 +216,6 @@ pub mod rococo {
 		sc_service::GenericChainSpec<bridge_hub_rococo_runtime::GenesisConfig, Extensions>;
 
 	pub type RuntimeApi = bridge_hub_rococo_runtime::RuntimeApi;
-
-	pub fn live_config<ModifyProperties: Fn(&mut sc_chain_spec::Properties)>(
-		id: &str,
-		chain_name: &str,
-		relay_chain: &str,
-		para_id: ParaId,
-		modify_props: ModifyProperties,
-	) -> BridgeHubChainSpec {
-		// Rococo defaults
-		let mut properties = sc_chain_spec::Properties::new();
-		properties.insert("ss58Format".into(), 42.into());
-		properties.insert("tokenSymbol".into(), "ROC".into());
-		properties.insert("tokenDecimals".into(), 12.into());
-		modify_props(&mut properties);
-
-		BridgeHubChainSpec::from_genesis(
-			// Name
-			chain_name,
-			// ID
-			super::ensure_id(id).expect("invalid id"),
-			ChainType::Live,
-			move || {
-				genesis(
-					// initial collators.
-					vec![
-						(
-							get_account_id_from_seed::<sr25519::Public>("Alice"),
-							get_collator_keys_from_seed::<AuraId>("Alice"),
-						),
-						(
-							get_account_id_from_seed::<sr25519::Public>("Bob"),
-							get_collator_keys_from_seed::<AuraId>("Bob"),
-						),
-					],
-					vec![
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_account_id_from_seed::<sr25519::Public>("Charlie"),
-						get_account_id_from_seed::<sr25519::Public>("Dave"),
-						get_account_id_from_seed::<sr25519::Public>("Eve"),
-						get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-						get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-						get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-						get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-						get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-						get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-						get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-					],
-					para_id,
-				)
-			},
-			Vec::new(),
-			None,
-			None,
-			None,
-			Some(properties),
-			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
-		)
-	}
 
 	pub fn local_config<ModifyProperties: Fn(&mut sc_chain_spec::Properties)>(
 		id: &str,
@@ -400,17 +336,6 @@ pub mod wococo {
 		para_id: ParaId,
 	) -> BridgeHubChainSpec {
 		rococo::local_config(id, chain_name, relay_chain, para_id, |properties| {
-			properties.insert("tokenSymbol".into(), "WOOK".into());
-		})
-	}
-
-	pub fn live_config(
-		id: &str,
-		chain_name: &str,
-		relay_chain: &str,
-		para_id: ParaId,
-	) -> BridgeHubChainSpec {
-		rococo::live_config(id, chain_name, relay_chain, para_id, |properties| {
 			properties.insert("tokenSymbol".into(), "WOOK".into());
 		})
 	}
