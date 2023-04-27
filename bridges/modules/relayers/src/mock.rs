@@ -118,13 +118,16 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_bridge_relayers::benchmarking::Config for TestRuntime {
-	fn prepare_environment(account_params: RewardsAccountParams, reward: Balance) {
-		use frame_support::traits::fungible::Mutate;
+	fn prepare_rewards_account(account_params: RewardsAccountParams, reward: Balance) {
 		let rewards_account =
 			bp_relayers::PayRewardFromAccount::<Balances, AccountId>::rewards_account(
 				account_params,
 			);
-		Balances::mint_into(&rewards_account, reward).unwrap();
+		Self::deposit_account(rewards_account, reward);
+	}
+
+	fn deposit_account(account: Self::AccountId, balance: Self::Reward) {
+		Balances::mint_into(&account, balance.saturating_add(ExistentialDeposit::get())).unwrap();
 	}
 }
 
