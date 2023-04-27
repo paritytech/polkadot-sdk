@@ -1108,16 +1108,20 @@ impl_runtime_apis! {
 			}
 
 			impl RelayersConfig for Runtime {
-				fn prepare_environment(
+				fn prepare_rewards_account(
 					account_params: RewardsAccountParams,
 					reward: Balance,
 				) {
-					use frame_support::traits::fungible::Mutate;
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
 						Balances,
 						AccountId
 					>::rewards_account(account_params);
-					Balances::mint_into(&rewards_account, reward).unwrap();
+					Self::deposit_account(rewards_account, reward);
+				}
+
+				fn deposit_account(account: AccountId, balance: Balance) {
+					use frame_support::traits::fungible::Mutate;
+					Balances::mint_into(&account, balance.saturating_add(ExistentialDeposit::get())).unwrap();
 				}
 			}
 
