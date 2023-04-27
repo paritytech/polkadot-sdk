@@ -21,7 +21,7 @@
 //! required finality proofs). This extension boosts priority of message delivery
 //! transactions, based on the number of bundled messages. So transaction with more
 //! messages has larger priority than the transaction with less messages.
-//! See [`bridge_runtime_common::priority_calculator`] for details;
+//! See `bridge_runtime_common::priority_calculator` for details;
 //!
 //! This encourages relayers to include more messages to their delivery transactions.
 //! At the same time, we are not verifying storage proofs before boosting

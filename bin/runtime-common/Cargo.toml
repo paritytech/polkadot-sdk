@@ -30,7 +30,6 @@ pallet-bridge-relayers = { path = "../../modules/relayers", default-features = f
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-utility = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
@@ -63,7 +62,6 @@ std = [
 	"frame-system/std",
 	"hash-db/std",
 	"log/std",
-	"pallet-balances/std",
 	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
 	"pallet-bridge-parachains/std",
