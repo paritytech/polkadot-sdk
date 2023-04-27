@@ -316,6 +316,21 @@ pub struct UnrewardedRelayersState {
 	pub last_delivered_nonce: MessageNonce,
 }
 
+impl<RelayerId> From<&InboundLaneData<RelayerId>> for UnrewardedRelayersState {
+	fn from(lane: &InboundLaneData<RelayerId>) -> UnrewardedRelayersState {
+		UnrewardedRelayersState {
+			unrewarded_relayer_entries: lane.relayers.len() as _,
+			messages_in_oldest_entry: lane
+				.relayers
+				.front()
+				.and_then(|entry| (entry.messages.begin..=entry.messages.end).checked_len())
+				.unwrap_or(0),
+			total_messages: total_unrewarded_messages(&lane.relayers).unwrap_or(MessageNonce::MAX),
+			last_delivered_nonce: lane.last_delivered_nonce(),
+		}
+	}
+}
+
 /// Outbound lane data.
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub struct OutboundLaneData {
