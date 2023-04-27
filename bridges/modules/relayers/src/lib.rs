@@ -159,6 +159,7 @@ pub mod pallet {
 				}
 				registration.stake = required_stake;
 
+				log::trace!(target: LOG_TARGET, "Successfully registered relayer: {:?}", relayer);
 				Self::deposit_event(Event::<T>::RegistrationUpdated {
 					relayer: relayer.clone(),
 					registration,
@@ -196,6 +197,7 @@ pub mod pallet {
 					Self::do_unreserve(&relayer, registration.stake)?;
 				}
 
+				log::trace!(target: LOG_TARGET, "Successfully deregistered relayer: {:?}", relayer);
 				Self::deposit_event(Event::<T>::Deregistered { relayer: relayer.clone() });
 
 				*maybe_registration = None;
