@@ -30,6 +30,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod rialto_messages;
 pub mod rialto_parachain_messages;
+pub mod weights;
 pub mod xcm_config;
 
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
@@ -442,7 +443,7 @@ pub type WithRialtoMessagesInstance = ();
 
 impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<Runtime>;
+	type WeightInfo = weights::RialtoMessagesWeightInfo<Runtime>;
 	type ActiveOutboundLanes = RialtoActiveOutboundLanes;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
@@ -472,7 +473,7 @@ pub type WithRialtoParachainMessagesInstance = pallet_bridge_messages::Instance1
 
 impl pallet_bridge_messages::Config<WithRialtoParachainMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<Runtime>;
+	type WeightInfo = weights::RialtoParachainMessagesWeightInfo<Runtime>;
 	type ActiveOutboundLanes = RialtoParachainActiveOutboundLanes;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
@@ -598,7 +599,7 @@ generate_bridge_reject_obsolete_headers_and_messages! {
 
 bp_runtime::generate_static_str_provider!(BridgeRefundRialtoPara2000Lane0Msgs);
 /// Signed extension that refunds relayers that are delivering messages from the Rialto parachain.
-pub type PriorityBoostPerMessage = ConstU64<921_900_294>;
+pub type PriorityBoostPerMessage = ConstU64<699_683_285>;
 pub type BridgeRefundRialtoParachainMessages = RefundBridgedParachainMessages<
 	Runtime,
 	RefundableParachain<WithRialtoParachainsInstance, RialtoParachainId>,
@@ -646,6 +647,17 @@ pub type Executive = frame_executive::Executive<
 	Runtime,
 	AllPalletsWithSystem,
 >;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benches {
+	frame_benchmarking::define_benchmarks!(
+		[pallet_bridge_messages, MessagesBench::<Runtime, WithRialtoMessagesInstance>]
+		[pallet_bridge_messages, MessagesBench::<Runtime, WithRialtoParachainMessagesInstance>]
+		[pallet_bridge_grandpa, BridgeRialtoGrandpa]
+		[pallet_bridge_parachains, ParachainsBench::<Runtime, WithRialtoParachainsInstance>]
+		[pallet_bridge_relayers, RelayersBench::<Runtime>]
+	);
+}
 
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
@@ -954,7 +966,7 @@ impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{list_benchmark, Benchmarking, BenchmarkList};
+			use frame_benchmarking::{Benchmarking, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
 
 			use pallet_bridge_messages::benchmarking::Pallet as MessagesBench;
@@ -962,22 +974,16 @@ impl_runtime_apis! {
 			use pallet_bridge_relayers::benchmarking::Pallet as RelayersBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
-
-			list_benchmark!(list, extra, RialtoParachainMessages, MessagesBench::<Runtime, WithRialtoParachainMessagesInstance>);
-			list_benchmark!(list, extra, RialtoMessages, MessagesBench::<Runtime, WithRialtoMessagesInstance>);
-			list_benchmark!(list, extra, pallet_bridge_grandpa, BridgeRialtoGrandpa);
-			list_benchmark!(list, extra, pallet_bridge_parachains, ParachainsBench::<Runtime, WithRialtoParachainsInstance>);
-			list_benchmark!(list, extra, pallet_bridge_relayers, RelayersBench::<Runtime>);
+			list_benchmarks!(list, extra);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
-
 			return (list, storage_info)
 		}
 
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig,
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-			use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey, add_benchmark};
+			use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
 
 			let whitelist: Vec<TrackedStorageKey> = vec![
 				// Block Number
@@ -991,9 +997,6 @@ impl_runtime_apis! {
 				// Caller 0 Account
 				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da946c154ffd9992e395af90b5b13cc6f295c77033fce8a9045824a6690bbf99c6db269502f0a8d1d2a008542d5690a0749").to_vec().into(),
 			];
-
-			let mut batches = Vec::<BenchmarkBatch>::new();
-			let params = (&config, &whitelist);
 
 			use bridge_runtime_common::messages_benchmarking::{
 				prepare_message_delivery_proof_from_grandpa_chain,
@@ -1125,26 +1128,10 @@ impl_runtime_apis! {
 				}
 			}
 
-			add_benchmark!(
-				params,
-				batches,
-				RialtoParachainMessages,
-				MessagesBench::<Runtime, WithRialtoParachainMessagesInstance>
-			);
-			add_benchmark!(
-				params,
-				batches,
-				RialtoMessages,
-				MessagesBench::<Runtime, WithRialtoMessagesInstance>
-			);
-			add_benchmark!(params, batches, pallet_bridge_grandpa, BridgeRialtoGrandpa);
-			add_benchmark!(
-				params,
-				batches,
-				pallet_bridge_parachains,
-				ParachainsBench::<Runtime, WithRialtoParachainsInstance>
-			);
-			add_benchmark!(params, batches, pallet_bridge_relayers, RelayersBench::<Runtime>);
+			let mut batches = Vec::<BenchmarkBatch>::new();
+			let params = (&config, &whitelist);
+
+			add_benchmarks!(params, batches);
 
 			Ok(batches)
 		}
