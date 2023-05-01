@@ -135,6 +135,12 @@ impl XcmBlobHauler for ToRialtoXcmBlobHauler {
 	}
 }
 
+impl pallet_bridge_messages::WeightInfoExt for crate::weights::RialtoMessagesWeightInfo<Runtime> {
+	fn expected_extra_storage_proof_size() -> u32 {
+		bp_rialto::EXTRA_STORAGE_PROOF_SIZE
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
