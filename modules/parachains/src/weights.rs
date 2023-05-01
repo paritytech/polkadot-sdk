@@ -35,7 +35,7 @@
 // --wasm-execution=Compiled
 // --heap-pages=4096
 // --output=./modules/parachains/src/weights.rs
-// --template=./.maintain/millau-weight-template.hbs
+// --template=./.maintain/bridge-weight-template.hbs
 
 #![allow(clippy::all)]
 #![allow(unused_parens)]
