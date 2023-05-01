@@ -76,6 +76,7 @@ pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "master"
 
 [dev-dependencies]
 bridge-runtime-common = { path = "../../runtime-common", features = ["integrity-test"] }
+static_assertions = "1.1"
 
 [features]
 default = ['std']
