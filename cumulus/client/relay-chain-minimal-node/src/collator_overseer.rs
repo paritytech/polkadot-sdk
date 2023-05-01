@@ -99,7 +99,7 @@ fn build_overseer<'a>(
 	let network_bridge_metrics: NetworkBridgeMetrics = Metrics::register(registry)?;
 	let builder = Overseer::builder()
 		.availability_distribution(DummySubsystem)
-		.availability_recovery(AvailabilityRecoverySubsystem::with_chunks_only(
+		.availability_recovery(AvailabilityRecoverySubsystem::with_availability_store_skip(
 			available_data_req_receiver,
 			Metrics::register(registry)?,
 		))

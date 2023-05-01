@@ -125,7 +125,7 @@ where
 
 	task_manager
 		.spawn_essential_handle()
-		.spawn("cumulus-consensus", None, consensus);
+		.spawn_blocking("cumulus-consensus", None, consensus);
 
 	let pov_recovery = PoVRecovery::new(
 		recovery_handle,
@@ -218,7 +218,7 @@ where
 
 	task_manager
 		.spawn_essential_handle()
-		.spawn("cumulus-consensus", None, consensus);
+		.spawn_blocking("cumulus-consensus", None, consensus);
 
 	let pov_recovery = PoVRecovery::new(
 		recovery_handle,
