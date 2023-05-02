@@ -33,12 +33,14 @@ pub use pallet::*;
 pub use payment_adapter::DeliveryConfirmationPaymentsAdapter;
 pub use stake_adapter::StakeAndSlashNamed;
 pub use weights::WeightInfo;
+pub use weights_ext::WeightInfoExt;
 
 pub mod benchmarking;
 
 mod mock;
 mod payment_adapter;
 mod stake_adapter;
+mod weights_ext;
 
 pub mod weights;
 
@@ -66,7 +68,7 @@ pub mod pallet {
 		/// Stake and slash scheme.
 		type StakeAndSlash: StakeAndSlash<Self::AccountId, Self::BlockNumber, Self::Reward>;
 		/// Pallet call weights.
-		type WeightInfo: WeightInfo;
+		type WeightInfo: WeightInfoExt;
 	}
 
 	#[pallet::pallet]
