@@ -599,7 +599,7 @@ generate_bridge_reject_obsolete_headers_and_messages! {
 
 bp_runtime::generate_static_str_provider!(BridgeRefundRialtoPara2000Lane0Msgs);
 /// Signed extension that refunds relayers that are delivering messages from the Rialto parachain.
-pub type PriorityBoostPerMessage = ConstU64<699_683_285>;
+pub type PriorityBoostPerMessage = ConstU64<324_316_715>;
 pub type BridgeRefundRialtoParachainMessages = RefundBridgedParachainMessages<
 	Runtime,
 	RefundableParachain<WithRialtoParachainsInstance, RialtoParachainId>,

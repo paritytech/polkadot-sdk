@@ -40,7 +40,9 @@ use pallet_bridge_parachains::{
 	BoundedBridgeGrandpaConfig, CallSubType as ParachainsCallSubType, Config as ParachainsConfig,
 	RelayBlockNumber, SubmitParachainHeadsHelper, SubmitParachainHeadsInfo,
 };
-use pallet_bridge_relayers::{Config as RelayersConfig, Pallet as RelayersPallet};
+use pallet_bridge_relayers::{
+	Config as RelayersConfig, Pallet as RelayersPallet, WeightInfoExt as _,
+};
 use pallet_transaction_payment::{Config as TransactionPaymentConfig, OnChargeTransaction};
 use pallet_utility::{Call as UtilityCall, Config as UtilityConfig, Pallet as UtilityPallet};
 use scale_info::TypeInfo;
@@ -445,11 +447,19 @@ where
 
 		// decrease post-dispatch weight/size using extra weight/size that we know now
 		let post_info_len = len.saturating_sub(extra_size as usize);
-		let mut post_info = *post_info;
-		post_info.actual_weight =
-			Some(post_info.actual_weight.unwrap_or(info.weight).saturating_sub(extra_weight));
+		let mut post_info_weight =
+			post_info.actual_weight.unwrap_or(info.weight).saturating_sub(extra_weight);
+
+		// let's also replace the weight of slashing relayer with the weight of rewarding relayer
+		if call_info.is_receive_messages_proof_call() {
+			post_info_weight = post_info_weight.saturating_sub(
+				<Runtime as RelayersConfig>::WeightInfo::extra_weight_of_successful_receive_messages_proof_call(),
+			);
+		}
 
 		// compute the relayer refund
+		let mut post_info = *post_info;
+		post_info.actual_weight = Some(post_info_weight);
 		let refund = Refund::compute_refund(info, &post_info, post_info_len, tip);
 
 		// we can finally reward relayer
@@ -1052,7 +1062,20 @@ mod tests {
 		assert_eq!(post_dispatch_result, Ok(()));
 	}
 
-	fn expected_reward() -> ThisChainBalance {
+	fn expected_delivery_reward() -> ThisChainBalance {
+		let mut post_dispatch_info = post_dispatch_info();
+		let extra_weight = <TestRuntime as RelayersConfig>::WeightInfo::extra_weight_of_successful_receive_messages_proof_call();
+		post_dispatch_info.actual_weight =
+			Some(dispatch_info().weight.saturating_sub(extra_weight));
+		pallet_transaction_payment::Pallet::<TestRuntime>::compute_actual_fee(
+			1024,
+			&dispatch_info(),
+			&post_dispatch_info,
+			Zero::zero(),
+		)
+	}
+
+	fn expected_confirmation_reward() -> ThisChainBalance {
 		pallet_transaction_payment::Pallet::<TestRuntime>::compute_actual_fee(
 			1024,
 			&dispatch_info(),
@@ -1449,7 +1472,7 @@ mod tests {
 
 			// without any size/weight refund: we expect regular reward
 			let pre_dispatch_data = all_finality_pre_dispatch_data();
-			let regular_reward = expected_reward();
+			let regular_reward = expected_delivery_reward();
 			run_post_dispatch(Some(pre_dispatch_data), Ok(()));
 			assert_eq!(
 				RelayersPallet::<TestRuntime>::relayer_reward(
@@ -1496,7 +1519,7 @@ mod tests {
 					relayer_account_at_this_chain(),
 					MsgProofsRewardsAccount::get()
 				),
-				Some(expected_reward()),
+				Some(expected_delivery_reward()),
 			);
 
 			run_post_dispatch(Some(all_finality_confirmation_pre_dispatch_data()), Ok(()));
@@ -1505,7 +1528,7 @@ mod tests {
 					relayer_account_at_this_chain(),
 					MsgDeliveryProofsRewardsAccount::get()
 				),
-				Some(expected_reward()),
+				Some(expected_confirmation_reward()),
 			);
 		});
 	}
@@ -1521,7 +1544,7 @@ mod tests {
 					relayer_account_at_this_chain(),
 					MsgProofsRewardsAccount::get()
 				),
-				Some(expected_reward()),
+				Some(expected_delivery_reward()),
 			);
 
 			run_post_dispatch(Some(parachain_finality_confirmation_pre_dispatch_data()), Ok(()));
@@ -1530,7 +1553,7 @@ mod tests {
 					relayer_account_at_this_chain(),
 					MsgDeliveryProofsRewardsAccount::get()
 				),
-				Some(expected_reward()),
+				Some(expected_confirmation_reward()),
 			);
 		});
 	}
@@ -1546,7 +1569,7 @@ mod tests {
 					relayer_account_at_this_chain(),
 					MsgProofsRewardsAccount::get()
 				),
-				Some(expected_reward()),
+				Some(expected_delivery_reward()),
 			);
 
 			run_post_dispatch(Some(confirmation_pre_dispatch_data()), Ok(()));
@@ -1555,7 +1578,7 @@ mod tests {
 					relayer_account_at_this_chain(),
 					MsgDeliveryProofsRewardsAccount::get()
 				),
-				Some(expected_reward()),
+				Some(expected_confirmation_reward()),
 			);
 		});
 	}
