@@ -88,5 +88,44 @@ benchmarks! {
 		assert!(!crate::Pallet::<T>::is_registration_active(&relayer));
 	}
 
+	// Benchmark `slash_and_deregister` method of the pallet. We are adding this weight to
+	// the weight of message delivery call if `RefundBridgedParachainMessages` signed extension
+	// is deployed at runtime level.
+	slash_and_deregister {
+		// prepare and register relayer account
+		let relayer: T::AccountId = whitelisted_caller();
+		let valid_till = frame_system::Pallet::<T>::block_number()
+			.saturating_add(crate::Pallet::<T>::required_registration_lease())
+			.saturating_add(One::one())
+			.saturating_add(One::one());
+		T::deposit_account(relayer.clone(), crate::Pallet::<T>::required_stake());
+		crate::Pallet::<T>::register(RawOrigin::Signed(relayer.clone()).into(), valid_till).unwrap();
+
+		// create slash destination account
+		let lane = LaneId([0, 0, 0, 0]);
+		let slash_destination = RewardsAccountParams::new(lane, *b"test", RewardsAccountOwner::ThisChain);
+		T::prepare_rewards_account(slash_destination.clone(), Zero::zero());
+	}: {
+		crate::Pallet::<T>::slash_and_deregister(&relayer, slash_destination)
+	}
+	verify {
+		assert!(!crate::Pallet::<T>::is_registration_active(&relayer));
+	}
+
+	// Benchmark `register_relayer_reward` method of the pallet. We are adding this weight to
+	// the weight of message delivery call if `RefundBridgedParachainMessages` signed extension
+	// is deployed at runtime level.
+	register_relayer_reward {
+		let lane = LaneId([0, 0, 0, 0]);
+		let relayer: T::AccountId = whitelisted_caller();
+		let account_params =
+			RewardsAccountParams::new(lane, *b"test", RewardsAccountOwner::ThisChain);
+	}: {
+		crate::Pallet::<T>::register_relayer_reward(account_params.clone(), &relayer, One::one());
+	}
+	verify {
+		assert_eq!(RelayerRewards::<T>::get(relayer, &account_params), Some(One::one()));
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime)
 }
