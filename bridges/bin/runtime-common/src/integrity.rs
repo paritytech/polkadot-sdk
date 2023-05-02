@@ -24,8 +24,9 @@ use crate::{messages, messages::MessageBridge};
 use bp_messages::{InboundLaneData, MessageNonce};
 use bp_runtime::{Chain, ChainId};
 use codec::Encode;
-use frame_support::{storage::generator::StorageValue, traits::Get};
+use frame_support::{storage::generator::StorageValue, traits::Get, weights::Weight};
 use frame_system::limits;
+use pallet_bridge_messages::WeightInfoExt as _;
 use sp_runtime::traits::SignedExtension;
 
 /// Macro that ensures that the runtime configuration and chain primitives crate are sharing
@@ -289,15 +290,25 @@ where
 }
 
 /// Check that the message lane weights are correct.
-pub fn check_message_lane_weights<C: Chain, T: frame_system::Config>(
+pub fn check_message_lane_weights<
+	C: Chain,
+	T: frame_system::Config + pallet_bridge_messages::Config,
+>(
 	bridged_chain_extra_storage_proof_size: u32,
 	this_chain_max_unrewarded_relayers: MessageNonce,
 	this_chain_max_unconfirmed_messages: MessageNonce,
+	// whether `RefundBridgedParachainMessages` extension is deployed at runtime and is used for
+	// refunding this bridge transactions?
+	//
+	// in other words: pass true for all known production chains
+	runtime_includes_refund_extension: bool,
 ) {
-	type Weights<T> = pallet_bridge_messages::weights::BridgeWeight<T>;
+	type Weights<T> = <T as pallet_bridge_messages::Config>::WeightInfo;
 
+	// check basic weight assumptions
 	pallet_bridge_messages::ensure_weights_are_correct::<Weights<T>>();
 
+	// check that weights allow us to receive messages
 	let max_incoming_message_proof_size = bridged_chain_extra_storage_proof_size
 		.saturating_add(messages::target::maximal_incoming_message_size(C::max_extrinsic_size()));
 	pallet_bridge_messages::ensure_able_to_receive_message::<Weights<T>>(
@@ -307,6 +318,7 @@ pub fn check_message_lane_weights<C: Chain, T: frame_system::Config>(
 		messages::target::maximal_incoming_message_dispatch_weight(C::max_extrinsic_weight()),
 	);
 
+	// check that weights allow us to receive delivery confirmations
 	let max_incoming_inbound_lane_data_proof_size =
 		InboundLaneData::<()>::encoded_size_hint_u32(this_chain_max_unrewarded_relayers as _);
 	pallet_bridge_messages::ensure_able_to_receive_confirmation::<Weights<T>>(
@@ -316,6 +328,20 @@ pub fn check_message_lane_weights<C: Chain, T: frame_system::Config>(
 		this_chain_max_unrewarded_relayers,
 		this_chain_max_unconfirmed_messages,
 	);
+
+	// check that extra weights of delivery/confirmation transactions include the weight
+	// of `RefundBridgedParachainMessages` operations. This signed extension assumes the worst case
+	// (i.e. slashing if delivery transaction was invalid) and refunds some weight if
+	// assumption was wrong (i.e. if we did refund instead of slashing). This check
+	// ensures the extension will not refund weight when it doesn't need to (i.e. if pallet
+	// weights do not account weights of refund extension).
+	if runtime_includes_refund_extension {
+		assert_ne!(Weights::<T>::receive_messages_proof_overhead_from_runtime(), Weight::zero());
+		assert_ne!(
+			Weights::<T>::receive_messages_delivery_proof_overhead_from_runtime(),
+			Weight::zero()
+		);
+	}
 }
 
 /// Check that the `AdditionalSigned` type of a wrapped runtime is the same as the one of the

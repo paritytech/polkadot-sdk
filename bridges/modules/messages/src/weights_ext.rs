@@ -266,6 +266,27 @@ pub trait WeightInfoExt: WeightInfo {
 	/// this value, we're going to charge relayer for that.
 	fn expected_extra_storage_proof_size() -> u32;
 
+	// Our configuration assumes that the runtime has special signed extensions used to:
+	//
+	// 1) reject obsolete delivery and confirmation transactions;
+	//
+	// 2) refund transaction cost to relayer and register his rewards.
+	//
+	// The checks in (1) are trivial, so its computation weight may be ignored. And we only touch
+	// storage values that are read during the call. So we may ignore the weight of this check.
+	//
+	// However, during (2) we read and update storage values of other pallets
+	// (`pallet-bridge-relayers` and balances/assets pallet). So we need to add this weight to the
+	// weight of our call. Hence two following methods.
+
+	/// Extra weight that is added to the `receive_messages_proof` call weight by signed extensions
+	/// that are declared at runtime level.
+	fn receive_messages_proof_overhead_from_runtime() -> Weight;
+
+	/// Extra weight that is added to the `receive_messages_delivery_proof` call weight by signed
+	/// extensions that are declared at runtime level.
+	fn receive_messages_delivery_proof_overhead_from_runtime() -> Weight;
+
 	// Functions that are directly mapped to extrinsics weights.
 
 	/// Weight of message delivery extrinsic.
@@ -276,6 +297,8 @@ pub trait WeightInfoExt: WeightInfo {
 	) -> Weight {
 		// basic components of extrinsic weight
 		let transaction_overhead = Self::receive_messages_proof_overhead();
+		let transaction_overhead_from_runtime =
+			Self::receive_messages_proof_overhead_from_runtime();
 		let outbound_state_delivery_weight =
 			Self::receive_messages_proof_outbound_lane_state_overhead();
 		let messages_delivery_weight =
@@ -292,6 +315,7 @@ pub trait WeightInfoExt: WeightInfo {
 		);
 
 		transaction_overhead
+			.saturating_add(transaction_overhead_from_runtime)
 			.saturating_add(outbound_state_delivery_weight)
 			.saturating_add(messages_delivery_weight)
 			.saturating_add(messages_dispatch_weight)
@@ -305,6 +329,8 @@ pub trait WeightInfoExt: WeightInfo {
 	) -> Weight {
 		// basic components of extrinsic weight
 		let transaction_overhead = Self::receive_messages_delivery_proof_overhead();
+		let transaction_overhead_from_runtime =
+			Self::receive_messages_delivery_proof_overhead_from_runtime();
 		let messages_overhead =
 			Self::receive_messages_delivery_proof_messages_overhead(relayers_state.total_messages);
 		let relayers_overhead = Self::receive_messages_delivery_proof_relayers_overhead(
@@ -319,6 +345,7 @@ pub trait WeightInfoExt: WeightInfo {
 		);
 
 		transaction_overhead
+			.saturating_add(transaction_overhead_from_runtime)
 			.saturating_add(messages_overhead)
 			.saturating_add(relayers_overhead)
 			.saturating_add(proof_size_overhead)
@@ -424,11 +451,27 @@ impl WeightInfoExt for () {
 	fn expected_extra_storage_proof_size() -> u32 {
 		EXTRA_STORAGE_PROOF_SIZE
 	}
+
+	fn receive_messages_proof_overhead_from_runtime() -> Weight {
+		Weight::zero()
+	}
+
+	fn receive_messages_delivery_proof_overhead_from_runtime() -> Weight {
+		Weight::zero()
+	}
 }
 
 impl<T: frame_system::Config> WeightInfoExt for crate::weights::BridgeWeight<T> {
 	fn expected_extra_storage_proof_size() -> u32 {
 		EXTRA_STORAGE_PROOF_SIZE
+	}
+
+	fn receive_messages_proof_overhead_from_runtime() -> Weight {
+		Weight::zero()
+	}
+
+	fn receive_messages_delivery_proof_overhead_from_runtime() -> Weight {
+		Weight::zero()
 	}
 }
 
