@@ -35,15 +35,15 @@ impl MessagesCliBridge for BridgeHubWococoToBridgeHubRococoMessagesCliBridge {
 substrate_relay_helper::generate_receive_message_proof_call_builder!(
 	BridgeHubWococoMessagesToBridgeHubRococoMessageLane,
 	BridgeHubWococoMessagesToBridgeHubRococoMessageLaneReceiveMessagesProofCallBuilder,
-	relay_bridge_hub_rococo_client::runtime::Call::BridgeWococoMessages,
-	relay_bridge_hub_rococo_client::runtime::BridgeWococoMessagesCall::receive_messages_proof
+	relay_bridge_hub_rococo_client::RuntimeCall::BridgeWococoMessages,
+	relay_bridge_hub_rococo_client::BridgeMessagesCall::receive_messages_proof
 );
 
 substrate_relay_helper::generate_receive_message_delivery_proof_call_builder!(
 	BridgeHubWococoMessagesToBridgeHubRococoMessageLane,
 	BridgeHubWococoMessagesToBridgeHubRococoMessageLaneReceiveMessagesDeliveryProofCallBuilder,
-	relay_bridge_hub_wococo_client::runtime::Call::BridgeRococoMessages,
-	relay_bridge_hub_wococo_client::runtime::BridgeRococoMessagesCall::receive_messages_delivery_proof
+	relay_bridge_hub_wococo_client::RuntimeCall::BridgeRococoMessages,
+	relay_bridge_hub_wococo_client::BridgeMessagesCall::receive_messages_delivery_proof
 );
 
 /// Description of BridgeHubWococo -> BridgeHubRococo messages bridge.

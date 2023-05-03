@@ -56,7 +56,7 @@ impl Chain for RialtoParachain {
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(5);
 
 	type SignedBlock = bp_polkadot_core::SignedBlock;
-	type Call = runtime_types::rialto_parachain_runtime::RuntimeCall;
+	type Call = RuntimeCall;
 }
 
 impl ChainWithBalances for RialtoParachain {
