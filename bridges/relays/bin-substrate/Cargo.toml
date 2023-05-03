@@ -49,7 +49,7 @@ relay-utils = { path = "../utils" }
 relay-westend-client = { path = "../client-westend" }
 relay-wococo-client = { path = "../client-wococo" }
 rialto-runtime = { path = "../../bin/rialto/runtime" }
-# we are not using this runtime to craft callsour transactions, but we still need it
+# we are not using this runtime to craft call or transactions, but we still need it
 # to prepare large XCM messages
 rialto-parachain-runtime = { path = "../../bin/rialto-parachain/runtime" }
 substrate-relay-helper = { path = "../lib-substrate-relay" }
