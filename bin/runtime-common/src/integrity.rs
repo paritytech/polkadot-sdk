@@ -292,7 +292,8 @@ where
 /// Check that the message lane weights are correct.
 pub fn check_message_lane_weights<
 	C: Chain,
-	T: frame_system::Config + pallet_bridge_messages::Config,
+	T: frame_system::Config + pallet_bridge_messages::Config<MessagesPalletInstance>,
+	MessagesPalletInstance: 'static,
 >(
 	bridged_chain_extra_storage_proof_size: u32,
 	this_chain_max_unrewarded_relayers: MessageNonce,
@@ -303,15 +304,15 @@ pub fn check_message_lane_weights<
 	// in other words: pass true for all known production chains
 	runtime_includes_refund_extension: bool,
 ) {
-	type Weights<T> = <T as pallet_bridge_messages::Config>::WeightInfo;
+	type Weights<T, MI> = <T as pallet_bridge_messages::Config<MI>>::WeightInfo;
 
 	// check basic weight assumptions
-	pallet_bridge_messages::ensure_weights_are_correct::<Weights<T>>();
+	pallet_bridge_messages::ensure_weights_are_correct::<Weights<T, MessagesPalletInstance>>();
 
 	// check that weights allow us to receive messages
 	let max_incoming_message_proof_size = bridged_chain_extra_storage_proof_size
 		.saturating_add(messages::target::maximal_incoming_message_size(C::max_extrinsic_size()));
-	pallet_bridge_messages::ensure_able_to_receive_message::<Weights<T>>(
+	pallet_bridge_messages::ensure_able_to_receive_message::<Weights<T, MessagesPalletInstance>>(
 		C::max_extrinsic_size(),
 		C::max_extrinsic_weight(),
 		max_incoming_message_proof_size,
@@ -321,7 +322,7 @@ pub fn check_message_lane_weights<
 	// check that weights allow us to receive delivery confirmations
 	let max_incoming_inbound_lane_data_proof_size =
 		InboundLaneData::<()>::encoded_size_hint_u32(this_chain_max_unrewarded_relayers as _);
-	pallet_bridge_messages::ensure_able_to_receive_confirmation::<Weights<T>>(
+	pallet_bridge_messages::ensure_able_to_receive_confirmation::<Weights<T, MessagesPalletInstance>>(
 		C::max_extrinsic_size(),
 		C::max_extrinsic_weight(),
 		max_incoming_inbound_lane_data_proof_size,
@@ -336,9 +337,12 @@ pub fn check_message_lane_weights<
 	// ensures the extension will not refund weight when it doesn't need to (i.e. if pallet
 	// weights do not account weights of refund extension).
 	if runtime_includes_refund_extension {
-		assert_ne!(Weights::<T>::receive_messages_proof_overhead_from_runtime(), Weight::zero());
 		assert_ne!(
-			Weights::<T>::receive_messages_delivery_proof_overhead_from_runtime(),
+			Weights::<T, MessagesPalletInstance>::receive_messages_proof_overhead_from_runtime(),
+			Weight::zero()
+		);
+		assert_ne!(
+			Weights::<T, MessagesPalletInstance>::receive_messages_delivery_proof_overhead_from_runtime(),
 			Weight::zero()
 		);
 	}

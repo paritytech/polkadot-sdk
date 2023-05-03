@@ -166,7 +166,7 @@ mod tests {
 
 	#[test]
 	fn ensure_millau_message_lane_weights_are_correct() {
-		check_message_lane_weights::<bp_millau::Millau, Runtime>(
+		check_message_lane_weights::<bp_millau::Millau, Runtime, WithRialtoMessagesInstance>(
 			bp_rialto::EXTRA_STORAGE_PROOF_SIZE,
 			bp_millau::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
 			bp_millau::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
