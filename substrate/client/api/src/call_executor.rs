@@ -24,7 +24,6 @@ use sp_externalities::Extensions;
 use sp_runtime::traits::Block as BlockT;
 use sp_state_machine::{OverlayedChanges, StorageProof};
 use std::cell::RefCell;
-use sp_externalities::Extensions;
 
 use crate::execution_extensions::ExecutionExtensions;
 use sp_api::{HashingFor, ProofRecorder};
