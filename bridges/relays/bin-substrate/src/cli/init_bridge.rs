@@ -180,10 +180,8 @@ impl BridgeInitializer for RococoToBridgeHubWococoCliBridge {
 	fn encode_init_bridge(
 		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
 	) -> <Self::Target as Chain>::Call {
-		relay_bridge_hub_wococo_client::runtime::Call::BridgeRococoGrandpa(
-			relay_bridge_hub_wococo_client::runtime::BridgeRococoGrandpaCall::initialize {
-				init_data,
-			},
+		relay_bridge_hub_wococo_client::RuntimeCall::BridgeRococoGrandpa(
+			relay_bridge_hub_wococo_client::BridgeGrandpaCall::initialize { init_data },
 		)
 	}
 }
@@ -194,10 +192,8 @@ impl BridgeInitializer for WococoToBridgeHubRococoCliBridge {
 	fn encode_init_bridge(
 		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
 	) -> <Self::Target as Chain>::Call {
-		relay_bridge_hub_rococo_client::runtime::Call::BridgeWococoGrandpa(
-			relay_bridge_hub_rococo_client::runtime::BridgeWococoGrandpaCall::initialize {
-				init_data,
-			},
+		relay_bridge_hub_rococo_client::RuntimeCall::BridgeWococoGrandpa(
+			relay_bridge_hub_rococo_client::BridgeGrandpaCall::initialize { init_data },
 		)
 	}
 }
