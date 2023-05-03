@@ -16,22 +16,29 @@
 
 //! Types used to connect to the BridgeHub-Rococo-Substrate parachain.
 
-use bp_bridge_hub_rococo::{BridgeHubSignedExtension, AVERAGE_BLOCK_INTERVAL};
+pub mod codegen_runtime;
+
+use bp_bridge_hub_rococo::{BridgeHubSignedExtension, SignedExtension, AVERAGE_BLOCK_INTERVAL};
 use bp_messages::MessageNonce;
 use bp_runtime::ChainId;
 use codec::Encode;
 use relay_substrate_client::{
-	Chain, ChainWithBalances, ChainWithMessages, ChainWithTransactions, ChainWithUtilityPallet,
-	Error as SubstrateError, MockedRuntimeUtilityPallet, SignParam, UnderlyingChainProvider,
-	UnsignedTransaction,
+	calls::UtilityCall as MockUtilityCall, Chain, ChainWithBalances, ChainWithMessages,
+	ChainWithTransactions, ChainWithUtilityPallet, Error as SubstrateError,
+	MockedRuntimeUtilityPallet, SignParam, UnderlyingChainProvider, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
 use std::time::Duration;
 
-/// Re-export runtime wrapper
-pub mod runtime_wrapper;
-pub use runtime_wrapper as runtime;
+pub use codegen_runtime::api::runtime_types;
+
+pub type RuntimeCall = runtime_types::bridge_hub_rococo_runtime::RuntimeCall;
+pub type BridgeMessagesCall = runtime_types::pallet_bridge_messages::pallet::Call;
+pub type BridgeGrandpaCall = runtime_types::pallet_bridge_grandpa::pallet::Call;
+pub type BridgeParachainCall = runtime_types::pallet_bridge_parachains::pallet::Call;
+type UncheckedExtrinsic = bp_bridge_hub_rococo::UncheckedExtrinsic<RuntimeCall, SignedExtension>;
+type UtilityCall = runtime_types::pallet_utility::pallet::Call;
 
 /// Rococo chain definition
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,7 +56,7 @@ impl Chain for BridgeHubRococo {
 	const AVERAGE_BLOCK_INTERVAL: Duration = AVERAGE_BLOCK_INTERVAL;
 
 	type SignedBlock = bp_bridge_hub_rococo::SignedBlock;
-	type Call = runtime::Call;
+	type Call = RuntimeCall;
 }
 
 impl ChainWithBalances for BridgeHubRococo {
@@ -58,13 +65,22 @@ impl ChainWithBalances for BridgeHubRococo {
 	}
 }
 
+impl From<MockUtilityCall<RuntimeCall>> for RuntimeCall {
+	fn from(value: MockUtilityCall<RuntimeCall>) -> RuntimeCall {
+		match value {
+			MockUtilityCall::batch_all(calls) =>
+				RuntimeCall::Utility(UtilityCall::batch_all { calls }),
+		}
+	}
+}
+
 impl ChainWithUtilityPallet for BridgeHubRococo {
-	type UtilityPallet = MockedRuntimeUtilityPallet<runtime::Call>;
+	type UtilityPallet = MockedRuntimeUtilityPallet<RuntimeCall>;
 }
 
 impl ChainWithTransactions for BridgeHubRococo {
 	type AccountKeyPair = sp_core::sr25519::Pair;
-	type SignedTransaction = runtime::UncheckedExtrinsic;
+	type SignedTransaction = UncheckedExtrinsic;
 
 	fn sign_transaction(
 		param: SignParam<Self>,
@@ -72,7 +88,7 @@ impl ChainWithTransactions for BridgeHubRococo {
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::new(
 			unsigned.call,
-			runtime::SignedExtension::from_params(
+			SignedExtension::from_params(
 				param.spec_version,
 				param.transaction_version,
 				unsigned.era,
@@ -86,7 +102,7 @@ impl ChainWithTransactions for BridgeHubRococo {
 		let signer: sp_runtime::MultiSigner = param.signer.public().into();
 		let (call, extra, _) = raw_payload.deconstruct();
 
-		Ok(runtime::UncheckedExtrinsic::new_signed(
+		Ok(UncheckedExtrinsic::new_signed(
 			call,
 			signer.into_account().into(),
 			signature.into(),
@@ -135,13 +151,13 @@ mod tests {
 	use super::*;
 	use relay_substrate_client::TransactionEra;
 
+	type SystemCall = runtime_types::frame_system::pallet::Call;
+
 	#[test]
 	fn parse_transaction_works() {
 		let unsigned = UnsignedTransaction {
-			call: runtime::Call::System(relay_substrate_client::calls::SystemCall::remark(
-				b"Hello world!".to_vec(),
-			))
-			.into(),
+			call: RuntimeCall::System(SystemCall::remark { remark: b"Hello world!".to_vec() })
+				.into(),
 			nonce: 777,
 			tip: 888,
 			era: TransactionEra::immortal(),

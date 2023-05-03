@@ -32,8 +32,8 @@ pub struct WococoFinalityToBridgeHubRococo;
 substrate_relay_helper::generate_submit_finality_proof_call_builder!(
 	WococoFinalityToBridgeHubRococo,
 	WococoFinalityToBridgeHubRococoCallBuilder,
-	relay_bridge_hub_rococo_client::runtime::Call::BridgeWococoGrandpa,
-	relay_bridge_hub_rococo_client::runtime::BridgeWococoGrandpaCall::submit_finality_proof
+	relay_bridge_hub_rococo_client::RuntimeCall::BridgeWococoGrandpa,
+	relay_bridge_hub_rococo_client::BridgeGrandpaCall::submit_finality_proof
 );
 
 #[async_trait]
