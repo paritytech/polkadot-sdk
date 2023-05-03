@@ -16,10 +16,12 @@
 
 use crate::cli::{ExplicitOrMaximal, HexBytes};
 use bp_runtime::EncodedOrDecodedCall;
+use bridge_runtime_common::CustomNetworkId;
 use codec::Encode;
 use frame_support::weights::Weight;
 use relay_substrate_client::Chain;
 use structopt::StructOpt;
+use xcm::latest::prelude::*;
 
 /// All possible messages that may be delivered to generic Substrate chain.
 ///
@@ -43,6 +45,22 @@ pub enum Message {
 pub type RawMessage = Vec<u8>;
 
 pub trait CliEncodeMessage: Chain {
+	/// Returns dummy `AccountId32` universal source given this network id.
+	fn dummy_universal_source() -> anyhow::Result<xcm::v3::Junctions> {
+		use xcm::v3::prelude::*;
+
+		let this_network = CustomNetworkId::try_from(Self::ID)
+			.map(|n| n.as_network_id())
+			.map_err(|_| anyhow::format_err!("Unsupported chain: {:?}", Self::ID))?;
+		Ok(X2(
+			GlobalConsensus(this_network),
+			AccountId32 { network: Some(this_network), id: [0u8; 32] },
+		))
+	}
+
+	/// Returns XCM blob that is passed to the `send_message` function of the messages pallet
+	/// and then is sent over the wire.
+	fn encode_wire_message(target: NetworkId, at_target_xcm: Xcm<()>) -> anyhow::Result<Vec<u8>>;
 	/// Encode an `execute` XCM call of the XCM pallet.
 	fn encode_execute_xcm(
 		message: xcm::VersionedXcm<Self::Call>,
@@ -56,41 +74,52 @@ pub trait CliEncodeMessage: Chain {
 }
 
 /// Encode message payload passed through CLI flags.
-pub(crate) fn encode_message<Source: Chain, Target: Chain>(
+pub(crate) fn encode_message<Source: CliEncodeMessage, Target: Chain>(
 	message: &Message,
 ) -> anyhow::Result<RawMessage> {
 	Ok(match message {
 		Message::Raw { ref data } => data.0.clone(),
 		Message::Sized { ref size } => {
-			let expected_xcm_size = match *size {
+			let destination = CustomNetworkId::try_from(Target::ID)
+				.map(|n| n.as_network_id())
+				.map_err(|_| anyhow::format_err!("Unsupported target chain: {:?}", Target::ID))?;
+			let expected_size = match *size {
 				ExplicitOrMaximal::Explicit(size) => size,
 				ExplicitOrMaximal::Maximal => compute_maximal_message_size(
 					Source::max_extrinsic_size(),
 					Target::max_extrinsic_size(),
 				),
-			};
+			} as usize;
 
-			// there's no way to craft XCM of the given size - we'll be using `ExpectPallet`
-			// instruction, which has byte vector inside
-			let mut current_vec_size = expected_xcm_size;
-			let xcm = loop {
-				let xcm = xcm::VersionedXcm::<()>::V3(
-					vec![xcm::v3::Instruction::ExpectPallet {
-						index: 0,
-						name: vec![42; current_vec_size as usize],
-						module_name: vec![],
-						crate_major: 0,
-						min_crate_minor: 0,
-					}]
-					.into(),
-				);
-				if xcm.encode().len() <= expected_xcm_size as usize {
-					break xcm
-				}
+			let at_target_xcm = vec![ExpectPallet {
+				index: 0,
+				name: vec![42; expected_size],
+				module_name: vec![],
+				crate_major: 0,
+				min_crate_minor: 0,
+			}]
+			.into();
+			let at_target_xcm_size =
+				Source::encode_wire_message(destination, at_target_xcm)?.encoded_size();
+			let at_target_xcm_overhead = at_target_xcm_size.saturating_sub(expected_size);
+			let at_target_xcm = vec![ExpectPallet {
+				index: 0,
+				name: vec![42; expected_size.saturating_sub(at_target_xcm_overhead)],
+				module_name: vec![],
+				crate_major: 0,
+				min_crate_minor: 0,
+			}]
+			.into();
 
-				current_vec_size -= 1;
-			};
-			xcm.encode()
+			xcm::VersionedXcm::<()>::V3(
+				vec![ExportMessage {
+					network: destination,
+					destination: destination.into(),
+					xcm: at_target_xcm,
+				}]
+				.into(),
+			)
+			.encode()
 		},
 	})
 }
@@ -108,11 +137,7 @@ pub(crate) fn compute_maximal_message_size(
 		bridge_runtime_common::messages::target::maximal_incoming_message_size(
 			maximal_target_extrinsic_size,
 		);
-	if maximal_message_size > maximal_source_extrinsic_size {
-		maximal_source_extrinsic_size
-	} else {
-		maximal_message_size
-	}
+	std::cmp::min(maximal_message_size, maximal_source_extrinsic_size)
 }
 
 #[cfg(test)]
@@ -123,13 +148,21 @@ mod tests {
 	use relay_millau_client::Millau;
 	use relay_rialto_client::Rialto;
 
+	fn approximate_message_size<Source: CliEncodeMessage>(xcm_msg_len: usize) -> usize {
+		xcm_msg_len + Source::dummy_universal_source().unwrap().encoded_size()
+	}
+
 	#[test]
 	fn encode_explicit_size_message_works() {
 		let msg = encode_message::<Rialto, Millau>(&Message::Sized {
 			size: ExplicitOrMaximal::Explicit(100),
 		})
 		.unwrap();
-		assert_eq!(msg.len(), 100);
+		// since it isn't the returned XCM what is sent over the wire, we can only check if
+		// it is close to what we need
+		assert!(
+			(1f64 - (approximate_message_size::<Rialto>(msg.len()) as f64) / 100_f64).abs() < 0.1
+		);
 		// check that it decodes to valid xcm
 		let _ = decode_xcm::<()>(msg).unwrap();
 	}
@@ -144,7 +177,12 @@ mod tests {
 		let msg =
 			encode_message::<Rialto, Millau>(&Message::Sized { size: ExplicitOrMaximal::Maximal })
 				.unwrap();
-		assert_eq!(msg.len(), maximal_size as usize);
+		// since it isn't the returned XCM what is sent over the wire, we can only check if
+		// it is close to what we need
+		assert!(
+			(1f64 - approximate_message_size::<Rialto>(msg.len()) as f64 / maximal_size as f64)
+				.abs() < 0.1
+		);
 		// check that it decodes to valid xcm
 		let _ = decode_xcm::<()>(msg).unwrap();
 	}
