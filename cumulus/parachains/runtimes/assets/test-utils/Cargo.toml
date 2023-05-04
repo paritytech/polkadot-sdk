@@ -23,6 +23,7 @@ sp-core = { git = "https://github.com/paritytech/substrate", default-features = 
 # Cumulus
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false }
+cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
 assets-common = { path = "../common", default-features = false }
@@ -69,4 +70,5 @@ std = [
     "xcm-executor/std",
     "pallet-xcm/std",
     "cumulus-pallet-xcmp-queue/std",
+    "cumulus-pallet-dmp-queue/std",
 ]

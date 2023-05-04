@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright 2022 Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -14,10 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed};
 use cumulus_primitives_core::ParaId;
 use parachains_common::Balance as BridgeHubBalance;
 use sc_chain_spec::ChainSpec;
 use sc_cli::RuntimeVersion;
+use sp_core::sr25519;
 use std::{path::PathBuf, str::FromStr};
 
 /// Collects all supported BridgeHub configurations
@@ -139,6 +141,7 @@ impl BridgeHubRuntimeType {
 				"Rococo BridgeHub Local",
 				"rococo-local",
 				ParaId::new(1013),
+				Some("Bob".to_string()),
 				|_| (),
 			))),
 			BridgeHubRuntimeType::RococoDevelopment => Ok(Box::new(rococo::local_config(
@@ -146,6 +149,7 @@ impl BridgeHubRuntimeType {
 				"Rococo BridgeHub Development",
 				"rococo-dev",
 				ParaId::new(1013),
+				Some("Bob".to_string()),
 				|_| (),
 			))),
 			BridgeHubRuntimeType::Wococo =>
@@ -157,6 +161,7 @@ impl BridgeHubRuntimeType {
 				"Wococo BridgeHub Local",
 				"wococo-local",
 				ParaId::new(1014),
+				Some("Bob".to_string()),
 			))),
 		}
 	}
@@ -197,13 +202,12 @@ fn ensure_id(id: &str) -> Result<&str, String> {
 
 /// Sub-module for Rococo setup
 pub mod rococo {
-	use super::{BridgeHubBalance, ParaId};
-	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
-	};
+	use super::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
+	use crate::chain_spec::{Extensions, SAFE_XCM_VERSION};
 	use parachains_common::{AccountId, AuraId};
 	use sc_chain_spec::ChainType;
-	use sp_core::sr25519;
+
+	use super::BridgeHubBalance;
 
 	pub(crate) const BRIDGE_HUB_ROCOCO: &str = "bridge-hub-rococo";
 	pub(crate) const BRIDGE_HUB_ROCOCO_LOCAL: &str = "bridge-hub-rococo-local";
@@ -222,6 +226,7 @@ pub mod rococo {
 		chain_name: &str,
 		relay_chain: &str,
 		para_id: ParaId,
+		bridges_pallet_owner_seed: Option<String>,
 		modify_props: ModifyProperties,
 	) -> BridgeHubChainSpec {
 		// Rococo defaults
@@ -265,6 +270,9 @@ pub mod rococo {
 						get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 					],
 					para_id,
+					bridges_pallet_owner_seed
+						.as_ref()
+						.map(|seed| get_account_id_from_seed::<sr25519::Public>(&seed)),
 				)
 			},
 			Vec::new(),
@@ -280,6 +288,7 @@ pub mod rococo {
 		invulnerables: Vec<(AccountId, AuraId)>,
 		endowed_accounts: Vec<AccountId>,
 		id: ParaId,
+		bridges_pallet_owner: Option<AccountId>,
 	) -> bridge_hub_rococo_runtime::GenesisConfig {
 		bridge_hub_rococo_runtime::GenesisConfig {
 			system: bridge_hub_rococo_runtime::SystemConfig {
@@ -314,6 +323,22 @@ pub mod rococo {
 			polkadot_xcm: bridge_hub_rococo_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
 			},
+			bridge_wococo_grandpa: bridge_hub_rococo_runtime::BridgeWococoGrandpaConfig {
+				owner: bridges_pallet_owner.clone(),
+				..Default::default()
+			},
+			bridge_rococo_grandpa: bridge_hub_rococo_runtime::BridgeRococoGrandpaConfig {
+				owner: bridges_pallet_owner.clone(),
+				..Default::default()
+			},
+			bridge_rococo_messages: bridge_hub_rococo_runtime::BridgeRococoMessagesConfig {
+				owner: bridges_pallet_owner.clone(),
+				..Default::default()
+			},
+			bridge_wococo_messages: bridge_hub_rococo_runtime::BridgeWococoMessagesConfig {
+				owner: bridges_pallet_owner,
+				..Default::default()
+			},
 		}
 	}
 }
@@ -334,10 +359,18 @@ pub mod wococo {
 		chain_name: &str,
 		relay_chain: &str,
 		para_id: ParaId,
+		bridges_pallet_owner_seed: Option<String>,
 	) -> BridgeHubChainSpec {
-		rococo::local_config(id, chain_name, relay_chain, para_id, |properties| {
-			properties.insert("tokenSymbol".into(), "WOOK".into());
-		})
+		rococo::local_config(
+			id,
+			chain_name,
+			relay_chain,
+			para_id,
+			bridges_pallet_owner_seed,
+			|properties| {
+				properties.insert("tokenSymbol".into(), "WOOK".into());
+			},
+		)
 	}
 }
 

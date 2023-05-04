@@ -16,7 +16,7 @@ use sp_core::Encode;
 use sp_runtime::{Digest, DigestItem};
 use xcm::{
 	latest::{MultiAsset, MultiLocation, XcmContext, XcmHash},
-	prelude::{Concrete, Fungible, Outcome, XcmError, XcmVersion},
+	prelude::*,
 };
 use xcm_executor::{traits::TransactAsset, Assets};
 
@@ -248,6 +248,31 @@ impl<Runtime: pallet_xcm::Config + cumulus_pallet_parachain_system::Config> Runt
 			Box::new(beneficiary.into()),
 			Box::new((Concrete(asset), amount).into()),
 			0,
+		)
+	}
+}
+
+impl<Runtime: cumulus_pallet_dmp_queue::Config + cumulus_pallet_parachain_system::Config>
+	RuntimeHelper<Runtime>
+{
+	pub fn execute_as_governance(call: Vec<u8>, require_weight_at_most: Weight) -> Outcome {
+		// prepare xcm as governance will do
+		let xcm = Xcm(vec![
+			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+			Transact {
+				origin_kind: OriginKind::Superuser,
+				require_weight_at_most,
+				call: call.into(),
+			},
+		]);
+
+		// execute xcm as parent origin
+		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		<<Runtime as cumulus_pallet_dmp_queue::Config>::XcmExecutor>::execute_xcm(
+			MultiLocation::parent(),
+			xcm,
+			hash,
+			Self::xcm_max_weight(XcmReceivedFrom::Parent),
 		)
 	}
 }

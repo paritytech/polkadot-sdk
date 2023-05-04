@@ -6,12 +6,68 @@ edition = "2021"
 description = "Utils for BridgeHub testing"
 
 [dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
+log = { version = "0.4.17", default-features = false }
+
+# Substrate
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 # Cumulus
+cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue", default-features = false }
+pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
+cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false }
+cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false }
+parachain-info = { path = "../../../../parachains/pallets/parachain-info", default-features = false }
 asset-test-utils = { path = "../../assets/test-utils"}
+
+# Polkadot
+pallet-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+pallet-xcm-benchmarks = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false, optional = true }
+xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+
+# Bridges
+bp-header-chain = { path = "../../../../bridges/primitives/header-chain", default-features = false }
+bp-messages = { path = "../../../../bridges/primitives/messages", default-features = false }
+bp-polkadot-core = { path = "../../../../bridges/primitives/polkadot-core", default-features = false }
+bp-runtime = { path = "../../../../bridges/primitives/runtime", default-features = false }
+bp-test-utils = { path = "../../../../bridges/primitives/test-utils", default-features = false }
+pallet-bridge-grandpa = { path = "../../../../bridges/modules/grandpa", default-features = false }
+pallet-bridge-messages = { path = "../../../../bridges/modules/messages", default-features = false }
+bridge-runtime-common = { path = "../../../../bridges/bin/runtime-common", default-features = false }
 
 [features]
 default = [ "std" ]
 std = [
+	"codec/std",
+	"log/std",
+	"frame-support/std",
+	"frame-system/std",
+	"bp-messages/std",
+	"bp-polkadot-core/std",
+	"bp-header-chain/std",
+	"bp-runtime/std",
+	"bp-test-utils/std",
+	"bridge-runtime-common/std",
+	"pallet-bridge-grandpa/std",
+	"pallet-bridge-messages/std",
+	"parachain-info/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-xcmp-queue/std",
+	"pallet-xcm/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"xcm/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
 	"asset-test-utils/std",
+	"cumulus-pallet-dmp-queue/std",
+	"pallet-session/std",
+	"pallet-balances/std",
 ]

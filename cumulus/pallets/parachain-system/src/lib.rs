@@ -1042,6 +1042,30 @@ impl<T: Config> Pallet<T> {
 	pub fn set_custom_validation_head_data(head_data: Vec<u8>) {
 		CustomValidationHeadData::<T>::put(head_data);
 	}
+
+	/// Open HRMP channel for using it in benchmarks.
+	///
+	/// The caller assumes that the pallet will accept regular outbound message to the sibling
+	/// `target_parachain` after this call. No other assumptions are made.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn open_outbound_hrmp_channel_for_benchmarks(target_parachain: ParaId) {
+		RelevantMessagingState::<T>::put(MessagingStateSnapshot {
+			dmq_mqc_head: Default::default(),
+			relay_dispatch_queue_size: Default::default(),
+			ingress_channels: Default::default(),
+			egress_channels: vec![(
+				target_parachain,
+				cumulus_primitives_core::AbridgedHrmpChannel {
+					max_capacity: 10,
+					max_total_size: 10_000_000_u32,
+					max_message_size: 10_000_000_u32,
+					msg_count: 5,
+					total_size: 5_000_000_u32,
+					mqc_head: None,
+				},
+			)],
+		})
+	}
 }
 
 pub struct ParachainSetCode<T>(sp_std::marker::PhantomData<T>);

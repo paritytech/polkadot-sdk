@@ -1096,7 +1096,7 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 			additional_checks_before();
 
 			// execute XCM with Transacts to create/manage foreign assets by foreign governance
-			// prepapre data for xcm::Transact(create)
+			// prepare data for xcm::Transact(create)
 			let foreign_asset_create = runtime_call_encode(pallet_assets::Call::<
 				Runtime,
 				ForeignAssetsPalletInstance,
@@ -1106,7 +1106,7 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 				admin: foreign_creator_as_account_id.clone().into(),
 				min_balance: 1.into(),
 			});
-			// prepapre data for xcm::Transact(set_metadata)
+			// prepare data for xcm::Transact(set_metadata)
 			let foreign_asset_set_metadata = runtime_call_encode(pallet_assets::Call::<
 				Runtime,
 				ForeignAssetsPalletInstance,
@@ -1116,7 +1116,7 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 				symbol: Vec::from(ASSET_SYMBOL),
 				decimals: 12,
 			});
-			// prepapre data for xcm::Transact(set_team - change just freezer to Bob)
+			// prepare data for xcm::Transact(set_team - change just freezer to Bob)
 			let foreign_asset_set_team = runtime_call_encode(pallet_assets::Call::<
 				Runtime,
 				ForeignAssetsPalletInstance,
