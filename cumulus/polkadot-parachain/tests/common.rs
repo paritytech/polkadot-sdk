@@ -103,7 +103,7 @@ impl DerefMut for KillChildOnDrop {
 	}
 }
 
-/// Read the WS address from the output.
+/// Read the RPC server address from the output.
 ///
 /// This is hack to get the actual bound sockaddr because
 /// substrate assigns a random port if the specified port was already bound.
@@ -120,7 +120,7 @@ pub fn find_ws_url_from_output(read: impl Read + Send) -> (String, String) {
 			data.push_str("\n");
 
 			// does the line contain our port (we expect this specific output from substrate).
-			let sock_addr = match line.split_once("Running JSON-RPC WS server: addr=") {
+			let sock_addr = match line.split_once("Running JSON-RPC server: addr=") {
 				None => return None,
 				Some((_, after)) => after.split_once(",").unwrap().0,
 			};
@@ -129,7 +129,7 @@ pub fn find_ws_url_from_output(read: impl Read + Send) -> (String, String) {
 		})
 		.unwrap_or_else(|| {
 			eprintln!("Output:\n{}", data);
-			panic!("We should get a WebSocket address")
+			panic!("We should get an address")
 		});
 
 	(ws_url, data)
