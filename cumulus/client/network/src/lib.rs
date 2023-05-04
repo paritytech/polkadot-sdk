@@ -303,9 +303,9 @@ where
 			Ok(Validation::Success { is_new_best: true })
 		} else if block_number >= known_best_number {
 			tracing::debug!(
-					target: LOG_TARGET,
-					"Validation failed because a justification is needed if the block at the top of the chain."
-				);
+				target: LOG_TARGET,
+				"Validation failed because a justification is needed if the block at the top of the chain."
+			);
 
 			Ok(Validation::Failure { disconnect: false })
 		} else {

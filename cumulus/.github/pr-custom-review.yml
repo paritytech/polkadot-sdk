@@ -19,11 +19,19 @@ rules:
     check_type: changed_files
     condition:
       include: .*
-      # excluding files from 'Runtime files' and 'CI files' rules
+      # excluding files from 'Runtime files' and 'CI files' rules and `Bridges subtree files`
       exclude: ^parachains/runtimes/assets/(statemine|statemint)/src/[^/]+\.rs$|^parachains/runtimes/bridge-hubs/(bridge-hub-kusama|bridge-hub-polkadot)/src/[^/]+\.rs$|^parachains/runtimes/collectives/collectives-polkadot/src/[^/]+\.rs$|^parachains/common/src/[^/]+\.rs$|^\.gitlab-ci\.yml|^scripts/ci/.*|^\.github/.*
     min_approvals: 2
     teams:
       - core-devs
+
+  # if there are any changes in the bridges subtree (in case of backport changes back to bridges repo)
+  - name: Bridges subtree files
+    check_type: changed_files
+    condition: ^bridges/.*
+    min_approvals: 1
+    teams:
+      - bridges-core
 
   - name: CI files
     check_type: changed_files
