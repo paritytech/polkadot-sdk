@@ -766,19 +766,19 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			let enqueued = vec![msg(1000), msg(1001)];
 			enqueue(&enqueued);
-			let weight_used = handle_messages(&vec![msg(1002)], Weight::from_parts(1500, 1500));
+			let weight_used = handle_messages(&[msg(1002)], Weight::from_parts(1500, 1500));
 			assert_eq!(weight_used, Weight::from_parts(1000, 1000));
 			assert_eq!(take_trace(), vec![msg_complete(1000), msg_limit_reached(1001),]);
 			assert_eq!(pages_queued(), 2);
 			assert_eq!(PageIndex::<Test>::get().begin_used, 0);
 
-			let weight_used = handle_messages(&vec![msg(1003)], Weight::from_parts(1500, 1500));
+			let weight_used = handle_messages(&[msg(1003)], Weight::from_parts(1500, 1500));
 			assert_eq!(weight_used, Weight::from_parts(1001, 1001));
 			assert_eq!(take_trace(), vec![msg_complete(1001), msg_limit_reached(1002),]);
 			assert_eq!(pages_queued(), 2);
 			assert_eq!(PageIndex::<Test>::get().begin_used, 1);
 
-			let weight_used = handle_messages(&vec![msg(1004)], Weight::from_parts(1500, 1500));
+			let weight_used = handle_messages(&[msg(1004)], Weight::from_parts(1500, 1500));
 			assert_eq!(weight_used, Weight::from_parts(1002, 1002));
 			assert_eq!(take_trace(), vec![msg_complete(1002), msg_limit_reached(1003),]);
 			assert_eq!(pages_queued(), 2);
@@ -877,9 +877,9 @@ mod tests {
 	#[test]
 	fn on_idle_should_service_queue() {
 		new_test_ext().execute_with(|| {
-			enqueue(&vec![msg(1000), msg(1001)]);
-			enqueue(&vec![msg(1002), msg(1003)]);
-			enqueue(&vec![msg(1004), msg(1005)]);
+			enqueue(&[msg(1000), msg(1001)]);
+			enqueue(&[msg(1002), msg(1003)]);
+			enqueue(&[msg(1004), msg(1005)]);
 
 			let weight_used = DmpQueue::on_idle(1, Weight::from_parts(6000, 6000));
 			assert_eq!(weight_used, Weight::from_parts(5010, 5010));
@@ -901,20 +901,17 @@ mod tests {
 	#[test]
 	fn handle_max_messages_per_block() {
 		new_test_ext().execute_with(|| {
-			enqueue(&vec![msg(1000), msg(1001)]);
-			enqueue(&vec![msg(1002), msg(1003)]);
-			enqueue(&vec![msg(1004), msg(1005)]);
+			enqueue(&[msg(1000), msg(1001)]);
+			enqueue(&[msg(1002), msg(1003)]);
+			enqueue(&[msg(1004), msg(1005)]);
 
-			let incoming = (0..MAX_MESSAGES_PER_BLOCK)
-				.into_iter()
-				.map(|i| msg(1006 + i as u64))
-				.collect::<Vec<_>>();
+			let incoming =
+				(0..MAX_MESSAGES_PER_BLOCK).map(|i| msg(1006 + i as u64)).collect::<Vec<_>>();
 			handle_messages(&incoming, Weight::from_parts(25000, 25000));
 
 			assert_eq!(
 				take_trace(),
 				(0..MAX_MESSAGES_PER_BLOCK)
-					.into_iter()
 					.map(|i| msg_complete(1000 + i as u64))
 					.collect::<Vec<_>>(),
 			);
@@ -924,7 +921,6 @@ mod tests {
 			assert_eq!(
 				take_trace(),
 				(MAX_MESSAGES_PER_BLOCK..MAX_MESSAGES_PER_BLOCK + 6)
-					.into_iter()
 					.map(|i| msg_complete(1000 + i as u64))
 					.collect::<Vec<_>>(),
 			);

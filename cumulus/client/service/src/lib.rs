@@ -441,7 +441,7 @@ where
 				)
 				.await
 				.map_err(|e| format!("{e:?}"))?
-				.ok_or_else(|| "Could not find parachain head in relay chain")?;
+				.ok_or("Could not find parachain head in relay chain")?;
 
 			let target_block = B::Header::decode(&mut &validation_data.parent_head.0[..])
 				.map_err(|e| format!("Failed to decode parachain head: {e}"))?;

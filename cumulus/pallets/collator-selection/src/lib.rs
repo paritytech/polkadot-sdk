@@ -238,8 +238,8 @@ pub mod pallet {
 				"genesis desired_candidates are more than T::MaxCandidates",
 			);
 
-			<DesiredCandidates<T>>::put(&self.desired_candidates);
-			<CandidacyBond<T>>::put(&self.candidacy_bond);
+			<DesiredCandidates<T>>::put(self.desired_candidates);
+			<CandidacyBond<T>>::put(self.candidacy_bond);
 			<Invulnerables<T>>::put(bounded_invulnerables);
 		}
 	}
@@ -326,7 +326,7 @@ pub mod pallet {
 			if max > T::MaxCandidates::get() {
 				log::warn!("max > T::MaxCandidates; you might need to run benchmarks again");
 			}
-			<DesiredCandidates<T>>::put(&max);
+			<DesiredCandidates<T>>::put(max);
 			Self::deposit_event(Event::NewDesiredCandidates { desired_candidates: max });
 			Ok(().into())
 		}
@@ -339,7 +339,7 @@ pub mod pallet {
 			bond: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
 			T::UpdateOrigin::ensure_origin(origin)?;
-			<CandidacyBond<T>>::put(&bond);
+			<CandidacyBond<T>>::put(bond);
 			Self::deposit_event(Event::NewCandidacyBond { bond_amount: bond });
 			Ok(().into())
 		}

@@ -64,13 +64,13 @@ pub trait InitBlockBuilder {
 	) -> sc_block_builder::BlockBuilder<Block, Client, Backend>;
 }
 
-fn init_block_builder<'a>(
-	client: &'a Client,
+fn init_block_builder(
+	client: &Client,
 	at: Hash,
 	validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 	relay_sproof_builder: RelayStateSproofBuilder,
 	timestamp: u64,
-) -> BlockBuilder<'a, Block, Client, Backend> {
+) -> BlockBuilder<'_, Block, Client, Backend> {
 	let mut block_builder = client
 		.new_block_at(at, Default::default(), true)
 		.expect("Creates new block builder for test runtime");

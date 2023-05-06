@@ -74,7 +74,7 @@ pub fn migrate_to_v1<T: Config>() -> Weight {
 		}
 	};
 
-	if let Err(_) = Configuration::<T>::translate(|pre| pre.map(translate)) {
+	if Configuration::<T>::translate(|pre| pre.map(translate)).is_err() {
 		log::error!(
 			target: "dmp_queue",
 			"unexpected error when performing translation of the QueueConfig type during storage upgrade to v2"

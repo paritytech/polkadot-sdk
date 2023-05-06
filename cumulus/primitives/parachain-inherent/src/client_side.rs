@@ -92,18 +92,19 @@ async fn collect_relay_storage_proof(
 		.ok()?
 		.unwrap_or_default();
 
-	let mut relevant_keys = Vec::new();
-	relevant_keys.push(relay_well_known_keys::CURRENT_BLOCK_RANDOMNESS.to_vec());
-	relevant_keys.push(relay_well_known_keys::ONE_EPOCH_AGO_RANDOMNESS.to_vec());
-	relevant_keys.push(relay_well_known_keys::TWO_EPOCHS_AGO_RANDOMNESS.to_vec());
-	relevant_keys.push(relay_well_known_keys::CURRENT_SLOT.to_vec());
-	relevant_keys.push(relay_well_known_keys::ACTIVE_CONFIG.to_vec());
-	relevant_keys.push(relay_well_known_keys::dmq_mqc_head(para_id));
-	relevant_keys.push(relay_well_known_keys::relay_dispatch_queue_size(para_id));
-	relevant_keys.push(relay_well_known_keys::hrmp_ingress_channel_index(para_id));
-	relevant_keys.push(relay_well_known_keys::hrmp_egress_channel_index(para_id));
-	relevant_keys.push(relay_well_known_keys::upgrade_go_ahead_signal(para_id));
-	relevant_keys.push(relay_well_known_keys::upgrade_restriction_signal(para_id));
+	let mut relevant_keys = vec![
+		relay_well_known_keys::CURRENT_BLOCK_RANDOMNESS.to_vec(),
+		relay_well_known_keys::ONE_EPOCH_AGO_RANDOMNESS.to_vec(),
+		relay_well_known_keys::TWO_EPOCHS_AGO_RANDOMNESS.to_vec(),
+		relay_well_known_keys::CURRENT_SLOT.to_vec(),
+		relay_well_known_keys::ACTIVE_CONFIG.to_vec(),
+		relay_well_known_keys::dmq_mqc_head(para_id),
+		relay_well_known_keys::relay_dispatch_queue_size(para_id),
+		relay_well_known_keys::hrmp_ingress_channel_index(para_id),
+		relay_well_known_keys::hrmp_egress_channel_index(para_id),
+		relay_well_known_keys::upgrade_go_ahead_signal(para_id),
+		relay_well_known_keys::upgrade_restriction_signal(para_id),
+	];
 	relevant_keys.extend(ingress_channels.into_iter().map(|sender| {
 		relay_well_known_keys::hrmp_channels(HrmpChannelId { sender, recipient: para_id })
 	}));

@@ -27,7 +27,7 @@ pub(crate) mod import_kusama_fellowship {
 	#[cfg(feature = "try-runtime")]
 	use sp_std::vec::Vec;
 
-	const TARGET: &'static str = "runtime::migration::import_fellowship";
+	const TARGET: &str = "runtime::migration::import_fellowship";
 
 	parameter_types! {
 		// The Fellowship addresses from Kusama state.
@@ -250,7 +250,7 @@ pub mod tests {
 				assert!(IdToIndex::<Runtime, Fellowship>::get(0, &who).is_some());
 				assert!(IdToIndex::<Runtime, Fellowship>::get(rank + 1, &who).is_none());
 				let index = IdToIndex::<Runtime, Fellowship>::get(rank, &who).unwrap();
-				assert_eq!(IndexToId::<Runtime, Fellowship>::get(rank, &index).unwrap(), who);
+				assert_eq!(IndexToId::<Runtime, Fellowship>::get(rank, index).unwrap(), who);
 				assert_eq!(
 					Members::<Runtime, Fellowship>::get(&who).unwrap(),
 					MemberRecord::new(rank)

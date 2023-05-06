@@ -161,7 +161,7 @@ where
 		relay_parent: PHash,
 		validation_data: &PersistedValidationData,
 	) -> Option<ParachainCandidate<B>> {
-		let proposer_future = self.proposer_factory.lock().init(&parent);
+		let proposer_future = self.proposer_factory.lock().init(parent);
 
 		let proposer = proposer_future
 			.await
@@ -171,7 +171,7 @@ where
 			.ok()?;
 
 		let inherent_data =
-			self.inherent_data(parent.hash(), &validation_data, relay_parent).await?;
+			self.inherent_data(parent.hash(), validation_data, relay_parent).await?;
 
 		let Proposal { block, storage_changes, proof } = proposer
 			.propose(

@@ -99,7 +99,7 @@ mod tests {
 				relay_parent_number: 1,
 				relay_parent_storage_root,
 			},
-			&WASM_BINARY.expect("You need to build the WASM binaries to run the tests!"),
+			WASM_BINARY.expect("You need to build the WASM binaries to run the tests!"),
 		)
 		.map(|v| Header::decode(&mut &v.head_data.0[..]).expect("Decodes `Header`."))
 	}
@@ -175,7 +175,7 @@ mod tests {
 				(slot_timestamp * 10, false),
 			] {
 				let output = Command::new(env::current_exe().unwrap())
-					.args(&["check_timestamp_inherent_works", "--", "--nocapture"])
+					.args(["check_timestamp_inherent_works", "--", "--nocapture"])
 					.env("RUN_TEST", "1")
 					.env("TIMESTAMP", timestamp.to_string())
 					.output()

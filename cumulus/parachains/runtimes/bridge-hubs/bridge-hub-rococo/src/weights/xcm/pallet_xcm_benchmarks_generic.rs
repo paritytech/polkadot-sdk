@@ -347,11 +347,11 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Storage: BridgeWococoMessages OutboundMessages (r:0 w:1)
 	// Proof: BridgeWococoMessages OutboundMessages (max_values: None, max_size: Some(2621472), added: 2623947, mode: MaxEncodedLen)
 	pub(crate) fn export_message(x: u32, ) -> Weight {
-		Weight::from_parts(31_677_716 as u64, 0)
+		Weight::from_parts(31_677_716_u64, 0)
 			// Standard Error: 4_158
 			.saturating_add(Weight::from_parts(123_901, 0).saturating_mul(x as u64))
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
-			.saturating_add(T::DbWeight::get().writes(2 as u64))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	pub fn unpaid_execution() -> Weight {
 		// Proof Size summary in bytes:

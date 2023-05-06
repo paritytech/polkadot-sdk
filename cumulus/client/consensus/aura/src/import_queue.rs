@@ -51,7 +51,7 @@ pub struct ImportQueueParams<'a, I, C, CIDP, S> {
 }
 
 /// Start an import queue for the Aura consensus algorithm.
-pub fn import_queue<'a, P, Block, I, C, S, CIDP>(
+pub fn import_queue<P, Block, I, C, S, CIDP>(
 	ImportQueueParams {
 		block_import,
 		client,
@@ -59,7 +59,7 @@ pub fn import_queue<'a, P, Block, I, C, S, CIDP>(
 		spawner,
 		registry,
 		telemetry,
-	}: ImportQueueParams<'a, I, C, CIDP, S>,
+	}: ImportQueueParams<'_, I, C, CIDP, S>,
 ) -> Result<DefaultImportQueue<Block, C>, sp_consensus::Error>
 where
 	Block: BlockT,

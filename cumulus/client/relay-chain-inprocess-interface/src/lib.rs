@@ -241,7 +241,7 @@ where
 			self.full_client
 				.import_notification_stream()
 				.filter_map(|notification| async move {
-					notification.is_new_best.then(|| notification.header)
+					notification.is_new_best.then_some(notification.header)
 				});
 		Ok(Box::pin(notifications_stream))
 	}
@@ -428,7 +428,7 @@ mod tests {
 		(
 			client.clone(),
 			block,
-			RelayChainInProcessInterface::new(client, backend.clone(), dummy_network, mock_handle),
+			RelayChainInProcessInterface::new(client, backend, dummy_network, mock_handle),
 		)
 	}
 
@@ -483,7 +483,7 @@ mod tests {
 		let hash = block.hash();
 
 		let ext = construct_transfer_extrinsic(
-			&*client,
+			&client,
 			sp_keyring::Sr25519Keyring::Alice,
 			sp_keyring::Sr25519Keyring::Bob,
 			1000,

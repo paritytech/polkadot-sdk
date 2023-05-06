@@ -39,7 +39,7 @@ pub struct GenesisExt {
 impl sp_runtime::BuildStorage for GenesisExt {
 	fn assimilate_storage(&self, storage: &mut sp_core::storage::Storage) -> Result<(), String> {
 		sp_state_machine::BasicExternalities::execute_with_storage(storage, || {
-			sp_io::storage::set(cumulus_test_runtime::TEST_RUNTIME_UPGRADE_KEY, &vec![1, 2, 3, 4]);
+			sp_io::storage::set(cumulus_test_runtime::TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
 			cumulus_test_runtime::ParachainId::set(&self.para_id);
 		});
 
@@ -125,7 +125,6 @@ fn testnet_genesis(
 			code: cumulus_test_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
-			..Default::default()
 		},
 		parachain_system: Default::default(),
 		balances: cumulus_test_runtime::BalancesConfig {

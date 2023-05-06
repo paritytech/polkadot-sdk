@@ -38,7 +38,7 @@ async fn purge_chain_works() {
 	assert!(base_dir.path().join("polkadot/chains/dev/db/full").exists());
 
 	let status = Command::new(cargo_bin("polkadot-parachain"))
-		.args(&["purge-chain", "-d"])
+		.args(["purge-chain", "-d"])
 		.arg(base_dir.path())
 		.arg("-y")
 		.status()

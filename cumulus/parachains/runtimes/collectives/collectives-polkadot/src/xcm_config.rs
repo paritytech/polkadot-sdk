@@ -137,58 +137,54 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 			}
 		}
 
-		match call {
+		matches!(
+			call,
 			RuntimeCall::System(
 				frame_system::Call::set_heap_pages { .. } |
-				frame_system::Call::set_code { .. } |
-				frame_system::Call::set_code_without_checks { .. } |
-				frame_system::Call::kill_prefix { .. },
-			) |
-			RuntimeCall::ParachainSystem(..) |
-			RuntimeCall::Timestamp(..) |
-			RuntimeCall::Balances(..) |
-			RuntimeCall::CollatorSelection(
-				pallet_collator_selection::Call::set_desired_candidates { .. } |
-				pallet_collator_selection::Call::set_candidacy_bond { .. } |
-				pallet_collator_selection::Call::register_as_candidate { .. } |
-				pallet_collator_selection::Call::leave_intent { .. },
-			) |
-			RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
-			RuntimeCall::PolkadotXcm(pallet_xcm::Call::force_xcm_version { .. }) |
-			RuntimeCall::XcmpQueue(..) |
-			RuntimeCall::DmpQueue(..) |
-			RuntimeCall::Utility(pallet_utility::Call::as_derivative { .. }) |
-			RuntimeCall::Alliance(
-				// `init_members` accepts unbounded vecs as arguments,
-				// but the call can be initiated only by root origin.
-				pallet_alliance::Call::init_members { .. } |
-				pallet_alliance::Call::vote { .. } |
-				pallet_alliance::Call::disband { .. } |
-				pallet_alliance::Call::set_rule { .. } |
-				pallet_alliance::Call::announce { .. } |
-				pallet_alliance::Call::remove_announcement { .. } |
-				pallet_alliance::Call::join_alliance { .. } |
-				pallet_alliance::Call::nominate_ally { .. } |
-				pallet_alliance::Call::elevate_ally { .. } |
-				pallet_alliance::Call::give_retirement_notice { .. } |
-				pallet_alliance::Call::retire { .. } |
-				pallet_alliance::Call::kick_member { .. } |
-				pallet_alliance::Call::close { .. } |
-				pallet_alliance::Call::abdicate_fellow_status { .. },
-			) |
-			RuntimeCall::AllianceMotion(
+					frame_system::Call::set_code { .. } |
+					frame_system::Call::set_code_without_checks { .. } |
+					frame_system::Call::kill_prefix { .. },
+			) | RuntimeCall::ParachainSystem(..) |
+				RuntimeCall::Timestamp(..) |
+				RuntimeCall::Balances(..) |
+				RuntimeCall::CollatorSelection(
+					pallet_collator_selection::Call::set_desired_candidates { .. } |
+						pallet_collator_selection::Call::set_candidacy_bond { .. } |
+						pallet_collator_selection::Call::register_as_candidate { .. } |
+						pallet_collator_selection::Call::leave_intent { .. },
+				) | RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
+				RuntimeCall::PolkadotXcm(pallet_xcm::Call::force_xcm_version { .. }) |
+				RuntimeCall::XcmpQueue(..) |
+				RuntimeCall::DmpQueue(..) |
+				RuntimeCall::Utility(pallet_utility::Call::as_derivative { .. }) |
+				RuntimeCall::Alliance(
+					// `init_members` accepts unbounded vecs as arguments,
+					// but the call can be initiated only by root origin.
+					pallet_alliance::Call::init_members { .. } |
+						pallet_alliance::Call::vote { .. } |
+						pallet_alliance::Call::disband { .. } |
+						pallet_alliance::Call::set_rule { .. } |
+						pallet_alliance::Call::announce { .. } |
+						pallet_alliance::Call::remove_announcement { .. } |
+						pallet_alliance::Call::join_alliance { .. } |
+						pallet_alliance::Call::nominate_ally { .. } |
+						pallet_alliance::Call::elevate_ally { .. } |
+						pallet_alliance::Call::give_retirement_notice { .. } |
+						pallet_alliance::Call::retire { .. } |
+						pallet_alliance::Call::kick_member { .. } |
+						pallet_alliance::Call::close { .. } |
+						pallet_alliance::Call::abdicate_fellow_status { .. },
+				) | RuntimeCall::AllianceMotion(
 				pallet_collective::Call::vote { .. } |
-				pallet_collective::Call::disapprove_proposal { .. } |
-				pallet_collective::Call::close { .. },
-			) |
-			RuntimeCall::FellowshipCollective(
+					pallet_collective::Call::disapprove_proposal { .. } |
+					pallet_collective::Call::close { .. },
+			) | RuntimeCall::FellowshipCollective(
 				pallet_ranked_collective::Call::add_member { .. } |
-				pallet_ranked_collective::Call::promote_member { .. } |
-				pallet_ranked_collective::Call::demote_member { .. } |
-				pallet_ranked_collective::Call::remove_member { .. },
-			) => true,
-			_ => false,
-		}
+					pallet_ranked_collective::Call::promote_member { .. } |
+					pallet_ranked_collective::Call::demote_member { .. } |
+					pallet_ranked_collective::Call::remove_member { .. },
+			)
+		)
 	}
 }
 

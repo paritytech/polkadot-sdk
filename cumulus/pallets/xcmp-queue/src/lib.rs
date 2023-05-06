@@ -538,7 +538,7 @@ impl<T: Config> Pallet<T> {
 					return false
 				}
 				s.extend_from_slice(&data[..]);
-				return true
+				true
 			});
 		if appended {
 			Ok((details.last_index - details.first_index - 1) as u32)

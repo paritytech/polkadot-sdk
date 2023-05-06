@@ -304,7 +304,7 @@ impl BlockTests {
 
 				// begin initialization
 				System::reset_events();
-				System::initialize(&n, &Default::default(), &Default::default());
+				System::initialize(n, &Default::default(), &Default::default());
 
 				// now mess with the storage the way validate_block does
 				let mut sproof_builder = RelayStateSproofBuilder::default();
@@ -357,10 +357,8 @@ impl BlockTests {
 				ParachainSystem::on_finalize(*n);
 
 				// did block execution set new validation code?
-				if NewValidationCode::<Test>::exists() {
-					if self.pending_upgrade.is_some() {
-						panic!("attempted to set validation code while upgrade was pending");
-					}
+				if NewValidationCode::<Test>::exists() && self.pending_upgrade.is_some() {
+					panic!("attempted to set validation code while upgrade was pending");
 				}
 
 				// clean up
@@ -404,7 +402,7 @@ fn events() {
 				let events = System::events();
 				assert_eq!(
 					events[0].event,
-					RuntimeEvent::ParachainSystem(crate::Event::ValidationFunctionStored.into())
+					RuntimeEvent::ParachainSystem(crate::Event::ValidationFunctionStored)
 				);
 			},
 		)
@@ -415,10 +413,9 @@ fn events() {
 				let events = System::events();
 				assert_eq!(
 					events[0].event,
-					RuntimeEvent::ParachainSystem(
-						crate::Event::ValidationFunctionApplied { relay_chain_block_num: 1234 }
-							.into()
-					)
+					RuntimeEvent::ParachainSystem(crate::Event::ValidationFunctionApplied {
+						relay_chain_block_num: 1234
+					})
 				);
 			},
 		);
@@ -491,7 +488,7 @@ fn aborted_upgrade() {
 				let events = System::events();
 				assert_eq!(
 					events[0].event,
-					RuntimeEvent::ParachainSystem(crate::Event::ValidationFunctionDiscarded.into())
+					RuntimeEvent::ParachainSystem(crate::Event::ValidationFunctionDiscarded)
 				);
 			},
 		);

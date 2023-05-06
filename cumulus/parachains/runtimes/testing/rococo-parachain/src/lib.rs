@@ -219,10 +219,10 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: u128 = 1 * MILLIROC;
-	pub const TransferFee: u128 = 1 * MILLIROC;
-	pub const CreationFee: u128 = 1 * MILLIROC;
-	pub const TransactionByteFee: u128 = 1 * MICROROC;
+	pub const ExistentialDeposit: u128 = MILLIROC;
+	pub const TransferFee: u128 = MILLIROC;
+	pub const CreationFee: u128 = MILLIROC;
+	pub const TransactionByteFee: u128 = MICROROC;
 }
 
 impl pallet_balances::Config for Runtime {
@@ -505,11 +505,11 @@ impl cumulus_ping::Config for Runtime {
 }
 
 parameter_types! {
-	pub const AssetDeposit: Balance = 1 * ROC;
-	pub const AssetAccountDeposit: Balance = 1 * ROC;
+	pub const AssetDeposit: Balance = ROC;
+	pub const AssetAccountDeposit: Balance = ROC;
 	pub const ApprovalDeposit: Balance = 100 * MILLIROC;
 	pub const AssetsStringLimit: u32 = 50;
-	pub const MetadataDepositBase: Balance = 1 * ROC;
+	pub const MetadataDepositBase: Balance = ROC;
 	pub const MetadataDepositPerByte: Balance = 10 * MILLIROC;
 	pub const UnitBody: BodyId = BodyId::Unit;
 }

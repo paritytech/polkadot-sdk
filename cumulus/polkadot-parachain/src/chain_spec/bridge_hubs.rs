@@ -272,7 +272,7 @@ pub mod rococo {
 					para_id,
 					bridges_pallet_owner_seed
 						.as_ref()
-						.map(|seed| get_account_id_from_seed::<sr25519::Public>(&seed)),
+						.map(|seed| get_account_id_from_seed::<sr25519::Public>(seed)),
 				)
 			},
 			Vec::new(),

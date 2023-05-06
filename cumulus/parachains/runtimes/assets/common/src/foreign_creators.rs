@@ -43,7 +43,7 @@ where
 		asset_location: &MultiLocation,
 	) -> sp_std::result::Result<Self::Success, RuntimeOrigin> {
 		let origin_location = EnsureXcm::<Everything>::try_origin(origin.clone())?;
-		if !IsForeign::contains(&asset_location, &origin_location) {
+		if !IsForeign::contains(asset_location, &origin_location) {
 			return Err(origin)
 		}
 		AccountOf::convert(origin_location).map_err(|_| origin)
@@ -51,6 +51,6 @@ where
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin(a: &MultiLocation) -> Result<RuntimeOrigin, ()> {
-		Ok(pallet_xcm::Origin::Xcm(a.clone()).into())
+		Ok(pallet_xcm::Origin::Xcm(*a).into())
 	}
 }

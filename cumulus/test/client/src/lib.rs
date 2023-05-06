@@ -199,5 +199,4 @@ pub fn validate_block(
 			&validation_params.encode(),
 		)
 		.map(|v| ValidationResult::decode(&mut &v[..]).expect("Decode `ValidationResult`."))
-		.map_err(|err| err.into())
 }

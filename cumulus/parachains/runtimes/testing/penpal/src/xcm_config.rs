@@ -225,12 +225,12 @@ pub trait Reserve {
 // Takes the chain part of a MultiAsset
 impl Reserve for MultiAsset {
 	fn reserve(&self) -> Option<MultiLocation> {
-		if let AssetId::Concrete(location) = self.id.clone() {
+		if let AssetId::Concrete(location) = self.id {
 			let first_interior = location.first_interior();
 			let parents = location.parent_count();
-			match (parents, first_interior.clone()) {
-				(0, Some(Parachain(id))) => Some(MultiLocation::new(0, X1(Parachain(id.clone())))),
-				(1, Some(Parachain(id))) => Some(MultiLocation::new(1, X1(Parachain(id.clone())))),
+			match (parents, first_interior) {
+				(0, Some(Parachain(id))) => Some(MultiLocation::new(0, X1(Parachain(*id)))),
+				(1, Some(Parachain(id))) => Some(MultiLocation::new(1, X1(Parachain(*id)))),
 				(1, _) => Some(MultiLocation::parent()),
 				_ => None,
 			}

@@ -473,10 +473,7 @@ pub mod pallet {
 			check_version: bool,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			AuthorizedUpgrade::<T>::put(CodeUpgradeAuthorization {
-				code_hash: code_hash.clone(),
-				check_version,
-			});
+			AuthorizedUpgrade::<T>::put(CodeUpgradeAuthorization { code_hash, check_version });
 
 			Self::deposit_event(Event::UpgradeAuthorized { code_hash });
 			Ok(())
@@ -753,7 +750,7 @@ impl<T: Config> Pallet<T> {
 		let authorization = AuthorizedUpgrade::<T>::get().ok_or(Error::<T>::NothingAuthorized)?;
 
 		// ensure that the actual hash matches the authorized hash
-		let actual_hash = T::Hashing::hash(&code[..]);
+		let actual_hash = T::Hashing::hash(code);
 		ensure!(actual_hash == authorization.code_hash, Error::<T>::Unauthorized);
 
 		// check versions if required as part of the authorization
@@ -941,10 +938,10 @@ impl<T: Config> Pallet<T> {
 		// `running_mqc_heads`. Otherwise, in a block where no messages were sent in a channel
 		// it won't get into next block's `last_mqc_heads` and thus will be all zeros, which
 		// would corrupt the message queue chain.
-		for &(ref sender, ref channel) in ingress_channels {
+		for (sender, channel) in ingress_channels {
 			let cur_head = running_mqc_heads
 				.entry(sender)
-				.or_insert_with(|| last_mqc_heads.get(&sender).cloned().unwrap_or_default())
+				.or_insert_with(|| last_mqc_heads.get(sender).cloned().unwrap_or_default())
 				.head();
 			let target_head = channel.mqc_head.unwrap_or_default();
 
@@ -1090,22 +1087,20 @@ impl<T: Config> Pallet<T> {
 		// may change so that the message is no longer valid.
 		//
 		// However, changing this setting is expected to be rare.
-		match Self::host_configuration() {
-			Some(cfg) =>
-				if message.len() > cfg.max_upward_message_size as usize {
-					return Err(MessageSendError::TooBig)
-				},
-			None => {
-				// This storage field should carry over from the previous block. So if it's None
-				// then it must be that this is an edge-case where a message is attempted to be
-				// sent at the first block.
-				//
-				// Let's pass this message through. I think it's not unreasonable to expect that
-				// the message is not huge and it comes through, but if it doesn't it can be
-				// returned back to the sender.
-				//
-				// Thus fall through here.
-			},
+		if let Some(cfg) = Self::host_configuration() {
+			if message.len() > cfg.max_upward_message_size as usize {
+				return Err(MessageSendError::TooBig)
+			}
+		} else {
+			// This storage field should carry over from the previous block. So if it's None
+			// then it must be that this is an edge-case where a message is attempted to be
+			// sent at the first block.
+			//
+			// Let's pass this message through. I think it's not unreasonable to expect that
+			// the message is not huge and it comes through, but if it doesn't it can be
+			// returned back to the sender.
+			//
+			// Thus fall through here.
 		};
 		<PendingUpwardMessages<T>>::append(message.clone());
 

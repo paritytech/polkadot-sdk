@@ -46,7 +46,7 @@ fn create_account_extrinsics(client: &Client, accounts: &[sr25519::Pair]) -> Vec
 	accounts
 		.iter()
 		.enumerate()
-		.map(|(i, a)| {
+		.flat_map(|(i, a)| {
 			vec![
 				// Reset the nonce by removing any funds
 				construct_extrinsic(
@@ -54,7 +54,7 @@ fn create_account_extrinsics(client: &Client, accounts: &[sr25519::Pair]) -> Vec
 					SudoCall::sudo {
 						call: Box::new(
 							BalancesCall::force_set_balance {
-								who: AccountId::from(a.public()).into(),
+								who: AccountId::from(a.public()),
 								new_free: 0,
 							}
 							.into(),
@@ -69,7 +69,7 @@ fn create_account_extrinsics(client: &Client, accounts: &[sr25519::Pair]) -> Vec
 					SudoCall::sudo {
 						call: Box::new(
 							BalancesCall::force_set_balance {
-								who: AccountId::from(a.public()).into(),
+								who: AccountId::from(a.public()),
 								new_free: 1_000_000_000_000 * ExistentialDeposit::get(),
 							}
 							.into(),
@@ -80,7 +80,6 @@ fn create_account_extrinsics(client: &Client, accounts: &[sr25519::Pair]) -> Vec
 				),
 			]
 		})
-		.flatten()
 		.map(OpaqueExtrinsic::from)
 		.collect()
 }
@@ -92,20 +91,19 @@ fn create_benchmark_extrinsics(
 ) -> Vec<OpaqueExtrinsic> {
 	accounts
 		.iter()
-		.map(|account| {
+		.flat_map(|account| {
 			(0..extrinsics_per_account).map(move |nonce| {
 				construct_extrinsic(
 					client,
 					BalancesCall::transfer_allow_death {
-						dest: Bob.to_account_id().into(),
-						value: 1 * ExistentialDeposit::get(),
+						dest: Bob.to_account_id(),
+						value: ExistentialDeposit::get(),
 					},
 					account.clone(),
 					Some(nonce as u32),
 				)
 			})
 		})
-		.flatten()
 		.map(OpaqueExtrinsic::from)
 		.collect()
 }
@@ -208,27 +206,27 @@ fn transaction_throughput_benchmarks(c: &mut Criterion) {
 		|b| {
 			b.iter_batched(
 				|| {
-					let prepare_extrinsics = create_account_extrinsics(&*dave.client, &accounts);
+					let prepare_extrinsics = create_account_extrinsics(&dave.client, &accounts);
 
 					benchmark_handle.block_on(future::join_all(
 						prepare_extrinsics.into_iter().map(|tx| {
 							submit_tx_and_wait_for_inclusion(
 								&dave.transaction_pool,
 								tx,
-								&*dave.client,
+								&dave.client,
 								true,
 							)
 						}),
 					));
 
-					create_benchmark_extrinsics(&*dave.client, &accounts, extrinsics_per_account)
+					create_benchmark_extrinsics(&dave.client, &accounts, extrinsics_per_account)
 				},
 				|extrinsics| {
 					benchmark_handle.block_on(future::join_all(extrinsics.into_iter().map(|tx| {
 						submit_tx_and_wait_for_inclusion(
 							&dave.transaction_pool,
 							tx,
-							&*dave.client,
+							&dave.client,
 							false,
 						)
 					})));

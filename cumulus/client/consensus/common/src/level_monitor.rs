@@ -22,7 +22,7 @@ use std::{
 	sync::Arc,
 };
 
-const LOG_TARGET: &'static str = "level-monitor";
+const LOG_TARGET: &str = "level-monitor";
 
 /// Value good enough to be used with parachains using the current backend implementation
 /// that ships with Substrate. This value may change in the future.

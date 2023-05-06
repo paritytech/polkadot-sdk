@@ -325,7 +325,6 @@ async fn handle_new_block_imported<Block, P>(
 
 	match parachain.block_status(unset_hash) {
 		Ok(BlockStatus::InChainWithState) => {
-			drop(unset_best_header);
 			let unset_best_header = unset_best_header_opt
 				.take()
 				.expect("We checked above that the value is set; qed");
@@ -433,8 +432,11 @@ async fn handle_new_best_parachain_head<Block, P>(
 	}
 }
 
-async fn import_block_as_new_best<Block, P>(hash: Block::Hash, header: Block::Header, parachain: &P)
-where
+async fn import_block_as_new_best<Block, P>(
+	hash: Block::Hash,
+	header: Block::Header,
+	mut parachain: &P,
+) where
 	Block: BlockT,
 	P: UsageProvider<Block> + Send + Sync + BlockBackend<Block>,
 	for<'a> &'a P: BlockImport<Block>,
@@ -456,7 +458,7 @@ where
 	block_import_params.fork_choice = Some(ForkChoiceStrategy::Custom(true));
 	block_import_params.import_existing = true;
 
-	if let Err(err) = (&*parachain).import_block(block_import_params).await {
+	if let Err(err) = parachain.import_block(block_import_params).await {
 		tracing::warn!(
 			target: LOG_TARGET,
 			block_hash = ?hash,

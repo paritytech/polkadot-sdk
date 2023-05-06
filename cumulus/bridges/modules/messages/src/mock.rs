@@ -185,7 +185,7 @@ impl crate::benchmarking::Config<()> for TestRuntime {
 		// in mock run we only care about benchmarks correctness, not the benchmark results
 		// => ignore size related arguments
 		let (messages, total_dispatch_weight) =
-			params.message_nonces.into_iter().map(|n| message(n, REGULAR_PAYLOAD)).fold(
+			params.message_nonces.map(|n| message(n, REGULAR_PAYLOAD)).fold(
 				(Vec::new(), Weight::zero()),
 				|(mut messages, total_dispatch_weight), message| {
 					let weight = REGULAR_PAYLOAD.declared_weight;

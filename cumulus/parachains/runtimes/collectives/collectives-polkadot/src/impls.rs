@@ -59,7 +59,7 @@ where
 		let pallet_acc: AccountIdOf<T> = PalletAccount::get();
 		let treasury_acc: AccountIdOf<T> = TreasuryAccount::get();
 
-		<pallet_balances::Pallet<T>>::resolve_creating(&pallet_acc.clone(), amount);
+		<pallet_balances::Pallet<T>>::resolve_creating(&pallet_acc, amount);
 
 		let result = <pallet_xcm::Pallet<T>>::teleport_assets(
 			<<T as frame_system::Config>::RuntimeOrigin>::signed(pallet_acc.into()),
@@ -73,10 +73,9 @@ where
 			0,
 		);
 
-		match result {
-			Err(err) => log::warn!("Failed to teleport slashed assets: {:?}", err),
-			_ => (),
-		};
+		if let Err(err) = result {
+			log::warn!("Failed to teleport slashed assets: {:?}", err);
+		}
 	}
 }
 

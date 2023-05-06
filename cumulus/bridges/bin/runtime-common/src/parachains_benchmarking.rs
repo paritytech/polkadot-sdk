@@ -60,7 +60,7 @@ where
 			TrieDBMutBuilderV1::<RelayBlockHasher>::new(&mut mdb, &mut state_root).build();
 
 		// insert parachain heads
-		for (i, parachain) in parachains.into_iter().enumerate() {
+		for (i, parachain) in parachains.iter().enumerate() {
 			let storage_key =
 				parachain_head_storage_key_at_source(R::ParasPalletName::get(), *parachain);
 			let leaf_data = if i == 0 {

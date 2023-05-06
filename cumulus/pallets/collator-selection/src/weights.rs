@@ -39,93 +39,91 @@ pub trait WeightInfo {
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn set_invulnerables(b: u32) -> Weight {
-		Weight::from_parts(18_563_000 as u64, 0)
+		Weight::from_parts(18_563_000_u64, 0)
 			// Standard Error: 0
-			.saturating_add(Weight::from_parts(68_000 as u64, 0).saturating_mul(b as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+			.saturating_add(Weight::from_parts(68_000_u64, 0).saturating_mul(b as u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn set_desired_candidates() -> Weight {
-		Weight::from_parts(16_363_000 as u64, 0).saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_parts(16_363_000_u64, 0).saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn set_candidacy_bond() -> Weight {
-		Weight::from_parts(16_840_000 as u64, 0).saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_parts(16_840_000_u64, 0).saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn register_as_candidate(c: u32) -> Weight {
-		Weight::from_parts(71_196_000 as u64, 0)
+		Weight::from_parts(71_196_000_u64, 0)
 			// Standard Error: 0
-			.saturating_add(Weight::from_parts(198_000 as u64, 0).saturating_mul(c as u64))
-			.saturating_add(T::DbWeight::get().reads(4 as u64))
-			.saturating_add(T::DbWeight::get().writes(2 as u64))
+			.saturating_add(Weight::from_parts(198_000_u64, 0).saturating_mul(c as u64))
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	fn leave_intent(c: u32) -> Weight {
-		Weight::from_parts(55_336_000 as u64, 0)
+		Weight::from_parts(55_336_000_u64, 0)
 			// Standard Error: 0
-			.saturating_add(Weight::from_parts(151_000 as u64, 0).saturating_mul(c as u64))
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(2 as u64))
+			.saturating_add(Weight::from_parts(151_000_u64, 0).saturating_mul(c as u64))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	fn note_author() -> Weight {
-		Weight::from_parts(71_461_000 as u64, 0)
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
-			.saturating_add(T::DbWeight::get().writes(4 as u64))
+		Weight::from_parts(71_461_000_u64, 0)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 	fn new_session(r: u32, c: u32) -> Weight {
-		Weight::from_parts(0 as u64, 0)
+		Weight::from_parts(0_u64, 0)
 			// Standard Error: 1_010_000
-			.saturating_add(Weight::from_parts(109_961_000 as u64, 0).saturating_mul(r as u64))
+			.saturating_add(Weight::from_parts(109_961_000_u64, 0).saturating_mul(r as u64))
 			// Standard Error: 1_010_000
-			.saturating_add(Weight::from_parts(151_952_000 as u64, 0).saturating_mul(c as u64))
-			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(r as u64)))
-			.saturating_add(T::DbWeight::get().reads((2 as u64).saturating_mul(c as u64)))
-			.saturating_add(T::DbWeight::get().writes((2 as u64).saturating_mul(r as u64)))
-			.saturating_add(T::DbWeight::get().writes((2 as u64).saturating_mul(c as u64)))
+			.saturating_add(Weight::from_parts(151_952_000_u64, 0).saturating_mul(c as u64))
+			.saturating_add(T::DbWeight::get().reads(1_u64.saturating_mul(r as u64)))
+			.saturating_add(T::DbWeight::get().reads(2_u64.saturating_mul(c as u64)))
+			.saturating_add(T::DbWeight::get().writes(2_u64.saturating_mul(r as u64)))
+			.saturating_add(T::DbWeight::get().writes(2_u64.saturating_mul(c as u64)))
 	}
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
 	fn set_invulnerables(b: u32) -> Weight {
-		Weight::from_parts(18_563_000 as u64, 0)
+		Weight::from_parts(18_563_000_u64, 0)
 			// Standard Error: 0
-			.saturating_add(Weight::from_parts(68_000 as u64, 0).saturating_mul(b as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+			.saturating_add(Weight::from_parts(68_000_u64, 0).saturating_mul(b as u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn set_desired_candidates() -> Weight {
-		Weight::from_parts(16_363_000 as u64, 0)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_parts(16_363_000_u64, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn set_candidacy_bond() -> Weight {
-		Weight::from_parts(16_840_000 as u64, 0)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_parts(16_840_000_u64, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn register_as_candidate(c: u32) -> Weight {
-		Weight::from_parts(71_196_000 as u64, 0)
+		Weight::from_parts(71_196_000_u64, 0)
 			// Standard Error: 0
-			.saturating_add(Weight::from_parts(198_000 as u64, 0).saturating_mul(c as u64))
-			.saturating_add(RocksDbWeight::get().reads(4 as u64))
-			.saturating_add(RocksDbWeight::get().writes(2 as u64))
+			.saturating_add(Weight::from_parts(198_000_u64, 0).saturating_mul(c as u64))
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	fn leave_intent(c: u32) -> Weight {
-		Weight::from_parts(55_336_000 as u64, 0)
+		Weight::from_parts(55_336_000_u64, 0)
 			// Standard Error: 0
-			.saturating_add(Weight::from_parts(151_000 as u64, 0).saturating_mul(c as u64))
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(2 as u64))
+			.saturating_add(Weight::from_parts(151_000_u64, 0).saturating_mul(c as u64))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	fn note_author() -> Weight {
-		Weight::from_parts(71_461_000 as u64, 0)
-			.saturating_add(RocksDbWeight::get().reads(3 as u64))
-			.saturating_add(RocksDbWeight::get().writes(4 as u64))
+		Weight::from_parts(71_461_000_u64, 0)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 	fn new_session(r: u32, c: u32) -> Weight {
-		Weight::from_parts(0 as u64, 0)
+		Weight::from_parts(0_u64, 0)
 			// Standard Error: 1_010_000
-			.saturating_add(Weight::from_parts(109_961_000 as u64, 0).saturating_mul(r as u64))
+			.saturating_add(Weight::from_parts(109_961_000_u64, 0).saturating_mul(r as u64))
 			// Standard Error: 1_010_000
-			.saturating_add(Weight::from_parts(151_952_000 as u64, 0).saturating_mul(c as u64))
-			.saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(r as u64)))
-			.saturating_add(RocksDbWeight::get().reads((2 as u64).saturating_mul(c as u64)))
-			.saturating_add(RocksDbWeight::get().writes((2 as u64).saturating_mul(r as u64)))
-			.saturating_add(RocksDbWeight::get().writes((2 as u64).saturating_mul(c as u64)))
+			.saturating_add(Weight::from_parts(151_952_000_u64, 0).saturating_mul(c as u64))
+			.saturating_add(RocksDbWeight::get().reads(1_u64.saturating_mul(r as u64)))
+			.saturating_add(RocksDbWeight::get().reads(2_u64.saturating_mul(c as u64)))
+			.saturating_add(RocksDbWeight::get().writes(2_u64.saturating_mul(r as u64)))
+			.saturating_add(RocksDbWeight::get().writes(2_u64.saturating_mul(c as u64)))
 	}
 }

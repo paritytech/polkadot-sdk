@@ -40,7 +40,7 @@
 //! 4a. After it is recovered, we restore the block and import it.
 //!
 //! 4b. Since we are trying to recover pending candidates, availability is not guaranteed. If the block
-//! 	PoV is not yet available, we retry.
+//!     PoV is not yet available, we retry.
 //!
 //! If we need to recover multiple PoV blocks (which should hopefully not happen in real life), we
 //! make sure that the blocks are imported in the correct order.
@@ -190,7 +190,7 @@ impl<Block: BlockT> RecoveryQueue<Block> {
 	/// Get the next hash for block recovery.
 	pub async fn next_recovery(&mut self) -> Block::Hash {
 		loop {
-			if let Some(_) = self.signaling_queue.next().await {
+			if self.signaling_queue.next().await.is_some() {
 				if let Some(hash) = self.recovery_queue.pop_front() {
 					return hash
 				} else {
@@ -309,10 +309,10 @@ where
 
 	/// Block is no longer waiting for recovery
 	fn clear_waiting_recovery(&mut self, block_hash: &Block::Hash) {
-		self.candidates.get_mut(block_hash).map(|candidate| {
+		if let Some(candidate) = self.candidates.get_mut(block_hash) {
 			// Prevents triggering an already enqueued recovery request
 			candidate.waiting_recovery = false;
-		});
+		}
 	}
 
 	/// Handle a finalized block with the given `block_number`.

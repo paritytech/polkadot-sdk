@@ -93,7 +93,7 @@ impl PurgeChainCmd {
 			io::stdin().read_line(&mut input)?;
 			let input = input.trim();
 
-			match input.chars().nth(0) {
+			match input.chars().next() {
 				Some('y') | Some('Y') => {},
 				_ => {
 					println!("Aborted");
@@ -103,7 +103,7 @@ impl PurgeChainCmd {
 		}
 
 		for db_path in &db_paths {
-			match fs::remove_dir_all(&db_path) {
+			match fs::remove_dir_all(db_path) {
 				Ok(_) => {
 					println!("{:?} removed.", &db_path);
 				},
