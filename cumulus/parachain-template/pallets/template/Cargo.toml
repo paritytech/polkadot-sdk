@@ -1,5 +1,5 @@
 [package]
-name = "pallet-template"
+name = "pallet-parachain-template"
 authors = ["Anonymous"]
 description = "FRAME pallet template for defining custom runtime logic."
 version = "0.1.0"
