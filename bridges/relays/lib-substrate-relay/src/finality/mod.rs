@@ -39,7 +39,6 @@ use sp_core::Pair;
 use std::{fmt::Debug, marker::PhantomData};
 
 pub mod engine;
-pub mod guards;
 pub mod initialize;
 pub mod source;
 pub mod target;
