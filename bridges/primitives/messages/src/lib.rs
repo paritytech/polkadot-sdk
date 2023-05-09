@@ -20,9 +20,15 @@
 // RuntimeApi generated functions
 #![allow(clippy::too_many_arguments)]
 
-use bp_runtime::{BasicOperatingMode, OperatingMode, RangeInclusiveExt};
+use bp_header_chain::HeaderChainError;
+use bp_runtime::{
+	messages::MessageDispatchResult, BasicOperatingMode, OperatingMode, RangeInclusiveExt,
+	StorageProofError,
+};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::RuntimeDebug;
+use frame_support::{PalletError, RuntimeDebug};
+// Weight is reexported to avoid additional frame-support dependencies in related crates.
+pub use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use source_chain::RelayersRewards;
 use sp_core::TypeId;
@@ -31,10 +37,6 @@ use sp_std::{collections::vec_deque::VecDeque, ops::RangeInclusive, prelude::*};
 pub mod source_chain;
 pub mod storage_keys;
 pub mod target_chain;
-
-use bp_runtime::messages::MessageDispatchResult;
-// Weight is reexported to avoid additional frame-support dependencies in related crates.
-pub use frame_support::weights::Weight;
 
 /// Messages pallet operating mode.
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -412,6 +414,31 @@ pub enum BridgeMessagesCall<AccountId, MessagesProof, MessagesDeliveryProof> {
 		proof: MessagesDeliveryProof,
 		relayers_state: UnrewardedRelayersState,
 	},
+}
+
+/// Error that happens during message verification.
+#[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]
+pub enum VerificationError {
+	/// The message proof is empty.
+	EmptyMessageProof,
+	/// Error returned by the bridged header chain.
+	HeaderChain(HeaderChainError),
+	/// Error returned while reading/decoding inbound lane data from the storage proof.
+	InboundLaneStorage(StorageProofError),
+	/// The declared message weight is incorrect.
+	InvalidMessageWeight,
+	/// Declared messages count doesn't match actual value.
+	MessagesCountMismatch,
+	/// Error returned while reading/decoding message data from the storage proof.
+	MessageStorage(StorageProofError),
+	/// The message is too large.
+	MessageTooLarge,
+	/// Error returned while reading/decoding outbound lane data from the storage proof.
+	OutboundLaneStorage(StorageProofError),
+	/// Storage proof related error.
+	StorageProof(StorageProofError),
+	/// Custom error
+	Other(#[codec(skip)] &'static str),
 }
 
 #[cfg(test)]
