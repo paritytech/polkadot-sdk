@@ -17,7 +17,7 @@
 //! Substrate node client.
 
 use crate::{
-	chain::{Chain, ChainWithBalances, ChainWithTransactions},
+	chain::{Chain, ChainWithTransactions},
 	rpc::{
 		SubstrateAuthorClient, SubstrateChainClient, SubstrateFinalityClient,
 		SubstrateFrameSystemClient, SubstrateStateClient, SubstrateSystemClient,
@@ -31,14 +31,12 @@ use async_trait::async_trait;
 use bp_runtime::{HeaderIdProvider, StorageDoubleMapKeyProvider, StorageMapKeyProvider};
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
-use frame_system::AccountInfo;
 use futures::{SinkExt, StreamExt};
 use jsonrpsee::{
 	core::DeserializeOwned,
 	ws_client::{WsClient as RpcClient, WsClientBuilder as RpcClientBuilder},
 };
 use num_traits::{Saturating, Zero};
-use pallet_balances::AccountData;
 use pallet_transaction_payment::RuntimeDispatchInfo;
 use relay_utils::{relay_loop::RECONNECT_DELAY, STALL_TIMEOUT};
 use sp_core::{
@@ -422,26 +420,6 @@ impl<C: Chain> Client<C> {
 			key: cloned_storage_key,
 			error: e.boxed(),
 		})
-	}
-
-	/// Return native tokens balance of the account.
-	pub async fn free_native_balance(&self, account: C::AccountId) -> Result<C::Balance>
-	where
-		C: ChainWithBalances,
-	{
-		self.jsonrpsee_execute(move |client| async move {
-			let storage_key = C::account_info_storage_key(&account);
-			let encoded_account_data =
-				SubstrateStateClient::<C>::storage(&*client, storage_key, None)
-					.await?
-					.ok_or(Error::AccountDoesNotExist)?;
-			let decoded_account_data = AccountInfo::<C::Index, AccountData<C::Balance>>::decode(
-				&mut &encoded_account_data.0[..],
-			)
-			.map_err(Error::ResponseParseFailed)?;
-			Ok(decoded_account_data.data.free)
-		})
-		.await
 	}
 
 	/// Get the nonce of the given Substrate account.
