@@ -52,6 +52,7 @@ use sp_externalities::Extension;
 use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_runtime::traits::{self, Header};
 use threadpool::ThreadPool;
+use sp_externalities::Extension;
 
 mod api;
 
@@ -309,6 +310,8 @@ where
 				runtime.register_extension(offchain::OffchainWorkerExt::new(
 					offchain::LimitedExternalities::new(capabilities, api),
 				));
+
+				custom_extensions.into_iter().for_each(|ext| runtime.register_extension(ext));
 
 				let run = if version == 2 {
 					runtime.offchain_worker(hash, &header)
