@@ -73,18 +73,14 @@ impl<H: HeaderT> StoredHeaderDataBuilder<H::Number, H::Hash> for H {
 pub trait HeaderChain<C: Chain> {
 	/// Returns state (storage) root of given finalized header.
 	fn finalized_header_state_root(header_hash: HashOf<C>) -> Option<HashOf<C>>;
-	/// Parse storage proof using finalized header.
-	fn parse_finalized_storage_proof<R>(
+	/// Get storage proof checker using finalized header.
+	fn storage_proof_checker(
 		header_hash: HashOf<C>,
 		storage_proof: RawStorageProof,
-		parse: impl FnOnce(StorageProofChecker<HasherOf<C>>) -> R,
-	) -> Result<R, HeaderChainError> {
+	) -> Result<StorageProofChecker<HasherOf<C>>, HeaderChainError> {
 		let state_root = Self::finalized_header_state_root(header_hash)
 			.ok_or(HeaderChainError::UnknownHeader)?;
-		let storage_proof_checker = bp_runtime::StorageProofChecker::new(state_root, storage_proof)
-			.map_err(HeaderChainError::StorageProof)?;
-
-		Ok(parse(storage_proof_checker))
+		StorageProofChecker::new(state_root, storage_proof).map_err(HeaderChainError::StorageProof)
 	}
 }
 

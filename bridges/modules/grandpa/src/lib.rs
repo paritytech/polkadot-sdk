@@ -1212,11 +1212,8 @@ mod tests {
 	fn parse_finalized_storage_proof_rejects_proof_on_unknown_header() {
 		run_test(|| {
 			assert_noop!(
-				Pallet::<TestRuntime>::parse_finalized_storage_proof(
-					Default::default(),
-					vec![],
-					|_| (),
-				),
+				Pallet::<TestRuntime>::storage_proof_checker(Default::default(), vec![],)
+					.map(|_| ()),
 				bp_header_chain::HeaderChainError::UnknownHeader,
 			);
 		});
@@ -1235,8 +1232,7 @@ mod tests {
 			<ImportedHeaders<TestRuntime>>::insert(hash, header.build());
 
 			assert_ok!(
-				Pallet::<TestRuntime>::parse_finalized_storage_proof(hash, storage_proof, |_| (),),
-				(),
+				Pallet::<TestRuntime>::storage_proof_checker(hash, storage_proof).map(|_| ())
 			);
 		});
 	}
