@@ -52,7 +52,6 @@ use sp_externalities::Extension;
 use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_runtime::traits::{self, Header};
 use threadpool::ThreadPool;
-use sp_externalities::Extension;
 
 mod api;
 
