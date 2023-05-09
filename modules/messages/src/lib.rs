@@ -67,7 +67,7 @@ use bp_runtime::{BasicOperatingMode, ChainId, OwnedBridgeModule, PreComputedSize
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::PostDispatchInfo, ensure, fail, traits::Get};
 use sp_runtime::traits::UniqueSaturatedFrom;
-use sp_std::{cell::RefCell, marker::PhantomData, prelude::*};
+use sp_std::{marker::PhantomData, prelude::*};
 
 mod inbound_lane;
 mod outbound_lane;
@@ -319,7 +319,7 @@ pub mod pallet {
 
 				// subtract extra storage proof bytes from the actual PoV size - there may be
 				// less unrewarded relayers than the maximal configured value
-				let lane_extra_proof_size_bytes = lane.storage().extra_proof_size_bytes();
+				let lane_extra_proof_size_bytes = lane.storage_mut().extra_proof_size_bytes();
 				actual_weight = actual_weight.set_proof_size(
 					actual_weight.proof_size().saturating_sub(lane_extra_proof_size_bytes),
 				);
@@ -332,7 +332,7 @@ pub mod pallet {
 							"Received lane {:?} state update: latest_confirmed_nonce={}. Unrewarded relayers: {:?}",
 							lane_id,
 							updated_latest_confirmed_nonce,
-							UnrewardedRelayersState::from(&lane.storage().data()),
+							UnrewardedRelayersState::from(&lane.storage_mut().get_or_init_data()),
 						);
 					}
 				}
@@ -531,12 +531,12 @@ pub mod pallet {
 		NotOperatingNormally,
 		/// The outbound lane is inactive.
 		InactiveOutboundLane,
-		/// The message is too large to be sent over the bridge.
-		MessageIsTooLarge,
 		/// Message has been treated as invalid by chain verifier.
 		MessageRejectedByChainVerifier(VerificationError),
 		/// Message has been treated as invalid by lane verifier.
 		MessageRejectedByLaneVerifier(VerificationError),
+		/// Message has been treated as invalid by the pallet logic.
+		MessageRejectedByPallet(VerificationError),
 		/// Submitter has failed to pay fee for delivering and dispatching messages.
 		FailedToWithdrawMessageFee,
 		/// The transaction brings too many messages.
@@ -727,11 +727,9 @@ fn send_message<T: Config<I>, I: 'static>(
 	// finally, save message in outbound storage and emit event
 	let encoded_payload = payload.encode();
 	let encoded_payload_len = encoded_payload.len();
-	ensure!(
-		encoded_payload_len <= T::MaximalOutboundPayloadSize::get() as usize,
-		Error::<T, I>::MessageIsTooLarge
-	);
-	let nonce = lane.send_message(encoded_payload);
+	let nonce = lane
+		.send_message(encoded_payload)
+		.map_err(Error::<T, I>::MessageRejectedByPallet)?;
 
 	log::trace!(
 		target: LOG_TARGET,
@@ -761,18 +759,7 @@ fn ensure_normal_operating_mode<T: Config<I>, I: 'static>() -> Result<(), Error<
 fn inbound_lane<T: Config<I>, I: 'static>(
 	lane_id: LaneId,
 ) -> InboundLane<RuntimeInboundLaneStorage<T, I>> {
-	InboundLane::new(inbound_lane_storage::<T, I>(lane_id))
-}
-
-/// Creates new runtime inbound lane storage.
-fn inbound_lane_storage<T: Config<I>, I: 'static>(
-	lane_id: LaneId,
-) -> RuntimeInboundLaneStorage<T, I> {
-	RuntimeInboundLaneStorage {
-		lane_id,
-		cached_data: RefCell::new(None),
-		_phantom: Default::default(),
-	}
+	InboundLane::new(RuntimeInboundLaneStorage::from_lane_id(lane_id))
 }
 
 /// Creates new outbound lane object, backed by runtime storage.
@@ -785,8 +772,15 @@ fn outbound_lane<T: Config<I>, I: 'static>(
 /// Runtime inbound lane storage.
 struct RuntimeInboundLaneStorage<T: Config<I>, I: 'static = ()> {
 	lane_id: LaneId,
-	cached_data: RefCell<Option<InboundLaneData<T::InboundRelayer>>>,
+	cached_data: Option<InboundLaneData<T::InboundRelayer>>,
 	_phantom: PhantomData<I>,
+}
+
+impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
+	/// Creates new runtime inbound lane storage.
+	fn from_lane_id(lane_id: LaneId) -> RuntimeInboundLaneStorage<T, I> {
+		RuntimeInboundLaneStorage { lane_id, cached_data: None, _phantom: Default::default() }
+	}
 }
 
 impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
@@ -798,9 +792,9 @@ impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
 	/// `MaxUnrewardedRelayerEntriesAtInboundLane` constant from the pallet configuration. The PoV
 	/// of the call includes the maximal size of inbound lane state. If the actual size is smaller,
 	/// we may subtract extra bytes from this component.
-	pub fn extra_proof_size_bytes(&self) -> u64 {
+	pub fn extra_proof_size_bytes(&mut self) -> u64 {
 		let max_encoded_len = StoredInboundLaneData::<T, I>::max_encoded_len();
-		let relayers_count = self.data().relayers.len();
+		let relayers_count = self.get_or_init_data().relayers.len();
 		let actual_encoded_len =
 			InboundLaneData::<T::InboundRelayer>::encoded_size_hint(relayers_count)
 				.unwrap_or(usize::MAX);
@@ -823,26 +817,20 @@ impl<T: Config<I>, I: 'static> InboundLaneStorage for RuntimeInboundLaneStorage<
 		T::MaxUnconfirmedMessagesAtInboundLane::get()
 	}
 
-	fn data(&self) -> InboundLaneData<T::InboundRelayer> {
-		match self.cached_data.clone().into_inner() {
-			Some(data) => data,
+	fn get_or_init_data(&mut self) -> InboundLaneData<T::InboundRelayer> {
+		match self.cached_data {
+			Some(ref data) => data.clone(),
 			None => {
 				let data: InboundLaneData<T::InboundRelayer> =
 					InboundLanes::<T, I>::get(self.lane_id).into();
-				*self.cached_data.try_borrow_mut().expect(
-					"we're in the single-threaded environment;\
-						we have no recursive borrows; qed",
-				) = Some(data.clone());
+				self.cached_data = Some(data.clone());
 				data
 			},
 		}
 	}
 
 	fn set_data(&mut self, data: InboundLaneData<T::InboundRelayer>) {
-		*self.cached_data.try_borrow_mut().expect(
-			"we're in the single-threaded environment;\
-				we have no recursive borrows; qed",
-		) = Some(data.clone());
+		self.cached_data = Some(data.clone());
 		InboundLanes::<T, I>::insert(self.lane_id, StoredInboundLaneData::<T, I>(data))
 	}
 }
@@ -872,15 +860,17 @@ impl<T: Config<I>, I: 'static> OutboundLaneStorage for RuntimeOutboundLaneStorag
 			.map(Into::into)
 	}
 
-	fn save_message(&mut self, nonce: MessageNonce, message_payload: MessagePayload) {
+	fn save_message(
+		&mut self,
+		nonce: MessageNonce,
+		message_payload: MessagePayload,
+	) -> Result<(), VerificationError> {
 		OutboundMessages::<T, I>::insert(
 			MessageKey { lane_id: self.lane_id, nonce },
-			StoredMessagePayload::<T, I>::try_from(message_payload).expect(
-				"save_message is called after all checks in send_message; \
-					send_message checks message size; \
-					qed",
-			),
+			StoredMessagePayload::<T, I>::try_from(message_payload)
+				.map_err(|_| VerificationError::MessageTooLarge)?,
 		);
+		Ok(())
 	}
 
 	fn remove_message(&mut self, nonce: &MessageNonce) {
@@ -1128,7 +1118,9 @@ mod tests {
 					TEST_LANE_ID,
 					message_payload.clone(),
 				),
-				Error::<TestRuntime, ()>::MessageIsTooLarge,
+				Error::<TestRuntime, ()>::MessageRejectedByPallet(
+					VerificationError::MessageTooLarge
+				),
 			);
 
 			// let's check that we're able to send `MAX_OUTBOUND_PAYLOAD_SIZE` messages
@@ -2097,10 +2089,10 @@ mod tests {
 		fn storage(relayer_entries: usize) -> RuntimeInboundLaneStorage<TestRuntime, ()> {
 			RuntimeInboundLaneStorage {
 				lane_id: Default::default(),
-				cached_data: RefCell::new(Some(InboundLaneData {
+				cached_data: Some(InboundLaneData {
 					relayers: vec![relayer_entry(); relayer_entries].into_iter().collect(),
 					last_confirmed_nonce: 0,
-				})),
+				}),
 				_phantom: Default::default(),
 			}
 		}
