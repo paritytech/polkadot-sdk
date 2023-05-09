@@ -59,9 +59,9 @@ use bp_messages::{
 		DeliveryPayments, DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages,
 		SourceHeaderChain,
 	},
-	total_unrewarded_messages, DeliveredMessages, InboundLaneData, InboundMessageDetails, LaneId,
-	MessageKey, MessageNonce, MessagePayload, MessagesOperatingMode, OutboundLaneData,
-	OutboundMessageDetails, UnrewardedRelayersState, VerificationError,
+	DeliveredMessages, InboundLaneData, InboundMessageDetails, LaneId, MessageKey, MessageNonce,
+	MessagePayload, MessagesOperatingMode, OutboundLaneData, OutboundMessageDetails,
+	UnrewardedRelayersState, VerificationError,
 };
 use bp_runtime::{BasicOperatingMode, ChainId, OwnedBridgeModule, PreComputedSize, Size};
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -437,21 +437,8 @@ pub mod pallet {
 
 					Error::<T, I>::InvalidMessagesDeliveryProof
 				})?;
-
-			// verify that the relayer has declared correct `lane_data::relayers` state
-			// (we only care about total number of entries and messages, because this affects call
-			// weight)
 			ensure!(
-				total_unrewarded_messages(&lane_data.relayers).unwrap_or(MessageNonce::MAX) ==
-					relayers_state.total_messages &&
-					lane_data.relayers.len() as MessageNonce ==
-						relayers_state.unrewarded_relayer_entries,
-				Error::<T, I>::InvalidUnrewardedRelayersState
-			);
-			// the `last_delivered_nonce` field may also be used by the signed extension. Even
-			// though providing wrong value isn't critical, let's also check it here.
-			ensure!(
-				lane_data.last_delivered_nonce() == relayers_state.last_delivered_nonce,
+				relayers_state.is_valid(&lane_data),
 				Error::<T, I>::InvalidUnrewardedRelayersState
 			);
 
@@ -975,9 +962,9 @@ mod tests {
 			))),
 			UnrewardedRelayersState {
 				unrewarded_relayer_entries: 1,
+				messages_in_oldest_entry: 1,
 				total_messages: 1,
 				last_delivered_nonce: 1,
-				..Default::default()
 			},
 		));
 
@@ -1341,9 +1328,9 @@ mod tests {
 				single_message_delivery_proof,
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 1,
+					messages_in_oldest_entry: 1,
 					total_messages: 1,
 					last_delivered_nonce: 1,
-					..Default::default()
 				},
 			);
 			assert_ok!(result);
@@ -1381,9 +1368,9 @@ mod tests {
 				two_messages_delivery_proof,
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 2,
+					messages_in_oldest_entry: 1,
 					total_messages: 2,
 					last_delivered_nonce: 2,
-					..Default::default()
 				},
 			);
 			assert_ok!(result);
@@ -1746,9 +1733,9 @@ mod tests {
 				TestMessagesDeliveryProof(messages_1_and_2_proof),
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 1,
+					messages_in_oldest_entry: 2,
 					total_messages: 2,
 					last_delivered_nonce: 2,
-					..Default::default()
 				},
 			));
 			// second tx with message 3
@@ -1757,9 +1744,9 @@ mod tests {
 				TestMessagesDeliveryProof(messages_3_proof),
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 1,
+					messages_in_oldest_entry: 1,
 					total_messages: 1,
 					last_delivered_nonce: 3,
-					..Default::default()
 				},
 			));
 		});
