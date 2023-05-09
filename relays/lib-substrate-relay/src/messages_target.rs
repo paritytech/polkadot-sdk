@@ -31,8 +31,8 @@ use crate::{
 use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
-	storage_keys::inbound_lane_data_key, total_unrewarded_messages, InboundLaneData, LaneId,
-	MessageNonce, UnrewardedRelayersState,
+	storage_keys::inbound_lane_data_key, InboundLaneData, LaneId, MessageNonce,
+	UnrewardedRelayersState,
 };
 use bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof;
 use messages_relay::{
@@ -45,7 +45,7 @@ use relay_substrate_client::{
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
-use std::{collections::VecDeque, convert::TryFrom, ops::RangeInclusive};
+use std::{convert::TryFrom, ops::RangeInclusive};
 
 /// Message receiving proof returned by the target Substrate node.
 pub type SubstrateMessagesDeliveryProof<C> =
@@ -197,20 +197,9 @@ where
 		id: TargetHeaderIdOf<MessageLaneAdapter<P>>,
 	) -> Result<(TargetHeaderIdOf<MessageLaneAdapter<P>>, UnrewardedRelayersState), SubstrateError>
 	{
-		let inbound_lane_data = self.inbound_lane_data(id).await?;
-		let last_delivered_nonce =
-			inbound_lane_data.as_ref().map(|data| data.last_delivered_nonce()).unwrap_or(0);
-		let relayers = inbound_lane_data.map(|data| data.relayers).unwrap_or_else(VecDeque::new);
-		let unrewarded_relayers_state = bp_messages::UnrewardedRelayersState {
-			unrewarded_relayer_entries: relayers.len() as _,
-			messages_in_oldest_entry: relayers
-				.front()
-				.map(|entry| 1 + entry.messages.end - entry.messages.begin)
-				.unwrap_or(0),
-			total_messages: total_unrewarded_messages(&relayers).unwrap_or(MessageNonce::MAX),
-			last_delivered_nonce,
-		};
-		Ok((id, unrewarded_relayers_state))
+		let inbound_lane_data =
+			self.inbound_lane_data(id).await?.unwrap_or(InboundLaneData::default());
+		Ok((id, (&inbound_lane_data).into()))
 	}
 
 	async fn prove_messages_receiving(

@@ -191,6 +191,17 @@ impl<RelayerId> InboundLaneData<RelayerId> {
 			.map(|entry| entry.messages.end)
 			.unwrap_or(self.last_confirmed_nonce)
 	}
+
+	/// Returns the total number of messages in the `relayers` vector,
+	/// saturating in case of underflow or overflow.
+	pub fn total_unrewarded_messages(&self) -> MessageNonce {
+		let relayers = &self.relayers;
+		match (relayers.front(), relayers.back()) {
+			(Some(front), Some(back)) =>
+				(front.messages.begin..=back.messages.end).saturating_len(),
+			_ => 0,
+		}
+	}
 }
 
 /// Outbound message details, returned by runtime APIs.
@@ -287,7 +298,7 @@ impl DeliveredMessages {
 
 	/// Return total count of delivered messages.
 	pub fn total_messages(&self) -> MessageNonce {
-		(self.begin..=self.end).checked_len().unwrap_or(0)
+		(self.begin..=self.end).saturating_len()
 	}
 
 	/// Note new dispatched message.
@@ -318,6 +329,13 @@ pub struct UnrewardedRelayersState {
 	pub last_delivered_nonce: MessageNonce,
 }
 
+impl UnrewardedRelayersState {
+	// Verify that the relayers state corresponds with the `InboundLaneData`.
+	pub fn is_valid<RelayerId>(&self, lane_data: &InboundLaneData<RelayerId>) -> bool {
+		self == &lane_data.into()
+	}
+}
+
 impl<RelayerId> From<&InboundLaneData<RelayerId>> for UnrewardedRelayersState {
 	fn from(lane: &InboundLaneData<RelayerId>) -> UnrewardedRelayersState {
 		UnrewardedRelayersState {
@@ -325,9 +343,9 @@ impl<RelayerId> From<&InboundLaneData<RelayerId>> for UnrewardedRelayersState {
 			messages_in_oldest_entry: lane
 				.relayers
 				.front()
-				.and_then(|entry| (entry.messages.begin..=entry.messages.end).checked_len())
+				.map(|entry| entry.messages.total_messages())
 				.unwrap_or(0),
-			total_messages: total_unrewarded_messages(&lane.relayers).unwrap_or(MessageNonce::MAX),
+			total_messages: lane.total_unrewarded_messages(),
 			last_delivered_nonce: lane.last_delivered_nonce(),
 		}
 	}
@@ -354,24 +372,6 @@ impl Default for OutboundLaneData {
 			latest_received_nonce: 0,
 			latest_generated_nonce: 0,
 		}
-	}
-}
-
-/// Returns total number of messages in the `InboundLaneData::relayers` vector.
-///
-/// Returns `None` if there are more messages that `MessageNonce` may fit (i.e. `MessageNonce + 1`).
-pub fn total_unrewarded_messages<RelayerId>(
-	relayers: &VecDeque<UnrewardedRelayer<RelayerId>>,
-) -> Option<MessageNonce> {
-	match (relayers.front(), relayers.back()) {
-		(Some(front), Some(back)) => {
-			if let Some(difference) = back.messages.end.checked_sub(front.messages.begin) {
-				difference.checked_add(1)
-			} else {
-				Some(0)
-			}
-		},
-		_ => Some(0),
 	}
 }
 
@@ -447,20 +447,19 @@ mod tests {
 
 	#[test]
 	fn total_unrewarded_messages_does_not_overflow() {
-		assert_eq!(
-			total_unrewarded_messages(
-				&vec![
-					UnrewardedRelayer { relayer: 1, messages: DeliveredMessages::new(0) },
-					UnrewardedRelayer {
-						relayer: 2,
-						messages: DeliveredMessages::new(MessageNonce::MAX)
-					},
-				]
-				.into_iter()
-				.collect()
-			),
-			None,
-		);
+		let lane_data = InboundLaneData {
+			relayers: vec![
+				UnrewardedRelayer { relayer: 1, messages: DeliveredMessages::new(0) },
+				UnrewardedRelayer {
+					relayer: 2,
+					messages: DeliveredMessages::new(MessageNonce::MAX),
+				},
+			]
+			.into_iter()
+			.collect(),
+			last_confirmed_nonce: 0,
+		};
+		assert_eq!(lane_data.total_unrewarded_messages(), MessageNonce::MAX);
 	}
 
 	#[test]
