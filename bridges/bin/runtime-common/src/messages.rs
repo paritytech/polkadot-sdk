@@ -216,7 +216,7 @@ pub mod source {
 		// the message itself. The proof is always larger than the message. But unless chain state
 		// is enormously large, it should be several dozens/hundreds of bytes. The delivery
 		// transaction also contains signatures and signed extensions. Because of this, we reserve
-		// 1/3 of the the maximal extrinsic weight for this data.
+		// 1/3 of the the maximal extrinsic size for this data.
 		if payload.len() > maximal_message_size::<B>() as usize {
 			return Err(VerificationError::MessageTooLarge)
 		}
