@@ -101,8 +101,11 @@ pub type XcmOriginToTransactDispatchOrigin = (
 );
 
 parameter_types! {
-	// One XCM operation is 1_000_000_000 weight - almost certainly a conservative estimate.
-	pub UnitWeightCost: Weight = Weight::from_parts(1_000_000_000, 64 * 1024);
+	/// The amount of weight an XCM operation takes. This is a safe overestimate.
+	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000_000_000, 1024);
+	/// A temporary weight value for each XCM instruction.
+	/// NOTE: This should be removed after we account for PoV weights.
+	pub const TempFixedXcmWeight: Weight = Weight::from_parts(1_000_000_000, 0);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	// Fellows pluralistic body.
@@ -225,7 +228,7 @@ impl xcm_executor::Config for XcmConfig {
 	type IsTeleporter = ConcreteNativeAssetFrom<DotLocation>;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
-	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
+	type Weigher = FixedWeightBounds<TempFixedXcmWeight, RuntimeCall, MaxInstructions>;
 	type Trader =
 		UsingComponents<WeightToFee, DotLocation, AccountId, Balances, ToStakingPot<Runtime>>;
 	type ResponseHandler = PolkadotXcm;
@@ -276,7 +279,7 @@ impl pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Nothing; // This parachain is not meant as a reserve location.
-	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
+	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
