@@ -171,8 +171,7 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 		message_data: DispatchMessageData<Dispatch::DispatchPayload>,
 	) -> ReceivalResult<Dispatch::DispatchLevelResult> {
 		let mut data = self.storage.get_or_init_data();
-		let is_correct_message = nonce == data.last_delivered_nonce() + 1;
-		if !is_correct_message {
+		if Some(nonce) != data.last_delivered_nonce().checked_add(1) {
 			return ReceivalResult::InvalidNonce
 		}
 
