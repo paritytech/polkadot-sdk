@@ -47,7 +47,7 @@ pub struct BaseMessagesProofInfo {
 impl BaseMessagesProofInfo {
 	/// Returns true if `bundled_range` continues the `0..=best_stored_nonce` range.
 	fn appends_to_stored_nonce(&self) -> bool {
-		*self.bundled_range.start() == self.best_stored_nonce + 1
+		Some(*self.bundled_range.start()) == self.best_stored_nonce.checked_add(1)
 	}
 }
 
