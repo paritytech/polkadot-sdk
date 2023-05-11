@@ -301,6 +301,7 @@ pub struct BuildNetworkParams<
 	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 {
 	pub parachain_config: &'a Configuration,
+	pub net_config: sc_network::config::FullNetworkConfiguration,
 	pub client: Arc<Client>,
 	pub transaction_pool: Arc<sc_transaction_pool::FullPool<Block, Client>>,
 	pub para_id: ParaId,
@@ -313,6 +314,7 @@ pub struct BuildNetworkParams<
 pub async fn build_network<'a, Block, Client, RCInterface, IQ>(
 	BuildNetworkParams {
 		parachain_config,
+		net_config,
 		client,
 		transaction_pool,
 		para_id,
@@ -364,6 +366,7 @@ where
 
 	sc_service::build_network(sc_service::BuildNetworkParams {
 		config: parachain_config,
+		net_config,
 		client,
 		transaction_pool,
 		spawn_handle,
