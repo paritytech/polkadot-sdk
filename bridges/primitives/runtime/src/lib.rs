@@ -31,8 +31,8 @@ use sp_std::{convert::TryFrom, fmt::Debug, ops::RangeInclusive, vec, vec::Vec};
 
 pub use chain::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, EncodedOrDecodedCall, HashOf,
-	HasherOf, HeaderOf, IndexOf, Parachain, SignatureOf, TransactionEraOf, UnderlyingChainOf,
-	UnderlyingChainProvider,
+	HasherOf, HeaderOf, IndexOf, Parachain, ParachainIdOf, SignatureOf, TransactionEraOf,
+	UnderlyingChainOf, UnderlyingChainProvider,
 };
 pub use frame_support::storage::storage_prefix as storage_value_final_key;
 use num_traits::{CheckedAdd, CheckedSub, One, SaturatingAdd, Zero};
@@ -95,7 +95,7 @@ pub const BRIDGE_HUB_WOCOCO_CHAIN_ID: ChainId = *b"bhwo";
 pub const BRIDGE_HUB_KUSAMA_CHAIN_ID: ChainId = *b"bhks";
 
 /// BridgeHubPolkadot chain id.
-pub const BRIDGE_HUB_POLKADOT_CHAIN_ID: ChainId = *b"bhwo";
+pub const BRIDGE_HUB_POLKADOT_CHAIN_ID: ChainId = *b"bhpd";
 
 /// Generic header Id.
 #[derive(

@@ -24,7 +24,7 @@ use crate::messages_call_ext::{
 };
 use bp_messages::{LaneId, MessageNonce};
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
-use bp_runtime::{RangeInclusiveExt, StaticStrProvider};
+use bp_runtime::{Parachain, ParachainIdOf, RangeInclusiveExt, StaticStrProvider};
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{CallableCallFor, DispatchInfo, Dispatchable, PostDispatchInfo},
@@ -71,14 +71,25 @@ pub trait RefundableParachainId {
 }
 
 /// Default implementation of `RefundableParachainId`.
-pub struct RefundableParachain<Instance, Id>(PhantomData<(Instance, Id)>);
+pub struct DefaultRefundableParachainId<Instance, Id>(PhantomData<(Instance, Id)>);
 
-impl<Instance, Id> RefundableParachainId for RefundableParachain<Instance, Id>
+impl<Instance, Id> RefundableParachainId for DefaultRefundableParachainId<Instance, Id>
 where
 	Id: Get<u32>,
 {
 	type Instance = Instance;
 	type Id = Id;
+}
+
+/// Implementation of `RefundableParachainId` for `trait Parachain`.
+pub struct RefundableParachain<Instance, Para>(PhantomData<(Instance, Para)>);
+
+impl<Instance, Para> RefundableParachainId for RefundableParachain<Instance, Para>
+where
+	Para: Parachain,
+{
+	type Instance = Instance;
+	type Id = ParachainIdOf<Para>;
 }
 
 /// Trait identifying a bridged messages lane. A relayer might be refunded for delivering messages
@@ -682,7 +693,7 @@ mod tests {
 	bp_runtime::generate_static_str_provider!(TestExtension);
 	type TestExtension = RefundBridgedParachainMessages<
 		TestRuntime,
-		RefundableParachain<(), TestParachain>,
+		DefaultRefundableParachainId<(), TestParachain>,
 		RefundableMessagesLane<(), TestLaneId>,
 		ActualFeeRefund<TestRuntime>,
 		ConstU64<1>,

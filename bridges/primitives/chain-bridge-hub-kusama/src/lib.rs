@@ -72,12 +72,10 @@ pub type Address = MultiAddress<AccountId, ()>;
 pub const BRIDGE_HUB_KUSAMA_PARACHAIN_ID: u32 = 1002;
 
 /// Name of the With-BridgeHubKusama messages pallet instance that is deployed at bridged chains.
-// TODO: check me (https://github.com/paritytech/parity-bridges-common/issues/1945)
 pub const WITH_BRIDGE_HUB_KUSAMA_MESSAGES_PALLET_NAME: &str = "BridgeKusamaMessages";
 
 /// Name of the With-BridgeHubKusama bridge-relayers pallet instance that is deployed at bridged
 /// chains.
-// TODO: check me (https://github.com/paritytech/parity-bridges-common/issues/1945)
 pub const WITH_BRIDGE_HUB_KUSAMA_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
 
 decl_bridge_finality_runtime_apis!(bridge_hub_kusama);
