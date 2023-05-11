@@ -55,6 +55,5 @@ impl ChainWithBalances for Kusama {
 
 impl RelayChain for Kusama {
 	const PARAS_PALLET_NAME: &'static str = bp_kusama::PARAS_PALLET_NAME;
-	// TODO: check me (https://github.com/paritytech/parity-bridges-common/issues/1945)
 	const PARACHAINS_FINALITY_PALLET_NAME: &'static str = "BridgeKusamaParachain";
 }

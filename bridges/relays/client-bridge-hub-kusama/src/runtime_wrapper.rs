@@ -54,16 +54,13 @@ pub enum Call {
 	Utility(UtilityCall<Call>),
 
 	/// Polkadot bridge pallet.
-	// TODO: the index is wrong (https://github.com/paritytech/parity-bridges-common/issues/1945)
-	#[codec(index = 41)]
+	#[codec(index = 51)]
 	BridgePolkadotGrandpa(BridgePolkadotGrandpaCall),
 	/// Polkadot parachain bridge pallet.
-	// TODO: the index is wrong (https://github.com/paritytech/parity-bridges-common/issues/1945)
-	#[codec(index = 42)]
+	#[codec(index = 52)]
 	BridgePolkadotParachain(BridgeParachainCall),
 	/// Polkadot messages bridge pallet.
-	// TODO: the index is wrong (https://github.com/paritytech/parity-bridges-common/issues/1945)
-	#[codec(index = 46)]
+	#[codec(index = 53)]
 	BridgePolkadotMessages(BridgePolkadotMessagesCall),
 }
 

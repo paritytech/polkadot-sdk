@@ -394,10 +394,10 @@ pub mod pallet {
 						Some(parachain_head_data) => parachain_head_data,
 						None => {
 							log::trace!(
-									target: LOG_TARGET,
-									"The head of parachain {:?} has been provided, but it is not tracked by the pallet",
-									parachain,
-								);
+								target: LOG_TARGET,
+								"The head of parachain {:?} has been provided, but it is not tracked by the pallet",
+								parachain,
+							);
 							Self::deposit_event(Event::UntrackedParachainRejected { parachain });
 							continue
 						},
