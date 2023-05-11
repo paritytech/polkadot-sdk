@@ -160,6 +160,7 @@ impl frame_system::Config for Runtime {
 impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
 impl cumulus_pallet_solo_to_para::Config for Runtime {

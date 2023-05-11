@@ -136,6 +136,7 @@ runtime-benchmarks = [
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
