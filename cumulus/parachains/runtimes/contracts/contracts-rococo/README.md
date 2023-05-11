@@ -45,7 +45,7 @@ To run a Contracts node that connects to Rococo
 you will need to compile the `polkadot-parachain` binary:
 
 ```bash
-cargo build --release --locked -p polkadot-parachain
+cargo build --release --locked --bin polkadot-parachain
 ```
 
 Once the executable is built, launch the parachain node via:
@@ -54,7 +54,7 @@ Once the executable is built, launch the parachain node via:
 ./target/release/polkadot-parachain --chain contracts-rococo
 ```
 
-Refer to the [setup instructions below](#local-setup) to run a local network for development.
+Refer to the [setup instructions](https://github.com/paritytech/cumulus#manual-setup) to run a local network for development.
 
 ### Rococo Deployment
 
@@ -70,8 +70,8 @@ Due to this you'll need `ROC` in order to deploy contracts on this parachain.
 As a first step, you should create an account. See [here](https://wiki.polkadot.network/docs/learn-account-generation)
 for a detailed guide.
 
-As a second step, you have to get `ROC` testnet tokens through the [Rococo Faucet](https://wiki.polkadot.network/docs/learn-DOT#getting-rococo-tokens).
-This is a chat room in which you need to write:
+As a second step, you have to get `ROC` testnet tokens through the [Rococo Faucet](https://wiki.polkadot.network/docs/learn-DOT#obtaining-testnet-tokens).
+This is a chat room in which you'd need to post the following message:
 
 ```bash
 !drip YOUR_SS_58_ADDRESS:1002
@@ -84,5 +84,5 @@ If everything worked out, the teleported `ROC` tokens will show up under
 [the "Accounts" tab](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo-contracts-rpc.polkadot.io#/accounts).
 
 Once you have `ROC` you can deploy a contract as you would normally.
-If you're unsure about this, our [guided tutorial](https://docs.substrate.io/tutorials/v3/ink-workshop/pt1/)
+If you're unsure about this, our [guided tutorial](https://use.ink/getting-started/deploy-your-contract)
 will clarify that for you in no time.
