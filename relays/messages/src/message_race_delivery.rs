@@ -813,7 +813,7 @@ mod tests {
 		// if there are already `max_unrewarded_relayer_entries_at_target` entries at target,
 		// we need to wait until rewards will be paid
 		{
-			let mut unrewarded_relayers =
+			let unrewarded_relayers =
 				&mut strategy.target_nonces.as_mut().unwrap().nonces_data.unrewarded_relayers;
 			unrewarded_relayers.unrewarded_relayer_entries =
 				strategy.max_unrewarded_relayer_entries_at_target;
@@ -832,9 +832,9 @@ mod tests {
 		let prev_confirmed_nonce_at_source =
 			strategy.latest_confirmed_nonces_at_source.back().unwrap().1;
 		{
-			let mut nonces_data = &mut strategy.target_nonces.as_mut().unwrap().nonces_data;
+			let nonces_data = &mut strategy.target_nonces.as_mut().unwrap().nonces_data;
 			nonces_data.confirmed_nonce = prev_confirmed_nonce_at_source - 1;
-			let mut unrewarded_relayers = &mut nonces_data.unrewarded_relayers;
+			let unrewarded_relayers = &mut nonces_data.unrewarded_relayers;
 			unrewarded_relayers.unrewarded_relayer_entries =
 				strategy.max_unrewarded_relayer_entries_at_target;
 			unrewarded_relayers.messages_in_oldest_entry = 4;
@@ -851,9 +851,9 @@ mod tests {
 		let prev_confirmed_nonce_at_source =
 			strategy.latest_confirmed_nonces_at_source.back().unwrap().1;
 		{
-			let mut nonces_data = &mut strategy.target_nonces.as_mut().unwrap().nonces_data;
+			let nonces_data = &mut strategy.target_nonces.as_mut().unwrap().nonces_data;
 			nonces_data.confirmed_nonce = prev_confirmed_nonce_at_source - 3;
-			let mut unrewarded_relayers = &mut nonces_data.unrewarded_relayers;
+			let unrewarded_relayers = &mut nonces_data.unrewarded_relayers;
 			unrewarded_relayers.unrewarded_relayer_entries =
 				strategy.max_unrewarded_relayer_entries_at_target;
 			unrewarded_relayers.messages_in_oldest_entry = 3;
