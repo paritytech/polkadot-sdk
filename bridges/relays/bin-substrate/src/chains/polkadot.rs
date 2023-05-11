@@ -26,7 +26,6 @@ impl CliChain for Polkadot {
 }
 
 impl CliChain for BridgeHubPolkadot {
-	// TODO: fix me (https://github.com/paritytech/parity-bridges-common/issues/1945)
 	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
-		Some(SimpleRuntimeVersion { spec_version: 4242, transaction_version: 42 });
+		Some(SimpleRuntimeVersion { spec_version: 9410, transaction_version: 22 });
 }
