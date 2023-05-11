@@ -232,6 +232,14 @@ where
 	const PARACHAIN_ID: u32 = <<T as UnderlyingChainProvider>::Chain as Parachain>::PARACHAIN_ID;
 }
 
+/// Adapter for `Get<u32>` to access `PARACHAIN_ID` from `trait Parachain`
+pub struct ParachainIdOf<Para>(sp_std::marker::PhantomData<Para>);
+impl<Para: Parachain> frame_support::traits::Get<u32> for ParachainIdOf<Para> {
+	fn get() -> u32 {
+		Para::PARACHAIN_ID
+	}
+}
+
 /// Underlying chain type.
 pub type UnderlyingChainOf<C> = <C as UnderlyingChainProvider>::Chain;
 

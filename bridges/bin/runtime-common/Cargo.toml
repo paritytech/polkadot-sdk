@@ -40,10 +40,8 @@ sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", d
 sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
 # Polkadot dependencies
-pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
 xcm = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
 xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
-xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
 
 [dev-dependencies]
 bp-test-utils = { path = "../../primitives/test-utils" }
@@ -68,7 +66,6 @@ std = [
 	"pallet-bridge-relayers/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
-	"pallet-xcm/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-core/std",
@@ -78,13 +75,12 @@ std = [
 	"sp-trie/std",
 	"xcm/std",
 	"xcm-builder/std",
-	"xcm-executor/std",
 ]
 runtime-benchmarks = [
 	"pallet-bridge-grandpa/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"pallet-bridge-parachains/runtime-benchmarks",
-	"pallet-xcm/runtime-benchmarks",
+	"pallet-bridge-relayers/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 ]
 integrity-test = [
