@@ -5,12 +5,12 @@
 - `followSubscription`: An opaque string that was returned by `chainHead_unstable_follow`.
 - `hash`: String containing an hexadecimal-encoded hash of the header of the block whose storage to fetch.
 - `key`: String containing the hexadecimal-encoded key to fetch in the storage.
-- `childKey`: `null` for main storage look-ups, or a string containing the hexadecimal-encoded key of the trie key of the trie that `key` refers to. **TODO**: I don't know enough about child tries to design this properly
+- `childTrie`: `null` for main storage look-ups, or a string containing the hexadecimal-encoded key of the child trie of the "default" namespace.
 - `networkConfig` (optional): Object containing the configuration of the networking part of the function. See [here](./api.md) for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
 
 **Return value**: String containing an opaque value representing the operation.
 
-The JSON-RPC server must start obtaining the value of the entry with the given `key` (and possibly `childKey`) from the storage.
+The JSON-RPC server must start obtaining the value of the entry with the given `key` from the storage, either from the main trie of from `childTrie`.
 
 The operation will continue even if the given block is unpinned while it is in progress.
 
