@@ -70,6 +70,9 @@ impl<T: frame_system::Config> frame_system::WeightInfo for WeightInfo<T> {
 			// Standard Error: 0
 			.saturating_add(Weight::from_parts(1_451, 0).saturating_mul(b.into()))
 	}
+	fn set_code() -> Weight {
+		Weight::from_parts(1_000_000, 0)
+	}
 	/// Storage: System Digest (r:1 w:1)
 	/// Proof Skipped: System Digest (max_values: Some(1), max_size: None, mode: Measured)
 	/// Storage: unknown `0x3a686561707061676573` (r:0 w:1)
