@@ -53,16 +53,13 @@ pub enum Call {
 	Utility(UtilityCall<Call>),
 
 	/// Kusama bridge pallet.
-	// TODO: the index is wrong (https://github.com/paritytech/parity-bridges-common/issues/1945)
-	#[codec(index = 43)]
+	#[codec(index = 51)]
 	BridgeKusamaGrandpa(BridgeKusamaGrandpaCall),
 	/// Kusama parachain bridge pallet.
-	// TODO: the index is wrong (https://github.com/paritytech/parity-bridges-common/issues/1945)
-	#[codec(index = 44)]
+	#[codec(index = 52)]
 	BridgeKusamaParachain(BridgeParachainCall),
 	/// Kusama messages bridge pallet.
-	// TODO: the index is wrong (https://github.com/paritytech/parity-bridges-common/issues/1945)
-	#[codec(index = 45)]
+	#[codec(index = 53)]
 	BridgeKusamaMessages(BridgeKusamaMessagesCall),
 }
 
@@ -114,6 +111,6 @@ mod tests {
 
 		// encode call as hex string
 		let hex_encoded_call = format!("0x{:?}", HexDisplay::from(&Encode::encode(&tx)));
-		assert_eq!(hex_encoded_call, "0x2b01ae4a25acf250d72ed02c149ecc7dd3c9ee976d41a2888fc551de8064521dc01d2d0192b965f0656a4e0e5fc0167da2d4b5ee72b3be2c1583c4c1e5236c8c12aa141bd2c0afaab32de0cb8f7f0d89217e37c5ea302c1ffb5a7a83e10d20f12c32874d0000060000000000000000");
+		assert_eq!(hex_encoded_call, "0x3301ae4a25acf250d72ed02c149ecc7dd3c9ee976d41a2888fc551de8064521dc01d2d0192b965f0656a4e0e5fc0167da2d4b5ee72b3be2c1583c4c1e5236c8c12aa141bd2c0afaab32de0cb8f7f0d89217e37c5ea302c1ffb5a7a83e10d20f12c32874d0000060000000000000000");
 	}
 }

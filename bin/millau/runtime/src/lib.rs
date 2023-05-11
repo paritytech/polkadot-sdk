@@ -501,7 +501,6 @@ impl pallet_bridge_messages::Config<WithRialtoParachainMessagesInstance> for Run
 
 parameter_types! {
 	pub const RialtoParachainMessagesLane: bp_messages::LaneId = rialto_parachain_messages::XCM_LANE;
-	pub const RialtoParachainId: u32 = bp_rialto_parachain::RIALTO_PARACHAIN_ID;
 	pub const RialtoParasPalletName: &'static str = bp_rialto::PARAS_PALLET_NAME;
 	pub const WestendParasPalletName: &'static str = bp_westend::PARAS_PALLET_NAME;
 	pub const MaxRialtoParaHeadDataSize: u32 = bp_rialto::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
@@ -602,7 +601,7 @@ bp_runtime::generate_static_str_provider!(BridgeRefundRialtoPara2000Lane0Msgs);
 pub type PriorityBoostPerMessage = ConstU64<324_316_715>;
 pub type BridgeRefundRialtoParachainMessages = RefundBridgedParachainMessages<
 	Runtime,
-	RefundableParachain<WithRialtoParachainsInstance, RialtoParachainId>,
+	RefundableParachain<WithRialtoParachainsInstance, bp_rialto_parachain::RialtoParachain>,
 	RefundableMessagesLane<WithRialtoParachainMessagesInstance, RialtoParachainMessagesLane>,
 	ActualFeeRefund<Runtime>,
 	PriorityBoostPerMessage,

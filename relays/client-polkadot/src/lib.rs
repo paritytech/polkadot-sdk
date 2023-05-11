@@ -55,6 +55,5 @@ impl ChainWithBalances for Polkadot {
 
 impl RelayChain for Polkadot {
 	const PARAS_PALLET_NAME: &'static str = bp_polkadot::PARAS_PALLET_NAME;
-	// TODO: check me (https://github.com/paritytech/parity-bridges-common/issues/1945)
 	const PARACHAINS_FINALITY_PALLET_NAME: &'static str = "BridgePolkadotParachain";
 }
