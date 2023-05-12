@@ -19,6 +19,10 @@ use codec::Encode;
 
 use crate::{
 	bridges::{
+		kusama_polkadot::{
+			kusama_headers_to_bridge_hub_polkadot::KusamaToBridgeHubPolkadotCliBridge,
+			polkadot_headers_to_bridge_hub_kusama::PolkadotToBridgeHubKusamaCliBridge,
+		},
 		rialto_millau::{
 			millau_headers_to_rialto::MillauToRialtoCliBridge,
 			rialto_headers_to_millau::RialtoToMillauCliBridge,
@@ -66,6 +70,8 @@ pub enum InitBridgeName {
 	MillauToRialtoParachain,
 	RococoToBridgeHubWococo,
 	WococoToBridgeHubRococo,
+	KusamaToBridgeHubPolkadot,
+	PolkadotToBridgeHubKusama,
 }
 
 #[async_trait]
@@ -198,6 +204,34 @@ impl BridgeInitializer for WococoToBridgeHubRococoCliBridge {
 	}
 }
 
+impl BridgeInitializer for KusamaToBridgeHubPolkadotCliBridge {
+	type Engine = GrandpaFinalityEngine<Self::Source>;
+
+	fn encode_init_bridge(
+		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
+	) -> <Self::Target as Chain>::Call {
+		relay_bridge_hub_polkadot_client::runtime::Call::BridgeKusamaGrandpa(
+			relay_bridge_hub_polkadot_client::runtime::BridgeKusamaGrandpaCall::initialize {
+				init_data,
+			},
+		)
+	}
+}
+
+impl BridgeInitializer for PolkadotToBridgeHubKusamaCliBridge {
+	type Engine = GrandpaFinalityEngine<Self::Source>;
+
+	fn encode_init_bridge(
+		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
+	) -> <Self::Target as Chain>::Call {
+		relay_bridge_hub_kusama_client::runtime::Call::BridgePolkadotGrandpa(
+			relay_bridge_hub_kusama_client::runtime::BridgePolkadotGrandpaCall::initialize {
+				init_data,
+			},
+		)
+	}
+}
+
 impl InitBridge {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
@@ -211,6 +245,10 @@ impl InitBridge {
 				RococoToBridgeHubWococoCliBridge::init_bridge(self),
 			InitBridgeName::WococoToBridgeHubRococo =>
 				WococoToBridgeHubRococoCliBridge::init_bridge(self),
+			InitBridgeName::KusamaToBridgeHubPolkadot =>
+				KusamaToBridgeHubPolkadotCliBridge::init_bridge(self),
+			InitBridgeName::PolkadotToBridgeHubKusama =>
+				PolkadotToBridgeHubKusamaCliBridge::init_bridge(self),
 		}
 		.await
 	}
