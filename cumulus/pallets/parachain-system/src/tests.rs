@@ -1006,3 +1006,18 @@ fn upgrade_version_checks_should_work() {
 		});
 	}
 }
+
+#[test]
+fn deposits_relay_parent_storage_root() {
+	BlockTests::new().add_with_post_test(
+		123,
+		|| {},
+		|| {
+			let digest = System::digest();
+			assert!(cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(
+				&digest
+			)
+			.is_some());
+		},
+	);
+}

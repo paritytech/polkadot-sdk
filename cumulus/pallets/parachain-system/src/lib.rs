@@ -385,6 +385,16 @@ pub mod pallet {
 			)
 			.expect("Invalid relay chain state proof");
 
+			// Deposit a log indicating the relay-parent storage root.
+			// TODO: remove this in favor of the relay-parent's hash after
+			// https://github.com/paritytech/cumulus/issues/303
+			frame_system::Pallet::<T>::deposit_log(
+				cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
+					vfp.relay_parent_storage_root,
+					vfp.relay_parent_number,
+				),
+			);
+
 			// initialization logic: we know that this runs exactly once every block,
 			// which means we can put the initialization logic here to remove the
 			// sequencing problem.
