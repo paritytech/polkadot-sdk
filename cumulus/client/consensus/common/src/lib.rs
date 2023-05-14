@@ -32,6 +32,8 @@ pub use parachain_consensus::run_parachain_consensus;
 use level_monitor::LevelMonitor;
 pub use level_monitor::{LevelLimit, MAX_LEAVES_PER_LEVEL_SENSIBLE_DEFAULT};
 
+pub mod import_queue;
+
 /// The result of [`ParachainConsensus::produce_candidate`].
 pub struct ParachainCandidate<B> {
 	/// The block that was built for this candidate.

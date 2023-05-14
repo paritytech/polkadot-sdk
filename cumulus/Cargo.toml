@@ -10,6 +10,7 @@ members = [
 	"client/cli",
 	"client/consensus/aura",
 	"client/consensus/common",
+	"client/consensus/proposer",
 	"client/consensus/relay-chain",
 	"client/network",
 	"client/pov-recovery",

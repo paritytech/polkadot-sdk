@@ -27,8 +27,19 @@ sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Cumulus
 cumulus-client-consensus-common = { path = "../common" }
+cumulus-relay-chain-interface = { path = "../../relay-chain-interface" }
+cumulus-client-consensus-proposer = { path = "../proposer" }
 cumulus-primitives-core = { path = "../../../primitives/core" }
+cumulus-primitives-parachain-inherent = { path = "../../../primitives/parachain-inherent" }
+cumulus-client-collator = { path = "../../collator" }
+
+# Polkadot
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-node-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "master" }

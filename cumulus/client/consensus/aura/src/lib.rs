@@ -50,6 +50,8 @@ pub use import_queue::{build_verifier, import_queue, BuildVerifierParams, Import
 pub use sc_consensus_aura::{slot_duration, AuraVerifier, BuildAuraWorkerParams, SlotProportion};
 pub use sc_consensus_slots::InherentDataProviderExt;
 
+pub mod unstable_reimpl;
+
 const LOG_TARGET: &str = "aura::cumulus";
 
 /// The implementation of the AURA consensus for parachains.

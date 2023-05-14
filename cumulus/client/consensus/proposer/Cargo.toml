@@ -1,0 +1,20 @@
+[package]
+name = "cumulus-client-consensus-proposer"
+description = "A Substrate `Proposer` for building parachain blocks"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+async-trait = "0.1.68"
+thiserror = "1.0.40"
+
+# Substrate
+sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+# Cumulus
+cumulus-primitives-parachain-inherent = { path = "../../../primitives/parachain-inherent" }
