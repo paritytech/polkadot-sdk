@@ -9,6 +9,7 @@
 - [API specification](api.md)
   - [archive](api/archive.md)
     - [archive_unstable_body](api/archive_unstable_body.md)
+    - [archive_unstable_call](api/archive_unstable_call.md)
     - [archive_unstable_finalizedHeight](api/archive_unstable_finalizedHeight.md)
     - [archive_unstable_genesisHash](api/archive_unstable_genesisHash.md)
     - [archive_unstable_hashByHeight](api/archive_unstable_hashByHeight.md)
