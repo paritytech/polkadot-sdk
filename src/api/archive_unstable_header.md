@@ -3,50 +3,9 @@
 **Parameters**:
 
 - `hash`: String containing the hexadecimal-encoded hash of the header to retreive.
-- `networkConfig` (optional): Object containing the configuration of the networking part of the function. See [here](./api.md) for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
 
-**Return value**: String containing an opaque value representing the operation.
+**Return value**: If a block with that hash is found, a string containing the hexadecimal-encoded SCALE-codec encoding header of the block. If no block with that hash is found, `null`.
 
-This function will later generate a notification in the following format:
+If the block was previously returned by `archive_unstable_hashByHeight` at a height inferior or equal to the current finalized block height (as indicated by `archive_unstable_finalizedHeight`), then calling this method multiple times is guaranteed to always return non-null and always the same result.
 
-```json
-{
-    "jsonrpc": "2.0",
-    "method": "archive_unstable_headerEvent",
-    "params":{
-        "subscription": "...",
-        "result": ...
-    }
-}
-```
-
-Where `result` can be:
-
-```json
-{
-    "event": "done",
-    "output": ...
-}
-```
-
-Where `output` is a string containing the hexadecimal-encoded SCALE-codec encoding of the header of the block.
-
-Alternatively, `result` can also be:
-
-```json
-{
-    "event": "inaccessible"
-}
-```
-
-Only one notification will ever be generated.
-
-**Note**: Other events might be added in the future, such as reports on the progress of the call.
-
-## Possible errors
-
-If the block hash passed as parameter doesn't correspond to any known block, then a `{"event": "inaccessible"}` notification is generated (as explained above).
-
-If the networking part of the behaviour fails, then a `{"event": "inaccessible"}` notification is generated (as explained above).
-
-Due to the way blockchains work, it is never possible to be certain that a block doesn't exist. For this reason, networking-related errors and unknown block errors are reported in the same way.
+If the block was previously returned by `archive_unstable_hashByHeight` at a height strictly superior to the current finalized block height (as indicated by `archive_unstable_finalizedHeight`), then the block might "disappear" and calling this function might return `null` at any point.
