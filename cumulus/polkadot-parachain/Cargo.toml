@@ -18,6 +18,7 @@ futures = "0.3.28"
 hex-literal = "0.4.1"
 log = "0.4.17"
 serde = { version = "1.0.162", features = ["derive"] }
+serde_json = "1.0.96"
 
 # Local
 rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parachain" }
@@ -64,7 +65,6 @@ sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "maste
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-sysinfo = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-serializer = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate", branch = "master" }
 try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
 sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "master" }

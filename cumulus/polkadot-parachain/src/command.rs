@@ -77,7 +77,7 @@ impl RuntimeResolver for PathBuf {
 
 		let file = std::fs::File::open(self).expect("Failed to open file");
 		let reader = std::io::BufReader::new(file);
-		let chain_spec: EmptyChainSpecWithId = sp_serializer::from_reader(reader)
+		let chain_spec: EmptyChainSpecWithId = serde_json::from_reader(reader)
 			.expect("Failed to read 'json' file with ChainSpec configuration");
 
 		runtime(&chain_spec.id)
