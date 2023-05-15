@@ -18,6 +18,6 @@ The JSON-RPC server must invoke the entry point of the runtime of the given bloc
 
 In situations where the provided runtime function doesn't exist, or the runtime crashes, or similar, an error is returned. The `error` isn't meant to be shown to end users, but is for developers to understand the problem.
 
-If the block was previously returned by `archive_unstable_hashByHeight` at a height inferior or equal to the current finalized block height (as indicated by `archive_unstable_finalizedHeight`), then calling this method multiple times is guaranteed to always return non-null and always the same result.
+If the block was previously returned by `archive_unstable_hashByHeight` at a height inferior or equal to the current finalized block height (as indicated by `archive_unstable_finalizedHeight`), then calling this method multiple times is guaranteed to always return non-null and always the same result (except for the `error` message which is allowed to change).
 
 If the block was previously returned by `archive_unstable_hashByHeight` at a height strictly superior to the current finalized block height (as indicated by `archive_unstable_finalizedHeight`), then the block might "disappear" and calling this function might return `null` at any point.
