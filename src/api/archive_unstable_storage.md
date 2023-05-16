@@ -62,6 +62,8 @@ The `waiting-for-continue` event is generated after at least one `"item"` event 
 
 This event only ever happens if the `includeDescendants` parameter was `true`.
 
+While the JSON-RPC server is waiting for `archive_unstable_storageContinue` to be called, it can generate a `stop` event indicating that it can no longer proceed with that storage access.
+
 ### done
 
 ```json
@@ -75,3 +77,17 @@ The `done` event indicates that everything went well and all values have been pr
 If no `item` event was yielded, then the storage doesn't contain a value at the given key.
 
 No more event will be generated with this `subscription`.
+
+### stop
+
+```json
+{
+    "event": "stop"
+}
+```
+
+The `stop` event can be generated after a `waiting-for-continue` event in order to indicate that the JSON-RPC server can't continue. The JSON-RPC client should simply try again.
+
+No more event will be generated with this `subscription`.
+
+**Note**: This event is generated in very niche situations, such as a node doing a clean shutdown of all its active subscriptions before shutting down.
