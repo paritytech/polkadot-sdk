@@ -12,4 +12,4 @@ Has no effect if the `subscription` is invalid or refers to a subscription that 
 
 ## Possible errors
 
-- A JSON-RPC error is generated if the `subscription` hasn't generated a `waiting-for-continue` event.
+- A JSON-RPC error is generated if the `subscription` is valid but hasn't generated a `waiting-for-continue` event.
