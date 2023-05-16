@@ -6,7 +6,7 @@
 
 **Return value**: *null*
 
-Resumes a storage fetch started with `chainHead_unstable_storage`. If the storage fetch was still in progress, this interrupts it. If the storage fetch was already finished, this call has no effect.
+Resumes a storage fetch started with `chainHead_unstable_storage` after it has generated a `waiting-for-continue` event.
 
 ## Possible errors
 
