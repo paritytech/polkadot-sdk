@@ -33,7 +33,7 @@ sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate", branch
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot Dependencies
-polkadot-node-core-pvf = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-node-core-pvf-worker = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false, features = [ "full-node", "polkadot-native" ] }
