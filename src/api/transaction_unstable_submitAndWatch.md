@@ -8,6 +8,8 @@
 
 The string returned by this function is opaque and its meaning can't be interpreted by the JSON-RPC client. It is only meant to be matched with the `subscription` field of events and potentially passed to `transaction_unstable_unwatch`.
 
+Once this function has been called, the server will try to propagate this transaction over the peer-to-peer network and/or include it onto the chain even if `transaction_unstable_unwatch` is called or that the JSON-RPC client disconnects. In other words, it is not possible to cancel submitting a transaction.
+
 ## Notifications format
 
 This function will later generate one or more notifications in the following format:
@@ -56,7 +58,7 @@ The `broadcasted` event indicates the number of other peers this transaction has
 
 The JSON-RPC server doesn't (and can't) offer any guarantee that these peers have received the transaction or have saved it in their own transactions pool. In other words, no matter how large the value in `numPeers` is, no guarantee is offered that shutting down the local node will lead to the transaction being included.
 
-**Note**: In principle, a value of `numPeers` equal to 0 guarantees that shutting down the local node will lead to the transaction _not_ being included, assuming that no other node has submitted the same transaction. However, because JSON-RPC servers are allowed to delay or skip events, the JSON-RPC client can never be sure that `numPeers` was still equal to 0 when shutting down the node.
+**Note**: In principle, a value of `numPeers` equal to 0 guarantees that shutting down the local node will lead to the transaction _not_ being included, assuming that the JSON-RPC server isn't a block producer and that no other node has submitted the same transaction. However, because JSON-RPC servers are allowed to delay or skip events, the JSON-RPC client can never be sure that `numPeers` was still equal to 0 when shutting down the node.
 
 If multiple `broadcasted` events happen in a row, the JSON-RPC server is allowed to skip all but the last.
 
