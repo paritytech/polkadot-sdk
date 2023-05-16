@@ -11,7 +11,7 @@
 
 **Return value**: String containing an opaque value representing the operation.
 
-The JSON-RPC server must start obtaining the value of the entry with the given `key` from the storage, either from the main trie of from `childTrie`. If `type` is `descendants-value` or `descendants-hashes`, then it must also obtain the values of all the descendants of the entry.
+The JSON-RPC server must start obtaining the value of the entry with the given `key` from the storage, either from the main trie or from `childTrie`. If `type` is `descendants-value` or `descendants-hashes`, then it must also obtain the values of all the descendants of the entry.
 
 The operation will continue even if the given block is unpinned while it is in progress.
 
