@@ -36,6 +36,7 @@ sc-executor = { git = "https://github.com/paritytech/substrate", branch = "maste
 sc-consensus-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-consensus-grandpa-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-keystore = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-network = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "master" }

@@ -164,7 +164,7 @@ pub fn run() -> sc_cli::Result<()> {
 			builder.with_colors(false);
 			let _ = builder.init();
 
-			polkadot_node_core_pvf::prepare_worker_entrypoint(
+			polkadot_node_core_pvf_worker::prepare_worker_entrypoint(
 				&cmd.socket_path,
 				Some(&cmd.node_impl_version),
 			);
@@ -175,7 +175,7 @@ pub fn run() -> sc_cli::Result<()> {
 			builder.with_colors(false);
 			let _ = builder.init();
 
-			polkadot_node_core_pvf::execute_worker_entrypoint(
+			polkadot_node_core_pvf_worker::execute_worker_entrypoint(
 				&cmd.socket_path,
 				Some(&cmd.node_impl_version),
 			);

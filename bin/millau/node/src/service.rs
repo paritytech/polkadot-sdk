@@ -178,7 +178,7 @@ pub fn new_partial(
 }
 
 /// Builds a new service for a full client.
-pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> {
+pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 	use sc_network_common::sync::warp::WarpSyncParams;
 
 	let sc_service::PartialComponents {
@@ -194,6 +194,8 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
 
+	let mut net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
+
 	// Note: GrandPa is pushed before the Polkadot-specific protocols. This doesn't change
 	// anything in terms of behaviour, but makes the logs more consistent with the other
 	// Substrate nodes.
@@ -201,10 +203,9 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		&client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
 		&config.chain_spec,
 	);
-	config
-		.network
-		.extra_sets
-		.push(sc_consensus_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone()));
+	net_config.add_notification_protocol(sc_consensus_grandpa::grandpa_peers_set_config(
+		grandpa_protocol_name.clone(),
+	));
 
 	let beefy_gossip_proto_name =
 		sc_consensus_beefy::gossip_protocol_name(genesis_hash, config.chain_spec.fork_id());
@@ -217,13 +218,10 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			client.clone(),
 			config.prometheus_registry().cloned(),
 		);
-	config
-		.network
-		.extra_sets
-		.push(sc_consensus_beefy::communication::beefy_peers_set_config(
-			beefy_gossip_proto_name.clone(),
-		));
-	config.network.request_response_protocols.push(beefy_req_resp_cfg);
+	net_config.add_notification_protocol(
+		sc_consensus_beefy::communication::beefy_peers_set_config(beefy_gossip_proto_name.clone()),
+	);
+	net_config.add_request_response_protocol(beefy_req_resp_cfg);
 
 	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
@@ -234,6 +232,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
+			net_config,
 			client: client.clone(),
 			transaction_pool: transaction_pool.clone(),
 			spawn_handle: task_manager.spawn_handle(),
