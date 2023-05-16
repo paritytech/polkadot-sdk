@@ -52,7 +52,7 @@ Where `subscription` is equal to the value returned by this function, and `resul
     "key": "0x0000000...",
     "value": "0x0000000...",
     "hash": "0x0000000...",
-    "closest-ancestor-merkle-value": "0x000000...",
+    "merkle-value": "0x000000...",
 }
 ```
 
@@ -67,9 +67,9 @@ If the `type` parameter was `"value"` or `"descendants-values"`, then the `value
 
 If the `type` parameter was `"hash"` or `"descendants-hashes"`, then the `hash` field is set. The `hash` field a string containing the hexadecimal-encoded hash of the storage entry.
 
-If the `type` parameter was `"closest-ancestor-merkle-value"`, then the `closest-ancestor-merkle-value` field is set. The `closest-ancestor-merkle-value` field a string containing the hexadecimal-encoded Merkle value of the storage entry or its closest ancestor.
+If the `type` parameter was `"closest-ancestor-merkle-value"`, then the `merkle-value` field is set and the `key` field indicates which closest ancestor has been found. The `merkle-value` field a string containing the hexadecimal-encoded Merkle value of the storage entry or its closest ancestor.
 
-Only one of `value`, `hash` or `closest-ancestor-merkle-value` are set at any given time.
+Only one of `value`, `hash` or `merkle-value` are set at any given time.
 
 ### waiting-for-continue
 
