@@ -49,6 +49,7 @@ pub struct GrandpaJustification<Header: HeaderT> {
 	pub votes_ancestries: Vec<Header>,
 }
 
+// TODO: remove and use `RuntimeDebug` (https://github.com/paritytech/parity-bridges-common/issues/2136)
 impl<Header: HeaderT> sp_std::fmt::Debug for GrandpaJustification<Header> {
 	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		#[cfg(feature = "std")]

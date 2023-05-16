@@ -73,7 +73,7 @@ cumulus_based = true
 	ws_port = 9010
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_WOCKMINT}}"
 	args = [
-		"-lparachain=debug,xcm=trace",
+		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace",
 	]
 	extra_args = [
 		"--no-mdns", "--bootnodes {{'wockmint-collator2'|zombie('multiAddress')}}",
@@ -84,7 +84,7 @@ cumulus_based = true
 	name = "wockmint-collator2"
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_WOCKMINT}}"
 	args = [
-		"-lparachain=debug,xcm=trace",
+		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace",
 	]
 	extra_args = [
 		"--no-mdns", "--bootnodes {{'wockmint-collator1'|zombie('multiAddress')}}",

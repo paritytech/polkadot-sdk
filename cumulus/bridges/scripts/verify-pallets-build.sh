@@ -127,6 +127,7 @@ cargo check -p pallet-bridge-relayers --features runtime-benchmarks
 cargo check -p pallet-bridge-relayers --features try-runtime
 cargo check -p bridge-runtime-common
 cargo check -p bridge-runtime-common --features runtime-benchmarks
+cargo check -p bridge-runtime-common --features integrity-test
 
 # we're removing lock file after all chechs are done. Otherwise we may use different
 # Substrate/Polkadot/Cumulus commits and our checks will fail

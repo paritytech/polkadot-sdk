@@ -815,6 +815,7 @@ dependencies = [
 name = "bp-messages"
 version = "0.1.0"
 dependencies = [
+ "bp-header-chain",
  "bp-runtime",
  "frame-support",
  "hex",
@@ -1193,7 +1194,6 @@ dependencies = [
  "pallet-bridge-relayers",
  "pallet-transaction-payment",
  "pallet-utility",
- "pallet-xcm",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
@@ -1205,7 +1205,6 @@ dependencies = [
  "static_assertions",
  "xcm",
  "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]

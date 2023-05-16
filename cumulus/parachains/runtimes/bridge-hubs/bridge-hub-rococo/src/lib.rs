@@ -92,8 +92,6 @@ use parachains_common::{
 };
 use xcm_executor::XcmExecutor;
 
-pub const LOG_TARGET: &str = "runtime::bridge-hub";
-
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
 

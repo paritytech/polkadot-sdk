@@ -80,12 +80,12 @@ impl pallet_bridge_messages::WeightInfoExt for pallet_bridge_messages_bridge_mes
 
 impl pallet_bridge_parachains::WeightInfoExt for pallet_bridge_parachains_bridge_parachains_bench_runtime_bridge_parachain_rococo_instance::WeightInfo<crate::Runtime> {
 	fn expected_extra_storage_proof_size() -> u32 {
-		bp_bridge_hub_wococo::EXTRA_STORAGE_PROOF_SIZE
+		bp_bridge_hub_rococo::EXTRA_STORAGE_PROOF_SIZE
 	}
 }
 
 impl pallet_bridge_parachains::WeightInfoExt for pallet_bridge_parachains_bridge_parachains_bench_runtime_bridge_parachain_wococo_instance::WeightInfo<crate::Runtime> {
 	fn expected_extra_storage_proof_size() -> u32 {
-		bp_bridge_hub_rococo::EXTRA_STORAGE_PROOF_SIZE
+		bp_bridge_hub_wococo::EXTRA_STORAGE_PROOF_SIZE
 	}
 }

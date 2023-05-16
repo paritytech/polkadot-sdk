@@ -18,8 +18,8 @@ pub use bridge_hub_rococo_runtime::{
 	constants::fee::WeightToFee,
 	xcm_config::{RelayNetwork, XcmConfig, XcmRouter},
 	Balances, BridgeGrandpaRococoInstance, BridgeGrandpaWococoInstance, BridgeWococoMessages,
-	ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
-	SessionKeys,
+	DeliveryRewardInBalance, ExistentialDeposit, ParachainSystem, PolkadotXcm,
+	RequiredStakeForStakeAndSlash, Runtime, RuntimeCall, RuntimeEvent, SessionKeys,
 };
 use codec::{Decode, Encode};
 use xcm::latest::prelude::*;
@@ -30,7 +30,7 @@ use bridge_hub_rococo_runtime::{
 };
 
 use frame_support::parameter_types;
-use parachains_common::{AccountId, AuraId};
+use parachains_common::{AccountId, AuraId, Balance};
 
 const ALICE: [u8; 32] = [1u8; 32];
 
@@ -78,6 +78,36 @@ mod bridge_hub_rococo_tests {
 		),
 		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 		Box::new(|call| RuntimeCall::BridgeWococoGrandpa(call).encode())
+	);
+
+	bridge_hub_test_utils::include_change_storage_constant_by_governance_works!(
+		change_delivery_reward_by_governance_works,
+		Runtime,
+		bridge_hub_test_utils::CollatorSessionKeys::new(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) }
+		),
+		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+		Box::new(|call| RuntimeCall::System(call).encode()),
+		(DeliveryRewardInBalance, u64),
+		|| (DeliveryRewardInBalance::key().to_vec(), DeliveryRewardInBalance::get()),
+		|old_value| old_value.checked_mul(2).unwrap()
+	);
+
+	bridge_hub_test_utils::include_change_storage_constant_by_governance_works!(
+		change_required_stake_by_governance_works,
+		Runtime,
+		bridge_hub_test_utils::CollatorSessionKeys::new(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) }
+		),
+		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+		Box::new(|call| RuntimeCall::System(call).encode()),
+		(RequiredStakeForStakeAndSlash, Balance),
+		|| (RequiredStakeForStakeAndSlash::key().to_vec(), RequiredStakeForStakeAndSlash::get()),
+		|old_value| old_value.checked_mul(2).unwrap()
 	);
 
 	bridge_hub_test_utils::include_handle_export_message_from_system_parachain_to_outbound_queue_works!(
@@ -171,6 +201,36 @@ mod bridge_hub_wococo_tests {
 		),
 		bp_bridge_hub_wococo::BRIDGE_HUB_WOCOCO_PARACHAIN_ID,
 		Box::new(|call| RuntimeCall::BridgeRococoGrandpa(call).encode())
+	);
+
+	bridge_hub_test_utils::include_change_storage_constant_by_governance_works!(
+		change_delivery_reward_by_governance_works,
+		Runtime,
+		bridge_hub_test_utils::CollatorSessionKeys::new(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) }
+		),
+		bp_bridge_hub_wococo::BRIDGE_HUB_WOCOCO_PARACHAIN_ID,
+		Box::new(|call| RuntimeCall::System(call).encode()),
+		(DeliveryRewardInBalance, u64),
+		|| (DeliveryRewardInBalance::key().to_vec(), DeliveryRewardInBalance::get()),
+		|old_value| old_value.checked_mul(2).unwrap()
+	);
+
+	bridge_hub_test_utils::include_change_storage_constant_by_governance_works!(
+		change_required_stake_by_governance_works,
+		Runtime,
+		bridge_hub_test_utils::CollatorSessionKeys::new(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) }
+		),
+		bp_bridge_hub_wococo::BRIDGE_HUB_WOCOCO_PARACHAIN_ID,
+		Box::new(|call| RuntimeCall::System(call).encode()),
+		(RequiredStakeForStakeAndSlash, Balance),
+		|| (RequiredStakeForStakeAndSlash::key().to_vec(), RequiredStakeForStakeAndSlash::get()),
+		|old_value| old_value.checked_mul(2).unwrap()
 	);
 
 	bridge_hub_test_utils::include_handle_export_message_from_system_parachain_to_outbound_queue_works!(

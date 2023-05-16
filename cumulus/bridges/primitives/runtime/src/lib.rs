@@ -31,11 +31,11 @@ use sp_std::{convert::TryFrom, fmt::Debug, ops::RangeInclusive, vec, vec::Vec};
 
 pub use chain::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, EncodedOrDecodedCall, HashOf,
-	HasherOf, HeaderOf, IndexOf, Parachain, SignatureOf, TransactionEraOf, UnderlyingChainOf,
-	UnderlyingChainProvider,
+	HasherOf, HeaderOf, IndexOf, Parachain, ParachainIdOf, SignatureOf, TransactionEraOf,
+	UnderlyingChainOf, UnderlyingChainProvider,
 };
 pub use frame_support::storage::storage_prefix as storage_value_final_key;
-use num_traits::{CheckedAdd, CheckedSub, One};
+use num_traits::{CheckedAdd, CheckedSub, One, SaturatingAdd, Zero};
 pub use storage_proof::{
 	record_all_keys as record_all_trie_keys, Error as StorageProofError,
 	ProofSize as StorageProofSize, RawStorageProof, StorageProofChecker,
@@ -95,7 +95,7 @@ pub const BRIDGE_HUB_WOCOCO_CHAIN_ID: ChainId = *b"bhwo";
 pub const BRIDGE_HUB_KUSAMA_CHAIN_ID: ChainId = *b"bhks";
 
 /// BridgeHubPolkadot chain id.
-pub const BRIDGE_HUB_POLKADOT_CHAIN_ID: ChainId = *b"bhwo";
+pub const BRIDGE_HUB_POLKADOT_CHAIN_ID: ChainId = *b"bhpd";
 
 /// Generic header Id.
 #[derive(
@@ -527,16 +527,26 @@ impl<T> Debug for StrippableError<T> {
 pub trait RangeInclusiveExt<Idx> {
 	/// Computes the length of the `RangeInclusive`, checking for underflow and overflow.
 	fn checked_len(&self) -> Option<Idx>;
+	/// Computes the length of the `RangeInclusive`, saturating in case of underflow or overflow.
+	fn saturating_len(&self) -> Idx;
 }
 
 impl<Idx> RangeInclusiveExt<Idx> for RangeInclusive<Idx>
 where
-	Idx: CheckedSub + CheckedAdd + One,
+	Idx: CheckedSub + CheckedAdd + SaturatingAdd + One + Zero,
 {
 	fn checked_len(&self) -> Option<Idx> {
 		self.end()
 			.checked_sub(self.start())
 			.and_then(|len| len.checked_add(&Idx::one()))
+	}
+
+	fn saturating_len(&self) -> Idx {
+		let len = match self.end().checked_sub(self.start()) {
+			Some(len) => len,
+			None => return Idx::zero(),
+		};
+		len.saturating_add(&Idx::one())
 	}
 }
 

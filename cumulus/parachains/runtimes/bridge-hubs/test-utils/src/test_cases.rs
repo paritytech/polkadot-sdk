@@ -84,8 +84,7 @@ pub fn initialize_bridge_by_governance_works<Runtime, GrandpaPalletInstance>(
 			let require_weight_at_most =
 				<Runtime as frame_system::Config>::DbWeight::get().reads_writes(7, 7);
 
-			// execute XCM with Transacts to initialize bridge as governance does
-			// prepare data for xcm::Transact(create)
+			// execute XCM with Transacts to `initialize bridge` as governance does
 			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
 				initialize_call,
 				require_weight_at_most
@@ -118,6 +117,105 @@ macro_rules! include_initialize_bridge_by_governance_works(
 				$collator_session_key,
 				$runtime_para_id,
 				$runtime_call_encode
+			)
+		}
+	}
+);
+
+/// Test-case makes sure that `Runtime` can change storage constant via governance-like call
+pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, StorageConstantType>(
+	collator_session_key: CollatorSessionKeys<Runtime>,
+	runtime_para_id: u32,
+	runtime_call_encode: Box<dyn Fn(frame_system::Call<Runtime>) -> Vec<u8>>,
+	storage_constant_key_value: fn() -> (Vec<u8>, StorageConstantType),
+	new_storage_constant_value: fn(&StorageConstantType) -> StorageConstantType,
+) where
+	Runtime: frame_system::Config
+		+ pallet_balances::Config
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_dmp_queue::Config
+		+ cumulus_pallet_parachain_system::Config,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	StorageConstant: Get<StorageConstantType>,
+	StorageConstantType: Encode + PartialEq + std::fmt::Debug,
+{
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_key.collators())
+		.with_session_keys(collator_session_key.session_keys())
+		.with_para_id(runtime_para_id.into())
+		.with_tracing()
+		.build()
+		.execute_with(|| {
+			let (storage_constant_key, storage_constant_init_value): (
+				Vec<u8>,
+				StorageConstantType,
+			) = storage_constant_key_value();
+
+			// check delivery reward constant before (not stored yet, just as default value is used)
+			assert_eq!(StorageConstant::get(), storage_constant_init_value);
+			assert_eq!(sp_io::storage::get(&storage_constant_key), None);
+
+			let new_storage_constant_value =
+				new_storage_constant_value(&storage_constant_init_value);
+			assert_ne!(new_storage_constant_value, storage_constant_init_value);
+
+			// encode `set_storage` call
+			let set_storage_call =
+				runtime_call_encode(frame_system::Call::<Runtime>::set_storage {
+					items: vec![(
+						storage_constant_key.clone(),
+						new_storage_constant_value.encode(),
+					)],
+				});
+
+			// estimate - storing just 1 value
+			use frame_system::WeightInfo;
+			let require_weight_at_most =
+				<Runtime as frame_system::Config>::SystemWeightInfo::set_storage(1);
+
+			// execute XCM with Transact to `set_storage` as governance does
+			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
+				set_storage_call,
+				require_weight_at_most
+			)
+			.ensure_complete());
+
+			// check delivery reward constant after (stored)
+			assert_eq!(StorageConstant::get(), new_storage_constant_value);
+			assert_eq!(
+				sp_io::storage::get(&storage_constant_key),
+				Some(new_storage_constant_value.encode().into())
+			);
+		})
+}
+
+#[macro_export]
+macro_rules! include_change_storage_constant_by_governance_works(
+	(
+		$test_name:tt,
+		$runtime:path,
+		$collator_session_key:expr,
+		$runtime_para_id:expr,
+		$runtime_call_encode:expr,
+		($storage_constant:path, $storage_constant_type:path),
+		$storage_constant_key_value:expr,
+		$new_storage_constant_value:expr
+	) => {
+		#[test]
+		fn $test_name() {
+			$crate::test_cases::change_storage_constant_by_governance_works::<
+				$runtime,
+				$storage_constant,
+				$storage_constant_type,
+			>(
+				$collator_session_key,
+				$runtime_para_id,
+				$runtime_call_encode,
+				$storage_constant_key_value,
+				$new_storage_constant_value,
 			)
 		}
 	}

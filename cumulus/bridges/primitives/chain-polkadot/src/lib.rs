@@ -62,4 +62,11 @@ pub const PARAS_PALLET_NAME: &str = "Paras";
 /// Name of the With-Polkadot GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_POLKADOT_GRANDPA_PALLET_NAME: &str = "BridgePolkadotGrandpa";
 
+/// Maximal size of encoded `bp_parachains::ParaStoredHeaderData` structure among all Polkadot
+/// parachains.
+///
+/// It includes the block number and state root, so it shall be near 40 bytes, but let's have some
+/// reserve.
+pub const MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE: u32 = 128;
+
 decl_bridge_finality_runtime_apis!(polkadot);

@@ -59,16 +59,13 @@ impl Parachain for BridgeHubPolkadot {
 }
 
 /// Identifier of BridgeHubPolkadot in the Polkadot relay chain.
-// TODO: check me (https://github.com/paritytech/parity-bridges-common/issues/1945)
 pub const BRIDGE_HUB_POLKADOT_PARACHAIN_ID: u32 = 1002;
 
 /// Name of the With-BridgeHubPolkadot messages pallet instance that is deployed at bridged chains.
-// TODO: check me (https://github.com/paritytech/parity-bridges-common/issues/1945)
 pub const WITH_BRIDGE_HUB_POLKADOT_MESSAGES_PALLET_NAME: &str = "BridgePolkadotMessages";
 
 /// Name of the With-BridgeHubPolkadot bridge-relayers pallet instance that is deployed at bridged
 /// chains.
-// TODO: check me (https://github.com/paritytech/parity-bridges-common/issues/1945)
 pub const WITH_BRIDGE_HUB_POLKADOT_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
 
 decl_bridge_finality_runtime_apis!(bridge_hub_polkadot);

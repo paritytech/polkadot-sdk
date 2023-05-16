@@ -16,7 +16,7 @@
 
 //! Primitives of messages module, that are used on the source chain.
 
-use crate::{InboundLaneData, LaneId, MessageNonce, OutboundLaneData};
+use crate::{InboundLaneData, LaneId, MessageNonce, OutboundLaneData, VerificationError};
 
 use crate::UnrewardedRelayer;
 use bp_runtime::Size;
@@ -40,9 +40,6 @@ pub type RelayersRewards<AccountId> = BTreeMap<AccountId, MessageNonce>;
 /// source chain to the target chain. The `AccountId` type here means the account
 /// type used by the source chain.
 pub trait TargetHeaderChain<Payload, AccountId> {
-	/// Error type.
-	type Error: Debug;
-
 	/// Proof that messages have been received by target chain.
 	type MessagesDeliveryProof: Parameter + Size;
 
@@ -58,12 +55,12 @@ pub trait TargetHeaderChain<Payload, AccountId> {
 	/// 1MB. BTC nodes aren't accepting transactions that are larger than 1MB, so relayer
 	/// will be unable to craft valid transaction => this (and all subsequent) messages will
 	/// never be delivered.
-	fn verify_message(payload: &Payload) -> Result<(), Self::Error>;
+	fn verify_message(payload: &Payload) -> Result<(), VerificationError>;
 
 	/// Verify messages delivery proof and return lane && nonce of the latest received message.
 	fn verify_messages_delivery_proof(
 		proof: Self::MessagesDeliveryProof,
-	) -> Result<(LaneId, InboundLaneData<AccountId>), Self::Error>;
+	) -> Result<(LaneId, InboundLaneData<AccountId>), VerificationError>;
 }
 
 /// Lane message verifier.
@@ -75,9 +72,6 @@ pub trait TargetHeaderChain<Payload, AccountId> {
 ///
 /// Any fee requirements should also be enforced here.
 pub trait LaneMessageVerifier<SenderOrigin, Payload> {
-	/// Error type.
-	type Error: Debug + Into<&'static str>;
-
 	/// Verify message payload and return Ok(()) if message is valid and allowed to be sent over the
 	/// lane.
 	fn verify_message(
@@ -85,7 +79,7 @@ pub trait LaneMessageVerifier<SenderOrigin, Payload> {
 		lane: &LaneId,
 		outbound_data: &OutboundLaneData,
 		payload: &Payload,
-	) -> Result<(), Self::Error>;
+	) -> Result<(), VerificationError>;
 }
 
 /// Manages payments that are happening at the source chain during delivery confirmation
@@ -169,31 +163,27 @@ const ALL_OUTBOUND_MESSAGES_REJECTED: &str =
 	"This chain is configured to reject all outbound messages";
 
 impl<Payload, AccountId> TargetHeaderChain<Payload, AccountId> for ForbidOutboundMessages {
-	type Error = &'static str;
-
 	type MessagesDeliveryProof = ();
 
-	fn verify_message(_payload: &Payload) -> Result<(), Self::Error> {
-		Err(ALL_OUTBOUND_MESSAGES_REJECTED)
+	fn verify_message(_payload: &Payload) -> Result<(), VerificationError> {
+		Err(VerificationError::Other(ALL_OUTBOUND_MESSAGES_REJECTED))
 	}
 
 	fn verify_messages_delivery_proof(
 		_proof: Self::MessagesDeliveryProof,
-	) -> Result<(LaneId, InboundLaneData<AccountId>), Self::Error> {
-		Err(ALL_OUTBOUND_MESSAGES_REJECTED)
+	) -> Result<(LaneId, InboundLaneData<AccountId>), VerificationError> {
+		Err(VerificationError::Other(ALL_OUTBOUND_MESSAGES_REJECTED))
 	}
 }
 
 impl<SenderOrigin, Payload> LaneMessageVerifier<SenderOrigin, Payload> for ForbidOutboundMessages {
-	type Error = &'static str;
-
 	fn verify_message(
 		_submitter: &SenderOrigin,
 		_lane: &LaneId,
 		_outbound_data: &OutboundLaneData,
 		_payload: &Payload,
-	) -> Result<(), Self::Error> {
-		Err(ALL_OUTBOUND_MESSAGES_REJECTED)
+	) -> Result<(), VerificationError> {
+		Err(VerificationError::Other(ALL_OUTBOUND_MESSAGES_REJECTED))
 	}
 }
 

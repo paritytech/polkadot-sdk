@@ -134,7 +134,7 @@ impl ThisChainWithMessages for BridgeHubWococo {
 /// Signed extension that refunds relayers that are delivering messages from the Rococo parachain.
 pub type BridgeRefundBridgeHubRococoMessages = RefundBridgedParachainMessages<
 	Runtime,
-	RefundableParachain<BridgeParachainRococoInstance, BridgeHubRococoParachainId>,
+	RefundableParachain<BridgeParachainRococoInstance, bp_bridge_hub_rococo::BridgeHubRococo>,
 	RefundableMessagesLane<WithBridgeHubRococoMessagesInstance, BridgeHubRococoMessagesLane>,
 	ActualFeeRefund<Runtime>,
 	PriorityBoostPerMessage,
@@ -144,10 +144,6 @@ bp_runtime::generate_static_str_provider!(BridgeRefundBridgeHubRococoMessages);
 
 parameter_types! {
 	pub const BridgeHubRococoMessagesLane: bp_messages::LaneId = DEFAULT_XCM_LANE_TO_BRIDGE_HUB_ROCOCO;
-	pub const BridgeHubRococoParachainId: u32 = {
-		use bp_runtime::Parachain;
-		BridgeHubRococo::PARACHAIN_ID
-	};
 }
 
 #[cfg(test)]

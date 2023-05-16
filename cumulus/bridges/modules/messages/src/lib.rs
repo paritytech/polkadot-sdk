@@ -48,7 +48,7 @@ pub use weights_ext::{
 
 use crate::{
 	inbound_lane::{InboundLane, InboundLaneStorage},
-	outbound_lane::{OutboundLane, OutboundLaneStorage, ReceivalConfirmationResult},
+	outbound_lane::{OutboundLane, OutboundLaneStorage, ReceivalConfirmationError},
 };
 
 use bp_messages::{
@@ -59,15 +59,15 @@ use bp_messages::{
 		DeliveryPayments, DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages,
 		SourceHeaderChain,
 	},
-	total_unrewarded_messages, DeliveredMessages, InboundLaneData, InboundMessageDetails, LaneId,
-	MessageKey, MessageNonce, MessagePayload, MessagesOperatingMode, OutboundLaneData,
-	OutboundMessageDetails, UnrewardedRelayersState,
+	DeliveredMessages, InboundLaneData, InboundMessageDetails, LaneId, MessageKey, MessageNonce,
+	MessagePayload, MessagesOperatingMode, OutboundLaneData, OutboundMessageDetails,
+	UnrewardedRelayersState, VerificationError,
 };
 use bp_runtime::{BasicOperatingMode, ChainId, OwnedBridgeModule, PreComputedSize, Size};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::PostDispatchInfo, ensure, fail, traits::Get};
 use sp_runtime::traits::UniqueSaturatedFrom;
-use sp_std::{cell::RefCell, marker::PhantomData, prelude::*};
+use sp_std::{marker::PhantomData, prelude::*};
 
 mod inbound_lane;
 mod outbound_lane;
@@ -319,7 +319,7 @@ pub mod pallet {
 
 				// subtract extra storage proof bytes from the actual PoV size - there may be
 				// less unrewarded relayers than the maximal configured value
-				let lane_extra_proof_size_bytes = lane.storage().extra_proof_size_bytes();
+				let lane_extra_proof_size_bytes = lane.storage_mut().extra_proof_size_bytes();
 				actual_weight = actual_weight.set_proof_size(
 					actual_weight.proof_size().saturating_sub(lane_extra_proof_size_bytes),
 				);
@@ -332,7 +332,7 @@ pub mod pallet {
 							"Received lane {:?} state update: latest_confirmed_nonce={}. Unrewarded relayers: {:?}",
 							lane_id,
 							updated_latest_confirmed_nonce,
-							UnrewardedRelayersState::from(&lane.storage().data()),
+							UnrewardedRelayersState::from(&lane.storage_mut().get_or_init_data()),
 						);
 					}
 				}
@@ -437,57 +437,21 @@ pub mod pallet {
 
 					Error::<T, I>::InvalidMessagesDeliveryProof
 				})?;
-
-			// verify that the relayer has declared correct `lane_data::relayers` state
-			// (we only care about total number of entries and messages, because this affects call
-			// weight)
 			ensure!(
-				total_unrewarded_messages(&lane_data.relayers).unwrap_or(MessageNonce::MAX) ==
-					relayers_state.total_messages &&
-					lane_data.relayers.len() as MessageNonce ==
-						relayers_state.unrewarded_relayer_entries,
-				Error::<T, I>::InvalidUnrewardedRelayersState
-			);
-			// the `last_delivered_nonce` field may also be used by the signed extension. Even
-			// though providing wrong value isn't critical, let's also check it here.
-			ensure!(
-				lane_data.last_delivered_nonce() == relayers_state.last_delivered_nonce,
+				relayers_state.is_valid(&lane_data),
 				Error::<T, I>::InvalidUnrewardedRelayersState
 			);
 
 			// mark messages as delivered
 			let mut lane = outbound_lane::<T, I>(lane_id);
 			let last_delivered_nonce = lane_data.last_delivered_nonce();
-			let confirmed_messages = match lane.confirm_delivery(
-				relayers_state.total_messages,
-				last_delivered_nonce,
-				&lane_data.relayers,
-			) {
-				ReceivalConfirmationResult::ConfirmedMessages(confirmed_messages) =>
-					Some(confirmed_messages),
-				ReceivalConfirmationResult::NoNewConfirmations => None,
-				ReceivalConfirmationResult::TryingToConfirmMoreMessagesThanExpected(
-					to_confirm_messages_count,
-				) => {
-					log::trace!(
-						target: LOG_TARGET,
-						"Messages delivery proof contains too many messages to confirm: {} vs declared {}",
-						to_confirm_messages_count,
-						relayers_state.total_messages,
-					);
-
-					fail!(Error::<T, I>::TryingToConfirmMoreMessagesThanExpected);
-				},
-				error => {
-					log::trace!(
-						target: LOG_TARGET,
-						"Messages delivery proof contains invalid unrewarded relayers vec: {:?}",
-						error,
-					);
-
-					fail!(Error::<T, I>::InvalidUnrewardedRelayers);
-				},
-			};
+			let confirmed_messages = lane
+				.confirm_delivery(
+					relayers_state.total_messages,
+					last_delivered_nonce,
+					&lane_data.relayers,
+				)
+				.map_err(Error::<T, I>::ReceivalConfirmation)?;
 
 			if let Some(confirmed_messages) = confirmed_messages {
 				// emit 'delivered' event
@@ -554,12 +518,12 @@ pub mod pallet {
 		NotOperatingNormally,
 		/// The outbound lane is inactive.
 		InactiveOutboundLane,
-		/// The message is too large to be sent over the bridge.
-		MessageIsTooLarge,
 		/// Message has been treated as invalid by chain verifier.
-		MessageRejectedByChainVerifier,
+		MessageRejectedByChainVerifier(VerificationError),
 		/// Message has been treated as invalid by lane verifier.
-		MessageRejectedByLaneVerifier,
+		MessageRejectedByLaneVerifier(VerificationError),
+		/// Message has been treated as invalid by the pallet logic.
+		MessageRejectedByPallet(VerificationError),
 		/// Submitter has failed to pay fee for delivering and dispatching messages.
 		FailedToWithdrawMessageFee,
 		/// The transaction brings too many messages.
@@ -568,8 +532,6 @@ pub mod pallet {
 		InvalidMessagesProof,
 		/// Invalid messages delivery proof has been submitted.
 		InvalidMessagesDeliveryProof,
-		/// The bridged chain has invalid `UnrewardedRelayers` in its storage (fatal for the lane).
-		InvalidUnrewardedRelayers,
 		/// The relayer has declared invalid unrewarded relayers state in the
 		/// `receive_messages_delivery_proof` call.
 		InvalidUnrewardedRelayersState,
@@ -578,9 +540,8 @@ pub mod pallet {
 		InsufficientDispatchWeight,
 		/// The message someone is trying to work with (i.e. increase fee) is not yet sent.
 		MessageIsNotYetSent,
-		/// The number of actually confirmed messages is going to be larger than the number of
-		/// messages in the proof. This may mean that this or bridged chain storage is corrupted.
-		TryingToConfirmMoreMessagesThanExpected,
+		/// Error confirming messages receival.
+		ReceivalConfirmation(ReceivalConfirmationError),
 		/// Error generated by the `OwnedBridgeModule` trait.
 		BridgeModule(bp_runtime::OwnedBridgeModuleError),
 	}
@@ -732,7 +693,7 @@ fn send_message<T: Config<I>, I: 'static>(
 			err,
 		);
 
-		Error::<T, I>::MessageRejectedByChainVerifier
+		Error::<T, I>::MessageRejectedByChainVerifier(err)
 	})?;
 
 	// now let's enforce any additional lane rules
@@ -746,18 +707,16 @@ fn send_message<T: Config<I>, I: 'static>(
 				err,
 			);
 
-			Error::<T, I>::MessageRejectedByLaneVerifier
+			Error::<T, I>::MessageRejectedByLaneVerifier(err)
 		},
 	)?;
 
 	// finally, save message in outbound storage and emit event
 	let encoded_payload = payload.encode();
 	let encoded_payload_len = encoded_payload.len();
-	ensure!(
-		encoded_payload_len <= T::MaximalOutboundPayloadSize::get() as usize,
-		Error::<T, I>::MessageIsTooLarge
-	);
-	let nonce = lane.send_message(encoded_payload);
+	let nonce = lane
+		.send_message(encoded_payload)
+		.map_err(Error::<T, I>::MessageRejectedByPallet)?;
 
 	log::trace!(
 		target: LOG_TARGET,
@@ -787,18 +746,7 @@ fn ensure_normal_operating_mode<T: Config<I>, I: 'static>() -> Result<(), Error<
 fn inbound_lane<T: Config<I>, I: 'static>(
 	lane_id: LaneId,
 ) -> InboundLane<RuntimeInboundLaneStorage<T, I>> {
-	InboundLane::new(inbound_lane_storage::<T, I>(lane_id))
-}
-
-/// Creates new runtime inbound lane storage.
-fn inbound_lane_storage<T: Config<I>, I: 'static>(
-	lane_id: LaneId,
-) -> RuntimeInboundLaneStorage<T, I> {
-	RuntimeInboundLaneStorage {
-		lane_id,
-		cached_data: RefCell::new(None),
-		_phantom: Default::default(),
-	}
+	InboundLane::new(RuntimeInboundLaneStorage::from_lane_id(lane_id))
 }
 
 /// Creates new outbound lane object, backed by runtime storage.
@@ -811,8 +759,15 @@ fn outbound_lane<T: Config<I>, I: 'static>(
 /// Runtime inbound lane storage.
 struct RuntimeInboundLaneStorage<T: Config<I>, I: 'static = ()> {
 	lane_id: LaneId,
-	cached_data: RefCell<Option<InboundLaneData<T::InboundRelayer>>>,
+	cached_data: Option<InboundLaneData<T::InboundRelayer>>,
 	_phantom: PhantomData<I>,
+}
+
+impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
+	/// Creates new runtime inbound lane storage.
+	fn from_lane_id(lane_id: LaneId) -> RuntimeInboundLaneStorage<T, I> {
+		RuntimeInboundLaneStorage { lane_id, cached_data: None, _phantom: Default::default() }
+	}
 }
 
 impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
@@ -824,9 +779,9 @@ impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
 	/// `MaxUnrewardedRelayerEntriesAtInboundLane` constant from the pallet configuration. The PoV
 	/// of the call includes the maximal size of inbound lane state. If the actual size is smaller,
 	/// we may subtract extra bytes from this component.
-	pub fn extra_proof_size_bytes(&self) -> u64 {
+	pub fn extra_proof_size_bytes(&mut self) -> u64 {
 		let max_encoded_len = StoredInboundLaneData::<T, I>::max_encoded_len();
-		let relayers_count = self.data().relayers.len();
+		let relayers_count = self.get_or_init_data().relayers.len();
 		let actual_encoded_len =
 			InboundLaneData::<T::InboundRelayer>::encoded_size_hint(relayers_count)
 				.unwrap_or(usize::MAX);
@@ -849,26 +804,20 @@ impl<T: Config<I>, I: 'static> InboundLaneStorage for RuntimeInboundLaneStorage<
 		T::MaxUnconfirmedMessagesAtInboundLane::get()
 	}
 
-	fn data(&self) -> InboundLaneData<T::InboundRelayer> {
-		match self.cached_data.clone().into_inner() {
-			Some(data) => data,
+	fn get_or_init_data(&mut self) -> InboundLaneData<T::InboundRelayer> {
+		match self.cached_data {
+			Some(ref data) => data.clone(),
 			None => {
 				let data: InboundLaneData<T::InboundRelayer> =
 					InboundLanes::<T, I>::get(self.lane_id).into();
-				*self.cached_data.try_borrow_mut().expect(
-					"we're in the single-threaded environment;\
-						we have no recursive borrows; qed",
-				) = Some(data.clone());
+				self.cached_data = Some(data.clone());
 				data
 			},
 		}
 	}
 
 	fn set_data(&mut self, data: InboundLaneData<T::InboundRelayer>) {
-		*self.cached_data.try_borrow_mut().expect(
-			"we're in the single-threaded environment;\
-				we have no recursive borrows; qed",
-		) = Some(data.clone());
+		self.cached_data = Some(data.clone());
 		InboundLanes::<T, I>::insert(self.lane_id, StoredInboundLaneData::<T, I>(data))
 	}
 }
@@ -898,15 +847,17 @@ impl<T: Config<I>, I: 'static> OutboundLaneStorage for RuntimeOutboundLaneStorag
 			.map(Into::into)
 	}
 
-	fn save_message(&mut self, nonce: MessageNonce, message_payload: MessagePayload) {
+	fn save_message(
+		&mut self,
+		nonce: MessageNonce,
+		message_payload: MessagePayload,
+	) -> Result<(), VerificationError> {
 		OutboundMessages::<T, I>::insert(
 			MessageKey { lane_id: self.lane_id, nonce },
-			StoredMessagePayload::<T, I>::try_from(message_payload).expect(
-				"save_message is called after all checks in send_message; \
-					send_message checks message size; \
-					qed",
-			),
+			StoredMessagePayload::<T, I>::try_from(message_payload)
+				.map_err(|_| VerificationError::MessageTooLarge)?,
 		);
+		Ok(())
 	}
 
 	fn remove_message(&mut self, nonce: &MessageNonce) {
@@ -918,7 +869,7 @@ impl<T: Config<I>, I: 'static> OutboundLaneStorage for RuntimeOutboundLaneStorag
 fn verify_and_decode_messages_proof<Chain: SourceHeaderChain, DispatchPayload: Decode>(
 	proof: Chain::MessagesProof,
 	messages_count: u32,
-) -> Result<ProvedMessages<DispatchMessage<DispatchPayload>>, Chain::Error> {
+) -> Result<ProvedMessages<DispatchMessage<DispatchPayload>>, VerificationError> {
 	// `receive_messages_proof` weight formula and `MaxUnconfirmedMessagesAtInboundLane` check
 	// guarantees that the `message_count` is sane and Vec<Message> may be allocated.
 	// (tx with too many messages will either be rejected from the pool, or will fail earlier)
@@ -941,13 +892,16 @@ fn verify_and_decode_messages_proof<Chain: SourceHeaderChain, DispatchPayload: D
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{
-		inbound_unrewarded_relayers_state, message, message_payload, run_test, unrewarded_relayer,
-		AccountId, DbWeight, RuntimeEvent as TestEvent, RuntimeOrigin,
-		TestDeliveryConfirmationPayments, TestDeliveryPayments, TestMessagesDeliveryProof,
-		TestMessagesProof, TestRelayer, TestRuntime, TestWeightInfo, MAX_OUTBOUND_PAYLOAD_SIZE,
-		PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_LANE_ID_2,
-		TEST_LANE_ID_3, TEST_RELAYER_A, TEST_RELAYER_B,
+	use crate::{
+		mock::{
+			inbound_unrewarded_relayers_state, message, message_payload, run_test,
+			unrewarded_relayer, AccountId, DbWeight, RuntimeEvent as TestEvent, RuntimeOrigin,
+			TestDeliveryConfirmationPayments, TestDeliveryPayments, TestMessagesDeliveryProof,
+			TestMessagesProof, TestRelayer, TestRuntime, TestWeightInfo, MAX_OUTBOUND_PAYLOAD_SIZE,
+			PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_LANE_ID_2,
+			TEST_LANE_ID_3, TEST_RELAYER_A, TEST_RELAYER_B,
+		},
+		outbound_lane::ReceivalConfirmationError,
 	};
 	use bp_messages::{BridgeMessagesCall, UnrewardedRelayer, UnrewardedRelayersState};
 	use bp_test_utils::generate_owned_bridge_module_tests;
@@ -1008,9 +962,9 @@ mod tests {
 			))),
 			UnrewardedRelayersState {
 				unrewarded_relayer_entries: 1,
+				messages_in_oldest_entry: 1,
 				total_messages: 1,
 				last_delivered_nonce: 1,
-				..Default::default()
 			},
 		));
 
@@ -1151,7 +1105,9 @@ mod tests {
 					TEST_LANE_ID,
 					message_payload.clone(),
 				),
-				Error::<TestRuntime, ()>::MessageIsTooLarge,
+				Error::<TestRuntime, ()>::MessageRejectedByPallet(
+					VerificationError::MessageTooLarge
+				),
 			);
 
 			// let's check that we're able to send `MAX_OUTBOUND_PAYLOAD_SIZE` messages
@@ -1177,7 +1133,9 @@ mod tests {
 					TEST_LANE_ID,
 					PAYLOAD_REJECTED_BY_TARGET_CHAIN,
 				),
-				Error::<TestRuntime, ()>::MessageRejectedByChainVerifier,
+				Error::<TestRuntime, ()>::MessageRejectedByChainVerifier(VerificationError::Other(
+					mock::TEST_ERROR
+				)),
 			);
 		});
 	}
@@ -1190,7 +1148,9 @@ mod tests {
 			message.reject_by_lane_verifier = true;
 			assert_noop!(
 				send_message::<TestRuntime, ()>(RuntimeOrigin::signed(1), TEST_LANE_ID, message,),
-				Error::<TestRuntime, ()>::MessageRejectedByLaneVerifier,
+				Error::<TestRuntime, ()>::MessageRejectedByLaneVerifier(VerificationError::Other(
+					mock::TEST_ERROR
+				)),
 			);
 		});
 	}
@@ -1368,9 +1328,9 @@ mod tests {
 				single_message_delivery_proof,
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 1,
+					messages_in_oldest_entry: 1,
 					total_messages: 1,
 					last_delivered_nonce: 1,
-					..Default::default()
 				},
 			);
 			assert_ok!(result);
@@ -1408,9 +1368,9 @@ mod tests {
 				two_messages_delivery_proof,
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 2,
+					messages_in_oldest_entry: 1,
 					total_messages: 2,
 					last_delivered_nonce: 2,
-					..Default::default()
 				},
 			);
 			assert_ok!(result);
@@ -1773,9 +1733,9 @@ mod tests {
 				TestMessagesDeliveryProof(messages_1_and_2_proof),
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 1,
+					messages_in_oldest_entry: 2,
 					total_messages: 2,
 					last_delivered_nonce: 2,
-					..Default::default()
 				},
 			));
 			// second tx with message 3
@@ -1784,9 +1744,9 @@ mod tests {
 				TestMessagesDeliveryProof(messages_3_proof),
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 1,
+					messages_in_oldest_entry: 1,
 					total_messages: 1,
 					last_delivered_nonce: 3,
-					..Default::default()
 				},
 			));
 		});
@@ -1814,7 +1774,9 @@ mod tests {
 					))),
 					UnrewardedRelayersState { last_delivered_nonce: 1, ..Default::default() },
 				),
-				Error::<TestRuntime, ()>::TryingToConfirmMoreMessagesThanExpected,
+				Error::<TestRuntime, ()>::ReceivalConfirmation(
+					ReceivalConfirmationError::TryingToConfirmMoreMessagesThanExpected
+				),
 			);
 		});
 	}
@@ -2114,10 +2076,10 @@ mod tests {
 		fn storage(relayer_entries: usize) -> RuntimeInboundLaneStorage<TestRuntime, ()> {
 			RuntimeInboundLaneStorage {
 				lane_id: Default::default(),
-				cached_data: RefCell::new(Some(InboundLaneData {
+				cached_data: Some(InboundLaneData {
 					relayers: vec![relayer_entry(); relayer_entries].into_iter().collect(),
 					last_confirmed_nonce: 0,
-				})),
+				}),
 				_phantom: Default::default(),
 			}
 		}
