@@ -67,7 +67,7 @@ If the `type` parameter was `"value"` or `"descendants-values"`, then the `value
 
 If the `type` parameter was `"hash"` or `"descendants-hashes"`, then the `hash` field is set. The `hash` field a string containing the hexadecimal-encoded hash of the storage entry.
 
-If the `type` parameter was `"closest-ancestor-merkle-value"`, then the `merkle-value` field is set and the `key` field indicates which closest ancestor has been found. The `merkle-value` field a string containing the hexadecimal-encoded Merkle value of the storage entry or its closest ancestor.
+If the `type` parameter was `"closest-ancestor-merkle-value"`, then the `merkle-value` field is set and the `key` field indicates which closest ancestor has been found. The `merkle-value` field a string containing the hexadecimal-encoded Merkle value of the storage item indicated by the `key` field.
 
 Only one of `value`, `hash` or `merkle-value` are set at any given time.
 
