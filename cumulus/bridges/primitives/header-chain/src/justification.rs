@@ -38,7 +38,7 @@ use sp_std::{
 ///
 /// This particular proof is used to prove that headers on a bridged chain
 /// (so not our chain) have been finalized correctly.
-#[derive(Encode, Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
 pub struct GrandpaJustification<Header: HeaderT> {
 	/// The round (voting period) this justification is valid for.
 	pub round: u64,
@@ -47,6 +47,24 @@ pub struct GrandpaJustification<Header: HeaderT> {
 		finality_grandpa::Commit<Header::Hash, Header::Number, AuthoritySignature, AuthorityId>,
 	/// A proof that the chain of blocks in the commit are related to each other.
 	pub votes_ancestries: Vec<Header>,
+}
+
+impl<Header: HeaderT> sp_std::fmt::Debug for GrandpaJustification<Header> {
+	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		#[cfg(feature = "std")]
+		{
+			fmt.debug_struct("GrandpaJustification")
+				.field("round", &self.round)
+				.field("commit", &self.commit)
+				.field("votes_ancestries", &self.votes_ancestries)
+				.finish()
+		}
+
+		#[cfg(not(feature = "std"))]
+		{
+			fmt.write_str("<stripped>")
+		}
+	}
 }
 
 impl<H: HeaderT> GrandpaJustification<H> {
