@@ -8,6 +8,8 @@
 
 Resumes a storage fetch started with `chainHead_unstable_storage` after it has generated a `waiting-for-continue` event.
 
+Has no effect if the `subscription` is invalid or refers to a subscription that has emitted a `{"event": "inaccessible"}` event.
+
 ## Possible errors
 
-- A JSON-RPC error is generated if the `subscription` is invalid or hasn't generated a `waiting-for-continue` event.
+- A JSON-RPC error is generated if the `subscription` hasn't generated a `waiting-for-continue` event.

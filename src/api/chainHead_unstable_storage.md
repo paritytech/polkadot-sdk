@@ -83,6 +83,8 @@ The `waiting-for-continue` event is generated after at least one `"item"` event 
 
 This event only ever happens if the `type` parameter was `descendants-values` or `descendants-hashes`.
 
+While the JSON-RPC server is waiting for a call to `chainHead_unstable_storageContinue`, it can generate an `inaccessible` event in order to indicate that it can no longer proceed with the request. If that is the case, the JSON-RPC client can simply try again.
+
 ### done
 
 ```json
