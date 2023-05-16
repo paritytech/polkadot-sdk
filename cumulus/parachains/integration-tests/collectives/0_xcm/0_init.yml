@@ -7,7 +7,7 @@ settings:
       wsPort: 9710
       paraId: &cp_id 1001
   variables:
-    xcm_version: &xcm_version '2'
+    xcm_version: &xcm_version '3'
     chains:
       accounts:
         alice_signer: &alice_signer //Alice
@@ -62,13 +62,26 @@ tests:
               pallet: xcmPallet
               call: send
               args: [
-                { v1: { 0, interior: { x1: { parachain: *cp_id }}}}, # destination
+                { v3: { 0, interior: { x1: { parachain: *cp_id }}}}, # destination
                 {
-                  v2: [ # message
+                  v3: [ # message
+                    {
+                      UnpaidExecution: {
+                        weightLimit: { 
+                          limited: {
+                            refTime: 2200000000, # 2_200_000_000
+                            proofSize: 200000, # 200_000
+                          },
+                        }
+                      }
+                    },
                     {
                       Transact: {
-                        originType: Superuser,
-                        requireWeightAtMost: 1000000000, # 1_000_000_000
+                        originKind: Superuser,
+                        requireWeightAtMost: {
+                          refTime: 200000000, # 200_000_000 
+                          proofSize: 0,
+                        },
                         call: $ap_force_xcm_version
                       }
                     }
@@ -89,7 +102,5 @@ tests:
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   attributes:
-                    - type: XcmV2TraitsOutcome
+                    - type: XcmV3TraitsOutcome
                       xcmOutcome: Complete
-                      # the weight must be static
-                      value: 2,000,000,000

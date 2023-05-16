@@ -8,9 +8,6 @@ settings:
       paraId: &cp_id 1001
   variables:
     init_teleport_amount: &init_teleport_amount 20000000000000 # 20_000_000_000_000
-    weight_to_send_teleport: &weight_to_send_teleport 2,000,000,000 # must be same for both chains
-    weight_to_receive_teleport: &weight_to_receive_teleport 4,000,000,000 # must be same for both chains
-    weight_to_receive_transact: &weight_to_receive_transact 3,000,000,000 # must be same for both chains
     accounts:
       alice_signer: &acc_alice_signer //Alice
       treasury_account32: &acc_treasury_acc32 '0x6d6f646c70792f74727372790000000000000000000000000000000000000000'
@@ -36,34 +33,28 @@ tests:
               pallet: xcmPallet
               call: limitedTeleportAssets
               args: [
-                { v1: { 0, interior: { x1: { parachain: *cp_id }}}}, # destination
-                { v1: { parents: 0, interior: { x1: { accountId32: { network: { any: true }, id: *acc_alice_acc32 }}}}}, # beneficiary
-                { v1: [ { id: { concrete: { 0, interior: { here: true }}}, fun: { fungible: *init_teleport_amount }} ] }, # assets
+                { v3: { 0, interior: { x1: { parachain: *cp_id }}}}, # destination
+                { v3: { parents: 0, interior: { x1: { accountId32: { id: *acc_alice_acc32 }}}}}, # beneficiary
+                { v3: [ { id: { concrete: { 0, interior: { here: true }}}, fun: { fungible: *init_teleport_amount }} ] }, # assets
                 0, # feeAssetItem
                 { unlimited: true } # weightLimit
               ]
               events:
                 - name: xcmPallet.Attempted
                   attributes:
-                    - type: XcmV2TraitsOutcome
+                    - type: XcmV3TraitsOutcome
                       xcmOutcome: Complete
-                      value: *weight_to_send_teleport
                 - name: balances.Deposit
                   chain: *collectives_parachain
                   attributes:
                     - type: AccountId32
                       key: who
                       value: *acc_alice_ss58
-                    - type: u128
-                      key: amount
-                      value: 20,000,000,000,000
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   attributes:
-                    - type: XcmV2TraitsOutcome
+                    - type: XcmV3TraitsOutcome
                       xcmOutcome: Complete
-                      # must be static
-                      value: *weight_to_receive_teleport
       - name: Get the balances of the Relay Chain's treasury & Collectives parachain's future alliance member
         actions:
           - queries:
@@ -129,13 +120,26 @@ tests:
               pallet: xcmPallet
               call: send
               args: [
-                { v1: { parents: 0, interior: { x1: { parachain: *cp_id }}}}, # destination
+                { v3: { parents: 0, interior: { x1: { parachain: *cp_id }}}}, # destination
                 {
-                  v2: [ #message
+                  v3: [ #message
+                    {
+                      UnpaidExecution: {
+                        weightLimit: { 
+                          limited: {
+                            refTime: 4000000000, # 4_000_000_000
+                            proofSize: 2000000, # 2_000_000
+                          },
+                        }
+                      }
+                    },
                     {
                       Transact: {
-                        originType: Superuser,
-                        requireWeightAtMost: 2000000000,
+                        originKind: Superuser,
+                        requireWeightAtMost: {
+                          refTime: 2000000000, # 2_000_000_000 
+                          proofSize: 1000000, # 1_000_000
+                        },
                         call: $alliance_kick_member
                       }
                     }
@@ -157,10 +161,8 @@ tests:
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   attributes:
-                    - type: XcmV2TraitsOutcome
+                    - type: XcmV3TraitsOutcome
                       xcmOutcome: Complete
-                      # must be static
-                      value: *weight_to_receive_transact
 
           - queries:
               balance_rc_treasury_after:

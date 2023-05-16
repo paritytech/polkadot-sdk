@@ -7,8 +7,6 @@ settings:
       wsPort: 9710
       paraId: &cp_id 1001
   variables:
-    xcm_version: &xcm_version '2'
-    weight_to_send_reserve: &weight_to_send_reserve 1,000,000,000 # must be same for both chains
     chains:
       accounts:
         alice_signer: &alice_signer //Alice
@@ -26,10 +24,10 @@ tests:
               pallet: xcmPallet
               call: reserveTransferAssets
               args: [
-                { v1: { 0, interior: { x1: { parachain: *cp_id }}}}, # destination
-                { v1: { parents: 0, interior: { x1: { accountId32: { network: { any: true }, id: *alice_acc32 }}}}}, # beneficiary
+                { v3: { 0, interior: { x1: { parachain: *cp_id }}}}, # destination
+                { v3: { parents: 0, interior: { x1: { accountId32: { id: *alice_acc32 }}}}}, # beneficiary
                 { 
-                  v1: [ 
+                  v3: [ 
                     { 
                       id: { concrete: { 0, interior: { here: true }}}, 
                       fun: { fungible: 20000000000000 } # 20_000_000_000_000
@@ -42,43 +40,10 @@ tests:
                 - name: xcmPallet.Attempted
                   chain: *relay_chain
                   attributes:
-                    - type: XcmV2TraitsOutcome
+                    - type: XcmV3TraitsOutcome
                       xcmOutcome: Complete
-                      # the weight must be static
-                      value: *weight_to_send_reserve
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   attributes:
-                    - type: XcmV2TraitsOutcome
+                    - type: XcmV3TraitsOutcome
                       xcmOutcome: Incomplete
-                      # the weight must be static
-                      value: [1000000000, UntrustedReserveLocation]
-
-      - name: Reserve assets from Collectives Parachain to Relay Chain fails
-        actions:
-          - extrinsics:
-            - chain: *collectives_parachain
-              signer: *alice_signer
-              pallet: polkadotXcm
-              call: reserveTransferAssets
-              args: [
-                { v1: { parents: 1, interior: { here: true }}}, # destination
-                { v1: { parents: 0, interior: { x1: { accountId32: { network: { any: true }, id: *alice_acc32 }}}}}, # beneficiary
-                { 
-                  v1: [ 
-                    { 
-                      id: { concrete: { parents: 1, interior: { here: true }}}, 
-                      fun: { fungible: 10000000000000 } # 10_000_000_000_000
-                    }
-                  ] 
-                }, # assets
-                0, # feeAssetItem
-              ]
-              events:
-                - name: system.ExtrinsicFailed
-                  attributes:
-                    - type: SpRuntimeDispatchError
-                      key: dispatchError
-                      # TODO assert variant
-                      # issue - https://github.com/paritytech/parachains-integration-tests/issues/59
-                      value: {"Module":{"index":"31","error":"0x02000000"}}

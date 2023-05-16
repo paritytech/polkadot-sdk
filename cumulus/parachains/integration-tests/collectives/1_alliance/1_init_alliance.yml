@@ -81,13 +81,26 @@ tests:
               pallet: xcmPallet
               call: send
               args: [
-                { v1: { parents: 0, interior: { x1: { parachain: *coll_para_id }}}}, # destination
+                { v3: { parents: 0, interior: { x1: { parachain: *coll_para_id }}}}, # destination
                 {
-                  v2: [ # message
+                  v3: [ # message
+                    {
+                      UnpaidExecution: {
+                        weightLimit: { 
+                          limited: {
+                            refTime: 3000000000, # 3_000_000_000
+                            proofSize: 2000000, # 2_000_000
+                          },
+                        }
+                      }
+                    },
                     {
                       Transact: {
-                        originType: Superuser,
-                        requireWeightAtMost: 1000000000, # 1_000_000_000
+                        originKind: Superuser,
+                        requireWeightAtMost: {
+                          refTime: 1000000000, # 1_000_000_000 
+                          proofSize: 1000000, # 1_000_000
+                        },
                         call: $init_alliance_members
                       }
                     }
@@ -105,10 +118,8 @@ tests:
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   attributes:
-                    - type: XcmV2TraitsOutcome
+                    - type: XcmV3TraitsOutcome
                       xcmOutcome: Complete
-                      # we don't know how much weight will be spent for custom call within Transact operation
-                      # value: skipping the assertion 
       
       - name: Alliance init call fails.
         actions:
@@ -119,13 +130,26 @@ tests:
               pallet: xcmPallet
               call: send
               args: [
-                { v1: { parents: 0, interior: { x1: { parachain: *coll_para_id }}}}, # destination
+                { v3: { parents: 0, interior: { x1: { parachain: *coll_para_id }}}}, # destination
                 {
-                  v2: [ # message
+                  v3: [ # message
+                    {
+                      UnpaidExecution: {
+                        weightLimit: { 
+                          limited: {
+                            refTime: 3000000000, # 3_000_000_000
+                            proofSize: 2000000, # 2_000_000
+                          },
+                        }
+                      }
+                    },
                     {
                       Transact: {
-                        originType: Superuser,
-                        requireWeightAtMost: 1000000000, # 1_000_000_000
+                        originKind: Superuser,
+                        requireWeightAtMost: {
+                          refTime: 1000000000, # 1_000_000_000 
+                          proofSize: 1000000, # 1_000_000
+                        },
                         call: $init_alliance_voting_members
                       }
                     }
@@ -145,10 +169,8 @@ tests:
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   attributes:
-                    - type: XcmV2TraitsOutcome
+                    - type: XcmV3TraitsOutcome
                       xcmOutcome: Complete
-                      # the call must fail, the weight spent is static
-                      value: 2,000,000,000
 
       - name: Alliance disbanded and initialized again.
         actions:
@@ -159,13 +181,26 @@ tests:
               pallet: xcmPallet
               call: send
               args: [
-                { v1: { parents: 0, interior: { x1: { parachain: *coll_para_id }}}}, # destination
+                { v3: { parents: 0, interior: { x1: { parachain: *coll_para_id }}}}, # destination
                 {
-                  v2: [ # message
+                  v3: [ # message
+                    {
+                      UnpaidExecution: {
+                        weightLimit: { 
+                          limited: {
+                            refTime: 5000000000, # 3_000_000_000
+                            proofSize: 1000000, # 1_000_000
+                          },
+                        }
+                      }
+                    },
                     {
                       Transact: {
-                        originType: Superuser,
-                        requireWeightAtMost: 100000000000, # 100_000_000_000
+                        originKind: Superuser,
+                        requireWeightAtMost: {
+                          refTime: 3000000000, # 3_000_000_000
+                          proofSize: 200000, # 200_000
+                        },
                         call: $disband
                       }
                     }
@@ -193,10 +228,8 @@ tests:
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   attributes:
-                    - type: XcmV2TraitsOutcome
+                    - type: XcmV3TraitsOutcome
                       xcmOutcome: Complete
-                      # we don't know how much weight will be spent for custom call within Transact operation
-                      # value: skipping the assertion 
       - name: Alliance initiated, founders and fellows are set.
         actions:
           - extrinsics:
@@ -206,13 +239,26 @@ tests:
               pallet: xcmPallet
               call: send
               args: [
-                { v1: { parents: 0, interior: { x1: { parachain: *coll_para_id }}}}, # destination
+                { v3: { parents: 0, interior: { x1: { parachain: *coll_para_id }}}}, # destination
                 {
-                  v2: [ # message
+                  v3: [ # message
+                    {
+                      UnpaidExecution: {
+                        weightLimit: { 
+                          limited: {
+                            refTime: 3000000000, # 3_000_000_000
+                            proofSize: 2000000, # 2_000_000
+                          },
+                        }
+                      }
+                    },
                     {
                       Transact: {
-                        originType: Superuser,
-                        requireWeightAtMost: 1000000000, # 1_000_000_000
+                        originKind: Superuser,
+                        requireWeightAtMost: {
+                          refTime: 1000000000, # 1_000_000_000 
+                          proofSize: 1000000, # 1_000_000
+                        },
                         call: $init_alliance_members
                       }
                     }
@@ -230,8 +276,6 @@ tests:
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   attributes:
-                    - type: XcmV2TraitsOutcome
+                    - type: XcmV3TraitsOutcome
                       xcmOutcome: Complete
-                      # we don't know how much weight will be spent for custom call within Transact operation
-                      # value: skipping the assertion 
 

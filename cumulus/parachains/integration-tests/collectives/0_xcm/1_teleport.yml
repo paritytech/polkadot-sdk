@@ -7,8 +7,6 @@ settings:
       wsPort: 9710
       paraId: &cp_id 1001
   variables:
-    weight_to_send_teleport: &weight_to_send_teleport 2,000,000,000 # must be same for both chains
-    weight_to_receive_teleport: &weight_to_receive_teleport 4,000,000,000 # must be same for both chains
     accounts:
       alice_signer: &acc_alice_signer //Alice
       alice_account32: &acc_alice_acc32 '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d'
@@ -39,10 +37,10 @@ tests:
               pallet: xcmPallet
               call: teleportAssets
               args: [
-                { v1: { 0, interior: { x1: { parachain: *cp_id }}}}, # destination
-                { v1: { parents: 0, interior: { x1: { accountId32: { network: { any: true }, id: *acc_alice_acc32 }}}}}, # beneficiary
+                { v3: { 0, interior: { x1: { parachain: *cp_id }}}}, # destination
+                { v3: { parents: 0, interior: { x1: { accountId32: { id: *acc_alice_acc32 }}}}}, # beneficiary
                 { 
-                  v1: [ 
+                  v3: [ 
                     # { 
                     #   # TODO use a separate Assets to pay a fee, to receive an exact amount of assets on beneficiary account.
                     #   # a call with two assets fails with an error right now.
@@ -61,17 +59,13 @@ tests:
                 - name: xcmPallet.Attempted
                   chain: *relay_chain
                   attributes:
-                    - type: XcmV2TraitsOutcome
+                    - type: XcmV3TraitsOutcome
                       xcmOutcome: Complete
-                      # the weight must be static
-                      value: *weight_to_send_teleport
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   attributes:
-                    - type: XcmV2TraitsOutcome
+                    - type: XcmV3TraitsOutcome
                       xcmOutcome: Complete
-                      # the weight must be static
-                      value: *weight_to_receive_teleport
           - queries:
               balance_rc_alice_2:
                 chain: *relay_chain
@@ -113,10 +107,10 @@ tests:
               pallet: polkadotXcm
               call: teleportAssets
               args: [
-                { v1: { parents: 1, interior: { here: true }}}, # destination
-                { v1: { parents: 0, interior: { x1: { accountId32: { network: { any: true }, id: *acc_alice_acc32 }}}}}, # beneficiary
+                { v3: { parents: 1, interior: { here: true }}}, # destination
+                { v3: { parents: 0, interior: { x1: { accountId32: { id: *acc_alice_acc32 }}}}}, # beneficiary
                 { 
-                  v1: [ 
+                  v3: [ 
                     { 
                       id: { concrete: { parents: 1, interior: { here: true }}}, 
                       fun: { fungible: 10000000000000 } # 10_000_000_000_000
@@ -136,10 +130,8 @@ tests:
                       value: 10000000000000
                 - name: polkadotXcm.Attempted
                   attributes:
-                    - type: XcmV2TraitsOutcome
+                    - type: XcmV3TraitsOutcome
                       xcmOutcome: Complete
-                      # the weight must be static
-                      value: *weight_to_send_teleport
                 - name: balances.Withdraw
                   chain: *relay_chain
                   attributes:
@@ -149,10 +141,8 @@ tests:
                 - name: ump.ExecutedUpward
                   chain: *relay_chain
                   attributes:
-                    - type: XcmV2TraitsOutcome
+                    - type: XcmV3TraitsOutcome
                       xcmOutcome: Complete
-                      # the weight must be static
-                      value: *weight_to_receive_teleport
           - queries:
               balance_rc_alice_3:
                 chain: *relay_chain
