@@ -206,6 +206,21 @@ impl sc_executor::NativeExecutionDispatch for ContractsRococoRuntimeExecutor {
 	}
 }
 
+/// Native Glutton executor instance.
+pub struct GluttonRuntimeExecutor;
+
+impl sc_executor::NativeExecutionDispatch for GluttonRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		shell_runtime::api::dispatch(method, data)
+	}
+
+	fn native_version() -> sc_executor::NativeVersion {
+		shell_runtime::native_version()
+	}
+}
+
 /// Starts a `ServiceBuilder` for a full service.
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to

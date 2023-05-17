@@ -23,6 +23,7 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 pub mod bridge_hubs;
 pub mod collectives;
 pub mod contracts;
+pub mod glutton;
 pub mod penpal;
 pub mod rococo_parachain;
 pub mod seedling;

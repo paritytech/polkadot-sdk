@@ -19,7 +19,7 @@ use crate::{
 	cli::{Cli, RelayChainCli, Subcommand},
 	service::{
 		new_partial, Block, BridgeHubKusamaRuntimeExecutor, BridgeHubPolkadotRuntimeExecutor,
-		BridgeHubRococoRuntimeExecutor, CollectivesPolkadotRuntimeExecutor,
+		BridgeHubRococoRuntimeExecutor, CollectivesPolkadotRuntimeExecutor, GluttonRuntimeExecutor,
 		StatemineRuntimeExecutor, StatemintRuntimeExecutor, WestmintRuntimeExecutor,
 	},
 };
@@ -54,6 +54,7 @@ enum Runtime {
 	ContractsRococo,
 	CollectivesPolkadot,
 	CollectivesWestend,
+	Glutton,
 	BridgeHub(chain_spec::bridge_hubs::BridgeHubRuntimeType),
 }
 
@@ -111,6 +112,8 @@ fn runtime(id: &str) -> Runtime {
 			id.parse::<chain_spec::bridge_hubs::BridgeHubRuntimeType>()
 				.expect("Invalid value"),
 		)
+	} else if id.starts_with("glutton") {
+		Runtime::Glutton
 	} else {
 		log::warn!("No specific runtime was recognized for ChainSpec's id: '{}', so Runtime::default() will be used", id);
 		Runtime::default()
@@ -214,6 +217,18 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 			"polkadot-local",
 		)),
 
+		// -- Glutton
+		"glutton-kusama-dev" => Box::new(chain_spec::glutton::glutton_development_config(
+			para_id.expect("Must specify parachain id"),
+		)),
+		"glutton-kusama-local" => Box::new(chain_spec::glutton::glutton_local_config(
+			para_id.expect("Must specify parachain id"),
+		)),
+		// the chain spec as used for generating the upgrade genesis values
+		"glutton-kusama-genesis" => Box::new(chain_spec::glutton::glutton_config(
+			para_id.expect("Must specify parachain id"),
+		)),
+
 		// -- Fallback (generic chainspec)
 		"" => {
 			log::warn!("No ChainSpec.id specified, so using default one, based on rococo-parachain runtime");
@@ -243,6 +258,8 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 					bridge_hub_runtime_type.chain_spec_from_json_file(path)?,
 				Runtime::Penpal(_para_id) =>
 					Box::new(chain_spec::penpal::PenpalChainSpec::from_json_file(path)?),
+				Runtime::Glutton =>
+					Box::new(chain_spec::glutton::GluttonChainSpec::from_json_file(path)?),
 				Runtime::Default => Box::new(
 					chain_spec::rococo_parachain::RococoParachainChainSpec::from_json_file(path)?,
 				),
@@ -258,12 +275,25 @@ fn extract_parachain_id(id: &str) -> (&str, &str, Option<ParaId>) {
 	const KUSAMA_TEST_PARA_PREFIX: &str = "penpal-kusama-";
 	const POLKADOT_TEST_PARA_PREFIX: &str = "penpal-polkadot-";
 
+	const GLUTTON_PARA_DEV_PREFIX: &str = "glutton-kusama-dev-";
+	const GLUTTON_PARA_LOCAL_PREFIX: &str = "glutton-kusama-local-";
+	const GLUTTON_PARA_GENESIS_PREFIX: &str = "glutton-kusama-genesis-";
+
 	let (norm_id, orig_id, para) = if let Some(suffix) = id.strip_prefix(KUSAMA_TEST_PARA_PREFIX) {
 		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
 		(&id[..KUSAMA_TEST_PARA_PREFIX.len() - 1], id, Some(para_id))
 	} else if let Some(suffix) = id.strip_prefix(POLKADOT_TEST_PARA_PREFIX) {
 		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
 		(&id[..POLKADOT_TEST_PARA_PREFIX.len() - 1], id, Some(para_id))
+	} else if let Some(suffix) = id.strip_prefix(GLUTTON_PARA_DEV_PREFIX) {
+		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
+		(&id[..GLUTTON_PARA_DEV_PREFIX.len() - 1], id, Some(para_id))
+	} else if let Some(suffix) = id.strip_prefix(GLUTTON_PARA_LOCAL_PREFIX) {
+		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
+		(&id[..GLUTTON_PARA_LOCAL_PREFIX.len() - 1], id, Some(para_id))
+	} else if let Some(suffix) = id.strip_prefix(GLUTTON_PARA_GENESIS_PREFIX) {
+		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
+		(&id[..GLUTTON_PARA_GENESIS_PREFIX.len() - 1], id, Some(para_id))
 	} else {
 		(id, id, None)
 	};
@@ -319,6 +349,7 @@ impl SubstrateCli for Cli {
 			Runtime::BridgeHub(bridge_hub_runtime_type) =>
 				bridge_hub_runtime_type.runtime_version(),
 			Runtime::Penpal(_) => &penpal_runtime::VERSION,
+			Runtime::Glutton => &glutton_runtime::VERSION,
 			Runtime::Default => &rococo_parachain_runtime::VERSION,
 		}
 	}
@@ -553,6 +584,16 @@ macro_rules! construct_async_run {
 					let task_manager = $components.task_manager;
 					{ $( $code )* }.map(|v| (v, task_manager))
 				})
+			},
+			Runtime::Glutton => {
+				runner.async_run(|$config| {
+					let $components = new_partial::<glutton_runtime::RuntimeApi, _>(
+						&$config,
+						crate::service::shell_build_import_queue,
+					)?;
+					let task_manager = $components.task_manager;
+					{ $( $code )* }.map(|v| (v, task_manager))
+				})
 			}
 		}
 	}}
@@ -659,7 +700,9 @@ pub fn run() -> Result<()> {
 									bridge_hub_runtime_type
 								)
 									.into()),
-							}
+							},
+							Runtime::Glutton =>
+								cmd.run::<Block, GluttonRuntimeExecutor>(config),
 							_ => Err(format!(
 								"Chain '{:?}' doesn't support benchmarking",
 								config.chain_spec.runtime()
@@ -793,6 +836,12 @@ pub fn run() -> Result<()> {
 				Runtime::ContractsRococo => runner.async_run(|_| {
 					Ok((
 						cmd.run::<Block, HostFunctionsOf<crate::service::ContractsRococoRuntimeExecutor>, _>(Some(info_provider)),
+						task_manager,
+					))
+				}),
+				Runtime::Glutton => runner.async_run(|_| {
+					Ok((
+						cmd.run::<Block, HostFunctionsOf<crate::service::GluttonRuntimeExecutor>, _>(Some(info_provider)),
 						task_manager,
 					))
 				}),
@@ -954,6 +1003,17 @@ pub fn run() -> Result<()> {
 					.map_err(Into::into),
 					Runtime::Penpal(_) | Runtime::Default =>
 						crate::service::start_rococo_parachain_node(
+							config,
+							polkadot_config,
+							collator_options,
+							id,
+							hwbench,
+						)
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into),
+					Runtime::Glutton =>
+						crate::service::start_shell_node::<glutton_runtime::RuntimeApi>(
 							config,
 							polkadot_config,
 							collator_options,

@@ -50,6 +50,7 @@ members = [
 	"parachains/runtimes/bridge-hubs/bridge-hub-polkadot",
 	"parachains/runtimes/collectives/collectives-polkadot",
 	"parachains/runtimes/contracts/contracts-rococo",
+	"parachains/runtimes/glutton/glutton-kusama",
 	"parachains/runtimes/testing/penpal",
 	"test/client",
 	"test/relay-sproof-builder",

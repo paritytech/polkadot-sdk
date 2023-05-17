@@ -15,3 +15,5 @@ ${__dir}/benchmarks-ci.sh assets westmint target/$target $steps $repeat
 ${__dir}/benchmarks-ci.sh bridge-hubs bridge-hub-polkadot target/$target $steps $repeat
 ${__dir}/benchmarks-ci.sh bridge-hubs bridge-hub-kusama target/$target $steps $repeat
 ${__dir}/benchmarks-ci.sh bridge-hubs bridge-hub-rococo target/$target $steps $repeat
+
+${__dir}/benchmarks-ci.sh glutton glutton-kusama target/$target $steps $repeat

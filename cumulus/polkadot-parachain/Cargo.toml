@@ -23,6 +23,7 @@ serde_json = "1.0.96"
 # Local
 rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parachain" }
 shell-runtime = { path = "../parachains/runtimes/starters/shell" }
+glutton-runtime = { path = "../parachains/runtimes/glutton/glutton-kusama" }
 seedling-runtime = { path = "../parachains/runtimes/starters/seedling" }
 statemint-runtime = { path = "../parachains/runtimes/assets/statemint" }
 statemine-runtime = { path = "../parachains/runtimes/assets/statemine" }
