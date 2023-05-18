@@ -21,7 +21,7 @@ use crate::{
 	RuntimeOrigin, ShiftSessionManager, Slots, UncheckedExtrinsic,
 };
 
-use frame_support::{parameter_types, traits::KeyOwnerProofSystem};
+use frame_support::{parameter_types, traits::KeyOwnerProofSystem, weights::Weight};
 use frame_system::EnsureRoot;
 use polkadot_primitives::v4::{ValidatorId, ValidatorIndex};
 use polkadot_runtime_common::{paras_registrar, paras_sudo_wrapper, slots};
@@ -106,9 +106,55 @@ parameter_types! {
 
 impl parachains_paras::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = parachains_paras::TestWeightInfo;
+	type WeightInfo = ParasWeightInfo;
 	type UnsignedPriority = ParasUnsignedPriority;
 	type NextSessionRotation = Babe;
+}
+
+/// Test weight for the `Paras` pallet.
+///
+/// We can't use `parachains_paras::TestWeightInfo` anymore, because it returns `Weight::MAX`
+/// where we need some real-world weights. We'll use zero weights here, though to avoid
+/// adding benchmarks to Rialto runtime.
+pub struct ParasWeightInfo;
+
+impl parachains_paras::WeightInfo for ParasWeightInfo {
+	fn force_set_current_code(_c: u32) -> Weight {
+		Weight::zero()
+	}
+	fn force_set_current_head(_s: u32) -> Weight {
+		Weight::zero()
+	}
+	fn force_schedule_code_upgrade(_c: u32) -> Weight {
+		Weight::zero()
+	}
+	fn force_note_new_head(_s: u32) -> Weight {
+		Weight::zero()
+	}
+	fn force_queue_action() -> Weight {
+		Weight::zero()
+	}
+	fn add_trusted_validation_code(_c: u32) -> Weight {
+		Weight::zero()
+	}
+	fn poke_unused_validation_code() -> Weight {
+		Weight::zero()
+	}
+	fn include_pvf_check_statement_finalize_upgrade_accept() -> Weight {
+		Weight::zero()
+	}
+	fn include_pvf_check_statement_finalize_upgrade_reject() -> Weight {
+		Weight::zero()
+	}
+	fn include_pvf_check_statement_finalize_onboarding_accept() -> Weight {
+		Weight::zero()
+	}
+	fn include_pvf_check_statement_finalize_onboarding_reject() -> Weight {
+		Weight::zero()
+	}
+	fn include_pvf_check_statement() -> Weight {
+		Weight::zero()
+	}
 }
 
 impl parachains_paras_inherent::Config for Runtime {
