@@ -16,8 +16,6 @@
 
 //! Helpers for generating message storage proofs, that are used by tests and by benchmarks.
 
-#![cfg(any(feature = "runtime-benchmarks", test))]
-
 use crate::messages::{BridgedChain, HashOf, HasherOf, MessageBridge};
 
 use bp_messages::{
@@ -29,19 +27,19 @@ use sp_std::{ops::RangeInclusive, prelude::*};
 use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 
 /// Simple and correct message data encode function.
-pub(crate) fn encode_all_messages(_: MessageNonce, m: &MessagePayload) -> Option<Vec<u8>> {
+pub fn encode_all_messages(_: MessageNonce, m: &MessagePayload) -> Option<Vec<u8>> {
 	Some(m.encode())
 }
 
 /// Simple and correct outbound lane data encode function.
-pub(crate) fn encode_lane_data(d: &OutboundLaneData) -> Vec<u8> {
+pub fn encode_lane_data(d: &OutboundLaneData) -> Vec<u8> {
 	d.encode()
 }
 
 /// Prepare storage proof of given messages.
 ///
 /// Returns state trie root and nodes with prepared messages.
-pub(crate) fn prepare_messages_storage_proof<B>(
+pub fn prepare_messages_storage_proof<B>(
 	lane: LaneId,
 	message_nonces: RangeInclusive<MessageNonce>,
 	outbound_lane_data: Option<OutboundLaneData>,
