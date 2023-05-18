@@ -495,7 +495,7 @@ construct_runtime!(
 		Inclusion: polkadot_runtime_parachains::inclusion::{Pallet, Call, Storage, Event<T>},
 		ParasInherent: polkadot_runtime_parachains::paras_inherent::{Pallet, Call, Storage, Inherent},
 		Scheduler: polkadot_runtime_parachains::scheduler::{Pallet, Storage},
-		Paras: polkadot_runtime_parachains::paras::{Pallet, Call, Storage, Event, Config},
+		Paras: polkadot_runtime_parachains::paras::{Pallet, Call, Storage, Event, Config, ValidateUnsigned},
 		Initializer: polkadot_runtime_parachains::initializer::{Pallet, Call, Storage},
 		Dmp: polkadot_runtime_parachains::dmp::{Pallet, Storage},
 		Ump: polkadot_runtime_parachains::ump::{Pallet, Call, Storage, Event},
