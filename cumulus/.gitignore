@@ -8,5 +8,4 @@ polkadot_argument_parsing
 **/chains/
 *.iml
 .env
-bin
 **/._*

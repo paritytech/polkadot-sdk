@@ -1,4 +1,4 @@
-// Copyright 2023 Parity Technologies (UK) Ltd.
+// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-pub use bp_test_utils::test_header;
+//! Module contains predefined test-case scenarios for "BridgeHub" `Runtime`s.
+
 pub mod test_cases;
-pub use test_cases::CollatorSessionKeys;
+pub use bp_test_utils::test_header;
+pub use parachains_runtimes_test_utils::*;

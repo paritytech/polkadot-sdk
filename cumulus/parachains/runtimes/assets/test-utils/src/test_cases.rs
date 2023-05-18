@@ -15,10 +15,6 @@
 
 //! Module contains predefined test-case scenarios for `Runtime` with various assets.
 
-use crate::{
-	assert_metadata, assert_total, AccountIdOf, BalanceOf, ExtBuilder, RuntimeHelper,
-	SessionKeysOf, ValidatorIdOf, XcmReceivedFrom,
-};
 use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok,
@@ -26,41 +22,16 @@ use frame_support::{
 	weights::Weight,
 };
 use parachains_common::Balance;
+use parachains_runtimes_test_utils::{
+	assert_metadata, assert_total, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder,
+	RuntimeHelper, ValidatorIdOf, XcmReceivedFrom,
+};
 use sp_runtime::{
 	traits::{StaticLookup, Zero},
 	DispatchError, Saturating,
 };
 use xcm::latest::prelude::*;
 use xcm_executor::{traits::Convert, XcmExecutor};
-
-pub struct CollatorSessionKeys<
-	Runtime: frame_system::Config + pallet_balances::Config + pallet_session::Config,
-> {
-	collator: AccountIdOf<Runtime>,
-	validator: ValidatorIdOf<Runtime>,
-	key: SessionKeysOf<Runtime>,
-}
-
-impl<Runtime: frame_system::Config + pallet_balances::Config + pallet_session::Config>
-	CollatorSessionKeys<Runtime>
-{
-	pub fn new(
-		collator: AccountIdOf<Runtime>,
-		validator: ValidatorIdOf<Runtime>,
-		key: SessionKeysOf<Runtime>,
-	) -> Self {
-		Self { collator, validator, key }
-	}
-	pub fn collators(&self) -> Vec<AccountIdOf<Runtime>> {
-		vec![self.collator.clone()]
-	}
-
-	pub fn session_keys(
-		&self,
-	) -> Vec<(AccountIdOf<Runtime>, ValidatorIdOf<Runtime>, SessionKeysOf<Runtime>)> {
-		vec![(self.collator.clone(), self.validator.clone(), self.key.clone())]
-	}
-}
 
 /// Test-case makes sure that `Runtime` can receive native asset from relay chain
 /// and can teleport it back and to the other parachains

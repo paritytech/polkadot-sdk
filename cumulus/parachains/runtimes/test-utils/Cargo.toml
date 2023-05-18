@@ -1,9 +1,9 @@
 [package]
-name = "asset-test-utils"
+name = "parachains-runtimes-test-utils"
 version = "1.0.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
-description = "Statemint parachain runtime"
+description = "Utils for Runtimes testing"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
@@ -21,17 +21,16 @@ sp-std = { git = "https://github.com/paritytech/substrate", default-features = f
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 # Cumulus
-cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false }
-cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false }
-cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue", default-features = false }
-pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
-parachains-common = { path = "../../../common", default-features = false }
-assets-common = { path = "../common", default-features = false }
-cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
-cumulus-primitives-parachain-inherent = { path = "../../../../primitives/parachain-inherent", default-features = false }
-cumulus-test-relay-sproof-builder = { path = "../../../../test/relay-sproof-builder", default-features = false }
-parachain-info = { path = "../../../../parachains/pallets/parachain-info", default-features = false }
-parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false }
+cumulus-pallet-parachain-system = { path = "../../../pallets/parachain-system", default-features = false }
+cumulus-pallet-xcmp-queue = { path = "../../../pallets/xcmp-queue", default-features = false }
+cumulus-pallet-dmp-queue = { path = "../../../pallets/dmp-queue", default-features = false }
+pallet-collator-selection = { path = "../../../pallets/collator-selection", default-features = false }
+parachains-common = { path = "../../common", default-features = false }
+assets-common = { path = "../assets/common", default-features = false }
+cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
+cumulus-primitives-parachain-inherent = { path = "../../../primitives/parachain-inherent", default-features = false }
+cumulus-test-relay-sproof-builder = { path = "../../../test/relay-sproof-builder", default-features = false }
+parachain-info = { path = "../../../parachains/pallets/parachain-info", default-features = false }
 
 # Polkadot
 xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
@@ -48,29 +47,28 @@ substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", bran
 [features]
 default = [ "std" ]
 std = [
-    "cumulus-pallet-parachain-system/std",
-    "cumulus-primitives-core/std",
-    "cumulus-test-relay-sproof-builder/std",
-    "cumulus-primitives-parachain-inherent/std",
-    "frame-support/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-primitives-core/std",
+	"cumulus-test-relay-sproof-builder/std",
+	"cumulus-primitives-parachain-inherent/std",
+	"frame-support/std",
 	"frame-system/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
 	"cumulus-pallet-parachain-system/std",
 	"pallet-collator-selection/std",
-    "pallet-session/std",
-    "assets-common/std",
-    "parachains-common/std",
+	"pallet-session/std",
+	"assets-common/std",
+	"parachains-common/std",
 	"parachain-info/std",
-	"parachains-runtimes-test-utils/std",
 	"polkadot-parachain/std",
-    "sp-consensus-aura/std",
-    "sp-io/std",
-    "sp-runtime/std",
-    "sp-std/std",
-    "xcm/std",
-    "xcm-executor/std",
-    "pallet-xcm/std",
-    "cumulus-pallet-xcmp-queue/std",
-    "cumulus-pallet-dmp-queue/std",
+	"sp-consensus-aura/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm/std",
+	"xcm-executor/std",
+	"pallet-xcm/std",
+	"cumulus-pallet-xcmp-queue/std",
+	"cumulus-pallet-dmp-queue/std",
 ]
