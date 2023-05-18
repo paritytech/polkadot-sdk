@@ -19,10 +19,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use bp_header_chain::justification::{required_justification_precommits, GrandpaJustification};
+use bp_parachains::parachain_head_storage_key_at_source;
+use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
+use bp_runtime::record_all_trie_keys;
 use codec::Encode;
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, AuthorityWeight, SetId};
 use sp_runtime::traits::{Header as HeaderT, One, Zero};
 use sp_std::prelude::*;
+use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 
 // Re-export all our test account utilities
 pub use keyring::*;
@@ -31,6 +35,7 @@ mod keyring;
 
 pub const TEST_GRANDPA_ROUND: u64 = 1;
 pub const TEST_GRANDPA_SET_ID: SetId = 1;
+pub const PARAS_PALLET_NAME: &str = "Paras";
 
 /// Configuration parameters when generating test GRANDPA justifications.
 #[derive(Clone)]
@@ -161,6 +166,33 @@ fn generate_chain<H: HeaderT>(fork_id: u32, depth: u32, ancestor: &H) -> Vec<H> 
 	headers
 }
 
+/// Make valid proof for parachain `heads`
+pub fn prepare_parachain_heads_proof<H: HeaderT>(
+	heads: Vec<(u32, ParaHead)>,
+) -> (H::Hash, ParaHeadsProof, Vec<(ParaId, ParaHash)>) {
+	let mut parachains = Vec::with_capacity(heads.len());
+	let mut root = Default::default();
+	let mut mdb = MemoryDB::default();
+	{
+		let mut trie = TrieDBMutBuilderV1::<H::Hashing>::new(&mut mdb, &mut root).build();
+		for (parachain, head) in heads {
+			let storage_key =
+				parachain_head_storage_key_at_source(PARAS_PALLET_NAME, ParaId(parachain));
+			trie.insert(&storage_key.0, &head.encode())
+				.map_err(|_| "TrieMut::insert has failed")
+				.expect("TrieMut::insert should not fail in tests");
+			parachains.push((ParaId(parachain), head.hash()));
+		}
+	}
+
+	// generate storage proof to be delivered to This chain
+	let storage_proof = record_all_trie_keys::<LayoutV1<H::Hashing>, _>(&mdb, &root)
+		.map_err(|_| "record_all_trie_keys has failed")
+		.expect("record_all_trie_keys should not fail in benchmarks");
+
+	(root, ParaHeadsProof(storage_proof), parachains)
+}
+
 /// Create signed precommit with given target.
 pub fn signed_precommit<H: HeaderT>(
 	signer: &Account,
@@ -204,6 +236,15 @@ pub fn test_header<H: HeaderT>(number: H::Number) -> H {
 		header.set_parent_hash(parent_hash);
 	}
 
+	header
+}
+
+/// Get a header for testing with given `state_root`.
+///
+/// The correct parent hash will be used if given a non-zero header.
+pub fn test_header_with_root<H: HeaderT>(number: H::Number, state_root: H::Hash) -> H {
+	let mut header: H = test_header(number);
+	header.set_state_root(state_root);
 	header
 }
 
