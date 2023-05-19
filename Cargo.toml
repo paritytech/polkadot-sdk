@@ -217,6 +217,7 @@ members = [
 	"substrate/client/keystore",
 	"substrate/client/merkle-mountain-range",
 	"substrate/client/merkle-mountain-range/rpc",
+	"substrate/client/mixnet",
 	"substrate/client/network-gossip",
 	"substrate/client/network",
 	"substrate/client/network/bitswap",
