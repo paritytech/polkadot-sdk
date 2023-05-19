@@ -182,7 +182,11 @@ where
 	// update runtime storage
 	let (_, bridged_header_hash) = insert_header_to_grandpa_pallet::<R, FI>(state_root);
 
-	FromBridgedChainMessagesDeliveryProof { bridged_header_hash, storage_proof, lane }
+	FromBridgedChainMessagesDeliveryProof {
+		bridged_header_hash: bridged_header_hash.into(),
+		storage_proof,
+		lane,
+	}
 }
 
 /// Prepare proof of messages delivery for the `receive_messages_delivery_proof` call.
@@ -207,7 +211,11 @@ where
 	let (_, bridged_header_hash) =
 		insert_header_to_parachains_pallet::<R, PI, UnderlyingChainOf<BridgedChain<B>>>(state_root);
 
-	FromBridgedChainMessagesDeliveryProof { bridged_header_hash, storage_proof, lane }
+	FromBridgedChainMessagesDeliveryProof {
+		bridged_header_hash: bridged_header_hash.into(),
+		storage_proof,
+		lane,
+	}
 }
 
 /// Prepare in-memory message delivery proof, without inserting anything to the runtime storage.

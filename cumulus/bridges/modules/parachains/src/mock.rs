@@ -250,9 +250,10 @@ impl pallet_bridge_parachains::benchmarking::Config<()> for TestRuntime {
 	) {
 		// in mock run we only care about benchmarks correctness, not the benchmark results
 		// => ignore size related arguments
-		let (state_root, proof, parachains) = crate::tests::prepare_parachain_heads_proof(
-			parachains.iter().map(|p| (p.0, crate::tests::head_data(p.0, 1))).collect(),
-		);
+		let (state_root, proof, parachains) =
+			bp_test_utils::prepare_parachain_heads_proof::<RegularParachainHeader>(
+				parachains.iter().map(|p| (p.0, crate::tests::head_data(p.0, 1))).collect(),
+			);
 		let relay_genesis_hash = crate::tests::initialize(state_root);
 		(0, relay_genesis_hash, proof, parachains)
 	}
