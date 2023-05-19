@@ -1,0 +1,37 @@
+[package]
+name = "xcm-emulator"
+description = "Test kit to emulate XCM program execution."
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0" }
+paste = "1.0.5"
+quote = "1.0.23"
+casey = "0.3.3"
+log = { version = "0.4.17", default-features = false }
+
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+cumulus-primitives-core = { path = "../../primitives/core"}
+cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue" }
+cumulus-pallet-dmp-queue = { path = "../../pallets/dmp-queue" }
+cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system" }
+cumulus-test-service = { path = "../../test/service" }
+parachain-info = { path = "../../parachains/pallets/parachain-info" }
+cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
+cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
+parachains-common = { path = "../../parachains/common" }
+
+xcm = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "master" }

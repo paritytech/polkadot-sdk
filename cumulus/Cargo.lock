@@ -1348,6 +1348,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "casey"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fabe85130dda9cf267715582ce6cf1ab581c8dfe3cb33f7065fee0f14e3fea14"
+dependencies = [
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4859,6 +4868,47 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "276ec31bcb4a9ee45f58bec6f9ec700ae4cf4f4f8f2fa7e06cb406bd5ffdd770"
 dependencies = [
  "num-traits",
+]
+
+[[package]]
+name = "integration-tests-common"
+version = "1.0.0"
+dependencies = [
+ "bridge-hub-kusama-runtime",
+ "bridge-hub-polkadot-runtime",
+ "collectives-polkadot-runtime",
+ "cumulus-primitives-core",
+ "frame-support",
+ "frame-system",
+ "kusama-runtime",
+ "kusama-runtime-constants",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-im-online",
+ "pallet-staking",
+ "pallet-xcm",
+ "parachain-info",
+ "parachains-common",
+ "parity-scale-codec",
+ "penpal-runtime",
+ "polkadot-core-primitives",
+ "polkadot-parachain",
+ "polkadot-primitives",
+ "polkadot-runtime",
+ "polkadot-runtime-constants",
+ "polkadot-runtime-parachains",
+ "polkadot-service",
+ "sc-consensus-grandpa",
+ "sp-authority-discovery",
+ "sp-consensus-babe",
+ "sp-core",
+ "sp-runtime",
+ "sp-weights",
+ "statemine-runtime",
+ "statemint-runtime",
+ "xcm",
+ "xcm-emulator",
+ "xcm-executor",
 ]
 
 [[package]]
@@ -13537,6 +13587,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "statemint-it"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "integration-tests-common",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "penpal-runtime",
+ "polkadot-core-primitives",
+ "polkadot-parachain",
+ "polkadot-runtime",
+ "polkadot-runtime-parachains",
+ "sp-core",
+ "sp-runtime",
+ "sp-weights",
+ "statemint-runtime",
+ "xcm",
+ "xcm-emulator",
+ "xcm-executor",
+]
+
+[[package]]
 name = "statemint-runtime"
 version = "1.0.0"
 dependencies = [
@@ -16054,6 +16130,38 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "xcm",
+ "xcm-executor",
+]
+
+[[package]]
+name = "xcm-emulator"
+version = "0.1.0"
+dependencies = [
+ "casey",
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcmp-queue",
+ "cumulus-primitives-core",
+ "cumulus-primitives-parachain-inherent",
+ "cumulus-test-relay-sproof-builder",
+ "cumulus-test-service",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "parachain-info",
+ "parachains-common",
+ "parity-scale-codec",
+ "paste",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "quote",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-std",
+ "sp-trie",
  "xcm",
  "xcm-executor",
 ]
