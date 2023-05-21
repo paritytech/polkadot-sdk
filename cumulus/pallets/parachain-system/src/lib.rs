@@ -233,13 +233,13 @@ pub mod pallet {
 			};
 
 			<PendingUpwardMessages<T>>::mutate(|up| {
-				let (count, size) = relevant_messaging_state.relay_dispatch_queue_size;
+				let queue_size = relevant_messaging_state.relay_dispatch_queue_size;
 
 				let available_capacity = cmp::min(
-					host_config.max_upward_queue_count.saturating_sub(count),
-					host_config.max_upward_message_num_per_candidate,
+					queue_size.remaining_count,
+					host_config.max_upward_message_num_per_candidate.into(),
 				);
-				let available_size = host_config.max_upward_queue_size.saturating_sub(size);
+				let available_size = queue_size.remaining_size;
 
 				// Count the number of messages we can possibly fit in the given constraints, i.e.
 				// available_capacity and available_size.
@@ -431,7 +431,7 @@ pub mod pallet {
 				.read_abridged_host_configuration()
 				.expect("Invalid host configuration in relay chain state proof");
 			let relevant_messaging_state = relay_state_proof
-				.read_messaging_state_snapshot()
+				.read_messaging_state_snapshot(&host_config)
 				.expect("Invalid messaging state in relay chain state proof");
 
 			<ValidationData<T>>::put(&vfp);

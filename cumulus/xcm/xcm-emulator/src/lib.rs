@@ -18,8 +18,8 @@ pub use casey::pascal;
 pub use codec::Encode;
 pub use frame_support::{
 	sp_runtime::BuildStorage,
-	traits::{Get, Hooks},
-	weights::Weight,
+	traits::{EnqueueMessage, Get, Hooks, ProcessMessage, ProcessMessageError, ServiceQueues},
+	weights::{Weight, WeightMeter},
 };
 pub use frame_system::AccountInfo;
 pub use log;
@@ -41,13 +41,14 @@ pub use cumulus_primitives_core::{
 pub use cumulus_primitives_parachain_inherent::ParachainInherentData;
 pub use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 pub use cumulus_test_service::get_account_id_from_seed;
+pub use pallet_message_queue;
 pub use parachain_info;
 pub use parachains_common::{AccountId, BlockNumber};
 
 pub use polkadot_primitives;
 pub use polkadot_runtime_parachains::{
 	dmp,
-	ump::{MessageId, UmpSink, XcmSink},
+	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 pub use std::{collections::HashMap, thread::LocalKey};
 pub use xcm::{v3::prelude::*, VersionedXcm};
@@ -164,7 +165,7 @@ pub trait NetworkComponent<N: Network> {
 	}
 }
 
-pub trait RelayChain: UmpSink {
+pub trait RelayChain: ProcessMessage {
 	type Runtime;
 	type RuntimeOrigin;
 	type RuntimeCall;
@@ -198,14 +199,15 @@ macro_rules! decl_test_relay_chains {
 				genesis = $genesis:expr,
 				on_init = $on_init:expr,
 				runtime = {
-					Runtime: $($runtime:tt)::*,
-					RuntimeOrigin: $($runtime_origin:tt)::*,
-					RuntimeCall: $($runtime_call:tt)::*,
-					RuntimeEvent: $($runtime_event:tt)::*,
-					XcmConfig: $($xcm_config:tt)::*,
-					SovereignAccountOf: $($sovereign_acc_of:tt)::*,
-					System: $($system:tt)::*,
-					Balances: $($balances:tt)::*,
+					Runtime: $runtime:path,
+					RuntimeOrigin: $runtime_origin:path,
+					RuntimeCall: $runtime_call:path,
+					RuntimeEvent: $runtime_event:path,
+					MessageQueue: $mq:path,
+					XcmConfig: $xcm_config:path,
+					SovereignAccountOf: $sovereign_acc_of:path,
+					System: $system:path,
+					Balances: $balances:path,
 				},
 				pallets_extra = {
 					$($pallet_name:ident: $pallet_path:path,)*
@@ -218,14 +220,14 @@ macro_rules! decl_test_relay_chains {
 			pub struct $name;
 
 			impl RelayChain for $name {
-				type Runtime = $($runtime)::*;
-				type RuntimeOrigin = $($runtime_origin)::*;
-				type RuntimeCall = $($runtime_call)::*;
-				type RuntimeEvent = $($runtime_event)::*;
-				type XcmConfig = $($xcm_config)::*;
-				type SovereignAccountOf = $($sovereign_acc_of)::*;
-				type System = $($system)::*;
-				type Balances = $($balances)::*;
+				type Runtime = $runtime;
+				type RuntimeOrigin = $runtime_origin;
+				type RuntimeCall = $runtime_call;
+				type RuntimeEvent = $runtime_event;
+				type XcmConfig = $xcm_config;
+				type SovereignAccountOf = $sovereign_acc_of;
+				type System = $system;
+				type Balances = $balances;
 			}
 
 			$crate::paste::paste! {
@@ -242,31 +244,43 @@ macro_rules! decl_test_relay_chains {
 				}
 			}
 
-			$crate::__impl_xcm_handlers_for_relay_chain!($name);
+			impl $crate::ProcessMessage for $name {
+				type Origin = $crate::ParaId;
+
+				fn process_message(
+					msg: &[u8],
+					para: Self::Origin,
+					meter: &mut $crate::WeightMeter,
+				) -> Result<bool, $crate::ProcessMessageError> {
+					use $crate::{Weight, AggregateMessageOrigin, UmpQueueId, ServiceQueues, EnqueueMessage};
+					use $mq as message_queue;
+					use $runtime_event as runtime_event;
+
+					Self::execute_with(|| {
+						<$mq as EnqueueMessage<AggregateMessageOrigin>>::enqueue_message(
+							msg.try_into().expect("Message too long"),
+							AggregateMessageOrigin::Ump(UmpQueueId::Para(para.clone()))
+						);
+
+						<$system>::reset_events();
+						<$mq as ServiceQueues>::service_queues(Weight::MAX);
+						let events = <$system>::events();
+						let event = events.last().expect("There must be at least one event");
+
+						match &event.event {
+							runtime_event::MessageQueue(
+								$crate::pallet_message_queue::Event::Processed {origin, ..}) => {
+								assert_eq!(origin, &AggregateMessageOrigin::Ump(UmpQueueId::Para(para)));
+							},
+							event => panic!("Unexpected event: {:#?}", event),
+						}
+						Ok(true)
+					})
+				}
+			}
+
 			$crate::__impl_test_ext_for_relay_chain!($name, $genesis, $on_init);
 		)+
-	};
-}
-
-#[macro_export]
-macro_rules! __impl_xcm_handlers_for_relay_chain {
-	($name:ident) => {
-		impl $crate::UmpSink for $name {
-			fn process_upward_message(
-				origin: $crate::ParaId,
-				msg: &[u8],
-				max_weight: $crate::Weight,
-			) -> Result<$crate::Weight, ($crate::MessageId, $crate::Weight)> {
-				use $crate::{TestExt, UmpSink};
-
-				Self::execute_with(|| {
-					$crate::XcmSink::<
-						$crate::XcmExecutor<<Self as RelayChain>::XcmConfig>,
-						<Self as RelayChain>::Runtime,
-					>::process_upward_message(origin, msg, max_weight)
-				})
-			}
-		}
 	};
 }
 
@@ -800,12 +814,13 @@ macro_rules! decl_test_networks {
 				}
 
 				fn _process_upward_messages() {
-					use $crate::{UmpSink, Bounded};
+					use $crate::{Bounded, ProcessMessage, WeightMeter};
 					while let Some((from_para_id, msg)) = $crate::UPWARD_MESSAGES.with(|b| b.borrow_mut().get_mut(stringify!($name)).unwrap().pop_front()) {
-						let _ =  <$relay_chain>::process_upward_message(
-							from_para_id.into(),
+						let mut weight_meter = WeightMeter::max_limit();
+						let _ =  <$relay_chain>::process_message(
 							&msg[..],
-							$crate::Weight::max_value(),
+							from_para_id.into(),
+							&mut weight_meter,
 						);
 					}
 				}

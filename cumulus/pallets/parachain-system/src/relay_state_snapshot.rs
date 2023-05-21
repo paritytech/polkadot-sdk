@@ -24,6 +24,17 @@ use sp_state_machine::{Backend, TrieBackend, TrieBackendBuilder};
 use sp_std::vec::Vec;
 use sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
 
+/// The capacity of the upward message queue of a parachain on the relay chain.
+// The field order should stay the same as the data can be found in the proof to ensure both are
+// have the same encoded representation.
+#[derive(Clone, Encode, Decode, TypeInfo, Default)]
+pub struct RelayDispachQueueSize {
+	/// The number of additional messages that can be enqueued.
+	pub remaining_count: u32,
+	/// The total size of additional messages that can be enqueued.
+	pub remaining_size: u32,
+}
+
 /// A snapshot of some messaging related state of relay chain pertaining to the current parachain.
 ///
 /// This data is essential for making sure that the parachain is aware of current resource use on
@@ -37,10 +48,7 @@ pub struct MessagingStateSnapshot {
 	pub dmq_mqc_head: relay_chain::Hash,
 
 	/// The current capacity of the upward message queue of the current parachain on the relay chain.
-	///
-	/// The capacity is represented by a tuple that consist of the `count` of the messages and the
-	/// `total_size` expressed as the sum of byte sizes of all messages in the queue.
-	pub relay_dispatch_queue_size: (u32, u32),
+	pub relay_dispatch_queue_size: RelayDispachQueueSize,
 
 	/// Information about all the inbound HRMP channels.
 	///
@@ -164,7 +172,10 @@ impl RelayChainStateProof {
 	/// Read the [`MessagingStateSnapshot`] from the relay chain state proof.
 	///
 	/// Returns an error if anything failed at reading or decoding.
-	pub fn read_messaging_state_snapshot(&self) -> Result<MessagingStateSnapshot, Error> {
+	pub fn read_messaging_state_snapshot(
+		&self,
+		host_config: &AbridgedHostConfiguration,
+	) -> Result<MessagingStateSnapshot, Error> {
 		let dmq_mqc_head: relay_chain::Hash = read_entry(
 			&self.trie_backend,
 			&relay_chain::well_known_keys::dmq_mqc_head(self.para_id),
@@ -172,12 +183,35 @@ impl RelayChainStateProof {
 		)
 		.map_err(Error::DmqMqcHead)?;
 
-		let relay_dispatch_queue_size: (u32, u32) = read_entry(
+		let relay_dispatch_queue_size = read_optional_entry::<RelayDispachQueueSize, _>(
 			&self.trie_backend,
-			&relay_chain::well_known_keys::relay_dispatch_queue_size(self.para_id),
-			Some((0, 0)),
-		)
-		.map_err(Error::RelayDispatchQueueSize)?;
+			&relay_chain::well_known_keys::relay_dispatch_queue_remaining_capacity(self.para_id)
+				.key,
+		);
+
+		// TODO paritytech/polkadot#6283: Remove all usages of `relay_dispatch_queue_size`
+		//
+		// When the relay chain and all parachains support `relay_dispatch_queue_remaining_capacity`,
+		// this code here needs to be removed and above needs to be changed to `read_entry` that
+		// returns an error if `relay_dispatch_queue_remaining_capacity` can not be found/decoded.
+		//
+		// For now we just fallback to the old dispatch queue size if there is an error.
+		let relay_dispatch_queue_size = match relay_dispatch_queue_size {
+			Ok(Some(r)) => r,
+			_ => {
+				let res = read_entry::<(u32, u32), _>(
+					&self.trie_backend,
+					#[allow(deprecated)]
+					&relay_chain::well_known_keys::relay_dispatch_queue_size(self.para_id),
+					Some((0, 0)),
+				)
+				.map_err(Error::RelayDispatchQueueSize)?;
+
+				let remaining_count = host_config.max_upward_queue_count.saturating_sub(res.0);
+				let remaining_size = host_config.max_upward_queue_size.saturating_sub(res.1);
+				RelayDispachQueueSize { remaining_count, remaining_size }
+			},
+		};
 
 		let ingress_channel_index: Vec<ParaId> = read_entry(
 			&self.trie_backend,

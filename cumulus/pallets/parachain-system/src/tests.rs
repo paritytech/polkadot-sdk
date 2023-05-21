@@ -513,7 +513,7 @@ fn send_upward_message_num_per_candidate() {
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, _, sproof| {
 			sproof.host_config.max_upward_message_num_per_candidate = 1;
-			sproof.relay_dispatch_queue_size = None;
+			sproof.relay_dispatch_queue_remaining_capacity = None;
 		})
 		.add_with_post_test(
 			1,
@@ -544,8 +544,8 @@ fn send_upward_message_relay_bottleneck() {
 			sproof.host_config.max_upward_queue_count = 5;
 
 			match relay_block_num {
-				1 => sproof.relay_dispatch_queue_size = Some((5, 0)),
-				2 => sproof.relay_dispatch_queue_size = Some((4, 0)),
+				1 => sproof.relay_dispatch_queue_remaining_capacity = Some((0, 2048)),
+				2 => sproof.relay_dispatch_queue_remaining_capacity = Some((1, 2048)),
 				_ => unreachable!(),
 			}
 		})

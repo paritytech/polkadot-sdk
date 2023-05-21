@@ -20,6 +20,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-message-queue = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 cumulus-primitives-core = { path = "../../primitives/core"}
 cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue" }
