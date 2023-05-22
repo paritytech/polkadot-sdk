@@ -8,7 +8,7 @@
     "/dns/westend-bridge-hub-collator-node-2.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWPXqdRRthjKAMPFtaXUK7yBxsvh83QsmzXzALA3inoJfo",
     "/dns/westend-bridge-hub-collator-node-3.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWAp2YpVaiNBy7rozEHJGocDpaLFt3VFZsGMBEYh4BoEz7",
     "/dns/westend-bridge-hub-boot-ng.dwellir.com/tcp/30338/p2p/12D3KooWJWWRYTAwBLqYkh7iMBGDr5ouJ3MHj7M3fZ7zWS4zEk6F",
-    "/dns/westend-bridge-hub-boot-ng.dwellir.com//tcp/443/wss/p2p/12D3KooWJWWRYTAwBLqYkh7iMBGDr5ouJ3MHj7M3fZ7zWS4zEk6F"
+    "/dns/westend-bridge-hub-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWJWWRYTAwBLqYkh7iMBGDr5ouJ3MHj7M3fZ7zWS4zEk6F"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

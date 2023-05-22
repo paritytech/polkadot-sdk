@@ -21,7 +21,7 @@
     "/dns/westmint.bootnode.amforc.com/tcp/30339/p2p/12D3KooWNjKeaANaeZxBAPctmx8jugSYzuw4vnSCJmEDPB5mtRd6",
     "/dns/westmint.bootnode.amforc.com/tcp/30333/wss/p2p/12D3KooWNjKeaANaeZxBAPctmx8jugSYzuw4vnSCJmEDPB5mtRd6",
     "/dns/westmint-boot-ng.dwellir.com/tcp/30345/p2p/12D3KooWFZ9xqApB1wnFYkbe1qJ5Jqwxe2f3i8W25F3tKNXy59ux",
-    "/dns/westmint-boot-ng.dwellir.com//tcp/443/wss/p2p/12D3KooWFZ9xqApB1wnFYkbe1qJ5Jqwxe2f3i8W25F3tKNXy59ux"
+    "/dns/westmint-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWFZ9xqApB1wnFYkbe1qJ5Jqwxe2f3i8W25F3tKNXy59ux"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
