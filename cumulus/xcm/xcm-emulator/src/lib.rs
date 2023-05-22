@@ -251,6 +251,7 @@ macro_rules! decl_test_relay_chains {
 					msg: &[u8],
 					para: Self::Origin,
 					meter: &mut $crate::WeightMeter,
+					_id: &mut XcmHash
 				) -> Result<bool, $crate::ProcessMessageError> {
 					use $crate::{Weight, AggregateMessageOrigin, UmpQueueId, ServiceQueues, EnqueueMessage};
 					use $mq as message_queue;
@@ -815,12 +816,14 @@ macro_rules! decl_test_networks {
 
 				fn _process_upward_messages() {
 					use $crate::{Bounded, ProcessMessage, WeightMeter};
+					use sp_core::Encode;
 					while let Some((from_para_id, msg)) = $crate::UPWARD_MESSAGES.with(|b| b.borrow_mut().get_mut(stringify!($name)).unwrap().pop_front()) {
 						let mut weight_meter = WeightMeter::max_limit();
 						let _ =  <$relay_chain>::process_message(
 							&msg[..],
 							from_para_id.into(),
 							&mut weight_meter,
+							&mut msg.using_encoded(sp_core::blake2_256),
 						);
 					}
 				}
