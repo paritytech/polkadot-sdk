@@ -90,11 +90,11 @@ pub(crate) mod import_kusama_fellowship {
 		<T as frame_system::Config>::AccountId: From<[u8; 32]>,
 	{
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 			let onchain_version = RankedCollective::<T, I>::on_chain_storage_version();
-			assert_eq!(onchain_version, 0, "the storage version must be 0.");
+			ensure!(onchain_version == 0, "the storage version must be 0.");
 			let member_count = MemberCount::<T, I>::get(0);
-			assert_eq!(member_count, 0, "the collective must be uninitialized.");
+			ensure!(member_count == 0, "the collective must be uninitialized.");
 
 			Ok(Vec::new())
 		}
@@ -143,15 +143,15 @@ pub(crate) mod import_kusama_fellowship {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
-			assert_eq!(MemberCount::<T, I>::get(0), 47, "invalid members count at rank 0.");
-			assert_eq!(MemberCount::<T, I>::get(1), 47, "invalid members count at rank 1.");
-			assert_eq!(MemberCount::<T, I>::get(2), 24, "invalid members count at rank 2.");
-			assert_eq!(MemberCount::<T, I>::get(3), 17, "invalid members count at rank 3.");
-			assert_eq!(MemberCount::<T, I>::get(4), 10, "invalid members count at rank 4.");
-			assert_eq!(MemberCount::<T, I>::get(5), 7, "invalid members count at rank 5.");
-			assert_eq!(MemberCount::<T, I>::get(6), 3, "invalid members count at rank 6.");
-			assert_eq!(MemberCount::<T, I>::get(7), 0, "invalid members count at rank 7.");
+		fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			ensure!(MemberCount::<T, I>::get(0) == 47, "invalid members count at rank 0.");
+			ensure!(MemberCount::<T, I>::get(1) == 47, "invalid members count at rank 1.");
+			ensure!(MemberCount::<T, I>::get(2) == 24, "invalid members count at rank 2.");
+			ensure!(MemberCount::<T, I>::get(3) == 17, "invalid members count at rank 3.");
+			ensure!(MemberCount::<T, I>::get(4) == 10, "invalid members count at rank 4.");
+			ensure!(MemberCount::<T, I>::get(5) == 7, "invalid members count at rank 5.");
+			ensure!(MemberCount::<T, I>::get(6) == 3, "invalid members count at rank 6.");
+			ensure!(MemberCount::<T, I>::get(7) == 0, "invalid members count at rank 7.");
 			Ok(())
 		}
 	}
