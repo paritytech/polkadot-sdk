@@ -1349,9 +1349,9 @@ dependencies = [
 
 [[package]]
 name = "casey"
-version = "0.3.3"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fabe85130dda9cf267715582ce6cf1ab581c8dfe3cb33f7065fee0f14e3fea14"
+checksum = "614586263949597dcc18675da12ef9b429135e13628d92eb8b8c6fa50ca5656b"
 dependencies = [
  "syn 1.0.109",
 ]
