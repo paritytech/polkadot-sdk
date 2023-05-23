@@ -17,6 +17,7 @@ async function connect(endpoint, types = {}) {
 function writeHexEncodedBytesToOutput(method, outputFile) {
 	console.log("Payload (hex): ", method.toHex());
 	console.log("Payload (bytes): ", Array.from(method.toU8a()));
+	console.log("Payload (plain): ", JSON.stringify(method));
 	fs.writeFileSync(outputFile, JSON.stringify(Array.from(method.toU8a())));
 }
 
@@ -91,6 +92,7 @@ function removeExporterConfig(endpoint, outputFile, bridgedNetwork) {
 }
 
 function forceCreateAsset(endpoint, outputFile, assetId, assetOwnerAccountId, isSufficient, minBalance) {
+	var isSufficient = isSufficient == "true" ? true : false;
 	console.log(`Generating forceCreateAsset from RPC endpoint: ${endpoint} to outputFile: ${outputFile} based on assetId: ${assetId}, assetOwnerAccountId: ${assetOwnerAccountId}, isSufficient: ${isSufficient}, minBalance: ${minBalance}`);
 	connect(endpoint)
 		.then((api) => {
