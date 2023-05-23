@@ -271,6 +271,9 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					pallet_assets::Call::transfer_approved { .. } |
 					pallet_assets::Call::touch { .. } |
 					pallet_assets::Call::refund { .. },
+			) | RuntimeCall::NftFractionalization(
+				pallet_nft_fractionalization::Call::fractionalize { .. } |
+					pallet_nft_fractionalization::Call::unify { .. },
 			) | RuntimeCall::Nfts(
 				pallet_nfts::Call::create { .. } |
 					pallet_nfts::Call::force_create { .. } |

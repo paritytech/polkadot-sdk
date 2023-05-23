@@ -6707,7 +6707,7 @@ dependencies = [
 [[package]]
 name = "pallet-alliance"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=master#784ac7e9cf42a88cf5ad105281633f705688bae9"
+source = "git+https://github.com/paritytech/substrate?branch=master#bc3ce835964347166414203d68dccc26b9e9044f"
 dependencies = [
  "array-bytes 4.2.0",
  "frame-benchmarking",
@@ -6728,7 +6728,7 @@ dependencies = [
 [[package]]
 name = "pallet-asset-tx-payment"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=master#784ac7e9cf42a88cf5ad105281633f705688bae9"
+source = "git+https://github.com/paritytech/substrate?branch=master#bc3ce835964347166414203d68dccc26b9e9044f"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6746,7 +6746,7 @@ dependencies = [
 [[package]]
 name = "pallet-assets"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=master#784ac7e9cf42a88cf5ad105281633f705688bae9"
+source = "git+https://github.com/paritytech/substrate?branch=master#bc3ce835964347166414203d68dccc26b9e9044f"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6761,7 +6761,7 @@ dependencies = [
 [[package]]
 name = "pallet-aura"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=master#784ac7e9cf42a88cf5ad105281633f705688bae9"
+source = "git+https://github.com/paritytech/substrate?branch=master#bc3ce835964347166414203d68dccc26b9e9044f"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7076,7 +7076,7 @@ dependencies = [
 [[package]]
 name = "pallet-contracts"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=master#784ac7e9cf42a88cf5ad105281633f705688bae9"
+source = "git+https://github.com/paritytech/substrate?branch=master#bc3ce835964347166414203d68dccc26b9e9044f"
 dependencies = [
  "bitflags",
  "environmental",
@@ -7106,7 +7106,7 @@ dependencies = [
 [[package]]
 name = "pallet-contracts-primitives"
 version = "7.0.0"
-source = "git+https://github.com/paritytech/substrate?branch=master#784ac7e9cf42a88cf5ad105281633f705688bae9"
+source = "git+https://github.com/paritytech/substrate?branch=master#bc3ce835964347166414203d68dccc26b9e9044f"
 dependencies = [
  "bitflags",
  "parity-scale-codec",
@@ -7119,7 +7119,7 @@ dependencies = [
 [[package]]
 name = "pallet-contracts-proc-macro"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=master#784ac7e9cf42a88cf5ad105281633f705688bae9"
+source = "git+https://github.com/paritytech/substrate?branch=master#bc3ce835964347166414203d68dccc26b9e9044f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7236,7 +7236,7 @@ dependencies = [
 [[package]]
 name = "pallet-glutton"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=master#784ac7e9cf42a88cf5ad105281633f705688bae9"
+source = "git+https://github.com/paritytech/substrate?branch=master#bc3ce835964347166414203d68dccc26b9e9044f"
 dependencies = [
  "blake2",
  "frame-benchmarking",
@@ -7330,7 +7330,7 @@ dependencies = [
 [[package]]
 name = "pallet-insecure-randomness-collective-flip"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=master#784ac7e9cf42a88cf5ad105281633f705688bae9"
+source = "git+https://github.com/paritytech/substrate?branch=master#bc3ce835964347166414203d68dccc26b9e9044f"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7411,9 +7411,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-nft-fractionalization"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate?branch=master#bc3ce835964347166414203d68dccc26b9e9044f"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-nfts",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-nfts"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=master#784ac7e9cf42a88cf5ad105281633f705688bae9"
+source = "git+https://github.com/paritytech/substrate?branch=master#bc3ce835964347166414203d68dccc26b9e9044f"
 dependencies = [
  "enumflags2",
  "frame-benchmarking",
@@ -7431,7 +7448,7 @@ dependencies = [
 [[package]]
 name = "pallet-nfts-runtime-api"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=master#784ac7e9cf42a88cf5ad105281633f705688bae9"
+source = "git+https://github.com/paritytech/substrate?branch=master#bc3ce835964347166414203d68dccc26b9e9044f"
 dependencies = [
  "frame-support",
  "pallet-nfts",
@@ -7896,7 +7913,7 @@ dependencies = [
 [[package]]
 name = "pallet-uniques"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=master#784ac7e9cf42a88cf5ad105281633f705688bae9"
+source = "git+https://github.com/paritytech/substrate?branch=master#bc3ce835964347166414203d68dccc26b9e9044f"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11300,7 +11317,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-aura"
 version = "0.10.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=master#784ac7e9cf42a88cf5ad105281633f705688bae9"
+source = "git+https://github.com/paritytech/substrate?branch=master#bc3ce835964347166414203d68dccc26b9e9044f"
 dependencies = [
  "async-trait",
  "futures",
@@ -13924,7 +13941,7 @@ dependencies = [
 [[package]]
 name = "substrate-test-utils"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=master#784ac7e9cf42a88cf5ad105281633f705688bae9"
+source = "git+https://github.com/paritytech/substrate?branch=master#bc3ce835964347166414203d68dccc26b9e9044f"
 dependencies = [
  "futures",
  "substrate-test-utils-derive",
@@ -13934,7 +13951,7 @@ dependencies = [
 [[package]]
 name = "substrate-test-utils-derive"
 version = "0.10.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=master#784ac7e9cf42a88cf5ad105281633f705688bae9"
+source = "git+https://github.com/paritytech/substrate?branch=master#bc3ce835964347166414203d68dccc26b9e9044f"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -15678,6 +15695,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-multisig",
+ "pallet-nft-fractionalization",
  "pallet-nfts",
  "pallet-nfts-runtime-api",
  "pallet-proxy",
