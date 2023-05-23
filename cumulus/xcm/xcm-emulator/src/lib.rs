@@ -27,7 +27,7 @@ pub use pallet_balances::AccountData;
 pub use paste;
 pub use sp_arithmetic::traits::Bounded;
 pub use sp_core::storage::Storage;
-pub use sp_io::TestExternalities;
+pub use sp_io;
 pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, marker::PhantomData};
 pub use sp_trie::StorageProof;
 
@@ -296,12 +296,12 @@ macro_rules! __impl_test_ext_for_relay_chain {
 	// impl
 	(@impl $name:ident, $genesis:expr, $on_init:expr, $ext_name:ident) => {
 		thread_local! {
-			pub static $ext_name: $crate::RefCell<$crate::TestExternalities>
+			pub static $ext_name: $crate::RefCell<$crate::sp_io::TestExternalities>
 				= $crate::RefCell::new(<$name>::build_new_ext($genesis));
 		}
 
 		impl TestExt for $name {
-			fn build_new_ext(storage: $crate::Storage) -> $crate::TestExternalities {
+			fn build_new_ext(storage: $crate::Storage) -> $crate::sp_io::TestExternalities {
 				let mut ext = sp_io::TestExternalities::new(storage);
 				ext.execute_with(|| {
 					#[allow(clippy::no_effect)]
@@ -312,7 +312,7 @@ macro_rules! __impl_test_ext_for_relay_chain {
 				ext
 			}
 
-			fn new_ext() -> $crate::TestExternalities {
+			fn new_ext() -> $crate::sp_io::TestExternalities {
 				<$name>::build_new_ext($genesis)
 			}
 
@@ -523,12 +523,12 @@ macro_rules! __impl_test_ext_for_parachain {
 	// impl
 	(@impl $name:ident, $genesis:expr, $on_init:expr, $ext_name:ident) => {
 		thread_local! {
-			pub static $ext_name: $crate::RefCell<$crate::TestExternalities>
+			pub static $ext_name: $crate::RefCell<$crate::sp_io::TestExternalities>
 				= $crate::RefCell::new(<$name>::build_new_ext($genesis));
 		}
 
 		impl TestExt for $name {
-			fn build_new_ext(storage: $crate::Storage) -> $crate::TestExternalities {
+			fn build_new_ext(storage: $crate::Storage) -> $crate::sp_io::TestExternalities {
 				let mut ext = sp_io::TestExternalities::new(storage);
 				ext.execute_with(|| {
 					#[allow(clippy::no_effect)]
@@ -539,7 +539,7 @@ macro_rules! __impl_test_ext_for_parachain {
 				ext
 			}
 
-			fn new_ext() -> $crate::TestExternalities {
+			fn new_ext() -> $crate::sp_io::TestExternalities {
 				<$name>::build_new_ext($genesis)
 			}
 

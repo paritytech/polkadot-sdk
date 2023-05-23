@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec::Extensions;
+use crate::chain_spec::{get_account_id_from_seed, Extensions};
 use cumulus_primitives_core::ParaId;
 use sc_service::ChainType;
+use sp_core::sr25519;
 
 /// Specialized `ChainSpec` for the Glutton parachain runtime.
 pub type GluttonChainSpec =
@@ -86,5 +87,13 @@ fn glutton_genesis(parachain_id: ParaId) -> glutton_runtime::GenesisConfig {
 		},
 		parachain_info: glutton_runtime::ParachainInfoConfig { parachain_id },
 		parachain_system: Default::default(),
+		glutton: glutton_runtime::GluttonConfig {
+			compute: Default::default(),
+			storage: Default::default(),
+			trash_data_count: Default::default(),
+		},
+		sudo: glutton_runtime::SudoConfig {
+			key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+		},
 	}
 }
