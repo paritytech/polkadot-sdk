@@ -354,7 +354,8 @@ impl TryFrom<OldWeightLimit> for WeightLimit {
 	fn try_from(x: OldWeightLimit) -> result::Result<Self, ()> {
 		use OldWeightLimit::*;
 		match x {
-			Limited(w) => Ok(Self::Limited(Weight::from_parts(w, DEFAULT_PROOF_SIZE))),
+			// To support xcm v2 messages with limited weight, we need to buy a lot of PoV
+			Limited(w) => Ok(Self::Limited(Weight::from_parts(w, 5 * DEFAULT_PROOF_SIZE))),
 			Unlimited => Ok(Self::Unlimited),
 		}
 	}
