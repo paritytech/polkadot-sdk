@@ -103,12 +103,34 @@ pub mod api {
 					::core::primitive::u64,
 					runtime_types::bp_messages::ReceivalResult<_0>,
 				)>,
-				pub skipped_for_not_enough_weight: ::std::vec::Vec<::core::primitive::u64>,
 			}
 			#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
 			pub struct UnrewardedRelayer<_0> {
 				pub relayer: _0,
 				pub messages: runtime_types::bp_messages::DeliveredMessages,
+			}
+			#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
+			pub enum VerificationError {
+				#[codec(index = 0)]
+				EmptyMessageProof,
+				#[codec(index = 1)]
+				HeaderChain(runtime_types::bp_header_chain::HeaderChainError),
+				#[codec(index = 2)]
+				InboundLaneStorage(runtime_types::bp_runtime::storage_proof::Error),
+				#[codec(index = 3)]
+				InvalidMessageWeight,
+				#[codec(index = 4)]
+				MessagesCountMismatch,
+				#[codec(index = 5)]
+				MessageStorage(runtime_types::bp_runtime::storage_proof::Error),
+				#[codec(index = 6)]
+				MessageTooLarge,
+				#[codec(index = 7)]
+				OutboundLaneStorage(runtime_types::bp_runtime::storage_proof::Error),
+				#[codec(index = 8)]
+				StorageProof(runtime_types::bp_runtime::storage_proof::Error),
+				#[codec(index = 9)]
+				Other,
 			}
 		}
 		pub mod bp_parachains {
@@ -128,6 +150,14 @@ pub mod api {
 		}
 		pub mod bp_relayers {
 			use super::runtime_types;
+			pub mod registration {
+				use super::runtime_types;
+				#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
+				pub struct Registration<_0, _1> {
+					pub valid_till: _0,
+					pub stake: _1,
+				}
+			}
 			#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
 			pub enum RewardsAccountOwner {
 				#[codec(index = 0)]
@@ -427,17 +457,11 @@ pub mod api {
 			pub mod relay_state_snapshot {
 				use super::runtime_types;
 				#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
-				pub struct MessagingStateSnapshot {
-					pub dmq_mqc_head: ::subxt::utils::H256,
-					pub relay_dispatch_queue_size: (::core::primitive::u32, ::core::primitive::u32),
-					pub ingress_channels: ::std::vec::Vec<(
-						runtime_types::polkadot_parachain::primitives::Id,
-						runtime_types::polkadot_primitives::v4::AbridgedHrmpChannel,
-					)>,
-					pub egress_channels: ::std::vec::Vec<(
-						runtime_types::polkadot_parachain::primitives::Id,
-						runtime_types::polkadot_primitives::v4::AbridgedHrmpChannel,
-					)>,
+				pub struct MessagingStateSnapshot { pub dmq_mqc_head : :: subxt :: utils :: H256 , pub relay_dispatch_queue_size : runtime_types :: cumulus_pallet_parachain_system :: relay_state_snapshot :: RelayDispachQueueSize , pub ingress_channels : :: std :: vec :: Vec < (runtime_types :: polkadot_parachain :: primitives :: Id , runtime_types :: polkadot_primitives :: v4 :: AbridgedHrmpChannel ,) > , pub egress_channels : :: std :: vec :: Vec < (runtime_types :: polkadot_parachain :: primitives :: Id , runtime_types :: polkadot_primitives :: v4 :: AbridgedHrmpChannel ,) > , }
+				#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
+				pub struct RelayDispachQueueSize {
+					pub remaining_count: ::core::primitive::u32,
+					pub remaining_size: ::core::primitive::u32,
 				}
 			}
 			#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
@@ -1011,6 +1035,17 @@ pub mod api {
 					Issued { amount: ::core::primitive::u128 },
 					#[codec(index = 16)]
 					Rescinded { amount: ::core::primitive::u128 },
+					#[codec(index = 17)]
+					Locked { who: ::sp_core::crypto::AccountId32, amount: ::core::primitive::u128 },
+					#[codec(index = 18)]
+					Unlocked {
+						who: ::sp_core::crypto::AccountId32,
+						amount: ::core::primitive::u128,
+					},
+					#[codec(index = 19)]
+					Frozen { who: ::sp_core::crypto::AccountId32, amount: ::core::primitive::u128 },
+					#[codec(index = 20)]
+					Thawed { who: ::sp_core::crypto::AccountId32, amount: ::core::primitive::u128 },
 				}
 			}
 			pub mod types {
@@ -1102,18 +1137,16 @@ pub mod api {
 					#[codec(index = 1)]
 					InvalidAuthoritySet,
 					#[codec(index = 2)]
-					TooManyRequests,
-					#[codec(index = 3)]
 					OldHeader,
-					#[codec(index = 4)]
+					#[codec(index = 3)]
 					UnsupportedScheduledChange,
-					#[codec(index = 5)]
+					#[codec(index = 4)]
 					NotInitialized,
-					#[codec(index = 6)]
+					#[codec(index = 5)]
 					AlreadyInitialized,
-					#[codec(index = 7)]
+					#[codec(index = 6)]
 					TooManyAuthoritiesInSet,
-					#[codec(index = 8)]
+					#[codec(index = 7)]
 					BridgeModule(runtime_types::bp_runtime::OwnedBridgeModuleError),
 				}
 				#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
@@ -1139,6 +1172,20 @@ pub mod api {
 		}
 		pub mod pallet_bridge_messages {
 			use super::runtime_types;
+			pub mod outbound_lane {
+				use super::runtime_types;
+				#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
+				pub enum ReceivalConfirmationError {
+					#[codec(index = 0)]
+					FailedToConfirmFutureMessages,
+					#[codec(index = 1)]
+					EmptyUnrewardedRelayerEntry,
+					#[codec(index = 2)]
+					NonConsecutiveUnrewardedRelayerEntries,
+					#[codec(index = 3)]
+					TryingToConfirmMoreMessagesThanExpected,
+				}
+			}
 			pub mod pallet {
 				use super::runtime_types;
 				#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
@@ -1146,37 +1193,7 @@ pub mod api {
 					# [codec (index = 0)] set_owner { new_owner : :: core :: option :: Option < :: sp_core :: crypto :: AccountId32 > , } , # [codec (index = 1)] set_operating_mode { operating_mode : runtime_types :: bp_messages :: MessagesOperatingMode , } , # [codec (index = 2)] receive_messages_proof { relayer_id_at_bridged_chain : :: sp_core :: crypto :: AccountId32 , proof : :: bridge_runtime_common :: messages :: target :: FromBridgedChainMessagesProof < :: subxt :: utils :: H256 > , messages_count : :: core :: primitive :: u32 , dispatch_weight : :: sp_weights :: Weight , } , # [codec (index = 3)] receive_messages_delivery_proof { proof : :: bridge_runtime_common :: messages :: source :: FromBridgedChainMessagesDeliveryProof < :: subxt :: utils :: H256 > , relayers_state : :: bp_messages :: UnrewardedRelayersState , } , }
 				#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
 				pub enum Error {
-					#[codec(index = 0)]
-					NotOperatingNormally,
-					#[codec(index = 1)]
-					InactiveOutboundLane,
-					#[codec(index = 2)]
-					MessageIsTooLarge,
-					#[codec(index = 3)]
-					MessageRejectedByChainVerifier,
-					#[codec(index = 4)]
-					MessageRejectedByLaneVerifier,
-					#[codec(index = 5)]
-					FailedToWithdrawMessageFee,
-					#[codec(index = 6)]
-					TooManyMessagesInTheProof,
-					#[codec(index = 7)]
-					InvalidMessagesProof,
-					#[codec(index = 8)]
-					InvalidMessagesDeliveryProof,
-					#[codec(index = 9)]
-					InvalidUnrewardedRelayers,
-					#[codec(index = 10)]
-					InvalidUnrewardedRelayersState,
-					#[codec(index = 11)]
-					MessageIsAlreadyDelivered,
-					#[codec(index = 12)]
-					MessageIsNotYetSent,
-					#[codec(index = 13)]
-					TryingToConfirmMoreMessagesThanExpected,
-					#[codec(index = 14)]
-					BridgeModule(runtime_types::bp_runtime::OwnedBridgeModuleError),
-				}
+					# [codec (index = 0)] NotOperatingNormally , # [codec (index = 1)] InactiveOutboundLane , # [codec (index = 2)] MessageRejectedByChainVerifier (runtime_types :: bp_messages :: VerificationError ,) , # [codec (index = 3)] MessageRejectedByLaneVerifier (runtime_types :: bp_messages :: VerificationError ,) , # [codec (index = 4)] MessageRejectedByPallet (runtime_types :: bp_messages :: VerificationError ,) , # [codec (index = 5)] FailedToWithdrawMessageFee , # [codec (index = 6)] TooManyMessagesInTheProof , # [codec (index = 7)] InvalidMessagesProof , # [codec (index = 8)] InvalidMessagesDeliveryProof , # [codec (index = 9)] InvalidUnrewardedRelayersState , # [codec (index = 10)] InsufficientDispatchWeight , # [codec (index = 11)] MessageIsNotYetSent , # [codec (index = 12)] ReceivalConfirmation (runtime_types :: pallet_bridge_messages :: outbound_lane :: ReceivalConfirmationError ,) , # [codec (index = 13)] BridgeModule (runtime_types :: bp_runtime :: OwnedBridgeModuleError ,) , }
 				#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
 				pub enum Event {
 					# [codec (index = 0)] MessageAccepted { lane_id : runtime_types :: bp_messages :: LaneId , nonce : :: core :: primitive :: u64 , } , # [codec (index = 1)] MessagesReceived (:: std :: vec :: Vec < runtime_types :: bp_messages :: ReceivedMessages < runtime_types :: bridge_runtime_common :: messages_xcm_extension :: XcmBlobMessageDispatchResult > > ,) , # [codec (index = 2)] MessagesDelivered { lane_id : runtime_types :: bp_messages :: LaneId , messages : runtime_types :: bp_messages :: DeliveredMessages , } , }
@@ -1211,14 +1228,8 @@ pub mod api {
 					#[codec(index = 1)]
 					InvalidRelayChainBlockNumber,
 					#[codec(index = 2)]
-					HeaderChain(runtime_types::bp_header_chain::HeaderChainError),
+					HeaderChainStorageProof(runtime_types::bp_header_chain::HeaderChainError),
 					#[codec(index = 3)]
-					UnknownParaHead,
-					#[codec(index = 4)]
-					StorageRootMismatch,
-					#[codec(index = 5)]
-					FailedToExtractStateRoot,
-					#[codec(index = 6)]
 					BridgeModule(runtime_types::bp_runtime::OwnedBridgeModuleError),
 				}
 				#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
@@ -1262,6 +1273,10 @@ pub mod api {
 					claim_rewards {
 						rewards_account_params: runtime_types::bp_relayers::RewardsAccountParams,
 					},
+					#[codec(index = 1)]
+					register { valid_till: ::core::primitive::u32 },
+					#[codec(index = 2)]
+					deregister,
 				}
 				#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
 				pub enum Error {
@@ -1269,6 +1284,18 @@ pub mod api {
 					NoRewardForRelayer,
 					#[codec(index = 1)]
 					FailedToPayReward,
+					#[codec(index = 2)]
+					InvalidRegistrationLease,
+					#[codec(index = 3)]
+					CannotReduceRegistrationLease,
+					#[codec(index = 4)]
+					FailedToReserve,
+					#[codec(index = 5)]
+					FailedToUnreserve,
+					#[codec(index = 6)]
+					NotRegistered,
+					#[codec(index = 7)]
+					RegistrationIsStillActive,
 				}
 				#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
 				pub enum Event {
@@ -1277,6 +1304,24 @@ pub mod api {
 						relayer: ::sp_core::crypto::AccountId32,
 						rewards_account_params: runtime_types::bp_relayers::RewardsAccountParams,
 						reward: ::core::primitive::u128,
+					},
+					#[codec(index = 1)]
+					RegistrationUpdated {
+						relayer: ::sp_core::crypto::AccountId32,
+						registration: runtime_types::bp_relayers::registration::Registration<
+							::core::primitive::u32,
+							::core::primitive::u128,
+						>,
+					},
+					#[codec(index = 2)]
+					Deregistered { relayer: ::sp_core::crypto::AccountId32 },
+					#[codec(index = 3)]
+					SlashedAndDeregistered {
+						relayer: ::sp_core::crypto::AccountId32,
+						registration: runtime_types::bp_relayers::registration::Registration<
+							::core::primitive::u32,
+							::core::primitive::u128,
+						>,
 					},
 				}
 			}
@@ -1679,6 +1724,8 @@ pub mod api {
 						fee_asset_item: ::core::primitive::u32,
 						weight_limit: runtime_types::xcm::v3::WeightLimit,
 					},
+					#[codec(index = 10)]
+					force_suspension { suspended: ::core::primitive::bool },
 				}
 				#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
 				pub enum Error {
@@ -2090,6 +2137,8 @@ pub mod api {
 				Corruption,
 				#[codec(index = 12)]
 				Unavailable,
+				#[codec(index = 13)]
+				RootNotAllowed,
 			}
 			#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
 			pub struct ModuleError {
@@ -2125,6 +2174,8 @@ pub mod api {
 				CannotCreateHold,
 				#[codec(index = 8)]
 				NotExpendable,
+				#[codec(index = 9)]
+				Blocked,
 			}
 			#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
 			pub enum TransactionalError {
