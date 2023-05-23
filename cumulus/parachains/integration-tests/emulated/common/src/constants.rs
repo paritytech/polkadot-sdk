@@ -198,32 +198,12 @@ pub mod polkadot {
 				slash_reward_fraction: Perbill::from_percent(10),
 				..Default::default()
 			},
-			phragmen_election: Default::default(),
-			democracy: Default::default(),
-			council: polkadot_runtime::CouncilConfig {
-				members: vec![],
-				phantom: Default::default(),
-			},
-			technical_committee: polkadot_runtime::TechnicalCommitteeConfig {
-				members: vec![],
-				phantom: Default::default(),
-			},
-			technical_membership: Default::default(),
 			babe: polkadot_runtime::BabeConfig {
 				authorities: Default::default(),
 				epoch_config: Some(polkadot_runtime::BABE_GENESIS_EPOCH_CONFIG),
 			},
-			grandpa: Default::default(),
-			im_online: Default::default(),
-			authority_discovery: polkadot_runtime::AuthorityDiscoveryConfig { keys: vec![] },
-			claims: polkadot_runtime::ClaimsConfig { claims: vec![], vesting: vec![] },
-			vesting: polkadot_runtime::VestingConfig { vesting: vec![] },
-			treasury: Default::default(),
-			hrmp: Default::default(),
 			configuration: polkadot_runtime::ConfigurationConfig { config: get_host_config() },
-			paras: Default::default(),
-			xcm_pallet: Default::default(),
-			nomination_pools: Default::default(),
+			..Default::default()
 		};
 
 		genesis_config.build_storage().unwrap()
@@ -318,18 +298,8 @@ pub mod kusama {
 				authorities: Default::default(),
 				epoch_config: Some(kusama_runtime::BABE_GENESIS_EPOCH_CONFIG),
 			},
-			grandpa: Default::default(),
-			im_online: Default::default(),
-			authority_discovery: kusama_runtime::AuthorityDiscoveryConfig { keys: vec![] },
-			claims: kusama_runtime::ClaimsConfig { claims: vec![], vesting: vec![] },
-			vesting: kusama_runtime::VestingConfig { vesting: vec![] },
-			treasury: Default::default(),
-			hrmp: Default::default(),
 			configuration: kusama_runtime::ConfigurationConfig { config: get_host_config() },
-			paras: Default::default(),
-			xcm_pallet: Default::default(),
-			nomination_pools: Default::default(),
-			nis_counterpart_balances: Default::default(),
+			..Default::default()
 		};
 
 		genesis_config.build_storage().unwrap()
