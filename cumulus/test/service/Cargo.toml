@@ -12,7 +12,7 @@ path = "src/main.rs"
 async-trait = "0.1.68"
 clap = { version = "4.2.7", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
-criterion = { version = "0.4.0", features = [ "async_tokio" ] }
+criterion = { version = "0.5.0", features = [ "async_tokio" ] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 rand = "0.8.5"
 serde = { version = "1.0.163", features = ["derive"] }
