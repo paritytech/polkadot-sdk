@@ -161,7 +161,6 @@ pub mod polkadot {
 					.map(|k| (k, ED * 4096))
 					.collect(),
 			},
-			indices: polkadot_runtime::IndicesConfig { indices: vec![] },
 			session: polkadot_runtime::SessionConfig {
 				keys: validators::initial_authorities()
 					.iter()
@@ -214,7 +213,9 @@ pub mod polkadot {
 pub mod kusama {
 	use super::*;
 	pub const ED: Balance = kusama_runtime_constants::currency::EXISTENTIAL_DEPOSIT;
-	const STASH: u128 = 100 * kusama_runtime_constants::currency::UNITS;
+	use kusama_runtime_constants::currency::UNITS as KSM;
+	const ENDOWMENT: u128 = 1_000_000 * KSM;
+	const STASH: u128 = 100 * KSM;
 
 	pub fn get_host_config() -> HostConfiguration<BlockNumber> {
 		HostConfiguration {
@@ -253,11 +254,9 @@ pub mod kusama {
 			balances: kusama_runtime::BalancesConfig {
 				balances: accounts::init_balances()
 					.iter()
-					.cloned()
-					.map(|k| (k, ED * 4096))
+					.map(|k: &AccountId| (k.clone(), ENDOWMENT))
 					.collect(),
 			},
-			indices: kusama_runtime::IndicesConfig { indices: vec![] },
 			session: kusama_runtime::SessionConfig {
 				keys: validators::initial_authorities()
 					.iter()
@@ -278,8 +277,8 @@ pub mod kusama {
 					.collect::<Vec<_>>(),
 			},
 			staking: kusama_runtime::StakingConfig {
-				minimum_validator_count: 1,
 				validator_count: validators::initial_authorities().len() as u32,
+				minimum_validator_count: 1,
 				stakers: validators::initial_authorities()
 					.iter()
 					.map(|x| {

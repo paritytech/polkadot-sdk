@@ -13,6 +13,9 @@ As the messages do not physically go through the same messaging infrastructure
 there is some code that is not being tested compared to using slower E2E tests.
 In future it may be possible to run these XCM emulated tests as E2E tests (without changes).
 
+As well as the XCM message transport being mocked out, so too are areas around consensus, 
+in particular things like disputes, staking and iamonline events can't be tested.
+
 ## Alternatives
 
 If you just wish to test execution of various XCM instructions

@@ -40,9 +40,9 @@ decl_test_relay_chains! {
 		runtime = {
 			Runtime: kusama_runtime::Runtime,
 			RuntimeOrigin: kusama_runtime::RuntimeOrigin,
-			RuntimeCall: polkadot_runtime::RuntimeCall,
+			RuntimeCall: kusama_runtime::RuntimeCall,
 			RuntimeEvent: kusama_runtime::RuntimeEvent,
-			MessageQueue: polkadot_runtime::MessageQueue,
+			MessageQueue: kusama_runtime::MessageQueue,
 			XcmConfig: kusama_runtime::xcm_config::XcmConfig,
 			SovereignAccountOf: kusama_runtime::xcm_config::SovereignAccountOf,
 			System: kusama_runtime::System,
@@ -83,7 +83,7 @@ decl_test_parachains! {
 		runtime = {
 			Runtime: penpal_runtime::Runtime,
 			RuntimeOrigin: penpal_runtime::RuntimeOrigin,
-			RuntimeCall: penpal_runtime::RuntimeEvent,
+			RuntimeCall: penpal_runtime::RuntimeCall,
 			RuntimeEvent: penpal_runtime::RuntimeEvent,
 			XcmpMessageHandler: penpal_runtime::XcmpQueue,
 			DmpMessageHandler: penpal_runtime::DmpQueue,
@@ -105,7 +105,7 @@ decl_test_parachains! {
 		runtime = {
 			Runtime: statemine_runtime::Runtime,
 			RuntimeOrigin: statemine_runtime::RuntimeOrigin,
-			RuntimeCall: statemine_runtime::RuntimeEvent,
+			RuntimeCall: statemine_runtime::RuntimeCall,
 			RuntimeEvent: statemine_runtime::RuntimeEvent,
 			XcmpMessageHandler: statemine_runtime::XcmpQueue,
 			DmpMessageHandler: statemine_runtime::DmpQueue,
@@ -127,7 +127,7 @@ decl_test_parachains! {
 		runtime = {
 			Runtime: penpal_runtime::Runtime,
 			RuntimeOrigin: penpal_runtime::RuntimeOrigin,
-			RuntimeCall: penpal_runtime::RuntimeEvent,
+			RuntimeCall: penpal_runtime::RuntimeCall,
 			RuntimeEvent: penpal_runtime::RuntimeEvent,
 			XcmpMessageHandler: penpal_runtime::XcmpQueue,
 			DmpMessageHandler: penpal_runtime::DmpQueue,
@@ -148,7 +148,7 @@ decl_test_parachains! {
 		runtime = {
 			Runtime: collectives_polkadot_runtime::Runtime,
 			RuntimeOrigin: collectives_polkadot_runtime::RuntimeOrigin,
-			RuntimeCall: collectives_polkadot_runtime::RuntimeEvent,
+			RuntimeCall: collectives_polkadot_runtime::RuntimeCall,
 			RuntimeEvent: collectives_polkadot_runtime::RuntimeEvent,
 			XcmpMessageHandler: collectives_polkadot_runtime::XcmpQueue,
 			DmpMessageHandler: collectives_polkadot_runtime::DmpQueue,
@@ -168,7 +168,7 @@ decl_test_parachains! {
 		runtime = {
 			Runtime: bridge_hub_kusama_runtime::Runtime,
 			RuntimeOrigin: bridge_hub_kusama_runtime::RuntimeOrigin,
-			RuntimeCall: bridge_hub_kusama_runtime::RuntimeEvent,
+			RuntimeCall: bridge_hub_kusama_runtime::RuntimeCall,
 			RuntimeEvent: bridge_hub_kusama_runtime::RuntimeEvent,
 			XcmpMessageHandler: bridge_hub_kusama_runtime::XcmpQueue,
 			DmpMessageHandler: bridge_hub_kusama_runtime::DmpQueue,
@@ -188,7 +188,7 @@ decl_test_parachains! {
 		runtime = {
 			Runtime: bridge_hub_polkadot_runtime::Runtime,
 			RuntimeOrigin: bridge_hub_polkadot_runtime::RuntimeOrigin,
-			RuntimeCall: bridge_hub_polkadot_runtime::RuntimeEvent,
+			RuntimeCall: bridge_hub_polkadot_runtime::RuntimeCall,
 			RuntimeEvent: bridge_hub_polkadot_runtime::RuntimeEvent,
 			XcmpMessageHandler: bridge_hub_polkadot_runtime::XcmpQueue,
 			DmpMessageHandler: bridge_hub_polkadot_runtime::DmpQueue,
