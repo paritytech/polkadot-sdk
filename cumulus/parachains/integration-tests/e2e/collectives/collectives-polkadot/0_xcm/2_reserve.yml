@@ -7,11 +7,11 @@ settings:
       wsPort: 9710
       paraId: &cp_id 1001
   variables:
+    weight_threshold:  &weight_threshold { refTime: [10, 10], proofSize: [10, 10] }
     chains:
       accounts:
         alice_signer: &alice_signer //Alice
         alice_account32: &alice_acc32 '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d'
-        alice_ss58: &acc_alice_ss58 '15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5'
 
 tests:
   - name: Reserve assets from Relay Chain to Collectives Parachain fails
@@ -38,12 +38,16 @@ tests:
               ]
               events:
                 - name: xcmPallet.Attempted
-                  chain: *relay_chain
-                  attributes:
-                    - type: XcmV3TraitsOutcome
-                      xcmOutcome: Complete
+                  threshold: *weight_threshold
+                  result: [{ Complete: { refTime: '2,000,000,000', proofSize: 0 }}]
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
-                  attributes:
-                    - type: XcmV3TraitsOutcome
-                      xcmOutcome: Incomplete
+                  threshold: *weight_threshold
+                  result: {
+                    outcome: {
+                        Incomplete: [
+                          { refTime: '1,000,000,000', proofSize: 0 },
+                          UntrustedReserveLocation
+                        ]
+                      }
+                  }

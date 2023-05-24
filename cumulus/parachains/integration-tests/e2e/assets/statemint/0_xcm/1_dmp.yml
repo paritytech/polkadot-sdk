@@ -7,20 +7,23 @@ settings:
       wsPort: 9810
       paraId: &ap_id 1000
   variables:
-    relay_chain:
-      signer: &rc_signer //Alice
-      wallet: &rc_wallet HNZata7iMYWmk5RvZRTiAsSDhV8366zq2YGb3tLH5Upf74F
-      assets_parachain_destination: &ap_dest { v3: { parents: 0, interior: { x1: { parachain: *ap_id }}}}
-      assets_parachain_account: &ap_acc '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d'
-      assets_parachain_beneficiary: &ap_benf {v3: { parents: 0, interior: { x1: { accountId32: { id: *ap_acc }}}}}
-      ksm: &rc_ksm { concrete: { parents: 0, interior: { here: true }}}
-      amount: &amount 1000000000000
-      ksm_fungible: &rc_ksm_fungible { id: *rc_ksm, fun: { fungible: *amount }}
-      require_weight_at_most: &rc_weight_at_most {refTime: 1000000000, proofSize: 200000}
-    assets_parachain_account:
-      wallet: &ap_wallet HNZata7iMYWmk5RvZRTiAsSDhV8366zq2YGb3tLH5Upf74F
-      asset_id: &asset_id 1
-      asset_min_balance: &asset_ed 1000
+    common:
+      weight_threshold:  &weight_threshold { refTime: [10, 10], proofSize: [10, 10] }
+    chains:
+      relay_chain:
+        signer: &rc_signer //Alice
+        wallet: &rc_wallet HNZata7iMYWmk5RvZRTiAsSDhV8366zq2YGb3tLH5Upf74F
+        assets_parachain_destination: &ap_dest { v3: { parents: 0, interior: { x1: { parachain: *ap_id }}}}
+        assets_parachain_account: &ap_acc '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d'
+        assets_parachain_beneficiary: &ap_benf {v3: { parents: 0, interior: { x1: { accountId32: { id: *ap_acc }}}}}
+        ksm: &rc_ksm { concrete: { parents: 0, interior: { here: true }}}
+        amount: &amount 1000000000000
+        ksm_fungible: &rc_ksm_fungible { id: *rc_ksm, fun: { fungible: *amount }}
+        require_weight_at_most: &rc_weight_at_most {refTime: 1000000000, proofSize: 200000}
+      assets_parachain_account:
+        wallet: &ap_wallet HNZata7iMYWmk5RvZRTiAsSDhV8366zq2YGb3tLH5Upf74F
+        asset_id: &asset_id 1
+        asset_min_balance: &asset_ed 1000
   decodedCalls:
     force_create_asset:
       chain: *assets_parachain
@@ -69,16 +72,14 @@ tests:
                   ]
                   events:
                     - name: xcmPallet.Attempted
-                      attributes:
-                        - type: XcmV3TraitsOutcome
-                          xcmOutcome: Complete
+                      threshold: *weight_threshold
+                      result: [{ Complete: { refTime: '3,000,000,000', proofSize: 0 }}]
                     - name: dmpQueue.ExecutedDownward
                       chain: *assets_parachain
-                      attributes:
-                        - type: XcmV3TraitsOutcome
-                          xcmOutcome: Complete
-                          threshold: [10, 10]
-                          value: {"refTime":"162,909,000","proofSize":"0"}
+                      threshold: *weight_threshold
+                      result: {
+                        outcome: { Complete: { refTime: '166,944,000', proofSize: 0 }}
+                      }
               - queries:
                   balance_rc_sender_after:
                     chain: *relay_chain
@@ -151,11 +152,10 @@ tests:
                     - name: xcmPallet.Sent
                     - name: dmpQueue.ExecutedDownward
                       chain: *assets_parachain
-                      attributes:
-                        - type: XcmV3TraitsOutcome
-                          xcmOutcome: Complete
-                          threshold: [10, 10]
-                          value: {"refTime":"1,015,234,000","proofSize":"200,000"}
+                      threshold: *weight_threshold
+                      result: {
+                        outcome: { Complete: { refTime: '1,014,103,000', proofSize: '200,000' }}
+                      }
               - queries:
                   forced_created_asset:
                     chain: *assets_parachain
@@ -196,9 +196,7 @@ tests:
                   ]
                   events:
                     - name: system.ExtrinsicFailed
-                      attributes:
-                        - type: SpRuntimeDispatchError
-                          value: BadOrigin
+                      result: { dispatchError: BadOrigin }
 
       - name: xcmPallet.limitedReserveTransferAssets
         before: *before_get_balances
@@ -219,16 +217,19 @@ tests:
                   ]
                   events:
                     - name: xcmPallet.Attempted
-                      attributes:
-                        - type: XcmV3TraitsOutcome
-                          xcmOutcome: Complete
-                          value: {"refTime":"2,000,000,000","proofSize":"0"}
+                      threshold: *weight_threshold
+                      result: [{ Complete: { refTime: '2,000,000,000', proofSize: 0 }}]
                     - name: dmpQueue.ExecutedDownward
                       chain: *assets_parachain
-                      attributes:
-                        - type: XcmV3TraitsOutcome
-                          xcmOutcome: Incomplete
-                          value: [{"refTime":"1,000,000,000","proofSize":"0"},"UntrustedReserveLocation"]
+                      threshold: *weight_threshold
+                      result: {
+                        outcome: {
+                            Incomplete: [
+                              { refTime: '1,000,000,000', proofSize: 0 },
+                              UntrustedReserveLocation
+                            ]
+                          }
+                      }
               - queries:
                   balance_rc_sender_after:
                     chain: *relay_chain

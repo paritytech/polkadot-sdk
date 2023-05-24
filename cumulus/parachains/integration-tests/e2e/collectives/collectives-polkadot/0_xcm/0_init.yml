@@ -7,12 +7,13 @@ settings:
       wsPort: 9710
       paraId: &cp_id 1001
   variables:
-    xcm_version: &xcm_version '3'
+    xcm_version: &xcm_version 3
+    weight_threshold:  &weight_threshold { refTime: [10, 10], proofSize: [10, 10] }
     chains:
       accounts:
         alice_signer: &alice_signer //Alice
   decodedCalls:
-    ap_force_xcm_version:
+    cp_force_xcm_version:
       chain: *collectives_parachain
       pallet: polkadotXcm
       call: forceXcmVersion
@@ -48,13 +49,9 @@ tests:
               ]
               events:
                 - name: sudo.Sudid
-                  attributes:
-                    - type: Result<Null, SpRuntimeDispatchError>
-                      value: Ok
+                  result: { sudoResult: Ok }
                 - name: xcmPallet.SupportedVersionChanged
-                  attributes:
-                    - type: u32
-                      value: *xcm_version
+                  result: [{ parents: 0, interior: { X1: { Parachain: *cp_id }}}, *xcm_version ]
           - extrinsics: # Collectives Parachain sets supported version for Relay Chain through it
             - chain: *relay_chain
               signer: *alice_signer
@@ -82,7 +79,7 @@ tests:
                           refTime: 200000000, # 200_000_000
                           proofSize: 0,
                         },
-                        call: $ap_force_xcm_version
+                        call: $cp_force_xcm_version
                       }
                     }
                   ]
@@ -90,17 +87,14 @@ tests:
               ]
               events:
                 - name: sudo.Sudid
-                  attributes:
-                    - type: Result<Null, SpRuntimeDispatchError>
-                      value: Ok
+                  result: { sudoResult: Ok }
                 - name: xcmPallet.Sent
-                - name: polkadotXcm.SupportedVersionChanged
-                  chain: *collectives_parachain
-                  attributes:
-                    - type: u32
-                      value: *xcm_version
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
-                  attributes:
-                    - type: XcmV3TraitsOutcome
-                      xcmOutcome: Complete
+                  threshold: *weight_threshold
+                  result: {
+                    outcome: { Complete: { refTime: '2,200,000,000', proofSize: 0 }}
+                  }
+                - name: polkadotXcm.SupportedVersionChanged
+                  chain: *collectives_parachain
+                  result: [{ parents: 1, interior: Here }, *xcm_version ]

@@ -11,8 +11,9 @@ settings:
       paraId: &pp_id 2000
   variables:
     common:
-      xcm_version: &xcm_version '3'
+      xcm_version: &xcm_version 3
       require_weight_at_most: &weight_at_most {refTime: 1000000000, proofSize: 200000}
+      weight_threshold:  &weight_threshold { refTime: [10, 10], proofSize: [10, 10] }
     chains:
       relay_chain:
         signer: &rc_signer //Alice
@@ -56,13 +57,9 @@ tests:
               ]
               events:
                 - name: sudo.Sudid
-                  attributes:
-                    - type: Result<Null, SpRuntimeDispatchError>
-                      value: Ok
+                  result: { sudoResult: Ok }
                 - name: xcmPallet.SupportedVersionChanged
-                  attributes:
-                    - type: u32
-                      value: *xcm_version
+                  result: [{ parents: 0, interior: { X1: { Parachain: *ap_id }}}, *xcm_version ]
           - extrinsics: # Relay Chain sets supported version for Penpal Parachain
             - chain: *relay_chain
               sudo: true
@@ -82,13 +79,9 @@ tests:
               ]
               events:
                 - name: sudo.Sudid
-                  attributes:
-                    - type: Result<Null, SpRuntimeDispatchError>
-                      value: Ok
+                  result: { sudoResult: Ok }
                 - name: xcmPallet.SupportedVersionChanged
-                  attributes:
-                    - type: u32
-                      value: *xcm_version
+                  result: [{ parents: 0, interior: { X1: { Parachain: *pp_id }}}, *xcm_version ]
           - extrinsics: # Asset Parachain sets supported version for Relay Chain through it
             - chain: *relay_chain
               signer: *rc_signer
@@ -101,11 +94,11 @@ tests:
                   v3: [ #message
                     {
                       UnpaidExecution: {
-                        weightLimit: {
-                          limited: {
-                            refTime: 2200000000,
-                            proofSize: 200000
-                          }
+                          weightLimit: {
+                            limited: {
+                              refTime: 2200000000,
+                              proofSize: 200000
+                            }
                         }
                       }
                     },
@@ -121,15 +114,17 @@ tests:
               ]
               events:
                 - name: sudo.Sudid
-                  attributes:
-                    - type: Result<Null, SpRuntimeDispatchError>
-                      value: Ok
+                  result: { sudoResult: Ok }
                 - name: xcmPallet.Sent
+                - name: dmpQueue.ExecutedDownward
+                  chain: *assets_parachain
+                  threshold: *weight_threshold
+                  result: {
+                    outcome: { Complete: { refTime: '1,019,210,000', proofSize: '200,000' }}
+                  }
                 - name: polkadotXcm.SupportedVersionChanged
                   chain: *assets_parachain
-                  attributes:
-                    - type: u32
-                      value: *xcm_version
+                  result: [{ parents: 1, interior: Here }, *xcm_version ]
           - extrinsics: # Penpal Parachain sets supported version for Relay Chain
             - chain: *penpal_parachain
               signer: *pp_signer
@@ -145,10 +140,6 @@ tests:
               ]
               events:
                 - name: sudo.Sudid
-                  attributes:
-                    - type: Result<Null, SpRuntimeDispatchError>
-                      value: Ok
+                  result: { sudoResult: Ok }
                 - name: polkadotXcm.SupportedVersionChanged
-                  attributes:
-                    - type: u32
-                      value: *xcm_version
+                  result: [{ parents: 1, interior: Here }, *xcm_version ]

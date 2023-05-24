@@ -1,15 +1,14 @@
 ---
 settings:
   chains:
-    relay_chain: &relay_chain
+    relay_chain:
       wsPort: 9700
     collectives_parachain: &collectives_parachain
       wsPort: 9710
-      paraId: &cp_id 1001
+      paraId: 1001
   variables:
     accounts:
       liam_signer: &acc_liam_signer //Liam
-      liam_account32: &acc_liam_acc32 "0x3614671a5de540d891eb8c4939c8153a4aa790602b347c18177b86d0fc546221"
 
 tests:
   - name: Liam fails to join an the Alliance, Liam is already a member.
@@ -24,11 +23,8 @@ tests:
               args: []
               events:
                 - name: system.ExtrinsicFailed
-                  attributes:
-                    - type: SpRuntimeDispatchError
-                      key: dispatchError
-                      # TODO assert with Alliance Error variant - alliance.AllianceNotYetInitialized
-                      # issue - https://github.com/paritytech/parachains-integration-tests/issues/59
-                      value: {"Module":{"index":"50","error":"0x02000000"}}
-
-
+                  result: {
+                    dispatchError: { Module: { index: 50, error: '0x02000000' }}
+                  }
+                  # TODO assert with Alliance Error variant - alliance.AllianceNotYetInitialized
+                  # issue - https://github.com/paritytech/parachains-integration-tests/issues/59

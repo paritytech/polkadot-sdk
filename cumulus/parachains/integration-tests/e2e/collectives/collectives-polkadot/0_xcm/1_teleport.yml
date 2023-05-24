@@ -7,10 +7,13 @@ settings:
       wsPort: 9710
       paraId: &cp_id 1001
   variables:
+    weight_threshold:  &weight_threshold { refTime: [10, 10], proofSize: [10, 10] }
     accounts:
       alice_signer: &acc_alice_signer //Alice
       alice_account32: &acc_alice_acc32 '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d'
       alice_ss58: &acc_alice_ss58 '15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5'
+      checking_account: &checking_account '13UVJyLnbVp9x5XDyJv8g8r3UddNwBrdaH7AADCmw9XQWvYW'
+
 
 tests:
   - name: Teleport assets from Relay Chain to Collectives Parachain successful.
@@ -57,15 +60,14 @@ tests:
               ]
               events:
                 - name: xcmPallet.Attempted
-                  chain: *relay_chain
-                  attributes:
-                    - type: XcmV3TraitsOutcome
-                      xcmOutcome: Complete
+                  threshold: *weight_threshold
+                  result: [{ Complete: { refTime: '3,000,000,000', proofSize: 0 }}]
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
-                  attributes:
-                    - type: XcmV3TraitsOutcome
-                      xcmOutcome: Complete
+                  threshold: *weight_threshold
+                  result: {
+                    outcome: { Complete: { refTime: '4,000,000,000', proofSize: 0 }}
+                  }
           - queries:
               balance_rc_alice_2:
                 chain: *relay_chain
@@ -121,28 +123,17 @@ tests:
               ]
               events:
                 - name: balances.Withdraw
-                  attributes:
-                    - type: AccountId32
-                      key: who
-                      value: *acc_alice_ss58
-                    - type: u128
-                      key: amount
-                      value: 10000000000000
+                  result: { who: *acc_alice_ss58, amount: 10000000000000 }
                 - name: polkadotXcm.Attempted
-                  attributes:
-                    - type: XcmV3TraitsOutcome
-                      xcmOutcome: Complete
+                  threshold: *weight_threshold
+                  result: [{ Complete: { refTime: '3,000,000,000', proofSize: 0 }}]
                 - name: balances.Withdraw
                   chain: *relay_chain
-                  attributes:
-                    - type: u128
-                      key: amount
-                      value: 10000000000000 # amount received and withdrawn from registry account
+                  result: { who: *checking_account, amount: 10000000000000 } # amount received and withdrawn from registry account
                 - name: ump.ExecutedUpward
                   chain: *relay_chain
-                  attributes:
-                    - type: XcmV3TraitsOutcome
-                      xcmOutcome: Complete
+                  threshold: *weight_threshold
+                  result: [{ Complete: { refTime: '4,000,000,000', proofSize: 0 }}]
           - queries:
               balance_rc_alice_3:
                 chain: *relay_chain

@@ -89,14 +89,13 @@ impl BlockAnnounceData {
 	///
 	/// This will not check the signature, for this you should use [`BlockAnnounceData::check_signature`].
 	fn validate(&self, encoded_header: Vec<u8>) -> Result<(), Validation> {
-		let candidate_hash = if let CompactStatement::Seconded(h) =
-			self.statement.unchecked_payload()
-		{
-			h
-		} else {
-			tracing::debug!(target: LOG_TARGET, "`CompactStatement` isn't the candidate variant!",);
-			return Err(Validation::Failure { disconnect: true })
-		};
+		let candidate_hash =
+			if let CompactStatement::Seconded(h) = self.statement.unchecked_payload() {
+				h
+			} else {
+				tracing::debug!(target: LOG_TARGET, "`CompactStatement` isn't the candidate variant!",);
+				return Err(Validation::Failure { disconnect: true })
+			};
 
 		if *candidate_hash != self.receipt.hash() {
 			tracing::debug!(
@@ -334,9 +333,9 @@ where
 			let relay_chain_is_syncing = relay_chain_interface
 				.is_major_syncing()
 				.await
-				.map_err(|e| {
-					tracing::error!(target: LOG_TARGET, "Unable to determine sync status. {}", e)
-				})
+				.map_err(
+					|e| tracing::error!(target: LOG_TARGET, "Unable to determine sync status. {}", e),
+				)
 				.unwrap_or(false);
 
 			if relay_chain_is_syncing {

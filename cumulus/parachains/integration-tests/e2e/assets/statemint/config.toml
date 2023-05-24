@@ -7,6 +7,7 @@ chain = "polkadot-local"
     name = "alice"
     ws_port = 9800
     validator = true
+    args = ["--state-cache-size=0"]
 
     [[relaychain.nodes]]
     name = "bob"
@@ -32,7 +33,7 @@ cumulus_based = true
     name = "collator1"
     ws_port = 9810
     command = "./bin/polkadot-parachain"
-    args = [ "-lxcm=trace" ]
+    args = [ "-lxcm=trace", "--state-cache-size=0" ]
 
     [[parachains.collators]]
     name = "collator2"
@@ -50,7 +51,7 @@ cumulus_based = true
     name = "collator3"
     ws_port = 9820
     command = "./bin/polkadot-parachain"
-    args = [ "-lxcm=trace" ]
+    args = [ "-lxcm=trace", "--state-cache-size=0" ]
 
     [[parachains.collators]]
     name = "collator4"

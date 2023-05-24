@@ -10,22 +10,24 @@ settings:
     common:
       amount: &amount 1000000000000
       require_weight_at_most: &weight_at_most {refTime: 1000000000, proofSize: 0}
-    relay_chain:
-      signer: &rc_signer //Alice
-      wallet: &rc_wallet HNZata7iMYWmk5RvZRTiAsSDhV8366zq2YGb3tLH5Upf74F #Alice
-      assets_parachain_destination: &ap_dest { v3: { 0, interior: { x1: { parachain: *ap_id }}}}
-      assets_parachain_account: &ap_acc '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d'
-      assets_parachain_beneficiary: &ap_benf {v3: { parents: 0, interior: { x1: { accountId32: { id: *ap_acc }}}}}
-      ksm: &rc_ksm { concrete: { 0, interior: { here: true }}}
-      ksm_fungible: &rc_ksm_fungible { id: *rc_ksm, fun: { fungible: *amount }}
-    assets_parachain_account:
-      signer: &ap_signer //Alice
-      wallet: &ap_wallet HNZata7iMYWmk5RvZRTiAsSDhV8366zq2YGb3tLH5Upf74F
-      relay_chain_destination: &rc_dest { v3: { parents: 1, interior: { here: true }}}
-      assets_parachain_account: &rc_acc '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d' #Alice
-      relay_chain_beneficiary: &rc_benf {v3: { parents: 0, interior: { x1: { accountId32: { id: *rc_acc }}}}}
-      ksm: &ap_ksm { concrete: { parents: 1, interior: { here: true }}}
-      ksm_fungible: &ap_ksm_fungible { id: *ap_ksm, fun: { fungible: *amount }}
+      weight_threshold:  &weight_threshold { refTime: [10, 10], proofSize: [10, 10] }
+    chains:
+      relay_chain:
+        signer: &rc_signer //Alice
+        wallet: &rc_wallet HNZata7iMYWmk5RvZRTiAsSDhV8366zq2YGb3tLH5Upf74F #Alice
+        assets_parachain_destination: &ap_dest { v3: { 0, interior: { x1: { parachain: *ap_id }}}}
+        assets_parachain_account: &ap_acc '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d'
+        assets_parachain_beneficiary: &ap_benf {v3: { parents: 0, interior: { x1: { accountId32: { id: *ap_acc }}}}}
+        ksm: &rc_ksm { concrete: { 0, interior: { here: true }}}
+        ksm_fungible: &rc_ksm_fungible { id: *rc_ksm, fun: { fungible: *amount }}
+      assets_parachain_account:
+        signer: &ap_signer //Alice
+        wallet: &ap_wallet HNZata7iMYWmk5RvZRTiAsSDhV8366zq2YGb3tLH5Upf74F
+        relay_chain_destination: &rc_dest { v3: { parents: 1, interior: { here: true }}}
+        assets_parachain_account: &rc_acc '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d' #Alice
+        relay_chain_beneficiary: &rc_benf {v3: { parents: 0, interior: { x1: { accountId32: { id: *rc_acc }}}}}
+        ksm: &ap_ksm { concrete: { parents: 1, interior: { here: true }}}
+        ksm_fungible: &ap_ksm_fungible { id: *ap_ksm, fun: { fungible: *amount }}
   decodedCalls:
     system_remark:
       chain: *relay_chain
@@ -54,18 +56,14 @@ tests:
                   ]
                   events:
                     - name: xcmPallet.Attempted
-                      attributes:
-                        - type: XcmV3TraitsOutcome
-                          xcmOutcome: Complete
-                          threshold: [10, 10]
-                          value: {"refTime":"761,173,000","proofSize":"0"}
+                      threshold: *weight_threshold
+                      result: [{ Complete: { refTime: '761,173,000', proofSize: 0 }}]
                     - name: dmpQueue.ExecutedDownward
                       chain: *assets_parachain
-                      attributes:
-                        - type: XcmV3TraitsOutcome
-                          xcmOutcome: Complete
-                          threshold: [10, 10]
-                          value: {"refTime":"162,379,000","proofSize":"0"}
+                      threshold: *weight_threshold
+                      result: {
+                        outcome: { Complete: { refTime: '166,944,000', proofSize: 0 }}
+                      }
 
           - name: Get the balances of the Assets Parachain's sender & Relay Chain's receiver
             actions:
@@ -97,18 +95,12 @@ tests:
                   ]
                   events:
                     - name: polkadotXcm.Attempted
-                      attributes:
-                        - type: XcmV3TraitsOutcome
-                          xcmOutcome: Complete
-                          threshold: [10, 10]
-                          value: {"refTime":"539,494,000","proofSize":"7,133"}
+                      threshold: *weight_threshold
+                      result: [{ Complete: { refTime: '539,494,000', proofSize: '7,133' }}]
                     - name: ump.ExecutedUpward
                       chain: *relay_chain
-                      attributes:
-                        - type: XcmV3TraitsOutcome
-                          xcmOutcome: Complete
-                          threshold: [10, 10]
-                          value: {"refTime":"298,716,000","proofSize":"0"}
+                      threshold: *weight_threshold
+                      result: [{ Complete: { refTime: '298,716,000', proofSize: 0 }}]
               - queries:
                   balance_ap_sender_after:
                     chain: *assets_parachain
@@ -178,9 +170,7 @@ tests:
                   ]
                   events:
                     - name: system.ExtrinsicFailed
-                      attributes:
-                        - type: SpRuntimeDispatchError
-                          value: BadOrigin
+                      result: { dispatchError: BadOrigin }
 
       - name: polkadotXcm.limitedReserveTransferAssets
         its:
@@ -200,7 +190,4 @@ tests:
                   ]
                   events:
                     - name: polkadotXcm.Attempted
-                      attributes:
-                        - type: XcmV3TraitsOutcome
-                          xcmOutcome: Error
-                          value: Barrier
+                      result: [{ Error: Barrier }]

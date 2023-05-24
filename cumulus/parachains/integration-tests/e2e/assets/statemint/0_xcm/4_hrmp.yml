@@ -1,4 +1,6 @@
 ---
+# Note: This tests depends on the 3_hrmp-open-channels.yml for opening channels, otherwise teleports aren't going to
+# work.
 settings:
   chains:
     relay_chain: &relay_chain
@@ -15,6 +17,7 @@ settings:
       amount: &amount 1000000000000
       require_weight_at_most: &weight_at_most {refTime: 1200000000, proofSize: 20000}
       amount_to_send: &amount_to_send 500000000000
+      weight_threshold:  &weight_threshold { refTime: [10, 10], proofSize: [10, 10] }
     chains:
       relay_chain:
         signer: &rc_signer //Alice
@@ -22,7 +25,7 @@ settings:
         assets_parachain_dest_routed: &ap_dest_routed { v3: { parents: 1, interior: { x1: { parachain: *ap_id } }}}
       assets_parachain_account:
         signer: &ap_signer //Alice
-        wallet: &ap_wallet HNZata7iMYWmk5RvZRTiAsSDhV8366zq2YGb3tLH5Upf74F
+        wallet: &ap_wallet 15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5
         asset_id: &asset_id 2
         assets_pallet_id: &assets_pallet_id 50
         asset_min_balance: &asset_ed 1000
@@ -81,7 +84,7 @@ tests:
                             }
                           },
                           {
-                            SetTopic: "0x0123456789012345678901234567891201234567890123456789012345678912"
+                            SetTopic: '0x0123456789012345678901234567891201234567890123456789012345678912'
                           },
                           {
                             Transact: {
@@ -97,11 +100,10 @@ tests:
                       - name: xcmPallet.Sent
                       - name: dmpQueue.ExecutedDownward
                         chain: *assets_parachain
-                        attributes:
-                          - type: XcmV3TraitsOutcome
-                            xcmOutcome: Complete
-                            threshold: [10, 10]
-                            value: {"refTime":"1,218,405,000","proofSize":"20,000"}
+                        threshold: *weight_threshold
+                        result: {
+                          outcome: { Complete: { refTime: '1,216,703,000', proofSize: '20,000' }}
+                        }
               - queries:
                   forced_created_asset:
                     chain: *assets_parachain
@@ -126,6 +128,7 @@ tests:
                     ]
                     events:
                       - name: assets.Issued
+                        result: { assetId: *asset_id, owner: *ap_wallet, amount: *mint_amount }
 
         its:
           - name: Assets Parachain should be able to reserve transfer an Asset to Penpal Parachain
@@ -178,19 +181,15 @@ tests:
                     ]
                     events:
                       - name: polkadotXcm.Attempted
-                        attributes:
-                          - type: XcmV3TraitsOutcome
-                            xcmOutcome: Complete
-                            threshold: [10, 10]
-                            value: {"refTime":"673,627,000","proofSize":"6,196"}
+                        threshold: *weight_threshold
+                        result: [{ Complete: { refTime: '673,627,000', proofSize: '6,196' }}]
                       - name: assets.Transferred
-                        attributes:
-                          - type: AccountId32
-                            value: *pp_sovereign_sibl
-                      - name: assets.Transferred
-                        attributes:
-                          - type: u128
-                            value: *amount_to_send
+                        result: {
+                          assetId: *asset_id,
+                          from: *ap_wallet,
+                          to: *pp_sovereign_sibl,
+                          amount: *amount_to_send
+                        }
 
       - name: polkadotXcm.limitedReserveTransferAssets (KSM) | Assets Parachain -> Penpal Parachain
         its:
@@ -225,19 +224,13 @@ tests:
                     ]
                     events:
                       - name: polkadotXcm.Attempted
-                        attributes:
-                          - type: XcmV3TraitsOutcome
-                            xcmOutcome: Complete
-                            threshold: [10, 10]
-                            value: {"refTime":"673,627,000","proofSize":"6,196"}
+                        threshold: *weight_threshold
+                        result: [{ Complete: { refTime: '679,150,000', proofSize: '6,196' }}]
                       - name: balances.Endowed
-                        attributes:
-                          - type: AccountId32
-                            value: *pp_sovereign_sibl
-                      - name: balances.Endowed
-                        attributes:
-                          - type: u128
-                            value: *amount
+                        result: {
+                          account: *pp_sovereign_sibl,
+                          freeBalance: *amount
+                        }
 
       - name: polkadotXcm.send( assets.forceCreateAsset ) | Penpal Parachain -> Assets Parachain
         before:
@@ -318,20 +311,14 @@ tests:
                     ]
                     events:
                       - name: sudo.Sudid
-                        attributes:
-                          - type: Result<Null, SpRuntimeDispatchError>
-                            value: Ok
+                        result: { sudoResult: Ok }
                       - name: polkadotXcm.Sent
                       - name: assets.Burned
                         chain: *assets_parachain
-                        attributes:
-                          - type: AccountId32
-                            value: *pp_sovereign_sibl
+                        result: { assetId: *asset_id, owner: *pp_sovereign_sibl }
                       - name: assets.Issued
                         chain: *assets_parachain
-                        attributes:
-                          - type: u32
-                            value: *asset_id
+                        result: { assetId: *asset_id }
               - queries:
                   assets_balance_pp_sovereign_after:
                     chain: *assets_parachain
@@ -396,6 +383,8 @@ tests:
                     events:
                       - name: xcmpQueue.Fail
                         chain: *assets_parachain
-                        attributes:
-                          - type: XcmV3TraitsError
-                            value: FailedToTransactAsset
+                        threshold: *weight_threshold
+                        result: {
+                          error: FailedToTransactAsset,
+                          weight: { refTime: '152,426,000', proofSize: '3,593' }
+                        }

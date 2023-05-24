@@ -3,23 +3,22 @@ settings:
   chains:
     relay_chain: &relay_chain
       wsPort: 9800
-    assets_parachain: &assets_parachain
+    assets_parachain:
       wsPort: 9810
       paraId: &ap_id 1000
-    penpal_parachain: &penpal_parachain
+    penpal_parachain:
       wsPort: 9820
       paraId: &pp_id 2000
   variables:
     common:
       amount: &amount 2000000000000
-      require_weight_at_most: &weight_at_most {refTime: 1000000000, proofSize: 20000}
       hrmp_channels:
         proposed_max_capacity: &max_capacity 8
         proposed_max_message_size: &max_message_size 8192
         channel: &channel {
-          maxCapacity: 8,
-          maxTotalSize: 8192,
-          maxMessageSize: 8192,
+          maxCapacity: *max_capacity,
+          maxTotalSize: *max_message_size,
+          maxMessageSize: *max_message_size,
           msgCount: 0,
           totalSize: 0,
           mqcHead: null,
@@ -29,15 +28,10 @@ settings:
     chains:
       relay_chain:
         signer: &rc_signer //Alice
-        assets_parachain_destination: &ap_dest { v3: { 0, interior: { x1: { parachain: *ap_id }}}}
-        ksm: &rc_ksm { concrete: { 0, interior: { here: true }}}
-        ksm_fungible: &rc_ksm_fungible { id: *rc_ksm, fun: { fungible: *amount }}
       assets_parachain_account:
         sovereign_account: &ap_sovereign 5Ec4AhPZk8STuex8Wsi9TwDtJQxKqzPJRCH7348Xtcs9vZLJ
-        relay_chain_destination: &rc_dest { v3: { parents: 1, interior: { here: true }}}
       penpal_parachain:
         sovereign_account: &pp_sovereign F7fq1jMZkfuCuoMTyiEVAP2DMpMt18WopgBqTJznLihLNbZ
-        signer: &pp_signer //Alice
 
 tests:
   - name: HRMP
@@ -81,16 +75,14 @@ tests:
                     pallet: hrmp
                     call: forceOpenHrmpChannel
                     args: [
-                      2000,
-                      1000,
-                      8,
-                      8192
+                      *pp_id,
+                      *ap_id,
+                      *max_capacity,
+                      *max_message_size
                     ]
                     events:
                       - name: sudo.Sudid
-                        attributes:
-                          - type: Result<Null, SpRuntimeDispatchError>
-                            value: Ok
+                        result: { sudoResult: Ok }
                       - name: hrmp.HrmpChannelForceOpened
       - name: hrmp.hrmpInitOpenChannel (Assets Parachain → PenPal Parachain)
         its:
@@ -103,16 +95,14 @@ tests:
                     pallet: hrmp
                     call: forceOpenHrmpChannel
                     args: [
-                      1000,
-                      2000,
-                      8,
-                      8192
+                      *ap_id,
+                      *pp_id,
+                      *max_capacity,
+                      *max_message_size
                     ]
                     events:
                       - name: sudo.Sudid
-                        attributes:
-                          - type: Result<Null, SpRuntimeDispatchError>
-                            value: Ok
+                        result: { sudoResult: Ok }
                       - name: hrmp.HrmpChannelForceOpened
       - name: hrmp.forceProcessHrmpOpen (make sure all the channels are open)
         its:
@@ -127,6 +117,4 @@ tests:
                       args: [ 2 ]
                       events:
                         - name: sudo.Sudid
-                          attributes:
-                            - type: Result<Null, SpRuntimeDispatchError>
-                              value: Ok
+                          result: { sudoResult: Ok }

@@ -7,6 +7,7 @@ settings:
       wsPort: 9710
       paraId: &cp_id 1001
   variables:
+    weight_threshold:  &weight_threshold { refTime: [10, 10], proofSize: [10, 10] }
     init_teleport_amount: &init_teleport_amount 20000000000000 # 20_000_000_000_000
     accounts:
       alice_signer: &acc_alice_signer //Alice
@@ -41,20 +42,17 @@ tests:
               ]
               events:
                 - name: xcmPallet.Attempted
-                  attributes:
-                    - type: XcmV3TraitsOutcome
-                      xcmOutcome: Complete
+                  threshold: *weight_threshold
+                  result: [{ Complete: { refTime: '3,000,000,000', proofSize: 0 }}]
                 - name: balances.Deposit
                   chain: *collectives_parachain
-                  attributes:
-                    - type: AccountId32
-                      key: who
-                      value: *acc_alice_ss58
+                  result: { who:  *acc_alice_ss58 }
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
-                  attributes:
-                    - type: XcmV3TraitsOutcome
-                      xcmOutcome: Complete
+                  threshold: *weight_threshold
+                  result: {
+                    outcome: { Complete: { refTime: '4,000,000,000', proofSize: 0 }}
+                  }
       - name: Get the balances of the Relay Chain's treasury & Collectives parachain's future alliance member
         actions:
           - queries:
@@ -80,18 +78,9 @@ tests:
               events:
                 - name: balances.Reserved
                   chain: *collectives_parachain
-                  attributes:
-                    - type: AccountId32
-                      key: who
-                      value: *acc_alice_ss58
-                    - type: u128
-                      key: amount
-                      value: 10,000,000,000,000
+                  result: { who:  *acc_alice_ss58, amount: '10,000,000,000,000' }
                 - name: alliance.NewAllyJoined
-                  attributes:
-                    - type: AccountId32
-                      key: ally
-                      value: *acc_alice_ss58
+                  result: { ally:  *acc_alice_ss58 }
           - queries:
               balance_cp_alice_after:
                 chain: *collectives_parachain
@@ -148,21 +137,17 @@ tests:
               ]
               events:
                 - name: sudo.Sudid
-                  attributes:
-                    - type: Result<Null, SpRuntimeDispatchError>
-                      value: Ok
+                  result: { sudoResult: Ok }
                 - name: xcmPallet.Sent
                 - name: alliance.MemberKicked
                   chain: *collectives_parachain
-                  attributes:
-                    - type: AccountId32
-                      key: member
-                      value: *acc_alice_ss58
+                  result: { member: *acc_alice_ss58 }
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
-                  attributes:
-                    - type: XcmV3TraitsOutcome
-                      xcmOutcome: Complete
+                  threshold: *weight_threshold
+                  result: {
+                    outcome: { Complete: { refTime: '4,000,000,000', proofSize: '1,000,000' }}
+                  }
 
           - queries:
               balance_rc_treasury_after:
