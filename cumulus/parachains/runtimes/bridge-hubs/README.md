@@ -36,10 +36,12 @@ The current trustless bridges planned for the BridgeHub(s) are:
 mkdir -p ~/local_bridge_testing/bin
 mkdir -p ~/local_bridge_testing/logs
 
+---
 # 1. Install zombienet
 Go to: https://github.com/paritytech/zombienet/releases
 Copy the apropriate binary (zombienet-linux) from the latest release to ~/local_bridge_testing/bin
 
+---
 # 2. Build polkadot binary
 git clone https://github.com/paritytech/polkadot.git
 cd polkadot
@@ -52,23 +54,33 @@ cd polkadot
 cargo build --release --features fast-runtime
 cp target/release/polkadot ~/local_bridge_testing/bin/polkadot
 
+---
 # 3. Build cumulus polkadot-parachain binary
 cd <cumulus-git-repo-dir>
+
 # checkout desired branch or use master:
-# git checkout -b bridge-hub-rococo-wococo --track origin/bridge-hub-rococo-wococo
-git checkout -b master --track origin/master
+# git checkout -b master --track origin/master
+
 cargo build --release --locked -p polkadot-parachain-bin
 cp target/release/polkadot-parachain ~/local_bridge_testing/bin/polkadot-parachain
 cp target/release/polkadot-parachain ~/local_bridge_testing/bin/polkadot-parachain-mint
 
+---
 # 4. Build substrate-relay binary
 git clone https://github.com/paritytech/parity-bridges-common.git
 cd parity-bridges-common
+
+# checkout desired branch or use master:
+# git checkout -b master --track origin/master
+git checkout -b polkadot-staging --track origin/polkadot-staging
+
 cargo build --release -p substrate-relay
 cp target/release/substrate-relay ~/local_bridge_testing/bin/substrate-relay
 
-# (Optional) 5. Build polkadot-parachain-mint binary with statemine/westmint for moving assets
+---
+# 5. Build polkadot-parachain-mint binary with statemine/westmint for moving assets
 cd <cumulus-git-repo-dir>
+# TODO:check-parameter - change this when merged to master
 git checkout -b bko-transfer-asset-via-bridge --track origin/bko-transfer-asset-via-bridge
 cargo build --release --locked -p polkadot-parachain-bin
 cp target/release/polkadot-parachain ~/local_bridge_testing/bin/polkadot-parachain-mint

@@ -18,13 +18,16 @@ it easier to import that change back to upstream repo.
 
 # 2. How to pull latest Bridges code to the `bridges` subtree
 (in practice)
+
+The `bridges` repo has a stabilized branch `polkadot-staging` dedicated for releasing.
+
 ```
 cd <cumulus-git-repo-dir>
 
 # this will update new git branches from bridges repo
 # there could be unresolved conflicts, but dont worry,
 # lots of them are caused because of removed unneeded files with patch step,
-./scripts/bridges_update_subtree.sh fetch
+BRANCH=polkadot-staging ./scripts/bridges_update_subtree.sh fetch
 
 # so, after fetch and before solving conflicts just run patch,
 # this will remove unneeded files and checks if subtree modules compiles
@@ -68,8 +71,8 @@ $ git remote add -f my-bridges git@github.com:tomusdrw/parity-bridges-common.git
 
 2. To update Bridges:
 ```
-$ git fetch bridges master
-$ git subtree pull --prefix=bridges bridges master --squash
+$ git fetch bridges polkadot-staging
+$ git subtree pull --prefix=bridges bridges polkadot-staging --squash
 ````
 
 We use `--squash` to avoid adding individual commits and rather squashing them
@@ -82,7 +85,7 @@ all into one.
 
 4. Contributing back to Bridges (creating upstream PR)
 ```
-$ git subtree push --prefix=bridges my-bridges master
+$ git subtree push --prefix=bridges my-bridges polkadot-staging
 ```
 This command will push changes to your personal fork of Bridges repo, from where
 you can simply create a PR to the main repo.
