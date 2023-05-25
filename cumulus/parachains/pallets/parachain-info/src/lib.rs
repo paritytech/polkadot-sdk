@@ -43,7 +43,6 @@ pub mod pallet {
 		pub parachain_id: ParaId,
 	}
 
-	#[cfg(feature = "std")]
 	impl Default for GenesisConfig {
 		fn default() -> Self {
 			Self { parachain_id: 100.into() }
