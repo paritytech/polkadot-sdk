@@ -258,7 +258,7 @@ impl<XcmConfig: xcm_executor::Config> RuntimeHelper<XcmConfig> {
 			&to,
 			// We aren't able to track the XCM that initiated the fee deposit, so we create a
 			// fake message hash here
-			&XcmContext::with_message_hash([0; 32]),
+			&XcmContext::with_message_id([0; 32]),
 		)
 	}
 }
@@ -344,7 +344,7 @@ impl<Runtime: frame_system::Config + pallet_xcm::Config> RuntimeHelper<Runtime> 
 			.into_iter()
 			.filter_map(|e| unwrap_pallet_xcm_event(e.event.encode()))
 			.find_map(|e| match e {
-				pallet_xcm::Event::Attempted(outcome) => Some(outcome),
+				pallet_xcm::Event::Attempted { outcome } => Some(outcome),
 				_ => None,
 			})
 			.expect("No `pallet_xcm::Event::Attempted(outcome)` event found!");
@@ -363,7 +363,8 @@ impl<Runtime: frame_system::Config + cumulus_pallet_xcmp_queue::Config> RuntimeH
 			.into_iter()
 			.filter_map(|e| unwrap_xcmp_queue_event(e.event.encode()))
 			.find_map(|e| match e {
-				cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash } => message_hash,
+				cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash } =>
+					Some(message_hash),
 				_ => None,
 			})
 	}

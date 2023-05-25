@@ -16,6 +16,7 @@
 
 //! Module contains predefined test-case scenarios for `Runtime` with bridging capabilities.
 
+use assert_matches::assert_matches;
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch, SourceHeaderChain},
 	LaneId, MessageKey, OutboundLaneData, Weight,
@@ -462,7 +463,7 @@ pub fn relayed_incoming_message_works<Runtime, XcmConfig, HrmpChannelOpener, GPI
 			let relayer_id_on_source: AccountId32 = relayer_at_source.public().into();
 
 			let xcm = vec![xcm::v3::Instruction::<()>::ClearOrigin; 42];
-			let expected_dispatch = xcm::VersionedXcm::<()>::V3(xcm.clone().into());
+			let expected_dispatch = xcm::latest::Xcm::<()>(xcm.clone());
 			// generate bridged relay chain finality, parachain heads and message proofs,
 			// to be submitted by relayer to this chain.
 			let (
@@ -559,6 +560,9 @@ pub fn relayed_incoming_message_works<Runtime, XcmConfig, HrmpChannelOpener, GPI
 				sibling_parachain_id.into(),
 			)
 			.unwrap();
+			let mut dispatched = xcm::latest::Xcm::<()>::try_from(dispatched).unwrap();
+			// We use `WithUniqueTopic`, so expect a trailing `SetTopic`.
+			assert_matches!(dispatched.0.pop(), Some(SetTopic(..)));
 			assert_eq!(dispatched, expected_dispatch);
 		})
 }
@@ -667,8 +671,8 @@ pub fn complex_relay_extrinsic_works<Runtime, XcmConfig, HrmpChannelOpener, GPI,
 			let para_header_number = 5;
 			let relay_header_number = 1;
 
-			let xcm = vec![xcm::v3::Instruction::<()>::ClearOrigin; 42];
-			let expected_dispatch = xcm::VersionedXcm::<()>::V3(xcm.clone().into());
+			let xcm = vec![xcm::latest::Instruction::<()>::ClearOrigin; 42];
+			let expected_dispatch = xcm::latest::Xcm::<()>(xcm.clone());
 			// generate bridged relay chain finality, parachain heads and message proofs,
 			// to be submitted by relayer to this chain.
 			let (
@@ -776,6 +780,9 @@ pub fn complex_relay_extrinsic_works<Runtime, XcmConfig, HrmpChannelOpener, GPI,
 				sibling_parachain_id.into(),
 			)
 			.unwrap();
+			let mut dispatched = xcm::latest::Xcm::<()>::try_from(dispatched).unwrap();
+			// We use `WithUniqueTopic`, so expect a trailing `SetTopic`.
+			assert_matches!(dispatched.0.pop(), Some(SetTopic(..)));
 			assert_eq!(dispatched, expected_dispatch);
 		})
 }

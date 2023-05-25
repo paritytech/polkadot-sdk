@@ -32,7 +32,7 @@ fn reserve_transfer_native_asset_from_relay_to_assets() {
 		assert_expected_events!(
 			Kusama,
 			vec![
-				RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted(Outcome::Complete(weight))) => {
+				RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { outcome: Outcome::Complete(weight) }) => {
 					weight: weight_within_threshold((REF_TIME_THRESHOLD, PROOF_SIZE_THRESHOLD), Weight::from_parts(754_244_000, 0), *weight),
 				},
 			]

@@ -282,15 +282,15 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Some XCM was executed ok.
-		Success { message_hash: Option<XcmHash>, weight: Weight },
+		Success { message_hash: XcmHash, message_id: XcmHash, weight: Weight },
 		/// Some XCM failed.
-		Fail { message_hash: Option<XcmHash>, error: XcmError, weight: Weight },
+		Fail { message_hash: XcmHash, message_id: XcmHash, error: XcmError, weight: Weight },
 		/// Bad XCM version used.
-		BadVersion { message_hash: Option<XcmHash> },
+		BadVersion { message_hash: XcmHash },
 		/// Bad XCM format used.
-		BadFormat { message_hash: Option<XcmHash> },
+		BadFormat { message_hash: XcmHash },
 		/// An HRMP message was sent to a sibling parachain.
-		XcmpMessageSent { message_hash: Option<XcmHash> },
+		XcmpMessageSent { message_hash: XcmHash },
 		/// An XCM exceeded the individual message weight budget.
 		OverweightEnqueued {
 			sender: ParaId,
@@ -619,27 +619,33 @@ impl<T: Config> Pallet<T> {
 		xcm: VersionedXcm<T::RuntimeCall>,
 		max_weight: Weight,
 	) -> Result<Weight, XcmError> {
-		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		log::debug!("Processing XCMP-XCM: {:?}", &hash);
+		let message_hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		log::debug!("Processing XCMP-XCM: {:?}", &message_hash);
 		let (result, event) = match Xcm::<T::RuntimeCall>::try_from(xcm) {
 			Ok(xcm) => {
 				let location = (Parent, Parachain(sender.into()));
+				let mut message_id = message_hash;
 
-				match T::XcmExecutor::execute_xcm(location, xcm, hash, max_weight) {
-					Outcome::Error(e) => (
-						Err(e),
-						Event::Fail { message_hash: Some(hash), error: e, weight: Weight::zero() },
+				match T::XcmExecutor::prepare_and_execute(
+					location,
+					xcm,
+					&mut message_id,
+					max_weight,
+					Weight::zero(),
+				) {
+					Outcome::Error(error) => (
+						Err(error),
+						Event::Fail { message_hash, message_id, error, weight: Weight::zero() },
 					),
-					Outcome::Complete(w) =>
-						(Ok(w), Event::Success { message_hash: Some(hash), weight: w }),
+					Outcome::Complete(weight) =>
+						(Ok(weight), Event::Success { message_hash, message_id, weight }),
 					// As far as the caller is concerned, this was dispatched without error, so
 					// we just report the weight used.
-					Outcome::Incomplete(w, e) =>
-						(Ok(w), Event::Fail { message_hash: Some(hash), error: e, weight: w }),
+					Outcome::Incomplete(weight, error) =>
+						(Ok(weight), Event::Fail { message_hash, message_id, error, weight }),
 				}
 			},
-			Err(()) =>
-				(Err(XcmError::UnhandledXcmVersion), Event::BadVersion { message_hash: Some(hash) }),
+			Err(()) => (Err(XcmError::UnhandledXcmVersion), Event::BadVersion { message_hash }),
 		};
 		Self::deposit_event(event);
 		result
@@ -1183,7 +1189,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 
 		match Self::send_fragment(id, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm) {
 			Ok(_) => {
-				Self::deposit_event(Event::XcmpMessageSent { message_hash: Some(hash) });
+				Self::deposit_event(Event::XcmpMessageSent { message_hash: hash });
 				Ok(hash)
 			},
 			Err(e) => Err(SendError::Transport(<&'static str>::from(e))),

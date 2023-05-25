@@ -32,7 +32,9 @@ fn teleport_native_assets_from_relay_to_assets_para() {
 		assert_expected_events!(
 			Kusama,
 			vec![
-				RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted(Outcome::Complete { .. })) => {},
+				RuntimeEvent::XcmPallet(
+					pallet_xcm::Event::Attempted { outcome: Outcome::Complete { .. } }
+				) => {},
 			]
 		);
 	});
