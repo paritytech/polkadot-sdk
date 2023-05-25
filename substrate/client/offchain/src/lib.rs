@@ -37,7 +37,6 @@
 
 use std::{fmt, sync::Arc};
 
-use codec::Decode;
 use futures::{
 	future::{ready, Future},
 	prelude::*,
