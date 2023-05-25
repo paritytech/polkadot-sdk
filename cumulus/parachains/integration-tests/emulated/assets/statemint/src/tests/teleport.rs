@@ -45,7 +45,7 @@ fn teleport_native_assets_from_relay_to_assets_para() {
 			Statemint,
 			vec![
 				RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
-					who: *who == StatemineReceiver::get().into(),
+					who: *who == StatemintReceiver::get().into(),
 				},
 			]
 		);
