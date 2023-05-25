@@ -97,7 +97,7 @@ fn create_project(out_dir: &Path) -> PathBuf {
 	fs::write(
 		project_dir.join("src").join("main.rs"),
 		r#"
-			cumulus_test_relay_validation_worker_provider::polkadot_node_core_pvf_worker::decl_puppet_worker_main!();
+			cumulus_test_relay_validation_worker_provider::polkadot_node_core_pvf::decl_puppet_worker_main!();
 		"#,
 	)
 	.expect("Writes `main.rs`");
