@@ -12,7 +12,7 @@ _This section contains a small beginner guide destined for JSON-RPC client users
 
 This beginner guide shows how to use the `chainHead` functions in order to know the value of a certain storage item.
 
-1. Call `chainHead_unstable_follow` with `runtimeUpdates: true` to obtain a `followSubscription`. This `followSubscription` will need to be passed when calling most of the other `chainHead`-prefixed functions. If at any point in the future the JSON-RPC server sends back a `{"event": "stop"}` notification, jump back to step 1.
+1. Call `chainHead_unstable_follow` with `withRuntime: true` to obtain a `followSubscription`. This `followSubscription` will need to be passed when calling most of the other `chainHead`-prefixed functions. If at any point in the future the JSON-RPC server sends back a `{"event": "stop"}` notification, jump back to step 1.
 
 2. When the JSON-RPC server sends back a `{"event": "initialized"}` notification with `subscription` equal to your `followSubscription`, store the value of `finalizedBlockHash` found in that notification.
 

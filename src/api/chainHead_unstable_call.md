@@ -2,7 +2,7 @@
 
 **Parameters**:
 
-- `followSubscription`: An opaque string that was returned by `chainHead_unstable_follow`. The `runtimeUpdates` parameter of the call must have been equal to `true`.
+- `followSubscription`: An opaque string that was returned by `chainHead_unstable_follow`. The `withRuntime` parameter of the call must have been equal to `true`.
 - `hash`: String containing the hexadecimal-encoded hash of the header of the block to make the call against.
 - `function`: Name of the runtime entry point to call as a string.
 - `callParameters`: Hexadecimal-encoded SCALE-encoded value to pass as input to the runtime function.
@@ -102,7 +102,7 @@ No more event will be generated with this `subscription`.
 
 - If the networking part of the behaviour fails, then an `{"event": "inaccessible"}` notification is generated (as explained above).
 - If the `followSubscription` is invalid or stale, then a `{"event": "disjoint"}` notification is generated (as explained above).
-- A JSON-RPC error is generated if the `followSubscription` corresponds to a follow where `runtimeUpdates` was `̀false`.
+- A JSON-RPC error is generated if the `followSubscription` corresponds to a follow where `withRuntime` was `̀false`.
 - A JSON-RPC error is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`.
 - A JSON-RPC error is generated if the `followSubscription` is valid but the block hash passed as parameter has already been unpinned.
 - If the method to call doesn't exist in the Wasm runtime of the chain, then an `{"event": "error"}` notification is generated.
