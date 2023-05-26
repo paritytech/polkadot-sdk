@@ -21,6 +21,7 @@ use cumulus_relay_chain_rpc_interface::RelayChainRpcClient;
 use futures::{Stream, StreamExt};
 use polkadot_core_primitives::{Block, BlockNumber, Hash, Header};
 use polkadot_overseer::RuntimeApiSubsystemClient;
+use polkadot_primitives::vstaging;
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};
 use sp_api::{ApiError, RuntimeApiInfo};
 
@@ -297,7 +298,41 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		)>,
 		ApiError,
 	> {
-		Ok(self.rpc_client.parachain_host_staging_get_disputes(at).await?)
+		Ok(self.rpc_client.parachain_host_disputes(at).await?)
+	}
+
+	async fn unapplied_slashes(
+		&self,
+		at: Hash,
+	) -> Result<
+		Vec<(
+			polkadot_primitives::SessionIndex,
+			polkadot_primitives::CandidateHash,
+			vstaging::slashing::PendingSlashes,
+		)>,
+		ApiError,
+	> {
+		Ok(self.rpc_client.parachain_host_unapplied_slashes(at).await?)
+	}
+
+	async fn key_ownership_proof(
+		&self,
+		at: Hash,
+		validator_id: polkadot_primitives::ValidatorId,
+	) -> Result<Option<vstaging::slashing::OpaqueKeyOwnershipProof>, ApiError> {
+		Ok(self.rpc_client.parachain_host_key_ownership_proof(at, validator_id).await?)
+	}
+
+	async fn submit_report_dispute_lost(
+		&self,
+		at: Hash,
+		dispute_proof: vstaging::slashing::DisputeProof,
+		key_ownership_proof: vstaging::slashing::OpaqueKeyOwnershipProof,
+	) -> Result<Option<()>, ApiError> {
+		Ok(self
+			.rpc_client
+			.parachain_host_submit_report_dispute_lost(at, dispute_proof, key_ownership_proof)
+			.await?)
 	}
 }
 

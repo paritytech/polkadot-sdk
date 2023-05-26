@@ -30,7 +30,7 @@ use sp_storage::StorageKey;
 
 use cumulus_primitives_core::{
 	relay_chain::{
-		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+		vstaging, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
 		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
 		PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
@@ -320,13 +320,60 @@ impl RelayChainRpcClient {
 	}
 
 	/// Returns all onchain disputes.
-	/// This is a staging method! Do not use on production runtimes!
-	pub async fn parachain_host_staging_get_disputes(
+	pub async fn parachain_host_disputes(
 		&self,
 		at: RelayHash,
 	) -> Result<Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>, RelayChainError> {
-		self.call_remote_runtime_function("ParachainHost_staging_get_disputes", at, None::<()>)
+		self.call_remote_runtime_function("ParachainHost_disputes", at, None::<()>)
 			.await
+	}
+
+	/// Returns a list of validators that lost a past session dispute and need to be slashed.
+	///
+	/// This is a staging method! Do not use on production runtimes!
+	pub async fn parachain_host_unapplied_slashes(
+		&self,
+		at: RelayHash,
+	) -> Result<
+		Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>,
+		RelayChainError,
+	> {
+		self.call_remote_runtime_function("ParachainHost_unapplied_slashes", at, None::<()>)
+			.await
+	}
+
+	/// Returns a merkle proof of a validator session key in a past session.
+	///
+	/// This is a staging method! Do not use on production runtimes!
+	pub async fn parachain_host_key_ownership_proof(
+		&self,
+		at: RelayHash,
+		validator_id: ValidatorId,
+	) -> Result<Option<vstaging::slashing::OpaqueKeyOwnershipProof>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_key_ownership_proof",
+			at,
+			Some(validator_id),
+		)
+		.await
+	}
+
+	/// Submits an unsigned extrinsic to slash validators who lost a dispute about
+	/// a candidate of a past session.
+	///
+	/// This is a staging method! Do not use on production runtimes!
+	pub async fn parachain_host_submit_report_dispute_lost(
+		&self,
+		at: RelayHash,
+		dispute_proof: vstaging::slashing::DisputeProof,
+		key_ownership_proof: vstaging::slashing::OpaqueKeyOwnershipProof,
+	) -> Result<Option<()>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_submit_report_dispute_lost",
+			at,
+			Some((dispute_proof, key_ownership_proof)),
+		)
+		.await
 	}
 
 	pub async fn authority_discovery_authorities(
