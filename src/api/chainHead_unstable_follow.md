@@ -2,7 +2,7 @@
 
 **Parameters**:
 
-- `runtimeUpdates`: A boolean indicating whether the events should report changes to the runtime.
+- `withRuntime`: A boolean indicating whether the events should report changes to the runtime.
 
 **Return value**: String containing an opaque value representing the subscription.
 
@@ -14,7 +14,7 @@ This function works as follows:
 
 - When called, returns an opaque `followSubscription` that can used to match events and in various other `chainHead`-prefixed functions.
 
-- Later, generates an `initialized` notification (see below) containing the hash of the current finalized block, and, if `runtimeUpdates` is `true`, the runtime specification of the runtime of the current finalized block.
+- Later, generates an `initialized` notification (see below) containing the hash of the current finalized block, and, if `withRuntime` is `true`, the runtime specification of the runtime of the current finalized block.
 
 - Afterwards, generates one `newBlock` notification (see below) for each non-finalized block currently in the node's memory (including all forks), then a `bestBlockChanged` notification. The notifications must be sent in an ordered way such that the parent of each block either can be found in an earlier notification or is the current finalized block.
 
@@ -26,17 +26,17 @@ This function works as follows:
 
 **Note**: This list of notifications makes it very easy for a JSON-RPC client to follow just the best block updates (listening to just `bestBlockChanged` events) or follow just the finalized block updates (listening to just `initialized` and `finalized` events). It is however not possible to easily figure out whether the runtime has been modified when these updates happen. This is not problematic, as anyone using the JSON-RPC interface naively propably doesn't need to account for runtime changes anyway.
 
-## The `runtimeUpdates` parameter
+## The `withRuntime` parameter
 
-If the `runtimeUpdates` parameter is `true`, then blocks shouldn't (and can't) be reported to JSON-RPC clients before the JSON-RPC server has finished obtaining the runtime specification of the blocks that it reports. This includes the finalized block reported in the `initialized` event.
+If the `withRuntime` parameter is `true`, then blocks shouldn't (and can't) be reported to JSON-RPC clients before the JSON-RPC server has finished obtaining the runtime specification of the blocks that it reports. This includes the finalized block reported in the `initialized` event.
 
-If `runtimeUpdates` is `false`, then the `initialized` event must be sent back quickly after the function returns. If `runtimeUpdates` is `true`, then the JSON-RPC server can take as much time as it wants to send back the `initialized` event.
+If `withRuntime` is `false`, then the `initialized` event must be sent back quickly after the function returns. If `withRuntime` is `true`, then the JSON-RPC server can take as much time as it wants to send back the `initialized` event.
 
-For this reason, blocks might be reported more quickly when `runtimeUpdates` is `false`.
+For this reason, blocks might be reported more quickly when `withRuntime` is `false`.
 
 **Note**: It is unlikely that high-level UIs built on top of a JSON-RPC client can do anything before the JSON-RPC server has access to the runtime. Consequently, they should consider the time before the `initialized` event is generated as a loading time. During this loading time, the JSON-RPC server might be performing downloads and CPU-intensive operations. This loading time can be considered as a replacement for the `isSyncing` field of the legacy `system_health` JSON-RPC call.
 
-If a JSON-RPC client wants to be sure to receive an `initialized` event quickly but is also interested in the runtime, it is encouraged to create two subscriptions: one with `runtimeUpdates: true` and one with `runtimeUpdates: false`.
+If a JSON-RPC client wants to be sure to receive an `initialized` event quickly but is also interested in the runtime, it is encouraged to create two subscriptions: one with `withRuntime: true` and one with `withRuntime: false`.
 
 ## Notifications format
 
@@ -67,7 +67,7 @@ Where `subscription` is the value returned by this function, and `result` can be
 
 The `initialized` event is always the first event to be sent back, and is only ever sent back once per subscription.
 
-`finalizedBlockRuntime` is present if and only if `runtimeUpdates`, the parameter to this function, is `true`.
+`finalizedBlockRuntime` is present if and only if `withRuntime`, the parameter to this function, is `true`.
 
 The format of `finalizedBlockRuntime` is described later down this page.
 
@@ -86,7 +86,7 @@ The `newBlock` indicates a new non-finalized block.
 
 `parentBlockHash` is guaranteed to be equal either to the current finalized block hash, or to a block reported in an earlier `newBlock` event.
 
-`newRuntime` must not be present if `runtimeUpdates`, the parameter to this function, is `false`. `newRuntime` must be `null` if the runtime hasn't changed compared to its parent.
+`newRuntime` must not be present if `withRuntime`, the parameter to this function, is `false`. `newRuntime` must be `null` if the runtime hasn't changed compared to its parent.
 
 If present and non-null, the format of `newRuntime` is the same as the `finalizedBlockRuntime` field in the `initialized` event and is explained later down this page.
 
