@@ -175,7 +175,6 @@ The format of the `finalizedBlockRuntime` and `newRuntime` fields can be one of:
     "spec": {
         "specName": ...,
         "implName": ...,
-        "authoringVersion": ...,
         "specVersion": ...,
         "implVersion": ...,
         "transactionVersion": ...,
@@ -192,8 +191,6 @@ The fields of `spec` are:
 
 - `implName`: Opaque string indicating the name of the implementation of the chain.
 
-- `authoringVersion`: Opaque integer. Used by the internals of validator nodes that use a native executor in order to be sure that their native executor matches the WebAssembly code.
-
 - `specVersion`: Opaque integer. The JSON-RPC client can assume that the call to `Metadata_metadata` will always produce the same output as long as the `specVersion` is the same.
 
 - `implVersion`: Opaque integer. Whenever the runtime code changes in a backwards-compatible way, the `implVersion` is modified while the `specVersion` is left untouched.
@@ -202,9 +199,11 @@ The fields of `spec` are:
 
 - `apis`: Object containing a list of "entry point APIs" supported by the runtime. Each key is an opaque string indicating the API, and each value is an integer version number. Before making a runtime call (using `chainHead_unstable_call`), you should make sure that this list contains the entry point API corresponding to the call and with a known version number.
 
-**Note**: In Substrate, the key contains the hexadecimal-encoded 8-bytes blake2 hash of the name of the API. For example, the `TaggedTransactionQueue` API is `0xd2bc9897eed08f15`.
+**Note**: In Substrate, the keys in the `apis` field consists of the hexadecimal-encoded 8-bytes blake2 hash of the name of the API. For example, the `TaggedTransactionQueue` API is `0xd2bc9897eed08f15`.
 
 **Note**: The format of `apis` is not the same as in the legacy JSON-RPC API.
+
+**Note**: The list of fields is only a subset of the list of so-called "runtime specification" found in the runtime. The fields that aren't useful from a JSON-RPC client perspective are intentionally not included.
 
 #### Example value
 
@@ -212,7 +211,6 @@ The fields of `spec` are:
 {
     "specName": "westend",
     "implName": "parity-westend",
-    "authoringVersion": 2,
     "specVersion": 9122,
     "implVersion": 0,
     "transactionVersion": 7,
