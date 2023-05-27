@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 paste = "1.0.5"
-quote = "1.0.23"
+quote = "1.0.28"
 casey = "0.4.0"
 log = { version = "0.4.17", default-features = false }
 
