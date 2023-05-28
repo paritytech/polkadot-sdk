@@ -10,7 +10,7 @@ proc-macro = true
 
 [dependencies]
 syn = "2.0.15"
-proc-macro2 = "1.0.58"
+proc-macro2 = "1.0.59"
 quote = "1.0.28"
 proc-macro-crate = "1.3.1"
 
