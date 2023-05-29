@@ -627,7 +627,12 @@ pub type UncheckedExtrinsic =
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 // All migrations executed on runtime upgrade as a nested tuple of types implementing
 // `OnRuntimeUpgrade`. Included migrations must be idempotent.
-type Migrations = import_kusama_fellowship::Migration<Runtime, FellowshipCollectiveInstance>;
+type Migrations = (
+	// v9420
+	import_kusama_fellowship::Migration<Runtime, FellowshipCollectiveInstance>,
+	// unreleased
+	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+);
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<

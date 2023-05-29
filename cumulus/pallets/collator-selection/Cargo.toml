@@ -1,6 +1,6 @@
 [package]
-authors = ["Anonymous"]
-description = "Simple staking pallet with a fixed stake."
+authors = ["Parity Technologies <admin@parity.io>"]
+description = "Simple pallet to select collators for a parachain."
 edition = "2021"
 homepage = "https://substrate.io"
 license = "Apache-2.0"

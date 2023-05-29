@@ -27,6 +27,8 @@ use sp_std::marker::PhantomData;
 // The weight info trait for `pallet_collator_selection`.
 pub trait WeightInfo {
 	fn set_invulnerables(_b: u32) -> Weight;
+	fn add_invulnerable(_b: u32) -> Weight;
+	fn remove_invulnerable(_b: u32) -> Weight;
 	fn set_desired_candidates() -> Weight;
 	fn set_candidacy_bond() -> Weight;
 	fn register_as_candidate(_c: u32) -> Weight;
@@ -80,6 +82,39 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(2_u64.saturating_mul(r as u64)))
 			.saturating_add(T::DbWeight::get().writes(2_u64.saturating_mul(c as u64)))
 	}
+	/// Storage: CollatorSelection Invulnerables (r:1 w:1)
+	/// Proof: CollatorSelection Invulnerables (max_values: Some(1), max_size: Some(3202), added: 3697, mode: MaxEncodedLen)
+	/// Storage: Session NextKeys (r:1 w:0)
+	/// Proof Skipped: Session NextKeys (max_values: None, max_size: None, mode: Measured)
+	/// The range of component `b` is `[1, 99]`.
+	fn add_invulnerable(b: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `581 + b * (37 ±0)`
+		//  Estimated: `4687 + b * (37 ±0)`
+		// Minimum execution time: 269_126_000 picoseconds.
+		Weight::from_parts(286_711_880, 0)
+			.saturating_add(Weight::from_parts(0, 4687))
+			// Standard Error: 22_887
+			.saturating_add(Weight::from_parts(813_399, 0).saturating_mul(b.into()))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
+			.saturating_add(Weight::from_parts(0, 37).saturating_mul(b.into()))
+	}
+	/// Storage: CollatorSelection Invulnerables (r:1 w:1)
+	/// Proof: CollatorSelection Invulnerables (max_values: Some(1), max_size: Some(3202), added: 3697, mode: MaxEncodedLen)
+	/// The range of component `b` is `[1, 100]`.
+	fn remove_invulnerable(b: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `119 + b * (32 ±0)`
+		//  Estimated: `4687`
+		// Minimum execution time: 183_054_000 picoseconds.
+		Weight::from_parts(197_205_427, 0)
+			.saturating_add(Weight::from_parts(0, 4687))
+			// Standard Error: 13_533
+			.saturating_add(Weight::from_parts(376_231, 0).saturating_mul(b.into()))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }
 
 // For backwards compatibility and tests
@@ -125,5 +160,38 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2_u64.saturating_mul(c as u64)))
 			.saturating_add(RocksDbWeight::get().writes(2_u64.saturating_mul(r as u64)))
 			.saturating_add(RocksDbWeight::get().writes(2_u64.saturating_mul(c as u64)))
+	}
+	/// Storage: CollatorSelection Invulnerables (r:1 w:1)
+	/// Proof: CollatorSelection Invulnerables (max_values: Some(1), max_size: Some(3202), added: 3697, mode: MaxEncodedLen)
+	/// Storage: Session NextKeys (r:1 w:0)
+	/// Proof Skipped: Session NextKeys (max_values: None, max_size: None, mode: Measured)
+	/// The range of component `b` is `[1, 99]`.
+	fn add_invulnerable(b: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `581 + b * (37 ±0)`
+		//  Estimated: `4687 + b * (37 ±0)`
+		// Minimum execution time: 269_126_000 picoseconds.
+		Weight::from_parts(286_711_880, 0)
+			.saturating_add(Weight::from_parts(0, 4687))
+			// Standard Error: 22_887
+			.saturating_add(Weight::from_parts(813_399, 0).saturating_mul(b.into()))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(1))
+			.saturating_add(Weight::from_parts(0, 37).saturating_mul(b.into()))
+	}
+	/// Storage: CollatorSelection Invulnerables (r:1 w:1)
+	/// Proof: CollatorSelection Invulnerables (max_values: Some(1), max_size: Some(3202), added: 3697, mode: MaxEncodedLen)
+	/// The range of component `b` is `[1, 100]`.
+	fn remove_invulnerable(b: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `119 + b * (32 ±0)`
+		//  Estimated: `4687`
+		// Minimum execution time: 183_054_000 picoseconds.
+		Weight::from_parts(197_205_427, 0)
+			.saturating_add(Weight::from_parts(0, 4687))
+			// Standard Error: 13_533
+			.saturating_add(Weight::from_parts(376_231, 0).saturating_mul(b.into()))
+			.saturating_add(RocksDbWeight::get().reads(1))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }

@@ -95,7 +95,10 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
-pub type Migrations = (pallet_contracts::Migration<Runtime>,);
+pub type Migrations = (
+	pallet_contracts::Migration<Runtime>,
+	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+);
 
 type EventRecord = frame_system::EventRecord<
 	<Runtime as frame_system::Config>::RuntimeEvent,

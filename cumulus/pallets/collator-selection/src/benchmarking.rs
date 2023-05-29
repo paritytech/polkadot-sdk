@@ -110,17 +110,61 @@ benchmarks! {
 	where_clause { where T: pallet_authorship::Config + session::Config }
 
 	set_invulnerables {
-		let b in 1 .. T::MaxInvulnerables::get();
-		let new_invulnerables = register_validators::<T>(b);
 		let origin =
 			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let b in 1 .. T::MaxInvulnerables::get();
+		let new_invulnerables = register_validators::<T>(b);
+		let mut sorted_new_invulnerables = new_invulnerables.clone();
+		sorted_new_invulnerables.sort();
 	}: {
 		assert_ok!(
+			// call the function with the unsorted list
 			<CollatorSelection<T>>::set_invulnerables(origin, new_invulnerables.clone())
 		);
 	}
 	verify {
-		assert_last_event::<T>(Event::NewInvulnerables{invulnerables: new_invulnerables}.into());
+		// assert that it comes out sorted
+		assert_last_event::<T>(Event::NewInvulnerables{invulnerables: sorted_new_invulnerables}.into());
+	}
+
+	add_invulnerable {
+		let origin =
+			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		// we're going to add one, so need one less than max set as invulnerables to start
+		let b in 1 .. T::MaxInvulnerables::get() - 1;
+		let mut invulnerables = register_validators::<T>(b);
+		invulnerables.sort();
+		let invulnerables: frame_support::BoundedVec<_, T::MaxInvulnerables> = frame_support::BoundedVec::try_from(invulnerables).unwrap();
+		<Invulnerables<T>>::put(invulnerables);
+
+		// now let's set up a new one to add
+		let (new, keys) = validator::<T>(b + 1);
+		<session::Pallet<T>>::set_keys(RawOrigin::Signed(new.clone()).into(), keys, Vec::new()).unwrap();
+	}: {
+		assert_ok!(
+			<CollatorSelection<T>>::add_invulnerable(origin, new.clone())
+		);
+	}
+	verify {
+		assert_last_event::<T>(Event::InvulnerableAdded{account_id: new}.into());
+	}
+
+	remove_invulnerable {
+		let origin =
+			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let b in 1 .. T::MaxInvulnerables::get();
+		let mut invulnerables = register_validators::<T>(b);
+		invulnerables.sort();
+		let invulnerables: frame_support::BoundedVec<_, T::MaxInvulnerables> = frame_support::BoundedVec::try_from(invulnerables).unwrap();
+		<Invulnerables<T>>::put(invulnerables);
+		let to_remove = <Invulnerables<T>>::get().first().unwrap().clone();
+	}: {
+		assert_ok!(
+			<CollatorSelection<T>>::remove_invulnerable(origin, to_remove.clone())
+		);
+	}
+	verify {
+		assert_last_event::<T>(Event::InvulnerableRemoved{account_id: to_remove}.into());
 	}
 
 	set_desired_candidates {
