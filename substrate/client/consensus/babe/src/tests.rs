@@ -202,24 +202,6 @@ impl Verifier<TestBlock> for TestVerifier {
 	}
 }
 
-struct FakeTxPool;
-
-impl LocalTransactionPool for FakeTxPool {
-	type Block = TestBlock;
-
-	type Hash = <TestBlock as BlockT>::Hash;
-
-	type Error = sc_transaction_pool_api::error::Error;
-
-	fn submit_local(
-		&self,
-		_: <TestBlock as BlockT>::Hash,
-		_: <TestBlock as BlockT>::Extrinsic,
-	) -> Result<Self::Hash, Self::Error> {
-		unimplemented!()
-	}
-}
-
 pub struct PeerData {
 	link: BabeLink<TestBlock>,
 	block_import: Mutex<Option<BoxBlockImport<TestBlock>>>,
