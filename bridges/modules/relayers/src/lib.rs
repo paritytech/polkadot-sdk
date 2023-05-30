@@ -63,7 +63,7 @@ pub mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Type of relayer reward.
-		type Reward: AtLeast32BitUnsigned + Copy + Parameter + MaxEncodedLen;
+		type Reward: AtLeast32BitUnsigned + Copy + Member + Parameter + MaxEncodedLen;
 		/// Pay rewards scheme.
 		type PaymentProcedure: PaymentProcedure<Self::AccountId, Self::Reward>;
 		/// Stake and slash scheme.

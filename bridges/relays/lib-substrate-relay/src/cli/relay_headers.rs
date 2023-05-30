@@ -29,6 +29,7 @@ use crate::{
 	finality::SubstrateFinalitySyncPipeline,
 	HeadersToRelay,
 };
+use relay_substrate_client::Client;
 
 /// Chain headers relaying params.
 #[derive(StructOpt)]
