@@ -23,7 +23,7 @@ use frame_support::{
 use sp_runtime::{
 	testing::H256,
 	traits::{BlakeTwo256, Header as HeaderT},
-	MultiSignature,
+	MultiSignature, StateVersion,
 };
 
 use crate as pallet_bridge_parachains;
@@ -60,6 +60,8 @@ impl Chain for Parachain1 {
 	type Nonce = u64;
 	type Signature = MultiSignature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		0
 	}
@@ -86,6 +88,8 @@ impl Chain for Parachain2 {
 	type Balance = u64;
 	type Nonce = u64;
 	type Signature = MultiSignature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		0
@@ -114,6 +118,8 @@ impl Chain for Parachain3 {
 	type Nonce = u64;
 	type Signature = MultiSignature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		0
 	}
@@ -141,6 +147,8 @@ impl Chain for BigParachain {
 	type Balance = u64;
 	type Nonce = u64;
 	type Signature = MultiSignature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		0
@@ -256,6 +264,8 @@ impl Chain for TestBridgedChain {
 	type Nonce = u32;
 	type Signature = sp_runtime::testing::TestSignature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		unreachable!()
 	}
@@ -288,6 +298,8 @@ impl Chain for OtherBridgedChain {
 	type Balance = u32;
 	type Nonce = u32;
 	type Signature = sp_runtime::testing::TestSignature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		unreachable!()

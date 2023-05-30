@@ -22,10 +22,17 @@ use bp_messages::{
 	storage_keys, InboundLaneData, LaneId, MessageKey, MessageNonce, MessagePayload,
 	OutboundLaneData,
 };
-use bp_runtime::{record_all_trie_keys, RawStorageProof, StorageProofSize};
+use bp_runtime::{
+	record_all_trie_keys, Chain, RawStorageProof, StorageProofSize, UnderlyingChainOf,
+	UntrustedVecDb,
+};
 use codec::Encode;
+use frame_support::sp_runtime::StateVersion;
 use sp_std::{ops::RangeInclusive, prelude::*};
-use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
+use sp_trie::{
+	trie_types::TrieDBMutBuilderV1, LayoutV0, LayoutV1, MemoryDB, StorageProof, TrieConfiguration,
+	TrieDBMutBuilder, TrieMut,
+};
 
 /// Simple and correct message data encode function.
 pub fn encode_all_messages(_: MessageNonce, m: &MessagePayload) -> Option<Vec<u8>> {
@@ -40,6 +47,7 @@ pub fn encode_lane_data(d: &OutboundLaneData) -> Vec<u8> {
 /// Prepare storage proof of given messages.
 ///
 /// Returns state trie root and nodes with prepared messages.
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_messages_storage_proof<B>(
 	lane: LaneId,
 	message_nonces: RangeInclusive<MessageNonce>,
@@ -48,9 +56,59 @@ pub fn prepare_messages_storage_proof<B>(
 	message_payload: MessagePayload,
 	encode_message: impl Fn(MessageNonce, &MessagePayload) -> Option<Vec<u8>>,
 	encode_outbound_lane_data: impl Fn(&OutboundLaneData) -> Vec<u8>,
-) -> (HashOf<BridgedChain<B>>, RawStorageProof)
+	add_duplicate_key: bool,
+	add_unused_key: bool,
+) -> (HashOf<BridgedChain<B>>, UntrustedVecDb)
 where
 	B: MessageBridge,
+	HashOf<BridgedChain<B>>: Copy + Default,
+{
+	match <UnderlyingChainOf<BridgedChain<B>>>::STATE_VERSION {
+		StateVersion::V0 =>
+			do_prepare_messages_storage_proof::<B, LayoutV0<HasherOf<BridgedChain<B>>>>(
+				lane,
+				message_nonces,
+				outbound_lane_data,
+				size,
+				message_payload,
+				encode_message,
+				encode_outbound_lane_data,
+				add_duplicate_key,
+				add_unused_key,
+			),
+		StateVersion::V1 =>
+			do_prepare_messages_storage_proof::<B, LayoutV1<HasherOf<BridgedChain<B>>>>(
+				lane,
+				message_nonces,
+				outbound_lane_data,
+				size,
+				message_payload,
+				encode_message,
+				encode_outbound_lane_data,
+				add_duplicate_key,
+				add_unused_key,
+			),
+	}
+}
+
+/// Prepare storage proof of given messages.
+///
+/// Returns state trie root and nodes with prepared messages.
+#[allow(clippy::too_many_arguments)]
+pub fn do_prepare_messages_storage_proof<B, L>(
+	lane: LaneId,
+	message_nonces: RangeInclusive<MessageNonce>,
+	outbound_lane_data: Option<OutboundLaneData>,
+	size: StorageProofSize,
+	message_payload: MessagePayload,
+	encode_message: impl Fn(MessageNonce, &MessagePayload) -> Option<Vec<u8>>,
+	encode_outbound_lane_data: impl Fn(&OutboundLaneData) -> Vec<u8>,
+	add_duplicate_key: bool,
+	add_unused_key: bool,
+) -> (HashOf<BridgedChain<B>>, UntrustedVecDb)
+where
+	B: MessageBridge,
+	L: TrieConfiguration<Hash = HasherOf<BridgedChain<B>>>,
 	HashOf<BridgedChain<B>>: Copy + Default,
 {
 	// prepare Bridged chain storage with messages and (optionally) outbound lane state
@@ -59,8 +117,7 @@ where
 	let mut root = Default::default();
 	let mut mdb = MemoryDB::default();
 	{
-		let mut trie =
-			TrieDBMutBuilderV1::<HasherOf<BridgedChain<B>>>::new(&mut mdb, &mut root).build();
+		let mut trie = TrieDBMutBuilder::<L>::new(&mut mdb, &mut root).build();
 
 		// insert messages
 		for (i, nonce) in message_nonces.into_iter().enumerate() {
@@ -96,13 +153,32 @@ where
 				.expect("TrieMut::insert should not fail in benchmarks");
 			storage_keys.push(storage_key);
 		}
+
+		if add_duplicate_key {
+			let duplicate_key = storage_keys.last().unwrap().clone();
+			storage_keys.push(duplicate_key);
+		}
+
+		if add_unused_key {
+			let storage_key = b"unused_key".to_vec();
+			trie.insert(&storage_key, b"unused_value")
+				.map_err(|_| "TrieMut::insert has failed")
+				.expect("TrieMut::insert should not fail in benchmarks");
+			storage_keys.push(storage_key);
+		}
 	}
 
 	// generate storage proof to be delivered to This chain
-	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>>, _>(&mdb, &root)
+	let read_proof = record_all_trie_keys::<L, _>(&mdb, &root)
 		.map_err(|_| "record_all_trie_keys has failed")
 		.expect("record_all_trie_keys should not fail in benchmarks");
-	(root, storage_proof)
+	let storage = UntrustedVecDb::try_new::<HasherOf<BridgedChain<B>>>(
+		StorageProof::new(read_proof),
+		root,
+		storage_keys,
+	)
+	.unwrap();
+	(root, storage)
 }
 
 /// Prepare storage proof of given messages delivery.

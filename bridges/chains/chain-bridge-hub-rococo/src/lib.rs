@@ -25,8 +25,10 @@ use bp_messages::*;
 use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
-use frame_support::dispatch::DispatchClass;
-use sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug};
+use frame_support::{
+	dispatch::DispatchClass,
+	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
+};
 
 /// BridgeHubRococo parachain.
 #[derive(RuntimeDebug)]
@@ -44,6 +46,8 @@ impl Chain for BridgeHubRococo {
 	type Balance = Balance;
 	type Nonce = Nonce;
 	type Signature = Signature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		*BlockLength::get().max.get(DispatchClass::Normal)

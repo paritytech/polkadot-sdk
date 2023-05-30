@@ -36,7 +36,7 @@ use sp_core::H256;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
 	traits::{BlakeTwo256, IdentityLookup},
-	AccountId32, BuildStorage,
+	AccountId32, BuildStorage, StateVersion,
 };
 use xcm::prelude::*;
 
@@ -211,6 +211,8 @@ impl Chain for ThisChain {
 	type Nonce = u64;
 	type Signature = sp_runtime::MultiSignature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		u32::MAX
 	}
@@ -234,6 +236,8 @@ impl Chain for BridgedChain {
 	type Balance = Balance;
 	type Nonce = u64;
 	type Signature = sp_runtime::MultiSignature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		4096

@@ -45,6 +45,7 @@ pub use storage_proof::{
 	ProofSize as StorageProofSize, RawStorageProof, StorageProofChecker,
 };
 pub use storage_types::BoundedStorageValue;
+pub use vec_db::{TrustedVecDb, UntrustedVecDb, VecDbError};
 
 #[cfg(feature = "std")]
 pub use storage_proof::craft_valid_storage_proof;
@@ -55,6 +56,7 @@ pub mod messages;
 mod chain;
 mod storage_proof;
 mod storage_types;
+mod vec_db;
 
 // Re-export macro to avoid include paste dependency everywhere
 pub use sp_runtime::paste;

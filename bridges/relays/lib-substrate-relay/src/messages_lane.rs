@@ -643,13 +643,7 @@ where
 				Weight::zero(),
 				FromBridgedChainMessagesProof {
 					bridged_header_hash: Default::default(),
-					// we may use per-chain `EXTRA_STORAGE_PROOF_SIZE`, but since we don't need
-					// exact values, this global estimation is fine
-					storage_proof: vec![vec![
-						42u8;
-						pallet_bridge_messages::EXTRA_STORAGE_PROOF_SIZE
-							as usize
-					]],
+					storage: Default::default(),
 					lane: Default::default(),
 					nonces_start: 1,
 					nonces_end: messages as u64,

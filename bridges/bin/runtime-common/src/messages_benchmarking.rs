@@ -85,7 +85,7 @@ where
 	B: MessageBridge,
 {
 	// prepare storage proof
-	let (state_root, storage_proof) = prepare_messages_storage_proof::<B>(
+	let (state_root, storage) = prepare_messages_storage_proof::<B>(
 		params.lane,
 		params.message_nonces.clone(),
 		params.outbound_lane_data.clone(),
@@ -93,6 +93,8 @@ where
 		prepare_inbound_message(&params, message_generator),
 		encode_all_messages,
 		encode_lane_data,
+		false,
+		false,
 	);
 
 	// update runtime storage
@@ -101,7 +103,7 @@ where
 	(
 		FromBridgedChainMessagesProof {
 			bridged_header_hash,
-			storage_proof,
+			storage,
 			lane: params.lane,
 			nonces_start: *params.message_nonces.start(),
 			nonces_end: *params.message_nonces.end(),
@@ -129,7 +131,7 @@ where
 	UnderlyingChainOf<BridgedChain<B>>: Chain<Hash = ParaHash> + Parachain,
 {
 	// prepare storage proof
-	let (state_root, storage_proof) = prepare_messages_storage_proof::<B>(
+	let (state_root, storage) = prepare_messages_storage_proof::<B>(
 		params.lane,
 		params.message_nonces.clone(),
 		params.outbound_lane_data.clone(),
@@ -137,6 +139,8 @@ where
 		prepare_inbound_message(&params, message_generator),
 		encode_all_messages,
 		encode_lane_data,
+		false,
+		false,
 	);
 
 	// update runtime storage
@@ -146,7 +150,7 @@ where
 	(
 		FromBridgedChainMessagesProof {
 			bridged_header_hash,
-			storage_proof,
+			storage,
 			lane: params.lane,
 			nonces_start: *params.message_nonces.start(),
 			nonces_end: *params.message_nonces.end(),

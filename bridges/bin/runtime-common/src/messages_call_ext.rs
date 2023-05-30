@@ -420,7 +420,7 @@ mod tests {
 				dispatch_weight: frame_support::weights::Weight::zero(),
 				proof: FromBridgedChainMessagesProof {
 					bridged_header_hash: Default::default(),
-					storage_proof: vec![],
+					storage: Default::default(),
 					lane: LaneId([0, 0, 0, 0]),
 					nonces_start,
 					nonces_end,

@@ -35,7 +35,9 @@ use bp_messages::{
 	ChainWithMessages as _, InboundMessageDetails, LaneId, MessageNonce, MessagePayload,
 	MessagesOperatingMode, OutboundLaneData, OutboundMessageDetails,
 };
-use bp_runtime::{BasicOperatingMode, HeaderIdProvider};
+use bp_runtime::{
+	BasicOperatingMode, HasherOf, HeaderIdProvider, RangeInclusiveExt, UntrustedVecDb,
+};
 use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 use codec::Encode;
 use frame_support::weights::Weight;
@@ -54,6 +56,7 @@ use relay_substrate_client::{
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
+use sp_runtime::traits::Header;
 use std::ops::RangeInclusive;
 
 /// Intermediate message proof returned by the source Substrate node. Includes everything
@@ -320,34 +323,33 @@ where
 		),
 		SubstrateError,
 	> {
-		let mut storage_keys =
-			Vec::with_capacity(nonces.end().saturating_sub(*nonces.start()) as usize + 1);
-		let mut message_nonce = *nonces.start();
-		while message_nonce <= *nonces.end() {
+		let mut storage_keys = Vec::with_capacity(nonces.saturating_len() as usize);
+		for message_nonce in nonces.clone() {
 			let message_key = bp_messages::storage_keys::message_key(
 				P::TargetChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
 				&self.lane_id,
 				message_nonce,
 			);
 			storage_keys.push(message_key);
-			message_nonce += 1;
 		}
 		if proof_parameters.outbound_state_proof_required {
-			storage_keys.push(bp_messages::storage_keys::outbound_lane_data_key(
+			storage_keys.push(outbound_lane_data_key(
 				P::TargetChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
 				&self.lane_id,
 			));
 		}
 
-		let proof = self
-			.source_client
-			.prove_storage(id.1, storage_keys)
-			.await?
-			.into_iter_nodes()
-			.collect();
+		let root = *self.source_client.header_by_hash(id.hash()).await?.state_root();
+		let storage_proof =
+			self.source_client.prove_storage(id.hash(), storage_keys.clone()).await?;
+		let storage =
+			UntrustedVecDb::try_new::<HasherOf<P::SourceChain>>(storage_proof, root, storage_keys)
+				.map_err(|e| {
+					SubstrateError::Custom(format!("Error generating messages storage: {:?}", e))
+				})?;
 		let proof = FromBridgedChainMessagesProof {
 			bridged_header_hash: id.1,
-			storage_proof: proof,
+			storage,
 			lane: self.lane_id,
 			nonces_start: *nonces.start(),
 			nonces_end: *nonces.end(),
