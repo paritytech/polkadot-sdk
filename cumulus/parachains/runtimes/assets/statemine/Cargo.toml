@@ -8,7 +8,7 @@ description = "Kusama variant of Statemint parachain runtime"
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 hex-literal = { version = "0.4.1" }
-log = { version = "0.4.17", default-features = false }
+log = { version = "0.4.18", default-features = false }
 scale-info = { version = "2.7.0", default-features = false, features = ["derive"] }
 smallvec = "1.10.0"
 

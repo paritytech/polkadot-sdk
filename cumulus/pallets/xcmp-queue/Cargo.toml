@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ], default-features = false }
-log = { version = "0.4.17", default-features = false }
+log = { version = "0.4.18", default-features = false }
 rand_chacha = { version = "0.3.0", default-features = false }
 scale-info = { version = "2.7.0", default-features = false, features = ["derive"] }
 
