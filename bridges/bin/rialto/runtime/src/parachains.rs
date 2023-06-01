@@ -17,24 +17,30 @@
 //! Parachains support in Rialto runtime.
 
 use crate::{
-	AccountId, Babe, Balance, Balances, BlockNumber, Registrar, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, ShiftSessionManager, Slots, UncheckedExtrinsic,
+	xcm_config, AccountId, Babe, Balance, Balances, BlockNumber, Registrar, Runtime, RuntimeCall,
+	RuntimeEvent, RuntimeOrigin, ShiftSessionManager, Slots, UncheckedExtrinsic,
 };
 
-use frame_support::{parameter_types, traits::KeyOwnerProofSystem, weights::Weight};
+use frame_support::{
+	parameter_types,
+	traits::{KeyOwnerProofSystem, ProcessMessage, ProcessMessageError},
+	weights::{Weight, WeightMeter},
+};
 use frame_system::EnsureRoot;
 use polkadot_primitives::v4::{ValidatorId, ValidatorIndex};
 use polkadot_runtime_common::{paras_registrar, paras_sudo_wrapper, slots};
 use polkadot_runtime_parachains::{
 	configuration as parachains_configuration, disputes as parachains_disputes,
-	disputes::slashing as parachains_slashing, dmp as parachains_dmp, hrmp as parachains_hrmp,
-	inclusion as parachains_inclusion, initializer as parachains_initializer,
-	origin as parachains_origin, paras as parachains_paras,
+	disputes::slashing as parachains_slashing,
+	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
+	inclusion::{AggregateMessageOrigin, UmpQueueId},
+	initializer as parachains_initializer, origin as parachains_origin, paras as parachains_paras,
 	paras_inherent as parachains_paras_inherent, scheduler as parachains_scheduler,
-	session_info as parachains_session_info, shared as parachains_shared, ump as parachains_ump,
+	session_info as parachains_session_info, shared as parachains_shared,
 };
 use sp_core::crypto::KeyTypeId;
 use sp_runtime::transaction_validity::TransactionPriority;
+use xcm::latest::Junction;
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
 where
@@ -70,6 +76,8 @@ impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RewardValidators = RewardValidators;
 	type DisputesHandler = ();
+	type MessageQueue = crate::MessageQueue;
+	type WeightInfo = ();
 }
 
 impl parachains_initializer::Config for Runtime {
@@ -108,6 +116,7 @@ impl parachains_paras::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ParasWeightInfo;
 	type UnsignedPriority = ParasUnsignedPriority;
+	type QueueFootprinter = crate::Inclusion;
 	type NextSessionRotation = Babe;
 }
 
@@ -169,12 +178,53 @@ impl parachains_session_info::Config for Runtime {
 
 impl parachains_shared::Config for Runtime {}
 
-impl parachains_ump::Config for Runtime {
+parameter_types! {
+	/// Amount of weight that can be spent per block to service messages.
+	///
+	/// # WARNING
+	///
+	/// This is not a good value for para-chains since the `Scheduler`
+	/// already uses up to 80 percent block weight.
+	pub MessageQueueServiceWeight: Weight = crate::Perbill::from_percent(20) * bp_rialto::BlockWeights::get().max_block;
+	pub const MessageQueueHeapSize: u32 = 32 * 1024;
+	pub const MessageQueueMaxStale: u32 = 96;
+}
+
+/// Message processor to handle any messages that were enqueued into the `MessageQueue` pallet.
+pub struct MessageProcessor;
+impl ProcessMessage for MessageProcessor {
+	type Origin = AggregateMessageOrigin;
+
+	fn process_message(
+		message: &[u8],
+		origin: Self::Origin,
+		meter: &mut WeightMeter,
+		id: &mut [u8; 32],
+	) -> Result<bool, ProcessMessageError> {
+		let para = match origin {
+			AggregateMessageOrigin::Ump(UmpQueueId::Para(para)) => para,
+		};
+		xcm_builder::ProcessXcmMessage::<
+			Junction,
+			xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
+			RuntimeCall,
+		>::process_message(message, Junction::Parachain(para.into()), meter, id)
+	}
+}
+
+impl pallet_message_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type UmpSink = ();
-	type FirstMessageFactorPercent = frame_support::traits::ConstU64<100>;
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
-	type WeightInfo = parachains_ump::TestWeightInfo;
+	type Size = u32;
+	type HeapSize = MessageQueueHeapSize;
+	type MaxStale = MessageQueueMaxStale;
+	type ServiceWeight = MessageQueueServiceWeight;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type MessageProcessor = MessageProcessor;
+	#[cfg(feature = "runtime-benchmarks")]
+	type MessageProcessor =
+		pallet_message_queue::mock_helpers::NoopMessageProcessor<AggregateMessageOrigin>;
+	type QueueChangeHandler = crate::Inclusion;
+	type WeightInfo = ();
 }
 
 // required onboarding pallets. We're not going to use auctions or crowdloans, so they're missing
