@@ -65,7 +65,7 @@ use bp_messages::{
 };
 use bp_runtime::{BasicOperatingMode, ChainId, OwnedBridgeModule, PreComputedSize, Size};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{dispatch::PostDispatchInfo, ensure, fail, traits::Get};
+use frame_support::{dispatch::PostDispatchInfo, ensure, fail, traits::Get, DefaultNoBound};
 use sp_runtime::traits::UniqueSaturatedFrom;
 use sp_std::{marker::PhantomData, prelude::*};
 
@@ -586,6 +586,7 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, MessageKey, StoredMessagePayload<T, I>>;
 
 	#[pallet::genesis_config]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		/// Initial pallet operating mode.
 		pub operating_mode: MessagesOperatingMode,
@@ -593,17 +594,6 @@ pub mod pallet {
 		pub owner: Option<T::AccountId>,
 		/// Dummy marker.
 		pub phantom: sp_std::marker::PhantomData<I>,
-	}
-
-	#[cfg(feature = "std")]
-	impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
-		fn default() -> Self {
-			Self {
-				operating_mode: Default::default(),
-				owner: Default::default(),
-				phantom: Default::default(),
-			}
-		}
 	}
 
 	#[pallet::genesis_build]
