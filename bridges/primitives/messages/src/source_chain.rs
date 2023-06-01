@@ -16,17 +16,49 @@
 
 //! Primitives of messages module, that are used on the source chain.
 
-use crate::{InboundLaneData, LaneId, MessageNonce, VerificationError};
+use crate::{InboundLaneData, LaneId, MessageNonce, UnrewardedRelayer, VerificationError};
 
-use crate::UnrewardedRelayer;
-use bp_runtime::Size;
+use bp_runtime::{RawStorageProof, Size};
+use codec::{Decode, Encode};
 use frame_support::Parameter;
+use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
 use sp_std::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	fmt::Debug,
 	ops::RangeInclusive,
 };
+
+/// Messages delivery proof from the bridged chain.
+///
+/// It contains everything required to prove that our (this chain) messages have been
+/// delivered to the bridged (target) chain:
+///
+/// - hash of finalized header;
+///
+/// - storage proof of the inbound lane state;
+///
+/// - lane id.
+#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+pub struct FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash> {
+	/// Hash of the bridge header the proof is for.
+	pub bridged_header_hash: BridgedHeaderHash,
+	/// Storage trie proof generated for [`Self::bridged_header_hash`].
+	pub storage_proof: RawStorageProof,
+	/// Lane id of which messages were delivered and the proof is for.
+	pub lane: LaneId,
+}
+
+impl<BridgedHeaderHash> Size for FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash> {
+	fn size(&self) -> u32 {
+		u32::try_from(
+			self.storage_proof
+				.iter()
+				.fold(0usize, |sum, node| sum.saturating_add(node.len())),
+		)
+		.unwrap_or(u32::MAX)
+	}
+}
 
 /// Number of messages, delivered by relayers.
 pub type RelayersRewards<AccountId> = BTreeMap<AccountId, MessageNonce>;

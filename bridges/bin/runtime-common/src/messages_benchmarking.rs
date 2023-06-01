@@ -21,8 +21,8 @@
 
 use crate::{
 	messages::{
-		source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
-		AccountIdOf, BridgedChain, HashOf, MessageBridge, ThisChain,
+		target::FromBridgedChainMessagesProof, AccountIdOf, BridgedChain, HashOf, MessageBridge,
+		ThisChain,
 	},
 	messages_generation::{
 		encode_all_messages, encode_lane_data, prepare_message_delivery_storage_proof,
@@ -30,7 +30,7 @@ use crate::{
 	},
 };
 
-use bp_messages::MessagePayload;
+use bp_messages::{source_chain::FromBridgedChainMessagesDeliveryProof, MessagePayload};
 use bp_polkadot_core::parachains::ParaHash;
 use bp_runtime::{Chain, Parachain, StorageProofSize, UnderlyingChainOf};
 use codec::Encode;

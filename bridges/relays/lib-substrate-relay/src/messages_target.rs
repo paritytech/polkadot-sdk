@@ -33,10 +33,9 @@ use crate::{
 use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
-	storage_keys::inbound_lane_data_key, ChainWithMessages as _, InboundLaneData, LaneId,
-	MessageNonce, UnrewardedRelayersState,
+	source_chain::FromBridgedChainMessagesDeliveryProof, storage_keys::inbound_lane_data_key,
+	ChainWithMessages as _, InboundLaneData, LaneId, MessageNonce, UnrewardedRelayersState,
 };
-use bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof;
 use messages_relay::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
 	message_lane_loop::{NoncesSubmitArtifacts, TargetClient, TargetClientState},

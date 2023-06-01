@@ -22,7 +22,7 @@
 
 use bp_header_chain::HeaderChain;
 use bp_messages::{
-	source_chain::TargetHeaderChain,
+	source_chain::{FromBridgedChainMessagesDeliveryProof, TargetHeaderChain},
 	target_chain::{ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
 	InboundLaneData, LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData,
 	VerificationError,
@@ -87,32 +87,6 @@ pub mod source {
 	impl<B: MessageBridge> Get<u32> for FromThisChainMaximalOutboundPayloadSize<B> {
 		fn get() -> u32 {
 			maximal_message_size::<B>()
-		}
-	}
-
-	/// Messages delivery proof from bridged chain:
-	///
-	/// - hash of finalized header;
-	/// - storage proof of inbound lane state;
-	/// - lane id.
-	#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
-	pub struct FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash> {
-		/// Hash of the bridge header the proof is for.
-		pub bridged_header_hash: BridgedHeaderHash,
-		/// Storage trie proof generated for [`Self::bridged_header_hash`].
-		pub storage_proof: RawStorageProof,
-		/// Lane id of which messages were delivered and the proof is for.
-		pub lane: LaneId,
-	}
-
-	impl<BridgedHeaderHash> Size for FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash> {
-		fn size(&self) -> u32 {
-			u32::try_from(
-				self.storage_proof
-					.iter()
-					.fold(0usize, |sum, node| sum.saturating_add(node.len())),
-			)
-			.unwrap_or(u32::MAX)
 		}
 	}
 
@@ -369,7 +343,7 @@ pub mod target {
 pub type BridgeMessagesCallOf<C> = bp_messages::BridgeMessagesCall<
 	bp_runtime::AccountIdOf<C>,
 	target::FromBridgedChainMessagesProof<bp_runtime::HashOf<C>>,
-	source::FromBridgedChainMessagesDeliveryProof<bp_runtime::HashOf<C>>,
+	bp_messages::source_chain::FromBridgedChainMessagesDeliveryProof<bp_runtime::HashOf<C>>,
 >;
 
 #[cfg(test)]

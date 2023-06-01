@@ -17,10 +17,11 @@
 //! Signed extension for the `pallet-bridge-messages` that is able to reject obsolete
 //! (and some other invalid) transactions.
 
-use crate::messages::{
-	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
+use crate::messages::target::FromBridgedChainMessagesProof;
+use bp_messages::{
+	source_chain::FromBridgedChainMessagesDeliveryProof, target_chain::MessageDispatch,
+	InboundLaneData, LaneId, MessageNonce,
 };
-use bp_messages::{target_chain::MessageDispatch, InboundLaneData, LaneId, MessageNonce};
 use bp_runtime::OwnedBridgeModule;
 use frame_support::{
 	dispatch::CallableCallFor,
@@ -358,16 +359,17 @@ fn unrewarded_relayers_occupation<T: Config<I>, I: 'static>(
 mod tests {
 	use super::*;
 	use crate::{
-		messages::{
-			source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
-		},
+		messages::target::FromBridgedChainMessagesProof,
 		messages_call_ext::MessagesCallSubType,
 		mock::{
 			DummyMessageDispatch, MaxUnconfirmedMessagesAtInboundLane,
 			MaxUnrewardedRelayerEntriesAtInboundLane, TestRuntime, ThisChainRuntimeCall,
 		},
 	};
-	use bp_messages::{DeliveredMessages, UnrewardedRelayer, UnrewardedRelayersState};
+	use bp_messages::{
+		source_chain::FromBridgedChainMessagesDeliveryProof, DeliveredMessages, UnrewardedRelayer,
+		UnrewardedRelayersState,
+	};
 	use sp_std::ops::RangeInclusive;
 
 	fn fill_unrewarded_relayers() {
