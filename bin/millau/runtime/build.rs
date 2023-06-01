@@ -21,5 +21,6 @@ fn main() {
 		.with_current_project()
 		.import_memory()
 		.export_heap_base()
+		.disable_runtime_version_section_check()
 		.build()
 }

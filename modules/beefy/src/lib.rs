@@ -328,18 +328,12 @@ pub mod pallet {
 		StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		/// Optional module owner account.
 		pub owner: Option<T::AccountId>,
 		/// Optional module initialization data.
 		pub init_data: Option<InitializationDataOf<T, I>>,
-	}
-
-	#[cfg(feature = "std")]
-	impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
-		fn default() -> Self {
-			Self { owner: None, init_data: None }
-		}
 	}
 
 	#[pallet::genesis_build]
