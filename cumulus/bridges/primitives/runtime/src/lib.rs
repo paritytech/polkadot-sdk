@@ -373,8 +373,19 @@ pub trait OperatingMode: Send + Copy + Debug + FullCodec {
 }
 
 /// Basic operating modes for a bridges module (Normal/Halted).
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Encode,
+	Decode,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 pub enum BasicOperatingMode {
 	/// Normal mode, when all operations are allowed.
 	Normal,

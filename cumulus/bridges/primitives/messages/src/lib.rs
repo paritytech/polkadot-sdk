@@ -39,8 +39,19 @@ pub mod storage_keys;
 pub mod target_chain;
 
 /// Messages pallet operating mode.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Encode,
+	Decode,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 pub enum MessagesOperatingMode {
 	/// Basic operating mode (Normal/Halted)
 	Basic(BasicOperatingMode),
