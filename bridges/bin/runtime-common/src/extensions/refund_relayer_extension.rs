@@ -935,9 +935,6 @@ where
 pub(crate) mod tests {
 	use super::*;
 	use crate::{
-		messages::{
-			source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
-		},
 		messages_call_ext::{
 			BaseMessagesProofInfo, ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo,
 			UnrewardedRelayerOccupation,
@@ -946,8 +943,10 @@ pub(crate) mod tests {
 	};
 	use bp_header_chain::StoredHeaderDataBuilder;
 	use bp_messages::{
-		DeliveredMessages, InboundLaneData, MessageNonce, MessagesOperatingMode, OutboundLaneData,
-		UnrewardedRelayer, UnrewardedRelayersState,
+		source_chain::FromBridgedChainMessagesDeliveryProof,
+		target_chain::FromBridgedChainMessagesProof, DeliveredMessages, InboundLaneData,
+		MessageNonce, MessagesOperatingMode, OutboundLaneData, UnrewardedRelayer,
+		UnrewardedRelayersState,
 	};
 	use bp_parachains::{BestParaHeadHash, ParaInfo};
 	use bp_polkadot_core::parachains::{ParaHeadsProof, ParaId};

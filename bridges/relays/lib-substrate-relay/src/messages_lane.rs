@@ -25,13 +25,12 @@ use crate::{
 
 use async_std::sync::Arc;
 use bp_messages::{
-	source_chain::FromBridgedChainMessagesDeliveryProof, ChainWithMessages as _, LaneId,
-	MessageNonce,
+	source_chain::FromBridgedChainMessagesDeliveryProof,
+	target_chain::FromBridgedChainMessagesProof, ChainWithMessages as _, LaneId, MessageNonce,
 };
 use bp_runtime::{
 	AccountIdOf, Chain as _, EncodedOrDecodedCall, HeaderIdOf, TransactionEra, WeightExtraOps,
 };
-use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 use codec::Encode;
 use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
 use messages_relay::{message_lane::MessageLane, message_lane_loop::BatchTransaction};

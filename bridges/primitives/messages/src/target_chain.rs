@@ -20,12 +20,44 @@ use crate::{
 	LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData, VerificationError,
 };
 
-use bp_runtime::{messages::MessageDispatchResult, Size};
+use bp_runtime::{messages::MessageDispatchResult, Size, UntrustedVecDb};
 use codec::{Decode, Encode, Error as CodecError};
 use frame_support::{weights::Weight, Parameter};
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
 use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, marker::PhantomData, prelude::*};
+
+/// Messages proof from bridged chain.
+///
+/// It contains everything required to prove that bridged (source) chain has
+/// sent us some messages:
+///
+/// - hash of finalized header;
+///
+/// - storage proof of messages and (optionally) outbound lane state;
+///
+/// - lane id;
+///
+/// - nonces (inclusive range) of messages which are included in this proof.
+#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+pub struct FromBridgedChainMessagesProof<BridgedHeaderHash> {
+	/// Hash of the finalized bridged header the proof is for.
+	pub bridged_header_hash: BridgedHeaderHash,
+	/// The proved storage containing the messages being delivered.
+	pub storage: UntrustedVecDb,
+	/// Messages in this proof are sent over this lane.
+	pub lane: LaneId,
+	/// Nonce of the first message being delivered.
+	pub nonces_start: MessageNonce,
+	/// Nonce of the last message being delivered.
+	pub nonces_end: MessageNonce,
+}
+
+impl<BridgedHeaderHash> Size for FromBridgedChainMessagesProof<BridgedHeaderHash> {
+	fn size(&self) -> u32 {
+		self.storage.size()
+	}
+}
 
 /// Proved messages from the source chain.
 pub type ProvedMessages<Message> = BTreeMap<LaneId, ProvedLaneMessages<Message>>;

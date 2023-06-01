@@ -23,7 +23,9 @@
 use bp_header_chain::HeaderChain;
 use bp_messages::{
 	source_chain::{FromBridgedChainMessagesDeliveryProof, TargetHeaderChain},
-	target_chain::{ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
+	target_chain::{
+		FromBridgedChainMessagesProof, ProvedLaneMessages, ProvedMessages, SourceHeaderChain,
+	},
 	InboundLaneData, LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData,
 	VerificationError,
 };
@@ -31,10 +33,7 @@ pub use bp_runtime::{
 	Chain, RangeInclusiveExt, RawStorageProof, Size, TrustedVecDb, UnderlyingChainOf,
 	UnderlyingChainProvider, UntrustedVecDb,
 };
-use codec::{Decode, Encode};
 use frame_support::{traits::Get, weights::Weight};
-use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
 use sp_std::{marker::PhantomData, vec::Vec};
 
 /// Bidirectional message bridge.
@@ -190,32 +189,6 @@ pub mod target {
 	/// Decoded Bridged -> This message payload.
 	pub type FromBridgedChainMessagePayload = crate::messages_xcm_extension::XcmAsPlainPayload;
 
-	/// Messages proof from bridged chain:
-	///
-	/// - hash of finalized header;
-	/// - storage proof of messages and (optionally) outbound lane state;
-	/// - lane id;
-	/// - nonces (inclusive range) of messages which are included in this proof.
-	#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
-	pub struct FromBridgedChainMessagesProof<BridgedHeaderHash> {
-		/// Hash of the finalized bridged header the proof is for.
-		pub bridged_header_hash: BridgedHeaderHash,
-		/// The proved storage containing the messages being delivered.
-		pub storage: UntrustedVecDb,
-		/// Messages in this proof are sent over this lane.
-		pub lane: LaneId,
-		/// Nonce of the first message being delivered.
-		pub nonces_start: MessageNonce,
-		/// Nonce of the last message being delivered.
-		pub nonces_end: MessageNonce,
-	}
-
-	impl<BridgedHeaderHash> Size for FromBridgedChainMessagesProof<BridgedHeaderHash> {
-		fn size(&self) -> u32 {
-			self.storage.size()
-		}
-	}
-
 	/// Return maximal dispatch weight of the message we're able to receive.
 	pub fn maximal_incoming_message_dispatch_weight(maximal_extrinsic_weight: Weight) -> Weight {
 		maximal_extrinsic_weight / 2
@@ -342,7 +315,7 @@ pub mod target {
 /// The `BridgeMessagesCall` used by a chain.
 pub type BridgeMessagesCallOf<C> = bp_messages::BridgeMessagesCall<
 	bp_runtime::AccountIdOf<C>,
-	target::FromBridgedChainMessagesProof<bp_runtime::HashOf<C>>,
+	FromBridgedChainMessagesProof<bp_runtime::HashOf<C>>,
 	bp_messages::source_chain::FromBridgedChainMessagesDeliveryProof<bp_runtime::HashOf<C>>,
 >;
 
@@ -400,7 +373,7 @@ mod tests {
 		encode_outbound_lane_data: impl Fn(&OutboundLaneData) -> Vec<u8>,
 		add_duplicate_key: bool,
 		add_unused_key: bool,
-		test: impl Fn(target::FromBridgedChainMessagesProof<H256>) -> R,
+		test: impl Fn(FromBridgedChainMessagesProof<H256>) -> R,
 	) -> R {
 		let (state_root, storage) = prepare_messages_storage_proof::<OnThisChainBridge>(
 			TEST_LANE_ID,
@@ -432,7 +405,7 @@ mod tests {
 				bridged_header_hash,
 				bridged_header.build(),
 			);
-			test(target::FromBridgedChainMessagesProof {
+			test(FromBridgedChainMessagesProof {
 				bridged_header_hash,
 				storage,
 				lane: TEST_LANE_ID,

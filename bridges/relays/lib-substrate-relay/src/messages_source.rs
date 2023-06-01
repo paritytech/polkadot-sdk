@@ -32,13 +32,13 @@ use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
 	storage_keys::{operating_mode_key, outbound_lane_data_key},
+	target_chain::FromBridgedChainMessagesProof,
 	ChainWithMessages as _, InboundMessageDetails, LaneId, MessageNonce, MessagePayload,
 	MessagesOperatingMode, OutboundLaneData, OutboundMessageDetails,
 };
 use bp_runtime::{
 	BasicOperatingMode, HasherOf, HeaderIdProvider, RangeInclusiveExt, UntrustedVecDb,
 };
-use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
 use codec::Encode;
 use frame_support::weights::Weight;
 use messages_relay::{

@@ -17,9 +17,9 @@
 //! Signed extension for the `pallet-bridge-messages` that is able to reject obsolete
 //! (and some other invalid) transactions.
 
-use crate::messages::target::FromBridgedChainMessagesProof;
 use bp_messages::{
-	source_chain::FromBridgedChainMessagesDeliveryProof, target_chain::MessageDispatch,
+	source_chain::FromBridgedChainMessagesDeliveryProof,
+	target_chain::{FromBridgedChainMessagesProof, MessageDispatch},
 	InboundLaneData, LaneId, MessageNonce,
 };
 use bp_runtime::OwnedBridgeModule;
@@ -359,7 +359,6 @@ fn unrewarded_relayers_occupation<T: Config<I>, I: 'static>(
 mod tests {
 	use super::*;
 	use crate::{
-		messages::target::FromBridgedChainMessagesProof,
 		messages_call_ext::MessagesCallSubType,
 		mock::{
 			DummyMessageDispatch, MaxUnconfirmedMessagesAtInboundLane,
@@ -367,7 +366,8 @@ mod tests {
 		},
 	};
 	use bp_messages::{
-		source_chain::FromBridgedChainMessagesDeliveryProof, DeliveredMessages, UnrewardedRelayer,
+		source_chain::FromBridgedChainMessagesDeliveryProof,
+		target_chain::FromBridgedChainMessagesProof, DeliveredMessages, UnrewardedRelayer,
 		UnrewardedRelayersState,
 	};
 	use sp_std::ops::RangeInclusive;
