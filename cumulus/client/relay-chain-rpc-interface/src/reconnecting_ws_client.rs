@@ -161,7 +161,9 @@ impl ReconnectingWsClient {
 	}
 }
 
-/// Worker that should be used in combination with [`RelayChainRpcClient`]. Must be polled to distribute header notifications to listeners.
+/// Worker that should be used in combination with [`crate::RelayChainRpcClient`].
+///
+/// Must be polled to distribute header notifications to listeners.
 struct ReconnectingWebsocketWorker {
 	ws_urls: Vec<String>,
 	/// Communication channel with the RPC client

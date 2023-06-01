@@ -692,7 +692,7 @@ pub mod pallet {
 
 	/// A custom head data that should be returned as result of `validate_block`.
 	///
-	/// See [`Pallet::set_custom_validation_head_data`] for more information.
+	/// See `Pallet::set_custom_validation_head_data` for more information.
 	#[pallet::storage]
 	pub(super) type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
@@ -872,7 +872,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Process all inbound horizontal messages relayed by the collator.
 	///
-	/// This is similar to [`process_inbound_downward_messages`], but works on multiple inbound
+	/// This is similar to `Pallet::process_inbound_downward_messages`, but works on multiple inbound
 	/// channels.
 	///
 	/// **Panics** if either any of horizontal messages submitted by the collator was sent from
