@@ -38,6 +38,7 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "m
 pallet-beefy = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-beefy-mmr = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+pallet-message-queue = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-mmr = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-session = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, features = ["historical"]}
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
@@ -101,6 +102,7 @@ std = [
 	"pallet-bridge-messages/std",
 	"pallet-bridge-relayers/std",
 	"pallet-grandpa/std",
+	"pallet-message-queue/std",
 	"pallet-mmr/std",
 	"pallet-xcm/std",
 	"pallet-session/std",
@@ -136,6 +138,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",

@@ -44,7 +44,7 @@ use bp_header_chain::{
 };
 use bp_runtime::{BlockNumberOf, HashOf, HasherOf, HeaderId, HeaderOf, OwnedBridgeModule};
 use finality_grandpa::voter_set::VoterSet;
-use frame_support::{dispatch::PostDispatchInfo, ensure};
+use frame_support::{dispatch::PostDispatchInfo, ensure, DefaultNoBound};
 use sp_consensus_grandpa::{ConsensusLog, GRANDPA_ENGINE_ID};
 use sp_runtime::{
 	traits::{Header as HeaderT, Zero},
@@ -370,18 +370,12 @@ pub mod pallet {
 		StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::genesis_config]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		/// Optional module owner account.
 		pub owner: Option<T::AccountId>,
 		/// Optional module initialization data.
 		pub init_data: Option<super::InitializationData<BridgedHeader<T, I>>>,
-	}
-
-	#[cfg(feature = "std")]
-	impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
-		fn default() -> Self {
-			Self { owner: None, init_data: None }
-		}
 	}
 
 	#[pallet::genesis_build]
