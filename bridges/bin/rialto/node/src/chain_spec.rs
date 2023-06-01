@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use frame_support::weights::Weight;
 use polkadot_primitives::v4::{AssignmentId, ValidatorId};
 use rialto_runtime::{
 	AccountId, BabeConfig, BalancesConfig, BeefyConfig, BridgeMillauMessagesConfig,
@@ -253,10 +252,6 @@ fn testnet_genesis(
 				max_upward_queue_count: 8,
 				max_upward_queue_size: 1024 * 1024,
 				max_downward_message_size: 1024 * 1024,
-				ump_service_total_weight: Weight::from_parts(
-					100_000_000_000,
-					polkadot_primitives::v4::MAX_POV_SIZE as u64,
-				),
 				max_upward_message_size: 50 * 1024,
 				max_upward_message_num_per_candidate: 5,
 				hrmp_sender_deposit: 0,
