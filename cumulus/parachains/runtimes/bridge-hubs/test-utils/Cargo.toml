@@ -64,6 +64,8 @@ std = [
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",
+	"bp-bridge-hub-rococo/std",
+	"bp-bridge-hub-wococo/std",
 	"bp-messages/std",
 	"bp-parachains/std",
 	"bp-polkadot-core/std",
