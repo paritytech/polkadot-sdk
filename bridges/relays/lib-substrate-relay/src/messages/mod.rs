@@ -17,8 +17,10 @@
 //! Tools for supporting message lanes between two Substrate-based chains.
 
 use crate::{
-	messages_source::{SubstrateMessagesProof, SubstrateMessagesSource},
-	messages_target::{SubstrateMessagesDeliveryProof, SubstrateMessagesTarget},
+	messages::{
+		source::{SubstrateMessagesProof, SubstrateMessagesSource},
+		target::{SubstrateMessagesDeliveryProof, SubstrateMessagesTarget},
+	},
 	on_demand::OnDemandRelay,
 	BatchCallBuilder, BatchCallBuilderConstructor, TransactionParams,
 };
@@ -47,6 +49,10 @@ use relay_utils::{
 use sp_core::Pair;
 use sp_runtime::traits::Zero;
 use std::{fmt::Debug, marker::PhantomData, ops::RangeInclusive};
+
+pub mod metrics;
+pub mod source;
+pub mod target;
 
 /// Substrate -> Substrate messages synchronization pipeline.
 pub trait SubstrateMessageLane: 'static + Clone + Debug + Send + Sync {
@@ -432,21 +438,21 @@ macro_rules! generate_receive_message_proof_call_builder {
 	($pipeline:ident, $mocked_builder:ident, $bridge_messages:path, $receive_messages_proof:path) => {
 		pub struct $mocked_builder;
 
-		impl $crate::messages_lane::ReceiveMessagesProofCallBuilder<$pipeline>
+		impl $crate::messages::ReceiveMessagesProofCallBuilder<$pipeline>
 			for $mocked_builder
 		{
 			fn build_receive_messages_proof_call(
 				relayer_id_at_source: relay_substrate_client::AccountIdOf<
-					<$pipeline as $crate::messages_lane::SubstrateMessageLane>::SourceChain
+					<$pipeline as $crate::messages::SubstrateMessageLane>::SourceChain
 				>,
-				proof: $crate::messages_source::SubstrateMessagesProof<
-					<$pipeline as $crate::messages_lane::SubstrateMessageLane>::SourceChain
+				proof: $crate::messages::source::SubstrateMessagesProof<
+					<$pipeline as $crate::messages::SubstrateMessageLane>::SourceChain
 				>,
 				messages_count: u32,
 				dispatch_weight: bp_messages::Weight,
 				_trace_call: bool,
 			) -> relay_substrate_client::CallOf<
-				<$pipeline as $crate::messages_lane::SubstrateMessageLane>::TargetChain
+				<$pipeline as $crate::messages::SubstrateMessageLane>::TargetChain
 			> {
 				bp_runtime::paste::item! {
 					$bridge_messages($receive_messages_proof {
@@ -528,16 +534,16 @@ macro_rules! generate_receive_message_delivery_proof_call_builder {
 	($pipeline:ident, $mocked_builder:ident, $bridge_messages:path, $receive_messages_delivery_proof:path) => {
 		pub struct $mocked_builder;
 
-		impl $crate::messages_lane::ReceiveMessagesDeliveryProofCallBuilder<$pipeline>
+		impl $crate::messages::ReceiveMessagesDeliveryProofCallBuilder<$pipeline>
 			for $mocked_builder
 		{
 			fn build_receive_messages_delivery_proof_call(
-				proof: $crate::messages_target::SubstrateMessagesDeliveryProof<
-					<$pipeline as $crate::messages_lane::SubstrateMessageLane>::TargetChain
+				proof: $crate::messages::target::SubstrateMessagesDeliveryProof<
+					<$pipeline as $crate::messages::SubstrateMessageLane>::TargetChain
 				>,
 				_trace_call: bool,
 			) -> relay_substrate_client::CallOf<
-				<$pipeline as $crate::messages_lane::SubstrateMessageLane>::SourceChain
+				<$pipeline as $crate::messages::SubstrateMessageLane>::SourceChain
 			> {
 				bp_runtime::paste::item! {
 					$bridge_messages($receive_messages_delivery_proof {

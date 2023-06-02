@@ -20,7 +20,7 @@
 
 use crate::{
 	finality_base::best_synced_header_id,
-	messages_lane::{
+	messages::{
 		BatchProofTransaction, MessageLaneAdapter, ReceiveMessagesDeliveryProofCallBuilder,
 		SubstrateMessageLane,
 	},

@@ -19,12 +19,13 @@
 //! `<BridgedName>` chain.
 
 use crate::{
-	messages_lane::{
+	messages::{
+		source::{
+			ensure_messages_pallet_active, read_client_state_from_both_chains,
+			SubstrateMessagesProof,
+		},
 		BatchProofTransaction, MessageLaneAdapter, ReceiveMessagesProofCallBuilder,
 		SubstrateMessageLane,
-	},
-	messages_source::{
-		ensure_messages_pallet_active, read_client_state_from_both_chains, SubstrateMessagesProof,
 	},
 	on_demand::OnDemandRelay,
 	TransactionParams,
