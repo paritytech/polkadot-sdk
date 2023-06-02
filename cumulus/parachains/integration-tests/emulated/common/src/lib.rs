@@ -2,8 +2,8 @@ pub mod constants;
 
 pub use constants::{
 	accounts::{ALICE, BOB},
-	asset_hub_kusama, asset_hub_polkadot, bridge_hub_kusama, bridge_hub_polkadot, collectives,
-	kusama, penpal, polkadot,
+	asset_hub_kusama, asset_hub_polkadot, asset_hub_westend, bridge_hub_kusama,
+	bridge_hub_polkadot, collectives, kusama, penpal, polkadot, westend,
 };
 use frame_support::{parameter_types, sp_io, sp_tracing};
 pub use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId, Balance, BlockNumber};
@@ -16,6 +16,27 @@ use xcm_emulator::{
 use xcm_executor::traits::Convert;
 
 decl_test_relay_chains! {
+	#[api_version(5)]
+	pub struct Westend {
+		genesis = westend::genesis(),
+		on_init = (),
+		runtime = {
+			Runtime: westend_runtime::Runtime,
+			RuntimeOrigin: westend_runtime::RuntimeOrigin,
+			RuntimeCall: westend_runtime::RuntimeCall,
+			RuntimeEvent: westend_runtime::RuntimeEvent,
+			MessageQueue: westend_runtime::MessageQueue,
+			XcmConfig: westend_runtime::xcm_config::XcmConfig,
+			SovereignAccountOf: westend_runtime::xcm_config::LocationConverter, //TODO: rename to SovereignAccountOf,
+			System: westend_runtime::System,
+			Balances: westend_runtime::Balances,
+		},
+		pallets_extra = {
+			XcmPallet: westend_runtime::XcmPallet,
+			Sudo: westend_runtime::Sudo,
+		}
+	},
+	#[api_version(4)]
 	pub struct Polkadot {
 		genesis = polkadot::genesis(),
 		on_init = (),
@@ -34,6 +55,7 @@ decl_test_relay_chains! {
 			XcmPallet: polkadot_runtime::XcmPallet,
 		}
 	},
+	#[api_version(4)]
 	pub struct Kusama {
 		genesis = kusama::genesis(),
 		on_init = (),
@@ -55,6 +77,29 @@ decl_test_relay_chains! {
 }
 
 decl_test_parachains! {
+	// Westend
+	pub struct AssetHubWestend {
+		genesis = asset_hub_westend::genesis(),
+		on_init = (),
+		runtime = {
+			Runtime: asset_hub_westend_runtime::Runtime,
+			RuntimeOrigin: asset_hub_westend_runtime::RuntimeOrigin,
+			RuntimeCall: asset_hub_westend_runtime::RuntimeCall,
+			RuntimeEvent: asset_hub_westend_runtime::RuntimeEvent,
+			XcmpMessageHandler: asset_hub_westend_runtime::XcmpQueue,
+			DmpMessageHandler: asset_hub_westend_runtime::DmpQueue,
+			LocationToAccountId: asset_hub_westend_runtime::xcm_config::LocationToAccountId,
+			System: asset_hub_westend_runtime::System,
+			Balances: asset_hub_westend_runtime::Balances,
+			ParachainSystem: asset_hub_westend_runtime::ParachainSystem,
+			ParachainInfo: asset_hub_westend_runtime::ParachainInfo,
+		},
+		pallets_extra = {
+			PolkadotXcm: asset_hub_westend_runtime::PolkadotXcm,
+			Assets: asset_hub_westend_runtime::Assets,
+			ForeignAssets: asset_hub_westend_runtime::ForeignAssets,
+		}
+	},
 	// Polkadot
 	pub struct AssetHubPolkadot {
 		genesis = asset_hub_polkadot::genesis(),
@@ -98,6 +143,28 @@ decl_test_parachains! {
 			Assets: penpal_runtime::Assets,
 		}
 	},
+	pub struct PenpalWestend {
+		genesis = penpal::genesis(penpal::PARA_ID),
+		on_init = (),
+		runtime = {
+			Runtime: penpal_runtime::Runtime,
+			RuntimeOrigin: penpal_runtime::RuntimeOrigin,
+			RuntimeCall: penpal_runtime::RuntimeCall,
+			RuntimeEvent: penpal_runtime::RuntimeEvent,
+			XcmpMessageHandler: penpal_runtime::XcmpQueue,
+			DmpMessageHandler: penpal_runtime::DmpQueue,
+			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
+			System: penpal_runtime::System,
+			Balances: penpal_runtime::Balances,
+			ParachainSystem: penpal_runtime::ParachainSystem,
+			ParachainInfo: penpal_runtime::ParachainInfo,
+		},
+		pallets_extra = {
+			PolkadotXcm: penpal_runtime::PolkadotXcm,
+			Assets: penpal_runtime::Assets,
+		}
+	},
+
 	// Kusama
 	pub struct AssetHubKusama {
 		genesis = asset_hub_kusama::genesis(),
@@ -221,6 +288,13 @@ decl_test_networks! {
 			PenpalKusama,
 			BHKusama,
 		],
+	},
+	pub struct WestendMockNet {
+		relay_chain = Westend,
+		parachains = vec![
+			AssetHubWestend,
+			PenpalWestend,
+		],
 	}
 }
 
@@ -231,6 +305,12 @@ parameter_types! {
 	// Kusama
 	pub KusamaSender: AccountId = Kusama::account_id_of(ALICE);
 	pub KusamaReceiver: AccountId = Kusama::account_id_of(BOB);
+	// Westend
+	pub WestendSender: AccountId = Westend::account_id_of(ALICE);
+	pub WestendReceiver: AccountId = Westend::account_id_of(BOB);
+	// Asset Hub Westend
+	pub AssetHubWestendSender: AccountId = AssetHubWestend::account_id_of(ALICE);
+	pub AssetHubWestendReceiver: AccountId = AssetHubWestend::account_id_of(BOB);
 	// Asset Hub Polkadot
 	pub AssetHubPolkadotSender: AccountId = AssetHubPolkadot::account_id_of(ALICE);
 	pub AssetHubPolkadotReceiver: AccountId = AssetHubPolkadot::account_id_of(BOB);
@@ -243,6 +323,9 @@ parameter_types! {
 	// Penpal Kusama
 	pub PenpalKusamaSender: AccountId = PenpalKusama::account_id_of(ALICE);
 	pub PenpalKusamaReceiver: AccountId = PenpalKusama::account_id_of(BOB);
+	// Penpal Westend
+	pub PenpalWestendSender: AccountId = PenpalWestend::account_id_of(ALICE);
+	pub PenpalWestendReceiver: AccountId = PenpalWestend::account_id_of(BOB);
 	// Collectives
 	pub CollectivesSender: AccountId = Collectives::account_id_of(ALICE);
 	pub CollectivesReceiver: AccountId = Collectives::account_id_of(BOB);

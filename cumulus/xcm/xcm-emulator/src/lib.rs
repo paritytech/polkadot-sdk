@@ -195,6 +195,7 @@ pub trait Parachain: XcmpMessageHandler + DmpMessageHandler {
 macro_rules! decl_test_relay_chains {
 	(
 		$(
+			#[api_version($api_version:tt)]
 			pub struct $name:ident {
 				genesis = $genesis:expr,
 				on_init = $on_init:expr,
@@ -280,7 +281,7 @@ macro_rules! decl_test_relay_chains {
 				}
 			}
 
-			$crate::__impl_test_ext_for_relay_chain!($name, $genesis, $on_init);
+			$crate::__impl_test_ext_for_relay_chain!($name, $genesis, $on_init, $api_version);
 		)+
 	};
 }
@@ -288,13 +289,13 @@ macro_rules! decl_test_relay_chains {
 #[macro_export]
 macro_rules! __impl_test_ext_for_relay_chain {
 	// entry point: generate ext name
-	($name:ident, $genesis:expr, $on_init:expr) => {
+	($name:ident, $genesis:expr, $on_init:expr, $api_version:tt) => {
 		$crate::paste::paste! {
-			$crate::__impl_test_ext_for_relay_chain!(@impl $name, $genesis, $on_init, [<EXT_ $name:upper>]);
+			$crate::__impl_test_ext_for_relay_chain!(@impl $name, $genesis, $on_init, [<ParachainHostV $api_version>], [<EXT_ $name:upper>]);
 		}
 	};
 	// impl
-	(@impl $name:ident, $genesis:expr, $on_init:expr, $ext_name:ident) => {
+	(@impl $name:ident, $genesis:expr, $on_init:expr, $api_version:ident, $ext_name:ident) => {
 		thread_local! {
 			pub static $ext_name: $crate::RefCell<$crate::sp_io::TestExternalities>
 				= $crate::RefCell::new(<$name>::build_new_ext($genesis));
@@ -330,7 +331,7 @@ macro_rules! __impl_test_ext_for_relay_chain {
 				// send messages if needed
 				$ext_name.with(|v| {
 					v.borrow_mut().execute_with(|| {
-						use $crate::polkadot_primitives::runtime_api::runtime_decl_for_parachain_host::ParachainHostV4;
+						use $crate::polkadot_primitives::runtime_api::runtime_decl_for_parachain_host::$api_version;
 
 						//TODO: mark sent count & filter out sent msg
 						for para_id in <$name>::para_ids() {

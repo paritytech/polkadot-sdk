@@ -556,6 +556,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "asset-hub-westend-integration-tests"
+version = "1.0.0"
+dependencies = [
+ "asset-hub-westend-runtime",
+ "frame-support",
+ "frame-system",
+ "integration-tests-common",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "penpal-runtime",
+ "polkadot-core-primitives",
+ "polkadot-parachain",
+ "polkadot-runtime",
+ "polkadot-runtime-parachains",
+ "sp-core",
+ "sp-runtime",
+ "sp-weights",
+ "westend-runtime",
+ "xcm",
+ "xcm-emulator",
+ "xcm-executor",
+]
+
+[[package]]
 name = "asset-hub-westend-runtime"
 version = "0.9.420"
 dependencies = [
@@ -5143,6 +5170,7 @@ version = "1.0.0"
 dependencies = [
  "asset-hub-kusama-runtime",
  "asset-hub-polkadot-runtime",
+ "asset-hub-westend-runtime",
  "bridge-hub-kusama-runtime",
  "bridge-hub-polkadot-runtime",
  "collectives-polkadot-runtime",
@@ -5173,6 +5201,8 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-weights",
+ "westend-runtime",
+ "westend-runtime-constants",
  "xcm",
  "xcm-emulator",
  "xcm-executor",

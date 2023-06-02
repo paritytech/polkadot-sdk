@@ -32,6 +32,8 @@ polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "m
 polkadot-runtime-constants = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 kusama-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 kusama-runtime-constants = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+westend-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" } 
+westend-runtime-constants = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 xcm = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
 xcm-executor = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
 pallet-xcm = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
@@ -43,6 +45,7 @@ cumulus-primitives-core = { path = "../../../../primitives/core" }
 penpal-runtime = { path = "../../../runtimes/testing/penpal" }
 asset-hub-polkadot-runtime = { path = "../../../runtimes/assets/asset-hub-polkadot" }
 asset-hub-kusama-runtime = { path = "../../../runtimes/assets/asset-hub-kusama" }
+asset-hub-westend-runtime = { path = "../../../runtimes/assets/asset-hub-westend" }
 collectives-polkadot-runtime = { path = "../../../runtimes/collectives/collectives-polkadot" }
 bridge-hub-kusama-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-kusama" }
 bridge-hub-polkadot-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-polkadot" }
@@ -51,4 +54,6 @@ xcm-emulator = { default-features = false, path = "../../../../xcm/xcm-emulator"
 [features]
 runtime-benchmarks = [
 	"kusama-runtime/runtime-benchmarks",
+	"polkadot-runtime/runtime-benchmarks",
+	"westend-runtime/runtime-benchmarks",
 ]
