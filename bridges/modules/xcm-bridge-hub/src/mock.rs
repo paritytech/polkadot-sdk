@@ -124,16 +124,12 @@ impl pallet_bridge_messages::WeightInfo for TestMessagesWeights {
 		Weight::zero()
 	}
 
-	fn receive_single_message_proof_1_kb() -> Weight {
+	fn receive_single_message_n_kb_proof(_: u32) -> Weight {
 		Weight::zero()
 	}
 
-	fn receive_single_message_proof_16_kb() -> Weight {
+	fn receive_single_message_n_bytes_proof_with_dispatch(_: u32) -> Weight {
 		Weight::zero()
-	}
-
-	fn receive_single_message_proof_with_dispatch(_: u32) -> Weight {
-		Weight::from_parts(1, 0)
 	}
 }
 

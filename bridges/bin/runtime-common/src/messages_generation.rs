@@ -23,8 +23,8 @@ use bp_messages::{
 	OutboundLaneData,
 };
 use bp_runtime::{
-	record_all_trie_keys, Chain, RawStorageProof, StorageProofSize, UnderlyingChainOf,
-	UntrustedVecDb,
+	record_all_trie_keys, Chain, RangeInclusiveExt, RawStorageProof, StorageProofSize,
+	UnderlyingChainOf, UntrustedVecDb,
 };
 use codec::Encode;
 use frame_support::sp_runtime::StateVersion;
@@ -112,7 +112,7 @@ where
 	HashOf<BridgedChain<B>>: Copy + Default,
 {
 	// prepare Bridged chain storage with messages and (optionally) outbound lane state
-	let message_count = message_nonces.end().saturating_sub(*message_nonces.start()) + 1;
+	let message_count = message_nonces.saturating_len();
 	let mut storage_keys = Vec::with_capacity(message_count as usize + 1);
 	let mut root = Default::default();
 	let mut mdb = MemoryDB::default();
