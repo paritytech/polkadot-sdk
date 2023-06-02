@@ -28,14 +28,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runtime: statemine
-            local: statemine-local
+          - runtime: asset-hub-kusama
+            local: asset-hub-kusama-local
+            relay: kusama-local
+          - runtime: asset-hub-polkadot
+            local: asset-hub-polkadot-local
             relay: polkadot-local
-          - runtime: statemint
-            local: statemint-local
-            relay: polkadot-local
-          - runtime: westmint
-            local: westmint-local
+          - runtime: asset-hub-westend
+            local: asset-hub-westend-local
             relay: polkadot-local
           - runtime: contracts-rococo
             local: contracts-rococo-local

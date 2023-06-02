@@ -37,8 +37,8 @@ performed during the release process.
 
 ### <a name="burnin"></a>Burn In
 
-Ensure that Parity DevOps has run the new release on Westmint and Statemine collators for 12h prior to publishing the
-release.
+Ensure that Parity DevOps has run the new release on Westend and Kusama Asset Hub collators for 12h
+prior to publishing the release.
 
 ### Build Artifacts
 
@@ -84,15 +84,15 @@ To verify the order has not changed, manually start the following [Github Action
 To run it, in the _Run Workflow_ dropdown:
 1. **Use workflow from**: to ignore, leave `master` as default
 2. **The WebSocket url of the reference node**:
-	- Statemint: `wss://statemint-rpc.polkadot.io`
-    - Statemine: `wss://statemine-rpc.polkadot.io`
-    - Westmint: `wss://westmint-rpc.polkadot.io`
+	- Asset Hub Polkadot: `wss://statemint-rpc.polkadot.io`
+    - Asset Hub Kusama: `wss://statemine-rpc.polkadot.io`
+    - Asset Hub Westend: `wss://westmint-rpc.polkadot.io`
 3. **A url to a Linux binary for the node containing the runtime to test**: Paste the URL of the latest release-candidate binary from the draft-release on Github. The binary has to previously be uploaded to S3 (Github url link to the binary is constantly changing)
     - E.g: https://releases.parity.io/cumulus/v0.9.270-rc3/polkadot-parachain
 4. **The name of the chain under test. Usually, you would pass a local chain**:
-	- Statemint: `statemint-local`
-    - Statemine: `statemine-local`
-    - Westmint: `westmint-local`
+	- Asset Hub Polkadot: `asset-hub-polkadot-local`
+    - Asset Hub Kusama: `asset-hub-kusama-local`
+    - Asset Hub Westend: `asset-hub-westend-local`
 5. Click **Run workflow**
 
 When the workflow is done, click on it and download the zip artifact, inside you'll find an `output.txt` file. The things to look for in the output are lines like:
@@ -114,7 +114,7 @@ The Benchmarks can now be started from the CI. First find the CI pipeline from [
 ### Integration Tests
 
 Until https://github.com/paritytech/ci_cd/issues/499 is done, tests will have to be run manually.
-1. Go to https://github.com/paritytech/parachains-integration-tests and checkout to the release branch.
+1. Go to https://github.com/paritytech/parachains-integration-tests and check out the release branch.
 E.g. https://github.com/paritytech/parachains-integration-tests/tree/release-v9270-v0.9.27
 for `release-parachains-v0.9.270`
 2. Clone `release-parachains-<version>` branch from Cumulus
@@ -126,5 +126,5 @@ In case the branch does not exists (it is a manual process): cherry pick parityt
 6. `cargo build --release --features fast-runtime`
 7. Copy `./target/polkadot` into `./bin` (in Cumulus)
 8. Run the tests:
-	- Statemint: `yarn zombienet-test -c ./examples/statemint/config.toml -t ./examples/statemint`
-	- Statemine: `yarn zombienet-test -c ./examples/statemine/config.toml -t ./examples/statemine`
+	- Asset Hub Polkadot: `yarn zombienet-test -c ./examples/statemint/config.toml -t ./examples/statemint`
+	- Asset Hub Kusama: `yarn zombienet-test -c ./examples/statemine/config.toml -t ./examples/statemine`

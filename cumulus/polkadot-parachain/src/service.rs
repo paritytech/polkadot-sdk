@@ -86,52 +86,52 @@ impl sc_executor::NativeExecutionDispatch for ShellRuntimeExecutor {
 	}
 }
 
-// Native Statemint executor instance.
-pub struct StatemintRuntimeExecutor;
+/// Native Asset Hub Polkadot (Statemint) executor instance.
+pub struct AssetHubPolkadotRuntimeExecutor;
 
-impl sc_executor::NativeExecutionDispatch for StatemintRuntimeExecutor {
+impl sc_executor::NativeExecutionDispatch for AssetHubPolkadotRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		statemint_runtime::api::dispatch(method, data)
+		asset_hub_polkadot_runtime::api::dispatch(method, data)
 	}
 
 	fn native_version() -> sc_executor::NativeVersion {
-		statemint_runtime::native_version()
+		asset_hub_polkadot_runtime::native_version()
 	}
 }
 
-/// Native Statemine executor instance.
-pub struct StatemineRuntimeExecutor;
+/// Native Asset Hub Kusama (Statemine) executor instance.
+pub struct AssetHubKusamaExecutor;
 
-impl sc_executor::NativeExecutionDispatch for StatemineRuntimeExecutor {
+impl sc_executor::NativeExecutionDispatch for AssetHubKusamaExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		statemine_runtime::api::dispatch(method, data)
+		asset_hub_kusama_runtime::api::dispatch(method, data)
 	}
 
 	fn native_version() -> sc_executor::NativeVersion {
-		statemine_runtime::native_version()
+		asset_hub_kusama_runtime::native_version()
 	}
 }
 
-/// Native Westmint executor instance.
-pub struct WestmintRuntimeExecutor;
+/// Native Asset Hub Westend (Westmint) executor instance.
+pub struct AssetHubWestendExecutor;
 
-impl sc_executor::NativeExecutionDispatch for WestmintRuntimeExecutor {
+impl sc_executor::NativeExecutionDispatch for AssetHubWestendExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		westmint_runtime::api::dispatch(method, data)
+		asset_hub_westend_runtime::api::dispatch(method, data)
 	}
 
 	fn native_version() -> sc_executor::NativeVersion {
-		westmint_runtime::native_version()
+		asset_hub_westend_runtime::native_version()
 	}
 }
 
-// Native Polkadot Collectives executor instance.
+/// Native Polkadot Collectives executor instance.
 pub struct CollectivesPolkadotRuntimeExecutor;
 
 impl sc_executor::NativeExecutionDispatch for CollectivesPolkadotRuntimeExecutor {
@@ -146,7 +146,7 @@ impl sc_executor::NativeExecutionDispatch for CollectivesPolkadotRuntimeExecutor
 	}
 }
 
-// Native BridgeHubPolkadot executor instance.
+/// Native BridgeHubPolkadot executor instance.
 pub struct BridgeHubPolkadotRuntimeExecutor;
 
 impl sc_executor::NativeExecutionDispatch for BridgeHubPolkadotRuntimeExecutor {
@@ -161,7 +161,7 @@ impl sc_executor::NativeExecutionDispatch for BridgeHubPolkadotRuntimeExecutor {
 	}
 }
 
-// Native BridgeHubKusama executor instance.
+/// Native BridgeHubKusama executor instance.
 pub struct BridgeHubKusamaRuntimeExecutor;
 
 impl sc_executor::NativeExecutionDispatch for BridgeHubKusamaRuntimeExecutor {
@@ -176,7 +176,7 @@ impl sc_executor::NativeExecutionDispatch for BridgeHubKusamaRuntimeExecutor {
 	}
 }
 
-// Native BridgeHubRococo executor instance.
+/// Native BridgeHubRococo executor instance.
 pub struct BridgeHubRococoRuntimeExecutor;
 
 impl sc_executor::NativeExecutionDispatch for BridgeHubRococoRuntimeExecutor {
@@ -191,7 +191,7 @@ impl sc_executor::NativeExecutionDispatch for BridgeHubRococoRuntimeExecutor {
 	}
 }
 
-// Native contracts executor instance.
+/// Native contracts executor instance.
 pub struct ContractsRococoRuntimeExecutor;
 
 impl sc_executor::NativeExecutionDispatch for ContractsRococoRuntimeExecutor {
@@ -1068,7 +1068,7 @@ where
 	}
 }
 
-/// Build the import queue for Statemint and other Aura-based runtimes.
+/// Build the import queue for Aura-based runtimes.
 pub fn aura_build_import_queue<RuntimeApi, AuraId: AppCrypto>(
 	client: Arc<ParachainClient<RuntimeApi>>,
 	block_import: ParachainBlockImport<RuntimeApi>,
@@ -1134,8 +1134,7 @@ where
 	Ok(BasicQueue::new(verifier, Box::new(block_import), None, &spawner, registry))
 }
 
-/// Start an aura powered parachain node.
-/// (collective-polkadot and statemine/t use this)
+/// Start an aura powered parachain node. Asset Hub and Collectives use this.
 pub async fn start_generic_aura_node<RuntimeApi, AuraId: AppCrypto>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,

@@ -1,9 +1,9 @@
 # Assets Parachain
 
-Implementation of _Statemint_, a blockchain to support generic assets in the Polkadot and Kusama
-networks.
+Implementation of Asset Hub, a blockchain to support generic assets in the Polkadot and Kusama
+networks. Asset Hub was formerly known as "Statemint".
 
-Statemint allows users to:
+Asset Hub allows users to:
 
 - Deploy promise-backed assets, both fungible and non-fungible, with a DOT/KSM deposit.
 - Set admin roles to manage assets and asset classes.
@@ -13,11 +13,11 @@ Statemint allows users to:
 - Transfer (and approve transfer) assets.
 - Interact with the chain via its transactional API or XCM.
 
-Statemint must stay fully aligned with the Relay Chain it is connected to. As such, it will accept
+Asset Hub must stay fully aligned with the Relay Chain it is connected to. As such, it will accept
 the Relay Chain's governance origins as its own.
 
 See
-[the article on Statemint as common good parachain](https://www.parity.io/blog/statemint-generic-assets-chain-proposing-a-common-good-parachain-to-polkadot-governance/)
+[the article on Asset Hub as common good parachain](https://www.parity.io/blog/statemint-generic-assets-chain-proposing-a-common-good-parachain-to-polkadot-governance/)
 for a higher level description.
 
 Wallets, custodians, etc. should see

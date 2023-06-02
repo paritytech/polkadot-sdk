@@ -8,9 +8,9 @@ __dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 ${__dir}/benchmarks-ci.sh collectives collectives-polkadot target/$target $steps $repeat
 
-${__dir}/benchmarks-ci.sh assets statemine target/$target $steps $repeat
-${__dir}/benchmarks-ci.sh assets statemint target/$target $steps $repeat
-${__dir}/benchmarks-ci.sh assets westmint target/$target $steps $repeat
+${__dir}/benchmarks-ci.sh assets asset-hub-kusama target/$target $steps $repeat
+${__dir}/benchmarks-ci.sh assets asset-hub-polkadot target/$target $steps $repeat
+${__dir}/benchmarks-ci.sh assets asset-hub-westend target/$target $steps $repeat
 
 ${__dir}/benchmarks-ci.sh bridge-hubs bridge-hub-polkadot target/$target $steps $repeat
 ${__dir}/benchmarks-ci.sh bridge-hubs bridge-hub-kusama target/$target $steps $repeat

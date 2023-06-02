@@ -19,8 +19,8 @@
 //! This configuration dictates how the Penpal chain will communicate with other chains.
 //!
 //! One of the main uses of the penpal chain will be to be a benefactor of reserve asset transfers
-//! with statemine as the reserve. At present no derivative tokens are minted on receipt of a
-//! ReserveAssetTransferDeposited message but that will but the intension will be to support this soon.
+//! with Asset Hub as the reserve. At present no derivative tokens are minted on receipt of a
+//! `ReserveAssetTransferDeposited` message but that will but the intension will be to support this soon.
 use super::{
 	AccountId, AllPalletsWithSystem, AssetId as AssetIdPalletAssets, Assets, Balance, Balances,
 	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
@@ -94,7 +94,7 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	ConvertedConcreteId<
 		AssetIdPalletAssets,
 		Balance,
-		AsPrefixedGeneralIndex<CommonGoodAssetsPalletLocation, AssetIdPalletAssets, JustTry>,
+		AsPrefixedGeneralIndex<SystemAssetHubAssetsPalletLocation, AssetIdPalletAssets, JustTry>,
 		JustTry,
 	>,
 	// Convert an XCM MultiLocation into a local account id:
@@ -256,15 +256,16 @@ impl ContainsPair<MultiAsset, MultiLocation> for MultiNativeAsset {
 }
 
 parameter_types! {
-	pub CommonGoodAssetsLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1000)));
+	/// The location that this chain recognizes as the Relay network's Asset Hub.
+	pub SystemAssetHubLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1000)));
 	// ALWAYS ensure that the index in PalletInstance stays up-to-date with
-	// Statemint's Assets pallet index
-	pub CommonGoodAssetsPalletLocation: MultiLocation =
+	// the Relay Chain's Asset Hub's Assets pallet index
+	pub SystemAssetHubAssetsPalletLocation: MultiLocation =
 		MultiLocation::new(1, X2(Parachain(1000), PalletInstance(50)));
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 }
 
-pub type Reserves = (NativeAsset, AssetsFrom<CommonGoodAssetsLocation>);
+pub type Reserves = (NativeAsset, AssetsFrom<SystemAssetHubLocation>);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {

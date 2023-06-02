@@ -45,11 +45,11 @@ jobs:
        matrix:
         include:
           - category: assets
-            runtime: statemine
+            runtime: asset-hub-kusama
           - category: assets
-            runtime: statemint
+            runtime: asset-hub-polkadot
           - category: assets
-            runtime: westmint
+            runtime: asset-hub-westend
           - category: bridge-hubs
             runtime: bridge-hub-polkadot
           - category: bridge-hubs
@@ -223,11 +223,11 @@ jobs:
        matrix:
         include:
           - category: assets
-            runtime: statemine
+            runtime: asset-hub-kusama
           - category: assets
-            runtime: statemint
+            runtime: asset-hub-polkadot
           - category: assets
-            runtime: westmint
+            runtime: asset-hub-westend
           - category: bridge-hubs
             runtime: bridge-hub-polkadot
           - category: bridge-hubs

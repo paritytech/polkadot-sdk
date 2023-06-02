@@ -22,13 +22,13 @@ benchmarks-assets:
   before_script:
     - !reference [.docker-env, before_script]
   script:
-    - ./scripts/benchmarks-ci.sh assets statemine ./artifacts
-    - ./scripts/benchmarks-ci.sh assets statemint ./artifacts
-    - ./scripts/benchmarks-ci.sh assets westmint ./artifacts
+    - ./scripts/benchmarks-ci.sh assets asset-hub-kusama ./artifacts
+    - ./scripts/benchmarks-ci.sh assets asset-hub-polkadot ./artifacts
+    - ./scripts/benchmarks-ci.sh assets asset-hub-westend ./artifacts
     - export CURRENT_TIME=$(date '+%s')
-    - export BRANCHNAME="weights-statemint-${CI_COMMIT_BRANCH}-${CURRENT_TIME}"
+    - export BRANCHNAME="weights-asset-hub-polkadot-${CI_COMMIT_BRANCH}-${CURRENT_TIME}"
     - !reference [.git-commit-push, script]
-    - ./scripts/ci/create-benchmark-pr.sh "[benchmarks] Update weights for statemine/t" "$BRANCHNAME"
+    - ./scripts/ci/create-benchmark-pr.sh "[benchmarks] Update weights for asset-hub-kusama/t" "$BRANCHNAME"
     - rm -f ./artifacts/polkadot-parachain
     - rm -f ./artifacts/test-parachain
   after_script:

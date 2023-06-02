@@ -78,7 +78,7 @@ cargo build --release -p substrate-relay
 cp target/release/substrate-relay ~/local_bridge_testing/bin/substrate-relay
 
 ---
-# 5. Build polkadot-parachain-mint binary with statemine/westmint for moving assets
+# 5. Build polkadot-parachain-mint binary with `asset-hub-kusama`/`asset-hub-westend` for moving assets
 cd <cumulus-git-repo-dir>
 # TODO:check-parameter - change this when merged to master
 git checkout -b bko-transfer-asset-via-bridge --track origin/bko-transfer-asset-via-bridge
@@ -195,26 +195,26 @@ RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
 
 #### Local zombienet run
 
-1. allow bridge transfer on statemine/westmint (governance-like):
+1. allow bridge transfer on kusama/westend asset hubs (governance-like):
    ```
    ./scripts/bridges_rococo_wococo.sh allow-transfers-local
    ```
 
-2. do (asset) transfer from statemine to westmint
+2. do (asset) transfer from kusama's asset hub to westend's asset hub:
    ```
-   ./scripts/bridges_rococo_wococo.sh transfer-asset-from-statemine-local
+   ./scripts/bridges_rococo_wococo.sh transfer-asset-from-asset-hub-kusama-local
    ```
 
-3. do (ping) transfer from statemine to westmint
+3. do (ping) transfer from kusama's asset hub to westend's asset hub
    ```
-   ./scripts/bridges_rococo_wococo.sh ping-via-bridge-from-statemine-local
+   ./scripts/bridges_rococo_wococo.sh ping-via-bridge-from-asset-hub-kusama-local
    ```
 
 - open explorers: (see zombienets)
-	- Statemine (see events `xcmpQueue.XcmpMessageSent`, `bridgeTransfer.ReserveAssetsDeposited`, `bridgeTransfer.TransferInitiated`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:9910#/explorer
+	- Kusama Asset Hub (see events `xcmpQueue.XcmpMessageSent`, `bridgeTransfer.ReserveAssetsDeposited`, `bridgeTransfer.TransferInitiated`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:9910#/explorer
 	- BridgeHubRococo (see `bridgeWococoMessages.MessageAccepted`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8943#/explorer
 	- BridgeHubWococo (see `bridgeRococoMessages.MessagesReceived`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8945#/explorer
-	- Westmint (see `xcmpQueue.Success` for `transfer-asset` and `xcmpQueue.Fail` for `ping-via-bridge`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:9010#/explorer
+	- Westend Asset Hub (see `xcmpQueue.Success` for `transfer-asset` and `xcmpQueue.Fail` for `ping-via-bridge`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:9010#/explorer
     - BridgeHubRococo (see `bridgeWococoMessages.MessagesDelivered`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8943#/explorer
 
 #### Live Rockmine2 to Wockmint
@@ -222,9 +222,9 @@ RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
   ```
   cd <cumulus-git-repo-dir>
 
-  ./scripts/bridges_rococo_wococo.sh transfer-asset-from-statemine-rococo
+  ./scripts/bridges_rococo_wococo.sh transfer-asset-from-asset-hub-rococo
   or
-  ./scripts/bridges_rococo_wococo.sh ping-via-bridge-from-statemine-rococo
+  ./scripts/bridges_rococo_wococo.sh ping-via-bridge-from-asset-hub-rococo
   ```
 
 - open explorers:

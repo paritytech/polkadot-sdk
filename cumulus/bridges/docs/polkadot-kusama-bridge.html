@@ -16,7 +16,7 @@
 		</p>
 		<p>
 			In our architecture, the lane that is used to relay messages over the bridge is determined by
-			the XCM source and destinations. So e.g. bridge between Statemint and Statemine (and opposite direction)
+			the XCM source and destinations. So e.g. bridge between Asset Hubs Polkadot and Kusama (and opposite direction)
 			will use the lane 00000000, bridge between some other Polkadot Parachain and some other Kusama Parachain
 			will use the lane 00000001 and so on.
 		</p>
@@ -24,29 +24,29 @@
 			flowchart LR
 				subgraph Polkadot Consensus
 					polkadot(((Polkadot)))
-					statemint(((Statemint)))
+					asset_hub_polkadot(((Polkadot Asset Hub)))
 					polkadot_bh(((Polkadot Bridge Hub)))
 
-					polkadot---statemint
+					polkadot---asset_hub_polkadot
 					polkadot---polkadot_bh
 
-					statemint-->|Send Message Using HRMP|polkadot_bh
+					asset_hub_polkadot-->|Send Message Using HRMP|polkadot_bh
 
-					polkadot_bh-->|Send Message Using HRMP|statemint
-					statemint-->|Dispatch the Message|statemint
+					polkadot_bh-->|Send Message Using HRMP|asset_hub_polkadot
+					asset_hub_polkadot-->|Dispatch the Message|asset_hub_polkadot
 				end
 				subgraph Kusama Consensus
 					kusama_bh(((Kusama Bridge Hub)))
-					statemine(((Statemine)))
+					asset_hub_kusama(((Kusama Asset Hub)))
 					kusama(((Kusama)))
 
-					kusama---statemine
+					kusama---asset_hub_kusama
 					kusama---kusama_bh
 
-					kusama_bh-->|Send Message Using HRMP|statemine
-					statemine-->|Dispatch the Message|statemine
+					kusama_bh-->|Send Message Using HRMP|asset_hub_kusama
+					asset_hub_kusama-->|Dispatch the Message|asset_hub_kusama
 
-					statemine-->|Send Message Using HRMP|kusama_bh
+					asset_hub_kusama-->|Send Message Using HRMP|kusama_bh
 				end
 
 				polkadot_bh&lt;===&gt;|Message is relayed to the Bridged Chain using lane 00000000|kusama_bh

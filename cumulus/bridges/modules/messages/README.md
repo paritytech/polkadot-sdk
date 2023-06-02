@@ -33,8 +33,8 @@ is the runtime developer who defines what message lane and message mean for this
 
 In our [Kusama<>Polkadot bridge](../../docs/polkadot-kusama-bridge-overview.md) we are using lane
 as a channel of communication between two parachains of different relay chains. For example, lane
-`[0, 0, 0, 0]` is used for Statemint <> Statemine communications. Other lanes may be used to bridge
-another parachains.
+`[0, 0, 0, 0]` is used for Polkadot <> Kusama Asset Hub communications. Other lanes may be used to
+bridge other parachains.
 
 ## Message Workflow
 

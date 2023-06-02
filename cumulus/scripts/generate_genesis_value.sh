@@ -58,7 +58,7 @@ if [[ "$rpc_endpoint" =~ "localhost" ]]; then
     check_collator
     echo -e "Make sure you have a collator running with the correct version at $rpc_endpoint."
     echo -e "If you don't, NOW is the time to start it with:"
-    echo -e "target/release/polkadot-parachain --chain parachains/chain-specs/shell-statemint.json --tmp\n"
+    echo -e "target/release/polkadot-parachain --chain parachains/chain-specs/shell.json --tmp\n"
     read -p "You can abort with CTRL+C if this is not correct, otherwise press ENTER "
 fi
 

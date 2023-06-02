@@ -76,7 +76,7 @@ pub mod fee {
 		type Balance = Balance;
 		fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
 			// in Kusama, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT:
-			// in Statemine, we map to 1/10 of that, or 1/100 CENT
+			// in Rococo Contracts, we map to 1/10 of that, or 1/100 CENT
 			let p = super::currency::CENTS;
 			let q = 100 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
 

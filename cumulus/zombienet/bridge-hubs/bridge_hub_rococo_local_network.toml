@@ -64,7 +64,7 @@ cumulus_based = true
 
 [[parachains]]
 id = 1000
-chain = "statemine-local"
+chain = "asset-hub-kusama-local"
 cumulus_based = true
 
 	[[parachains.collators]]

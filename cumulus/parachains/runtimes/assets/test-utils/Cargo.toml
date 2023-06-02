@@ -3,7 +3,7 @@ name = "asset-test-utils"
 version = "1.0.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
-description = "Statemint parachain runtime"
+description = "Test utils for Asset Hub runtimes."
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }

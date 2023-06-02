@@ -1,4 +1,4 @@
-// Copyright 2019-2022 Parity Technologies (UK) Ltd.
+// Copyright 2019-2023 Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -14,11 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! The Penpal runtime is designed as a test runtime that can be created using an arbitrary parachain id.
-//! (and as such multiple parachains can be on the same relay node - though make sure you have enough relay
-//! nodes running to support this or you will get the not scheduled on a core error message.)
+//! The PenPal runtime is designed as a test runtime that can be created with an arbitrary `ParaId`,
+//! such that multiple instances of the parachain can be on the same parent relay. Ensure that you
+//! have enough nodes running to support this or you will get scheduling errors.
 //!
-//! The penpal runtime's primary use is as a partner when testing statemine/t with reserve asset transfers.
+//! The PenPal runtime's primary use is for testing interactions between System parachains and
+//! other chains that are not trusted teleporters.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]

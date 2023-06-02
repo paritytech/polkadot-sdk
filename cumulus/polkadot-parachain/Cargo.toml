@@ -25,9 +25,9 @@ rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parac
 shell-runtime = { path = "../parachains/runtimes/starters/shell" }
 glutton-runtime = { path = "../parachains/runtimes/glutton/glutton-kusama" }
 seedling-runtime = { path = "../parachains/runtimes/starters/seedling" }
-statemint-runtime = { path = "../parachains/runtimes/assets/statemint" }
-statemine-runtime = { path = "../parachains/runtimes/assets/statemine" }
-westmint-runtime = { path = "../parachains/runtimes/assets/westmint" }
+asset-hub-polkadot-runtime = { path = "../parachains/runtimes/assets/asset-hub-polkadot" }
+asset-hub-kusama-runtime = { path = "../parachains/runtimes/assets/asset-hub-kusama" }
+asset-hub-westend-runtime = { path = "../parachains/runtimes/assets/asset-hub-westend" }
 collectives-polkadot-runtime = { path = "../parachains/runtimes/collectives/collectives-polkadot" }
 contracts-rococo-runtime = { path = "../parachains/runtimes/contracts/contracts-rococo" }
 bridge-hub-rococo-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-rococo" }
@@ -106,9 +106,9 @@ polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "maste
 default = []
 runtime-benchmarks = [
 	"polkadot-service/runtime-benchmarks",
-	"statemint-runtime/runtime-benchmarks",
-	"statemine-runtime/runtime-benchmarks",
-	"westmint-runtime/runtime-benchmarks",
+	"asset-hub-polkadot-runtime/runtime-benchmarks",
+	"asset-hub-kusama-runtime/runtime-benchmarks",
+	"asset-hub-westend-runtime/runtime-benchmarks",
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
 	"bridge-hub-kusama-runtime/runtime-benchmarks",
 	"bridge-hub-polkadot-runtime/runtime-benchmarks",
@@ -119,9 +119,9 @@ runtime-benchmarks = [
 	"penpal-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"statemint-runtime/try-runtime",
-	"statemine-runtime/try-runtime",
-	"westmint-runtime/try-runtime",
+	"asset-hub-polkadot-runtime/try-runtime",
+	"asset-hub-kusama-runtime/try-runtime",
+	"asset-hub-westend-runtime/try-runtime",
 	"shell-runtime/try-runtime",
 	"try-runtime-cli/try-runtime",
 ]

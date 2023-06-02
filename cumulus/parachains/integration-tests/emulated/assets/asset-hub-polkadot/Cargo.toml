@@ -1,0 +1,36 @@
+[package]
+name = "asset-hub-polkadot-integration-tests"
+version = "1.0.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+description = "Asset Hub Polkadot runtime integration tests with xcm-emulator"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
+
+# Substrate
+sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+frame-system = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-weights = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-balances = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-assets = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+
+# Polkadot
+polkadot-core-primitives = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-parachain = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+xcm = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
+xcm-executor = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
+pallet-xcm = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
+
+# Cumulus
+parachains-common = { path = "../../../../common" }
+penpal-runtime = { path = "../../../../runtimes/testing/penpal" }
+asset-hub-polkadot-runtime = { path = "../../../../runtimes/assets/asset-hub-polkadot" }
+
+# Local
+xcm-emulator = { default-features = false, path = "../../../../../xcm/xcm-emulator" }
+integration-tests-common = { default-features = false, path = "../../common" }

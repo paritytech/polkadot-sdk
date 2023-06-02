@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 tests=(
-    statemine
-    statemint
+    asset-hub-kusama
+    asset-hub-polkadot
 )
 
 rm -R logs &> /dev/null

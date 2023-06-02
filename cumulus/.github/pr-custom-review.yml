@@ -6,7 +6,7 @@ action-review-team: ci
 rules:
   - name: Runtime files
     check_type: changed_files
-    condition: ^parachains/runtimes/assets/(statemine|statemint)/src/[^/]+\.rs$|^parachains/runtimes/bridge-hubs/(bridge-hub-kusama|bridge-hub-polkadot)/src/[^/]+\.rs$|^parachains/runtimes/collectives/collectives-polkadot/src/[^/]+\.rs$|^parachains/common/src/[^/]+\.rs$
+    condition: ^parachains/runtimes/assets/(asset-hub-kusama|asset-hub-polkadot)/src/[^/]+\.rs$|^parachains/runtimes/bridge-hubs/(bridge-hub-kusama|bridge-hub-polkadot)/src/[^/]+\.rs$|^parachains/runtimes/collectives/collectives-polkadot/src/[^/]+\.rs$|^parachains/common/src/[^/]+\.rs$
     all_distinct:
       - min_approvals: 1
         teams:
@@ -20,7 +20,7 @@ rules:
     condition:
       include: .*
       # excluding files from 'Runtime files' and 'CI files' rules and `Bridges subtree files`
-      exclude: ^parachains/runtimes/assets/(statemine|statemint)/src/[^/]+\.rs$|^parachains/runtimes/bridge-hubs/(bridge-hub-kusama|bridge-hub-polkadot)/src/[^/]+\.rs$|^parachains/runtimes/collectives/collectives-polkadot/src/[^/]+\.rs$|^parachains/common/src/[^/]+\.rs$|^\.gitlab-ci\.yml|^scripts/ci/.*|^\.github/.*
+      exclude: ^parachains/runtimes/assets/(asset-hub-kusama|asset-hub-polkadot)/src/[^/]+\.rs$|^parachains/runtimes/bridge-hubs/(bridge-hub-kusama|bridge-hub-polkadot)/src/[^/]+\.rs$|^parachains/runtimes/collectives/collectives-polkadot/src/[^/]+\.rs$|^parachains/common/src/[^/]+\.rs$|^\.gitlab-ci\.yml|^scripts/ci/.*|^\.github/.*
     min_approvals: 2
     teams:
       - core-devs
