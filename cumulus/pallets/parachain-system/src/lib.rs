@@ -494,8 +494,12 @@ pub mod pallet {
 				"ValidationData must be updated only once in a block",
 			);
 
+			let data_len = data.encoded_size() as u64;
+
 			// TODO: This is more than zero, but will need benchmarking to figure out what.
-			let mut total_weight = Weight::zero();
+			// MOONBEAM TODO: custom weight to account for validation data size is the PoV
+			// until https://github.com/paritytech/substrate/issues/13810 it's properly fix.
+			let mut total_weight = Weight::from_parts(0, data_len);
 
 			// NOTE: the inherent data is expected to be unique, even if this block is built
 			// in the context of the same relay parent as the previous one. In particular,
