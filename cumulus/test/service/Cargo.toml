@@ -19,6 +19,7 @@ serde = { version = "1.0.163", features = ["derive"] }
 tokio = { version = "1.28.2", features = ["macros"] }
 tracing = "0.1.37"
 url = "2.3.1"
+tempfile = "3.5.0"
 
 # Substrate
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -39,14 +40,19 @@ sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "mas
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-test-client = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-block-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-executor-wasmtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-executor-common = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
@@ -70,10 +76,21 @@ cumulus-test-relay-validation-worker-provider = { path = "../relay-validation-wo
 cumulus-test-runtime = { path = "../runtime" }
 cumulus-relay-chain-minimal-node = { path = "../../client/relay-chain-minimal-node" }
 cumulus-client-pov-recovery = { path = "../../client/pov-recovery" }
+cumulus-test-relay-sproof-builder = { path = "../relay-sproof-builder" }
+cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 [dev-dependencies]
 futures = "0.3.28"
 portpicker = "0.1.1"
+kitchensink-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+rococo-parachain-runtime = { path = "../../parachains/runtimes/testing/rococo-parachain" }
+node-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-im-online = { git = "https://github.com/paritytech/substrate", branch = "master" }
+node-primitives = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "master" }
+cumulus-test-client = { path = "../client" }
 
 # Polkadot dependencies
 polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
@@ -87,4 +104,28 @@ runtime-benchmarks = ["polkadot-test-service/runtime-benchmarks"]
 
 [[bench]]
 name = "transaction_throughput"
+harness = false
+
+[[bench]]
+name = "block_import"
+harness = false
+
+[[bench]]
+name = "block_production"
+harness = false
+
+[[bench]]
+name = "block_production_glutton"
+harness = false
+
+[[bench]]
+name = "block_import_glutton"
+harness = false
+
+[[bench]]
+name = "validate_block"
+harness = false
+
+[[bench]]
+name = "validate_block_glutton"
 harness = false

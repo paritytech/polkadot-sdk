@@ -18,9 +18,13 @@
 
 #![warn(missing_docs)]
 
+/// Utilities used for benchmarking
+pub mod bench_utils;
+
 pub mod chain_spec;
 mod genesis;
 
+use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use std::{
 	future::Future,
@@ -501,6 +505,7 @@ pub struct TestNodeBuilder {
 	storage_update_func_relay_chain: Option<Box<dyn Fn()>>,
 	consensus: Consensus,
 	relay_chain_full_node_url: Vec<Url>,
+	endowed_accounts: Vec<AccountId>,
 }
 
 impl TestNodeBuilder {
@@ -523,6 +528,7 @@ impl TestNodeBuilder {
 			storage_update_func_relay_chain: None,
 			consensus: Consensus::RelayChain,
 			relay_chain_full_node_url: vec![],
+			endowed_accounts: Default::default(),
 		}
 	}
 
@@ -629,6 +635,12 @@ impl TestNodeBuilder {
 		self
 	}
 
+	/// Accounts which will have an initial balance.
+	pub fn endowed_accounts(mut self, accounts: Vec<AccountId>) -> TestNodeBuilder {
+		self.endowed_accounts = accounts;
+		self
+	}
+
 	/// Build the [`TestNode`].
 	pub async fn build(self) -> TestNode {
 		let parachain_config = node_config(
@@ -639,6 +651,7 @@ impl TestNodeBuilder {
 			self.parachain_nodes_exclusive,
 			self.para_id,
 			self.collator_key.is_some(),
+			self.endowed_accounts,
 		)
 		.expect("could not generate Configuration");
 
@@ -692,12 +705,14 @@ pub fn node_config(
 	nodes_exlusive: bool,
 	para_id: ParaId,
 	is_collator: bool,
+	endowed_accounts: Vec<AccountId>,
 ) -> Result<Configuration, ServiceError> {
 	let base_path = BasePath::new_temp_dir()?;
 	let root = base_path.path().join(format!("cumulus_test_service_{}", key));
 	let role = if is_collator { Role::Authority } else { Role::Full };
 	let key_seed = key.to_seed();
-	let mut spec = Box::new(chain_spec::get_chain_spec(para_id));
+	let mut spec =
+		Box::new(chain_spec::get_chain_spec_with_extra_endowed(para_id, endowed_accounts));
 
 	let mut storage = spec.as_storage_builder().build_storage().expect("could not build storage");
 
@@ -740,14 +755,15 @@ pub fn node_config(
 		state_pruning: Some(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
 		chain_spec: spec,
-		wasm_method: WasmExecutionMethod::default(),
-		// NOTE: we enforce the use of the native runtime to make the errors more debuggable
+		wasm_method: WasmExecutionMethod::Compiled {
+			instantiation_strategy: sc_executor_wasmtime::InstantiationStrategy::PoolingCopyOnWrite,
+		},
 		execution_strategies: ExecutionStrategies {
-			syncing: sc_client_api::ExecutionStrategy::NativeWhenPossible,
-			importing: sc_client_api::ExecutionStrategy::NativeWhenPossible,
-			block_construction: sc_client_api::ExecutionStrategy::NativeWhenPossible,
-			offchain_worker: sc_client_api::ExecutionStrategy::NativeWhenPossible,
-			other: sc_client_api::ExecutionStrategy::NativeWhenPossible,
+			syncing: sc_client_api::ExecutionStrategy::AlwaysWasm,
+			importing: sc_client_api::ExecutionStrategy::AlwaysWasm,
+			block_construction: sc_client_api::ExecutionStrategy::AlwaysWasm,
+			offchain_worker: sc_client_api::ExecutionStrategy::AlwaysWasm,
+			other: sc_client_api::ExecutionStrategy::AlwaysWasm,
 		},
 		rpc_addr: None,
 		rpc_max_connections: Default::default(),
