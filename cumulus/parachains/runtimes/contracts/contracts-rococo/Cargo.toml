@@ -86,6 +86,7 @@ std = [
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
+    "frame-try-runtime/std",
 	"kusama-runtime-constants/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",

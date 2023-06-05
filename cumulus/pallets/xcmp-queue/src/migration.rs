@@ -19,31 +19,34 @@
 use crate::{Config, Overweight, Pallet, QueueConfig, DEFAULT_POV_SIZE};
 use frame_support::{
 	pallet_prelude::*,
-	traits::StorageVersion,
+	traits::{OnRuntimeUpgrade, StorageVersion},
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
 
 /// The current storage version.
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
-/// Migrates the pallet storage to the most recent version, checking and setting the
-/// `StorageVersion`.
-pub fn migrate_to_latest<T: Config>() -> Weight {
-	let mut weight = T::DbWeight::get().reads(1);
+/// Migrates the pallet storage to the most recent version.
+pub struct Migration<T: Config>(PhantomData<T>);
 
-	if StorageVersion::get::<Pallet<T>>() == 1 {
-		weight.saturating_accrue(migrate_to_v2::<T>());
-		StorageVersion::new(2).put::<Pallet<T>>();
-		weight.saturating_accrue(T::DbWeight::get().writes(1));
+impl<T: Config> OnRuntimeUpgrade for Migration<T> {
+	fn on_runtime_upgrade() -> Weight {
+		let mut weight = T::DbWeight::get().reads(1);
+
+		if StorageVersion::get::<Pallet<T>>() == 1 {
+			weight.saturating_accrue(migrate_to_v2::<T>());
+			StorageVersion::new(2).put::<Pallet<T>>();
+			weight.saturating_accrue(T::DbWeight::get().writes(1));
+		}
+
+		if StorageVersion::get::<Pallet<T>>() == 2 {
+			weight.saturating_accrue(migrate_to_v3::<T>());
+			StorageVersion::new(3).put::<Pallet<T>>();
+			weight.saturating_accrue(T::DbWeight::get().writes(1));
+		}
+
+		weight
 	}
-
-	if StorageVersion::get::<Pallet<T>>() == 2 {
-		weight.saturating_accrue(migrate_to_v3::<T>());
-		StorageVersion::new(3).put::<Pallet<T>>();
-		weight.saturating_accrue(T::DbWeight::get().writes(1));
-	}
-
-	weight
 }
 
 mod v1 {

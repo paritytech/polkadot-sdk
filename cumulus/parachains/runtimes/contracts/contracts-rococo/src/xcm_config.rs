@@ -43,6 +43,7 @@ parameter_types! {
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorMultiLocation = Parachain(ParachainInfo::parachain_id().into()).into();
 	pub const ExecutiveBody: BodyId = BodyId::Executive;
+	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 }
 
 /// We allow root and the Relay Chain council to execute privileged collator selection operations.

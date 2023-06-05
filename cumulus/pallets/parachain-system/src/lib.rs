@@ -57,7 +57,7 @@ use sp_runtime::{
 use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
 use xcm::latest::XcmHash;
 
-mod migration;
+pub mod migration;
 mod relay_state_snapshot;
 #[macro_use]
 pub mod validate_block;
@@ -197,10 +197,6 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_runtime_upgrade() -> Weight {
-			migration::on_runtime_upgrade::<T>()
-		}
-
 		fn on_finalize(_: T::BlockNumber) {
 			<DidSetValidationCode<T>>::kill();
 			<UpgradeRestrictionSignal<T>>::kill();

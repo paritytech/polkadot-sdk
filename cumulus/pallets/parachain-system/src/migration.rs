@@ -16,32 +16,37 @@
 
 use crate::{Config, Pallet, ReservedDmpWeightOverride, ReservedXcmpWeightOverride};
 use frame_support::{
-	traits::{Get, StorageVersion},
+	pallet_prelude::*,
+	traits::{Get, OnRuntimeUpgrade, StorageVersion},
 	weights::Weight,
 };
 
 /// The current storage version.
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
-/// Call this during the next runtime upgrade for this module.
-pub fn on_runtime_upgrade<T: Config>() -> Weight {
-	let mut weight: Weight = T::DbWeight::get().reads(2);
+/// Migrates the pallet storage to the most recent version.
+pub struct Migration<T: Config>(PhantomData<T>);
 
-	if StorageVersion::get::<Pallet<T>>() == 0 {
-		weight = weight
-			.saturating_add(v1::migrate::<T>())
-			.saturating_add(T::DbWeight::get().writes(1));
-		StorageVersion::new(1).put::<Pallet<T>>();
+impl<T: Config> OnRuntimeUpgrade for Migration<T> {
+	fn on_runtime_upgrade() -> Weight {
+		let mut weight: Weight = T::DbWeight::get().reads(2);
+
+		if StorageVersion::get::<Pallet<T>>() == 0 {
+			weight = weight
+				.saturating_add(v1::migrate::<T>())
+				.saturating_add(T::DbWeight::get().writes(1));
+			StorageVersion::new(1).put::<Pallet<T>>();
+		}
+
+		if StorageVersion::get::<Pallet<T>>() == 1 {
+			weight = weight
+				.saturating_add(v2::migrate::<T>())
+				.saturating_add(T::DbWeight::get().writes(1));
+			StorageVersion::new(2).put::<Pallet<T>>();
+		}
+
+		weight
 	}
-
-	if StorageVersion::get::<Pallet<T>>() == 1 {
-		weight = weight
-			.saturating_add(v2::migrate::<T>())
-			.saturating_add(T::DbWeight::get().writes(1));
-		STORAGE_VERSION.put::<Pallet<T>>();
-	}
-
-	weight
 }
 
 /// V2: Migrate to 2D weights for ReservedXcmpWeightOverride and ReservedDmpWeightOverride.

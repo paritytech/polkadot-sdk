@@ -115,10 +115,6 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_runtime_upgrade() -> Weight {
-			migration::migrate_to_latest::<T>()
-		}
-
 		fn on_idle(_now: T::BlockNumber, max_weight: Weight) -> Weight {
 			// on_idle processes additional messages with any remaining block weight.
 			Self::service_xcmp_queue(max_weight)
