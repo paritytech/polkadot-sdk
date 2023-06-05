@@ -40,13 +40,6 @@ pub fn ensure_weights_are_correct<W: WeightInfoExt>() {
 	// benchmarked using `MaxEncodedLen` approach and there are no components that cause additional
 	// db reads
 
-	// verify `receive_messages_proof` weight components
-	assert_ne!(W::receive_messages_proof_overhead().ref_time(), 0);
-	assert_ne!(W::receive_messages_proof_overhead().proof_size(), 0);
-	// W::receive_messages_proof_messages_overhead(1).ref_time() may be zero because:
-	// the message processing code (`InboundLane::receive_message`) is minimal and may not be
-	// accounted by our benchmarks
-	assert_eq!(W::receive_messages_proof_messages_overhead(1).proof_size(), 0);
 	// W::receive_messages_proof_outbound_lane_state_overhead().ref_time() may be zero because:
 	// the outbound lane state processing code (`InboundLane::receive_state_update`) is minimal and
 	// may not be accounted by our benchmarks
@@ -297,13 +290,11 @@ pub trait WeightInfoExt: WeightInfo {
 		dispatch_weight: Weight,
 	) -> Weight {
 		// basic components of extrinsic weight
-		let transaction_overhead = Self::receive_messages_proof_overhead();
+		let base_weight = Self::receive_n_messages_proof(messages_count);
 		let transaction_overhead_from_runtime =
 			Self::receive_messages_proof_overhead_from_runtime();
 		let outbound_state_delivery_weight =
 			Self::receive_messages_proof_outbound_lane_state_overhead();
-		let messages_delivery_weight =
-			Self::receive_messages_proof_messages_overhead(MessageNonce::from(messages_count));
 		let messages_dispatch_weight = dispatch_weight;
 
 		// proof size overhead weight
@@ -315,10 +306,9 @@ pub trait WeightInfoExt: WeightInfo {
 			actual_proof_size.saturating_sub(expected_proof_size),
 		);
 
-		transaction_overhead
+		base_weight
 			.saturating_add(transaction_overhead_from_runtime)
 			.saturating_add(outbound_state_delivery_weight)
-			.saturating_add(messages_delivery_weight)
 			.saturating_add(messages_dispatch_weight)
 			.saturating_add(proof_size_overhead)
 	}
@@ -353,25 +343,6 @@ pub trait WeightInfoExt: WeightInfo {
 	}
 
 	// Functions that are used by extrinsics weights formulas.
-
-	/// Returns weight overhead of message delivery transaction (`receive_messages_proof`).
-	fn receive_messages_proof_overhead() -> Weight {
-		let weight_of_two_messages_and_two_tx_overheads =
-			Self::receive_single_message_proof().saturating_mul(2);
-		let weight_of_two_messages_and_single_tx_overhead = Self::receive_two_messages_proof();
-		weight_of_two_messages_and_two_tx_overheads
-			.saturating_sub(weight_of_two_messages_and_single_tx_overhead)
-	}
-
-	/// Returns weight that needs to be accounted when receiving given a number of messages with
-	/// message delivery transaction (`receive_messages_proof`).
-	fn receive_messages_proof_messages_overhead(messages: MessageNonce) -> Weight {
-		let weight_of_two_messages_and_single_tx_overhead = Self::receive_two_messages_proof();
-		let weight_of_single_message_and_single_tx_overhead = Self::receive_single_message_proof();
-		weight_of_two_messages_and_single_tx_overhead
-			.saturating_sub(weight_of_single_message_and_single_tx_overhead)
-			.saturating_mul(messages as _)
-	}
 
 	/// Returns weight that needs to be accounted when message delivery transaction
 	/// (`receive_messages_proof`) is carrying outbound lane state proof.
