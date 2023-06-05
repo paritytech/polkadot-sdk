@@ -27,11 +27,11 @@ use parachains_runtimes_test_utils::{
 	RuntimeHelper, ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_runtime::{
-	traits::{StaticLookup, Zero},
+	traits::{MaybeEquivalence, StaticLookup, Zero},
 	DispatchError, Saturating,
 };
 use xcm::latest::prelude::*;
-use xcm_executor::{traits::Convert, XcmExecutor};
+use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 /// Test-case makes sure that `Runtime` can receive native asset from relay chain
 /// and can teleport it back and to the other parachains
@@ -308,7 +308,7 @@ pub fn teleports_for_foreign_assets_works<
 	>,
 	WeightToFee: frame_support::weights::WeightToFee<Balance = Balance>,
 	<WeightToFee as frame_support::weights::WeightToFee>::Balance: From<u128> + Into<u128>,
-	SovereignAccountOf: Convert<MultiLocation, AccountIdOf<Runtime>>,
+	SovereignAccountOf: ConvertLocation<AccountIdOf<Runtime>>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
 		From<MultiLocation> + Into<MultiLocation>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
@@ -330,7 +330,8 @@ pub fn teleports_for_foreign_assets_works<
 
 	// foreign creator, which can be sibling parachain to match ForeignCreators
 	let foreign_creator = MultiLocation { parents: 1, interior: X1(Parachain(foreign_para_id)) };
-	let foreign_creator_as_account_id = SovereignAccountOf::convert(foreign_creator).expect("");
+	let foreign_creator_as_account_id =
+		SovereignAccountOf::convert_location(&foreign_creator).expect("");
 
 	// we want to buy execution with local relay chain currency
 	let buy_execution_fee_amount =
@@ -744,7 +745,7 @@ pub fn asset_transactor_transfer_with_pallet_assets_instance_works<
 		From<<Runtime as frame_system::Config>::AccountId>,
 	AssetsPalletInstance: 'static,
 	AssetId: Clone + Copy,
-	AssetIdConverter: Convert<MultiLocation, AssetId>,
+	AssetIdConverter: MaybeEquivalence<MultiLocation, AssetId>,
 {
 	ExtBuilder::<Runtime>::default()
 		.with_collators(collator_session_keys.collators())
@@ -759,7 +760,7 @@ pub fn asset_transactor_transfer_with_pallet_assets_instance_works<
 		.execute_with(|| {
 			// create  some asset class
 			let asset_minimum_asset_balance = 3333333_u128;
-			let asset_id_as_multilocation = AssetIdConverter::reverse_ref(asset_id).unwrap();
+			let asset_id_as_multilocation = AssetIdConverter::convert_back(&asset_id).unwrap();
 			assert_ok!(<pallet_assets::Pallet<Runtime, AssetsPalletInstance>>::force_create(
 				RuntimeHelper::<Runtime>::root_origin(),
 				asset_id.into(),
@@ -1002,7 +1003,7 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 	XcmConfig: xcm_executor::Config,
 	WeightToFee: frame_support::weights::WeightToFee<Balance = Balance>,
 	<WeightToFee as frame_support::weights::WeightToFee>::Balance: From<u128> + Into<u128>,
-	SovereignAccountOf: Convert<MultiLocation, AccountIdOf<Runtime>>,
+	SovereignAccountOf: ConvertLocation<AccountIdOf<Runtime>>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
 		From<AssetId> + Into<AssetId>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
@@ -1015,16 +1016,17 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 		From<<Runtime as frame_system::Config>::AccountId>,
 	ForeignAssetsPalletInstance: 'static,
 	AssetId: Clone + Copy,
-	AssetIdConverter: Convert<MultiLocation, AssetId>,
+	AssetIdConverter: MaybeEquivalence<MultiLocation, AssetId>,
 {
 	// foreign parachain with the same consenus currency as asset
 	let foreign_asset_id_multilocation =
 		MultiLocation { parents: 1, interior: X2(Parachain(2222), GeneralIndex(1234567)) };
-	let asset_id = AssetIdConverter::convert(foreign_asset_id_multilocation).unwrap();
+	let asset_id = AssetIdConverter::convert(&foreign_asset_id_multilocation).unwrap();
 
 	// foreign creator, which can be sibling parachain to match ForeignCreators
 	let foreign_creator = MultiLocation { parents: 1, interior: X1(Parachain(2222)) };
-	let foreign_creator_as_account_id = SovereignAccountOf::convert(foreign_creator).expect("");
+	let foreign_creator_as_account_id =
+		SovereignAccountOf::convert_location(&foreign_creator).expect("");
 
 	// we want to buy execution with local relay chain currency
 	let buy_execution_fee_amount =
@@ -1204,7 +1206,7 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 			// lets try create asset for different parachain(3333) (foreign_creator(2222) can create just his assets)
 			let foreign_asset_id_multilocation =
 				MultiLocation { parents: 1, interior: X2(Parachain(3333), GeneralIndex(1234567)) };
-			let asset_id = AssetIdConverter::convert(foreign_asset_id_multilocation).unwrap();
+			let asset_id = AssetIdConverter::convert(&foreign_asset_id_multilocation).unwrap();
 
 			// prepare data for xcm::Transact(create)
 			let foreign_asset_create = runtime_call_encode(pallet_assets::Call::<

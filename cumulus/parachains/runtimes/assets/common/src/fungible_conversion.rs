@@ -17,10 +17,11 @@
 
 use crate::runtime_api::FungiblesAccessError;
 use frame_support::traits::Contains;
+use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{borrow::Borrow, vec::Vec};
 use xcm::latest::{MultiAsset, MultiLocation};
 use xcm_builder::{ConvertedConcreteId, MatchedConvertedConcreteId};
-use xcm_executor::traits::{Convert, MatchesFungibles};
+use xcm_executor::traits::MatchesFungibles;
 
 /// Converting any [`(AssetId, Balance)`] to [`MultiAsset`]
 pub trait MultiAssetConverter<AssetId, Balance, ConvertAssetId, ConvertBalance>:
@@ -28,8 +29,8 @@ pub trait MultiAssetConverter<AssetId, Balance, ConvertAssetId, ConvertBalance>:
 where
 	AssetId: Clone,
 	Balance: Clone,
-	ConvertAssetId: Convert<MultiLocation, AssetId>,
-	ConvertBalance: Convert<u128, Balance>,
+	ConvertAssetId: MaybeEquivalence<MultiLocation, AssetId>,
+	ConvertBalance: MaybeEquivalence<u128, Balance>,
 {
 	fn convert_ref(
 		value: impl Borrow<(AssetId, Balance)>,
@@ -39,8 +40,8 @@ where
 impl<
 		AssetId: Clone,
 		Balance: Clone,
-		ConvertAssetId: Convert<MultiLocation, AssetId>,
-		ConvertBalance: Convert<u128, Balance>,
+		ConvertAssetId: MaybeEquivalence<MultiLocation, AssetId>,
+		ConvertBalance: MaybeEquivalence<u128, Balance>,
 	> MultiAssetConverter<AssetId, Balance, ConvertAssetId, ConvertBalance>
 	for ConvertedConcreteId<AssetId, Balance, ConvertAssetId, ConvertBalance>
 {
@@ -48,12 +49,12 @@ impl<
 		value: impl Borrow<(AssetId, Balance)>,
 	) -> Result<MultiAsset, FungiblesAccessError> {
 		let (asset_id, balance) = value.borrow();
-		match ConvertAssetId::reverse_ref(asset_id) {
-			Ok(asset_id_as_multilocation) => match ConvertBalance::reverse_ref(balance) {
-				Ok(amount) => Ok((asset_id_as_multilocation, amount).into()),
-				Err(_) => Err(FungiblesAccessError::AmountToBalanceConversionFailed),
+		match ConvertAssetId::convert_back(asset_id) {
+			Some(asset_id_as_multilocation) => match ConvertBalance::convert_back(balance) {
+				Some(amount) => Ok((asset_id_as_multilocation, amount).into()),
+				None => Err(FungiblesAccessError::AmountToBalanceConversionFailed),
 			},
-			Err(_) => Err(FungiblesAccessError::AssetIdConversionFailed),
+			None => Err(FungiblesAccessError::AssetIdConversionFailed),
 		}
 	}
 }
@@ -62,8 +63,8 @@ impl<
 		AssetId: Clone,
 		Balance: Clone,
 		MatchAssetId: Contains<MultiLocation>,
-		ConvertAssetId: Convert<MultiLocation, AssetId>,
-		ConvertBalance: Convert<u128, Balance>,
+		ConvertAssetId: MaybeEquivalence<MultiLocation, AssetId>,
+		ConvertBalance: MaybeEquivalence<u128, Balance>,
 	> MultiAssetConverter<AssetId, Balance, ConvertAssetId, ConvertBalance>
 	for MatchedConvertedConcreteId<AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance>
 {
@@ -71,12 +72,12 @@ impl<
 		value: impl Borrow<(AssetId, Balance)>,
 	) -> Result<MultiAsset, FungiblesAccessError> {
 		let (asset_id, balance) = value.borrow();
-		match ConvertAssetId::reverse_ref(asset_id) {
-			Ok(asset_id_as_multilocation) => match ConvertBalance::reverse_ref(balance) {
-				Ok(amount) => Ok((asset_id_as_multilocation, amount).into()),
-				Err(_) => Err(FungiblesAccessError::AmountToBalanceConversionFailed),
+		match ConvertAssetId::convert_back(asset_id) {
+			Some(asset_id_as_multilocation) => match ConvertBalance::convert_back(balance) {
+				Some(amount) => Ok((asset_id_as_multilocation, amount).into()),
+				None => Err(FungiblesAccessError::AmountToBalanceConversionFailed),
 			},
-			Err(_) => Err(FungiblesAccessError::AssetIdConversionFailed),
+			None => Err(FungiblesAccessError::AssetIdConversionFailed),
 		}
 	}
 }
@@ -88,8 +89,8 @@ pub fn convert<'a, AssetId, Balance, ConvertAssetId, ConvertBalance, Converter>(
 where
 	AssetId: Clone + 'a,
 	Balance: Clone + 'a,
-	ConvertAssetId: Convert<MultiLocation, AssetId>,
-	ConvertBalance: Convert<u128, Balance>,
+	ConvertAssetId: MaybeEquivalence<MultiLocation, AssetId>,
+	ConvertBalance: MaybeEquivalence<u128, Balance>,
 	Converter: MultiAssetConverter<AssetId, Balance, ConvertAssetId, ConvertBalance>,
 {
 	items.map(Converter::convert_ref).collect()

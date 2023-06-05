@@ -80,8 +80,9 @@ pub type ForeignAssetsConvertedConcreteId<AdditionalMultiLocationExclusionFilter
 mod tests {
 	use super::*;
 	use crate::matching::StartsWithExplicitGlobalConsensus;
+	use sp_runtime::traits::MaybeEquivalence;
 	use xcm::latest::prelude::*;
-	use xcm_executor::traits::{Convert, Error as MatchError, MatchesFungibles};
+	use xcm_executor::traits::{Error as MatchError, MatchesFungibles};
 
 	#[test]
 	fn asset_id_for_trust_backed_assets_convert_works() {
@@ -93,15 +94,15 @@ mod tests {
 			MultiLocation::new(5, X2(PalletInstance(13), GeneralIndex(local_asset_id.into())));
 
 		assert_eq!(
-			AssetIdForTrustBackedAssetsConvert::<TrustBackedAssetsPalletLocation>::reverse_ref(
-				local_asset_id
+			AssetIdForTrustBackedAssetsConvert::<TrustBackedAssetsPalletLocation>::convert_back(
+				&local_asset_id
 			)
 			.unwrap(),
 			expected_reverse_ref
 		);
 		assert_eq!(
-			AssetIdForTrustBackedAssetsConvert::<TrustBackedAssetsPalletLocation>::convert_ref(
-				expected_reverse_ref
+			AssetIdForTrustBackedAssetsConvert::<TrustBackedAssetsPalletLocation>::convert(
+				&expected_reverse_ref
 			)
 			.unwrap(),
 			local_asset_id

@@ -13,7 +13,7 @@ use xcm_emulator::{
 	decl_test_networks, decl_test_parachains, decl_test_relay_chains, Parachain, RelayChain,
 	TestExt,
 };
-use xcm_executor::traits::Convert;
+use xcm_executor::traits::ConvertLocation;
 
 decl_test_relay_chains! {
 	#[api_version(5)]

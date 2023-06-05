@@ -1,3 +1,22 @@
+// This file is part of Cumulus.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Tests for the Westmint (Westend Assets Hub) chain.
+
 pub use asset_hub_westend_runtime::{
 	constants::fee::WeightToFee,
 	xcm_config::{CheckingAccount, TrustBackedAssetsPalletLocation, XcmConfig},
@@ -20,10 +39,11 @@ use frame_support::{
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
+use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
 use xcm::{latest::prelude::*, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::{
-	traits::{Convert, Identity, JustTry, WeightTrader},
+	traits::{Identity, JustTry, WeightTrader},
 	XcmExecutor,
 };
 
@@ -73,7 +93,7 @@ fn test_asset_xcm_trader() {
 
 			// get asset id as multilocation
 			let asset_multilocation =
-				AssetIdForTrustBackedAssetsConvert::reverse_ref(local_asset_id).unwrap();
+				AssetIdForTrustBackedAssetsConvert::convert_back(&local_asset_id).unwrap();
 
 			// Set Alice as block author, who will receive fees
 			RuntimeHelper::<Runtime>::run_to_block(2, Some(AccountId::from(ALICE)));
@@ -156,7 +176,7 @@ fn test_asset_xcm_trader_with_refund() {
 
 			// We are going to buy 4e9 weight
 			let bought = Weight::from_parts(4_000_000_000u64, 0);
-			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::reverse_ref(1).unwrap();
+			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
 
 			// lets calculate amount needed
 			let amount_bought = WeightToFee::weight_to_fee(&bought);
@@ -226,7 +246,7 @@ fn test_asset_xcm_trader_refund_not_possible_since_amount_less_than_ed() {
 			// We are going to buy 5e9 weight
 			let bought = Weight::from_parts(500_000_000u64, 0);
 
-			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::reverse_ref(1).unwrap();
+			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
 
 			let amount_bought = WeightToFee::weight_to_fee(&bought);
 
@@ -276,7 +296,7 @@ fn test_that_buying_ed_refund_does_not_refund() {
 
 			let bought = Weight::from_parts(500_000_000u64, 0);
 
-			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::reverse_ref(1).unwrap();
+			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
 
 			let amount_bought = WeightToFee::weight_to_fee(&bought);
 
@@ -351,7 +371,7 @@ fn test_asset_xcm_trader_not_possible_for_non_sufficient_assets() {
 			// lets calculate amount needed
 			let asset_amount_needed = WeightToFee::weight_to_fee(&bought);
 
-			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::reverse_ref(1).unwrap();
+			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
 
 			let asset: MultiAsset = (asset_multilocation, asset_amount_needed).into();
 
@@ -466,13 +486,13 @@ fn test_assets_balances_api_works() {
 			)));
 			// check trusted asset
 			assert!(result.inner().iter().any(|asset| asset.eq(&(
-				AssetIdForTrustBackedAssetsConvert::reverse_ref(local_asset_id).unwrap(),
+				AssetIdForTrustBackedAssetsConvert::convert_back(&local_asset_id).unwrap(),
 				minimum_asset_balance
 			)
 				.into())));
 			// check foreign asset
 			assert!(result.inner().iter().any(|asset| asset.eq(&(
-				Identity::reverse_ref(foreign_asset_id_multilocation).unwrap(),
+				Identity::convert_back(&foreign_asset_id_multilocation).unwrap(),
 				6 * foreign_asset_minimum_asset_balance
 			)
 				.into())));

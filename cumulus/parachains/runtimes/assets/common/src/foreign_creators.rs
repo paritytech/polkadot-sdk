@@ -18,16 +18,16 @@ use frame_support::traits::{
 };
 use pallet_xcm::{EnsureXcm, Origin as XcmOrigin};
 use xcm::latest::MultiLocation;
-use xcm_executor::traits::Convert;
+use xcm_executor::traits::ConvertLocation;
 
-// `EnsureOriginWithArg` impl for `CreateOrigin` that allows only XCM origins that are locations
-// containing the class location.
+/// `EnsureOriginWithArg` impl for `CreateOrigin` that allows only XCM origins that are locations
+/// containing the class location.
 pub struct ForeignCreators<IsForeign, AccountOf, AccountId>(
 	sp_std::marker::PhantomData<(IsForeign, AccountOf, AccountId)>,
 );
 impl<
 		IsForeign: ContainsPair<MultiLocation, MultiLocation>,
-		AccountOf: Convert<MultiLocation, AccountId>,
+		AccountOf: ConvertLocation<AccountId>,
 		AccountId: Clone,
 		RuntimeOrigin: From<XcmOrigin> + OriginTrait + Clone,
 	> EnsureOriginWithArg<RuntimeOrigin, MultiLocation>
@@ -46,7 +46,7 @@ where
 		if !IsForeign::contains(asset_location, &origin_location) {
 			return Err(origin)
 		}
-		AccountOf::convert(origin_location).map_err(|_| origin)
+		AccountOf::convert_location(&origin_location).ok_or(origin)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
