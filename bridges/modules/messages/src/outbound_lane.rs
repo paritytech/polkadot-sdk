@@ -18,16 +18,19 @@
 
 use crate::{Config, LOG_TARGET};
 
-use bp_messages::{DeliveredMessages, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer};
+use bp_messages::{
+	ChainWithMessages, DeliveredMessages, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer,
+};
 use codec::{Decode, Encode};
 use frame_support::{
+	traits::Get,
 	weights::{RuntimeDbWeight, Weight},
 	BoundedVec, PalletError,
 };
 use num_traits::Zero;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
-use sp_std::collections::vec_deque::VecDeque;
+use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData};
 
 /// Outbound lane storage.
 pub trait OutboundLaneStorage {
@@ -48,8 +51,17 @@ pub trait OutboundLaneStorage {
 	fn remove_message(&mut self, nonce: &MessageNonce);
 }
 
+/// Limit for the `StoredMessagePayload` vector.
+pub struct StoredMessagePayloadLimit<T, I>(PhantomData<(T, I)>);
+
+impl<T: Config<I>, I: 'static> Get<u32> for StoredMessagePayloadLimit<T, I> {
+	fn get() -> u32 {
+		T::BridgedChain::maximal_incoming_message_size()
+	}
+}
+
 /// Outbound message data wrapper that implements `MaxEncodedLen`.
-pub type StoredMessagePayload<T, I> = BoundedVec<u8, <T as Config<I>>::MaximalOutboundPayloadSize>;
+pub type StoredMessagePayload<T, I> = BoundedVec<u8, StoredMessagePayloadLimit<T, I>>;
 
 /// Result of messages receival confirmation.
 #[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]
@@ -204,11 +216,11 @@ fn ensure_unrewarded_relayers_are_correct<RelayerId>(
 mod tests {
 	use super::*;
 	use crate::{
-		mock::{
+		outbound_lane,
+		tests::mock::{
 			outbound_message_data, run_test, unrewarded_relayer, TestRelayer, TestRuntime,
 			REGULAR_PAYLOAD, TEST_LANE_ID,
 		},
-		outbound_lane,
 	};
 	use frame_support::weights::constants::RocksDbWeight;
 	use sp_std::ops::RangeInclusive;

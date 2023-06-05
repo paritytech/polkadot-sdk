@@ -18,26 +18,16 @@
 
 #![cfg(test)]
 
-use crate::messages::{
-	source::{
-		FromThisChainMaximalOutboundPayloadSize, FromThisChainMessagePayload,
-		TargetHeaderChainAdapter,
-	},
-	target::SourceHeaderChainAdapter,
-	BridgedChainWithMessages, HashOf, MessageBridge, ThisChainWithMessages,
-};
+use crate::messages_xcm_extension::XcmAsPlainPayload;
 
-use bp_header_chain::{ChainWithGrandpa, HeaderChain};
+use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
-	LaneId, MessageNonce,
+	ChainWithMessages, LaneId, MessageNonce,
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_relayers::PayRewardFromAccount;
-use bp_runtime::{
-	messages::MessageDispatchResult, Chain, ChainId, Parachain, UnderlyingChainProvider,
-};
-use codec::{Decode, Encode};
+use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, Parachain};
 use frame_support::{
 	derive_impl, parameter_types,
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight},
@@ -61,8 +51,6 @@ pub type ThisChainHash = H256;
 pub type ThisChainHasher = BlakeTwo256;
 /// Runtime call at `ThisChain`.
 pub type ThisChainRuntimeCall = RuntimeCall;
-/// Runtime call origin at `ThisChain`.
-pub type ThisChainCallOrigin = RuntimeOrigin;
 /// Header of `ThisChain`.
 pub type ThisChainHeader = sp_runtime::generic::Header<ThisChainBlockNumber, ThisChainHasher>;
 /// Block of `ThisChain`.
@@ -100,8 +88,6 @@ pub type TestStakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 pub const TEST_LANE_ID: LaneId = LaneId([0, 0, 0, 0]);
 /// Bridged chain id used in tests.
 pub const TEST_BRIDGED_CHAIN_ID: ChainId = *b"brdg";
-/// Maximal extrinsic weight at the `BridgedChain`.
-pub const BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT: usize = 2048;
 /// Maximal extrinsic size at the `BridgedChain`.
 pub const BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE: u32 = 1024;
 
@@ -126,7 +112,6 @@ crate::generate_bridge_reject_obsolete_headers_and_messages! {
 
 parameter_types! {
 	pub const ActiveOutboundLanes: &'static [LaneId] = &[TEST_LANE_ID];
-	pub const BridgedChainId: ChainId = TEST_BRIDGED_CHAIN_ID;
 	pub const BridgedParasPalletName: &'static str = "Paras";
 	pub const ExistentialDeposit: ThisChainBalance = 500;
 	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight { read: 1, write: 2 };
@@ -136,8 +121,6 @@ parameter_types! {
 	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(3, 100_000);
 	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000u128);
 	pub MaximumMultiplier: Multiplier = sp_runtime::traits::Bounded::max_value();
-	pub const MaxUnrewardedRelayerEntriesAtInboundLane: MessageNonce = 16;
-	pub const MaxUnconfirmedMessagesAtInboundLane: MessageNonce = 1_000;
 	pub const ReserveId: [u8; 8] = *b"brdgrlrs";
 }
 
@@ -203,17 +186,13 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<TestRuntime>;
 	type ActiveOutboundLanes = ActiveOutboundLanes;
-	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
-	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
 
-	type MaximalOutboundPayloadSize = FromThisChainMaximalOutboundPayloadSize<OnThisChainBridge>;
-	type OutboundPayload = FromThisChainMessagePayload;
+	type OutboundPayload = XcmAsPlainPayload;
 
 	type InboundPayload = Vec<u8>;
 	type InboundRelayer = BridgedChainAccountId;
 	type DeliveryPayments = ();
 
-	type TargetHeaderChain = TargetHeaderChainAdapter<OnThisChainBridge>;
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		TestRuntime,
 		(),
@@ -221,9 +200,11 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	>;
 	type OnMessagesDelivered = ();
 
-	type SourceHeaderChain = SourceHeaderChainAdapter<OnThisChainBridge>;
 	type MessageDispatch = DummyMessageDispatch;
-	type BridgedChainId = BridgedChainId;
+
+	type ThisChain = ThisUnderlyingChain;
+	type BridgedChain = BridgedUnderlyingChain;
+	type BridgedHeaderChain = BridgeGrandpa;
 }
 
 impl pallet_bridge_relayers::Config for TestRuntime {
@@ -262,55 +243,6 @@ impl MessageDispatch for DummyMessageDispatch {
 	}
 }
 
-/// Bridge that is deployed on `ThisChain` and allows sending/receiving messages to/from
-/// `BridgedChain`.
-#[derive(Debug, PartialEq, Eq)]
-pub struct OnThisChainBridge;
-
-impl MessageBridge for OnThisChainBridge {
-	const BRIDGED_MESSAGES_PALLET_NAME: &'static str = "";
-
-	type ThisChain = ThisChain;
-	type BridgedChain = BridgedChain;
-	type BridgedHeaderChain = pallet_bridge_grandpa::GrandpaChainHeaders<TestRuntime, ()>;
-}
-
-/// Bridge that is deployed on `BridgedChain` and allows sending/receiving messages to/from
-/// `ThisChain`.
-#[derive(Debug, PartialEq, Eq)]
-pub struct OnBridgedChainBridge;
-
-impl MessageBridge for OnBridgedChainBridge {
-	const BRIDGED_MESSAGES_PALLET_NAME: &'static str = "";
-
-	type ThisChain = BridgedChain;
-	type BridgedChain = ThisChain;
-	type BridgedHeaderChain = ThisHeaderChain;
-}
-
-/// Dummy implementation of `HeaderChain` for `ThisChain` at the `BridgedChain`.
-pub struct ThisHeaderChain;
-
-impl HeaderChain<ThisUnderlyingChain> for ThisHeaderChain {
-	fn finalized_header_state_root(_hash: HashOf<ThisChain>) -> Option<HashOf<ThisChain>> {
-		unreachable!()
-	}
-}
-
-/// Call origin at `BridgedChain`.
-#[derive(Clone, Debug)]
-pub struct BridgedChainOrigin;
-
-impl From<BridgedChainOrigin>
-	for Result<frame_system::RawOrigin<BridgedChainAccountId>, BridgedChainOrigin>
-{
-	fn from(
-		_origin: BridgedChainOrigin,
-	) -> Result<frame_system::RawOrigin<BridgedChainAccountId>, BridgedChainOrigin> {
-		unreachable!()
-	}
-}
-
 /// Underlying chain of `ThisChain`.
 pub struct ThisUnderlyingChain;
 
@@ -337,29 +269,20 @@ impl Chain for ThisUnderlyingChain {
 	}
 }
 
-/// The chain where we are in tests.
-pub struct ThisChain;
+impl ChainWithMessages for ThisUnderlyingChain {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str = "";
 
-impl UnderlyingChainProvider for ThisChain {
-	type Chain = ThisUnderlyingChain;
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 16;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 1000;
 }
-
-impl ThisChainWithMessages for ThisChain {
-	type RuntimeOrigin = ThisChainCallOrigin;
-}
-
-impl BridgedChainWithMessages for ThisChain {}
 
 /// Underlying chain of `BridgedChain`.
 pub struct BridgedUnderlyingChain;
 /// Some parachain under `BridgedChain` consensus.
 pub struct BridgedUnderlyingParachain;
-/// Runtime call of the `BridgedChain`.
-#[derive(Decode, Encode)]
-pub struct BridgedChainCall;
 
 impl Chain for BridgedUnderlyingChain {
-	const ID: ChainId = *b"buch";
+	const ID: ChainId = TEST_BRIDGED_CHAIN_ID;
 
 	type BlockNumber = BridgedChainBlockNumber;
 	type Hash = BridgedChainHash;
@@ -388,6 +311,12 @@ impl ChainWithGrandpa for BridgedUnderlyingChain {
 	const AVERAGE_HEADER_SIZE: u32 = 64;
 }
 
+impl ChainWithMessages for BridgedUnderlyingChain {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str = "";
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 16;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 1000;
+}
+
 impl Chain for BridgedUnderlyingParachain {
 	const ID: ChainId = *b"bupc";
 
@@ -414,19 +343,6 @@ impl Parachain for BridgedUnderlyingParachain {
 	const PARACHAIN_ID: u32 = 42;
 	const MAX_HEADER_SIZE: u32 = 1_024;
 }
-
-/// The other, bridged chain, used in tests.
-pub struct BridgedChain;
-
-impl UnderlyingChainProvider for BridgedChain {
-	type Chain = BridgedUnderlyingChain;
-}
-
-impl ThisChainWithMessages for BridgedChain {
-	type RuntimeOrigin = BridgedChainOrigin;
-}
-
-impl BridgedChainWithMessages for BridgedChain {}
 
 /// Run test within test externalities.
 pub fn run_test(test: impl FnOnce()) {

@@ -197,7 +197,7 @@ where
 			})?
 			.id();
 
-		crate::messages_lane::relay_messages_delivery_confirmation::<Self::MessagesLane>(
+		crate::messages::relay_messages_delivery_confirmation::<Self::MessagesLane>(
 			source_client,
 			target_client,
 			TransactionParams { signer: source_sign, mortality: source_transactions_mortality },

@@ -37,6 +37,7 @@ use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof, storage_keys::inbound_lane_data_key,
 	ChainWithMessages as _, InboundLaneData, LaneId, MessageNonce, UnrewardedRelayersState,
 };
+use bp_runtime::{HasherOf, UntrustedVecDb};
 use messages_relay::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
 	message_lane_loop::{NoncesSubmitArtifacts, TargetClient, TargetClientState},
@@ -47,7 +48,8 @@ use relay_substrate_client::{
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
-use std::ops::RangeInclusive;
+use sp_runtime::traits::Header;
+use std::{convert::TryFrom, ops::RangeInclusive};
 
 /// Message receiving proof returned by the target Substrate node.
 pub type SubstrateMessagesDeliveryProof<C> =
@@ -231,19 +233,24 @@ where
 		SubstrateError,
 	> {
 		let (id, relayers_state) = self.unrewarded_relayers_state(id).await?;
-		let inbound_data_key = bp_messages::storage_keys::inbound_lane_data_key(
+		let storage_keys = vec![inbound_lane_data_key(
 			P::SourceChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
 			&self.lane_id,
-		);
-		let proof = self
-			.target_client
-			.prove_storage(id.hash(), vec![inbound_data_key])
-			.await?
-			.into_iter_nodes()
-			.collect();
+		)];
+
+		let root = *self.target_client.header_by_hash(id.hash()).await?.state_root();
+		let read_proof = self.target_client.prove_storage(id.hash(), storage_keys.clone()).await?;
+		let storage_proof =
+			UntrustedVecDb::try_new::<HasherOf<P::TargetChain>>(read_proof, root, storage_keys)
+				.map_err(|e| {
+					SubstrateError::Custom(format!(
+						"Error generating messages delivery confirmation storage: {:?}",
+						e
+					))
+				})?;
 		let proof = FromBridgedChainMessagesDeliveryProof {
 			bridged_header_hash: id.1,
-			storage_proof: proof,
+			storage_proof,
 			lane: self.lane_id,
 		};
 		Ok((id, (relayers_state, proof)))

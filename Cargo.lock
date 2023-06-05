@@ -10116,6 +10116,7 @@ dependencies = [
 name = "pallet-bridge-messages"
 version = "0.7.0"
 dependencies = [
+ "bp-header-chain",
  "bp-messages",
  "bp-runtime",
  "bp-test-utils",
@@ -10125,11 +10126,14 @@ dependencies = [
  "log",
  "num-traits",
  "pallet-balances",
+ "pallet-bridge-grandpa",
  "parity-scale-codec",
  "scale-info",
+ "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "sp-trie",
 ]
 
 [[package]]

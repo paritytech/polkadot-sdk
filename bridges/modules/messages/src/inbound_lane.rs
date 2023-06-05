@@ -16,15 +16,14 @@
 
 //! Everything about incoming messages receival.
 
-use crate::Config;
+use crate::{BridgedChainOf, Config};
 
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
-	DeliveredMessages, InboundLaneData, LaneId, MessageKey, MessageNonce, OutboundLaneData,
-	ReceptionResult, UnrewardedRelayer,
+	ChainWithMessages, DeliveredMessages, InboundLaneData, LaneId, MessageKey, MessageNonce,
+	OutboundLaneData, ReceptionResult, UnrewardedRelayer,
 };
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-use frame_support::traits::Get;
 use scale_info::{Type, TypeInfo};
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::PartialEq;
@@ -101,7 +100,7 @@ impl<T: Config<I>, I: 'static> TypeInfo for StoredInboundLaneData<T, I> {
 impl<T: Config<I>, I: 'static> MaxEncodedLen for StoredInboundLaneData<T, I> {
 	fn max_encoded_len() -> usize {
 		InboundLaneData::<T::InboundRelayer>::encoded_size_hint(
-			T::MaxUnrewardedRelayerEntriesAtInboundLane::get() as usize,
+			BridgedChainOf::<T, I>::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX as usize,
 		)
 		.unwrap_or(usize::MAX)
 	}
@@ -216,10 +215,10 @@ mod tests {
 	use super::*;
 	use crate::{
 		inbound_lane,
-		mock::{
+		tests::mock::{
 			dispatch_result, inbound_message_data, inbound_unrewarded_relayers_state, run_test,
-			unrewarded_relayer, TestMessageDispatch, TestRuntime, REGULAR_PAYLOAD, TEST_LANE_ID,
-			TEST_RELAYER_A, TEST_RELAYER_B, TEST_RELAYER_C,
+			unrewarded_relayer, BridgedChain, TestMessageDispatch, TestRuntime, REGULAR_PAYLOAD,
+			TEST_LANE_ID, TEST_RELAYER_A, TEST_RELAYER_B, TEST_RELAYER_C,
 		},
 		RuntimeInboundLaneStorage,
 	};
@@ -372,8 +371,7 @@ mod tests {
 	fn fails_to_receive_messages_above_unrewarded_relayer_entries_limit_per_lane() {
 		run_test(|| {
 			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			let max_nonce =
-				<TestRuntime as Config>::MaxUnrewardedRelayerEntriesAtInboundLane::get();
+			let max_nonce = BridgedChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 			for current_nonce in 1..max_nonce + 1 {
 				assert_eq!(
 					lane.receive_message::<TestMessageDispatch>(
@@ -409,7 +407,7 @@ mod tests {
 	fn fails_to_receive_messages_above_unconfirmed_messages_limit_per_lane() {
 		run_test(|| {
 			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			let max_nonce = <TestRuntime as Config>::MaxUnconfirmedMessagesAtInboundLane::get();
+			let max_nonce = BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 			for current_nonce in 1..=max_nonce {
 				assert_eq!(
 					lane.receive_message::<TestMessageDispatch>(

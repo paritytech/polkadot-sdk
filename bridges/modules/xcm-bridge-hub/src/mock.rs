@@ -20,18 +20,18 @@ use crate as pallet_xcm_bridge_hub;
 
 use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
-	LaneId,
+	ChainWithMessages, LaneId, MessageNonce,
 };
-use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, UnderlyingChainProvider};
+use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, HashOf};
 use bridge_runtime_common::{
-	messages::{
-		source::TargetHeaderChainAdapter, target::SourceHeaderChainAdapter,
-		BridgedChainWithMessages, HashOf, MessageBridge, ThisChainWithMessages,
-	},
+	// messages::{
+	// 	source::TargetHeaderChainAdapter, target::SourceHeaderChainAdapter,
+	// 	BridgedChainWithMessages, HashOf, MessageBridge, ThisChainWithMessages,
+	// },
 	messages_xcm_extension::{SenderAndLane, XcmBlobHauler},
 };
 use codec::Encode;
-use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::RuntimeDbWeight};
+use frame_support::{derive_impl, parameter_types, weights::RuntimeDbWeight};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
@@ -85,20 +85,18 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = TestMessagesWeights;
 
-	type BridgedChainId = ();
 	type ActiveOutboundLanes = ActiveOutboundLanes;
-	type MaxUnrewardedRelayerEntriesAtInboundLane = ();
-	type MaxUnconfirmedMessagesAtInboundLane = ();
-	type MaximalOutboundPayloadSize = ConstU32<2048>;
 	type OutboundPayload = Vec<u8>;
 	type InboundPayload = Vec<u8>;
 	type InboundRelayer = ();
 	type DeliveryPayments = ();
-	type TargetHeaderChain = TargetHeaderChainAdapter<OnThisChainBridge>;
 	type DeliveryConfirmationPayments = ();
 	type OnMessagesDelivered = ();
-	type SourceHeaderChain = SourceHeaderChainAdapter<OnThisChainBridge>;
 	type MessageDispatch = TestMessageDispatch;
+
+	type ThisChain = ThisUnderlyingChain;
+	type BridgedChain = BridgedUnderlyingChain;
+	type BridgedHeaderChain = BridgedHeaderChain;
 }
 
 pub struct TestMessagesWeights;
@@ -192,9 +190,9 @@ impl XcmBlobHauler for TestXcmBlobHauler {
 	type UncongestedMessage = ();
 }
 
-pub struct ThisChain;
+pub struct ThisUnderlyingChain;
 
-impl Chain for ThisChain {
+impl Chain for ThisUnderlyingChain {
 	const ID: ChainId = *b"tuch";
 	type BlockNumber = u64;
 	type Hash = H256;
@@ -216,12 +214,19 @@ impl Chain for ThisChain {
 	}
 }
 
-pub struct BridgedChain;
+impl ChainWithMessages for ThisUnderlyingChain {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str = "";
+
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 16;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 1000;
+}
+
+pub struct BridgedUnderlyingChain;
 pub type BridgedHeaderHash = H256;
 pub type BridgedChainHeader = SubstrateHeader;
 
-impl Chain for BridgedChain {
-	const ID: ChainId = *b"tuch";
+impl Chain for BridgedUnderlyingChain {
+	const ID: ChainId = *b"bgdc";
 	type BlockNumber = u64;
 	type Hash = BridgedHeaderHash;
 	type Hasher = BlakeTwo256;
@@ -240,6 +245,12 @@ impl Chain for BridgedChain {
 	fn max_extrinsic_weight() -> Weight {
 		Weight::MAX
 	}
+}
+
+impl ChainWithMessages for BridgedUnderlyingChain {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str = "";
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 16;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 1000;
 }
 
 /// Test message dispatcher.
@@ -270,40 +281,13 @@ impl MessageDispatch for TestMessageDispatch {
 	}
 }
 
-pub struct WrappedThisChain;
-impl UnderlyingChainProvider for WrappedThisChain {
-	type Chain = ThisChain;
-}
-impl ThisChainWithMessages for WrappedThisChain {
-	type RuntimeOrigin = RuntimeOrigin;
-}
-
-pub struct WrappedBridgedChain;
-impl UnderlyingChainProvider for WrappedBridgedChain {
-	type Chain = BridgedChain;
-}
-impl BridgedChainWithMessages for WrappedBridgedChain {}
-
 pub struct BridgedHeaderChain;
-impl bp_header_chain::HeaderChain<BridgedChain> for BridgedHeaderChain {
+impl bp_header_chain::HeaderChain<BridgedUnderlyingChain> for BridgedHeaderChain {
 	fn finalized_header_state_root(
-		_hash: HashOf<WrappedBridgedChain>,
-	) -> Option<HashOf<WrappedBridgedChain>> {
+		_hash: HashOf<BridgedUnderlyingChain>,
+	) -> Option<HashOf<BridgedUnderlyingChain>> {
 		unreachable!()
 	}
-}
-
-/// Bridge that is deployed on `ThisChain` and allows sending/receiving messages to/from
-/// `BridgedChain`.
-#[derive(Debug, PartialEq, Eq)]
-pub struct OnThisChainBridge;
-
-impl MessageBridge for OnThisChainBridge {
-	const BRIDGED_MESSAGES_PALLET_NAME: &'static str = "";
-
-	type ThisChain = WrappedThisChain;
-	type BridgedChain = WrappedBridgedChain;
-	type BridgedHeaderChain = BridgedHeaderChain;
 }
 
 /// Run pallet test.

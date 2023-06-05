@@ -43,6 +43,18 @@ pub enum ProofSize {
 	HasLargeLeaf(u32),
 }
 
+/// Add extra data to the trie leaf value so that it'll be of given size.
+pub fn grow_trie_leaf_value(mut value: Vec<u8>, size: ProofSize) -> Vec<u8> {
+	match size {
+		ProofSize::Minimal(_) => (),
+		ProofSize::HasLargeLeaf(size) if size as usize > value.len() => {
+			value.extend(sp_std::iter::repeat(42u8).take(size as usize - value.len()));
+		},
+		ProofSize::HasLargeLeaf(_) => (),
+	}
+	value
+}
+
 /// This struct is used to read storage values from a subset of a Merklized database. The "proof"
 /// is a subset of the nodes in the Merkle structure of the database, so that it provides
 /// authentication against a known Merkle root as well as the values in the

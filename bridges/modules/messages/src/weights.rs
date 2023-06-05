@@ -81,10 +81,10 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 	/// 51655, mode: MaxEncodedLen)
 	fn receive_single_message_proof() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `490`
+		//  Measured:  `428`
 		//  Estimated: `52645`
-		// Minimum execution time: 34_644 nanoseconds.
-		Weight::from_parts(36_135_000, 52645)
+		// Minimum execution time: 32_573 nanoseconds.
+		Weight::from_parts(35_227_000, 52645)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -490,12 +490,12 @@ impl WeightInfo for () {
 	/// The range of component `n` is `[128, 2048]`.
 	fn receive_single_message_n_bytes_proof_with_dispatch(n: u32) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `490`
+		//  Measured:  `428`
 		//  Estimated: `52645`
-		// Minimum execution time: 75_228 nanoseconds.
-		Weight::from_parts(62_255_691, 52645)
-			// Standard Error: 2_005
-			.saturating_add(Weight::from_parts(353_141, 0).saturating_mul(n.into()))
+		// Minimum execution time: 76_504 nanoseconds.
+		Weight::from_parts(75_331_522, 52645)
+			// Standard Error: 1_440
+			.saturating_add(Weight::from_parts(302_158, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}

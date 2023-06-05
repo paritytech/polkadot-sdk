@@ -20,23 +20,21 @@
 
 use crate::{
 	inbound_lane::InboundLaneStorage, outbound_lane, weights_ext::EXPECTED_DEFAULT_MESSAGE_LENGTH,
-	Call, OutboundLanes, RuntimeInboundLaneStorage,
+	BridgedChainOf, Call, OutboundLanes, RuntimeInboundLaneStorage,
 };
 
 use bp_messages::{
-	source_chain::TargetHeaderChain, target_chain::SourceHeaderChain, DeliveredMessages,
+	source_chain::FromBridgedChainMessagesDeliveryProof,
+	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, DeliveredMessages,
 	InboundLaneData, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer,
 	UnrewardedRelayersState,
 };
-use bp_runtime::StorageProofSize;
+use bp_runtime::{HashOf, StorageProofSize};
 use codec::Decode;
 use frame_benchmarking::{account, v2::*};
 use frame_support::weights::Weight;
 use frame_system::RawOrigin;
-use sp_runtime::{
-	traits::{Get, TrailingZeroInput},
-	BoundedVec,
-};
+use sp_runtime::{traits::TrailingZeroInput, BoundedVec};
 use sp_std::{ops::RangeInclusive, prelude::*};
 
 const SEED: u32 = 0;
@@ -99,11 +97,11 @@ pub trait Config<I: 'static>: crate::Config<I> {
 	/// Prepare messages proof to receive by the module.
 	fn prepare_message_proof(
 		params: MessageProofParams,
-	) -> (<Self::SourceHeaderChain as SourceHeaderChain>::MessagesProof, Weight);
+	) -> (FromBridgedChainMessagesProof<HashOf<BridgedChainOf<Self, I>>>, Weight);
 	/// Prepare messages delivery proof to receive by the module.
 	fn prepare_message_delivery_proof(
 		params: MessageDeliveryProofParams<Self::AccountId>,
-	) -> <Self::TargetHeaderChain as TargetHeaderChain<Self::OutboundPayload, Self::AccountId>>::MessagesDeliveryProof;
+	) -> FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChainOf<Self, I>>>;
 
 	/// Returns true if message has been successfully dispatched or not.
 	fn is_message_successfully_dispatched(_nonce: MessageNonce) -> bool {
@@ -190,7 +188,7 @@ mod benchmarks {
 	//
 
 	fn max_msgs<T: Config<I>, I: 'static>() -> u32 {
-		T::MaxUnconfirmedMessagesAtInboundLane::get() as u32 -
+		T::BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX as u32 -
 			ReceiveMessagesProofSetup::<T, I>::LATEST_RECEIVED_NONCE as u32
 	}
 
@@ -520,5 +518,9 @@ mod benchmarks {
 		assert!(T::is_message_successfully_dispatched(setup.last_nonce()));
 	}
 
-	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime);
+	impl_benchmark_test_suite!(
+		Pallet,
+		crate::tests::mock::new_test_ext(),
+		crate::tests::mock::TestRuntime
+	);
 }

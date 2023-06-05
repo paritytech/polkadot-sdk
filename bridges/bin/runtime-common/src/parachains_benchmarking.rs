@@ -18,14 +18,11 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::{
-	messages_benchmarking::insert_header_to_grandpa_pallet,
-	messages_generation::grow_trie_leaf_value,
-};
+use crate::messages_benchmarking::insert_header_to_grandpa_pallet;
 
 use bp_parachains::parachain_head_storage_key_at_source;
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
-use bp_runtime::{record_all_trie_keys, StorageProofSize};
+use bp_runtime::{grow_trie_leaf_value, record_all_trie_keys, StorageProofSize};
 use codec::Encode;
 use frame_support::traits::Get;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};

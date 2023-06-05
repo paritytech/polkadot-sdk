@@ -450,7 +450,7 @@ impl<T: frame_system::Config> WeightInfoExt for crate::weights::BridgeWeight<T> 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{mock::TestRuntime, weights::BridgeWeight};
+	use crate::{tests::mock::TestRuntime, weights::BridgeWeight};
 
 	#[test]
 	fn ensure_default_weights_are_correct() {

@@ -21,8 +21,8 @@
 
 use bp_header_chain::HeaderChainError;
 use bp_runtime::{
-	messages::MessageDispatchResult, BasicOperatingMode, Chain, OperatingMode, RangeInclusiveExt,
-	StorageProofError, UnderlyingChainOf, UnderlyingChainProvider, VecDbError,
+	messages::MessageDispatchResult, AccountIdOf, BasicOperatingMode, Chain, HashOf, OperatingMode,
+	RangeInclusiveExt, UnderlyingChainOf, UnderlyingChainProvider, VecDbError,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::PalletError;
@@ -48,11 +48,56 @@ pub trait ChainWithMessages: Chain {
 	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str;
 
 	/// Maximal number of unrewarded relayers in a single confirmation transaction at this
-	/// `ChainWithMessages`.
+	/// `ChainWithMessages`. Unrewarded means that the relayer has delivered messages, but
+	/// either confirmations haven't been delivered back to the source chain, or we haven't
+	/// received reward confirmations yet.
+	///
+	/// This constant limits maximal number of entries in the `InboundLaneData::relayers`. Keep
+	/// in mind that the same relayer account may take several (non-consecutive) entries in this
+	/// set.
 	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce;
 	/// Maximal number of unconfirmed messages in a single confirmation transaction at this
-	/// `ChainWithMessages`.
+	/// `ChainWithMessages`. Unconfirmed means that the
+	/// message has been delivered, but either confirmations haven't been delivered back to the
+	/// source chain, or we haven't received reward confirmations for these messages yet.
+	///
+	/// This constant limits difference between last message from last entry of the
+	/// `InboundLaneData::relayers` and first message at the first entry.
+	///
+	/// There is no point of making this parameter lesser than
+	/// `MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX`, because then maximal number of relayer entries
+	/// will be limited by maximal number of messages.
+	///
+	/// This value also represents maximal number of messages in single delivery transaction.
+	/// Transaction that is declaring more messages than this value, will be rejected. Even if
+	/// these messages are from different lanes.
 	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce;
+
+	/// Return maximal dispatch weight of the message we're able to receive.
+	fn maximal_incoming_message_dispatch_weight() -> Weight {
+		// we leave 1/2 of `max_extrinsic_weight` for the delivery transaction itself
+		Self::max_extrinsic_weight() / 2
+	}
+
+	/// Return maximal size of the message we're able to receive.
+	fn maximal_incoming_message_size() -> u32 {
+		maximal_incoming_message_size(Self::max_extrinsic_size())
+	}
+}
+
+/// Return maximal size of the message the chain with `max_extrinsic_size` is able to receive.
+pub fn maximal_incoming_message_size(max_extrinsic_size: u32) -> u32 {
+	// The maximal size of extrinsic at Substrate-based chain depends on the
+	// `frame_system::Config::MaximumBlockLength` and
+	// `frame_system::Config::AvailableBlockRatio` constants. This check is here to be sure that
+	// the lane won't stuck because message is too large to fit into delivery transaction.
+	//
+	// **IMPORTANT NOTE**: the delivery transaction contains storage proof of the message, not
+	// the message itself. The proof is always larger than the message. But unless chain state
+	// is enormously large, it should be several dozens/hundreds of bytes. The delivery
+	// transaction also contains signatures and signed extensions. Because of this, we reserve
+	// 1/3 of the the maximal extrinsic size for this data.
+	max_extrinsic_size / 3 * 2
 }
 
 impl<T> ChainWithMessages for T
@@ -435,7 +480,7 @@ where
 	AccountId: sp_std::cmp::Ord,
 {
 	// remember to reward relayers that have delivered messages
-	// this loop is bounded by `T::MaxUnrewardedRelayerEntriesAtInboundLane` on the bridged chain
+	// this loop is bounded by `T::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX` on the bridged chain
 	let mut relayers_rewards = RelayersRewards::new();
 	for entry in messages_relayers {
 		let nonce_begin = sp_std::cmp::max(entry.messages.begin, *received_range.start());
@@ -446,6 +491,13 @@ where
 	}
 	relayers_rewards
 }
+
+/// The `BridgeMessagesCall` used by a chain.
+pub type BridgeMessagesCallOf<C> = BridgeMessagesCall<
+	AccountIdOf<C>,
+	target_chain::FromBridgedChainMessagesProof<HashOf<C>>,
+	source_chain::FromBridgedChainMessagesDeliveryProof<HashOf<C>>,
+>;
 
 /// A minimized version of `pallet-bridge-messages::Call` that can be used without a runtime.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
@@ -481,7 +533,7 @@ pub enum VerificationError {
 	/// Error returned by the bridged header chain.
 	HeaderChain(HeaderChainError),
 	/// Error returned while reading/decoding inbound lane data from the storage proof.
-	InboundLaneStorage(StorageProofError),
+	InboundLaneStorage(VecDbError),
 	/// The declared message weight is incorrect.
 	InvalidMessageWeight,
 	/// Declared messages count doesn't match actual value.
@@ -492,8 +544,6 @@ pub enum VerificationError {
 	MessageTooLarge,
 	/// Error returned while reading/decoding outbound lane data from the `VecDb`.
 	OutboundLaneStorage(VecDbError),
-	/// Storage proof related error.
-	StorageProof(StorageProofError),
 	/// `VecDb` related error.
 	VecDb(VecDbError),
 	/// Custom error
