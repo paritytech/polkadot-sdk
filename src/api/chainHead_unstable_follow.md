@@ -151,11 +151,14 @@ The current finalized block reported in the `initialized` event, and each subseq
 
 When a block is unpinned, on-going calls to `chainHead_unstable_body`, `chainHead_unstable_call` and `chainHead_unstable_storage` against this block will still finish normally.
 
-A block is pinned only in the context of a specific subscription. If multiple `chainHead_unstable_follow` subscriptions exist, then each `(subscription, block)` tuple must be unpinned individually. Blocks stay pinned even if they have been pruned from the blockchain, and must always be unpinned by the JSON-RPC client.
+A block is pinned only in the context of a specific subscription. If multiple `chainHead_unstable_follow` subscriptions exist, then each `(subscription, block)` tuple must be unpinned individually. Blocks stay pinned even if they have been pruned from the chain of blocks, and must always be unpinned by the JSON-RPC client.
 
-The JSON-RPC server is strongly encouraged to enforce a limit to the maximum number of pinned blocks. If this limit is reached, it should then stop the subscription by emitting a `stop` event. This specification does not mention any specific limit, but it should be large enough for clients to be able to pin all existing non-finalized blocks and a few finalized blocks.
+The JSON-RPC server is strongly encouraged to enforce a limit to the maximum number of pinned blocks. If this limit is reached, it should then stop the subscription by emitting a `stop` event.
+This specification does not mention any specific limit, but it must be large enough for clients to be able to pin all existing non-finalized blocks and the finalized blocks that have been reported in the previous few seconds or minutes.
 
 **Note**: A JSON-RPC client should call `chainHead_unstable_unpin` only after it is sure to no longer be interested in a certain block. This typically happens after the block has been finalized or pruned. There is no requirement to call `chainHead_unstable_unpin` as quickly as possible.
+
+**Note**: JSON-RPC server implementers should be aware that the number of non-finalized blocks might grow to become very large, for example in the case where the finality mechanism of the chain has an issue. When enforcing a limit to the number of pinned blocks, care must be taken to not prevent the API from being unusable in that situation. A good way to implement this limit is to limit only the number of pinned *finalized* blocks.
 
 ## Multiple subscriptions
 
