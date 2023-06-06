@@ -83,11 +83,8 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 [dev-dependencies]
 futures = "0.3.28"
 portpicker = "0.1.1"
-kitchensink-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 rococo-parachain-runtime = { path = "../../parachains/runtimes/testing/rococo-parachain" }
-node-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-im-online = { git = "https://github.com/paritytech/substrate", branch = "master" }
-node-primitives = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "master" }
 cumulus-test-client = { path = "../client" }
