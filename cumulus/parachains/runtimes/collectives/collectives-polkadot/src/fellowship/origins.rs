@@ -34,32 +34,62 @@ pub mod pallet_origins {
 	#[derive(PartialEq, Eq, Clone, MaxEncodedLen, Encode, Decode, TypeInfo, RuntimeDebug)]
 	#[pallet::origin]
 	pub enum Origin {
-		/// Origin commanded by any members of the Polkadot Fellowship (no Dan grade needed).
-		FellowshipCandidates,
-		/// Origin commanded by Polkadot Fellows (3rd Dan fellows or greater).
-		Fellows,
-		/// Origin commanded by Polkadot Experts (5th Dan fellows or greater).
-		FellowshipExperts,
-		/// Origin commanded by Polkadot Masters (7th Dan fellows of greater).
-		FellowshipMasters,
-		/// Origin commanded by rank 1 of the Polkadot Fellowship and with a success of 1.
-		Fellowship1Dan,
-		/// Origin commanded by rank 2 of the Polkadot Fellowship and with a success of 2.
+		/// Origin aggregated through weighted votes of those with rank 1 or above; `Success` is 1.
+		Members,
+		/// Origin aggregated through weighted votes of those with rank 2 or above; `Success` is 2.
 		Fellowship2Dan,
-		/// Origin commanded by rank 3 of the Polkadot Fellowship and with a success of 3.
-		Fellowship3Dan,
-		/// Origin commanded by rank 4 of the Polkadot Fellowship and with a success of 4.
-		Fellowship4Dan,
-		/// Origin commanded by rank 5 of the Polkadot Fellowship and with a success of 5.
+		/// Origin aggregated through weighted votes of those with rank 3 or above; `Success` is 3.
+		Fellows,
+		/// Origin aggregated through weighted votes of those with rank 4 or above; `Success` is 4.
+		Architects,
+		/// Origin aggregated through weighted votes of those with rank 5 or above; `Success` is 5.
 		Fellowship5Dan,
-		/// Origin commanded by rank 6 of the Polkadot Fellowship and with a success of 6.
+		/// Origin aggregated through weighted votes of those with rank 6 or above; `Success` is 6.
 		Fellowship6Dan,
-		/// Origin commanded by rank 7 of the Polkadot Fellowship and with a success of 7.
-		Fellowship7Dan,
-		/// Origin commanded by rank 8 of the Polkadot Fellowship and with a success of 8.
+		/// Origin aggregated through weighted votes of those with rank 7 or above; `Success` is 7.
+		Masters,
+		/// Origin aggregated through weighted votes of those with rank 8 or above; `Success` is 8.
 		Fellowship8Dan,
-		/// Origin commanded by rank 9 of the Polkadot Fellowship and with a success of 9.
+		/// Origin aggregated through weighted votes of those with rank 9 or above; `Success` is 9.
 		Fellowship9Dan,
+
+		/// Origin aggregated through weighted votes of those with rank 3 or above when voting on
+		/// a fortnight-long track; `Success` is 1.
+		RetainAt1Dan,
+		/// Origin aggregated through weighted votes of those with rank 4 or above when voting on
+		/// a fortnight-long track; `Success` is 2.
+		RetainAt2Dan,
+		/// Origin aggregated through weighted votes of those with rank 5 or above when voting on
+		/// a fortnight-long track; `Success` is 3.
+		RetainAt3Dan,
+		/// Origin aggregated through weighted votes of those with rank 6 or above when voting on
+		/// a fortnight-long track; `Success` is 4.
+		RetainAt4Dan,
+		/// Origin aggregated through weighted votes of those with rank 7 or above when voting on
+		/// a fortnight-long track; `Success` is 5.
+		RetainAt5Dan,
+		/// Origin aggregated through weighted votes of those with rank 8 or above when voting on
+		/// a fortnight-long track; `Success` is 6.
+		RetainAt6Dan,
+
+		/// Origin aggregated through weighted votes of those with rank 3 or above when voting on
+		/// a month-long track; `Success` is 1.
+		PromoteTo1Dan,
+		/// Origin aggregated through weighted votes of those with rank 4 or above when voting on
+		/// a month-long track; `Success` is 2.
+		PromoteTo2Dan,
+		/// Origin aggregated through weighted votes of those with rank 5 or above when voting on
+		/// a month-long track; `Success` is 3.
+		PromoteTo3Dan,
+		/// Origin aggregated through weighted votes of those with rank 6 or above when voting on
+		/// a month-long track; `Success` is 4.
+		PromoteTo4Dan,
+		/// Origin aggregated through weighted votes of those with rank 7 or above when voting on
+		/// a month-long track; `Success` is 5.
+		PromoteTo5Dan,
+		/// Origin aggregated through weighted votes of those with rank 8 or above when voting on
+		/// a month-long track; `Success` is 6.
+		PromoteTo6Dan,
 	}
 
 	macro_rules! decl_unit_ensures {
@@ -93,10 +123,10 @@ pub mod pallet_origins {
 		() => {}
 	}
 	decl_unit_ensures!(
-		FellowshipCandidates: Rank = ranks::CANDIDATES,
+		Members: Rank = ranks::DAN_1,
 		Fellows: Rank = ranks::DAN_3,
-		FellowshipExperts: Rank = ranks::DAN_5,
-		FellowshipMasters: Rank = ranks::DAN_7,
+		Architects: Rank = ranks::DAN_4,
+		Masters: Rank = ranks::DAN_7,
 	);
 
 	macro_rules! decl_ensure {
@@ -132,17 +162,45 @@ pub mod pallet_origins {
 		}
 	}
 
+	// Fellowship origin indicating weighted voting from at least the rank of `Success` on a
+	// week-long track.
 	decl_ensure! {
 		pub type EnsureFellowship: EnsureOrigin<Success = Rank> {
-			Fellowship1Dan = ranks::DAN_1,
+			Members = ranks::DAN_1,
 			Fellowship2Dan = ranks::DAN_2,
-			Fellowship3Dan = ranks::DAN_3,
-			Fellowship4Dan = ranks::DAN_4,
+			Fellows = ranks::DAN_3,
+			Architects = ranks::DAN_4,
 			Fellowship5Dan = ranks::DAN_5,
 			Fellowship6Dan = ranks::DAN_6,
-			Fellowship7Dan = ranks::DAN_7,
+			Masters = ranks::DAN_7,
 			Fellowship8Dan = ranks::DAN_8,
 			Fellowship9Dan = ranks::DAN_9,
+		}
+	}
+
+	// Fellowship origin indicating weighted voting from at least the rank of `Success + 2` on
+	// a fortnight-long track; needed for Fellowship retention voting.
+	decl_ensure! {
+		pub type EnsureCanRetainAt: EnsureOrigin<Success = Rank> {
+			RetainAt1Dan = ranks::DAN_1,
+			RetainAt2Dan = ranks::DAN_2,
+			RetainAt3Dan = ranks::DAN_3,
+			RetainAt4Dan = ranks::DAN_4,
+			RetainAt5Dan = ranks::DAN_5,
+			RetainAt6Dan = ranks::DAN_6,
+		}
+	}
+
+	// Fellowship origin indicating weighted voting from at least the rank of `Success + 2` on
+	// a month-long track; needed for Fellowship promotion voting.
+	decl_ensure! {
+		pub type EnsureCanPromoteTo: EnsureOrigin<Success = Rank> {
+			PromoteTo1Dan = ranks::DAN_1,
+			PromoteTo2Dan = ranks::DAN_2,
+			PromoteTo3Dan = ranks::DAN_3,
+			PromoteTo4Dan = ranks::DAN_4,
+			PromoteTo5Dan = ranks::DAN_5,
+			PromoteTo6Dan = ranks::DAN_6,
 		}
 	}
 }

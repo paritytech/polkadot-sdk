@@ -146,3 +146,23 @@ impl PrivilegeCmp<OriginCaller> for EqualOrGreatestRootCmp {
 		}
 	}
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarks {
+	use super::*;
+	use frame_support::traits::fungible;
+	use pallet_ranked_collective::Rank;
+	use parachains_common::{AccountId, Balance};
+	use sp_runtime::traits::Convert;
+
+	/// Rank to salary conversion helper type.`
+	pub struct RankToSalary<Fungible>(PhantomData<Fungible>);
+	impl<Fungible> Convert<Rank, Balance> for RankToSalary<Fungible>
+	where
+		Fungible: fungible::Inspect<AccountId, Balance = Balance>,
+	{
+		fn convert(r: Rank) -> Balance {
+			Balance::from(r).saturating_mul(Fungible::minimum_balance())
+		}
+	}
+}

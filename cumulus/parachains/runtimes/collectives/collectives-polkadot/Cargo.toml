@@ -36,6 +36,8 @@ pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/parityt
 pallet-utility = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-referenda = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-ranked-collective = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-core-fellowship = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-salary = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
 sp-block-builder = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
@@ -103,6 +105,8 @@ runtime-benchmarks = [
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-ranked-collective/runtime-benchmarks",
+	"pallet-core-fellowship/runtime-benchmarks",
+	"pallet-salary/runtime-benchmarks",
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
@@ -131,6 +135,8 @@ try-runtime = [
 	"pallet-preimage/try-runtime",
 	"pallet-referenda/try-runtime",
 	"pallet-ranked-collective/try-runtime",
+	"pallet-core-fellowship/try-runtime",
+	"pallet-salary/try-runtime",
 ]
 std = [
 	"codec/std",
@@ -187,4 +193,6 @@ std = [
 	"pallet-referenda/std",
 	"pallet-ranked-collective/std",
 	"substrate-wasm-builder",
+	"pallet-core-fellowship/std",
+	"pallet-salary/std",
 ]

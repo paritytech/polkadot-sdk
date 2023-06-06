@@ -477,7 +477,7 @@ parameter_types! {
 	// The Alliance pallet account, used as a temporary place to deposit a slashed imbalance
 	// before the teleport to the Treasury.
 	pub AlliancePalletAccount: AccountId = constants::account::ALLIANCE_PALLET_ID.into_account_truncating();
-	pub RelayTreasuryAccount: AccountId = constants::account::RELAY_TREASURY_PALLET_ID.into_account_truncating();
+	pub PolkadotTreasuryAccount: AccountId = constants::account::POLKADOT_TREASURY_PALLET_ID.into_account_truncating();
 	// The number of blocks a member must wait between giving a retirement notice and retiring.
 	// Supposed to be greater than time required to `kick_member` with alliance motion.
 	pub const AllianceRetirementPeriod: BlockNumber = (90 * DAYS) + ALLIANCE_MOTION_DURATION;
@@ -490,7 +490,7 @@ impl pallet_alliance::Config for Runtime {
 	type MembershipManager = RootOrAllianceTwoThirdsMajority;
 	type AnnouncementOrigin = RootOrAllianceTwoThirdsMajority;
 	type Currency = Balances;
-	type Slashed = ToParentTreasury<RelayTreasuryAccount, AlliancePalletAccount, Runtime>;
+	type Slashed = ToParentTreasury<PolkadotTreasuryAccount, AlliancePalletAccount, Runtime>;
 	type InitializeMembers = AllianceMotion;
 	type MembershipChanged = AllianceMotion;
 	type RetirementPeriod = AllianceRetirementPeriod;
@@ -599,6 +599,10 @@ construct_runtime!(
 		// pub type FellowshipReferendaInstance = pallet_referenda::Instance1;
 		FellowshipReferenda: pallet_referenda::<Instance1>::{Pallet, Call, Storage, Event<T>} = 61,
 		FellowshipOrigins: pallet_fellowship_origins::{Origin} = 62,
+		// pub type FellowshipCoreInstance = pallet_core_fellowship::Instance1;
+		FellowshipCore: pallet_core_fellowship::<Instance1>::{Pallet, Call, Storage, Event<T>} = 63,
+		// pub type FellowshipSalaryInstance = pallet_salary::Instance1;
+		FellowshipSalary: pallet_salary::<Instance1>::{Pallet, Call, Storage, Event<T>} = 64,
 	}
 );
 
@@ -667,6 +671,8 @@ mod benches {
 		[pallet_scheduler, Scheduler]
 		[pallet_referenda, FellowshipReferenda]
 		[pallet_ranked_collective, FellowshipCollective]
+		[pallet_core_fellowship, FellowshipCore]
+		[pallet_salary, FellowshipSalary]
 	);
 }
 

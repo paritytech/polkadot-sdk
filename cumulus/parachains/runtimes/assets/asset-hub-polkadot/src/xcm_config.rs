@@ -34,11 +34,12 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
-	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FungiblesAdapter, IsConcrete,
-	LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin,
+	DenyReserveTransferToRelayChain, DenyThenTry, DescribeFamily, DescribePalletTerminal,
+	EnsureXcmOrigin, FungiblesAdapter, HashedDescription, IsConcrete, LocalMint, NativeAsset,
+	NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, UsingComponents, WeightInfoBounds,
+	WithComputedOrigin,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -66,6 +67,9 @@ pub type LocationToAccountId = (
 	SiblingParachainConvertsVia<Sibling, AccountId>,
 	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
 	AccountId32Aliases<RelayNetwork, AccountId>,
+	// Foreign chain account alias into local accounts according to a hash of their standard
+	// description.
+	HashedDescription<AccountId, DescribeFamily<DescribePalletTerminal>>,
 );
 
 /// Means for transacting the native currency on this chain.
@@ -176,6 +180,9 @@ match_types! {
 	};
 	pub type FellowsPlurality: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 1, interior: X2(Parachain(1001), Plurality { id: BodyId::Technical, ..}) }
+	};
+	pub type FellowshipSalaryPallet: impl Contains<MultiLocation> = {
+		MultiLocation { parents: 1, interior: X2(Parachain(1001), PalletInstance(64)) }
 	};
 }
 
@@ -355,7 +362,11 @@ pub type Barrier = DenyThenTry<
 				// If the message is one that immediately attemps to pay for execution, then allow it.
 				AllowTopLevelPaidExecutionFrom<Everything>,
 				// Parent, its pluralities (i.e. governance bodies), and the Fellows plurality get free execution.
-				AllowExplicitUnpaidExecutionFrom<(ParentOrParentsPlurality, FellowsPlurality)>,
+				AllowExplicitUnpaidExecutionFrom<(
+					ParentOrParentsPlurality,
+					FellowsPlurality,
+					FellowshipSalaryPallet,
+				)>,
 				// Subscriptions for version tracking are OK.
 				AllowSubscriptionsFrom<ParentOrSiblings>,
 			),
@@ -497,4 +508,19 @@ impl pallet_assets::BenchmarkHelper<MultiLocation> for XcmBenchmarkHelper {
 	fn create_asset_id_parameter(id: u32) -> MultiLocation {
 		MultiLocation { parents: 1, interior: X1(Parachain(id)) }
 	}
+}
+
+#[test]
+fn foreign_pallet_has_correct_local_account() {
+	use sp_core::crypto::{Ss58AddressFormat, Ss58Codec};
+	use xcm_executor::traits::ConvertLocation;
+
+	const COLLECTIVES_PARAID: u32 = 1001;
+	const FELLOWSHIP_SALARY_PALLET_ID: u8 = 64;
+	let fellowship_salary =
+		(Parent, Parachain(COLLECTIVES_PARAID), PalletInstance(FELLOWSHIP_SALARY_PALLET_ID));
+	let account = LocationToAccountId::convert_location(&fellowship_salary.into()).unwrap();
+	let polkadot = Ss58AddressFormat::try_from("polkadot").unwrap();
+	let address = Ss58Codec::to_ss58check_with_version(&account, polkadot);
+	assert_eq!(address, "13w7NdvSR1Af8xsQTArDtZmVvjE8XhWNdL4yed3iFHrUNCnS");
 }

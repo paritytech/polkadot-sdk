@@ -187,6 +187,16 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					pallet_ranked_collective::Call::promote_member { .. } |
 					pallet_ranked_collective::Call::demote_member { .. } |
 					pallet_ranked_collective::Call::remove_member { .. },
+			) | RuntimeCall::FellowshipCore(
+				pallet_core_fellowship::Call::bump { .. } |
+					pallet_core_fellowship::Call::set_params { .. } |
+					pallet_core_fellowship::Call::set_active { .. } |
+					pallet_core_fellowship::Call::approve { .. } |
+					pallet_core_fellowship::Call::induct { .. } |
+					pallet_core_fellowship::Call::promote { .. } |
+					pallet_core_fellowship::Call::offboard { .. } |
+					pallet_core_fellowship::Call::submit_evidence { .. } |
+					pallet_core_fellowship::Call::import { .. },
 			)
 		)
 	}

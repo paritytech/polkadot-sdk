@@ -1888,6 +1888,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "collectives-polkadot-it"
+version = "0.1.0"
+dependencies = [
+ "asset-hub-polkadot-runtime",
+ "collectives-polkadot-runtime",
+ "cumulus-pallet-xcmp-queue",
+ "frame-support",
+ "frame-system",
+ "integration-tests-common",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-core-fellowship",
+ "pallet-salary",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-core-primitives",
+ "polkadot-parachain",
+ "polkadot-runtime",
+ "polkadot-runtime-parachains",
+ "sp-core",
+ "sp-runtime",
+ "sp-weights",
+ "xcm",
+ "xcm-emulator",
+ "xcm-executor",
+]
+
+[[package]]
 name = "collectives-polkadot-runtime"
 version = "1.0.0"
 dependencies = [
@@ -1915,11 +1944,13 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-collective",
+ "pallet-core-fellowship",
  "pallet-multisig",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-ranked-collective",
  "pallet-referenda",
+ "pallet-salary",
  "pallet-scheduler",
  "pallet-session",
  "pallet-timestamp",
