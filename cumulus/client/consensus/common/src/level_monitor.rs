@@ -362,14 +362,18 @@ where
 
 	/// Add a new imported block information to the monitor.
 	pub fn block_imported(&mut self, number: NumberFor<Block>, hash: Block::Hash) {
-		self.import_counter += One::one();
-		self.freshness.insert(hash, self.import_counter);
-		self.levels.entry(number).or_default().insert(hash);
-
-		// Do cleanup once in a while, we are allowed to have some obsolete information.
 		let finalized_num = self.backend.blockchain().info().finalized_number;
+
+		if number > finalized_num {
+			// Only blocks above the last finalized block should be added to the monitor
+			self.import_counter += One::one();
+			self.freshness.insert(hash, self.import_counter);
+			self.levels.entry(number).or_default().insert(hash);
+		}
+
 		let delta: u32 = finalized_num.saturating_sub(self.lowest_level).unique_saturated_into();
 		if delta >= CLEANUP_THRESHOLD {
+			// Do cleanup once in a while, we are allowed to have some obsolete information.
 			for i in 0..delta {
 				let number = self.lowest_level + i.unique_saturated_into();
 				self.levels.remove(&number).map(|level| {
@@ -378,7 +382,6 @@ where
 					})
 				});
 			}
-
 			self.lowest_level = finalized_num;
 		}
 	}
