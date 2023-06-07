@@ -1121,7 +1121,7 @@ pub(crate) mod tests {
 				ParaId(BridgedUnderlyingParachain::PARACHAIN_ID),
 				[parachain_head_at_relay_header_number as u8; 32].into(),
 			)],
-			parachain_heads_proof: ParaHeadsProof { storage_proof: vec![] },
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 		})
 	}
 
@@ -1134,7 +1134,7 @@ pub(crate) mod tests {
 				ParaId(BridgedUnderlyingParachain::PARACHAIN_ID),
 				[parachain_head_at_relay_header_number as u8; 32].into(),
 			)],
-			parachain_heads_proof: ParaHeadsProof { storage_proof: vec![] },
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 			is_free_execution_expected: false,
 		})
 	}
@@ -2111,7 +2111,7 @@ pub(crate) mod tests {
 								[1u8; 32].into(),
 							),
 						],
-						parachain_heads_proof: ParaHeadsProof { storage_proof: vec![] },
+						parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 					}),
 					message_delivery_call(200),
 				],

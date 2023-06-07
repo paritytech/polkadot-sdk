@@ -36,9 +36,7 @@ use bp_messages::{
 	ChainWithMessages as _, InboundMessageDetails, LaneId, MessageNonce, MessagePayload,
 	MessagesOperatingMode, OutboundLaneData, OutboundMessageDetails,
 };
-use bp_runtime::{
-	BasicOperatingMode, HasherOf, HeaderIdProvider, RangeInclusiveExt, UntrustedVecDb,
-};
+use bp_runtime::{BasicOperatingMode, HeaderIdProvider, RangeInclusiveExt};
 use codec::Encode;
 use frame_support::weights::Weight;
 use messages_relay::{
@@ -56,7 +54,6 @@ use relay_substrate_client::{
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
-use sp_runtime::traits::Header;
 use std::ops::RangeInclusive;
 
 /// Intermediate message proof returned by the source Substrate node. Includes everything
@@ -339,14 +336,7 @@ where
 			));
 		}
 
-		let root = *self.source_client.header_by_hash(id.hash()).await?.state_root();
-		let storage_proof =
-			self.source_client.prove_storage(id.hash(), storage_keys.clone()).await?;
-		let storage =
-			UntrustedVecDb::try_new::<HasherOf<P::SourceChain>>(storage_proof, root, storage_keys)
-				.map_err(|e| {
-					SubstrateError::Custom(format!("Error generating messages storage: {:?}", e))
-				})?;
+		let storage = self.source_client.prove_storage(id.hash(), storage_keys.clone()).await?;
 		let proof = FromBridgedChainMessagesProof {
 			bridged_header_hash: id.1,
 			storage,

@@ -18,7 +18,7 @@
 
 use crate::{LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData};
 
-use bp_runtime::{messages::MessageDispatchResult, Size, UntrustedVecDb};
+use bp_runtime::{messages::MessageDispatchResult, Size, UnverifiedStorageProof};
 use codec::{Decode, Encode, Error as CodecError};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
@@ -42,7 +42,7 @@ pub struct FromBridgedChainMessagesProof<BridgedHeaderHash> {
 	/// Hash of the finalized bridged header the proof is for.
 	pub bridged_header_hash: BridgedHeaderHash,
 	/// The proved storage containing the messages being delivered.
-	pub storage: UntrustedVecDb,
+	pub storage: UnverifiedStorageProof,
 	/// Messages in this proof are sent over this lane.
 	pub lane: LaneId,
 	/// Nonce of the first message being delivered.

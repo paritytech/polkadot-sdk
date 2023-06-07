@@ -22,7 +22,7 @@
 use bp_header_chain::HeaderChainError;
 use bp_runtime::{
 	messages::MessageDispatchResult, AccountIdOf, BasicOperatingMode, Chain, HashOf, OperatingMode,
-	RangeInclusiveExt, UnderlyingChainOf, UnderlyingChainProvider, VecDbError,
+	RangeInclusiveExt, StorageProofError, UnderlyingChainOf, UnderlyingChainProvider,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::PalletError;
@@ -533,19 +533,19 @@ pub enum VerificationError {
 	/// Error returned by the bridged header chain.
 	HeaderChain(HeaderChainError),
 	/// Error returned while reading/decoding inbound lane data from the storage proof.
-	InboundLaneStorage(VecDbError),
+	InboundLaneStorage(StorageProofError),
 	/// The declared message weight is incorrect.
 	InvalidMessageWeight,
 	/// Declared messages count doesn't match actual value.
 	MessagesCountMismatch,
-	/// Error returned while reading/decoding message data from the `VecDb`.
-	MessageStorage(VecDbError),
+	/// Error returned while reading/decoding message data from the `VerifiedStorageProof`.
+	MessageStorage(StorageProofError),
 	/// The message is too large.
 	MessageTooLarge,
-	/// Error returned while reading/decoding outbound lane data from the `VecDb`.
-	OutboundLaneStorage(VecDbError),
-	/// `VecDb` related error.
-	VecDb(VecDbError),
+	/// Error returned while reading/decoding outbound lane data from the `VerifiedStorageProof`.
+	OutboundLaneStorage(StorageProofError),
+	/// Storage proof related error.
+	StorageProof(StorageProofError),
 	/// Custom error
 	Other(#[codec(skip)] &'static str),
 }

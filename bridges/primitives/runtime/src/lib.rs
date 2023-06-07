@@ -41,14 +41,10 @@ pub use chain::{
 pub use frame_support::storage::storage_prefix as storage_value_final_key;
 use num_traits::{CheckedAdd, CheckedSub, One, SaturatingAdd, Zero};
 pub use storage_proof::{
-	grow_trie_leaf_value, record_all_keys as record_all_trie_keys, Error as StorageProofError,
-	ProofSize as StorageProofSize, RawStorageProof, StorageProofChecker,
+	grow_storage_value, StorageProofError, StorageProofSize, UnverifiedStorageProof,
+	VerifiedStorageProof,
 };
 pub use storage_types::BoundedStorageValue;
-pub use vec_db::{TrustedVecDb, UntrustedVecDb, VecDbError};
-
-#[cfg(feature = "std")]
-pub use storage_proof::craft_valid_storage_proof;
 
 pub mod extensions;
 pub mod messages;
@@ -56,7 +52,6 @@ pub mod messages;
 mod chain;
 mod storage_proof;
 mod storage_types;
-mod vec_db;
 
 // Re-export macro to avoid include paste dependency everywhere
 pub use sp_runtime::paste;

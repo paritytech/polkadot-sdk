@@ -31,6 +31,7 @@ use async_std::{
 	task::JoinHandle,
 };
 use async_trait::async_trait;
+use bp_runtime::UnverifiedStorageProof;
 use codec::Encode;
 use frame_support::weights::Weight;
 use futures::{FutureExt, StreamExt};
@@ -41,7 +42,6 @@ use sp_core::{
 	Bytes, Pair,
 };
 use sp_runtime::{traits::Header as _, transaction_validity::TransactionValidity};
-use sp_trie::StorageProof;
 use sp_version::RuntimeVersion;
 
 /// `quick_cache::unsync::Cache` wrapped in async-aware synchronization primitives.
@@ -462,7 +462,12 @@ impl<C: Chain, B: Client<C>> Client<C> for CachingClient<C, B> {
 		.await
 	}
 
-	async fn prove_storage(&self, at: HashOf<C>, keys: Vec<StorageKey>) -> Result<StorageProof> {
-		self.backend.prove_storage(at, keys).await
+	async fn prove_storage_with_root(
+		&self,
+		at: HashOf<C>,
+		state_root: HashOf<C>,
+		keys: Vec<StorageKey>,
+	) -> Result<UnverifiedStorageProof> {
+		self.backend.prove_storage_with_root(at, state_root, keys).await
 	}
 }
