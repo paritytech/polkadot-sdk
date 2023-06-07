@@ -14,15 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Signed extension for the `pallet-bridge-messages` that is able to reject obsolete
-//! (and some other invalid) transactions.
+//! Helpers for easier manipulation of call processing with signed extensions.
 
 use bp_messages::{
 	target_chain::MessageDispatch, ChainWithMessages, InboundLaneData, LaneId, MessageNonce,
 };
-use bp_runtime::OwnedBridgeModule;
+use bp_runtime::{AccountIdOf, OwnedBridgeModule};
 use frame_support::{dispatch::CallableCallFor, traits::IsSubType};
-use pallet_bridge_messages::{Config, Pallet};
+use pallet_bridge_messages::{BridgedChainOf, Config, Pallet};
 use sp_runtime::{transaction_validity::TransactionValidity, RuntimeDebug};
 use sp_std::ops::RangeInclusive;
 
@@ -326,7 +325,7 @@ impl<
 
 /// Returns occupation state of unrewarded relayers vector.
 fn unrewarded_relayers_occupation<T: Config<I>, I: 'static>(
-	inbound_lane_data: &InboundLaneData<T::InboundRelayer>,
+	inbound_lane_data: &InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>,
 ) -> UnrewardedRelayerOccupation {
 	UnrewardedRelayerOccupation {
 		free_relayer_slots: T::BridgedChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX

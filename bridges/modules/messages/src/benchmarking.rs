@@ -29,7 +29,7 @@ use bp_messages::{
 	InboundLaneData, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer,
 	UnrewardedRelayersState,
 };
-use bp_runtime::{HashOf, StorageProofSize};
+use bp_runtime::{AccountIdOf, HashOf, StorageProofSize};
 use codec::Decode;
 use frame_benchmarking::{account, v2::*};
 use frame_support::weights::Weight;
@@ -83,8 +83,8 @@ pub trait Config<I: 'static>: crate::Config<I> {
 	/// Return id of relayer account at the bridged chain.
 	///
 	/// By default, zero account is returned.
-	fn bridged_relayer_id() -> Self::InboundRelayer {
-		Self::InboundRelayer::decode(&mut TrailingZeroInput::zeroes()).unwrap()
+	fn bridged_relayer_id() -> AccountIdOf<BridgedChainOf<Self, I>> {
+		Decode::decode(&mut TrailingZeroInput::zeroes()).unwrap()
 	}
 
 	/// Create given account and give it enough balance for test purposes. Used to create
@@ -132,7 +132,7 @@ fn receive_messages<T: Config<I>, I: 'static>(nonce: MessageNonce) {
 }
 
 struct ReceiveMessagesProofSetup<T: Config<I>, I: 'static> {
-	relayer_id_on_src: T::InboundRelayer,
+	relayer_id_on_src: AccountIdOf<BridgedChainOf<T, I>>,
 	relayer_id_on_tgt: T::AccountId,
 	msgs_count: u32,
 	_phantom_data: sp_std::marker::PhantomData<I>,
@@ -155,7 +155,7 @@ impl<T: Config<I>, I: 'static> ReceiveMessagesProofSetup<T, I> {
 		setup
 	}
 
-	fn relayer_id_on_src(&self) -> T::InboundRelayer {
+	fn relayer_id_on_src(&self) -> AccountIdOf<BridgedChainOf<T, I>> {
 		self.relayer_id_on_src.clone()
 	}
 

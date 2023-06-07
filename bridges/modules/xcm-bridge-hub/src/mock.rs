@@ -88,7 +88,6 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type ActiveOutboundLanes = ActiveOutboundLanes;
 	type OutboundPayload = Vec<u8>;
 	type InboundPayload = Vec<u8>;
-	type InboundRelayer = ();
 	type DeliveryPayments = ();
 	type DeliveryConfirmationPayments = ();
 	type OnMessagesDelivered = ();

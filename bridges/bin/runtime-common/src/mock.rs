@@ -190,7 +190,6 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type OutboundPayload = XcmAsPlainPayload;
 
 	type InboundPayload = Vec<u8>;
-	type InboundRelayer = BridgedChainAccountId;
 	type DeliveryPayments = ();
 
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<

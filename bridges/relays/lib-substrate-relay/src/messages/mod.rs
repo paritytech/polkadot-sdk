@@ -388,9 +388,10 @@ pub struct DirectReceiveMessagesProofCallBuilder<P, R, I> {
 impl<P, R, I> ReceiveMessagesProofCallBuilder<P> for DirectReceiveMessagesProofCallBuilder<P, R, I>
 where
 	P: SubstrateMessageLane,
-	R: BridgeMessagesConfig<I, InboundRelayer = AccountIdOf<P::SourceChain>>,
+	R: BridgeMessagesConfig<I>,
 	I: 'static,
-	R::BridgedChain: bp_runtime::Chain<Hash = HashOf<P::SourceChain>>,
+	R::BridgedChain:
+		bp_runtime::Chain<AccountId = AccountIdOf<P::SourceChain>, Hash = HashOf<P::SourceChain>>,
 	CallOf<P::TargetChain>: From<BridgeMessagesCall<R, I>> + GetDispatchInfo,
 {
 	fn build_receive_messages_proof_call(

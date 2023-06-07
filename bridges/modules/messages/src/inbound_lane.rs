@@ -23,6 +23,7 @@ use bp_messages::{
 	ChainWithMessages, DeliveredMessages, InboundLaneData, LaneId, MessageKey, MessageNonce,
 	OutboundLaneData, ReceptionResult, UnrewardedRelayer,
 };
+use bp_runtime::AccountIdOf;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::{Type, TypeInfo};
 use sp_runtime::RuntimeDebug;
@@ -54,10 +55,12 @@ pub trait InboundLaneStorage {
 ///
 /// The encoding of this type matches encoding of the corresponding `MessageData`.
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
-pub struct StoredInboundLaneData<T: Config<I>, I: 'static>(pub InboundLaneData<T::InboundRelayer>);
+pub struct StoredInboundLaneData<T: Config<I>, I: 'static>(
+	pub InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>,
+);
 
 impl<T: Config<I>, I: 'static> sp_std::ops::Deref for StoredInboundLaneData<T, I> {
-	type Target = InboundLaneData<T::InboundRelayer>;
+	type Target = InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.0
@@ -77,7 +80,7 @@ impl<T: Config<I>, I: 'static> Default for StoredInboundLaneData<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> From<StoredInboundLaneData<T, I>>
-	for InboundLaneData<T::InboundRelayer>
+	for InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>
 {
 	fn from(data: StoredInboundLaneData<T, I>) -> Self {
 		data.0
@@ -85,7 +88,7 @@ impl<T: Config<I>, I: 'static> From<StoredInboundLaneData<T, I>>
 }
 
 impl<T: Config<I>, I: 'static> EncodeLike<StoredInboundLaneData<T, I>>
-	for InboundLaneData<T::InboundRelayer>
+	for InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>
 {
 }
 
@@ -93,13 +96,13 @@ impl<T: Config<I>, I: 'static> TypeInfo for StoredInboundLaneData<T, I> {
 	type Identity = Self;
 
 	fn type_info() -> Type {
-		InboundLaneData::<T::InboundRelayer>::type_info()
+		InboundLaneData::<AccountIdOf<BridgedChainOf<T, I>>>::type_info()
 	}
 }
 
 impl<T: Config<I>, I: 'static> MaxEncodedLen for StoredInboundLaneData<T, I> {
 	fn max_encoded_len() -> usize {
-		InboundLaneData::<T::InboundRelayer>::encoded_size_hint(
+		InboundLaneData::<AccountIdOf<BridgedChainOf<T, I>>>::encoded_size_hint(
 			BridgedChainOf::<T, I>::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX as usize,
 		)
 		.unwrap_or(usize::MAX)

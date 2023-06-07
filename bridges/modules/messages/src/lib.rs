@@ -65,7 +65,8 @@ use bp_messages::{
 	OutboundMessageDetails, UnrewardedRelayersState, VerificationError,
 };
 use bp_runtime::{
-	BasicOperatingMode, HashOf, OwnedBridgeModule, PreComputedSize, RangeInclusiveExt, Size,
+	AccountIdOf, BasicOperatingMode, HashOf, OwnedBridgeModule, PreComputedSize, RangeInclusiveExt,
+	Size,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::PostDispatchInfo, ensure, fail, traits::Get, DefaultNoBound};
@@ -120,26 +121,19 @@ pub mod pallet {
 
 		/// Payload type of outbound messages. This payload is dispatched on the bridged chain.
 		type OutboundPayload: Parameter + Size;
-
 		/// Payload type of inbound messages. This payload is dispatched on this chain.
 		type InboundPayload: Decode;
-		/// Identifier of relayer that deliver messages to this chain. Relayer reward is paid on the
-		/// bridged chain.
-		type InboundRelayer: Parameter + MaxEncodedLen;
 
-		// Types that are used by outbound_lane (on source chain).
-
-		/// Delivery confirmation payments.
+		/// Handler for relayer payments that happen during message delivery transaction.
+		type DeliveryPayments: DeliveryPayments<Self::AccountId>;
+		/// Handler for relayer payments that happen during message delivery confirmation
+		/// transaction.
 		type DeliveryConfirmationPayments: DeliveryConfirmationPayments<Self::AccountId>;
 		/// Delivery confirmation callback.
 		type OnMessagesDelivered: OnMessagesDelivered;
 
-		// Types that are used by inbound_lane (on target chain).
-
-		/// Message dispatch.
+		/// Message dispatch handler.
 		type MessageDispatch: MessageDispatch<DispatchPayload = Self::InboundPayload>;
-		/// Delivery payments.
-		type DeliveryPayments: DeliveryPayments<Self::AccountId>;
 	}
 
 	/// Shortcut to this chain type for Config.
@@ -241,7 +235,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::receive_messages_proof_weight(proof, *messages_count, *dispatch_weight))]
 		pub fn receive_messages_proof(
 			origin: OriginFor<T>,
-			relayer_id_at_bridged_chain: T::InboundRelayer,
+			relayer_id_at_bridged_chain: AccountIdOf<BridgedChainOf<T, I>>,
 			proof: FromBridgedChainMessagesProof<HashOf<BridgedChainOf<T, I>>>,
 			messages_count: u32,
 			dispatch_weight: Weight,
@@ -645,7 +639,9 @@ pub mod pallet {
 		}
 
 		/// Return inbound lane data.
-		pub fn inbound_lane_data(lane: LaneId) -> InboundLaneData<T::InboundRelayer> {
+		pub fn inbound_lane_data(
+			lane: LaneId,
+		) -> InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>> {
 			InboundLanes::<T, I>::get(lane).0
 		}
 	}
@@ -744,7 +740,7 @@ fn outbound_lane<T: Config<I>, I: 'static>(
 /// Runtime inbound lane storage.
 struct RuntimeInboundLaneStorage<T: Config<I>, I: 'static = ()> {
 	lane_id: LaneId,
-	cached_data: Option<InboundLaneData<T::InboundRelayer>>,
+	cached_data: Option<InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>>,
 	_phantom: PhantomData<I>,
 }
 
@@ -768,14 +764,14 @@ impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
 		let max_encoded_len = StoredInboundLaneData::<T, I>::max_encoded_len();
 		let relayers_count = self.get_or_init_data().relayers.len();
 		let actual_encoded_len =
-			InboundLaneData::<T::InboundRelayer>::encoded_size_hint(relayers_count)
+			InboundLaneData::<AccountIdOf<BridgedChainOf<T, I>>>::encoded_size_hint(relayers_count)
 				.unwrap_or(usize::MAX);
 		max_encoded_len.saturating_sub(actual_encoded_len) as _
 	}
 }
 
 impl<T: Config<I>, I: 'static> InboundLaneStorage for RuntimeInboundLaneStorage<T, I> {
-	type Relayer = T::InboundRelayer;
+	type Relayer = AccountIdOf<BridgedChainOf<T, I>>;
 
 	fn id(&self) -> LaneId {
 		self.lane_id
@@ -789,11 +785,11 @@ impl<T: Config<I>, I: 'static> InboundLaneStorage for RuntimeInboundLaneStorage<
 		BridgedChainOf::<T, I>::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX
 	}
 
-	fn get_or_init_data(&mut self) -> InboundLaneData<T::InboundRelayer> {
+	fn get_or_init_data(&mut self) -> InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>> {
 		match self.cached_data {
 			Some(ref data) => data.clone(),
 			None => {
-				let data: InboundLaneData<T::InboundRelayer> =
+				let data: InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>> =
 					InboundLanes::<T, I>::get(self.lane_id).into();
 				self.cached_data = Some(data.clone());
 				data
@@ -801,7 +797,7 @@ impl<T: Config<I>, I: 'static> InboundLaneStorage for RuntimeInboundLaneStorage<
 		}
 	}
 
-	fn set_data(&mut self, data: InboundLaneData<T::InboundRelayer>) {
+	fn set_data(&mut self, data: InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>) {
 		self.cached_data = Some(data.clone());
 		InboundLanes::<T, I>::insert(self.lane_id, StoredInboundLaneData::<T, I>(data))
 	}
