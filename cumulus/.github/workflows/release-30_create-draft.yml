@@ -34,8 +34,8 @@ jobs:
     steps:
       - id: get-rust-versions
         run: |
-          echo "::set-output name=stable::$(rustc +stable --version)"
-          echo "::set-output name=nightly::$(rustc +nightly --version)"
+          echo "stable=$(rustc +stable --version)" >> $GITHUB_OUTPUT
+          echo "nightly=$(rustc +nightly --version)" >> $GITHUB_OUTPUT
 
   # We do not skip the entire job for client builds (although we don't need it)
   # because it is a dep of the next job. However we skip the time consuming steps.
@@ -267,7 +267,7 @@ jobs:
           ls "$RUNTIME_DIR/${{ matrix.category }}/${{ matrix.runtime }}"
           runtime_ver=$(ruby script.rb)
           echo "Found version: >$runtime_ver<"
-          echo "::set-output name=runtime_ver::$runtime_ver"
+          echo "runtime_ver=$runtime_ver" >> $GITHUB_OUTPUT
 
       - name: Fix runtime name
         id: fix-runtime-path
