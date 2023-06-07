@@ -19,7 +19,7 @@ serde = { version = "1.0.163", features = ["derive"] }
 tokio = { version = "1.28.2", features = ["macros"] }
 tracing = "0.1.37"
 url = "2.4.0"
-tempfile = "3.5.0"
+tempfile = "3.6.0"
 
 # Substrate
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
