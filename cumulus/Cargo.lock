@@ -4734,6 +4734,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-system-benchmarking",
+ "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "pallet-glutton",
  "pallet-sudo",
