@@ -130,10 +130,17 @@ tests:
                 - name: balances.Withdraw
                   chain: *relay_chain
                   result: { who: *checking_account, amount: 10000000000000 } # amount received and withdrawn from registry account
-                - name: ump.ExecutedUpward
+                - name: messageQueue.Processed
                   chain: *relay_chain
                   threshold: *weight_threshold
-                  result: [{ Complete: { refTime: '4,000,000,000', proofSize: 0 }}]
+                  result:
+                        origin:
+                          Ump:
+                            Para: '1,001'
+                        weightUsed:
+                          refTime: '4,000,000,000'
+                          proofSize: '0'
+                        success: true
           - queries:
               balance_rc_alice_3:
                 chain: *relay_chain

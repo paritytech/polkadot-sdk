@@ -98,10 +98,17 @@ tests:
                     - name: polkadotXcm.Attempted
                       threshold: *weight_threshold
                       result: [{ Complete: { refTime: '533,283,000', proofSize: '7,096' }}]
-                    - name: ump.ExecutedUpward
+                    - name: messageQueue.Processed
                       chain: *relay_chain
                       threshold: *weight_threshold
-                      result: [{ Complete: { refTime: '4,000,000,000', proofSize: 0 }}]
+                      result:
+                        origin:
+                          Ump:
+                            Para: '1,000'
+                        weightUsed:
+                          refTime: '4,000,000,000'
+                          proofSize: '0'
+                        success: true
               - queries:
                   balance_ap_sender_after:
                     chain: *assets_parachain
