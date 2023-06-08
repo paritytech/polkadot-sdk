@@ -740,6 +740,8 @@ macro_rules! decl_test_networks {
 						$crate::HORIZONTAL_MESSAGES.with(|b| b.borrow_mut().insert(stringify!($name).to_string(), $crate::VecDeque::new()));
 						$crate::RELAY_BLOCK_NUMBER.with(|b| b.borrow_mut().insert(stringify!($name).to_string(), 1));
 						$crate::PARA_IDS.with(|b| b.borrow_mut().insert(stringify!($name).to_string(), Self::_para_ids()));
+
+						$( <$parachain>::prepare_for_xcmp(); )*
 					}
 				}
 

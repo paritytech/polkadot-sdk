@@ -23,7 +23,7 @@ use frame_support::traits::{
 	tokens::Pay,
 };
 use sp_core::crypto::Ss58Codec;
-use xcm_emulator::{Network, TestExt};
+use xcm_emulator::TestExt;
 
 #[test]
 fn pay_salary() {
@@ -33,9 +33,6 @@ fn pay_salary() {
 			.unwrap();
 	let pay_to = Polkadot::account_id_of(ALICE);
 	let pay_amount = 9000;
-
-	PolkadotMockNet::_init();
-	PolkadotMockNet::reset();
 
 	AssetHub::execute_with(|| {
 		type AssetHubAssets = <AssetHub as AssetHubPallet>::Assets;
