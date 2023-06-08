@@ -168,7 +168,7 @@ benchmarks! {
 	}
 
 	set_desired_candidates {
-		let max: u32 = 999;
+		let max: u32 = T::MaxCandidates::get();
 		let origin =
 			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 	}: {
