@@ -17,7 +17,7 @@ use super::*;
 use crate as collator_selection;
 use frame_support::{
 	ord_parameter_types, parameter_types,
-	traits::{ConstU32, ConstU64, FindAuthor, GenesisBuild, ValidatorRegistration},
+	traits::{ConstBool, ConstU32, ConstU64, FindAuthor, GenesisBuild, ValidatorRegistration},
 	PalletId,
 };
 use frame_system as system;
@@ -128,6 +128,7 @@ impl pallet_aura::Config for Test {
 	type AuthorityId = sp_consensus_aura::sr25519::AuthorityId;
 	type MaxAuthorities = ConstU32<100_000>;
 	type DisabledValidators = ();
+	type AllowMultipleBlocksPerSlot = ConstBool<false>;
 }
 
 sp_runtime::impl_opaque_keys! {
