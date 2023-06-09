@@ -53,7 +53,7 @@ pub const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// This is a copy-paste from the cumulus repo's `parachains-common` crate.
 const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(constants::WEIGHT_REF_TIME_PER_SECOND, 0)
 	.saturating_div(2)
-	.set_proof_size(polkadot_primitives::v4::MAX_POV_SIZE as u64);
+	.set_proof_size(polkadot_primitives::MAX_POV_SIZE as u64);
 
 /// All cumulus bridge hubs assume that about 5 percent of the block weight is consumed by
 /// `on_initialize` handlers. This is used to limit the maximal weight of a single extrinsic.
