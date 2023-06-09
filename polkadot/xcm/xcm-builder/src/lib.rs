@@ -35,7 +35,7 @@ pub use location_conversion::{
 	DescribeAccountKey20Terminal, DescribeAllTerminal, DescribeFamily, DescribeLocation,
 	DescribePalletTerminal, DescribeTerminus, GlobalConsensusConvertsFor,
 	GlobalConsensusParachainConvertsFor, HashedDescription, ParentIsPreset,
-	SiblingParachainConvertsVia,
+	SiblingParachainConvertsVia, HashedDescriptionDescribeFamilyAllTerminal
 };
 
 mod origin_conversion;
