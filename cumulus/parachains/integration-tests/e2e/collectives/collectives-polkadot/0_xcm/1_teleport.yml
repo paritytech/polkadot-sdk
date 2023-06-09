@@ -133,14 +133,7 @@ tests:
                 - name: messageQueue.Processed
                   chain: *relay_chain
                   threshold: *weight_threshold
-                  result:
-                        origin:
-                          Ump:
-                            Para: '1,001'
-                        weightUsed:
-                          refTime: '4,000,000,000'
-                          proofSize: '0'
-                        success: true
+                  result: { origin: { Ump: { Para: '1,001' } }, weightUsed: { refTime: '4,000,000,000', proofSize: '0' }, success: true }
           - queries:
               balance_rc_alice_3:
                 chain: *relay_chain
