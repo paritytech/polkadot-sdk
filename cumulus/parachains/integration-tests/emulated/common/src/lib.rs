@@ -36,7 +36,7 @@ decl_test_relay_chains! {
 			Sudo: westend_runtime::Sudo,
 		}
 	},
-	#[api_version(4)]
+	#[api_version(5)]
 	pub struct Polkadot {
 		genesis = polkadot::genesis(),
 		on_init = (),
@@ -55,7 +55,7 @@ decl_test_relay_chains! {
 			XcmPallet: polkadot_runtime::XcmPallet,
 		}
 	},
-	#[api_version(4)]
+	#[api_version(5)]
 	pub struct Kusama {
 		genesis = kusama::genesis(),
 		on_init = (),
