@@ -5,11 +5,11 @@
 # - Use the `polkadot-parachain` binary;
 # - Use `rococo` as the parent Relay Chain;
 # - Generate `ParaId`s from 1,300 to 1,370, inclusive;
-# - Set the Sudo key to `G7Z5mTmTQsjEGBVqVGDZyR9m7RoHNZJk6JeykyfKQ3vmBiR`;
-# - Set `compute`, `storage`, and `trash_data_count` set to 50%, 50%, and 5,120, respectively;
+# - Set the Sudo key to `GZ9YSgtib4kEMxWcpWfnXa1cnrumspTCTZSaNWWmMkJbWqW`;
+# - Set `compute`, `storage`, and `trash_data_count` set to 50%, 131%, and 5,120, respectively;
 # - And save the results in `output-dir`.
 #
-# ./scripts/create_glutton_spec.sh ./target/release/polkadot-parachain rococo 1300 1370 G7Z5mTmTQsjEGBVqVGDZyR9m7RoHNZJk6JeykyfKQ3vmBiR 500000000 500000000 5120 output-dir
+# ./scripts/create_glutton_spec.sh ./target/release/polkadot-parachain rococo 1300 1370 GZ9YSgtib4kEMxWcpWfnXa1cnrumspTCTZSaNWWmMkJbWqW 500000000 1310000000 5120 output-dir
 
 usage() {
     echo Usage:
@@ -68,8 +68,8 @@ for (( para_id=$from_para_id; para_id<=$to_para_id; para_id++ )); do
         | jq --argjson para_id $para_id '.para_id = $para_id' \
         | jq --arg sudo $sudo '.genesis.runtime.sudo.key = $sudo' \
         | jq --argjson para_id $para_id '.genesis.runtime.parachainInfo.parachainId = $para_id' \
-        | jq --argjson compute $compute '.genesis.runtime.glutton.compute = $compute' \
-        | jq --argjson storage $storage '.genesis.runtime.glutton.storage = $storage' \
+        | jq --arg compute $compute '.genesis.runtime.glutton.compute = $compute' \
+        | jq --arg storage $storage '.genesis.runtime.glutton.storage = $storage' \
         | jq --argjson trash_data_count $trash_data_count '.genesis.runtime.glutton.trashDataCount = $trash_data_count' \
         > $output_para_dir/glutton-$relay_chain-$para_id-spec.json
 

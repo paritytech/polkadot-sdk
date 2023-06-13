@@ -32,7 +32,10 @@ use sc_executor_common::wasm_runtime::WasmModule;
 use sp_api::ProvideRuntimeApi;
 
 use frame_system_rpc_runtime_api::AccountNonceApi;
-use sp_arithmetic::Perbill;
+use sp_arithmetic::{
+	traits::{One, Zero},
+	FixedU64,
+};
 use sp_consensus::BlockOrigin;
 use sp_keyring::Sr25519Keyring::Alice;
 use sp_runtime::traits::Header as HeaderT;
@@ -69,14 +72,11 @@ fn benchmark_block_validation(c: &mut Criterion) {
 	group.sample_size(20);
 	group.measurement_time(Duration::from_secs(120));
 
-	// In the first iteration we want to initialie the glutton pallet
+	// In the first iteration we want to initialize the glutton pallet.
 	let mut is_first = true;
-	for (compute_percent, storage_percent) in &[
-		(Perbill::from_percent(100), Perbill::from_percent(0)),
-		(Perbill::from_percent(100), Perbill::from_percent(100)),
-	] {
+	for (compute_ratio, storage_ratio) in &[(One::one(), Zero::zero()), (One::one(), One::one())] {
 		let parachain_block =
-			set_glutton_parameters(&client, is_first, compute_percent, storage_percent);
+			set_glutton_parameters(&client, is_first, compute_ratio, storage_ratio);
 		is_first = false;
 
 		runtime.block_on(import_block(&client, parachain_block.clone().into_block(), false));
@@ -114,7 +114,7 @@ fn benchmark_block_validation(c: &mut Criterion) {
 		group.bench_function(
 			format!(
 				"(compute = {:?}, storage = {:?}, proof_size = {}kb) block validation",
-				compute_percent, storage_percent, proof_size_in_kb
+				compute_ratio, storage_ratio, proof_size_in_kb
 			),
 			|b| {
 				b.iter_batched(
@@ -145,8 +145,8 @@ fn verify_expected_result(runtime: &Box<dyn WasmModule>, encoded_params: &[u8], 
 fn set_glutton_parameters(
 	client: &Client,
 	initialize: bool,
-	compute_percent: &Perbill,
-	storage_percent: &Perbill,
+	compute_ratio: &FixedU64,
+	storage_ratio: &FixedU64,
 ) -> ParachainBlockData {
 	let parent_hash = client.usage_info().chain.best_hash;
 	let parent_header = client.header(parent_hash).expect("Just fetched this hash.").unwrap();
@@ -181,7 +181,7 @@ fn set_glutton_parameters(
 		client,
 		Alice.into(),
 		SudoCall::sudo {
-			call: Box::new(GluttonCall::set_compute { compute: *compute_percent }.into()),
+			call: Box::new(GluttonCall::set_compute { compute: *compute_ratio }.into()),
 		},
 		Some(last_nonce),
 	);
@@ -192,7 +192,7 @@ fn set_glutton_parameters(
 		client,
 		Alice.into(),
 		SudoCall::sudo {
-			call: Box::new(GluttonCall::set_storage { storage: *storage_percent }.into()),
+			call: Box::new(GluttonCall::set_storage { storage: *storage_ratio }.into()),
 		},
 		Some(last_nonce),
 	);

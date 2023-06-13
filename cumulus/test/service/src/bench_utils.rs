@@ -35,14 +35,13 @@ use sc_consensus::{
 use sc_executor::DEFAULT_HEAP_ALLOC_STRATEGY;
 use sc_executor_common::runtime_blob::RuntimeBlob;
 use sp_api::ProvideRuntimeApi;
-use sp_arithmetic::Perbill;
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed};
 use sp_consensus::BlockOrigin;
 use sp_core::{sr25519, Pair};
 use sp_keyring::Sr25519Keyring::Alice;
 use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	AccountId32, OpaqueExtrinsic,
+	AccountId32, FixedU64, OpaqueExtrinsic,
 };
 
 /// Accounts to use for transfer transactions. Enough for 5000 transactions.
@@ -127,7 +126,7 @@ pub fn create_benchmarking_transfer_extrinsics(
 	src_accounts: &[sr25519::Pair],
 	dst_accounts: &[sr25519::Pair],
 ) -> (usize, Vec<OpaqueExtrinsic>) {
-	// Add as many tranfer extrinsics as possible into a single block.
+	// Add as many transfer extrinsics as possible into a single block.
 	let mut block_builder = client.new_block(Default::default()).unwrap();
 	let mut max_transfer_count = 0;
 	let mut extrinsics = Vec::new();
@@ -200,8 +199,8 @@ pub fn get_wasm_module() -> Box<dyn sc_executor_common::wasm_runtime::WasmModule
 pub fn set_glutton_parameters(
 	client: &TestClient,
 	initialize: bool,
-	compute_percent: &Perbill,
-	storage_percent: &Perbill,
+	compute_ratio: &FixedU64,
+	storage_ratio: &FixedU64,
 ) -> NodeBlock {
 	let parent_hash = client.usage_info().chain.best_hash;
 	let parent_header = client.header(parent_hash).expect("Just fetched this hash.").unwrap();
@@ -231,7 +230,7 @@ pub fn set_glutton_parameters(
 	let set_compute = construct_extrinsic(
 		client,
 		SudoCall::sudo {
-			call: Box::new(GluttonCall::set_compute { compute: *compute_percent }.into()),
+			call: Box::new(GluttonCall::set_compute { compute: *compute_ratio }.into()),
 		},
 		Alice.into(),
 		Some(last_nonce),
@@ -243,7 +242,7 @@ pub fn set_glutton_parameters(
 	let set_storage = construct_extrinsic(
 		client,
 		SudoCall::sudo {
-			call: Box::new(GluttonCall::set_storage { storage: *storage_percent }.into()),
+			call: Box::new(GluttonCall::set_storage { storage: *storage_ratio }.into()),
 		},
 		Alice.into(),
 		Some(last_nonce),

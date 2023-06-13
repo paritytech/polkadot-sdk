@@ -18,7 +18,10 @@
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 
 use sc_client_api::UsageProvider;
-use sp_arithmetic::Perbill;
+use sp_arithmetic::{
+	traits::{One, Zero},
+	FixedPointNumber,
+};
 
 use core::time::Duration;
 use cumulus_primitives_core::ParaId;
@@ -47,15 +50,12 @@ fn benchmark_block_production_compute(c: &mut Criterion) {
 	group.measurement_time(Duration::from_secs(120));
 
 	let mut initialize_glutton_pallet = true;
-	for (compute_level, storage_level) in &[
-		(Perbill::from_percent(100), Perbill::from_percent(0)),
-		(Perbill::from_percent(100), Perbill::from_percent(100)),
-	] {
+	for (compute_ratio, storage_ratio) in &[(One::one(), Zero::zero()), (One::one(), One::one())] {
 		let block = utils::set_glutton_parameters(
 			&client,
 			initialize_glutton_pallet,
-			compute_level,
-			storage_level,
+			compute_ratio,
+			storage_ratio,
 		);
 		runtime.block_on(utils::import_block(&client, &block, false));
 		initialize_glutton_pallet = false;
@@ -68,8 +68,9 @@ fn benchmark_block_production_compute(c: &mut Criterion) {
 
 		group.bench_function(
 			format!(
-				"(compute = {:?}, storage = {:?}, proof = true) block production",
-				compute_level, storage_level
+				"(compute = {:?} %, storage = {:?} %) block import",
+				compute_ratio.saturating_mul_int(100),
+				storage_ratio.saturating_mul_int(100)
 			),
 			|b| {
 				b.iter_batched(
@@ -89,8 +90,9 @@ fn benchmark_block_production_compute(c: &mut Criterion) {
 
 		group.bench_function(
 			format!(
-				"(compute = {:?}, storage = {:?}, proof = false) block production",
-				compute_level, storage_level
+				"(compute = {:?} %, storage = {:?} %) block import",
+				compute_ratio.saturating_mul_int(100),
+				storage_ratio.saturating_mul_int(100)
 			),
 			|b| {
 				b.iter_batched(
