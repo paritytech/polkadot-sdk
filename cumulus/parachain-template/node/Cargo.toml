@@ -11,7 +11,7 @@ build = "build.rs"
 
 [dependencies]
 clap = { version = "4.3.3", features = ["derive"] }
-log = "0.4.18"
+log = "0.4.19"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 serde = { version = "1.0.164", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
