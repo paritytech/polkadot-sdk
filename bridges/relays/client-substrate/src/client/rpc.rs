@@ -24,13 +24,14 @@ use crate::{
 			SubstrateFrameSystemClient, SubstrateGrandpaClient, SubstrateStateClient,
 			SubstrateSystemClient,
 		},
+		subscription::{Subscription, Unwrap},
 		Client,
 	},
 	error::{Error, Result},
 	guard::Environment,
 	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BalanceOf, BlockNumberOf, Chain,
 	ChainRuntimeVersion, ChainWithGrandpa, ChainWithTransactions, ConnectionParams, HashOf,
-	HeaderIdOf, HeaderOf, NonceOf, SignParam, SignedBlockOf, SimpleRuntimeVersion, Subscription,
+	HeaderIdOf, HeaderOf, NonceOf, SignParam, SignedBlockOf, SimpleRuntimeVersion,
 	TransactionTracker, UnsignedTransaction,
 };
 
@@ -495,26 +496,22 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 			);
 			let signed_extrinsic = C::sign_transaction(signing_data, extrinsic)?.encode();
 			let tx_hash = C::Hasher::hash(&signed_extrinsic);
-			let subscription = SubstrateAuthorClient::<C>::submit_and_watch_extrinsic(
-				&*client,
-				Bytes(signed_extrinsic),
-			)
-			.await
-			.map_err(|e| {
-				log::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
-				e
-			})?;
+			let subscription: jsonrpsee::core::client::Subscription<_> =
+				SubstrateAuthorClient::<C>::submit_and_watch_extrinsic(
+					&*client,
+					Bytes(signed_extrinsic),
+				)
+				.await
+				.map_err(|e| {
+					log::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
+					e
+				})?;
 			log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
 			Ok(TransactionTracker::new(
 				self_clone,
 				stall_timeout,
 				tx_hash,
-				Subscription::new(
-					C::NAME.into(),
-					"transaction events".into(),
-					Box::new(subscription.map_err(Into::into)),
-				)
-				.await?,
+				Box::new(Unwrap::new(C::NAME.into(), "transaction events".into(), subscription)),
 			))
 		})
 		.await

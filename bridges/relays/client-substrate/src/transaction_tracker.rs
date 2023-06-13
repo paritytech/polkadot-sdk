@@ -16,7 +16,9 @@
 
 //! Helper for tracking transaction invalidation events.
 
-use crate::{Chain, Error, HashOf, HeaderIdOf, Subscription, TransactionStatusOf};
+use crate::{
+	client::UnderlyingSubscription, Chain, Error, HashOf, HeaderIdOf, TransactionStatusOf,
+};
 
 use async_trait::async_trait;
 use futures::{future::Either, Future, FutureExt, Stream, StreamExt};
@@ -64,7 +66,7 @@ pub struct TransactionTracker<C: Chain, E> {
 	environment: E,
 	transaction_hash: HashOf<C>,
 	stall_timeout: Duration,
-	subscription: Subscription<TransactionStatusOf<C>>,
+	subscription: UnderlyingSubscription<TransactionStatusOf<C>>,
 }
 
 impl<C: Chain, E: Environment<C>> TransactionTracker<C, E> {
@@ -73,7 +75,7 @@ impl<C: Chain, E: Environment<C>> TransactionTracker<C, E> {
 		environment: E,
 		stall_timeout: Duration,
 		transaction_hash: HashOf<C>,
-		subscription: Subscription<TransactionStatusOf<C>>,
+		subscription: UnderlyingSubscription<TransactionStatusOf<C>>,
 	) -> Self {
 		Self { environment, stall_timeout, transaction_hash, subscription }
 	}
@@ -105,7 +107,7 @@ impl<C: Chain, E: Environment<C>> TransactionTracker<C, E> {
 		let wait_for_invalidation = watch_transaction_status::<_, C, _>(
 			self.environment,
 			self.transaction_hash,
-			self.subscription.into_stream(),
+			self.subscription,
 		);
 		futures::pin_mut!(wait_for_stall_timeout, wait_for_invalidation);
 
@@ -328,9 +330,7 @@ mod tests {
 			TestEnvironment(Ok(HeaderId(0, Default::default()))),
 			Duration::from_secs(0),
 			Default::default(),
-			Subscription::new("test".into(), "test".into(), Box::new(receiver))
-				.await
-				.unwrap(),
+			Box::new(receiver),
 		);
 
 		// we can't do `.now_or_never()` on `do_wait()` call, because `Subscription` has its own
@@ -338,7 +338,7 @@ mod tests {
 		// relatively small timeout here
 		let wait_for_stall_timeout = async_std::task::sleep(std::time::Duration::from_millis(100));
 		let wait_for_stall_timeout_rest = futures::future::ready(());
-		sender.send(Ok(status)).await.unwrap();
+		sender.send(status).await.unwrap();
 
 		let (ts, is) =
 			tx_tracker.do_wait(wait_for_stall_timeout, wait_for_stall_timeout_rest).await;
@@ -455,9 +455,7 @@ mod tests {
 			TestEnvironment(Ok(HeaderId(0, Default::default()))),
 			Duration::from_secs(0),
 			Default::default(),
-			Subscription::new("test".into(), "test".into(), Box::new(receiver))
-				.await
-				.unwrap(),
+			Box::new(receiver),
 		);
 
 		let wait_for_stall_timeout = futures::future::ready(()).shared();
