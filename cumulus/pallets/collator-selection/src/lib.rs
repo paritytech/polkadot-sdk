@@ -81,7 +81,6 @@ pub mod pallet {
 	use core::ops::Div;
 	use frame_support::{
 		dispatch::{DispatchClass, DispatchResultWithPostInfo},
-		inherent::Vec,
 		pallet_prelude::*,
 		sp_runtime::{
 			traits::{AccountIdConversion, CheckedSub, Saturating, Zero},
@@ -97,6 +96,7 @@ pub mod pallet {
 	use pallet_session::SessionManager;
 	use sp_runtime::traits::Convert;
 	use sp_staking::SessionIndex;
+	use sp_std::vec::Vec;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
