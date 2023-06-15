@@ -33,7 +33,7 @@ mod rpc_api;
 mod subscription;
 
 pub use client::Client;
-pub use subscription::{SharedSubscriptionFactory, Subscription, UnderlyingSubscription};
+pub use subscription::{StreamDescription, Subscription, SubscriptionBroadcaster};
 
 /// Type of RPC client with caching support.
 pub type RpcWithCachingClient<C> = CachingClient<C, RpcClient<C>>;

@@ -29,6 +29,7 @@ use bp_header_chain::{
 };
 use bp_runtime::{BasicOperatingMode, HeaderIdProvider, OperatingMode};
 use codec::{Decode, Encode};
+use futures::stream::StreamExt;
 use num_traits::{One, Zero};
 use relay_substrate_client::{
 	BlockNumberOf, Chain, ChainWithGrandpa, Client, Error as SubstrateError, HashOf, HeaderOf,
@@ -278,17 +279,14 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 		// But now there are problems with this approach - `CurrentSetId` may return invalid value.
 		// So here we're waiting for the next justification, read the authorities set and then try
 		// to figure out the set id with bruteforce.
-		let justifications = Self::source_finality_proofs(&source_client)
+		let mut justifications = Self::source_finality_proofs(&source_client)
 			.await
 			.map_err(|err| Error::Subscribe(C::NAME, err))?;
 		// Read next justification - the header that it finalizes will be used as initial header.
 		let justification = justifications
 			.next()
 			.await
-			.map_err(|e| Error::ReadJustification(C::NAME, e))
-			.and_then(|justification| {
-				justification.ok_or(Error::ReadJustificationStreamEnded(C::NAME))
-			})?;
+			.ok_or(Error::ReadJustificationStreamEnded(C::NAME))?;
 
 		// Read initial header.
 		let justification: GrandpaJustification<C::Header> =

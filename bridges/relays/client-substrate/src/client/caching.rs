@@ -18,12 +18,13 @@
 //! method calls.
 
 use crate::{
-	client::{Client, SharedSubscriptionFactory},
+	client::{Client, SubscriptionBroadcaster},
 	error::{Error, Result},
 	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, ChainWithGrandpa, ChainWithTransactions,
 	HashOf, HeaderIdOf, HeaderOf, NonceOf, SignedBlockOf, SimpleRuntimeVersion, Subscription,
 	TransactionTracker, UnsignedTransaction, ANCIENT_BLOCK_THRESHOLD,
 };
+use std::future::Future;
 
 use async_std::sync::{Arc, Mutex, RwLock};
 use async_trait::async_trait;
@@ -54,8 +55,8 @@ pub struct CachingClient<C: Chain, B: Client<C>> {
 
 /// Client data, shared by all `CachingClient` clones.
 struct ClientData<C: Chain> {
-	grandpa_justifications: Arc<Mutex<Option<SharedSubscriptionFactory<Bytes>>>>,
-	beefy_justifications: Arc<Mutex<Option<SharedSubscriptionFactory<Bytes>>>>,
+	grandpa_justifications: Arc<Mutex<Option<SubscriptionBroadcaster<Bytes>>>>,
+	beefy_justifications: Arc<Mutex<Option<SubscriptionBroadcaster<Bytes>>>>,
 	// `quick_cache::sync::Cache` has the `get_or_insert_async` method, which fits our needs,
 	// but it uses synchronization primitives that are not aware of async execution. They
 	// can block the executor threads and cause deadlocks => let's use primitives from
@@ -111,6 +112,26 @@ impl<C: Chain, B: Client<C>> CachingClient<C, B> {
 		// insert/update the value in the cache
 		cache.write().await.insert(key.clone(), value.clone());
 		Ok(value)
+	}
+
+	async fn subscribe_finality_justifications<'a>(
+		&'a self,
+		maybe_broadcaster: &Mutex<Option<SubscriptionBroadcaster<Bytes>>>,
+		do_subscribe: impl Future<Output = Result<Subscription<Bytes>>> + 'a,
+	) -> Result<Subscription<Bytes>> {
+		let mut maybe_broadcaster = maybe_broadcaster.lock().await;
+		let broadcaster = match maybe_broadcaster.as_ref() {
+			Some(justifications) => justifications,
+			None => {
+				let broadcaster = match SubscriptionBroadcaster::new(do_subscribe.await?) {
+					Ok(broadcaster) => broadcaster,
+					Err(subscription) => return Ok(subscription),
+				};
+				maybe_broadcaster.get_or_insert(broadcaster)
+			},
+		};
+
+		broadcaster.subscribe().await
 	}
 }
 
@@ -192,14 +213,11 @@ impl<C: Chain, B: Client<C>> Client<C> for CachingClient<C, B> {
 	where
 		C: ChainWithGrandpa,
 	{
-		let mut grandpa_justifications = self.data.grandpa_justifications.lock().await;
-		if let Some(ref grandpa_justifications) = *grandpa_justifications {
-			grandpa_justifications.subscribe().await
-		} else {
-			let subscription = self.backend.subscribe_grandpa_finality_justifications().await?;
-			*grandpa_justifications = Some(subscription.factory());
-			Ok(subscription)
-		}
+		self.subscribe_finality_justifications(
+			&self.data.grandpa_justifications,
+			self.backend.subscribe_grandpa_finality_justifications(),
+		)
+		.await
 	}
 
 	async fn generate_grandpa_key_ownership_proof(
@@ -214,14 +232,11 @@ impl<C: Chain, B: Client<C>> Client<C> for CachingClient<C, B> {
 	}
 
 	async fn subscribe_beefy_finality_justifications(&self) -> Result<Subscription<Bytes>> {
-		let mut beefy_justifications = self.data.beefy_justifications.lock().await;
-		if let Some(ref beefy_justifications) = *beefy_justifications {
-			beefy_justifications.subscribe().await
-		} else {
-			let subscription = self.backend.subscribe_beefy_finality_justifications().await?;
-			*beefy_justifications = Some(subscription.factory());
-			Ok(subscription)
-		}
+		self.subscribe_finality_justifications(
+			&self.data.beefy_justifications,
+			self.backend.subscribe_beefy_finality_justifications(),
+		)
+		.await
 	}
 
 	async fn token_decimals(&self) -> Result<Option<u64>> {

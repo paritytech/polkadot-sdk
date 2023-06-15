@@ -24,7 +24,7 @@ use crate::{
 			SubstrateFrameSystemClient, SubstrateGrandpaClient, SubstrateStateClient,
 			SubstrateSystemClient,
 		},
-		subscription::{Subscription, Unwrap},
+		subscription::{StreamDescription, Subscription},
 		Client,
 	},
 	error::{Error, Result},
@@ -40,8 +40,11 @@ use async_trait::async_trait;
 use bp_runtime::HeaderIdProvider;
 use codec::Encode;
 use frame_support::weights::Weight;
-use futures::{TryFutureExt, TryStreamExt};
-use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
+use futures::TryFutureExt;
+use jsonrpsee::{
+	core::{client::Subscription as RpcSubscription, ClientError},
+	ws_client::{WsClient, WsClientBuilder},
+};
 use num_traits::Zero;
 use pallet_transaction_payment::RuntimeDispatchInfo;
 use relay_utils::{relay_loop::RECONNECT_DELAY, STALL_TIMEOUT};
@@ -241,6 +244,25 @@ impl<C: Chain> RpcClient<C> {
 		})
 		.await
 	}
+
+	async fn subscribe_finality_justifications<Fut>(
+		&self,
+		gadget_name: &str,
+		do_subscribe: impl FnOnce(Arc<WsClient>) -> Fut + Send + 'static,
+	) -> Result<Subscription<Bytes>>
+	where
+		Fut: Future<Output = std::result::Result<RpcSubscription<Bytes>, ClientError>> + Send,
+	{
+		let subscription = self
+			.jsonrpsee_execute(move |client| async move { Ok(do_subscribe(client).await?) })
+			.map_err(|e| Error::failed_to_subscribe_justification::<C>(e))
+			.await?;
+
+		Ok(Subscription::new_forwarded(
+			StreamDescription::new(format!("{} justifications", gadget_name), C::NAME.into()),
+			subscription,
+		))
+	}
 }
 
 impl<C: Chain> Clone for RpcClient<C> {
@@ -329,19 +351,9 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 	where
 		C: ChainWithGrandpa,
 	{
-		Subscription::new(
-			C::NAME.into(),
-			"GRANDPA justifications".into(),
-			self.jsonrpsee_execute(move |client| async move {
-				Ok(Box::new(
-					SubstrateGrandpaClient::<C>::subscribe_justifications(&*client)
-						.await?
-						.map_err(Into::into),
-				))
-			})
-			.map_err(|e| Error::failed_to_subscribe_justification::<C>(e))
-			.await?,
-		)
+		self.subscribe_finality_justifications("GRANDPA", move |client| async move {
+			SubstrateGrandpaClient::<C>::subscribe_justifications(&*client).await
+		})
 		.await
 	}
 
@@ -360,19 +372,9 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 	}
 
 	async fn subscribe_beefy_finality_justifications(&self) -> Result<Subscription<Bytes>> {
-		Subscription::new(
-			C::NAME.into(),
-			"BEEFY justifications".into(),
-			self.jsonrpsee_execute(move |client| async move {
-				Ok(Box::new(
-					SubstrateBeefyClient::<C>::subscribe_justifications(&*client)
-						.await?
-						.map_err(Into::into),
-				))
-			})
-			.map_err(|e| Error::failed_to_subscribe_justification::<C>(e))
-			.await?,
-		)
+		self.subscribe_finality_justifications("BEEFY", move |client| async move {
+			SubstrateBeefyClient::<C>::subscribe_justifications(&*client).await
+		})
 		.await
 	}
 
@@ -511,7 +513,10 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 				self_clone,
 				stall_timeout,
 				tx_hash,
-				Box::new(Unwrap::new(C::NAME.into(), "transaction events".into(), subscription)),
+				Subscription::new_forwarded(
+					StreamDescription::new("transaction events".into(), C::NAME.into()),
+					subscription,
+				),
 			))
 		})
 		.await

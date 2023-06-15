@@ -54,7 +54,7 @@ pub async fn finality_proofs<P: SubstrateFinalityPipeline>(
 ) -> Result<SubstrateFinalityProofsStream<P>, Error> {
 	Ok(unfold(
 		P::FinalityEngine::source_finality_proofs(client).await?,
-		move |subscription| async move {
+		move |mut subscription| async move {
 			loop {
 				let log_error = |err| {
 					log::error!(
@@ -65,8 +65,7 @@ pub async fn finality_proofs<P: SubstrateFinalityPipeline>(
 					);
 				};
 
-				let next_justification =
-					subscription.next().await.map_err(|err| log_error(err.to_string())).ok()??;
+				let next_justification = subscription.next().await?;
 
 				let decoded_justification =
 					<P::FinalityEngine as Engine<P::SourceChain>>::FinalityProof::decode(

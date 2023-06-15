@@ -16,9 +16,7 @@
 
 //! Helper for tracking transaction invalidation events.
 
-use crate::{
-	client::UnderlyingSubscription, Chain, Error, HashOf, HeaderIdOf, TransactionStatusOf,
-};
+use crate::{Chain, Error, HashOf, HeaderIdOf, Subscription, TransactionStatusOf};
 
 use async_trait::async_trait;
 use futures::{future::Either, Future, FutureExt, Stream, StreamExt};
@@ -66,7 +64,7 @@ pub struct TransactionTracker<C: Chain, E> {
 	environment: E,
 	transaction_hash: HashOf<C>,
 	stall_timeout: Duration,
-	subscription: UnderlyingSubscription<TransactionStatusOf<C>>,
+	subscription: Subscription<TransactionStatusOf<C>>,
 }
 
 impl<C: Chain, E: Environment<C>> TransactionTracker<C, E> {
@@ -75,7 +73,7 @@ impl<C: Chain, E: Environment<C>> TransactionTracker<C, E> {
 		environment: E,
 		stall_timeout: Duration,
 		transaction_hash: HashOf<C>,
-		subscription: UnderlyingSubscription<TransactionStatusOf<C>>,
+		subscription: Subscription<TransactionStatusOf<C>>,
 	) -> Self {
 		Self { environment, stall_timeout, transaction_hash, subscription }
 	}
@@ -303,7 +301,7 @@ async fn watch_transaction_status<
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::test_chain::TestChain;
+	use crate::{test_chain::TestChain, StreamDescription};
 	use futures::{FutureExt, SinkExt};
 	use sc_transaction_pool_api::TransactionStatus;
 
@@ -330,7 +328,10 @@ mod tests {
 			TestEnvironment(Ok(HeaderId(0, Default::default()))),
 			Duration::from_secs(0),
 			Default::default(),
-			Box::new(receiver),
+			Subscription::new_forwarded(
+				StreamDescription::new("test".into(), "test".into()),
+				receiver,
+			),
 		);
 
 		// we can't do `.now_or_never()` on `do_wait()` call, because `Subscription` has its own
@@ -338,7 +339,7 @@ mod tests {
 		// relatively small timeout here
 		let wait_for_stall_timeout = async_std::task::sleep(std::time::Duration::from_millis(100));
 		let wait_for_stall_timeout_rest = futures::future::ready(());
-		sender.send(status).await.unwrap();
+		sender.send(Ok(status)).await.unwrap();
 
 		let (ts, is) =
 			tx_tracker.do_wait(wait_for_stall_timeout, wait_for_stall_timeout_rest).await;
@@ -455,7 +456,10 @@ mod tests {
 			TestEnvironment(Ok(HeaderId(0, Default::default()))),
 			Duration::from_secs(0),
 			Default::default(),
-			Box::new(receiver),
+			Subscription::new_forwarded(
+				StreamDescription::new("test".into(), "test".into()),
+				receiver,
+			),
 		);
 
 		let wait_for_stall_timeout = futures::future::ready(()).shared();
