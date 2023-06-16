@@ -609,6 +609,54 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 	fn has_keys(&self, public_keys: &[(Vec<u8>, KeyTypeId)]) -> bool {
 		(**self).has_keys(public_keys)
 	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_public_keys(&self, id: KeyTypeId) -> Vec<bls381::Public> {
+		(**self).bls381_public_keys(id)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls377_public_keys(&self, id: KeyTypeId) -> Vec<bls377::Public> {
+		(**self).bls377_public_keys(id)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_generate_new(
+		&self,
+		key_type: KeyTypeId,
+		seed: Option<&str>,
+	) -> Result<bls381::Public, Error> {
+		(**self).bls381_generate_new(key_type, seed)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls377_generate_new(
+		&self,
+		key_type: KeyTypeId,
+		seed: Option<&str>,
+	) -> Result<bls377::Public, Error> {
+		(**self).bls377_generate_new(key_type, seed)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &bls381::Public,
+		msg: &[u8],
+	) -> Result<Option<bls381::Signature>, Error> {
+		(**self).bls381_sign(key_type, public, msg)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls377_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &bls377::Public,
+		msg: &[u8],
+	) -> Result<Option<bls377::Signature>, Error> {
+		(**self).bls377_sign(key_type, public, msg)
+	}
 }
 
 /// A shared pointer to a keystore implementation.
