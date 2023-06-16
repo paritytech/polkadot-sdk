@@ -41,7 +41,6 @@ use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::Pays,
 	storage::generator::{StorageMap, StorageValue},
-	traits::Hooks,
 	weights::Weight,
 };
 use frame_system::{EventRecord, Pallet as System, Phase};
@@ -830,129 +829,6 @@ fn inbound_message_details_works() {
 				OutboundMessageDetails { nonce: 0, dispatch_weight: Weight::zero(), size: 0 },
 			),
 			InboundMessageDetails { dispatch_weight: REGULAR_PAYLOAD.declared_weight },
-		);
-	});
-}
-
-#[test]
-fn on_idle_callback_respects_remaining_weight() {
-	run_test(|| {
-		send_regular_message(TEST_LANE_ID);
-		send_regular_message(TEST_LANE_ID);
-		send_regular_message(TEST_LANE_ID);
-		send_regular_message(TEST_LANE_ID);
-
-		assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
-			RuntimeOrigin::signed(1),
-			prepare_messages_delivery_proof(
-				TEST_LANE_ID,
-				InboundLaneData {
-					last_confirmed_nonce: 4,
-					relayers: vec![unrewarded_relayer(1, 4, TEST_RELAYER_A)].into(),
-				},
-			),
-			UnrewardedRelayersState {
-				unrewarded_relayer_entries: 1,
-				messages_in_oldest_entry: 4,
-				total_messages: 4,
-				last_delivered_nonce: 4,
-			},
-		));
-
-		// all 4 messages may be pruned now
-		assert_eq!(outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().latest_received_nonce, 4);
-		assert_eq!(outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce, 1);
-		System::<TestRuntime>::set_block_number(2);
-
-		// if passed wight is too low to do anything
-		let dbw = DbWeight::get();
-		assert_eq!(Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(1, 1)), Weight::zero(),);
-		assert_eq!(outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce, 1);
-
-		// if passed wight is enough to prune single message
-		assert_eq!(
-			Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(1, 2)),
-			dbw.reads_writes(1, 2),
-		);
-		assert_eq!(outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce, 2);
-
-		// if passed wight is enough to prune two more messages
-		assert_eq!(
-			Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(1, 3)),
-			dbw.reads_writes(1, 3),
-		);
-		assert_eq!(outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce, 4);
-
-		// if passed wight is enough to prune many messages
-		assert_eq!(
-			Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(100, 100)),
-			dbw.reads_writes(1, 2),
-		);
-		assert_eq!(outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce, 5);
-	});
-}
-
-#[test]
-fn on_idle_callback_is_rotating_lanes_to_prune() {
-	run_test(|| {
-		// send + receive confirmation for lane 1
-		send_regular_message(TEST_LANE_ID);
-		receive_messages_delivery_proof();
-		// send + receive confirmation for lane 2
-		send_regular_message(TEST_LANE_ID_2);
-		assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
-			RuntimeOrigin::signed(1),
-			prepare_messages_delivery_proof(
-				TEST_LANE_ID_2,
-				InboundLaneData {
-					last_confirmed_nonce: 1,
-					relayers: vec![unrewarded_relayer(1, 1, TEST_RELAYER_A)].into(),
-				},
-			),
-			UnrewardedRelayersState {
-				unrewarded_relayer_entries: 1,
-				messages_in_oldest_entry: 1,
-				total_messages: 1,
-				last_delivered_nonce: 1,
-			},
-		));
-
-		// nothing is pruned yet
-		assert_eq!(outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().latest_received_nonce, 1);
-		assert_eq!(outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce, 1);
-		assert_eq!(
-			outbound_lane::<TestRuntime, ()>(TEST_LANE_ID_2).data().latest_received_nonce,
-			1
-		);
-		assert_eq!(
-			outbound_lane::<TestRuntime, ()>(TEST_LANE_ID_2).data().oldest_unpruned_nonce,
-			1
-		);
-
-		// in block#2.on_idle lane messages of lane 1 are pruned
-		let dbw = DbWeight::get();
-		System::<TestRuntime>::set_block_number(2);
-		assert_eq!(
-			Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(100, 100)),
-			dbw.reads_writes(1, 2),
-		);
-		assert_eq!(outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce, 2);
-		assert_eq!(
-			outbound_lane::<TestRuntime, ()>(TEST_LANE_ID_2).data().oldest_unpruned_nonce,
-			1
-		);
-
-		// in block#3.on_idle lane messages of lane 2 are pruned
-		System::<TestRuntime>::set_block_number(3);
-
-		assert_eq!(
-			Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(100, 100)),
-			dbw.reads_writes(1, 2),
-		);
-		assert_eq!(outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce, 2);
-		assert_eq!(
-			outbound_lane::<TestRuntime, ()>(TEST_LANE_ID_2).data().oldest_unpruned_nonce,
-			2
 		);
 	});
 }
