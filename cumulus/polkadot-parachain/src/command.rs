@@ -1244,7 +1244,7 @@ mod tests {
 	}
 
 	pub type DummyChainSpec<E> =
-		sc_service::GenericChainSpec<rococo_parachain_runtime::GenesisConfig, E>;
+		sc_service::GenericChainSpec<rococo_parachain_runtime::RuntimeGenesisConfig, E>;
 
 	pub fn create_default_with_extensions<E: Extension>(
 		id: &str,

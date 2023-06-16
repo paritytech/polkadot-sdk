@@ -25,11 +25,11 @@ use sp_core::{crypto::UncheckedInto, sr25519};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type AssetHubPolkadotChainSpec =
-	sc_service::GenericChainSpec<asset_hub_polkadot_runtime::GenesisConfig, Extensions>;
+	sc_service::GenericChainSpec<asset_hub_polkadot_runtime::RuntimeGenesisConfig, Extensions>;
 pub type AssetHubKusamaChainSpec =
-	sc_service::GenericChainSpec<asset_hub_kusama_runtime::GenesisConfig, Extensions>;
+	sc_service::GenericChainSpec<asset_hub_kusama_runtime::RuntimeGenesisConfig, Extensions>;
 pub type AssetHubWestendChainSpec =
-	sc_service::GenericChainSpec<asset_hub_westend_runtime::GenesisConfig, Extensions>;
+	sc_service::GenericChainSpec<asset_hub_westend_runtime::RuntimeGenesisConfig, Extensions>;
 
 const ASSET_HUB_POLKADOT_ED: AssetHubBalance =
 	asset_hub_polkadot_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
@@ -213,8 +213,8 @@ fn asset_hub_polkadot_genesis(
 	invulnerables: Vec<(AccountId, AssetHubPolkadotAuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
-) -> asset_hub_polkadot_runtime::GenesisConfig {
-	asset_hub_polkadot_runtime::GenesisConfig {
+) -> asset_hub_polkadot_runtime::RuntimeGenesisConfig {
+	asset_hub_polkadot_runtime::RuntimeGenesisConfig {
 		system: asset_hub_polkadot_runtime::SystemConfig {
 			code: asset_hub_polkadot_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
@@ -402,8 +402,8 @@ fn asset_hub_kusama_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
-) -> asset_hub_kusama_runtime::GenesisConfig {
-	asset_hub_kusama_runtime::GenesisConfig {
+) -> asset_hub_kusama_runtime::RuntimeGenesisConfig {
+	asset_hub_kusama_runtime::RuntimeGenesisConfig {
 		system: asset_hub_kusama_runtime::SystemConfig {
 			code: asset_hub_kusama_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
@@ -586,8 +586,8 @@ fn asset_hub_westend_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
-) -> asset_hub_westend_runtime::GenesisConfig {
-	asset_hub_westend_runtime::GenesisConfig {
+) -> asset_hub_westend_runtime::RuntimeGenesisConfig {
+	asset_hub_westend_runtime::RuntimeGenesisConfig {
 		system: asset_hub_westend_runtime::SystemConfig {
 			code: asset_hub_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")

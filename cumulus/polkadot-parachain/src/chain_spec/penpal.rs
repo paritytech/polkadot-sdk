@@ -22,7 +22,8 @@ use parachains_common::{AccountId, AuraId};
 use sc_service::ChainType;
 use sp_core::sr25519;
 /// Specialized `ChainSpec` for the normal parachain runtime.
-pub type PenpalChainSpec = sc_service::GenericChainSpec<penpal_runtime::GenesisConfig, Extensions>;
+pub type PenpalChainSpec =
+	sc_service::GenericChainSpec<penpal_runtime::RuntimeGenesisConfig, Extensions>;
 
 pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> PenpalChainSpec {
 	// Give your base currency a unit name and decimal places
@@ -83,8 +84,8 @@ fn penpal_testnet_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
-) -> penpal_runtime::GenesisConfig {
-	penpal_runtime::GenesisConfig {
+) -> penpal_runtime::RuntimeGenesisConfig {
+	penpal_runtime::RuntimeGenesisConfig {
 		system: penpal_runtime::SystemConfig {
 			code: penpal_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")

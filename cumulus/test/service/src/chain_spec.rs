@@ -31,7 +31,7 @@ pub type ChainSpec = sc_service::GenericChainSpec<GenesisExt, Extensions>;
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct GenesisExt {
 	/// The runtime genesis config.
-	runtime_genesis_config: cumulus_test_runtime::GenesisConfig,
+	runtime_genesis_config: cumulus_test_runtime::RuntimeGenesisConfig,
 	/// The parachain id.
 	para_id: ParaId,
 }
@@ -113,7 +113,7 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 /// Local testnet genesis for testing.
 pub fn testnet_genesis_with_default_endowed(
 	mut extra_endowed_accounts: Vec<AccountId>,
-) -> cumulus_test_runtime::GenesisConfig {
+) -> cumulus_test_runtime::RuntimeGenesisConfig {
 	let mut endowed = vec![
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -137,8 +137,8 @@ pub fn testnet_genesis_with_default_endowed(
 pub fn testnet_genesis(
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
-) -> cumulus_test_runtime::GenesisConfig {
-	cumulus_test_runtime::GenesisConfig {
+) -> cumulus_test_runtime::RuntimeGenesisConfig {
+	cumulus_test_runtime::RuntimeGenesisConfig {
 		system: cumulus_test_runtime::SystemConfig {
 			code: cumulus_test_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")

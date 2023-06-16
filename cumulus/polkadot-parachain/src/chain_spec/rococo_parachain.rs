@@ -26,7 +26,7 @@ use sc_chain_spec::ChainType;
 use sp_core::{crypto::UncheckedInto, sr25519};
 
 pub type RococoParachainChainSpec =
-	sc_service::GenericChainSpec<rococo_parachain_runtime::GenesisConfig, Extensions>;
+	sc_service::GenericChainSpec<rococo_parachain_runtime::RuntimeGenesisConfig, Extensions>;
 
 pub fn rococo_parachain_local_config() -> RococoParachainChainSpec {
 	RococoParachainChainSpec::from_genesis(
@@ -99,8 +99,8 @@ pub(crate) fn testnet_genesis(
 	initial_authorities: Vec<AuraId>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
-) -> rococo_parachain_runtime::GenesisConfig {
-	rococo_parachain_runtime::GenesisConfig {
+) -> rococo_parachain_runtime::RuntimeGenesisConfig {
+	rococo_parachain_runtime::RuntimeGenesisConfig {
 		system: rococo_parachain_runtime::SystemConfig {
 			code: rococo_parachain_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")

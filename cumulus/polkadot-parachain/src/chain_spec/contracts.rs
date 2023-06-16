@@ -24,7 +24,7 @@ use sc_service::ChainType;
 use sp_core::{crypto::UncheckedInto, sr25519};
 
 pub type ContractsRococoChainSpec =
-	sc_service::GenericChainSpec<contracts_rococo_runtime::GenesisConfig, Extensions>;
+	sc_service::GenericChainSpec<contracts_rococo_runtime::RuntimeGenesisConfig, Extensions>;
 
 /// No relay chain suffix because the id is the same over all relay chains.
 const CONTRACTS_PARACHAIN_ID: u32 = 1002;
@@ -234,8 +234,8 @@ fn contracts_rococo_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
-) -> contracts_rococo_runtime::GenesisConfig {
-	contracts_rococo_runtime::GenesisConfig {
+) -> contracts_rococo_runtime::RuntimeGenesisConfig {
+	contracts_rococo_runtime::RuntimeGenesisConfig {
 		system: contracts_rococo_runtime::SystemConfig {
 			code: contracts_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")

@@ -21,7 +21,7 @@ use sp_core::sr25519;
 
 /// Specialized `ChainSpec` for the Glutton parachain runtime.
 pub type GluttonChainSpec =
-	sc_service::GenericChainSpec<glutton_runtime::GenesisConfig, Extensions>;
+	sc_service::GenericChainSpec<glutton_runtime::RuntimeGenesisConfig, Extensions>;
 
 pub fn glutton_development_config(para_id: ParaId) -> GluttonChainSpec {
 	GluttonChainSpec::from_genesis(
@@ -78,8 +78,8 @@ pub fn glutton_config(para_id: ParaId) -> GluttonChainSpec {
 	)
 }
 
-fn glutton_genesis(parachain_id: ParaId) -> glutton_runtime::GenesisConfig {
-	glutton_runtime::GenesisConfig {
+fn glutton_genesis(parachain_id: ParaId) -> glutton_runtime::RuntimeGenesisConfig {
+	glutton_runtime::RuntimeGenesisConfig {
 		system: glutton_runtime::SystemConfig {
 			code: glutton_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
