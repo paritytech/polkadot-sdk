@@ -35,22 +35,31 @@ pub mod pallet_origins {
 	#[pallet::origin]
 	pub enum Origin {
 		/// Origin aggregated through weighted votes of those with rank 1 or above; `Success` is 1.
+		/// Aka the "voice" of all Members.
 		Members,
 		/// Origin aggregated through weighted votes of those with rank 2 or above; `Success` is 2.
+		/// Aka the "voice" of members at least II Dan.
 		Fellowship2Dan,
 		/// Origin aggregated through weighted votes of those with rank 3 or above; `Success` is 3.
+		/// Aka the "voice" of all Fellows.
 		Fellows,
 		/// Origin aggregated through weighted votes of those with rank 4 or above; `Success` is 4.
+		/// Aka the "voice" of members at least IV Dan.
 		Architects,
 		/// Origin aggregated through weighted votes of those with rank 5 or above; `Success` is 5.
+		/// Aka the "voice" of members at least V Dan.
 		Fellowship5Dan,
 		/// Origin aggregated through weighted votes of those with rank 6 or above; `Success` is 6.
+		/// Aka the "voice" of members at least VI Dan.
 		Fellowship6Dan,
 		/// Origin aggregated through weighted votes of those with rank 7 or above; `Success` is 7.
+		/// Aka the "voice" of all Masters.
 		Masters,
 		/// Origin aggregated through weighted votes of those with rank 8 or above; `Success` is 8.
+		/// Aka the "voice" of members at least VIII Dan.
 		Fellowship8Dan,
 		/// Origin aggregated through weighted votes of those with rank 9 or above; `Success` is 9.
+		/// Aka the "voice" of members at least IX Dan.
 		Fellowship9Dan,
 
 		/// Origin aggregated through weighted votes of those with rank 3 or above when voting on
@@ -90,6 +99,38 @@ pub mod pallet_origins {
 		/// Origin aggregated through weighted votes of those with rank 8 or above when voting on
 		/// a month-long track; `Success` is 6.
 		PromoteTo6Dan,
+	}
+
+	impl Origin {
+		/// Returns the rank that the origin `self` speaks for, or `None` if it doesn't speak for
+		/// any.
+		///
+		/// `Some` will be returned only for the first 9 elements of [Origin].
+		pub fn as_voice(&self) -> Option<pallet_ranked_collective::Rank> {
+			Some(match &self {
+				Origin::Members => ranks::DAN_1,
+				Origin::Fellowship2Dan => ranks::DAN_2,
+				Origin::Fellows => ranks::DAN_3,
+				Origin::Architects => ranks::DAN_4,
+				Origin::Fellowship5Dan => ranks::DAN_5,
+				Origin::Fellowship6Dan => ranks::DAN_6,
+				Origin::Masters => ranks::DAN_7,
+				Origin::Fellowship8Dan => ranks::DAN_8,
+				Origin::Fellowship9Dan => ranks::DAN_9,
+				_ => return None,
+			})
+		}
+	}
+
+	/// A `TryMorph` implementation which is designed to convert an aggregate `RuntimeOrigin`
+	/// value into the Fellowship voice it represents if it is a Fellowship pallet origin an
+	/// appropriate variant. See also [Origin::as_voice].
+	pub struct ToVoice;
+	impl<'a, O: 'a + TryInto<&'a Origin>> sp_runtime::traits::TryMorph<O> for ToVoice {
+		type Outcome = pallet_ranked_collective::Rank;
+		fn try_morph(o: O) -> Result<pallet_ranked_collective::Rank, ()> {
+			o.try_into().ok().and_then(Origin::as_voice).ok_or(())
+		}
 	}
 
 	macro_rules! decl_unit_ensures {
