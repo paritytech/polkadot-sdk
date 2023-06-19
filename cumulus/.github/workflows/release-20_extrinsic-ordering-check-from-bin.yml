@@ -6,7 +6,7 @@ on:
     inputs:
       reference_url:
         description: The WebSocket url of the reference node
-        default: wss://kusama-statemine-rpc.paritytech.net
+        default: wss://kusama-asset-hub-rpc.polkadot.io
         required: true
       binary_url:
         description: A url to a Linux binary for the node containing the runtime to test
@@ -28,7 +28,7 @@ jobs:
       BIN_URL: ${{github.event.inputs.binary_url}}
       REF_URL: ${{github.event.inputs.reference_url}}
 
-    steps:    
+    steps:
       - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
 
       - name: Fetch binary

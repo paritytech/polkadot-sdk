@@ -84,9 +84,9 @@ end
 
 POLKADOT_COLLECTIVES_DIGEST = ENV['COLLECTIVES_POLKADOT_DIGEST'] || 'digests/collectives-polkadot-srtool-digest.json'
 SHELL_DIGEST = ENV['SHELL_DIGEST'] || 'digests/shell-srtool-digest.json'
-WESTMINT_DIGEST = ENV['WESTMINT_DIGEST'] || 'digests/westmint-srtool-digest.json'
-STATEMINE_DIGEST = ENV['STATEMINE_DIGEST'] || 'digests/statemine-srtool-digest.json'
-STATEMINT_DIGEST = ENV['STATEMINT_DIGEST'] || 'digests/statemint-srtool-digest.json'
+ASSET_HUB_WESTEND_DIGEST = ENV['ASSET_HUB_WESTEND_DIGEST'] || 'digests/westmint-srtool-digest.json'
+ASSET_HUB_KUSAMA_DIGEST = ENV['ASSET_HUB_KUSAMA_DIGEST'] || 'digests/statemine-srtool-digest.json'
+ASSET_HUB_POLKADOT_DIGEST = ENV['ASSET_HUB_POLKADOT_DIGEST'] || 'digests/statemint-srtool-digest.json'
 BRIDGE_HUB_ROCOCO_DIGEST = ENV['BRIDGE_HUB_ROCOCO_DIGEST'] || 'digests/bridge-hub-rococo-srtool-digest.json'
 BRIDGE_HUB_KUSAMA_DIGEST = ENV['BRIDGE_HUB_KUSAMA_DIGEST'] || 'digests/bridge-hub-kusama-srtool-digest.json'
 BRIDGE_HUB_POLKADOT_DIGEST = ENV['BRIDGE_HUB_POLKADOT_DIGEST'] || 'digests/bridge-hub-polkadot-srtool-digest.json'
@@ -146,9 +146,9 @@ else
         substrate_data,
         polkadot_data,
         SHELL_DIGEST,
-        WESTMINT_DIGEST,
-        STATEMINE_DIGEST,
-        STATEMINT_DIGEST,
+        ASSET_HUB_WESTEND_DIGEST,
+        ASSET_HUB_KUSAMA_DIGEST,
+        ASSET_HUB_POLKADOT_DIGEST,
         ROCOCO_PARA_DIGEST,
         CANVAS_KUSAMA_DIGEST,
         POLKADOT_COLLECTIVES_DIGEST,
