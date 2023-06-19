@@ -79,6 +79,19 @@ pub fn ensure_weights_are_correct<W: WeightInfoExt>() {
 	total_messages_in_delivery_proof_does_not_affect_proof_size::<W>();
 }
 
+/// Ensure that we are able to dispatch maximal size messages.
+pub fn ensure_maximal_message_dispatch<W: WeightInfoExt>(
+	max_incoming_message_size: u32,
+	max_incoming_message_dispatch_weight: Weight,
+) {
+	let message_dispatch_weight = W::message_dispatch_weight(max_incoming_message_size);
+	assert!(
+		message_dispatch_weight.all_lte(max_incoming_message_dispatch_weight),
+		"Dispatch weight of maximal message {message_dispatch_weight:?} must be lower \
+		than the hardcoded {max_incoming_message_dispatch_weight:?}",
+	);
+}
+
 /// Ensure that we're able to receive maximal (by-size and by-weight) message from other chain.
 pub fn ensure_able_to_receive_message<W: WeightInfoExt>(
 	max_extrinsic_size: u32,
@@ -91,7 +104,8 @@ pub fn ensure_able_to_receive_message<W: WeightInfoExt>(
 		max_incoming_message_proof_size.saturating_add(SIGNED_EXTENSIONS_SIZE);
 	assert!(
 		max_delivery_transaction_size <= max_extrinsic_size,
-		"Size of maximal message delivery transaction {max_incoming_message_proof_size} + {SIGNED_EXTENSIONS_SIZE} is larger than maximal possible transaction size {max_extrinsic_size}",
+		"Size of maximal message delivery transaction {max_incoming_message_proof_size} + \
+		{SIGNED_EXTENSIONS_SIZE} is larger than maximal possible transaction size {max_extrinsic_size}",
 	);
 
 	// verify that we're able to receive proof of maximal-size message with maximal dispatch weight
@@ -397,9 +411,8 @@ pub trait WeightInfoExt: WeightInfo {
 	/// is less than that cost).
 	fn storage_proof_size_overhead(proof_size: u32) -> Weight {
 		let proof_size_in_bytes = proof_size;
-		let byte_weight = (Self::receive_single_message_n_kb_proof(2) -
-			Self::receive_single_message_n_kb_proof(1)) /
-			1024;
+		let byte_weight = Self::receive_single_message_n_bytes_proof(2) -
+			Self::receive_single_message_n_bytes_proof(1);
 		proof_size_in_bytes * byte_weight
 	}
 
@@ -411,11 +424,9 @@ pub trait WeightInfoExt: WeightInfo {
 	/// `receive_single_message_proof_with_dispatch` benchmark. See its requirements for
 	/// details.
 	fn message_dispatch_weight(message_size: u32) -> Weight {
-		// There may be a tiny overweight/underweight here, because we don't account how message
-		// size affects all steps before dispatch. But the effect should be small enough and we
-		// may ignore it.
-		Self::receive_single_message_n_bytes_proof_with_dispatch(message_size)
-			.saturating_sub(Self::receive_single_message_proof())
+		let message_size_in_bytes = message_size;
+		Self::receive_single_message_n_bytes_proof_with_dispatch(message_size_in_bytes)
+			.saturating_sub(Self::receive_single_message_n_bytes_proof(message_size_in_bytes))
 	}
 }
 

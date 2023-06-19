@@ -38,6 +38,9 @@ pub mod source_chain;
 pub mod storage_keys;
 pub mod target_chain;
 
+/// Hard limit on message size that can be sent over the bridge.
+pub const HARD_MESSAGE_SIZE_LIMIT: u32 = 64 * 1024;
+
 /// Substrate-based chain with messaging support.
 pub trait ChainWithMessages: Chain {
 	/// Name of the bridge messages pallet (used in `construct_runtime` macro call) that is
@@ -97,7 +100,14 @@ pub fn maximal_incoming_message_size(max_extrinsic_size: u32) -> u32 {
 	// is enormously large, it should be several dozens/hundreds of bytes. The delivery
 	// transaction also contains signatures and signed extensions. Because of this, we reserve
 	// 1/3 of the the maximal extrinsic size for this data.
-	max_extrinsic_size / 3 * 2
+	//
+	// **ANOTHER IMPORTANT NOTE**: large message means not only larger proofs and heavier
+	// proof verification, but also heavier message decoding and dispatch. So we have a hard
+	// limit of `64Kb`, which in practice limits the message size on all chains. Without this
+	// limit the **weight** (not the size) of the message will be higher than the
+	// `Self::maximal_incoming_message_dispatch_weight()`.
+
+	sp_std::cmp::min(max_extrinsic_size / 3 * 2, HARD_MESSAGE_SIZE_LIMIT)
 }
 
 impl<T> ChainWithMessages for T

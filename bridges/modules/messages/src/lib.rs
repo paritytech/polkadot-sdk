@@ -41,8 +41,8 @@ pub use outbound_lane::StoredMessagePayload;
 pub use weights::WeightInfo;
 pub use weights_ext::{
 	ensure_able_to_receive_confirmation, ensure_able_to_receive_message,
-	ensure_weights_are_correct, WeightInfoExt, EXPECTED_DEFAULT_MESSAGE_LENGTH,
-	EXTRA_STORAGE_PROOF_SIZE,
+	ensure_maximal_message_dispatch, ensure_weights_are_correct, WeightInfoExt,
+	EXPECTED_DEFAULT_MESSAGE_LENGTH, EXTRA_STORAGE_PROOF_SIZE,
 };
 
 use crate::{

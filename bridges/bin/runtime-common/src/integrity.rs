@@ -293,6 +293,12 @@ pub fn check_message_lane_weights<
 	// check basic weight assumptions
 	pallet_bridge_messages::ensure_weights_are_correct::<Weights<T, MessagesPalletInstance>>();
 
+	// check that the maximal message dispatch weight is below hardcoded limit
+	pallet_bridge_messages::ensure_maximal_message_dispatch::<Weights<T, MessagesPalletInstance>>(
+		C::maximal_incoming_message_size(),
+		C::maximal_incoming_message_dispatch_weight(),
+	);
+
 	// check that weights allow us to receive messages
 	let max_incoming_message_proof_size =
 		bridged_chain_extra_storage_proof_size.saturating_add(C::maximal_incoming_message_size());
