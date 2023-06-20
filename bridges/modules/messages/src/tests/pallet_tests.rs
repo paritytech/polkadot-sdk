@@ -643,7 +643,7 @@ fn ref_time_refund_from_receive_messages_proof_works() {
 			let messages_count = 1;
 			let pre_dispatch_weight =
 				<TestRuntime as Config>::WeightInfo::receive_messages_proof_weight(
-					&proof,
+					&*proof,
 					messages_count,
 					REGULAR_PAYLOAD.declared_weight,
 				);
@@ -698,7 +698,7 @@ fn proof_size_refund_from_receive_messages_proof_works() {
 		let messages_count = 1;
 		let pre_dispatch_weight =
 			<TestRuntime as Config>::WeightInfo::receive_messages_proof_weight(
-				&proof,
+				&*proof,
 				messages_count,
 				REGULAR_PAYLOAD.declared_weight,
 			);
@@ -878,7 +878,7 @@ fn test_bridge_messages_call_is_correctly_defined() {
 			FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash>,
 		>::receive_messages_proof {
 			relayer_id_at_bridged_chain: account_id,
-			proof: message_proof,
+			proof: *message_proof,
 			messages_count: 1,
 			dispatch_weight: REGULAR_PAYLOAD.declared_weight,
 		};

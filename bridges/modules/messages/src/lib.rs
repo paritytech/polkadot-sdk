@@ -197,11 +197,11 @@ pub mod pallet {
 		/// The call may succeed, but some messages may not be delivered e.g. if they are not fit
 		/// into the unrewarded relayers vector.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::receive_messages_proof_weight(proof, *messages_count, *dispatch_weight))]
+		#[pallet::weight(T::WeightInfo::receive_messages_proof_weight(&**proof, *messages_count, *dispatch_weight))]
 		pub fn receive_messages_proof(
 			origin: OriginFor<T>,
 			relayer_id_at_bridged_chain: AccountIdOf<BridgedChainOf<T, I>>,
-			proof: FromBridgedChainMessagesProof<HashOf<BridgedChainOf<T, I>>>,
+			proof: Box<FromBridgedChainMessagesProof<HashOf<BridgedChainOf<T, I>>>>,
 			messages_count: u32,
 			dispatch_weight: Weight,
 		) -> DispatchResultWithPostInfo {
@@ -229,14 +229,14 @@ pub mod pallet {
 			// The DeclaredWeight is exactly what's computed here. Unfortunately it is impossible
 			// to get pre-computed value (and it has been already computed by the executive).
 			let declared_weight = T::WeightInfo::receive_messages_proof_weight(
-				&proof,
+				&*proof,
 				messages_count,
 				dispatch_weight,
 			);
 			let mut actual_weight = declared_weight;
 
 			// verify messages proof && convert proof into messages
-			let messages = verify_and_decode_messages_proof::<T, I>(proof, messages_count)
+			let messages = verify_and_decode_messages_proof::<T, I>(*proof, messages_count)
 				.map_err(|err| {
 					log::trace!(target: LOG_TARGET, "Rejecting invalid messages proof: {:?}", err,);
 

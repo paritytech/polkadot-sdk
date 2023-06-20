@@ -402,13 +402,13 @@ mod tests {
 				messages_count: nonces_end.checked_sub(nonces_start).map(|x| x + 1).unwrap_or(0)
 					as u32,
 				dispatch_weight: frame_support::weights::Weight::zero(),
-				proof: FromBridgedChainMessagesProof {
+				proof: Box::new(FromBridgedChainMessagesProof {
 					bridged_header_hash: Default::default(),
 					storage: Default::default(),
 					lane: LaneId([0, 0, 0, 0]),
 					nonces_start,
 					nonces_end,
-				},
+				}),
 			},
 		)
 		.check_obsolete_call()

@@ -403,7 +403,7 @@ where
 	) -> CallOf<P::TargetChain> {
 		let call: CallOf<P::TargetChain> = BridgeMessagesCall::<R, I>::receive_messages_proof {
 			relayer_id_at_bridged_chain: relayer_id_at_source,
-			proof: proof.1,
+			proof: Box::new(proof.1),
 			messages_count,
 			dispatch_weight,
 		}
