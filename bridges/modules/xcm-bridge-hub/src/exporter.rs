@@ -77,7 +77,7 @@ where
 
 		let bridge_message = MessagesPallet::<T, I>::validate_message(sender_and_lane.lane, &blob)
 			.map_err(|e| {
-				log::debug!(
+				log::error!(
 					target: LOG_TARGET,
 					"XCM message {:?} cannot be exported because of bridge error {:?} on bridge {:?}",
 					id,
@@ -131,7 +131,8 @@ impl HaulBlob for DummyHaulBlob {
 mod tests {
 	use super::*;
 	use crate::mock::*;
-	use frame_support::assert_ok;
+	use bp_messages::{LaneState, OutboundLaneData};
+	use frame_support::{__private::sp_tracing, assert_ok};
 	use xcm_executor::traits::export_xcm;
 
 	fn universal_source() -> InteriorLocation {
@@ -145,6 +146,11 @@ mod tests {
 	#[test]
 	fn export_works() {
 		run_test(|| {
+			sp_tracing::try_init_simple();
+			pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(
+				TEST_LANE_ID,
+				OutboundLaneData { state: LaneState::Opened, ..Default::default() },
+			);
 			assert_ok!(export_xcm::<XcmOverBridge>(
 				BridgedRelayNetwork::get(),
 				0,
@@ -185,7 +191,13 @@ mod tests {
 	#[test]
 	fn exporter_computes_correct_lane_id() {
 		run_test(|| {
+			sp_tracing::try_init_simple();
 			let expected_lane_id = TEST_LANE_ID;
+
+			pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(
+				expected_lane_id,
+				OutboundLaneData { state: LaneState::Opened, ..Default::default() },
+			);
 
 			assert_eq!(
 				XcmOverBridge::validate(

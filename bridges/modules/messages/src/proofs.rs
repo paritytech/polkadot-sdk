@@ -220,7 +220,8 @@ mod tests {
 		mock::*,
 	};
 
-	use bp_header_chain::StoredHeaderDataBuilder;
+	use bp_header_chain::{HeaderChainError, StoredHeaderDataBuilder};
+	use bp_messages::LaneState;
 	use bp_runtime::{HeaderId, StorageProofError};
 	use codec::Encode;
 	use sp_runtime::traits::Header;
@@ -440,6 +441,7 @@ mod tests {
 			using_messages_proof(
 				10,
 				Some(OutboundLaneData {
+					state: LaneState::Opened,
 					oldest_unpruned_nonce: 1,
 					latest_received_nonce: 1,
 					latest_generated_nonce: 1,
@@ -480,6 +482,7 @@ mod tests {
 			using_messages_proof(
 				0,
 				Some(OutboundLaneData {
+					state: LaneState::Opened,
 					oldest_unpruned_nonce: 1,
 					latest_received_nonce: 1,
 					latest_generated_nonce: 1,
@@ -494,6 +497,7 @@ mod tests {
 				TEST_LANE_ID,
 				ProvedLaneMessages {
 					lane_state: Some(OutboundLaneData {
+						state: LaneState::Opened,
 						oldest_unpruned_nonce: 1,
 						latest_received_nonce: 1,
 						latest_generated_nonce: 1,
@@ -512,6 +516,7 @@ mod tests {
 			using_messages_proof(
 				1,
 				Some(OutboundLaneData {
+					state: LaneState::Opened,
 					oldest_unpruned_nonce: 1,
 					latest_received_nonce: 1,
 					latest_generated_nonce: 1,
@@ -526,6 +531,7 @@ mod tests {
 				TEST_LANE_ID,
 				ProvedLaneMessages {
 					lane_state: Some(OutboundLaneData {
+						state: LaneState::Opened,
 						oldest_unpruned_nonce: 1,
 						latest_received_nonce: 1,
 						latest_generated_nonce: 1,

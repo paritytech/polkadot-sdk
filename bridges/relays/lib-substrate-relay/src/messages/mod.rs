@@ -838,7 +838,6 @@ mod tests {
 			type ThisChain = ThisUnderlyingChain;
 			type BridgedChain = BridgedUnderlyingChain;
 			type BridgedHeaderChain = BridgedHeaderChain;
-			type ActiveOutboundLanes = ();
 			type OutboundPayload = Vec<u8>;
 			type InboundPayload = Vec<u8>;
 			type DeliveryPayments = ();
