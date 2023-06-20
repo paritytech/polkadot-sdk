@@ -166,12 +166,6 @@ where
 	MI: 'static,
 {
 	assert!(
-		!R::ActiveOutboundLanes::get().is_empty(),
-		"ActiveOutboundLanes ({:?}) must not be empty",
-		R::ActiveOutboundLanes::get(),
-	);
-
-	assert!(
 		pallet_bridge_messages::BridgedChainOf::<R, MI>::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX
 			<= pallet_bridge_messages::BridgedChainOf::<R, MI>::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
 		"MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX ({}) of {:?} is larger than \

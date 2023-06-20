@@ -61,7 +61,7 @@ use bp_messages::{
 		ProvedLaneMessages, ProvedMessages,
 	},
 	ChainWithMessages, DeliveredMessages, InboundLaneData, InboundMessageDetails, LaneId,
-	MessageKey, MessageNonce, MessagePayload, MessagesOperatingMode, OutboundLaneData,
+	LaneState, MessageKey, MessageNonce, MessagePayload, MessagesOperatingMode, OutboundLaneData,
 	OutboundMessageDetails, UnrewardedRelayersState, VerificationError,
 };
 use bp_runtime::{
@@ -114,9 +114,6 @@ pub mod pallet {
 		type BridgedChain: ChainWithMessages;
 		/// Bridged chain headers provider.
 		type BridgedHeaderChain: HeaderChain<Self::BridgedChain>;
-
-		/// Get all active outbound lanes that the message pallet is serving.
-		type ActiveOutboundLanes: Get<&'static [LaneId]>;
 
 		/// Payload type of outbound messages. This payload is dispatched on the bridged chain.
 		type OutboundPayload: Parameter + Size;
@@ -249,7 +246,7 @@ pub mod pallet {
 			let mut messages_received_status = Vec::with_capacity(messages.len());
 			let mut dispatch_weight_left = dispatch_weight;
 			for (lane_id, lane_data) in messages {
-				let mut lane = inbound_lane::<T, I>(lane_id);
+				let mut lane = inbound_lane::<T, I>(lane_id)?;
 
 				// subtract extra storage proof bytes from the actual PoV size - there may be
 				// less unrewarded relayers than the maximal configured value
@@ -266,7 +263,7 @@ pub mod pallet {
 							"Received lane {:?} state update: latest_confirmed_nonce={}. Unrewarded relayers: {:?}",
 							lane_id,
 							updated_latest_confirmed_nonce,
-							UnrewardedRelayersState::from(&lane.storage_mut().get_or_init_data()),
+							UnrewardedRelayersState::from(&lane.storage_mut().data()),
 						);
 					}
 				}
@@ -377,7 +374,7 @@ pub mod pallet {
 			);
 
 			// mark messages as delivered
-			let mut lane = outbound_lane::<T, I>(lane_id);
+			let mut lane = outbound_lane::<T, I>(lane_id)?;
 			let last_delivered_nonce = lane_data.last_delivered_nonce();
 			let confirmed_messages = lane
 				.confirm_delivery(
@@ -468,10 +465,16 @@ pub mod pallet {
 	pub enum Error<T, I = ()> {
 		/// Pallet is not in Normal operating mode.
 		NotOperatingNormally,
-		/// The outbound lane is inactive.
-		InactiveOutboundLane,
 		/// The inbound message dispatcher is inactive.
 		MessageDispatchInactive,
+		/// The outbound lane is unknown.
+		UnknownOutboundLane,
+		/// The outbound lane exists, but it is currently closed.
+		ClosedOutboundLane,
+		/// The inbound lane is unknown.
+		UnknownInboundLane,
+		/// The inbound lane exists, but it is currently closed.
+		ClosedInboundLane,
 		/// Message has been treated as invalid by chain verifier.
 		MessageRejectedByChainVerifier(VerificationError),
 		/// Message has been treated as invalid by the pallet logic.
@@ -516,10 +519,13 @@ pub mod pallet {
 	pub type PalletOperatingMode<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, MessagesOperatingMode, ValueQuery>;
 
+	// TODO: https://github.com/paritytech/parity-bridges-common/pull/2213: let's limit number of
+	// possible opened lanes && use it to constraint maps below
+
 	/// Map of lane id => inbound lane data.
 	#[pallet::storage]
 	pub type InboundLanes<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, LaneId, StoredInboundLaneData<T, I>, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, LaneId, StoredInboundLaneData<T, I>, OptionQuery>;
 
 	/// Map of lane id => outbound lane data.
 	#[pallet::storage]
@@ -527,11 +533,10 @@ pub mod pallet {
 		Hasher = Blake2_128Concat,
 		Key = LaneId,
 		Value = OutboundLaneData,
-		QueryKind = ValueQuery,
-		OnEmpty = GetDefault,
-		MaxValues = MaybeOutboundLanesCount<T, I>,
+		QueryKind = OptionQuery,
 	>;
 
+	// TODO:(bridges-v2) - do we still need this?
 	/// Map of lane id => is congested signal sent. It is managed by the
 	/// `bridge_runtime_common::LocalXcmQueueManager`.
 	///
@@ -563,6 +568,8 @@ pub mod pallet {
 		pub operating_mode: MessagesOperatingMode,
 		/// Initial pallet owner.
 		pub owner: Option<T::AccountId>,
+		/// Opened lanes.
+		pub opened_lanes: Vec<LaneId>,
 		/// Dummy marker.
 		pub phantom: sp_std::marker::PhantomData<I>,
 	}
@@ -573,6 +580,11 @@ pub mod pallet {
 			PalletOperatingMode::<T, I>::put(self.operating_mode);
 			if let Some(ref owner) = self.owner {
 				PalletOwner::<T, I>::put(owner);
+			}
+
+			for lane_id in &self.opened_lanes {
+				InboundLanes::<T, I>::insert(lane_id, InboundLaneData::opened());
+				OutboundLanes::<T, I>::insert(lane_id, OutboundLaneData::opened());
 			}
 		}
 	}
@@ -599,15 +611,15 @@ pub mod pallet {
 		}
 
 		/// Return outbound lane data.
-		pub fn outbound_lane_data(lane: LaneId) -> OutboundLaneData {
+		pub fn outbound_lane_data(lane: LaneId) -> Option<OutboundLaneData> {
 			OutboundLanes::<T, I>::get(lane)
 		}
 
 		/// Return inbound lane data.
 		pub fn inbound_lane_data(
 			lane: LaneId,
-		) -> InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>> {
-			InboundLanes::<T, I>::get(lane).0
+		) -> Option<InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>> {
+			InboundLanes::<T, I>::get(lane).map(|lane| lane.0)
 		}
 	}
 
@@ -616,7 +628,7 @@ pub mod pallet {
 
 	impl<T: Config<I>, I: 'static> Get<Option<u32>> for MaybeOutboundLanesCount<T, I> {
 		fn get() -> Option<u32> {
-			Some(T::ActiveOutboundLanes::get().len() as u32)
+			Some(OutboundLanes::<T, I>::iter().count() as u32)
 		}
 	}
 }
@@ -626,6 +638,7 @@ pub mod pallet {
 #[derive(Debug, PartialEq, Eq)]
 pub struct SendMessageArgs<T: Config<I>, I: 'static> {
 	lane_id: LaneId,
+	lane: OutboundLane<RuntimeOutboundLaneStorage<T, I>>,
 	payload: StoredMessagePayload<T, I>,
 }
 
@@ -638,16 +651,17 @@ where
 	type SendMessageArgs = SendMessageArgs<T, I>;
 
 	fn validate_message(
-		lane: LaneId,
+		lane_id: LaneId,
 		message: &T::OutboundPayload,
 	) -> Result<SendMessageArgs<T, I>, Self::Error> {
 		ensure_normal_operating_mode::<T, I>()?;
 
-		// let's check if outbound lane is active
-		ensure!(T::ActiveOutboundLanes::get().contains(&lane), Error::<T, I>::InactiveOutboundLane);
+		// check lane
+		let lane = outbound_lane::<T, I>(lane_id)?;
 
 		Ok(SendMessageArgs {
-			lane_id: lane,
+			lane_id,
+			lane,
 			payload: StoredMessagePayload::<T, I>::try_from(message.encode()).map_err(|_| {
 				Error::<T, I>::MessageRejectedByPallet(VerificationError::MessageTooLarge)
 			})?,
@@ -656,7 +670,7 @@ where
 
 	fn send_message(args: SendMessageArgs<T, I>) -> SendMessageArtifacts {
 		// save message in outbound storage and emit event
-		let mut lane = outbound_lane::<T, I>(args.lane_id);
+		let mut lane = args.lane;
 		let message_len = args.payload.len();
 		let nonce = lane.send_message(args.payload);
 
@@ -691,28 +705,35 @@ fn ensure_normal_operating_mode<T: Config<I>, I: 'static>() -> Result<(), Error<
 /// Creates new inbound lane object, backed by runtime storage.
 fn inbound_lane<T: Config<I>, I: 'static>(
 	lane_id: LaneId,
-) -> InboundLane<RuntimeInboundLaneStorage<T, I>> {
-	InboundLane::new(RuntimeInboundLaneStorage::from_lane_id(lane_id))
+) -> Result<InboundLane<RuntimeInboundLaneStorage<T, I>>, Error<T, I>> {
+	Ok(InboundLane::new(RuntimeInboundLaneStorage::from_lane_id(lane_id)?))
 }
 
 /// Creates new outbound lane object, backed by runtime storage.
 fn outbound_lane<T: Config<I>, I: 'static>(
 	lane_id: LaneId,
-) -> OutboundLane<RuntimeOutboundLaneStorage<T, I>> {
-	OutboundLane::new(RuntimeOutboundLaneStorage { lane_id, _phantom: Default::default() })
+) -> Result<OutboundLane<RuntimeOutboundLaneStorage<T, I>>, Error<T, I>> {
+	Ok(OutboundLane::new(RuntimeOutboundLaneStorage::from_lane_id(lane_id)?))
 }
 
 /// Runtime inbound lane storage.
 struct RuntimeInboundLaneStorage<T: Config<I>, I: 'static = ()> {
 	lane_id: LaneId,
-	cached_data: Option<InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>>,
+	cached_data: InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>,
 	_phantom: PhantomData<I>,
 }
 
 impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
-	/// Creates new runtime inbound lane storage.
-	fn from_lane_id(lane_id: LaneId) -> RuntimeInboundLaneStorage<T, I> {
-		RuntimeInboundLaneStorage { lane_id, cached_data: None, _phantom: Default::default() }
+	/// Creates new runtime inbound lane storage for given **existing** lane.
+	fn from_lane_id(lane_id: LaneId) -> Result<RuntimeInboundLaneStorage<T, I>, Error<T, I>> {
+		let cached_data =
+			InboundLanes::<T, I>::get(lane_id).ok_or(Error::<T, I>::UnknownInboundLane)?;
+		ensure!(cached_data.state == LaneState::Opened, Error::<T, I>::ClosedInboundLane);
+		Ok(RuntimeInboundLaneStorage {
+			lane_id,
+			cached_data: cached_data.into(),
+			_phantom: Default::default(),
+		})
 	}
 }
 
@@ -727,7 +748,7 @@ impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
 	/// we may subtract extra bytes from this component.
 	pub fn extra_proof_size_bytes(&mut self) -> u64 {
 		let max_encoded_len = StoredInboundLaneData::<T, I>::max_encoded_len();
-		let relayers_count = self.get_or_init_data().relayers.len();
+		let relayers_count = self.data().relayers.len();
 		let actual_encoded_len =
 			InboundLaneData::<AccountIdOf<BridgedChainOf<T, I>>>::encoded_size_hint(relayers_count)
 				.unwrap_or(usize::MAX);
@@ -750,28 +771,32 @@ impl<T: Config<I>, I: 'static> InboundLaneStorage for RuntimeInboundLaneStorage<
 		BridgedChainOf::<T, I>::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX
 	}
 
-	fn get_or_init_data(&mut self) -> InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>> {
-		match self.cached_data {
-			Some(ref data) => data.clone(),
-			None => {
-				let data: InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>> =
-					InboundLanes::<T, I>::get(self.lane_id).into();
-				self.cached_data = Some(data.clone());
-				data
-			},
-		}
+	fn data(&self) -> InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>> {
+		self.cached_data.clone()
 	}
 
 	fn set_data(&mut self, data: InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>) {
-		self.cached_data = Some(data.clone());
+		self.cached_data = data.clone();
 		InboundLanes::<T, I>::insert(self.lane_id, StoredInboundLaneData::<T, I>(data))
 	}
 }
 
 /// Runtime outbound lane storage.
+#[derive(Debug, PartialEq, Eq)]
 struct RuntimeOutboundLaneStorage<T, I = ()> {
 	lane_id: LaneId,
+	cached_data: OutboundLaneData,
 	_phantom: PhantomData<(T, I)>,
+}
+
+impl<T: Config<I>, I: 'static> RuntimeOutboundLaneStorage<T, I> {
+	/// Creates new runtime outbound lane storage for given **existing** lane.
+	fn from_lane_id(lane_id: LaneId) -> Result<Self, Error<T, I>> {
+		let cached_data =
+			OutboundLanes::<T, I>::get(lane_id).ok_or(Error::<T, I>::UnknownOutboundLane)?;
+		ensure!(cached_data.state == LaneState::Opened, Error::<T, I>::ClosedOutboundLane);
+		Ok(Self { lane_id, cached_data, _phantom: PhantomData })
+	}
 }
 
 impl<T: Config<I>, I: 'static> OutboundLaneStorage for RuntimeOutboundLaneStorage<T, I> {
@@ -782,10 +807,11 @@ impl<T: Config<I>, I: 'static> OutboundLaneStorage for RuntimeOutboundLaneStorag
 	}
 
 	fn data(&self) -> OutboundLaneData {
-		OutboundLanes::<T, I>::get(self.lane_id)
+		self.cached_data.clone()
 	}
 
 	fn set_data(&mut self, data: OutboundLaneData) {
+		self.cached_data = data.clone();
 		OutboundLanes::<T, I>::insert(self.lane_id, data)
 	}
 

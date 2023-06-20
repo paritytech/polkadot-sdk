@@ -35,7 +35,7 @@ use bp_messages::{
 		DeliveryPayments, DispatchMessage, DispatchMessageData, FromBridgedChainMessagesProof,
 		MessageDispatch,
 	},
-	ChainWithMessages, DeliveredMessages, InboundLaneData, LaneId, Message, MessageKey,
+	ChainWithMessages, DeliveredMessages, InboundLaneData, LaneId, LaneState, Message, MessageKey,
 	MessageNonce, OutboundLaneData, UnrewardedRelayer, UnrewardedRelayersState,
 };
 use bp_runtime::{
@@ -186,7 +186,6 @@ impl pallet_bridge_grandpa::Config for TestRuntime {
 parameter_types! {
 	pub const MaxMessagesToPruneAtOnce: u64 = 10;
 	pub const TestBridgedChainId: bp_runtime::ChainId = *b"test";
-	pub const ActiveOutboundLanes: &'static [LaneId] = &[TEST_LANE_ID, TEST_LANE_ID_2];
 }
 
 /// weights of messages pallet calls we use in tests.
@@ -199,8 +198,6 @@ impl Config for TestRuntime {
 	type ThisChain = ThisChain;
 	type BridgedChain = BridgedChain;
 	type BridgedHeaderChain = BridgedChainGrandpa;
-
-	type ActiveOutboundLanes = ActiveOutboundLanes;
 
 	type OutboundPayload = TestPayload;
 
@@ -269,11 +266,11 @@ pub const TEST_RELAYER_C: AccountId = 102;
 /// Lane that we're using in tests.
 pub const TEST_LANE_ID: LaneId = LaneId([0, 0, 0, 1]);
 
-/// Secondary lane that we're using in tests.
-pub const TEST_LANE_ID_2: LaneId = LaneId([0, 0, 0, 2]);
+/// Lane that is completely unknown to our runtime.
+pub const UNKNOWN_LANE_ID: LaneId = LaneId([0, 0, 0, 2]);
 
-/// Inactive outbound lane.
-pub const TEST_LANE_ID_3: LaneId = LaneId([0, 0, 0, 3]);
+/// Lane that is registered, but it is closed.
+pub const CLOSED_LANE_ID: LaneId = LaneId([0, 0, 0, 3]);
 
 /// Regular message payload.
 pub const REGULAR_PAYLOAD: TestPayload = message_payload(0, 50);
@@ -439,7 +436,7 @@ pub fn unrewarded_relayer(
 
 /// Returns unrewarded relayers state at given lane.
 pub fn inbound_unrewarded_relayers_state(lane: bp_messages::LaneId) -> UnrewardedRelayersState {
-	let inbound_lane_data = crate::InboundLanes::<TestRuntime, ()>::get(lane).0;
+	let inbound_lane_data = crate::InboundLanes::<TestRuntime, ()>::get(lane).unwrap().0;
 	UnrewardedRelayersState::from(&inbound_lane_data)
 }
 
@@ -454,7 +451,19 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 /// Run pallet test.
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
-	new_test_ext().execute_with(test)
+	new_test_ext().execute_with(|| {
+		crate::InboundLanes::<TestRuntime, ()>::insert(TEST_LANE_ID, InboundLaneData::opened());
+		crate::OutboundLanes::<TestRuntime, ()>::insert(TEST_LANE_ID, OutboundLaneData::opened());
+		crate::InboundLanes::<TestRuntime, ()>::insert(
+			CLOSED_LANE_ID,
+			InboundLaneData { state: LaneState::Closed, ..Default::default() },
+		);
+		crate::OutboundLanes::<TestRuntime, ()>::insert(
+			CLOSED_LANE_ID,
+			OutboundLaneData { state: LaneState::Closed, ..Default::default() },
+		);
+		test()
+	})
 }
 
 /// Prepare valid storage proof for given messages and insert appropriate header to the
@@ -471,7 +480,7 @@ pub fn prepare_messages_proof(
 	let nonces_start = messages.first().unwrap().key.nonce;
 	let nonces_end = messages.last().unwrap().key.nonce;
 	let (storage_root, storage) = prepare_messages_storage_proof::<BridgedChain, ThisChain>(
-		TEST_LANE_ID,
+		lane,
 		nonces_start..=nonces_end,
 		outbound_lane_data,
 		UnverifiedStorageProofParams::default(),

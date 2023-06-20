@@ -339,7 +339,7 @@ mod tests {
 	use super::*;
 	use crate::mock::*;
 
-	use bp_messages::OutboundLaneData;
+	use bp_messages::{LaneState, OutboundLaneData};
 	use frame_support::parameter_types;
 	use pallet_bridge_messages::OutboundLanes;
 
@@ -397,6 +397,7 @@ mod tests {
 		OutboundLanes::<TestRuntime, ()>::insert(
 			TEST_LANE_ID,
 			OutboundLaneData {
+				state: LaneState::Opened,
 				oldest_unpruned_nonce: 0,
 				latest_received_nonce: 0,
 				latest_generated_nonce,
