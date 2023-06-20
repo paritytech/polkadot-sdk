@@ -13,7 +13,7 @@ On-going calls to `chainHead_unstable_body`, `chainHead_unstable_call` and `chai
 
 Has no effect if the `followSubscription` is invalid or stale.
 
-If this function returns an error, then no block must have been unpinned. Implementations are expected to start unpinning the blocks only it has made sure that all the blocks could be unpinned.
+If this function returns an error, then no block must have been unpinned. Implementations are expected to start unpinning the blocks only after it has made sure that all the blocks could be unpinned.
 
 ## Possible errors
 
