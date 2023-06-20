@@ -943,7 +943,7 @@ pub(crate) mod tests {
 	use bp_header_chain::StoredHeaderDataBuilder;
 	use bp_messages::{
 		source_chain::FromBridgedChainMessagesDeliveryProof,
-		target_chain::FromBridgedChainMessagesProof, DeliveredMessages, InboundLaneData,
+		target_chain::FromBridgedChainMessagesProof, DeliveredMessages, InboundLaneData, LaneState,
 		MessageNonce, MessagesOperatingMode, OutboundLaneData, UnrewardedRelayer,
 		UnrewardedRelayersState,
 	};
@@ -1149,6 +1149,7 @@ pub(crate) mod tests {
 				nonces_start: pallet_bridge_messages::InboundLanes::<TestRuntime>::get(
 					TEST_LANE_ID,
 				)
+				.unwrap()
 				.last_delivered_nonce() +
 					1,
 				nonces_end: best_message,
@@ -2884,6 +2885,7 @@ pub(crate) mod tests {
 			// allow empty message delivery transactions
 			let lane_id = TestLaneId::get();
 			let in_lane_data = InboundLaneData {
+				state: LaneState::Opened,
 				last_confirmed_nonce: 0,
 				relayers: vec![UnrewardedRelayer {
 					relayer: relayer_account_at_bridged_chain(),

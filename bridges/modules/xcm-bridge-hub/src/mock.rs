@@ -90,7 +90,6 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = TestMessagesWeights;
 
-	type ActiveOutboundLanes = ActiveOutboundLanes;
 	type OutboundPayload = Vec<u8>;
 	type InboundPayload = Vec<u8>;
 	type DeliveryPayments = ();

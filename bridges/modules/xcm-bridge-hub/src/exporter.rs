@@ -77,7 +77,7 @@ where
 
 		let bridge_message = MessagesPallet::<T, I>::validate_message(sender_and_lane.lane, &blob)
 			.map_err(|e| {
-				log::debug!(
+				log::error!(
 					target: LOG_TARGET,
 					"XCM message {:?} cannot be exported because of bridge error {:?} on bridge {:?}",
 					id,
@@ -131,6 +131,7 @@ impl HaulBlob for DummyHaulBlob {
 mod tests {
 	use super::*;
 	use crate::mock::*;
+	use bp_messages::{LaneState, OutboundLaneData};
 	use bp_runtime::RangeInclusiveExt;
 	use frame_support::assert_ok;
 	use xcm_executor::traits::export_xcm;
@@ -146,6 +147,10 @@ mod tests {
 	#[test]
 	fn export_works() {
 		run_test(|| {
+			pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(
+				TEST_LANE_ID,
+				OutboundLaneData { state: LaneState::Opened, ..Default::default() },
+			);
 			assert_ok!(export_xcm::<XcmOverBridge>(
 				BridgedRelayNetwork::get(),
 				0,
@@ -188,6 +193,11 @@ mod tests {
 		run_test(|| {
 			let expected_lane_id = TEST_LANE_ID;
 
+			pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(
+				expected_lane_id,
+				OutboundLaneData { state: LaneState::Opened, ..Default::default() },
+			);
+
 			assert_eq!(
 				XcmOverBridge::validate(
 					BridgedRelayNetwork::get(),
@@ -212,11 +222,18 @@ mod tests {
 			let dest = Location::new(2, BridgedUniversalDestination::get());
 			let expected_lane_id = TEST_LANE_ID;
 
+			// open bridge
+			pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(
+				expected_lane_id,
+				OutboundLaneData { state: LaneState::Opened, ..Default::default() },
+			);
+
 			// check before - no messages
 			assert_eq!(
 				pallet_bridge_messages::Pallet::<TestRuntime, ()>::outbound_lane_data(
 					expected_lane_id
 				)
+				.unwrap()
 				.queued_messages()
 				.saturating_len(),
 				0
@@ -231,6 +248,7 @@ mod tests {
 				pallet_bridge_messages::Pallet::<TestRuntime, ()>::outbound_lane_data(
 					expected_lane_id
 				)
+				.unwrap()
 				.queued_messages()
 				.saturating_len(),
 				1

@@ -111,7 +111,6 @@ crate::generate_bridge_reject_obsolete_headers_and_messages! {
 }
 
 parameter_types! {
-	pub const ActiveOutboundLanes: &'static [LaneId] = &[TEST_LANE_ID];
 	pub const BridgedParasPalletName: &'static str = "Paras";
 	pub const ExistentialDeposit: ThisChainBalance = 500;
 	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight { read: 1, write: 2 };
@@ -185,7 +184,6 @@ impl pallet_bridge_parachains::Config for TestRuntime {
 impl pallet_bridge_messages::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<TestRuntime>;
-	type ActiveOutboundLanes = ActiveOutboundLanes;
 
 	type OutboundPayload = XcmAsPlainPayload;
 
