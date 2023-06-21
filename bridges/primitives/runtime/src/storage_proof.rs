@@ -25,10 +25,9 @@ use sp_trie::{
 	TrieDBBuilder, TrieHash,
 };
 
-use codec::{Codec, Decode, Encode};
+use codec::{Decode, Encode};
 use hash_db::Hasher;
 use scale_info::TypeInfo;
-use sp_state_machine::TrieBackend;
 use trie_db::{DBValue, Recorder, Trie};
 
 use crate::Size;
@@ -102,12 +101,13 @@ impl UnverifiedStorageProof {
 		entries: &[(RawStorageKey, Option<DBValue>)],
 	) -> Result<(H::Out, UnverifiedStorageProof), StorageProofError>
 	where
-		H::Out: Codec,
+		H::Out: codec::Codec,
 	{
 		let keys: Vec<_> = entries.iter().map(|(key, _)| key.clone()).collect();
 		let entries: Vec<_> =
 			entries.iter().cloned().map(|(key, val)| (None, vec![(key, val)])).collect();
-		let backend = TrieBackend::<PrefixedMemoryDB<H>, H>::from((entries, state_version));
+		let backend =
+			sp_state_machine::TrieBackend::<PrefixedMemoryDB<H>, H>::from((entries, state_version));
 		let root = *backend.root();
 
 		Ok((root, UnverifiedStorageProof::try_from_db(backend.backend_storage(), root, keys)?))
