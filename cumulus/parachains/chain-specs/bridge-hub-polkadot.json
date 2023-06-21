@@ -12,7 +12,9 @@
     "/dns/polkadot-bridge-hub-connect-b-0.polkadot.io/tcp/443/wss/p2p/12D3KooWCwGKxjpJXnx1mwXKvaxGQm769EM3b6Pg5vbU33wbhsNw",
     "/dns/polkadot-bridge-hub-connect-b-1.polkadot.io/tcp/443/wss/p2p/12D3KooWLiSEdhriJUPdZKFtAjZrQncxN2ssEoDKVrt5mGM4Qu4J",
     "/dns/polkadot-bridge-hub-boot-ng.dwellir.com/tcp/30339/p2p/12D3KooWPZ38PL3PhRVcUVYDNn7nRcZF8MykmWWLBKeDV2yna1vV",
-    "/dns/polkadot-bridge-hub-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWPZ38PL3PhRVcUVYDNn7nRcZF8MykmWWLBKeDV2yna1vV"
+    "/dns/polkadot-bridge-hub-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWPZ38PL3PhRVcUVYDNn7nRcZF8MykmWWLBKeDV2yna1vV",
+    "/dns/boot-cr.gatotech.network/tcp/33130/p2p/12D3KooWCnFzfEdd7MwUNrrDv66FuS2DM5MGuiaB4y48XS7qNjF6",
+    "/dns/boot-cr.gatotech.network/tcp/35130/wss/p2p/12D3KooWCnFzfEdd7MwUNrrDv66FuS2DM5MGuiaB4y48XS7qNjF6"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
