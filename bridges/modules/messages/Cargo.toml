@@ -30,6 +30,7 @@ sp-std = { workspace = true }
 sp-trie = { optional = true, workspace = true }
 
 [dev-dependencies]
+bp-runtime = { features = ["test-helpers"], workspace = true }
 bp-test-utils = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-bridge-grandpa = { workspace = true }
@@ -68,4 +69,5 @@ try-runtime = [
 ]
 test-helpers = [
 	"sp-trie",
+	"bp-runtime/test-helpers"
 ]
