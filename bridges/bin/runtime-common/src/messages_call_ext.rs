@@ -361,11 +361,13 @@ mod tests {
 	};
 	use sp_std::ops::RangeInclusive;
 
-	const TEST_LANE_ID: LaneId = LaneId([0, 0, 0, 0]);
+	fn test_lane_id() -> LaneId {
+		LaneId::new(1, 2)
+	}
 
 	fn fill_unrewarded_relayers() {
 		let mut inbound_lane_state =
-			pallet_bridge_messages::InboundLanes::<TestRuntime>::get(TEST_LANE_ID).unwrap();
+			pallet_bridge_messages::InboundLanes::<TestRuntime>::get(test_lane_id()).unwrap();
 		for n in 0..BridgedUnderlyingChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX {
 			inbound_lane_state.relayers.push_back(UnrewardedRelayer {
 				relayer: Default::default(),
@@ -373,14 +375,14 @@ mod tests {
 			});
 		}
 		pallet_bridge_messages::InboundLanes::<TestRuntime>::insert(
-			TEST_LANE_ID,
+			test_lane_id(),
 			inbound_lane_state,
 		);
 	}
 
 	fn fill_unrewarded_messages() {
 		let mut inbound_lane_state =
-			pallet_bridge_messages::InboundLanes::<TestRuntime>::get(TEST_LANE_ID).unwrap();
+			pallet_bridge_messages::InboundLanes::<TestRuntime>::get(test_lane_id()).unwrap();
 		inbound_lane_state.relayers.push_back(UnrewardedRelayer {
 			relayer: Default::default(),
 			messages: DeliveredMessages {
@@ -389,14 +391,14 @@ mod tests {
 			},
 		});
 		pallet_bridge_messages::InboundLanes::<TestRuntime>::insert(
-			TEST_LANE_ID,
+			test_lane_id(),
 			inbound_lane_state,
 		);
 	}
 
 	fn deliver_message_10() {
 		pallet_bridge_messages::InboundLanes::<TestRuntime>::insert(
-			TEST_LANE_ID,
+			test_lane_id(),
 			bp_messages::InboundLaneData {
 				state: LaneState::Opened,
 				relayers: Default::default(),
@@ -418,7 +420,7 @@ mod tests {
 				proof: Box::new(FromBridgedChainMessagesProof {
 					bridged_header_hash: Default::default(),
 					storage: Default::default(),
-					lane: TEST_LANE_ID,
+					lane: test_lane_id(),
 					nonces_start,
 					nonces_end,
 				}),
@@ -431,11 +433,11 @@ mod tests {
 	fn run_test<T>(test: impl Fn() -> T) -> T {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
 			pallet_bridge_messages::InboundLanes::<TestRuntime>::insert(
-				TEST_LANE_ID,
+				test_lane_id(),
 				InboundLaneData::opened(),
 			);
 			pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(
-				TEST_LANE_ID,
+				test_lane_id(),
 				OutboundLaneData::opened(),
 			);
 			test()
@@ -537,7 +539,7 @@ mod tests {
 
 	fn confirm_message_10() {
 		pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(
-			TEST_LANE_ID,
+			test_lane_id(),
 			bp_messages::OutboundLaneData {
 				state: LaneState::Opened,
 				oldest_unpruned_nonce: 0,
@@ -553,7 +555,7 @@ mod tests {
 				proof: FromBridgedChainMessagesDeliveryProof {
 					bridged_header_hash: Default::default(),
 					storage_proof: Default::default(),
-					lane: TEST_LANE_ID,
+					lane: test_lane_id(),
 				},
 				relayers_state: UnrewardedRelayersState {
 					last_delivered_nonce,
@@ -611,7 +613,7 @@ mod tests {
 		CallHelper::<TestRuntime, ()>::was_successful(&CallInfo::ReceiveMessagesProof(
 			ReceiveMessagesProofInfo {
 				base: BaseMessagesProofInfo {
-					lane_id: TEST_LANE_ID,
+					lane_id: test_lane_id(),
 					bundled_range,
 					best_stored_nonce: 0, // doesn't matter for `was_successful`
 				},
@@ -671,7 +673,7 @@ mod tests {
 	fn was_message_confirmation_successful(bundled_range: RangeInclusive<MessageNonce>) -> bool {
 		CallHelper::<TestRuntime, ()>::was_successful(&CallInfo::ReceiveMessagesDeliveryProof(
 			ReceiveMessagesDeliveryProofInfo(BaseMessagesProofInfo {
-				lane_id: TEST_LANE_ID,
+				lane_id: test_lane_id(),
 				bundled_range,
 				best_stored_nonce: 0, // doesn't matter for `was_successful`
 			}),

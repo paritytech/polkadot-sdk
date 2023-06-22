@@ -1866,6 +1866,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core",
+ "sp-io",
  "sp-std 14.0.0",
 ]
 
@@ -2378,6 +2379,7 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "scale-info",
+ "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
@@ -21437,6 +21439,7 @@ dependencies = [
  "rbtag",
  "relay-substrate-client",
  "relay-utils",
+ "rustc-hex",
  "scale-info",
  "sp-consensus-grandpa",
  "sp-core",
