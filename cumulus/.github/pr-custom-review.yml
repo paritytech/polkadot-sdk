@@ -7,7 +7,7 @@ rules:
   - name: Runtime files
     check_type: changed_files
     condition: ^parachains/runtimes/assets/(asset-hub-kusama|asset-hub-polkadot)/src/[^/]+\.rs$|^parachains/runtimes/bridge-hubs/(bridge-hub-kusama|bridge-hub-polkadot)/src/[^/]+\.rs$|^parachains/runtimes/collectives/collectives-polkadot/src/[^/]+\.rs$|^parachains/common/src/[^/]+\.rs$
-    all_distinct:
+    all:
       - min_approvals: 1
         teams:
           - cumulus-locks-review
