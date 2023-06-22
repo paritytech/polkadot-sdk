@@ -29,7 +29,7 @@ use bp_messages::{
 	InboundLaneData, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer,
 	UnrewardedRelayersState,
 };
-use bp_runtime::{AccountIdOf, HashOf, StorageProofSize};
+use bp_runtime::{AccountIdOf, HashOf, UnverifiedStorageProofParams};
 use codec::Decode;
 use frame_benchmarking::{account, v2::*};
 use frame_support::weights::Weight;
@@ -57,7 +57,7 @@ pub struct MessageProofParams {
 	/// return `true` from the `is_message_successfully_dispatched`.
 	pub is_successful_dispatch_expected: bool,
 	/// Proof size requirements.
-	pub size: StorageProofSize,
+	pub proof_params: UnverifiedStorageProofParams,
 }
 
 /// Benchmark-specific message delivery proof parameters.
@@ -68,7 +68,7 @@ pub struct MessageDeliveryProofParams<ThisChainAccountId> {
 	/// The proof needs to include this inbound lane data.
 	pub inbound_lane_data: InboundLaneData<ThisChainAccountId>,
 	/// Proof size requirements.
-	pub size: StorageProofSize,
+	pub proof_params: UnverifiedStorageProofParams,
 }
 
 /// Trait that must be implemented by runtime.
@@ -207,7 +207,9 @@ mod benchmarks {
 			message_nonces: setup.nonces(),
 			outbound_lane_data: None,
 			is_successful_dispatch_expected: false,
-			size: StorageProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
+			proof_params: UnverifiedStorageProofParams::from_db_size(
+				EXPECTED_DEFAULT_MESSAGE_LENGTH,
+			),
 		});
 
 		#[extrinsic_call]
@@ -238,7 +240,9 @@ mod benchmarks {
 			message_nonces: setup.nonces(),
 			outbound_lane_data: None,
 			is_successful_dispatch_expected: false,
-			size: StorageProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
+			proof_params: UnverifiedStorageProofParams::from_db_size(
+				EXPECTED_DEFAULT_MESSAGE_LENGTH,
+			),
 		});
 
 		#[extrinsic_call]
@@ -278,7 +282,9 @@ mod benchmarks {
 				latest_generated_nonce: setup.last_nonce(),
 			}),
 			is_successful_dispatch_expected: false,
-			size: StorageProofSize::Minimal(EXPECTED_DEFAULT_MESSAGE_LENGTH),
+			proof_params: UnverifiedStorageProofParams::from_db_size(
+				EXPECTED_DEFAULT_MESSAGE_LENGTH,
+			),
 		});
 
 		#[extrinsic_call]
@@ -302,7 +308,7 @@ mod benchmarks {
 	// * message is dispatched (reminder: dispatch weight should be minimal);
 	// * message requires all heavy checks done by dispatcher.
 	#[benchmark]
-	fn receive_single_message_n_bytes_proof(
+	fn receive_single_n_bytes_message_proof(
 		/// Proof size in KB
 		n: Linear<1, { 16 * 1024 }>,
 	) {
@@ -313,7 +319,7 @@ mod benchmarks {
 			message_nonces: setup.nonces(),
 			outbound_lane_data: None,
 			is_successful_dispatch_expected: false,
-			size: StorageProofSize::Minimal(n),
+			proof_params: UnverifiedStorageProofParams::from_db_size(n),
 		});
 
 		#[extrinsic_call]
@@ -358,7 +364,7 @@ mod benchmarks {
 				.collect(),
 				last_confirmed_nonce: 0,
 			},
-			size: StorageProofSize::Minimal(0),
+			proof_params: UnverifiedStorageProofParams::default(),
 		});
 
 		#[extrinsic_call]
@@ -406,7 +412,7 @@ mod benchmarks {
 				.collect(),
 				last_confirmed_nonce: 0,
 			},
-			size: StorageProofSize::Minimal(0),
+			proof_params: UnverifiedStorageProofParams::default(),
 		});
 
 		#[extrinsic_call]
@@ -459,7 +465,7 @@ mod benchmarks {
 				.collect(),
 				last_confirmed_nonce: 0,
 			},
-			size: StorageProofSize::Minimal(0),
+			proof_params: UnverifiedStorageProofParams::default(),
 		});
 
 		#[extrinsic_call]
@@ -490,7 +496,7 @@ mod benchmarks {
 	// * message requires all heavy checks done by dispatcher.
 	// #[benchmark(extra)]
 	#[benchmark]
-	fn receive_single_message_n_bytes_proof_with_dispatch(
+	fn receive_single_n_bytes_message_proof_with_dispatch(
 		/// Proof size in KB
 		n: Linear<1, { 16 * 1024 }>,
 	) {
@@ -501,7 +507,7 @@ mod benchmarks {
 			message_nonces: setup.nonces(),
 			outbound_lane_data: None,
 			is_successful_dispatch_expected: true,
-			size: StorageProofSize::Minimal(n),
+			proof_params: UnverifiedStorageProofParams::from_db_size(n),
 		});
 
 		#[extrinsic_call]

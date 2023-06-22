@@ -110,7 +110,7 @@ impl pallet_bridge_messages::WeightInfo for TestMessagesWeights {
 	fn receive_single_message_proof_with_outbound_lane_state() -> Weight {
 		Weight::zero()
 	}
-	fn receive_single_message_n_bytes_proof(_: u32) -> Weight {
+	fn receive_single_n_bytes_message_proof(_: u32) -> Weight {
 		Weight::zero()
 	}
 	fn receive_delivery_proof_for_single_message() -> Weight {
@@ -122,8 +122,7 @@ impl pallet_bridge_messages::WeightInfo for TestMessagesWeights {
 	fn receive_delivery_proof_for_two_messages_by_two_relayers() -> Weight {
 		Weight::zero()
 	}
-
-	fn receive_single_message_n_bytes_proof_with_dispatch(_: u32) -> Weight {
+	fn receive_single_n_bytes_message_proof_with_dispatch(_: u32) -> Weight {
 		Weight::zero()
 	}
 }

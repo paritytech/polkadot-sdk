@@ -24,7 +24,7 @@ use bp_messages::{
 	target_chain::FromBridgedChainMessagesProof, MessagePayload,
 };
 use bp_polkadot_core::parachains::ParaHash;
-use bp_runtime::{AccountIdOf, Chain, HashOf, Parachain, StorageProofSize};
+use bp_runtime::{AccountIdOf, Chain, HashOf, Parachain};
 use codec::Encode;
 use frame_support::weights::Weight;
 use pallet_bridge_messages::{
@@ -44,11 +44,7 @@ fn prepare_inbound_message(
 	params: &MessageProofParams,
 	successful_dispatch_message_generator: impl Fn(usize) -> MessagePayload,
 ) -> MessagePayload {
-	// we only care about **this** message size when message proof needs to be `Minimal`
-	let expected_size = match params.size {
-		StorageProofSize::Minimal(size) => size as usize,
-		_ => 0,
-	};
+	let expected_size = params.proof_params.db_size.unwrap_or(0) as usize;
 
 	// if we don't need a correct message, then we may just return some random blob
 	if !params.is_successful_dispatch_expected {
@@ -93,7 +89,7 @@ where
 			params.lane,
 			params.message_nonces.clone(),
 			params.outbound_lane_data.clone(),
-			params.size,
+			params.proof_params,
 			|_| prepare_inbound_message(&params, &message_generator),
 			encode_all_messages,
 			encode_lane_data,
@@ -140,7 +136,7 @@ where
 			params.lane,
 			params.message_nonces.clone(),
 			params.outbound_lane_data.clone(),
-			params.size,
+			params.proof_params,
 			|_| prepare_inbound_message(&params, &message_generator),
 			encode_all_messages,
 			encode_lane_data,
@@ -186,7 +182,7 @@ where
 	let (state_root, storage_proof) = prepare_message_delivery_storage_proof::<
 		BridgedChainOf<R, MI>,
 		ThisChainOf<R, MI>,
-	>(params.lane, params.inbound_lane_data, params.size);
+	>(params.lane, params.inbound_lane_data, params.proof_params);
 
 	// update runtime storage
 	let (_, bridged_header_hash) = insert_header_to_grandpa_pallet::<R, FI>(state_root);
@@ -217,7 +213,7 @@ where
 	let (state_root, storage_proof) = prepare_message_delivery_storage_proof::<
 		BridgedChainOf<R, MI>,
 		ThisChainOf<R, MI>,
-	>(params.lane, params.inbound_lane_data, params.size);
+	>(params.lane, params.inbound_lane_data, params.proof_params);
 
 	// update runtime storage
 	let (_, bridged_header_hash) =

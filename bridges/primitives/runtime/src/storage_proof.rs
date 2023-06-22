@@ -252,29 +252,31 @@ impl VerifiedStorageProof {
 	}
 }
 
-/// Storage proof size requirements.
+/// Storage values size requirements.
 ///
 /// This is currently used by benchmarks when generating storage proofs.
 #[cfg(feature = "test-helpers")]
-#[derive(Clone, Copy, Debug)]
-pub enum StorageProofSize {
-	/// The storage proof is expected to be minimal. If value size may be changed, then it is
-	/// expected to have given size.
-	Minimal(u32),
-	/// The storage proof is expected to have at least given size and grow by increasing value that
-	/// is stored in the trie.
-	HasLargeLeaf(u32),
+#[derive(Clone, Copy, Debug, Default)]
+pub struct UnverifiedStorageProofParams {
+	#[allow(missing_docs)]
+	pub db_size: Option<u32>,
+}
+
+#[cfg(feature = "test-helpers")]
+impl UnverifiedStorageProofParams {
+	#[allow(missing_docs)]
+	pub fn from_db_size(db_size: u32) -> Self {
+		Self { db_size: Some(db_size) }
+	}
 }
 
 /// Add extra data to the storage value so that it'll be of given size.
 #[cfg(feature = "test-helpers")]
-pub fn grow_storage_value(mut value: Vec<u8>, size: StorageProofSize) -> Vec<u8> {
-	match size {
-		StorageProofSize::Minimal(_) => (),
-		StorageProofSize::HasLargeLeaf(size) if size as usize > value.len() => {
-			value.extend(sp_std::iter::repeat(42u8).take(size as usize - value.len()));
-		},
-		StorageProofSize::HasLargeLeaf(_) => (),
+pub fn grow_storage_value(mut value: Vec<u8>, params: &UnverifiedStorageProofParams) -> Vec<u8> {
+	if let Some(db_size) = params.db_size {
+		if db_size as usize > value.len() {
+			value.extend(sp_std::iter::repeat(42u8).take(db_size as usize - value.len()));
+		}
 	}
 	value
 }

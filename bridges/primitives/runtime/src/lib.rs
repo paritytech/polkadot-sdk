@@ -41,7 +41,7 @@ pub use chain::{
 pub use frame_support::storage::storage_prefix as storage_value_final_key;
 use num_traits::{CheckedAdd, CheckedSub, One, SaturatingAdd, Zero};
 #[cfg(feature = "test-helpers")]
-pub use storage_proof::{grow_storage_proof, grow_storage_value, StorageProofSize};
+pub use storage_proof::{grow_storage_proof, grow_storage_value, UnverifiedStorageProofParams};
 pub use storage_proof::{StorageProofError, UnverifiedStorageProof, VerifiedStorageProof};
 pub use storage_types::BoundedStorageValue;
 
