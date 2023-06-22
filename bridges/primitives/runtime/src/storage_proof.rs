@@ -19,7 +19,7 @@
 use frame_support::PalletError;
 use sp_core::{storage::TrackedStorageKey, RuntimeDebug};
 use sp_runtime::{SaturatedConversion, StateVersion};
-use sp_std::{collections::btree_set::BTreeSet, default::Default, vec, vec::Vec};
+use sp_std::{default::Default, vec, vec::Vec};
 use sp_trie::{
 	generate_trie_proof, verify_trie_proof, LayoutV0, LayoutV1, PrefixedMemoryDB, StorageProof,
 	TrieDBBuilder, TrieHash,
@@ -28,7 +28,7 @@ use sp_trie::{
 use codec::{Decode, Encode};
 use hash_db::Hasher;
 use scale_info::TypeInfo;
-use trie_db::{DBValue, Recorder, Trie};
+use trie_db::{DBValue, Trie};
 #[cfg(feature = "test-helpers")]
 use trie_db::{TrieConfiguration, TrieDBMut};
 
@@ -127,6 +127,9 @@ impl UnverifiedStorageProof {
 	where
 		DB: hash_db::HashDBRef<H, DBValue>,
 	{
+		use sp_std::collections::btree_set::BTreeSet;
+		use trie_db::Recorder;
+
 		let mut recorder = Recorder::<LayoutV1<H>>::new();
 		let trie = TrieDBBuilder::<LayoutV1<H>>::new(db, &root)
 			.with_recorder(&mut recorder)
