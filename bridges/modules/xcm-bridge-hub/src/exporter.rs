@@ -148,7 +148,7 @@ mod tests {
 		run_test(|| {
 			sp_tracing::try_init_simple();
 			pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(
-				TEST_LANE_ID,
+				test_lane_id(),
 				OutboundLaneData { state: LaneState::Opened, ..Default::default() },
 			);
 			assert_ok!(export_xcm::<XcmOverBridge>(
@@ -192,7 +192,7 @@ mod tests {
 	fn exporter_computes_correct_lane_id() {
 		run_test(|| {
 			sp_tracing::try_init_simple();
-			let expected_lane_id = TEST_LANE_ID;
+			let expected_lane_id = test_lane_id();
 
 			pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(
 				expected_lane_id,

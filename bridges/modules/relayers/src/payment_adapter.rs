@@ -117,16 +117,16 @@ mod tests {
 			register_relayers_rewards::<TestRuntime>(
 				&RELAYER_2,
 				relayers_rewards(),
-				TEST_REWARDS_ACCOUNT_PARAMS,
+				test_reward_account_param(),
 				50,
 			);
 
 			assert_eq!(
-				RelayerRewards::<TestRuntime>::get(RELAYER_1, TEST_REWARDS_ACCOUNT_PARAMS),
+				RelayerRewards::<TestRuntime>::get(RELAYER_1, test_reward_account_param()),
 				Some(100)
 			);
 			assert_eq!(
-				RelayerRewards::<TestRuntime>::get(RELAYER_2, TEST_REWARDS_ACCOUNT_PARAMS),
+				RelayerRewards::<TestRuntime>::get(RELAYER_2, test_reward_account_param()),
 				Some(150)
 			);
 		});
@@ -138,20 +138,20 @@ mod tests {
 			register_relayers_rewards::<TestRuntime>(
 				&RELAYER_3,
 				relayers_rewards(),
-				TEST_REWARDS_ACCOUNT_PARAMS,
+				test_reward_account_param(),
 				50,
 			);
 
 			assert_eq!(
-				RelayerRewards::<TestRuntime>::get(RELAYER_1, TEST_REWARDS_ACCOUNT_PARAMS),
+				RelayerRewards::<TestRuntime>::get(RELAYER_1, test_reward_account_param()),
 				Some(100)
 			);
 			assert_eq!(
-				RelayerRewards::<TestRuntime>::get(RELAYER_2, TEST_REWARDS_ACCOUNT_PARAMS),
+				RelayerRewards::<TestRuntime>::get(RELAYER_2, test_reward_account_param()),
 				Some(150)
 			);
 			assert_eq!(
-				RelayerRewards::<TestRuntime>::get(RELAYER_3, TEST_REWARDS_ACCOUNT_PARAMS),
+				RelayerRewards::<TestRuntime>::get(RELAYER_3, test_reward_account_param()),
 				None
 			);
 		});

@@ -22,6 +22,7 @@ num-traits = { workspace = true, default-features = true }
 rbtag = { workspace = true }
 structopt = { workspace = true }
 strum = { features = ["derive"], workspace = true, default-features = true }
+rustc-hex = { workspace = true }
 thiserror = { workspace = true }
 
 # Bridge dependencies

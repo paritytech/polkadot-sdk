@@ -74,10 +74,8 @@ pub struct MessageDeliveryProofParams<ThisChainAccountId> {
 /// Trait that must be implemented by runtime.
 pub trait Config<I: 'static>: crate::Config<I> {
 	/// Lane id to use in benchmarks.
-	///
-	/// By default, lane 00000000 is used.
 	fn bench_lane_id() -> LaneId {
-		LaneId([0, 0, 0, 0])
+		LaneId::new(1, 2)
 	}
 
 	/// Return id of relayer account at the bridged chain.

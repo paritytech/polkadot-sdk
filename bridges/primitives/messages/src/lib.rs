@@ -31,7 +31,8 @@ pub use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use source_chain::RelayersRewards;
-use sp_core::{RuntimeDebug, TypeId};
+use sp_core::{RuntimeDebug, TypeId, H256};
+use sp_io::hashing::blake2_256;
 use sp_std::{collections::vec_deque::VecDeque, ops::RangeInclusive, prelude::*};
 
 pub mod source_chain;
@@ -165,7 +166,24 @@ impl OperatingMode for MessagesOperatingMode {
 	}
 }
 
-/// Lane id which implements `TypeId`.
+/// Bridge lane identifier.
+///
+/// Lane connects two endpoints at both sides of the bridge. We assume that every endpoint
+/// has its own unique identifier. We want lane identifiers to be the same on the both sides
+/// of the bridge (and naturally unique across global consensus if endpoints have unique
+/// identifiers). So lane id is the hash (`blake2_256`) of **ordered** encoded locations
+/// concatenation (separated by some binary data). I.e.:
+///
+/// ```nocompile
+/// let endpoint1 = X2(GlobalConsensus(NetworkId::Rococo), Parachain(42));
+/// let endpoint2 = X2(GlobalConsensus(NetworkId::Wococo), Parachain(777));
+///
+/// let final_lane_key = if endpoint1 < endpoint2 {
+///     (endpoint1, VALUES_SEPARATOR, endpoint2)
+/// } else {
+///     (endpoint2, VALUES_SEPARATOR, endpoint1)
+/// }.using_encoded(blake2_256);
+/// ```
 #[derive(
 	Clone,
 	Copy,
@@ -181,7 +199,39 @@ impl OperatingMode for MessagesOperatingMode {
 	Serialize,
 	Deserialize,
 )]
-pub struct LaneId(pub [u8; 4]);
+pub struct LaneId(H256);
+
+impl LaneId {
+	/// Create lane identifier from two locations.
+	pub fn new<T: Ord + Encode>(endpoint1: T, endpoint2: T) -> Self {
+		const VALUES_SEPARATOR: [u8; 31] = *b"bridges-lane-id-value-separator";
+
+		LaneId(
+			if endpoint1 < endpoint2 {
+				(endpoint1, VALUES_SEPARATOR, endpoint2)
+			} else {
+				(endpoint2, VALUES_SEPARATOR, endpoint1)
+			}
+			.using_encoded(blake2_256)
+			.into(),
+		)
+	}
+
+	/// Create lane identifier from given hash.
+	///
+	/// There's no `From<H256>` implementation for the `LaneId`, because using this conversion
+	/// in a wrong way (i.e. computing hash of endpoints manually) may lead to issues. So we
+	/// want the call to be explicit.
+	pub const fn from_inner(hash: H256) -> Self {
+		LaneId(hash)
+	}
+}
+
+impl core::fmt::Display for LaneId {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+		self.0.fmt(fmt)
+	}
+}
 
 impl core::fmt::Debug for LaneId {
 	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
@@ -189,8 +239,8 @@ impl core::fmt::Debug for LaneId {
 	}
 }
 
-impl AsRef<[u8]> for LaneId {
-	fn as_ref(&self) -> &[u8] {
+impl AsRef<H256> for LaneId {
+	fn as_ref(&self) -> &H256 {
 		&self.0
 	}
 }
@@ -380,7 +430,7 @@ pub struct UnrewardedRelayer<RelayerId> {
 }
 
 /// Received messages with their dispatch result.
-#[derive(Clone, Default, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
+#[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
 pub struct ReceivedMessages<DispatchLevelResult> {
 	/// Id of the lane which is receiving messages.
 	pub lane: LaneId,
@@ -677,7 +727,50 @@ mod tests {
 	}
 
 	#[test]
-	fn lane_id_debug_format_matches_inner_array_format() {
-		assert_eq!(format!("{:?}", LaneId([0, 0, 0, 0])), format!("{:?}", [0, 0, 0, 0]),);
+	fn lane_id_debug_format_matches_inner_hash_format() {
+		assert_eq!(
+			format!("{:?}", LaneId(H256::from([1u8; 32]))),
+			format!("{:?}", H256::from([1u8; 32])),
+		);
+	}
+
+	#[test]
+	fn lane_id_is_generated_using_ordered_endpoints() {
+		assert_eq!(LaneId::new(1, 2), LaneId::new(2, 1));
+	}
+
+	#[test]
+	fn lane_id_is_different_for_different_endpoints() {
+		assert_ne!(LaneId::new(1, 2), LaneId::new(1, 3));
+	}
+
+	#[test]
+	fn lane_id_is_different_even_if_arguments_has_partial_matching_encoding() {
+		/// Some artificial type that generates the same encoding for different values
+		/// concatenations. I.e. the encoding for `(Either::Two(1, 2), Either::Two(3, 4))`
+		/// is the same as encoding of `(Either::Three(1, 2, 3), Either::One(4))`.
+		/// In practice, this type is not useful, because you can't do a proper decoding.
+		/// But still there may be some collisions even in proper types.
+		#[derive(Eq, Ord, PartialEq, PartialOrd)]
+		enum Either {
+			Three(u64, u64, u64),
+			Two(u64, u64),
+			One(u64),
+		}
+
+		impl codec::Encode for Either {
+			fn encode(&self) -> Vec<u8> {
+				match *self {
+					Self::One(a) => a.encode(),
+					Self::Two(a, b) => (a, b).encode(),
+					Self::Three(a, b, c) => (a, b, c).encode(),
+				}
+			}
+		}
+
+		assert_ne!(
+			LaneId::new(Either::Two(1, 2), Either::Two(3, 4)),
+			LaneId::new(Either::Three(1, 2, 3), Either::One(4)),
+		);
 	}
 }

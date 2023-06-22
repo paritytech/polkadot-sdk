@@ -213,7 +213,7 @@ impl Config for TestRuntime {
 #[cfg(feature = "runtime-benchmarks")]
 impl crate::benchmarking::Config<()> for TestRuntime {
 	fn bench_lane_id() -> LaneId {
-		TEST_LANE_ID
+		test_lane_id()
 	}
 
 	fn prepare_message_proof(
@@ -264,13 +264,19 @@ pub const TEST_RELAYER_B: AccountId = 101;
 pub const TEST_RELAYER_C: AccountId = 102;
 
 /// Lane that we're using in tests.
-pub const TEST_LANE_ID: LaneId = LaneId([0, 0, 0, 1]);
+pub fn test_lane_id() -> LaneId {
+	LaneId::new(1, 2)
+}
 
 /// Lane that is completely unknown to our runtime.
-pub const UNKNOWN_LANE_ID: LaneId = LaneId([0, 0, 0, 2]);
+pub fn unknown_lane_id() -> LaneId {
+	LaneId::new(1, 3)
+}
 
 /// Lane that is registered, but it is closed.
-pub const CLOSED_LANE_ID: LaneId = LaneId([0, 0, 0, 3]);
+pub fn closed_lane_id() -> LaneId {
+	LaneId::new(1, 4)
+}
 
 /// Regular message payload.
 pub const REGULAR_PAYLOAD: TestPayload = message_payload(0, 50);
@@ -392,7 +398,7 @@ impl OnMessagesDelivered for TestOnMessagesDelivered {
 
 /// Return test lane message with given nonce and payload.
 pub fn message(nonce: MessageNonce, payload: TestPayload) -> Message {
-	Message { key: MessageKey { lane_id: TEST_LANE_ID, nonce }, payload: payload.encode() }
+	Message { key: MessageKey { lane_id: test_lane_id(), nonce }, payload: payload.encode() }
 }
 
 /// Return valid outbound message data, constructed from given payload.
@@ -452,14 +458,14 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 /// Run pallet test.
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
 	new_test_ext().execute_with(|| {
-		crate::InboundLanes::<TestRuntime, ()>::insert(TEST_LANE_ID, InboundLaneData::opened());
-		crate::OutboundLanes::<TestRuntime, ()>::insert(TEST_LANE_ID, OutboundLaneData::opened());
+		crate::InboundLanes::<TestRuntime, ()>::insert(test_lane_id(), InboundLaneData::opened());
+		crate::OutboundLanes::<TestRuntime, ()>::insert(test_lane_id(), OutboundLaneData::opened());
 		crate::InboundLanes::<TestRuntime, ()>::insert(
-			CLOSED_LANE_ID,
+			closed_lane_id(),
 			InboundLaneData { state: LaneState::Closed, ..Default::default() },
 		);
 		crate::OutboundLanes::<TestRuntime, ()>::insert(
-			CLOSED_LANE_ID,
+			closed_lane_id(),
 			OutboundLaneData { state: LaneState::Closed, ..Default::default() },
 		);
 		test()

@@ -644,7 +644,7 @@ where
 				FromBridgedChainMessagesProof {
 					bridged_header_hash: Default::default(),
 					storage_proof: Default::default(),
-					lane: Default::default(),
+					lane: LaneId::new(1, 2),
 					nonces_start: 1,
 					nonces_end: messages as u64,
 				},
@@ -706,7 +706,7 @@ mod tests {
 		let receive_messages_proof = FromBridgedChainMessagesProof {
 			bridged_header_hash: Default::default(),
 			storage_proof: Default::default(),
-			lane: LaneId([0, 0, 0, 0]),
+			lane: LaneId::new(1, 2),
 			nonces_start: 0,
 			nonces_end: 0,
 		};
@@ -761,7 +761,7 @@ mod tests {
 		let receive_messages_delivery_proof = FromBridgedChainMessagesDeliveryProof {
 			bridged_header_hash: Default::default(),
 			storage_proof: Default::default(),
-			lane: LaneId([0, 0, 0, 0]),
+			lane: LaneId::new(1, 2),
 		};
 		let relayers_state = UnrewardedRelayersState {
 			unrewarded_relayer_entries: 0,

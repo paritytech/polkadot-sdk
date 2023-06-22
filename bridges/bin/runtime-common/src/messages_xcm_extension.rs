@@ -26,7 +26,7 @@ use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
 	LaneId, MessageNonce,
 };
-use bp_runtime::messages::MessageDispatchResult;
+use bp_runtime::{messages::MessageDispatchResult, Chain};
 pub use bp_xcm_bridge_hub::XcmAsPlainPayload;
 use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
 use codec::{Decode, Encode};
@@ -38,7 +38,26 @@ use scale_info::TypeInfo;
 use sp_runtime::SaturatedConversion;
 use sp_std::{fmt::Debug, marker::PhantomData};
 use xcm::prelude::*;
+
 use xcm_builder::{DispatchBlob, DispatchBlobError};
+
+/// Make LaneId from chain identifiers of two bridge endpoints.
+// TODO: https://github.com/paritytech/parity-bridges-common/issues/1666: this function
+// is a temporary solution, because `ChainId` and will be removed soon.
+pub struct LaneIdFromChainId<R, I>(PhantomData<(R, I)>);
+
+impl<R, I> Get<LaneId> for LaneIdFromChainId<R, I>
+where
+	R: pallet_bridge_messages::Config<I>,
+	I: 'static,
+{
+	fn get() -> LaneId {
+		LaneId::new(
+			pallet_bridge_messages::ThisChainOf::<R, I>::ID,
+			pallet_bridge_messages::BridgedChainOf::<R, I>::ID,
+		)
+	}
+}
 
 /// Message dispatch result type for single message.
 #[derive(CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, Debug, TypeInfo)]
@@ -346,7 +365,7 @@ mod tests {
 	parameter_types! {
 		pub TestSenderAndLane: SenderAndLane = SenderAndLane {
 			location: Location::new(1, [Parachain(1000)]),
-			lane: TEST_LANE_ID,
+			lane: test_lane_id(),
 		};
 		pub TestLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = sp_std::vec![
 			(TestSenderAndLane::get(), (NetworkId::ByGenesis([0; 32]), InteriorLocation::Here))
@@ -395,7 +414,7 @@ mod tests {
 	fn fill_up_lane_to_congestion() -> MessageNonce {
 		let latest_generated_nonce = OUTBOUND_LANE_CONGESTED_THRESHOLD;
 		OutboundLanes::<TestRuntime, ()>::insert(
-			TEST_LANE_ID,
+			test_lane_id(),
 			OutboundLaneData {
 				state: LaneState::Opened,
 				oldest_unpruned_nonce: 0,
@@ -449,7 +468,9 @@ mod tests {
 				enqueued + 1,
 			);
 			assert_eq!(DummySendXcm::messages_sent(), 1);
-			assert!(LocalXcmQueueManager::<TestBlobHauler>::is_congested_signal_sent(TEST_LANE_ID));
+			assert!(LocalXcmQueueManager::<TestBlobHauler>::is_congested_signal_sent(
+				test_lane_id()
+			));
 		});
 	}
 
@@ -460,7 +481,7 @@ mod tests {
 			assert_eq!(DummySendXcm::messages_sent(), 1);
 
 			// when we receive a delivery report for other lane, we don't send an uncongested signal
-			TestBlobHaulerAdapter::on_messages_delivered(LaneId([42, 42, 42, 42]), 0);
+			TestBlobHaulerAdapter::on_messages_delivered(LaneId::new(1, 3), 0);
 			assert_eq!(DummySendXcm::messages_sent(), 1);
 		});
 	}
@@ -468,7 +489,7 @@ mod tests {
 	#[test]
 	fn uncongested_signal_is_not_sent_when_we_havent_send_congested_signal_before() {
 		run_test(|| {
-			TestBlobHaulerAdapter::on_messages_delivered(TEST_LANE_ID, 0);
+			TestBlobHaulerAdapter::on_messages_delivered(test_lane_id(), 0);
 			assert_eq!(DummySendXcm::messages_sent(), 0);
 		});
 	}
@@ -480,7 +501,7 @@ mod tests {
 			assert_eq!(DummySendXcm::messages_sent(), 1);
 
 			TestBlobHaulerAdapter::on_messages_delivered(
-				TEST_LANE_ID,
+				test_lane_id(),
 				OUTBOUND_LANE_UNCONGESTED_THRESHOLD + 1,
 			);
 			assert_eq!(DummySendXcm::messages_sent(), 1);
@@ -494,7 +515,7 @@ mod tests {
 			assert_eq!(DummySendXcm::messages_sent(), 1);
 
 			TestBlobHaulerAdapter::on_messages_delivered(
-				TEST_LANE_ID,
+				test_lane_id(),
 				OUTBOUND_LANE_UNCONGESTED_THRESHOLD,
 			);
 			assert_eq!(DummySendXcm::messages_sent(), 2);

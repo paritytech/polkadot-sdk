@@ -26,7 +26,7 @@ use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, HashOf};
 use bridge_runtime_common::messages_xcm_extension::{SenderAndLane, XcmBlobHauler};
 use codec::Encode;
 use frame_support::{derive_impl, parameter_types, weights::RuntimeDbWeight};
-use sp_core::H256;
+use sp_core::{Get, H256};
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -42,7 +42,11 @@ type Block = frame_system::mocking::MockBlock<TestRuntime>;
 pub const SIBLING_ASSET_HUB_ID: u32 = 2001;
 pub const THIS_BRIDGE_HUB_ID: u32 = 2002;
 pub const BRIDGED_ASSET_HUB_ID: u32 = 1001;
-pub const TEST_LANE_ID: LaneId = LaneId([0, 0, 0, 1]);
+
+/// Message lane used in tests.
+pub fn test_lane_id() -> LaneId {
+	bridge_runtime_common::messages_xcm_extension::LaneIdFromChainId::<TestRuntime, ()>::get()
+}
 
 frame_support::construct_runtime! {
 	pub enum TestRuntime {
@@ -69,10 +73,6 @@ impl frame_system::Config for TestRuntime {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for TestRuntime {
 	type AccountStore = System;
-}
-
-parameter_types! {
-	pub const ActiveOutboundLanes: &'static [LaneId] = &[TEST_LANE_ID];
 }
 
 impl pallet_bridge_messages::Config for TestRuntime {
@@ -162,7 +162,7 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 parameter_types! {
 	pub TestSenderAndLane: SenderAndLane = SenderAndLane {
 		location: Location::new(1, [Parachain(SIBLING_ASSET_HUB_ID)]),
-		lane: TEST_LANE_ID,
+		lane: test_lane_id(),
 	};
 	pub BridgedDestination: InteriorLocation = [
 		Parachain(BRIDGED_ASSET_HUB_ID)
