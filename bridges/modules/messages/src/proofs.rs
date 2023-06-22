@@ -236,7 +236,7 @@ mod tests {
 		test: impl Fn(FromBridgedChainMessagesProof<BridgedHeaderHash>) -> R,
 	) -> R {
 		let (state_root, storage_proof) = prepare_messages_storage_proof::<BridgedChain, ThisChain>(
-			TEST_LANE_ID,
+			test_lane_id(),
 			1..=nonces_end,
 			outbound_lane_data,
 			bp_runtime::UnverifiedStorageProofParams::default(),
@@ -268,7 +268,7 @@ mod tests {
 			test(FromBridgedChainMessagesProof {
 				bridged_header_hash,
 				storage_proof,
-				lane: TEST_LANE_ID,
+				lane: test_lane_id(),
 				nonces_start: 1,
 				nonces_end,
 			})
@@ -494,7 +494,7 @@ mod tests {
 				|proof| verify_messages_proof::<TestRuntime, ()>(proof, 0),
 			),
 			Ok(vec![(
-				TEST_LANE_ID,
+				test_lane_id(),
 				ProvedLaneMessages {
 					lane_state: Some(OutboundLaneData {
 						state: LaneState::Opened,
@@ -528,7 +528,7 @@ mod tests {
 				|proof| verify_messages_proof::<TestRuntime, ()>(proof, 1),
 			),
 			Ok(vec![(
-				TEST_LANE_ID,
+				test_lane_id(),
 				ProvedLaneMessages {
 					lane_state: Some(OutboundLaneData {
 						state: LaneState::Opened,
@@ -537,7 +537,7 @@ mod tests {
 						latest_generated_nonce: 1,
 					}),
 					messages: vec![Message {
-						key: MessageKey { lane_id: TEST_LANE_ID, nonce: 1 },
+						key: MessageKey { lane_id: test_lane_id(), nonce: 1 },
 						payload: vec![42],
 					}],
 				},

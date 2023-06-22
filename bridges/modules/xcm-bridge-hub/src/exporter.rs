@@ -148,7 +148,7 @@ mod tests {
 	fn export_works() {
 		run_test(|| {
 			pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(
-				TEST_LANE_ID,
+				test_lane_id(),
 				OutboundLaneData { state: LaneState::Opened, ..Default::default() },
 			);
 			assert_ok!(export_xcm::<XcmOverBridge>(
@@ -191,7 +191,7 @@ mod tests {
 	#[test]
 	fn exporter_computes_correct_lane_id() {
 		run_test(|| {
-			let expected_lane_id = TEST_LANE_ID;
+			let expected_lane_id = test_lane_id();
 
 			pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(
 				expected_lane_id,
@@ -220,7 +220,7 @@ mod tests {
 		run_test(|| {
 			// valid routable destination
 			let dest = Location::new(2, BridgedUniversalDestination::get());
-			let expected_lane_id = TEST_LANE_ID;
+			let expected_lane_id = test_lane_id();
 
 			// open bridge
 			pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(

@@ -49,6 +49,7 @@ xcm-builder = { workspace = true }
 bp-test-utils = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-bridge-messages = { features = ["std", "test-helpers"], workspace = true }
+sp-core = { workspace = true }
 
 [features]
 default = ["std"]

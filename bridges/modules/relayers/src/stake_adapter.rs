@@ -130,7 +130,7 @@ mod tests {
 	#[test]
 	fn repatriate_reserved_works() {
 		run_test(|| {
-			let beneficiary = TEST_REWARDS_ACCOUNT_PARAMS;
+			let beneficiary = test_reward_account_param();
 			let beneficiary_account = TestPaymentProcedure::rewards_account(beneficiary);
 
 			let mut expected_balance = ExistentialDeposit::get();
@@ -186,7 +186,7 @@ mod tests {
 	#[test]
 	fn repatriate_reserved_doesnt_work_when_beneficiary_account_is_missing() {
 		run_test(|| {
-			let beneficiary = TEST_REWARDS_ACCOUNT_PARAMS;
+			let beneficiary = test_reward_account_param();
 			let beneficiary_account = TestPaymentProcedure::rewards_account(beneficiary);
 
 			Balances::mint_into(&3, test_stake() * 2).unwrap();

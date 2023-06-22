@@ -492,7 +492,7 @@ mod tests {
 			get_ready_for_events();
 
 			Pallet::<TestRuntime>::register_relayer_reward(
-				TEST_REWARDS_ACCOUNT_PARAMS,
+				test_reward_account_param(),
 				&REGULAR_RELAYER,
 				100,
 			);
@@ -504,7 +504,7 @@ mod tests {
 					phase: Phase::Initialization,
 					event: TestEvent::Relayers(RewardRegistered {
 						relayer: REGULAR_RELAYER,
-						rewards_account_params: TEST_REWARDS_ACCOUNT_PARAMS,
+						rewards_account_params: test_reward_account_param(),
 						reward: 100
 					}),
 					topics: vec![],
@@ -519,7 +519,7 @@ mod tests {
 			assert_noop!(
 				Pallet::<TestRuntime>::claim_rewards(
 					RuntimeOrigin::root(),
-					TEST_REWARDS_ACCOUNT_PARAMS
+					test_reward_account_param()
 				),
 				DispatchError::BadOrigin,
 			);
@@ -532,7 +532,7 @@ mod tests {
 			assert_noop!(
 				Pallet::<TestRuntime>::claim_rewards(
 					RuntimeOrigin::signed(REGULAR_RELAYER),
-					TEST_REWARDS_ACCOUNT_PARAMS
+					test_reward_account_param()
 				),
 				Error::<TestRuntime>::NoRewardForRelayer,
 			);
@@ -544,13 +544,13 @@ mod tests {
 		run_test(|| {
 			RelayerRewards::<TestRuntime>::insert(
 				FAILING_RELAYER,
-				TEST_REWARDS_ACCOUNT_PARAMS,
+				test_reward_account_param(),
 				100,
 			);
 			assert_noop!(
 				Pallet::<TestRuntime>::claim_rewards(
 					RuntimeOrigin::signed(FAILING_RELAYER),
-					TEST_REWARDS_ACCOUNT_PARAMS
+					test_reward_account_param()
 				),
 				Error::<TestRuntime>::FailedToPayReward,
 			);
@@ -564,15 +564,15 @@ mod tests {
 
 			RelayerRewards::<TestRuntime>::insert(
 				REGULAR_RELAYER,
-				TEST_REWARDS_ACCOUNT_PARAMS,
+				test_reward_account_param(),
 				100,
 			);
 			assert_ok!(Pallet::<TestRuntime>::claim_rewards(
 				RuntimeOrigin::signed(REGULAR_RELAYER),
-				TEST_REWARDS_ACCOUNT_PARAMS
+				test_reward_account_param()
 			));
 			assert_eq!(
-				RelayerRewards::<TestRuntime>::get(REGULAR_RELAYER, TEST_REWARDS_ACCOUNT_PARAMS),
+				RelayerRewards::<TestRuntime>::get(REGULAR_RELAYER, test_reward_account_param()),
 				None
 			);
 
@@ -583,7 +583,7 @@ mod tests {
 					phase: Phase::Initialization,
 					event: TestEvent::Relayers(RewardPaid {
 						relayer: REGULAR_RELAYER,
-						rewards_account_params: TEST_REWARDS_ACCOUNT_PARAMS,
+						rewards_account_params: test_reward_account_param(),
 						reward: 100
 					}),
 					topics: vec![],
@@ -599,12 +599,12 @@ mod tests {
 
 		run_test(|| {
 			let in_lane_0 = RewardsAccountParams::new(
-				LaneId([0, 0, 0, 0]),
+				LaneId::new(1, 2),
 				*b"test",
 				RewardsAccountOwner::ThisChain,
 			);
 			let out_lane_1 = RewardsAccountParams::new(
-				LaneId([0, 0, 0, 1]),
+				LaneId::new(1, 3),
 				*b"test",
 				RewardsAccountOwner::BridgedChain,
 			);

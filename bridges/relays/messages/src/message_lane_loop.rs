@@ -276,7 +276,7 @@ pub struct ClientsState<P: MessageLane> {
 /// Return prefix that will be used by default to expose Prometheus metrics of the finality proofs
 /// sync loop.
 pub fn metrics_prefix<P: MessageLane>(lane: &LaneId) -> String {
-	format!("{}_to_{}_MessageLane_{}", P::SOURCE_NAME, P::TARGET_NAME, hex::encode(lane))
+	format!("{}_to_{}_MessageLane_{:?}", P::SOURCE_NAME, P::TARGET_NAME, lane)
 }
 
 /// Run message lane service loop.
@@ -957,7 +957,7 @@ pub(crate) mod tests {
 			};
 			let _ = run(
 				Params {
-					lane: LaneId([0, 0, 0, 0]),
+					lane: LaneId::new(1, 2),
 					source_tick: Duration::from_millis(100),
 					target_tick: Duration::from_millis(100),
 					reconnect_delay: Duration::from_millis(0),
@@ -1273,5 +1273,13 @@ pub(crate) mod tests {
 		// check that we have at least once required new source->target or target->source headers
 		assert!(!result.target_to_source_header_requirements.is_empty());
 		assert!(!result.source_to_target_header_requirements.is_empty());
+	}
+
+	#[test]
+	fn metrics_prefix_is_valid() {
+		assert!(MessageLaneLoopMetrics::new(Some(&metrics_prefix::<TestMessageLane>(
+			&LaneId::new(1, 2)
+		)))
+		.is_ok());
 	}
 }

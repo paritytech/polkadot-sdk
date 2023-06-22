@@ -95,10 +95,6 @@ impl pallet_bridge_relayers::benchmarking::Config for TestRuntime {
 	}
 }
 
-/// Message lane that we're using in tests.
-pub const TEST_REWARDS_ACCOUNT_PARAMS: RewardsAccountParams =
-	RewardsAccountParams::new(LaneId([0, 0, 0, 0]), *b"test", RewardsAccountOwner::ThisChain);
-
 /// Regular relayer that may receive rewards.
 pub const REGULAR_RELAYER: AccountId = 1;
 
@@ -130,6 +126,11 @@ impl PaymentProcedure<AccountId, Balance> for TestPaymentProcedure {
 			_ => Ok(()),
 		}
 	}
+}
+
+/// Reward account params that we are using in tests.
+pub fn test_reward_account_param() -> RewardsAccountParams {
+	RewardsAccountParams::new(LaneId::new(1, 2), *b"test", RewardsAccountOwner::ThisChain)
 }
 
 /// Return test externalities to use in tests.
