@@ -30,3 +30,10 @@ std = [
 	"frame-system/std",
 	"xcm/std",
 ]
+
+try-runtime = [
+	"frame-system/try-runtime",
+	"frame-support/try-runtime",
+	"cumulus-pallet-xcm/try-runtime",
+	"sp-runtime/try-runtime"
+]
