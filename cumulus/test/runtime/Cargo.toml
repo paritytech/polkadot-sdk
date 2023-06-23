@@ -49,6 +49,7 @@ std = [
 	"frame-system/std",
 	"pallet-balances/std",
 	"pallet-sudo/std",
+	"pallet-glutton/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"pallet-glutton/std",

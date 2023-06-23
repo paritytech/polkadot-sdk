@@ -17,6 +17,7 @@
 
 pub mod foreign_creators;
 pub mod fungible_conversion;
+pub mod local_and_foreign_assets;
 pub mod matching;
 pub mod runtime_api;
 
@@ -74,6 +75,20 @@ pub type ForeignAssetsConvertedConcreteId<AdditionalMultiLocationExclusionFilter
 			AdditionalMultiLocationExclusionFilter,
 		)>,
 		Balance,
+	>;
+
+type AssetIdForPoolAssets = u32;
+/// `MultiLocation` vs `AssetIdForPoolAssets` converter for `PoolAssets`.
+pub type AssetIdForPoolAssetsConvert<PoolAssetsPalletLocation> =
+	AsPrefixedGeneralIndex<PoolAssetsPalletLocation, AssetIdForPoolAssets, JustTry>;
+/// [`MatchedConvertedConcreteId`] converter dedicated for `PoolAssets`
+pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
+	MatchedConvertedConcreteId<
+		AssetIdForPoolAssets,
+		Balance,
+		StartsWith<PoolAssetsPalletLocation>,
+		AssetIdForPoolAssetsConvert<PoolAssetsPalletLocation>,
+		JustTry,
 	>;
 
 #[cfg(test)]

@@ -17,8 +17,8 @@
 
 use codec::{Codec, Decode, Encode};
 use frame_support::RuntimeDebug;
-use sp_std::vec::Vec;
-use xcm::latest::MultiAsset;
+#[cfg(feature = "std")]
+use {sp_std::vec::Vec, xcm::latest::MultiAsset};
 
 /// The possible errors that can happen querying the storage of assets.
 #[derive(Eq, PartialEq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo)]

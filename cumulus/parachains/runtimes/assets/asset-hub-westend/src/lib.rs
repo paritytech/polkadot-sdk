@@ -28,49 +28,51 @@ pub mod constants;
 mod weights;
 pub mod xcm_config;
 
-use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
-use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, Verify},
-	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
-};
-
-use sp_std::prelude::*;
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
-use sp_version::RuntimeVersion;
-
+use crate::xcm_config::{TrustBackedAssetsPalletLocation, UniversalLocation};
+use assets_common::local_and_foreign_assets::{LocalAndForeignAssets, MultiLocationConverter};
 use codec::{Decode, Encode, MaxEncodedLen};
 use constants::{currency::*, fee::WeightToFee};
+use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
-	parameter_types,
+	ord_parameter_types, parameter_types,
 	traits::{
-		tokens::nonfungibles_v2::Inspect, AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64,
-		ConstU8, InstanceFilter,
+		tokens::nonfungibles_v2::Inspect, AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32,
+		ConstU64, ConstU8, InstanceFilter,
 	},
 	weights::{ConstantMultiplier, Weight},
 	BoundedVec, PalletId, RuntimeDebug,
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureSigned,
+	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
+use pallet_asset_conversion_tx_payment::AssetConversionAdapter;
 use pallet_nfts::PalletFeatures;
 pub use parachains_common as common;
 use parachains_common::{
-	impls::{AssetsToBlockAuthor, DealWithFees},
-	opaque, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, Hash, Header,
-	Index, Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT,
-	NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+	impls::DealWithFees, opaque, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
+	BlockNumber, Hash, Header, Index, Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS,
+	MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
+use sp_api::impl_runtime_apis;
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_runtime::{
+	create_runtime_str, generic, impl_opaque_keys,
+	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, Verify},
+	transaction_validity::{TransactionSource, TransactionValidity},
+	ApplyExtrinsicResult, Permill,
+};
+use sp_std::prelude::*;
+#[cfg(feature = "std")]
+use sp_version::NativeVersion;
+use sp_version::RuntimeVersion;
+use xcm::opaque::v3::MultiLocation;
 use xcm_config::{
-	ForeignAssetsConvertedConcreteId, TrustBackedAssetsConvertedConcreteId, WestendLocation,
-	XcmConfig, XcmOriginToTransactDispatchOrigin,
+	ForeignAssetsConvertedConcreteId, PoolAssetsConvertedConcreteId,
+	TrustBackedAssetsConvertedConcreteId, WestendLocation, XcmConfig,
+	XcmOriginToTransactDispatchOrigin,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -251,9 +253,75 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type WeightInfo = weights::pallet_assets_local::WeightInfo<Runtime>;
 	type CallbackHandle = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
-	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
+	type RemoveItemsLimit = ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+}
+
+parameter_types! {
+	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
+	pub storage AllowMultiAssetPools: bool = false;
+	// should be non-zero if AllowMultiAssetPools is true, otherwise can be zero
+	pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
+}
+
+ord_parameter_types! {
+	pub const AssetConversionOrigin: sp_runtime::AccountId32 = AccountIdConversion::<sp_runtime::AccountId32>::into_account_truncating(&AssetConversionPalletId::get());
+}
+
+pub type PoolAssetsInstance = pallet_assets::Instance3;
+impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = Balance;
+	type RemoveItemsLimit = ConstU32<1000>;
+	type AssetId = u32;
+	type AssetIdParameter = u32;
+	type Currency = Balances;
+	type CreateOrigin =
+		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, sp_runtime::AccountId32>>;
+	type ForceOrigin = AssetsForceOrigin;
+	type AssetDeposit = ConstU128<0>;
+	type AssetAccountDeposit = ConstU128<0>;
+	type MetadataDepositBase = ConstU128<0>;
+	type MetadataDepositPerByte = ConstU128<0>;
+	type ApprovalDeposit = ConstU128<0>;
+	type StringLimit = ConstU32<50>;
+	type Freezer = ();
+	type Extra = ();
+	type WeightInfo = weights::pallet_assets_pool::WeightInfo<Runtime>;
+	type CallbackHandle = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
+}
+
+impl pallet_asset_conversion::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = Balance;
+	type HigherPrecisionBalance = sp_core::U256;
+	type Currency = Balances;
+	type AssetBalance = <Self as pallet_balances::Config>::Balance;
+	type AssetId = MultiLocation;
+	type Assets = LocalAndForeignAssets<Assets, ForeignAssets, TrustBackedAssetsPalletLocation>;
+	type PoolAssets = PoolAssets;
+	type PoolAssetId = u32;
+	type PoolSetupFee = ConstU128<0>; // Asset class deposit fees are sufficient to prevent spam
+	type PoolSetupFeeReceiver = AssetConversionOrigin;
+	type LiquidityWithdrawalFee = LiquidityWithdrawalFee; // should be non-zero if AllowMultiAssetPools is true, otherwise can be zero.
+	type LPFee = ConstU32<3>;
+	type PalletId = AssetConversionPalletId;
+	type AllowMultiAssetPools = AllowMultiAssetPools;
+	type MaxSwapPathLength = ConstU32<4>;
+
+	type MultiAssetId = Box<MultiLocation>;
+	type MultiAssetIdConverter = MultiLocationConverter<Balances, UniversalLocation>;
+
+	type MintMinLiquidity = ConstU128<100>;
+
+	type WeightInfo = ();
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper =
+		crate::xcm_config::BenchmarkMultiLocationConverter<parachain_info::Pallet<Runtime>>;
 }
 
 parameter_types! {
@@ -587,18 +655,10 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = weights::pallet_collator_selection::WeightInfo<Runtime>;
 }
 
-impl pallet_asset_tx_payment::Config for Runtime {
+impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = Assets;
-	type OnChargeAssetTransaction = pallet_asset_tx_payment::FungiblesAdapter<
-		pallet_assets::BalanceToAssetBalance<
-			Balances,
-			Runtime,
-			ConvertInto,
-			TrustBackedAssetsInstance,
-		>,
-		AssetsToBlockAuthor<Runtime, TrustBackedAssetsInstance>,
-	>;
+	type Fungibles = LocalAndForeignAssets<Assets, ForeignAssets, TrustBackedAssetsPalletLocation>;
+	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion>;
 }
 
 parameter_types! {
@@ -715,7 +775,8 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
-		AssetTxPayment: pallet_asset_tx_payment::{Pallet, Event<T>} = 12,
+		// AssetTxPayment: pallet_asset_tx_payment::{Pallet, Event<T>} = 12,
+		AssetTxPayment: pallet_asset_conversion_tx_payment::{Pallet, Event<T>} = 13,
 
 		// Collator support. the order of these 5 are important and shall not change.
 		Authorship: pallet_authorship::{Pallet, Storage} = 20,
@@ -741,6 +802,8 @@ construct_runtime!(
 		Nfts: pallet_nfts::{Pallet, Call, Storage, Event<T>} = 52,
 		ForeignAssets: pallet_assets::<Instance2>::{Pallet, Call, Storage, Event<T>} = 53,
 		NftFractionalization: pallet_nft_fractionalization::{Pallet, Call, Storage, Event<T>, HoldReason} = 54,
+		PoolAssets: pallet_assets::<Instance3>::{Pallet, Call, Storage, Event<T>} = 55,
+		AssetConversion: pallet_asset_conversion::{Pallet, Call, Storage, Event<T>} = 56,
 	}
 );
 
@@ -761,7 +824,7 @@ pub type SignedExtra = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
-	pallet_asset_tx_payment::ChargeAssetTxPayment<Runtime>,
+	pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
@@ -795,6 +858,8 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_assets, Local]
 		[pallet_assets, Foreign]
+		[pallet_assets, PoolAssets]
+		[pallet_asset_conversion, AssetConversion]
 		[pallet_balances, Balances]
 		[pallet_multisig, Multisig]
 		[pallet_nft_fractionalization, NftFractionalization]
@@ -952,6 +1017,26 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl pallet_asset_conversion::AssetConversionApi<
+		Block,
+		Balance,
+		u128,
+		Box<MultiLocation>,
+	> for Runtime
+	{
+		fn quote_price_exact_tokens_for_tokens(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
+			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
+		}
+
+		fn quote_price_tokens_for_exact_tokens(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
+			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
+		}
+
+		fn get_reserves(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>) -> Option<(Balance, Balance)> {
+			AssetConversion::get_reserves(&asset1, &asset2).ok()
+		}
+	}
+
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
 		fn query_info(
 			uxt: <Block as BlockT>::Extrinsic,
@@ -1021,7 +1106,13 @@ impl_runtime_apis! {
 				)?,
 				// collect pallet_assets (ForeignAssets)
 				convert::<_, _, _, _, ForeignAssetsConvertedConcreteId>(
-					ForeignAssets::account_balances(account)
+					ForeignAssets::account_balances(account.clone())
+						.iter()
+						.filter(|(_, balance)| balance > &0)
+				)?,
+				// collect pallet_assets (PoolAssets)
+				convert::<_, _, _, _, PoolAssetsConvertedConcreteId>(
+					PoolAssets::account_balances(account)
 						.iter()
 						.filter(|(_, balance)| balance > &0)
 				)?,
@@ -1078,6 +1169,7 @@ impl_runtime_apis! {
 			// `pallet_assets_local.rs / pallet_assets_foreign.rs`.
 			type Local = pallet_assets::Pallet::<Runtime, TrustBackedAssetsInstance>;
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;
+			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -1215,6 +1307,7 @@ impl_runtime_apis! {
 
 			type Local = pallet_assets::Pallet::<Runtime, TrustBackedAssetsInstance>;
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;
+			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
 
 			let whitelist: Vec<TrackedStorageKey> = vec![
 				// Block Number

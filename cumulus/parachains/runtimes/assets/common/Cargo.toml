@@ -15,6 +15,8 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-asset-conversion = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
+pallet-asset-tx-payment = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
 
 # Polkadot
 pallet-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
@@ -35,6 +37,8 @@ std = [
 	"codec/std",
 	"log/std",
 	"frame-support/std",
+	"pallet-asset-conversion/std",
+	"pallet-asset-tx-payment/std",
 	"parachains-common/std",
 	"cumulus-primitives-core/std",
 	"sp-api/std",

@@ -108,6 +108,7 @@ std = [
 	"pallet-xcm/std",
 	"polkadot-primitives/std",
 	"parachain-info/std",
+	"parachains-common/std",
 	"polkadot-parachain/std",
 	"polkadot-runtime-common/std",
 	"sp-api/std",

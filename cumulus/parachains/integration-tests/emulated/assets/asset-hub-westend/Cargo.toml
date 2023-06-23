@@ -16,6 +16,7 @@ sp-core = { default-features = false, git = "https://github.com/paritytech/subst
 sp-weights = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-balances = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-assets = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-asset-conversion = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot
 polkadot-core-primitives = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
