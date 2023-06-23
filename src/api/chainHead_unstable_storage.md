@@ -4,26 +4,36 @@
 
 - `followSubscription`: An opaque string that was returned by `chainHead_unstable_follow`.
 - `hash`: String containing an hexadecimal-encoded hash of the header of the block whose storage to fetch.
-- `key`: String containing the hexadecimal-encoded key to fetch in the storage.
+- `items`: Array of objects. The structure of these objects is found below.
 - `childTrie`: `null` for main storage look-ups, or a string containing the hexadecimal-encoded key of the child trie of the "default" namespace.
-- `type`: String equal to one of: `value`, `hash`, `closest-ancestor-merkle-value`, `descendants-values`, `descendants-hashes`.
 - `networkConfig` (optional): Object containing the configuration of the networking part of the function. See [here](./api.md) for details. Ignored if the JSON-RPC server doesn't need to perform a network request. Sensible defaults are used if not provided.
+
+Each element in `items` must be an object containing the following fields:
+
+- `key`: String containing the hexadecimal-encoded key to fetch in the storage.
+- `type`: String equal to one of: `value`, `hash`, `closest-ancestor-merkle-value`, `descendants-values`, `descendants-hashes`.
 
 **Return value**: String containing an opaque value representing the operation.
 
-The JSON-RPC server must start obtaining the value of the entry with the given `key` from the storage, either from the main trie or from `childTrie`. If `type` is `descendants-values` or `descendants-hashes`, then it must also obtain the values of all the descendants of the entry.
+For each item in `items`, the JSON-RPC server must start obtaining the value of the entry with the given `key` from the storage, either from the main trie or from `childTrie`. If `type` is `descendants-values` or `descendants-hashes`, then it must also obtain the values of all the descendants of the entry.
 
 The operation will continue even if the given block is unpinned while it is in progress.
 
 This function should be seen as a complement to `chainHead_unstable_follow`, allowing the JSON-RPC client to retrieve more information about a block that has been reported. Use `archive_unstable_storage` if instead you want to retrieve the storage of an arbitrary block.
 
-For optimization purposes, the JSON-RPC server is allowed to wait a little bit (e.g. up to 100ms) before starting to try fulfill the storage request, in order to batch multiple storage requests together.
+`{"event": "items"}` notifications will be generated. Each notification contains a list of items. The list of items, concatenated together, forms the result.
 
-One `{"event": "item"}` notification will be generated for each value found in the storage. If `type` is `value` or `hash`, then either 0 or 1 `"item"` notification will be generated. If `type` is `closest-ancestor-merkle-value` then exactly 1 `"item"` notification will be generated. If `type` is `descendants-values` or `descendants-hashes`, then one `"item"` notifications that will be generated for each descendant of the `key` (including the `key` itself).
+If the `type` of an item is `value`, then at least one item in the result is guaranteed to contain the storage value of the `key` of this item.
 
-If `type` is `hash` or `descendants-hashes`, then the cryptographic hash of each item is provided rather than the full value. The hashing algorithm used is the one of the chain, which is typically blake2b. This can lead to significantly less bandwidth usage and can be used in order to compare the value of an item with a known hash and querying the full value only if it differs.
+If the `type` of an item is `hash`, then at least one item in the result is guaranteed to contain the cryptographic hash of this item. The hashing algorithm used is the one of the chain, which is typically blake2b. This can lead to significantly less bandwidth usage and can be used in order to compare the value of an item with a known hash and querying the full value only if it differs.
 
-If `type` is `closest-ancestor-merkle-value`, then the so-called trie Merkle value of the `key` is provided. If `key` doesn't exist in the trie, then the Merkle value of the closest ancestor of `key` is provided. Contrary to `hash`, a `closest-ancestor-merkle-value` always exists for every `key`. The Merkle value is similar to a hash of the value and all of its descendants together.
+If the `type` of an item is `descendants-values` or `descendants-hashes`, then the result will contain zero or more items whose key starts with the `key` of this item.
+
+If the `type` of an item is `closest-ancestor-merkle-value`, then the so-called trie Merkle value of the `key` can be found in the result. If `key` doesn't exist in the trie, then the Merkle value of the closest ancestor of `key` is provided. Contrary to `hash`, a `closest-ancestor-merkle-value` always exists for every `key` unless the trie is completely empty. The Merkle value is similar to a hash of the value and all of its descendants together.
+
+If `items` contains multiple identical or overlapping queries, the JSON-RPC server can choose whether to merge or not the items in the result. For example, if the request contains two items with the same key, one with `hash` and one with `value`, the JSON-RPC server can choose whether to generate two `item` objects, one with the value and one with the hash, or only a single `item` object with both `hash` and `value` set. The JSON-RPC server is encouraged to notify as soon as possible of the information at its disposal, without waiting for missing information.
+
+It is allowed (but discouraged) for the JSON-RPC server to provide the same information multiple times in the result, for example providing the `value` field of the same `key` twice. Forcing the JSON-RPC server to de-duplicate items in the result might lead to unnecessary overhead.
 
 If a `{"event": "waiting-for-continue"}` notification is generated, the subscription will not generate any more notification unless the JSON-RPC client calls the `chainHead_unstable_storageContinue` JSON-RPC function. The JSON-RPC server is encouraged to generate this event after having sent a certain number of bytes to the JSON-RPC client in order to avoid head-of-line-blocking issues.
 
@@ -44,32 +54,37 @@ This function will later generate notifications in the following format:
 
 Where `subscription` is equal to the value returned by this function, and `result` can be one of:
 
-### item
+### items
 
 ```json
 {
-    "event": "item",
-    "key": "0x0000000...",
-    "value": "0x0000000...",
-    "hash": "0x0000000...",
-    "merkle-value": "0x000000...",
+    "event": "items",
+    "items": [
+        {
+            "key": "0x0000000...",
+            "value": "0x0000000...",
+            "hash": "0x0000000...",
+            "merkle-value-key": "0x0000000...",
+            "merkle-value": "0x000000..."
+        },
+        ...
+    ]
 }
 ```
 
-Yields an item that was found in the storage.
+Yields one or more items that were found in the storage.
 
-The `key` field is a string containing the hexadecimal-encoded key of the value that was found.
-If the `type` parameter was `"value"`, `"hash"`, `"descendants-values"` or `"descendants-hashes"`, this `key` is guaranteed to start with the `key` provided as parameter.
-If the `type` parameter was `"value"` or `"hash"`, then it is also guaranteed to be equal to the `key` provided as parameter.
-If the `type` parameter was `"closest-ancestor-merkle-value"`, then the `key` provided as parameter is guaranteed to start with the value in the `key` field.
+The `key` field is a string containing the hexadecimal-encoded key of the item. This `key` is guaranteed to start with one of the `key`s provided as parameter.
+If the `type` parameter was `"value"`, `"hash"`, `"closest-ancestor-merkle-value"`, then it is also guaranteed to be equal to one of the `key`s provided as parameter.
 
-If the `type` parameter was `"value"` or `"descendants-values"`, then the `value` field is set. The `value` field is a string containing the hexadecimal-encoded value of the storage entry.
+In the situation where the `type` parameter was `"closest-ancestor-merkle-value"`, the fact that `key` is equal to a `key` that was provided as parameter is necessary in order to avoid ambiguities when multiple `items` of type `"closest-ancestor-merkle-value"` were requested.
 
-If the `type` parameter was `"hash"` or `"descendants-hashes"`, then the `hash` field is set. The `hash` field is a string containing the hexadecimal-encoded hash of the storage entry.
+The `value` field is set if this item corresponds to one of the requested items whose `type` was `"value"` or `"descendants-values"`. The `value` field is a string containing the hexadecimal-encoded value of the storage entry.
 
-If the `type` parameter was `"closest-ancestor-merkle-value"`, then the `merkle-value` field is set and the `key` field indicates which closest ancestor has been found. The `merkle-value` field is a string containing the hexadecimal-encoded Merkle value of the storage item indicated by the `key` field.
+The `hash` field is set if this item corresponds to one of the requested items whose `type` was `"hash"` or `"descendants-hashes"`. The `hash` field is a string containing the hexadecimal-encoded hash of the storage entry.
 
-Only one of `value`, `hash` or `merkle-value` are set at any given time.
+The `merkle-value` field is set if this item corresponds to one of the requested items whose `type` was `"closest-ancestor-merkle-value"`. The `merkle-value-key` field indicates which closest ancestor has been found. The `merkle-value` field is a string containing the hexadecimal-encoded Merkle value of the storage item indicated by the `merkle-value-key` field. The `merkle-value-key` is guaranteed to start with the `key`.
+The `merkle-value` and `merkle-value-key` fields must either both be set or both be missing.
 
 ### waiting-for-continue
 
@@ -93,9 +108,9 @@ While the JSON-RPC server is waiting for a call to `chainHead_unstable_storageCo
 }
 ```
 
-The `done` event indicates that everything went well and all values have been provided through `item` events in the past.
+The `done` event indicates that everything went well and all result has been provided through `items` events in the past.
 
-If no `item` event was yielded, then the storage doesn't contain a value at the given key.
+If no `items` event was yielded, then the storage doesn't contain a value at the given key.
 
 No more event will be generated with this `subscription`.
 
@@ -149,4 +164,3 @@ No other event will be generated with this subscription.
 - If the `followSubscription` is invalid or stale, then a `{"event": "disjoint"}` notification is generated (as explained above).
 - A JSON-RPC error is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`.
 - A JSON-RPC error is generated if the `followSubscription` is valid but the block hash passed as parameter has already been unpinned.
-- If the trie is empty and `type` is `closest-ancestor-merkle-value`, then a `{"event": "error"}`.
