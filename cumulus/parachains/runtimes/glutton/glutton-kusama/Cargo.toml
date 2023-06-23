@@ -52,6 +52,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-glutton/runtime-benchmarks",
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 ]
 std = [
