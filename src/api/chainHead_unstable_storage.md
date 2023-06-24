@@ -23,13 +23,13 @@ This function should be seen as a complement to `chainHead_unstable_follow`, all
 
 `{"event": "items"}` notifications will be generated. Each notification contains a list of items. The list of items, concatenated together, forms the result.
 
-If the `type` of an item is `value`, then at least one item in the result is guaranteed to contain the storage value of the `key` of this item.
+If the `type` of an item is `value`, and `key` is associated with a storage value in the trie, then the result will include an item that contains this storage value. If `key` is not associated with a storage value in the trie, then the result will not include such item.
 
-If the `type` of an item is `hash`, then at least one item in the result is guaranteed to contain the cryptographic hash of this item. The hashing algorithm used is the one of the chain, which is typically blake2b. This can lead to significantly less bandwidth usage and can be used in order to compare the value of an item with a known hash and querying the full value only if it differs.
+If the `type` of an item is `hash`, the behaviour is similar to a `type` equal to `value`, except that the cryptographic hash of the value is included in the result rather than the value itself. The hashing algorithm used is the one of the chain, which is typically blake2b. This can lead to significantly less bandwidth usage and can be used in order to compare the value of an item with a known hash and querying the full value only if it differs.
 
 If the `type` of an item is `descendants-values` or `descendants-hashes`, then the result will contain zero or more items whose key starts with the `key` of this item.
 
-If the `type` of an item is `closest-ancestor-merkle-value`, then the so-called trie Merkle value of the `key` can be found in the result. If `key` doesn't exist in the trie, then the Merkle value of the closest ancestor of `key` is provided. Contrary to `hash`, a `closest-ancestor-merkle-value` always exists for every `key` unless the trie is completely empty. The Merkle value is similar to a hash of the value and all of its descendants together.
+If the `type` of an item is `closest-ancestor-merkle-value`, then the so-called trie Merkle value of the `key` can be found in the result. If `key` doesn't exist in the trie, then the Merkle value of the closest ancestor of `key` is provided. If `key` doesn't have any ancestor in the trie, then the result will not contain any relevant item.
 
 If `items` contains multiple identical or overlapping queries, the JSON-RPC server can choose whether to merge or not the items in the result. For example, if the request contains two items with the same key, one with `hash` and one with `value`, the JSON-RPC server can choose whether to generate two `item` objects, one with the value and one with the hash, or only a single `item` object with both `hash` and `value` set. The JSON-RPC server is encouraged to notify as soon as possible of the information at its disposal, without waiting for missing information.
 
@@ -135,7 +135,7 @@ No more event will be generated with this `subscription`.
 }
 ```
 
-The `error` event indicates a problem during the storage access, such as failing to parse the block header to obtain the state root hash or the trie being empty when `type` was `closest-ancestor-merkle-value`.
+The `error` event indicates a problem during the storage access, such as failing to parse the block header to obtain the state root hash.
 
 Contrary to the `inaccessible` event, querying the same storage value again in the future will not succeed.
 
