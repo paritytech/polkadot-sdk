@@ -29,7 +29,7 @@ use frame_support::{
 	parameter_types,
 	traits::{EitherOf, EitherOfDiverse, MapSuccess, OriginTrait, TryWithMorphedArg},
 };
-use frame_system::EnsureNever;
+use frame_system::EnsureRootWithSuccess;
 pub use origins::{
 	pallet_origins as pallet_fellowship_origins, Architects, EnsureCanPromoteTo, EnsureCanRetainAt,
 	EnsureFellowship, Fellows, Masters, Members, ToVoice,
@@ -106,12 +106,12 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	type WeightInfo = weights::pallet_ranked_collective::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	// Promotions and the induction of new members are serviced by `FellowshipCore` pallet instance.
-	type PromoteOrigin = EnsureNever<pallet_ranked_collective::Rank>;
+	type PromoteOrigin = EnsureRootWithSuccess<Self::AccountId, ConstU16<{ ranks::DAN_9 }>>;
 	// Demotion is by any of:
 	// - Root can demote arbitrarily.
 	// - the FellowshipAdmin origin (i.e. token holder referendum);
 	type DemoteOrigin = EitherOf<
-		frame_system::EnsureRootWithSuccess<Self::AccountId, ConstU16<{ ranks::DAN_9 }>>,
+		EnsureRootWithSuccess<Self::AccountId, ConstU16<{ ranks::DAN_9 }>>,
 		MapSuccess<
 			EnsureXcm<IsVoiceOfBody<GovernanceLocation, FellowshipAdminBodyId>>,
 			Replace<ConstU16<{ ranks::DAN_9 }>>,
