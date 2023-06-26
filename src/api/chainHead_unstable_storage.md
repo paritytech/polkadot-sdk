@@ -11,7 +11,7 @@
 Each element in `items` must be an object containing the following fields:
 
 - `key`: String containing the hexadecimal-encoded key to fetch in the storage.
-- `type`: String equal to one of: `value`, `hash`, `closest-ancestor-merkle-value`, `descendants-values`, `descendants-hashes`.
+- `type`: String equal to one of: `value`, `hash`, `closest-descendant-merkle-value`, `descendants-values`, `descendants-hashes`.
 
 **Return value**: String containing an opaque value representing the operation.
 
@@ -29,7 +29,7 @@ If the `type` of an item is `hash`, the behaviour is similar to a `type` equal t
 
 If the `type` of an item is `descendants-values` or `descendants-hashes`, then the result will contain zero or more items whose key starts with the `key` of this item.
 
-If the `type` of an item is `closest-ancestor-merkle-value`, then the so-called trie Merkle value of the `key` can be found in the result. If `key` doesn't exist in the trie, then the Merkle value of the closest ancestor of `key` is provided. If `key` doesn't have any ancestor in the trie, then the result will not contain any relevant item.
+If the `type` of an item is `closest-descendant-merkle-value`, then the so-called trie Merkle value of the `key` can be found in the result. If `key` doesn't exist in the trie, then the Merkle value of the closest descendant of `key` (including branch nodes) is provided. If `key` doesn't have any descendant in the trie, then the result will not contain any relevant item.
 
 If `items` contains multiple identical or overlapping queries, the JSON-RPC server can choose whether to merge or not the items in the result. For example, if the request contains two items with the same key, one with `hash` and one with `value`, the JSON-RPC server can choose whether to generate two `item` objects, one with the value and one with the hash, or only a single `item` object with both `hash` and `value` set. The JSON-RPC server is encouraged to notify as soon as possible of the information at its disposal, without waiting for missing information.
 
@@ -75,15 +75,15 @@ Where `subscription` is equal to the value returned by this function, and `resul
 Yields one or more items that were found in the storage.
 
 The `key` field is a string containing the hexadecimal-encoded key of the item. This `key` is guaranteed to start with one of the `key`s provided as parameter.
-If the `type` parameter was `"value"`, `"hash"`, `"closest-ancestor-merkle-value"`, then it is also guaranteed to be equal to one of the `key`s provided as parameter.
+If the `type` parameter was `"value"`, `"hash"`, `"closest-descendant-merkle-value"`, then it is also guaranteed to be equal to one of the `key`s provided as parameter.
 
-In the situation where the `type` parameter was `"closest-ancestor-merkle-value"`, the fact that `key` is equal to a `key` that was provided as parameter is necessary in order to avoid ambiguities when multiple `items` of type `"closest-ancestor-merkle-value"` were requested.
+In the situation where the `type` parameter was `"closest-descendant-merkle-value"`, the fact that `key` is equal to a `key` that was provided as parameter is necessary in order to avoid ambiguities when multiple `items` of type `"closest-descendant-merkle-value"` were requested.
 
 The `value` field is set if this item corresponds to one of the requested items whose `type` was `"value"` or `"descendants-values"`. The `value` field is a string containing the hexadecimal-encoded value of the storage entry.
 
 The `hash` field is set if this item corresponds to one of the requested items whose `type` was `"hash"` or `"descendants-hashes"`. The `hash` field is a string containing the hexadecimal-encoded hash of the storage entry.
 
-The `merkle-value` field is set if this item corresponds to one of the requested items whose `type` was `"closest-ancestor-merkle-value"`. The `merkle-value-key` field indicates which closest ancestor has been found. The `merkle-value` field is a string containing the hexadecimal-encoded Merkle value of the storage item indicated by the `merkle-value-key` field. The `merkle-value-key` is guaranteed to start with the `key`.
+The `merkle-value` field is set if this item corresponds to one of the requested items whose `type` was `"closest-descendant-merkle-value"`. The `merkle-value-key` field indicates which closest descendant has been found. Because this closest descendant can be a branch node, the value in the `merkle-value-key` field can have an uneven number of hexadecimal digits. The `merkle-value` field is a string containing the hexadecimal-encoded Merkle value of the storage item indicated by the `merkle-value-key` field. The `merkle-value-key` is guaranteed to start with the `key`.
 The `merkle-value` and `merkle-value-key` fields must either both be set or both be missing.
 
 ### waiting-for-continue
