@@ -101,9 +101,7 @@ tests:
                       - name: dmpQueue.ExecutedDownward
                         chain: *assets_parachain
                         threshold: *weight_threshold
-                        result: {
-                          outcome: { Complete: { refTime: '1,216,703,000', proofSize: '20,000' }}
-                        }
+                        result: { outcome: { Complete: { refTime: '1,216,703,000', proofSize: '20,000' }}}
               - queries:
                   forced_created_asset:
                     chain: *assets_parachain
@@ -182,7 +180,7 @@ tests:
                     events:
                       - name: polkadotXcm.Attempted
                         threshold: *weight_threshold
-                        result: [{ Complete: { refTime: '673,627,000', proofSize: '6,196' }}]
+                        result: { outcome: { Complete: { refTime: '673,627,000', proofSize: '6,196' }}}
                       - name: assets.Transferred
                         result: {
                           assetId: *asset_id,
@@ -225,7 +223,7 @@ tests:
                     events:
                       - name: polkadotXcm.Attempted
                         threshold: *weight_threshold
-                        result: [{ Complete: { refTime: '679,150,000', proofSize: '6,196' }}]
+                        result: { outcome: { Complete: { refTime: '679,150,000', proofSize: '6,196' }}}
                       - name: balances.Endowed
                         result: {
                           account: *pp_sovereign_sibl,

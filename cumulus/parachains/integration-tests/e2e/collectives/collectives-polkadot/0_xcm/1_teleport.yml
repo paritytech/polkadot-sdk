@@ -61,13 +61,11 @@ tests:
               events:
                 - name: xcmPallet.Attempted
                   threshold: *weight_threshold
-                  result: [{ Complete: { refTime: '3,000,000,000', proofSize: 0 }}]
+                  result: { outcome: { Complete: { refTime: '3,000,000,000', proofSize: 0 }}}
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   threshold: *weight_threshold
-                  result: {
-                    outcome: { Complete: { refTime: '4,000,000,000', proofSize: 0 }}
-                  }
+                  result: { outcome: { Complete: { refTime: '4,000,000,000', proofSize: 0 }}}
           - queries:
               balance_rc_alice_2:
                 chain: *relay_chain
@@ -126,7 +124,7 @@ tests:
                   result: { who: *acc_alice_ss58, amount: 10000000000000 }
                 - name: polkadotXcm.Attempted
                   threshold: *weight_threshold
-                  result: [{ Complete: { refTime: '3,000,000,000', proofSize: 0 }}]
+                  result: { outcome: { Complete: { refTime: '3,000,000,000', proofSize: 0 }}}
                 - name: balances.Withdraw
                   chain: *relay_chain
                   result: { who: *checking_account, amount: 10000000000000 } # amount received and withdrawn from registry account

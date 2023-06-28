@@ -51,7 +51,7 @@ tests:
                 - name: sudo.Sudid
                   result: { sudoResult: Ok }
                 - name: xcmPallet.SupportedVersionChanged
-                  result: [{ parents: 0, interior: { X1: { Parachain: *cp_id }}}, *xcm_version ]
+                  result: { location: { parents: 0, interior: { X1: { Parachain: *cp_id }}}, version: *xcm_version }
           - extrinsics: # Collectives Parachain sets supported version for Relay Chain through it
             - chain: *relay_chain
               signer: *alice_signer
@@ -92,9 +92,7 @@ tests:
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   threshold: *weight_threshold
-                  result: {
-                    outcome: { Complete: { refTime: '2,200,000,000', proofSize: 0 }}
-                  }
+                  result: { outcome: { Complete: { refTime: '2,200,000,000', proofSize: 0 }}}
                 - name: polkadotXcm.SupportedVersionChanged
                   chain: *collectives_parachain
-                  result: [{ parents: 1, interior: Here }, *xcm_version ]
+                  result: { location: { parents: 1, interior: Here }, version: *xcm_version }

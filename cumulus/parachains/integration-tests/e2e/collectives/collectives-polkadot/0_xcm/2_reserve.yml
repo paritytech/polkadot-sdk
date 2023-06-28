@@ -39,7 +39,7 @@ tests:
               events:
                 - name: xcmPallet.Attempted
                   threshold: *weight_threshold
-                  result: [{ Complete: { refTime: '2,000,000,000', proofSize: 0 }}]
+                  result: { outcome: { Complete: { refTime: '2,000,000,000', proofSize: 0 }}}
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   threshold: *weight_threshold

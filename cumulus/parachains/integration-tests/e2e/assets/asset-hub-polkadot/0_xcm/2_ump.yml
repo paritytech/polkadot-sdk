@@ -57,13 +57,11 @@ tests:
                   events:
                     - name: xcmPallet.Attempted
                       threshold: *weight_threshold
-                      result: [{ Complete: { refTime: '3,000,000,000', proofSize: 0 }}]
+                      result: { outcome: { Complete: { refTime: '3,000,000,000', proofSize: 0 }}}
                     - name: dmpQueue.ExecutedDownward
                       chain: *assets_parachain
                       threshold: *weight_threshold
-                      result: {
-                        outcome: { Complete: { refTime: '166,944,000', proofSize: 0 }}
-                      }
+                      result: { outcome: { Complete: { refTime: '166,944,000', proofSize: 0 }}}
 
           - name: Get the balances of the Assets Parachain's sender & Relay Chain's receiver
             actions:
@@ -97,7 +95,7 @@ tests:
                   events:
                     - name: polkadotXcm.Attempted
                       threshold: *weight_threshold
-                      result: [{ Complete: { refTime: '533,283,000', proofSize: '7,096' }}]
+                      result: { outcome: { Complete: { refTime: '533,283,000', proofSize: '7,096' }}}
                     - name: messageQueue.Processed
                       chain: *relay_chain
                       threshold: *weight_threshold
@@ -193,4 +191,4 @@ tests:
                   ]
                   events:
                     - name: polkadotXcm.Attempted
-                      result: [{ Error: Barrier }]
+                      result: { outcome: { Error: Barrier }}

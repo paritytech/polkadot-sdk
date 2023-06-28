@@ -109,9 +109,7 @@ tests:
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   threshold: *weight_threshold
-                  result: {
-                    outcome: { Complete: { refTime: '3,000,000,000', proofSize: '1,000,000' }}
-                  }
+                  result: { outcome: { Complete: { refTime: '3,000,000,000', proofSize: '1,000,000' }}}
 
       - name: Alliance init call fails.
         actions:
@@ -159,9 +157,7 @@ tests:
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   threshold: *weight_threshold
-                  result: {
-                    outcome: { Complete: { refTime: '3,000,000,000', proofSize: '1,000,000' }}
-                  }
+                  result: { outcome: { Complete: { refTime: '3,000,000,000', proofSize: '1,000,000' }}}
 
       - name: Alliance disbanded and initialized again.
         actions:
@@ -208,9 +204,7 @@ tests:
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   threshold: *weight_threshold
-                  result: {
-                    outcome: { Complete: { refTime: '3,321,495,872', proofSize: '181,779' }}
-                  }
+                  result: { outcome: { Complete: { refTime: '3,321,495,872', proofSize: '181,779' }}}
       - name: Alliance initiated, founders and fellows are set.
         actions:
           - extrinsics:
@@ -255,6 +249,4 @@ tests:
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   threshold: *weight_threshold
-                  result: {
-                    outcome: { Complete: { refTime: '3,000,000,000', proofSize: '1,000,000' }}
-                  }
+                  result: { outcome: { Complete: { refTime: '3,000,000,000', proofSize: '1,000,000' }}}

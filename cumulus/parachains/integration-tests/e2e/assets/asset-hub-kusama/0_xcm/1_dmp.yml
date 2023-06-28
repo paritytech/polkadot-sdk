@@ -73,13 +73,11 @@ tests:
                   events:
                     - name: xcmPallet.Attempted
                       threshold: *weight_threshold
-                      result: [{ Complete: { refTime: '764,772,000', proofSize: 0 }}]
+                      result: { outcome: { Complete: { refTime: '764,772,000', proofSize: 0 }}}
                     - name: dmpQueue.ExecutedDownward
                       chain: *assets_parachain
                       threshold: *weight_threshold
-                      result: {
-                        outcome: { Complete: { refTime: '166,944,000', proofSize: 0 }}
-                      }
+                      result: { outcome: { Complete: { refTime: '166,944,000', proofSize: 0 }}}
               - queries:
                   balance_rc_sender_after:
                     chain: *relay_chain
@@ -153,9 +151,7 @@ tests:
                     - name: dmpQueue.ExecutedDownward
                       chain: *assets_parachain
                       threshold: *weight_threshold
-                      result: {
-                        outcome: { Complete: { refTime: '1,014,103,000', proofSize: '200,000' }}
-                      }
+                      result: { outcome: { Complete: { refTime: '1,014,103,000', proofSize: '200,000' }}}
               - queries:
                   forced_created_asset:
                     chain: *assets_parachain
@@ -218,7 +214,7 @@ tests:
                   events:
                     - name: xcmPallet.Attempted
                       threshold: *weight_threshold
-                      result: [{ Complete: { refTime: '750,645,000', proofSize: 0 }}]
+                      result: { outcome: { Complete: { refTime: '750,645,000', proofSize: 0 }}}
                     - name: dmpQueue.ExecutedDownward
                       chain: *assets_parachain
                       threshold: *weight_threshold
