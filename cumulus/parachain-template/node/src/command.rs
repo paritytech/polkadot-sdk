@@ -17,7 +17,7 @@ use sp_runtime::traits::{AccountIdConversion, Block as BlockT};
 use crate::{
 	chain_spec,
 	cli::{Cli, RelayChainCli, Subcommand},
-	service::{new_partial, ParachainNativeExecutor},
+	service::new_partial,
 };
 
 fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
@@ -194,7 +194,7 @@ pub fn run() -> Result<()> {
 			match cmd {
 				BenchmarkCmd::Pallet(cmd) =>
 					if cfg!(feature = "runtime-benchmarks") {
-						runner.sync_run(|config| cmd.run::<Block, ParachainNativeExecutor>(config))
+						runner.sync_run(|config| cmd.run::<Block, ()>(config))
 					} else {
 						Err("Benchmarking wasn't enabled when building the node. \
 					You can enable it with `--features runtime-benchmarks`."
@@ -230,15 +230,12 @@ pub fn run() -> Result<()> {
 		#[cfg(feature = "try-runtime")]
 		Some(Subcommand::TryRuntime(cmd)) => {
 			use parachain_template_runtime::MILLISECS_PER_BLOCK;
-			use sc_executor::{sp_wasm_interface::ExtendedHostFunctions, NativeExecutionDispatch};
 			use try_runtime_cli::block_building_info::timestamp_with_aura_info;
 
 			let runner = cli.create_runner(cmd)?;
 
-			type HostFunctionsOf<E> = ExtendedHostFunctions<
-				sp_io::SubstrateHostFunctions,
-				<E as NativeExecutionDispatch>::ExtendHostFunctions,
-			>;
+			type HostFunctions =
+				(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions);
 
 			// grab the task manager.
 			let registry = &runner.config().prometheus_config.as_ref().map(|cfg| &cfg.registry);
@@ -249,12 +246,7 @@ pub fn run() -> Result<()> {
 			let info_provider = timestamp_with_aura_info(MILLISECS_PER_BLOCK);
 
 			runner.async_run(|_| {
-				Ok((
-					cmd.run::<Block, HostFunctionsOf<ParachainNativeExecutor>, _>(Some(
-						info_provider,
-					)),
-					task_manager,
-				))
+				Ok((cmd.run::<Block, HostFunctions, _>(Some(info_provider)), task_manager))
 			})
 		},
 		#[cfg(not(feature = "try-runtime"))]
