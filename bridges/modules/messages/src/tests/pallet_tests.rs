@@ -17,12 +17,13 @@
 //! Pallet-level tests.
 
 use crate::{
+	lanes_manager::RuntimeInboundLaneStorage,
 	outbound_lane,
 	outbound_lane::ReceptionConfirmationError,
 	tests::mock::{RuntimeEvent as TestEvent, *},
 	weights_ext::WeightInfoExt,
-	Call, Config, Error, Event, InboundLanes, OutboundLanes, OutboundMessages, Pallet,
-	PalletOperatingMode, PalletOwner, RuntimeInboundLaneStorage, StoredInboundLaneData,
+	Call, Config, Error, Event, InboundLanes, LanesManagerError, OutboundLanes, OutboundMessages,
+	Pallet, PalletOperatingMode, PalletOwner, StoredInboundLaneData,
 };
 
 use bp_messages::{
@@ -978,12 +979,12 @@ fn send_messages_fails_if_outbound_lane_is_not_opened() {
 	run_test(|| {
 		assert_noop!(
 			Pallet::<TestRuntime, ()>::validate_message(unknown_lane_id(), &REGULAR_PAYLOAD),
-			Error::<TestRuntime, ()>::UnknownOutboundLane,
+			Error::<TestRuntime, ()>::LanesManager(LanesManagerError::UnknownOutboundLane),
 		);
 
 		assert_noop!(
 			Pallet::<TestRuntime, ()>::validate_message(closed_lane_id(), &REGULAR_PAYLOAD),
-			Error::<TestRuntime, ()>::ClosedOutboundLane,
+			Error::<TestRuntime, ()>::LanesManager(LanesManagerError::ClosedOutboundLane),
 		);
 	});
 }
@@ -1003,7 +1004,7 @@ fn receive_messages_proof_fails_if_inbound_lane_is_not_opened() {
 				1,
 				REGULAR_PAYLOAD.declared_weight,
 			),
-			Error::<TestRuntime, ()>::UnknownInboundLane,
+			Error::<TestRuntime, ()>::LanesManager(LanesManagerError::UnknownInboundLane),
 		);
 
 		message.key.lane_id = closed_lane_id();
@@ -1017,7 +1018,7 @@ fn receive_messages_proof_fails_if_inbound_lane_is_not_opened() {
 				1,
 				REGULAR_PAYLOAD.declared_weight,
 			),
-			Error::<TestRuntime, ()>::ClosedInboundLane,
+			Error::<TestRuntime, ()>::LanesManager(LanesManagerError::ClosedInboundLane),
 		);
 	});
 }
@@ -1052,7 +1053,7 @@ fn receive_messages_delivery_proof_fails_if_outbound_lane_is_unknown() {
 					last_delivered_nonce: 1,
 				},
 			),
-			Error::<TestRuntime, ()>::UnknownOutboundLane,
+			Error::<TestRuntime, ()>::LanesManager(LanesManagerError::UnknownOutboundLane),
 		);
 
 		let proof = make_proof(closed_lane_id());
@@ -1067,7 +1068,7 @@ fn receive_messages_delivery_proof_fails_if_outbound_lane_is_unknown() {
 					last_delivered_nonce: 1,
 				},
 			),
-			Error::<TestRuntime, ()>::ClosedOutboundLane,
+			Error::<TestRuntime, ()>::LanesManager(LanesManagerError::ClosedOutboundLane),
 		);
 	});
 }
