@@ -64,8 +64,7 @@ Where `subscription` is equal to the value returned by this function, and `resul
             "key": "0x0000000...",
             "value": "0x0000000...",
             "hash": "0x0000000...",
-            "merkle-value-key": "0x0000000...",
-            "merkle-value": "0x000000..."
+            "closest-descendant-merkle-value": "0x000000..."
         },
         ...
     ]
@@ -83,8 +82,7 @@ The `value` field is set if this item corresponds to one of the requested items 
 
 The `hash` field is set if this item corresponds to one of the requested items whose `type` was `"hash"` or `"descendants-hashes"`. The `hash` field is a string containing the hexadecimal-encoded hash of the storage entry.
 
-The `merkle-value` field is set if this item corresponds to one of the requested items whose `type` was `"closest-descendant-merkle-value"`. The `merkle-value-key` field indicates which closest descendant has been found. Because this closest descendant can be a branch node, the value in the `merkle-value-key` field can have an uneven number of hexadecimal digits. The `merkle-value` field is a string containing the hexadecimal-encoded Merkle value of the storage item indicated by the `merkle-value-key` field. The `merkle-value-key` is guaranteed to start with the `key`.
-The `merkle-value` and `merkle-value-key` fields must either both be set or both be missing.
+The `closest-descendant-merkle-value` field is set if this item corresponds to one of the requested items whose `type` was `"closest-descendant-merkle-value"`. The trie node whose Merkle value is indicated in `closest-descendant-merkle-value` is not indicated, as determining the key of this node might incur an overhead for the JSON-RPC server.
 
 ### waiting-for-continue
 
