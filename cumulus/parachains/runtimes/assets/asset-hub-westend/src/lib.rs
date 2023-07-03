@@ -858,7 +858,7 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_assets, Local]
 		[pallet_assets, Foreign]
-		[pallet_assets, PoolAssets]
+		[pallet_assets, Pool]
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_balances, Balances]
 		[pallet_multisig, Multisig]
