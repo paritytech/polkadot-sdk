@@ -17,8 +17,8 @@
 //! Bridge definitions that are used on Wococo to bridge with Rococo.
 
 use crate::{
-	BridgeParachainRococoInstance, ParachainInfo, Runtime, WithBridgeHubRococoMessagesInstance,
-	XcmRouter,
+	BridgeParachainRococoInstance, BridgeRococoMessages, ParachainInfo, Runtime,
+	WithBridgeHubRococoMessagesInstance, XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{
@@ -33,7 +33,7 @@ use bridge_runtime_common::{
 		RefundableParachain,
 	},
 };
-use frame_support::{parameter_types, RuntimeDebug};
+use frame_support::{parameter_types, traits::PalletInfoAccess, RuntimeDebug};
 use xcm::{
 	latest::prelude::*,
 	prelude::{InteriorMultiLocation, NetworkId},
@@ -47,6 +47,7 @@ parameter_types! {
 		bp_bridge_hub_wococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	pub const BridgeHubRococoChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_ROCOCO_CHAIN_ID;
 	pub BridgeHubWococoUniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Wococo), Parachain(ParachainInfo::parachain_id().into()));
+	pub BridgeRococoMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeRococoMessages as PalletInfoAccess>::index() as u8));
 	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
 	pub ActiveOutboundLanesToBridgeHubRococo: &'static [bp_messages::LaneId] = &[DEFAULT_XCM_LANE_TO_BRIDGE_HUB_ROCOCO];
 	pub PriorityBoostPerMessage: u64 = 921_900_294;
@@ -60,8 +61,11 @@ pub type ToRococoBridgeHubMessagesDeliveryProof =
 	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_rococo::Hash>;
 
 /// Dispatches received XCM messages from other bridge
-pub type OnBridgeHubWococoBlobDispatcher =
-	BridgeBlobDispatcher<XcmRouter, BridgeHubWococoUniversalLocation>;
+pub type OnBridgeHubWococoBlobDispatcher = BridgeBlobDispatcher<
+	XcmRouter,
+	BridgeHubWococoUniversalLocation,
+	BridgeRococoMessagesPalletInstance,
+>;
 
 /// Export XCM messages to be relayed to the otherside
 pub type ToBridgeHubRococoHaulBlobExporter = HaulBlobExporter<

@@ -36,7 +36,7 @@ use bridge_runtime_common::{
 use codec::Encode;
 use frame_support::{
 	assert_ok,
-	traits::{Get, OriginTrait},
+	traits::{Get, OriginTrait, PalletInfoAccess},
 };
 use pallet_bridge_grandpa::BridgedHeader;
 use parachains_runtimes_test_utils::{
@@ -463,7 +463,18 @@ pub fn relayed_incoming_message_works<Runtime, XcmConfig, HrmpChannelOpener, GPI
 			let relayer_id_on_source: AccountId32 = relayer_at_source.public().into();
 
 			let xcm = vec![xcm::v3::Instruction::<()>::ClearOrigin; 42];
-			let expected_dispatch = xcm::latest::Xcm::<()>(xcm.clone());
+			let expected_dispatch = xcm::latest::Xcm::<()>({
+				let mut expected_instructions = xcm.clone();
+				// dispatch prepends bridge pallet instance
+				expected_instructions.insert(
+					0,
+					DescendOrigin(X1(PalletInstance(
+						<pallet_bridge_messages::Pallet<Runtime, MPI> as PalletInfoAccess>::index()
+							as u8,
+					))),
+				);
+				expected_instructions
+			});
 			// generate bridged relay chain finality, parachain heads and message proofs,
 			// to be submitted by relayer to this chain.
 			let (
@@ -672,7 +683,18 @@ pub fn complex_relay_extrinsic_works<Runtime, XcmConfig, HrmpChannelOpener, GPI,
 			let relay_header_number = 1;
 
 			let xcm = vec![xcm::latest::Instruction::<()>::ClearOrigin; 42];
-			let expected_dispatch = xcm::latest::Xcm::<()>(xcm.clone());
+			let expected_dispatch = xcm::latest::Xcm::<()>({
+				let mut expected_instructions = xcm.clone();
+				// dispatch prepends bridge pallet instance
+				expected_instructions.insert(
+					0,
+					DescendOrigin(X1(PalletInstance(
+						<pallet_bridge_messages::Pallet<Runtime, MPI> as PalletInfoAccess>::index()
+							as u8,
+					))),
+				);
+				expected_instructions
+			});
 			// generate bridged relay chain finality, parachain heads and message proofs,
 			// to be submitted by relayer to this chain.
 			let (
