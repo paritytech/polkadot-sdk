@@ -20,8 +20,8 @@ use crate::{BridgedChainOf, Config};
 
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
-	ChainWithMessages, DeliveredMessages, InboundLaneData, LaneId, MessageKey, MessageNonce,
-	OutboundLaneData, ReceptionResult, UnrewardedRelayer,
+	ChainWithMessages, DeliveredMessages, InboundLaneData, LaneId, LaneState, MessageKey,
+	MessageNonce, OutboundLaneData, ReceptionResult, UnrewardedRelayer,
 };
 use bp_runtime::AccountIdOf;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
@@ -44,6 +44,8 @@ pub trait InboundLaneStorage {
 	fn data(&self) -> InboundLaneData<Self::Relayer>;
 	/// Update lane data in the storage.
 	fn set_data(&mut self, data: InboundLaneData<Self::Relayer>);
+	/// Purge lane data from the storage.
+	fn purge(self);
 }
 
 /// Inbound lane data wrapper that implements `MaxEncodedLen`.
@@ -120,9 +122,21 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 		InboundLane { storage }
 	}
 
-	/// Returns `mut` storage reference.
-	pub fn storage_mut(&mut self) -> &mut S {
-		&mut self.storage
+	/// Get lane state.
+	pub fn state(&self) -> LaneState {
+		self.storage.data().state
+	}
+
+	/// Returns storage reference.
+	pub fn storage(&self) -> &S {
+		&self.storage
+	}
+
+	/// Set lane state.
+	pub fn set_state(&mut self, state: LaneState) {
+		let mut data = self.storage.data();
+		data.state = state;
+		self.storage.set_data(data);
 	}
 
 	/// Receive state of the corresponding outbound lane.
@@ -211,12 +225,17 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 
 		ReceptionResult::Dispatched(dispatch_result)
 	}
+
+	/// Purge lane state from the storage.
+	pub fn purge(self) {
+		self.storage.purge()
+	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{inbound_lane, tests::mock::*, RuntimeInboundLaneStorage};
+	use crate::{inbound_lane, lanes_manager::RuntimeInboundLaneStorage, tests::mock::*};
 	use bp_messages::UnrewardedRelayersState;
 
 	fn receive_regular_message(

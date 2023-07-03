@@ -90,6 +90,19 @@ pub trait HeaderChain<C: Chain> {
 	}
 }
 
+impl<C: Chain> HeaderChain<C> for () {
+	fn finalized_header_state_root(_header_hash: HashOf<C>) -> Option<HashOf<C>> {
+		None
+	}
+
+	fn verify_storage_proof(
+		_header_hash: HashOf<C>,
+		_db: UnverifiedStorageProof,
+	) -> Result<VerifiedStorageProof, HeaderChainError> {
+		Err(HeaderChainError::UnknownHeader)
+	}
+}
+
 /// A type that can be used as a parameter in a dispatchable function.
 ///
 /// When using `decl_module` all arguments for call functions must implement this trait.
