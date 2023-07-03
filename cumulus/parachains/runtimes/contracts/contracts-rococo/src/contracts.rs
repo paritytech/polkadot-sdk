@@ -7,8 +7,10 @@ use frame_support::{
 	traits::{ConstBool, ConstU32, Nothing},
 };
 use pallet_contracts::{
-	weights::SubstrateWeight, Config, DebugInfo, DefaultAddressGenerator, Frame, Schedule,
+	migration::v12, weights::SubstrateWeight, Config, DebugInfo, DefaultAddressGenerator, Frame,
+	Schedule,
 };
+
 pub use parachains_common::AVERAGE_ON_INITIALIZE_RATIO;
 
 // Prints debug output of the `contracts` pallet to stdout if the node is
@@ -48,5 +50,5 @@ impl Config for Runtime {
 	type MaxStorageKeyLen = ConstU32<128>;
 	type UnsafeUnstableInterface = ConstBool<true>;
 	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
-	type Migrations = ();
+	type Migrations = (v12::Migration<Runtime>,);
 }

@@ -100,6 +100,7 @@ pub type Migrations = (
 	cumulus_pallet_dmp_queue::migration::Migration<Runtime>,
 	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::Migration<Runtime>,
+	pallet_contracts::Migration<Runtime>,
 );
 
 type EventRecord = frame_system::EventRecord<
