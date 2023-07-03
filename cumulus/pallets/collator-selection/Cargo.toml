@@ -16,7 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 log = { version = "0.4.19", default-features = false }
 codec = { default-features = false, features = ["derive"], package = "parity-scale-codec", version = "3.0.0" }
 rand = { version = "0.8.5", features = ["std_rng"], default-features = false }
-scale-info = { version = "2.8.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
