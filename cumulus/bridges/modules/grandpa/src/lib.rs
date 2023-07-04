@@ -176,11 +176,12 @@ pub mod pallet {
 			justification.votes_ancestries.len().saturated_into(),
 		))]
 		pub fn submit_finality_proof(
-			_origin: OriginFor<T>,
+			origin: OriginFor<T>,
 			finality_target: Box<BridgedHeader<T, I>>,
 			justification: GrandpaJustification<BridgedHeader<T, I>>,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_not_halted().map_err(Error::<T, I>::BridgeModule)?;
+			ensure_signed(origin)?;
 
 			let (hash, number) = (finality_target.hash(), *finality_target.number());
 			log::trace!(
@@ -1413,5 +1414,24 @@ mod tests {
 	#[test]
 	fn maybe_headers_to_keep_returns_correct_value() {
 		assert_eq!(MaybeHeadersToKeep::<TestRuntime, ()>::get(), Some(mock::HeadersToKeep::get()));
+	}
+
+	#[test]
+	fn submit_finality_proof_requires_signed_origin() {
+		run_test(|| {
+			initialize_substrate_bridge();
+
+			let header = test_header(1);
+			let justification = make_default_justification(&header);
+
+			assert_noop!(
+				Pallet::<TestRuntime>::submit_finality_proof(
+					RuntimeOrigin::root(),
+					Box::new(header),
+					justification,
+				),
+				DispatchError::BadOrigin,
+			);
+		})
 	}
 }

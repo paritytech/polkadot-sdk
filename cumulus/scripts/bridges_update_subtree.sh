@@ -8,7 +8,7 @@
 
 set -e
 
-BRIDGES_BRANCH="${BRANCH:-master}"
+BRIDGES_BRANCH="${BRANCH:-polkadot-staging}"
 BRIDGES_TARGET_DIR="${TARGET_DIR:-bridges}"
 
 function fetch() {
