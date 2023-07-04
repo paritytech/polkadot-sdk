@@ -326,8 +326,8 @@ mod tests {
 				3,
 				&unrewarded_relayers(1..=1)
 					.into_iter()
-					.chain(unrewarded_relayers(2..=30).into_iter())
-					.chain(unrewarded_relayers(3..=3).into_iter())
+					.chain(unrewarded_relayers(2..=30))
+					.chain(unrewarded_relayers(3..=3))
 					.collect(),
 			),
 			Err(ReceptionConfirmationError::FailedToConfirmFutureMessages),
@@ -342,8 +342,8 @@ mod tests {
 				3,
 				&unrewarded_relayers(1..=1)
 					.into_iter()
-					.chain(unrewarded_relayers(2..=1).into_iter())
-					.chain(unrewarded_relayers(2..=3).into_iter())
+					.chain(unrewarded_relayers(2..=1))
+					.chain(unrewarded_relayers(2..=3))
 					.collect(),
 			),
 			Err(ReceptionConfirmationError::EmptyUnrewardedRelayerEntry),
@@ -357,8 +357,8 @@ mod tests {
 				3,
 				&unrewarded_relayers(1..=1)
 					.into_iter()
-					.chain(unrewarded_relayers(3..=3).into_iter())
-					.chain(unrewarded_relayers(2..=2).into_iter())
+					.chain(unrewarded_relayers(3..=3))
+					.chain(unrewarded_relayers(2..=2))
 					.collect(),
 			),
 			Err(ReceptionConfirmationError::NonConsecutiveUnrewardedRelayerEntries),
