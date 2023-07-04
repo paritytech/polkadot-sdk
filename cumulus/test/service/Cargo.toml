@@ -15,7 +15,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0" }
 criterion = { version = "0.5.1", features = [ "async_tokio" ] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 rand = "0.8.5"
-serde = { version = "1.0.164", features = ["derive"] }
+serde = { version = "1.0.166", features = ["derive"] }
 tokio = { version = "1.29.1", features = ["macros"] }
 tracing = "0.1.37"
 url = "2.4.0"
