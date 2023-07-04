@@ -26,6 +26,7 @@ use jsonrpsee_core::Error as JsonRpcError;
 use parity_scale_codec::Error as CodecError;
 use sp_api::ApiError;
 
+use cumulus_primitives_core::relay_chain::BlockId;
 pub use cumulus_primitives_core::{
 	relay_chain::{
 		CommittedCandidateReceipt, Hash as PHash, Header as PHeader, InboundHrmpMessage,
@@ -109,6 +110,9 @@ pub trait RelayChainInterface: Send + Sync {
 
 	/// Get the hash of the current best block.
 	async fn best_block_hash(&self) -> RelayChainResult<PHash>;
+
+	/// Fetch the block header of a given height
+	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>>;
 
 	/// Get the hash of the finalized block.
 	async fn finalized_block_hash(&self) -> RelayChainResult<PHash>;
@@ -292,5 +296,9 @@ where
 		&self,
 	) -> RelayChainResult<Pin<Box<dyn Stream<Item = PHeader> + Send>>> {
 		(**self).new_best_notification_stream().await
+	}
+
+	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
+		(**self).header(block_id).await
 	}
 }

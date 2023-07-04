@@ -19,8 +19,9 @@ use std::{pin::Pin, sync::Arc, time::Duration};
 use async_trait::async_trait;
 use cumulus_primitives_core::{
 	relay_chain::{
-		runtime_api::ParachainHost, Block as PBlock, CommittedCandidateReceipt, Hash as PHash,
-		Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex, ValidatorId,
+		runtime_api::ParachainHost, Block as PBlock, BlockId, CommittedCandidateReceipt,
+		Hash as PHash, Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
+		ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -79,6 +80,7 @@ impl<T> Clone for RelayChainInProcessInterface<T> {
 impl<Client> RelayChainInterface for RelayChainInProcessInterface<Client>
 where
 	Client: ProvideRuntimeApi<PBlock>
+		+ HeaderBackend<PBlock>
 		+ BlockchainEvents<PBlock>
 		+ AuxStore
 		+ UsageProvider<PBlock>
@@ -108,6 +110,18 @@ where
 			sp_core::ExecutionContext::Importing,
 			para_id,
 		)?)
+	}
+
+	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
+		let hash = match block_id {
+			BlockId::Hash(hash) => hash,
+			BlockId::Number(num) => self.full_client.hash(num)?.ok_or_else(|| {
+				RelayChainError::GenericError(format!("block with number {num} not found"))
+			})?,
+		};
+		let header = self.full_client.header(hash)?;
+
+		Ok(header)
 	}
 
 	async fn persisted_validation_data(
@@ -299,6 +313,7 @@ impl ExecuteWithClient for RelayChainInProcessInterfaceBuilder {
 	fn execute_with_client<Client, Api, Backend>(self, client: Arc<Client>) -> Self::Output
 	where
 		Client: ProvideRuntimeApi<PBlock>
+			+ HeaderBackend<PBlock>
 			+ BlockchainEvents<PBlock>
 			+ AuxStore
 			+ UsageProvider<PBlock>

@@ -16,6 +16,7 @@
 
 use super::*;
 use async_trait::async_trait;
+use cumulus_primitives_core::relay_chain::BlockId;
 use cumulus_relay_chain_inprocess_interface::{check_block_in_chain, BlockCheckStatus};
 use cumulus_relay_chain_interface::{
 	OverseerHandle, PHeader, ParaId, RelayChainError, RelayChainResult,
@@ -236,6 +237,18 @@ impl RelayChainInterface for DummyRelayChainInterface {
 					}
 				});
 		Ok(Box::pin(notifications_stream))
+	}
+
+	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
+		let hash = match block_id {
+			BlockId::Hash(hash) => hash,
+			BlockId::Number(num) => self.relay_client.hash(num)?.ok_or_else(|| {
+				RelayChainError::GenericError(format!("block with number {num} not found"))
+			})?,
+		};
+		let header = self.relay_client.header(hash)?;
+
+		Ok(header)
 	}
 }
 

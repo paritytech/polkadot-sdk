@@ -19,7 +19,7 @@ use crate::*;
 use async_trait::async_trait;
 use codec::Encode;
 use cumulus_client_pov_recovery::RecoveryKind;
-use cumulus_primitives_core::{InboundDownwardMessage, InboundHrmpMessage};
+use cumulus_primitives_core::{relay_chain::BlockId, InboundDownwardMessage, InboundHrmpMessage};
 use cumulus_relay_chain_interface::{
 	CommittedCandidateReceipt, OccupiedCoreAssumption, OverseerHandle, PHeader, ParaId,
 	RelayChainInterface, RelayChainResult, SessionIndex, StorageValue, ValidatorId,
@@ -206,6 +206,10 @@ impl RelayChainInterface for Relaychain {
 				h
 			})
 			.boxed())
+	}
+
+	async fn header(&self, _block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
+		unimplemented!("Not needed for test")
 	}
 }
 

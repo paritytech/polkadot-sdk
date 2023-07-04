@@ -23,7 +23,9 @@ use cumulus_primitives_core::{
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
-use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
+use cumulus_relay_chain_interface::{
+	PHeader, RelayChainError, RelayChainInterface, RelayChainResult,
+};
 use futures::{FutureExt, Stream, StreamExt};
 use polkadot_overseer::Handle;
 
@@ -33,6 +35,7 @@ use sp_state_machine::StorageValue;
 use sp_storage::StorageKey;
 use std::pin::Pin;
 
+use cumulus_primitives_core::relay_chain::BlockId;
 pub use url::Url;
 
 mod reconnecting_ws_client;
@@ -73,6 +76,19 @@ impl RelayChainInterface for RelayChainRpcInterface {
 		self.rpc_client
 			.parachain_host_inbound_hrmp_channels_contents(para_id, relay_parent)
 			.await
+	}
+
+	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
+		let hash = match block_id {
+			BlockId::Hash(hash) => hash,
+			BlockId::Number(num) =>
+				self.rpc_client.chain_get_block_hash(Some(num)).await?.ok_or_else(|| {
+					RelayChainError::GenericError(format!("block with number {num} not found"))
+				})?,
+		};
+		let header = self.rpc_client.chain_get_header(Some(hash)).await?;
+
+		Ok(header)
 	}
 
 	async fn persisted_validation_data(
