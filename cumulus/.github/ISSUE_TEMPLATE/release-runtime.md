@@ -33,8 +33,9 @@ The following checks can be performed after we have forked off to the release-ca
     runtime state is correctly updated for any public (non-private/test)
     networks
 - [ ] Run [integration tests](https://github.com/paritytech/cumulus/blob/master/docs/release.md#integration-tests), and make sure they pass.
-- [ ] Push runtime upgrade to Westmint and verify network stability
+- [ ] Push runtime upgrade to Asset Hub Westend and verify network stability
 - [ ] Push runtime upgrade to Collectives and verify network stability
+- [ ] Push runtime upgrade to Bridge-Hub-Kusama and verify network stability
 
 
 ### Github

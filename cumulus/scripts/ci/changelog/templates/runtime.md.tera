@@ -1,7 +1,7 @@
 {# This macro shows one runtime #}
 {%- macro runtime(runtime) -%}
 
-### {{ runtime.name | capitalize }}
+### {{ runtime.name | replace(from="-", to=" ") | title }} {%- if runtime.note -%} {{ runtime.note }} {%- endif -%}
 
 {%- if runtime.data.runtimes.compressed.subwasm.compression.compressed %}
 {%- set compressed = "Yes" %}
