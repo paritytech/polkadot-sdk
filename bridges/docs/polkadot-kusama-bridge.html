@@ -16,7 +16,7 @@
 		</p>
 		<p>
 			In our architecture, the lane that is used to relay messages over the bridge is determined by
-			the XCM source and destinations. So e.g. bridge between Statemint and Statemine (and opposite direction)
+			the XCM source and destinations. So e.g. bridge between AssetHubPolkadot and AssetHubKusama (and opposite direction)
 			will use the lane 00000000, bridge between some other Polkadot Parachain and some other Kusama Parachain
 			will use the lane 00000001 and so on.
 		</p>
@@ -50,7 +50,7 @@
 				end
 
 				polkadot_bh&lt;===&gt;|Message is relayed to the Bridged Chain using lane 00000000|kusama_bh
-		
+
 				linkStyle 2 stroke:red
 				linkStyle 7 stroke:red
 				linkStyle 8 stroke:red

@@ -24,8 +24,8 @@ You won't be able to directly use bridge hub transactions to send XCM messages o
 to use other parachains transactions, which will use HRMP to deliver messages to the Bridge Hub. The Bridge Hub will
 just queue these messages in its outbound lane, which is dedicated to deliver messages between two parachains.
 
-Our first planned bridge will connect the Polkadot' Statemint and Kusama' Statemine. Bridge between those two
-parachains would allow Statemint accounts to hold wrapped KSM tokens and Statemine accounts to hold wrapped DOT
+Our first planned bridge will connect the Polkadot' AssetHub and Kusama' AssetHub. Bridge between those two
+parachains would allow AssetHubPolkadot accounts to hold wrapped KSM tokens and AssetHubKusama accounts to hold wrapped DOT
 tokens.
 
 For that bridge (pair of parachains under different consensus systems) we'll be using the lane 00000000. Later,
@@ -93,13 +93,13 @@ Obviously, there should be someone who is paying relayer rewards. We want bridge
 can't use fees for rewards. Instead, the parachains using the bridge, use sovereign accounts on both sides
 of the bridge to cover relayer rewards.
 
-Bridged Parachains will have sovereign accounts at bridge hubs. For example, the Statemine (Kusama Parachain) will
-have an account at the Polkadot Bridge Hub. The Statemint (Polkadot Parachain) will have an account at the Kusama
+Bridged Parachains will have sovereign accounts at bridge hubs. For example, the AssetHubKusama (Kusama Parachain) will
+have an account at the Polkadot Bridge Hub. The AssetHubPolkadot (Polkadot Parachain) will have an account at the Kusama
 Bridge Hub. The sovereign accounts are used as a source of funds when the relayer is calling the
 `pallet_bridge_relayers::claim_rewards`.
 
 Since messages lane is only used by the pair of parachains, there's no collision between different bridges. E.g.
-Statemine will only reward relayers that are delivering messages from Statemine. The Statemine sovereign account
+AssetHubKusama will only reward relayers that are delivering messages from AssetHubKusama. The AssetHubKusama sovereign account
 is not used to cover rewards of bridging with some other Polkadot Parachain.
 
 ### Multiple Relayers and Rewards
