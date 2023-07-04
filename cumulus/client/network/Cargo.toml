@@ -44,7 +44,6 @@ sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "maste
 substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot
-polkadot-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-test-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Cumulus

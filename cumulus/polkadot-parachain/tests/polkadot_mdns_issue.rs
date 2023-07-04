@@ -26,7 +26,7 @@ async fn interrupt_polkadot_mdns_issue_test() {
 
 	let base_dir = tempdir().expect("could not create a temp dir");
 
-	let args = &["--", "--dev"];
+	let args = &["--", "--chain=rococo-local"];
 
 	common::run_node_for_a_while(base_dir.path(), args, SIGINT).await;
 	common::run_node_for_a_while(base_dir.path(), args, SIGTERM).await;

@@ -27,7 +27,7 @@ async fn polkadot_argument_parsing() {
 
 	let args = &[
 		"--",
-		"--dev",
+		"--chain=rococo-local",
 		"--bootnodes",
 		"/ip4/127.0.0.1/tcp/30333/p2p/Qmbx43psh7LVkrYTRXisUpzCubbgYojkejzAgj5mteDnxy",
 		"--bootnodes",

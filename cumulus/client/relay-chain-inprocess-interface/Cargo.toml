@@ -22,8 +22,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot
-polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false, features = ["cli"] }
-polkadot-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false, features = ["cli", "polkadot-native"] }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Cumulus

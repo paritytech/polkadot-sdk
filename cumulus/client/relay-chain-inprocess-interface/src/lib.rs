@@ -27,14 +27,13 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use futures::{FutureExt, Stream, StreamExt};
-use polkadot_client::{ClientHandle, ExecuteWithClient, FullBackend};
 use polkadot_service::{
-	AuxStore, BabeApi, CollatorPair, Configuration, Handle, NewFull, TaskManager,
+	CollatorPair, Configuration, FullBackend, FullClient, Handle, NewFull, TaskManager,
 };
 use sc_cli::SubstrateCli;
 use sc_client_api::{
 	blockchain::BlockStatus, Backend, BlockchainEvents, HeaderBackend, ImportNotifications,
-	StorageProof, UsageProvider,
+	StorageProof,
 };
 use sc_telemetry::TelemetryWorkerHandle;
 use sp_api::ProvideRuntimeApi;
@@ -46,17 +45,18 @@ use sp_state_machine::{Backend as StateBackend, StorageValue};
 const TIMEOUT_IN_SECONDS: u64 = 6;
 
 /// Provides an implementation of the [`RelayChainInterface`] using a local in-process relay chain node.
-pub struct RelayChainInProcessInterface<Client> {
-	full_client: Arc<Client>,
+#[derive(Clone)]
+pub struct RelayChainInProcessInterface {
+	full_client: Arc<FullClient>,
 	backend: Arc<FullBackend>,
 	sync_oracle: Arc<dyn SyncOracle + Send + Sync>,
 	overseer_handle: Handle,
 }
 
-impl<Client> RelayChainInProcessInterface<Client> {
+impl RelayChainInProcessInterface {
 	/// Create a new instance of [`RelayChainInProcessInterface`]
 	pub fn new(
-		full_client: Arc<Client>,
+		full_client: Arc<FullClient>,
 		backend: Arc<FullBackend>,
 		sync_oracle: Arc<dyn SyncOracle + Send + Sync>,
 		overseer_handle: Handle,
@@ -65,29 +65,8 @@ impl<Client> RelayChainInProcessInterface<Client> {
 	}
 }
 
-impl<T> Clone for RelayChainInProcessInterface<T> {
-	fn clone(&self) -> Self {
-		Self {
-			full_client: self.full_client.clone(),
-			backend: self.backend.clone(),
-			sync_oracle: self.sync_oracle.clone(),
-			overseer_handle: self.overseer_handle.clone(),
-		}
-	}
-}
-
 #[async_trait]
-impl<Client> RelayChainInterface for RelayChainInProcessInterface<Client>
-where
-	Client: ProvideRuntimeApi<PBlock>
-		+ HeaderBackend<PBlock>
-		+ BlockchainEvents<PBlock>
-		+ AuxStore
-		+ UsageProvider<PBlock>
-		+ Sync
-		+ Send,
-	Client::Api: ParachainHost<PBlock> + BabeApi<PBlock>,
-{
+impl RelayChainInterface for RelayChainInProcessInterface {
 	async fn retrieve_dmq_contents(
 		&self,
 		para_id: ParaId,
@@ -269,14 +248,11 @@ pub enum BlockCheckStatus {
 }
 
 // Helper function to check if a block is in chain.
-pub fn check_block_in_chain<Client>(
+pub fn check_block_in_chain(
 	backend: Arc<FullBackend>,
-	client: Arc<Client>,
+	client: Arc<FullClient>,
 	hash: PHash,
-) -> RelayChainResult<BlockCheckStatus>
-where
-	Client: BlockchainEvents<PBlock>,
-{
+) -> RelayChainResult<BlockCheckStatus> {
 	let _lock = backend.get_import_lock().read();
 
 	if backend.blockchain().status(hash)? == BlockStatus::InChain {
@@ -288,49 +264,6 @@ where
 	Ok(BlockCheckStatus::Unknown(listener))
 }
 
-/// Builder for a concrete relay chain interface, created from a full node. Builds
-/// a [`RelayChainInProcessInterface`] to access relay chain data necessary for parachain operation.
-///
-/// The builder takes a [`polkadot_client::Client`]
-/// that wraps a concrete instance. By using [`polkadot_client::ExecuteWithClient`]
-/// the builder gets access to this concrete instance and instantiates a [`RelayChainInProcessInterface`] with it.
-struct RelayChainInProcessInterfaceBuilder {
-	polkadot_client: polkadot_client::Client,
-	backend: Arc<FullBackend>,
-	sync_oracle: Arc<dyn SyncOracle + Send + Sync>,
-	overseer_handle: Handle,
-}
-
-impl RelayChainInProcessInterfaceBuilder {
-	pub fn build(self) -> Arc<dyn RelayChainInterface> {
-		self.polkadot_client.clone().execute_with(self)
-	}
-}
-
-impl ExecuteWithClient for RelayChainInProcessInterfaceBuilder {
-	type Output = Arc<dyn RelayChainInterface>;
-
-	fn execute_with_client<Client, Api, Backend>(self, client: Arc<Client>) -> Self::Output
-	where
-		Client: ProvideRuntimeApi<PBlock>
-			+ HeaderBackend<PBlock>
-			+ BlockchainEvents<PBlock>
-			+ AuxStore
-			+ UsageProvider<PBlock>
-			+ 'static
-			+ Sync
-			+ Send,
-		Client::Api: ParachainHost<PBlock> + BabeApi<PBlock>,
-	{
-		Arc::new(RelayChainInProcessInterface::new(
-			client,
-			self.backend,
-			self.sync_oracle,
-			self.overseer_handle,
-		))
-	}
-}
-
 /// Build the Polkadot full node using the given `config`.
 #[sc_tracing::logging::prefix_logs_with("Relaychain")]
 fn build_polkadot_full_node(
@@ -338,7 +271,7 @@ fn build_polkadot_full_node(
 	parachain_config: &Configuration,
 	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	hwbench: Option<sc_sysinfo::HwBench>,
-) -> Result<(NewFull<polkadot_client::Client>, Option<CollatorPair>), polkadot_service::Error> {
+) -> Result<(NewFull, Option<CollatorPair>), polkadot_service::Error> {
 	let (is_collator, maybe_collator_key) = if parachain_config.role.is_authority() {
 		let collator_key = CollatorPair::generate().0;
 		(polkadot_service::IsCollator::Yes(collator_key.clone()), Some(collator_key))
@@ -385,18 +318,18 @@ pub fn build_inprocess_relay_chain(
 	)
 	.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?;
 
-	let relay_chain_interface_builder = RelayChainInProcessInterfaceBuilder {
-		polkadot_client: full_node.client.clone(),
-		backend: full_node.backend.clone(),
-		sync_oracle: full_node.sync_service.clone(),
-		overseer_handle: full_node.overseer_handle.clone().ok_or(RelayChainError::GenericError(
+	let relay_chain_interface = Arc::new(RelayChainInProcessInterface::new(
+		full_node.client,
+		full_node.backend,
+		full_node.sync_service,
+		full_node.overseer_handle.clone().ok_or(RelayChainError::GenericError(
 			"Overseer not running in full node.".to_string(),
 		))?,
-	};
+	));
 
 	task_manager.add_child(full_node.task_manager);
 
-	Ok((relay_chain_interface_builder.build(), collator_key))
+	Ok((relay_chain_interface, collator_key))
 }
 
 #[cfg(test)]
@@ -427,8 +360,7 @@ mod tests {
 		}
 	}
 
-	fn build_client_backend_and_block(
-	) -> (Arc<Client>, PBlock, RelayChainInProcessInterface<Client>) {
+	fn build_client_backend_and_block() -> (Arc<Client>, PBlock, RelayChainInProcessInterface) {
 		let builder =
 			TestClientBuilder::new().set_execution_strategy(ExecutionStrategy::NativeWhenPossible);
 		let backend = builder.backend();
