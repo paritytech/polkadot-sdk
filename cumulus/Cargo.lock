@@ -422,6 +422,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-multisig",
+ "pallet-nft-fractionalization",
  "pallet-nfts",
  "pallet-nfts-runtime-api",
  "pallet-proxy",
