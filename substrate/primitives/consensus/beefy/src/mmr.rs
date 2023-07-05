@@ -190,7 +190,7 @@ mod mmr_root_provider {
 	impl<B: Block, R> PayloadProvider<B> for MmrRootProvider<B, R>
 	where
 		B: Block,
-		R: ProvideRuntimeApi<B>,
+		R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 		R::Api: MmrApi<B, MmrRootHash, NumberFor<B>>,
 	{
 		fn payload(&self, header: &B::Header) -> Option<Payload> {
