@@ -21,6 +21,7 @@ pallet-balances = { default-features = false, git = "https://github.com/parityte
 pallet-assets = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-staking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-im-online = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+beefy-primitives = { package = "sp-consensus-beefy", git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot
 polkadot-core-primitives = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
@@ -32,7 +33,9 @@ polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "m
 polkadot-runtime-constants = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 kusama-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 kusama-runtime-constants = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-westend-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" } 
+rococo-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+rococo-runtime-constants = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+westend-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 westend-runtime-constants = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 xcm = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
 xcm-executor = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
@@ -49,7 +52,12 @@ asset-hub-westend-runtime = { path = "../../../runtimes/assets/asset-hub-westend
 collectives-polkadot-runtime = { path = "../../../runtimes/collectives/collectives-polkadot" }
 bridge-hub-kusama-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-kusama" }
 bridge-hub-polkadot-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-polkadot" }
+bridge-hub-rococo-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-rococo" }
 xcm-emulator = { default-features = false, path = "../../../../xcm/xcm-emulator" }
+bp-messages = { path = "../../../../bridges/primitives/messages"}
+bp-runtime = { path = "../../../../bridges/primitives/runtime"}
+pallet-bridge-messages = { path = "../../../../bridges/modules/messages" }
+bridge-runtime-common = { path = "../../../../bridges/bin/runtime-common"}
 
 [features]
 runtime-benchmarks = [

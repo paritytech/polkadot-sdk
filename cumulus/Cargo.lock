@@ -1358,6 +1358,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "bridge-hub-rococo-integration-tests"
+version = "1.0.0"
+dependencies = [
+ "bp-messages",
+ "bridge-hub-rococo-runtime",
+ "cumulus-pallet-xcmp-queue",
+ "frame-support",
+ "frame-system",
+ "integration-tests-common",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-bridge-messages",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-core-primitives",
+ "polkadot-parachain",
+ "polkadot-runtime",
+ "polkadot-runtime-parachains",
+ "sp-core",
+ "sp-runtime",
+ "sp-weights",
+ "xcm",
+ "xcm-emulator",
+ "xcm-executor",
+]
+
+[[package]]
 name = "bridge-hub-rococo-runtime"
 version = "0.1.0"
 dependencies = [
@@ -1883,7 +1911,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "collectives-polkadot-it"
+name = "collectives-polkadot-integration-tests"
 version = "0.1.0"
 dependencies = [
  "asset-hub-polkadot-runtime",
@@ -5261,8 +5289,12 @@ dependencies = [
  "asset-hub-kusama-runtime",
  "asset-hub-polkadot-runtime",
  "asset-hub-westend-runtime",
+ "bp-messages",
+ "bp-runtime",
  "bridge-hub-kusama-runtime",
  "bridge-hub-polkadot-runtime",
+ "bridge-hub-rococo-runtime",
+ "bridge-runtime-common",
  "collectives-polkadot-runtime",
  "cumulus-primitives-core",
  "frame-support",
@@ -5271,6 +5303,7 @@ dependencies = [
  "kusama-runtime-constants",
  "pallet-assets",
  "pallet-balances",
+ "pallet-bridge-messages",
  "pallet-im-online",
  "pallet-staking",
  "pallet-xcm",
@@ -5285,9 +5318,12 @@ dependencies = [
  "polkadot-runtime-constants",
  "polkadot-runtime-parachains",
  "polkadot-service",
+ "rococo-runtime",
+ "rococo-runtime-constants",
  "sc-consensus-grandpa",
  "sp-authority-discovery",
  "sp-consensus-babe",
+ "sp-consensus-beefy",
  "sp-core",
  "sp-runtime",
  "sp-weights",
@@ -16378,7 +16414,6 @@ dependencies = [
  "sp-std",
  "sp-trie",
  "xcm",
- "xcm-executor",
 ]
 
 [[package]]

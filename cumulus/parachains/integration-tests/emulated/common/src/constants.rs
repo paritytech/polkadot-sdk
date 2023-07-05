@@ -1,8 +1,9 @@
+use beefy_primitives::crypto::AuthorityId as BeefyId;
 use grandpa::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-pub use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId, Balance, BlockNumber};
+use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId, Balance, BlockNumber};
 use polkadot_primitives::{AssignmentId, ValidatorId};
-pub use polkadot_runtime_parachains::configuration::HostConfiguration;
+use polkadot_runtime_parachains::configuration::HostConfiguration;
 use polkadot_service::chain_spec::get_authority_keys_from_seed_no_beefy;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
@@ -11,7 +12,7 @@ use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
 	BuildStorage, MultiSignature, Perbill,
 };
-pub use xcm;
+use xcm;
 
 pub const XCM_V2: u32 = 3;
 pub const XCM_V3: u32 = 2;
@@ -49,6 +50,7 @@ pub mod accounts {
 	pub const DAVE_STASH: &str = "Dave//stash";
 	pub const EVE_STASH: &str = "Eve//stash";
 	pub const FERDIE_STASH: &str = "Ferdie//stash";
+	pub const FERDIE_BEEFY: &str = "Ferdie//stash";
 
 	pub fn init_balances() -> Vec<AccountId> {
 		vec![
@@ -209,6 +211,7 @@ pub mod polkadot {
 	}
 }
 
+// Westend
 pub mod westend {
 	use super::*;
 	use westend_runtime_constants::currency::UNITS as WND;
@@ -401,6 +404,93 @@ pub mod kusama {
 	}
 }
 
+// Rococo
+pub mod rococo {
+	use super::*;
+	pub const ED: Balance = rococo_runtime_constants::currency::EXISTENTIAL_DEPOSIT;
+	use rococo_runtime_constants::currency::UNITS as ROC;
+	const ENDOWMENT: u128 = 1_000_000 * ROC;
+
+	pub fn get_host_config() -> HostConfiguration<BlockNumber> {
+		HostConfiguration {
+			max_upward_queue_size: 51200,
+			max_upward_message_size: 51200,
+			max_upward_message_num_per_candidate: 10,
+			max_downward_message_size: 51200,
+			..Default::default()
+		}
+	}
+
+	fn session_keys(
+		babe: BabeId,
+		grandpa: GrandpaId,
+		im_online: ImOnlineId,
+		para_validator: ValidatorId,
+		para_assignment: AssignmentId,
+		authority_discovery: AuthorityDiscoveryId,
+		beefy: BeefyId,
+	) -> rococo_runtime::SessionKeys {
+		rococo_runtime::SessionKeys {
+			babe,
+			grandpa,
+			im_online,
+			para_validator,
+			para_assignment,
+			authority_discovery,
+			beefy,
+		}
+	}
+
+	pub fn genesis() -> Storage {
+		let genesis_config = rococo_runtime::RuntimeGenesisConfig {
+			system: rococo_runtime::SystemConfig {
+				code: rococo_runtime::WASM_BINARY.unwrap().to_vec(),
+			},
+			balances: rococo_runtime::BalancesConfig {
+				balances: accounts::init_balances()
+					.iter()
+					.map(|k| (k.clone(), ENDOWMENT))
+					.collect(),
+			},
+			// indices: rococo_runtime::IndicesConfig { indices: vec![] },
+			session: rococo_runtime::SessionConfig {
+				keys: validators::initial_authorities()
+					.iter()
+					.map(|x| {
+						(
+							x.0.clone(),
+							x.0.clone(),
+							session_keys(
+								x.2.clone(),
+								x.3.clone(),
+								x.4.clone(),
+								x.5.clone(),
+								x.6.clone(),
+								x.7.clone(),
+								get_from_seed::<BeefyId>("Alice"),
+							),
+						)
+					})
+					.collect::<Vec<_>>(),
+			},
+			babe: rococo_runtime::BabeConfig {
+				authorities: Default::default(),
+				epoch_config: Some(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
+			},
+			sudo: rococo_runtime::SudoConfig {
+				key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+			},
+			configuration: rococo_runtime::ConfigurationConfig { config: get_host_config() },
+			registrar: rococo_runtime::RegistrarConfig {
+				next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
+			},
+			..Default::default()
+		};
+
+		genesis_config.build_storage().unwrap()
+	}
+}
+
 // Asset Hub Polkadot
 pub mod asset_hub_polkadot {
 	use super::*;
@@ -445,12 +535,10 @@ pub mod asset_hub_polkadot {
 					})
 					.collect(),
 			},
-			aura: Default::default(),
-			aura_ext: Default::default(),
-			parachain_system: Default::default(),
 			polkadot_xcm: asset_hub_polkadot_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
 			},
+			..Default::default()
 		};
 
 		genesis_config.build_storage().unwrap()
@@ -501,12 +589,10 @@ pub mod asset_hub_westend {
 					})
 					.collect(),
 			},
-			aura: Default::default(),
-			aura_ext: Default::default(),
-			parachain_system: Default::default(),
 			polkadot_xcm: asset_hub_westend_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
 			},
+			..Default::default()
 		};
 
 		genesis_config.build_storage().unwrap()
@@ -557,12 +643,10 @@ pub mod asset_hub_kusama {
 					})
 					.collect(),
 			},
-			aura: Default::default(),
-			aura_ext: Default::default(),
-			parachain_system: Default::default(),
 			polkadot_xcm: asset_hub_kusama_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
 			},
+			..Default::default()
 		};
 
 		genesis_config.build_storage().unwrap()
@@ -611,15 +695,13 @@ pub mod penpal {
 					})
 					.collect(),
 			},
-			aura: Default::default(),
-			aura_ext: Default::default(),
-			parachain_system: Default::default(),
 			polkadot_xcm: penpal_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
 			},
 			sudo: penpal_runtime::SudoConfig {
 				key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
 			},
+			..Default::default()
 		};
 
 		genesis_config.build_storage().unwrap()
@@ -670,22 +752,17 @@ pub mod collectives {
 					})
 					.collect(),
 			},
-			// no need to pass anything to aura, in fact it will panic if we do. Session will take care
-			// of this.
-			aura: Default::default(),
-			aura_ext: Default::default(),
-			parachain_system: Default::default(),
 			polkadot_xcm: collectives_polkadot_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
 			},
-			alliance: Default::default(),
-			alliance_motion: Default::default(),
+			..Default::default()
 		};
 
 		genesis_config.build_storage().unwrap()
 	}
 }
 
+// Bridge Hub Kusama
 pub mod bridge_hub_kusama {
 	use super::*;
 	pub const PARA_ID: u32 = 1002;
@@ -729,18 +806,17 @@ pub mod bridge_hub_kusama {
 					})
 					.collect(),
 			},
-			aura: Default::default(),
-			aura_ext: Default::default(),
-			parachain_system: Default::default(),
 			polkadot_xcm: bridge_hub_kusama_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
 			},
+			..Default::default()
 		};
 
 		genesis_config.build_storage().unwrap()
 	}
 }
 
+// Bridge Hub Polkadot
 pub mod bridge_hub_polkadot {
 	use super::*;
 	pub const PARA_ID: u32 = 1002;
@@ -784,12 +860,80 @@ pub mod bridge_hub_polkadot {
 					})
 					.collect(),
 			},
-			aura: Default::default(),
-			aura_ext: Default::default(),
-			parachain_system: Default::default(),
 			polkadot_xcm: bridge_hub_polkadot_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
 			},
+			..Default::default()
+		};
+
+		genesis_config.build_storage().unwrap()
+	}
+}
+
+// Bridge Hub Rococo & Bridge Hub Wococo
+pub mod bridge_hub_rococo {
+	use super::*;
+	pub const PARA_ID: u32 = 1013;
+	pub const ED: Balance = bridge_hub_rococo_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+
+	pub fn genesis() -> Storage {
+		let genesis_config = bridge_hub_rococo_runtime::RuntimeGenesisConfig {
+			system: bridge_hub_rococo_runtime::SystemConfig {
+				code: bridge_hub_rococo_runtime::WASM_BINARY
+					.expect("WASM binary was not build, please build it!")
+					.to_vec(),
+			},
+			balances: bridge_hub_rococo_runtime::BalancesConfig {
+				balances: accounts::init_balances()
+					.iter()
+					.cloned()
+					.map(|k| (k, ED * 4096))
+					.collect(),
+			},
+			parachain_info: bridge_hub_rococo_runtime::ParachainInfoConfig {
+				parachain_id: PARA_ID.into(),
+			},
+			collator_selection: bridge_hub_rococo_runtime::CollatorSelectionConfig {
+				invulnerables: collators::invulnerables()
+					.iter()
+					.cloned()
+					.map(|(acc, _)| acc)
+					.collect(),
+				candidacy_bond: ED * 16,
+				..Default::default()
+			},
+			session: bridge_hub_rococo_runtime::SessionConfig {
+				keys: collators::invulnerables()
+					.into_iter()
+					.map(|(acc, aura)| {
+						(
+							acc.clone(),                                     // account id
+							acc,                                             // validator id
+							bridge_hub_rococo_runtime::SessionKeys { aura }, // session keys
+						)
+					})
+					.collect(),
+			},
+			polkadot_xcm: bridge_hub_rococo_runtime::PolkadotXcmConfig {
+				safe_xcm_version: Some(SAFE_XCM_VERSION),
+			},
+			bridge_wococo_grandpa: bridge_hub_rococo_runtime::BridgeWococoGrandpaConfig {
+				owner: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+				..Default::default()
+			},
+			bridge_rococo_grandpa: bridge_hub_rococo_runtime::BridgeRococoGrandpaConfig {
+				owner: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+				..Default::default()
+			},
+			bridge_rococo_messages: bridge_hub_rococo_runtime::BridgeRococoMessagesConfig {
+				owner: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+				..Default::default()
+			},
+			bridge_wococo_messages: bridge_hub_rococo_runtime::BridgeWococoMessagesConfig {
+				owner: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+				..Default::default()
+			},
+			..Default::default()
 		};
 
 		genesis_config.build_storage().unwrap()

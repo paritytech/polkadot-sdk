@@ -14,31 +14,29 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+pub use bp_messages::LaneId;
 pub use codec::Encode;
-pub use frame_support::{
-	assert_ok, instances::Instance1, pallet_prelude::Weight, traits::fungibles::Inspect,
-};
+pub use frame_support::{assert_ok, pallet_prelude::Weight};
 pub use integration_tests_common::{
 	constants::{
 		accounts::{ALICE, BOB},
-		polkadot::ED as POLKADOT_ED,
+		rococo::{ED as ROCOCO_ED, ED as WOCOCO_ED},
 		PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 	},
-	AccountId, AssetHubKusama, AssetHubKusamaPallet, AssetHubKusamaReceiver, AssetHubKusamaSender,
-	AssetHubPolkadot, AssetHubPolkadotPallet, AssetHubPolkadotReceiver, AssetHubPolkadotSender,
-	BridgeHubKusama, BridgeHubKusamaPallet, BridgeHubKusamaReceiver, BridgeHubKusamaSender,
-	BridgeHubPolkadot, BridgeHubPolkadotPallet, BridgeHubPolkadotReceiver, BridgeHubPolkadotSender,
-	Collectives, CollectivesPallet, CollectivesReceiver, CollectivesSender, Kusama, KusamaMockNet,
-	KusamaPallet, KusamaReceiver, KusamaSender, PenpalKusama, PenpalKusamaReceiver,
-	PenpalKusamaSender, PenpalPolkadot, PenpalPolkadotReceiver, PenpalPolkadotSender, Polkadot,
-	PolkadotMockNet, PolkadotPallet, PolkadotReceiver, PolkadotSender,
+	AccountId, AssetHubWococo, BridgeHubPolkadot, BridgeHubPolkadotPallet,
+	BridgeHubPolkadotReceiver, BridgeHubPolkadotSender, BridgeHubRococo, BridgeHubRococoPallet,
+	BridgeHubRococoReceiver, BridgeHubRococoSender, BridgeHubWococo, Collectives,
+	CollectivesPallet, CollectivesReceiver, CollectivesSender, Kusama, KusamaPallet,
+	PenpalPolkadot, PenpalPolkadotReceiver, PenpalPolkadotSender, Polkadot, PolkadotMockNet,
+	PolkadotPallet, PolkadotReceiver, PolkadotSender, Rococo, RococoMockNet, RococoPallet,
+	RococoReceiver, RococoSender,
 };
-pub use polkadot_core_primitives::InboundDownwardMessage;
+// pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use xcm::{
 	prelude::*,
 	v3::{
 		Error,
-		NetworkId::{Kusama as KusamaId, Polkadot as PolkadotId},
+		NetworkId::{Rococo as RococoId, Wococo as WococoId},
 	},
 };
 pub use xcm_emulator::{

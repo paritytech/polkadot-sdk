@@ -57,6 +57,7 @@ members = [
 	"parachains/integration-tests/emulated/assets/asset-hub-polkadot",
 	"parachains/integration-tests/emulated/assets/asset-hub-westend",
 	"parachains/integration-tests/emulated/collectives/collectives-polkadot",
+	"parachains/integration-tests/emulated/bridges/bridge-hub-rococo",
 	"test/client",
 	"test/relay-sproof-builder",
 	"test/relay-validation-worker-provider",

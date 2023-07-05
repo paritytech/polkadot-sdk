@@ -1,11 +1,11 @@
 [package]
-name = "collectives-polkadot-integration-tests"
-version = "0.1.0"
+name = "bridge-hub-rococo-integration-tests"
+version = "1.0.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
-description = "Polkadot Collectives parachain runtime integration tests based on xcm-emulator"
+description = "Bridge Hub Rococo runtime integration tests with xcm-emulator"
 
-[dev-dependencies]
+[dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
 
 # Substrate
@@ -16,8 +16,6 @@ sp-core = { default-features = false, git = "https://github.com/paritytech/subst
 sp-weights = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-balances = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-assets = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
-pallet-core-fellowship = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
-pallet-salary = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot
 polkadot-core-primitives = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
@@ -31,8 +29,9 @@ pallet-xcm = { default-features = false, git = "https://github.com/paritytech/po
 # Cumulus
 parachains-common = { path = "../../../../common" }
 cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../../pallets/xcmp-queue" }
-collectives-polkadot-runtime = { path = "../../../../runtimes/collectives/collectives-polkadot" }
-asset-hub-polkadot-runtime = { path = "../../../../runtimes/assets/asset-hub-polkadot" }
+bridge-hub-rococo-runtime = { path = "../../../../runtimes/bridge-hubs/bridge-hub-rococo" }
+pallet-bridge-messages = { default-features = false, path = "../../../../../bridges/modules/messages" }
+bp-messages = { default-features = false, path = "../../../../../bridges/primitives/messages" }
 
 # Local
 xcm-emulator = { default-features = false, path = "../../../../../xcm/xcm-emulator" }
