@@ -18,7 +18,6 @@ use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed};
 use cumulus_primitives_core::ParaId;
 use parachains_common::Balance as BridgeHubBalance;
 use sc_chain_spec::ChainSpec;
-use sc_cli::RuntimeVersion;
 use sp_core::sr25519;
 use std::{path::PathBuf, str::FromStr};
 
@@ -163,26 +162,6 @@ impl BridgeHubRuntimeType {
 				ParaId::new(1014),
 				Some("Bob".to_string()),
 			))),
-		}
-	}
-
-	pub fn runtime_version(&self) -> &'static RuntimeVersion {
-		match self {
-			BridgeHubRuntimeType::Polkadot |
-			BridgeHubRuntimeType::PolkadotLocal |
-			BridgeHubRuntimeType::PolkadotDevelopment => &bridge_hub_polkadot_runtime::VERSION,
-			BridgeHubRuntimeType::Kusama |
-			BridgeHubRuntimeType::KusamaLocal |
-			BridgeHubRuntimeType::KusamaDevelopment => &bridge_hub_kusama_runtime::VERSION,
-			BridgeHubRuntimeType::Westend => &bridge_hub_kusama_runtime::VERSION,
-			BridgeHubRuntimeType::Rococo |
-			BridgeHubRuntimeType::RococoLocal |
-			BridgeHubRuntimeType::RococoDevelopment |
-			BridgeHubRuntimeType::Wococo |
-			BridgeHubRuntimeType::WococoLocal => {
-				// this is intentional, for Rococo/Wococo we just want to have one runtime, which is configured for both sides
-				&bridge_hub_rococo_runtime::VERSION
-			},
 		}
 	}
 }

@@ -27,6 +27,7 @@ use std::{
 
 use codec::Encode;
 use sc_chain_spec::ChainSpec;
+use sc_client_api::ExecutorProvider;
 use sc_service::{
 	config::{PrometheusConfig, TelemetryEndpoints},
 	BasePath, TransactionPoolOptions,
@@ -149,9 +150,14 @@ impl ExportGenesisStateCommand {
 	pub fn run<Block: BlockT>(
 		&self,
 		chain_spec: &dyn ChainSpec,
-		genesis_state_version: StateVersion,
+		client: &impl ExecutorProvider<Block>,
 	) -> sc_cli::Result<()> {
-		let block: Block = generate_genesis_block(chain_spec, genesis_state_version)?;
+		let state_version = sc_chain_spec::resolve_state_version_from_wasm(
+			&chain_spec.build_storage()?,
+			client.executor(),
+		)?;
+
+		let block: Block = generate_genesis_block(chain_spec, state_version)?;
 		let raw_header = block.header().encode();
 		let output_buf = if self.raw {
 			raw_header

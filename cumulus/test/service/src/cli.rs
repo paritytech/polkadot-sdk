@@ -19,7 +19,7 @@ use std::{net::SocketAddr, path::PathBuf};
 use polkadot_service::{ChainSpec, ParaId, PrometheusConfig};
 use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
-	Result as CliResult, RuntimeVersion, SharedParams, SubstrateCli,
+	Result as CliResult, SharedParams, SubstrateCli,
 };
 use sc_service::BasePath;
 
@@ -296,10 +296,6 @@ impl SubstrateCli for TestCollatorCli {
 			},
 		})
 	}
-
-	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		&cumulus_test_service::runtime::VERSION
-	}
 }
 
 impl SubstrateCli for RelayChainCli {
@@ -336,9 +332,5 @@ impl SubstrateCli for RelayChainCli {
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		<polkadot_cli::Cli as SubstrateCli>::from_iter([RelayChainCli::executable_name()].iter())
 			.load_spec(id)
-	}
-
-	fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		polkadot_cli::Cli::native_runtime_version(chain_spec)
 	}
 }
