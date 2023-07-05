@@ -40,6 +40,6 @@ cumulus-primitives-core = { path = "../../primitives/core" }
 array-bytes = "6.1"
 lru = "0.9"
 tracing = "0.1.37"
-async-trait = "0.1.68"
+async-trait = "0.1.70"
 futures = "0.3.28"
 tokio = { version = "1.29.1", features = ["macros"] }

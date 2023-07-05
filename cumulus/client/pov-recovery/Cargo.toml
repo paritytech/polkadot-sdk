@@ -28,7 +28,7 @@ polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch =
 # Cumulus
 cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-relay-chain-interface = {path = "../relay-chain-interface"}
-async-trait = "0.1.68"
+async-trait = "0.1.70"
 
 [dev-dependencies]
 tokio = { version = "1.29.1", features = ["macros"] }

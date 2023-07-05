@@ -28,7 +28,7 @@ futures-timer = "3.0.2"
 parity-scale-codec = "3.6.3"
 jsonrpsee = { version = "0.16.2", features = ["ws-client"] }
 tracing = "0.1.37"
-async-trait = "0.1.68"
+async-trait = "0.1.70"
 url = "2.4.0"
 serde_json = "1.0.100"
 serde = "1.0.166"
