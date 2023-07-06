@@ -14,7 +14,7 @@ hex-literal = { version = "0.4.1" }
 log = { version = "0.4.19", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.166", optional = true, features = ["derive"] }
-smallvec = "1.8.1"
+smallvec = "1.11.0"
 
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "master" }
