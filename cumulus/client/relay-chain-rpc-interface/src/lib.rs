@@ -82,9 +82,11 @@ impl RelayChainInterface for RelayChainRpcInterface {
 		let hash = match block_id {
 			BlockId::Hash(hash) => hash,
 			BlockId::Number(num) =>
-				self.rpc_client.chain_get_block_hash(Some(num)).await?.ok_or_else(|| {
-					RelayChainError::GenericError(format!("block with number {num} not found"))
-				})?,
+				if let Some(hash) = self.rpc_client.chain_get_block_hash(Some(num)).await? {
+					hash
+				} else {
+					return Ok(None)
+				},
 		};
 		let header = self.rpc_client.chain_get_header(Some(hash)).await?;
 

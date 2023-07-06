@@ -94,9 +94,12 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		let hash = match block_id {
 			BlockId::Hash(hash) => hash,
-			BlockId::Number(num) => self.full_client.hash(num)?.ok_or_else(|| {
-				RelayChainError::GenericError(format!("block with number {num} not found"))
-			})?,
+			BlockId::Number(num) =>
+				if let Some(hash) = self.full_client.hash(num)? {
+					hash
+				} else {
+					return Ok(None)
+				},
 		};
 		let header = self.full_client.header(hash)?;
 
