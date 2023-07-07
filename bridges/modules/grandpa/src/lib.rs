@@ -39,13 +39,12 @@
 pub use storage_types::StoredAuthoritySet;
 
 use bp_header_chain::{
-	justification::GrandpaJustification, ChainWithGrandpa, HeaderChain, InitializationData,
-	StoredHeaderData, StoredHeaderDataBuilder,
+	justification::GrandpaJustification, ChainWithGrandpa, GrandpaConsensusLogReader, HeaderChain,
+	InitializationData, StoredHeaderData, StoredHeaderDataBuilder,
 };
 use bp_runtime::{BlockNumberOf, HashOf, HasherOf, HeaderId, HeaderOf, OwnedBridgeModule};
 use finality_grandpa::voter_set::VoterSet;
 use frame_support::{dispatch::PostDispatchInfo, ensure, DefaultNoBound};
-use sp_consensus_grandpa::{ConsensusLog, GRANDPA_ENGINE_ID};
 use sp_runtime::{
 	traits::{Header as HeaderT, Zero},
 	SaturatedConversion,
@@ -443,11 +442,17 @@ pub mod pallet {
 
 		// We don't support forced changes - at that point governance intervention is required.
 		ensure!(
-			super::find_forced_change(header).is_none(),
+			GrandpaConsensusLogReader::<BridgedBlockNumber<T, I>>::find_forced_change(
+				header.digest()
+			)
+			.is_none(),
 			<Error<T, I>>::UnsupportedScheduledChange
 		);
 
-		if let Some(change) = super::find_scheduled_change(header) {
+		if let Some(change) =
+			GrandpaConsensusLogReader::<BridgedBlockNumber<T, I>>::find_scheduled_change(
+				header.digest(),
+			) {
 			// GRANDPA only includes a `delay` for forced changes, so this isn't valid.
 			ensure!(change.delay == Zero::zero(), <Error<T, I>>::UnsupportedScheduledChange);
 
@@ -616,42 +621,6 @@ impl<T: Config<I>, I: 'static> HeaderChain<BridgedChain<T, I>> for GrandpaChainH
 	}
 }
 
-pub(crate) fn find_scheduled_change<H: HeaderT>(
-	header: &H,
-) -> Option<sp_consensus_grandpa::ScheduledChange<H::Number>> {
-	use sp_runtime::generic::OpaqueDigestItemId;
-
-	let id = OpaqueDigestItemId::Consensus(&GRANDPA_ENGINE_ID);
-
-	let filter_log = |log: ConsensusLog<H::Number>| match log {
-		ConsensusLog::ScheduledChange(change) => Some(change),
-		_ => None,
-	};
-
-	// find the first consensus digest with the right ID which converts to
-	// the right kind of consensus log.
-	header.digest().convert_first(|l| l.try_to(id).and_then(filter_log))
-}
-
-/// Checks the given header for a consensus digest signaling a **forced** scheduled change and
-/// extracts it.
-pub(crate) fn find_forced_change<H: HeaderT>(
-	header: &H,
-) -> Option<(H::Number, sp_consensus_grandpa::ScheduledChange<H::Number>)> {
-	use sp_runtime::generic::OpaqueDigestItemId;
-
-	let id = OpaqueDigestItemId::Consensus(&GRANDPA_ENGINE_ID);
-
-	let filter_log = |log: ConsensusLog<H::Number>| match log {
-		ConsensusLog::ForcedChange(delay, change) => Some((delay, change)),
-		_ => None,
-	};
-
-	// find the first consensus digest with the right ID which converts to
-	// the right kind of consensus log.
-	header.digest().convert_first(|l| l.try_to(id).and_then(filter_log))
-}
-
 /// (Re)initialize bridge with given header for using it in `pallet-bridge-messages` benchmarks.
 #[cfg(feature = "runtime-benchmarks")]
 pub fn initialize_for_benchmarks<T: Config<I>, I: 'static>(header: BridgedHeader<T, I>) {
@@ -685,6 +654,7 @@ mod tests {
 		storage::generator::StorageValue,
 	};
 	use frame_system::{EventRecord, Phase};
+	use sp_consensus_grandpa::{ConsensusLog, GRANDPA_ENGINE_ID};
 	use sp_core::Get;
 	use sp_runtime::{Digest, DigestItem, DispatchError};
 
