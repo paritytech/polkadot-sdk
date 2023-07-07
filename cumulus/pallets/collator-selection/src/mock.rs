@@ -188,9 +188,6 @@ ord_parameter_types! {
 
 parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"PotStake");
-	pub const MaxCandidates: u32 = 20;
-	pub const MaxInvulnerables: u32 = 20;
-	pub const MinCandidates: u32 = 1;
 }
 
 pub struct IsRegistered;
@@ -205,9 +202,9 @@ impl Config for Test {
 	type Currency = Balances;
 	type UpdateOrigin = EnsureSignedBy<RootAccount, u64>;
 	type PotId = PotId;
-	type MaxCandidates = MaxCandidates;
-	type MinCandidates = MinCandidates;
-	type MaxInvulnerables = MaxInvulnerables;
+	type MaxCandidates = ConstU32<20>;
+	type MinEligibleCollators = ConstU32<1>;
+	type MaxInvulnerables = ConstU32<20>;
 	type KickThreshold = Period;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	type ValidatorIdOf = IdentityCollator;

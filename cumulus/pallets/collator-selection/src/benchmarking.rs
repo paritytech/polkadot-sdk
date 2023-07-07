@@ -25,7 +25,8 @@ use frame_benchmarking::{
 use frame_support::{
 	assert_ok,
 	codec::Decode,
-	traits::{Currency, EnsureOrigin, Get},
+	dispatch::DispatchResult,
+	traits::{Currency, EnsureOrigin, Get, ReservableCurrency},
 };
 use frame_system::{EventRecord, RawOrigin};
 use pallet_authorship::EventHandler;
@@ -106,6 +107,18 @@ fn register_candidates<T: Config>(count: u32) {
 	}
 }
 
+fn min_candidates<T: Config>() -> u32 {
+	let min_collators = T::MinEligibleCollators::get();
+	let invulnerable_length = <Invulnerables<T>>::get().len();
+	min_collators.saturating_sub(invulnerable_length.try_into().unwrap())
+}
+
+fn min_invulnerables<T: Config>() -> u32 {
+	let min_collators = T::MinEligibleCollators::get();
+	let candidates_length = <Candidates<T>>::get().len();
+	min_collators.saturating_sub(candidates_length.try_into().unwrap())
+}
+
 benchmarks! {
 	where_clause { where T: pallet_authorship::Config + session::Config }
 
@@ -128,34 +141,67 @@ benchmarks! {
 	}
 
 	add_invulnerable {
+		let b in 1 .. T::MaxInvulnerables::get() - 1;
+		let c in 1 .. T::MaxCandidates::get() - 1;
+
 		let origin =
 			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		// we're going to add one, so need one less than max set as invulnerables to start
-		let b in 1 .. T::MaxInvulnerables::get() - 1;
+
+		// need to fill up candidates
+		<CandidacyBond<T>>::put(T::Currency::minimum_balance());
+		<DesiredCandidates<T>>::put(c);
+		// get accounts and keys for the `c` candidates
+		let mut candidates = (0..c).map(|cc| validator::<T>(cc)).collect::<Vec<_>>();
+		// add one more to the list. should not be in `b` (invulnerables) because it's the account
+		// we will _add_ to invulnerables. we want it to be in `candidates` because we need the
+		// weight associated with removing it.
+		let (new_invulnerable, new_invulnerable_keys) = validator::<T>(b.max(c) + 1);
+		candidates.push((new_invulnerable.clone(), new_invulnerable_keys));
+		// set their keys ...
+		for (who, keys) in candidates.clone() {
+			<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, Vec::new()).unwrap();
+		}
+		// ... and register them.
+		for (who, _) in candidates {
+			let deposit = <CandidacyBond<T>>::get();
+			T::Currency::make_free_balance_be(&who, deposit * 1000_u32.into());
+			let incoming = CandidateInfo { who: who.clone(), deposit };
+			<Candidates<T>>::try_mutate(|candidates| -> DispatchResult {
+				if !candidates.iter().any(|candidate| candidate.who == who) {
+					T::Currency::reserve(&who, deposit)?;
+					candidates.try_push(incoming).expect("we've respected the bounded vec limit");
+					<LastAuthoredBlock<T>>::insert(
+						who.clone(),
+						frame_system::Pallet::<T>::block_number() + T::KickThreshold::get(),
+					);
+				}
+				Ok(())
+			}).expect("only returns ok");
+		}
+
+		// now we need to fill up invulnerables
 		let mut invulnerables = register_validators::<T>(b);
 		invulnerables.sort();
-		let invulnerables: frame_support::BoundedVec<_, T::MaxInvulnerables> = frame_support::BoundedVec::try_from(invulnerables).unwrap();
+		let invulnerables: frame_support::BoundedVec<_, T::MaxInvulnerables> =
+			frame_support::BoundedVec::try_from(invulnerables).unwrap();
 		<Invulnerables<T>>::put(invulnerables);
-
-		// now let's set up a new one to add
-		let (new, keys) = validator::<T>(b + 1);
-		<session::Pallet<T>>::set_keys(RawOrigin::Signed(new.clone()).into(), keys, Vec::new()).unwrap();
 	}: {
 		assert_ok!(
-			<CollatorSelection<T>>::add_invulnerable(origin, new.clone())
+			<CollatorSelection<T>>::add_invulnerable(origin, new_invulnerable.clone())
 		);
 	}
 	verify {
-		assert_last_event::<T>(Event::InvulnerableAdded{account_id: new}.into());
+		assert_last_event::<T>(Event::InvulnerableAdded{account_id: new_invulnerable}.into());
 	}
 
 	remove_invulnerable {
 		let origin =
 			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let b in 1 .. T::MaxInvulnerables::get();
+		let b in (min_invulnerables::<T>() + 1) .. T::MaxInvulnerables::get();
 		let mut invulnerables = register_validators::<T>(b);
 		invulnerables.sort();
-		let invulnerables: frame_support::BoundedVec<_, T::MaxInvulnerables> = frame_support::BoundedVec::try_from(invulnerables).unwrap();
+		let invulnerables: frame_support::BoundedVec<_, T::MaxInvulnerables> =
+			frame_support::BoundedVec::try_from(invulnerables).unwrap();
 		<Invulnerables<T>>::put(invulnerables);
 		let to_remove = <Invulnerables<T>>::get().first().unwrap().clone();
 	}: {
@@ -221,7 +267,7 @@ benchmarks! {
 
 	// worse case is the last candidate leaving.
 	leave_intent {
-		let c in (T::MinCandidates::get() + 1) .. T::MaxCandidates::get();
+		let c in (min_candidates::<T>() + 1) .. T::MaxCandidates::get();
 		<CandidacyBond<T>>::put(T::Currency::minimum_balance());
 		<DesiredCandidates<T>>::put(c);
 
@@ -286,6 +332,7 @@ benchmarks! {
 			}
 		}
 
+		let min_candidates = min_candidates::<T>();
 		let pre_length = <Candidates<T>>::get().len();
 
 		frame_system::Pallet::<T>::set_block_number(new_block);
@@ -294,11 +341,19 @@ benchmarks! {
 	}: {
 		<CollatorSelection<T> as SessionManager<_>>::new_session(0)
 	} verify {
-		if c > r && non_removals >= T::MinCandidates::get() {
+		if c > r && non_removals >= min_candidates {
+			// candidates > removals and remaining candidates > min candidates
+			// => remaining candidates should be shorter than before removal, i.e. some were
+			//    actually removed.
 			assert!(<Candidates<T>>::get().len() < pre_length);
-		} else if c > r && non_removals < T::MinCandidates::get() {
-			assert!(<Candidates<T>>::get().len() == T::MinCandidates::get() as usize);
+		} else if c > r && non_removals < min_candidates {
+			// candidates > removals and remaining candidates would be less than min candidates
+			// => remaining candidates should equal min candidates, i.e. some were removed up to
+			//    the minimum, but then any more were "forced" to stay in candidates.
+			assert!(<Candidates<T>>::get().len() == min_candidates as usize);
 		} else {
+			// removals >= candidates, non removals must == 0
+			// can't remove more than exist
 			assert!(<Candidates<T>>::get().len() == pre_length);
 		}
 	}

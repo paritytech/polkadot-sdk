@@ -147,23 +147,31 @@ impl<T: frame_system::Config> pallet_collator_selection::WeightInfo for WeightIn
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
-	/// Storage: CollatorSelection Invulnerables (r:1 w:1)
-	/// Proof: CollatorSelection Invulnerables (max_values: Some(1), max_size: Some(3202), added: 3697, mode: MaxEncodedLen)
 	/// Storage: Session NextKeys (r:1 w:0)
 	/// Proof Skipped: Session NextKeys (max_values: None, max_size: None, mode: Measured)
-	/// The range of component `b` is `[1, 99]`.
-	fn add_invulnerable(b: u32, ) -> Weight {
+	/// Storage: CollatorSelection Invulnerables (r:1 w:1)
+	/// Proof: CollatorSelection Invulnerables (max_values: Some(1), max_size: Some(641), added: 1136, mode: MaxEncodedLen)
+	/// Storage: CollatorSelection Candidates (r:1 w:1)
+	/// Proof: CollatorSelection Candidates (max_values: Some(1), max_size: Some(4802), added: 5297, mode: MaxEncodedLen)
+	/// Storage: System Account (r:1 w:1)
+	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+	/// The range of component `b` is `[1, 19]`.
+	/// The range of component `c` is `[1, 99]`.
+	fn add_invulnerable(b: u32, c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `581 + b * (37 ±0)`
-		//  Estimated: `4687 + b * (37 ±0)`
-		// Minimum execution time: 269_126_000 picoseconds.
-		Weight::from_parts(286_711_880, 0)
-			.saturating_add(Weight::from_parts(0, 4687))
-			// Standard Error: 22_887
-			.saturating_add(Weight::from_parts(813_399, 0).saturating_mul(b.into()))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(1))
+		//  Measured:  `757 + b * (32 ±0) + c * (53 ±0)`
+		//  Estimated: `6287 + b * (37 ±0) + c * (53 ±0)`
+		// Minimum execution time: 52_720_000 picoseconds.
+		Weight::from_parts(56_102_459, 0)
+			.saturating_add(Weight::from_parts(0, 6287))
+			// Standard Error: 12_957
+			.saturating_add(Weight::from_parts(26_422, 0).saturating_mul(b.into()))
+			// Standard Error: 2_456
+			.saturating_add(Weight::from_parts(128_528, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(3))
 			.saturating_add(Weight::from_parts(0, 37).saturating_mul(b.into()))
+			.saturating_add(Weight::from_parts(0, 53).saturating_mul(c.into()))
 	}
 	/// Storage: CollatorSelection Invulnerables (r:1 w:1)
 	/// Proof: CollatorSelection Invulnerables (max_values: Some(1), max_size: Some(3202), added: 3697, mode: MaxEncodedLen)
