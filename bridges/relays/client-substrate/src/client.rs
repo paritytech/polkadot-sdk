@@ -52,6 +52,8 @@ use sp_version::RuntimeVersion;
 use std::future::Future;
 
 const SUB_API_GRANDPA_AUTHORITIES: &str = "GrandpaApi_grandpa_authorities";
+const SUB_API_GRANDPA_GENERATE_KEY_OWNERSHIP_PROOF: &str =
+	"GrandpaApi_generate_key_ownership_proof";
 const SUB_API_TXPOOL_VALIDATE_TRANSACTION: &str = "TaggedTransactionQueue_validate_transaction";
 const SUB_API_TX_PAYMENT_QUERY_INFO: &str = "TransactionPaymentApi_query_info";
 const MAX_SUBSCRIPTION_CAPACITY: usize = 4096;
@@ -711,6 +713,23 @@ impl<C: Chain> Client<C> {
 			sender,
 		));
 		Ok(Subscription(Mutex::new(receiver)))
+	}
+
+	// TODO: remove warning after implementing
+	// https://github.com/paritytech/parity-bridges-common/issues/39
+	#[allow(dead_code)]
+	async fn generate_grandpa_key_ownership_proof(
+		&self,
+		at: HashOf<C>,
+		set_id: sp_consensus_grandpa::SetId,
+		authority_id: sp_consensus_grandpa::AuthorityId,
+	) -> Result<Option<sp_consensus_grandpa::OpaqueKeyOwnershipProof>> {
+		self.typed_state_call(
+			SUB_API_GRANDPA_GENERATE_KEY_OWNERSHIP_PROOF.into(),
+			(set_id, authority_id),
+			Some(at),
+		)
+		.await
 	}
 
 	/// Execute jsonrpsee future in tokio context.
