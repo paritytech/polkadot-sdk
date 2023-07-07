@@ -139,7 +139,7 @@ pub trait ConsensusLogReader {
 pub struct GrandpaConsensusLogReader<Number>(sp_std::marker::PhantomData<Number>);
 
 impl<Number: Codec> GrandpaConsensusLogReader<Number> {
-	pub fn find_authorities_change(
+	pub fn find_scheduled_change(
 		digest: &Digest,
 	) -> Option<sp_consensus_grandpa::ScheduledChange<Number>> {
 		// find the first consensus digest with the right ID which converts to
@@ -151,11 +151,24 @@ impl<Number: Codec> GrandpaConsensusLogReader<Number> {
 				_ => None,
 			})
 	}
+
+	pub fn find_forced_change(
+		digest: &Digest,
+	) -> Option<(Number, sp_consensus_grandpa::ScheduledChange<Number>)> {
+		// find the first consensus digest with the right ID which converts to
+		// the right kind of consensus log.
+		digest
+			.convert_first(|log| log.consensus_try_to(&GRANDPA_ENGINE_ID))
+			.and_then(|log| match log {
+				ConsensusLog::ForcedChange(delay, change) => Some((delay, change)),
+				_ => None,
+			})
+	}
 }
 
 impl<Number: Codec> ConsensusLogReader for GrandpaConsensusLogReader<Number> {
 	fn schedules_authorities_change(digest: &Digest) -> bool {
-		GrandpaConsensusLogReader::<Number>::find_authorities_change(digest).is_some()
+		GrandpaConsensusLogReader::<Number>::find_scheduled_change(digest).is_some()
 	}
 }
 
