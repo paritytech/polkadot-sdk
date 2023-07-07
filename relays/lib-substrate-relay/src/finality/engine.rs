@@ -237,10 +237,9 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 		// If initial header changes the GRANDPA authorities set, then we need previous authorities
 		// to verify justification.
 		let mut authorities_for_verification = initial_authorities_set.clone();
-		let scheduled_change =
-			GrandpaConsensusLogReader::<BlockNumberOf<C>>::find_authorities_change(
-				initial_header.digest(),
-			);
+		let scheduled_change = GrandpaConsensusLogReader::<BlockNumberOf<C>>::find_scheduled_change(
+			initial_header.digest(),
+		);
 		assert!(
 			scheduled_change.as_ref().map(|c| c.delay.is_zero()).unwrap_or(true),
 			"GRANDPA authorities change at {} scheduled to happen in {:?} blocks. We expect\
