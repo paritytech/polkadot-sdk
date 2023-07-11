@@ -321,7 +321,8 @@ pub mod pallet {
 			// don't wipe out the collator set
 			if new.is_empty() {
 				ensure!(
-					Self::candidates().len() as u32 >= T::MinEligibleCollators::get(),
+					Candidates::<T>::decode_len().unwrap_or_default() >=
+						T::MinEligibleCollators::get() as usize,
 					Error::<T>::TooFewEligibleCollators
 				);
 			}
@@ -468,7 +469,7 @@ pub mod pallet {
 		pub fn leave_intent(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			ensure!(
-				Self::eligible_collators() > T::MinEligibleCollators::get(),
+				Self::eligible_collators() > T::MinEligibleCollators::get() as usize,
 				Error::<T>::TooFewEligibleCollators
 			);
 			// Do remove their last authored block.
@@ -517,11 +518,14 @@ pub mod pallet {
 			Self::deposit_event(Event::InvulnerableAdded { account_id: who });
 
 			let weight_used = T::WeightInfo::add_invulnerable(
-				Self::invulnerables()
-					.len()
+				Invulnerables::<T>::decode_len()
+					.unwrap_or_default()
 					.try_into()
 					.unwrap_or(T::MaxInvulnerables::get().saturating_sub(1)),
-				Self::candidates().len().try_into().unwrap_or(T::MaxCandidates::get()),
+				Candidates::<T>::decode_len()
+					.unwrap_or_default()
+					.try_into()
+					.unwrap_or(T::MaxCandidates::get()),
 			);
 
 			Ok(Some(weight_used).into())
@@ -537,7 +541,7 @@ pub mod pallet {
 			T::UpdateOrigin::ensure_origin(origin)?;
 
 			ensure!(
-				Self::eligible_collators() > T::MinEligibleCollators::get(),
+				Self::eligible_collators() > T::MinEligibleCollators::get() as usize,
 				Error::<T>::TooFewEligibleCollators
 			);
 
@@ -561,15 +565,10 @@ pub mod pallet {
 
 		/// Return the total number of accounts that are eligible collators (candidates and
 		/// invulnerables).
-		fn eligible_collators() -> u32 {
-			Self::candidates()
-				.len()
-				.saturating_add(Self::invulnerables().len())
-				.try_into()
-				// More-or-less guaranteed not to Err since it's hard to imagine candidates +
-				// invulnerables being greater than (or for `usize` to be smaller than) `u32::MAX`,
-				// but return something "reasonable" instead of panicking.
-				.unwrap_or(T::MaxCandidates::get())
+		fn eligible_collators() -> usize {
+			Candidates::<T>::decode_len()
+				.unwrap_or_default()
+				.saturating_add(Invulnerables::<T>::decode_len().unwrap_or_default())
 		}
 
 		/// Removes a candidate if they exist and sends them back their deposit.
@@ -629,7 +628,7 @@ pub mod pallet {
 						let _ = Self::try_remove_candidate(&c.who, false);
 						None
 					} else {
-						if Self::eligible_collators() <= min_collators || !is_lazy {
+						if Self::eligible_collators() <= min_collators as usize || !is_lazy {
 							// Either this is a good collator (not lazy) or we are at the minimum
 							// that the system needs. They get to stay.
 							Some(c.who)
