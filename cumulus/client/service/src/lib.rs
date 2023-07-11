@@ -20,7 +20,7 @@
 
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_consensus_common::ParachainConsensus;
-use cumulus_client_network::BlockAnnounceValidator;
+use cumulus_client_network::RequireSecondedInBlockAnnounce;
 use cumulus_client_pov_recovery::{PoVRecovery, RecoveryDelayRange, RecoveryHandle};
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
 use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
@@ -361,7 +361,8 @@ where
 		_ => None,
 	};
 
-	let block_announce_validator = BlockAnnounceValidator::new(relay_chain_interface, para_id);
+	let block_announce_validator =
+		RequireSecondedInBlockAnnounce::new(relay_chain_interface, para_id);
 	let block_announce_validator_builder = move |_| Box::new(block_announce_validator) as Box<_>;
 
 	sc_service::build_network(sc_service::BuildNetworkParams {

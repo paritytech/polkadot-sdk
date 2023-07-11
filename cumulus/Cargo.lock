@@ -2584,10 +2584,12 @@ dependencies = [
  "cumulus-client-collator",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-proposer",
+ "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
  "cumulus-relay-chain-interface",
  "futures",
+ "lru 0.10.0",
  "parity-scale-codec",
  "polkadot-node-primitives",
  "polkadot-overseer",
@@ -2595,6 +2597,7 @@ dependencies = [
  "sc-client-api",
  "sc-consensus",
  "sc-consensus-aura",
+ "sc-consensus-babe",
  "sc-consensus-slots",
  "sc-telemetry",
  "sp-api",
@@ -2630,11 +2633,14 @@ dependencies = [
  "polkadot-primitives",
  "sc-client-api",
  "sc-consensus",
+ "sc-consensus-babe",
  "schnellru",
  "sp-blockchain",
  "sp-consensus",
+ "sp-consensus-slots",
  "sp-core",
  "sp-runtime",
+ "sp-timestamp",
  "sp-tracing",
  "sp-trie",
  "substrate-prometheus-endpoint",
@@ -2931,6 +2937,19 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "xcm",
+]
+
+[[package]]
+name = "cumulus-primitives-aura"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-core-primitives",
+ "polkadot-primitives",
+ "sp-api",
+ "sp-consensus-aura",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

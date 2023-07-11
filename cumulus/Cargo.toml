@@ -30,6 +30,7 @@ members = [
 	"pallets/xcmp-queue",
 	"parachain-template/node",
 	"parachain-template/runtime",
+	"primitives/aura",
 	"primitives/core",
 	"primitives/parachain-inherent",
 	"primitives/timestamp",

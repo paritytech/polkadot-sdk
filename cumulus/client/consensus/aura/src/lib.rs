@@ -50,7 +50,9 @@ pub use import_queue::{build_verifier, import_queue, BuildVerifierParams, Import
 pub use sc_consensus_aura::{slot_duration, AuraVerifier, BuildAuraWorkerParams, SlotProportion};
 pub use sc_consensus_slots::InherentDataProviderExt;
 
-pub mod unstable_reimpl;
+pub mod collator;
+pub mod collators;
+pub mod equivocation_import_queue;
 
 const LOG_TARGET: &str = "aura::cumulus";
 

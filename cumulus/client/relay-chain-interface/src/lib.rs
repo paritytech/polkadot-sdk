@@ -111,7 +111,7 @@ pub trait RelayChainInterface: Send + Sync {
 	/// Get the hash of the current best block.
 	async fn best_block_hash(&self) -> RelayChainResult<PHash>;
 
-	/// Fetch the block header of a given height
+	/// Fetch the block header of a given hash or height, if it exists.
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>>;
 
 	/// Get the hash of the finalized block.

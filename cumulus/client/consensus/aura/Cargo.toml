@@ -10,11 +10,13 @@ async-trait = "0.1.71"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ] }
 futures = "0.3.28"
 tracing = "0.1.37"
+lru = "0.10.0"
 
 # Substrate
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-consensus-slots = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -35,6 +37,7 @@ substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate
 cumulus-client-consensus-common = { path = "../common" }
 cumulus-relay-chain-interface = { path = "../../relay-chain-interface" }
 cumulus-client-consensus-proposer = { path = "../proposer" }
+cumulus-primitives-aura = { path = "../../../primitives/aura" }
 cumulus-primitives-core = { path = "../../../primitives/core" }
 cumulus-primitives-parachain-inherent = { path = "../../../primitives/parachain-inherent" }
 cumulus-client-collator = { path = "../../collator" }
