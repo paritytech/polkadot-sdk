@@ -19,7 +19,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::{
-	outbound_lane, weights_ext::EXPECTED_DEFAULT_MESSAGE_LENGTH, BridgedChainOf, Call,
+	active_outbound_lane, weights_ext::EXPECTED_DEFAULT_MESSAGE_LENGTH, BridgedChainOf, Call,
 	InboundLanes, OutboundLanes,
 };
 
@@ -120,7 +120,7 @@ fn send_regular_message<T: Config<I>, I: 'static>() {
 		},
 	);
 
-	let mut outbound_lane = outbound_lane::<T, I>(T::bench_lane_id()).unwrap();
+	let mut outbound_lane = active_outbound_lane::<T, I>(T::bench_lane_id()).unwrap();
 	outbound_lane.send_message(BoundedVec::try_from(vec![]).expect("We craft valid messages"));
 }
 
