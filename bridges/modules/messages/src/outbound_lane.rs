@@ -223,7 +223,7 @@ fn ensure_unrewarded_relayers_are_correct<RelayerId>(
 mod tests {
 	use super::*;
 	use crate::{
-		outbound_lane,
+		active_outbound_lane,
 		tests::mock::{
 			outbound_message_data, run_test, test_lane_id, unrewarded_relayer, TestRelayer,
 			TestRuntime, REGULAR_PAYLOAD,
@@ -248,7 +248,7 @@ mod tests {
 		relayers: &VecDeque<UnrewardedRelayer<TestRelayer>>,
 	) -> Result<Option<DeliveredMessages>, ReceptionConfirmationError> {
 		run_test(|| {
-			let mut lane = outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
+			let mut lane = active_outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
@@ -264,7 +264,7 @@ mod tests {
 	#[test]
 	fn send_message_works() {
 		run_test(|| {
-			let mut lane = outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
+			let mut lane = active_outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			assert_eq!(lane.storage.data().latest_generated_nonce, 0);
 			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 1);
 			assert!(lane.storage.message(&1).is_some());
@@ -275,7 +275,7 @@ mod tests {
 	#[test]
 	fn confirm_delivery_works() {
 		run_test(|| {
-			let mut lane = outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
+			let mut lane = active_outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 1);
 			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 2);
 			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 3);
@@ -295,7 +295,7 @@ mod tests {
 	#[test]
 	fn confirm_partial_delivery_works() {
 		run_test(|| {
-			let mut lane = outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
+			let mut lane = active_outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 1);
 			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 2);
 			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 3);
@@ -324,7 +324,7 @@ mod tests {
 	#[test]
 	fn confirm_delivery_rejects_nonce_lesser_than_latest_received() {
 		run_test(|| {
-			let mut lane = outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
+			let mut lane = active_outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
@@ -404,7 +404,7 @@ mod tests {
 	#[test]
 	fn confirm_delivery_detects_when_more_than_expected_messages_are_confirmed() {
 		run_test(|| {
-			let mut lane = outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
+			let mut lane = active_outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
