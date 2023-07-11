@@ -17,8 +17,8 @@
 //! Pallet-level tests.
 
 use crate::{
+	active_outbound_lane,
 	lanes_manager::RuntimeInboundLaneStorage,
-	outbound_lane,
 	outbound_lane::ReceptionConfirmationError,
 	tests::mock::{RuntimeEvent as TestEvent, *},
 	weights_ext::WeightInfoExt,
@@ -54,7 +54,7 @@ fn get_ready_for_events() {
 fn send_regular_message(lane_id: LaneId) {
 	get_ready_for_events();
 
-	let outbound_lane = outbound_lane::<TestRuntime, ()>(lane_id).unwrap();
+	let outbound_lane = active_outbound_lane::<TestRuntime, ()>(lane_id).unwrap();
 	let message_nonce = outbound_lane.data().latest_generated_nonce + 1;
 	let prev_enqueued_messages = outbound_lane.data().queued_messages().saturating_len();
 	let valid_message = Pallet::<TestRuntime, ()>::validate_message(lane_id, &REGULAR_PAYLOAD)
@@ -390,6 +390,24 @@ fn receive_messages_proof_rejects_proof_with_too_many_messages() {
 fn receive_messages_delivery_proof_works() {
 	run_test(|| {
 		send_regular_message(test_lane_id());
+		receive_messages_delivery_proof();
+
+		assert_eq!(
+			OutboundLanes::<TestRuntime, ()>::get(test_lane_id())
+				.unwrap()
+				.latest_received_nonce,
+			1,
+		);
+	});
+}
+
+#[test]
+fn receive_messages_delivery_proof_works_on_closed_outbound_lanes() {
+	run_test(|| {
+		send_regular_message(test_lane_id());
+		active_outbound_lane::<TestRuntime, ()>(test_lane_id())
+			.unwrap()
+			.set_state(LaneState::Closed);
 		receive_messages_delivery_proof();
 
 		assert_eq!(
@@ -1054,21 +1072,6 @@ fn receive_messages_delivery_proof_fails_if_outbound_lane_is_unknown() {
 				},
 			),
 			Error::<TestRuntime, ()>::LanesManager(LanesManagerError::UnknownOutboundLane),
-		);
-
-		let proof = make_proof(closed_lane_id());
-		assert_noop!(
-			Pallet::<TestRuntime>::receive_messages_delivery_proof(
-				RuntimeOrigin::signed(1),
-				proof,
-				UnrewardedRelayersState {
-					unrewarded_relayer_entries: 1,
-					messages_in_oldest_entry: 1,
-					total_messages: 1,
-					last_delivered_nonce: 1,
-				},
-			),
-			Error::<TestRuntime, ()>::LanesManager(LanesManagerError::ClosedOutboundLane),
 		);
 	});
 }

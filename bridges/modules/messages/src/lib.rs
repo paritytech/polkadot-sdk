@@ -247,7 +247,7 @@ pub mod pallet {
 			let mut messages_received_status = Vec::with_capacity(messages.len());
 			let mut dispatch_weight_left = dispatch_weight;
 			for (lane_id, lane_data) in messages {
-				let mut lane = inbound_lane::<T, I>(lane_id)?;
+				let mut lane = active_inbound_lane::<T, I>(lane_id)?;
 
 				// subtract extra storage proof bytes from the actual PoV size - there may be
 				// less unrewarded relayers than the maximal configured value
@@ -375,7 +375,7 @@ pub mod pallet {
 			);
 
 			// mark messages as delivered
-			let mut lane = outbound_lane::<T, I>(lane_id)?;
+			let mut lane = any_state_outbound_lane::<T, I>(lane_id)?;
 			let last_delivered_nonce = lane_data.last_delivered_nonce();
 			let confirmed_messages = lane
 				.confirm_delivery(
@@ -646,7 +646,7 @@ where
 		ensure_normal_operating_mode::<T, I>()?;
 
 		// check lane
-		let lane = outbound_lane::<T, I>(lane_id)?;
+		let lane = active_outbound_lane::<T, I>(lane_id)?;
 
 		Ok(SendMessageArgs {
 			lane_id,
@@ -691,8 +691,8 @@ fn ensure_normal_operating_mode<T: Config<I>, I: 'static>() -> Result<(), Error<
 	Err(Error::<T, I>::NotOperatingNormally)
 }
 
-/// Creates new inbound lane object, backed by runtime storage.
-fn inbound_lane<T: Config<I>, I: 'static>(
+/// Creates new inbound lane object, backed by runtime storage. Lane must be active.
+fn active_inbound_lane<T: Config<I>, I: 'static>(
 	lane_id: LaneId,
 ) -> Result<InboundLane<RuntimeInboundLaneStorage<T, I>>, Error<T, I>> {
 	LanesManager::<T, I>::new()
@@ -700,12 +700,21 @@ fn inbound_lane<T: Config<I>, I: 'static>(
 		.map_err(Error::LanesManager)
 }
 
-/// Creates new outbound lane object, backed by runtime storage.
-fn outbound_lane<T: Config<I>, I: 'static>(
+/// Creates new outbound lane object, backed by runtime storage. Lane must be active.
+fn active_outbound_lane<T: Config<I>, I: 'static>(
 	lane_id: LaneId,
 ) -> Result<OutboundLane<RuntimeOutboundLaneStorage<T, I>>, Error<T, I>> {
 	LanesManager::<T, I>::new()
 		.active_outbound_lane(lane_id)
+		.map_err(Error::LanesManager)
+}
+
+/// Creates new outbound lane object, backed by runtime storage.
+fn any_state_outbound_lane<T: Config<I>, I: 'static>(
+	lane_id: LaneId,
+) -> Result<OutboundLane<RuntimeOutboundLaneStorage<T, I>>, Error<T, I>> {
+	LanesManager::<T, I>::new()
+		.any_state_outbound_lane(lane_id)
 		.map_err(Error::LanesManager)
 }
 
