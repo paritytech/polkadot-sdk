@@ -72,11 +72,7 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		para_id: ParaId,
 		relay_parent: PHash,
 	) -> RelayChainResult<Vec<InboundDownwardMessage>> {
-		Ok(self.full_client.runtime_api().dmq_contents_with_context(
-			relay_parent,
-			sp_core::ExecutionContext::Importing,
-			para_id,
-		)?)
+		Ok(self.full_client.runtime_api().dmq_contents(relay_parent, para_id)?)
 	}
 
 	async fn retrieve_all_inbound_hrmp_channel_contents(
@@ -84,11 +80,10 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		para_id: ParaId,
 		relay_parent: PHash,
 	) -> RelayChainResult<BTreeMap<ParaId, Vec<InboundHrmpMessage>>> {
-		Ok(self.full_client.runtime_api().inbound_hrmp_channels_contents_with_context(
-			relay_parent,
-			sp_core::ExecutionContext::Importing,
-			para_id,
-		)?)
+		Ok(self
+			.full_client
+			.runtime_api()
+			.inbound_hrmp_channels_contents(relay_parent, para_id)?)
 	}
 
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
@@ -342,8 +337,8 @@ mod tests {
 	use polkadot_primitives::Block as PBlock;
 	use polkadot_test_client::{
 		construct_transfer_extrinsic, BlockBuilderExt, Client, ClientBlockImportExt,
-		DefaultTestClientBuilderExt, ExecutionStrategy, InitPolkadotBlockBuilder,
-		TestClientBuilder, TestClientBuilderExt,
+		DefaultTestClientBuilderExt, InitPolkadotBlockBuilder, TestClientBuilder,
+		TestClientBuilderExt,
 	};
 	use sp_consensus::{BlockOrigin, SyncOracle};
 	use sp_runtime::traits::Block as BlockT;
@@ -364,8 +359,7 @@ mod tests {
 	}
 
 	fn build_client_backend_and_block() -> (Arc<Client>, PBlock, RelayChainInProcessInterface) {
-		let builder =
-			TestClientBuilder::new().set_execution_strategy(ExecutionStrategy::NativeWhenPossible);
+		let builder = TestClientBuilder::new();
 		let backend = builder.backend();
 		let client = Arc::new(builder.build());
 

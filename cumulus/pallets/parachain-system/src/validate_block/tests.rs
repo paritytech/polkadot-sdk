@@ -56,10 +56,7 @@ fn call_validate_block(
 }
 
 fn create_test_client() -> (Client, Header) {
-	let client = TestClientBuilder::new()
-		// NOTE: this allows easier debugging
-		.set_execution_strategy(sc_client_api::ExecutionStrategy::NativeWhenPossible)
-		.build();
+	let client = TestClientBuilder::new().build();
 
 	let genesis_header = client
 		.header(client.chain_info().genesis_hash)

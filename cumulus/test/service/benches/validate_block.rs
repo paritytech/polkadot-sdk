@@ -79,8 +79,7 @@ fn benchmark_block_validation(c: &mut Criterion) {
 	// Each account should only be included in one transfer.
 	let (src_accounts, dst_accounts, account_ids) = utils::create_benchmark_accounts();
 
-	let mut test_client_builder = TestClientBuilder::with_default_backend()
-		.set_execution_strategy(sc_client_api::ExecutionStrategy::AlwaysWasm);
+	let mut test_client_builder = TestClientBuilder::with_default_backend();
 	let genesis_init = test_client_builder.genesis_init_mut();
 	*genesis_init = cumulus_test_client::GenesisParameters { endowed_accounts: account_ids };
 	let client = test_client_builder.build_with_native_executor(None).0;

@@ -178,12 +178,7 @@ where
 			let inherent_res = self
 				.client
 				.runtime_api()
-				.check_inherents_with_context(
-					parent_hash,
-					block_params.origin.into(),
-					block,
-					inherent_data,
-				)
+				.check_inherents(parent_hash, block, inherent_data)
 				.map_err(|e| format!("Unable to check block inherents {:?}", e))?;
 
 			if !inherent_res.ok() {
