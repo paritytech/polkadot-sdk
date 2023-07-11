@@ -229,7 +229,7 @@ pub mod pallet {
 			};
 
 			<PendingUpwardMessages<T>>::mutate(|up| {
-				let queue_size = relevant_messaging_state.relay_dispatch_queue_size;
+				let queue_size = relevant_messaging_state.relay_dispatch_queue_remaining_capacity;
 
 				let available_capacity = cmp::min(
 					queue_size.remaining_count,
@@ -1052,7 +1052,7 @@ impl<T: Config> Pallet<T> {
 	pub fn open_outbound_hrmp_channel_for_benchmarks(target_parachain: ParaId) {
 		RelevantMessagingState::<T>::put(MessagingStateSnapshot {
 			dmq_mqc_head: Default::default(),
-			relay_dispatch_queue_size: Default::default(),
+			relay_dispatch_queue_remaining_capacity: Default::default(),
 			ingress_channels: Default::default(),
 			egress_channels: vec![(
 				target_parachain,

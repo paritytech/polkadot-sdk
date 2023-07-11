@@ -124,13 +124,15 @@ impl RelayStateSproofBuilder {
 					dmq_mqc_head.encode(),
 				);
 			}
-			if let Some(relay_dispatch_queue_size) = self.relay_dispatch_queue_remaining_capacity {
+			if let Some(relay_dispatch_queue_remaining_capacity) =
+				self.relay_dispatch_queue_remaining_capacity
+			{
 				insert(
 					relay_chain::well_known_keys::relay_dispatch_queue_remaining_capacity(
 						self.para_id,
 					)
 					.key,
-					relay_dispatch_queue_size.encode(),
+					relay_dispatch_queue_remaining_capacity.encode(),
 				);
 			}
 			if let Some(upgrade_go_ahead) = self.upgrade_go_ahead {
