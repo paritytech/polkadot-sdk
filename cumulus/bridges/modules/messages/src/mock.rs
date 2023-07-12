@@ -41,7 +41,7 @@ use sp_core::H256;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
 	traits::{BlakeTwo256, ConstU32, IdentityLookup},
-	Perbill,
+	BuildStorage, Perbill,
 };
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -81,7 +81,7 @@ frame_support::construct_runtime! {
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Event<T>},
 		Messages: pallet_bridge_messages::{Pallet, Call, Event<T>},
 	}
@@ -487,7 +487,7 @@ pub fn inbound_unrewarded_relayers_state(lane: bp_messages::LaneId) -> Unrewarde
 
 /// Return test externalities to use in tests.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+	let mut t = frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<TestRuntime> { balances: vec![(ENDOWED_ACCOUNT, 1_000_000)] }
 		.assimilate_storage(&mut t)
 		.unwrap();

@@ -84,13 +84,15 @@ fn glutton_genesis(parachain_id: ParaId) -> glutton_runtime::RuntimeGenesisConfi
 			code: glutton_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
+			..Default::default()
 		},
-		parachain_info: glutton_runtime::ParachainInfoConfig { parachain_id },
+		parachain_info: glutton_runtime::ParachainInfoConfig { parachain_id, ..Default::default() },
 		parachain_system: Default::default(),
 		glutton: glutton_runtime::GluttonConfig {
 			compute: Default::default(),
 			storage: Default::default(),
 			trash_data_count: Default::default(),
+			..Default::default()
 		},
 		sudo: glutton_runtime::SudoConfig {
 			key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),

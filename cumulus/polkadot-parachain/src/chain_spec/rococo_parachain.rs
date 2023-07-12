@@ -105,17 +105,22 @@ pub(crate) fn testnet_genesis(
 			code: rococo_parachain_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
+			..Default::default()
 		},
 		balances: rococo_parachain_runtime::BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
 		sudo: rococo_parachain_runtime::SudoConfig { key: Some(root_key) },
-		parachain_info: rococo_parachain_runtime::ParachainInfoConfig { parachain_id: id },
+		parachain_info: rococo_parachain_runtime::ParachainInfoConfig {
+			parachain_id: id,
+			..Default::default()
+		},
 		aura: rococo_parachain_runtime::AuraConfig { authorities: initial_authorities },
 		aura_ext: Default::default(),
 		parachain_system: Default::default(),
 		polkadot_xcm: rococo_parachain_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
+			..Default::default()
 		},
 	}
 }

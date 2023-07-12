@@ -53,9 +53,13 @@ fn seedling_testnet_genesis(
 			code: seedling_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
+			..Default::default()
 		},
 		sudo: seedling_runtime::SudoConfig { key: Some(root_key) },
-		parachain_info: seedling_runtime::ParachainInfoConfig { parachain_id },
+		parachain_info: seedling_runtime::ParachainInfoConfig {
+			parachain_id,
+			..Default::default()
+		},
 		parachain_system: Default::default(),
 	}
 }

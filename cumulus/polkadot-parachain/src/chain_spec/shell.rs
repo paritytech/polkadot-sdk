@@ -43,8 +43,9 @@ fn shell_testnet_genesis(parachain_id: ParaId) -> shell_runtime::RuntimeGenesisC
 			code: shell_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
+			..Default::default()
 		},
-		parachain_info: shell_runtime::ParachainInfoConfig { parachain_id },
+		parachain_info: shell_runtime::ParachainInfoConfig { parachain_id, ..Default::default() },
 		parachain_system: Default::default(),
 	}
 }

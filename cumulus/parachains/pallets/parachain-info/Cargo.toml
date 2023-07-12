@@ -11,6 +11,9 @@ scale-info = { version = "2.9.0", default-features = false, features = ["derive"
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
+sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+
 cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
 
 [features]

@@ -17,10 +17,10 @@ use crate as collator_selection;
 use crate::{mock::*, CandidateInfo, Error};
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{Currency, GenesisBuild, OnInitialize},
+	traits::{Currency, OnInitialize},
 };
 use pallet_balances::Error as BalancesError;
-use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin};
+use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin, BuildStorage};
 
 #[test]
 fn basic_setup_works() {
@@ -627,7 +627,7 @@ fn should_kick_invulnerables_from_candidates_on_session_change() {
 #[should_panic = "duplicate invulnerables in genesis."]
 fn cannot_set_genesis_value_twice() {
 	sp_tracing::try_init_simple();
-	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let invulnerables = vec![1, 1];
 
 	let collator_selection = collator_selection::GenesisConfig::<Test> {

@@ -90,6 +90,7 @@ fn penpal_testnet_genesis(
 			code: penpal_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
+			..Default::default()
 		},
 		balances: penpal_runtime::BalancesConfig {
 			balances: endowed_accounts
@@ -98,7 +99,10 @@ fn penpal_testnet_genesis(
 				.map(|k| (k, penpal_runtime::EXISTENTIAL_DEPOSIT * 4096))
 				.collect(),
 		},
-		parachain_info: penpal_runtime::ParachainInfoConfig { parachain_id: id },
+		parachain_info: penpal_runtime::ParachainInfoConfig {
+			parachain_id: id,
+			..Default::default()
+		},
 		collator_selection: penpal_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: penpal_runtime::EXISTENTIAL_DEPOSIT * 16,
@@ -123,6 +127,7 @@ fn penpal_testnet_genesis(
 		parachain_system: Default::default(),
 		polkadot_xcm: penpal_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
+			..Default::default()
 		},
 		sudo: penpal_runtime::SudoConfig {
 			key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),

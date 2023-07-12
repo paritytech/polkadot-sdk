@@ -240,11 +240,15 @@ fn contracts_rococo_genesis(
 			code: contracts_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
+			..Default::default()
 		},
 		balances: contracts_rococo_runtime::BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
-		parachain_info: contracts_rococo_runtime::ParachainInfoConfig { parachain_id: id },
+		parachain_info: contracts_rococo_runtime::ParachainInfoConfig {
+			parachain_id: id,
+			..Default::default()
+		},
 		collator_selection: contracts_rococo_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: CONTRACTS_ROCOCO_ED * 16,
@@ -269,6 +273,7 @@ fn contracts_rococo_genesis(
 		parachain_system: Default::default(),
 		polkadot_xcm: contracts_rococo_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
+			..Default::default()
 		},
 		sudo: contracts_rococo_runtime::SudoConfig {
 			key: Some(

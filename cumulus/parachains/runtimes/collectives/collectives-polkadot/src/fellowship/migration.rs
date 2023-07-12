@@ -165,7 +165,7 @@ pub mod tests {
 	use pallet_ranked_collective::Rank;
 	use parachains_common::AccountId;
 	use sp_core::crypto::Ss58Codec;
-	use sp_runtime::AccountId32;
+	use sp_runtime::{AccountId32, BuildStorage};
 
 	#[test]
 	fn check_fellowship_addresses() {
@@ -236,7 +236,7 @@ pub mod tests {
 		use super::import_kusama_fellowship::Migration;
 		use pallet_ranked_collective::{IdToIndex, IndexToId, MemberCount, MemberRecord, Members};
 
-		let t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
+		let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| System::set_block_number(1));
 		ext.execute_with(|| {

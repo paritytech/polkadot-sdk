@@ -155,6 +155,7 @@ pub mod polkadot {
 		let genesis_config = polkadot_runtime::RuntimeGenesisConfig {
 			system: polkadot_runtime::SystemConfig {
 				code: polkadot_runtime::WASM_BINARY.unwrap().to_vec(),
+				..Default::default()
 			},
 			balances: polkadot_runtime::BalancesConfig {
 				balances: accounts::init_balances()
@@ -202,6 +203,7 @@ pub mod polkadot {
 			babe: polkadot_runtime::BabeConfig {
 				authorities: Default::default(),
 				epoch_config: Some(polkadot_runtime::BABE_GENESIS_EPOCH_CONFIG),
+				..Default::default()
 			},
 			configuration: polkadot_runtime::ConfigurationConfig { config: get_host_config() },
 			..Default::default()
@@ -252,6 +254,7 @@ pub mod westend {
 		let genesis_config = westend_runtime::RuntimeGenesisConfig {
 			system: westend_runtime::SystemConfig {
 				code: westend_runtime::WASM_BINARY.unwrap().to_vec(),
+				..Default::default()
 			},
 			balances: westend_runtime::BalancesConfig {
 				balances: accounts::init_balances()
@@ -299,6 +302,7 @@ pub mod westend {
 			babe: westend_runtime::BabeConfig {
 				authorities: Default::default(),
 				epoch_config: Some(westend_runtime::BABE_GENESIS_EPOCH_CONFIG),
+				..Default::default()
 			},
 			configuration: westend_runtime::ConfigurationConfig { config: get_host_config() },
 			..Default::default()
@@ -349,6 +353,7 @@ pub mod kusama {
 		let genesis_config = kusama_runtime::RuntimeGenesisConfig {
 			system: kusama_runtime::SystemConfig {
 				code: kusama_runtime::WASM_BINARY.unwrap().to_vec(),
+				..Default::default()
 			},
 			balances: kusama_runtime::BalancesConfig {
 				balances: accounts::init_balances()
@@ -395,6 +400,7 @@ pub mod kusama {
 			babe: kusama_runtime::BabeConfig {
 				authorities: Default::default(),
 				epoch_config: Some(kusama_runtime::BABE_GENESIS_EPOCH_CONFIG),
+				..Default::default()
 			},
 			configuration: kusama_runtime::ConfigurationConfig { config: get_host_config() },
 			..Default::default()
@@ -445,6 +451,7 @@ pub mod rococo {
 		let genesis_config = rococo_runtime::RuntimeGenesisConfig {
 			system: rococo_runtime::SystemConfig {
 				code: rococo_runtime::WASM_BINARY.unwrap().to_vec(),
+				..Default::default()
 			},
 			balances: rococo_runtime::BalancesConfig {
 				balances: accounts::init_balances()
@@ -476,6 +483,7 @@ pub mod rococo {
 			babe: rococo_runtime::BabeConfig {
 				authorities: Default::default(),
 				epoch_config: Some(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
+				..Default::default()
 			},
 			sudo: rococo_runtime::SudoConfig {
 				key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
@@ -483,6 +491,7 @@ pub mod rococo {
 			configuration: rococo_runtime::ConfigurationConfig { config: get_host_config() },
 			registrar: rococo_runtime::RegistrarConfig {
 				next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
+				..Default::default()
 			},
 			..Default::default()
 		};
@@ -503,6 +512,7 @@ pub mod asset_hub_polkadot {
 				code: asset_hub_polkadot_runtime::WASM_BINARY
 					.expect("WASM binary was not build, please build it!")
 					.to_vec(),
+				..Default::default()
 			},
 			balances: asset_hub_polkadot_runtime::BalancesConfig {
 				balances: accounts::init_balances()
@@ -513,6 +523,7 @@ pub mod asset_hub_polkadot {
 			},
 			parachain_info: asset_hub_polkadot_runtime::ParachainInfoConfig {
 				parachain_id: PARA_ID.into(),
+				..Default::default()
 			},
 			collator_selection: asset_hub_polkadot_runtime::CollatorSelectionConfig {
 				invulnerables: collators::invulnerables_asset_hub_polkadot()
@@ -537,6 +548,7 @@ pub mod asset_hub_polkadot {
 			},
 			polkadot_xcm: asset_hub_polkadot_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
+				..Default::default()
 			},
 			..Default::default()
 		};
@@ -557,6 +569,7 @@ pub mod asset_hub_westend {
 				code: asset_hub_westend_runtime::WASM_BINARY
 					.expect("WASM binary was not build, please build it!")
 					.to_vec(),
+				..Default::default()
 			},
 			balances: asset_hub_westend_runtime::BalancesConfig {
 				balances: accounts::init_balances()
@@ -567,6 +580,7 @@ pub mod asset_hub_westend {
 			},
 			parachain_info: asset_hub_westend_runtime::ParachainInfoConfig {
 				parachain_id: PARA_ID.into(),
+				..Default::default()
 			},
 			collator_selection: asset_hub_westend_runtime::CollatorSelectionConfig {
 				invulnerables: collators::invulnerables()
@@ -591,6 +605,7 @@ pub mod asset_hub_westend {
 			},
 			polkadot_xcm: asset_hub_westend_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
+				..Default::default()
 			},
 			..Default::default()
 		};
@@ -611,6 +626,7 @@ pub mod asset_hub_kusama {
 				code: asset_hub_kusama_runtime::WASM_BINARY
 					.expect("WASM binary was not build, please build it!")
 					.to_vec(),
+				..Default::default()
 			},
 			balances: asset_hub_kusama_runtime::BalancesConfig {
 				balances: accounts::init_balances()
@@ -621,6 +637,7 @@ pub mod asset_hub_kusama {
 			},
 			parachain_info: asset_hub_kusama_runtime::ParachainInfoConfig {
 				parachain_id: PARA_ID.into(),
+				..Default::default()
 			},
 			collator_selection: asset_hub_kusama_runtime::CollatorSelectionConfig {
 				invulnerables: collators::invulnerables()
@@ -645,6 +662,7 @@ pub mod asset_hub_kusama {
 			},
 			polkadot_xcm: asset_hub_kusama_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
+				..Default::default()
 			},
 			..Default::default()
 		};
@@ -665,6 +683,7 @@ pub mod penpal {
 				code: penpal_runtime::WASM_BINARY
 					.expect("WASM binary was not build, please build it!")
 					.to_vec(),
+				..Default::default()
 			},
 			balances: penpal_runtime::BalancesConfig {
 				balances: accounts::init_balances()
@@ -673,7 +692,10 @@ pub mod penpal {
 					.map(|k| (k, ED * 4096))
 					.collect(),
 			},
-			parachain_info: penpal_runtime::ParachainInfoConfig { parachain_id: para_id.into() },
+			parachain_info: penpal_runtime::ParachainInfoConfig {
+				parachain_id: para_id.into(),
+				..Default::default()
+			},
 			collator_selection: penpal_runtime::CollatorSelectionConfig {
 				invulnerables: collators::invulnerables()
 					.iter()
@@ -697,6 +719,7 @@ pub mod penpal {
 			},
 			polkadot_xcm: penpal_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
+				..Default::default()
 			},
 			sudo: penpal_runtime::SudoConfig {
 				key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
@@ -720,6 +743,7 @@ pub mod collectives {
 				code: collectives_polkadot_runtime::WASM_BINARY
 					.expect("WASM binary was not build, please build it!")
 					.to_vec(),
+				..Default::default()
 			},
 			balances: collectives_polkadot_runtime::BalancesConfig {
 				balances: accounts::init_balances()
@@ -730,6 +754,7 @@ pub mod collectives {
 			},
 			parachain_info: collectives_polkadot_runtime::ParachainInfoConfig {
 				parachain_id: PARA_ID.into(),
+				..Default::default()
 			},
 			collator_selection: collectives_polkadot_runtime::CollatorSelectionConfig {
 				invulnerables: collators::invulnerables()
@@ -754,6 +779,7 @@ pub mod collectives {
 			},
 			polkadot_xcm: collectives_polkadot_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
+				..Default::default()
 			},
 			..Default::default()
 		};
@@ -774,6 +800,7 @@ pub mod bridge_hub_kusama {
 				code: bridge_hub_kusama_runtime::WASM_BINARY
 					.expect("WASM binary was not build, please build it!")
 					.to_vec(),
+				..Default::default()
 			},
 			balances: bridge_hub_kusama_runtime::BalancesConfig {
 				balances: accounts::init_balances()
@@ -784,6 +811,7 @@ pub mod bridge_hub_kusama {
 			},
 			parachain_info: bridge_hub_kusama_runtime::ParachainInfoConfig {
 				parachain_id: PARA_ID.into(),
+				..Default::default()
 			},
 			collator_selection: bridge_hub_kusama_runtime::CollatorSelectionConfig {
 				invulnerables: collators::invulnerables()
@@ -808,6 +836,7 @@ pub mod bridge_hub_kusama {
 			},
 			polkadot_xcm: bridge_hub_kusama_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
+				..Default::default()
 			},
 			..Default::default()
 		};
@@ -828,6 +857,7 @@ pub mod bridge_hub_polkadot {
 				code: bridge_hub_polkadot_runtime::WASM_BINARY
 					.expect("WASM binary was not build, please build it!")
 					.to_vec(),
+				..Default::default()
 			},
 			balances: bridge_hub_polkadot_runtime::BalancesConfig {
 				balances: accounts::init_balances()
@@ -838,6 +868,7 @@ pub mod bridge_hub_polkadot {
 			},
 			parachain_info: bridge_hub_polkadot_runtime::ParachainInfoConfig {
 				parachain_id: PARA_ID.into(),
+				..Default::default()
 			},
 			collator_selection: bridge_hub_polkadot_runtime::CollatorSelectionConfig {
 				invulnerables: collators::invulnerables()
@@ -862,6 +893,7 @@ pub mod bridge_hub_polkadot {
 			},
 			polkadot_xcm: bridge_hub_polkadot_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
+				..Default::default()
 			},
 			..Default::default()
 		};
@@ -882,6 +914,7 @@ pub mod bridge_hub_rococo {
 				code: bridge_hub_rococo_runtime::WASM_BINARY
 					.expect("WASM binary was not build, please build it!")
 					.to_vec(),
+				..Default::default()
 			},
 			balances: bridge_hub_rococo_runtime::BalancesConfig {
 				balances: accounts::init_balances()
@@ -892,6 +925,7 @@ pub mod bridge_hub_rococo {
 			},
 			parachain_info: bridge_hub_rococo_runtime::ParachainInfoConfig {
 				parachain_id: PARA_ID.into(),
+				..Default::default()
 			},
 			collator_selection: bridge_hub_rococo_runtime::CollatorSelectionConfig {
 				invulnerables: collators::invulnerables()
@@ -916,6 +950,7 @@ pub mod bridge_hub_rococo {
 			},
 			polkadot_xcm: bridge_hub_rococo_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
+				..Default::default()
 			},
 			bridge_wococo_grandpa: bridge_hub_rococo_runtime::BridgeWococoGrandpaConfig {
 				owner: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),

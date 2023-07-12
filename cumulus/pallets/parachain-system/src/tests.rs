@@ -36,7 +36,7 @@ use sp_core::{blake2_256, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	DispatchErrorWithPostInfo,
+	BuildStorage, DispatchErrorWithPostInfo,
 };
 use sp_version::RuntimeVersion;
 use std::cell::RefCell;
@@ -52,8 +52,8 @@ frame_support::construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		ParachainSystem: parachain_system::{Pallet, Call, Config, Storage, Inherent, Event<T>, ValidateUnsigned},
+		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+		ParachainSystem: parachain_system::{Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned},
 	}
 );
 
@@ -181,7 +181,7 @@ fn new_test_ext() -> sp_io::TestExternalities {
 	HANDLED_DMP_MESSAGES.with(|m| m.borrow_mut().clear());
 	HANDLED_XCMP_MESSAGES.with(|m| m.borrow_mut().clear());
 
-	frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
 
 struct ReadRuntimeVersion(Vec<u8>);

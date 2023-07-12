@@ -138,6 +138,7 @@ fn collectives_polkadot_genesis(
 			code: collectives_polkadot_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
+			..Default::default()
 		},
 		balances: collectives_polkadot_runtime::BalancesConfig {
 			balances: endowed_accounts
@@ -146,7 +147,10 @@ fn collectives_polkadot_genesis(
 				.map(|k| (k, COLLECTIVES_POLKADOT_ED * 4096))
 				.collect(),
 		},
-		parachain_info: collectives_polkadot_runtime::ParachainInfoConfig { parachain_id: id },
+		parachain_info: collectives_polkadot_runtime::ParachainInfoConfig {
+			parachain_id: id,
+			..Default::default()
+		},
 		collator_selection: collectives_polkadot_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: COLLECTIVES_POLKADOT_ED * 16,
@@ -171,6 +175,7 @@ fn collectives_polkadot_genesis(
 		parachain_system: Default::default(),
 		polkadot_xcm: collectives_polkadot_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
+			..Default::default()
 		},
 		alliance: Default::default(),
 		alliance_motion: Default::default(),

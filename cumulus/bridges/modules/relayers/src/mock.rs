@@ -27,6 +27,7 @@ use sp_core::H256;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
 	traits::{BlakeTwo256, ConstU32, IdentityLookup},
+	BuildStorage,
 };
 
 pub type AccountId = u64;
@@ -51,7 +52,7 @@ frame_support::construct_runtime! {
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Event<T>},
 		Relayers: pallet_bridge_relayers::{Pallet, Call, Event<T>},
 	}
@@ -170,7 +171,7 @@ impl PaymentProcedure<AccountId, Balance> for TestPaymentProcedure {
 
 /// Return test externalities to use in tests.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+	let t = frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
 	sp_io::TestExternalities::new(t)
 }
 

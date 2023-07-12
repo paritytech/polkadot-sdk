@@ -22,14 +22,14 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{
 	dispatch::{DispatchResult, RawOrigin, UnfilteredDispatchable},
 	inherent::{InherentData, ProvideInherent},
-	traits::{GenesisBuild, OriginTrait},
+	traits::OriginTrait,
 	weights::Weight,
 };
 use parachains_common::AccountId;
 use polkadot_parachain::primitives::{HrmpChannelId, RelayChainBlockNumber, XcmpMessageFormat};
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_core::Encode;
-use sp_runtime::{Digest, DigestItem};
+use sp_runtime::{BuildStorage, Digest, DigestItem};
 use xcm::{
 	latest::{MultiAsset, MultiLocation, XcmContext, XcmHash},
 	prelude::*,
@@ -161,20 +161,22 @@ impl<
 			pallet_collator_selection::Config + pallet_balances::Config + pallet_session::Config,
 		ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	{
-		let mut t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
+		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
-		<pallet_xcm::GenesisConfig as GenesisBuild<Runtime>>::assimilate_storage(
-			&pallet_xcm::GenesisConfig { safe_xcm_version: self.safe_xcm_version },
-			&mut t,
-		)
+		pallet_xcm::GenesisConfig::<Runtime> {
+			safe_xcm_version: self.safe_xcm_version,
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
 		.unwrap();
 
 		if let Some(para_id) = self.para_id {
-			<parachain_info::GenesisConfig as frame_support::traits::GenesisBuild<Runtime>>::assimilate_storage(
-				&parachain_info::GenesisConfig { parachain_id: para_id },
-				&mut t,
-			)
-				.unwrap();
+			parachain_info::GenesisConfig::<Runtime> {
+				parachain_id: para_id,
+				..Default::default()
+			}
+			.assimilate_storage(&mut t)
+			.unwrap();
 		}
 
 		pallet_balances::GenesisConfig::<Runtime> { balances: self.balances }
