@@ -41,7 +41,6 @@ do
 	$artifactsDir/polkadot-parachain benchmark pallet \
 		$extra_args \
 		--chain=$benchmarkRuntimeName \
-		--execution=wasm \
 		--wasm-execution=compiled \
 		--pallet=$pallet  \
 		--extrinsic='*' \
