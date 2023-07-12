@@ -177,7 +177,7 @@ where
 
 		api.set_call_context(CallContext::Onchain);
 
-		api.initialize_block(parent_hash, &header)?;
+		// api.initialize_block(parent_hash, &header)?;
 
 		let version = api
 			.api_version::<dyn BlockBuilderApi<Block>>(parent_hash)?
@@ -201,6 +201,7 @@ where
 		let extrinsics = &mut self.extrinsics;
 		let version = self.version;
 
+		/*
 		self.api.execute_in_transaction(|api| {
 			let res = if version < 6 {
 				#[allow(deprecated)]
@@ -221,6 +222,8 @@ where
 				Err(e) => TransactionOutcome::Rollback(Err(Error::from(e))),
 			}
 		})
+		*/
+		todo!()
 	}
 
 	/// Consume the builder to build a valid `Block` containing all pushed extrinsics.
@@ -228,8 +231,9 @@ where
 	/// Returns the build `Block`, the changes to the storage and an optional `StorageProof`
 	/// supplied by `self.api`, combined as [`BuiltBlock`].
 	/// The storage proof will be `Some(_)` when proof recording was enabled.
-	pub fn build(mut self) -> Result<BuiltBlock<Block>, Error> {
-		let header = self.api.finalize_block(self.parent_hash)?;
+	pub fn build(mut self) -> Result<BuiltBlock<Block, backend::StateBackendFor<B, Block>>, Error> {
+		let header: Block::Header = todo!();
+		// let header = self.api.finalize_block(self.parent_hash)?;
 
 		debug_assert_eq!(
 			header.extrinsics_root().clone(),
@@ -267,9 +271,10 @@ where
 			.execute_in_transaction(move |api| {
 				// `create_inherents` should not change any state, to ensure this we always rollback
 				// the transaction.
-				TransactionOutcome::Rollback(api.inherent_extrinsics(parent_hash, inherent_data))
+				// TransactionOutcome::Rollback(api.inherent_extrinsics(parent_hash, inherent_data))
+				TransactionOutcome::Rollback(Ok(Vec::new()))
 			})
-			.map_err(|e| Error::Application(Box::new(e)))
+			// .map_err(|e: String| Error::Application(Box::new(e)))
 	}
 
 	/// Estimate the size of the block in the current state.

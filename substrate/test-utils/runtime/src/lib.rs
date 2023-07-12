@@ -667,7 +667,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_api::Metadata<Block> for Runtime {
+	impl sp_api::Metadata for Runtime {
 		fn metadata() -> OpaqueMetadata {
 			unimplemented!()
 		}
@@ -717,7 +717,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl self::TestAPI<Block> for Runtime {
+	impl self::TestAPI for Runtime {
 		fn balance_of(id: AccountId) -> u64 {
 			Balances::free_balance(id)
 		}
@@ -791,7 +791,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
+	impl sp_consensus_aura::AuraApi<AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
 			sp_consensus_aura::SlotDuration::from_millis(1000)
 		}

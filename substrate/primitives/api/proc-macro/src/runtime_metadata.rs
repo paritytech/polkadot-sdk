@@ -156,10 +156,10 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 		ty.default = None;
 	}
 
-	where_clause
-		.into_iter()
-		.map(|ty| parse_quote!(#ty: #crate_::scale_info::TypeInfo + 'static))
-		.for_each(|w| generics.make_where_clause().predicates.push(w));
+	// where_clause
+	// 	.into_iter()
+	// 	.map(|ty| parse_quote!(#ty: #crate_::scale_info::TypeInfo + 'static))
+	// 	.for_each(|w| generics.make_where_clause().predicates.push(w));
 
 	let (impl_generics, _, where_clause) = generics.split_for_impl();
 
@@ -171,7 +171,8 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 		{
 			#crate_::metadata_ir::RuntimeApiMetadataIR {
 				name: #trait_name,
-				methods: #crate_::vec![ #( #methods, )* ],
+				// methods: #crate_::vec![ #( #methods, )* ],
+				methods: #crate_::vec![],
 				docs: #docs,
 			}
 		}
@@ -221,8 +222,8 @@ pub fn generate_impl_runtime_metadata(impls: &[ItemImpl]) -> Result<TokenStream2
 				} else {
 					None
 				}
-			})
-			.expect("Trait path should always contain at least one generic parameter; qed");
+			});
+
 
 		let mod_name = generate_runtime_mod_name_for_trait(&trait_name_ident);
 		// Get absolute path to the `runtime_decl_for_` module by replacing the last segment.
@@ -259,7 +260,8 @@ pub fn generate_impl_runtime_metadata(impls: &[ItemImpl]) -> Result<TokenStream2
 		trait InternalImplRuntimeApis {
 			#[inline(always)]
 			fn runtime_metadata(&self) -> #crate_::vec::Vec<#crate_::metadata_ir::RuntimeApiMetadataIR> {
-				#crate_::vec![ #( #metadata, )* ]
+				// #crate_::vec![ #( #metadata, )* ]
+				#crate_::vec![]
 			}
 		}
 		#[doc(hidden)]
