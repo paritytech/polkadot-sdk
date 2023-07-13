@@ -88,7 +88,7 @@ where
 	Pool: TransactionPool + Sync + Send + 'static,
 	Pool::Hash: Unpin,
 	<Pool::Block as BlockT>::Hash: Unpin,
-	Client: HeaderBackend<Pool::Block> + ProvideRuntimeApi<Pool::Block> + Send + Sync + 'static,
+	Client: HeaderBackend<Pool::Block> + Send + Sync + 'static,
 {
 	fn submit_and_watch(&self, mut sink: SubscriptionSink, xt: Bytes) -> SubscriptionResult {
 		// This is the only place where the RPC server can return an error for this
