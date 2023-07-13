@@ -38,6 +38,7 @@ use frame_support::{
 	assert_ok,
 	traits::{Get, OriginTrait, PalletInfoAccess},
 };
+use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use pallet_bridge_grandpa::BridgedHeader;
 use parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeHelper,
@@ -590,7 +591,7 @@ pub fn complex_relay_extrinsic_works<Runtime, XcmConfig, HrmpChannelOpener, GPI,
 	local_relay_chain_id: NetworkId,
 	lane_id: LaneId,
 	existential_deposit: BalanceOf<Runtime>,
-	executive_init_block: fn(&<Runtime as frame_system::Config>::Header),
+	executive_init_block: fn(&HeaderFor<Runtime>),
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
 		pallet_utility::Call::<Runtime>
@@ -653,10 +654,9 @@ pub fn complex_relay_extrinsic_works<Runtime, XcmConfig, HrmpChannelOpener, GPI,
 		.with_tracing()
 		.build()
 		.execute_with(|| {
-			let zero: <Runtime as frame_system::Config>::BlockNumber = 0u32.into();
+			let zero: BlockNumberFor<Runtime> = 0u32.into();
 			let genesis_hash = frame_system::Pallet::<Runtime>::block_hash(zero);
-			let mut header: <Runtime as frame_system::Config>::Header =
-				bp_test_utils::test_header(1u32.into());
+			let mut header: HeaderFor<Runtime> = bp_test_utils::test_header(1u32.into());
 			header.set_parent_hash(genesis_hash);
 			executive_init_block(&header);
 

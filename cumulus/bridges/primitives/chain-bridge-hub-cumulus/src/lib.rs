@@ -17,8 +17,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use bp_polkadot_core::{
-	AccountId, AccountInfoStorageMapKeyProvider, AccountPublic, Balance, BlockNumber, Hash, Hasher,
-	Hashing, Header, Index, Nonce, Perbill, Signature, SignedBlock, UncheckedExtrinsic,
+	AccountId, AccountInfoStorageMapKeyProvider, AccountPublic, Balance, Block, BlockNumber, Hash,
+	Hasher, Hashing, Header, Index, Nonce, Perbill, Signature, SignedBlock, UncheckedExtrinsic,
 	EXTRA_STORAGE_PROOF_SIZE, TX_EXTRA_BYTES,
 };
 

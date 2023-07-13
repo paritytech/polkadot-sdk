@@ -19,8 +19,8 @@ use bp_polkadot_core::parachains::ParaId;
 use bp_runtime::{Chain, Parachain};
 use frame_support::{construct_runtime, parameter_types, traits::ConstU32, weights::Weight};
 use sp_runtime::{
-	testing::{Header, H256},
-	traits::{BlakeTwo256, Header as HeaderT, IdentityLookup},
+	testing::H256,
+	traits::{BlakeTwo256, Header, IdentityLookup},
 	MultiSignature, Perbill,
 };
 
@@ -33,7 +33,6 @@ pub type RelayBlockHeader =
 	sp_runtime::generic::Header<crate::RelayBlockNumber, crate::RelayBlockHasher>;
 
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 
 pub const PARAS_PALLET_NAME: &str = "Paras";
 pub const UNTRACKED_PARACHAIN_ID: u32 = 10;
@@ -49,10 +48,9 @@ pub type BigParachainHeader = sp_runtime::generic::Header<u128, BlakeTwo256>;
 pub struct Parachain1;
 
 impl Chain for Parachain1 {
-	type BlockNumber = u64;
+	type Block = Block;
 	type Hash = H256;
 	type Hasher = RegularParachainHasher;
-	type Header = RegularParachainHeader;
 	type AccountId = u64;
 	type Balance = u64;
 	type Index = u64;
@@ -73,10 +71,9 @@ impl Parachain for Parachain1 {
 pub struct Parachain2;
 
 impl Chain for Parachain2 {
-	type BlockNumber = u64;
+	type Block = Block;
 	type Hash = H256;
 	type Hasher = RegularParachainHasher;
-	type Header = RegularParachainHeader;
 	type AccountId = u64;
 	type Balance = u64;
 	type Index = u64;
@@ -97,10 +94,9 @@ impl Parachain for Parachain2 {
 pub struct Parachain3;
 
 impl Chain for Parachain3 {
-	type BlockNumber = u64;
+	type Block = Block;
 	type Hash = H256;
 	type Hasher = RegularParachainHasher;
-	type Header = RegularParachainHeader;
 	type AccountId = u64;
 	type Balance = u64;
 	type Index = u64;
@@ -121,11 +117,12 @@ impl Parachain for Parachain3 {
 // this parachain is using u128 as block number and stored head data size exceeds limit
 pub struct BigParachain;
 
+type BigBlock = frame_system::mocking::MockBlockU128<TestRuntime>;
+
 impl Chain for BigParachain {
-	type BlockNumber = u128;
+	type Block = BigBlock;
 	type Hash = H256;
 	type Hasher = RegularParachainHasher;
-	type Header = BigParachainHeader;
 	type AccountId = u64;
 	type Balance = u64;
 	type Index = u64;
@@ -144,10 +141,7 @@ impl Parachain for BigParachain {
 }
 
 construct_runtime! {
-	pub enum TestRuntime where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+	pub enum TestRuntime
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Grandpa1: pallet_bridge_grandpa::<Instance1>::{Pallet, Event<T>},
@@ -167,12 +161,11 @@ impl frame_system::Config for TestRuntime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Index = u64;
 	type RuntimeCall = RuntimeCall;
-	type BlockNumber = TestNumber;
 	type Hash = H256;
 	type Hashing = RegularParachainHasher;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
+	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = BlockHashCount;
 	type Version = ();
@@ -263,10 +256,9 @@ impl pallet_bridge_parachains::benchmarking::Config<()> for TestRuntime {
 pub struct TestBridgedChain;
 
 impl Chain for TestBridgedChain {
-	type BlockNumber = crate::RelayBlockNumber;
+	type Block = crate::RelayBlock;
 	type Hash = crate::RelayBlockHash;
 	type Hasher = crate::RelayBlockHasher;
-	type Header = RelayBlockHeader;
 
 	type AccountId = AccountId;
 	type Balance = u32;
@@ -294,10 +286,9 @@ impl ChainWithGrandpa for TestBridgedChain {
 pub struct OtherBridgedChain;
 
 impl Chain for OtherBridgedChain {
-	type BlockNumber = u64;
+	type Block = Block;
 	type Hash = crate::RelayBlockHash;
 	type Hasher = crate::RelayBlockHasher;
-	type Header = sp_runtime::generic::Header<u64, crate::RelayBlockHasher>;
 
 	type AccountId = AccountId;
 	type Balance = u32;

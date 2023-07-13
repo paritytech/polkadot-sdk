@@ -29,12 +29,11 @@ use frame_support::{
 	traits::{OnFinalize, OnInitialize},
 	weights::Weight,
 };
-use frame_system::RawOrigin;
+use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use hex_literal::hex;
 use relay_chain::HrmpChannelId;
 use sp_core::{blake2_256, H256};
 use sp_runtime::{
-	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage, DispatchErrorWithPostInfo,
 };
@@ -43,14 +42,10 @@ use std::cell::RefCell;
 
 use crate as parachain_system;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+	pub enum Test
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		ParachainSystem: parachain_system::{Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned},
@@ -77,12 +72,11 @@ impl frame_system::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type Index = u64;
-	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = u64;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
+	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = BlockHashCount;
 	type BlockLength = ();
@@ -212,7 +206,7 @@ fn wasm_ext() -> sp_io::TestExternalities {
 }
 
 struct BlockTest {
-	n: <Test as frame_system::Config>::BlockNumber,
+	n: BlockNumberFor<Test>,
 	within_block: Box<dyn Fn()>,
 	after_block: Option<Box<dyn Fn()>>,
 }
@@ -243,7 +237,7 @@ impl BlockTests {
 		self
 	}
 
-	fn add<F>(self, n: <Test as frame_system::Config>::BlockNumber, within_block: F) -> Self
+	fn add<F>(self, n: BlockNumberFor<Test>, within_block: F) -> Self
 	where
 		F: 'static + Fn(),
 	{
@@ -252,7 +246,7 @@ impl BlockTests {
 
 	fn add_with_post_test<F1, F2>(
 		self,
-		n: <Test as frame_system::Config>::BlockNumber,
+		n: BlockNumberFor<Test>,
 		within_block: F1,
 		after_block: F2,
 	) -> Self

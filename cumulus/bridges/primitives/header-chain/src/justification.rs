@@ -75,7 +75,7 @@ impl<H: HeaderT> GrandpaJustification<H> {
 	/// any precise calculations - that's just an estimation.
 	pub fn max_reasonable_size<C>(required_precommits: u32) -> u32
 	where
-		C: Chain<Header = H> + ChainWithGrandpa,
+		C: Chain + ChainWithGrandpa,
 	{
 		// we don't need precise results here - just estimations, so some details
 		// are removed from computations (e.g. bytes required to encode vector length)
@@ -159,10 +159,7 @@ pub fn verify_and_optimize_justification<Header: HeaderT>(
 	authorities_set_id: SetId,
 	authorities_set: &VoterSet<AuthorityId>,
 	justification: GrandpaJustification<Header>,
-) -> Result<GrandpaJustification<Header>, Error>
-where
-	Header::Number: finality_grandpa::BlockNumberOps,
-{
+) -> Result<GrandpaJustification<Header>, Error> {
 	let mut optimizer = OptimizationCallbacks(Vec::new());
 	verify_justification_with_callbacks(
 		finalized_target,
@@ -180,10 +177,7 @@ pub fn verify_justification<Header: HeaderT>(
 	authorities_set_id: SetId,
 	authorities_set: &VoterSet<AuthorityId>,
 	justification: &GrandpaJustification<Header>,
-) -> Result<(), Error>
-where
-	Header::Number: finality_grandpa::BlockNumberOps,
-{
+) -> Result<(), Error> {
 	verify_justification_with_callbacks(
 		finalized_target,
 		authorities_set_id,
@@ -259,10 +253,7 @@ fn verify_justification_with_callbacks<Header: HeaderT, C: VerificationCallbacks
 	authorities_set: &VoterSet<AuthorityId>,
 	justification: &GrandpaJustification<Header>,
 	callbacks: &mut C,
-) -> Result<(), Error>
-where
-	Header::Number: finality_grandpa::BlockNumberOps,
-{
+) -> Result<(), Error> {
 	// ensure that it is justification for the expected header
 	if (justification.commit.target_hash, justification.commit.target_number) != finalized_target {
 		return Err(Error::InvalidJustificationTarget)

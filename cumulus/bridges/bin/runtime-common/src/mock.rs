@@ -63,12 +63,8 @@ pub type ThisChainHasher = BlakeTwo256;
 pub type ThisChainRuntimeCall = RuntimeCall;
 /// Runtime call origin at `ThisChain`.
 pub type ThisChainCallOrigin = RuntimeOrigin;
-/// Header of `ThisChain`.
-pub type ThisChainHeader = sp_runtime::generic::Header<ThisChainBlockNumber, ThisChainHasher>;
-/// Block of `ThisChain`.
-pub type ThisChainBlock = frame_system::mocking::MockBlock<TestRuntime>;
-/// Unchecked extrinsic of `ThisChain`.
-pub type ThisChainUncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
+// Block of `ThisChain`.
+pub type ThisChainBlock = frame_system::mocking::MockBlockU32<TestRuntime>;
 
 /// Account identifier at the `BridgedChain`.
 pub type BridgedChainAccountId = u128;
@@ -83,6 +79,8 @@ pub type BridgedChainHasher = BlakeTwo256;
 /// Header of the `BridgedChain`.
 pub type BridgedChainHeader =
 	sp_runtime::generic::Header<BridgedChainBlockNumber, BridgedChainHasher>;
+/// Block of the `BridgedChain`.
+pub type BridgedChainBlock = frame_system::mocking::MockBlockU32<TestRuntime>;
 
 /// Rewards payment procedure.
 pub type TestPaymentProcedure = PayRewardFromAccount<Balances, ThisChainAccountId>;
@@ -108,10 +106,7 @@ pub const BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT: usize = 2048;
 pub const BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE: u32 = 1024;
 
 frame_support::construct_runtime! {
-	pub enum TestRuntime where
-		Block = ThisChainBlock,
-		NodeBlock = ThisChainBlock,
-		UncheckedExtrinsic = ThisChainUncheckedExtrinsic,
+	pub enum TestRuntime
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Utility: pallet_utility,
@@ -150,12 +145,11 @@ impl frame_system::Config for TestRuntime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Index = u64;
 	type RuntimeCall = RuntimeCall;
-	type BlockNumber = ThisChainBlockNumber;
 	type Hash = ThisChainHash;
 	type Hashing = ThisChainHasher;
 	type AccountId = ThisChainAccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = ThisChainHeader;
+	type Block = ThisChainBlock;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = ConstU32<250>;
 	type Version = ();
@@ -318,10 +312,9 @@ impl From<BridgedChainOrigin>
 pub struct ThisUnderlyingChain;
 
 impl Chain for ThisUnderlyingChain {
-	type BlockNumber = ThisChainBlockNumber;
+	type Block = ThisChainBlock;
 	type Hash = ThisChainHash;
 	type Hasher = ThisChainHasher;
-	type Header = ThisChainHeader;
 	type AccountId = ThisChainAccountId;
 	type Balance = ThisChainBalance;
 	type Index = u32;
@@ -358,10 +351,9 @@ pub struct BridgedUnderlyingParachain;
 pub struct BridgedChainCall;
 
 impl Chain for BridgedUnderlyingChain {
-	type BlockNumber = BridgedChainBlockNumber;
+	type Block = BridgedChainBlock;
 	type Hash = BridgedChainHash;
 	type Hasher = BridgedChainHasher;
-	type Header = BridgedChainHeader;
 	type AccountId = BridgedChainAccountId;
 	type Balance = BridgedChainBalance;
 	type Index = u32;
@@ -384,10 +376,9 @@ impl ChainWithGrandpa for BridgedUnderlyingChain {
 }
 
 impl Chain for BridgedUnderlyingParachain {
-	type BlockNumber = BridgedChainBlockNumber;
+	type Block = BridgedChainBlock;
 	type Hash = BridgedChainHash;
 	type Hasher = BridgedChainHasher;
-	type Header = BridgedChainHeader;
 	type AccountId = BridgedChainAccountId;
 	type Balance = BridgedChainBalance;
 	type Index = u32;

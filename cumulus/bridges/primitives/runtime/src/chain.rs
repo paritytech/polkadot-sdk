@@ -14,18 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::HeaderIdProvider;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{weights::Weight, Parameter};
-use num_traits::{AsPrimitive, Bounded, CheckedSub, Saturating, SaturatingAdd, Zero};
+use num_traits::{Bounded, CheckedSub, SaturatingAdd, Zero};
 use sp_runtime::{
 	traits::{
-		AtLeast32Bit, AtLeast32BitUnsigned, Hash as HashT, Header as HeaderT, MaybeDisplay,
-		MaybeSerialize, MaybeSerializeDeserialize, Member, SimpleBitOps, Verify,
+		AtLeast32Bit, AtLeast32BitUnsigned, Block as BlockT, Hash as HashT, Header as HeaderT,
+		HeaderProvider, MaybeDisplay, MaybeSerialize, MaybeSerializeDeserialize, Member,
+		SimpleBitOps, Verify,
 	},
 	FixedPointOperand,
 };
-use sp_std::{convert::TryFrom, fmt::Debug, hash::Hash, str::FromStr, vec, vec::Vec};
+use sp_std::{convert::TryFrom, fmt::Debug, hash::Hash, vec, vec::Vec};
 
 /// Chain call, that is either SCALE-encoded, or decoded.
 #[derive(Debug, Clone, PartialEq)]
@@ -91,27 +91,6 @@ impl<ChainCall: Encode> Encode for EncodedOrDecodedCall<ChainCall> {
 
 /// Minimal Substrate-based chain representation that may be used from no_std environment.
 pub trait Chain: Send + Sync + 'static {
-	/// A type that fulfills the abstract idea of what a Substrate block number is.
-	// Constraits come from the associated Number type of `sp_runtime::traits::Header`
-	// See here for more info:
-	// https://crates.parity.io/sp_runtime/traits/trait.Header.html#associatedtype.Number
-	//
-	// Note that the `AsPrimitive<usize>` trait is required by the GRANDPA justification
-	// verifier, and is not usually part of a Substrate Header's Number type.
-	type BlockNumber: Parameter
-		+ Member
-		+ MaybeSerializeDeserialize
-		+ Hash
-		+ Copy
-		+ Default
-		+ MaybeDisplay
-		+ AtLeast32BitUnsigned
-		+ FromStr
-		+ AsPrimitive<usize>
-		+ Default
-		+ Saturating
-		+ MaxEncodedLen;
-
 	/// A type that fulfills the abstract idea of what a Substrate hash is.
 	// Constraits come from the associated Hash type of `sp_runtime::traits::Header`
 	// See here for more info:
@@ -136,13 +115,10 @@ pub trait Chain: Send + Sync + 'static {
 	// https://crates.parity.io/sp_runtime/traits/trait.Header.html#associatedtype.Hashing
 	type Hasher: HashT<Output = Self::Hash>;
 
-	/// A type that fulfills the abstract idea of what a Substrate header is.
+	/// A type that fulfills the abstract idea of what a Substrate block is.
 	// See here for more info:
-	// https://crates.parity.io/sp_runtime/traits/trait.Header.html
-	type Header: Parameter
-		+ HeaderT<Number = Self::BlockNumber, Hash = Self::Hash>
-		+ HeaderIdProvider<Self::Header>
-		+ MaybeSerializeDeserialize;
+	// https://crates.parity.io/sp_runtime/traits/trait.Block.html
+	type Block: Parameter + BlockT<Hash = Self::Hash> + MaybeSerialize;
 
 	/// The user account identifier type for the runtime.
 	type AccountId: Parameter
@@ -200,10 +176,9 @@ impl<T> Chain for T
 where
 	T: Send + Sync + 'static + UnderlyingChainProvider,
 {
-	type BlockNumber = <T::Chain as Chain>::BlockNumber;
 	type Hash = <T::Chain as Chain>::Hash;
 	type Hasher = <T::Chain as Chain>::Hasher;
-	type Header = <T::Chain as Chain>::Header;
+	type Block = <T::Chain as Chain>::Block;
 	type AccountId = <T::Chain as Chain>::AccountId;
 	type Balance = <T::Chain as Chain>::Balance;
 	type Index = <T::Chain as Chain>::Index;
@@ -244,7 +219,7 @@ impl<Para: Parachain> frame_support::traits::Get<u32> for ParachainIdOf<Para> {
 pub type UnderlyingChainOf<C> = <C as UnderlyingChainProvider>::Chain;
 
 /// Block number used by the chain.
-pub type BlockNumberOf<C> = <C as Chain>::BlockNumber;
+pub type BlockNumberOf<C> = <<<C as Chain>::Block as HeaderProvider>::HeaderT as HeaderT>::Number;
 
 /// Hash type used by the chain.
 pub type HashOf<C> = <C as Chain>::Hash;
@@ -253,7 +228,7 @@ pub type HashOf<C> = <C as Chain>::Hash;
 pub type HasherOf<C> = <C as Chain>::Hasher;
 
 /// Header type used by the chain.
-pub type HeaderOf<C> = <C as Chain>::Header;
+pub type HeaderOf<C> = <<C as Chain>::Block as HeaderProvider>::HeaderT;
 
 /// Account id type used by the chain.
 pub type AccountIdOf<C> = <C as Chain>::AccountId;

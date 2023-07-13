@@ -47,7 +47,7 @@ benchmarks_instance_pallet! {
 		where
 			<T as pallet_bridge_grandpa::Config<T::BridgesGrandpaPalletInstance>>::BridgedChain:
 				bp_runtime::Chain<
-					BlockNumber = RelayBlockNumber,
+					Block = crate::RelayBlock,
 					Hash = RelayBlockHash,
 					Hasher = RelayBlockHasher,
 				>,

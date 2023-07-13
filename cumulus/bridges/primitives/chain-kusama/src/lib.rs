@@ -28,10 +28,9 @@ use frame_support::weights::Weight;
 pub struct Kusama;
 
 impl Chain for Kusama {
-	type BlockNumber = <PolkadotLike as Chain>::BlockNumber;
+	type Block = <PolkadotLike as Chain>::Block;
 	type Hash = <PolkadotLike as Chain>::Hash;
 	type Hasher = <PolkadotLike as Chain>::Hasher;
-	type Header = <PolkadotLike as Chain>::Header;
 
 	type AccountId = <PolkadotLike as Chain>::AccountId;
 	type Balance = <PolkadotLike as Chain>::Balance;

@@ -72,7 +72,7 @@ pub mod pallet {
 	/// The sent pings.
 	#[pallet::storage]
 	pub(super) type Pings<T: Config> =
-		StorageMap<_, Blake2_128Concat, u32, T::BlockNumber, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, u32, BlockNumberFor<T>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -80,7 +80,7 @@ pub mod pallet {
 		PingSent(ParaId, u32, Vec<u8>, XcmHash, MultiAssets),
 		Pinged(ParaId, u32, Vec<u8>),
 		PongSent(ParaId, u32, Vec<u8>, XcmHash, MultiAssets),
-		Ponged(ParaId, u32, Vec<u8>, T::BlockNumber),
+		Ponged(ParaId, u32, Vec<u8>, BlockNumberFor<T>),
 		ErrorSendingPing(SendError, ParaId, u32, Vec<u8>),
 		ErrorSendingPong(SendError, ParaId, u32, Vec<u8>),
 		UnknownPong(ParaId, u32, Vec<u8>),
@@ -96,7 +96,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_finalize(n: T::BlockNumber) {
+		fn on_finalize(n: BlockNumberFor<T>) {
 			for (para, payload) in Targets::<T>::get().into_iter() {
 				let seq = PingCount::<T>::mutate(|seq| {
 					*seq += 1;

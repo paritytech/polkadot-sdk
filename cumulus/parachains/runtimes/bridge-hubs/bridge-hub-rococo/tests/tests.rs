@@ -27,6 +27,7 @@ use bridge_hub_rococo_runtime::{
 };
 use codec::{Decode, Encode};
 use frame_support::parameter_types;
+use frame_system::pallet_prelude::HeaderFor;
 use parachains_common::{AccountId, AuraId, Balance};
 use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{
@@ -81,7 +82,7 @@ fn construct_and_apply_extrinsic(
 	r.unwrap()
 }
 
-fn executive_init_block(header: &<Runtime as frame_system::Config>::Header) {
+fn executive_init_block(header: &HeaderFor<Runtime>) {
 	Executive::initialize_block(header)
 }
 
