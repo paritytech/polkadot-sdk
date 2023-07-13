@@ -15,6 +15,12 @@ workspace = true
 # Substrate Dependencies
 sp-std = { workspace = true }
 
+# Polkadot Dependencies
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
+
 [features]
 default = ["std"]
-std = ["sp-std/std"]
+std = [
+	"sp-std/std",
+	"xcm/std",
+]
