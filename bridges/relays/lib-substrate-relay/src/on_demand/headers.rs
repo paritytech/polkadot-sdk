@@ -135,11 +135,11 @@ impl<P: SubstrateFinalitySyncPipeline> OnDemandRelay<P::SourceChain, P::TargetCh
 	) -> Result<(HeaderIdOf<P::SourceChain>, Vec<CallOf<P::TargetChain>>), SubstrateError> {
 		// first find proper header (either `required_header`) or its descendant
 		let finality_source = SubstrateFinalitySource::<P>::new(self.source_client.clone(), None);
-		let (header, proof) = finality_source.prove_block_finality(required_header).await?;
+		let (header, mut proof) = finality_source.prove_block_finality(required_header).await?;
 		let header_id = header.id();
 
 		// optimize justification before including it into the call
-		let proof = P::FinalityEngine::optimize_proof(&self.target_client, &header, proof).await?;
+		P::FinalityEngine::optimize_proof(&self.target_client, &header, &mut proof).await?;
 
 		log::debug!(
 			target: "bridge",
