@@ -91,8 +91,8 @@ pub trait Engine<C: Chain>: Send {
 	async fn optimize_proof<TargetChain: Chain>(
 		target_client: &Client<TargetChain>,
 		header: &C::Header,
-		proof: Self::FinalityProof,
-	) -> Result<Self::FinalityProof, SubstrateError>;
+		proof: &mut Self::FinalityProof,
+	) -> Result<(), SubstrateError>;
 
 	/// Prepare initialization data for the finality bridge pallet.
 	async fn prepare_initialization_data(
@@ -149,8 +149,8 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 	async fn optimize_proof<TargetChain: Chain>(
 		target_client: &Client<TargetChain>,
 		header: &C::Header,
-		proof: Self::FinalityProof,
-	) -> Result<Self::FinalityProof, SubstrateError> {
+		proof: &mut Self::FinalityProof,
+	) -> Result<(), SubstrateError> {
 		let current_authority_set_key = bp_header_chain::storage_keys::current_authority_set_key(
 			C::WITH_CHAIN_GRANDPA_PALLET_NAME,
 		);
@@ -275,7 +275,7 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 				(initial_header_hash, initial_header_number),
 				initial_authorities_set_id,
 				&authorities_for_verification,
-				justification.clone(),
+				&mut justification.clone(),
 			)
 			.is_ok();
 

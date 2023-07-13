@@ -38,8 +38,8 @@ type TestNumber = <TestHeader as HeaderT>::Number;
 struct AncestryChain(bp_header_chain::justification::AncestryChain<TestHeader>);
 
 impl AncestryChain {
-	fn new(ancestry: &[TestHeader]) -> Self {
-		Self(bp_header_chain::justification::AncestryChain::new(ancestry))
+	fn new(justification: &GrandpaJustification<TestHeader>) -> Self {
+		Self(bp_header_chain::justification::AncestryChain::new(justification))
 	}
 }
 
@@ -55,9 +55,9 @@ impl finality_grandpa::Chain<TestHash, TestNumber> for AncestryChain {
 			if current_hash == base {
 				break
 			}
-			match self.0.parents.get(&current_hash).cloned() {
+			match self.0.parents.get(&current_hash) {
 				Some(parent_hash) => {
-					current_hash = parent_hash;
+					current_hash = *parent_hash;
 					route.push(current_hash);
 				},
 				_ => return Err(finality_grandpa::Error::NotDescendent),
@@ -124,7 +124,7 @@ fn same_result_when_precommit_target_has_lower_number_than_commit_target() {
 			&full_voter_set(),
 			&justification,
 		),
-		Err(Error::PrecommitIsNotCommitDescendant),
+		Err(Error::UnrelatedAncestryVote),
 	);
 
 	// original implementation returns `Ok(validation_result)`
@@ -132,7 +132,7 @@ fn same_result_when_precommit_target_has_lower_number_than_commit_target() {
 	let result = finality_grandpa::validate_commit(
 		&justification.commit,
 		&full_voter_set(),
-		&AncestryChain::new(&justification.votes_ancestries),
+		&AncestryChain::new(&justification),
 	)
 	.unwrap();
 
@@ -157,7 +157,7 @@ fn same_result_when_precommit_target_is_not_descendant_of_commit_target() {
 			&full_voter_set(),
 			&justification,
 		),
-		Err(Error::PrecommitIsNotCommitDescendant),
+		Err(Error::UnrelatedAncestryVote),
 	);
 
 	// original implementation returns `Ok(validation_result)`
@@ -165,7 +165,7 @@ fn same_result_when_precommit_target_is_not_descendant_of_commit_target() {
 	let result = finality_grandpa::validate_commit(
 		&justification.commit,
 		&full_voter_set(),
-		&AncestryChain::new(&justification.votes_ancestries),
+		&AncestryChain::new(&justification),
 	)
 	.unwrap();
 
@@ -198,7 +198,7 @@ fn same_result_when_there_are_not_enough_cumulative_weight_to_finalize_commit_ta
 	let result = finality_grandpa::validate_commit(
 		&justification.commit,
 		&full_voter_set(),
-		&AncestryChain::new(&justification.votes_ancestries),
+		&AncestryChain::new(&justification),
 	)
 	.unwrap();
 
@@ -236,7 +236,7 @@ fn different_result_when_justification_contains_duplicate_vote() {
 	let result = finality_grandpa::validate_commit(
 		&justification.commit,
 		&full_voter_set(),
-		&AncestryChain::new(&justification.votes_ancestries),
+		&AncestryChain::new(&justification),
 	)
 	.unwrap();
 
@@ -277,7 +277,7 @@ fn different_results_when_authority_equivocates_once_in_a_round() {
 	let result = finality_grandpa::validate_commit(
 		&justification.commit,
 		&full_voter_set(),
-		&AncestryChain::new(&justification.votes_ancestries),
+		&AncestryChain::new(&justification),
 	)
 	.unwrap();
 
@@ -330,7 +330,7 @@ fn different_results_when_authority_equivocates_twice_in_a_round() {
 	let result = finality_grandpa::validate_commit(
 		&justification.commit,
 		&full_voter_set(),
-		&AncestryChain::new(&justification.votes_ancestries),
+		&AncestryChain::new(&justification),
 	)
 	.unwrap();
 
@@ -369,7 +369,7 @@ fn different_results_when_there_are_more_than_enough_votes() {
 	let result = finality_grandpa::validate_commit(
 		&justification.commit,
 		&full_voter_set(),
-		&AncestryChain::new(&justification.votes_ancestries),
+		&AncestryChain::new(&justification),
 	)
 	.unwrap();
 
@@ -410,7 +410,7 @@ fn different_results_when_there_is_a_vote_of_unknown_authority() {
 	let result = finality_grandpa::validate_commit(
 		&justification.commit,
 		&full_voter_set(),
-		&AncestryChain::new(&justification.votes_ancestries),
+		&AncestryChain::new(&justification),
 	)
 	.unwrap();
 
