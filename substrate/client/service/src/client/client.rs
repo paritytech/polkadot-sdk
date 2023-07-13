@@ -46,10 +46,7 @@ use sc_consensus::{
 };
 use sc_executor::RuntimeVersion;
 use sc_telemetry::{telemetry, TelemetryHandle, SUBSTRATE_INFO};
-use sp_api::{
-	ApiExt, ApiRef, CallApiAt, CallApiAtParams, ConstructRuntimeApi, Core as CoreApi,
-	ProvideRuntimeApi,
-};
+use sp_api::{ApiExt, ApiRef, CallApiAt, CallApiAtParams, ConstructRuntimeApi, Core as CoreApi};
 use sp_blockchain::{
 	self as blockchain, Backend as ChainBackend, CachedHeaderMetadata, Error,
 	HeaderBackend as ChainHeaderBackend, HeaderMetadata, Info as BlockchainInfo,
@@ -94,7 +91,7 @@ use {
 type NotificationSinks<T> = Mutex<Vec<TracingUnboundedSender<T>>>;
 
 /// Substrate Client
-pub struct Client<B, E, Block, RA>
+pub struct Client<B, E, Block>
 where
 	Block: BlockT,
 {
@@ -116,7 +113,6 @@ where
 	config: ClientConfig<Block>,
 	telemetry: Option<TelemetryHandle>,
 	unpin_worker_sender: TracingUnboundedSender<Block::Hash>,
-	_phantom: PhantomData<RA>,
 }
 
 /// Used in importing a block, where additional changes are made after the runtime
@@ -155,7 +151,7 @@ enum PrepareStorageChangesResult<Block: BlockT> {
 
 /// Create an instance of in-memory client.
 #[cfg(feature = "test-helpers")]
-pub fn new_in_mem<E, Block, G, RA>(
+pub fn new_in_mem<E, Block, G>(
 	backend: Arc<in_mem::Backend<Block>>,
 	executor: E,
 	genesis_block_builder: G,
@@ -164,7 +160,7 @@ pub fn new_in_mem<E, Block, G, RA>(
 	spawn_handle: Box<dyn SpawnNamed>,
 	config: ClientConfig<Block>,
 ) -> sp_blockchain::Result<
-	Client<in_mem::Backend<Block>, LocalCallExecutor<Block, in_mem::Backend<Block>, E>, Block, RA>,
+	Client<in_mem::Backend<Block>, LocalCallExecutor<Block, in_mem::Backend<Block>, E>, Block>,
 >
 where
 	E: CodeExecutor + sc_executor::RuntimeVersionOf,
@@ -216,7 +212,7 @@ impl<Block: BlockT> Default for ClientConfig<Block> {
 /// Create a client with the explicitly provided backend.
 /// This is useful for testing backend implementations.
 #[cfg(feature = "test-helpers")]
-pub fn new_with_backend<B, E, Block, G, RA>(
+pub fn new_with_backend<B, E, Block, G>(
 	backend: Arc<B>,
 	executor: E,
 	genesis_block_builder: G,
@@ -224,7 +220,7 @@ pub fn new_with_backend<B, E, Block, G, RA>(
 	prometheus_registry: Option<Registry>,
 	telemetry: Option<TelemetryHandle>,
 	config: ClientConfig<Block>,
-) -> sp_blockchain::Result<Client<B, LocalCallExecutor<Block, B, E>, Block, RA>>
+) -> sp_blockchain::Result<Client<B, LocalCallExecutor<Block, B, E>, Block>>
 where
 	E: CodeExecutor + sc_executor::RuntimeVersionOf,
 	G: BuildGenesisBlock<
@@ -252,7 +248,7 @@ where
 	)
 }
 
-impl<B, E, Block, RA> BlockOf for Client<B, E, Block, RA>
+impl<B, E, Block> BlockOf for Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
@@ -261,7 +257,7 @@ where
 	type Type = Block;
 }
 
-impl<B, E, Block, RA> LockImportRun<Block, B> for Client<B, E, Block, RA>
+impl<B, E, Block> LockImportRun<Block, B> for Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
@@ -353,7 +349,7 @@ where
 	}
 }
 
-impl<B, E, Block, RA> LockImportRun<Block, B> for &Client<B, E, Block, RA>
+impl<B, E, Block> LockImportRun<Block, B> for &Client<B, E, Block>
 where
 	Block: BlockT,
 	B: backend::Backend<Block>,
@@ -368,7 +364,7 @@ where
 	}
 }
 
-impl<B, E, Block, RA> Client<B, E, Block, RA>
+impl<B, E, Block> Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
@@ -448,7 +444,6 @@ where
 			config,
 			telemetry,
 			unpin_worker_sender,
-			_phantom: Default::default(),
 		})
 	}
 
@@ -581,11 +576,7 @@ where
 		aux: Vec<(Vec<u8>, Option<Vec<u8>>)>,
 		fork_choice: ForkChoiceStrategy,
 		import_existing: bool,
-	) -> sp_blockchain::Result<ImportResult>
-	where
-		Self: ProvideRuntimeApi<Block>,
-		<Self as ProvideRuntimeApi<Block>>::Api: CoreApi<Block> + ApiExt<Block>,
-	{
+	) -> sp_blockchain::Result<ImportResult> {
 		let parent_hash = *import_headers.post().parent_hash();
 		let status = self.backend.blockchain().status(hash)?;
 		let parent_exists =
@@ -822,11 +813,7 @@ where
 	fn prepare_block_storage_changes(
 		&self,
 		import_block: &mut BlockImportParams<Block>,
-	) -> sp_blockchain::Result<PrepareStorageChangesResult<Block>>
-	where
-		Self: ProvideRuntimeApi<Block>,
-		<Self as ProvideRuntimeApi<Block>>::Api: CoreApi<Block> + ApiExt<Block>,
-	{
+	) -> sp_blockchain::Result<PrepareStorageChangesResult<Block>> {
 		let parent_hash = import_block.header.parent_hash();
 		let state_action = std::mem::replace(&mut import_block.state_action, StateAction::Skip);
 		let (enact_state, storage_changes) = match (self.block_status(*parent_hash)?, state_action)
@@ -855,14 +842,12 @@ where
 			// We should enact state, but don't have any storage changes, so we need to execute the
 			// block.
 			(true, None, Some(ref body)) => {
+				/*
 				let mut runtime_api = self.runtime_api();
 
 				runtime_api.set_call_context(CallContext::Onchain);
 
-				runtime_api.execute_block(
-					*parent_hash,
-					Block::new(import_block.header.clone(), body.clone()),
-				)?;
+				runtime_api.execute_block(Block::new(import_block.header.clone(), body.clone()))?;
 
 				let state = self.backend.state_at(*parent_hash)?;
 				let gen_storage_changes = runtime_api
@@ -874,6 +859,9 @@ where
 					return Err(Error::InvalidStateRoot)
 				}
 				Some(sc_consensus::StorageChanges::Changes(gen_storage_changes))
+				*/
+
+				todo!()
 			},
 			// No block body, no storage changes
 			(true, None, None) => None,
@@ -1201,7 +1189,7 @@ where
 	}
 }
 
-impl<B, E, Block, RA> UsageProvider<Block> for Client<B, E, Block, RA>
+impl<B, E, Block> UsageProvider<Block> for Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
@@ -1213,7 +1201,7 @@ where
 	}
 }
 
-impl<B, E, Block, RA> ProofProvider<Block> for Client<B, E, Block, RA>
+impl<B, E, Block> ProofProvider<Block> for Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
@@ -1402,22 +1390,21 @@ where
 	}
 }
 
-impl<B, E, Block, RA> BlockBuilderProvider<B, Block, Self> for Client<B, E, Block, RA>
+impl<B, E, Block> BlockBuilderProvider<B, Block> for Client<B, E, Block>
 where
 	B: backend::Backend<Block> + Send + Sync + 'static,
 	E: CallExecutor<Block> + Send + Sync + 'static,
 	Block: BlockT,
-	Self: ChainHeaderBackend<Block> + ProvideRuntimeApi<Block>,
-	<Self as ProvideRuntimeApi<Block>>::Api: ApiExt<Block> + BlockBuilderApi<Block>,
+	Self: ChainHeaderBackend<Block>,
 {
 	fn new_block_at<R: Into<RecordProof>>(
 		&self,
 		parent: Block::Hash,
 		inherent_digests: Digest,
 		record_proof: R,
-	) -> sp_blockchain::Result<sc_block_builder::BlockBuilder<Block, Self, B>> {
+	) -> sp_blockchain::Result<sc_block_builder::BlockBuilder<Block, B>> {
 		sc_block_builder::BlockBuilder::new(
-			self,
+			(),
 			parent,
 			self.expect_block_number_from_id(&BlockId::Hash(parent))?,
 			record_proof.into(),
@@ -1429,10 +1416,10 @@ where
 	fn new_block(
 		&self,
 		inherent_digests: Digest,
-	) -> sp_blockchain::Result<sc_block_builder::BlockBuilder<Block, Self, B>> {
+	) -> sp_blockchain::Result<sc_block_builder::BlockBuilder<Block, B>> {
 		let info = self.chain_info();
 		sc_block_builder::BlockBuilder::new(
-			self,
+			(),
 			info.best_hash,
 			info.best_number,
 			RecordProof::No,
@@ -1442,7 +1429,7 @@ where
 	}
 }
 
-impl<B, E, Block, RA> ExecutorProvider<Block> for Client<B, E, Block, RA>
+impl<B, E, Block> ExecutorProvider<Block> for Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
@@ -1459,7 +1446,7 @@ where
 	}
 }
 
-impl<B, E, Block, RA> StorageProvider<Block, B> for Client<B, E, Block, RA>
+impl<B, E, Block> StorageProvider<Block, B> for Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
@@ -1567,7 +1554,7 @@ where
 	}
 }
 
-impl<B, E, Block, RA> HeaderMetadata<Block> for Client<B, E, Block, RA>
+impl<B, E, Block> HeaderMetadata<Block> for Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
@@ -1591,7 +1578,7 @@ where
 	}
 }
 
-impl<B, E, Block, RA> ProvideUncles<Block> for Client<B, E, Block, RA>
+impl<B, E, Block> ProvideUncles<Block> for Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
@@ -1609,12 +1596,11 @@ where
 	}
 }
 
-impl<B, E, Block, RA> ChainHeaderBackend<Block> for Client<B, E, Block, RA>
+impl<B, E, Block> ChainHeaderBackend<Block> for Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block> + Send + Sync,
 	Block: BlockT,
-	RA: Send + Sync,
 {
 	fn header(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Block::Header>> {
 		self.backend.blockchain().header(hash)
@@ -1640,12 +1626,11 @@ where
 	}
 }
 
-impl<B, E, Block, RA> BlockIdTo<Block> for Client<B, E, Block, RA>
+impl<B, E, Block> BlockIdTo<Block> for Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block> + Send + Sync,
 	Block: BlockT,
-	RA: Send + Sync,
 {
 	type Error = Error;
 
@@ -1661,12 +1646,11 @@ where
 	}
 }
 
-impl<B, E, Block, RA> ChainHeaderBackend<Block> for &Client<B, E, Block, RA>
+impl<B, E, Block> ChainHeaderBackend<Block> for &Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block> + Send + Sync,
 	Block: BlockT,
-	RA: Send + Sync,
 {
 	fn header(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Block::Header>> {
 		self.backend.blockchain().header(hash)
@@ -1692,26 +1676,11 @@ where
 	}
 }
 
-impl<B, E, Block, RA> ProvideRuntimeApi<Block> for Client<B, E, Block, RA>
+impl<B, E, Block> CallApiAt<Block> for Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block, Backend = B> + Send + Sync,
 	Block: BlockT,
-	RA: ConstructRuntimeApi<Block, Self> + Send + Sync,
-{
-	type Api = <RA as ConstructRuntimeApi<Block, Self>>::RuntimeApi;
-
-	fn runtime_api(&self) -> ApiRef<Self::Api> {
-		RA::construct_runtime_api(self)
-	}
-}
-
-impl<B, E, Block, RA> CallApiAt<Block> for Client<B, E, Block, RA>
-where
-	B: backend::Backend<Block>,
-	E: CallExecutor<Block, Backend = B> + Send + Sync,
-	Block: BlockT,
-	RA: Send + Sync,
 {
 	type StateBackend = B::State;
 
@@ -1754,14 +1723,11 @@ where
 /// objects. Otherwise, importing blocks directly into the client would be bypassing
 /// important verification work.
 #[async_trait::async_trait]
-impl<B, E, Block, RA> sc_consensus::BlockImport<Block> for &Client<B, E, Block, RA>
+impl<B, E, Block> sc_consensus::BlockImport<Block> for &Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block> + Send + Sync,
 	Block: BlockT,
-	Client<B, E, Block, RA>: ProvideRuntimeApi<Block>,
-	<Client<B, E, Block, RA> as ProvideRuntimeApi<Block>>::Api: CoreApi<Block> + ApiExt<Block>,
-	RA: Sync + Send,
 {
 	type Error = ConsensusError;
 
@@ -1863,14 +1829,11 @@ where
 }
 
 #[async_trait::async_trait]
-impl<B, E, Block, RA> sc_consensus::BlockImport<Block> for Client<B, E, Block, RA>
+impl<B, E, Block> sc_consensus::BlockImport<Block> for Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block> + Send + Sync,
 	Block: BlockT,
-	Self: ProvideRuntimeApi<Block>,
-	<Self as ProvideRuntimeApi<Block>>::Api: CoreApi<Block> + ApiExt<Block>,
-	RA: Sync + Send,
 {
 	type Error = ConsensusError;
 
@@ -1889,7 +1852,7 @@ where
 	}
 }
 
-impl<B, E, Block, RA> Finalizer<Block, B> for Client<B, E, Block, RA>
+impl<B, E, Block> Finalizer<Block, B> for Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
@@ -1918,7 +1881,7 @@ where
 	}
 }
 
-impl<B, E, Block, RA> Finalizer<Block, B> for &Client<B, E, Block, RA>
+impl<B, E, Block> Finalizer<Block, B> for &Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
@@ -1944,7 +1907,7 @@ where
 	}
 }
 
-impl<B, E, Block, RA> PreCommitActions<Block> for Client<B, E, Block, RA>
+impl<B, E, Block> PreCommitActions<Block> for Client<B, E, Block>
 where
 	Block: BlockT,
 {
@@ -1957,7 +1920,7 @@ where
 	}
 }
 
-impl<B, E, Block, RA> BlockchainEvents<Block> for Client<B, E, Block, RA>
+impl<B, E, Block> BlockchainEvents<Block> for Client<B, E, Block>
 where
 	E: CallExecutor<Block>,
 	Block: BlockT,
@@ -1991,7 +1954,7 @@ where
 	}
 }
 
-impl<B, E, Block, RA> BlockBackend<Block> for Client<B, E, Block, RA>
+impl<B, E, Block> BlockBackend<Block> for Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
@@ -2041,13 +2004,11 @@ where
 	}
 }
 
-impl<B, E, Block, RA> backend::AuxStore for Client<B, E, Block, RA>
+impl<B, E, Block> backend::AuxStore for Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 	Block: BlockT,
-	Self: ProvideRuntimeApi<Block>,
-	<Self as ProvideRuntimeApi<Block>>::Api: CoreApi<Block>,
 {
 	/// Insert auxiliary data into key-value store.
 	fn insert_aux<
@@ -2073,13 +2034,11 @@ where
 	}
 }
 
-impl<B, E, Block, RA> backend::AuxStore for &Client<B, E, Block, RA>
+impl<B, E, Block> backend::AuxStore for &Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 	Block: BlockT,
-	Client<B, E, Block, RA>: ProvideRuntimeApi<Block>,
-	<Client<B, E, Block, RA> as ProvideRuntimeApi<Block>>::Api: CoreApi<Block>,
 {
 	fn insert_aux<
 		'a,
@@ -2100,7 +2059,7 @@ where
 	}
 }
 
-impl<BE, E, B, RA> sp_consensus::block_validation::Chain<B> for Client<BE, E, B, RA>
+impl<BE, E, B> sp_consensus::block_validation::Chain<B> for Client<BE, E, B>
 where
 	BE: backend::Backend<B>,
 	E: CallExecutor<B>,
@@ -2114,7 +2073,7 @@ where
 	}
 }
 
-impl<BE, E, B, RA> sp_transaction_storage_proof::IndexedBody<B> for Client<BE, E, B, RA>
+impl<BE, E, B> sp_transaction_storage_proof::IndexedBody<B> for Client<BE, E, B>
 where
 	BE: backend::Backend<B>,
 	E: CallExecutor<B>,

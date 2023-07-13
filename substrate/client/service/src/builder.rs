@@ -67,7 +67,7 @@ use sc_rpc_spec_v2::{chain_head::ChainHeadApiServer, transaction::TransactionApi
 use sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
 use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
-use sp_api::{CallApiAt, ProvideRuntimeApi};
+use sp_api::CallApiAt;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::block_validation::{
 	BlockAnnounceValidator, Chain, DefaultBlockAnnounceValidator,
@@ -78,8 +78,8 @@ use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor, Zero};
 use std::{str::FromStr, sync::Arc, time::SystemTime};
 
 /// Full client type.
-pub type TFullClient<TBl, TRtApi, TExec> =
-	Client<TFullBackend<TBl>, TFullCallExecutor<TBl, TExec>, TBl, TRtApi>;
+pub type TFullClient<TBl, TExec> =
+	Client<TFullBackend<TBl>, TFullCallExecutor<TBl, TExec>, TBl>;
 
 /// Full client backend type.
 pub type TFullBackend<TBl> = Backend<TBl>;
@@ -87,8 +87,8 @@ pub type TFullBackend<TBl> = Backend<TBl>;
 /// Full client call executor type.
 pub type TFullCallExecutor<TBl, TExec> = crate::client::LocalCallExecutor<TBl, Backend<TBl>, TExec>;
 
-type TFullParts<TBl, TRtApi, TExec> =
-	(TFullClient<TBl, TRtApi, TExec>, Arc<TFullBackend<TBl>>, KeystoreContainer, TaskManager);
+type TFullParts<TBl, TExec> =
+	(TFullClient<TBl, TExec>, Arc<TFullBackend<TBl>>, KeystoreContainer, TaskManager);
 
 /// Construct a local keystore shareable container
 pub struct KeystoreContainer(Arc<LocalKeystore>);
@@ -117,11 +117,11 @@ impl KeystoreContainer {
 }
 
 /// Creates a new full client for the given config.
-pub fn new_full_client<TBl, TRtApi, TExec>(
+pub fn new_full_client<TBl, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
-) -> Result<TFullClient<TBl, TRtApi, TExec>, Error>
+) -> Result<TFullClient<TBl, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
@@ -130,11 +130,11 @@ where
 }
 
 /// Create the initial parts of a full node with the default genesis block builder.
-pub fn new_full_parts<TBl, TRtApi, TExec>(
+pub fn new_full_parts<TBl, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
-) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
+) -> Result<TFullParts<TBl, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
@@ -152,13 +152,13 @@ where
 }
 
 /// Create the initial parts of a full node.
-pub fn new_full_parts_with_genesis_builder<TBl, TRtApi, TExec, TBuildGenesisBlock>(
+pub fn new_full_parts_with_genesis_builder<TBl, TExec, TBuildGenesisBlock>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
 	backend: Arc<TFullBackend<TBl>>,
 	genesis_block_builder: TBuildGenesisBlock,
-) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
+) -> Result<TFullParts<TBl, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
@@ -268,7 +268,7 @@ where
 }
 
 /// Create an instance of client backed by given backend.
-pub fn new_client<E, Block, RA, G>(
+pub fn new_client<E, Block, G>(
 	backend: Arc<Backend<Block>>,
 	executor: E,
 	genesis_block_builder: G,
@@ -284,7 +284,6 @@ pub fn new_client<E, Block, RA, G>(
 		Backend<Block>,
 		crate::client::LocalCallExecutor<Block, Backend<Block>, E>,
 		Block,
-		RA,
 	>,
 	sp_blockchain::Error,
 >
@@ -364,8 +363,7 @@ pub fn spawn_tasks<TBl, TBackend, TExPool, TRpc, TCl>(
 	params: SpawnTasksParams<TBl, TCl, TExPool, TRpc, TBackend>,
 ) -> Result<RpcHandlers, Error>
 where
-	TCl: ProvideRuntimeApi<TBl>
-		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
+	TCl: HeaderMetadata<TBl, Error = sp_blockchain::Error>
 		+ Chain<TBl>
 		+ BlockBackend<TBl>
 		+ BlockIdTo<TBl, Error = sp_blockchain::Error>
@@ -378,10 +376,6 @@ where
 		+ CallApiAt<TBl>
 		+ Send
 		+ 'static,
-	<TCl as ProvideRuntimeApi<TBl>>::Api: sp_api::Metadata<TBl>
-		+ sp_transaction_pool::runtime_api::TaggedTransactionQueue<TBl>
-		+ sp_session::SessionKeys<TBl>
-		+ sp_api::ApiExt<TBl>,
 	TBl: BlockT,
 	TBl::Hash: Unpin,
 	TBl::Header: Unpin,
@@ -587,8 +581,7 @@ fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 ) -> Result<RpcModule<()>, Error>
 where
 	TBl: BlockT,
-	TCl: ProvideRuntimeApi<TBl>
-		+ BlockchainEvents<TBl>
+	TCl: BlockchainEvents<TBl>
 		+ HeaderBackend<TBl>
 		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
 		+ ExecutorProvider<TBl>
@@ -600,7 +593,6 @@ where
 		+ Sync
 		+ 'static,
 	TBackend: sc_client_api::backend::Backend<TBl> + 'static,
-	<TCl as ProvideRuntimeApi<TBl>>::Api: sp_session::SessionKeys<TBl> + sp_api::Metadata<TBl>,
 	TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
 	TBl::Hash: Unpin,
 	TBl::Header: Unpin,
@@ -716,8 +708,7 @@ pub fn build_network<TBl, TExPool, TImpQu, TCl>(
 >
 where
 	TBl: BlockT,
-	TCl: ProvideRuntimeApi<TBl>
-		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
+	TCl: HeaderMetadata<TBl, Error = sp_blockchain::Error>
 		+ Chain<TBl>
 		+ BlockBackend<TBl>
 		+ BlockIdTo<TBl, Error = sp_blockchain::Error>

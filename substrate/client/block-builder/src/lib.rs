@@ -28,9 +28,7 @@
 
 use codec::Encode;
 
-use sp_api::{
-	ApiExt, ApiRef, Core, ProvideRuntimeApi, StorageChanges, StorageProof, TransactionOutcome,
-};
+use sp_api::{ApiExt, ApiRef, Core, StorageChanges, StorageProof, TransactionOutcome};
 use sp_blockchain::{ApplyExtrinsicFailed, Error};
 use sp_core::traits::CallContext;
 use sp_runtime::{
@@ -102,12 +100,11 @@ impl<Block: BlockT> BuiltBlock<Block> {
 }
 
 /// Block builder provider
-pub trait BlockBuilderProvider<B, Block, RA>
+pub trait BlockBuilderProvider<B, Block>
 where
 	Block: BlockT,
 	B: backend::Backend<Block>,
 	Self: Sized,
-	RA: ProvideRuntimeApi<Block>,
 {
 	/// Create a new block, built on top of `parent`.
 	///
@@ -119,19 +116,19 @@ where
 		parent: Block::Hash,
 		inherent_digests: Digest,
 		record_proof: R,
-	) -> sp_blockchain::Result<BlockBuilder<Block, RA, B>>;
+	) -> sp_blockchain::Result<BlockBuilder<Block, B>>;
 
 	/// Create a new block, built on the head of the chain.
 	fn new_block(
 		&self,
 		inherent_digests: Digest,
-	) -> sp_blockchain::Result<BlockBuilder<Block, RA, B>>;
+	) -> sp_blockchain::Result<BlockBuilder<Block, B>>;
 }
 
 /// Utility for building new (valid) blocks from a stream of extrinsics.
-pub struct BlockBuilder<'a, Block: BlockT, A: ProvideRuntimeApi<Block>, B> {
+pub struct BlockBuilder<'a, Block: BlockT, B> {
 	extrinsics: Vec<Block::Extrinsic>,
-	api: ApiRef<'a, A::Api>,
+	api: (),
 	version: u32,
 	parent_hash: Block::Hash,
 	backend: &'a B,
@@ -139,11 +136,9 @@ pub struct BlockBuilder<'a, Block: BlockT, A: ProvideRuntimeApi<Block>, B> {
 	estimated_header_size: usize,
 }
 
-impl<'a, Block, A, B> BlockBuilder<'a, Block, A, B>
+impl<'a, Block, B> BlockBuilder<'a, Block, B>
 where
 	Block: BlockT,
-	A: ProvideRuntimeApi<Block> + 'a,
-	A::Api: BlockBuilderApi<Block> + ApiExt<Block>,
 	B: backend::Backend<Block>,
 {
 	/// Create a new instance of builder based on the given `parent_hash` and `parent_number`.
@@ -152,7 +147,7 @@ where
 	/// These recorded trie nodes can be used by a third party to prove the
 	/// output of this block builder without having access to the full storage.
 	pub fn new(
-		api: &'a A,
+		api: (),
 		parent_hash: Block::Hash,
 		parent_number: NumberFor<Block>,
 		record_proof: RecordProof,
@@ -169,8 +164,7 @@ where
 
 		let estimated_header_size = header.encoded_size();
 
-		let mut api = api.runtime_api();
-
+		/*
 		if record_proof.yes() {
 			api.record_proof();
 		}
@@ -182,6 +176,9 @@ where
 		let version = api
 			.api_version::<dyn BlockBuilderApi<Block>>(parent_hash)?
 			.ok_or_else(|| Error::VersionInvalid("BlockBuilderApi".to_string()))?;
+		*/
+
+		let version = 1;
 
 		Ok(Self {
 			parent_hash,
@@ -232,6 +229,8 @@ where
 	/// supplied by `self.api`, combined as [`BuiltBlock`].
 	/// The storage proof will be `Some(_)` when proof recording was enabled.
 	pub fn build(mut self) -> Result<BuiltBlock<Block, backend::StateBackendFor<B, Block>>, Error> {
+		return Ok(todo!())
+		/*
 		let header: Block::Header = todo!();
 		// let header = self.api.finalize_block(self.parent_hash)?;
 
@@ -257,6 +256,7 @@ where
 			storage_changes,
 			proof,
 		})
+		*/
 	}
 
 	/// Create the inherents for the block.
@@ -266,15 +266,17 @@ where
 		&mut self,
 		inherent_data: sp_inherents::InherentData,
 	) -> Result<Vec<Block::Extrinsic>, Error> {
+		/*
 		let parent_hash = self.parent_hash;
-		self.api
-			.execute_in_transaction(move |api| {
-				// `create_inherents` should not change any state, to ensure this we always rollback
-				// the transaction.
-				// TransactionOutcome::Rollback(api.inherent_extrinsics(parent_hash, inherent_data))
-				TransactionOutcome::Rollback(Ok(Vec::new()))
-			})
-			// .map_err(|e: String| Error::Application(Box::new(e)))
+		self.api.execute_in_transaction(move |api| {
+			// `create_inherents` should not change any state, to ensure this we always rollback
+			// the transaction.
+			// TransactionOutcome::Rollback(api.inherent_extrinsics(parent_hash, inherent_data))
+			TransactionOutcome::Rollback(Ok(Vec::new()))
+		})
+		// .map_err(|e: String| Error::Application(Box::new(e)))
+		*/
+		Ok(Vec::new())
 	}
 
 	/// Estimate the size of the block in the current state.
@@ -285,7 +287,8 @@ where
 		let size = self.estimated_header_size + self.extrinsics.encoded_size();
 
 		if include_proof {
-			size + self.api.proof_recorder().map(|pr| pr.estimate_encoded_size()).unwrap_or(0)
+			// size + self.api.proof_recorder().map(|pr| pr.estimate_encoded_size()).unwrap_or(0)
+			size
 		} else {
 			size
 		}
