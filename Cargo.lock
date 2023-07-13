@@ -2019,6 +2019,7 @@ name = "bp-xcm-bridge-hub"
 version = "0.2.0"
 dependencies = [
  "sp-std 14.0.0",
+ "staging-xcm",
 ]
 
 [[package]]
