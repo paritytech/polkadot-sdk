@@ -91,11 +91,7 @@ pub fn verify_messages_proof<T: Config<I>, I: 'static>(
 		.ensure_no_unused_keys()
 		.map_err(VerificationError::StorageProof)?;
 
-	// We only support single lane messages in this generated_schema
-	let mut proved_messages = ProvedMessages::new();
-	proved_messages.insert(lane, proved_lane_messages);
-
-	Ok(proved_messages)
+	Ok((lane, proved_lane_messages))
 }
 
 /// Verify proof of This -> Bridged chain messages delivery.
@@ -441,7 +437,7 @@ mod tests {
 				false,
 				|proof| verify_messages_proof::<TestRuntime, ()>(proof, 0),
 			),
-			Ok(vec![(
+			Ok((
 				test_lane_id(),
 				ProvedLaneMessages {
 					lane_state: Some(OutboundLaneData {
@@ -452,9 +448,7 @@ mod tests {
 					}),
 					messages: Vec::new(),
 				},
-			)]
-			.into_iter()
-			.collect()),
+			)),
 		);
 	}
 
@@ -475,7 +469,7 @@ mod tests {
 				false,
 				|proof| verify_messages_proof::<TestRuntime, ()>(proof, 1),
 			),
-			Ok(vec![(
+			Ok((
 				test_lane_id(),
 				ProvedLaneMessages {
 					lane_state: Some(OutboundLaneData {
@@ -489,9 +483,7 @@ mod tests {
 						payload: vec![42],
 					}],
 				},
-			)]
-			.into_iter()
-			.collect()),
+			))
 		);
 	}
 

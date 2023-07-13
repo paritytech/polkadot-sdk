@@ -234,92 +234,89 @@ pub mod pallet {
 			let mut actual_weight = declared_weight;
 
 			// verify messages proof && convert proof into messages
-			let messages = verify_and_decode_messages_proof::<T, I>(*proof, messages_count)
-				.map_err(|err| {
-					log::trace!(target: LOG_TARGET, "Rejecting invalid messages proof: {:?}", err,);
+			let (lane_id, lane_data) =
+				verify_and_decode_messages_proof::<T, I>(*proof, messages_count).map_err(
+					|err| {
+						log::trace!(target: LOG_TARGET, "Rejecting invalid messages proof: {:?}", err,);
 
-					Error::<T, I>::InvalidMessagesProof
-				})?;
+						Error::<T, I>::InvalidMessagesProof
+					},
+				)?;
 
 			// dispatch messages and (optionally) update lane(s) state(s)
 			let mut total_messages = 0;
 			let mut valid_messages = 0;
-			let mut messages_received_status = Vec::with_capacity(messages.len());
 			let mut dispatch_weight_left = dispatch_weight;
-			for (lane_id, lane_data) in messages {
-				let mut lane = active_inbound_lane::<T, I>(lane_id)?;
+			let mut lane = active_inbound_lane::<T, I>(lane_id)?;
 
-				// subtract extra storage proof bytes from the actual PoV size - there may be
-				// less unrewarded relayers than the maximal configured value
-				let lane_extra_proof_size_bytes = lane.storage().extra_proof_size_bytes();
-				actual_weight = actual_weight.set_proof_size(
-					actual_weight.proof_size().saturating_sub(lane_extra_proof_size_bytes),
-				);
+			// subtract extra storage proof bytes from the actual PoV size - there may be
+			// less unrewarded relayers than the maximal configured value
+			let lane_extra_proof_size_bytes = lane.storage().extra_proof_size_bytes();
+			actual_weight = actual_weight.set_proof_size(
+				actual_weight.proof_size().saturating_sub(lane_extra_proof_size_bytes),
+			);
 
-				if let Some(lane_state) = lane_data.lane_state {
-					let updated_latest_confirmed_nonce = lane.receive_state_update(lane_state);
-					if let Some(updated_latest_confirmed_nonce) = updated_latest_confirmed_nonce {
-						log::trace!(
-							target: LOG_TARGET,
-							"Received lane {:?} state update: latest_confirmed_nonce={}. Unrewarded relayers: {:?}",
-							lane_id,
-							updated_latest_confirmed_nonce,
-							UnrewardedRelayersState::from(&lane.storage().data()),
-						);
-					}
+			if let Some(lane_state) = lane_data.lane_state {
+				let updated_latest_confirmed_nonce = lane.receive_state_update(lane_state);
+				if let Some(updated_latest_confirmed_nonce) = updated_latest_confirmed_nonce {
+					log::trace!(
+						target: LOG_TARGET,
+						"Received lane {:?} state update: latest_confirmed_nonce={}. Unrewarded relayers: {:?}",
+						lane_id,
+						updated_latest_confirmed_nonce,
+						UnrewardedRelayersState::from(&lane.storage().data()),
+					);
 				}
+			}
 
-				let mut lane_messages_received_status =
-					ReceivedMessages::new(lane_id, Vec::with_capacity(lane_data.messages.len()));
-				for mut message in lane_data.messages {
-					debug_assert_eq!(message.key.lane_id, lane_id);
-					total_messages += 1;
+			let mut messages_received_status =
+				ReceivedMessages::new(lane_id, Vec::with_capacity(lane_data.messages.len()));
+			for mut message in lane_data.messages {
+				debug_assert_eq!(message.key.lane_id, lane_id);
+				total_messages += 1;
 
-					// ensure that relayer has declared enough weight for dispatching next message
-					// on this lane. We can't dispatch lane messages out-of-order, so if declared
-					// weight is not enough, let's move to next lane
-					let message_dispatch_weight = T::MessageDispatch::dispatch_weight(&mut message);
-					if message_dispatch_weight.any_gt(dispatch_weight_left) {
-						log::trace!(
-							target: LOG_TARGET,
-							"Cannot dispatch any more messages on lane {:?}. Weight: declared={}, left={}",
-							lane_id,
-							message_dispatch_weight,
-							dispatch_weight_left,
-						);
-
-						fail!(Error::<T, I>::InsufficientDispatchWeight);
-					}
-
-					let receival_result = lane.receive_message::<T::MessageDispatch>(
-						&relayer_id_at_bridged_chain,
-						message.key.nonce,
-						message.data,
+				// ensure that relayer has declared enough weight for dispatching next message
+				// on this lane. We can't dispatch lane messages out-of-order, so if declared
+				// weight is not enough, let's move to next lane
+				let message_dispatch_weight = T::MessageDispatch::dispatch_weight(&mut message);
+				if message_dispatch_weight.any_gt(dispatch_weight_left) {
+					log::trace!(
+						target: LOG_TARGET,
+						"Cannot dispatch any more messages on lane {:?}. Weight: declared={}, left={}",
+						lane_id,
+						message_dispatch_weight,
+						dispatch_weight_left,
 					);
 
-					// note that we're returning unspent weight to relayer even if message has been
-					// rejected by the lane. This allows relayers to submit spam transactions with
-					// e.g. the same set of already delivered messages over and over again, without
-					// losing funds for messages dispatch. But keep in mind that relayer pays base
-					// delivery transaction cost anyway. And base cost covers everything except
-					// dispatch, so we have a balance here.
-					let unspent_weight = match &receival_result {
-						ReceptionResult::Dispatched(dispatch_result) => {
-							valid_messages += 1;
-							dispatch_result.unspent_weight
-						},
-						ReceptionResult::InvalidNonce |
-						ReceptionResult::TooManyUnrewardedRelayers |
-						ReceptionResult::TooManyUnconfirmedMessages => message_dispatch_weight,
-					};
-					lane_messages_received_status.push(message.key.nonce, receival_result);
-
-					let unspent_weight = unspent_weight.min(message_dispatch_weight);
-					dispatch_weight_left -= message_dispatch_weight - unspent_weight;
-					actual_weight = actual_weight.saturating_sub(unspent_weight);
+					fail!(Error::<T, I>::InsufficientDispatchWeight);
 				}
 
-				messages_received_status.push(lane_messages_received_status);
+				let receival_result = lane.receive_message::<T::MessageDispatch>(
+					&relayer_id_at_bridged_chain,
+					message.key.nonce,
+					message.data,
+				);
+
+				// note that we're returning unspent weight to relayer even if message has been
+				// rejected by the lane. This allows relayers to submit spam transactions with
+				// e.g. the same set of already delivered messages over and over again, without
+				// losing funds for messages dispatch. But keep in mind that relayer pays base
+				// delivery transaction cost anyway. And base cost covers everything except
+				// dispatch, so we have a balance here.
+				let unspent_weight = match &receival_result {
+					ReceptionResult::Dispatched(dispatch_result) => {
+						valid_messages += 1;
+						dispatch_result.unspent_weight
+					},
+					ReceptionResult::InvalidNonce |
+					ReceptionResult::TooManyUnrewardedRelayers |
+					ReceptionResult::TooManyUnconfirmedMessages => message_dispatch_weight,
+				};
+				messages_received_status.push(message.key.nonce, receival_result);
+
+				let unspent_weight = unspent_weight.min(message_dispatch_weight);
+				dispatch_weight_left -= message_dispatch_weight - unspent_weight;
+				actual_weight = actual_weight.saturating_sub(unspent_weight);
 			}
 
 			// let's now deal with relayer payments
@@ -450,7 +447,7 @@ pub mod pallet {
 		/// Messages have been received from the bridged chain.
 		MessagesReceived(
 			/// Result of received messages dispatch.
-			Vec<ReceivedMessages<<T::MessageDispatch as MessageDispatch>::DispatchLevelResult>>,
+			ReceivedMessages<<T::MessageDispatch as MessageDispatch>::DispatchLevelResult>,
 		),
 		/// Messages in the inclusive range have been delivered to the bridged chain.
 		MessagesDelivered {
@@ -726,19 +723,14 @@ fn verify_and_decode_messages_proof<T: Config<I>, I: 'static>(
 	// `receive_messages_proof` weight formula and `MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX`
 	// check guarantees that the `message_count` is sane and Vec<Message> may be allocated.
 	// (tx with too many messages will either be rejected from the pool, or will fail earlier)
-	proofs::verify_messages_proof::<T, I>(proof, messages_count).map(|messages_by_lane| {
-		messages_by_lane
-			.into_iter()
-			.map(|(lane, lane_data)| {
-				(
-					lane,
-					ProvedLaneMessages {
-						lane_state: lane_data.lane_state,
-						messages: lane_data.messages.into_iter().map(Into::into).collect(),
-					},
-				)
-			})
-			.collect()
+	proofs::verify_messages_proof::<T, I>(proof, messages_count).map(|(lane, lane_data)| {
+		(
+			lane,
+			ProvedLaneMessages {
+				lane_state: lane_data.lane_state,
+				messages: lane_data.messages.into_iter().map(Into::into).collect(),
+			},
+		)
 	})
 }
 

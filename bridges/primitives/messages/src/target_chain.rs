@@ -23,7 +23,7 @@ use codec::{Decode, Encode, Error as CodecError};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
-use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, marker::PhantomData, prelude::*};
+use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 
 /// Messages proof from bridged chain.
 ///
@@ -58,7 +58,7 @@ impl<BridgedHeaderHash> Size for FromBridgedChainMessagesProof<BridgedHeaderHash
 }
 
 /// Proved messages from the source chain.
-pub type ProvedMessages<Message> = BTreeMap<LaneId, ProvedLaneMessages<Message>>;
+pub type ProvedMessages<Message> = (LaneId, ProvedLaneMessages<Message>);
 
 /// Proved messages from single lane of the source chain.
 #[derive(RuntimeDebug, Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
