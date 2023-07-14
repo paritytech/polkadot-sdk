@@ -147,7 +147,7 @@ pub trait Chain: Send + Sync + 'static {
 		+ TryFrom<sp_core::U256>
 		+ MaxEncodedLen;
 	/// Index of a transaction used by the chain.
-	type Index: Parameter
+	type Nonce: Parameter
 		+ Member
 		+ MaybeSerialize
 		+ Debug
@@ -181,7 +181,7 @@ where
 	type Block = <T::Chain as Chain>::Block;
 	type AccountId = <T::Chain as Chain>::AccountId;
 	type Balance = <T::Chain as Chain>::Balance;
-	type Index = <T::Chain as Chain>::Index;
+	type Nonce = <T::Chain as Chain>::Nonce;
 	type Signature = <T::Chain as Chain>::Signature;
 
 	fn max_extrinsic_size() -> u32 {
@@ -237,7 +237,7 @@ pub type AccountIdOf<C> = <C as Chain>::AccountId;
 pub type BalanceOf<C> = <C as Chain>::Balance;
 
 /// Transaction index type used by the chain.
-pub type IndexOf<C> = <C as Chain>::Index;
+pub type NonceOf<C> = <C as Chain>::Nonce;
 
 /// Signature type used by the chain.
 pub type SignatureOf<C> = <C as Chain>::Signature;

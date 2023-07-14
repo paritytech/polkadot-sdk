@@ -34,7 +34,7 @@ impl Chain for Kusama {
 
 	type AccountId = <PolkadotLike as Chain>::AccountId;
 	type Balance = <PolkadotLike as Chain>::Balance;
-	type Index = <PolkadotLike as Chain>::Index;
+	type Nonce = <PolkadotLike as Chain>::Nonce;
 	type Signature = <PolkadotLike as Chain>::Signature;
 
 	fn max_extrinsic_size() -> u32 {

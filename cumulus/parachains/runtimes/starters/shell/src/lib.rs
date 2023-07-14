@@ -133,7 +133,7 @@ impl frame_system::Config for Runtime {
 	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
 	type Lookup = AccountIdLookup<AccountId, ()>;
 	/// The index type for storing how many extrinsics an account has signed.
-	type Index = Index;
+	type Nonce = Nonce;
 	/// The type for hashing blocks and tries.
 	type Hash = Hash;
 	/// The hashing algorithm used.
@@ -232,7 +232,7 @@ impl sp_runtime::traits::SignedExtension for DisallowSigned {
 }
 
 /// Index of a transaction in the chain.
-pub type Index = u32;
+pub type Nonce = u32;
 /// A hash of some data used by the chain.
 pub type Hash = sp_core::H256;
 /// An index to a block.

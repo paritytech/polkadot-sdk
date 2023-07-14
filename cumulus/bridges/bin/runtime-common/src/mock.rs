@@ -143,7 +143,7 @@ parameter_types! {
 
 impl frame_system::Config for TestRuntime {
 	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
+	type Nonce = u64;
 	type RuntimeCall = RuntimeCall;
 	type Hash = ThisChainHash;
 	type Hashing = ThisChainHasher;
@@ -317,7 +317,7 @@ impl Chain for ThisUnderlyingChain {
 	type Hasher = ThisChainHasher;
 	type AccountId = ThisChainAccountId;
 	type Balance = ThisChainBalance;
-	type Index = u32;
+	type Nonce = u32;
 	type Signature = sp_runtime::MultiSignature;
 
 	fn max_extrinsic_size() -> u32 {
@@ -356,7 +356,7 @@ impl Chain for BridgedUnderlyingChain {
 	type Hasher = BridgedChainHasher;
 	type AccountId = BridgedChainAccountId;
 	type Balance = BridgedChainBalance;
-	type Index = u32;
+	type Nonce = u32;
 	type Signature = sp_runtime::MultiSignature;
 
 	fn max_extrinsic_size() -> u32 {
@@ -381,7 +381,7 @@ impl Chain for BridgedUnderlyingParachain {
 	type Hasher = BridgedChainHasher;
 	type AccountId = BridgedChainAccountId;
 	type Balance = BridgedChainBalance;
-	type Index = u32;
+	type Nonce = u32;
 	type Signature = sp_runtime::MultiSignature;
 
 	fn max_extrinsic_size() -> u32 {

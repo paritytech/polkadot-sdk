@@ -30,7 +30,7 @@ use pallet_bridge_messages::WeightInfoExt as _;
 use sp_runtime::traits::SignedExtension;
 
 /// Macro that ensures that the runtime configuration and chain primitives crate are sharing
-/// the same types (index, block number, hash, hasher, account id and header).
+/// the same types (nonce, block number, hash, hasher, account id and header).
 #[macro_export]
 macro_rules! assert_chain_types(
 	( runtime: $r:path, this_chain: $this:path ) => {
@@ -41,7 +41,7 @@ macro_rules! assert_chain_types(
 			use frame_system::{Config as SystemConfig, pallet_prelude::*};
 			use static_assertions::assert_type_eq_all;
 
-			assert_type_eq_all!(<$r as SystemConfig>::Index, bp_runtime::IndexOf<$this>);
+			assert_type_eq_all!(<$r as SystemConfig>::Nonce, bp_runtime::NonceOf<$this>);
 			assert_type_eq_all!(BlockNumberFor<$r>, bp_runtime::BlockNumberOf<$this>);
 			assert_type_eq_all!(<$r as SystemConfig>::Hash, bp_runtime::HashOf<$this>);
 			assert_type_eq_all!(<$r as SystemConfig>::Hashing, bp_runtime::HasherOf<$this>);

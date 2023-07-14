@@ -57,7 +57,7 @@ parameter_types! {
 
 impl frame_system::Config for TestRuntime {
 	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
+	type Nonce = u64;
 	type RuntimeCall = RuntimeCall;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
@@ -106,7 +106,7 @@ impl Chain for TestBridgedChain {
 
 	type AccountId = AccountId;
 	type Balance = u64;
-	type Index = u64;
+	type Nonce = u64;
 	type Signature = Signature;
 
 	fn max_extrinsic_size() -> u32 {

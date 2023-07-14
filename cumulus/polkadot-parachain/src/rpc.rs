@@ -20,7 +20,7 @@
 
 use std::sync::Arc;
 
-use parachains_common::{AccountId, Balance, Block, Index as Nonce};
+use parachains_common::{AccountId, Balance, Block, Nonce};
 use sc_client_api::AuxStore;
 pub use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
 use sc_transaction_pool_api::TransactionPool;

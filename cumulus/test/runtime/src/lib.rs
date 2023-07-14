@@ -185,7 +185,7 @@ impl frame_system::Config for Runtime {
 	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
 	type Lookup = IdentityLookup<AccountId>;
 	/// The index type for storing how many extrinsics an account has signed.
-	type Index = Index;
+	type Nonce = Nonce;
 	/// The type for hashing blocks and tries.
 	type Hash = Hash;
 	/// The hashing algorithm used.
@@ -306,7 +306,7 @@ construct_runtime! {
 }
 
 /// Index of a transaction in the chain.
-pub type Index = u32;
+pub type Nonce = u32;
 /// A hash of some data used by the chain.
 pub type Hash = sp_core::H256;
 /// Balance of an account.
@@ -403,8 +403,8 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
-		fn account_nonce(account: AccountId) -> Index {
+	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+		fn account_nonce(account: AccountId) -> Nonce {
 			System::account_nonce(account)
 		}
 	}

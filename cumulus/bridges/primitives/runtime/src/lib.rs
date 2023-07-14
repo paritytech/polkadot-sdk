@@ -31,7 +31,7 @@ use sp_std::{convert::TryFrom, fmt::Debug, ops::RangeInclusive, vec, vec::Vec};
 
 pub use chain::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, EncodedOrDecodedCall, HashOf,
-	HasherOf, HeaderOf, IndexOf, Parachain, ParachainIdOf, SignatureOf, TransactionEraOf,
+	HasherOf, HeaderOf, NonceOf, Parachain, ParachainIdOf, SignatureOf, TransactionEraOf,
 	UnderlyingChainOf, UnderlyingChainProvider,
 };
 pub use frame_support::storage::storage_prefix as storage_value_final_key;

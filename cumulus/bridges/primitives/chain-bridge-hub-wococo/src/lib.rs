@@ -37,7 +37,7 @@ impl Chain for BridgeHubWococo {
 	type Block = Block;
 	type AccountId = AccountId;
 	type Balance = Balance;
-	type Index = Index;
+	type Nonce = Nonce;
 	type Signature = Signature;
 
 	fn max_extrinsic_size() -> u32 {
