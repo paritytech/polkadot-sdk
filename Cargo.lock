@@ -2018,6 +2018,11 @@ dependencies = [
 name = "bp-xcm-bridge-hub"
 version = "0.2.0"
 dependencies = [
+ "bp-messages",
+ "bp-runtime",
+ "frame-support",
+ "parity-scale-codec",
+ "scale-info",
  "sp-std 14.0.0",
  "staging-xcm",
 ]
@@ -12043,6 +12048,7 @@ dependencies = [
  "pallet-balances",
  "pallet-bridge-messages",
  "parity-scale-codec",
+ "polkadot-parachain-primitives",
  "scale-info",
  "sp-core",
  "sp-io",

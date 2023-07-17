@@ -37,6 +37,10 @@ use xcm::prelude::*;
 pub type AccountId = AccountId32;
 pub type Balance = u64;
 
+use frame_support::traits::{EnsureOrigin, OriginTrait};
+use polkadot_parachain_primitives::primitives::Sibling;
+use xcm_builder::{ParentIsPreset, SiblingParachainConvertsVia};
+
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 pub const SIBLING_ASSET_HUB_ID: u32 = 2001;
@@ -53,7 +57,7 @@ frame_support::construct_runtime! {
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Event<T>},
 		Messages: pallet_bridge_messages::{Pallet, Call, Event<T>},
-		XcmOverBridge: pallet_xcm_bridge_hub::{Pallet},
+		XcmOverBridge: pallet_xcm_bridge_hub::{Pallet, Call, Event<T>},
 	}
 }
 
@@ -89,6 +93,7 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type ThisChain = ThisUnderlyingChain;
 	type BridgedChain = BridgedUnderlyingChain;
 	type BridgedHeaderChain = BridgedHeaderChain;
+	// type BridgedHeaderChain = ();
 }
 
 pub struct TestMessagesWeights;
@@ -148,6 +153,8 @@ parameter_types! {
 }
 
 impl pallet_xcm_bridge_hub::Config for TestRuntime {
+	type RuntimeEvent = RuntimeEvent;
+
 	type UniversalLocation = UniversalLocation;
 	type BridgedNetwork = BridgedRelayNetworkLocation;
 	type BridgeMessagesPalletInstance = ();
@@ -157,6 +164,12 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 
 	type Lanes = TestLanes;
 	type LanesSupport = TestXcmBlobHauler;
+
+	type OpenBridgeOrigin = OpenBridgeOrigin;
+	type BridgeOriginAccountIdConverter = LocationToAccountId;
+
+	type BridgeReserve = BridgeReserve;
+	type NativeCurrency = Balances;
 }
 
 parameter_types! {
@@ -181,10 +194,91 @@ impl XcmBlobHauler for TestXcmBlobHauler {
 	type UncongestedMessage = ();
 }
 
+/// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
+/// when determining ownership of accounts for asset transacting and when attempting to use XCM
+/// `Transact` in order to determine the dispatch Origin.
+pub type LocationToAccountId = (
+	// The parent (Relay-chain) origin converts to the parent `AccountId`.
+	ParentIsPreset<AccountId>,
+	// Sibling parachain origins convert to AccountId via the `ParaId::into`.
+	SiblingParachainConvertsVia<Sibling, AccountId>,
+);
+
+pub struct OpenBridgeOrigin;
+
+impl OpenBridgeOrigin {
+	pub fn parent_relay_chain_origin() -> RuntimeOrigin {
+		RuntimeOrigin::signed([0u8; 32].into())
+	}
+
+	pub fn parent_relay_chain_universal_origin() -> RuntimeOrigin {
+		RuntimeOrigin::signed([1u8; 32].into())
+	}
+
+	pub fn sibling_parachain_origin() -> RuntimeOrigin {
+		let mut account = [0u8; 32];
+		account[..4].copy_from_slice(&SIBLING_ASSET_HUB_ID.encode()[..4]);
+		RuntimeOrigin::signed(account.into())
+	}
+
+	pub fn sibling_parachain_universal_origin() -> RuntimeOrigin {
+		RuntimeOrigin::signed([2u8; 32].into())
+	}
+
+	pub fn origin_without_sovereign_account() -> RuntimeOrigin {
+		RuntimeOrigin::signed([3u8; 32].into())
+	}
+
+	pub fn disallowed_origin() -> RuntimeOrigin {
+		RuntimeOrigin::signed([42u8; 32].into())
+	}
+}
+
+impl EnsureOrigin<RuntimeOrigin> for OpenBridgeOrigin {
+	type Success = Location;
+
+	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		let signer = o.clone().into_signer();
+		if signer == Self::parent_relay_chain_origin().into_signer() {
+			return Ok(Location { parents: 1, interior: Here })
+		} else if signer == Self::parent_relay_chain_universal_origin().into_signer() {
+			return Ok(Location {
+				parents: 2,
+				interior: GlobalConsensus(RelayNetwork::get()).into(),
+			})
+		} else if signer == Self::sibling_parachain_universal_origin().into_signer() {
+			return Ok(Location {
+				parents: 2,
+				interior: [GlobalConsensus(RelayNetwork::get()), Parachain(SIBLING_ASSET_HUB_ID)]
+					.into(),
+			})
+		} else if signer == Self::origin_without_sovereign_account().into_signer() {
+			return Ok(Location {
+				parents: 1,
+				interior: [Parachain(SIBLING_ASSET_HUB_ID), OnlyChild].into(),
+			})
+		}
+
+		let mut sibling_account = [0u8; 32];
+		sibling_account[..4].copy_from_slice(&SIBLING_ASSET_HUB_ID.encode()[..4]);
+		if signer == Some(sibling_account.into()) {
+			return Ok(Location { parents: 1, interior: Parachain(SIBLING_ASSET_HUB_ID).into() })
+		}
+
+		Err(o)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Ok(Self::parent_relay_chain_origin())
+	}
+}
+
 pub struct ThisUnderlyingChain;
 
 impl Chain for ThisUnderlyingChain {
 	const ID: ChainId = *b"tuch";
+
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hasher = BlakeTwo256;
@@ -206,16 +300,15 @@ impl Chain for ThisUnderlyingChain {
 }
 
 impl ChainWithMessages for ThisUnderlyingChain {
-	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str = "";
-
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str = "WithThisChainBridgeMessages";
 	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 16;
-	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 1000;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 128;
 }
 
-pub struct BridgedUnderlyingChain;
 pub type BridgedHeaderHash = H256;
 pub type BridgedChainHeader = SubstrateHeader;
 
+pub struct BridgedUnderlyingChain;
 impl Chain for BridgedUnderlyingChain {
 	const ID: ChainId = *b"bgdc";
 	type BlockNumber = u64;
@@ -239,9 +332,9 @@ impl Chain for BridgedUnderlyingChain {
 }
 
 impl ChainWithMessages for BridgedUnderlyingChain {
-	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str = "";
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str = "WithBridgedChainBridgeMessages";
 	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 16;
-	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 1000;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 128;
 }
 
 /// Test message dispatcher.
@@ -279,6 +372,11 @@ impl bp_header_chain::HeaderChain<BridgedUnderlyingChain> for BridgedHeaderChain
 	) -> Option<HashOf<BridgedUnderlyingChain>> {
 		unreachable!()
 	}
+}
+
+/// Location of bridged asset hub.
+pub fn bridged_asset_hub_location() -> InteriorLocation {
+	[GlobalConsensus(BridgedRelayNetwork::get()), Parachain(BRIDGED_ASSET_HUB_ID)].into()
 }
 
 /// Run pallet test.

@@ -254,10 +254,6 @@ impl TypeId for LaneId {
 pub enum LaneState {
 	/// Lane is opened and messages may be sent/received over it.
 	Opened,
-	/// Lane is closing. It is equal to the `Opened` state, but it will switch to
-	/// the `Closed` state and then vanish after some period. This state is here
-	/// to give bridged chain ability to know that the lane is going to be closed.
-	Closing,
 	/// Lane is closed and all attempts to send/receive messages to/from this lane
 	/// will fail.
 	///
@@ -271,7 +267,7 @@ pub enum LaneState {
 impl LaneState {
 	/// Returns true if lane state allows sending/receiving messages.
 	pub fn is_active(&self) -> bool {
-		matches!(*self, LaneState::Opened | LaneState::Closing)
+		matches!(*self, LaneState::Opened)
 	}
 }
 
