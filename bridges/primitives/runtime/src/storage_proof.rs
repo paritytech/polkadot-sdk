@@ -258,13 +258,13 @@ impl VerifiedStorageProof {
 #[cfg(feature = "test-helpers")]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct UnverifiedStorageProofParams {
-	#[allow(missing_docs)]
+	/// Expected storage proof size in bytes.
 	pub db_size: Option<u32>,
 }
 
 #[cfg(feature = "test-helpers")]
 impl UnverifiedStorageProofParams {
-	#[allow(missing_docs)]
+	/// Make storage proof parameters that require proof of at least `db_size` bytes.
 	pub fn from_db_size(db_size: u32) -> Self {
 		Self { db_size: Some(db_size) }
 	}

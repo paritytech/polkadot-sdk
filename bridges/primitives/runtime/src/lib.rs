@@ -457,38 +457,6 @@ macro_rules! generate_static_str_provider {
 	};
 }
 
-/// Error message that is only displayable in `std` environment.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, PalletError, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct StrippableError<T> {
-	_phantom_data: sp_std::marker::PhantomData<T>,
-	#[codec(skip)]
-	#[cfg(feature = "std")]
-	message: String,
-}
-
-impl<T: Debug> From<T> for StrippableError<T> {
-	fn from(_err: T) -> Self {
-		Self {
-			_phantom_data: Default::default(),
-			#[cfg(feature = "std")]
-			message: format!("{:?}", _err),
-		}
-	}
-}
-
-impl<T> Debug for StrippableError<T> {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
-		f.write_str(&self.message)
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
-		f.write_str("Stripped error")
-	}
-}
-
 /// A trait defining helper methods for `RangeInclusive` (start..=end)
 pub trait RangeInclusiveExt<Idx> {
 	/// Computes the length of the `RangeInclusive`, checking for underflow and overflow.
