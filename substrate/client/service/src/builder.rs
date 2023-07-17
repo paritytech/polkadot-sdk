@@ -78,8 +78,7 @@ use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor, Zero};
 use std::{str::FromStr, sync::Arc, time::SystemTime};
 
 /// Full client type.
-pub type TFullClient<TBl, TExec> =
-	Client<TFullBackend<TBl>, TFullCallExecutor<TBl, TExec>, TBl>;
+pub type TFullClient<TBl, TExec> = Client<TFullBackend<TBl>, TFullCallExecutor<TBl, TExec>, TBl>;
 
 /// Full client backend type.
 pub type TFullBackend<TBl> = Backend<TBl>;
