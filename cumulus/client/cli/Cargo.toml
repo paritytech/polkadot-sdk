@@ -5,7 +5,7 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 
 [dependencies]
-clap = { version = "4.3.12", features = ["derive"] }
+clap = { version = "4.3.14", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 url = "2.4.0"
 
