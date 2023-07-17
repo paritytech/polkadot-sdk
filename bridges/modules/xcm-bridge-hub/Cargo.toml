@@ -35,11 +35,12 @@ xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 
 [dev-dependencies]
-bp-header-chain = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
+bp-header-chain = { workspace = true }
+pallet-balances = { workspace = true }
+sp-io = { workspace = true }
 bp-runtime = { features = ["test-helpers"], workspace = true }
 pallet-xcm-bridge-hub-router = { workspace = true }
+polkadot-parachain-primitives = { workspace = true }
 
 [features]
 default = ["std"]
