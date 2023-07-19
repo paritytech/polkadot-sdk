@@ -56,14 +56,11 @@ No more event will be generated with this `subscription`.
 
 ```json
 {
-    "event": "inaccessible",
-    "error": "..."
+    "event": "inaccessible"
 }
 ```
 
 The `inaccessible` event is produced if the JSON-RPC server was incapable of obtaining the storage items necessary for the call.
-
-`error` is a human-readable error message indicating why the call has failed. This string isn't meant to be shown to end users, but is for developers to understand the problem.
 
 Contrary to the `error` event, repeating the same call in the future might succeed.
 
