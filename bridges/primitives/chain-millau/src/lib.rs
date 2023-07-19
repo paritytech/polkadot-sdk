@@ -33,6 +33,7 @@ use frame_support::{
 };
 use frame_system::limits;
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_core::{storage::StateVersion, Hasher as HasherT};
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
@@ -41,8 +42,6 @@ use sp_runtime::{
 use sp_std::prelude::*;
 use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
 
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Keccak256;
 
 pub use millau_hash::MillauHash;
@@ -145,8 +144,8 @@ pub type AccountSigner = MultiSigner;
 /// Balance of an account.
 pub type Balance = u64;
 
-/// Index of a transaction in the chain.
-pub type Index = u32;
+/// Nonce of a transaction in the chain.
+pub type Nonce = u32;
 
 /// Weight-to-Fee type used by Millau.
 pub type WeightToFee = IdentityFee<Balance>;
@@ -163,7 +162,7 @@ impl Chain for Millau {
 
 	type AccountId = AccountId;
 	type Balance = Balance;
-	type Index = Index;
+	type Nonce = Nonce;
 	type Signature = Signature;
 
 	fn max_extrinsic_size() -> u32 {
@@ -197,8 +196,7 @@ impl ChainWithBeefy for Millau {
 }
 
 /// Millau Hasher (Blake2-256 ++ Keccak-256) implementation.
-#[derive(PartialEq, Eq, Clone, Copy, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(PartialEq, Eq, Clone, Copy, RuntimeDebug, TypeInfo, Serialize, Deserialize)]
 pub struct BlakeTwoAndKeccak256;
 
 impl sp_core::Hasher for BlakeTwoAndKeccak256 {

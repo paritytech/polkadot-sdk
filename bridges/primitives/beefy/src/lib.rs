@@ -37,6 +37,7 @@ use bp_runtime::{BasicOperatingMode, BlockNumberOf, Chain, HashOf};
 use codec::{Decode, Encode};
 use frame_support::Parameter;
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_runtime::{
 	traits::{Convert, MaybeSerializeDeserialize},
 	RuntimeAppPublic, RuntimeDebug,
@@ -127,8 +128,7 @@ pub type BeefyMmrLeafOf<C> = sp_consensus_beefy::mmr::MmrLeaf<
 ///
 /// Provides the initial context that the bridge needs in order to know
 /// where to start the sync process from.
-#[derive(Encode, Decode, RuntimeDebug, PartialEq, Clone, TypeInfo)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Encode, Decode, RuntimeDebug, PartialEq, Clone, TypeInfo, Serialize, Deserialize)]
 pub struct InitializationData<BlockNumber, Hash> {
 	/// Pallet operating mode.
 	pub operating_mode: BasicOperatingMode,

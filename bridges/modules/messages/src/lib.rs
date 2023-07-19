@@ -188,9 +188,9 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I>
 	where
-		u32: TryFrom<<T as frame_system::Config>::BlockNumber>,
+		u32: TryFrom<BlockNumberFor<T>>,
 	{
-		fn on_idle(_block: T::BlockNumber, remaining_weight: Weight) -> Weight {
+		fn on_idle(_block: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			// we'll need at least to read outbound lane state, kill a message and update lane state
 			let db_weight = T::DbWeight::get();
 			if !remaining_weight.all_gte(db_weight.reads_writes(1, 2)) {
@@ -597,7 +597,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config<I>, I: 'static> GenesisBuild<T, I> for GenesisConfig<T, I> {
+	impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
 		fn build(&self) {
 			PalletOperatingMode::<T, I>::put(self.operating_mode);
 			if let Some(ref owner) = self.owner {

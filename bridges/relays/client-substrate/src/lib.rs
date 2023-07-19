@@ -50,7 +50,7 @@ pub use crate::{
 };
 pub use bp_runtime::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain as ChainBase, HashOf, HeaderIdOf,
-	HeaderOf, IndexOf, Parachain as ParachainBase, SignatureOf, TransactionEra, TransactionEraOf,
+	HeaderOf, NonceOf, Parachain as ParachainBase, SignatureOf, TransactionEra, TransactionEraOf,
 	UnderlyingChainProvider,
 };
 
