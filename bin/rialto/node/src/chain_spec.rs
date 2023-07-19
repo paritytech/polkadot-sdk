@@ -14,11 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_primitives::v4::{AssignmentId, ValidatorId};
+use polkadot_primitives::v5::{AssignmentId, ValidatorId};
 use rialto_runtime::{
 	AccountId, BabeConfig, BalancesConfig, BeefyConfig, BridgeMillauMessagesConfig,
-	ConfigurationConfig, GenesisConfig, GrandpaConfig, SessionConfig, SessionKeys, Signature,
-	SudoConfig, SystemConfig, WASM_BINARY,
+	ConfigurationConfig, GrandpaConfig, RuntimeGenesisConfig, SessionConfig, SessionKeys,
+	Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -41,7 +41,7 @@ const MILLAU_MESSAGES_PALLET_OWNER: &str = "Millau.MessagesOwner";
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec =
-	sc_service::GenericChainSpec<GenesisConfig, polkadot_service::chain_spec::Extensions>;
+	sc_service::GenericChainSpec<RuntimeGenesisConfig, polkadot_service::chain_spec::Extensions>;
 
 /// The chain specification option. This is expected to come in from the CLI and
 /// is little more than one of a number of alternatives which can easily be converted
@@ -200,10 +200,11 @@ fn testnet_genesis(
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
-) -> GenesisConfig {
-	GenesisConfig {
+) -> RuntimeGenesisConfig {
+	RuntimeGenesisConfig {
 		system: SystemConfig {
 			code: WASM_BINARY.expect("Rialto development WASM not available").to_vec(),
+			..Default::default()
 		},
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 50)).collect(),
@@ -211,9 +212,10 @@ fn testnet_genesis(
 		babe: BabeConfig {
 			authorities: Vec::new(),
 			epoch_config: Some(rialto_runtime::BABE_GENESIS_EPOCH_CONFIG),
+			..Default::default()
 		},
 		beefy: BeefyConfig::default(),
-		grandpa: GrandpaConfig { authorities: Vec::new() },
+		grandpa: GrandpaConfig { authorities: Vec::new(), ..Default::default() },
 		sudo: SudoConfig { key: Some(root_key) },
 		session: SessionConfig {
 			keys: initial_authorities
@@ -243,8 +245,8 @@ fn testnet_genesis(
 				validation_upgrade_cooldown: 2u32,
 				validation_upgrade_delay: 2,
 				code_retention_period: 1200,
-				max_code_size: polkadot_primitives::v4::MAX_CODE_SIZE,
-				max_pov_size: polkadot_primitives::v4::MAX_POV_SIZE,
+				max_code_size: polkadot_primitives::v5::MAX_CODE_SIZE,
+				max_pov_size: polkadot_primitives::v5::MAX_POV_SIZE,
 				max_head_data_size: 32 * 1024,
 				group_rotation_frequency: 20,
 				chain_availability_period: 4,

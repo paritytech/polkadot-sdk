@@ -179,7 +179,9 @@ pub(crate) fn submit_finality_proof_info_from_args<T: Config<I>, I: 'static>(
 /// Returns maximal expected size of `submit_finality_proof` call arguments.
 fn max_expected_call_size<T: Config<I>, I: 'static>(required_precommits: u32) -> u32 {
 	let max_expected_justification_size =
-		GrandpaJustification::max_reasonable_size::<T::BridgedChain>(required_precommits);
+		GrandpaJustification::<BridgedHeader<T, I>>::max_reasonable_size::<T::BridgedChain>(
+			required_precommits,
+		);
 
 	// call arguments are header and justification
 	T::BridgedChain::MAX_HEADER_SIZE.saturating_add(max_expected_justification_size)

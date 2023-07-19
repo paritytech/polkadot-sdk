@@ -154,7 +154,7 @@ impl<C: Chain> SubstrateFinalityClient<C> for SubstrateBeefyFinalityClient {
 pub(crate) trait SubstrateFrameSystem<C> {
 	/// Return index of next account transaction.
 	#[method(name = "accountNextIndex")]
-	async fn account_next_index(&self, account_id: C::AccountId) -> RpcResult<C::Index>;
+	async fn account_next_index(&self, account_id: C::AccountId) -> RpcResult<C::Nonce>;
 }
 
 /// RPC methods of Substrate `pallet_transaction_payment` frame pallet, that we are using.

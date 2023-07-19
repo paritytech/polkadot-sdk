@@ -33,7 +33,7 @@ use cumulus_client_consensus_aura::{AuraConsensus, BuildAuraConsensusParams, Slo
 use cumulus_client_consensus_common::{
 	ParachainBlockImport as TParachainBlockImport, ParachainConsensus,
 };
-use cumulus_client_network::BlockAnnounceValidator;
+use cumulus_client_network::RequireSecondedInBlockAnnounce;
 use cumulus_client_service::{
 	prepare_node_config, start_collator, start_full_node, StartCollatorParams, StartFullNodeParams,
 };
@@ -271,7 +271,8 @@ where
 
 	let client = params.client.clone();
 	let backend = params.backend.clone();
-	let block_announce_validator = BlockAnnounceValidator::new(relay_chain_interface.clone(), id);
+	let block_announce_validator =
+		RequireSecondedInBlockAnnounce::new(relay_chain_interface.clone(), id);
 
 	let force_authoring = parachain_config.force_authoring;
 	let validator = parachain_config.role.is_authority();

@@ -130,7 +130,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
-		fn on_initialize(_n: T::BlockNumber) -> frame_support::weights::Weight {
+		fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
 			<RequestCount<T, I>>::mutate(|count| *count = count.saturating_sub(1));
 
 			Weight::from_parts(0, 0)
@@ -337,7 +337,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config<I>, I: 'static> GenesisBuild<T, I> for GenesisConfig<T, I> {
+	impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
 		fn build(&self) {
 			if let Some(ref owner) = self.owner {
 				<PalletOwner<T, I>>::put(owner);

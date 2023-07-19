@@ -35,7 +35,7 @@ const MILLAU_MESSAGES_PALLET_OWNER: &str = "Millau.MessagesOwner";
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec =
-	sc_service::GenericChainSpec<rialto_parachain_runtime::GenesisConfig, Extensions>;
+	sc_service::GenericChainSpec<rialto_parachain_runtime::RuntimeGenesisConfig, Extensions>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -176,18 +176,22 @@ fn testnet_genesis(
 	initial_authorities: Vec<AuraId>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
-) -> rialto_parachain_runtime::GenesisConfig {
-	rialto_parachain_runtime::GenesisConfig {
+) -> rialto_parachain_runtime::RuntimeGenesisConfig {
+	rialto_parachain_runtime::RuntimeGenesisConfig {
 		system: rialto_parachain_runtime::SystemConfig {
 			code: rialto_parachain_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
+			..Default::default()
 		},
 		balances: rialto_parachain_runtime::BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
 		sudo: rialto_parachain_runtime::SudoConfig { key: Some(root_key) },
-		parachain_info: rialto_parachain_runtime::ParachainInfoConfig { parachain_id: id },
+		parachain_info: rialto_parachain_runtime::ParachainInfoConfig {
+			parachain_id: id,
+			..Default::default()
+		},
 		aura: rialto_parachain_runtime::AuraConfig { authorities: initial_authorities },
 		aura_ext: Default::default(),
 		bridge_millau_messages: BridgeMillauMessagesConfig {

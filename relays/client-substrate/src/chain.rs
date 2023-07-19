@@ -166,7 +166,7 @@ pub struct UnsignedTransaction<C: Chain> {
 	/// Runtime call of this transaction.
 	pub call: EncodedOrDecodedCall<C::Call>,
 	/// Transaction nonce.
-	pub nonce: C::Index,
+	pub nonce: C::Nonce,
 	/// Tip included into transaction.
 	pub tip: C::Balance,
 	/// Transaction era used by the chain.
@@ -175,7 +175,7 @@ pub struct UnsignedTransaction<C: Chain> {
 
 impl<C: Chain> UnsignedTransaction<C> {
 	/// Create new unsigned transaction with given call, nonce, era and zero tip.
-	pub fn new(call: EncodedOrDecodedCall<C::Call>, nonce: C::Index) -> Self {
+	pub fn new(call: EncodedOrDecodedCall<C::Call>, nonce: C::Nonce) -> Self {
 		Self { call, nonce, era: TransactionEra::Immortal, tip: Zero::zero() }
 	}
 

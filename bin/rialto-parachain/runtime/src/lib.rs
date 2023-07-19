@@ -50,7 +50,7 @@ pub use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
 	match_types, parameter_types,
-	traits::{ConstU32, Everything, IsInVec, Nothing, Randomness},
+	traits::{ConstBool, ConstU32, Everything, IsInVec, Nothing, Randomness},
 	weights::{
 		constants::{
 			BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
@@ -70,7 +70,7 @@ pub use sp_runtime::{MultiAddress, Perbill, Permill};
 
 pub use bp_rialto_parachain::{
 	AccountId, Balance, BlockLength, BlockNumber, BlockWeights, Hash, Hasher as Hashing, Header,
-	Index, Signature, MAXIMUM_BLOCK_WEIGHT,
+	Nonce, Signature, MAXIMUM_BLOCK_WEIGHT,
 };
 
 pub use pallet_bridge_grandpa::Call as BridgeGrandpaCall;
@@ -231,15 +231,13 @@ impl frame_system::Config for Runtime {
 	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
 	type Lookup = AccountIdLookup<AccountId, ()>;
 	/// The index type for storing how many extrinsics an account has signed.
-	type Index = Index;
-	/// The index type for blocks.
-	type BlockNumber = BlockNumber;
+	type Nonce = Nonce;
 	/// The type for hashing blocks and tries.
 	type Hash = Hash;
 	/// The hashing algorithm used.
 	type Hashing = Hashing;
 	/// The header type.
-	type Header = generic::Header<BlockNumber, Hashing>;
+	type Block = Block;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	/// The ubiquitous origin type.
@@ -431,7 +429,7 @@ pub type Barrier = TakeWeightCredit;
 
 /// Dispatches received XCM messages from other chain.
 pub type OnRialtoParachainBlobDispatcher =
-	xcm_builder::BridgeBlobDispatcher<XcmRouter, UniversalLocation>;
+	xcm_builder::BridgeBlobDispatcher<XcmRouter, UniversalLocation, ()>;
 
 /// XCM weigher type.
 pub type XcmWeigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
@@ -461,6 +459,7 @@ impl Config for XcmConfig {
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
+	type Aliasers = Nothing;
 }
 
 /// No local origins on this chain are allowed to dispatch XCM sends/executions.
@@ -529,6 +528,7 @@ impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = MaxAuthorities;
+	type AllowMultipleBlocksPerSlot = ConstBool<false>;
 }
 
 impl pallet_bridge_relayers::Config for Runtime {
@@ -592,23 +592,19 @@ impl pallet_bridge_messages::Config<WithMillauMessagesInstance> for Runtime {
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
-	pub enum Runtime where
-		Block = Block,
-		NodeBlock = generic::Block<Header, sp_runtime::OpaqueExtrinsic>,
-		UncheckedExtrinsic = UncheckedExtrinsic,
-	{
-		System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
+	pub enum Runtime {
+		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
 
 		ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Storage, Inherent, Event<T>} = 20,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config} = 21,
+		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>} = 21,
 
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 30,
 
 		Aura: pallet_aura::{Pallet, Config<T>},
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Config},
+		AuraExt: cumulus_pallet_aura_ext::{Pallet, Config<T>},
 
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 50,
@@ -719,8 +715,8 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
-		fn account_nonce(account: AccountId) -> Index {
+	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+		fn account_nonce(account: AccountId) -> Nonce {
 			System::account_nonce(account)
 		}
 	}
@@ -866,7 +862,7 @@ mod tests {
 
 	fn new_test_ext() -> sp_io::TestExternalities {
 		sp_io::TestExternalities::new(
-			frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap(),
+			frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap(),
 		)
 	}
 

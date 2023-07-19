@@ -25,13 +25,14 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_core::storage::StorageKey;
 use sp_runtime::traits::{BadOrigin, Header as HeaderT, UniqueSaturatedInto};
 use sp_std::{convert::TryFrom, fmt::Debug, ops::RangeInclusive, vec, vec::Vec};
 
 pub use chain::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, EncodedOrDecodedCall, HashOf,
-	HasherOf, HeaderOf, IndexOf, Parachain, ParachainIdOf, SignatureOf, TransactionEraOf,
+	HasherOf, HeaderOf, NonceOf, Parachain, ParachainIdOf, SignatureOf, TransactionEraOf,
 	UnderlyingChainOf, UnderlyingChainProvider,
 };
 pub use frame_support::storage::storage_prefix as storage_value_final_key;
@@ -373,8 +374,19 @@ pub trait OperatingMode: Send + Copy + Debug + FullCodec {
 }
 
 /// Basic operating modes for a bridges module (Normal/Halted).
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Encode,
+	Decode,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	Serialize,
+	Deserialize,
+)]
 pub enum BasicOperatingMode {
 	/// Normal mode, when all operations are allowed.
 	Normal,

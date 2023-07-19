@@ -46,7 +46,7 @@ pub async fn initialize<
 	dry_run: bool,
 ) where
 	F: FnOnce(
-			TargetChain::Index,
+			TargetChain::Nonce,
 			E::InitializationData,
 		) -> Result<UnsignedTransaction<TargetChain>, SubstrateError>
 		+ Send
@@ -112,7 +112,7 @@ async fn do_initialize<
 >
 where
 	F: FnOnce(
-			TargetChain::Index,
+			TargetChain::Nonce,
 			E::InitializationData,
 		) -> Result<UnsignedTransaction<TargetChain>, SubstrateError>
 		+ Send

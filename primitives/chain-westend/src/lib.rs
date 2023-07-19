@@ -35,7 +35,7 @@ impl Chain for Westend {
 
 	type AccountId = <PolkadotLike as Chain>::AccountId;
 	type Balance = <PolkadotLike as Chain>::Balance;
-	type Index = <PolkadotLike as Chain>::Index;
+	type Nonce = <PolkadotLike as Chain>::Nonce;
 	type Signature = <PolkadotLike as Chain>::Signature;
 
 	fn max_extrinsic_size() -> u32 {
@@ -70,7 +70,7 @@ impl Chain for Westmint {
 
 	type AccountId = AccountId;
 	type Balance = Balance;
-	type Index = Nonce;
+	type Nonce = Nonce;
 	type Signature = Signature;
 
 	fn max_extrinsic_size() -> u32 {

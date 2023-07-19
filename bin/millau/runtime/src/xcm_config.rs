@@ -110,6 +110,7 @@ pub type Barrier = (
 pub type OnMillauBlobDispatcher = xcm_builder::BridgeBlobDispatcher<
 	crate::xcm_config::XcmRouter,
 	crate::xcm_config::UniversalLocation,
+	(),
 >;
 
 /// XCM weigher type.
@@ -141,6 +142,7 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
+	type Aliasers = Nothing;
 }
 
 /// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
@@ -247,11 +249,12 @@ mod tests {
 	use bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchResult;
 	use codec::Encode;
 	use pallet_bridge_messages::OutboundLanes;
+	use sp_runtime::BuildStorage;
 	use xcm_executor::XcmExecutor;
 
 	fn new_test_ext() -> sp_io::TestExternalities {
 		sp_io::TestExternalities::new(
-			frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap(),
+			frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap(),
 		)
 	}
 

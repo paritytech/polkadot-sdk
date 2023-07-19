@@ -38,7 +38,7 @@ impl bp_runtime::Chain for TestChain {
 
 	type AccountId = u32;
 	type Balance = u32;
-	type Index = u32;
+	type Nonce = u32;
 	type Signature = sp_runtime::testing::TestSignature;
 
 	fn max_extrinsic_size() -> u32 {
@@ -80,7 +80,7 @@ impl bp_runtime::Chain for TestParachainBase {
 
 	type AccountId = u32;
 	type Balance = u32;
-	type Index = u32;
+	type Nonce = u32;
 	type Signature = sp_runtime::testing::TestSignature;
 
 	fn max_extrinsic_size() -> u32 {

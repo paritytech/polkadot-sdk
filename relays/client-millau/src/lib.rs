@@ -21,7 +21,7 @@ use bp_runtime::ChainId;
 use codec::{Compact, Decode, Encode};
 use relay_substrate_client::{
 	BalanceOf, Chain, ChainWithBalances, ChainWithMessages, ChainWithTransactions,
-	ChainWithUtilityPallet, Error as SubstrateError, FullRuntimeUtilityPallet, IndexOf, SignParam,
+	ChainWithUtilityPallet, Error as SubstrateError, FullRuntimeUtilityPallet, NonceOf, SignParam,
 	UnderlyingChainProvider, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
@@ -139,7 +139,7 @@ impl ChainWithTransactions for Millau {
 		Some(
 			UnsignedTransaction::new(
 				tx.function.into(),
-				Compact::<IndexOf<Self>>::decode(&mut &extra.5.encode()[..]).ok()?.into(),
+				Compact::<NonceOf<Self>>::decode(&mut &extra.5.encode()[..]).ok()?.into(),
 			)
 			.tip(Compact::<BalanceOf<Self>>::decode(&mut &extra.7.encode()[..]).ok()?.into()),
 		)

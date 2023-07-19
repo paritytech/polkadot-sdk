@@ -27,7 +27,7 @@ use pallet_balances::AccountData;
 use relay_substrate_client::{
 	metrics::{FloatStorageValue, FloatStorageValueMetric},
 	AccountIdOf, BalanceOf, Chain, ChainWithBalances, ChainWithMessages, Client,
-	Error as SubstrateError, IndexOf,
+	Error as SubstrateError, NonceOf,
 };
 use relay_utils::metrics::{MetricsParams, StandaloneMetric};
 use sp_core::storage::StorageData;
@@ -133,7 +133,7 @@ where
 	) -> Result<Option<Self::Value>, SubstrateError> {
 		maybe_raw_value
 			.map(|raw_value| {
-				AccountInfo::<IndexOf<C>, AccountData<BalanceOf<C>>>::decode(&mut &raw_value.0[..])
+				AccountInfo::<NonceOf<C>, AccountData<BalanceOf<C>>>::decode(&mut &raw_value.0[..])
 					.map_err(SubstrateError::ResponseParseFailed)
 					.map(|account_data| {
 						convert_to_token_balance(account_data.data.free.into(), self.token_decimals)

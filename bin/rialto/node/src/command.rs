@@ -17,7 +17,7 @@
 use crate::cli::{Cli, Subcommand};
 use frame_benchmarking_cli::BenchmarkCmd;
 use rialto_runtime::{Block, RuntimeApi};
-use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
+use sc_cli::SubstrateCli;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
@@ -46,10 +46,6 @@ impl SubstrateCli for Cli {
 
 	fn executable_name() -> String {
 		"rialto-bridge-node".into()
-	}
-
-	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		&rialto_runtime::VERSION
 	}
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
@@ -92,7 +88,7 @@ pub fn run() -> sc_cli::Result<()> {
 			match cmd {
 				BenchmarkCmd::Pallet(cmd) =>
 					if cfg!(feature = "runtime-benchmarks") {
-						runner.sync_run(|config| cmd.run::<Block, ExecutorDispatch>(config))
+						runner.sync_run(|config| cmd.run::<Block, ()>(config))
 					} else {
 						println!(
 							"Benchmarking wasn't enabled when building the node. \
@@ -200,7 +196,7 @@ pub fn run() -> sc_cli::Result<()> {
 				let program_path = None;
 				let overseer_enable_anyways = false;
 
-				polkadot_service::new_full::<rialto_runtime::RuntimeApi, ExecutorDispatch, _>(
+				polkadot_service::new_full(
 					config,
 					is_collator,
 					grandpa_pause,

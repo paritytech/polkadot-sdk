@@ -27,9 +27,7 @@ fixed_hash::construct_fixed_hash! {
 	pub struct MillauHash(64);
 }
 
-#[cfg(feature = "std")]
 impl_serde::impl_fixed_hash_serde!(MillauHash, 64);
-
 impl_codec::impl_fixed_hash_codec!(MillauHash, 64);
 
 impl CheckEqual for MillauHash {
