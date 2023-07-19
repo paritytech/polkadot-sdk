@@ -11,7 +11,7 @@ proc-macro = true
 [dependencies]
 syn = "2.0.26"
 proc-macro2 = "1.0.64"
-quote = "1.0.30"
+quote = "1.0.31"
 proc-macro-crate = "1.3.1"
 
 [features]
