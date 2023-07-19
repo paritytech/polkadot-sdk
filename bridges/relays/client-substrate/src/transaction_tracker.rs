@@ -54,8 +54,8 @@ impl<C: Chain> Environment<C> for Client<C> {
 /// 2) assume that the transaction is lost and resubmit another transaction instantly;
 ///
 /// 3) wait for some time (if transaction is mortal - then until block where it dies; if it is
-///    immortal - then for some time that we assume is long enough to mine it) and assume that
-///    it is lost.
+///    immortal - then for some time that we assume is long enough to mine it) and assume that it is
+///    lost.
 ///
 /// This struct implements third option as it seems to be the most optimal.
 pub struct TransactionTracker<C: Chain, E> {

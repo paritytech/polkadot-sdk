@@ -427,7 +427,7 @@ impl<C: Chain> Client<C> {
 	/// Get the nonce of the given Substrate account.
 	///
 	/// Note: It's the caller's responsibility to make sure `account` is a valid SS58 address.
-	pub async fn next_account_index(&self, account: C::AccountId) -> Result<C::Index> {
+	pub async fn next_account_index(&self, account: C::AccountId) -> Result<C::Nonce> {
 		self.jsonrpsee_execute(move |client| async move {
 			Ok(SubstrateFrameSystemClient::<C>::account_next_index(&*client, account).await?)
 		})
@@ -474,7 +474,7 @@ impl<C: Chain> Client<C> {
 	pub async fn submit_signed_extrinsic(
 		&self,
 		signer: &AccountKeyPairOf<C>,
-		prepare_extrinsic: impl FnOnce(HeaderIdOf<C>, C::Index) -> Result<UnsignedTransaction<C>>
+		prepare_extrinsic: impl FnOnce(HeaderIdOf<C>, C::Nonce) -> Result<UnsignedTransaction<C>>
 			+ Send
 			+ 'static,
 	) -> Result<C::Hash>
@@ -515,7 +515,7 @@ impl<C: Chain> Client<C> {
 	pub async fn submit_and_watch_signed_extrinsic(
 		&self,
 		signer: &AccountKeyPairOf<C>,
-		prepare_extrinsic: impl FnOnce(HeaderIdOf<C>, C::Index) -> Result<UnsignedTransaction<C>>
+		prepare_extrinsic: impl FnOnce(HeaderIdOf<C>, C::Nonce) -> Result<UnsignedTransaction<C>>
 			+ Send
 			+ 'static,
 	) -> Result<TransactionTracker<C, Self>>

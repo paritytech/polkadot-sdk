@@ -21,7 +21,7 @@ use crate::{
 };
 use frame_benchmarking_cli::BenchmarkCmd;
 use millau_runtime::{Block, RuntimeApi};
-use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
+use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;
 
 impl SubstrateCli for Cli {
@@ -53,10 +53,6 @@ impl SubstrateCli for Cli {
 		"millau-bridge-node".into()
 	}
 
-	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		&millau_runtime::VERSION
-	}
-
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(Box::new(
 			match id {
@@ -83,8 +79,7 @@ pub fn run() -> sc_cli::Result<()> {
 			match cmd {
 				BenchmarkCmd::Pallet(cmd) =>
 					if cfg!(feature = "runtime-benchmarks") {
-						runner
-							.sync_run(|config| cmd.run::<Block, service::ExecutorDispatch>(config))
+						runner.sync_run(|config| cmd.run::<Block, ()>(config))
 					} else {
 						println!(
 							"Benchmarking wasn't enabled when building the node. \

@@ -65,7 +65,8 @@ pub use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
 	traits::{
-		ConstU32, ConstU64, ConstU8, Currency, ExistenceRequirement, Imbalance, KeyOwnerProofSystem,
+		ConstBool, ConstU32, ConstU64, ConstU8, Currency, ExistenceRequirement, Imbalance,
+		KeyOwnerProofSystem,
 	},
 	weights::{
 		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, IdentityFee, RuntimeDbWeight,
@@ -111,8 +112,8 @@ pub type AccountIndex = u32;
 /// Balance of an account.
 pub type Balance = bp_millau::Balance;
 
-/// Index of a transaction in the chain.
-pub type Index = bp_millau::Index;
+/// Nonce of a transaction in the chain.
+pub type Nonce = bp_millau::Nonce;
 
 /// A hash of some data used by the chain.
 pub type Hash = bp_millau::Hash;
@@ -184,15 +185,13 @@ impl frame_system::Config for Runtime {
 	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
 	type Lookup = IdentityLookup<AccountId>;
 	/// The index type for storing how many extrinsics an account has signed.
-	type Index = Index;
-	/// The index type for blocks.
-	type BlockNumber = BlockNumber;
+	type Nonce = Nonce;
 	/// The type for hashing blocks and tries.
 	type Hash = Hash;
 	/// The hashing algorithm used.
 	type Hashing = Hashing;
 	/// The header type.
-	type Header = generic::Header<BlockNumber, Hashing>;
+	type Block = Block;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	/// The ubiquitous origin type.
@@ -229,6 +228,7 @@ impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type MaxAuthorities = ConstU32<10>;
 	type DisabledValidators = ();
+	type AllowMultipleBlocksPerSlot = ConstBool<false>;
 }
 
 impl pallet_beefy::Config for Runtime {
@@ -239,6 +239,7 @@ impl pallet_beefy::Config for Runtime {
 	type WeightInfo = ();
 	type KeyOwnerProof = sp_core::Void;
 	type EquivocationReportSystem = ();
+	type MaxNominators = ConstU32<256>;
 }
 
 impl pallet_grandpa::Config for Runtime {
@@ -249,6 +250,7 @@ impl pallet_grandpa::Config for Runtime {
 	type MaxSetIdSessionEntries = ConstU64<0>;
 	type KeyOwnerProof = sp_core::Void;
 	type EquivocationReportSystem = ();
+	type MaxNominators = ConstU32<256>;
 }
 
 /// MMR helper types.
@@ -542,12 +544,8 @@ impl pallet_utility::Config for Runtime {
 }
 
 construct_runtime!(
-	pub enum Runtime where
-		Block = Block,
-		NodeBlock = opaque::Block,
-		UncheckedExtrinsic = UncheckedExtrinsic
-	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+	pub enum Runtime {
+		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Utility: pallet_utility,
 
@@ -560,7 +558,7 @@ construct_runtime!(
 
 		// Consensus support.
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event},
+		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config<T>, Event},
 		ShiftSessionManager: pallet_shift_session_manager::{Pallet},
 
 		// BEEFY Bridges support.
@@ -582,7 +580,7 @@ construct_runtime!(
 		BridgeRialtoParachainMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
 
 		// Pallet for sending XCM.
-		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config} = 99,
+		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 99,
 	}
 );
 
@@ -708,8 +706,8 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
-		fn account_nonce(account: AccountId) -> Index {
+	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+		fn account_nonce(account: AccountId) -> Nonce {
 			System::account_nonce(account)
 		}
 	}
