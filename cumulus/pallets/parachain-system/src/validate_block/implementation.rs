@@ -16,7 +16,7 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::MemoryOptimizedValidationParams;
+use super::{trie_cache, MemoryOptimizedValidationParams};
 use cumulus_primitives_core::{
 	relay_chain::Hash as RHash, ParachainBlockData, PersistedValidationData,
 };
@@ -34,7 +34,11 @@ use sp_runtime::traits::{Block as BlockT, Extrinsic, HashFor, Header as HeaderT}
 use sp_std::prelude::*;
 use sp_trie::MemoryDB;
 
-type TrieBackend<B> = sp_state_machine::TrieBackend<MemoryDB<HashFor<B>>, HashFor<B>>;
+type TrieBackend<B> = sp_state_machine::TrieBackend<
+	MemoryDB<HashFor<B>>,
+	HashFor<B>,
+	trie_cache::CacheProvider<HashFor<B>>,
+>;
 
 type Ext<'a, B> = sp_state_machine::Ext<'a, HashFor<B>, TrieBackend<B>>;
 
@@ -114,10 +118,15 @@ where
 
 	sp_std::mem::drop(storage_proof);
 
+	let cache_provider = trie_cache::CacheProvider::new();
 	// We use the storage root of the `parent_head` to ensure that it is the correct root.
 	// This is already being done above while creating the in-memory db, but let's be paranoid!!
-	let backend =
-		sp_state_machine::TrieBackendBuilder::new(db, *parent_header.state_root()).build();
+	let backend = sp_state_machine::TrieBackendBuilder::new_with_cache(
+		db,
+		*parent_header.state_root(),
+		cache_provider,
+	)
+	.build();
 
 	let _guard = (
 		// Replace storage calls with our own implementations

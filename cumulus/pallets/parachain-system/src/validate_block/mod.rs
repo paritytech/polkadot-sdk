@@ -24,6 +24,10 @@ mod tests;
 
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
+mod trie_cache;
+
+#[cfg(not(feature = "std"))]
+#[doc(hidden)]
 pub use bytes;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]

@@ -2907,6 +2907,7 @@ dependencies = [
  "sp-tracing",
  "sp-trie",
  "sp-version",
+ "trie-db",
  "xcm",
 ]
 
