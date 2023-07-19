@@ -26,8 +26,8 @@ pub struct MessageDispatchResult<DispatchLevelResult> {
 	/// Unspent dispatch weight. This weight that will be deducted from total delivery transaction
 	/// weight, thus reducing the transaction cost. This shall not be zero in (at least) two cases:
 	///
-	/// 1) if message has been dispatched successfully, but post-dispatch weight is less than
-	///    the weight, declared by the message sender;
+	/// 1) if message has been dispatched successfully, but post-dispatch weight is less than the
+	///    weight, declared by the message sender;
 	/// 2) if message has not been dispatched at all.
 	pub unspent_weight: Weight,
 	/// Fine-grained result of single message dispatch (for better diagnostic purposes)

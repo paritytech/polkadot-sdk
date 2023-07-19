@@ -104,8 +104,8 @@ pub fn make_default_justification(header: &TestHeader) -> GrandpaJustification<T
 // the `finality_grandpa::validate_commit` function has two ways to report an unsuccessful
 // commit validation:
 //
-// 1) to return `Err()` (which only may happen if `finality_grandpa::Chain` implementation
-//    returns an error);
+// 1) to return `Err()` (which only may happen if `finality_grandpa::Chain` implementation returns
+//    an error);
 // 2) to return `Ok(validation_result)` if `validation_result.is_valid()` is false.
 //
 // Our implementation would just return error in both cases.
