@@ -32,9 +32,11 @@ use sp_std::prelude::*;
 pub struct BridgeHubPolkadot;
 
 impl Chain for BridgeHubPolkadot {
+	type BlockNumber = BlockNumber;
 	type Hash = Hash;
 	type Hasher = Hasher;
-	type Block = Block;
+	type Header = Header;
+
 	type AccountId = AccountId;
 	type Balance = Balance;
 	type Nonce = Nonce;

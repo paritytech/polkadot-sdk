@@ -65,11 +65,11 @@ impl frame_system::Config for TestRuntime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;
 	type RuntimeCall = RuntimeCall;
+	type Block = Block;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = frame_support::traits::ConstU64<250>;
 	type Version = ();

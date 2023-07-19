@@ -31,9 +31,11 @@ use frame_support::weights::Weight;
 pub struct Wococo;
 
 impl Chain for Wococo {
-	type Block = <PolkadotLike as Chain>::Block;
+	type BlockNumber = <PolkadotLike as Chain>::BlockNumber;
 	type Hash = <PolkadotLike as Chain>::Hash;
 	type Hasher = <PolkadotLike as Chain>::Hasher;
+	type Header = <PolkadotLike as Chain>::Header;
+
 	type AccountId = <PolkadotLike as Chain>::AccountId;
 	type Balance = <PolkadotLike as Chain>::Balance;
 	type Nonce = <PolkadotLike as Chain>::Nonce;

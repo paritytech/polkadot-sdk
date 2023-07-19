@@ -63,8 +63,6 @@ pub type RelayBlockHash = bp_polkadot_core::Hash;
 pub type RelayBlockNumber = bp_polkadot_core::BlockNumber;
 /// Hasher of the bridged relay chain.
 pub type RelayBlockHasher = bp_polkadot_core::Hasher;
-/// Block type of the bridged relay chain.
-pub type RelayBlock = bp_polkadot_core::Block;
 
 /// Artifacts of the parachains head update.
 struct UpdateParachainHeadArtifacts {
@@ -139,15 +137,18 @@ pub mod pallet {
 	pub trait BoundedBridgeGrandpaConfig<I: 'static>:
 		pallet_bridge_grandpa::Config<I, BridgedChain = Self::BridgedRelayChain>
 	{
-		type BridgedRelayChain: Chain<Hash = RelayBlockHash, Hasher = RelayBlockHasher>;
+		type BridgedRelayChain: Chain<
+			BlockNumber = RelayBlockNumber,
+			Hash = RelayBlockHash,
+			Hasher = RelayBlockHasher,
+		>;
 	}
 
 	impl<T, I: 'static> BoundedBridgeGrandpaConfig<I> for T
 	where
 		T: pallet_bridge_grandpa::Config<I>,
-		T::BridgedChain: Chain<Hash = RelayBlockHash, Hasher = RelayBlockHasher>,
-		<<T::BridgedChain as Chain>::Block as sp_runtime::traits::Block>::Header:
-			sp_runtime::traits::Header<Number = RelayBlockNumber>,
+		T::BridgedChain:
+			Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>,
 	{
 		type BridgedRelayChain = T::BridgedChain;
 	}
@@ -322,7 +323,7 @@ pub mod pallet {
 			>::get(relay_block_hash)
 			.ok_or(Error::<T, I>::UnknownRelayChainBlock)?;
 			ensure!(
-				relay_block.number == relay_block_number.into(),
+				relay_block.number == relay_block_number,
 				Error::<T, I>::InvalidRelayChainBlockNumber,
 			);
 

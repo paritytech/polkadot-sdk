@@ -25,6 +25,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_core::storage::StorageKey;
 use sp_runtime::traits::{BadOrigin, Header as HeaderT, UniqueSaturatedInto};
 use sp_std::{convert::TryFrom, fmt::Debug, ops::RangeInclusive, vec, vec::Vec};
@@ -383,8 +384,8 @@ pub trait OperatingMode: Send + Copy + Debug + FullCodec {
 	RuntimeDebug,
 	TypeInfo,
 	MaxEncodedLen,
-	serde::Serialize,
-	serde::Deserialize,
+	Serialize,
+	Deserialize,
 )]
 pub enum BasicOperatingMode {
 	/// Normal mode, when all operations are allowed.

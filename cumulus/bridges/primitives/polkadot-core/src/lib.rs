@@ -202,7 +202,7 @@ pub type AccountId = <AccountPublic as IdentifyAccount>::AccountId;
 /// Address of account on Polkadot-like chains.
 pub type AccountAddress = MultiAddress<AccountId, ()>;
 
-/// Index of a transaction on the Polkadot-like chains.
+/// Nonce of a transaction on the Polkadot-like chains.
 pub type Nonce = u32;
 
 /// Block type of Polkadot-like chains.
@@ -226,9 +226,11 @@ pub type Address = MultiAddress<AccountId, ()>;
 pub struct PolkadotLike;
 
 impl Chain for PolkadotLike {
+	type BlockNumber = BlockNumber;
 	type Hash = Hash;
 	type Hasher = Hasher;
-	type Block = Block;
+	type Header = Header;
+
 	type AccountId = AccountId;
 	type Balance = Balance;
 	type Nonce = Nonce;

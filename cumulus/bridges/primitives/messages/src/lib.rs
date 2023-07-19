@@ -30,6 +30,7 @@ use frame_support::{PalletError, RuntimeDebug};
 // Weight is reexported to avoid additional frame-support dependencies in related crates.
 pub use frame_support::weights::Weight;
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use source_chain::RelayersRewards;
 use sp_core::TypeId;
 use sp_std::{collections::vec_deque::VecDeque, ops::RangeInclusive, prelude::*};
@@ -49,8 +50,8 @@ pub mod target_chain;
 	RuntimeDebug,
 	TypeInfo,
 	MaxEncodedLen,
-	serde::Serialize,
-	serde::Deserialize,
+	Serialize,
+	Deserialize,
 )]
 pub enum MessagesOperatingMode {
 	/// Basic operating mode (Normal/Halted)

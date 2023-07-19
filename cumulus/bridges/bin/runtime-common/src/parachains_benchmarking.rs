@@ -46,7 +46,7 @@ where
 		+ pallet_bridge_grandpa::Config<R::BridgesGrandpaPalletInstance>,
 	PI: 'static,
 	<R as pallet_bridge_grandpa::Config<R::BridgesGrandpaPalletInstance>>::BridgedChain:
-		bp_runtime::Chain<Block = pallet_bridge_parachains::RelayBlock, Hash = RelayBlockHash>,
+		bp_runtime::Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash>,
 {
 	let parachain_head = ParaHead(vec![0u8; parachain_head_size as usize]);
 

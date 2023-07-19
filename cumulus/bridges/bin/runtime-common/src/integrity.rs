@@ -38,7 +38,7 @@ macro_rules! assert_chain_types(
 			// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
 			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
 			// and relays will stop functioning)
-			use frame_system::{Config as SystemConfig, pallet_prelude::*};
+			use frame_system::{Config as SystemConfig, pallet_prelude::{BlockNumberFor, HeaderFor}};
 			use static_assertions::assert_type_eq_all;
 
 			assert_type_eq_all!(<$r as SystemConfig>::Nonce, bp_runtime::NonceOf<$this>);

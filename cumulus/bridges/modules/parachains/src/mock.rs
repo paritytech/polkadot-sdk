@@ -20,7 +20,7 @@ use bp_runtime::{Chain, Parachain};
 use frame_support::{construct_runtime, parameter_types, traits::ConstU32, weights::Weight};
 use sp_runtime::{
 	testing::H256,
-	traits::{BlakeTwo256, Header, IdentityLookup},
+	traits::{BlakeTwo256, Header as HeaderT, IdentityLookup},
 	MultiSignature, Perbill,
 };
 
@@ -48,9 +48,10 @@ pub type BigParachainHeader = sp_runtime::generic::Header<u128, BlakeTwo256>;
 pub struct Parachain1;
 
 impl Chain for Parachain1 {
-	type Block = Block;
+	type BlockNumber = u64;
 	type Hash = H256;
 	type Hasher = RegularParachainHasher;
+	type Header = RegularParachainHeader;
 	type AccountId = u64;
 	type Balance = u64;
 	type Nonce = u64;
@@ -71,9 +72,10 @@ impl Parachain for Parachain1 {
 pub struct Parachain2;
 
 impl Chain for Parachain2 {
-	type Block = Block;
+	type BlockNumber = u64;
 	type Hash = H256;
 	type Hasher = RegularParachainHasher;
+	type Header = RegularParachainHeader;
 	type AccountId = u64;
 	type Balance = u64;
 	type Nonce = u64;
@@ -94,9 +96,10 @@ impl Parachain for Parachain2 {
 pub struct Parachain3;
 
 impl Chain for Parachain3 {
-	type Block = Block;
+	type BlockNumber = u64;
 	type Hash = H256;
 	type Hasher = RegularParachainHasher;
+	type Header = RegularParachainHeader;
 	type AccountId = u64;
 	type Balance = u64;
 	type Nonce = u64;
@@ -117,12 +120,11 @@ impl Parachain for Parachain3 {
 // this parachain is using u128 as block number and stored head data size exceeds limit
 pub struct BigParachain;
 
-type BigBlock = frame_system::mocking::MockBlockU128<TestRuntime>;
-
 impl Chain for BigParachain {
-	type Block = BigBlock;
+	type BlockNumber = u128;
 	type Hash = H256;
 	type Hasher = RegularParachainHasher;
+	type Header = BigParachainHeader;
 	type AccountId = u64;
 	type Balance = u64;
 	type Nonce = u64;
@@ -161,11 +163,11 @@ impl frame_system::Config for TestRuntime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;
 	type RuntimeCall = RuntimeCall;
+	type Block = Block;
 	type Hash = H256;
 	type Hashing = RegularParachainHasher;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = BlockHashCount;
 	type Version = ();
@@ -256,9 +258,10 @@ impl pallet_bridge_parachains::benchmarking::Config<()> for TestRuntime {
 pub struct TestBridgedChain;
 
 impl Chain for TestBridgedChain {
-	type Block = crate::RelayBlock;
+	type BlockNumber = crate::RelayBlockNumber;
 	type Hash = crate::RelayBlockHash;
 	type Hasher = crate::RelayBlockHasher;
+	type Header = RelayBlockHeader;
 
 	type AccountId = AccountId;
 	type Balance = u32;
@@ -286,9 +289,10 @@ impl ChainWithGrandpa for TestBridgedChain {
 pub struct OtherBridgedChain;
 
 impl Chain for OtherBridgedChain {
-	type Block = Block;
+	type BlockNumber = u64;
 	type Hash = crate::RelayBlockHash;
 	type Hasher = crate::RelayBlockHasher;
+	type Header = sp_runtime::generic::Header<u64, crate::RelayBlockHasher>;
 
 	type AccountId = AccountId;
 	type Balance = u32;

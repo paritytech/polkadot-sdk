@@ -63,7 +63,9 @@ pub type ThisChainHasher = BlakeTwo256;
 pub type ThisChainRuntimeCall = RuntimeCall;
 /// Runtime call origin at `ThisChain`.
 pub type ThisChainCallOrigin = RuntimeOrigin;
-// Block of `ThisChain`.
+/// Header of `ThisChain`.
+pub type ThisChainHeader = sp_runtime::generic::Header<ThisChainBlockNumber, ThisChainHasher>;
+/// Block of `ThisChain`.
 pub type ThisChainBlock = frame_system::mocking::MockBlockU32<TestRuntime>;
 
 /// Account identifier at the `BridgedChain`.
@@ -79,8 +81,6 @@ pub type BridgedChainHasher = BlakeTwo256;
 /// Header of the `BridgedChain`.
 pub type BridgedChainHeader =
 	sp_runtime::generic::Header<BridgedChainBlockNumber, BridgedChainHasher>;
-/// Block of the `BridgedChain`.
-pub type BridgedChainBlock = frame_system::mocking::MockBlockU32<TestRuntime>;
 
 /// Rewards payment procedure.
 pub type TestPaymentProcedure = PayRewardFromAccount<Balances, ThisChainAccountId>;
@@ -312,9 +312,10 @@ impl From<BridgedChainOrigin>
 pub struct ThisUnderlyingChain;
 
 impl Chain for ThisUnderlyingChain {
-	type Block = ThisChainBlock;
+	type BlockNumber = ThisChainBlockNumber;
 	type Hash = ThisChainHash;
 	type Hasher = ThisChainHasher;
+	type Header = ThisChainHeader;
 	type AccountId = ThisChainAccountId;
 	type Balance = ThisChainBalance;
 	type Nonce = u32;
@@ -351,9 +352,10 @@ pub struct BridgedUnderlyingParachain;
 pub struct BridgedChainCall;
 
 impl Chain for BridgedUnderlyingChain {
-	type Block = BridgedChainBlock;
+	type BlockNumber = BridgedChainBlockNumber;
 	type Hash = BridgedChainHash;
 	type Hasher = BridgedChainHasher;
+	type Header = BridgedChainHeader;
 	type AccountId = BridgedChainAccountId;
 	type Balance = BridgedChainBalance;
 	type Nonce = u32;
@@ -376,9 +378,10 @@ impl ChainWithGrandpa for BridgedUnderlyingChain {
 }
 
 impl Chain for BridgedUnderlyingParachain {
-	type Block = BridgedChainBlock;
+	type BlockNumber = BridgedChainBlockNumber;
 	type Hash = BridgedChainHash;
 	type Hasher = BridgedChainHasher;
+	type Header = BridgedChainHeader;
 	type AccountId = BridgedChainAccountId;
 	type Balance = BridgedChainBalance;
 	type Nonce = u32;

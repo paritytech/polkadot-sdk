@@ -28,9 +28,11 @@ use frame_support::{parameter_types, weights::Weight};
 pub struct Rococo;
 
 impl Chain for Rococo {
-	type Block = <PolkadotLike as Chain>::Block;
+	type BlockNumber = <PolkadotLike as Chain>::BlockNumber;
 	type Hash = <PolkadotLike as Chain>::Hash;
 	type Hasher = <PolkadotLike as Chain>::Hasher;
+	type Header = <PolkadotLike as Chain>::Header;
+
 	type AccountId = <PolkadotLike as Chain>::AccountId;
 	type Balance = <PolkadotLike as Chain>::Balance;
 	type Nonce = <PolkadotLike as Chain>::Nonce;
