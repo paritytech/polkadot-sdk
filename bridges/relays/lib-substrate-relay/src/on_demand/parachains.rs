@@ -318,8 +318,8 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 		//
 		// 7) on-demand parachains relay sets `ParachainsSource::maximal_header_number` to the
 		//    `PH'.number()`.
-		// 8) parachains finality relay sees that the parachain head has been
-		//    updated and relays `PH'` to    the target chain.
+		// 8) parachains finality relay sees that the parachain head has been updated and relays
+		//    `PH'` to    the target chain.
 
 		// select headers to relay
 		let relay_data = read_relay_data(

@@ -124,11 +124,10 @@ mod tests {
 		parameter_types,
 		sp_io::TestExternalities,
 		sp_runtime::{
-			testing::{Header, UintAuthorityId},
+			testing::UintAuthorityId,
 			traits::{BlakeTwo256, ConvertInto, IdentityLookup},
-			Perbill, RuntimeAppPublic,
+			BuildStorage, Perbill, RuntimeAppPublic,
 		},
-		traits::GenesisBuild,
 		weights::Weight,
 		BasicExternalities,
 	};
@@ -137,15 +136,10 @@ mod tests {
 	type AccountId = u64;
 
 	type Block = frame_system::mocking::MockBlock<TestRuntime>;
-	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 
 	frame_support::construct_runtime! {
-		pub enum TestRuntime where
-			Block = Block,
-			NodeBlock = Block,
-			UncheckedExtrinsic = UncheckedExtrinsic,
-		{
-			System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		pub enum TestRuntime {
+			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 			Session: pallet_session::{Pallet},
 		}
 	}
@@ -158,14 +152,13 @@ mod tests {
 
 	impl frame_system::Config for TestRuntime {
 		type RuntimeOrigin = RuntimeOrigin;
-		type Index = u64;
+		type Nonce = u64;
 		type RuntimeCall = RuntimeCall;
-		type BlockNumber = u64;
 		type Hash = H256;
 		type Hashing = BlakeTwo256;
 		type AccountId = AccountId;
 		type Lookup = IdentityLookup<Self::AccountId>;
-		type Header = Header;
+		type Block = Block;
 		type RuntimeEvent = ();
 		type BlockHashCount = frame_support::traits::ConstU64<250>;
 		type Version = ();
@@ -220,7 +213,7 @@ mod tests {
 	}
 
 	fn new_test_ext() -> TestExternalities {
-		let mut t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+		let mut t = frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
 
 		let keys = vec![
 			(1, 1, UintAuthorityId(1)),

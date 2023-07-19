@@ -14,8 +14,8 @@
 //! Basic delivery strategy. The strategy selects nonces if:
 //!
 //! 1) there are more nonces on the source side than on the target side;
-//! 2) new nonces may be proved to target node (i.e. they have appeared at the
-//!    block, which is known to the target node).
+//! 2) new nonces may be proved to target node (i.e. they have appeared at the block, which is known
+//!    to the target node).
 
 use crate::message_race_loop::{
 	NoncesRange, RaceState, RaceStrategy, SourceClientNonces, TargetClientNonces,

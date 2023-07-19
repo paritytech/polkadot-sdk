@@ -623,7 +623,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config<I>, I: 'static> GenesisBuild<T, I> for GenesisConfig<T, I> {
+	impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
 		fn build(&self) {
 			PalletOperatingMode::<T, I>::put(self.operating_mode);
 			if let Some(ref owner) = self.owner {

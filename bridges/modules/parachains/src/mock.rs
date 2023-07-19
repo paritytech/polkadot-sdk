@@ -19,7 +19,7 @@ use bp_polkadot_core::parachains::ParaId;
 use bp_runtime::{Chain, Parachain};
 use frame_support::{construct_runtime, parameter_types, traits::ConstU32, weights::Weight};
 use sp_runtime::{
-	testing::{Header, H256},
+	testing::H256,
 	traits::{BlakeTwo256, Header as HeaderT, IdentityLookup},
 	MultiSignature, Perbill,
 };
@@ -33,7 +33,6 @@ pub type RelayBlockHeader =
 	sp_runtime::generic::Header<crate::RelayBlockNumber, crate::RelayBlockHasher>;
 
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 
 pub const PARAS_PALLET_NAME: &str = "Paras";
 pub const UNTRACKED_PARACHAIN_ID: u32 = 10;
@@ -55,7 +54,7 @@ impl Chain for Parachain1 {
 	type Header = RegularParachainHeader;
 	type AccountId = u64;
 	type Balance = u64;
-	type Index = u64;
+	type Nonce = u64;
 	type Signature = MultiSignature;
 
 	fn max_extrinsic_size() -> u32 {
@@ -79,7 +78,7 @@ impl Chain for Parachain2 {
 	type Header = RegularParachainHeader;
 	type AccountId = u64;
 	type Balance = u64;
-	type Index = u64;
+	type Nonce = u64;
 	type Signature = MultiSignature;
 
 	fn max_extrinsic_size() -> u32 {
@@ -103,7 +102,7 @@ impl Chain for Parachain3 {
 	type Header = RegularParachainHeader;
 	type AccountId = u64;
 	type Balance = u64;
-	type Index = u64;
+	type Nonce = u64;
 	type Signature = MultiSignature;
 
 	fn max_extrinsic_size() -> u32 {
@@ -128,7 +127,7 @@ impl Chain for BigParachain {
 	type Header = BigParachainHeader;
 	type AccountId = u64;
 	type Balance = u64;
-	type Index = u64;
+	type Nonce = u64;
 	type Signature = MultiSignature;
 
 	fn max_extrinsic_size() -> u32 {
@@ -144,12 +143,9 @@ impl Parachain for BigParachain {
 }
 
 construct_runtime! {
-	pub enum TestRuntime where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+	pub enum TestRuntime
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Grandpa1: pallet_bridge_grandpa::<Instance1>::{Pallet, Event<T>},
 		Grandpa2: pallet_bridge_grandpa::<Instance2>::{Pallet, Event<T>},
 		Parachains: pallet_bridge_parachains::{Call, Pallet, Event<T>},
@@ -165,14 +161,13 @@ parameter_types! {
 
 impl frame_system::Config for TestRuntime {
 	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
+	type Nonce = u64;
 	type RuntimeCall = RuntimeCall;
-	type BlockNumber = TestNumber;
+	type Block = Block;
 	type Hash = H256;
 	type Hashing = RegularParachainHasher;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = BlockHashCount;
 	type Version = ();
@@ -270,7 +265,7 @@ impl Chain for TestBridgedChain {
 
 	type AccountId = AccountId;
 	type Balance = u32;
-	type Index = u32;
+	type Nonce = u32;
 	type Signature = sp_runtime::testing::TestSignature;
 
 	fn max_extrinsic_size() -> u32 {
@@ -301,7 +296,7 @@ impl Chain for OtherBridgedChain {
 
 	type AccountId = AccountId;
 	type Balance = u32;
-	type Index = u32;
+	type Nonce = u32;
 	type Signature = sp_runtime::testing::TestSignature;
 
 	fn max_extrinsic_size() -> u32 {
