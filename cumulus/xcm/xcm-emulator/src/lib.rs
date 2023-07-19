@@ -319,7 +319,7 @@ macro_rules! decl_test_relay_chains {
 					use $mq as message_queue;
 					use $runtime_event as runtime_event;
 
-					Self::execute_with(|| {
+					Self::ext_wrapper(|| {
 						<$mq as EnqueueMessage<AggregateMessageOrigin>>::enqueue_message(
 							msg.try_into().expect("Message too long"),
 							AggregateMessageOrigin::Ump(UmpQueueId::Para(para.clone()))
@@ -555,7 +555,7 @@ macro_rules! __impl_xcm_handlers_for_parachain {
 			) -> $crate::Weight {
 				use $crate::{TestExt, XcmpMessageHandler};
 
-				$name::execute_with(|| {
+				$name::ext_wrapper(|| {
 					<Self as Parachain>::XcmpMessageHandler::handle_xcmp_messages(iter, max_weight)
 				})
 			}
@@ -568,7 +568,7 @@ macro_rules! __impl_xcm_handlers_for_parachain {
 			) -> $crate::Weight {
 				use $crate::{DmpMessageHandler, TestExt};
 
-				$name::execute_with(|| {
+				$name::ext_wrapper(|| {
 					<Self as Parachain>::DmpMessageHandler::handle_dmp_messages(iter, max_weight)
 				})
 			}
