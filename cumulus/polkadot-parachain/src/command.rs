@@ -405,6 +405,50 @@ macro_rules! construct_benchmark_partials {
 				)?;
 				$code
 			},
+			Runtime::BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotDevelopment => {
+					let $partials = new_partial::<chain_spec::bridge_hubs::polkadot::RuntimeApi, _>(
+						&$config,
+						crate::service::aura_build_import_queue::<_, AuraId>,
+					)?;
+					$code
+				},
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaLocal |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaDevelopment => {
+					let $partials = new_partial::<chain_spec::bridge_hubs::kusama::RuntimeApi, _>(
+						&$config,
+						crate::service::aura_build_import_queue::<_, AuraId>,
+					)?;
+					$code
+				},
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend => {
+					let $partials = new_partial::<chain_spec::bridge_hubs::westend::RuntimeApi, _>(
+						&$config,
+						crate::service::aura_build_import_queue::<_, AuraId>,
+					)?;
+					$code
+				},
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::Rococo |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoLocal |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoDevelopment => {
+					let $partials = new_partial::<chain_spec::bridge_hubs::rococo::RuntimeApi, _>(
+						&$config,
+						crate::service::aura_build_import_queue::<_, AuraId>,
+					)?;
+					$code
+				},
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::Wococo |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::WococoLocal => {
+					let $partials = new_partial::<chain_spec::bridge_hubs::wococo::RuntimeApi, _>(
+						&$config,
+						crate::service::aura_build_import_queue::<_, AuraId>,
+					)?;
+					$code
+				},
+			},
 			Runtime::CollectivesPolkadot | Runtime::CollectivesWestend => {
 				let $partials = new_partial::<collectives_polkadot_runtime::RuntimeApi, _>(
 					&$config,
