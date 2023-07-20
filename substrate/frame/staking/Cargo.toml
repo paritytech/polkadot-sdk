@@ -31,10 +31,10 @@ pallet-authorship = { path = "../authorship", default-features = false}
 sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"] }
 frame-election-provider-support = { path = "../election-provider-support", default-features = false}
 log = { version = "0.4.17", default-features = false }
+rand_chacha = { version = "0.2", default-features = false }
 
 # Optional imports for benchmarking
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-rand_chacha = { version = "0.2", default-features = false, optional = true }
 
 [dev-dependencies]
 sp-tracing = { path = "../../primitives/tracing" }
@@ -47,7 +47,6 @@ pallet-bags-list = { path = "../bags-list" }
 substrate-test-utils = { path = "../../test-utils" }
 frame-benchmarking = { path = "../benchmarking" }
 frame-election-provider-support = { path = "../election-provider-support" }
-rand_chacha = { version = "0.2" }
 
 [features]
 default = [ "std" ]
@@ -82,7 +81,6 @@ runtime-benchmarks = [
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"rand_chacha",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
