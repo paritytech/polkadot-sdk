@@ -37,6 +37,8 @@ It is allowed (but discouraged) for the JSON-RPC server to provide the same info
 
 If a `{"event": "waiting-for-continue"}` notification is generated, the subscription will not generate any more notification unless the JSON-RPC client calls the `chainHead_unstable_storageContinue` JSON-RPC function. The JSON-RPC server is encouraged to generate this event after having sent a certain number of bytes to the JSON-RPC client in order to avoid head-of-line-blocking issues.
 
+For the purpose of storage requests, the trie root hash of the child tries of the storage can be found in the main trie at keys starting the bytes of the ASCII string `:child_storage:`. This behaviour is consistent with all the other storage-request-alike mechanisms of Polkadot and Substrate-based chains, such as host functions or libp2p network requests.
+
 ## Notifications format
 
 This function will later generate notifications in the following format:
