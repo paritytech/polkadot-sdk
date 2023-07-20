@@ -427,10 +427,8 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// disable all offending validators that have been disabled for the whole era
-		for (index, disabled) in <OffendingValidators<T>>::get() {
-			if disabled {
-				T::SessionInterface::disable_validator(index);
-			}
+		for index in <DisabledOffenders<T>>::get() {
+			T::SessionInterface::disable_validator(index);
 		}
 	}
 
@@ -512,6 +510,7 @@ impl<T: Config> Pallet<T> {
 
 			// Clear offending validators.
 			<OffendingValidators<T>>::kill();
+			<DisabledOffenders<T>>::kill();
 		}
 	}
 
