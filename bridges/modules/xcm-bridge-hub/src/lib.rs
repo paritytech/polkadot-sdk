@@ -51,24 +51,24 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bridge_runtime_common::messages_xcm_extension::XcmBlobHauler;
-
-pub use exporter::PalletAsHaulBlobExporter;
-pub use pallet::*;
-
-mod exporter;
 use bp_messages::{LaneId, LaneState, MessageNonce};
 use bp_runtime::{AccountIdOf, BalanceOf, RangeInclusiveExt};
 use bp_xcm_bridge_hub::{
-	bridge_locations, Bridge, BridgeLocations, BridgeLocationsError, BridgeState,
+	bridge_locations, Bridge, BridgeLocations, BridgeLocationsError, BridgeState, XcmAsPlainPayload,
 };
 use frame_support::traits::{Currency, ReservableCurrency};
 use frame_system::Config as SystemConfig;
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, LanesManagerError};
 use sp_runtime::traits::Zero;
 use xcm::prelude::*;
+use xcm_builder::DispatchBlob;
 use xcm_executor::traits::ConvertLocation;
 
+pub use dispatcher::XcmBlobMessageDispatchResult;
+pub use pallet::*;
+
+mod dispatcher;
+mod exporter;
 mod mock;
 
 /// The target that will be used when publishing logs related to this pallet.
@@ -77,7 +77,6 @@ pub const LOG_TARGET: &str = "runtime::bridge-xcm";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use bridge_runtime_common::messages_xcm_extension::SenderAndLane;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::{BlockNumberFor, *};
 
@@ -107,13 +106,6 @@ pub mod pallet {
 		/// Checks the XCM version for the destination.
 		type DestinationVersion: GetVersion;
 
-		/// Get point-to-point links with bridged consensus (`Self::BridgedNetworkId`).
-		/// (this will be replaced with dynamic on-chain bridges - `Bridges V2`)
-		type Lanes: Get<sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))>>;
-		/// Support for point-to-point links
-		/// (this will be replaced with dynamic on-chain bridges - `Bridges V2`)
-		type LanesSupport: XcmBlobHauler;
-
 		/// A set of XCM locations within local consensus system that are allowed to open
 		/// bridges with remote destinations.
 		// TODO: there's only one impl of `EnsureOrigin<Success = Location>` -
@@ -132,6 +124,9 @@ pub mod pallet {
 		type BridgeReserve: Get<BalanceOf<ThisChainOf<Self, I>>>;
 		/// Currency used to pay for bridge registration.
 		type NativeCurrency: ReservableCurrency<Self::AccountId>;
+
+		/// XCM-level dispatcher for inbound bridge messages.
+		type BlobDispatcher: DispatchBlob;
 	}
 
 	/// An alias for the bridge metadata.
@@ -182,7 +177,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			// check and compute required bridge locations
 			let locations =
-				Self::bridge_locations(origin, bridge_destination_universal_location.clone())?;
+				Self::bridge_locations_from_origin(origin, bridge_destination_universal_location)?;
 
 			// reserve balance on the parachain sovereign account
 			let reserve = T::BridgeReserve::get();
@@ -262,7 +257,8 @@ pub mod pallet {
 			may_prune_messages: MessageNonce,
 		) -> DispatchResult {
 			// compute required bridge locations
-			let locations = Self::bridge_locations(origin, bridge_destination_universal_location)?;
+			let locations =
+				Self::bridge_locations_from_origin(origin, bridge_destination_universal_location)?;
 
 			// TODO: https://github.com/paritytech/parity-bridges-common/issues/1760 - may do refund here, if
 			// bridge/lanes are already closed + for messages that are not pruned
@@ -362,19 +358,28 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config<I>, I: 'static> Pallet<T, I>
-	where
-		T: frame_system::Config<AccountId = AccountIdOf<ThisChainOf<T, I>>>,
-		T::NativeCurrency: Currency<T::AccountId, Balance = BalanceOf<ThisChainOf<T, I>>>,
-	{
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Return bridge endpoint locations and dedicated lane identifier. This method converts
+		/// runtime `origin` argument to relative `Location` using the `T::OpenBridgeOrigin`
+		/// converter.
+		pub fn bridge_locations_from_origin(
+			origin: OriginFor<T>,
+			bridge_destination_universal_location: Box<VersionedInteriorLocation>,
+		) -> Result<Box<BridgeLocations>, sp_runtime::DispatchError> {
+			Self::bridge_locations(
+				Box::new(T::OpenBridgeOrigin::ensure_origin(origin)?),
+				bridge_destination_universal_location,
+			)
+		}
+
 		/// Return bridge endpoint locations and dedicated lane identifier.
 		pub fn bridge_locations(
-			origin: OriginFor<T>,
+			bridge_origin_relative_location: Box<Location>,
 			bridge_destination_universal_location: Box<VersionedInteriorLocation>,
 		) -> Result<Box<BridgeLocations>, sp_runtime::DispatchError> {
 			bridge_locations(
 				Box::new(T::UniversalLocation::get()),
-				Box::new(T::OpenBridgeOrigin::ensure_origin(origin)?),
+				bridge_origin_relative_location,
 				Box::new(
 					(*bridge_destination_universal_location)
 						.try_into()
@@ -454,31 +459,6 @@ pub mod pallet {
 		/// The version of XCM location argument is unsupported.
 		UnsupportedXcmVersion,
 	}
-
-	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		/// Returns dedicated/configured lane identifier.
-		pub(crate) fn lane_for(
-			source: &InteriorLocation,
-			dest: (&NetworkId, &InteriorLocation),
-		) -> Option<SenderAndLane> {
-			let source = source.clone().relative_to(&T::UniversalLocation::get());
-
-			// Check that we have configured a point-to-point lane for 'source' and `dest`.
-			T::Lanes::get()
-				.into_iter()
-				.find_map(|(lane_source, (lane_dest_network, lane_dest))| {
-					if lane_source.location == source &&
-						&lane_dest_network == dest.0 &&
-						Self::bridged_network_id().as_ref() == Ok(dest.0) &&
-						&lane_dest == dest.1
-					{
-						Some(lane_source)
-					} else {
-						None
-					}
-				})
-		}
-	}
 }
 
 #[cfg(test)]
@@ -502,7 +482,8 @@ mod tests {
 		with: InteriorLocation,
 	) -> (BridgeOf<TestRuntime, ()>, BridgeLocations) {
 		let reserve = BridgeReserve::get();
-		let locations = XcmOverBridge::bridge_locations(origin, Box::new(with.into())).unwrap();
+		let locations =
+			XcmOverBridge::bridge_locations_from_origin(origin, Box::new(with.into())).unwrap();
 		let bridge_owner_account =
 			fund_origin_sovereign_account(&locations, reserve + ExistentialDeposit::get());
 		Balances::reserve(&bridge_owner_account, reserve).unwrap();
@@ -643,7 +624,7 @@ mod tests {
 	fn open_bridge_fails_if_it_already_exists() {
 		run_test(|| {
 			let origin = OpenBridgeOrigin::parent_relay_chain_origin();
-			let locations = XcmOverBridge::bridge_locations(
+			let locations = XcmOverBridge::bridge_locations_from_origin(
 				origin.clone(),
 				Box::new(bridged_asset_hub_location().into()),
 			)
@@ -676,7 +657,7 @@ mod tests {
 	fn open_bridge_fails_if_its_lanes_already_exists() {
 		run_test(|| {
 			let origin = OpenBridgeOrigin::parent_relay_chain_origin();
-			let locations = XcmOverBridge::bridge_locations(
+			let locations = XcmOverBridge::bridge_locations_from_origin(
 				origin.clone(),
 				Box::new(bridged_asset_hub_location().into()),
 			)
@@ -728,7 +709,7 @@ mod tests {
 				System::reset_events();
 
 				// compute all other locations
-				let locations = XcmOverBridge::bridge_locations(
+				let locations = XcmOverBridge::bridge_locations_from_origin(
 					origin.clone(),
 					Box::new(bridged_asset_hub_location().into()),
 				)

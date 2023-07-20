@@ -22,35 +22,29 @@ use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
 	ChainWithMessages, LaneId, MessageNonce,
 };
-use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, HashOf};
-use bridge_runtime_common::messages_xcm_extension::{SenderAndLane, XcmBlobHauler};
+use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId};
 use codec::Encode;
 use frame_support::{derive_impl, parameter_types, weights::RuntimeDbWeight};
-use sp_core::{Get, H256};
+use sp_core::H256;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
 	traits::{BlakeTwo256, IdentityLookup},
 	AccountId32, BuildStorage, StateVersion,
 };
 use xcm::prelude::*;
+use xcm_builder::{DispatchBlob, DispatchBlobError, ParentIsPreset, SiblingParachainConvertsVia};
 
 pub type AccountId = AccountId32;
 pub type Balance = u64;
 
 use frame_support::traits::{EnsureOrigin, OriginTrait};
 use polkadot_parachain_primitives::primitives::Sibling;
-use xcm_builder::{ParentIsPreset, SiblingParachainConvertsVia};
 
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 pub const SIBLING_ASSET_HUB_ID: u32 = 2001;
 pub const THIS_BRIDGE_HUB_ID: u32 = 2002;
 pub const BRIDGED_ASSET_HUB_ID: u32 = 1001;
-
-/// Message lane used in tests.
-pub fn test_lane_id() -> LaneId {
-	bridge_runtime_common::messages_xcm_extension::LaneIdFromChainId::<TestRuntime, ()>::get()
-}
 
 frame_support::construct_runtime! {
 	pub enum TestRuntime {
@@ -92,8 +86,7 @@ impl pallet_bridge_messages::Config for TestRuntime {
 
 	type ThisChain = ThisUnderlyingChain;
 	type BridgedChain = BridgedUnderlyingChain;
-	type BridgedHeaderChain = BridgedHeaderChain;
-	// type BridgedHeaderChain = ();
+	type BridgedHeaderChain = ();
 }
 
 pub struct TestMessagesWeights;
@@ -149,7 +142,6 @@ parameter_types! {
 		GlobalConsensus(RelayNetwork::get()),
 		Parachain(THIS_BRIDGE_HUB_ID),
 	].into();
-	pub const Penalty: Balance = 1_000;
 }
 
 impl pallet_xcm_bridge_hub::Config for TestRuntime {
@@ -162,36 +154,13 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type MessageExportPrice = ();
 	type DestinationVersion = AlwaysLatest;
 
-	type Lanes = TestLanes;
-	type LanesSupport = TestXcmBlobHauler;
-
 	type OpenBridgeOrigin = OpenBridgeOrigin;
 	type BridgeOriginAccountIdConverter = LocationToAccountId;
 
 	type BridgeReserve = BridgeReserve;
 	type NativeCurrency = Balances;
-}
 
-parameter_types! {
-	pub TestSenderAndLane: SenderAndLane = SenderAndLane {
-		location: Location::new(1, [Parachain(SIBLING_ASSET_HUB_ID)]),
-		lane: test_lane_id(),
-	};
-	pub BridgedDestination: InteriorLocation = [
-		Parachain(BRIDGED_ASSET_HUB_ID)
-	].into();
-	pub TestLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = sp_std::vec![
-		(TestSenderAndLane::get(), (BridgedRelayNetwork::get(), BridgedDestination::get()))
-	];
-}
-
-pub struct TestXcmBlobHauler;
-impl XcmBlobHauler for TestXcmBlobHauler {
-	type Runtime = TestRuntime;
-	type MessagesInstance = ();
-	type ToSourceChainSender = ();
-	type CongestedMessage = ();
-	type UncongestedMessage = ();
+	type BlobDispatcher = TestBlobDispatcher;
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -271,6 +240,14 @@ impl EnsureOrigin<RuntimeOrigin> for OpenBridgeOrigin {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
 		Ok(Self::parent_relay_chain_origin())
+	}
+}
+
+pub struct TestBlobDispatcher;
+
+impl DispatchBlob for TestBlobDispatcher {
+	fn dispatch_blob(_blob: Vec<u8>) -> Result<(), DispatchBlobError> {
+		Ok(())
 	}
 }
 
@@ -362,15 +339,6 @@ impl MessageDispatch for TestMessageDispatch {
 		_: DispatchMessage<Self::DispatchPayload>,
 	) -> MessageDispatchResult<Self::DispatchLevelResult> {
 		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result: () }
-	}
-}
-
-pub struct BridgedHeaderChain;
-impl bp_header_chain::HeaderChain<BridgedUnderlyingChain> for BridgedHeaderChain {
-	fn finalized_header_state_root(
-		_hash: HashOf<BridgedUnderlyingChain>,
-	) -> Option<HashOf<BridgedUnderlyingChain>> {
-		unreachable!()
 	}
 }
 
