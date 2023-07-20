@@ -531,7 +531,8 @@ impl pallet_bridge_parachains::Config<WithWestendParachainsInstance> for Runtime
 	type WeightInfo = pallet_bridge_parachains::weights::BridgeWeight<Runtime>;
 	type BridgesGrandpaPalletInstance = WestendGrandpaInstance;
 	type ParasPalletName = WestendParasPalletName;
-	type ParaStoredHeaderDataBuilder = SingleParaStoredHeaderDataBuilder<bp_westend::Westmint>;
+	type ParaStoredHeaderDataBuilder =
+		SingleParaStoredHeaderDataBuilder<bp_westend::AssetHubWestend>;
 	type HeadsToKeep = ConstU32<1024>;
 	type MaxParaHeadDataSize = MaxWestendParaHeadDataSize;
 }
@@ -889,12 +890,12 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl bp_westend::WestmintFinalityApi<Block> for Runtime {
+	impl bp_westend::AssetHubWestendFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<HeaderId<bp_westend::Hash, bp_westend::BlockNumber>> {
 			pallet_bridge_parachains::Pallet::<
 				Runtime,
 				WithWestendParachainsInstance,
-			>::best_parachain_head_id::<bp_westend::Westmint>().unwrap_or(None)
+			>::best_parachain_head_id::<bp_westend::AssetHubWestend>().unwrap_or(None)
 		}
 	}
 
