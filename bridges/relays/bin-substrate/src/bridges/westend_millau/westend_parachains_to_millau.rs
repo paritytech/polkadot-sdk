@@ -18,7 +18,7 @@
 
 use crate::cli::bridge::{CliBridgeBase, ParachainToRelayHeadersCliBridge};
 use relay_millau_client::Millau;
-use relay_westend_client::{Westend, Westmint};
+use relay_westend_client::{AssetHubWestend, Westend};
 use substrate_relay_helper::parachains::{
 	DirectSubmitParachainHeadsCallBuilder, SubstrateParachainsPipeline,
 };
@@ -28,7 +28,7 @@ use substrate_relay_helper::parachains::{
 pub struct WestendParachainsToMillau;
 
 impl SubstrateParachainsPipeline for WestendParachainsToMillau {
-	type SourceParachain = Westmint;
+	type SourceParachain = AssetHubWestend;
 	type SourceRelayChain = Westend;
 	type TargetChain = Millau;
 
@@ -44,16 +44,16 @@ pub type WestendParachainsToMillauSubmitParachainHeadsCallBuilder =
 	>;
 
 //// `WestendParachain` to `Millau` bridge definition.
-pub struct WestmintToMillauCliBridge {}
+pub struct AssetHubWestendToMillauCliBridge {}
 
-impl ParachainToRelayHeadersCliBridge for WestmintToMillauCliBridge {
+impl ParachainToRelayHeadersCliBridge for AssetHubWestendToMillauCliBridge {
 	type SourceRelay = Westend;
 	type ParachainFinality = WestendParachainsToMillau;
 	type RelayFinality =
 		crate::bridges::westend_millau::westend_headers_to_millau::WestendFinalityToMillau;
 }
 
-impl CliBridgeBase for WestmintToMillauCliBridge {
-	type Source = Westmint;
+impl CliBridgeBase for AssetHubWestendToMillauCliBridge {
+	type Source = AssetHubWestend;
 	type Target = Millau;
 }
