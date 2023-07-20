@@ -164,8 +164,8 @@ fn endowed_accounts() -> Vec<AccountId> {
 		get_account_id_from_seed::<sr25519::Public>(WESTEND_GRANDPA_PALLET_OWNER),
 		get_account_id_from_seed::<sr25519::Public>("Westend.HeadersRelay1"),
 		get_account_id_from_seed::<sr25519::Public>("Westend.HeadersRelay2"),
-		get_account_id_from_seed::<sr25519::Public>("Westend.WestmintHeaders1"),
-		get_account_id_from_seed::<sr25519::Public>("Westend.WestmintHeaders2"),
+		get_account_id_from_seed::<sr25519::Public>("Westend.AssetHubWestendHeaders1"),
+		get_account_id_from_seed::<sr25519::Public>("Westend.AssetHubWestendHeaders2"),
 		// Accounts, used by Rialto<>Millau bridge
 		get_account_id_from_seed::<sr25519::Public>(RIALTO_MESSAGES_PALLET_OWNER),
 		get_account_id_from_seed::<sr25519::Public>("Rialto.HeadersAndMessagesRelay"),
