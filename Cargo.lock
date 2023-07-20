@@ -12037,11 +12037,9 @@ dependencies = [
 name = "pallet-xcm-bridge-hub"
 version = "0.2.0"
 dependencies = [
- "bp-header-chain",
  "bp-messages",
  "bp-runtime",
  "bp-xcm-bridge-hub",
- "bridge-runtime-common",
  "frame-support",
  "frame-system",
  "log",
