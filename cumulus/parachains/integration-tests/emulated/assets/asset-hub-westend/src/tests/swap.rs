@@ -1,12 +1,13 @@
 use crate::*;
 use frame_support::{instances::Instance2, BoundedVec};
+use sp_runtime::{DispatchError, ModuleError};
 use xcm_emulator::Parachain;
 
 #[test]
 fn swap_locally_on_chain_using_local_assets() {
 	const ASSET_ID: u32 = 1;
 
-	let asset_native = Box::new(MultiLocation { parents: 0, interior: Here });
+	let asset_native = Box::new(asset_hub_westend_runtime::xcm_config::WestendLocation::get());
 	let asset_one = Box::new(MultiLocation {
 		parents: 0,
 		interior: X2(PalletInstance(50), GeneralIndex(ASSET_ID.into())),
@@ -99,7 +100,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 	use frame_support::weights::WeightToFee;
 
 	const ASSET_ID: u32 = 1;
-	let asset_native = Box::new(MultiLocation { parents: 0, interior: Here });
+	let asset_native = Box::new(asset_hub_westend_runtime::xcm_config::WestendLocation::get());
 
 	let foreign_asset1_at_asset_hub_westend = Box::new(MultiLocation {
 		parents: 1,
@@ -303,5 +304,42 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			0,
 			sov_penpal_on_asset_hub_westend.clone().into(),
 		));
+	});
+}
+
+#[test]
+fn cannot_create_pool_from_pool_assets() {
+	const ASSET_ID: u32 = 1;
+
+	let asset_native = Box::new(asset_hub_westend_runtime::xcm_config::WestendLocation::get());
+	let mut asset_one = asset_hub_westend_runtime::xcm_config::PoolAssetsPalletLocation::get();
+	asset_one.append_with(GeneralIndex(ASSET_ID.into())).expect("pool assets");
+
+	AssetHubWestend::execute_with(|| {
+		let pool_owner_account_id = asset_hub_westend_runtime::AssetConversionOrigin::get();
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PoolAssets::create(
+			<AssetHubWestend as Parachain>::RuntimeOrigin::signed(pool_owner_account_id.clone()),
+			ASSET_ID.into(),
+			pool_owner_account_id.clone().into(),
+			1000,
+		));
+		assert!(<AssetHubWestend as AssetHubWestendPallet>::PoolAssets::asset_exists(ASSET_ID));
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PoolAssets::mint(
+			<AssetHubWestend as Parachain>::RuntimeOrigin::signed(pool_owner_account_id),
+			ASSET_ID.into(),
+			AssetHubWestendSender::get().into(),
+			3_000_000_000_000,
+		));
+
+		assert_matches::assert_matches!(
+			<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
+				<AssetHubWestend as Parachain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+				asset_native.clone(),
+				Box::new(asset_one),
+			),
+			Err(DispatchError::Module(ModuleError{index: _, error: _, message})) => assert_eq!(message, Some("UnsupportedAsset"))
+		);
 	});
 }

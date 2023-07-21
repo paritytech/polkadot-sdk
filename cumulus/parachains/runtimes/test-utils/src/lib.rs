@@ -37,6 +37,8 @@ use xcm::{
 };
 use xcm_executor::{traits::TransactAsset, Assets};
 
+pub mod test_cases;
+
 pub type BalanceOf<Runtime> = <Runtime as pallet_balances::Config>::Balance;
 pub type AccountIdOf<Runtime> = <Runtime as frame_system::Config>::AccountId;
 pub type ValidatorIdOf<Runtime> = <Runtime as pallet_session::Config>::ValidatorId;

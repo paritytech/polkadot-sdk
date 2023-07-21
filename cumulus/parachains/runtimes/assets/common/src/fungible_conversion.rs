@@ -37,6 +37,19 @@ where
 	) -> Result<MultiAsset, FungiblesAccessError>;
 }
 
+/// Checks for `MultiLocation`.
+pub trait MatchesMultiLocation<AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance>:
+	MatchesFungibles<AssetId, Balance>
+where
+	AssetId: Clone,
+	Balance: Clone,
+	MatchAssetId: Contains<MultiLocation>,
+	ConvertAssetId: MaybeEquivalence<MultiLocation, AssetId>,
+	ConvertBalance: MaybeEquivalence<u128, Balance>,
+{
+	fn contains(location: &MultiLocation) -> bool;
+}
+
 impl<
 		AssetId: Clone,
 		Balance: Clone,
@@ -79,6 +92,38 @@ impl<
 			},
 			None => Err(FungiblesAccessError::AssetIdConversionFailed),
 		}
+	}
+}
+
+impl<
+		AssetId: Clone,
+		Balance: Clone,
+		MatchAssetId: Contains<MultiLocation>,
+		ConvertAssetId: MaybeEquivalence<MultiLocation, AssetId>,
+		ConvertBalance: MaybeEquivalence<u128, Balance>,
+	> MatchesMultiLocation<AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance>
+	for MatchedConvertedConcreteId<AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance>
+{
+	fn contains(location: &MultiLocation) -> bool {
+		MatchAssetId::contains(location)
+	}
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl<
+		AssetId: Clone,
+		Balance: Clone,
+		MatchAssetId: Contains<MultiLocation>,
+		ConvertAssetId: MaybeEquivalence<MultiLocation, AssetId>,
+		ConvertBalance: MaybeEquivalence<u128, Balance>,
+	> MatchesMultiLocation<AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance> for Tuple
+{
+	fn contains(location: &MultiLocation) -> bool {
+		for_tuples!( #(
+			match Tuple::contains(location) { o @ true => return o, _ => () }
+		)* );
+		log::trace!(target: "xcm::contains", "did not match location: {:?}", &location);
+		false
 	}
 }
 

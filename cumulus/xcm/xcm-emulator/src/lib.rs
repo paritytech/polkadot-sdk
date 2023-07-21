@@ -1100,8 +1100,8 @@ pub mod helpers {
 
 	pub fn within_threshold(threshold: u64, expected_value: u64, current_value: u64) -> bool {
 		let margin = (current_value * threshold) / 100;
-		let lower_limit = expected_value - margin;
-		let upper_limit = expected_value + margin;
+		let lower_limit = expected_value.checked_sub(margin).unwrap_or(u64::MIN);
+		let upper_limit = expected_value.checked_add(margin).unwrap_or(u64::MAX);
 
 		current_value >= lower_limit && current_value <= upper_limit
 	}

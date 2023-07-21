@@ -289,6 +289,7 @@ decl_test_parachains! {
 			PolkadotXcm: asset_hub_westend_runtime::PolkadotXcm,
 			Assets: asset_hub_westend_runtime::Assets,
 			ForeignAssets: asset_hub_westend_runtime::ForeignAssets,
+			PoolAssets: asset_hub_westend_runtime::PoolAssets,
 			AssetConversion: asset_hub_westend_runtime::AssetConversion,
 		}
 	},

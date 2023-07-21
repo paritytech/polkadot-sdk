@@ -28,8 +28,13 @@ pub mod constants;
 mod weights;
 pub mod xcm_config;
 
-use crate::xcm_config::{TrustBackedAssetsPalletLocation, UniversalLocation};
-use assets_common::local_and_foreign_assets::{LocalAndForeignAssets, MultiLocationConverter};
+use crate::xcm_config::{
+	LocalAndForeignAssetsMultiLocationMatcher, TrustBackedAssetsPalletLocation,
+};
+use assets_common::{
+	local_and_foreign_assets::{LocalAndForeignAssets, MultiLocationConverter},
+	AssetIdForTrustBackedAssetsConvert,
+};
 use codec::{Decode, Encode, MaxEncodedLen};
 use constants::{currency::*, fee::WeightToFee};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
@@ -300,9 +305,13 @@ impl pallet_asset_conversion::Config for Runtime {
 	type Balance = Balance;
 	type HigherPrecisionBalance = sp_core::U256;
 	type Currency = Balances;
-	type AssetBalance = <Self as pallet_balances::Config>::Balance;
+	type AssetBalance = Balance;
 	type AssetId = MultiLocation;
-	type Assets = LocalAndForeignAssets<Assets, ForeignAssets, TrustBackedAssetsPalletLocation>;
+	type Assets = LocalAndForeignAssets<
+		Assets,
+		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
+		ForeignAssets,
+	>;
 	type PoolAssets = PoolAssets;
 	type PoolAssetId = u32;
 	type PoolSetupFee = ConstU128<0>; // Asset class deposit fees are sufficient to prevent spam
@@ -314,11 +323,12 @@ impl pallet_asset_conversion::Config for Runtime {
 	type MaxSwapPathLength = ConstU32<4>;
 
 	type MultiAssetId = Box<MultiLocation>;
-	type MultiAssetIdConverter = MultiLocationConverter<Balances, UniversalLocation>;
+	type MultiAssetIdConverter =
+		MultiLocationConverter<WestendLocation, LocalAndForeignAssetsMultiLocationMatcher>;
 
 	type MintMinLiquidity = ConstU128<100>;
 
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_asset_conversion::WeightInfo<Runtime>;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper =
@@ -659,7 +669,11 @@ impl pallet_collator_selection::Config for Runtime {
 
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = LocalAndForeignAssets<Assets, ForeignAssets, TrustBackedAssetsPalletLocation>;
+	type Fungibles = LocalAndForeignAssets<
+		Assets,
+		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
+		ForeignAssets,
+	>;
 	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion>;
 }
 
@@ -835,6 +849,8 @@ pub type Migrations = (
 	pallet_nfts::migration::v1::MigrateToV1<Runtime>,
 	// unreleased
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	// unreleased
+	migrations::NativeAssetParents0ToParents1Migration<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -1240,7 +1256,7 @@ impl_runtime_apis! {
 					MultiAsset { fun: Fungible(UNITS), id: Concrete(WestendLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
-
+				pub const TrustedReserve: Option<(MultiLocation, MultiAsset)> = None;
 			}
 
 			impl pallet_xcm_benchmarks::fungible::Config for Runtime {
@@ -1248,6 +1264,7 @@ impl_runtime_apis! {
 
 				type CheckedAccount = CheckedAccount;
 				type TrustedTeleporter = TrustedTeleporter;
+				type TrustedReserve = TrustedReserve;
 
 				fn get_multi_asset() -> MultiAsset {
 					MultiAsset {
@@ -1359,4 +1376,121 @@ cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
 	CheckInherents = CheckInherents,
+}
+
+pub mod migrations {
+	use super::*;
+	use frame_support::{
+		pallet_prelude::Get,
+		traits::{
+			fungibles::{Inspect, Mutate},
+			tokens::Preservation,
+			OnRuntimeUpgrade, OriginTrait,
+		},
+	};
+	use parachains_common::impls::AccountIdOf;
+	use sp_runtime::{traits::StaticLookup, Saturating};
+	use xcm::latest::prelude::*;
+
+	/// Temporary migration because of bug with native asset, it can be removed once applied on `AssetHubWestend`.
+	/// Migrates pools with `MultiLocation { parents: 0, interior: Here }` to `MultiLocation { parents: 1, interior: Here }`
+	pub struct NativeAssetParents0ToParents1Migration<T>(sp_std::marker::PhantomData<T>);
+	impl<
+			T: pallet_asset_conversion::Config<
+				MultiAssetId = Box<MultiLocation>,
+				AssetId = MultiLocation,
+			>,
+		> OnRuntimeUpgrade for NativeAssetParents0ToParents1Migration<T>
+	where
+		<T as pallet_asset_conversion::Config>::PoolAssetId: Into<u32>,
+		AccountIdOf<Runtime>: Into<[u8; 32]>,
+		<T as frame_system::Config>::AccountId:
+			Into<<<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
+		<<T as frame_system::Config>::Lookup as StaticLookup>::Source:
+			From<<T as frame_system::Config>::AccountId>,
+		sp_runtime::AccountId32: From<<T as frame_system::Config>::AccountId>,
+	{
+		fn on_runtime_upgrade() -> Weight {
+			let invalid_native_asset = MultiLocation { parents: 0, interior: Here };
+			let valid_native_asset = WestendLocation::get();
+
+			let mut reads: u64 = 1;
+			let mut writes: u64 = 0;
+
+			// migrate pools with invalid native asset
+			let pools = pallet_asset_conversion::Pools::<T>::iter().collect::<Vec<_>>();
+			reads.saturating_accrue(1);
+			for (old_pool_id, pool_info) in pools {
+				let old_pool_account =
+					pallet_asset_conversion::Pallet::<T>::get_pool_account(&old_pool_id);
+				reads.saturating_accrue(1);
+				let pool_asset_id = pool_info.lp_token.clone();
+				if old_pool_id.0.as_ref() != &invalid_native_asset {
+					// skip, if ok
+					continue
+				}
+
+				// fix new account
+				let new_pool_id = pallet_asset_conversion::Pallet::<T>::get_pool_id(
+					Box::new(valid_native_asset),
+					old_pool_id.1.clone(),
+				);
+				let new_pool_account =
+					pallet_asset_conversion::Pallet::<T>::get_pool_account(&new_pool_id);
+				frame_system::Pallet::<T>::inc_providers(&new_pool_account);
+				reads.saturating_accrue(2);
+				writes.saturating_accrue(1);
+
+				// move currency
+				let _ = Balances::transfer_all(
+					RuntimeOrigin::signed(sp_runtime::AccountId32::from(old_pool_account.clone())),
+					sp_runtime::AccountId32::from(new_pool_account.clone()).into(),
+					false,
+				);
+				reads.saturating_accrue(2);
+				writes.saturating_accrue(2);
+
+				// move LP token
+				let _ = T::PoolAssets::transfer(
+					pool_asset_id.clone(),
+					&old_pool_account,
+					&new_pool_account,
+					T::PoolAssets::balance(pool_asset_id.clone(), &old_pool_account),
+					Preservation::Expendable,
+				);
+				reads.saturating_accrue(1);
+				writes.saturating_accrue(2);
+
+				// change the ownership of LP token
+				let _ = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>::transfer_ownership(
+					RuntimeOrigin::signed(sp_runtime::AccountId32::from(old_pool_account.clone())),
+					pool_asset_id.into(),
+					sp_runtime::AccountId32::from(new_pool_account.clone()).into(),
+				);
+				reads.saturating_accrue(1);
+				writes.saturating_accrue(2);
+
+				// move LocalOrForeignAssets
+				let _ = T::Assets::transfer(
+					*old_pool_id.1.as_ref(),
+					&old_pool_account,
+					&new_pool_account,
+					T::Assets::balance(*old_pool_id.1.as_ref(), &old_pool_account),
+					Preservation::Expendable,
+				);
+				reads.saturating_accrue(1);
+				writes.saturating_accrue(2);
+
+				// dec providers for old account
+				let _ = frame_system::Pallet::<T>::dec_providers(&old_pool_account);
+				writes.saturating_accrue(1);
+
+				// change pool key
+				pallet_asset_conversion::Pools::<T>::insert(new_pool_id, pool_info);
+				pallet_asset_conversion::Pools::<T>::remove(old_pool_id);
+			}
+
+			T::DbWeight::get().reads_writes(reads, writes)
+		}
+	}
 }

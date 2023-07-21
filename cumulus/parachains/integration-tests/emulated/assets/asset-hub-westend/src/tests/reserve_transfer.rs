@@ -50,7 +50,7 @@ fn reserve_transfer_native_asset_from_relay_to_assets() {
 			Westend,
 			vec![
 				RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { outcome: Outcome::Complete(weight) }) => {
-					weight: weight_within_threshold((REF_TIME_THRESHOLD, PROOF_SIZE_THRESHOLD), Weight::from_parts(731_495_000, 0), *weight),
+					weight: weight_within_threshold((REF_TIME_THRESHOLD, PROOF_SIZE_THRESHOLD), Weight::from_parts(629_384_000, 6196), *weight),
 				},
 			]
 		);
