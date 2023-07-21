@@ -26,6 +26,7 @@
     - [chainHead_unstable_stopCall](api/chainHead_unstable_stopCall.md)
     - [chainHead_unstable_stopStorage](api/chainHead_unstable_stopStorage.md)
     - [chainHead_unstable_storage](api/chainHead_unstable_storage.md)
+    - [chainHead_unstable_storageContinue](api/chainHead_unstable_storageContinue.md)
     - [chainHead_unstable_unfollow](api/chainHead_unstable_unfollow.md)
     - [chainHead_unstable_unpin](api/chainHead_unstable_unpin.md)
   - [chainSpec](api/chainSpec.md)
