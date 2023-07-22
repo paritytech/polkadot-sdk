@@ -121,3 +121,18 @@ build-runtime-testing:
   needs:
     - job: build-runtime-starters
       artifacts: false
+
+build-short-benchmark:
+  stage: build
+  extends:
+    - .docker-env
+    - .common-refs
+    - .collect-artifacts
+  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
+  needs:
+    - job: check-rustdoc
+      artifacts: false
+  script:
+    - cargo build --profile release --locked --features=runtime-benchmarks
+    - mkdir -p ./artifacts
+    - cp ./target/release/polkadot-parachain ./artifacts/

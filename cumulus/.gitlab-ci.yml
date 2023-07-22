@@ -7,11 +7,14 @@
 stages:
   - test
   - build
+  # used for manual job run for regenerate weights for release-* branches (not needed anymore, just leave it here for a while as PlanB)
   - benchmarks-build
+  # used for manual job run for regenerate weights for release-* branches (not needed anymore, just leave it here for a while as PlanB)
   - benchmarks-run
   - publish
   - integration-tests
   - zombienet
+  - short-benchmarks
 
 default:
   interruptible: true
@@ -142,7 +145,10 @@ include:
   - scripts/ci/gitlab/pipeline/test.yml
   # # build jobs
   - scripts/ci/gitlab/pipeline/build.yml
+  # short-benchmarks jobs
+  - scripts/ci/gitlab/pipeline/short-benchmarks.yml
   # # benchmarks jobs
+  # # used for manual job run for regenerate weights for release-* branches (not needed anymore, just leave it here for a while as PlanB)
   - scripts/ci/gitlab/pipeline/benchmarks.yml
   # # publish jobs
   - scripts/ci/gitlab/pipeline/publish.yml
