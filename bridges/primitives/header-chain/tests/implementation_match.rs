@@ -21,7 +21,9 @@
 //! Some of tests in this module may partially duplicate tests from `justification.rs`,
 //! but their purpose is different.
 
-use bp_header_chain::justification::{verify_justification, Error, GrandpaJustification};
+use bp_header_chain::justification::{
+	verify_justification, GrandpaJustification, JustificationVerificationError, PrecommitError,
+};
 use bp_test_utils::{
 	header_id, make_justification_for_header, signed_precommit, test_header, Account,
 	JustificationGeneratorParams, ALICE, BOB, CHARLIE, DAVE, EVE, FERDIE, TEST_GRANDPA_SET_ID,
@@ -85,13 +87,6 @@ fn minimal_accounts_set() -> Vec<(Account, AuthorityWeight)> {
 	vec![(ALICE, 1), (BOB, 1), (CHARLIE, 1), (DAVE, 1)]
 }
 
-/// Get a minimal subset of GRANDPA authorities that have enough cumulative vote weight to justify a
-/// header finality.
-pub fn minimal_voter_set() -> VoterSet<AuthorityId> {
-	VoterSet::new(minimal_accounts_set().iter().map(|(id, w)| (AuthorityId::from(*id), *w)))
-		.unwrap()
-}
-
 /// Make a valid GRANDPA justification with sensible defaults.
 pub fn make_default_justification(header: &TestHeader) -> GrandpaJustification<TestHeader> {
 	make_justification_for_header(JustificationGeneratorParams {
@@ -124,7 +119,7 @@ fn same_result_when_precommit_target_has_lower_number_than_commit_target() {
 			&full_voter_set(),
 			&justification,
 		),
-		Err(Error::UnrelatedAncestryVote),
+		Err(JustificationVerificationError::Precommit(PrecommitError::UnrelatedAncestryVote)),
 	);
 
 	// original implementation returns `Ok(validation_result)`
@@ -157,7 +152,7 @@ fn same_result_when_precommit_target_is_not_descendant_of_commit_target() {
 			&full_voter_set(),
 			&justification,
 		),
-		Err(Error::UnrelatedAncestryVote),
+		Err(JustificationVerificationError::Precommit(PrecommitError::UnrelatedAncestryVote)),
 	);
 
 	// original implementation returns `Ok(validation_result)`
@@ -191,7 +186,7 @@ fn same_result_when_there_are_not_enough_cumulative_weight_to_finalize_commit_ta
 			&full_voter_set(),
 			&justification,
 		),
-		Err(Error::TooLowCumulativeWeight),
+		Err(JustificationVerificationError::TooLowCumulativeWeight),
 	);
 	// original implementation returns `Ok(validation_result)`
 	// with `validation_result.is_valid() == false`.
@@ -229,7 +224,7 @@ fn different_result_when_justification_contains_duplicate_vote() {
 			&full_voter_set(),
 			&justification,
 		),
-		Err(Error::DuplicateAuthorityVote),
+		Err(JustificationVerificationError::Precommit(PrecommitError::DuplicateAuthorityVote)),
 	);
 	// original implementation returns `Ok(validation_result)`
 	// with `validation_result.is_valid() == true`.
@@ -270,7 +265,7 @@ fn different_results_when_authority_equivocates_once_in_a_round() {
 			&full_voter_set(),
 			&justification,
 		),
-		Err(Error::DuplicateAuthorityVote),
+		Err(JustificationVerificationError::Precommit(PrecommitError::DuplicateAuthorityVote)),
 	);
 	// original implementation returns `Ok(validation_result)`
 	// with `validation_result.is_valid() == true`.
@@ -323,7 +318,7 @@ fn different_results_when_authority_equivocates_twice_in_a_round() {
 			&full_voter_set(),
 			&justification,
 		),
-		Err(Error::DuplicateAuthorityVote),
+		Err(JustificationVerificationError::Precommit(PrecommitError::DuplicateAuthorityVote)),
 	);
 	// original implementation returns `Ok(validation_result)`
 	// with `validation_result.is_valid() == true`.
@@ -362,7 +357,7 @@ fn different_results_when_there_are_more_than_enough_votes() {
 			&full_voter_set(),
 			&justification,
 		),
-		Err(Error::RedundantVotesInJustification),
+		Err(JustificationVerificationError::Precommit(PrecommitError::RedundantAuthorityVote)),
 	);
 	// original implementation returns `Ok(validation_result)`
 	// with `validation_result.is_valid() == true`.
@@ -403,7 +398,7 @@ fn different_results_when_there_is_a_vote_of_unknown_authority() {
 			&full_voter_set(),
 			&justification,
 		),
-		Err(Error::UnknownAuthorityVote),
+		Err(JustificationVerificationError::Precommit(PrecommitError::UnknownAuthorityVote)),
 	);
 	// original implementation returns `Ok(validation_result)`
 	// with `validation_result.is_valid() == true`.
