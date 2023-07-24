@@ -133,6 +133,6 @@ build-short-benchmark:
     - job: check-rustdoc
       artifacts: false
   script:
-    - cargo build --profile release --locked --features=runtime-benchmarks
+    - cargo build --profile release --locked --features=runtime-benchmarks --bin polkadot-parachain
     - mkdir -p ./artifacts
     - cp ./target/release/polkadot-parachain ./artifacts/
