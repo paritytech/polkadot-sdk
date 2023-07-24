@@ -1,0 +1,279 @@
+// Copyright 2019-2023 Parity Technologies (UK) Ltd.
+// This file is part of Parity Bridges Common.
+
+// Parity Bridges Common is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Parity Bridges Common is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
+
+//! Logic for checking GRANDPA Finality Proofs.
+
+pub mod equivocation;
+pub mod optimizer;
+pub mod strict;
+
+use crate::justification::GrandpaJustification;
+
+use bp_runtime::HeaderId;
+use finality_grandpa::voter_set::VoterSet;
+use frame_support::RuntimeDebug;
+use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, SetId};
+use sp_runtime::traits::Header as HeaderT;
+use sp_std::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	prelude::*,
+};
+
+type SignedPrecommit<Header> = finality_grandpa::SignedPrecommit<
+	<Header as HeaderT>::Hash,
+	<Header as HeaderT>::Number,
+	AuthoritySignature,
+	AuthorityId,
+>;
+
+/// Votes ancestries with useful methods.
+#[derive(RuntimeDebug)]
+pub struct AncestryChain<Header: HeaderT> {
+	/// We expect all forks in the ancestry chain to be descendants of base.
+	base: HeaderId<Header::Hash, Header::Number>,
+	/// Header hash => parent header hash mapping.
+	pub parents: BTreeMap<Header::Hash, Header::Hash>,
+	/// Hashes of headers that were not visited by `ancestry()`.
+	pub unvisited: BTreeSet<Header::Hash>,
+}
+
+impl<Header: HeaderT> AncestryChain<Header> {
+	/// Create new ancestry chain.
+	pub fn new(justification: &GrandpaJustification<Header>) -> AncestryChain<Header> {
+		let mut parents = BTreeMap::new();
+		let mut unvisited = BTreeSet::new();
+		for ancestor in &justification.votes_ancestries {
+			let hash = ancestor.hash();
+			let parent_hash = *ancestor.parent_hash();
+			parents.insert(hash, parent_hash);
+			unvisited.insert(hash);
+		}
+		AncestryChain { base: justification.commit_target_id(), parents, unvisited }
+	}
+
+	/// Returns a route if the precommit target block is a descendant of the `base` block.
+	pub fn ancestry(
+		&self,
+		precommit_target_hash: &Header::Hash,
+		precommit_target_number: &Header::Number,
+	) -> Option<Vec<Header::Hash>> {
+		if precommit_target_number < &self.base.number() {
+			return None
+		}
+
+		let mut route = vec![];
+		let mut current_hash = *precommit_target_hash;
+		loop {
+			if current_hash == self.base.hash() {
+				break
+			}
+
+			current_hash = match self.parents.get(&current_hash) {
+				Some(parent_hash) => {
+					let is_visited_before = self.unvisited.get(&current_hash).is_none();
+					if is_visited_before {
+						// If the current header has been visited in a previous call, it is a
+						// descendent of `base` (we assume that the previous call was successful).
+						return Some(route)
+					}
+					route.push(current_hash);
+
+					*parent_hash
+				},
+				None => return None,
+			};
+		}
+
+		Some(route)
+	}
+
+	fn mark_route_as_visited(&mut self, route: Vec<Header::Hash>) {
+		for hash in route {
+			self.unvisited.remove(&hash);
+		}
+	}
+
+	fn is_fully_visited(&self) -> bool {
+		self.unvisited.is_empty()
+	}
+}
+
+/// Justification verification error.
+#[derive(Eq, RuntimeDebug, PartialEq)]
+pub enum Error {
+	/// Justification is finalizing unexpected header.
+	InvalidJustificationTarget,
+	/// Error validating a precommit
+	Precommit(PrecommitError),
+	/// The cumulative weight of all votes in the justification is not enough to justify commit
+	/// header finalization.
+	TooLowCumulativeWeight,
+	/// The justification contains extra (unused) headers in its `votes_ancestries` field.
+	RedundantVotesAncestries,
+}
+
+/// Justification verification error.
+#[derive(Eq, RuntimeDebug, PartialEq)]
+pub enum PrecommitError {
+	/// Justification contains redundant votes.
+	RedundantAuthorityVote,
+	/// Justification contains unknown authority precommit.
+	UnknownAuthorityVote,
+	/// Justification contains duplicate authority precommit.
+	DuplicateAuthorityVote,
+	/// The authority has provided an invalid signature.
+	InvalidAuthoritySignature,
+	/// The justification contains precommit for header that is not a descendant of the commit
+	/// header.
+	UnrelatedAncestryVote,
+}
+
+enum IterationFlow {
+	Run,
+	Skip,
+}
+
+/// Verification callbacks.
+trait JustificationVerifier<Header: HeaderT> {
+	fn process_redundant_vote(
+		&mut self,
+		precommit_idx: usize,
+	) -> Result<IterationFlow, PrecommitError>;
+
+	fn process_known_authority_vote(
+		&mut self,
+		precommit_idx: usize,
+		signed: &SignedPrecommit<Header>,
+	) -> Result<IterationFlow, PrecommitError>;
+
+	fn process_unknown_authority_vote(
+		&mut self,
+		precommit_idx: usize,
+	) -> Result<(), PrecommitError>;
+
+	fn process_unrelated_ancestry_vote(
+		&mut self,
+		precommit_idx: usize,
+	) -> Result<IterationFlow, PrecommitError>;
+
+	fn process_invalid_signature_vote(
+		&mut self,
+		precommit_idx: usize,
+	) -> Result<(), PrecommitError>;
+
+	fn process_valid_vote(&mut self, signed: &SignedPrecommit<Header>);
+
+	/// Called when there are redundant headers in the votes ancestries.
+	fn process_redundant_votes_ancestries(
+		&mut self,
+		redundant_votes_ancestries: BTreeSet<Header::Hash>,
+	) -> Result<(), Error>;
+
+	fn verify_justification(
+		&mut self,
+		finalized_target: (Header::Hash, Header::Number),
+		authorities_set_id: SetId,
+		authorities_set: &VoterSet<AuthorityId>,
+		justification: &GrandpaJustification<Header>,
+	) -> Result<(), Error> {
+		// ensure that it is justification for the expected header
+		if (justification.commit.target_hash, justification.commit.target_number) !=
+			finalized_target
+		{
+			return Err(Error::InvalidJustificationTarget)
+		}
+
+		let threshold = authorities_set.threshold().get();
+		let mut chain = AncestryChain::new(justification);
+		let mut signature_buffer = Vec::new();
+		let mut cumulative_weight = 0u64;
+
+		for (precommit_idx, signed) in justification.commit.precommits.iter().enumerate() {
+			if cumulative_weight >= threshold {
+				let action =
+					self.process_redundant_vote(precommit_idx).map_err(Error::Precommit)?;
+				if matches!(action, IterationFlow::Skip) {
+					continue
+				}
+			}
+
+			// authority must be in the set
+			let authority_info = match authorities_set.get(&signed.id) {
+				Some(authority_info) => {
+					// The implementer may want to do extra checks here.
+					// For example to see if the authority has already voted in the same round.
+					let action = self
+						.process_known_authority_vote(precommit_idx, signed)
+						.map_err(Error::Precommit)?;
+					if matches!(action, IterationFlow::Skip) {
+						continue
+					}
+
+					authority_info
+				},
+				None => {
+					self.process_unknown_authority_vote(precommit_idx).map_err(Error::Precommit)?;
+					continue
+				},
+			};
+
+			// all precommits must be descendants of the target block
+			let maybe_route =
+				chain.ancestry(&signed.precommit.target_hash, &signed.precommit.target_number);
+			if maybe_route.is_none() {
+				let action = self
+					.process_unrelated_ancestry_vote(precommit_idx)
+					.map_err(Error::Precommit)?;
+				if matches!(action, IterationFlow::Skip) {
+					continue
+				}
+			}
+
+			// verify authority signature
+			if !sp_consensus_grandpa::check_message_signature_with_buffer(
+				&finality_grandpa::Message::Precommit(signed.precommit.clone()),
+				&signed.id,
+				&signed.signature,
+				justification.round,
+				authorities_set_id,
+				&mut signature_buffer,
+			) {
+				self.process_invalid_signature_vote(precommit_idx).map_err(Error::Precommit)?;
+				continue
+			}
+
+			// now we can count the vote since we know that it is valid
+			self.process_valid_vote(signed);
+			if let Some(route) = maybe_route {
+				chain.mark_route_as_visited(route);
+				cumulative_weight = cumulative_weight.saturating_add(authority_info.weight().get());
+			}
+		}
+
+		// check that the cumulative weight of validators that voted for the justification target
+		// (or one of its descendents) is larger than the required threshold.
+		if cumulative_weight < threshold {
+			return Err(Error::TooLowCumulativeWeight)
+		}
+
+		// check that there are no extra headers in the justification
+		if !chain.is_fully_visited() {
+			self.process_redundant_votes_ancestries(chain.unvisited)?;
+		}
+
+		Ok(())
+	}
+}
