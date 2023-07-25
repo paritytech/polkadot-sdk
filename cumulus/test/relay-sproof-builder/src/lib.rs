@@ -18,7 +18,7 @@ use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
 };
 use polkadot_primitives::UpgradeGoAhead;
-use sp_runtime::traits::HashFor;
+use sp_runtime::traits::HashingFor;
 use sp_state_machine::MemoryDB;
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -104,7 +104,7 @@ impl RelayStateSproofBuilder {
 	pub fn into_state_root_and_proof(
 		self,
 	) -> (polkadot_primitives::Hash, sp_state_machine::StorageProof) {
-		let (db, root) = MemoryDB::<HashFor<polkadot_primitives::Block>>::default_with_root();
+		let (db, root) = MemoryDB::<HashingFor<polkadot_primitives::Block>>::default_with_root();
 		let state_version = Default::default(); // for test using default.
 		let mut backend = sp_state_machine::TrieBackendBuilder::new(db, root).build();
 

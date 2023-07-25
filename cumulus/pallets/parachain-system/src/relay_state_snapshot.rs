@@ -19,7 +19,7 @@ use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
 };
 use scale_info::TypeInfo;
-use sp_runtime::traits::HashFor;
+use sp_runtime::traits::HashingFor;
 use sp_state_machine::{Backend, TrieBackend, TrieBackendBuilder};
 use sp_std::vec::Vec;
 use sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
@@ -114,7 +114,7 @@ pub enum ReadEntryErr {
 fn read_entry<T, B>(backend: &B, key: &[u8], fallback: Option<T>) -> Result<T, ReadEntryErr>
 where
 	T: Decode,
-	B: Backend<HashFor<relay_chain::Block>>,
+	B: Backend<HashingFor<relay_chain::Block>>,
 {
 	backend
 		.storage(key)
@@ -133,7 +133,7 @@ where
 fn read_optional_entry<T, B>(backend: &B, key: &[u8]) -> Result<Option<T>, ReadEntryErr>
 where
 	T: Decode,
-	B: Backend<HashFor<relay_chain::Block>>,
+	B: Backend<HashingFor<relay_chain::Block>>,
 {
 	match read_entry(backend, key, None) {
 		Ok(v) => Ok(Some(v)),
@@ -147,7 +147,8 @@ where
 /// This state proof is extracted from the relay chain block we are building on top of.
 pub struct RelayChainStateProof {
 	para_id: ParaId,
-	trie_backend: TrieBackend<MemoryDB<HashFor<relay_chain::Block>>, HashFor<relay_chain::Block>>,
+	trie_backend:
+		TrieBackend<MemoryDB<HashingFor<relay_chain::Block>>, HashingFor<relay_chain::Block>>,
 }
 
 impl RelayChainStateProof {
@@ -160,7 +161,7 @@ impl RelayChainStateProof {
 		relay_parent_storage_root: relay_chain::Hash,
 		proof: StorageProof,
 	) -> Result<Self, Error> {
-		let db = proof.into_memory_db::<HashFor<relay_chain::Block>>();
+		let db = proof.into_memory_db::<HashingFor<relay_chain::Block>>();
 		if !db.contains(&relay_parent_storage_root, EMPTY_PREFIX) {
 			return Err(Error::RootMismatch)
 		}

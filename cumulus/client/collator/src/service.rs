@@ -24,7 +24,7 @@ use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_consensus::BlockStatus;
 use sp_core::traits::SpawnNamed;
-use sp_runtime::traits::{Block as BlockT, HashFor, Header as HeaderT, Zero};
+use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Zero};
 
 use cumulus_client_consensus_common::ParachainCandidate;
 use polkadot_node_primitives::{
@@ -222,7 +222,7 @@ where
 
 		let compact_proof = match candidate
 			.proof
-			.into_compact_proof::<HashFor<Block>>(*parent_header.state_root())
+			.into_compact_proof::<HashingFor<Block>>(*parent_header.state_root())
 		{
 			Ok(proof) => proof,
 			Err(e) => {
