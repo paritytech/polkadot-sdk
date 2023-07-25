@@ -56,6 +56,8 @@ For the purpose of storage requests, the trie root hash of the child tries of th
 
 The progress of the operation is indicated through `operation-storage-items`, `operation-waiting-for-continue`, `operation-storage-done`, `operation-inaccessible`, or `operation-error` notifications generated on the corresponding `chainHead_unstable_follow` subscription.
 
+The operation continues even if the target block is unpinned with `chainHead_unstable_unpin`.
+
 This function should be seen as a complement to `chainHead_unstable_follow`, allowing the JSON-RPC client to retrieve more information about a block that has been reported. Use `archive_unstable_storage` if instead you want to retrieve the storage of an arbitrary block.
 
 `{"event": "operation-storage-items"}` notifications will be generated. Each notification contains a list of items. The list of items, concatenated together, forms the result.
