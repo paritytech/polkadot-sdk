@@ -17,7 +17,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0" }
 futures = "0.3.28"
 hex-literal = "0.4.1"
 log = "0.4.19"
-serde = { version = "1.0.171", features = ["derive"] }
+serde = { version = "1.0.175", features = ["derive"] }
 serde_json = "1.0.103"
 
 # Local
