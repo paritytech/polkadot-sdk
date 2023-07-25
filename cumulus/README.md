@@ -5,6 +5,8 @@
 This repository contains both the Cumulus SDK and also specific chains implemented
 on top of this SDK.
 
+If you only want to run a **Polkadot Parachain Node**, check out our [container section](./docs/container.md).
+
 ## Cumulus SDK
 
 A set of tools for writing [Substrate](https://substrate.io/)-based
@@ -36,6 +38,8 @@ and treat as best.
 
 A Polkadot [collator](https://wiki.polkadot.network/docs/en/learn-collator) for the parachain is
 implemented by the `polkadot-parachain` binary (previously called `polkadot-collator`).
+
+You may run `polkadot-parachain` locally after building it or using one of the container option described [here](./docs/container.md).
 
 ### Relay Chain Interaction
 To operate a parachain node, a connection to the corresponding relay chain is necessary. This can be
@@ -220,25 +224,14 @@ To run a Rococo collator you will need to compile the following binary:
 cargo build --release --locked --bin polkadot-parachain
 ```
 
-Otherwise you can compile it with
-[Parity CI docker image](https://github.com/paritytech/scripts/tree/master/dockerfiles/ci-linux):
-
-```bash
-docker run --rm -it -w /shellhere/cumulus \
-                    -v $(pwd):/shellhere/cumulus \
-                    paritytech/ci-linux:production cargo build --release --locked --bin polkadot-parachain
-sudo chown -R $(id -u):$(id -g) target/
-```
-
-If you want to reproduce other steps of CI process you can use the following
-[guide](https://github.com/paritytech/scripts#gitlab-ci-for-building-docker-images).
-
 Once the executable is built, launch collators for each parachain (repeat once each for chain
 `tick`, `trick`, `track`):
 
 ```bash
 ./target/release/polkadot-parachain --chain $CHAIN --validator
 ```
+
+You can also build [using a container](./docs/container.md).
 
 ### Parachains
 
@@ -249,23 +242,3 @@ Once the executable is built, launch collators for each parachain (repeat once e
 The network uses horizontal message passing (HRMP) to enable communication between parachains and
 the relay chain and, in turn, between parachains. This means that every message is sent to the relay
 chain, and from the relay chain to its destination parachain.
-
-### Containerize
-
-After building `polkadot-parachain` with cargo or with Parity CI image as documented in [this chapter](#build--launch-rococo-collators),
-the following will allow producing a new docker image where the compiled binary is injected:
-
-```bash
-./docker/scripts/build-injected-image.sh
-```
-
-Alternatively, you can build an image with a builder pattern:
-
-```bash
-docker build --tag $OWNER/$IMAGE_NAME --file ./docker/polkadot-parachain_builder.Containerfile .
-
-You may then run your new container:
-
-```bash
-docker run --rm -it $OWNER/$IMAGE_NAME --collator --tmp --chain /specs/westmint.json
-```
