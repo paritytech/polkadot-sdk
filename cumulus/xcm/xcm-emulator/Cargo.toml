@@ -20,6 +20,7 @@ sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-message-queue = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
@@ -28,7 +29,6 @@ cumulus-primitives-core = { path = "../../primitives/core"}
 cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue" }
 cumulus-pallet-dmp-queue = { path = "../../pallets/dmp-queue" }
 cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system" }
-cumulus-test-service = { path = "../../test/service" }
 parachain-info = { path = "../../parachains/pallets/parachain-info" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
 cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
