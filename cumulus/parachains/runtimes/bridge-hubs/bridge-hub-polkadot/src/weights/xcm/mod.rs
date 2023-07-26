@@ -61,10 +61,16 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubPolkadotXcmWeight<Call> {
 	fn withdraw_asset(assets: &MultiAssets) -> Weight {
 		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::withdraw_asset())
 	}
-	// Currently there is no trusted reserve
+	// Currently there is no trusted reserve (`IsReserve = ()`),
+	// but we need this hack for `pallet_xcm::reserve_transfer_assets`
+	// (TODO) fix https://github.com/paritytech/polkadot/pull/7424
+	// (TODO) fix https://github.com/paritytech/polkadot/pull/7546
 	fn reserve_asset_deposited(_assets: &MultiAssets) -> Weight {
+		// TODO: if we change `IsReserve = ...` then use this line...
+		// TODO: or if remote weight estimation is fixed, then remove
 		// TODO: hardcoded - fix https://github.com/paritytech/cumulus/issues/1974
-		Weight::from_parts(1_000_000_000_u64, 0)
+		let hardcoded_weight = Weight::from_parts(1_000_000_000_u64, 0);
+		hardcoded_weight.min(XcmFungibleWeight::<Runtime>::reserve_asset_deposited())
 	}
 	fn receive_teleported_asset(assets: &MultiAssets) -> Weight {
 		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::receive_teleported_asset())
@@ -141,7 +147,7 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubPolkadotXcmWeight<Call> {
 		_reserve: &MultiLocation,
 		_xcm: &Xcm<()>,
 	) -> Weight {
-		assets.weigh_multi_assets(XcmGeneric::<Runtime>::initiate_reserve_withdraw())
+		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::initiate_reserve_withdraw())
 	}
 	fn initiate_teleport(
 		assets: &MultiAssetFilter,
