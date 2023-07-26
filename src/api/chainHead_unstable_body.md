@@ -32,10 +32,10 @@ This return value indicates that the request has successfully started.
 
 This return value indicates the request couldn't be started because the server is overloaded, or that the `followSubscription` is invalid or stale.
 
-The JSON-RPC client should try again after an on-going [`chainHead_unstable_storage`], [`chainHead_unstable_body`], or [`chainHead_unstable_call`] operation finishes.
+The JSON-RPC client should try again after an on-going `chainHead_unstable_storage`, `chainHead_unstable_body`, or `chainHead_unstable_call` operation finishes.
 
-The JSON-RPC server must accept at least 16 concurrent operations for any given [`chainHead_unstable_follow`] subscription. In other words, as long as the JSON-RPC client makes sure that no more than 16 operations are in progress at any given item, it is guaranteed that all of its operations will be accepted by the JSON-RPC server.
-For this purpose, each item requested through [`chainHead_unstable_storage`] counts as one operation, and each call to [`chainHead_unstable_body`] and [`chainHead_unstable_call`] counts as one operation.
+The JSON-RPC server must accept at least 16 concurrent operations for any given `chainHead_unstable_follow` subscription. In other words, as long as the JSON-RPC client makes sure that no more than 16 operations are in progress at any given item, it is guaranteed that all of its operations will be accepted by the JSON-RPC server.
+For this purpose, each item requested through `chainHead_unstable_storage` counts as one operation, and each call to `chainHead_unstable_body` and `chainHead_unstable_call` counts as one operation.
 
 ## Overview
 
