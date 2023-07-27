@@ -129,11 +129,11 @@ All items in `finalizedBlockHashes` and `prunedBlockHashes` are guaranteed to ha
 
 The current best block, in other words the last block reported through a `bestBlockChanged` event, is guaranteed to either be the last item in `finalizedBlockHashes`, or to not be present in either `finalizedBlockHashes` or `prunedBlockHashes`.
 
-### operation-body-done
+### operationBodyDone
 
 ```json
 {
-    "event": "operation-body-done",
+    "event": "operationBodyDone",
     "operationId": ...,
     "value": [...]
 }
@@ -141,7 +141,7 @@ The current best block, in other words the last block reported through a `bestBl
 
 `operationId` is a string returned by `chainHead_unstable_body`.
 
-The `operation-body-done` event indicates that an operation started with `chainHead_unstable_body` was successful.
+The `operationBodyDone` event indicates that an operation started with `chainHead_unstable_body` was successful.
 
 `value` is an array of strings containing the hexadecimal-encoded SCALE-encoded extrinsics found in the block.
 
@@ -149,11 +149,11 @@ The `operation-body-done` event indicates that an operation started with `chainH
 
 No more event will be generated with this `operationId`.
 
-### operation-call-done
+### operationCallDone
 
 ```json
 {
-    "event": "operation-call-done",
+    "event": "operationCallDone",
     "operationId": ...,
     "output": "0x0000000..."
 }
@@ -161,24 +161,24 @@ No more event will be generated with this `operationId`.
 
 `operationId` is a string returned by`chainHead_unstable_call`.
 
-The `operation-call-done` event indicates that an operation started with `chainHead_unstable_call` was successful.
+The `operationCallDone` event indicates that an operation started with `chainHead_unstable_call` was successful.
 
 `output` is the hexadecimal-encoded output of the runtime function call.
 
 No more event will be generated with this `operationId`.
 
-### operation-storage-items
+### operationStorageItems
 
 ```json
 {
-    "event": "operation-storage-items",
+    "event": "operationStorageItems",
     "operationId": ...,
     "items": [
         {
             "key": "0x0000000...",
             "value": "0x0000000...",
             "hash": "0x0000000...",
-            "closest-descendant-merkle-value": "0x000000..."
+            "closestDescendantMerkleValue": "0x000000..."
         },
         ...
     ]
@@ -190,72 +190,72 @@ No more event will be generated with this `operationId`.
 Yields one or more items that were found in the storage.
 
 The `key` field is a string containing the hexadecimal-encoded key of the item. This `key` is guaranteed to start with one of the `key`s provided as parameter to `chainHead_unstable_storage`.
-If the `type` parameter was `"value"`, `"hash"`, `"closest-descendant-merkle-value"`, then it is also guaranteed to be equal to one of the `key`s provided as parameter to `chainHead_unstable_storage`.
+If the `type` parameter was `"value"`, `"hash"`, `"closestDescendantMerkleValue"`, then it is also guaranteed to be equal to one of the `key`s provided as parameter to `chainHead_unstable_storage`.
 
-In the situation where the `type` parameter was `"closest-descendant-merkle-value"`, the fact that `key` is equal to a `key` that was provided as parameter is necessary in order to avoid ambiguities when multiple `items` of type `"closest-descendant-merkle-value"` were requested.
+In the situation where the `type` parameter was `"closestDescendantMerkleValue"`, the fact that `key` is equal to a `key` that was provided as parameter is necessary in order to avoid ambiguities when multiple `items` of type `"closestDescendantMerkleValue"` were requested.
 
-The `value` field is set if this item corresponds to one of the requested items whose `type` was `"value"` or `"descendants-values"`. The `value` field is a string containing the hexadecimal-encoded value of the storage entry.
+The `value` field is set if this item corresponds to one of the requested items whose `type` was `"value"` or `"descendantsValues"`. The `value` field is a string containing the hexadecimal-encoded value of the storage entry.
 
-The `hash` field is set if this item corresponds to one of the requested items whose `type` was `"hash"` or `"descendants-hashes"`. The `hash` field is a string containing the hexadecimal-encoded hash of the storage entry.
+The `hash` field is set if this item corresponds to one of the requested items whose `type` was `"hash"` or `"descendantsHashes"`. The `hash` field is a string containing the hexadecimal-encoded hash of the storage entry.
 
-The `closest-descendant-merkle-value` field is set if this item corresponds to one of the requested items whose `type` was `"closest-descendant-merkle-value"`. The trie node whose Merkle value is indicated in `closest-descendant-merkle-value` is not indicated, as determining the key of this node might incur an overhead for the JSON-RPC server.
+The `closestDescendantMerkleValue` field is set if this item corresponds to one of the requested items whose `type` was `"closestDescendantMerkleValue"`. The trie node whose Merkle value is indicated in `closestDescendantMerkleValue` is not indicated, as determining the key of this node might incur an overhead for the JSON-RPC server.
 
-### operation-waiting-for-continue
+### operationWaitingForContinue
 
 ```json
 {
-    "event": "operation-waiting-for-continue",
+    "event": "operationWaitingForContinue",
     "operationId": ...
 }
 ```
 
 `operationId` is a string returned by `chainHead_unstable_storage`.
 
-The `waiting-for-continue` event is generated after at least one `"operation-storage-items"` event has been generated, and indicates that the JSON-RPC client must call `chainHead_unstable_continue` before more events are generated.
+The `waiting-for-continue` event is generated after at least one `"operationStorageItems"` event has been generated, and indicates that the JSON-RPC client must call `chainHead_unstable_continue` before more events are generated.
 
-This event only ever happens if the `type` parameter that was provided to `chainHead_unstable_storage` was `descendants-values` or `descendants-hashes`.
+This event only ever happens if the `type` parameter that was provided to `chainHead_unstable_storage` was `descendantsValues` or `descendantsHashes`.
 
-While the JSON-RPC server is waiting for a call to `chainHead_unstable_continue`, it can generate an `operation-inaccessible` event in order to indicate that it can no longer proceed with the operation. If that is the case, the JSON-RPC client can simply try again.
+While the JSON-RPC server is waiting for a call to `chainHead_unstable_continue`, it can generate an `operationInaccessible` event in order to indicate that it can no longer proceed with the operation. If that is the case, the JSON-RPC client can simply try again.
 
-### operation-storage-done
+### operationStorageDone
 
 ```json
 {
-    "event": "operation-storage-done",
+    "event": "operationStorageDone",
     "operationId": ...
 }
 ```
 
 `operationId` is a string returned by `chainHead_unstable_storage`.
 
-The `operation-storage-done` event indicates that an operation started with `chainHead_unstable_storage` went well and all result has been provided through `operation-storage-items` events in the past.
+The `operationStorageDone` event indicates that an operation started with `chainHead_unstable_storage` went well and all result has been provided through `operationStorageItems` events in the past.
 
-If no `operation-storage-items` event was yielded for this `operationId`, then the storage doesn't contain a value at the given key.
+If no `operationStorageItems` event was yielded for this `operationId`, then the storage doesn't contain a value at the given key.
 
 No more event will be generated with this `operationId`.
 
-### operation-inaccessible
+### operationInaccessible
 
 ```json
 {
-    "event": "operation-inaccessible",
+    "event": "operationInaccessible",
     "operationId": ...
 }
 ```
 
 `operationId` is a string returned by `chainHead_unstable_body`, `chainHead_unstable_call`, or `chainHead_unstable_storage`.
 
-The `operation-inaccessible` event is produced if the JSON-RPC server was incapable of obtaining the storage items necessary for the given operation.
+The `operationInaccessible` event is produced if the JSON-RPC server was incapable of obtaining the storage items necessary for the given operation.
 
-Contrary to the `operation-error` event, repeating the same operation in the future might succeed.
+Contrary to the `operationError` event, repeating the same operation in the future might succeed.
 
 No more event will be generated about this `operationId`.
 
-### operation-error
+### operationError
 
 ```json
 {
-    "event": "operation-error",
+    "event": "operationError",
     "operationId": ...,
     "error": "..."
 }
@@ -263,9 +263,9 @@ No more event will be generated about this `operationId`.
 
 `operationId` is a string returned by `chainHead_unstable_body`, `chainHead_unstable_call`, or `chainHead_unstable_storage`.
 
-The `operation-error` event indicates a problem during the operation. In the case of `chainHead_unstable_call`, this can include the function missing or a runtime panic. In the case of `chainHead_unstable_body` or `chainHead_unstable_storage`, this includes failing to parse the block header to obtain the extrinsics root hash or state root hash.
+The `operationError` event indicates a problem during the operation. In the case of `chainHead_unstable_call`, this can include the function missing or a runtime panic. In the case of `chainHead_unstable_body` or `chainHead_unstable_storage`, this includes failing to parse the block header to obtain the extrinsics root hash or state root hash.
 
-Contrary to the `operation-inaccessible` event, repeating the same call in the future will not succeed.
+Contrary to the `operationInaccessible` event, repeating the same call in the future will not succeed.
 
 `error` is a human-readable error message indicating why the call has failed. This string isn't meant to be shown to end users, but is for developers to understand the problem.
 

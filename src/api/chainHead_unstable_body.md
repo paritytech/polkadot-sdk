@@ -41,7 +41,7 @@ For this purpose, each item requested through [`chainHead_unstable_storage`] cou
 
 The JSON-RPC server must start obtaining the body (in other words the list of transactions) of the given block.
 
-The progress of the operation is indicated through `operation-body-done`, `operation-inaccessible`, or `operation-error` notifications generated on the corresponding `chainHead_unstable_follow` subscription.
+The progress of the operation is indicated through `operationBodyDone`, `operationInaccessible`, or `operationError` notifications generated on the corresponding `chainHead_unstable_follow` subscription.
 
 The operation continues even if the target block is unpinned with `chainHead_unstable_unpin`.
 
@@ -49,7 +49,7 @@ This function should be seen as a complement to `chainHead_unstable_follow`, all
 
 ## Possible errors
 
-- If the networking part of the behaviour fails, then a `{"event": "operation-inaccessible"}` notification is generated (as explained above).
+- If the networking part of the behaviour fails, then a `{"event": "operationInaccessible"}` notification is generated (as explained above).
 - If the `followSubscription` is invalid or stale, then `"result": "limitReached"` is returned (as explained above).
 - A JSON-RPC error is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`.
 - A JSON-RPC error is generated if the `followSubscription` is valid but the block hash passed as parameter has already been unpinned.
