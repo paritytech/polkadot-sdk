@@ -31,7 +31,7 @@ use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
-use std::{fmt::Debug, hash::Hash, sync::Arc};
+use std::{fmt::Debug, sync::Arc};
 use substrate_prometheus_endpoint::Registry;
 
 /// Parameters for [`import_queue`].
@@ -77,8 +77,8 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	P: Pair + Send + Sync + 'static,
-	P::Public: Clone + Eq + Send + Sync + Hash + Debug + Codec,
+	P: Pair + 'static,
+	P::Public: Debug + Codec,
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
 	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,

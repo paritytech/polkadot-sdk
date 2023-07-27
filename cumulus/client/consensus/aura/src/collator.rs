@@ -24,7 +24,7 @@
 //! This module also exposes some standalone functions for common operations when building
 //! aura-based collators.
 
-use codec::{Decode, Encode};
+use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
 	self as consensus_common, ParachainBlockImportMarker, ParachainCandidate,
@@ -55,7 +55,7 @@ use sp_runtime::{
 };
 use sp_state_machine::StorageChanges;
 use sp_timestamp::Timestamp;
-use std::{convert::TryFrom, error::Error, hash::Hash, sync::Arc, time::Duration};
+use std::{convert::TryFrom, error::Error, sync::Arc, time::Duration};
 
 /// Parameters for instantiating a [`Collator`].
 pub struct Params<BI, CIDP, RClient, Proposer, CS> {
@@ -98,9 +98,9 @@ where
 	Proposer: ProposerInterface<Block, Transaction = BI::Transaction>,
 	Proposer::Transaction: Sync,
 	CS: CollatorServiceInterface<Block>,
-	P: Pair + Send + Sync,
-	P::Public: AppPublic + Hash + Member + Encode + Decode,
-	P::Signature: TryFrom<Vec<u8>> + Hash + Member + Encode + Decode,
+	P: Pair,
+	P::Public: AppPublic + Member,
+	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
 	/// Instantiate a new instance of the `Aura` manager.
 	pub fn new(params: Params<BI, CIDP, RClient, Proposer, CS>) -> Self {
@@ -257,8 +257,8 @@ impl<Pub> SlotClaim<Pub> {
 	pub fn unchecked<P>(author_pub: Pub, slot: Slot, timestamp: Timestamp) -> Self
 	where
 		P: Pair<Public = Pub>,
-		P::Public: Encode + Decode,
-		P::Signature: Encode + Decode,
+		P::Public: Codec,
+		P::Signature: Codec,
 	{
 		SlotClaim { author_pub, timestamp, pre_digest: aura_internal::pre_digest::<P>(slot) }
 	}
@@ -294,8 +294,8 @@ where
 	C: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	C::Api: AuraApi<B, P::Public>,
 	P: Pair,
-	P::Public: Encode + Decode,
-	P::Signature: Encode + Decode,
+	P::Public: Codec,
+	P::Signature: Codec,
 {
 	// load authorities
 	let authorities = client.runtime_api().authorities(parent_hash).map_err(Box::new)?;
@@ -330,7 +330,7 @@ pub fn seal<B: BlockT, T, P>(
 ) -> Result<BlockImportParams<B, T>, Box<dyn Error>>
 where
 	P: Pair,
-	P::Signature: Encode + Decode + TryFrom<Vec<u8>>,
+	P::Signature: Codec + TryFrom<Vec<u8>>,
 	P::Public: AppPublic,
 {
 	let (pre_header, body) = pre_sealed.deconstruct();

@@ -22,7 +22,7 @@
 //!
 //! For more information about AuRa, the Substrate crate should be checked.
 
-use codec::{Decode, Encode};
+use codec::Codec;
 use cumulus_client_consensus_common::{
 	ParachainBlockImportMarker, ParachainCandidate, ParachainConsensus,
 };
@@ -42,7 +42,7 @@ use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, NumberFor};
-use std::{convert::TryFrom, hash::Hash, marker::PhantomData, sync::Arc};
+use std::{convert::TryFrom, marker::PhantomData, sync::Arc};
 
 mod import_queue;
 
@@ -134,9 +134,9 @@ where
 			Proof = <EnableProofRecording as ProofRecording>::Proof,
 		>,
 		Error: std::error::Error + Send + From<sp_consensus::Error> + 'static,
-		P: Pair + Send + Sync,
-		P::Public: AppPublic + Hash + Member + Encode + Decode,
-		P::Signature: TryFrom<Vec<u8>> + Hash + Member + Encode + Decode,
+		P: Pair + 'static,
+		P::Public: AppPublic + Member + Codec,
+		P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 	{
 		let worker = sc_consensus_aura::build_aura_worker::<P, _, _, _, _, _, _, _, _>(
 			BuildAuraWorkerParams {

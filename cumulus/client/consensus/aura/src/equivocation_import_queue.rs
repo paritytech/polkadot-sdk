@@ -19,7 +19,7 @@
 /// Equivocation resistance in general is a hard problem, as different nodes in the network
 /// may see equivocations in a different order, and therefore may not agree on which blocks
 /// should be thrown out and which ones should be kept.
-use codec::{Decode, Encode};
+use codec::Codec;
 use cumulus_client_consensus_common::ParachainBlockImportMarker;
 use lru::LruCache;
 
@@ -72,15 +72,15 @@ struct Verifier<P, Client, Block, CIDP> {
 	slot_duration: SlotDuration,
 	defender: NaiveEquivocationDefender,
 	telemetry: Option<TelemetryHandle>,
-	_marker: std::marker::PhantomData<(Block, P)>,
+	_phantom: std::marker::PhantomData<fn() -> (Block, P)>,
 }
 
 #[async_trait::async_trait]
 impl<P, Client, Block, CIDP> VerifierT<Block> for Verifier<P, Client, Block, CIDP>
 where
 	P: Pair,
-	P::Signature: Encode + Decode,
-	P::Public: Encode + Decode + PartialEq + Clone + Debug,
+	P::Signature: Codec,
+	P::Public: Codec + Debug,
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block> + Send + Sync,
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
@@ -223,9 +223,9 @@ pub fn fully_verifying_import_queue<P, Client, Block: BlockT, I, CIDP>(
 	telemetry: Option<TelemetryHandle>,
 ) -> BasicQueue<Block, I::Transaction>
 where
-	P: Pair,
-	P::Signature: Encode + Decode,
-	P::Public: Encode + Decode + PartialEq + Clone + Debug,
+	P: Pair + 'static,
+	P::Signature: Codec,
+	P::Public: Codec + Debug,
 	I: BlockImport<Block, Error = ConsensusError>
 		+ ParachainBlockImportMarker
 		+ Send
@@ -242,7 +242,7 @@ where
 		defender: NaiveEquivocationDefender::default(),
 		slot_duration,
 		telemetry,
-		_marker: std::marker::PhantomData,
+		_phantom: std::marker::PhantomData,
 	};
 
 	BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry)
