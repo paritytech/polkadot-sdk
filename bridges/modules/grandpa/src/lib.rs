@@ -49,7 +49,7 @@ use sp_runtime::{
 	traits::{Header as HeaderT, Zero},
 	SaturatedConversion,
 };
-use sp_std::{boxed::Box, convert::TryInto};
+use sp_std::{boxed::Box, convert::TryInto, prelude::*};
 
 mod call_ext;
 #[cfg(test)]
@@ -237,7 +237,7 @@ pub mod pallet {
 			let actual_weight = pre_dispatch_weight
 				.set_proof_size(pre_dispatch_weight.proof_size().saturating_sub(unused_proof_size));
 
-			Self::deposit_event(Event::UpdatedBestFinalizedHeader { number, hash });
+			Self::deposit_event(Event::UpdatedBestFinalizedHeader { number, hash, justification });
 
 			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee })
 		}
@@ -402,6 +402,8 @@ pub mod pallet {
 		UpdatedBestFinalizedHeader {
 			number: BridgedBlockNumber<T, I>,
 			hash: BridgedBlockHash<T, I>,
+			/// Justification.
+			justification: GrandpaJustification<BridgedHeader<T, I>>,
 		},
 	}
 
@@ -603,10 +605,22 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config<I>, I: 'static> Pallet<T, I> {
-	/// Get the best finalized block number.
-	pub fn best_finalized_number() -> Option<BridgedBlockNumber<T, I>> {
-		BestFinalized::<T, I>::get().map(|id| id.number())
+impl<T: Config<I>, I: 'static> Pallet<T, I>
+where
+	<T as frame_system::Config>::RuntimeEvent: TryInto<Event<T, I>>,
+{
+	/// Get the GRANDPA justifications accepted in the current block.
+	pub fn accepted_finality_proofs() -> Vec<GrandpaJustification<BridgedHeader<T, I>>> {
+		frame_system::Pallet::<T>::read_events_no_consensus()
+			.filter_map(|event| {
+				if let Event::<T, I>::UpdatedBestFinalizedHeader { justification, .. } =
+					event.event.try_into().ok()?
+				{
+					return Some(justification)
+				}
+				None
+			})
+			.collect()
 	}
 }
 
@@ -913,10 +927,12 @@ mod tests {
 					event: TestEvent::Grandpa(Event::UpdatedBestFinalizedHeader {
 						number: *header.number(),
 						hash: header.hash(),
+						justification: justification.clone(),
 					}),
 					topics: vec![],
 				}],
 			);
+			assert_eq!(Pallet::<TestRuntime>::accepted_finality_proofs(), vec![justification]);
 		})
 	}
 

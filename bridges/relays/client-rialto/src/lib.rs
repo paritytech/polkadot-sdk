@@ -17,12 +17,13 @@
 //! Types used to connect to the Rialto-Substrate chain.
 
 use bp_messages::MessageNonce;
+use bp_rialto::RIALTO_ACCEPTED_GRANDPA_FINALITY_PROOFS_METHOD;
 use bp_runtime::ChainId;
 use codec::{Compact, Decode, Encode};
 use relay_substrate_client::{
-	BalanceOf, Chain, ChainWithBalances, ChainWithMessages, ChainWithTransactions,
-	Error as SubstrateError, NonceOf, RelayChain, SignParam, UnderlyingChainProvider,
-	UnsignedTransaction,
+	BalanceOf, Chain, ChainWithBalances, ChainWithGrandpa, ChainWithMessages,
+	ChainWithTransactions, Error as SubstrateError, NonceOf, RelayChain, SignParam,
+	UnderlyingChainProvider, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -48,6 +49,11 @@ impl Chain for Rialto {
 
 	type SignedBlock = rialto_runtime::SignedBlock;
 	type Call = rialto_runtime::RuntimeCall;
+}
+
+impl ChainWithGrandpa for Rialto {
+	const ACCEPTED_FINALITY_PROOFS_METHOD: &'static str =
+		RIALTO_ACCEPTED_GRANDPA_FINALITY_PROOFS_METHOD;
 }
 
 impl RelayChain for Rialto {
