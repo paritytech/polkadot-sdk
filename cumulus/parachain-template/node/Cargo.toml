@@ -13,7 +13,7 @@ build = "build.rs"
 clap = { version = "4.3.19", features = ["derive"] }
 log = "0.4.19"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
-serde = { version = "1.0.175", features = ["derive"] }
+serde = { version = "1.0.176", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 futures = "0.3.28"
 
