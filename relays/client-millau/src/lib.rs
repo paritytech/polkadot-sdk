@@ -17,12 +17,13 @@
 //! Types used to connect to the Millau-Substrate chain.
 
 use bp_messages::MessageNonce;
+use bp_millau::MILLAU_ACCEPTED_GRANDPA_FINALITY_PROOFS_METHOD;
 use bp_runtime::ChainId;
 use codec::{Compact, Decode, Encode};
 use relay_substrate_client::{
-	BalanceOf, Chain, ChainWithBalances, ChainWithMessages, ChainWithTransactions,
-	ChainWithUtilityPallet, Error as SubstrateError, FullRuntimeUtilityPallet, NonceOf, SignParam,
-	UnderlyingChainProvider, UnsignedTransaction,
+	BalanceOf, Chain, ChainWithBalances, ChainWithGrandpa, ChainWithMessages,
+	ChainWithTransactions, ChainWithUtilityPallet, Error as SubstrateError,
+	FullRuntimeUtilityPallet, NonceOf, SignParam, UnderlyingChainProvider, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -63,6 +64,11 @@ impl Chain for Millau {
 
 	type SignedBlock = millau_runtime::SignedBlock;
 	type Call = millau_runtime::RuntimeCall;
+}
+
+impl ChainWithGrandpa for Millau {
+	const ACCEPTED_FINALITY_PROOFS_METHOD: &'static str =
+		MILLAU_ACCEPTED_GRANDPA_FINALITY_PROOFS_METHOD;
 }
 
 impl ChainWithBalances for Millau {

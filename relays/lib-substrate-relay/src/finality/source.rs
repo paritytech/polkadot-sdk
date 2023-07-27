@@ -234,7 +234,7 @@ impl<P: SubstrateFinalitySyncPipeline> SourceClient<FinalitySyncPipelineAdapter<
 
 	async fn finality_proofs(&self) -> Result<Self::FinalityProofsStream, Error> {
 		Ok(unfold(
-			P::FinalityEngine::finality_proofs(&self.client).await?,
+			P::FinalityEngine::source_finality_proofs(&self.client).await?,
 			move |subscription| async move {
 				loop {
 					let log_error = |err| {

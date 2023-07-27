@@ -16,6 +16,7 @@
 
 use crate::calls::UtilityCall;
 
+use bp_header_chain::UnderlyingChainWithGrandpaProvider;
 use bp_messages::MessageNonce;
 use bp_runtime::{
 	Chain as ChainBase, ChainId, EncodedOrDecodedCall, HashOf, Parachain as ParachainBase,
@@ -77,22 +78,13 @@ pub trait RelayChain: Chain {
 ///
 /// Keep in mind that parachains are relying on relay chain GRANDPA, so they should not implement
 /// this trait.
-pub trait ChainWithGrandpa: Chain {
-	/// Name of the bridge GRANDPA pallet (used in `construct_runtime` macro call) that is deployed
-	/// at some other chain to bridge with this `ChainWithGrandpa`.
+pub trait ChainWithGrandpa: Chain + UnderlyingChainWithGrandpaProvider {
+	/// Name of the runtime API method that is returning the GRANDPA justifications accepted
+	/// by the `submit_finality_proofs` extrinsic in the queried block.
 	///
-	/// We assume that all chains that are bridging with this `ChainWithGrandpa` are using
-	/// the same name.
-	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str;
-}
-
-impl<T> ChainWithGrandpa for T
-where
-	T: Chain + UnderlyingChainProvider,
-	T::Chain: bp_header_chain::ChainWithGrandpa,
-{
-	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str =
-		<T::Chain as bp_header_chain::ChainWithGrandpa>::WITH_CHAIN_GRANDPA_PALLET_NAME;
+	/// Keep in mind that this method is normally provided by the other chain, which is
+	/// bridged with this chain.
+	const ACCEPTED_FINALITY_PROOFS_METHOD: &'static str;
 }
 
 /// Substrate-based parachain from minimal relay-client point of view.

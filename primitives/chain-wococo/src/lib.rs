@@ -62,4 +62,4 @@ impl ChainWithGrandpa for Wococo {
 /// Name of the With-Wococo GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_WOCOCO_GRANDPA_PALLET_NAME: &str = "BridgeWococoGrandpa";
 
-decl_bridge_finality_runtime_apis!(wococo);
+decl_bridge_finality_runtime_apis!(wococo, grandpa);

@@ -16,9 +16,11 @@
 
 //! Types used to connect to the Kusama chain.
 
-use bp_kusama::AccountInfoStorageMapKeyProvider;
+use bp_kusama::{AccountInfoStorageMapKeyProvider, KUSAMA_ACCEPTED_GRANDPA_FINALITY_PROOFS_METHOD};
 use bp_runtime::ChainId;
-use relay_substrate_client::{Chain, ChainWithBalances, RelayChain, UnderlyingChainProvider};
+use relay_substrate_client::{
+	Chain, ChainWithBalances, ChainWithGrandpa, RelayChain, UnderlyingChainProvider,
+};
 use sp_core::storage::StorageKey;
 use std::time::Duration;
 
@@ -45,6 +47,11 @@ impl Chain for Kusama {
 
 	type SignedBlock = bp_kusama::SignedBlock;
 	type Call = ();
+}
+
+impl ChainWithGrandpa for Kusama {
+	const ACCEPTED_FINALITY_PROOFS_METHOD: &'static str =
+		KUSAMA_ACCEPTED_GRANDPA_FINALITY_PROOFS_METHOD;
 }
 
 impl ChainWithBalances for Kusama {
