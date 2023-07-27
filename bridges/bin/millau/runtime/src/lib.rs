@@ -882,11 +882,21 @@ impl_runtime_apis! {
 		fn best_finalized() -> Option<HeaderId<bp_rialto::Hash, bp_rialto::BlockNumber>> {
 			BridgeRialtoGrandpa::best_finalized()
 		}
+
+		fn accepted_grandpa_finality_proofs(
+		) -> Vec<bp_header_chain::justification::GrandpaJustification<bp_rialto::Header>> {
+			BridgeRialtoGrandpa::accepted_finality_proofs()
+		}
 	}
 
 	impl bp_westend::WestendFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<HeaderId<bp_westend::Hash, bp_westend::BlockNumber>> {
 			BridgeWestendGrandpa::best_finalized()
+		}
+
+		fn accepted_grandpa_finality_proofs(
+		) -> Vec<bp_header_chain::justification::GrandpaJustification<bp_westend::Header>> {
+			BridgeWestendGrandpa::accepted_finality_proofs()
 		}
 	}
 
