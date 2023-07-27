@@ -69,4 +69,4 @@ pub const WITH_POLKADOT_GRANDPA_PALLET_NAME: &str = "BridgePolkadotGrandpa";
 /// reserve.
 pub const MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE: u32 = 128;
 
-decl_bridge_finality_runtime_apis!(polkadot);
+decl_bridge_finality_runtime_apis!(polkadot, grandpa);
