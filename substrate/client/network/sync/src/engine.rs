@@ -193,7 +193,7 @@ pub struct Peer<B: BlockT> {
 
 /// Result of [`SyncingEngine::block_announce_validation`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum PreValidateBlockAnnounce<H> {
+enum PreValidateBlockAnnounce<H> {
 	/// The announcement failed at validation.
 	///
 	/// The peer reputation should be decreased.
@@ -233,7 +233,7 @@ impl<H> PreValidateBlockAnnounce<H> {
 
 /// Result of [`SyncingEngine::poll_block_announce_validation`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PollBlockAnnounceValidation<H> {
+enum PollBlockAnnounceValidation<H> {
 	/// The announcement failed at validation.
 	///
 	/// The peer reputation should be decreased.
@@ -562,7 +562,7 @@ where
 	}
 
 	/// Process the result of the block announce validation.
-	pub fn process_block_announce_validation_result(
+	fn process_block_announce_validation_result(
 		&mut self,
 		validation_result: PollBlockAnnounceValidation<B::Header>,
 	) {
@@ -601,7 +601,7 @@ where
 	/// in the task before being polled once. So, it is required to call
 	/// [`SyncingEngine::poll_block_announce_validation`] to ensure that the future is
 	/// registered properly and will wake up the task when being ready.
-	pub fn push_block_announce_validation(
+	fn push_block_announce_validation(
 		&mut self,
 		who: PeerId,
 		announce: BlockAnnounce<B::Header>,
