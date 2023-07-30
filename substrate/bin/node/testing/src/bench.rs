@@ -459,12 +459,12 @@ impl BenchDb {
 		let mut block = client.new_block(Default::default()).expect("Block creation failed");
 
 		for extrinsic in self.generate_inherents(&client) {
-			block.push(extrinsic).expect("Push inherent failed");
+			block.push(extrinsic, None).expect("Push inherent failed");
 		}
 
 		let start = std::time::Instant::now();
 		for opaque in self.block_content(content, &client) {
-			match block.push(opaque) {
+			match block.push(opaque, None) {
 				Err(sp_blockchain::Error::ApplyExtrinsicFailed(
 					sp_blockchain::ApplyExtrinsicFailed::Validity(e),
 				)) if e.exhausted_resources() => break,

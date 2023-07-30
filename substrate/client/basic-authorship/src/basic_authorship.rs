@@ -84,6 +84,11 @@ pub struct ProposerFactory<A, B, C, PR> {
 	telemetry: Option<TelemetryHandle>,
 	/// When estimating the block size, should the proof be included?
 	include_proof_in_block_size_estimation: bool,
+	/// Ensure that an extrinsic execution cannot increase the size of the proof above the limit.
+	/// This check is **not** done by default because it represents additional costs for the node
+	/// who produces the block (requires to be able to rollback the recording of the proof if
+	/// needed).
+	ensure_proof_size_limit_after_each_extrinsic: bool,
 	/// phantom member to pin the `Backend`/`ProofRecording` type.
 	_phantom: PhantomData<(B, PR)>,
 }
@@ -109,6 +114,7 @@ impl<A, B, C> ProposerFactory<A, B, C, DisableProofRecording> {
 			telemetry,
 			client,
 			include_proof_in_block_size_estimation: false,
+			ensure_proof_size_limit_after_each_extrinsic: false,
 			_phantom: PhantomData,
 		}
 	}
@@ -137,6 +143,7 @@ impl<A, B, C> ProposerFactory<A, B, C, EnableProofRecording> {
 			soft_deadline_percent: DEFAULT_SOFT_DEADLINE_PERCENT,
 			telemetry,
 			include_proof_in_block_size_estimation: true,
+			ensure_proof_size_limit_after_each_extrinsic: false,
 			_phantom: PhantomData,
 		}
 	}
@@ -144,6 +151,11 @@ impl<A, B, C> ProposerFactory<A, B, C, EnableProofRecording> {
 	/// Disable the proof inclusion when estimating the block size.
 	pub fn disable_proof_in_block_size_estimation(&mut self) {
 		self.include_proof_in_block_size_estimation = false;
+	}
+
+	/// Enable an additional check after each extrinsic that ensure the proof size limit.
+	pub fn enable_ensure_proof_size_limit_after_each_extrinsic(&mut self) {
+		self.ensure_proof_size_limit_after_each_extrinsic = true;
 	}
 }
 
@@ -211,6 +223,8 @@ where
 			telemetry: self.telemetry.clone(),
 			_phantom: PhantomData,
 			include_proof_in_block_size_estimation: self.include_proof_in_block_size_estimation,
+			ensure_proof_size_limit_after_each_extrinsic: self
+				.ensure_proof_size_limit_after_each_extrinsic,
 		};
 
 		proposer
@@ -251,6 +265,7 @@ pub struct Proposer<B, Block: BlockT, C, A: TransactionPool, PR> {
 	metrics: PrometheusMetrics,
 	default_block_size_limit: usize,
 	include_proof_in_block_size_estimation: bool,
+	ensure_proof_size_limit_after_each_extrinsic: bool,
 	soft_deadline_percent: Percent,
 	telemetry: Option<TelemetryHandle>,
 	_phantom: PhantomData<(B, PR)>,
@@ -374,8 +389,11 @@ where
 			);
 		});
 
+
+		let block_size_limit = block_size_limit.unwrap_or(self.default_block_size_limit);
+
 		for inherent in inherents {
-			match block_builder.push(inherent) {
+			match block_builder.push(inherent, None) {
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
 					warn!(
 						target: LOG_TARGET,
@@ -461,7 +479,46 @@ where
 
 			let block_size =
 				block_builder.estimate_block_size(self.include_proof_in_block_size_estimation);
-			if block_size + pending_tx_data.encoded_size() > block_size_limit {
+			if let Some(remaining_size) =
+				block_size_limit.checked_sub(block_size + pending_tx_data.encoded_size())
+			{
+				// There is enough space left in the block, we push the transaction
+				trace!("[{:?}] Pushing to the block.", pending_tx_hash);
+				match sc_block_builder::BlockBuilder::push(
+					&mut block_builder,
+					pending_tx_data,
+					self.ensure_proof_size_limit_after_each_extrinsic.then(|| remaining_size),
+				) {
+					Ok(()) => {
+						transaction_pushed = true;
+						debug!("[{:?}] Pushed to the block.", pending_tx_hash);
+					},
+					Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
+						pending_iterator.report_invalid(&pending_tx);
+						if skipped < MAX_SKIPPED_TRANSACTIONS {
+							skipped += 1;
+							debug!(
+								"Block seems full, but will try {} more transactions before quitting.",
+								MAX_SKIPPED_TRANSACTIONS - skipped,
+							);
+						} else if (self.now)() < soft_deadline {
+							debug!(
+								"Block seems full, but we still have time before the soft deadline, \
+								 so we will try a bit more before quitting."
+							);
+						} else {
+							debug!("Reached block weight limit, proceeding with proposing.");
+							break EndProposingReason::HitBlockWeightLimit
+						}
+					},
+					Err(e) => {
+						pending_iterator.report_invalid(&pending_tx);
+						debug!("[{:?}] Invalid transaction: {}", pending_tx_hash, e);
+						unqueue_invalid.push(pending_tx_hash);
+					},
+				}
+			} else {
+				// There is not enough space left in the block for this transaction
 				pending_iterator.report_invalid(&pending_tx);
 				if skipped < MAX_SKIPPED_TRANSACTIONS {
 					skipped += 1;

@@ -471,7 +471,7 @@ where
 						amount: 1,
 						nonce,
 					};
-					builder.push(transfer.into_unchecked_extrinsic()).unwrap();
+					builder.push(transfer.into_unchecked_extrinsic(), None).unwrap();
 					nonce += 1;
 					builder.build().unwrap().block
 				},
