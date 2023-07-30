@@ -81,8 +81,8 @@ fn benchmark_block_production_compute(c: &mut Criterion) {
 							.enable_proof_recording()
 							.build()
 							.unwrap();
-						block_builder.push(validation_data).unwrap();
-						block_builder.push(time).unwrap();
+						block_builder.push(validation_data, None).unwrap();
+						block_builder.push(time, None).unwrap();
 						block_builder.build().unwrap()
 					},
 					BatchSize::SmallInput,
@@ -105,8 +105,8 @@ fn benchmark_block_production_compute(c: &mut Criterion) {
 							.with_parent_block_number(best_number)
 							.build()
 							.unwrap();
-						block_builder.push(validation_data).unwrap();
-						block_builder.push(time).unwrap();
+						block_builder.push(validation_data, None).unwrap();
+						block_builder.push(time, None).unwrap();
 						block_builder.build().unwrap()
 					},
 					BatchSize::SmallInput,

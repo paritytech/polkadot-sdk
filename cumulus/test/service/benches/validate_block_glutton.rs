@@ -202,7 +202,7 @@ fn set_glutton_parameters(
 		client.init_block_builder(Some(validation_data), Default::default());
 
 	for extrinsic in extrinsics {
-		block_builder.push(extrinsic).unwrap();
+		block_builder.push(extrinsic, None).unwrap();
 	}
 
 	block_builder.build_parachain_block(*parent_header.state_root())

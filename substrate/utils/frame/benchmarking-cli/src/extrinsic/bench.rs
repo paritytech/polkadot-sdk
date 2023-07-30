@@ -139,7 +139,7 @@ where
 		// Create and insert the inherents.
 		let inherents = builder.create_inherents(self.inherent_data.clone())?;
 		for inherent in inherents {
-			builder.push(inherent)?;
+			builder.push(inherent, None)?;
 		}
 
 		// Return early if `ext_builder` is `None`.
@@ -154,7 +154,7 @@ where
 		let mut num_ext = 0;
 		for nonce in 0..self.max_ext_per_block() {
 			let ext = ext_builder.build(nonce)?;
-			match builder.push(ext.clone()) {
+			match builder.push(ext.clone(), None) {
 				Ok(()) => {},
 				Err(ApplyExtrinsicFailed(Validity(TransactionValidityError::Invalid(
 					InvalidTransaction::ExhaustsResources,

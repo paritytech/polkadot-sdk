@@ -55,8 +55,8 @@ fn benchmark_block_production(c: &mut Criterion) {
 		.with_parent_block_number(client.chain_info().best_number)
 		.build()
 		.unwrap();
-	block_builder.push(utils::extrinsic_set_time(&client)).unwrap();
-	block_builder.push(set_validation_data_extrinsic).unwrap();
+	block_builder.push(utils::extrinsic_set_time(&client), None).unwrap();
+	block_builder.push(set_validation_data_extrinsic, None).unwrap();
 	let built_block = block_builder.build().unwrap();
 
 	runtime.block_on(utils::import_block(&client, &built_block.block, false));
@@ -86,7 +86,7 @@ fn benchmark_block_production(c: &mut Criterion) {
 						.unwrap();
 
 					for extrinsic in extrinsics {
-						block_builder.push(extrinsic).unwrap();
+						block_builder.push(extrinsic, None).unwrap();
 					}
 					block_builder.build().unwrap()
 				},
@@ -108,7 +108,7 @@ fn benchmark_block_production(c: &mut Criterion) {
 						.unwrap();
 
 					for extrinsic in extrinsics {
-						block_builder.push(extrinsic).unwrap();
+						block_builder.push(extrinsic, None).unwrap();
 					}
 					block_builder.build().unwrap()
 				},

@@ -1017,7 +1017,7 @@ fn import_notification_to_pool_maintain_works() {
 		.with_parent_block_number(0)
 		.build()
 		.unwrap();
-	block_builder.push(xt).unwrap();
+	block_builder.push(xt, None).unwrap();
 	let block = block_builder.build().unwrap().block;
 	block_on(client.import(BlockOrigin::Own, block)).unwrap();
 

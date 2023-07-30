@@ -125,7 +125,7 @@ impl InitPolkadotBlockBuilder for Client {
 
 		inherents
 			.into_iter()
-			.for_each(|ext| block_builder.push(ext).expect("Pushes inherent"));
+			.for_each(|ext| block_builder.push(ext, None).expect("Pushes inherent"));
 
 		block_builder
 	}
@@ -156,6 +156,7 @@ impl BlockBuilderExt for BlockBuilder<'_, Block, Client> {
 			Decode::decode(&mut &encoded[..]).expect(
 				"The runtime specific extrinsic always decodes to an opaque extrinsic; qed",
 			),
+			None,
 		)
 	}
 }
