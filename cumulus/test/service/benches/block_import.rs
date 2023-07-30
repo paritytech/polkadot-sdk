@@ -67,7 +67,7 @@ fn benchmark_block_import(c: &mut Criterion) {
 			.build()
 			.unwrap();
 		for extrinsic in extrinsics {
-			block_builder.push(extrinsic).unwrap();
+			block_builder.push(extrinsic, None).unwrap();
 		}
 		let benchmark_block = block_builder.build().unwrap();
 

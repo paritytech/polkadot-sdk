@@ -37,6 +37,7 @@ use sp_core::traits::CallContext;
 use sp_runtime::{
 	legacy,
 	traits::{Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One},
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	Digest, ExtrinsicInclusionMode,
 };
 use std::marker::PhantomData;
@@ -281,10 +282,18 @@ where
 	/// Push onto the block's list of extrinsics.
 	///
 	/// This will ensure the extrinsic can be validly executed (by executing it).
-	pub fn push(&mut self, xt: <Block as BlockT>::Extrinsic) -> Result<(), Error> {
+	/// If `remaining_size_for_proof` is provided, this function will ensure that the execution
+	/// of this extrinsic will not accrue the proof size more than the provided remaining size.
+	pub fn push(
+		&mut self,
+		xt: <Block as BlockT>::Extrinsic,
+		remaining_size_for_proof: Option<usize>,
+	) -> Result<(), Error> {
 		let parent_hash = self.parent_hash;
 		let extrinsics = &mut self.extrinsics;
 		let version = self.version;
+		let estimate_proof_size_before = self
+			.api.proof_recorder().map(|pr| pr.estimate_encoded_size()).unwrap_or(0);
 
 		self.api.execute_in_transaction(|api| {
 			let res = if version < 6 {
@@ -297,6 +306,27 @@ where
 
 			match res {
 				Ok(Ok(_)) => {
+					// Verify that the transaction execution was not exhaust the proof size limit
+					if let Some(remaining_size_for_proof) = remaining_size_for_proof {
+						let estimate_proof_size_after =
+							api.proof_recorder().map(|pr| pr.estimate_encoded_size()).unwrap_or(0);
+						let estimate_proof_inflation = estimate_proof_size_after
+							.saturating_sub(estimate_proof_size_before);
+
+						if estimate_proof_inflation > remaining_size_for_proof {
+							// The execution of the transaction results in exceeding the limits,
+							// we should rollback and return the error
+							// `InvalidTransaction::ExhaustsResources`.
+							return TransactionOutcome::Rollback(Err(
+								ApplyExtrinsicFailed::Validity(TransactionValidityError::Invalid(
+									InvalidTransaction::ExhaustsResources,
+								))
+								.into(),
+							))
+						}
+					}
+					// The transaction is effectively committed only if the result of its execution
+					// does not exceed the limits
 					extrinsics.push(xt);
 					TransactionOutcome::Commit(Ok(()))
 				},
@@ -424,7 +454,7 @@ mod tests {
 			.build()
 			.unwrap();
 
-		block_builder.push(ExtrinsicBuilder::new_read_and_panic(8).build()).unwrap_err();
+		block_builder.push(ExtrinsicBuilder::new_read_and_panic(8).build(), None).unwrap_err();
 
 		let block = block_builder.build().unwrap();
 
@@ -437,7 +467,7 @@ mod tests {
 			.build()
 			.unwrap();
 
-		block_builder.push(ExtrinsicBuilder::new_read(8).build()).unwrap();
+		block_builder.push(ExtrinsicBuilder::new_read(8).build(), None).unwrap();
 
 		let block = block_builder.build().unwrap();
 

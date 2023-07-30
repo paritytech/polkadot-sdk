@@ -82,6 +82,11 @@ pub struct ProposerFactory<A, C, PR> {
 	telemetry: Option<TelemetryHandle>,
 	/// When estimating the block size, should the proof be included?
 	include_proof_in_block_size_estimation: bool,
+	/// Ensure that an extrinsic execution cannot increase the size of the proof above the limit.
+	/// This check is **not** done by default because it represents additional costs for the node
+	/// who produces the block (requires to be able to rollback the recording of the proof if
+	/// needed).
+	ensure_proof_size_limit_after_each_extrinsic: bool,
 	/// phantom member to pin the `ProofRecording` type.
 	_phantom: PhantomData<PR>,
 }
@@ -97,6 +102,8 @@ impl<A, C, PR> Clone for ProposerFactory<A, C, PR> {
 			soft_deadline_percent: self.soft_deadline_percent,
 			telemetry: self.telemetry.clone(),
 			include_proof_in_block_size_estimation: self.include_proof_in_block_size_estimation,
+			ensure_proof_size_limit_after_each_extrinsic: self
+				.include_proof_in_block_size_estimation,
 			_phantom: self._phantom,
 		}
 	}
@@ -123,6 +130,7 @@ impl<A, C> ProposerFactory<A, C, DisableProofRecording> {
 			telemetry,
 			client,
 			include_proof_in_block_size_estimation: false,
+			ensure_proof_size_limit_after_each_extrinsic: false,
 			_phantom: PhantomData,
 		}
 	}
@@ -151,6 +159,7 @@ impl<A, C> ProposerFactory<A, C, EnableProofRecording> {
 			soft_deadline_percent: DEFAULT_SOFT_DEADLINE_PERCENT,
 			telemetry,
 			include_proof_in_block_size_estimation: true,
+			ensure_proof_size_limit_after_each_extrinsic: false,
 			_phantom: PhantomData,
 		}
 	}
@@ -158,6 +167,11 @@ impl<A, C> ProposerFactory<A, C, EnableProofRecording> {
 	/// Disable the proof inclusion when estimating the block size.
 	pub fn disable_proof_in_block_size_estimation(&mut self) {
 		self.include_proof_in_block_size_estimation = false;
+	}
+
+	/// Enable an additional check after each extrinsic that ensure the proof size limit.
+	pub fn enable_ensure_proof_size_limit_after_each_extrinsic(&mut self) {
+		self.ensure_proof_size_limit_after_each_extrinsic = true;
 	}
 }
 
@@ -223,6 +237,8 @@ where
 			telemetry: self.telemetry.clone(),
 			_phantom: PhantomData,
 			include_proof_in_block_size_estimation: self.include_proof_in_block_size_estimation,
+			ensure_proof_size_limit_after_each_extrinsic: self
+				.ensure_proof_size_limit_after_each_extrinsic,
 		};
 
 		proposer
@@ -257,6 +273,7 @@ pub struct Proposer<Block: BlockT, C, A: TransactionPool, PR> {
 	metrics: PrometheusMetrics,
 	default_block_size_limit: usize,
 	include_proof_in_block_size_estimation: bool,
+	ensure_proof_size_limit_after_each_extrinsic: bool,
 	soft_deadline_percent: Percent,
 	telemetry: Option<TelemetryHandle>,
 	_phantom: PhantomData<PR>,
@@ -340,8 +357,9 @@ where
 
 		let mode = block_builder.extrinsic_inclusion_mode();
 		let end_reason = match mode {
-			ExtrinsicInclusionMode::AllExtrinsics =>
-				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?,
+			ExtrinsicInclusionMode::AllExtrinsics => {
+				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?
+			},
 			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::TransactionForbidden,
 		};
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
@@ -373,7 +391,7 @@ where
 		});
 
 		for inherent in inherents {
-			match block_builder.push(inherent) {
+			match block_builder.push(inherent, None) {
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
 					warn!(
 						target: LOG_TARGET,
@@ -384,7 +402,7 @@ where
 					error!(
 						"❌️ Mandatory inherent extrinsic returned error. Block cannot be produced."
 					);
-					return Err(ApplyExtrinsicFailed(Validity(e)))
+					return Err(ApplyExtrinsicFailed(Validity(e)));
 				},
 				Err(e) => {
 					warn!(
@@ -433,7 +451,7 @@ where
 					"No more transactions, proceeding with proposing."
 				);
 
-				break EndProposingReason::NoMoreTransactions
+				break EndProposingReason::NoMoreTransactions;
 			};
 
 			let now = (self.now)();
@@ -443,7 +461,7 @@ where
 					"Consensus deadline reached when pushing block transactions, \
 				proceeding with proposing."
 				);
-				break EndProposingReason::HitDeadline
+				break EndProposingReason::HitDeadline;
 			}
 
 			let pending_tx_data = (**pending_tx.data()).clone();
@@ -451,7 +469,49 @@ where
 
 			let block_size =
 				block_builder.estimate_block_size(self.include_proof_in_block_size_estimation);
-			if block_size + pending_tx_data.encoded_size() > block_size_limit {
+			if let Some(remaining_size) =
+				block_size_limit.checked_sub(block_size + pending_tx_data.encoded_size())
+			{
+				// There is enough space left in the block, we push the transaction
+				trace!("[{:?}] Pushing to the block.", pending_tx_hash);
+				match sc_block_builder::BlockBuilder::push(
+					block_builder,
+					pending_tx_data.clone(),
+					self.ensure_proof_size_limit_after_each_extrinsic.then(|| remaining_size),
+				) {
+					Ok(()) => {
+						transaction_pushed = true;
+						debug!("[{:?}] Pushed to the block.", pending_tx_hash);
+					},
+					Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
+						pending_iterator.report_invalid(&pending_tx);
+						if skipped < MAX_SKIPPED_TRANSACTIONS {
+							skipped += 1;
+							debug!(
+								"Block seems full, but will try {} more transactions before quitting.",
+								MAX_SKIPPED_TRANSACTIONS - skipped,
+							);
+						} else if (self.now)() < soft_deadline {
+							debug!(
+								"Block seems full, but we still have time before the soft deadline, \
+								 so we will try a bit more before quitting."
+							);
+						} else {
+							debug!("Reached block weight limit, proceeding with proposing.");
+							break EndProposingReason::HitBlockWeightLimit;
+						}
+					},
+					Err(e) => {
+						pending_iterator.report_invalid(&pending_tx);
+						debug!(
+							"[{:?}] Invalid transaction: {} at: {}",
+							pending_tx_hash, e, self.parent_hash
+						);
+						unqueue_invalid.push(pending_tx_hash.clone());
+					},
+				}
+			} else {
+				// There is not enough space left in the block for this transaction
 				pending_iterator.report_invalid(&pending_tx);
 				if skipped < MAX_SKIPPED_TRANSACTIONS {
 					skipped += 1;
@@ -461,7 +521,7 @@ where
 					 but will try {} more transactions before quitting.",
 						MAX_SKIPPED_TRANSACTIONS - skipped,
 					);
-					continue
+					continue;
 				} else if now < soft_deadline {
 					debug!(
 						target: LOG_TARGET,
@@ -469,51 +529,14 @@ where
 					 but we still have time before the soft deadline, so \
 					 we will try a bit more."
 					);
-					continue
+					continue;
 				} else {
 					debug!(
 						target: LOG_TARGET,
 						"Reached block size limit, proceeding with proposing."
 					);
-					break EndProposingReason::HitBlockSizeLimit
+					break EndProposingReason::HitBlockSizeLimit;
 				}
-			}
-
-			trace!(target: LOG_TARGET, "[{:?}] Pushing to the block.", pending_tx_hash);
-			match sc_block_builder::BlockBuilder::push(block_builder, pending_tx_data) {
-				Ok(()) => {
-					transaction_pushed = true;
-					debug!(target: LOG_TARGET, "[{:?}] Pushed to the block.", pending_tx_hash);
-				},
-				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
-					pending_iterator.report_invalid(&pending_tx);
-					if skipped < MAX_SKIPPED_TRANSACTIONS {
-						skipped += 1;
-						debug!(target: LOG_TARGET,
-							"Block seems full, but will try {} more transactions before quitting.",
-							MAX_SKIPPED_TRANSACTIONS - skipped,
-						);
-					} else if (self.now)() < soft_deadline {
-						debug!(target: LOG_TARGET,
-							"Block seems full, but we still have time before the soft deadline, \
-							 so we will try a bit more before quitting."
-						);
-					} else {
-						debug!(
-							target: LOG_TARGET,
-							"Reached block weight limit, proceeding with proposing."
-						);
-						break EndProposingReason::HitBlockWeightLimit
-					}
-				},
-				Err(e) => {
-					pending_iterator.report_invalid(&pending_tx);
-					debug!(
-						target: LOG_TARGET,
-						"[{:?}] Invalid transaction: {} at: {}", pending_tx_hash, e, self.parent_hash
-					);
-					unqueue_invalid.push(pending_tx_hash);
-				},
 			}
 		};
 
@@ -668,7 +691,7 @@ mod tests {
 				let mut value = cell.lock();
 				if !value.0 {
 					value.0 = true;
-					return value.1
+					return value.1;
 				}
 				let old = value.1;
 				let new = old + time::Duration::from_secs(1);
@@ -712,7 +735,7 @@ mod tests {
 				let mut value = cell.lock();
 				if !value.0 {
 					value.0 = true;
-					return value.1
+					return value.1;
 				}
 				let new = value.1 + time::Duration::from_secs(160);
 				*value = (true, new);
@@ -918,13 +941,13 @@ mod tests {
 		.chain((1..extrinsics_num as u64).map(extrinsic))
 		.collect::<Vec<_>>();
 
-		let block_limit = genesis_header.encoded_size() +
-			extrinsics
+		let block_limit = genesis_header.encoded_size()
+			+ extrinsics
 				.iter()
 				.take(extrinsics_num - 1)
 				.map(Encode::encoded_size)
-				.sum::<usize>() +
-			Vec::<Extrinsic>::new().encoded_size();
+				.sum::<usize>()
+			+ Vec::<Extrinsic>::new().encoded_size();
 
 		block_on(txpool.submit_at(genesis_hash, SOURCE, extrinsics.clone())).unwrap();
 

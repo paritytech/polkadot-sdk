@@ -147,7 +147,7 @@ where
 		// Create and insert the inherents.
 		let inherents = builder.create_inherents(self.inherent_data.clone())?;
 		for inherent in inherents {
-			builder.push(inherent)?;
+			builder.push(inherent, None)?;
 		}
 
 		let num_ext = match ext_builder {
@@ -157,7 +157,7 @@ where
 				let mut num_ext = 0;
 				for nonce in 0..self.max_ext_per_block() {
 					let ext = ext_builder.build(nonce)?;
-					match builder.push(ext.clone()) {
+					match builder.push(ext.clone(), None) {
 						Ok(()) => {},
 						Err(ApplyExtrinsicFailed(Validity(TransactionValidityError::Invalid(
 							InvalidTransaction::ExhaustsResources,
@@ -167,7 +167,7 @@ where
 					num_ext += 1;
 				}
 				if num_ext == 0 {
-					return Err("A Block must hold at least one extrinsic".into())
+					return Err("A Block must hold at least one extrinsic".into());
 				}
 				info!("Extrinsics per block: {}", num_ext);
 				Some(num_ext)

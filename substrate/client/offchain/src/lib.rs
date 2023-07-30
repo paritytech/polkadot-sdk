@@ -498,7 +498,7 @@ mod tests {
 			.build()
 			.unwrap();
 		let ext = ExtrinsicBuilder::new_offchain_index_set(key.to_vec(), value.to_vec()).build();
-		block_builder.push(ext).unwrap();
+		block_builder.push(ext, None).unwrap();
 
 		let block = block_builder.build().unwrap().block;
 		block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
@@ -511,7 +511,7 @@ mod tests {
 			.build()
 			.unwrap();
 		let ext = ExtrinsicBuilder::new_offchain_index_clear(key.to_vec()).nonce(1).build();
-		block_builder.push(ext).unwrap();
+		block_builder.push(ext, None).unwrap();
 
 		let block = block_builder.build().unwrap().block;
 		block_on(client.import(BlockOrigin::Own, block)).unwrap();

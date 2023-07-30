@@ -150,7 +150,7 @@ fn prepare_benchmark(client: &FullClient) -> (usize, Vec<OpaqueExtrinsic>) {
 
 	// Every block needs one timestamp extrinsic.
 	let extrinsic_set_time = extrinsic_set_time(1 + MINIMUM_PERIOD_FOR_BLOCKS);
-	block_builder.push(extrinsic_set_time.clone()).unwrap();
+	block_builder.push(extrinsic_set_time.clone(), None).unwrap();
 	extrinsics.push(extrinsic_set_time);
 
 	// Creating those is surprisingly costly, so let's only do it once and later just `clone` them.
@@ -167,7 +167,7 @@ fn prepare_benchmark(client: &FullClient) -> (usize, Vec<OpaqueExtrinsic>) {
 		)
 		.into();
 
-		match block_builder.push(extrinsic.clone()) {
+		match block_builder.push(extrinsic.clone(), None) {
 			Ok(_) => {},
 			Err(ApplyExtrinsicFailed(Validity(TransactionValidityError::Invalid(
 				InvalidTransaction::ExhaustsResources,
@@ -198,7 +198,7 @@ fn block_production(c: &mut Criterion) {
 		.with_parent_block_number(client.chain_info().best_number)
 		.build()
 		.unwrap();
-	block_builder.push(extrinsic_set_time(1)).unwrap();
+	block_builder.push(extrinsic_set_time(1), None).unwrap();
 	import_block(client, block_builder.build().unwrap());
 
 	let (max_transfer_count, extrinsics) = prepare_benchmark(&client);
@@ -223,7 +223,7 @@ fn block_production(c: &mut Criterion) {
 					.build()
 					.unwrap();
 				for extrinsic in extrinsics {
-					block_builder.push(extrinsic).unwrap();
+					block_builder.push(extrinsic, None).unwrap();
 				}
 				block_builder.build().unwrap()
 			},
@@ -241,7 +241,7 @@ fn block_production(c: &mut Criterion) {
 					.build()
 					.unwrap();
 				for extrinsic in extrinsics {
-					block_builder.push(extrinsic).unwrap();
+					block_builder.push(extrinsic, None).unwrap();
 				}
 				block_builder.build().unwrap()
 			},

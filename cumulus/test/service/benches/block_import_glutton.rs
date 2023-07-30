@@ -83,7 +83,7 @@ fn benchmark_block_import(c: &mut Criterion) {
 		block_builder
 			.push(utils::extrinsic_set_validation_data(parent_header.clone()).clone())
 			.unwrap();
-		block_builder.push(utils::extrinsic_set_time(&client)).unwrap();
+		block_builder.push(utils::extrinsic_set_time(&client), None).unwrap();
 		let benchmark_block = block_builder.build().unwrap();
 
 		group.bench_function(
