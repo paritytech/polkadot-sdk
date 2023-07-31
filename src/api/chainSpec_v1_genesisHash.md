@@ -1,4 +1,4 @@
-# chainSpec_unstable_genesisHash
+# chainSpec_v1_genesisHash
 
 **Parameters**: *none*
 
