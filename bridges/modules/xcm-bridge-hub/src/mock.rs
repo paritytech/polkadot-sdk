@@ -22,11 +22,12 @@ use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
 	ChainWithMessages, LaneId, MessageNonce,
 };
-use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId};
+use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, HashOf};
+use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager};
 use codec::Encode;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
-	traits::{Everything, Get, NeverEnsureOrigin},
+	traits::{Everything, NeverEnsureOrigin},
 	weights::RuntimeDbWeight,
 };
 use sp_core::H256;
@@ -88,16 +89,18 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = TestMessagesWeights;
 
+	type ThisChain = ThisUnderlyingChain;
+	type BridgedChain = BridgedUnderlyingChain;
+	type BridgedHeaderChain = BridgedHeaderChain;
+
 	type OutboundPayload = Vec<u8>;
 	type InboundPayload = Vec<u8>;
+
 	type DeliveryPayments = ();
 	type DeliveryConfirmationPayments = ();
 	type OnMessagesDelivered = ();
-	type MessageDispatch = TestMessageDispatch;
 
-	type ThisChain = ThisUnderlyingChain;
-	type BridgedChain = BridgedUnderlyingChain;
-	type BridgedHeaderChain = ();
+	type MessageDispatch = TestMessageDispatch;
 }
 
 pub struct TestMessagesWeights;
@@ -124,8 +127,8 @@ impl pallet_bridge_messages::WeightInfo for TestMessagesWeights {
 	fn receive_delivery_proof_for_two_messages_by_two_relayers() -> Weight {
 		Weight::zero()
 	}
-	fn receive_single_n_bytes_message_proof_with_dispatch(_: u32) -> Weight {
-		Weight::zero()
+	fn receive_single_n_bytes_message_proof_with_dispatch(_n: u32) -> Weight {
+		Weight::from_parts(1, 0)
 	}
 }
 
@@ -190,6 +193,8 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type BridgeReserve = BridgeDeposit;
 	type NativeCurrency = Balances;
 
+	type LocalXcmChannelManager = TestLocalXcmChannelManager;
+
 	type BlobDispatcher = TestBlobDispatcher;
 }
 
@@ -197,17 +202,17 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type WeightInfo = ();
 
 	type UniversalLocation = UniversalLocation;
+	type SiblingBridgeHubLocation = BridgeHubLocation;
 	type BridgedNetworkId = BridgedRelayNetwork;
 	type Bridges = NetworkExportTable<BridgeTable>;
 	type DestinationVersion = AlwaysLatest;
 
 	type BridgeHubOrigin = NeverEnsureOrigin<AccountId>;
 	type ToBridgeHubSender = TestExportXcmWithXcmOverBridge;
+	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
 	type ByteFee = ConstU128<0>;
 	type FeeAsset = BridgeFeeAsset;
-
-	type WithBridgeHubChannel = ();
 }
 
 pub struct XcmConfig;
@@ -374,10 +379,51 @@ impl EnsureOrigin<RuntimeOrigin> for OpenBridgeOrigin {
 	}
 }
 
+pub struct TestLocalXcmChannelManager;
+
+impl TestLocalXcmChannelManager {
+	pub fn make_congested() {
+		frame_support::storage::unhashed::put(b"TestLocalXcmChannelManager.Congested", &true);
+	}
+
+	pub fn is_bridge_suspened() -> bool {
+		frame_support::storage::unhashed::get_or_default(b"TestLocalXcmChannelManager.Suspended")
+	}
+
+	pub fn is_bridge_resumed() -> bool {
+		frame_support::storage::unhashed::get_or_default(b"TestLocalXcmChannelManager.Resumed")
+	}
+}
+
+impl LocalXcmChannelManager for TestLocalXcmChannelManager {
+	type Error = ();
+
+	fn is_congested(_with: &Location) -> bool {
+		frame_support::storage::unhashed::get_or_default(b"TestLocalXcmChannelManager.Congested")
+	}
+
+	fn suspend_bridge(_local_origin: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
+		frame_support::storage::unhashed::put(b"TestLocalXcmChannelManager.Suspended", &true);
+		Ok(())
+	}
+
+	fn resume_bridge(_local_origin: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
+		frame_support::storage::unhashed::put(b"TestLocalXcmChannelManager.Resumed", &true);
+		Ok(())
+	}
+}
+
 pub struct TestBlobDispatcher;
+
+impl TestBlobDispatcher {
+	pub fn is_dispatched() -> bool {
+		frame_support::storage::unhashed::get_or_default(b"TestBlobDispatcher.Dispatched")
+	}
+}
 
 impl DispatchBlob for TestBlobDispatcher {
 	fn dispatch_blob(_blob: Vec<u8>) -> Result<(), DispatchBlobError> {
+		frame_support::storage::unhashed::put(b"TestBlobDispatcher.Dispatched", &true);
 		Ok(())
 	}
 }
@@ -445,6 +491,15 @@ impl ChainWithMessages for BridgedUnderlyingChain {
 	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 128;
 }
 
+pub struct BridgedHeaderChain;
+impl bp_header_chain::HeaderChain<BridgedUnderlyingChain> for BridgedHeaderChain {
+	fn finalized_header_state_root(
+		_hash: HashOf<BridgedUnderlyingChain>,
+	) -> Option<HashOf<BridgedUnderlyingChain>> {
+		unreachable!()
+	}
+}
+
 /// Test message dispatcher.
 pub struct TestMessageDispatch;
 
@@ -458,8 +513,9 @@ impl MessageDispatch for TestMessageDispatch {
 	type DispatchPayload = Vec<u8>;
 	type DispatchLevelResult = ();
 
-	fn is_active() -> bool {
-		frame_support::storage::unhashed::take::<bool>(&(b"inactive").encode()[..]) != Some(false)
+	fn is_active(lane: LaneId) -> bool {
+		frame_support::storage::unhashed::take::<bool>(&(b"inactive", lane).encode()[..]) !=
+			Some(false)
 	}
 
 	fn dispatch_weight(_message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {

@@ -302,7 +302,8 @@ impl<
 				return sp_runtime::transaction_validity::InvalidTransaction::Call.into()
 			},
 			Some(CallInfo::ReceiveMessagesProof(proof_info))
-				if proof_info.is_obsolete(T::MessageDispatch::is_active()) =>
+				if proof_info
+					.is_obsolete(T::MessageDispatch::is_active(proof_info.base.lane_id)) =>
 			{
 				log::trace!(
 					target: pallet_bridge_messages::LOG_TARGET,
@@ -486,12 +487,12 @@ mod tests {
 
 	#[test]
 	fn extension_reject_call_when_dispatcher_is_inactive() {
-		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+		run_test(|| {
 			// when current best delivered is message#10 and we're trying to deliver message 11..=15
 			// => tx is accepted, but we have inactive dispatcher, so...
 			deliver_message_10();
 
-			DummyMessageDispatch::deactivate();
+			DummyMessageDispatch::deactivate(test_lane_id());
 			assert!(!validate_message_delivery(11, 15));
 		});
 	}

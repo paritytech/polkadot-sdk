@@ -21,8 +21,8 @@ use crate::{
 };
 
 use bp_messages::{
-	ChainWithMessages, InboundLaneData, LaneId, LaneState, MessageKey, MessageNonce,
-	OutboundLaneData,
+	target_chain::MessageDispatch, ChainWithMessages, InboundLaneData, LaneId, LaneState,
+	MessageKey, MessageNonce, OutboundLaneData,
 };
 use bp_runtime::AccountIdOf;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -45,6 +45,9 @@ pub enum LanesManagerError {
 	ClosedInboundLane,
 	/// Outbound lane with given id is closed.
 	ClosedOutboundLane,
+	/// Message dispatcher is inactive at given inbound lane. This is logical equivalent
+	/// of the [`Self::ClosedInboundLane`] variant.
+	LaneDispatcherInactive,
 }
 
 /// Message lanes manager.
@@ -145,10 +148,32 @@ impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
 	) -> Result<RuntimeInboundLaneStorage<T, I>, LanesManagerError> {
 		let cached_data =
 			InboundLanes::<T, I>::get(lane_id).ok_or(LanesManagerError::UnknownInboundLane)?;
-		ensure!(
-			!check_active || cached_data.state.is_active(),
-			LanesManagerError::ClosedInboundLane
-		);
+
+		if check_active {
+			// check that the lane is not explicitly closed
+			ensure!(cached_data.state.is_active(), LanesManagerError::ClosedInboundLane);
+			// apart from the explicit closure, the lane may be unable to receive any messages.
+			// Right now we do an additional check here, but it may be done later (e.g. by
+			// explicitly closing the lane and reopening it from
+			// `pallet-xcm-bridge-hub::on-initialize`)
+			//
+			// The fact that we only check it here, means that the `MessageDispatch` may switch
+			// to inactive state during some message dispatch in the middle of message delivery
+			// transaction. But we treat result of `MessageDispatch::is_active()` as a hint, so
+			// we know that it won't drop messages - just it experiences problems with processing.
+			// This would allow us to check that in our signed extensions, and invalidate
+			// transaction early, thus avoiding losing honest relayers funds. This problem should
+			// gone with relayers coordination protocol.
+			//
+			// There's a limit on number of messages in the message delivery transaction, so even
+			// if we dispatch (enqueue) some additional messages, we'll know the maximal queue
+			// length;
+			ensure!(
+				T::MessageDispatch::is_active(lane_id),
+				LanesManagerError::LaneDispatcherInactive
+			);
+		}
+
 		Ok(RuntimeInboundLaneStorage {
 			lane_id,
 			cached_data: cached_data.into(),

@@ -18,16 +18,23 @@
 //! bridge messages dispatcher. Internally, it just forwards inbound blob to the
 //! XCM-level blob dispatcher, which pushes message to some other queue (e.g.
 //! to HRMP queue with the sibling target chain).
+//!
+//! This code is executed at the target bridge hub.
 
-use crate::{Config, Pallet, XcmAsPlainPayload, LOG_TARGET};
+use crate::{Config, Pallet, LOG_TARGET};
 
-use bp_messages::target_chain::{DispatchMessage, MessageDispatch};
+use bp_messages::{
+	target_chain::{DispatchMessage, MessageDispatch},
+	LaneId,
+};
 use bp_runtime::messages::MessageDispatchResult;
+use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager, XcmAsPlainPayload};
 use codec::{Decode, Encode};
 use frame_support::{weights::Weight, CloneNoBound, EqNoBound, PartialEqNoBound};
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, WeightInfoExt};
 use scale_info::TypeInfo;
 use sp_runtime::SaturatedConversion;
+use xcm::prelude::*;
 use xcm_builder::{DispatchBlob, DispatchBlobError};
 
 /// Message dispatch result type for single message.
@@ -52,8 +59,12 @@ where
 	type DispatchPayload = XcmAsPlainPayload;
 	type DispatchLevelResult = XcmBlobMessageDispatchResult;
 
-	fn is_active() -> bool {
-		true
+	fn is_active(lane: LaneId) -> bool {
+		let bridge_id = BridgeId::from_lane_id(lane);
+		Pallet::<T, I>::bridge(bridge_id)
+			.and_then(|bridge| bridge.bridge_origin_relative_location.try_as().cloned().ok())
+			.map(|recipient: Location| !T::LocalXcmChannelManager::is_congested(&recipient))
+			.unwrap_or(false)
 	}
 
 	fn dispatch_weight(message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {
@@ -103,5 +114,105 @@ where
 			},
 		};
 		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result }
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{mock::*, Bridges};
+
+	use bp_messages::{target_chain::DispatchMessageData, MessageKey};
+	use bp_xcm_bridge_hub::{Bridge, BridgeState};
+
+	fn bridge_id() -> BridgeId {
+		BridgeId::from_lane_id(LaneId::new(1, 2))
+	}
+
+	fn run_test_with_opened_bridge(test: impl FnOnce()) {
+		run_test(|| {
+			Bridges::<TestRuntime, ()>::insert(
+				bridge_id(),
+				Bridge {
+					bridge_origin_relative_location: Box::new(Location::new(0, Here).into()),
+					state: BridgeState::Opened,
+					bridge_owner_account: [0u8; 32].into(),
+					reserve: 0,
+				},
+			);
+
+			test();
+		});
+	}
+
+	fn invalid_message() -> DispatchMessage<Vec<u8>> {
+		DispatchMessage {
+			key: MessageKey { lane_id: LaneId::new(1, 2), nonce: 1 },
+			data: DispatchMessageData { payload: Err(codec::Error::from("test")) },
+		}
+	}
+
+	fn valid_message() -> DispatchMessage<Vec<u8>> {
+		DispatchMessage {
+			key: MessageKey { lane_id: LaneId::new(1, 2), nonce: 1 },
+			data: DispatchMessageData { payload: Ok(vec![42]) },
+		}
+	}
+
+	#[test]
+	fn dispatcher_is_inactive_when_channel_with_target_chain_is_congested() {
+		run_test_with_opened_bridge(|| {
+			TestLocalXcmChannelManager::make_congested();
+			assert!(!XcmOverBridge::is_active(bridge_id().lane_id()));
+		});
+	}
+
+	#[test]
+	fn dispatcher_is_active_when_channel_with_target_chain_is_not_congested() {
+		run_test_with_opened_bridge(|| {
+			assert!(XcmOverBridge::is_active(bridge_id().lane_id()));
+		});
+	}
+
+	#[test]
+	fn dispatch_weight_is_zero_if_we_have_failed_to_decode_message() {
+		run_test(|| {
+			assert_eq!(XcmOverBridge::dispatch_weight(&mut invalid_message()), Weight::zero());
+		});
+	}
+
+	#[test]
+	fn dispatch_weight_is_non_zero_if_we_have_decoded_message() {
+		run_test(|| {
+			assert_ne!(XcmOverBridge::dispatch_weight(&mut valid_message()), Weight::zero());
+		});
+	}
+
+	#[test]
+	fn message_is_not_dispatched_when_we_have_failed_to_decode_message() {
+		run_test(|| {
+			assert_eq!(
+				XcmOverBridge::dispatch(invalid_message()),
+				MessageDispatchResult {
+					unspent_weight: Weight::zero(),
+					dispatch_level_result: XcmBlobMessageDispatchResult::InvalidPayload,
+				},
+			);
+			assert!(!TestBlobDispatcher::is_dispatched());
+		});
+	}
+
+	#[test]
+	fn message_is_dispatched_when_we_have_decoded_message() {
+		run_test(|| {
+			assert_eq!(
+				XcmOverBridge::dispatch(valid_message()),
+				MessageDispatchResult {
+					unspent_weight: Weight::zero(),
+					dispatch_level_result: XcmBlobMessageDispatchResult::Dispatched,
+				},
+			);
+			assert!(TestBlobDispatcher::is_dispatched());
+		});
 	}
 }

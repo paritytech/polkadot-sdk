@@ -13,6 +13,7 @@ workspace = true
 [dependencies]
 codec = { features = ["derive"], default-features = false, workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+serde = { features = ["alloc", "derive"], workspace = true }
 
 # Bridge Dependencies
 bp-messages = { path = "../messages", default-features = false }
@@ -33,6 +34,7 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"scale-info/std",
+	"serde/std",
 	"sp-std/std",
 	"xcm/std",
 ]

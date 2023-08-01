@@ -103,7 +103,7 @@ pub trait MessageDispatch {
 	///
 	/// We check it in the messages delivery transaction prologue. So if it becomes `false`
 	/// after some portion of messages is already dispatched, it doesn't fail the whole transaction.
-	fn is_active() -> bool;
+	fn is_active(lane: LaneId) -> bool;
 
 	/// Estimate dispatch weight.
 	///
@@ -179,7 +179,7 @@ impl<DispatchPayload: Decode> MessageDispatch for ForbidInboundMessages<Dispatch
 	type DispatchPayload = DispatchPayload;
 	type DispatchLevelResult = ();
 
-	fn is_active() -> bool {
+	fn is_active(_: LaneId) -> bool {
 		false
 	}
 

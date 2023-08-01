@@ -37,6 +37,7 @@ xcm-executor = { workspace = true }
 pallet-balances = { workspace = true }
 sp-io = { workspace = true }
 bp-runtime = { features = ["test-helpers"], workspace = true }
+bp-header-chain = { workspace = true }
 pallet-xcm-bridge-hub-router = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 

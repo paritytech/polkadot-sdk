@@ -2012,6 +2012,7 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "scale-info",
+ "serde",
  "sp-std 14.0.0",
  "staging-xcm",
 ]
@@ -11993,6 +11994,7 @@ dependencies = [
 name = "pallet-xcm-bridge-hub"
 version = "0.2.0"
 dependencies = [
+ "bp-header-chain",
  "bp-messages",
  "bp-runtime",
  "bp-xcm-bridge-hub",
@@ -12018,6 +12020,7 @@ dependencies = [
 name = "pallet-xcm-bridge-hub-router"
 version = "0.5.0"
 dependencies = [
+ "bp-xcm-bridge-hub",
  "bp-xcm-bridge-hub-router",
  "frame-benchmarking",
  "frame-support",
