@@ -14,7 +14,6 @@ settings:
       alice_ss58: &acc_alice_ss58 '15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5'
       checking_account: &checking_account '13UVJyLnbVp9x5XDyJv8g8r3UddNwBrdaH7AADCmw9XQWvYW'
 
-
 tests:
   - name: Teleport assets from Relay Chain to Collectives Parachain successful.
     before:
@@ -131,7 +130,7 @@ tests:
                 - name: messageQueue.Processed
                   chain: *relay_chain
                   threshold: *weight_threshold
-                  result: { origin: { Ump: { Para: '1,001' } }, weightUsed: { refTime: '4,000,000,000', proofSize: '0' }, success: true }
+                  result: { origin: { Ump: { Para: *cp_id } }, weightUsed: { refTime: '4,000,000,000', proofSize: '0' }, success: true }
           - queries:
               balance_rc_alice_3:
                 chain: *relay_chain

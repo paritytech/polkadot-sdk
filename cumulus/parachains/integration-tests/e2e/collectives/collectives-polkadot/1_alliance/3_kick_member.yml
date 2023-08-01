@@ -43,10 +43,12 @@ tests:
               events:
                 - name: xcmPallet.Attempted
                   threshold: *weight_threshold
-                  result: [{ Complete: { refTime: '3,000,000,000', proofSize: 0 }}]
+                  result: {
+                    outcome: { Complete: { refTime: '3,000,000,000', proofSize: 0 }}
+                  }
                 - name: balances.Deposit
                   chain: *collectives_parachain
-                  result: { who:  *acc_alice_ss58 }
+                  result: { who: *acc_alice_ss58 }
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   threshold: *weight_threshold
@@ -78,9 +80,9 @@ tests:
               events:
                 - name: balances.Reserved
                   chain: *collectives_parachain
-                  result: { who:  *acc_alice_ss58, amount: '10,000,000,000,000' }
+                  result: { who: *acc_alice_ss58, amount: 10000000000000 }
                 - name: alliance.NewAllyJoined
-                  result: { ally:  *acc_alice_ss58 }
+                  result: {ally: *acc_alice_ss58, reserved: 10000000000000 }
           - queries:
               balance_cp_alice_after:
                 chain: *collectives_parachain
@@ -139,15 +141,18 @@ tests:
                 - name: sudo.Sudid
                   result: { sudoResult: Ok }
                 - name: xcmPallet.Sent
+                  result: { origin: { parents: 0, interior: Here }, destination: { parents: 0, interior: { X1: { Parachain: *cp_id }}}}
                 - name: alliance.MemberKicked
                   chain: *collectives_parachain
-                  result: { member: *acc_alice_ss58 }
+                  result: { member: *acc_alice_ss58, slashed: 10000000000000 }
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   threshold: *weight_threshold
                   result: {
                     outcome: { Complete: { refTime: '4,000,000,000', proofSize: '1,000,000' }}
                   }
+                - name: messageQueue.Processed
+                  result: { origin: { Ump: { Para: *cp_id }}, success: true }
 
           - queries:
               balance_rc_treasury_after:

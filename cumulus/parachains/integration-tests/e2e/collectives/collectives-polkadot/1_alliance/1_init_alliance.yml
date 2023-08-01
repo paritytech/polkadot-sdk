@@ -104,6 +104,7 @@ tests:
                 - name: sudo.Sudid
                   result: { sudoResult: Ok }
                 - name: xcmPallet.Sent
+                  result: { origin: { parents: 0, interior: Here }, destination: { parents: 0, interior: { X1: { Parachain: *coll_para_id }}}}
                 - name: alliance.MembersInitialized
                   chain: *collectives_parachain
                 - name: dmpQueue.ExecutedDownward
@@ -154,6 +155,7 @@ tests:
                 - name: sudo.Sudid
                   result: { sudoResult: Ok }
                 - name: xcmPallet.Sent
+                  result: { origin: { parents: 0, interior: Here }, destination: { parents: 0, interior: { X1: { Parachain: *coll_para_id }}}}
                 - name: dmpQueue.ExecutedDownward
                   chain: *collectives_parachain
                   threshold: *weight_threshold
@@ -198,6 +200,7 @@ tests:
                 - name: sudo.Sudid
                   result: { sudoResult: Ok }
                 - name: xcmPallet.Sent
+                  result: { origin: { parents: 0, interior: Here }, destination: { parents: 0, interior: { X1: { Parachain: *coll_para_id }}}}
                 - name: alliance.AllianceDisbanded
                   chain: *collectives_parachain
                   result: { fellowMembers: 6, allyMembers: 1, unreserved: 0 }
@@ -244,6 +247,7 @@ tests:
                 - name: sudo.Sudid
                   result: { sudoResult: Ok }
                 - name: xcmPallet.Sent
+                  result: { origin: { parents: 0, interior: Here }, destination: { parents: 0, interior: { X1: { Parachain: *coll_para_id }}}}
                 - name: alliance.MembersInitialized
                   chain: *collectives_parachain
                 - name: dmpQueue.ExecutedDownward
