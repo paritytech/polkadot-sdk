@@ -505,13 +505,6 @@ where
 	/// called later to check for finished validations. The result of the validation
 	/// needs to be passed to [`SyncingEngine::process_block_announce_validation_result`]
 	/// to finish the processing.
-	///
-	/// # Note
-	///
-	/// This will internally create a future, but this future will not be registered
-	/// in the task before being polled once. So, it is required to call
-	/// [`BlockAnnounceValidatorStream::poll_block_announce_validation`] to ensure that the future
-	/// is registered properly and will wake up the task when being ready.
 	pub fn push_block_announce_validation(
 		&mut self,
 		peer_id: PeerId,
@@ -756,14 +749,6 @@ where
 							if let Ok(announce) = BlockAnnounce::decode(&mut message.as_ref()) {
 								self.last_notification_io = Instant::now();
 								self.push_block_announce_validation(remote, announce);
-
-								// Make sure that the newly added block announce validation future
-								// was polled once to be registered in the task.
-								if let Poll::Ready(Some(res)) =
-									self.block_announce_validator.poll_next_unpin(cx)
-								{
-									self.process_block_announce_validation_result(res)
-								}
 							} else {
 								log::warn!(target: "sub-libp2p", "Failed to decode block announce");
 							}
