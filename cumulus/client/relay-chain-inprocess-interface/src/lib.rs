@@ -279,17 +279,25 @@ fn build_polkadot_full_node(
 
 	let relay_chain_full_node = polkadot_service::build_full(
 		config,
-		is_collator,
-		None,
-		// Disable BEEFY. It should not be required by the internal relay chain node.
-		false,
-		None,
-		telemetry_worker_handle,
-		true,
-		polkadot_service::RealOverseerGen,
-		None,
-		None,
-		hwbench,
+		polkadot_service::NewFullParams {
+			is_collator,
+			grandpa_pause: None,
+			// Disable BEEFY. It should not be required by the internal relay chain node.
+			enable_beefy: false,
+			jaeger_agent: None,
+			telemetry_worker_handle,
+
+			// Cumulus doesn't spawn PVF workers, so we can disable version checks.
+			node_version: None,
+			workers_path: None,
+			workers_names: None,
+
+			overseer_enable_anyways: true,
+			overseer_gen: polkadot_service::RealOverseerGen,
+			overseer_message_channel_capacity_override: None,
+			malus_finality_delay: None,
+			hwbench,
+		},
 	)?;
 
 	Ok((relay_chain_full_node, maybe_collator_key))
