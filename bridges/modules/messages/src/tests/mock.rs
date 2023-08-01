@@ -43,7 +43,7 @@ use bp_runtime::{
 };
 use codec::{Decode, Encode};
 use frame_support::{
-	derive_impl, parameter_types,
+	derive_impl,
 	weights::{constants::RocksDbWeight, Weight},
 };
 use scale_info::TypeInfo;
@@ -181,11 +181,6 @@ impl pallet_bridge_grandpa::Config for TestRuntime {
 	type FreeHeadersInterval = ConstU32<1_024>;
 	type HeadersToKeep = ConstU32<8>;
 	type WeightInfo = pallet_bridge_grandpa::weights::BridgeWeight<TestRuntime>;
-}
-
-parameter_types! {
-	pub const MaxMessagesToPruneAtOnce: u64 = 10;
-	pub const TestBridgedChainId: bp_runtime::ChainId = *b"test";
 }
 
 /// weights of messages pallet calls we use in tests.
@@ -346,8 +341,10 @@ impl DeliveryConfirmationPayments<AccountId> for TestDeliveryConfirmationPayment
 pub struct TestMessageDispatch;
 
 impl TestMessageDispatch {
-	pub fn deactivate() {
-		frame_support::storage::unhashed::put(b"TestMessageDispatch.IsCongested", &true)
+	pub fn emulate_enqueued_message(lane: LaneId) {
+		let key = (b"dispatched", lane).encode();
+		let dispatched = frame_support::storage::unhashed::get_or_default::<MessageNonce>(&key[..]);
+		frame_support::storage::unhashed::put(&key[..], &(dispatched + 1));
 	}
 }
 
@@ -355,10 +352,10 @@ impl MessageDispatch for TestMessageDispatch {
 	type DispatchPayload = TestPayload;
 	type DispatchLevelResult = TestDispatchLevelResult;
 
-	fn is_active() -> bool {
-		!frame_support::storage::unhashed::get_or_default::<bool>(
-			b"TestMessageDispatch.IsCongested",
-		)
+	fn is_active(lane: LaneId) -> bool {
+		frame_support::storage::unhashed::get_or_default::<MessageNonce>(
+			&(b"dispatched", lane).encode()[..],
+		) <= BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX
 	}
 
 	fn dispatch_weight(message: &mut DispatchMessage<TestPayload>) -> Weight {
@@ -372,7 +369,10 @@ impl MessageDispatch for TestMessageDispatch {
 		message: DispatchMessage<TestPayload>,
 	) -> MessageDispatchResult<TestDispatchLevelResult> {
 		match message.data.payload.as_ref() {
-			Ok(payload) => payload.dispatch_result.clone(),
+			Ok(payload) => {
+				Self::emulate_enqueued_message(message.key.lane_id);
+				payload.dispatch_result.clone()
+			},
 			Err(_) => dispatch_result(0),
 		}
 	}

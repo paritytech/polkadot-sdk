@@ -18,7 +18,7 @@
 
 use crate as pallet_xcm_bridge_hub_router;
 
-use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
+use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager};
 use codec::Encode;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
@@ -75,6 +75,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type WeightInfo = ();
 
 	type UniversalLocation = UniversalLocation;
+	type SiblingBridgeHubLocation = SiblingBridgeHubLocation;
 	type BridgedNetworkId = BridgedNetworkId;
 	type Bridges = NetworkExportTable<BridgeTable>;
 	type DestinationVersion =
@@ -82,7 +83,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 
 	type BridgeHubOrigin = EnsureRoot<AccountId>;
 	type ToBridgeHubSender = TestToBridgeHubSender;
-	type WithBridgeHubChannel = TestWithBridgeHubChannel;
+	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
 	type ByteFee = ConstU128<BYTE_FEE>;
 	type FeeAsset = BridgeFeeAsset;
@@ -147,17 +148,32 @@ impl InspectMessageQueues for TestToBridgeHubSender {
 	}
 }
 
-pub struct TestWithBridgeHubChannel;
+pub struct TestLocalXcmChannelManager;
 
-impl TestWithBridgeHubChannel {
-	pub fn make_congested() {
-		frame_support::storage::unhashed::put(b"TestWithBridgeHubChannel.Congested", &true);
+impl TestLocalXcmChannelManager {
+	pub fn make_congested(with: &Location) {
+		frame_support::storage::unhashed::put(
+			&(b"TestLocalXcmChannelManager.Congested", with).encode()[..],
+			&true,
+		);
 	}
 }
 
-impl XcmChannelStatusProvider for TestWithBridgeHubChannel {
-	fn is_congested() -> bool {
-		frame_support::storage::unhashed::get_or_default(b"TestWithBridgeHubChannel.Congested")
+impl LocalXcmChannelManager for TestLocalXcmChannelManager {
+	type Error = ();
+
+	fn is_congested(with: &Location) -> bool {
+		frame_support::storage::unhashed::get_or_default(
+			&(b"TestLocalXcmChannelManager.Congested", with).encode()[..],
+		)
+	}
+
+	fn suspend_bridge(_with: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn resume_bridge(_with: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
+		Ok(())
 	}
 }
 

@@ -63,9 +63,9 @@ macro_rules! assert_bridge_messages_pallet_types(
 			// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
 			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
 			// and relays will stop functioning)
-			use $crate::messages_xcm_extension::XcmAsPlainPayload;
 			use bp_messages::ChainWithMessages;
 			use bp_runtime::Chain;
+			use bp_xcm_bridge_hub::XcmAsPlainPayload;
 			use pallet_bridge_messages::Config as MessagesConfig;
 			use static_assertions::assert_type_eq_all;
 
