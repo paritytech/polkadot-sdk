@@ -28,7 +28,7 @@ use crate::{
 
 use bp_messages::{
 	source_chain::{FromBridgedChainMessagesDeliveryProof, MessagesBridge},
-	target_chain::FromBridgedChainMessagesProof,
+	target_chain::{FromBridgedChainMessagesProof, MessageDispatch},
 	BridgeMessagesCall, ChainWithMessages, DeliveredMessages, InboundLaneData,
 	InboundMessageDetails, LaneId, LaneState, MessageKey, MessageNonce, MessagesOperatingMode,
 	OutboundLaneData, OutboundMessageDetails, UnrewardedRelayer, UnrewardedRelayersState,
@@ -323,6 +323,86 @@ fn receive_messages_proof_updates_confirmed_message_nonce() {
 				last_delivered_nonce: 11,
 			},
 		);
+	});
+}
+
+#[test]
+fn receive_messages_proof_fails_when_dispatcher_is_inactive() {
+	run_test(|| {
+		// "enqueue" enough (to deactivate dispatcher) messages at dispatcher
+		let latest_received_nonce = BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX + 1;
+		for _ in 1..=latest_received_nonce {
+			TestMessageDispatch::emulate_enqueued_message(test_lane_id());
+		}
+		assert!(!TestMessageDispatch::is_active(test_lane_id()));
+		InboundLanes::<TestRuntime, ()>::insert(
+			test_lane_id(),
+			InboundLaneData {
+				state: LaneState::Opened,
+				last_confirmed_nonce: latest_received_nonce,
+				relayers: vec![].into(),
+			},
+		);
+
+		// try to delvier next message - it should fail because dispatcher is in "suspended" state
+		// at the beginning of the call
+		let messages_proof =
+			prepare_messages_proof(vec![message(latest_received_nonce + 1, REGULAR_PAYLOAD)], None);
+		assert_noop!(
+			Pallet::<TestRuntime>::receive_messages_proof(
+				RuntimeOrigin::signed(1),
+				TEST_RELAYER_A,
+				messages_proof,
+				1,
+				REGULAR_PAYLOAD.declared_weight,
+			),
+			Error::<TestRuntime, ()>::LanesManager(LanesManagerError::LaneDispatcherInactive)
+		);
+		assert!(!TestMessageDispatch::is_active(test_lane_id()));
+	});
+}
+
+#[test]
+fn receive_messages_succeeds_when_dispatcher_becomes_inactive_in_the_middle_of_transaction() {
+	run_test(|| {
+		// "enqueue" enough (to deactivate dispatcher) messages at dispatcher
+		let latest_received_nonce = BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX / 2;
+		for _ in 1..=latest_received_nonce {
+			TestMessageDispatch::emulate_enqueued_message(test_lane_id());
+		}
+		assert!(TestMessageDispatch::is_active(test_lane_id()));
+		InboundLanes::<TestRuntime, ()>::insert(
+			test_lane_id(),
+			InboundLaneData {
+				state: LaneState::Opened,
+				last_confirmed_nonce: latest_received_nonce,
+				relayers: vec![].into(),
+			},
+		);
+
+		// try to delvier next `BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX` messages
+		// - it will lead to dispatcher deactivation, but the transaction shall not fail and all
+		// messages must be delivered
+		let messages_begin = latest_received_nonce + 1;
+		let messages_end =
+			messages_begin + BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
+		let messages_range = messages_begin..messages_end;
+		let messages_count = BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
+		assert_ok!(Pallet::<TestRuntime>::receive_messages_proof(
+			RuntimeOrigin::signed(1),
+			TEST_RELAYER_A,
+			prepare_messages_proof(
+				messages_range.map(|nonce| message(nonce, REGULAR_PAYLOAD)).collect(),
+				None,
+			),
+			messages_count as _,
+			REGULAR_PAYLOAD.declared_weight * messages_count,
+		),);
+		assert_eq!(
+			inbound_unrewarded_relayers_state(test_lane_id()).last_delivered_nonce,
+			messages_end - 1,
+		);
+		assert!(!TestMessageDispatch::is_active(test_lane_id()));
 	});
 }
 
