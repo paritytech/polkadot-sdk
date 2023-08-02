@@ -308,7 +308,7 @@ pub mod pallet {
 				outbound_lane.set_state(LaneState::Closed);
 
 				// write something to log
-				let enqueued_messages = outbound_lane.queued_messages().checked_len().unwrap_or(0);
+				let enqueued_messages = outbound_lane.queued_messages().saturating_len();
 				log::trace!(
 					target: LOG_TARGET,
 					"Bridge {:?} between {:?} and {:?} is closing. {} messages remaining",
