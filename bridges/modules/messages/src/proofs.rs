@@ -57,7 +57,7 @@ pub fn verify_messages_proof<T: Config<I>, I: 'static>(
 	let nonces_range = nonces_start..=nonces_end;
 
 	// receiving proofs where end < begin is ok (if proof includes outbound lane state)
-	let messages_in_the_proof = nonces_range.checked_len().unwrap_or(0);
+	let messages_in_the_proof = nonces_range.saturating_len();
 	if messages_in_the_proof != MessageNonce::from(messages_count) {
 		return Err(VerificationError::MessagesCountMismatch)
 	}
