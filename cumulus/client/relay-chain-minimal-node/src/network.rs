@@ -21,6 +21,7 @@ use sc_network::{
 	config::{
 		NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake, ProtocolId, SetConfig,
 	},
+	peer_store::PeerStore,
 	NetworkService,
 };
 
@@ -52,6 +53,17 @@ pub(crate) fn build_collator_network(
 		genesis_hash,
 	);
 
+	let peer_store = PeerStore::new(
+		network_config
+			.network_config
+			.boot_nodes
+			.iter()
+			.map(|bootnode| bootnode.peer_id)
+			.collect(),
+	);
+	let peer_store_handle = peer_store.handle();
+	spawn_handle.spawn("peer-store", Some("networking"), peer_store.run());
+
 	// RX is not used for anything because syncing is not started for the minimal node
 	let (tx, _rx) = tracing_unbounded("mpsc_syncing_engine_protocol", 100_000);
 	let network_params = sc_network::config::Params::<Block> {
@@ -64,6 +76,7 @@ pub(crate) fn build_collator_network(
 		},
 		fork_id: None,
 		network_config,
+		peer_store: peer_store_handle,
 		genesis_hash,
 		protocol_id,
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),

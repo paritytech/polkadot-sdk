@@ -220,7 +220,7 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
+	type MaxHolds = ConstU32<1>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -365,7 +365,7 @@ construct_runtime!(
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 33,
 
 		// Smart Contracts.
-		Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>} = 40,
+		Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>, HoldReason} = 40,
 
 		// Handy utilities.
 		Utility: pallet_utility::{Pallet, Call, Event} = 50,
