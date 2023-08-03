@@ -3,10 +3,6 @@
   "id": "collectives_polkadot",
   "chainType": "Live",
   "bootNodes": [
-    "/dns/polkadot-collectives-collator-ew6-0.polkadot.io/tcp/30334/p2p/12D3KooWKgrivNBkMswNNNYqUkhEBvnyRzt6TLPQ2shu4eoPuuRi",
-    "/dns/polkadot-collectives-collator-ew6-1.polkadot.io/tcp/30334/p2p/12D3KooWQen2oX7hWqhUiJ4sxj7WA4Qa3WoAmz6rQbmYPCYjeCk9",
-    "/dns/polkadot-collectives-collator-uw1-0.polkadot.io/tcp/30334/p2p/12D3KooWJXwJS1d2UcdkKd8a6vM4TFB79gvtHtsp4bm4c8fYdpY7",
-    "/dns/polkadot-collectives-collator-uw1-1.polkadot.io/tcp/30334/p2p/12D3KooWRjdypZdMT9rjajYM2L2P5mYaxPGErP9ExGBsY3PBdYDy",
     "/dns/polkadot-collectives-connect-ew6-0.polkadot.io/tcp/30334/p2p/12D3KooWLDZT5gAjMtC8fojiCwiz17SC61oeX2C7GWBCqqf9TwVD",
     "/dns/polkadot-collectives-connect-ew6-1.polkadot.io/tcp/30334/p2p/12D3KooWC9BwKMDyRUTXsE7teSmoKMgbyxqAp3zi2MTGRJR5nhCL",
     "/dns/polkadot-collectives-connect-uw1-0.polkadot.io/tcp/30334/p2p/12D3KooWPrJ9VTn3GEs2e7GQs4zoEFiTFcjXFNbQ2iDxFDQAbstQ",

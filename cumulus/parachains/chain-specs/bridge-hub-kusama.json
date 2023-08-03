@@ -3,10 +3,6 @@
   "id": "bridge-hub-kusama",
   "chainType": "Live",
   "bootNodes": [
-    "/dns/kusama-bridge-hub-collator-ew1-0.polkadot.io/tcp/30334/p2p/12D3KooWP2Gngt4tt2sz5BgDaAbMTxasPWk3V2Z99bQTmFcAorqa",
-    "/dns/kusama-bridge-hub-collator-ew1-1.polkadot.io/tcp/30334/p2p/12D3KooWMmL3FQuYmruBui1sbY4MwNmvicinrePi1Yq4QMRSYHoR",
-    "/dns/kusama-bridge-hub-collator-ue4-0.polkadot.io/tcp/30334/p2p/12D3KooWQpTocTck1tNBzMNTHJ3kSv4vzv8Yf9FpVkfGnungbez4",
-    "/dns/kusama-bridge-hub-collator-ue4-1.polkadot.io/tcp/30334/p2p/12D3KooWRgtJqKEaMi7hkU4VMiGhpHTJeL8N7JgL7d9gwooPv4eW",
     "/dns/kusama-bridge-hub-connect-ew1-0.polkadot.io/tcp/30334/p2p/12D3KooWPQQPivrqQ51kRTDc2R1mtqwKT4GGtk2rapkY4FrwHrEp",
     "/dns/kusama-bridge-hub-connect-ew1-1.polkadot.io/tcp/30334/p2p/12D3KooWPcF9Yk4gYrMju9CyWCV69hAFXbYsnxCLogwLGu9QFTRn",
     "/dns/kusama-bridge-hub-connect-ue4-0.polkadot.io/tcp/30334/p2p/12D3KooWMf1sVnJDTkKWtaThqvrgcSPLbfGXttSqbwhM2DJp9BUG",
