@@ -23,7 +23,7 @@ jobs:
         run:  rustup show
 
       - name: Rust cache
-        uses: Swatinem/rust-cache@2656b87321093db1cb55fbd73183d195214fdfd1 # v2.5.0
+        uses: Swatinem/rust-cache@b8a6852b4f997182bdea832df3f9e153038b5191 # v2.6.0
 
       - name: Build rustdocs
         run:  SKIP_WASM_BUILD=1 cargo doc --all --no-deps
