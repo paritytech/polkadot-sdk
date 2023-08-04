@@ -110,12 +110,7 @@ impl<BlobDispatcher: DispatchBlob, Weights: MessagesPalletWeights> MessageDispat
 /// one side, where on the other it can be dispatched by [`XcmBlobMessageDispatch`].
 pub trait XcmBlobHauler {
 	/// Runtime message sender adapter.
-	type MessageSender: MessagesBridge<Self::MessageSenderOrigin, XcmAsPlainPayload>;
-
-	/// Runtime message sender origin, which is used by [`Self::MessageSender`].
-	type MessageSenderOrigin;
-	/// Our location within the Consensus Universe.
-	fn message_sender_origin() -> Self::MessageSenderOrigin;
+	type MessageSender: MessagesBridge<XcmAsPlainPayload>;
 
 	/// Return message lane (as "point-to-point link") used to deliver XCM messages.
 	fn xcm_lane() -> LaneId;
@@ -124,12 +119,10 @@ pub trait XcmBlobHauler {
 /// XCM bridge adapter which connects [`XcmBlobHauler`] with [`XcmBlobHauler::MessageSender`] and
 /// makes sure that XCM blob is sent to the [`pallet_bridge_messages`] queue to be relayed.
 pub struct XcmBlobHaulerAdapter<XcmBlobHauler>(sp_std::marker::PhantomData<XcmBlobHauler>);
-impl<HaulerOrigin, H: XcmBlobHauler<MessageSenderOrigin = HaulerOrigin>> HaulBlob
-	for XcmBlobHaulerAdapter<H>
-{
+impl<H: XcmBlobHauler> HaulBlob for XcmBlobHaulerAdapter<H> {
 	fn haul_blob(blob: sp_std::prelude::Vec<u8>) -> Result<(), HaulBlobError> {
 		let lane = H::xcm_lane();
-		H::MessageSender::send_message(H::message_sender_origin(), lane, blob)
+		H::MessageSender::send_message(lane, blob)
 			.map(|artifacts| (lane, artifacts.nonce).using_encoded(sp_io::hashing::blake2_256))
 			.map(|result| {
 				log::info!(

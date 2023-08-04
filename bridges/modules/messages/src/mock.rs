@@ -310,9 +310,8 @@ impl TargetHeaderChain<TestPayload, TestRelayer> for TestTargetHeaderChain {
 #[derive(Debug, Default)]
 pub struct TestLaneMessageVerifier;
 
-impl LaneMessageVerifier<RuntimeOrigin, TestPayload> for TestLaneMessageVerifier {
+impl LaneMessageVerifier<TestPayload> for TestLaneMessageVerifier {
 	fn verify_message(
-		_submitter: &RuntimeOrigin,
 		_lane: &LaneId,
 		_lane_outbound_data: &OutboundLaneData,
 		payload: &TestPayload,
