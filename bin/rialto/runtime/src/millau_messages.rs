@@ -26,7 +26,6 @@ use bridge_runtime_common::{
 	messages_xcm_extension::{XcmBlobHauler, XcmBlobHaulerAdapter},
 };
 use frame_support::{parameter_types, weights::Weight, RuntimeDebug};
-use xcm::latest::prelude::*;
 use xcm_builder::HaulBlobExporter;
 
 /// Lane that is used for XCM messages exchange.
@@ -123,12 +122,6 @@ pub struct ToMillauXcmBlobHauler;
 
 impl XcmBlobHauler for ToMillauXcmBlobHauler {
 	type MessageSender = pallet_bridge_messages::Pallet<Runtime, WithMillauMessagesInstance>;
-	type MessageSenderOrigin = RuntimeOrigin;
-
-	fn message_sender_origin() -> RuntimeOrigin {
-		pallet_xcm::Origin::from(MultiLocation::new(1, crate::xcm_config::UniversalLocation::get()))
-			.into()
-	}
 
 	fn xcm_lane() -> LaneId {
 		XCM_LANE

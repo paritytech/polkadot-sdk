@@ -27,7 +27,6 @@ use bridge_runtime_common::{
 };
 use frame_support::{parameter_types, weights::Weight, RuntimeDebug};
 use pallet_bridge_relayers::WeightInfoExt as _;
-use xcm::latest::prelude::*;
 use xcm_builder::HaulBlobExporter;
 
 /// Default lane that is used to send messages to Rialto.
@@ -124,12 +123,6 @@ pub struct ToRialtoXcmBlobHauler;
 
 impl XcmBlobHauler for ToRialtoXcmBlobHauler {
 	type MessageSender = pallet_bridge_messages::Pallet<Runtime, WithRialtoMessagesInstance>;
-	type MessageSenderOrigin = RuntimeOrigin;
-
-	fn message_sender_origin() -> RuntimeOrigin {
-		pallet_xcm::Origin::from(MultiLocation::new(1, crate::xcm_config::UniversalLocation::get()))
-			.into()
-	}
 
 	fn xcm_lane() -> LaneId {
 		XCM_LANE
