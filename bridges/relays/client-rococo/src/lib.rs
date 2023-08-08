@@ -16,7 +16,7 @@
 
 //! Types used to connect to the Rococo-Substrate chain.
 
-use bp_rococo::ROCOCO_ACCEPTED_GRANDPA_FINALITY_PROOFS_METHOD;
+use bp_rococo::ROCOCO_SYNCED_HEADERS_GRANDPA_INFO_METHOD;
 use bp_runtime::ChainId;
 use relay_substrate_client::{
 	Chain, ChainWithBalances, ChainWithGrandpa, RelayChain, UnderlyingChainProvider,
@@ -50,8 +50,8 @@ impl Chain for Rococo {
 }
 
 impl ChainWithGrandpa for Rococo {
-	const ACCEPTED_FINALITY_PROOFS_METHOD: &'static str =
-		ROCOCO_ACCEPTED_GRANDPA_FINALITY_PROOFS_METHOD;
+	const SYNCED_HEADERS_GRANDPA_INFO_METHOD: &'static str =
+		ROCOCO_SYNCED_HEADERS_GRANDPA_INFO_METHOD;
 }
 
 impl ChainWithBalances for Rococo {

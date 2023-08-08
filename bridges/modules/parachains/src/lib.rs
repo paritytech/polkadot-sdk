@@ -697,7 +697,7 @@ pub(crate) mod tests {
 	use bp_test_utils::prepare_parachain_heads_proof;
 	use codec::Encode;
 
-	use bp_header_chain::justification::GrandpaJustification;
+	use bp_header_chain::{justification::GrandpaJustification, HeaderGrandpaInfo};
 	use bp_parachains::{
 		BestParaHeadHash, BridgeParachainCall, ImportedParaHeadsKeyProvider, ParasInfoKeyProvider,
 	};
@@ -1036,7 +1036,10 @@ pub(crate) mod tests {
 							pallet_bridge_grandpa::Event::UpdatedBestFinalizedHeader {
 								number: 1,
 								hash: relay_1_hash,
-								justification
+								grandpa_info: HeaderGrandpaInfo {
+									justification,
+									authority_set: None,
+								},
 							}
 						),
 						topics: vec![],
@@ -1174,7 +1177,10 @@ pub(crate) mod tests {
 							pallet_bridge_grandpa::Event::UpdatedBestFinalizedHeader {
 								number: 1,
 								hash: relay_1_hash,
-								justification
+								grandpa_info: HeaderGrandpaInfo {
+									justification,
+									authority_set: None,
+								}
 							}
 						),
 						topics: vec![],
@@ -1224,7 +1230,10 @@ pub(crate) mod tests {
 							pallet_bridge_grandpa::Event::UpdatedBestFinalizedHeader {
 								number: 1,
 								hash: relay_1_hash,
-								justification: justification.clone()
+								grandpa_info: HeaderGrandpaInfo {
+									justification: justification.clone(),
+									authority_set: None,
+								}
 							}
 						),
 						topics: vec![],
@@ -1262,7 +1271,10 @@ pub(crate) mod tests {
 							pallet_bridge_grandpa::Event::UpdatedBestFinalizedHeader {
 								number: 1,
 								hash: relay_1_hash,
-								justification
+								grandpa_info: HeaderGrandpaInfo {
+									justification,
+									authority_set: None,
+								}
 							}
 						),
 						topics: vec![],

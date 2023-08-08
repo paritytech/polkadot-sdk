@@ -883,9 +883,9 @@ impl_runtime_apis! {
 			BridgeRialtoGrandpa::best_finalized()
 		}
 
-		fn accepted_grandpa_finality_proofs(
-		) -> Vec<bp_header_chain::justification::GrandpaJustification<bp_rialto::Header>> {
-			BridgeRialtoGrandpa::accepted_finality_proofs()
+		fn synced_headers_grandpa_info(
+		) -> Vec<bp_header_chain::HeaderGrandpaInfo<bp_rialto::Header>> {
+			BridgeRialtoGrandpa::synced_headers_grandpa_info()
 		}
 	}
 
@@ -894,9 +894,9 @@ impl_runtime_apis! {
 			BridgeWestendGrandpa::best_finalized()
 		}
 
-		fn accepted_grandpa_finality_proofs(
-		) -> Vec<bp_header_chain::justification::GrandpaJustification<bp_westend::Header>> {
-			BridgeWestendGrandpa::accepted_finality_proofs()
+		fn synced_headers_grandpa_info(
+		) -> Vec<bp_header_chain::HeaderGrandpaInfo<bp_westend::Header>> {
+			BridgeWestendGrandpa::synced_headers_grandpa_info()
 		}
 	}
 
