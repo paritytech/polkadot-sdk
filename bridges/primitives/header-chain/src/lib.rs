@@ -172,6 +172,15 @@ impl<Number: Codec> ConsensusLogReader for GrandpaConsensusLogReader<Number> {
 	}
 }
 
+/// The Grandpa-related info associated to a header.
+#[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
+pub struct HeaderGrandpaInfo<Header: HeaderT> {
+	/// The header justification
+	pub justification: justification::GrandpaJustification<Header>,
+	/// The authority set introduced by the header.
+	pub authority_set: Option<AuthoritySet>,
+}
+
 /// A minimized version of `pallet-bridge-grandpa::Call` that can be used without a runtime.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
