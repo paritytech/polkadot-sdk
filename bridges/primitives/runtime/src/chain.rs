@@ -295,8 +295,8 @@ macro_rules! decl_bridge_finality_runtime_apis {
 				$(
 					/// Name of the `<ThisChain>FinalityApi::accepted_<consensus>_finality_proofs`
 					/// runtime method.
-					pub const [<$chain:upper _ACCEPTED_ $consensus:upper _FINALITY_PROOFS_METHOD>]: &str =
-						stringify!([<$chain:camel FinalityApi_accepted_ $consensus:lower _finality_proofs>]);
+					pub const [<$chain:upper _SYNCED_HEADERS_ $consensus:upper _INFO_METHOD>]: &str =
+						stringify!([<$chain:camel FinalityApi_synced_headers_ $consensus:lower _info>]);
 				)?
 
 				sp_api::decl_runtime_apis! {
@@ -310,7 +310,7 @@ macro_rules! decl_bridge_finality_runtime_apis {
 
 						$(
 							/// Returns the justifications accepted in the current block.
-							fn [<accepted_ $consensus:lower _finality_proofs>](
+							fn [<synced_headers_ $consensus:lower _info>](
 							) -> Vec<$justification_type>;
 						)?
 					}
@@ -321,7 +321,7 @@ macro_rules! decl_bridge_finality_runtime_apis {
 		}
 	};
 	($chain: ident, grandpa) => {
-		decl_bridge_finality_runtime_apis!($chain, grandpa => bp_header_chain::justification::GrandpaJustification<Header>);
+		decl_bridge_finality_runtime_apis!($chain, grandpa => bp_header_chain::HeaderGrandpaInfo<Header>);
 	};
 }
 
