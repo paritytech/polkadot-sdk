@@ -17,7 +17,7 @@
 //! Types used to connect to the Rialto-Substrate chain.
 
 use bp_messages::MessageNonce;
-use bp_rialto::RIALTO_ACCEPTED_GRANDPA_FINALITY_PROOFS_METHOD;
+use bp_rialto::RIALTO_SYNCED_HEADERS_GRANDPA_INFO_METHOD;
 use bp_runtime::ChainId;
 use codec::{Compact, Decode, Encode};
 use relay_substrate_client::{
@@ -52,8 +52,8 @@ impl Chain for Rialto {
 }
 
 impl ChainWithGrandpa for Rialto {
-	const ACCEPTED_FINALITY_PROOFS_METHOD: &'static str =
-		RIALTO_ACCEPTED_GRANDPA_FINALITY_PROOFS_METHOD;
+	const SYNCED_HEADERS_GRANDPA_INFO_METHOD: &'static str =
+		RIALTO_SYNCED_HEADERS_GRANDPA_INFO_METHOD;
 }
 
 impl RelayChain for Rialto {
