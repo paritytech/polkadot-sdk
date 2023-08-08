@@ -39,8 +39,8 @@
 pub use storage_types::StoredAuthoritySet;
 
 use bp_header_chain::{
-	justification::GrandpaJustification, ChainWithGrandpa, GrandpaConsensusLogReader, HeaderChain,
-	InitializationData, StoredHeaderData, StoredHeaderDataBuilder,
+	justification::GrandpaJustification, AuthoritySet, ChainWithGrandpa, GrandpaConsensusLogReader,
+	HeaderChain, HeaderGrandpaInfo, InitializationData, StoredHeaderData, StoredHeaderDataBuilder,
 };
 use bp_runtime::{BlockNumberOf, HashOf, HasherOf, HeaderId, HeaderOf, OwnedBridgeModule};
 use finality_grandpa::voter_set::VoterSet;
@@ -194,11 +194,12 @@ pub mod pallet {
 			let authority_set = <CurrentAuthoritySet<T, I>>::get();
 			let unused_proof_size = authority_set.unused_proof_size();
 			let set_id = authority_set.set_id;
-			verify_justification::<T, I>(&justification, hash, number, authority_set.into())?;
+			let authority_set: AuthoritySet = authority_set.into();
+			verify_justification::<T, I>(&justification, hash, number, authority_set)?;
 
-			let is_authorities_change_enacted =
+			let maybe_new_authority_set =
 				try_enact_authority_change::<T, I>(&finality_target, set_id)?;
-			let may_refund_call_fee = is_authorities_change_enacted &&
+			let may_refund_call_fee = maybe_new_authority_set.is_some() &&
 				// if we have seen too many mandatory headers in this block, we don't want to refund
 				Self::free_mandatory_headers_remaining() > 0 &&
 				// if arguments out of expected bounds, we don't want to refund
@@ -237,7 +238,14 @@ pub mod pallet {
 			let actual_weight = pre_dispatch_weight
 				.set_proof_size(pre_dispatch_weight.proof_size().saturating_sub(unused_proof_size));
 
-			Self::deposit_event(Event::UpdatedBestFinalizedHeader { number, hash, justification });
+			Self::deposit_event(Event::UpdatedBestFinalizedHeader {
+				number,
+				hash,
+				grandpa_info: HeaderGrandpaInfo {
+					justification,
+					authority_set: maybe_new_authority_set,
+				},
+			});
 
 			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee })
 		}
@@ -402,8 +410,8 @@ pub mod pallet {
 		UpdatedBestFinalizedHeader {
 			number: BridgedBlockNumber<T, I>,
 			hash: BridgedBlockHash<T, I>,
-			/// Justification.
-			justification: GrandpaJustification<BridgedHeader<T, I>>,
+			/// The Grandpa info associated to the new best finalized header.
+			grandpa_info: HeaderGrandpaInfo<BridgedHeader<T, I>>,
 		},
 	}
 
@@ -439,9 +447,7 @@ pub mod pallet {
 	pub(crate) fn try_enact_authority_change<T: Config<I>, I: 'static>(
 		header: &BridgedHeader<T, I>,
 		current_set_id: sp_consensus_grandpa::SetId,
-	) -> Result<bool, sp_runtime::DispatchError> {
-		let mut change_enacted = false;
-
+	) -> Result<Option<AuthoritySet>, DispatchError> {
 		// We don't support forced changes - at that point governance intervention is required.
 		ensure!(
 			GrandpaConsensusLogReader::<BridgedBlockNumber<T, I>>::find_forced_change(
@@ -470,7 +476,6 @@ pub mod pallet {
 			// Since our header schedules a change and we know the delay is 0, it must also enact
 			// the change.
 			<CurrentAuthoritySet<T, I>>::put(&next_authorities);
-			change_enacted = true;
 
 			log::info!(
 				target: LOG_TARGET,
@@ -479,9 +484,11 @@ pub mod pallet {
 				current_set_id + 1,
 				next_authorities,
 			);
+
+			return Ok(Some(next_authorities.into()))
 		};
 
-		Ok(change_enacted)
+		Ok(None)
 	}
 
 	/// Verify a GRANDPA justification (finality proof) for a given header.
@@ -610,13 +617,13 @@ where
 	<T as frame_system::Config>::RuntimeEvent: TryInto<Event<T, I>>,
 {
 	/// Get the GRANDPA justifications accepted in the current block.
-	pub fn accepted_finality_proofs() -> Vec<GrandpaJustification<BridgedHeader<T, I>>> {
+	pub fn synced_headers_grandpa_info() -> Vec<HeaderGrandpaInfo<BridgedHeader<T, I>>> {
 		frame_system::Pallet::<T>::read_events_no_consensus()
 			.filter_map(|event| {
-				if let Event::<T, I>::UpdatedBestFinalizedHeader { justification, .. } =
+				if let Event::<T, I>::UpdatedBestFinalizedHeader { grandpa_info, .. } =
 					event.event.try_into().ok()?
 				{
-					return Some(justification)
+					return Some(grandpa_info)
 				}
 				None
 			})
@@ -927,12 +934,18 @@ mod tests {
 					event: TestEvent::Grandpa(Event::UpdatedBestFinalizedHeader {
 						number: *header.number(),
 						hash: header.hash(),
-						justification: justification.clone(),
+						grandpa_info: HeaderGrandpaInfo {
+							justification: justification.clone(),
+							authority_set: None,
+						},
 					}),
 					topics: vec![],
 				}],
 			);
-			assert_eq!(Pallet::<TestRuntime>::accepted_finality_proofs(), vec![justification]);
+			assert_eq!(
+				Pallet::<TestRuntime>::synced_headers_grandpa_info(),
+				vec![HeaderGrandpaInfo { justification, authority_set: None }]
+			);
 		})
 	}
 
@@ -1038,7 +1051,7 @@ mod tests {
 			let result = Pallet::<TestRuntime>::submit_finality_proof(
 				RuntimeOrigin::signed(1),
 				Box::new(header.clone()),
-				justification,
+				justification.clone(),
 			);
 			assert_ok!(result);
 			assert_eq!(result.unwrap().pays_fee, frame_support::dispatch::Pays::No);
@@ -1052,6 +1065,30 @@ mod tests {
 				<CurrentAuthoritySet<TestRuntime>>::get(),
 				StoredAuthoritySet::<TestRuntime, ()>::try_new(next_authorities, next_set_id)
 					.unwrap(),
+			);
+
+			// Here
+			assert_eq!(
+				System::events(),
+				vec![EventRecord {
+					phase: Phase::Initialization,
+					event: TestEvent::Grandpa(Event::UpdatedBestFinalizedHeader {
+						number: *header.number(),
+						hash: header.hash(),
+						grandpa_info: HeaderGrandpaInfo {
+							justification: justification.clone(),
+							authority_set: Some(<CurrentAuthoritySet<TestRuntime>>::get().into()),
+						},
+					}),
+					topics: vec![],
+				}],
+			);
+			assert_eq!(
+				Pallet::<TestRuntime>::synced_headers_grandpa_info(),
+				vec![HeaderGrandpaInfo {
+					justification,
+					authority_set: Some(<CurrentAuthoritySet<TestRuntime>>::get().into()),
+				}]
 			);
 		})
 	}

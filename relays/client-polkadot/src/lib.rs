@@ -16,9 +16,7 @@
 
 //! Types used to connect to the Polkadot chain.
 
-use bp_polkadot::{
-	AccountInfoStorageMapKeyProvider, POLKADOT_ACCEPTED_GRANDPA_FINALITY_PROOFS_METHOD,
-};
+use bp_polkadot::{AccountInfoStorageMapKeyProvider, POLKADOT_SYNCED_HEADERS_GRANDPA_INFO_METHOD};
 use bp_runtime::ChainId;
 use relay_substrate_client::{
 	Chain, ChainWithBalances, ChainWithGrandpa, RelayChain, UnderlyingChainProvider,
@@ -52,8 +50,8 @@ impl Chain for Polkadot {
 }
 
 impl ChainWithGrandpa for Polkadot {
-	const ACCEPTED_FINALITY_PROOFS_METHOD: &'static str =
-		POLKADOT_ACCEPTED_GRANDPA_FINALITY_PROOFS_METHOD;
+	const SYNCED_HEADERS_GRANDPA_INFO_METHOD: &'static str =
+		POLKADOT_SYNCED_HEADERS_GRANDPA_INFO_METHOD;
 }
 
 impl ChainWithBalances for Polkadot {

@@ -8,7 +8,10 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
 
-fixed-hash = { version = "0.8.0", default-features = false }
+# TODO: Consume `fixed-hash` from crates.io when the following fix is published:
+# https://github.com/paritytech/parity-common/commit/d3a9327124a66e52ca1114bb8640c02c18c134b8
+# Expected in a version > 0.8.0
+fixed-hash = { git = "https://github.com/paritytech/parity-common", branch = "master", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 impl-codec = { version = "0.6", default-features = false }
 impl-serde = { version = "0.4.0", default-features = false }

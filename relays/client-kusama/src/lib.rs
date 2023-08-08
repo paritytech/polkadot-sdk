@@ -16,7 +16,7 @@
 
 //! Types used to connect to the Kusama chain.
 
-use bp_kusama::{AccountInfoStorageMapKeyProvider, KUSAMA_ACCEPTED_GRANDPA_FINALITY_PROOFS_METHOD};
+use bp_kusama::{AccountInfoStorageMapKeyProvider, KUSAMA_SYNCED_HEADERS_GRANDPA_INFO_METHOD};
 use bp_runtime::ChainId;
 use relay_substrate_client::{
 	Chain, ChainWithBalances, ChainWithGrandpa, RelayChain, UnderlyingChainProvider,
@@ -50,8 +50,8 @@ impl Chain for Kusama {
 }
 
 impl ChainWithGrandpa for Kusama {
-	const ACCEPTED_FINALITY_PROOFS_METHOD: &'static str =
-		KUSAMA_ACCEPTED_GRANDPA_FINALITY_PROOFS_METHOD;
+	const SYNCED_HEADERS_GRANDPA_INFO_METHOD: &'static str =
+		KUSAMA_SYNCED_HEADERS_GRANDPA_INFO_METHOD;
 }
 
 impl ChainWithBalances for Kusama {

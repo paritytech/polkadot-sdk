@@ -20,7 +20,7 @@ use crate::{Config, Error};
 
 use bp_header_chain::{AuthoritySet, ChainWithGrandpa};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{traits::Get, BoundedVec, RuntimeDebugNoBound};
+use frame_support::{traits::Get, BoundedVec, CloneNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use sp_consensus_grandpa::{AuthorityId, AuthorityList, AuthorityWeight, SetId};
 use sp_std::marker::PhantomData;
@@ -39,7 +39,7 @@ impl<T: Config<I>, I: 'static> Get<u32> for StoredAuthorityListLimit<T, I> {
 }
 
 /// A bounded GRANDPA Authority List and ID.
-#[derive(Clone, Decode, Encode, Eq, TypeInfo, MaxEncodedLen, RuntimeDebugNoBound)]
+#[derive(CloneNoBound, Decode, Encode, Eq, TypeInfo, MaxEncodedLen, RuntimeDebugNoBound)]
 #[scale_info(skip_type_params(T, I))]
 pub struct StoredAuthoritySet<T: Config<I>, I: 'static> {
 	/// List of GRANDPA authorities for the current round.
