@@ -2028,6 +2028,8 @@ sp_api::impl_runtime_apis! {
 				MultiAsset, MultiAssets, MultiLocation, NetworkId, Response,
 			};
 			use xcm_config::{AssetHub, TokenLocation};
+			use xcm_executor::FeesMode;
+			use xcm_executor::traits::FeeReason;
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
@@ -2041,6 +2043,10 @@ sp_api::impl_runtime_apis! {
 						id: Concrete(TokenLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
 					}].into()
+				}
+				fn ensure_for_send(_origin_ref: &MultiLocation, _dest: &MultiLocation, _fee_reason: FeeReason) -> Option<FeesMode> {
+					// doing nothing
+					None
 				}
 			}
 
