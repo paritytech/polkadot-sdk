@@ -45,7 +45,7 @@ The JSON-RPC server must invoke the entry point of the runtime of the given bloc
 
 **Note**: The runtime is still allowed to call host functions with side effects, however these side effects must be discarded. For example, a runtime function call can try to modify the storage of the chain, but this modification must not be actually applied. The only motivation for performing a call is to obtain the return value.
 
-The progress of the operation is indicated through `operation-call-done`, `operation-inaccessible`, or `operation-error` notifications generated on the corresponding `chainHead_unstable_follow` subscription.
+The progress of the operation is indicated through `operationCallDone`, `operationInaccessible`, or `operationError` notifications generated on the corresponding `chainHead_unstable_follow` subscription.
 
 The operation continues even if the target block is unpinned with `chainHead_unstable_unpin`.
 
@@ -55,13 +55,13 @@ This function should be seen as a complement to `chainHead_unstable_follow`, all
 
 ## Possible errors
 
-- If the networking part of the behaviour fails, then an `{"event": "operation-inaccessible"}` notification is generated (as explained above).
+- If the networking part of the behaviour fails, then an `{"event": "operationInaccessible"}` notification is generated (as explained above).
 - If the `followSubscription` is invalid or stale, then `"result": "limitReached"` is returned (as explained above).
 - A JSON-RPC error is generated if the `followSubscription` corresponds to a follow where `withRuntime` was `̀false`.
 - A JSON-RPC error is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`.
 - A JSON-RPC error is generated if the `followSubscription` is valid but the block hash passed as parameter has already been unpinned.
-- If the method to call doesn't exist in the Wasm runtime of the chain, then an `{"event": "operation-error"}` notification is generated.
-- If the runtime call fails (e.g. because it triggers a panic in the runtime, running out of memory, etc., or if the runtime call takes too much time), then an `{"event": "operation-error"}` notification is generated.
+- If the method to call doesn't exist in the Wasm runtime of the chain, then an `{"event": "operationError"}` notification is generated.
+- If the runtime call fails (e.g. because it triggers a panic in the runtime, running out of memory, etc., or if the runtime call takes too much time), then an `{"event": "operationError"}` notification is generated.
 
 ## About `callParameters`
 

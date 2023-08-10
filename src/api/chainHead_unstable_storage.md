@@ -10,7 +10,7 @@
 Each element in `items` must be an object containing the following fields:
 
 - `key`: String containing the hexadecimal-encoded key to fetch in the storage.
-- `type`: String equal to one of: `value`, `hash`, `closest-descendant-merkle-value`, `descendants-values`, `descendants-hashes`.
+- `type`: String equal to one of: `value`, `hash`, `closestDescendantMerkleValue`, `descendantsValues`, `descendantsHashes`.
 
 **Return value**: A JSON object.
 
@@ -50,36 +50,36 @@ This return value indicates that all the items would be discarded, or that the p
 
 ## Overview
 
-For each item in `items`, the JSON-RPC server must start obtaining the value of the entry with the given `key` from the storage, either from the main trie or from `childTrie`. If `type` is `descendants-values` or `descendants-hashes`, then it must also obtain the values of all the descendants of the entry.
+For each item in `items`, the JSON-RPC server must start obtaining the value of the entry with the given `key` from the storage, either from the main trie or from `childTrie`. If `type` is `descendantsValues` or `descendantsHashes`, then it must also obtain the values of all the descendants of the entry.
 
 For the purpose of storage requests, the trie root hash of the child tries of the storage can be found in the main trie at keys starting the bytes of the ASCII string `:child_storage:`. This behaviour is consistent with all the other storage-request-alike mechanisms of Polkadot and Substrate-based chains, such as host functions or libp2p network requests.
 
-The progress of the operation is indicated through `operation-storage-items`, `operation-waiting-for-continue`, `operation-storage-done`, `operation-inaccessible`, or `operation-error` notifications generated on the corresponding `chainHead_unstable_follow` subscription.
+The progress of the operation is indicated through `operationStorageItems`, `operationWaitingForContinue`, `operationStorageDone`, `operationInaccessible`, or `operationError` notifications generated on the corresponding `chainHead_unstable_follow` subscription.
 
 The operation continues even if the target block is unpinned with `chainHead_unstable_unpin`.
 
 This function should be seen as a complement to `chainHead_unstable_follow`, allowing the JSON-RPC client to retrieve more information about a block that has been reported. Use `archive_unstable_storage` if instead you want to retrieve the storage of an arbitrary block.
 
-`{"event": "operation-storage-items"}` notifications will be generated. Each notification contains a list of items. The list of items, concatenated together, forms the result.
+`{"event": "operationStorageItems"}` notifications will be generated. Each notification contains a list of items. The list of items, concatenated together, forms the result.
 
 If the `type` of an item is `value`, and `key` is associated with a storage value in the trie, then the result will include an item that contains this storage value. If `key` is not associated with a storage value in the trie, then the result will not include such item.
 
 If the `type` of an item is `hash`, the behaviour is similar to a `type` equal to `value`, except that the cryptographic hash of the value is included in the result rather than the value itself. The hashing algorithm used is the one of the chain, which is typically blake2b. This can lead to significantly less bandwidth usage and can be used in order to compare the value of an item with a known hash and querying the full value only if it differs.
 
-If the `type` of an item is `descendants-values` or `descendants-hashes`, then the result will contain zero or more items whose key starts with the `key` of this item.
+If the `type` of an item is `descendantsValues` or `descendantsHashes`, then the result will contain zero or more items whose key starts with the `key` of this item.
 
-If the `type` of an item is `closest-descendant-merkle-value`, then the so-called trie Merkle value of the `key` can be found in the result. If `key` doesn't exist in the trie, then the Merkle value of the closest descendant of `key` (including branch nodes) is provided. If `key` doesn't have any descendant in the trie, then the result will not contain any relevant item.
+If the `type` of an item is `closestDescendantMerkleValue`, then the so-called trie Merkle value of the `key` can be found in the result. If `key` doesn't exist in the trie, then the Merkle value of the closest descendant of `key` (including branch nodes) is provided. If `key` doesn't have any descendant in the trie, then the result will not contain any relevant item.
 
 If `items` contains multiple identical or overlapping queries, the JSON-RPC server can choose whether to merge or not the items in the result. For example, if the request contains two items with the same key, one with `hash` and one with `value`, the JSON-RPC server can choose whether to generate two `item` objects, one with the value and one with the hash, or only a single `item` object with both `hash` and `value` set. The JSON-RPC server is encouraged to notify as soon as possible of the information at its disposal, without waiting for missing information.
 
 It is allowed (but discouraged) for the JSON-RPC server to provide the same information multiple times in the result, for example providing the `value` field of the same `key` twice. Forcing the JSON-RPC server to de-duplicate items in the result might lead to unnecessary overhead.
 
-If a `{"event": "operation-waiting-for-continue"}` notification is generated, the subscription will not generate any more notification unless the JSON-RPC client calls the `chainHead_unstable_continue` JSON-RPC function. The JSON-RPC server is encouraged to generate this event after having sent a certain number of bytes to the JSON-RPC client in order to avoid head-of-line-blocking issues.
+If a `{"event": "operationWaitingForContinue"}` notification is generated, the subscription will not generate any more notification unless the JSON-RPC client calls the `chainHead_unstable_continue` JSON-RPC function. The JSON-RPC server is encouraged to generate this event after having sent a certain number of bytes to the JSON-RPC client in order to avoid head-of-line-blocking issues.
 
 ## Possible errors
 
 - A JSON-RPC error is generated if `type` isn't one of the allowed values (similarly to a missing parameter or an invalid parameter type).
-- If the networking part of the behaviour fails, then a `{"event": "operation-inaccessible"}` notification is generated (as explained above).
+- If the networking part of the behaviour fails, then a `{"event": "operationInaccessible"}` notification is generated (as explained above).
 - If the `followSubscription` is invalid or stale, then `"result": "limitReached"` is returned (as explained above).
 - A JSON-RPC error is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`.
 - A JSON-RPC error is generated if the `followSubscription` is valid but the block hash passed as parameter has already been unpinned.
