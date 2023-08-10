@@ -18,6 +18,7 @@ bp-runtime = { path = "../runtime", default-features = false }
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
 [features]
 default = ["std"]
@@ -27,4 +28,5 @@ std = [
 	"bp-runtime/std",
 	"frame-support/std",
 	"sp-api/std",
+	"sp-std/std",
 ]

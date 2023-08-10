@@ -23,6 +23,7 @@ pub use bp_polkadot_core::*;
 use bp_header_chain::ChainWithGrandpa;
 use bp_runtime::{decl_bridge_finality_runtime_apis, Chain};
 use frame_support::{parameter_types, weights::Weight};
+use sp_std::prelude::Vec;
 
 /// Rococo Chain
 pub struct Rococo;
