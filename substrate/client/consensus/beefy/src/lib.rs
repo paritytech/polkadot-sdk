@@ -32,6 +32,7 @@ use crate::{
 	metrics::register_metrics,
 	round::Rounds,
 	worker::PersistedState,
+	keystore::BeefyKeystore,
 };
 use futures::{stream::Fuse, StreamExt};
 use log::{error, info};
@@ -240,6 +241,8 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 		links,
 		mut on_demand_justifications_handler,
 	} = beefy_params;
+
+	let key_store: Arc<BeefyKeystore> = Arc::new(key_store.into());
 
 	let BeefyNetworkParams {
 		network,
