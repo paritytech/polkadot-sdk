@@ -29,7 +29,7 @@ use frame_support::{
 	sp_runtime::{MultiAddress, MultiSigner},
 	RuntimeDebug,
 };
-use sp_std::prelude::*;
+use sp_std::prelude::Vec;
 
 /// BridgeHubRococo parachain.
 #[derive(RuntimeDebug)]
