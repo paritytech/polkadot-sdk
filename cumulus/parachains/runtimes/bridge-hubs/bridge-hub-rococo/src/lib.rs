@@ -783,11 +783,19 @@ impl_runtime_apis! {
 		fn best_finalized() -> Option<HeaderId<bp_rococo::Hash, bp_rococo::BlockNumber>> {
 			BridgeRococoGrandpa::best_finalized()
 		}
+		fn synced_headers_grandpa_info(
+		) -> Vec<bp_header_chain::HeaderGrandpaInfo<bp_rococo::Header>> {
+			BridgeRococoGrandpa::synced_headers_grandpa_info()
+		}
 	}
 
 	impl bp_wococo::WococoFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<HeaderId<bp_wococo::Hash, bp_wococo::BlockNumber>> {
 			BridgeWococoGrandpa::best_finalized()
+		}
+		fn synced_headers_grandpa_info(
+		) -> Vec<bp_header_chain::HeaderGrandpaInfo<bp_wococo::Header>> {
+			BridgeWococoGrandpa::synced_headers_grandpa_info()
 		}
 	}
 

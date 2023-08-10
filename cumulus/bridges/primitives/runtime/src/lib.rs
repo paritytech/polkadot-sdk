@@ -77,7 +77,7 @@ pub const KUSAMA_CHAIN_ID: ChainId = *b"ksma";
 /// Westend chain id.
 pub const WESTEND_CHAIN_ID: ChainId = *b"wend";
 
-/// AssetHubWestend chain id.
+/// `AssetHubWestmint` chain id.
 pub const ASSET_HUB_WESTEND_CHAIN_ID: ChainId = *b"ahwe";
 
 /// Rococo chain id.

@@ -72,8 +72,6 @@ pub type HasherOf<C> = bp_runtime::HasherOf<UnderlyingChainOf<C>>;
 pub type AccountIdOf<C> = bp_runtime::AccountIdOf<UnderlyingChainOf<C>>;
 /// Type of balances that is used on the chain.
 pub type BalanceOf<C> = bp_runtime::BalanceOf<UnderlyingChainOf<C>>;
-/// Type of origin that is used on the chain.
-pub type OriginOf<C> = <C as ThisChainWithMessages>::RuntimeOrigin;
 
 /// Sub-module that is declaring types required for processing This -> Bridged chain messages.
 pub mod source {
@@ -138,17 +136,11 @@ pub mod source {
 	#[derive(RuntimeDebug)]
 	pub struct FromThisChainMessageVerifier<B>(PhantomData<B>);
 
-	impl<B> LaneMessageVerifier<OriginOf<ThisChain<B>>, FromThisChainMessagePayload>
-		for FromThisChainMessageVerifier<B>
+	impl<B> LaneMessageVerifier<FromThisChainMessagePayload> for FromThisChainMessageVerifier<B>
 	where
 		B: MessageBridge,
-		// matches requirements from the `frame_system::Config::Origin`
-		OriginOf<ThisChain<B>>: Clone
-			+ Into<Result<frame_system::RawOrigin<AccountIdOf<ThisChain<B>>>, OriginOf<ThisChain<B>>>>,
-		AccountIdOf<ThisChain<B>>: PartialEq + Clone,
 	{
 		fn verify_message(
-			_submitter: &OriginOf<ThisChain<B>>,
 			_lane: &LaneId,
 			_lane_outbound_data: &OutboundLaneData,
 			_payload: &FromThisChainMessagePayload,

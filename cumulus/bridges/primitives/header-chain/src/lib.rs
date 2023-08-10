@@ -21,7 +21,7 @@
 
 use bp_runtime::{
 	BasicOperatingMode, Chain, HashOf, HasherOf, HeaderOf, RawStorageProof, StorageProofChecker,
-	StorageProofError,
+	StorageProofError, UnderlyingChainProvider,
 };
 use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
 use core::{clone::Clone, cmp::Eq, default::Default, fmt::Debug};
@@ -172,6 +172,15 @@ impl<Number: Codec> ConsensusLogReader for GrandpaConsensusLogReader<Number> {
 	}
 }
 
+/// The Grandpa-related info associated to a header.
+#[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
+pub struct HeaderGrandpaInfo<Header: HeaderT> {
+	/// The header justification
+	pub justification: justification::GrandpaJustification<Header>,
+	/// The authority set introduced by the header.
+	pub authority_set: Option<AuthoritySet>,
+}
+
 /// A minimized version of `pallet-bridge-grandpa::Call` that can be used without a runtime.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
@@ -233,4 +242,18 @@ pub trait ChainWithGrandpa: Chain {
 	/// ancestry and the pallet will accept the call. The limit is only used to compute maximal
 	/// refund amount and doing calls which exceed the limit, may be costly to submitter.
 	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32;
+}
+
+/// A trait that provides the type of the underlying `ChainWithGrandpa`.
+pub trait UnderlyingChainWithGrandpaProvider: UnderlyingChainProvider {
+	/// Underlying `ChainWithGrandpa` type.
+	type ChainWithGrandpa: ChainWithGrandpa;
+}
+
+impl<T> UnderlyingChainWithGrandpaProvider for T
+where
+	T: UnderlyingChainProvider,
+	T::Chain: ChainWithGrandpa,
+{
+	type ChainWithGrandpa = T::Chain;
 }

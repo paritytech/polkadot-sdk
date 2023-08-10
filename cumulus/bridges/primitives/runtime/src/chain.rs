@@ -279,10 +279,11 @@ pub type TransactionEraOf<C> = crate::TransactionEra<BlockNumberOf<C>, HashOf<C>
 ///     - `<ThisChain>FinalityApi`
 /// - constants that are stringified names of runtime API methods:
 ///     - `BEST_FINALIZED_<THIS_CHAIN>_HEADER_METHOD`
+///     - `<THIS_CHAIN>_ACCEPTED_<CONSENSUS>_FINALITY_PROOFS_METHOD`
 /// The name of the chain has to be specified in snake case (e.g. `rialto_parachain`).
 #[macro_export]
 macro_rules! decl_bridge_finality_runtime_apis {
-	($chain: ident) => {
+	($chain: ident $(, $consensus: ident => $justification_type: ty)?) => {
 		bp_runtime::paste::item! {
 			mod [<$chain _finality_api>] {
 				use super::*;
@@ -290,6 +291,13 @@ macro_rules! decl_bridge_finality_runtime_apis {
 				/// Name of the `<ThisChain>FinalityApi::best_finalized` runtime method.
 				pub const [<BEST_FINALIZED_ $chain:upper _HEADER_METHOD>]: &str =
 					stringify!([<$chain:camel FinalityApi_best_finalized>]);
+
+				$(
+					/// Name of the `<ThisChain>FinalityApi::accepted_<consensus>_finality_proofs`
+					/// runtime method.
+					pub const [<$chain:upper _SYNCED_HEADERS_ $consensus:upper _INFO_METHOD>]: &str =
+						stringify!([<$chain:camel FinalityApi_synced_headers_ $consensus:lower _info>]);
+				)?
 
 				sp_api::decl_runtime_apis! {
 					/// API for querying information about the finalized chain headers.
@@ -299,12 +307,21 @@ macro_rules! decl_bridge_finality_runtime_apis {
 					pub trait [<$chain:camel FinalityApi>] {
 						/// Returns number and hash of the best finalized header known to the bridge module.
 						fn best_finalized() -> Option<bp_runtime::HeaderId<Hash, BlockNumber>>;
+
+						$(
+							/// Returns the justifications accepted in the current block.
+							fn [<synced_headers_ $consensus:lower _info>](
+							) -> Vec<$justification_type>;
+						)?
 					}
 				}
 			}
 
 			pub use [<$chain _finality_api>]::*;
 		}
+	};
+	($chain: ident, grandpa) => {
+		decl_bridge_finality_runtime_apis!($chain, grandpa => bp_header_chain::HeaderGrandpaInfo<Header>);
 	};
 }
 
@@ -376,8 +393,8 @@ macro_rules! decl_bridge_messages_runtime_apis {
 /// The name of the chain has to be specified in snake case (e.g. `rialto_parachain`).
 #[macro_export]
 macro_rules! decl_bridge_runtime_apis {
-	($chain: ident) => {
-		bp_runtime::decl_bridge_finality_runtime_apis!($chain);
+	($chain: ident $(, $consensus: ident)?) => {
+		bp_runtime::decl_bridge_finality_runtime_apis!($chain $(, $consensus)?);
 		bp_runtime::decl_bridge_messages_runtime_apis!($chain);
 	};
 }

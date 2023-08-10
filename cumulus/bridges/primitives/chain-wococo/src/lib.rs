@@ -26,6 +26,7 @@ pub use bp_rococo::{
 use bp_header_chain::ChainWithGrandpa;
 use bp_runtime::{decl_bridge_finality_runtime_apis, Chain};
 use frame_support::weights::Weight;
+use sp_std::prelude::Vec;
 
 /// Wococo Chain
 pub struct Wococo;
@@ -62,4 +63,4 @@ impl ChainWithGrandpa for Wococo {
 /// Name of the With-Wococo GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_WOCOCO_GRANDPA_PALLET_NAME: &str = "BridgeWococoGrandpa";
 
-decl_bridge_finality_runtime_apis!(wococo);
+decl_bridge_finality_runtime_apis!(wococo, grandpa);

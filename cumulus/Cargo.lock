@@ -1257,6 +1257,7 @@ dependencies = [
  "bp-runtime",
  "frame-support",
  "sp-api",
+ "sp-std",
 ]
 
 [[package]]
@@ -1310,6 +1311,7 @@ dependencies = [
  "bp-runtime",
  "frame-support",
  "sp-api",
+ "sp-std",
 ]
 
 [[package]]
@@ -1472,6 +1474,7 @@ version = "0.1.0"
 dependencies = [
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-wococo",
+ "bp-header-chain",
  "bp-messages",
  "bp-parachains",
  "bp-polkadot-core",

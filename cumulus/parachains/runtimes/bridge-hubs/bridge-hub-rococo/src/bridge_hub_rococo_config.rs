@@ -78,13 +78,6 @@ impl XcmBlobHauler for ToBridgeHubWococoXcmBlobHauler {
 	type MessageSender =
 		pallet_bridge_messages::Pallet<Runtime, WithBridgeHubWococoMessagesInstance>;
 
-	type MessageSenderOrigin = super::RuntimeOrigin;
-
-	fn message_sender_origin() -> Self::MessageSenderOrigin {
-		pallet_xcm::Origin::from(MultiLocation::new(1, crate::xcm_config::UniversalLocation::get()))
-			.into()
-	}
-
 	fn xcm_lane() -> LaneId {
 		DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO
 	}
