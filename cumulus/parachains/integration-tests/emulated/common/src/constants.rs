@@ -2,8 +2,12 @@ use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
 use grandpa::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId, Balance, BlockNumber};
+use polkadot_parachain::primitives::{HeadData, ValidationCode};
 use polkadot_primitives::{AssignmentId, ValidatorId};
-use polkadot_runtime_parachains::configuration::HostConfiguration;
+use polkadot_runtime_parachains::{
+	configuration::HostConfiguration,
+	paras::{ParaGenesisArgs, ParaKind},
+};
 use polkadot_service::chain_spec::get_authority_keys_from_seed_no_beefy;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
@@ -129,6 +133,13 @@ pub mod polkadot {
 			max_upward_message_size: 51200,
 			max_upward_message_num_per_candidate: 10,
 			max_downward_message_size: 51200,
+			hrmp_sender_deposit: 100_000_000_000,
+			hrmp_recipient_deposit: 100_000_000_000,
+			hrmp_channel_max_capacity: 1000,
+			hrmp_channel_max_message_size: 102400,
+			hrmp_channel_max_total_size: 102400,
+			hrmp_max_parachain_outbound_channels: 30,
+			hrmp_max_parachain_inbound_channels: 30,
 			..Default::default()
 		}
 	}
@@ -206,6 +217,41 @@ pub mod polkadot {
 				..Default::default()
 			},
 			configuration: polkadot_runtime::ConfigurationConfig { config: get_host_config() },
+			paras: polkadot_runtime::ParasConfig {
+				paras: vec![
+					(
+						asset_hub_polkadot::PARA_ID.into(),
+						ParaGenesisArgs {
+							genesis_head: HeadData::default(),
+							validation_code: ValidationCode(
+								asset_hub_polkadot_runtime::WASM_BINARY.unwrap().to_vec(),
+							),
+							para_kind: ParaKind::Parachain,
+						},
+					),
+					(
+						penpal::PARA_ID_A.into(),
+						ParaGenesisArgs {
+							genesis_head: HeadData::default(),
+							validation_code: ValidationCode(
+								penpal_runtime::WASM_BINARY.unwrap().to_vec(),
+							),
+							para_kind: ParaKind::Parachain,
+						},
+					),
+					(
+						penpal::PARA_ID_B.into(),
+						ParaGenesisArgs {
+							genesis_head: HeadData::default(),
+							validation_code: ValidationCode(
+								penpal_runtime::WASM_BINARY.unwrap().to_vec(),
+							),
+							para_kind: ParaKind::Parachain,
+						},
+					),
+				],
+				..Default::default()
+			},
 			..Default::default()
 		};
 
@@ -228,6 +274,13 @@ pub mod westend {
 			max_upward_message_size: 51200,
 			max_upward_message_num_per_candidate: 10,
 			max_downward_message_size: 51200,
+			hrmp_sender_deposit: 100_000_000_000,
+			hrmp_recipient_deposit: 100_000_000_000,
+			hrmp_channel_max_capacity: 1000,
+			hrmp_channel_max_message_size: 102400,
+			hrmp_channel_max_total_size: 102400,
+			hrmp_max_parachain_outbound_channels: 30,
+			hrmp_max_parachain_inbound_channels: 30,
 			..Default::default()
 		}
 	}
@@ -327,6 +380,13 @@ pub mod kusama {
 			max_upward_message_size: 51200,
 			max_upward_message_num_per_candidate: 10,
 			max_downward_message_size: 51200,
+			hrmp_sender_deposit: 5_000_000_000_000,
+			hrmp_recipient_deposit: 5_000_000_000_000,
+			hrmp_channel_max_capacity: 1000,
+			hrmp_channel_max_message_size: 102400,
+			hrmp_channel_max_total_size: 102400,
+			hrmp_max_parachain_outbound_channels: 30,
+			hrmp_max_parachain_inbound_channels: 30,
 			..Default::default()
 		}
 	}
@@ -403,6 +463,41 @@ pub mod kusama {
 				..Default::default()
 			},
 			configuration: kusama_runtime::ConfigurationConfig { config: get_host_config() },
+			paras: kusama_runtime::ParasConfig {
+				paras: vec![
+					(
+						asset_hub_kusama::PARA_ID.into(),
+						ParaGenesisArgs {
+							genesis_head: HeadData::default(),
+							validation_code: ValidationCode(
+								asset_hub_kusama_runtime::WASM_BINARY.unwrap().to_vec(),
+							),
+							para_kind: ParaKind::Parachain,
+						},
+					),
+					(
+						penpal::PARA_ID_A.into(),
+						ParaGenesisArgs {
+							genesis_head: HeadData::default(),
+							validation_code: ValidationCode(
+								penpal_runtime::WASM_BINARY.unwrap().to_vec(),
+							),
+							para_kind: ParaKind::Parachain,
+						},
+					),
+					(
+						penpal::PARA_ID_B.into(),
+						ParaGenesisArgs {
+							genesis_head: HeadData::default(),
+							validation_code: ValidationCode(
+								penpal_runtime::WASM_BINARY.unwrap().to_vec(),
+							),
+							para_kind: ParaKind::Parachain,
+						},
+					),
+				],
+				..Default::default()
+			},
 			..Default::default()
 		};
 
@@ -419,10 +514,18 @@ pub mod rococo {
 
 	pub fn get_host_config() -> HostConfiguration<BlockNumber> {
 		HostConfiguration {
+			max_upward_queue_count: 10,
 			max_upward_queue_size: 51200,
 			max_upward_message_size: 51200,
 			max_upward_message_num_per_candidate: 10,
 			max_downward_message_size: 51200,
+			hrmp_sender_deposit: 0,
+			hrmp_recipient_deposit: 0,
+			hrmp_channel_max_capacity: 1000,
+			hrmp_channel_max_message_size: 102400,
+			hrmp_channel_max_total_size: 102400,
+			hrmp_max_parachain_outbound_channels: 30,
+			hrmp_max_parachain_inbound_channels: 30,
 			..Default::default()
 		}
 	}
@@ -674,7 +777,8 @@ pub mod asset_hub_kusama {
 // Penpal
 pub mod penpal {
 	use super::*;
-	pub const PARA_ID: u32 = 2000;
+	pub const PARA_ID_A: u32 = 2000;
+	pub const PARA_ID_B: u32 = 2001;
 	pub const ED: Balance = penpal_runtime::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis(para_id: u32) -> Storage {

@@ -447,7 +447,9 @@ checksum = "9b34d609dfbaf33d6889b2b7106d3ca345eacad44200913df5ba02bfd31d2ba9"
 name = "asset-hub-kusama-integration-tests"
 version = "1.0.0"
 dependencies = [
- "asset-hub-kusama-runtime",
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcmp-queue",
  "frame-support",
  "frame-system",
  "integration-tests-common",
@@ -456,7 +458,6 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "penpal-runtime",
  "polkadot-core-primitives",
  "polkadot-parachain",
  "polkadot-runtime",
@@ -544,7 +545,9 @@ dependencies = [
 name = "asset-hub-polkadot-integration-tests"
 version = "1.0.0"
 dependencies = [
- "asset-hub-polkadot-runtime",
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcmp-queue",
  "frame-support",
  "frame-system",
  "integration-tests-common",
@@ -553,7 +556,6 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "penpal-runtime",
  "polkadot-core-primitives",
  "polkadot-parachain",
  "polkadot-runtime",
@@ -641,6 +643,9 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "asset-hub-westend-runtime",
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcmp-queue",
  "frame-support",
  "frame-system",
  "integration-tests-common",
@@ -650,7 +655,6 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "penpal-runtime",
  "polkadot-core-primitives",
  "polkadot-parachain",
  "polkadot-runtime",
@@ -658,7 +662,6 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-weights",
- "westend-runtime",
  "xcm",
  "xcm-emulator",
  "xcm-executor",
@@ -1445,7 +1448,7 @@ name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
  "bp-messages",
- "bridge-hub-rococo-runtime",
+ "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "frame-support",
  "frame-system",
@@ -1760,15 +1763,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "casey"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "614586263949597dcc18675da12ef9b429135e13628d92eb8b8c6fa50ca5656b"
-dependencies = [
- "syn 1.0.109",
-]
-
-[[package]]
 name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1999,6 +1993,7 @@ version = "0.1.0"
 dependencies = [
  "asset-hub-polkadot-runtime",
  "collectives-polkadot-runtime",
+ "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "frame-support",
  "frame-system",
@@ -5263,20 +5258,26 @@ dependencies = [
  "bridge-hub-rococo-runtime",
  "bridge-runtime-common",
  "collectives-polkadot-runtime",
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
  "frame-support",
  "frame-system",
  "kusama-runtime",
  "kusama-runtime-constants",
+ "lazy_static",
  "pallet-assets",
  "pallet-balances",
  "pallet-bridge-messages",
  "pallet-im-online",
+ "pallet-message-queue",
  "pallet-staking",
  "pallet-xcm",
  "parachain-info",
  "parachains-common",
  "parity-scale-codec",
+ "paste",
  "penpal-runtime",
  "polkadot-core-primitives",
  "polkadot-parachain",
@@ -15908,7 +15909,6 @@ dependencies = [
 name = "xcm-emulator"
 version = "0.1.0"
 dependencies = [
- "casey",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -15917,6 +15917,8 @@ dependencies = [
  "cumulus-test-relay-sproof-builder",
  "frame-support",
  "frame-system",
+ "impl-trait-for-tuples",
+ "lazy_static",
  "log",
  "pallet-balances",
  "pallet-message-queue",
@@ -15926,7 +15928,6 @@ dependencies = [
  "paste",
  "polkadot-primitives",
  "polkadot-runtime-parachains",
- "quote",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
@@ -15934,6 +15935,7 @@ dependencies = [
  "sp-std",
  "sp-trie",
  "xcm",
+ "xcm-executor",
 ]
 
 [[package]]

@@ -29,7 +29,7 @@ pallet-xcm = { default-features = false, git = "https://github.com/paritytech/po
 # Cumulus
 parachains-common = { path = "../../../../common" }
 cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../../pallets/xcmp-queue" }
-bridge-hub-rococo-runtime = { path = "../../../../runtimes/bridge-hubs/bridge-hub-rococo" }
+cumulus-pallet-parachain-system = { path = "../../../../../pallets/parachain-system" }
 pallet-bridge-messages = { default-features = false, path = "../../../../../bridges/modules/messages" }
 bp-messages = { default-features = false, path = "../../../../../bridges/primitives/messages" }
 

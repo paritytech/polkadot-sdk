@@ -16,31 +16,86 @@
 
 pub use codec::Encode;
 pub use frame_support::{
-	assert_ok, instances::Instance1, pallet_prelude::Weight, traits::fungibles::Inspect,
+	assert_err, assert_ok,
+	instances::{Instance1, Instance2},
+	pallet_prelude::Weight,
+	sp_runtime::{AccountId32, DispatchError, DispatchResult, ModuleError, MultiAddress},
+	traits::{fungibles::Inspect, OriginTrait},
+	BoundedVec,
 };
 pub use integration_tests_common::{
 	constants::{
 		accounts::{ALICE, BOB},
-		polkadot::ED as POLKADOT_ED,
+		asset_hub_westend::ED as ASSET_HUB_WESTEND_ED,
+		westend::ED as WESTEND_ED,
 		PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 	},
-	AccountId, AssetHubWestend, AssetHubWestendPallet, AssetHubWestendReceiver,
-	AssetHubWestendSender, Collectives, CollectivesPallet, CollectivesReceiver, CollectivesSender,
-	PenpalWestend, PenpalWestendPallet, PenpalWestendReceiver, PenpalWestendSender, Westend,
+	lazy_static::lazy_static,
+	xcm_transact_paid_execution, xcm_transact_unpaid_execution, AssetHubWestend,
+	AssetHubWestendPallet, AssetHubWestendReceiver, AssetHubWestendSender, Collectives,
+	CollectivesPallet, CollectivesReceiver, CollectivesSender, PenpalWestendA,
+	PenpalWestendAPallet, PenpalWestendAReceiver, PenpalWestendASender, Westend, WestendMockNet,
 	WestendPallet, WestendReceiver, WestendSender,
 };
+pub use parachains_common::{AccountId, Balance};
 pub use polkadot_core_primitives::InboundDownwardMessage;
+pub use polkadot_parachain::primitives::{HrmpChannelId, Id};
+pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
 pub use xcm::{
 	prelude::*,
-	v3::{
-		Error,
-		NetworkId::{Kusama as KusamaId, Polkadot as PolkadotId},
-	},
+	v3::{Error, NetworkId::Westend as WestendId},
+	DoubleEncoded,
 };
 pub use xcm_emulator::{
 	assert_expected_events, bx, cumulus_pallet_dmp_queue, helpers::weight_within_threshold,
-	Parachain as Para, RelayChain as Relay, TestExt,
+	AccountId32Junction, Chain, ParaId, Parachain as Para, RelayChain as Relay, Test, TestArgs,
+	TestContext, TestExt, TestExternalities,
 };
+
+pub const ASSET_ID: u32 = 1;
+pub const ASSET_MIN_BALANCE: u128 = 1000;
+// `Assets` pallet index
+pub const ASSETS_PALLET_ID: u8 = 50;
+
+pub type RelayToSystemParaTest = Test<Westend, AssetHubWestend>;
+pub type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;
+pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalWestendA>;
+
+/// Returns a `TestArgs` instance to de used for the Relay Chain accross integraton tests
+pub fn relay_test_args(amount: Balance) -> TestArgs {
+	TestArgs {
+		dest: Westend::child_location_of(AssetHubWestend::para_id()),
+		beneficiary: AccountId32Junction {
+			network: None,
+			id: AssetHubWestendReceiver::get().into(),
+		}
+		.into(),
+		amount,
+		assets: (Here, amount).into(),
+		asset_id: None,
+		fee_asset_item: 0,
+		weight_limit: WeightLimit::Unlimited,
+	}
+}
+
+/// Returns a `TestArgs` instance to de used for the System Parachain accross integraton tests
+pub fn system_para_test_args(
+	dest: MultiLocation,
+	beneficiary_id: AccountId32,
+	amount: Balance,
+	assets: MultiAssets,
+	asset_id: Option<u32>,
+) -> TestArgs {
+	TestArgs {
+		dest,
+		beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
+		amount,
+		assets,
+		asset_id,
+		fee_asset_item: 0,
+		weight_limit: WeightLimit::Unlimited,
+	}
+}
 
 #[cfg(test)]
 mod tests;

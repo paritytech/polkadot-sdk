@@ -5,7 +5,7 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 description = "Polkadot Collectives parachain runtime integration tests based on xcm-emulator"
 
-[dev-dependencies]
+[dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
 
 # Substrate
@@ -31,6 +31,7 @@ pallet-xcm = { default-features = false, git = "https://github.com/paritytech/po
 # Cumulus
 parachains-common = { path = "../../../../common" }
 cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../../pallets/xcmp-queue" }
+cumulus-pallet-parachain-system = { path = "../../../../../pallets/parachain-system" }
 collectives-polkadot-runtime = { path = "../../../../runtimes/collectives/collectives-polkadot" }
 asset-hub-polkadot-runtime = { path = "../../../../runtimes/assets/asset-hub-polkadot" }
 

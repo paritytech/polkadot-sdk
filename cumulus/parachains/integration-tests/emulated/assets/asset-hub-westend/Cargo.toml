@@ -24,15 +24,16 @@ polkadot-core-primitives = { default-features = false, git = "https://github.com
 polkadot-parachain = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-westend-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 xcm = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
 xcm-executor = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
 pallet-xcm = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
 
 # Cumulus
 parachains-common = { path = "../../../../common" }
-penpal-runtime = { path = "../../../../runtimes/testing/penpal" }
 asset-hub-westend-runtime = { path = "../../../../runtimes/assets/asset-hub-westend" }
+cumulus-pallet-dmp-queue = { path = "../../../../../pallets/dmp-queue" }
+cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../../pallets/xcmp-queue" }
+cumulus-pallet-parachain-system = { path = "../../../../../pallets/parachain-system" }
 
 # Local
 xcm-emulator = { default-features = false, path = "../../../../../xcm/xcm-emulator" }
