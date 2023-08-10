@@ -21,7 +21,6 @@
     - [chainHead_unstable_call](api/chainHead_unstable_call.md)
     - [chainHead_unstable_continue](api/chainHead_unstable_continue.md)
     - [chainHead_unstable_follow](api/chainHead_unstable_follow.md)
-    - [chainHead_unstable_genesisHash](api/chainHead_unstable_genesisHash.md)
     - [chainHead_unstable_header](api/chainHead_unstable_header.md)
     - [chainHead_unstable_stopOperation](api/chainHead_unstable_stopOperation.md)
     - [chainHead_unstable_storage](api/chainHead_unstable_storage.md)
