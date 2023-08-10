@@ -65,6 +65,7 @@ pub(crate) struct RequestResultCache {
 		LruMap<Hash, Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>>,
 	key_ownership_proof:
 		LruMap<(Hash, ValidatorId), Option<vstaging::slashing::OpaqueKeyOwnershipProof>>,
+	disabled_validators: LruMap<Hash, Vec<ValidatorIndex>>,
 
 	staging_para_backing_state: LruMap<(Hash, ParaId), Option<vstaging::BackingState>>,
 	staging_async_backing_params: LruMap<Hash, vstaging::AsyncBackingParams>,
@@ -97,6 +98,7 @@ impl Default for RequestResultCache {
 			disputes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			unapplied_slashes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			key_ownership_proof: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			disabled_validators: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 
 			staging_para_backing_state: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			staging_async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
@@ -434,6 +436,21 @@ impl RequestResultCache {
 		None
 	}
 
+	pub(crate) fn disabled_validators(
+		&mut self,
+		relay_parent: &Hash,
+	) -> Option<&Vec<ValidatorIndex>> {
+		self.disabled_validators.get(relay_parent).map(|v| &*v)
+	}
+
+	pub(crate) fn cache_disabled_validators(
+		&mut self,
+		relay_parent: Hash,
+		disabled_validators: Vec<ValidatorIndex>,
+	) {
+		self.disabled_validators.insert(relay_parent, disabled_validators);
+	}
+
 	pub(crate) fn staging_para_backing_state(
 		&mut self,
 		key: (Hash, ParaId),
@@ -509,6 +526,7 @@ pub(crate) enum RequestResult {
 		vstaging::slashing::OpaqueKeyOwnershipProof,
 		Option<()>,
 	),
+	DisabledValidators(Hash, Vec<ValidatorIndex>),
 
 	StagingParaBackingState(Hash, ParaId, Option<vstaging::BackingState>),
 	StagingAsyncBackingParams(Hash, vstaging::AsyncBackingParams),
