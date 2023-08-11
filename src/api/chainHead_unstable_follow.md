@@ -26,6 +26,8 @@ This function works as follows:
 
 **Note**: This list of notifications makes it very easy for a JSON-RPC client to follow just the best block updates (listening to just `bestBlockChanged` events) or follow just the finalized block updates (listening to just `initialized` and `finalized` events). It is however not possible to easily figure out whether the runtime has been modified when these updates happen. This is not problematic, as anyone using the JSON-RPC interface naively propably doesn't need to account for runtime changes anyway.
 
+Additionally, the `chainHead_unstable_body`, `chainHead_unstable_call`, and `chainHead_unstable_storage` JSON-RPC function might cause the subscription to produce additional notifications.
+
 ## The `withRuntime` parameter
 
 If the `withRuntime` parameter is `true`, then blocks shouldn't (and can't) be reported to JSON-RPC clients before the JSON-RPC server has finished obtaining the runtime specification of the blocks that it reports. This includes the finalized block reported in the `initialized` event.
@@ -213,7 +215,7 @@ The `closestDescendantMerkleValue` field is set if this item corresponds to one 
 
 The `waiting-for-continue` event is generated after at least one `"operationStorageItems"` event has been generated, and indicates that the JSON-RPC client must call `chainHead_unstable_continue` before more events are generated.
 
-This event only ever happens if the `type` parameter that was provided to `chainHead_unstable_storage` was `descendantsValues` or `descendantsHashes`.
+This event only ever happens if the `type` of one of the `items` provided as a parameter to `chainHead_unstable_storage` was `descendantsValues` or `descendantsHashes`.
 
 While the JSON-RPC server is waiting for a call to `chainHead_unstable_continue`, it can generate an `operationInaccessible` event in order to indicate that it can no longer proceed with the operation. If that is the case, the JSON-RPC client can simply try again.
 

@@ -33,10 +33,10 @@ Where:
 - `operationId` is a string containing an opaque value representing the operation.
 - `discardedItems` is an integer indicating the number of items at the back of the array of the `items` parameters that couldn't be processed.
 
-If the list the JSON-RPC server is overloaded, it might refuse to accept new storage requests. In that situation, the JSON-RPC server will discard some or all the `items` passed as parameter. The number of items discarded is indicated in `discardedItems`. When that happens, the JSON-RPC client should try again after an on-going [`chainHead_unstable_storage`], [`chainHead_unstable_body`], or [`chainHead_unstable_call`] operation finishes.
+If the list the JSON-RPC server is overloaded, it might refuse to accept new storage requests. In that situation, the JSON-RPC server will discard some or all the `items` passed as parameter. The number of items discarded is indicated in `discardedItems`. When that happens, the JSON-RPC client should try again after an on-going `chainHead_unstable_storage`, `chainHead_unstable_body`, or `chainHead_unstable_call` operation finishes.
 
-The JSON-RPC server must accept at least 16 concurrent operations for any given [`chainHead_unstable_follow`] subscription. In other words, as long as the JSON-RPC client makes sure that no more than 16 operations are in progress at any given item, it is guaranteed that all of its operations will be accepted by the JSON-RPC server.
-For this purpose, each item requested through [`chainHead_unstable_storage`] counts as one operation, and each call to [`chainHead_unstable_body`] and [`chainHead_unstable_call`] counts as one operation.
+The JSON-RPC server must accept at least 16 concurrent operations for any given `chainHead_unstable_follow` subscription. In other words, as long as the JSON-RPC client makes sure that no more than 16 operations are in progress at any given item, it is guaranteed that all of its operations will be accepted by the JSON-RPC server.
+For this purpose, each item requested through `chainHead_unstable_storage` counts as one operation, and each call to `chainHead_unstable_body` and `chainHead_unstable_call` counts as one operation.
 
 ### LimitReached
 
