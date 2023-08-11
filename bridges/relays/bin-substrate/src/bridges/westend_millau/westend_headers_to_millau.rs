@@ -17,20 +17,23 @@
 //! Westend-to-Millau headers sync entrypoint.
 
 use crate::cli::bridge::{CliBridgeBase, RelayToRelayHeadersCliBridge};
-use substrate_relay_helper::finality::{
-	engine::Grandpa as GrandpaFinalityEngine, DirectSubmitGrandpaFinalityProofCallBuilder,
-	SubstrateFinalitySyncPipeline,
+use substrate_relay_helper::{
+	finality::{DirectSubmitGrandpaFinalityProofCallBuilder, SubstrateFinalitySyncPipeline},
+	finality_base::{engine::Grandpa as GrandpaFinalityEngine, SubstrateFinalityPipeline},
 };
 
 /// Description of Westend -> Millau finalized headers bridge.
 #[derive(Clone, Debug)]
 pub struct WestendFinalityToMillau;
 
-impl SubstrateFinalitySyncPipeline for WestendFinalityToMillau {
+impl SubstrateFinalityPipeline for WestendFinalityToMillau {
 	type SourceChain = relay_westend_client::Westend;
 	type TargetChain = relay_millau_client::Millau;
 
 	type FinalityEngine = GrandpaFinalityEngine<Self::SourceChain>;
+}
+
+impl SubstrateFinalitySyncPipeline for WestendFinalityToMillau {
 	type SubmitFinalityProofCallBuilder = DirectSubmitGrandpaFinalityProofCallBuilder<
 		Self,
 		millau_runtime::Runtime,
