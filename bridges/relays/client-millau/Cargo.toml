@@ -24,3 +24,4 @@ frame-system = { git = "https://github.com/paritytech/substrate", branch = "mast
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-session = { git = "https://github.com/paritytech/substrate", branch = "master" }
