@@ -85,6 +85,9 @@ pub trait ChainWithGrandpa: Chain + UnderlyingChainWithGrandpaProvider {
 	/// Keep in mind that this method is normally provided by the other chain, which is
 	/// bridged with this chain.
 	const SYNCED_HEADERS_GRANDPA_INFO_METHOD: &'static str;
+
+	/// The type of the key owner proof used by the grandpa engine.
+	type KeyOwnerProof;
 }
 
 /// Substrate-based parachain from minimal relay-client point of view.
