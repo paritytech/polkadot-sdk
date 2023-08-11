@@ -21,7 +21,7 @@
 //! and authorities set from source to target chain. The finality sync starts
 //! with this header.
 
-use crate::{error::Error, finality::engine::Engine};
+use crate::{error::Error, finality_base::engine::Engine};
 use sp_core::Pair;
 
 use bp_runtime::HeaderIdOf;

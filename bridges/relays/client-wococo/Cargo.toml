@@ -16,3 +16,4 @@ bp-wococo = { path = "../../primitives/chain-wococo" }
 
 # Substrate Dependencies
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-session = { git = "https://github.com/paritytech/substrate", branch = "master" }

@@ -41,7 +41,7 @@ use relay_substrate_client::{AccountKeyPairOf, Chain, UnsignedTransaction};
 use sp_core::Pair;
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
-use substrate_relay_helper::finality::engine::{Engine, Grandpa as GrandpaFinalityEngine};
+use substrate_relay_helper::finality_base::engine::{Engine, Grandpa as GrandpaFinalityEngine};
 
 /// Initialize bridge pallet.
 #[derive(StructOpt)]

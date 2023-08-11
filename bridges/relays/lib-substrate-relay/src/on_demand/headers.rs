@@ -38,11 +38,11 @@ use relay_utils::{
 
 use crate::{
 	finality::{
-		engine::Engine,
 		source::{RequiredHeaderNumberRef, SubstrateFinalitySource},
 		target::SubstrateFinalityTarget,
 		SubstrateFinalitySyncPipeline, RECENT_FINALITY_PROOFS_LIMIT,
 	},
+	finality_base::engine::Engine,
 	on_demand::OnDemandRelay,
 	TransactionParams,
 };
