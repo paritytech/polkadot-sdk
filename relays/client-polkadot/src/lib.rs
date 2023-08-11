@@ -22,6 +22,7 @@ use relay_substrate_client::{
 	Chain, ChainWithBalances, ChainWithGrandpa, RelayChain, UnderlyingChainProvider,
 };
 use sp_core::storage::StorageKey;
+use sp_session::MembershipProof;
 use std::time::Duration;
 
 /// Polkadot header id.
@@ -52,6 +53,8 @@ impl Chain for Polkadot {
 impl ChainWithGrandpa for Polkadot {
 	const SYNCED_HEADERS_GRANDPA_INFO_METHOD: &'static str =
 		POLKADOT_SYNCED_HEADERS_GRANDPA_INFO_METHOD;
+
+	type KeyOwnerProof = MembershipProof;
 }
 
 impl ChainWithBalances for Polkadot {

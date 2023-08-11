@@ -19,26 +19,25 @@
 
 use crate::{
 	finality::{
-		engine::Engine,
 		source::{SubstrateFinalityProof, SubstrateFinalitySource},
 		target::SubstrateFinalityTarget,
 	},
 	TransactionParams,
 };
 
+use crate::finality_base::{engine::Engine, SubstrateFinalityPipeline};
 use async_trait::async_trait;
 use bp_header_chain::justification::GrandpaJustification;
 use finality_relay::FinalitySyncPipeline;
 use pallet_bridge_grandpa::{Call as BridgeGrandpaCall, Config as BridgeGrandpaConfig};
 use relay_substrate_client::{
-	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain,
-	ChainWithTransactions, Client, HashOf, HeaderOf, SyncHeader,
+	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain, Client,
+	HashOf, HeaderOf, SyncHeader,
 };
 use relay_utils::metrics::MetricsParams;
 use sp_core::Pair;
 use std::{fmt::Debug, marker::PhantomData};
 
-pub mod engine;
 pub mod initialize;
 pub mod source;
 pub mod target;
@@ -51,14 +50,7 @@ pub(crate) const RECENT_FINALITY_PROOFS_LIMIT: usize = 4096;
 
 /// Substrate -> Substrate finality proofs synchronization pipeline.
 #[async_trait]
-pub trait SubstrateFinalitySyncPipeline: 'static + Clone + Debug + Send + Sync {
-	/// Headers of this chain are submitted to the `TargetChain`.
-	type SourceChain: Chain;
-	/// Headers of the `SourceChain` are submitted to this chain.
-	type TargetChain: ChainWithTransactions;
-
-	/// Finality engine.
-	type FinalityEngine: Engine<Self::SourceChain>;
+pub trait SubstrateFinalitySyncPipeline: SubstrateFinalityPipeline {
 	/// How submit finality proof call is built?
 	type SubmitFinalityProofCallBuilder: SubmitFinalityProofCallBuilder<Self>;
 
@@ -144,16 +136,16 @@ macro_rules! generate_submit_finality_proof_call_builder {
 			fn build_submit_finality_proof_call(
 				header: relay_substrate_client::SyncHeader<
 					relay_substrate_client::HeaderOf<
-						<$pipeline as $crate::finality::SubstrateFinalitySyncPipeline>::SourceChain
+						<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::SourceChain
 					>
 				>,
 				proof: bp_header_chain::justification::GrandpaJustification<
 					relay_substrate_client::HeaderOf<
-						<$pipeline as $crate::finality::SubstrateFinalitySyncPipeline>::SourceChain
+						<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::SourceChain
 					>
 				>,
 			) -> relay_substrate_client::CallOf<
-				<$pipeline as $crate::finality::SubstrateFinalitySyncPipeline>::TargetChain
+				<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::TargetChain
 			> {
 				bp_runtime::paste::item! {
 					$bridge_grandpa($submit_finality_proof {
