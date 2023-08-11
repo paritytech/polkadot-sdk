@@ -772,6 +772,7 @@ pub fn node_config(
 		offchain_worker: OffchainWorkerConfig { enabled: true, indexing_enabled: false },
 		force_authoring: false,
 		disable_grandpa: false,
+		disable_beefy: true,
 		dev_key_seed: Some(key_seed),
 		tracing_targets: None,
 		tracing_receiver: Default::default(),

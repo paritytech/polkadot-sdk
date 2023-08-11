@@ -265,7 +265,7 @@ pub fn check_block_in_chain(
 /// Build the Polkadot full node using the given `config`.
 #[sc_tracing::logging::prefix_logs_with("Relaychain")]
 fn build_polkadot_full_node(
-	config: Configuration,
+	mut config: Configuration,
 	parachain_config: &Configuration,
 	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	hwbench: Option<sc_sysinfo::HwBench>,
@@ -277,13 +277,14 @@ fn build_polkadot_full_node(
 		(polkadot_service::IsCollator::No, None)
 	};
 
+	// Disable BEEFY. It should not be required by the internal relay chain node.
+	config.disable_beefy = true;
+
 	let relay_chain_full_node = polkadot_service::build_full(
 		config,
 		polkadot_service::NewFullParams {
 			is_collator,
 			grandpa_pause: None,
-			// Disable BEEFY. It should not be required by the internal relay chain node.
-			enable_beefy: false,
 			jaeger_agent: None,
 			telemetry_worker_handle,
 

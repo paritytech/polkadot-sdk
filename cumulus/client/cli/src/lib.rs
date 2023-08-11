@@ -393,6 +393,10 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		self.base.disable_grandpa()
 	}
 
+	fn disable_beefy(&self) -> sc_cli::Result<bool> {
+		self.base.disable_beefy()
+	}
+
 	fn rpc_max_connections(&self) -> sc_cli::Result<u32> {
 		self.base.rpc_max_connections()
 	}
