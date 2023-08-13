@@ -12870,6 +12870,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-vesting",
+ "pallet-xcm-benchmarks",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
@@ -12893,6 +12894,7 @@ dependencies = [
  "sp-std",
  "static_assertions",
  "xcm",
+ "xcm-executor",
 ]
 
 [[package]]

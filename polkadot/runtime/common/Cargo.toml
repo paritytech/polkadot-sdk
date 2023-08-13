@@ -50,6 +50,9 @@ runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parac
 
 slot-range-helper = { path = "slot_range_helper", default-features = false }
 xcm = { path = "../../xcm", default-features = false }
+xcm-executor = { path = "../../xcm/xcm-executor", default-features = false, optional = true }
+
+pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 
 [dev-dependencies]
 hex-literal = "0.4.1"
@@ -109,7 +112,9 @@ runtime-benchmarks = [
 	"libsecp256k1/static-context",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
+	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"runtime-parachains/runtime-benchmarks",
+	"xcm-executor",
 ]
 try-runtime = [
 	"pallet-authorship/try-runtime",
