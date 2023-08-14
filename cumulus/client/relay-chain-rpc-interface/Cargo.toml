@@ -21,7 +21,7 @@ sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "mas
 sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
-tokio = { version = "1.29.1", features = ["sync"] }
+tokio = { version = "1.30.0", features = ["sync"] }
 
 futures = "0.3.28"
 futures-timer = "3.0.2"
