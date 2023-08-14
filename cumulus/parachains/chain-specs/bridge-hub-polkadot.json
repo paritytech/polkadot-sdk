@@ -14,7 +14,9 @@
     "/dns/polkadot-bridge-hub-boot-ng.dwellir.com/tcp/30339/p2p/12D3KooWPZ38PL3PhRVcUVYDNn7nRcZF8MykmWWLBKeDV2yna1vV",
     "/dns/polkadot-bridge-hub-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWPZ38PL3PhRVcUVYDNn7nRcZF8MykmWWLBKeDV2yna1vV",
     "/dns/boot-cr.gatotech.network/tcp/33130/p2p/12D3KooWCnFzfEdd7MwUNrrDv66FuS2DM5MGuiaB4y48XS7qNjF6",
-    "/dns/boot-cr.gatotech.network/tcp/35130/wss/p2p/12D3KooWCnFzfEdd7MwUNrrDv66FuS2DM5MGuiaB4y48XS7qNjF6"
+    "/dns/boot-cr.gatotech.network/tcp/35130/wss/p2p/12D3KooWCnFzfEdd7MwUNrrDv66FuS2DM5MGuiaB4y48XS7qNjF6",
+    "/dns/boot.metaspan.io/tcp/16032/p2p/12D3KooWQTfRnrK3FfbrotpSP5RVJbjBHVBSu8VSzhj9qcvjaqnZ",
+    "/dns/boot.metaspan.io/tcp/16036/wss/p2p/12D3KooWQTfRnrK3FfbrotpSP5RVJbjBHVBSu8VSzhj9qcvjaqnZ"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
