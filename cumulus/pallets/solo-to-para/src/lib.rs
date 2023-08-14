@@ -38,7 +38,8 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
-	/// In case of a scheduled migration, this storage field contains the custom head data to be applied.
+	/// In case of a scheduled migration, this storage field contains the custom head data to be
+	/// applied.
 	#[pallet::storage]
 	pub(super) type PendingCustomValidationHeadData<T: Config> =
 		StorageValue<_, Vec<u8>, OptionQuery>;
@@ -48,7 +49,8 @@ pub mod pallet {
 	pub enum Event {
 		/// The custom validation head data has been scheduled to apply.
 		CustomValidationHeadDataStored,
-		/// The custom validation head data was applied as of the contained relay chain block number.
+		/// The custom validation head data was applied as of the contained relay chain block
+		/// number.
 		CustomValidationHeadDataApplied,
 	}
 
@@ -83,7 +85,8 @@ pub mod pallet {
 			Self::deposit_event(Event::CustomValidationHeadDataStored);
 		}
 
-		/// Set pending custom head data as head data that will be returned by `validate_block`. on the relay chain.
+		/// Set pending custom head data as head data that will be returned by `validate_block`. on
+		/// the relay chain.
 		fn set_pending_custom_validation_head_data() {
 			if let Some(head_data) = <PendingCustomValidationHeadData<T>>::take() {
 				parachain_system::Pallet::<T>::set_custom_validation_head_data(head_data);

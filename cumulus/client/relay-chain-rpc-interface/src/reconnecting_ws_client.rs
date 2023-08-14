@@ -403,9 +403,11 @@ impl ReconnectingWebsocketWorker {
 
 	/// Run this worker to drive notification streams.
 	/// The worker does the following:
-	/// - Listen for [`RpcDispatcherMessage`], perform requests and register new listeners for the notification streams
-	/// - Distribute incoming import, best head and finalization notifications to registered listeners.
-	///   If an error occurs during sending, the receiver has been closed and we remove the sender from the list.
+	/// - Listen for [`RpcDispatcherMessage`], perform requests and register new listeners for the
+	///   notification streams
+	/// - Distribute incoming import, best head and finalization notifications to registered
+	///   listeners. If an error occurs during sending, the receiver has been closed and we remove
+	///   the sender from the list.
 	/// - Find a new valid RPC server to connect to in case the websocket connection is terminated.
 	///   If the worker is not able to connec to an RPC server from the list, the worker shuts down.
 	async fn run(mut self) {

@@ -100,7 +100,8 @@ async fn collect_relay_storage_proof(
 		relay_well_known_keys::ACTIVE_CONFIG.to_vec(),
 		relay_well_known_keys::dmq_mqc_head(para_id),
 		// TODO paritytech/polkadot#6283: Remove all usages of `relay_dispatch_queue_size`
-		// We need to keep this here until all parachains have migrated to `relay_dispatch_queue_remaining_capacity`.
+		// We need to keep this here until all parachains have migrated to
+		// `relay_dispatch_queue_remaining_capacity`.
 		#[allow(deprecated)]
 		relay_well_known_keys::relay_dispatch_queue_size(para_id),
 		relay_well_known_keys::relay_dispatch_queue_remaining_capacity(para_id).key,

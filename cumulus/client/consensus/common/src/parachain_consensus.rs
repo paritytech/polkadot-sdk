@@ -176,8 +176,8 @@ where
 ///
 /// # Note
 ///
-/// This will access the backend of the parachain and thus, this future should be spawned as blocking
-/// task.
+/// This will access the backend of the parachain and thus, this future should be spawned as
+/// blocking task.
 pub async fn run_parachain_consensus<P, R, Block, B>(
 	para_id: ParaId,
 	parachain: Arc<P>,

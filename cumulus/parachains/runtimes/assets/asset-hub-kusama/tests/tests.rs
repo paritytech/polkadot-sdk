@@ -183,7 +183,8 @@ fn test_asset_xcm_trader_with_refund() {
 			assert_ok!(trader.buy_weight(bought, asset.clone().into(), &ctx));
 
 			// Make sure again buy_weight does return an error
-			// This assert relies on the fact, that we use `TakeFirstAssetTrader` in `WeightTrader` tuple chain, which cannot be called twice
+			// This assert relies on the fact, that we use `TakeFirstAssetTrader` in `WeightTrader`
+			// tuple chain, which cannot be called twice
 			assert_noop!(trader.buy_weight(bought, asset.into(), &ctx), XcmError::TooExpensive);
 
 			// We actually use half of the weight

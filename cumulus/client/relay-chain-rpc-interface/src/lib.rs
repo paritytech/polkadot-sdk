@@ -184,7 +184,8 @@ impl RelayChainInterface for RelayChainRpcInterface {
 
 	/// Wait for a given relay chain block
 	///
-	/// The hash of the block to wait for is passed. We wait for the block to arrive or return after a timeout.
+	/// The hash of the block to wait for is passed. We wait for the block to arrive or return after
+	/// a timeout.
 	///
 	/// Implementation:
 	/// 1. Register a listener to all new blocks.

@@ -44,7 +44,8 @@ use sp_state_machine::{Backend as StateBackend, StorageValue};
 /// The timeout in seconds after that the waiting for a block should be aborted.
 const TIMEOUT_IN_SECONDS: u64 = 6;
 
-/// Provides an implementation of the [`RelayChainInterface`] using a local in-process relay chain node.
+/// Provides an implementation of the [`RelayChainInterface`] using a local in-process relay chain
+/// node.
 #[derive(Clone)]
 pub struct RelayChainInProcessInterface {
 	full_client: Arc<FullClient>,
@@ -188,8 +189,8 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 
 	/// Wait for a given relay chain block in an async way.
 	///
-	/// The caller needs to pass the hash of a block it waits for and the function will return when the
-	/// block is available or an error occurred.
+	/// The caller needs to pass the hash of a block it waits for and the function will return when
+	/// the block is available or an error occurred.
 	///
 	/// The waiting for the block is implemented as follows:
 	///
@@ -199,10 +200,11 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 	///
 	/// 3. If the block isn't imported yet, add an import notification listener.
 	///
-	/// 4. Poll the import notification listener until the block is imported or the timeout is fired.
+	/// 4. Poll the import notification listener until the block is imported or the timeout is
+	/// fired.
 	///
-	/// The timeout is set to 6 seconds. This should be enough time to import the block in the current
-	/// round and if not, the new round of the relay chain already started anyway.
+	/// The timeout is set to 6 seconds. This should be enough time to import the block in the
+	/// current round and if not, the new round of the relay chain already started anyway.
 	async fn wait_for_block(&self, hash: PHash) -> RelayChainResult<()> {
 		let mut listener =
 			match check_block_in_chain(self.backend.clone(), self.full_client.clone(), hash)? {

@@ -140,9 +140,9 @@ impl XcmpMessageSource for () {
 /// The "quality of service" considerations for message sending.
 #[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, RuntimeDebug)]
 pub enum ServiceQuality {
-	/// Ensure that this message is dispatched in the same relative order as any other messages that
-	/// were also sent with `Ordered`. This only guarantees message ordering on the dispatch side,
-	/// and not necessarily on the execution side.
+	/// Ensure that this message is dispatched in the same relative order as any other messages
+	/// that were also sent with `Ordered`. This only guarantees message ordering on the dispatch
+	/// side, and not necessarily on the execution side.
 	Ordered,
 	/// Ensure that the message is dispatched as soon as possible, which could result in it being
 	/// dispatched before other messages which are larger and/or rely on relative ordering.
@@ -269,8 +269,8 @@ pub mod rpsr_digest {
 		DigestItem::Consensus(RPSR_CONSENSUS_ID, (storage_root, number.into()).encode())
 	}
 
-	/// Extract the relay-parent storage root and number from the provided header digest. Returns `None`
-	/// if none were found.
+	/// Extract the relay-parent storage root and number from the provided header digest. Returns
+	/// `None` if none were found.
 	pub fn extract_relay_parent_storage_root(
 		digest: &Digest,
 	) -> Option<(relay_chain::Hash, relay_chain::BlockNumber)> {
@@ -299,7 +299,8 @@ pub struct CollationInfoV1 {
 	pub new_validation_code: Option<relay_chain::ValidationCode>,
 	/// The number of messages processed from the DMQ.
 	pub processed_downward_messages: u32,
-	/// The mark which specifies the block number up to which all inbound HRMP messages are processed.
+	/// The mark which specifies the block number up to which all inbound HRMP messages are
+	/// processed.
 	pub hrmp_watermark: relay_chain::BlockNumber,
 }
 
@@ -328,7 +329,8 @@ pub struct CollationInfo {
 	pub new_validation_code: Option<relay_chain::ValidationCode>,
 	/// The number of messages processed from the DMQ.
 	pub processed_downward_messages: u32,
-	/// The mark which specifies the block number up to which all inbound HRMP messages are processed.
+	/// The mark which specifies the block number up to which all inbound HRMP messages are
+	/// processed.
 	pub hrmp_watermark: relay_chain::BlockNumber,
 	/// The head data, aka encoded header, of the block that corresponds to the collation.
 	pub head_data: HeadData,

@@ -1301,8 +1301,9 @@ pub struct TestContext<T> {
 /// These arguments can be easily reused and shared between the assertions functions
 /// and dispatchables functions, which are also stored in `Test`.
 /// `Origin` corresponds to the chain where the XCM interaction starts with an initial execution.
-/// `Destination` corresponds to the last chain where an effect of the intial execution is expected happen.
-/// `Hops` refer all the ordered intermediary chains an initial XCM execution can provoke some effect.
+/// `Destination` corresponds to the last chain where an effect of the intial execution is expected
+/// happen. `Hops` refer all the ordered intermediary chains an initial XCM execution can provoke
+/// some effect.
 #[derive(Clone)]
 pub struct Test<Origin, Destination, Hops = (), Args = TestArgs>
 where

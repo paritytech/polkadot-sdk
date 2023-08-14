@@ -307,7 +307,8 @@ pub struct RunCmd {
 }
 
 impl RunCmd {
-	/// Create a [`NormalizedRunCmd`] which merges the `collator` cli argument into `validator` to have only one.
+	/// Create a [`NormalizedRunCmd`] which merges the `collator` cli argument into `validator` to
+	/// have only one.
 	pub fn normalize(&self) -> NormalizedRunCmd {
 		let mut new_base = self.base.clone();
 

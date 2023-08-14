@@ -187,8 +187,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Overwrites the number of pages of messages which must be in the queue for the other side to be told to
-		/// suspend their sending.
+		/// Overwrites the number of pages of messages which must be in the queue for the other side
+		/// to be told to suspend their sending.
 		///
 		/// - `origin`: Must pass `Root`.
 		/// - `new`: Desired value for `QueueConfigData.suspend_value`
@@ -201,8 +201,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Overwrites the number of pages of messages which must be in the queue after which we drop any further
-		/// messages from the channel.
+		/// Overwrites the number of pages of messages which must be in the queue after which we
+		/// drop any further messages from the channel.
 		///
 		/// - `origin`: Must pass `Root`.
 		/// - `new`: Desired value for `QueueConfigData.drop_threshold`
@@ -215,8 +215,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Overwrites the number of pages of messages which the queue must be reduced to before it signals that
-		/// message sending may recommence after it has been suspended.
+		/// Overwrites the number of pages of messages which the queue must be reduced to before it
+		/// signals that message sending may recommence after it has been suspended.
 		///
 		/// - `origin`: Must pass `Root`.
 		/// - `new`: Desired value for `QueueConfigData.resume_threshold`
@@ -243,7 +243,8 @@ pub mod pallet {
 		}
 
 		/// Overwrites the speed to which the available weight approaches the maximum weight.
-		/// A lower number results in a faster progression. A value of 1 makes the entire weight available initially.
+		/// A lower number results in a faster progression. A value of 1 makes the entire weight
+		/// available initially.
 		///
 		/// - `origin`: Must pass `Root`.
 		/// - `new`: Desired value for `QueueConfigData.weight_restrict_decay`.
@@ -257,7 +258,8 @@ pub mod pallet {
 		}
 
 		/// Overwrite the maximum amount of weight any individual message may consume.
-		/// Messages above this weight go into the overweight queue and may only be serviced explicitly.
+		/// Messages above this weight go into the overweight queue and may only be serviced
+		/// explicitly.
 		///
 		/// - `origin`: Must pass `Root`.
 		/// - `new`: Desired value for `QueueConfigData.xcmp_max_individual_weight`.
@@ -679,8 +681,8 @@ impl<T: Config> Pallet<T> {
 									Overweight::<T>::count() < MAX_OVERWEIGHT_MESSAGES;
 								weight_used.saturating_accrue(T::DbWeight::get().reads(1));
 								if is_under_limit {
-									// overweight - add to overweight queue and continue with message
-									// execution consuming the message.
+									// overweight - add to overweight queue and continue with
+									// message execution consuming the message.
 									let msg_len = last_remaining_fragments
 										.len()
 										.saturating_sub(remaining_fragments.len());

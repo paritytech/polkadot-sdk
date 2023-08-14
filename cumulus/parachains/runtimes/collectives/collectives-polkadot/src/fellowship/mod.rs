@@ -113,14 +113,16 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	// Promotions and the induction of new members are serviced by `FellowshipCore` pallet instance.
 	type PromoteOrigin = frame_system::EnsureNever<pallet_ranked_collective::Rank>;
 	#[cfg(feature = "runtime-benchmarks")]
-	// The maximum value of `u16` set as a success value for the root to ensure the benchmarks will pass.
+	// The maximum value of `u16` set as a success value for the root to ensure the benchmarks will
+	// pass.
 	type PromoteOrigin = EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>;
 
 	// Demotion is by any of:
 	// - Root can demote arbitrarily.
 	// - the FellowshipAdmin origin (i.e. token holder referendum);
 	//
-	// The maximum value of `u16` set as a success value for the root to ensure the benchmarks will pass.
+	// The maximum value of `u16` set as a success value for the root to ensure the benchmarks will
+	// pass.
 	type DemoteOrigin = EitherOf<
 		EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,
 		MapSuccess<

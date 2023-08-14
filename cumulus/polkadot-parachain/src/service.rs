@@ -331,7 +331,8 @@ where
 
 /// Start a shell node with the given parachain `Configuration` and relay chain `Configuration`.
 ///
-/// This is the actual implementation that is abstract over the executor and the runtime api for shell nodes.
+/// This is the actual implementation that is abstract over the executor and the runtime api for
+/// shell nodes.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
 async fn start_shell_node_impl<RuntimeApi, RB, BIQ, BIC>(
 	parachain_config: Configuration,

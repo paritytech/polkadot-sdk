@@ -150,7 +150,8 @@ impl InitBlockBuilder for Client {
 /// Extension trait for the [`BlockBuilder`](sc_block_builder::BlockBuilder) to build directly a
 /// [`ParachainBlockData`].
 pub trait BuildParachainBlockData {
-	/// Directly build the [`ParachainBlockData`] from the block that comes out of the block builder.
+	/// Directly build the [`ParachainBlockData`] from the block that comes out of the block
+	/// builder.
 	fn build_parachain_block(self, parent_state_root: Hash) -> ParachainBlockData<Block>;
 }
 

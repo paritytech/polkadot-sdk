@@ -78,7 +78,8 @@ impl Default for RelayStateSproofBuilder {
 }
 
 impl RelayStateSproofBuilder {
-	/// Returns a mutable reference to HRMP channel metadata for a channel (`sender`, `self.para_id`).
+	/// Returns a mutable reference to HRMP channel metadata for a channel (`sender`,
+	/// `self.para_id`).
 	///
 	/// If there is no channel, a new default one is created.
 	///

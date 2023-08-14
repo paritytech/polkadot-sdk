@@ -81,8 +81,8 @@ impl_opaque_keys! {
 pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
 
 // The only difference between the two declarations below is the `spec_version`. With the
-// `increment-spec-version` feature enabled `spec_version` should be greater than the one of without the
-// `increment-spec-version` feature.
+// `increment-spec-version` feature enabled `spec_version` should be greater than the one of without
+// the `increment-spec-version` feature.
 //
 // The duplication here is unfortunate necessity.
 //

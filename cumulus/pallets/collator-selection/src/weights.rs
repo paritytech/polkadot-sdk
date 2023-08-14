@@ -85,12 +85,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: Session NextKeys (r:1 w:0)
 	/// Proof Skipped: Session NextKeys (max_values: None, max_size: None, mode: Measured)
 	/// Storage: CollatorSelection Invulnerables (r:1 w:1)
-	/// Proof: CollatorSelection Invulnerables (max_values: Some(1), max_size: Some(641), added: 1136, mode: MaxEncodedLen)
-	/// Storage: CollatorSelection Candidates (r:1 w:1)
-	/// Proof: CollatorSelection Candidates (max_values: Some(1), max_size: Some(4802), added: 5297, mode: MaxEncodedLen)
-	/// Storage: System Account (r:1 w:1)
-	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-	/// The range of component `b` is `[1, 19]`.
+	/// Proof: CollatorSelection Invulnerables (max_values: Some(1), max_size: Some(641), added:
+	/// 1136, mode: MaxEncodedLen) Storage: CollatorSelection Candidates (r:1 w:1)
+	/// Proof: CollatorSelection Candidates (max_values: Some(1), max_size: Some(4802), added: 5297,
+	/// mode: MaxEncodedLen) Storage: System Account (r:1 w:1)
+	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode:
+	/// MaxEncodedLen) The range of component `b` is `[1, 19]`.
 	/// The range of component `c` is `[1, 99]`.
 	fn add_invulnerable(b: u32, c: u32) -> Weight {
 		// Proof Size summary in bytes:
@@ -109,8 +109,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(0, 53).saturating_mul(c.into()))
 	}
 	/// Storage: CollatorSelection Invulnerables (r:1 w:1)
-	/// Proof: CollatorSelection Invulnerables (max_values: Some(1), max_size: Some(3202), added: 3697, mode: MaxEncodedLen)
-	/// The range of component `b` is `[1, 100]`.
+	/// Proof: CollatorSelection Invulnerables (max_values: Some(1), max_size: Some(3202), added:
+	/// 3697, mode: MaxEncodedLen) The range of component `b` is `[1, 100]`.
 	fn remove_invulnerable(b: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `119 + b * (32 ±0)`
@@ -172,12 +172,12 @@ impl WeightInfo for () {
 	/// Storage: Session NextKeys (r:1 w:0)
 	/// Proof Skipped: Session NextKeys (max_values: None, max_size: None, mode: Measured)
 	/// Storage: CollatorSelection Invulnerables (r:1 w:1)
-	/// Proof: CollatorSelection Invulnerables (max_values: Some(1), max_size: Some(641), added: 1136, mode: MaxEncodedLen)
-	/// Storage: CollatorSelection Candidates (r:1 w:1)
-	/// Proof: CollatorSelection Candidates (max_values: Some(1), max_size: Some(4802), added: 5297, mode: MaxEncodedLen)
-	/// Storage: System Account (r:1 w:1)
-	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-	/// The range of component `b` is `[1, 19]`.
+	/// Proof: CollatorSelection Invulnerables (max_values: Some(1), max_size: Some(641), added:
+	/// 1136, mode: MaxEncodedLen) Storage: CollatorSelection Candidates (r:1 w:1)
+	/// Proof: CollatorSelection Candidates (max_values: Some(1), max_size: Some(4802), added: 5297,
+	/// mode: MaxEncodedLen) Storage: System Account (r:1 w:1)
+	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode:
+	/// MaxEncodedLen) The range of component `b` is `[1, 19]`.
 	/// The range of component `c` is `[1, 99]`.
 	fn add_invulnerable(b: u32, c: u32) -> Weight {
 		// Proof Size summary in bytes:
@@ -196,8 +196,8 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(0, 53).saturating_mul(c.into()))
 	}
 	/// Storage: CollatorSelection Invulnerables (r:1 w:1)
-	/// Proof: CollatorSelection Invulnerables (max_values: Some(1), max_size: Some(3202), added: 3697, mode: MaxEncodedLen)
-	/// The range of component `b` is `[1, 100]`.
+	/// Proof: CollatorSelection Invulnerables (max_values: Some(1), max_size: Some(3202), added:
+	/// 3697, mode: MaxEncodedLen) The range of component `b` is `[1, 100]`.
 	fn remove_invulnerable(b: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `119 + b * (32 ±0)`

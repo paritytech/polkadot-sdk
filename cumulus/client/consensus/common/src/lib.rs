@@ -53,12 +53,14 @@ pub struct ParachainCandidate<B> {
 	pub proof: sp_trie::StorageProof,
 }
 
-/// A specific parachain consensus implementation that can be used by a collator to produce candidates.
+/// A specific parachain consensus implementation that can be used by a collator to produce
+/// candidates.
 ///
-/// The collator will call [`Self::produce_candidate`] every time there is a free core for the parachain
-/// this collator is collating for. It is the job of the consensus implementation to decide if this
-/// specific collator should build a candidate for the given relay chain block. The consensus
-/// implementation could, for example, check whether this specific collator is part of a staked set.
+/// The collator will call [`Self::produce_candidate`] every time there is a free core for the
+/// parachain this collator is collating for. It is the job of the consensus implementation to
+/// decide if this specific collator should build a candidate for the given relay chain block. The
+/// consensus implementation could, for example, check whether this specific collator is part of a
+/// staked set.
 #[async_trait::async_trait]
 pub trait ParachainConsensus<B: BlockT>: Send + Sync + dyn_clone::DynClone {
 	/// Produce a new candidate at the given parent block and relay-parent blocks.
@@ -94,8 +96,8 @@ impl<B: BlockT> ParachainConsensus<B> for Box<dyn ParachainConsensus<B> + Send +
 /// Parachain specific block import.
 ///
 /// This is used to set `block_import_params.fork_choice` to `false` as long as the block origin is
-/// not `NetworkInitialSync`. The best block for parachains is determined by the relay chain. Meaning
-/// we will update the best block, as it is included by the relay-chain.
+/// not `NetworkInitialSync`. The best block for parachains is determined by the relay chain.
+/// Meaning we will update the best block, as it is included by the relay-chain.
 pub struct ParachainBlockImport<Block: BlockT, BI, BE> {
 	inner: BI,
 	monitor: Option<SharedData<LevelMonitor<Block, BE>>>,
@@ -232,8 +234,8 @@ pub struct PotentialParent<B: BlockT> {
 /// a set of [`PotentialParent`]s which could be potential parents of a new block with this
 /// relay-parent according to the search parameters.
 ///
-/// A parachain block is a potential parent if it is either the last included parachain block, the pending
-/// parachain block (when `max_depth` >= 1), or all of the following hold:
+/// A parachain block is a potential parent if it is either the last included parachain block, the
+/// pending parachain block (when `max_depth` >= 1), or all of the following hold:
 ///   * its parent is a potential parent
 ///   * its relay-parent is within `ancestry_lookback` of the targeted relay-parent.
 ///   * the block number is within `max_depth` blocks of the included block

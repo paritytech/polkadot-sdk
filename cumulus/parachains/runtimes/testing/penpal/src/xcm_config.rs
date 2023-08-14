@@ -20,7 +20,8 @@
 //!
 //! One of the main uses of the penpal chain will be to be a benefactor of reserve asset transfers
 //! with Asset Hub as the reserve. At present no derivative tokens are minted on receipt of a
-//! `ReserveAssetTransferDeposited` message but that will but the intension will be to support this soon.
+//! `ReserveAssetTransferDeposited` message but that will but the intension will be to support this
+//! soon.
 use super::{
 	AccountId, AllPalletsWithSystem, AssetId as AssetIdPalletAssets, Assets, Balance, Balances,
 	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
@@ -159,9 +160,11 @@ pub type Barrier = TrailingSetTopicAsId<
 			// Allow XCMs with some computed origins to pass through.
 			WithComputedOrigin<
 				(
-					// If the message is one that immediately attemps to pay for execution, then allow it.
+					// If the message is one that immediately attemps to pay for execution, then
+					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Common Good Assets parachain, parent and its exec plurality get free execution
+					// Common Good Assets parachain, parent and its exec plurality get free
+					// execution
 					AllowExplicitUnpaidExecutionFrom<(
 						CommonGoodAssetsParachain,
 						ParentOrParentsExecutivePlurality,

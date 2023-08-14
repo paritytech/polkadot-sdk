@@ -87,7 +87,8 @@ impl Decode for BlockAnnounceData {
 impl BlockAnnounceData {
 	/// Validate that the receipt, statement and announced header match.
 	///
-	/// This will not check the signature, for this you should use [`BlockAnnounceData::check_signature`].
+	/// This will not check the signature, for this you should use
+	/// [`BlockAnnounceData::check_signature`].
 	fn validate(&self, encoded_header: Vec<u8>) -> Result<(), Validation> {
 		let candidate_hash =
 			if let CompactStatement::Seconded(h) = self.statement.unchecked_payload() {
@@ -192,9 +193,9 @@ pub type BlockAnnounceValidator<Block, RCInterface> =
 
 /// Parachain specific block announce validator.
 ///
-/// This is not required when the collation mechanism itself is sybil-resistant, as it is a spam protection
-/// mechanism used to prevent nodes from dealing with unbounded numbers of blocks. For sybil-resistant
-/// collation mechanisms, this will only slow things down.
+/// This is not required when the collation mechanism itself is sybil-resistant, as it is a spam
+/// protection mechanism used to prevent nodes from dealing with unbounded numbers of blocks. For
+/// sybil-resistant collation mechanisms, this will only slow things down.
 ///
 /// This block announce validator is required if the parachain is running
 /// with the relay chain provided consensus to make sure each node only
@@ -472,8 +473,8 @@ impl AssumeSybilResistance {
 	/// announcements which come tagged with seconded messages.
 	///
 	/// This is useful for backwards compatibility when upgrading nodes: old nodes will continue
-	/// to broadcast announcements with seconded messages, so these announcements shouldn't be rejected
-	/// and the peers not punished.
+	/// to broadcast announcements with seconded messages, so these announcements shouldn't be
+	/// rejected and the peers not punished.
 	pub fn allow_seconded_messages() -> Self {
 		AssumeSybilResistance(true)
 	}

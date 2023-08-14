@@ -1392,8 +1392,9 @@ pub mod migrations {
 	use sp_runtime::{traits::StaticLookup, Saturating};
 	use xcm::latest::prelude::*;
 
-	/// Temporary migration because of bug with native asset, it can be removed once applied on `AssetHubWestend`.
-	/// Migrates pools with `MultiLocation { parents: 0, interior: Here }` to `MultiLocation { parents: 1, interior: Here }`
+	/// Temporary migration because of bug with native asset, it can be removed once applied on
+	/// `AssetHubWestend`. Migrates pools with `MultiLocation { parents: 0, interior: Here }` to
+	/// `MultiLocation { parents: 1, interior: Here }`
 	pub struct NativeAssetParents0ToParents1Migration<T>(sp_std::marker::PhantomData<T>);
 	impl<
 			T: pallet_asset_conversion::Config<

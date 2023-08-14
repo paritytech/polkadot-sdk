@@ -306,8 +306,8 @@ pub mod pallet {
 	}
 
 	/// For an incoming downward message, this just adapts an XCM executor and executes DMP messages
-	/// immediately up until some `MaxWeight` at which point it errors. Their origin is asserted to be
-	/// the `Parent` location.
+	/// immediately up until some `MaxWeight` at which point it errors. Their origin is asserted to
+	/// be the `Parent` location.
 	impl<T: Config> DmpMessageHandler for Pallet<T> {
 		fn handle_dmp_messages(
 			iter: impl Iterator<Item = (RelayBlockNumber, Vec<u8>)>,
@@ -367,8 +367,9 @@ pub mod pallet {
 										required_weight,
 									});
 									page_index.overweight_count += 1;
-									// Not needed for control flow, but only to ensure that the compiler
-									// understands that we won't attempt to re-use `data` later.
+									// Not needed for control flow, but only to ensure that the
+									// compiler understands that we won't attempt to re-use `data`
+									// later.
 									continue
 								} else {
 									// not overweight. stop executing inline and enqueue normally

@@ -243,7 +243,8 @@ pub fn message_dispatch_routing_works<
 	HrmpChannelOpener: frame_support::inherent::ProvideInherent<
 		Call = cumulus_pallet_parachain_system::Call<Runtime>,
 	>,
-	// MessageDispatcher: MessageDispatch<AccountIdOf<Runtime>, DispatchLevelResult = XcmBlobMessageDispatchResult, DispatchPayload = XcmAsPlainPayload>,
+	// MessageDispatcher: MessageDispatch<AccountIdOf<Runtime>, DispatchLevelResult =
+	// XcmBlobMessageDispatchResult, DispatchPayload = XcmAsPlainPayload>,
 	RuntimeNetwork: Get<NetworkId>,
 	BridgedNetwork: Get<NetworkId>,
 {
@@ -839,7 +840,8 @@ pub mod test_data {
 		)
 	}
 
-	/// Helper that creates InitializationData mock data, that can be used to initialize bridge GRANDPA pallet
+	/// Helper that creates InitializationData mock data, that can be used to initialize bridge
+	/// GRANDPA pallet
 	pub fn initialization_data<
 		Runtime: pallet_bridge_grandpa::Config<GrandpaPalletInstance>,
 		GrandpaPalletInstance: 'static,

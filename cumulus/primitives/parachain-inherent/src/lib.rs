@@ -16,11 +16,11 @@
 
 //! Cumulus parachain inherent
 //!
-//! The [`ParachainInherentData`] is the data that is passed by the collator to the parachain runtime.
-//! The runtime will use this data to execute messages from other parachains/the relay chain or to
-//! read data from the relay chain state. When the parachain is validated by a parachain validator on
-//! the relay chain, this data is checked for correctnes. If the data passed by the collator to the
-//! runtime isn't correct, the parachain candidate is considered invalid.
+//! The [`ParachainInherentData`] is the data that is passed by the collator to the parachain
+//! runtime. The runtime will use this data to execute messages from other parachains/the relay
+//! chain or to read data from the relay chain state. When the parachain is validated by a parachain
+//! validator on the relay chain, this data is checked for correctnes. If the data passed by the
+//! collator to the runtime isn't correct, the parachain candidate is considered invalid.
 //!
 //! Use [`ParachainInherentData::create_at`] to create the [`ParachainInherentData`] at a given
 //! relay chain block to include it in a parachain block.

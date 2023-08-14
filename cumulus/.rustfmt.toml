@@ -11,14 +11,18 @@ reorder_imports = true
 # Consistency
 newline_style = "Unix"
 
+# Format comments
+comment_width = 100
+wrap_comments = true
+
 # Misc
-binop_separator = "Back"
 chain_width = 80
-match_arm_blocks = false
-match_arm_leading_pipes = "Preserve"
-match_block_trailing_comma = true
-reorder_impl_items = false
 spaces_around_ranges = false
+binop_separator = "Back"
+reorder_impl_items = false
+match_arm_leading_pipes = "Preserve"
+match_arm_blocks = false
+match_block_trailing_comma = true
 trailing_comma = "Vertical"
 trailing_semicolon = false
 use_field_init_shorthand = true

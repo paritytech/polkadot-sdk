@@ -161,7 +161,8 @@ fn system_para_to_para_reserve_transfer_assets(t: SystemParaToParaTest) -> Dispa
 	)
 }
 
-/// Limited Reserve Transfers of native asset from Relay Chain to the System Parachain shouldn't work
+/// Limited Reserve Transfers of native asset from Relay Chain to the System Parachain shouldn't
+/// work
 #[test]
 fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	// Init values for Relay Chain
@@ -299,14 +300,16 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 	let sender_balance_before = test.sender.balance;
 
 	test.set_assertion::<AssetHubWestend>(system_para_to_para_assertions);
-	// TODO: Add assertion for Penpal runtime. Right now message is failing with `UntrustedReserveLocation`
+	// TODO: Add assertion for Penpal runtime. Right now message is failing with
+	// `UntrustedReserveLocation`
 	test.set_dispatchable::<AssetHubWestend>(system_para_to_para_limited_reserve_transfer_assets);
 	test.assert();
 
 	let sender_balance_after = test.sender.balance;
 
 	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
-	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve transfers
+	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve
+	// transfers
 }
 
 /// Reserve Transfers of native asset from System Parachain to Parachain should work
@@ -329,14 +332,16 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	let sender_balance_before = test.sender.balance;
 
 	test.set_assertion::<AssetHubWestend>(system_para_to_para_assertions);
-	// TODO: Add assertion for Penpal runtime. Right now message is failing with `UntrustedReserveLocation`
+	// TODO: Add assertion for Penpal runtime. Right now message is failing with
+	// `UntrustedReserveLocation`
 	test.set_dispatchable::<AssetHubWestend>(system_para_to_para_reserve_transfer_assets);
 	test.assert();
 
 	let sender_balance_after = test.sender.balance;
 
 	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
-	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve transfers
+	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve
+	// transfers
 }
 
 /// Limited Reserve Transfers of a local asset from System Parachain to Parachain should work

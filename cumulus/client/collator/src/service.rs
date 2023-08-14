@@ -175,7 +175,8 @@ where
 
 	/// Fetch the collation info from the runtime.
 	///
-	/// Returns `Ok(Some(_))` on success, `Err(_)` on error or `Ok(None)` if the runtime api isn't implemented by the runtime.
+	/// Returns `Ok(Some(_))` on success, `Err(_)` on error or `Ok(None)` if the runtime api isn't
+	/// implemented by the runtime.
 	pub fn fetch_collation_info(
 		&self,
 		block_hash: Block::Hash,

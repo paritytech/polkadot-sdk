@@ -399,7 +399,8 @@ impl RelayChainRpcClient {
 		.await
 	}
 
-	/// Fetch the hash of the validation code used by a para, making the given `OccupiedCoreAssumption`.
+	/// Fetch the hash of the validation code used by a para, making the given
+	/// `OccupiedCoreAssumption`.
 	pub async fn parachain_host_validation_code_hash(
 		&self,
 		at: RelayHash,

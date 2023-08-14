@@ -234,7 +234,8 @@ impl<
 				outstanding_minus_substracted.saturated_into();
 			let asset_balance: u128 = asset_balance.saturated_into();
 
-			// Construct outstanding_concrete_asset with the same location id and substracted balance
+			// Construct outstanding_concrete_asset with the same location id and substracted
+			// balance
 			let outstanding_concrete_asset: MultiAsset = (id, outstanding_minus_substracted).into();
 
 			// Substract from existing weight and balance
@@ -271,8 +272,8 @@ impl<
 }
 
 /// XCM fee depositor to which we implement the TakeRevenue trait
-/// It receives a Transact implemented argument, a 32 byte convertible acocuntId, and the fee receiver account
-/// FungiblesMutateAdapter should be identical to that implemented by WithdrawAsset
+/// It receives a Transact implemented argument, a 32 byte convertible acocuntId, and the fee
+/// receiver account FungiblesMutateAdapter should be identical to that implemented by WithdrawAsset
 pub struct XcmFeesTo32ByteAccount<FungiblesMutateAdapter, AccountId, ReceiverAccount>(
 	PhantomData<(FungiblesMutateAdapter, AccountId, ReceiverAccount)>,
 );

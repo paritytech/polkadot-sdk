@@ -23,7 +23,8 @@
 //!
 //! 1. Each node that sees itself as a collator is free to build a parachain candidate.
 //!
-//! 2. This parachain candidate is send to the parachain validators that are part of the relay chain.
+//! 2. This parachain candidate is send to the parachain validators that are part of the relay
+//! chain.
 //!
 //! 3. The parachain validators validate at most X different parachain candidates, where X is the
 //! total number of parachain validators.

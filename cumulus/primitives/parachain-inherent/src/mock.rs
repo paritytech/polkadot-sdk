@@ -93,7 +93,8 @@ pub struct MockXcmConfig {
 
 /// The name of the parachain system in the runtime.
 ///
-/// This name is used by frame to prefix storage items and will be required to read data from the storage.
+/// This name is used by frame to prefix storage items and will be required to read data from the
+/// storage.
 ///
 /// The `Default` implementation sets the name to `ParachainSystem`.
 pub struct ParachainSystemName(pub Vec<u8>);

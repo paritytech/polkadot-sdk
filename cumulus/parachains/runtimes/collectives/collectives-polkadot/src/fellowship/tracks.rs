@@ -68,7 +68,8 @@ impl Convert<TrackId, Rank> for MinRankOfClass {
 			regular @ 1..=9 => regular,
 			// A retention vote; the track ID turns out to be 8 more than the minimum required rank.
 			retention @ 11..=16 => retention - 8,
-			// A promotion vote; the track ID turns out to be 18 more than the minimum required rank.
+			// A promotion vote; the track ID turns out to be 18 more than the minimum required
+			// rank.
 			promotion @ 21..=26 => promotion - 18,
 			_ => Rank::max_value(),
 		}

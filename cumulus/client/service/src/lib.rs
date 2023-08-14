@@ -377,7 +377,8 @@ where
 	})
 }
 
-/// Creates a new background task to wait for the relay chain to sync up and retrieve the parachain header
+/// Creates a new background task to wait for the relay chain to sync up and retrieve the parachain
+/// header
 fn warp_sync_get<B, RCInterface>(
 	para_id: ParaId,
 	relay_chain_interface: RCInterface,
@@ -413,7 +414,8 @@ where
 	receiver
 }
 
-/// Waits for the relay chain to have finished syncing and then gets the parachain header that corresponds to the last finalized relay chain block.
+/// Waits for the relay chain to have finished syncing and then gets the parachain header that
+/// corresponds to the last finalized relay chain block.
 async fn wait_for_target_block<B, RCInterface>(
 	sender: oneshot::Sender<<B as BlockT>::Header>,
 	para_id: ParaId,

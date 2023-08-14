@@ -55,7 +55,8 @@ pub type MultiLocationConvertedConcreteId<MultiLocationFilter, Balance> =
 		JustTry,
 	>;
 
-/// [`MatchedConvertedConcreteId`] converter dedicated for storing `ForeignAssets` with `AssetId` as `MultiLocation`.
+/// [`MatchedConvertedConcreteId`] converter dedicated for storing `ForeignAssets` with `AssetId` as
+/// `MultiLocation`.
 ///
 /// Excludes by default:
 /// - parent as relay chain
@@ -68,7 +69,8 @@ pub type ForeignAssetsConvertedConcreteId<AdditionalMultiLocationExclusionFilter
 			// Excludes relay/parent chain currency
 			Equals<ParentLocation>,
 			// Here we rely on fact that something like this works:
-			// assert!(MultiLocation::new(1, X1(Parachain(100))).starts_with(&MultiLocation::parent()));
+			// assert!(MultiLocation::new(1,
+			// X1(Parachain(100))).starts_with(&MultiLocation::parent()));
 			// assert!(X1(Parachain(100)).starts_with(&Here));
 			StartsWith<LocalMultiLocationPattern>,
 			// Here we can exclude more stuff or leave it as `()`

@@ -53,8 +53,8 @@ fn bad_message_is_handled() {
 	});
 }
 
-/// Tests that a blob message is handled. Currently this isn't implemented and panics when debug assertions
-/// are enabled. When this feature is enabled, this test should be rewritten properly.
+/// Tests that a blob message is handled. Currently this isn't implemented and panics when debug
+/// assertions are enabled. When this feature is enabled, this test should be rewritten properly.
 #[test]
 #[should_panic = "Blob messages not handled."]
 #[cfg(debug_assertions)]

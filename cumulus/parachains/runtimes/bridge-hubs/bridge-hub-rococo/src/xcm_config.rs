@@ -207,7 +207,8 @@ pub type Barrier = TrailingSetTopicAsId<
 			AllowKnownQueryResponses<PolkadotXcm>,
 			WithComputedOrigin<
 				(
-					// If the message is one that immediately attemps to pay for execution, then allow it.
+					// If the message is one that immediately attemps to pay for execution, then
+					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
 					// Parent and its pluralities (i.e. governance bodies) get free execution.
 					AllowExplicitUnpaidExecutionFrom<ParentOrParentsPlurality>,
@@ -230,8 +231,8 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmSender = XcmRouter;
 	type AssetTransactor = CurrencyTransactor;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	// BridgeHub does not recognize a reserve location for any asset. Users must teleport Native token
-	// where allowed (e.g. with the Relay Chain).
+	// BridgeHub does not recognize a reserve location for any asset. Users must teleport Native
+	// token where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
 	/// Only allow teleportation of NativeToken of relay chain.
 	type IsTeleporter = ConcreteNativeAssetFrom<RelayLocation>;
@@ -317,7 +318,8 @@ impl cumulus_pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
 
-/// Hacky switch implementation, because we have just one runtime for Rococo and Wococo BridgeHub, so it means we have just one XcmConfig
+/// Hacky switch implementation, because we have just one runtime for Rococo and Wococo BridgeHub,
+/// so it means we have just one XcmConfig
 pub struct BridgeHubRococoOrBridgeHubWococoSwitchExporter;
 impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
 	type Ticket = (NetworkId, (sp_std::prelude::Vec<u8>, XcmHash));

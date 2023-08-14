@@ -171,43 +171,43 @@ pub mod tests {
 	fn check_fellowship_addresses() {
 		let fellowship_addresses = FellowshipAddresses::get();
 		let kusama_fellowship_ss58: [(Rank, _); 47] = [
-			(6, "16SDAKg9N6kKAbhgDyxBXdHEwpwHUHs2CNEiLNGeZV55qHna"), // proof https://kusama.subscan.io/extrinsic/16832707-4
-			(6, "12MrP337azmkTdfCUKe5XLnSQrbgEKqqfZ4PQC7CZTJKAWR3"), // proof https://kusama.subscan.io/extrinsic/16967809-2
+			(6, "16SDAKg9N6kKAbhgDyxBXdHEwpwHUHs2CNEiLNGeZV55qHna"), /* proof https://kusama.subscan.io/extrinsic/16832707-4 */
+			(6, "12MrP337azmkTdfCUKe5XLnSQrbgEKqqfZ4PQC7CZTJKAWR3"), /* proof https://kusama.subscan.io/extrinsic/16967809-2 */
 			(6, "FFFF3gBSSDFSvK2HBq4qgLH75DHqXWPHeCnR1BSksAMacBs"),
 			(5, "G7YVCdxZb8JLpAm9WMnJdNuojNT84AzU62zmvx5P1FMNtg2"),
-			(5, "15G1iXDLgFyfnJ51FKq1ts44TduMyUtekvzQi9my4hgYt2hs"), // proof https://kusama.subscan.io/extrinsic/16917610-2
+			(5, "15G1iXDLgFyfnJ51FKq1ts44TduMyUtekvzQi9my4hgYt2hs"), /* proof https://kusama.subscan.io/extrinsic/16917610-2 */
 			(5, "Dcm1BqR4N7nHuV43TXdET7pNibt1Nzm42FggPHpxKRven53"),
-			(5, "1363HWTPzDrzAQ6ChFiMU6mP4b6jmQid2ae55JQcKtZnpLGv"), // proof https://kusama.subscan.io/extrinsic/16961180-2
+			(5, "1363HWTPzDrzAQ6ChFiMU6mP4b6jmQid2ae55JQcKtZnpLGv"), /* proof https://kusama.subscan.io/extrinsic/16961180-2 */
 			(4, "EGVQCe73TpFyAZx5uKfE1222XfkT3BSKozjgcqzLBnc5eYo"),
-			(4, "1eTPAR2TuqLyidmPT9rMmuycHVm9s9czu78sePqg2KHMDrE"), // proof https://kusama.subscan.io/extrinsic/16921712-3
-			(4, "14DsLzVyTUTDMm2eP3czwPbH53KgqnQRp3CJJZS9GR7yxGDP"), // proof https://kusama.subscan.io/extrinsic/16917519-2
-			(3, "13aYUFHB3umoPoxBEAHSv451iR3RpsNi3t5yBZjX2trCtTp6"), // proof https://kusama.subscan.io/extrinsic/16917832-3
+			(4, "1eTPAR2TuqLyidmPT9rMmuycHVm9s9czu78sePqg2KHMDrE"), /* proof https://kusama.subscan.io/extrinsic/16921712-3 */
+			(4, "14DsLzVyTUTDMm2eP3czwPbH53KgqnQRp3CJJZS9GR7yxGDP"), /* proof https://kusama.subscan.io/extrinsic/16917519-2 */
+			(3, "13aYUFHB3umoPoxBEAHSv451iR3RpsNi3t5yBZjX2trCtTp6"), /* proof https://kusama.subscan.io/extrinsic/16917832-3 */
 			(3, "H25aCspunTUqAt4D1gC776vKZ8FX3MvQJ3Jde6qDXPQaFxk"),
 			(3, "GtLQoW4ZqcjExMPq6qB22bYc6NaX1yMzRuGWpSRiHqnzRb9"),
-			(3, "15db5ksZgmhWE9U8MDq4wLKUdFivLVBybztWV8nmaJvv3NU1"), // proof https://kusama.subscan.io/extrinsic/16876631-2
+			(3, "15db5ksZgmhWE9U8MDq4wLKUdFivLVBybztWV8nmaJvv3NU1"), /* proof https://kusama.subscan.io/extrinsic/16876631-2 */
 			(3, "HfFpz4QUxfbocHudf8UU7cMgHqkHpf855Me5X846PZAsAYE"),
-			(3, "14ShUZUYUR35RBZW6uVVt1zXDxmSQddkeDdXf1JkMA6P721N"), // proof https://kusama.subscan.io/extrinsic/16918890-8
-			(3, "12YzxR5TvGzfMVZNnhAJ5Hwi5zExpRWMKv2MuMwZTrddvgoi"), // proof https://kusama.subscan.io/extrinsic/16924324-3
+			(3, "14ShUZUYUR35RBZW6uVVt1zXDxmSQddkeDdXf1JkMA6P721N"), /* proof https://kusama.subscan.io/extrinsic/16918890-8 */
+			(3, "12YzxR5TvGzfMVZNnhAJ5Hwi5zExpRWMKv2MuMwZTrddvgoi"), /* proof https://kusama.subscan.io/extrinsic/16924324-3 */
 			(2, "Ddb9puChKMHq4gM6o47E551wAmaNeu6kHngX1jzNNqAw782"),
-			(2, "15DCWHQknBjc5YPFoVj8Pn2KoqrqYywJJ95BYNYJ4Fj3NLqz"), // proof https://kusama.subscan.io/extrinsic/16834952-2
-			(2, "14ajTQdrtCA8wZmC4PgD8Y1B2Gy8L4Z3oi2fodxq9FehcFrM"), // proof https://kusama.subscan.io/extrinsic/16944257-2
+			(2, "15DCWHQknBjc5YPFoVj8Pn2KoqrqYywJJ95BYNYJ4Fj3NLqz"), /* proof https://kusama.subscan.io/extrinsic/16834952-2 */
+			(2, "14ajTQdrtCA8wZmC4PgD8Y1B2Gy8L4Z3oi2fodxq9FehcFrM"), /* proof https://kusama.subscan.io/extrinsic/16944257-2 */
 			(2, "HxhDbS3grLurk1dhDgPiuDaRowHY1xHCU8Vu8on3fdg85tx"),
 			(2, "HTk3eccL7WBkiyxz1gBcqQRghsJigoDMD7mnQaz1UAbMpQV"),
 			(2, "EcNWrSPSDcVBRymwr26kk4JVFg92PdoU5Xwp87W2FgFSt9c"),
 			(2, "D8sM6vKjWaeKy2zCPYWGkLLbWdUtWQrXBTQqr4dSYnVQo21"),
 			(1, "GfbnnEgRU94n9ed4RFZ6Z9dBAWs5obykigJSwXKU9hsT2uU"),
 			(1, "HA5NtttvyZsxo4wGxGoJJSMaWtdEFZAuGUMFHVWD7fgenPv"),
-			(1, "14mDeKZ7qp9hqBjjDg51c8BFrf9o69om8piSSRwj2fT5Yb1i"), // proof https://kusama.subscan.io/extrinsic/16919020-4
-			(1, "16a357f5Sxab3V2ne4emGQvqJaCLeYpTMx3TCjnQhmJQ71DX"), // proof https://kusama.subscan.io/extrinsic/16836396-5
-			(1, "14Ak9rrF6RKHHoLLRUYMnzcvvi1t8E1yAMa7tcmiwUfaqzYK"), // proof https://kusama.subscan.io/extrinsic/16921990-3
+			(1, "14mDeKZ7qp9hqBjjDg51c8BFrf9o69om8piSSRwj2fT5Yb1i"), /* proof https://kusama.subscan.io/extrinsic/16919020-4 */
+			(1, "16a357f5Sxab3V2ne4emGQvqJaCLeYpTMx3TCjnQhmJQ71DX"), /* proof https://kusama.subscan.io/extrinsic/16836396-5 */
+			(1, "14Ak9rrF6RKHHoLLRUYMnzcvvi1t8E1yAMa7tcmiwUfaqzYK"), /* proof https://kusama.subscan.io/extrinsic/16921990-3 */
 			(1, "FJq9JpA9P7EXbmfsN9YiewJaDbQyL6vQyksGtJvzfbn6zf8"),
-			(1, "15oLanodWWweiZJSoDTEBtrX7oGfq6e8ct5y5E6fVRDPhUgj"), // proof https://kusama.subscan.io/extrinsic/16876423-7
+			(1, "15oLanodWWweiZJSoDTEBtrX7oGfq6e8ct5y5E6fVRDPhUgj"), /* proof https://kusama.subscan.io/extrinsic/16876423-7 */
 			(1, "EaBqDJJNsZmYdQ4xn1vomPJVNh7fjA6UztZeEjn7ZzdeT7V"),
 			(1, "HTxCvXKVvUZ7PQq175kCRRLu7XkGfTfErrdNXr1ZuuwVZWv"),
 			(1, "HZe91A6a1xqbKaw6ofx3GFepJjhVXHrwHEwn6YUDDFphpX9"),
 			(1, "GRy2P3kBEzSHCbmDJfquku1cyUyhZaAqojRcNE4A4U3MnLd"),
 			(1, "HYwiBo7Mcv7uUDg4MUoKm2fxzv4dMLAtmmNfzHV8qcQJpAE"),
-			(1, "1ThiBx5DDxFhoD9GY6tz5Fp4Y7Xn1xfLmDddcoFQghDvvjg"), // proof https://kusama.subscan.io/extrinsic/16918130-2
+			(1, "1ThiBx5DDxFhoD9GY6tz5Fp4Y7Xn1xfLmDddcoFQghDvvjg"), /* proof https://kusama.subscan.io/extrinsic/16918130-2 */
 			(1, "DfqY6XQUSETTszBQ1juocTcG9iiDoXhvq1CoVadBSUqTGJS"),
 			(1, "EnpgVWGGQVrFdSB2qeXRVdtccV6U5ZscNELBoERbkFD8Wi6"),
 			(1, "H5BuqCmucJhUUuvjAzPazeVwVCtUSXVQdc5Dnx2q5zD7rVn"),
@@ -215,9 +215,9 @@ pub mod tests {
 			(1, "CzuUtvKhZNZBjyAXeYviaRXwrLhVrsupJ9PrWmdq7BJTjGR"),
 			(1, "FCunn2Rx8JqfT5g6noUKKazph4jLDba5rUee7o3ZmJ362Ju"),
 			(1, "HyPMjWRHCpJS7x2SZ2R6M2XG5ZiCiZag4U4r7gBHRsE5mTc"),
-			(1, "1682A5hxfiS1Kn1jrUnMYv14T9EuEnsgnBbujGfYbeEbSK3w"), // proof https://kusama.subscan.io/extrinsic/16919077-2
-			(1, "13xS6fK6MHjApLnjdX7TJYw1niZmiXasSN91bNtiXQjgEtNx"), // proof https://kusama.subscan.io/extrinsic/16918212-7
-			(1, "15qE2YAQCs5Y962RHE7RzNjQxU6Pei21nhkkSM9Sojq1hHps"), // https://kusama.subscan.io/extrinsic/17352973-2
+			(1, "1682A5hxfiS1Kn1jrUnMYv14T9EuEnsgnBbujGfYbeEbSK3w"), /* proof https://kusama.subscan.io/extrinsic/16919077-2 */
+			(1, "13xS6fK6MHjApLnjdX7TJYw1niZmiXasSN91bNtiXQjgEtNx"), /* proof https://kusama.subscan.io/extrinsic/16918212-7 */
+			(1, "15qE2YAQCs5Y962RHE7RzNjQxU6Pei21nhkkSM9Sojq1hHps"), /* https://kusama.subscan.io/extrinsic/17352973-2 */
 		];
 
 		for (index, val) in kusama_fellowship_ss58.iter().enumerate() {
