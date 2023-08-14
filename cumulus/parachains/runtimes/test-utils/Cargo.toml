@@ -39,7 +39,7 @@ pallet-xcm = { git = "https://github.com/paritytech/polkadot", default-features 
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
 [dev-dependencies]
-hex-literal = "0.3.4"
+hex-literal = "0.4.1"
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
