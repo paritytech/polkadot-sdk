@@ -18,7 +18,9 @@
     "/dns/bridge-hub-polkadot-bootnode.turboflakes.io/tcp/30610/p2p/12D3KooWNEgaQRQHJHvGDh8Rg4RyLmDCCz3yAf2gAdHZZJAUUD8Q",
     "/dns/bridge-hub-polkadot-bootnode.turboflakes.io/tcp/30710/wss/p2p/12D3KooWNEgaQRQHJHvGDh8Rg4RyLmDCCz3yAf2gAdHZZJAUUD8Q",
     "/dns/boot.metaspan.io/tcp/16032/p2p/12D3KooWQTfRnrK3FfbrotpSP5RVJbjBHVBSu8VSzhj9qcvjaqnZ",
-    "/dns/boot.metaspan.io/tcp/16036/wss/p2p/12D3KooWQTfRnrK3FfbrotpSP5RVJbjBHVBSu8VSzhj9qcvjaqnZ"
+    "/dns/boot.metaspan.io/tcp/16036/wss/p2p/12D3KooWQTfRnrK3FfbrotpSP5RVJbjBHVBSu8VSzhj9qcvjaqnZ",
+    "/dns/boot-node.helikon.io/tcp/8220/p2p/12D3KooWC38TZJA8ZBXZgAYVrceoJ56jNNLJPdpk3ojeFkTAwZVp",
+    "/dns/boot-node.helikon.io/tcp/8222/wss/p2p/12D3KooWC38TZJA8ZBXZgAYVrceoJ56jNNLJPdpk3ojeFkTAwZVp"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
