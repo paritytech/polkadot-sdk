@@ -10,7 +10,7 @@ async-trait = "0.1.73"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ] }
 dyn-clone = "1.0.12"
 futures = "0.3.28"
-log = "0.4.19"
+log = "0.4.20"
 tracing = "0.1.37"
 
 # Substrate
