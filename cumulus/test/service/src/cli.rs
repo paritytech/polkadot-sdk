@@ -220,10 +220,6 @@ impl CliConfiguration<Self> for RelayChainCli {
 		self.base.base.disable_grandpa()
 	}
 
-	fn disable_beefy(&self) -> CliResult<bool> {
-		self.base.base.disable_beefy()
-	}
-
 	fn max_runtime_instances(&self) -> CliResult<Option<usize>> {
 		self.base.base.max_runtime_instances()
 	}
