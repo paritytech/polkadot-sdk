@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
-async-trait = "0.1.72"
+async-trait = "0.1.73"
 thiserror = "1.0.44"
 
 # Substrate

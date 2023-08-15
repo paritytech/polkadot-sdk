@@ -29,7 +29,7 @@ cumulus-client-network = { path = "../network" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 
 [dev-dependencies]
-async-trait = "0.1.42"
+async-trait = "0.1.73"
 
 # Substrate
 sp-maybe-compressed-blob = { git = "https://github.com/paritytech/substrate", branch = "master" }
