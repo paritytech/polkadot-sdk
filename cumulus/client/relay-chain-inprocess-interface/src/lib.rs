@@ -272,11 +272,11 @@ fn build_polkadot_full_node(
 	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> Result<(NewFull, Option<CollatorPair>), polkadot_service::Error> {
-	let (is_collator, maybe_collator_key) = if parachain_config.role.is_authority() {
+	let (is_parachain_node, maybe_collator_key) = if parachain_config.role.is_authority() {
 		let collator_key = CollatorPair::generate().0;
-		(polkadot_service::IsCollator::Yes(collator_key.clone()), Some(collator_key))
+		(polkadot_service::IsParachainNode::Collator(collator_key.clone()), Some(collator_key))
 	} else {
-		(polkadot_service::IsCollator::No, None)
+		(polkadot_service::IsParachainNode::FullNode, None)
 	};
 
 	// Disable BEEFY. It should not be required by the internal relay chain node.
@@ -285,7 +285,7 @@ fn build_polkadot_full_node(
 	let relay_chain_full_node = polkadot_service::build_full(
 		config,
 		polkadot_service::NewFullParams {
-			is_collator,
+			is_parachain_node,
 			grandpa_pause: None,
 			jaeger_agent: None,
 			telemetry_worker_handle,
@@ -295,7 +295,6 @@ fn build_polkadot_full_node(
 			workers_path: None,
 			workers_names: None,
 
-			overseer_enable_anyways: true,
 			overseer_gen: polkadot_service::RealOverseerGen,
 			overseer_message_channel_capacity_override: None,
 			malus_finality_delay: None,
