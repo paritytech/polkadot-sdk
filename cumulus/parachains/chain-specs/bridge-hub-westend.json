@@ -11,6 +11,8 @@
     "/dns/westend-bridge-hub-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWJWWRYTAwBLqYkh7iMBGDr5ouJ3MHj7M3fZ7zWS4zEk6F",
     "/dns/boot-cr.gatotech.network/tcp/33330/p2p/12D3KooWJHG6qznPzTSEbuujHNcvyzBZcR9zNRPFcXWUaoVWZBEw",
     "/dns/boot-cr.gatotech.network/tcp/35330/wss/p2p/12D3KooWJHG6qznPzTSEbuujHNcvyzBZcR9zNRPFcXWUaoVWZBEw",
+    "/dns/bridge-hub-westend-bootnode.turboflakes.io/tcp/30620/p2p/12D3KooWLeExhPWCDUjcxCdzxTP5TpPbNBVG5t9MPvk1dZUM5naU",
+    "/dns/bridge-hub-westend-bootnode.turboflakes.io/tcp/30720/wss/p2p/12D3KooWLeExhPWCDUjcxCdzxTP5TpPbNBVG5t9MPvk1dZUM5naU",
     "/dns/boot.metaspan.io/tcp/36032/p2p/12D3KooWPaLsu3buByBnGFQnp5UP4q1S652dGVft92TFeChizFir",
     "/dns/boot.metaspan.io/tcp/36036/wss/p2p/12D3KooWPaLsu3buByBnGFQnp5UP4q1S652dGVft92TFeChizFir"
   ],
