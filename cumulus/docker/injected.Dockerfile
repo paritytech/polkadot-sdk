@@ -1,4 +1,4 @@
-FROM docker.io/library/ubuntu:20.04
+FROM docker.io/parity/base-bin
 
 # metadata
 ARG VCS_REF
@@ -17,35 +17,20 @@ LABEL io.parity.image.authors="devops-team@parity.io" \
 # show backtraces
 ENV RUST_BACKTRACE 1
 
-# install tools and dependencies
-RUN apt-get update && \
-	DEBIAN_FRONTEND=noninteractive apt-get install -y \
-		libssl1.1 \
-		ca-certificates \
-		curl && \
-# apt cleanup
-	apt-get autoremove -y && \
-	apt-get clean && \
-	find /var/lib/apt/lists/ -type f -not -name lock -delete; \
-# add user and link ~/.local/share/polkadot to /data
-	useradd -m -u 1000 -U -s /bin/sh -d /polkadot polkadot && \
-	mkdir -p /data /polkadot/.local/share && \
-	chown -R polkadot:polkadot /data && \
-	ln -s /data /polkadot/.local/share/polkadot && \
-	mkdir -p /specs
+USER root
+
+RUN	mkdir -p /specs
 
 # add polkadot-parachain binary to the docker image
-COPY ./target/release/polkadot-parachain /usr/local/bin
-COPY ./target/release/polkadot-parachain.asc /usr/local/bin
-COPY ./target/release/polkadot-parachain.sha256 /usr/local/bin
+COPY ./target/release-artifacts/* /usr/local/bin
 COPY ./parachains/chain-specs/*.json /specs/
 
-USER polkadot
+USER parity
 
 # check if executable works in this container
 RUN /usr/local/bin/polkadot-parachain --version
 
-EXPOSE 30333 9933 9944
-VOLUME ["/polkadot"]
+EXPOSE 30333 9933 9944 9615
+VOLUME ["/polkadot", "/specs"]
 
 ENTRYPOINT ["/usr/local/bin/polkadot-parachain"]

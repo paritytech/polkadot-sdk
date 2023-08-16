@@ -20,7 +20,6 @@ jobs:
   docker_build_publish:
     env:
       BINARY: polkadot-parachain
-      TMP: tmp
     runs-on: ubuntu-latest
 
     steps:
@@ -31,8 +30,11 @@ jobs:
 
       - name: Prepare temp folder
         run: |
-          mkdir ${TMP}
-          ls -al
+          TMP=$(mktemp -d)
+          echo "TMP folder: $TMP"
+          echo "TMP=$TMP" >> $GITHUB_ENV
+          pwd
+          ls -al "$TMP"
 
       - name: Fetch files from release
         working-directory: ${{ env.TMP }}
@@ -49,45 +51,65 @@ jobs:
           chmod a+x $BINARY
           ls -al
 
-      - name: Check files
+      - name: Check SHA256
         working-directory: ${{ env.TMP }}
         run: |
           ls -al *$BINARY*
           shasum -a 256 -c $BINARY.sha256
           sha_result=$?
 
-          KEY_PARITY_SEC=9D4B2B6EB8F97156D19669A9FF0812D491B96798
-          KEY_CHEVDOR=2835EAF92072BC01D188AF2C4A092B93E97CE1E2
-          KEYSERVER=keyserver.ubuntu.com
-
-          gpg --keyserver $KEYSERVER --receive-keys $KEY_PARITY_SEC
-          if [[ ${{ github.event.inputs.prerelease }} == "true" ]]; then
-              gpg --keyserver $KEYSERVER --receive-keys $KEY_CHEVDOR
-          fi
-
-          gpg --verify $BINARY.asc
-          gpg_result=$?
-
           echo sha_result: $sha_result
-          echo gpg_result: $gpg_result
 
-          # If it fails, it would fail earlier but a second check
-          # does not hurt in case of refactoring...
-          if [[ $sha_result -ne 0 || $gpg_result -ne 0 ]]; then
-            echo "Check failed, exiting with error"
+          if [[ $sha_result -ne 0 ]]; then
+            echo "SHA256 check failed, exiting with error"
             exit 1
           else
-            echo "Checks passed"
+            echo "SHA256 check passed"
           fi
+
+      - name: Check GPG
+        working-directory: ${{ env.TMP }}
+        run: |
+            KEY_PARITY_SEC=9D4B2B6EB8F97156D19669A9FF0812D491B96798
+            KEY_CHEVDOR=2835EAF92072BC01D188AF2C4A092B93E97CE1E2
+            KEY_EGOR=E6FC4D4782EB0FA64A4903CCDB7D3555DD3932D3
+            KEYSERVER=keyserver.ubuntu.com
+
+            gpg --keyserver $KEYSERVER --receive-keys $KEY_PARITY_SEC
+            echo -e "5\ny\n" | gpg --no-tty --command-fd 0 --expert --edit-key $KEY_PARITY_SEC trust;
+
+            if [[ "${{ github.event.release.prerelease }}" == "true" ]]; then
+                for key in $KEY_CHEVDOR $KEY_EGOR; do
+                  (
+                    echo "Importing GPG key $key"
+                    gpg --no-tty --quiet --keyserver $GPG_KEYSERVER --recv-keys $key
+                    echo -e "4\ny\n" | gpg --no-tty --command-fd 0 --expert --edit-key $key trust;
+                  ) &
+                done
+                wait
+            fi
+
+            gpg --no-tty --verify $BINARY.asc
+            gpg_result=$?
+
+            echo gpg_result: $gpg_result
+
+            if [[ $gpg_result -ne 0 ]]; then
+              echo "GPG check failed, exiting with error"
+              exit 1
+            else
+              echo "GPG check passed"
+            fi
 
       - name: Build injected image
         env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_ORG: parity
+          OWNER: ${{ env.DOCKERHUB_ORG }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          IMAGE_NAME: polkadot-parachain
         run: |
-          export OWNER=$DOCKERHUB_ORG
-          mkdir -p target/release
-          cp -f ${TMP}/$BINARY* target/release/
+          mkdir -p target/release-artifacts
+          cp -f ${TMP}/$BINARY* target/release-artifacts/
           ./docker/scripts/build-injected-image.sh
 
       - name: Login to Dockerhub
@@ -131,4 +153,4 @@ jobs:
             docker push $DOCKERHUB_ORG/$BINARY:$SEMVER
           fi
 
-          docker images | grep $DOCKERHUB_ORG/$BINARY
+          docker images
