@@ -18,37 +18,26 @@
 
 use crate::{
 	finality::{FinalitySyncPipelineAdapter, SubstrateFinalitySyncPipeline},
-	finality_base::engine::Engine,
+	finality_base::{
+		engine::Engine, finality_proofs, SubstrateFinalityProof, SubstrateFinalityProofsStream,
+	},
 };
 
-use crate::finality_base::SubstrateFinalityPipeline;
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use bp_header_chain::FinalityProof;
 use codec::Decode;
-use finality_relay::SourceClient;
+use finality_relay::{SourceClient, SourceClientBase};
 use futures::{
 	select,
-	stream::{try_unfold, unfold, Stream, StreamExt, TryStreamExt},
+	stream::{try_unfold, Stream, StreamExt, TryStreamExt},
 };
 use num_traits::One;
-use relay_substrate_client::{
-	BlockNumberOf, BlockWithJustification, Chain, Client, Error, HeaderOf,
-};
+use relay_substrate_client::{BlockNumberOf, BlockWithJustification, Client, Error, HeaderOf};
 use relay_utils::{relay_loop::Client as RelayClient, UniqueSaturatedInto};
-use std::pin::Pin;
 
 /// Shared updatable reference to the maximal header number that we want to sync from the source.
 pub type RequiredHeaderNumberRef<C> = Arc<Mutex<<C as bp_runtime::Chain>::BlockNumber>>;
-
-/// Substrate finality proofs stream.
-pub type SubstrateFinalityProofsStream<P> =
-	Pin<Box<dyn Stream<Item = SubstrateFinalityProof<P>> + Send>>;
-
-/// Substrate finality proof. Specific to the used `FinalityEngine`.
-pub type SubstrateFinalityProof<P> = <<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<
-	<P as SubstrateFinalityPipeline>::SourceChain,
->>::FinalityProof;
 
 /// Substrate node as finality source.
 pub struct SubstrateFinalitySource<P: SubstrateFinalitySyncPipeline> {
@@ -204,11 +193,20 @@ impl<P: SubstrateFinalitySyncPipeline> RelayClient for SubstrateFinalitySource<P
 }
 
 #[async_trait]
-impl<P: SubstrateFinalitySyncPipeline> SourceClient<FinalitySyncPipelineAdapter<P>>
+impl<P: SubstrateFinalitySyncPipeline> SourceClientBase<FinalitySyncPipelineAdapter<P>>
 	for SubstrateFinalitySource<P>
 {
 	type FinalityProofsStream = SubstrateFinalityProofsStream<P>;
 
+	async fn finality_proofs(&self) -> Result<Self::FinalityProofsStream, Error> {
+		finality_proofs::<P>(&self.client).await
+	}
+}
+
+#[async_trait]
+impl<P: SubstrateFinalitySyncPipeline> SourceClient<FinalitySyncPipelineAdapter<P>>
+	for SubstrateFinalitySource<P>
+{
 	async fn best_finalized_block_number(&self) -> Result<BlockNumberOf<P::SourceChain>, Error> {
 		let mut finalized_header_number = self.on_chain_best_finalized_block_number().await?;
 		// never return block number larger than requested. This way we'll never sync headers
@@ -233,46 +231,6 @@ impl<P: SubstrateFinalitySyncPipeline> SourceClient<FinalitySyncPipelineAdapter<
 		Error,
 	> {
 		header_and_finality_proof::<P>(&self.client, number).await
-	}
-
-	async fn finality_proofs(&self) -> Result<Self::FinalityProofsStream, Error> {
-		Ok(unfold(
-			P::FinalityEngine::source_finality_proofs(&self.client).await?,
-			move |subscription| async move {
-				loop {
-					let log_error = |err| {
-						log::error!(
-							target: "bridge",
-							"Failed to read justification target from the {} justifications stream: {:?}",
-							P::SourceChain::NAME,
-							err,
-						);
-					};
-
-					let next_justification = subscription
-						.next()
-						.await
-						.map_err(|err| log_error(err.to_string()))
-						.ok()??;
-
-					let decoded_justification =
-						<P::FinalityEngine as Engine<P::SourceChain>>::FinalityProof::decode(
-							&mut &next_justification[..],
-						);
-
-					let justification = match decoded_justification {
-						Ok(j) => j,
-						Err(err) => {
-							log_error(format!("decode failed with error {err:?}"));
-							continue
-						},
-					};
-
-					return Some((justification, subscription))
-				}
-			},
-		)
-		.boxed())
 	}
 }
 

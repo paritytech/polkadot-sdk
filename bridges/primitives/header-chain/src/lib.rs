@@ -19,6 +19,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use crate::justification::{
+	GrandpaJustification, JustificationVerificationContext, JustificationVerificationError,
+};
 use bp_runtime::{
 	BasicOperatingMode, Chain, HashOf, HasherOf, HeaderOf, RawStorageProof, StorageProofChecker,
 	StorageProofError, UnderlyingChainProvider,
@@ -30,7 +33,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_consensus_grandpa::{AuthorityList, ConsensusLog, SetId, GRANDPA_ENGINE_ID};
 use sp_runtime::{traits::Header as HeaderT, Digest, RuntimeDebug};
-use sp_std::boxed::Box;
+use sp_std::{boxed::Box, vec::Vec};
 
 pub mod justification;
 pub mod storage_keys;
@@ -172,13 +175,48 @@ impl<Number: Codec> ConsensusLogReader for GrandpaConsensusLogReader<Number> {
 	}
 }
 
-/// The Grandpa-related info associated to a header.
+/// The finality-related info associated to a header.
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
-pub struct HeaderGrandpaInfo<Header: HeaderT> {
-	/// The header justification
-	pub justification: justification::GrandpaJustification<Header>,
-	/// The authority set introduced by the header.
-	pub authority_set: Option<AuthoritySet>,
+pub struct HeaderFinalityInfo<FinalityProof, FinalityVerificationContext> {
+	/// The header finality proof.
+	pub finality_proof: FinalityProof,
+	/// The new verification context introduced by the header.
+	pub new_verification_context: Option<FinalityVerificationContext>,
+}
+
+/// Grandpa-related info associated to a header. This info can be saved to events.
+pub type StoredHeaderGrandpaInfo<Header> =
+	HeaderFinalityInfo<GrandpaJustification<Header>, AuthoritySet>;
+
+/// Processed Grandpa-related info associated to a header.
+pub type HeaderGrandpaInfo<Header> =
+	HeaderFinalityInfo<GrandpaJustification<Header>, JustificationVerificationContext>;
+
+impl<Header: HeaderT> TryFrom<StoredHeaderGrandpaInfo<Header>> for HeaderGrandpaInfo<Header> {
+	type Error = JustificationVerificationError;
+
+	fn try_from(grandpa_info: StoredHeaderGrandpaInfo<Header>) -> Result<Self, Self::Error> {
+		Ok(Self {
+			finality_proof: grandpa_info.finality_proof,
+			new_verification_context: match grandpa_info.new_verification_context {
+				Some(authority_set) => Some(authority_set.try_into()?),
+				None => None,
+			},
+		})
+	}
+}
+
+/// Helper trait for finding equivocations in finality proofs.
+pub trait FindEquivocations<FinalityProof, FinalityVerificationContext, EquivocationProof> {
+	/// The type returned when encountering an error while looking for equivocations.
+	type Error;
+
+	/// Find equivocations.
+	fn find_equivocations(
+		verification_context: &FinalityVerificationContext,
+		synced_proof: &FinalityProof,
+		source_proofs: &[FinalityProof],
+	) -> Result<Vec<EquivocationProof>, Self::Error>;
 }
 
 /// A minimized version of `pallet-bridge-grandpa::Call` that can be used without a runtime.
@@ -244,16 +282,17 @@ pub trait ChainWithGrandpa: Chain {
 	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32;
 }
 
-/// A trait that provides the type of the underlying `ChainWithGrandpa`.
-pub trait UnderlyingChainWithGrandpaProvider: UnderlyingChainProvider {
-	/// Underlying `ChainWithGrandpa` type.
-	type ChainWithGrandpa: ChainWithGrandpa;
-}
-
-impl<T> UnderlyingChainWithGrandpaProvider for T
+impl<T> ChainWithGrandpa for T
 where
-	T: UnderlyingChainProvider,
+	T: Chain + UnderlyingChainProvider,
 	T::Chain: ChainWithGrandpa,
 {
-	type ChainWithGrandpa = T::Chain;
+	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str =
+		<T::Chain as ChainWithGrandpa>::WITH_CHAIN_GRANDPA_PALLET_NAME;
+	const MAX_AUTHORITIES_COUNT: u32 = <T::Chain as ChainWithGrandpa>::MAX_AUTHORITIES_COUNT;
+	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 =
+		<T::Chain as ChainWithGrandpa>::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY;
+	const MAX_HEADER_SIZE: u32 = <T::Chain as ChainWithGrandpa>::MAX_HEADER_SIZE;
+	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 =
+		<T::Chain as ChainWithGrandpa>::AVERAGE_HEADER_SIZE_IN_JUSTIFICATION;
 }

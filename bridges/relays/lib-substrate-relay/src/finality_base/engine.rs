@@ -19,13 +19,15 @@
 use crate::error::Error;
 use async_trait::async_trait;
 use bp_header_chain::{
-	justification::{verify_and_optimize_justification, GrandpaJustification},
-	ChainWithGrandpa as ChainWithGrandpaBase, ConsensusLogReader, FinalityProof,
-	GrandpaConsensusLogReader,
+	justification::{
+		verify_and_optimize_justification, GrandpaEquivocationsFinder, GrandpaJustification,
+		JustificationVerificationContext,
+	},
+	AuthoritySet, ConsensusLogReader, FinalityProof, FindEquivocations, GrandpaConsensusLogReader,
+	HeaderFinalityInfo, HeaderGrandpaInfo, StoredHeaderGrandpaInfo,
 };
 use bp_runtime::{BasicOperatingMode, HeaderIdProvider, OperatingMode};
 use codec::{Decode, Encode};
-use finality_grandpa::voter_set::VoterSet;
 use num_traits::{One, Zero};
 use relay_substrate_client::{
 	BlockNumberOf, Chain, ChainWithGrandpa, Client, Error as SubstrateError, HashOf, HeaderOf,
@@ -33,7 +35,7 @@ use relay_substrate_client::{
 };
 use sp_consensus_grandpa::{AuthorityList as GrandpaAuthoritiesSet, GRANDPA_ENGINE_ID};
 use sp_core::{storage::StorageKey, Bytes};
-use sp_runtime::{traits::Header, ConsensusEngineId};
+use sp_runtime::{scale_info::TypeInfo, traits::Header, ConsensusEngineId};
 use std::marker::PhantomData;
 
 /// Finality engine, used by the Substrate chain.
@@ -47,10 +49,18 @@ pub trait Engine<C: Chain>: Send {
 	type FinalityClient: SubstrateFinalityClient<C>;
 	/// Type of finality proofs, used by consensus engine.
 	type FinalityProof: FinalityProof<BlockNumberOf<C>> + Decode + Encode;
+	/// The context needed for verifying finality proofs.
+	type FinalityVerificationContext;
 	/// The type of the equivocation proof used by the consensus engine.
-	type EquivocationProof;
+	type EquivocationProof: Send + Sync;
+	/// The equivocations finder.
+	type EquivocationsFinder: FindEquivocations<
+		Self::FinalityProof,
+		Self::FinalityVerificationContext,
+		Self::EquivocationProof,
+	>;
 	/// The type of the key owner proof used by the consensus engine.
-	type KeyOwnerProof;
+	type KeyOwnerProof: Send;
 	/// Type of bridge pallet initialization data.
 	type InitializationData: std::fmt::Debug + Send + Sync + 'static;
 	/// Type of bridge pallet operating mode.
@@ -105,6 +115,29 @@ pub trait Engine<C: Chain>: Send {
 	async fn prepare_initialization_data(
 		client: Client<C>,
 	) -> Result<Self::InitializationData, Error<HashOf<C>, BlockNumberOf<C>>>;
+
+	/// Get the context needed for validating a finality proof.
+	async fn finality_verification_context<TargetChain: Chain>(
+		target_client: &Client<TargetChain>,
+		at: HashOf<TargetChain>,
+	) -> Result<Self::FinalityVerificationContext, SubstrateError>;
+
+	/// Returns the finality info associated to the source headers synced with the target
+	/// at the provided block.
+	async fn synced_headers_finality_info<TargetChain: Chain>(
+		target_client: &Client<TargetChain>,
+		at: TargetChain::Hash,
+	) -> Result<
+		Vec<HeaderFinalityInfo<Self::FinalityProof, Self::FinalityVerificationContext>>,
+		SubstrateError,
+	>;
+
+	/// Generate key ownership proof for the provided equivocation.
+	async fn generate_source_key_ownership_proof(
+		source_client: &Client<C>,
+		at: C::Hash,
+		equivocation: &Self::EquivocationProof,
+	) -> Result<Self::KeyOwnerProof, SubstrateError>;
 }
 
 /// GRANDPA finality engine.
@@ -142,21 +175,19 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 	type ConsensusLogReader = GrandpaConsensusLogReader<<C::Header as Header>::Number>;
 	type FinalityClient = SubstrateGrandpaFinalityClient;
 	type FinalityProof = GrandpaJustification<HeaderOf<C>>;
+	type FinalityVerificationContext = JustificationVerificationContext;
 	type EquivocationProof = sp_consensus_grandpa::EquivocationProof<HashOf<C>, BlockNumberOf<C>>;
+	type EquivocationsFinder = GrandpaEquivocationsFinder<C>;
 	type KeyOwnerProof = C::KeyOwnerProof;
 	type InitializationData = bp_header_chain::InitializationData<C::Header>;
 	type OperatingMode = BasicOperatingMode;
 
 	fn is_initialized_key() -> StorageKey {
-		bp_header_chain::storage_keys::best_finalized_key(
-			C::ChainWithGrandpa::WITH_CHAIN_GRANDPA_PALLET_NAME,
-		)
+		bp_header_chain::storage_keys::best_finalized_key(C::WITH_CHAIN_GRANDPA_PALLET_NAME)
 	}
 
 	fn pallet_operating_mode_key() -> StorageKey {
-		bp_header_chain::storage_keys::pallet_operating_mode_key(
-			C::ChainWithGrandpa::WITH_CHAIN_GRANDPA_PALLET_NAME,
-		)
+		bp_header_chain::storage_keys::pallet_operating_mode_key(C::WITH_CHAIN_GRANDPA_PALLET_NAME)
 	}
 
 	async fn optimize_proof<TargetChain: Chain>(
@@ -164,31 +195,18 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 		header: &C::Header,
 		proof: &mut Self::FinalityProof,
 	) -> Result<(), SubstrateError> {
-		let current_authority_set_key = bp_header_chain::storage_keys::current_authority_set_key(
-			C::ChainWithGrandpa::WITH_CHAIN_GRANDPA_PALLET_NAME,
-		);
-		let (authority_set, authority_set_id): (
-			sp_consensus_grandpa::AuthorityList,
-			sp_consensus_grandpa::SetId,
-		) = target_client
-			.storage_value(current_authority_set_key, None)
-			.await?
-			.map(Ok)
-			.unwrap_or(Err(SubstrateError::Custom(format!(
-				"{} `CurrentAuthoritySet` is missing from the {} storage",
-				C::NAME,
-				TargetChain::NAME,
-			))))?;
-		let authority_set =
-			finality_grandpa::voter_set::VoterSet::new(authority_set).expect("TODO");
+		let verification_context = Grandpa::<C>::finality_verification_context(
+			target_client,
+			target_client.best_header().await?.hash(),
+		)
+		.await?;
 		// we're risking with race here - we have decided to submit justification some time ago and
 		// actual authorities set (which we have read now) may have changed, so this
 		// `optimize_justification` may fail. But if target chain is configured properly, it'll fail
 		// anyway, after we submit transaction and failing earlier is better. So - it is fine
 		verify_and_optimize_justification(
 			(header.hash(), *header.number()),
-			authority_set_id,
-			&authority_set,
+			&verification_context,
 			proof,
 		)
 		.map_err(|e| {
@@ -275,8 +293,6 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 		// Now let's try to guess authorities set id by verifying justification.
 		let mut initial_authorities_set_id = 0;
 		let mut min_possible_block_number = C::BlockNumber::zero();
-		let authorities_for_verification = VoterSet::new(authorities_for_verification.clone())
-			.ok_or(Error::ReadInvalidAuthorities(C::NAME, authorities_for_verification))?;
 		loop {
 			log::trace!(
 				target: "bridge", "Trying {} GRANDPA authorities set id: {}",
@@ -286,8 +302,14 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 
 			let is_valid_set_id = verify_and_optimize_justification(
 				(initial_header_hash, initial_header_number),
-				initial_authorities_set_id,
-				&authorities_for_verification,
+				&AuthoritySet {
+					authorities: authorities_for_verification.clone(),
+					set_id: initial_authorities_set_id,
+				}
+				.try_into()
+				.map_err(|_| {
+					Error::ReadInvalidAuthorities(C::NAME, authorities_for_verification.clone())
+				})?,
 				&mut justification.clone(),
 			)
 			.is_ok();
@@ -316,5 +338,83 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 			},
 			operating_mode: BasicOperatingMode::Normal,
 		})
+	}
+
+	async fn finality_verification_context<TargetChain: Chain>(
+		target_client: &Client<TargetChain>,
+		at: HashOf<TargetChain>,
+	) -> Result<Self::FinalityVerificationContext, SubstrateError> {
+		let current_authority_set_key = bp_header_chain::storage_keys::current_authority_set_key(
+			C::WITH_CHAIN_GRANDPA_PALLET_NAME,
+		);
+		let authority_set: AuthoritySet = target_client
+			.storage_value(current_authority_set_key, Some(at))
+			.await?
+			.map(Ok)
+			.unwrap_or(Err(SubstrateError::Custom(format!(
+				"{} `CurrentAuthoritySet` is missing from the {} storage",
+				C::NAME,
+				TargetChain::NAME,
+			))))?;
+
+		authority_set.try_into().map_err(|e| {
+			SubstrateError::Custom(format!(
+				"{} `CurrentAuthoritySet` from the {} storage is invalid: {e:?}",
+				C::NAME,
+				TargetChain::NAME,
+			))
+		})
+	}
+
+	async fn synced_headers_finality_info<TargetChain: Chain>(
+		target_client: &Client<TargetChain>,
+		at: TargetChain::Hash,
+	) -> Result<Vec<HeaderGrandpaInfo<HeaderOf<C>>>, SubstrateError> {
+		let stored_headers_grandpa_info: Vec<StoredHeaderGrandpaInfo<HeaderOf<C>>> = target_client
+			.typed_state_call(C::SYNCED_HEADERS_GRANDPA_INFO_METHOD.to_string(), (), Some(at))
+			.await?;
+
+		let mut headers_grandpa_info = vec![];
+		for stored_header_grandpa_info in stored_headers_grandpa_info {
+			headers_grandpa_info.push(stored_header_grandpa_info.try_into().map_err(|e| {
+				SubstrateError::Custom(format!(
+					"{} `AuthoritySet` synced to {} is invalid: {e:?} ",
+					C::NAME,
+					TargetChain::NAME,
+				))
+			})?);
+		}
+
+		Ok(headers_grandpa_info)
+	}
+
+	async fn generate_source_key_ownership_proof(
+		source_client: &Client<C>,
+		at: C::Hash,
+		equivocation: &Self::EquivocationProof,
+	) -> Result<Self::KeyOwnerProof, SubstrateError> {
+		let set_id = equivocation.set_id();
+		let offender = equivocation.offender();
+
+		let opaque_key_owner_proof = source_client
+			.generate_grandpa_key_ownership_proof(at, set_id, offender.clone())
+			.await?
+			.ok_or(SubstrateError::Custom(format!(
+				"Couldn't get GRANDPA key ownership proof from {} at block: {at} \
+				for offender: {:?}, set_id: {set_id} ",
+				C::NAME,
+				offender.clone(),
+			)))?;
+
+		let key_owner_proof =
+			opaque_key_owner_proof.decode().ok_or(SubstrateError::Custom(format!(
+				"Couldn't decode GRANDPA `OpaqueKeyOwnnershipProof` from {} at block: {at} 
+				to `{:?}` for offender: {:?}, set_id: {set_id}, at block: {at}",
+				C::NAME,
+				<C::KeyOwnerProof as TypeInfo>::type_info().path,
+				offender.clone(),
+			)))?;
+
+		Ok(key_owner_proof)
 	}
 }
