@@ -16,16 +16,17 @@
 
 use crate::calls::UtilityCall;
 
-use bp_header_chain::UnderlyingChainWithGrandpaProvider;
+use bp_header_chain::ChainWithGrandpa as ChainWithGrandpaBase;
 use bp_messages::MessageNonce;
 use bp_runtime::{
 	Chain as ChainBase, ChainId, EncodedOrDecodedCall, HashOf, Parachain as ParachainBase,
 	TransactionEra, TransactionEraOf, UnderlyingChainProvider,
 };
-use codec::{Codec, Encode};
+use codec::{Codec, Decode, Encode};
 use jsonrpsee::core::{DeserializeOwned, Serialize};
 use num_traits::Zero;
 use sc_transaction_pool_api::TransactionStatus;
+use scale_info::TypeInfo;
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{
 	generic::SignedBlock,
@@ -78,7 +79,7 @@ pub trait RelayChain: Chain {
 ///
 /// Keep in mind that parachains are relying on relay chain GRANDPA, so they should not implement
 /// this trait.
-pub trait ChainWithGrandpa: Chain + UnderlyingChainWithGrandpaProvider {
+pub trait ChainWithGrandpa: Chain + ChainWithGrandpaBase {
 	/// Name of the runtime API method that is returning the GRANDPA info associated with the
 	/// headers accepted by the `submit_finality_proofs` extrinsic in the queried block.
 	///
@@ -87,7 +88,7 @@ pub trait ChainWithGrandpa: Chain + UnderlyingChainWithGrandpaProvider {
 	const SYNCED_HEADERS_GRANDPA_INFO_METHOD: &'static str;
 
 	/// The type of the key owner proof used by the grandpa engine.
-	type KeyOwnerProof;
+	type KeyOwnerProof: Decode + TypeInfo + Send;
 }
 
 /// Substrate-based parachain from minimal relay-client point of view.

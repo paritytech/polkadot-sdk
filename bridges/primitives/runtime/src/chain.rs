@@ -321,7 +321,7 @@ macro_rules! decl_bridge_finality_runtime_apis {
 		}
 	};
 	($chain: ident, grandpa) => {
-		decl_bridge_finality_runtime_apis!($chain, grandpa => bp_header_chain::HeaderGrandpaInfo<Header>);
+		decl_bridge_finality_runtime_apis!($chain, grandpa => bp_header_chain::StoredHeaderGrandpaInfo<Header>);
 	};
 }
 

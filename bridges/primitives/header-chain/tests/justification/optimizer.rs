@@ -30,8 +30,7 @@ fn optimizer_does_noting_with_minimal_justification() {
 	let num_precommits_before = justification.commit.precommits.len();
 	verify_and_optimize_justification::<TestHeader>(
 		header_id::<TestHeader>(1),
-		TEST_GRANDPA_SET_ID,
-		&voter_set(),
+		&verification_context(TEST_GRANDPA_SET_ID),
 		&mut justification,
 	)
 	.unwrap();
@@ -53,8 +52,7 @@ fn unknown_authority_votes_are_removed_by_optimizer() {
 	let num_precommits_before = justification.commit.precommits.len();
 	verify_and_optimize_justification::<TestHeader>(
 		header_id::<TestHeader>(1),
-		TEST_GRANDPA_SET_ID,
-		&voter_set(),
+		&verification_context(TEST_GRANDPA_SET_ID),
 		&mut justification,
 	)
 	.unwrap();
@@ -74,8 +72,7 @@ fn duplicate_authority_votes_are_removed_by_optimizer() {
 	let num_precommits_before = justification.commit.precommits.len();
 	verify_and_optimize_justification::<TestHeader>(
 		header_id::<TestHeader>(1),
-		TEST_GRANDPA_SET_ID,
-		&voter_set(),
+		&verification_context(TEST_GRANDPA_SET_ID),
 		&mut justification,
 	)
 	.unwrap();
@@ -105,8 +102,7 @@ fn invalid_authority_signatures_are_removed_by_optimizer() {
 	let num_precommits_before = justification.commit.precommits.len();
 	verify_and_optimize_justification::<TestHeader>(
 		header_id::<TestHeader>(1),
-		TEST_GRANDPA_SET_ID,
-		&voter_set(),
+		&verification_context(TEST_GRANDPA_SET_ID),
 		&mut justification,
 	)
 	.unwrap();
@@ -128,8 +124,7 @@ fn redundant_authority_votes_are_removed_by_optimizer() {
 	let num_precommits_before = justification.commit.precommits.len();
 	verify_and_optimize_justification::<TestHeader>(
 		header_id::<TestHeader>(1),
-		TEST_GRANDPA_SET_ID,
-		&voter_set(),
+		&verification_context(TEST_GRANDPA_SET_ID),
 		&mut justification,
 	)
 	.unwrap();
@@ -154,8 +149,7 @@ fn unrelated_ancestry_votes_are_removed_by_optimizer() {
 	let num_precommits_before = justification.commit.precommits.len();
 	verify_and_optimize_justification::<TestHeader>(
 		header_id::<TestHeader>(2),
-		TEST_GRANDPA_SET_ID,
-		&voter_set(),
+		&verification_context(TEST_GRANDPA_SET_ID),
 		&mut justification,
 	)
 	.unwrap();
@@ -172,8 +166,7 @@ fn redundant_votes_ancestries_are_removed_by_optimizer() {
 	let num_votes_ancestries_before = justification.votes_ancestries.len();
 	verify_and_optimize_justification::<TestHeader>(
 		header_id::<TestHeader>(1),
-		TEST_GRANDPA_SET_ID,
-		&voter_set(),
+		&verification_context(TEST_GRANDPA_SET_ID),
 		&mut justification,
 	)
 	.unwrap();

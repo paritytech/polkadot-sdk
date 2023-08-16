@@ -20,7 +20,7 @@ pub mod equivocation;
 pub mod optimizer;
 pub mod strict;
 
-use crate::justification::GrandpaJustification;
+use crate::{justification::GrandpaJustification, AuthoritySet};
 
 use bp_runtime::HeaderId;
 use finality_grandpa::voter_set::VoterSet;
@@ -114,6 +114,8 @@ impl<Header: HeaderT> AncestryChain<Header> {
 /// Justification verification error.
 #[derive(Eq, RuntimeDebug, PartialEq)]
 pub enum Error {
+	/// Could not convert `AuthorityList` to `VoterSet`.
+	InvalidAuthorityList,
 	/// Justification is finalizing unexpected header.
 	InvalidJustificationTarget,
 	/// Error validating a precommit
@@ -139,6 +141,24 @@ pub enum PrecommitError {
 	/// The justification contains precommit for header that is not a descendant of the commit
 	/// header.
 	UnrelatedAncestryVote,
+}
+
+/// The context needed for validating GRANDPA finality proofs.
+pub struct JustificationVerificationContext {
+	/// The authority set used to verify the justification.
+	pub voter_set: VoterSet<AuthorityId>,
+	/// The ID of the authority set used to verify the justification.
+	pub authority_set_id: SetId,
+}
+
+impl TryFrom<AuthoritySet> for JustificationVerificationContext {
+	type Error = Error;
+
+	fn try_from(authority_set: AuthoritySet) -> Result<Self, Self::Error> {
+		let voter_set =
+			VoterSet::new(authority_set.authorities).ok_or(Error::InvalidAuthorityList)?;
+		Ok(JustificationVerificationContext { voter_set, authority_set_id: authority_set.set_id })
+	}
 }
 
 enum IterationFlow {
@@ -185,8 +205,7 @@ trait JustificationVerifier<Header: HeaderT> {
 	fn verify_justification(
 		&mut self,
 		finalized_target: (Header::Hash, Header::Number),
-		authorities_set_id: SetId,
-		authorities_set: &VoterSet<AuthorityId>,
+		context: &JustificationVerificationContext,
 		justification: &GrandpaJustification<Header>,
 	) -> Result<(), Error> {
 		// ensure that it is justification for the expected header
@@ -196,7 +215,7 @@ trait JustificationVerifier<Header: HeaderT> {
 			return Err(Error::InvalidJustificationTarget)
 		}
 
-		let threshold = authorities_set.threshold().get();
+		let threshold = context.voter_set.threshold().get();
 		let mut chain = AncestryChain::new(justification);
 		let mut signature_buffer = Vec::new();
 		let mut cumulative_weight = 0u64;
@@ -211,7 +230,7 @@ trait JustificationVerifier<Header: HeaderT> {
 			}
 
 			// authority must be in the set
-			let authority_info = match authorities_set.get(&signed.id) {
+			let authority_info = match context.voter_set.get(&signed.id) {
 				Some(authority_info) => {
 					// The implementer may want to do extra checks here.
 					// For example to see if the authority has already voted in the same round.
@@ -248,7 +267,7 @@ trait JustificationVerifier<Header: HeaderT> {
 				&signed.id,
 				&signed.signature,
 				justification.round,
-				authorities_set_id,
+				context.authority_set_id,
 				&mut signature_buffer,
 			) {
 				self.process_invalid_signature_vote(precommit_idx).map_err(Error::Precommit)?;
