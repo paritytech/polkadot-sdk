@@ -40,10 +40,10 @@ pub use storage_types::StoredAuthoritySet;
 
 use bp_header_chain::{
 	justification::GrandpaJustification, AuthoritySet, ChainWithGrandpa, GrandpaConsensusLogReader,
-	HeaderChain, HeaderGrandpaInfo, InitializationData, StoredHeaderData, StoredHeaderDataBuilder,
+	HeaderChain, InitializationData, StoredHeaderData, StoredHeaderDataBuilder,
+	StoredHeaderGrandpaInfo,
 };
 use bp_runtime::{BlockNumberOf, HashOf, HasherOf, HeaderId, HeaderOf, OwnedBridgeModule};
-use finality_grandpa::voter_set::VoterSet;
 use frame_support::{dispatch::PostDispatchInfo, ensure, DefaultNoBound};
 use sp_runtime::{
 	traits::{Header as HeaderT, Zero},
@@ -241,9 +241,9 @@ pub mod pallet {
 			Self::deposit_event(Event::UpdatedBestFinalizedHeader {
 				number,
 				hash,
-				grandpa_info: HeaderGrandpaInfo {
-					justification,
-					authority_set: maybe_new_authority_set,
+				grandpa_info: StoredHeaderGrandpaInfo {
+					finality_proof: justification,
+					new_verification_context: maybe_new_authority_set,
 				},
 			});
 
@@ -411,7 +411,7 @@ pub mod pallet {
 			number: BridgedBlockNumber<T, I>,
 			hash: BridgedBlockHash<T, I>,
 			/// The Grandpa info associated to the new best finalized header.
-			grandpa_info: HeaderGrandpaInfo<BridgedHeader<T, I>>,
+			grandpa_info: StoredHeaderGrandpaInfo<BridgedHeader<T, I>>,
 		},
 	}
 
@@ -505,14 +505,9 @@ pub mod pallet {
 	) -> Result<(), sp_runtime::DispatchError> {
 		use bp_header_chain::justification::verify_justification;
 
-		let voter_set =
-			VoterSet::new(authority_set.authorities).ok_or(<Error<T, I>>::InvalidAuthoritySet)?;
-		let set_id = authority_set.set_id;
-
 		Ok(verify_justification::<BridgedHeader<T, I>>(
 			(hash, number),
-			set_id,
-			&voter_set,
+			&authority_set.try_into().map_err(|_| <Error<T, I>>::InvalidAuthoritySet)?,
 			justification,
 		)
 		.map_err(|e| {
@@ -617,7 +612,7 @@ where
 	<T as frame_system::Config>::RuntimeEvent: TryInto<Event<T, I>>,
 {
 	/// Get the GRANDPA justifications accepted in the current block.
-	pub fn synced_headers_grandpa_info() -> Vec<HeaderGrandpaInfo<BridgedHeader<T, I>>> {
+	pub fn synced_headers_grandpa_info() -> Vec<StoredHeaderGrandpaInfo<BridgedHeader<T, I>>> {
 		frame_system::Pallet::<T>::read_events_no_consensus()
 			.filter_map(|event| {
 				if let Event::<T, I>::UpdatedBestFinalizedHeader { grandpa_info, .. } =
@@ -934,9 +929,9 @@ mod tests {
 					event: TestEvent::Grandpa(Event::UpdatedBestFinalizedHeader {
 						number: *header.number(),
 						hash: header.hash(),
-						grandpa_info: HeaderGrandpaInfo {
-							justification: justification.clone(),
-							authority_set: None,
+						grandpa_info: StoredHeaderGrandpaInfo {
+							finality_proof: justification.clone(),
+							new_verification_context: None,
 						},
 					}),
 					topics: vec![],
@@ -944,7 +939,10 @@ mod tests {
 			);
 			assert_eq!(
 				Pallet::<TestRuntime>::synced_headers_grandpa_info(),
-				vec![HeaderGrandpaInfo { justification, authority_set: None }]
+				vec![StoredHeaderGrandpaInfo {
+					finality_proof: justification,
+					new_verification_context: None
+				}]
 			);
 		})
 	}
@@ -1075,9 +1073,11 @@ mod tests {
 					event: TestEvent::Grandpa(Event::UpdatedBestFinalizedHeader {
 						number: *header.number(),
 						hash: header.hash(),
-						grandpa_info: HeaderGrandpaInfo {
-							justification: justification.clone(),
-							authority_set: Some(<CurrentAuthoritySet<TestRuntime>>::get().into()),
+						grandpa_info: StoredHeaderGrandpaInfo {
+							finality_proof: justification.clone(),
+							new_verification_context: Some(
+								<CurrentAuthoritySet<TestRuntime>>::get().into()
+							),
 						},
 					}),
 					topics: vec![],
@@ -1085,9 +1085,11 @@ mod tests {
 			);
 			assert_eq!(
 				Pallet::<TestRuntime>::synced_headers_grandpa_info(),
-				vec![HeaderGrandpaInfo {
-					justification,
-					authority_set: Some(<CurrentAuthoritySet<TestRuntime>>::get().into()),
+				vec![StoredHeaderGrandpaInfo {
+					finality_proof: justification,
+					new_verification_context: Some(
+						<CurrentAuthoritySet<TestRuntime>>::get().into()
+					),
 				}]
 			);
 		})

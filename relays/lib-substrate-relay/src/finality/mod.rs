@@ -18,21 +18,18 @@
 //! finality proofs synchronization pipelines.
 
 use crate::{
-	finality::{
-		source::{SubstrateFinalityProof, SubstrateFinalitySource},
-		target::SubstrateFinalityTarget,
-	},
+	finality::{source::SubstrateFinalitySource, target::SubstrateFinalityTarget},
+	finality_base::{engine::Engine, SubstrateFinalityPipeline, SubstrateFinalityProof},
 	TransactionParams,
 };
 
-use crate::finality_base::{engine::Engine, SubstrateFinalityPipeline};
 use async_trait::async_trait;
 use bp_header_chain::justification::GrandpaJustification;
-use finality_relay::FinalitySyncPipeline;
+use finality_relay::{FinalityPipeline, FinalitySyncPipeline};
 use pallet_bridge_grandpa::{Call as BridgeGrandpaCall, Config as BridgeGrandpaConfig};
 use relay_substrate_client::{
-	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain, Client,
-	HashOf, HeaderOf, SyncHeader,
+	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain,
+	ChainWithTransactions, Client, HashOf, HeaderOf, SyncHeader,
 };
 use relay_utils::metrics::MetricsParams;
 use sp_core::Pair;
@@ -48,9 +45,31 @@ pub mod target;
 /// Substrate+GRANDPA based chains (good to know).
 pub(crate) const RECENT_FINALITY_PROOFS_LIMIT: usize = 4096;
 
+/// Convenience trait that adds bounds to `SubstrateFinalitySyncPipeline`.
+pub trait BaseSubstrateFinalitySyncPipeline:
+	SubstrateFinalityPipeline<TargetChain = Self::BoundedTargetChain>
+{
+	/// Bounded `SubstrateFinalityPipeline::TargetChain`.
+	type BoundedTargetChain: ChainWithTransactions<AccountId = Self::BoundedTargetChainAccountId>;
+
+	/// Bounded `AccountIdOf<SubstrateFinalityPipeline::TargetChain>`.
+	type BoundedTargetChainAccountId: From<<AccountKeyPairOf<Self::BoundedTargetChain> as Pair>::Public>
+		+ Send;
+}
+
+impl<T> BaseSubstrateFinalitySyncPipeline for T
+where
+	T: SubstrateFinalityPipeline,
+	T::TargetChain: ChainWithTransactions,
+	AccountIdOf<T::TargetChain>: From<<AccountKeyPairOf<Self::TargetChain> as Pair>::Public>,
+{
+	type BoundedTargetChain = T::TargetChain;
+	type BoundedTargetChainAccountId = AccountIdOf<T::TargetChain>;
+}
+
 /// Substrate -> Substrate finality proofs synchronization pipeline.
 #[async_trait]
-pub trait SubstrateFinalitySyncPipeline: SubstrateFinalityPipeline {
+pub trait SubstrateFinalitySyncPipeline: BaseSubstrateFinalitySyncPipeline {
 	/// How submit finality proof call is built?
 	type SubmitFinalityProofCallBuilder: SubmitFinalityProofCallBuilder<Self>;
 
@@ -70,15 +89,18 @@ pub struct FinalitySyncPipelineAdapter<P: SubstrateFinalitySyncPipeline> {
 	_phantom: PhantomData<P>,
 }
 
-impl<P: SubstrateFinalitySyncPipeline> FinalitySyncPipeline for FinalitySyncPipelineAdapter<P> {
+impl<P: SubstrateFinalitySyncPipeline> FinalityPipeline for FinalitySyncPipelineAdapter<P> {
 	const SOURCE_NAME: &'static str = P::SourceChain::NAME;
 	const TARGET_NAME: &'static str = P::TargetChain::NAME;
 
 	type Hash = HashOf<P::SourceChain>;
 	type Number = BlockNumberOf<P::SourceChain>;
+	type FinalityProof = SubstrateFinalityProof<P>;
+}
+
+impl<P: SubstrateFinalitySyncPipeline> FinalitySyncPipeline for FinalitySyncPipelineAdapter<P> {
 	type ConsensusLogReader = <P::FinalityEngine as Engine<P::SourceChain>>::ConsensusLogReader;
 	type Header = SyncHeader<HeaderOf<P::SourceChain>>;
-	type FinalityProof = SubstrateFinalityProof<P>;
 }
 
 /// Different ways of building `submit_finality_proof` calls.
@@ -165,10 +187,7 @@ pub async fn run<P: SubstrateFinalitySyncPipeline>(
 	only_mandatory_headers: bool,
 	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	metrics_params: MetricsParams,
-) -> anyhow::Result<()>
-where
-	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as Pair>::Public>,
-{
+) -> anyhow::Result<()> {
 	log::info!(
 		target: "bridge",
 		"Starting {} -> {} finality proof relay",

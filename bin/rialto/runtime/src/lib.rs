@@ -696,7 +696,7 @@ impl_runtime_apis! {
 		}
 
 		fn synced_headers_grandpa_info(
-		) -> Vec<bp_header_chain::HeaderGrandpaInfo<bp_millau::Header>> {
+		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_millau::Header>> {
 			BridgeMillauGrandpa::synced_headers_grandpa_info()
 		}
 	}

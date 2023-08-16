@@ -697,7 +697,7 @@ pub(crate) mod tests {
 	use bp_test_utils::prepare_parachain_heads_proof;
 	use codec::Encode;
 
-	use bp_header_chain::{justification::GrandpaJustification, HeaderGrandpaInfo};
+	use bp_header_chain::{justification::GrandpaJustification, StoredHeaderGrandpaInfo};
 	use bp_parachains::{
 		BestParaHeadHash, BridgeParachainCall, ImportedParaHeadsKeyProvider, ParasInfoKeyProvider,
 	};
@@ -1036,9 +1036,9 @@ pub(crate) mod tests {
 							pallet_bridge_grandpa::Event::UpdatedBestFinalizedHeader {
 								number: 1,
 								hash: relay_1_hash,
-								grandpa_info: HeaderGrandpaInfo {
-									justification,
-									authority_set: None,
+								grandpa_info: StoredHeaderGrandpaInfo {
+									finality_proof: justification,
+									new_verification_context: None,
 								},
 							}
 						),
@@ -1177,9 +1177,9 @@ pub(crate) mod tests {
 							pallet_bridge_grandpa::Event::UpdatedBestFinalizedHeader {
 								number: 1,
 								hash: relay_1_hash,
-								grandpa_info: HeaderGrandpaInfo {
-									justification,
-									authority_set: None,
+								grandpa_info: StoredHeaderGrandpaInfo {
+									finality_proof: justification,
+									new_verification_context: None,
 								}
 							}
 						),
@@ -1230,9 +1230,9 @@ pub(crate) mod tests {
 							pallet_bridge_grandpa::Event::UpdatedBestFinalizedHeader {
 								number: 1,
 								hash: relay_1_hash,
-								grandpa_info: HeaderGrandpaInfo {
-									justification: justification.clone(),
-									authority_set: None,
+								grandpa_info: StoredHeaderGrandpaInfo {
+									finality_proof: justification.clone(),
+									new_verification_context: None,
 								}
 							}
 						),
@@ -1271,9 +1271,9 @@ pub(crate) mod tests {
 							pallet_bridge_grandpa::Event::UpdatedBestFinalizedHeader {
 								number: 1,
 								hash: relay_1_hash,
-								grandpa_info: HeaderGrandpaInfo {
-									justification,
-									authority_set: None,
+								grandpa_info: StoredHeaderGrandpaInfo {
+									finality_proof: justification,
+									new_verification_context: None,
 								}
 							}
 						),

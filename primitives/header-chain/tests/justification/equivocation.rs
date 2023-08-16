@@ -25,19 +25,18 @@ type TestHeader = sp_runtime::testing::Header;
 
 #[test]
 fn duplicate_votes_are_not_considered_equivocations() {
-	let voter_set = voter_set();
+	let verification_context = verification_context(TEST_GRANDPA_SET_ID);
 	let base_justification = make_default_justification::<TestHeader>(&test_header(1));
 
 	let mut collector =
-		EquivocationsCollector::new(TEST_GRANDPA_SET_ID, &voter_set, &base_justification).unwrap();
-	collector.parse_justification(&base_justification.clone()).unwrap();
+		EquivocationsCollector::new(&verification_context, &base_justification).unwrap();
+	collector.parse_justifications(&[base_justification.clone()]);
 
 	assert_eq!(collector.into_equivocation_proofs().len(), 0);
 }
 
 #[test]
 fn equivocations_are_detected_in_base_justification_redundant_votes() {
-	let voter_set = voter_set();
 	let mut base_justification = make_default_justification::<TestHeader>(&test_header(1));
 
 	let first_vote = base_justification.commit.precommits[0].clone();
@@ -49,8 +48,9 @@ fn equivocations_are_detected_in_base_justification_redundant_votes() {
 	);
 	base_justification.commit.precommits.push(equivocation.clone());
 
+	let verification_context = verification_context(TEST_GRANDPA_SET_ID);
 	let collector =
-		EquivocationsCollector::new(TEST_GRANDPA_SET_ID, &voter_set, &base_justification).unwrap();
+		EquivocationsCollector::new(&verification_context, &base_justification).unwrap();
 
 	assert_eq!(
 		collector.into_equivocation_proofs(),
@@ -80,7 +80,6 @@ fn equivocations_are_detected_in_base_justification_redundant_votes() {
 
 #[test]
 fn equivocations_are_detected_in_extra_justification_redundant_votes() {
-	let voter_set = voter_set();
 	let base_justification = make_default_justification::<TestHeader>(&test_header(1));
 	let first_vote = base_justification.commit.precommits[0].clone();
 
@@ -93,9 +92,10 @@ fn equivocations_are_detected_in_extra_justification_redundant_votes() {
 	);
 	extra_justification.commit.precommits.push(equivocation.clone());
 
+	let verification_context = verification_context(TEST_GRANDPA_SET_ID);
 	let mut collector =
-		EquivocationsCollector::new(TEST_GRANDPA_SET_ID, &voter_set, &base_justification).unwrap();
-	collector.parse_justification(&extra_justification).unwrap();
+		EquivocationsCollector::new(&verification_context, &base_justification).unwrap();
+	collector.parse_justifications(&[extra_justification]);
 
 	assert_eq!(
 		collector.into_equivocation_proofs(),

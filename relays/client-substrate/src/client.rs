@@ -22,8 +22,8 @@ use crate::{
 		SubstrateAuthorClient, SubstrateChainClient, SubstrateFinalityClient,
 		SubstrateFrameSystemClient, SubstrateStateClient, SubstrateSystemClient,
 	},
-	transaction_stall_timeout, AccountKeyPairOf, ConnectionParams, Error, HashOf, HeaderIdOf,
-	Result, SignParam, TransactionTracker, UnsignedTransaction,
+	transaction_stall_timeout, AccountKeyPairOf, ChainWithGrandpa, ConnectionParams, Error, HashOf,
+	HeaderIdOf, Result, SignParam, TransactionTracker, UnsignedTransaction,
 };
 
 use async_std::sync::{Arc, Mutex, RwLock};
@@ -715,15 +715,16 @@ impl<C: Chain> Client<C> {
 		Ok(Subscription(Mutex::new(receiver)))
 	}
 
-	// TODO: remove warning after implementing
-	// https://github.com/paritytech/parity-bridges-common/issues/39
-	#[allow(dead_code)]
-	async fn generate_grandpa_key_ownership_proof(
+	/// Generates a proof of key ownership for the given authority in the given set.
+	pub async fn generate_grandpa_key_ownership_proof(
 		&self,
 		at: HashOf<C>,
 		set_id: sp_consensus_grandpa::SetId,
 		authority_id: sp_consensus_grandpa::AuthorityId,
-	) -> Result<Option<sp_consensus_grandpa::OpaqueKeyOwnershipProof>> {
+	) -> Result<Option<sp_consensus_grandpa::OpaqueKeyOwnershipProof>>
+	where
+		C: ChainWithGrandpa,
+	{
 		self.typed_state_call(
 			SUB_API_GRANDPA_GENERATE_KEY_OWNERSHIP_PROOF.into(),
 			(set_id, authority_id),

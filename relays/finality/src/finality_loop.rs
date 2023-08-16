@@ -20,11 +20,13 @@
 //! assume that the persistent proof either exists, or will eventually become available.
 
 use crate::{
-	sync_loop_metrics::SyncLoopMetrics, FinalityProof, FinalitySyncPipeline, SourceHeader,
+	sync_loop_metrics::SyncLoopMetrics, FinalityPipeline, FinalitySyncPipeline, SourceClientBase,
+	SourceHeader,
 };
 
 use async_trait::async_trait;
 use backoff::backoff::Backoff;
+use bp_header_chain::FinalityProof;
 use futures::{select, Future, FutureExt, Stream, StreamExt};
 use num_traits::{One, Saturating};
 use relay_utils::{
@@ -66,11 +68,7 @@ pub struct FinalitySyncParams {
 
 /// Source client used in finality synchronization loop.
 #[async_trait]
-pub trait SourceClient<P: FinalitySyncPipeline>: RelayClient {
-	/// Stream of new finality proofs. The stream is allowed to miss proofs for some
-	/// headers, even if those headers are mandatory.
-	type FinalityProofsStream: Stream<Item = P::FinalityProof> + Send;
-
+pub trait SourceClient<P: FinalitySyncPipeline>: SourceClientBase<P> {
 	/// Get best finalized block number.
 	async fn best_finalized_block_number(&self) -> Result<P::Number, Self::Error>;
 
@@ -79,9 +77,6 @@ pub trait SourceClient<P: FinalitySyncPipeline>: RelayClient {
 		&self,
 		number: P::Number,
 	) -> Result<(P::Header, Option<P::FinalityProof>), Self::Error>;
-
-	/// Subscribe to new finality proofs.
-	async fn finality_proofs(&self) -> Result<Self::FinalityProofsStream, Self::Error>;
 }
 
 /// Target client used in finality synchronization loop.
@@ -143,10 +138,10 @@ pub async fn run<P: FinalitySyncPipeline>(
 pub(crate) type UnjustifiedHeaders<H> = Vec<H>;
 /// Finality proofs container. Ordered by target header number.
 pub(crate) type FinalityProofs<P> =
-	Vec<(<P as FinalitySyncPipeline>::Number, <P as FinalitySyncPipeline>::FinalityProof)>;
+	Vec<(<P as FinalityPipeline>::Number, <P as FinalityPipeline>::FinalityProof)>;
 /// Reference to finality proofs container.
 pub(crate) type FinalityProofsRef<'a, P> =
-	&'a [(<P as FinalitySyncPipeline>::Number, <P as FinalitySyncPipeline>::FinalityProof)];
+	&'a [(<P as FinalityPipeline>::Number, <P as FinalityPipeline>::FinalityProof)];
 
 /// Error that may happen inside finality synchronization loop.
 #[derive(Debug)]
