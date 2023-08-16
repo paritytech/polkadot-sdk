@@ -115,11 +115,26 @@ impl<AccountId> DeliveryConfirmationPayments<AccountId> for () {
 	}
 }
 
+/// Callback that is called at the source chain (bridge hub) when we get delivery confirmation
+/// for new messages.
+pub trait OnMessagesDelivered {
+	/// New messages delivery has been confirmed.
+	///
+	/// The only argument of the function is the number of yet undelivered messages
+	fn on_messages_delivered(lane: LaneId, enqueued_messages: MessageNonce);
+}
+
+impl OnMessagesDelivered for () {
+	fn on_messages_delivered(_lane: LaneId, _enqueued_messages: MessageNonce) {}
+}
+
 /// Send message artifacts.
 #[derive(Eq, RuntimeDebug, PartialEq)]
 pub struct SendMessageArtifacts {
 	/// Nonce of the message.
 	pub nonce: MessageNonce,
+	/// Number of enqueued messages at the lane, after the message is sent.
+	pub enqueued_messages: MessageNonce,
 }
 
 /// Messages bridge API to be used from other pallets.
@@ -141,7 +156,7 @@ impl<Payload> MessagesBridge<Payload> for NoopMessagesBridge {
 	type Error = &'static str;
 
 	fn send_message(_lane: LaneId, _message: Payload) -> Result<SendMessageArtifacts, Self::Error> {
-		Ok(SendMessageArtifacts { nonce: 0 })
+		Ok(SendMessageArtifacts { nonce: 0, enqueued_messages: 0 })
 	}
 }
 

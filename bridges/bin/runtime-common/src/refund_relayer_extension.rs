@@ -494,8 +494,7 @@ where
 		};
 
 		// compute total number of messages in transaction
-		let bundled_messages =
-			parsed_call.messages_call_info().bundled_messages().checked_len().unwrap_or(0);
+		let bundled_messages = parsed_call.messages_call_info().bundled_messages().saturating_len();
 
 		// a quick check to avoid invalid high-priority transactions
 		if bundled_messages > Runtime::MaxUnconfirmedMessagesAtInboundLane::get() {

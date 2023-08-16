@@ -1,0 +1,26 @@
+[package]
+name = "bp-asset-hub-polkadot"
+description = "Primitives of AssetHubPolkadot parachain runtime."
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false }
+scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+
+# Substrate Dependencies
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+
+# Bridge Dependencies
+bp-xcm-bridge-hub-router = { path = "../xcm-bridge-hub-router", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"bp-xcm-bridge-hub-router/std",
+	"frame-support/std",
+	"codec/std",
+	"scale-info/std",
+]
