@@ -105,9 +105,6 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
-/// Extrinsic type that has already been checked.
-pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
-
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,);
 
