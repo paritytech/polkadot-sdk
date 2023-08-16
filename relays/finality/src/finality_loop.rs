@@ -19,23 +19,23 @@
 //! is the mandatory headers, which we always submit to the target node. For such headers, we
 //! assume that the persistent proof either exists, or will eventually become available.
 
-use crate::{
-	sync_loop_metrics::SyncLoopMetrics, FinalityPipeline, FinalitySyncPipeline, SourceClientBase,
-	SourceHeader,
-};
+use crate::{sync_loop_metrics::SyncLoopMetrics, Error, FinalitySyncPipeline, SourceHeader};
 
+use crate::{
+	base::SourceClientBase,
+	finality_proofs::{FinalityProofsBuf, FinalityProofsStream},
+	headers::{JustifiedHeader, JustifiedHeaderSelector},
+};
 use async_trait::async_trait;
-use backoff::backoff::Backoff;
-use bp_header_chain::FinalityProof;
-use futures::{select, Future, FutureExt, Stream, StreamExt};
-use num_traits::{One, Saturating};
+use backoff::{backoff::Backoff, ExponentialBackoff};
+use futures::{future::Fuse, select, Future, FutureExt};
+use num_traits::Saturating;
 use relay_utils::{
 	metrics::MetricsParams, relay_loop::Client as RelayClient, retry_backoff, FailedClient,
 	HeaderId, MaybeConnectionError, TrackedTransactionStatus, TransactionTracker,
 };
 use std::{
 	fmt::Debug,
-	pin::Pin,
 	time::{Duration, Instant},
 };
 
@@ -104,6 +104,333 @@ pub fn metrics_prefix<P: FinalitySyncPipeline>() -> String {
 	format!("{}_to_{}_Sync", P::SOURCE_NAME, P::TARGET_NAME)
 }
 
+pub struct SyncInfo<P: FinalitySyncPipeline> {
+	pub best_number_at_source: P::Number,
+	pub best_number_at_target: P::Number,
+	pub is_using_same_fork: bool,
+}
+
+impl<P: FinalitySyncPipeline> SyncInfo<P> {
+	/// Checks if both clients are on the same fork.
+	async fn is_on_same_fork<SC: SourceClient<P>>(
+		source_client: &SC,
+		id_at_target: &HeaderId<P::Hash, P::Number>,
+	) -> Result<bool, SC::Error> {
+		let header_at_source = source_client.header_and_finality_proof(id_at_target.0).await?.0;
+		let header_hash_at_source = header_at_source.hash();
+		Ok(if id_at_target.1 == header_hash_at_source {
+			true
+		} else {
+			log::error!(
+				target: "bridge",
+				"Source node ({}) and pallet at target node ({}) have different headers at the same height {:?}: \
+				at-source {:?} vs at-target {:?}",
+				P::SOURCE_NAME,
+				P::TARGET_NAME,
+				id_at_target.0,
+				header_hash_at_source,
+				id_at_target.1,
+			);
+
+			false
+		})
+	}
+
+	async fn new<SC: SourceClient<P>, TC: TargetClient<P>>(
+		source_client: &SC,
+		target_client: &TC,
+	) -> Result<Self, Error<P, SC::Error, TC::Error>> {
+		let best_number_at_source =
+			source_client.best_finalized_block_number().await.map_err(Error::Source)?;
+		let best_id_at_target =
+			target_client.best_finalized_source_block_id().await.map_err(Error::Target)?;
+		let best_number_at_target = best_id_at_target.0;
+
+		let is_using_same_fork = Self::is_on_same_fork(source_client, &best_id_at_target)
+			.await
+			.map_err(Error::Source)?;
+
+		Ok(Self { best_number_at_source, best_number_at_target, is_using_same_fork })
+	}
+
+	fn update_metrics(&self, metrics_sync: &Option<SyncLoopMetrics>) {
+		if let Some(metrics_sync) = metrics_sync {
+			metrics_sync.update_best_block_at_source(self.best_number_at_source);
+			metrics_sync.update_best_block_at_target(self.best_number_at_target);
+			metrics_sync.update_using_same_fork(self.is_using_same_fork);
+		}
+	}
+
+	pub fn num_headers(&self) -> P::Number {
+		self.best_number_at_source.saturating_sub(self.best_number_at_target)
+	}
+}
+
+/// Information about transaction that we have submitted.
+#[derive(Debug, Clone)]
+pub struct Transaction<Tracker, Number> {
+	/// Submitted transaction tracker.
+	tracker: Tracker,
+	/// The number of the header we have submitted.
+	header_number: Number,
+}
+
+impl<Tracker: TransactionTracker, Number: Debug + PartialOrd> Transaction<Tracker, Number> {
+	pub async fn submit<
+		P: FinalitySyncPipeline<Number = Number>,
+		TC: TargetClient<P, TransactionTracker = Tracker>,
+	>(
+		target_client: &TC,
+		header: P::Header,
+		justification: P::FinalityProof,
+	) -> Result<Self, TC::Error> {
+		let header_number = header.number();
+		log::debug!(
+			target: "bridge",
+			"Going to submit finality proof of {} header #{:?} to {}",
+			P::SOURCE_NAME,
+			header_number,
+			P::TARGET_NAME,
+		);
+
+		let tracker = target_client.submit_finality_proof(header, justification).await?;
+		Ok(Transaction { tracker, header_number })
+	}
+
+	async fn track<
+		P: FinalitySyncPipeline<Number = Number>,
+		SC: SourceClient<P>,
+		TC: TargetClient<P>,
+	>(
+		self,
+		target_client: TC,
+	) -> Result<(), Error<P, SC::Error, TC::Error>> {
+		match self.tracker.wait().await {
+			TrackedTransactionStatus::Finalized(_) => {
+				// The transaction has been finalized, but it may have been finalized in the
+				// "failed" state. So let's check if the block number was actually updated.
+				target_client
+					.best_finalized_source_block_id()
+					.await
+					.map_err(Error::Target)
+					.and_then(|best_id_at_target| {
+						if self.header_number > best_id_at_target.0 {
+							return Err(Error::ProofSubmissionTxFailed {
+								submitted_number: self.header_number,
+								best_number_at_target: best_id_at_target.0,
+							})
+						}
+						Ok(())
+					})
+			},
+			TrackedTransactionStatus::Lost => Err(Error::ProofSubmissionTxLost),
+		}
+	}
+}
+
+/// Finality synchronization loop state.
+struct FinalityLoop<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> {
+	source_client: SC,
+	target_client: TC,
+
+	sync_params: FinalitySyncParams,
+	metrics_sync: Option<SyncLoopMetrics>,
+
+	progress: (Instant, Option<P::Number>),
+	retry_backoff: ExponentialBackoff,
+	finality_proofs_stream: FinalityProofsStream<P, SC>,
+	finality_proofs_buf: FinalityProofsBuf<P>,
+	best_submitted_number: Option<P::Number>,
+}
+
+impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> FinalityLoop<P, SC, TC> {
+	pub fn new(
+		source_client: SC,
+		target_client: TC,
+		sync_params: FinalitySyncParams,
+		metrics_sync: Option<SyncLoopMetrics>,
+	) -> Self {
+		Self {
+			source_client,
+			target_client,
+			sync_params,
+			metrics_sync,
+			progress: (Instant::now(), None),
+			retry_backoff: retry_backoff(),
+			finality_proofs_stream: FinalityProofsStream::new(),
+			finality_proofs_buf: FinalityProofsBuf::new(vec![]),
+			best_submitted_number: None,
+		}
+	}
+
+	fn update_progress(&mut self, info: &SyncInfo<P>) {
+		let (prev_time, prev_best_number_at_target) = self.progress;
+		let now = Instant::now();
+
+		let needs_update = now - prev_time > Duration::from_secs(10) ||
+			prev_best_number_at_target
+				.map(|prev_best_number_at_target| {
+					info.best_number_at_target.saturating_sub(prev_best_number_at_target) >
+						10.into()
+				})
+				.unwrap_or(true);
+
+		if !needs_update {
+			return
+		}
+
+		log::info!(
+			target: "bridge",
+			"Synced {:?} of {:?} headers",
+			info.best_number_at_target,
+			info.best_number_at_source,
+		);
+
+		self.progress = (now, Some(info.best_number_at_target))
+	}
+
+	pub async fn select_header_to_submit(
+		&mut self,
+		info: &SyncInfo<P>,
+	) -> Result<Option<JustifiedHeader<P>>, Error<P, SC::Error, TC::Error>> {
+		// to see that the loop is progressing
+		log::trace!(
+			target: "bridge",
+			"Considering range of headers ({}; {}]",
+			info.best_number_at_target,
+			info.best_number_at_source
+		);
+
+		// read missing headers
+		let selector = JustifiedHeaderSelector::new::<SC, TC>(&self.source_client, info).await?;
+		// if we see that the header schedules GRANDPA change, we need to submit it
+		if self.sync_params.only_mandatory_headers {
+			return Ok(selector.select_mandatory())
+		}
+
+		// all headers that are missing from the target client are non-mandatory
+		// => even if we have already selected some header and its persistent finality proof,
+		// we may try to select better header by reading non-persistent proofs from the stream
+		self.finality_proofs_buf.fill(&mut self.finality_proofs_stream);
+		let maybe_justified_header = selector.select(&self.finality_proofs_buf);
+
+		// remove obsolete 'recent' finality proofs + keep its size under certain limit
+		let oldest_finality_proof_to_keep = maybe_justified_header
+			.as_ref()
+			.map(|justified_header| justified_header.number())
+			.unwrap_or(info.best_number_at_target);
+		self.finality_proofs_buf
+			.prune(oldest_finality_proof_to_keep, self.sync_params.recent_finality_proofs_limit);
+
+		Ok(maybe_justified_header)
+	}
+
+	pub async fn run_iteration(
+		&mut self,
+	) -> Result<
+		Option<Transaction<TC::TransactionTracker, P::Number>>,
+		Error<P, SC::Error, TC::Error>,
+	> {
+		// read best source headers ids from source and target nodes
+		let info = SyncInfo::new(&self.source_client, &self.target_client).await?;
+		info.update_metrics(&self.metrics_sync);
+		self.update_progress(&info);
+
+		// if we have already submitted header, then we just need to wait for it
+		// if we're waiting too much, then we believe our transaction has been lost and restart sync
+		if Some(info.best_number_at_target) < self.best_submitted_number {
+			return Ok(None)
+		}
+
+		// submit new header if we have something new
+		match self.select_header_to_submit(&info).await? {
+			Some(header) => {
+				let transaction =
+					Transaction::submit(&self.target_client, header.header, header.proof)
+						.await
+						.map_err(Error::Target)?;
+				self.best_submitted_number = Some(transaction.header_number);
+				Ok(Some(transaction))
+			},
+			None => Ok(None),
+		}
+	}
+
+	async fn ensure_finality_proofs_stream(&mut self) -> Result<(), FailedClient> {
+		if let Err(e) = self.finality_proofs_stream.ensure_stream(&self.source_client).await {
+			if e.is_connection_error() {
+				return Err(FailedClient::Source)
+			}
+		}
+
+		Ok(())
+	}
+
+	/// Run finality relay loop until connection to one of nodes is lost.
+	async fn run_until_connection_lost(
+		&mut self,
+		exit_signal: impl Future<Output = ()>,
+	) -> Result<(), FailedClient> {
+		self.ensure_finality_proofs_stream().await?;
+		let proof_submission_tx_tracker = Fuse::terminated();
+		let exit_signal = exit_signal.fuse();
+		futures::pin_mut!(exit_signal, proof_submission_tx_tracker);
+
+		loop {
+			// run loop iteration
+			let next_tick = match self.run_iteration().await {
+				Ok(Some(tx)) => {
+					proof_submission_tx_tracker
+						.set(tx.track::<P, SC, _>(self.target_client.clone()).fuse());
+					self.retry_backoff.reset();
+					self.sync_params.tick
+				},
+				Ok(None) => {
+					self.retry_backoff.reset();
+					self.sync_params.tick
+				},
+				Err(error) => {
+					log::error!(target: "bridge", "Finality sync loop iteration has failed with error: {:?}", error);
+					error.fail_if_connection_error()?;
+					self.retry_backoff
+						.next_backoff()
+						.unwrap_or(relay_utils::relay_loop::RECONNECT_DELAY)
+				},
+			};
+			self.ensure_finality_proofs_stream().await?;
+
+			// wait till exit signal, or new source block
+			select! {
+				proof_submission_result = proof_submission_tx_tracker => {
+					if let Err(e) = proof_submission_result {
+						log::error!(
+							target: "bridge",
+							"Finality sync proof submission tx to {} has failed with error: {:?}.",
+							P::TARGET_NAME,
+							e,
+						);
+						self.best_submitted_number = None;
+						e.fail_if_connection_error()?;
+					}
+				},
+				_ = async_std::task::sleep(next_tick).fuse() => {},
+				_ = exit_signal => return Ok(()),
+			}
+		}
+	}
+
+	pub async fn run(
+		source_client: SC,
+		target_client: TC,
+		sync_params: FinalitySyncParams,
+		metrics_sync: Option<SyncLoopMetrics>,
+		exit_signal: impl Future<Output = ()>,
+	) -> Result<(), FailedClient> {
+		let mut finality_loop = Self::new(source_client, target_client, sync_params, metrics_sync);
+		finality_loop.run_until_connection_lost(exit_signal).await
+	}
+}
+
 /// Run finality proofs synchronization loop.
 pub async fn run<P: FinalitySyncPipeline>(
 	source_client: impl SourceClient<P>,
@@ -123,7 +450,7 @@ pub async fn run<P: FinalitySyncPipeline>(
 		.expose()
 		.await?
 		.run(metrics_prefix::<P>(), move |source_client, target_client, metrics| {
-			run_until_connection_lost(
+			FinalityLoop::run(
 				source_client,
 				target_client,
 				sync_params.clone(),
@@ -134,623 +461,236 @@ pub async fn run<P: FinalitySyncPipeline>(
 		.await
 }
 
-/// Unjustified headers container. Ordered by header number.
-pub(crate) type UnjustifiedHeaders<H> = Vec<H>;
-/// Finality proofs container. Ordered by target header number.
-pub(crate) type FinalityProofs<P> =
-	Vec<(<P as FinalityPipeline>::Number, <P as FinalityPipeline>::FinalityProof)>;
-/// Reference to finality proofs container.
-pub(crate) type FinalityProofsRef<'a, P> =
-	&'a [(<P as FinalityPipeline>::Number, <P as FinalityPipeline>::FinalityProof)];
+#[cfg(test)]
+mod tests {
+	use super::*;
 
-/// Error that may happen inside finality synchronization loop.
-#[derive(Debug)]
-pub(crate) enum Error<P: FinalitySyncPipeline, SourceError, TargetError> {
-	/// Source client request has failed with given error.
-	Source(SourceError),
-	/// Target client request has failed with given error.
-	Target(TargetError),
-	/// Finality proof for mandatory header is missing from the source node.
-	MissingMandatoryFinalityProof(P::Number),
-}
+	use crate::mock::*;
+	use futures::{FutureExt, StreamExt};
+	use parking_lot::Mutex;
+	use relay_utils::{FailedClient, HeaderId, TrackedTransactionStatus};
+	use std::{collections::HashMap, sync::Arc};
 
-impl<P, SourceError, TargetError> Error<P, SourceError, TargetError>
-where
-	P: FinalitySyncPipeline,
-	SourceError: MaybeConnectionError,
-	TargetError: MaybeConnectionError,
-{
-	fn fail_if_connection_error(&self) -> Result<(), FailedClient> {
-		match *self {
-			Error::Source(ref error) if error.is_connection_error() => Err(FailedClient::Source),
-			Error::Target(ref error) if error.is_connection_error() => Err(FailedClient::Target),
-			_ => Ok(()),
-		}
-	}
-}
+	fn prepare_test_clients(
+		exit_sender: futures::channel::mpsc::UnboundedSender<()>,
+		state_function: impl Fn(&mut ClientsData) -> bool + Send + Sync + 'static,
+		source_headers: HashMap<TestNumber, (TestSourceHeader, Option<TestFinalityProof>)>,
+	) -> (TestSourceClient, TestTargetClient) {
+		let internal_state_function: Arc<dyn Fn(&mut ClientsData) + Send + Sync> =
+			Arc::new(move |data| {
+				if state_function(data) {
+					exit_sender.unbounded_send(()).unwrap();
+				}
+			});
+		let clients_data = Arc::new(Mutex::new(ClientsData {
+			source_best_block_number: 10,
+			source_headers,
+			source_proofs: vec![TestFinalityProof(12), TestFinalityProof(14)],
 
-/// Information about transaction that we have submitted.
-#[derive(Debug, Clone)]
-pub(crate) struct Transaction<Tracker, Number> {
-	/// Submitted transaction tracker.
-	pub tracker: Tracker,
-	/// The number of the header we have submitted.
-	pub submitted_header_number: Number,
-}
-
-impl<Tracker: TransactionTracker, Number: Debug + PartialOrd> Transaction<Tracker, Number> {
-	pub async fn submit<
-		C: TargetClient<P, TransactionTracker = Tracker>,
-		P: FinalitySyncPipeline<Number = Number>,
-	>(
-		target_client: &C,
-		header: P::Header,
-		justification: P::FinalityProof,
-	) -> Result<Self, C::Error> {
-		let submitted_header_number = header.number();
-		log::debug!(
-			target: "bridge",
-			"Going to submit finality proof of {} header #{:?} to {}",
-			P::SOURCE_NAME,
-			submitted_header_number,
-			P::TARGET_NAME,
-		);
-
-		let tracker = target_client.submit_finality_proof(header, justification).await?;
-		Ok(Transaction { tracker, submitted_header_number })
-	}
-
-	pub async fn track<C: TargetClient<P>, P: FinalitySyncPipeline<Number = Number>>(
-		self,
-		target_client: &C,
-	) -> Result<(), String> {
-		match self.tracker.wait().await {
-			TrackedTransactionStatus::Finalized(_) => {
-				// The transaction has been finalized, but it may have been finalized in the
-				// "failed" state. So let's check if the block number was actually updated.
-				// If it wasn't then we are stalled.
-				//
-				// Please also note that we're returning an error if we fail to read required data
-				// from the target client - that's the best we can do here to avoid actual stall.
-				target_client
-					.best_finalized_source_block_id()
-					.await
-					.map_err(|e| format!("failed to read best block from target node: {e:?}"))
-					.and_then(|best_id_at_target| {
-						if self.submitted_header_number > best_id_at_target.0 {
-							return Err(format!(
-								"best block at target after tx is {:?} and we've submitted {:?}",
-								best_id_at_target.0, self.submitted_header_number,
-							))
-						}
-						Ok(())
-					})
+			target_best_block_id: HeaderId(5, 5),
+			target_headers: vec![],
+			target_transaction_tracker: TestTransactionTracker(
+				TrackedTransactionStatus::Finalized(Default::default()),
+			),
+		}));
+		(
+			TestSourceClient {
+				on_method_call: internal_state_function.clone(),
+				data: clients_data.clone(),
 			},
-			TrackedTransactionStatus::Lost => Err("transaction failed".to_string()),
+			TestTargetClient { on_method_call: internal_state_function, data: clients_data },
+		)
+	}
+
+	fn test_sync_params() -> FinalitySyncParams {
+		FinalitySyncParams {
+			tick: Duration::from_secs(0),
+			recent_finality_proofs_limit: 1024,
+			stall_timeout: Duration::from_secs(1),
+			only_mandatory_headers: false,
 		}
 	}
-}
 
-/// Finality proofs stream that may be restarted.
-pub(crate) struct RestartableFinalityProofsStream<S> {
-	/// Flag that the stream needs to be restarted.
-	pub(crate) needs_restart: bool,
-	/// The stream itself.
-	stream: Pin<Box<S>>,
-}
+	fn run_sync_loop(
+		state_function: impl Fn(&mut ClientsData) -> bool + Send + Sync + 'static,
+	) -> (ClientsData, Result<(), FailedClient>) {
+		let (exit_sender, exit_receiver) = futures::channel::mpsc::unbounded();
+		let (source_client, target_client) = prepare_test_clients(
+			exit_sender,
+			state_function,
+			vec![
+				(5, (TestSourceHeader(false, 5, 5), None)),
+				(6, (TestSourceHeader(false, 6, 6), None)),
+				(7, (TestSourceHeader(false, 7, 7), Some(TestFinalityProof(7)))),
+				(8, (TestSourceHeader(true, 8, 8), Some(TestFinalityProof(8)))),
+				(9, (TestSourceHeader(false, 9, 9), Some(TestFinalityProof(9)))),
+				(10, (TestSourceHeader(false, 10, 10), None)),
+			]
+			.into_iter()
+			.collect(),
+		);
+		let sync_params = test_sync_params();
 
-impl<S: Stream> RestartableFinalityProofsStream<S> {
-	pub async fn create_raw_stream<
-		C: SourceClient<P, FinalityProofsStream = S>,
-		P: FinalitySyncPipeline,
-	>(
-		source_client: &C,
-	) -> Result<S, FailedClient> {
-		source_client.finality_proofs().await.map_err(|error| {
-			log::error!(
-				target: "bridge",
-				"Failed to subscribe to {} justifications: {:?}. Going to reconnect",
-				P::SOURCE_NAME,
-				error,
+		let clients_data = source_client.data.clone();
+		let result = async_std::task::block_on(FinalityLoop::run(
+			source_client,
+			target_client,
+			sync_params,
+			None,
+			exit_receiver.into_future().map(|(_, _)| ()),
+		));
+
+		let clients_data = clients_data.lock().clone();
+		(clients_data, result)
+	}
+
+	#[test]
+	fn finality_sync_loop_works() {
+		let (client_data, result) = run_sync_loop(|data| {
+			// header#7 has persistent finality proof, but it isn't mandatory => it isn't submitted,
+			// because header#8 has persistent finality proof && it is mandatory => it is submitted
+			// header#9 has persistent finality proof, but it isn't mandatory => it is submitted,
+			// because   there are no more persistent finality proofs
+			//
+			// once this ^^^ is done, we generate more blocks && read proof for blocks 12 and 14
+			// from the stream
+			if data.target_best_block_id.0 == 9 {
+				data.source_best_block_number = 14;
+				data.source_headers.insert(11, (TestSourceHeader(false, 11, 11), None));
+				data.source_headers
+					.insert(12, (TestSourceHeader(false, 12, 12), Some(TestFinalityProof(12))));
+				data.source_headers.insert(13, (TestSourceHeader(false, 13, 13), None));
+				data.source_headers
+					.insert(14, (TestSourceHeader(false, 14, 14), Some(TestFinalityProof(14))));
+			}
+			// once this ^^^ is done, we generate more blocks && read persistent proof for block 16
+			if data.target_best_block_id.0 == 14 {
+				data.source_best_block_number = 17;
+				data.source_headers.insert(15, (TestSourceHeader(false, 15, 15), None));
+				data.source_headers
+					.insert(16, (TestSourceHeader(false, 16, 16), Some(TestFinalityProof(16))));
+				data.source_headers.insert(17, (TestSourceHeader(false, 17, 17), None));
+			}
+
+			data.target_best_block_id.0 == 16
+		});
+
+		assert_eq!(result, Ok(()));
+		assert_eq!(
+			client_data.target_headers,
+			vec![
+				// before adding 11..14: finality proof for mandatory header#8
+				(TestSourceHeader(true, 8, 8), TestFinalityProof(8)),
+				// before adding 11..14: persistent finality proof for non-mandatory header#9
+				(TestSourceHeader(false, 9, 9), TestFinalityProof(9)),
+				// after adding 11..14: ephemeral finality proof for non-mandatory header#14
+				(TestSourceHeader(false, 14, 14), TestFinalityProof(14)),
+				// after adding 15..17: persistent finality proof for non-mandatory header#16
+				(TestSourceHeader(false, 16, 16), TestFinalityProof(16)),
+			],
+		);
+	}
+
+	fn run_only_mandatory_headers_mode_test(
+		only_mandatory_headers: bool,
+		has_mandatory_headers: bool,
+	) -> Option<JustifiedHeader<TestFinalitySyncPipeline>> {
+		let (exit_sender, _) = futures::channel::mpsc::unbounded();
+		let (source_client, target_client) = prepare_test_clients(
+			exit_sender,
+			|_| false,
+			vec![
+				(6, (TestSourceHeader(false, 6, 6), Some(TestFinalityProof(6)))),
+				(7, (TestSourceHeader(false, 7, 7), Some(TestFinalityProof(7)))),
+				(8, (TestSourceHeader(has_mandatory_headers, 8, 8), Some(TestFinalityProof(8)))),
+				(9, (TestSourceHeader(false, 9, 9), Some(TestFinalityProof(9)))),
+				(10, (TestSourceHeader(false, 10, 10), Some(TestFinalityProof(10)))),
+			]
+			.into_iter()
+			.collect(),
+		);
+		async_std::task::block_on(async {
+			let mut finality_loop = FinalityLoop::new(
+				source_client,
+				target_client,
+				FinalitySyncParams {
+					tick: Duration::from_secs(0),
+					recent_finality_proofs_limit: 0,
+					stall_timeout: Duration::from_secs(0),
+					only_mandatory_headers,
+				},
+				None,
 			);
-
-			FailedClient::Source
+			let info = SyncInfo {
+				best_number_at_source: 10,
+				best_number_at_target: 5,
+				is_using_same_fork: true,
+			};
+			finality_loop.select_header_to_submit(&info).await.unwrap()
 		})
 	}
 
-	pub async fn restart_if_scheduled<
-		C: SourceClient<P, FinalityProofsStream = S>,
-		P: FinalitySyncPipeline,
-	>(
-		&mut self,
-		source_client: &C,
-	) -> Result<(), FailedClient> {
-		if self.needs_restart {
-			log::warn!(target: "bridge", "{} finality proofs stream is being restarted", P::SOURCE_NAME);
-
-			self.needs_restart = false;
-			self.stream = Box::pin(Self::create_raw_stream(source_client).await?);
-		}
-		Ok(())
-	}
-
-	pub fn next(&mut self) -> Option<S::Item> {
-		match self.stream.next().now_or_never() {
-			Some(Some(finality_proof)) => Some(finality_proof),
-			Some(None) => {
-				self.needs_restart = true;
-				None
-			},
-			None => None,
-		}
-	}
-}
-
-impl<S> From<S> for RestartableFinalityProofsStream<S> {
-	fn from(stream: S) -> Self {
-		RestartableFinalityProofsStream { needs_restart: false, stream: Box::pin(stream) }
-	}
-}
-
-/// Finality synchronization loop state.
-pub(crate) struct FinalityLoopState<'a, P: FinalitySyncPipeline, FinalityProofsStream> {
-	/// Synchronization loop progress.
-	pub(crate) progress: &'a mut (Instant, Option<P::Number>),
-	/// Finality proofs stream.
-	pub(crate) finality_proofs_stream:
-		&'a mut RestartableFinalityProofsStream<FinalityProofsStream>,
-	/// Recent finality proofs that we have read from the stream.
-	pub(crate) recent_finality_proofs: &'a mut FinalityProofs<P>,
-	/// Number of the last header, submitted to the target node.
-	pub(crate) submitted_header_number: Option<P::Number>,
-}
-
-/// Run finality relay loop until connection to one of nodes is lost.
-pub(crate) async fn run_until_connection_lost<P: FinalitySyncPipeline>(
-	source_client: impl SourceClient<P>,
-	target_client: impl TargetClient<P>,
-	sync_params: FinalitySyncParams,
-	metrics_sync: Option<SyncLoopMetrics>,
-	exit_signal: impl Future<Output = ()>,
-) -> Result<(), FailedClient> {
-	let last_transaction_tracker = futures::future::Fuse::terminated();
-	let exit_signal = exit_signal.fuse();
-	futures::pin_mut!(last_transaction_tracker, exit_signal);
-
-	let mut finality_proofs_stream =
-		RestartableFinalityProofsStream::create_raw_stream(&source_client).await?.into();
-	let mut recent_finality_proofs = Vec::new();
-
-	let mut progress = (Instant::now(), None);
-	let mut retry_backoff = retry_backoff();
-	let mut last_submitted_header_number = None;
-
-	loop {
-		// run loop iteration
-		let iteration_result = run_loop_iteration(
-			&source_client,
-			&target_client,
-			FinalityLoopState {
-				progress: &mut progress,
-				finality_proofs_stream: &mut finality_proofs_stream,
-				recent_finality_proofs: &mut recent_finality_proofs,
-				submitted_header_number: last_submitted_header_number,
-			},
-			&sync_params,
-			&metrics_sync,
-		)
-		.await;
-
-		// deal with errors
-		let next_tick = match iteration_result {
-			Ok(Some(updated_transaction)) => {
-				last_submitted_header_number = Some(updated_transaction.submitted_header_number);
-				last_transaction_tracker.set(updated_transaction.track(&target_client).fuse());
-				retry_backoff.reset();
-				sync_params.tick
-			},
-			Ok(None) => {
-				retry_backoff.reset();
-				sync_params.tick
-			},
-			Err(error) => {
-				log::error!(target: "bridge", "Finality sync loop iteration has failed with error: {:?}", error);
-				error.fail_if_connection_error()?;
-				retry_backoff.next_backoff().unwrap_or(relay_utils::relay_loop::RECONNECT_DELAY)
-			},
-		};
-		finality_proofs_stream.restart_if_scheduled(&source_client).await?;
-
-		// wait till exit signal, or new source block
-		select! {
-			transaction_result = last_transaction_tracker => {
-				transaction_result.map_err(|e| {
-					log::error!(
-						target: "bridge",
-						"Finality synchronization from {} to {} has stalled with error: {}. Going to restart",
-						P::SOURCE_NAME,
-						P::TARGET_NAME,
-						e,
-					);
-
-					// Restart the loop if we're stalled.
-					FailedClient::Both
-				})?
-			},
-			_ = async_std::task::sleep(next_tick).fuse() => {},
-			_ = exit_signal => return Ok(()),
-		}
-	}
-}
-
-pub(crate) async fn run_loop_iteration<P, SC, TC>(
-	source_client: &SC,
-	target_client: &TC,
-	state: FinalityLoopState<'_, P, SC::FinalityProofsStream>,
-	sync_params: &FinalitySyncParams,
-	metrics_sync: &Option<SyncLoopMetrics>,
-) -> Result<Option<Transaction<TC::TransactionTracker, P::Number>>, Error<P, SC::Error, TC::Error>>
-where
-	P: FinalitySyncPipeline,
-	SC: SourceClient<P>,
-	TC: TargetClient<P>,
-{
-	// read best source headers ids from source and target nodes
-	let best_number_at_source =
-		source_client.best_finalized_block_number().await.map_err(Error::Source)?;
-	let best_id_at_target =
-		target_client.best_finalized_source_block_id().await.map_err(Error::Target)?;
-	let best_number_at_target = best_id_at_target.0;
-
-	let different_hash_at_source = ensure_same_fork::<P, _>(&best_id_at_target, source_client)
-		.await
-		.map_err(Error::Source)?;
-	let using_same_fork = different_hash_at_source.is_none();
-	if let Some(ref different_hash_at_source) = different_hash_at_source {
-		log::error!(
-			target: "bridge",
-			"Source node ({}) and pallet at target node ({}) have different headers at the same height {:?}: \
-			at-source {:?} vs at-target {:?}",
-			P::SOURCE_NAME,
-			P::TARGET_NAME,
-			best_number_at_target,
-			different_hash_at_source,
-			best_id_at_target.1,
+	#[test]
+	fn select_header_to_submit_skips_non_mandatory_headers_when_only_mandatory_headers_are_required(
+	) {
+		assert_eq!(run_only_mandatory_headers_mode_test(true, false), None);
+		assert_eq!(
+			run_only_mandatory_headers_mode_test(false, false),
+			Some(JustifiedHeader {
+				header: TestSourceHeader(false, 10, 10),
+				proof: TestFinalityProof(10)
+			}),
 		);
 	}
 
-	if let Some(ref metrics_sync) = *metrics_sync {
-		metrics_sync.update_best_block_at_source(best_number_at_source);
-		metrics_sync.update_best_block_at_target(best_number_at_target);
-		metrics_sync.update_using_same_fork(using_same_fork);
-	}
-	*state.progress =
-		print_sync_progress::<P>(*state.progress, best_number_at_source, best_number_at_target);
-
-	// if we have already submitted header, then we just need to wait for it
-	// if we're waiting too much, then we believe our transaction has been lost and restart sync
-	if let Some(submitted_header_number) = state.submitted_header_number {
-		if best_number_at_target >= submitted_header_number {
-			// transaction has been mined && we can continue
-		} else {
-			return Ok(None)
-		}
-	}
-
-	// submit new header if we have something new
-	match select_header_to_submit(
-		source_client,
-		target_client,
-		state.finality_proofs_stream,
-		state.recent_finality_proofs,
-		best_number_at_source,
-		best_number_at_target,
-		sync_params,
-	)
-	.await?
+	#[test]
+	fn select_header_to_submit_selects_mandatory_headers_when_only_mandatory_headers_are_required()
 	{
-		Some((header, justification)) => {
-			let transaction = Transaction::submit(target_client, header, justification)
-				.await
-				.map_err(Error::Target)?;
-			Ok(Some(transaction))
-		},
-		None => Ok(None),
-	}
-}
-
-pub(crate) async fn select_header_to_submit<P, SC, TC>(
-	source_client: &SC,
-	target_client: &TC,
-	finality_proofs_stream: &mut RestartableFinalityProofsStream<SC::FinalityProofsStream>,
-	recent_finality_proofs: &mut FinalityProofs<P>,
-	best_number_at_source: P::Number,
-	best_number_at_target: P::Number,
-	sync_params: &FinalitySyncParams,
-) -> Result<Option<(P::Header, P::FinalityProof)>, Error<P, SC::Error, TC::Error>>
-where
-	P: FinalitySyncPipeline,
-	SC: SourceClient<P>,
-	TC: TargetClient<P>,
-{
-	// to see that the loop is progressing
-	log::trace!(
-		target: "bridge",
-		"Considering range of headers ({:?}; {:?}]",
-		best_number_at_target,
-		best_number_at_source,
-	);
-
-	// read missing headers. if we see that the header schedules GRANDPA change, we need to
-	// submit this header
-	let selected_finality_proof = read_missing_headers::<P, SC, TC>(
-		source_client,
-		target_client,
-		best_number_at_source,
-		best_number_at_target,
-	)
-	.await?;
-	let (mut unjustified_headers, mut selected_finality_proof) = match selected_finality_proof {
-		SelectedFinalityProof::Mandatory(header, finality_proof) =>
-			return Ok(Some((header, finality_proof))),
-		_ if sync_params.only_mandatory_headers => {
-			// we are not reading finality proofs from the stream, so eventually it'll break
-			// but we don't care about transient proofs at all, so it is acceptable
-			return Ok(None)
-		},
-		SelectedFinalityProof::Regular(unjustified_headers, header, finality_proof) =>
-			(unjustified_headers, Some((header, finality_proof))),
-		SelectedFinalityProof::None(unjustified_headers) => (unjustified_headers, None),
-	};
-
-	// all headers that are missing from the target client are non-mandatory
-	// => even if we have already selected some header and its persistent finality proof,
-	// we may try to select better header by reading non-persistent proofs from the stream
-	read_finality_proofs_from_stream::<P, _>(finality_proofs_stream, recent_finality_proofs);
-	selected_finality_proof = select_better_recent_finality_proof::<P>(
-		recent_finality_proofs,
-		&mut unjustified_headers,
-		selected_finality_proof,
-	);
-
-	// remove obsolete 'recent' finality proofs + keep its size under certain limit
-	let oldest_finality_proof_to_keep = selected_finality_proof
-		.as_ref()
-		.map(|(header, _)| header.number())
-		.unwrap_or(best_number_at_target);
-	prune_recent_finality_proofs::<P>(
-		oldest_finality_proof_to_keep,
-		recent_finality_proofs,
-		sync_params.recent_finality_proofs_limit,
-	);
-
-	Ok(selected_finality_proof)
-}
-
-/// Ensures that both clients are on the same fork.
-///
-/// Returns `Some(_)` with header has at the source client if headers are different.
-async fn ensure_same_fork<P: FinalitySyncPipeline, SC: SourceClient<P>>(
-	best_id_at_target: &HeaderId<P::Hash, P::Number>,
-	source_client: &SC,
-) -> Result<Option<P::Hash>, SC::Error> {
-	let header_at_source = source_client.header_and_finality_proof(best_id_at_target.0).await?.0;
-	let header_hash_at_source = header_at_source.hash();
-	Ok(if best_id_at_target.1 == header_hash_at_source {
-		None
-	} else {
-		Some(header_hash_at_source)
-	})
-}
-
-/// Finality proof that has been selected by the `read_missing_headers` function.
-pub(crate) enum SelectedFinalityProof<Header, FinalityProof> {
-	/// Mandatory header and its proof has been selected. We shall submit proof for this header.
-	Mandatory(Header, FinalityProof),
-	/// Regular header and its proof has been selected. We may submit this proof, or proof for
-	/// some better header.
-	Regular(UnjustifiedHeaders<Header>, Header, FinalityProof),
-	/// We haven't found any missing header with persistent proof at the target client.
-	None(UnjustifiedHeaders<Header>),
-}
-
-/// Read missing headers and their persistent finality proofs from the target client.
-///
-/// If we have found some header with known proof, it is returned.
-/// Otherwise, `SelectedFinalityProof::None` is returned.
-///
-/// Unless we have found mandatory header, all missing headers are collected and returned.
-pub(crate) async fn read_missing_headers<
-	P: FinalitySyncPipeline,
-	SC: SourceClient<P>,
-	TC: TargetClient<P>,
->(
-	source_client: &SC,
-	_target_client: &TC,
-	best_number_at_source: P::Number,
-	best_number_at_target: P::Number,
-) -> Result<SelectedFinalityProof<P::Header, P::FinalityProof>, Error<P, SC::Error, TC::Error>> {
-	let mut unjustified_headers = Vec::new();
-	let mut selected_finality_proof = None;
-	let mut header_number = best_number_at_target + One::one();
-	while header_number <= best_number_at_source {
-		let (header, finality_proof) = source_client
-			.header_and_finality_proof(header_number)
-			.await
-			.map_err(Error::Source)?;
-		let is_mandatory = header.is_mandatory();
-
-		match (is_mandatory, finality_proof) {
-			(true, Some(finality_proof)) => {
-				log::trace!(target: "bridge", "Header {:?} is mandatory", header_number);
-				return Ok(SelectedFinalityProof::Mandatory(header, finality_proof))
-			},
-			(true, None) => return Err(Error::MissingMandatoryFinalityProof(header.number())),
-			(false, Some(finality_proof)) => {
-				log::trace!(target: "bridge", "Header {:?} has persistent finality proof", header_number);
-				unjustified_headers.clear();
-				selected_finality_proof = Some((header, finality_proof));
-			},
-			(false, None) => {
-				unjustified_headers.push(header);
-			},
-		}
-
-		header_number = header_number + One::one();
-	}
-
-	log::trace!(
-		target: "bridge",
-		"Read {} {} headers. Selected finality proof for header: {:?}",
-		best_number_at_source.saturating_sub(best_number_at_target),
-		P::SOURCE_NAME,
-		selected_finality_proof.as_ref().map(|(header, _)| header),
-	);
-
-	Ok(match selected_finality_proof {
-		Some((header, proof)) => SelectedFinalityProof::Regular(unjustified_headers, header, proof),
-		None => SelectedFinalityProof::None(unjustified_headers),
-	})
-}
-
-/// Read finality proofs from the stream.
-pub(crate) fn read_finality_proofs_from_stream<
-	P: FinalitySyncPipeline,
-	FPS: Stream<Item = P::FinalityProof>,
->(
-	finality_proofs_stream: &mut RestartableFinalityProofsStream<FPS>,
-	recent_finality_proofs: &mut FinalityProofs<P>,
-) {
-	let mut proofs_count = 0;
-	let mut first_header_number = None;
-	let mut last_header_number = None;
-	while let Some(finality_proof) = finality_proofs_stream.next() {
-		let target_header_number = finality_proof.target_header_number();
-		if first_header_number.is_none() {
-			first_header_number = Some(target_header_number);
-		}
-		last_header_number = Some(target_header_number);
-		proofs_count += 1;
-
-		recent_finality_proofs.push((target_header_number, finality_proof));
-	}
-
-	if proofs_count != 0 {
-		log::trace!(
-			target: "bridge",
-			"Read {} finality proofs from {} finality stream for headers in range [{:?}; {:?}]",
-			proofs_count,
-			P::SOURCE_NAME,
-			first_header_number,
-			last_header_number,
+		assert_eq!(
+			run_only_mandatory_headers_mode_test(true, true),
+			Some(JustifiedHeader {
+				header: TestSourceHeader(true, 8, 8),
+				proof: TestFinalityProof(8)
+			}),
+		);
+		assert_eq!(
+			run_only_mandatory_headers_mode_test(false, true),
+			Some(JustifiedHeader {
+				header: TestSourceHeader(true, 8, 8),
+				proof: TestFinalityProof(8)
+			}),
 		);
 	}
-}
 
-/// Try to select better header and its proof, given finality proofs that we
-/// have recently read from the stream.
-pub(crate) fn select_better_recent_finality_proof<P: FinalitySyncPipeline>(
-	recent_finality_proofs: FinalityProofsRef<P>,
-	unjustified_headers: &mut UnjustifiedHeaders<P::Header>,
-	selected_finality_proof: Option<(P::Header, P::FinalityProof)>,
-) -> Option<(P::Header, P::FinalityProof)> {
-	if unjustified_headers.is_empty() || recent_finality_proofs.is_empty() {
-		log::trace!(
-			target: "bridge",
-			"Can not improve selected {} finality proof {:?}. No unjustified headers and recent proofs",
-			P::SOURCE_NAME,
-			selected_finality_proof.as_ref().map(|(h, _)| h.number()),
+	#[test]
+	fn different_forks_at_source_and_at_target_are_detected() {
+		let (exit_sender, _exit_receiver) = futures::channel::mpsc::unbounded();
+		let (source_client, target_client) = prepare_test_clients(
+			exit_sender,
+			|_| false,
+			vec![
+				(5, (TestSourceHeader(false, 5, 42), None)),
+				(6, (TestSourceHeader(false, 6, 6), None)),
+				(7, (TestSourceHeader(false, 7, 7), None)),
+				(8, (TestSourceHeader(false, 8, 8), None)),
+				(9, (TestSourceHeader(false, 9, 9), None)),
+				(10, (TestSourceHeader(false, 10, 10), None)),
+			]
+			.into_iter()
+			.collect(),
 		);
-		return selected_finality_proof
+
+		let metrics_sync = SyncLoopMetrics::new(None, "source", "target").unwrap();
+		async_std::task::block_on(async {
+			let mut finality_loop = FinalityLoop::new(
+				source_client,
+				target_client,
+				test_sync_params(),
+				Some(metrics_sync.clone()),
+			);
+			finality_loop.run_iteration().await.unwrap()
+		});
+
+		assert!(!metrics_sync.is_using_same_fork());
 	}
-
-	const NOT_EMPTY_PROOF: &str = "we have checked that the vec is not empty; qed";
-
-	// we need proofs for headers in range unjustified_range_begin..=unjustified_range_end
-	let unjustified_range_begin = unjustified_headers.first().expect(NOT_EMPTY_PROOF).number();
-	let unjustified_range_end = unjustified_headers.last().expect(NOT_EMPTY_PROOF).number();
-
-	// we have proofs for headers in range buffered_range_begin..=buffered_range_end
-	let buffered_range_begin = recent_finality_proofs.first().expect(NOT_EMPTY_PROOF).0;
-	let buffered_range_end = recent_finality_proofs.last().expect(NOT_EMPTY_PROOF).0;
-
-	// we have two ranges => find intersection
-	let intersection_begin = std::cmp::max(unjustified_range_begin, buffered_range_begin);
-	let intersection_end = std::cmp::min(unjustified_range_end, buffered_range_end);
-	let intersection = intersection_begin..=intersection_end;
-
-	// find last proof from intersection
-	let selected_finality_proof_index = recent_finality_proofs
-		.binary_search_by_key(intersection.end(), |(number, _)| *number)
-		.unwrap_or_else(|index| index.saturating_sub(1));
-	let (selected_header_number, finality_proof) =
-		&recent_finality_proofs[selected_finality_proof_index];
-	let has_selected_finality_proof = intersection.contains(selected_header_number);
-	log::trace!(
-		target: "bridge",
-		"Trying to improve selected {} finality proof {:?}. Headers range: [{:?}; {:?}]. Proofs range: [{:?}; {:?}].\
-		Trying to improve to: {:?}. Result: {}",
-		P::SOURCE_NAME,
-		selected_finality_proof.as_ref().map(|(h, _)| h.number()),
-		unjustified_range_begin,
-		unjustified_range_end,
-		buffered_range_begin,
-		buffered_range_end,
-		selected_header_number,
-		if has_selected_finality_proof { "improved" } else { "not improved" },
-	);
-	if !has_selected_finality_proof {
-		return selected_finality_proof
-	}
-
-	// now remove all obsolete headers and extract selected header
-	let selected_header_position = unjustified_headers
-		.binary_search_by_key(selected_header_number, |header| header.number())
-		.expect("unjustified_headers contain all headers from intersection; qed");
-	let selected_header = unjustified_headers.swap_remove(selected_header_position);
-	Some((selected_header, finality_proof.clone()))
-}
-
-pub(crate) fn prune_recent_finality_proofs<P: FinalitySyncPipeline>(
-	justified_header_number: P::Number,
-	recent_finality_proofs: &mut FinalityProofs<P>,
-	recent_finality_proofs_limit: usize,
-) {
-	let justified_header_idx = recent_finality_proofs
-		.binary_search_by_key(&justified_header_number, |(header_number, _)| *header_number)
-		.map(|idx| idx + 1)
-		.unwrap_or_else(|idx| idx);
-	let proofs_limit_idx =
-		recent_finality_proofs.len().saturating_sub(recent_finality_proofs_limit);
-
-	*recent_finality_proofs =
-		recent_finality_proofs.split_off(std::cmp::max(justified_header_idx, proofs_limit_idx));
-}
-
-fn print_sync_progress<P: FinalitySyncPipeline>(
-	progress_context: (Instant, Option<P::Number>),
-	best_number_at_source: P::Number,
-	best_number_at_target: P::Number,
-) -> (Instant, Option<P::Number>) {
-	let (prev_time, prev_best_number_at_target) = progress_context;
-	let now = Instant::now();
-
-	let need_update = now - prev_time > Duration::from_secs(10) ||
-		prev_best_number_at_target
-			.map(|prev_best_number_at_target| {
-				best_number_at_target.saturating_sub(prev_best_number_at_target) > 10.into()
-			})
-			.unwrap_or(true);
-
-	if !need_update {
-		return (prev_time, prev_best_number_at_target)
-	}
-
-	log::info!(
-		target: "bridge",
-		"Synced {:?} of {:?} headers",
-		best_number_at_target,
-		best_number_at_source,
-	);
-	(now, Some(best_number_at_target))
 }

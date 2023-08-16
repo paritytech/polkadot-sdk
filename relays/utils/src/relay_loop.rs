@@ -130,19 +130,19 @@ impl<SC, TC, LM> Loop<SC, TC, LM> {
 
 				match result {
 					Ok(()) => break,
-					Err(failed_client) =>
+					Err(failed_client) => {
+						log::debug!(target: "bridge", "Restarting relay loop");
+
 						reconnect_failed_client(
 							failed_client,
 							self.reconnect_delay,
 							&mut self.source_client,
 							&mut self.target_client,
 						)
-						.await,
+						.await
+					},
 				}
-
-				log::debug!(target: "bridge", "Restarting relay loop");
 			}
-
 			Ok(())
 		};
 
@@ -194,7 +194,7 @@ impl<SC, TC, LM> LoopMetrics<SC, TC, LM> {
 						Err(err) => {
 							log::trace!(
 								target: "bridge-metrics",
-								"Failed to create tokio runtime. Prometheus meterics are not available: {:?}",
+								"Failed to create tokio runtime. Prometheus metrics are not available: {:?}",
 								err,
 							);
 							return

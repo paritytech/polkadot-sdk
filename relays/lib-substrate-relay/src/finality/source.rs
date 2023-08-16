@@ -125,7 +125,7 @@ impl<P: SubstrateFinalitySyncPipeline> SubstrateFinalitySource<P> {
 		Error,
 	> {
 		let client = self.client.clone();
-		let best_finalized_block_number = self.client.best_finalized_header_number().await?;
+		let best_finalized_block_number = client.best_finalized_header_number().await?;
 		Ok(try_unfold((client, block_number), move |(client, current_block_number)| async move {
 			// if we've passed the `best_finalized_block_number`, we no longer need persistent
 			// justifications
