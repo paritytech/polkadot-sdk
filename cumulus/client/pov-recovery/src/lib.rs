@@ -29,8 +29,8 @@
 //! It works in the following way:
 //!
 //! 1. For every included relay chain block we note the backed candidate of our parachain. If the
-//!    block belonging to the PoV is already known, we do nothing. Otherwise we start
-//!    a timer that waits for a randomized time inside a specified interval before starting to
+//!    block belonging to the PoV is already known, we do nothing. Otherwise we start a timer that
+//!    waits for a randomized time inside a specified interval before starting to
 //! recover    the PoV.
 //!
 //! 2. If between starting and firing the timer the block is imported, we skip the recovery of the

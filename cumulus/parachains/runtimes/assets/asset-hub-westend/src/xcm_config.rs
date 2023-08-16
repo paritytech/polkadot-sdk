@@ -273,39 +273,35 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				) | RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
 				RuntimeCall::XcmpQueue(..) |
 				RuntimeCall::DmpQueue(..) |
-				RuntimeCall::Utility(
-					pallet_utility::Call::as_derivative { .. } |
-						pallet_utility::Call::batch { .. } |
-						pallet_utility::Call::batch_all { .. },
-				) | RuntimeCall::Assets(
-				pallet_assets::Call::create { .. } |
-					pallet_assets::Call::force_create { .. } |
-					pallet_assets::Call::start_destroy { .. } |
-					pallet_assets::Call::destroy_accounts { .. } |
-					pallet_assets::Call::destroy_approvals { .. } |
-					pallet_assets::Call::finish_destroy { .. } |
-					pallet_assets::Call::mint { .. } |
-					pallet_assets::Call::burn { .. } |
-					pallet_assets::Call::transfer { .. } |
-					pallet_assets::Call::transfer_keep_alive { .. } |
-					pallet_assets::Call::force_transfer { .. } |
-					pallet_assets::Call::freeze { .. } |
-					pallet_assets::Call::thaw { .. } |
-					pallet_assets::Call::freeze_asset { .. } |
-					pallet_assets::Call::thaw_asset { .. } |
-					pallet_assets::Call::transfer_ownership { .. } |
-					pallet_assets::Call::set_team { .. } |
-					pallet_assets::Call::set_metadata { .. } |
-					pallet_assets::Call::clear_metadata { .. } |
-					pallet_assets::Call::force_clear_metadata { .. } |
-					pallet_assets::Call::force_asset_status { .. } |
-					pallet_assets::Call::approve_transfer { .. } |
-					pallet_assets::Call::cancel_approval { .. } |
-					pallet_assets::Call::force_cancel_approval { .. } |
-					pallet_assets::Call::transfer_approved { .. } |
-					pallet_assets::Call::touch { .. } |
-					pallet_assets::Call::refund { .. },
-			) | RuntimeCall::ForeignAssets(
+				RuntimeCall::Assets(
+					pallet_assets::Call::create { .. } |
+						pallet_assets::Call::force_create { .. } |
+						pallet_assets::Call::start_destroy { .. } |
+						pallet_assets::Call::destroy_accounts { .. } |
+						pallet_assets::Call::destroy_approvals { .. } |
+						pallet_assets::Call::finish_destroy { .. } |
+						pallet_assets::Call::mint { .. } |
+						pallet_assets::Call::burn { .. } |
+						pallet_assets::Call::transfer { .. } |
+						pallet_assets::Call::transfer_keep_alive { .. } |
+						pallet_assets::Call::force_transfer { .. } |
+						pallet_assets::Call::freeze { .. } |
+						pallet_assets::Call::thaw { .. } |
+						pallet_assets::Call::freeze_asset { .. } |
+						pallet_assets::Call::thaw_asset { .. } |
+						pallet_assets::Call::transfer_ownership { .. } |
+						pallet_assets::Call::set_team { .. } |
+						pallet_assets::Call::set_metadata { .. } |
+						pallet_assets::Call::clear_metadata { .. } |
+						pallet_assets::Call::force_clear_metadata { .. } |
+						pallet_assets::Call::force_asset_status { .. } |
+						pallet_assets::Call::approve_transfer { .. } |
+						pallet_assets::Call::cancel_approval { .. } |
+						pallet_assets::Call::force_cancel_approval { .. } |
+						pallet_assets::Call::transfer_approved { .. } |
+						pallet_assets::Call::touch { .. } |
+						pallet_assets::Call::refund { .. },
+				) | RuntimeCall::ForeignAssets(
 				pallet_assets::Call::create { .. } |
 					pallet_assets::Call::force_create { .. } |
 					pallet_assets::Call::start_destroy { .. } |
