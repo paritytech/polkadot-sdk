@@ -16,10 +16,11 @@
 
 //! Utilities for working with test accounts.
 
+use bp_header_chain::{justification::JustificationVerificationContext, AuthoritySet};
 use codec::Encode;
 use ed25519_dalek::{Keypair, PublicKey, SecretKey, Signature};
 use finality_grandpa::voter_set::VoterSet;
-use sp_consensus_grandpa::{AuthorityId, AuthorityList, AuthorityWeight};
+use sp_consensus_grandpa::{AuthorityId, AuthorityList, AuthorityWeight, SetId};
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 
@@ -76,6 +77,11 @@ impl From<Account> for AuthorityId {
 /// Get a valid set of voters for a Grandpa round.
 pub fn voter_set() -> VoterSet<AuthorityId> {
 	VoterSet::new(authority_list()).unwrap()
+}
+
+/// Get a valid justification verification context for a GRANDPA round.
+pub fn verification_context(set_id: SetId) -> JustificationVerificationContext {
+	AuthoritySet { authorities: authority_list(), set_id }.try_into().unwrap()
 }
 
 /// Convenience function to get a list of Grandpa authorities.

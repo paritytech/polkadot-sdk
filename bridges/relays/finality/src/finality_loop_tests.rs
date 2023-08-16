@@ -26,11 +26,11 @@ use crate::{
 		SourceClient, TargetClient,
 	},
 	sync_loop_metrics::SyncLoopMetrics,
-	FinalityProof, FinalitySyncPipeline, SourceHeader,
+	FinalityPipeline, FinalitySyncPipeline, SourceClientBase, SourceHeader,
 };
 
 use async_trait::async_trait;
-use bp_header_chain::GrandpaConsensusLogReader;
+use bp_header_chain::{FinalityProof, GrandpaConsensusLogReader};
 use futures::{FutureExt, Stream, StreamExt};
 use parking_lot::Mutex;
 use relay_utils::{
@@ -80,15 +80,18 @@ impl MaybeConnectionError for TestError {
 #[derive(Debug, Clone)]
 struct TestFinalitySyncPipeline;
 
-impl FinalitySyncPipeline for TestFinalitySyncPipeline {
+impl FinalityPipeline for TestFinalitySyncPipeline {
 	const SOURCE_NAME: &'static str = "TestSource";
 	const TARGET_NAME: &'static str = "TestTarget";
 
 	type Hash = TestHash;
 	type Number = TestNumber;
+	type FinalityProof = TestFinalityProof;
+}
+
+impl FinalitySyncPipeline for TestFinalitySyncPipeline {
 	type ConsensusLogReader = GrandpaConsensusLogReader<TestNumber>;
 	type Header = TestSourceHeader;
-	type FinalityProof = TestFinalityProof;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -146,9 +149,18 @@ impl RelayClient for TestSourceClient {
 }
 
 #[async_trait]
-impl SourceClient<TestFinalitySyncPipeline> for TestSourceClient {
+impl SourceClientBase<TestFinalitySyncPipeline> for TestSourceClient {
 	type FinalityProofsStream = Pin<Box<dyn Stream<Item = TestFinalityProof> + 'static + Send>>;
 
+	async fn finality_proofs(&self) -> Result<Self::FinalityProofsStream, TestError> {
+		let mut data = self.data.lock();
+		(self.on_method_call)(&mut data);
+		Ok(futures::stream::iter(data.source_proofs.clone()).boxed())
+	}
+}
+
+#[async_trait]
+impl SourceClient<TestFinalitySyncPipeline> for TestSourceClient {
 	async fn best_finalized_block_number(&self) -> Result<TestNumber, TestError> {
 		let mut data = self.data.lock();
 		(self.on_method_call)(&mut data);
@@ -162,12 +174,6 @@ impl SourceClient<TestFinalitySyncPipeline> for TestSourceClient {
 		let mut data = self.data.lock();
 		(self.on_method_call)(&mut data);
 		data.source_headers.get(&number).cloned().ok_or(TestError::NonConnection)
-	}
-
-	async fn finality_proofs(&self) -> Result<Self::FinalityProofsStream, TestError> {
-		let mut data = self.data.lock();
-		(self.on_method_call)(&mut data);
-		Ok(futures::stream::iter(data.source_proofs.clone()).boxed())
 	}
 }
 

@@ -20,34 +20,25 @@
 //! to submit all source headers to the target node.
 
 pub use crate::{
+	base::{FinalityPipeline, SourceClientBase},
 	finality_loop::{metrics_prefix, run, FinalitySyncParams, SourceClient, TargetClient},
 	sync_loop_metrics::SyncLoopMetrics,
 };
 
-use bp_header_chain::{ConsensusLogReader, FinalityProof};
+use bp_header_chain::ConsensusLogReader;
 use std::fmt::Debug;
 
+mod base;
 mod finality_loop;
 mod finality_loop_tests;
 mod sync_loop_metrics;
 
 /// Finality proofs synchronization pipeline.
-pub trait FinalitySyncPipeline: 'static + Clone + Debug + Send + Sync {
-	/// Name of the finality proofs source.
-	const SOURCE_NAME: &'static str;
-	/// Name of the finality proofs target.
-	const TARGET_NAME: &'static str;
-
-	/// Headers we're syncing are identified by this hash.
-	type Hash: Eq + Clone + Copy + Send + Sync + Debug;
-	/// Headers we're syncing are identified by this number.
-	type Number: relay_utils::BlockNumberBase;
+pub trait FinalitySyncPipeline: FinalityPipeline {
 	/// A reader that can extract the consensus log from the header digest and interpret it.
 	type ConsensusLogReader: ConsensusLogReader;
 	/// Type of header that we're syncing.
 	type Header: SourceHeader<Self::Hash, Self::Number, Self::ConsensusLogReader>;
-	/// Finality proof type.
-	type FinalityProof: FinalityProof<Self::Number>;
 }
 
 /// Header that we're receiving from source node.

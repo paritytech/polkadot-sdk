@@ -18,21 +18,19 @@
 
 use crate::{
 	finality::{
-		source::SubstrateFinalityProof, FinalitySyncPipelineAdapter,
-		SubmitFinalityProofCallBuilder, SubstrateFinalitySyncPipeline,
+		FinalitySyncPipelineAdapter, SubmitFinalityProofCallBuilder, SubstrateFinalitySyncPipeline,
 	},
-	finality_base::engine::Engine,
+	finality_base::{engine::Engine, SubstrateFinalityProof},
 	TransactionParams,
 };
 
 use async_trait::async_trait;
 use finality_relay::TargetClient;
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, Client, Error, HeaderIdOf, HeaderOf, SyncHeader, TransactionEra,
+	AccountKeyPairOf, Client, Error, HeaderIdOf, HeaderOf, SyncHeader, TransactionEra,
 	TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::relay_loop::Client as RelayClient;
-use sp_core::Pair;
 
 /// Substrate client as Substrate finality target.
 pub struct SubstrateFinalityTarget<P: SubstrateFinalitySyncPipeline> {
@@ -86,8 +84,6 @@ impl<P: SubstrateFinalitySyncPipeline> RelayClient for SubstrateFinalityTarget<P
 #[async_trait]
 impl<P: SubstrateFinalitySyncPipeline> TargetClient<FinalitySyncPipelineAdapter<P>>
 	for SubstrateFinalityTarget<P>
-where
-	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as Pair>::Public>,
 {
 	type TransactionTracker = TransactionTracker<P::TargetChain, Client<P::TargetChain>>;
 
@@ -116,7 +112,7 @@ where
 		P::FinalityEngine::optimize_proof(&self.client, &header, &mut proof).await?;
 
 		// now we may submit optimized finality proof
-		let transaction_params = self.transaction_params.clone();
+		let mortality = self.transaction_params.mortality;
 		let call =
 			P::SubmitFinalityProofCallBuilder::build_submit_finality_proof_call(header, proof);
 		self.client
@@ -124,7 +120,7 @@ where
 				&self.transaction_params.signer,
 				move |best_block_id, transaction_nonce| {
 					Ok(UnsignedTransaction::new(call.into(), transaction_nonce)
-						.era(TransactionEra::new(best_block_id, transaction_params.mortality)))
+						.era(TransactionEra::new(best_block_id, mortality)))
 				},
 			)
 			.await
