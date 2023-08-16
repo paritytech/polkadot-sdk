@@ -42,6 +42,8 @@ parameter_types! {
 	/// chain, we make it synonymous with it and thus it is the `Here` location, which means "equivalent to
 	/// the context".
 	pub const TokenLocation: MultiLocation = Here.into_location();
+	/// Token asset identifier.
+	pub TokenAssetId: AssetId = TokenLocation::get().into();
 	/// The Millau network ID.
 	pub const ThisNetwork: NetworkId = CustomNetworkId::Millau.as_network_id();
 	/// The Rialto network ID.
@@ -98,7 +100,7 @@ parameter_types! {
 }
 
 /// The XCM router. We are not sending messages to sibling/parent/child chains here.
-pub type XcmRouter = ();
+pub type XcmRouter = EmulatedSiblingXcmpChannel;
 
 /// The barriers one of which must be passed for an XCM message to be executed.
 pub type Barrier = (
@@ -235,6 +237,38 @@ impl ExportXcm for ToRialtoOrRialtoParachainSwitchExporter {
 	}
 }
 
+/// Emulating XCMP channel with sibling chain. We don't have required infra here, at Millau,
+/// so we have to provide at least something to be able to run benchmarks.
+pub struct EmulatedSiblingXcmpChannel;
+
+impl SendXcm for EmulatedSiblingXcmpChannel {
+	type Ticket = ();
+
+	fn validate(
+		_destination: &mut Option<MultiLocation>,
+		_message: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
+		Ok(((), Default::default()))
+	}
+
+	fn deliver(_ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+		Ok(XcmHash::default())
+	}
+}
+
+impl EmulatedSiblingXcmpChannel {
+	/// Start emulating congested channel.
+	pub fn make_congested() {
+		frame_support::storage::unhashed::put(b"EmulatedSiblingXcmpChannel.Congested", &true);
+	}
+}
+
+impl bp_xcm_bridge_hub_router::XcmChannelStatusProvider for EmulatedSiblingXcmpChannel {
+	fn is_congested() -> bool {
+		frame_support::storage::unhashed::get_or_default(b"EmulatedSiblingXcmpChannel.Congested")
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -357,7 +391,7 @@ mod tests {
 		let dispatch_result = FromRialtoMessageDispatch::dispatch(incoming_message);
 		assert!(matches!(
 			dispatch_result.dispatch_level_result,
-			XcmBlobMessageDispatchResult::NotDispatched(_),
+			XcmBlobMessageDispatchResult::Dispatched,
 		));
 	}
 
@@ -370,7 +404,7 @@ mod tests {
 		let dispatch_result = FromRialtoMessageDispatch::dispatch(incoming_message);
 		assert!(matches!(
 			dispatch_result.dispatch_level_result,
-			XcmBlobMessageDispatchResult::NotDispatched(_),
+			XcmBlobMessageDispatchResult::Dispatched,
 		));
 	}
 }

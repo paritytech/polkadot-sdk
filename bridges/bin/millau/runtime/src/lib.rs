@@ -55,6 +55,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+use xcm_builder::NetworkExportTable;
 
 // to be able to use Millau runtime in `bridge-runtime-common` tests
 pub use bridge_runtime_common;
@@ -65,8 +66,8 @@ pub use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
 	traits::{
-		ConstBool, ConstU32, ConstU64, ConstU8, Currency, ExistenceRequirement, Imbalance,
-		KeyOwnerProofSystem,
+		ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Currency, ExistenceRequirement,
+		Imbalance, KeyOwnerProofSystem,
 	},
 	weights::{
 		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, IdentityFee, RuntimeDbWeight,
@@ -464,6 +465,7 @@ impl pallet_bridge_messages::Config<WithRialtoMessagesInstance> for Runtime {
 		WithRialtoMessagesInstance,
 		frame_support::traits::ConstU64<100_000>,
 	>;
+	type OnMessagesDelivered = ();
 
 	type SourceHeaderChain = crate::rialto_messages::RialtoAsSourceHeaderChain;
 	type MessageDispatch = crate::rialto_messages::FromRialtoMessageDispatch;
@@ -495,6 +497,7 @@ impl pallet_bridge_messages::Config<WithRialtoParachainMessagesInstance> for Run
 		WithRialtoParachainMessagesInstance,
 		frame_support::traits::ConstU64<100_000>,
 	>;
+	type OnMessagesDelivered = ();
 
 	type SourceHeaderChain = crate::rialto_parachain_messages::RialtoParachainAsSourceHeaderChain;
 	type MessageDispatch = crate::rialto_parachain_messages::FromRialtoParachainMessageDispatch;
@@ -544,6 +547,27 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = ();
 }
 
+// this config is totally incorrect - the pallet is not actually used at this runtime. We need
+// it only to be able to run benchmarks and make required traits (and default weights for tests).
+parameter_types! {
+	pub BridgeTable: Vec<(xcm::prelude::NetworkId, xcm::prelude::MultiLocation, Option<xcm::prelude::MultiAsset>)>
+		= vec![(xcm_config::RialtoNetwork::get(), xcm_config::TokenLocation::get(), Some((xcm_config::TokenAssetId::get(), 1_000_000_000_u128).into()))];
+}
+impl pallet_xcm_bridge_hub_router::Config for Runtime {
+	type WeightInfo = ();
+
+	type UniversalLocation = xcm_config::UniversalLocation;
+	type BridgedNetworkId = xcm_config::RialtoNetwork;
+	type Bridges = NetworkExportTable<BridgeTable>;
+
+	type BridgeHubOrigin = frame_system::EnsureRoot<AccountId>;
+	type ToBridgeHubSender = xcm_config::XcmRouter;
+	type WithBridgeHubChannel = xcm_config::EmulatedSiblingXcmpChannel;
+
+	type ByteFee = ConstU128<1_000>;
+	type FeeAsset = xcm_config::TokenAssetId;
+}
+
 construct_runtime!(
 	pub enum Runtime {
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
@@ -582,6 +606,9 @@ construct_runtime!(
 
 		// Pallet for sending XCM.
 		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 99,
+
+		// Pallets that are not actually used here (yet?), but we need to run benchmarks on it.
+		XcmBridgeHubRouter: pallet_xcm_bridge_hub_router::{Pallet, Storage} = 200,
 	}
 );
 
@@ -654,6 +681,7 @@ mod benches {
 		[pallet_bridge_grandpa, BridgeRialtoGrandpa]
 		[pallet_bridge_parachains, ParachainsBench::<Runtime, WithRialtoParachainsInstance>]
 		[pallet_bridge_relayers, RelayersBench::<Runtime>]
+		[pallet_xcm_bridge_hub_router, XcmBridgeHubRouterBench::<Runtime>]
 	);
 }
 
@@ -980,6 +1008,7 @@ impl_runtime_apis! {
 			use pallet_bridge_messages::benchmarking::Pallet as MessagesBench;
 			use pallet_bridge_parachains::benchmarking::Pallet as ParachainsBench;
 			use pallet_bridge_relayers::benchmarking::Pallet as RelayersBench;
+			use pallet_xcm_bridge_hub_router::benchmarking::Pallet as XcmBridgeHubRouterBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -1025,6 +1054,10 @@ impl_runtime_apis! {
 			use pallet_bridge_relayers::benchmarking::{
 				Pallet as RelayersBench,
 				Config as RelayersConfig,
+			};
+			use pallet_xcm_bridge_hub_router::benchmarking::{
+				Pallet as XcmBridgeHubRouterBench,
+				Config as XcmBridgeHubRouterConfig,
 			};
 			use rialto_messages::WithRialtoMessageBridge;
 			use rialto_parachain_messages::WithRialtoParachainMessageBridge;
@@ -1133,6 +1166,12 @@ impl_runtime_apis! {
 				fn deposit_account(account: AccountId, balance: Balance) {
 					use frame_support::traits::fungible::Mutate;
 					Balances::mint_into(&account, balance.saturating_add(ExistentialDeposit::get())).unwrap();
+				}
+			}
+
+			impl XcmBridgeHubRouterConfig<()> for Runtime {
+				fn make_congested() {
+					xcm_config::EmulatedSiblingXcmpChannel::make_congested()
 				}
 			}
 
