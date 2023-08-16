@@ -29,8 +29,8 @@ ENV['REF2'] = ref2
 
 gh_cumulus = SubRef.new(format('%<owner>s/%<repo>s', { owner: owner, repo: repo }))
 
-polkadot_ref1 = gh_cumulus.get_dependency_reference(ref1, 'polkadot-client')
-polkadot_ref2 = gh_cumulus.get_dependency_reference(ref2, 'polkadot-client')
+polkadot_ref1 = gh_cumulus.get_dependency_reference(ref1, 'polkadot-primitives')
+polkadot_ref2 = gh_cumulus.get_dependency_reference(ref2, 'polkadot-primitives')
 
 substrate_ref1 = gh_cumulus.get_dependency_reference(ref1, 'sp-io')
 substrate_ref2 = gh_cumulus.get_dependency_reference(ref2, 'sp-io')
