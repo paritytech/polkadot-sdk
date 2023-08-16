@@ -12984,8 +12984,6 @@ dependencies = [
  "futures",
  "hex-literal 0.4.1",
  "is_executable",
- "kusama-runtime",
- "kusama-runtime-constants",
  "kvdb",
  "kvdb-rocksdb",
  "log",

@@ -61,7 +61,6 @@ const ROCOCO_STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/"
 #[cfg(feature = "rococo-native")]
 const VERSI_STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 #[cfg(any(
-	feature = "polkadot-native",
 	feature = "westend-native",
 	feature = "rococo-native"
 ))]
