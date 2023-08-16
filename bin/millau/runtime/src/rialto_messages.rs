@@ -23,10 +23,11 @@ use bridge_runtime_common::{
 	messages::{
 		self, source::TargetHeaderChainAdapter, target::SourceHeaderChainAdapter, MessageBridge,
 	},
-	messages_xcm_extension::{XcmBlobHauler, XcmBlobHaulerAdapter},
+	messages_xcm_extension::{SenderAndLane, XcmBlobHauler, XcmBlobHaulerAdapter},
 };
 use frame_support::{parameter_types, weights::Weight, RuntimeDebug};
 use pallet_bridge_relayers::WeightInfoExt as _;
+use xcm::latest::prelude::*;
 use xcm_builder::HaulBlobExporter;
 
 /// Default lane that is used to send messages to Rialto.
@@ -42,6 +43,11 @@ parameter_types! {
 	/// 2 XCM instructions is for simple `Trap(42)` program, coming through bridge
 	/// (it is prepended with `UniversalOrigin` instruction).
 	pub const WeightCredit: Weight = BASE_XCM_WEIGHT_TWICE;
+	/// Lane used by the with-Rialto bridge.
+	pub RialtoSenderAndLane: SenderAndLane = SenderAndLane::new(Here.into(), XCM_LANE);
+
+	/// Dummy message used in configuration.
+	pub DummyXcmMessage: Xcm<()> = Xcm::new();
 }
 
 /// Message payload for Millau -> Rialto messages.
@@ -65,6 +71,7 @@ pub type ToRialtoMessagesDeliveryProof =
 pub type FromRialtoMessageDispatch =
 	bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatch<
 		crate::xcm_config::OnMillauBlobDispatcher,
+		(),
 		(),
 	>;
 
@@ -122,11 +129,13 @@ pub type ToRialtoBlobExporter = HaulBlobExporter<
 pub struct ToRialtoXcmBlobHauler;
 
 impl XcmBlobHauler for ToRialtoXcmBlobHauler {
-	type MessageSender = pallet_bridge_messages::Pallet<Runtime, WithRialtoMessagesInstance>;
+	type Runtime = Runtime;
+	type MessagesInstance = WithRialtoMessagesInstance;
+	type SenderAndLane = RialtoSenderAndLane;
 
-	fn xcm_lane() -> LaneId {
-		XCM_LANE
-	}
+	type ToSourceChainSender = crate::xcm_config::XcmRouter;
+	type CongestedMessage = DummyXcmMessage;
+	type UncongestedMessage = DummyXcmMessage;
 }
 
 impl pallet_bridge_messages::WeightInfoExt for crate::weights::RialtoMessagesWeightInfo<Runtime> {
