@@ -21,9 +21,10 @@ use crate::justification::{
 	GrandpaJustification,
 };
 
-use crate::justification::verification::{IterationFlow, SignedPrecommit};
-use finality_grandpa::voter_set::VoterSet;
-use sp_consensus_grandpa::{AuthorityId, SetId};
+use crate::justification::verification::{
+	IterationFlow, JustificationVerificationContext, SignedPrecommit,
+};
+use sp_consensus_grandpa::AuthorityId;
 use sp_runtime::traits::Header as HeaderT;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
@@ -111,8 +112,7 @@ impl<Header: HeaderT> JustificationVerifier<Header> for JustificationOptimizer<H
 /// Verify and optimize given justification by removing unknown and duplicate votes.
 pub fn verify_and_optimize_justification<Header: HeaderT>(
 	finalized_target: (Header::Hash, Header::Number),
-	authorities_set_id: SetId,
-	authorities_set: &VoterSet<AuthorityId>,
+	context: &JustificationVerificationContext,
 	justification: &mut GrandpaJustification<Header>,
 ) -> Result<(), Error> {
 	let mut optimizer = JustificationOptimizer {
@@ -120,12 +120,7 @@ pub fn verify_and_optimize_justification<Header: HeaderT>(
 		extra_precommits: vec![],
 		redundant_votes_ancestries: Default::default(),
 	};
-	optimizer.verify_justification(
-		finalized_target,
-		authorities_set_id,
-		authorities_set,
-		justification,
-	)?;
+	optimizer.verify_justification(finalized_target, context, justification)?;
 	optimizer.optimize(justification);
 
 	Ok(())

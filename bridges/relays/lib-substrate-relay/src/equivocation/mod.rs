@@ -17,29 +17,95 @@
 //! Types and functions intended to ease adding of new Substrate -> Substrate
 //! equivocation detection pipelines.
 
-use crate::finality_base::SubstrateFinalityPipeline;
+mod source;
+mod target;
+
+use crate::finality_base::{engine::Engine, SubstrateFinalityPipeline, SubstrateFinalityProof};
+
+use async_trait::async_trait;
+use bp_runtime::{AccountIdOf, BlockNumberOf, HashOf};
+use equivocation_detector::EquivocationDetectionPipeline;
+use finality_relay::FinalityPipeline;
+use pallet_grandpa::{Call as GrandpaCall, Config as GrandpaConfig};
+use relay_substrate_client::{AccountKeyPairOf, CallOf, Chain, ChainWithTransactions};
+use sp_core::Pair;
+use sp_runtime::traits::{Block, Header};
 use std::marker::PhantomData;
 
-use crate::finality_base::engine::Engine;
-use async_trait::async_trait;
-use bp_runtime::{BlockNumberOf, HashOf};
-use pallet_grandpa::{Call as GrandpaCall, Config as GrandpaConfig};
-use relay_substrate_client::CallOf;
-use sp_runtime::traits::{Block, Header};
+/// Convenience trait that adds bounds to `SubstrateEquivocationDetectionPipeline`.
+pub trait BaseSubstrateEquivocationDetectionPipeline:
+	SubstrateFinalityPipeline<SourceChain = Self::BoundedSourceChain>
+{
+	/// Bounded `SubstrateFinalityPipeline::SourceChain`.
+	type BoundedSourceChain: ChainWithTransactions<AccountId = Self::BoundedSourceChainAccountId>;
+
+	/// Bounded `AccountIdOf<SubstrateFinalityPipeline::SourceChain>`.
+	type BoundedSourceChainAccountId: From<<AccountKeyPairOf<Self::BoundedSourceChain> as Pair>::Public>
+		+ Send;
+}
+
+impl<T> BaseSubstrateEquivocationDetectionPipeline for T
+where
+	T: SubstrateFinalityPipeline,
+	T::SourceChain: ChainWithTransactions,
+	AccountIdOf<T::SourceChain>: From<<AccountKeyPairOf<Self::SourceChain> as Pair>::Public>,
+{
+	type BoundedSourceChain = T::SourceChain;
+	type BoundedSourceChainAccountId = AccountIdOf<T::SourceChain>;
+}
 
 /// Substrate -> Substrate equivocation detection pipeline.
 #[async_trait]
-pub trait SubstrateEquivocationDetectionPipeline: SubstrateFinalityPipeline {
+pub trait SubstrateEquivocationDetectionPipeline:
+	BaseSubstrateEquivocationDetectionPipeline
+{
 	/// How the `report_equivocation` call is built ?
 	type ReportEquivocationCallBuilder: ReportEquivocationCallBuilder<Self>;
 }
 
+type FinalityProoffOf<P> = <<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<
+	<P as SubstrateFinalityPipeline>::SourceChain,
+>>::FinalityProof;
+type FinalityVerificationContextfOf<P> =
+	<<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<
+		<P as SubstrateFinalityPipeline>::SourceChain,
+	>>::FinalityVerificationContext;
 type EquivocationProofOf<P> = <<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<
 	<P as SubstrateFinalityPipeline>::SourceChain,
 >>::EquivocationProof;
+type EquivocationsFinderOf<P> = <<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<
+	<P as SubstrateFinalityPipeline>::SourceChain,
+>>::EquivocationsFinder;
 type KeyOwnerProofOf<P> = <<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<
 	<P as SubstrateFinalityPipeline>::SourceChain,
 >>::KeyOwnerProof;
+
+/// Adapter that allows a `SubstrateEquivocationDetectionPipeline` to act as an
+/// `EquivocationDetectionPipeline`.
+#[derive(Clone, Debug)]
+pub struct EquivocationDetectionPipelineAdapter<P: SubstrateEquivocationDetectionPipeline> {
+	_phantom: PhantomData<P>,
+}
+
+impl<P: SubstrateEquivocationDetectionPipeline> FinalityPipeline
+	for EquivocationDetectionPipelineAdapter<P>
+{
+	const SOURCE_NAME: &'static str = P::SourceChain::NAME;
+	const TARGET_NAME: &'static str = P::TargetChain::NAME;
+
+	type Hash = HashOf<P::SourceChain>;
+	type Number = BlockNumberOf<P::SourceChain>;
+	type FinalityProof = SubstrateFinalityProof<P>;
+}
+
+impl<P: SubstrateEquivocationDetectionPipeline> EquivocationDetectionPipeline
+	for EquivocationDetectionPipelineAdapter<P>
+{
+	type TargetNumber = BlockNumberOf<P::TargetChain>;
+	type FinalityVerificationContext = FinalityVerificationContextfOf<P>;
+	type EquivocationProof = EquivocationProofOf<P>;
+	type EquivocationsFinder = EquivocationsFinderOf<P>;
+}
 
 /// Different ways of building `report_equivocation` calls.
 pub trait ReportEquivocationCallBuilder<P: SubstrateEquivocationDetectionPipeline> {
