@@ -387,6 +387,14 @@ impl Default for OutboundLaneData {
 	}
 }
 
+impl OutboundLaneData {
+	/// Return nonces of all currently queued messages (i.e. messages that we believe
+	/// are not delivered yet).
+	pub fn queued_messages(&self) -> RangeInclusive<MessageNonce> {
+		(self.latest_received_nonce + 1)..=self.latest_generated_nonce
+	}
+}
+
 /// Calculate the number of messages that the relayers have delivered.
 pub fn calc_relayers_rewards<AccountId>(
 	messages_relayers: VecDeque<UnrewardedRelayer<AccountId>>,
