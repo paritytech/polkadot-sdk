@@ -60,7 +60,7 @@ pub fn import_queue<P, Block, I, C, S, CIDP>(
 		registry,
 		telemetry,
 	}: ImportQueueParams<'_, I, C, CIDP, S>,
-) -> Result<DefaultImportQueue<Block, C>, sp_consensus::Error>
+) -> Result<DefaultImportQueue<Block>, sp_consensus::Error>
 where
 	Block: BlockT,
 	C::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public> + ApiExt<Block>,
@@ -72,7 +72,7 @@ where
 		+ AuxStore
 		+ UsageProvider<Block>
 		+ HeaderBackend<Block>,
-	I: BlockImport<Block, Error = ConsensusError, Transaction = sp_api::TransactionFor<C, Block>>
+	I: BlockImport<Block, Error = ConsensusError>
 		+ ParachainBlockImportMarker
 		+ Send
 		+ Sync

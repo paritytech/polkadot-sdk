@@ -10,6 +10,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 # Substrate
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-state-machine = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-trie = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 # Polkadot
@@ -24,6 +25,7 @@ std = [
 	"codec/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
+	"sp-trie/std",
 	"sp-std/std",
 	"cumulus-primitives-core/std",
 ]

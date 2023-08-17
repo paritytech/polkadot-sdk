@@ -51,8 +51,8 @@ pub struct VerifyNothing;
 impl<Block: BlockT> Verifier<Block> for VerifyNothing {
 	async fn verify(
 		&mut self,
-		params: BlockImportParams<Block, ()>,
-	) -> Result<BlockImportParams<Block, ()>, String> {
+		params: BlockImportParams<Block>,
+	) -> Result<BlockImportParams<Block>, String> {
 		Ok(params)
 	}
 }
@@ -64,14 +64,13 @@ pub fn verify_nothing_import_queue<Block: BlockT, I>(
 	block_import: I,
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
 	registry: Option<&substrate_prometheus_endpoint::Registry>,
-) -> BasicQueue<Block, I::Transaction>
+) -> BasicQueue<Block>
 where
 	I: BlockImport<Block, Error = ConsensusError>
 		+ ParachainBlockImportMarker
 		+ Send
 		+ Sync
 		+ 'static,
-	I::Transaction: Send,
 {
 	BasicQueue::new(VerifyNothing, Box::new(block_import), None, spawner, registry)
 }

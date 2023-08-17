@@ -406,14 +406,12 @@ mod tests {
 
 		// Ensure that we did not include `:code` in the proof.
 		let proof = block.storage_proof();
-		let db = proof
-			.to_storage_proof::<BlakeTwo256>(Some(header.state_root()))
-			.unwrap()
-			.0
-			.into_memory_db();
 
-		let backend = sp_state_machine::new_in_mem_hash_key::<BlakeTwo256>()
-			.update_backend(*header.state_root(), db);
+		let backend = sp_state_machine::create_proof_check_backend::<BlakeTwo256>(
+			*header.state_root(),
+			proof.to_storage_proof::<BlakeTwo256>(None).unwrap().0,
+		)
+		.unwrap();
 
 		// Should return an error, as it was not included while building the proof.
 		assert!(backend

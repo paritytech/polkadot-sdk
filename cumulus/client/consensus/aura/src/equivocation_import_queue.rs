@@ -89,8 +89,8 @@ where
 {
 	async fn verify(
 		&mut self,
-		mut block_params: BlockImportParams<Block, ()>,
-	) -> Result<BlockImportParams<Block, ()>, String> {
+		mut block_params: BlockImportParams<Block>,
+	) -> Result<BlockImportParams<Block>, String> {
 		// Skip checks that include execution, if being told so, or when importing only state.
 		//
 		// This is done for example when gap syncing and it is expected that the block after the gap
@@ -221,7 +221,7 @@ pub fn fully_verifying_import_queue<P, Client, Block: BlockT, I, CIDP>(
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
 	registry: Option<&substrate_prometheus_endpoint::Registry>,
 	telemetry: Option<TelemetryHandle>,
-) -> BasicQueue<Block, I::Transaction>
+) -> BasicQueue<Block>
 where
 	P: Pair + 'static,
 	P::Signature: Codec,
@@ -231,7 +231,6 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	I::Transaction: Send,
 	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static,
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,

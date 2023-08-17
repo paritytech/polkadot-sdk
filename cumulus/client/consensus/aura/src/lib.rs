@@ -118,18 +118,13 @@ where
 		Client:
 			ProvideRuntimeApi<B> + BlockOf + AuxStore + HeaderBackend<B> + Send + Sync + 'static,
 		Client::Api: AuraApi<B, P::Public>,
-		BI: BlockImport<B, Transaction = sp_api::TransactionFor<Client, B>>
-			+ ParachainBlockImportMarker
-			+ Send
-			+ Sync
-			+ 'static,
+		BI: BlockImport<B> + ParachainBlockImportMarker + Send + Sync + 'static,
 		SO: SyncOracle + Send + Sync + Clone + 'static,
 		BS: BackoffAuthoringBlocksStrategy<NumberFor<B>> + Send + Sync + 'static,
 		PF: Environment<B, Error = Error> + Send + Sync + 'static,
 		PF::Proposer: Proposer<
 			B,
 			Error = Error,
-			Transaction = sp_api::TransactionFor<Client, B>,
 			ProofRecording = EnableProofRecording,
 			Proof = <EnableProofRecording as ProofRecording>::Proof,
 		>,

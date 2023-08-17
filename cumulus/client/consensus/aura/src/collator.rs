@@ -95,8 +95,7 @@ where
 	RClient: RelayChainInterface,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block, Transaction = BI::Transaction>,
-	Proposer::Transaction: Sync,
+	Proposer: ProposerInterface<Block>,
 	CS: CollatorServiceInterface<Block>,
 	P: Pair,
 	P::Public: AppPublic + Member,
@@ -190,7 +189,7 @@ where
 			.await
 			.map_err(|e| Box::new(e))?;
 
-		let sealed_importable = seal::<_, _, P>(
+		let sealed_importable = seal::<_, P>(
 			proposal.block,
 			proposal.storage_changes,
 			&slot_claim.author_pub,
@@ -322,12 +321,12 @@ where
 }
 
 /// Seal a block with a signature in the header.
-pub fn seal<B: BlockT, T, P>(
+pub fn seal<B: BlockT, P>(
 	pre_sealed: B,
-	storage_changes: StorageChanges<T, HashingFor<B>>,
+	storage_changes: StorageChanges<HashingFor<B>>,
 	author_pub: &P::Public,
 	keystore: &KeystorePtr,
-) -> Result<BlockImportParams<B, T>, Box<dyn Error>>
+) -> Result<BlockImportParams<B>, Box<dyn Error>>
 where
 	P: Pair,
 	P::Signature: Codec + TryFrom<Vec<u8>>,

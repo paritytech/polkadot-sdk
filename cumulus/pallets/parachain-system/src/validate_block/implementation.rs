@@ -269,8 +269,7 @@ fn run_with_externalities<B: BlockT, R, F: FnOnce() -> R>(
 	execute: F,
 ) -> R {
 	let mut overlay = sp_state_machine::OverlayedChanges::default();
-	let mut cache = Default::default();
-	let mut ext = Ext::<B>::new(&mut overlay, &mut cache, backend);
+	let mut ext = Ext::<B>::new(&mut overlay, backend);
 
 	set_and_run_with_externalities(&mut ext, || execute())
 }

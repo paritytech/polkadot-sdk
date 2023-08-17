@@ -72,9 +72,8 @@ use sp_arithmetic::traits::SaturatedConversion;
 use sp_blockchain::HeaderBackend;
 use sp_core::{Pair, H256};
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{codec::Encode, generic, traits::BlakeTwo256};
+use sp_runtime::{codec::Encode, generic};
 use sp_state_machine::BasicExternalities;
-use sp_trie::PrefixedMemoryDB;
 use std::sync::Arc;
 use substrate_test_client::{
 	BlockchainEventsExt, RpcHandlersExt, RpcTransactionError, RpcTransactionOutput,
@@ -183,7 +182,7 @@ pub fn new_partial(
 		Client,
 		Backend,
 		(),
-		sc_consensus::import_queue::BasicQueue<Block, PrefixedMemoryDB<BlakeTwo256>>,
+		sc_consensus::import_queue::BasicQueue<Block>,
 		sc_transaction_pool::FullPool<Block, Client>,
 		ParachainBlockImport,
 	>,

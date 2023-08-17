@@ -50,14 +50,11 @@ impl Error {
 
 /// A type alias for easily referring to the type of a proposal produced by a specific
 /// [`Proposer`].
-pub type ProposalOf<B, T> = Proposal<B, <T as ProposerInterface<B>>::Transaction, StorageProof>;
+pub type ProposalOf<B> = Proposal<B, StorageProof>;
 
 /// An interface for proposers.
 #[async_trait]
 pub trait ProposerInterface<Block: BlockT> {
-	/// The underlying DB transaction type produced with the block proposal.
-	type Transaction: Default + Send + 'static;
-
 	/// Propose a collation using the supplied `InherentData` and the provided
 	/// `ParachainInherentData`.
 	///
@@ -79,7 +76,7 @@ pub trait ProposerInterface<Block: BlockT> {
 		inherent_digests: Digest,
 		max_duration: Duration,
 		block_size_limit: Option<usize>,
-	) -> Result<Proposal<Block, Self::Transaction, StorageProof>, Error>;
+	) -> Result<Proposal<Block, StorageProof>, Error>;
 }
 
 /// A simple wrapper around a Substrate proposer for creating collations.
@@ -104,8 +101,6 @@ where
 	T::Proposer: SubstrateProposer<B, ProofRecording = EnableProofRecording, Proof = StorageProof>,
 	<T::Proposer as SubstrateProposer<B>>::Error: Send + Sync + 'static,
 {
-	type Transaction = <<T as Environment<B>>::Proposer as SubstrateProposer<B>>::Transaction;
-
 	async fn propose(
 		&mut self,
 		parent_header: &B::Header,
@@ -114,7 +109,7 @@ where
 		inherent_digests: Digest,
 		max_duration: Duration,
 		block_size_limit: Option<usize>,
-	) -> Result<Proposal<B, Self::Transaction, StorageProof>, Error> {
+	) -> Result<Proposal<B, StorageProof>, Error> {
 		let proposer = self
 			.inner
 			.init(parent_header)
