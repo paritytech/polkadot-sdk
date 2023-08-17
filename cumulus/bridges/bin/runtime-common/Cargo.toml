@@ -21,6 +21,7 @@ bp-parachains = { path = "../../primitives/parachains", default-features = false
 bp-polkadot-core = { path = "../../primitives/polkadot-core", default-features = false }
 bp-relayers = { path = "../../primitives/relayers", default-features = false }
 bp-runtime = { path = "../../primitives/runtime", default-features = false }
+bp-xcm-bridge-hub-router = { path = "../../primitives/xcm-bridge-hub-router", default-features = false }
 pallet-bridge-grandpa = { path = "../../modules/grandpa", default-features = false }
 pallet-bridge-messages = { path = "../../modules/messages", default-features = false }
 pallet-bridge-parachains = { path = "../../modules/parachains", default-features = false }
@@ -55,6 +56,7 @@ std = [
 	"bp-parachains/std",
 	"bp-polkadot-core/std",
 	"bp-runtime/std",
+	"bp-xcm-bridge-hub-router/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",

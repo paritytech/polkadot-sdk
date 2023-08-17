@@ -91,6 +91,15 @@ pub trait MessageDispatch {
 	/// Fine-grained result of single message dispatch (for better diagnostic purposes)
 	type DispatchLevelResult: Clone + sp_std::fmt::Debug + Eq;
 
+	/// Returns `true` if dispatcher is ready to accept additional messages. The `false` should
+	/// be treated as a hint by both dispatcher and its consumers - i.e. dispatcher shall not
+	/// simply drop messages if it returns `false`. The consumer may still call the `dispatch`
+	/// if dispatcher has returned `false`.
+	///
+	/// We check it in the messages delivery transaction prologue. So if it becomes `false`
+	/// after some portion of messages is already dispatched, it doesn't fail the whole transaction.
+	fn is_active() -> bool;
+
 	/// Estimate dispatch weight.
 	///
 	/// This function must return correct upper bound of dispatch weight. The return value
@@ -185,6 +194,10 @@ impl<MessagesProof, DispatchPayload: Decode> MessageDispatch
 {
 	type DispatchPayload = DispatchPayload;
 	type DispatchLevelResult = ();
+
+	fn is_active() -> bool {
+		false
+	}
 
 	fn dispatch_weight(_message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {
 		Weight::MAX

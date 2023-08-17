@@ -1,0 +1,59 @@
+[package]
+name = "pallet-xcm-bridge-hub-router"
+description = "Bridge hub interface for sibling/parent chains with dynamic fees support."
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false }
+log = { version = "0.4.19", default-features = false }
+scale-info = { version = "2.8.0", default-features = false, features = ["bit-vec", "derive", "serde"] }
+
+# Bridge dependencies
+
+bp-xcm-bridge-hub-router = { path = "../../primitives/xcm-bridge-hub-router", default-features = false }
+
+# Substrate Dependencies
+
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+
+# Polkadot Dependencies
+
+xcm = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
+xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
+
+[dev-dependencies]
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+[features]
+default = ["std"]
+std = [
+	"bp-xcm-bridge-hub-router/std",
+	"codec/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm/std",
+	"xcm-builder/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+]

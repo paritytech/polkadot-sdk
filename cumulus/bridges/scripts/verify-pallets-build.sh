@@ -125,6 +125,9 @@ cargo check -p pallet-bridge-parachains --features try-runtime
 cargo check -p pallet-bridge-relayers
 cargo check -p pallet-bridge-relayers --features runtime-benchmarks
 cargo check -p pallet-bridge-relayers --features try-runtime
+cargo check -p pallet-xcm-bridge-hub-router
+cargo check -p pallet-xcm-bridge-hub-router --features runtime-benchmarks
+cargo check -p pallet-xcm-bridge-hub-router --features try-runtime
 cargo check -p bridge-runtime-common
 cargo check -p bridge-runtime-common --features runtime-benchmarks
 cargo check -p bridge-runtime-common --features integrity-test

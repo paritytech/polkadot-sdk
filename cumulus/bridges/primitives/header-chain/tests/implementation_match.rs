@@ -22,14 +22,15 @@
 //! but their purpose is different.
 
 use bp_header_chain::justification::{
-	verify_justification, GrandpaJustification, JustificationVerificationError, PrecommitError,
+	verify_justification, GrandpaJustification, JustificationVerificationContext,
+	JustificationVerificationError, PrecommitError,
 };
 use bp_test_utils::{
 	header_id, make_justification_for_header, signed_precommit, test_header, Account,
 	JustificationGeneratorParams, ALICE, BOB, CHARLIE, DAVE, EVE, FERDIE, TEST_GRANDPA_SET_ID,
 };
 use finality_grandpa::voter_set::VoterSet;
-use sp_consensus_grandpa::{AuthorityId, AuthorityWeight};
+use sp_consensus_grandpa::{AuthorityId, AuthorityWeight, SetId};
 use sp_runtime::traits::Header as HeaderT;
 
 type TestHeader = sp_runtime::testing::Header;
@@ -81,6 +82,11 @@ fn full_voter_set() -> VoterSet<AuthorityId> {
 	VoterSet::new(full_accounts_set().iter().map(|(id, w)| (AuthorityId::from(*id), *w))).unwrap()
 }
 
+pub fn full_verification_context(set_id: SetId) -> JustificationVerificationContext {
+	let voter_set = full_voter_set();
+	JustificationVerificationContext { voter_set, authority_set_id: set_id }
+}
+
 /// Get a minimal set of accounts.
 fn minimal_accounts_set() -> Vec<(Account, AuthorityWeight)> {
 	// there are 5 accounts in the full set => we need 2/3 + 1 accounts, which results in 4 accounts
@@ -115,8 +121,7 @@ fn same_result_when_precommit_target_has_lower_number_than_commit_target() {
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&full_voter_set(),
+			&full_verification_context(TEST_GRANDPA_SET_ID),
 			&justification,
 		),
 		Err(JustificationVerificationError::Precommit(PrecommitError::UnrelatedAncestryVote)),
@@ -148,8 +153,7 @@ fn same_result_when_precommit_target_is_not_descendant_of_commit_target() {
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&full_voter_set(),
+			&full_verification_context(TEST_GRANDPA_SET_ID),
 			&justification,
 		),
 		Err(JustificationVerificationError::Precommit(PrecommitError::UnrelatedAncestryVote)),
@@ -182,8 +186,7 @@ fn same_result_when_there_are_not_enough_cumulative_weight_to_finalize_commit_ta
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&full_voter_set(),
+			&full_verification_context(TEST_GRANDPA_SET_ID),
 			&justification,
 		),
 		Err(JustificationVerificationError::TooLowCumulativeWeight),
@@ -220,8 +223,7 @@ fn different_result_when_justification_contains_duplicate_vote() {
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&full_voter_set(),
+			&full_verification_context(TEST_GRANDPA_SET_ID),
 			&justification,
 		),
 		Err(JustificationVerificationError::Precommit(PrecommitError::DuplicateAuthorityVote)),
@@ -261,8 +263,7 @@ fn different_results_when_authority_equivocates_once_in_a_round() {
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&full_voter_set(),
+			&full_verification_context(TEST_GRANDPA_SET_ID),
 			&justification,
 		),
 		Err(JustificationVerificationError::Precommit(PrecommitError::DuplicateAuthorityVote)),
@@ -314,8 +315,7 @@ fn different_results_when_authority_equivocates_twice_in_a_round() {
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&full_voter_set(),
+			&full_verification_context(TEST_GRANDPA_SET_ID),
 			&justification,
 		),
 		Err(JustificationVerificationError::Precommit(PrecommitError::DuplicateAuthorityVote)),
@@ -353,8 +353,7 @@ fn different_results_when_there_are_more_than_enough_votes() {
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&full_voter_set(),
+			&full_verification_context(TEST_GRANDPA_SET_ID),
 			&justification,
 		),
 		Err(JustificationVerificationError::Precommit(PrecommitError::RedundantAuthorityVote)),
@@ -394,8 +393,7 @@ fn different_results_when_there_is_a_vote_of_unknown_authority() {
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&full_voter_set(),
+			&full_verification_context(TEST_GRANDPA_SET_ID),
 			&justification,
 		),
 		Err(JustificationVerificationError::Precommit(PrecommitError::UnknownAuthorityVote)),

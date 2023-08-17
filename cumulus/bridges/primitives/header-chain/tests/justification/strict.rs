@@ -17,8 +17,8 @@
 //! Tests for Grandpa strict justification verifier code.
 
 use bp_header_chain::justification::{
-	required_justification_precommits, verify_justification, JustificationVerificationError,
-	PrecommitError,
+	required_justification_precommits, verify_justification, JustificationVerificationContext,
+	JustificationVerificationError, PrecommitError,
 };
 use bp_test_utils::*;
 
@@ -40,8 +40,7 @@ fn valid_justification_accepted() {
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&voter_set(),
+			&verification_context(TEST_GRANDPA_SET_ID),
 			&justification,
 		),
 		Ok(()),
@@ -65,8 +64,7 @@ fn valid_justification_accepted_with_single_fork() {
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&voter_set(),
+			&verification_context(TEST_GRANDPA_SET_ID),
 			&make_justification_for_header::<TestHeader>(params)
 		),
 		Ok(()),
@@ -100,8 +98,7 @@ fn valid_justification_accepted_with_arbitrary_number_of_authorities() {
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&voter_set,
+			&JustificationVerificationContext { voter_set, authority_set_id: TEST_GRANDPA_SET_ID },
 			&make_justification_for_header::<TestHeader>(params)
 		),
 		Ok(()),
@@ -113,8 +110,7 @@ fn justification_with_invalid_target_rejected() {
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(2),
-			TEST_GRANDPA_SET_ID,
-			&voter_set(),
+			&verification_context(TEST_GRANDPA_SET_ID),
 			&make_default_justification::<TestHeader>(&test_header(1)),
 		),
 		Err(JustificationVerificationError::InvalidJustificationTarget),
@@ -129,8 +125,7 @@ fn justification_with_invalid_commit_rejected() {
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&voter_set(),
+			&verification_context(TEST_GRANDPA_SET_ID),
 			&justification,
 		),
 		Err(JustificationVerificationError::TooLowCumulativeWeight),
@@ -146,8 +141,7 @@ fn justification_with_invalid_authority_signature_rejected() {
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&voter_set(),
+			&verification_context(TEST_GRANDPA_SET_ID),
 			&justification,
 		),
 		Err(JustificationVerificationError::Precommit(PrecommitError::InvalidAuthoritySignature)),
@@ -162,8 +156,7 @@ fn justification_with_invalid_precommit_ancestry() {
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&voter_set(),
+			&verification_context(TEST_GRANDPA_SET_ID),
 			&justification,
 		),
 		Err(JustificationVerificationError::RedundantVotesAncestries),
@@ -187,8 +180,7 @@ fn justification_is_invalid_if_we_dont_meet_threshold() {
 	assert_eq!(
 		verify_justification::<TestHeader>(
 			header_id::<TestHeader>(1),
-			TEST_GRANDPA_SET_ID,
-			&voter_set(),
+			&verification_context(TEST_GRANDPA_SET_ID),
 			&make_justification_for_header::<TestHeader>(params)
 		),
 		Err(JustificationVerificationError::TooLowCumulativeWeight),

@@ -488,7 +488,8 @@ impl pallet_bridge_messages::Config<WithBridgeHubWococoMessagesInstance> for Run
 
 	type SourceHeaderChain = SourceHeaderChainAdapter<WithBridgeHubWococoMessageBridge>;
 	type MessageDispatch =
-		XcmBlobMessageDispatch<OnBridgeHubRococoBlobDispatcher, Self::WeightInfo>;
+		XcmBlobMessageDispatch<OnBridgeHubRococoBlobDispatcher, Self::WeightInfo, ()>;
+	type OnMessagesDelivered = ();
 }
 
 /// Add XCM messages support for BridgeHubWococo to support Wococo->Rococo XCM messages
@@ -521,7 +522,8 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 
 	type SourceHeaderChain = SourceHeaderChainAdapter<WithBridgeHubRococoMessageBridge>;
 	type MessageDispatch =
-		XcmBlobMessageDispatch<OnBridgeHubWococoBlobDispatcher, Self::WeightInfo>;
+		XcmBlobMessageDispatch<OnBridgeHubWococoBlobDispatcher, Self::WeightInfo, ()>;
+	type OnMessagesDelivered = ();
 }
 
 /// Allows collect and claim rewards for relayers
@@ -784,7 +786,7 @@ impl_runtime_apis! {
 			BridgeRococoGrandpa::best_finalized()
 		}
 		fn synced_headers_grandpa_info(
-		) -> Vec<bp_header_chain::HeaderGrandpaInfo<bp_rococo::Header>> {
+		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_rococo::Header>> {
 			BridgeRococoGrandpa::synced_headers_grandpa_info()
 		}
 	}
@@ -794,7 +796,7 @@ impl_runtime_apis! {
 			BridgeWococoGrandpa::best_finalized()
 		}
 		fn synced_headers_grandpa_info(
-		) -> Vec<bp_header_chain::HeaderGrandpaInfo<bp_wococo::Header>> {
+		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_wococo::Header>> {
 			BridgeWococoGrandpa::synced_headers_grandpa_info()
 		}
 	}
