@@ -32,6 +32,8 @@ use sp_runtime::traits::Bounded;
 
 const SEED: u32 = 0;
 
+const MINIMUM_BALANCE: u32 = 100;
+
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
@@ -148,7 +150,7 @@ benchmarks! {
 			for i in 0..r {
 				let registrar: T::AccountId = account("registrar", i, SEED);
 				let registrar_lookup = T::Lookup::unlookup(registrar.clone());
-				let balance_to_use =  T::Currency::minimum_balance() * 10u32.into();
+				let balance_to_use =  (MINIMUM_BALANCE * 10u32).into();
 				let _ = T::Currency::make_free_balance_be(&registrar, balance_to_use);
 
 				Identity::<T>::request_judgement(caller_origin.clone(), i, 10u32.into())?;
@@ -221,7 +223,7 @@ benchmarks! {
 		// User requests judgement from all the registrars, and they approve
 		for i in 0..r {
 			let registrar: T::AccountId = account("registrar", i, SEED);
-			let balance_to_use =  T::Currency::minimum_balance() * 10u32.into();
+			let balance_to_use = (MINIMUM_BALANCE * 10u32).into();
 			let _ = T::Currency::make_free_balance_be(&registrar, balance_to_use);
 
 			Identity::<T>::request_judgement(caller_origin.clone(), i, 10u32.into())?;
@@ -378,7 +380,7 @@ benchmarks! {
 		// User requests judgement from all the registrars, and they approve
 		for i in 0..r {
 			let registrar: T::AccountId = account("registrar", i, SEED);
-			let balance_to_use =  T::Currency::minimum_balance() * 10u32.into();
+			let balance_to_use =  (MINIMUM_BALANCE * 10u32).into();
 			let _ = T::Currency::make_free_balance_be(&registrar, balance_to_use);
 
 			Identity::<T>::request_judgement(target_origin.clone(), i, 10u32.into())?;
