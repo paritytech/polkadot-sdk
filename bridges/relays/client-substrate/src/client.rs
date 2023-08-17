@@ -138,6 +138,15 @@ struct ClientData {
 	client: Arc<RpcClient>,
 }
 
+/// Already encoded value.
+struct PreEncoded(Vec<u8>);
+
+impl Encode for PreEncoded {
+	fn encode(&self) -> Vec<u8> {
+		self.0.clone()
+	}
+}
+
 #[async_trait]
 impl<C: Chain> relay_utils::relay_loop::Client for Client<C> {
 	type Error = Error;
@@ -438,6 +447,16 @@ impl<C: Chain> Client<C> {
 	///
 	/// Note: The given transaction needs to be SCALE encoded beforehand.
 	pub async fn submit_unsigned_extrinsic(&self, transaction: Bytes) -> Result<C::Hash> {
+		// one last check that the transaction is valid. Most of checks happen in the relay loop and
+		// it is the "final" check before submission.
+		let best_header_hash = self.best_header().await?.hash();
+		self.validate_transaction(best_header_hash, PreEncoded(transaction.0.clone()))
+			.await
+			.map_err(|e| {
+				log::error!(target: "bridge", "Pre-submit {} transaction validation failed: {:?}", C::NAME, e);
+				e
+			})??;
+
 		self.jsonrpsee_execute(move |client| async move {
 			let tx_hash = SubstrateAuthorClient::<C>::submit_extrinsic(&*client, transaction)
 				.await
@@ -494,9 +513,19 @@ impl<C: Chain> Client<C> {
 		// will be dropped from the pool.
 		let best_header_id = best_header.parent_id().unwrap_or_else(|| best_header.id());
 
+		let extrinsic = prepare_extrinsic(best_header_id, transaction_nonce)?;
+		let signed_extrinsic = C::sign_transaction(signing_data, extrinsic)?.encode();
+
+		// one last check that the transaction is valid. Most of checks happen in the relay loop and
+		// it is the "final" check before submission.
+		self.validate_transaction(best_header_id.1, PreEncoded(signed_extrinsic.clone()))
+			.await
+			.map_err(|e| {
+				log::error!(target: "bridge", "Pre-submit {} transaction validation failed: {:?}", C::NAME, e);
+				e
+			})??;
+
 		self.jsonrpsee_execute(move |client| async move {
-			let extrinsic = prepare_extrinsic(best_header_id, transaction_nonce)?;
-			let signed_extrinsic = C::sign_transaction(signing_data, extrinsic)?.encode();
 			let tx_hash =
 				SubstrateAuthorClient::<C>::submit_extrinsic(&*client, Bytes(signed_extrinsic))
 					.await
@@ -529,16 +558,27 @@ impl<C: Chain> Client<C> {
 		let transaction_nonce = self.next_account_index(signer.public().into()).await?;
 		let best_header = self.best_header().await?;
 		let best_header_id = best_header.id();
+
+		let extrinsic = prepare_extrinsic(best_header_id, transaction_nonce)?;
+		let stall_timeout = transaction_stall_timeout(
+			extrinsic.era.mortality_period(),
+			C::AVERAGE_BLOCK_INTERVAL,
+			STALL_TIMEOUT,
+		);
+		let signed_extrinsic = C::sign_transaction(signing_data, extrinsic)?.encode();
+
+		// one last check that the transaction is valid. Most of checks happen in the relay loop and
+		// it is the "final" check before submission.
+		self.validate_transaction(best_header_id.1, PreEncoded(signed_extrinsic.clone()))
+			.await
+			.map_err(|e| {
+				log::error!(target: "bridge", "Pre-submit {} transaction validation failed: {:?}", C::NAME, e);
+				e
+			})??;
+
 		let (sender, receiver) = futures::channel::mpsc::channel(MAX_SUBSCRIPTION_CAPACITY);
 		let (tracker, subscription) = self
 			.jsonrpsee_execute(move |client| async move {
-				let extrinsic = prepare_extrinsic(best_header_id, transaction_nonce)?;
-				let stall_timeout = transaction_stall_timeout(
-					extrinsic.era.mortality_period(),
-					C::AVERAGE_BLOCK_INTERVAL,
-					STALL_TIMEOUT,
-				);
-				let signed_extrinsic = C::sign_transaction(signing_data, extrinsic)?.encode();
 				let tx_hash = C::Hasher::hash(&signed_extrinsic);
 				let subscription = SubstrateAuthorClient::<C>::submit_and_watch_extrinsic(
 					&*client,
