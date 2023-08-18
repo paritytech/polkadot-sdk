@@ -80,6 +80,9 @@ impl_opaque_keys! {
 /// [`OnRuntimeUpgrade`] works as expected.
 pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
 
+/// The para-id used in this runtime.
+pub const PARACHAIN_ID: u32 = 100;
+
 // The only difference between the two declarations below is the `spec_version`. With the
 // `increment-spec-version` feature enabled `spec_version` should be greater than the one of without
 // the `increment-spec-version` feature.
@@ -283,10 +286,11 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type XcmpMessageHandler = ();
 	type ReservedXcmpWeight = ();
 	type CheckAssociatedRelayNumber = cumulus_pallet_parachain_system::AnyRelayNumber;
+	type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::RequireParentIncluded;
 }
 
 parameter_types! {
-	pub storage ParachainId: cumulus_primitives_core::ParaId = 100.into();
+	pub storage ParachainId: cumulus_primitives_core::ParaId = PARACHAIN_ID.into();
 }
 
 impl test_pallet::Config for Runtime {}
@@ -468,36 +472,7 @@ impl_runtime_apis! {
 	}
 }
 
-struct CheckInherents;
-
-impl cumulus_pallet_parachain_system::CheckInherents<Block> for CheckInherents {
-	fn check_inherents(
-		block: &Block,
-		relay_state_proof: &cumulus_pallet_parachain_system::RelayChainStateProof,
-	) -> sp_inherents::CheckInherentsResult {
-		if relay_state_proof.read_slot().expect("Reads slot") == 1337u64 {
-			let mut res = sp_inherents::CheckInherentsResult::new();
-			res.put_error([1u8; 8], &sp_inherents::MakeFatalError::from("You are wrong"))
-				.expect("Puts error");
-			res
-		} else {
-			let relay_chain_slot = relay_state_proof
-				.read_slot()
-				.expect("Could not read the relay chain slot from the proof");
-
-			let inherent_data =
-				cumulus_primitives_timestamp::InherentDataProvider::from_relay_chain_slot_and_duration(
-					relay_chain_slot,
-					sp_std::time::Duration::from_secs(6),
-				).create_inherent_data().expect("Could not create the timestamp inherent data");
-
-			inherent_data.check_extrinsics(block)
-		}
-	}
-}
-
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = Executive,
-	CheckInherents = CheckInherents,
 }

@@ -15,21 +15,26 @@
 
 use sp_std::marker::PhantomData;
 
-use codec::DecodeLimit;
-use cumulus_primitives_core::{AbridgedHrmpChannel, ParaId, PersistedValidationData};
+use codec::{Decode, DecodeLimit};
+use cumulus_primitives_core::{
+	relay_chain::Slot, AbridgedHrmpChannel, ParaId, PersistedValidationData,
+};
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{
 	dispatch::{DispatchResult, RawOrigin, UnfilteredDispatchable},
 	inherent::{InherentData, ProvideInherent},
-	traits::OriginTrait,
+	traits::{OnFinalize, OnInitialize, OriginTrait},
 	weights::Weight,
 };
-use parachains_common::AccountId;
-use polkadot_parachain::primitives::{HrmpChannelId, RelayChainBlockNumber, XcmpMessageFormat};
-use sp_consensus_aura::AURA_ENGINE_ID;
+use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
+use parachains_common::{AccountId, SLOT_DURATION};
+use polkadot_parachain::primitives::{
+	HeadData, HrmpChannelId, RelayChainBlockNumber, XcmpMessageFormat,
+};
+use sp_consensus_aura::{SlotDuration, AURA_ENGINE_ID};
 use sp_core::Encode;
-use sp_runtime::{BuildStorage, Digest, DigestItem};
+use sp_runtime::{traits::Header, BuildStorage, Digest, DigestItem};
 use xcm::{
 	latest::{MultiAsset, MultiLocation, XcmContext, XcmHash},
 	prelude::*,
@@ -207,36 +212,46 @@ impl<
 	}
 }
 
-pub struct RuntimeHelper<Runtime>(PhantomData<Runtime>);
+pub struct RuntimeHelper<Runtime, AllPalletsWithoutSystem>(
+	PhantomData<(Runtime, AllPalletsWithoutSystem)>,
+);
 /// Utility function that advances the chain to the desired block number.
 /// If an author is provided, that author information is injected to all the blocks in the meantime.
-impl<Runtime: frame_system::Config> RuntimeHelper<Runtime>
+impl<Runtime: frame_system::Config, AllPalletsWithoutSystem>
+	RuntimeHelper<Runtime, AllPalletsWithoutSystem>
 where
 	AccountIdOf<Runtime>:
 		Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
+	AllPalletsWithoutSystem:
+		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 {
-	pub fn run_to_block(n: u32, author: Option<AccountId>) {
-		while frame_system::Pallet::<Runtime>::block_number() < n.into() {
-			// Set the new block number and author
-			match author {
-				Some(ref author) => {
-					let pre_digest = Digest {
-						logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, author.encode())],
-					};
-					frame_system::Pallet::<Runtime>::reset_events();
-					frame_system::Pallet::<Runtime>::initialize(
-						&(frame_system::Pallet::<Runtime>::block_number() + 1u32.into()),
-						&frame_system::Pallet::<Runtime>::parent_hash(),
-						&pre_digest,
-					);
-				},
-				None => {
-					frame_system::Pallet::<Runtime>::set_block_number(
-						frame_system::Pallet::<Runtime>::block_number() + 1u32.into(),
-					);
-				},
+	pub fn run_to_block(n: u32, author: AccountId) -> HeaderFor<Runtime> {
+		let mut last_header = None;
+		loop {
+			let block_number = frame_system::Pallet::<Runtime>::block_number();
+			if block_number >= n.into() {
+				break
 			}
+			// Set the new block number and author
+
+			// Inherent is not created at every block, don't finalize parachain
+			// system to avoid panicking.
+			let header = frame_system::Pallet::<Runtime>::finalize();
+
+			let pre_digest =
+				Digest { logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, author.encode())] };
+			frame_system::Pallet::<Runtime>::reset_events();
+
+			let next_block_number = block_number + 1u32.into();
+			frame_system::Pallet::<Runtime>::initialize(
+				&next_block_number,
+				&header.hash(),
+				&pre_digest,
+			);
+			AllPalletsWithoutSystem::on_initialize(next_block_number);
+			last_header = Some(header);
 		}
+		last_header.expect("run_to_block empty block range")
 	}
 
 	pub fn root_origin() -> <Runtime as frame_system::Config>::RuntimeOrigin {
@@ -250,7 +265,9 @@ where
 	}
 }
 
-impl<XcmConfig: xcm_executor::Config> RuntimeHelper<XcmConfig> {
+impl<XcmConfig: xcm_executor::Config, AllPalletsWithoutSystem>
+	RuntimeHelper<XcmConfig, AllPalletsWithoutSystem>
+{
 	pub fn do_transfer(
 		from: MultiLocation,
 		to: MultiLocation,
@@ -267,13 +284,19 @@ impl<XcmConfig: xcm_executor::Config> RuntimeHelper<XcmConfig> {
 	}
 }
 
-impl<Runtime: pallet_xcm::Config + cumulus_pallet_parachain_system::Config> RuntimeHelper<Runtime> {
+impl<
+		Runtime: pallet_xcm::Config + cumulus_pallet_parachain_system::Config,
+		AllPalletsWithoutSystem,
+	> RuntimeHelper<Runtime, AllPalletsWithoutSystem>
+{
 	pub fn do_teleport_assets<HrmpChannelOpener>(
 		origin: <Runtime as frame_system::Config>::RuntimeOrigin,
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
 		(asset, amount): (MultiLocation, u128),
 		open_hrmp_channel: Option<(u32, u32)>,
+		included_head: HeaderFor<Runtime>,
+		slot_digest: &[u8],
 	) -> DispatchResult
 	where
 		HrmpChannelOpener: frame_support::inherent::ProvideInherent<
@@ -285,6 +308,8 @@ impl<Runtime: pallet_xcm::Config + cumulus_pallet_parachain_system::Config> Runt
 			mock_open_hrmp_channel::<Runtime, HrmpChannelOpener>(
 				source_para_id.into(),
 				target_para_id.into(),
+				included_head,
+				slot_digest,
 			);
 		}
 
@@ -299,8 +324,10 @@ impl<Runtime: pallet_xcm::Config + cumulus_pallet_parachain_system::Config> Runt
 	}
 }
 
-impl<Runtime: cumulus_pallet_dmp_queue::Config + cumulus_pallet_parachain_system::Config>
-	RuntimeHelper<Runtime>
+impl<
+		Runtime: cumulus_pallet_dmp_queue::Config + cumulus_pallet_parachain_system::Config,
+		AllPalletsWithoutSystem,
+	> RuntimeHelper<Runtime, AllPalletsWithoutSystem>
 {
 	pub fn execute_as_governance(call: Vec<u8>, require_weight_at_most: Weight) -> Outcome {
 		// prepare xcm as governance will do
@@ -329,7 +356,9 @@ pub enum XcmReceivedFrom {
 	Sibling,
 }
 
-impl<ParachainSystem: cumulus_pallet_parachain_system::Config> RuntimeHelper<ParachainSystem> {
+impl<ParachainSystem: cumulus_pallet_parachain_system::Config, AllPalletsWithoutSystem>
+	RuntimeHelper<ParachainSystem, AllPalletsWithoutSystem>
+{
 	pub fn xcm_max_weight(from: XcmReceivedFrom) -> Weight {
 		use frame_support::traits::Get;
 		match from {
@@ -339,7 +368,9 @@ impl<ParachainSystem: cumulus_pallet_parachain_system::Config> RuntimeHelper<Par
 	}
 }
 
-impl<Runtime: frame_system::Config + pallet_xcm::Config> RuntimeHelper<Runtime> {
+impl<Runtime: frame_system::Config + pallet_xcm::Config, AllPalletsWithoutSystem>
+	RuntimeHelper<Runtime, AllPalletsWithoutSystem>
+{
 	pub fn assert_pallet_xcm_event_outcome(
 		unwrap_pallet_xcm_event: &Box<dyn Fn(Vec<u8>) -> Option<pallet_xcm::Event<Runtime>>>,
 		assert_outcome: fn(Outcome),
@@ -357,7 +388,11 @@ impl<Runtime: frame_system::Config + pallet_xcm::Config> RuntimeHelper<Runtime> 
 	}
 }
 
-impl<Runtime: frame_system::Config + cumulus_pallet_xcmp_queue::Config> RuntimeHelper<Runtime> {
+impl<
+		Runtime: frame_system::Config + cumulus_pallet_xcmp_queue::Config,
+		AllPalletsWithoutSystem,
+	> RuntimeHelper<Runtime, AllPalletsWithoutSystem>
+{
 	pub fn xcmp_queue_message_sent(
 		unwrap_xcmp_queue_event: Box<
 			dyn Fn(Vec<u8>) -> Option<cumulus_pallet_xcmp_queue::Event<Runtime>>,
@@ -400,18 +435,35 @@ pub fn assert_total<Fungibles, AccountId>(
 	assert_eq!(Fungibles::active_issuance(asset_id.into()), expected_active_issuance.into());
 }
 
-/// Helper function which emulates opening HRMP channel which is needed for `XcmpQueue` to pass
+/// Helper function which emulates opening HRMP channel which is needed for `XcmpQueue` to pass.
+///
+/// Calls parachain-system's `create_inherent` in case the channel hasn't been opened before, and
+/// thus requires additional parameters for validating it: latest included parachain head and
+/// parachain AuRa-slot.
+///
+/// AuRa consensus hook expects pallets to be initialized, before calling this function make sure to
+/// `run_to_block` at least once.
 pub fn mock_open_hrmp_channel<
 	C: cumulus_pallet_parachain_system::Config,
 	T: ProvideInherent<Call = cumulus_pallet_parachain_system::Call<C>>,
 >(
 	sender: ParaId,
 	recipient: ParaId,
+	included_head: HeaderFor<C>,
+	mut slot_digest: &[u8],
 ) {
+	const RELAY_CHAIN_SLOT_DURATION: SlotDuration = SlotDuration::from_millis(6000);
+	let slot = Slot::decode(&mut slot_digest).expect("failed to decode digest");
+	// Convert para slot to relay chain.
+	let timestamp = slot.saturating_mul(SLOT_DURATION);
+	let relay_slot = Slot::from_timestamp(timestamp.into(), RELAY_CHAIN_SLOT_DURATION);
+
 	let n = 1_u32;
 	let mut sproof_builder = RelayStateSproofBuilder {
 		para_id: sender,
+		included_para_head: Some(HeadData(included_head.encode())),
 		hrmp_egress_channel_index: Some(vec![recipient]),
+		current_slot: relay_slot,
 		..Default::default()
 	};
 	sproof_builder.hrmp_channels.insert(
@@ -458,8 +510,8 @@ pub fn mock_open_hrmp_channel<
 		.expect("dispatch succeeded");
 }
 
-impl<HrmpChannelSource: cumulus_primitives_core::XcmpMessageSource>
-	RuntimeHelper<HrmpChannelSource>
+impl<HrmpChannelSource: cumulus_primitives_core::XcmpMessageSource, AllPalletsWithoutSystem>
+	RuntimeHelper<HrmpChannelSource, AllPalletsWithoutSystem>
 {
 	pub fn take_xcm(sent_to_para_id: ParaId) -> Option<VersionedXcm<()>> {
 		match HrmpChannelSource::take_outbound_messages(10)[..] {

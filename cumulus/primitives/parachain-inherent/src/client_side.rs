@@ -109,6 +109,7 @@ async fn collect_relay_storage_proof(
 		relay_well_known_keys::hrmp_egress_channel_index(para_id),
 		relay_well_known_keys::upgrade_go_ahead_signal(para_id),
 		relay_well_known_keys::upgrade_restriction_signal(para_id),
+		relay_well_known_keys::para_head(para_id),
 	];
 	relevant_keys.extend(ingress_channels.into_iter().map(|sender| {
 		relay_well_known_keys::hrmp_channels(HrmpChannelId { sender, recipient: para_id })

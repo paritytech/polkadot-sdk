@@ -16,7 +16,7 @@
 
 use codec::Decode;
 use polkadot_primitives::{
-	Block as PBlock, Hash as PHash, Header as PHeader, PersistedValidationData,
+	Block as PBlock, Hash as PHash, Header as PHeader, PersistedValidationData, ValidationCodeHash,
 };
 
 use cumulus_primitives_core::{
@@ -25,13 +25,14 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 
-use sc_client_api::Backend;
+use sc_client_api::{Backend, HeaderBackend};
 use sc_consensus::{shared_data::SharedData, BlockImport, ImportResult};
-use sp_consensus_slots::{Slot, SlotDuration};
+use sp_blockchain::Backend as BlockchainBackend;
+use sp_consensus_slots::Slot;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use sp_timestamp::Timestamp;
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 mod level_monitor;
 mod parachain_consensus;
@@ -44,6 +45,21 @@ use level_monitor::LevelMonitor;
 pub use level_monitor::{LevelLimit, MAX_LEAVES_PER_LEVEL_SENSIBLE_DEFAULT};
 
 pub mod import_queue;
+
+/// Provides the hash of validation code used for authoring/execution of blocks at a given
+/// hash.
+pub trait ValidationCodeHashProvider<Hash> {
+	fn code_hash_at(&self, at: Hash) -> Option<ValidationCodeHash>;
+}
+
+impl<F, Hash> ValidationCodeHashProvider<Hash> for F
+where
+	F: Fn(Hash) -> Option<ValidationCodeHash>,
+{
+	fn code_hash_at(&self, at: Hash) -> Option<ValidationCodeHash> {
+		(self)(at)
+	}
+}
 
 /// The result of [`ParachainConsensus::produce_candidate`].
 pub struct ParachainCandidate<B> {
@@ -237,21 +253,34 @@ pub struct PotentialParent<B: BlockT> {
 /// pending parachain block (when `max_depth` >= 1), or all of the following hold:
 ///   * its parent is a potential parent
 ///   * its relay-parent is within `ancestry_lookback` of the targeted relay-parent.
+///   * its relay-parent is within the same session as the targeted relay-parent.
 ///   * the block number is within `max_depth` blocks of the included block
 pub async fn find_potential_parents<B: BlockT>(
 	params: ParentSearchParams,
-	client: &impl sp_blockchain::Backend<B>,
+	client: &impl Backend<B>,
 	relay_client: &impl RelayChainInterface,
 ) -> Result<Vec<PotentialParent<B>>, RelayChainError> {
 	// 1. Build up the ancestry record of the relay chain to compare against.
 	let rp_ancestry = {
 		let mut ancestry = Vec::with_capacity(params.ancestry_lookback + 1);
 		let mut current_rp = params.relay_parent;
+		let mut required_session = None;
+
 		while ancestry.len() <= params.ancestry_lookback {
 			let header = match relay_client.header(RBlockId::hash(current_rp)).await? {
 				None => break,
 				Some(h) => h,
 			};
+
+			let session = relay_client.session_index_for_child(current_rp).await?;
+			if let Some(required_session) = required_session {
+				// Respect the relay-chain rule not to cross session boundaries.
+				if session != required_session {
+					break
+				}
+			} else {
+				required_session = Some(session);
+			}
 
 			ancestry.push((current_rp, *header.state_root()));
 			current_rp = *header.parent_hash();
@@ -339,7 +368,7 @@ pub async fn find_potential_parents<B: BlockT>(
 		}
 
 		// push children onto search frontier.
-		for child in client.children(hash).ok().into_iter().flatten() {
+		for child in client.blockchain().children(hash).ok().into_iter().flatten() {
 			let aligned_with_pending = parent_aligned_with_pending &&
 				if child_depth == 1 {
 					pending_hash.as_ref().map_or(true, |h| &child == h)
@@ -351,7 +380,7 @@ pub async fn find_potential_parents<B: BlockT>(
 				continue
 			}
 
-			let header = match client.header(child) {
+			let header = match client.blockchain().header(child) {
 				Ok(Some(h)) => h,
 				Ok(None) => continue,
 				Err(_) => continue,
@@ -372,12 +401,12 @@ pub async fn find_potential_parents<B: BlockT>(
 /// Get the relay-parent slot and timestamp from a header.
 pub fn relay_slot_and_timestamp(
 	relay_parent_header: &PHeader,
-	relay_chain_slot_duration: SlotDuration,
+	relay_chain_slot_duration: Duration,
 ) -> Option<(Slot, Timestamp)> {
 	sc_consensus_babe::find_pre_digest::<PBlock>(relay_parent_header)
 		.map(|babe_pre_digest| {
 			let slot = babe_pre_digest.slot();
-			let t = Timestamp::new(relay_chain_slot_duration.as_millis() * *slot);
+			let t = Timestamp::new(relay_chain_slot_duration.as_millis() as u64 * *slot);
 
 			(slot, t)
 		})

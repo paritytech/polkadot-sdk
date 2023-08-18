@@ -29,7 +29,10 @@ use frame_support::{
 	traits::{OnFinalize, OnInitialize},
 	weights::Weight,
 };
-use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use frame_system::{
+	pallet_prelude::{BlockNumberFor, HeaderFor},
+	RawOrigin,
+};
 use hex_literal::hex;
 use relay_chain::HrmpChannelId;
 use sp_core::{blake2_256, H256};
@@ -37,10 +40,12 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage, DispatchErrorWithPostInfo,
 };
+use sp_std::{collections::vec_deque::VecDeque, num::NonZeroU32};
 use sp_version::RuntimeVersion;
 use std::cell::RefCell;
 
 use crate as parachain_system;
+use crate::consensus_hook::UnincludedSegmentCapacity;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -102,7 +107,8 @@ impl Config for Test {
 	type ReservedDmpWeight = ReservedDmpWeight;
 	type XcmpMessageHandler = SaveIntoThreadLocal;
 	type ReservedXcmpWeight = ReservedXcmpWeight;
-	type CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
+	type CheckAssociatedRelayNumber = AnyRelayNumber;
+	type ConsensusHook = TestConsensusHook;
 }
 
 pub struct FromThreadLocal;
@@ -112,6 +118,16 @@ std::thread_local! {
 	static HANDLED_DMP_MESSAGES: RefCell<Vec<(relay_chain::BlockNumber, Vec<u8>)>> = RefCell::new(Vec::new());
 	static HANDLED_XCMP_MESSAGES: RefCell<Vec<(ParaId, relay_chain::BlockNumber, Vec<u8>)>> = RefCell::new(Vec::new());
 	static SENT_MESSAGES: RefCell<Vec<(ParaId, Vec<u8>)>> = RefCell::new(Vec::new());
+	static CONSENSUS_HOOK: RefCell<Box<dyn Fn(&RelayChainStateProof) -> (Weight, UnincludedSegmentCapacity)>>
+		= RefCell::new(Box::new(|_| (Weight::zero(), NonZeroU32::new(1).unwrap().into())));
+}
+
+pub struct TestConsensusHook;
+
+impl ConsensusHook for TestConsensusHook {
+	fn on_state_proof(s: &RelayChainStateProof) -> (Weight, UnincludedSegmentCapacity) {
+		CONSENSUS_HOOK.with(|f| f.borrow_mut()(s))
+	}
 }
 
 fn send_message(dest: ParaId, message: Vec<u8>) {
@@ -121,15 +137,28 @@ fn send_message(dest: ParaId, message: Vec<u8>) {
 impl XcmpMessageSource for FromThreadLocal {
 	fn take_outbound_messages(maximum_channels: usize) -> Vec<(ParaId, Vec<u8>)> {
 		let mut ids = std::collections::BTreeSet::<ParaId>::new();
-		let mut taken = 0;
+		let mut taken_messages = 0;
+		let mut taken_bytes = 0;
 		let mut result = Vec::new();
 		SENT_MESSAGES.with(|ms| {
 			ms.borrow_mut().retain(|m| {
 				let status = <Pallet<Test> as GetChannelInfo>::get_channel_status(m.0);
-				let ready = matches!(status, ChannelStatus::Ready(..));
-				if ready && !ids.contains(&m.0) && taken < maximum_channels {
+				let (max_size_now, max_size_ever) = match status {
+					ChannelStatus::Ready(now, ever) => (now, ever),
+					ChannelStatus::Closed => return false, // drop message
+					ChannelStatus::Full => return true,    // keep message queued.
+				};
+
+				let msg_len = m.1.len();
+
+				if !ids.contains(&m.0) &&
+					taken_messages < maximum_channels &&
+					msg_len <= max_size_ever &&
+					taken_bytes + msg_len <= max_size_now
+				{
 					ids.insert(m.0);
-					taken += 1;
+					taken_messages += 1;
+					taken_bytes += msg_len;
 					result.push(m.clone());
 					false
 				} else {
@@ -222,9 +251,13 @@ struct BlockTests {
 	ran: bool,
 	relay_sproof_builder_hook:
 		Option<Box<dyn Fn(&BlockTests, RelayChainBlockNumber, &mut RelayStateSproofBuilder)>>,
-	persisted_validation_data_hook: Option<Box<dyn Fn(&BlockTests, &mut PersistedValidationData)>>,
 	inherent_data_hook:
 		Option<Box<dyn Fn(&BlockTests, RelayChainBlockNumber, &mut ParachainInherentData)>>,
+	inclusion_delay: Option<usize>,
+	relay_block_number: Option<Box<dyn Fn(&BlockNumberFor<Test>) -> RelayChainBlockNumber>>,
+
+	included_para_head: Option<relay_chain::HeadData>,
+	pending_blocks: VecDeque<relay_chain::HeadData>,
 }
 
 impl BlockTests {
@@ -269,11 +302,11 @@ impl BlockTests {
 		self
 	}
 
-	fn with_validation_data<F>(mut self, f: F) -> Self
+	fn with_relay_block_number<F>(mut self, f: F) -> Self
 	where
-		F: 'static + Fn(&BlockTests, &mut PersistedValidationData),
+		F: 'static + Fn(&BlockNumberFor<Test>) -> RelayChainBlockNumber,
 	{
-		self.persisted_validation_data_hook = Some(Box::new(f));
+		self.relay_block_number = Some(Box::new(f));
 		self
 	}
 
@@ -285,10 +318,27 @@ impl BlockTests {
 		self
 	}
 
+	fn with_inclusion_delay(mut self, inclusion_delay: usize) -> Self {
+		self.inclusion_delay.replace(inclusion_delay);
+		self
+	}
+
 	fn run(&mut self) {
 		self.ran = true;
 		wasm_ext().execute_with(|| {
+			let mut parent_head_data = {
+				let header = HeaderFor::<Test>::new_from_number(0);
+				relay_chain::HeadData(header.encode())
+			};
+
+			self.included_para_head = Some(parent_head_data.clone());
+
 			for BlockTest { n, within_block, after_block } in self.tests.iter() {
+				let relay_parent_number = self
+					.relay_block_number
+					.as_ref()
+					.map(|f| f(n))
+					.unwrap_or(*n as RelayChainBlockNumber);
 				// clear pending updates, as applicable
 				if let Some(upgrade_block) = self.pending_upgrade {
 					if n >= &upgrade_block.into() {
@@ -297,24 +347,27 @@ impl BlockTests {
 				}
 
 				// begin initialization
+				let parent_hash = BlakeTwo256::hash(&parent_head_data.0);
 				System::reset_events();
-				System::initialize(n, &Default::default(), &Default::default());
+				System::initialize(n, &parent_hash, &Default::default());
 
 				// now mess with the storage the way validate_block does
 				let mut sproof_builder = RelayStateSproofBuilder::default();
+				sproof_builder.included_para_head = self
+					.included_para_head
+					.clone()
+					.unwrap_or_else(|| parent_head_data.clone())
+					.into();
 				if let Some(ref hook) = self.relay_sproof_builder_hook {
-					hook(self, *n as RelayChainBlockNumber, &mut sproof_builder);
+					hook(self, relay_parent_number, &mut sproof_builder);
 				}
 				let (relay_parent_storage_root, relay_chain_state) =
 					sproof_builder.into_state_root_and_proof();
-				let mut vfp = PersistedValidationData {
-					relay_parent_number: *n as RelayChainBlockNumber,
+				let vfp = PersistedValidationData {
+					relay_parent_number,
 					relay_parent_storage_root,
 					..Default::default()
 				};
-				if let Some(ref hook) = self.persisted_validation_data_hook {
-					hook(self, &mut vfp);
-				}
 
 				<ValidationData<Test>>::put(&vfp);
 				NewValidationCode::<Test>::kill();
@@ -330,7 +383,7 @@ impl BlockTests {
 						horizontal_messages: Default::default(),
 					};
 					if let Some(ref hook) = self.inherent_data_hook {
-						hook(self, *n as RelayChainBlockNumber, &mut system_inherent_data);
+						hook(self, relay_parent_number, &mut system_inherent_data);
 					}
 					inherent_data
 						.put_data(
@@ -356,7 +409,23 @@ impl BlockTests {
 				}
 
 				// clean up
-				System::finalize();
+				let header = System::finalize();
+				let head_data = relay_chain::HeadData(header.encode());
+				parent_head_data = head_data.clone();
+				match self.inclusion_delay {
+					Some(delay) if delay > 0 => {
+						self.pending_blocks.push_back(head_data);
+						if self.pending_blocks.len() > delay {
+							let included = self.pending_blocks.pop_front().unwrap();
+
+							self.included_para_head.replace(included);
+						}
+					},
+					_ => {
+						self.included_para_head.replace(head_data);
+					},
+				}
+
 				if let Some(after_block) = after_block {
 					after_block();
 				}
@@ -377,6 +446,427 @@ impl Drop for BlockTests {
 #[should_panic]
 fn block_tests_run_on_drop() {
 	BlockTests::new().add(123, || panic!("if this test passes, block tests run properly"));
+}
+
+#[test]
+fn test_xcmp_source_keeps_messages() {
+	let recipient = ParaId::from(400);
+
+	CONSENSUS_HOOK.with(|c| {
+		*c.borrow_mut() = Box::new(|_| (Weight::zero(), NonZeroU32::new(3).unwrap().into()))
+	});
+
+	BlockTests::new()
+		.with_inclusion_delay(2)
+		.with_relay_sproof_builder(move |_, block_number, sproof| {
+			sproof.host_config.hrmp_max_message_num_per_candidate = 10;
+			let channel = sproof.upsert_outbound_channel(recipient);
+			channel.max_total_size = 10;
+			channel.max_message_size = 10;
+
+			// Only fit messages starting from 3rd block.
+			channel.max_capacity = if block_number < 3 { 0 } else { 1 };
+		})
+		.add(1, || {})
+		.add_with_post_test(
+			2,
+			move || {
+				send_message(recipient, b"22".to_vec());
+			},
+			move || {
+				let v = HrmpOutboundMessages::<Test>::get();
+				assert!(v.is_empty());
+			},
+		)
+		.add_with_post_test(
+			3,
+			move || {},
+			move || {
+				// Not discarded.
+				let v = HrmpOutboundMessages::<Test>::get();
+				assert_eq!(v, vec![OutboundHrmpMessage { recipient, data: b"22".to_vec() }]);
+			},
+		);
+}
+
+#[test]
+fn unincluded_segment_works() {
+	CONSENSUS_HOOK.with(|c| {
+		*c.borrow_mut() = Box::new(|_| (Weight::zero(), NonZeroU32::new(10).unwrap().into()))
+	});
+
+	BlockTests::new()
+		.with_inclusion_delay(1)
+		.add_with_post_test(
+			123,
+			|| {},
+			|| {
+				let segment = <UnincludedSegment<Test>>::get();
+				assert_eq!(segment.len(), 1);
+				assert!(<AggregatedUnincludedSegment<Test>>::get().is_some());
+			},
+		)
+		.add_with_post_test(
+			124,
+			|| {},
+			|| {
+				let segment = <UnincludedSegment<Test>>::get();
+				assert_eq!(segment.len(), 2);
+			},
+		)
+		.add_with_post_test(
+			125,
+			|| {},
+			|| {
+				let segment = <UnincludedSegment<Test>>::get();
+				// Block 123 was popped from the segment, the len is still 2.
+				assert_eq!(segment.len(), 2);
+			},
+		);
+}
+
+#[test]
+#[should_panic = "no space left for the block in the unincluded segment"]
+fn unincluded_segment_is_limited() {
+	CONSENSUS_HOOK.with(|c| {
+		*c.borrow_mut() = Box::new(|_| (Weight::zero(), NonZeroU32::new(1).unwrap().into()))
+	});
+
+	BlockTests::new()
+		.with_inclusion_delay(2)
+		.add_with_post_test(
+			123,
+			|| {},
+			|| {
+				let segment = <UnincludedSegment<Test>>::get();
+				assert_eq!(segment.len(), 1);
+				assert!(<AggregatedUnincludedSegment<Test>>::get().is_some());
+			},
+		)
+		.add(124, || {}); // The previous block wasn't included yet, should panic in `create_inherent`.
+}
+
+#[test]
+fn unincluded_code_upgrade_handles_signal() {
+	CONSENSUS_HOOK.with(|c| {
+		*c.borrow_mut() = Box::new(|_| (Weight::zero(), NonZeroU32::new(2).unwrap().into()))
+	});
+
+	BlockTests::new()
+		.with_inclusion_delay(1)
+		.with_relay_sproof_builder(|_, block_number, builder| {
+			if block_number > 123 && block_number <= 125 {
+				builder.upgrade_go_ahead = Some(relay_chain::UpgradeGoAhead::GoAhead);
+			}
+		})
+		.add(123, || {
+			assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
+		})
+		.add_with_post_test(
+			124,
+			|| {},
+			|| {
+				assert!(
+					!<PendingValidationCode<Test>>::exists(),
+					"validation function must have been unset"
+				);
+			},
+		)
+		.add_with_post_test(
+			125,
+			|| {
+				// The signal is present in relay state proof and ignored.
+				// Block that processed the signal is still not included.
+			},
+			|| {
+				let segment = <UnincludedSegment<Test>>::get();
+				assert_eq!(segment.len(), 2);
+				let aggregated_segment =
+					<AggregatedUnincludedSegment<Test>>::get().expect("segment is non-empty");
+				assert_eq!(
+					aggregated_segment.consumed_go_ahead_signal(),
+					Some(relay_chain::UpgradeGoAhead::GoAhead)
+				);
+			},
+		)
+		.add_with_post_test(
+			126,
+			|| {},
+			|| {
+				let aggregated_segment =
+					<AggregatedUnincludedSegment<Test>>::get().expect("segment is non-empty");
+				// Block that processed the signal is included.
+				assert!(aggregated_segment.consumed_go_ahead_signal().is_none());
+			},
+		);
+}
+
+#[test]
+fn unincluded_code_upgrade_scheduled_after_go_ahead() {
+	CONSENSUS_HOOK.with(|c| {
+		*c.borrow_mut() = Box::new(|_| (Weight::zero(), NonZeroU32::new(2).unwrap().into()))
+	});
+
+	BlockTests::new()
+		.with_inclusion_delay(1)
+		.with_relay_sproof_builder(|_, block_number, builder| {
+			if block_number > 123 && block_number <= 125 {
+				builder.upgrade_go_ahead = Some(relay_chain::UpgradeGoAhead::GoAhead);
+			}
+		})
+		.add(123, || {
+			assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
+		})
+		.add_with_post_test(
+			124,
+			|| {},
+			|| {
+				assert!(
+					!<PendingValidationCode<Test>>::exists(),
+					"validation function must have been unset"
+				);
+				// The previous go-ahead signal was processed, schedule another upgrade.
+				assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
+			},
+		)
+		.add_with_post_test(
+			125,
+			|| {
+				// The signal is present in relay state proof and ignored.
+				// Block that processed the signal is still not included.
+			},
+			|| {
+				let segment = <UnincludedSegment<Test>>::get();
+				assert_eq!(segment.len(), 2);
+				let aggregated_segment =
+					<AggregatedUnincludedSegment<Test>>::get().expect("segment is non-empty");
+				assert_eq!(
+					aggregated_segment.consumed_go_ahead_signal(),
+					Some(relay_chain::UpgradeGoAhead::GoAhead)
+				);
+			},
+		)
+		.add_with_post_test(
+			126,
+			|| {},
+			|| {
+				assert!(<PendingValidationCode<Test>>::exists(), "upgrade is pending");
+			},
+		);
+}
+
+#[test]
+fn inherent_processed_messages_are_ignored() {
+	CONSENSUS_HOOK.with(|c| {
+		*c.borrow_mut() = Box::new(|_| (Weight::zero(), NonZeroU32::new(2).unwrap().into()))
+	});
+	lazy_static::lazy_static! {
+		static ref DMQ_MSG: InboundDownwardMessage = InboundDownwardMessage {
+			sent_at: 3,
+			msg: b"down".to_vec(),
+		};
+
+		static ref XCMP_MSG_1: InboundHrmpMessage = InboundHrmpMessage {
+			sent_at: 2,
+			data: b"h1".to_vec(),
+		};
+
+		static ref XCMP_MSG_2: InboundHrmpMessage = InboundHrmpMessage {
+			sent_at: 3,
+			data: b"h2".to_vec(),
+		};
+
+		static ref EXPECTED_PROCESSED_DMQ: Vec<(RelayChainBlockNumber, Vec<u8>)> = vec![
+			(DMQ_MSG.sent_at, DMQ_MSG.msg.clone())
+		];
+		static ref EXPECTED_PROCESSED_XCMP: Vec<(ParaId, RelayChainBlockNumber, Vec<u8>)> = vec![
+			(ParaId::from(200), XCMP_MSG_1.sent_at, XCMP_MSG_1.data.clone()),
+			(ParaId::from(200), XCMP_MSG_2.sent_at, XCMP_MSG_2.data.clone()),
+		];
+	}
+
+	BlockTests::new()
+		.with_inclusion_delay(1)
+		.with_relay_block_number(|block_number| 3.max(*block_number as RelayChainBlockNumber))
+		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
+			3 => {
+				sproof.dmq_mqc_head =
+					Some(MessageQueueChain::default().extend_downward(&DMQ_MSG).head());
+				sproof.upsert_inbound_channel(ParaId::from(200)).mqc_head = Some(
+					MessageQueueChain::default()
+						.extend_hrmp(&XCMP_MSG_1)
+						.extend_hrmp(&XCMP_MSG_2)
+						.head(),
+				);
+			},
+			_ => unreachable!(),
+		})
+		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
+			3 => {
+				data.downward_messages.push(DMQ_MSG.clone());
+				data.horizontal_messages
+					.insert(ParaId::from(200), vec![XCMP_MSG_1.clone(), XCMP_MSG_2.clone()]);
+			},
+			_ => unreachable!(),
+		})
+		.add(1, || {
+			// Don't drop processed messages for this test.
+			HANDLED_DMP_MESSAGES.with(|m| {
+				let m = m.borrow();
+				assert_eq!(&*m, EXPECTED_PROCESSED_DMQ.as_slice());
+			});
+			HANDLED_XCMP_MESSAGES.with(|m| {
+				let m = m.borrow_mut();
+				assert_eq!(&*m, EXPECTED_PROCESSED_XCMP.as_slice());
+			});
+		})
+		.add(2, || {})
+		.add(3, || {
+			HANDLED_DMP_MESSAGES.with(|m| {
+				let m = m.borrow();
+				assert_eq!(&*m, EXPECTED_PROCESSED_DMQ.as_slice());
+			});
+			HANDLED_XCMP_MESSAGES.with(|m| {
+				let m = m.borrow_mut();
+				assert_eq!(&*m, EXPECTED_PROCESSED_XCMP.as_slice());
+			});
+		});
+}
+
+#[test]
+fn hrmp_outbound_respects_used_bandwidth() {
+	let recipient = ParaId::from(400);
+
+	CONSENSUS_HOOK.with(|c| {
+		*c.borrow_mut() = Box::new(|_| (Weight::zero(), NonZeroU32::new(3).unwrap().into()))
+	});
+
+	BlockTests::new()
+		.with_inclusion_delay(2)
+		.with_relay_sproof_builder(move |_, block_number, sproof| {
+			sproof.host_config.hrmp_max_message_num_per_candidate = 10;
+			let channel = sproof.upsert_outbound_channel(recipient);
+			channel.max_capacity = 2;
+			channel.max_total_size = 4;
+
+			channel.max_message_size = 10;
+
+			// states:
+			// [relay_chain][unincluded_segment] + [message_queue]
+			// 2: []["2"] + ["2222"]
+			// 3: []["2", "3"] + ["2222"]
+			// 4: []["2", "3"] + ["2222", "444", "4"]
+			// 5: ["2"]["3"] + ["2222", "444", "4"]
+			// 6: ["2", "3"][] + ["2222", "444", "4"]
+			// 7: ["3"]["444"] + ["2222", "4"]
+			// 8: []["444", "4"] + ["2222"]
+			//
+			// 2 tests max bytes - there is message space but no byte space.
+			// 4 tests max capacity - there is byte space but no message space
+
+			match block_number {
+				5 => {
+					// 2 included.
+					// one message added
+					channel.msg_count = 1;
+					channel.total_size = 1;
+				},
+				6 => {
+					// 3 included.
+					// one message added
+					channel.msg_count = 2;
+					channel.total_size = 2;
+				},
+				7 => {
+					// 4 included.
+					// one message drained.
+					channel.msg_count = 1;
+					channel.total_size = 1;
+				},
+				8 => {
+					// 5 included. no messages added, one drained.
+					channel.msg_count = 0;
+					channel.total_size = 0;
+				},
+				_ => {
+					channel.msg_count = 0;
+					channel.total_size = 0;
+				},
+			}
+		})
+		.add(1, || {})
+		.add_with_post_test(
+			2,
+			move || {
+				send_message(recipient, b"2".to_vec());
+				send_message(recipient, b"2222".to_vec());
+			},
+			move || {
+				let v = HrmpOutboundMessages::<Test>::get();
+				assert_eq!(v, vec![OutboundHrmpMessage { recipient, data: b"2".to_vec() }]);
+			},
+		)
+		.add_with_post_test(
+			3,
+			move || {
+				send_message(recipient, b"3".to_vec());
+			},
+			move || {
+				let v = HrmpOutboundMessages::<Test>::get();
+				assert_eq!(v, vec![OutboundHrmpMessage { recipient, data: b"3".to_vec() }]);
+			},
+		)
+		.add_with_post_test(
+			4,
+			move || {
+				send_message(recipient, b"444".to_vec());
+				send_message(recipient, b"4".to_vec());
+			},
+			move || {
+				// Queue has byte capacity but not message capacity.
+				let v = HrmpOutboundMessages::<Test>::get();
+				assert!(v.is_empty());
+			},
+		)
+		.add_with_post_test(
+			5,
+			|| {},
+			move || {
+				// 1 is included here, channel not drained yet. nothing fits.
+				let v = HrmpOutboundMessages::<Test>::get();
+				assert!(v.is_empty());
+			},
+		)
+		.add_with_post_test(
+			6,
+			|| {},
+			move || {
+				// 2 is included here. channel is totally full.
+				let v = HrmpOutboundMessages::<Test>::get();
+				assert!(v.is_empty());
+			},
+		)
+		.add_with_post_test(
+			7,
+			|| {},
+			move || {
+				// 3 is included here. One message was drained out. The 3-byte message
+				// finally fits
+				let v = HrmpOutboundMessages::<Test>::get();
+				// This line relies on test implementation of [`XcmpMessageSource`].
+				assert_eq!(v, vec![OutboundHrmpMessage { recipient, data: b"444".to_vec() }]);
+			},
+		)
+		.add_with_post_test(
+			8,
+			|| {},
+			move || {
+				// 4 is included here. Relay-chain side of the queue is empty,
+				let v = HrmpOutboundMessages::<Test>::get();
+				// This line relies on test implementation of [`XcmpMessageSource`].
+				assert_eq!(v, vec![OutboundHrmpMessage { recipient, data: b"4".to_vec() }]);
+			},
+		);
 }
 
 #[test]
@@ -522,7 +1012,10 @@ fn send_upward_message_num_per_candidate() {
 		)
 		.add_with_post_test(
 			2,
-			|| { /* do nothing within block */ },
+			|| {
+				assert_eq!(UnincludedSegment::<Test>::get().len(), 0);
+				/* do nothing within block */
+			},
 			|| {
 				let v = UpwardMessages::<Test>::get();
 				assert_eq!(v, vec![b"message 2".to_vec()]);
@@ -786,7 +1279,7 @@ fn receive_hrmp() {
 		};
 
 		static ref MSG_2: InboundHrmpMessage = InboundHrmpMessage {
-			sent_at: 1,
+			sent_at: 2,
 			data: b"2".to_vec(),
 		};
 
@@ -863,8 +1356,8 @@ fn receive_hrmp() {
 				assert_eq!(
 					&*m,
 					&[
-						(ParaId::from(300), 1, b"2".to_vec()),
 						(ParaId::from(200), 2, b"4".to_vec()),
+						(ParaId::from(300), 2, b"2".to_vec()),
 						(ParaId::from(300), 2, b"3".to_vec()),
 					]
 				);
@@ -954,17 +1447,6 @@ fn receive_hrmp_after_pause() {
 				m.clear();
 			});
 		});
-}
-
-#[test]
-#[should_panic = "Relay chain block number needs to strictly increase between Parachain blocks!"]
-fn test() {
-	BlockTests::new()
-		.with_validation_data(|_, data| {
-			data.relay_parent_number = 1;
-		})
-		.add(1, || {})
-		.add(2, || {});
 }
 
 #[test]

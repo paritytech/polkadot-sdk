@@ -18,13 +18,14 @@
 use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{fungibles::InspectEnumerable, Get, OriginTrait},
+	traits::{fungibles::InspectEnumerable, Get, OnFinalize, OnInitialize, OriginTrait},
 	weights::Weight,
 };
-use parachains_common::Balance;
+use frame_system::pallet_prelude::BlockNumberFor;
+use parachains_common::{AccountId, Balance};
 use parachains_runtimes_test_utils::{
 	assert_metadata, assert_total, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder,
-	RuntimeHelper, ValidatorIdOf, XcmReceivedFrom,
+	ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_runtime::{
 	traits::{MaybeEquivalence, StaticLookup, Zero},
@@ -33,6 +34,9 @@ use sp_runtime::{
 use xcm::latest::prelude::*;
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
+type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
+	parachains_runtimes_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
+
 // Re-export test_case from `parachains-runtimes-test-utils`
 pub use parachains_runtimes_test_utils::test_cases::change_storage_constant_by_governance_works;
 
@@ -40,6 +44,7 @@ pub use parachains_runtimes_test_utils::test_cases::change_storage_constant_by_g
 /// and can teleport it back and to the other parachains
 pub fn teleports_for_native_asset_works<
 	Runtime,
+	AllPalletsWithoutSystem,
 	XcmConfig,
 	CheckingAccount,
 	WeightToFee,
@@ -62,6 +67,8 @@ pub fn teleports_for_native_asset_works<
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config,
+	AllPalletsWithoutSystem:
+		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 	AccountIdOf<Runtime>: Into<[u8; 32]>,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	BalanceOf<Runtime>: From<Balance> + Into<u128>,
@@ -84,6 +91,13 @@ pub fn teleports_for_native_asset_works<
 		.with_para_id(runtime_para_id.into())
 		.build()
 		.execute_with(|| {
+			let mut alice = [0u8; 32];
+			alice[0] = 1;
+
+			let included_head = RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::run_to_block(
+				2,
+				AccountId::from(alice),
+			);
 			// check Balances before
 			assert_eq!(<pallet_balances::Pallet<Runtime>>::free_balance(&target_account), 0.into());
 			assert_eq!(
@@ -166,6 +180,8 @@ pub fn teleports_for_native_asset_works<
 					dest_beneficiary,
 					(native_asset_id, native_asset_to_teleport_away.into()),
 					None,
+					included_head.clone(),
+					&alice,
 				));
 				// check balances
 				assert_eq!(
@@ -211,6 +227,8 @@ pub fn teleports_for_native_asset_works<
 					dest_beneficiary,
 					(native_asset_id, native_asset_to_teleport_away.into()),
 					Some((runtime_para_id, other_para_id)),
+					included_head,
+					&alice,
 				));
 
 				// check balances
@@ -240,6 +258,7 @@ pub fn teleports_for_native_asset_works<
 macro_rules! include_teleports_for_native_asset_works(
 	(
 		$runtime:path,
+		$all_pallets_without_system:path,
 		$xcm_config:path,
 		$checking_account:path,
 		$weight_to_fee:path,
@@ -257,6 +276,7 @@ macro_rules! include_teleports_for_native_asset_works(
 
 			$crate::test_cases::teleports_for_native_asset_works::<
 				$runtime,
+				$all_pallets_without_system,
 				$xcm_config,
 				$checking_account,
 				$weight_to_fee,
@@ -277,6 +297,7 @@ macro_rules! include_teleports_for_native_asset_works(
 /// chain
 pub fn teleports_for_foreign_assets_works<
 	Runtime,
+	AllPalletsWithoutSystem,
 	XcmConfig,
 	CheckingAccount,
 	WeightToFee,
@@ -302,6 +323,8 @@ pub fn teleports_for_foreign_assets_works<
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
 		+ pallet_assets::Config<ForeignAssetsPalletInstance>,
+	AllPalletsWithoutSystem:
+		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 	AccountIdOf<Runtime>: Into<[u8; 32]>,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	BalanceOf<Runtime>: From<Balance>,
@@ -363,6 +386,13 @@ pub fn teleports_for_foreign_assets_works<
 		.with_tracing()
 		.build()
 		.execute_with(|| {
+			let mut alice = [0u8; 32];
+			alice[0] = 1;
+
+			let included_head = RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::run_to_block(
+				2,
+				AccountId::from(alice),
+			);
 			// checks target_account before
 			assert_eq!(
 				<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
@@ -514,6 +544,8 @@ pub fn teleports_for_foreign_assets_works<
 					dest_beneficiary,
 					(foreign_asset_id_multilocation, asset_to_teleport_away),
 					Some((runtime_para_id, foreign_para_id)),
+					included_head,
+					&alice,
 				));
 
 				// check balances
@@ -558,6 +590,7 @@ pub fn teleports_for_foreign_assets_works<
 macro_rules! include_teleports_for_foreign_assets_works(
 	(
 		$runtime:path,
+		$all_pallets_without_system:path,
 		$xcm_config:path,
 		$checking_account:path,
 		$weight_to_fee:path,
@@ -578,6 +611,7 @@ macro_rules! include_teleports_for_foreign_assets_works(
 
 			$crate::test_cases::teleports_for_foreign_assets_works::<
 				$runtime,
+				$all_pallets_without_system,
 				$xcm_config,
 				$checking_account,
 				$weight_to_fee,

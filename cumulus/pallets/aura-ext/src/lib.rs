@@ -29,7 +29,6 @@
 //! cumulus_pallet_parachain_system::register_validate_block! {
 //!     Runtime = Runtime,
 //!     BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
-//!     CheckInherents = CheckInherents,
 //! }
 //! ```
 
@@ -37,8 +36,11 @@
 
 use frame_support::traits::{ExecuteBlock, FindAuthor};
 use sp_application_crypto::RuntimeAppPublic;
-use sp_consensus_aura::digests::CompatibleDigestItem;
+use sp_consensus_aura::{digests::CompatibleDigestItem, Slot};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+
+pub mod consensus_hook;
+pub use consensus_hook::FixedVelocityConsensusHook;
 
 type Aura<T> = pallet_aura::Pallet<T>;
 
@@ -68,6 +70,19 @@ pub mod pallet {
 			// Fetch the authorities once to get them into the storage proof of the PoV.
 			Authorities::<T>::get();
 
+			let new_slot = Aura::<T>::current_slot();
+
+			let (new_slot, authored) = match SlotInfo::<T>::get() {
+				Some((slot, authored)) if slot == new_slot => (slot, authored + 1),
+				Some((slot, _)) if slot < new_slot => (new_slot, 1),
+				Some(..) => {
+					panic!("slot moved backwards")
+				},
+				None => (new_slot, 1),
+			};
+
+			SlotInfo::<T>::put((new_slot, authored));
+
 			T::DbWeight::get().reads_writes(2, 1)
 		}
 	}
@@ -83,6 +98,13 @@ pub mod pallet {
 		BoundedVec<T::AuthorityId, <T as pallet_aura::Config>::MaxAuthorities>,
 		ValueQuery,
 	>;
+
+	/// Current slot paired with a number of authored blocks.
+	///
+	/// Updated on each block initialization.
+	#[pallet::storage]
+	#[pallet::getter(fn slot_info)]
+	pub(crate) type SlotInfo<T: Config> = StorageValue<_, (Slot, u32), OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]

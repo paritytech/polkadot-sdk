@@ -55,7 +55,7 @@ use sp_runtime::{
 };
 use sp_state_machine::StorageChanges;
 use sp_timestamp::Timestamp;
-use std::{convert::TryFrom, error::Error, sync::Arc, time::Duration};
+use std::{convert::TryFrom, error::Error, time::Duration};
 
 /// Parameters for instantiating a [`Collator`].
 pub struct Params<BI, CIDP, RClient, Proposer, CS> {
@@ -64,7 +64,7 @@ pub struct Params<BI, CIDP, RClient, Proposer, CS> {
 	/// The block import handle.
 	pub block_import: BI,
 	/// An interface to the relay-chain client.
-	pub relay_client: Arc<RClient>,
+	pub relay_client: RClient,
 	/// The keystore handle used for accessing parachain key material.
 	pub keystore: KeystorePtr,
 	/// The identifier of the parachain within the relay-chain.
@@ -81,12 +81,12 @@ pub struct Params<BI, CIDP, RClient, Proposer, CS> {
 pub struct Collator<Block, P, BI, CIDP, RClient, Proposer, CS> {
 	create_inherent_data_providers: CIDP,
 	block_import: BI,
-	relay_client: Arc<RClient>,
+	relay_client: RClient,
 	keystore: KeystorePtr,
 	para_id: ParaId,
 	proposer: Proposer,
 	collator_service: CS,
-	_marker: std::marker::PhantomData<(Block, P)>,
+	_marker: std::marker::PhantomData<(Block, Box<dyn Fn(P) + Send + Sync + 'static>)>,
 }
 
 impl<Block, P, BI, CIDP, RClient, Proposer, CS> Collator<Block, P, BI, CIDP, RClient, Proposer, CS>
@@ -123,7 +123,7 @@ where
 		validation_data: &PersistedValidationData,
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
-	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error>> {
+	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		let paras_inherent_data = ParachainInherentData::create_at(
 			relay_parent,
 			&self.relay_client,
@@ -143,7 +143,7 @@ where
 		let mut other_inherent_data = self
 			.create_inherent_data_providers
 			.create_inherent_data_providers(parent_hash, ())
-			.map_err(|e| e as Box<dyn Error>)
+			.map_err(|e| e as Box<dyn Error + Send + Sync + 'static>)
 			.await?
 			.create_inherent_data()
 			.await
@@ -172,7 +172,8 @@ where
 		inherent_data: (ParachainInherentData, InherentData),
 		proposal_duration: Duration,
 		max_pov_size: usize,
-	) -> Result<(Collation, ParachainBlockData<Block>, Block::Hash), Box<dyn Error>> {
+	) -> Result<(Collation, ParachainBlockData<Block>, Block::Hash), Box<dyn Error + Send + 'static>>
+	{
 		let mut digest = additional_pre_digest.into().unwrap_or_default();
 		digest.push(slot_claim.pre_digest.clone());
 
@@ -187,14 +188,15 @@ where
 				Some(max_pov_size),
 			)
 			.await
-			.map_err(|e| Box::new(e))?;
+			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)?;
 
 		let sealed_importable = seal::<_, P>(
 			proposal.block,
 			proposal.storage_changes,
 			&slot_claim.author_pub,
 			&self.keystore,
-		)?;
+		)
+		.map_err(|e| e as Box<dyn Error + Send>)?;
 
 		let post_hash = sealed_importable.post_hash();
 		let block = Block::new(
@@ -206,7 +208,10 @@ where
 				.clone(),
 		);
 
-		self.block_import.import_block(sealed_importable).await?;
+		self.block_import
+			.import_block(sealed_importable)
+			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)
+			.await?;
 
 		if let Some((collation, block_data)) = self.collator_service.build_collation(
 			parent_header,
@@ -231,7 +236,8 @@ where
 
 			Ok((collation, block_data, post_hash))
 		} else {
-			Err("Unable to produce collation".to_string().into())
+			Err(Box::<dyn Error + Send + Sync>::from("Unable to produce collation")
+				as Box<dyn Error + Send>)
 		}
 	}
 
@@ -285,7 +291,7 @@ pub async fn claim_slot<B, C, P>(
 	parent_hash: B::Hash,
 	relay_parent_header: &PHeader,
 	slot_duration: SlotDuration,
-	relay_chain_slot_duration: SlotDuration,
+	relay_chain_slot_duration: Duration,
 	keystore: &KeystorePtr,
 ) -> Result<Option<SlotClaim<P::Public>>, Box<dyn Error>>
 where
@@ -304,7 +310,19 @@ where
 		relay_parent_header,
 		relay_chain_slot_duration,
 	) {
-		Some((_, t)) => (Slot::from_timestamp(t, slot_duration), t),
+		Some((r_s, t)) => {
+			let our_slot = Slot::from_timestamp(t, slot_duration);
+			tracing::debug!(
+				target: crate::LOG_TARGET,
+				relay_slot = ?r_s,
+				para_slot = ?our_slot,
+				timestamp = ?t,
+				?slot_duration,
+				?relay_chain_slot_duration,
+				"Adjusted relay-chain slot to parachain slot"
+			);
+			(our_slot, t)
+		},
 		None => return Ok(None),
 	};
 
@@ -326,7 +344,7 @@ pub fn seal<B: BlockT, P>(
 	storage_changes: StorageChanges<HashingFor<B>>,
 	author_pub: &P::Public,
 	keystore: &KeystorePtr,
-) -> Result<BlockImportParams<B>, Box<dyn Error>>
+) -> Result<BlockImportParams<B>, Box<dyn Error + Send + Sync + 'static>>
 where
 	P: Pair,
 	P::Signature: Codec + TryFrom<Vec<u8>>,

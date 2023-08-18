@@ -54,14 +54,16 @@ substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate
 try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
 
 # Polkadot
-polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "master", features = ["rococo-native"] }
+polkadot-cli = { git = "https://github.com/paritytech/polkadot", features = ["rococo-native"] , branch = "master" }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
 xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
 
 # Cumulus
 cumulus-client-cli = { path = "../../client/cli" }
+cumulus-client-collator = { path = "../../client/collator" }
 cumulus-client-consensus-aura = { path = "../../client/consensus/aura" }
 cumulus-client-consensus-common = { path = "../../client/consensus/common" }
+cumulus-client-consensus-proposer = { path = "../../client/consensus/proposer" }
 cumulus-client-service = { path = "../../client/service" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
@@ -80,4 +82,8 @@ runtime-benchmarks = [
 try-runtime = [
 	"try-runtime-cli/try-runtime",
 	"parachain-template-runtime/try-runtime"
+]
+network-protocol-staging = [
+	"polkadot-cli/network-protocol-staging",
+	"cumulus-client-service/network-protocol-staging"
 ]

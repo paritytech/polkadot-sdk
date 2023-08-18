@@ -76,6 +76,7 @@ impl<B, CIDP, W> Clone for AuraConsensus<B, CIDP, W> {
 }
 
 /// Parameters of [`AuraConsensus::build`].
+#[deprecated = "Use the `aura::collators::basic` collator instead"]
 pub struct BuildAuraConsensusParams<PF, BI, CIDP, Client, BS, SO> {
 	pub proposer_factory: PF,
 	pub create_inherent_data_providers: CIDP,
@@ -98,6 +99,8 @@ where
 	CIDP::InherentDataProviders: InherentDataProviderExt,
 {
 	/// Create a new boxed instance of AURA consensus.
+	#[allow(deprecated)]
+	#[deprecated = "Use the `aura::collators::basic` collator instead"]
 	pub fn build<P, Client, BI, SO, PF, BS, Error>(
 		BuildAuraConsensusParams {
 			proposer_factory,

@@ -51,26 +51,44 @@ use crate::collator as collator_util;
 
 /// Parameters for [`run`].
 pub struct Params<BI, CIDP, Client, RClient, SO, Proposer, CS> {
+	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
+	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
+	/// collator.
 	pub create_inherent_data_providers: CIDP,
+	/// Used to actually import blocks.
 	pub block_import: BI,
+	/// The underlying para client.
 	pub para_client: Arc<Client>,
-	pub relay_client: Arc<RClient>,
+	/// A handle to the relay-chain client.
+	pub relay_client: RClient,
+	/// A chain synchronization oracle.
 	pub sync_oracle: SO,
+	/// The underlying keystore, which should contain Aura consensus keys.
 	pub keystore: KeystorePtr,
-	pub key: CollatorPair,
+	/// The collator key used to sign collations before submitting to validators.
+	pub collator_key: CollatorPair,
+	/// The para's ID.
 	pub para_id: ParaId,
+	/// A handle to the relay-chain client's "Overseer" or task orchestrator.
 	pub overseer_handle: OverseerHandle,
+	/// The length of slots in this chain.
 	pub slot_duration: SlotDuration,
-	pub relay_chain_slot_duration: SlotDuration,
+	/// The length of slots in the relay chain.
+	pub relay_chain_slot_duration: Duration,
+	/// The underlying block proposer this should call into.
 	pub proposer: Proposer,
+	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
+	/// The amount of time to spend authoring each block.
+	pub authoring_duration: Duration,
 }
 
 /// Run bare Aura consensus as a relay-chain-driven collator.
-pub async fn run<Block, P, BI, CIDP, Client, RClient, SO, Proposer, CS>(
+pub fn run<Block, P, BI, CIDP, Client, RClient, SO, Proposer, CS>(
 	params: Params<BI, CIDP, Client, RClient, SO, Proposer, CS>,
-) where
-	Block: BlockT,
+) -> impl Future<Output = ()> + Send + 'static
+where
+	Block: BlockT + Send,
 	Client: ProvideRuntimeApi<Block>
 		+ BlockOf
 		+ AuxStore
@@ -80,120 +98,120 @@ pub async fn run<Block, P, BI, CIDP, Client, RClient, SO, Proposer, CS>(
 		+ Sync
 		+ 'static,
 	Client::Api: AuraApi<Block, P::Public> + CollectCollationInfo<Block>,
-	RClient: RelayChainInterface,
-	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
+	RClient: RelayChainInterface + Send + Clone + 'static,
+	CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
+	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
-	Proposer: ProposerInterface<Block>,
-	CS: CollatorServiceInterface<Block>,
+	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	P: Pair,
-	P::Public: AppPublic + Member,
+	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
-	let mut collation_requests = cumulus_client_collator::relay_chain_driven::init(
-		params.key,
-		params.para_id,
-		params.overseer_handle,
-	)
-	.await;
+	async move {
+		let mut collation_requests = cumulus_client_collator::relay_chain_driven::init(
+			params.collator_key,
+			params.para_id,
+			params.overseer_handle,
+		)
+		.await;
 
-	let mut collator = {
-		let params = collator_util::Params {
-			create_inherent_data_providers: params.create_inherent_data_providers,
-			block_import: params.block_import,
-			relay_client: params.relay_client.clone(),
-			keystore: params.keystore.clone(),
-			para_id: params.para_id,
-			proposer: params.proposer,
-			collator_service: params.collator_service,
-		};
-
-		collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
-	};
-
-	while let Some(request) = collation_requests.next().await {
-		macro_rules! reject_with_error {
-			($err:expr) => {{
-				request.complete(None);
-				tracing::error!(target: crate::LOG_TARGET, err = ?{ $err });
-				continue;
-			}};
-		}
-
-		macro_rules! try_request {
-			($x:expr) => {{
-				match $x {
-					Ok(x) => x,
-					Err(e) => reject_with_error!(e),
-				}
-			}};
-		}
-
-		let validation_data = request.persisted_validation_data();
-
-		let parent_header =
-			try_request!(Block::Header::decode(&mut &validation_data.parent_head.0[..]));
-
-		let parent_hash = parent_header.hash();
-
-		if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
-			continue
-		}
-
-		let relay_parent_header =
-			match params.relay_client.header(RBlockId::hash(*request.relay_parent())).await {
-				Err(e) => reject_with_error!(e),
-				Ok(None) => continue, // sanity: would be inconsistent to get `None` here
-				Ok(Some(h)) => h,
+		let mut collator = {
+			let params = collator_util::Params {
+				create_inherent_data_providers: params.create_inherent_data_providers,
+				block_import: params.block_import,
+				relay_client: params.relay_client.clone(),
+				keystore: params.keystore.clone(),
+				para_id: params.para_id,
+				proposer: params.proposer,
+				collator_service: params.collator_service,
 			};
 
-		let claim = match collator_util::claim_slot::<_, _, P>(
-			&*params.para_client,
-			parent_hash,
-			&relay_parent_header,
-			params.slot_duration,
-			params.relay_chain_slot_duration,
-			&params.keystore,
-		)
-		.await
-		{
-			Ok(None) => continue,
-			Ok(Some(c)) => c,
-			Err(e) => reject_with_error!(e),
+			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
-		let (parachain_inherent_data, other_inherent_data) = try_request!(
-			collator
-				.create_inherent_data(
-					*request.relay_parent(),
-					&validation_data,
-					parent_hash,
-					claim.timestamp(),
-				)
-				.await
-		);
+		while let Some(request) = collation_requests.next().await {
+			macro_rules! reject_with_error {
+				($err:expr) => {{
+					request.complete(None);
+					tracing::error!(target: crate::LOG_TARGET, err = ?{ $err });
+					continue;
+				}};
+			}
 
-		let (collation, _, post_hash) = try_request!(
-			collator
-				.collate(
-					&parent_header,
-					&claim,
-					None,
-					(parachain_inherent_data, other_inherent_data),
-					// TODO [https://github.com/paritytech/cumulus/issues/2439]
-					// We should call out to a pluggable interface that provides
-					// the proposal duration.
-					Duration::from_millis(500),
-					// Set the block limit to 50% of the maximum PoV size.
-					//
-					// TODO: If we got benchmarking that includes the proof size,
-					// we should be able to use the maximum pov size.
-					(validation_data.max_pov_size / 2) as usize,
-				)
-				.await
-		);
+			macro_rules! try_request {
+				($x:expr) => {{
+					match $x {
+						Ok(x) => x,
+						Err(e) => reject_with_error!(e),
+					}
+				}};
+			}
 
-		let result_sender = Some(collator.collator_service().announce_with_barrier(post_hash));
-		request.complete(Some(CollationResult { collation, result_sender }));
+			let validation_data = request.persisted_validation_data();
+
+			let parent_header =
+				try_request!(Block::Header::decode(&mut &validation_data.parent_head.0[..]));
+
+			let parent_hash = parent_header.hash();
+
+			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
+				continue
+			}
+
+			let relay_parent_header =
+				match params.relay_client.header(RBlockId::hash(*request.relay_parent())).await {
+					Err(e) => reject_with_error!(e),
+					Ok(None) => continue, // sanity: would be inconsistent to get `None` here
+					Ok(Some(h)) => h,
+				};
+
+			let claim = match collator_util::claim_slot::<_, _, P>(
+				&*params.para_client,
+				parent_hash,
+				&relay_parent_header,
+				params.slot_duration,
+				params.relay_chain_slot_duration,
+				&params.keystore,
+			)
+			.await
+			{
+				Ok(None) => continue,
+				Ok(Some(c)) => c,
+				Err(e) => reject_with_error!(e),
+			};
+
+			let (parachain_inherent_data, other_inherent_data) = try_request!(
+				collator
+					.create_inherent_data(
+						*request.relay_parent(),
+						&validation_data,
+						parent_hash,
+						claim.timestamp(),
+					)
+					.await
+			);
+
+			let (collation, _, post_hash) = try_request!(
+				collator
+					.collate(
+						&parent_header,
+						&claim,
+						None,
+						(parachain_inherent_data, other_inherent_data),
+						params.authoring_duration,
+						// Set the block limit to 50% of the maximum PoV size.
+						//
+						// TODO: If we got benchmarking that includes the proof size,
+						// we should be able to use the maximum pov size.
+						(validation_data.max_pov_size / 2) as usize,
+					)
+					.await
+			);
+
+			let result_sender = Some(collator.collator_service().announce_with_barrier(post_hash));
+			request.complete(Some(CollationResult { collation, result_sender }));
+		}
 	}
 }

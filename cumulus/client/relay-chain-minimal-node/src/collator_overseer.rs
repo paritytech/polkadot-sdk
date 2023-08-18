@@ -29,8 +29,8 @@ use polkadot_node_core_runtime_api::RuntimeApiSubsystem;
 use polkadot_node_network_protocol::{
 	peer_set::PeerSetProtocolNames,
 	request_response::{
-		v1::{AvailableDataFetchingRequest, CollationFetchingRequest},
-		IncomingRequestReceiver, ReqProtocolNames,
+		v1::{self, AvailableDataFetchingRequest},
+		vstaging, IncomingRequestReceiver, ReqProtocolNames,
 	},
 };
 use polkadot_node_subsystem_util::metrics::{prometheus::Registry, Metrics};
@@ -60,8 +60,11 @@ pub(crate) struct CollatorOverseerGenArgs<'a> {
 	pub sync_oracle: Box<dyn sp_consensus::SyncOracle + Send>,
 	/// Underlying authority discovery service.
 	pub authority_discovery_service: AuthorityDiscoveryService,
-	/// Receiver for collation request protocol
-	pub collation_req_receiver: IncomingRequestReceiver<CollationFetchingRequest>,
+	/// Receiver for collation request protocol v1.
+	pub collation_req_receiver_v1: IncomingRequestReceiver<v1::CollationFetchingRequest>,
+	/// Receiver for collation request protocol vstaging.
+	pub collation_req_receiver_vstaging:
+		IncomingRequestReceiver<vstaging::CollationFetchingRequest>,
 	/// Receiver for availability request protocol
 	pub available_data_req_receiver: IncomingRequestReceiver<AvailableDataFetchingRequest>,
 	/// Prometheus registry, commonly used for production systems, less so for test.
@@ -83,7 +86,8 @@ fn build_overseer(
 		network_service,
 		sync_oracle,
 		authority_discovery_service,
-		collation_req_receiver,
+		collation_req_receiver_v1,
+		collation_req_receiver_vstaging,
 		available_data_req_receiver,
 		registry,
 		spawner,
@@ -112,12 +116,13 @@ fn build_overseer(
 		.chain_api(DummySubsystem)
 		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
 		.collator_protocol({
-			let side = ProtocolSide::Collator(
-				network_service.local_peer_id(),
+			let side = ProtocolSide::Collator {
+				peer_id: network_service.local_peer_id(),
 				collator_pair,
-				collation_req_receiver,
-				Metrics::register(registry)?,
-			);
+				request_receiver_v1: collation_req_receiver_v1,
+				request_receiver_vstaging: collation_req_receiver_vstaging,
+				metrics: Metrics::register(registry)?,
+			};
 			CollatorProtocolSubsystem::new(side)
 		})
 		.network_bridge_rx(NetworkBridgeRxSubsystem::new(
@@ -141,6 +146,7 @@ fn build_overseer(
 			spawner.clone(),
 		))
 		.statement_distribution(DummySubsystem)
+		.prospective_parachains(DummySubsystem)
 		.approval_distribution(DummySubsystem)
 		.approval_voting(DummySubsystem)
 		.gossip_support(DummySubsystem)

@@ -37,6 +37,7 @@ cumulus-primitives-core = { path = "../../primitives/core", default-features = f
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent", default-features = false }
 
 [dev-dependencies]
+assert_matches = "1.5"
 hex-literal = "0.4.1"
 lazy_static = "1.4"
 
@@ -78,3 +79,5 @@ runtime-benchmarks = [
 ]
 
 try-runtime = ["frame-support/try-runtime"]
+
+parameterized-consensus-hook = []

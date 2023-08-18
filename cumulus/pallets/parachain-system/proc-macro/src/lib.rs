@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::Span;
 use proc_macro_crate::{crate_name, FoundCrate};
 use syn::{
 	parse::{Parse, ParseStream},
@@ -31,7 +31,7 @@ mod keywords {
 struct Input {
 	runtime: Path,
 	block_executor: Path,
-	check_inherents: Path,
+	check_inherents: Option<Path>,
 }
 
 impl Parse for Input {
@@ -59,7 +59,7 @@ impl Parse for Input {
 			}
 		}
 
-		while runtime.is_none() || block_executor.is_none() || check_inherents.is_none() {
+		while !input.is_empty() || runtime.is_none() || block_executor.is_none() {
 			let lookahead = input.lookahead1();
 
 			if lookahead.peek(keywords::Runtime) {
@@ -73,15 +73,10 @@ impl Parse for Input {
 			}
 		}
 
-		let rest = input.parse::<TokenStream>()?;
-		if !rest.is_empty() {
-			return Err(Error::new(rest.span(), "Unexpected input data"))
-		}
-
 		Ok(Self {
 			runtime: runtime.expect("Everything is parsed before; qed"),
 			block_executor: block_executor.expect("Everything is parsed before; qed"),
-			check_inherents: check_inherents.expect("Everything is parsed before; qed"),
+			check_inherents,
 		})
 	}
 }
@@ -97,7 +92,7 @@ fn crate_() -> Result<Ident, Error> {
 
 #[proc_macro]
 pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	let Input { runtime, check_inherents, block_executor } = match syn::parse(input) {
+	let Input { runtime, block_executor, check_inherents } = match syn::parse(input) {
 		Ok(t) => t,
 		Err(e) => return e.into_compile_error().into(),
 	};
@@ -105,6 +100,17 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 	let crate_ = match crate_() {
 		Ok(c) => c,
 		Err(e) => return e.into_compile_error().into(),
+	};
+
+	let check_inherents = match check_inherents {
+		Some(_check_inherents) => {
+			quote::quote! { #_check_inherents }
+		},
+		None => {
+			quote::quote! {
+				#crate_::DummyCheckInherents<<#runtime as #crate_::validate_block::GetRuntimeBlockType>::RuntimeBlock>
+			}
+		},
 	};
 
 	if cfg!(not(feature = "std")) {

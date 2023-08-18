@@ -21,7 +21,7 @@ sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", d
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
 # Polkadot Dependencies
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "master" }
 
 [features]
 default = ["std"]

@@ -43,3 +43,6 @@ tracing = "0.1.37"
 async-trait = "0.1.73"
 futures = "0.3.28"
 tokio = { version = "1.32.0", features = ["macros"] }
+
+[features]
+network-protocol-staging = ["polkadot-node-network-protocol/network-protocol-staging"]

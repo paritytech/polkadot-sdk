@@ -58,12 +58,22 @@ use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
 use xcm::latest::XcmHash;
 
 pub mod migration;
-mod relay_state_snapshot;
-#[macro_use]
-pub mod validate_block;
+
 #[cfg(test)]
 mod tests;
+mod unincluded_segment;
 
+pub mod consensus_hook;
+pub mod relay_state_snapshot;
+#[macro_use]
+pub mod validate_block;
+
+use unincluded_segment::{
+	Ancestor, HrmpChannelUpdate, HrmpWatermarkUpdate, OutboundBandwidthLimits, SegmentTracker,
+	UsedBandwidth,
+};
+
+pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
 /// Register the `validate_block` function that is used by parachains to validate blocks on a
 /// validator.
 ///
@@ -136,6 +146,23 @@ impl CheckAssociatedRelayNumber for AnyRelayNumber {
 	fn check_associated_relay_number(_: RelayChainBlockNumber, _: RelayChainBlockNumber) {}
 }
 
+/// Provides an implementation of [`CheckAssociatedRelayNumber`].
+///
+/// It will ensure that the associated relay block number monotonically increases between Parachain
+/// blocks. This should be used when asynchronous backing is enabled.
+pub struct RelayNumberMonotonicallyIncreases;
+
+impl CheckAssociatedRelayNumber for RelayNumberMonotonicallyIncreases {
+	fn check_associated_relay_number(
+		current: RelayChainBlockNumber,
+		previous: RelayChainBlockNumber,
+	) {
+		if current < previous {
+			panic!("Relay chain block number needs to monotonically increase between Parachain blocks!")
+		}
+	}
+}
+
 /// Information needed when a new runtime binary is submitted and needs to be authorized before
 /// replacing the current runtime.
 #[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
@@ -193,6 +220,22 @@ pub mod pallet {
 
 		/// Something that can check the associated relay parent block number.
 		type CheckAssociatedRelayNumber: CheckAssociatedRelayNumber;
+
+		/// An entry-point for higher-level logic to manage the backlog of unincluded parachain
+		/// blocks and authorship rights for those blocks.
+		///
+		/// Typically, this should be a hook tailored to the collator-selection/consensus mechanism
+		/// that is used for this chain.
+		///
+		/// However, to maintain the same behavior as prior to asynchronous backing, provide the
+		/// [`consensus_hook::ExpectParentIncluded`] here. This is only necessary in the case
+		/// that collators aren't expected to have node versions that supply the included block
+		/// in the relay-chain state proof.
+		///
+		/// This config type is only available when the `parameterized-consensus-hook` crate feature
+		/// is activated.
+		#[cfg(feature = "parameterized-consensus-hook")]
+		type ConsensusHook: ConsensusHook;
 	}
 
 	#[pallet::hooks]
@@ -200,6 +243,7 @@ pub mod pallet {
 		fn on_finalize(_: BlockNumberFor<T>) {
 			<DidSetValidationCode<T>>::kill();
 			<UpgradeRestrictionSignal<T>>::kill();
+			let relay_upgrade_go_ahead = <UpgradeGoAhead<T>>::take();
 
 			assert!(
 				<ValidationData<T>>::exists(),
@@ -216,8 +260,12 @@ pub mod pallet {
 					return
 				},
 			};
-			let relevant_messaging_state = match Self::relevant_messaging_state() {
-				Some(ok) => ok,
+
+			// Before updating the relevant messaging state, we need to extract
+			// the total bandwidth limits for the purpose of updating the unincluded
+			// segment.
+			let total_bandwidth_out = match Self::relevant_messaging_state() {
+				Some(s) => OutboundBandwidthLimits::from_relay_chain_state(&s),
 				None => {
 					debug_assert!(
 						false,
@@ -228,35 +276,57 @@ pub mod pallet {
 				},
 			};
 
-			<PendingUpwardMessages<T>>::mutate(|up| {
-				let queue_size = relevant_messaging_state.relay_dispatch_queue_remaining_capacity;
+			// After this point, the `RelevantMessagingState` in storage reflects the
+			// unincluded segment.
+			Self::adjust_egress_bandwidth_limits();
 
-				let available_capacity = cmp::min(
-					queue_size.remaining_count,
-					host_config.max_upward_message_num_per_candidate.into(),
-				);
-				let available_size = queue_size.remaining_size;
+			let (ump_msg_count, ump_total_bytes) = <PendingUpwardMessages<T>>::mutate(|up| {
+				let (available_capacity, available_size) = match Self::relevant_messaging_state() {
+					Some(limits) => (
+						limits.relay_dispatch_queue_remaining_capacity.remaining_count,
+						limits.relay_dispatch_queue_remaining_capacity.remaining_size,
+					),
+					None => {
+						debug_assert!(
+							false,
+							"relevant messaging state is promised to be set until `on_finalize`; \
+								qed",
+						);
+						return (0, 0)
+					},
+				};
+
+				let available_capacity =
+					cmp::min(available_capacity, host_config.max_upward_message_num_per_candidate);
 
 				// Count the number of messages we can possibly fit in the given constraints, i.e.
 				// available_capacity and available_size.
-				let num = up
+				let (num, total_size) = up
 					.iter()
-					.scan((available_capacity as usize, available_size as usize), |state, msg| {
-						let (cap_left, size_left) = *state;
-						match (cap_left.checked_sub(1), size_left.checked_sub(msg.len())) {
-							(Some(new_cap), Some(new_size)) => {
+					.scan((0u32, 0u32), |state, msg| {
+						let (cap_used, size_used) = *state;
+						let new_cap = cap_used.saturating_add(1);
+						let new_size = size_used.saturating_add(msg.len() as u32);
+						match available_capacity
+							.checked_sub(new_cap)
+							.and(available_size.checked_sub(new_size))
+						{
+							Some(_) => {
 								*state = (new_cap, new_size);
-								Some(())
+								Some(*state)
 							},
 							_ => None,
 						}
 					})
-					.count();
+					.last()
+					.unwrap_or_default();
 
 				// TODO: #274 Return back messages that do not longer fit into the queue.
 
-				UpwardMessages::<T>::put(&up[..num]);
-				*up = up.split_off(num);
+				UpwardMessages::<T>::put(&up[..num as usize]);
+				*up = up.split_off(num as usize);
+
+				(num, total_size)
 			});
 
 			// Sending HRMP messages is a little bit more involved. There are the following
@@ -272,12 +342,54 @@ pub mod pallet {
 				.hrmp_max_message_num_per_candidate
 				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take()) as usize;
 
+			// Note: this internally calls the `GetChannelInfo` implementation for this
+			// pallet, which draws on the `RelevantMessagingState`. That in turn has
+			// been adjusted above to reflect the correct limits in all channels.
 			let outbound_messages =
 				T::OutboundXcmpMessageSource::take_outbound_messages(maximum_channels)
 					.into_iter()
 					.map(|(recipient, data)| OutboundHrmpMessage { recipient, data })
 					.collect::<Vec<_>>();
 
+			// Update the unincluded segment length; capacity checks were done previously in
+			// `set_validation_data`, so this can be done unconditionally.
+			{
+				let hrmp_outgoing = outbound_messages
+					.iter()
+					.map(|msg| {
+						(
+							msg.recipient,
+							HrmpChannelUpdate { msg_count: 1, total_bytes: msg.data.len() as u32 },
+						)
+					})
+					.collect();
+				let used_bandwidth =
+					UsedBandwidth { ump_msg_count, ump_total_bytes, hrmp_outgoing };
+
+				let mut aggregated_segment =
+					AggregatedUnincludedSegment::<T>::get().unwrap_or_default();
+				let consumed_go_ahead_signal =
+					if aggregated_segment.consumed_go_ahead_signal().is_some() {
+						// Some ancestor within the segment already processed this signal --
+						// validated during inherent creation.
+						None
+					} else {
+						relay_upgrade_go_ahead
+					};
+				// The bandwidth constructed was ensured to satisfy relay chain constraints.
+				let ancestor = Ancestor::new_unchecked(used_bandwidth, consumed_go_ahead_signal);
+
+				let watermark = HrmpWatermark::<T>::get();
+				let watermark_update =
+					HrmpWatermarkUpdate::new(watermark, LastRelayChainBlockNumber::<T>::get());
+
+				aggregated_segment
+					.append(&ancestor, watermark_update, &total_bandwidth_out)
+					.expect("unincluded segment limits exceeded");
+				AggregatedUnincludedSegment::<T>::put(aggregated_segment);
+				// Check in `on_initialize` guarantees there's space for this block.
+				UnincludedSegment::<T>::append(ancestor);
+			}
 			HrmpOutboundMessages::<T>::put(outbound_messages);
 		}
 
@@ -290,6 +402,22 @@ pub mod pallet {
 			if !<DidSetValidationCode<T>>::get() {
 				NewValidationCode::<T>::kill();
 				weight += T::DbWeight::get().writes(1);
+			}
+
+			// The parent hash was unknown during block finalization. Update it here.
+			{
+				<UnincludedSegment<T>>::mutate(|chain| {
+					if let Some(ancestor) = chain.last_mut() {
+						let parent = frame_system::Pallet::<T>::parent_hash();
+						// Ancestor is the latest finalized block, thus current parent is
+						// its output head.
+						ancestor.replace_para_head_hash(parent);
+					}
+				});
+				weight += T::DbWeight::get().reads_writes(1, 1);
+
+				// Weight used during finalization.
+				weight += T::DbWeight::get().reads_writes(3, 2);
 			}
 
 			// Remove the validation from the old block.
@@ -332,6 +460,12 @@ pub mod pallet {
 				4 + hrmp_max_message_num_per_candidate as u64,
 			);
 
+			// Weight for adjusting the unincluded segment in `on_finalize`.
+			weight += T::DbWeight::get().reads_writes(6, 3);
+
+			// Always try to read `UpgradeGoAhead` in `on_finalize`.
+			weight += T::DbWeight::get().reads(1);
+
 			weight
 		}
 	}
@@ -360,6 +494,15 @@ pub mod pallet {
 				"ValidationData must be updated only once in a block",
 			);
 
+			// TODO: This is more than zero, but will need benchmarking to figure out what.
+			let mut total_weight = Weight::zero();
+
+			// NOTE: the inherent data is expected to be unique, even if this block is built
+			// in the context of the same relay parent as the previous one. In particular,
+			// the inherent shouldn't contain messages that were already processed by any of the
+			// ancestors.
+			//
+			// This invariant should be upheld by the `ProvideInherent` implementation.
 			let ParachainInherentData {
 				validation_data: vfp,
 				relay_chain_state,
@@ -381,6 +524,13 @@ pub mod pallet {
 			)
 			.expect("Invalid relay chain state proof");
 
+			// Update the desired maximum capacity according to the consensus hook.
+			#[cfg(feature = "parameterized-consensus-hook")]
+			let (consensus_hook_weight, capacity) = T::ConsensusHook::on_state_proof(&relay_state_proof);
+			#[cfg(not(feature = "parameterized-consensus-hook"))]
+			let (consensus_hook_weight, capacity) = ExpectParentIncluded::on_state_proof(&relay_state_proof);
+			total_weight += consensus_hook_weight;
+			total_weight += Self::maybe_drop_included_ancestors(&relay_state_proof, capacity);
 			// Deposit a log indicating the relay-parent storage root.
 			// TODO: remove this in favor of the relay-parent's hash after
 			// https://github.com/paritytech/cumulus/issues/303
@@ -397,7 +547,19 @@ pub mod pallet {
 			let upgrade_go_ahead_signal = relay_state_proof
 				.read_upgrade_go_ahead_signal()
 				.expect("Invalid upgrade go ahead signal");
+
+			let upgrade_signal_in_segment = AggregatedUnincludedSegment::<T>::get()
+				.as_ref()
+				.and_then(SegmentTracker::consumed_go_ahead_signal);
+			if let Some(signal_in_segment) = upgrade_signal_in_segment.as_ref() {
+				// Unincluded ancestor consuming upgrade signal is still within the segment,
+				// sanity check that it matches with the signal from relay chain.
+				assert_eq!(upgrade_go_ahead_signal, Some(*signal_in_segment));
+			}
 			match upgrade_go_ahead_signal {
+				Some(_signal) if upgrade_signal_in_segment.is_some() => {
+					// Do nothing, processing logic was executed by unincluded ancestor.
+				},
 				Some(relay_chain::UpgradeGoAhead::GoAhead) => {
 					assert!(
 						<PendingValidationCode<T>>::exists(),
@@ -422,10 +584,12 @@ pub mod pallet {
 					.read_upgrade_restriction_signal()
 					.expect("Invalid upgrade restriction signal"),
 			);
+			<UpgradeGoAhead<T>>::put(upgrade_go_ahead_signal);
 
 			let host_config = relay_state_proof
 				.read_abridged_host_configuration()
 				.expect("Invalid host configuration in relay chain state proof");
+
 			let relevant_messaging_state = relay_state_proof
 				.read_messaging_state_snapshot(&host_config)
 				.expect("Invalid messaging state in relay chain state proof");
@@ -437,8 +601,6 @@ pub mod pallet {
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
-			// TODO: This is more than zero, but will need benchmarking to figure out what.
-			let mut total_weight = Weight::zero();
 			total_weight += Self::process_inbound_downward_messages(
 				relevant_messaging_state.dmq_mqc_head,
 				downward_messages,
@@ -547,6 +709,23 @@ pub mod pallet {
 		Unauthorized,
 	}
 
+	/// Latest included block descendants the runtime accepted. In other words, these are
+	/// ancestors of the currently executing block which have not been included in the observed
+	/// relay-chain state.
+	///
+	/// The segment length is limited by the capacity returned from the [`ConsensusHook`] configured
+	/// in the pallet.
+	#[pallet::storage]
+	pub(super) type UnincludedSegment<T: Config> =
+		StorageValue<_, Vec<Ancestor<T::Hash>>, ValueQuery>;
+
+	/// Storage field that keeps track of bandwidth used by the unincluded segment along with the
+	/// latest the latest HRMP watermark. Used for limiting the acceptance of new blocks with
+	/// respect to relay chain constraints.
+	#[pallet::storage]
+	pub(super) type AggregatedUnincludedSegment<T: Config> =
+		StorageValue<_, SegmentTracker<T::Hash>, OptionQuery>;
+
 	/// In case of a scheduled upgrade, this storage field contains the validation code to be
 	/// applied.
 	///
@@ -591,6 +770,15 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type UpgradeRestrictionSignal<T: Config> =
 		StorageValue<_, Option<relay_chain::UpgradeRestriction>, ValueQuery>;
+
+	/// Optional upgrade go-ahead signal from the relay-chain.
+	///
+	/// This storage item is a mirror of the corresponding value for the current parachain from the
+	/// relay-chain. This value is ephemeral which means it doesn't hit the storage. This value is
+	/// set after the inherent.
+	#[pallet::storage]
+	pub(super) type UpgradeGoAhead<T: Config> =
+		StorageValue<_, Option<relay_chain::UpgradeGoAhead>, ValueQuery>;
 
 	/// The state proof for the last relay parent block.
 	///
@@ -702,10 +890,12 @@ pub mod pallet {
 			cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER;
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-			let data: ParachainInherentData =
+			let mut data: ParachainInherentData =
 				data.get_data(&Self::INHERENT_IDENTIFIER).ok().flatten().expect(
 					"validation function params are always injected into inherent data; qed",
 				);
+
+			Self::drop_processed_messages_from_inherent(&mut data);
 
 			Some(Call::set_validation_data { data })
 		}
@@ -769,6 +959,18 @@ impl<T: Config> Pallet<T> {
 
 		Ok(actual_hash)
 	}
+
+	/// Get the unincluded segment size after the given hash.
+	///
+	/// If the unincluded segment doesn't contain the given hash, this returns the
+	/// length of the entire unincluded segment.
+	///
+	/// This is intended to be used for determining how long the unincluded segment _would be_
+	/// in runtime APIs related to authoring.
+	pub fn unincluded_segment_size_after(included_hash: T::Hash) -> u32 {
+		let segment = UnincludedSegment::<T>::get();
+		crate::unincluded_segment::size_after_included(included_hash, &segment)
+	}
 }
 
 impl<T: Config> GetChannelInfo for Pallet<T> {
@@ -822,6 +1024,37 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Updates inherent data to only contain messages that weren't already processed
+	/// by the runtime based on last relay chain block number.
+	///
+	/// This method doesn't check for mqc heads mismatch.
+	fn drop_processed_messages_from_inherent(para_inherent: &mut ParachainInherentData) {
+		let ParachainInherentData { downward_messages, horizontal_messages, .. } = para_inherent;
+
+		// Last relay chain block number. Any message with sent-at block number less
+		// than or equal to this value is assumed to be processed previously.
+		let last_relay_block_number = LastRelayChainBlockNumber::<T>::get();
+
+		// DMQ.
+		let dmq_processed_num = downward_messages
+			.iter()
+			.take_while(|message| message.sent_at <= last_relay_block_number)
+			.count();
+		downward_messages.drain(..dmq_processed_num);
+
+		// HRMP.
+		for horizontal in horizontal_messages.values_mut() {
+			let horizontal_processed_num = horizontal
+				.iter()
+				.take_while(|message| message.sent_at <= last_relay_block_number)
+				.count();
+			horizontal.drain(..horizontal_processed_num);
+		}
+
+		// If MQC doesn't match after dropping messages, the runtime will panic when creating
+		// inherent.
+	}
+
 	/// Process all inbound downward messages relayed by the collator.
 	///
 	/// Checks if the sequence of the messages is valid, dispatches them and communicates the
@@ -964,6 +1197,122 @@ impl<T: Config> Pallet<T> {
 		HrmpWatermark::<T>::put(hrmp_watermark.unwrap_or(relay_parent_number));
 
 		weight_used
+	}
+
+	/// Drop blocks from the unincluded segment with respect to the latest parachain head.
+	fn maybe_drop_included_ancestors(
+		relay_state_proof: &RelayChainStateProof,
+		capacity: consensus_hook::UnincludedSegmentCapacity,
+	) -> Weight {
+		let mut weight_used = Weight::zero();
+		// If the unincluded segment length is nonzero, then the parachain head must be present.
+		let para_head =
+			relay_state_proof.read_included_para_head().ok().map(|h| T::Hashing::hash(&h.0));
+
+		let unincluded_segment_len = <UnincludedSegment<T>>::decode_len().unwrap_or(0);
+		weight_used += T::DbWeight::get().reads(1);
+
+		// Clean up unincluded segment if nonempty.
+		let included_head = match (para_head, capacity.is_expecting_included_parent()) {
+			(Some(h), true) => {
+				assert_eq!(
+					h,
+					frame_system::Pallet::<T>::parent_hash(),
+					"expected parent to be included"
+				);
+
+				h
+			},
+			(Some(h), false) => h,
+			(None, true) => {
+				// All this logic is essentially a workaround to support collators which
+				// might still not provide the included block with the state proof.
+				frame_system::Pallet::<T>::parent_hash()
+			},
+			(None, false) => panic!("included head not present in relay storage proof"),
+		};
+
+		let new_len = {
+			let para_head_hash = included_head;
+			let dropped: Vec<Ancestor<T::Hash>> = <UnincludedSegment<T>>::mutate(|chain| {
+				// Drop everything up to (inclusive) the block with an included para head, if
+				// present.
+				let idx = chain
+					.iter()
+					.position(|block| {
+						let head_hash = block
+							.para_head_hash()
+							.expect("para head hash is updated during block initialization; qed");
+						head_hash == &para_head_hash
+					})
+					.map_or(0, |idx| idx + 1); // inclusive.
+
+				chain.drain(..idx).collect()
+			});
+			weight_used += T::DbWeight::get().reads_writes(1, 1);
+
+			let new_len = unincluded_segment_len - dropped.len();
+			if !dropped.is_empty() {
+				<AggregatedUnincludedSegment<T>>::mutate(|agg| {
+					let agg = agg.as_mut().expect(
+						"dropped part of the segment wasn't empty, hence value exists; qed",
+					);
+					for block in dropped {
+						agg.subtract(&block);
+					}
+				});
+				weight_used += T::DbWeight::get().reads_writes(1, 1);
+			}
+
+			new_len as u32
+		};
+
+		// Current block validity check: ensure there is space in the unincluded segment.
+		//
+		// If this fails, the parachain needs to wait for ancestors to be included before
+		// a new block is allowed.
+		assert!(new_len < capacity.get(), "no space left for the block in the unincluded segment");
+		weight_used
+	}
+
+	/// This adjusts the `RelevantMessagingState` according to the bandwidth limits in the
+	/// unincluded segment.
+	//
+	// Reads: 2
+	// Writes: 1
+	fn adjust_egress_bandwidth_limits() {
+		let unincluded_segment = match AggregatedUnincludedSegment::<T>::get() {
+			None => return,
+			Some(s) => s,
+		};
+
+		<RelevantMessagingState<T>>::mutate(|messaging_state| {
+			let messaging_state = match messaging_state {
+				None => return,
+				Some(s) => s,
+			};
+
+			let used_bandwidth = unincluded_segment.used_bandwidth();
+
+			let channels = &mut messaging_state.egress_channels;
+			for (para_id, used) in used_bandwidth.hrmp_outgoing.iter() {
+				let i = match channels.binary_search_by_key(para_id, |item| item.0) {
+					Ok(i) => i,
+					Err(_) => continue, // indicates channel closed.
+				};
+
+				let c = &mut channels[i].1;
+
+				c.total_size = (c.total_size + used.total_bytes).min(c.max_total_size);
+				c.msg_count = (c.msg_count + used.msg_count).min(c.max_capacity);
+			}
+
+			let upward_capacity = &mut messaging_state.relay_dispatch_queue_remaining_capacity;
+			upward_capacity.remaining_count =
+				upward_capacity.remaining_count.saturating_sub(used_bandwidth.ump_msg_count);
+			upward_capacity.remaining_size =
+				upward_capacity.remaining_size.saturating_sub(used_bandwidth.ump_total_bytes);
+		});
 	}
 
 	/// Put a new validation function into a particular location where polkadot
@@ -1157,6 +1506,10 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 }
 
 /// Something that can check the inherents of a block.
+#[cfg_attr(
+	feature = "parameterized-consensus-hook",
+	deprecated = "consider switching to `cumulus-pallet-parachain-system::ConsensusHook`"
+)]
 pub trait CheckInherents<Block: BlockT> {
 	/// Check all inherents of the block.
 	///
@@ -1166,6 +1519,20 @@ pub trait CheckInherents<Block: BlockT> {
 		block: &Block,
 		validation_data: &RelayChainStateProof,
 	) -> frame_support::inherent::CheckInherentsResult;
+}
+
+/// Struct that always returns `Ok` on inherents check, needed for backwards-compatibility.
+#[doc(hidden)]
+pub struct DummyCheckInherents<Block>(sp_std::marker::PhantomData<Block>);
+
+#[allow(deprecated)]
+impl<Block: BlockT> CheckInherents<Block> for DummyCheckInherents<Block> {
+	fn check_inherents(
+		_: &Block,
+		_: &RelayChainStateProof,
+	) -> frame_support::inherent::CheckInherentsResult {
+		sp_inherents::CheckInherentsResult::new()
+	}
 }
 
 /// Something that should be informed about system related events.

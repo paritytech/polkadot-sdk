@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Relay chain state proof provides means for accessing part of relay chain storage for reads.
+
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
@@ -94,6 +96,8 @@ pub enum Error {
 	HrmpEgressChannelIndex(ReadEntryErr),
 	/// The channel identified by the sender and receiver cannot be extracted.
 	HrmpChannel(ParaId, ParaId, ReadEntryErr),
+	/// The latest included parachain head cannot be extracted.
+	ParaHead(ReadEntryErr),
 }
 
 #[derive(Debug)]
@@ -278,6 +282,15 @@ impl RelayChainStateProof {
 	pub fn read_abridged_host_configuration(&self) -> Result<AbridgedHostConfiguration, Error> {
 		read_entry(&self.trie_backend, relay_chain::well_known_keys::ACTIVE_CONFIG, None)
 			.map_err(Error::Config)
+	}
+
+	/// Read latest included parachain [head data](`relay_chain::HeadData`) from the relay chain
+	/// state proof.
+	///
+	/// Returns an error if anything failed at reading or decoding.
+	pub fn read_included_para_head(&self) -> Result<relay_chain::HeadData, Error> {
+		read_entry(&self.trie_backend, &relay_chain::well_known_keys::para_head(self.para_id), None)
+			.map_err(Error::ParaHead)
 	}
 
 	/// Read the [`Slot`](relay_chain::Slot) from the relay chain state proof.

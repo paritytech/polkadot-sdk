@@ -42,3 +42,4 @@ polkadot-node-subsystem-test-helpers = { git = "https://github.com/paritytech/po
 # Cumulus
 cumulus-test-client = { path = "../../test/client" }
 cumulus-test-runtime = { path = "../../test/runtime" }
+cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }

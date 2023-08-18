@@ -26,7 +26,8 @@ use sp_core::traits::SpawnNamed;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use cumulus_client_consensus_common::ParachainConsensus;
-use polkadot_node_primitives::{CollationResult, MaybeCompressedPoV};
+use polkadot_node_primitives::{CollationGenerationConfig, CollationResult, MaybeCompressedPoV};
+use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId};
 
@@ -200,7 +201,7 @@ pub mod relay_chain_driven {
 		let config = CollationGenerationConfig {
 			key,
 			para_id,
-			collator: Box::new(move |relay_parent, validation_data| {
+			collator: Some(Box::new(move |relay_parent, validation_data| {
 				// Cloning the channel on each usage effectively makes the channel
 				// unbounded. The channel is actually bounded by the block production
 				// and consensus systems of Polkadot, which limits the amount of possible
@@ -218,7 +219,7 @@ pub mod relay_chain_driven {
 
 					this_rx.await.ok().flatten()
 				})
-			}),
+			})),
 		};
 
 		overseer_handle
@@ -231,6 +232,31 @@ pub mod relay_chain_driven {
 
 		stream_rx
 	}
+}
+
+/// Initialize the collation-related subsystems on the relay-chain side.
+///
+/// This must be done prior to collation, and does not set up any callback for collation.
+/// For callback-driven collators, use the [`relay_chain_driven`] module.
+pub async fn initialize_collator_subsystems(
+	overseer_handle: &mut OverseerHandle,
+	key: CollatorPair,
+	para_id: ParaId,
+) {
+	overseer_handle
+		.send_msg(
+			CollationGenerationMessage::Initialize(CollationGenerationConfig {
+				key,
+				para_id,
+				collator: None,
+			}),
+			"StartCollator",
+		)
+		.await;
+
+	overseer_handle
+		.send_msg(CollatorProtocolMessage::CollateOn(para_id), "StartCollator")
+		.await;
 }
 
 /// Parameters for [`start_collator`].
@@ -246,7 +272,24 @@ pub struct StartCollatorParams<Block: BlockT, RA, BS, Spawner> {
 }
 
 /// Start the collator.
+#[deprecated = "Collators should run consensus futures which handle this logic internally"]
 pub async fn start_collator<Block, RA, BS, Spawner>(
+	params: StartCollatorParams<Block, RA, BS, Spawner>,
+) where
+	Block: BlockT,
+	BS: BlockBackend<Block> + Send + Sync + 'static,
+	Spawner: SpawnNamed + Clone + Send + Sync + 'static,
+	RA: ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	RA::Api: CollectCollationInfo<Block>,
+{
+	// This never needed to be asynchronous, but shouldn't be changed due to backcompat.
+	#[allow(deprecated)]
+	start_collator_sync(params);
+}
+
+/// Start the collator in a synchronous function.
+#[deprecated = "Collators should run consensus futures which handle this logic internally"]
+pub fn start_collator_sync<Block, RA, BS, Spawner>(
 	StartCollatorParams {
 		para_id,
 		block_status,
@@ -269,9 +312,8 @@ pub async fn start_collator<Block, RA, BS, Spawner>(
 
 	let collator = Collator::new(collator_service, parachain_consensus);
 
-	let mut request_stream = relay_chain_driven::init(key, para_id, overseer_handle).await;
-
 	let collation_future = Box::pin(async move {
+		let mut request_stream = relay_chain_driven::init(key, para_id, overseer_handle).await;
 		while let Some(request) = request_stream.next().await {
 			let collation = collator
 				.clone()
@@ -298,11 +340,14 @@ mod tests {
 		Client, ClientBlockImportExt, DefaultTestClientBuilderExt, InitBlockBuilder,
 		TestClientBuilder, TestClientBuilderExt,
 	};
+	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 	use cumulus_test_runtime::{Block, Header};
 	use futures::{channel::mpsc, executor::block_on, StreamExt};
+	use polkadot_node_primitives::CollationGenerationConfig;
 	use polkadot_node_subsystem::messages::CollationGenerationMessage;
 	use polkadot_node_subsystem_test_helpers::ForwardSubsystem;
 	use polkadot_overseer::{dummy::dummy_overseer_builder, HeadSupportsParachains};
+	use polkadot_primitives::HeadData;
 	use sp_consensus::BlockOrigin;
 	use sp_core::{testing::TaskExecutor, Pair};
 	use sp_runtime::traits::BlakeTwo256;
@@ -330,10 +375,14 @@ mod tests {
 			_: PHash,
 			validation_data: &PersistedValidationData,
 		) -> Option<ParachainCandidate<Block>> {
+			let mut sproof = RelayStateSproofBuilder::default();
+			sproof.included_para_head = Some(HeadData(parent.encode()));
+			sproof.para_id = cumulus_test_runtime::PARACHAIN_ID.into();
+
 			let builder = self.client.init_block_builder_at(
 				parent.hash(),
 				Some(validation_data.clone()),
-				Default::default(),
+				sproof,
 			);
 
 			let (block, _, proof) = builder.build().expect("Creates block").into_inner();
@@ -368,6 +417,7 @@ mod tests {
 
 		spawner.spawn("overseer", None, overseer.run().then(|_| async {}).boxed());
 
+		#[allow(deprecated)]
 		let collator_start = start_collator(StartCollatorParams {
 			runtime_api: client.clone(),
 			block_status: client.clone(),
@@ -384,13 +434,19 @@ mod tests {
 			.0
 			.expect("message should be send by `start_collator` above.");
 
-		let CollationGenerationMessage::Initialize(config) = msg;
+		let collator_fn = match msg {
+			CollationGenerationMessage::Initialize(CollationGenerationConfig {
+				collator: Some(c),
+				..
+			}) => c,
+			_ => panic!("unexpected message or no collator fn"),
+		};
 
 		let validation_data =
 			PersistedValidationData { parent_head: header.encode().into(), ..Default::default() };
 		let relay_parent = Default::default();
 
-		let collation = block_on((config.collator)(relay_parent, &validation_data))
+		let collation = block_on(collator_fn(relay_parent, &validation_data))
 			.expect("Collation is build")
 			.collation;
 

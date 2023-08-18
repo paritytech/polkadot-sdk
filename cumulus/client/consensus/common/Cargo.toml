@@ -43,3 +43,4 @@ sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master
 
 # Cumulus
 cumulus-test-client = { path = "../../../test/client" }
+cumulus-test-relay-sproof-builder = { path = "../../../test/relay-sproof-builder" }

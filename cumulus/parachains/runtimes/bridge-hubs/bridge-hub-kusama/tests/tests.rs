@@ -15,8 +15,8 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 pub use bridge_hub_kusama_runtime::{
-	constants::fee::WeightToFee, xcm_config::XcmConfig, Balances, ExistentialDeposit,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeEvent, SessionKeys,
+	constants::fee::WeightToFee, xcm_config::XcmConfig, AllPalletsWithoutSystem, Balances,
+	ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeEvent, SessionKeys,
 };
 use codec::Decode;
 use frame_support::parameter_types;
@@ -30,6 +30,7 @@ parameter_types! {
 
 bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
 	Runtime,
+	AllPalletsWithoutSystem,
 	XcmConfig,
 	CheckingAccount,
 	WeightToFee,

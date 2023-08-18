@@ -46,6 +46,7 @@ pub struct RelayStateSproofBuilder {
 	pub current_epoch: u64,
 	pub randomness: relay_chain::Hash,
 	pub additional_key_values: Vec<(Vec<u8>, Vec<u8>)>,
+	pub included_para_head: Option<relay_chain::HeadData>,
 }
 
 impl Default for RelayStateSproofBuilder {
@@ -73,6 +74,7 @@ impl Default for RelayStateSproofBuilder {
 			current_epoch: 0u64,
 			randomness: relay_chain::Hash::default(),
 			additional_key_values: vec![],
+			included_para_head: None,
 		}
 	}
 }
@@ -90,16 +92,35 @@ impl RelayStateSproofBuilder {
 			in_index.insert(idx, sender);
 		}
 
-		self.hrmp_channels
-			.entry(relay_chain::HrmpChannelId { sender, recipient: self.para_id })
-			.or_insert_with(|| AbridgedHrmpChannel {
-				max_capacity: 0,
-				max_total_size: 0,
-				max_message_size: 0,
-				msg_count: 0,
-				total_size: 0,
-				mqc_head: None,
-			})
+		self.upsert_channel(relay_chain::HrmpChannelId { sender, recipient: self.para_id })
+	}
+
+	/// Returns a mutable reference to HRMP channel metadata for a channel (`self.para_id`,
+	/// `recipient`).
+	///
+	/// If there is no channel, a new default one is created.
+	///
+	/// It also updates the `hrmp_egress_channel_index`, creating it if needed.
+	pub fn upsert_outbound_channel(&mut self, recipient: ParaId) -> &mut AbridgedHrmpChannel {
+		let in_index = self.hrmp_egress_channel_index.get_or_insert_with(Vec::new);
+		if let Err(idx) = in_index.binary_search(&recipient) {
+			in_index.insert(idx, recipient);
+		}
+
+		self.upsert_channel(relay_chain::HrmpChannelId { sender: self.para_id, recipient })
+	}
+
+	/// Creates a new default entry in the hrmp channels mapping if not exists, and returns mutable
+	/// reference to it.
+	fn upsert_channel(&mut self, id: relay_chain::HrmpChannelId) -> &mut AbridgedHrmpChannel {
+		self.hrmp_channels.entry(id).or_insert_with(|| AbridgedHrmpChannel {
+			max_capacity: 0,
+			max_total_size: 0,
+			max_message_size: 0,
+			msg_count: 0,
+			total_size: 0,
+			mqc_head: None,
+		})
 	}
 
 	pub fn into_state_root_and_proof(
@@ -125,6 +146,9 @@ impl RelayStateSproofBuilder {
 					relay_chain::well_known_keys::dmq_mqc_head(self.para_id),
 					dmq_mqc_head.encode(),
 				);
+			}
+			if let Some(para_head) = self.included_para_head {
+				insert(relay_chain::well_known_keys::para_head(self.para_id), para_head.encode());
 			}
 			if let Some(relay_dispatch_queue_remaining_capacity) =
 				self.relay_dispatch_queue_remaining_capacity

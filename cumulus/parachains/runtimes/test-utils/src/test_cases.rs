@@ -16,9 +16,12 @@
 
 //! Module contains predefined test-case scenarios for `Runtime` with common functionality.
 
-use crate::{AccountIdOf, CollatorSessionKeys, ExtBuilder, RuntimeHelper, ValidatorIdOf};
+use crate::{AccountIdOf, CollatorSessionKeys, ExtBuilder, ValidatorIdOf};
 use codec::Encode;
 use frame_support::{assert_ok, traits::Get};
+
+type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
+	crate::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
 
 /// Test-case makes sure that `Runtime` can change storage constant via governance-like call
 pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, StorageConstantType>(

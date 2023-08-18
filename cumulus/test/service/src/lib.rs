@@ -39,9 +39,11 @@ use cumulus_client_consensus_common::{
 	ParachainBlockImport as TParachainBlockImport, ParachainCandidate, ParachainConsensus,
 };
 use cumulus_client_pov_recovery::RecoveryHandle;
+#[allow(deprecated)]
+use cumulus_client_service::old_consensus;
 use cumulus_client_service::{
-	build_network, prepare_node_config, start_collator, start_full_node, BuildNetworkParams,
-	StartCollatorParams, StartFullNodeParams,
+	build_network, prepare_node_config, start_relay_chain_tasks, BuildNetworkParams,
+	CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_inprocess_interface::RelayChainInProcessInterface;
@@ -338,6 +340,7 @@ where
 			spawn_handle: task_manager.spawn_handle(),
 			relay_chain_interface: relay_chain_interface.clone(),
 			import_queue: params.import_queue,
+			sybil_resistance_level: CollatorSybilResistance::Unresistant, // no consensus
 		})
 		.await?;
 
@@ -379,10 +382,29 @@ where
 		.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 
 	let recovery_handle: Box<dyn RecoveryHandle> = if fail_pov_recovery {
-		Box::new(FailingRecoveryHandle::new(overseer_handle))
+		Box::new(FailingRecoveryHandle::new(overseer_handle.clone()))
 	} else {
-		Box::new(overseer_handle)
+		Box::new(overseer_handle.clone())
 	};
+	let is_collator = collator_key.is_some();
+	let relay_chain_slot_duration = Duration::from_secs(6);
+
+	start_relay_chain_tasks(StartRelayChainTasksParams {
+		client: client.clone(),
+		announce_block: announce_block.clone(),
+		para_id,
+		relay_chain_interface: relay_chain_interface.clone(),
+		task_manager: &mut task_manager,
+		da_recovery_profile: if is_collator {
+			DARecoveryProfile::Collator
+		} else {
+			DARecoveryProfile::FullNode
+		},
+		import_queue: import_queue_service,
+		relay_chain_slot_duration,
+		recovery_handle,
+		sync_service: sync_service.clone(),
+	})?;
 
 	if let Some(collator_key) = collator_key {
 		let parachain_consensus: Box<dyn ParachainConsensus<Block>> = match consensus {
@@ -426,37 +448,18 @@ where
 			Consensus::Null => Box::new(NullConsensus),
 		};
 
-		let params = StartCollatorParams {
+		#[allow(deprecated)]
+		old_consensus::start_collator(old_consensus::StartCollatorParams {
 			block_status: client.clone(),
 			announce_block,
-			client: client.clone(),
+			runtime_api: client.clone(),
 			spawner: task_manager.spawn_handle(),
-			task_manager: &mut task_manager,
 			para_id,
 			parachain_consensus,
-			relay_chain_interface,
-			collator_key,
-			import_queue: import_queue_service,
-			relay_chain_slot_duration: Duration::from_secs(6),
-			recovery_handle,
-			sync_service,
-		};
-
-		start_collator(params).await?;
-	} else {
-		let params = StartFullNodeParams {
-			client: client.clone(),
-			announce_block,
-			task_manager: &mut task_manager,
-			para_id,
-			relay_chain_interface,
-			import_queue: import_queue_service,
-			relay_chain_slot_duration: Duration::from_secs(6),
-			recovery_handle,
-			sync_service,
-		};
-
-		start_full_node(params)?;
+			key: collator_key,
+			overseer_handle,
+		})
+		.await;
 	}
 
 	start_network.start_network();

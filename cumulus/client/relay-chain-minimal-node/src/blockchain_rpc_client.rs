@@ -21,7 +21,10 @@ use cumulus_relay_chain_rpc_interface::RelayChainRpcClient;
 use futures::{Stream, StreamExt};
 use polkadot_core_primitives::{Block, BlockNumber, Hash, Header};
 use polkadot_overseer::RuntimeApiSubsystemClient;
-use polkadot_primitives::slashing;
+use polkadot_primitives::{
+	slashing,
+	vstaging::{AsyncBackingParams, BackingState},
+};
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};
 use sp_api::{ApiError, RuntimeApiInfo};
 
@@ -333,6 +336,18 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 			.rpc_client
 			.parachain_host_submit_report_dispute_lost(at, dispute_proof, key_ownership_proof)
 			.await?)
+	}
+
+	async fn staging_async_backing_params(&self, at: Hash) -> Result<AsyncBackingParams, ApiError> {
+		Ok(self.rpc_client.parachain_host_staging_async_backing_params(at).await?)
+	}
+
+	async fn staging_para_backing_state(
+		&self,
+		at: Hash,
+		para_id: cumulus_primitives_core::ParaId,
+	) -> Result<Option<BackingState>, ApiError> {
+		Ok(self.rpc_client.parachain_host_staging_para_backing_state(at, para_id).await?)
 	}
 }
 
