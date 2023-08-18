@@ -31,7 +31,7 @@ cumulus-relay-chain-interface = {path = "../relay-chain-interface"}
 async-trait = "0.1.73"
 
 [dev-dependencies]
-tokio = { version = "1.31.0", features = ["macros"] }
+tokio = { version = "1.32.0", features = ["macros"] }
 portpicker = "0.1.1"
 
 # Cumulus
