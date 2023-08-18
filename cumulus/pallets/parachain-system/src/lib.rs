@@ -1568,6 +1568,13 @@ pub trait RelaychainStateProvider {
 	///
 	/// **NOTE**: This is not guaranteed to return monotonically increasing relay parents.
 	fn current_relay_chain_state() -> RelayChainState;
+
+	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
+	/// else a noop.
+	///
+	/// It allows for setting a custom RelayChainState.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_current_relay_chain_state(_state: RelayChainState) {}
 }
 
 /// Implements [`BlockNumberProvider`] that returns relay chain block number fetched from validation
@@ -1610,6 +1617,21 @@ impl<T: Config> RelaychainStateProvider for RelaychainDataProvider<T> {
 				state_root: d.relay_parent_storage_root,
 			})
 			.unwrap_or_default()
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_current_relay_chain_state(state: RelayChainState) {
+		let mut validation_data = Pallet::<T>::validation_data().unwrap_or_else(||
+			// PersistedValidationData does not impl default in non-std
+			PersistedValidationData {
+				parent_head: vec![].into(),
+				relay_parent_number: Default::default(),
+				max_pov_size: Default::default(),
+				relay_parent_storage_root: Default::default(),
+			});
+		validation_data.relay_parent_number = state.number;
+		validation_data.relay_parent_storage_root = state.state_root;
+		ValidationData::<T>::put(validation_data)
 	}
 }
 
