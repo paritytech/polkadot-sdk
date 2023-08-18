@@ -53,6 +53,8 @@ fn open_hrmp_channel_between_paras_works() {
 			bx!(relay_destination.clone()),
 			bx!(xcm),
 		));
+
+		PenpalPolkadotA::assert_xcm_pallet_sent();
 	});
 
 	Polkadot::execute_with(|| {
@@ -103,6 +105,8 @@ fn open_hrmp_channel_between_paras_works() {
 			bx!(relay_destination),
 			bx!(xcm),
 		));
+
+		PenpalPolkadotB::assert_xcm_pallet_sent();
 	});
 
 	Polkadot::execute_with(|| {

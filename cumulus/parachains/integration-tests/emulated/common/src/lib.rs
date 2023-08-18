@@ -480,6 +480,17 @@ impl_accounts_helpers_for_parachain!(AssetHubWestend);
 impl_assets_helpers_for_parachain!(AssetHubWestend, Westend);
 impl_assert_events_helpers_for_parachain!(AssetHubWestend);
 
+// PenpalPolkadot implementations
+impl_assert_events_helpers_for_parachain!(PenpalPolkadotA);
+impl_assert_events_helpers_for_parachain!(PenpalPolkadotB);
+
+// PenpalKusama implementations
+impl_assert_events_helpers_for_parachain!(PenpalKusamaA);
+impl_assert_events_helpers_for_parachain!(PenpalKusamaB);
+
+// PenpalWestendA implementation
+impl_assert_events_helpers_for_parachain!(PenpalWestendA);
+
 // Collectives implementation
 impl_accounts_helpers_for_parachain!(Collectives);
 impl_assert_events_helpers_for_parachain!(Collectives);

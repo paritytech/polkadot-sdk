@@ -113,7 +113,7 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 			bx!(xcm),
 		));
 
-		AssetHubWestend::assert_xcm_pallet_sent();
+		PenpalWestendA::assert_xcm_pallet_sent();
 	});
 
 	AssetHubWestend::execute_with(|| {

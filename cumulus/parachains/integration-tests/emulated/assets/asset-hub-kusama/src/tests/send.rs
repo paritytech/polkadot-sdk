@@ -171,7 +171,7 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 			bx!(xcm),
 		));
 
-		AssetHubKusama::assert_xcm_pallet_sent();
+		PenpalKusamaA::assert_xcm_pallet_sent();
 	});
 
 	AssetHubKusama::execute_with(|| {
