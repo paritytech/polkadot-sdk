@@ -7,7 +7,7 @@ use frame_support::{
 	traits::{ConstBool, ConstU32, Nothing},
 };
 use pallet_contracts::{
-	migration::{v12, v13, v14},
+	migration::{v12, v13, v14, v15},
 	weights::SubstrateWeight,
 	Config, DebugInfo, DefaultAddressGenerator, Frame, Schedule,
 };
@@ -59,6 +59,7 @@ impl Config for Runtime {
 		v12::Migration<Runtime, Balances>,
 		v13::Migration<Runtime>,
 		v14::Migration<Runtime, Balances>,
+		v15::Migration<Runtime>,
 	);
 	type RuntimeHoldReason = RuntimeHoldReason;
 }
