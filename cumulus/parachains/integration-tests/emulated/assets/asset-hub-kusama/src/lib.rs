@@ -30,7 +30,7 @@ pub use integration_tests_common::{
 		PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 	},
 	lazy_static::lazy_static,
-	xcm_transact_paid_execution, xcm_transact_unpaid_execution, AssetHubKusama,
+	xcm_transact_paid_execution, xcm_transact_unpaid_execution, AccountId, AssetHubKusama,
 	AssetHubKusamaPallet, AssetHubKusamaReceiver, AssetHubKusamaSender, BridgeHubKusama,
 	BridgeHubKusamaPallet, BridgeHubKusamaReceiver, BridgeHubKusamaSender, BridgeHubPolkadot,
 	BridgeHubPolkadotPallet, BridgeHubPolkadotReceiver, BridgeHubPolkadotSender, Collectives,
@@ -40,7 +40,7 @@ pub use integration_tests_common::{
 	PenpalKusamaBSender, PenpalPolkadotA, PenpalPolkadotAReceiver, PenpalPolkadotASender, Polkadot,
 	PolkadotMockNet, PolkadotPallet, PolkadotReceiver, PolkadotSender,
 };
-pub use parachains_common::{AccountId, Balance};
+pub use parachains_common::Balance;
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain::primitives::{HrmpChannelId, Id};
 pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};

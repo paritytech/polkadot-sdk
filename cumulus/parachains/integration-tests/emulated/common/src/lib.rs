@@ -219,7 +219,9 @@ decl_test_parachains! {
 		pallets = {
 			PolkadotXcm: asset_hub_kusama_runtime::PolkadotXcm,
 			Assets: asset_hub_kusama_runtime::Assets,
-			ForeignAssets: asset_hub_kusama_runtime::Assets,
+			ForeignAssets: asset_hub_kusama_runtime::ForeignAssets,
+			PoolAssets: asset_hub_kusama_runtime::PoolAssets,
+			AssetConversion: asset_hub_kusama_runtime::AssetConversion,
 			Balances: asset_hub_kusama_runtime::Balances,
 		}
 	},

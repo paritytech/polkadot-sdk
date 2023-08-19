@@ -266,13 +266,14 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
-	pub storage AllowMultiAssetPools: bool = false;
+	pub const AllowMultiAssetPools: bool = false;
 	// should be non-zero if AllowMultiAssetPools is true, otherwise can be zero
-	pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
+	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
 ord_parameter_types! {
-	pub const AssetConversionOrigin: sp_runtime::AccountId32 = AccountIdConversion::<sp_runtime::AccountId32>::into_account_truncating(&AssetConversionPalletId::get());
+	pub const AssetConversionOrigin: sp_runtime::AccountId32 =
+		AccountIdConversion::<sp_runtime::AccountId32>::into_account_truncating(&AssetConversionPalletId::get());
 }
 
 pub type PoolAssetsInstance = pallet_assets::Instance3;

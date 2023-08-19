@@ -18,4 +18,5 @@ mod hrmp_channels;
 mod reserve_transfer;
 mod send;
 mod set_xcm_versions;
+mod swap;
 mod teleport;

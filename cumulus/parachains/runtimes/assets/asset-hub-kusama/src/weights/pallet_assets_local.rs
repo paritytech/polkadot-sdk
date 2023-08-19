@@ -121,15 +121,13 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `414 + a * (86 ±0)`
 		//  Estimated: `3675 + a * (2623 ±0)`
-		// Minimum execution time: 17_105_000 picoseconds.
-		Weight::from_parts(17_370_000, 0)
+		// Minimum execution time: 16_745_000 picoseconds.
+		Weight::from_parts(17_247_000, 0)
 			.saturating_add(Weight::from_parts(0, 3675))
-			// Standard Error: 5_012
 			.saturating_add(Weight::from_parts(15_634_963, 0).saturating_mul(a.into()))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(a.into())))
 			.saturating_add(T::DbWeight::get().writes(1))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(a.into())))
 			.saturating_add(Weight::from_parts(0, 2623).saturating_mul(a.into()))
 	}
 	/// Storage: `Assets::Asset` (r:1 w:1)

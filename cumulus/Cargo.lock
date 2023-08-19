@@ -561,12 +561,15 @@ checksum = "9b34d609dfbaf33d6889b2b7106d3ca345eacad44200913df5ba02bfd31d2ba9"
 name = "asset-hub-kusama-integration-tests"
 version = "1.0.0"
 dependencies = [
+ "assert_matches",
+ "asset-hub-kusama-runtime",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "frame-support",
  "frame-system",
  "integration-tests-common",
+ "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
  "pallet-xcm",
@@ -608,7 +611,8 @@ dependencies = [
  "hex-literal",
  "kusama-runtime-constants",
  "log",
- "pallet-asset-tx-payment",
+ "pallet-asset-conversion",
+ "pallet-asset-conversion-tx-payment",
  "pallet-assets",
  "pallet-aura",
  "pallet-authorship",
@@ -634,6 +638,7 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain",
  "polkadot-runtime-common",
+ "primitive-types",
  "scale-info",
  "smallvec",
  "sp-api",

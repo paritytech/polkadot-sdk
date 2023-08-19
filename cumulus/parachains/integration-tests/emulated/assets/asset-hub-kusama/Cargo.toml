@@ -7,6 +7,7 @@ description = "Asset Hub Kusama runtime integration tests with xcm-emulator"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
+assert_matches = "1.5.0"
 
 # Substrate
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
@@ -16,6 +17,7 @@ sp-core = { default-features = false, git = "https://github.com/paritytech/subst
 sp-weights = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-balances = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
 pallet-assets = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-asset-conversion = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot
 polkadot-core-primitives = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
@@ -28,6 +30,7 @@ pallet-xcm = { default-features = false, git = "https://github.com/paritytech/po
 
 # Cumulus
 parachains-common = { path = "../../../../common" }
+asset-hub-kusama-runtime = { path = "../../../../runtimes/assets/asset-hub-kusama" }
 cumulus-pallet-dmp-queue = { path = "../../../../../pallets/dmp-queue" }
 cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../../pallets/xcmp-queue" }
 cumulus-pallet-parachain-system = { path = "../../../../../pallets/parachain-system" }

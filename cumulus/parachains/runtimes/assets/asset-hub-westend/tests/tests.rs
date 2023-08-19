@@ -29,8 +29,8 @@ use asset_hub_westend_runtime::{
 		AssetFeeAsExistentialDepositMultiplierFeeCharger, ForeignCreatorsSovereignAccountOf,
 		WestendLocation,
 	},
-	AllPalletsWithoutSystem, LiquidityWithdrawalFee, MetadataDepositBase, MetadataDepositPerByte,
-	RuntimeCall, RuntimeEvent,
+	AllPalletsWithoutSystem, MetadataDepositBase, MetadataDepositPerByte, RuntimeCall,
+	RuntimeEvent,
 };
 use asset_test_utils::{CollatorSessionKeys, ExtBuilder, XcmReceivedFrom};
 use codec::{Decode, DecodeLimit, Encode};
@@ -41,10 +41,7 @@ use frame_support::{
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
-use sp_runtime::{
-	traits::{CheckedAdd, CheckedSub, MaybeEquivalence},
-	Permill,
-};
+use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
 use xcm::{latest::prelude::*, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::{
@@ -666,40 +663,4 @@ fn plain_receive_teleported_asset_works() {
 				XcmExecutor::<XcmConfig>::execute_xcm(Parent, maybe_msg, message_id, RuntimeHelper::xcm_max_weight(XcmReceivedFrom::Parent));
 			assert_eq!(outcome.ensure_complete(), Ok(()));
 		})
-}
-
-#[test]
-fn change_allow_multi_asset_pools_by_governance_works() {
-	asset_test_utils::test_cases::change_storage_constant_by_governance_works::<
-		Runtime,
-		AllowMultiAssetPools,
-		bool,
-	>(
-		collator_session_keys(),
-		1000,
-		Box::new(|call| RuntimeCall::System(call).encode()),
-		|| (AllowMultiAssetPools::key().to_vec(), AllowMultiAssetPools::get()),
-		|old_value| !old_value,
-	)
-}
-
-#[test]
-fn change_liquidity_withdrawal_fee_by_governance_works() {
-	asset_test_utils::test_cases::change_storage_constant_by_governance_works::<
-		Runtime,
-		LiquidityWithdrawalFee,
-		Permill,
-	>(
-		collator_session_keys(),
-		1000,
-		Box::new(|call| RuntimeCall::System(call).encode()),
-		|| (LiquidityWithdrawalFee::key().to_vec(), LiquidityWithdrawalFee::get()),
-		|old_value| {
-			if let Some(new_value) = old_value.checked_add(&Permill::from_percent(2)) {
-				new_value
-			} else {
-				old_value.checked_sub(&Permill::from_percent(2)).unwrap()
-			}
-		},
-	)
 }

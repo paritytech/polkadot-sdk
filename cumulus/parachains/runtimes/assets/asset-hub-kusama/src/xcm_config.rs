@@ -14,12 +14,16 @@
 // limitations under the License.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, ForeignAssets,
-	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
+	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, ParachainInfo,
+	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
 	TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
 };
-use assets_common::matching::{
-	FromSiblingParachain, IsForeignConcreteAsset, StartsWith, StartsWithExplicitGlobalConsensus,
+use crate::ForeignAssets;
+use assets_common::{
+	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
+	matching::{
+		FromSiblingParachain, IsForeignConcreteAsset, StartsWith, StartsWithExplicitGlobalConsensus,
+	},
 };
 use frame_support::{
 	match_types, parameter_types,
@@ -43,6 +47,9 @@ use xcm_builder::{
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
+#[cfg(feature = "runtime-benchmarks")]
+use {cumulus_primitives_core::ParaId, sp_core::Get};
+
 parameter_types! {
 	pub const KsmLocation: MultiLocation = MultiLocation::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Kusama);
@@ -52,6 +59,10 @@ parameter_types! {
 	pub UniversalLocationNetworkId: NetworkId = UniversalLocation::get().global_consensus().unwrap();
 	pub TrustBackedAssetsPalletLocation: MultiLocation =
 		PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
+	pub ForeignAssetsPalletLocation: MultiLocation =
+		PalletInstance(<ForeignAssets as PalletInfoAccess>::index() as u8).into();
+	pub PoolAssetsPalletLocation: MultiLocation =
+		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
 	pub const FellowshipLocation: MultiLocation = MultiLocation::parent();
@@ -85,7 +96,7 @@ pub type CurrencyTransactor = CurrencyAdapter<
 	(),
 >;
 
-/// `AssetId/Balance` converter for `TrustBackedAssets`
+/// `AssetId`/`Balance` converter for `PoolAssets`.
 pub type TrustBackedAssetsConvertedConcreteId =
 	assets_common::TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, Balance>;
 
@@ -137,8 +148,48 @@ pub type ForeignFungiblesTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
+/// `AssetId`/`Balance` converter for `PoolAssets`.
+pub type PoolAssetsConvertedConcreteId =
+	assets_common::PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance>;
+
+/// Means for transacting asset conversion pool assets on this chain.
+pub type PoolFungiblesTransactor = FungiblesAdapter<
+	// Use this fungibles implementation:
+	PoolAssets,
+	// Use this currency when it is a fungible asset matching the given location or name:
+	PoolAssetsConvertedConcreteId,
+	// Convert an XCM MultiLocation into a local account id:
+	LocationToAccountId,
+	// Our chain's account ID type (we can't get away without mentioning it explicitly):
+	AccountId,
+	// We only want to allow teleports of known assets. We use non-zero issuance as an indication
+	// that this asset is known.
+	LocalMint<parachains_common::impls::NonZeroIssuance<AccountId, PoolAssets>>,
+	// The account to use for tracking teleports.
+	CheckingAccount,
+>;
+
 /// Means for transacting assets on this chain.
-pub type AssetTransactors = (CurrencyTransactor, FungiblesTransactor, ForeignFungiblesTransactor);
+pub type AssetTransactors =
+	(CurrencyTransactor, FungiblesTransactor, ForeignFungiblesTransactor, PoolFungiblesTransactor);
+
+/// Simple `MultiLocation` matcher for Local and Foreign asset `MultiLocation`.
+pub struct LocalAndForeignAssetsMultiLocationMatcher;
+impl MatchesLocalAndForeignAssetsMultiLocation for LocalAndForeignAssetsMultiLocationMatcher {
+	fn is_local(location: &MultiLocation) -> bool {
+		use assets_common::fungible_conversion::MatchesMultiLocation;
+		TrustBackedAssetsConvertedConcreteId::contains(location)
+	}
+	fn is_foreign(location: &MultiLocation) -> bool {
+		use assets_common::fungible_conversion::MatchesMultiLocation;
+		ForeignAssetsConvertedConcreteId::contains(location)
+	}
+}
+impl Contains<MultiLocation> for LocalAndForeignAssetsMultiLocationMatcher {
+	fn contains(location: &MultiLocation) -> bool {
+		Self::is_local(location) || Self::is_foreign(location)
+	}
+}
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
@@ -227,6 +278,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 						pallet_assets::Call::destroy_accounts { .. } |
 						pallet_assets::Call::destroy_approvals { .. } |
 						pallet_assets::Call::finish_destroy { .. } |
+						pallet_assets::Call::block { .. } |
 						pallet_assets::Call::mint { .. } |
 						pallet_assets::Call::burn { .. } |
 						pallet_assets::Call::transfer { .. } |
@@ -247,7 +299,9 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 						pallet_assets::Call::force_cancel_approval { .. } |
 						pallet_assets::Call::transfer_approved { .. } |
 						pallet_assets::Call::touch { .. } |
-						pallet_assets::Call::refund { .. },
+						pallet_assets::Call::touch_other { .. } |
+						pallet_assets::Call::refund { .. } |
+						pallet_assets::Call::refund_other { .. },
 				) | RuntimeCall::ForeignAssets(
 				pallet_assets::Call::create { .. } |
 					pallet_assets::Call::force_create { .. } |
@@ -255,6 +309,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					pallet_assets::Call::destroy_accounts { .. } |
 					pallet_assets::Call::destroy_approvals { .. } |
 					pallet_assets::Call::finish_destroy { .. } |
+					pallet_assets::Call::block { .. } |
 					pallet_assets::Call::mint { .. } |
 					pallet_assets::Call::burn { .. } |
 					pallet_assets::Call::transfer { .. } |
@@ -275,7 +330,40 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					pallet_assets::Call::force_cancel_approval { .. } |
 					pallet_assets::Call::transfer_approved { .. } |
 					pallet_assets::Call::touch { .. } |
-					pallet_assets::Call::refund { .. },
+					pallet_assets::Call::touch_other { .. } |
+					pallet_assets::Call::refund { .. } |
+					pallet_assets::Call::refund_other { .. },
+			) | RuntimeCall::PoolAssets(
+				pallet_assets::Call::force_create { .. } |
+					pallet_assets::Call::block { .. } |
+					pallet_assets::Call::burn { .. } |
+					pallet_assets::Call::transfer { .. } |
+					pallet_assets::Call::transfer_keep_alive { .. } |
+					pallet_assets::Call::force_transfer { .. } |
+					pallet_assets::Call::freeze { .. } |
+					pallet_assets::Call::thaw { .. } |
+					pallet_assets::Call::freeze_asset { .. } |
+					pallet_assets::Call::thaw_asset { .. } |
+					pallet_assets::Call::transfer_ownership { .. } |
+					pallet_assets::Call::set_team { .. } |
+					pallet_assets::Call::set_metadata { .. } |
+					pallet_assets::Call::clear_metadata { .. } |
+					pallet_assets::Call::force_clear_metadata { .. } |
+					pallet_assets::Call::force_asset_status { .. } |
+					pallet_assets::Call::approve_transfer { .. } |
+					pallet_assets::Call::cancel_approval { .. } |
+					pallet_assets::Call::force_cancel_approval { .. } |
+					pallet_assets::Call::transfer_approved { .. } |
+					pallet_assets::Call::touch { .. } |
+					pallet_assets::Call::touch_other { .. } |
+					pallet_assets::Call::refund { .. } |
+					pallet_assets::Call::refund_other { .. },
+			) | RuntimeCall::AssetConversion(
+				pallet_asset_conversion::Call::create_pool { .. } |
+					pallet_asset_conversion::Call::add_liquidity { .. } |
+					pallet_asset_conversion::Call::remove_liquidity { .. } |
+					pallet_asset_conversion::Call::swap_tokens_for_exact_tokens { .. } |
+					pallet_asset_conversion::Call::swap_exact_tokens_for_tokens { .. },
 			) | RuntimeCall::NftFractionalization(
 				pallet_nft_fractionalization::Call::fractionalize { .. } |
 					pallet_nft_fractionalization::Call::unify { .. },
@@ -504,5 +592,32 @@ pub struct XcmBenchmarkHelper;
 impl pallet_assets::BenchmarkHelper<MultiLocation> for XcmBenchmarkHelper {
 	fn create_asset_id_parameter(id: u32) -> MultiLocation {
 		MultiLocation { parents: 1, interior: X1(Parachain(id)) }
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct BenchmarkMultiLocationConverter<SelfParaId> {
+	_phantom: sp_std::marker::PhantomData<SelfParaId>,
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<SelfParaId>
+	pallet_asset_conversion::BenchmarkHelper<MultiLocation, sp_std::boxed::Box<MultiLocation>>
+	for BenchmarkMultiLocationConverter<SelfParaId>
+where
+	SelfParaId: Get<ParaId>,
+{
+	fn asset_id(asset_id: u32) -> MultiLocation {
+		MultiLocation {
+			parents: 1,
+			interior: X3(
+				Parachain(SelfParaId::get().into()),
+				PalletInstance(<Assets as PalletInfoAccess>::index() as u8),
+				GeneralIndex(asset_id.into()),
+			),
+		}
+	}
+	fn multiasset_id(asset_id: u32) -> sp_std::boxed::Box<MultiLocation> {
+		sp_std::boxed::Box::new(Self::asset_id(asset_id))
 	}
 }
