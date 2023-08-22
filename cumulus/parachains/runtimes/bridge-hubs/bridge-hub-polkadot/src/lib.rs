@@ -129,7 +129,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-polkadot"),
 	impl_name: create_runtime_str!("bridge-hub-polkadot"),
 	authoring_version: 1,
-	spec_version: 9430,
+	spec_version: 10000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,

@@ -10334,7 +10334,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-parachain-bin"
-version = "0.9.430"
+version = "1.0.0"
 dependencies = [
  "assert_cmd",
  "asset-hub-kusama-runtime",
