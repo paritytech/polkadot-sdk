@@ -292,6 +292,7 @@ pub mod westend {
 		para_validator: ValidatorId,
 		para_assignment: AssignmentId,
 		authority_discovery: AuthorityDiscoveryId,
+		beefy: BeefyId,
 	) -> westend_runtime::SessionKeys {
 		westend_runtime::SessionKeys {
 			babe,
@@ -300,6 +301,7 @@ pub mod westend {
 			para_validator,
 			para_assignment,
 			authority_discovery,
+			beefy,
 		}
 	}
 
@@ -330,6 +332,7 @@ pub mod westend {
 								x.5.clone(),
 								x.6.clone(),
 								x.7.clone(),
+								get_from_seed::<BeefyId>("Alice"),
 							),
 						)
 					})
@@ -398,6 +401,7 @@ pub mod kusama {
 		para_validator: ValidatorId,
 		para_assignment: AssignmentId,
 		authority_discovery: AuthorityDiscoveryId,
+		beefy: BeefyId,
 	) -> kusama_runtime::SessionKeys {
 		kusama_runtime::SessionKeys {
 			babe,
@@ -406,6 +410,7 @@ pub mod kusama {
 			para_validator,
 			para_assignment,
 			authority_discovery,
+			beefy,
 		}
 	}
 
@@ -435,6 +440,7 @@ pub mod kusama {
 								x.5.clone(),
 								x.6.clone(),
 								x.7.clone(),
+								get_from_seed::<BeefyId>("Alice"),
 							),
 						)
 					})
