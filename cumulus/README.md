@@ -43,9 +43,10 @@ You may run `polkadot-parachain` locally after building it or using one of the c
 
 ### Relay Chain Interaction
 To operate a parachain node, a connection to the corresponding relay chain is necessary. This can be
-achieved in one of two ways:
+achieved in one of three ways:
 1. Run a full relay chain node within the parachain node (default)
 2. Connect to an external relay chain node via WebSocket RPC
+3. Run a light client for the relay chain
 
 #### In-process Relay Chain Node
 If an external relay chain node is not specified (default behavior), then a full relay chain node is
@@ -55,7 +56,7 @@ This node has all of the typical components of a regular Polkadot node and will 
 with the relay chain to work.
 
 ##### Example command
-```shell=
+```bash
 polkadot-parachain \
 	--chain parachain-chainspec.json \
 	--tmp \
@@ -76,13 +77,33 @@ they will use fewer system resources.
 relay chain node in-process. Even though they lack the majority of normal Polkadot subsystems, they
 will still need to connect directly to the relay chain network.
 ##### Example command
-```shell=
+```bash
 polkadot-parachain \
 	--chain parachain-chainspec.json \
 	--tmp \
 	--relay-chain-rpc-urls \
 		"ws://relaychain-rpc-endpoint:9944" \
 		"ws://relaychain-rpc-endpoint-backup:9944" \
+	-- \
+	--chain relaychain-chainspec.json
+```
+
+#### Relay Chain Light Client
+An internal relay chain light client provides a fast and lightweight approach for connecting to the relay chain network.
+It provides relay chain notifications and facilitates runtime calls.
+
+To specify which chain the light client should connect to, users need to supply a relay chain chain-spec as part of the relay chain arguments.
+
+**Note:** At this time, any parachain nodes using this feature will still spawn a significantly cut-down
+relay chain node in-process. Even though they lack the majority of normal Polkadot subsystems, they
+will still need to connect directly to the relay chain network.
+
+##### Example command
+```bash
+polkadot-parachain \
+	--chain parachain-chainspec.json \
+	--tmp \
+	--relay-chain-light-client \
 	-- \
 	--chain relaychain-chainspec.json
 ```

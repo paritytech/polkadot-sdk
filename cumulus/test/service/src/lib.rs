@@ -34,7 +34,7 @@ use std::{
 use url::Url;
 
 use crate::runtime::Weight;
-use cumulus_client_cli::CollatorOptions;
+use cumulus_client_cli::{CollatorOptions, RelayChainMode};
 use cumulus_client_consensus_common::{
 	ParachainBlockImport as TParachainBlockImport, ParachainCandidate, ParachainConsensus,
 };
@@ -48,7 +48,9 @@ use cumulus_client_service::{
 use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_inprocess_interface::RelayChainInProcessInterface;
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
-use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node;
+use cumulus_relay_chain_minimal_node::{
+	build_minimal_relay_chain_node_light_client, build_minimal_relay_chain_node_with_rpc,
+};
 
 use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
 
@@ -249,26 +251,30 @@ async fn build_relay_chain_interface(
 	collator_options: CollatorOptions,
 	task_manager: &mut TaskManager,
 ) -> RelayChainResult<Arc<dyn RelayChainInterface + 'static>> {
-	if !collator_options.relay_chain_rpc_urls.is_empty() {
-		return build_minimal_relay_chain_node(
+	let relay_chain_full_node = match collator_options.relay_chain_mode {
+		cumulus_client_cli::RelayChainMode::Embedded => polkadot_test_service::new_full(
 			relay_chain_config,
-			task_manager,
-			collator_options.relay_chain_rpc_urls,
+			if let Some(ref key) = collator_key {
+				polkadot_service::IsParachainNode::Collator(key.clone())
+			} else {
+				polkadot_service::IsParachainNode::Collator(CollatorPair::generate().0)
+			},
+			None,
 		)
-		.await
-		.map(|r| r.0)
-	}
-
-	let relay_chain_full_node = polkadot_test_service::new_full(
-		relay_chain_config,
-		if let Some(ref key) = collator_key {
-			polkadot_service::IsParachainNode::Collator(key.clone())
-		} else {
-			polkadot_service::IsParachainNode::Collator(CollatorPair::generate().0)
-		},
-		None,
-	)
-	.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?;
+		.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?,
+		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
+			return build_minimal_relay_chain_node_with_rpc(
+				relay_chain_config,
+				task_manager,
+				rpc_target_urls,
+			)
+			.await
+			.map(|r| r.0),
+		cumulus_client_cli::RelayChainMode::LightClient =>
+			return build_minimal_relay_chain_node_light_client(relay_chain_config, task_manager)
+				.await
+				.map(|r| r.0),
+	};
 
 	task_manager.add_child(relay_chain_full_node.task_manager);
 	tracing::info!("Using inprocess node.");
@@ -505,7 +511,7 @@ pub struct TestNodeBuilder {
 	storage_update_func_parachain: Option<Box<dyn Fn()>>,
 	storage_update_func_relay_chain: Option<Box<dyn Fn()>>,
 	consensus: Consensus,
-	relay_chain_full_node_url: Vec<Url>,
+	relay_chain_mode: RelayChainMode,
 	endowed_accounts: Vec<AccountId>,
 }
 
@@ -529,8 +535,8 @@ impl TestNodeBuilder {
 			storage_update_func_parachain: None,
 			storage_update_func_relay_chain: None,
 			consensus: Consensus::RelayChain,
-			relay_chain_full_node_url: vec![],
 			endowed_accounts: Default::default(),
+			relay_chain_mode: RelayChainMode::Embedded,
 		}
 	}
 
@@ -624,7 +630,7 @@ impl TestNodeBuilder {
 
 	/// Connect to full node via RPC.
 	pub fn use_external_relay_chain_node_at_url(mut self, network_address: Url) -> Self {
-		self.relay_chain_full_node_url = vec![network_address];
+		self.relay_chain_mode = RelayChainMode::ExternalRpc(vec![network_address]);
 		self
 	}
 
@@ -633,7 +639,7 @@ impl TestNodeBuilder {
 		let mut localhost_url =
 			Url::parse("ws://localhost").expect("Should be able to parse localhost Url");
 		localhost_url.set_port(Some(port)).expect("Should be able to set port");
-		self.relay_chain_full_node_url = vec![localhost_url];
+		self.relay_chain_mode = RelayChainMode::ExternalRpc(vec![localhost_url]);
 		self
 	}
 
@@ -665,8 +671,7 @@ impl TestNodeBuilder {
 			false,
 		);
 
-		let collator_options =
-			CollatorOptions { relay_chain_rpc_urls: self.relay_chain_full_node_url };
+		let collator_options = CollatorOptions { relay_chain_mode: self.relay_chain_mode };
 
 		relay_chain_config.network.node_name =
 			format!("{} (relay chain)", relay_chain_config.network.node_name);

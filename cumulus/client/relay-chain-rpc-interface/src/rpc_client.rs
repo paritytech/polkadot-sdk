@@ -14,19 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use futures::channel::mpsc::Receiver;
-use jsonrpsee::{core::params::ArrayParams, rpc_params};
-use parity_scale_codec::{Decode, Encode};
+use futures::channel::{
+	mpsc::{Receiver, Sender},
+	oneshot::Sender as OneshotSender,
+};
+use jsonrpsee::{
+	core::{params::ArrayParams, Error as JsonRpseeError},
+	rpc_params,
+};
 use serde::de::DeserializeOwned;
-pub use url::Url;
+use serde_json::Value as JsonValue;
+use tokio::sync::mpsc::Sender as TokioSender;
 
-use sc_client_api::StorageData;
-use sc_rpc_api::{state::ReadProof, system::Health};
-use sc_service::TaskManager;
-use sp_api::RuntimeVersion;
-use sp_consensus_babe::Epoch;
-use sp_core::sp_std::collections::btree_map::BTreeMap;
-use sp_storage::StorageKey;
+use parity_scale_codec::{Decode, Encode};
 
 use cumulus_primitives_core::{
 	relay_chain::{
@@ -42,35 +42,96 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainResult};
 
-use crate::reconnecting_ws_client::ReconnectingWsClient;
+use sc_client_api::StorageData;
+use sc_rpc_api::{state::ReadProof, system::Health};
+use sc_service::TaskManager;
+use sp_api::RuntimeVersion;
+use sp_consensus_babe::Epoch;
+use sp_core::sp_std::collections::btree_map::BTreeMap;
+use sp_storage::StorageKey;
+
+use crate::{
+	light_client_worker::{build_smoldot_client, LightClientRpcWorker},
+	reconnecting_ws_client::ReconnectingWebsocketWorker,
+};
+pub use url::Url;
 
 const LOG_TARGET: &str = "relay-chain-rpc-client";
+const NOTIFICATION_CHANNEL_SIZE_LIMIT: usize = 20;
 
-/// Client that maps RPC methods and deserializes results
-#[derive(Clone)]
-pub struct RelayChainRpcClient {
-	/// Websocket client to make calls
-	ws_client: ReconnectingWsClient,
+/// Messages for communication between [`RelayChainRpcClient`] and the RPC workers.
+#[derive(Debug)]
+pub enum RpcDispatcherMessage {
+	/// Register new listener for the best headers stream. Contains a sender which will be used
+	/// to send incoming headers.
+	RegisterBestHeadListener(Sender<RelayHeader>),
+
+	/// Register new listener for the import headers stream. Contains a sender which will be used
+	/// to send incoming headers.
+	RegisterImportListener(Sender<RelayHeader>),
+
+	/// Register new listener for the finalized headers stream. Contains a sender which will be
+	/// used to send incoming headers.
+	RegisterFinalizationListener(Sender<RelayHeader>),
+
+	/// Register new listener for the finalized headers stream.
+	/// Contains the following:
+	/// - [`String`] representing the RPC method to be called
+	/// - [`ArrayParams`] for the parameters to the RPC call
+	/// - [`OneshotSender`] for the return value of the request
+	Request(String, ArrayParams, OneshotSender<Result<JsonValue, JsonRpseeError>>),
 }
 
-/// Entry point to create [`RelayChainRpcClient`] and start a worker that distributes notifications.
+/// Entry point to create [`RelayChainRpcClient`] and start a worker that communicates
+/// to JsonRPC servers over the network.
 pub async fn create_client_and_start_worker(
 	urls: Vec<Url>,
 	task_manager: &mut TaskManager,
 ) -> RelayChainResult<RelayChainRpcClient> {
-	let ws_client = ReconnectingWsClient::new(urls, task_manager).await?;
+	let (worker, sender) = ReconnectingWebsocketWorker::new(urls).await;
 
-	let client = RelayChainRpcClient::new(ws_client).await?;
+	task_manager
+		.spawn_essential_handle()
+		.spawn("relay-chain-rpc-worker", None, worker.run());
+
+	let client = RelayChainRpcClient::new(sender);
 
 	Ok(client)
 }
 
+/// Entry point to create [`RelayChainRpcClient`] and start a worker that communicates
+/// with an embedded smoldot instance.
+pub async fn create_client_and_start_light_client_worker(
+	chain_spec: String,
+	task_manager: &mut TaskManager,
+) -> RelayChainResult<RelayChainRpcClient> {
+	let (client, chain_id, json_rpc_responses) =
+		build_smoldot_client(task_manager.spawn_handle(), &chain_spec).await?;
+	let (worker, sender) = LightClientRpcWorker::new(client, json_rpc_responses, chain_id);
+
+	task_manager
+		.spawn_essential_handle()
+		.spawn("relay-light-client-worker", None, worker.run());
+
+	let client = RelayChainRpcClient::new(sender);
+
+	Ok(client)
+}
+
+/// Client that maps RPC methods and deserializes results
+#[derive(Clone)]
+pub struct RelayChainRpcClient {
+	/// Sender to send messages to the worker.
+	worker_channel: TokioSender<RpcDispatcherMessage>,
+}
+
 impl RelayChainRpcClient {
 	/// Initialize new RPC Client.
-	async fn new(ws_client: ReconnectingWsClient) -> RelayChainResult<Self> {
-		let client = RelayChainRpcClient { ws_client };
-
-		Ok(client)
+	///
+	/// This client expects a channel connected to a worker that processes
+	/// requests sent via this channel.
+	pub(crate) fn new(worker_channel: TokioSender<RpcDispatcherMessage>) -> Self {
+		RelayChainRpcClient { worker_channel }
 	}
 
 	/// Call a call to `state_call` rpc method.
@@ -129,8 +190,25 @@ impl RelayChainRpcClient {
 		R: DeserializeOwned + std::fmt::Debug,
 		OR: Fn(&RelayChainError),
 	{
-		self.ws_client.request(method, params).await.map_err(|err| {
-			trace_error(&err);
+		let (tx, rx) = futures::channel::oneshot::channel();
+
+		let message = RpcDispatcherMessage::Request(method.into(), params, tx);
+		self.worker_channel.send(message).await.map_err(|err| {
+			RelayChainError::WorkerCommunicationError(format!(
+				"Unable to send message to RPC worker: {}",
+				err
+			))
+		})?;
+
+		let value = rx.await.map_err(|err| {
+			RelayChainError::WorkerCommunicationError(format!(
+				"Unexpected channel close on RPC worker side: {}",
+				err
+			))
+		})??;
+
+		serde_json::from_value(value).map_err(|_| {
+			trace_error(&RelayChainError::GenericError("Unable to deserialize value".to_string()));
 			RelayChainError::RpcCallError(method.to_string())
 		})
 	}
@@ -537,18 +615,57 @@ impl RelayChainRpcClient {
 		.await
 	}
 
+	fn send_register_message_to_worker(
+		&self,
+		message: RpcDispatcherMessage,
+	) -> Result<(), RelayChainError> {
+		self.worker_channel
+			.try_send(message)
+			.map_err(|e| RelayChainError::WorkerCommunicationError(e.to_string()))
+	}
+
 	/// Get a stream of all imported relay chain headers
 	pub fn get_imported_heads_stream(&self) -> Result<Receiver<RelayHeader>, RelayChainError> {
-		self.ws_client.get_imported_heads_stream()
+		let (tx, rx) =
+			futures::channel::mpsc::channel::<RelayHeader>(NOTIFICATION_CHANNEL_SIZE_LIMIT);
+		self.send_register_message_to_worker(RpcDispatcherMessage::RegisterImportListener(tx))?;
+		Ok(rx)
 	}
 
 	/// Get a stream of new best relay chain headers
 	pub fn get_best_heads_stream(&self) -> Result<Receiver<RelayHeader>, RelayChainError> {
-		self.ws_client.get_best_heads_stream()
+		let (tx, rx) =
+			futures::channel::mpsc::channel::<RelayHeader>(NOTIFICATION_CHANNEL_SIZE_LIMIT);
+		self.send_register_message_to_worker(RpcDispatcherMessage::RegisterBestHeadListener(tx))?;
+		Ok(rx)
 	}
 
 	/// Get a stream of finalized relay chain headers
 	pub fn get_finalized_heads_stream(&self) -> Result<Receiver<RelayHeader>, RelayChainError> {
-		self.ws_client.get_finalized_heads_stream()
+		let (tx, rx) =
+			futures::channel::mpsc::channel::<RelayHeader>(NOTIFICATION_CHANNEL_SIZE_LIMIT);
+		self.send_register_message_to_worker(RpcDispatcherMessage::RegisterFinalizationListener(
+			tx,
+		))?;
+		Ok(rx)
 	}
+}
+
+/// Send `header` through all channels contained in `senders`.
+/// If no one is listening to the sender, it is removed from the vector.
+pub fn distribute_header(header: RelayHeader, senders: &mut Vec<Sender<RelayHeader>>) {
+	senders.retain_mut(|e| {
+				match e.try_send(header.clone()) {
+					// Receiver has been dropped, remove Sender from list.
+					Err(error) if error.is_disconnected() => false,
+					// Channel is full. This should not happen.
+					// TODO: Improve error handling here
+					// https://github.com/paritytech/cumulus/issues/1482
+					Err(error) => {
+						tracing::error!(target: LOG_TARGET, ?error, "Event distribution channel has reached its limit. This can lead to missed notifications.");
+						true
+					},
+					_ => true,
+				}
+			});
 }

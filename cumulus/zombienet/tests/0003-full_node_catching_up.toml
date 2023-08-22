@@ -40,3 +40,11 @@ cumulus_based = true
   image = "{{COL_IMAGE}}"
   command = "test-parachain"
   args = ["--reserved-only", "--reserved-nodes {{'charlie'|zombie('multiAddress')}}", "--relay-chain-rpc-url {{'alice'|zombie('wsUri')}}"]
+
+  # run cumulus node ferdie (with embedded light client) and wait for it to sync some blocks
+  [[parachains.collators]]
+  name = "ferdie"
+  validator = false
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["--relay-chain-light-client", "--reserved-only", "--reserved-nodes {{'charlie'|zombie('multiAddress')}}"]

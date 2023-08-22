@@ -304,6 +304,11 @@ pub struct RunCmd {
 		alias = "relay-chain-rpc-url"
 	)]
 	pub relay_chain_rpc_urls: Vec<Url>,
+
+	/// EXPERIMENTAL: Embed a light client for the relay chain. Only supported for full-nodes.
+	/// Will use the specified relay chain chainspec.
+	#[arg(long, conflicts_with_all = ["relay_chain_rpc_urls", "collator"])]
+	pub relay_chain_light_client: bool,
 }
 
 impl RunCmd {
@@ -319,15 +324,33 @@ impl RunCmd {
 
 	/// Create [`CollatorOptions`] representing options only relevant to parachain collator nodes
 	pub fn collator_options(&self) -> CollatorOptions {
-		CollatorOptions { relay_chain_rpc_urls: self.relay_chain_rpc_urls.clone() }
+		let relay_chain_mode =
+			match (self.relay_chain_light_client, !self.relay_chain_rpc_urls.is_empty()) {
+				(true, _) => RelayChainMode::LightClient,
+				(_, true) => RelayChainMode::ExternalRpc(self.relay_chain_rpc_urls.clone()),
+				_ => RelayChainMode::Embedded,
+			};
+
+		CollatorOptions { relay_chain_mode }
 	}
+}
+
+/// Possible modes for the relay chain to operate in.
+#[derive(Clone, Debug)]
+pub enum RelayChainMode {
+	/// Spawn embedded relay chain node
+	Embedded,
+	/// Connect to remote relay chain node via websocket RPC
+	ExternalRpc(Vec<Url>),
+	/// Spawn embedded relay chain light client
+	LightClient,
 }
 
 /// Options only relevant for collator nodes
 #[derive(Clone, Debug)]
 pub struct CollatorOptions {
-	/// Location of relay chain full node
-	pub relay_chain_rpc_urls: Vec<Url>,
+	/// How this collator retrieves relay chain information
+	pub relay_chain_mode: RelayChainMode,
 }
 
 /// A non-redundant version of the `RunCmd` that sets the `validator` field when the

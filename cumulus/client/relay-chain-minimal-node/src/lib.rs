@@ -17,7 +17,7 @@
 use collator_overseer::{CollatorOverseerGenArgs, NewMinimalNode};
 
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
-use cumulus_relay_chain_rpc_interface::{RelayChainRpcInterface, Url};
+use cumulus_relay_chain_rpc_interface::{RelayChainRpcClient, RelayChainRpcInterface, Url};
 use network::build_collator_network;
 use polkadot_network_bridge::{peer_sets_info, IsAuthority};
 use polkadot_node_network_protocol::{
@@ -38,12 +38,13 @@ use sp_runtime::{app_crypto::Pair, traits::Block as BlockT};
 use futures::StreamExt;
 use std::sync::Arc;
 
+mod blockchain_rpc_client;
 mod collator_overseer;
-
 mod network;
 
-mod blockchain_rpc_client;
 pub use blockchain_rpc_client::BlockChainRpcClient;
+
+const LOG_TARGET: &str = "minimal-relaychain-node";
 
 fn build_authority_discovery_service<Block: BlockT>(
 	task_manager: &TaskManager,
@@ -82,16 +83,11 @@ fn build_authority_discovery_service<Block: BlockT>(
 	service
 }
 
-pub async fn build_minimal_relay_chain_node(
+async fn build_interface(
 	polkadot_config: Configuration,
 	task_manager: &mut TaskManager,
-	relay_chain_url: Vec<Url>,
+	client: RelayChainRpcClient,
 ) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
-	let client = cumulus_relay_chain_rpc_interface::create_client_and_start_worker(
-		relay_chain_url,
-		task_manager,
-	)
-	.await?;
 	let collator_pair = CollatorPair::generate().0;
 	let collator_node = new_minimal_relay_chain(
 		polkadot_config,
@@ -106,6 +102,44 @@ pub async fn build_minimal_relay_chain_node(
 	))
 }
 
+pub async fn build_minimal_relay_chain_node_with_rpc(
+	polkadot_config: Configuration,
+	task_manager: &mut TaskManager,
+	relay_chain_url: Vec<Url>,
+) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
+	let client = cumulus_relay_chain_rpc_interface::create_client_and_start_worker(
+		relay_chain_url,
+		task_manager,
+	)
+	.await?;
+
+	build_interface(polkadot_config, task_manager, client).await
+}
+
+pub async fn build_minimal_relay_chain_node_light_client(
+	polkadot_config: Configuration,
+	task_manager: &mut TaskManager,
+) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
+	tracing::info!(
+		target: LOG_TARGET,
+		chain_name = polkadot_config.chain_spec.name(),
+		chain_id = polkadot_config.chain_spec.id(),
+		"Initializing embedded light client with chain spec."
+	);
+
+	let spec = polkadot_config
+		.chain_spec
+		.as_json(false)
+		.map_err(RelayChainError::GenericError)?;
+
+	let client = cumulus_relay_chain_rpc_interface::create_client_and_start_light_client_worker(
+		spec,
+		task_manager,
+	)
+	.await?;
+
+	build_interface(polkadot_config, task_manager, client).await
+}
 /// Builds a minimal relay chain node. Chain data is fetched
 /// via [`BlockChainRpcClient`] and fed into the overseer and its subsystems.
 ///
@@ -117,8 +151,6 @@ pub async fn build_minimal_relay_chain_node(
 /// - NetworkBridgeRx
 /// - NetworkBridgeTx
 /// - RuntimeApi
-/// - ChainApi
-/// - AvailabilityDistribution
 #[sc_tracing::logging::prefix_logs_with("Relaychain")]
 async fn new_minimal_relay_chain(
 	config: Configuration,

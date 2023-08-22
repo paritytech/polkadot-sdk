@@ -25,7 +25,9 @@ use cumulus_client_pov_recovery::{PoVRecovery, RecoveryDelayRange, RecoveryHandl
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
 use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
-use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node;
+use cumulus_relay_chain_minimal_node::{
+	build_minimal_relay_chain_node_light_client, build_minimal_relay_chain_node_with_rpc,
+};
 use futures::{
 	channel::{mpsc, oneshot},
 	FutureExt, StreamExt,
@@ -342,28 +344,30 @@ pub fn prepare_node_config(mut parachain_config: Configuration) -> Configuration
 /// Will return a minimal relay chain node with RPC
 /// client or an inprocess node, based on the [`CollatorOptions`] passed in.
 pub async fn build_relay_chain_interface(
-	polkadot_config: Configuration,
+	relay_chain_config: Configuration,
 	parachain_config: &Configuration,
 	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	task_manager: &mut TaskManager,
 	collator_options: CollatorOptions,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
-	if !collator_options.relay_chain_rpc_urls.is_empty() {
-		build_minimal_relay_chain_node(
-			polkadot_config,
-			task_manager,
-			collator_options.relay_chain_rpc_urls,
-		)
-		.await
-	} else {
-		build_inprocess_relay_chain(
-			polkadot_config,
+	match collator_options.relay_chain_mode {
+		cumulus_client_cli::RelayChainMode::Embedded => build_inprocess_relay_chain(
+			relay_chain_config,
 			parachain_config,
 			telemetry_worker_handle,
 			task_manager,
 			hwbench,
-		)
+		),
+		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
+			build_minimal_relay_chain_node_with_rpc(
+				relay_chain_config,
+				task_manager,
+				rpc_target_urls,
+			)
+			.await,
+		cumulus_client_cli::RelayChainMode::LightClient =>
+			build_minimal_relay_chain_node_light_client(relay_chain_config, task_manager).await,
 	}
 }
 

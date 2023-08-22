@@ -6,3 +6,4 @@ alice: parachain 2000 is registered within 225 seconds
 one: reports block height is at least 770 within 225 seconds
 two: reports block height is at least 770 within 225 seconds
 three: reports block height is at least 770 within 225 seconds
+four: reports block height is at least 770 within 225 seconds

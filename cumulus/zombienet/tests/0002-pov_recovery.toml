@@ -33,8 +33,8 @@ add_to_genesis = false
   command = "test-parachain"
   args = ["--disable-block-announcements"]
 
-  # run alice as a parachain collator who does not produce blocks
-  # alice is a bootnode for bob and charlie
+  # run 'alice' as a parachain collator who does not produce blocks
+  # 'alice' is a bootnode for 'bob' and 'charlie'
   [[parachains.collators]]
   name = "alice"
   validator = true # collator
@@ -42,7 +42,7 @@ add_to_genesis = false
   command = "test-parachain"
   args = ["-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug,cumulus-consensus=debug", "--use-null-consensus", "--disable-block-announcements", "--bootnodes {{'bob'|zombie('multiAddress')}}",  "--", "--reserved-only", "--reserved-nodes {{'ferdie'|zombie('multiAddress')}}"]
 
-  # run eve as a parachain full node
+  # run 'charlie' as a parachain full node
   [[parachains.collators]]
   name = "charlie"
   validator = false # full node
@@ -50,7 +50,7 @@ add_to_genesis = false
   command = "test-parachain"
   args = ["-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug,cumulus-consensus=debug", "--disable-block-announcements", "--bootnodes {{'bob'|zombie('multiAddress')}}","--", "--reserved-only", "--reserved-nodes {{'ferdie'|zombie('multiAddress')}}"]
 
-  # we fail recovery for eve from time to time to test retries
+  # we fail recovery for 'eve' from time to time to test retries
   [[parachains.collators]]
   name = "eve"
   validator = true # collator
@@ -58,7 +58,7 @@ add_to_genesis = false
   command = "test-parachain"
   args = ["-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug,cumulus-consensus=debug", "--fail-pov-recovery", "--use-null-consensus", "--disable-block-announcements", "--bootnodes {{'bob'|zombie('multiAddress')}}",  "--", "--reserved-only", "--reserved-nodes {{'ferdie'|zombie('multiAddress')}}"]
 
-  # run one as a RPC collator who does not produce blocks
+  # run 'one' as a RPC collator who does not produce blocks
   [[parachains.collators]]
   name = "one"
   validator = true # collator
@@ -66,10 +66,18 @@ add_to_genesis = false
   command = "test-parachain"
   args = ["-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug,cumulus-consensus=debug", "--use-null-consensus", "--disable-block-announcements", "--bootnodes {{'bob'|zombie('multiAddress')}}", "--relay-chain-rpc-url {{'ferdie'|zombie('wsUri')}}", "--", "--reserved-only", "--reserved-nodes {{'ferdie'|zombie('multiAddress')}}"]
 
-  # run two as a RPC parachain full node
+  # run 'two' as a RPC parachain full node
   [[parachains.collators]]
   name = "two"
   validator = false # full node
   image = "{{COL_IMAGE}}"
   command = "test-parachain"
   args = ["-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug,cumulus-consensus=debug", "--disable-block-announcements", "--bootnodes {{'bob'|zombie('multiAddress')}}", "--relay-chain-rpc-url {{'ferdie'|zombie('wsUri')}}", "--", "--reserved-only", "--reserved-nodes {{'ferdie'|zombie('multiAddress')}}"]
+
+  # run 'three' with light client
+  [[parachains.collators]]
+  name = "three"
+  validator = false # full node
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug,cumulus-consensus=debug", "--disable-block-announcements", "--bootnodes {{'bob'|zombie('multiAddress')}}", "--relay-chain-light-client", "--", "--reserved-only", "--reserved-nodes {{'ferdie'|zombie('multiAddress')}}"]
