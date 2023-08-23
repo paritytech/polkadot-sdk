@@ -20,11 +20,8 @@ use bp_header_chain::FinalityProof;
 use futures::{FutureExt, Stream, StreamExt};
 use std::pin::Pin;
 
-/// Finality proofs container. Ordered by target header number.
-pub type FinalityProofs<P> =
-	Vec<(<P as FinalityPipeline>::Number, <P as FinalityPipeline>::FinalityProof)>;
-
 /// Source finality proofs stream that may be restarted.
+#[derive(Default)]
 pub struct FinalityProofsStream<P: FinalityPipeline, SC: SourceClientBase<P>> {
 	/// The underlying stream.
 	stream: Option<Pin<Box<SC::FinalityProofsStream>>>,
@@ -75,16 +72,16 @@ impl<P: FinalityPipeline, SC: SourceClientBase<P>> FinalityProofsStream<P, SC> {
 
 /// Source finality proofs buffer.
 pub struct FinalityProofsBuf<P: FinalityPipeline> {
-	/// Proofs buffer.
-	buf: FinalityProofs<P>,
+	/// Proofs buffer. Ordered by target header number.
+	buf: Vec<P::FinalityProof>,
 }
 
 impl<P: FinalityPipeline> FinalityProofsBuf<P> {
-	pub fn new(buf: FinalityProofs<P>) -> Self {
+	pub fn new(buf: Vec<P::FinalityProof>) -> Self {
 		Self { buf }
 	}
 
-	pub fn buf(&self) -> &FinalityProofs<P> {
+	pub fn buf(&self) -> &Vec<P::FinalityProof> {
 		&self.buf
 	}
 
@@ -98,7 +95,7 @@ impl<P: FinalityPipeline> FinalityProofsBuf<P> {
 			last_header_number = Some(target_header_number);
 			proofs_count += 1;
 
-			self.buf.push((target_header_number, finality_proof));
+			self.buf.push(finality_proof);
 		}
 
 		if proofs_count != 0 {
@@ -113,15 +110,19 @@ impl<P: FinalityPipeline> FinalityProofsBuf<P> {
 		}
 	}
 
-	pub fn prune(&mut self, until_hdr_num: P::Number, buf_limit: usize) {
-		let kept_hdr_idx = self
+	/// Prune all finality proofs that target header numbers older than `first_to_keep`.
+	pub fn prune(&mut self, first_to_keep: P::Number, maybe_buf_limit: Option<usize>) {
+		let first_to_keep_idx = self
 			.buf
-			.binary_search_by_key(&until_hdr_num, |(hdr_num, _)| *hdr_num)
+			.binary_search_by_key(&first_to_keep, |hdr| hdr.target_header_number())
 			.map(|idx| idx + 1)
 			.unwrap_or_else(|idx| idx);
-		let buf_limit_idx = self.buf.len().saturating_sub(buf_limit);
+		let buf_limit_idx = match maybe_buf_limit {
+			Some(buf_limit) => self.buf.len().saturating_sub(buf_limit),
+			None => 0,
+		};
 
-		self.buf = self.buf.split_off(std::cmp::max(kept_hdr_idx, buf_limit_idx));
+		self.buf = self.buf.split_off(std::cmp::max(first_to_keep_idx, buf_limit_idx));
 	}
 }
 
@@ -140,13 +141,13 @@ mod tests {
 	fn finality_proofs_buf_fill_works() {
 		// when stream is currently empty, nothing is changed
 		let mut finality_proofs_buf =
-			FinalityProofsBuf::<TestFinalitySyncPipeline> { buf: vec![(1, TestFinalityProof(1))] };
+			FinalityProofsBuf::<TestFinalitySyncPipeline> { buf: vec![TestFinalityProof(1)] };
 		let mut stream =
 			FinalityProofsStream::<TestFinalitySyncPipeline, TestSourceClient>::from_stream(
 				Box::pin(futures::stream::pending()),
 			);
 		finality_proofs_buf.fill(&mut stream);
-		assert_eq!(finality_proofs_buf.buf, vec![(1, TestFinalityProof(1))]);
+		assert_eq!(finality_proofs_buf.buf, vec![TestFinalityProof(1)]);
 		assert!(stream.stream.is_some());
 
 		// when stream has entry with target, it is added to the recent proofs container
@@ -158,10 +159,7 @@ mod tests {
 				),
 			);
 		finality_proofs_buf.fill(&mut stream);
-		assert_eq!(
-			finality_proofs_buf.buf,
-			vec![(1, TestFinalityProof(1)), (4, TestFinalityProof(4))]
-		);
+		assert_eq!(finality_proofs_buf.buf, vec![TestFinalityProof(1), TestFinalityProof(4)]);
 		assert!(stream.stream.is_some());
 
 		// when stream has ended, we'll need to restart it
@@ -170,21 +168,20 @@ mod tests {
 				Box::pin(futures::stream::empty()),
 			);
 		finality_proofs_buf.fill(&mut stream);
-		assert_eq!(
-			finality_proofs_buf.buf,
-			vec![(1, TestFinalityProof(1)), (4, TestFinalityProof(4))]
-		);
+		assert_eq!(finality_proofs_buf.buf, vec![TestFinalityProof(1), TestFinalityProof(4)]);
 		assert!(stream.stream.is_none());
 	}
 
 	#[test]
 	fn finality_proofs_buf_prune_works() {
-		let original_finality_proofs_buf: FinalityProofs<TestFinalitySyncPipeline> = vec![
-			(10, TestFinalityProof(10)),
-			(13, TestFinalityProof(13)),
-			(15, TestFinalityProof(15)),
-			(17, TestFinalityProof(17)),
-			(19, TestFinalityProof(19)),
+		let original_finality_proofs_buf: Vec<
+			<TestFinalitySyncPipeline as FinalityPipeline>::FinalityProof,
+		> = vec![
+			TestFinalityProof(10),
+			TestFinalityProof(13),
+			TestFinalityProof(15),
+			TestFinalityProof(17),
+			TestFinalityProof(19),
 		]
 		.into_iter()
 		.collect();
@@ -193,35 +190,35 @@ mod tests {
 		let mut finality_proofs_buf = FinalityProofsBuf::<TestFinalitySyncPipeline> {
 			buf: original_finality_proofs_buf.clone(),
 		};
-		finality_proofs_buf.prune(10, 1024);
+		finality_proofs_buf.prune(10, None);
 		assert_eq!(&original_finality_proofs_buf[1..], finality_proofs_buf.buf,);
 
 		// when there are no proof for justified header in the vec
 		let mut finality_proofs_buf = FinalityProofsBuf::<TestFinalitySyncPipeline> {
 			buf: original_finality_proofs_buf.clone(),
 		};
-		finality_proofs_buf.prune(11, 1024);
+		finality_proofs_buf.prune(11, None);
 		assert_eq!(&original_finality_proofs_buf[1..], finality_proofs_buf.buf,);
 
 		// when there are too many entries after initial prune && they also need to be pruned
 		let mut finality_proofs_buf = FinalityProofsBuf::<TestFinalitySyncPipeline> {
 			buf: original_finality_proofs_buf.clone(),
 		};
-		finality_proofs_buf.prune(10, 2);
+		finality_proofs_buf.prune(10, Some(2));
 		assert_eq!(&original_finality_proofs_buf[3..], finality_proofs_buf.buf,);
 
 		// when last entry is pruned
 		let mut finality_proofs_buf = FinalityProofsBuf::<TestFinalitySyncPipeline> {
 			buf: original_finality_proofs_buf.clone(),
 		};
-		finality_proofs_buf.prune(19, 2);
+		finality_proofs_buf.prune(19, Some(2));
 		assert_eq!(&original_finality_proofs_buf[5..], finality_proofs_buf.buf,);
 
 		// when post-last entry is pruned
 		let mut finality_proofs_buf = FinalityProofsBuf::<TestFinalitySyncPipeline> {
 			buf: original_finality_proofs_buf.clone(),
 		};
-		finality_proofs_buf.prune(20, 2);
+		finality_proofs_buf.prune(20, Some(2));
 		assert_eq!(&original_finality_proofs_buf[5..], finality_proofs_buf.buf,);
 	}
 }

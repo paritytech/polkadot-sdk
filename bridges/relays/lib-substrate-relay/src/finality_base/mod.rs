@@ -20,7 +20,9 @@
 pub mod engine;
 
 use crate::finality_base::engine::Engine;
+
 use async_trait::async_trait;
+use bp_runtime::{HashOf, HeaderIdOf};
 use codec::Decode;
 use futures::{stream::unfold, Stream, StreamExt};
 use relay_substrate_client::{Chain, Client, Error};
@@ -84,4 +86,22 @@ pub async fn finality_proofs<P: SubstrateFinalityPipeline>(
 		},
 	)
 	.boxed())
+}
+
+/// Get the id of the best `SourceChain` header known to the `TargetChain` at the provided
+/// target block using the exposed runtime API method.
+///
+/// The runtime API method should be `<TargetChain>FinalityApi::best_finalized()`.
+pub async fn best_synced_header_id<SourceChain, TargetChain>(
+	target_client: &Client<TargetChain>,
+	at: HashOf<TargetChain>,
+) -> Result<Option<HeaderIdOf<SourceChain>>, Error>
+where
+	SourceChain: Chain,
+	TargetChain: Chain,
+{
+	// now let's read id of best finalized peer header at our best finalized block
+	target_client
+		.typed_state_call(SourceChain::BEST_FINALIZED_HEADER_ID_METHOD.into(), (), Some(at))
+		.await
 }
