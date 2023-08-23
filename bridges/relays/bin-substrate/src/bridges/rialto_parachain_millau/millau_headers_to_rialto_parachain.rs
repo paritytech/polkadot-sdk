@@ -62,7 +62,7 @@ impl SubstrateFinalitySyncPipeline for MillauFinalityToRialtoParachain {
 	type SubmitFinalityProofCallBuilder = MillauFinalityToRialtoParachainCallBuilder;
 }
 
-//// `Millau` to `RialtoParachain`  bridge definition.
+/// `Millau` to `RialtoParachain`  bridge definition.
 pub struct MillauToRialtoParachainCliBridge {}
 
 impl CliBridgeBase for MillauToRialtoParachainCliBridge {
