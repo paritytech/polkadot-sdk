@@ -83,10 +83,6 @@ pub mod pallet {
 	use frame_support::{
 		dispatch::{DispatchClass, DispatchResultWithPostInfo},
 		pallet_prelude::*,
-		sp_runtime::{
-			traits::{AccountIdConversion, CheckedSub, Saturating, Zero},
-			RuntimeDebug,
-		},
 		traits::{
 			Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, ReservableCurrency,
 			ValidatorRegistration,
@@ -95,7 +91,10 @@ pub mod pallet {
 	};
 	use frame_system::{pallet_prelude::*, Config as SystemConfig};
 	use pallet_session::SessionManager;
-	use sp_runtime::traits::Convert;
+	use sp_runtime::{
+		traits::{AccountIdConversion, CheckedSub, Convert, Saturating, Zero},
+		RuntimeDebug,
+	};
 	use sp_staking::SessionIndex;
 	use sp_std::vec::Vec;
 

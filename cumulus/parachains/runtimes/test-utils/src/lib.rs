@@ -148,7 +148,7 @@ impl<
 	}
 
 	pub fn with_tracing(self) -> Self {
-		frame_support::sp_tracing::try_init_simple();
+		sp_tracing::try_init_simple();
 		self
 	}
 

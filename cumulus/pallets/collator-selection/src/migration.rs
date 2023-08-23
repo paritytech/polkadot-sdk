@@ -17,7 +17,8 @@
 //! A module that is responsible for migration of storage for Collator Selection.
 
 use super::*;
-use frame_support::{log, traits::OnRuntimeUpgrade};
+use frame_support::traits::OnRuntimeUpgrade;
+use log;
 
 /// Version 1 Migration
 /// This migration ensures that any existing `Invulnerables` storage lists are sorted.

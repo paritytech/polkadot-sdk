@@ -12,7 +12,7 @@ pub use constants::{
 use frame_support::{
 	assert_ok,
 	instances::Instance1,
-	parameter_types, sp_tracing,
+	parameter_types,
 	traits::{fungibles::Inspect, Hooks},
 };
 pub use impls::{RococoWococoMessageHandler, WococoRococoMessageHandler};
@@ -21,6 +21,7 @@ pub use paste;
 use polkadot_parachain::primitives::HrmpChannelId;
 pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
 pub use sp_core::{sr25519, storage::Storage, Get};
+use sp_tracing;
 use xcm_emulator::{
 	assert_expected_events, bx, decl_test_bridges, decl_test_networks, decl_test_parachains,
 	decl_test_relay_chains, decl_test_sender_receiver_accounts_parameter_types,

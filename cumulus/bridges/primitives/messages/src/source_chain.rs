@@ -20,7 +20,8 @@ use crate::{InboundLaneData, LaneId, MessageNonce, OutboundLaneData, Verificatio
 
 use crate::UnrewardedRelayer;
 use bp_runtime::Size;
-use frame_support::{Parameter, RuntimeDebug};
+use frame_support::Parameter;
+use sp_core::RuntimeDebug;
 use sp_std::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	fmt::Debug,

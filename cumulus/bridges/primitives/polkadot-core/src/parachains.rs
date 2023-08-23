@@ -24,9 +24,9 @@
 
 use bp_runtime::{RawStorageProof, Size};
 use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
-use frame_support::RuntimeDebug;
 use scale_info::TypeInfo;
 use sp_core::Hasher;
+use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 
 #[cfg(feature = "std")]

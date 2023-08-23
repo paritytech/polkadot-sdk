@@ -16,7 +16,7 @@
 //! Runtime API definition for fungibles.
 
 use codec::{Codec, Decode, Encode};
-use frame_support::RuntimeDebug;
+use sp_runtime::RuntimeDebug;
 #[cfg(feature = "std")]
 use {sp_std::vec::Vec, xcm::latest::MultiAsset};
 

@@ -24,9 +24,8 @@ use crate::{justification::GrandpaJustification, AuthoritySet};
 
 use bp_runtime::HeaderId;
 use finality_grandpa::voter_set::VoterSet;
-use frame_support::RuntimeDebug;
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, SetId};
-use sp_runtime::traits::Header as HeaderT;
+use sp_runtime::{traits::Header as HeaderT, RuntimeDebug};
 use sp_std::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	prelude::*,

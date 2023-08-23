@@ -24,8 +24,9 @@ use bp_messages::{
 	ReceivalResult, UnrewardedRelayer,
 };
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-use frame_support::{traits::Get, RuntimeDebug};
+use frame_support::traits::Get;
 use scale_info::{Type, TypeInfo};
+use sp_runtime::RuntimeDebug;
 use sp_std::prelude::PartialEq;
 
 /// Inbound lane storage.

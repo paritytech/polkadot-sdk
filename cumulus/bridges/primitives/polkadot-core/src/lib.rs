@@ -25,14 +25,14 @@ use frame_support::{
 		constants::{BlockExecutionWeight, WEIGHT_REF_TIME_PER_SECOND},
 		Weight,
 	},
-	Blake2_128Concat, RuntimeDebug,
+	Blake2_128Concat,
 };
 use frame_system::limits;
 use sp_core::{storage::StorageKey, Hasher as HasherT};
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	MultiAddress, MultiSignature, OpaqueExtrinsic,
+	MultiAddress, MultiSignature, OpaqueExtrinsic, RuntimeDebug,
 };
 use sp_std::prelude::Vec;
 

@@ -20,14 +20,17 @@
 
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use frame_support::{
-	log, pallet_prelude::DispatchResult, weights::Weight, PalletError, RuntimeDebug, StorageHasher,
-	StorageValue,
+	pallet_prelude::DispatchResult, weights::Weight, PalletError, StorageHasher, StorageValue,
 };
 use frame_system::RawOrigin;
+use log;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::storage::StorageKey;
-use sp_runtime::traits::{BadOrigin, Header as HeaderT, UniqueSaturatedInto};
+use sp_runtime::{
+	traits::{BadOrigin, Header as HeaderT, UniqueSaturatedInto},
+	RuntimeDebug,
+};
 use sp_std::{convert::TryFrom, fmt::Debug, ops::RangeInclusive, vec, vec::Vec};
 
 pub use chain::{

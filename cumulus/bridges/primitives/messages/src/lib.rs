@@ -26,13 +26,13 @@ use bp_runtime::{
 	StorageProofError,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{PalletError, RuntimeDebug};
+use frame_support::PalletError;
 // Weight is reexported to avoid additional frame-support dependencies in related crates.
 pub use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use source_chain::RelayersRewards;
-use sp_core::TypeId;
+use sp_core::{RuntimeDebug, TypeId};
 use sp_std::{collections::vec_deque::VecDeque, ops::RangeInclusive, prelude::*};
 
 pub mod source_chain;

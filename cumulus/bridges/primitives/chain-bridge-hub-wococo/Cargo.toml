@@ -18,6 +18,7 @@ bp-messages = { path = "../../primitives/messages", default-features = false }
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
 [features]
@@ -28,5 +29,6 @@ std = [
 	"bp-messages/std",
 	"frame-support/std",
 	"sp-api/std",
+	"sp-runtime/std",
 	"sp-std/std",
 ]

@@ -25,10 +25,11 @@ use bp_messages::{
 use codec::{Decode, Encode};
 use frame_support::{
 	weights::{RuntimeDbWeight, Weight},
-	BoundedVec, PalletError, RuntimeDebug,
+	BoundedVec, PalletError,
 };
 use num_traits::Zero;
 use scale_info::TypeInfo;
+use sp_runtime::RuntimeDebug;
 use sp_std::collections::vec_deque::VecDeque;
 
 /// Outbound lane storage.

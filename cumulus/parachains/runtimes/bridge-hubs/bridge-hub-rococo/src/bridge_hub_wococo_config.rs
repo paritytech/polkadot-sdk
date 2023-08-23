@@ -33,7 +33,8 @@ use bridge_runtime_common::{
 		RefundableParachain,
 	},
 };
-use frame_support::{parameter_types, traits::PalletInfoAccess, RuntimeDebug};
+use frame_support::{parameter_types, traits::PalletInfoAccess};
+use sp_runtime::RuntimeDebug;
 use xcm::{
 	latest::prelude::*,
 	prelude::{InteriorMultiLocation, NetworkId},
