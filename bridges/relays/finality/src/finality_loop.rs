@@ -319,8 +319,10 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 			.as_ref()
 			.map(|justified_header| justified_header.number())
 			.unwrap_or(info.best_number_at_target);
-		self.finality_proofs_buf
-			.prune(oldest_finality_proof_to_keep, self.sync_params.recent_finality_proofs_limit);
+		self.finality_proofs_buf.prune(
+			oldest_finality_proof_to_keep,
+			Some(self.sync_params.recent_finality_proofs_limit),
+		);
 
 		Ok(maybe_justified_header)
 	}

@@ -17,14 +17,16 @@
 //! Default generic implementation of equivocation source for basic Substrate client.
 
 use crate::{
-	equivocation::{EquivocationDetectionPipelineAdapter, SubstrateEquivocationDetectionPipeline},
-	finality_base::engine::Engine,
+	equivocation::{
+		EquivocationDetectionPipelineAdapter, FinalityProoffOf, FinalityVerificationContextfOf,
+		SubstrateEquivocationDetectionPipeline,
+	},
+	finality_base::{best_synced_header_id, engine::Engine},
 };
 
-use crate::equivocation::{FinalityProoffOf, FinalityVerificationContextfOf};
 use async_trait::async_trait;
 use bp_header_chain::HeaderFinalityInfo;
-use bp_runtime::BlockNumberOf;
+use bp_runtime::{BlockNumberOf, HashOf};
 use equivocation_detector::TargetClient;
 use relay_substrate_client::{Client, Error};
 use relay_utils::relay_loop::Client as RelayClient;
@@ -59,6 +61,24 @@ impl<P: SubstrateEquivocationDetectionPipeline> RelayClient for SubstrateEquivoc
 impl<P: SubstrateEquivocationDetectionPipeline>
 	TargetClient<EquivocationDetectionPipelineAdapter<P>> for SubstrateEquivocationTarget<P>
 {
+	async fn best_finalized_header_number(
+		&self,
+	) -> Result<BlockNumberOf<P::TargetChain>, Self::Error> {
+		self.client.best_finalized_header_number().await
+	}
+
+	async fn best_synced_header_hash(
+		&self,
+		at: BlockNumberOf<P::TargetChain>,
+	) -> Result<Option<HashOf<P::SourceChain>>, Self::Error> {
+		Ok(best_synced_header_id::<P::SourceChain, P::TargetChain>(
+			&self.client,
+			self.client.header_by_number(at).await?.hash(),
+		)
+		.await?
+		.map(|id| id.hash()))
+	}
+
 	async fn finality_verification_context(
 		&self,
 		at: BlockNumberOf<P::TargetChain>,
