@@ -664,7 +664,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 						})
 						.fuse(),
 				);
-			} else if source_nonces_required && best_at_source.is_some() {
+			} else if let (true, Some(best_at_source)) = (source_nonces_required, best_at_source) {
 				log::debug!(target: "bridge", "Asking {} about message nonces", P::source_name());
 				let at_block = race_state
 					.best_finalized_source_header_id_at_source
@@ -674,11 +674,7 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 						best_finalized_source_header_id_at_source is Some; qed",
 					)
 					.clone();
-				source_nonces.set(
-					race_source
-						.nonces(at_block, best_at_source.expect("guaranteed by if condition; qed"))
-						.fuse(),
-				);
+				source_nonces.set(race_source.nonces(at_block, best_at_source).fuse());
 			} else {
 				source_client_is_online = true;
 			}
