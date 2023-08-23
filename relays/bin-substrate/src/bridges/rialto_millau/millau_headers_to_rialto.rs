@@ -41,7 +41,7 @@ impl SubstrateFinalitySyncPipeline for MillauFinalityToRialto {
 	>;
 }
 
-//// `Millau` to `Rialto` bridge definition.
+/// `Millau` to `Rialto` bridge definition.
 pub struct MillauToRialtoCliBridge {}
 
 impl CliBridgeBase for MillauToRialtoCliBridge {

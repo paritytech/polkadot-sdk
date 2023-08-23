@@ -37,7 +37,7 @@ use std::{convert::TryFrom, fmt::Debug, marker::PhantomData};
 /// Add relay accounts balance metrics.
 pub async fn add_relay_balances_metrics<C: ChainWithBalances, BC: ChainWithMessages>(
 	client: Client<C>,
-	metrics: &mut MetricsParams,
+	metrics: &MetricsParams,
 	relay_accounts: &Vec<TaggedAccount<AccountIdOf<C>>>,
 	lanes: &[LaneId],
 ) -> anyhow::Result<()>
