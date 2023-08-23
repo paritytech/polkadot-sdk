@@ -41,7 +41,7 @@ impl SubstrateFinalitySyncPipeline for WestendFinalityToMillau {
 	>;
 }
 
-//// `Westend` to `Millau` bridge definition.
+/// `Westend` to `Millau` bridge definition.
 pub struct WestendToMillauCliBridge {}
 
 impl CliBridgeBase for WestendToMillauCliBridge {

@@ -355,14 +355,14 @@ where
 			let common = self.mut_base().mut_common();
 			substrate_relay_helper::messages_metrics::add_relay_balances_metrics::<_, Self::Right>(
 				common.left.client.clone(),
-				&mut common.metrics_params,
+				&common.metrics_params,
 				&common.left.accounts,
 				&lanes,
 			)
 			.await?;
 			substrate_relay_helper::messages_metrics::add_relay_balances_metrics::<_, Self::Left>(
 				common.right.client.clone(),
-				&mut common.metrics_params,
+				&common.metrics_params,
 				&common.right.accounts,
 				&lanes,
 			)
