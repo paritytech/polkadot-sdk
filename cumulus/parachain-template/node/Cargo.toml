@@ -51,7 +51,6 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master
 sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
 substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate", branch = "master" }
-try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
 
 # Polkadot
 polkadot-cli = { git = "https://github.com/paritytech/polkadot", features = ["rococo-native"] , branch = "master" }
@@ -80,7 +79,6 @@ runtime-benchmarks = [
 	"polkadot-cli/runtime-benchmarks",
 ]
 try-runtime = [
-	"try-runtime-cli/try-runtime",
 	"parachain-template-runtime/try-runtime"
 ]
 network-protocol-staging = [

@@ -65,6 +65,8 @@ cargo-check-try-runtime:
   extends:
     - .docker-env
     - .common-refs
+  variables:
+    RUSTFLAGS: "-D warnings"
   # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
   needs:
     - job: check-runtime-benchmarks

@@ -9212,7 +9212,6 @@ dependencies = [
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
- "try-runtime-cli",
  "xcm",
 ]
 
@@ -10617,7 +10616,6 @@ dependencies = [
  "substrate-state-trie-migration-rpc",
  "tempfile",
  "tokio",
- "try-runtime-cli",
  "wait-timeout",
  "xcm",
 ]
@@ -15865,7 +15863,6 @@ dependencies = [
  "async-trait",
  "clap",
  "frame-remote-externalities",
- "frame-try-runtime",
  "hex",
  "log",
  "parity-scale-codec",
