@@ -43,7 +43,7 @@ pub type WestendParachainsToMillauSubmitParachainHeadsCallBuilder =
 		millau_runtime::WithWestendParachainsInstance,
 	>;
 
-//// `WestendParachain` to `Millau` bridge definition.
+/// `WestendParachain` to `Millau` bridge definition.
 pub struct AssetHubWestendToMillauCliBridge {}
 
 impl ParachainToRelayHeadersCliBridge for AssetHubWestendToMillauCliBridge {

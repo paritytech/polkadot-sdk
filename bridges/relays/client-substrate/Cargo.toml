@@ -11,12 +11,12 @@ async-trait = "0.1"
 codec = { package = "parity-scale-codec", version = "3.1.5" }
 futures = "0.3.28"
 jsonrpsee = { version = "0.17", features = ["macros", "ws-client"] }
-log = "0.4.17"
+log = "0.4.20"
 num-traits = "0.2"
 rand = "0.8"
 scale-info = { version = "2.9.0", features = ["derive"] }
-tokio = { version = "1.28", features = ["rt-multi-thread"] }
-thiserror = "1.0.40"
+tokio = { version = "1.32", features = ["rt-multi-thread"] }
+thiserror = "1.0.47"
 
 # Bridge dependencies
 

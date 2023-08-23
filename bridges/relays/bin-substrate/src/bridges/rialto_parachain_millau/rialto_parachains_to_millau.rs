@@ -44,7 +44,7 @@ pub type RialtoParachainsToMillauSubmitParachainHeadsCallBuilder =
 		millau_runtime::WithRialtoParachainsInstance,
 	>;
 
-//// `RialtoParachain` to `Millau` bridge definition.
+/// `RialtoParachain` to `Millau` bridge definition.
 pub struct RialtoParachainToMillauCliBridge {}
 
 impl CliBridgeBase for RialtoParachainToMillauCliBridge {
