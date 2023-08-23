@@ -20,10 +20,11 @@ pub use bp_runtime::HeaderId;
 pub use error::Error;
 pub use relay_loop::{relay_loop, relay_metrics};
 pub use sp_runtime::traits::{UniqueSaturatedFrom, UniqueSaturatedInto};
+use std::fmt::Debug;
 
 use async_trait::async_trait;
 use backoff::{backoff::Backoff, ExponentialBackoff};
-use futures::future::FutureExt;
+use futures::future::{BoxFuture, FutureExt};
 use std::time::Duration;
 use thiserror::Error;
 
@@ -134,11 +135,15 @@ pub enum TrackedTransactionStatus<BlockId> {
 #[async_trait]
 pub trait TransactionTracker: Send {
 	/// Header id, used by the chain.
-	type HeaderId: Clone + Send;
+	type HeaderId: Clone + Debug + Send;
 
 	/// Wait until transaction is either finalized or invalidated/lost.
 	async fn wait(self) -> TrackedTransactionStatus<Self::HeaderId>;
 }
+
+/// Future associated with `TransactionTracker`, monitoring the transaction status.
+pub type TrackedTransactionFuture<T> =
+	BoxFuture<'static, TrackedTransactionStatus<<T as TransactionTracker>::HeaderId>>;
 
 /// Stringified error that may be either connection-related or not.
 #[derive(Error, Debug)]

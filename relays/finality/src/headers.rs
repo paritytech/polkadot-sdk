@@ -19,6 +19,7 @@ use crate::{
 	SourceClient, SourceHeader, TargetClient,
 };
 
+use bp_header_chain::FinalityProof;
 use std::cmp::Ordering;
 
 /// Unjustified headers container. Ordered by header number.
@@ -120,18 +121,18 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 		while let (Some(finality_proof), Some(unjustified_header)) =
 			(maybe_finality_proof, maybe_unjustified_header)
 		{
-			match finality_proof.0.cmp(&unjustified_header.number()) {
+			match finality_proof.target_header_number().cmp(&unjustified_header.number()) {
 				Ordering::Equal => {
 					log::trace!(
 						target: "bridge",
 						"Managed to improve selected {} finality proof {:?} to {:?}.",
 						P::SOURCE_NAME,
 						maybe_justified_header.as_ref().map(|justified_header| justified_header.number()),
-						finality_proof.0
+						finality_proof.target_header_number()
 					);
 					return Some(JustifiedHeader {
 						header: unjustified_header.clone(),
-						proof: finality_proof.1.clone(),
+						proof: finality_proof.clone(),
 					})
 				},
 				Ordering::Less => maybe_unjustified_header = unjustified_headers_iter.next(),
@@ -160,7 +161,7 @@ mod tests {
 	fn select_better_recent_finality_proof_works() {
 		// if there are no unjustified headers, nothing is changed
 		let finality_proofs_buf =
-			FinalityProofsBuf::<TestFinalitySyncPipeline>::new(vec![(5, TestFinalityProof(5))]);
+			FinalityProofsBuf::<TestFinalitySyncPipeline>::new(vec![TestFinalityProof(5)]);
 		let justified_header =
 			JustifiedHeader { header: TestSourceHeader(false, 2, 2), proof: TestFinalityProof(2) };
 		let selector = JustifiedHeaderSelector::Regular(vec![], justified_header.clone());
@@ -179,8 +180,8 @@ mod tests {
 		// if there's no intersection between recent finality proofs and unjustified headers,
 		// nothing is changed
 		let finality_proofs_buf = FinalityProofsBuf::<TestFinalitySyncPipeline>::new(vec![
-			(1, TestFinalityProof(1)),
-			(4, TestFinalityProof(4)),
+			TestFinalityProof(1),
+			TestFinalityProof(4),
 		]);
 		let justified_header =
 			JustifiedHeader { header: TestSourceHeader(false, 2, 2), proof: TestFinalityProof(2) };
@@ -193,8 +194,8 @@ mod tests {
 		// if there's intersection between recent finality proofs and unjustified headers, but there
 		// are no proofs in this intersection, nothing is changed
 		let finality_proofs_buf = FinalityProofsBuf::<TestFinalitySyncPipeline>::new(vec![
-			(7, TestFinalityProof(7)),
-			(11, TestFinalityProof(11)),
+			TestFinalityProof(7),
+			TestFinalityProof(11),
 		]);
 		let justified_header =
 			JustifiedHeader { header: TestSourceHeader(false, 2, 2), proof: TestFinalityProof(2) };
@@ -213,8 +214,8 @@ mod tests {
 		// - this better (last from intersection) proof is selected;
 		// - 'obsolete' unjustified headers are pruned.
 		let finality_proofs_buf = FinalityProofsBuf::<TestFinalitySyncPipeline>::new(vec![
-			(7, TestFinalityProof(7)),
-			(9, TestFinalityProof(9)),
+			TestFinalityProof(7),
+			TestFinalityProof(9),
 		]);
 		let justified_header =
 			JustifiedHeader { header: TestSourceHeader(false, 2, 2), proof: TestFinalityProof(2) };

@@ -106,7 +106,11 @@ impl SourceHeader<TestHash, TestNumber, GrandpaConsensusLogReader<TestNumber>>
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TestFinalityProof(pub TestNumber);
 
-impl FinalityProof<TestNumber> for TestFinalityProof {
+impl FinalityProof<TestHash, TestNumber> for TestFinalityProof {
+	fn target_header_hash(&self) -> TestHash {
+		Default::default()
+	}
+
 	fn target_header_number(&self) -> TestNumber {
 		self.0
 	}

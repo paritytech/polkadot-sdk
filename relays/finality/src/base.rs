@@ -32,7 +32,7 @@ pub trait FinalityPipeline: 'static + Clone + Debug + Send + Sync {
 	/// Synced headers are identified by this number.
 	type Number: relay_utils::BlockNumberBase;
 	/// Finality proof type.
-	type FinalityProof: FinalityProof<Self::Number>;
+	type FinalityProof: FinalityProof<Self::Hash, Self::Number>;
 }
 
 /// Source client used in finality related loops.

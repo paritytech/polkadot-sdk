@@ -19,6 +19,7 @@
 //! `<BridgedName>` chain.
 
 use crate::{
+	finality_base::best_synced_header_id,
 	messages_lane::{
 		BatchProofTransaction, MessageLaneAdapter, ReceiveMessagesDeliveryProofCallBuilder,
 		SubstrateMessageLane,
@@ -428,11 +429,7 @@ where
 
 	// now let's read id of best finalized peer header at our best finalized block
 	let peer_on_self_best_finalized_id =
-		best_finalized_peer_header_at_self::<SelfChain, PeerChain>(
-			self_client,
-			self_best_id.hash(),
-		)
-		.await?;
+		best_synced_header_id::<PeerChain, SelfChain>(self_client, self_best_id.hash()).await?;
 
 	// read actual header, matching the `peer_on_self_best_finalized_id` from the peer chain
 	let actual_peer_on_self_best_finalized_id =

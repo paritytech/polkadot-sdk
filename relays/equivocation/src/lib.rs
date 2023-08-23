@@ -14,18 +14,22 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+mod equivocation_loop;
+mod reporter;
+
 use async_trait::async_trait;
-use bp_header_chain::{FindEquivocations, HeaderFinalityInfo};
+use bp_header_chain::FindEquivocations;
 use finality_relay::{FinalityPipeline, SourceClientBase};
 use relay_utils::{relay_loop::Client as RelayClient, TransactionTracker};
+use std::fmt::Debug;
 
 pub trait EquivocationDetectionPipeline: FinalityPipeline {
 	/// Block number of the target chain.
 	type TargetNumber: relay_utils::BlockNumberBase;
 	/// The context needed for validating finality proofs.
-	type FinalityVerificationContext;
+	type FinalityVerificationContext: Send;
 	/// The type of the equivocation proof.
-	type EquivocationProof;
+	type EquivocationProof: Clone + Debug + Send + Sync;
 	/// The equivocations finder.
 	type EquivocationsFinder: FindEquivocations<
 		Self::FinalityProof,
@@ -33,6 +37,11 @@ pub trait EquivocationDetectionPipeline: FinalityPipeline {
 		Self::EquivocationProof,
 	>;
 }
+
+type HeaderFinalityInfo<P> = bp_header_chain::HeaderFinalityInfo<
+	<P as FinalityPipeline>::FinalityProof,
+	<P as EquivocationDetectionPipeline>::FinalityVerificationContext,
+>;
 
 /// Source client used in equivocation detection loop.
 #[async_trait]
@@ -51,6 +60,15 @@ pub trait SourceClient<P: EquivocationDetectionPipeline>: SourceClientBase<P> {
 /// Target client used in equivocation detection loop.
 #[async_trait]
 pub trait TargetClient<P: EquivocationDetectionPipeline>: RelayClient {
+	/// Get the best finalized header number.
+	async fn best_finalized_header_number(&self) -> Result<P::TargetNumber, Self::Error>;
+
+	/// Get the hash of the best source header known by the target at the provided block number.
+	async fn best_synced_header_hash(
+		&self,
+		at: P::TargetNumber,
+	) -> Result<Option<P::Hash>, Self::Error>;
+
 	/// Get the data stored by the target at the specified block for validating source finality
 	/// proofs.
 	async fn finality_verification_context(
@@ -63,8 +81,5 @@ pub trait TargetClient<P: EquivocationDetectionPipeline>: RelayClient {
 	async fn synced_headers_finality_info(
 		&self,
 		at: P::TargetNumber,
-	) -> Result<
-		Vec<HeaderFinalityInfo<P::FinalityProof, P::FinalityVerificationContext>>,
-		Self::Error,
-	>;
+	) -> Result<Vec<HeaderFinalityInfo<P>>, Self::Error>;
 }

@@ -97,7 +97,11 @@ impl<H: HeaderT> GrandpaJustification<H> {
 	}
 }
 
-impl<H: HeaderT> crate::FinalityProof<H::Number> for GrandpaJustification<H> {
+impl<H: HeaderT> crate::FinalityProof<H::Hash, H::Number> for GrandpaJustification<H> {
+	fn target_header_hash(&self) -> H::Hash {
+		self.commit.target_hash
+	}
+
 	fn target_header_number(&self) -> H::Number {
 		self.commit.target_number
 	}
