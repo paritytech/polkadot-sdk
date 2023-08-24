@@ -198,3 +198,5 @@ std = [
 	"pallet-core-fellowship/std",
 	"pallet-salary/std",
 ]
+
+experimental = [ "pallet-aura/experimental" ]

@@ -200,3 +200,5 @@ std = [
 	"assets-common/std",
 	"substrate-wasm-builder",
 ]
+
+experimental = [ "pallet-aura/experimental" ]

@@ -61,3 +61,5 @@ std = [
 ]
 
 try-runtime = [ "frame-support/try-runtime" ]
+
+experimental = [ "pallet-aura/experimental" ]

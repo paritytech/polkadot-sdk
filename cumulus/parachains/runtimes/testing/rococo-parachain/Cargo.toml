@@ -107,3 +107,5 @@ runtime-benchmarks = [
 	"pallet-xcm/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 ]
+
+experimental = [ "pallet-aura/experimental" ]
