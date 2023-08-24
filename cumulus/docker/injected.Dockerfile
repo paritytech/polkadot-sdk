@@ -22,7 +22,7 @@ USER root
 RUN	mkdir -p /specs
 
 # add polkadot-parachain binary to the docker image
-COPY ./target/release-artifacts/* /usr/local/bin
+COPY ./release-artifacts/* /usr/local/bin
 COPY ./parachains/chain-specs/*.json /specs/
 
 USER parity
