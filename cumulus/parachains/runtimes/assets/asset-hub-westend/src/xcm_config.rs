@@ -284,6 +284,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 						pallet_assets::Call::set_team { .. } |
 						pallet_assets::Call::set_metadata { .. } |
 						pallet_assets::Call::clear_metadata { .. } |
+						pallet_assets::Call::force_set_metadata { .. } |
 						pallet_assets::Call::force_clear_metadata { .. } |
 						pallet_assets::Call::force_asset_status { .. } |
 						pallet_assets::Call::approve_transfer { .. } |
@@ -315,6 +316,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					pallet_assets::Call::set_team { .. } |
 					pallet_assets::Call::set_metadata { .. } |
 					pallet_assets::Call::clear_metadata { .. } |
+					pallet_assets::Call::force_set_metadata { .. } |
 					pallet_assets::Call::force_clear_metadata { .. } |
 					pallet_assets::Call::force_asset_status { .. } |
 					pallet_assets::Call::approve_transfer { .. } |
@@ -346,6 +348,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					pallet_assets::Call::set_team { .. } |
 					pallet_assets::Call::set_metadata { .. } |
 					pallet_assets::Call::clear_metadata { .. } |
+					pallet_assets::Call::force_set_metadata { .. } |
 					pallet_assets::Call::force_clear_metadata { .. } |
 					pallet_assets::Call::force_asset_status { .. } |
 					pallet_assets::Call::approve_transfer { .. } |
