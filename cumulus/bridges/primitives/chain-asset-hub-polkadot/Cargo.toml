@@ -12,6 +12,7 @@ scale-info = { version = "2.9.0", default-features = false, features = ["derive"
 
 # Substrate Dependencies
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
 # Bridge Dependencies
 bp-xcm-bridge-hub-router = { path = "../xcm-bridge-hub-router", default-features = false }
@@ -23,4 +24,5 @@ std = [
 	"frame-support/std",
 	"codec/std",
 	"scale-info/std",
+	"sp-runtime/std",
 ]
