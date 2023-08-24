@@ -306,6 +306,20 @@ pub trait AuxStore {
 	fn get_aux(&self, key: &[u8]) -> sp_blockchain::Result<Option<Vec<u8>>>;
 }
 
+/// Client API for pinning and unpinning blocks.
+pub trait BlockPinning<Block: BlockT> {
+	/// Pin the block to keep state available in-memory after pruning.
+	///
+	/// Note: number of pinned blocks is limited by `PINNING_CACHE_SIZE` constant.
+	///
+	/// Note: pins are reference counted. Users need to make sure to perform
+	/// one call to [`Self::unpin_block`] per call to [`Self::pin_block`].
+	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> sp_blockchain::Result<()>;
+
+	/// Unpin the block to allow pruning.
+	fn unpin_block(&self, hash: <Block as BlockT>::Hash);
+}
+
 /// An `Iterator` that iterates keys in a given block under a prefix.
 pub struct KeysIter<State, Block>
 where

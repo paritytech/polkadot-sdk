@@ -28,8 +28,9 @@ use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider, RecordProof};
 use sc_chain_spec::{resolve_state_version_from_wasm, BuildGenesisBlock};
 use sc_client_api::{
 	backend::{
-		self, apply_aux, BlockImportOperation, ClientImportOperation, FinalizeSummary, Finalizer,
-		ImportNotificationAction, ImportSummary, LockImportRun, NewBlockState, StorageProvider,
+		self, apply_aux, BlockImportOperation, BlockPinning, ClientImportOperation,
+		FinalizeSummary, Finalizer, ImportNotificationAction, ImportSummary, LockImportRun,
+		NewBlockState, StorageProvider,
 	},
 	client::{
 		BadBlocks, BlockBackend, BlockImportNotification, BlockOf, BlockchainEvents, ClientInfo,
@@ -1619,6 +1620,20 @@ where
 
 	fn hash(&self, number: NumberFor<Block>) -> sp_blockchain::Result<Option<Block::Hash>> {
 		self.backend.blockchain().hash(number)
+	}
+}
+
+impl<B, E, Block, RA> BlockPinning<Block> for Client<B, E, Block, RA>
+where
+	B: backend::Backend<Block>,
+	Block: BlockT,
+{
+	fn pin_block(&self, hash: Block::Hash) -> sp_blockchain::Result<()> {
+		self.backend.pin_block(hash)
+	}
+
+	fn unpin_block(&self, hash: Block::Hash) {
+		self.backend.unpin_block(hash)
 	}
 }
 
