@@ -1447,6 +1447,10 @@ impl<T: Config> Pallet<T> {
 			hrmp_max_message_num_per_candidate: 2,
 			validation_upgrade_cooldown: 2,
 			validation_upgrade_delay: 2,
+			async_backing_params: relay_chain::vstaging::AsyncBackingParams {
+				allowed_ancestry_len: 0,
+				max_candidate_depth: 0,
+			},
 		};
 		<HostConfiguration<T>>::put(host_config);
 	}
