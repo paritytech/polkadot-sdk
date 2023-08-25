@@ -1,0 +1,11 @@
+{
+  "name": "y",
+  "version": "y",
+  "description": "create a scale encoded tx for the genesis values",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@polkadot/api": "^6.5.2",
+    "@polkadot/util": "^7.6.1"
+  }
+}

@@ -1,0 +1,14 @@
+[package]
+name = "cumulus-test-relay-validation-worker-provider"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+
+# Polkadot
+polkadot-node-core-pvf = { git = "https://github.com/paritytech/polkadot", features = ["test-utils"] , branch = "master" }
+
+[build-dependencies]
+toml = "0.7.6"

@@ -1,0 +1,74 @@
+[package]
+name = "integration-tests-common"
+version = "1.0.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+description = "Common resources for integration testing with xcm-emulator"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
+lazy_static = "1.4.0"
+paste = "1.0.14"
+
+# Substrate
+grandpa = { package = "sc-consensus-grandpa", git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-authority-discovery = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+frame-system = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-weights = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-consensus-babe = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-balances = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-assets = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-staking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-message-queue = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-im-online = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+beefy-primitives = { package = "sp-consensus-beefy", git = "https://github.com/paritytech/substrate", branch = "master" }
+
+# Polkadot
+polkadot-core-primitives = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-parachain = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-service = { default-features = false, git = "https://github.com/paritytech/polkadot", features = ["full-node"] , branch = "master" }
+polkadot-primitives = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-runtime-constants = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+kusama-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+kusama-runtime-constants = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+rococo-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+rococo-runtime-constants = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+westend-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+westend-runtime-constants = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+xcm = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
+xcm-executor = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
+pallet-xcm = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
+
+# Cumulus
+parachains-common = { path = "../../../common" }
+parachain-info = { path = "../../../pallets/parachain-info" }
+cumulus-primitives-core = { path = "../../../../primitives/core" }
+penpal-runtime = { path = "../../../runtimes/testing/penpal" }
+asset-hub-polkadot-runtime = { path = "../../../runtimes/assets/asset-hub-polkadot" }
+asset-hub-kusama-runtime = { path = "../../../runtimes/assets/asset-hub-kusama" }
+asset-hub-westend-runtime = { path = "../../../runtimes/assets/asset-hub-westend" }
+collectives-polkadot-runtime = { path = "../../../runtimes/collectives/collectives-polkadot" }
+bridge-hub-kusama-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-kusama" }
+bridge-hub-polkadot-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-polkadot" }
+bridge-hub-rococo-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-rococo" }
+xcm-emulator = { default-features = false, path = "../../../../xcm/xcm-emulator" }
+cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue" }
+cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../pallets/xcmp-queue" }
+cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system" }
+bp-messages = { path = "../../../../bridges/primitives/messages"}
+bp-runtime = { path = "../../../../bridges/primitives/runtime"}
+pallet-bridge-messages = { path = "../../../../bridges/modules/messages" }
+bridge-runtime-common = { path = "../../../../bridges/bin/runtime-common"}
+
+[features]
+runtime-benchmarks = [
+	"kusama-runtime/runtime-benchmarks",
+	"polkadot-runtime/runtime-benchmarks",
+	"westend-runtime/runtime-benchmarks",
+]

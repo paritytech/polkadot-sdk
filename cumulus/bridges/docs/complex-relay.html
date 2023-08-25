@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width">
+		<title>Complex Relay</title>
+	</head>
+	<body>
+		<h1>Complex Relay</h1>
+		<p>
+			Both Source Chain and Target Chains have Bridge Messages pallets deployed. They also have required
+			finality pallets deployed - we don't care about finality type here - they can be either Bridge GRANDPA,
+			or Bridge Parachains finality pallets, or any combination of those.<br/>
+		</p>
+		<p>
+			There are 4-6 relayer subprocesses inside the Complex Relayer. They include two message relayers,
+			serving the lane in both directions and 2-4 Complex Relayers (depending on the finality type of Source
+			and Target Chains).<br/>
+		</p>
+		<p>
+			The following diagram shows the way the complex relayer serves the lane in single direction. Everything
+			below may be applied to the opposite direction if you'll swap the Source and Target Chains.
+		</p>
+		<div class="mermaid">
+			sequenceDiagram
+			participant Source Chain
+			participant Complex Relayer
+			participant Target Chain
+
+			Note right of Source Chain: Finalized: 480, Target Finalized: 50, Sent Messages: 42, Confirmed Messages: 42
+			Note left of Target Chain: Finalized: 60, Source Finalized: 420, Received Messages: 42
+
+			Source Chain ->> Source Chain: someone Sends Message 43
+			Source Chain ->> Source Chain: Import and Finalize Block 481
+
+			Source Chain ->> Complex Relayer: notes new outbound message 43 at Source Chain Block 481
+			Note right of Complex Relayer: can't deliver message 43, Source Chain Block 481 is not relayed
+			Complex Relayer ->> Complex Relayer: asks on-demand Finality Relayer to relay Source Chain Block 481
+
+			Source Chain ->> Complex Relayer: Read Finality Proof of Block 481
+			Complex Relayer ->> Target Chain: Submit Finality Proof of Block 481
+			Target Chain ->> Target Chain: Import and Finalize Block 61
+			Note left of Target Chain: Finalized: 61, Source Finalized: 481, Received Messages: 42
+
+			Source Chain ->> Complex Relayer: Read Proof of Message 43 at Block 481
+			Complex Relayer ->> Target Chain: Submit Proof of Message 43 at Block 481
+			Target Chain ->> Target Chain: Import and Finalize Block 62
+			Note left of Target Chain: Finalized: 62, Source Finalized: 481, Received Messages: { rewarded: 42, messages-relayer-account: [43] }
+
+			Target Chain ->> Complex Relayer: notes new unrewarded relayer at Target Chain Block 62
+			Note right of Complex Relayer: can't relay delivery confirmations because Target Chain Block 62 is not relayed
+			Complex Relayer ->> Complex Relayer: asks on-demand Finality Relayer to relay Target Chain Block 62
+
+			Target Chain ->> Complex Relayer: Read Finality Proof of Block 62
+			Complex Relayer ->> Source Chain: Submit Finality Proof of Block 62
+			Source Chain ->> Source Chain: Import and Finalize Block 482
+			Note right of Source Chain: Finalized: 482, Target Finalized: 62, Confirmed Messages: 42
+
+			Target Chain ->> Complex Relayer: Read Proof of Message 43 Delivery at Block 62
+			Complex Relayer ->> Source Chain: Submit Proof of Message 43 Delivery at Block 612
+			Source Chain ->> Source Chain: rewards messages-relayer-account for delivering message [43]
+			Source Chain ->> Source Chain: prune delivered message 43 from runtime storage
+			Note right of Source Chain: Finalized: 482, Target Finalized: 61, Confirmed Messages: 43
+
+			Source Chain ->> Source Chain: someone Sends Message 44
+			Source Chain ->> Source Chain: Import and Finalize Block 483
+
+			Source Chain ->> Complex Relayer: notes new outbound message 44 at Source Chain Block 483 and new confirmed message 43
+			Note right of Complex Relayer: can't deliver message 44, Source Chain Block 483 is not relayed
+			Complex Relayer ->> Complex Relayer: asks on-demand Finality Relayer to relay Source Chain Block 483
+
+			Source Chain ->> Complex Relayer: Read Finality Proof of Block 483
+			Complex Relayer ->> Target Chain: Submit Finality Proof of Block 483
+			Target Chain ->> Target Chain: Import and Finalize Block 63
+			Note left of Target Chain: Finalized: 63, Source Finalized: 483, Received Messages: { rewarded: 42, messages-relayer-account: [43] }
+
+			Source Chain ->> Complex Relayer: Read Proof of Message 44 and Proof of Message 43 reward at Block 483
+			Complex Relayer ->> Target Chain: Submit Proof of Message 44 and Proof of Message 43 reward at Block 483
+			Target Chain ->> Target Chain: Import and Finalize Block 64
+			Note left of Target Chain: Finalized: 64, Source Finalized: 483, Received Messages: { rewarded: 43, messages-relayer-account: [44] }-->
+		</div>
+		<script src="https://cdn.jsdelivr.net/npm/mermaid@8.8.4/dist/mermaid.min.js"></script>
+		<script>mermaid.initialize({startOnLoad: true})</script>
+	</body>
+</html>

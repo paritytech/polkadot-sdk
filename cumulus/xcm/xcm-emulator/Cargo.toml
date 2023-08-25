@@ -1,0 +1,41 @@
+[package]
+name = "xcm-emulator"
+description = "Test kit to emulate XCM program execution."
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0" }
+paste = "1.0.14"
+log = { version = "0.4.20", default-features = false }
+lazy_static = "1.4.0"
+impl-trait-for-tuples = "0.2.2"
+
+# Substrate
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-message-queue = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+# Cumulus
+cumulus-primitives-core = { path = "../../primitives/core"}
+cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue" }
+cumulus-pallet-dmp-queue = { path = "../../pallets/dmp-queue" }
+cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system" }
+parachain-info = { path = "../../parachains/pallets/parachain-info" }
+cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
+cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
+parachains-common = { path = "../../parachains/common" }
+
+# Polkadot
+xcm = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "master" }
