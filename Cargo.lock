@@ -1333,7 +1333,7 @@ version = "4.0.0-dev"
 dependencies = [
  "array-bytes",
  "env_logger 0.9.3",
- "hash-db",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
  "log",
  "sp-core",
  "sp-runtime",
@@ -1767,7 +1767,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "hash-db",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
  "hex-literal 0.4.1",
  "impl-trait-for-tuples",
  "log",
@@ -1781,7 +1781,7 @@ dependencies = [
  "sp-state-machine",
  "sp-std",
  "sp-trie",
- "trie-db",
+ "trie-db 0.27.1 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
 ]
 
 [[package]]
@@ -2121,7 +2121,7 @@ dependencies = [
  "bp-xcm-bridge-hub-router",
  "frame-support",
  "frame-system",
- "hash-db",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
  "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
@@ -3591,7 +3591,7 @@ dependencies = [
  "sp-tracing",
  "sp-trie",
  "sp-version",
- "trie-db",
+ "trie-db 0.27.1 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
  "xcm",
 ]
 
@@ -5966,6 +5966,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e7d7786361d7425ae2fe4f9e407eb0efaa0840f5212d109cc018c40c35c6ab4"
 
 [[package]]
+name = "hash-db"
+version = "0.16.0"
+source = "git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value#1124af8bb3b037df675e1bc0da5963e6f3ee209b"
+
+[[package]]
 name = "hash256-std-hasher"
 version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6797,7 +6802,7 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19ea4653859ca2266a86419d3f592d3f22e7a854b482f99180d2498507902048"
 dependencies = [
- "hash-db",
+ "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hash256-std-hasher",
  "tiny-keccak",
 ]
@@ -7976,7 +7981,15 @@ version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "808b50db46293432a45e63bc15ea51e0ab4c0a1647b8eb114e31a3e698dd6fbe"
 dependencies = [
- "hash-db",
+ "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "memory-db"
+version = "0.32.0"
+source = "git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value#1124af8bb3b037df675e1bc0da5963e6f3ee209b"
+dependencies = [
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
 ]
 
 [[package]]
@@ -8352,7 +8365,7 @@ dependencies = [
  "derive_more",
  "fs_extra",
  "futures",
- "hash-db",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
  "kitchensink-runtime",
  "kvdb",
  "kvdb-rocksdb",
@@ -14843,7 +14856,7 @@ version = "0.10.0-dev"
 dependencies = [
  "array-bytes",
  "criterion 0.4.0",
- "hash-db",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
  "kitchensink-runtime",
  "kvdb",
  "kvdb-memorydb",
@@ -16810,7 +16823,7 @@ dependencies = [
 name = "sp-api"
 version = "4.0.0-dev"
 dependencies = [
- "hash-db",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -17171,7 +17184,7 @@ dependencies = [
  "dyn-clonable",
  "ed25519-zebra 3.1.0",
  "futures",
- "hash-db",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
  "hash256-std-hasher",
  "impl-serde",
  "lazy_static",
@@ -17573,7 +17586,7 @@ version = "0.28.0"
 dependencies = [
  "array-bytes",
  "assert_matches",
- "hash-db",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.1",
@@ -17588,7 +17601,7 @@ dependencies = [
  "sp-trie",
  "thiserror",
  "tracing",
- "trie-db",
+ "trie-db 0.27.1 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
 ]
 
 [[package]]
@@ -17695,10 +17708,10 @@ dependencies = [
  "ahash 0.8.3",
  "array-bytes",
  "criterion 0.4.0",
- "hash-db",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
  "hashbrown 0.13.2",
  "lazy_static",
- "memory-db",
+ "memory-db 0.32.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
  "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.1",
@@ -17710,8 +17723,8 @@ dependencies = [
  "thiserror",
  "tracing",
  "trie-bench",
- "trie-db",
- "trie-root",
+ "trie-db 0.27.1 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
+ "trie-root 0.18.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
  "trie-standardmap",
 ]
 
@@ -18120,7 +18133,7 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-trie",
- "trie-db",
+ "trie-db 0.27.1 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
 ]
 
 [[package]]
@@ -18195,7 +18208,7 @@ dependencies = [
  "sp-version",
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
- "trie-db",
+ "trie-db 0.27.1 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
 ]
 
 [[package]]
@@ -19128,12 +19141,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f54b4f9d51d368e62cf7e0730c7c1e18fc658cc84333656bab5b328f44aa964"
 dependencies = [
  "criterion 0.4.0",
- "hash-db",
+ "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "keccak-hasher",
- "memory-db",
+ "memory-db 0.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-scale-codec",
- "trie-db",
- "trie-root",
+ "trie-db 0.27.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "trie-root 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "trie-standardmap",
 ]
 
@@ -19143,7 +19156,19 @@ version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "767abe6ffed88a1889671a102c2861ae742726f52e0a5a425b92c9fbfa7e9c85"
 dependencies = [
- "hash-db",
+ "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hashbrown 0.13.2",
+ "log",
+ "rustc-hex",
+ "smallvec",
+]
+
+[[package]]
+name = "trie-db"
+version = "0.27.1"
+source = "git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value#1124af8bb3b037df675e1bc0da5963e6f3ee209b"
+dependencies = [
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
  "hashbrown 0.13.2",
  "log",
  "rustc-hex",
@@ -19156,7 +19181,15 @@ version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4ed310ef5ab98f5fa467900ed906cb9232dd5376597e00fd4cba2a449d06c0b"
 dependencies = [
- "hash-db",
+ "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "trie-root"
+version = "0.18.0"
+source = "git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value#1124af8bb3b037df675e1bc0da5963e6f3ee209b"
+dependencies = [
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
 ]
 
 [[package]]
@@ -19165,7 +19198,7 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "684aafb332fae6f83d7fe10b3fbfdbe39a1b3234c4e2a618f030815838519516"
 dependencies = [
- "hash-db",
+ "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "keccak-hasher",
 ]
 
