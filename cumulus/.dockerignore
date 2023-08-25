@@ -1,0 +1,9 @@
+.git
+**/target/
+**/*.txt
+**/*.md
+/docker/
+!/target/release-artifacts/**/*
+
+# dotfiles in the repo root
+/.*

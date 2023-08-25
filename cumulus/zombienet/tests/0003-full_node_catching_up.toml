@@ -1,0 +1,50 @@
+[relaychain]
+default_image = "{{RELAY_IMAGE}}"
+default_command = "polkadot"
+default_args = [ "-lparachain=debug" ]
+
+chain = "rococo-local"
+
+  [[relaychain.nodes]]
+  name = "alice"
+  validator = true
+
+  [[relaychain.nodes]]
+  name = "bob"
+  validator = true
+
+[[parachains]]
+id = 2000
+cumulus_based = true
+
+  # run charlie as parachain collator
+  [[parachains.collators]]
+  name = "charlie"
+  validator = true
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lparachain=debug"]
+
+  # run cumulus dave (a parachain full node) and wait for it to sync some blocks
+  [[parachains.collators]]
+  name = "dave"
+  validator = false
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["--reserved-only", "--reserved-nodes {{'charlie'|zombie('multiAddress')}}"]
+
+  # run cumulus eve (a parachain full node) and wait for it to sync some blocks
+  [[parachains.collators]]
+  name = "eve"
+  validator = false
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["--reserved-only", "--reserved-nodes {{'charlie'|zombie('multiAddress')}}", "--relay-chain-rpc-url {{'alice'|zombie('wsUri')}}"]
+
+  # run cumulus node ferdie (with embedded light client) and wait for it to sync some blocks
+  [[parachains.collators]]
+  name = "ferdie"
+  validator = false
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["--relay-chain-light-client", "--reserved-only", "--reserved-nodes {{'charlie'|zombie('multiAddress')}}"]
