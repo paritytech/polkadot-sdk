@@ -22,12 +22,12 @@ sp-api = { path = "../../../../substrate/primitives/api", default-features = fal
 sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"bp-header-chain/std",
 	"bp-polkadot-core/std",
-	"bp-runtime/std",
 	"bp-rococo/std",
+	"bp-runtime/std",
 	"frame-support/std",
 	"sp-api/std",
 	"sp-std/std",

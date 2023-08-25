@@ -63,65 +63,63 @@ libsecp256k1 = "0.7.0"
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
 
 [features]
-default = ["std"]
-experimental = [
-	"frame-support/experimental"
-]
+default = [ "std" ]
+experimental = [ "frame-support/experimental" ]
 no_std = []
 std = [
 	"bitvec/std",
-	"parity-scale-codec/std",
-	"scale-info/std",
-	"log/std",
-	"rustc-hex/std",
-	"serde/std",
-	"primitives/std",
-	"inherents/std",
-	"sp-core/std",
-	"sp-api/std",
-	"sp-std/std",
-	"sp-io/std",
 	"frame-support/std",
+	"frame-system/std",
+	"inherents/std",
+	"libsecp256k1/std",
+	"log/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
-	"pallet-session/std",
+	"pallet-election-provider-multi-phase/std",
 	"pallet-fast-unstake/std",
-	"pallet-staking/std",
+	"pallet-session/std",
 	"pallet-staking-reward-fn/std",
+	"pallet-staking/std",
 	"pallet-timestamp/std",
-	"pallet-vesting/std",
 	"pallet-transaction-payment/std",
 	"pallet-treasury/std",
-	"pallet-election-provider-multi-phase/std",
+	"pallet-vesting/std",
+	"parity-scale-codec/std",
+	"primitives/std",
+	"runtime-parachains/std",
+	"rustc-hex/std",
+	"scale-info/std",
+	"serde/std",
 	"slot-range-helper/std",
+	"sp-api/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-npos-elections/std",
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
-	"frame-system/std",
-	"libsecp256k1/std",
-	"runtime-parachains/std",
+	"sp-std/std",
 	"xcm/std",
-	"sp-npos-elections/std",
 ]
 runtime-benchmarks = [
-	"libsecp256k1/hmac",
-	"libsecp256k1/static-context",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"runtime-parachains/runtime-benchmarks",
+	"libsecp256k1/hmac",
+	"libsecp256k1/static-context",
 	"pallet-babe/runtime-benchmarks",
-	"pallet-fast-unstake/runtime-benchmarks"
+	"pallet-fast-unstake/runtime-benchmarks",
+	"runtime-parachains/runtime-benchmarks",
 ]
 try-runtime = [
-	"runtime-parachains/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-fast-unstake/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
-	"pallet-vesting/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-treasury/try-runtime",
-	"pallet-fast-unstake/try-runtime",
+	"pallet-vesting/try-runtime",
+	"runtime-parachains/try-runtime",
 ]

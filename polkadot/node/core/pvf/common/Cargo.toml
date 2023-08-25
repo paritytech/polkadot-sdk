@@ -37,4 +37,4 @@ tempfile = "3.3.0"
 [features]
 # This feature is used to export test code to other crates without putting it in the production build.
 # Also used for building the puppet worker.
-test-utils = ["sp-tracing"]
+test-utils = [ "sp-tracing" ]

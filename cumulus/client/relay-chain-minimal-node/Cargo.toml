@@ -42,4 +42,6 @@ async-trait = "0.1.73"
 futures = "0.3.28"
 
 [features]
-network-protocol-staging = ["polkadot-node-network-protocol/network-protocol-staging"]
+network-protocol-staging = [
+	"polkadot-node-network-protocol/network-protocol-staging",
+]

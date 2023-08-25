@@ -42,6 +42,6 @@ cumulus-relay-chain-minimal-node = { path = "../relay-chain-minimal-node" }
 
 [features]
 network-protocol-staging = [
+	"cumulus-relay-chain-inprocess-interface/network-protocol-staging",
 	"cumulus-relay-chain-minimal-node/network-protocol-staging",
-	"cumulus-relay-chain-inprocess-interface/network-protocol-staging"
 ]

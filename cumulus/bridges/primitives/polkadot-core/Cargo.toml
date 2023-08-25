@@ -29,13 +29,13 @@ sp-std = { path = "../../../../substrate/primitives/std", default-features = fal
 hex = "0.4"
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"bp-messages/std",
 	"bp-runtime/std",
+	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"codec/std",
 	"parity-util-mem",
 	"scale-info/std",
 	"serde",

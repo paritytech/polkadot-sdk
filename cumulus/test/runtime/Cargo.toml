@@ -38,22 +38,22 @@ cumulus-primitives-core = { path = "../../primitives/core", default-features = f
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true }
 
 [features]
-default = [ 
-	"std",
-]
+default = [ "std" ]
 std = [
 	"codec/std",
-	"scale-info/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-primitives-core/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"pallet-balances/std",
-	"pallet-sudo/std",
 	"pallet-glutton/std",
+	"pallet-glutton/std",
+	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
-	"pallet-glutton/std",
+	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-core/std",
@@ -65,8 +65,6 @@ std = [
 	"sp-std/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
-	"cumulus-pallet-parachain-system/std",
-	"cumulus-primitives-core/std",
 	"substrate-wasm-builder",
 ]
 increment-spec-version = []

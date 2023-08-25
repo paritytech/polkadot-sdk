@@ -21,10 +21,10 @@ polkadot-primitives = { path = "../../../polkadot/primitives", default-features 
 default = [ "std" ]
 std = [
 	"codec/std",
+	"polkadot-core-primitives/std",
+	"polkadot-primitives/std",
 	"sp-api/std",
 	"sp-consensus-aura/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"polkadot-core-primitives/std",
-	"polkadot-primitives/std",
 ]

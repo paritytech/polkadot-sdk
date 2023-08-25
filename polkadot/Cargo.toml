@@ -130,11 +130,11 @@ debug-assertions = true
 overflow-checks = true
 
 [features]
-runtime-benchmarks = ["polkadot-cli/runtime-benchmarks"]
-try-runtime = ["polkadot-cli/try-runtime"]
-fast-runtime = ["polkadot-cli/fast-runtime"]
-runtime-metrics = ["polkadot-cli/runtime-metrics"]
-pyroscope = ["polkadot-cli/pyroscope"]
+runtime-benchmarks = [ "polkadot-cli/runtime-benchmarks" ]
+try-runtime = [ "polkadot-cli/try-runtime" ]
+fast-runtime = [ "polkadot-cli/fast-runtime" ]
+runtime-metrics = [ "polkadot-cli/runtime-metrics" ]
+pyroscope = [ "polkadot-cli/pyroscope" ]
 jemalloc-allocator = [
 	"polkadot-node-core-pvf-prepare-worker/jemalloc-allocator",
 	"polkadot-overseer/jemalloc-allocator",
@@ -142,7 +142,7 @@ jemalloc-allocator = [
 
 # Enables timeout-based tests supposed to be run only in CI environment as they may be flaky
 # when run locally depending on system load
-ci-only-tests = ["polkadot-node-core-pvf/ci-only-tests"]
+ci-only-tests = [ "polkadot-node-core-pvf/ci-only-tests" ]
 
 # Configuration for building a .deb package - for use with `cargo-deb`
 [package.metadata.deb]

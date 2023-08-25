@@ -96,7 +96,7 @@ sc-cli = { path = "../../../substrate/client/cli" }
 substrate-test-utils = { path = "../../../substrate/test-utils" }
 
 [features]
-runtime-benchmarks = ["polkadot-test-service/runtime-benchmarks"]
+runtime-benchmarks = [ "polkadot-test-service/runtime-benchmarks" ]
 
 [[bench]]
 name = "transaction_throughput"

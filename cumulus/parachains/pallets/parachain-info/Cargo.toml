@@ -18,12 +18,12 @@ sp-std = { path = "../../../../substrate/primitives/std", default-features = fal
 cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"codec/std",
-	"scale-info/std",
 	"cumulus-primitives-core/std",
 	"frame-support/std",
 	"frame-system/std",
+	"scale-info/std",
 ]
-try-runtime = ["frame-support/try-runtime"]
+try-runtime = [ "frame-support/try-runtime" ]

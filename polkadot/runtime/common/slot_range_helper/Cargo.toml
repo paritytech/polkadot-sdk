@@ -13,9 +13,5 @@ sp-std = { package = "sp-std", path = "../../../../substrate/primitives/std", de
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
 
 [features]
-default = ["std"]
-std = [
-	"sp-std/std",
-	"parity-scale-codec/std",
-	"sp-runtime/std",
-]
+default = [ "std" ]
+std = [ "parity-scale-codec/std", "sp-runtime/std", "sp-std/std" ]

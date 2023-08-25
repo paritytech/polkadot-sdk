@@ -29,13 +29,13 @@ sp-io = { path = "../../../../substrate/primitives/io", default-features = false
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false}
 
 [features]
-default = ["std"]
-runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
+default = [ "std" ]
+runtime-benchmarks = [ "frame-benchmarking/runtime-benchmarks" ]
 std = [
 	"codec/std",
-	"scale-info/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
+	"scale-info/std",
 ]
 try-runtime = [ "frame-support/try-runtime" ]
