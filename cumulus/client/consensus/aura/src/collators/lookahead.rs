@@ -31,7 +31,7 @@
 //! The main limitation is block propagation time - i.e. the new blocks created by an author
 //! must be propagated to the next author before their turn.
 
-use codec::{Codec, Encode};
+use codec::{Codec, Decode, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
 	self as consensus_common, ParachainBlockImportMarker, ParentSearchParams,
@@ -39,7 +39,8 @@ use cumulus_client_consensus_common::{
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{
-	relay_chain::Hash as PHash, CollectCollationInfo, PersistedValidationData,
+	relay_chain::{self, Hash as PHash},
+	AbridgedHostConfiguration, CollectCollationInfo, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 
@@ -416,16 +417,46 @@ where
 	Some(SlotClaim::unchecked::<P>(author_pub, slot, timestamp))
 }
 
+/// Reads allowed ancestry length parameter from the relay chain storage at the given relay parent.
+///
+/// Falls back to 0 in case of an error.
 async fn max_ancestry_lookback(
-	_relay_parent: PHash,
-	_relay_client: &impl RelayChainInterface,
+	relay_parent: PHash,
+	relay_client: &impl RelayChainInterface,
 ) -> usize {
-	// TODO [https://github.com/paritytech/cumulus/issues/2706]
-	// We need to read the relay-chain state to know what the maximum
-	// age truly is, but that depends on those pallets existing.
-	//
-	// For now, just provide the conservative value of '2'.
-	// Overestimating can cause problems, as we'd be building on forks of the
-	// chain that can never get included. Underestimating is less of an issue.
-	2
+	let bytes = match relay_client
+		.get_storage_by_key(relay_parent, relay_chain::well_known_keys::ACTIVE_CONFIG)
+		.await
+	{
+		Ok(bytes) => bytes,
+		Err(err) => {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				?err,
+				"Failed to read active config from relay chain client",
+			);
+			return 0
+		},
+	};
+
+	let read_result = match bytes {
+		Some(bytes) => AbridgedHostConfiguration::decode(&mut &bytes[..]).map_err(|err| {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				?err,
+				"Failed to decode active config value from relay chain storage",
+			)
+		}),
+		None => {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				"Active config is missing in relay chain storage",
+			);
+			Err(())
+		},
+	};
+
+	read_result
+		.map(|config| config.async_backing_params.allowed_ancestry_len as usize)
+		.unwrap_or(0)
 }
