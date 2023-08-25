@@ -775,7 +775,7 @@ async fn beefy_importing_justifications() {
 	};
 
 	let builder = full_client
-		.new_block_at(full_client.chain_info().genesis_hash, Default::default(), false)
+		.new_block_at(full_client.chain_info().genesis_hash, Default::default(), false, None)
 		.unwrap();
 	let block = builder.build().unwrap().block;
 	let hashof1 = block.header.hash();
@@ -792,7 +792,7 @@ async fn beefy_importing_justifications() {
 
 	// Import block 2 with "valid" justification (beefy pallet genesis block not yet reached).
 	let block_num = 2;
-	let builder = full_client.new_block_at(hashof1, Default::default(), false).unwrap();
+	let builder = full_client.new_block_at(hashof1, Default::default(), false, None).unwrap();
 	let block = builder.build().unwrap().block;
 	let hashof2 = block.header.hash();
 
@@ -824,7 +824,7 @@ async fn beefy_importing_justifications() {
 
 	// Import block 3 with valid justification.
 	let block_num = 3;
-	let builder = full_client.new_block_at(hashof2, Default::default(), false).unwrap();
+	let builder = full_client.new_block_at(hashof2, Default::default(), false, None).unwrap();
 	let block = builder.build().unwrap().block;
 	let hashof3 = block.header.hash();
 	let proof = crate::justification::tests::new_finality_proof(block_num, &good_set, keys);
@@ -858,7 +858,7 @@ async fn beefy_importing_justifications() {
 
 	// Import block 4 with invalid justification (incorrect validator set).
 	let block_num = 4;
-	let builder = full_client.new_block_at(hashof3, Default::default(), false).unwrap();
+	let builder = full_client.new_block_at(hashof3, Default::default(), false, None).unwrap();
 	let block = builder.build().unwrap().block;
 	let hashof4 = block.header.hash();
 	let keys = &[BeefyKeyring::Alice];

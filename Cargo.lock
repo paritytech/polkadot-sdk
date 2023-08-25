@@ -14728,6 +14728,7 @@ dependencies = [
 name = "sc-block-builder"
 version = "0.10.0-dev"
 dependencies = [
+ "log",
  "parity-scale-codec",
  "sc-client-api",
  "sp-api",
@@ -17496,6 +17497,7 @@ name = "sp-runtime-interface-proc-macro"
 version = "11.0.0"
 dependencies = [
  "Inflector",
+ "expander 2.0.0",
  "proc-macro-crate",
  "proc-macro2",
  "quote",

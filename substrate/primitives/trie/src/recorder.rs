@@ -393,6 +393,12 @@ impl<H: Hasher, I: DerefMut<Target = RecorderInner<H::Out>>> trie_db::TrieRecord
 	}
 }
 
+impl<H: Hasher> crate::ProofSizeEstimationProvider for Recorder<H> {
+	fn estimate_proof_size(&self) -> usize {
+		self.estimate_encoded_size()
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

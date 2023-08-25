@@ -48,7 +48,7 @@ use sc_executor::RuntimeVersion;
 use sc_telemetry::{telemetry, TelemetryHandle, SUBSTRATE_INFO};
 use sp_api::{
 	ApiExt, ApiRef, CallApiAt, CallApiAtParams, ConstructRuntimeApi, Core as CoreApi,
-	ProvideRuntimeApi,
+	ExtensionProducer, ProvideRuntimeApi,
 };
 use sp_blockchain::{
 	self as blockchain, Backend as ChainBackend, CachedHeaderMetadata, Error,
@@ -234,7 +234,8 @@ where
 	Block: BlockT,
 	B: backend::LocalBackend<Block> + 'static,
 {
-	let extensions = ExecutionExtensions::new(None, Arc::new(executor.clone()));
+	// TODO skunert Check if we need to pass something here
+	let extensions = ExecutionExtensions::new(None, Arc::new(executor.clone()), None);
 
 	let call_executor =
 		LocalCallExecutor::new(backend.clone(), executor, config.clone(), extensions)?;
@@ -854,13 +855,31 @@ where
 		let storage_changes = match (enact_state, storage_changes, &import_block.body) {
 			// We have storage changes and should enact the state, so we don't need to do anything
 			// here
-			(true, changes @ Some(_), _) => changes,
+			(true, changes @ Some(_), _) => {
+				log::info!(target: "skunert", "Changes were provided, block is not re-executed.");
+				changes
+			},
 			// We should enact state, but don't have any storage changes, so we need to execute the
 			// block.
 			(true, None, Some(ref body)) => {
 				let mut runtime_api = self.runtime_api();
 
 				runtime_api.set_call_context(CallContext::Onchain);
+
+				if let Some(extension) =
+					self.executor.execution_extensions().get_import_extension().clone()
+				{
+					runtime_api.record_proof();
+					if let Some(proof_recorder) = runtime_api.proof_recorder() {
+						log::info!(target:"skunert", "Block import with extension and proof recording.");
+						let extension = extension(Box::new(proof_recorder));
+						runtime_api.register_extension_with_type_id(extension.0, extension.1);
+					} else {
+						log::info!(target:"skunert", "Block import without proof recorder");
+					}
+				} else {
+					log::info!(target:"skunert", "Block import without extension");
+				}
 
 				runtime_api.execute_block(
 					*parent_hash,
@@ -1418,14 +1437,16 @@ where
 		parent: Block::Hash,
 		inherent_digests: Digest,
 		record_proof: R,
+		extension: Option<ExtensionProducer>,
 	) -> sp_blockchain::Result<sc_block_builder::BlockBuilder<Block, Self, B>> {
-		sc_block_builder::BlockBuilder::new(
+		sc_block_builder::BlockBuilder::new_with_extension(
 			self,
 			parent,
 			self.expect_block_number_from_id(&BlockId::Hash(parent))?,
 			record_proof.into(),
 			inherent_digests,
 			&self.backend,
+			extension,
 		)
 	}
 

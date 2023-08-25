@@ -29,7 +29,8 @@
 use codec::Encode;
 
 use sp_api::{
-	ApiExt, ApiRef, Core, ProvideRuntimeApi, StorageChanges, StorageProof, TransactionOutcome,
+	ApiExt, ApiRef, Core, ExtensionProducer, ProvideRuntimeApi, StorageChanges, StorageProof,
+	TransactionOutcome,
 };
 use sp_blockchain::{ApplyExtrinsicFailed, Error};
 use sp_core::traits::CallContext;
@@ -119,6 +120,7 @@ where
 		parent: Block::Hash,
 		inherent_digests: Digest,
 		record_proof: R,
+		extension: Option<ExtensionProducer>,
 	) -> sp_blockchain::Result<BlockBuilder<Block, RA, B>>;
 
 	/// Create a new block, built on the head of the chain.
@@ -151,13 +153,16 @@ where
 	/// While proof recording is enabled, all accessed trie nodes are saved.
 	/// These recorded trie nodes can be used by a third party to prove the
 	/// output of this block builder without having access to the full storage.
-	pub fn new(
+	/// The given externality extension `extension` will be registered for the
+	/// runtime instance used to build the block.
+	pub fn new_with_extension(
 		api: &'a A,
 		parent_hash: Block::Hash,
 		parent_number: NumberFor<Block>,
 		record_proof: RecordProof,
 		inherent_digests: Digest,
 		backend: &'a B,
+		extension_producer: Option<sp_api::ExtensionProducer>,
 	) -> Result<Self, Error> {
 		let header = <<Block as BlockT>::Header as HeaderT>::new(
 			parent_number + One::one(),
@@ -173,6 +178,16 @@ where
 
 		if record_proof.yes() {
 			api.record_proof();
+		}
+
+		if let Some(proof_recorder) = api.proof_recorder() {
+			if let Some(extension_producer) = extension_producer {
+				log::info!(target:"skunert", "Registering extension in Block-builder");
+				let extension = extension_producer(Box::new(proof_recorder));
+				api.register_extension_with_type_id(extension.0, extension.1);
+			} else {
+				log::info!(target:"skunert", "not registering extension in Block-builder");
+			}
 		}
 
 		api.set_call_context(CallContext::Onchain);
@@ -191,6 +206,30 @@ where
 			backend,
 			estimated_header_size,
 		})
+	}
+
+	/// Create a new instance of builder based on the given `parent_hash` and `parent_number`.
+	///
+	/// While proof recording is enabled, all accessed trie nodes are saved.
+	/// These recorded trie nodes can be used by a third party to prove the
+	/// output of this block builder without having access to the full storage.
+	pub fn new(
+		api: &'a A,
+		parent_hash: Block::Hash,
+		parent_number: NumberFor<Block>,
+		record_proof: RecordProof,
+		inherent_digests: Digest,
+		backend: &'a B,
+	) -> Result<Self, Error> {
+		Self::new_with_extension(
+			api,
+			parent_hash,
+			parent_number,
+			record_proof,
+			inherent_digests,
+			backend,
+			None,
+		)
 	}
 
 	/// Push onto the block's list of extrinsics.

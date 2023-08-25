@@ -91,7 +91,7 @@ impl InitPolkadotBlockBuilder for Client {
 		};
 
 		let mut block_builder = self
-			.new_block_at(hash, digest, false)
+			.new_block_at(hash, digest, false, None)
 			.expect("Creates new block builder for test runtime");
 
 		let mut inherent_data = sp_inherents::InherentData::new();

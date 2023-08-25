@@ -1260,8 +1260,9 @@ async fn follow_generates_initial_blocks() {
 	let block_2_hash = block_2.header.hash();
 	client.import(BlockOrigin::Own, block_2.clone()).await.unwrap();
 
-	let mut block_builder =
-		client.new_block_at(block_1.header.hash(), Default::default(), false).unwrap();
+	let mut block_builder = client
+		.new_block_at(block_1.header.hash(), Default::default(), false, None)
+		.unwrap();
 	// This push is required as otherwise block 3 has the same hash as block 2 and won't get
 	// imported
 	block_builder
@@ -1556,7 +1557,8 @@ async fn follow_prune_best_block() {
 	client.import(BlockOrigin::Own, block_4.clone()).await.unwrap();
 
 	// Import block 2 as best on the fork.
-	let mut block_builder = client.new_block_at(block_1_hash, Default::default(), false).unwrap();
+	let mut block_builder =
+		client.new_block_at(block_1_hash, Default::default(), false, None).unwrap();
 	// This push is required as otherwise block 3 has the same hash as block 2 and won't get
 	// imported
 	block_builder
@@ -1698,8 +1700,9 @@ async fn follow_forks_pruned_block() {
 	client.import(BlockOrigin::Own, block_3.clone()).await.unwrap();
 
 	// Block 4 with parent Block 1 is not the best imported.
-	let mut block_builder =
-		client.new_block_at(block_1.header.hash(), Default::default(), false).unwrap();
+	let mut block_builder = client
+		.new_block_at(block_1.header.hash(), Default::default(), false, None)
+		.unwrap();
 	// This push is required as otherwise block 4 has the same hash as block 2 and won't get
 	// imported
 	block_builder
@@ -1713,8 +1716,9 @@ async fn follow_forks_pruned_block() {
 	let block_4 = block_builder.build().unwrap().block;
 	client.import(BlockOrigin::Own, block_4.clone()).await.unwrap();
 
-	let mut block_builder =
-		client.new_block_at(block_4.header.hash(), Default::default(), false).unwrap();
+	let mut block_builder = client
+		.new_block_at(block_4.header.hash(), Default::default(), false, None)
+		.unwrap();
 	block_builder
 		.push_transfer(Transfer {
 			from: AccountKeyring::Bob.into(),
@@ -1819,8 +1823,9 @@ async fn follow_report_multiple_pruned_block() {
 	client.import(BlockOrigin::Own, block_3.clone()).await.unwrap();
 
 	// Block 4 with parent Block 1 is not the best imported.
-	let mut block_builder =
-		client.new_block_at(block_1.header.hash(), Default::default(), false).unwrap();
+	let mut block_builder = client
+		.new_block_at(block_1.header.hash(), Default::default(), false, None)
+		.unwrap();
 	// This push is required as otherwise block 4 has the same hash as block 2 and won't get
 	// imported
 	block_builder
@@ -1835,8 +1840,9 @@ async fn follow_report_multiple_pruned_block() {
 	let block_4_hash = block_4.header.hash();
 	client.import(BlockOrigin::Own, block_4.clone()).await.unwrap();
 
-	let mut block_builder =
-		client.new_block_at(block_4.header.hash(), Default::default(), false).unwrap();
+	let mut block_builder = client
+		.new_block_at(block_4.header.hash(), Default::default(), false, None)
+		.unwrap();
 	block_builder
 		.push_transfer(Transfer {
 			from: AccountKeyring::Bob.into(),

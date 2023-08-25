@@ -72,7 +72,7 @@ fn init_block_builder(
 	timestamp: u64,
 ) -> BlockBuilder<'_, Block, Client, Backend> {
 	let mut block_builder = client
-		.new_block_at(at, Default::default(), true)
+		.new_block_at(at, Default::default(), true, None)
 		.expect("Creates new block builder for test runtime");
 
 	let mut inherent_data = sp_inherents::InherentData::new();

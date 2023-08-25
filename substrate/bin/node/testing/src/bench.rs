@@ -405,13 +405,14 @@ impl BenchDb {
 		)
 		.expect("Failed to create genesis block builder");
 
+		// TODO skunert Check back if this is correct
 		let client = sc_service::new_client(
 			backend.clone(),
 			executor.clone(),
 			genesis_block_builder,
 			None,
 			None,
-			ExecutionExtensions::new(None, Arc::new(executor)),
+			ExecutionExtensions::new(None, Arc::new(executor), None),
 			Box::new(task_executor.clone()),
 			None,
 			None,

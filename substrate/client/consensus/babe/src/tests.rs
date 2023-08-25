@@ -99,7 +99,7 @@ impl DummyProposer {
 		pre_digests: Digest,
 	) -> future::Ready<Result<Proposal<TestBlock, ()>, Error>> {
 		let block_builder =
-			self.factory.client.new_block_at(self.parent_hash, pre_digests, false).unwrap();
+			self.factory.client.new_block_at(self.parent_hash, pre_digests, false, None).unwrap();
 
 		let mut block = match block_builder.build().map_err(|e| e.into()) {
 			Ok(b) => b.block,
