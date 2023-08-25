@@ -43,4 +43,4 @@ metered = { package = "prioritized-metered-channel", version = "0.2.0" }
 cumulus-test-service = { path = "../../test/service" }
 
 [features]
-network-protocol-staging = ["polkadot-service/network-protocol-staging"]
+network-protocol-staging = [ "polkadot-service/network-protocol-staging" ]

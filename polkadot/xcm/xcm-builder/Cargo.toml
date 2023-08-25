@@ -37,26 +37,26 @@ assert_matches = "1.5.0"
 polkadot-test-runtime = { path = "../../runtime/test-runtime" }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"xcm-executor/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 ]
 std = [
+	"frame-support/std",
+	"frame-system/std",
 	"log/std",
+	"pallet-transaction-payment/std",
 	"parity-scale-codec/std",
+	"polkadot-parachain/std",
 	"scale-info/std",
-	"xcm/std",
-	"xcm-executor/std",
-	"sp-std/std",
 	"sp-arithmetic/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"sp-std/std",
 	"sp-weights/std",
-	"frame-support/std",
-	"frame-system/std",
-	"polkadot-parachain/std",
-	"pallet-transaction-payment/std",
+	"xcm-executor/std",
+	"xcm/std",
 ]

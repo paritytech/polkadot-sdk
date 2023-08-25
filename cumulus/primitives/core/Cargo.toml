@@ -24,12 +24,12 @@ xcm = { path = "../../../polkadot/xcm", default-features = false}
 default = [ "std" ]
 std = [
 	"codec/std",
+	"polkadot-core-primitives/std",
+	"polkadot-parachain/std",
+	"polkadot-primitives/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-trie/std",
-	"polkadot-core-primitives/std",
-	"polkadot-parachain/std",
-	"polkadot-primitives/std",
 ]

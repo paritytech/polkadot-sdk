@@ -151,15 +151,14 @@ serial_test = "2.0.0"
 tempfile = "3.2"
 
 [features]
-default = ["db", "full-node"]
+default = [ "db", "full-node" ]
 
-db = [
-	"service/rocksdb"
-]
+db = [ "service/rocksdb" ]
 
 full-node = [
-	"polkadot-node-core-av-store",
-	"polkadot-node-core-approval-voting",
+	"kvdb-rocksdb",
+	"parity-db",
+	"polkadot-approval-distribution",
 	"polkadot-availability-bitfield-distribution",
 	"polkadot-availability-distribution",
 	"polkadot-availability-recovery",
@@ -168,6 +167,8 @@ full-node = [
 	"polkadot-gossip-support",
 	"polkadot-network-bridge",
 	"polkadot-node-collation-generation",
+	"polkadot-node-core-approval-voting",
+	"polkadot-node-core-av-store",
 	"polkadot-node-core-backing",
 	"polkadot-node-core-bitfield-signing",
 	"polkadot-node-core-candidate-validation",
@@ -176,13 +177,10 @@ full-node = [
 	"polkadot-node-core-dispute-coordinator",
 	"polkadot-node-core-prospective-parachains",
 	"polkadot-node-core-provisioner",
-	"polkadot-node-core-runtime-api",
-	"polkadot-statement-distribution",
-	"polkadot-approval-distribution",
 	"polkadot-node-core-pvf",
 	"polkadot-node-core-pvf-checker",
-	"kvdb-rocksdb",
-	"parity-db",
+	"polkadot-node-core-runtime-api",
+	"polkadot-statement-distribution",
 ]
 
 # Configure the native runtimes to use. Polkadot is enabled by default.
@@ -194,33 +192,34 @@ westend-native = [ "westend-runtime", "westend-runtime-constants" ]
 rococo-native = [ "rococo-runtime", "rococo-runtime-constants" ]
 
 runtime-benchmarks = [
-	"polkadot-runtime?/runtime-benchmarks",
 	"kusama-runtime?/runtime-benchmarks",
-	"westend-runtime?/runtime-benchmarks",
+	"polkadot-runtime?/runtime-benchmarks",
 	"rococo-runtime?/runtime-benchmarks",
-
 	"service/runtime-benchmarks",
+	"westend-runtime?/runtime-benchmarks",
 ]
 try-runtime = [
-	"polkadot-runtime?/try-runtime",
 	"kusama-runtime?/try-runtime",
-	"westend-runtime?/try-runtime",
+	"polkadot-runtime?/try-runtime",
 	"rococo-runtime?/try-runtime",
+	"westend-runtime?/try-runtime",
 ]
 fast-runtime = [
-	"polkadot-runtime?/fast-runtime",
 	"kusama-runtime?/fast-runtime",
-	"westend-runtime?/fast-runtime",
+	"polkadot-runtime?/fast-runtime",
 	"rococo-runtime?/fast-runtime",
+	"westend-runtime?/fast-runtime",
 ]
 
-malus = ["full-node"]
+malus = [ "full-node" ]
 runtime-metrics = [
+	"kusama-runtime?/runtime-metrics",
+	"polkadot-runtime-parachains/runtime-metrics",
+	"polkadot-runtime?/runtime-metrics",
 	"rococo-runtime?/runtime-metrics",
 	"westend-runtime?/runtime-metrics",
-	"kusama-runtime?/runtime-metrics",
-	"polkadot-runtime?/runtime-metrics",
-	"polkadot-runtime-parachains/runtime-metrics"
 ]
 
-network-protocol-staging = ["polkadot-node-network-protocol/network-protocol-staging"]
+network-protocol-staging = [
+	"polkadot-node-network-protocol/network-protocol-staging",
+]

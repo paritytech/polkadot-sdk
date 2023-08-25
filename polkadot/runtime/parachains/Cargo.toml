@@ -63,25 +63,14 @@ assert_matches = "1"
 serde_json = "1.0.96"
 
 [features]
-default = ["std"]
+default = [ "std" ]
 no_std = []
 std = [
 	"bitvec/std",
-	"parity-scale-codec/std",
-	"rustc-hex/std",
-	"scale-info/std",
-	"serde/std",
-	"primitives/std",
-	"inherents/std",
-	"sp-core/std",
-	"sp-api/std",
-	"sp-keystore",
-	"sp-std/std",
-	"sp-io/std",
 	"frame-support/std",
-	"sp-runtime/std",
-	"sp-session/std",
-	"sp-staking/std",
+	"frame-system/std",
+	"inherents/std",
+	"log/std",
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
 	"pallet-babe/std",
@@ -91,11 +80,22 @@ std = [
 	"pallet-staking/std",
 	"pallet-timestamp/std",
 	"pallet-vesting/std",
-	"frame-system/std",
-	"xcm/std",
-	"xcm-executor/std",
-	"log/std",
+	"parity-scale-codec/std",
 	"polkadot-runtime-metrics/std",
+	"primitives/std",
+	"rustc-hex/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-api/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-keystore",
+	"sp-runtime/std",
+	"sp-session/std",
+	"sp-staking/std",
+	"sp-std/std",
+	"xcm-executor/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -108,8 +108,8 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
 	"primitives/runtime-benchmarks",
-	"static_assertions",
 	"sp-application-crypto",
+	"static_assertions",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -123,4 +123,7 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-vesting/try-runtime",
 ]
-runtime-metrics = ["sp-tracing/with-tracing", "polkadot-runtime-metrics/runtime-metrics"]
+runtime-metrics = [
+	"polkadot-runtime-metrics/runtime-metrics",
+	"sp-tracing/with-tracing",
+]

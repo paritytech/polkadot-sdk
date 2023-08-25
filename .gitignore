@@ -1,16 +1,13 @@
+target/
 **/target/
-**/*.rs.bk
-*.swp
-.wasm-binaries
-runtime/wasm/target/
-**/._*
 .idea
 .vscode
-polkadot.*
-!polkadot.service
 .DS_Store
+/.cargo/config
+polkadot_argument_parsing
+**/node_modules
+**/chains/
+*.iml
 .env
+**/._*
 
-artifacts
-release-artifacts
-release.json
