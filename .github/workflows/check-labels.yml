@@ -31,7 +31,7 @@ jobs:
           echo "Cloning repo with labels specs"
 
           # Temporary, before https://github.com/paritytech/labels/pull/29 is not merged
-          git clone https://github.com/paritytech/labels --depth 1 --main
+          git clone https://github.com/paritytech/labels --depth 1 --branch main
 
           # Fetch the labels for the PR under test
           echo "Fetch the labels for $API_BASE/${REPO}/pulls/${GITHUB_PR}"
