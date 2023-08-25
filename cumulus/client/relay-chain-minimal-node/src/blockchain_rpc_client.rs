@@ -23,7 +23,7 @@ use polkadot_core_primitives::{Block, BlockNumber, Hash, Header};
 use polkadot_overseer::RuntimeApiSubsystemClient;
 use polkadot_primitives::{
 	slashing,
-	vstaging::{AsyncBackingParams, BackingState},
+	vstaging::{ApprovalVotingParams, AsyncBackingParams, BackingState},
 };
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};
 use sp_api::{ApiError, RuntimeApiInfo};
@@ -348,6 +348,10 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		para_id: cumulus_primitives_core::ParaId,
 	) -> Result<Option<BackingState>, ApiError> {
 		Ok(self.rpc_client.parachain_host_staging_para_backing_state(at, para_id).await?)
+	}
+	/// Approval voting configuration parameters
+	async fn approval_voting_params(&self, _at: Hash) -> Result<ApprovalVotingParams, ApiError> {
+		Ok(ApprovalVotingParams { max_approval_coalesce_count: 1 })
 	}
 }
 
