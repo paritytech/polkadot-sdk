@@ -83,6 +83,7 @@ check-dependency-rules:
     CI_IMAGE: "paritytech/tools:latest"
   allow_failure: true
   script:
+    - cd substrate/
     - .gitlab/ensure-deps.sh
 
 test-rust-features:
