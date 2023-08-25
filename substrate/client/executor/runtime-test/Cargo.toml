@@ -1,0 +1,34 @@
+[package]
+name = "sc-runtime-test"
+version = "2.0.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+build = "build.rs"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+publish = false
+homepage = "https://substrate.io"
+repository = "https://github.com/paritytech/substrate/"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+sp-core = { version = "21.0.0", default-features = false, path = "../../../primitives/core" }
+sp-io = { version = "23.0.0", default-features = false, features = ["improved_panic_error_reporting"], path = "../../../primitives/io" }
+sp-runtime = { version = "24.0.0", default-features = false, path = "../../../primitives/runtime" }
+sp-runtime-interface = { version = "17.0.0", default-features = false, path = "../../../primitives/runtime-interface" }
+sp-std = { version = "8.0.0", default-features = false, path = "../../../primitives/std" }
+
+[build-dependencies]
+substrate-wasm-builder = { version = "5.0.0-dev", path = "../../../utils/wasm-builder", optional = true }
+
+[features]
+default = [ "std" ]
+std = [
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime-interface/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"substrate-wasm-builder",
+]

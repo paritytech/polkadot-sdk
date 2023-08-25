@@ -1,0 +1,58 @@
+[package]
+name = "frame-system"
+version = "4.0.0-dev"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://substrate.io"
+repository = "https://github.com/paritytech/substrate/"
+description = "FRAME system module"
+readme = "README.md"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+cfg-if = "1.0"
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+log = { version = "0.4.17", default-features = false }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive", "serde"] }
+serde = { version = "1.0.163", default-features = false, features = ["derive", "alloc"] }
+frame-support = { version = "4.0.0-dev", default-features = false, path = "../support" }
+sp-core = { version = "21.0.0", default-features = false, path = "../../primitives/core", features = ["serde"] }
+sp-io = { version = "23.0.0", default-features = false, path = "../../primitives/io" }
+sp-runtime = { version = "24.0.0", default-features = false, path = "../../primitives/runtime", features = ["serde"] }
+sp-std = { version = "8.0.0", default-features = false, path = "../../primitives/std" }
+sp-version = { version = "22.0.0", default-features = false, path = "../../primitives/version", features = ["serde"] }
+sp-weights = { version = "20.0.0", default-features = false, path = "../../primitives/weights", features = ["serde"] }
+
+[dev-dependencies]
+criterion = "0.4.0"
+sp-externalities = { version = "0.19.0", path = "../../primitives/externalities" }
+substrate-test-runtime-client = { version = "2.0.0", path = "../../test-utils/runtime/client" }
+
+[features]
+default = [ "std" ]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"log/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-core/std",
+	"sp-externalities/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-version/std",
+	"sp-weights/std",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [ "frame-support/try-runtime", "sp-runtime/try-runtime" ]
+
+[[bench]]
+name = "bench"
+harness = false

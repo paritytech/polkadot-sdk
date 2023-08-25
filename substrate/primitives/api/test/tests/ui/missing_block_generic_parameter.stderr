@@ -1,0 +1,5 @@
+error: Missing `Block` generic parameter.
+  --> tests/ui/missing_block_generic_parameter.rs:12:13
+   |
+12 |     impl self::Api for Runtime {
+   |                ^^^

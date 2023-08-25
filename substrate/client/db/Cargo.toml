@@ -1,0 +1,63 @@
+[package]
+name = "sc-client-db"
+version = "0.10.0-dev"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+homepage = "https://substrate.io"
+repository = "https://github.com/paritytech/substrate/"
+description = "Client backend that uses RocksDB database as storage."
+readme = "README.md"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", features = [
+	"derive",
+] }
+hash-db = "0.16.0"
+kvdb = "0.13.0"
+kvdb-memorydb = "0.13.0"
+kvdb-rocksdb = { version = "0.19.0", optional = true }
+linked-hash-map = "0.5.4"
+log = "0.4.17"
+parity-db = "0.4.8"
+parking_lot = "0.12.1"
+sc-client-api = { version = "4.0.0-dev", path = "../api" }
+sc-state-db = { version = "0.10.0-dev", path = "../state-db" }
+schnellru = "0.2.1"
+sp-arithmetic = { version = "16.0.0", path = "../../primitives/arithmetic" }
+sp-blockchain = { version = "4.0.0-dev", path = "../../primitives/blockchain" }
+sp-core = { version = "21.0.0", path = "../../primitives/core" }
+sp-database = { version = "4.0.0-dev", path = "../../primitives/database" }
+sp-runtime = { version = "24.0.0", path = "../../primitives/runtime" }
+sp-state-machine = { version = "0.28.0", path = "../../primitives/state-machine" }
+sp-trie = { version = "22.0.0", path = "../../primitives/trie" }
+
+[dev-dependencies]
+criterion = "0.4.0"
+kvdb-rocksdb = "0.19.0"
+rand = "0.8.5"
+tempfile = "3.1.0"
+quickcheck = { version = "1.0.3", default-features = false }
+kitchensink-runtime = { path = "../../bin/node/runtime" }
+sp-tracing = { version = "10.0.0", path = "../../primitives/tracing" }
+substrate-test-runtime-client = { version = "2.0.0", path = "../../test-utils/runtime/client" }
+array-bytes = "6.1"
+
+[features]
+default = []
+test-helpers = []
+runtime-benchmarks = [
+	"kitchensink-runtime/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+rocksdb = [ "kvdb-rocksdb" ]
+
+[[bench]]
+name = "state_access"
+harness = false
+
+[lib]
+bench = false
