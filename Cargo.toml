@@ -1,4 +1,6 @@
 [workspace]
+resolver = "2"
+
 members = [
 	"cumulus/bridges/bin/runtime-common",
 	"cumulus/bridges/modules/grandpa",
