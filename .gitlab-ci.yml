@@ -1,32 +1,9 @@
-# .gitlab-ci.yml
+# polkadot-sdk | CI definitions (via GitLab CI)
 #
-# substrate
+# FYI: Pipelines can be triggered manually through the web UI (if you have enough permissions)
 #
-# pipelines can be triggered manually in the web
-#
-# Currently the file is divided into subfiles. Each stage has a different file which
-# can be found here: gitlab/pipeline/<stage_name>.yml
-#
-# Instead of YAML anchors "extends" is used.
-# Useful links:
-#    https://docs.gitlab.com/ee/ci/yaml/index.html#extends
-#    https://docs.gitlab.com/ee/ci/yaml/yaml_optimization.html#reference-tags
-#
-# SAMPLE JOB TEMPLATE - This is not a complete example but is enough to build a
-# simple CI job. For full documentation, visit https://docs.gitlab.com/ee/ci/yaml/
-#
-# my-example-job:
-#   stage:                           test # One of the stages listed below this job (required)
-#   image:                           paritytech/tools:latest # Any docker image (required)
-#   allow_failure:                   true # Allow the pipeline to continue if this job fails (default: false)
-#   needs:
-#     - job:                         test-linux # Any jobs that are required to run before this job (optional)
-#   variables:
-#     MY_ENVIRONMENT_VARIABLE:       "some useful value" # Environment variables passed to the job (optional)
-#   script:
-#     - echo "List of shell commands to run in your job"
-#     - echo "You can also just specify a script here, like so:"
-#     - ./gitlab/my_amazing_script.sh
+# Currently, entire CI instructions are split into different subfiles. Each CI stage has a corresponding
+# file which can be found here: .gitlab/pipeline/<stage_name>.yml
 
 stages:
   - check
@@ -48,11 +25,8 @@ variables:
   BUILDAH_IMAGE: "quay.io/buildah/stable:v1.29"
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
-  RUSTY_CACHIER_SINGLE_BRANCH: master
-  RUSTY_CACHIER_DONT_OPERATE_ON_MAIN_BRANCH: "true"
-  RUSTY_CACHIER_COMPRESSION_METHOD: zstd
-  NEXTEST_FAILURE_OUTPUT: immediate-final
-  NEXTEST_SUCCESS_OUTPUT: final
+  NEXTEST_FAILURE_OUTPUT: "immediate-final"
+  NEXTEST_SUCCESS_OUTPUT: "final"
   ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.59"
   DOCKER_IMAGES_VERSION: "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
 
@@ -63,7 +37,6 @@ default:
       - runner_system_failure
       - unknown_failure
       - api_failure
-  cache: {}
   interruptible: true
 
 .collect-artifacts:
@@ -84,13 +57,10 @@ default:
 
 .prepare-env:
   before_script:
-    # TODO: remove unset invocation when we'll be free from 'ENV RUSTC_WRAPPER=sccache' & sccache
-    # itself in all images
-    - unset RUSTC_WRAPPER
     # $WASM_BUILD_WORKSPACE_HINT enables wasm-builder to find the Cargo.lock from within generated
     # packages
     - export WASM_BUILD_WORKSPACE_HINT="$PWD"
-    # ensure that RUSTFLAGS are set correctly
+    # Ensure that RUSTFLAGS are set correctly
     - echo $RUSTFLAGS
 
 .job-switcher:
@@ -126,30 +96,36 @@ default:
       dotenv: pipeline-stopper.env
 
 .docker-env:
-  image: "${CI_IMAGE}"
+  image: $CI_IMAGE
   before_script:
     - !reference [.job-switcher, before_script]
     - !reference [.prepare-env, before_script]
     - !reference [.rust-info-script, script]
     - !reference [.rusty-cachier, before_script]
     - !reference [.pipeline-stopper-vars, script]
-  after_script:
-    - !reference [.rusty-cachier, after_script]
+  cache:
+    key: cargo-$CI_COMMIT_REF_SLUG-$CI_JOB_NAME_SLUG
+    fallback_keys:
+      - cache-$CI_DEFAULT_BRANCH-$CI_JOB_NAME_SLUG
+    paths:
+      - cargo_home
+      - cargo_target_dir
+    policy: pull-push
   tags:
     - linux-docker-vm-c2
 
 # rusty-cachier's hidden job. Parts of this job are used to instrument the pipeline's other real jobs with rusty-cachier
-# Description of the commands is available here - https://gitlab.parity.io/parity/infrastructure/ci_cd/rusty-cachier/client#description
+# rusty-cachier's commands are described here: https://gitlab.parity.io/parity/infrastructure/ci_cd/rusty-cachier/client#description
 .rusty-cachier:
   before_script:
-    # - curl -s https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.parity.io/parity/infrastructure/ci_cd/rusty-cachier/client/-/raw/release/util/install.sh | bash
-    # - rusty-cachier environment check --gracefully
-    # - $(rusty-cachier environment inject)
-    # - rusty-cachier project mtime
-    - echo tbd
-  after_script:
-    - echo tbd
-    # - env RUSTY_CACHIER_SUPRESS_OUTPUT=true rusty-cachier snapshot destroy
+    - curl -s https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.parity.io/parity/infrastructure/ci_cd/rusty-cachier/client/-/raw/release/util/install.sh | bash
+    - mkdir -p cargo_home cargo_target_dir
+    - export CARGO_HOME=$CI_PROJECT_DIR/cargo_home
+    - export CARGO_TARGET_DIR=$CI_PROJECT_DIR/cargo_target_dir
+    - find . \( -path ./cargo_target_dir -o -path ./cargo_home \) -prune -o -type f -exec touch -t 202005260100 {} +
+    - git restore-mtime
+    - rusty-cachier --version
+    - rusty-cachier project touch-changed
 
 .common-refs:
   rules:
