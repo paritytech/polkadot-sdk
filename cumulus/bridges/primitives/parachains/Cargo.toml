@@ -25,7 +25,7 @@ sp-runtime = { path = "../../../../substrate/primitives/runtime", default-featur
 sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"bp-header-chain/std",
 	"bp-polkadot-core/std",

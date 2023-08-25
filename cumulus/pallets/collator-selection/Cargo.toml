@@ -39,7 +39,7 @@ pallet-balances = { path = "../../../substrate/frame/balances" }
 pallet-aura = { path = "../../../substrate/frame/aura" }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -47,17 +47,17 @@ runtime-benchmarks = [
 ]
 std = [
 	"codec/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
 	"log/std",
-	"scale-info/std",
+	"pallet-authorship/std",
+	"pallet-session/std",
 	"rand/std",
+	"scale-info/std",
 	"sp-runtime/std",
 	"sp-staking/std",
 	"sp-std/std",
-	"frame-support/std",
-	"frame-system/std",
-	"frame-benchmarking/std",
-	"pallet-authorship/std",
-	"pallet-session/std",
 ]
 
 try-runtime = [ "frame-support/try-runtime" ]
