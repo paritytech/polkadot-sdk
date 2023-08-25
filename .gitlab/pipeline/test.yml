@@ -36,6 +36,11 @@ test-linux-stable:
     # Build all but only execute 'runtime' tests.
     - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
     # add experimental to features after https://github.com/paritytech/substrate/pull/14502 is merged
+    # "upgrade_version_checks_should_work" is currently failing
+    # "receive_rate_limit_is_enforced"and "benchmark_block_works" can be found in test-linux-stable-additional-tests
+    # they fail if run with other tests
+    # "rx::tests::sent_views_include_finalized_number_update", "follow_chain_works", "create_snapshot_works" and "block_execution_works"
+    # can be found in test-linux-stable-slow
     - |
       time cargo nextest run \
         -E 'all() & !test(upgrade_version_checks_should_work) & !test(receive_rate_limit_is_enforced) & !test(benchmark_block_works) & !test(rx::tests::sent_views_include_finalized_number_update) & !test(follow_chain_works) & !test(create_snapshot_works) & !test(block_execution_works)' \
@@ -50,36 +55,37 @@ test-linux-stable:
     - if [ ${CI_NODE_INDEX} == 1 ]; then time cargo nextest run -p sp-api-test --features enable-staging-api; fi
     # todo: add flacky-test collector
 
-test-linux-stable-all:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-  variables:
-    RUST_TOOLCHAIN: stable
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-  parallel: 3
-  script:
-    # Build all but only execute 'runtime' tests.
-    - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
-    - |
-      time cargo nextest run \
-        --workspace \
-        --locked \
-        --release \
-        --verbose \
-        --no-fail-fast \
-        --features runtime-benchmarks,try-runtime \
-        --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
-    # todo: add flacky-test collector
-
 test-linux-oldkernel-stable:
   extends: test-linux-stable
   tags:
     - oldkernel-vm
+
+# can be used to run all tests
+# test-linux-stable-all:
+#   stage: test
+#   extends:
+#     - .docker-env
+#     - .common-refs
+#     - .run-immediately
+#   variables:
+#     RUST_TOOLCHAIN: stable
+#     # Enable debug assertions since we are running optimized builds for testing
+#     # but still want to have debug assertions.
+#     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+#   parallel: 3
+#   script:
+#     # Build all but only execute 'runtime' tests.
+#     - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
+#     - |
+#       time cargo nextest run \
+#         --workspace \
+#         --locked \
+#         --release \
+#         --verbose \
+#         --no-fail-fast \
+#         --features runtime-benchmarks,try-runtime \
+#         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
+#     # todo: add flacky-test collector
 
 # for some reasons these tests fail if run with all tests
 test-linux-stable-additional-tests:
@@ -151,10 +157,6 @@ test-linux-stable-slow:
 #       --profile testnet
 #       --features=runtime-benchmarks,runtime-metrics,try-runtime --
 #       --skip upgrade_version_checks_should_work
-#       --skip benchmarking::bench_migrate
-#       --skip benchmarking::bench_on_runtime_upgrade
-#       --skip migration::test::migration_v3_to_v4_too_large_calls_are_ignored
-#       --skip migration::test::migration_works
 
 test-doc:
   stage: test
