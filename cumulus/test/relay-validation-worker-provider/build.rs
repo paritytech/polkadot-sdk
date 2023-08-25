@@ -113,7 +113,7 @@ fn add_patches(project_toml: &mut Table) {
 	let workspace_toml_path = PathBuf::from(
 		env::var("CARGO_MANIFEST_DIR").expect("`CARGO_MANIFEST_DIR` is set by cargo"),
 	)
-	.join("../../Cargo.toml");
+	.join("../../../Cargo.toml");
 
 	let mut workspace_toml: Table = toml::from_str(
 		&fs::read_to_string(&workspace_toml_path).expect("Workspace root `Cargo.toml` exists; qed"),
