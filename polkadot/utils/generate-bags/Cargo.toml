@@ -1,0 +1,16 @@
+[package]
+name = "polkadot-voter-bags"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+clap = { version = "4.0.9", features = ["derive"] }
+
+generate-bags = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+westend-runtime = { path = "../../runtime/westend" }
+kusama-runtime = { path = "../../runtime/kusama" }
+polkadot-runtime = { path = "../../runtime/polkadot" }
