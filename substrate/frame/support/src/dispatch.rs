@@ -31,14 +31,6 @@ use sp_runtime::{
 use sp_std::fmt;
 use sp_weights::Weight;
 
-/// Private exports that are being used by macros.
-///
-/// The exports are not stable and should not be relied on.
-#[doc(hidden)]
-pub mod __private {
-	pub use sp_runtime::traits::Dispatchable;
-}
-
 /// The return type of a `Dispatchable` in frame. When returned explicitly from
 /// a dispatchable function it allows overriding the default `PostDispatchInfo`
 /// returned from a dispatch.
