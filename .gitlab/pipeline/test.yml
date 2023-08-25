@@ -408,7 +408,7 @@ cargo-check-each-crate:
   timeout: 2h
   script:
     - PYTHONUNBUFFERED=x time .gitlab/check-each-crate.py "$CI_NODE_INDEX" "$CI_NODE_TOTAL"
-  parallel: 2
+  parallel: 6
 
 cargo-check-each-crate-macos:
   stage: test
