@@ -444,3 +444,16 @@ members = [
 	"substrate/utils/prometheus",
 	"substrate/utils/wasm-builder",
 ]
+
+[workspace.package]
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+repository = "https://github.com/paritytech/polkadot.git"
+license = "GPL-3.0-only"
+version = "1.0.0"
+
+[profile.testnet]
+inherits = "release"
+debug = 1               # debug symbols are useful for profilers
+debug-assertions = true
+overflow-checks = true
