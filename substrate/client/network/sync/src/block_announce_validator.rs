@@ -18,7 +18,7 @@
 
 //! `BlockAnnounceValidator` is responsible for async validation of block announcements.
 
-use crate::futures_stream::{futures_stream, FuturesStreamReceiver, FuturesStreamSender};
+use crate::futures_stream::FuturesStream;
 use futures::{Future, FutureExt, Stream, StreamExt};
 use libp2p::PeerId;
 use log::{debug, error, trace, warn};
@@ -97,12 +97,8 @@ enum AllocateSlotForBlockAnnounceValidation {
 pub(crate) struct BlockAnnounceValidator<B: BlockT> {
 	/// A type to check incoming block announcements.
 	validator: Box<dyn sp_consensus::block_validation::BlockAnnounceValidator<B> + Send>,
-	/// All block announcements that are currently being validated, sending side of the stream.
-	tx_validations: FuturesStreamSender<
-		Pin<Box<dyn Future<Output = BlockAnnounceValidationResult<B::Header>> + Send>>,
-	>,
-	/// All block announcements that are currently being validated, receiving side of the stream.
-	rx_validations: FuturesStreamReceiver<
+	/// All block announcements that are currently being validated.
+	validations: FuturesStream<
 		Pin<Box<dyn Future<Output = BlockAnnounceValidationResult<B::Header>> + Send>>,
 	>,
 	/// Number of concurrent block announce validations per peer.
@@ -113,11 +109,11 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 	pub(crate) fn new(
 		validator: Box<dyn sp_consensus::block_validation::BlockAnnounceValidator<B> + Send>,
 	) -> Self {
-		let (tx_validations, rx_validations) = futures_stream(
-			"mpsc_block_announce_validation_stream",
-			MAX_CONCURRENT_BLOCK_ANNOUNCE_VALIDATIONS + 1,
-		);
-		Self { validator, tx_validations, rx_validations, validations_per_peer: Default::default() }
+		Self {
+			validator,
+			validations: Default::default(),
+			validations_per_peer: Default::default(),
+		}
 	}
 
 	/// Push a block announce validation.
@@ -177,7 +173,7 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 		let assoc_data = announce.data.as_ref().map_or(&[][..], |v| v.as_slice());
 		let future = self.validator.validate(header, assoc_data);
 
-		let _ = self.tx_validations.push(
+		self.validations.push(
 			async move {
 				match future.await {
 					Ok(Validation::Success { is_new_best }) => {
@@ -236,7 +232,7 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 		&mut self,
 		peer_id: &PeerId,
 	) -> AllocateSlotForBlockAnnounceValidation {
-		if self.rx_validations.len_lower_bound() >= MAX_CONCURRENT_BLOCK_ANNOUNCE_VALIDATIONS {
+		if self.validations.len() >= MAX_CONCURRENT_BLOCK_ANNOUNCE_VALIDATIONS {
 			return AllocateSlotForBlockAnnounceValidation::TotalMaximumSlotsReached
 		}
 
@@ -296,17 +292,11 @@ impl<B: BlockT> Stream for BlockAnnounceValidator<B> {
 
 	/// Poll for finished block announce validations. The stream never terminates.
 	fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-		if let Some(validation) = futures::ready!(self.rx_validations.poll_next_unpin(cx)) {
-			self.deallocate_slot_for_block_announce_validation(validation.peer_id());
+		let validation = futures::ready!(self.validations.poll_next_unpin(cx))
+			.expect("`FuturesStream` never terminates; qed");
+		self.deallocate_slot_for_block_announce_validation(validation.peer_id());
 
-			Poll::Ready(Some(validation))
-		} else {
-			trace!(
-				target: LOG_TARGET,
-				"Block announce validations stream terminated, terminating `BlockAnnounceValidator`",
-			);
-			Poll::Ready(None)
-		}
+		Poll::Ready(Some(validation))
 	}
 }
 
@@ -398,7 +388,7 @@ mod tests {
 			BlockAnnounceValidator::<Block>::new(Box::new(DefaultBlockAnnounceValidator {}));
 
 		for _ in 0..MAX_CONCURRENT_BLOCK_ANNOUNCE_VALIDATIONS {
-			let _ = validator.tx_validations.push(
+			validator.validations.push(
 				futures::future::ready(BlockAnnounceValidationResult::Skip {
 					peer_id: PeerId::random(),
 				})
