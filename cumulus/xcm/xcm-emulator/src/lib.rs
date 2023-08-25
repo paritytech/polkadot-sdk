@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-pub use codec::{Decode, Encode};
+pub use codec::{Decode, Encode, EncodeLike};
 pub use lazy_static::lazy_static;
 pub use log;
 pub use paste;
@@ -32,7 +32,6 @@ pub use std::{
 // Substrate
 pub use frame_support::{
 	assert_ok,
-	dispatch::EncodeLike,
 	sp_runtime::{AccountId32, DispatchResult},
 	traits::{
 		tokens::currency::Currency, EnqueueMessage, Get, Hooks, OriginTrait, ProcessMessage,

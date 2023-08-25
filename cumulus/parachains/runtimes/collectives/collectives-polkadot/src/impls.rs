@@ -15,13 +15,14 @@
 
 use crate::OriginCaller;
 use frame_support::{
-	dispatch::{DispatchError, DispatchResultWithPostInfo},
+	dispatch::DispatchResultWithPostInfo,
 	traits::{Currency, Get, Imbalance, OnUnbalanced, OriginTrait, PrivilegeCmp},
 	weights::Weight,
 };
 use log;
 use pallet_alliance::{ProposalIndex, ProposalProvider};
 use parachains_common::impls::NegativeImbalance;
+use sp_runtime::DispatchError;
 use sp_std::{cmp::Ordering, marker::PhantomData, prelude::*};
 use xcm::latest::{Fungibility, Junction, Parent};
 

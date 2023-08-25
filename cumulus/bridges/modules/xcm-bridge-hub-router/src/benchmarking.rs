@@ -22,10 +22,7 @@ use crate::{Bridge, Call};
 
 use bp_xcm_bridge_hub_router::{BridgeState, MINIMAL_DELIVERY_FEE_FACTOR};
 use frame_benchmarking::benchmarks_instance_pallet;
-use frame_support::{
-	dispatch::UnfilteredDispatchable,
-	traits::{EnsureOrigin, Get, Hooks},
-};
+use frame_support::traits::{EnsureOrigin, Get, Hooks, UnfilteredDispatchable};
 use sp_runtime::traits::Zero;
 use xcm::prelude::*;
 

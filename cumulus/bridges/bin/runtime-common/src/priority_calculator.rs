@@ -51,13 +51,13 @@ mod integrity_tests {
 	use bp_messages::MessageNonce;
 	use bp_runtime::PreComputedSize;
 	use frame_support::{
-		dispatch::{DispatchClass, DispatchInfo, Dispatchable, Pays, PostDispatchInfo},
+		dispatch::{DispatchClass, DispatchInfo, Pays, PostDispatchInfo},
 		traits::Get,
 	};
 	use pallet_bridge_messages::WeightInfoExt;
 	use pallet_transaction_payment::OnChargeTransaction;
 	use sp_runtime::{
-		traits::{UniqueSaturatedInto, Zero},
+		traits::{Dispatchable, UniqueSaturatedInto, Zero},
 		transaction_validity::TransactionPriority,
 		FixedPointOperand, SaturatedConversion, Saturating,
 	};

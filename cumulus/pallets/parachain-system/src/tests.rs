@@ -23,10 +23,9 @@ use cumulus_primitives_core::{
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{
 	assert_ok,
-	dispatch::UnfilteredDispatchable,
 	inherent::{InherentData, ProvideInherent},
 	parameter_types,
-	traits::{OnFinalize, OnInitialize},
+	traits::{OnFinalize, OnInitialize, UnfilteredDispatchable},
 	weights::Weight,
 };
 use frame_system::{

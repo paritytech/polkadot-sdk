@@ -29,7 +29,7 @@ use bp_messages::{
 use bp_runtime::messages::MessageDispatchResult;
 use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
 use codec::{Decode, Encode};
-use frame_support::{dispatch::Weight, traits::Get, CloneNoBound, EqNoBound, PartialEqNoBound};
+use frame_support::{traits::Get, weights::Weight, CloneNoBound, EqNoBound, PartialEqNoBound};
 use pallet_bridge_messages::{
 	Config as MessagesConfig, OutboundLanesCongestedSignals, Pallet as MessagesPallet,
 	WeightInfoExt as MessagesPalletWeights,
