@@ -1,4 +1,6 @@
 [workspace]
+resolver = "2"
+
 members = [
 	"cumulus/bridges/bin/runtime-common",
 	"cumulus/bridges/modules/grandpa",
@@ -88,6 +90,7 @@ members = [
 	"cumulus/test/runtime",
 	"cumulus/test/service",
 	"cumulus/xcm/xcm-emulator",
+	"polkadot",
 	"polkadot/cli",
 	"polkadot/core-primitives",
 	"polkadot/erasure-coding",

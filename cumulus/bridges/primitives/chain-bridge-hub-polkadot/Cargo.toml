@@ -22,11 +22,11 @@ sp-runtime = { path = "../../../../substrate/primitives/runtime", default-featur
 sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"bp-bridge-hub-cumulus/std",
-	"bp-runtime/std",
 	"bp-messages/std",
+	"bp-runtime/std",
 	"frame-support/std",
 	"sp-api/std",
 	"sp-runtime/std",

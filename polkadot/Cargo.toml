@@ -1,0 +1,171 @@
+[[bin]]
+name = "polkadot"
+path = "src/main.rs"
+
+[[bin]]
+name = "polkadot-execute-worker"
+path = "src/bin/execute-worker.rs"
+
+[[bin]]
+name = "polkadot-prepare-worker"
+path = "src/bin/prepare-worker.rs"
+
+[package]
+name = "polkadot"
+description = "Implementation of a `https://polkadot.network` node in Rust based on the Substrate framework."
+license = "GPL-3.0-only"
+rust-version = "1.64.0"                                                                                       # workspace properties
+readme = "README.md"
+authors.workspace = true
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+color-eyre = { version = "0.6.1", default-features = false }
+tikv-jemallocator = "0.5.0"
+
+# Crates in our workspace, defined as dependencies so we can pass them feature flags.
+polkadot-cli = { path = "cli", features = [
+	"kusama-native",
+	"westend-native",
+	"rococo-native",
+] }
+polkadot-node-core-pvf = { path = "node/core/pvf" }
+polkadot-node-core-pvf-prepare-worker = { path = "node/core/pvf/prepare-worker" }
+polkadot-overseer = { path = "node/overseer" }
+
+# Needed for worker binaries.
+polkadot-node-core-pvf-common = { path = "node/core/pvf/common" }
+polkadot-node-core-pvf-execute-worker = { path = "node/core/pvf/execute-worker" }
+
+[dev-dependencies]
+assert_cmd = "2.0.4"
+nix = { version = "0.26.1", features = ["signal"] }
+tempfile = "3.2.0"
+tokio = "1.24.2"
+substrate-rpc-client = { path = "../substrate/utils/frame/rpc/client/" }
+polkadot-core-primitives = { path = "core-primitives" }
+
+[build-dependencies]
+substrate-build-script-utils = { path = "../substrate/utils/build-script-utils" }
+
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+# The list of dependencies below (which can be both direct and indirect dependencies) are crates
+# that are suspected to be CPU-intensive, and that are unlikely to require debugging (as some of
+# their debug info might be missing) or to require to be frequently recompiled. We compile these
+# dependencies with `opt-level=3` even in "dev" mode in order to make "dev" mode more usable.
+# The majority of these crates are cryptographic libraries.
+#
+# If you see an error mentioning "profile package spec ... did not match any packages", it
+# probably concerns this list.
+#
+# This list is ordered alphabetically.
+[profile.dev.package]
+blake2 = { opt-level = 3 }
+blake2b_simd = { opt-level = 3 }
+chacha20poly1305 = { opt-level = 3 }
+cranelift-codegen = { opt-level = 3 }
+cranelift-wasm = { opt-level = 3 }
+crc32fast = { opt-level = 3 }
+crossbeam-deque = { opt-level = 3 }
+crypto-mac = { opt-level = 3 }
+curve25519-dalek = { opt-level = 3 }
+ed25519-dalek = { opt-level = 3 }
+flate2 = { opt-level = 3 }
+futures-channel = { opt-level = 3 }
+hash-db = { opt-level = 3 }
+hashbrown = { opt-level = 3 }
+hmac = { opt-level = 3 }
+httparse = { opt-level = 3 }
+integer-sqrt = { opt-level = 3 }
+keccak = { opt-level = 3 }
+libm = { opt-level = 3 }
+librocksdb-sys = { opt-level = 3 }
+libsecp256k1 = { opt-level = 3 }
+libz-sys = { opt-level = 3 }
+mio = { opt-level = 3 }
+nalgebra = { opt-level = 3 }
+num-bigint = { opt-level = 3 }
+parking_lot = { opt-level = 3 }
+parking_lot_core = { opt-level = 3 }
+percent-encoding = { opt-level = 3 }
+primitive-types = { opt-level = 3 }
+reed-solomon-novelpoly = { opt-level = 3 }
+ring = { opt-level = 3 }
+rustls = { opt-level = 3 }
+sha2 = { opt-level = 3 }
+sha3 = { opt-level = 3 }
+smallvec = { opt-level = 3 }
+snow = { opt-level = 3 }
+substrate-bip39 = { opt-level = 3 }
+twox-hash = { opt-level = 3 }
+uint = { opt-level = 3 }
+wasmi = { opt-level = 3 }
+x25519-dalek = { opt-level = 3 }
+yamux = { opt-level = 3 }
+zeroize = { opt-level = 3 }
+
+[profile.release]
+# Polkadot runtime requires unwinding.
+panic = "unwind"
+opt-level = 3
+
+# make sure dev builds with backtrace do
+# not slow us down
+[profile.dev.package.backtrace]
+inherits = "release"
+
+[profile.production]
+inherits = "release"
+lto = true
+codegen-units = 1
+
+[profile.testnet]
+inherits = "release"
+debug = 1               # debug symbols are useful for profilers
+debug-assertions = true
+overflow-checks = true
+
+[features]
+runtime-benchmarks = [ "polkadot-cli/runtime-benchmarks" ]
+try-runtime = [ "polkadot-cli/try-runtime" ]
+fast-runtime = [ "polkadot-cli/fast-runtime" ]
+runtime-metrics = [ "polkadot-cli/runtime-metrics" ]
+pyroscope = [ "polkadot-cli/pyroscope" ]
+jemalloc-allocator = [
+	"polkadot-node-core-pvf-prepare-worker/jemalloc-allocator",
+	"polkadot-overseer/jemalloc-allocator",
+]
+
+# Enables timeout-based tests supposed to be run only in CI environment as they may be flaky
+# when run locally depending on system load
+ci-only-tests = [ "polkadot-node-core-pvf/ci-only-tests" ]
+
+# Configuration for building a .deb package - for use with `cargo-deb`
+[package.metadata.deb]
+name = "polkadot"
+extended-description = "Implementation of a https://polkadot.network node in Rust based on the Substrate framework."
+section = "misc"
+maintainer = "security@parity.io"
+license-file = ["LICENSE", "0"]
+# https://www.debian.org/doc/debian-policy/ch-maintainerscripts.html
+maintainer-scripts = "scripts/packaging/deb-maintainer-scripts"
+assets = [
+	[
+		"target/release/polkadot",
+		"/usr/bin/",
+		"755",
+	],
+	[
+		"scripts/packaging/polkadot.service",
+		"/lib/systemd/system/",
+		"644",
+	],
+]
+conf-files = ["/etc/default/polkadot"]
+
+[package.metadata.spellcheck]
+config = "./scripts/ci/gitlab/spellcheck.toml"
