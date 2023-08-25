@@ -25,7 +25,7 @@ use std::{
 	task::{Context, Poll, Waker},
 };
 
-/// Receiving side of the futures stream.
+/// Wrapper around [`FuturesUnordered`] that wakes a task up automatically.
 pub struct FuturesStream<F> {
 	futures: FuturesUnordered<F>,
 	waker: Option<Waker>,
@@ -39,7 +39,7 @@ impl<F> Default for FuturesStream<F> {
 }
 
 impl<F> FuturesStream<F> {
-	/// Push a futures for processing.
+	/// Push a future for processing.
 	pub fn push(&mut self, future: F) {
 		self.futures.push(future);
 
@@ -48,7 +48,7 @@ impl<F> FuturesStream<F> {
 		}
 	}
 
-	/// The number of futures in the sytream.
+	/// The number of futures in the stream.
 	pub fn len(&self) -> usize {
 		self.futures.len()
 	}
@@ -73,7 +73,7 @@ mod tests {
 	use super::*;
 	use futures::future::{BoxFuture, FutureExt};
 
-	/// [`Stream`] implementation for [`FuturesStreamReceiver`] relies on the undocumented
+	/// [`Stream`] implementation for [`FuturesStream`] relies on the undocumented
 	/// feature that [`FuturesUnordered`] can be polled and repeatedly yield
 	/// `Poll::Ready(None)` before any futures are added into it.
 	#[tokio::test]
@@ -89,7 +89,7 @@ mod tests {
 		.await;
 	}
 
-	/// [`Stream`] implementation for [`FuturesStreamReceiver`] relies on the undocumented
+	/// [`Stream`] implementation for [`FuturesStream`] relies on the undocumented
 	/// feature that [`FuturesUnordered`] can be polled and repeatedly yield
 	/// `Poll::Ready(None)` after all the futures in it have resolved.
 	#[tokio::test]
