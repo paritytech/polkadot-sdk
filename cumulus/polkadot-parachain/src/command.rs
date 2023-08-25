@@ -121,15 +121,15 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 			Box::new(chain_spec::rococo_parachain::staging_rococo_parachain_local_config()),
 		"tick" =>
 			Box::new(chain_spec::rococo_parachain::RococoParachainChainSpec::from_json_bytes(
-				&include_bytes!("../../parachains/chain-specs/tick.json")[..],
+				&include_bytes!("../chain-specs/tick.json")[..],
 			)?),
 		"trick" =>
 			Box::new(chain_spec::rococo_parachain::RococoParachainChainSpec::from_json_bytes(
-				&include_bytes!("../../parachains/chain-specs/trick.json")[..],
+				&include_bytes!("../chain-specs/trick.json")[..],
 			)?),
 		"track" =>
 			Box::new(chain_spec::rococo_parachain::RococoParachainChainSpec::from_json_bytes(
-				&include_bytes!("../../parachains/chain-specs/track.json")[..],
+				&include_bytes!("../chain-specs/track.json")[..],
 			)?),
 
 		// -- Starters
@@ -147,7 +147,7 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		// the shell-based chain spec as used for syncing
 		"asset-hub-polkadot" | "statemint" =>
 			Box::new(chain_spec::asset_hubs::AssetHubPolkadotChainSpec::from_json_bytes(
-				&include_bytes!("../../parachains/chain-specs/asset-hub-polkadot.json")[..],
+				&include_bytes!("../chain-specs/asset-hub-polkadot.json")[..],
 			)?),
 
 		// -- Asset Hub Kusama
@@ -161,7 +161,7 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		// the shell-based chain spec as used for syncing
 		"asset-hub-kusama" | "statemine" =>
 			Box::new(chain_spec::asset_hubs::AssetHubKusamaChainSpec::from_json_bytes(
-				&include_bytes!("../../parachains/chain-specs/asset-hub-kusama.json")[..],
+				&include_bytes!("../chain-specs/asset-hub-kusama.json")[..],
 			)?),
 
 		// -- Asset Hub Westend
@@ -175,7 +175,7 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		// the shell-based chain spec as used for syncing
 		"asset-hub-westend" | "westmint" =>
 			Box::new(chain_spec::asset_hubs::AssetHubWestendChainSpec::from_json_bytes(
-				&include_bytes!("../../parachains/chain-specs/asset-hub-westend.json")[..],
+				&include_bytes!("../chain-specs/asset-hub-westend.json")[..],
 			)?),
 
 		// -- Polkadot Collectives
@@ -185,11 +185,11 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 			Box::new(chain_spec::collectives::collectives_polkadot_local_config()),
 		"collectives-polkadot" =>
 			Box::new(chain_spec::collectives::CollectivesPolkadotChainSpec::from_json_bytes(
-				&include_bytes!("../../parachains/chain-specs/collectives-polkadot.json")[..],
+				&include_bytes!("../chain-specs/collectives-polkadot.json")[..],
 			)?),
 		"collectives-westend" =>
 			Box::new(chain_spec::collectives::CollectivesPolkadotChainSpec::from_json_bytes(
-				&include_bytes!("../../parachains/chain-specs/collectives-westend.json")[..],
+				&include_bytes!("../chain-specs/collectives-westend.json")[..],
 			)?),
 
 		// -- Contracts on Rococo
@@ -200,7 +200,7 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		"contracts-rococo-genesis" => Box::new(chain_spec::contracts::contracts_rococo_config()),
 		"contracts-rococo" =>
 			Box::new(chain_spec::contracts::ContractsRococoChainSpec::from_json_bytes(
-				&include_bytes!("../../parachains/chain-specs/contracts-rococo.json")[..],
+				&include_bytes!("../chain-specs/contracts-rococo.json")[..],
 			)?),
 
 		// -- BridgeHub
