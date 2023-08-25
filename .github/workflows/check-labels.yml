@@ -33,8 +33,8 @@ jobs:
           # Temporary, before https://github.com/paritytech/labels/pull/29 is not merged
           git clone https://github.com/paritytech/labels
           cd labels
-          git fetch origin the-right-joyce-monorepo-labels
-          git checkout the-right-joyce-monorepo-labels
+          git fetch origin main
+          git checkout main
           cd ..
 
           # Fetch the labels for the PR under test
