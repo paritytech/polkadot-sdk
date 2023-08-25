@@ -23,6 +23,7 @@ rococo-runtime-constants = { package = "rococo-runtime-constants", path = "const
 sp-api = { path = "../../../substrate/primitives/api", default-features = false }
 inherents = { package = "sp-inherents", path = "../../../substrate/primitives/inherents", default-features = false }
 offchain-primitives = { package = "sp-offchain", path = "../../../substrate/primitives/offchain", default-features = false }
+sp-arithmetic = { path = "../../../substrate/primitives/arithmetic", default-features = false }
 sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 sp-mmr-primitives = { path = "../../../substrate/primitives/merkle-mountain-range", default-features = false }
@@ -47,6 +48,7 @@ pallet-state-trie-migration = { path = "../../../substrate/frame/state-trie-migr
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
 pallet-collective = { path = "../../../substrate/frame/collective", default-features = false }
+pallet-conviction-voting = { path = "../../../substrate/frame/conviction-voting", default-features = false }
 pallet-democracy = { path = "../../../substrate/frame/democracy", default-features = false }
 pallet-elections-phragmen = { path = "../../../substrate/frame/elections-phragmen", default-features = false }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
@@ -62,7 +64,9 @@ pallet-nis = { path = "../../../substrate/frame/nis", default-features = false }
 pallet-offences = { path = "../../../substrate/frame/offences", default-features = false }
 pallet-preimage = { path = "../../../substrate/frame/preimage", default-features = false }
 pallet-proxy = { path = "../../../substrate/frame/proxy", default-features = false }
+pallet-ranked-collective = { path = "../../../substrate/frame/ranked-collective", default-features = false }
 pallet-recovery = { path = "../../../substrate/frame/recovery", default-features = false }
+pallet-referenda = { path = "../../../substrate/frame/referenda", default-features = false }
 pallet-scheduler = { path = "../../../substrate/frame/scheduler", default-features = false }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false }
 pallet-society = { path = "../../../substrate/frame/society", default-features = false, features = ["experimental"] }
@@ -76,6 +80,7 @@ pallet-tips = { path = "../../../substrate/frame/tips", default-features = false
 pallet-treasury = { path = "../../../substrate/frame/treasury", default-features = false }
 pallet-utility = { path = "../../../substrate/frame/utility", default-features = false }
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false }
+pallet-whitelist = { path = "../../../substrate/frame/whitelist", default-features = false }
 pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false, features=["experimental"] }
 pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 
@@ -114,6 +119,7 @@ std = [
 	"primitives/std",
 	"parity-scale-codec/std",
 	"scale-info/std",
+	"sp-arithmetic/std",
 	"inherents/std",
 	"sp-core/std",
 	"sp-api/std",
@@ -134,6 +140,7 @@ std = [
 	"pallet-state-trie-migration/std",
 	"pallet-transaction-payment/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-conviction-voting/std",
 	"pallet-collective/std",
 	"pallet-elections-phragmen/std",
 	"pallet-democracy/std",
@@ -149,7 +156,9 @@ std = [
 	"pallet-offences/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
+	"pallet-ranked-collective/std",
 	"pallet-recovery/std",
+	"pallet-referenda/std",
 	"pallet-scheduler/std",
 	"pallet-session/std",
 	"pallet-society/std",
@@ -161,6 +170,7 @@ std = [
 	"pallet-utility/std",
 	"pallet-vesting/std",
 	"pallet-babe/std",
+	"pallet-whitelist/std",
 	"pallet-xcm/std",
 	"polkadot-parachain/std",
 	"sp-mmr-primitives/std",
@@ -194,6 +204,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bounties/runtime-benchmarks",
 	"pallet-child-bounties/runtime-benchmarks",
+	"pallet-conviction-voting/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-democracy/runtime-benchmarks",
 	"pallet-elections-phragmen/runtime-benchmarks",
@@ -207,6 +218,8 @@ runtime-benchmarks = [
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
+	"pallet-ranked-collective/runtime-benchmarks",
+	"pallet-referenda/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-society/runtime-benchmarks",
 	"pallet-recovery/runtime-benchmarks",
@@ -217,6 +230,7 @@ runtime-benchmarks = [
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
+	"pallet-whitelist/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
@@ -235,6 +249,7 @@ try-runtime = [
 	"pallet-beefy-mmr/try-runtime",
 	"pallet-bounties/try-runtime",
 	"pallet-child-bounties/try-runtime",
+	"pallet-conviction-voting/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-elections-phragmen/try-runtime",
@@ -251,7 +266,9 @@ try-runtime = [
 	"pallet-offences/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
+	"pallet-ranked-collective/try-runtime",
 	"pallet-recovery/try-runtime",
+	"pallet-referenda/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-society/try-runtime",
@@ -263,6 +280,7 @@ try-runtime = [
 	"pallet-treasury/try-runtime",
 	"pallet-utility/try-runtime",
 	"pallet-vesting/try-runtime",
+	"pallet-whitelist/try-runtime",
 	"pallet-xcm/try-runtime",
 	"runtime-common/try-runtime",
 	"runtime-parachains/try-runtime",
