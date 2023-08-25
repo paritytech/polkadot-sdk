@@ -25,7 +25,7 @@ sc-executor-wasmtime = { path = "../../../../../substrate/client/executor/wasmti
 sp-core = { path = "../../../../../substrate/primitives/core" }
 sp-externalities = { path = "../../../../../substrate/primitives/externalities" }
 sp-io = { path = "../../../../../substrate/primitives/io" }
-sp-tracing = { path = "../../../../../substrate/primitives/tracing", optional = true }
+sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = "0.2.0"
@@ -37,4 +37,4 @@ tempfile = "3.3.0"
 [features]
 # This feature is used to export test code to other crates without putting it in the production build.
 # Also used for building the puppet worker.
-test-utils = ["sp-tracing"]
+test-utils = []

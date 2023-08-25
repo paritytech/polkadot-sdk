@@ -46,21 +46,21 @@ sp-io = { path = "../../../substrate/primitives/io", default-features = false}
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder" }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
+	"cumulus-primitives-core/std",
+	"cumulus-primitives-utility/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
 	"pallet-assets/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
+	"pallet-collator-selection/std",
 	"polkadot-primitives/std",
 	"sp-consensus-aura/std",
 	"sp-io/std",
 	"sp-std/std",
-	"pallet-collator-selection/std",
-	"cumulus-primitives-core/std",
-	"cumulus-primitives-utility/std",
-	"xcm/std",
 	"xcm-executor/std",
+	"xcm/std",
 ]

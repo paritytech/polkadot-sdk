@@ -26,13 +26,13 @@ cumulus-pallet-parachain-system = { path = "../parachain-system", default-featur
 default = [ "std" ]
 std = [
 	"codec/std",
-	"scale-info/std",
 	"cumulus-pallet-parachain-system/std",
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-sudo/std",
 	"polkadot-primitives/std",
+	"scale-info/std",
 	"sp-runtime/std",
 	"sp-std/std",
 ]
-try-runtime = ["frame-support/try-runtime"]
+try-runtime = [ "frame-support/try-runtime" ]

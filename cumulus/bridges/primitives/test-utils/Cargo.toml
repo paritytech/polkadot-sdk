@@ -21,7 +21,7 @@ sp-std = { path = "../../../../substrate/primitives/std", default-features = fal
 sp-trie = { path = "../../../../substrate/primitives/trie", default-features = false }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"bp-header-chain/std",
 	"bp-polkadot-core/std",
