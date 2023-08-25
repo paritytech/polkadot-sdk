@@ -18,11 +18,11 @@ sp-runtime = { path = "../../../../substrate/primitives/runtime", default-featur
 bp-xcm-bridge-hub-router = { path = "../xcm-bridge-hub-router", default-features = false }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"bp-xcm-bridge-hub-router/std",
-	"frame-support/std",
 	"codec/std",
+	"frame-support/std",
 	"scale-info/std",
 	"sp-runtime/std",
 ]

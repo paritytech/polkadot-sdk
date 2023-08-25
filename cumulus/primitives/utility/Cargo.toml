@@ -28,13 +28,13 @@ cumulus-primitives-core = { path = "../core", default-features = false }
 default = [ "std" ]
 std = [
 	"codec/std",
+	"cumulus-primitives-core/std",
 	"frame-support/std",
+	"polkadot-runtime-common/std",
+	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"sp-io/std",
-	"polkadot-runtime-common/std",
-	"cumulus-primitives-core/std",
-	"xcm/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
+	"xcm/std",
 ]

@@ -105,22 +105,22 @@ wait-timeout = "0.2"
 [features]
 default = []
 runtime-benchmarks = [
-	"polkadot-service/runtime-benchmarks",
-	"asset-hub-polkadot-runtime/runtime-benchmarks",
 	"asset-hub-kusama-runtime/runtime-benchmarks",
+	"asset-hub-polkadot-runtime/runtime-benchmarks",
 	"asset-hub-westend-runtime/runtime-benchmarks",
-	"bridge-hub-rococo-runtime/runtime-benchmarks",
 	"bridge-hub-kusama-runtime/runtime-benchmarks",
 	"bridge-hub-polkadot-runtime/runtime-benchmarks",
+	"bridge-hub-rococo-runtime/runtime-benchmarks",
 	"collectives-polkadot-runtime/runtime-benchmarks",
-	"rococo-parachain-runtime/runtime-benchmarks",
 	"contracts-rococo-runtime/runtime-benchmarks",
 	"contracts-rococo-runtime/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
+	"polkadot-service/runtime-benchmarks",
+	"rococo-parachain-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"asset-hub-polkadot-runtime/try-runtime",
 	"asset-hub-kusama-runtime/try-runtime",
+	"asset-hub-polkadot-runtime/try-runtime",
 	"asset-hub-westend-runtime/try-runtime",
 	"shell-runtime/try-runtime",
 ]

@@ -20,8 +20,8 @@ cumulus-primitives-core = { path = "../core", default-features = false }
 [features]
 default = [ "std" ]
 std = [
+	"cumulus-primitives-core/std",
 	"sp-inherents/std",
 	"sp-std/std",
 	"sp-timestamp/std",
-	"cumulus-primitives-core/std",
 ]

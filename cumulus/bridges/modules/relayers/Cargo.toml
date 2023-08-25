@@ -35,7 +35,7 @@ sp-io = { path = "../../../../substrate/primitives/io" }
 sp-runtime = { path = "../../../../substrate/primitives/runtime" }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"bp-messages/std",
 	"bp-relayers/std",
@@ -50,10 +50,5 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 ]
-runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-]
+runtime-benchmarks = [ "frame-benchmarking/runtime-benchmarks" ]
+try-runtime = [ "frame-support/try-runtime", "frame-system/try-runtime" ]

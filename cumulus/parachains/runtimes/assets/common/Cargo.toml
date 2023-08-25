@@ -36,19 +36,19 @@ substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder" 
 default = [ "std" ]
 std = [
 	"codec/std",
-	"log/std",
+	"cumulus-primitives-core/std",
 	"frame-support/std",
+	"log/std",
 	"pallet-asset-conversion/std",
 	"pallet-asset-tx-payment/std",
-	"parachains-common/std",
-	"cumulus-primitives-core/std",
-	"sp-api/std",
-	"sp-std/std",
-	"sp-runtime/std",
 	"pallet-xcm/std",
-	"xcm/std",
+	"parachains-common/std",
+	"sp-api/std",
+	"sp-runtime/std",
+	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
+	"xcm/std",
 ]
 
 runtime-benchmarks = [

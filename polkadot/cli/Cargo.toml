@@ -43,36 +43,39 @@ sc-storage-monitor = { path = "../../substrate/client/storage-monitor" }
 substrate-build-script-utils = { path = "../../substrate/utils/build-script-utils" }
 
 [features]
-default = ["db", "cli", "full-node"]
-db = ["service/db"]
+default = [ "cli", "db", "full-node" ]
+db = [ "service/db" ]
 cli = [
 	"clap",
+	"frame-benchmarking-cli",
 	"sc-cli",
 	"sc-service",
 	"sc-tracing",
-	"frame-benchmarking-cli",
-	"try-runtime-cli",
 	"service",
+	"try-runtime-cli",
 ]
 runtime-benchmarks = [
-	"service/runtime-benchmarks",
 	"polkadot-node-metrics/runtime-benchmarks",
-	"polkadot-performance-test?/runtime-benchmarks"
+	"polkadot-performance-test?/runtime-benchmarks",
+	"service/runtime-benchmarks",
 ]
-full-node = ["service/full-node"]
-try-runtime = ["service/try-runtime", "try-runtime-cli/try-runtime"]
-fast-runtime = ["service/fast-runtime"]
-pyroscope = ["pyro", "pyroscope_pprofrs"]
-hostperfcheck = ["polkadot-performance-test"]
+full-node = [ "service/full-node" ]
+try-runtime = [ "service/try-runtime", "try-runtime-cli/try-runtime" ]
+fast-runtime = [ "service/fast-runtime" ]
+pyroscope = [ "pyro", "pyroscope_pprofrs" ]
+hostperfcheck = [ "polkadot-performance-test" ]
 
 # Configure the native runtimes to use. Polkadot is enabled by default.
 #
 # Validators require the native runtime currently
-polkadot-native = ["service/polkadot-native"]
-kusama-native = ["service/kusama-native"]
-westend-native = ["service/westend-native"]
-rococo-native = ["service/rococo-native"]
+polkadot-native = [ "service/polkadot-native" ]
+kusama-native = [ "service/kusama-native" ]
+westend-native = [ "service/westend-native" ]
+rococo-native = [ "service/rococo-native" ]
 
-malus = ["full-node", "service/malus"]
-runtime-metrics = ["service/runtime-metrics", "polkadot-node-metrics/runtime-metrics"]
-network-protocol-staging = ["service/network-protocol-staging"]
+malus = [ "full-node", "service/malus" ]
+runtime-metrics = [
+	"polkadot-node-metrics/runtime-metrics",
+	"service/runtime-metrics",
+]
+network-protocol-staging = [ "service/network-protocol-staging" ]
