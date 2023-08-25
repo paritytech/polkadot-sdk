@@ -6,7 +6,7 @@ edition = "2021"
 description = "Storage related primitives"
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository = "https://github.com/paritytech/polkadot-sdk/"
 documentation = "https://docs.rs/sp-storage/"
 readme = "README.md"
 

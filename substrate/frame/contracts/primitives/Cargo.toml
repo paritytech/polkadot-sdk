@@ -5,7 +5,7 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository = "https://github.com/paritytech/polkadot-sdk/"
 description = "A crate that hosts a common definitions that are relevant for the pallet-contracts."
 readme = "README.md"
 
