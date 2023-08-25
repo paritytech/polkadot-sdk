@@ -1,0 +1,24 @@
+[package]
+name = "polkadot-node-core-provisioner"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
+futures = "0.3.21"
+gum = { package = "tracing-gum", path = "../../gum" }
+thiserror = "1.0.31"
+polkadot-primitives = { path = "../../../primitives" }
+polkadot-node-primitives = { path = "../../primitives" }
+polkadot-node-subsystem = { path = "../../subsystem" }
+polkadot-node-subsystem-util = { path = "../../subsystem-util" }
+futures-timer = "3.0.2"
+fatality = "0.0.6"
+
+[dev-dependencies]
+sp-application-crypto = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "master" }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
