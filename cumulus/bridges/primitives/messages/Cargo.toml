@@ -27,14 +27,14 @@ hex = "0.4"
 hex-literal = "0.4"
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
-	"bp-runtime/std",
 	"bp-header-chain/std",
+	"bp-runtime/std",
 	"codec/std",
 	"frame-support/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-core/std",
-	"sp-std/std"
+	"sp-std/std",
 ]

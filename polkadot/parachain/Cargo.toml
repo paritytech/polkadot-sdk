@@ -24,17 +24,17 @@ bounded-collections = { version = "0.1.8", default-features = false, features = 
 serde = { version = "1.0.163", default-features = false, features = ["derive", "alloc"] }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 wasm-api = []
 std = [
 	"bounded-collections/std",
+	"frame-support/std",
 	"parity-scale-codec/std",
+	"polkadot-core-primitives/std",
 	"scale-info/std",
 	"serde/std",
-	"sp-std/std",
-	"sp-runtime/std",
 	"sp-core/std",
-	"polkadot-core-primitives/std",
-	"frame-support/std",
+	"sp-runtime/std",
+	"sp-std/std",
 ]
 runtime-benchmarks = []

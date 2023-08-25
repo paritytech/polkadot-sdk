@@ -31,25 +31,23 @@ polkadot-parachain = { path = "../../parachain" }
 xcm-builder = { path = "../xcm-builder" }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 # Enable `VersionedRuntimeUpgrade` for the migrations that is currently still experimental.
-experimental = [
-	"frame-support/experimental"
-]
+experimental = [ "frame-support/experimental" ]
 std = [
 	"bounded-collections/std",
 	"codec/std",
-	"scale-info/std",
-	"serde",
-	"sp-std/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"xcm/std",
+	"scale-info/std",
+	"serde",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
 	"xcm-executor/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -57,4 +55,4 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 ]
-try-runtime = ["frame-support/try-runtime"]
+try-runtime = [ "frame-support/try-runtime" ]

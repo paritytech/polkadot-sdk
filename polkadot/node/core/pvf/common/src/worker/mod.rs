@@ -41,7 +41,7 @@ macro_rules! decl_worker_main {
 		}
 
 		fn main() {
-			$crate::sp_tracing::try_init_simple();
+			$crate::__private::try_init_simple();
 
 			let args = std::env::args().collect::<Vec<_>>();
 			if args.len() == 1 {
