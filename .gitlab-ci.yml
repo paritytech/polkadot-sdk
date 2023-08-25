@@ -21,14 +21,16 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 variables:
-  CI_IMAGE: "paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706"
-  BUILDAH_IMAGE: "quay.io/buildah/stable:v1.29"
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
-  RELENG_SCRIPTS_BRANCH: "master"
+  BUILDAH_IMAGE: "quay.io/buildah/stable:v1.29"
+  CACHE_COMPRESSION_LEVEL: "fastest"
+  CI_IMAGE: "paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706"
+  DOCKER_IMAGES_VERSION: "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+  FF_USE_FASTZIP: "true"
   NEXTEST_FAILURE_OUTPUT: "immediate-final"
   NEXTEST_SUCCESS_OUTPUT: "final"
+  RELENG_SCRIPTS_BRANCH: "master"
   ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.59"
-  DOCKER_IMAGES_VERSION: "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
 
 default:
   retry:
