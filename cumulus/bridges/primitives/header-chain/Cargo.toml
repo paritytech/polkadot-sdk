@@ -18,11 +18,11 @@ bp-runtime = { path = "../runtime", default-features = false }
 
 # Substrate Dependencies
 
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, features = ["serde"] }
-sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, features = ["serde"] }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, features = ["serde"] }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+sp-core = { path = "../../../../substrate/primitives/core", default-features = false, features = ["serde"] }
+sp-consensus-grandpa = { path = "../../../../substrate/primitives/consensus/grandpa", default-features = false, features = ["serde"] }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 
 [dev-dependencies]
 bp-test-utils = { path = "../test-utils" }

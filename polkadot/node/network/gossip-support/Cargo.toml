@@ -6,11 +6,11 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-sp-application-crypto = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-network = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-network-common = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
+sp-keystore = { path = "../../../../substrate/primitives/keystore" }
+sp-core = { path = "../../../../substrate/primitives/core" }
+sc-network = { path = "../../../../substrate/client/network" }
+sc-network-common = { path = "../../../../substrate/client/network/common" }
 
 polkadot-node-network-protocol = { path = "../protocol" }
 polkadot-node-subsystem = { path = "../../subsystem" }
@@ -24,10 +24,10 @@ rand_chacha = { version = "0.3.1", default-features = false }
 gum = { package = "tracing-gum", path = "../../gum" }
 
 [dev-dependencies]
-sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-keyring = { path = "../../../../substrate/primitives/keyring" }
+sp-consensus-babe = { path = "../../../../substrate/primitives/consensus/babe" }
+sp-tracing = { path = "../../../../substrate/primitives/tracing" }
+sp-authority-discovery = { path = "../../../../substrate/primitives/authority-discovery" }
 
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 

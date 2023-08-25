@@ -19,13 +19,13 @@ rand = { version = "0.8", features = ["std", "small_rng"] }
 
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-frame-election-provider-solution-type = { version = "4.0.0-dev", path = ".." }
-frame-election-provider-support = { version = "4.0.0-dev", path = "../.." }
-sp-arithmetic = { version = "16.0.0", path = "../../../../primitives/arithmetic" }
-sp-runtime = { version = "24.0.0", path = "../../../../primitives/runtime" }
+frame-election-provider-solution-type = { path = ".." }
+frame-election-provider-support = { path = "../.." }
+sp-arithmetic = { path = "../../../../primitives/arithmetic" }
+sp-runtime = { path = "../../../../primitives/runtime" }
 # used by generate_solution_type:
-sp-npos-elections = { version = "4.0.0-dev", default-features = false, path = "../../../../primitives/npos-elections" }
-frame-support = { version = "4.0.0-dev", path = "../../../support" }
+sp-npos-elections = { path = "../../../../primitives/npos-elections", default-features = false}
+frame-support = { path = "../../../support" }
 
 [[bin]]
 name = "compact"

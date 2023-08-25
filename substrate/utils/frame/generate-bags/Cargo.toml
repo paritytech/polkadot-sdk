@@ -10,11 +10,11 @@ description = "Bag threshold generation script for pallet-bag-list"
 
 [dependencies]
 # FRAME
-frame-support = { version = "4.0.0-dev", path = "../../../frame/support" }
-frame-election-provider-support = { version = "4.0.0-dev", path = "../../../frame/election-provider-support" }
-frame-system = { version = "4.0.0-dev", path = "../../../frame/system" }
-pallet-staking = { version = "4.0.0-dev", path = "../../../frame/staking" }
-sp-staking = { version = "4.0.0-dev", path = "../../../primitives/staking" }
+frame-support = { path = "../../../frame/support" }
+frame-election-provider-support = { path = "../../../frame/election-provider-support" }
+frame-system = { path = "../../../frame/system" }
+pallet-staking = { path = "../../../frame/staking" }
+sp-staking = { path = "../../../primitives/staking" }
 
 # third party
 chrono = { version = "0.4.19" }

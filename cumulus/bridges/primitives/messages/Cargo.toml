@@ -18,9 +18,9 @@ bp-header-chain = { path = "../header-chain", default-features = false }
 
 # Substrate Dependencies
 
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 
 [dev-dependencies]
 hex = "0.4"

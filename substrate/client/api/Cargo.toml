@@ -21,22 +21,22 @@ fnv = "1.0.6"
 futures = "0.3.21"
 log = "0.4.17"
 parking_lot = "0.12.1"
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", version = "0.10.0-dev", path = "../../utils/prometheus" }
-sc-executor = { version = "0.10.0-dev", path = "../executor" }
-sc-transaction-pool-api = { version = "4.0.0-dev", path = "../transaction-pool/api" }
-sc-utils = { version = "4.0.0-dev", path = "../utils" }
-sp-api = { version = "4.0.0-dev", path = "../../primitives/api" }
-sp-blockchain = { version = "4.0.0-dev", path = "../../primitives/blockchain" }
-sp-consensus = { version = "0.10.0-dev", path = "../../primitives/consensus/common" }
-sp-core = { version = "21.0.0", default-features = false, path = "../../primitives/core" }
-sp-database = { version = "4.0.0-dev", path = "../../primitives/database" }
-sp-externalities = { version = "0.19.0", path = "../../primitives/externalities" }
-sp-runtime = { version = "24.0.0", default-features = false, path = "../../primitives/runtime" }
-sp-state-machine = { version = "0.28.0", path = "../../primitives/state-machine" }
-sp-statement-store = { version = "4.0.0-dev", path = "../../primitives/statement-store" }
-sp-storage = { version = "13.0.0", path = "../../primitives/storage" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
+sc-executor = { path = "../executor" }
+sc-transaction-pool-api = { path = "../transaction-pool/api" }
+sc-utils = { path = "../utils" }
+sp-api = { path = "../../primitives/api" }
+sp-blockchain = { path = "../../primitives/blockchain" }
+sp-consensus = { path = "../../primitives/consensus/common" }
+sp-core = { path = "../../primitives/core", default-features = false}
+sp-database = { path = "../../primitives/database" }
+sp-externalities = { path = "../../primitives/externalities" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false}
+sp-state-machine = { path = "../../primitives/state-machine" }
+sp-statement-store = { path = "../../primitives/statement-store" }
+sp-storage = { path = "../../primitives/storage" }
 
 [dev-dependencies]
 thiserror = "1.0.30"
-sp-test-primitives = { version = "2.0.0", path = "../../primitives/test-primitives" }
-substrate-test-runtime = { version = "2.0.0", path = "../../test-utils/runtime" }
+sp-test-primitives = { path = "../../primitives/test-primitives" }
+substrate-test-runtime = { path = "../../test-utils/runtime" }

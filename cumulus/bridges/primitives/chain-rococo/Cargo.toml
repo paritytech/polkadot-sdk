@@ -16,9 +16,9 @@ bp-runtime = { path = "../runtime", default-features = false }
 
 # Substrate Based Dependencies
 
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-api = { path = "../../../../substrate/primitives/api", default-features = false }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
 
 [features]
 default = ["std"]

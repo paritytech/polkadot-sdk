@@ -11,19 +11,19 @@ codec = { package = "parity-scale-codec", version = "3.6.1" }
 scale-info = { version = "2.5.0", features = ["derive"] }
 log = { version = "0.4.14", default-features = false }
 
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" }
-pallet-message-queue = { git = "https://github.com/paritytech/substrate", branch = "master" }
-pallet-uniques = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
+frame-system = { path = "../../../../substrate/frame/system" }
+frame-support = { path = "../../../../substrate/frame/support" }
+pallet-balances = { path = "../../../../substrate/frame/balances" }
+pallet-message-queue = { path = "../../../../substrate/frame/message-queue" }
+pallet-uniques = { path = "../../../../substrate/frame/uniques" }
+sp-std = { path = "../../../../substrate/primitives/std" }
+sp-core = { path = "../../../../substrate/primitives/core" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime" }
+sp-io = { path = "../../../../substrate/primitives/io" }
+sp-tracing = { path = "../../../../substrate/primitives/tracing" }
 
-xcm = { path = "../../" }
-xcm-simulator = { path = "../" }
+xcm = { path = "../.." }
+xcm-simulator = { path = ".." }
 xcm-executor = { path = "../../xcm-executor" }
 xcm-builder = { path = "../../xcm-builder" }
 pallet-xcm = { path = "../../pallet-xcm" }

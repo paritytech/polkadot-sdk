@@ -9,16 +9,16 @@ description = "Test utils for Asset Hub runtimes."
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 
 # Substrate
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-consensus-aura = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false}
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false}
+pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false}
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false}
+pallet-session = { path = "../../../../../substrate/frame/session", default-features = false}
+sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false}
+sp-io = { path = "../../../../../substrate/primitives/io", default-features = false}
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false}
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false}
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
 
 # Cumulus
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }
@@ -30,20 +30,20 @@ assets-common = { path = "../common", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-parachain-inherent = { path = "../../../../primitives/parachain-inherent", default-features = false }
 cumulus-test-relay-sproof-builder = { path = "../../../../test/relay-sproof-builder", default-features = false }
-parachain-info = { path = "../../../../parachains/pallets/parachain-info", default-features = false }
+parachain-info = { path = "../../../pallets/parachain-info", default-features = false }
 parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false }
 
 # Polkadot
-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-pallet-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+xcm = { path = "../../../../../polkadot/xcm", default-features = false}
+xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
+pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
+polkadot-parachain = { path = "../../../../../polkadot/parachain", default-features = false}
 
 [dev-dependencies]
 hex-literal = "0.4.1"
 
 [build-dependencies]
-substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
+substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder" }
 
 [features]
 default = [ "std" ]

@@ -16,20 +16,20 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-sp-std = { version = "8.0.0", default-features = false, path = "../../primitives/std" }
+sp-std = { path = "../../primitives/std", default-features = false}
 # Needed for various traits. In our case, `OnFinalize`.
-sp-runtime = { version = "24.0.0", default-features = false, path = "../../primitives/runtime" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false}
 # Needed for type-safe access to storage DB.
-frame-support = { version = "4.0.0-dev", default-features = false, path = "../support" }
+frame-support = { path = "../support", default-features = false}
 # `system` module provides us with all sorts of useful stuff and macros depend on it being around.
-frame-system = { version = "4.0.0-dev", default-features = false, path = "../system" }
-frame-benchmarking = { version = "4.0.0-dev", default-features = false, path = "../benchmarking", optional = true }
-sp-core = { version = "21.0.0", default-features = false, path = "../../primitives/core" }
+frame-system = { path = "../system", default-features = false}
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
+sp-core = { path = "../../primitives/core", default-features = false}
 
 [dev-dependencies]
-sp-std = { version = "8.0.0", path = "../../primitives/std" }
-sp-io = { version = "23.0.0", path = "../../primitives/io" }
-pallet-balances = { version = "4.0.0-dev", path = "../balances" }
+sp-std = { path = "../../primitives/std" }
+sp-io = { path = "../../primitives/io" }
+pallet-balances = { path = "../balances" }
 
 [features]
 default = [ "std" ]

@@ -25,22 +25,22 @@ pyroscope_pprofrs = { version = "0.2", optional = true }
 service = { package = "polkadot-service", path = "../node/service", default-features = false, optional = true }
 polkadot-performance-test = { path = "../node/test/performance-test", optional = true }
 
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-maybe-compressed-blob = { git = "https://github.com/paritytech/substrate", branch = "master" }
-frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
-try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
-sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
-sc-service = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
+sp-core = { path = "../../substrate/primitives/core" }
+sp-io = { path = "../../substrate/primitives/io" }
+sp-keyring = { path = "../../substrate/primitives/keyring" }
+sp-maybe-compressed-blob = { path = "../../substrate/primitives/maybe-compressed-blob" }
+frame-benchmarking-cli = { path = "../../substrate/utils/frame/benchmarking-cli", optional = true }
+try-runtime-cli = { path = "../../substrate/utils/frame/try-runtime/cli", optional = true }
+sc-cli = { path = "../../substrate/client/cli", optional = true }
+sc-service = { path = "../../substrate/client/service", optional = true }
 polkadot-node-metrics = { path = "../node/metrics" }
-sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master", optional = true }
-sc-sysinfo = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-executor = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-storage-monitor = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-tracing = { path = "../../substrate/client/tracing", optional = true }
+sc-sysinfo = { path = "../../substrate/client/sysinfo" }
+sc-executor = { path = "../../substrate/client/executor" }
+sc-storage-monitor = { path = "../../substrate/client/storage-monitor" }
 
 [build-dependencies]
-substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "master" }
+substrate-build-script-utils = { path = "../../substrate/utils/build-script-utils" }
 
 [features]
 default = ["db", "cli", "full-node"]

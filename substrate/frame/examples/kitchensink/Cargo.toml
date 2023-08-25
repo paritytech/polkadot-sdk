@@ -16,19 +16,19 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 
-frame-support = { version = "4.0.0-dev", default-features = false, path = "../../support" }
-frame-system = { version = "4.0.0-dev", default-features = false, path = "../../system" }
+frame-support = { path = "../../support", default-features = false}
+frame-system = { path = "../../system", default-features = false}
 
-sp-io = { version = "23.0.0", default-features = false, path = "../../../primitives/io" }
-sp-runtime = { version = "24.0.0", default-features = false, path = "../../../primitives/runtime" }
-sp-std = { version = "8.0.0", default-features = false, path = "../../../primitives/std" }
+sp-io = { path = "../../../primitives/io", default-features = false}
+sp-runtime = { path = "../../../primitives/runtime", default-features = false}
+sp-std = { path = "../../../primitives/std", default-features = false}
 
-frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true, path = "../../benchmarking" }
+frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true}
 
-pallet-balances = { version = "4.0.0-dev", default-features = false, path = "../../balances" }
+pallet-balances = { path = "../../balances", default-features = false}
 
 [dev-dependencies]
-sp-core = { version = "21.0.0", default-features = false, path = "../../../primitives/core" }
+sp-core = { path = "../../../primitives/core", default-features = false}
 
 [features]
 default = [ "std" ]

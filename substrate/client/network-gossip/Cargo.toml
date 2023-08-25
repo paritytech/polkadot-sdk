@@ -21,12 +21,12 @@ libp2p = "0.51.3"
 log = "0.4.17"
 schnellru = "0.2.1"
 tracing = "0.1.29"
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", version = "0.10.0-dev", path = "../../utils/prometheus" }
-sc-network = { version = "0.10.0-dev", path = "../network/" }
-sc-network-common = { version = "0.10.0-dev", path = "../network/common" }
-sp-runtime = { version = "24.0.0", path = "../../primitives/runtime" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
+sc-network = { path = "../network" }
+sc-network-common = { path = "../network/common" }
+sp-runtime = { path = "../../primitives/runtime" }
 
 [dev-dependencies]
 tokio = "1.22.0"
 quickcheck = { version = "1.0.3", default-features = false }
-substrate-test-runtime-client = { version = "2.0.0", path = "../../test-utils/runtime/client" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }

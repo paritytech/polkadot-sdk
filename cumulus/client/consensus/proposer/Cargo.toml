@@ -11,10 +11,10 @@ async-trait = "0.1.73"
 thiserror = "1.0.47"
 
 # Substrate
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-consensus = { path = "../../../../substrate/primitives/consensus/common" }
+sp-inherents = { path = "../../../../substrate/primitives/inherents" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime" }
+sp-state-machine = { path = "../../../../substrate/primitives/state-machine" }
 
 # Cumulus
 cumulus-primitives-parachain-inherent = { path = "../../../primitives/parachain-inherent" }

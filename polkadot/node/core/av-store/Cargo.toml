@@ -15,12 +15,12 @@ bitvec = "1.0.0"
 
 parity-scale-codec = { version = "3.6.1", features = ["derive"] }
 erasure = { package = "polkadot-erasure-coding", path = "../../../erasure-coding" }
-polkadot-node-subsystem = {path = "../../subsystem" }
+polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 polkadot-overseer = { path = "../../overseer" }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-primitives = { path = "../../primitives" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-consensus = { path = "../../../../substrate/primitives/consensus/common", default-features = false }
 polkadot-node-jaeger = { path = "../../jaeger" }
 
 [dev-dependencies]
@@ -29,9 +29,9 @@ env_logger = "0.9.0"
 assert_matches = "1.4.0"
 kvdb-memorydb = "0.13.0"
 
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-core = { path = "../../../../substrate/primitives/core" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 parking_lot = "0.12.0"
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }

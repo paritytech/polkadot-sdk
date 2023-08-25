@@ -11,15 +11,15 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 # Bridge Dependencies
 
 bp-bridge-hub-cumulus = { path = "../chain-bridge-hub-cumulus", default-features = false }
-bp-runtime = { path = "../../primitives/runtime", default-features = false }
-bp-messages = { path = "../../primitives/messages", default-features = false }
+bp-runtime = { path = "../runtime", default-features = false }
+bp-messages = { path = "../messages", default-features = false }
 
 # Substrate Based Dependencies
 
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+sp-api = { path = "../../../../substrate/primitives/api", default-features = false }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 
 [features]
 default = ["std"]

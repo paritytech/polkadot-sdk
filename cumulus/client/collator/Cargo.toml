@@ -11,17 +11,17 @@ futures = "0.3.21"
 tracing = "0.1.25"
 
 # Substrate
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-client-api = { path = "../../../substrate/client/api" }
+sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
+sp-api = { path = "../../../substrate/primitives/api" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
 
 # Polkadot
-polkadot-node-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-node-subsystem = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-node-primitives = { path = "../../../polkadot/node/primitives" }
+polkadot-node-subsystem = { path = "../../../polkadot/node/subsystem" }
+polkadot-overseer = { path = "../../../polkadot/node/overseer" }
+polkadot-primitives = { path = "../../../polkadot/primitives" }
 
 # Cumulus
 cumulus-client-consensus-common = { path = "../consensus/common" }
@@ -32,12 +32,12 @@ cumulus-primitives-core = { path = "../../primitives/core" }
 async-trait = "0.1.73"
 
 # Substrate
-sp-maybe-compressed-blob = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compressed-blob" }
+sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
+sp-tracing = { path = "../../../substrate/primitives/tracing" }
 
 # Polkadot
-polkadot-node-subsystem-test-helpers = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-node-subsystem-test-helpers = { path = "../../../polkadot/node/subsystem-test-helpers" }
 
 # Cumulus
 cumulus-test-client = { path = "../../test/client" }

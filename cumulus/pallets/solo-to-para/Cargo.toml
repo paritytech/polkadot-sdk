@@ -10,17 +10,17 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 
 # Substrate
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-sudo = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false}
+frame-system = { path = "../../../substrate/frame/system", default-features = false}
+pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false}
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
+sp-std = { path = "../../../substrate/primitives/std", default-features = false}
 
 # Polkadot
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false}
 
 # Cumulus
-cumulus-pallet-parachain-system = { default-features = false, path = "../parachain-system" }
+cumulus-pallet-parachain-system = { path = "../parachain-system", default-features = false}
 
 [features]
 default = [ "std" ]

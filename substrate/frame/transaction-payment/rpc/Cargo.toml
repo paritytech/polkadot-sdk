@@ -15,10 +15,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"] }
-pallet-transaction-payment-rpc-runtime-api = { version = "4.0.0-dev", path = "./runtime-api" }
-sp-api = { version = "4.0.0-dev", path = "../../../primitives/api" }
-sp-blockchain = { version = "4.0.0-dev", path = "../../../primitives/blockchain" }
-sp-core = { version = "21.0.0", path = "../../../primitives/core" }
-sp-rpc = { version = "6.0.0", path = "../../../primitives/rpc" }
-sp-runtime = { version = "24.0.0", path = "../../../primitives/runtime" }
-sp-weights = { version = "20.0.0", path = "../../../primitives/weights" }
+pallet-transaction-payment-rpc-runtime-api = { path = "runtime-api" }
+sp-api = { path = "../../../primitives/api" }
+sp-blockchain = { path = "../../../primitives/blockchain" }
+sp-core = { path = "../../../primitives/core" }
+sp-rpc = { path = "../../../primitives/rpc" }
+sp-runtime = { path = "../../../primitives/runtime" }
+sp-weights = { path = "../../../primitives/weights" }

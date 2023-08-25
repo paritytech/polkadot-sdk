@@ -10,7 +10,7 @@ publish = false
 polkadot-erasure-coding = { path = ".." }
 honggfuzz = "0.5"
 polkadot-primitives = { path = "../../primitives" }
-primitives = { package = "polkadot-node-primitives", path = "../../node/primitives/" }
+primitives = { package = "polkadot-node-primitives", path = "../../node/primitives" }
 
 [[bin]]
 name = "reconstruct"

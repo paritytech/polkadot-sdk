@@ -11,8 +11,8 @@ codec = { package = "parity-scale-codec", version = "3.1.5", default-features = 
 scale-info = { version = "2.9.0", default-features = false, features = ["bit-vec", "derive"] }
 
 # Substrate Dependencies
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
 
 [features]
 default = ["std"]

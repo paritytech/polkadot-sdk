@@ -11,8 +11,8 @@ codec = { package = "parity-scale-codec", version = "3.1.5", default-features = 
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 
 # Substrate Dependencies
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
 
 # Bridge Dependencies
 bp-xcm-bridge-hub-router = { path = "../xcm-bridge-hub-router", default-features = false }

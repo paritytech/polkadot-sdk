@@ -14,22 +14,22 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
-frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true, path = "../benchmarking" }
-frame-support = { version = "4.0.0-dev", default-features = false, path = "../support" }
-frame-system = { version = "4.0.0-dev", default-features = false, path = "../system" }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true}
+frame-support = { path = "../support", default-features = false}
+frame-system = { path = "../system", default-features = false}
 scale-info = { version = "2.0.1", default-features = false, features = ["derive"] }
-sp-runtime = { version = "24.0.0", default-features = false, path = "../../primitives/runtime" }
-sp-std = { version = "8.0.0", default-features = false, path = "../../primitives/std" }
-pallet-balances = { version = "4.0.0-dev", path = "../balances", default-features = false, optional = true }
-pallet-utility = { version = "4.0.0-dev", path = "../utility", default-features = false, optional = true  }
-pallet-proxy = { version = "4.0.0-dev", path = "../proxy", default-features = false, optional = true  }
+sp-runtime = { path = "../../primitives/runtime", default-features = false}
+sp-std = { path = "../../primitives/std", default-features = false}
+pallet-balances = { path = "../balances", default-features = false, optional = true }
+pallet-utility = { path = "../utility", default-features = false, optional = true  }
+pallet-proxy = { path = "../proxy", default-features = false, optional = true  }
 
 [dev-dependencies]
-sp-core = { version = "21.0.0", path = "../../primitives/core" }
-sp-io = { version = "23.0.0", path = "../../primitives/io" }
-pallet-balances = { version = "4.0.0-dev", path = "../balances" }
-pallet-utility = { version = "4.0.0-dev", path = "../utility" }
-pallet-proxy = { version = "4.0.0-dev", path = "../proxy" }
+sp-core = { path = "../../primitives/core" }
+sp-io = { path = "../../primitives/io" }
+pallet-balances = { path = "../balances" }
+pallet-utility = { path = "../utility" }
+pallet-proxy = { path = "../proxy" }
 
 [features]
 default = [ "std" ]
