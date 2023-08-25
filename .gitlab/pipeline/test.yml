@@ -410,8 +410,7 @@ cargo-check-each-crate:
     - PYTHONUNBUFFERED=x time .gitlab/check-each-crate.py "$CI_NODE_INDEX" "$CI_NODE_TOTAL"
   parallel: 2
 
-# todo: enable me
-.cargo-check-each-crate-macos:
+cargo-check-each-crate-macos:
   stage: test
   extends:
     - .docker-env

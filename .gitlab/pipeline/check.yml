@@ -176,3 +176,23 @@ check-runtime-migration-rococo:
   variables:
     NETWORK: "rococo"
   allow_failure: true # FIXME https://github.com/paritytech/substrate/issues/13107
+
+find-fail-ci-phrase:
+  stage: check
+  variables:
+    CI_IMAGE: "paritytech/tools:latest"
+    ASSERT_REGEX: "FAIL-CI"
+    GIT_DEPTH: 1
+  extends:
+    - .kubernetes-env
+    - .test-pr-refs
+  script:
+    - set +e
+    - rg --line-number --hidden --type rust --glob '!{.git,target}' "$ASSERT_REGEX" .; exit_status=$?
+    - if [ $exit_status -eq 0 ]; then
+      echo "$ASSERT_REGEX was found, exiting with 1";
+      exit 1;
+      else
+      echo "No $ASSERT_REGEX was found, exiting with 0";
+      exit 0;
+      fi
