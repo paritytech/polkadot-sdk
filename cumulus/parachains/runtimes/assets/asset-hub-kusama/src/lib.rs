@@ -973,10 +973,16 @@ impl_runtime_apis! {
 
 	impl sp_block_builder::BlockBuilder<Block> for Runtime {
 		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
+			log::info!("apply_extrinsic");
+			let proof_size = cumulus_client_clawback::clawback_host_functions::current_storage_proof_size();
+			log::info!("Got proof size: {}", proof_size);
 			Executive::apply_extrinsic(extrinsic)
 		}
 
 		fn finalize_block() -> <Block as BlockT>::Header {
+			log::info!("finalize_block");
+			let proof_size = cumulus_client_clawback::clawback_host_functions::current_storage_proof_size();
+			log::info!("Got proof size: {}", proof_size);
 			Executive::finalize_block()
 		}
 

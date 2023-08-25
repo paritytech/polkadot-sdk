@@ -208,7 +208,12 @@ pub fn new_partial(
 		sc_executor::NativeElseWasmExecutor::<RuntimeExecutor>::new_with_wasm_executor(wasm);
 
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, _>(config, None, executor)?;
+		sc_service::new_full_parts_extension::<Block, RuntimeApi, _>(
+			config,
+			None,
+			executor,
+			Some(cumulus_client_clawback::get_extension_factory()),
+		)?;
 	let client = Arc::new(client);
 
 	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());

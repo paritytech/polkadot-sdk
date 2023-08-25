@@ -727,6 +727,7 @@ version = "0.9.420"
 dependencies = [
  "asset-test-utils",
  "assets-common",
+ "cumulus-client-clawback",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -3275,6 +3276,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-client-clawback"
+version = "0.0.1"
+dependencies = [
+ "sp-api",
+ "sp-core",
+ "sp-externalities",
+ "sp-runtime",
+ "sp-runtime-interface",
+ "sp-std",
+ "sp-trie",
+ "tracing",
+]
+
+[[package]]
 name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
@@ -3973,6 +3988,7 @@ dependencies = [
  "async-trait",
  "clap 4.4.0",
  "criterion 0.5.1",
+ "cumulus-client-clawback",
  "cumulus-client-cli",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-relay-chain",
@@ -11021,6 +11037,7 @@ version = "0.1.0"
 dependencies = [
  "clap 4.4.0",
  "color-print",
+ "cumulus-client-clawback",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -12565,6 +12582,7 @@ dependencies = [
  "collectives-polkadot-runtime",
  "color-print",
  "contracts-rococo-runtime",
+ "cumulus-client-clawback",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",

@@ -15,6 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use codec::Codec;
+use cumulus_client_clawback::get_extension_factory;
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
 use cumulus_client_consensus_aura::collators::basic::{
@@ -63,11 +64,17 @@ use substrate_prometheus_endpoint::Registry;
 use polkadot_primitives::CollatorPair;
 
 #[cfg(not(feature = "runtime-benchmarks"))]
-type HostFunctions = sp_io::SubstrateHostFunctions;
+type HostFunctions = (
+	sp_io::SubstrateHostFunctions,
+	cumulus_client_clawback::clawback_host_functions::HostFunctions,
+);
 
 #[cfg(feature = "runtime-benchmarks")]
-type HostFunctions =
-	(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions);
+type HostFunctions = (
+	sp_io::SubstrateHostFunctions,
+	cumulus_client_clawback::clawback_host_functions::HostFunctions,
+	frame_benchmarking::benchmarking::HostFunctions,
+);
 
 type ParachainClient<RuntimeApi> = TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>;
 
@@ -284,10 +291,11 @@ where
 		.build();
 
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, _>(
+		sc_service::new_full_parts_extension::<Block, RuntimeApi, _>(
 			config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
+			Some(get_extension_factory()),
 		)?;
 	let client = Arc::new(client);
 
@@ -769,13 +777,15 @@ pub async fn start_rococo_parachain_node(
 		 announce_block| {
 			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
-			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
-				task_manager.spawn_handle(),
-				client.clone(),
-				transaction_pool,
-				prometheus_registry,
-				telemetry.clone(),
-			);
+			let proposer_factory =
+				sc_basic_authorship::ProposerFactory::with_proof_recording_extension(
+					task_manager.spawn_handle(),
+					client.clone(),
+					transaction_pool,
+					prometheus_registry,
+					telemetry.clone(),
+					Some(get_extension_factory()),
+				);
 			let proposer = Proposer::new(proposer_factory);
 
 			let collator_service = CollatorService::new(
@@ -890,13 +900,15 @@ where
 		 collator_key,
 		 overseer_handle,
 		 announce_block| {
-			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
-				task_manager.spawn_handle(),
-				client.clone(),
-				transaction_pool,
-				prometheus_registry,
-				telemetry,
-			);
+			let proposer_factory =
+				sc_basic_authorship::ProposerFactory::with_proof_recording_extension(
+					task_manager.spawn_handle(),
+					client.clone(),
+					transaction_pool,
+					prometheus_registry,
+					telemetry.clone(),
+					Some(get_extension_factory()),
+				);
 
 			let free_for_all = cumulus_client_consensus_relay_chain::build_relay_chain_consensus(
 				cumulus_client_consensus_relay_chain::BuildRelayChainConsensusParams {
@@ -1161,13 +1173,15 @@ where
 		 announce_block| {
 			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
-			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
-				task_manager.spawn_handle(),
-				client.clone(),
-				transaction_pool,
-				prometheus_registry,
-				telemetry.clone(),
-			);
+			let proposer_factory =
+				sc_basic_authorship::ProposerFactory::with_proof_recording_extension(
+					task_manager.spawn_handle(),
+					client.clone(),
+					transaction_pool,
+					prometheus_registry,
+					telemetry.clone(),
+					Some(get_extension_factory()),
+				);
 			let proposer = Proposer::new(proposer_factory);
 
 			let collator_service = CollatorService::new(
@@ -1465,13 +1479,15 @@ pub async fn start_contracts_rococo_node(
 		 announce_block| {
 			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
-			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
-				task_manager.spawn_handle(),
-				client.clone(),
-				transaction_pool,
-				prometheus_registry,
-				telemetry.clone(),
-			);
+			let proposer_factory =
+				sc_basic_authorship::ProposerFactory::with_proof_recording_extension(
+					task_manager.spawn_handle(),
+					client.clone(),
+					transaction_pool,
+					prometheus_registry,
+					telemetry.clone(),
+					Some(get_extension_factory()),
+				);
 			let proposer = Proposer::new(proposer_factory);
 
 			let collator_service = CollatorService::new(

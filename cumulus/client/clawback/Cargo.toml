@@ -1,0 +1,27 @@
+[package]
+name = "cumulus-client-clawback"
+version = "0.0.1"
+authors = [ "Sebastian Kunert <sebastian@Sebastians-MBP>" ]
+
+[dependencies]
+sp-runtime-interface = { path = "../../../substrate/primitives/runtime-interface", default-features = false }
+sp-externalities = { path = "../../../substrate/primitives/externalities", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false }
+sp-api = { path = "../../../substrate/primitives/api", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+tracing = { version = "0.1.37", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"sp-runtime-interface/std",
+	"sp-externalities/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-api/std",
+	"sp-trie/std",
+	"sp-core/std",
+	"tracing/std"
+]

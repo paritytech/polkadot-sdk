@@ -74,6 +74,7 @@ cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = fals
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
+cumulus-client-clawback = { path = "../../../../client/clawback", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
 parachain-info = { path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
@@ -204,6 +205,7 @@ std = [
 	"cumulus-pallet-xcmp-queue/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-utility/std",
+	"cumulus-client-clawback/std",
 	"pallet-collator-selection/std",
 	"parachain-info/std",
 	"parachains-common/std",

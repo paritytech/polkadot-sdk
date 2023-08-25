@@ -61,6 +61,7 @@ xcm = { path = "../../../polkadot/xcm", default-features = false}
 cumulus-client-cli = { path = "../../client/cli" }
 cumulus-client-collator = { path = "../../client/collator" }
 cumulus-client-consensus-aura = { path = "../../client/consensus/aura" }
+cumulus-client-clawback = { path = "../../client/clawback" }
 cumulus-client-consensus-common = { path = "../../client/consensus/common" }
 cumulus-client-consensus-proposer = { path = "../../client/consensus/proposer" }
 cumulus-client-service = { path = "../../client/service" }
