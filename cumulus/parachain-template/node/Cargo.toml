@@ -21,41 +21,41 @@ futures = "0.3.28"
 parachain-template-runtime = { path = "../runtime" }
 
 # Substrate
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master" }
-frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
-pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-offchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-executor = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-network = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-network-sync = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-sysinfo = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "master" }
-substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
-substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate", branch = "master" }
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking" }
+frame-benchmarking-cli = { path = "../../../substrate/utils/frame/benchmarking-cli" }
+pallet-transaction-payment-rpc = { path = "../../../substrate/frame/transaction-payment/rpc" }
+sc-basic-authorship = { path = "../../../substrate/client/basic-authorship" }
+sc-chain-spec = { path = "../../../substrate/client/chain-spec" }
+sc-cli = { path = "../../../substrate/client/cli" }
+sc-client-api = { path = "../../../substrate/client/api" }
+sc-offchain = { path = "../../../substrate/client/offchain" }
+sc-consensus = { path = "../../../substrate/client/consensus/common" }
+sc-executor = { path = "../../../substrate/client/executor" }
+sc-network = { path = "../../../substrate/client/network" }
+sc-network-sync = { path = "../../../substrate/client/network/sync" }
+sc-rpc = { path = "../../../substrate/client/rpc" }
+sc-service = { path = "../../../substrate/client/service" }
+sc-sysinfo = { path = "../../../substrate/client/sysinfo" }
+sc-telemetry = { path = "../../../substrate/client/telemetry" }
+sc-tracing = { path = "../../../substrate/client/tracing" }
+sc-transaction-pool = { path = "../../../substrate/client/transaction-pool" }
+sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
+sp-api = { path = "../../../substrate/primitives/api" }
+sp-block-builder = { path = "../../../substrate/primitives/block-builder" }
+sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
+sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-keystore = { path = "../../../substrate/primitives/keystore" }
+sp-io = { path = "../../../substrate/primitives/io" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-timestamp = { path = "../../../substrate/primitives/timestamp" }
+substrate-frame-rpc-system = { path = "../../../substrate/utils/frame/rpc/system" }
+substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
 
 # Polkadot
-polkadot-cli = { git = "https://github.com/paritytech/polkadot", features = ["rococo-native"] , branch = "master" }
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+polkadot-cli = { path = "../../../polkadot/cli", features = ["rococo-native"] }
+polkadot-primitives = { path = "../../../polkadot/primitives" }
+xcm = { path = "../../../polkadot/xcm", default-features = false}
 
 # Cumulus
 cumulus-client-cli = { path = "../../client/cli" }
@@ -70,7 +70,7 @@ cumulus-relay-chain-interface = { path = "../../client/relay-chain-interface" }
 color-print = "0.3.4"
 
 [build-dependencies]
-substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "master" }
+substrate-build-script-utils = { path = "../../../substrate/utils/build-script-utils" }
 
 [features]
 default = []

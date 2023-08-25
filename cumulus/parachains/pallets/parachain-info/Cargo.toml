@@ -9,11 +9,11 @@ publish = false
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false}
+frame-system = { path = "../../../../substrate/frame/system", default-features = false}
 
-sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false}
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false}
 
 cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
 

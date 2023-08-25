@@ -12,25 +12,25 @@ log = { version = "0.4.20", default-features = false }
 impl-trait-for-tuples = "0.2.2"
 
 # Substrate
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-asset-conversion = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
-pallet-asset-tx-payment = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false}
+sp-api = { path = "../../../../../substrate/primitives/api", default-features = false}
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false}
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false}
+pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-conversion", default-features = false }
+pallet-asset-tx-payment = { path = "../../../../../substrate/frame/transaction-payment/asset-tx-payment", default-features = false }
 
 # Polkadot
-pallet-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
+xcm = { path = "../../../../../polkadot/xcm", default-features = false}
+xcm-builder = { path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
+xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
 
 # Cumulus
 parachains-common = { path = "../../../common", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 
 [build-dependencies]
-substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
+substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder" }
 
 [features]
 default = [ "std" ]

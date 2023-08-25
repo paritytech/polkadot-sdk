@@ -13,12 +13,12 @@ publish = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-core = { version = "21.0.0", default-features = false, path = "../../core" }
-sp-io = { version = "23.0.0", default-features = false, path = "../../io" }
-sp-runtime-interface = { version = "17.0.0", default-features = false, path = "../" }
+sp-core = { path = "../../core", default-features = false}
+sp-io = { path = "../../io", default-features = false}
+sp-runtime-interface = { path = "..", default-features = false}
 
 [build-dependencies]
-substrate-wasm-builder = { version = "5.0.0-dev", path = "../../../utils/wasm-builder", optional = true }
+substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
 
 [features]
 default = [ "std" ]

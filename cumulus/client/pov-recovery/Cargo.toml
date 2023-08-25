@@ -13,21 +13,21 @@ rand = "0.8.5"
 tracing = "0.1.37"
 
 # Substrate
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-maybe-compressed-blob = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-client-api = { path = "../../../substrate/client/api" }
+sc-consensus = { path = "../../../substrate/client/consensus/common" }
+sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
+sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compressed-blob" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
 
 # Polkadot
-polkadot-node-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-node-subsystem = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-node-primitives = { path = "../../../polkadot/node/primitives" }
+polkadot-node-subsystem = { path = "../../../polkadot/node/subsystem" }
+polkadot-overseer = { path = "../../../polkadot/node/overseer" }
+polkadot-primitives = { path = "../../../polkadot/primitives" }
 
 # Cumulus
 cumulus-primitives-core = { path = "../../primitives/core" }
-cumulus-relay-chain-interface = {path = "../relay-chain-interface"}
+cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
 async-trait = "0.1.73"
 
 [dev-dependencies]
@@ -38,6 +38,6 @@ portpicker = "0.1.1"
 cumulus-test-service = { path = "../../test/service" }
 
 # Substrate
-sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-cli = { path = "../../../substrate/client/cli" }
+sc-client-api = { path = "../../../substrate/client/api" }
+substrate-test-utils = { path = "../../../substrate/test-utils" }

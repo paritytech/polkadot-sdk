@@ -15,23 +15,23 @@ scale-info = { version = "2.9.0", default-features = false, features = ["derive"
 num-traits = { version = "0.2", default-features = false}
 
 # Substrate
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
-pallet-asset-tx-payment = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
-pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
-sp-consensus-aura = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "master" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../substrate/frame/system", default-features = false }
+pallet-asset-tx-payment = { path = "../../../substrate/frame/transaction-payment/asset-tx-payment", default-features = false }
+pallet-assets = { path = "../../../substrate/frame/assets", default-features = false }
+pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
+pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
+sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false }
+sp-io = { path = "../../../substrate/primitives/io", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 # Polkadot
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false}
+xcm = { path = "../../../polkadot/xcm", default-features = false}
+xcm-builder = { path = "../../../polkadot/xcm/xcm-builder", default-features = false}
+xcm-executor = { path = "../../../polkadot/xcm/xcm-executor", default-features = false}
 
 # Cumulus
 pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false }
@@ -39,11 +39,11 @@ cumulus-primitives-core = { path = "../../primitives/core", default-features = f
 cumulus-primitives-utility = { path = "../../primitives/utility", default-features = false }
 
 [dev-dependencies]
-pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false}
+sp-io = { path = "../../../substrate/primitives/io", default-features = false}
 
 [build-dependencies]
-substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
+substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder" }
 
 [features]
 default = ["std"]

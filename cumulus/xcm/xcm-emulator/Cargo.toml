@@ -13,19 +13,19 @@ lazy_static = "1.4.0"
 impl-trait-for-tuples = "0.2.2"
 
 # Substrate
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" }
-pallet-message-queue = { git = "https://github.com/paritytech/substrate", branch = "master" }
+frame-support = { path = "../../../substrate/frame/support" }
+frame-system = { path = "../../../substrate/frame/system" }
+sp-io = { path = "../../../substrate/primitives/io" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-std = { path = "../../../substrate/primitives/std" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-arithmetic = { path = "../../../substrate/primitives/arithmetic" }
+sp-trie = { path = "../../../substrate/primitives/trie" }
+pallet-balances = { path = "../../../substrate/frame/balances" }
+pallet-message-queue = { path = "../../../substrate/frame/message-queue" }
 
 # Cumulus
-cumulus-primitives-core = { path = "../../primitives/core"}
+cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue" }
 cumulus-pallet-dmp-queue = { path = "../../pallets/dmp-queue" }
 cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system" }
@@ -35,7 +35,7 @@ cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
 parachains-common = { path = "../../parachains/common" }
 
 # Polkadot
-xcm = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+xcm = { path = "../../../polkadot/xcm" }
+xcm-executor = { path = "../../../polkadot/xcm/xcm-executor" }
+polkadot-primitives = { path = "../../../polkadot/primitives" }
+polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains" }

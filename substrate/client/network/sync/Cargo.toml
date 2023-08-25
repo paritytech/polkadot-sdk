@@ -29,24 +29,24 @@ prost = "0.11"
 schnellru = "0.2.1"
 smallvec = "1.11.0"
 thiserror = "1.0"
-fork-tree = { version = "3.0.0", path = "../../../utils/fork-tree" }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", version = "0.10.0-dev", path = "../../../utils/prometheus" }
-sc-client-api = { version = "4.0.0-dev", path = "../../api" }
-sc-consensus = { version = "0.10.0-dev", path = "../../consensus/common" }
-sc-network = { version = "0.10.0-dev", path = "../" }
-sc-network-common = { version = "0.10.0-dev", path = "../common" }
-sc-utils = { version = "4.0.0-dev", path = "../../utils" }
-sp-arithmetic = { version = "16.0.0", path = "../../../primitives/arithmetic" }
-sp-blockchain = { version = "4.0.0-dev", path = "../../../primitives/blockchain" }
-sp-consensus = { version = "0.10.0-dev", path = "../../../primitives/consensus/common" }
-sp-core = { version = "21.0.0", path = "../../../primitives/core" }
-sp-consensus-grandpa = { version = "4.0.0-dev", path = "../../../primitives/consensus/grandpa" }
-sp-runtime = { version = "24.0.0", path = "../../../primitives/runtime" }
+fork-tree = { path = "../../../utils/fork-tree" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
+sc-client-api = { path = "../../api" }
+sc-consensus = { path = "../../consensus/common" }
+sc-network = { path = ".." }
+sc-network-common = { path = "../common" }
+sc-utils = { path = "../../utils" }
+sp-arithmetic = { path = "../../../primitives/arithmetic" }
+sp-blockchain = { path = "../../../primitives/blockchain" }
+sp-consensus = { path = "../../../primitives/consensus/common" }
+sp-core = { path = "../../../primitives/core" }
+sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }
+sp-runtime = { path = "../../../primitives/runtime" }
 
 [dev-dependencies]
 tokio = { version = "1.22.0", features = ["macros"] }
 quickcheck = { version = "1.0.3", default-features = false }
-sc-block-builder = { version = "0.10.0-dev", path = "../../block-builder" }
-sp-test-primitives = { version = "2.0.0", path = "../../../primitives/test-primitives" }
-sp-tracing = { version = "10.0.0", path = "../../../primitives/tracing" }
-substrate-test-runtime-client = { version = "2.0.0", path = "../../../test-utils/runtime/client" }
+sc-block-builder = { path = "../../block-builder" }
+sp-test-primitives = { path = "../../../primitives/test-primitives" }
+sp-tracing = { path = "../../../primitives/tracing" }
+substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }

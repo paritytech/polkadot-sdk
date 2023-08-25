@@ -18,9 +18,9 @@ scale-info = { version = "2.5.0", default-features = false, features = ["derive"
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 
 # Substrate Dependencies (This crate should not rely on frame)
-sp-std = { version = "8.0.0", default-features = false, path = "../../../primitives/std" }
-sp-runtime = { version = "24.0.0", default-features = false, path = "../../../primitives/runtime" }
-sp-weights = { version = "20.0.0", default-features = false, path = "../../../primitives/weights" }
+sp-std = { path = "../../../primitives/std", default-features = false}
+sp-runtime = { path = "../../../primitives/runtime", default-features = false}
+sp-weights = { path = "../../../primitives/weights", default-features = false}
 
 [features]
 default = [ "std" ]

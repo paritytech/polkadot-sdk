@@ -16,8 +16,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 lazy_static = "1.4.0"
 strum = { version = "0.24.1", features = ["derive"], default-features = false }
-sp-core = { version = "21.0.0", path = "../core" }
-sp-runtime = { version = "24.0.0", path = "../runtime" }
+sp-core = { path = "../core" }
+sp-runtime = { path = "../runtime" }
 
 [features]
 # This feature adds Bandersnatch crypto primitives.

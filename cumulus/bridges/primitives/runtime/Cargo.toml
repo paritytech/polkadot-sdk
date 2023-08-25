@@ -17,14 +17,14 @@ serde = { version = "1.0", default-features = false, features = ["alloc", "deriv
 
 # Substrate Dependencies
 
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, features = ["serde"] }
-sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false }
+sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
+sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
+sp-state-machine = { path = "../../../../substrate/primitives/state-machine", default-features = false }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
+sp-trie = { path = "../../../../substrate/primitives/trie", default-features = false }
 trie-db = { version = "0.27.1", default-features = false }
 
 [dev-dependencies]

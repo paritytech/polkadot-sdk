@@ -11,34 +11,34 @@ log = { version = "0.4.20", default-features = false }
 assert_matches = "1.4.0"
 
 # Substrate
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
-frame-executive = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-utility = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
-pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
+frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false}
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false}
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false}
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
+sp-io = { path = "../../../../../substrate/primitives/io", default-features = false}
+sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false}
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false}
+pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false}
+pallet-session = { path = "../../../../../substrate/frame/session", default-features = false}
 
 # Cumulus
-asset-test-utils = { path = "../../assets/test-utils"}
+asset-test-utils = { path = "../../assets/test-utils" }
 cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue", default-features = false }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
-parachain-info = { path = "../../../../parachains/pallets/parachain-info", default-features = false }
-parachains-common = { path = "../../../../parachains/common", default-features = false }
+parachain-info = { path = "../../../pallets/parachain-info", default-features = false }
+parachains-common = { path = "../../../common", default-features = false }
 parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false }
 
 # Polkadot
-pallet-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-pallet-xcm-benchmarks = { git = "https://github.com/paritytech/polkadot", default-features = false, optional = true , branch = "master" }
-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
-xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "master" }
+pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
+pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
+xcm = { path = "../../../../../polkadot/xcm", default-features = false}
+xcm-builder = { path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
+xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
 
 # Bridges
 bp-bridge-hub-rococo = { path = "../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }

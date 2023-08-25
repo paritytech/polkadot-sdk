@@ -10,9 +10,9 @@ codec = { package = "parity-scale-codec", version = "3.0.0" }
 url = "2.4.0"
 
 # Substrate
-sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-cli = { path = "../../../substrate/client/cli" }
+sc-client-api = { path = "../../../substrate/client/api" }
+sc-chain-spec = { path = "../../../substrate/client/chain-spec" }
+sc-service = { path = "../../../substrate/client/service" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }

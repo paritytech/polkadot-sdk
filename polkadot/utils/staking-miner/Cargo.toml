@@ -21,22 +21,22 @@ serde = "1.0.163"
 serde_json = "1.0"
 thiserror = "1.0.31"
 tokio = { version = "1.24.2", features = ["macros", "rt-multi-thread", "sync"] }
-remote-externalities = { git = "https://github.com/paritytech/substrate", branch = "master", package = "frame-remote-externalities" }
+remote-externalities = { package = "frame-remote-externalities" , path = "../../../substrate/utils/frame/remote-externalities" }
 signal-hook-tokio = { version = "0.3", features = ["futures-v0_3"] }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-version = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-npos-elections = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-version = { path = "../../../substrate/primitives/version" }
+sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-npos-elections = { path = "../../../substrate/primitives/npos-elections" }
+sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
 
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" }
-frame-election-provider-support = { git = "https://github.com/paritytech/substrate", branch = "master" }
-pallet-election-provider-multi-phase = { git = "https://github.com/paritytech/substrate", branch = "master" }
-pallet-staking = { git = "https://github.com/paritytech/substrate", branch = "master" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master" }
-pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "master" }
+frame-system = { path = "../../../substrate/frame/system" }
+frame-support = { path = "../../../substrate/frame/support" }
+frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support" }
+pallet-election-provider-multi-phase = { path = "../../../substrate/frame/election-provider-multi-phase" }
+pallet-staking = { path = "../../../substrate/frame/staking" }
+pallet-balances = { path = "../../../substrate/frame/balances" }
+pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment" }
 
 core-primitives = { package = "polkadot-core-primitives", path = "../../core-primitives" }
 

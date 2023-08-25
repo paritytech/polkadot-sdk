@@ -17,8 +17,8 @@ ansi_term = "0.12.1"
 futures = "0.3.21"
 futures-timer = "3.0.1"
 log = "0.4.17"
-sc-client-api = { version = "4.0.0-dev", path = "../api" }
-sc-network-common = { version = "0.10.0-dev", path = "../network/common" }
-sc-network = { version = "0.10.0-dev", path = "../network" }
-sp-blockchain = { version = "4.0.0-dev", path = "../../primitives/blockchain" }
-sp-runtime = { version = "24.0.0", path = "../../primitives/runtime" }
+sc-client-api = { path = "../api" }
+sc-network-common = { path = "../network/common" }
+sc-network = { path = "../network" }
+sp-blockchain = { path = "../../primitives/blockchain" }
+sp-runtime = { path = "../../primitives/runtime" }

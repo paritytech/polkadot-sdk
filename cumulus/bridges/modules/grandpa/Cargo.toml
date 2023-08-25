@@ -20,20 +20,20 @@ bp-header-chain = { path = "../../primitives/header-chain", default-features = f
 
 # Substrate Dependencies
 
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, features = ["serde"] }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, features = ["serde"] }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false }
+sp-consensus-grandpa = { path = "../../../../substrate/primitives/consensus/grandpa", default-features = false, features = ["serde"] }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
+sp-trie = { path = "../../../../substrate/primitives/trie", default-features = false }
 
 # Optional Benchmarking Dependencies
 bp-test-utils = { path = "../../primitives/test-utils", default-features = false, optional = true }
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
+frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }
 
 [dev-dependencies]
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-core = { path = "../../../../substrate/primitives/core" }
+sp-io = { path = "../../../../substrate/primitives/io" }
 
 [features]
 default = ["std"]

@@ -17,21 +17,21 @@ bp-xcm-bridge-hub-router = { path = "../../primitives/xcm-bridge-hub-router", de
 
 # Substrate Dependencies
 
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false }
+sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 
 # Polkadot Dependencies
 
-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "master" }
-xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "master" }
+xcm = { path = "../../../../polkadot/xcm", default-features = false }
+xcm-builder = { path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
 
 [dev-dependencies]
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-io = { path = "../../../../substrate/primitives/io" }
+sp-std = { path = "../../../../substrate/primitives/std" }
 
 [features]
 default = ["std"]

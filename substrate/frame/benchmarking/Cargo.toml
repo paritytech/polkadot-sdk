@@ -19,23 +19,23 @@ log = { version = "0.4.17", default-features = false }
 paste = "1.0"
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.163", optional = true }
-frame-support = { version = "4.0.0-dev", default-features = false, path = "../support" }
-frame-support-procedural = { version = "4.0.0-dev", default-features = false, path = "../support/procedural" }
-frame-system = { version = "4.0.0-dev", default-features = false, path = "../system" }
-sp-api = { version = "4.0.0-dev", default-features = false, path = "../../primitives/api" }
-sp-application-crypto = { version = "23.0.0", default-features = false, path = "../../primitives/application-crypto" }
-sp-core = { version = "21.0.0", default-features = false, path = "../../primitives/core" }
-sp-io = { version = "23.0.0", default-features = false, path = "../../primitives/io" }
-sp-runtime = { version = "24.0.0", default-features = false, path = "../../primitives/runtime" }
-sp-runtime-interface = { version = "17.0.0", default-features = false, path = "../../primitives/runtime-interface" }
-sp-std = { version = "8.0.0", default-features = false, path = "../../primitives/std" }
-sp-storage = { version = "13.0.0", default-features = false, path = "../../primitives/storage" }
+frame-support = { path = "../support", default-features = false}
+frame-support-procedural = { path = "../support/procedural", default-features = false}
+frame-system = { path = "../system", default-features = false}
+sp-api = { path = "../../primitives/api", default-features = false}
+sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false}
+sp-core = { path = "../../primitives/core", default-features = false}
+sp-io = { path = "../../primitives/io", default-features = false}
+sp-runtime = { path = "../../primitives/runtime", default-features = false}
+sp-runtime-interface = { path = "../../primitives/runtime-interface", default-features = false}
+sp-std = { path = "../../primitives/std", default-features = false}
+sp-storage = { path = "../../primitives/storage", default-features = false}
 static_assertions = "1.1.0"
 
 [dev-dependencies]
 array-bytes = "6.1"
 rusty-fork = { version = "0.3.0", default-features = false }
-sp-keystore = { version = "0.27.0", path = "../../primitives/keystore" }
+sp-keystore = { path = "../../primitives/keystore" }
 
 [features]
 default = [ "std" ]

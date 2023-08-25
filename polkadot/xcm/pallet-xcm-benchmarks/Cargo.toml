@@ -11,22 +11,22 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-frame-support = { default-features = false, branch = "master", git = "https://github.com/paritytech/substrate" }
-frame-system = { default-features = false, branch = "master", git = "https://github.com/paritytech/substrate" }
-sp-runtime = { default-features = false, branch = "master", git = "https://github.com/paritytech/substrate" }
-sp-std = { default-features = false, branch = "master", git = "https://github.com/paritytech/substrate" }
-sp-io = { default-features = false, branch = "master", git = "https://github.com/paritytech/substrate" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false}
+frame-system = { path = "../../../substrate/frame/system", default-features = false}
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
+sp-std = { path = "../../../substrate/primitives/std", default-features = false}
+sp-io = { path = "../../../substrate/primitives/io", default-features = false}
 xcm-executor = { path = "../xcm-executor", default-features = false }
-frame-benchmarking = { default-features = false, branch = "master", git = "https://github.com/paritytech/substrate" }
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false}
 xcm = { path = "..", default-features = false }
 xcm-builder = { path = "../xcm-builder", default-features = false }
 log = "0.4.17"
 
 [dev-dependencies]
-pallet-balances = { branch = "master", git = "https://github.com/paritytech/substrate" }
-pallet-assets = { branch = "master", git = "https://github.com/paritytech/substrate" }
-sp-core = { branch = "master", git = "https://github.com/paritytech/substrate" }
-sp-tracing = { branch = "master", git = "https://github.com/paritytech/substrate" }
+pallet-balances = { path = "../../../substrate/frame/balances" }
+pallet-assets = { path = "../../../substrate/frame/assets" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-tracing = { path = "../../../substrate/primitives/tracing" }
 xcm = { path = ".." }
 # temp
 pallet-xcm = { path = "../pallet-xcm" }

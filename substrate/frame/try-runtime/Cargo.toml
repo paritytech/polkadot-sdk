@@ -13,10 +13,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"]}
-frame-support = { version = "4.0.0-dev", default-features = false,  path = "../support" }
-sp-api = { version = "4.0.0-dev", default-features = false, path = "../../primitives/api" }
-sp-runtime = { version = "24.0.0", default-features = false, path = "../../primitives/runtime" }
-sp-std = { version = "8.0.0", default-features = false, path = "../../primitives/std" }
+frame-support = { path = "../support", default-features = false}
+sp-api = { path = "../../primitives/api", default-features = false}
+sp-runtime = { path = "../../primitives/runtime", default-features = false}
+sp-std = { path = "../../primitives/std", default-features = false}
 
 [features]
 default = [ "std" ]

@@ -16,15 +16,15 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 docify = "0.2.1"
 scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
 
-frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true, path = "../benchmarking" }
-frame-support = { version = "4.0.0-dev", default-features = false, path = "../support" }
-frame-system = { version = "4.0.0-dev", default-features = false, path = "../system" }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true}
+frame-support = { path = "../support", default-features = false}
+frame-system = { path = "../system", default-features = false}
 
-sp-runtime = { version = "24.0.0", default-features = false, path = "../../primitives/runtime" }
-sp-std = { version = "8.0.0", default-features = false, path = "../../primitives/std" }
-sp-core = { version = "21.0.0", path = "../../primitives/core", default-features = false }
-sp-io = { version = "23.0.0", path = "../../primitives/io", default-features = false }
-sp-metadata-ir = { version = "0.1.0", default-features = false, optional = true, path = "../../primitives/metadata-ir" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false}
+sp-std = { path = "../../primitives/std", default-features = false}
+sp-core = { path = "../../primitives/core", default-features = false }
+sp-io = { path = "../../primitives/io", default-features = false }
+sp-metadata-ir = { path = "../../primitives/metadata-ir", default-features = false, optional = true}
 
 [features]
 default = [ "std" ]

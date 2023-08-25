@@ -14,21 +14,21 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # Substrate dependencies
-sp-runtime = { version = "24.0.0", default-features = false, path = "../../../primitives/runtime" }
-sp-std = { version = "8.0.0", default-features = false, path = "../../../primitives/std" }
-frame-support = { version = "4.0.0-dev", default-features = false, path = "../../support" }
-frame-system = { version = "4.0.0-dev", default-features = false, path = "../../system" }
-pallet-asset-conversion = { version = "4.0.0-dev", default-features = false, path = "../../asset-conversion" }
-pallet-transaction-payment = { version = "4.0.0-dev", default-features = false, path = ".." }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false}
+sp-std = { path = "../../../primitives/std", default-features = false}
+frame-support = { path = "../../support", default-features = false}
+frame-system = { path = "../../system", default-features = false}
+pallet-asset-conversion = { path = "../../asset-conversion", default-features = false}
+pallet-transaction-payment = { path = "..", default-features = false}
 codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
-sp-core = { version = "21.0.0", default-features = false, path = "../../../primitives/core" }
-sp-io = { version = "23.0.0", default-features = false, path = "../../../primitives/io" }
-sp-storage = { version = "13.0.0", default-features = false, path = "../../../primitives/storage" }
-pallet-assets = { version = "4.0.0-dev", path = "../../assets" }
-pallet-balances = { version = "4.0.0-dev", path = "../../balances" }
+sp-core = { path = "../../../primitives/core", default-features = false}
+sp-io = { path = "../../../primitives/io", default-features = false}
+sp-storage = { path = "../../../primitives/storage", default-features = false}
+pallet-assets = { path = "../../assets" }
+pallet-balances = { path = "../../balances" }
 
 [features]
 default = [ "std" ]

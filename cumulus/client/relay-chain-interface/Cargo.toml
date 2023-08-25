@@ -5,14 +5,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-overseer = { path = "../../../polkadot/node/overseer" }
 
 cumulus-primitives-core = { path = "../../primitives/core" }
 
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-api = { path = "../../../substrate/primitives/api" }
+sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
+sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
+sc-client-api = { path = "../../../substrate/client/api" }
 
 futures = "0.3.28"
 async-trait = "0.1.73"

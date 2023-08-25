@@ -18,9 +18,9 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 impl-trait-for-tuples = "0.2.2"
 
-sp-core = { default-features = false, path = "../core" }
-sp-runtime = { default-features = false, path = "../runtime" }
-sp-std = { default-features = false, path = "../std" }
+sp-core = { path = "../core", default-features = false}
+sp-runtime = { path = "../runtime", default-features = false}
+sp-std = { path = "../std", default-features = false}
 
 [features]
 default = [ "std" ]

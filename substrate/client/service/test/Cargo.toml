@@ -21,24 +21,24 @@ parity-scale-codec = "3.6.1"
 parking_lot = "0.12.1"
 tempfile = "3.1.0"
 tokio = { version = "1.22.0", features = ["time"] }
-sc-block-builder = { version = "0.10.0-dev", path = "../../block-builder" }
-sc-client-api = { version = "4.0.0-dev", path = "../../api" }
-sc-client-db = { version = "0.10.0-dev", default-features = false, path = "../../db" }
-sc-consensus = { version = "0.10.0-dev", path = "../../../client/consensus/common" }
-sc-executor = { version = "0.10.0-dev", path = "../../executor" }
-sc-network = { version = "0.10.0-dev", path = "../../network" }
-sc-network-sync = { version = "0.10.0-dev", path = "../../network/sync" }
-sc-service = { version = "0.10.0-dev", features = ["test-helpers"], path = "../../service" }
-sc-transaction-pool-api = { version = "4.0.0-dev", path = "../../../client/transaction-pool/api" }
-sp-api = { version = "4.0.0-dev", path = "../../../primitives/api" }
-sp-blockchain = { version = "4.0.0-dev", path = "../../../primitives/blockchain" }
-sp-consensus = { version = "0.10.0-dev", path = "../../../primitives/consensus/common" }
-sp-core = { version = "21.0.0", path = "../../../primitives/core" }
-sp-runtime = { version = "24.0.0", path = "../../../primitives/runtime" }
-sp-state-machine = { version = "0.28.0", path = "../../../primitives/state-machine" }
-sp-storage = { version = "13.0.0", path = "../../../primitives/storage" }
-sp-tracing = { version = "10.0.0", path = "../../../primitives/tracing" }
-sp-trie = { version = "22.0.0", path = "../../../primitives/trie" }
-sp-io = { version = "23.0.0", path = "../../../primitives/io" }
-substrate-test-runtime = { version = "2.0.0", path = "../../../test-utils/runtime" }
-substrate-test-runtime-client = { version = "2.0.0", path = "../../../test-utils/runtime/client" }
+sc-block-builder = { path = "../../block-builder" }
+sc-client-api = { path = "../../api" }
+sc-client-db = { path = "../../db", default-features = false}
+sc-consensus = { path = "../../consensus/common" }
+sc-executor = { path = "../../executor" }
+sc-network = { path = "../../network" }
+sc-network-sync = { path = "../../network/sync" }
+sc-service = { path = "..", features = ["test-helpers"]}
+sc-transaction-pool-api = { path = "../../transaction-pool/api" }
+sp-api = { path = "../../../primitives/api" }
+sp-blockchain = { path = "../../../primitives/blockchain" }
+sp-consensus = { path = "../../../primitives/consensus/common" }
+sp-core = { path = "../../../primitives/core" }
+sp-runtime = { path = "../../../primitives/runtime" }
+sp-state-machine = { path = "../../../primitives/state-machine" }
+sp-storage = { path = "../../../primitives/storage" }
+sp-tracing = { path = "../../../primitives/tracing" }
+sp-trie = { path = "../../../primitives/trie" }
+sp-io = { path = "../../../primitives/io" }
+substrate-test-runtime = { path = "../../../test-utils/runtime" }
+substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }

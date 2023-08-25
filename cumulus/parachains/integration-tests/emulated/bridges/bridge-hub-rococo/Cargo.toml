@@ -9,30 +9,30 @@ description = "Bridge Hub Rococo runtime integration tests with xcm-emulator"
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
 
 # Substrate
-sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
-frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
-frame-system = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-weights = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
-pallet-balances = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
-pallet-assets = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { path = "../../../../../../substrate/primitives/runtime", default-features = false}
+frame-support = { path = "../../../../../../substrate/frame/support", default-features = false}
+frame-system = { path = "../../../../../../substrate/frame/system", default-features = false}
+sp-core = { path = "../../../../../../substrate/primitives/core", default-features = false}
+sp-weights = { path = "../../../../../../substrate/primitives/weights", default-features = false}
+pallet-balances = { path = "../../../../../../substrate/frame/balances", default-features = false}
+pallet-assets = { path = "../../../../../../substrate/frame/assets", default-features = false}
 
 # Polkadot
-polkadot-core-primitives = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-parachain = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-xcm = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
-xcm-executor = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
-pallet-xcm = { default-features = false, git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-core-primitives = { path = "../../../../../../polkadot/core-primitives", default-features = false}
+polkadot-parachain = { path = "../../../../../../polkadot/parachain", default-features = false}
+polkadot-runtime-parachains = { path = "../../../../../../polkadot/runtime/parachains" }
+polkadot-runtime = { path = "../../../../../../polkadot/runtime/polkadot" }
+xcm = { path = "../../../../../../polkadot/xcm", default-features = false}
+xcm-executor = { path = "../../../../../../polkadot/xcm/xcm-executor", default-features = false}
+pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 
 # Cumulus
 parachains-common = { path = "../../../../common" }
-cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../../pallets/xcmp-queue" }
+cumulus-pallet-xcmp-queue = { path = "../../../../../pallets/xcmp-queue", default-features = false}
 cumulus-pallet-parachain-system = { path = "../../../../../pallets/parachain-system" }
-pallet-bridge-messages = { default-features = false, path = "../../../../../bridges/modules/messages" }
-bp-messages = { default-features = false, path = "../../../../../bridges/primitives/messages" }
+pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false}
+bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false}
 
 # Local
-xcm-emulator = { default-features = false, path = "../../../../../xcm/xcm-emulator" }
-integration-tests-common = { default-features = false, path = "../../common" }
+xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false}
+integration-tests-common = { path = "../../common", default-features = false}

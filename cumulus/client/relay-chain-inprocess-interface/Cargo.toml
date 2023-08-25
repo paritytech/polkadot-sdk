@@ -10,20 +10,20 @@ futures = "0.3.28"
 futures-timer = "3.0.2"
 
 # Substrate
-sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-sysinfo = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-cli = { path = "../../../substrate/client/cli" }
+sc-client-api = { path = "../../../substrate/client/api" }
+sc-telemetry = { path = "../../../substrate/client/telemetry" }
+sc-tracing = { path = "../../../substrate/client/tracing" }
+sc-sysinfo = { path = "../../../substrate/client/sysinfo" }
+sp-api = { path = "../../../substrate/primitives/api" }
+sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
 
 # Polkadot
-polkadot-cli = { git = "https://github.com/paritytech/polkadot", default-features = false, features = ["cli"] , branch = "master" }
-polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-cli = { path = "../../../polkadot/cli", default-features = false, features = ["cli"] }
+polkadot-service = { path = "../../../polkadot/node/service" }
 
 # Cumulus
 cumulus-primitives-core = { path = "../../primitives/core" }
@@ -32,11 +32,11 @@ cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
 [dev-dependencies]
 
 # Substrate
-sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-keyring = { path = "../../../substrate/primitives/keyring" }
 
 # Polkadot
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-test-client = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-primitives = { path = "../../../polkadot/primitives" }
+polkadot-test-client = { path = "../../../polkadot/node/test/client" }
 metered = { package = "prioritized-metered-channel", version = "0.2.0" }
 
 # Cumulus

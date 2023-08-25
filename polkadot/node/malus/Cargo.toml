@@ -38,12 +38,12 @@ polkadot-primitives = { path = "../../primitives" }
 color-eyre = { version = "0.6.1", default-features = false }
 assert_matches = "1.5"
 async-trait = "0.1.57"
-sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-keystore = { path = "../../../substrate/primitives/keystore" }
+sp-core = { path = "../../../substrate/primitives/core" }
 clap = { version = "4.0.9", features = ["derive"] }
 futures = "0.3.21"
 futures-timer = "3.0.2"
-gum = { package = "tracing-gum", path = "../gum/" }
+gum = { package = "tracing-gum", path = "../gum" }
 erasure = { package = "polkadot-erasure-coding", path = "../../erasure-coding" }
 rand = "0.8.5"
 
@@ -54,11 +54,11 @@ polkadot-node-core-pvf-prepare-worker = { path = "../core/pvf/prepare-worker" }
 
 [dev-dependencies]
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-core = { path = "../../../substrate/primitives/core" }
 futures = { version = "0.3.21", features = ["thread-pool"] }
 
 [build-dependencies]
-substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "master" }
+substrate-build-script-utils = { path = "../../../substrate/utils/build-script-utils" }
 
 [features]
 default = []

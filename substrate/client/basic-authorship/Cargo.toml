@@ -17,20 +17,20 @@ codec = { package = "parity-scale-codec", version = "3.6.1" }
 futures = "0.3.21"
 futures-timer = "3.0.1"
 log = "0.4.17"
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", version = "0.10.0-dev", path = "../../utils/prometheus" }
-sc-block-builder = { version = "0.10.0-dev", path = "../block-builder" }
-sc-client-api = { version = "4.0.0-dev", path = "../api" }
-sc-proposer-metrics = { version = "0.10.0-dev", path = "../proposer-metrics" }
-sc-telemetry = { version = "4.0.0-dev", path = "../telemetry" }
-sc-transaction-pool-api = { version = "4.0.0-dev", path = "../../client/transaction-pool/api" }
-sp-api = { version = "4.0.0-dev", path = "../../primitives/api" }
-sp-blockchain = { version = "4.0.0-dev", path = "../../primitives/blockchain" }
-sp-consensus = { version = "0.10.0-dev", path = "../../primitives/consensus/common" }
-sp-core = { version = "21.0.0", path = "../../primitives/core" }
-sp-inherents = { version = "4.0.0-dev", path = "../../primitives/inherents" }
-sp-runtime = { version = "24.0.0", path = "../../primitives/runtime" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
+sc-block-builder = { path = "../block-builder" }
+sc-client-api = { path = "../api" }
+sc-proposer-metrics = { path = "../proposer-metrics" }
+sc-telemetry = { path = "../telemetry" }
+sc-transaction-pool-api = { path = "../transaction-pool/api" }
+sp-api = { path = "../../primitives/api" }
+sp-blockchain = { path = "../../primitives/blockchain" }
+sp-consensus = { path = "../../primitives/consensus/common" }
+sp-core = { path = "../../primitives/core" }
+sp-inherents = { path = "../../primitives/inherents" }
+sp-runtime = { path = "../../primitives/runtime" }
 
 [dev-dependencies]
 parking_lot = "0.12.1"
-sc-transaction-pool = { version = "4.0.0-dev", path = "../transaction-pool" }
-substrate-test-runtime-client = { version = "2.0.0", path = "../../test-utils/runtime/client" }
+sc-transaction-pool = { path = "../transaction-pool" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }

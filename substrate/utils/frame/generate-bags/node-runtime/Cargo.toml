@@ -10,8 +10,8 @@ description = "Bag threshold generation script for pallet-bag-list and kitchensi
 publish = false
 
 [dependencies]
-kitchensink-runtime = { version = "3.0.0-dev", path = "../../../../bin/node/runtime" }
-generate-bags = { version = "4.0.0-dev", path = "../" }
+kitchensink-runtime = { path = "../../../../bin/node/runtime" }
+generate-bags = { path = ".." }
 
 # third-party
 clap = { version = "4.2.5", features = ["derive"] }

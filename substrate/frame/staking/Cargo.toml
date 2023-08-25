@@ -18,35 +18,35 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 ] }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive", "serde"] }
-sp-io = { version = "23.0.0", default-features = false, path = "../../primitives/io" }
-sp-runtime = { version = "24.0.0", default-features = false, path = "../../primitives/runtime", features = ["serde"] }
-sp-staking = { version = "4.0.0-dev", default-features = false, path = "../../primitives/staking", features = ["serde"] }
-sp-std = { version = "8.0.0", default-features = false, path = "../../primitives/std" }
-frame-support = { version = "4.0.0-dev", default-features = false, path = "../support" }
-frame-system = { version = "4.0.0-dev", default-features = false, path = "../system" }
-pallet-session = { version = "4.0.0-dev", default-features = false, features = [
+sp-io = { path = "../../primitives/io", default-features = false}
+sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
+sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"] }
+sp-std = { path = "../../primitives/std", default-features = false}
+frame-support = { path = "../support", default-features = false}
+frame-system = { path = "../system", default-features = false}
+pallet-session = { path = "../session", default-features = false, features = [
 	"historical",
-], path = "../session" }
-pallet-authorship = { version = "4.0.0-dev", default-features = false, path = "../authorship" }
-sp-application-crypto = { version = "23.0.0", default-features = false, path = "../../primitives/application-crypto", features = ["serde"] }
-frame-election-provider-support = { version = "4.0.0-dev", default-features = false, path = "../election-provider-support" }
+]}
+pallet-authorship = { path = "../authorship", default-features = false}
+sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"] }
+frame-election-provider-support = { path = "../election-provider-support", default-features = false}
 log = { version = "0.4.17", default-features = false }
 
 # Optional imports for benchmarking
-frame-benchmarking = { version = "4.0.0-dev", default-features = false, path = "../benchmarking", optional = true }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
 rand_chacha = { version = "0.2", default-features = false, optional = true }
 
 [dev-dependencies]
-sp-tracing = { version = "10.0.0", path = "../../primitives/tracing" }
-sp-core = { version = "21.0.0", path = "../../primitives/core" }
-sp-npos-elections = { version = "4.0.0-dev", path = "../../primitives/npos-elections" }
-pallet-balances = { version = "4.0.0-dev", path = "../balances" }
-pallet-timestamp = { version = "4.0.0-dev", path = "../timestamp" }
-pallet-staking-reward-curve = { version = "4.0.0-dev", path = "../staking/reward-curve" }
-pallet-bags-list = { version = "4.0.0-dev", path = "../bags-list" }
-substrate-test-utils = { version = "4.0.0-dev", path = "../../test-utils" }
-frame-benchmarking = { version = "4.0.0-dev", path = "../benchmarking" }
-frame-election-provider-support = { version = "4.0.0-dev", path = "../election-provider-support" }
+sp-tracing = { path = "../../primitives/tracing" }
+sp-core = { path = "../../primitives/core" }
+sp-npos-elections = { path = "../../primitives/npos-elections" }
+pallet-balances = { path = "../balances" }
+pallet-timestamp = { path = "../timestamp" }
+pallet-staking-reward-curve = { path = "reward-curve" }
+pallet-bags-list = { path = "../bags-list" }
+substrate-test-utils = { path = "../../test-utils" }
+frame-benchmarking = { path = "../benchmarking" }
+frame-election-provider-support = { path = "../election-provider-support" }
 rand_chacha = { version = "0.2" }
 
 [features]
