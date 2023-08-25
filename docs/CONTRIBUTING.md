@@ -67,7 +67,7 @@ d) that the docs team was included in the review process of a docs update
 2. It does not fit well with some other contributors' longer-term vision for the project.
 
 ## Helping out
-We use [labels](https://paritytech.github.io/labels/doc_substrate.html) to manage PRs and issues and communicate state of a PR. Please familiarise yourself with them. Best way to get started is to a pick a ticket tagged `[easy](https://github.com/paritytech/substrate/issues?q=is%3Aissue+is%3Aopen+label%3AZ1-easy)` or `[medium](https://github.com/paritytech/substrate/issues?q=is%3Aissue+is%3Aopen+label%3AZ2-medium)` and get going or `[mentor](https://github.com/paritytech/substrate/issues?q=is%3Aissue+is%3Aopen+label%3AZ6-mentor)` and get in contact with the mentor offering their support on that larger task.
+We use [labels](https://github.com/paritytech/polkadot-sdk/labels) to manage PRs and issues and communicate state of a PR. Please familiarise yourself with them. Best way to get started is to a pick a ticket tagged `[easy](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD0-easy)` or `[medium](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD1-medium)` and get going or `[mentor](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AC1-mentor)` and get in contact with the mentor offering their support on that larger task.
 ****
 
 ### Issues
