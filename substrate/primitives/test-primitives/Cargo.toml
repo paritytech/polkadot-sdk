@@ -1,0 +1,41 @@
+[package]
+name = "sp-test-primitives"
+version = "2.0.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://substrate.io"
+repository = "https://github.com/paritytech/substrate/"
+publish = false
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+serde = { version = "1.0.163", default-features = false, features = ["derive"], optional = true }
+sp-application-crypto = { version = "23.0.0", default-features = false, path = "../application-crypto" }
+sp-core = { version = "21.0.0", default-features = false, path = "../core" }
+sp-runtime = { version = "24.0.0", default-features = false, path = "../runtime" }
+sp-std = { version = "8.0.0", default-features = false, path = "../std" }
+
+[features]
+default = [ "std" ]
+std = [
+	"codec/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-application-crypto/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]
+
+# Serde support without relying on std features.
+serde = [
+	"dep:serde",
+	"sp-application-crypto/serde",
+	"sp-core/serde",
+	"sp-runtime/serde",
+]

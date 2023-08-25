@@ -1,0 +1,50 @@
+error: Only `&self` is supported!
+  --> tests/ui/mock_only_self_reference.rs:14:11
+   |
+14 |         fn test(self, data: u64) {}
+   |                 ^^^^
+
+error: Only `&self` is supported!
+  --> tests/ui/mock_only_self_reference.rs:16:12
+   |
+16 |         fn test2(&mut self, data: u64) {}
+   |                  ^
+
+error[E0050]: method `test` has 2 parameters but the declaration in trait `Api::test` has 3
+  --> tests/ui/mock_only_self_reference.rs:12:1
+   |
+3  | / sp_api::decl_runtime_apis! {
+4  | |     pub trait Api {
+5  | |         fn test(data: u64);
+   | |_________________________- trait requires 3 parameters
+...
+12 | / sp_api::mock_impl_runtime_apis! {
+13 | |     impl Api<Block> for MockApi {
+14 | |         fn test(self, data: u64) {}
+15 | |
+16 | |         fn test2(&mut self, data: u64) {}
+17 | |     }
+18 | | }
+   | |_^ expected 3 parameters, found 2
+   |
+   = note: this error originates in the macro `sp_api::mock_impl_runtime_apis` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0050]: method `test2` has 2 parameters but the declaration in trait `Api::test2` has 3
+  --> tests/ui/mock_only_self_reference.rs:12:1
+   |
+3  | / sp_api::decl_runtime_apis! {
+4  | |     pub trait Api {
+5  | |         fn test(data: u64);
+6  | |         fn test2(data: u64);
+   | |__________________________- trait requires 3 parameters
+...
+12 | / sp_api::mock_impl_runtime_apis! {
+13 | |     impl Api<Block> for MockApi {
+14 | |         fn test(self, data: u64) {}
+15 | |
+16 | |         fn test2(&mut self, data: u64) {}
+17 | |     }
+18 | | }
+   | |_^ expected 3 parameters, found 2
+   |
+   = note: this error originates in the macro `sp_api::mock_impl_runtime_apis` (in Nightly builds, run with -Z macro-backtrace for more info)

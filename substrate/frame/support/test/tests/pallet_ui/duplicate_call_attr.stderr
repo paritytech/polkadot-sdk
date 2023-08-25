@@ -1,0 +1,5 @@
+error: Invalid duplicated attribute
+  --> $DIR/duplicate_call_attr.rs:22:12
+   |
+22 |     #[pallet::call]
+   |               ^^^^

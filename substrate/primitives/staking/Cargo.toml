@@ -1,0 +1,35 @@
+[package]
+name = "sp-staking"
+version = "4.0.0-dev"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://substrate.io"
+repository = "https://github.com/paritytech/substrate/"
+description = "A crate which contains primitives that are useful for implementation that uses staking approaches in general. Definitions related to sessions, slashing, etc go here."
+readme = "README.md"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+serde = { version = "1.0.163", default-features = false, features = ["derive", "alloc"], optional = true }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+impl-trait-for-tuples = "0.2.2"
+
+sp-core = { default-features = false, path = "../core" }
+sp-runtime = { default-features = false, path = "../runtime" }
+sp-std = { default-features = false, path = "../std" }
+
+[features]
+default = [ "std" ]
+std = [
+	"codec/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]
+runtime-benchmarks = [ "sp-runtime/runtime-benchmarks" ]

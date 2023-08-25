@@ -1,0 +1,35 @@
+[package]
+name = "frame-remote-externalities"
+version = "0.10.0-dev"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://substrate.io"
+repository = "https://github.com/paritytech/substrate/"
+description = "An externalities provided environment that can load itself from remote nodes or cached files"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+jsonrpsee = { version = "0.16.2", features = ["http-client"] }
+codec = { package = "parity-scale-codec", version = "3.6.1" }
+log = "0.4.17"
+serde = "1.0.163"
+sp-core = { version = "21.0.0", path = "../../../primitives/core" }
+sp-state-machine = { version = "0.28.0", path = "../../../primitives/state-machine" }
+sp-io = { version = "23.0.0", path = "../../../primitives/io" }
+sp-runtime = { version = "24.0.0", path = "../../../primitives/runtime" }
+tokio = { version = "1.22.0", features = ["macros", "rt-multi-thread"] }
+substrate-rpc-client = { path = "../rpc/client" }
+futures = "0.3"
+async-recursion = "1.0.4"
+indicatif = "0.17.3"
+spinners = "4.1.0"
+tokio-retry = "0.3.0"
+
+[dev-dependencies]
+sp-tracing = { version = "10.0.0", path = "../../../primitives/tracing" }
+
+[features]
+remote-test = []

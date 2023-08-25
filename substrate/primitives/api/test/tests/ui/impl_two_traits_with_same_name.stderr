@@ -1,0 +1,5 @@
+error: Two traits with the same name detected! The trait name is used to generate its ID. Please rename one trait at the declaration!
+  --> tests/ui/impl_two_traits_with_same_name.rs:24:15
+   |
+24 |     impl second::Api<Block> for Runtime {
+   |                  ^^^

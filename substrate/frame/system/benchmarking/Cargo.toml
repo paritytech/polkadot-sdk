@@ -1,0 +1,51 @@
+[package]
+name = "frame-system-benchmarking"
+version = "4.0.0-dev"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://substrate.io"
+repository = "https://github.com/paritytech/substrate/"
+description = "FRAME System benchmarking"
+readme = "README.md"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+frame-benchmarking = { version = "4.0.0-dev", default-features = false, path = "../../benchmarking" }
+frame-support = { version = "4.0.0-dev", default-features = false, path = "../../support" }
+frame-system = { version = "4.0.0-dev", default-features = false, path = "../../system" }
+sp-core = { version = "21.0.0", default-features = false, path = "../../../primitives/core" }
+sp-runtime = { version = "24.0.0", default-features = false, path = "../../../primitives/runtime" }
+sp-std = { version = "8.0.0", default-features = false, path = "../../../primitives/std" }
+
+[dev-dependencies]
+sp-io = { version = "23.0.0", path = "../../../primitives/io" }
+sp-externalities = { version = "0.19.0", path = "../../../primitives/externalities" }
+sp-version = { version = "22.0.0", path = "../../../primitives/version" }
+
+[features]
+default = [ "std" ]
+std = [
+	"codec/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-externalities/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-version/std",
+]
+
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

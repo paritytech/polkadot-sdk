@@ -1,0 +1,6 @@
+
+= Substrate CLI
+
+Substrate CLI library
+
+include::doc/shell-completion.adoc[]

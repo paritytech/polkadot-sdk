@@ -1,0 +1,5 @@
+error: `Block: BlockT` generic parameter will be added automatically by the `decl_runtime_apis!` macro! If you try to use a different trait than the substrate `Block` trait, please rename it locally.
+ --> $DIR/declaring_own_block_with_different_name.rs:2:19
+  |
+2 |     pub trait Api<B: BlockT> {
+  |                      ^^^^^^
