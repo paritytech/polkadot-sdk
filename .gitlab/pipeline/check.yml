@@ -84,7 +84,7 @@ check-dependency-rules:
   allow_failure: true
   script:
     - cd substrate/
-    - .gitlab/ensure-deps.sh
+    - ../.gitlab/ensure-deps.sh
 
 test-rust-features:
   stage: check
