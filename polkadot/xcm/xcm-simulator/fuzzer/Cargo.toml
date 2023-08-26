@@ -32,10 +32,10 @@ polkadot-parachain = { path = "../../../parachain" }
 
 [features]
 runtime-benchmarks = [
-    "pallet-xcm/runtime-benchmarks",
-    "pallet-message-queue/runtime-benchmarks",
-    "xcm-builder/runtime-benchmarks",
-    "frame-support/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
 ]
 
 [[bin]]

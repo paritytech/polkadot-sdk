@@ -22,18 +22,18 @@ frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-f
 pallet-session = { path = "../../../substrate/frame/session", default-features = false}
 
 [features]
-default = ["std"]
+default = [ "std" ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 ]
 std = [
-	"parity-scale-codec/std",
-	"sp-std/std",
-	"sp-runtime/std",
-	"frame-system/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
+	"frame-system/std",
 	"pallet-session/std",
+	"parity-scale-codec/std",
+	"sp-runtime/std",
+	"sp-std/std",
 ]

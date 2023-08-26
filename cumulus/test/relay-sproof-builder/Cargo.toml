@@ -23,9 +23,9 @@ cumulus-primitives-core = { path = "../../primitives/core", default-features = f
 default = [ "std" ]
 std = [
 	"codec/std",
+	"cumulus-primitives-core/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
-	"sp-trie/std",
 	"sp-std/std",
-	"cumulus-primitives-core/std",
+	"sp-trie/std",
 ]

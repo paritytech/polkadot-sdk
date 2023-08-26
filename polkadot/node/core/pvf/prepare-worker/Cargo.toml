@@ -32,4 +32,4 @@ tikv-jemalloc-ctl = "0.5.0"
 
 [features]
 builder = []
-jemalloc-allocator = ["dep:tikv-jemalloc-ctl"]
+jemalloc-allocator = [ "dep:tikv-jemalloc-ctl" ]

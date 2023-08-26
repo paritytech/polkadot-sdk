@@ -95,9 +95,7 @@ bridge-runtime-common = { path = "../../../../bridges/bin/runtime-common", featu
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 
 [features]
-default = [
-	"std",
-]
+default = [ "std" ]
 std = [
 	"bp-bridge-hub-rococo/std",
 	"bp-bridge-hub-wococo/std",
@@ -106,14 +104,11 @@ std = [
 	"bp-parachains/std",
 	"bp-polkadot-core/std",
 	"bp-relayers/std",
-	"bp-runtime/std",
 	"bp-rococo/std",
+	"bp-runtime/std",
 	"bp-wococo/std",
 	"bridge-runtime-common/std",
 	"codec/std",
-	"log/std",
-	"scale-info/std",
-	"serde",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-dmp-queue/std",
 	"cumulus-pallet-parachain-system/std",
@@ -126,6 +121,7 @@ std = [
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
@@ -147,6 +143,8 @@ std = [
 	"polkadot-parachain/std",
 	"polkadot-runtime-common/std",
 	"rococo-runtime-constants/std",
+	"scale-info/std",
+	"serde",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -159,14 +157,17 @@ std = [
 	"sp-std/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
+	"substrate-wasm-builder",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"substrate-wasm-builder",
 ]
 
 runtime-benchmarks = [
 	"bridge-runtime-common/runtime-benchmarks",
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
+	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
@@ -178,22 +179,15 @@ runtime-benchmarks = [
 	"pallet-bridge-relayers/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
-	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
+	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
-	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
-	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
-	"pallet-xcm-benchmarks/runtime-benchmarks",
 ]
 
 try-runtime = [
-	"pallet-bridge-grandpa/try-runtime",
-	"pallet-bridge-messages/try-runtime",
-	"pallet-bridge-parachains/try-runtime",
-	"pallet-bridge-relayers/try-runtime",
 	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-dmp-queue/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
@@ -205,6 +199,10 @@ try-runtime = [
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-bridge-grandpa/try-runtime",
+	"pallet-bridge-messages/try-runtime",
+	"pallet-bridge-parachains/try-runtime",
+	"pallet-bridge-relayers/try-runtime",
 	"pallet-collator-selection/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-session/try-runtime",

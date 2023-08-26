@@ -23,7 +23,7 @@ hex = "0.4.3"
 hex-literal = "0.4.1"
 
 [features]
-default = ["std"]
+default = [ "std" ]
 wasm-api = []
 std = [
 	"bounded-collections/std",

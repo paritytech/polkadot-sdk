@@ -24,7 +24,4 @@ substrate-wasm-builder = { path = "../../../../substrate/utils/wasm-builder" }
 
 [features]
 default = [ "std" ]
-std = [
-	"parachain/std",
-	"sp-std/std",
-]
+std = [ "parachain/std", "sp-std/std" ]

@@ -19,15 +19,15 @@ xcm = { path = "../../../polkadot/xcm", default-features = false}
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"codec/std",
-	"scale-info/std",
 	"cumulus-primitives-core/std",
-	"sp-std/std",
-	"sp-runtime/std",
 	"frame-support/std",
 	"frame-system/std",
+	"scale-info/std",
+	"sp-runtime/std",
+	"sp-std/std",
 	"xcm/std",
 ]
-try-runtime = ["frame-support/try-runtime"]
+try-runtime = [ "frame-support/try-runtime" ]

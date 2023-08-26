@@ -31,7 +31,7 @@ trie-db = { version = "0.27.1", default-features = false }
 hex-literal = "0.4"
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"codec/std",
 	"frame-support/std",
@@ -44,8 +44,8 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-state-machine/std",
+	"sp-std/std",
 	"sp-trie/std",
 	"trie-db/std",
 ]
