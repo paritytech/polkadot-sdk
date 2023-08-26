@@ -110,7 +110,7 @@ mod tests {
 
 			// Errors if we stay below a weight limit of 1000.
 			for i in 0..10 {
-				let meter = &mut WeightMeter::from_limit((i * 10).into());
+				let meter = &mut WeightMeter::with_limit((i * 10).into());
 				let mut id = [0; 32];
 				assert_err!(
 					Processor::process_message(msg, ORIGIN, meter, &mut id),
@@ -120,7 +120,7 @@ mod tests {
 			}
 
 			// Works with a limit of 1000.
-			let meter = &mut WeightMeter::from_limit(1000.into());
+			let meter = &mut WeightMeter::with_limit(1000.into());
 			let mut id = [0; 32];
 			assert_ok!(Processor::process_message(msg, ORIGIN, meter, &mut id));
 			assert_eq!(meter.consumed(), 1000.into());
@@ -150,6 +150,6 @@ mod tests {
 	}
 
 	fn process_raw(raw: &[u8]) -> Result<bool, ProcessMessageError> {
-		Processor::process_message(raw, ORIGIN, &mut WeightMeter::max_limit(), &mut [0; 32])
+		Processor::process_message(raw, ORIGIN, &mut WeightMeter::new(), &mut [0; 32])
 	}
 }

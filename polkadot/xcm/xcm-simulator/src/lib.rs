@@ -324,7 +324,7 @@ macro_rules! decl_test_network {
 						let mut _id = [0; 32];
 						let r = <$relay_chain>::process_message(
 							encoded.as_slice(), para_id,
-							&mut $crate::WeightMeter::max_limit(),
+							&mut $crate::WeightMeter::new(),
 							&mut _id,
 						);
 						match r {
