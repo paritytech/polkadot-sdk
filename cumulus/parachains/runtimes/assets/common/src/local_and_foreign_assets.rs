@@ -13,14 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::{
-	traits::{
-		fungibles::{Balanced, Create, HandleImbalanceDrop, Inspect, Mutate, Unbalanced},
-		tokens::{
-			DepositConsequence, Fortitude, Precision, Preservation, Provenance, WithdrawConsequence,
-		},
-		AccountTouch, Contains, ContainsPair, Get, PalletInfoAccess,
+use frame_support::traits::{
+	fungibles::{Balanced, Create, HandleImbalanceDrop, Inspect, Mutate, Unbalanced},
+	tokens::{
+		DepositConsequence, Fortitude, Precision, Preservation, Provenance, WithdrawConsequence,
 	},
+	AccountTouch, Contains, ContainsPair, Get, PalletInfoAccess,
 };
 use pallet_asset_conversion::{MultiAssetIdConversionResult, MultiAssetIdConverter};
 use parachains_common::AccountId;
