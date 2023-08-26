@@ -280,7 +280,7 @@ parameter_types! {
 impl pallet_beefy::Config for Runtime {
 	type BeefyId = BeefyId;
 	type MaxAuthorities = MaxAuthorities;
-	type MaxNominators = MaxNominatorRewardedPerValidator;
+	type MaxNominators = MaxExposurePageSize;
 	type MaxSetIdSessionEntries = BeefySetIdSessionEntries;
 	type OnNewValidatorSet = BeefyMmrLeaf;
 	type WeightInfo = ();
