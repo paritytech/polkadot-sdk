@@ -24,10 +24,10 @@ sp-core = { path = "../../../../substrate/primitives/core", default-features = f
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
 sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 
-# Polkadot Dependencies
+# XCM Dependencies
 
-xcm = { path = "../../../../polkadot/xcm", default-features = false }
-xcm-builder = { path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false }
+xcm-builder = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false }
 
 [dev-dependencies]
 sp-io = { path = "../../../../substrate/primitives/io" }

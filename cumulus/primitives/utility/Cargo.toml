@@ -16,9 +16,11 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false}
 
 # Polkadot
 polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false}
-xcm = { path = "../../../polkadot/xcm", default-features = false}
-xcm-executor = { path = "../../../polkadot/xcm/xcm-executor", default-features = false}
-xcm-builder = { path = "../../../polkadot/xcm/xcm-builder", default-features = false}
+
+# XCM
+xcm = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false }
+xcm-executor = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false }
+xcm-builder = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false }
 
 
 # Cumulus

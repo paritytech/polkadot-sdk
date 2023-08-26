@@ -29,9 +29,11 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false 
 
 # Polkadot
 polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false}
-xcm = { path = "../../../polkadot/xcm", default-features = false}
-xcm-builder = { path = "../../../polkadot/xcm/xcm-builder", default-features = false}
-xcm-executor = { path = "../../../polkadot/xcm/xcm-executor", default-features = false}
+
+# XCM
+xcm = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false}
+xcm-builder = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false}
+xcm-executor = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false}
 
 # Cumulus
 pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false }

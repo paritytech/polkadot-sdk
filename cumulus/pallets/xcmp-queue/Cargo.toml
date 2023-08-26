@@ -19,8 +19,10 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false}
 
 # Polkadot
 polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false}
-xcm = { path = "../../../polkadot/xcm", default-features = false}
-xcm-executor = { path = "../../../polkadot/xcm/xcm-executor", default-features = false}
+
+# XCM
+xcm = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false }
+xcm-executor = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false }
 
 # Cumulus
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
@@ -35,7 +37,7 @@ sp-core = { path = "../../../substrate/primitives/core" }
 pallet-balances = { path = "../../../substrate/frame/balances" }
 
 # Polkadot
-xcm-builder = { path = "../../../polkadot/xcm/xcm-builder" }
+xcm-builder = { git = "https://github.com/paritytech/xcm", branch = "main" }
 
 # Cumulus
 cumulus-pallet-parachain-system = { path = "../parachain-system" }

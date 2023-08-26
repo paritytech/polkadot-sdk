@@ -40,9 +40,9 @@ sp-runtime = { path = "../../../../substrate/primitives/runtime", default-featur
 sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 sp-trie = { path = "../../../../substrate/primitives/trie", default-features = false }
 
-# Polkadot dependencies
-xcm = { path = "../../../../polkadot/xcm", default-features = false }
-xcm-builder = { path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
+# XCM dependencies
+xcm = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false }
+xcm-builder = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false }
 
 [dev-dependencies]
 bp-test-utils = { path = "../../primitives/test-utils" }

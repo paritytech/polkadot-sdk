@@ -76,8 +76,6 @@ pallet-tips = { path = "../../../substrate/frame/tips", default-features = false
 pallet-treasury = { path = "../../../substrate/frame/treasury", default-features = false }
 pallet-utility = { path = "../../../substrate/frame/utility", default-features = false }
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false }
-pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false, features=["experimental"] }
-pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-features = false, optional = true }
@@ -89,9 +87,11 @@ runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parac
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
 polkadot-parachain = { path = "../../parachain", default-features = false }
 
-xcm = { package = "xcm", path = "../../xcm", default-features = false }
-xcm-executor = { package = "xcm-executor", path = "../../xcm/xcm-executor", default-features = false }
-xcm-builder = { package = "xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
+pallet-xcm = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false, features=["experimental"] }
+pallet-xcm-benchmarks = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false, optional = true }
+xcm = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false }
+xcm-executor = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false }
+xcm-builder = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false }
 
 [dev-dependencies]
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }

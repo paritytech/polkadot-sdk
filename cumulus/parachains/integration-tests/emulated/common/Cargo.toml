@@ -41,9 +41,11 @@ rococo-runtime = { path = "../../../../../polkadot/runtime/rococo" }
 rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/constants" }
 westend-runtime = { path = "../../../../../polkadot/runtime/westend" }
 westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/constants" }
-xcm = { path = "../../../../../polkadot/xcm", default-features = false}
-xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
+
+# XCM
+xcm = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false}
+xcm-executor = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false}
+pallet-xcm = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false}
 
 # Cumulus
 parachains-common = { path = "../../../common" }

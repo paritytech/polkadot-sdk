@@ -33,12 +33,12 @@ parachain-info = { path = "../../../pallets/parachain-info", default-features = 
 parachains-common = { path = "../../../common", default-features = false }
 parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false }
 
-# Polkadot
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
-pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
-xcm = { path = "../../../../../polkadot/xcm", default-features = false}
-xcm-builder = { path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
-xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
+# XCM
+pallet-xcm = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false}
+pallet-xcm-benchmarks = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false, optional = true }
+xcm = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false}
+xcm-builder = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false}
+xcm-executor = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false}
 
 # Bridges
 bp-bridge-hub-rococo = { path = "../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }

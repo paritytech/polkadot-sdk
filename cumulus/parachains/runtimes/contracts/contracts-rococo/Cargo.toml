@@ -53,13 +53,15 @@ pallet-contracts-primitives = { path = "../../../../../substrate/frame/contracts
 
 # Polkadot
 kusama-runtime-constants = { path = "../../../../../polkadot/runtime/kusama/constants", default-features = false}
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false}
 polkadot-parachain = { path = "../../../../../polkadot/parachain", default-features = false}
 polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false}
-xcm = { path = "../../../../../polkadot/xcm", default-features = false}
-xcm-builder = { path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
-xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
+
+# XCM
+pallet-xcm = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false }
+xcm = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false }
+xcm-builder = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false }
+xcm-executor = { git = "https://github.com/paritytech/xcm", branch = "main", default-features = false }
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }

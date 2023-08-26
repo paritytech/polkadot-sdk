@@ -35,7 +35,9 @@ cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
 parachains-common = { path = "../../parachains/common" }
 
 # Polkadot
-xcm = { path = "../../../polkadot/xcm" }
-xcm-executor = { path = "../../../polkadot/xcm/xcm-executor" }
 polkadot-primitives = { path = "../../../polkadot/primitives" }
 polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains" }
+
+# XCM
+xcm = { git = "https://github.com/paritytech/xcm", branch = "main" }
+xcm-executor = { git = "https://github.com/paritytech/xcm", branch = "main" }
