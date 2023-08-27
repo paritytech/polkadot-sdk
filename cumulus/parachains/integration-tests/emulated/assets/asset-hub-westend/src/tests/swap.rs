@@ -155,11 +155,9 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		.encode()
 		.into();
 
-	let buy_execution_fee_amount =
-		asset_hub_westend_runtime::constants::fee::WeightToFee::weight_to_fee(&Weight::from_parts(
-			10_100_000_000_000,
-			300_000,
-		));
+	let buy_execution_fee_amount = parachains_common::westend::fee::WeightToFee::weight_to_fee(
+		&Weight::from_parts(10_100_000_000_000, 300_000),
+	);
 	let buy_execution_fee = MultiAsset {
 		id: Concrete(MultiLocation { parents: 1, interior: Here }),
 		fun: Fungible(buy_execution_fee_amount),
