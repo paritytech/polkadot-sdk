@@ -73,8 +73,8 @@ pub mod fee {
 	impl WeightToFeePolynomial for RefTimeToFee {
 		type Balance = Balance;
 		fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-			// in Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT:
-			// in Bridge Hub, we map to 1/10 of that, or 1/100 CENT
+			// In Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT:
+			// The standard system parachain configuration is 1/10 of that, as in 1/100 CENT.
 			let p = super::currency::CENTS;
 			let q = 100 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
 
