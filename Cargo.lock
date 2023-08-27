@@ -11155,6 +11155,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "substrate-wasm-builder",
+ "westend-runtime-constants",
  "xcm",
  "xcm-builder",
  "xcm-executor",
