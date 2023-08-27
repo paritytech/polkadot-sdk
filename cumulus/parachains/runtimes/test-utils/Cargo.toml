@@ -66,9 +66,11 @@ std = [
 	"parachains-common/std",
 	"polkadot-parachain/std",
 	"sp-consensus-aura/std",
+	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-tracing/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]

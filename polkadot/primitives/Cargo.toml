@@ -47,7 +47,12 @@ std = [
 	"sp-consensus-slots/std",
 	"sp-io/std",
 	"sp-keystore",
+	"sp-keystore?/std",
 	"sp-staking/std",
 	"sp-std/std",
 ]
-runtime-benchmarks = []
+runtime-benchmarks = [
+	"polkadot-parachain/runtime-benchmarks",
+	"runtime_primitives/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
+]

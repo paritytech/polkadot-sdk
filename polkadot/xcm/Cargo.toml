@@ -30,5 +30,6 @@ std = [
 	"parity-scale-codec/std",
 	"scale-info/std",
 	"serde/std",
+	"sp-io/std",
 	"sp-weights/std",
 ]

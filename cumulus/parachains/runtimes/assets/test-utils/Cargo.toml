@@ -67,6 +67,7 @@ std = [
 	"parachains-runtimes-test-utils/std",
 	"polkadot-parachain/std",
 	"sp-consensus-aura/std",
+	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",

@@ -26,4 +26,14 @@ sp-tracing = { path = "../../../../substrate/primitives/tracing" }
 
 [features]
 default = [ "std" ]
-std = [ "frame-support/std", "sp-runtime/std", "xcm/std" ]
+std = [
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-xcm/std",
+	"polkadot-test-runtime/std",
+	"sp-runtime/std",
+	"sp-state-machine/std",
+	"sp-tracing/std",
+	"xcm-executor/std",
+	"xcm/std",
+]
