@@ -1,6 +1,6 @@
 use crate::{
-	constants::currency::deposit, Balance, Balances, RandomnessCollectiveFlip, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeHoldReason, Timestamp,
+	Balance, Balances, RandomnessCollectiveFlip, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeHoldReason, Timestamp,
 };
 use frame_support::{
 	parameter_types,
@@ -13,7 +13,7 @@ use pallet_contracts::{
 };
 use sp_runtime::Perbill;
 
-pub use parachains_common::AVERAGE_ON_INITIALIZE_RATIO;
+pub use parachains_common::{rococo::currency::deposit, AVERAGE_ON_INITIALIZE_RATIO};
 
 // Prints debug output of the `contracts` pallet to stdout if the node is
 // started with `-lruntime::contracts=debug`.
