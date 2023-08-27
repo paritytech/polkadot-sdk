@@ -11631,6 +11631,7 @@ dependencies = [
  "tempfile",
  "tikv-jemallocator",
  "tokio",
+ "tracking-allocator",
 ]
 
 [[package]]
@@ -12309,7 +12310,9 @@ dependencies = [
 name = "polkadot-node-core-pvf-prepare-worker"
 version = "1.0.0"
 dependencies = [
+ "criterion 0.4.0",
  "futures",
+ "kusama-runtime",
  "libc",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
@@ -12325,6 +12328,7 @@ dependencies = [
  "tikv-jemalloc-ctl",
  "tokio",
  "tracing-gum",
+ "tracking-allocator",
 ]
 
 [[package]]
@@ -19150,6 +19154,13 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "tracking-allocator"
+version = "1.0.0"
+dependencies = [
+ "tikv-jemallocator",
 ]
 
 [[package]]
