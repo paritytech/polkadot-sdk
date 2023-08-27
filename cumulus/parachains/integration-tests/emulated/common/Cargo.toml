@@ -94,6 +94,7 @@ runtime-benchmarks = [
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-runtime/runtime-benchmarks",
 	"polkadot-service/runtime-benchmarks",
+	"polkadot-service/runtime-benchmarks",
 	"rococo-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"westend-runtime/runtime-benchmarks",
