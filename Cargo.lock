@@ -11147,6 +11147,7 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-primitives",
  "polkadot-runtime-constants",
+ "rococo-runtime-constants",
  "scale-info",
  "smallvec",
  "sp-consensus-aura",
