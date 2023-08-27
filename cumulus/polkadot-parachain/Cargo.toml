@@ -113,7 +113,6 @@ runtime-benchmarks = [
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
 	"collectives-polkadot-runtime/runtime-benchmarks",
 	"contracts-rococo-runtime/runtime-benchmarks",
-	"contracts-rococo-runtime/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
 	"polkadot-service/runtime-benchmarks",
 	"rococo-parachain-runtime/runtime-benchmarks",

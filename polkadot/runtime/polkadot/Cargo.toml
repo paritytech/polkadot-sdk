@@ -184,7 +184,6 @@ std = [
 	"serde_derive",
 	"sp-api/std",
 	"sp-arithmetic/std",
-	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-mmr-primitives/std",
 	"sp-npos-elections/std",
