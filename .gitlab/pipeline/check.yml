@@ -20,7 +20,7 @@ check-try-runtime:
     - time cargo check --locked -p parachain-template-node --features try-runtime
     # add after https://github.com/paritytech/substrate/pull/14502 is merged
     # experimental code may rely on try-runtime and vice-versa
-    # - time cargo check --locked --features try-runtime,experimental
+    - time cargo check --locked --features try-runtime,experimental
 
 cargo-fmt-manifest:
   stage: check
@@ -56,21 +56,6 @@ cargo-deny-licenses:
     when: always
     paths:
       - deny.log
-
-spellcheck:
-  stage: check
-  extends:
-    - .kubernetes-env
-    - .common-refs
-  script:
-    - cargo spellcheck --version
-    # compare with the commit parent to the PR, given it's from a default branch
-    - git fetch origin +${CI_DEFAULT_BRANCH}:${CI_DEFAULT_BRANCH}
-    - echo "___Spellcheck is going to check your diff___"
-    - cargo spellcheck list-files -vvv $(git diff --diff-filter=AM --name-only $(git merge-base ${CI_COMMIT_SHA} ${CI_DEFAULT_BRANCH} -- :^bridges))
-    - time cargo spellcheck check -vvv --cfg=.gitlab/spellcheck.toml --checkers hunspell --code 1
-      $(git diff --diff-filter=AM --name-only $(git merge-base ${CI_COMMIT_SHA} ${CI_DEFAULT_BRANCH} -- :^bridges))
-  allow_failure: true
 
 # from substrate
 # not sure if it's needed in monorepo
