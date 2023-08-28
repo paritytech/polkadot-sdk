@@ -22,14 +22,26 @@ jobs:
           shopt -s globstar
           echo "install"
           npm install -g @paritytech/license-scanner@0.0.5
-          echo "run"
+          echo "run for cumulus"
+          cd cumulus
           npx @paritytech/license-scanner scan \
             --ensure-licenses=Apache-2.0 \
             --ensure-licenses=GPL-3.0-only \
-            "./substrate/bin/node-template/node/src/chain_spec.rs"
-          # npx @paritytech/license-scanner scan \
-          #   --ensure-licenses=Apache-2.0 \
-          #   --ensure-licenses=GPL-3.0-only \
-          #   ./**/*.rs
+            ./**/*.rs
+          cd ..
+          echo "run for polkadot"
+          cd polkadot
+          npx @paritytech/license-scanner scan \
+            --ensure-licenses=Apache-2.0 \
+            --ensure-licenses=GPL-3.0-only \
+            ./**/*.rs
+          cd ..
+          echo "run for substrate"
+          cd substrate
+          npx @paritytech/license-scanner scan \
+            --ensure-licenses=Apache-2.0 \
+            --ensure-licenses=GPL-3.0-only \
+            ./**/*.rs
+          cd ..
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
