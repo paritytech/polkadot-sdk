@@ -33,7 +33,6 @@ test-linux-stable:
         --workspace \
         --locked \
         --release \
-        --verbose \
         --no-fail-fast \
         --features runtime-benchmarks,try-runtime,experimental \
         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
@@ -67,7 +66,6 @@ test-linux-oldkernel-stable:
 #         --workspace \
 #         --locked \
 #         --release \
-#         --verbose \
 #         --no-fail-fast \
 #         --features runtime-benchmarks,try-runtime \
 #         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
@@ -93,7 +91,6 @@ test-linux-stable-additional-tests:
         --workspace \
         --locked \
         --release \
-        --verbose \
         --features runtime-benchmarks,try-runtime
   allow_failure: true
 
@@ -119,7 +116,6 @@ test-linux-stable-slow:
         --workspace \
         --locked \
         --release \
-        --verbose \
         --features runtime-benchmarks,try-runtime
   allow_failure: true
 
@@ -169,7 +165,7 @@ test-rustdoc:
     SKIP_WASM_BUILD: 1
     RUSTDOCFLAGS: "-Dwarnings"
   script:
-    - time cargo doc --workspace --all-features --verbose --no-deps
+    - time cargo doc --workspace --all-features --no-deps
   allow_failure: true
 
 cargo-check-all-benches:
@@ -396,9 +392,9 @@ test-full-crypto-feature:
     RUST_BACKTRACE: 1
   script:
     - cd substrate/primitives/core/
-    - time cargo build --locked --verbose --no-default-features --features full_crypto
+    - time cargo build --locked --no-default-features --features full_crypto
     - cd ../application-crypto
-    - time cargo build --locked --verbose --no-default-features --features full_crypto
+    - time cargo build --locked --no-default-features --features full_crypto
 
 cargo-check-each-crate:
   stage: test

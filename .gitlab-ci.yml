@@ -70,7 +70,7 @@ default:
 .common-before-script:
   before_script:
     - !reference [.job-switcher, before_script]
-    - !reference [.timestamp, before_script]
+    # - !reference [.timestamp, before_script]
     - !reference [.pipeline-stopper-vars, script]
 
 .job-switcher:
