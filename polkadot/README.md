@@ -203,7 +203,7 @@ cargo run --bin polkadot -- --dev
 Detailed logs may be shown by running the node with the following environment variables set:
 
 ```bash
-RUST_LOG=debug RUST_BACKTRACE=1 cargo run -- --dev
+RUST_LOG=debug RUST_BACKTRACE=1 cargo run --bin polkadot -- --dev
 ```
 
 ### Development
