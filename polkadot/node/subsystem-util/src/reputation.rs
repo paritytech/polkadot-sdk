@@ -77,7 +77,7 @@ impl ReputationAggregator {
 		rep: UnifiedReputationChange,
 	) {
 		if rep.cost_or_benefit() < 0 {
-			gum::debug!(target: LOG_TARGET, peer = ?peer_id, ?rep, "Modify reputation");
+			gum::debug!(target: LOG_TARGET, peer = ?peer_id, ?rep, "Reduce reputation");
 		}
 
 		if (self.send_immediately_if)(rep) {
@@ -103,8 +103,7 @@ impl ReputationAggregator {
 
 	fn add(&mut self, peer_id: PeerId, rep: UnifiedReputationChange) {
 		let cost = rep.cost_or_benefit();
-		self
-			.by_peer
+		self.by_peer
 			.get_or_insert(HashMap::new())
 			.entry(peer_id)
 			.and_modify(|v| *v = v.saturating_add(cost))
