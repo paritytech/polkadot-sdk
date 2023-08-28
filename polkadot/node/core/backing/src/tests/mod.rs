@@ -262,26 +262,9 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 		}
 	);
 
-	// Check if subsystem job issues a request for the minimum backing votes.
-	// This may or may not happen, depending if the minimum backing votes is already cached in the
-	// RuntimeInfo.
-	let next_message = {
-		let msg = virtual_overseer.recv().await;
-		match msg {
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				parent,
-				RuntimeApiRequest::MinimumBackingVotes(tx),
-			)) if parent == test_state.relay_parent => {
-				tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
-				virtual_overseer.recv().await
-			},
-			_ => msg,
-		}
-	};
-
 	// Check that subsystem job issues a request for a validator set.
 	assert_matches!(
-		next_message,
+		virtual_overseer.recv().await,
 		AllMessages::RuntimeApi(
 			RuntimeApiMessage::Request(parent, RuntimeApiRequest::Validators(tx))
 		) if parent == test_state.relay_parent => {
@@ -306,6 +289,17 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 			RuntimeApiMessage::Request(parent, RuntimeApiRequest::AvailabilityCores(tx))
 		) if parent == test_state.relay_parent => {
 			tx.send(Ok(test_state.availability_cores.clone())).unwrap();
+		}
+	);
+
+	// Check if subsystem job issues a request for the minimum backing votes.
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			parent,
+			RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
+		)) if parent == test_state.relay_parent && session_index == test_state.signing_context.session_index => {
+			tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
 		}
 	);
 }

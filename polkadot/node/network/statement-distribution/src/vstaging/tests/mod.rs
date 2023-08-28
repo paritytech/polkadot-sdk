@@ -460,8 +460,8 @@ async fn handle_leaf_activation(
 			virtual_overseer.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				parent,
-				RuntimeApiRequest::MinimumBackingVotes(tx),
-			)) if parent == *hash => {
+				RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
+			)) if parent == *hash && session_index == *session => {
 				tx.send(Ok(2)).unwrap();
 			}
 		);
