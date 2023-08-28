@@ -86,6 +86,7 @@ pub fn get_chain_spec_with_extra_endowed(
 	id: ParaId,
 	extra_endowed_accounts: Vec<AccountId>,
 ) -> ChainSpec {
+	#[allow(deprecated)]
 	ChainSpec::from_genesis(
 		"Local Testnet",
 		"local_testnet",
@@ -102,6 +103,7 @@ pub fn get_chain_spec_with_extra_endowed(
 		None,
 		None,
 		Extensions { para_id: id.into() },
+		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
 	)
 }
 
@@ -139,12 +141,7 @@ pub fn testnet_genesis(
 	endowed_accounts: Vec<AccountId>,
 ) -> cumulus_test_runtime::RuntimeGenesisConfig {
 	cumulus_test_runtime::RuntimeGenesisConfig {
-		system: cumulus_test_runtime::SystemConfig {
-			code: cumulus_test_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!")
-				.to_vec(),
-			..Default::default()
-		},
+		system: cumulus_test_runtime::SystemConfig::default(),
 		glutton: Default::default(),
 		parachain_system: Default::default(),
 		balances: cumulus_test_runtime::BalancesConfig {

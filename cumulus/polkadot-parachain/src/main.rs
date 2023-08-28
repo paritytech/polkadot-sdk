@@ -26,6 +26,11 @@ mod cli;
 mod command;
 mod rpc;
 
+#[cfg(test)]
+// Tests for verifying if raw ChainSpecs generated using legacy RuntimeGenesisConfig based approach
+// are identical to ChainSpec generated using JSON approach.
+mod legacy_chain_spec;
+
 fn main() -> sc_cli::Result<()> {
 	command::run()
 }

@@ -13,6 +13,9 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+//
+
+#![allow(dead_code)]
 
 use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed};
 use cumulus_primitives_core::ParaId;
@@ -182,7 +185,7 @@ fn ensure_id(id: &str) -> Result<&str, String> {
 /// Sub-module for Rococo setup
 pub mod rococo {
 	use super::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
-	use crate::chain_spec::{Extensions, SAFE_XCM_VERSION};
+	use crate::legacy_chain_spec::{Extensions, SAFE_XCM_VERSION};
 	use parachains_common::{AccountId, AuraId};
 	use sc_chain_spec::ChainType;
 
@@ -195,7 +198,8 @@ pub mod rococo {
 		bridge_hub_rococo_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
 
 	/// Specialized `ChainSpec` for the normal parachain runtime.
-	pub type BridgeHubChainSpec = sc_service::GenericChainSpec<(), Extensions>;
+	pub type BridgeHubChainSpec =
+		sc_service::GenericChainSpec<bridge_hub_rococo_runtime::RuntimeGenesisConfig, Extensions>;
 
 	pub type RuntimeApi = bridge_hub_rococo_runtime::RuntimeApi;
 
@@ -214,51 +218,55 @@ pub mod rococo {
 		properties.insert("tokenDecimals".into(), 12.into());
 		modify_props(&mut properties);
 
-		BridgeHubChainSpec::builder()
-			.with_name(chain_name)
-			.with_id(super::ensure_id(id).expect("invalid id"))
-			.with_chain_type(ChainType::Local)
-			.with_genesis_config_patch(genesis(
-				// initial collators.
-				vec![
-					(
+		#[allow(deprecated)]
+		BridgeHubChainSpec::from_genesis(
+			// Name
+			chain_name,
+			// ID
+			super::ensure_id(id).expect("invalid id"),
+			ChainType::Local,
+			move || {
+				genesis(
+					// initial collators.
+					vec![
+						(
+							get_account_id_from_seed::<sr25519::Public>("Alice"),
+							get_collator_keys_from_seed::<AuraId>("Alice"),
+						),
+						(
+							get_account_id_from_seed::<sr25519::Public>("Bob"),
+							get_collator_keys_from_seed::<AuraId>("Bob"),
+						),
+					],
+					vec![
 						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed::<AuraId>("Alice"),
-					),
-					(
 						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed::<AuraId>("Bob"),
-					),
-				],
-				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-				],
-				para_id,
-				bridges_pallet_owner_seed
-					.as_ref()
-					.map(|seed| get_account_id_from_seed::<sr25519::Public>(seed)),
-			))
-			.with_properties(properties)
-			.with_extensions(Extensions {
-				relay_chain: relay_chain.to_string(),
-				para_id: para_id.into(),
-			})
-			.with_code(
-				bridge_hub_rococo_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!"),
-			)
-			.build()
+						get_account_id_from_seed::<sr25519::Public>("Charlie"),
+						get_account_id_from_seed::<sr25519::Public>("Dave"),
+						get_account_id_from_seed::<sr25519::Public>("Eve"),
+						get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+						get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+					],
+					para_id,
+					bridges_pallet_owner_seed
+						.as_ref()
+						.map(|seed| get_account_id_from_seed::<sr25519::Public>(seed)),
+				)
+			},
+			Vec::new(),
+			None,
+			None,
+			None,
+			Some(properties),
+			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			bridge_hub_rococo_runtime::WASM_BINARY
+				.expect("WASM binary was not build, please build it!"),
+		)
 	}
 
 	fn genesis(
@@ -266,20 +274,23 @@ pub mod rococo {
 		endowed_accounts: Vec<AccountId>,
 		id: ParaId,
 		bridges_pallet_owner: Option<AccountId>,
-	) -> serde_json::Value {
-		serde_json::json!({
-			"balances": {
-				"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
+	) -> bridge_hub_rococo_runtime::RuntimeGenesisConfig {
+		bridge_hub_rococo_runtime::RuntimeGenesisConfig {
+			system: bridge_hub_rococo_runtime::SystemConfig::default(),
+			balances: bridge_hub_rococo_runtime::BalancesConfig {
+				balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 			},
-			"parachainInfo": {
-				"parachainId": id,
+			parachain_info: bridge_hub_rococo_runtime::ParachainInfoConfig {
+				parachain_id: id,
+				..Default::default()
 			},
-			"collatorSelection": {
-				"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
-				"candidacyBond": BRIDGE_HUB_ROCOCO_ED * 16,
+			collator_selection: bridge_hub_rococo_runtime::CollatorSelectionConfig {
+				invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+				candidacy_bond: BRIDGE_HUB_ROCOCO_ED * 16,
+				..Default::default()
 			},
-			"session": {
-				"keys": invulnerables
+			session: bridge_hub_rococo_runtime::SessionConfig {
+				keys: invulnerables
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
@@ -288,24 +299,32 @@ pub mod rococo {
 							bridge_hub_rococo_runtime::SessionKeys { aura }, // session keys
 						)
 					})
-					.collect::<Vec<_>>(),
+					.collect(),
 			},
-			"polkadotXcm": {
-				"safeXcmVersion": Some(SAFE_XCM_VERSION),
+			aura: Default::default(),
+			aura_ext: Default::default(),
+			parachain_system: Default::default(),
+			polkadot_xcm: bridge_hub_rococo_runtime::PolkadotXcmConfig {
+				safe_xcm_version: Some(SAFE_XCM_VERSION),
+				..Default::default()
 			},
-			"bridgeWococoGrandpa": {
-				"owner": bridges_pallet_owner.clone(),
+			bridge_wococo_grandpa: bridge_hub_rococo_runtime::BridgeWococoGrandpaConfig {
+				owner: bridges_pallet_owner.clone(),
+				..Default::default()
 			},
-			"bridgeRococoGrandpa": {
-				"owner": bridges_pallet_owner.clone(),
+			bridge_rococo_grandpa: bridge_hub_rococo_runtime::BridgeRococoGrandpaConfig {
+				owner: bridges_pallet_owner.clone(),
+				..Default::default()
 			},
-			"bridgeRococoMessages": {
-				"owner": bridges_pallet_owner.clone(),
+			bridge_rococo_messages: bridge_hub_rococo_runtime::BridgeRococoMessagesConfig {
+				owner: bridges_pallet_owner.clone(),
+				..Default::default()
 			},
-			"bridgeWococoMessages": {
-				"owner": bridges_pallet_owner,
-			}
-		})
+			bridge_wococo_messages: bridge_hub_rococo_runtime::BridgeWococoMessagesConfig {
+				owner: bridges_pallet_owner,
+				..Default::default()
+			},
+		}
 	}
 }
 
@@ -343,7 +362,7 @@ pub mod wococo {
 /// Sub-module for Kusama setup
 pub mod kusama {
 	use super::{BridgeHubBalance, ParaId};
-	use crate::chain_spec::{
+	use crate::legacy_chain_spec::{
 		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId};
@@ -357,7 +376,8 @@ pub mod kusama {
 		bridge_hub_kusama_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
 
 	/// Specialized `ChainSpec` for the normal parachain runtime.
-	pub type BridgeHubChainSpec = sc_service::GenericChainSpec<(), Extensions>;
+	pub type BridgeHubChainSpec =
+		sc_service::GenericChainSpec<bridge_hub_kusama_runtime::RuntimeGenesisConfig, Extensions>;
 	pub type RuntimeApi = bridge_hub_kusama_runtime::RuntimeApi;
 
 	pub fn local_config(
@@ -371,72 +391,79 @@ pub mod kusama {
 		properties.insert("tokenSymbol".into(), "KSM".into());
 		properties.insert("tokenDecimals".into(), 12.into());
 
-		BridgeHubChainSpec::builder()
-			.with_name(chain_name)
-			.with_id(super::ensure_id(id).expect("invalid id"))
-			.with_chain_type(ChainType::Local)
-			.with_genesis_config_patch(genesis(
-				// initial collators.
-				vec![
-					(
+		#[allow(deprecated)]
+		BridgeHubChainSpec::from_genesis(
+			// Name
+			chain_name,
+			// ID
+			super::ensure_id(id).expect("invalid id"),
+			ChainType::Local,
+			move || {
+				genesis(
+					// initial collators.
+					vec![
+						(
+							get_account_id_from_seed::<sr25519::Public>("Alice"),
+							get_collator_keys_from_seed::<AuraId>("Alice"),
+						),
+						(
+							get_account_id_from_seed::<sr25519::Public>("Bob"),
+							get_collator_keys_from_seed::<AuraId>("Bob"),
+						),
+					],
+					vec![
 						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed::<AuraId>("Alice"),
-					),
-					(
 						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed::<AuraId>("Bob"),
-					),
-				],
-				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-				],
-				para_id,
-			))
-			.with_properties(properties)
-			.with_extensions(Extensions {
-				relay_chain: relay_chain.to_string(),
-				para_id: para_id.into(),
-			})
-			.with_code(
-				bridge_hub_kusama_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!"),
-			)
-			.build()
+						get_account_id_from_seed::<sr25519::Public>("Charlie"),
+						get_account_id_from_seed::<sr25519::Public>("Dave"),
+						get_account_id_from_seed::<sr25519::Public>("Eve"),
+						get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+						get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+					],
+					para_id,
+				)
+			},
+			Vec::new(),
+			None,
+			None,
+			None,
+			Some(properties),
+			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			bridge_hub_kusama_runtime::WASM_BINARY
+				.expect("WASM binary was not build, please build it!"),
+		)
 	}
 
 	fn genesis(
 		invulnerables: Vec<(AccountId, AuraId)>,
 		endowed_accounts: Vec<AccountId>,
 		id: ParaId,
-	) -> serde_json::Value {
-		serde_json::json!({
-			"balances": {
-				"balances": endowed_accounts
+	) -> bridge_hub_kusama_runtime::RuntimeGenesisConfig {
+		bridge_hub_kusama_runtime::RuntimeGenesisConfig {
+			system: bridge_hub_kusama_runtime::SystemConfig::default(),
+			balances: bridge_hub_kusama_runtime::BalancesConfig {
+				balances: endowed_accounts
 					.iter()
 					.cloned()
 					.map(|k| (k, BRIDGE_HUB_KUSAMA_ED * 524_288))
-					.collect::<Vec<_>>(),
+					.collect(),
 			},
-			"parachainInfo": {
-				"parachainId": id,
+			parachain_info: bridge_hub_kusama_runtime::ParachainInfoConfig {
+				parachain_id: id,
+				..Default::default()
 			},
-			"collatorSelection": {
-				"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
-				"candidacyBond": BRIDGE_HUB_KUSAMA_ED * 16,
+			collator_selection: bridge_hub_kusama_runtime::CollatorSelectionConfig {
+				invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+				candidacy_bond: BRIDGE_HUB_KUSAMA_ED * 16,
+				..Default::default()
 			},
-			"session": {
-				"keys": invulnerables
+			session: bridge_hub_kusama_runtime::SessionConfig {
+				keys: invulnerables
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
@@ -445,12 +472,16 @@ pub mod kusama {
 							bridge_hub_kusama_runtime::SessionKeys { aura }, // session keys
 						)
 					})
-					.collect::<Vec<_>>(),
+					.collect(),
 			},
-			"polkadotXcm": {
-				"safeXcmVersion": Some(SAFE_XCM_VERSION),
-			}
-		})
+			aura: Default::default(),
+			aura_ext: Default::default(),
+			parachain_system: Default::default(),
+			polkadot_xcm: bridge_hub_kusama_runtime::PolkadotXcmConfig {
+				safe_xcm_version: Some(SAFE_XCM_VERSION),
+				..Default::default()
+			},
+		}
 	}
 }
 
@@ -466,7 +497,7 @@ pub mod westend {
 /// Sub-module for Polkadot setup
 pub mod polkadot {
 	use super::{BridgeHubBalance, ParaId};
-	use crate::chain_spec::{
+	use crate::legacy_chain_spec::{
 		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId};
@@ -480,7 +511,8 @@ pub mod polkadot {
 		bridge_hub_polkadot_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
 
 	/// Specialized `ChainSpec` for the normal parachain runtime.
-	pub type BridgeHubChainSpec = sc_service::GenericChainSpec<(), Extensions>;
+	pub type BridgeHubChainSpec =
+		sc_service::GenericChainSpec<bridge_hub_polkadot_runtime::RuntimeGenesisConfig, Extensions>;
 	pub type RuntimeApi = bridge_hub_polkadot_runtime::RuntimeApi;
 
 	pub fn local_config(
@@ -494,72 +526,79 @@ pub mod polkadot {
 		properties.insert("tokenSymbol".into(), "DOT".into());
 		properties.insert("tokenDecimals".into(), 10.into());
 
-		BridgeHubChainSpec::builder()
-			.with_name(chain_name)
-			.with_id(super::ensure_id(id).expect("invalid id"))
-			.with_chain_type(ChainType::Local)
-			.with_genesis_config_patch(genesis(
-				// initial collators.
-				vec![
-					(
+		#[allow(deprecated)]
+		BridgeHubChainSpec::from_genesis(
+			// Name
+			chain_name,
+			// ID
+			super::ensure_id(id).expect("invalid id"),
+			ChainType::Local,
+			move || {
+				genesis(
+					// initial collators.
+					vec![
+						(
+							get_account_id_from_seed::<sr25519::Public>("Alice"),
+							get_collator_keys_from_seed::<AuraId>("Alice"),
+						),
+						(
+							get_account_id_from_seed::<sr25519::Public>("Bob"),
+							get_collator_keys_from_seed::<AuraId>("Bob"),
+						),
+					],
+					vec![
 						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed::<AuraId>("Alice"),
-					),
-					(
 						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed::<AuraId>("Bob"),
-					),
-				],
-				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-				],
-				para_id,
-			))
-			.with_properties(properties)
-			.with_extensions(Extensions {
-				relay_chain: relay_chain.to_string(),
-				para_id: para_id.into(),
-			})
-			.with_code(
-				bridge_hub_polkadot_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!"),
-			)
-			.build()
+						get_account_id_from_seed::<sr25519::Public>("Charlie"),
+						get_account_id_from_seed::<sr25519::Public>("Dave"),
+						get_account_id_from_seed::<sr25519::Public>("Eve"),
+						get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+						get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+					],
+					para_id,
+				)
+			},
+			Vec::new(),
+			None,
+			None,
+			None,
+			Some(properties),
+			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			bridge_hub_polkadot_runtime::WASM_BINARY
+				.expect("WASM binary was not build, please build it!"),
+		)
 	}
 
 	fn genesis(
 		invulnerables: Vec<(AccountId, AuraId)>,
 		endowed_accounts: Vec<AccountId>,
 		id: ParaId,
-	) -> serde_json::Value {
-		serde_json::json!({
-			"balances": {
-				"balances": endowed_accounts
+	) -> bridge_hub_polkadot_runtime::RuntimeGenesisConfig {
+		bridge_hub_polkadot_runtime::RuntimeGenesisConfig {
+			system: bridge_hub_polkadot_runtime::SystemConfig::default(),
+			balances: bridge_hub_polkadot_runtime::BalancesConfig {
+				balances: endowed_accounts
 					.iter()
 					.cloned()
 					.map(|k| (k, BRIDGE_HUB_POLKADOT_ED * 4096))
-					.collect::<Vec<_>>(),
+					.collect(),
 			},
-			"parachainInfo": {
-				"parachainId": id,
+			parachain_info: bridge_hub_polkadot_runtime::ParachainInfoConfig {
+				parachain_id: id,
+				..Default::default()
 			},
-			"collatorSelection": {
-				"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
-				"candidacyBond": BRIDGE_HUB_POLKADOT_ED * 16,
+			collator_selection: bridge_hub_polkadot_runtime::CollatorSelectionConfig {
+				invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+				candidacy_bond: BRIDGE_HUB_POLKADOT_ED * 16,
+				..Default::default()
 			},
-			"session": {
-				"keys": invulnerables
+			session: bridge_hub_polkadot_runtime::SessionConfig {
+				keys: invulnerables
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
@@ -568,11 +607,15 @@ pub mod polkadot {
 							bridge_hub_polkadot_runtime::SessionKeys { aura }, // session keys
 						)
 					})
-					.collect::<Vec<_>>(),
+					.collect(),
 			},
-			"polkadotXcm": {
-				"safeXcmVersion": Some(SAFE_XCM_VERSION),
-			}
-		})
+			aura: Default::default(),
+			aura_ext: Default::default(),
+			parachain_system: Default::default(),
+			polkadot_xcm: bridge_hub_polkadot_runtime::PolkadotXcmConfig {
+				safe_xcm_version: Some(SAFE_XCM_VERSION),
+				..Default::default()
+			},
+		}
 	}
 }

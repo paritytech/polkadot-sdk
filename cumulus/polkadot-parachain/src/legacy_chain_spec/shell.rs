@@ -19,18 +19,30 @@ use cumulus_primitives_core::ParaId;
 use sc_service::ChainType;
 
 /// Specialized `ChainSpec` for the shell parachain runtime.
-pub type ShellChainSpec = sc_service::GenericChainSpec<(), Extensions>;
+pub type ShellChainSpec =
+	sc_service::GenericChainSpec<shell_runtime::RuntimeGenesisConfig, Extensions>;
 
 pub fn get_shell_chain_spec() -> ShellChainSpec {
-	ShellChainSpec::builder()
-		.with_name("Shell Local Testnet")
-		.with_id("shell_local_testnet")
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(serde_json::json!({
-			"parachainInfo": { "parachainId": ParaId::from(1000) }
-		}))
-		.with_boot_nodes(Vec::new())
-		.with_extensions(Extensions { relay_chain: "westend".into(), para_id: 1000 })
-		.with_code(shell_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"))
-		.build()
+	#[allow(deprecated)]
+	ShellChainSpec::from_genesis(
+		"Shell Local Testnet",
+		"shell_local_testnet",
+		ChainType::Local,
+		move || shell_testnet_genesis(1000.into()),
+		Vec::new(),
+		None,
+		None,
+		None,
+		None,
+		Extensions { relay_chain: "westend".into(), para_id: 1000 },
+		shell_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+	)
+}
+
+fn shell_testnet_genesis(parachain_id: ParaId) -> shell_runtime::RuntimeGenesisConfig {
+	shell_runtime::RuntimeGenesisConfig {
+		system: shell_runtime::SystemConfig::default(),
+		parachain_info: shell_runtime::ParachainInfoConfig { parachain_id, ..Default::default() },
+		parachain_system: Default::default(),
+	}
 }
