@@ -211,7 +211,7 @@ RUST_LOG=debug RUST_BACKTRACE=1 cargo run --bin polkadot -- --dev
 You can run a simple single-node development "network" on your machine by running:
 
 ```bash
-polkadot --dev
+cargo run --bin polkadot --release -- --dev
 ```
 
 You can muck around by heading to <https://polkadot.js.org/apps> and choose "Local Node" from the
