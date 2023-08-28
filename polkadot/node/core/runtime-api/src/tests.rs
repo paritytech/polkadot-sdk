@@ -265,7 +265,7 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		todo!("Not required for tests")
 	}
 
-	async fn minimum_backing_votes(&self, _: Hash) -> Result<u32, ApiError> {
+	async fn minimum_backing_votes(&self, _: Hash, _: SessionIndex) -> Result<u32, ApiError> {
 		todo!("Not required for tests")
 	}
 }

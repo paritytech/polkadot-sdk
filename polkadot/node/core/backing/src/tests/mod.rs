@@ -34,7 +34,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
 	CandidateDescriptor, GroupRotationInfo, HeadData, PersistedValidationData, PvfExecTimeoutKind,
-	ScheduledCore, SessionIndex,
+	ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
 use sp_application_crypto::AppCrypto;
 use sp_keyring::Sr25519Keyring;
@@ -151,7 +151,7 @@ impl Default for TestState {
 			validation_data,
 			signing_context,
 			relay_parent,
-			minimum_backing_votes: 2,
+			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 		}
 	}
 }
