@@ -16,7 +16,7 @@ specific guides, like how to be a validator, see the
 
 If you just wish to run a Polkadot node without compiling it yourself, you may
 either run the latest binary from our
-[releases](https://github.com/paritytech/polkadot/releases) page, or install
+[releases](https://github.com/paritytech/polkadot-sdk/releases) page, or install
 Polkadot from one of our package repositories.
 
 Installation from the Debian repository will create a `systemd`
@@ -58,7 +58,7 @@ below this section.
 If you want to install Polkadot in your PATH, you can do so with:
 
 ```bash
-cargo install --git https://github.com/paritytech/polkadot --tag <version> polkadot --locked
+cargo install --git https://github.com/paritytech/polkadot-sdk --tag <version> polkadot --locked
 ```
 
 ### Build from Source
@@ -176,7 +176,7 @@ curl https://getsubstrate.io -sSf | bash -s -- --fast
 Then, grab the Polkadot source code:
 
 ```bash
-git clone https://github.com/paritytech/polkadot.git
+git clone https://github.com/paritytech/polkadot-sdk.git
 cd polkadot
 ```
 
@@ -253,11 +253,11 @@ Once you set this up you can take a look at the [Polkadot Grafana dashboards](gr
 
 ### Contributing Guidelines
 
-[Contribution Guidelines](CONTRIBUTING.md)
+[Contribution Guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/CONTRIBUTING.md)
 
 ### Contributor Code of Conduct
 
-[Code of Conduct](CODE_OF_CONDUCT.md)
+[Code of Conduct](https://github.com/paritytech/polkadot-sdk/blob/master/docs/CODE_OF_CONDUCT.md)
 
 ## License
 
