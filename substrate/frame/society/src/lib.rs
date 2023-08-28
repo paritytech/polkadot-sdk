@@ -15,19 +15,66 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! > Made with *Substrate*, for *Polkadot*.
+//!
+//! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/sudo)
+//! [![polkadot]](https://polkadot.network)
+//!
+//! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
+//! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
+//!
 //! # Society Pallet
 //!
-//! - [`Config`]
-//! - [`Call`]
+//! A pallet that provides Substrate runtimes with an economic game which incentivizes users to
+//! participate and maintain membership in an on-chain society.
+//!
+//! ## Pallet API
+//!
+//! See the [`pallet`] module for more information about the interfaces this pallet exposes,
+//! including its configuration trait, dispatchables, storage items, events and errors.
 //!
 //! ## Overview
 //!
-//! The Society pallet is an economic game which incentivizes users to participate
-//! and maintain a membership society.
+//! There are 3 primary groups of users this pallet caters to:
+//!
+//! * Outside users who want to join the society
+//! * Members of the society
+//! * Super users who can make privileged calls
+//!
+//! Any user can make a [`bid`](Pallet::bid) to join the membership society by reserving a deposit
+//! and [`unbid`](Pallet::unbid) to withdraw their bid for entry and receive their deposit. Existing
+//! members can perform different actions to approve or reject candidates who want to join the
+//! society. Super users can found the society, set the maximum number of members, and judge
+//! suspended members.
+//!
+//! Members can be suspended for various reasons.
+//! The pallet keeps track of strikes to eventually enforce the suspension of a member.
+//! If a member has too many strikes as determined by [`GraceStrikes`], their payouts are slashed in
+//! half. If a member has reached the maximum number of strikes, they get suspended.
+//!
+//! > Note that this designed to be interacted with from outside a chain's runtime and, although
+//! > possible, is not designed to be used within other pallets.
+//!
+//! ### Examples
+//!
+//! 1. Add a member to a society.
+//! 2.
+//!
+//! ## Low Level / Implementation Details
+//!
+//! The logic of this pallet implements the following features:
+//! - Four distinct user types
+//! - A pallet-specific treasury
+//! - A punish/reward mechanisms
+//! - A voting mechanism to approve or reject candidates
+//!
+//! The lifecycle of a member in the society has 4 distinct phases: the bid phase, the candidate
+//! phase, the member phase, and the suspended member phase.
 //!
 //! ### User Types
 //!
 //! At any point, a user in the society can be one of a:
+//!
 //! * Bidder - A user who has submitted intention of joining the society.
 //! * Candidate - A user who will be voted on to join the society.
 //! * Member - A user who is a member of the society.
@@ -210,36 +257,6 @@
 //! claim matured payouts. It is up to the Suspension Judgement origin to determine
 //! if the member should re-enter society or be removed from society with all their
 //! future payouts slashed.
-//!
-//! ## Interface
-//!
-//! ### Dispatchable Functions
-//!
-//! #### For General Users
-//!
-//! * `bid` - A user can make a bid to join the membership society by reserving a deposit.
-//! * `unbid` - A user can withdraw their bid for entry, the deposit is returned.
-//!
-//! #### For Members
-//!
-//! * `vouch` - A member can place a bid on behalf of a user to join the membership society.
-//! * `unvouch` - A member can revoke their vouch for a user.
-//! * `vote` - A member can vote to approve or reject a candidate's request to join the society.
-//! * `defender_vote` - A member can vote to approve or reject a defender's continued membership
-//! to the society.
-//! * `payout` - A member can claim their first matured payment.
-//! * `unfound` - Allow the founder to unfound the society when they are the only member.
-//!
-//! #### For Super Users
-//!
-//! * `found` - The founder origin can initiate this society. Useful for bootstrapping the Society
-//! pallet on an already running chain.
-//! * `judge_suspended_member` - The suspension judgement origin is able to make
-//! judgement on a suspended member.
-//! * `judge_suspended_candidate` - The suspension judgement origin is able to
-//! make judgement on a suspended candidate.
-//! * `set_max_membership` - The ROOT origin can update the maximum member count for the society.
-//! The max membership count must be greater than 1.
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
