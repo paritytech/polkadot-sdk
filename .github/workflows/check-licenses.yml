@@ -20,8 +20,8 @@ jobs:
       - name: Check the licenses
         run: |
           shopt -s globstar
-
-          npx @paritytech/license-scanner@0.0.5 scan \
+          npm install -g @paritytech/license-scanner@0.0.5
+          npx @paritytech/license-scanner scan \
             --ensure-licenses=Apache-2.0 \
             --ensure-licenses=GPL-3.0-only \
             ./**/*.rs
