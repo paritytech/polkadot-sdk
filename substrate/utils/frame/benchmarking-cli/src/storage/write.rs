@@ -64,7 +64,11 @@ impl StorageCmd {
 		let mut kvs: Vec<_> = trie.pairs(Default::default())?.collect();
 		let (mut rng, _) = new_rng(None);
 		kvs.shuffle(&mut rng);
-		info!("Writing {} keys", kvs.len());
+
+		let number_of_keys = (kvs.len() * self.params.db_fraction) / 100;
+		let kvs = &kvs[0..number_of_keys];
+
+		info!("Writing {} keys of {} keys", key_limit, kvs.len());
 
 		let mut child_nodes = Vec::new();
 
