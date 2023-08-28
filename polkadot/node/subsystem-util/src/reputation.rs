@@ -103,10 +103,17 @@ impl ReputationAggregator {
 
 	fn add(&mut self, peer_id: PeerId, rep: UnifiedReputationChange) {
 		let cost = rep.cost_or_benefit();
-		self.by_peer
-			.get_or_insert(HashMap::new())
-			.entry(peer_id)
-			.and_modify(|v| *v = v.saturating_add(cost))
-			.or_insert(cost);
+		let by_peer = self.by_peer.get_or_insert(HashMap::new());
+		add_reputation(by_peer, peer_id, rep)
 	}
+}
+
+/// Add a reputation change to an existing collection.
+pub fn add_reputation(
+	acc: &mut BatchReputationChange,
+	peer_id: PeerId,
+	rep: UnifiedReputationChange,
+) {
+	let cost = rep.cost_or_benefit();
+	acc.entry(peer_id).and_modify(|v| *v = v.saturating_add(cost)).or_insert(cost);
 }
