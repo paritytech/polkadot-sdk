@@ -186,7 +186,7 @@ type OriginConverter = (
 	SignedAccountId32AsNative<AnyNetwork, RuntimeOrigin>,
 );
 type Barrier = AllowUnpaidExecutionFrom<Everything>;
-
+#[derive(Clone)]
 pub struct DummyWeightTrader;
 impl WeightTrader for DummyWeightTrader {
 	fn new() -> Self {
@@ -229,6 +229,7 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = ();
 }
 
 parameter_types! {
