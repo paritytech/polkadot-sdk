@@ -221,7 +221,7 @@ include:
   # weights jobs
   # - gitlab/pipeline/weights.yml
   # check jobs
-   .gitlab/pipeline/check.yml
+  - .gitlab/pipeline/check.yml
   # test jobs
   - .gitlab/pipeline/test.yml
   # build jobs
