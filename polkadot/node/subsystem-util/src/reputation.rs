@@ -102,7 +102,6 @@ impl ReputationAggregator {
 	}
 
 	fn add(&mut self, peer_id: PeerId, rep: UnifiedReputationChange) {
-		let cost = rep.cost_or_benefit();
 		let by_peer = self.by_peer.get_or_insert(HashMap::new());
 		add_reputation(by_peer, peer_id, rep)
 	}
