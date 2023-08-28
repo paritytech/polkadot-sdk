@@ -43,7 +43,6 @@ cargo-deny-licenses:
   script:
     - $CARGO_DENY_CMD --hide-inclusion-graph
   after_script:
-    # - !reference [.rusty-cachier, after_script]
     - echo "___The complete log is in the artifacts___"
     - $CARGO_DENY_CMD 2> deny.log
     - if [ $CI_JOB_STATUS != 'success' ]; then
