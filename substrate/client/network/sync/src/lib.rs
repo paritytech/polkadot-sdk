@@ -625,7 +625,7 @@ where
 		self.extra_justifications.reset();
 	}
 
-	// The implementation is similar to on_block_announce with unknown parent hash.
+	// The implementation is similar to `on_validated_block_announce` with unknown parent hash.
 	fn set_sync_fork_request(
 		&mut self,
 		mut peers: Vec<PeerId>,
