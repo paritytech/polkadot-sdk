@@ -23,7 +23,7 @@ use cpu_time::ProcessTime;
 use futures::never::Never;
 use std::{
 	any::Any,
-	path::PathBuf,
+	path::{Path, PathBuf},
 	sync::mpsc::{Receiver, RecvTimeoutError},
 	time::Duration,
 };
@@ -41,7 +41,7 @@ macro_rules! decl_worker_main {
 		}
 
 		fn main() {
-			$crate::__private::try_init_simple();
+			$crate::sp_tracing::try_init_simple();
 
 			let args = std::env::args().collect::<Vec<_>>();
 			if args.len() == 1 {
@@ -58,6 +58,17 @@ macro_rules! decl_worker_main {
 					println!("{}", $worker_version);
 					return
 				},
+				"--check-can-unshare-user-namespace-and-change-root" => {
+					#[cfg(target_os = "linux")]
+					let status = if security::unshare_user_namespace_and_change_root().is_ok() {
+						0
+					} else {
+						-1
+					};
+					#[cfg(not(target_os = "linux"))]
+					let status = -1;
+					std::process::exit(status)
+				},
 				subcommand => {
 					// Must be passed for compatibility with the single-binary test workers.
 					if subcommand != $expected_command {
@@ -70,17 +81,23 @@ macro_rules! decl_worker_main {
 			}
 
 			let mut node_version = None;
-			let mut socket_path: &str = "";
+			let mut socket_path = None;
+			let mut cache_path = None;
 
 			for i in (2..args.len()).step_by(2) {
 				match args[i].as_ref() {
-					"--socket-path" => socket_path = args[i + 1].as_str(),
+					"--socket-path" => socket_path = Some(args[i + 1].as_str()),
 					"--node-impl-version" => node_version = Some(args[i + 1].as_str()),
+					"--cache-path" => cache_path = Some(args[i + 1].as_str()),
 					arg => panic!("Unexpected argument found: {}", arg),
 				}
 			}
+			let socket_path = socket_path.expect("the --socket-path argument is required");
+			let cache_path = cache_path.expect("the --cache-path argument is required");
 
-			$entrypoint(&socket_path, node_version, Some($worker_version));
+			let cache_path = &std::path::Path::new(cache_path);
+
+			$entrypoint(&socket_path, node_version, Some($worker_version), cache_path);
 		}
 	};
 }
@@ -102,6 +119,7 @@ pub fn worker_event_loop<F, Fut>(
 	socket_path: &str,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
+	cache_path: &Path,
 	mut event_loop: F,
 ) where
 	F: FnMut(UnixStream) -> Fut,
@@ -115,6 +133,7 @@ pub fn worker_event_loop<F, Fut>(
 		if node_version != worker_version {
 			gum::error!(
 				target: LOG_TARGET,
+				%debug_id,
 				%worker_pid,
 				%node_version,
 				%worker_version,
@@ -127,7 +146,28 @@ pub fn worker_event_loop<F, Fut>(
 		}
 	}
 
-	remove_env_vars(debug_id);
+	// TODO: Call based on security_config, error out if should work but fails.
+	#[cfg(target_os = "linux")]
+	{
+		if let Err(err_ctx) = security::change_root(cache_path) {
+			let err = io::Error::last_os_error();
+			gum::error!(
+				target: LOG_TARGET,
+				%debug_id,
+				%worker_pid,
+				%err_ctx,
+				?cache_path,
+				"Could not change root to be the cache path: {}",
+				err
+			);
+			worker_shutdown_message(debug_id, worker_pid, err);
+			return
+		}
+	}
+
+	security::remove_env_vars(debug_id);
+
+	gum::info!(target: LOG_TARGET, "5. {:?}", std::fs::read_dir(".").unwrap().map(|entry| entry.unwrap().path()).collect::<Vec<PathBuf>>());
 
 	// Run the main worker loop.
 	let rt = Runtime::new().expect("Creates tokio runtime. If this panics the worker will die and the host will detect that and deal with it.");
@@ -149,48 +189,6 @@ pub fn worker_event_loop<F, Fut>(
 	// as possible and not wait for stalled validation to finish. This isn't strictly necessary now,
 	// but may be in the future.
 	rt.shutdown_background();
-}
-
-/// Delete all env vars to prevent malicious code from accessing them.
-fn remove_env_vars(debug_id: &'static str) {
-	for (key, value) in std::env::vars_os() {
-		// TODO: *theoretically* the value (or mere presence) of `RUST_LOG` can be a source of
-		// randomness for malicious code. In the future we can remove it also and log in the host;
-		// see <https://github.com/paritytech/polkadot/issues/7117>.
-		if key == "RUST_LOG" {
-			continue
-		}
-
-		// In case of a key or value that would cause [`env::remove_var` to
-		// panic](https://doc.rust-lang.org/std/env/fn.remove_var.html#panics), we first log a
-		// warning and then proceed to attempt to remove the env var.
-		let mut err_reasons = vec![];
-		let (key_str, value_str) = (key.to_str(), value.to_str());
-		if key.is_empty() {
-			err_reasons.push("key is empty");
-		}
-		if key_str.is_some_and(|s| s.contains('=')) {
-			err_reasons.push("key contains '='");
-		}
-		if key_str.is_some_and(|s| s.contains('\0')) {
-			err_reasons.push("key contains null character");
-		}
-		if value_str.is_some_and(|s| s.contains('\0')) {
-			err_reasons.push("value contains null character");
-		}
-		if !err_reasons.is_empty() {
-			gum::warn!(
-				target: LOG_TARGET,
-				%debug_id,
-				?key,
-				?value,
-				"Attempting to remove badly-formatted env var, this may cause the PVF worker to crash. Please remove it yourself. Reasons: {:?}",
-				err_reasons
-			);
-		}
-
-		std::env::remove_var(key);
-	}
 }
 
 /// Provide a consistent message on worker shutdown.
@@ -299,7 +297,7 @@ pub mod thread {
 		Arc::new((Mutex::new(WaitOutcome::Pending), Condvar::new()))
 	}
 
-	/// Runs a worker thread. Will first enable security features, and afterwards notify the threads
+	/// Runs a worker thread. Will run the requested function, and afterwards notify the threads
 	/// waiting on the condvar. Catches panics during execution and resumes the panics after
 	/// triggering the condvar, so that the waiting thread is notified on panics.
 	///

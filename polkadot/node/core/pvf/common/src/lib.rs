@@ -25,16 +25,15 @@ pub mod worker;
 
 pub use cpu_time::ProcessTime;
 
-/// DO NOT USE - internal for macros only.
-#[doc(hidden)]
-pub mod __private {
-	pub use sp_tracing::try_init_simple;
-}
+// Used by `decl_worker_main!`.
+#[cfg(feature = "test-utils")]
+pub use sp_tracing;
 
 const LOG_TARGET: &str = "parachain::pvf-common";
 
 use std::mem;
 use tokio::io::{self, AsyncRead, AsyncReadExt as _, AsyncWrite, AsyncWriteExt as _};
+use parity_scale_codec::{Decode, Encode};
 
 #[cfg(feature = "test-utils")]
 pub mod tests {
@@ -42,6 +41,15 @@ pub mod tests {
 
 	pub const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
 	pub const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
+}
+
+/// Status of security features on the current system.
+#[derive(Debug, Clone, Encode, Decode)]
+pub struct SecurityStatus {
+	/// Whether the landlock features we use are fully available on this system.
+	pub can_enable_landlock: bool,
+	// Whether we are able to unshare the user namespace and change the filesystem root.
+	pub can_unshare_user_namespace_and_change_root: bool,
 }
 
 /// Write some data prefixed by its length into `w`.

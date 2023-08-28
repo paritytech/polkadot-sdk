@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::error::InternalValidationError;
+use crate::{error::InternalValidationError, SecurityStatus};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_parachain::primitives::ValidationResult;
 use polkadot_primitives::ExecutorParams;
@@ -26,6 +26,8 @@ use std::time::Duration;
 pub struct Handshake {
 	/// The executor parameters.
 	pub executor_params: ExecutorParams,
+	/// Status of security features on the current system.
+	pub security_status: SecurityStatus,
 }
 
 /// The response from an execution job on the worker.

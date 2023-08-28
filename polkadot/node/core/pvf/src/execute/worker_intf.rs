@@ -31,6 +31,7 @@ use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
 	execute::{Handshake, Response},
 	framed_recv, framed_send,
+	SecurityStatus
 };
 use polkadot_parachain::primitives::ValidationResult;
 use polkadot_primitives::ExecutorParams;
@@ -46,14 +47,27 @@ pub async fn spawn(
 	executor_params: ExecutorParams,
 	spawn_timeout: Duration,
 	node_version: Option<&str>,
+	cache_path: &Path,
+	security_status: SecurityStatus,
 ) -> Result<(IdleWorker, WorkerHandle), SpawnErr> {
-	let mut extra_args = vec!["execute-worker"];
+	let cache_path_str = match cache_path.to_str() {
+		Some(a) => a,
+		None => return Err(SpawnErr::InvalidCachePath(cache_path.to_owned())),
+	};
+	let mut extra_args = vec!["execute-worker", "--cache-path", cache_path_str];
 	if let Some(node_version) = node_version {
 		extra_args.extend_from_slice(&["--node-impl-version", node_version]);
 	}
-	let (mut idle_worker, worker_handle) =
-		spawn_with_program_path("execute", program_path, &extra_args, spawn_timeout).await?;
-	send_handshake(&mut idle_worker.stream, Handshake { executor_params })
+
+	let (mut idle_worker, worker_handle) = spawn_with_program_path(
+		"execute",
+		program_path,
+		Some(cache_path),
+		&extra_args,
+		spawn_timeout,
+	)
+	.await?;
+	send_handshake(&mut idle_worker.stream, Handshake { executor_params, security_status })
 		.await
 		.map_err(|error| {
 			gum::warn!(

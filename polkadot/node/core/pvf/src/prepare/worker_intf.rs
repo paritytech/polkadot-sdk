@@ -28,8 +28,9 @@ use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
 	framed_recv, framed_send,
-	prepare::PrepareStats,
+	prepare::{Handshake, PrepareStats},
 	pvf::PvfPrepData,
+	SecurityStatus,
 };
 
 use sp_core::hexdisplay::HexDisplay;
@@ -46,12 +47,38 @@ pub async fn spawn(
 	program_path: &Path,
 	spawn_timeout: Duration,
 	node_version: Option<&str>,
+	cache_path: &Path,
+	security_status: SecurityStatus,
 ) -> Result<(IdleWorker, WorkerHandle), SpawnErr> {
-	let mut extra_args = vec!["prepare-worker"];
+	let cache_path_str = match cache_path.to_str() {
+		Some(a) => a,
+		None => return Err(SpawnErr::InvalidCachePath(cache_path.to_owned())),
+	};
+	let mut extra_args = vec!["prepare-worker", "--cache-path", cache_path_str];
 	if let Some(node_version) = node_version {
 		extra_args.extend_from_slice(&["--node-impl-version", node_version]);
 	}
-	spawn_with_program_path("prepare", program_path, &extra_args, spawn_timeout).await
+
+	let (mut idle_worker, worker_handle) = spawn_with_program_path(
+		"prepare",
+		program_path,
+		Some(cache_path),
+		&extra_args,
+		spawn_timeout,
+	)
+	.await?;
+	send_handshake(&mut idle_worker.stream, Handshake { security_status })
+		.await
+		.map_err(|error| {
+			gum::warn!(
+				target: LOG_TARGET,
+				worker_pid = %idle_worker.pid,
+				?error,
+				"failed to send a handshake to the spawned worker",
+			);
+			SpawnErr::Handshake
+		})?;
+	Ok((idle_worker, worker_handle))
 }
 
 pub enum Outcome {
@@ -86,19 +113,30 @@ pub async fn start_work(
 	pvf: PvfPrepData,
 	cache_path: &Path,
 	artifact_path: PathBuf,
+	security_status: SecurityStatus,
 ) -> Outcome {
 	let IdleWorker { stream, pid } = worker;
 
 	gum::debug!(
 		target: LOG_TARGET,
 		worker_pid = %pid,
+		?security_status,
 		"starting prepare for {}",
 		artifact_path.display(),
 	);
 
 	with_tmp_file(stream, pid, cache_path, |tmp_file, mut stream| async move {
+		// Pass the socket path relative to the cache_path (what the child thinks is root).
+		let tmp_file_worker_view = if security_status.can_unshare_user_namespace_and_change_root {
+			Path::new(".").with_file_name(
+				tmp_file.file_name().expect("tmp files are created with a filename; qed"),
+			)
+		} else {
+			tmp_file.clone()
+		};
+
 		let preparation_timeout = pvf.prep_timeout();
-		if let Err(err) = send_request(&mut stream, pvf, &tmp_file).await {
+		if let Err(err) = send_request(&mut stream, pvf, &tmp_file_worker_view).await {
 			gum::warn!(
 				target: LOG_TARGET,
 				worker_pid = %pid,
@@ -276,6 +314,10 @@ async fn send_request(
 	framed_send(stream, &pvf.encode()).await?;
 	framed_send(stream, path_to_bytes(tmp_file)).await?;
 	Ok(())
+}
+
+async fn send_handshake(stream: &mut UnixStream, handshake: Handshake) -> io::Result<()> {
+	framed_send(stream, &handshake.encode()).await
 }
 
 async fn recv_response(stream: &mut UnixStream, pid: u32) -> io::Result<PrepareResult> {
