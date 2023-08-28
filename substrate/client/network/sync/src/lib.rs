@@ -85,13 +85,12 @@ use sp_runtime::{
 };
 
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet},
+	collections::{hash_map::Entry, BTreeMap, HashMap, HashSet},
 	iter,
 	ops::Range,
 	pin::Pin,
 	sync::Arc,
 };
-use std::collections::BTreeMap;
 
 pub use service::chain_sync::SyncingService;
 
@@ -3001,10 +3000,7 @@ fn fork_sync_request<B: BlockT>(
 	});
 	// Download the fork only if it is behind or not too far ahead our tip of the chain
 	// Otherwise it should be downloaded in full sync mode.
-	let range = ..(
-		best_num.saturating_add(max_blocks_per_request.into()),
-		Default::default(),
-	);
+	let range = ..(best_num.saturating_add(max_blocks_per_request.into()), Default::default());
 	// Iterate in reverse order to download target with the highest number first.
 	// Other targets might belong to the same fork, so we don't need to download them separately.
 	for ((number, hash), r) in targets.range(range).rev() {
@@ -3028,7 +3024,7 @@ fn fork_sync_request<B: BlockT>(
 				direction: Direction::Descending,
 				max: Some(count),
 			},
-		));
+		))
 	}
 	None
 }
@@ -4189,12 +4185,15 @@ mod test {
 	#[test]
 	fn fork_sync_request_prefers_latest_fork() {
 		let peer_id = PeerId::random();
-		let mut targets = (0..200u8).fold(BTreeMap::new(), |mut sum, i| {
-			sum.insert(
+		let mut targets = (0..200u8).fold(BTreeMap::new(), |mut acc, i| {
+			acc.insert(
 				(i.into(), Hash::random()),
-				ForkTarget::<Block> { parent_hash: None, peers: vec![peer_id].into_iter().collect() },
+				ForkTarget::<Block> {
+					parent_hash: None,
+					peers: vec![peer_id].into_iter().collect(),
+				},
 			);
-			sum
+			acc
 		});
 		let (_, block_request) = fork_sync_request(
 			&peer_id,
@@ -4204,11 +4203,15 @@ mod test {
 			BlockAttributes::BODY,
 			|_| BlockStatus::Unknown,
 			10,
-		).expect("should have block request");
+		)
+		.expect("should have block request");
 
 		// Find expected chosen target
 		let expected_number = 109; // 100 + 10 - 1
-		let ((_, expected_hash), _) = targets.range((expected_number, Default::default())..(expected_number+1, Default::default())).next().unwrap();
+		let ((_, expected_hash), _) = targets
+			.range((expected_number, Default::default())..(expected_number + 1, Default::default()))
+			.next()
+			.unwrap();
 		assert_eq!(block_request.from, FromBlock::Hash(*expected_hash));
 		assert_eq!(block_request.max, Some(59)); // 109 - 50
 	}
