@@ -24,18 +24,10 @@ use sc_chain_spec::Properties;
 #[rpc(client, server)]
 pub trait ChainSpecApi {
 	/// Get the chain name, as present in the chain specification.
-	///
-	/// # Unstable
-	///
-	/// This method is unstable and subject to change in the future.
 	#[method(name = "chainSpec_v1_chainName")]
 	fn chain_spec_v1_chain_name(&self) -> RpcResult<String>;
 
 	/// Get the chain's genesis hash.
-	///
-	/// # Unstable
-	///
-	/// This method is unstable and subject to change in the future.
 	#[method(name = "chainSpec_v1_genesisHash")]
 	fn chain_spec_v1_genesis_hash(&self) -> RpcResult<String>;
 
@@ -44,10 +36,6 @@ pub trait ChainSpecApi {
 	/// # Note
 	///
 	/// The json whitespaces are not guaranteed to persist.
-	///
-	/// # Unstable
-	///
-	/// This method is unstable and subject to change in the future.
 	#[method(name = "chainSpec_v1_properties")]
 	fn chain_spec_v1_properties(&self) -> RpcResult<Properties>;
 }
