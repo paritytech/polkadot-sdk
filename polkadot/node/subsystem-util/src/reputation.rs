@@ -25,6 +25,7 @@ use std::{collections::HashMap, time::Duration};
 
 /// Default delay for sending reputation changes
 pub const REPUTATION_CHANGE_INTERVAL: Duration = Duration::from_secs(30);
+const LOG_TARGET: &'static str = "parachain::reputation-aggregator";
 
 type BatchReputationChange = HashMap<PeerId, i32>;
 
@@ -75,6 +76,10 @@ impl ReputationAggregator {
 		peer_id: PeerId,
 		rep: UnifiedReputationChange,
 	) {
+		if rep.cost_or_benefit() < 0 {
+			gum::debug!(target: LOG_TARGET, peer = ?peer_id, ?rep, "Modify reputation");
+		}
+
 		if (self.send_immediately_if)(rep) {
 			self.single_send(sender, peer_id, rep).await;
 		} else {
@@ -97,21 +102,12 @@ impl ReputationAggregator {
 	}
 
 	fn add(&mut self, peer_id: PeerId, rep: UnifiedReputationChange) {
-		if self.by_peer.is_none() {
-			self.by_peer = Some(HashMap::new());
-		}
-		if let Some(ref mut by_peer) = self.by_peer {
-			add_reputation(by_peer, peer_id, rep)
-		}
+		let cost = rep.cost_or_benefit();
+		self
+			.by_peer
+			.get_or_insert(HashMap::new())
+			.entry(peer_id)
+			.and_modify(|v| *v = v.saturating_add(cost))
+			.or_insert(cost);
 	}
-}
-
-/// Add a reputation change to an existing collection.
-pub fn add_reputation(
-	acc: &mut BatchReputationChange,
-	peer_id: PeerId,
-	rep: UnifiedReputationChange,
-) {
-	let cost = rep.cost_or_benefit();
-	acc.entry(peer_id).and_modify(|v| *v = v.saturating_add(cost)).or_insert(cost);
 }
