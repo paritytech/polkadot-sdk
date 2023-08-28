@@ -66,6 +66,7 @@ pub type QueryId = u64;
 #[scale_info(bounds(), skip_type_params(Call))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
+const MAX_INSTRUCTIONS_TO_DECODE: usize = 100;
 const TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE: &'static str = "Too many instructions to decode";
 
 impl<Call> Decode for Xcm<Call> {
@@ -84,7 +85,7 @@ impl<Call> Decode for Xcm<Call> {
 			let mut buffer = [0u8; 2];
 			input.read(&mut buffer)?;
 			let number_of_instructions = <Vec::<Instruction<Call>> as DecodeLength>::len(&buffer[..])?;
-			if number_of_instructions > 100 {
+			if number_of_instructions > MAX_INSTRUCTIONS_TO_DECODE {
 				return Err(CodecError::from(TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE));
 			}
 		}
