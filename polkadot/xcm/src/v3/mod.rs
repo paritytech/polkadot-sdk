@@ -20,7 +20,7 @@ use super::v2::{
 	Instruction as OldInstruction, Response as OldResponse, WeightLimit as OldWeightLimit,
 	Xcm as OldXcm,
 };
-use crate::{DoubleEncoded, GetWeight};
+use crate::DoubleEncoded;
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
 use core::{
@@ -49,7 +49,7 @@ pub use multilocation::{
 };
 pub use traits::{
 	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Result, SendError,
-	SendResult, SendXcm, Weight, XcmHash,
+	SendResult, SendXcm, Weight, XcmHash, GetWeight,
 };
 // These parts of XCM v2 are unchanged in XCM v3, and are re-imported here.
 pub use super::v2::OriginKind;
@@ -185,6 +185,7 @@ pub mod prelude {
 			OriginKind, Outcome, PalletInfo, Parent, ParentThen, PreparedMessage, QueryId,
 			QueryResponseInfo, Response, Result as XcmResult, SendError, SendResult, SendXcm,
 			Weight,
+			GetWeight,
 			WeightLimit::{self, *},
 			WildFungibility::{self, Fungible as WildFungible, NonFungible as WildNonFungible},
 			WildMultiAsset::{self, *},
