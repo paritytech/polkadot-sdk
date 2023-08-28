@@ -26,7 +26,7 @@ rules:
       - min_approvals: 1
         teams:
           - polkadot-review
-      - min_approvals: 2
+      - min_approvals: 1
         teams:
           - srlabs
 

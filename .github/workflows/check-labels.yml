@@ -22,7 +22,7 @@ jobs:
           API_BASE: https://api.github.com/repos
           REPO: ${{ github.repository }}
           RULES_PATH: labels/ruled_labels
-          CHECK_SPECS: "[DRAFT]specs_monorepo.yaml"
+          CHECK_SPECS: "specs_polkadot-sdk.yaml"
         run: |
           echo "REPO: ${REPO}"
           echo "GITHUB_PR: ${GITHUB_PR}"
@@ -32,10 +32,6 @@ jobs:
 
           # Temporary, before https://github.com/paritytech/labels/pull/29 is not merged
           git clone https://github.com/paritytech/labels
-          cd labels
-          git fetch origin the-right-joyce-monorepo-labels
-          git checkout the-right-joyce-monorepo-labels
-          cd ..
 
           # Fetch the labels for the PR under test
           echo "Fetch the labels for $API_BASE/${REPO}/pulls/${GITHUB_PR}"
