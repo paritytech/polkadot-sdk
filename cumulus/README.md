@@ -146,7 +146,6 @@ zombienet --provider native spawn ./zombienet/examples/small_network.toml
 ```bash
 # Clone
 git clone https://github.com/paritytech/polkadot-sdk
-cd polkadot-sdk/polkadot
 
 # Compile Polkadot
 cargo build --release --bin polkadot
