@@ -23,7 +23,11 @@ frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-f
 
 [features]
 default = [ "std" ]
-runtime-benchmarks = [ "frame-benchmarking/runtime-benchmarks" ]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
 std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
