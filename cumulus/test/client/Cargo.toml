@@ -38,4 +38,13 @@ cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
 
 [features]
-runtime-benchmarks = ["cumulus-test-service/runtime-benchmarks"]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-test-service/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
