@@ -12,26 +12,26 @@ description = "Cli command runtime testing and dry-running"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-remote-externalities = { version = "0.10.0-dev", path = "../../remote-externalities", package = "frame-remote-externalities" }
-sc-cli = { version = "0.10.0-dev", path = "../../../../client/cli" }
-sc-executor = { version = "0.10.0-dev", path = "../../../../client/executor" }
+remote-externalities = { package = "frame-remote-externalities" , path = "../../remote-externalities" }
+sc-cli = { path = "../../../../client/cli" }
+sc-executor = { path = "../../../../client/executor" }
 sp-consensus-aura = { path = "../../../../primitives/consensus/aura" }
 sp-consensus-babe = { path = "../../../../primitives/consensus/babe" }
-sp-core = { version = "21.0.0", path = "../../../../primitives/core" }
-sp-externalities = { version = "0.19.0", path = "../../../../primitives/externalities" }
+sp-core = { path = "../../../../primitives/core" }
+sp-externalities = { path = "../../../../primitives/externalities" }
 sp-inherents = { path = "../../../../primitives/inherents" }
-sp-io = { version = "23.0.0", path = "../../../../primitives/io" }
-sp-keystore = { version = "0.27.0", path = "../../../../primitives/keystore" }
-sp-runtime = { version = "24.0.0", path = "../../../../primitives/runtime" }
-sp-rpc = { version = "6.0.0", path = "../../../../primitives/rpc" }
-sp-state-machine = { version = "0.28.0", path = "../../../../primitives/state-machine" }
+sp-io = { path = "../../../../primitives/io" }
+sp-keystore = { path = "../../../../primitives/keystore" }
+sp-runtime = { path = "../../../../primitives/runtime" }
+sp-rpc = { path = "../../../../primitives/rpc" }
+sp-state-machine = { path = "../../../../primitives/state-machine" }
 sp-timestamp = { path = "../../../../primitives/timestamp" }
 sp-transaction-storage-proof = { path = "../../../../primitives/transaction-storage-proof" }
-sp-version = { version = "22.0.0", path = "../../../../primitives/version" }
+sp-version = { path = "../../../../primitives/version" }
 sp-debug-derive = { path = "../../../../primitives/debug-derive" }
 sp-api = { path = "../../../../primitives/api" }
-sp-weights = { version = "20.0.0", path = "../../../../primitives/weights" }
-frame-try-runtime = { optional = true, path = "../../../../frame/try-runtime" }
+sp-weights = { path = "../../../../primitives/weights" }
+frame-try-runtime = { path = "../../../../frame/try-runtime", optional = true}
 substrate-rpc-client = { path = "../../rpc/client" }
 
 async-trait = "0.1.57"

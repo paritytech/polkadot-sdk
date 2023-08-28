@@ -1,0 +1,38 @@
+[package]
+name = "cumulus-pallet-solo-to-para"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+description = "Adds functionality to migrate from a Solo to a Parachain"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+
+# Substrate
+frame-support = { path = "../../../substrate/frame/support", default-features = false}
+frame-system = { path = "../../../substrate/frame/system", default-features = false}
+pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false}
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
+sp-std = { path = "../../../substrate/primitives/std", default-features = false}
+
+# Polkadot
+polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false}
+
+# Cumulus
+cumulus-pallet-parachain-system = { path = "../parachain-system", default-features = false}
+
+[features]
+default = [ "std" ]
+std = [
+	"codec/std",
+	"cumulus-pallet-parachain-system/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-sudo/std",
+	"polkadot-primitives/std",
+	"scale-info/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]
+try-runtime = [ "frame-support/try-runtime" ]

@@ -1,0 +1,125 @@
+[package]
+name = "polkadot-runtime-common"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+impl-trait-for-tuples = "0.2.2"
+bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
+parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
+log = { version = "0.4.17", default-features = false }
+rustc-hex = { version = "2.1.0", default-features = false }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.163", default-features = false, features = ["alloc"] }
+serde_derive = { version = "1.0.117" }
+static_assertions = "1.1.0"
+
+sp-api = { path = "../../../substrate/primitives/api", default-features = false }
+inherents = { package = "sp-inherents", path = "../../../substrate/primitives/inherents", default-features = false }
+sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false }
+sp-io = { path = "../../../substrate/primitives/io", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false , features=["serde"]}
+sp-session = { path = "../../../substrate/primitives/session", default-features = false }
+sp-staking = { path = "../../../substrate/primitives/staking", default-features = false, features=["serde"] }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false , features=["serde"]}
+sp-npos-elections = { path = "../../../substrate/primitives/npos-elections", default-features = false, features=["serde"] }
+
+pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
+pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
+pallet-fast-unstake = { path = "../../../substrate/frame/fast-unstake", default-features = false }
+pallet-session = { path = "../../../substrate/frame/session", default-features = false }
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
+pallet-staking-reward-fn = { path = "../../../substrate/frame/staking/reward-fn", default-features = false }
+frame-system = { path = "../../../substrate/frame/system", default-features = false }
+pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false }
+pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false }
+pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
+pallet-treasury = { path = "../../../substrate/frame/treasury", default-features = false }
+pallet-election-provider-multi-phase = { path = "../../../substrate/frame/election-provider-multi-phase", default-features = false }
+frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false }
+
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
+pallet-babe = { path = "../../../substrate/frame/babe", default-features = false, optional = true }
+
+primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
+libsecp256k1 = { version = "0.7.0", default-features = false }
+runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false }
+
+slot-range-helper = { path = "slot_range_helper", default-features = false }
+xcm = { path = "../../xcm", default-features = false }
+
+[dev-dependencies]
+hex-literal = "0.4.1"
+frame-support-test = { path = "../../../substrate/frame/support/test" }
+pallet-babe = { path = "../../../substrate/frame/babe" }
+pallet-treasury = { path = "../../../substrate/frame/treasury" }
+sp-keystore = { path = "../../../substrate/primitives/keystore" }
+sp-keyring = { path = "../../../substrate/primitives/keyring" }
+serde_json = "1.0.96"
+libsecp256k1 = "0.7.0"
+test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
+
+[features]
+default = [ "std" ]
+experimental = [ "frame-support/experimental" ]
+no_std = []
+std = [
+	"bitvec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"inherents/std",
+	"libsecp256k1/std",
+	"log/std",
+	"pallet-authorship/std",
+	"pallet-balances/std",
+	"pallet-election-provider-multi-phase/std",
+	"pallet-fast-unstake/std",
+	"pallet-session/std",
+	"pallet-staking-reward-fn/std",
+	"pallet-staking/std",
+	"pallet-timestamp/std",
+	"pallet-transaction-payment/std",
+	"pallet-treasury/std",
+	"pallet-vesting/std",
+	"parity-scale-codec/std",
+	"primitives/std",
+	"runtime-parachains/std",
+	"rustc-hex/std",
+	"scale-info/std",
+	"serde/std",
+	"slot-range-helper/std",
+	"sp-api/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-npos-elections/std",
+	"sp-runtime/std",
+	"sp-session/std",
+	"sp-staking/std",
+	"sp-std/std",
+	"xcm/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"libsecp256k1/hmac",
+	"libsecp256k1/static-context",
+	"pallet-babe/runtime-benchmarks",
+	"pallet-fast-unstake/runtime-benchmarks",
+	"runtime-parachains/runtime-benchmarks",
+]
+try-runtime = [
+	"pallet-authorship/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-fast-unstake/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-staking/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"pallet-treasury/try-runtime",
+	"pallet-vesting/try-runtime",
+	"runtime-parachains/try-runtime",
+]

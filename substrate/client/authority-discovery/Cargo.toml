@@ -27,18 +27,18 @@ log = "0.4.17"
 prost = "0.11"
 rand = "0.8.5"
 thiserror = "1.0"
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", version = "0.10.0-dev", path = "../../utils/prometheus" }
-sc-client-api = { version = "4.0.0-dev", path = "../api" }
-sc-network = { version = "0.10.0-dev", path = "../network/" }
-sp-api = { version = "4.0.0-dev", path = "../../primitives/api" }
-sp-authority-discovery = { version = "4.0.0-dev", path = "../../primitives/authority-discovery" }
-sp-blockchain = { version = "4.0.0-dev", path = "../../primitives/blockchain" }
-sp-core = { version = "21.0.0", path = "../../primitives/core" }
-sp-keystore = { version = "0.27.0", path = "../../primitives/keystore" }
-sp-runtime = { version = "24.0.0", path = "../../primitives/runtime" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
+sc-client-api = { path = "../api" }
+sc-network = { path = "../network" }
+sp-api = { path = "../../primitives/api" }
+sp-authority-discovery = { path = "../../primitives/authority-discovery" }
+sp-blockchain = { path = "../../primitives/blockchain" }
+sp-core = { path = "../../primitives/core" }
+sp-keystore = { path = "../../primitives/keystore" }
+sp-runtime = { path = "../../primitives/runtime" }
 async-trait = "0.1.56"
 
 [dev-dependencies]
 quickcheck = { version = "1.0.3", default-features = false }
-sp-tracing = { version = "10.0.0", path = "../../primitives/tracing" }
-substrate-test-runtime-client = { version = "2.0.0", path = "../../test-utils/runtime/client" }
+sp-tracing = { path = "../../primitives/tracing" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }

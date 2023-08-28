@@ -23,8 +23,8 @@ proc-macro-crate = "1.1.3"
 [dev-dependencies]
 parity-scale-codec = "3.6.1"
 scale-info = "2.1.1"
-sp-arithmetic = { version = "16.0.0", path = "../../../primitives/arithmetic" }
+sp-arithmetic = { path = "../../../primitives/arithmetic" }
 # used by generate_solution_type:
-frame-election-provider-support = { version = "4.0.0-dev", path = ".." }
-frame-support = { version = "4.0.0-dev", path = "../../support" }
+frame-election-provider-support = { path = ".." }
+frame-support = { path = "../../support" }
 trybuild = "1.0.74"

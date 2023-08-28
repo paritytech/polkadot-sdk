@@ -1,0 +1,18 @@
+[package]
+name = "cumulus-client-cli"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.3.24", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.0.0" }
+url = "2.4.0"
+
+# Substrate
+sc-cli = { path = "../../../substrate/client/cli" }
+sc-client-api = { path = "../../../substrate/client/api" }
+sc-chain-spec = { path = "../../../substrate/client/chain-spec" }
+sc-service = { path = "../../../substrate/client/service" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }

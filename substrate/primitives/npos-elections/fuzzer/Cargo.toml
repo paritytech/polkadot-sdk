@@ -17,8 +17,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 clap = { version = "4.2.5", features = ["derive"] }
 honggfuzz = "0.5"
 rand = { version = "0.8", features = ["std", "small_rng"] }
-sp-npos-elections = { version = "4.0.0-dev", path = ".." }
-sp-runtime = { version = "24.0.0", path = "../../runtime" }
+sp-npos-elections = { path = ".." }
+sp-runtime = { path = "../../runtime" }
 
 [[bin]]
 name = "reduce"

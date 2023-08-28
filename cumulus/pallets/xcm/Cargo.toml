@@ -1,0 +1,33 @@
+[package]
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+name = "cumulus-pallet-xcm"
+version = "0.1.0"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+
+sp-std = { path = "../../../substrate/primitives/std", default-features = false}
+sp-io = { path = "../../../substrate/primitives/io", default-features = false}
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
+frame-support = { path = "../../../substrate/frame/support", default-features = false}
+frame-system = { path = "../../../substrate/frame/system", default-features = false}
+
+xcm = { path = "../../../polkadot/xcm", default-features = false}
+
+cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
+
+[features]
+default = [ "std" ]
+std = [
+	"codec/std",
+	"cumulus-primitives-core/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm/std",
+]
+try-runtime = [ "frame-support/try-runtime" ]

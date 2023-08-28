@@ -1,0 +1,24 @@
+[package]
+name = "polkadot-node-subsystem-test-helpers"
+description = "Subsystem traits and message definitions"
+publish = false
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+async-trait = "0.1.57"
+futures = "0.3.21"
+parking_lot = "0.12.0"
+polkadot-node-subsystem = { path = "../subsystem" }
+polkadot-node-subsystem-util = { path = "../subsystem-util" }
+polkadot-primitives = { path = "../../primitives" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-keystore = { path = "../../../substrate/primitives/keystore" }
+sc-keystore = { path = "../../../substrate/client/keystore" }
+sp-keyring = { path = "../../../substrate/primitives/keyring" }
+sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
+
+[dev-dependencies]
+polkadot-overseer = { path = "../overseer" }

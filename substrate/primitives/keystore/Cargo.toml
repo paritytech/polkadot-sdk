@@ -16,8 +16,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 parking_lot = { version = "0.12.1", default-features = false }
 thiserror = "1.0"
-sp-core = { version = "21.0.0", default-features = false, path = "../core" }
-sp-externalities = { version = "0.19.0", default-features = false, path = "../externalities" }
+sp-core = { path = "../core", default-features = false}
+sp-externalities = { path = "../externalities", default-features = false}
 
 [dev-dependencies]
 rand = "0.7.2"

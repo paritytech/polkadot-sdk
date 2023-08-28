@@ -1,0 +1,70 @@
+[package]
+name = "shell-runtime"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+
+# Substrate
+frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false}
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false}
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false}
+frame-try-runtime = { path = "../../../../../substrate/frame/try-runtime", default-features = false, optional = true }
+sp-api = { path = "../../../../../substrate/primitives/api", default-features = false}
+sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false}
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
+sp-inherents = { path = "../../../../../substrate/primitives/inherents", default-features = false}
+sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false}
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false}
+sp-session = { path = "../../../../../substrate/primitives/session", default-features = false}
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false}
+sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-pool", default-features = false}
+sp-version = { path = "../../../../../substrate/primitives/version", default-features = false}
+
+# Polkadot
+xcm = { path = "../../../../../polkadot/xcm", default-features = false}
+xcm-builder = { path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
+xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
+
+# Cumulus
+cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }
+cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
+cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
+parachain-info = { path = "../../../pallets/parachain-info", default-features = false }
+parachains-common = { path = "../../../common", default-features = false }
+
+[build-dependencies]
+substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
+
+[features]
+default = [ "std" ]
+std = [
+	"codec/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-xcm/std",
+	"cumulus-primitives-core/std",
+	"frame-executive/std",
+	"frame-support/std",
+	"frame-system/std",
+	"parachain-info/std",
+	"parachains-common/std",
+	"scale-info/std",
+	"sp-api/std",
+	"sp-block-builder/std",
+	"sp-core/std",
+	"sp-inherents/std",
+	"sp-offchain/std",
+	"sp-runtime/std",
+	"sp-session/std",
+	"sp-std/std",
+	"sp-transaction-pool/std",
+	"sp-version/std",
+	"substrate-wasm-builder",
+	"xcm-builder/std",
+	"xcm-executor/std",
+	"xcm/std",
+]
+try-runtime = [ "frame-executive/try-runtime", "frame-try-runtime/try-runtime" ]

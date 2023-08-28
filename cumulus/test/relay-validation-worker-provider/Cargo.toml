@@ -1,0 +1,14 @@
+[package]
+name = "cumulus-test-relay-validation-worker-provider"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+
+# Polkadot
+polkadot-node-core-pvf = { path = "../../../polkadot/node/core/pvf", features = ["test-utils"] }
+
+[build-dependencies]
+toml = "0.7.6"

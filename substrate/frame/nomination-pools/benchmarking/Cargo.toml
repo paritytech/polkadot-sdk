@@ -18,26 +18,26 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 
 # FRAME
-frame-benchmarking = { version = "4.0.0-dev", default-features = false, path = "../../benchmarking" }
-frame-election-provider-support = { version = "4.0.0-dev", default-features = false, path = "../../election-provider-support" }
-frame-support = { version = "4.0.0-dev", default-features = false, path = "../../support" }
-frame-system = { version = "4.0.0-dev", default-features = false, path = "../../system" }
-pallet-bags-list = { version = "4.0.0-dev", default-features = false, path = "../../bags-list" }
-pallet-staking = { version = "4.0.0-dev", default-features = false, path = "../../staking" }
-pallet-nomination-pools = { version = "1.0.0", default-features = false, path = "../" }
+frame-benchmarking = { path = "../../benchmarking", default-features = false}
+frame-election-provider-support = { path = "../../election-provider-support", default-features = false}
+frame-support = { path = "../../support", default-features = false}
+frame-system = { path = "../../system", default-features = false}
+pallet-bags-list = { path = "../../bags-list", default-features = false}
+pallet-staking = { path = "../../staking", default-features = false}
+pallet-nomination-pools = { path = "..", default-features = false}
 
 # Substrate Primitives
-sp-runtime = { version = "24.0.0", default-features = false, path = "../../../primitives/runtime" }
-sp-runtime-interface = { version = "17.0.0", default-features = false, path = "../../../primitives/runtime-interface" }
-sp-staking = { version = "4.0.0-dev", default-features = false, path = "../../../primitives/staking" }
-sp-std = { version = "8.0.0", default-features = false, path = "../../../primitives/std" }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false}
+sp-runtime-interface = { path = "../../../primitives/runtime-interface", default-features = false}
+sp-staking = { path = "../../../primitives/staking", default-features = false}
+sp-std = { path = "../../../primitives/std", default-features = false}
 
 [dev-dependencies]
-pallet-balances = { version = "4.0.0-dev", default-features = false, path = "../../balances" }
-pallet-timestamp = { version = "4.0.0-dev", path = "../../timestamp" }
-pallet-staking-reward-curve = { version = "4.0.0-dev", path = "../../staking/reward-curve" }
-sp-core = { version = "21.0.0", path = "../../../primitives/core" }
-sp-io = { version = "23.0.0", path = "../../../primitives/io" }
+pallet-balances = { path = "../../balances", default-features = false}
+pallet-timestamp = { path = "../../timestamp" }
+pallet-staking-reward-curve = { path = "../../staking/reward-curve" }
+sp-core = { path = "../../../primitives/core" }
+sp-io = { path = "../../../primitives/io" }
 
 [features]
 default = [ "std" ]

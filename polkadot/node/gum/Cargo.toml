@@ -1,0 +1,14 @@
+[package]
+name = "tracing-gum"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Stick logs together with the TraceID as provided by tempo"
+
+[dependencies]
+coarsetime = "0.1.22"
+tracing = "0.1.35"
+jaeger = { package = "polkadot-node-jaeger" , path = "../jaeger" }
+gum-proc-macro = { package = "tracing-gum-proc-macro" , path = "proc-macro" }
+polkadot-primitives = { path = "../../primitives", features = ["std"] }

@@ -18,9 +18,9 @@ codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive
 futures = "0.3.21"
 libp2p = "0.51.3"
 log = "0.4.17"
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", version = "0.10.0-dev", path = "../../../utils/prometheus" }
-sc-network = { version = "0.10.0-dev", path = "../" }
-sc-network-common = { version = "0.10.0-dev", path = "../common" }
-sc-utils = { version = "4.0.0-dev", path = "../../utils" }
-sp-runtime = { version = "24.0.0", path = "../../../primitives/runtime" }
-sp-consensus = { version = "0.10.0-dev", path = "../../../primitives/consensus/common" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
+sc-network = { path = ".." }
+sc-network-common = { path = "../common" }
+sc-utils = { path = "../../utils" }
+sp-runtime = { path = "../../../primitives/runtime" }
+sp-consensus = { path = "../../../primitives/consensus/common" }
