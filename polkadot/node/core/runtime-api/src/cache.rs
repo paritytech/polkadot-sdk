@@ -40,7 +40,6 @@ const DEFAULT_CACHE_CAP: NonZeroUsize = match NonZeroUsize::new(128) {
 pub(crate) struct RequestResultCache {
 	authorities: LruCache<Hash, Vec<AuthorityDiscoveryId>>,
 	validators: LruCache<Hash, Vec<ValidatorId>>,
-	minimum_backing_votes: LruCache<Hash, u32>,
 	validator_groups: LruCache<Hash, (Vec<Vec<ValidatorIndex>>, GroupRotationInfo)>,
 	availability_cores: LruCache<Hash, Vec<CoreState>>,
 	persisted_validation_data:
@@ -69,6 +68,7 @@ pub(crate) struct RequestResultCache {
 		LruCache<Hash, Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>>,
 	key_ownership_proof:
 		LruCache<(Hash, ValidatorId), Option<vstaging::slashing::OpaqueKeyOwnershipProof>>,
+	minimum_backing_votes: LruCache<SessionIndex, u32>,
 
 	staging_para_backing_state: LruCache<(Hash, ParaId), Option<vstaging::BackingState>>,
 	staging_async_backing_params: LruCache<Hash, vstaging::AsyncBackingParams>,
@@ -79,7 +79,6 @@ impl Default for RequestResultCache {
 		Self {
 			authorities: LruCache::new(DEFAULT_CACHE_CAP),
 			validators: LruCache::new(DEFAULT_CACHE_CAP),
-			minimum_backing_votes: LruCache::new(DEFAULT_CACHE_CAP),
 			validator_groups: LruCache::new(DEFAULT_CACHE_CAP),
 			availability_cores: LruCache::new(DEFAULT_CACHE_CAP),
 			persisted_validation_data: LruCache::new(DEFAULT_CACHE_CAP),
@@ -102,6 +101,7 @@ impl Default for RequestResultCache {
 			disputes: LruCache::new(DEFAULT_CACHE_CAP),
 			unapplied_slashes: LruCache::new(DEFAULT_CACHE_CAP),
 			key_ownership_proof: LruCache::new(DEFAULT_CACHE_CAP),
+			minimum_backing_votes: LruCache::new(DEFAULT_CACHE_CAP),
 
 			staging_para_backing_state: LruCache::new(DEFAULT_CACHE_CAP),
 			staging_async_backing_params: LruCache::new(DEFAULT_CACHE_CAP),
@@ -131,18 +131,6 @@ impl RequestResultCache {
 
 	pub(crate) fn cache_validators(&mut self, relay_parent: Hash, validators: Vec<ValidatorId>) {
 		self.validators.put(relay_parent, validators);
-	}
-
-	pub(crate) fn minimum_backing_votes(&mut self, relay_parent: &Hash) -> Option<u32> {
-		self.minimum_backing_votes.get(relay_parent).copied()
-	}
-
-	pub(crate) fn cache_minimum_backing_votes(
-		&mut self,
-		relay_parent: Hash,
-		minimum_backing_votes: u32,
-	) {
-		self.minimum_backing_votes.put(relay_parent, minimum_backing_votes);
 	}
 
 	pub(crate) fn validator_groups(
@@ -451,6 +439,18 @@ impl RequestResultCache {
 		None
 	}
 
+	pub(crate) fn minimum_backing_votes(&mut self, session_index: SessionIndex) -> Option<u32> {
+		self.minimum_backing_votes.get(&session_index).copied()
+	}
+
+	pub(crate) fn cache_minimum_backing_votes(
+		&mut self,
+		session_index: SessionIndex,
+		minimum_backing_votes: u32,
+	) {
+		self.minimum_backing_votes.put(session_index, minimum_backing_votes);
+	}
+
 	pub(crate) fn staging_para_backing_state(
 		&mut self,
 		key: (Hash, ParaId),
@@ -486,7 +486,7 @@ pub(crate) enum RequestResult {
 	// The structure of each variant is (relay_parent, [params,]*, result)
 	Authorities(Hash, Vec<AuthorityDiscoveryId>),
 	Validators(Hash, Vec<ValidatorId>),
-	MinimumBackingVotes(Hash, u32),
+	MinimumBackingVotes(Hash, SessionIndex, u32),
 	ValidatorGroups(Hash, (Vec<Vec<ValidatorIndex>>, GroupRotationInfo)),
 	AvailabilityCores(Hash, Vec<CoreState>),
 	PersistedValidationData(Hash, ParaId, OccupiedCoreAssumption, Option<PersistedValidationData>),

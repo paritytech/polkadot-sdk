@@ -30,7 +30,10 @@ use std::{
 	hash::Hash,
 };
 
-use primitives::{ValidatorSignature, ValidityAttestation as PrimitiveValidityAttestation};
+use primitives::{
+	effective_minimum_backing_votes, ValidatorSignature,
+	ValidityAttestation as PrimitiveValidityAttestation,
+};
 
 use parity_scale_codec::{Decode, Encode};
 
@@ -322,9 +325,9 @@ impl<Ctx: Context> Table<Ctx> {
 		minimum_backing_votes: u32,
 	) -> Option<AttestedCandidate<Ctx::GroupId, Ctx::Candidate, Ctx::AuthorityId, Ctx::Signature>> {
 		self.candidate_votes.get(digest).and_then(|data| {
-			let v_threshold = context
-				.get_group_size(&data.group_id)
-				.map_or(usize::MAX, |len| std::cmp::min(minimum_backing_votes as usize, len));
+			let v_threshold = context.get_group_size(&data.group_id).map_or(usize::MAX, |len| {
+				effective_minimum_backing_votes(len, minimum_backing_votes)
+			});
 			data.attested(v_threshold)
 		})
 	}

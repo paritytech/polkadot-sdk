@@ -96,8 +96,11 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	self as util,
 	backing_implicit_view::{FetchError as ImplicitViewFetchError, View as ImplicitView},
-	request_from_runtime, request_validator_groups, request_validators,
-	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
+	request_from_runtime, request_session_index_for_child, request_validator_groups,
+	request_validators,
+	runtime::{
+		self, prospective_parachains_mode, request_min_backing_votes, ProspectiveParachainsMode,
+	},
 	Validator,
 };
 use polkadot_primitives::{
@@ -115,7 +118,6 @@ use statement_table::{
 	},
 	Config as TableConfig, Context as TableContextTrait, Table,
 };
-use util::runtime::{request_min_backing_votes, RuntimeInfo};
 
 mod error;
 
@@ -277,8 +279,6 @@ struct State {
 	background_validation_tx: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	/// The handle to the keystore used for signing.
 	keystore: KeystorePtr,
-	/// Runtime info cached per-session.
-	runtime_info: RuntimeInfo,
 }
 
 impl State {
@@ -293,7 +293,6 @@ impl State {
 			per_candidate: HashMap::new(),
 			background_validation_tx,
 			keystore,
-			runtime_info: RuntimeInfo::new(None),
 		}
 	}
 }
@@ -948,14 +947,7 @@ async fn handle_active_leaves_update<Context>(
 
 		// construct a `PerRelayParent` from the runtime API
 		// and insert it.
-		let per = construct_per_relay_parent_state(
-			ctx,
-			maybe_new,
-			&state.keystore,
-			&mut state.runtime_info,
-			mode,
-		)
-		.await?;
+		let per = construct_per_relay_parent_state(ctx, maybe_new, &state.keystore, mode).await?;
 
 		if let Some(per) = per {
 			state.per_relay_parent.insert(maybe_new, per);
@@ -971,41 +963,29 @@ async fn construct_per_relay_parent_state<Context>(
 	ctx: &mut Context,
 	relay_parent: Hash,
 	keystore: &KeystorePtr,
-	runtime_info: &mut RuntimeInfo,
 	mode: ProspectiveParachainsMode,
 ) -> Result<Option<PerRelayParentState>, Error> {
 	macro_rules! try_runtime_api {
 		($x: expr) => {
 			match $x {
 				Ok(x) => x,
-				Err(e) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						err = ?e,
-						"Failed to fetch runtime API data for job",
-					);
+				Err(err) => {
+					// Only bubble up fatal errors.
+					error::log_error(Err(Into::<runtime::Error>::into(err).into()))?;
 
 					// We can't do candidate validation work if we don't have the
 					// requisite runtime API data. But these errors should not take
 					// down the node.
-					return Ok(None);
-				}
+					return Ok(None)
+				},
 			}
-		}
+		};
 	}
 
 	let parent = relay_parent;
 
-	let session_index =
-		try_runtime_api!(runtime_info.get_session_index_for_child(ctx.sender(), parent).await);
-
-	let minimum_backing_votes =
-		request_min_backing_votes(parent, ctx.sender(), |parent, sender| {
-			runtime_info.get_min_backing_votes(sender, session_index, parent)
-		})
-		.await?;
-
-	let (validators, groups, cores) = futures::try_join!(
+	let (session_index, validators, groups, cores) = futures::try_join!(
+		request_session_index_for_child(parent, ctx.sender()).await,
 		request_validators(parent, ctx.sender()).await,
 		request_validator_groups(parent, ctx.sender()).await,
 		request_from_runtime(parent, ctx.sender(), |tx| {
@@ -1015,9 +995,12 @@ async fn construct_per_relay_parent_state<Context>(
 	)
 	.map_err(Error::JoinMultiple)?;
 
+	let session_index = try_runtime_api!(session_index);
 	let validators: Vec<_> = try_runtime_api!(validators);
 	let (validator_groups, group_rotation_info) = try_runtime_api!(groups);
 	let cores = try_runtime_api!(cores);
+	let minimum_backing_votes =
+		try_runtime_api!(request_min_backing_votes(parent, session_index, ctx.sender()).await);
 
 	let signing_context = SigningContext { parent_hash: parent, session_index };
 	let validator =

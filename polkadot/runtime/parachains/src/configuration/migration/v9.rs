@@ -23,7 +23,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::SessionIndex;
+use primitives::{SessionIndex, LEGACY_MIN_BACKING_VOTES};
 use sp_runtime::Perbill;
 use sp_std::vec::Vec;
 
@@ -150,7 +150,7 @@ on_demand_base_fee                       : 10_000_000u128,
 on_demand_fee_variability                : Perbill::from_percent(3),
 on_demand_target_queue_utilization       : Perbill::from_percent(25),
 on_demand_ttl                            : 5u32.into(),
-minimum_backing_votes                    : 2
+minimum_backing_votes                    : LEGACY_MIN_BACKING_VOTES
 		}
 	};
 
@@ -219,7 +219,7 @@ mod tests {
 		assert_eq!(v9.group_rotation_frequency, 20);
 		assert_eq!(v9.on_demand_cores, 0);
 		assert_eq!(v9.on_demand_base_fee, 10_000_000);
-		assert_eq!(v9.minimum_backing_votes, 2);
+		assert_eq!(v9.minimum_backing_votes, LEGACY_MIN_BACKING_VOTES);
 	}
 
 	#[test]

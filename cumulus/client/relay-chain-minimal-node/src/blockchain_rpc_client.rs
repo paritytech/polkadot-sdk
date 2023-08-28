@@ -338,6 +338,14 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 			.await?)
 	}
 
+	async fn minimum_backing_votes(
+		&self,
+		at: Hash,
+		session_index: polkadot_primitives::SessionIndex,
+	) -> Result<u32, ApiError> {
+		Ok(self.rpc_client.parachain_host_minimum_backing_votes(at, session_index).await?)
+	}
+
 	async fn staging_async_backing_params(&self, at: Hash) -> Result<AsyncBackingParams, ApiError> {
 		Ok(self.rpc_client.parachain_host_staging_async_backing_params(at).await?)
 	}

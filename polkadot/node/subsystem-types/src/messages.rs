@@ -606,8 +606,6 @@ pub enum RuntimeApiRequest {
 	Authorities(RuntimeApiSender<Vec<AuthorityDiscoveryId>>),
 	/// Get the current validator set.
 	Validators(RuntimeApiSender<Vec<ValidatorId>>),
-	/// Get the minimum required backing votes.
-	MinimumBackingVotes(RuntimeApiSender<u32>),
 	/// Get the validator groups and group rotation info.
 	ValidatorGroups(RuntimeApiSender<(Vec<Vec<ValidatorIndex>>, GroupRotationInfo)>),
 	/// Get information on all availability cores.
@@ -693,6 +691,8 @@ pub enum RuntimeApiRequest {
 		slashing::OpaqueKeyOwnershipProof,
 		RuntimeApiSender<Option<()>>,
 	),
+	/// Get the minimum required backing votes.
+	MinimumBackingVotes(SessionIndex, RuntimeApiSender<u32>),
 
 	/// Get the backing state of the given para.
 	/// This is a staging API that will not be available on production runtimes.

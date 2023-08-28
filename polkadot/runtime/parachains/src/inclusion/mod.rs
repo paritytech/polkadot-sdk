@@ -36,11 +36,11 @@ use frame_system::pallet_prelude::*;
 use pallet_message_queue::OnQueueChanged;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{
-	supermajority_threshold, well_known_keys, AvailabilityBitfield, BackedCandidate,
-	CandidateCommitments, CandidateDescriptor, CandidateHash, CandidateReceipt,
-	CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId,
-	SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId, ValidatorIndex,
-	ValidityAttestation,
+	effective_minimum_backing_votes, supermajority_threshold, well_known_keys,
+	AvailabilityBitfield, BackedCandidate, CandidateCommitments, CandidateDescriptor,
+	CandidateHash, CandidateReceipt, CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash,
+	HeadData, Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage,
+	ValidatorId, ValidatorIndex, ValidityAttestation,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
@@ -729,9 +729,9 @@ impl<T: Config> Pallet<T> {
 							match maybe_amount_validated {
 								Ok(amount_validated) => ensure!(
 									amount_validated >=
-										sp_std::cmp::min(
+										effective_minimum_backing_votes(
 											group_vals.len(),
-											minimum_backing_votes as usize
+											minimum_backing_votes
 										),
 									Error::<T>::InsufficientBacking,
 								),

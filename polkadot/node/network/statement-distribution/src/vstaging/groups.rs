@@ -16,7 +16,10 @@
 
 //! A utility for tracking groups and their members within a session.
 
-use polkadot_primitives::vstaging::{GroupIndex, IndexedVec, ValidatorIndex};
+use polkadot_primitives::{
+	effective_minimum_backing_votes,
+	vstaging::{GroupIndex, IndexedVec, ValidatorIndex},
+};
 
 use std::collections::HashMap;
 
@@ -64,7 +67,7 @@ impl Groups {
 		group_index: GroupIndex,
 	) -> Option<(usize, usize)> {
 		self.get(group_index)
-			.map(|g| (g.len(), std::cmp::min(g.len(), self.backing_threshold as usize)))
+			.map(|g| (g.len(), effective_minimum_backing_votes(g.len(), self.backing_threshold)))
 	}
 
 	/// Get the group index for a validator by index.

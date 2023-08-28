@@ -16,7 +16,7 @@
 
 //! Convenient interface to runtime information.
 
-use std::{future::Future, num::NonZeroUsize};
+use std::num::NonZeroUsize;
 
 use lru::LruCache;
 
@@ -34,7 +34,7 @@ use polkadot_primitives::{
 	vstaging, CandidateEvent, CandidateHash, CoreState, EncodeAs, GroupIndex, GroupRotationInfo,
 	Hash, IndexedVec, OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
 	SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex,
+	ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
 };
 
 use crate::{
@@ -51,9 +51,6 @@ use error::Result;
 pub use error::{recv_runtime, Error, FatalError, JfyiError};
 
 const LOG_TARGET: &'static str = "parachain::runtime-info";
-
-/// Used prior to runtime API version 6.
-const LEGACY_MIN_BACKING_VOTES: u32 = 2;
 
 /// Configuration for construction a `RuntimeInfo`.
 pub struct Config {
@@ -78,9 +75,6 @@ pub struct RuntimeInfo {
 
 	/// Look up cached sessions by `SessionIndex`.
 	session_info_cache: LruCache<SessionIndex, ExtendedSessionInfo>,
-
-	/// Look up minimum validator backing votes threshold by `SessionIndex`.
-	min_backing_votes: LruCache<SessionIndex, u32>,
 
 	/// Key store for determining whether we are a validator and what `ValidatorIndex` we have.
 	keystore: Option<KeystorePtr>,
@@ -128,7 +122,6 @@ impl RuntimeInfo {
 					.max(NonZeroUsize::new(10).expect("10 is larger than 0; qed")),
 			),
 			session_info_cache: LruCache::new(cfg.session_cache_lru_size),
-			min_backing_votes: LruCache::new(cfg.session_cache_lru_size),
 			keystore: cfg.keystore,
 		}
 	}
@@ -166,34 +159,6 @@ impl RuntimeInfo {
 		let session_index = self.get_session_index_for_child(sender, relay_parent).await?;
 
 		self.get_session_info_by_index(sender, relay_parent, session_index).await
-	}
-
-	/// Get minimum_backing_votes by relay parent hash.
-	pub async fn get_min_backing_votes<Sender>(
-		&mut self,
-		sender: &mut Sender,
-		session_index: SessionIndex,
-		relay_parent: Hash,
-	) -> Result<u32>
-	where
-		Sender: SubsystemSender<RuntimeApiMessage>,
-	{
-		if !self.min_backing_votes.contains(&session_index) {
-			let min_votes = recv_runtime(
-				request_from_runtime(relay_parent, sender, |tx| {
-					RuntimeApiRequest::MinimumBackingVotes(tx)
-				})
-				.await,
-			)
-			.await?;
-
-			self.min_backing_votes.put(session_index, min_votes);
-		}
-
-		Ok(*self
-			.min_backing_votes
-			.get(&session_index)
-			.expect("We just put the value there. qed."))
 	}
 
 	/// Get `ExtendedSessionInfo` by session index.
@@ -496,17 +461,18 @@ where
 
 /// Request the min backing votes value.
 /// Prior to runtime API version 6, just return a hardcoded constant.
-pub async fn request_min_backing_votes<'a, S, Func, Fut>(
+pub async fn request_min_backing_votes(
 	parent: Hash,
-	sender: &'a mut S,
-	get_min_backing_votes: Func,
-) -> Result<u32>
-where
-	S: overseer::SubsystemSender<RuntimeApiMessage>,
-	Func: FnOnce(Hash, &'a mut S) -> Fut,
-	Fut: Future<Output = Result<u32>>,
-{
-	let min_backing_votes_res = get_min_backing_votes(parent, sender).await;
+	session_index: SessionIndex,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<u32> {
+	let min_backing_votes_res = recv_runtime(
+		request_from_runtime(parent, sender, |tx| {
+			RuntimeApiRequest::MinimumBackingVotes(session_index, tx)
+		})
+		.await,
+	)
+	.await;
 
 	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = min_backing_votes_res
 	{

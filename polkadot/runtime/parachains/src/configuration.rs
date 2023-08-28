@@ -332,6 +332,8 @@ pub enum InconsistentError<BlockNumber> {
 	MaxHrmpOutboundChannelsExceeded,
 	/// Maximum number of HRMP inbound channels exceeded.
 	MaxHrmpInboundChannelsExceeded,
+	/// `minimum_backing_votes` is set to zero.
+	ZeroMinimumBackingVotes,
 }
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
@@ -410,6 +412,10 @@ where
 
 		if self.hrmp_max_parachain_inbound_channels > crate::hrmp::HRMP_MAX_INBOUND_CHANNELS_BOUND {
 			return Err(MaxHrmpInboundChannelsExceeded)
+		}
+
+		if self.minimum_backing_votes.is_zero() {
+			return Err(ZeroMinimumBackingVotes)
 		}
 
 		Ok(())

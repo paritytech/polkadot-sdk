@@ -40,12 +40,10 @@ use polkadot_node_subsystem::{
 	},
 	overseer, ActivatedLeaf,
 };
-use polkadot_node_subsystem_types::messages::RuntimeApiRequest;
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::ReputationAggregator,
-	request_from_runtime,
-	runtime::{recv_runtime, request_min_backing_votes, ProspectiveParachainsMode},
+	runtime::{request_min_backing_votes, ProspectiveParachainsMode},
 };
 use polkadot_primitives::vstaging::{
 	AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex, CoreState, GroupIndex,
@@ -507,20 +505,8 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				Some(s) => s,
 			};
 
-			let minimum_backing_votes = request_min_backing_votes(
-				new_relay_parent,
-				ctx.sender(),
-				|parent, sender| async move {
-					recv_runtime(
-						request_from_runtime(parent, sender, |tx| {
-							RuntimeApiRequest::MinimumBackingVotes(tx)
-						})
-						.await,
-					)
-					.await
-				},
-			)
-			.await?;
+			let minimum_backing_votes =
+				request_min_backing_votes(new_relay_parent, session_index, ctx.sender()).await?;
 
 			state.per_session.insert(
 				session_index,
