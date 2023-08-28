@@ -278,7 +278,7 @@ where
 		}
 
 		let offence = EquivocationOffence {
-			time_slot: TimeSlot set_id, round,
+			time_slot:  TimeSlot { set_id, round },
 			session_index,
 			validator_set_count,
 			offenders,
@@ -297,7 +297,7 @@ where
 /// unsigned equivocation reports.
 impl<T: Config> Pallet<T> {
 	pub fn validate_unsigned(source: TransactionSource, call: &Call<T>) -> TransactionValidity {
-		if let Call::report_vote_equivocation_unsigned equivocation_proof, key_owner_proof = call {
+		if let Call::report_vote_equivocation_unsigned { equivocation_proof, key_owner_proof } = call {
 			// discard equivocation report not coming from the local node
 			match source {
 				TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
