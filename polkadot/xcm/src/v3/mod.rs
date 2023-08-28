@@ -74,7 +74,8 @@ const MAX_INSTRUCTIONS_TO_DECODE: u32 = 100;
 
 impl<Call> Decode for Xcm<Call> {
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
-		let bounded_instructions = BoundedVec::<Instruction<Call>, ConstU32<MAX_INSTRUCTIONS_TO_DECODE>>::decode(input)?;
+		let bounded_instructions =
+			BoundedVec::<Instruction<Call>, ConstU32<MAX_INSTRUCTIONS_TO_DECODE>>::decode(input)?;
 		Ok(Self(bounded_instructions.into_inner()))
 	}
 }
