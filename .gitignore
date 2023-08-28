@@ -10,6 +10,3 @@ polkadot_argument_parsing
 *.iml
 .env
 **/._*
-
-cargo_home
-cargo_target_dir
