@@ -22,7 +22,7 @@ use super::v2::{
 };
 use crate::{DoubleEncoded, GetWeight};
 use alloc::{vec, vec::Vec};
-use bounded_collections::{parameter_types, BoundedVec};
+use bounded_collections::{parameter_types, BoundedVec, ConstU32};
 use core::{
 	convert::{TryFrom, TryInto},
 	fmt::Debug,
@@ -70,18 +70,13 @@ pub type QueryId = u64;
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
 const MAX_INSTRUCTIONS_TO_DECODE: u32 = 100;
-const TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE: &'static str = "Too many instructions to decode";
 
 impl<Call> Decode for Xcm<Call> {
 	// Taken from `BoundedVec`'s `Decode` implementation
 	// TODO (v4): Use `BoundedVec`
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
-		let len: u32 = <Compact<u32>>::decode(input)?.into();
-		if len > MAX_INSTRUCTIONS_TO_DECODE {
-			return Err(TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE.into())
-		}
-		let decoded_instructions = decode_vec_with_len(input, len as usize)?;
-		Ok(Self(decoded_instructions))
+		let bounded_instructions = BoundedVec::<Instruction<Call>, ConstU32<MAX_INSTRUCTIONS_TO_DECODE>>::decode(input)?;
+		Ok(Self(bounded_instructions.into_inner()))
 	}
 }
 
