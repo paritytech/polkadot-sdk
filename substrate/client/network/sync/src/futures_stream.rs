@@ -58,14 +58,14 @@ impl<F: Future> Stream for FuturesStream<F> {
 	type Item = <F as Future>::Output;
 
 	fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let Poll::Ready(Some(result)) = self.futures.poll_next_unpin(cx) else {
-            self.waker = Some(cx.waker().clone());
+		let Poll::Ready(Some(result)) = self.futures.poll_next_unpin(cx) else {
+			self.waker = Some(cx.waker().clone());
 
-            return Poll::Pending
-        };
+			return Poll::Pending
+		};
 
-        Poll::Ready(Some(result))
-    }
+		Poll::Ready(Some(result))
+	}
 }
 
 #[cfg(test)]
