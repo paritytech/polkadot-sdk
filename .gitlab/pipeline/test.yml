@@ -11,6 +11,7 @@ test-linux-stable:
     - .docker-env
     - .common-refs
     - .run-immediately
+    - .pipeline-stopper-artifacts
   variables:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
@@ -79,6 +80,7 @@ test-linux-stable-additional-tests:
     - .docker-env
     - .common-refs
     - .run-immediately
+    - .pipeline-stopper-artifacts
   variables:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
@@ -104,6 +106,7 @@ test-linux-stable-slow:
     - .docker-env
     - .common-refs
     - .run-immediately
+    - .pipeline-stopper-artifacts
   variables:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
@@ -216,6 +219,7 @@ cargo-check-benches:
     - .common-refs
     - .run-immediately
     - .collect-artifacts
+    - .pipeline-stopper-artifacts
   before_script:
     # TODO: DON'T FORGET TO CHANGE FOR PROD VALUES!!!
     # merges in the master branch on PRs. skip if base is not master
@@ -348,6 +352,7 @@ test-linux-stable-int:
     - .docker-env
     - .common-refs
     - .run-immediately
+    - .pipeline-stopper-artifacts
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
@@ -370,6 +375,7 @@ check-tracing:
     - .docker-env
     - .common-refs
     - .run-immediately
+    - .pipeline-stopper-artifacts
   script:
     # with-tracing must be explicitly activated, we run a test to ensure this works as expected in both cases
     - time cargo test --locked --manifest-path ./substrate/primitives/tracing/Cargo.toml --no-default-features

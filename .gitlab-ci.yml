@@ -81,6 +81,7 @@ default:
   before_script:
     - !reference [.common-before-script, before_script]
     - !reference [.prepare-env, before_script]
+    - !reference [.pipeline-stopper-vars, script]
   tags:
     - kubernetes-parity-build
 
@@ -112,7 +113,6 @@ default:
     - !reference [.prepare-env, before_script]
     - !reference [.rust-info-script, script]
     - !reference [.rusty-cachier, before_script]
-    - !reference [.pipeline-stopper-vars, script]
   tags:
     - linux-docker-vm-c2
 
