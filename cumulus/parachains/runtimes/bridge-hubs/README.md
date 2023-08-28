@@ -1,13 +1,16 @@
 - [Bridge-hub Parachains](#bridge-hub-parachains)
   * [Requirements for local run/testing](#requirements-for-local-runtesting)
   * [How to test local Rococo <-> Wococo bridge](#how-to-test-local-rococo---wococo-bridge)
-    + [Run chains (Rococo + BridgeHub, Wococo + BridgeHub) with zombienet](#run-chains-rococo--bridgehub-wococo--bridgehub-with-zombienet)
+    + [Run chains (Rococo + BridgeHub, Wococo + BridgeHub) with zombienet](#run-chains-rococo--bridgehub--assethub-wococo--bridgehub--assethub-with-zombienet)
     + [Run relayer (BridgeHubRococo, BridgeHubWococo)](#run-relayer-bridgehubrococo-bridgehubwococo)
       - [Run with script (alternative 1)](#run-with-script-alternative-1)
       - [Run with binary (alternative 2)](#run-with-binary-alternative-2)
     + [Send messages - transfer asset over bridge](#send-messages---transfer-asset-over-bridge)
   * [How to test live BridgeHubRococo/BridgeHubWococo](#how-to-test-live-bridgehubrococobridgehubwococo)
   * [How to test local BridgeHubKusama/BridgeHubPolkadot](#how-to-test-local-bridgehubkusamabridgehubpolkadot)
+    + [1. Run chains (Kusama + BridgeHub + AssetHub, Polkadot + BridgeHub + AssetHub) with zombienet](#1-run-chains-kusama--bridgehub--assethub-polkadot--bridgehub--assethub-with-zombienet)
+    + [2. Init bridge and run relayer (BridgeHubKusama, BridgeHubPolkadot)](#2-init-bridge-and-run-relayer-bridgehubkusama-bridgehubpolkadot)
+    + [Send messages - transfer asset over bridge (DOTs/KSMs)](#send-messages---transfer-asset-over-bridge-dotsksms)
 
 # Bridge-hub Parachains
 
@@ -230,7 +233,60 @@ TODO: see `# !!! READ HERE` above
 	- Wockmint (see `xcmpQueue.Success` for `transfer-asset` and `xcmpQueue.Fail` for `ping-via-bridge`) https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fwococo-wockmint-rpc.polkadot.io#/explorer
 	- BridgeHubRococo (see `bridgeWococoMessages.MessagesDelivered`)
 
-
 ## How to test local BridgeHubKusama/BridgeHubPolkadot
 
-TODO: see `# !!! READ HERE` above
+Check [requirements](#requirements-for-local-runtesting) for "sudo pallet + fast-runtime".
+
+### 1. Run chains (Kusama + BridgeHub + AssetHub, Polkadot + BridgeHub + AssetHub) with zombienet
+
+```
+# Kusama + BridgeHubKusama + AssetHubKusama
+POLKADOT_BINARY_PATH=~/local_bridge_testing/bin/polkadot \
+POLKADOT_PARACHAIN_BINARY_PATH=~/local_bridge_testing/bin/polkadot-parachain \
+POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_KUSAMA=~/local_bridge_testing/bin/polkadot-parachain-asset-hub \
+	~/local_bridge_testing/bin/zombienet-linux --provider native spawn ./zombienet/bridge-hubs/bridge_hub_kusama_local_network.toml
+```
+
+```
+# Polkadot + BridgeHubPolkadot + AssetHubPolkadot
+POLKADOT_BINARY_PATH=~/local_bridge_testing/bin/polkadot \
+POLKADOT_PARACHAIN_BINARY_PATH=~/local_bridge_testing/bin/polkadot-parachain \
+POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_POLKADOT=~/local_bridge_testing/bin/polkadot-parachain-asset-hub \
+	~/local_bridge_testing/bin/zombienet-linux --provider native spawn ./zombienet/bridge-hubs/bridge_hub_polkadot_local_network.toml
+```
+
+### 2. Init bridge and run relayer (BridgeHubKusama, BridgeHubPolkadot)
+
+```
+cd <cumulus-git-repo-dir>
+./scripts/bridges_kusama_polkadot.sh run-relay
+```
+
+### 3. Initialize transfer asset over bridge (DOTs/KSMs)
+
+This initialization does several things:
+- creates `ForeignAssets` for wrappedDOTs/wrappedKSMs
+- drips SA for AssetHubKusama on AssetHubPolkadot (and vice versa) which holds reserved assets on source chains
+```
+./scripts/bridges_kusama_polkadot.sh init-asset-hub-kusama-local
+./scripts/bridges_kusama_polkadot.sh init-asset-hub-polkadot-local
+```
+
+### 4. Send messages - transfer asset over bridge (DOTs/KSMs)
+
+Do (asset) transfers:
+```
+# KSMs from Kusama's Asset Hub to Polkadot's.
+./scripts/bridges_kusama_polkadot.sh reserve-transfer-assets-from-asset-hub-kusama-local
+```
+```
+# DOTs from Polkadot's Asset Hub to Kusama's.
+./scripts/bridges_kusama_polkadot.sh reserve-transfer-assets-from-asset-hub-polkadot-local
+```
+
+- open explorers: (see zombienets)
+	- AssetHubKusama (see events `xcmpQueue.XcmpMessageSent`, `polkadotXcm.Attempted`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:9910#/explorer
+	- BridgeHubKusama (see `bridgePolkadotMessages.MessageAccepted`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8943#/explorer
+	- BridgeHubPolkadot (see `bridgeKusamaMessages.MessagesReceived`, `xcmpQueue.XcmpMessageSent`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8945#/explorer
+	- AssetHubPolkadot (see `foreignAssets.Issued`, `xcmpQueue.Success`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:9010#/explorer
+	- BridgeHubKusama (see `bridgePolkadotMessages.MessagesDelivered`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8943#/explorer

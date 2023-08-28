@@ -249,6 +249,7 @@ pub fn message_dispatch_routing_works<
 	XcmConfig: xcm_executor::Config,
 	MessagesPalletInstance: 'static,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	<Runtime as frame_system::Config>::AccountId: From<AccountId32>,
 	HrmpChannelOpener: frame_support::inherent::ProvideInherent<
 		Call = cumulus_pallet_parachain_system::Call<Runtime>,
 	>,
@@ -272,7 +273,7 @@ pub fn message_dispatch_routing_works<
 
 			let included_head = RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::run_to_block(
 				2,
-				AccountId::from(alice),
+				AccountId::from(alice).into(),
 			);
 			// 1. this message is sent from other global consensus with destination of this Runtime relay chain (UMP)
 			let bridging_message =
@@ -374,6 +375,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, XcmConfi
 	ParaHash: From<<<Runtime as pallet_bridge_grandpa::Config<GPI>>::BridgedChain as bp_runtime::Chain>::Hash>,
 	<Runtime as frame_system::Config>::AccountId:
 	Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
+	<Runtime as frame_system::Config>::AccountId: From<AccountId32>,
 	AccountIdOf<Runtime>: From<sp_core::sr25519::Public>,
 	<Runtime as pallet_bridge_messages::Config<MPI>>::InboundRelayer: From<AccountId32>,
 {
@@ -393,7 +395,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, XcmConfi
 
 			let included_head = RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::run_to_block(
 				2,
-				AccountId::from(alice),
+				AccountId::from(alice).into(),
 			);
 			mock_open_hrmp_channel::<Runtime, HrmpChannelOpener>(
 				runtime_para_id.into(),
@@ -591,6 +593,7 @@ pub fn complex_relay_extrinsic_works<Runtime, AllPalletsWithoutSystem, XcmConfig
 	<Runtime as frame_system::Config>::AccountId:
 	Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
 	AccountIdOf<Runtime>: From<sp_core::sr25519::Public>,
+	<Runtime as frame_system::Config>::AccountId: From<AccountId32>,
 	<Runtime as pallet_bridge_messages::Config<MPI>>::InboundRelayer: From<AccountId32>,
 	<Runtime as pallet_utility::Config>::RuntimeCall:
 	From<pallet_bridge_grandpa::Call<Runtime, GPI>>
@@ -622,7 +625,7 @@ pub fn complex_relay_extrinsic_works<Runtime, AllPalletsWithoutSystem, XcmConfig
 
 			let included_head = RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::run_to_block(
 				2,
-				AccountId::from(alice),
+				AccountId::from(alice).into(),
 			);
 			let zero: BlockNumberFor<Runtime> = 0u32.into();
 			let genesis_hash = frame_system::Pallet::<Runtime>::block_hash(zero);
@@ -928,7 +931,7 @@ pub mod test_data {
 	);
 
 	/// Simulates `HaulBlobExporter` and all its wrapping and captures generated plain bytes,
-	/// which are transfered over bridge.
+	/// which are transferred over bridge.
 	pub(crate) fn simulate_message_exporter_on_bridged_chain<
 		SourceNetwork: Get<NetworkId>,
 		DestinationNetwork: Get<NetworkId>,

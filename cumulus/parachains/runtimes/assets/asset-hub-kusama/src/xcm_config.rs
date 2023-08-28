@@ -18,7 +18,7 @@ use super::{
 	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
 	TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
 };
-use crate::ForeignAssets;
+use crate::{ForeignAssets, ForeignAssetsInstance};
 use assets_common::{
 	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
 	matching::{
@@ -27,7 +27,7 @@ use assets_common::{
 };
 use frame_support::{
 	match_types, parameter_types,
-	traits::{ConstU32, Contains, Everything, Nothing, PalletInfoAccess},
+	traits::{ConstU32, Contains, Everything, EverythingBut, Nothing, PalletInfoAccess},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -39,11 +39,11 @@ use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
-	EnsureXcmOrigin, FungiblesAdapter, HashedDescription, IsConcrete, LocalMint, NativeAsset,
-	NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	EnsureXcmOrigin, FungiblesAdapter, GlobalConsensusParachainConvertsFor, HashedDescription,
+	IsConcrete, LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset,
+	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -80,6 +80,9 @@ pub type LocationToAccountId = (
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	// Foreign locations alias into accounts according to a hash of their standard description.
 	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
+	// Different global consensus parachain sovereign account.
+	// (Used for over-bridge transfers and reserve processing)
+	GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>,
 );
 
 /// Means for transacting the native currency on this chain.
@@ -463,6 +466,7 @@ pub type Barrier = TrailingSetTopicAsId<
 	>,
 >;
 
+/// Multiplier used for dedicated `TakeFirstAssetTrader` with `Assets` instance.
 pub type AssetFeeAsExistentialDepositMultiplierFeeCharger = AssetFeeAsExistentialDepositMultiplier<
 	Runtime,
 	WeightToFee,
@@ -470,16 +474,25 @@ pub type AssetFeeAsExistentialDepositMultiplierFeeCharger = AssetFeeAsExistentia
 	TrustBackedAssetsInstance,
 >;
 
+/// Multiplier used for dedicated `TakeFirstAssetTrader` with `ForeignAssets` instance.
+pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
+	AssetFeeAsExistentialDepositMultiplier<
+		Runtime,
+		WeightToFee,
+		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, ForeignAssetsInstance>,
+		ForeignAssetsInstance,
+	>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	// Asset Hub Kusama does not recognize a reserve location for any asset. This does not prevent
-	// Asset Hub acting _as_ a reserve location for KSM and assets created under `pallet-assets`.
-	// For KSM, users must use teleport where allowed (e.g. with the Relay Chain).
-	type IsReserve = ();
+	// Asset Hub trusts only particular configured bridge locations as reserve locations.
+	// Asset Hub may _act_ as a reserve location for KSM and assets created under `pallet-assets`.
+	// Users must use teleport where allowed (e.g. KSM with the Relay Chain).
+	type IsReserve = bridging::IsTrustedBridgedReserveLocationForConcreteAsset;
 	// We allow:
 	// - teleportation of KSM
 	// - teleportation of sibling parachain's assets (as ForeignCreators)
@@ -496,6 +509,8 @@ impl xcm_executor::Config for XcmConfig {
 	>;
 	type Trader = (
 		UsingComponents<WeightToFee, KsmLocation, AccountId, Balances, ToStakingPot<Runtime>>,
+		// This trader allows to pay with `is_sufficient=true` "Trust Backed" assets from dedicated
+		// `pallet_assets` instance - `Assets`.
 		cumulus_primitives_utility::TakeFirstAssetTrader<
 			AccountId,
 			AssetFeeAsExistentialDepositMultiplierFeeCharger,
@@ -503,6 +518,19 @@ impl xcm_executor::Config for XcmConfig {
 			Assets,
 			cumulus_primitives_utility::XcmFeesTo32ByteAccount<
 				FungiblesTransactor,
+				AccountId,
+				XcmAssetFeesReceiver,
+			>,
+		>,
+		// This trader allows to pay with `is_sufficient=true` "Foreign" assets from dedicated
+		// `pallet_assets` instance - `ForeignAssets`.
+		cumulus_primitives_utility::TakeFirstAssetTrader<
+			AccountId,
+			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger,
+			ForeignAssetsConvertedConcreteId,
+			ForeignAssets,
+			cumulus_primitives_utility::XcmFeesTo32ByteAccount<
+				ForeignFungiblesTransactor,
 				AccountId,
 				XcmAssetFeesReceiver,
 			>,
@@ -518,7 +546,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetExchanger = ();
 	type FeeManager = ();
 	type MessageExporter = ();
-	type UniversalAliases = Nothing;
+	type UniversalAliases = bridging::UniversalAliases;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
@@ -528,14 +556,17 @@ impl xcm_executor::Config for XcmConfig {
 /// Forms the basis for local origins sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
-/// The means for routing XCM messages which are not for local execution into the right message
-/// queues.
-pub type XcmRouter = WithUniqueTopic<(
+/// For routing XCM messages which do not cross local consensus boundary.
+type LocalXcmRouter = (
 	// Two routers - use UMP to communicate with the relay chain:
 	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, ()>,
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
-)>;
+);
+
+/// The means for routing XCM messages which are not for local execution into the right message
+/// queues.
+pub type XcmRouter = WithUniqueTopic<(LocalXcmRouter, bridging::BridgingXcmRouter)>;
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
@@ -554,7 +585,10 @@ impl pallet_xcm::Config for Runtime {
 	type XcmExecuteFilter = Nothing;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
-	type XcmReserveTransferFilter = Everything;
+	// Allow reserve based transfer to everywhere except for bridging, here we strictly check what
+	// assets are allowed.
+	type XcmReserveTransferFilter =
+		EverythingBut<bridging::IsNotAllowedExplicitlyForReserveTransfer>;
 	type Weigher = WeightInfoBounds<
 		crate::weights::xcm::AssetHubKusamaXcmWeight<RuntimeCall>,
 		RuntimeCall,
@@ -622,5 +656,120 @@ where
 	}
 	fn multiasset_id(asset_id: u32) -> sp_std::boxed::Box<MultiLocation> {
 		sp_std::boxed::Box::new(Self::asset_id(asset_id))
+	}
+}
+
+/// All configuration related to bridging
+pub mod bridging {
+	use super::*;
+	use assets_common::{matching, matching::*};
+	use parachains_common::xcm_config::LocationFilter;
+	use sp_std::collections::btree_set::BTreeSet;
+	use xcm_builder::UnpaidRemoteExporter;
+
+	parameter_types! {
+		pub BridgeHubKusamaParaId: u32 = 1002;
+		pub BridgeHubKusama: MultiLocation = MultiLocation::new(1, X1(Parachain(BridgeHubKusamaParaId::get())));
+		pub BridgeHubKusamaWithBridgeHubPolkadotInstance: MultiLocation = MultiLocation::new(1, X2(Parachain(BridgeHubKusamaParaId::get()), PalletInstance(53)));
+		pub const PolkadotNetwork: NetworkId = NetworkId::Polkadot;
+		pub AssetHubPolkadot: MultiLocation =  MultiLocation::new(2, X2(GlobalConsensus(PolkadotNetwork::get()), Parachain(1000)));
+		pub DotLocation: MultiLocation =  MultiLocation::new(2, X1(GlobalConsensus(PolkadotNetwork::get())));
+
+		/// Set up exporters configuration.
+		pub BridgeTable: sp_std::vec::Vec<(NetworkId, LocationFilter<InteriorMultiLocation>, MultiLocation, Option<MultiAsset>)> = sp_std::vec![
+			(
+				PolkadotNetwork::get(),
+				LocationFilter::default()
+					// allow to bridge to AssetHubPolkadot
+					.add_equals(AssetHubPolkadot::get().interior.split_global().expect("invalid configuration for AssetHubPolkadot").1),
+					// and nothing else
+				BridgeHubKusama::get(),
+				None
+			)
+		];
+
+		/// Set up trusted bridged reserve locations.
+		/// Locations from which the runtime accepts reserved assets.
+		pub TrustedBridgedReserveLocations: sp_std::vec::Vec<FilteredLocation> = sp_std::vec![
+			// trust assets from AssetHubPolkadot
+			(
+				AssetHubPolkadot::get(),
+				AssetFilter::ByMultiLocation(
+					LocationFilter::default()
+						// allow receive DOT
+						.add_equals(DotLocation::get())
+						// and nothing else
+				)
+			)
+		];
+
+		/// Allowed reserve transfer assets per destination.
+		/// Means that runtime allows to transfer reserve assets to these locations.
+		pub AllowedReserveTransferAssetsLocations: sp_std::vec::Vec<FilteredLocation> = sp_std::vec![
+			// allow to transfer assets to AssetHubPolkadot
+			(
+				AssetHubPolkadot::get(),
+				AssetFilter::ByMultiLocation(
+					LocationFilter::default()
+						// allow send only KSM
+						.add_equals(KsmLocation::get())
+						// and nothing else
+				)
+			)
+		];
+
+		/// Universal aliases
+		pub UniversalAliases: BTreeSet<(MultiLocation, Junction)> = BTreeSet::from_iter(
+			sp_std::vec![
+				(BridgeHubKusamaWithBridgeHubPolkadotInstance::get(), GlobalConsensus(PolkadotNetwork::get()))
+			]
+		);
+	}
+
+	impl Contains<(MultiLocation, Junction)> for UniversalAliases {
+		fn contains(alias: &(MultiLocation, Junction)) -> bool {
+			UniversalAliases::get().contains(alias)
+		}
+	}
+
+	pub type FilteredNetworkExportTable =
+		parachains_common::xcm_config::FilteredNetworkExportTable<BridgeTable>;
+
+	/// Bridge router, which wraps and sends xcm to BridgeHub to be delivered to the different
+	/// GlobalConsensus
+	pub type BridgingXcmRouter =
+		UnpaidRemoteExporter<FilteredNetworkExportTable, LocalXcmRouter, UniversalLocation>;
+
+	/// Reserve locations filter for `xcm_executor::Config::IsReserve`.
+	pub type IsTrustedBridgedReserveLocationForConcreteAsset =
+		matching::IsTrustedBridgedReserveLocationForConcreteAsset<
+			UniversalLocation,
+			TrustedBridgedReserveLocations,
+		>;
+
+	/// Filter out those assets which are not allowed for bridged reserve based transfer.
+	/// (asset, location) filter for `pallet_xcm::Config::XcmReserveTransferFilter`.
+	pub type IsNotAllowedExplicitlyForReserveTransfer = ExcludeOnlyForRemoteDestination<
+		UniversalLocation,
+		FilteredNetworkExportTable,
+		IsNotAllowedConcreteAssetBy<AllowedReserveTransferAssetsLocations>,
+	>;
+
+	/// Benchmarks helper for bridging configuration.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub struct BridgingBenchmarksHelper;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	impl BridgingBenchmarksHelper {
+		pub fn prepare_universal_alias() -> Option<(MultiLocation, Junction)> {
+			let alias = UniversalAliases::get().into_iter().find_map(|(location, junction)| {
+				match BridgeHubKusamaWithBridgeHubPolkadotInstance::get().eq(&location) {
+					true => Some((location, junction)),
+					false => None,
+				}
+			});
+			assert!(alias.is_some(), "we expect here BridgeHubKusama to Polkadot mapping at least");
+			Some(alias.unwrap())
+		}
 	}
 }
