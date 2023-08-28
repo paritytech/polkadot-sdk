@@ -49,7 +49,7 @@ bp-test-utils = { path = "../../primitives/test-utils" }
 pallet-balances = { path = "../../../../substrate/frame/balances" }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"bp-header-chain/std",
 	"bp-messages/std",
@@ -75,8 +75,8 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-trie/std",
-	"xcm/std",
 	"xcm-builder/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
 	"pallet-bridge-grandpa/runtime-benchmarks",
@@ -85,6 +85,4 @@ runtime-benchmarks = [
 	"pallet-bridge-relayers/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 ]
-integrity-test = [
-	"static_assertions",
-]
+integrity-test = [ "static_assertions" ]

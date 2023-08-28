@@ -1,4 +1,6 @@
 [workspace]
+resolver = "2"
+
 members = [
 	"cumulus/bridges/bin/runtime-common",
 	"cumulus/bridges/modules/grandpa",
@@ -88,6 +90,7 @@ members = [
 	"cumulus/test/runtime",
 	"cumulus/test/service",
 	"cumulus/xcm/xcm-emulator",
+	"polkadot",
 	"polkadot/cli",
 	"polkadot/core-primitives",
 	"polkadot/erasure-coding",
@@ -448,7 +451,7 @@ members = [
 [workspace.package]
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
-repository = "https://github.com/paritytech/polkadot.git"
+repository = "https://github.com/paritytech/polkadot-sdk.git"
 license = "GPL-3.0-only"
 version = "1.0.0"
 

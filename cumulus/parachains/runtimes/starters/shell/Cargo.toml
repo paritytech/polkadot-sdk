@@ -40,15 +40,18 @@ parachains-common = { path = "../../../common", default-features = false }
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
 
 [features]
-default = [ 
-	"std",
-]
+default = [ "std" ]
 std = [
 	"codec/std",
-	"scale-info/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-xcm/std",
+	"cumulus-primitives-core/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",
+	"parachain-info/std",
+	"parachains-common/std",
+	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-core/std",
@@ -59,17 +62,9 @@ std = [
 	"sp-std/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
+	"substrate-wasm-builder",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"cumulus-pallet-parachain-system/std",
-	"cumulus-pallet-xcm/std",
-	"cumulus-primitives-core/std",
-	"parachain-info/std",
-	"parachains-common/std",
-	"substrate-wasm-builder",
 ]
-try-runtime = [
-	"frame-executive/try-runtime",
-	"frame-try-runtime/try-runtime",
-]
+try-runtime = [ "frame-executive/try-runtime", "frame-try-runtime/try-runtime" ]

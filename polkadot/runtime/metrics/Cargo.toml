@@ -15,12 +15,12 @@ frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-f
 bs58 = { version = "0.4.0", default-features = false, features = ["alloc"] }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
+	"bs58/std",
+	"parity-scale-codec/std",
+	"primitives/std",
 	"sp-std/std",
 	"sp-tracing/std",
-    "parity-scale-codec/std",
-    "primitives/std",
-    "bs58/std"
 ]
-runtime-metrics = ["sp-tracing/with-tracing", "frame-benchmarking"]
+runtime-metrics = [ "frame-benchmarking", "sp-tracing/with-tracing" ]

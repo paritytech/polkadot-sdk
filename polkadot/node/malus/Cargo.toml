@@ -62,4 +62,4 @@ substrate-build-script-utils = { path = "../../../substrate/utils/build-script-u
 
 [features]
 default = []
-fast-runtime = ["polkadot-cli/fast-runtime"]
+fast-runtime = [ "polkadot-cli/fast-runtime" ]

@@ -55,14 +55,14 @@ cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
 default = [ "std" ]
 std = [
 	"codec/std",
-	"environmental/std",
-	"log/std",
-	"scale-info/std",
 	"cumulus-pallet-parachain-system-proc-macro/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-parachain-inherent/std",
+	"environmental/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
+	"scale-info/std",
 	"sp-core/std",
 	"sp-externalities/std",
 	"sp-io/std",
@@ -70,14 +70,12 @@ std = [
 	"sp-state-machine/std",
 	"sp-std/std",
 	"sp-trie/std",
-	"xcm/std",
 	"trie-db/std",
+	"xcm/std",
 ]
 
-runtime-benchmarks = [
-	"sp-runtime/runtime-benchmarks"
-]
+runtime-benchmarks = [ "sp-runtime/runtime-benchmarks" ]
 
-try-runtime = ["frame-support/try-runtime"]
+try-runtime = [ "frame-support/try-runtime" ]
 
 parameterized-consensus-hook = []

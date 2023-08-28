@@ -78,10 +78,8 @@ runtime-benchmarks = [
 	"parachain-template-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 ]
-try-runtime = [
-	"parachain-template-runtime/try-runtime"
-]
+try-runtime = [ "parachain-template-runtime/try-runtime" ]
 network-protocol-staging = [
+	"cumulus-client-service/network-protocol-staging",
 	"polkadot-cli/network-protocol-staging",
-	"cumulus-client-service/network-protocol-staging"
 ]

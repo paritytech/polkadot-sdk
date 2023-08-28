@@ -56,4 +56,8 @@ halt = { package = "test-parachain-halt", path = "../../../parachain/test-parach
 ci-only-tests = []
 # This feature is used to export test code to other crates without putting it in the production build.
 # This is also used by the `puppet_worker` binary.
-test-utils = ["polkadot-node-core-pvf-prepare-worker", "polkadot-node-core-pvf-execute-worker", "sp-tracing"]
+test-utils = [
+	"polkadot-node-core-pvf-execute-worker",
+	"polkadot-node-core-pvf-prepare-worker",
+	"sp-tracing",
+]

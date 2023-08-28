@@ -5,11 +5,11 @@ error[E0107]: missing generics for trait `Hooks`
    |                     ^^^^^ expected 1 generic argument
    |
 note: trait defined here, with 1 generic parameter: `BlockNumber`
-  --> $WORKSPACE/frame/support/src/traits/hooks.rs
+  --> $WORKSPACE/substrate/frame/support/src/traits/hooks.rs
    |
    | pub trait Hooks<BlockNumber> {
    |           ^^^^^ -----------
 help: add missing generic argument
-    |
-12  |     impl<T: Config> Hooks<BlockNumber> for Pallet<T> {}
-    |                          +++++++++++++
+   |
+12 |     impl<T: Config> Hooks<BlockNumber> for Pallet<T> {}
+   |                          +++++++++++++
