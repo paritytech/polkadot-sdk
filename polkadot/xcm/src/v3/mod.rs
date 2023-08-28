@@ -29,7 +29,9 @@ use core::{
 	result,
 };
 use derivative::Derivative;
-use parity_scale_codec::{self, Decode, Encode, MaxEncodedLen, Input as CodecInput, Error as CodecError, DecodeLength};
+use parity_scale_codec::{
+	self, Decode, DecodeLength, Encode, Error as CodecError, Input as CodecInput, MaxEncodedLen,
+};
 use scale_info::TypeInfo;
 
 mod junction;
@@ -71,13 +73,15 @@ const TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE: &'static str = "Too many instructions
 
 impl<Call> Decode for Xcm<Call> {
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
-		let remaining_length = input.remaining_len()?.ok_or(CodecError::from("Unable to read remaining length"))?;
+		let remaining_length = input
+			.remaining_len()?
+			.ok_or(CodecError::from("Unable to read remaining length"))?;
 		let mut buffer = vec![0u8; remaining_length];
 		input.read(&mut buffer)?;
 
-		let number_of_instructions = <Vec::<Instruction<Call>> as DecodeLength>::len(&buffer[..])?;
+		let number_of_instructions = <Vec<Instruction<Call>> as DecodeLength>::len(&buffer[..])?;
 		if number_of_instructions > MAX_INSTRUCTIONS_TO_DECODE {
-			return Err(CodecError::from(TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE));
+			return Err(CodecError::from(TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE))
 		}
 
 		let decoded_instructions = Vec::<Instruction<Call>>::decode(&mut &buffer[..])?;
