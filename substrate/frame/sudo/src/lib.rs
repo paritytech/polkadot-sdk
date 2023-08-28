@@ -118,6 +118,7 @@
 //! [`UnfilteredDispatchable`](frame_support::traits::UnfilteredDispatchable) trait to allow call
 //! execution without enforcing any further origin checks.
 
+#![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use sp_runtime::{traits::StaticLookup, DispatchResult};
@@ -282,12 +283,21 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A sudo just took place. \[result\]
-		Sudid { sudo_result: DispatchResult },
-		/// The \[sudoer\] just switched identity; the old key is supplied if one existed.
-		KeyChanged { old_sudoer: Option<T::AccountId> },
-		/// A sudo just took place. \[result\]
-		SudoAsDone { sudo_result: DispatchResult },
+		/// A sudo call just took place.
+		Sudid {
+			/// The result of the call made by the sudo user.
+			sudo_result: DispatchResult,
+		},
+		/// The sudo key has been updated.
+		KeyChanged {
+			/// The old sudo key if one was previously set.
+			old_sudoer: Option<T::AccountId>,
+		},
+		/// A [sudo_as](Pallet::sudo_as) call just took place.
+		SudoAsDone {
+			/// The result of the call made by the sudo user.
+			sudo_result: DispatchResult,
+		},
 	}
 
 	#[pallet::error]
