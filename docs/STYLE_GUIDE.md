@@ -1,5 +1,5 @@
 ---
-title: Style Guide for Rust in Substrate
+title: Style Guide for Rust in the Polkadot-SDK
 ---
 
 Where possible these styles are enforced by settings in `rustfmt.toml` so if you run `cargo fmt` 
