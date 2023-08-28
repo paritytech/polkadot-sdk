@@ -14,16 +14,16 @@ Refer to the [Docker instructions](./docker/README.md) to quickly run Substrate,
 ## Community & Support
 
 Join the highly active and supportive community on the [Substrate Stack Exchange](https://substrate.stackexchange.com/) to ask questions about use and problems you run into using this software.
-Please do report bugs and [issues here](https://github.com/paritytech/substrate/issues) for anything you suspect requires action in the source. 
+Please do report bugs and [issues here](https://github.com/paritytech/polkadot-sdk/issues) for anything you suspect requires action in the source. 
 
 ## Contributions & Code of Conduct
 
-Please follow the contributions guidelines as outlined in [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md).
-In all communications and contributions, this project follows the [Contributor Covenant Code of Conduct](docs/CODE_OF_CONDUCT.md).
+Please follow the contributions guidelines as outlined in [`docs/CONTRIBUTING.md`](https://github.com/paritytech/polkadot-sdk/blob/master/docs/CONTRIBUTING.md).
+In all communications and contributions, this project follows the [Contributor Covenant Code of Conduct](https://github.com/paritytech/polkadot-sdk/blob/master/docs/CODE_OF_CONDUCT.md).
 
 ## Security
 
-The security policy and procedures can be found in [`docs/SECURITY.md`](docs/SECURITY.md).
+The security policy and procedures can be found in [`docs/SECURITY.md`](https://github.com/paritytech/polkadot-sdk/blob/master/docs/SECURITY.md).
 
 ## License
 
