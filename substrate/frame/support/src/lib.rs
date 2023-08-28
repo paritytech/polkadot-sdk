@@ -1263,8 +1263,9 @@ pub mod pallet_prelude {
 /// Field types in enum variants must also implement [`PalletError`](traits::PalletError),
 /// otherwise the pallet will fail to compile. Rust primitive types have already implemented
 /// the [`PalletError`](traits::PalletError) trait along with some commonly used stdlib types
-/// such as [`Option`] and [`PhantomData`](`frame_support::dispatch::marker::PhantomData`), and
-/// hence in most use cases, a manual implementation is not necessary and is discouraged.
+/// such as [`Option`] and
+/// [`PhantomData`](`frame_support::__private::sp_std::marker::PhantomData`), and hence in most
+/// use cases, a manual implementation is not necessary and is discouraged.
 ///
 /// The generic `T` must not bound anything and a `where` clause is not allowed. That said,
 /// bounds and/or a where clause should not needed for any use-case.
