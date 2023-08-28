@@ -71,26 +71,16 @@ const TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE: &'static str = "Too many instructions
 
 impl<Call> Decode for Xcm<Call> {
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
-		let first_byte = input.read_byte()?;
-		let mode_bits = first_byte & 0b00000011; // Compact mode for the vector length
+		let remaining_length = input.remaining_len()?.ok_or(CodecError::from("Unable to read remaining length"))?;
+		let mut buffer = vec![0u8; remaining_length];
+		input.read(&mut buffer)?;
 
-		// It's all good
-		if mode_bits == 0 {
-			let decoded_instructions = Vec::<Instruction<Call>>::decode(input)?;
-			return Ok(Self(decoded_instructions));
-		} else if mode_bits == 2 || mode_bits == 3 {
-			// Too many instructions
+		let number_of_instructions = <Vec::<Instruction<Call>> as DecodeLength>::len(&buffer[..])?;
+		if number_of_instructions > MAX_INSTRUCTIONS_TO_DECODE {
 			return Err(CodecError::from(TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE));
-		} else {
-			let mut buffer = [0u8; 2];
-			input.read(&mut buffer)?;
-			let number_of_instructions = <Vec::<Instruction<Call>> as DecodeLength>::len(&buffer[..])?;
-			if number_of_instructions > MAX_INSTRUCTIONS_TO_DECODE {
-				return Err(CodecError::from(TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE));
-			}
 		}
 
-		let decoded_instructions = Vec::<Instruction<Call>>::decode(input)?;
+		let decoded_instructions = Vec::<Instruction<Call>>::decode(&mut &buffer[..])?;
 		Ok(Self(decoded_instructions))
 	}
 }
@@ -1465,6 +1455,6 @@ mod tests {
 		let big_xcm = Xcm::<()>(vec![ClearOrigin; 64_000]);
 		let bytes = big_xcm.encode();
 		let decoded_xcm = Xcm::<()>::decode(&mut &bytes[..]);
-		assert!(matches!(decoded_xcm, Err(_)));
+		assert!(matches!(decoded_xcm, Err(CodecError { .. })));
 	}
 }
