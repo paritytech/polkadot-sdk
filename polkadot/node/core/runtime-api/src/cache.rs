@@ -109,7 +109,7 @@ impl RequestResultCache {
 		&mut self,
 		relay_parent: &Hash,
 	) -> Option<&Vec<AuthorityDiscoveryId>> {
-		self.authorities.peek(relay_parent)
+		self.authorities.get(relay_parent).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_authorities(
@@ -121,7 +121,7 @@ impl RequestResultCache {
 	}
 
 	pub(crate) fn validators(&mut self, relay_parent: &Hash) -> Option<&Vec<ValidatorId>> {
-		self.validators.peek(relay_parent)
+		self.validators.get(relay_parent).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_validators(&mut self, relay_parent: Hash, validators: Vec<ValidatorId>) {
@@ -132,7 +132,7 @@ impl RequestResultCache {
 		&mut self,
 		relay_parent: &Hash,
 	) -> Option<&(Vec<Vec<ValidatorIndex>>, GroupRotationInfo)> {
-		self.validator_groups.peek(relay_parent)
+		self.validator_groups.get(relay_parent).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_validator_groups(
@@ -144,7 +144,7 @@ impl RequestResultCache {
 	}
 
 	pub(crate) fn availability_cores(&mut self, relay_parent: &Hash) -> Option<&Vec<CoreState>> {
-		self.availability_cores.peek(relay_parent)
+		self.availability_cores.get(relay_parent).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_availability_cores(&mut self, relay_parent: Hash, cores: Vec<CoreState>) {
@@ -155,7 +155,7 @@ impl RequestResultCache {
 		&mut self,
 		key: (Hash, ParaId, OccupiedCoreAssumption),
 	) -> Option<&Option<PersistedValidationData>> {
-		self.persisted_validation_data.peek(&key)
+		self.persisted_validation_data.get(&key).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_persisted_validation_data(
@@ -170,7 +170,7 @@ impl RequestResultCache {
 		&mut self,
 		key: (Hash, ParaId, Hash),
 	) -> Option<&Option<(PersistedValidationData, ValidationCodeHash)>> {
-		self.assumed_validation_data.peek(&(key.1, key.2))
+		self.assumed_validation_data.get(&(key.1, key.2)).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_assumed_validation_data(
@@ -185,7 +185,7 @@ impl RequestResultCache {
 		&mut self,
 		key: (Hash, ParaId, CandidateCommitments),
 	) -> Option<&bool> {
-		self.check_validation_outputs.peek(&key)
+		self.check_validation_outputs.get(&key).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_check_validation_outputs(
@@ -197,7 +197,7 @@ impl RequestResultCache {
 	}
 
 	pub(crate) fn session_index_for_child(&mut self, relay_parent: &Hash) -> Option<&SessionIndex> {
-		self.session_index_for_child.peek(relay_parent)
+		self.session_index_for_child.get(relay_parent).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_session_index_for_child(
@@ -212,7 +212,7 @@ impl RequestResultCache {
 		&mut self,
 		key: (Hash, ParaId, OccupiedCoreAssumption),
 	) -> Option<&Option<ValidationCode>> {
-		self.validation_code.peek(&key)
+		self.validation_code.get(&key).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_validation_code(
@@ -229,7 +229,7 @@ impl RequestResultCache {
 		&mut self,
 		key: (Hash, ValidationCodeHash),
 	) -> Option<&Option<ValidationCode>> {
-		self.validation_code_by_hash.peek(&key.1)
+		self.validation_code_by_hash.get(&key.1).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_validation_code_by_hash(
@@ -244,7 +244,7 @@ impl RequestResultCache {
 		&mut self,
 		key: (Hash, ParaId),
 	) -> Option<&Option<CommittedCandidateReceipt>> {
-		self.candidate_pending_availability.peek(&key)
+		self.candidate_pending_availability.get(&key).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_candidate_pending_availability(
@@ -256,7 +256,7 @@ impl RequestResultCache {
 	}
 
 	pub(crate) fn candidate_events(&mut self, relay_parent: &Hash) -> Option<&Vec<CandidateEvent>> {
-		self.candidate_events.peek(relay_parent)
+		self.candidate_events.get(relay_parent).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_candidate_events(
@@ -268,7 +268,7 @@ impl RequestResultCache {
 	}
 
 	pub(crate) fn session_info(&mut self, key: SessionIndex) -> Option<&SessionInfo> {
-		self.session_info.peek(&key)
+		self.session_info.get(&key).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_session_info(&mut self, key: SessionIndex, value: SessionInfo) {
@@ -279,7 +279,7 @@ impl RequestResultCache {
 		&mut self,
 		session_index: SessionIndex,
 	) -> Option<&Option<ExecutorParams>> {
-		self.session_executor_params.peek(&session_index)
+		self.session_executor_params.get(&session_index).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_session_executor_params(
@@ -294,7 +294,7 @@ impl RequestResultCache {
 		&mut self,
 		key: (Hash, ParaId),
 	) -> Option<&Vec<InboundDownwardMessage<BlockNumber>>> {
-		self.dmq_contents.peek(&key)
+		self.dmq_contents.get(&key).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_dmq_contents(
@@ -309,7 +309,7 @@ impl RequestResultCache {
 		&mut self,
 		key: (Hash, ParaId),
 	) -> Option<&BTreeMap<ParaId, Vec<InboundHrmpMessage<BlockNumber>>>> {
-		self.inbound_hrmp_channels_contents.peek(&key)
+		self.inbound_hrmp_channels_contents.get(&key).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_inbound_hrmp_channel_contents(
@@ -321,7 +321,7 @@ impl RequestResultCache {
 	}
 
 	pub(crate) fn current_babe_epoch(&mut self, relay_parent: &Hash) -> Option<&Epoch> {
-		self.current_babe_epoch.peek(relay_parent)
+		self.current_babe_epoch.get(relay_parent).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_current_babe_epoch(&mut self, relay_parent: Hash, epoch: Epoch) {
@@ -332,7 +332,7 @@ impl RequestResultCache {
 		&mut self,
 		relay_parent: &Hash,
 	) -> Option<&Option<ScrapedOnChainVotes>> {
-		self.on_chain_votes.peek(relay_parent)
+		self.on_chain_votes.get(relay_parent).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_on_chain_votes(
@@ -347,7 +347,7 @@ impl RequestResultCache {
 		&mut self,
 		relay_parent: &Hash,
 	) -> Option<&Vec<ValidationCodeHash>> {
-		self.pvfs_require_precheck.peek(relay_parent)
+		self.pvfs_require_precheck.get(relay_parent).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_pvfs_require_precheck(
@@ -362,7 +362,7 @@ impl RequestResultCache {
 		&mut self,
 		key: (Hash, ParaId, OccupiedCoreAssumption),
 	) -> Option<&Option<ValidationCodeHash>> {
-		self.validation_code_hash.peek(&key)
+		self.validation_code_hash.get(&key).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_validation_code_hash(
@@ -374,7 +374,7 @@ impl RequestResultCache {
 	}
 
 	pub(crate) fn version(&mut self, relay_parent: &Hash) -> Option<&u32> {
-		self.version.peek(relay_parent)
+		self.version.get(relay_parent).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_version(&mut self, key: Hash, value: u32) {
@@ -385,7 +385,7 @@ impl RequestResultCache {
 		&mut self,
 		relay_parent: &Hash,
 	) -> Option<&Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>> {
-		self.disputes.peek(relay_parent)
+		self.disputes.get(relay_parent).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_disputes(
@@ -400,7 +400,7 @@ impl RequestResultCache {
 		&mut self,
 		relay_parent: &Hash,
 	) -> Option<&Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>> {
-		self.unapplied_slashes.peek(relay_parent)
+		self.unapplied_slashes.get(relay_parent).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_unapplied_slashes(
@@ -415,7 +415,7 @@ impl RequestResultCache {
 		&mut self,
 		key: (Hash, ValidatorId),
 	) -> Option<&Option<vstaging::slashing::OpaqueKeyOwnershipProof>> {
-		self.key_ownership_proof.peek(&key)
+		self.key_ownership_proof.get(&key).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_key_ownership_proof(
@@ -438,7 +438,7 @@ impl RequestResultCache {
 		&mut self,
 		key: (Hash, ParaId),
 	) -> Option<&Option<vstaging::BackingState>> {
-		self.staging_para_backing_state.peek(&key)
+		self.staging_para_backing_state.get(&key).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_staging_para_backing_state(
@@ -453,7 +453,7 @@ impl RequestResultCache {
 		&mut self,
 		key: &Hash,
 	) -> Option<&vstaging::AsyncBackingParams> {
-		self.staging_async_backing_params.peek(key)
+		self.staging_async_backing_params.get(key).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_staging_async_backing_params(
