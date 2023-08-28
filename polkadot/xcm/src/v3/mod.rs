@@ -30,7 +30,7 @@ use core::{
 };
 use derivative::Derivative;
 use parity_scale_codec::{
-	self, Decode, DecodeLength, Encode, Error as CodecError, Input as CodecInput, MaxEncodedLen,
+	self, Decode, Encode, Error as CodecError, Input as CodecInput, MaxEncodedLen, Compact, decode_vec_with_len
 };
 use scale_info::TypeInfo;
 
@@ -68,23 +68,18 @@ pub type QueryId = u64;
 #[scale_info(bounds(), skip_type_params(Call))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
-const MAX_INSTRUCTIONS_TO_DECODE: usize = 100;
+const MAX_INSTRUCTIONS_TO_DECODE: u32 = 100;
 const TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE: &'static str = "Too many instructions to decode";
 
 impl<Call> Decode for Xcm<Call> {
+	// Taken from `BoundedVec`'s `Decode` implementation
+	// TODO (v4): Use `BoundedVec`
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
-		let remaining_length = input
-			.remaining_len()?
-			.ok_or(CodecError::from("Unable to read remaining length"))?;
-		let mut buffer = vec![0u8; remaining_length];
-		input.read(&mut buffer)?;
-
-		let number_of_instructions = <Vec<Instruction<Call>> as DecodeLength>::len(&buffer[..])?;
-		if number_of_instructions > MAX_INSTRUCTIONS_TO_DECODE {
-			return Err(CodecError::from(TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE))
+		let len: u32 = <Compact<u32>>::decode(input)?.into();
+		if len > MAX_INSTRUCTIONS_TO_DECODE {
+			return Err(TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE.into());
 		}
-
-		let decoded_instructions = Vec::<Instruction<Call>>::decode(&mut &buffer[..])?;
+		let decoded_instructions = decode_vec_with_len(input, len as usize)?;
 		Ok(Self(decoded_instructions))
 	}
 }
