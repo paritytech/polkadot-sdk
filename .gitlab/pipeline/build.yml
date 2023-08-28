@@ -66,7 +66,7 @@ build-malus:
     - .run-immediately
     - .collect-artifacts
   script:
-    - time cargo build --locked --profile testnet --verbose -p polkadot-test-malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
+    - time cargo build --locked --profile testnet --verbose -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
     # pack artifacts
     - mkdir -p ./artifacts
     - mv ./target/testnet/malus ./artifacts/.
