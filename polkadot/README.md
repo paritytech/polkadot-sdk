@@ -197,8 +197,7 @@ cargo test --workspace --release
 You can start a development chain with:
 
 ```bash
-cargo build
-cargo run -- --dev
+cargo run --bin polkadot -- --dev
 ```
 
 Detailed logs may be shown by running the node with the following environment variables set:
