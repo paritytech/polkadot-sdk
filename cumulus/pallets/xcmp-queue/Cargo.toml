@@ -44,20 +44,16 @@ cumulus-pallet-parachain-system = { path = "../parachain-system" }
 default = [ "std" ]
 std = [
 	"codec/std",
-	"cumulus-pallet-parachain-system/std",
 	"cumulus-primitives-core/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-balances/std",
 	"polkadot-runtime-common/std",
 	"scale-info/std",
-	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]

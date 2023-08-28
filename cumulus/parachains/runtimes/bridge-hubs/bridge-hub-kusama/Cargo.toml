@@ -77,7 +77,6 @@ bridge-hub-test-utils = { path = "../test-utils" }
 [features]
 default = [ "std" ]
 std = [
-	"bridge-hub-test-utils/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-dmp-queue/std",

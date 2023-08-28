@@ -55,20 +55,13 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-aura/std",
 	"pallet-authorship/std",
-	"pallet-balances/std",
 	"pallet-session/std",
-	"pallet-timestamp/std",
 	"rand/std",
 	"scale-info/std",
-	"sp-consensus-aura/std",
-	"sp-core/std",
-	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
 	"sp-std/std",
-	"sp-tracing/std",
 ]
 
 try-runtime = [

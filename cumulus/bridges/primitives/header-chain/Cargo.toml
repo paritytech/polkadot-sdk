@@ -33,7 +33,6 @@ hex-literal = "0.4"
 default = [ "std" ]
 std = [
 	"bp-runtime/std",
-	"bp-test-utils/std",
 	"codec/std",
 	"finality-grandpa/std",
 	"frame-support/std",

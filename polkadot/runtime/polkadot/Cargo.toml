@@ -202,7 +202,6 @@ std = [
 	"sp-std/std",
 	"sp-storage/std",
 	"sp-tracing/std",
-	"sp-trie/std",
 	"sp-version/std",
 	"tx-pool-api/std",
 	"xcm-builder/std",

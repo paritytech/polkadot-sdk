@@ -47,7 +47,6 @@ std = [
 	"sp-consensus-slots/std",
 	"sp-io/std",
 	"sp-keystore",
-	"sp-keystore?/std",
 	"sp-staking/std",
 	"sp-std/std",
 ]

@@ -107,7 +107,6 @@ std = [
 	"bp-rococo/std",
 	"bp-runtime/std",
 	"bp-wococo/std",
-	"bridge-hub-test-utils/std",
 	"bridge-runtime-common/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",

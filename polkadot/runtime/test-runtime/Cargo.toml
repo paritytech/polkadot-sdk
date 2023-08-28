@@ -130,7 +130,6 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-std/std",
-	"sp-trie/std",
 	"sp-version/std",
 	"test-runtime-constants/std",
 	"tx-pool-api/std",

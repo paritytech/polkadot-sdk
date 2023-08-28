@@ -70,7 +70,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"sp-tracing/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]

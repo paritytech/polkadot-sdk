@@ -141,7 +141,6 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 std = [
-	"asset-test-utils/std",
 	"assets-common/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",

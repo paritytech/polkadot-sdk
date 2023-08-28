@@ -58,7 +58,6 @@ std = [
 	"cumulus-pallet-parachain-system-proc-macro/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-parachain-inherent/std",
-	"cumulus-test-relay-sproof-builder/std",
 	"environmental/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -72,9 +71,7 @@ std = [
 	"sp-runtime/std",
 	"sp-state-machine/std",
 	"sp-std/std",
-	"sp-tracing/std",
 	"sp-trie/std",
-	"sp-version/std",
 	"trie-db/std",
 	"xcm/std",
 ]
