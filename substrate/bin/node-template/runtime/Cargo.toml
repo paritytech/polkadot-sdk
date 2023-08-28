@@ -64,7 +64,6 @@ std = [
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
-	"frame-try-runtime/std",
 	"frame-try-runtime?/std",
 	"pallet-aura/std",
 	"pallet-balances/std",

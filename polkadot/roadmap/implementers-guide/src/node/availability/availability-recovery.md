@@ -30,7 +30,7 @@ struct State {
     /// A recent block hash for which state should be available.
     live_block_hash: Hash,
     // An LRU cache of recently recovered data.
-    availability_lru: LruCache<CandidateHash, Result<AvailableData, RecoveryError>>,
+    availability_lru: LruMap<CandidateHash, Result<AvailableData, RecoveryError>>,
 }
 
 /// This is a future, which concludes either when a response is received from the recovery tasks,
