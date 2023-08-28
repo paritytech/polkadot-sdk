@@ -30,8 +30,7 @@ use core::{
 };
 use derivative::Derivative;
 use parity_scale_codec::{
-	self, Decode, Encode, Error as CodecError, Input as CodecInput,
-	MaxEncodedLen,
+	self, Decode, Encode, Error as CodecError, Input as CodecInput, MaxEncodedLen,
 };
 use scale_info::TypeInfo;
 
