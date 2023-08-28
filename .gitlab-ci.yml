@@ -120,14 +120,15 @@ default:
 # rusty-cachier's commands are described here: https://gitlab.parity.io/parity/infrastructure/ci_cd/rusty-cachier/client#description
 .rusty-cachier:
   before_script:
-    - curl -s https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.parity.io/parity/infrastructure/ci_cd/rusty-cachier/client/-/raw/release/util/install.sh | bash
-    - mkdir -p cargo_home cargo_target_dir
-    - export CARGO_HOME=$CI_PROJECT_DIR/cargo_home
-    - export CARGO_TARGET_DIR=$CI_PROJECT_DIR/cargo_target_dir
-    - find . \( -path ./cargo_target_dir -o -path ./cargo_home \) -prune -o -type f -exec touch -t 202005260100 {} +
-    - git restore-mtime
-    - rusty-cachier --version
-    - rusty-cachier project touch-changed
+    # - curl -s https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.parity.io/parity/infrastructure/ci_cd/rusty-cachier/client/-/raw/release/util/install.sh | bash
+    # - mkdir -p cargo_home cargo_target_dir
+    # - export CARGO_HOME=$CI_PROJECT_DIR/cargo_home
+    # - export CARGO_TARGET_DIR=$CI_PROJECT_DIR/cargo_target_dir
+    # - find . \( -path ./cargo_target_dir -o -path ./cargo_home \) -prune -o -type f -exec touch -t 202005260100 {} +
+    # - git restore-mtime
+    # - rusty-cachier --version
+    # - rusty-cachier project touch-changed
+    - echo tbd
 
 .common-refs:
   rules:
