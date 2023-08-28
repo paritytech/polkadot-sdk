@@ -21,17 +21,20 @@ use asset_hub_kusama_runtime::xcm_config::{
 	AssetFeeAsExistentialDepositMultiplierFeeCharger, KsmLocation, TrustBackedAssetsPalletLocation,
 };
 pub use asset_hub_kusama_runtime::{
-	xcm_config::{CheckingAccount, ForeignCreatorsSovereignAccountOf, XcmConfig},
+	xcm_config::{
+		self, bridging, CheckingAccount, ForeignCreatorsSovereignAccountOf, LocationToAccountId,
+		XcmConfig,
+	},
 	AllPalletsWithoutSystem, AssetDeposit, Assets, Balances, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime,
-	RuntimeCall, RuntimeEvent, SessionKeys, System, TrustBackedAssetsInstance,
+	RuntimeCall, RuntimeEvent, SessionKeys, System, TrustBackedAssetsInstance, XcmpQueue,
 };
-use asset_test_utils::{CollatorSessionKeys, ExtBuilder};
+use asset_test_utils::{CollatorSessionKey, CollatorSessionKeys, ExtBuilder};
 use codec::{Decode, Encode};
 use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::fungibles::InspectEnumerable,
+	traits::{fungibles::InspectEnumerable, Contains},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use parachains_common::{
@@ -49,12 +52,16 @@ type AssetIdForTrustBackedAssetsConvert =
 
 type RuntimeHelper = asset_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
 
-fn collator_session_keys() -> CollatorSessionKeys<Runtime> {
-	CollatorSessionKeys::new(
-		AccountId::from(ALICE),
-		AccountId::from(ALICE),
-		SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+fn collator_session_key(account: [u8; 32]) -> CollatorSessionKey<Runtime> {
+	CollatorSessionKey::new(
+		AccountId::from(account),
+		AccountId::from(account),
+		SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(account)) },
 	)
+}
+
+fn collator_session_keys() -> CollatorSessionKeys<Runtime> {
+	CollatorSessionKeys::default().add(collator_session_key(ALICE))
 }
 
 #[test]
@@ -632,3 +639,148 @@ asset_test_utils::include_create_and_manage_foreign_assets_for_local_consensus_p
 		assert_eq!(ForeignAssets::asset_ids().collect::<Vec<_>>().len(), 1);
 	})
 );
+
+fn bridging_to_asset_hub_polkadot() -> asset_test_utils::test_cases_over_bridge::TestBridgingConfig
+{
+	asset_test_utils::test_cases_over_bridge::TestBridgingConfig {
+		bridged_network: bridging::PolkadotNetwork::get(),
+		local_bridge_hub_para_id: bridging::BridgeHubKusamaParaId::get(),
+		local_bridge_hub_location: bridging::BridgeHubKusama::get(),
+		bridged_target_location: bridging::AssetHubPolkadot::get(),
+	}
+}
+
+#[test]
+fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works() {
+	asset_test_utils::test_cases_over_bridge::limited_reserve_transfer_assets_for_native_asset_works::<
+		Runtime,
+		AllPalletsWithoutSystem,
+		XcmConfig,
+		ParachainSystem,
+		XcmpQueue,
+		LocationToAccountId,
+	>(
+		collator_session_keys(),
+		ExistentialDeposit::get(),
+		AccountId::from(ALICE),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		bridging_to_asset_hub_polkadot,
+		WeightLimit::Unlimited,
+	)
+}
+
+#[test]
+fn receive_reserve_asset_deposited_dot_from_asset_hub_polkadot_works() {
+	const BLOCK_AUTHOR_ACCOUNT: [u8; 32] = [13; 32];
+	asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
+		Runtime,
+		AllPalletsWithoutSystem,
+		XcmConfig,
+		LocationToAccountId,
+		ForeignAssetsInstance,
+	>(
+		collator_session_keys().add(collator_session_key(BLOCK_AUTHOR_ACCOUNT)),
+		ExistentialDeposit::get(),
+		AccountId::from([73; 32]),
+		AccountId::from(BLOCK_AUTHOR_ACCOUNT),
+			// receiving DOTs
+		(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Polkadot)) }, 1000000000000, 1_000_000_000),
+		bridging_to_asset_hub_polkadot,
+		(X1(PalletInstance(53)), GlobalConsensus(Polkadot), X1(Parachain(1000)))
+	)
+}
+
+/// Tests expected configuration of isolated `pallet_xcm::Config::XcmReserveTransferFilter`.
+#[test]
+fn xcm_reserve_transfer_filter_works() {
+	// prepare assets
+	let only_native_assets = || vec![MultiAsset::from((KsmLocation::get(), 1000))];
+	let only_trust_backed_assets = || {
+		vec![MultiAsset::from((
+			AssetIdForTrustBackedAssetsConvert::convert_back(&12345).unwrap(),
+			2000,
+		))]
+	};
+	let only_sibling_foreign_assets =
+		|| vec![MultiAsset::from((MultiLocation::new(1, X1(Parachain(12345))), 3000))];
+	let only_different_global_consensus_foreign_assets = || {
+		vec![MultiAsset::from((
+			MultiLocation::new(2, X2(GlobalConsensus(Polkadot), Parachain(12345))),
+			4000,
+		))]
+	};
+
+	// prepare destinations
+	let relaychain = MultiLocation::parent();
+	let sibling_parachain = MultiLocation::new(1, X1(Parachain(54321)));
+	let different_global_consensus_parachain_other_than_asset_hub_polkadot =
+		MultiLocation::new(2, X2(GlobalConsensus(Polkadot), Parachain(12345)));
+	let bridged_asset_hub = bridging::AssetHubPolkadot::get();
+
+	// prepare expected test data sets: (destination, assets, expected_result)
+	let test_data = vec![
+		(relaychain, only_native_assets(), true),
+		(relaychain, only_trust_backed_assets(), true),
+		(relaychain, only_sibling_foreign_assets(), true),
+		(relaychain, only_different_global_consensus_foreign_assets(), true),
+		(sibling_parachain, only_native_assets(), true),
+		(sibling_parachain, only_trust_backed_assets(), true),
+		(sibling_parachain, only_sibling_foreign_assets(), true),
+		(sibling_parachain, only_different_global_consensus_foreign_assets(), true),
+		(
+			different_global_consensus_parachain_other_than_asset_hub_polkadot,
+			only_native_assets(),
+			false,
+		),
+		(
+			different_global_consensus_parachain_other_than_asset_hub_polkadot,
+			only_trust_backed_assets(),
+			false,
+		),
+		(
+			different_global_consensus_parachain_other_than_asset_hub_polkadot,
+			only_sibling_foreign_assets(),
+			false,
+		),
+		(
+			different_global_consensus_parachain_other_than_asset_hub_polkadot,
+			only_different_global_consensus_foreign_assets(),
+			false,
+		),
+		(bridged_asset_hub, only_native_assets(), true),
+		(bridged_asset_hub, only_trust_backed_assets(), false),
+		(bridged_asset_hub, only_sibling_foreign_assets(), false),
+		(bridged_asset_hub, only_different_global_consensus_foreign_assets(), false),
+	];
+
+	// lets test filter with test data
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys().collators())
+		.with_session_keys(collator_session_keys().session_keys())
+		.build()
+		.execute_with(|| {
+			type XcmReserveTransferFilter =
+				<Runtime as pallet_xcm::Config>::XcmReserveTransferFilter;
+			for (dest, assets, expected_result) in test_data {
+				assert_eq!(
+					expected_result,
+					XcmReserveTransferFilter::contains(&(dest, assets.clone())),
+					"expected_result: {} for dest: {:?} and assets: {:?}",
+					expected_result,
+					dest,
+					assets
+				);
+			}
+		})
+}
