@@ -30,7 +30,8 @@ use core::{
 };
 use derivative::Derivative;
 use parity_scale_codec::{
-	self, Decode, Encode, Error as CodecError, Input as CodecInput, MaxEncodedLen, Compact, decode_vec_with_len
+	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
+	MaxEncodedLen,
 };
 use scale_info::TypeInfo;
 
@@ -77,7 +78,7 @@ impl<Call> Decode for Xcm<Call> {
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
 		let len: u32 = <Compact<u32>>::decode(input)?.into();
 		if len > MAX_INSTRUCTIONS_TO_DECODE {
-			return Err(TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE.into());
+			return Err(TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE.into())
 		}
 		let decoded_instructions = decode_vec_with_len(input, len as usize)?;
 		Ok(Self(decoded_instructions))
