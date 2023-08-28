@@ -29,10 +29,10 @@ use crate::{
 		},
 	},
 	import::BeefyBlockImport,
+	keystore::BeefyKeystore,
 	metrics::register_metrics,
 	round::Rounds,
 	worker::PersistedState,
-	keystore::BeefyKeystore,
 };
 use futures::{stream::Fuse, StreamExt};
 use log::{error, info};
@@ -263,12 +263,12 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	// select recoverable errors.
 	loop {
 		let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
-        let fisherman = Fisherman {
-            backend: backend.clone(),
-            runtime: runtime.clone(),
-            payload_provider: payload_provider.clone(),
-            _phantom: PhantomData,
-        };
+		let fisherman = Fisherman {
+			backend: backend.clone(),
+			runtime: runtime.clone(),
+			payload_provider: payload_provider.clone(),
+			_phantom: PhantomData,
+		};
 		// Default votes filter is to discard everything.
 		// Validator is updated later with correct starting round and set id.
 		let (gossip_validator, gossip_report_stream) =

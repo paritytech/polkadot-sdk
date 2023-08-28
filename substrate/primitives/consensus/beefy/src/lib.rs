@@ -47,7 +47,7 @@ use codec::{Codec, Decode, Encode};
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::H256;
-use sp_runtime::traits::{Hash, Keccak256, NumberFor, Header};
+use sp_runtime::traits::{Hash, Header, Keccak256, NumberFor};
 use sp_std::prelude::*;
 
 /// Key type for BEEFY module.
@@ -366,9 +366,8 @@ where
 	}
 
 	let expected_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(correct_header);
-	let expected_payload = expected_mmr_root_digest.map(|mmr_root| {
-		Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode())
-	});
+	let expected_payload = expected_mmr_root_digest
+		.map(|mmr_root| Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode()));
 
 	// cheap failfasts:
 	// 1. check that `payload` on the `vote` is different that the `expected_payload`
