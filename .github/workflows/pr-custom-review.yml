@@ -39,4 +39,4 @@ jobs:
       - name: pr-custom-review
         uses: paritytech/pr-custom-review@master
         with:
-          checks-reviews-api: http://pcr.parity-stg.parity.io/api/v1/check_reviews
+          checks-reviews-api: http://pcr.parity-prod.parity.io/api/v1/check_reviews
