@@ -30,7 +30,7 @@ sp-std = { path = "../../primitives/std", default-features = false}
 [dev-dependencies]
 pallet-balances = { path = "../balances" }
 pallet-scheduler = { path = "../scheduler" }
-sp-core = { path = "../../primitives/core" }
+sp-core = { path = "../../primitives/core", default-features = false }
 
 [features]
 default = [ "std" ]
