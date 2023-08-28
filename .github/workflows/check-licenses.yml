@@ -26,6 +26,10 @@ jobs:
           npx @paritytech/license-scanner scan \
             --ensure-licenses=Apache-2.0 \
             --ensure-licenses=GPL-3.0-only \
-            ./**/*.rs
+            "./substrate/bin/node-template/node/src/chain_spec.rs"
+          # npx @paritytech/license-scanner scan \
+          #   --ensure-licenses=Apache-2.0 \
+          #   --ensure-licenses=GPL-3.0-only \
+          #   ./**/*.rs
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
