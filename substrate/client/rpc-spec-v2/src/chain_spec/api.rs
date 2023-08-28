@@ -28,16 +28,16 @@ pub trait ChainSpecApi {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainSpec_unstable_chainName")]
-	fn chain_spec_unstable_chain_name(&self) -> RpcResult<String>;
+	#[method(name = "chainSpec_v1_chainName")]
+	fn chain_spec_v1_chain_name(&self) -> RpcResult<String>;
 
 	/// Get the chain's genesis hash.
 	///
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainSpec_unstable_genesisHash")]
-	fn chain_spec_unstable_genesis_hash(&self) -> RpcResult<String>;
+	#[method(name = "chainSpec_v1_genesisHash")]
+	fn chain_spec_v1_genesis_hash(&self) -> RpcResult<String>;
 
 	/// Get the properties of the chain, as present in the chain specification.
 	///
@@ -48,6 +48,6 @@ pub trait ChainSpecApi {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainSpec_unstable_properties")]
-	fn chain_spec_unstable_properties(&self) -> RpcResult<Properties>;
+	#[method(name = "chainSpec_v1_properties")]
+	fn chain_spec_v1_properties(&self) -> RpcResult<Properties>;
 }
