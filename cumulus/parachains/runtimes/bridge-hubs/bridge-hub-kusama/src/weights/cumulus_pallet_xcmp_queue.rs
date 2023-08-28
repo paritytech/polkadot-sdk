@@ -23,21 +23,23 @@
 //! EXECUTION: ``, WASM-EXECUTION: `Compiled`, CHAIN: `Some("bridge-hub-kusama-dev")`, DB CACHE: 1024
 
 // Executed Command:
-// ./target/production/polkadot-parachain
+// ./target/release/polkadot-parachain
 // benchmark
 // pallet
-// --chain=bridge-hub-kusama-dev
-// --wasm-execution=compiled
-// --pallet=cumulus_pallet_xcmp_queue
-// --no-storage-info
-// --no-median-slopes
-// --no-min-squares
-// --extrinsic=*
-// --steps=50
-// --repeat=20
-// --json
-// --header=./file_header.txt
-// --output=./parachains/runtimes/bridge-hubs/bridge-hub-kusama/src/weights/
+// --chain
+// bridge-hub-kusama-dev
+// --pallet
+// cumulus_pallet_xcmp_queue
+// --extrinsic
+// 
+// --execution
+// native
+// --output
+// parachains/runtimes/bridge-hubs/bridge-hub-kusama/src/weights
+// --steps
+// 50
+// --repeat
+// 20
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -62,9 +64,39 @@ impl<T: frame_system::Config> cumulus_pallet_xcmp_queue::WeightInfo for WeightIn
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `XcmpQueue::QueueConfig` (r:1 w:1)
-	/// Proof: `XcmpQueue::QueueConfig` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	fn set_config_with_weight() -> Weight {
+	/// Storage: XcmpQueue QueueConfig (r:1 w:0)
+	/// Proof Skipped: XcmpQueue QueueConfig (max_values: Some(1), max_size: None, mode: Measured)
+	/// Storage: MessageQueue BookStateFor (r:1 w:1)
+	/// Proof: MessageQueue BookStateFor (max_values: None, max_size: Some(52), added: 2527, mode: MaxEncodedLen)
+	/// Storage: MessageQueue ServiceHead (r:1 w:1)
+	/// Proof: MessageQueue ServiceHead (max_values: Some(1), max_size: Some(5), added: 500, mode: MaxEncodedLen)
+	/// Storage: MessageQueue Pages (r:0 w:1)
+	/// Proof: MessageQueue Pages (max_values: None, max_size: Some(65585), added: 68060, mode: MaxEncodedLen)
+	/// The range of component `n` is `[0, 1000]`.
+	fn enqueue_xcmp_messages(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `134`
+		//  Estimated: `6626`
+		// Minimum execution time: 3_225_000 picoseconds.
+		Weight::from_parts(3_311_000, 0)
+			.saturating_add(Weight::from_parts(0, 6626))
+			// Standard Error: 1_007
+			.saturating_add(Weight::from_parts(976_553, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+	/// Storage: XcmpQueue QueueSuspended (r:1 w:0)
+	/// Proof Skipped: XcmpQueue QueueSuspended (max_values: Some(1), max_size: None, mode: Measured)
+		fn suspend_channel() -> Weight {
+		Weight::zero()
+	}
+	fn split_concatenated_xcm() -> Weight {
+		Weight::zero()
+	}
+	fn resume_channel() -> Weight {
+		Weight::zero()
+	}
+fn process_message() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `76`
 		//  Estimated: `1561`
@@ -72,6 +104,5 @@ impl<T: frame_system::Config> cumulus_pallet_xcmp_queue::WeightInfo for WeightIn
 		Weight::from_parts(5_565_000, 0)
 			.saturating_add(Weight::from_parts(0, 1561))
 			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }

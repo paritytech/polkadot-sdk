@@ -17,6 +17,7 @@ scale-info = { version = "2.9.0", default-features = false, features = ["derive"
 # Substrate
 frame-support = { path = "../../../substrate/frame/support", default-features = false}
 frame-system = { path = "../../../substrate/frame/system", default-features = false}
+pallet-message-queue = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 sp-core = { path = "../../../substrate/primitives/core", default-features = false}
 sp-externalities = { path = "../../../substrate/primitives/externalities", default-features = false}
 sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false}
@@ -40,6 +41,7 @@ cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inh
 assert_matches = "1.5"
 hex-literal = "0.4.1"
 lazy_static = "1.4"
+rand = "0.8.5"
 
 # Substrate
 sc-client-api = { path = "../../../substrate/client/api" }
@@ -60,22 +62,34 @@ std = [
 	"cumulus-primitives-parachain-inherent/std",
 	"environmental/std",
 	"frame-support/std",
+	"frame-benchmarking/std",
 	"frame-system/std",
 	"log/std",
 	"scale-info/std",
+	"pallet-message-queue/std",
 	"sp-core/std",
 	"sp-externalities/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
 	"sp-std/std",
+	"sp-tracing/std",
 	"sp-trie/std",
 	"trie-db/std",
 	"xcm/std",
 ]
 
-runtime-benchmarks = [ "sp-runtime/runtime-benchmarks" ]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks",
+]
 
-try-runtime = [ "frame-support/try-runtime" ]
+try-runtime = [
+	"frame-support/try-runtime",
+	"pallet-message-queue/try-runtime",
+]
 
 parameterized-consensus-hook = []

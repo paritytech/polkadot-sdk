@@ -66,6 +66,14 @@ pub trait ConsensusHook {
 	fn on_state_proof(state_proof: &RelayChainStateProof) -> (Weight, UnincludedSegmentCapacity);
 }
 
+// testing
+#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
+impl ConsensusHook for () {
+	fn on_state_proof(_state_proof: &RelayChainStateProof) -> (Weight, UnincludedSegmentCapacity) {
+		(Weight::zero(), UnincludedSegmentCapacity::from(NonZeroU32::new(1).unwrap()))
+	}
+}
+
 /// A special consensus hook for handling the migration to asynchronous backing gracefully,
 /// even if collators haven't been updated to provide the last included parent in the state
 /// proof yet.

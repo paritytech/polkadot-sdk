@@ -36,3 +36,6 @@ cumulus-test-service = { path = "../service" }
 cumulus-test-relay-sproof-builder = { path = "../relay-sproof-builder" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
+
+[features]
+runtime-benchmarks = ["cumulus-test-service/runtime-benchmarks"]

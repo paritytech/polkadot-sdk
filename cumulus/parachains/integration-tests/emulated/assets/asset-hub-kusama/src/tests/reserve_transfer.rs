@@ -37,10 +37,8 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 }
 
 fn system_para_dest_assertions_incomplete(_t: RelayToSystemParaTest) {
-	AssetHubKusama::assert_dmp_queue_incomplete(
-		Some(Weight::from_parts(1_000_000_000, 0)),
-		Some(Error::UntrustedReserveLocation),
-	);
+	// Errors with `UntrustedReserveLocation`, but the MQ pallet does not report back errors.
+	AssetHubKusama::assert_dmp_queue_incomplete(Some(Weight::from_parts(1_000_000_000, 0)));
 }
 
 fn system_para_to_relay_assertions(_t: SystemParaToRelayTest) {

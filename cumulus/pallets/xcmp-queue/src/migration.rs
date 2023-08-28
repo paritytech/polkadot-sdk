@@ -16,7 +16,7 @@
 
 //! A module that is responsible for migration of storage.
 
-use crate::{Config, Overweight, Pallet, QueueConfig, DEFAULT_POV_SIZE};
+use crate::{Config, OverweightIndex, Pallet, ParaId, QueueConfig, DEFAULT_POV_SIZE};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{OnRuntimeUpgrade, StorageVersion},
@@ -82,6 +82,7 @@ mod v1 {
 ///
 /// NOTE: Only use this function if you know what you're doing. Default to using
 /// `migrate_to_latest`.
+#[allow(deprecated)]
 pub fn migrate_to_v2<T: Config>() -> Weight {
 	let translate = |pre: v1::QueueConfigData| -> super::QueueConfigData {
 		super::QueueConfigData {
@@ -108,6 +109,9 @@ pub fn migrate_to_v2<T: Config>() -> Weight {
 }
 
 pub fn migrate_to_v3<T: Config>() -> Weight {
+	#[frame_support::storage_alias]
+	type Overweight<T: Config> =
+		CountedStorageMap<Pallet<T>, Twox64Concat, OverweightIndex, ParaId>;
 	let overweight_messages = Overweight::<T>::initialize_counter() as u64;
 
 	T::DbWeight::get().reads_writes(overweight_messages, 1)
@@ -119,6 +123,7 @@ mod tests {
 	use crate::mock::{new_test_ext, Test};
 
 	#[test]
+	#[allow(deprecated)]
 	fn test_migration_to_v2() {
 		let v1 = v1::QueueConfigData {
 			suspend_threshold: 5,

@@ -75,7 +75,6 @@ pub fn initialize_bridge_by_governance_works<Runtime, GrandpaPalletInstance>(
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
-		+ cumulus_pallet_dmp_queue::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ pallet_bridge_grandpa::Config<GrandpaPalletInstance>,
 	GrandpaPalletInstance: 'static,
@@ -144,7 +143,6 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
-		+ cumulus_pallet_dmp_queue::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ pallet_bridge_messages::Config<MessagesPalletInstance>,
 	XcmConfig: xcm_executor::Config,
@@ -238,7 +236,6 @@ pub fn message_dispatch_routing_works<
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
-		+ cumulus_pallet_dmp_queue::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
 		+ pallet_bridge_messages::Config<MessagesPalletInstance, InboundPayload = XcmAsPlainPayload>,
@@ -350,7 +347,6 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, XcmConfi
 	+ pallet_xcm::Config
 	+ parachain_info::Config
 	+ pallet_collator_selection::Config
-	+ cumulus_pallet_dmp_queue::Config
 	+ cumulus_pallet_parachain_system::Config
 	+ cumulus_pallet_xcmp_queue::Config
 	+ pallet_bridge_grandpa::Config<GPI>
@@ -565,7 +561,6 @@ pub fn complex_relay_extrinsic_works<Runtime, AllPalletsWithoutSystem, XcmConfig
 	+ pallet_xcm::Config
 	+ parachain_info::Config
 	+ pallet_collator_selection::Config
-	+ cumulus_pallet_dmp_queue::Config
 	+ cumulus_pallet_parachain_system::Config
 	+ cumulus_pallet_xcmp_queue::Config
 	+ pallet_bridge_grandpa::Config<GPI>

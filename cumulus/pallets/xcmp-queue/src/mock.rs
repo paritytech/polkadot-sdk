@@ -102,11 +102,13 @@ impl pallet_balances::Config for Test {
 }
 
 impl cumulus_pallet_parachain_system::Config for Test {
+	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
 	type SelfParaId = ();
 	type OutboundXcmpMessageSource = XcmpQueue;
-	type DmpMessageHandler = ();
+	// Ignore all DMP messages:
+	type DmpQueue = frame_support::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
 	type ReservedDmpWeight = ();
 	type XcmpMessageHandler = XcmpQueue;
 	type ReservedXcmpWeight = ();
@@ -196,12 +198,72 @@ impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
 	}
 }
 
+parameter_types! {
+	pub storage EnqueuedMessages: Vec<(ParaId, Vec<u8>)> = Default::default();
+}
+
+use frame_support::{traits::Footprint, BoundedSlice};
+
+pub struct EnqueueToLocalStorage<T>(PhantomData<T>);
+
+pub fn enqueued_messages(origin: ParaId) -> Vec<Vec<u8>> {
+	EnqueuedMessages::get()
+		.into_iter()
+		.filter(|(o, _)| *o == origin)
+		.map(|(_, m)| m)
+		.collect()
+}
+
+impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage<T> {
+	type MaxMessageLen = sp_core::ConstU32<65_536>;
+
+	fn enqueue_message(message: BoundedSlice<u8, Self::MaxMessageLen>, origin: ParaId) {
+		let mut msgs = EnqueuedMessages::get();
+		msgs.push((origin, message.to_vec()));
+		EnqueuedMessages::set(&msgs);
+		T::on_queue_changed(origin, msgs.len() as u64, 0);
+	}
+
+	fn enqueue_messages<'a>(
+		iter: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		origin: ParaId,
+	) {
+		let mut msgs = EnqueuedMessages::get();
+		let mut l = 0;
+		for message in iter {
+			l += message.len();
+			msgs.push((origin, message.to_vec()));
+		}
+		EnqueuedMessages::set(&msgs);
+		T::on_queue_changed(origin, msgs.len() as u64, l as u64);
+	}
+
+	fn sweep_queue(origin: ParaId) {
+		let mut msgs = EnqueuedMessages::get();
+		msgs.retain(|(o, _)| o != &origin);
+		EnqueuedMessages::set(&msgs);
+		T::on_queue_changed(origin, msgs.len() as u64, 0);
+	}
+
+	fn footprint(origin: ParaId) -> Footprint {
+		let msgs = EnqueuedMessages::get();
+		let mut footprint = Footprint::default();
+		for (o, m) in msgs {
+			if o == origin {
+				footprint.count += 1;
+				footprint.size += m.len() as u64;
+			}
+		}
+		footprint
+	}
+}
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = xcm_executor::XcmExecutor<XcmConfig>;
 	type ChannelInfo = ParachainSystem;
 	type VersionWrapper = ();
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+	type XcmpQueue = EnqueueToLocalStorage<Pallet<Test>>;
+	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = SystemParachainAsSuperuser<RuntimeOrigin>;
 	type WeightInfo = ();

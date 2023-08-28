@@ -13,108 +13,133 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
+use super::{mock::EnqueuedMessages, *};
+use XcmpMessageFormat::*;
+
 use cumulus_primitives_core::XcmpMessageHandler;
 use frame_support::{assert_noop, assert_ok};
-use mock::{new_test_ext, RuntimeCall, RuntimeOrigin, Test, XcmpQueue};
+use mock::{new_test_ext, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::BadOrigin;
+use std::iter::once;
 
 #[test]
-fn one_message_does_not_panic() {
+fn empty_concatenated_works() {
 	new_test_ext().execute_with(|| {
-		let message_format = XcmpMessageFormat::ConcatenatedVersionedXcm.encode();
-		let messages = vec![(Default::default(), 1u32, message_format.as_slice())];
+		let data = ConcatenatedVersionedXcm.encode();
 
-		// This shouldn't cause a panic
-		XcmpQueue::handle_xcmp_messages(messages.into_iter(), Weight::MAX);
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, data.as_slice())), Weight::MAX);
 	})
 }
 
 #[test]
-#[should_panic = "Invalid incoming blob message data"]
+fn xcm_enqueueing_basic_works() {
+	new_test_ext().execute_with(|| {
+		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin])).encode();
+		let data = [ConcatenatedVersionedXcm.encode(), xcm.clone()].concat();
+
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, data.as_slice())), Weight::MAX);
+
+		assert_eq!(EnqueuedMessages::get(), vec![(1000.into(), xcm)]);
+	})
+}
+
+#[test]
+fn xcm_enqueueing_many_works() {
+	new_test_ext().execute_with(|| {
+		let mut encoded_xcms = vec![];
+		for i in 0..10 {
+			let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin; i as usize]));
+			encoded_xcms.push(xcm.encode());
+		}
+		let mut data = ConcatenatedVersionedXcm.encode();
+		data.extend(encoded_xcms.iter().flatten());
+
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, data.as_slice())), Weight::MAX);
+
+		assert_eq!(
+			EnqueuedMessages::get(),
+			encoded_xcms.into_iter().map(|xcm| (1000.into(), xcm)).collect::<Vec<_>>(),
+		);
+	})
+}
+
+#[test]
+fn xcm_enqueueing_multiple_times_works() {
+	new_test_ext().execute_with(|| {
+		let mut encoded_xcms = vec![];
+		for i in 0..10 {
+			let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin; i as usize]));
+			encoded_xcms.push(xcm.encode());
+		}
+		let mut data = ConcatenatedVersionedXcm.encode();
+		data.extend(encoded_xcms.iter().flatten());
+
+		for i in 0..10 {
+			XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, data.as_slice())), Weight::MAX);
+			assert_eq!((i + 1) * 10, EnqueuedMessages::get().len());
+		}
+
+		assert_eq!(
+			EnqueuedMessages::get(),
+			encoded_xcms
+				.into_iter()
+				.map(|xcm| (1000.into(), xcm))
+				.cycle()
+				.take(100)
+				.collect::<Vec<_>>(),
+		);
+	})
+}
+
+/// Message blobs are not supported and panic in debug mode.
+#[test]
+#[should_panic = "Blob messages not handled"]
 #[cfg(debug_assertions)]
-fn bad_message_is_handled() {
+fn bad_blob_message_panics() {
 	new_test_ext().execute_with(|| {
-		let bad_data = vec![
-			1, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 64, 239, 139, 0,
-			0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 0, 0, 0, 0, 0, 0, 0, 37, 0,
-			0, 0, 0, 0, 0, 0, 16, 0, 127, 147,
-		];
-		InboundXcmpMessages::<Test>::insert(ParaId::from(1000), 1, bad_data);
-		let format = XcmpMessageFormat::ConcatenatedEncodedBlob;
-		// This should exit with an error.
-		XcmpQueue::process_xcmp_message(
-			1000.into(),
-			(1, format),
-			&mut 0,
-			Weight::from_parts(10_000_000_000, 0),
-			Weight::from_parts(10_000_000_000, 0),
-		);
+		let data = [ConcatenatedEncodedBlob.encode(), vec![1].encode()].concat();
+
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, data.as_slice())), Weight::MAX);
 	});
 }
 
-/// Tests that a blob message is handled. Currently this isn't implemented and panics when debug
-/// assertions are enabled. When this feature is enabled, this test should be rewritten properly.
+/// Message blobs do not panic in release mode but are just a No-OP.
 #[test]
-#[should_panic = "Blob messages not handled."]
+#[cfg(not(debug_assertions))]
+fn bad_blob_message_no_panic() {
+	new_test_ext().execute_with(|| {
+		let data = [ConcatenatedEncodedBlob.encode(), vec![1].encode()].concat();
+
+		frame_support::assert_storage_noop!(XcmpQueue::handle_xcmp_messages(
+			once((1000.into(), 1, data.as_slice())),
+			Weight::MAX,
+		));
+	});
+}
+
+/// Invalid concatenated XCMs panic in debug mode.
+#[test]
+#[should_panic = "Could not parse incoming XCMP messages."]
 #[cfg(debug_assertions)]
-fn handle_blob_message() {
+fn handle_invalid_data_panics() {
 	new_test_ext().execute_with(|| {
-		let bad_data = vec![
-			1, 1, 1, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 64, 239,
-			139, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 0, 0, 0, 0, 0, 0, 0,
-			37, 0, 0, 0, 0, 0, 0, 0, 16, 0, 127, 147,
-		];
-		InboundXcmpMessages::<Test>::insert(ParaId::from(1000), 1, bad_data);
-		let format = XcmpMessageFormat::ConcatenatedEncodedBlob;
-		XcmpQueue::process_xcmp_message(
-			1000.into(),
-			(1, format),
-			&mut 0,
-			Weight::from_parts(10_000_000_000, 0),
-			Weight::from_parts(10_000_000_000, 0),
-		);
+		let data = [ConcatenatedVersionedXcm.encode(), Xcm::<Test>(vec![]).encode()].concat();
+
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, data.as_slice())), Weight::MAX);
 	});
 }
 
+/// Invalid concatenated XCMs do not panic in release mode but are just a No-OP.
 #[test]
-#[should_panic = "Invalid incoming XCMP message data"]
-#[cfg(debug_assertions)]
-fn handle_invalid_data() {
+#[cfg(not(debug_assertions))]
+fn handle_invalid_data_no_panic() {
 	new_test_ext().execute_with(|| {
-		let data = Xcm::<Test>(vec![]).encode();
-		InboundXcmpMessages::<Test>::insert(ParaId::from(1000), 1, data);
-		let format = XcmpMessageFormat::ConcatenatedVersionedXcm;
-		XcmpQueue::process_xcmp_message(
-			1000.into(),
-			(1, format),
-			&mut 0,
-			Weight::from_parts(10_000_000_000, 0),
-			Weight::from_parts(10_000_000_000, 0),
-		);
-	});
-}
+		let data = [ConcatenatedVersionedXcm.encode(), Xcm::<Test>(vec![]).encode()].concat();
 
-#[test]
-fn service_overweight_unknown() {
-	new_test_ext().execute_with(|| {
-		assert_noop!(
-			XcmpQueue::service_overweight(RuntimeOrigin::root(), 0, Weight::from_parts(1000, 1000)),
-			Error::<Test>::BadOverweightIndex,
-		);
-	});
-}
-
-#[test]
-fn service_overweight_bad_xcm_format() {
-	new_test_ext().execute_with(|| {
-		let bad_xcm = vec![255];
-		Overweight::<Test>::insert(0, (ParaId::from(1000), 0, bad_xcm));
-
-		assert_noop!(
-			XcmpQueue::service_overweight(RuntimeOrigin::root(), 0, Weight::from_parts(1000, 1000)),
-			Error::<Test>::BadXcm
-		);
+		frame_support::assert_storage_noop!(XcmpQueue::handle_xcmp_messages(
+			once((1000.into(), 1, data.as_slice())),
+			Weight::MAX,
+		));
 	});
 }
 
@@ -123,137 +148,76 @@ fn suspend_xcm_execution_works() {
 	new_test_ext().execute_with(|| {
 		QueueSuspended::<Test>::put(true);
 
-		let xcm =
-			VersionedXcm::from(Xcm::<RuntimeCall>(vec![Instruction::<RuntimeCall>::ClearOrigin]))
-				.encode();
-		let mut message_format = XcmpMessageFormat::ConcatenatedVersionedXcm.encode();
-		message_format.extend(xcm.clone());
-		let messages = vec![(ParaId::from(999), 1u32, message_format.as_slice())];
+		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin])).encode();
+		let data = [ConcatenatedVersionedXcm.encode(), xcm.clone()].concat();
 
 		// This should have executed the incoming XCM, because it came from a system parachain
-		XcmpQueue::handle_xcmp_messages(messages.into_iter(), Weight::MAX);
+		XcmpQueue::handle_xcmp_messages(once((999.into(), 1, data.as_slice())), Weight::MAX);
 
-		let queued_xcm = InboundXcmpMessages::<Test>::get(ParaId::from(999), 1u32);
-		assert!(queued_xcm.is_empty());
+		// This should have queue instead of executing since it comes from a sibling.
+		XcmpQueue::handle_xcmp_messages(once((2000.into(), 1, data.as_slice())), Weight::MAX);
 
-		let messages = vec![(ParaId::from(2000), 1u32, message_format.as_slice())];
-
-		// This shouldn't have executed the incoming XCM
-		XcmpQueue::handle_xcmp_messages(messages.into_iter(), Weight::MAX);
-
-		let queued_xcm = InboundXcmpMessages::<Test>::get(ParaId::from(2000), 1u32);
-		assert_eq!(queued_xcm, xcm);
+		let queued_xcm = mock::enqueued_messages(ParaId::from(2000));
+		assert_eq!(queued_xcm, vec![xcm]);
 	});
 }
 
 #[test]
+fn suspend_and_resume_xcm_execution_work() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(XcmpQueue::suspend_xcm_execution(Origin::signed(1)), BadOrigin);
+		assert_ok!(XcmpQueue::suspend_xcm_execution(Origin::root()));
+		assert_noop!(
+			XcmpQueue::suspend_xcm_execution(Origin::root()),
+			Error::<Test>::AlreadySuspended
+		);
+		assert!(QueueSuspended::<Test>::get());
+
+		assert_noop!(XcmpQueue::resume_xcm_execution(Origin::signed(1)), BadOrigin);
+		assert_ok!(XcmpQueue::resume_xcm_execution(Origin::root()));
+		assert_noop!(
+			XcmpQueue::resume_xcm_execution(Origin::root()),
+			Error::<Test>::AlreadyResumed
+		);
+		assert!(!QueueSuspended::<Test>::get());
+	});
+}
+
+// FAIL-CI test back-pressure
+#[test]
 fn update_suspend_threshold_works() {
 	new_test_ext().execute_with(|| {
-		let data: QueueConfigData = <QueueConfig<Test>>::get();
-		assert_eq!(data.suspend_threshold, 2);
-		assert_ok!(XcmpQueue::update_suspend_threshold(RuntimeOrigin::root(), 3));
-		assert_noop!(XcmpQueue::update_suspend_threshold(RuntimeOrigin::signed(2), 5), BadOrigin);
-		let data: QueueConfigData = <QueueConfig<Test>>::get();
+		assert_eq!(<QueueConfig<Test>>::get().suspend_threshold, 2048);
+		assert_noop!(XcmpQueue::update_suspend_threshold(Origin::signed(2), 5), BadOrigin);
 
-		assert_eq!(data.suspend_threshold, 3);
+		assert_ok!(XcmpQueue::update_suspend_threshold(Origin::root(), 3000));
+		assert_eq!(<QueueConfig<Test>>::get().suspend_threshold, 3000);
 	});
 }
 
 #[test]
 fn update_drop_threshold_works() {
 	new_test_ext().execute_with(|| {
-		let data: QueueConfigData = <QueueConfig<Test>>::get();
-		assert_eq!(data.drop_threshold, 5);
-		assert_ok!(XcmpQueue::update_drop_threshold(RuntimeOrigin::root(), 6));
-		assert_noop!(XcmpQueue::update_drop_threshold(RuntimeOrigin::signed(2), 7), BadOrigin);
-		let data: QueueConfigData = <QueueConfig<Test>>::get();
+		assert_eq!(<QueueConfig<Test>>::get().drop_threshold, 3096);
+		assert_ok!(XcmpQueue::update_drop_threshold(Origin::root(), 4000));
+		assert_noop!(XcmpQueue::update_drop_threshold(Origin::signed(2), 7), BadOrigin);
 
-		assert_eq!(data.drop_threshold, 6);
+		assert_eq!(<QueueConfig<Test>>::get().drop_threshold, 4000);
 	});
 }
 
 #[test]
 fn update_resume_threshold_works() {
 	new_test_ext().execute_with(|| {
-		let data: QueueConfigData = <QueueConfig<Test>>::get();
-		assert_eq!(data.resume_threshold, 1);
-		assert_ok!(XcmpQueue::update_resume_threshold(RuntimeOrigin::root(), 2));
-		assert_noop!(XcmpQueue::update_resume_threshold(RuntimeOrigin::signed(7), 3), BadOrigin);
-		let data: QueueConfigData = <QueueConfig<Test>>::get();
-
-		assert_eq!(data.resume_threshold, 2);
-	});
-}
-
-#[test]
-fn update_threshold_weight_works() {
-	new_test_ext().execute_with(|| {
-		let data: QueueConfigData = <QueueConfig<Test>>::get();
-		assert_eq!(data.threshold_weight, Weight::from_parts(100_000, 0));
-		assert_ok!(XcmpQueue::update_threshold_weight(
-			RuntimeOrigin::root(),
-			Weight::from_parts(10_000, 0)
-		));
+		assert_eq!(<QueueConfig<Test>>::get().resume_threshold, 1024);
 		assert_noop!(
-			XcmpQueue::update_threshold_weight(
-				RuntimeOrigin::signed(5),
-				Weight::from_parts(10_000_000, 0),
-			),
-			BadOrigin
+			XcmpQueue::update_resume_threshold(Origin::root(), 0),
+			Error::<Test>::BadQueueConfig
 		);
-		let data: QueueConfigData = <QueueConfig<Test>>::get();
+		assert_ok!(XcmpQueue::update_resume_threshold(Origin::root(), 110));
+		assert_noop!(XcmpQueue::update_resume_threshold(Origin::signed(7), 3), BadOrigin);
 
-		assert_eq!(data.threshold_weight, Weight::from_parts(10_000, 0));
-	});
-}
-
-#[test]
-fn update_weight_restrict_decay_works() {
-	new_test_ext().execute_with(|| {
-		let data: QueueConfigData = <QueueConfig<Test>>::get();
-		assert_eq!(data.weight_restrict_decay, Weight::from_parts(2, 0));
-		assert_ok!(XcmpQueue::update_weight_restrict_decay(
-			RuntimeOrigin::root(),
-			Weight::from_parts(5, 0)
-		));
-		assert_noop!(
-			XcmpQueue::update_weight_restrict_decay(
-				RuntimeOrigin::signed(6),
-				Weight::from_parts(4, 0),
-			),
-			BadOrigin
-		);
-		let data: QueueConfigData = <QueueConfig<Test>>::get();
-
-		assert_eq!(data.weight_restrict_decay, Weight::from_parts(5, 0));
-	});
-}
-
-#[test]
-fn update_xcmp_max_individual_weight() {
-	new_test_ext().execute_with(|| {
-		let data: QueueConfigData = <QueueConfig<Test>>::get();
-		assert_eq!(
-			data.xcmp_max_individual_weight,
-			Weight::from_parts(20u64 * WEIGHT_REF_TIME_PER_MILLIS, DEFAULT_POV_SIZE),
-		);
-		assert_ok!(XcmpQueue::update_xcmp_max_individual_weight(
-			RuntimeOrigin::root(),
-			Weight::from_parts(30u64 * WEIGHT_REF_TIME_PER_MILLIS, 0)
-		));
-		assert_noop!(
-			XcmpQueue::update_xcmp_max_individual_weight(
-				RuntimeOrigin::signed(3),
-				Weight::from_parts(10u64 * WEIGHT_REF_TIME_PER_MILLIS, 0)
-			),
-			BadOrigin
-		);
-		let data: QueueConfigData = <QueueConfig<Test>>::get();
-
-		assert_eq!(
-			data.xcmp_max_individual_weight,
-			Weight::from_parts(30u64 * WEIGHT_REF_TIME_PER_MILLIS, 0)
-		);
+		assert_eq!(<QueueConfig<Test>>::get().resume_threshold, 110);
 	});
 }
 

@@ -37,7 +37,6 @@ pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, Sto
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
-		+ cumulus_pallet_dmp_queue::Config
 		+ cumulus_pallet_parachain_system::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	StorageConstant: Get<StorageConstantType>,

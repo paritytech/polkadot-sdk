@@ -14,6 +14,7 @@ frame-support = { path = "../../../substrate/frame/support", default-features = 
 frame-system = { path = "../../../substrate/frame/system", default-features = false}
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false}
 pallet-balances = { path = "../../../substrate/frame/balances", default-features = false}
+pallet-message-queue = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false}
 pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false}
 pallet-glutton = { path = "../../../substrate/frame/glutton", default-features = false}
@@ -48,6 +49,9 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"pallet-balances/std",
+	"pallet-message-queue/std",
+	"pallet-glutton/std",
+	"pallet-sudo/std",
 	"pallet-glutton/std",
 	"pallet-glutton/std",
 	"pallet-sudo/std",

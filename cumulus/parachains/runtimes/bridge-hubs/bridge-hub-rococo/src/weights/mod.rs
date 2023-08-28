@@ -18,6 +18,7 @@
 //! Expose the auto generated weight files.
 
 pub mod block_weights;
+pub mod cumulus_pallet_parachain_system;
 pub mod cumulus_pallet_xcmp_queue;
 pub mod extrinsic_weights;
 pub mod frame_system;
@@ -30,6 +31,7 @@ pub mod pallet_bridge_parachains_bridge_parachains_bench_runtime_bridge_parachai
 pub mod pallet_bridge_parachains_bridge_parachains_bench_runtime_bridge_parachain_wococo_instance;
 pub mod pallet_bridge_relayers;
 pub mod pallet_collator_selection;
+pub mod pallet_message_queue;
 pub mod pallet_multisig;
 pub mod pallet_session;
 pub mod pallet_timestamp;

@@ -17,13 +17,15 @@ use super::{
 	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
 	match_types, parameter_types,
-	traits::{ConstU32, EitherOfDiverse, Everything, Nothing},
+	traits::{ConstU32, EitherOfDiverse, Everything, Nothing, TransformOrigin},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
+use parachains_common::message_queue::ParaIdToSibling;
 use polkadot_parachain::primitives::Sibling;
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -230,10 +232,15 @@ impl cumulus_pallet_xcm::Config for Runtime {
 
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type ChannelInfo = ParachainSystem;
 	type VersionWrapper = PolkadotXcm;
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+	// Enqueue XCMP messages from siblings for later processing.
+	#[cfg(feature = "runtime-benchmarks")]
+	type XcmpQueue = ();
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type XcmpQueue =
+		TransformOrigin<crate::MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
+	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
 	type ControllerOrigin = EitherOfDiverse<
 		EnsureRoot<AccountId>,
 		EnsureXcm<IsMajorityOfBody<RelayLocation, ExecutiveBody>>,
@@ -243,8 +250,13 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type PriceForSiblingDelivery = ();
 }
 
-impl cumulus_pallet_dmp_queue::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+parameter_types! {
+	pub const DmpQueuePalletName: &'static str = "DmpQueue";
+	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
+}
+
+impl cumulus_pallet_dmp_queue::MigrationConfig for Runtime {
+	type PalletName = DmpQueuePalletName;
+	type DmpHandler = frame_support::traits::EnqueueWithOrigin<crate::MessageQueue, RelayOrigin>;
+	type DbWeight = <Runtime as frame_system::Config>::DbWeight;
 }

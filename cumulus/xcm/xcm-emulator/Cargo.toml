@@ -28,6 +28,7 @@ pallet-message-queue = { path = "../../../substrate/frame/message-queue" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue" }
 cumulus-pallet-dmp-queue = { path = "../../pallets/dmp-queue" }
+cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue" }
 cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system" }
 parachain-info = { path = "../../parachains/pallets/parachain-info" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }

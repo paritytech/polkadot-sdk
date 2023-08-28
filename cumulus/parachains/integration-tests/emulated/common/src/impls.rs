@@ -6,7 +6,7 @@ use bp_messages::{
 };
 use bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchResult;
 use codec::Decode;
-pub use cumulus_primitives_core::{DmpMessageHandler, XcmpMessageHandler};
+pub use cumulus_primitives_core::XcmpMessageHandler;
 use pallet_bridge_messages::{Config, Instance1, Instance2, OutboundLanes, Pallet};
 use sp_core::Get;
 use xcm_emulator::{BridgeMessage, BridgeMessageDispatchError, BridgeMessageHandler, Chain};
@@ -414,8 +414,8 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 					assert_expected_events!(
 						Self,
 						vec![
-							[<$chain RuntimeEvent>]::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
-								outcome: Outcome::Complete(weight), ..
+							[<$chain RuntimeEvent>]::MessageQueue(pallet_message_queue::Event::Processed {
+								success: true, weight_used: weight, ..
 							}) => {
 								weight: weight_within_threshold(
 									(REF_TIME_THRESHOLD, PROOF_SIZE_THRESHOLD),
@@ -430,20 +430,18 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 				/// Asserts a XCM from Relay Chain is incompletely executed
 				pub fn assert_dmp_queue_incomplete(
 					expected_weight: Option<Weight>,
-					expected_error: Option<Error>,
 				) {
 					assert_expected_events!(
 						Self,
 						vec![
-							[<$chain RuntimeEvent>]::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
-								outcome: Outcome::Incomplete(weight, error), ..
+							[<$chain RuntimeEvent>]::MessageQueue(pallet_message_queue::Event::Processed {
+								success: false, weight_used: weight, ..
 							}) => {
 								weight: weight_within_threshold(
 									(REF_TIME_THRESHOLD, PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight
 								),
-								error: *error == expected_error.unwrap_or(*error),
 							},
 						]
 					);
@@ -454,8 +452,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 					assert_expected_events!(
 						Self,
 						vec![
-							[<$chain RuntimeEvent>]::XcmpQueue(
-								cumulus_pallet_xcmp_queue::Event::Success { weight, .. }
+							[<$chain RuntimeEvent>]::MessageQueue(pallet_message_queue::Event::Processed { success: true, weight_used: weight, .. }
 							) => {
 								weight: weight_within_threshold(
 									(REF_TIME_THRESHOLD, PROOF_SIZE_THRESHOLD),

@@ -65,6 +65,7 @@ xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-feat
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
+pallet-message-queue = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue", default-features = false }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }
 cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false}
@@ -112,11 +113,20 @@ runtime-benchmarks = [
 	"pallet-xcm/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-dmp-queue/runtime-benchmarks",
+	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"pallet-collator-selection/runtime-benchmarks",
+	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+	"pallet-xcm-benchmarks/runtime-benchmarks",
+	"assets-common/runtime-benchmarks",
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
-	"cumulus-pallet-dmp-queue/try-runtime",
+	"pallet-message-queue/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
+	"cumulus-pallet-dmp-queue/try-runtime",
 	"cumulus-pallet-xcm/try-runtime",
 	"cumulus-pallet-xcmp-queue/try-runtime",
 	"frame-executive/try-runtime",
@@ -197,6 +207,19 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"cumulus-pallet-aura-ext/std",
+	"pallet-message-queue/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-dmp-queue/std",
+	"cumulus-pallet-xcm/std",
+	"cumulus-pallet-xcmp-queue/std",
+	"cumulus-primitives-core/std",
+	"cumulus-primitives-utility/std",
+	"pallet-collator-selection/std",
+	"parachain-info/std",
+	"parachains-common/std",
+	"assets-common/std",
+	"substrate-wasm-builder",
 ]
 
 experimental = [ "pallet-aura/experimental" ]

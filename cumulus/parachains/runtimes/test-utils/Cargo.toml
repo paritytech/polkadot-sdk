@@ -24,7 +24,6 @@ sp-core = { path = "../../../../substrate/primitives/core", default-features = f
 # Cumulus
 cumulus-pallet-parachain-system = { path = "../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }
 cumulus-pallet-xcmp-queue = { path = "../../../pallets/xcmp-queue", default-features = false }
-cumulus-pallet-dmp-queue = { path = "../../../pallets/dmp-queue", default-features = false }
 pallet-collator-selection = { path = "../../../pallets/collator-selection", default-features = false }
 parachains-common = { path = "../../common", default-features = false }
 assets-common = { path = "../assets/common", default-features = false }
@@ -71,5 +70,6 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"xcm-executor/std",
-	"xcm/std",
+	"pallet-xcm/std",
+	"cumulus-pallet-xcmp-queue/std",
 ]

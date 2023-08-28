@@ -159,7 +159,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				) | RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
 				RuntimeCall::PolkadotXcm(pallet_xcm::Call::force_xcm_version { .. }) |
 				RuntimeCall::XcmpQueue(..) |
-				RuntimeCall::DmpQueue(..) |
+				RuntimeCall::MessageQueue(..) |
 				RuntimeCall::Alliance(
 					// `init_members` accepts unbounded vecs as arguments,
 					// but the call can be initiated only by root origin.

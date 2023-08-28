@@ -25,7 +25,6 @@ pallet-session = { path = "../../../../../substrate/frame/session", default-feat
 
 # Cumulus
 asset-test-utils = { path = "../../assets/test-utils" }
-cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue", default-features = false }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
@@ -96,4 +95,8 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"asset-test-utils/std",
+	"pallet-session/std",
+	"pallet-balances/std",
+	"pallet-utility/std",
 ]

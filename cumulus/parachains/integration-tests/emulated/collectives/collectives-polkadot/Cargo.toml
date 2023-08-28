@@ -27,6 +27,7 @@ polkadot-runtime = { path = "../../../../../../polkadot/runtime/polkadot" }
 xcm = { path = "../../../../../../polkadot/xcm", default-features = false}
 xcm-executor = { path = "../../../../../../polkadot/xcm/xcm-executor", default-features = false}
 pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
+pallet-message-queue = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Cumulus
 parachains-common = { path = "../../../../common" }

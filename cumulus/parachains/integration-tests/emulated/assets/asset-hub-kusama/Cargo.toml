@@ -18,6 +18,7 @@ sp-weights = { path = "../../../../../../substrate/primitives/weights", default-
 pallet-balances = { path = "../../../../../../substrate/frame/balances", default-features = false}
 pallet-assets = { path = "../../../../../../substrate/frame/assets", default-features = false}
 pallet-asset-conversion = { path = "../../../../../../substrate/frame/asset-conversion", default-features = false}
+pallet-message-queue = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
 
 # Polkadot
 polkadot-core-primitives = { path = "../../../../../../polkadot/core-primitives", default-features = false}
@@ -31,8 +32,7 @@ pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-featu
 # Cumulus
 parachains-common = { path = "../../../../common" }
 asset-hub-kusama-runtime = { path = "../../../../runtimes/assets/asset-hub-kusama" }
-cumulus-pallet-dmp-queue = { path = "../../../../../pallets/dmp-queue" }
-cumulus-pallet-xcmp-queue = { path = "../../../../../pallets/xcmp-queue", default-features = false}
+cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../../pallets/xcmp-queue" }
 cumulus-pallet-parachain-system = { path = "../../../../../pallets/parachain-system" }
 
 # Local
