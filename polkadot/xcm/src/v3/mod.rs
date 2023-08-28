@@ -63,6 +63,7 @@ pub const VERSION: super::Version = 3;
 /// An identifier for a query.
 pub type QueryId = u64;
 
+// TODO (v4): Use `BoundedVec` instead of `Vec`
 #[derive(Derivative, Default, Encode, TypeInfo)]
 #[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
 #[codec(encode_bound())]
@@ -72,8 +73,6 @@ pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 const MAX_INSTRUCTIONS_TO_DECODE: u32 = 100;
 
 impl<Call> Decode for Xcm<Call> {
-	// Taken from `BoundedVec`'s `Decode` implementation
-	// TODO (v4): Use `BoundedVec`
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
 		let bounded_instructions = BoundedVec::<Instruction<Call>, ConstU32<MAX_INSTRUCTIONS_TO_DECODE>>::decode(input)?;
 		Ok(Self(bounded_instructions.into_inner()))
