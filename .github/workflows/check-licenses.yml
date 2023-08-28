@@ -3,6 +3,9 @@ name: Check licenses
 on:
   pull_request:
 
+permissions:
+  packages: read
+
 jobs:
   check-licenses:
     runs-on: ubuntu-22.04
