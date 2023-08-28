@@ -79,6 +79,14 @@ zombienet-polkadot-functional-0004-beefy-and-mmr:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0003-beefy-and-mmr.zndsl"
 
+zombienet-polkadot-functional-0005-max-tranche0:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0005-parachains-max-tranche0.zndsl"
+
 zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:
     - .zombienet-polkadot-common
