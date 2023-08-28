@@ -62,9 +62,11 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"polkadot-parachain/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-externalities/std",
+	"sp-inherents/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
@@ -74,8 +76,17 @@ std = [
 	"xcm/std",
 ]
 
-runtime-benchmarks = [ "sp-runtime/runtime-benchmarks" ]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"polkadot-parachain/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
 
-try-runtime = [ "frame-support/try-runtime" ]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+]
 
 parameterized-consensus-hook = []
