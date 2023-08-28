@@ -18,11 +18,13 @@ build-linux-stable:
     # Ensure we run the UI tests.
     RUN_UI_TESTS: 1
   script:
-    - time cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot
+    - time cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
     # pack artifacts
     - mkdir -p ./artifacts
     - VERSION="${CI_COMMIT_REF_NAME}" # will be tag or branch name
     - mv ./target/testnet/polkadot ./artifacts/.
+    - mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
+    - mv ./target/testnet/polkadot-execute-worker ./artifacts/.
     - pushd artifacts
     - sha256sum polkadot | tee polkadot.sha256
     - shasum -c polkadot.sha256
@@ -64,10 +66,12 @@ build-malus:
     - .run-immediately
     - .collect-artifacts
   script:
-    - time cargo build --locked --profile testnet --verbose -p polkadot-test-malus
+    - time cargo build --locked --profile testnet --verbose -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
     # pack artifacts
     - mkdir -p ./artifacts
     - mv ./target/testnet/malus ./artifacts/.
+    - mv ./target/testnet/polkadot-execute-worker ./artifacts/.
+    - mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
     - echo -n "${CI_COMMIT_REF_NAME}" > ./artifacts/VERSION
     - echo -n "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}" > ./artifacts/EXTRATAG
     - echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
