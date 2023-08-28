@@ -34,8 +34,8 @@
     "/dns/wnd-bootnode.stakeworld.io/tcp/30320/p2p/12D3KooWBYdKipcNbrV5rCbgT5hco8HMLME7cE9hHC3ckqCKDuzP",
     "/dns/wnd-bootnode.stakeworld.io/tcp/30321/ws/p2p/12D3KooWBYdKipcNbrV5rCbgT5hco8HMLME7cE9hHC3ckqCKDuzP",
     "/dns/wnd-bootnode.stakeworld.io/tcp/30322/wss/p2p/12D3KooWBYdKipcNbrV5rCbgT5hco8HMLME7cE9hHC3ckqCKDuzP",
-    "/dns/wnd14.rotko.net/tcp/35234/wss/p2p/12D3KooWQoYaxSm8wPCpKbjXB3esnMrqZmwjXsQbBAKdgyoYSG2J",
-    "/dns/wnd14.rotko.net/tcp/33234/p2p/12D3KooWQoYaxSm8wPCpKbjXB3esnMrqZmwjXsQbBAKdgyoYSG2J"
+    "/dns/wnd14.rotko.net/tcp/35234/wss/p2p/12D3KooWLK8Zj1uZ46phU3vQwiDVda8tB76S8J26rXZQLHpwWkDJ",
+    "/dns/wnd14.rotko.net/tcp/33234/p2p/12D3KooWLK8Zj1uZ46phU3vQwiDVda8tB76S8J26rXZQLHpwWkDJ"
   ],
   "telemetryEndpoints": [
     [
