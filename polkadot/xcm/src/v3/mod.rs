@@ -29,7 +29,7 @@ use core::{
 	result,
 };
 use derivative::Derivative;
-use parity_scale_codec::{self, Decode, Encode, MaxEncodedLen};
+use parity_scale_codec::{self, Decode, Encode, MaxEncodedLen, Input as CodecInput, Error as CodecError, DecodeLength};
 use scale_info::TypeInfo;
 
 mod junction;
@@ -60,12 +60,39 @@ pub const VERSION: super::Version = 3;
 /// An identifier for a query.
 pub type QueryId = u64;
 
-#[derive(Derivative, Default, Encode, Decode, TypeInfo)]
+#[derive(Derivative, Default, Encode, TypeInfo)]
 #[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
 #[codec(encode_bound())]
-#[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
+
+const TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE: &'static str = "Too many instructions to decode";
+
+impl<Call> Decode for Xcm<Call> {
+	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
+		let first_byte = input.read_byte()?;
+		let mode_bits = first_byte & 0b00000011; // Compact mode for the vector length
+
+		// It's all good
+		if mode_bits == 0 {
+			let decoded_instructions = Vec::<Instruction<Call>>::decode(input)?;
+			return Ok(Self(decoded_instructions));
+		} else if mode_bits == 2 || mode_bits == 3 {
+			// Too many instructions
+			return Err(CodecError::from(TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE));
+		} else {
+			let mut buffer = [0u8; 2];
+			input.read(&mut buffer)?;
+			let number_of_instructions = <Vec::<Instruction<Call>> as DecodeLength>::len(&buffer[..])?;
+			if number_of_instructions > 100 {
+				return Err(CodecError::from(TOO_MANY_INSTRUCTIONS_ERROR_MESSAGE));
+			}
+		}
+
+		let decoded_instructions = Vec::<Instruction<Call>>::decode(input)?;
+		Ok(Self(decoded_instructions))
+	}
+}
 
 impl<Call> Xcm<Call> {
 	/// Create an empty instance.
@@ -1425,5 +1452,18 @@ mod tests {
 		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
 		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
 		assert_eq!(new_xcm, xcm);
+	}
+
+	#[test]
+	fn decoding_fails_when_too_many_instructions() {
+		let small_xcm = Xcm::<()>(vec![ClearOrigin; 20]);
+		let bytes = small_xcm.encode();
+		let decoded_xcm = Xcm::<()>::decode(&mut &bytes[..]);
+		assert!(matches!(decoded_xcm, Ok(_)));
+
+		let big_xcm = Xcm::<()>(vec![ClearOrigin; 64_000]);
+		let bytes = big_xcm.encode();
+		let decoded_xcm = Xcm::<()>::decode(&mut &bytes[..]);
+		assert!(matches!(decoded_xcm, Err(_)));
 	}
 }
