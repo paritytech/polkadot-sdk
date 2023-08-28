@@ -25,7 +25,7 @@ beautiful and functional.
 
 ### Consensus
 
-[`parachain-consensus`](https://github.com/paritytech/cumulus/blob/master/client/consensus/common/src/parachain_consensus.rs) is a
+[`parachain-consensus`](https://github.com/paritytech/polkadot-sdk/blob/master/cumulus/client/consensus/common/src/parachain_consensus.rs) is a
 [consensus engine](https://docs.substrate.io/v3/advanced/consensus) for Substrate
 that follows a Polkadot
 [relay chain](https://wiki.polkadot.network/docs/en/learn-architecture#relay-chain). This will run
@@ -145,8 +145,8 @@ zombienet --provider native spawn ./zombienet/examples/small_network.toml
 
 ```bash
 # Clone
-git clone https://github.com/paritytech/polkadot
-cd polkadot
+git clone https://github.com/paritytech/polkadot-sdk
+cd polkadot-sdk/polkadot
 
 # Compile Polkadot with the real overseer feature
 cargo build --release --bin polkadot
@@ -165,8 +165,8 @@ cargo build --release --bin polkadot
 
 ```bash
 # Clone
-git clone https://github.com/paritytech/cumulus
-cd cumulus
+git clone https://github.com/paritytech/polkadot-sdk
+cd polkadot-sdk/cumulus
 
 # Compile
 cargo build --release --bin polkadot-parachain
