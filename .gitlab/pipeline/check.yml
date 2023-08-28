@@ -3,10 +3,9 @@ cargo-clippy:
   extends:
     - .docker-env
     - .common-refs
+    - .pipeline-stopper-artifacts
   script:
     - SKIP_WASM_BUILD=1 env -u RUSTFLAGS cargo clippy --all-targets --locked --workspace
-  # fixme!
-  allow_failure: true
 
 check-try-runtime:
   stage: check
@@ -43,7 +42,6 @@ cargo-deny-licenses:
   script:
     - $CARGO_DENY_CMD --hide-inclusion-graph
   after_script:
-    # - !reference [.rusty-cachier, after_script]
     - echo "___The complete log is in the artifacts___"
     - $CARGO_DENY_CMD 2> deny.log
     - if [ $CI_JOB_STATUS != 'success' ]; then

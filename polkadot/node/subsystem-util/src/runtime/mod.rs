@@ -16,9 +16,7 @@
 
 //! Convenient interface to runtime information.
 
-use std::num::NonZeroUsize;
-
-use lru::LruCache;
+use schnellru::{ByLength, LruMap};
 
 use parity_scale_codec::Encode;
 use sp_application_crypto::AppCrypto;
@@ -58,7 +56,7 @@ pub struct Config {
 	pub keystore: Option<KeystorePtr>,
 
 	/// How many sessions should we keep in the cache?
-	pub session_cache_lru_size: NonZeroUsize,
+	pub session_cache_lru_size: u32,
 }
 
 /// Caching of session info.
@@ -69,10 +67,10 @@ pub struct RuntimeInfo {
 	///
 	/// We query this up to a 100 times per block, so caching it here without roundtrips over the
 	/// overseer seems sensible.
-	session_index_cache: LruCache<Hash, SessionIndex>,
+	session_index_cache: LruMap<Hash, SessionIndex>,
 
 	/// Look up cached sessions by `SessionIndex`.
-	session_info_cache: LruCache<SessionIndex, ExtendedSessionInfo>,
+	session_info_cache: LruMap<SessionIndex, ExtendedSessionInfo>,
 
 	/// Key store for determining whether we are a validator and what `ValidatorIndex` we have.
 	keystore: Option<KeystorePtr>,
@@ -101,7 +99,7 @@ impl Default for Config {
 		Self {
 			keystore: None,
 			// Usually we need to cache the current and the last session.
-			session_cache_lru_size: NonZeroUsize::new(2).expect("2 is larger than 0; qed"),
+			session_cache_lru_size: 2,
 		}
 	}
 }
@@ -115,11 +113,8 @@ impl RuntimeInfo {
 	/// Create with more elaborate configuration options.
 	pub fn new_with_config(cfg: Config) -> Self {
 		Self {
-			session_index_cache: LruCache::new(
-				cfg.session_cache_lru_size
-					.max(NonZeroUsize::new(10).expect("10 is larger than 0; qed")),
-			),
-			session_info_cache: LruCache::new(cfg.session_cache_lru_size),
+			session_index_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size.max(10))),
+			session_info_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
 			keystore: cfg.keystore,
 		}
 	}
@@ -139,7 +134,7 @@ impl RuntimeInfo {
 			None => {
 				let index =
 					recv_runtime(request_session_index_for_child(parent, sender).await).await?;
-				self.session_index_cache.put(parent, index);
+				self.session_index_cache.insert(parent, index);
 				Ok(index)
 			},
 		}
@@ -172,7 +167,7 @@ impl RuntimeInfo {
 	where
 		Sender: SubsystemSender<RuntimeApiMessage>,
 	{
-		if !self.session_info_cache.contains(&session_index) {
+		if self.session_info_cache.get(&session_index).is_none() {
 			let session_info =
 				recv_runtime(request_session_info(parent, session_index, sender).await)
 					.await?
@@ -181,7 +176,7 @@ impl RuntimeInfo {
 
 			let full_info = ExtendedSessionInfo { session_info, validator_info };
 
-			self.session_info_cache.put(session_index, full_info);
+			self.session_info_cache.insert(session_index, full_info);
 		}
 		Ok(self
 			.session_info_cache
