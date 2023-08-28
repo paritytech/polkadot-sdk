@@ -165,7 +165,6 @@ cargo build --release --bin polkadot
 ```bash
 # Clone
 git clone https://github.com/paritytech/polkadot-sdk
-cd polkadot-sdk/cumulus
 
 # Compile
 cargo build --release --bin polkadot-parachain
