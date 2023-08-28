@@ -148,7 +148,7 @@ zombienet --provider native spawn ./zombienet/examples/small_network.toml
 git clone https://github.com/paritytech/polkadot-sdk
 cd polkadot-sdk/polkadot
 
-# Compile Polkadot with the real overseer feature
+# Compile Polkadot
 cargo build --release --bin polkadot
 
 # Generate a raw chain spec
