@@ -199,7 +199,11 @@ impl TransactAsset for Tuple {
 		)* );
 	}
 
-	fn deposit_asset(what: &MultiAsset, who: &MultiLocation, context: Option<&XcmContext>) -> XcmResult {
+	fn deposit_asset(
+		what: &MultiAsset,
+		who: &MultiLocation,
+		context: Option<&XcmContext>,
+	) -> XcmResult {
 		for_tuples!( #(
 			match Tuple::deposit_asset(what, who, context) {
 				Err(XcmError::AssetNotFound) | Err(XcmError::Unimplemented) => (),

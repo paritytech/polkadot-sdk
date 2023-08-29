@@ -41,7 +41,7 @@ impl PriceForParachainDelivery for () {
 	}
 }
 
-/// Implementation of `PriceForParachainDelivery` which returns a fixed price.
+/// Implementation of [`PriceForParachainDelivery`] which returns a fixed price.
 pub struct ConstantPrice<T>(sp_std::marker::PhantomData<T>);
 impl<T: Get<MultiAssets>> PriceForParachainDelivery for ConstantPrice<T> {
 	fn price_for_parachain_delivery(_: ParaId, _: &Xcm<()>) -> MultiAssets {
@@ -49,7 +49,7 @@ impl<T: Get<MultiAssets>> PriceForParachainDelivery for ConstantPrice<T> {
 	}
 }
 
-/// Implementation of `PriceForParachainDelivery` which returns an exponentially increasing price.
+/// Implementation of [`PriceForParachainDelivery`] which returns an exponentially increasing price.
 /// The formula for the fee is based on the sum of a base fee plus a message length fee, multiplied
 /// by a specified factor. In mathematical form:
 ///
