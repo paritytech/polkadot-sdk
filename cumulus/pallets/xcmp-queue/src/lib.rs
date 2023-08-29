@@ -507,7 +507,7 @@ impl<T: Config> Pallet<T> {
 		fragment: Fragment,
 	) -> Result<u32, MessageSendError> {
 		let data = fragment.encode();
-		
+
 		// Optimization note: `max_message_size` could potentially be stored in
 		// `OutboundXcmpMessages` once known; that way it's only accessed when a new page is needed.
 
