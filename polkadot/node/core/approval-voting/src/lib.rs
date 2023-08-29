@@ -69,10 +69,11 @@ use std::{
 	collections::{
 		btree_map::Entry as BTMEntry, hash_map::Entry as HMEntry, BTreeMap, HashMap, HashSet,
 	},
-	num::NonZeroUsize,
 	sync::Arc,
 	time::Duration,
 };
+
+use schnellru::{ByLength, LruMap};
 
 use approval_checking::RequiredTranches;
 use criteria::{AssignmentCriteria, RealAssignmentCriteria};
@@ -102,10 +103,7 @@ const APPROVAL_CHECKING_TIMEOUT: Duration = Duration::from_secs(120);
 /// Value rather arbitrarily: Should not be hit in practice, it exists to more easily diagnose dead
 /// lock issues for example.
 const WAIT_FOR_SIGS_TIMEOUT: Duration = Duration::from_millis(500);
-const APPROVAL_CACHE_SIZE: NonZeroUsize = match NonZeroUsize::new(1024) {
-	Some(cap) => cap,
-	None => panic!("Approval cache size must be non-zero."),
-};
+const APPROVAL_CACHE_SIZE: u32 = 1024;
 
 const TICK_TOO_FAR_IN_FUTURE: Tick = 20; // 10 seconds.
 const APPROVAL_DELAY: Tick = 2;
@@ -627,7 +625,7 @@ impl CurrentlyCheckingSet {
 
 	pub async fn next(
 		&mut self,
-		approvals_cache: &mut lru::LruCache<CandidateHash, ApprovalOutcome>,
+		approvals_cache: &mut LruMap<CandidateHash, ApprovalOutcome>,
 	) -> (HashSet<Hash>, ApprovalState) {
 		if !self.currently_checking.is_empty() {
 			if let Some(approval_state) = self.currently_checking.next().await {
@@ -635,7 +633,8 @@ impl CurrentlyCheckingSet {
 					.candidate_hash_map
 					.remove(&approval_state.candidate_hash)
 					.unwrap_or_default();
-				approvals_cache.put(approval_state.candidate_hash, approval_state.approval_outcome);
+				approvals_cache
+					.insert(approval_state.candidate_hash, approval_state.approval_outcome);
 				return (out, approval_state)
 			}
 		}
@@ -782,11 +781,11 @@ where
 	// `None` on start-up. Gets initialized/updated on leaf update
 	let mut session_info_provider = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 		keystore: None,
-		session_cache_lru_size: DISPUTE_WINDOW.into(),
+		session_cache_lru_size: DISPUTE_WINDOW.get(),
 	});
 	let mut wakeups = Wakeups::default();
 	let mut currently_checking_set = CurrentlyCheckingSet::default();
-	let mut approvals_cache = lru::LruCache::new(APPROVAL_CACHE_SIZE);
+	let mut approvals_cache = LruMap::new(ByLength::new(APPROVAL_CACHE_SIZE));
 
 	let mut last_finalized_height: Option<BlockNumber> = {
 		let (tx, rx) = oneshot::channel();
@@ -922,7 +921,7 @@ async fn handle_actions<Context>(
 	metrics: &Metrics,
 	wakeups: &mut Wakeups,
 	currently_checking_set: &mut CurrentlyCheckingSet,
-	approvals_cache: &mut lru::LruCache<CandidateHash, ApprovalOutcome>,
+	approvals_cache: &mut LruMap<CandidateHash, ApprovalOutcome>,
 	mode: &mut Mode,
 	actions: Vec<Action>,
 ) -> SubsystemResult<bool> {

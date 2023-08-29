@@ -9,7 +9,7 @@ In particular the dispute-coordinator is responsible for:
 
 - Ensuring that the node is able to raise a dispute in case an invalid candidate
   is found during approval checking.
-- Ensuring that backing and approval votes will be recorded on chain. With these 
+- Ensuring that backing and approval votes will be recorded on chain. With these
   votes on chain we can be certain that appropriate targets for slashing will be
   available for concluded disputes. Also, scraping these votes during a dispute
   is necessary for critical spam prevention measures.
@@ -678,7 +678,7 @@ struct State {
   // It can be a `Vec` if the need to track more arises.
   error: Option<SessionsUnavailable>,
   /// Latest relay blocks that have been successfully scraped.
-  last_scraped_blocks: LruCache<Hash, ()>,
+  last_scraped_blocks: LruMap<Hash, ()>,
 }
 ```
 
