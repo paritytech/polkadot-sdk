@@ -151,17 +151,25 @@ let mut target_path =
 # Manifest Formatting
 
 > **TLDR**
-> You can use the CLI tool [Zepter](https://crates.io/crates/zepter) to format the files: `zepter format features`
+> You can use the CLI tool [Zepter](https://crates.io/crates/zepter) to
+> format the files: `zepter format features`
 
-Rust `Cargo.toml` files need to respect certain formatting rules. All entries need to be alphabetically sorted. This makes it easier to read them and insert new entries. The exhaustive list of rules is enforced by the CI. The general format looks like this:
+Rust `Cargo.toml` files need to respect certain formatting rules. All entries
+need to be alphabetically sorted. This makes it easier to read them and insert
+new entries. The exhaustive list of rules is enforced by the CI. The general
+format looks like this:
 
 - The feature is written as a single line if it fits within 80 chars:
+
 ```toml
 [features]
 default = [ "std" ]
 ```
 
-- Otherwise the feature is broken down into multiple lines with one entry per line. Each line is padded with one tab and no trailing spaces but a trailing comma.
+- Otherwise the feature is broken down into multiple lines with one entry per
+  line. Each line is padded with one tab and no trailing spaces but a trailing
+  comma.
+
 ```toml
 [features]
 default = [
