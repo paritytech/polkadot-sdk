@@ -5,8 +5,8 @@ authors = ["Anonymous"]
 description = "A parachain for communication back and forth with XCM of assets and uniques."
 license = "Unlicense"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/cumulus/"
-edition = "2021"
+repository.workspace = true
+edition.workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
