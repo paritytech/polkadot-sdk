@@ -1080,7 +1080,7 @@ where
 			} else if announce.header.parent_hash() == &self.best_queued_hash ||
 				known_parent && self.best_queued_number >= number
 			{
-				self.update_peer_common_number(&who, number - One::one());
+				self.update_peer_common_number(&who, number.saturating_sub(One::one()));
 			}
 		}
 		self.allowed_requests.add(&who);
