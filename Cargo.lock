@@ -11952,6 +11952,7 @@ dependencies = [
  "itertools 0.10.5",
  "kvdb",
  "kvdb-memorydb",
+ "log",
  "merlin 2.0.1",
  "parity-scale-codec",
  "parking_lot 0.12.1",
