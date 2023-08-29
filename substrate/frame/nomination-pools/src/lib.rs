@@ -1780,6 +1780,8 @@ pub mod pallet {
 		},
 		/// Pool commission has been claimed.
 		PoolCommissionClaimed { pool_id: PoolId, commission: BalanceOf<T> },
+		/// Pool topped up in case of a reward deficit.
+		PoolToppedUp { pool_id: PoolId, top_up_value: BalanceOf<T>, deficit: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -1855,6 +1857,8 @@ pub mod pallet {
 		InvalidPoolId,
 		/// Bonding extra is restricted to the exact pending reward amount.
 		BondExtraRestricted,
+		/// No reward deficit to top up.
+		NoRewardDeficit,
 	}
 
 	#[derive(Encode, Decode, PartialEq, TypeInfo, PalletError, RuntimeDebug)]
@@ -2641,6 +2645,19 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			Self::do_claim_commission(who, pool_id)
 		}
+
+		/// Top up the reward deficit of a pool permissionlessly.
+		///
+		/// This can happen in situations where ED has increased from the time the pool was created.
+		/// The increased ED eats up from the available rewards of the pool, and the pool can end up
+		/// with a net deficit.
+		#[pallet::call_index(21)]
+		// FIXME(ank4n): bench + tests
+		#[pallet::weight(T::WeightInfo::claim_commission())]
+		pub fn top_up_reward_deficit(origin: OriginFor<T>, pool_id: PoolId, #[pallet::compact] max_transfer: BalanceOf<T>,) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_top_up_reward_deficit(who, pool_id, max_transfer)
+		}
 	}
 
 	#[pallet::hooks]
@@ -3038,6 +3055,50 @@ impl<T: Config> Pallet<T> {
 		Self::put_member_with_pools(&who, member, bonded_pool, reward_pool);
 		Ok(())
 	}
+
+	fn pool_pending_rewards(pool: PoolId) -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
+		let bonded_pool = BondedPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
+		let reward_pool = RewardPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
+
+		let current_rc = if !bonded_pool.points.is_zero() {
+			let commission = bonded_pool.commission.current();
+			reward_pool
+				.current_reward_counter(pool, bonded_pool.points, commission)?.0
+		} else {
+			Default::default()
+		};
+
+		Ok(PoolMembers::<T>::iter()
+			.filter(|(_, d)| d.pool_id == pool)
+			.map(|(_, d)| d.pending_rewards(current_rc).unwrap_or_default())
+			.fold(0u32.into(), |acc: BalanceOf<T>, x| acc.saturating_add(x)))
+	}
+
+	fn do_top_up_reward_deficit(who: T::AccountId, pool: PoolId, max_transfer: BalanceOf<T>) -> DispatchResult {
+		let pool_pending_rewards = Self::pool_pending_rewards(pool)?;
+		let reward_balance = RewardPool::<T>::current_balance(pool);
+		let deficit = pool_pending_rewards.saturating_sub(reward_balance);
+
+		ensure!(!deficit.is_zero(), Error::<T>::NoRewardDeficit);
+
+		// do not top up beyond the max transfer amount desired by the caller.
+		let top_up_amount = deficit.min(max_transfer);
+		T::Currency::transfer(
+			&who,
+			&Self::create_reward_account(pool),
+			top_up_amount,
+			ExistenceRequirement::KeepAlive,
+		)?;
+
+		Self::deposit_event(Event::<T>::PoolToppedUp {
+			pool_id: pool,
+			top_up_value: top_up_amount,
+			deficit: deficit.saturating_sub(top_up_amount),
+		});
+
+		Ok(())
+	}
+
 
 	/// Ensure the correctness of the state of this pallet.
 	///
