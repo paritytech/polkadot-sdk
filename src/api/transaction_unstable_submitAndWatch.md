@@ -69,7 +69,7 @@ If multiple `broadcasted` events happen in a row, the JSON-RPC server is allowed
     "event": "bestChainBlockIncluded",
     "block": {
         "hash": "...",
-        "index": "..."
+        "index": ...
     }
 }
 ```
@@ -87,7 +87,7 @@ The `bestChainBlockIncluded` event indicates which block of the best chain the t
 
 `null` can be sent back in case the block is no longer in any block of the best chain. This is the state a transaction starts in.
 
-`hash` is a string containing the hexadecimal-encoded hash of the header of the block. `index` is a string containing an integer indicating the 0-based index of this transaction within the body of this block.
+`hash` is a string containing the hexadecimal-encoded hash of the header of the block. `index` is an integer indicating the 0-based index of this transaction within the body of this block.
 
 If multiple `bestChainBlockIncluded` events happen in a row, the JSON-RPC server is allowed to skip all but the last.
 
@@ -100,14 +100,14 @@ If multiple `bestChainBlockIncluded` events happen in a row, the JSON-RPC server
     "event": "finalized",
     "block": {
         "hash": "...",
-        "index": "..."
+        "index": ...
     }
 }
 ```
 
 The `finalized` event indicates that this transaction is present in a block of the chain that is finalized.
 
-`hash` is a string containing the hexadecimal-encoded hash of the header of the block. `index` is a string containing an integer indicating the 0-based index of this transaction within the body of this block.
+`hash` is a string containing the hexadecimal-encoded hash of the header of the block. `index` is an integer indicating the 0-based index of this transaction within the body of this block.
 
 No more event will be generated about this transaction.
 
