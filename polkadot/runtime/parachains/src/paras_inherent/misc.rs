@@ -40,7 +40,7 @@ impl<T> IndexedRetain<T> for Vec<T> {
 }
 
 /// Helper trait until `is_sorted_by` is stabilized.
-/// TODO: https://github.com/rust-lang/rust/issues/53485
+/// TODO: <https://github.com/rust-lang/rust/issues/53485>
 pub trait IsSortedBy<T> {
 	fn is_sorted_by<F>(self, cmp: F) -> bool
 	where

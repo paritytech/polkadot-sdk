@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Code related to benchmarking a [`crate::Client`].
+//! Code related to benchmarking a node.
 
 use polkadot_primitives::AccountId;
 use sc_client_api::UsageProvider;
