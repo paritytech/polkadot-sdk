@@ -160,7 +160,10 @@ test-rustdoc:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
+  # DAG
+  needs:
+    - job: test-doc
+      artifacts: false
   variables:
     SKIP_WASM_BUILD: 1
     RUSTDOCFLAGS: "-Dwarnings"
@@ -173,7 +176,10 @@ cargo-check-all-benches:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
+  # DAG
+  needs:
+    - job: cargo-hfuzz
+      artifacts: false
   script:
     - time cargo check --all --benches
 
@@ -202,7 +208,10 @@ test-deterministic-wasm:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
+  # DAG
+  needs:
+    - job: test-frame-support
+      artifacts: false
   script:
     - .gitlab/test_deterministic_wasm.sh
 
@@ -289,7 +298,10 @@ test-frame-support:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
+  # DAG
+  needs:
+    - job: test-frame-examples-compile-to-wasm
+      artifacts: false
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
@@ -328,7 +340,10 @@ test-frame-examples-compile-to-wasm:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
+  # DAG
+  needs:
+    - job: test-full-crypto-feature
+      artifacts: false
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
@@ -439,7 +454,10 @@ cargo-hfuzz:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
+  # DAG
+  needs:
+    - job: check-tracing
+      artifacts: false
   variables:
     # max 10s per iteration, 60s per file
     HFUZZ_RUN_ARGS: >
