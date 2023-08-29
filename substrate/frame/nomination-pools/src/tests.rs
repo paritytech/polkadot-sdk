@@ -328,78 +328,154 @@ mod reward_pool {
 
 	#[test]
 	fn ed_change_causes_reward_deficit() {
-		ExtBuilder::default()
-			.max_members_per_pool(Some(200))
-			.max_members(Some(200))
-			.build_and_execute(|| {
-				// original ED
-				ExistentialDeposit::set(5);
+		ExtBuilder::default().max_members_per_pool(Some(5)).build_and_execute(|| {
+			// original ED
+			ExistentialDeposit::set(5);
 
-				// 11 joins the pool
-				Balances::make_free_balance_be(&11, 500);
-				assert_ok!(Pools::join(RuntimeOrigin::signed(11), 90, 1));
+			// 11 joins the pool
+			Balances::make_free_balance_be(&11, 500);
+			assert_ok!(Pools::join(RuntimeOrigin::signed(11), 90, 1));
 
-				// new delegator does not have any pending rewards
-				assert_eq!(pending_rewards_for_delegator(11), 0);
+			// new delegator does not have any pending rewards
+			assert_eq!(pending_rewards_for_delegator(11), 0);
 
-				// give the pool some rewards
-				deposit_rewards(100);
+			// give the pool some rewards
+			deposit_rewards(100);
 
-				// all existing delegator has pending rewards
-				assert_eq!(pending_rewards_for_delegator(11), 90);
-				assert_eq!(pending_rewards_for_delegator(10), 10);
-				assert_eq!(reward_imbalance(1), Surplus(0));
+			// all existing delegator has pending rewards
+			assert_eq!(pending_rewards_for_delegator(11), 90);
+			assert_eq!(pending_rewards_for_delegator(10), 10);
+			assert_eq!(reward_imbalance(1), Surplus(0));
 
-				// 12 joins the pool.
-				Balances::make_free_balance_be(&12, 500);
-				assert_ok!(Pools::join(RuntimeOrigin::signed(12), 100, 1));
+			// 12 joins the pool.
+			Balances::make_free_balance_be(&12, 500);
+			assert_ok!(Pools::join(RuntimeOrigin::signed(12), 100, 1));
 
-				// Current reward balance is committed to last recorded reward counter of
-				// the pool before the increase in ED.
-				let bonded_pool = BondedPools::<Runtime>::get(1).unwrap();
-				let reward_pool = RewardPools::<Runtime>::get(1).unwrap();
-				assert_eq!(
-					reward_pool.last_recorded_reward_counter,
-					reward_pool
-						.current_reward_counter(1, bonded_pool.points, Perbill::zero())
-						.unwrap()
-						.0
-				);
+			// Current reward balance is committed to last recorded reward counter of
+			// the pool before the increase in ED.
+			let bonded_pool = BondedPools::<Runtime>::get(1).unwrap();
+			let reward_pool = RewardPools::<Runtime>::get(1).unwrap();
+			assert_eq!(
+				reward_pool.last_recorded_reward_counter,
+				reward_pool
+					.current_reward_counter(1, bonded_pool.points, Perbill::zero())
+					.unwrap()
+					.0
+			);
 
-				// reward pool before ED increase and reward counter getting committed.
-				let reward_pool_1 = RewardPools::<Runtime>::get(1).unwrap();
+			// reward pool before ED increase and reward counter getting committed.
+			let reward_pool_1 = RewardPools::<Runtime>::get(1).unwrap();
 
-				// increase ED from 5 to 50
-				ExistentialDeposit::set(50);
+			// increase ED from 5 to 50
+			ExistentialDeposit::set(50);
 
-				// There is now an expected deficit of ed_diff
-				assert_eq!(reward_imbalance(1), Deficit(45));
+			// There is now an expected deficit of ed_diff
+			assert_eq!(reward_imbalance(1), Deficit(45));
 
-				// 13 joins the pool which commits the reward counter to reward pool.
-				Balances::make_free_balance_be(&13, 500);
-				assert_ok!(Pools::join(RuntimeOrigin::signed(13), 100, 1));
+			// 13 joins the pool which commits the reward counter to reward pool.
+			Balances::make_free_balance_be(&13, 500);
+			assert_ok!(Pools::join(RuntimeOrigin::signed(13), 100, 1));
 
-				// still a deficit
-				assert_eq!(reward_imbalance(1), Deficit(45));
+			// still a deficit
+			assert_eq!(reward_imbalance(1), Deficit(45));
 
-				// reward pool after ED increase
-				let reward_pool_2 = RewardPools::<Runtime>::get(1).unwrap();
+			// reward pool after ED increase
+			let reward_pool_2 = RewardPools::<Runtime>::get(1).unwrap();
 
-				// last recorded total payout does not decrease even as ED increases.
-				assert_eq!(
-					reward_pool_1.last_recorded_total_payouts,
-					reward_pool_2.last_recorded_total_payouts
-				);
+			// last recorded total payout does not decrease even as ED increases.
+			assert_eq!(
+				reward_pool_1.last_recorded_total_payouts,
+				reward_pool_2.last_recorded_total_payouts
+			);
 
-				// Topping up pool decreases deficit
-				deposit_rewards(10);
-				assert_eq!(reward_imbalance(1), Deficit(35));
+			// Topping up pool decreases deficit
+			deposit_rewards(10);
+			assert_eq!(reward_imbalance(1), Deficit(35));
 
-				// top up the pool to remove the deficit
-				deposit_rewards(35);
-				// No deficit anymore
-				assert_eq!(reward_imbalance(1), Surplus(0));
-			});
+			// top up the pool to remove the deficit
+			deposit_rewards(35);
+			// No deficit anymore
+			assert_eq!(reward_imbalance(1), Surplus(0));
+		});
+	}
+
+	#[test]
+	fn top_up_fixes_reward_deficit() {
+		ExtBuilder::default().max_members_per_pool(Some(5)).build_and_execute(|| {
+			// Given: pool has a reward deficit
+
+			// original ED
+			ExistentialDeposit::set(5);
+
+			// 11 joins the pool
+			Balances::make_free_balance_be(&11, 500);
+			assert_ok!(Pools::join(RuntimeOrigin::signed(11), 90, 1));
+
+			// Pool some rewards
+			deposit_rewards(100);
+
+			// 12 joins the pool.
+			Balances::make_free_balance_be(&12, 500);
+			assert_ok!(Pools::join(RuntimeOrigin::signed(12), 10, 1));
+
+			// When: pool ends up in reward deficit
+
+			// increase ED
+			ExistentialDeposit::set(50);
+			assert_eq!(reward_imbalance(1), Deficit(45));
+
+			// clear events
+			pool_events_since_last_call();
+
+			// Then: top up reduces the deficit
+			Balances::make_free_balance_be(&99, 1000);
+			// caller can set safe ceiling for top up.
+			let max_top_up: Balance = 20;
+			assert_ok!(Pools::top_up_reward_deficit(RuntimeOrigin::signed(99), 1, max_top_up));
+			// only upto max_transfer is topped up.
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![Event::PoolToppedUp {
+					pool_id: 1,
+					top_up_value: max_top_up,
+					deficit: 45 - max_top_up
+				},]
+			);
+			assert_eq!(reward_imbalance(1), Deficit(25));
+
+			// Top up the remaining deficit
+			assert_ok!(Pools::top_up_reward_deficit(RuntimeOrigin::signed(99), 1, 1000));
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![Event::PoolToppedUp { pool_id: 1, top_up_value: 25, deficit: 0 },]
+			);
+			assert_eq!(reward_imbalance(1), Surplus(0));
+
+			// Trying to top up again does not work
+			assert_err!(
+				Pools::top_up_reward_deficit(RuntimeOrigin::signed(99), 1, 1000),
+				Error::<T>::NoRewardDeficit
+			);
+		});
+	}
+
+	#[test]
+	fn topping_up_does_not_work_for_pools_with_no_deficit() {
+		ExtBuilder::default().max_members_per_pool(Some(5)).build_and_execute(|| {
+			// 11 joins the pool
+			Balances::make_free_balance_be(&11, 500);
+			assert_ok!(Pools::join(RuntimeOrigin::signed(11), 90, 1));
+
+			// Pool some rewards
+			deposit_rewards(100);
+			assert_eq!(reward_imbalance(1), Surplus(0));
+
+			// Topping up fails
+			assert_err!(
+				Pools::top_up_reward_deficit(RuntimeOrigin::signed(11), 1, 100),
+				Error::<T>::NoRewardDeficit
+			);
+		});
 	}
 }
 
