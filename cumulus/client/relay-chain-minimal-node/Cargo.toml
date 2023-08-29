@@ -1,8 +1,8 @@
 [package]
-authors = ["Parity Technologies <admin@parity.io>"]
+authors.workspace = true
 name = "cumulus-relay-chain-minimal-node"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
 
 [dependencies]
 # polkadot deps
@@ -36,7 +36,7 @@ cumulus-relay-chain-rpc-interface = { path = "../relay-chain-rpc-interface" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 
 array-bytes = "6.1"
-lru = "0.11.0"
+schnellru = "0.2.1"
 tracing = "0.1.37"
 async-trait = "0.1.73"
 futures = "0.3.28"

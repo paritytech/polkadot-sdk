@@ -1,8 +1,8 @@
 [package]
 name = "cumulus-test-relay-sproof-builder"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
@@ -24,6 +24,7 @@ default = [ "std" ]
 std = [
 	"codec/std",
 	"cumulus-primitives-core/std",
+	"polkadot-primitives/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
 	"sp-std/std",

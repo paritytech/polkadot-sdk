@@ -4,7 +4,7 @@ description = "Tools & types for building with XCM and its executor."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version.workspace = true
+version = "1.0.0"
 
 [dependencies]
 impl-trait-for-tuples = "0.2.1"
@@ -42,6 +42,14 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-salary/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"polkadot-test-runtime/runtime-benchmarks",
+	"primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]
 std = [

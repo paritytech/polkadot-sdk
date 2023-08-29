@@ -62,14 +62,13 @@
 use std::{
 	collections::{hash_map, HashMap},
 	fmt::{self, Debug},
-	num::NonZeroUsize,
 	pin::Pin,
 	sync::Arc,
 	time::Duration,
 };
 
 use futures::{channel::oneshot, future::BoxFuture, select, Future, FutureExt, StreamExt};
-use lru::LruCache;
+use schnellru::LruMap;
 
 use client::{BlockImportNotification, BlockchainEvents, FinalityNotification};
 use polkadot_primitives::{Block, BlockNumber, Hash};
@@ -113,10 +112,7 @@ pub use orchestra::{
 
 /// Store 2 days worth of blocks, not accounting for forks,
 /// in the LRU cache. Assumes a 6-second block time.
-pub const KNOWN_LEAVES_CACHE_SIZE: NonZeroUsize = match NonZeroUsize::new(2 * 24 * 3600 / 6) {
-	Some(cap) => cap,
-	None => panic!("Known leaves cache size must be non-zero"),
-};
+pub const KNOWN_LEAVES_CACHE_SIZE: u32 = 2 * 24 * 3600 / 6;
 
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 mod memory_stats;
@@ -632,7 +628,7 @@ pub struct Overseer<SupportsParachains> {
 	pub supports_parachains: SupportsParachains,
 
 	/// An LRU cache for keeping track of relay-chain heads that have already been seen.
-	pub known_leaves: LruCache<Hash, ()>,
+	pub known_leaves: LruMap<Hash, ()>,
 
 	/// Various Prometheus metrics.
 	pub metrics: OverseerMetrics,
@@ -880,9 +876,10 @@ where
 		let span = Arc::new(span);
 		self.span_per_active_leaf.insert(*hash, span.clone());
 
-		let status = if let Some(_) = self.known_leaves.put(*hash, ()) {
+		let status = if self.known_leaves.get(hash).is_some() {
 			LeafStatus::Stale
 		} else {
+			self.known_leaves.insert(*hash, ());
 			LeafStatus::Fresh
 		};
 

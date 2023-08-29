@@ -4,7 +4,7 @@ description = "Types and utilities for creating and working with parachains"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version.workspace = true
+version = "1.0.0"
 
 [dependencies]
 # note: special care is taken to avoid inclusion of `sp-io` externals when compiling
@@ -37,4 +37,7 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 ]
-runtime-benchmarks = []
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
