@@ -507,13 +507,13 @@ impl<T: Config> Pallet<T> {
 		fragment: Fragment,
 	) -> Result<u32, MessageSendError> {
 		let data = fragment.encode();
-
 		// Optimization note: `max_message_size` could potentially be stored in
 		// `OutboundXcmpMessages` once known; that way it's only accessed when a new page is needed.
 
 		let max_message_size =
 			T::ChannelInfo::get_channel_max(recipient).ok_or(MessageSendError::NoChannel)?;
-		if data.len() > max_message_size {
+		let format_size = format.encode().len();
+		if data.len() + format_size > max_message_size {
 			return Err(MessageSendError::TooBig)
 		}
 
