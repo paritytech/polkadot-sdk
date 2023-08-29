@@ -1113,7 +1113,7 @@ pub mod opaque {
 impl<Call> TryFrom<OldXcm<Call>> for Xcm<Call> {
 	type Error = ();
 	fn try_from(old_xcm: OldXcm<Call>) -> result::Result<Self, Self::Error> {
-		Ok(Xcm(old_xcm.into_iter().map(TryInto::try_into).collect::<result::Result<_, _>>()?))
+		Ok(Xcm(old_xcm.0.into_iter().map(TryInto::try_into).collect::<result::Result<_, _>>()?))
 	}
 }
 
@@ -1121,7 +1121,111 @@ impl<Call> TryFrom<OldXcm<Call>> for Xcm<Call> {
 impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 	type Error = ();
 	fn try_from(old_instruction: OldInstruction<Call>) -> result::Result<Self, Self::Error> {
-		Ok(old_instruction.try_into()?)
+		use OldInstruction::*;
+		Ok(match old_instruction {
+			WithdrawAsset(assets) => Self::WithdrawAsset(assets.try_into()?),
+			ReserveAssetDeposited(assets) => Self::ReserveAssetDeposited(assets.try_into()?),
+			ReceiveTeleportedAsset(assets) => Self::ReceiveTeleportedAsset(assets.try_into()?),
+			QueryResponse { query_id, response, max_weight, querier: Some(querier) } => Self::QueryResponse {
+				query_id,
+				querier: querier.try_into()?,
+				response: response.into(),
+				max_weight: max_weight,
+			},
+			QueryResponse { query_id, response, max_weight, querier: None } => Self::QueryResponse {
+				query_id,
+				querier: None,
+				response: response.into(),
+				max_weight: max_weight,
+			},
+			TransferAsset { assets, beneficiary } => Self::TransferAsset {
+				assets: assets.try_into()?,
+				beneficiary: beneficiary.try_into()?,
+			},
+			TransferReserveAsset { assets, dest, xcm } => Self::TransferReserveAsset {
+				assets: assets.try_into()?,
+				dest: dest.try_into()?,
+				xcm: xcm.try_into()?,
+			},
+			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
+				Self::HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity },
+			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
+			HrmpChannelClosing { initiator, sender, recipient } =>
+				Self::HrmpChannelClosing { initiator, sender, recipient },
+			Transact { origin_kind, require_weight_at_most, call } => Self::Transact {
+				origin_kind,
+				require_weight_at_most,
+				call: call.into(),
+			},
+			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
+				query_id: response_info.query_id,
+				destination: response_info.destination.try_into().map_err(|_| ())?,
+				max_weight: response_info.max_weight,
+			}),
+			DepositAsset { assets, beneficiary } => {
+				let beneficiary = beneficiary.try_into()?;
+				let assets = assets.try_into()?;
+				Self::DepositAsset { assets, beneficiary }
+			},
+			DepositReserveAsset { assets, dest, xcm } => {
+				let dest = dest.try_into()?;
+				let xcm = xcm.try_into()?;
+				let assets = assets.try_into()?;
+				Self::DepositReserveAsset { assets, dest, xcm }
+			},
+			ExchangeAsset { give, want, maximal } => {
+				let give = give.try_into()?;
+				let want = want.try_into()?;
+				Self::ExchangeAsset { give, want, maximal }
+			},
+			InitiateReserveWithdraw { assets, reserve, xcm } => {
+				// No `max_assets` here, so if there's a connt, then we cannot translate.
+				let assets = assets.try_into()?;
+				let reserve = reserve.try_into()?;
+				let xcm = xcm.try_into()?;
+				Self::InitiateReserveWithdraw { assets, reserve, xcm }
+			},
+			InitiateTeleport { assets, dest, xcm } => {
+				// No `max_assets` here, so if there's a connt, then we cannot translate.
+				let assets = assets.try_into()?;
+				let dest = dest.try_into()?;
+				let xcm = xcm.try_into()?;
+				Self::InitiateTeleport { assets, dest, xcm }
+			},
+			ReportHolding { response_info, assets } => {
+				let response_info = QueryResponseInfo {
+					destination: response_info.destination.try_into().map_err(|_| ())?,
+					query_id: response_info.query_id,
+					max_weight: response_info.max_weight,
+				};
+				Self::ReportHolding {
+					response_info,
+					assets: assets.try_into()?,
+				}
+			},
+			BuyExecution { fees, weight_limit } => {
+				let fees = fees.try_into()?;
+				Self::BuyExecution { fees, weight_limit }
+			},
+			ClearOrigin => Self::ClearOrigin,
+			DescendOrigin(who) => Self::DescendOrigin(who.try_into()?),
+			RefundSurplus => Self::RefundSurplus,
+			SetErrorHandler(xcm) => Self::SetErrorHandler(xcm.try_into()?),
+			SetAppendix(xcm) => Self::SetAppendix(xcm.try_into()?),
+			ClearError => Self::ClearError,
+			ClaimAsset { assets, ticket } => {
+				let assets = assets.try_into()?;
+				let ticket = ticket.try_into()?;
+				Self::ClaimAsset { assets, ticket }
+			},
+			Trap(code) => Self::Trap(code),
+			SubscribeVersion { query_id, max_response_weight } => Self::SubscribeVersion {
+				query_id,
+				max_response_weight: max_response_weight,
+			},
+			UnsubscribeVersion => Self::UnsubscribeVersion,
+			_ => return Err(()),
+		})
 	}
 }
 
@@ -1135,20 +1239,17 @@ mod tests {
 
 	#[test]
 	fn basic_roundtrip_works() {
-		// let xcm = Xcm::<()>(vec![TransferAsset {
-		// 	assets: (Here, 1u128).into(),
-		// 	beneficiary: Here.into(),
-		// }]);
-		// dbg!(&xcm);
+		let xcm = Xcm::<()>(vec![TransferAsset {
+			assets: (Here, 1u128).into(),
+			beneficiary: Here.into(),
+		}]);
 		let old_xcm = OldXcm::<()>(vec![OldInstruction::TransferAsset {
 			assets: (OldHere, 1u128).into(),
 			beneficiary: OldHere.into(),
 		}]);
-		dbg!(&old_xcm);
-		// assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
+		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
 		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
-		dbg!(&new_xcm);
-		// assert_eq!(new_xcm, xcm);
+		assert_eq!(new_xcm, xcm);
 	}
 
 	#[test]
@@ -1159,10 +1260,10 @@ mod tests {
 			DepositAsset { assets: Wild(AllCounted(1)), beneficiary: Here.into() },
 		]);
 		let old_xcm: OldXcm<()> = OldXcm::<()>(vec![
-			OldInstruction::ReceiveTeleportedAsset((OldHere, 1).into()),
+			OldInstruction::ReceiveTeleportedAsset((OldHere, 1u128).into()),
 			OldInstruction::ClearOrigin,
 			OldInstruction::DepositAsset {
-				assets: crate::v3::MultiAssetFilter::Wild(crate::v3::WildMultiAsset::All),
+				assets: crate::v3::MultiAssetFilter::Wild(crate::v3::WildMultiAsset::AllCounted(1)),
 				beneficiary: OldHere.into(),
 			},
 		]);
@@ -1183,14 +1284,14 @@ mod tests {
 			DepositAsset { assets: Wild(AllCounted(1)), beneficiary: Here.into() },
 		]);
 		let old_xcm = OldXcm::<()>(vec![
-			OldInstruction::ReserveAssetDeposited((OldHere, 1).into()),
+			OldInstruction::ReserveAssetDeposited((OldHere, 1u128).into()),
 			OldInstruction::ClearOrigin,
 			OldInstruction::BuyExecution {
-				fees: (OldHere, 1).into(),
+				fees: (OldHere, 1u128).into(),
 				weight_limit: WeightLimit::Limited(Weight::from_parts(1, 1)),
 			},
 			OldInstruction::DepositAsset {
-				assets: crate::v3::MultiAssetFilter::Wild(crate::v3::WildMultiAsset::All),
+				assets: crate::v3::MultiAssetFilter::Wild(crate::v3::WildMultiAsset::AllCounted(1)),
 				beneficiary: OldHere.into(),
 			},
 		]);
@@ -1206,9 +1307,9 @@ mod tests {
 			DepositAsset { assets: Wild(AllCounted(1)), beneficiary: Here.into() },
 		]);
 		let old_xcm = OldXcm::<()>(vec![
-			OldInstruction::WithdrawAsset((OldHere, 1).into()),
+			OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
 			OldInstruction::DepositAsset {
-				assets: OldMultiAssetFilter::Wild(OldWildMultiAsset::All),
+				assets: OldMultiAssetFilter::Wild(OldWildMultiAsset::AllCounted(1)),
 				beneficiary: OldHere.into(),
 			},
 		]);
@@ -1228,9 +1329,9 @@ mod tests {
 			},
 		]);
 		let old_xcm = OldXcm::<()>(vec![
-			OldInstruction::WithdrawAsset((OldHere, 1).into()),
+			OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
 			OldInstruction::DepositReserveAsset {
-				assets: OldMultiAssetFilter::Wild(OldWildMultiAsset::All),
+				assets: OldMultiAssetFilter::Wild(OldWildMultiAsset::AllCounted(1)),
 				dest: OldHere.into(),
 				xcm: OldXcm::<()>(vec![]),
 			},

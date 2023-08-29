@@ -456,6 +456,13 @@ impl MultiLocation {
 	}
 }
 
+impl TryFrom<OldMultiLocation> for Option<MultiLocation> {
+	type Error = ();
+	fn try_from(value: OldMultiLocation) -> result::Result<Self, Self::Error> {
+		Ok(Some(MultiLocation::try_from(value)?))
+	}
+}
+
 impl TryFrom<OldMultiLocation> for MultiLocation {
 	type Error = ();
 	fn try_from(x: OldMultiLocation) -> result::Result<Self, ()> {

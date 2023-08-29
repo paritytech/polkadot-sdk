@@ -20,7 +20,7 @@
 // necessarily related to FRAME or even Substrate.
 //
 // Hence, `no_std` rather than sp-runtime.
-#![no_std]
+// #![no_std]
 extern crate alloc;
 
 use derivative::Derivative;
