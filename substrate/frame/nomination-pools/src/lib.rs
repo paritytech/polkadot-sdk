@@ -2654,7 +2654,11 @@ pub mod pallet {
 		#[pallet::call_index(21)]
 		// FIXME(ank4n): bench + tests
 		#[pallet::weight(T::WeightInfo::claim_commission())]
-		pub fn top_up_reward_deficit(origin: OriginFor<T>, pool_id: PoolId, #[pallet::compact] max_transfer: BalanceOf<T>,) -> DispatchResult {
+		pub fn top_up_reward_deficit(
+			origin: OriginFor<T>,
+			pool_id: PoolId,
+			#[pallet::compact] max_transfer: BalanceOf<T>,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_top_up_reward_deficit(who, pool_id, max_transfer)
 		}
@@ -3062,8 +3066,7 @@ impl<T: Config> Pallet<T> {
 
 		let current_rc = if !bonded_pool.points.is_zero() {
 			let commission = bonded_pool.commission.current();
-			reward_pool
-				.current_reward_counter(pool, bonded_pool.points, commission)?.0
+			reward_pool.current_reward_counter(pool, bonded_pool.points, commission)?.0
 		} else {
 			Default::default()
 		};
@@ -3074,7 +3077,11 @@ impl<T: Config> Pallet<T> {
 			.fold(0u32.into(), |acc: BalanceOf<T>, x| acc.saturating_add(x)))
 	}
 
-	fn do_top_up_reward_deficit(who: T::AccountId, pool: PoolId, max_transfer: BalanceOf<T>) -> DispatchResult {
+	fn do_top_up_reward_deficit(
+		who: T::AccountId,
+		pool: PoolId,
+		max_transfer: BalanceOf<T>,
+	) -> DispatchResult {
 		let pool_pending_rewards = Self::pool_pending_rewards(pool)?;
 		let reward_balance = RewardPool::<T>::current_balance(pool);
 		let deficit = pool_pending_rewards.saturating_sub(reward_balance);
@@ -3098,7 +3105,6 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
-
 
 	/// Ensure the correctness of the state of this pallet.
 	///
