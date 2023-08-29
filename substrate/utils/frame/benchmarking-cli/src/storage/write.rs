@@ -65,7 +65,7 @@ impl StorageCmd {
 		let (mut rng, _) = new_rng(None);
 		kvs.shuffle(&mut rng);
 
-		let number_of_keys = (kvs.len() * self.params.db_fraction) / 100;
+		let number_of_keys = (kvs.len() * self.params.db_fraction as usize) / 100;
 		
 		info!("Writing {} keys of {} keys", number_of_keys, kvs.len());
 

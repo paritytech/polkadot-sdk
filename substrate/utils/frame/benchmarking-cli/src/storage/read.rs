@@ -45,7 +45,7 @@ impl StorageCmd {
 		let (mut rng, _) = new_rng(None);
 		keys.shuffle(&mut rng);
 		
-		let number_of_keys = (keys.len() * self.params.db_fraction) / 100;
+		let number_of_keys = (keys.len() * self.params.db_fraction as usize) / 100;
 		info!("Reading {} keys of {} keys", number_of_keys, keys.len());
 		
 		let keys = &keys[0..number_of_keys];

@@ -118,8 +118,8 @@ pub struct StorageParams {
 	pub include_child_trees: bool,
 
 	/// Access only a percentage of KV pairs.
-	#[arg(long, default_value_t = 100)]
-	pub db_fraction: usize,
+	#[arg(long, value_parser = clap::value_parser!(u8).range(1..=100), default_value_t = 100)]
+	pub db_fraction: u8,
 }
 
 impl StorageCmd {
