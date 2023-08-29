@@ -207,7 +207,7 @@ fn fails_to_unpause_not_paused_pallet() {
 }
 
 pub fn call_transfer(dest: u64, value: u64) -> RuntimeCall {
-	RuntimeCall::Balances(pallet_balances::Call::transfer { dest, value })
+	RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { dest, value })
 }
 
 pub fn call_transfer_keep_alive(dest: u64, value: u64) -> RuntimeCall {
