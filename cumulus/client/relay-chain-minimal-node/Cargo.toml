@@ -1,8 +1,8 @@
 [package]
-authors = ["Parity Technologies <admin@parity.io>"]
+authors.workspace = true
 name = "cumulus-relay-chain-minimal-node"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
 
 [dependencies]
 # polkadot deps
