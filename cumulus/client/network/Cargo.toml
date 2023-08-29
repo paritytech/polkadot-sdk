@@ -1,9 +1,9 @@
 [package]
 name = "cumulus-client-network"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
+authors.workspace = true
 description = "Cumulus-specific networking protocol"
-edition = "2021"
+edition.workspace = true
 
 [dependencies]
 async-trait = "0.1.73"
