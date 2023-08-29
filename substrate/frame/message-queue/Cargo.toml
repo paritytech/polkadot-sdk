@@ -1,11 +1,11 @@
 [package]
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 name = "pallet-message-queue"
 version = "7.0.0-dev"
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "FRAME pallet to queue and process messages"
 
 [dependencies]
