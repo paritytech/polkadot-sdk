@@ -139,8 +139,8 @@ impl<T: Config> Token<T> for CodeLoadToken {
 		// contract code. This is why we subtract `T::*::(0)`. We need to do this at this
 		// point because when charging the general weight for calling the contract we don't know the
 		// size of the contract.
-		T::WeightInfo::call_with_code_per_byte(self.0)
-			.saturating_sub(T::WeightInfo::call_with_code_per_byte(0))
+		<T as Config>::WeightInfo::call_with_code_per_byte(self.0)
+			.saturating_sub(<T as Config>::WeightInfo::call_with_code_per_byte(0))
 	}
 }
 
@@ -237,7 +237,7 @@ impl<T: Config> WasmBlob<T> {
 				// the `owner` is always the origin of the current transaction.
 				None => {
 					let deposit = self.code_info.deposit;
-					T::Currency::hold(
+					<T as Config>::Currency::hold(
 						&HoldReason::CodeUploadDepositReserve.into(),
 						&self.code_info.owner,
 						deposit,
@@ -267,7 +267,7 @@ impl<T: Config> WasmBlob<T> {
 			if let Some(code_info) = existing {
 				ensure!(code_info.refcount == 0, <Error<T>>::CodeInUse);
 				ensure!(&code_info.owner == origin, BadOrigin);
-				let _ = T::Currency::release(
+				let _ = <T as Config>::Currency::release(
 					&HoldReason::CodeUploadDepositReserve.into(),
 					&code_info.owner,
 					code_info.deposit,

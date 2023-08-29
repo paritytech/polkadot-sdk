@@ -154,7 +154,7 @@ where
 	const VERSION: u16 = 10;
 
 	fn max_step_weight() -> Weight {
-		T::WeightInfo::v10_migration_step()
+		<T as Config>::WeightInfo::v10_migration_step()
 	}
 
 	fn step(&mut self) -> (IsFinished, Weight) {
@@ -264,10 +264,10 @@ where
 			// Store last key for next migration step
 			self.last_account = Some(account);
 
-			(IsFinished::No, T::WeightInfo::v10_migration_step())
+			(IsFinished::No, <T as Config>::WeightInfo::v10_migration_step())
 		} else {
 			log::debug!(target: LOG_TARGET, "Done Migrating contract info");
-			(IsFinished::Yes, T::WeightInfo::v10_migration_step())
+			(IsFinished::Yes, <T as Config>::WeightInfo::v10_migration_step())
 		}
 	}
 

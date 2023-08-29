@@ -84,7 +84,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 	const VERSION: u16 = 9;
 
 	fn max_step_weight() -> Weight {
-		T::WeightInfo::v9_migration_step(T::MaxCodeLen::get())
+		<T as Config>::WeightInfo::v9_migration_step(T::MaxCodeLen::get())
 	}
 
 	fn step(&mut self) -> (IsFinished, Weight) {
@@ -106,10 +106,10 @@ impl<T: Config> MigrationStep for Migration<T> {
 			};
 			CodeStorage::<T>::insert(key, module);
 			self.last_code_hash = Some(key);
-			(IsFinished::No, T::WeightInfo::v9_migration_step(len))
+			(IsFinished::No, <T as Config>::WeightInfo::v9_migration_step(len))
 		} else {
 			log::debug!(target: LOG_TARGET, "No more contracts code to migrate");
-			(IsFinished::Yes, T::WeightInfo::v9_migration_step(0))
+			(IsFinished::Yes, <T as Config>::WeightInfo::v9_migration_step(0))
 		}
 	}
 

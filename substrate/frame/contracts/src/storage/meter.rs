@@ -452,7 +452,7 @@ where
 		self.total_deposit = Deposit::Charge(ed);
 
 		// We need to make sure that the contract's account exists.
-		T::Currency::transfer(origin, contract, ed, Preservation::Preserve)?;
+		<T as Config>::Currency::transfer(origin, contract, ed, Preservation::Preserve)?;
 
 		// A consumer is added at account creation and removed it on termination, otherwise the
 		// runtime could remove the account. As long as a contract exists its account must exist.
@@ -526,14 +526,14 @@ impl<T: Config> Ext<T> for ReservingExt {
 		// We are sending the `min_leftover` and the `min_balance` from the origin
 		// account as part of a contract call. Hence origin needs to have those left over
 		// as free balance after accounting for all deposits.
-		let max = T::Currency::reducible_balance(origin, Preservation::Preserve, Polite)
+		let max = <T as Config>::Currency::reducible_balance(origin, Preservation::Preserve, Polite)
 			.saturating_sub(min_leftover)
 			.saturating_sub(Pallet::<T>::min_balance());
 		let default = max.min(T::DefaultDepositLimit::get());
 		let limit = limit.unwrap_or(default);
 		ensure!(
 			limit <= max &&
-				matches!(T::Currency::can_withdraw(origin, limit), WithdrawConsequence::Success),
+				matches!(<T as Config>::Currency::can_withdraw(origin, limit), WithdrawConsequence::Success),
 			<Error<T>>::StorageDepositNotEnoughFunds,
 		);
 		Ok(limit)
@@ -550,7 +550,7 @@ impl<T: Config> Ext<T> for ReservingExt {
 			Deposit::Charge(amount) => {
 				// This could fail if the `origin` does not have enough liquidity. Ideally, though,
 				// this should have been checked before with `check_limit`.
-				T::Currency::transfer_and_hold(
+				<T as Config>::Currency::transfer_and_hold(
 					&HoldReason::StorageDepositReserve.into(),
 					origin,
 					contract,
@@ -570,7 +570,7 @@ impl<T: Config> Ext<T> for ReservingExt {
 				);
 			},
 			Deposit::Refund(amount) => {
-				let transferred = T::Currency::transfer_on_hold(
+				let transferred = <T as Config>::Currency::transfer_on_hold(
 					&HoldReason::StorageDepositReserve.into(),
 					contract,
 					origin,
@@ -604,10 +604,10 @@ impl<T: Config> Ext<T> for ReservingExt {
 		if let ContractState::<T>::Terminated { beneficiary } = state {
 			System::<T>::dec_consumers(&contract);
 			// Whatever is left in the contract is sent to the termination beneficiary.
-			T::Currency::transfer(
+			<T as Config>::Currency::transfer(
 				&contract,
 				&beneficiary,
-				T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite),
+				<T as Config>::Currency::reducible_balance(&contract, Preservation::Expendable, Polite),
 				Preservation::Expendable,
 			)?;
 		}

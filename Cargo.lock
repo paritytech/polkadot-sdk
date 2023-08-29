@@ -9407,6 +9407,7 @@ dependencies = [
  "pallet-proxy",
  "pallet-timestamp",
  "pallet-utility",
+ "pallet-xcm",
  "parity-scale-codec",
  "pretty_assertions",
  "rand 0.8.5",
@@ -9423,6 +9424,8 @@ dependencies = [
  "wasm-instrument 0.4.0",
  "wasmi 0.30.0",
  "wat",
+ "xcm",
+ "xcm-executor",
 ]
 
 [[package]]
