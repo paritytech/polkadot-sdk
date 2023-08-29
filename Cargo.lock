@@ -697,8 +697,6 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "asset-hub-kusama-runtime",
- "cumulus-pallet-parachain-system",
- "cumulus-pallet-xcmp-queue",
  "frame-support",
  "frame-system",
  "integration-tests-common",
@@ -708,16 +706,11 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "polkadot-core-primitives",
- "polkadot-parachain",
  "polkadot-runtime",
  "polkadot-runtime-parachains",
- "sp-core",
  "sp-runtime",
- "sp-weights",
  "xcm",
  "xcm-emulator",
- "xcm-executor",
 ]
 
 [[package]]
@@ -797,26 +790,21 @@ dependencies = [
 name = "asset-hub-polkadot-integration-tests"
 version = "1.0.0"
 dependencies = [
- "cumulus-pallet-parachain-system",
- "cumulus-pallet-xcmp-queue",
+ "asset-hub-kusama-runtime",
  "frame-support",
  "frame-system",
  "integration-tests-common",
+ "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "polkadot-core-primitives",
- "polkadot-parachain",
  "polkadot-runtime",
  "polkadot-runtime-parachains",
- "sp-core",
  "sp-runtime",
- "sp-weights",
  "xcm",
  "xcm-emulator",
- "xcm-executor",
 ]
 
 [[package]]
@@ -894,8 +882,6 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "asset-hub-westend-runtime",
- "cumulus-pallet-parachain-system",
- "cumulus-pallet-xcmp-queue",
  "frame-support",
  "frame-system",
  "integration-tests-common",
@@ -905,16 +891,11 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "polkadot-core-primitives",
- "polkadot-parachain",
  "polkadot-runtime",
  "polkadot-runtime-parachains",
- "sp-core",
  "sp-runtime",
- "sp-weights",
  "xcm",
  "xcm-emulator",
- "xcm-executor",
 ]
 
 [[package]]
@@ -1955,27 +1936,15 @@ version = "1.0.0"
 dependencies = [
  "bp-messages",
  "cumulus-pallet-dmp-queue",
- "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "frame-support",
- "frame-system",
  "integration-tests-common",
- "pallet-assets",
- "pallet-balances",
  "pallet-bridge-messages",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "polkadot-core-primitives",
- "polkadot-parachain",
- "polkadot-runtime",
- "polkadot-runtime-parachains",
- "sp-core",
- "sp-runtime",
- "sp-weights",
  "xcm",
  "xcm-emulator",
- "xcm-executor",
 ]
 
 [[package]]
@@ -2580,30 +2549,21 @@ dependencies = [
 name = "collectives-polkadot-integration-tests"
 version = "0.1.0"
 dependencies = [
- "asset-hub-polkadot-runtime",
  "collectives-polkadot-runtime",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "frame-support",
- "frame-system",
  "integration-tests-common",
  "pallet-assets",
- "pallet-balances",
  "pallet-core-fellowship",
  "pallet-salary",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "polkadot-core-primitives",
- "polkadot-parachain",
- "polkadot-runtime",
- "polkadot-runtime-parachains",
  "sp-core",
  "sp-runtime",
- "sp-weights",
  "xcm",
  "xcm-emulator",
- "xcm-executor",
 ]
 
 [[package]]
