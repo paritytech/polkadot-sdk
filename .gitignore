@@ -2,7 +2,7 @@
 .cargo-remote.toml
 .direnv/
 .DS_Store
-.env
+.env*
 .idea
 .local
 .vscode
