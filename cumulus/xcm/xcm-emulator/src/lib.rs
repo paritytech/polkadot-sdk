@@ -26,6 +26,7 @@ pub use std::{
 	ops::Deref,
 	sync::Mutex,
 };
+pub use codec::{Encode, Decode};
 
 // Substrate
 pub use frame_support::{
@@ -40,7 +41,7 @@ pub use frame_support::{
 pub use frame_system::{Config as SystemConfig, Pallet as SystemPallet};
 pub use pallet_balances::AccountData;
 pub use sp_arithmetic::traits::Bounded;
-pub use sp_core::{parameter_types, sr25519, storage::Storage, Pair, Encode};
+pub use sp_core::{parameter_types, sr25519, storage::Storage, Pair};
 pub use sp_io::TestExternalities;
 pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, fmt::Debug};
 pub use sp_tracing;
@@ -1009,8 +1010,8 @@ macro_rules! decl_test_networks {
 				}
 
 				fn process_upward_messages() {
-					use $crate::{ProcessMessage, TestExt};
-					use sp_core::Encode;
+					use $crate::{Encode, ProcessMessage, TestExt};
+
 					while let Some((from_para_id, msg)) = $crate::UPWARD_MESSAGES.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().pop_front()) {
 						let mut weight_meter = $crate::WeightMeter::max_limit();
 						<$relay_chain>::ext_wrapper(|| {

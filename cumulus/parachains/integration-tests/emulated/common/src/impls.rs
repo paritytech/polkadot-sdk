@@ -1,28 +1,52 @@
-use super::{BridgeHubRococo, BridgeHubWococo};
-pub use crate::constants::{PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD};
-pub use crate::xcm_helpers::xcm_transact_unpaid_execution;
+// Copyright Parity Technologies (UK) Ltd.
+// This file is part of Cumulus.
+
+// Cumulus is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Cumulus is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+
+pub use codec::{Decode, Encode};
+pub use paste;
+
+pub use crate::{
+	constants::{PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD},
+	xcm_helpers::xcm_transact_unpaid_execution,
+	BridgeHubRococo, BridgeHubWococo,
+};
+
+// Substrate
+use sp_core::Get;
+pub use frame_support::{traits::fungibles::Inspect, assert_ok};
+
+// Cumulus
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
 	LaneId, MessageKey, OutboundLaneData,
 };
 use bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchResult;
-pub use codec::{Decode, Encode};
-pub use frame_support::{traits::fungibles::Inspect, assert_ok};
-pub use cumulus_primitives_core::{relay_chain::HrmpChannelId, DmpMessageHandler, ParaId, XcmpMessageHandler};
 use pallet_bridge_messages::{Config, Instance1, Instance2, OutboundLanes, Pallet};
-use sp_core::Get;
-pub use xcm_emulator::{
-	helpers::weight_within_threshold, BridgeMessageHandler, Chain, DefaultMessageProcessor,
-	BridgeMessage, BridgeMessageDispatchError, TestExt, Parachain, RelayChain,
-};
-pub use paste;
+pub use cumulus_primitives_core::{relay_chain::HrmpChannelId, DmpMessageHandler, ParaId, XcmpMessageHandler};
 pub use parachains_common::{AccountId, Balance};
-pub use polkadot_runtime_parachains::{
-	dmp,
-	inclusion::{AggregateMessageOrigin, UmpQueueId},
-};
 pub use xcm_emulator::{
 	assert_expected_events, bx,
+	helpers::weight_within_threshold, BridgeMessageHandler, Chain,
+	BridgeMessage, BridgeMessageDispatchError, TestExt, Parachain, RelayChain,
+};
+
+// Polkadot
+pub use polkadot_runtime_parachains::{
+	dmp,
+	hrmp::HrmpChannels,
+	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 pub use xcm::{
 	prelude::{
@@ -31,8 +55,6 @@ pub use xcm::{
 	v3::Error,
 	DoubleEncoded,
 };
-
-
 
 pub struct BridgeHubMessageHandler<S, T, I> {
 	_marker: std::marker::PhantomData<(S, T, I)>,
@@ -305,7 +327,7 @@ macro_rules! impl_hrmp_channels_helpers_for_relay_chain {
 
 				/// A root origin force to open a channel between two Parachains
 				pub fn force_process_hrmp_open(sender: $crate::impls::ParaId, recipient: $crate::impls::ParaId) {
-					use $crate::impls::{Chain, HrmpChannelId};
+					use $crate::impls::Chain;
 
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						let relay_root_origin = <Self as Chain>::RuntimeOrigin::root();
@@ -316,9 +338,9 @@ macro_rules! impl_hrmp_channels_helpers_for_relay_chain {
 							0
 						));
 
-						let channel_id = HrmpChannelId { sender, recipient };
+						let channel_id = $crate::impls::HrmpChannelId { sender, recipient };
 
-						let hrmp_channel_exist = polkadot_runtime_parachains::hrmp::HrmpChannels::<
+						let hrmp_channel_exist = $crate::impls::HrmpChannels::<
 							<Self as Chain>::Runtime,
 						>::contains_key(&channel_id);
 
@@ -577,10 +599,10 @@ macro_rules! impl_assets_helpers_for_parachain {
 					asset_owner: $crate::impls::AccountId,
 					amount_to_mint: u128,
 				) {
-					use $crate::impls::{bx, Chain, RelayChain, Parachain, Inspect};
+					use $crate::impls::{bx, Chain, RelayChain, Parachain, Inspect, TestExt};
 					// Init values for Relay Chain
 					let root_origin = <$relay_chain as Chain>::RuntimeOrigin::root();
-					let destination = <$relay_chain as RelayChain>::child_location_of(<$chain as Parachain>::para_id());
+					let destination = <$relay_chain>::child_location_of(<$chain>::para_id());
 					let xcm = Self::force_create_asset_xcm(
 						$crate::impls::OriginKind::Superuser,
 						id,
@@ -589,7 +611,7 @@ macro_rules! impl_assets_helpers_for_parachain {
 						min_balance,
 					);
 
-					<$relay_chain as $crate::impls::TestExt>::execute_with(|| {
+					<$relay_chain>::execute_with(|| {
 						$crate::impls::assert_ok!(<$relay_chain as [<$relay_chain Pallet>]>::XcmPallet::send(
 							root_origin,
 							bx!(destination.into()),
@@ -599,7 +621,7 @@ macro_rules! impl_assets_helpers_for_parachain {
 						<$relay_chain>::assert_xcm_pallet_sent();
 					});
 
-					<Self as $crate::impls::TestExt>::execute_with(|| {
+					Self::execute_with(|| {
 						Self::assert_dmp_queue_complete(Some($crate::impls::Weight::from_parts(1_019_445_000, 200_000)));
 
 						type RuntimeEvent = <$chain as $crate::impls::Chain>::RuntimeEvent;

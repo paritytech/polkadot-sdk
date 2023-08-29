@@ -1,3 +1,19 @@
+// Copyright Parity Technologies (UK) Ltd.
+// This file is part of Cumulus.
+
+// Cumulus is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Cumulus is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+
 pub mod constants;
 pub mod impls;
 pub mod xcm_helpers;
@@ -7,8 +23,12 @@ use constants::{
 	asset_hub_kusama, asset_hub_polkadot, asset_hub_westend, bridge_hub_kusama,
 	bridge_hub_polkadot, bridge_hub_rococo, collectives, kusama, penpal, polkadot, rococo, westend,
 };
-use frame_support::traits::OnInitialize;
 use impls::{RococoWococoMessageHandler, WococoRococoMessageHandler};
+
+// Substrate
+use frame_support::traits::OnInitialize;
+
+// Cumulus
 use xcm_emulator::{
 	decl_test_bridges, decl_test_networks, decl_test_parachains,
 	decl_test_relay_chains, decl_test_sender_receiver_accounts_parameter_types,
