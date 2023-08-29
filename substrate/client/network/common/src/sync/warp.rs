@@ -40,6 +40,29 @@ pub enum WarpSyncParams<Block: BlockT> {
 	WaitForTarget(oneshot::Receiver<<Block as BlockT>::Header>),
 }
 
+/// Warp sync configuration.
+pub enum WarpSyncConfig<Block: BlockT> {
+	/// Standard warp sync for the chain.
+	WithProvider(Arc<dyn WarpSyncProvider<Block>>),
+	/// Skip downloading proofs and wait for a header of the state that should be downloaded.
+	///
+	/// It is expected that the header provider ensures that the header is trusted.
+	WaitForTarget,
+}
+
+impl<Block: BlockT> WarpSyncParams<Block> {
+	/// Split `WarpSyncParams` into `WarpSyncConfig` and warp sync target block header receiver.
+	pub fn split(
+		self,
+	) -> (WarpSyncConfig<Block>, Option<oneshot::Receiver<<Block as BlockT>::Header>>) {
+		match self {
+			WarpSyncParams::WithProvider(provider) =>
+				(WarpSyncConfig::WithProvider(provider), None),
+			WarpSyncParams::WaitForTarget(rx) => (WarpSyncConfig::WaitForTarget, Some(rx)),
+		}
+	}
+}
+
 /// Proof verification result.
 pub enum VerificationResult<Block: BlockT> {
 	/// Proof is valid, but the target was not reached.

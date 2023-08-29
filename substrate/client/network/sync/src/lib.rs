@@ -63,7 +63,7 @@ use sc_network_common::{
 			BlockAnnounce, BlockAnnouncesHandshake, BlockAttributes, BlockData, BlockRequest,
 			BlockResponse, Direction, FromBlock,
 		},
-		warp::{EncodedProof, WarpProofRequest, WarpSyncParams, WarpSyncPhase, WarpSyncProgress},
+		warp::{EncodedProof, WarpProofRequest, WarpSyncConfig, WarpSyncPhase, WarpSyncProgress},
 		BadPeer, ChainSync as ChainSyncT, ImportResult, Metrics, OnBlockData, OnBlockJustification,
 		OnStateData, OpaqueBlockRequest, OpaqueBlockResponse, OpaqueStateRequest,
 		OpaqueStateResponse, PeerInfo, PeerRequest, PollBlockAnnounceValidation, SyncMode,
@@ -324,10 +324,12 @@ pub struct ChainSync<B: BlockT, Client> {
 	state_sync: Option<StateSync<B, Client>>,
 	/// Warp sync in progress, if any.
 	warp_sync: Option<WarpSync<B, Client>>,
-	/// Warp sync params.
+	/// Warp sync configuration.
 	///
 	/// Will be `None` after `self.warp_sync` is `Some(_)`.
-	warp_sync_params: Option<WarpSyncParams<B>>,
+	warp_sync_config: Option<WarpSyncConfig<B>>,
+	/// A temporary storage for warp sync target block until warp sync is initialized.
+	warp_sync_target_block_header: Option<B::Header>,
 	/// Enable importing existing blocks. This is used used after the state download to
 	/// catch up to the latest state while re-importing blocks.
 	import_existing: bool,
@@ -646,8 +648,13 @@ where
 					if self.peers.len() >= MIN_PEERS_TO_START_WARP_SYNC && self.warp_sync.is_none()
 					{
 						log::debug!(target: "sync", "Starting warp state sync.");
-						if let Some(params) = self.warp_sync_params.take() {
-							self.warp_sync = Some(WarpSync::new(self.client.clone(), params));
+
+						if let Some(config) = self.warp_sync_config.take() {
+							let mut warp_sync = WarpSync::new(self.client.clone(), config);
+							if let Some(header) = self.warp_sync_target_block_header.take() {
+								warp_sync.set_target_block(header);
+							}
+							self.warp_sync = Some(warp_sync);
 						}
 					}
 				}
@@ -1323,12 +1330,6 @@ where
 		&mut self,
 		cx: &mut std::task::Context,
 	) -> Poll<PollBlockAnnounceValidation<B::Header>> {
-		// Should be called before `process_outbound_requests` to ensure
-		// that a potential target block is directly leading to requests.
-		if let Some(warp_sync) = &mut self.warp_sync {
-			let _ = warp_sync.poll(cx);
-		}
-
 		self.process_outbound_requests();
 
 		while let Poll::Ready(result) = self.poll_pending_responses(cx) {
@@ -1398,7 +1399,7 @@ where
 		block_announce_validator: Box<dyn BlockAnnounceValidator<B> + Send>,
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
-		warp_sync_params: Option<WarpSyncParams<B>>,
+		warp_sync_config: Option<WarpSyncConfig<B>>,
 		metrics_registry: Option<&Registry>,
 		network_service: service::network::NetworkServiceHandle,
 		import_queue: Box<dyn ImportQueueService<B>>,
@@ -1443,7 +1444,8 @@ where
 			network_service,
 			block_request_protocol_name,
 			state_request_protocol_name,
-			warp_sync_params,
+			warp_sync_config,
+			warp_sync_target_block_header: None,
 			warp_sync_protocol_name,
 			block_announce_protocol_name: block_announce_config
 				.notifications_protocol
@@ -1894,6 +1896,15 @@ where
 				}
 			})
 			.collect()
+	}
+
+	/// Set warp sync target block externally in case we skip warp proof downloading.
+	pub fn set_warp_sync_target_block(&mut self, header: B::Header) {
+		if let Some(ref mut warp_sync) = self.warp_sync {
+			warp_sync.set_target_block(header);
+		} else {
+			self.warp_sync_target_block_header = Some(header);
+		}
 	}
 
 	/// Generate block request for downloading of the target block body during warp sync.

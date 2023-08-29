@@ -25,7 +25,7 @@ use crate::{
 };
 
 use codec::{Decode, Encode};
-use futures::{FutureExt, StreamExt};
+use futures::{channel::oneshot, FutureExt, StreamExt};
 use futures_timer::Delay;
 use libp2p::PeerId;
 use prometheus_endpoint::{
@@ -245,6 +245,9 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	/// The `PeerId`'s of all boot nodes.
 	boot_node_ids: HashSet<PeerId>,
 
+	/// A channel to get target block header if we skip over proofs downloading during warp sync.
+	warp_sync_target_block_header_rx: Option<oneshot::Receiver<<B as BlockT>::Header>>,
+
 	/// Protocol name used for block announcements
 	block_announce_protocol_name: ProtocolName,
 
@@ -346,6 +349,14 @@ where
 			total.saturating_sub(net_config.network_config.default_peers_set_num_full) as usize
 		};
 
+		// Split warp sync params into warp sync config and a channel to retreive target block
+		// header.
+		let (warp_sync_config, warp_sync_target_block_header_rx) =
+			warp_sync_params.map_or((None, None), |p| {
+				let (config, target_block_rx) = p.split();
+				(Some(config), target_block_rx)
+			});
+
 		let (chain_sync, block_announce_config) = ChainSync::new(
 			mode,
 			client.clone(),
@@ -355,7 +366,7 @@ where
 			block_announce_validator,
 			max_parallel_downloads,
 			max_blocks_per_request,
-			warp_sync_params,
+			warp_sync_config,
 			metrics_registry,
 			network_service.clone(),
 			import_queue,
@@ -396,6 +407,7 @@ where
 				genesis_hash,
 				important_peers,
 				default_peers_set_no_slot_connected_peers: HashSet::new(),
+				warp_sync_target_block_header_rx,
 				boot_node_ids,
 				default_peers_set_no_slot_peers,
 				default_peers_set_num_full,
@@ -767,6 +779,25 @@ where
 						peer.sink = sink;
 					}
 				},
+			}
+		}
+
+		// Retreive warp sync target block header just before polling `ChainSync`
+		// to make progress as soon as we receive it.
+		if let Some(ref mut target_block_header_rx) = self.warp_sync_target_block_header_rx {
+			match target_block_header_rx.poll_unpin(cx) {
+				Poll::Ready(Ok(target)) => {
+					self.chain_sync.set_warp_sync_target_block(target);
+					self.warp_sync_target_block_header_rx = None;
+				},
+				Poll::Ready(Err(err)) => {
+					log::error!(
+						target: "sync",
+						"Failed to get target block for warp sync. Error: {err:?}",
+					);
+					self.warp_sync_target_block_header_rx = None;
+				},
+				Poll::Pending => {},
 			}
 		}
 
