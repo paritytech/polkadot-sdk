@@ -29,6 +29,8 @@ use frame_support::{
 	parameter_types,
 	traits::{EitherOf, EitherOfDiverse, MapSuccess, OriginTrait, TryWithMorphedArg},
 };
+#[cfg(feature = "runtime-benchmarks")]
+use frame_system::EnsureRoot;
 use frame_system::{EnsureNever, EnsureRootWithSuccess};
 pub use origins::{
 	pallet_origins as pallet_fellowship_origins, Architects, EnsureCanPromoteTo, EnsureCanRetainAt,
