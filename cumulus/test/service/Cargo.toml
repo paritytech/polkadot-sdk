@@ -3,6 +3,7 @@ name = "cumulus-test-service"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
+publish = false
 
 [[bin]]
 name = "test-parachain"
