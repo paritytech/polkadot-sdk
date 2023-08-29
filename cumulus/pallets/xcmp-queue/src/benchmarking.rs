@@ -94,8 +94,7 @@ mod benchmarks {
 	fn split_concatenated_xcm() {
 		let max_downward_message_size = MaxXcmpMessageLenOf::<T>::get() as usize;
 
-		// A nested XCM of length 100:
-		// NOTE: If this fails because of a custom XCM decoder then you need to reduce it.
+		// Assumes `xcm::MAX_INSTRUCTIONS_TO_DECODE`: 100
 		let mut xcm = Xcm::<T>(vec![ClearOrigin; 100]);
 
 		for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {

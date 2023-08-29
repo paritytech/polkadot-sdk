@@ -54,7 +54,7 @@ pub use xcm::{
 	DoubleEncoded,
 };
 pub use xcm_emulator::{
-	assert_expected_events, bx, cumulus_pallet_dmp_queue, helpers::weight_within_threshold,
+	assert_expected_events, bx, helpers::weight_within_threshold,
 	AccountId32Junction, Chain, ParaId, Parachain as Para, RelayChain as Relay, Test, TestArgs,
 	TestContext, TestExt, TestExternalities,
 };

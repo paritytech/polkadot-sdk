@@ -54,7 +54,6 @@ pub use sp_trie::StorageProof;
 use frame_support::traits::ExecuteOverweightError;
 
 //Cumulus
-pub use cumulus_pallet_dmp_queue;
 pub use cumulus_pallet_parachain_system::{self, Pallet as ParachainSystemPallet};
 pub use cumulus_pallet_xcmp_queue::{Config as XcmpQueueConfig, Pallet as XcmpQueuePallet};
 pub use cumulus_primitives_core::{
