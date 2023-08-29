@@ -204,8 +204,9 @@ fn testnet_genesis(
 }
 
 #[cfg(test)]
-/// RuntimeGenesisConfig-based (legacy) parachain-template configurations. Used for testing ChainSpecs against the JSON-based
-/// genesis configs. Entire file shall be removed once native runtime is removed.
+/// RuntimeGenesisConfig-based (legacy) parachain-template configurations. Used for testing
+/// ChainSpecs against the JSON-based genesis configs. Entire file shall be removed once native
+/// runtime is removed.
 mod legacy {
 	use super::*;
 
@@ -369,8 +370,8 @@ mod legacy {
 					})
 					.collect(),
 			},
-			// no need to pass anything to aura, in fact it will panic if we do. Session will take care
-			// of this.
+			// no need to pass anything to aura, in fact it will panic if we do. Session will take
+			// care of this.
 			aura: Default::default(),
 			aura_ext: Default::default(),
 			parachain_system: Default::default(),

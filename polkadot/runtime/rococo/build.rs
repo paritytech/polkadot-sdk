@@ -17,7 +17,8 @@
 use std::env;
 use substrate_wasm_builder::WasmBuilder;
 
-// note: needs to be synced with rococo-runtime-constants::time hard-coded string literal in prod_or_fast macro.
+// note: needs to be synced with rococo-runtime-constants::time hard-coded string literal in
+// prod_or_fast macro.
 const ROCOCO_EPOCH_DURATION_ENV: &str = "ROCOCO_EPOCH_DURATION";
 const ROCOCO_FAST_RUNTIME_ENV: &str = "ROCOCO_FAST_RUNTIME";
 

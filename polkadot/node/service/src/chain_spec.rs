@@ -1812,8 +1812,8 @@ mod json_vs_legacy_tests {
 		assert_eq!(j1, j2);
 	}
 
-	// since we changed how EpochDurationInBlocks is handleded (legacy: in state storage vs new: feature-based const),
-	// and since we have 3 versions of code, we need to do some adjustments.
+	// since we changed how EpochDurationInBlocks is handleded (legacy: in state storage vs new:
+	// feature-based const), and since we have 3 versions of code, we need to do some adjustments.
 	fn adjust_rococo_output(input1: String, input2: String) -> (String, String) {
 		let mut json1 = serde_json::from_str::<serde_json::Map<_, _>>(&input1).unwrap();
 		let mut json2 = serde_json::from_str::<serde_json::Map<_, _>>(&input2).unwrap();
