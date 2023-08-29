@@ -63,8 +63,8 @@ pub(crate) struct RequestResultCache {
 	disputes: LruMap<Hash, Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>>,
 	unapplied_slashes:
 		LruMap<Hash, Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>>,
-	key_ownership_proof: LruMap<(Hash, ValidatorId), Option<vstaging::slashing::OpaqueKeyOwnershipProof>>
-		LruCache<(Hash, ValidatorId), Option<vstaging::slashing::OpaqueKeyOwnershipProof>>,
+	key_ownership_proof:
+		LruMap<(Hash, ValidatorId), Option<vstaging::slashing::OpaqueKeyOwnershipProof>>,
 	minimum_backing_votes: LruMap<SessionIndex, u32>,
 
 	staging_para_backing_state: LruMap<(Hash, ParaId), Option<vstaging::BackingState>>,
@@ -445,7 +445,7 @@ impl RequestResultCache {
 		session_index: SessionIndex,
 		minimum_backing_votes: u32,
 	) {
-		self.minimum_backing_votes.put(session_index, minimum_backing_votes);
+		self.minimum_backing_votes.insert(session_index, minimum_backing_votes);
 	}
 
 	pub(crate) fn staging_para_backing_state(
