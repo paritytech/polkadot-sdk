@@ -6,7 +6,7 @@ homepage = "https://substrate.io"
 license = "Apache-2.0"
 name = "pallet-collator-selection"
 readme = "README.md"
-repository = "https://github.com/paritytech/cumulus/"
+repository.workspace = true
 version = "3.0.0"
 
 [package.metadata.docs.rs]

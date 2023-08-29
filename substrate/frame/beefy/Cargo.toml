@@ -4,7 +4,7 @@ version = "4.0.0-dev"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 license = "Apache-2.0"
-repository = "https://github.com/paritytech/substrate"
+repository.workspace = true
 description = "BEEFY FRAME pallet"
 homepage = "https://substrate.io"
 
