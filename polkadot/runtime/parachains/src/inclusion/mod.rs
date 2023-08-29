@@ -416,10 +416,10 @@ enum AcceptanceCheckErr<BlockNumber> {
 	OutboundHrmp(hrmp::OutboundHrmpAcceptanceErr),
 }
 
-/// An error returned by [`check_upward_messages`] that indicates a violation of one of acceptance
-/// criteria rules.
+/// An error returned by [`Pallet::check_upward_messages`] that indicates a violation of one of
+/// acceptance criteria rules.
 #[cfg_attr(test, derive(PartialEq))]
-pub enum UmpAcceptanceCheckErr {
+pub(crate) enum UmpAcceptanceCheckErr {
 	/// The maximal number of messages that can be submitted in one batch was exceeded.
 	MoreMessagesThanPermitted { sent: u32, permitted: u32 },
 	/// The maximal size of a single message was exceeded.

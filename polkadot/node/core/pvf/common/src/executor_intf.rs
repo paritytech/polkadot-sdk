@@ -141,7 +141,7 @@ impl Executor {
 	/// # Safety
 	///
 	/// The caller must ensure that the compiled artifact passed here was:
-	///   1) produced by [`prepare`],
+	///   1) produced by `prepare`,
 	///   2) was not modified,
 	///
 	/// Failure to adhere to these requirements might lead to crashes and arbitrary code execution.
@@ -171,7 +171,7 @@ impl Executor {
 	/// # Safety
 	///
 	/// The caller must ensure that the compiled artifact passed here was:
-	///   1) produced by [`prepare`],
+	///   1) produced by `prepare`,
 	///   2) was not modified,
 	///
 	/// Failure to adhere to these requirements might lead to crashes and arbitrary code execution.
