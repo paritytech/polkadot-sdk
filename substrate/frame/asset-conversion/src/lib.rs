@@ -105,7 +105,7 @@ pub mod pallet {
 		},
 		BoundedBTreeSet, PalletId,
 	};
-	use sp_arithmetic::Permill;
+	use sp_arithmetic::{Percent, Permill};
 	use sp_runtime::{
 		traits::{IntegerSquareRoot, One, Zero},
 		Saturating,
@@ -173,7 +173,7 @@ pub mod pallet {
 
 		/// A % the liquidity providers will take of every swap. Represents 10ths of a percent.
 		#[pallet::constant]
-		type LPFee: Get<u32>;
+		type LPFee: Get<Percent>;
 
 		/// A one-time fee to setup the pool.
 		#[pallet::constant]
@@ -1124,18 +1124,16 @@ pub mod pallet {
 				return Err(Error::<T>::ZeroLiquidity.into())
 			}
 
-			let amount_in_with_fee = amount_in
-				.checked_mul(&(T::HigherPrecisionBalance::from(1000u32) - (T::LPFee::get().into())))
-				.ok_or(Error::<T>::Overflow)?;
+			let fee_mult = T::HigherPrecisionBalance::from(T::LPFee::get() * 1u32);
+
+			let amount_in_with_fee =
+				amount_in.checked_mul(&fee_mult).ok_or(Error::<T>::Overflow)?;
 
 			let numerator =
 				amount_in_with_fee.checked_mul(&reserve_out).ok_or(Error::<T>::Overflow)?;
 
-			let denominator = reserve_in
-				.checked_mul(&1000u32.into())
-				.ok_or(Error::<T>::Overflow)?
-				.checked_add(&amount_in_with_fee)
-				.ok_or(Error::<T>::Overflow)?;
+			let denominator =
+				reserve_in.checked_add(&amount_in_with_fee).ok_or(Error::<T>::Overflow)?;
 
 			let result = numerator.checked_div(&denominator).ok_or(Error::<T>::Overflow)?;
 
@@ -1163,16 +1161,14 @@ pub mod pallet {
 				Err(Error::<T>::AmountOutTooHigh.into())?
 			}
 
-			let numerator = reserve_in
-				.checked_mul(&amount_out)
-				.ok_or(Error::<T>::Overflow)?
-				.checked_mul(&1000u32.into())
-				.ok_or(Error::<T>::Overflow)?;
+			let numerator = reserve_in.checked_mul(&amount_out).ok_or(Error::<T>::Overflow)?;
+
+			let fee_mult = T::HigherPrecisionBalance::from(T::LPFee::get() * 1u32);
 
 			let denominator = reserve_out
 				.checked_sub(&amount_out)
 				.ok_or(Error::<T>::Overflow)?
-				.checked_mul(&(T::HigherPrecisionBalance::from(1000u32) - T::LPFee::get().into()))
+				.checked_mul(&fee_mult)
 				.ok_or(Error::<T>::Overflow)?;
 
 			let result = numerator

@@ -28,7 +28,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::{EnsureSigned, EnsureSignedBy};
-use sp_arithmetic::Permill;
+use sp_arithmetic::{PerThing, Percent, Permill, Rounding};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
@@ -143,6 +143,7 @@ parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
 	pub storage AllowMultiAssetPools: bool = true;
 	pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0); // should be non-zero if AllowMultiAssetPools is true, otherwise can be zero
+	pub LiquidityPoolFee: Percent = Percent::from_rational_with_rounding(997u32, 1000u32, Rounding::NearestPrefDown).unwrap(); // 0.3%
 }
 
 ord_parameter_types! {
@@ -159,7 +160,7 @@ impl Config for Test {
 	type PoolAssets = PoolAssets;
 	type PalletId = AssetConversionPalletId;
 	type WeightInfo = ();
-	type LPFee = ConstU32<3>; // means 0.3%
+	type LPFee = LiquidityPoolFee;
 	type PoolSetupFee = ConstU128<100>; // should be more or equal to the existential deposit
 	type PoolSetupFeeReceiver = AssetConversionOrigin;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
