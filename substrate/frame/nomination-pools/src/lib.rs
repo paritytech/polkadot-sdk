@@ -3133,7 +3133,13 @@ impl<T: Config> Pallet<T> {
 			// the sum of the pending rewards must be less than the leftover balance. Since the
 			// reward math rounds down, we might accumulate some dust here.
 			let pending_rewards_lt_leftover_bal = RewardPool::<T>::current_balance(id) >=
-				pools_members_pending_rewards.get(&id).copied().unwrap_or_default();
+				pools_members_pending_rewards
+					.get(&id)
+					.copied()
+					.unwrap_or_default()
+					// allow for some tiny tolerance here to account for existential deposit
+					// increases which may only be handled lazily.
+					.saturating_sub(T::Currency::minimum_balance());
 			if !pending_rewards_lt_leftover_bal {
 				log::warn!(
 					"pool {:?}, sum pending rewards = {:?}, remaining balance = {:?}",
