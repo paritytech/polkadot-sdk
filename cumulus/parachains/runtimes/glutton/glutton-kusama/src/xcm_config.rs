@@ -24,7 +24,7 @@ use frame_support::{
 };
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AllowExplicitUnpaidExecutionFrom, FixedWeightBounds, ParentAsSuperuser, ParentIsPreset,
+	AllowExplicitUnpaidExecutionFrom, FixedWeightBounds, FrameTransactionalProcessor, ParentAsSuperuser, ParentIsPreset,
 	SovereignSignedViaLocation,
 };
 
@@ -84,6 +84,7 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {

@@ -271,6 +271,19 @@ impl<
 	}
 }
 
+impl<
+		AccountId,
+		FeeCharger: ChargeWeightInFungibles<AccountId, ConcreteAssets>,
+		Matcher: MatchesFungibles<ConcreteAssets::AssetId, ConcreteAssets::Balance>,
+		ConcreteAssets: fungibles::Mutate<AccountId> + fungibles::Balanced<AccountId>,
+		HandleRefund: TakeRevenue,
+	> Clone for TakeFirstAssetTrader<AccountId, FeeCharger, Matcher, ConcreteAssets, HandleRefund>
+{
+	fn clone(&self) -> Self {
+		Self(self.0.clone(), PhantomData)
+	}
+}
+
 /// XCM fee depositor to which we implement the TakeRevenue trait
 /// It receives a Transact implemented argument, a 32 byte convertible acocuntId, and the fee
 /// receiver account FungiblesMutateAdapter should be identical to that implemented by WithdrawAsset
