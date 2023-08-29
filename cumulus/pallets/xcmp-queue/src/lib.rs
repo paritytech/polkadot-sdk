@@ -513,7 +513,7 @@ impl<T: Config> Pallet<T> {
 
 		let max_message_size =
 			T::ChannelInfo::get_channel_max(recipient).ok_or(MessageSendError::NoChannel)?;
-		let format_size = format.encode().len();
+		let format_size = format.encoded_size();
 		if data.len() + format_size > max_message_size {
 			return Err(MessageSendError::TooBig)
 		}
