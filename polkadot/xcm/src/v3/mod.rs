@@ -22,14 +22,16 @@ use super::v2::{
 };
 use crate::{DoubleEncoded, GetWeight};
 use alloc::{vec, vec::Vec};
-use bounded_collections::{parameter_types, BoundedVec};
+use bounded_collections::{parameter_types, BoundedVec, ConstU32};
 use core::{
 	convert::{TryFrom, TryInto},
 	fmt::Debug,
 	result,
 };
 use derivative::Derivative;
-use parity_scale_codec::{self, Decode, Encode, MaxEncodedLen};
+use parity_scale_codec::{
+	self, Decode, Encode, Error as CodecError, Input as CodecInput, MaxEncodedLen,
+};
 use scale_info::TypeInfo;
 
 mod junction;
@@ -60,12 +62,22 @@ pub const VERSION: super::Version = 3;
 /// An identifier for a query.
 pub type QueryId = u64;
 
-#[derive(Derivative, Default, Encode, Decode, TypeInfo)]
+// TODO (v4): Use `BoundedVec` instead of `Vec`
+#[derive(Derivative, Default, Encode, TypeInfo)]
 #[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
 #[codec(encode_bound())]
-#[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
+
+const MAX_INSTRUCTIONS_TO_DECODE: u32 = 100;
+
+impl<Call> Decode for Xcm<Call> {
+	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
+		let bounded_instructions =
+			BoundedVec::<Instruction<Call>, ConstU32<MAX_INSTRUCTIONS_TO_DECODE>>::decode(input)?;
+		Ok(Self(bounded_instructions.into_inner()))
+	}
+}
 
 impl<Call> Xcm<Call> {
 	/// Create an empty instance.
@@ -1425,5 +1437,18 @@ mod tests {
 		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
 		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
 		assert_eq!(new_xcm, xcm);
+	}
+
+	#[test]
+	fn decoding_fails_when_too_many_instructions() {
+		let small_xcm = Xcm::<()>(vec![ClearOrigin; 20]);
+		let bytes = small_xcm.encode();
+		let decoded_xcm = Xcm::<()>::decode(&mut &bytes[..]);
+		assert!(matches!(decoded_xcm, Ok(_)));
+
+		let big_xcm = Xcm::<()>(vec![ClearOrigin; 64_000]);
+		let bytes = big_xcm.encode();
+		let decoded_xcm = Xcm::<()>::decode(&mut &bytes[..]);
+		assert!(matches!(decoded_xcm, Err(CodecError { .. })));
 	}
 }

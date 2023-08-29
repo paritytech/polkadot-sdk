@@ -1,11 +1,11 @@
 [package]
 name = "cumulus-pallet-session-benchmarking"
 version = "3.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/cumulus/"
+repository.workspace = true
 description = "FRAME sessions pallet benchmarking"
 readme = "README.md"
 
@@ -27,6 +27,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 std = [
 	"frame-benchmarking/std",
