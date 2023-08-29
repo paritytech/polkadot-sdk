@@ -165,7 +165,7 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
-	type TransactionalProcessor = ();
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 pub type XcmRouter = (
