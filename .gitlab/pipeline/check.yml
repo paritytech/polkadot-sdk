@@ -132,6 +132,10 @@ check-runtime-migration-polkadot:
 
 check-runtime-migration-kusama:
   stage: check
+  # DAG
+  needs:
+    - job: check-runtime-migration-polkadot
+      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
@@ -152,6 +156,10 @@ check-runtime-migration-westend:
 
 check-runtime-migration-rococo:
   stage: check
+  # DAG
+  needs:
+    - job: check-runtime-migration-westend
+      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
