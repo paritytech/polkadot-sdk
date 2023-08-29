@@ -237,7 +237,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type XcmpQueue = ();
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type XcmpQueue = frame_support::TransformOrigin<
+	type XcmpQueue = frame_support::traits::TransformOrigin<
 		crate::MessageQueue,
 		AggregateMessageOrigin,
 		cumulus_primitives_core::ParaId,
