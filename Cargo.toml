@@ -461,6 +461,8 @@ panic = "unwind"
 
 [profile.production]
 inherits = "release"
+lto = true
+codegen-units = 1
 
 [profile.testnet]
 inherits = "release"
