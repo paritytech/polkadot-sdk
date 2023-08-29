@@ -2660,7 +2660,8 @@ pub mod pallet {
 			#[pallet::compact] max_transfer: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_top_up_reward_deficit(who, pool_id, max_transfer)
+			let caller_balance = T::Currency::free_balance(&who);
+			Self::do_top_up_reward_deficit(who, pool_id, max_transfer.min(caller_balance))
 		}
 	}
 
