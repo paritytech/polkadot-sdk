@@ -230,7 +230,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config + pallet_xcm::Config {
 		/// The time implementation used to supply timestamps to contracts through `seal_now`.
 		type Time: Time;
 

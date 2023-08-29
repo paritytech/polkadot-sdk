@@ -48,6 +48,10 @@ sp-io = { path = "../../primitives/io", default-features = false}
 sp-runtime = { path = "../../primitives/runtime", default-features = false}
 sp-std = { path = "../../primitives/std", default-features = false}
 
+xcm = { path = "../../../polkadot/xcm", default-features = false}
+xcm-executor = { path = "../../../polkadot/xcm/xcm-executor", default-features = false}
+pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false}
+
 [dev-dependencies]
 array-bytes = "6.1"
 assert_matches = "1"
@@ -90,6 +94,9 @@ std = [
 	"sp-std/std",
 	"wasm-instrument/std",
 	"wasmi/std",
+	"pallet-xcm/std",
+	"xcm/std",
+	"xcm-executor/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

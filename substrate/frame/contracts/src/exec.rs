@@ -50,6 +50,7 @@ use sp_runtime::{
 	DispatchError,
 };
 use sp_std::{fmt::Debug, marker::PhantomData, mem, prelude::*, vec::Vec};
+use xcm::VersionedXcm;
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type MomentOf<T> = <<T as Config>::Time as Time>::Moment;
@@ -61,6 +62,8 @@ pub type TopicOf<T> = <T as frame_system::Config>::Hash;
 
 /// Type for variable sized storage key. Used for transparent hashing.
 type VarSizedKey<T> = BoundedVec<u8, <T as Config>::MaxStorageKeyLen>;
+
+pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 /// Combined key type for both fixed and variable sized storage keys.
 pub enum Key<T: Config> {
@@ -346,6 +349,13 @@ pub trait Ext: sealing::Sealed {
 		&mut self,
 		code_hash: &CodeHash<Self::T>,
 	) -> Result<(), DispatchError>;
+
+	/// Execute an XCM message locally, using the contract's address as the origin.
+	fn xcm_execute(
+		&mut self,
+		message: VersionedXcm<CallOf<Self::T>>,
+		max_weight: Weight,
+	) -> DispatchResultWithPostInfo;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -1445,6 +1455,15 @@ where
 			RawOrigin::Signed(self.address().clone()).into();
 		origin.add_filter(T::CallFilter::contains);
 		call.dispatch(origin)
+	}
+
+	fn xcm_execute(
+		&mut self,
+		message: VersionedXcm<CallOf<T>>,
+		max_weight: Weight,
+	) -> DispatchResultWithPostInfo {
+		let origin = RawOrigin::Signed(self.address().clone()).into();
+		pallet_xcm::Pallet::<T>::execute(origin, Box::new(message), max_weight)
 	}
 
 	fn ecdsa_recover(&self, signature: &[u8; 65], message_hash: &[u8; 32]) -> Result<[u8; 33], ()> {

@@ -113,6 +113,8 @@ pub enum ReturnCode {
 	EcdsaRecoverFailed = 11,
 	/// sr25519 signature verification failed.
 	Sr25519VerifyFailed = 12,
+	/// The `seal_xcm_execute` was executed but returned an error.
+	XcmExcuteFailed = 13,
 }
 
 impl From<ExecReturnValue> for ReturnCode {
@@ -260,6 +262,8 @@ pub enum RuntimeCosts {
 	ChainExtension(Weight),
 	/// Weight charged for calling into the runtime.
 	CallRuntime(Weight),
+	/// Weight charged for Executing an XCM message.
+	XcmExecute(Weight),
 	/// Weight of calling `seal_set_code_hash`
 	SetCodeHash,
 	/// Weight of calling `ecdsa_to_eth_address`
@@ -350,6 +354,7 @@ impl RuntimeCosts {
 				.saturating_add(s.sr25519_verify_per_byte.saturating_mul(len.into())),
 			ChainExtension(weight) => weight,
 			CallRuntime(weight) => weight,
+			XcmExecute(weight) => weight,
 			SetCodeHash => s.set_code_hash,
 			EcdsaToEthAddress => s.ecdsa_to_eth_address,
 			ReentrantCount => s.reentrance_count,
@@ -2622,6 +2627,43 @@ pub mod env {
 					ctx.ext.append_debug_buffer(e.into());
 				};
 				Ok(ReturnCode::CallRuntimeFailed)
+			},
+		}
+	}
+
+	fn xcm_execute(
+		ctx: _,
+		memory: _,
+		call_ptr: u32,
+		call_len: u32,
+		max_weight_ptr: u32,
+	) -> Result<ReturnCode, TrapReason> {
+		use crate::exec::CallOf;
+		use frame_support::dispatch::{extract_actual_weight, DispatchInfo};
+		use pallet_xcm::WeightInfo;
+		use xcm::VersionedXcm;
+
+		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
+		let message: VersionedXcm<CallOf<E::T>> =
+			ctx.read_sandbox_memory_as_unbounded(memory, call_ptr, call_len)?;
+		let max_weight: Weight = ctx.read_sandbox_memory_as(memory, max_weight_ptr)?;
+
+		let weight = max_weight.saturating_add(<E::T as pallet_xcm::Config>::WeightInfo::execute());
+		let dispatch_info = DispatchInfo { weight, ..Default::default() };
+
+		let charged = ctx.charge_gas(RuntimeCosts::XcmExecute(weight))?;
+		let result = ctx.ext.xcm_execute(message, max_weight);
+		let actual_weight = extract_actual_weight(&result, &dispatch_info);
+		ctx.adjust_gas(charged, RuntimeCosts::XcmExecute(actual_weight));
+
+		match result {
+			Ok(_) => Ok(ReturnCode::Success),
+			Err(e) => {
+				if ctx.ext.append_debug_buffer("") {
+					ctx.ext.append_debug_buffer("seal0::xcm_execute failed with: ");
+					ctx.ext.append_debug_buffer(e.into());
+				};
+				Ok(ReturnCode::XcmExcuteFailed)
 			},
 		}
 	}
