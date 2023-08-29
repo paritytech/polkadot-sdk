@@ -1992,7 +1992,7 @@ pub mod fuzzing {
 		A = b'a',
 		B = b'b',
 		C = b'c',
-		D = b'd',  // This can be read as a multiple byte compact length.
+		D = b'd',       // This can be read as a multiple byte compact length.
 		EasyBug = 20u8, // value compact len.
 	}
 
