@@ -4,7 +4,7 @@ description = "Examples of xcm-simulator usage."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version.workspace = true
+version = "1.0.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
@@ -42,6 +42,7 @@ runtime-benchmarks = [
 	"pallet-xcm/runtime-benchmarks",
 	"polkadot-parachain/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]

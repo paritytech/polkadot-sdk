@@ -3,7 +3,7 @@ name = "test-parachain-undying"
 description = "Test parachain for zombienet integration tests"
 build = "build.rs"
 publish = false
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -24,4 +24,4 @@ substrate-wasm-builder = { path = "../../../../substrate/utils/wasm-builder" }
 
 [features]
 default = [ "std" ]
-std = [ "parachain/std", "sp-std/std" ]
+std = [ "parachain/std", "sp-io/std", "sp-std/std" ]
