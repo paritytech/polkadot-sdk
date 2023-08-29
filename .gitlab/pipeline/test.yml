@@ -196,6 +196,8 @@ test-node-metrics:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
+    # Build the required workers.
+    - cargo build --bin polkadot-execute-worker --bin polkadot-prepare-worker --profile testnet --verbose --locked
     - mkdir -p artifacts
     - time cargo test --profile testnet
       --locked
