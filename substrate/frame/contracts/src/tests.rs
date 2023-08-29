@@ -5914,8 +5914,6 @@ fn balance_api_returns_free_balance() {
 		.unwrap()
 		.account_id;
 
-		// Check that the BOB contract has been instantiated.
-		get_contract(&addr);
 
 		let value = 0;
 		// Call BOB which makes it call the balance runtime API.
