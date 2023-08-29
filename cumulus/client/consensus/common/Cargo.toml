@@ -2,8 +2,8 @@
 name = "cumulus-client-consensus-common"
 description = "Cumulus specific common consensus implementations"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 async-trait = "0.1.73"

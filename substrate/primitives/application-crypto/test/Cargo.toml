@@ -1,8 +1,8 @@
 [package]
 name = "sp-application-crypto-test"
 version = "2.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 description = "Integration tests for application-crypto"
 license = "Apache-2.0"
 publish = false

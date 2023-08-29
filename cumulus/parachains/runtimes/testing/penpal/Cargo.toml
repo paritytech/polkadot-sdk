@@ -6,7 +6,7 @@ description = "A parachain for communication back and forth with XCM of assets a
 license = "Unlicense"
 homepage = "https://substrate.io"
 repository.workspace = true
-edition = "2021"
+edition.workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]

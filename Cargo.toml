@@ -1,7 +1,7 @@
 [workspace.package]
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
-repository.workspace = true
+repository = "https://github.com/paritytech/polkadot-sdk.git"
 license = "GPL-3.0-only"
 
 [workspace]

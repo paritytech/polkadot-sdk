@@ -6,7 +6,7 @@ description = "A new Cumulus FRAME-based Substrate Node, ready for hacking toget
 license = "Unlicense"
 homepage = "https://substrate.io"
 repository.workspace = true
-edition = "2021"
+edition.workspace = true
 build = "build.rs"
 
 [dependencies]

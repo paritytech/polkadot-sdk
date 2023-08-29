@@ -1,8 +1,8 @@
 [package]
 name = "integration-tests-common"
 version = "1.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 description = "Common resources for integration testing with xcm-emulator"
 
 [dependencies]

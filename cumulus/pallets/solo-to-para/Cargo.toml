@@ -1,8 +1,8 @@
 [package]
 name = "cumulus-pallet-solo-to-para"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 description = "Adds functionality to migrate from a Solo to a Parachain"
 
 [dependencies]
