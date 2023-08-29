@@ -18,7 +18,7 @@ use XcmpMessageFormat::*;
 
 use cumulus_primitives_core::XcmpMessageHandler;
 use frame_support::{assert_noop, assert_ok};
-use mock::{new_test_ext, RuntimeOrigin as Origin, Test, XcmpQueue};
+use mock::{new_test_ext, EnqueueToLocalStorage, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::BadOrigin;
 use std::iter::once;
 
@@ -86,6 +86,60 @@ fn xcm_enqueueing_multiple_times_works() {
 				.map(|xcm| (1000.into(), xcm))
 				.cycle()
 				.take(100)
+				.collect::<Vec<_>>(),
+		);
+	})
+}
+
+/// First enqueue 10 good, 1 bad and then 10 good XCMs.
+///
+/// It should only process the first 10 good though.
+#[test]
+#[cfg(not(debug_assertions))]
+fn xcm_enqueueing_broken_xcm_works() {
+	new_test_ext().execute_with(|| {
+		let mut encoded_xcms = vec![];
+		for _ in 0..10 {
+			let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
+			encoded_xcms.push(xcm.encode());
+		}
+		let mut good = ConcatenatedVersionedXcm.encode();
+		good.extend(encoded_xcms.iter().flatten());
+
+		let mut bad = ConcatenatedVersionedXcm.encode();
+		bad.extend(vec![0u8].into_iter());
+
+		// Of we enqueue them in multiple pages, then its fine.
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, good.as_slice())), Weight::MAX);
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, bad.as_slice())), Weight::MAX);
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, good.as_slice())), Weight::MAX);
+		assert_eq!(20, EnqueuedMessages::get().len());
+
+		assert_eq!(
+			EnqueuedMessages::get(),
+			encoded_xcms
+				.clone()
+				.into_iter()
+				.map(|xcm| (1000.into(), xcm))
+				.cycle()
+				.take(20)
+				.collect::<Vec<_>>(),
+		);
+		EnqueuedMessages::set(&vec![]);
+
+		// But if we do it all in one page, then it only uses the first 10:
+		XcmpQueue::handle_xcmp_messages(
+			vec![(1000.into(), 1, good.as_slice()), (1000.into(), 1, bad.as_slice())].into_iter(),
+			Weight::MAX,
+		);
+		assert_eq!(10, EnqueuedMessages::get().len());
+		assert_eq!(
+			EnqueuedMessages::get(),
+			encoded_xcms
+				.into_iter()
+				.map(|xcm| (1000.into(), xcm))
+				.cycle()
+				.take(10)
 				.collect::<Vec<_>>(),
 		);
 	})
@@ -183,7 +237,55 @@ fn suspend_and_resume_xcm_execution_work() {
 	});
 }
 
-// FAIL-CI test back-pressure
+#[test]
+#[cfg(not(debug_assertions))]
+fn xcm_enqueueing_backpressure_works() {
+	let para: ParaId = 1000.into();
+	new_test_ext().execute_with(|| {
+		assert_ok!(XcmpQueue::update_resume_threshold(Origin::root(), 32));
+		assert_ok!(XcmpQueue::update_suspend_threshold(Origin::root(), 64));
+		assert_ok!(XcmpQueue::update_drop_threshold(Origin::root(), 128));
+
+		let mut encoded_xcms = vec![];
+		for _ in 0..63 {
+			let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
+			encoded_xcms.push(xcm.encode());
+		}
+		let mut data = ConcatenatedVersionedXcm.encode();
+		data.extend(encoded_xcms.iter().flatten());
+
+		XcmpQueue::handle_xcmp_messages(once((para, 1, data.as_slice())), Weight::MAX);
+
+		assert_eq!(
+			EnqueuedMessages::get(),
+			encoded_xcms.clone().into_iter().map(|xcm| (para, xcm)).collect::<Vec<_>>(),
+		);
+		// Not yet suspended:
+		assert!(InboundXcmpSuspended::<Test>::get().is_empty());
+		// Enqueueing one more will suspend it:
+		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin])).encode();
+		let small = [ConcatenatedVersionedXcm.encode(), xcm].concat();
+
+		XcmpQueue::handle_xcmp_messages(once((para, 1, small.as_slice())), Weight::MAX);
+		// Suspended:
+		assert_eq!(InboundXcmpSuspended::<Test>::get().iter().collect::<Vec<_>>(), vec![&para]);
+
+		// Now enqueueing many more will only work until the drop threshold:
+		XcmpQueue::handle_xcmp_messages(once((para, 1, data.as_slice())), Weight::MAX);
+		XcmpQueue::handle_xcmp_messages(once((para, 1, data.as_slice())), Weight::MAX);
+		assert_eq!(EnqueuedMessages::get().len(), 128,);
+
+		EnqueueToLocalStorage::<Pallet<Test>>::sweep_queue(para);
+		XcmpQueue::handle_xcmp_messages(once((para, 1, small.as_slice())), Weight::MAX);
+		// Got resumed:
+		assert!(InboundXcmpSuspended::<Test>::get().is_empty());
+		// Still resumed:
+		XcmpQueue::handle_xcmp_messages(once((para, 1, small.as_slice())), Weight::MAX);
+		assert!(InboundXcmpSuspended::<Test>::get().is_empty());
+		panic!("asdf");
+	});
+}
+
 #[test]
 fn update_suspend_threshold_works() {
 	new_test_ext().execute_with(|| {

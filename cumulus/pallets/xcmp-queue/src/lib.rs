@@ -522,31 +522,28 @@ impl<T: Config> Pallet<T> {
 		});
 	}
 
-	fn enqueue_xcmp_messages(
+	fn enqueue_xcmp_message(
 		sender: ParaId,
-		mut xcms: Vec<BoundedVec<u8, MaxXcmpMessageLenOf<T>>>,
+		xcm: BoundedVec<u8, MaxXcmpMessageLenOf<T>>,
 		meter: &mut WeightMeter,
-	) {
-		if meter
-			.try_consume(T::WeightInfo::enqueue_xcmp_messages(xcms.len() as u32))
-			.is_err()
-		{
-			defensive!("Out of weight: cannot enqueue XCMP messages; dropping msgs: ", xcms.len());
-			return
+	) -> Result<(), ()> {
+		if meter.try_consume(T::WeightInfo::enqueue_xcmp_messages(1)).is_err() {
+			defensive!("Out of weight: cannot enqueue XCMP messages; dropping msgs");
+			return Err(())
 		}
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
 		let fp = T::XcmpQueue::footprint(sender);
 
-		let new_count = xcms.len().saturating_add(fp.count as usize);
-		let to_enqueue = (drop_threshold as usize).saturating_sub(new_count) as usize;
-		if to_enqueue < xcms.len() {
+		let new_count = fp.count.saturating_add(1);
+		if new_count > drop_threshold as u64 {
 			// This should not happen since the channel should have been suspended in
 			// [`on_queue_changed`].
-			log::error!("XCMP queue for sibling {:?} is full; dropping messages.", sender,);
-			xcms.truncate(to_enqueue);
+			log::error!("XCMP queue for sibling {:?} is full; dropping messages.", sender);
+			return Err(())
 		}
 
-		T::XcmpQueue::enqueue_messages(xcms.iter().map(|xcm| xcm.as_bounded_slice()), sender);
+		T::XcmpQueue::enqueue_messages(sp_std::iter::once(xcm.as_bounded_slice()), sender);
+		Ok(())
 	}
 
 	/// Split concatenated encoded `VersionedXcm`s into individual items.
@@ -555,21 +552,20 @@ impl<T: Config> Pallet<T> {
 	fn split_concatenated_xcms(
 		data: &mut &[u8],
 		meter: &mut WeightMeter,
-	) -> Result<Vec<BoundedVec<u8, MaxXcmpMessageLenOf<T>>>, ()> {
-		let mut encoded_xcms = Vec::new();
-		while !data.is_empty() {
-			if meter.try_consume(T::WeightInfo::split_concatenated_xcm()).is_err() {
-				defensive!("Could not decode all; dropping");
-				return Err(())
-			}
-
-			let xcm =
-				VersionedXcm::<T::RuntimeCall>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, data)
-					.map_err(|_| ())?;
-			let bounded = xcm.encode().try_into().map_err(|_| ())?;
-			encoded_xcms.push(bounded);
+	) -> Result<BoundedVec<u8, MaxXcmpMessageLenOf<T>>, ()> {
+		if data.is_empty() {
+			return Err(())
 		}
-		Ok(encoded_xcms)
+
+		if meter.try_consume(T::WeightInfo::split_concatenated_xcm()).is_err() {
+			defensive!("Out of weight; could not decode all; dropping");
+			return Err(())
+		}
+
+		let xcm =
+			VersionedXcm::<T::RuntimeCall>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, data)
+				.map_err(|_| ())?;
+		xcm.encode().try_into().map_err(|_| ())
 	}
 }
 
@@ -661,20 +657,32 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 						}
 					},
 				XcmpMessageFormat::ConcatenatedVersionedXcm => {
-					match Self::split_concatenated_xcms(&mut data, &mut meter) {
-						Ok(xcms) => {
-							Self::enqueue_xcmp_messages(sender, xcms, &mut meter);
-						},
-						Err(()) => {
+					loop {
+						if data.is_empty() {
+							break
+						}
+
+						let Ok(xcm) = Self::split_concatenated_xcms(&mut data, &mut meter) else {
 							defensive!(
 								"Could not parse incoming XCMP messages. Used weight: ",
 								meter.consumed_ratio()
 							);
-							continue
-						},
+							break
+						};
+
+						if let Err(()) = Self::enqueue_xcmp_message(sender, xcm, &mut meter) {
+							defensive!(
+								"Could not enqueue XCMP messages. Used weight: ",
+								meter.consumed_ratio()
+							);
+							break
+						}
 					}
 					if !data.is_empty() {
-						defensive!("All XCM data must be consumed.");
+						defensive!(
+							"Not all XCMP message data could be parsed. Bytes left: ",
+							data.len()
+						);
 					}
 				},
 				XcmpMessageFormat::ConcatenatedEncodedBlob => {
