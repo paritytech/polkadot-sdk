@@ -29,12 +29,10 @@ use sc_network::config::RequestResponseConfig;
 
 use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
 use polkadot_node_primitives::{BlockData, PoV, Proof};
-use polkadot_node_subsystem::{
-	jaeger,
-	messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest},
-	ActivatedLeaf, LeafStatus,
+use polkadot_node_subsystem::messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest};
+use polkadot_node_subsystem_test_helpers::{
+	make_subsystem_context, mock::fresh_leaf, TestSubsystemContextHandle,
 };
-use polkadot_node_subsystem_test_helpers::{make_subsystem_context, TestSubsystemContextHandle};
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
 	AuthorityDiscoveryId, Hash, HeadData, IndexedVec, PersistedValidationData, ValidatorId,
@@ -561,12 +559,10 @@ fn availability_is_recovered_from_chunks_if_no_group_provided() {
 	test_harness_fast_path(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: test_state.current,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+				test_state.current,
+				1,
+			))),
 		)
 		.await;
 
@@ -647,12 +643,10 @@ fn availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunk
 	test_harness_chunks_only(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: test_state.current,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+				test_state.current,
+				1,
+			))),
 		)
 		.await;
 
@@ -733,12 +727,10 @@ fn bad_merkle_path_leads_to_recovery_error() {
 	test_harness_fast_path(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: test_state.current,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+				test_state.current,
+				1,
+			))),
 		)
 		.await;
 
@@ -791,12 +783,10 @@ fn wrong_chunk_index_leads_to_recovery_error() {
 	test_harness_fast_path(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: test_state.current,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+				test_state.current,
+				1,
+			))),
 		)
 		.await;
 
@@ -865,12 +855,10 @@ fn invalid_erasure_coding_leads_to_invalid_error() {
 
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: test_state.current,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+				test_state.current,
+				1,
+			))),
 		)
 		.await;
 
@@ -914,12 +902,10 @@ fn fast_path_backing_group_recovers() {
 	test_harness_fast_path(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: test_state.current,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+				test_state.current,
+				1,
+			))),
 		)
 		.await;
 
@@ -964,12 +950,10 @@ fn recovers_from_only_chunks_if_pov_large() {
 	test_harness_chunks_if_pov_large(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: test_state.current,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+				test_state.current,
+				1,
+			))),
 		)
 		.await;
 
@@ -1068,12 +1052,10 @@ fn fast_path_backing_group_recovers_if_pov_small() {
 	test_harness_chunks_if_pov_large(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: test_state.current,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+				test_state.current,
+				1,
+			))),
 		)
 		.await;
 
@@ -1127,12 +1109,10 @@ fn no_answers_in_fast_path_causes_chunk_requests() {
 	test_harness_fast_path(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: test_state.current,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+				test_state.current,
+				1,
+			))),
 		)
 		.await;
 
@@ -1189,12 +1169,10 @@ fn task_canceled_when_receivers_dropped() {
 	test_harness_chunks_only(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: test_state.current,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+				test_state.current,
+				1,
+			))),
 		)
 		.await;
 
@@ -1231,12 +1209,10 @@ fn chunks_retry_until_all_nodes_respond() {
 	test_harness_chunks_only(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: test_state.current,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+				test_state.current,
+				1,
+			))),
 		)
 		.await;
 
@@ -1292,12 +1268,10 @@ fn not_returning_requests_wont_stall_retrieval() {
 	test_harness_chunks_only(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: test_state.current,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+				test_state.current,
+				1,
+			))),
 		)
 		.await;
 
@@ -1364,12 +1338,10 @@ fn all_not_returning_requests_still_recovers_on_return() {
 	test_harness_chunks_only(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: test_state.current,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+				test_state.current,
+				1,
+			))),
 		)
 		.await;
 
@@ -1441,12 +1413,10 @@ fn returns_early_if_we_have_the_data() {
 	test_harness_chunks_only(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: test_state.current,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+				test_state.current,
+				1,
+			))),
 		)
 		.await;
 
@@ -1478,12 +1448,10 @@ fn does_not_query_local_validator() {
 	test_harness_chunks_only(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: test_state.current,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+				test_state.current,
+				1,
+			))),
 		)
 		.await;
 
@@ -1537,12 +1505,10 @@ fn invalid_local_chunk_is_ignored() {
 	test_harness_chunks_only(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: test_state.current,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+				test_state.current,
+				1,
+			))),
 		)
 		.await;
 

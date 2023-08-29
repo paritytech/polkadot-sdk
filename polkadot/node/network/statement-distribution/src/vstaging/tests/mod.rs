@@ -30,7 +30,6 @@ use polkadot_node_subsystem::messages::{
 	RuntimeApiMessage, RuntimeApiRequest,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
-use polkadot_node_subsystem_types::{jaeger, ActivatedLeaf, LeafStatus};
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::vstaging::{
 	AssignmentPair, AsyncBackingParams, BlockNumber, CommittedCandidateReceipt, CoreState,
@@ -46,6 +45,7 @@ use assert_matches::assert_matches;
 use futures::Future;
 use parity_scale_codec::Encode;
 use rand::{Rng, SeedableRng};
+use test_helpers::mock::fresh_leaf;
 
 use std::sync::Arc;
 
@@ -358,12 +358,7 @@ async fn activate_leaf(
 	test_state: &TestState,
 	expect_session_info_request: bool,
 ) {
-	let activated = ActivatedLeaf {
-		hash: leaf.hash,
-		number: leaf.number,
-		status: LeafStatus::Fresh,
-		span: Arc::new(jaeger::Span::Disabled),
-	};
+	let activated = fresh_leaf(leaf.hash, leaf.number);
 
 	virtual_overseer
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(

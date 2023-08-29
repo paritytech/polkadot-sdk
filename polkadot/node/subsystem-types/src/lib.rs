@@ -22,10 +22,16 @@
 
 #![warn(missing_docs)]
 
+use smallvec::SmallVec;
 use std::{fmt, sync::Arc};
 
-pub use polkadot_primitives::{BlockNumber, Hash};
-use smallvec::SmallVec;
+pub use polkadot_primitives::{Block, BlockNumber, Hash};
+
+/// Keeps the state of a specific block pinned in memory while the handle is alive.
+///
+/// The handle is reference counted and once the last is dropped, the
+/// block is unpinned.
+pub type UnpinHandle = sc_client_api::UnpinHandle<Block>;
 
 pub mod errors;
 pub mod messages;
@@ -80,6 +86,8 @@ pub struct ActivatedLeaf {
 	pub number: BlockNumber,
 	/// The status of the leaf.
 	pub status: LeafStatus,
+	/// A handle to unpin the block on drop.
+	pub unpin_handle: UnpinHandle,
 	/// An associated [`jaeger::Span`].
 	///
 	/// NOTE: Each span should only be kept active as long as the leaf is considered active and

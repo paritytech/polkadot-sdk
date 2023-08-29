@@ -19,7 +19,6 @@
 
 use std::{
 	collections::HashSet,
-	sync::Arc,
 	task::Poll,
 	time::{Duration, Instant},
 };
@@ -51,10 +50,11 @@ use polkadot_node_subsystem::{
 		AllMessages, DisputeCoordinatorMessage, DisputeDistributionMessage, ImportStatementsResult,
 		NetworkBridgeTxMessage, RuntimeApiMessage, RuntimeApiRequest,
 	},
-	ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, LeafStatus, OverseerSignal, Span,
+	ActiveLeavesUpdate, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_test_helpers::{
-	mock::make_ferdie_keystore, subsystem_test_harness, TestSubsystemContextHandle,
+	mock::{fresh_leaf, make_ferdie_keystore},
+	subsystem_test_harness, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
 	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, Hash, SessionIndex, SessionInfo,
@@ -724,12 +724,7 @@ async fn activate_leaf(
 ) {
 	handle
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
-			activated: Some(ActivatedLeaf {
-				hash: activate,
-				number: 10,
-				status: LeafStatus::Fresh,
-				span: Arc::new(Span::Disabled),
-			}),
+			activated: Some(fresh_leaf(activate, 10)),
 			deactivated: deactivate.into_iter().collect(),
 		})))
 		.await;

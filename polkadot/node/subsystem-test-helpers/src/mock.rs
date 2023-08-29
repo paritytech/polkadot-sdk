@@ -16,12 +16,15 @@
 
 use std::sync::Arc;
 
+use polkadot_node_subsystem::{jaeger, ActivatedLeaf, LeafStatus};
+use sc_client_api::UnpinHandle;
 use sc_keystore::LocalKeystore;
+use sc_utils::mpsc::tracing_unbounded;
 use sp_application_crypto::AppCrypto;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
 
-use polkadot_primitives::{AuthorityDiscoveryId, ValidatorId};
+use polkadot_primitives::{AuthorityDiscoveryId, Block, BlockNumber, Hash, ValidatorId};
 
 /// Get mock keystore with `Ferdie` key.
 pub fn make_ferdie_keystore() -> KeystorePtr {
@@ -39,4 +42,21 @@ pub fn make_ferdie_keystore() -> KeystorePtr {
 	)
 	.expect("Insert key into keystore");
 	keystore
+}
+
+/// Create a meaningless unpin handle for a block.
+pub fn dummy_unpin_handle(block: Hash) -> UnpinHandle<Block> {
+	let (dummy_sink, _) = tracing_unbounded("Expect Chaos", 69);
+	UnpinHandle::new(block, dummy_sink)
+}
+
+/// Create a new fresh leaf with the given hash and number.
+pub fn fresh_leaf(hash: Hash, number: BlockNumber) -> ActivatedLeaf {
+	ActivatedLeaf {
+		hash,
+		number,
+		status: LeafStatus::Fresh,
+		unpin_handle: dummy_unpin_handle(hash),
+		span: Arc::new(jaeger::Span::Disabled),
+	}
 }

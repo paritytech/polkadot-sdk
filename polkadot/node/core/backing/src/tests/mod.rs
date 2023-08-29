@@ -24,12 +24,11 @@ use futures::{future, Future};
 use polkadot_node_primitives::{BlockData, InvalidCandidate, SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
-	jaeger,
 	messages::{
 		AllMessages, CollatorProtocolMessage, RuntimeApiMessage, RuntimeApiRequest,
 		ValidationFailed,
 	},
-	ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, LeafStatus, OverseerSignal, TimeoutExt,
+	ActiveLeavesUpdate, FromOrchestra, OverseerSignal, TimeoutExt,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
@@ -42,6 +41,7 @@ use sp_keystore::Keystore;
 use sp_tracing as _;
 use statement_table::v2::Misbehavior;
 use std::collections::HashMap;
+use test_helpers::mock::fresh_leaf;
 
 mod prospective_parachains;
 
@@ -232,12 +232,7 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 	// Start work on some new parent.
 	virtual_overseer
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
-			ActivatedLeaf {
-				hash: test_state.relay_parent,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			},
+			fresh_leaf(test_state.relay_parent, 1),
 		))))
 		.await;
 

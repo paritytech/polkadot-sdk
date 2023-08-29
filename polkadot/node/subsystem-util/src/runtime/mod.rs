@@ -82,6 +82,8 @@ pub struct ExtendedSessionInfo {
 	pub session_info: SessionInfo,
 	/// Contains useful information about ourselves, in case this node is a validator.
 	pub validator_info: ValidatorInfo,
+	// /// Unpin handle of *some* block in the session.
+	// pub unpin_handle: UnpinHandle<Block>,
 }
 
 /// Information about ourselves, in case we are an `Authority`.

@@ -24,9 +24,8 @@ use parking_lot::Mutex;
 use polkadot_node_primitives::{AvailableData, BlockData, PoV, Proof};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
-	jaeger,
 	messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest},
-	ActivatedLeaf, ActiveLeavesUpdate, LeafStatus,
+	ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{database::Database, TimeoutExt};
@@ -35,6 +34,7 @@ use polkadot_primitives::{
 	PersistedValidationData, ValidatorId,
 };
 use sp_keyring::Sr25519Keyring;
+use test_helpers::mock::fresh_leaf;
 
 mod columns {
 	pub const DATA: u32 = 0;
@@ -223,12 +223,7 @@ fn runtime_api_error_does_not_stop_the_subsystem() {
 
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: new_leaf,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(new_leaf, 1))),
 		)
 		.await;
 
@@ -853,12 +848,7 @@ fn we_dont_miss_anything_if_import_notifications_are_missed() {
 
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: new_leaf,
-				number: 4,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(new_leaf, 4))),
 		)
 		.await;
 
@@ -1170,12 +1160,7 @@ async fn import_leaf(
 
 	overseer_signal(
 		virtual_overseer,
-		OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-			hash: new_leaf,
-			number: 1,
-			status: LeafStatus::Fresh,
-			span: Arc::new(jaeger::Span::Disabled),
-		})),
+		OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(new_leaf, 1))),
 	)
 	.await;
 

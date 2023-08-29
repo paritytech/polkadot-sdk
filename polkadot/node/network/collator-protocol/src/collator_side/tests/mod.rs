@@ -40,7 +40,7 @@ use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	jaeger,
 	messages::{AllMessages, ReportPeerMessage, RuntimeApiMessage, RuntimeApiRequest},
-	ActivatedLeaf, ActiveLeavesUpdate, LeafStatus,
+	ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
@@ -49,6 +49,7 @@ use polkadot_primitives::{
 	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::TestCandidateBuilder;
+use test_helpers::mock::fresh_leaf;
 
 mod prospective_parachains;
 
@@ -310,12 +311,10 @@ async fn setup_system(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 
 	overseer_signal(
 		virtual_overseer,
-		OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-			hash: test_state.relay_parent,
-			number: 1,
-			status: LeafStatus::Fresh,
-			span: Arc::new(jaeger::Span::Disabled),
-		})),
+		OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			test_state.relay_parent,
+			1,
+		))),
 	)
 	.await;
 

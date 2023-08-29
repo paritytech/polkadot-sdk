@@ -16,7 +16,7 @@
 
 //! Unit tests for Gossip Support Subsystem.
 
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{collections::HashSet, time::Duration};
 
 use assert_matches::assert_matches;
 use async_trait::async_trait;
@@ -30,15 +30,11 @@ use sp_core::crypto::Pair as PairT;
 use sp_keyring::Sr25519Keyring;
 
 use polkadot_node_network_protocol::grid_topology::{SessionGridTopology, TopologyPeerInfo};
-use polkadot_node_subsystem::{
-	jaeger,
-	messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest},
-	ActivatedLeaf, LeafStatus,
-};
+use polkadot_node_subsystem::messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest};
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt as _;
 use polkadot_primitives::{GroupIndex, IndexedVec};
-use test_helpers::mock::make_ferdie_keystore;
+use test_helpers::mock::{fresh_leaf, make_ferdie_keystore};
 
 use super::*;
 
@@ -196,12 +192,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>, AD: AuthorityDiscovery>(
 const TIMEOUT: Duration = Duration::from_millis(100);
 
 async fn overseer_signal_active_leaves(overseer: &mut VirtualOverseer, leaf: Hash) {
-	let leaf = ActivatedLeaf {
-		hash: leaf,
-		number: 0xdeadcafe,
-		status: LeafStatus::Fresh,
-		span: Arc::new(jaeger::Span::Disabled),
-	};
+	let leaf = fresh_leaf(leaf, 0xdeadcafe);
 	overseer
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
 			leaf,

@@ -16,7 +16,6 @@
 
 use std::{
 	collections::{HashMap, HashSet},
-	sync::Arc,
 	time::Duration,
 };
 
@@ -34,9 +33,8 @@ use sc_network::{config as netconfig, config::RequestResponseConfig, IfDisconnec
 use sp_core::{testing::TaskExecutor, traits::SpawnNamed};
 use sp_keystore::KeystorePtr;
 
-use polkadot_node_network_protocol::{
-	jaeger,
-	request_response::{v1, IncomingRequest, OutgoingRequest, Requests},
+use polkadot_node_network_protocol::request_response::{
+	v1, IncomingRequest, OutgoingRequest, Requests,
 };
 use polkadot_node_primitives::ErasureChunk;
 use polkadot_node_subsystem::{
@@ -44,14 +42,14 @@ use polkadot_node_subsystem::{
 		AllMessages, AvailabilityDistributionMessage, AvailabilityStoreMessage, ChainApiMessage,
 		NetworkBridgeTxMessage, RuntimeApiMessage, RuntimeApiRequest,
 	},
-	ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, LeafStatus, OverseerSignal,
+	ActiveLeavesUpdate, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
 	CandidateHash, CoreState, GroupIndex, Hash, Id as ParaId, ScheduledCore, SessionInfo,
 	ValidatorIndex,
 };
-use test_helpers::mock::make_ferdie_keystore;
+use test_helpers::mock::{fresh_leaf, make_ferdie_keystore};
 
 use super::mock::{make_session_info, OccupiedCoreBuilder};
 use crate::LOG_TARGET;
@@ -175,12 +173,7 @@ impl TestState {
 				.iter()
 				.zip(advanced)
 				.map(|(old, new)| ActiveLeavesUpdate {
-					activated: Some(ActivatedLeaf {
-						hash: *new,
-						number: 1,
-						status: LeafStatus::Fresh,
-						span: Arc::new(jaeger::Span::Disabled),
-					}),
+					activated: Some(fresh_leaf(*new, 1)),
 					deactivated: vec![*old].into(),
 				})
 				.collect::<Vec<_>>()
