@@ -17168,6 +17168,7 @@ name = "sp-consensus-sassafras"
 version = "0.3.4-dev"
 dependencies = [
  "parity-scale-codec",
+ "sc-keystore",
  "scale-info",
  "serde",
  "sp-api",

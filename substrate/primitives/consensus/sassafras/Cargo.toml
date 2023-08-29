@@ -25,6 +25,19 @@ sp-core = { version = "21.0.0", default-features = false, path = "../../core", f
 sp-runtime = { version = "24.0.0", default-features = false, path = "../../runtime" }
 sp-std = { version = "8.0.0", default-features = false, path = "../../std" }
 
+# Temporary workaround, remove as soon as 'bandersnatch' is stable.
+#
+# Sassafras requires to enable `bandersnatch-experimental` feature for some of its dependencies
+# and this ends up being transitively enabled in `sp-keystore` crate.
+#
+# E.g. sp-application-crypto → sp-io → sp-keystore
+#
+# Follows that Bandersnatch api ends up being exposed by the `Keystore` trait and thus we require
+# to expose these functions implementations in the client keystore (`sc-keystore`) as well.
+#
+# The crate feature should be enabled only for `std` builds (keep it disabled by default).
+sc-keystore = { path = "../../../client/keystore", optional = true}
+
 [features]
 default = [ "std" ]
 std = [
@@ -37,6 +50,7 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sc-keystore/bandersnatch-experimental"
 ]
 
 # Serde support without relying on std features.
