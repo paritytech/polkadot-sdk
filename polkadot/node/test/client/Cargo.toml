@@ -38,4 +38,11 @@ sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 futures = "0.3.21"
 
 [features]
-runtime-benchmarks=[ "polkadot-test-runtime/runtime-benchmarks" ]
+runtime-benchmarks= [
+	"frame-benchmarking/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-test-runtime/runtime-benchmarks",
+	"polkadot-test-service/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

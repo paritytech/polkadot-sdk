@@ -22,7 +22,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", features = [
     "derive",
 ] }
 futures = "0.3.21"
-libp2p-identity = { version = "0.1.2", features = ["peerid"] }
+libp2p-identity = { version = "0.1.3", features = ["peerid"] }
 log = "0.4.16"
 prost = "0.11"
 sp-blockchain = { path = "../../../primitives/blockchain" }

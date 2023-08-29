@@ -49,6 +49,7 @@ std = [
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",
+	"frame-try-runtime?/std",
 	"parachain-info/std",
 	"parachains-common/std",
 	"scale-info/std",
@@ -67,4 +68,13 @@ std = [
 	"xcm-executor/std",
 	"xcm/std",
 ]
-try-runtime = [ "frame-executive/try-runtime", "frame-try-runtime/try-runtime" ]
+try-runtime = [
+	"cumulus-pallet-parachain-system/try-runtime",
+	"cumulus-pallet-xcm/try-runtime",
+	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"frame-try-runtime/try-runtime",
+	"parachain-info/try-runtime",
+	"sp-runtime/try-runtime",
+]

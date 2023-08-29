@@ -20,7 +20,7 @@ sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 thiserror = "1.0.31"
 rand = "0.8.5"
 derive_more = "0.99.17"
-lru = "0.11.0"
+schnellru = "0.2.1"
 fatality = "0.0.6"
 
 [dev-dependencies]

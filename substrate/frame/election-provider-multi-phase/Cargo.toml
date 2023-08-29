@@ -56,7 +56,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"log/std",
 	"pallet-balances/std",
 	"pallet-election-provider-support-benchmarking?/std",
 	"rand/std",

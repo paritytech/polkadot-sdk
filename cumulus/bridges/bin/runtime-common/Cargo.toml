@@ -55,6 +55,7 @@ std = [
 	"bp-messages/std",
 	"bp-parachains/std",
 	"bp-polkadot-core/std",
+	"bp-relayers/std",
 	"bp-runtime/std",
 	"bp-xcm-bridge-hub-router/std",
 	"codec/std",
@@ -79,10 +80,15 @@ std = [
 	"xcm/std",
 ]
 runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-grandpa/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"pallet-bridge-parachains/runtime-benchmarks",
 	"pallet-bridge-relayers/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 ]
 integrity-test = [ "static_assertions" ]

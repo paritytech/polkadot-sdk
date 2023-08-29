@@ -55,8 +55,10 @@ cli = [
 	"try-runtime-cli",
 ]
 runtime-benchmarks = [
+	"frame-benchmarking-cli?/runtime-benchmarks",
 	"polkadot-node-metrics/runtime-benchmarks",
 	"polkadot-performance-test?/runtime-benchmarks",
+	"sc-service?/runtime-benchmarks",
 	"service/runtime-benchmarks",
 ]
 full-node = [ "service/full-node" ]
