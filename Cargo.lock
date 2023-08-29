@@ -5865,9 +5865,12 @@ dependencies = [
 name = "glutton-runtime"
 version = "1.0.0"
 dependencies = [
+ "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
+ "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-xcm",
  "cumulus-primitives-core",
+ "cumulus-primitives-timestamp",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -5875,14 +5878,20 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "pallet-aura",
+ "pallet-authorship",
+ "pallet-fixed",
  "pallet-glutton",
+ "pallet-session",
  "pallet-sudo",
+ "pallet-timestamp",
  "parachain-info",
  "parachains-common",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
  "sp-block-builder",
+ "sp-consensus-aura",
  "sp-core",
  "sp-inherents",
  "sp-offchain",
@@ -9834,6 +9843,30 @@ dependencies = [
  "sp-std",
  "sp-tracing",
  "substrate-test-utils",
+]
+
+[[package]]
+name = "pallet-fixed"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-aura",
+ "pallet-authorship",
+ "pallet-session",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "rand 0.8.5",
+ "scale-info",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
+ "sp-tracing",
 ]
 
 [[package]]

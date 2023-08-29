@@ -16,10 +16,15 @@ frame-system = { path = "../../../../../substrate/frame/system", default-feature
 frame-system-rpc-runtime-api = { path = "../../../../../substrate/frame/system/rpc/runtime-api", default-features = false}
 frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true}
 frame-try-runtime = { path = "../../../../../substrate/frame/try-runtime", default-features = false, optional = true}
+pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false}
+pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false}
 pallet-glutton = { path = "../../../../../substrate/frame/glutton", default-features = false, optional = true}
+pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
 pallet-sudo = { path = "../../../../../substrate/frame/sudo", default-features = false, optional = true}
+pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
 sp-api = { path = "../../../../../substrate/primitives/api", default-features = false}
 sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false}
+sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false }
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
 sp-inherents = { path = "../../../../../substrate/primitives/inherents", default-features = false}
 sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false}
@@ -36,9 +41,13 @@ xcm-builder = { path = "../../../../../polkadot/xcm/xcm-builder", default-featur
 xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
 
 # Cumulus
+cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }
+cumulus-pallet-session-benchmarking = {path = "../../../../pallets/session-benchmarking", default-features = false, version = "3.0.0"}
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
+cumulus-primitives-timestamp = { path = "../../../../primitives/timestamp", default-features = false }
+pallet-fixed = { path = "../../../../pallets/fixed", default-features = false }
 parachain-info = { path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
 
@@ -49,29 +58,40 @@ substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder" 
 default = [ "std" ]
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-fixed/runtime-benchmarks",
 	"pallet-glutton/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 ]
 std = [
 	"codec/std",
+	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-xcm/std",
 	"cumulus-primitives-core/std",
+	"cumulus-primitives-timestamp/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
+	"pallet-aura/std",
+	"pallet-authorship/std",
+	"pallet-fixed/std",
 	"pallet-glutton/std",
+	"pallet-session/std",
 	"pallet-sudo/std",
+	"pallet-timestamp/std",
 	"parachain-info/std",
 	"parachains-common/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
+	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-inherents/std",
 	"sp-offchain/std",
@@ -85,8 +105,14 @@ std = [
 	"xcm/std",
 ]
 try-runtime = [
+	"cumulus-pallet-aura-ext/try-runtime",
 	"frame-executive/try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-aura/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-fixed/try-runtime",
 	"pallet-glutton/try-runtime",
+	"pallet-session/try-runtime",
 	"pallet-sudo/try-runtime",
+	"pallet-timestamp/try-runtime",
 ]
