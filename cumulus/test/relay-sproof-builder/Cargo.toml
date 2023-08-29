@@ -24,6 +24,7 @@ default = [ "std" ]
 std = [
 	"codec/std",
 	"cumulus-primitives-core/std",
+	"polkadot-primitives/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
 	"sp-std/std",

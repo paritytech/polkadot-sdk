@@ -64,7 +64,7 @@ cargo-fmt-manifest:
     - .docker-env
     - .test-refs
   script:
-    - cargo install zepter --locked --version 0.10.0 -q -f --no-default-features && zepter --version
+    - cargo install zepter --locked --version 0.11.1 -q -f --no-default-features && zepter --version
     - echo "👉 Hello developer! If you see this CI check failing then it means that one of the your changes in a Cargo.toml file introduced ill-formatted or unsorted features. Please take a look at 'docs/STYLE_GUIDE.md#manifest-formatting' to find out more."
     - zepter format features --check
   allow_failure: true # Experimental
