@@ -265,6 +265,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 		let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
 		let fisherman = Fisherman {
 			backend: backend.clone(),
+			key_store: key_store.clone(),
 			runtime: runtime.clone(),
 			payload_provider: payload_provider.clone(),
 			_phantom: PhantomData,
