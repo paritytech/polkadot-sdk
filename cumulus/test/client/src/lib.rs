@@ -82,7 +82,7 @@ pub struct GenesisParameters {
 
 impl substrate_test_client::GenesisInit for GenesisParameters {
 	fn genesis_storage(&self) -> Storage {
-		if self.endowed_accounts.is_empty() {
+		let mut storage = if self.endowed_accounts.is_empty() {
 			genesis_config().build_storage().unwrap()
 		} else {
 			cumulus_test_service::testnet_genesis(
@@ -91,7 +91,16 @@ impl substrate_test_client::GenesisInit for GenesisParameters {
 			)
 			.build_storage()
 			.unwrap()
-		}
+		};
+
+		storage.top.insert(
+			sp_core::storage::well_known_keys::CODE.to_vec(),
+			cumulus_test_runtime::WASM_BINARY
+				.expect("cumulus_test_runtime WASM binary was not built, please build it!")
+				.into(),
+		);
+
+		storage
 	}
 }
 
