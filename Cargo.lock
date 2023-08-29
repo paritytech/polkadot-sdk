@@ -1954,6 +1954,7 @@ name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
  "bp-messages",
+ "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "frame-support",
