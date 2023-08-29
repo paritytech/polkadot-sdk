@@ -96,7 +96,19 @@ sc-cli = { path = "../../../substrate/client/cli" }
 substrate-test-utils = { path = "../../../substrate/test-utils" }
 
 [features]
-runtime-benchmarks = [ "polkadot-test-service/runtime-benchmarks" ]
+runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"polkadot-cli/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-service/runtime-benchmarks",
+	"polkadot-test-service/runtime-benchmarks",
+	"rococo-parachain-runtime/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
 
 [[bench]]
 name = "transaction_throughput"
