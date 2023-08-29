@@ -50,11 +50,19 @@ impl<T: Get<MultiAssets>> PriceForParachainDelivery for ConstantPrice<T> {
 }
 
 /// Implementation of `PriceForParachainDelivery` which returns an exponentially increasing price.
-/// The `A` type parameter is used to denote the asset ID that will be used for paying the delivery
-/// fee.
-///
 /// The formula for the fee is based on the sum of a base fee plus a message length fee, multiplied
-/// by a specified factor. In mathematical form, it is `F * (B + encoded_msg_len * M)`.
+/// by a specified factor. In mathematical form:
+///
+/// `F * (B + encoded_msg_len * M)`
+///
+/// Thus, if F = 1 and M = 1, this type is equivalent to `ConstantPrice<B>`.
+///
+/// The type parameters are understood as follows:
+///
+/// - `A`: Used to denote the asset ID that will be used for paying the delivery fee.
+/// - `B`: The base fee to pay for message delivery.
+/// - `M`: The fee to pay for each and every byte of the message after encoding it.
+/// - `F`: A fee factor multiplier. It can be understood as the exponent term in the formula.
 pub struct ExponentialPrice<A, B, M, F>(sp_std::marker::PhantomData<(A, B, M, F)>);
 impl<A: Get<AssetId>, B: Get<u128>, M: Get<u128>, F: FeeTracker> PriceForParachainDelivery
 	for ExponentialPrice<A, B, M, F>
