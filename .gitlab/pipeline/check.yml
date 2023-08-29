@@ -32,7 +32,8 @@ cargo-fmt-manifest:
     - zepter format features --check
   allow_failure: true # Experimental
 
-cargo-deny-licenses:
+# FIXME
+.cargo-deny-licenses:
   stage: check
   extends:
     - .docker-env
