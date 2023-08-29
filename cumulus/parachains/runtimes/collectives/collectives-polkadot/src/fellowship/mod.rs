@@ -29,9 +29,7 @@ use frame_support::{
 	parameter_types,
 	traits::{EitherOf, EitherOfDiverse, MapSuccess, OriginTrait, TryWithMorphedArg},
 };
-#[cfg(feature = "runtime-benchmarks")]
-use frame_system::EnsureRoot;
-use frame_system::{EnsureNever, EnsureRootWithSuccess};
+use frame_system::EnsureRootWithSuccess;
 pub use origins::{
 	pallet_origins as pallet_fellowship_origins, Architects, EnsureCanPromoteTo, EnsureCanRetainAt,
 	EnsureFellowship, Fellows, Masters, Members, ToVoice,
@@ -113,12 +111,12 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	// Promotions and the induction of new members are serviced by `FellowshipCore` pallet instance.
-	type AddOrigin = EnsureNever<()>;
+	type AddOrigin = frame_system::EnsureNever<()>;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type PromoteOrigin = EnsureNever<pallet_ranked_collective::Rank>;
+	type PromoteOrigin = frame_system::EnsureNever<pallet_ranked_collective::Rank>;
 
 	#[cfg(feature = "runtime-benchmarks")]
-	type AddOrigin = EnsureRoot<Self::AccountId>;
+	type AddOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
 	// The maximum value of `u16` set as a success value for the root to ensure the benchmarks will
 	// pass.
