@@ -662,11 +662,11 @@ mod tests {
 			&self,
 			client: PeersClient,
 		) -> (
-			BlockImportAdapter<Self::BlockImport>,
+			Self::BlockImport,
 			Option<BoxJustificationImport<Block>>,
 			Self::PeerData,
 		) {
-			(client.as_block_import(), None, ())
+			(client, None, ())
 		}
 
 		fn peer(&mut self, i: usize) -> &mut AuraPeer {

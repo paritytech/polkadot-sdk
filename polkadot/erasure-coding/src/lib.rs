@@ -29,8 +29,8 @@ use polkadot_node_primitives::{AvailableData, Proof};
 use polkadot_primitives::{BlakeTwo256, Hash as H256, HashT};
 use sp_core::Blake2Hasher;
 use sp_trie::{
-	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0 as TrieDBMutBuilder},
-	LayoutV0, MemoryDB, Trie, TrieMut, EMPTY_PREFIX,
+	trie_types::{TrieDBBuilderV1, TrieDBMutBuilderV0 as TrieDBMutBuilder},
+	LayoutV0, MemoryDB, Trie, EMPTY_PREFIX,
 };
 use thiserror::Error;
 
@@ -226,9 +226,9 @@ impl<'a, I: AsRef<[u8]>> Iterator for Branches<'a, I> {
 	fn next(&mut self) -> Option<Self::Item> {
 		use sp_trie::Recorder;
 
-		let mut recorder = Recorder::<LayoutV0<Blake2Hasher>>::new();
+		let mut recorder = Recorder::<LayoutV0<Blake2Hasher, ()>>::new();
 		let res = {
-			let trie = TrieDBBuilder::new(&self.trie_storage, &self.root)
+			let trie = TrieDBBuilderV1::<_, ()>::new(&self.trie_storage, &self.root)
 				.with_recorder(&mut recorder)
 				.build();
 
@@ -256,19 +256,16 @@ where
 	I: AsRef<[u8]>,
 {
 	let mut trie_storage: MemoryDB<Blake2Hasher> = MemoryDB::default();
-	let mut root = H256::default();
-
 	// construct trie mapping each chunk's index to its hash.
-	{
-		let mut trie = TrieDBMutBuilder::new(&mut trie_storage, &mut root).build();
-		for (i, chunk) in chunks.as_ref().iter().enumerate() {
-			(i as u32).using_encoded(|encoded_index| {
-				let chunk_hash = BlakeTwo256::hash(chunk.as_ref());
-				trie.insert(encoded_index, chunk_hash.as_ref())
-					.expect("a fresh trie stored in memory cannot have errors loading nodes; qed");
-			})
-		}
+	let mut trie = TrieDBMutBuilder::new(&trie_storage).build();
+	for (i, chunk) in chunks.as_ref().iter().enumerate() {
+		(i as u32).using_encoded(|encoded_index| {
+			let chunk_hash = BlakeTwo256::hash(chunk.as_ref());
+			trie.insert(encoded_index, chunk_hash.as_ref())
+				.expect("a fresh trie stored in memory cannot have errors loading nodes; qed");
+		})
 	}
+	let root = trie.commit().apply_to(&mut trie_storage);
 
 	Branches { trie_storage, root, chunks, current_pos: 0 }
 }
@@ -278,10 +275,10 @@ where
 pub fn branch_hash(root: &H256, branch_nodes: &Proof, index: usize) -> Result<H256, Error> {
 	let mut trie_storage: MemoryDB<Blake2Hasher> = MemoryDB::default();
 	for node in branch_nodes.iter() {
-		(&mut trie_storage as &mut sp_trie::HashDB<_>).insert(EMPTY_PREFIX, node);
+		trie_storage.insert(EMPTY_PREFIX, node);
 	}
 
-	let trie = TrieDBBuilder::new(&trie_storage, &root).build();
+	let trie = TrieDBBuilderV1::<_, ()>::new(&trie_storage, &root).build();
 	let res = (index as u32).using_encoded(|key| {
 		trie.get_with(key, |raw_hash: &[u8]| H256::decode(&mut &raw_hash[..]))
 	});

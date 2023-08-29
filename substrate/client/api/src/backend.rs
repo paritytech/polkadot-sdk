@@ -29,14 +29,14 @@ use sp_runtime::{
 	Justification, Justifications, StateVersion, Storage,
 };
 use sp_state_machine::{
-	backend::AsTrieBackend, ChildStorageCollection, IndexOperation, IterArgs,
+	backend::{AsTrieBackend, TrieCommit}, ChildStorageCollection, IndexOperation, IterArgs,
 	OffchainChangesCollection, StorageCollection, StorageIterator,
 };
 use sp_storage::{ChildInfo, StorageData, StorageKey};
 
 use crate::{blockchain::Backend as BlockchainBackend, UsageInfo};
 
-pub use sp_state_machine::{Backend as StateBackend, BackendTransaction, KeyValueStates};
+pub use sp_state_machine::{Backend as StateBackend, KeyValueStates};
 
 /// Extracts the state backend type for the given backend.
 pub type StateBackendFor<B, Block> = <B as Backend<Block>>::State;
@@ -175,7 +175,7 @@ pub trait BlockImportOperation<Block: BlockT> {
 	/// Inject storage data into the database.
 	fn update_db_storage(
 		&mut self,
-		update: BackendTransaction<HashingFor<Block>>,
+		update: TrieCommit<Block::Hash>,
 	) -> sp_blockchain::Result<()>;
 
 	/// Set genesis state. If `commit` is `false` the state is saved in memory, but is not written
@@ -502,10 +502,7 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	/// Associated state backend type.
 	type State: StateBackend<HashingFor<Block>>
 		+ Send
-		+ AsTrieBackend<
-			HashingFor<Block>,
-			TrieBackendStorage = <Self::State as StateBackend<HashingFor<Block>>>::TrieBackendStorage,
-		>;
+		+ AsTrieBackend<HashingFor<Block>>;
 	/// Offchain workers local storage.
 	type OffchainStorage: OffchainStorage;
 

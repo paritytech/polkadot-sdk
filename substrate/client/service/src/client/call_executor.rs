@@ -220,14 +220,10 @@ where
 
 		match recorder {
 			Some(recorder) => {
-				let trie_state = state.as_trie_backend();
-
-				let backend = sp_state_machine::TrieBackendBuilder::wrap(&trie_state)
-					.with_recorder(recorder.clone())
-					.build();
-
+				let backend = state.as_trie_backend();
+				let backend = backend.with_recorder(recorder.clone());
 				let mut state_machine = StateMachine::new(
-					&backend,
+					&*backend,
 					changes,
 					&self.executor,
 					method,
@@ -275,7 +271,6 @@ where
 		let at_number =
 			self.backend.blockchain().expect_block_number_from_id(&BlockId::Hash(at_hash))?;
 		let state = self.backend.state_at(at_hash)?;
-
 		let trie_backend = state.as_trie_backend();
 
 		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(trie_backend);

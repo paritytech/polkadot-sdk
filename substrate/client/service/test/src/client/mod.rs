@@ -68,7 +68,7 @@ fn construct_block(
 	let transactions = txs.into_iter().map(|tx| tx.into_unchecked_extrinsic()).collect::<Vec<_>>();
 
 	let iter = transactions.iter().map(Encode::encode);
-	let extrinsics_root = LayoutV0::<BlakeTwo256>::ordered_trie_root(iter).into();
+	let extrinsics_root = LayoutV0::<BlakeTwo256, ()>::ordered_trie_root(iter).into();
 
 	let mut header = Header {
 		parent_hash,

@@ -19,6 +19,7 @@ node-primitives = { path = "../primitives" }
 node-testing = { path = "../testing" }
 kitchensink-runtime = { path = "../runtime" }
 sc-client-api = { path = "../../../client/api" }
+sc-client-db = { path = "../../../client/db" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
 serde = "1.0.163"

@@ -1888,7 +1888,7 @@ where
 	}
 
 	let revert_up_to_number = best_number - revertible;
-	let revert_up_to_hash = client.hash(revert_up_to_number)?.ok_or(ClientError::Backend(
+	let revert_up_to_hash =  HeaderBackend::hash(&*client, revert_up_to_number)?.ok_or(ClientError::Backend(
 		format!("Unexpected hash lookup failure for block number: {}", revert_up_to_number),
 	))?;
 

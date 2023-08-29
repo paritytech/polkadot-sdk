@@ -769,8 +769,8 @@ mod tests {
 		let storage_changes = api.into_storage_changes(&state, genesis_hash).unwrap();
 
 		assert_eq!(
-			proposal.storage_changes.transaction_storage_root,
-			storage_changes.transaction_storage_root,
+			proposal.storage_changes.transaction.main.root_hash(),
+			storage_changes.transaction.main.root_hash(),
 		);
 	}
 

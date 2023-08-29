@@ -20,7 +20,8 @@
 #[cfg(feature = "std")]
 use crate::overlayed_changes::OverlayedExtensions;
 use crate::{
-	backend::Backend, IndexOperation, IterArgs, OverlayedChanges, StorageKey, StorageValue,
+	backend::Backend,
+	IndexOperation, IterArgs, OverlayedChanges, StorageKey, StorageValue,
 };
 use codec::{Encode, EncodeAppend};
 use hash_db::Hasher;
@@ -617,7 +618,6 @@ where
 			.expect(EXT_NOT_ALLOWED_TO_FAIL);
 		self.backend
 			.commit(
-				changes.transaction_storage_root,
 				changes.transaction,
 				changes.main_storage_changes,
 				changes.child_storage_changes,

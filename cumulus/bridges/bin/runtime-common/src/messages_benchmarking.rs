@@ -39,7 +39,7 @@ use frame_support::weights::Weight;
 use pallet_bridge_messages::benchmarking::{MessageDeliveryProofParams, MessageProofParams};
 use sp_runtime::traits::{Header, Zero};
 use sp_std::prelude::*;
-use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
+use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB};
 use xcm::v3::prelude::*;
 
 /// Prepare inbound bridge message according to given message proof parameters.
@@ -228,20 +228,18 @@ where
 	// prepare Bridged chain storage with inbound lane state
 	let storage_key =
 		storage_keys::inbound_lane_data_key(B::BRIDGED_MESSAGES_PALLET_NAME, &params.lane).0;
-	let mut root = Default::default();
 	let mut mdb = MemoryDB::default();
-	{
-		let mut trie =
-			TrieDBMutBuilderV1::<HasherOf<BridgedChain<B>>>::new(&mut mdb, &mut root).build();
-		let inbound_lane_data =
-			grow_trie_leaf_value(params.inbound_lane_data.encode(), params.size);
-		trie.insert(&storage_key, &inbound_lane_data)
-			.map_err(|_| "TrieMut::insert has failed")
-			.expect("TrieMut::insert should not fail in benchmarks");
-	}
+	let mut trie =
+		TrieDBMutBuilderV1::<HasherOf<BridgedChain<B>>>::new(&mdb).build();
+	let inbound_lane_data =
+		grow_trie_leaf_value(params.inbound_lane_data.encode(), params.size);
+	trie.insert(&storage_key, &inbound_lane_data)
+		.map_err(|_| "TrieMut::insert has failed")
+		.expect("TrieMut::insert should not fail in benchmarks");
+	let root = trie.commit().apply_to(&mut mdb);
 
 	// generate storage proof to be delivered to This chain
-	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>>, _>(&mdb, &root)
+	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>, ()>>(&mdb, &root)
 		.map_err(|_| "record_all_trie_keys has failed")
 		.expect("record_all_trie_keys should not fail in benchmarks");
 

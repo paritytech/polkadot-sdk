@@ -19,7 +19,7 @@
 use crate::StrippableError;
 use codec::{Decode, Encode};
 use frame_support::PalletError;
-use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
+use hash_db::{Hasher, EMPTY_PREFIX};
 use scale_info::TypeInfo;
 use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use sp_trie::{
@@ -54,7 +54,7 @@ where
 	proof_nodes_count: usize,
 	root: H::Out,
 	db: MemoryDB<H>,
-	recorder: Recorder<LayoutV1<H>>,
+	recorder: Recorder<LayoutV1<H, ()>>,
 }
 
 impl<H> StorageProofChecker<H>
@@ -109,7 +109,7 @@ where
 	/// incomplete or otherwise invalid proof, this function returns an error.
 	pub fn read_value(&mut self, key: &[u8]) -> Result<Option<Vec<u8>>, Error> {
 		// LayoutV1 or LayoutV0 is identical for proof that only read values.
-		read_trie_value::<LayoutV1<H>, _>(&self.db, &self.root, key, Some(&mut self.recorder), None)
+		read_trie_value::<LayoutV1<H, ()>, _>(&self.db, &self.root, key, Some(&mut self.recorder), None)
 			.map_err(|_| Error::StorageValueUnavailable)
 	}
 
@@ -180,7 +180,7 @@ pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
 		],
 		state_version,
 	));
-	let root = backend.storage_root(std::iter::empty(), state_version).0;
+	let root = backend.storage_root(std::iter::empty(), state_version).main.root_hash();
 	let proof =
 		prove_read(backend, &[&b"key1"[..], &b"key2"[..], &b"key4"[..], &b"key22"[..]]).unwrap();
 
@@ -188,13 +188,10 @@ pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
 }
 
 /// Record all keys for a given root.
-pub fn record_all_keys<L: TrieConfiguration, DB>(
-	db: &DB,
+pub fn record_all_keys<L: TrieConfiguration>(
+	db: &dyn hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
 	root: &TrieHash<L>,
-) -> Result<RawStorageProof, Box<TrieError<L>>>
-where
-	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
-{
+) -> Result<RawStorageProof, Box<TrieError<L>>> {
 	let mut recorder = Recorder::<L>::new();
 	let trie = TrieDBBuilder::<L>::new(db, root).with_recorder(&mut recorder).build();
 	for x in trie.iter()? {

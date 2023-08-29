@@ -628,7 +628,7 @@ where
 				let storage_changes = match storage_changes {
 					sc_consensus::StorageChanges::Changes(storage_changes) => {
 						self.backend.begin_state_operation(&mut operation.op, parent_hash)?;
-						let (main_sc, child_sc, offchain_sc, tx, _, tx_index) =
+						let (main_sc, child_sc, offchain_sc, tx, tx_index) =
 							storage_changes.into_inner();
 
 						if self.config.offchain_indexing_api {
@@ -872,8 +872,7 @@ where
 					.into_storage_changes(&state, *parent_hash)
 					.map_err(sp_blockchain::Error::Storage)?;
 
-				if import_block.header.state_root() != &gen_storage_changes.transaction_storage_root
-				{
+				if import_block.header.state_root() != &gen_storage_changes.transaction.main.root_hash() {
 					return Err(Error::InvalidStateRoot)
 				}
 				Some(sc_consensus::StorageChanges::Changes(gen_storage_changes))
@@ -1258,7 +1257,7 @@ where
 	) -> sp_blockchain::Result<(CompactProof, u32)> {
 		let state = self.state_at(hash)?;
 		// this is a read proof, using version V0 or V1 is equivalent.
-		let root = state.storage_root(std::iter::empty(), StateVersion::V0).0;
+		let root = state.storage_root(std::iter::empty(), StateVersion::V0).main.root_hash();
 
 		let (proof, count) = prove_range_read_with_child_with_size::<_, HashingFor<Block>>(
 			state, size_limit, start_key,
@@ -1389,13 +1388,13 @@ where
 	) -> sp_blockchain::Result<(KeyValueStates, usize)> {
 		let mut db = sp_state_machine::MemoryDB::<HashingFor<Block>>::new(&[]);
 		// Compact encoding
-		let _ = sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<Block>>, _, _>(
+		let _ = sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<Block>, ()>, _>(
 			&mut db,
 			proof.iter_compact_encoded_nodes(),
 			Some(&root),
 		)
 		.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))?;
-		let proving_backend = sp_state_machine::TrieBackendBuilder::new(db, root).build();
+		let proving_backend = sp_state_machine::TrieBackendBuilder::new(Box::new(db), root).build();
 		let state = read_range_proof_check_with_child_on_proving_backend::<HashingFor<Block>>(
 			&proving_backend,
 			start_key,

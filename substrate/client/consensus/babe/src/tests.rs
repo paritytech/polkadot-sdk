@@ -101,15 +101,15 @@ impl DummyProposer {
 		let block_builder =
 			self.factory.client.new_block_at(self.parent_hash, pre_digests, false).unwrap();
 
-		let mut block = match block_builder.build().map_err(|e| e.into()) {
-			Ok(b) => b.block,
+		let (mut block, storage_changes) = match block_builder.build().map_err(|e| e.into()) {
+			Ok(b) => (b.block, b.storage_changes),
 			Err(e) => return future::ready(Err(e)),
 		};
 
 		// mutate the block header according to the mutator.
 		(self.factory.mutator)(&mut block.header, Stage::PreSeal);
 
-		future::ready(Ok(Proposal { block, proof: (), storage_changes: Default::default() }))
+		future::ready(Ok(Proposal { block, proof: (), storage_changes }))
 	}
 }
 
@@ -216,7 +216,7 @@ impl TestNetFactory for BabeTestNet {
 		&self,
 		client: PeersClient,
 	) -> (
-		BlockImportAdapter<Self::BlockImport>,
+		Self::BlockImport,
 		Option<BoxJustificationImport<Block>>,
 		Option<PeerData>,
 	) {
@@ -231,7 +231,7 @@ impl TestNetFactory for BabeTestNet {
 		let data_block_import =
 			Mutex::new(Some(Box::new(block_import.clone()) as BoxBlockImport<_>));
 		(
-			BlockImportAdapter::new(block_import),
+			block_import,
 			None,
 			Some(PeerData { link, block_import: data_block_import }),
 		)

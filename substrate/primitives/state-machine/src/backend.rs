@@ -20,7 +20,7 @@
 #[cfg(feature = "std")]
 use crate::trie_backend::TrieBackend;
 use crate::{
-	trie_backend_essence::TrieBackendStorage, ChildStorageCollection, StorageCollection,
+	ChildStorageCollection, StorageCollection,
 	StorageKey, StorageValue, UsageInfo,
 };
 use codec::Encode;
@@ -30,7 +30,9 @@ use sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};
 #[cfg(feature = "std")]
 use sp_core::traits::RuntimeCode;
 use sp_std::vec::Vec;
-use sp_trie::PrefixedMemoryDB;
+
+/// DB location hint for a trie node.
+pub type DBLocation = sp_trie::DBLocation;
 
 /// A struct containing arguments for iterating over the storage.
 #[derive(Default)]
@@ -169,11 +171,24 @@ where
 	}
 }
 
-/// The transaction type used by [`Backend`].
-///
-/// This transaction contains all the changes that need to be applied to the backend to create the
-/// state for a new block.
-pub type BackendTransaction<H> = PrefixedMemoryDB<H>;
+/// Database changeset for the trie backend.
+pub struct TrieCommit<H> {
+	/// Main trie changeset.
+	pub main: trie_db::Changeset<H, DBLocation>,
+	/// Child trie changesets.
+	pub child: Vec<(trie_db::Changeset<H, DBLocation>, ChildInfo)>,
+}
+
+impl <H: Copy> TrieCommit<H> {
+	/// Create an empty changeset.
+	pub fn empty(root: H) -> Self {
+		TrieCommit {
+			main: trie_db::Changeset::empty(root),
+			child: Default::default(),
+		}
+	}
+
+}
 
 /// A state backend is used to read state data and can have changes committed
 /// to it.
@@ -182,9 +197,6 @@ pub type BackendTransaction<H> = PrefixedMemoryDB<H>;
 pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 	/// An error type when fetching data is not possible.
 	type Error: super::Error;
-
-	/// Type of trie backend storage.
-	type TrieBackendStorage: TrieBackendStorage<H>;
 
 	/// Type of the raw storage iterator.
 	type RawIter: StorageIterator<H, Backend = Self, Error = Self::Error>;
@@ -240,7 +252,7 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> (H::Out, BackendTransaction<H>)
+	) -> TrieCommit<H::Out>
 	where
 		H::Out: Ord;
 
@@ -252,7 +264,7 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> (H::Out, bool, BackendTransaction<H>)
+	) -> (TrieCommit<H::Out>, bool)
 	where
 		H::Out: Ord;
 
@@ -287,33 +299,34 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 			Item = (&'a ChildInfo, impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>),
 		>,
 		state_version: StateVersion,
-	) -> (H::Out, BackendTransaction<H>)
+	) -> TrieCommit<H::Out>
 	where
 		H::Out: Ord + Encode,
 	{
-		let mut txs = BackendTransaction::default();
-		let mut child_roots: Vec<_> = Default::default();
+		let mut children = Vec::new();
+		let mut child_roots = Vec::with_capacity(child_deltas.size_hint().0);
 		// child first
 		for (child_info, child_delta) in child_deltas {
-			let (child_root, empty, child_txs) =
+			let (child_commit, empty) =
 				self.child_storage_root(child_info, child_delta, state_version);
 			let prefixed_storage_key = child_info.prefixed_storage_key();
-			txs.consolidate(child_txs);
 			if empty {
 				child_roots.push((prefixed_storage_key.into_inner(), None));
 			} else {
-				child_roots.push((prefixed_storage_key.into_inner(), Some(child_root.encode())));
+				child_roots.push((prefixed_storage_key.into_inner(), Some(child_commit.main.root_hash().encode())));
 			}
+			children.push((child_commit.main, child_info.clone()));
 		}
-		let (root, parent_txs) = self.storage_root(
+		let commit = self.storage_root(
 			delta
 				.map(|(k, v)| (k, v.as_ref().map(|v| &v[..])))
 				.chain(child_roots.iter().map(|(k, v)| (&k[..], v.as_ref().map(|v| &v[..])))),
 			state_version,
 		);
-		txs.consolidate(parent_txs);
-
-		(root, txs)
+		TrieCommit {
+			main: commit.main,
+			child: children,
+		}
 	}
 
 	/// Register stats from overlay of state machine.
@@ -335,8 +348,7 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 	/// Commit given transaction to storage.
 	fn commit(
 		&self,
-		_: H::Out,
-		_: BackendTransaction<H>,
+		_: TrieCommit<H::Out>,
 		_: StorageCollection,
 		_: ChildStorageCollection,
 	) -> Result<(), Self::Error> {
@@ -374,12 +386,11 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 
 /// Something that can be converted into a [`TrieBackend`].
 #[cfg(feature = "std")]
-pub trait AsTrieBackend<H: Hasher, C = sp_trie::cache::LocalTrieCache<H>> {
-	/// Type of trie backend storage.
-	type TrieBackendStorage: TrieBackendStorage<H>;
-
+pub trait AsTrieBackend<H: Hasher, C = sp_trie::cache::LocalTrieCache<H, DBLocation>> {
 	/// Return the type as [`TrieBackend`].
-	fn as_trie_backend(&self) -> &TrieBackend<Self::TrieBackendStorage, H, C>;
+	fn as_trie_backend(&self) -> &TrieBackend<H, C>;
+	/// Return the type as [`TrieBackend`].
+	fn as_trie_backend_mut (&mut self) -> &mut TrieBackend<H, C>;
 }
 
 /// Wrapper to create a [`RuntimeCode`] from a type that implements [`Backend`].

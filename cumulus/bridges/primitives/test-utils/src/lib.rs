@@ -26,7 +26,7 @@ use codec::Encode;
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, AuthorityWeight, SetId};
 use sp_runtime::traits::{Header as HeaderT, One, Zero};
 use sp_std::prelude::*;
-use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
+use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB};
 
 // Re-export all our test account utilities
 pub use keyring::*;
@@ -171,22 +171,20 @@ pub fn prepare_parachain_heads_proof<H: HeaderT>(
 	heads: Vec<(u32, ParaHead)>,
 ) -> (H::Hash, ParaHeadsProof, Vec<(ParaId, ParaHash)>) {
 	let mut parachains = Vec::with_capacity(heads.len());
-	let mut root = Default::default();
 	let mut mdb = MemoryDB::default();
-	{
-		let mut trie = TrieDBMutBuilderV1::<H::Hashing>::new(&mut mdb, &mut root).build();
-		for (parachain, head) in heads {
-			let storage_key =
-				parachain_head_storage_key_at_source(PARAS_PALLET_NAME, ParaId(parachain));
-			trie.insert(&storage_key.0, &head.encode())
-				.map_err(|_| "TrieMut::insert has failed")
-				.expect("TrieMut::insert should not fail in tests");
-			parachains.push((ParaId(parachain), head.hash()));
-		}
+	let mut trie = TrieDBMutBuilderV1::<H::Hashing>::new(&mdb).build();
+	for (parachain, head) in heads {
+		let storage_key =
+			parachain_head_storage_key_at_source(PARAS_PALLET_NAME, ParaId(parachain));
+		trie.insert(&storage_key.0, &head.encode())
+			.map_err(|_| "TrieMut::insert has failed")
+			.expect("TrieMut::insert should not fail in tests");
+		parachains.push((ParaId(parachain), head.hash()));
 	}
+	let root = trie.commit().apply_to(&mut mdb);
 
 	// generate storage proof to be delivered to This chain
-	let storage_proof = record_all_trie_keys::<LayoutV1<H::Hashing>, _>(&mdb, &root)
+	let storage_proof = record_all_trie_keys::<LayoutV1<H::Hashing, ()>>(&mdb, &root)
 		.map_err(|_| "record_all_trie_keys has failed")
 		.expect("record_all_trie_keys should not fail in benchmarks");
 

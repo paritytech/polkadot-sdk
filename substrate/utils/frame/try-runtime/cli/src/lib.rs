@@ -54,9 +54,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Hash as HashT, HashingFor, NumberFor},
 	DeserializeOwned, Digest,
 };
-use sp_state_machine::{
-	CompactProof, OverlayedChanges, StateMachine, TestExternalities, TrieBackendBuilder,
-};
+use sp_state_machine::{CompactProof, OverlayedChanges, StateMachine, TestExternalities};
 use sp_version::StateVersion;
 use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
@@ -571,15 +569,14 @@ pub(crate) fn state_machine_call_with_proof<Block: BlockT, HostFns: HostFunction
 	use parity_scale_codec::Encode;
 
 	let mut changes = Default::default();
-	let backend = ext.backend.clone();
-	let runtime_code_backend = sp_state_machine::backend::BackendRuntimeCode::new(&backend);
-	let proving_backend =
-		TrieBackendBuilder::wrap(&backend).with_recorder(Default::default()).build();
+	let backend = &ext.backend;
+	let runtime_code_backend = sp_state_machine::backend::BackendRuntimeCode::new(backend);
+	let proving_backend = backend.with_recorder(Default::default());
 	let runtime_code = runtime_code_backend.runtime_code()?;
 
 	let pre_root = *backend.root();
 	let encoded_results = StateMachine::new(
-		&proving_backend,
+		&*proving_backend,
 		&mut changes,
 		executor,
 		method,

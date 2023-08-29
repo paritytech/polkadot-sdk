@@ -41,17 +41,14 @@ kvdb-rocksdb = "0.19.0"
 rand = "0.8.5"
 tempfile = "3.1.0"
 quickcheck = { version = "1.0.3", default-features = false }
-kitchensink-runtime = { path = "../../bin/node/runtime" }
 sp-tracing = { path = "../../primitives/tracing" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 array-bytes = "6.1"
 
 [features]
 default = []
 test-helpers = []
 runtime-benchmarks = [
-	"kitchensink-runtime/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
 ]
 rocksdb = [ "kvdb-rocksdb" ]
 

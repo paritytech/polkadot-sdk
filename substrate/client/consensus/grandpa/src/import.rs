@@ -21,7 +21,7 @@ use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 use log::debug;
 use parity_scale_codec::Decode;
 
-use sc_client_api::{backend::Backend, utils::is_descendent_of};
+use sc_client_api::{backend::Backend, utils::is_descendent_of, HeaderBackend};
 use sc_consensus::{
 	shared_data::{SharedDataLocked, SharedDataLockedUpgradable},
 	BlockCheckParams, BlockImport, BlockImportParams, ImportResult, JustificationImport,
@@ -364,7 +364,7 @@ where
 					// best finalized block.
 					let best_finalized_number = self.inner.info().finalized_number;
 					let canon_number = best_finalized_number.min(median_last_finalized_number);
-					let canon_hash = self.inner.hash(canon_number)
+					let canon_hash = HeaderBackend::hash(&*self.inner, canon_number)
 							.map_err(|e| ConsensusError::ClientImport(e.to_string()))?
 							.expect(
 								"the given block number is less or equal than the current best finalized number; \

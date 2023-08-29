@@ -32,10 +32,8 @@ use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
 use sp_std::prelude::*;
-use sp_trie::MemoryDB;
 
 type TrieBackend<B> = sp_state_machine::TrieBackend<
-	MemoryDB<HashingFor<B>>,
 	HashingFor<B>,
 	trie_cache::CacheProvider<HashingFor<B>>,
 >;
@@ -122,7 +120,7 @@ where
 	// We use the storage root of the `parent_head` to ensure that it is the correct root.
 	// This is already being done above while creating the in-memory db, but let's be paranoid!!
 	let backend = sp_state_machine::TrieBackendBuilder::new_with_cache(
-		db,
+		Box::new(db),
 		*parent_header.state_root(),
 		cache_provider,
 	)
