@@ -54,9 +54,9 @@ pub use xcm::{
 	DoubleEncoded,
 };
 pub use xcm_emulator::{
-	assert_expected_events, bx, helpers::weight_within_threshold,
-	AccountId32Junction, Chain, ParaId, Parachain as Para, RelayChain as Relay, Test, TestArgs,
-	TestContext, TestExt, TestExternalities,
+	assert_expected_events, bx, helpers::weight_within_threshold, AccountId32Junction, Chain,
+	ParaId, Parachain as Para, RelayChain as Relay, Test, TestArgs, TestContext, TestExt,
+	TestExternalities,
 };
 
 pub const ASSET_ID: u32 = 1;

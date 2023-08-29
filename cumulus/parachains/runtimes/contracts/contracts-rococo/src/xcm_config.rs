@@ -17,15 +17,14 @@ use super::{
 	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
+use cumulus_primitives_core::AggregateMessageOrigin;
 use frame_support::{
 	match_types, parameter_types,
-	traits::{ConstU32, EitherOfDiverse, Everything, Nothing, TransformOrigin},
+	traits::{ConstU32, EitherOfDiverse, Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
-use parachains_common::message_queue::ParaIdToSibling;
 use polkadot_parachain::primitives::Sibling;
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -238,8 +237,12 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type XcmpQueue = ();
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type XcmpQueue =
-		TransformOrigin<crate::MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
+	type XcmpQueue = frame_support::TransformOrigin<
+		crate::MessageQueue,
+		AggregateMessageOrigin,
+		cumulus_primitives_core::ParaId,
+		parachains_common::message_queue::ParaIdToSibling,
+	>;
 	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
 	type ControllerOrigin = EitherOfDiverse<
 		EnsureRoot<AccountId>,
