@@ -67,9 +67,7 @@ pub struct TicketClaim {
 /// Only ticket identifiers below this threshold should be considered for slot
 /// assignment.
 ///
-/// The value is computed as
-///
-/// 	TicketId::MAX*(redundancy*slots)/(attempts*validators)
+/// The value is computed as `TicketId::MAX*(redundancy*slots)/(attempts*validators)`
 ///
 /// Where:
 /// - `redundancy`: redundancy factor;
