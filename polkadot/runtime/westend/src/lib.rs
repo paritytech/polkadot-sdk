@@ -650,6 +650,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = NominationPools;
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
+	type Randomness = pallet_babe::ParentBlockRandomness<Runtime>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {

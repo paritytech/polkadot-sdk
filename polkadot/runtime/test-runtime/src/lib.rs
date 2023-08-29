@@ -366,6 +366,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = ();
 	type WeightInfo = ();
+	type Randomness = pallet_babe::ParentBlockRandomness<Runtime>;
 }
 
 parameter_types! {
