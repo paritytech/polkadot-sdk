@@ -41,7 +41,7 @@ use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, Permill,
+	ApplyExtrinsicResult, PerThing, Percent, Permill, Rounding,
 };
 
 use sp_std::prelude::*;
@@ -291,6 +291,7 @@ parameter_types! {
 	pub const AllowMultiAssetPools: bool = false;
 	// should be non-zero if AllowMultiAssetPools is true, otherwise can be zero
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
+	pub LiquidityPoolFee: Percent = Percent::from_rational_with_rounding(997u32, 1000u32, Rounding::NearestPrefDown).unwrap(); // 0.3%
 }
 
 ord_parameter_types! {
@@ -342,7 +343,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolSetupFeeReceiver = AssetConversionOrigin;
 	// should be non-zero if `AllowMultiAssetPools` is true, otherwise can be zero.
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
-	type LPFee = ConstU32<3>;
+	type LPFee = LiquidityPoolFee;
 	type PalletId = AssetConversionPalletId;
 	type AllowMultiAssetPools = AllowMultiAssetPools;
 	type MaxSwapPathLength = ConstU32<4>;

@@ -79,8 +79,8 @@ use sp_runtime::{
 		OpaqueKeys, SaturatedConversion, StaticLookup,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedPointNumber, FixedU128, Perbill, Percent, Permill, Perquintill,
-	Rounding, RuntimeDebug,
+	ApplyExtrinsicResult, FixedPointNumber, FixedU128, PerThing, Perbill, Percent, Permill,
+	Perquintill, Rounding, RuntimeDebug,
 };
 use sp_std::prelude::*;
 #[cfg(any(feature = "std", test))]
@@ -1617,7 +1617,7 @@ parameter_types! {
 	pub const PoolSetupFee: Balance = 1 * DOLLARS; // should be more or equal to the existential deposit
 	pub const MintMinLiquidity: Balance = 100;  // 100 is good enough when the main currency has 10-12 decimals.
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);  // should be non-zero if AllowMultiAssetPools is true, otherwise can be zero.
-	pub const LiquidityPoolFee: Percent = Percent::from_rational_with_rounding(997u32, 1000u32, Rounding::NearestPrefDown).unwrap(); // 0.3%
+	pub LiquidityPoolFee: Percent = Percent::from_rational_with_rounding(997u32, 1000u32, Rounding::NearestPrefDown).unwrap(); // 0.3%
 }
 
 impl pallet_asset_conversion::Config for Runtime {
