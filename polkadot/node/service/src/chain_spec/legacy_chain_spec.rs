@@ -14,8 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! RuntimeGenesisConfig-based (legacy) Polkadot chain configurations. Used for testing ChainSpecs against the JSON-based
-//! genesis configs. Entire file shall be removed once native runtime is removed.
+//! RuntimeGenesisConfig-based (legacy) Polkadot chain configurations. Used for testing ChainSpecs
+//! against the JSON-based genesis configs. Entire file shall be removed once native runtime is
+//! removed.
 
 use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
 use grandpa::AuthorityId as GrandpaId;
@@ -1776,7 +1777,7 @@ pub fn polkadot_local_testnet_config() -> Result<PolkadotChainSpec, String> {
 #[cfg(feature = "kusama-native")]
 fn kusama_local_testnet_genesis() -> kusama::RuntimeGenesisConfig {
 	kusama_testnet_genesis(
-		vec![get_authority_keys_from_seed("Alice"),get_authority_keys_from_seed("Bob")],
+		vec![get_authority_keys_from_seed("Alice"), get_authority_keys_from_seed("Bob")],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		None,
 	)
@@ -1804,7 +1805,7 @@ pub fn kusama_local_testnet_config() -> Result<KusamaChainSpec, String> {
 #[cfg(feature = "westend-native")]
 fn westend_local_testnet_genesis() -> westend::RuntimeGenesisConfig {
 	westend_testnet_genesis(
-		vec![get_authority_keys_from_seed("Alice"),get_authority_keys_from_seed("Bob")],
+		vec![get_authority_keys_from_seed("Alice"), get_authority_keys_from_seed("Bob")],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		None,
 	)
