@@ -19,6 +19,43 @@
 
 use super::*;
 
+/// Trait for providing methods to swap between the various asset classes.
+pub trait Swap<AccountId, Balance, MultiAssetId> {
+	/// Swap exactly `amount_in` of asset `path[0]` for asset `path[1]`.
+	/// If an `amount_out_min` is specified, it will return an error if it is unable to acquire
+	/// the amount desired.
+	///
+	/// Withdraws the `path[0]` asset from `sender`, deposits the `path[1]` asset to `send_to`,
+	/// respecting `keep_alive`.
+	///
+	/// If successful, returns the amount of `path[1]` acquired for the `amount_in`.
+	fn swap_exact_tokens_for_tokens(
+		sender: AccountId,
+		path: Vec<MultiAssetId>,
+		amount_in: Balance,
+		amount_out_min: Option<Balance>,
+		send_to: AccountId,
+		keep_alive: bool,
+	) -> Result<Balance, DispatchError>;
+
+	/// Take the `path[0]` asset and swap some amount for `amount_out` of the `path[1]`. If an
+	/// `amount_in_max` is specified, it will return an error if acquiring `amount_out` would be
+	/// too costly.
+	///
+	/// Withdraws `path[0]` asset from `sender`, deposits `path[1]` asset to `send_to`,
+	/// respecting `keep_alive`.
+	///
+	/// If successful returns the amount of the `path[0]` taken to provide `path[1]`.
+	fn swap_tokens_for_exact_tokens(
+		sender: AccountId,
+		path: Vec<MultiAssetId>,
+		amount_out: Balance,
+		amount_in_max: Option<Balance>,
+		send_to: AccountId,
+		keep_alive: bool,
+	) -> Result<Balance, DispatchError>;
+}
+
 /// TODO
 pub trait SwapCredit<AccountId, MultiAssetId, Credit> {
 	/// TODO
@@ -38,6 +75,50 @@ pub trait SwapCredit<AccountId, MultiAssetId, Credit> {
 	) -> Result<(Credit, Credit), (Credit, DispatchError)>;
 }
 
+impl<T: Config> Swap<T::AccountId, T::AssetBalance, T::MultiAssetId> for Pallet<T> {
+	fn swap_exact_tokens_for_tokens(
+		sender: T::AccountId,
+		path: Vec<T::MultiAssetId>,
+		amount_in: T::AssetBalance,
+		amount_out_min: Option<T::AssetBalance>,
+		send_to: T::AccountId,
+		keep_alive: bool,
+	) -> Result<T::AssetBalance, DispatchError> {
+		let path = path.try_into().map_err(|_| Error::<T>::PathError)?;
+		// TODO ready / wrap `with_transaction`
+		let amount_out = Self::do_swap_exact_tokens_for_tokens(
+			sender,
+			path,
+			amount_in,
+			amount_out_min,
+			send_to,
+			keep_alive,
+		)?;
+		Ok(amount_out)
+	}
+
+	fn swap_tokens_for_exact_tokens(
+		sender: T::AccountId,
+		path: Vec<T::MultiAssetId>,
+		amount_out: T::AssetBalance,
+		amount_in_max: Option<T::AssetBalance>,
+		send_to: T::AccountId,
+		keep_alive: bool,
+	) -> Result<T::AssetBalance, DispatchError> {
+		let path = path.try_into().map_err(|_| Error::<T>::PathError)?;
+		// TODO ready / wrap `with_transaction`
+		let amount_in = Self::do_swap_tokens_for_exact_tokens(
+			sender,
+			path,
+			amount_out,
+			amount_in_max,
+			send_to,
+			keep_alive,
+		)?;
+		Ok(amount_in)
+	}
+}
+
 /// TODO
 impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<T> {
 	type Balance = T::AssetBalance;
@@ -48,7 +129,11 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 		credit_in: Credit<T>,
 		amount_out_min: Option<Self::Balance>,
 	) -> Result<Credit<T>, (Credit<T>, DispatchError)> {
-		// TODO implementation
+		// TODO ready / implementation
+
+		// TODO ready / wrap `with_transaction`
+		// TODO ready / swap
+
 		Err((credit_in, Error::<T>::PoolNotFound.into()))
 	}
 
@@ -80,8 +165,8 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 		);
 		let (credit_in, credit_change) = credit_in.split(*amount_in);
 
-		// TODO wrap `with_transaction`
-		// TODO swap
+		// TODO ready / wrap `with_transaction`
+		// TODO ready / swap
 
 		Err((credit_in, Error::<T>::PoolNotFound.into()))
 	}

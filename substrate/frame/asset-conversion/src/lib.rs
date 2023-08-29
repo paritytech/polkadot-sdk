@@ -289,7 +289,7 @@ pub mod pallet {
 			send_to: T::AccountId,
 			/// The route of asset ids that the swap went through.
 			/// E.g. A -> Dot -> B
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: Path<T>,
 			/// The amount of the first asset that was swapped.
 			amount_in: T::AssetBalance,
 			/// The amount of the second asset that was received.
@@ -663,7 +663,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::swap_exact_tokens_for_tokens())]
 		pub fn swap_exact_tokens_for_tokens(
 			origin: OriginFor<T>,
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: Path<T>,
 			amount_in: T::AssetBalance,
 			amount_out_min: T::AssetBalance,
 			send_to: T::AccountId,
@@ -691,7 +691,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::swap_tokens_for_exact_tokens())]
 		pub fn swap_tokens_for_exact_tokens(
 			origin: OriginFor<T>,
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: Path<T>,
 			amount_out: T::AssetBalance,
 			amount_in_max: T::AssetBalance,
 			send_to: T::AccountId,
@@ -721,7 +721,7 @@ pub mod pallet {
 		/// If successful, returns the amount of `path[1]` acquired for the `amount_in`.
 		pub(crate) fn do_swap_exact_tokens_for_tokens(
 			sender: T::AccountId,
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: Path<T>,
 			amount_in: T::AssetBalance,
 			amount_out_min: Option<T::AssetBalance>,
 			send_to: T::AccountId,
@@ -759,7 +759,7 @@ pub mod pallet {
 		/// If successful returns the amount of the `path[0]` taken to provide `path[1]`.
 		pub(crate) fn do_swap_tokens_for_exact_tokens(
 			sender: T::AccountId,
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: Path<T>,
 			amount_out: T::AssetBalance,
 			amount_in_max: Option<T::AssetBalance>,
 			send_to: T::AccountId,
@@ -855,15 +855,15 @@ pub mod pallet {
 		pub(crate) fn withdraw_and_swap(
 			sender: T::AccountId,
 			amounts: &Vec<T::AssetBalance>,
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: Path<T>,
 			send_to: T::AccountId,
 			keep_alive: bool,
 		) -> Result<(), DispatchError> {
 			ensure!(amounts.len() > 1, Error::<T>::CorrespondenceError);
 
-			// TODO withdraw from sender
-			// TODO migrate to Self::do_swap
-			// TODO resolve credit from swap to send_to
+			// TODO ready / withdraw from sender
+			// TODO ready / migrate to Self::do_swap
+			// TODO ready / resolve credit from swap to send_to
 
 			if let Some([asset1, asset2]) = &path.get(0..2) {
 				let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
@@ -916,10 +916,13 @@ pub mod pallet {
 		}
 
 		/// TODO
+		///
+		/// TODO ready / accept crate::BalancePath instead `amounts` and `path`
+		/// see Self::balance_path_from_amount_out(...)
 		pub(crate) fn do_swap(
 			credit_in: Credit<T>,
 			amounts: &Vec<T::AssetBalance>,
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: Path<T>,
 		) -> Result<Credit<T>, (Credit<T>, DispatchError)> {
 			return Err((credit_in, Error::<T>::InvalidPath.into()))
 		}
@@ -1000,7 +1003,7 @@ pub mod pallet {
 		/// Leading to an amount at the end of a `path`, get the required amounts in.
 		pub(crate) fn get_amounts_in(
 			amount_out: &T::AssetBalance,
-			path: &BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: &Path<T>,
 		) -> Result<Vec<T::AssetBalance>, DispatchError> {
 			let mut amounts: Vec<T::AssetBalance> = vec![*amount_out];
 
@@ -1020,7 +1023,7 @@ pub mod pallet {
 		/// Following an amount into a `path`, get the corresponding amounts out.
 		pub(crate) fn get_amounts_out(
 			amount_in: &T::AssetBalance,
-			path: &BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: &Path<T>,
 		) -> Result<Vec<T::AssetBalance>, DispatchError> {
 			let mut amounts: Vec<T::AssetBalance> = vec![*amount_in];
 
@@ -1229,9 +1232,7 @@ pub mod pallet {
 		}
 
 		/// Ensure that a path is valid.
-		pub(crate) fn validate_swap_path(
-			path: &BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
-		) -> Result<(), DispatchError> {
+		pub(crate) fn validate_swap_path(path: &Path<T>) -> Result<(), DispatchError> {
 			ensure!(path.len() >= 2, Error::<T>::InvalidPath);
 
 			// validate all the pools in the path are unique
@@ -1249,6 +1250,30 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// TODO
+		pub(crate) fn balance_path_from_amount_out(
+			amount_out: T::AssetBalance,
+			path: Path<T>,
+		) -> Result<BalancePath<T>, DispatchError> {
+			let mut path_with_outs: BalancePath<T> = vec![];
+			let mut last_amount: T::AssetBalance = amount_out;
+
+			for assets_pair in path.windows(2).rev() {
+				if let [asset1, asset2] = assets_pair {
+					path_with_outs.push((asset1.clone(), last_amount));
+					let (reserve_in, reserve_out) = Self::get_reserves(asset1, asset2)?;
+					last_amount = Self::get_amount_in(&last_amount, &reserve_in, &reserve_out)?;
+				}
+			}
+			if let Some(asset) = path.first() {
+				path_with_outs.push((asset.clone(), last_amount));
+			} else {
+				return Err(Error::<T>::InvalidPath.into())
+			}
+			path_with_outs.reverse();
+			Ok(path_with_outs)
+		}
+
 		/// Returns the next pool asset id for benchmark purposes only.
 		#[cfg(any(test, feature = "runtime-benchmarks"))]
 		pub fn get_next_pool_asset_id() -> T::PoolAssetId {
@@ -1256,50 +1281,6 @@ pub mod pallet {
 				.or(T::PoolAssetId::initial_value())
 				.expect("Next pool asset ID can not be None")
 		}
-	}
-}
-
-impl<T: Config> Swap<T::AccountId, T::AssetBalance, T::MultiAssetId> for Pallet<T> {
-	fn swap_exact_tokens_for_tokens(
-		sender: T::AccountId,
-		path: Vec<T::MultiAssetId>,
-		amount_in: T::AssetBalance,
-		amount_out_min: Option<T::AssetBalance>,
-		send_to: T::AccountId,
-		keep_alive: bool,
-	) -> Result<T::AssetBalance, DispatchError> {
-		let path = path.try_into().map_err(|_| Error::<T>::PathError)?;
-		// TODO wrap `with_transaction`
-		let amount_out = Self::do_swap_exact_tokens_for_tokens(
-			sender,
-			path,
-			amount_in,
-			amount_out_min,
-			send_to,
-			keep_alive,
-		)?;
-		Ok(amount_out)
-	}
-
-	fn swap_tokens_for_exact_tokens(
-		sender: T::AccountId,
-		path: Vec<T::MultiAssetId>,
-		amount_out: T::AssetBalance,
-		amount_in_max: Option<T::AssetBalance>,
-		send_to: T::AccountId,
-		keep_alive: bool,
-	) -> Result<T::AssetBalance, DispatchError> {
-		let path = path.try_into().map_err(|_| Error::<T>::PathError)?;
-		// TODO wrap `with_transaction`
-		let amount_in = Self::do_swap_tokens_for_exact_tokens(
-			sender,
-			path,
-			amount_out,
-			amount_in_max,
-			send_to,
-			keep_alive,
-		)?;
-		Ok(amount_in)
 	}
 }
 

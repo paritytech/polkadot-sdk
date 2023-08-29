@@ -19,6 +19,7 @@ use super::*;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
+use sp_runtime::BoundedVec;
 use sp_std::{cmp::Ordering, marker::PhantomData};
 
 /// Pool ID.
@@ -26,6 +27,14 @@ use sp_std::{cmp::Ordering, marker::PhantomData};
 /// The pool's `AccountId` is derived from this type. Any changes to the type may necessitate a
 /// migration.
 pub(super) type PoolIdOf<T> = (<T as Config>::MultiAssetId, <T as Config>::MultiAssetId);
+
+/// TODO
+pub type Path<T> = BoundedVec<<T as Config>::MultiAssetId, <T as Config>::MaxSwapPathLength>;
+
+/// TODO
+///
+/// Example: [(asset1, amount_in), (asset2, amount_out), (asset2, amount_out), (asset3, amount_out)]
+pub(super) type BalancePath<T> = Vec<(<T as Config>::MultiAssetId, <T as Config>::AssetBalance)>;
 
 /// Stores the lp_token asset id a particular pool has been assigned.
 #[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
@@ -81,43 +90,6 @@ where
 	fn multiasset_id(asset_id: u32) -> MultiAssetId {
 		asset_id.into()
 	}
-}
-
-/// Trait for providing methods to swap between the various asset classes.
-pub trait Swap<AccountId, Balance, MultiAssetId> {
-	/// Swap exactly `amount_in` of asset `path[0]` for asset `path[1]`.
-	/// If an `amount_out_min` is specified, it will return an error if it is unable to acquire
-	/// the amount desired.
-	///
-	/// Withdraws the `path[0]` asset from `sender`, deposits the `path[1]` asset to `send_to`,
-	/// respecting `keep_alive`.
-	///
-	/// If successful, returns the amount of `path[1]` acquired for the `amount_in`.
-	fn swap_exact_tokens_for_tokens(
-		sender: AccountId,
-		path: Vec<MultiAssetId>,
-		amount_in: Balance,
-		amount_out_min: Option<Balance>,
-		send_to: AccountId,
-		keep_alive: bool,
-	) -> Result<Balance, DispatchError>;
-
-	/// Take the `path[0]` asset and swap some amount for `amount_out` of the `path[1]`. If an
-	/// `amount_in_max` is specified, it will return an error if acquiring `amount_out` would be
-	/// too costly.
-	///
-	/// Withdraws `path[0]` asset from `sender`, deposits `path[1]` asset to `send_to`,
-	/// respecting `keep_alive`.
-	///
-	/// If successful returns the amount of the `path[0]` taken to provide `path[1]`.
-	fn swap_tokens_for_exact_tokens(
-		sender: AccountId,
-		path: Vec<MultiAssetId>,
-		amount_out: Balance,
-		amount_in_max: Option<Balance>,
-		send_to: AccountId,
-		keep_alive: bool,
-	) -> Result<Balance, DispatchError>;
 }
 
 /// An implementation of MultiAssetId that can be either Native or an asset.
