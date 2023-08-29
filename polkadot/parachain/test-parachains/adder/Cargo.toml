@@ -4,7 +4,7 @@ description = "Test parachain which adds to a number as its state transition"
 build = "build.rs"
 edition.workspace = true
 license.workspace = true
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 publish = false
 

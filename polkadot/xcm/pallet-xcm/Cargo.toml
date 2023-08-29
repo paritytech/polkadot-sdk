@@ -3,7 +3,7 @@ name = "pallet-xcm"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version.workspace = true
+version = "1.0.0"
 
 
 [dependencies]
