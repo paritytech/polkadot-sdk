@@ -33,6 +33,12 @@ use crate::v2::{
 	MultiAssets as OldMultiAssets, WildFungibility as OldWildFungibility,
 	WildMultiAsset as OldWildMultiAsset,
 };
+use crate::v4::{
+	AssetId as NewAssetId, AssetInstance as NewAssetInstance, Fungibility as NewFungibility,
+	MultiAsset as NewMultiAsset, MultiAssetFilter as NewMultiAssetFilter,
+	MultiAssets as NewMultiAssets, WildFungibility as NewWildFungibility,
+	WildMultiAsset as NewWildMultiAsset,
+};
 use alloc::{vec, vec::Vec};
 use core::{
 	cmp::Ordering,
@@ -79,6 +85,21 @@ impl TryFrom<OldAssetInstance> for AssetInstance {
 			Array16(n) => Self::Array16(n),
 			Array32(n) => Self::Array32(n),
 			Blob(_) => return Err(()),
+		})
+	}
+}
+
+impl TryFrom<NewAssetInstance> for AssetInstance {
+	type Error = ();
+	fn try_from(value: NewAssetInstance) -> Result<Self, Self::Error> {
+		use NewAssetInstance::*;
+		Ok(match value {
+			Undefined => Self::Undefined,
+			Index(n) => Self::Index(n),
+			Array4(n) => Self::Array4(n),
+			Array8(n) => Self::Array8(n),
+			Array16(n) => Self::Array16(n),
+			Array32(n) => Self::Array32(n),
 		})
 	}
 }
@@ -305,6 +326,17 @@ impl TryFrom<OldFungibility> for Fungibility {
 	}
 }
 
+impl TryFrom<NewFungibility> for Fungibility {
+	type Error = ();
+	fn try_from(value: NewFungibility) -> Result<Self, Self::Error> {
+		use NewFungibility::*;
+		Ok(match value {
+			Fungible(n) => Self::Fungible(n),
+			NonFungible(i) => Self::NonFungible(i.try_into()?),
+		})
+	}
+}
+
 /// Classification of whether an asset is fungible or not.
 #[derive(
 	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen,
@@ -321,6 +353,17 @@ impl TryFrom<OldWildFungibility> for WildFungibility {
 	type Error = ();
 	fn try_from(value: OldWildFungibility) -> Result<Self, Self::Error> {
 		use OldWildFungibility::*;
+		Ok(match value {
+			Fungible => Self::Fungible,
+			NonFungible => Self::NonFungible,
+		})
+	}
+}
+
+impl TryFrom<NewWildFungibility> for WildFungibility {
+	type Error = ();
+	fn try_from(value: NewWildFungibility) -> Result<Self, Self::Error> {
+		use NewWildFungibility::*;
 		Ok(match value {
 			Fungible => Self::Fungible,
 			NonFungible => Self::NonFungible,
@@ -365,6 +408,17 @@ impl TryFrom<OldAssetId> for AssetId {
 				Self::Abstract(r)
 			},
 			_ => return Err(()),
+		})
+	}
+}
+
+impl TryFrom<NewAssetId> for AssetId {
+	type Error = ();
+	fn try_from(new: NewAssetId) -> Result<Self, Self::Error> {
+		use NewAssetId::*;
+		Ok(match new {
+			Concrete(l) => Self::Concrete(l.try_into()?),
+			Abstract(v) => Self::Abstract(v),
 		})
 	}
 }
@@ -495,6 +549,13 @@ impl TryFrom<OldMultiAsset> for MultiAsset {
 	}
 }
 
+impl TryFrom<NewMultiAsset> for MultiAsset {
+	type Error = ();
+	fn try_from(new: NewMultiAsset) -> Result<Self, Self::Error> {
+		Ok(Self { id: new.id.try_into()?, fun: new.fun.try_into()? })
+	}
+}
+
 /// A `Vec` of `MultiAsset`s.
 ///
 /// There are a number of invariants which the construction and mutation functions must ensure are
@@ -528,6 +589,18 @@ impl TryFrom<OldMultiAssets> for MultiAssets {
 	fn try_from(old: OldMultiAssets) -> Result<Self, ()> {
 		let v = old
 			.drain()
+			.into_iter()
+			.map(MultiAsset::try_from)
+			.collect::<Result<Vec<_>, ()>>()?;
+		Ok(MultiAssets(v))
+	}
+}
+
+impl TryFrom<NewMultiAssets> for MultiAssets {
+	type Error = ();
+	fn try_from(new: NewMultiAssets) -> Result<Self, Self::Error> {
+		let v = new
+			.into_inner()
 			.into_iter()
 			.map(MultiAsset::try_from)
 			.collect::<Result<Vec<_>, ()>>()?;
@@ -727,6 +800,21 @@ impl TryFrom<OldWildMultiAsset> for WildMultiAsset {
 	}
 }
 
+impl TryFrom<NewWildMultiAsset> for WildMultiAsset {
+	type Error = ();
+	fn try_from(new: NewWildMultiAsset) -> Result<Self, ()> {
+		use NewWildMultiAsset::*;
+		Ok(match new {
+			AllOf { id, fun } =>
+				Self::AllOf { id: id.try_into()?, fun: fun.try_into()? },
+			AllOfCounted { id, fun, count } =>
+				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count },
+			All => Self::All,
+			AllCounted(count) => Self::AllCounted(count),
+		})
+	}
+}
+
 impl TryFrom<(OldWildMultiAsset, u32)> for WildMultiAsset {
 	type Error = ();
 	fn try_from(old: (OldWildMultiAsset, u32)) -> Result<WildMultiAsset, ()> {
@@ -891,6 +979,17 @@ impl TryFrom<OldMultiAssetFilter> for MultiAssetFilter {
 		Ok(match old {
 			OldMultiAssetFilter::Definite(x) => Self::Definite(x.try_into()?),
 			OldMultiAssetFilter::Wild(x) => Self::Wild(x.try_into()?),
+		})
+	}
+}
+
+impl TryFrom<NewMultiAssetFilter> for MultiAssetFilter {
+	type Error = ();
+	fn try_from(new: NewMultiAssetFilter) -> Result<MultiAssetFilter, Self::Error> {
+		use NewMultiAssetFilter::*;
+		Ok(match new {
+			Definite(x) => Self::Definite(x.try_into()?),
+			Wild(x) => Self::Wild(x.try_into()?),
 		})
 	}
 }

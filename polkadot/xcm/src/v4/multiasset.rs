@@ -78,7 +78,6 @@ impl TryFrom<OldAssetInstance> for AssetInstance {
 			Array8(n) => Self::Array8(n),
 			Array16(n) => Self::Array16(n),
 			Array32(n) => Self::Array32(n),
-			Blob(_) => return Err(()),
 		})
 	}
 }
@@ -527,7 +526,7 @@ impl TryFrom<OldMultiAssets> for MultiAssets {
 	type Error = ();
 	fn try_from(old: OldMultiAssets) -> Result<Self, ()> {
 		let v = old
-			.drain()
+			.into_inner()
 			.into_iter()
 			.map(MultiAsset::try_from)
 			.collect::<Result<Vec<_>, ()>>()?;
@@ -723,19 +722,8 @@ impl TryFrom<OldWildMultiAsset> for WildMultiAsset {
 		Ok(match old {
 			AllOf { id, fun } => Self::AllOf { id: id.try_into()?, fun: fun.try_into()? },
 			All => Self::All,
-		})
-	}
-}
-
-impl TryFrom<(OldWildMultiAsset, u32)> for WildMultiAsset {
-	type Error = ();
-	fn try_from(old: (OldWildMultiAsset, u32)) -> Result<WildMultiAsset, ()> {
-		use OldWildMultiAsset::*;
-		let count = old.1;
-		Ok(match old.0 {
-			AllOf { id, fun } =>
-				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count },
-			All => Self::AllCounted(count),
+			AllOfCounted { id, fun, count } => Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count },
+			AllCounted(count) => Self::AllCounted(count),
 		})
 	}
 }
@@ -891,19 +879,6 @@ impl TryFrom<OldMultiAssetFilter> for MultiAssetFilter {
 		Ok(match old {
 			OldMultiAssetFilter::Definite(x) => Self::Definite(x.try_into()?),
 			OldMultiAssetFilter::Wild(x) => Self::Wild(x.try_into()?),
-		})
-	}
-}
-
-impl TryFrom<(OldMultiAssetFilter, u32)> for MultiAssetFilter {
-	type Error = ();
-	fn try_from(old: (OldMultiAssetFilter, u32)) -> Result<MultiAssetFilter, ()> {
-		let count = old.1;
-		Ok(match old.0 {
-			OldMultiAssetFilter::Definite(x) if count >= x.len() as u32 =>
-				Self::Definite(x.try_into()?),
-			OldMultiAssetFilter::Wild(x) => Self::Wild((x, count).try_into()?),
-			_ => return Err(()),
 		})
 	}
 }

@@ -20,6 +20,7 @@ use proc_macro::TokenStream;
 
 mod v2;
 mod v3;
+mod v4;
 mod weight_info;
 
 #[proc_macro]
@@ -44,6 +45,20 @@ pub fn impl_conversion_functions_for_multilocation_v3(input: TokenStream) -> Tok
 #[proc_macro]
 pub fn impl_conversion_functions_for_junctions_v3(input: TokenStream) -> TokenStream {
 	v3::junctions::generate_conversion_functions(input)
+		.unwrap_or_else(syn::Error::into_compile_error)
+		.into()
+}
+
+#[proc_macro]
+pub fn impl_conversion_functions_for_multilocation_v4(input: TokenStream) -> TokenStream {
+	v4::multilocation::generate_conversion_functions(input)
+		.unwrap_or_else(syn::Error::into_compile_error)
+		.into()
+}
+
+#[proc_macro]
+pub fn impl_conversion_functions_for_junctions_v4(input: TokenStream) -> TokenStream {
+	v4::junctions::generate_conversion_functions(input)
 		.unwrap_or_else(syn::Error::into_compile_error)
 		.into()
 }

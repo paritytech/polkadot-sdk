@@ -18,6 +18,7 @@
 
 use super::{Junction, Junctions};
 use crate::{v2::MultiLocation as OldMultiLocation, VersionedMultiLocation};
+use crate::v4::MultiLocation as NewMultiLocation;
 use core::{
 	convert::{TryFrom, TryInto},
 	result,
@@ -460,6 +461,20 @@ impl TryFrom<OldMultiLocation> for MultiLocation {
 	type Error = ();
 	fn try_from(x: OldMultiLocation) -> result::Result<Self, ()> {
 		Ok(MultiLocation { parents: x.parents, interior: x.interior.try_into()? })
+	}
+}
+
+impl TryFrom<NewMultiLocation> for Option<MultiLocation> {
+	type Error = ();
+	fn try_from(new: NewMultiLocation) -> result::Result<Self, Self::Error> {
+		Ok(Some(MultiLocation::try_from(new)?))
+	}
+}
+
+impl TryFrom<NewMultiLocation> for MultiLocation {
+	type Error = ();
+	fn try_from(new: NewMultiLocation) -> result::Result<Self, ()> {
+		Ok(MultiLocation { parents: new.parents, interior: new.interior.try_into()? })
 	}
 }
 

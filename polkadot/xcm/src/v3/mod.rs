@@ -20,6 +20,7 @@ use super::v2::{
 	Instruction as OldInstruction, Response as OldResponse, WeightLimit as OldWeightLimit,
 	Xcm as OldXcm,
 };
+use super::v4::{Xcm as NewXcm, Instruction as NewInstruction};
 use crate::{DoubleEncoded, GetWeight};
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
@@ -1203,6 +1204,126 @@ impl<Call> TryFrom<OldXcm<Call>> for Xcm<Call> {
 	type Error = ();
 	fn try_from(old_xcm: OldXcm<Call>) -> result::Result<Self, ()> {
 		Ok(Xcm(old_xcm.0.into_iter().map(TryInto::try_into).collect::<result::Result<_, _>>()?))
+	}
+}
+
+// Convert from a v4 XCM to a v3 XCM.
+impl<Call> TryFrom<NewXcm<Call>> for Xcm<Call> {
+	type Error = ();
+	fn try_from(new_xcm: NewXcm<Call>) -> result::Result<Self, Self::Error> {
+		Ok(Xcm(new_xcm.0.into_iter().map(TryInto::try_into).collect::<result::Result<_, _>>()?))
+	}
+}
+
+// Convert from a v4 instruction to a v3 instruction.
+impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
+	type Error = ();
+	fn try_from(new_instruction: NewInstruction<Call>) -> result::Result<Self, Self::Error> {
+		use NewInstruction::*;
+		Ok(match new_instruction {
+			WithdrawAsset(assets) => Self::WithdrawAsset(assets.try_into()?),
+			ReserveAssetDeposited(assets) => Self::ReserveAssetDeposited(assets.try_into()?),
+			ReceiveTeleportedAsset(assets) => Self::ReceiveTeleportedAsset(assets.try_into()?),
+			QueryResponse { query_id, response, max_weight, querier: Some(querier) } => Self::QueryResponse {
+				query_id,
+				querier: querier.try_into()?,
+				response: response.into(),
+				max_weight: max_weight,
+			},
+			QueryResponse { query_id, response, max_weight, querier: None } => Self::QueryResponse {
+				query_id,
+				querier: None,
+				response: response.into(),
+				max_weight: max_weight,
+			},
+			TransferAsset { assets, beneficiary } => Self::TransferAsset {
+				assets: assets.try_into()?,
+				beneficiary: beneficiary.try_into()?,
+			},
+			TransferReserveAsset { assets, dest, xcm } => Self::TransferReserveAsset {
+				assets: assets.try_into()?,
+				dest: dest.try_into()?,
+				xcm: xcm.try_into()?,
+			},
+			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
+				Self::HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity },
+			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
+			HrmpChannelClosing { initiator, sender, recipient } =>
+				Self::HrmpChannelClosing { initiator, sender, recipient },
+			Transact { origin_kind, require_weight_at_most, call } => Self::Transact {
+				origin_kind,
+				require_weight_at_most,
+				call: call.into(),
+			},
+			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
+				query_id: response_info.query_id,
+				destination: response_info.destination.try_into().map_err(|_| ())?,
+				max_weight: response_info.max_weight,
+			}),
+			DepositAsset { assets, beneficiary } => {
+				let beneficiary = beneficiary.try_into()?;
+				let assets = assets.try_into()?;
+				Self::DepositAsset { assets, beneficiary }
+			},
+			DepositReserveAsset { assets, dest, xcm } => {
+				let dest = dest.try_into()?;
+				let xcm = xcm.try_into()?;
+				let assets = assets.try_into()?;
+				Self::DepositReserveAsset { assets, dest, xcm }
+			},
+			ExchangeAsset { give, want, maximal } => {
+				let give = give.try_into()?;
+				let want = want.try_into()?;
+				Self::ExchangeAsset { give, want, maximal }
+			},
+			InitiateReserveWithdraw { assets, reserve, xcm } => {
+				// No `max_assets` here, so if there's a connt, then we cannot translate.
+				let assets = assets.try_into()?;
+				let reserve = reserve.try_into()?;
+				let xcm = xcm.try_into()?;
+				Self::InitiateReserveWithdraw { assets, reserve, xcm }
+			},
+			InitiateTeleport { assets, dest, xcm } => {
+				// No `max_assets` here, so if there's a connt, then we cannot translate.
+				let assets = assets.try_into()?;
+				let dest = dest.try_into()?;
+				let xcm = xcm.try_into()?;
+				Self::InitiateTeleport { assets, dest, xcm }
+			},
+			ReportHolding { response_info, assets } => {
+				let response_info = QueryResponseInfo {
+					destination: response_info.destination.try_into().map_err(|_| ())?,
+					query_id: response_info.query_id,
+					max_weight: response_info.max_weight,
+				};
+				Self::ReportHolding {
+					response_info,
+					assets: assets.try_into()?,
+				}
+			},
+			BuyExecution { fees, weight_limit } => {
+				let fees = fees.try_into()?;
+				Self::BuyExecution { fees, weight_limit }
+			},
+			ClearOrigin => Self::ClearOrigin,
+			DescendOrigin(who) => Self::DescendOrigin(who.try_into()?),
+			RefundSurplus => Self::RefundSurplus,
+			SetErrorHandler(xcm) => Self::SetErrorHandler(xcm.try_into()?),
+			SetAppendix(xcm) => Self::SetAppendix(xcm.try_into()?),
+			ClearError => Self::ClearError,
+			ClaimAsset { assets, ticket } => {
+				let assets = assets.try_into()?;
+				let ticket = ticket.try_into()?;
+				Self::ClaimAsset { assets, ticket }
+			},
+			Trap(code) => Self::Trap(code),
+			SubscribeVersion { query_id, max_response_weight } => Self::SubscribeVersion {
+				query_id,
+				max_response_weight: max_response_weight,
+			},
+			UnsubscribeVersion => Self::UnsubscribeVersion,
+			_ => return Err(()),
+		})
 	}
 }
 
