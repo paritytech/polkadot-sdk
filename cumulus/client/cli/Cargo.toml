@@ -1,8 +1,8 @@
 [package]
 name = "cumulus-client-cli"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 clap = { version = "4.3.24", features = ["derive"] }
