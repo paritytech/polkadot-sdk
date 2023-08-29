@@ -1,11 +1,11 @@
 [package]
 name = "sp-arithmetic"
 version = "16.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Minimal fixed point arithmetic primitives and types for runtime."
 documentation = "https://docs.rs/sp-arithmetic"
 readme = "README.md"
