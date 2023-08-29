@@ -40,6 +40,7 @@ use sp_runtime_interface::ExternalitiesExt;
 #[runtime_interface]
 pub trait ClawbackHostFunctions {
 	fn current_storage_proof_size(&mut self) -> u32 {
+		tracing::info!(target:"skunert", "current_storage_proof_size is called");
 		match self.extension::<PovUsageExt>() {
 			Some(ext) => ext.current_storage_proof_size(),
 			None => 0,

@@ -3579,6 +3579,7 @@ version = "0.1.0"
 dependencies = [
  "assert_matches",
  "bytes",
+ "cumulus-client-clawback",
  "cumulus-pallet-parachain-system-proc-macro",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
@@ -3595,6 +3596,7 @@ dependencies = [
  "polkadot-parachain",
  "sc-client-api",
  "scale-info",
+ "sp-api",
  "sp-core",
  "sp-externalities",
  "sp-inherents",
@@ -11148,6 +11150,7 @@ dependencies = [
 name = "parachains-common"
 version = "1.0.0"
 dependencies = [
+ "cumulus-client-clawback",
  "cumulus-primitives-core",
  "cumulus-primitives-utility",
  "frame-support",

@@ -16,12 +16,22 @@
 //! Auxiliary struct/enums for parachain runtimes.
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
-use frame_support::traits::{
-	fungibles::{self, Balanced, Credit},
-	Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced,
+use codec::{Decode, Encode};
+use frame_support::{
+	dispatch::{DispatchInfo, PostDispatchInfo},
+	traits::{
+		fungibles::{self, Balanced, Credit},
+		Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced,
+	},
 };
+use frame_system::Config;
 use pallet_asset_tx_payment::HandleCredit;
-use sp_runtime::traits::Zero;
+use scale_info::TypeInfo;
+use sp_runtime::{
+	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, Zero},
+	transaction_validity::TransactionValidityError,
+	DispatchResult,
+};
 use sp_std::marker::PhantomData;
 use xcm::latest::{AssetId, Fungibility::Fungible, MultiAsset, MultiLocation};
 
@@ -276,5 +286,68 @@ mod tests {
 			AssetsFrom::<SomeSiblingParachain>::contains(&asset, &SomeSiblingParachain::get()),
 			"AssetsFrom should allow assets from any of its interior locations"
 		);
+	}
+}
+
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct ClawbackExtension<T: Config + Send + Sync>(sp_std::marker::PhantomData<T>);
+
+impl<T: Config + Send + Sync> core::fmt::Debug for ClawbackExtension<T> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+		f.write_str("jap");
+		Ok(())
+	}
+}
+
+impl<T: Config + Send + Sync> ClawbackExtension<T> where
+	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+{
+}
+
+impl<T: Config + Send + Sync> sp_runtime::traits::SignedExtension for ClawbackExtension<T>
+where
+	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+{
+	const IDENTIFIER: &'static str = "Clawback";
+
+	type AccountId = T::AccountId;
+	type Call = T::RuntimeCall;
+	type AdditionalSigned = ();
+	type Pre = ();
+
+	fn additional_signed(
+		&self,
+	) -> Result<Self::AdditionalSigned, sp_runtime::transaction_validity::TransactionValidityError>
+	{
+		Ok(())
+	}
+
+	fn pre_dispatch(
+		self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
+		log::info!(target: "skunert", "Calling pre dispatch of my extension");
+		let proof_size =
+			cumulus_client_clawback::clawback_host_functions::current_storage_proof_size();
+		log::info!(target: "skunert","Got proof size: {}", proof_size);
+		Ok(())
+	}
+
+	fn post_dispatch(
+		_pre: Option<Self::Pre>,
+		_info: &DispatchInfoOf<Self::Call>,
+		_post_info: &PostDispatchInfoOf<Self::Call>,
+		_len: usize,
+		_result: &DispatchResult,
+	) -> Result<(), TransactionValidityError> {
+		log::info!(target: "skunert", "Calling post dispatch of my extension");
+		let proof_size =
+			cumulus_client_clawback::clawback_host_functions::current_storage_proof_size();
+		log::info!(target: "skunert","Got proof size: {}", proof_size);
+		Ok(())
 	}
 }
