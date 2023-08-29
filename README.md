@@ -27,4 +27,4 @@ Cumulus is a set of tools for writing Substrate-based Polkadot parachains.
 
 ## Contributing
 
-Please follow the respective contribution guidelines linked in each project's README file.
+Ensure you follow our [contribution guidelines](./docs/CONTRIBUTING.md). In every interaction and contribution, this project adheres to the [Contributor Covenant Code of Conduct](./docs/CODE_OF_CONDUCT.md).
