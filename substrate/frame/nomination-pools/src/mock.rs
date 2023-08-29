@@ -423,6 +423,61 @@ pub fn fully_unbond_permissioned(member: AccountId) -> DispatchResult {
 	Pools::unbond(RuntimeOrigin::signed(member), member, points)
 }
 
+pub fn pending_rewards_for_pool(pool: PoolId) -> Balance {
+	let bonded_pool = BondedPools::<T>::get(pool).unwrap();
+	let reward_pool = RewardPools::<T>::get(pool).unwrap();
+
+	let current_rc = if !bonded_pool.points.is_zero() {
+		let commission = bonded_pool.commission.current();
+		reward_pool
+			.current_reward_counter(pool, bonded_pool.points, commission)
+			.unwrap()
+			.0
+	} else {
+		Default::default()
+	};
+
+	PoolMembers::<T>::iter()
+		.filter(|(_, d)| d.pool_id == pool)
+		.map(|(_, d)| d.pending_rewards(current_rc).unwrap_or_default())
+		.sum()
+}
+
+pub fn pending_rewards_for_delegator(delegator: AccountId) -> Balance {
+	let member = PoolMembers::<T>::get(delegator).unwrap();
+	let bonded_pool = BondedPools::<T>::get(member.pool_id).unwrap();
+	let reward_pool = RewardPools::<T>::get(member.pool_id).unwrap();
+
+	assert!(!bonded_pool.points.is_zero());
+
+	let commission = bonded_pool.commission.current();
+	let current_rc = reward_pool
+		.current_reward_counter(member.pool_id, bonded_pool.points, commission)
+		.unwrap()
+		.0;
+
+	member.pending_rewards(current_rc).unwrap_or_default()
+}
+
+#[derive(PartialEq, Debug)]
+pub enum RewardImbalance {
+	// There is no reward deficit.
+	Surplus(Balance),
+	// There is a reward deficit.
+	Deficit(Balance),
+}
+
+pub fn reward_imbalance(pool: PoolId) -> RewardImbalance {
+	let pending_rewards = pending_rewards_for_pool(pool);
+	let current_balance = RewardPool::<Runtime>::current_balance(pool);
+
+	if pending_rewards > current_balance {
+		RewardImbalance::Deficit(pending_rewards - current_balance)
+	} else {
+		RewardImbalance::Surplus(current_balance - pending_rewards)
+	}
+}
+
 #[cfg(test)]
 mod test {
 	use super::*;

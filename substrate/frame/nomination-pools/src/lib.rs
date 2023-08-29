@@ -1303,9 +1303,16 @@ impl<T: Config> RewardPool<T> {
 		// Store the total payouts at the time of this update. Total payouts are essentially the
 		// entire historical balance of the reward pool, equating to the current balance + the total
 		// rewards that have left the pool + the total commission that has left the pool.
-		self.last_recorded_total_payouts = balance
+		let last_recorded_total_payouts = balance
 			.checked_add(&self.total_rewards_claimed.saturating_add(self.total_commission_claimed))
 			.ok_or(Error::<T>::OverflowRisk)?;
+
+		// An increase in ED could cause `last_recorded_total_payouts` to decrease but we should not
+		// allow that to happen since an already paid out reward cannot decrease. The reward account
+		// might go in deficit temporarily if this happens but it will be corrected once new rewards
+		// are added to the pool.
+		self.last_recorded_total_payouts =
+			self.last_recorded_total_payouts.max(last_recorded_total_payouts);
 
 		Ok(())
 	}
@@ -1487,6 +1494,7 @@ impl<T: Config> SubPools<T> {
 /// `no_era` pool. This is guaranteed to at least be equal to the staking `UnbondingDuration`. For
 /// improved UX [`Config::PostUnbondingPoolsWindow`] should be configured to a non-zero value.
 pub struct TotalUnbondingPools<T: Config>(PhantomData<T>);
+
 impl<T: Config> Get<u32> for TotalUnbondingPools<T> {
 	fn get() -> u32 {
 		// NOTE: this may be dangerous in the scenario bonding_duration gets decreased because
