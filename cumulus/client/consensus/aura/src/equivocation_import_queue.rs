@@ -21,7 +21,7 @@
 /// should be thrown out and which ones should be kept.
 use codec::Codec;
 use cumulus_client_consensus_common::ParachainBlockImportMarker;
-use lru::LruCache;
+use schnellru::{ByLength, LruMap};
 
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
@@ -36,27 +36,28 @@ use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
 use sp_core::crypto::Pair;
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
-use std::{fmt::Debug, num::NonZeroUsize, sync::Arc};
+use std::{fmt::Debug, sync::Arc};
 
-const LRU_WINDOW: usize = 256;
+const LRU_WINDOW: u32 = 256;
 const EQUIVOCATION_LIMIT: usize = 16;
 
 struct NaiveEquivocationDefender {
-	cache: LruCache<u64, usize>,
+	cache: LruMap<u64, usize>,
 }
 
 impl Default for NaiveEquivocationDefender {
 	fn default() -> Self {
-		NaiveEquivocationDefender {
-			cache: LruCache::new(NonZeroUsize::new(LRU_WINDOW).expect("window > 0; qed")),
-		}
+		NaiveEquivocationDefender { cache: LruMap::new(ByLength::new(LRU_WINDOW)) }
 	}
 }
 
 impl NaiveEquivocationDefender {
 	// return `true` if equivocation is beyond the limit.
 	fn insert_and_check(&mut self, slot: Slot) -> bool {
-		let val = self.cache.get_or_insert_mut(*slot, || 0);
+		let val = self
+			.cache
+			.get_or_insert(*slot, || 0)
+			.expect("insertion with ByLength limiter always succeeds; qed");
 		if *val == EQUIVOCATION_LIMIT {
 			true
 		} else {
