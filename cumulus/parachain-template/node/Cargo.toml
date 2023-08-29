@@ -8,6 +8,7 @@ homepage = "https://substrate.io"
 repository.workspace = true
 edition.workspace = true
 build = "build.rs"
+publish = false
 
 [dependencies]
 clap = { version = "4.3.24", features = ["derive"] }
