@@ -53,13 +53,17 @@
 //! (This can be run against the kitchen sync node in the `node` folder of this repo.)
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
-use frame_support::traits::{DefensiveOption, Incrementable};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
+mod fungibles;
+mod swap;
 mod types;
 pub mod weights;
+pub use fungibles::*;
+pub use swap::*;
+pub use types::*;
 
 #[cfg(test)]
 mod tests;
@@ -70,7 +74,22 @@ mod mock;
 use codec::Codec;
 use frame_support::{
 	ensure,
-	traits::tokens::{AssetId, Balance},
+	pallet_prelude::DispatchResult,
+	traits::{
+		fungible::{
+			Balanced as BalancedFungible, Credit as CreditFungible, Inspect as InspectFungible,
+			Mutate as MutateFungible,
+		},
+		fungibles::{Balanced, Create, Credit as CreditFungibles, Inspect, Mutate},
+		tokens::{
+			AssetId, Balance,
+			Fortitude::Polite,
+			Precision::Exact,
+			Preservation::{Expendable, Preserve},
+		},
+		AccountTouch, ContainsPair, DefensiveOption, Imbalance, Incrementable, PrefixedResult,
+	},
+	BoundedBTreeSet, PalletId,
 };
 use frame_system::{
 	ensure_signed,
@@ -80,36 +99,19 @@ pub use pallet::*;
 use sp_arithmetic::traits::Unsigned;
 use sp_runtime::{
 	traits::{
-		CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Ensure, MaybeDisplay, TrailingZeroInput,
+		CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Ensure, IntegerSquareRoot, MaybeDisplay,
+		One, TrailingZeroInput, Zero,
 	},
-	DispatchError,
+	DispatchError, Saturating,
 };
 use sp_std::prelude::*;
-pub use types::*;
 pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{
-		pallet_prelude::*,
-		traits::{
-			fungible::{Inspect as InspectFungible, Mutate as MutateFungible},
-			fungibles::{Create, Inspect, Mutate},
-			tokens::{
-				Fortitude::Polite,
-				Precision::Exact,
-				Preservation::{Expendable, Preserve},
-			},
-			AccountTouch, ContainsPair,
-		},
-		BoundedBTreeSet, PalletId,
-	};
+	use frame_support::pallet_prelude::*;
 	use sp_arithmetic::Permill;
-	use sp_runtime::{
-		traits::{IntegerSquareRoot, One, Zero},
-		Saturating,
-	};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -121,13 +123,14 @@ pub mod pallet {
 
 		/// Currency type that this works on.
 		type Currency: InspectFungible<Self::AccountId, Balance = Self::Balance>
-			+ MutateFungible<Self::AccountId>;
+			+ MutateFungible<Self::AccountId>
+			+ BalancedFungible<Self::AccountId>;
 
 		/// The `Currency::Balance` type of the native currency.
-		type Balance: Balance;
+		type Balance: Balance + Into<Self::AssetBalance>;
 
 		/// The type used to describe the amount of fractions converted into assets.
-		type AssetBalance: Balance;
+		type AssetBalance: Balance + Into<Self::Balance>;
 
 		/// A type used for conversions between `Balance` and `AssetBalance`.
 		type HigherPrecisionBalance: IntegerSquareRoot
@@ -162,7 +165,8 @@ pub mod pallet {
 		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetId, Balance = Self::AssetBalance>
 			+ Mutate<Self::AccountId>
 			+ AccountTouch<Self::AssetId, Self::AccountId>
-			+ ContainsPair<Self::AssetId, Self::AccountId>;
+			+ ContainsPair<Self::AssetId, Self::AccountId>
+			+ Balanced<Self::AccountId>;
 
 		/// Registry for the lp tokens. Ideally only this pallet should have create permissions on
 		/// the assets.
@@ -365,6 +369,8 @@ pub mod pallet {
 		/// with another. For example, an array of assets constituting a `path` should have a
 		/// corresponding array of `amounts` along the path.
 		CorrespondenceError,
+		/// error to be replaced by some from above or to be created new.
+		TODO,
 	}
 
 	#[pallet::hooks]
@@ -713,7 +719,7 @@ pub mod pallet {
 		/// respecting `keep_alive`.
 		///
 		/// If successful, returns the amount of `path[1]` acquired for the `amount_in`.
-		pub fn do_swap_exact_tokens_for_tokens(
+		pub(crate) fn do_swap_exact_tokens_for_tokens(
 			sender: T::AccountId,
 			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
 			amount_in: T::AssetBalance,
@@ -739,7 +745,7 @@ pub mod pallet {
 				);
 			}
 
-			Self::do_swap(sender, &amounts, path, send_to, keep_alive)?;
+			Self::withdraw_and_swap(sender, &amounts, path, send_to, keep_alive)?;
 			Ok(amount_out)
 		}
 
@@ -751,7 +757,7 @@ pub mod pallet {
 		/// respecting `keep_alive`.
 		///
 		/// If successful returns the amount of the `path[0]` taken to provide `path[1]`.
-		pub fn do_swap_tokens_for_exact_tokens(
+		pub(crate) fn do_swap_tokens_for_exact_tokens(
 			sender: T::AccountId,
 			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
 			amount_out: T::AssetBalance,
@@ -777,7 +783,7 @@ pub mod pallet {
 				);
 			}
 
-			Self::do_swap(sender, &amounts, path, send_to, keep_alive)?;
+			Self::withdraw_and_swap(sender, &amounts, path, send_to, keep_alive)?;
 			Ok(amount_in)
 		}
 
@@ -846,7 +852,7 @@ pub mod pallet {
 		}
 
 		/// Swap assets along a `path`, depositing in `send_to`.
-		pub(crate) fn do_swap(
+		pub(crate) fn withdraw_and_swap(
 			sender: T::AccountId,
 			amounts: &Vec<T::AssetBalance>,
 			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
@@ -854,6 +860,11 @@ pub mod pallet {
 			keep_alive: bool,
 		) -> Result<(), DispatchError> {
 			ensure!(amounts.len() > 1, Error::<T>::CorrespondenceError);
+
+			// TODO withdraw from sender
+			// TODO migrate to Self::do_swap
+			// TODO resolve credit from swap to send_to
+
 			if let Some([asset1, asset2]) = &path.get(0..2) {
 				let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
 				let pool_account = Self::get_pool_account(&pool_id);
@@ -902,6 +913,15 @@ pub mod pallet {
 				return Err(Error::<T>::InvalidPath.into())
 			}
 			Ok(())
+		}
+
+		/// TODO
+		pub(crate) fn do_swap(
+			credit_in: Credit<T>,
+			amounts: &Vec<T::AssetBalance>,
+			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+		) -> Result<Credit<T>, (Credit<T>, DispatchError)> {
+			return Err((credit_in, Error::<T>::InvalidPath.into()))
 		}
 
 		/// The account ID of the pool.
@@ -1078,12 +1098,13 @@ pub mod pallet {
 		) -> Result<T::AssetBalance, Error<T>> {
 			let amount1 = T::HigherPrecisionBalance::from(*amount1);
 			let amount2 = T::HigherPrecisionBalance::from(*amount2);
+			let mint_min_liquidity = T::HigherPrecisionBalance::from(T::MintMinLiquidity::get());
 
 			let result = amount1
 				.checked_mul(&amount2)
 				.ok_or(Error::<T>::Overflow)?
 				.integer_sqrt()
-				.checked_sub(&T::MintMinLiquidity::get().into())
+				.checked_sub(&mint_min_liquidity)
 				.ok_or(Error::<T>::InsufficientLiquidityMinted)?;
 
 			result.try_into().map_err(|_| Error::<T>::Overflow)
@@ -1208,7 +1229,7 @@ pub mod pallet {
 		}
 
 		/// Ensure that a path is valid.
-		fn validate_swap_path(
+		pub(crate) fn validate_swap_path(
 			path: &BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
 		) -> Result<(), DispatchError> {
 			ensure!(path.len() >= 2, Error::<T>::InvalidPath);
@@ -1238,47 +1259,47 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config> Swap<T::AccountId, T::HigherPrecisionBalance, T::MultiAssetId> for Pallet<T> {
+impl<T: Config> Swap<T::AccountId, T::AssetBalance, T::MultiAssetId> for Pallet<T> {
 	fn swap_exact_tokens_for_tokens(
 		sender: T::AccountId,
 		path: Vec<T::MultiAssetId>,
-		amount_in: T::HigherPrecisionBalance,
-		amount_out_min: Option<T::HigherPrecisionBalance>,
+		amount_in: T::AssetBalance,
+		amount_out_min: Option<T::AssetBalance>,
 		send_to: T::AccountId,
 		keep_alive: bool,
-	) -> Result<T::HigherPrecisionBalance, DispatchError> {
+	) -> Result<T::AssetBalance, DispatchError> {
 		let path = path.try_into().map_err(|_| Error::<T>::PathError)?;
-		let amount_out_min = amount_out_min.map(Self::convert_hpb_to_asset_balance).transpose()?;
+		// TODO wrap `with_transaction`
 		let amount_out = Self::do_swap_exact_tokens_for_tokens(
 			sender,
 			path,
-			Self::convert_hpb_to_asset_balance(amount_in)?,
+			amount_in,
 			amount_out_min,
 			send_to,
 			keep_alive,
 		)?;
-		Ok(amount_out.into())
+		Ok(amount_out)
 	}
 
 	fn swap_tokens_for_exact_tokens(
 		sender: T::AccountId,
 		path: Vec<T::MultiAssetId>,
-		amount_out: T::HigherPrecisionBalance,
-		amount_in_max: Option<T::HigherPrecisionBalance>,
+		amount_out: T::AssetBalance,
+		amount_in_max: Option<T::AssetBalance>,
 		send_to: T::AccountId,
 		keep_alive: bool,
-	) -> Result<T::HigherPrecisionBalance, DispatchError> {
+	) -> Result<T::AssetBalance, DispatchError> {
 		let path = path.try_into().map_err(|_| Error::<T>::PathError)?;
-		let amount_in_max = amount_in_max.map(Self::convert_hpb_to_asset_balance).transpose()?;
+		// TODO wrap `with_transaction`
 		let amount_in = Self::do_swap_tokens_for_exact_tokens(
 			sender,
 			path,
-			Self::convert_hpb_to_asset_balance(amount_out)?,
+			amount_out,
 			amount_in_max,
 			send_to,
 			keep_alive,
 		)?;
-		Ok(amount_in.into())
+		Ok(amount_in)
 	}
 }
 

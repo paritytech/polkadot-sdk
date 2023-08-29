@@ -1171,6 +1171,55 @@ pub trait AccountTouch<AssetId, AccountId> {
 	fn touch(asset: AssetId, who: AccountId, depositor: AccountId) -> DispatchResult;
 }
 
+/// Provides a way to prefix both `Ok` and `Err` variants of a `Result`.
+///
+/// This trait allows you to attach a prefix to both the `Ok` and `Err` variants
+/// of a `Result`, making it easier to track additional contextual information
+/// alongside the original result. It is especially handy when `P` does not implement
+/// `Clone` and `Copy`.
+pub trait PrefixedResult<T, E> {
+	/// Maps this `Result` to a new `Result` with a prefixed value.
+	///
+	/// Takes a value of any type `P` as a prefix and an `FnOnce` closure `O`
+	/// for mapping the `Err` variant to a new type `F`.
+	///
+	/// This is particularly useful when `P` does not implement `Clone` or `Copy`.
+	fn map_with_prefix<P, F, O: FnOnce(E) -> F>(self, p: P, o: O) -> Result<(P, T), (P, F)>;
+}
+
+impl<T, E> PrefixedResult<T, E> for Result<T, E> {
+	/// Implements the `map_with_prefix` function for the standard `Result` type.
+	///
+	/// This allows the `Result` to be mapped to another `Result` where both `Ok` and
+	/// `Err` variants are prefixed with a value of type `P`. The original `Err` type
+	/// is mapped to a new type `F` using the provided `FnOnce` closure `O`.
+	///
+	/// The use of this implementation is particularly beneficial when the prefix type `P`
+	/// does not implement `Clone` and `Copy`.
+	///
+	/// # Examples
+	///
+	/// ```
+	/// use frame_support::traits::PrefixedResult;
+	///
+	/// let x: Result<i32, &str> = Ok(42);
+	/// let y = x.map_with_prefix("prefix", |e| e);
+	///
+	/// assert_eq!(y, Ok(("prefix", 42)));
+	///
+	/// let x: Result<i32, &str> = Err("error");
+	/// let y = x.map_with_prefix("prefix", |e| e);
+	///
+	/// assert_eq!(y, Err(("prefix", "error")));
+	/// ```
+	fn map_with_prefix<P, F, O: FnOnce(E) -> F>(self, p: P, o: O) -> Result<(P, T), (P, F)> {
+		match self {
+			Ok(t) => Ok((p, t)),
+			Err(e) => Err((p, o(e))),
+		}
+	}
+}
+
 #[cfg(test)]
 mod test {
 	use super::*;
