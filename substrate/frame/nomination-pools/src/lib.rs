@@ -1300,17 +1300,19 @@ impl<T: Config> RewardPool<T> {
 		self.total_commission_pending =
 			self.total_commission_pending.saturating_add(new_pending_commission);
 
-		// Store the total payouts at the time of this update. Total payouts are essentially the
-		// entire historical balance of the reward pool, equating to the current balance + the total
-		// rewards that have left the pool + the total commission that has left the pool.
+		// Total payouts are essentially the entire historical balance of the reward pool, equating
+		// to the current balance + the total rewards that have left the pool + the total commission
+		// that has left the pool.
 		let last_recorded_total_payouts = balance
 			.checked_add(&self.total_rewards_claimed.saturating_add(self.total_commission_claimed))
 			.ok_or(Error::<T>::OverflowRisk)?;
 
+		// Store the total payouts at the time of this update.
+		//
 		// An increase in ED could cause `last_recorded_total_payouts` to decrease but we should not
 		// allow that to happen since an already paid out reward cannot decrease. The reward account
-		// might go in deficit temporarily if this happens but it will be corrected once new rewards
-		// are added to the pool.
+		// might go in deficit temporarily in this exceptional case but it will be corrected once
+		// new rewards are added to the pool.
 		self.last_recorded_total_payouts =
 			self.last_recorded_total_payouts.max(last_recorded_total_payouts);
 
