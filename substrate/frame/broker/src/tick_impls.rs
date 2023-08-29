@@ -42,6 +42,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		let mut meter = WeightMeter::max_limit();
+		meter.consume(T::WeightInfo::do_tick_base());
 
 		if Self::process_core_count(&mut status) {
 			meter.consume(T::WeightInfo::process_core_count(status.core_count.into()));

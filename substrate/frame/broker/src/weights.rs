@@ -74,6 +74,7 @@ pub trait WeightInfo {
 	fn process_pool() -> Weight;
 	fn process_core_schedule() -> Weight;
 	fn request_revenue_info_at() -> Weight;
+	fn do_tick_base() -> Weight;
 }
 
 /// Weights for `pallet_broker` using the Substrate node and recommended hardware.
@@ -433,6 +434,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 191_000 picoseconds.
 		Weight::from_parts(234_000, 0)
 	}
+	fn do_tick_base() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 191_000 picoseconds.
+		Weight::from_parts(234_000, 0)
+	}
 }
 
 // For backwards compatibility and tests.
@@ -785,6 +793,13 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	fn request_revenue_info_at() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 191_000 picoseconds.
+		Weight::from_parts(234_000, 0)
+	}
+	fn do_tick_base() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
