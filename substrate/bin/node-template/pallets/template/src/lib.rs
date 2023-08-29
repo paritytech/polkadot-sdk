@@ -1,105 +1,187 @@
+//! # Template Pallet
+//!
+//! A pallet that contains minimal functionality to help developers understand some essential
+//! components of writing a FRAME pallet.
+//!
+//! **This pallet is not meant to be used in production.**
+//!
+//! ## Overview
+//!
+//! This pallet is meant to be used as a starting point for creating new FRAME pallets. It contains
+//! basic examples of:
+//! - a storage item that stores a single `u32` value
+//! - two dispatchable functions
+//! - declaring and using events
+//! - declaring and using errors
+//!
+//! Each pallet section is annotated with an attribute using the `#[pallet::...]` procedural macro.
+//! This macro generates the necessary code for a pallet to be aggregated into a runtime built with
+//! FRAME.
+//!
+//! The pallet sections in this template are:
+//!
+//! - A <strong>configuration trait</strong> that defines the types and parameters which the pallet
+//!   depends on (denoted by the `#[pallet::config]` attribute)
+//! - A <strong>means to store pallet-specific data</strong> (denoted by the `#[pallet::storage]`
+//!   attribute)
+//! - A <strong>declaration of the events</strong> this pallet emits (denoted by the
+//!   `#[pallet::event]` attribute)
+//! - A <strong>declaration of the errors</strong> that this pallet can throw (denoted by the
+//!   `#[pallet::error]` attribute)
+//! - A <strong>set of dispatchable functions</strong> that define the pallet's functionality
+//!   (denoted by the `#[pallet::call]` attribute)
+//!
+//! Learn more about FRAME macros here: <https://docs.substrate.io/reference/frame-macros/>
+//!
+//! > Run `cargo doc --package pallet-template --open` to view this pallet's documentation.
+
+// We make sure this pallet uses `no_std` for compiling to Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-/// Edit this file to define custom logic or remove it if it is not needed.
-/// Learn more about FRAME and the core library of Substrate FRAME pallets:
-/// <https://docs.substrate.io/reference/frame-pallets/>
+// Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
 
+// FRAME pallets require their own "mock runtimes" to be able to run unit tests. This module
+// contains a mock runtime specific for testing this pallet's functionality.
 #[cfg(test)]
 mod mock;
 
+// This module contains the unit tests for this pallet.
+// Learn about pallet unit testing here: https://docs.substrate.io/test/unit-testing/
 #[cfg(test)]
 mod tests;
 
+// Every callable function or "dispatchable" a pallet exposes must have weight values that correctly
+// estimate a dispatchable's execution time. The benchmarking module is used to calculate weights
+// for each dispatchable and generates this pallet's weight.rs file. Learn more about benchmarking here: https://docs.substrate.io/test/benchmark/
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod weights;
 pub use weights::*;
 
+// All pallet logic is defined in its own module and must be annotated by the `pallet` attribute.
 #[frame_support::pallet]
 pub mod pallet {
+	// Import various useful types required by all FRAME pallets.
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
+	// The `Pallet` struct serves as a placeholder to implement traits, methods and dispatchables in
+	// this pallet.
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	/// Configure the pallet by specifying the parameters and types on which it depends.
+	/// The pallet's configuration trait.
+	///
+	/// All our types and constants a pallet depends on must be declared here.
+	/// These types are defined generically and made concrete when the pallet is declared in the
+	/// `runtime/src/lib.rs` file of your chain.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// Because this pallet emits events, it depends on the runtime's definition of an event.
+		/// The overarching runtime event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		/// Type representing the weight of this pallet
+		/// A type representing the weights required by the dispatchables of this pallet.
 		type WeightInfo: WeightInfo;
 	}
 
-	// The pallet's runtime storage items.
-	// https://docs.substrate.io/main-docs/build/runtime-storage/
+	/// A storage item for this pallet.
+	///
+	/// In this template, we are declaring a storage item called `Something` that stores a single
+	/// `u32` value. Learn more about runtime storage here: https://docs.substrate.io/build/runtime-storage/
 	#[pallet::storage]
-	#[pallet::getter(fn something)]
-	// Learn more about declaring storage items:
-	// https://docs.substrate.io/main-docs/build/runtime-storage/#declaring-storage-items
 	pub type Something<T> = StorageValue<_, u32>;
 
-	// Pallets use events to inform users when important changes are made.
-	// https://docs.substrate.io/main-docs/build/events-errors/
+	/// Events that functions in this pallet can emit.
+	///
+	/// Events are a simple means of indicating to the outside world (such as dApps, chain explorers
+	/// or other users) that some notable update has occurred. In a FRAME pallet, the documentation
+	/// for each event field and its parameters is added to a node's metadata so it can be used by
+	/// external interfaces or tools.
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Event documentation should end with an array that provides descriptive names for event
-		/// parameters. [something, who]
-		SomethingStored { something: u32, who: T::AccountId },
+		/// A user has successfully set a new.
+		SomethingStored {
+			/// The new value set.
+			something: u32,
+			/// The account who set the new value.
+			who: T::AccountId,
+		},
 	}
 
-	// Errors inform users that something went wrong.
+	/// Errors that can be returned by this pallet.
+	///
+	/// Errors tell users that something went wrong so it's important that they are informative.
+	/// Similar to events, error documentation is added to a node's metadata so it's important that
+	/// they have helpful documentation associated with them.
+	///
+	/// Note: the `Error` enum my always be generic over `<T>`, which is expanded to `<T: Config>`.
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Error names should be descriptive.
+		/// The value retrieved was `None` as no value was previously set.
 		NoneValue,
-		/// Errors should have helpful documentation associated with them.
+		/// There was an attempt to increment the value in storage over `u32::MAX` (4294967295).
 		StorageOverflow,
 	}
 
-	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
-	// These functions materialize as "extrinsics", which are often compared to transactions.
-	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
+	/// The pallet's dispatchable functions.
+	///
+	/// Dispatchable functions allows users to interact with the pallet and invoke state changes.
+	/// These functions materialize as "extrinsics", which are often compared to transactions.
+	/// They must always return a `DispatchResult` and be annotated with a weight and call index.
+	///
+	/// Read more transaction types in Substrate chains: <https://docs.substrate.io/learn/transaction-types/>
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// An example dispatchable that takes a singles value as a parameter, writes the value to
-		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
+		/// This dispatchable takes a single u32 value as a parameter, writes the value to this
+		/// pallet's storage and emits an event.
+		///
+		/// The function checks that the _origin_ for this call is _Signed_ and returns a dispatch
+		/// error if it isn't. Learn more about origins here: <https://docs.substrate.io/build/origins/>
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::do_something())]
 		pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
-			// This function will return an error if the extrinsic is not signed.
-			// https://docs.substrate.io/main-docs/build/origins/
 			let who = ensure_signed(origin)?;
 
 			// Update storage.
-			<Something<T>>::put(something);
+			Something::<T>::put(something);
 
 			// Emit an event.
 			Self::deposit_event(Event::SomethingStored { something, who });
-			// Return a successful DispatchResultWithPostInfo
+
+			// Return a successful `DispatchResult`
 			Ok(())
 		}
 
-		/// An example dispatchable that may throw a custom error.
+		/// A dispatchable that may throw a custom error.
+		///
+		/// It checks that the caller is a signed origin and reads the current value from the
+		/// `Something` storage item. If a current value exists, it is incremented by one and then
+		/// written back to storage.
+		///
+		/// ## Errors
+		///
+		/// The function will return an error under the following conditions:
+		///
+		/// - If no value has been set ([`Error::NoneValue`])
+		/// - If incrementing the value in storage causes an arithmetic overflow
+		///   ([`Error::StorageOverflow`])
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::cause_error())]
 		pub fn cause_error(origin: OriginFor<T>) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
 
 			// Read a value from storage.
-			match <Something<T>>::get() {
+			match Something::<T>::get() {
 				// Return an error if the value has not been set.
 				None => Err(Error::<T>::NoneValue.into()),
 				Some(old) => {
 					// Increment the value read from storage; will error in the event of overflow.
 					let new = old.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
 					// Update the value in storage with the incremented result.
-					<Something<T>>::put(new);
+					Something::<T>::put(new);
 					Ok(())
 				},
 			}
