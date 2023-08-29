@@ -22,6 +22,7 @@ cumulus-pallet-xcm = { path = "../../../pallets/xcm", default-features = false }
 default = [ "std" ]
 std = [
 	"codec/std",
+	"cumulus-pallet-xcm/std",
 	"cumulus-primitives-core/std",
 	"frame-support/std",
 	"frame-system/std",

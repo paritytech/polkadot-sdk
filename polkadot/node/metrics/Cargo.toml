@@ -38,4 +38,8 @@ prometheus-parse = {version = "0.2.2"}
 [features]
 default = []
 runtime-metrics = []
-runtime-benchmarks = []
+runtime-benchmarks = [
+	"polkadot-test-service/runtime-benchmarks",
+	"primitives/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+]
