@@ -36,7 +36,7 @@ short-benchmark-westend:
     - .common-refs
     - .docker-env
   needs:
-    - job: build-short-benchmark
+    - job: build-short-benchmark-cumulus
       artifacts: true
   variables:
     RUNTIME_CHAIN: benchmarked-runtime-chain
@@ -73,12 +73,12 @@ short-benchmark-bridge-hub-rococo:
   variables:
     RUNTIME_CHAIN: bridge-hub-rococo-dev
 
-short-benchmark-collectives-polkadot :
+short-benchmark-collectives-polkadot:
   <<: *short-bench-cumulus
   variables:
     RUNTIME_CHAIN: collectives-polkadot-dev
 
-short-benchmark-glutton-kusama :
+short-benchmark-glutton-kusama:
   <<: *short-bench-cumulus
   variables:
     RUNTIME_CHAIN: glutton-kusama-dev-1300
