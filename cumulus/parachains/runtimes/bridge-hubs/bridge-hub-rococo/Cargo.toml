@@ -1,8 +1,8 @@
 [package]
 name = "bridge-hub-rococo-runtime"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 description = "Rococo's BridgeHub  parachain runtime"
 
 [build-dependencies]

@@ -1,8 +1,8 @@
 [package]
 name = "asset-hub-kusama-runtime"
 version = "0.9.420"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 description = "Kusama variant of Asset Hub parachain runtime"
 
 [dependencies]

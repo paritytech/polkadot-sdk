@@ -1,8 +1,8 @@
 [package]
 name = "asset-test-utils"
 version = "1.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 description = "Test utils for Asset Hub runtimes."
 
 [dependencies]

@@ -1,8 +1,8 @@
 [package]
 name = "asset-hub-polkadot-runtime"
 version = "0.9.420"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 description = "Asset Hub Polkadot parachain runtime"
 
 [dependencies]
