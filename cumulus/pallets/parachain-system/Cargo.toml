@@ -21,6 +21,7 @@ sp-core = { path = "../../../substrate/primitives/core", default-features = fals
 sp-externalities = { path = "../../../substrate/primitives/externalities", default-features = false}
 sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false}
 sp-io = { path = "../../../substrate/primitives/io", default-features = false}
+sp-api = { path = "../../../substrate/primitives/api", default-features = false}
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
 sp-state-machine = { path = "../../../substrate/primitives/state-machine", default-features = false}
 sp-std = { path = "../../../substrate/primitives/std", default-features = false}
@@ -35,6 +36,7 @@ xcm = { path = "../../../polkadot/xcm", default-features = false}
 cumulus-pallet-parachain-system-proc-macro = { path = "proc-macro", default-features = false }
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent", default-features = false }
+cumulus-client-clawback = { path = "../../client/clawback", default-features = false }
 
 [dev-dependencies]
 assert_matches = "1.5"

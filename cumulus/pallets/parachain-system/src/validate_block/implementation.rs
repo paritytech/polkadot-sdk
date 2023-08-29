@@ -32,12 +32,14 @@ use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
 use sp_std::prelude::*;
-use sp_trie::MemoryDB;
+use sp_trie::{MemoryDB, StorageProof};
+use trie_db::{RecordedForKey, TrieAccess};
 
 type TrieBackend<B> = sp_state_machine::TrieBackend<
 	MemoryDB<HashingFor<B>>,
 	HashingFor<B>,
 	trie_cache::CacheProvider<HashingFor<B>>,
+	RecorderImpl,
 >;
 
 type Ext<'a, B> = sp_state_machine::Ext<'a, HashingFor<B>, TrieBackend<B>>;
@@ -46,6 +48,30 @@ fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 	sp_externalities::with_externalities(f).expect("Environmental externalities not set.")
 }
 
+struct RecorderImpl {}
+impl<H> trie_db::TrieRecorder<H> for RecorderImpl {
+	fn record<'a>(&mut self, access: TrieAccess<'a, H>) {}
+
+	fn trie_nodes_recorded_for_key(&self, key: &[u8]) -> RecordedForKey {
+		RecordedForKey::None
+	}
+}
+
+impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for RecorderImpl {
+	type Recorder<'a> = RecorderImpl;
+
+	fn drain_storage_proof(self) -> StorageProof {
+		todo!()
+	}
+
+	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_> {
+		todo!()
+	}
+
+	fn estimate_encoded_size(&self) -> usize {
+		todo!()
+	}
+}
 /// Validate the given parachain block.
 ///
 /// This function is doing roughly the following:
@@ -90,9 +116,11 @@ where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as Extrinsic>::Call: IsSubType<crate::Call<PSC>>,
 {
+	sp_api::init_runtime_logger();
 	let block_data = codec::decode_from_bytes::<ParachainBlockData<B>>(block_data)
 		.expect("Invalid parachain block data");
 
+	log::info!(target:"skunert", "Hello World from validate block!");
 	let parent_header =
 		codec::decode_from_bytes::<B::Header>(parent_head.clone()).expect("Invalid parent head");
 
@@ -118,6 +146,7 @@ where
 
 	sp_std::mem::drop(storage_proof);
 
+	let recorder = RecorderImpl {};
 	let cache_provider = trie_cache::CacheProvider::new();
 	// We use the storage root of the `parent_head` to ensure that it is the correct root.
 	// This is already being done above while creating the in-memory db, but let's be paranoid!!
@@ -126,6 +155,7 @@ where
 		*parent_header.state_root(),
 		cache_provider,
 	)
+	.with_recorder(recorder)
 	.build();
 
 	let _guard = (
@@ -165,6 +195,8 @@ where
 			.replace_implementation(host_default_child_storage_next_key),
 		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
+		cumulus_client_clawback::clawback_host_functions::host_current_storage_proof_size
+			.replace_implementation(reclaim_pov_weight),
 	);
 
 	run_with_externalities::<B, _, _>(&backend, || {
@@ -301,6 +333,11 @@ fn host_storage_exists(key: &[u8]) -> bool {
 
 fn host_storage_clear(key: &[u8]) {
 	with_externalities(|ext| ext.place_storage(key.to_vec(), None))
+}
+
+fn reclaim_pov_weight() -> u32 {
+	log::info!(target: "skunert", "Calling my replaced method.");
+	0
 }
 
 fn host_storage_root(version: StateVersion) -> Vec<u8> {
