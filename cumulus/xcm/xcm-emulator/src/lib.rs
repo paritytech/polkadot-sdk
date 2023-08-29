@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-pub use codec::{Decode, Encode};
 pub use lazy_static::lazy_static;
 pub use log;
 pub use paste;
@@ -26,55 +25,45 @@ pub use std::{
 	marker::PhantomData,
 	ops::Deref,
 	sync::Mutex,
-	thread::LocalKey,
 };
 
 // Substrate
 pub use frame_support::{
 	assert_ok,
-	sp_runtime::{AccountId32, DispatchResult},
+	sp_runtime::{traits::Header as HeaderT, AccountId32, DispatchResult},
 	traits::{
-		tokens::currency::Currency, EnqueueMessage, Get, Hooks, OriginTrait, ProcessMessage,
+		EnqueueMessage, Get, Hooks, OriginTrait, ProcessMessage,
 		ProcessMessageError, ServiceQueues,
 	},
 	weights::{Weight, WeightMeter},
-	StorageHasher,
 };
-pub use frame_system::{AccountInfo, Config as SystemConfig, Pallet as SystemPallet};
+pub use frame_system::{Config as SystemConfig, Pallet as SystemPallet};
 pub use pallet_balances::AccountData;
 pub use sp_arithmetic::traits::Bounded;
-pub use sp_core::{parameter_types, sr25519, storage::Storage, Pair, H256};
-pub use sp_io::{self, TestExternalities};
+pub use sp_core::{parameter_types, sr25519, storage::Storage, Pair, Encode};
+pub use sp_io::TestExternalities;
 pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, fmt::Debug};
-pub use sp_trie::StorageProof;
 pub use sp_tracing;
 
-//Cumulus
-pub use cumulus_pallet_dmp_queue;
-pub use cumulus_pallet_parachain_system::{self, Pallet as ParachainSystemPallet};
-pub use cumulus_pallet_xcmp_queue::{Config as XcmpQueueConfig, Pallet as XcmpQueuePallet};
+// Cumulus
+pub use cumulus_pallet_parachain_system::Pallet as ParachainSystemPallet;
 pub use cumulus_primitives_core::{
-	self,
 	relay_chain::{BlockNumber as RelayBlockNumber, HeadData, HrmpChannelId},
 	AbridgedHrmpChannel, DmpMessageHandler, ParaId, PersistedValidationData, XcmpMessageHandler,
 };
 pub use cumulus_primitives_parachain_inherent::ParachainInherentData;
 pub use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 pub use pallet_message_queue::{
-	Config as MessageQueueConfig, Event as MessageQueueEvent, Pallet as MessageQueuePallet,
+	Config as MessageQueueConfig, Pallet as MessageQueuePallet,
 };
-pub use parachain_info;
 pub use parachains_common::{AccountId, Balance, BlockNumber};
 pub use polkadot_primitives;
-pub use polkadot_runtime_parachains::{
-	dmp,
-	inclusion::{AggregateMessageOrigin, UmpQueueId},
-};
+pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
 
 // Polkadot
-pub use xcm::{
-	v3::prelude::{AccountId32 as AccountId32Junction, Parachain as ParachainJunction, *},
-	VersionedMultiAssets, VersionedMultiLocation,
+pub use polkadot_parachain::primitives::RelayChainBlockNumber;
+pub use xcm::v3::prelude::{
+	Ancestor, MultiAssets, MultiLocation, Parent, Parachain as ParachainJunction, WeightLimit, XcmHash, X1
 };
 pub use xcm_executor::traits::ConvertLocation;
 
@@ -542,7 +531,7 @@ macro_rules! __impl_test_ext_for_relay_chain {
 						}
 
 						// log events
-						<Self as Chain>::events().iter().for_each(|event| {
+						Self::events().iter().for_each(|event| {
 							$crate::log::debug!(target: concat!("events::", stringify!($name)), "{:?}", event);
 						});
 
@@ -621,11 +610,11 @@ macro_rules! decl_test_parachains {
 				type ParachainInfo = $parachain_info;
 
 				fn init() {
-					use $crate::{Chain, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain};
+					use $crate::{Chain, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain, TestExt};
 
 					let para_id = Self::para_id();
 
-					<Self as $crate::TestExt>::ext_wrapper(|| {
+					Self::ext_wrapper(|| {
 						let block_number = <Self as Chain>::System::block_number();
 						let mut relay_block_number = <Self as NetworkComponent>::Network::relay_block_number();
 
@@ -688,18 +677,16 @@ macro_rules! __impl_test_ext_for_parachain {
 
 		impl $crate::TestExt for $name {
 			fn build_new_ext(storage: $crate::Storage) -> $crate::TestExternalities {
-				use $crate::{NetworkComponent, Network, TestExternalities, Chain};
-
-				let mut ext = TestExternalities::new(storage);
+				let mut ext = $crate::TestExternalities::new(storage);
 
 				ext.execute_with(|| {
 					#[allow(clippy::no_effect)]
 					$on_init;
 					$crate::sp_tracing::try_init_simple();
 
-					let mut block_number = <Self as Chain>::System::block_number();
+					let mut block_number = <Self as $crate::Chain>::System::block_number();
 					block_number = std::cmp::max(1, block_number);
-					<Self as Chain>::System::set_block_number(block_number);
+					<Self as $crate::Chain>::System::set_block_number(block_number);
 				});
 				ext
 			}
@@ -760,15 +747,12 @@ macro_rules! __impl_test_ext_for_parachain {
 			}
 
 			fn execute_with<R>(execute: impl FnOnce() -> R) -> R {
-				use $crate::{Chain, Get, Hooks, HeadData, NetworkComponent, Network, Bridge, Parachain};
-				use sp_core::Encode;
-				use sp_runtime::traits::BlakeTwo256;
-				use polkadot_primitives::HashT;
+				use $crate::{Chain, Get, Hooks, NetworkComponent, Network, Parachain, Encode};
 
 				// Make sure the Network is initialized
 				<$name as NetworkComponent>::Network::init();
 
-				let para_id = <$name as Parachain>::para_id().into();
+				let para_id = <$name>::para_id().into();
 
 				// Initialize block
 				$local_ext.with(|v| {
@@ -804,10 +788,8 @@ macro_rules! __impl_test_ext_for_parachain {
 				// Finalize block and send messages if needed
 				$local_ext.with(|v| {
 					v.borrow_mut().execute_with(|| {
-						use sp_runtime::traits::Header as HeaderT;
-
 						let block_number = <Self as Chain>::System::block_number();
-						let mock_header = HeaderT::new(
+						let mock_header = $crate::HeaderT::new(
 							0,
 							Default::default(),
 							Default::default(),
@@ -822,7 +804,7 @@ macro_rules! __impl_test_ext_for_parachain {
 						$crate::LAST_HEAD.with(|b| b.borrow_mut()
 							.get_mut(<Self as NetworkComponent>::Network::name())
 							.expect("network not initialized?")
-							.insert(para_id.into(), HeadData(created_header.encode()))
+							.insert(para_id.into(), $crate::HeadData(created_header.encode()))
 						);
 
 						let collation_info = <Self as Parachain>::ParachainSystem::collect_collation_info(&mock_header);
@@ -842,9 +824,9 @@ macro_rules! __impl_test_ext_for_parachain {
 						}
 
 						// get bridge messages
-						type NetworkBridge = <<$name as NetworkComponent>::Network as Network>::Bridge;
+						type NetworkBridge = <<$name as NetworkComponent>::Network as $crate::Network>::Bridge;
 
-						let bridge_messages = <<NetworkBridge as Bridge>::Handler as $crate::BridgeMessageHandler>::get_source_outbound_messages();
+						let bridge_messages = <<NetworkBridge as $crate::Bridge>::Handler as $crate::BridgeMessageHandler>::get_source_outbound_messages();
 
 						// send bridged messages
 						for msg in bridge_messages {
@@ -911,7 +893,7 @@ macro_rules! decl_test_networks {
 				}
 
 				fn reset() {
-					use $crate::{TestExt, VecDeque};
+					use $crate::{TestExt};
 
 					$crate::INITIALIZED.with(|b| b.borrow_mut().remove(Self::name()));
 					$crate::DOWNWARD_MESSAGES.with(|b| b.borrow_mut().remove(Self::name()));
@@ -976,13 +958,12 @@ macro_rules! decl_test_networks {
 				}
 
 				fn process_downward_messages() {
-					use $crate::{DmpMessageHandler, Bounded, Parachain};
-					use polkadot_parachain::primitives::RelayChainBlockNumber;
+					use $crate::{DmpMessageHandler, Bounded, Parachain, RelayChainBlockNumber, TestExt};
 
 					while let Some((to_para_id, messages))
 						= $crate::DOWNWARD_MESSAGES.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().pop_front()) {
 						$(
-							let para_id: u32 = <$parachain as Parachain>::para_id().into();
+							let para_id: u32 = <$parachain>::para_id().into();
 
 							if $crate::PARA_IDS.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().contains(&to_para_id)) && para_id == to_para_id {
 								let mut msg_dedup: Vec<(RelayChainBlockNumber, Vec<u8>)> = Vec::new();
@@ -995,7 +976,7 @@ macro_rules! decl_test_networks {
 									!$crate::DMP_DONE.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap_or(&mut $crate::VecDeque::new()).contains(&(to_para_id, m.0, m.1.clone())))
 								}).collect::<Vec<(RelayChainBlockNumber, Vec<u8>)>>();
 								if msgs.len() != 0 {
-									<$parachain as $crate::TestExt>::ext_wrapper(|| {
+									<$parachain>::ext_wrapper(|| {
 										<$parachain as Parachain>::DmpMessageHandler::handle_dmp_messages(msgs.clone().into_iter(), $crate::Weight::max_value());
 									});
 									$crate::log::debug!(target: concat!("dmp::", stringify!($name)) , "DMP messages processed {:?} to para_id {:?}", msgs.clone(), &to_para_id);
@@ -1009,16 +990,16 @@ macro_rules! decl_test_networks {
 				}
 
 				fn process_horizontal_messages() {
-					use $crate::{XcmpMessageHandler, Bounded, Parachain};
+					use $crate::{XcmpMessageHandler, Bounded, Parachain, TestExt};
 
 					while let Some((to_para_id, messages))
 						= $crate::HORIZONTAL_MESSAGES.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().pop_front()) {
 						let iter = messages.iter().map(|(p, b, m)| (*p, *b, &m[..])).collect::<Vec<_>>().into_iter();
 						$(
-							let para_id: u32 = <$parachain as Parachain>::para_id().into();
+							let para_id: u32 = <$parachain>::para_id().into();
 
 							if $crate::PARA_IDS.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().contains(&to_para_id)) && para_id == to_para_id {
-								<$parachain as $crate::TestExt>::ext_wrapper(|| {
+								<$parachain>::ext_wrapper(|| {
 									<$parachain as Parachain>::XcmpMessageHandler::handle_xcmp_messages(iter.clone(), $crate::Weight::max_value());
 								});
 								$crate::log::debug!(target: concat!("hrmp::", stringify!($name)) , "HRMP messages processed {:?} to para_id {:?}", &messages, &to_para_id);
@@ -1028,11 +1009,11 @@ macro_rules! decl_test_networks {
 				}
 
 				fn process_upward_messages() {
-					use $crate::{Bounded, ProcessMessage};
+					use $crate::{ProcessMessage, TestExt};
 					use sp_core::Encode;
 					while let Some((from_para_id, msg)) = $crate::UPWARD_MESSAGES.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().pop_front()) {
 						let mut weight_meter = $crate::WeightMeter::max_limit();
-						<$relay_chain as $crate::TestExt>::ext_wrapper(|| {
+						<$relay_chain>::ext_wrapper(|| {
 							let _ =  <$relay_chain as $crate::RelayChain>::MessageProcessor::process_message(
 								&msg[..],
 								from_para_id.into(),
@@ -1071,8 +1052,6 @@ macro_rules! decl_test_networks {
 					relay_parent_number: u32,
 					parent_head_data: $crate::HeadData,
 				) -> $crate::ParachainInherentData {
-					use $crate::{HeadData, HrmpChannelId, AbridgedHrmpChannel};
-
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
 
@@ -1088,11 +1067,11 @@ macro_rules! decl_test_networks {
 
 						sproof
 							.hrmp_channels
-							.entry(HrmpChannelId {
+							.entry($crate::HrmpChannelId {
 								sender: sproof.para_id,
 								recipient: recipient_para_id,
 							})
-							.or_insert_with(|| AbridgedHrmpChannel {
+							.or_insert_with(|| $crate::AbridgedHrmpChannel {
 								max_capacity: 1024,
 								max_total_size: 1024 * 1024,
 								max_message_size: 1024 * 1024,
@@ -1179,9 +1158,11 @@ macro_rules! __impl_check_assertion {
 			Args: Clone,
 		{
 			fn check_assertion(test: $crate::Test<Origin, Destination, Hops, Args>) {
+				use $crate::TestExt;
+
 				let chain_name = std::any::type_name::<$chain>();
 
-				<$chain as $crate::TestExt>::execute_with(|| {
+				<$chain>::execute_with(|| {
 					if let Some(dispatchable) = test.hops_dispatchable.get(chain_name) {
 						$crate::assert_ok!(dispatchable(test.clone()));
 					}

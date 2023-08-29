@@ -31,7 +31,6 @@ pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-featu
 # Cumulus
 parachains-common = { path = "../../../../common" }
 asset-hub-kusama-runtime = { path = "../../../../runtimes/assets/asset-hub-kusama" }
-cumulus-pallet-dmp-queue = { path = "../../../../../pallets/dmp-queue" }
 cumulus-pallet-xcmp-queue = { path = "../../../../../pallets/xcmp-queue", default-features = false}
 cumulus-pallet-parachain-system = { path = "../../../../../pallets/parachain-system" }
 

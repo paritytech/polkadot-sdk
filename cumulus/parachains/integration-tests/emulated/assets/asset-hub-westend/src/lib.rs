@@ -41,13 +41,13 @@ pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain::primitives::{HrmpChannelId, Id};
 pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
 pub use xcm::{
-	prelude::*,
+	prelude::{*, AccountId32 as AccountId32Junction},
 	v3::{Error, NetworkId::Westend as WestendId},
 	DoubleEncoded,
 };
 pub use xcm_emulator::{
-	assert_expected_events, bx, cumulus_pallet_dmp_queue, helpers::weight_within_threshold,
-	AccountId32Junction, Chain, ParaId, Parachain as Para, RelayChain as Relay, Test, TestArgs,
+	assert_expected_events, bx, helpers::weight_within_threshold,
+	Chain, ParaId, Parachain as Para, RelayChain as Relay, Test, TestArgs,
 	TestContext, TestExt, TestExternalities,
 };
 
