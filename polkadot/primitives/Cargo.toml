@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-primitives"
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -50,4 +50,8 @@ std = [
 	"sp-staking/std",
 	"sp-std/std",
 ]
-runtime-benchmarks = []
+runtime-benchmarks = [
+	"polkadot-parachain/runtime-benchmarks",
+	"runtime_primitives/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
+]

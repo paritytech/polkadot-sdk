@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-cli"
 description = "Polkadot Relay-chain Client Node"
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -55,8 +55,10 @@ cli = [
 	"try-runtime-cli",
 ]
 runtime-benchmarks = [
+	"frame-benchmarking-cli?/runtime-benchmarks",
 	"polkadot-node-metrics/runtime-benchmarks",
 	"polkadot-performance-test?/runtime-benchmarks",
+	"sc-service?/runtime-benchmarks",
 	"service/runtime-benchmarks",
 ]
 full-node = [ "service/full-node" ]

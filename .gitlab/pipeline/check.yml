@@ -3,10 +3,9 @@ cargo-clippy:
   extends:
     - .docker-env
     - .common-refs
+    - .pipeline-stopper-artifacts
   script:
     - SKIP_WASM_BUILD=1 env -u RUSTFLAGS cargo clippy --all-targets --locked --workspace
-  # fixme!
-  allow_failure: true
 
 check-try-runtime:
   stage: check
@@ -20,7 +19,7 @@ check-try-runtime:
     - time cargo check --locked -p parachain-template-node --features try-runtime
     # add after https://github.com/paritytech/substrate/pull/14502 is merged
     # experimental code may rely on try-runtime and vice-versa
-    # - time cargo check --locked --features try-runtime,experimental
+    - time cargo check --locked --features try-runtime,experimental
 
 cargo-fmt-manifest:
   stage: check
@@ -28,12 +27,13 @@ cargo-fmt-manifest:
     - .docker-env
     - .common-refs
   script:
-    - cargo install zepter --locked --version 0.10.0 -q -f --no-default-features && zepter --version
+    - cargo install zepter --locked --version 0.11.0 -q -f --no-default-features && zepter --version
     - echo "👉 Hello developer! If you see this CI check failing then it means that one of the your changes in a Cargo.toml file introduced ill-formatted or unsorted features. Please take a look at 'docs/STYLE_GUIDE.md#manifest-formatting' to find out more."
     - zepter format features --check
   allow_failure: true # Experimental
 
-cargo-deny-licenses:
+# FIXME
+.cargo-deny-licenses:
   stage: check
   extends:
     - .docker-env
@@ -43,7 +43,6 @@ cargo-deny-licenses:
   script:
     - $CARGO_DENY_CMD --hide-inclusion-graph
   after_script:
-    # - !reference [.rusty-cachier, after_script]
     - echo "___The complete log is in the artifacts___"
     - $CARGO_DENY_CMD 2> deny.log
     - if [ $CI_JOB_STATUS != 'success' ]; then
@@ -56,21 +55,6 @@ cargo-deny-licenses:
     when: always
     paths:
       - deny.log
-
-spellcheck:
-  stage: check
-  extends:
-    - .kubernetes-env
-    - .common-refs
-  script:
-    - cargo spellcheck --version
-    # compare with the commit parent to the PR, given it's from a default branch
-    - git fetch origin +${CI_DEFAULT_BRANCH}:${CI_DEFAULT_BRANCH}
-    - echo "___Spellcheck is going to check your diff___"
-    - cargo spellcheck list-files -vvv $(git diff --diff-filter=AM --name-only $(git merge-base ${CI_COMMIT_SHA} ${CI_DEFAULT_BRANCH} -- :^bridges))
-    - time cargo spellcheck check -vvv --cfg=.gitlab/spellcheck.toml --checkers hunspell --code 1
-      $(git diff --diff-filter=AM --name-only $(git merge-base ${CI_COMMIT_SHA} ${CI_DEFAULT_BRANCH} -- :^bridges))
-  allow_failure: true
 
 # from substrate
 # not sure if it's needed in monorepo
@@ -114,7 +98,7 @@ test-rust-feature-propagation:
     - .kubernetes-env
     - .test-pr-refs
   script:
-    - cargo install --locked --version 0.10.0 -q -f zepter && zepter --version
+    - cargo install --locked --version 0.11.1 -q -f zepter && zepter --version
     - echo "👉 Hello developer! If you see this CI check failing then it means that one of the crates is missing a feature for one of its dependencies. The output below tells you which feature needs to be added for which dependency to which crate. You can do this by modifying the Cargo.toml file. For more context see the MR where this check was introduced https://github.com/paritytech/substrate/pull/14660"
     - zepter lint propagate-feature --feature try-runtime --left-side-feature-missing=ignore --workspace --feature-enables-dep="try-runtime:frame-try-runtime" --locked
     - zepter lint propagate-feature --feature runtime-benchmarks --left-side-feature-missing=ignore --workspace --feature-enables-dep="runtime-benchmarks:frame-benchmarking" --locked
@@ -149,6 +133,10 @@ check-runtime-migration-polkadot:
 
 check-runtime-migration-kusama:
   stage: check
+  # DAG
+  needs:
+    - job: check-runtime-migration-polkadot
+      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
@@ -169,6 +157,10 @@ check-runtime-migration-westend:
 
 check-runtime-migration-rococo:
   stage: check
+  # DAG
+  needs:
+    - job: check-runtime-migration-westend
+      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs

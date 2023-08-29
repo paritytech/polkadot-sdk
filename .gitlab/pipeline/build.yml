@@ -18,11 +18,13 @@ build-linux-stable:
     # Ensure we run the UI tests.
     RUN_UI_TESTS: 1
   script:
-    - time cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot
+    - time cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
     # pack artifacts
     - mkdir -p ./artifacts
     - VERSION="${CI_COMMIT_REF_NAME}" # will be tag or branch name
     - mv ./target/testnet/polkadot ./artifacts/.
+    - mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
+    - mv ./target/testnet/polkadot-execute-worker ./artifacts/.
     - pushd artifacts
     - sha256sum polkadot | tee polkadot.sha256
     - shasum -c polkadot.sha256
@@ -44,8 +46,8 @@ build-test-collators:
     - .run-immediately
     - .collect-artifacts
   script:
-    - time cargo build --locked --profile testnet --verbose -p test-parachain-adder-collator
-    - time cargo build --locked --profile testnet --verbose -p test-parachain-undying-collator
+    - time cargo build --locked --profile testnet -p test-parachain-adder-collator
+    - time cargo build --locked --profile testnet -p test-parachain-undying-collator
     # pack artifacts
     - mkdir -p ./artifacts
     - mv ./target/testnet/adder-collator ./artifacts/.
@@ -64,10 +66,12 @@ build-malus:
     - .run-immediately
     - .collect-artifacts
   script:
-    - time cargo build --locked --profile testnet --verbose -p polkadot-test-malus
+    - time cargo build --locked --profile testnet -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
     # pack artifacts
     - mkdir -p ./artifacts
     - mv ./target/testnet/malus ./artifacts/.
+    - mv ./target/testnet/polkadot-execute-worker ./artifacts/.
+    - mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
     - echo -n "${CI_COMMIT_REF_NAME}" > ./artifacts/VERSION
     - echo -n "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}" > ./artifacts/EXTRATAG
     - echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
@@ -78,8 +82,11 @@ build-staking-miner:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
-    - .collect-artifacts
+    # - .collect-artifacts
+  # DAG
+  needs:
+    - job: build-malus
+      artifacts: false
   script:
     - time cargo build --locked --release --package staking-miner
     # # pack artifacts
@@ -107,7 +114,7 @@ build-rustdoc:
   script:
     # FIXME: it fails with `RUSTDOCFLAGS="-Dwarnings"` and `--all-features`
     # FIXME: return to stable when https://github.com/rust-lang/rust/issues/96937 gets into stable
-    - time cargo doc --workspace --verbose --no-deps
+    - time cargo doc --workspace --no-deps
     - rm -f ./target/doc/.lock
     - mv ./target/doc ./crate-docs
     # FIXME: remove me after CI image gets nonroot
@@ -278,8 +285,11 @@ build-linux-substrate:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
     - .collect-artifacts
+  # DAG
+  needs:
+    - job: build-linux-stable
+      artifacts: false
   variables:
     # this variable gets overriden by "rusty-cachier environment inject", use the value as default
     CARGO_TARGET_DIR: "$CI_PROJECT_DIR/target"
@@ -289,7 +299,7 @@ build-linux-substrate:
     # see https://github.com/paritytech/ci_cd/issues/682#issuecomment-1340953589
     - git checkout -B "$CI_COMMIT_REF_NAME" "$CI_COMMIT_SHA"
   script:
-    - WASM_BUILD_NO_COLOR=1 time cargo build --locked --release --verbose
+    - WASM_BUILD_NO_COLOR=1 time cargo build --locked --release
     - mv $CARGO_TARGET_DIR/release/substrate-node ./artifacts/substrate/substrate
     - echo -n "Substrate version = "
     - if [ "${CI_COMMIT_TAG}" ]; then
@@ -317,7 +327,7 @@ build-linux-substrate:
     - mkdir -p ./artifacts/subkey
   script:
     - cd ./substrate/bin/utils/subkey
-    - SKIP_WASM_BUILD=1 time cargo build --locked --release --verbose
+    - SKIP_WASM_BUILD=1 time cargo build --locked --release
     # - cd -
     # - mv $CARGO_TARGET_DIR/release/subkey ./artifacts/subkey/.
     # - echo -n "Subkey version = "
@@ -329,6 +339,10 @@ build-linux-substrate:
 
 build-subkey-linux:
   extends: .build-subkey
+  # DAG
+  needs:
+    - job: build-staking-miner
+      artifacts: false
 # tbd
 # build-subkey-macos:
 #   extends: .build-subkey
@@ -340,7 +354,7 @@ build-subkey-linux:
 #     - mkdir -p ./artifacts/subkey
 #   script:
 #     - cd ./bin/utils/subkey
-#     - SKIP_WASM_BUILD=1 time cargo build --locked --release --verbose
+#     - SKIP_WASM_BUILD=1 time cargo build --locked --release
 #     - cd -
 #     - mv ./target/release/subkey ./artifacts/subkey/.
 #     - echo -n "Subkey version = "
