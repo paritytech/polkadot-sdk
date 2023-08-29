@@ -16,7 +16,7 @@ frame-system = { path = "../../../substrate/frame/system", default-features = fa
 sp-io = { path = "../../../substrate/primitives/io", default-features = false}
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
 sp-std = { path = "../../../substrate/primitives/std", default-features = false}
-pallet-message-queue = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
 
 # Polkadot
 polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false}

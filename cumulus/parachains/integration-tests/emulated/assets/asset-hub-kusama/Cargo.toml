@@ -18,7 +18,7 @@ sp-weights = { path = "../../../../../../substrate/primitives/weights", default-
 pallet-balances = { path = "../../../../../../substrate/frame/balances", default-features = false}
 pallet-assets = { path = "../../../../../../substrate/frame/assets", default-features = false}
 pallet-asset-conversion = { path = "../../../../../../substrate/frame/asset-conversion", default-features = false}
-pallet-message-queue = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "master" }
+pallet-message-queue = { path = "../../../../../../substrate/frame/message-queue", default-features = false }
 
 # Polkadot
 polkadot-core-primitives = { path = "../../../../../../polkadot/core-primitives", default-features = false}

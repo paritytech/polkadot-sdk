@@ -18,7 +18,7 @@ scale-info = { version = "2.9.0", default-features = false, features = ["derive"
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true}
 frame-support = { path = "../../../substrate/frame/support", default-features = false}
 frame-system = { path = "../../../substrate/frame/system", default-features = false}
-pallet-message-queue = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
 sp-core = { path = "../../../substrate/primitives/core", default-features = false}
 sp-externalities = { path = "../../../substrate/primitives/externalities", default-features = false}
 sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false}
