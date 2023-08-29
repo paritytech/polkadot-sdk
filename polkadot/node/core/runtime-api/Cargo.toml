@@ -8,7 +8,7 @@ license.workspace = true
 [dependencies]
 futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../gum" }
-lru = "0.11.0"
+schnellru = "0.2.1"
 
 sp-consensus-babe = { path = "../../../../substrate/primitives/consensus/babe" }
 

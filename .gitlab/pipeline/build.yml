@@ -46,8 +46,8 @@ build-test-collators:
     - .run-immediately
     - .collect-artifacts
   script:
-    - time cargo build --locked --profile testnet --verbose -p test-parachain-adder-collator
-    - time cargo build --locked --profile testnet --verbose -p test-parachain-undying-collator
+    - time cargo build --locked --profile testnet -p test-parachain-adder-collator
+    - time cargo build --locked --profile testnet -p test-parachain-undying-collator
     # pack artifacts
     - mkdir -p ./artifacts
     - mv ./target/testnet/adder-collator ./artifacts/.
@@ -66,7 +66,7 @@ build-malus:
     - .run-immediately
     - .collect-artifacts
   script:
-    - time cargo build --locked --profile testnet --verbose -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
+    - time cargo build --locked --profile testnet -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
     # pack artifacts
     - mkdir -p ./artifacts
     - mv ./target/testnet/malus ./artifacts/.
@@ -111,7 +111,7 @@ build-rustdoc:
   script:
     # FIXME: it fails with `RUSTDOCFLAGS="-Dwarnings"` and `--all-features`
     # FIXME: return to stable when https://github.com/rust-lang/rust/issues/96937 gets into stable
-    - time cargo doc --workspace --verbose --no-deps
+    - time cargo doc --workspace --no-deps
     - rm -f ./target/doc/.lock
     - mv ./target/doc ./crate-docs
     # FIXME: remove me after CI image gets nonroot
@@ -280,7 +280,7 @@ build-linux-substrate:
     # see https://github.com/paritytech/ci_cd/issues/682#issuecomment-1340953589
     - git checkout -B "$CI_COMMIT_REF_NAME" "$CI_COMMIT_SHA"
   script:
-    - WASM_BUILD_NO_COLOR=1 time cargo build --locked --release --verbose
+    - WASM_BUILD_NO_COLOR=1 time cargo build --locked --release
     - mv $CARGO_TARGET_DIR/release/substrate-node ./artifacts/substrate/substrate
     - echo -n "Substrate version = "
     - if [ "${CI_COMMIT_TAG}" ]; then
@@ -308,7 +308,7 @@ build-linux-substrate:
     - mkdir -p ./artifacts/subkey
   script:
     - cd ./substrate/bin/utils/subkey
-    - SKIP_WASM_BUILD=1 time cargo build --locked --release --verbose
+    - SKIP_WASM_BUILD=1 time cargo build --locked --release
     # - cd -
     # - mv $CARGO_TARGET_DIR/release/subkey ./artifacts/subkey/.
     # - echo -n "Subkey version = "
@@ -331,7 +331,7 @@ build-subkey-linux:
 #     - mkdir -p ./artifacts/subkey
 #   script:
 #     - cd ./bin/utils/subkey
-#     - SKIP_WASM_BUILD=1 time cargo build --locked --release --verbose
+#     - SKIP_WASM_BUILD=1 time cargo build --locked --release
 #     - cd -
 #     - mv ./target/release/subkey ./artifacts/subkey/.
 #     - echo -n "Subkey version = "
