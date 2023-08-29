@@ -58,6 +58,7 @@ runtime-benchmarks = [
 	"pallet-glutton/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
+	"pallet-sudo?/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
