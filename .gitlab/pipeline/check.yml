@@ -5,7 +5,6 @@ cargo-clippy:
     - .common-refs
     - .pipeline-stopper-artifacts
   script:
-    - exit 1
     - SKIP_WASM_BUILD=1 env -u RUSTFLAGS cargo clippy --all-targets --locked --workspace
 
 check-try-runtime:
