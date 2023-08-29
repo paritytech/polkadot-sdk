@@ -10,7 +10,7 @@ async-trait = "0.1.73"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ] }
 futures = "0.3.28"
 tracing = "0.1.37"
-lru = "0.10.0"
+schnellru = "0.2.1"
 
 # Substrate
 sc-client-api = { path = "../../../../substrate/client/api" }
