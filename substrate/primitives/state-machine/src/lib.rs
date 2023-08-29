@@ -1989,10 +1989,10 @@ pub mod fuzzing {
 	#[derive(Arbitrary, Debug, Clone)]
 	#[repr(u8)]
 	enum DataValue {
-		A = 'a' as u8,
-		B = 'b' as u8,
-		C = 'c' as u8,
-		D = 'd' as u8,  // This can be read as a multiple byte compact length.
+		A = b'a',
+		B = b'b',
+		C = b'c',
+		D = b'd',  // This can be read as a multiple byte compact length.
 		EasyBug = 20u8, // value compact len.
 	}
 
@@ -2059,8 +2059,7 @@ pub mod fuzzing {
 				.last_mut()
 				.expect("always at least one item")
 				.get(key)
-				.map(|o| o.as_ref())
-				.flatten()
+				.and_then(|o| o.as_ref())
 		}
 
 		fn commit_transaction(&mut self) {
