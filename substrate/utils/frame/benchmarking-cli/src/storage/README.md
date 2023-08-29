@@ -98,7 +98,7 @@ write: 71_347 * constants::WEIGHT_REF_TIME_PER_NANOS,
 - `--json-read-path` Write the raw 'read' results to this file or directory.
 - `--json-write-path` Write the raw 'write' results to this file or directory.
 - [`--header`](../shared/README.md#arguments)
-- `db-fraction` Indicate the percentage of database keys to utilize, ranging from `1` to `100` (default 100).
+- `--db-fraction` Indicate the percentage of database keys to utilize, ranging from `1` to `100` (default 100).
 
 License: Apache-2.0
 
