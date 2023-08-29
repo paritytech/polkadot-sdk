@@ -30,7 +30,6 @@ use frame_support::{
 	traits::{ConstU32, Contains, Everything, Nothing, PalletInfoAccess},
 };
 use frame_system::EnsureRoot;
-use kusama_parachain::primitives::Sibling;
 use kusama_runtime_constants::system_parachain::SystemParachains;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
@@ -38,6 +37,7 @@ use parachains_common::{
 	xcm_config::{AssetFeeAsExistentialDepositMultiplier, RelayOrOtherSystemParachains},
 	TREASURY_PALLET_ID,
 };
+use polkadot_parachain::primitives::Sibling;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -524,7 +524,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetExchanger = ();
 	type FeeManager = XcmFeesToAccount<
 		Self,
-		RelayOtherOrSystemParachains<SystemParachains, Runtime>,
+		RelayOrOtherSystemParachains<SystemParachains, Runtime>,
 		AccountId,
 		TreasuryAccount,
 	>;
