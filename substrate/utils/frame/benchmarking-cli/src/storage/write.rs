@@ -64,13 +64,10 @@ impl StorageCmd {
 		let mut kvs: Vec<_> = trie.pairs(Default::default())?.collect();
 		let (mut rng, _) = new_rng(None);
 		kvs.shuffle(&mut rng);
-
 		let number_of_keys = (kvs.len() * self.params.db_fraction as usize) / 100;
-		
+
 		info!("Writing {} keys of {} keys", number_of_keys, kvs.len());
-
 		let kvs = &kvs[0..number_of_keys];
-
 		let mut child_nodes = Vec::new();
 
 		// Generate all random values first; Make sure there are no collisions with existing
