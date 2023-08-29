@@ -82,8 +82,11 @@ build-staking-miner:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
-    - .collect-artifacts
+    # - .collect-artifacts
+  # DAG
+  needs:
+    - job: build-malus
+      artifacts: false
   script:
     - time cargo build --locked --release --package staking-miner
     # # pack artifacts
@@ -269,8 +272,11 @@ build-linux-substrate:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
     - .collect-artifacts
+  # DAG
+  needs:
+    - job: build-linux-stable
+      artifacts: false
   variables:
     # this variable gets overriden by "rusty-cachier environment inject", use the value as default
     CARGO_TARGET_DIR: "$CI_PROJECT_DIR/target"
@@ -320,6 +326,10 @@ build-linux-substrate:
 
 build-subkey-linux:
   extends: .build-subkey
+  # DAG
+  needs:
+    - job: build-staking-miner
+      artifacts: false
 # tbd
 # build-subkey-macos:
 #   extends: .build-subkey
