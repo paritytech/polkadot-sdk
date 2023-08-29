@@ -1,11 +1,11 @@
 [package]
 name = "sp-npos-elections-fuzzer"
 version = "2.0.0-alpha.5"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Fuzzer for phragmén implementation."
 documentation = "https://docs.rs/sp-npos-elections-fuzzer"
 publish = false

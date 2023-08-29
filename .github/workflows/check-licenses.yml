@@ -3,22 +3,32 @@ name: Check licenses
 on:
   pull_request:
 
+permissions:
+  packages: read
+
 jobs:
   check-licenses:
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        repo: [polkadot, substrate, cumulus]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
       - uses: actions/setup-node@v3.8.1
         with:
-          node-version: '18.x'
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@paritytech'
-      - name: Check the licenses
+          node-version: "18.x"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@paritytech"
+      - name: Check the licenses for ${{ matrix.repo }}
         run: |
           shopt -s globstar
-
-          npx --yes https://github.com/paritytech/license-scanner scan \
+          echo "install"
+          npm install -g @paritytech/license-scanner@0.0.5
+          echo "run for ${{ matrix.repo }}"
+          cd ${{ matrix.repo }}
+          npx @paritytech/license-scanner scan \
             --ensure-licenses=Apache-2.0 \
             --ensure-licenses=GPL-3.0-only \
             ./**/*.rs
