@@ -424,23 +424,7 @@ pub fn fully_unbond_permissioned(member: AccountId) -> DispatchResult {
 }
 
 pub fn pending_rewards_for_pool(pool: PoolId) -> Balance {
-	let bonded_pool = BondedPools::<T>::get(pool).unwrap();
-	let reward_pool = RewardPools::<T>::get(pool).unwrap();
-
-	let current_rc = if !bonded_pool.points.is_zero() {
-		let commission = bonded_pool.commission.current();
-		reward_pool
-			.current_reward_counter(pool, bonded_pool.points, commission)
-			.unwrap()
-			.0
-	} else {
-		Default::default()
-	};
-
-	PoolMembers::<T>::iter()
-		.filter(|(_, d)| d.pool_id == pool)
-		.map(|(_, d)| d.pending_rewards(current_rc).unwrap_or_default())
-		.sum()
+	Pools::pool_pending_rewards(pool).expect("pool should exist")
 }
 
 pub fn pending_rewards_for_delegator(delegator: AccountId) -> Balance {

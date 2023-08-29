@@ -3097,6 +3097,16 @@ impl<T: Config> Pallet<T> {
 			ExistenceRequirement::KeepAlive,
 		)?;
 
+		// The topped up amount should not be claimable by delegators.
+		RewardPools::<T>::mutate(pool, |maybe_reward_pool| {
+			if let Some(pool) = maybe_reward_pool {
+				pool.total_rewards_claimed.saturating_accrue(top_up_amount);
+				Ok(())
+			} else {
+				Err(Error::<T>::PoolNotFound)
+			}
+		})?;
+
 		Self::deposit_event(Event::<T>::PoolToppedUp {
 			pool_id: pool,
 			top_up_value: top_up_amount,
