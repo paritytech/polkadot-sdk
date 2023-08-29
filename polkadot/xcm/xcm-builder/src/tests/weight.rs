@@ -74,17 +74,17 @@ fn errors_should_return_unused_weight() {
 		// First xfer results in an error on the last message only
 		TransferAsset {
 			assets: (Here, 1u128).into(),
-			beneficiary: X1(AccountIndex64 { index: 3, network: None }).into(),
+			beneficiary: [AccountIndex64 { index: 3, network: None }].into(),
 		},
 		// Second xfer results in error third message and after
 		TransferAsset {
 			assets: (Here, 2u128).into(),
-			beneficiary: X1(AccountIndex64 { index: 3, network: None }).into(),
+			beneficiary: [AccountIndex64 { index: 3, network: None }].into(),
 		},
 		// Third xfer results in error second message and after
 		TransferAsset {
 			assets: (Here, 4u128).into(),
-			beneficiary: X1(AccountIndex64 { index: 3, network: None }).into(),
+			beneficiary: [AccountIndex64 { index: 3, network: None }].into(),
 		},
 	]);
 	// Weight limit of 70 is needed.
@@ -186,7 +186,7 @@ fn weight_trader_tuple_should_work() {
 	let mut traders = Traders::new();
 	// trader one failed; trader two buys weight
 	assert_eq!(
-		traders.buy_weight(Weight::from_parts(5, 5), fungible_multi_asset(para_1, 10).into(), &ctx),
+		traders.buy_weight(Weight::from_parts(5, 5), fungible_multi_asset(para_1.clone(), 10).into(), &ctx),
 		Ok(vec![].into()),
 	);
 	// trader two refunds

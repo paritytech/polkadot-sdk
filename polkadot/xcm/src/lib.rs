@@ -32,11 +32,11 @@ pub mod v3;
 pub mod v4;
 
 pub mod lts {
-	pub use super::v3::*;
+	pub use super::v4::*;
 }
 
 pub mod latest {
-	pub use super::v3::*;
+	pub use super::v4::*;
 }
 
 mod double_encoded;

@@ -80,7 +80,7 @@ impl<T: configuration::Config + dmp::Config, W: xcm::WrapVersion, P: PriceForPar
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(HostConfiguration<BlockNumberFor<T>>, ParaId, Vec<u8>)> {
 		let d = dest.take().ok_or(MissingArgument)?;
-		let id = if let MultiLocation { parents: 0, interior: X1(Parachain(id)) } = &d {
+		let id = if let (0, [Parachain(id)]) = d.unpack() {
 			*id
 		} else {
 			*dest = Some(d);

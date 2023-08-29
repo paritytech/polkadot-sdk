@@ -329,7 +329,7 @@ impl TryFrom<OldWildFungibility> for WildFungibility {
 
 /// Classification of an asset being concrete or abstract.
 #[derive(
-	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen,
+	Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen,
 )]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 pub enum AssetId {
@@ -372,7 +372,7 @@ impl AssetId {
 	/// Prepend a `MultiLocation` to a concrete asset, giving it a new root location.
 	pub fn prepend_with(&mut self, prepend: &MultiLocation) -> Result<(), ()> {
 		if let AssetId::Concrete(ref mut l) = self {
-			l.prepend_with(*prepend).map_err(|_| ())?;
+			l.prepend_with(prepend.clone()).map_err(|_| ())?;
 		}
 		Ok(())
 	}
@@ -382,7 +382,7 @@ impl AssetId {
 	pub fn reanchor(
 		&mut self,
 		target: &MultiLocation,
-		context: InteriorMultiLocation,
+		context: &InteriorMultiLocation,
 	) -> Result<(), ()> {
 		if let AssetId::Concrete(ref mut l) = self {
 			l.reanchor(target, context)?;
@@ -457,7 +457,7 @@ impl MultiAsset {
 	pub fn reanchor(
 		&mut self,
 		target: &MultiLocation,
-		context: InteriorMultiLocation,
+		context: &InteriorMultiLocation,
 	) -> Result<(), ()> {
 		self.id.reanchor(target, context)
 	}
@@ -467,7 +467,7 @@ impl MultiAsset {
 	pub fn reanchored(
 		mut self,
 		target: &MultiLocation,
-		context: InteriorMultiLocation,
+		context: &InteriorMultiLocation,
 	) -> Result<Self, ()> {
 		self.id.reanchor(target, context)?;
 		Ok(self)
@@ -683,7 +683,7 @@ impl MultiAssets {
 	pub fn reanchor(
 		&mut self,
 		target: &MultiLocation,
-		context: InteriorMultiLocation,
+		context: &InteriorMultiLocation,
 	) -> Result<(), ()> {
 		self.0.iter_mut().try_for_each(|i| i.reanchor(target, context))
 	}
@@ -754,7 +754,7 @@ impl WildMultiAsset {
 	pub fn reanchor(
 		&mut self,
 		target: &MultiLocation,
-		context: InteriorMultiLocation,
+		context: &InteriorMultiLocation,
 	) -> Result<(), ()> {
 		use WildMultiAsset::*;
 		match self {
@@ -846,7 +846,7 @@ impl MultiAssetFilter {
 	pub fn reanchor(
 		&mut self,
 		target: &MultiLocation,
-		context: InteriorMultiLocation,
+		context: &InteriorMultiLocation,
 	) -> Result<(), ()> {
 		match self {
 			MultiAssetFilter::Definite(ref mut assets) => assets.reanchor(target, context),

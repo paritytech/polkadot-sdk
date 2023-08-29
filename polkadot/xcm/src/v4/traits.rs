@@ -482,13 +482,13 @@ pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
 ///     }
 /// }
 ///
-/// /// A sender that accepts a message that has an X2 junction, otherwise stops the routing.
+/// /// A sender that accepts a message that has two junctions, otherwise stops the routing.
 /// struct Sender2;
 /// impl SendXcm for Sender2 {
 ///     type Ticket = ();
 ///     fn validate(destination: &mut Option<MultiLocation>, message: &mut Option<Xcm<()>>) -> SendResult<()> {
-///         match destination.as_ref().ok_or(SendError::MissingArgument)? {
-///             MultiLocation { parents: 0, interior: X2(j1, j2) } => Ok(((), MultiAssets::new())),
+///         match destination.as_ref().ok_or(SendError::MissingArgument)?.unpack() {
+///             (0, [_, _]) => Ok(((), MultiAssets::new())),
 ///             _ => Err(SendError::Unroutable),
 ///         }
 ///     }
@@ -502,8 +502,8 @@ pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
 /// impl SendXcm for Sender3 {
 ///     type Ticket = ();
 ///     fn validate(destination: &mut Option<MultiLocation>, message: &mut Option<Xcm<()>>) -> SendResult<()> {
-///         match destination.as_ref().ok_or(SendError::MissingArgument)? {
-///             MultiLocation { parents: 1, interior: Here } => Ok(((), MultiAssets::new())),
+///         match destination.as_ref().ok_or(SendError::MissingArgument)?.unpack() {
+///             (1, []) => Ok(((), MultiAssets::new())),
 ///             _ => Err(SendError::NotApplicable),
 ///         }
 ///     }

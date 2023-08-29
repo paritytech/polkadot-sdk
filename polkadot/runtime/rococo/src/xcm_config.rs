@@ -21,7 +21,7 @@ use super::{
 	RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmPallet,
 };
 use frame_support::{
-	match_types, parameter_types,
+	parameter_types,
 	traits::{Contains, Everything, Nothing},
 	weights::Weight,
 };
@@ -46,7 +46,7 @@ use xcm_builder::{
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
 parameter_types! {
-	pub const TokenLocation: MultiLocation = Here.into_location();
+	pub TokenLocation: MultiLocation = Here.into_location();
 	pub const ThisNetwork: NetworkId = NetworkId::Rococo;
 	pub UniversalLocation: InteriorMultiLocation = ThisNetwork::get().into();
 	pub CheckAccount: AccountId = XcmPallet::check_account();
@@ -106,19 +106,19 @@ pub type XcmRouter = WithUniqueTopic<(
 )>;
 
 parameter_types! {
-	pub const Roc: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
-	pub const Rockmine: MultiLocation = Parachain(1000).into_location();
-	pub const Contracts: MultiLocation = Parachain(1002).into_location();
-	pub const Encointer: MultiLocation = Parachain(1003).into_location();
-	pub const Tick: MultiLocation = Parachain(100).into_location();
-	pub const Trick: MultiLocation = Parachain(110).into_location();
-	pub const Track: MultiLocation = Parachain(120).into_location();
-	pub const RocForTick: (MultiAssetFilter, MultiLocation) = (Roc::get(), Tick::get());
-	pub const RocForTrick: (MultiAssetFilter, MultiLocation) = (Roc::get(), Trick::get());
-	pub const RocForTrack: (MultiAssetFilter, MultiLocation) = (Roc::get(), Track::get());
-	pub const RocForRockmine: (MultiAssetFilter, MultiLocation) = (Roc::get(), Rockmine::get());
-	pub const RocForContracts: (MultiAssetFilter, MultiLocation) = (Roc::get(), Contracts::get());
-	pub const RocForEncointer: (MultiAssetFilter, MultiLocation) = (Roc::get(), Encointer::get());
+	pub Roc: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
+	pub Rockmine: MultiLocation = Parachain(1000).into_location();
+	pub Contracts: MultiLocation = Parachain(1002).into_location();
+	pub Encointer: MultiLocation = Parachain(1003).into_location();
+	pub Tick: MultiLocation = Parachain(100).into_location();
+	pub Trick: MultiLocation = Parachain(110).into_location();
+	pub Track: MultiLocation = Parachain(120).into_location();
+	pub RocForTick: (MultiAssetFilter, MultiLocation) = (Roc::get(), Tick::get());
+	pub RocForTrick: (MultiAssetFilter, MultiLocation) = (Roc::get(), Trick::get());
+	pub RocForTrack: (MultiAssetFilter, MultiLocation) = (Roc::get(), Track::get());
+	pub RocForRockmine: (MultiAssetFilter, MultiLocation) = (Roc::get(), Rockmine::get());
+	pub RocForContracts: (MultiAssetFilter, MultiLocation) = (Roc::get(), Contracts::get());
+	pub RocForEncointer: (MultiAssetFilter, MultiLocation) = (Roc::get(), Encointer::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -131,10 +131,11 @@ pub type TrustedTeleporters = (
 	xcm_builder::Case<RocForEncointer>,
 );
 
-match_types! {
-	pub type OnlyParachains: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(_)) }
-	};
+pub struct OnlyParachains;
+impl Contains<MultiLocation> for OnlyParachains {
+	fn contains(loc: &MultiLocation) -> bool {
+		matches!(loc.unpack(), (0, [Parachain(_)]))
+	}
 }
 
 /// The barriers one of which must be passed for an XCM message to be executed.

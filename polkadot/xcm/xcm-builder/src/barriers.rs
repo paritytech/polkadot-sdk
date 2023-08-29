@@ -170,7 +170,7 @@ impl<
 			"WithComputedOrigin origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
 			origin, instructions, max_weight, properties,
 		);
-		let mut actual_origin = *origin;
+		let mut actual_origin = origin.clone();
 		let skipped = Cell::new(0usize);
 		// NOTE: We do not check the validity of `UniversalOrigin` here, meaning that a malicious
 		// origin could place a `UniversalOrigin` in order to spoof some location which gets free
@@ -188,7 +188,7 @@ impl<
 						actual_origin = X1(*new_global).relative_to(&LocalUniversal::get());
 					},
 					DescendOrigin(j) => {
-						let Ok(_) = actual_origin.append_with(*j) else {
+						let Ok(_) = actual_origin.append_with(j.clone()) else {
 							return Err(ProcessMessageError::Unsupported)
 						};
 					},
@@ -312,8 +312,8 @@ pub struct IsChildSystemParachain<ParaId>(PhantomData<ParaId>);
 impl<ParaId: IsSystem + From<u32>> Contains<MultiLocation> for IsChildSystemParachain<ParaId> {
 	fn contains(l: &MultiLocation) -> bool {
 		matches!(
-			l.interior(),
-			Junctions::X1(Junction::Parachain(id))
+			l.interior().as_slice(),
+			[Junction::Parachain(id)]
 				if ParaId::from(*id).is_system() && l.parent_count() == 0,
 		)
 	}
