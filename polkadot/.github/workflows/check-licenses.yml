@@ -18,7 +18,7 @@ jobs:
         run: |
           shopt -s globstar
 
-          npx --yes https://github.com/paritytech/license-scanner scan \
+          npx @paritytech/license-scanner@0.0.5 scan \
             --ensure-licenses=Apache-2.0 \
             --ensure-licenses=GPL-3.0-only \
             ./**/*.rs
