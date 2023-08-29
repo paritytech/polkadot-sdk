@@ -75,10 +75,19 @@ substrate-build-script-utils = { path = "../../../substrate/utils/build-script-u
 [features]
 default = []
 runtime-benchmarks = [
+	"frame-benchmarking-cli/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
 	"parachain-template-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
-try-runtime = [ "parachain-template-runtime/try-runtime" ]
+try-runtime = [
+	"parachain-template-runtime/try-runtime",
+	"polkadot-cli/try-runtime",
+	"sp-runtime/try-runtime",
+]
 network-protocol-staging = [
 	"cumulus-client-service/network-protocol-staging",
 	"polkadot-cli/network-protocol-staging",
