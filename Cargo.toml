@@ -455,6 +455,13 @@ repository = "https://github.com/paritytech/polkadot-sdk.git"
 license = "GPL-3.0-only"
 version = "1.0.0"
 
+[profile.release]
+# Substrate runtime requires unwinding.
+panic = "unwind"
+
+[profile.production]
+inherits = "release"
+
 [profile.testnet]
 inherits = "release"
 debug = 1               # debug symbols are useful for profilers
