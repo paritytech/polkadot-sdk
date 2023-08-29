@@ -1,12 +1,12 @@
 [package]
 name = "sp-storage"
 version = "13.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 description = "Storage related primitives"
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 documentation = "https://docs.rs/sp-storage/"
 readme = "README.md"
 

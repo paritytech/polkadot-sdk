@@ -1,11 +1,11 @@
 [package]
 name = "sp-trie"
 version = "22.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
+authors.workspace = true
 description = "Patricia trie stuff using a parity-scale-codec node format"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 license = "Apache-2.0"
-edition = "2021"
+edition.workspace = true
 homepage = "https://substrate.io"
 documentation = "https://docs.rs/sp-trie"
 readme = "README.md"
