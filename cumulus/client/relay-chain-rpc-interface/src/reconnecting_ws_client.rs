@@ -31,10 +31,10 @@ use jsonrpsee::{
 	},
 	ws_client::WsClientBuilder,
 };
-use lru::LruCache;
 use sc_rpc_api::chain::ChainApiClient;
+use schnellru::{ByLength, LruMap};
 use sp_runtime::generic::SignedBlock;
-use std::{num::NonZeroUsize, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::mpsc::{
 	channel as tokio_channel, Receiver as TokioReceiver, Sender as TokioSender,
 };
@@ -307,8 +307,7 @@ impl ReconnectingWebsocketWorker {
 			return
 		};
 
-		let mut imported_blocks_cache =
-			LruCache::new(NonZeroUsize::new(40).expect("40 is nonzero; qed."));
+		let mut imported_blocks_cache = LruMap::new(ByLength::new(40));
 		let mut should_reconnect = ConnectionStatus::Connected;
 		let mut last_seen_finalized_num: RelayNumber = 0;
 		loop {
@@ -365,7 +364,7 @@ impl ReconnectingWebsocketWorker {
 					match import_event {
 						Some(Ok(header)) => {
 							let hash = header.hash();
-							if imported_blocks_cache.contains(&hash) {
+							if imported_blocks_cache.peek(&hash).is_some() {
 								tracing::debug!(
 									target: LOG_TARGET,
 									number = header.number,
@@ -374,7 +373,7 @@ impl ReconnectingWebsocketWorker {
 								);
 								continue;
 							}
-							imported_blocks_cache.put(hash, ());
+							imported_blocks_cache.insert(hash, ());
 							distribute_header(header, &mut self.imported_header_listeners);
 						},
 						None => {

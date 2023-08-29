@@ -14,13 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{
-	collections::{BTreeMap, HashSet},
-	num::NonZeroUsize,
-};
+use std::collections::{BTreeMap, HashSet};
 
 use futures::channel::oneshot;
-use lru::LruCache;
+use schnellru::{ByLength, LruMap};
 
 use polkadot_node_primitives::{DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION, MAX_FINALITY_LAG};
 use polkadot_node_subsystem::{
@@ -52,10 +49,7 @@ mod candidates;
 /// `last_observed_blocks` LRU. This means, this value should the very least be as large as the
 /// number of expected forks for keeping chain scraping efficient. Making the LRU much larger than
 /// that has very limited use.
-const LRU_OBSERVED_BLOCKS_CAPACITY: NonZeroUsize = match NonZeroUsize::new(20) {
-	Some(cap) => cap,
-	None => panic!("Observed blocks cache size must be non-zero"),
-};
+const LRU_OBSERVED_BLOCKS_CAPACITY: u32 = 20;
 
 /// `ScrapedUpdates`
 ///
@@ -173,7 +167,7 @@ pub struct ChainScraper {
 	///
 	/// We assume that ancestors of cached blocks are already processed, i.e. we have saved
 	/// corresponding included candidates.
-	last_observed_blocks: LruCache<Hash, ()>,
+	last_observed_blocks: LruMap<Hash, ()>,
 	/// Maps included candidate hashes to one or more relay block heights and hashes.
 	/// These correspond to all the relay blocks which marked a candidate as included,
 	/// and are needed to apply reversions in case a dispute is concluded against the
@@ -202,7 +196,7 @@ impl ChainScraper {
 		let mut s = Self {
 			included_candidates: candidates::ScrapedCandidates::new(),
 			backed_candidates: candidates::ScrapedCandidates::new(),
-			last_observed_blocks: LruCache::new(LRU_OBSERVED_BLOCKS_CAPACITY),
+			last_observed_blocks: LruMap::new(ByLength::new(LRU_OBSERVED_BLOCKS_CAPACITY)),
 			inclusions: Inclusions::new(),
 		};
 		let update =
@@ -288,7 +282,7 @@ impl ChainScraper {
 			},
 		}
 
-		self.last_observed_blocks.put(activated.hash, ());
+		self.last_observed_blocks.insert(activated.hash, ());
 
 		Ok(scraped_updates)
 	}
