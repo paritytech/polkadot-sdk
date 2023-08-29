@@ -29,7 +29,7 @@ use frame_support::{
 	parameter_types,
 	traits::{EitherOf, EitherOfDiverse, MapSuccess, OriginTrait, TryWithMorphedArg},
 };
-use frame_system::EnsureRootWithSuccess;
+use frame_system::{EnsureNever, EnsureRootWithSuccess};
 pub use origins::{
 	pallet_origins as pallet_fellowship_origins, Architects, EnsureCanPromoteTo, EnsureCanRetainAt,
 	EnsureFellowship, Fellows, Masters, Members, ToVoice,
@@ -111,7 +111,12 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	// Promotions and the induction of new members are serviced by `FellowshipCore` pallet instance.
-	type PromoteOrigin = frame_system::EnsureNever<pallet_ranked_collective::Rank>;
+	type AddOrigin = EnsureNever<()>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type PromoteOrigin = EnsureNever<pallet_ranked_collective::Rank>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type AddOrigin = EnsureRoot<Self::AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
 	// The maximum value of `u16` set as a success value for the root to ensure the benchmarks will
 	// pass.
@@ -123,6 +128,7 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	//
 	// The maximum value of `u16` set as a success value for the root to ensure the benchmarks will
 	// pass.
+	type RemoveOrigin = Self::DemoteOrigin;
 	type DemoteOrigin = EitherOf<
 		EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,
 		MapSuccess<
