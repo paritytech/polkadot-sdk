@@ -1,5 +1,5 @@
 Description: Past-session dispute slashing
-Network: ./0004-parachains-disputes-past-session.toml
+Network: ./0005-parachains-disputes-past-session.toml
 Creds: config
 
 alice: reports node_roles is 4
