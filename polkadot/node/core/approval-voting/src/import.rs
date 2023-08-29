@@ -647,7 +647,7 @@ pub(crate) mod tests {
 			blank_state(),
 			RuntimeInfo::new_with_config(RuntimeInfoConfig {
 				keystore: None,
-				session_cache_lru_size: DISPUTE_WINDOW.into(),
+				session_cache_lru_size: DISPUTE_WINDOW.get(),
 			}),
 		)
 	}
@@ -760,7 +760,7 @@ pub(crate) mod tests {
 
 			let mut runtime_info = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 				keystore: None,
-				session_cache_lru_size: DISPUTE_WINDOW.into(),
+				session_cache_lru_size: DISPUTE_WINDOW.get(),
 			});
 
 			let header = header.clone();
@@ -883,7 +883,7 @@ pub(crate) mod tests {
 		let test_fut = {
 			let mut runtime_info = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 				keystore: None,
-				session_cache_lru_size: DISPUTE_WINDOW.into(),
+				session_cache_lru_size: DISPUTE_WINDOW.get(),
 			});
 
 			let header = header.clone();
@@ -999,7 +999,7 @@ pub(crate) mod tests {
 		let test_fut = {
 			let mut runtime_info = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 				keystore: None,
-				session_cache_lru_size: DISPUTE_WINDOW.into(),
+				session_cache_lru_size: DISPUTE_WINDOW.get(),
 			});
 
 			let header = header.clone();
@@ -1097,7 +1097,7 @@ pub(crate) mod tests {
 
 			let mut runtime_info = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 				keystore: None,
-				session_cache_lru_size: DISPUTE_WINDOW.into(),
+				session_cache_lru_size: DISPUTE_WINDOW.get(),
 			});
 
 			let header = header.clone();
