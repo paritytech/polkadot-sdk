@@ -17,7 +17,6 @@
 pub use codec::Encode;
 pub use frame_support::{
 	assert_err, assert_ok,
-	instances::Instance1,
 	pallet_prelude::Weight,
 	sp_runtime::{AccountId32, DispatchError, DispatchResult, MultiAddress},
 	traits::{fungibles::Inspect, OriginTrait},
@@ -29,9 +28,8 @@ pub use integration_tests_common::{
 		polkadot::ED as POLKADOT_ED,
 		PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 	},
-	lazy_static::lazy_static,
-	xcm_transact_paid_execution, xcm_transact_unpaid_execution, AssetHubPolkadot,
-	AssetHubPolkadotPallet, AssetHubPolkadotReceiver, AssetHubPolkadotSender, BridgeHubPolkadot,
+	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
+	AssetHubPolkadot, AssetHubPolkadotPallet, AssetHubPolkadotReceiver, AssetHubPolkadotSender, BridgeHubPolkadot,
 	BridgeHubPolkadotPallet, BridgeHubPolkadotReceiver, BridgeHubPolkadotSender, Collectives,
 	CollectivesPallet, CollectivesReceiver, CollectivesSender, PenpalPolkadotA,
 	PenpalPolkadotAPallet, PenpalPolkadotAReceiver, PenpalPolkadotASender, PenpalPolkadotB,

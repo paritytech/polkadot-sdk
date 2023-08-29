@@ -17,7 +17,6 @@
 pub use codec::Encode;
 pub use frame_support::{
 	assert_err, assert_ok,
-	instances::Instance1,
 	pallet_prelude::Weight,
 	sp_runtime::{AccountId32, DispatchError, DispatchResult, MultiAddress},
 	traits::{fungibles::Inspect, OriginTrait},
@@ -29,8 +28,7 @@ pub use integration_tests_common::{
 		kusama::ED as KUSAMA_ED,
 		PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 	},
-	lazy_static::lazy_static,
-	xcm_transact_paid_execution, xcm_transact_unpaid_execution, AccountId, AssetHubKusama,
+	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution}, AssetHubKusama,
 	AssetHubKusamaPallet, AssetHubKusamaReceiver, AssetHubKusamaSender, BridgeHubKusama,
 	BridgeHubKusamaPallet, BridgeHubKusamaReceiver, BridgeHubKusamaSender, BridgeHubPolkadot,
 	BridgeHubPolkadotPallet, BridgeHubPolkadotReceiver, BridgeHubPolkadotSender, Collectives,
@@ -40,7 +38,7 @@ pub use integration_tests_common::{
 	PenpalKusamaBSender, PenpalPolkadotA, PenpalPolkadotAReceiver, PenpalPolkadotASender, Polkadot,
 	PolkadotMockNet, PolkadotPallet, PolkadotReceiver, PolkadotSender,
 };
-pub use parachains_common::Balance;
+pub use parachains_common::{AccountId, Balance};
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain::primitives::{HrmpChannelId, Id};
 pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};

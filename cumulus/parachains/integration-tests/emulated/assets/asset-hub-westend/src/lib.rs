@@ -17,7 +17,7 @@
 pub use codec::Encode;
 pub use frame_support::{
 	assert_err, assert_ok,
-	instances::{Instance1, Instance2},
+	instances::Instance2,
 	pallet_prelude::Weight,
 	sp_runtime::{AccountId32, DispatchError, DispatchResult, ModuleError, MultiAddress},
 	traits::{fungibles::Inspect, OriginTrait},
@@ -30,9 +30,8 @@ pub use integration_tests_common::{
 		westend::ED as WESTEND_ED,
 		PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 	},
-	lazy_static::lazy_static,
-	xcm_transact_paid_execution, xcm_transact_unpaid_execution, AssetHubWestend,
-	AssetHubWestendPallet, AssetHubWestendReceiver, AssetHubWestendSender, Collectives,
+	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
+	AssetHubWestend, AssetHubWestendPallet, AssetHubWestendReceiver, AssetHubWestendSender, Collectives,
 	CollectivesPallet, CollectivesReceiver, CollectivesSender, PenpalWestendA,
 	PenpalWestendAPallet, PenpalWestendAReceiver, PenpalWestendASender, Westend, WestendMockNet,
 	WestendPallet, WestendReceiver, WestendSender,

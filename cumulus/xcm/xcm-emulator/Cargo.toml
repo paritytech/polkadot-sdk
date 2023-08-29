@@ -21,6 +21,7 @@ sp-std = { path = "../../../substrate/primitives/std" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-arithmetic = { path = "../../../substrate/primitives/arithmetic" }
 sp-trie = { path = "../../../substrate/primitives/trie" }
+sp-tracing = { path = "../../../substrate/primitives/tracing" }
 pallet-balances = { path = "../../../substrate/frame/balances" }
 pallet-message-queue = { path = "../../../substrate/frame/message-queue" }
 
