@@ -89,20 +89,20 @@ pub mod pallet {
 	/// A storage item for this pallet.
 	///
 	/// In this template, we are declaring a storage item called `Something` that stores a single
-	/// `u32` value. Learn more about runtime storage here: https://docs.substrate.io/build/runtime-storage/
+	/// `u32` value. Learn more about runtime storage here: <https://docs.substrate.io/build/runtime-storage/>
 	#[pallet::storage]
 	pub type Something<T> = StorageValue<_, u32>;
 
 	/// Events that functions in this pallet can emit.
 	///
 	/// Events are a simple means of indicating to the outside world (such as dApps, chain explorers
-	/// or other users) that some notable update has occurred. In a FRAME pallet, the documentation
-	/// for each event field and its parameters is added to a node's metadata so it can be used by
-	/// external interfaces or tools.
+	/// or other users) that some notable update in the runtime has occurred. In a FRAME pallet, the
+	/// documentation for each event field and its parameters is added to a node's metadata so it
+	/// can be used by external interfaces or tools.
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A user has successfully set a new.
+		/// A user has successfully set a new value.
 		SomethingStored {
 			/// The new value set.
 			something: u32,
@@ -132,11 +132,11 @@ pub mod pallet {
 	/// These functions materialize as "extrinsics", which are often compared to transactions.
 	/// They must always return a `DispatchResult` and be annotated with a weight and call index.
 	///
-	/// Read more transaction types in Substrate chains: <https://docs.substrate.io/learn/transaction-types/>
+	/// Read more about transaction types in Substrate chains: <https://docs.substrate.io/learn/transaction-types/>
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// This dispatchable takes a single u32 value as a parameter, writes the value to this
-		/// pallet's storage and emits an event.
+		/// This dispatchable takes a single u32 value as a parameter, writes the value to storage
+		/// and emits an event.
 		///
 		/// The function checks that the _origin_ for this call is _Signed_ and returns a dispatch
 		/// error if it isn't. Learn more about origins here: <https://docs.substrate.io/build/origins/>
@@ -159,7 +159,7 @@ pub mod pallet {
 		/// A dispatchable that may throw a custom error.
 		///
 		/// It checks that the caller is a signed origin and reads the current value from the
-		/// `Something` storage item. If a current value exists, it is incremented by one and then
+		/// `Something` storage item. If a current value exists, it is incremented by 1 and then
 		/// written back to storage.
 		///
 		/// ## Errors
