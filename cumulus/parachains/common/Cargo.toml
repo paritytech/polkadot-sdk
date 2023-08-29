@@ -73,4 +73,9 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"kusama-runtime-constants/std",
+	"polkadot-core-primitives/std",
+	"polkadot-runtime-constants/std",
+	"rococo-runtime-constants/std",
+	"westend-runtime-constants/std"
 ]
