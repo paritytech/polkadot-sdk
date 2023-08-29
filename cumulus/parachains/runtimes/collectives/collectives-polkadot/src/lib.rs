@@ -88,7 +88,7 @@ use parachains_common::{
 	NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
 use sp_runtime::RuntimeDebug;
-use xcm_config::{GovernanceLocation, XcmConfig, XcmOriginToTransactDispatchOrigin};
+use xcm_config::{GovernanceLocation, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
