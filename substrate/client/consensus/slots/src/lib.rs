@@ -126,7 +126,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 
 	/// Tries to claim the given slot, returning an object with claim data if successful.
 	async fn claim_slot(
-		&self,
+		&mut self,
 		header: &B::Header,
 		slot: Slot,
 		aux_data: &Self::AuxData,
