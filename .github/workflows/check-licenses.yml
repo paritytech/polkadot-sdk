@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        repo: [polkadot, substrate, cumulus]
+        repo: [polkadot]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
