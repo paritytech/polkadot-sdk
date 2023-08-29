@@ -1,22 +1,25 @@
 //! # Template Pallet
 //!
-//! A pallet that contains minimal functionality to help developers understand some essential
-//! components of writing a FRAME pallet.
-//!
-//! **This pallet is not meant to be used in production.**
+//! A pallet with minimal functionality to help developers understand the essential components of
+//! writing FRAME pallets. It is typically used in beginner tutorials or in Substrate template nodes
+//! as a starting point for creating a new pallet and **not meant to be used in production**.
 //!
 //! ## Overview
 //!
-//! This pallet is meant to be used as a starting point for creating new FRAME pallets. It contains
-//! basic examples of:
-//! - a storage item that stores a single `u32` value
-//! - two dispatchable functions
+//! This template pallet contains basic examples of:
+//! - declaring a storage item that stores a single `u32` value
 //! - declaring and using events
 //! - declaring and using errors
+//! - a dispatchable function that allows a user to set a new value to storage and emits an event
+//!   upon success
+//! - another dispatchable function that causes a custom error to be thrown
 //!
 //! Each pallet section is annotated with an attribute using the `#[pallet::...]` procedural macro.
-//! This macro generates the necessary code for a pallet to be aggregated into a runtime built with
-//! FRAME.
+//! This macro generates the necessary code for a pallet to be aggregated into a FRAME runtime.
+//!
+//! Learn more about FRAME macros [here](https://docs.substrate.io/reference/frame-macros/).
+//!
+//! ### Pallet Sections
 //!
 //! The pallet sections in this template are:
 //!
@@ -31,9 +34,7 @@
 //! - A <strong>set of dispatchable functions</strong> that define the pallet's functionality
 //!   (denoted by the `#[pallet::call]` attribute)
 //!
-//! Learn more about FRAME macros here: <https://docs.substrate.io/reference/frame-macros/>
-//!
-//! > Run `cargo doc --package pallet-template --open` to view this pallet's documentation.
+//! Run `cargo doc --package pallet-template --open` to view this pallet's documentation.
 
 // We make sure this pallet uses `no_std` for compiling to Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
