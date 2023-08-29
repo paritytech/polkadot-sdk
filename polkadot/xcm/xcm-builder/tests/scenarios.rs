@@ -174,7 +174,7 @@ fn report_holding_works() {
 }
 
 /// Scenario:
-/// A parachain wants to move KSM from Kusama to Asset.
+/// A parachain wants to move KSM from Kusama to Asset Hub.
 /// The parachain sends an XCM to withdraw funds combined with a teleport to the destination.
 ///
 /// This way of moving funds from a relay to a parachain will only work for trusted chains.
