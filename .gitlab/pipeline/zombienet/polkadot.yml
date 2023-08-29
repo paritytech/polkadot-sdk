@@ -6,6 +6,7 @@
   before_script:
     - export DEBUG=zombie,zombie::network-node
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
+    - export ZOMBIENET_INTEGRATION_TEST_SECONDARY_IMAGE="docker.io/parity/polkadot:${BUILD_RELEASE_VERSION}"
     - export COL_IMAGE="${COLANDER_IMAGE}":${PIPELINE_IMAGE_TAG}
     - export MALUS_IMAGE="${MALUS_IMAGE}":${PIPELINE_IMAGE_TAG}
     - echo "Zombienet Tests Config"
