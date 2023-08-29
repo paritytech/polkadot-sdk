@@ -1,6 +1,6 @@
 [package]
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 name = "cumulus-pallet-xcm"
 version = "0.1.0"
 
@@ -26,8 +26,13 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
+	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"xcm/std",
 ]
-try-runtime = [ "frame-support/try-runtime" ]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+]

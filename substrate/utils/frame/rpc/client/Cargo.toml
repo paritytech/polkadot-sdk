@@ -1,11 +1,11 @@
 [package]
 name = "substrate-rpc-client"
 version = "0.10.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Shared JSON-RPC client"
 
 [package.metadata.docs.rs]
