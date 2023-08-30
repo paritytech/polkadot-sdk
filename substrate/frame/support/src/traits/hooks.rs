@@ -101,21 +101,42 @@ pub trait OnGenesis {
 
 /// See [`Hooks::on_runtime_upgrade`].
 pub trait OnRuntimeUpgrade {
+	/// Advanced lifecycle hook called for all pallets and custom migrations before any other
+	/// [`OnRuntimeUpgrade`] hooks.
+	///
+	/// Sometimes it is useful to have some logic execute prior to any other [`OnRuntimeUpgrade`]
+	/// hooks being called, which [`OnRuntimeUpgrade::before_all`] allows for.
+	///
+	/// When the Executive pallet executes runtime upgrades, hooks are called in this order:
+	/// 1. [`OnRuntimeUpgrade::before_all`] for all custom migrations
+	/// 2. [`OnRuntimeUpgrade::before_all`] for all pallet migrations
+	/// 3. For each custom migration:
+	/// 	1. [`OnRuntimeUpgrade::pre_upgrade`]
+	/// 	2. [`OnRuntimeUpgrade::on_runtime_upgrade`]
+	/// 	3. [`OnRuntimeUpgrade::post_upgrade`]
+	/// 4. For each pallet:
+	/// 	1. [`OnRuntimeUpgrade::pre_upgrade`]
+	/// 	2. [`OnRuntimeUpgrade::on_runtime_upgrade`]
+	/// 	3. [`OnRuntimeUpgrade::post_upgrade`]
+	///
+	/// An example of when this hook is useful is initializing the on-chain storage version of a
+	/// pallet when it is added to the runtime in a way which will not break
+	/// [`OnRuntimeUpgrade::post_upgrade`] checks.
+	///
+	/// This is an advanced hook unlikely to be needed in most [`OnRuntimeUpgrade`] implementations,
+	/// you can probably ignore it.
+	///
+	/// Returns the non-negotiable weight consumed by the checks.
+	fn before_all() -> Weight {
+		Weight::zero()
+	}
+
 	/// See [`Hooks::on_runtime_upgrade`].
 	fn on_runtime_upgrade() -> Weight {
 		Weight::zero()
 	}
 
-	/// The expected and default behavior of this method is to handle executing `pre_upgrade` ->
-	/// `on_runtime_upgrade` -> `post_upgrade` hooks for a migration.
-	///
-	/// Internally, the default implementation
-	/// - Handles passing data from `pre_upgrade` to `post_upgrade`
-	/// - Ensure storage is not modified in `pre_upgrade` and `post_upgrade` hooks.
-	///
-	/// Combining the `pre_upgrade` -> `on_runtime_upgrade` -> `post_upgrade` logic flow into a
-	/// single method call is helpful for scenarios like testing a tuple of migrations, where the
-	/// tuple contains order-dependent migrations.
+	/// See [`Hooks::on_runtime_upgrade`].
 	#[cfg(feature = "try-runtime")]
 	fn try_on_runtime_upgrade(checks: bool) -> Result<Weight, TryRuntimeError> {
 		let maybe_state = if checks {
@@ -137,13 +158,13 @@ pub trait OnRuntimeUpgrade {
 		Ok(weight)
 	}
 
-	/// See [`Hooks::pre_upgrade`].
+	/// See [`Hooks::on_runtime_upgrade`].
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 		Ok(Vec::new())
 	}
 
-	/// See [`Hooks::post_upgrade`].
+	/// See [`Hooks::on_runtime_upgrade`].
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
 		Ok(())
@@ -154,23 +175,30 @@ pub trait OnRuntimeUpgrade {
 #[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
 #[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
 impl OnRuntimeUpgrade for Tuple {
+	fn before_all() -> Weight {
+		let mut weight = Weight::zero();
+		for_tuples!( #( weight = weight.saturating_add(Tuple::before_all()); )* );
+		weight
+	}
+
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::zero();
 		for_tuples!( #( weight = weight.saturating_add(Tuple::on_runtime_upgrade()); )* );
 		weight
 	}
 
-	/// Implements the default behavior of `try_on_runtime_upgrade` for tuples, logging any errors
-	/// that occur.
+	// We are executing pre- and post-checks sequentially in order to be able to test several
+	// consecutive migrations for the same pallet without errors. Therefore pre and post upgrade
+	// hooks for tuples are a noop.
 	#[cfg(feature = "try-runtime")]
 	fn try_on_runtime_upgrade(checks: bool) -> Result<Weight, TryRuntimeError> {
-		let mut cumulative_weight = Weight::zero();
+		let mut weight = Weight::zero();
 
 		let mut errors = Vec::new();
 
 		for_tuples!(#(
 			match Tuple::try_on_runtime_upgrade(checks) {
-				Ok(weight) => { cumulative_weight.saturating_accrue(weight); },
+				Ok(weight) => { weight.saturating_add(weight); },
 				Err(err) => { errors.push(err); },
 			}
 		)*);
@@ -194,27 +222,7 @@ impl OnRuntimeUpgrade for Tuple {
 			return Err("Detected multiple errors while executing `try_on_runtime_upgrade`, check the logs!".into())
 		}
 
-		Ok(cumulative_weight)
-	}
-
-	/// [`OnRuntimeUpgrade::pre_upgrade`] should not be used on a tuple.
-	///
-	/// Instead, implementors should use [`OnRuntimeUpgrade::try_on_runtime_upgrade`] which
-	/// internally calls `pre_upgrade` -> `on_runtime_upgrade` -> `post_upgrade` for each tuple
-	/// member in sequence, enabling testing of order-dependent migrations.
-	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-		Err("Usage of `pre_upgrade` with Tuples is not expected. Please use `try_on_runtime_upgrade` instead, which internally calls `pre_upgrade` -> `on_runtime_upgrade` -> `post_upgrade` for each tuple member.".into())
-	}
-
-	/// [`OnRuntimeUpgrade::post_upgrade`] should not be used on a tuple.
-	///
-	/// Instead, implementors should use [`OnRuntimeUpgrade::try_on_runtime_upgrade`] which
-	/// internally calls `pre_upgrade` -> `on_runtime_upgrade` -> `post_upgrade` for each tuple
-	/// member in sequence, enabling testing of order-dependent migrations.
-	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
-		Err("Usage of `post_upgrade` with Tuples is not expected. Please use `try_on_runtime_upgrade` instead, which internally calls `pre_upgrade` -> `on_runtime_upgrade` -> `post_upgrade` for each tuple member.".into())
+		Ok(weight)
 	}
 }
 
@@ -298,13 +306,8 @@ pub trait Hooks<BlockNumber> {
 	/// Must return the non-negotiable weight of both itself and whatever [`Hooks::on_finalize`]
 	/// wishes to consume.
 	///
-	/// ## Warning
-	///
 	/// The weight returned by this is treated as `DispatchClass::Mandatory`, meaning that
 	/// it MUST BE EXECUTED. If this is not the case, consider using [`Hooks::on_idle`] instead.
-	///
-	/// Try to keep any arbitrary execution __deterministic__ and within __minimal__ time
-	/// complexity. For example, do not execute any unbounded iterations.
 	///
 	/// NOTE: This function is called BEFORE ANY extrinsic in a block is applied, including inherent
 	/// extrinsics. Hence for instance, if you runtime includes `pallet-timestamp`, the `timestamp`
@@ -442,7 +445,7 @@ pub trait Hooks<BlockNumber> {
 /// A trait to define the build function of a genesis config for both runtime and pallets.
 ///
 /// Replaces deprecated [`GenesisBuild<T,I>`].
-pub trait BuildGenesisConfig: sp_runtime::traits::MaybeSerializeDeserialize {
+pub trait BuildGenesisConfig: Default + sp_runtime::traits::MaybeSerializeDeserialize {
 	/// The build function puts initial `GenesisConfig` keys/values pairs into the storage.
 	fn build(&self);
 }
@@ -452,7 +455,7 @@ pub trait BuildGenesisConfig: sp_runtime::traits::MaybeSerializeDeserialize {
 #[deprecated(
 	note = "GenesisBuild is planned to be removed in December 2023. Use BuildGenesisConfig instead of it."
 )]
-pub trait GenesisBuild<T, I = ()>: sp_runtime::traits::MaybeSerializeDeserialize {
+pub trait GenesisBuild<T, I = ()>: Default + sp_runtime::traits::MaybeSerializeDeserialize {
 	/// The build function is called within an externalities allowing storage APIs.
 	/// Thus one can write to storage using regular pallet storages.
 	fn build(&self);
@@ -525,7 +528,6 @@ mod tests {
 		impl_test_type!(Baz);
 
 		TestExternalities::default().execute_with(|| {
-			// try_on_runtime_upgrade works
 			Foo::try_on_runtime_upgrade(true).unwrap();
 			assert_eq!(Pre::take(), vec!["Foo"]);
 			assert_eq!(Post::take(), vec!["Foo"]);
@@ -541,10 +543,6 @@ mod tests {
 			<(Foo, (Bar, Baz))>::try_on_runtime_upgrade(true).unwrap();
 			assert_eq!(Pre::take(), vec!["Foo", "Bar", "Baz"]);
 			assert_eq!(Post::take(), vec!["Foo", "Bar", "Baz"]);
-
-			// calling pre_upgrade and post_upgrade directly on tuple of pallets fails
-			assert!(<(Foo, (Bar, Baz))>::pre_upgrade().is_err());
-			assert!(<(Foo, (Bar, Baz))>::post_upgrade(vec![]).is_err());
 		});
 	}
 
