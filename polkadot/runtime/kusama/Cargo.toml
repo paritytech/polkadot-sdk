@@ -90,6 +90,7 @@ pallet-treasury = { path = "../../../substrate/frame/treasury", default-features
 pallet-utility = { path = "../../../substrate/frame/utility", default-features = false }
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false }
 pallet-whitelist = { path = "../../../substrate/frame/whitelist", default-features = false }
+pallet-asset-rate = { path = "../../../substrate/frame/asset-rate", default-features = false }
 pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false }
@@ -147,6 +148,7 @@ std = [
 	"kusama-runtime-constants/std",
 	"log/std",
 	"offchain-primitives/std",
+	"pallet-asset-rate/std",
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
 	"pallet-babe/std",
@@ -232,6 +234,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
@@ -290,6 +293,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-asset-rate/try-runtime",
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-babe/try-runtime",

@@ -49,6 +49,7 @@ pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/
 pallet-collective = { path = "../../../substrate/frame/collective", default-features = false }
 pallet-democracy = { path = "../../../substrate/frame/democracy", default-features = false }
 pallet-elections-phragmen = { path = "../../../substrate/frame/elections-phragmen", default-features = false }
+pallet-asset-rate = {  path = "../../../substrate/frame/asset-rate", default-features = false }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
 pallet-grandpa = { path = "../../../substrate/frame/grandpa", default-features = false }
 pallet-identity = { path = "../../../substrate/frame/identity", default-features = false }
@@ -125,6 +126,7 @@ std = [
 	"inherents/std",
 	"log/std",
 	"offchain-primitives/std",
+	"pallet-asset-rate/std",
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
 	"pallet-babe/std",
@@ -194,6 +196,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bounties/runtime-benchmarks",
@@ -241,6 +244,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-asset-rate/try-runtime",
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-babe/try-runtime",
