@@ -2,14 +2,14 @@ name: Check Markdown
 
 on:
   pull_request:
-  workflow_dispatch:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   packages: read
 
 jobs:
   lint-markdown:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout sources
