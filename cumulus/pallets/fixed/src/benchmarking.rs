@@ -24,7 +24,7 @@ use crate::Pallet as Fixed;
 use codec::Decode;
 use frame_benchmarking::{account, impl_benchmark_test_suite, v2::*, BenchmarkError};
 use frame_support::traits::{EnsureOrigin, Get};
-use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, RawOrigin};
+use frame_system::{pallet_prelude::BlockNumberFor, EventRecord};
 use pallet_authorship::EventHandler;
 use pallet_session::{self as session, SessionManager};
 use sp_std::prelude::*;
@@ -63,10 +63,6 @@ fn validator<T: Config + session::Config>(c: u32) -> (T::AccountId, <T as sessio
 fn register_validators<T: Config + session::Config>(count: u32) -> Vec<T::AccountId> {
 	let validators = (0..count).map(|c| validator::<T>(c)).collect::<Vec<_>>();
 
-	for (who, keys) in validators.clone() {
-		<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, Vec::new()).unwrap();
-	}
-
 	validators.into_iter().map(|(who, _)| who).collect()
 }
 
@@ -85,9 +81,7 @@ mod benchmarks {
 			frame_support::BoundedVec::try_from(collators).unwrap();
 		<Collators<T>>::put(collators);
 
-		let (to_add, keys) = validator::<T>(c);
-		<session::Pallet<T>>::set_keys(RawOrigin::Signed(to_add.clone()).into(), keys, Vec::new())
-			.unwrap();
+		let (to_add, _) = validator::<T>(c);
 
 		#[extrinsic_call]
 		_(origin as T::RuntimeOrigin, to_add.clone());
