@@ -765,6 +765,14 @@ impl<T: Clone> MaybeEquivalence<T, T> for Identity {
 	}
 }
 
+/// A structure that performs identity conversion of the reference by cloning it.
+pub struct CloneIdentity;
+impl<T: Clone> Convert<&T, T> for CloneIdentity {
+	fn convert(a: &T) -> T {
+		a.clone()
+	}
+}
+
 /// A structure that performs standard conversion using the standard Rust conversion traits.
 pub struct ConvertInto;
 impl<A: Into<B>, B> Convert<A, B> for ConvertInto {
