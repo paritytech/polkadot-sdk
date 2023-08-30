@@ -132,7 +132,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A [new] account was created.
+		/// A new account was created.
 		AccountCreated { who: T::AccountId },
 		/// Someone's account validity was updated.
 		ValidityUpdated { who: T::AccountId, validity: AccountValidity },
