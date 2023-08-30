@@ -15,9 +15,7 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 use assert_cmd::cargo::cargo_bin;
-use std::{
-	process::{self, Command},
-};
+use std::process::{self, Command};
 use tempfile::tempdir;
 
 pub mod common;

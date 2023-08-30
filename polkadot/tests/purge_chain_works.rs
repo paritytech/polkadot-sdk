@@ -71,7 +71,8 @@ async fn purge_chain_rocksdb_works() {
 		// Make sure that the chain folder exists, but `db/full` is deleted.
 		assert!(tmpdir.path().join("chains/rococo_dev").exists());
 		assert!(!tmpdir.path().join("chains/rococo_dev/db/full").exists());
-	}).await;
+	})
+	.await;
 }
 
 #[tokio::test]
