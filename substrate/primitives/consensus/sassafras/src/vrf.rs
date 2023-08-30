@@ -31,14 +31,14 @@ fn vrf_input_from_data(
 	domain: &[u8],
 	data: impl IntoIterator<Item = impl AsRef<[u8]>>,
 ) -> VrfInput {
-	let raw = data.into_iter().fold(Vec::new(), |mut v, e| {
-		let bytes = e.as_ref();
-		v.extend_from_slice(bytes);
+	let buf = data.into_iter().fold(Vec::new(), |mut buf, item| {
+		let bytes = item.as_ref();
+		buf.extend_from_slice(bytes);
 		let len = u8::try_from(bytes.len()).expect("private function with well known inputs; qed");
-		v.extend_from_slice(&len.to_le_bytes());
-		v
+		buf.push(len);
+		buf
 	});
-	VrfInput::new(domain, raw)
+	VrfInput::new(domain, buf)
 }
 
 /// VRF input to claim slot ownership during block production.
