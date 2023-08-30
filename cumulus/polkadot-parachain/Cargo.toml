@@ -35,7 +35,7 @@ bridge-hub-rococo-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-
 bridge-hub-kusama-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-kusama" }
 bridge-hub-polkadot-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-polkadot" }
 penpal-runtime = { path = "../parachains/runtimes/testing/penpal" }
-jsonrpsee = { version = "0.16.2", features = ["server"] }
+jsonrpsee = { version = "0.20.3", features = ["server"] }
 parachains-common = { path = "../parachains/common" }
 
 # Substrate

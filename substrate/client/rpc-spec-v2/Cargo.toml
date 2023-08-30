@@ -13,7 +13,7 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"] }
+jsonrpsee = { version = "0.20.3", features = ["client-core", "server", "macros"] }
 # Internal chain structures for "chain_spec".
 sc-chain-spec = { path = "../chain-spec" }
 # Pool for submitting extrinsics required by "transaction"
@@ -25,6 +25,7 @@ sp-blockchain = { path = "../../primitives/blockchain" }
 sp-version = { path = "../../primitives/version" }
 sc-client-api = { path = "../api" }
 sc-utils = { path = "../utils" }
+sc-rpc = { path = "../rpc" }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 thiserror = "1.0"
 serde = "1.0"
