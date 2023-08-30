@@ -2,6 +2,7 @@ name: Check Markdown
 
 on:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   packages: read
@@ -22,7 +23,7 @@ jobs:
 
       - name: Install tooling
         run: |
-            npm install markdownlint --save-dev
+            npm install -g markdownlint-cli
             markdownlint --version
 
       - name: Check Markdown
