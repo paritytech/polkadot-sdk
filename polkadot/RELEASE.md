@@ -9,7 +9,7 @@ correctly
 * Any new pushes/merges to the release-candidate branch (for example, refs/heads/release-v0.8.26) will result in the rc
 index being bumped (e.g., v0.8.26-rc1 to v0.8.26-rc2) and new wasms built.
 
-## Release workflow
+## Release workflow:
 
 Below are the steps of the release workflow. Steps prefixed with NOACTION are automated and require no human action.
 
