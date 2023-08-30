@@ -36,9 +36,6 @@ use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 
 type Result<T> = std::result::Result<T, Error>;
 
-/// Millisecs per block is assumed to be the same for every relay chain.
-const MILLISECS_PER_BLOCK: u64 = 6000;
-
 fn get_exec_name() -> Option<String> {
 	std::env::current_exe()
 		.ok()
