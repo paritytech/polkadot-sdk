@@ -15,13 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for VersionedRuntimeUpgrade
+//! Tests for [`VersionedMigration`]
 
 #![cfg(all(feature = "experimental", feature = "try-runtime"))]
 
 use frame_support::{
 	construct_runtime, derive_impl,
-	migrations::VersionedRuntimeUpgrade,
+	migrations::VersionedMigration,
 	parameter_types,
 	traits::{GetStorageVersion, OnRuntimeUpgrade, StorageVersion},
 	weights::constants::RocksDbWeight,
@@ -90,7 +90,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
-/// A dummy migration for testing the `VersionedRuntimeUpgrade` trait.
+/// A dummy migration for testing the `VersionedMigration` trait.
 /// Sets SomeStorage to S.
 struct SomeUnversionedMigration<T: Config, const S: u32>(sp_std::marker::PhantomData<T>);
 
@@ -124,13 +124,13 @@ impl<T: dummy_pallet::Config, const S: u32> OnRuntimeUpgrade for SomeUnversioned
 }
 
 type VersionedMigrationV0ToV1 =
-	VersionedRuntimeUpgrade<0, 1, SomeUnversionedMigration<Test, 1>, DummyPallet, RocksDbWeight>;
+	VersionedMigration<0, 1, SomeUnversionedMigration<Test, 1>, DummyPallet, RocksDbWeight>;
 
 type VersionedMigrationV1ToV2 =
-	VersionedRuntimeUpgrade<1, 2, SomeUnversionedMigration<Test, 2>, DummyPallet, RocksDbWeight>;
+	VersionedMigration<1, 2, SomeUnversionedMigration<Test, 2>, DummyPallet, RocksDbWeight>;
 
 type VersionedMigrationV2ToV4 =
-	VersionedRuntimeUpgrade<2, 4, SomeUnversionedMigration<Test, 4>, DummyPallet, RocksDbWeight>;
+	VersionedMigration<2, 4, SomeUnversionedMigration<Test, 4>, DummyPallet, RocksDbWeight>;
 
 #[test]
 fn successful_upgrade_path() {
