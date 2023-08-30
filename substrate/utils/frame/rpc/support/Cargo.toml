@@ -5,10 +5,10 @@ authors = [
 	"Parity Technologies <admin@parity.io>",
 	"Andrew Dirksen <andrew@dirksen.com>",
 ]
-edition = "2021"
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Substrate RPC for FRAME's support"
 
 [package.metadata.docs.rs]

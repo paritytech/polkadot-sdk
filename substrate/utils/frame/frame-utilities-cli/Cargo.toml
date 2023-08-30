@@ -1,17 +1,17 @@
 [package]
 name = "substrate-frame-cli"
 version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "cli interface for FRAME"
 documentation = "https://docs.rs/substrate-frame-cli"
 readme = "README.md"
 
 [dependencies]
-clap = { version = "4.2.5", features = ["derive"] }
+clap = { version = "4.4.1", features = ["derive"] }
 frame-support = { path = "../../../frame/support" }
 frame-system = { path = "../../../frame/system" }
 sc-cli = { path = "../../../client/cli" }

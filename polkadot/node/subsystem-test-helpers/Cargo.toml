@@ -2,7 +2,7 @@
 name = "polkadot-node-subsystem-test-helpers"
 description = "Subsystem traits and message definitions"
 publish = false
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true

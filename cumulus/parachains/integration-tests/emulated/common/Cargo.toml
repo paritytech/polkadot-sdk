@@ -1,9 +1,10 @@
 [package]
 name = "integration-tests-common"
 version = "1.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 description = "Common resources for integration testing with xcm-emulator"
+publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
@@ -59,7 +60,34 @@ bridge-runtime-common = { path = "../../../../bridges/bin/runtime-common" }
 
 [features]
 runtime-benchmarks = [
+	"asset-hub-kusama-runtime/runtime-benchmarks",
+	"asset-hub-polkadot-runtime/runtime-benchmarks",
+	"asset-hub-westend-runtime/runtime-benchmarks",
+	"bridge-hub-kusama-runtime/runtime-benchmarks",
+	"bridge-hub-polkadot-runtime/runtime-benchmarks",
+	"bridge-hub-rococo-runtime/runtime-benchmarks",
+	"bridge-runtime-common/runtime-benchmarks",
+	"collectives-polkadot-runtime/runtime-benchmarks",
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
 	"kusama-runtime/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-bridge-messages/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"penpal-runtime/runtime-benchmarks",
+	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-runtime/runtime-benchmarks",
+	"polkadot-service/runtime-benchmarks",
+	"rococo-runtime/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 	"westend-runtime/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 ]
