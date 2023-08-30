@@ -1475,5 +1475,17 @@ mod tests {
 		let bytes = nested_xcm.encode();
 		let decoded_xcm = Xcm::<()>::decode(&mut &bytes[..]);
 		assert!(matches!(decoded_xcm, Err(CodecError { .. })));
+
+		let even_more_nested_xcm = Xcm::<()>(vec![
+			DepositReserveAsset {
+				assets: All.into(),
+				dest: Here.into(),
+				xcm: nested_xcm,
+			};
+			(MAX_INSTRUCTIONS_TO_DECODE / 2) as usize
+		]);
+		let bytes = even_more_nested_xcm.encode();
+		let decoded_xcm = Xcm::<()>::decode(&mut &bytes[..]);
+		assert!(matches!(decoded_xcm, Err(CodecError { .. })));
 	}
 }
