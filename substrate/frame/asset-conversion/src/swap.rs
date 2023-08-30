@@ -64,22 +64,16 @@ pub trait SwapCredit<AccountId, MultiAssetId, Credit> {
 	type Balance;
 	/// TODO
 	fn swap_exact_tokens_for_tokens(
-		sender: AccountId,
 		path: Vec<MultiAssetId>,
 		credit_in: Credit,
 		amount_out_min: Option<Self::Balance>,
-		send_to: AccountId,
-		keep_alive: bool,
 	) -> Result<Credit, (Credit, DispatchError)>;
 
 	/// TODO
 	fn swap_tokens_for_exact_tokens(
-		sender: AccountId,
 		path: Vec<MultiAssetId>,
 		amount_out: Self::Balance,
 		credit_in: Credit,
-		send_to: AccountId,
-		keep_alive: bool,
 	) -> Result<(Credit, Credit), (Credit, DispatchError)>;
 }
 
@@ -155,12 +149,9 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 
 	/// TODO
 	fn swap_exact_tokens_for_tokens(
-		sender: T::AccountId,
 		path: Vec<T::MultiAssetId>,
 		credit_in: Credit<T>,
 		amount_out_min: Option<Self::Balance>,
-		send_to: T::AccountId,
-		keep_alive: bool,
 	) -> Result<Credit<T>, (Credit<T>, DispatchError)> {
 		// TODO ready / implementation
 
@@ -171,15 +162,10 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 	}
 
 	/// TODO
-	/// Added sender, send_to and keep_alive since these are needed
-	/// for the initial withdraw and then resolve
 	fn swap_tokens_for_exact_tokens(
-		sender: T::AccountId,
 		path: Vec<T::MultiAssetId>,
 		amount_out: Self::Balance,
 		credit_in: Credit<T>,
-		send_to: T::AccountId,
-		keep_alive: bool,
 	) -> Result<(Credit<T>, Credit<T>), (Credit<T>, DispatchError)> {
 		ensure!(amount_out > Zero::zero(), (credit_in, Error::<T>::ZeroAmount.into()));
 		ensure!(credit_in.peek() > Zero::zero(), (credit_in, Error::<T>::ZeroAmount.into()));
@@ -205,15 +191,12 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 		);
 		let (credit_in, credit_change) = credit_in.split(*amount_in);
 
-		// let balance_paths = Self::balance_path_from_amount_out(amount_out, path)
+		// let balance_path = Self::balance_path_from_amount_out(amount_out, path)
 		// 	.map_with_prefix(credit_in, |e| e)?;
 
 		let transaction = with_transaction(|| {
 			// TODO
-			// `withdraw_and_swap` does not get a credit out
-			let swap = Self::withdraw_and_swap(sender, &amounts, path, send_to, keep_alive);
-
-			match &swap {
+			match Self::do_swap(credit_id, balance_path) {
 				Ok(_) => TransactionOutcome::Commit(swap),
 				_ => TransactionOutcome::Rollback(swap),
 			}

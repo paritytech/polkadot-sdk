@@ -919,7 +919,7 @@ pub mod pallet {
 		/// see Self::balance_path_from_amount_out(...)
 		pub(crate) fn do_swap(
 			credit_in: Credit<T>,
-			balance_paths: BalancePath<T>,
+			balance_path: BalancePath<T>,
 		) -> Result<Credit<T>, (Credit<T>, DispatchError)> {
 			return Err((credit_in, Error::<T>::InvalidPath.into()))
 		}
