@@ -1,5 +1,5 @@
 error: Expected binding: `Accuracy = ...`
- --> $DIR/missing_accuracy.rs:6:2
-  |
-6 |     Perbill,
-  |     ^^^^^^^
+  --> tests/ui/fail/missing_accuracy.rs:23:2
+   |
+23 |     Perbill,
+   |     ^^^^^^^
