@@ -309,6 +309,18 @@ name = "arbitrary"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2d098ff73c1ca148721f37baad5ea6a465a13f9573aba8641fbbbae8164a54e"
+dependencies = [
+ "derive_arbitrary",
+]
+
+[[package]]
+name = "arbtest"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d48cee94156b8405b421abf4dc77852a150448f2ece19293238693aa316c75ab"
+dependencies = [
+ "arbitrary",
+]
 
 [[package]]
 name = "arc-swap"
@@ -4312,6 +4324,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "derive_arbitrary"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53e0efad4403bfc52dc201159c4b842a246a14b98c64b55dfd0f2d89729dfeb8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.29",
 ]
 
 [[package]]
@@ -15359,6 +15382,8 @@ dependencies = [
 name = "sc-network"
 version = "0.10.0-dev"
 dependencies = [
+ "arbitrary",
+ "arbtest",
  "array-bytes",
  "assert_matches",
  "async-channel",

@@ -160,7 +160,7 @@ struct DelayId(u64);
 /// State of a peer we're connected to.
 ///
 /// The variants correspond to the state of the peer w.r.t. the peerset.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum PeerState {
 	/// State is poisoned. This is a temporary state for a peer and we should always switch back
 	/// to it later. If it is found in the wild, that means there was either a panic or a bug in
@@ -261,7 +261,7 @@ impl PeerState {
 }
 
 /// State of the handler of a single connection visible from this state machine.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum ConnectionState {
 	/// Connection is in the `Closed` state, meaning that the remote hasn't requested anything.
 	Closed,
@@ -2107,7 +2107,8 @@ mod tests {
 		protocol::notifications::handler::tests::*,
 		protocol_controller::{IncomingIndex, ProtoSetConfig, ProtocolController},
 	};
-	use libp2p::swarm::AddressRecord;
+	use arbitrary::{Arbitrary, Result as AResult, Unstructured};
+	use libp2p::{multihash::Multihash, swarm::AddressRecord};
 	use sc_utils::mpsc::tracing_unbounded;
 	use std::{collections::HashSet, iter};
 
@@ -4563,5 +4564,311 @@ mod tests {
 			conn,
 			conn_yielder.open_substream(PeerId::random(), 0, connected, vec![1, 2, 3, 4]),
 		);
+	}
+	#[derive(Clone, Debug)]
+	struct Mh(Multihash);
+
+	impl<'a> Arbitrary<'a> for Mh {
+		fn arbitrary(u: &mut Unstructured<'a>) -> AResult<Self> {
+			let hash: [u8; 32] = u.arbitrary()?;
+			let r = Mh(Multihash::wrap(0x0, &hash).expect("The digest size is never too large"));
+			Ok(r)
+		}
+	}
+
+	#[derive(Clone, Debug)]
+	struct PId(PeerId);
+
+	impl<'a> Arbitrary<'a> for PId {
+		fn arbitrary(u: &mut Unstructured<'a>) -> AResult<Self> {
+			let mh = Mh::arbitrary(u)?;
+
+			let r =
+				PId(PeerId::from_multihash(mh.0)
+					.expect("identity multihash works if digest size < 64"));
+			Ok(r)
+		}
+	}
+
+	#[derive(Debug)]
+	enum FromSwarmE {
+		ConnectionEstablished,
+		ConnectionClosed,
+		DialFailure,
+	}
+
+	impl<'a> Arbitrary<'a> for FromSwarmE {
+		fn arbitrary(u: &mut Unstructured<'a>) -> AResult<Self> {
+			let t = u8::arbitrary(u)?;
+
+			match t % 3 {
+				0 => Ok(FromSwarmE::ConnectionEstablished),
+				1 => Ok(FromSwarmE::ConnectionClosed),
+				2 => Ok(FromSwarmE::DialFailure),
+				_ => unreachable!(),
+			}
+		}
+	}
+
+	#[derive(Debug)]
+	struct AFromSwarm(PId, FromSwarmE, usize);
+
+	impl<'a> Arbitrary<'a> for AFromSwarm {
+		fn arbitrary(u: &mut Unstructured<'a>) -> AResult<Self> {
+			let pid = PId::arbitrary(u)?;
+			let e = FromSwarmE::arbitrary(u)?;
+			let n = usize::arbitrary(u)?;
+
+			let r = AFromSwarm(pid, e, n);
+			Ok(r)
+		}
+	}
+
+	#[derive(Debug)]
+	struct AFromHandler(PId, usize, NotifsHandlerOut);
+
+	impl<'a> Arbitrary<'a> for AFromHandler {
+		fn arbitrary(u: &mut Unstructured<'a>) -> AResult<Self> {
+			let pid = PId::arbitrary(u)?;
+			let conn = usize::arbitrary(u)?;
+			let t = u8::arbitrary(u)? % 6;
+			let protocol_index = 0; // always 0 because we deal with only one protocol
+			let event = match t {
+				0 => NotifsHandlerOut::OpenDesiredByRemote { protocol_index },
+				1 => NotifsHandlerOut::CloseDesired { protocol_index },
+				2 => NotifsHandlerOut::CloseResult { protocol_index },
+				3 => NotifsHandlerOut::OpenDesiredByRemote { protocol_index }, // TODO OpenResultOk
+				4 => NotifsHandlerOut::OpenResultErr { protocol_index },
+				5 => {
+					let b = Vec::<u8>::arbitrary(u)?;
+					let message = b[..].into();
+					NotifsHandlerOut::Notification { protocol_index, message }
+				},
+				_ => {
+					unreachable!("no such event type is possible")
+				},
+			};
+			let r = AFromHandler(pid, conn, event);
+			Ok(r)
+		}
+	}
+
+	#[derive(Arbitrary, Debug)]
+	enum FuzzAction {
+		FromSwarm(AFromSwarm),
+		FromHandler(AFromHandler),
+	}
+
+	#[test]
+	fn fuzz_states() {
+		fn fuzz_states_impl(u: &mut Unstructured<'_>) -> AResult<()> {
+			let actions = u.arbitrary::<Vec<FuzzAction>>()?;
+			let connected = ConnectedPoint::Listener {
+				local_addr: Multiaddr::empty(),
+				send_back_addr: Multiaddr::empty(),
+			};
+			let (mut notif, _peerset) = development_notifs();
+			assert_eq!(1, notif.notif_protocols.len());
+
+			for action in actions {
+				match action {
+					FuzzAction::FromSwarm(AFromSwarm(pid, e, n)) => {
+						// build event
+						let peer_id = pid.0;
+						let conn = ConnectionId::new_unchecked(n);
+						let event = match e {
+							FromSwarmE::ConnectionEstablished => {
+								let event = ConnectionEstablished {
+									peer_id: peer_id.clone(),
+									connection_id: conn,
+									endpoint: &connected,
+									failed_addresses: &[],
+									other_established: 0usize,
+								};
+								FromSwarm::ConnectionEstablished(event)
+							},
+							FromSwarmE::ConnectionClosed => {
+								let event = ConnectionClosed {
+									peer_id: peer_id.clone(),
+									connection_id: conn,
+									endpoint: &connected,
+									handler: NotifsHandler::new(
+										peer_id.clone(),
+										connected.clone(),
+										vec![],
+									),
+									remaining_established: 0usize,
+								};
+								FromSwarm::ConnectionClosed(event)
+							},
+							FromSwarmE::DialFailure => {
+								let event = DialFailure {
+									peer_id: Some(peer_id.clone()),
+									error: &libp2p::swarm::DialError::Banned,
+									connection_id: conn,
+								};
+								FromSwarm::DialFailure(event)
+							},
+						};
+						let entry_before = notif.peers.get(&(peer_id, 0.into())).cloned();
+						// precheck
+						match &event {
+							FromSwarm::ConnectionEstablished(_) => {
+                            },
+                            FromSwarm::ConnectionClosed(_) => {
+                                if matches!(entry_before, None) {
+									continue
+								}
+								if matches!(entry_before, Some(PeerState::Requested | PeerState::PendingRequest { .. } | PeerState::Backoff { .. } | PeerState::Poisoned)) {
+									continue
+								}
+                            },
+                            FromSwarm::DialFailure(_) => {
+                                if matches!(entry_before, Some(PeerState::Poisoned)) {
+									continue
+								}
+                            },
+							_ => {
+								unreachable!("no such variant is possible")
+							}
+						}
+						notif.on_swarm_event(event);
+						let entry_after = notif.peers.get(&(peer_id, 0.into())).cloned();
+						match e {
+							FromSwarmE::ConnectionEstablished => {
+								if let Some(entry_before) = entry_before {
+									let entry_after = entry_after.unwrap();
+									match entry_before {
+										| PeerState::Requested
+										| PeerState::PendingRequest { .. } => {
+											assert!(matches!(entry_after, PeerState::Enabled { .. }));
+										}
+										PeerState::Backoff { .. } => {
+											assert!(matches!(entry_after, PeerState::Disabled { .. }));
+										}
+										// otherwise -> same state
+										PeerState::Poisoned => {
+											assert!(matches!(entry_after, PeerState::Poisoned ));
+										}
+										PeerState::Disabled { .. } => {
+											assert!(matches!(entry_after, PeerState::Disabled { .. }));
+										}
+										PeerState::DisabledPendingEnable { .. } => {
+											assert!(matches!(entry_after, PeerState::DisabledPendingEnable { .. }));
+										}
+										PeerState::Enabled { .. } => {
+											assert!(matches!(entry_after, PeerState::Enabled { .. }));
+										}
+										PeerState::Incoming { .. } => {
+											assert!(matches!(entry_after, PeerState::Incoming { .. }));
+										}
+									}
+								} else {
+									let entry_after = entry_after.unwrap();
+									assert!(matches!(entry_after, PeerState::Disabled { .. }));
+								}
+							},
+							FromSwarmE::ConnectionClosed => {
+								if let Some(entry_before) = entry_before {
+									let entry_after = entry_after.unwrap();
+									match entry_before {
+										| PeerState::Requested
+										| PeerState::PendingRequest { .. }
+										| PeerState::Backoff { .. }
+										| PeerState::Poisoned => {
+											unreachable!("no such state is possible")
+										}
+										PeerState::Disabled { .. } => {
+											assert!(matches!(entry_after, PeerState::Backoff { .. } | PeerState::Disabled { .. }));
+										}
+										PeerState::DisabledPendingEnable { .. } => {
+											assert!(matches!(entry_after, PeerState::Backoff { .. } | PeerState::DisabledPendingEnable { .. }));
+										}
+										PeerState::Enabled { .. } => {
+											assert!(matches!(entry_after, PeerState::Backoff { .. } | PeerState::Disabled { .. } | PeerState::Enabled { .. }));
+										}
+										PeerState::Incoming { .. } => {
+											assert!(matches!(entry_after, PeerState::Backoff { .. } | PeerState::Disabled { .. } | PeerState::Incoming { .. }));
+										}
+									}
+								} else {
+									// TODO
+								}
+							},
+							FromSwarmE::DialFailure => {
+								if let Some(entry_before) = entry_before {
+									let entry_after = entry_after.unwrap();
+									match entry_before {
+										| PeerState::Requested
+										| PeerState::PendingRequest { .. } => {
+											assert!(matches!(entry_after, PeerState::Backoff { .. }));
+										}
+										// otherwise -> same state
+										PeerState::Backoff { .. } => {
+											assert!(matches!(entry_after, PeerState::Backoff { .. }));
+										}
+										PeerState::Poisoned => {
+											assert!(matches!(entry_after, PeerState::Poisoned ));
+										}
+										PeerState::Disabled { .. } => {
+											assert!(matches!(entry_after, PeerState::Disabled { .. }));
+										}
+										PeerState::DisabledPendingEnable { .. } => {
+											assert!(matches!(entry_after, PeerState::DisabledPendingEnable { .. }));
+										}
+										PeerState::Enabled { .. } => {
+											assert!(matches!(entry_after, PeerState::Enabled { .. }));
+										}
+										PeerState::Incoming { .. } => {
+											assert!(matches!(entry_after, PeerState::Incoming { .. }));
+										}
+									}
+								} else {
+									assert!(entry_after.is_none());
+								}
+							},
+						}
+					},
+					FuzzAction::FromHandler(AFromHandler(pid, id, event)) => {
+						let peer_id = pid.0;
+						let conn = ConnectionId::new_unchecked(id);
+						match &event {
+							NotifsHandlerOut::OpenDesiredByRemote { protocol_index } => {
+								let _ = protocol_index;
+							}
+							NotifsHandlerOut::CloseDesired { protocol_index } => {
+								let _ = protocol_index;
+							}
+							NotifsHandlerOut::CloseResult { protocol_index } => {
+								let _ = protocol_index;
+							}
+							// TODO OpenResultOk
+							NotifsHandlerOut::OpenResultErr { protocol_index } => {
+								let _ = protocol_index;
+							}
+							NotifsHandlerOut::Notification { protocol_index, message } => {
+								let _ = protocol_index;
+								let _ = message;
+							}
+							_ => {
+                                todo!("add support for OpenResultOk")
+                            }
+						}
+						let entry_before = notif.peers.get(&(peer_id, 0.into())).cloned();
+						if matches!(entry_before, None) {
+							// every event requires an entry with peer_id
+							continue
+						};
+						// todo precheck
+						notif.on_connection_handler_event(peer_id, conn, event);
+						let entry_after = notif.peers.get(&(peer_id, 0.into())).cloned();
+						// todo postcheck
+					},
+				}
+			}
+			Ok(())
+		}
+
+		arbtest::builder().budget_ms(10_000).run(|u| fuzz_states_impl(u));
 	}
 }
