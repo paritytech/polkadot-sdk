@@ -181,8 +181,6 @@ zombienet-polkadot-malus-0001-dispute-valid:
 zombienet-polkadot-async-backing-compatibility:
   extends:
     - .zombienet-polkadot-common
-  variables:
-    LOCAL_DIR: "/builds/parity/mirrors/polkadot-sdk/polkadot/node/malus"
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/async_backing"
@@ -191,8 +189,6 @@ zombienet-polkadot-async-backing-compatibility:
 zombienet-polkadot-async-backing-runtime-upgrade:
   extends:
     - .zombienet-polkadot-common
-  variables:
-    LOCAL_DIR: "/builds/parity/mirrors/polkadot-sdk/polkadot/node/malus"
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/async_backing"
@@ -201,8 +197,6 @@ zombienet-polkadot-async-backing-runtime-upgrade:
 zombienet-polkadot-async-backing-collator-mix:
   extends:
     - .zombienet-polkadot-common
-  variables:
-    LOCAL_DIR: "/builds/parity/mirrors/polkadot-sdk/polkadot/node/malus"
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/async_backing"
