@@ -26,6 +26,10 @@ pub mod account {
 	/// It is used as a temporarily place to deposit a slashed imbalance
 	/// before the teleport to the Treasury.
 	pub const REFERENDA_PALLET_ID: PalletId = PalletId(*b"py/refer");
+	/// Ambassador Referenda pallet ID.
+	/// It is used as a temporarily place to deposit a slashed imbalance
+	/// before the teleport to the Treasury.
+	pub const AMBASSADOR_REFERENDA_PALLET_ID: PalletId = PalletId(*b"py/amref");
 }
 
 pub mod currency {

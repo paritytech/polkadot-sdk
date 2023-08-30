@@ -20,11 +20,13 @@ pub(crate) mod migration;
 mod origins;
 mod tracks;
 use crate::{
-	constants, impls::ToParentTreasury, weights, AccountId, Balance, Balances, FellowshipReferenda,
-	GovernanceLocation, PolkadotTreasuryAccount, Preimage, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, Scheduler, DAYS,
+	constants,
+	impls::ToParentTreasury,
+	weights,
+	xcm_config::{FellowshipAdminBodyId, UsdtAssetHub},
+	AccountId, Balance, Balances, FellowshipReferenda, GovernanceLocation, PolkadotTreasuryAccount,
+	Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, DAYS,
 };
-use cumulus_primitives_core::Junction::GeneralIndex;
 use frame_support::{
 	parameter_types,
 	traits::{EitherOf, EitherOfDiverse, MapSuccess, OriginTrait, TryWithMorphedArg},
@@ -36,11 +38,10 @@ pub use origins::{
 };
 use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use polkadot_runtime_constants::{time::HOURS, xcm::body::FELLOWSHIP_ADMIN_INDEX};
+use polkadot_runtime_constants::time::HOURS;
 use sp_core::{ConstU128, ConstU32};
 use sp_runtime::traits::{AccountIdConversion, ConstU16, ConvertToValue, Replace, TakeFirst};
-use xcm::latest::BodyId;
-use xcm_builder::{AliasesIntoAccountId32, LocatableAssetId, PayOverXcm};
+use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::impls::benchmarks::{OpenHrmpChannel, PayWithEnsure};
@@ -63,7 +64,6 @@ pub mod ranks {
 parameter_types! {
 	// Referenda pallet account, used to temporarily deposit slashed imbalance before teleporting.
 	pub ReferendaPalletAccount: AccountId = constants::account::REFERENDA_PALLET_ID.into_account_truncating();
-	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
 }
 
 impl pallet_fellowship_origins::Config for Runtime {}
@@ -71,7 +71,7 @@ impl pallet_fellowship_origins::Config for Runtime {}
 pub type FellowshipReferendaInstance = pallet_referenda::Instance1;
 
 impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
-	type WeightInfo = weights::pallet_referenda::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_referenda_fellowship_referenda::WeightInfo<Runtime>;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type Scheduler = Scheduler;
@@ -106,7 +106,7 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 pub type FellowshipCollectiveInstance = pallet_ranked_collective::Instance1;
 
 impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime {
-	type WeightInfo = weights::pallet_ranked_collective::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_ranked_collective_fellowship_collective::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
@@ -138,7 +138,7 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 pub type FellowshipCoreInstance = pallet_core_fellowship::Instance1;
 
 impl pallet_core_fellowship::Config<FellowshipCoreInstance> for Runtime {
-	type WeightInfo = weights::pallet_core_fellowship::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_core_fellowship_fellowship_core::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type Members = pallet_ranked_collective::Pallet<Runtime, FellowshipCollectiveInstance>;
 	type Balance = Balance;
@@ -196,12 +196,6 @@ pub type FellowshipSalaryInstance = pallet_salary::Instance1;
 use xcm::prelude::*;
 
 parameter_types! {
-	pub AssetHub: MultiLocation = (Parent, Parachain(1000)).into();
-	pub AssetHubUsdtId: AssetId = (PalletInstance(50), GeneralIndex(1984)).into();
-	pub UsdtAsset: LocatableAssetId = LocatableAssetId {
-		location: AssetHub::get(),
-		asset_id: AssetHubUsdtId::get(),
-	};
 	// The interior location on AssetHub for the paying account. This is the Fellowship Salary
 	// pallet instance (which sits at index 64). This sovereign account will need funding.
 	pub Interior: InteriorMultiLocation = PalletInstance(64).into();
@@ -217,12 +211,12 @@ pub type FellowshipSalaryPaymaster = PayOverXcm<
 	ConstU32<{ 6 * HOURS }>,
 	AccountId,
 	(),
-	ConvertToValue<UsdtAsset>,
+	ConvertToValue<UsdtAssetHub>,
 	AliasesIntoAccountId32<(), AccountId>,
 >;
 
 impl pallet_salary::Config<FellowshipSalaryInstance> for Runtime {
-	type WeightInfo = weights::pallet_salary::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_salary_fellowship_salary::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
