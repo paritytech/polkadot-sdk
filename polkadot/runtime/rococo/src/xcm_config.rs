@@ -22,13 +22,12 @@ use super::{
 };
 use frame_support::{
 	match_types, parameter_types,
-	traits::{Contains, Everything, Nothing},
+	traits::{Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
 use rococo_runtime_constants::currency::CENTS;
 use runtime_common::{
-	crowdloan, paras_registrar,
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 	ToAuthor,
 };
@@ -43,7 +42,7 @@ use xcm_builder::{
 	TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin,
 	WithUniqueTopic,
 };
-use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
+use xcm_executor::XcmExecutor;
 
 parameter_types! {
 	pub const TokenLocation: MultiLocation = Here.into_location();

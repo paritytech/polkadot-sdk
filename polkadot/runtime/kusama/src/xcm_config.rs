@@ -23,13 +23,12 @@ use super::{
 };
 use frame_support::{
 	match_types, parameter_types,
-	traits::{Contains, Everything, Nothing},
+	traits::{Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
 use kusama_runtime_constants::currency::CENTS;
 use runtime_common::{
-	crowdloan, paras_registrar,
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 	ToAuthor,
 };
@@ -44,7 +43,6 @@ use xcm_builder::{
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
 	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
-use xcm_executor::traits::WithOriginFilter;
 
 parameter_types! {
 	/// The location of the KSM token, from the context of this chain. Since this token is native to this

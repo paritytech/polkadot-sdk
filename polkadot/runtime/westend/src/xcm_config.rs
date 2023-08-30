@@ -22,11 +22,10 @@ use super::{
 };
 use frame_support::{
 	parameter_types,
-	traits::{Contains, Everything, Nothing},
+	traits::{Everything, Nothing},
 };
 use frame_system::EnsureRoot;
 use runtime_common::{
-	crowdloan, paras_registrar,
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 	ToAuthor,
 };
@@ -41,7 +40,7 @@ use xcm_builder::{
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
-use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
+use xcm_executor::XcmExecutor;
 
 parameter_types! {
 	pub const TokenLocation: MultiLocation = Here.into_location();
