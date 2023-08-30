@@ -15,29 +15,24 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 pub use codec::Encode;
-pub use frame_support::{
-	assert_ok, sp_runtime::AccountId32,
-};
+pub use frame_support::{assert_ok, sp_runtime::AccountId32};
 pub use integration_tests_common::{
 	constants::{
-		accounts::ALICE,
-		asset_hub_polkadot::ED as ASSET_HUB_POLKADOT_ED,
-		polkadot::ED as POLKADOT_ED,
-		PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
+		accounts::ALICE, asset_hub_polkadot::ED as ASSET_HUB_POLKADOT_ED,
+		polkadot::ED as POLKADOT_ED, PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 	},
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	AssetHubPolkadot, Polkadot, AssetHubPolkadotReceiver, PenpalPolkadotA,
-	AssetHubPolkadotPallet, Collectives,
+	AssetHubPolkadot, AssetHubPolkadotPallet, AssetHubPolkadotReceiver, Collectives,
+	PenpalPolkadotA, Polkadot,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{
-	prelude::{*, AccountId32 as AccountId32Junction},
+	prelude::{AccountId32 as AccountId32Junction, *},
 	v3::{Error, NetworkId::Polkadot as PolkadotId},
 };
 pub use xcm_emulator::{
-	assert_expected_events, bx, helpers::weight_within_threshold,
-	Chain, ParaId, Parachain as Para, RelayChain as Relay, Test, TestArgs,
-	TestContext, TestExt, TestExternalities,
+	assert_expected_events, bx, helpers::weight_within_threshold, Chain, ParaId, Parachain as Para,
+	RelayChain as Relay, Test, TestArgs, TestContext, TestExt, TestExternalities,
 };
 
 pub const ASSET_ID: u32 = 1;

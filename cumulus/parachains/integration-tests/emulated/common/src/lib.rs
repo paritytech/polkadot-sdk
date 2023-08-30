@@ -30,9 +30,8 @@ use frame_support::traits::OnInitialize;
 
 // Cumulus
 use xcm_emulator::{
-	decl_test_bridges, decl_test_networks, decl_test_parachains,
-	decl_test_relay_chains, decl_test_sender_receiver_accounts_parameter_types,
-	DefaultMessageProcessor,
+	decl_test_bridges, decl_test_networks, decl_test_parachains, decl_test_relay_chains,
+	decl_test_sender_receiver_accounts_parameter_types, DefaultMessageProcessor,
 };
 
 decl_test_relay_chains! {
