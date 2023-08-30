@@ -3661,6 +3661,7 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
  "rand_chacha 0.3.1",
  "scale-info",
  "sp-core",

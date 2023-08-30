@@ -48,12 +48,13 @@ use frame_support::{
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
 use polkadot_runtime_common::xcm_sender::PriceForParachainDelivery;
+use polkadot_runtime_parachains::FeeTracker;
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
 	ChaChaRng,
 };
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{FixedU128, RuntimeDebug, Saturating};
 use sp_std::{convert::TryFrom, prelude::*};
 use xcm::{latest::prelude::*, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::traits::ConvertOrigin;
@@ -65,6 +66,8 @@ pub type OverweightIndex = u64;
 
 const LOG_TARGET: &str = "xcmp_queue";
 const DEFAULT_POV_SIZE: u64 = 64 * 1024; // 64 KB
+const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
+const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 
 // Maximum amount of messages to process per block. This is a temporary measure until we properly
 // account for proof size weights.
@@ -75,7 +78,7 @@ const MAX_OVERWEIGHT_MESSAGES: u32 = 1000;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, Twox64Concat};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
@@ -372,6 +375,17 @@ pub mod pallet {
 	/// Whether or not the XCMP queue is suspended from executing incoming XCMs or not.
 	#[pallet::storage]
 	pub(super) type QueueSuspended<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+	/// Initialization value for the DeliveryFee factor.
+	#[pallet::type_value]
+	pub fn InitialFactor() -> FixedU128 {
+		FixedU128::from_u32(1)
+	}
+
+	/// The factor to multiply the base delivery fee by.
+	#[pallet::storage]
+	pub(super) type DeliveryFeeFactor<T: Config> =
+		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, InitialFactor>;
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -655,6 +669,7 @@ impl<T: Config> Pallet<T> {
 		messages_processed: &mut u8,
 		max_weight: Weight,
 		max_individual_weight: Weight,
+		should_decrement_fee_factor: bool,
 	) -> (Weight, bool) {
 		let data = <InboundXcmpMessages<T>>::get(sender, sent_at);
 		let mut last_remaining_fragments;
@@ -718,6 +733,10 @@ impl<T: Config> Pallet<T> {
 					} else {
 						debug_assert!(false, "Invalid incoming XCMP message data");
 						remaining_fragments = &b""[..];
+					}
+
+					if should_decrement_fee_factor {
+						Self::decrement_fee_factor(sender);
 					}
 				}
 			},
@@ -814,6 +833,7 @@ impl<T: Config> Pallet<T> {
 
 		let QueueConfigData {
 			resume_threshold,
+			suspend_threshold,
 			threshold_weight,
 			weight_restrict_decay,
 			xcmp_max_individual_weight,
@@ -872,12 +892,15 @@ impl<T: Config> Pallet<T> {
 			} else {
 				// Process up to one block's worth for now.
 				let weight_remaining = weight_available.saturating_sub(weight_used);
+				let should_decrement_fee_factor =
+					(status[index].message_metadata.len() as u32) <= suspend_threshold;
 				let (weight_processed, is_empty) = Self::process_xcmp_message(
 					sender,
 					status[index].message_metadata[0],
 					&mut messages_processed,
 					weight_remaining,
 					xcmp_max_individual_weight,
+					should_decrement_fee_factor,
 				);
 				if is_empty {
 					status[index].message_metadata.remove(0);
@@ -947,6 +970,28 @@ impl<T: Config> Pallet<T> {
 			}
 		});
 	}
+
+	/// Raise the delivery fee factor by a multiplicative factor and stores the resulting value.
+	///
+	/// Returns the new delivery fee factor after the increment.
+	pub(crate) fn increment_fee_factor(para: ParaId, message_size_factor: FixedU128) -> FixedU128 {
+		<DeliveryFeeFactor<T>>::mutate(para, |f| {
+			*f = f.saturating_mul(EXPONENTIAL_FEE_BASE + message_size_factor);
+			*f
+		})
+	}
+
+	/// Reduce the delivery fee factor by a multiplicative factor and stores the resulting value.
+	///
+	/// Does not reduce the fee factor below the initial value, which is currently set as 1.
+	///
+	/// Returns the new delivery fee factor after the decrement.
+	pub(crate) fn decrement_fee_factor(para: ParaId) -> FixedU128 {
+		<DeliveryFeeFactor<T>>::mutate(para, |f| {
+			*f = InitialFactor::get().max(*f / EXPONENTIAL_FEE_BASE);
+			*f
+		})
+	}
 }
 
 impl<T: Config> XcmpMessageHandler for Pallet<T> {
@@ -984,9 +1029,8 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 				// Record the fact we received it.
 				match status.binary_search_by_key(&sender, |item| item.sender) {
 					Ok(i) => {
-						let count = status[i].message_metadata.len();
-						if count as u32 >= suspend_threshold && status[i].state == InboundState::Ok
-						{
+						let count = status[i].message_metadata.len() as u32;
+						if count >= suspend_threshold && status[i].state == InboundState::Ok {
 							status[i].state = InboundState::Suspended;
 							let r = Self::send_signal(sender, ChannelSignal::Suspend);
 							if r.is_err() {
@@ -995,13 +1039,20 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 								);
 							}
 						}
-						if (count as u32) < drop_threshold {
+						if count < drop_threshold {
 							status[i].message_metadata.push((sent_at, format));
 						} else {
 							debug_assert!(
 								false,
 								"XCMP channel queue full. Silently dropping message"
 							);
+						}
+						// Update the delivery fee factor, if applicable.
+						if count > suspend_threshold {
+							let message_size_factor =
+								FixedU128::from_u32(data_ref.len().saturating_div(1024) as u32)
+									.saturating_mul(MESSAGE_SIZE_FEE_BASE);
+							Self::increment_fee_factor(sender, message_size_factor);
 						}
 					},
 					Err(_) => status.push(InboundChannelDetails {
@@ -1176,5 +1227,11 @@ impl<T: Config> SendXcm for Pallet<T> {
 			},
 			Err(e) => Err(SendError::Transport(<&'static str>::from(e))),
 		}
+	}
+}
+
+impl<T: Config> FeeTracker for Pallet<T> {
+	fn get_fee_factor(para: ParaId) -> FixedU128 {
+		<DeliveryFeeFactor<T>>::get(para)
 	}
 }

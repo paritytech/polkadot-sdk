@@ -59,6 +59,7 @@ use sp_runtime::{DispatchResult, FixedU128};
 
 /// Trait for tracking message delivery fees on a transport protocol.
 pub trait FeeTracker {
+	/// The evolving exponential fee factor which will be used to calculate the delivery fees.
 	fn get_fee_factor(para: ParaId) -> FixedU128;
 }
 

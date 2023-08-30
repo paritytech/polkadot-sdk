@@ -144,7 +144,7 @@ pub mod pallet {
 		FixedU128::from_u32(1)
 	}
 
-	/// The number to multiply the base delivery fee by.
+	/// The factor to multiply the base delivery fee by.
 	#[pallet::storage]
 	pub(crate) type DeliveryFeeFactor<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, InitialFactor>;
