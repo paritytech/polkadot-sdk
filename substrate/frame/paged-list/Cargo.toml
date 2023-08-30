@@ -2,11 +2,11 @@
 name = "pallet-paged-list"
 version = "0.1.0"
 description = "FRAME pallet that provides a paged list data structure."
-authors = ["Parity Technologies <admin@parity.io>"]
+authors.workspace = true
 homepage = "https://substrate.io"
-edition = "2021"
+edition.workspace = true
 license = "Apache-2.0"
-repository = "https://github.com/paritytech/substrate"
+repository.workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]

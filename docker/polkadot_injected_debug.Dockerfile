@@ -32,13 +32,15 @@ RUN apt-get update && \
 	chown -R polkadot:polkadot /data && \
 	ln -s /data /polkadot/.local/share/polkadot
 
-# add polkadot binary to docker image
-COPY ./artifacts/polkadot /usr/local/bin
+# add polkadot binaries to docker image
+COPY ./artifacts/polkadot ./artifacts/polkadot-execute-worker ./artifacts/polkadot-prepare-worker /usr/local/bin
 
 USER polkadot
 
 # check if executable works in this container
 RUN /usr/local/bin/polkadot --version
+RUN /usr/local/bin/polkadot-execute-worker --version
+RUN /usr/local/bin/polkadot-prepare-worker --version
 
 EXPOSE 30333 9933 9944
 VOLUME ["/polkadot"]
