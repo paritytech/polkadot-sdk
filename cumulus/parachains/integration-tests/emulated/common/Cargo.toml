@@ -71,10 +71,8 @@ runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
 	"kusama-runtime/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
@@ -89,5 +87,4 @@ runtime-benchmarks = [
 	"rococo-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"westend-runtime/runtime-benchmarks",
-	"xcm-executor/runtime-benchmarks",
 ]

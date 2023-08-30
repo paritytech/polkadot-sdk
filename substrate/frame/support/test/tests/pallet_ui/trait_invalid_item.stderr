@@ -1,5 +1,5 @@
 error: Invalid #[pallet::constant] in #[pallet::config], expected type item
- --> tests/pallet_ui/trait_invalid_item.rs:9:3
-  |
-9 |         const U: u8 = 3;
-  |         ^^^^^
+  --> tests/pallet_ui/trait_invalid_item.rs:26:3
+   |
+26 |         const U: u8 = 3;
+   |         ^^^^^
