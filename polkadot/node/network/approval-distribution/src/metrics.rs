@@ -149,18 +149,6 @@ impl Metrics {
 		}
 	}
 
-	pub fn on_approval_sent_v1(&self) {
-		if let Some(metrics) = &self.0 {
-			metrics.approvals_received_result.with_label_values(&["v1"]).inc()
-		}
-	}
-
-	pub fn on_approval_sent_v2(&self) {
-		if let Some(metrics) = &self.0 {
-			metrics.approvals_received_result.with_label_values(&["v2"]).inc()
-		}
-	}
-
 	pub fn on_assignment_already_known(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.assignments_received_result.with_label_values(&["known"]).inc()

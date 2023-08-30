@@ -837,7 +837,7 @@ impl State {
 	#[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
 	async fn get_approval_voting_params_or_default<Context>(
 		&mut self,
-		_ctx: &mut Context,
+		ctx: &mut Context,
 		block_hash: Hash,
 	) -> ApprovalVotingParams {
 		if let Some(params) = self
@@ -847,30 +847,29 @@ impl State {
 		{
 			*params
 		} else {
-			// let (s_tx, s_rx) = oneshot::channel();
+			let (s_tx, s_rx) = oneshot::channel();
 
-			// ctx.send_message(RuntimeApiMessage::Request(
-			// 	block_hash,
-			// 	RuntimeApiRequest::ApprovalVotingParams(s_tx),
-			// ))
-			// .await;
+			ctx.send_message(RuntimeApiMessage::Request(
+				block_hash,
+				RuntimeApiRequest::ApprovalVotingParams(s_tx),
+			))
+			.await;
 
-			// match s_rx.await {
-			// 	Ok(Ok(params)) => {
-			// 		self.approval_voting_params_cache
-			// 			.as_mut()
-			// 			.map(|cache| cache.put(block_hash, params));
-			// 		params
-			// 	},
-			// 	_ => {
-			// 		gum::error!(
-			// 			target: LOG_TARGET,
-			// 			"Could not request approval voting params from runtime using defaults"
-			// 		);
-			// TODO: Uncomment this after versi test
-			ApprovalVotingParams { max_approval_coalesce_count: 6 }
-			// 	},
-			// }
+			match s_rx.await {
+				Ok(Ok(params)) => {
+					self.approval_voting_params_cache
+						.as_mut()
+						.map(|cache| cache.put(block_hash, params));
+					params
+				},
+				_ => {
+					gum::error!(
+						target: LOG_TARGET,
+						"Could not request approval voting params from runtime using defaults"
+					);
+					ApprovalVotingParams { max_approval_coalesce_count: 6 }
+				},
+			}
 		}
 	}
 }
@@ -3276,7 +3275,12 @@ async fn issue_approval<Context>(
 		.defer_candidate_signature(
 			candidate_index as _,
 			candidate_hash,
-			compute_delayed_approval_sending_tick(state, &block_entry, session_info),
+			compute_delayed_approval_sending_tick(
+				state,
+				&block_entry,
+				&candidate_entry,
+				session_info,
+			),
 		)
 		.is_some()
 	{
@@ -3532,9 +3536,17 @@ fn issue_local_invalid_statement<Sender>(
 fn compute_delayed_approval_sending_tick(
 	state: &State,
 	block_entry: &BlockEntry,
+	candidate_entry: &CandidateEntry,
 	session_info: &SessionInfo,
 ) -> Tick {
 	let current_block_tick = slot_number_to_tick(state.slot_duration_millis, block_entry.slot());
+	let assignment_tranche = candidate_entry
+		.approval_entry(&block_entry.block_hash())
+		.and_then(|approval_entry| approval_entry.our_assignment())
+		.map(|our_assignment| our_assignment.tranche())
+		.unwrap();
+
+	let assignment_triggered_tick = current_block_tick + assignment_tranche as Tick;
 
 	let no_show_duration_ticks = slot_number_to_tick(
 		state.slot_duration_millis,
@@ -3545,9 +3557,8 @@ fn compute_delayed_approval_sending_tick(
 	min(
 		tick_now + MAX_APPROVAL_COALESCE_WAIT_TICKS as Tick,
 		// We don't want to accidentally cause, no-shows so if we are past
-		// the 2 thirds of the no show time, force the sending of the
+		// the seconnd half of the no show time, force the sending of the
 		// approval immediately.
-		// TODO: TBD the right value here, so that we don't accidentally create no-shows.
-		current_block_tick + (no_show_duration_ticks * 2) / 3,
+		assignment_triggered_tick + no_show_duration_ticks / 2,
 	)
 }
