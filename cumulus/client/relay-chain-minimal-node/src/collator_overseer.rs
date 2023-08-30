@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use futures::{select, StreamExt};
-use lru::LruCache;
+use schnellru::{ByLength, LruMap};
 use std::sync::Arc;
 
 use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
@@ -157,7 +157,7 @@ fn build_overseer(
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)
-		.known_leaves(LruCache::new(KNOWN_LEAVES_CACHE_SIZE))
+		.known_leaves(LruMap::new(ByLength::new(KNOWN_LEAVES_CACHE_SIZE)))
 		.metrics(Metrics::register(registry)?)
 		.spawner(spawner);
 

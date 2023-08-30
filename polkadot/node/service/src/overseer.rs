@@ -19,7 +19,6 @@ use polkadot_node_subsystem_types::DefaultSubsystemClient;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_core::traits::SpawnNamed;
 
-use lru::LruCache;
 use polkadot_availability_distribution::IncomingRequestReceivers;
 use polkadot_node_core_approval_voting::Config as ApprovalVotingConfig;
 use polkadot_node_core_av_store::Config as AvailabilityConfig;
@@ -41,6 +40,7 @@ use polkadot_overseer::{
 	metrics::Metrics as OverseerMetrics, InitializedOverseerBuilder, MetricsTrait, Overseer,
 	OverseerConnector, OverseerHandle, SpawnGlue,
 };
+use schnellru::{ByLength, LruMap};
 
 use polkadot_primitives::runtime_api::ParachainHost;
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
@@ -139,7 +139,7 @@ where
 	pub overseer_message_channel_capacity_override: Option<usize>,
 	/// Request-response protocol names source.
 	pub req_protocol_names: ReqProtocolNames,
-	/// [`PeerSet`] protocol names to protocols mapping.
+	/// `PeerSet` protocol names to protocols mapping.
 	pub peerset_protocol_names: PeerSetProtocolNames,
 	/// The offchain transaction pool factory.
 	pub offchain_transaction_pool_factory: OffchainTransactionPoolFactory<Block>,
@@ -344,7 +344,7 @@ where
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_api_client)
-		.known_leaves(LruCache::new(KNOWN_LEAVES_CACHE_SIZE))
+		.known_leaves(LruMap::new(ByLength::new(KNOWN_LEAVES_CACHE_SIZE)))
 		.metrics(metrics)
 		.spawner(spawner);
 
