@@ -36,14 +36,14 @@ polkadot-primitives = { path = "../../../../../polkadot/primitives", default-fea
 polkadot-runtime-parachains = { path = "../../../../../polkadot/runtime/parachains" }
 polkadot-runtime = { path = "../../../../../polkadot/runtime/polkadot" }
 polkadot-runtime-constants = { path = "../../../../../polkadot/runtime/polkadot/constants" }
-kusama-runtime = { path = "../../../../../polkadot/runtime/kusama" }
+kusama-runtime = { package = "staging-kusama-runtime", path = "../../../../../polkadot/runtime/kusama" }
 kusama-runtime-constants = { path = "../../../../../polkadot/runtime/kusama/constants" }
 rococo-runtime = { path = "../../../../../polkadot/runtime/rococo" }
 rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/constants" }
 westend-runtime = { path = "../../../../../polkadot/runtime/westend" }
 westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/constants" }
-xcm = { path = "../../../../../polkadot/xcm", default-features = false}
-xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 
 # Cumulus
