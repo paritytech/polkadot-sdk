@@ -63,7 +63,7 @@ impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
 	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		let old_count = u32::decode(&mut &state[..]).expect("Known good");
 		let new_count = Paras::<T>::iter_values().count() as u32;
-	
+
 		ensure!(old_count == new_count, "Paras count should not change");
 		Ok(())
 	}
