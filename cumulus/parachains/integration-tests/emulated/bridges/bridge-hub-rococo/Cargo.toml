@@ -23,8 +23,8 @@ polkadot-core-primitives = { path = "../../../../../../polkadot/core-primitives"
 polkadot-parachain = { path = "../../../../../../polkadot/parachain", default-features = false}
 polkadot-runtime-parachains = { path = "../../../../../../polkadot/runtime/parachains" }
 polkadot-runtime = { path = "../../../../../../polkadot/runtime/polkadot" }
-xcm = { path = "../../../../../../polkadot/xcm", default-features = false}
-xcm-executor = { path = "../../../../../../polkadot/xcm/xcm-executor", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false}
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../polkadot/xcm/xcm-executor", default-features = false}
 pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 
 # Cumulus

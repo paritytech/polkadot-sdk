@@ -41,8 +41,8 @@ sp-std = { path = "../../../../substrate/primitives/std", default-features = fal
 sp-trie = { path = "../../../../substrate/primitives/trie", default-features = false }
 
 # Polkadot dependencies
-xcm = { path = "../../../../polkadot/xcm", default-features = false }
-xcm-builder = { path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
 
 [dev-dependencies]
 bp-test-utils = { path = "../../primitives/test-utils" }
