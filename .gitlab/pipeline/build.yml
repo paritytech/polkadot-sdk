@@ -17,6 +17,8 @@ build-linux-stable:
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
     # Ensure we run the UI tests.
     RUN_UI_TESTS: 1
+    # Ensure rococo runtime has fast-runtime feature enabled
+    ROCOCO_FAST_RUNTIME: 1
   script:
     - time cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
     # pack artifacts
