@@ -21,6 +21,8 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 variables:
+  CI_IMAGE: "paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706"
+  # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   BUILDAH_IMAGE: "quay.io/buildah/stable:v1.29"
   CACHE_COMPRESSION_LEVEL: "fastest"
@@ -30,7 +32,7 @@ variables:
   NEXTEST_FAILURE_OUTPUT: "immediate-final"
   NEXTEST_SUCCESS_OUTPUT: "final"
   RELENG_SCRIPTS_BRANCH: "master"
-  ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.59"
+  ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.65"
 
 default:
   retry:
@@ -65,6 +67,12 @@ default:
     # Ensure that RUSTFLAGS are set correctly
     - echo $RUSTFLAGS
 
+.common-before-script:
+  before_script:
+    - !reference [.job-switcher, before_script]
+    - !reference [.timestamp, before_script]
+    - !reference [.pipeline-stopper-vars, script]
+
 .job-switcher:
   before_script:
     - if echo "$CI_DISABLED_JOBS" | grep -xF "$CI_JOB_NAME"; then echo "The job has been cancelled in CI settings"; exit 0; fi
@@ -72,7 +80,7 @@ default:
 .kubernetes-env:
   image: "${CI_IMAGE}"
   before_script:
-    # - !reference [.job-switcher, before_script]
+    - !reference [.common-before-script, before_script]
     - !reference [.prepare-env, before_script]
   tags:
     - kubernetes-parity-build
@@ -84,9 +92,10 @@ default:
     - rustup +nightly show
     - cargo +nightly --version
 
+# collecting vars for pipeline stopper
+# they will be used if the job fails
 .pipeline-stopper-vars:
   script:
-    - !reference [.job-switcher, before_script]
     - echo "Collecting env variables for the cancel-pipeline job"
     - echo "FAILED_JOB_URL=${CI_JOB_URL}" > pipeline-stopper.env
     - echo "FAILED_JOB_NAME=${CI_JOB_NAME}" >> pipeline-stopper.env
@@ -100,19 +109,10 @@ default:
 .docker-env:
   image: $CI_IMAGE
   before_script:
-    - !reference [.job-switcher, before_script]
+    - !reference [.common-before-script, before_script]
     - !reference [.prepare-env, before_script]
     - !reference [.rust-info-script, script]
     - !reference [.rusty-cachier, before_script]
-    - !reference [.pipeline-stopper-vars, script]
-  cache:
-    key: cargo-$CI_COMMIT_REF_SLUG-$CI_JOB_NAME_SLUG
-    fallback_keys:
-      - cargo-$CI_DEFAULT_BRANCH-$CI_JOB_NAME_SLUG
-    paths:
-      - cargo_home
-      - cargo_target_dir
-    policy: pull-push
   tags:
     - linux-docker-vm-c2
 
@@ -211,6 +211,124 @@ include:
   # zombienet jobs
   - .gitlab/pipeline/zombienet.yml
   # # timestamp handler
-  # - project: parity/infrastructure/ci_cd/shared
-  #   ref: v0.2
-  #   file: /common/timestamp.yml
+  - project: parity/infrastructure/ci_cd/shared
+    ref: v0.2
+    file: /common/timestamp.yml
+
+# This job cancels the whole pipeline if any of provided jobs fail.
+# In a DAG, every jobs chain is executed independently of others. The `fail_fast` principle suggests
+# to fail the pipeline as soon as possible to shorten the feedback loop.
+.cancel-pipeline-template:
+  stage: .post
+  rules:
+    - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
+      when: on_failure
+  variables:
+    PROJECT_ID: "${CI_PROJECT_ID}"
+    PROJECT_NAME: "${CI_PROJECT_NAME}"
+    PIPELINE_ID: "${CI_PIPELINE_ID}"
+    FAILED_JOB_URL: "${FAILED_JOB_URL}"
+    FAILED_JOB_NAME: "${FAILED_JOB_NAME}"
+    PR_NUM: "${PR_NUM}"
+  trigger:
+    project: "parity/infrastructure/ci_cd/pipeline-stopper"
+
+remove-cancel-pipeline-message:
+  stage: .post
+  rules:
+    - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
+  variables:
+    PROJECT_ID: "${CI_PROJECT_ID}"
+    PROJECT_NAME: "${CI_PROJECT_NAME}"
+    PIPELINE_ID: "${CI_PIPELINE_ID}"
+    FAILED_JOB_URL: "https://gitlab.com"
+    FAILED_JOB_NAME: "nope"
+    PR_NUM: "${CI_COMMIT_REF_NAME}"
+  trigger:
+    project: "parity/infrastructure/ci_cd/pipeline-stopper"
+# need to copy jobs this way because otherwise gitlab will wait
+# for all 3 jobs to finish instead of cancelling if one fails
+cancel-pipeline-test-linux-stable1:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: "test-linux-stable 1/3"
+
+cancel-pipeline-test-linux-stable2:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: "test-linux-stable 2/3"
+
+cancel-pipeline-test-linux-stable3:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: "test-linux-stable 3/3"
+
+cancel-pipeline-test-linux-stable-additional-tests:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: "test-linux-stable-additional-tests"
+
+cancel-pipeline-test-linux-stable-slow:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: "test-linux-stable-slow"
+
+cancel-pipeline-cargo-check-benches1:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: "cargo-check-benches 1/2"
+
+cancel-pipeline-cargo-check-benches2:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: "cargo-check-benches 2/2"
+
+cancel-pipeline-test-linux-stable-int:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: test-linux-stable-int
+
+cancel-pipeline-cargo-check-each-crate-1:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: "cargo-check-each-crate 1/6"
+
+cancel-pipeline-cargo-check-each-crate-2:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: "cargo-check-each-crate 2/6"
+
+cancel-pipeline-cargo-check-each-crate-3:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: "cargo-check-each-crate 3/6"
+
+cancel-pipeline-cargo-check-each-crate-4:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: "cargo-check-each-crate 4/6"
+
+cancel-pipeline-cargo-check-each-crate-5:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: "cargo-check-each-crate 5/6"
+
+cancel-pipeline-cargo-check-each-crate-6:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: "cargo-check-each-crate 6/6"
+
+cancel-pipeline-cargo-check-each-crate-macos:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: cargo-check-each-crate-macos
+
+cancel-pipeline-check-tracing:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-tracing
+
+cancel-pipeline-cargo-clippy:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: cargo-clippy

@@ -1,7 +1,7 @@
 [package]
 name = "remote-ext-tests-bags-list"
 publish = false
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -19,6 +19,6 @@ sp-tracing = { path = "../../../../substrate/primitives/tracing" }
 frame-system = { path = "../../../../substrate/frame/system" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 
-clap = { version = "4.0.9", features = ["derive"] }
+clap = { version = "4.4.1", features = ["derive"] }
 log = "0.4.17"
 tokio = { version = "1.24.2", features = ["macros"] }

@@ -11,6 +11,7 @@ test-linux-stable:
     - .docker-env
     - .common-refs
     - .run-immediately
+    - .pipeline-stopper-artifacts
   variables:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
@@ -32,9 +33,8 @@ test-linux-stable:
         --workspace \
         --locked \
         --release \
-        --verbose \
         --no-fail-fast \
-        --features runtime-benchmarks,try-runtime \
+        --features runtime-benchmarks,try-runtime,experimental \
         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
     # run runtime-api tests with `enable-staging-api` feature on the 1st node
     - if [ ${CI_NODE_INDEX} == 1 ]; then time cargo nextest run -p sp-api-test --features enable-staging-api; fi
@@ -66,7 +66,6 @@ test-linux-oldkernel-stable:
 #         --workspace \
 #         --locked \
 #         --release \
-#         --verbose \
 #         --no-fail-fast \
 #         --features runtime-benchmarks,try-runtime \
 #         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
@@ -79,6 +78,7 @@ test-linux-stable-additional-tests:
     - .docker-env
     - .common-refs
     - .run-immediately
+    - .pipeline-stopper-artifacts
   variables:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
@@ -91,7 +91,6 @@ test-linux-stable-additional-tests:
         --workspace \
         --locked \
         --release \
-        --verbose \
         --features runtime-benchmarks,try-runtime
   allow_failure: true
 
@@ -104,6 +103,7 @@ test-linux-stable-slow:
     - .docker-env
     - .common-refs
     - .run-immediately
+    - .pipeline-stopper-artifacts
   variables:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
@@ -116,7 +116,6 @@ test-linux-stable-slow:
         --workspace \
         --locked \
         --release \
-        --verbose \
         --features runtime-benchmarks,try-runtime
   allow_failure: true
 
@@ -148,7 +147,10 @@ test-doc:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
+  # DAG
+  needs:
+    - job: test-rustdoc
+      artifacts: false
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
@@ -166,7 +168,7 @@ test-rustdoc:
     SKIP_WASM_BUILD: 1
     RUSTDOCFLAGS: "-Dwarnings"
   script:
-    - time cargo doc --workspace --all-features --verbose --no-deps
+    - time cargo doc --workspace --all-features --no-deps
   allow_failure: true
 
 cargo-check-all-benches:
@@ -174,7 +176,10 @@ cargo-check-all-benches:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
+  # DAG
+  needs:
+    - job: cargo-hfuzz
+      artifacts: false
   script:
     - time cargo check --all --benches
 
@@ -191,6 +196,8 @@ test-node-metrics:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
+    # Build the required workers.
+    - cargo build --bin polkadot-execute-worker --bin polkadot-prepare-worker --profile testnet --verbose --locked
     - mkdir -p artifacts
     - time cargo test --profile testnet
       --locked
@@ -203,7 +210,10 @@ test-deterministic-wasm:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
+  # DAG
+  needs:
+    - job: test-frame-ui
+      artifacts: false
   script:
     - .gitlab/test_deterministic_wasm.sh
 
@@ -216,6 +226,7 @@ cargo-check-benches:
     - .common-refs
     - .run-immediately
     - .collect-artifacts
+    - .pipeline-stopper-artifacts
   before_script:
     # TODO: DON'T FORGET TO CHANGE FOR PROD VALUES!!!
     # merges in the master branch on PRs. skip if base is not master
@@ -284,12 +295,15 @@ node-bench-regression-guard:
 
 # if this fails (especially after rust version upgrade) run
 # ./substrate/.maintain/update-rust-stable.sh <rust_version>
-test-frame-support:
+test-frame-ui:
   stage: test
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
+  # DAG
+  needs:
+    - job: test-frame-examples-compile-to-wasm
+      artifacts: false
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
@@ -300,9 +314,8 @@ test-frame-support:
     # Ensure we run the UI tests.
     RUN_UI_TESTS: 1
   script:
-    - time cargo test --locked -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental --manifest-path ./substrate/frame/support/test/Cargo.toml
-    - time cargo test --locked -p frame-support-test --features=frame-feature-testing,frame-feature-testing-2,no-metadata-docs,try-runtime,experimental --manifest-path ./substrate/frame/support/test/Cargo.toml
-    - SUBSTRATE_TEST_TIMEOUT=1 time cargo test -p substrate-test-utils --release --locked -- --ignored timeout
+    - time cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental
+    - time cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,frame-feature-testing-2,no-metadata-docs,try-runtime,experimental
     - cat /cargo_target_dir/debug/.fingerprint/memory_units-759eddf317490d2b/lib-memory_units.json || true
 
 # This job runs all benchmarks defined in the `/bin/node/runtime` once to check that there are no errors.
@@ -328,7 +341,10 @@ test-frame-examples-compile-to-wasm:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
+  # DAG
+  needs:
+    - job: test-full-crypto-feature
+      artifacts: false
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
@@ -348,6 +364,7 @@ test-linux-stable-int:
     - .docker-env
     - .common-refs
     - .run-immediately
+    - .pipeline-stopper-artifacts
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
@@ -370,6 +387,7 @@ check-tracing:
     - .docker-env
     - .common-refs
     - .run-immediately
+    - .pipeline-stopper-artifacts
   script:
     # with-tracing must be explicitly activated, we run a test to ensure this works as expected in both cases
     - time cargo test --locked --manifest-path ./substrate/primitives/tracing/Cargo.toml --no-default-features
@@ -390,9 +408,9 @@ test-full-crypto-feature:
     RUST_BACKTRACE: 1
   script:
     - cd substrate/primitives/core/
-    - time cargo build --locked --verbose --no-default-features --features full_crypto
+    - time cargo build --locked --no-default-features --features full_crypto
     - cd ../application-crypto
-    - time cargo build --locked --verbose --no-default-features --features full_crypto
+    - time cargo build --locked --no-default-features --features full_crypto
 
 cargo-check-each-crate:
   stage: test
@@ -437,7 +455,10 @@ cargo-hfuzz:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
+  # DAG
+  needs:
+    - job: check-tracing
+      artifacts: false
   variables:
     # max 10s per iteration, 60s per file
     HFUZZ_RUN_ARGS: >
