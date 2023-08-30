@@ -4713,27 +4713,33 @@ mod tests {
 						let entry_before = notif.peers.get(&(peer_id, 0.into())).cloned();
 						// precheck
 						match &event {
-							FromSwarm::ConnectionEstablished(_) => {
-                            },
-                            FromSwarm::ConnectionClosed(_) => {
-                                if matches!(entry_before, None) {
+							FromSwarm::ConnectionEstablished(_) => {},
+							FromSwarm::ConnectionClosed(_) => {
+								if matches!(entry_before, None) {
 									// this is a forbidden state (debug_panic)
 									continue
 								}
-								if matches!(entry_before, Some(PeerState::Requested | PeerState::PendingRequest { .. } | PeerState::Backoff { .. } | PeerState::Poisoned)) {
+								if matches!(
+									entry_before,
+									Some(
+										PeerState::Requested |
+											PeerState::PendingRequest { .. } | PeerState::Backoff { .. } |
+											PeerState::Poisoned
+									)
+								) {
 									// these are forbidden states (debug_panic)
 									continue
 								}
-                            },
-                            FromSwarm::DialFailure(_) => {
-                                if matches!(entry_before, Some(PeerState::Poisoned)) {
+							},
+							FromSwarm::DialFailure(_) => {
+								if matches!(entry_before, Some(PeerState::Poisoned)) {
 									// this is a forbidden state (debug_panic)
 									continue
 								}
-                            },
+							},
 							_ => {
 								unreachable!("no such variant is possible")
-							}
+							},
 						}
 						notif.on_swarm_event(event);
 						let entry_after = notif.peers.get(&(peer_id, 0.into())).cloned();
@@ -4742,29 +4748,47 @@ mod tests {
 								if let Some(entry_before) = entry_before {
 									let entry_after = entry_after.unwrap();
 									match entry_before {
-										| PeerState::Requested
-										| PeerState::PendingRequest { .. } => {
-											assert!(matches!(entry_after, PeerState::Enabled { .. }));
-										}
+										| PeerState::Requested |
+										PeerState::PendingRequest { .. } => {
+											assert!(matches!(
+												entry_after,
+												PeerState::Enabled { .. }
+											));
+										},
 										PeerState::Backoff { .. } => {
-											assert!(matches!(entry_after, PeerState::Disabled { .. }));
-										}
+											assert!(matches!(
+												entry_after,
+												PeerState::Disabled { .. }
+											));
+										},
 										// otherwise -> same state
 										PeerState::Poisoned => {
-											assert!(matches!(entry_after, PeerState::Poisoned ));
-										}
+											assert!(matches!(entry_after, PeerState::Poisoned));
+										},
 										PeerState::Disabled { .. } => {
-											assert!(matches!(entry_after, PeerState::Disabled { .. }));
-										}
+											assert!(matches!(
+												entry_after,
+												PeerState::Disabled { .. }
+											));
+										},
 										PeerState::DisabledPendingEnable { .. } => {
-											assert!(matches!(entry_after, PeerState::DisabledPendingEnable { .. }));
-										}
+											assert!(matches!(
+												entry_after,
+												PeerState::DisabledPendingEnable { .. }
+											));
+										},
 										PeerState::Enabled { .. } => {
-											assert!(matches!(entry_after, PeerState::Enabled { .. }));
-										}
+											assert!(matches!(
+												entry_after,
+												PeerState::Enabled { .. }
+											));
+										},
 										PeerState::Incoming { .. } => {
-											assert!(matches!(entry_after, PeerState::Incoming { .. }));
-										}
+											assert!(matches!(
+												entry_after,
+												PeerState::Incoming { .. }
+											));
+										},
 									}
 								} else {
 									let entry_after = entry_after.unwrap();
@@ -4775,24 +4799,40 @@ mod tests {
 								if let Some(entry_before) = entry_before {
 									let entry_after = entry_after.unwrap();
 									match entry_before {
-										| PeerState::Requested
-										| PeerState::PendingRequest { .. }
-										| PeerState::Backoff { .. }
-										| PeerState::Poisoned => {
+										| PeerState::Requested |
+										PeerState::PendingRequest { .. } |
+										PeerState::Backoff { .. } |
+										PeerState::Poisoned => {
 											unreachable!("no such state is possible")
-										}
+										},
 										PeerState::Disabled { .. } => {
-											assert!(matches!(entry_after, PeerState::Backoff { .. } | PeerState::Disabled { .. }));
-										}
+											assert!(matches!(
+												entry_after,
+												PeerState::Backoff { .. } |
+													PeerState::Disabled { .. }
+											));
+										},
 										PeerState::DisabledPendingEnable { .. } => {
-											assert!(matches!(entry_after, PeerState::Backoff { .. } | PeerState::DisabledPendingEnable { .. }));
-										}
+											assert!(matches!(
+												entry_after,
+												PeerState::Backoff { .. } |
+													PeerState::DisabledPendingEnable { .. }
+											));
+										},
 										PeerState::Enabled { .. } => {
-											assert!(matches!(entry_after, PeerState::Backoff { .. } | PeerState::Disabled { .. } | PeerState::Enabled { .. }));
-										}
+											assert!(matches!(
+												entry_after,
+												PeerState::Backoff { .. } |
+													PeerState::Disabled { .. } | PeerState::Enabled { .. }
+											));
+										},
 										PeerState::Incoming { .. } => {
-											assert!(matches!(entry_after, PeerState::Backoff { .. } | PeerState::Disabled { .. } | PeerState::Incoming { .. }));
-										}
+											assert!(matches!(
+												entry_after,
+												PeerState::Backoff { .. } |
+													PeerState::Disabled { .. } | PeerState::Incoming { .. }
+											));
+										},
 									}
 								} else {
 									// TODO
@@ -4802,29 +4842,47 @@ mod tests {
 								if let Some(entry_before) = entry_before {
 									let entry_after = entry_after.unwrap();
 									match entry_before {
-										| PeerState::Requested
-										| PeerState::PendingRequest { .. } => {
-											assert!(matches!(entry_after, PeerState::Backoff { .. }));
-										}
+										| PeerState::Requested |
+										PeerState::PendingRequest { .. } => {
+											assert!(matches!(
+												entry_after,
+												PeerState::Backoff { .. }
+											));
+										},
 										// otherwise -> same state
 										PeerState::Backoff { .. } => {
-											assert!(matches!(entry_after, PeerState::Backoff { .. }));
-										}
+											assert!(matches!(
+												entry_after,
+												PeerState::Backoff { .. }
+											));
+										},
 										PeerState::Poisoned => {
-											assert!(matches!(entry_after, PeerState::Poisoned ));
-										}
+											assert!(matches!(entry_after, PeerState::Poisoned));
+										},
 										PeerState::Disabled { .. } => {
-											assert!(matches!(entry_after, PeerState::Disabled { .. }));
-										}
+											assert!(matches!(
+												entry_after,
+												PeerState::Disabled { .. }
+											));
+										},
 										PeerState::DisabledPendingEnable { .. } => {
-											assert!(matches!(entry_after, PeerState::DisabledPendingEnable { .. }));
-										}
+											assert!(matches!(
+												entry_after,
+												PeerState::DisabledPendingEnable { .. }
+											));
+										},
 										PeerState::Enabled { .. } => {
-											assert!(matches!(entry_after, PeerState::Enabled { .. }));
-										}
+											assert!(matches!(
+												entry_after,
+												PeerState::Enabled { .. }
+											));
+										},
 										PeerState::Incoming { .. } => {
-											assert!(matches!(entry_after, PeerState::Incoming { .. }));
-										}
+											assert!(matches!(
+												entry_after,
+												PeerState::Incoming { .. }
+											));
+										},
 									}
 								} else {
 									assert!(entry_after.is_none());
@@ -4838,24 +4896,24 @@ mod tests {
 						match &event {
 							NotifsHandlerOut::OpenDesiredByRemote { protocol_index } => {
 								let _ = protocol_index;
-							}
+							},
 							NotifsHandlerOut::CloseDesired { protocol_index } => {
 								let _ = protocol_index;
-							}
+							},
 							NotifsHandlerOut::CloseResult { protocol_index } => {
 								let _ = protocol_index;
-							}
+							},
 							// TODO OpenResultOk
 							NotifsHandlerOut::OpenResultErr { protocol_index } => {
 								let _ = protocol_index;
-							}
+							},
 							NotifsHandlerOut::Notification { protocol_index, message } => {
 								let _ = protocol_index;
 								let _ = message;
-							}
+							},
 							_ => {
-                                todo!("add support for OpenResultOk")
-                            }
+								todo!("add support for OpenResultOk")
+							},
 						}
 						let entry_before = notif.peers.get(&(peer_id, 0.into())).cloned();
 						if matches!(entry_before, None) {
