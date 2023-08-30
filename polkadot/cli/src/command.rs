@@ -92,7 +92,7 @@ impl SubstrateCli for Cli {
 				Err(format!("`{name}` is not supported anymore as the polkadot native runtime no longer part of the node."))?,
 			"rococo" => Box::new(service::chain_spec::rococo_config()?),
 			#[cfg(feature = "rococo-native")]
-			"rococo-dev" => Box::new(service::chain_spec::rococo_development_config()?),
+			"dev" | "rococo-dev" => Box::new(service::chain_spec::rococo_development_config()?),
 			#[cfg(feature = "rococo-native")]
 			"rococo-local" => Box::new(service::chain_spec::rococo_local_testnet_config()?),
 			#[cfg(feature = "rococo-native")]
