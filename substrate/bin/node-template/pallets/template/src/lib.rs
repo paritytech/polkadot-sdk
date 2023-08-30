@@ -1,7 +1,7 @@
 //! # Template Pallet
 //!
 //! A pallet with minimal functionality to help developers understand the essential components of
-//! writing FRAME pallets. It is typically used in beginner tutorials or in Substrate template nodes
+//! writing a FRAME pallet. It is typically used in beginner tutorials or in Substrate template nodes
 //! as a starting point for creating a new pallet and **not meant to be used in production**.
 //!
 //! ## Overview
@@ -68,8 +68,8 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	// The `Pallet` struct serves as a placeholder to implement traits, methods and dispatchables in
-	// this pallet.
+	// The `Pallet` struct serves as a placeholder to implement traits, methods and dispatchables
+	// (`Call`s) in this pallet.
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
@@ -126,7 +126,7 @@ pub mod pallet {
 		StorageOverflow,
 	}
 
-	/// The pallet's dispatchable functions.
+	/// The pallet's dispatchable functions (`Call`s).
 	///
 	/// Dispatchable functions allows users to interact with the pallet and invoke state changes.
 	/// These functions materialize as "extrinsics", which are often compared to transactions.
