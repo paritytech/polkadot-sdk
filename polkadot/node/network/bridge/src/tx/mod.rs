@@ -66,7 +66,7 @@ impl<N, AD> NetworkBridgeTx<N, AD> {
 	/// discovery service.
 	///
 	/// This assumes that the network service has had the notifications protocol for the network
-	/// bridge already registered. See [`peers_sets_info`](peers_sets_info).
+	/// bridge already registered. See [`peer_sets_info`].
 	pub fn new(
 		network_service: N,
 		authority_discovery_service: AD,
