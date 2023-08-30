@@ -435,7 +435,6 @@ members = [
 	"substrate/test-utils/runtime",
 	"substrate/test-utils/runtime/client",
 	"substrate/test-utils/runtime/transaction-pool",
-	"substrate/test-utils/test-crate",
 	"substrate/utils/binary-merkle-tree",
 	"substrate/utils/build-script-utils",
 	"substrate/utils/fork-tree",
