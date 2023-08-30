@@ -105,5 +105,5 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 #[cfg(feature = "runtime-benchmarks")]
 pub fn new_bench_ext() -> sp_io::TestExternalities {
-	frame_system::GenesisConfig::default().build_storage().unwrap().into()
+	RuntimeGenesisConfig::default().build_storage().unwrap().into()
 }
