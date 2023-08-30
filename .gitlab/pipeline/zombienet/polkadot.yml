@@ -4,6 +4,9 @@
 # common settings for all zombienet jobs
 .zombienet-polkadot-common:
   before_script:
+    - export RELEASE_VERSION=$(./artifacts/polkadot -V | awk '{print $2}'| awk -F "-" '{print $1}')
+    - echo -n "v${RELEASE_VERSION}" > ./artifacts/BUILD_RELEASE_VERSION
+    - export BUILD_RELEASE_VERSION="$(cat ./artifacts/BUILD_RELEASE_VERSION)"
     - export DEBUG=zombie,zombie::network-node
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
     - export ZOMBIENET_INTEGRATION_TEST_SECONDARY_IMAGE="docker.io/parity/polkadot:${BUILD_RELEASE_VERSION}"
@@ -13,6 +16,7 @@
     - echo "gh-dir ${GH_DIR}"
     - echo "local-dir ${LOCAL_DIR}"
     - echo "polkadot image ${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
+    - echo "polkadot secondary image ${ZOMBIENET_INTEGRATION_TEST_SECONDARY_IMAGE}"
     - echo "colander image ${COL_IMAGE}"
     - echo "malus image ${MALUS_IMAGE}"
   stage: zombienet
