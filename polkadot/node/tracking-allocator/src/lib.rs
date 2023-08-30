@@ -18,7 +18,6 @@
 
 use core::alloc::{GlobalAlloc, Layout};
 use std::sync::atomic::{AtomicBool, Ordering};
-use tikv_jemallocator::Jemalloc;
 
 struct TrackingAllocatorData {
 	lock: AtomicBool,
@@ -82,7 +81,7 @@ impl TrackingAllocatorData {
 static mut ALLOCATOR_DATA: TrackingAllocatorData =
 	TrackingAllocatorData { lock: AtomicBool::new(false), current: 0, peak: 0 };
 
-pub struct TrackingAllocator<A: GlobalAlloc>(A);
+pub struct TrackingAllocator<A: GlobalAlloc>(pub A);
 
 impl<A: GlobalAlloc> TrackingAllocator<A> {
 	// SAFETY:
@@ -131,6 +130,3 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for TrackingAllocator<A> {
 		self.0.realloc(ptr, layout, new_size)
 	}
 }
-
-#[global_allocator]
-pub static ALLOC: TrackingAllocator<Jemalloc> = TrackingAllocator(Jemalloc);

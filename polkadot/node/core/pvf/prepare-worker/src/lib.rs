@@ -52,8 +52,14 @@ use std::{
 	time::Duration,
 };
 use tokio::{io, net::UnixStream};
+
 #[cfg(feature = "tracking-allocator")]
-use tracking_allocator::ALLOC;
+use tikv_jemallocator::Jemalloc;
+#[cfg(feature = "tracking-allocator")]
+use tracking_allocator::TrackingAllocator;
+#[cfg(feature = "tracking-allocator")]
+#[global_allocator]
+static ALLOC: TrackingAllocator<Jemalloc> = TrackingAllocator(Jemalloc);
 
 /// Contains the bytes for a successfully compiled artifact.
 pub struct CompiledArtifact(Vec<u8>);

@@ -12326,6 +12326,7 @@ dependencies = [
  "sp-maybe-compressed-blob",
  "sp-tracing",
  "tikv-jemalloc-ctl",
+ "tikv-jemallocator",
  "tokio",
  "tracing-gum",
  "tracking-allocator",
@@ -19159,9 +19160,6 @@ dependencies = [
 [[package]]
 name = "tracking-allocator"
 version = "1.0.0"
-dependencies = [
- "tikv-jemallocator",
-]
 
 [[package]]
 name = "trie-bench"

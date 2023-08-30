@@ -4,6 +4,3 @@ description = "Tracking allocator to control amount of memory consumed by PVF pr
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-
-[dependencies]
-tikv-jemallocator = "0.5.0"
