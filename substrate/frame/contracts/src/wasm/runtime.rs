@@ -2695,6 +2695,52 @@ pub mod env {
 		}
 	}
 
+	fn xcm_query(
+		ctx: _,
+		memory: _,
+		timeout_ptr: u32,
+		match_querier_ptr: u32,
+		output_ptr: u32,
+	) -> Result<ReturnCode, TrapReason> {
+		use frame_system::pallet_prelude::BlockNumberFor;
+		use xcm::VersionedMultiLocation;
+
+		let timeout: BlockNumberFor<E::T> = ctx.read_sandbox_memory_as(memory, timeout_ptr)?;
+		let match_querier: VersionedMultiLocation =
+			ctx.read_sandbox_memory_as(memory, match_querier_ptr)?;
+		// TODO benchmark
+		match ctx.ext.xcm_query(timeout, match_querier) {
+			Ok(query_id) => {
+				ctx.write_sandbox_memory(memory, output_ptr, &query_id.encode())?;
+				Ok(ReturnCode::Success)
+			},
+			Err(e) => {
+				if ctx.ext.append_debug_buffer("") {
+					ctx.ext.append_debug_buffer("call failed with: ");
+					ctx.ext.append_debug_buffer(e.into());
+				};
+				Ok(ReturnCode::CallRuntimeFailed)
+			},
+		}
+	}
+
+	fn xcm_take_response(
+		ctx: _,
+		memory: _,
+		query_id_ptr: u32,
+		output_ptr: u32,
+	) -> Result<ReturnCode, TrapReason> {
+		use xcm_executor::traits::QueryHandler;
+
+		let query_id: <pallet_xcm::Pallet<E::T> as QueryHandler>::QueryId =
+			ctx.read_sandbox_memory_as(memory, query_id_ptr)?;
+
+		// TODO benchmark
+		let response = ctx.ext.xcm_take_response(query_id);
+		ctx.write_sandbox_memory(memory, output_ptr, &response.encode())?;
+		Ok(ReturnCode::Success)
+	}
+
 	/// Recovers the ECDSA public key from the given message hash and signature.
 	///
 	/// Writes the public key into the given output buffer.

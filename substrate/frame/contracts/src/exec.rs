@@ -45,12 +45,10 @@ use sp_core::{
 	Get,
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
-use sp_runtime::{
-	traits::{Convert, Dispatchable, Hash, Zero},
-	DispatchError,
-};
-use sp_std::{fmt::Debug, marker::PhantomData, mem, prelude::*, vec::Vec};
-use xcm::{VersionedMultiLocation, VersionedXcm};
+use sp_runtime::traits::{Convert, Hash, Zero};
+use sp_std::{marker::PhantomData, mem, prelude::*, vec::Vec};
+use xcm::{v3::MultiLocation, VersionedMultiLocation, VersionedXcm};
+use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type MomentOf<T> = <<T as Config>::Time as Time>::Moment;
@@ -358,6 +356,17 @@ pub trait Ext: sealing::Sealed {
 	) -> DispatchResultWithPostInfo;
 
 	fn xcm_send(&self, dest: VersionedMultiLocation, msg: VersionedXcm<()>) -> DispatchResult;
+
+	fn xcm_query(
+		&self,
+		timeout: BlockNumberFor<Self::T>,
+		match_querier: VersionedMultiLocation,
+	) -> Result<<pallet_xcm::Pallet<Self::T> as QueryHandler>::QueryId, DispatchError>;
+
+	fn xcm_take_response(
+		&self,
+		query_id: <pallet_xcm::Pallet<Self::T> as QueryHandler>::QueryId,
+	) -> QueryResponseStatus<BlockNumberFor<Self::T>>;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -1471,6 +1480,33 @@ where
 	fn xcm_send(&self, dest: VersionedMultiLocation, msg: VersionedXcm<()>) -> DispatchResult {
 		let origin = RawOrigin::Signed(self.address().clone()).into();
 		pallet_xcm::Pallet::<T>::send(origin, Box::new(dest), Box::new(msg))
+	}
+
+	fn xcm_query(
+		&self,
+		timeout: BlockNumberFor<T>,
+		match_querier: VersionedMultiLocation,
+	) -> Result<<pallet_xcm::Pallet<Self::T> as QueryHandler>::QueryId, DispatchError> {
+		use frame_support::traits::EnsureOrigin;
+
+		let origin = RawOrigin::Signed(self.address().clone()).into();
+		let responder = <T as pallet_xcm::Config>::ExecuteXcmOrigin::ensure_origin(origin)?;
+
+		let query_id = <pallet_xcm::Pallet<T> as QueryHandler>::new_query(
+			responder,
+			timeout.into(),
+			MultiLocation::try_from(match_querier)
+				.map_err(|_| Into::<DispatchError>::into(pallet_xcm::Error::<T>::BadVersion))?,
+		);
+
+		Ok(query_id)
+	}
+
+	fn xcm_take_response(
+		&self,
+		query_id: <pallet_xcm::Pallet<Self::T> as QueryHandler>::QueryId,
+	) -> QueryResponseStatus<BlockNumberFor<Self::T>> {
+		<pallet_xcm::Pallet<T> as QueryHandler>::take_response(query_id)
 	}
 
 	fn ecdsa_recover(&self, signature: &[u8; 65], message_hash: &[u8; 32]) -> Result<[u8; 33], ()> {
