@@ -4,19 +4,24 @@
 # common settings for all zombienet jobs
 .zombienet-polkadot-common:
   before_script:
+    - export BUILD_RELEASE_VERSION="$(cat ./artifacts/BUILD_RELEASE_VERSION)" # from build-linux-stable job
     - export DEBUG=zombie,zombie::network-node
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
+    - export ZOMBIENET_INTEGRATION_TEST_SECONDARY_IMAGE="docker.io/parity/polkadot:${BUILD_RELEASE_VERSION}"
     - export COL_IMAGE="${COLANDER_IMAGE}":${PIPELINE_IMAGE_TAG}
     - export MALUS_IMAGE="${MALUS_IMAGE}":${PIPELINE_IMAGE_TAG}
     - echo "Zombienet Tests Config"
     - echo "gh-dir ${GH_DIR}"
     - echo "local-dir ${LOCAL_DIR}"
     - echo "polkadot image ${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
+    - echo "polkadot secondary image ${ZOMBIENET_INTEGRATION_TEST_SECONDARY_IMAGE}"
     - echo "colander image ${COL_IMAGE}"
     - echo "malus image ${MALUS_IMAGE}"
   stage: zombienet
   image: "${ZOMBIENET_IMAGE}"
   needs:
+    - job: build-linux-stable
+      artifacts: true
     - job: build-push-image-malus
       artifacts: true
     - job: build-push-image-polkadot-debug
@@ -64,21 +69,29 @@ zombienet-polkadot-functional-0002-parachains-disputes:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0002-parachains-disputes.zndsl"
 
-zombienet-polkadot-functional-0003-parachains-disputes-garbage-candidate:
-  extends:
-    - .zombienet-polkadot-common
-  script:
-    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-      --local-dir="${LOCAL_DIR}/functional"
-      --test="0003-parachains-garbage-candidate.zndsl"
-
-zombienet-polkadot-functional-0004-beefy-and-mmr:
+zombienet-polkadot-functional-0003-beefy-and-mmr:
   extends:
     - .zombienet-polkadot-common
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/functional"
       --test="0003-beefy-and-mmr.zndsl"
+
+zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0004-parachains-garbage-candidate.zndsl"
+
+zombienet-polkadot-functional-0005-parachains-disputes-past-session:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0005-parachains-disputes-past-session.zndsl"
 
 zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:
@@ -168,3 +181,27 @@ zombienet-polkadot-malus-0001-dispute-valid:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/integrationtests"
       --test="0001-dispute-valid-block.zndsl"
+
+zombienet-polkadot-async-backing-compatibility:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/async_backing"
+      --test="001-async-backing-compatibility.zndsl"
+
+zombienet-polkadot-async-backing-runtime-upgrade:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/async_backing"
+      --test="002-async-backing-runtime-upgrade.zndsl"
+
+zombienet-polkadot-async-backing-collator-mix:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/async_backing"
+      --test="003-async-backing-collator-mix.zndsl"

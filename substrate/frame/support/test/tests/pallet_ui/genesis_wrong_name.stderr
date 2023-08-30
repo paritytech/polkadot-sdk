@@ -1,5 +1,5 @@
 error: Invalid pallet::genesis_build, expected impl<..> GenesisBuild<..> for GenesisConfig<..>
-  --> $DIR/genesis_wrong_name.rs:19:2
+  --> tests/pallet_ui/genesis_wrong_name.rs:36:2
    |
-19 |     impl Foo {}
+36 |     impl Foo {}
    |     ^^^^

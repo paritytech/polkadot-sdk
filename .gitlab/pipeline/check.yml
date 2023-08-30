@@ -129,7 +129,6 @@ check-runtime-migration-westend:
     - .check-runtime-migration
   variables:
     NETWORK: "westend"
-  allow_failure: true # FIXME https://github.com/paritytech/substrate/issues/13107
 
 check-runtime-migration-rococo:
   stage: check
@@ -143,7 +142,6 @@ check-runtime-migration-rococo:
     - .check-runtime-migration
   variables:
     NETWORK: "rococo"
-  allow_failure: true # FIXME https://github.com/paritytech/substrate/issues/13107
 
 find-fail-ci-phrase:
   stage: check
