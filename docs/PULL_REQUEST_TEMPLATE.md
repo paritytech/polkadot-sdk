@@ -2,10 +2,10 @@
 
 ✄ -----------------------------------------------------------------------------
 
-Thank you for your Pull Request! 🙏 Please make sure it follows the contribution guidelines outlined in [this
-document](CONTRIBUTING.md) and fill out the sections below. Once you're ready to submit your PR for review, please
+Thank you for your Pull Request! 🙏 Please make sure it follows the contribution guidelines outlined in 
+[this document](https://github.com/paritytech/polkadot-sdk/blob/master/docs/CONTRIBUTING.md) and fill 
+out the sections below. Once you're ready to submit your PR for review, please
 delete this section and leave only the text under the "Description" heading.
-
 
 # Description
 
