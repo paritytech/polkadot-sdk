@@ -11,7 +11,7 @@ documentation = "https://docs.rs/substrate-frame-cli"
 readme = "README.md"
 
 [dependencies]
-clap = { version = "4.2.5", features = ["derive"] }
+clap = { version = "4.4.1", features = ["derive"] }
 frame-support = { path = "../../../frame/support" }
 frame-system = { path = "../../../frame/system" }
 sc-cli = { path = "../../../client/cli" }
