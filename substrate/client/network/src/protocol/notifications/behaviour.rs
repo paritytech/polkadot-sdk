@@ -4672,11 +4672,11 @@ mod tests {
 
 			for action in actions {
 				match action {
-					FuzzAction::FromSwarm(AFromSwarm(pid, e, n)) => {
+					FuzzAction::FromSwarm(AFromSwarm(pid, swarm_event, connection_id)) => {
 						// build event
 						let peer_id = pid.0;
-						let conn = ConnectionId::new_unchecked(n);
-						let event = match e {
+						let conn = ConnectionId::new_unchecked(connection_id);
+						let event = match swarm_event {
 							FromSwarmE::ConnectionEstablished => {
 								let event = ConnectionEstablished {
 									peer_id: peer_id.clone(),
@@ -4734,7 +4734,7 @@ mod tests {
 						}
 						notif.on_swarm_event(event);
 						let entry_after = notif.peers.get(&(peer_id, 0.into())).cloned();
-						match e {
+						match swarm_event {
 							FromSwarmE::ConnectionEstablished => {
 								if let Some(entry_before) = entry_before {
 									let entry_after = entry_after.unwrap();
