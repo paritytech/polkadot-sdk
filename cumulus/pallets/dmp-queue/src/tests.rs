@@ -18,100 +18,137 @@
 
 #![cfg(test)]
 
-use super::*;
+use super::{migration::*, mock::*};
+use crate::*;
 
-#[cfg(feature = "try-runtime")]
-use frame_support::assert_ok;
 use frame_support::{
-	parameter_types,
-	traits::{Footprint, HandleMessage, OnRuntimeUpgrade},
+	traits::{OnFinalize, OnInitialize},
 	StorageNoopGuard,
 };
-use sp_core::bounded_vec::BoundedSlice;
 use sp_io::TestExternalities as TestExt;
-
-parameter_types! {
-	static RecordedMessages: u32 = 0;
-}
-
-struct MockedDmpHandler;
-impl HandleMessage for MockedDmpHandler {
-	type MaxMessageLen = ConstU32<16>;
-
-	fn handle_message(_: BoundedSlice<u8, Self::MaxMessageLen>) {
-		RecordedMessages::mutate(|n| *n += 1);
-	}
-
-	fn handle_messages<'a>(_: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>) {
-		unimplemented!()
-	}
-
-	fn sweep_queue() {
-		unimplemented!()
-	}
-
-	fn footprint() -> Footprint {
-		unimplemented!()
-	}
-}
-
-parameter_types! {
-	const PalletName: &'static str = "DmpQueue";
-}
-
-struct Runtime;
-impl MigrationConfig for Runtime {
-	type PalletName = PalletName;
-	type DmpHandler = MockedDmpHandler;
-	type DbWeight = ();
-}
 
 #[test]
 fn migration_works() {
-	TestExt::default().execute_with(|| {
-		// This test should leak no storage:
-		let _g = StorageNoopGuard::default();
-
-		// Setup the storage:
+	let mut ext = TestExt::default();
+	ext.execute_with(|| {
+		sp_tracing::try_init_simple();
+		// Insert some storage:
 		PageIndex::<Runtime>::set(PageIndexData {
 			begin_used: 10,
 			end_used: 20,
 			overweight_count: 5,
 		});
-
 		for p in 10..20 {
 			let msgs = (0..16).map(|i| (p, vec![i as u8; 1])).collect::<Vec<_>>();
 			Pages::<Runtime>::insert(p, msgs);
 		}
-
 		for i in 0..5 {
 			Overweight::<Runtime>::insert(i, (0, vec![i as u8; 1]));
 		}
-
+		testing_only::Configuration::<Runtime>::put(123);
+	});
+	// Otherwise the keys are removed from the overlay, not the backend.
+	ext.commit_all().unwrap();
+	ext.execute_with(|| {
 		// Run the migration:
 		#[cfg(feature = "try-runtime")]
-		assert_ok!(UndeployDmpQueue::<Runtime>::pre_upgrade());
-		let _weight = UndeployDmpQueue::<Runtime>::on_runtime_upgrade();
-		#[cfg(feature = "try-runtime")]
-		assert_ok!(UndeployDmpQueue::<Runtime>::post_upgrade(vec![]));
+		pre_upgrade_checks::<Runtime>();
+		run_to_block(1);
+		// First we expect a StartedExport event:
+		assert_only_event(Event::StartedExport);
+		// Then we expect 10 Exported events:
+		for page in 0..10 {
+			run_to_block(2 + page);
+			assert_only_event(Event::Exported { page: page as u32 + 10 });
+			assert!(!Pages::<Runtime>::contains_key(page as u32));
+			assert_eq!(
+				MigrationStatus::<Runtime>::get(),
+				MigrationState::StartedExport { next_begin_used: page as u32 + 11 }
+			);
+		}
+		// Then we expect a CompletedExport event:
+		run_to_block(12);
+		assert_only_event(Event::CompletedExport);
+		assert_eq!(MigrationStatus::<Runtime>::get(), MigrationState::CompletedExport);
+		// Then we expect a StartedOverweightExport event:
+		run_to_block(13);
+		assert_only_event(Event::StartedOverweightExport);
+		assert_eq!(
+			MigrationStatus::<Runtime>::get(),
+			MigrationState::StartedOverweightExport { next_overweight_index: 0 }
+		);
+		// Then we expect 5 ExportedOverweight events:
+		for index in 0..5 {
+			run_to_block(14 + index);
+			assert_only_event(Event::ExportedOverweight { index });
+			assert!(!Overweight::<Runtime>::contains_key(index));
+			assert_eq!(
+				MigrationStatus::<Runtime>::get(),
+				MigrationState::StartedOverweightExport { next_overweight_index: index + 1 }
+			);
+		}
+		// Then we expect a CompletedOverweightExport event:
+		run_to_block(19);
+		assert_only_event(Event::CompletedOverweightExport);
+		assert_eq!(MigrationStatus::<Runtime>::get(), MigrationState::CompletedOverweightExport);
 
+		// Then we expect a StartedCleanup event:
+		run_to_block(20);
+		assert_only_event(Event::StartedCleanup);
+		assert_eq!(
+			MigrationStatus::<Runtime>::get(),
+			MigrationState::StartedCleanup { cursor: None }
+		);
+	});
+	ext.commit_all().unwrap();
+	ext.execute_with(|| {
+		run_to_block(21);
+		assert_only_event(Event::CleanedSome { keys_removed: 2 });
+	});
+	ext.commit_all().unwrap();
+	ext.execute_with(|| {
+		run_to_block(22);
+		assert_only_event(Event::CleanedSome { keys_removed: 2 });
+	});
+	ext.commit_all().unwrap();
+	ext.execute_with(|| {
+		run_to_block(24);
+		assert_eq!(
+			System::events().into_iter().map(|e| e.event).collect::<Vec<_>>(),
+			vec![
+				Event::CleanedSome { keys_removed: 2 }.into(),
+				Event::Completed { error: false }.into()
+			]
+		);
+		System::reset_events();
+		assert_eq!(MigrationStatus::<Runtime>::get(), MigrationState::Completed);
+
+		#[cfg(feature = "try-runtime")]
+		post_upgrade_checks::<Runtime>();
 		assert_eq!(RecordedMessages::take(), 10 * 16 + 5);
 
 		// Test the storage removal:
-		assert!(PageIndex::<Runtime>::exists(), "Not gone yet");
-		DeleteDmpQueue::<Runtime>::on_runtime_upgrade();
 		assert!(!PageIndex::<Runtime>::exists());
-		assert!(!Pages::<Runtime>::contains_key(10));
-		assert!(!Overweight::<Runtime>::contains_key(0));
+		assert!(!testing_only::Configuration::<Runtime>::exists());
+		assert_eq!(Pages::<Runtime>::iter_keys().count(), 0);
+		assert_eq!(Overweight::<Runtime>::iter_keys().count(), 0);
+
+		// The MigrationStatus never disappears and there are no more storage changes:
+		{
+			let _g = StorageNoopGuard::default();
+
+			run_to_block(100);
+			assert_eq!(MigrationStatus::<Runtime>::get(), MigrationState::Completed);
+			assert!(System::events().is_empty());
+			// ... besides the block number
+			System::set_block_number(24);
+		}
 	});
 }
 
 #[test]
 fn migration_too_long_ignored() {
 	TestExt::default().execute_with(|| {
-		// This test should leak no storage:
-		//let _g = StorageNoopGuard::default();
-
 		// Setup the storage:
 		PageIndex::<Runtime>::set(PageIndexData {
 			begin_used: 10,
@@ -128,18 +165,32 @@ fn migration_too_long_ignored() {
 
 		// Run the migration:
 		#[cfg(feature = "try-runtime")]
-		assert_ok!(UndeployDmpQueue::<Runtime>::pre_upgrade());
-		let _weight = UndeployDmpQueue::<Runtime>::on_runtime_upgrade();
+		pre_upgrade_checks::<Runtime>();
+		run_to_block(100);
 		#[cfg(feature = "try-runtime")]
-		assert_ok!(UndeployDmpQueue::<Runtime>::post_upgrade(vec![]));
+		post_upgrade_checks::<Runtime>();
 
 		assert_eq!(RecordedMessages::take(), 2);
 
 		// Test the storage removal:
-		assert!(PageIndex::<Runtime>::exists(), "Not gone yet");
-		DeleteDmpQueue::<Runtime>::on_runtime_upgrade();
 		assert!(!PageIndex::<Runtime>::exists());
-		assert!(!Pages::<Runtime>::contains_key(10));
-		assert!(!Overweight::<Runtime>::contains_key(0));
+		assert_eq!(Pages::<Runtime>::iter_keys().count(), 0);
+		assert_eq!(Overweight::<Runtime>::iter_keys().count(), 0);
 	});
+}
+
+fn run_to_block(n: u64) {
+	assert!(n > System::block_number(), "Cannot go back in time");
+
+	while System::block_number() < n {
+		AllPalletsWithSystem::on_finalize(System::block_number());
+		System::set_block_number(System::block_number() + 1);
+		AllPalletsWithSystem::on_initialize(System::block_number());
+	}
+}
+
+fn assert_only_event(e: Event<Runtime>) {
+	assert_eq!(System::events().pop().expect("Event expected").event, e.clone().into());
+	assert_eq!(System::events().len(), 1, "Got events: {:?} but wanted {:?}", System::events(), e);
+	System::reset_events();
 }

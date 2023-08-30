@@ -3553,6 +3553,7 @@ name = "cumulus-pallet-dmp-queue"
 version = "0.1.0"
 dependencies = [
  "cumulus-primitives-core",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
@@ -3562,8 +3563,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "sp-version",
- "xcm",
+ "sp-tracing",
 ]
 
 [[package]]

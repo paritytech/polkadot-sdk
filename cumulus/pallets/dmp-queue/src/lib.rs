@@ -1,182 +1,206 @@
-// Copyright Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
+// This file is part of Substrate.
 
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
 
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
-
-//! Migrates the storage from the previously deleted DMP pallet.
+//! This pallet is a state machine to migrate the remaining DMP messages into to a generic
+//! `HandleMessage`. It proceeds in the state of [`MigrationState`] one by one by their listing in
+//! the source code. The pallet can be removed from the runtime once `Completed` was emitted.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use migration::*;
+pub use pallet::*;
+
+mod migration;
+mod mock;
 mod tests;
 
-use cumulus_primitives_core::relay_chain::BlockNumber as RelayBlockNumber;
-use frame_support::{
-	pallet_prelude::*,
-	storage_alias,
-	traits::{HandleMessage, OnRuntimeUpgrade},
-	weights::Weight,
-};
-use sp_runtime::Saturating;
-use sp_std::vec::Vec;
+pub use crate::migration::MigrationConfig;
 
-const LOG: &str = "dmp-queue-undeploy-migration";
+pub(crate) const LOG: &str = "dmp-queue-export-xcms";
 
-/// Undeploy the DMP queue pallet.
-///
-/// Moves all storage from the pallet to a new Queue handler. Afterwards the storage of the DMP
-/// should be purged with [DeleteDmpQueue].
-pub struct UndeployDmpQueue<T: MigrationConfig>(PhantomData<T>);
+#[frame_support::pallet]
+pub mod pallet {
+	use super::*;
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+	use sp_io::hashing::twox_128;
 
-/// Delete the DMP pallet. Should only be used once the DMP pallet is removed from the runtime and
-/// after [UndeployDmpQueue].
-pub type DeleteDmpQueue<T> = frame_support::migrations::RemovePallet<
-	<T as MigrationConfig>::PalletName,
-	<T as MigrationConfig>::DbWeight,
->;
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
 
-/// Subset of the DMP queue config required for [UndeployDmpQueue].
-pub trait MigrationConfig {
-	/// Name of the previously deployed DMP queue pallet.
-	type PalletName: Get<&'static str>;
-
-	/// New handler for the messages.
-	type DmpHandler: HandleMessage;
-
-	// The weight info for the runtime.
-	type DbWeight: Get<frame_support::weights::RuntimeDbWeight>;
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
-struct PageIndexData {
-	/// The lowest used page index.
-	begin_used: PageCounter,
-	/// The lowest unused page index.
-	end_used: PageCounter,
-	/// The number of overweight messages ever recorded (and thus the lowest free index).
-	overweight_count: OverweightIndex,
-}
-
-type OverweightIndex = u64;
-type PageCounter = u32;
-
-#[storage_alias(dynamic)]
-type PageIndex<T: MigrationConfig> =
-	StorageValue<<T as MigrationConfig>::PalletName, PageIndexData, ValueQuery>;
-
-#[storage_alias(dynamic)]
-type Pages<T: MigrationConfig> = StorageMap<
-	<T as MigrationConfig>::PalletName,
-	Blake2_128Concat,
-	PageCounter,
-	Vec<(RelayBlockNumber, Vec<u8>)>,
-	ValueQuery,
->;
-
-#[storage_alias(dynamic)]
-type Overweight<T: MigrationConfig> = CountedStorageMap<
-	<T as MigrationConfig>::PalletName,
-	Blake2_128Concat,
-	OverweightIndex,
-	(RelayBlockNumber, Vec<u8>),
-	OptionQuery,
->;
-
-impl<T: MigrationConfig> OnRuntimeUpgrade for UndeployDmpQueue<T> {
-	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
-		let index = PageIndex::<T>::get();
-
-		// Check that all pages are present.
-		ensure!(index.begin_used <= index.end_used, "Invalid page index");
-		for p in index.begin_used..index.end_used {
-			ensure!(Pages::<T>::contains_key(p), "Missing page");
-			ensure!(Pages::<T>::get(p).len() > 0, "Empty page");
-		}
-
-		// Check that all overweight messages are present.
-		for i in 0..index.overweight_count {
-			ensure!(Overweight::<T>::contains_key(i), "Missing overweight message");
-		}
-
-		Ok(Default::default())
+	#[pallet::config]
+	pub trait Config: frame_system::Config + MigrationConfig {
+		/// The overarching event type of the runtime.
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
-	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-		let index = PageIndex::<T>::get();
+	#[pallet::storage]
+	pub type MigrationStatus<T> = StorageValue<_, MigrationState, ValueQuery>;
 
-		// Check that all pages are removed.
-		for p in index.begin_used..index.end_used {
-			ensure!(!Pages::<T>::contains_key(p), "Page should be gone");
-		}
-		ensure!(Pages::<T>::iter_keys().next().is_none(), "Un-indexed pages");
-
-		// Check that all overweight messages are removed.
-		for i in 0..index.overweight_count {
-			ensure!(!Overweight::<T>::contains_key(i), "Overweight message should be gone");
-		}
-		ensure!(Overweight::<T>::iter_keys().next().is_none(), "Un-indexed overweight messages");
-
-		Ok(())
+	#[derive(
+		codec::Encode, codec::Decode, Debug, PartialEq, Eq, Clone, MaxEncodedLen, TypeInfo,
+	)]
+	pub enum MigrationState {
+		NotStarted,
+		StartedExport {
+			/// The next page that should be exported.
+			next_begin_used: PageCounter,
+		},
+		CompletedExport,
+		StartedOverweightExport {
+			/// The next overweight index that should be exported.
+			next_overweight_index: u64,
+		},
+		CompletedOverweightExport,
+		StartedCleanup {
+			cursor: Option<BoundedVec<u8, ConstU32<1024>>>,
+		},
+		Completed,
 	}
 
-	fn on_runtime_upgrade() -> Weight {
-		let index = PageIndex::<T>::get();
-		log::info!(target: LOG, "Page index: {index:?}");
-		let (mut messages_migrated, mut pages_migrated) = (0u32, 0u32);
+	impl Default for MigrationState {
+		fn default() -> Self {
+			Self::NotStarted
+		}
+	}
 
-		for p in index.begin_used..index.end_used {
-			let page = Pages::<T>::take(p);
-			log::info!(target: LOG, "Migrating page #{p} with {} messages ...", page.len());
-			if page.is_empty() {
-				log::error!(target: LOG, "Page #{p}: EMPTY - storage corrupted?");
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		StartedExport,
+		Exported { page: PageCounter },
+		CompletedExport,
+		StartedOverweightExport,
+		ExportedOverweight { index: OverweightIndex },
+		CompletedOverweightExport,
+		StartedCleanup,
+		CleanedSome { keys_removed: u32 },
+		Completed { error: bool },
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+			let state = MigrationStatus::<T>::get();
+			let index = PageIndex::<T>::get();
+			log::info!(target: LOG, "on_initialize: block={:?}, state={:?}, index={:?}", now, state, index);
+
+			match state {
+				MigrationState::NotStarted => {
+					log::info!(target: LOG, "Init export at page {}", index.begin_used);
+
+					MigrationStatus::<T>::put(MigrationState::StartedExport {
+						next_begin_used: index.begin_used,
+					});
+					Self::deposit_event(Event::StartedExport);
+				},
+				MigrationState::StartedExport { next_begin_used } => {
+					log::info!(target: LOG, "Exporting page {}", next_begin_used);
+
+					if next_begin_used == index.end_used {
+						MigrationStatus::<T>::put(MigrationState::CompletedExport);
+						Self::deposit_event(Event::CompletedExport);
+						log::info!(target: LOG, "CompletedExport");
+					} else {
+						migration::migrate_page::<T>(next_begin_used);
+
+						MigrationStatus::<T>::put(MigrationState::StartedExport {
+							next_begin_used: next_begin_used + 1,
+						});
+						Self::deposit_event(Event::Exported { page: next_begin_used });
+						log::info!(target: LOG, "Exported page {}", next_begin_used);
+					}
+				},
+				MigrationState::CompletedExport => {
+					log::info!(target: LOG, "Init export overweight at index 0");
+
+					MigrationStatus::<T>::put(MigrationState::StartedOverweightExport {
+						next_overweight_index: 0,
+					});
+					Self::deposit_event(Event::StartedOverweightExport);
+				},
+				MigrationState::StartedOverweightExport { next_overweight_index } => {
+					log::info!(target: LOG, "Exporting overweight index {}", next_overweight_index);
+
+					if next_overweight_index == index.overweight_count {
+						MigrationStatus::<T>::put(MigrationState::CompletedOverweightExport);
+						Self::deposit_event(Event::CompletedOverweightExport);
+						log::info!(target: LOG, "CompletedOverweightExport");
+					} else {
+						migration::migrate_overweight::<T>(next_overweight_index);
+
+						MigrationStatus::<T>::put(MigrationState::StartedOverweightExport {
+							next_overweight_index: next_overweight_index + 1,
+						});
+						Self::deposit_event(Event::ExportedOverweight {
+							index: next_overweight_index,
+						});
+						log::info!(target: LOG, "Exported overweight index {}", next_overweight_index);
+					}
+				},
+				MigrationState::CompletedOverweightExport => {
+					log::info!(target: LOG, "Init cleanup");
+
+					MigrationStatus::<T>::put(MigrationState::StartedCleanup { cursor: None });
+					Self::deposit_event(Event::StartedCleanup);
+				},
+				MigrationState::StartedCleanup { cursor } => {
+					log::info!(target: LOG, "Cleaning up");
+					let hashed_prefix =
+						twox_128(<T as MigrationConfig>::PalletName::get().as_bytes());
+
+					let result = frame_support::storage::unhashed::clear_prefix(
+						&hashed_prefix,
+						Some(2), // Somehow it does nothing when set to 1, so we set it to 2.
+						cursor.as_ref().map(|c| c.as_ref()),
+					);
+					Self::deposit_event(Event::CleanedSome { keys_removed: result.backend });
+					// GOTCHA: We delete *all* pallet storage; hence we also delete our own
+					// `MigrationState`. BUT we insert it back into storage:
+
+					if let Some(unbound_cursor) = result.maybe_cursor {
+						if let Ok(cursor) = unbound_cursor.try_into() {
+							log::info!(target: LOG, "Next cursor: {:?}", &cursor);
+							MigrationStatus::<T>::put(MigrationState::StartedCleanup {
+								cursor: Some(cursor),
+							});
+						} else {
+							MigrationStatus::<T>::put(MigrationState::Completed);
+							Self::deposit_event(Event::Completed { error: true });
+							log::info!(target: LOG, "Completed with error: could not bound cursor");
+						}
+					} else {
+						MigrationStatus::<T>::put(MigrationState::Completed);
+						Self::deposit_event(Event::Completed { error: false });
+						log::info!(target: LOG, "Completed");
+					}
+				},
+				MigrationState::Completed => {
+					log::info!(target: LOG, "Idle; you can remove the pallet");
+				},
 			}
 
-			for (m, (block, msg)) in page.iter().enumerate() {
-				let Ok(bound) = BoundedVec::<u8, _>::try_from(msg.clone()) else {
-					log::error!(target: LOG, "[Page {p}] Message #{m}: TOO LONG - ignoring");
-					continue;
-				};
-
-				T::DmpHandler::handle_message(bound.as_bounded_slice());
-				messages_migrated.saturating_inc();
-				log::info!(target: LOG, "[Page {p}] Migrated message #{m} from block {block}");
-			}
-			pages_migrated.saturating_inc();
+			Weight::MAX // FAIL-CI what do?
 		}
-
-		log::info!(target: LOG, "Migrated {messages_migrated} messages from {pages_migrated} pages");
-
-		// Now migrate the overweight messages.
-		let mut overweight_migrated = 0u32;
-		log::info!(target: LOG, "Migrating {} overweight messages ...", index.overweight_count);
-
-		for i in 0..index.overweight_count {
-			let Some((block, msg)) = Overweight::<T>::take(i) else {
-				log::error!(target: LOG, "[Overweight {i}] Message: EMPTY - storage corrupted?");
-				continue;
-			};
-			let Ok(bound) = BoundedVec::<u8, _>::try_from(msg) else {
-				log::error!(target: LOG, "[Overweight {i}] Message: TOO LONG - ignoring");
-				continue;
-			};
-
-			T::DmpHandler::handle_message(bound.as_bounded_slice());
-			overweight_migrated.saturating_inc();
-			log::info!(target: LOG, "[Overweight {i}] Migrated message from block {block}");
-		}
-
-		Weight::zero() // FAIL-CI
 	}
 }
