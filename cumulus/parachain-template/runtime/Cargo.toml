@@ -5,8 +5,8 @@ authors = ["Anonymous"]
 description = "A new Cumulus FRAME-based Substrate Runtime, ready for hacking together a parachain."
 license = "Unlicense"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/cumulus/"
-edition = "2021"
+repository.workspace = true
+edition.workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -56,9 +56,9 @@ sp-version = { path = "../../../substrate/primitives/version", default-features 
 pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false}
 polkadot-parachain = { path = "../../../polkadot/parachain", default-features = false}
 polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false}
-xcm = { path = "../../../polkadot/xcm", default-features = false}
-xcm-builder = { path = "../../../polkadot/xcm/xcm-builder", default-features = false}
-xcm-executor = { path = "../../../polkadot/xcm/xcm-executor", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false}
+xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false}
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../pallets/aura-ext", default-features = false }
