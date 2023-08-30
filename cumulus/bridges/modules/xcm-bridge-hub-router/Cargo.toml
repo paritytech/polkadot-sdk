@@ -26,8 +26,8 @@ sp-std = { path = "../../../../substrate/primitives/std", default-features = fal
 
 # Polkadot Dependencies
 
-xcm = { path = "../../../../polkadot/xcm", default-features = false }
-xcm-builder = { path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
 
 [dev-dependencies]
 sp-io = { path = "../../../../substrate/primitives/io" }
