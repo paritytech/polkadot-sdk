@@ -21,10 +21,8 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 variables:
-  CI_IMAGE: "paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706"
-  # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
-  BUILDAH_IMAGE: "quay.io/buildah/stable:v1.29"
+  # BUILDAH_IMAGE is defined in group variables
   CACHE_COMPRESSION_LEVEL: "fastest"
   CI_IMAGE: "paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706"
   DOCKER_IMAGES_VERSION: "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
