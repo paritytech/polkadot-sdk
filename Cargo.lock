@@ -17897,6 +17897,7 @@ version = "1.0.0"
 dependencies = [
  "bounded-collections",
  "derivative",
+ "environmental",
  "hex",
  "hex-literal 0.4.1",
  "impl-trait-for-tuples",

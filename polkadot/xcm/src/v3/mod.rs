@@ -22,7 +22,7 @@ use super::v2::{
 };
 use crate::{DoubleEncoded, GetWeight};
 use alloc::{vec, vec::Vec};
-use bounded_collections::{parameter_types, BoundedVec, ConstU32};
+use bounded_collections::{parameter_types, BoundedVec};
 use core::{
 	convert::{TryFrom, TryInto},
 	fmt::Debug,
@@ -31,6 +31,7 @@ use core::{
 use derivative::Derivative;
 use parity_scale_codec::{
 	self, Decode, Encode, Error as CodecError, Input as CodecInput, MaxEncodedLen,
+	Compact, decode_vec_with_len,
 };
 use scale_info::TypeInfo;
 
@@ -69,13 +70,24 @@ pub type QueryId = u64;
 #[scale_info(bounds(), skip_type_params(Call))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
-const MAX_INSTRUCTIONS_TO_DECODE: u32 = 100;
+const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
+
+environmental::environmental!(instructions_count: u8);
 
 impl<Call> Decode for Xcm<Call> {
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
-		let bounded_instructions =
-			BoundedVec::<Instruction<Call>, ConstU32<MAX_INSTRUCTIONS_TO_DECODE>>::decode(input)?;
-		Ok(Self(bounded_instructions.into_inner()))
+		instructions_count::using_once(&mut 0, || {
+			let number_of_instructions: u32 = <Compact<u32>>::decode(input)?.into();
+			instructions_count::with(|count| {
+				*count = count.saturating_add(number_of_instructions as u8);
+				if *count > MAX_INSTRUCTIONS_TO_DECODE {
+					return Err(CodecError::from("Max instructions exceeded"));
+				}
+				Ok(())
+			}).unwrap_or(Ok(()))?;
+			let decoded_instructions = decode_vec_with_len(input, number_of_instructions as usize)?;
+			Ok(Self(decoded_instructions))
+		})
 	}
 }
 
@@ -1440,14 +1452,23 @@ mod tests {
 	}
 
 	#[test]
-	fn decoding_fails_when_too_many_instructions() {
-		let small_xcm = Xcm::<()>(vec![ClearOrigin; 20]);
-		let bytes = small_xcm.encode();
+	fn decoding_limits() {
+		let max_xcm = Xcm::<()>(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE as usize]);
+		let bytes = max_xcm.encode();
 		let decoded_xcm = Xcm::<()>::decode(&mut &bytes[..]);
 		assert!(matches!(decoded_xcm, Ok(_)));
 
-		let big_xcm = Xcm::<()>(vec![ClearOrigin; 64_000]);
+		let big_xcm = Xcm::<()>(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE as usize + 1]);
 		let bytes = big_xcm.encode();
+		let decoded_xcm = Xcm::<()>::decode(&mut &bytes[..]);
+		assert!(matches!(decoded_xcm, Err(CodecError { .. })));
+
+		let nested_xcm = Xcm::<()>(vec![DepositReserveAsset {
+			assets: All.into(),
+			dest: Here.into(),
+			xcm: max_xcm,
+		}; (MAX_INSTRUCTIONS_TO_DECODE / 2) as usize]);
+		let bytes = nested_xcm.encode();
 		let decoded_xcm = Xcm::<()>::decode(&mut &bytes[..]);
 		assert!(matches!(decoded_xcm, Err(CodecError { .. })));
 	}

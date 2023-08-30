@@ -16,6 +16,7 @@ scale-info = { version = "2.5.0", default-features = false, features = ["derive"
 sp-weights = { path = "../../substrate/primitives/weights", default-features = false, features = ["serde"] }
 serde = { version = "1.0.188", default-features = false, features = ["alloc", "derive"] }
 xcm-procedural = { path = "procedural" }
+environmental = { version = "1.1.4", default-features = false }
 
 [dev-dependencies]
 sp-io = { path = "../../substrate/primitives/io" }
@@ -28,6 +29,7 @@ wasm-api = []
 std = [
 	"bounded-collections/std",
 	"parity-scale-codec/std",
+	"environmental/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-weights/std",
