@@ -22,13 +22,14 @@ use crate::{
 	schema::v1::{StateRequest, StateResponse},
 	state::{ImportResult, StateSync},
 };
+use futures::channel::oneshot;
 use log::error;
 use sc_client_api::ProofProvider;
 use sc_network_common::sync::{
 	message::{BlockAttributes, BlockData, BlockRequest, Direction, FromBlock},
 	warp::{
-		EncodedProof, VerificationResult, WarpProofRequest, WarpSyncConfig, WarpSyncPhase,
-		WarpSyncProgress, WarpSyncProvider,
+		EncodedProof, VerificationResult, WarpProofRequest, WarpSyncPhase, WarpSyncProgress,
+		WarpSyncProvider,
 	},
 };
 use sp_blockchain::HeaderBackend;
@@ -38,6 +39,39 @@ use std::sync::Arc;
 
 /// Log target for this file.
 const LOG_TARGET: &'static str = "sync";
+
+/// The different types of warp syncing, passed to `build_network`.
+pub enum WarpSyncParams<Block: BlockT> {
+	/// Standard warp sync for the chain.
+	WithProvider(Arc<dyn WarpSyncProvider<Block>>),
+	/// Skip downloading proofs and wait for a header of the state that should be downloaded.
+	///
+	/// It is expected that the header provider ensures that the header is trusted.
+	WaitForTarget(oneshot::Receiver<<Block as BlockT>::Header>),
+}
+
+/// Warp sync configuration as accepted by [`WarpSync`].
+pub enum WarpSyncConfig<Block: BlockT> {
+	/// Standard warp sync for the chain.
+	WithProvider(Arc<dyn WarpSyncProvider<Block>>),
+	/// Skip downloading proofs and wait for a header of the state that should be downloaded.
+	///
+	/// It is expected that the header provider ensures that the header is trusted.
+	WaitForTarget,
+}
+
+impl<Block: BlockT> WarpSyncParams<Block> {
+	/// Split `WarpSyncParams` into `WarpSyncConfig` and warp sync target block header receiver.
+	pub fn split(
+		self,
+	) -> (WarpSyncConfig<Block>, Option<oneshot::Receiver<<Block as BlockT>::Header>>) {
+		match self {
+			WarpSyncParams::WithProvider(provider) =>
+				(WarpSyncConfig::WithProvider(provider), None),
+			WarpSyncParams::WaitForTarget(rx) => (WarpSyncConfig::WaitForTarget, Some(rx)),
+		}
+	}
+}
 
 /// Warp sync phase.
 enum Phase<B: BlockT, Client> {

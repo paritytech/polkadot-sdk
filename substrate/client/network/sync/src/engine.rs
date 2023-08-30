@@ -21,6 +21,7 @@
 
 use crate::{
 	service::{self, chain_sync::ToServiceCommand},
+	warp::WarpSyncParams,
 	ChainSync, ClientError, SyncingService,
 };
 
@@ -44,7 +45,6 @@ use sc_network_common::{
 	role::Roles,
 	sync::{
 		message::{BlockAnnounce, BlockAnnouncesHandshake, BlockState},
-		warp::WarpSyncParams,
 		BadPeer, ChainSync as ChainSyncT, ExtendedPeerInfo, PollBlockAnnounceValidation, SyncEvent,
 	},
 };

@@ -32,7 +32,7 @@ use crate::{
 	blocks::BlockCollection,
 	schema::v1::{StateRequest, StateResponse},
 	state::StateSync,
-	warp::{WarpProofImportResult, WarpSync},
+	warp::{WarpProofImportResult, WarpSync, WarpSyncConfig},
 };
 
 use codec::{Decode, DecodeAll, Encode};
@@ -63,7 +63,7 @@ use sc_network_common::{
 			BlockAnnounce, BlockAnnouncesHandshake, BlockAttributes, BlockData, BlockRequest,
 			BlockResponse, Direction, FromBlock,
 		},
-		warp::{EncodedProof, WarpProofRequest, WarpSyncConfig, WarpSyncPhase, WarpSyncProgress},
+		warp::{EncodedProof, WarpProofRequest, WarpSyncPhase, WarpSyncProgress},
 		BadPeer, ChainSync as ChainSyncT, ImportResult, Metrics, OnBlockData, OnBlockJustification,
 		OnStateData, OpaqueBlockRequest, OpaqueBlockResponse, OpaqueStateRequest,
 		OpaqueStateResponse, PeerInfo, PeerRequest, PollBlockAnnounceValidation, SyncMode,
