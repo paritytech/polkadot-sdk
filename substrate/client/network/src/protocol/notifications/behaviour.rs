@@ -4717,14 +4717,17 @@ mod tests {
                             },
                             FromSwarm::ConnectionClosed(_) => {
                                 if matches!(entry_before, None) {
+									// this is a forbidden state (debug_panic)
 									continue
 								}
 								if matches!(entry_before, Some(PeerState::Requested | PeerState::PendingRequest { .. } | PeerState::Backoff { .. } | PeerState::Poisoned)) {
+									// these are forbidden states (debug_panic)
 									continue
 								}
                             },
                             FromSwarm::DialFailure(_) => {
                                 if matches!(entry_before, Some(PeerState::Poisoned)) {
+									// this is a forbidden state (debug_panic)
 									continue
 								}
                             },
