@@ -26,7 +26,13 @@ use crate::{
 
 use bitflags::bitflags;
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
-use frame_support::{ensure, traits::Get, weights::Weight};
+use frame_support::{
+	dispatch::{DispatchError, DispatchInfo},
+	ensure,
+	pallet_prelude::DispatchResultWithPostInfo,
+	traits::Get,
+	weights::Weight,
+};
 use pallet_contracts_primitives::{ExecReturnValue, ReturnFlags};
 use pallet_contracts_proc_macro::define_env;
 use sp_io::hashing::{blake2_128, blake2_256, keccak_256, sha2_256};
@@ -262,8 +268,6 @@ pub enum RuntimeCosts {
 	ChainExtension(Weight),
 	/// Weight charged for calling into the runtime.
 	CallRuntime(Weight),
-	/// Weight charged for Executing an XCM message.
-	XcmExecute(Weight),
 	/// Weight of calling `seal_set_code_hash`
 	SetCodeHash,
 	/// Weight of calling `ecdsa_to_eth_address`
@@ -354,7 +358,6 @@ impl RuntimeCosts {
 				.saturating_add(s.sr25519_verify_per_byte.saturating_mul(len.into())),
 			ChainExtension(weight) => weight,
 			CallRuntime(weight) => weight,
-			XcmExecute(weight) => weight,
 			SetCodeHash => s.set_code_hash,
 			EcdsaToEthAddress => s.ecdsa_to_eth_address,
 			ReentrantCount => s.reentrance_count,
@@ -561,6 +564,29 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 	pub fn adjust_gas(&mut self, charged: ChargedAmount, actual_costs: RuntimeCosts) {
 		let token = actual_costs.token(&self.ext.schedule().host_fn_weights);
 		self.ext.gas_meter_mut().adjust_gas(charged, token);
+	}
+
+	/// Charge, Run and adjust gas, for executing the given dispatchable.
+	fn call_dispatchable<F: FnOnce(&E) -> DispatchResultWithPostInfo>(
+		&mut self,
+		dispatch_info: DispatchInfo,
+		run: F,
+	) -> Result<ReturnCode, TrapReason> {
+		use frame_support::dispatch::extract_actual_weight;
+		let charged = self.charge_gas(RuntimeCosts::CallRuntime(dispatch_info.weight))?;
+		let result = run(self.ext);
+		let actual_weight = extract_actual_weight(&result, &dispatch_info);
+		self.adjust_gas(charged, RuntimeCosts::CallRuntime(actual_weight));
+		match result {
+			Ok(_) => Ok(ReturnCode::Success),
+			Err(e) => {
+				if self.ext.append_debug_buffer("") {
+					self.ext.append_debug_buffer("call failed with: ");
+					self.ext.append_debug_buffer(e.into());
+				};
+				Ok(ReturnCode::CallRuntimeFailed)
+			},
+		}
 	}
 
 	/// Read designated chunk from the sandbox memory.
@@ -1028,6 +1054,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 // for every function.
 #[define_env(doc)]
 pub mod env {
+
 	/// Set the value at the given key in the contract storage.
 	///
 	/// Equivalent to the newer [`seal1`][`super::api_doc::Version1::set_storage`] version with the
@@ -2610,25 +2637,11 @@ pub mod env {
 		call_ptr: u32,
 		call_len: u32,
 	) -> Result<ReturnCode, TrapReason> {
-		use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo};
+		use frame_support::dispatch::GetDispatchInfo;
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
 		let call: <E::T as Config>::RuntimeCall =
 			ctx.read_sandbox_memory_as_unbounded(memory, call_ptr, call_len)?;
-		let dispatch_info = call.get_dispatch_info();
-		let charged = ctx.charge_gas(RuntimeCosts::CallRuntime(dispatch_info.weight))?;
-		let result = ctx.ext.call_runtime(call);
-		let actual_weight = extract_actual_weight(&result, &dispatch_info);
-		ctx.adjust_gas(charged, RuntimeCosts::CallRuntime(actual_weight));
-		match result {
-			Ok(_) => Ok(ReturnCode::Success),
-			Err(e) => {
-				if ctx.ext.append_debug_buffer("") {
-					ctx.ext.append_debug_buffer("seal0::call_runtime failed with: ");
-					ctx.ext.append_debug_buffer(e.into());
-				};
-				Ok(ReturnCode::CallRuntimeFailed)
-			},
-		}
+		ctx.call_dispatchable(call.get_dispatch_info(), |ext| ext.call_runtime(call))
 	}
 
 	fn xcm_execute(
@@ -2639,7 +2652,7 @@ pub mod env {
 		max_weight_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
 		use crate::exec::CallOf;
-		use frame_support::dispatch::{extract_actual_weight, DispatchInfo};
+		use frame_support::dispatch::DispatchInfo;
 		use pallet_xcm::WeightInfo;
 		use xcm::VersionedXcm;
 
@@ -2650,20 +2663,34 @@ pub mod env {
 
 		let weight = max_weight.saturating_add(<E::T as pallet_xcm::Config>::WeightInfo::execute());
 		let dispatch_info = DispatchInfo { weight, ..Default::default() };
+		ctx.call_dispatchable(dispatch_info, |ext| ext.xcm_execute(message, max_weight))
+	}
 
-		let charged = ctx.charge_gas(RuntimeCosts::XcmExecute(weight))?;
-		let result = ctx.ext.xcm_execute(message, max_weight);
-		let actual_weight = extract_actual_weight(&result, &dispatch_info);
-		ctx.adjust_gas(charged, RuntimeCosts::XcmExecute(actual_weight));
+	fn xcm_send(
+		ctx: _,
+		memory: _,
+		call_ptr: u32,
+		call_len: u32,
+		dest_ptr: u32,
+	) -> Result<ReturnCode, TrapReason> {
+		use pallet_xcm::WeightInfo;
+		use xcm::{VersionedMultiLocation, VersionedXcm};
 
-		match result {
+		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
+		let dest: VersionedMultiLocation = ctx.read_sandbox_memory_as(memory, dest_ptr)?;
+		let message: VersionedXcm<()> =
+			ctx.read_sandbox_memory_as_unbounded(memory, call_ptr, call_len)?;
+
+		let weight = <E::T as pallet_xcm::Config>::WeightInfo::send();
+		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
+		match ctx.ext.xcm_send(dest, message) {
 			Ok(_) => Ok(ReturnCode::Success),
 			Err(e) => {
 				if ctx.ext.append_debug_buffer("") {
-					ctx.ext.append_debug_buffer("seal0::xcm_execute failed with: ");
+					ctx.ext.append_debug_buffer("call failed with: ");
 					ctx.ext.append_debug_buffer(e.into());
 				};
-				Ok(ReturnCode::XcmExcuteFailed)
+				Ok(ReturnCode::CallRuntimeFailed)
 			},
 		}
 	}

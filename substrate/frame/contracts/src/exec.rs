@@ -50,7 +50,7 @@ use sp_runtime::{
 	DispatchError,
 };
 use sp_std::{fmt::Debug, marker::PhantomData, mem, prelude::*, vec::Vec};
-use xcm::VersionedXcm;
+use xcm::{VersionedMultiLocation, VersionedXcm};
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type MomentOf<T> = <<T as Config>::Time as Time>::Moment;
@@ -352,10 +352,12 @@ pub trait Ext: sealing::Sealed {
 
 	/// Execute an XCM message locally, using the contract's address as the origin.
 	fn xcm_execute(
-		&mut self,
-		message: VersionedXcm<CallOf<Self::T>>,
+		&self,
+		msg: VersionedXcm<CallOf<Self::T>>,
 		max_weight: Weight,
 	) -> DispatchResultWithPostInfo;
+
+	fn xcm_send(&self, dest: VersionedMultiLocation, msg: VersionedXcm<()>) -> DispatchResult;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -1458,12 +1460,17 @@ where
 	}
 
 	fn xcm_execute(
-		&mut self,
+		&self,
 		message: VersionedXcm<CallOf<T>>,
 		max_weight: Weight,
 	) -> DispatchResultWithPostInfo {
 		let origin = RawOrigin::Signed(self.address().clone()).into();
 		pallet_xcm::Pallet::<T>::execute(origin, Box::new(message), max_weight)
+	}
+
+	fn xcm_send(&self, dest: VersionedMultiLocation, msg: VersionedXcm<()>) -> DispatchResult {
+		let origin = RawOrigin::Signed(self.address().clone()).into();
+		pallet_xcm::Pallet::<T>::send(origin, Box::new(dest), Box::new(msg))
 	}
 
 	fn ecdsa_recover(&self, signature: &[u8; 65], message_hash: &[u8; 32]) -> Result<[u8; 33], ()> {
