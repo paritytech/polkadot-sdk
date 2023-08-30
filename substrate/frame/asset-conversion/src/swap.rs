@@ -18,6 +18,8 @@
 //! TODO
 
 use super::*;
+use frame_support::storage::with_transaction;
+use sp_runtime::TransactionOutcome;
 
 /// Trait for providing methods to swap between the various asset classes.
 pub trait Swap<AccountId, Balance, MultiAssetId> {
@@ -62,16 +64,22 @@ pub trait SwapCredit<AccountId, MultiAssetId, Credit> {
 	type Balance;
 	/// TODO
 	fn swap_exact_tokens_for_tokens(
+		sender: AccountId,
 		path: Vec<MultiAssetId>,
 		credit_in: Credit,
 		amount_out_min: Option<Self::Balance>,
+		send_to: AccountId,
+		keep_alive: bool,
 	) -> Result<Credit, (Credit, DispatchError)>;
 
 	/// TODO
 	fn swap_tokens_for_exact_tokens(
+		sender: AccountId,
 		path: Vec<MultiAssetId>,
 		amount_out: Self::Balance,
 		credit_in: Credit,
+		send_to: AccountId,
+		keep_alive: bool,
 	) -> Result<(Credit, Credit), (Credit, DispatchError)>;
 }
 
@@ -85,16 +93,27 @@ impl<T: Config> Swap<T::AccountId, T::AssetBalance, T::MultiAssetId> for Pallet<
 		keep_alive: bool,
 	) -> Result<T::AssetBalance, DispatchError> {
 		let path = path.try_into().map_err(|_| Error::<T>::PathError)?;
-		// TODO ready / wrap `with_transaction`
-		let amount_out = Self::do_swap_exact_tokens_for_tokens(
-			sender,
-			path,
-			amount_in,
-			amount_out_min,
-			send_to,
-			keep_alive,
-		)?;
-		Ok(amount_out)
+
+		let transaction = with_transaction(|| {
+			let swap = Self::do_swap_exact_tokens_for_tokens(
+				sender,
+				path,
+				amount_in,
+				amount_out_min,
+				send_to,
+				keep_alive,
+			);
+
+			match &swap {
+				Ok(_) => TransactionOutcome::Commit(swap),
+				_ => TransactionOutcome::Rollback(swap),
+			}
+		});
+
+		return match transaction {
+			Ok(out) => Ok(out),
+			Err(err) => Err(err),
+		}
 	}
 
 	fn swap_tokens_for_exact_tokens(
@@ -106,16 +125,27 @@ impl<T: Config> Swap<T::AccountId, T::AssetBalance, T::MultiAssetId> for Pallet<
 		keep_alive: bool,
 	) -> Result<T::AssetBalance, DispatchError> {
 		let path = path.try_into().map_err(|_| Error::<T>::PathError)?;
-		// TODO ready / wrap `with_transaction`
-		let amount_in = Self::do_swap_tokens_for_exact_tokens(
-			sender,
-			path,
-			amount_out,
-			amount_in_max,
-			send_to,
-			keep_alive,
-		)?;
-		Ok(amount_in)
+
+		let transaction = with_transaction(|| {
+			let swap = Self::do_swap_tokens_for_exact_tokens(
+				sender,
+				path,
+				amount_out,
+				amount_in_max,
+				send_to,
+				keep_alive,
+			);
+
+			match &swap {
+				Ok(_) => TransactionOutcome::Commit(swap),
+				_ => TransactionOutcome::Rollback(swap),
+			}
+		});
+
+		return match transaction {
+			Ok(out) => Ok(out),
+			Err(err) => Err(err),
+		}
 	}
 }
 
@@ -125,9 +155,12 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 
 	/// TODO
 	fn swap_exact_tokens_for_tokens(
+		sender: T::AccountId,
 		path: Vec<T::MultiAssetId>,
 		credit_in: Credit<T>,
 		amount_out_min: Option<Self::Balance>,
+		send_to: T::AccountId,
+		keep_alive: bool,
 	) -> Result<Credit<T>, (Credit<T>, DispatchError)> {
 		// TODO ready / implementation
 
@@ -138,13 +171,20 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 	}
 
 	/// TODO
+	/// Added sender, send_to and keep_alive since these are needed
+	/// for the initial withdraw and then resolve
 	fn swap_tokens_for_exact_tokens(
+		sender: T::AccountId,
 		path: Vec<T::MultiAssetId>,
 		amount_out: Self::Balance,
 		credit_in: Credit<T>,
+		send_to: T::AccountId,
+		keep_alive: bool,
 	) -> Result<(Credit<T>, Credit<T>), (Credit<T>, DispatchError)> {
 		ensure!(amount_out > Zero::zero(), (credit_in, Error::<T>::ZeroAmount.into()));
 		ensure!(credit_in.peek() > Zero::zero(), (credit_in, Error::<T>::ZeroAmount.into()));
+
+		// TODO validate swap path (unique pools)
 
 		let (credit_in, path) =
 			path.try_into().map_with_prefix(credit_in, |_| Error::<T>::PathError.into())?;
@@ -165,9 +205,23 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 		);
 		let (credit_in, credit_change) = credit_in.split(*amount_in);
 
-		// TODO ready / wrap `with_transaction`
-		// TODO ready / swap
+		// let balance_paths = Self::balance_path_from_amount_out(amount_out, path)
+		// 	.map_with_prefix(credit_in, |e| e)?;
 
-		Err((credit_in, Error::<T>::PoolNotFound.into()))
+		let transaction = with_transaction(|| {
+			// TODO
+			// `withdraw_and_swap` does not get a credit out
+			let swap = Self::withdraw_and_swap(sender, &amounts, path, send_to, keep_alive);
+
+			match &swap {
+				Ok(_) => TransactionOutcome::Commit(swap),
+				_ => TransactionOutcome::Rollback(swap),
+			}
+		});
+
+		return match transaction {
+			Ok(out) => Ok((out, credit_change)),
+			Err(err) => Err(err),
+		}
 	}
 }

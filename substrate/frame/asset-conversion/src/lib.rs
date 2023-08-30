@@ -916,13 +916,10 @@ pub mod pallet {
 		}
 
 		/// TODO
-		///
-		/// TODO ready / accept crate::BalancePath instead `amounts` and `path`
 		/// see Self::balance_path_from_amount_out(...)
 		pub(crate) fn do_swap(
 			credit_in: Credit<T>,
-			amounts: &Vec<T::AssetBalance>,
-			path: Path<T>,
+			balance_paths: BalancePath<T>,
 		) -> Result<Credit<T>, (Credit<T>, DispatchError)> {
 			return Err((credit_in, Error::<T>::InvalidPath.into()))
 		}
