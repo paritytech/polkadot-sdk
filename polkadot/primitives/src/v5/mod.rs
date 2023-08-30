@@ -1009,7 +1009,7 @@ impl<H, N> OccupiedCore<H, N> {
 pub struct ScheduledCore {
 	/// The ID of a para scheduled.
 	pub para_id: Id,
-	/// DEPRECATED: see: https://github.com/paritytech/polkadot/issues/7575
+	/// DEPRECATED: see: <https://github.com/paritytech/polkadot/issues/7575>
 	///
 	/// Will be removed in a future version.
 	pub collator: Option<CollatorId>,
@@ -1735,8 +1735,8 @@ pub struct SessionInfo {
 	///
 	/// Therefore:
 	/// ```ignore
-	/// 		assignment_keys.len() == validators.len() && validators.len() <= discovery_keys.len()
-	/// 	```
+	/// 	assignment_keys.len() == validators.len() && validators.len() <= discovery_keys.len()
+	/// ```
 	pub assignment_keys: Vec<AssignmentId>,
 	/// Validators in shuffled ordering - these are the validator groups as produced
 	/// by the `Scheduler` module for the session and are typically referred to by

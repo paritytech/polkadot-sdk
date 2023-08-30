@@ -2366,9 +2366,9 @@ dependencies = [
 
 [[package]]
 name = "chrono"
-version = "0.4.26"
+version = "0.4.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec837a71355b28f6556dbd569b37b3f363091c0bd4b2e735674521b4c5fd9bc5"
+checksum = "f56b4c72906975ca04becb8a30e102dfecddd0c06181e3e95ddc444be28881f8"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
@@ -2376,7 +2376,7 @@ dependencies = [
  "num-traits",
  "time 0.1.45",
  "wasm-bindgen",
- "winapi",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -3332,7 +3332,6 @@ dependencies = [
  "cumulus-primitives-parachain-inherent",
  "cumulus-relay-chain-interface",
  "futures",
- "lru 0.10.1",
  "parity-scale-codec",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
@@ -3344,6 +3343,7 @@ dependencies = [
  "sc-consensus-babe",
  "sc-consensus-slots",
  "sc-telemetry",
+ "schnellru",
  "sp-api",
  "sp-application-crypto",
  "sp-block-builder",
@@ -3822,7 +3822,6 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-rpc-interface",
  "futures",
- "lru 0.11.0",
  "polkadot-availability-recovery",
  "polkadot-collator-protocol",
  "polkadot-core-primitives",
@@ -3839,6 +3838,7 @@ dependencies = [
  "sc-service",
  "sc-tracing",
  "sc-utils",
+ "schnellru",
  "sp-api",
  "sp-consensus",
  "sp-consensus-babe",
@@ -3857,7 +3857,6 @@ dependencies = [
  "futures",
  "futures-timer",
  "jsonrpsee",
- "lru 0.11.0",
  "parity-scale-codec",
  "pin-project",
  "polkadot-overseer",
@@ -3865,6 +3864,7 @@ dependencies = [
  "sc-client-api",
  "sc-rpc-api",
  "sc-service",
+ "schnellru",
  "serde",
  "serde_json",
  "smoldot",
@@ -7765,9 +7765,6 @@ name = "lru"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eedb2bdbad7e0634f83989bf596f497b070130daaa398ab22d84c39e266deec5"
-dependencies = [
- "hashbrown 0.14.0",
-]
 
 [[package]]
 name = "lru-cache"
@@ -11696,7 +11693,6 @@ dependencies = [
  "fatality",
  "futures",
  "futures-timer",
- "lru 0.11.0",
  "parity-scale-codec",
  "polkadot-erasure-coding",
  "polkadot-node-network-protocol",
@@ -11708,6 +11704,7 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "rand 0.8.5",
  "sc-network",
+ "schnellru",
  "sp-core",
  "sp-keyring",
  "sp-keystore",
@@ -11726,7 +11723,6 @@ dependencies = [
  "futures",
  "futures-timer",
  "log",
- "lru 0.11.0",
  "parity-scale-codec",
  "polkadot-erasure-coding",
  "polkadot-node-network-protocol",
@@ -11738,6 +11734,7 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "rand 0.8.5",
  "sc-network",
+ "schnellru",
  "sp-application-crypto",
  "sp-core",
  "sp-keyring",
@@ -11827,7 +11824,6 @@ dependencies = [
  "futures-timer",
  "indexmap 1.9.3",
  "lazy_static",
- "lru 0.11.0",
  "parity-scale-codec",
  "polkadot-erasure-coding",
  "polkadot-node-network-protocol",
@@ -11839,6 +11835,7 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "sc-keystore",
  "sc-network",
+ "schnellru",
  "sp-application-crypto",
  "sp-keyring",
  "sp-keystore",
@@ -11951,7 +11948,6 @@ dependencies = [
  "futures-timer",
  "kvdb",
  "kvdb-memorydb",
- "lru 0.11.0",
  "merlin 2.0.1",
  "parity-scale-codec",
  "parking_lot 0.12.1",
@@ -11965,6 +11961,7 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "rand_core 0.5.1",
  "sc-keystore",
+ "schnellru",
  "schnorrkel 0.9.1",
  "sp-application-crypto",
  "sp-consensus",
@@ -12125,7 +12122,6 @@ dependencies = [
  "futures-timer",
  "kvdb",
  "kvdb-memorydb",
- "lru 0.11.0",
  "parity-scale-codec",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
@@ -12134,6 +12130,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "sc-keystore",
+ "schnellru",
  "sp-application-crypto",
  "sp-core",
  "sp-keyring",
@@ -12333,7 +12330,6 @@ version = "1.0.0"
 dependencies = [
  "async-trait",
  "futures",
- "lru 0.11.0",
  "polkadot-node-metrics",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
@@ -12341,6 +12337,7 @@ dependencies = [
  "polkadot-node-subsystem-types",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "schnellru",
  "sp-api",
  "sp-consensus-babe",
  "sp-core",
@@ -12504,7 +12501,6 @@ dependencies = [
  "kvdb-shared-tests",
  "lazy_static",
  "log",
- "lru 0.11.0",
  "parity-db",
  "parity-scale-codec",
  "parking_lot 0.11.2",
@@ -12520,6 +12516,7 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "prioritized-metered-channel",
  "rand 0.8.5",
+ "schnellru",
  "sp-application-crypto",
  "sp-core",
  "sp-keystore",
@@ -12537,7 +12534,6 @@ dependencies = [
  "femme",
  "futures",
  "futures-timer",
- "lru 0.11.0",
  "orchestra",
  "parking_lot 0.12.1",
  "polkadot-node-metrics",
@@ -12548,6 +12544,7 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "prioritized-metered-channel",
  "sc-client-api",
+ "schnellru",
  "sp-api",
  "sp-core",
  "tikv-jemalloc-ctl",
@@ -12992,7 +12989,6 @@ dependencies = [
  "kvdb",
  "kvdb-rocksdb",
  "log",
- "lru 0.11.0",
  "mmr-gadget",
  "pallet-babe",
  "pallet-im-online",
@@ -13066,6 +13062,7 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
+ "schnellru",
  "serde",
  "serde_json",
  "serial_test",
