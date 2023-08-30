@@ -94,8 +94,8 @@ pub struct HostConfiguration<BlockNumber> {
 	///
 	/// If PVF pre-checking is enabled this should be greater than the maximum number of blocks
 	/// PVF pre-checking can take. Intuitively, this number should be greater than the duration
-	/// specified by [`pvf_voting_ttl`]. Unlike, [`pvf_voting_ttl`], this parameter uses blocks
-	/// as a unit.
+	/// specified by [`pvf_voting_ttl`](Self::pvf_voting_ttl). Unlike,
+	/// [`pvf_voting_ttl`](Self::pvf_voting_ttl), this parameter uses blocks as a unit.
 	#[cfg_attr(feature = "std", serde(alias = "validation_upgrade_frequency"))]
 	pub validation_upgrade_cooldown: BlockNumber,
 	/// The delay, in blocks, after which an upgrade of the validation code is applied.
@@ -113,14 +113,15 @@ pub struct HostConfiguration<BlockNumber> {
 	/// been completed.
 	///
 	/// Note, there are situations in which `expected_at` in the past. For example, if
-	/// [`paras_availability_period`] is less than the delay set by
-	/// this field or if PVF pre-check took more time than the delay. In such cases, the upgrade is
-	/// further at the earliest possible time determined by [`minimum_validation_upgrade_delay`].
+	/// [`paras_availability_period`](Self::paras_availability_period) is less than the delay set
+	/// by this field or if PVF pre-check took more time than the delay. In such cases, the upgrade
+	/// is further at the earliest possible time determined by
+	/// [`minimum_validation_upgrade_delay`](Self::minimum_validation_upgrade_delay).
 	///
 	/// The rationale for this delay has to do with relay-chain reversions. In case there is an
 	/// invalid candidate produced with the new version of the code, then the relay-chain can
-	/// revert [`validation_upgrade_delay`] many blocks back and still find the new code in the
-	/// storage by hash.
+	/// revert [`validation_upgrade_delay`](Self::validation_upgrade_delay) many blocks back and
+	/// still find the new code in the storage by hash.
 	///
 	/// [#4601]: https://github.com/paritytech/polkadot/issues/4601
 	pub validation_upgrade_delay: BlockNumber,
@@ -229,7 +230,8 @@ pub struct HostConfiguration<BlockNumber> {
 	pub pvf_voting_ttl: SessionIndex,
 	/// The lower bound number of blocks an upgrade can be scheduled.
 	///
-	/// Typically, upgrade gets scheduled [`validation_upgrade_delay`] relay-chain blocks after
+	/// Typically, upgrade gets scheduled
+	/// [`validation_upgrade_delay`](Self::validation_upgrade_delay) relay-chain blocks after
 	/// the relay-parent of the parablock that signalled the validation code upgrade. However,
 	/// in the case a pre-checking voting was concluded in a longer duration the upgrade will be
 	/// scheduled to the next block.
@@ -240,7 +242,8 @@ pub struct HostConfiguration<BlockNumber> {
 	/// To prevent that, we introduce the minimum number of blocks after which the upgrade can be
 	/// scheduled. This number is controlled by this field.
 	///
-	/// This value should be greater than [`paras_availability_period`].
+	/// This value should be greater than
+	/// [`paras_availability_period`](Self::paras_availability_period).
 	pub minimum_validation_upgrade_delay: BlockNumber,
 	/// The minimum number of valid backing statements required to consider a parachain candidate
 	/// backable.

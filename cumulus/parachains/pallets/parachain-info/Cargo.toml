@@ -1,6 +1,6 @@
 [package]
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 name = "parachain-info"
 version = "0.1.0"
 publish = false
