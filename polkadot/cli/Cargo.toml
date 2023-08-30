@@ -68,8 +68,8 @@ pyroscope = [ "pyro", "pyroscope_pprofrs" ]
 hostperfcheck = [ "polkadot-performance-test" ]
 
 # Configure the native runtimes to use.
-westend-native = ["service/westend-native"]
-rococo-native = ["service/rococo-native"]
+westend-native = [ "service/westend-native" ]
+rococo-native = [ "service/rococo-native" ]
 
 malus = [ "full-node", "service/malus" ]
 runtime-metrics = [
