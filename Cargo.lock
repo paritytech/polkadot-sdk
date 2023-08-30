@@ -12971,7 +12971,6 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "sp-weights",
- "staging-kusama-runtime",
  "substrate-prometheus-endpoint",
  "tempfile",
  "thiserror",
