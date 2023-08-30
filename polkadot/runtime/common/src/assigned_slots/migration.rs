@@ -64,8 +64,8 @@ pub mod v1 {
 	}
 
 	/// [`MigrateToV1`] wrapped in a
-	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the migration
-	/// is only performed when on-chain version is 0.
+	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
+	/// migration is only performed when on-chain version is 0.
 	#[cfg(feature = "experimental")]
 	pub type VersionCheckedMigrateToV1<T> = frame_support::migrations::VersionedMigration<
 		0,
