@@ -432,7 +432,6 @@ members = [
 	"substrate/test-utils",
 	"substrate/test-utils/cli",
 	"substrate/test-utils/client",
-	"substrate/test-utils/derive",
 	"substrate/test-utils/runtime",
 	"substrate/test-utils/runtime/client",
 	"substrate/test-utils/runtime/transaction-pool",
