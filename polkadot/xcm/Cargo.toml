@@ -28,8 +28,8 @@ default = [ "std" ]
 wasm-api = []
 std = [
 	"bounded-collections/std",
-	"parity-scale-codec/std",
 	"environmental/std",
+	"parity-scale-codec/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-weights/std",
