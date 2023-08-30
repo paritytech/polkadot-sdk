@@ -282,10 +282,10 @@ well, we will do the following:
    to assume this is concerning a new dispute.
 2. We open a batch and start collecting incoming messages for that candidate,
    instead of immediately forwarding.
-4. We keep collecting votes in the batch until we receive less than
+3. We keep collecting votes in the batch until we receive less than
    `MIN_KEEP_BATCH_ALIVE_VOTES` unique votes in the last `BATCH_COLLECTING_INTERVAL`. This is
    important to accommodate for goal 5 and also 3.
-5. We send the whole batch to the dispute-coordinator.
+4. We send the whole batch to the dispute-coordinator.
 
 This together with rate limiting explained above ensures we will be able to
 process valid disputes: We can limit the number of simultaneous existing batches
@@ -312,8 +312,8 @@ of attackers, each has 10 messages per second, all are needed to maintain the
 batches in memory. Therefore we have a hard cap of around 330 (number of
 malicious nodes) open batches. Each can be filled with number of malicious
 actor's votes. So 330 batches with each 330 votes: Let's assume approximately 100
-bytes per signature/vote. This results in a worst case memory usage of 330 * 330
-* 100 ~= 10 MiB.
+bytes per signature/vote. This results in a worst case memory usage of
+`330 * 330 * 100 ~= 10 MiB`.
 
 For 10_000 validators, we are already in the Gigabyte range, which means that
 with a validator set that large we might want to be more strict with the rate limit or

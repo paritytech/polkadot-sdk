@@ -1,3 +1,5 @@
+# Statement store
+
 Statement store is an off-chain data-store for signed statements accessible via RPC and OCW.
 
 Nodes hold a number of statements with a proof of authenticity owing to an account ID. OCWs can place items in the data-store (with valid signatures) for any accounts whose keys they control. Users can also submit pre-signed statements via RPC. Statements can also be submitted from on-chain logic through an on-chain event.
