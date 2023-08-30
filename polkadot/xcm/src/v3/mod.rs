@@ -285,6 +285,22 @@ impl Default for Response {
 	}
 }
 
+impl TryFrom<NewResponse> for Response {
+	type Error = ();
+
+	fn from(new: NewResponse) -> Self {
+		use NewResponse::*;
+		match new {
+			Null => Self::Null,
+			Assets(assets) => Self::Assets(assets.try_into()?),
+			ExecutionResult(result) => Self::ExecutionResult(result),
+			Version(version) => Self::Version(version),
+			PalletsInfo(pallet_info) => Self::PalletsInfo(pallet_info),
+			DispatchResult(maybe_error) => Self::DispatchResult(maybe_error),
+		}
+	}
+}
+
 /// Information regarding the composition of a query response.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub struct QueryResponseInfo {
@@ -1303,6 +1319,7 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			},
 			BuyExecution { fees, weight_limit } => {
 				let fees = fees.try_into()?;
+				let weight_limit = weight_limit.try_into()?;
 				Self::BuyExecution { fees, weight_limit }
 			},
 			ClearOrigin => Self::ClearOrigin,

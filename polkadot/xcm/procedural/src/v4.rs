@@ -47,7 +47,7 @@ pub mod multilocation {
 				} else {
 					let variant = format_ident!("X{}", num_junctions);
 					quote! {
-						Junctions::#variant( #(#idents .into()),* )
+						Junctions::#variant( alloc::sync::Arc::new( [#(#idents .into()),*] ) )
 					}
 				};
 
@@ -110,7 +110,7 @@ pub mod multilocation {
 
 			impl From<Junction> for MultiLocation {
 				fn from(x: Junction) -> Self {
-					MultiLocation { parents: 0, interior: Junctions::X1(x) }
+					MultiLocation { parents: 0, interior: [x].into() }
 				}
 			}
 
@@ -143,12 +143,11 @@ pub mod junctions {
 				let idents =
 					(0..num_junctions).map(|i| format_ident!("j{}", i)).collect::<Vec<_>>();
 				let types = (0..num_junctions).map(|i| format_ident!("J{}", i)).collect::<Vec<_>>();
-				let variant = &format_ident!("X{}", num_junctions);
 
 				quote! {
 					impl<#(#types : Into<Junction>,)*> From<( #(#types,)* )> for Junctions {
 						fn from( ( #(#idents,)* ): ( #(#types,)* ) ) -> Self {
-							Self::#variant( #(#idents .into()),* )
+							[#(#idents .into()),*].into()
 						}
 					}
 				}
@@ -162,10 +161,19 @@ pub mod junctions {
 				let num_ancestors = cur_num + 1;
 				let variant = format_ident!("X{}", num_ancestors);
 				let idents = (0..=cur_num).map(|i| format_ident!("j{}", i)).collect::<Vec<_>>();
+				let convert = idents
+					.iter()
+					.map(|ident| {
+						quote! { let #ident = core::convert::TryInto::try_into(#ident.clone())?; }
+					})
+					.collect::<Vec<_>>();
 
 				quote! {
-					crate::v3::Junctions::#variant( #(#idents),* ) =>
-						#variant( #( core::convert::TryInto::try_into(#idents)? ),* ),
+					crate::v3::Junctions::#variant( #(#idents),* ) => {
+						#(#convert);*;
+						let junctions: Junctions = [#(#idents),*].into();
+						junctions
+					},
 				}
 			})
 			.collect::<TokenStream>();
@@ -174,10 +182,9 @@ pub mod junctions {
 			impl core::convert::TryFrom<crate::v3::Junctions> for Junctions {
 				type Error = ();
 				fn try_from(mut old: crate::v3::Junctions) -> core::result::Result<Self, ()> {
-					use Junctions::*;
 					Ok(match old {
-						crate::v3::Junctions::Here => Here,
-						#match_variants
+					 crate::v3::Junctions::Here => Junctions::Here,
+					 #match_variants
 					})
 				}
 			}

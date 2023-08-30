@@ -20,7 +20,7 @@
 // necessarily related to FRAME or even Substrate.
 //
 // Hence, `no_std` rather than sp-runtime.
-// #![no_std]
+#![no_std]
 extern crate alloc;
 
 use derivative::Derivative;
@@ -419,6 +419,8 @@ versioned_type! {
 		V2(v2::MultiAsset),
 		#[codec(index = 3)]
 		V3(v3::MultiAsset),
+		#[codec(index = 4)]
+		V4(v4::MultiAsset),
 	}
 }
 
@@ -429,6 +431,8 @@ versioned_type! {
 		V2(v2::MultiAssets),
 		#[codec(index = 3)]
 		V3(v3::MultiAssets),
+		#[codec(index = 4)]
+		V4(v4::MultiAssets),
 	}
 }
 

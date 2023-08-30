@@ -14,11 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Version 3 of the Cross-Consensus Message format data structures.
+//! Version 4 of the Cross-Consensus Message format data structures.
 
 use super::v3::{
-	Instruction as OldInstruction,
-	Xcm as OldXcm,
+	Instruction as OldInstruction, Xcm as OldXcm,
+	WeightLimit as OldWeightLimit, Response as OldResponse,
+	MaybeErrorCode as OldMaybeErrorCode, PalletInfo as OldPalletInfo,
 };
 use crate::{DoubleEncoded, GetWeight};
 use alloc::{vec, vec::Vec};
@@ -52,10 +53,10 @@ pub use traits::{
 	SendResult, SendXcm, Weight, XcmHash,
 };
 // These parts of XCM v3 are unchanged in XCM v4, and are re-imported here.
-pub use super::v3::{OriginKind, Response, WeightLimit, QueryResponseInfo};
+pub use super::v3::OriginKind;
 
 /// This module's XCM version.
-pub const VERSION: super::Version = 3;
+pub const VERSION: super::Version = 4;
 
 /// An identifier for a query.
 pub type QueryId = u64;
@@ -223,6 +224,19 @@ pub struct PalletInfo {
 	patch: u32,
 }
 
+impl From<OldPalletInfo> for PalletInfo {
+	fn from(old: OldPalletInfo) -> Self {
+		Self::new(
+			old.index,
+			old.name,
+			old.module_name,
+			old.major,
+			old.minor,
+			old.patch,
+		)
+	}
+}
+
 impl PalletInfo {
 	pub fn new(
 		index: u32,
@@ -258,6 +272,111 @@ impl From<Vec<u8>> for MaybeErrorCode {
 impl Default for MaybeErrorCode {
 	fn default() -> MaybeErrorCode {
 		MaybeErrorCode::Success
+	}
+}
+
+impl From<OldMaybeErrorCode> for MaybeErrorCode {
+	fn from(old: OldMaybeErrorCode) -> Self {
+		use OldMaybeErrorCode::*;
+		match old {
+			Success => Self::Success,
+			Error(bounded_vec) => Self::Error(bounded_vec),
+			TruncatedError(bounded_vec) => Self::TruncatedError(bounded_vec),
+		}
+	}
+}
+
+/// Response data to a query.
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+pub enum Response {
+	/// No response. Serves as a neutral default.
+	Null,
+	/// Some assets.
+	Assets(MultiAssets),
+	/// The outcome of an XCM instruction.
+	ExecutionResult(Option<(u32, Error)>),
+	/// An XCM version.
+	Version(super::Version),
+	/// The index, instance name, pallet name and version of some pallets.
+	PalletsInfo(BoundedVec<PalletInfo, MaxPalletsInfo>),
+	/// The status of a dispatch attempt using `Transact`.
+	DispatchResult(MaybeErrorCode),
+}
+
+impl Default for Response {
+	fn default() -> Self {
+		Self::Null
+	}
+}
+
+impl TryFrom<OldResponse> for Response {
+	type Error = ();
+
+	fn try_from(old: OldResponse) -> result::Result<Self, Self::Error> {
+		use OldResponse::*;
+		Ok(match old {
+			Null => Self::Null,
+			Assets(assets) => Self::Assets(assets.try_into()?),
+			ExecutionResult(result) => Self::ExecutionResult(result.into()),
+			Version(version) => Self::Version(version),
+			PalletsInfo(pallets_info) => {
+				let inner = pallets_info.into_inner().into_iter().map(From::from).collect::<Vec<_>>();
+				Self::PalletsInfo(
+					BoundedVec::<PalletInfo, MaxPalletsInfo>::try_from(inner).map_err(|_| ())?
+				)
+			},
+			DispatchResult(maybe_error) => Self::DispatchResult(maybe_error.into()),
+		})
+	}
+}
+
+/// Information regarding the composition of a query response.
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+pub struct QueryResponseInfo {
+	/// The destination to which the query response message should be send.
+	pub destination: MultiLocation,
+	/// The `query_id` field of the `QueryResponse` message.
+	#[codec(compact)]
+	pub query_id: QueryId,
+	/// The `max_weight` field of the `QueryResponse` message.
+	pub max_weight: Weight,
+}
+
+/// An optional weight limit.
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+pub enum WeightLimit {
+	/// No weight limit imposed.
+	Unlimited,
+	/// Weight limit imposed of the inner value.
+	Limited(Weight),
+}
+
+impl From<Option<Weight>> for WeightLimit {
+	fn from(x: Option<Weight>) -> Self {
+		match x {
+			Some(w) => WeightLimit::Limited(w),
+			None => WeightLimit::Unlimited,
+		}
+	}
+}
+
+impl From<WeightLimit> for Option<Weight> {
+	fn from(x: WeightLimit) -> Self {
+		match x {
+			WeightLimit::Limited(w) => Some(w),
+			WeightLimit::Unlimited => None,
+		}
+	}
+}
+
+impl TryFrom<OldWeightLimit> for WeightLimit {
+	type Error = ();
+	fn try_from(old: OldWeightLimit) -> result::Result<Self, ()> {
+		use OldWeightLimit::*;
+		match old {
+			Limited(w) => Ok(Self::Limited(w)),
+			Unlimited => Ok(Self::Unlimited),
+		}
 	}
 }
 
@@ -1129,13 +1248,13 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			QueryResponse { query_id, response, max_weight, querier: Some(querier) } => Self::QueryResponse {
 				query_id,
 				querier: querier.try_into()?,
-				response: response.into(),
+				response: response.try_into()?,
 				max_weight: max_weight,
 			},
 			QueryResponse { query_id, response, max_weight, querier: None } => Self::QueryResponse {
 				query_id,
 				querier: None,
-				response: response.into(),
+				response: response.try_into()?,
 				max_weight: max_weight,
 			},
 			TransferAsset { assets, beneficiary } => Self::TransferAsset {
@@ -1205,6 +1324,7 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			},
 			BuyExecution { fees, weight_limit } => {
 				let fees = fees.try_into()?;
+				let weight_limit = weight_limit.try_into()?;
 				Self::BuyExecution { fees, weight_limit }
 			},
 			ClearOrigin => Self::ClearOrigin,

@@ -167,9 +167,8 @@ impl MaxEncodedLen for Error {
 	}
 }
 
-impl TryFrom<OldError> for Error {
-	type Error = ();
-	fn try_from(old_error: OldError) -> result::Result<Error, ()> {
+impl From<OldError> for Error {
+	fn from(old_error: OldError) -> Self {
 		use OldError::*;
 		Ok(match old_error {
 			Overflow => Self::Overflow,

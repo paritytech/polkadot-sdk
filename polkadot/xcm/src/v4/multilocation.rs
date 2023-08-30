@@ -635,7 +635,7 @@ mod tests {
 	fn append_with_works() {
 		let acc = AccountIndex64 { network: None, index: 23 };
 		let mut m = MultiLocation { parents: 1, interior: [Parachain(42)].into() };
-		assert_eq!(m.append_with([PalletInstance(3), acc].into()), Ok(()));
+		assert_eq!(m.append_with([PalletInstance(3), acc]), Ok(()));
 		assert_eq!(
 			m,
 			MultiLocation { parents: 1, interior: [Parachain(42), PalletInstance(3), acc].into() }
@@ -669,7 +669,7 @@ mod tests {
 		// cannot prepend to create overly long multilocation
 		let mut m = MultiLocation { parents: 254, interior: [Parachain(42)].into() };
 		let prefix = MultiLocation { parents: 2, interior: Here };
-		assert_eq!(m.prepend_with(prefix), Err(prefix));
+		assert_eq!(m.prepend_with(prefix.clone()), Err(prefix));
 
 		let prefix = MultiLocation { parents: 1, interior: Here };
 		assert_eq!(m.prepend_with(prefix.clone()), Ok(()));
@@ -722,7 +722,7 @@ mod tests {
 		takes_multilocation((Ancestor(2), Here));
 		takes_multilocation(AncestorThen(
 			3,
-			X2(Parachain(43), AccountIndex64 { network: None, index: 155 }),
+			[Parachain(43), AccountIndex64 { network: None, index: 155 }],
 		));
 		takes_multilocation((Parent, AccountId32 { network: None, id: [0; 32] }));
 		takes_multilocation((Parent, Here));

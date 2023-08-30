@@ -199,6 +199,54 @@ impl TryFrom<OldError> for Error {
 	}
 }
 
+impl From<NewError> for Error {
+	fn from(new: NewError) -> Self {
+		use NewError::*;
+		match new {
+			Overflow => Self::Overflow,
+			Unimplemented => Self::Unimplemented,
+			UntrustedReserveLocation => Self::UntrustedReserveLocation,
+			UntrustedTeleportLocation => Self::UntrustedTeleportLocation,
+			LocationFull => Self::LocationFull,
+			LocationNotInvertible => Self::LocationNotInvertible,
+			BadOrigin => Self::BadOrigin,
+			InvalidLocation => Self::InvalidLocation,
+			AssetNotFound => Self::AssetNotFound,
+			FailedToTransactAsset(message) => Self::FailedToTransactAsset(message),
+			NotWithdrawable => Self::NotWithdrawable,
+			LocationCannotHold => Self::LocationCannotHold,
+			ExceedsMaxMessageSize => Self::ExceedsMaxMessageSize,
+			DestinationUnsupported => Self::DestinationUnsupported,
+			Transport(message) => Self::Transport(message),
+			Unroutable => Self::Unroutable,
+			UnknownClaim => Self::UnknownClaim,
+			FailedToDecode => Self::FailedToDecode,
+			MaxWeightInvalid => Self::MaxWeightInvalid,
+			NotHoldingFees => Self::NotHoldingFees,
+			TooExpensive => Self::TooExpensive,
+			Trap(u64) => Self::Trap(u64),
+			ExpectationFalse => Self::ExpectationFalse,
+			PalletNotFound => Self::PalletNotFound,
+			NameMismatch => Self::NameMismatch,
+			VersionIncompatible => Self::VersionIncompatible,
+			HoldingWouldOverflow => Self::HoldingWouldOverflow,
+			ExportError => Self::ExportError,
+			ReanchorFailed => Self::ReanchorFailed,
+			NoDeal => Self::NoDeal,
+			FeesNotMet => Self::FeesNotMet,
+			LockError => Self::LockError,
+			NoPermission => Self::NoPermission,
+			Unanchored => Self::Unanchored,
+			NotDepositable => Self::NotDepositable,
+			UnhandledXcmVersion => Self::UnhandledXcmVersion,
+			WeightLimitReached(weight) => Self::WeightLimitReached(weight),
+			Barrier => Self::Barrier,
+			WeightNotComputable => Self::WeightNotComputable,
+			ExceedsStackLimit => Self::ExceedsStackLimit,
+		}
+	}
+}
+
 impl From<SendError> for Error {
 	fn from(e: SendError) -> Self {
 		match e {

@@ -199,19 +199,10 @@ pub mod junctions {
 				let num_ancestors = cur_num + 1;
 				let variant = format_ident!("X{}", num_ancestors);
 				let idents = (0..=cur_num).map(|i| format_ident!("j{}", i)).collect::<Vec<_>>();
-				let convert = idents
-					.iter()
-					.map(|ident| {
-						quote! { let #ident = core::convert::TryInto::try_into(#ident.clone())?; }
-					})
-					.collect::<Vec<_>>();
 
 				quote! {
-					crate::v2::Junctions::#variant( junctions ) => {
-						let [#(#idents),*] = &*junctions;
-						#(#convert);*
-						[#(#idents),*].into()
-					},
+					crate::v2::Junctions::#variant( #(#idents),* ) =>
+						#variant( #( core::convert::TryInto::try_into(#idents)? ),* ),
 				}
 			})
 			.collect::<TokenStream>();

@@ -477,10 +477,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		match instr {
 			WithdrawAsset(assets) => {
+				let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
 				// Take `assets` from the origin account (on-chain) and place in holding.
 				for asset in assets.into_inner().into_iter() {
-					let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
-					Config::AssetTransactor::withdraw_asset(&asset, origin, Some(&self.context))?;
+					Config::AssetTransactor::withdraw_asset(&asset, &origin, Some(&self.context))?;
 					self.subsume_asset(asset)?;
 				}
 				Ok(())
@@ -525,13 +525,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Ok(())
 			},
 			ReceiveTeleportedAsset(assets) => {
+				let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
 				// check whether we trust origin to teleport this asset to us via config trait.
 				for asset in assets.inner() {
-					let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
 					// We only trust the origin to send us assets that they identify as their
 					// sovereign assets.
 					ensure!(
-						Config::IsTeleporter::contains(asset, origin),
+						Config::IsTeleporter::contains(asset, &origin),
 						XcmError::UntrustedTeleportLocation
 					);
 					// We should check that the asset can actually be teleported in (for this to be
@@ -1011,7 +1011,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	) -> Result<(MultiLocation, InteriorMultiLocation), XcmError> {
 		let reanchor_context = Config::UniversalLocation::get();
 		let location = location
-			.reanchored(&destination, reanchor_context)
+			.reanchored(&destination, &reanchor_context)
 			.map_err(|_| XcmError::ReanchorFailed)?;
 		Ok((location, reanchor_context))
 	}
