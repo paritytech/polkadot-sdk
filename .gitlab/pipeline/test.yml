@@ -147,7 +147,10 @@ test-doc:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
+  # DAG
+  needs:
+    - job: test-rustdoc
+      artifacts: false
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
@@ -160,10 +163,7 @@ test-rustdoc:
   extends:
     - .docker-env
     - .common-refs
-  # DAG
-  needs:
-    - job: test-doc
-      artifacts: false
+    - .run-immediately
   variables:
     SKIP_WASM_BUILD: 1
     RUSTDOCFLAGS: "-Dwarnings"

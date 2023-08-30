@@ -22,7 +22,7 @@ workflow:
 
 variables:
   CI_IMAGE: "paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706"
-  BUILDAH_IMAGE: "quay.io/buildah/stable:v1.29"
+  # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
   RUSTY_CACHIER_SINGLE_BRANCH: master
