@@ -32,7 +32,7 @@ xcm-builder = { path = "../xcm-builder" }
 
 [features]
 default = [ "std" ]
-# Enable `VersionedRuntimeUpgrade` for the migrations that is currently still experimental.
+# Enable `VersionedMigration` for the migrations using the experimental feature.
 experimental = [ "frame-support/experimental" ]
 std = [
 	"bounded-collections/std",
