@@ -687,7 +687,7 @@ impl<T: Config> OnNewHead for Pallet<T> {
 				writes += 1;
 			}
 		}
-		T::DbWeight::get().reads_writes(1, 1)
+		T::DbWeight::get().reads_writes(1, writes)
 	}
 }
 
