@@ -13,7 +13,7 @@ codec = { package = "parity-scale-codec", version = "3.4.0", default-features = 
 frame-support = { path = "../../../../../../substrate/frame/support", default-features = false}
 
 # Polkadot
-xcm = { path = "../../../../../../polkadot/xcm", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false}
 pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 
 # Cumulus

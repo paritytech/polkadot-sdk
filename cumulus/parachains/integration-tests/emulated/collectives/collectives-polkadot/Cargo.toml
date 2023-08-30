@@ -18,7 +18,7 @@ pallet-core-fellowship = { path = "../../../../../../substrate/frame/core-fellow
 pallet-salary = { path = "../../../../../../substrate/frame/salary", default-features = false}
 
 # Polkadot
-xcm = { path = "../../../../../../polkadot/xcm", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false}
 pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 
 # Cumulus

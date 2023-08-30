@@ -20,7 +20,7 @@ pallet-asset-conversion = { path = "../../../../../../substrate/frame/asset-conv
 # Polkadot
 polkadot-runtime-parachains = { path = "../../../../../../polkadot/runtime/parachains" }
 polkadot-runtime = { path = "../../../../../../polkadot/runtime/polkadot" }
-xcm = { path = "../../../../../../polkadot/xcm", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false}
 pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 
 # Cumulus
