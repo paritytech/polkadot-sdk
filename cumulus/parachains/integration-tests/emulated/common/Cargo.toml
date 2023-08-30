@@ -4,6 +4,7 @@ version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Common resources for integration testing with xcm-emulator"
+publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }

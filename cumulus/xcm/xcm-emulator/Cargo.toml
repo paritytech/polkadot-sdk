@@ -4,6 +4,7 @@ description = "Test kit to emulate XCM program execution."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
+publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0" }
