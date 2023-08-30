@@ -30,8 +30,8 @@ use core::{
 };
 use derivative::Derivative;
 use parity_scale_codec::{
-	self, Decode, Encode, Error as CodecError, Input as CodecInput, MaxEncodedLen,
-	Compact, decode_vec_with_len,
+	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
+	MaxEncodedLen,
 };
 use scale_info::TypeInfo;
 
@@ -81,10 +81,11 @@ impl<Call> Decode for Xcm<Call> {
 			instructions_count::with(|count| {
 				*count = count.saturating_add(number_of_instructions as u8);
 				if *count > MAX_INSTRUCTIONS_TO_DECODE {
-					return Err(CodecError::from("Max instructions exceeded"));
+					return Err(CodecError::from("Max instructions exceeded"))
 				}
 				Ok(())
-			}).unwrap_or(Ok(()))?;
+			})
+			.unwrap_or(Ok(()))?;
 			let decoded_instructions = decode_vec_with_len(input, number_of_instructions as usize)?;
 			Ok(Self(decoded_instructions))
 		})
@@ -1463,11 +1464,14 @@ mod tests {
 		let decoded_xcm = Xcm::<()>::decode(&mut &bytes[..]);
 		assert!(matches!(decoded_xcm, Err(CodecError { .. })));
 
-		let nested_xcm = Xcm::<()>(vec![DepositReserveAsset {
-			assets: All.into(),
-			dest: Here.into(),
-			xcm: max_xcm,
-		}; (MAX_INSTRUCTIONS_TO_DECODE / 2) as usize]);
+		let nested_xcm = Xcm::<()>(vec![
+			DepositReserveAsset {
+				assets: All.into(),
+				dest: Here.into(),
+				xcm: max_xcm,
+			};
+			(MAX_INSTRUCTIONS_TO_DECODE / 2) as usize
+		]);
 		let bytes = nested_xcm.encode();
 		let decoded_xcm = Xcm::<()>::decode(&mut &bytes[..]);
 		assert!(matches!(decoded_xcm, Err(CodecError { .. })));
