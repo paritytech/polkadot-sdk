@@ -77,7 +77,7 @@ substrate-state-trie-migration-rpc = { path = "../../substrate/utils/frame/rpc/s
 polkadot-cli = { path = "../../polkadot/cli", features = ["rococo-native"] }
 polkadot-primitives = { path = "../../polkadot/primitives" }
 polkadot-service = { path = "../../polkadot/node/service" }
-xcm = { path = "../../polkadot/xcm" }
+xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
 
 # Cumulus
 cumulus-client-cli = { path = "../client/cli" }
