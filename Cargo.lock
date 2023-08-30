@@ -16538,6 +16538,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-try-runtime",
+ "pallet-message-queue",
  "parachain-info",
  "parachains-common",
  "parity-scale-codec",

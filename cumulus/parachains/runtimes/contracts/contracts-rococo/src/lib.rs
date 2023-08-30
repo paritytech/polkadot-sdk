@@ -101,9 +101,7 @@ pub type Migrations = (
 	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::Migration<Runtime>,
 	pallet_contracts::Migration<Runtime>,
-	// unreleased
-	cumulus_pallet_dmp_queue::UndeployDmpQueue<Runtime>,
-	cumulus_pallet_dmp_queue::DeleteDmpQueue<Runtime>,
+	// unreleased// FAIL-CI migrate DMP
 );
 
 type EventRecord = frame_system::EventRecord<
@@ -402,6 +400,7 @@ construct_runtime!(
 		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 30,
 		PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 31,
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event<T>, Origin} = 32,
+		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 33,
 		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 34,
 
 		// Smart Contracts.

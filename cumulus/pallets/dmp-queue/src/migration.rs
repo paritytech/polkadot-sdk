@@ -18,22 +18,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crate::LOG;
+use crate::*;
 use cumulus_primitives_core::relay_chain::BlockNumber as RelayBlockNumber;
 use frame_support::{pallet_prelude::*, storage_alias, traits::HandleMessage};
 use sp_std::vec::Vec;
-
-/// Subset of the DMP queue config required for the pallet.
-pub trait MigrationConfig {
-	/// Name of the previously deployed DMP queue pallet.
-	type PalletName: Get<&'static str>;
-
-	/// New handler for the messages.
-	type DmpHandler: HandleMessage;
-
-	// The weight info for the runtime.
-	type DbWeight: Get<frame_support::weights::RuntimeDbWeight>;
-}
 
 #[derive(Copy, Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct PageIndexData {
@@ -48,22 +36,21 @@ pub struct PageIndexData {
 pub type OverweightIndex = u64;
 pub type PageCounter = u32;
 
-#[storage_alias(dynamic)]
-pub type PageIndex<T: MigrationConfig> =
-	StorageValue<<T as MigrationConfig>::PalletName, PageIndexData, ValueQuery>;
+#[storage_alias]
+pub type PageIndex<T: Config> = StorageValue<Pallet<T>, PageIndexData, ValueQuery>;
 
-#[storage_alias(dynamic)]
-pub type Pages<T: MigrationConfig> = StorageMap<
-	<T as MigrationConfig>::PalletName,
+#[storage_alias]
+pub type Pages<T: Config> = StorageMap<
+	Pallet<T>,
 	Blake2_128Concat,
 	PageCounter,
 	Vec<(RelayBlockNumber, Vec<u8>)>,
 	ValueQuery,
 >;
 
-#[storage_alias(dynamic)]
-pub type Overweight<T: MigrationConfig> = CountedStorageMap<
-	<T as MigrationConfig>::PalletName,
+#[storage_alias]
+pub type Overweight<T: Config> = CountedStorageMap<
+	Pallet<T>,
 	Blake2_128Concat,
 	OverweightIndex,
 	(RelayBlockNumber, Vec<u8>),
@@ -75,9 +62,8 @@ pub(crate) mod testing_only {
 	use super::*;
 
 	// Note that the alias value type is wrong on purpose.
-	#[storage_alias(dynamic)]
-	pub type Configuration<T: MigrationConfig> =
-		StorageValue<<T as MigrationConfig>::PalletName, u32>;
+	#[storage_alias]
+	pub type Configuration<T: Config> = StorageValue<Pallet<T>, u32>;
 }
 
 pub(crate) fn migrate_page<T: crate::Config>(p: PageCounter) {
@@ -93,7 +79,7 @@ pub(crate) fn migrate_page<T: crate::Config>(p: PageCounter) {
 			continue;
 		};
 
-		T::DmpHandler::handle_message(bound.as_bounded_slice());
+		T::DmpSink::handle_message(bound.as_bounded_slice());
 		log::info!(target: LOG, "[Page {p}] Migrated message #{m} from block {block}");
 	}
 }
@@ -108,6 +94,6 @@ pub(crate) fn migrate_overweight<T: crate::Config>(i: OverweightIndex) {
 		return;
 	};
 
-	T::DmpHandler::handle_message(bound.as_bounded_slice());
+	T::DmpSink::handle_message(bound.as_bounded_slice());
 	log::info!(target: LOG, "[Overweight {i}] Migrated message from block {block}");
 }

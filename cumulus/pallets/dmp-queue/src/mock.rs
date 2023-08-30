@@ -67,14 +67,9 @@ parameter_types! {
 	pub const PalletName: &'static str = "DmpQueue";
 }
 
-impl MigrationConfig for Runtime {
-	type PalletName = PalletName;
-	type DmpHandler = MockedDmpHandler;
-	type DbWeight = ();
-}
-
 impl crate::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type DmpSink = MockedDmpHandler;
 }
 
 parameter_types! {

@@ -28,14 +28,12 @@ mod migration;
 mod mock;
 mod tests;
 
-pub use crate::migration::MigrationConfig;
-
 pub(crate) const LOG: &str = "dmp-queue-export-xcms";
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, traits::HandleMessage};
 	use frame_system::pallet_prelude::*;
 	use sp_io::hashing::twox_128;
 
@@ -43,9 +41,11 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + MigrationConfig {
+	pub trait Config: frame_system::Config {
 		/// The overarching event type of the runtime.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		type DmpSink: HandleMessage;
 	}
 
 	#[pallet::storage]
@@ -167,7 +167,7 @@ pub mod pallet {
 				MigrationState::StartedCleanup { cursor } => {
 					log::info!(target: LOG, "Cleaning up");
 					let hashed_prefix =
-						twox_128(<T as MigrationConfig>::PalletName::get().as_bytes());
+						twox_128(<Pallet<T> as PalletInfoAccess>::name().as_bytes());
 
 					let result = frame_support::storage::unhashed::clear_prefix(
 						&hashed_prefix,
