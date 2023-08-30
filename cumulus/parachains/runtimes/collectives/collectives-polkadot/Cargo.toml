@@ -1,8 +1,8 @@
 [package]
 name = "collectives-polkadot-runtime"
 version = "1.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 description = "Polkadot Collectives Parachain Runtime"
 
 [dependencies]

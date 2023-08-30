@@ -22,7 +22,7 @@ workflow:
 
 variables:
   CI_IMAGE: "paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706"
-  BUILDAH_IMAGE: "quay.io/buildah/stable:v1.29"
+  # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
   RUSTY_CACHIER_SINGLE_BRANCH: master
@@ -30,7 +30,7 @@ variables:
   RUSTY_CACHIER_COMPRESSION_METHOD: zstd
   NEXTEST_FAILURE_OUTPUT: immediate-final
   NEXTEST_SUCCESS_OUTPUT: final
-  ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.59"
+  ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.65"
   DOCKER_IMAGES_VERSION: "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
 
 default:
@@ -233,7 +233,6 @@ include:
     PR_NUM: "${PR_NUM}"
   trigger:
     project: "parity/infrastructure/ci_cd/pipeline-stopper"
-    branch: "as-improve"
 
 remove-cancel-pipeline-message:
   stage: .post
