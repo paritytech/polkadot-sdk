@@ -29,7 +29,7 @@ sp-version = { path = "../../../substrate/primitives/version", default-features 
 
 # Polkadot
 polkadot-parachain = { path = "../../../polkadot/parachain", default-features = false, features = [ "wasm-api" ]}
-xcm = { path = "../../../polkadot/xcm", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
 
 # Cumulus
 cumulus-pallet-parachain-system-proc-macro = { path = "proc-macro", default-features = false }
