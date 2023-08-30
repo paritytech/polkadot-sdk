@@ -37,12 +37,12 @@ try-runtime = [
 
 std = [
 	"codec/std",
-	"scale-info/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"frame-benchmarking/std",
+	"scale-info/std",
 	"sp-core/std",
+	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"sp-io/std",
 ]
