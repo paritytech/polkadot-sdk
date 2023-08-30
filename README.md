@@ -41,6 +41,16 @@ Below are the primary upstream dependencies utilized in this project:
 - [parity-common](https://github.com/paritytech/parity-common)
 - [trie](https://github.com/paritytech/trie)
 
+## Security
+
+The security policy and procedures can be found in [docs/SECURITY.md](./docs/SECURITY.md).
+
 ## Contributing & Code of Conduct
 
 Ensure you follow our [contribution guidelines](./docs/CONTRIBUTING.md). In every interaction and contribution, this project adheres to the [Contributor Covenant Code of Conduct](./docs/CODE_OF_CONDUCT.md).
+
+## Additional Resources
+
+- The [`runtimes`](https://github.com/polkadot-fellows/runtimes/) repository contains the source code for the current Polkadot and Kusama runtimes.
+- For monitoring upcoming changes and current proposals related to the technical implementation of the Polkadot network, visit the [`Requests for Comment (RFC)`](https://github.com/polkadot-fellows/RFCs) repository. While it's maintained by the Polkadot Fellowship, the RFC process welcomes contributions from everyone.
+
