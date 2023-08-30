@@ -4,6 +4,7 @@ version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 description = "Polkadot Collectives parachain runtime integration tests based on xcm-emulator"
+publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
