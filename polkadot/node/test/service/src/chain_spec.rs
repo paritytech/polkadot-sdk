@@ -151,17 +151,18 @@ fn polkadot_testnet_genesis(
 		},
 		"sudo": { "key": Some(root_key) },
 		"configuration": {
-			"config": {
-				"validationUpgradeCooldown": 10u32,
-				"validationUpgradeDelay": 5,
-				"codeRetentionPeriod": 1200,
-				"maxCodeSize": MAX_CODE_SIZE,
-				"maxPovSize": MAX_POV_SIZE,
-				"maxHeadDataSize": 32 * 1024,
-				"groupRotationFrequency": 20,
-				"parasAvailabilityPeriod": 4,
-				"noShowSlots": 10,
-				"minimumValidationUpgradeDelay": 5,
+			"config": polkadot_runtime_parachains::configuration::HostConfiguration {
+				validation_upgrade_cooldown: 10u32,
+				validation_upgrade_delay: 5,
+				code_retention_period: 1200,
+				max_code_size: MAX_CODE_SIZE,
+				max_pov_size: MAX_POV_SIZE,
+				max_head_data_size: 32 * 1024,
+				group_rotation_frequency: 20,
+				paras_availability_period: 4,
+				no_show_slots: 10,
+				minimum_validation_upgrade_delay: 5,
+				..Default::default()
 			},
 		}
 	})
