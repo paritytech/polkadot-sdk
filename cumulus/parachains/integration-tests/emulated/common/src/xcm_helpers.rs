@@ -18,8 +18,8 @@ use parachains_common::AccountId;
 use xcm::{
 	prelude::{
 		AccountId32, All, BuyExecution, DepositAsset, MultiAsset, MultiAssets, MultiLocation,
-		OriginKind, RefundSurplus, Transact, UnpaidExecution, VersionedXcm, Weight,
-		WeightLimit, WithdrawAsset, Xcm, X1,
+		OriginKind, RefundSurplus, Transact, UnpaidExecution, VersionedXcm, Weight, WeightLimit,
+		WithdrawAsset, Xcm, X1,
 	},
 	DoubleEncoded,
 };

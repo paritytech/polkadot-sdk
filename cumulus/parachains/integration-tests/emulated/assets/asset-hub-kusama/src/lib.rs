@@ -23,24 +23,22 @@ pub use frame_support::{
 };
 pub use integration_tests_common::{
 	constants::{
-		asset_hub_kusama::ED as ASSET_HUB_KUSAMA_ED,
-		kusama::ED as KUSAMA_ED,
-		PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
+		asset_hub_kusama::ED as ASSET_HUB_KUSAMA_ED, kusama::ED as KUSAMA_ED, PROOF_SIZE_THRESHOLD,
+		REF_TIME_THRESHOLD, XCM_V3,
 	},
-	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution}, AssetHubKusama,
-	Kusama, PenpalKusamaA, AssetHubKusamaReceiver, KusamaPallet, AssetHubKusamaPallet,
-	AssetHubKusamaSender, PenpalKusamaAReceiver, KusamaReceiver, KusamaSender,
-	PenpalKusamaAPallet, PenpalKusamaASender
+	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
+	AssetHubKusama, AssetHubKusamaPallet, AssetHubKusamaReceiver, AssetHubKusamaSender, Kusama,
+	KusamaPallet, KusamaReceiver, KusamaSender, PenpalKusamaA, PenpalKusamaAPallet,
+	PenpalKusamaAReceiver, PenpalKusamaASender,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{
-	prelude::{*, AccountId32 as AccountId32Junction},
+	prelude::{AccountId32 as AccountId32Junction, *},
 	v3::{Error, NetworkId::Kusama as KusamaId},
 };
 pub use xcm_emulator::{
-	assert_expected_events, bx, helpers::weight_within_threshold,
-	Chain, Parachain as Para, RelayChain as Relay, Test, TestArgs,
-	TestContext, TestExt
+	assert_expected_events, bx, helpers::weight_within_threshold, Chain, Parachain as Para,
+	RelayChain as Relay, Test, TestArgs, TestContext, TestExt,
 };
 
 pub const ASSET_ID: u32 = 1;

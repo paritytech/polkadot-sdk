@@ -24,10 +24,10 @@ pub use crate::{
 };
 
 // Substrate
-use sp_core::Get;
-pub use frame_support::{traits::fungibles::Inspect, assert_ok};
+pub use frame_support::{assert_ok, traits::fungibles::Inspect};
 pub use pallet_assets;
 pub use pallet_message_queue;
+use sp_core::Get;
 
 // Cumulus
 use bp_messages::{
@@ -35,32 +35,30 @@ use bp_messages::{
 	LaneId, MessageKey, OutboundLaneData,
 };
 use bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchResult;
+pub use cumulus_pallet_dmp_queue;
+pub use cumulus_pallet_parachain_system;
+pub use cumulus_pallet_xcmp_queue;
+pub use cumulus_primitives_core::{
+	relay_chain::HrmpChannelId, DmpMessageHandler, ParaId, XcmpMessageHandler,
+};
 use pallet_bridge_messages::{Config, Instance1, Instance2, OutboundLanes, Pallet};
-pub use cumulus_primitives_core::{relay_chain::HrmpChannelId, DmpMessageHandler, ParaId, XcmpMessageHandler};
 pub use parachains_common::{AccountId, Balance};
 pub use xcm_emulator::{
-	assert_expected_events, bx,
-	helpers::weight_within_threshold, BridgeMessageHandler, Chain,
-	BridgeMessage, BridgeMessageDispatchError, TestExt, Parachain, RelayChain,
+	assert_expected_events, bx, helpers::weight_within_threshold, BridgeMessage,
+	BridgeMessageDispatchError, BridgeMessageHandler, Chain, Parachain, RelayChain, TestExt,
 };
-pub use cumulus_pallet_parachain_system;
-pub use cumulus_pallet_dmp_queue;
-pub use cumulus_pallet_xcmp_queue;
 
 // Polkadot
+pub use pallet_xcm;
 pub use polkadot_runtime_parachains::{
-	dmp,
-	hrmp,
+	dmp, hrmp,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 pub use xcm::{
-	prelude::{
-		OriginKind, Outcome, VersionedXcm, Weight,
-	},
+	prelude::{OriginKind, Outcome, VersionedXcm, Weight},
 	v3::Error,
 	DoubleEncoded,
 };
-pub use pallet_xcm;
 
 pub struct BridgeHubMessageHandler<S, T, I> {
 	_marker: std::marker::PhantomData<(S, T, I)>,

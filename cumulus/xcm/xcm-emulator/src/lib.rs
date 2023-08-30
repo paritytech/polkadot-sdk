@@ -14,34 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+pub use codec::{Decode, Encode};
 pub use lazy_static::lazy_static;
 pub use log;
 pub use paste;
 pub use std::{
-	any::type_name,
-	collections::HashMap,
-	error::Error,
-	fmt,
-	marker::PhantomData,
-	ops::Deref,
+	any::type_name, collections::HashMap, error::Error, fmt, marker::PhantomData, ops::Deref,
 	sync::Mutex,
 };
-pub use codec::{Encode, Decode};
 
 // Substrate
 pub use frame_support::{
 	assert_ok,
 	sp_runtime::{traits::Header as HeaderT, AccountId32, DispatchResult},
 	traits::{
-		EnqueueMessage, Get, Hooks, OriginTrait, ProcessMessage,
-		ProcessMessageError, ServiceQueues,
+		EnqueueMessage, Get, Hooks, OriginTrait, ProcessMessage, ProcessMessageError, ServiceQueues,
 	},
 	weights::{Weight, WeightMeter},
 };
 pub use frame_system::{Config as SystemConfig, Pallet as SystemPallet};
 pub use pallet_balances::AccountData;
 pub use sp_arithmetic::traits::Bounded;
-pub use sp_core::{parameter_types, sr25519, blake2_256, storage::Storage, Pair};
+pub use sp_core::{blake2_256, parameter_types, sr25519, storage::Storage, Pair};
 pub use sp_io::TestExternalities;
 pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, fmt::Debug};
 pub use sp_tracing;
@@ -54,9 +48,7 @@ pub use cumulus_primitives_core::{
 };
 pub use cumulus_primitives_parachain_inherent::ParachainInherentData;
 pub use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-pub use pallet_message_queue::{
-	Config as MessageQueueConfig, Pallet as MessageQueuePallet,
-};
+pub use pallet_message_queue::{Config as MessageQueueConfig, Pallet as MessageQueuePallet};
 pub use parachains_common::{AccountId, Balance, BlockNumber};
 pub use polkadot_primitives;
 pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
@@ -64,7 +56,8 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 // Polkadot
 pub use polkadot_parachain::primitives::RelayChainBlockNumber;
 pub use xcm::v3::prelude::{
-	Ancestor, MultiAssets, MultiLocation, Parent, Parachain as ParachainJunction, WeightLimit, XcmHash, X1
+	Ancestor, MultiAssets, MultiLocation, Parachain as ParachainJunction, Parent, WeightLimit,
+	XcmHash, X1,
 };
 pub use xcm_executor::traits::ConvertLocation;
 

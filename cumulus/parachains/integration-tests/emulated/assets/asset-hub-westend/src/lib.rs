@@ -25,25 +25,22 @@ pub use frame_support::{
 };
 pub use integration_tests_common::{
 	constants::{
-		asset_hub_westend::ED as ASSET_HUB_WESTEND_ED,
-		westend::ED as WESTEND_ED,
+		asset_hub_westend::ED as ASSET_HUB_WESTEND_ED, westend::ED as WESTEND_ED,
 		PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 	},
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	AssetHubWestend, Westend, PenpalWestendA, AssetHubWestendReceiver,
-	AssetHubWestendPallet, WestendPallet, WestendSender, WestendReceiver,
-	AssetHubWestendSender, PenpalWestendAReceiver, PenpalWestendASender,
-	PenpalWestendAPallet,
+	AssetHubWestend, AssetHubWestendPallet, AssetHubWestendReceiver, AssetHubWestendSender,
+	PenpalWestendA, PenpalWestendAPallet, PenpalWestendAReceiver, PenpalWestendASender, Westend,
+	WestendPallet, WestendReceiver, WestendSender,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{
-	prelude::{*, AccountId32 as AccountId32Junction},
+	prelude::{AccountId32 as AccountId32Junction, *},
 	v3::{Error, NetworkId::Westend as WestendId},
 };
 pub use xcm_emulator::{
-	assert_expected_events, bx, helpers::weight_within_threshold,
-	Chain, Parachain as Para, RelayChain as Relay, Test, TestArgs,
-	TestContext, TestExt
+	assert_expected_events, bx, helpers::weight_within_threshold, Chain, Parachain as Para,
+	RelayChain as Relay, Test, TestArgs, TestContext, TestExt,
 };
 
 pub const ASSET_ID: u32 = 1;

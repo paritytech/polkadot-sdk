@@ -18,26 +18,24 @@ pub use bp_messages::LaneId;
 pub use frame_support::assert_ok;
 pub use integration_tests_common::{
 	constants::{
-		asset_hub_kusama::ED as ASSET_HUB_ROCOCO_ED,
-		kusama::ED as ROCOCO_ED,
-		PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
+		asset_hub_kusama::ED as ASSET_HUB_ROCOCO_ED, kusama::ED as ROCOCO_ED, PROOF_SIZE_THRESHOLD,
+		REF_TIME_THRESHOLD, XCM_V3,
 	},
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	Rococo, BridgeHubRococo, AssetHubWococo, RococoPallet, BridgeHubWococo,
-	AssetHubRococo, PenpalRococoA, AssetHubRococoReceiver,
+	AssetHubRococo, AssetHubRococoReceiver, AssetHubWococo, BridgeHubRococo, BridgeHubWococo,
+	PenpalRococoA, Rococo, RococoPallet,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{
-	prelude::{*, AccountId32 as AccountId32Junction},
+	prelude::{AccountId32 as AccountId32Junction, *},
 	v3::{
 		Error,
 		NetworkId::{Rococo as RococoId, Wococo as WococoId},
 	},
 };
 pub use xcm_emulator::{
-	assert_expected_events, bx, helpers::weight_within_threshold,
-	Chain, Parachain as Para, RelayChain as Relay, Test, TestArgs,
-	TestContext, TestExt
+	assert_expected_events, bx, helpers::weight_within_threshold, Chain, Parachain as Para,
+	RelayChain as Relay, Test, TestArgs, TestContext, TestExt,
 };
 
 pub const ASSET_ID: u32 = 1;
