@@ -963,37 +963,29 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				}
 				result
 			},
-			UnlockAsset { asset, target } =>
-				Config::TransactionalProcessor::process(|| -> Result<(), XcmError> {
-					let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
-					Config::AssetLocker::prepare_unlock(origin, asset, target)?.enact()?;
-					Ok(())
-				}),
+			UnlockAsset { asset, target } => {
+				let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
+				Config::AssetLocker::prepare_unlock(origin, asset, target)?.enact()?;
+				Ok(())
+			},
 			NoteUnlockable { asset, owner } => {
 				let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
 				Config::AssetLocker::note_unlockable(origin, asset, owner)?;
 				Ok(())
 			},
 			RequestUnlock { asset, locker } => {
-				let old_holding = self.holding.clone();
-				let result = Config::TransactionalProcessor::process(|| -> Result<(), XcmError> {
-					let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
-					let remote_asset = Self::try_reanchor(asset.clone(), &locker)?.0;
-					let remote_target = Self::try_reanchor_multilocation(origin, &locker)?.0;
-					let reduce_ticket =
-						Config::AssetLocker::prepare_reduce_unlockable(locker, asset, origin)?;
-					let msg =
-						Xcm::<()>(vec![UnlockAsset { asset: remote_asset, target: remote_target }]);
-					let (ticket, price) = validate_send::<Config::XcmSender>(locker, msg)?;
-					self.take_fee(price, FeeReason::RequestUnlock)?;
-					reduce_ticket.enact()?;
-					Config::XcmSender::deliver(ticket)?;
-					Ok(())
-				});
-				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
-					self.holding = old_holding;
-				}
-				result
+				let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
+				let remote_asset = Self::try_reanchor(asset.clone(), &locker)?.0;
+				let remote_target = Self::try_reanchor_multilocation(origin, &locker)?.0;
+				let reduce_ticket =
+					Config::AssetLocker::prepare_reduce_unlockable(locker, asset, origin)?;
+				let msg =
+					Xcm::<()>(vec![UnlockAsset { asset: remote_asset, target: remote_target }]);
+				let (ticket, price) = validate_send::<Config::XcmSender>(locker, msg)?;
+				self.take_fee(price, FeeReason::RequestUnlock)?;
+				reduce_ticket.enact()?;
+				Config::XcmSender::deliver(ticket)?;
+				Ok(())
 			},
 			ExchangeAsset { give, want, maximal } => {
 				let give = self.holding.saturating_take(give);
