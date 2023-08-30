@@ -681,7 +681,7 @@ impl<T: Config> OnNewHead for Pallet<T> {
 	fn on_new_head(id: ParaId, _head: &HeadData) -> Weight {
 		// mark the parachain locked if the locked value is not already set
 		let mut writes = 0;
-		if let Some(info) = Paras::<T>::get(id) {
+		if let Some(mut info) = Paras::<T>::get(id) {
 			if info.locked.is_none() {
 				info.locked = Some(true);
 				Paras::<T>::insert(id, info);
