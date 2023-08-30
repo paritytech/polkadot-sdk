@@ -4,9 +4,7 @@
 # common settings for all zombienet jobs
 .zombienet-polkadot-common:
   before_script:
-    - export RELEASE_VERSION=$(./artifacts/polkadot -V | awk '{print $2}'| awk -F "-" '{print $1}')
-    - echo -n "v${RELEASE_VERSION}" > ./artifacts/BUILD_RELEASE_VERSION
-    - export BUILD_RELEASE_VERSION="$(cat ./artifacts/BUILD_RELEASE_VERSION)"
+    - export BUILD_RELEASE_VERSION="$(cat ./artifacts/BUILD_RELEASE_VERSION)" # from build-linux-stable job
     - export DEBUG=zombie,zombie::network-node
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
     - export ZOMBIENET_INTEGRATION_TEST_SECONDARY_IMAGE="docker.io/parity/polkadot:${BUILD_RELEASE_VERSION}"
@@ -22,6 +20,8 @@
   stage: zombienet
   image: "${ZOMBIENET_IMAGE}"
   needs:
+    - job: build-linux-stable
+      artifacts: true
     - job: build-push-image-malus
       artifacts: true
     - job: build-push-image-polkadot-debug
