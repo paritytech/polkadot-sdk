@@ -147,7 +147,10 @@ test-doc:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
+  # DAG
+  needs:
+    - job: test-rustdoc
+      artifacts: false
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
@@ -160,10 +163,7 @@ test-rustdoc:
   extends:
     - .docker-env
     - .common-refs
-  # DAG
-  needs:
-    - job: test-doc
-      artifacts: false
+    - .run-immediately
   variables:
     SKIP_WASM_BUILD: 1
     RUSTDOCFLAGS: "-Dwarnings"
@@ -196,6 +196,8 @@ test-node-metrics:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
+    # Build the required workers.
+    - cargo build --bin polkadot-execute-worker --bin polkadot-prepare-worker --profile testnet --verbose --locked
     - mkdir -p artifacts
     - time cargo test --profile testnet
       --locked
@@ -210,7 +212,7 @@ test-deterministic-wasm:
     - .common-refs
   # DAG
   needs:
-    - job: test-frame-support
+    - job: test-frame-ui
       artifacts: false
   script:
     - .gitlab/test_deterministic_wasm.sh
@@ -293,7 +295,7 @@ node-bench-regression-guard:
 
 # if this fails (especially after rust version upgrade) run
 # ./substrate/.maintain/update-rust-stable.sh <rust_version>
-test-frame-support:
+test-frame-ui:
   stage: test
   extends:
     - .docker-env
@@ -312,9 +314,8 @@ test-frame-support:
     # Ensure we run the UI tests.
     RUN_UI_TESTS: 1
   script:
-    - time cargo test --locked -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental --manifest-path ./substrate/frame/support/test/Cargo.toml
-    - time cargo test --locked -p frame-support-test --features=frame-feature-testing,frame-feature-testing-2,no-metadata-docs,try-runtime,experimental --manifest-path ./substrate/frame/support/test/Cargo.toml
-    - SUBSTRATE_TEST_TIMEOUT=1 time cargo test -p substrate-test-utils --release --locked -- --ignored timeout
+    - time cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental
+    - time cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,frame-feature-testing-2,no-metadata-docs,try-runtime,experimental
     - cat /cargo_target_dir/debug/.fingerprint/memory_units-759eddf317490d2b/lib-memory_units.json || true
 
 # This job runs all benchmarks defined in the `/bin/node/runtime` once to check that there are no errors.
