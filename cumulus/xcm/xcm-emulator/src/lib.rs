@@ -41,7 +41,7 @@ pub use frame_support::{
 pub use frame_system::{Config as SystemConfig, Pallet as SystemPallet};
 pub use pallet_balances::AccountData;
 pub use sp_arithmetic::traits::Bounded;
-pub use sp_core::{parameter_types, sr25519, storage::Storage, Pair};
+pub use sp_core::{parameter_types, sr25519, blake2_256, storage::Storage, Pair};
 pub use sp_io::TestExternalities;
 pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, fmt::Debug};
 pub use sp_tracing;
@@ -1019,7 +1019,7 @@ macro_rules! decl_test_networks {
 								&msg[..],
 								from_para_id.into(),
 								&mut weight_meter,
-								&mut msg.using_encoded(sp_core::blake2_256),
+								&mut msg.using_encoded($crate::blake2_256),
 							);
 						});
 						$crate::log::debug!(target: concat!("ump::", stringify!($name)) , "Upward message processed {:?} from para_id {:?}", &msg, &from_para_id);

@@ -26,6 +26,8 @@ pub use crate::{
 // Substrate
 use sp_core::Get;
 pub use frame_support::{traits::fungibles::Inspect, assert_ok};
+pub use pallet_assets;
+pub use pallet_message_queue;
 
 // Cumulus
 use bp_messages::{
@@ -41,11 +43,14 @@ pub use xcm_emulator::{
 	helpers::weight_within_threshold, BridgeMessageHandler, Chain,
 	BridgeMessage, BridgeMessageDispatchError, TestExt, Parachain, RelayChain,
 };
+pub use cumulus_pallet_parachain_system;
+pub use cumulus_pallet_dmp_queue;
+pub use cumulus_pallet_xcmp_queue;
 
 // Polkadot
 pub use polkadot_runtime_parachains::{
 	dmp,
-	hrmp::HrmpChannels,
+	hrmp,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 pub use xcm::{
@@ -55,6 +60,7 @@ pub use xcm::{
 	v3::Error,
 	DoubleEncoded,
 };
+pub use pallet_xcm;
 
 pub struct BridgeHubMessageHandler<S, T, I> {
 	_marker: std::marker::PhantomData<(S, T, I)>,
@@ -212,7 +218,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 						Self,
 						vec![
 							[<$chain RuntimeEvent>]::XcmPallet(
-								pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Complete(weight) }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Complete(weight) }
 							) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
@@ -234,7 +240,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 						vec![
 							// Dispatchable is properly executed and XCM message sent
 							[<$chain RuntimeEvent>]::XcmPallet(
-								pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete(weight, error) }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete(weight, error) }
 							) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
@@ -252,7 +258,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
-							[<$chain RuntimeEvent>]::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
+							[<$chain RuntimeEvent>]::XcmPallet($crate::impls::pallet_xcm::Event::Sent { .. }) => {},
 						]
 					);
 				}
@@ -267,7 +273,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 						Self,
 						vec![
 							// XCM is succesfully received and proccessed
-							[<$chain RuntimeEvent>]::MessageQueue(pallet_message_queue::Event::Processed {
+							[<$chain RuntimeEvent>]::MessageQueue($crate::impls::pallet_message_queue::Event::Processed {
 								origin: $crate::impls::AggregateMessageOrigin::Ump($crate::impls::UmpQueueId::Para(id)),
 								weight_used,
 								success,
@@ -302,7 +308,7 @@ macro_rules! impl_hrmp_channels_helpers_for_relay_chain {
 				) -> $crate::impls::DoubleEncoded<()> {
 					use $crate::impls::Encode;
 
-					<Self as $crate::impls::Chain>::RuntimeCall::Hrmp(polkadot_runtime_parachains::hrmp::Call::<
+					<Self as $crate::impls::Chain>::RuntimeCall::Hrmp($crate::impls::hrmp::Call::<
 						<Self as $crate::impls::Chain>::Runtime,
 					>::hrmp_init_open_channel {
 						recipient: recipient_para_id,
@@ -316,7 +322,7 @@ macro_rules! impl_hrmp_channels_helpers_for_relay_chain {
 				pub fn accept_open_channel_call(sender_para_id: $crate::impls::ParaId) -> $crate::impls::DoubleEncoded<()> {
 					use $crate::impls::Encode;
 
-					<Self as $crate::impls::Chain>::RuntimeCall::Hrmp(polkadot_runtime_parachains::hrmp::Call::<
+					<Self as $crate::impls::Chain>::RuntimeCall::Hrmp($crate::impls::hrmp::Call::<
 						<Self as $crate::impls::Chain>::Runtime,
 					>::hrmp_accept_open_channel {
 						sender: sender_para_id,
@@ -340,7 +346,7 @@ macro_rules! impl_hrmp_channels_helpers_for_relay_chain {
 
 						let channel_id = $crate::impls::HrmpChannelId { sender, recipient };
 
-						let hrmp_channel_exist = $crate::impls::HrmpChannels::<
+						let hrmp_channel_exist = $crate::impls::hrmp::HrmpChannels::<
 							<Self as Chain>::Runtime,
 						>::contains_key(&channel_id);
 
@@ -388,7 +394,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 						Self,
 						vec![
 							[<$chain RuntimeEvent>]::PolkadotXcm(
-								pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Complete(weight) }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Complete(weight) }
 							) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
@@ -410,7 +416,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 						vec![
 							// Dispatchable is properly executed and XCM message sent
 							[<$chain RuntimeEvent>]::PolkadotXcm(
-								pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete(weight, error) }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete(weight, error) }
 							) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
@@ -430,7 +436,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 						vec![
 							// Execution fails in the origin with `Barrier`
 							[<$chain RuntimeEvent>]::PolkadotXcm(
-								pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Error(error) }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Error(error) }
 							) => {
 								error: *error == expected_error.unwrap_or(*error),
 							},
@@ -443,7 +449,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
-							[<$chain RuntimeEvent>]::PolkadotXcm(pallet_xcm::Event::Sent { .. }) => {},
+							[<$chain RuntimeEvent>]::PolkadotXcm($crate::impls::pallet_xcm::Event::Sent { .. }) => {},
 						]
 					);
 				}
@@ -454,7 +460,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 						Self,
 						vec![
 							[<$chain RuntimeEvent>]::ParachainSystem(
-								cumulus_pallet_parachain_system::Event::UpwardMessageSent { .. }
+								$crate::impls::cumulus_pallet_parachain_system::Event::UpwardMessageSent { .. }
 							) => {},
 						]
 					);
@@ -465,7 +471,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
-							[<$chain RuntimeEvent>]::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
+							[<$chain RuntimeEvent>]::DmpQueue($crate::impls::cumulus_pallet_dmp_queue::Event::ExecutedDownward {
 								outcome: $crate::impls::Outcome::Complete(weight), ..
 							}) => {
 								weight: $crate::impls::weight_within_threshold(
@@ -486,7 +492,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
-							[<$chain RuntimeEvent>]::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
+							[<$chain RuntimeEvent>]::DmpQueue($crate::impls::cumulus_pallet_dmp_queue::Event::ExecutedDownward {
 								outcome: $crate::impls::Outcome::Incomplete(weight, error), ..
 							}) => {
 								weight: $crate::impls::weight_within_threshold(
@@ -506,7 +512,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 						Self,
 						vec![
 							[<$chain RuntimeEvent>]::XcmpQueue(
-								cumulus_pallet_xcmp_queue::Event::Success { weight, .. }
+								$crate::impls::cumulus_pallet_xcmp_queue::Event::Success { weight, .. }
 							) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
@@ -536,9 +542,9 @@ macro_rules! impl_assets_helpers_for_parachain {
 				) -> $crate::impls::DoubleEncoded<()> {
 					use $crate::impls::{Chain, Encode};
 
-					<Self as Chain>::RuntimeCall::Assets(pallet_assets::Call::<
+					<Self as Chain>::RuntimeCall::Assets($crate::impls::pallet_assets::Call::<
 						<Self as Chain>::Runtime,
-						pallet_assets::Instance1,
+						$crate::impls::pallet_assets::Instance1,
 					>::force_create {
 						id: asset_id.into(),
 						owner: owner.into(),
@@ -581,7 +587,7 @@ macro_rules! impl_assets_helpers_for_parachain {
 						$crate::impls::assert_expected_events!(
 							Self,
 							vec![
-								RuntimeEvent::Assets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
+								RuntimeEvent::Assets($crate::impls::pallet_assets::Event::Issued { asset_id, owner, amount }) => {
 									asset_id: *asset_id == id,
 									owner: *owner == beneficiary.clone().into(),
 									amount: *amount == amount_to_mint,
@@ -630,7 +636,7 @@ macro_rules! impl_assets_helpers_for_parachain {
 							Self,
 							vec![
 								// Asset has been created
-								RuntimeEvent::Assets(pallet_assets::Event::ForceCreated { asset_id, owner }) => {
+								RuntimeEvent::Assets($crate::impls::pallet_assets::Event::ForceCreated { asset_id, owner }) => {
 									asset_id: *asset_id == id,
 									owner: *owner == asset_owner.clone(),
 								},
