@@ -4,7 +4,7 @@ path = "src/main.rs"
 
 [package]
 name = "staking-miner"
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,12 +12,12 @@ publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-clap = { version = "4.0.9", features = ["derive", "env"] }
+clap = { version = "4.4.1", features = ["derive", "env"] }
 tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
 jsonrpsee = { version = "0.16.2", features = ["ws-client", "macros"] }
 log = "0.4.17"
 paste = "1.0.7"
-serde = "1.0.163"
+serde = "1.0.188"
 serde_json = "1.0"
 thiserror = "1.0.31"
 tokio = { version = "1.24.2", features = ["macros", "rt-multi-thread", "sync"] }
