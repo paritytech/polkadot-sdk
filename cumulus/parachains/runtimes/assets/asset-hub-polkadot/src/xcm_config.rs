@@ -186,6 +186,9 @@ match_types! {
 	pub type FellowshipSalaryPallet: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 1, interior: X2(Parachain(1001), PalletInstance(64)) }
 	};
+	pub type TreasuryPallet: impl Contains<MultiLocation> = {
+		MultiLocation { parents: 1, interior: X1(PalletInstance(19)) }
+	};
 }
 
 /// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
@@ -366,12 +369,13 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attemps to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent, its pluralities (i.e. governance bodies), and the Fellows plurality
-					// get free execution.
+					// Parent, parent's pluralities (i.e. governance bodies), parent's treasury
+					// pallet and the Fellows plurality get free execution.
 					AllowExplicitUnpaidExecutionFrom<(
 						ParentOrParentsPlurality,
 						FellowsPlurality,
 						FellowshipSalaryPallet,
+						TreasuryPallet,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentOrSiblings>,
