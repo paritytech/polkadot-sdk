@@ -69,8 +69,9 @@ use parachains_common::{
 	AccountId, AssetIdForTrustBackedAssets, Signature,
 };
 use xcm_builder::{
-	AllowKnownQueryResponses, AllowSubscriptionsFrom, AsPrefixedGeneralIndex, ConvertedConcreteId, FrameTransactionalProcessor,
-	FungiblesAdapter, LocalMint, TrailingSetTopicAsId, WithUniqueTopic,
+	AllowKnownQueryResponses, AllowSubscriptionsFrom, AsPrefixedGeneralIndex, ConvertedConcreteId,
+	FrameTransactionalProcessor, FungiblesAdapter, LocalMint, TrailingSetTopicAsId,
+	WithUniqueTopic,
 };
 use xcm_executor::traits::JustTry;
 

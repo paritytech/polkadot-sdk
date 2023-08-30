@@ -34,8 +34,8 @@ pub trait ProcessTransaction {
 	/// implementer is not able to provide transactional guarantees, the closure should be
 	/// executed as is.
 	/// # Parameters
-	/// - `f`: A closure that encapsulates the XCM instruction to be processed. It should
-	///   return a `Result` indicating the success or failure of the instruction.
+	/// - `f`: A closure that encapsulates the XCM instruction to be processed. It should return a
+	///   `Result` indicating the success or failure of the instruction.
 	///
 	/// # Returns
 	/// - A `Result` indicating the overall success or failure of the transactional process.

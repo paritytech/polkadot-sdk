@@ -52,8 +52,9 @@ pub mod prelude {
 	pub use super::{
 		export_xcm, validate_export, AssetExchange, AssetLock, ClaimAssets, ConvertOrigin,
 		DropAssets, Enact, Error, ExportXcm, FeeManager, FeeReason, LockError, MatchesFungible,
-		MatchesFungibles, MatchesNonFungible, MatchesNonFungibles, OnResponse, ProcessTransaction, ShouldExecute,
-		TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader, WithOriginFilter,
+		MatchesFungibles, MatchesNonFungible, MatchesNonFungibles, OnResponse, ProcessTransaction,
+		ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
+		WithOriginFilter,
 	};
 	#[allow(deprecated)]
 	pub use super::{Identity, JustTry};
