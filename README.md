@@ -20,7 +20,7 @@ directory contains runtimes for the Polkadot, Kusama, and Westend networks.
 ### [Substrate](./substrate/)
 
 Substrate is the primary blockchain SDK used by developers to create the parachains that make up 
-the Polkadot network.
+the Polkadot network. Additionally, it allows for the development of self-sovereign blockchains that operate completely independently of Polkadot.
 
 ### [Cumulus](./cumulus/)
 Cumulus is a set of tools for writing Substrate-based Polkadot parachains.
