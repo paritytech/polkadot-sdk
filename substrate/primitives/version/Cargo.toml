@@ -1,11 +1,11 @@
 [package]
 name = "sp-version"
 version = "22.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Version module for the Substrate runtime; Provides a function that returns the runtime version."
 documentation = "https://docs.rs/sp-version"
 readme = "README.md"

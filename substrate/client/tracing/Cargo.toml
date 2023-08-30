@@ -2,10 +2,10 @@
 name = "sc-tracing"
 version = "4.0.0-dev"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Instrumentation implementation for substrate."
 readme = "README.md"
 
@@ -15,7 +15,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 ansi_term = "0.12.1"
 atty = "0.2.13"
-chrono = "0.4.19"
+chrono = "0.4.27"
 lazy_static = "1.4.0"
 libc = "0.2.121"
 log = { version = "0.4.17" }

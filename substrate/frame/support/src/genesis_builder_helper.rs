@@ -25,7 +25,10 @@ use sp_runtime::format_runtime_string;
 
 /// Get the default `GenesisConfig` as a JSON blob. For more info refer to
 /// [`sp_genesis_builder::GenesisBuilder::create_default_config`]
-pub fn create_default_config<GC: BuildGenesisConfig>() -> sp_std::vec::Vec<u8> {
+pub fn create_default_config<GC>() -> sp_std::vec::Vec<u8>
+where
+	GC: BuildGenesisConfig + Default,
+{
 	serde_json::to_string(&GC::default())
 		.expect("serialization to json is expected to work. qed.")
 		.into_bytes()
