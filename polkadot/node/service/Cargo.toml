@@ -103,17 +103,12 @@ polkadot-node-subsystem-util = { path = "../subsystem-util" }
 polkadot-node-subsystem-types = { path = "../subsystem-types" }
 polkadot-runtime-parachains = { path = "../../runtime/parachains" }
 polkadot-node-network-protocol = { path = "../network/protocol" }
-polkadot-runtime-common = { path = "../../runtime/common" }
 
 # Polkadot Runtime Constants
-polkadot-runtime-constants = { path = "../../runtime/polkadot/constants", optional = true }
-kusama-runtime-constants = { path = "../../runtime/kusama/constants", optional = true }
 rococo-runtime-constants = { path = "../../runtime/rococo/constants", optional = true }
 westend-runtime-constants = { path = "../../runtime/westend/constants", optional = true }
 
 # Polkadot Runtimes
-polkadot-runtime = { path = "../../runtime/polkadot", optional = true }
-kusama-runtime = { path = "../../runtime/kusama", optional = true }
 westend-runtime = { path = "../../runtime/westend", optional = true }
 rococo-runtime = { path = "../../runtime/rococo", optional = true }
 
@@ -183,11 +178,7 @@ full-node = [
 	"polkadot-statement-distribution",
 ]
 
-# Configure the native runtimes to use. Polkadot is enabled by default.
-#
-# Validators require the native runtime currently
-polkadot-native = [ "polkadot-runtime", "polkadot-runtime-constants" ]
-kusama-native = [ "kusama-runtime", "kusama-runtime-constants" ]
+# Configure the native runtimes to use.
 westend-native = [ "westend-runtime", "westend-runtime-constants" ]
 rococo-native = [ "rococo-runtime", "rococo-runtime-constants" ]
 
