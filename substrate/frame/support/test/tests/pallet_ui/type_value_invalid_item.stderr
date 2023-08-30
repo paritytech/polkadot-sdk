@@ -1,5 +1,5 @@
 error: Invalid pallet::type_value, expected item fn
-  --> $DIR/type_value_invalid_item.rs:18:24
+  --> tests/pallet_ui/type_value_invalid_item.rs:35:24
    |
-18 |     #[pallet::type_value] struct Foo;
+35 |     #[pallet::type_value] struct Foo;
    |                           ^^^^^^
