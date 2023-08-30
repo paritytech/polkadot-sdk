@@ -10,7 +10,7 @@ here](https://polkadot-public.notion.site/Polkadot-SDK-FAQ-fbc4cecc2c46443fb37b9
 The Polkadot SDK repository provides all the resources needed to start building on the Polkadot 
 network, a multi-chain blockchain platform that enables different blockchains to interoperate and 
 share information in a secure and scalable way. The Polkadot SDK comprises three main pieces of 
-software.
+software:
 
 ### [Polkadot](./polkadot/)
 
