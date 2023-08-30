@@ -56,7 +56,8 @@ pub struct ParaInfo<Account, Balance> {
 }
 
 impl<Account, Balance> ParaInfo<Account, Balance> {
-	pub fn is_locked(&self) -> bool {
+ 	/// Returns if the para is locked.
+ 	pub fn is_locked(&self) -> bool {
 		self.locked.unwrap_or(false)
 	}
 }
