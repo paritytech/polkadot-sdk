@@ -630,8 +630,7 @@ async fn validate_and_make_available(
 
 	let executor_params = match executor_params_at_relay_parent(relay_parent, &mut sender).await {
 		Ok(ep) => ep,
-		Err(e) => return Err(Error::UtilError(e)), /* FIXME: Is it enough to just proparate
-		                                            * `UtilError` here? */
+		Err(e) => return Err(Error::UtilError(e)),
 	};
 
 	let pov = match pov {

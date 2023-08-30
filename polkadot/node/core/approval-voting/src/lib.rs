@@ -1008,7 +1008,6 @@ async fn handle_actions<Context>(
 					},
 					None => {
 						let ctx = &mut *ctx;
-						// FIXME: Should we request at `block_hash` or `relay_block_hash`?
 						let executor_params = match session_info_provider
 							.get_session_info_by_index(ctx.sender(), block_hash, session)
 							.await
