@@ -125,8 +125,10 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		if self.data.lock().has_pending_availability {
 			Ok(Some(CommittedCandidateReceipt {
 				descriptor: CandidateDescriptor {
-					para_head: polkadot_parachain_primitives::primitives::HeadData(default_header().encode())
-						.hash(),
+					para_head: polkadot_parachain_primitives::primitives::HeadData(
+						default_header().encode(),
+					)
+					.hash(),
 					para_id: 0u32.into(),
 					relay_parent: PHash::random(),
 					collator: CollatorPair::generate().0.public(),

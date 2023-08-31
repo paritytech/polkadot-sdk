@@ -40,7 +40,9 @@ use polkadot_node_subsystem::{
 	SubsystemSender,
 };
 use polkadot_node_subsystem_util::executor_params_at_relay_parent;
-use polkadot_parachain_primitives::primitives::{ValidationParams, ValidationResult as WasmValidationResult};
+use polkadot_parachain_primitives::primitives::{
+	ValidationParams, ValidationResult as WasmValidationResult,
+};
 use polkadot_primitives::{
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, ExecutorParams, Hash,
 	OccupiedCoreAssumption, PersistedValidationData, PvfExecTimeoutKind, PvfPrepTimeoutKind,
