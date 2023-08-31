@@ -199,6 +199,8 @@ pub mod pallet {
 		InvalidVoteEquivocationProof,
 		/// An equivocation proof provided as part of a fork equivocation report is invalid.
 		InvalidForkEquivocationProof,
+		/// The session of the equivocation proof is invalid
+		InvalidEquivocationProofSession,
 		/// A given equivocation report is valid but already previously reported.
 		DuplicateOffenceReport,
 	}
