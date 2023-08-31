@@ -215,6 +215,7 @@ members = [
 	"substrate/client/consensus/grandpa/rpc",
 	"substrate/client/consensus/manual-seal",
 	"substrate/client/consensus/pow",
+	"substrate/client/consensus/sassafras",
 	"substrate/client/consensus/slots",
 	"substrate/client/db",
 	"substrate/client/executor",

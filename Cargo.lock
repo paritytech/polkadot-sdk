@@ -15139,6 +15139,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-consensus-sassafras"
+version = "0.3.4-dev"
+dependencies = [
+ "async-trait",
+ "env_logger 0.10.0",
+ "fork-tree",
+ "futures",
+ "log",
+ "parity-scale-codec",
+ "parking_lot 0.12.1",
+ "sc-block-builder",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-consensus-epochs",
+ "sc-consensus-slots",
+ "sc-keystore",
+ "sc-network-test",
+ "sc-telemetry",
+ "sc-transaction-pool-api",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-consensus-sassafras",
+ "sp-consensus-slots",
+ "sp-core",
+ "sp-inherents",
+ "sp-keyring",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-timestamp",
+ "substrate-prometheus-endpoint",
+ "substrate-test-runtime-client",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "sc-consensus-slots"
 version = "0.10.0-dev"
 dependencies = [
