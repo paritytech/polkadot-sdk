@@ -17,9 +17,7 @@
 
 use super::*;
 use crate::{
-	debug::{
-		CallInterceptor, CallInterceptorResult, CallSpan, ExportedFunction, Tracing,
-	},
+	debug::{CallInterceptor, CallInterceptorResult, CallSpan, ExportedFunction, Tracing},
 	AccountIdOf,
 };
 use frame_support::traits::Currency;
