@@ -227,7 +227,7 @@ pub mod pallet {
 		MaxWeightTooLow,
 		/// The data to be stored is already stored.
 		AlreadyStored,
-		/// The expiry cannot be specified for a multisig that is yet to be created.
+		/// A [`MultisigExpiries`] entry cannot be created for a non-existent [`Multisig`].
 		UnexpectedExpiry,
 		/// The multisig operation got expired.
 		MultisigExpired,
