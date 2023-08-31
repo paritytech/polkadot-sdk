@@ -77,7 +77,7 @@ frame-benchmarking = { path = "../../../substrate/frame/benchmarking" }
 futures = "0.3.21"
 hex-literal = "0.4.1"
 gum = { package = "tracing-gum", path = "../gum" }
-serde = { version = "1.0.163", features = ["derive"] }
+serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.96"
 thiserror = "1.0.31"
 kvdb = "0.13.0"
@@ -113,7 +113,7 @@ westend-runtime-constants = { path = "../../runtime/westend/constants", optional
 
 # Polkadot Runtimes
 polkadot-runtime = { path = "../../runtime/polkadot", optional = true }
-kusama-runtime = { path = "../../runtime/kusama", optional = true }
+kusama-runtime = { package = "staging-kusama-runtime", path = "../../runtime/kusama", optional = true }
 westend-runtime = { path = "../../runtime/westend", optional = true }
 rococo-runtime = { path = "../../runtime/rococo", optional = true }
 

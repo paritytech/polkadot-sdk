@@ -9,10 +9,9 @@ permissions:
 jobs:
   check-licenses:
     runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        repo: [polkadot]
+    env:
+      LICENSES: "'Apache-2.0' 'GPL-3.0-only' 'GPL-3.0-or-later WITH Classpath-exception-2.0'"
+      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -21,16 +20,26 @@ jobs:
           node-version: "18.x"
           registry-url: "https://npm.pkg.github.com"
           scope: "@paritytech"
-      - name: Check the licenses for ${{ matrix.repo }}
+        
+      - name: Check the licenses in Polkadot
         run: |
           shopt -s globstar
-          echo "install"
-          npm install -g @paritytech/license-scanner@0.0.5
-          echo "run for ${{ matrix.repo }}"
-          cd ${{ matrix.repo }}
           npx @paritytech/license-scanner scan \
-            --ensure-licenses=Apache-2.0 \
-            --ensure-licenses=GPL-3.0-only \
-            ./**/*.rs
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            --ensure-licenses ${{ env.LICENSES }} \
+            -- ./polkadot/**/*.rs
+
+      - name: Check the licenses in Cumulus
+        run: |
+          shopt -s globstar
+          npx @paritytech/license-scanner scan \
+            --ensure-licenses ${{ env.LICENSES }} \
+            --exclude ./cumulus/parachain-template \
+            -- ./cumulus/**/*.rs
+
+      - name: Check the licenses in Substrate
+        run: |
+          shopt -s globstar
+          npx @paritytech/license-scanner scan \
+            --ensure-licenses ${{ env.LICENSES }} \
+            --exclude ./substrate/bin/node-template \
+            -- ./substrate/**/*.rs
