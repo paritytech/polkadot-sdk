@@ -1358,10 +1358,10 @@ fn can_not_swap_same_asset() {
 fn validate_pool_id_sorting() {
 	new_test_ext().execute_with(|| {
 		use crate::NativeOrAssetId::{Asset, Native};
-		assert_eq!(AssetConversion::get_pool_id(Native, Asset(2)), (Native, Asset(2)));
-		assert_eq!(AssetConversion::get_pool_id(Asset(2), Native), (Native, Asset(2)));
-		assert_eq!(AssetConversion::get_pool_id(Native, Native), (Native, Native));
-		assert_eq!(AssetConversion::get_pool_id(Asset(2), Asset(1)), (Asset(1), Asset(2)));
+		assert_eq!(AssetConversion::get_pool_id(Native, Asset(2)).unwrap(), (Native, Asset(2)));
+		assert_eq!(AssetConversion::get_pool_id(Asset(2), Native).unwrap(), (Native, Asset(2)));
+		assert_eq!(AssetConversion::get_pool_id(Native, Native).unwrap(), (Native, Native));
+		assert_eq!(AssetConversion::get_pool_id(Asset(2), Asset(1)).unwrap(), (Asset(1), Asset(2)));
 		assert!(Asset(2) > Asset(1));
 		assert!(Asset(1) <= Asset(1));
 		assert_eq!(Asset(1), Asset(1));
@@ -1386,8 +1386,9 @@ fn cannot_block_pool_creation() {
 		let token_2 = NativeOrAssetId::Asset(2);
 
 		// Attacker computes the still non-existing pool account for the target pair
-		let pool_account =
-			AssetConversion::get_pool_account(&AssetConversion::get_pool_id(token_2, token_1));
+		let pool_account = AssetConversion::get_pool_account(
+			&AssetConversion::get_pool_id(token_2, token_1).unwrap(),
+		);
 		// And transfers the ED to that pool account
 		assert_ok!(Balances::transfer(RuntimeOrigin::signed(attacker), pool_account, ed));
 		// Then, the attacker creates 14 tokens and sends one of each to the pool account

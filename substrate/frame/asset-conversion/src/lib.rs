@@ -395,12 +395,9 @@ pub mod pallet {
 			ensure!(asset1 != asset2, Error::<T>::EqualAssets);
 
 			// prepare pool_id
-			let pool_id = Self::get_pool_id(asset1, asset2);
+			let pool_id = Self::get_pool_id(asset1, asset2)?;
 			ensure!(!Pools::<T>::contains_key(&pool_id), Error::<T>::PoolExists);
 			let (asset1, asset2) = &pool_id;
-			if !T::AllowMultiAssetPools::get() && !T::MultiAssetIdConverter::is_native(asset1) {
-				Err(Error::<T>::PoolMustContainNativeCurrency)?;
-			}
 
 			let pool_account = Self::get_pool_account(&pool_id);
 			frame_system::Pallet::<T>::inc_providers(&pool_account);
@@ -476,7 +473,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
+			let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone())?;
 			// swap params if needed
 			let (amount1_desired, amount2_desired, amount1_min, amount2_min) =
 				if pool_id.0 == asset1 {
@@ -587,7 +584,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
+			let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone())?;
 			// swap params if needed
 			let (amount1_min_receive, amount2_min_receive) = if pool_id.0 == asset1 {
 				(amount1_min_receive, amount2_min_receive)
@@ -855,7 +852,7 @@ pub mod pallet {
 		) -> Result<(), DispatchError> {
 			ensure!(amounts.len() > 1, Error::<T>::CorrespondenceError);
 			if let Some([asset1, asset2]) = &path.get(0..2) {
-				let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
+				let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone())?;
 				let pool_account = Self::get_pool_account(&pool_id);
 				// amounts should always contain a corresponding element to path.
 				let first_amount = amounts.first().ok_or(Error::<T>::CorrespondenceError)?;
@@ -866,7 +863,7 @@ pub mod pallet {
 				let path_len = path.len() as u32;
 				for assets_pair in path.windows(2) {
 					if let [asset1, asset2] = assets_pair {
-						let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
+						let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone())?;
 						let pool_account = Self::get_pool_account(&pool_id);
 
 						let amount_out =
@@ -877,7 +874,7 @@ pub mod pallet {
 							Self::get_pool_account(&Self::get_pool_id(
 								asset2.clone(),
 								asset3.clone(),
-							))
+							)?)
 						} else {
 							send_to.clone()
 						};
@@ -940,13 +937,19 @@ pub mod pallet {
 		///
 		/// We expect deterministic order, so (asset1, asset2) or (asset2, asset1) returns the same
 		/// result.
-		pub fn get_pool_id(asset1: T::MultiAssetId, asset2: T::MultiAssetId) -> PoolIdOf<T> {
-			match (
+		pub fn get_pool_id(
+			asset1: T::MultiAssetId,
+			asset2: T::MultiAssetId,
+		) -> Result<PoolIdOf<T>, DispatchError> {
+			if !T::AllowMultiAssetPools::get() && !T::MultiAssetIdConverter::is_native(&asset1) {
+				Err(Error::<T>::PoolMustContainNativeCurrency)?;
+			}
+			let id = match (
 				T::MultiAssetIdConverter::is_native(&asset1),
 				T::MultiAssetIdConverter::is_native(&asset2),
 			) {
-				(true, false) => return (asset1, asset2),
-				(false, true) => return (asset2, asset1),
+				(true, false) => (asset1, asset2),
+				(false, true) => (asset2, asset1),
 				_ => {
 					// else we want to be deterministic based on `Ord` implementation
 					if asset1 <= asset2 {
@@ -955,7 +958,8 @@ pub mod pallet {
 						(asset2, asset1)
 					}
 				},
-			}
+			};
+			Ok(id)
 		}
 
 		/// Returns the balance of each asset in the pool.
@@ -963,15 +967,15 @@ pub mod pallet {
 		pub fn get_reserves(
 			asset1: &T::MultiAssetId,
 			asset2: &T::MultiAssetId,
-		) -> Result<(T::AssetBalance, T::AssetBalance), Error<T>> {
-			let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
+		) -> Result<(T::AssetBalance, T::AssetBalance), DispatchError> {
+			let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone())?;
 			let pool_account = Self::get_pool_account(&pool_id);
 
 			let balance1 = Self::get_balance(&pool_account, asset1)?;
 			let balance2 = Self::get_balance(&pool_account, asset2)?;
 
 			if balance1.is_zero() || balance2.is_zero() {
-				Err(Error::<T>::PoolNotFound)?;
+				Err(DispatchError::from(Error::<T>::PoolNotFound))?;
 			}
 
 			Ok((balance1, balance2))
@@ -1023,7 +1027,10 @@ pub mod pallet {
 			amount: T::AssetBalance,
 			include_fee: bool,
 		) -> Option<T::AssetBalance> {
-			let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
+			let pool_id = match Self::get_pool_id(asset1.clone(), asset2.clone()) {
+				Ok(id) => id,
+				Err(_) => return None,
+			};
 			let pool_account = Self::get_pool_account(&pool_id);
 
 			let balance1 = Self::get_balance(&pool_account, &asset1).ok()?;
@@ -1046,7 +1053,10 @@ pub mod pallet {
 			amount: T::AssetBalance,
 			include_fee: bool,
 		) -> Option<T::AssetBalance> {
-			let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
+			let pool_id = match Self::get_pool_id(asset1.clone(), asset2.clone()) {
+				Ok(id) => id,
+				Err(_) => return None,
+			};
 			let pool_account = Self::get_pool_account(&pool_id);
 
 			let balance1 = Self::get_balance(&pool_account, &asset1).ok()?;
@@ -1217,7 +1227,7 @@ pub mod pallet {
 			let mut pools = BoundedBTreeSet::<PoolIdOf<T>, T::MaxSwapPathLength>::new();
 			for assets_pair in path.windows(2) {
 				if let [asset1, asset2] = assets_pair {
-					let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
+					let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone())?;
 					let new_element =
 						pools.try_insert(pool_id).map_err(|_| Error::<T>::Overflow)?;
 					if !new_element {
