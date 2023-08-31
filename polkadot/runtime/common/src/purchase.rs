@@ -484,14 +484,14 @@ mod tests {
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 	use crate::purchase;
 	use frame_support::{
-		assert_noop, assert_ok,
-		dispatch::DispatchError::BadOrigin,
-		ord_parameter_types, parameter_types,
+		assert_noop, assert_ok, ord_parameter_types, parameter_types,
 		traits::{Currency, WithdrawReasons},
 	};
 	use sp_runtime::{
 		traits::{BlakeTwo256, Dispatchable, IdentifyAccount, Identity, IdentityLookup, Verify},
-		ArithmeticError, BuildStorage, MultiSignature,
+		ArithmeticError, BuildStorage,
+		DispatchError::BadOrigin,
+		MultiSignature,
 	};
 
 	type Block = frame_system::mocking::MockBlock<Test>;
