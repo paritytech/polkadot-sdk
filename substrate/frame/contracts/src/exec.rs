@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	debug::{CallSpan, Tracing},
+	debug::{CallSpan, Tracing, CallInterceptor, CallInterceptorResult},
 	gas::GasMeter,
 	storage::{self, meter::Diff, WriteOutcome},
 	BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
@@ -910,10 +910,14 @@ where
 			let call_span =
 				T::Debug::new_call_span(executable.code_hash(), entry_point, &input_data);
 
-			// Call into the Wasm blob.
-			let output = executable
-				.execute(self, &entry_point, input_data)
-				.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
+			let output = match T::Debug::intercept_call() {
+				// Call into the Wasm blob.
+				CallInterceptorResult::Proceed => executable
+					.execute(self, &entry_point, input_data)
+					.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?,
+				// Return the output of the interceptor.
+				CallInterceptorResult::Stop(output) => output?,
+			};
 
 			call_span.after_call(&output);
 

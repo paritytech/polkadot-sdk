@@ -15,14 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use crate::exec::ExportedFunction;
+pub use crate::exec::{ExportedFunction, ExecResult};
 use crate::{CodeHash, Config, LOG_TARGET};
 use pallet_contracts_primitives::ExecReturnValue;
 
 /// Umbrella trait for all interfaces that serves for debugging.
-pub trait Debugger<T: Config>: Tracing<T> {}
+pub trait Debugger<T: Config>: Tracing<T> + CallInterceptor {}
 
-impl<T: Config, V> Debugger<T> for V where V: Tracing<T> {}
+impl<T: Config, V> Debugger<T> for V where V: Tracing<T> + CallInterceptor {}
 
 /// Defines methods to capture contract calls, enabling external observers to
 /// measure, trace, and react to contract interactions.
@@ -68,5 +68,20 @@ impl<T: Config> Tracing<T> for () {
 impl CallSpan for () {
 	fn after_call(self, output: &ExecReturnValue) {
 		log::trace!(target: LOG_TARGET, "call result {output:?}")
+	}
+}
+
+pub enum CallInterceptorResult {
+	Proceed,
+	Stop(ExecResult),
+}
+
+pub trait CallInterceptor {
+	fn intercept_call() -> CallInterceptorResult;
+}
+
+impl CallInterceptor for () {
+	fn intercept_call() -> CallInterceptorResult {
+		CallInterceptorResult::Proceed
 	}
 }
