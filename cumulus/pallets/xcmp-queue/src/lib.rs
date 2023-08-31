@@ -469,11 +469,7 @@ impl<T: Config> Pallet<T> {
 			s.push(OutboundChannelDetails::new(dest).with_signals());
 		}
 		<SignalMessages<T>>::mutate(dest, |page| {
-			if page.is_empty() {
-				*page = (XcmpMessageFormat::Signals, signal).encode();
-			} else {
-				signal.using_encoded(|s| page.extend_from_slice(s));
-			}
+			*page = (XcmpMessageFormat::Signals, signal).encode();
 		});
 		<OutboundXcmpStatus<T>>::put(s);
 
@@ -812,6 +808,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 				let price = T::PriceForSiblingDelivery::price_for_parachain_delivery(id, &xcm);
 				let versioned_xcm: VersionedXcm<()> = T::VersionWrapper::wrap_version(&d, xcm)
 					.map_err(|()| SendError::DestinationUnsupported)?;
+				// FAIL-CI: @gav does this check belong here or into pallet-xcm?
 				validate_xcm_nesting(&versioned_xcm)
 					.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 
@@ -828,8 +825,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 
 	fn deliver((id, xcm): (ParaId, VersionedXcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		// Should be ensured by `Self::validate`:
-		debug_assert!(validate_xcm_nesting(&xcm).is_ok());
+		debug_assert!(validate_xcm_nesting(&xcm).is_ok(), "Tickets are validated; qed");
 
 		match Self::send_fragment(id, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm) {
 			Ok(_) => {
