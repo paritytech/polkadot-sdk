@@ -39,7 +39,7 @@ impl<
 		Assets: nonfungibles_v2::Transfer<AccountId>,
 		Matcher: MatchesNonFungibles<Assets::CollectionId, Assets::ItemId>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone, // can't get away without it since Currency is generic over it.
+		AccountId: Clone, // can't get away without it since `nonfungibles_v2` is generic over it.
 	> TransactAsset for NonFungiblesV2TransferAdapter<Assets, Matcher, AccountIdConverter, AccountId>
 {
 	fn transfer_asset(
@@ -95,7 +95,7 @@ impl<
 		Assets: nonfungibles_v2::Mutate<AccountId, ItemConfig>,
 		Matcher: MatchesNonFungibles<Assets::CollectionId, Assets::ItemId>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone + Eq, // can't get away without it since Currency is generic over it.
+		AccountId: Clone + Eq, // can't get away without it since `nonfungibles_v2` is generic over it.
 		CheckAsset: AssetChecking<Assets::CollectionId>,
 		CheckingAccount: Get<Option<AccountId>>,
 		ItemConfig: Default,
@@ -146,7 +146,7 @@ impl<
 		Assets: nonfungibles_v2::Mutate<AccountId, ItemConfig>,
 		Matcher: MatchesNonFungibles<Assets::CollectionId, Assets::ItemId>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone + Eq, // can't get away without it since Currency is generic over it.
+		AccountId: Clone + Eq, // can't get away without it since `nonfungibles_v2` is generic over it.
 		CheckAsset: AssetChecking<Assets::CollectionId>,
 		CheckingAccount: Get<Option<AccountId>>,
 		ItemConfig: Default,
@@ -306,7 +306,7 @@ impl<
 		Assets: nonfungibles_v2::Mutate<AccountId, ItemConfig> + nonfungibles_v2::Transfer<AccountId>,
 		Matcher: MatchesNonFungibles<Assets::CollectionId, Assets::ItemId>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone + Eq, // can't get away without it since Currency is generic over it.
+		AccountId: Clone + Eq, // can't get away without it since `nonfungibles_v2` is generic over it.
 		CheckAsset: AssetChecking<Assets::CollectionId>,
 		CheckingAccount: Get<Option<AccountId>>,
 		ItemConfig: Default,
