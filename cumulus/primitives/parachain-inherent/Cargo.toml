@@ -1,8 +1,8 @@
 [package]
 name = "cumulus-primitives-parachain-inherent"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 async-trait = { version = "0.1.73", optional = true }
@@ -31,9 +31,11 @@ default = [ "std" ]
 std = [
 	"async-trait",
 	"codec/std",
-	"scale-info/std",
-	"tracing",
+	"cumulus-primitives-core/std",
+	"cumulus-relay-chain-interface",
+	"cumulus-test-relay-sproof-builder",
 	"sc-client-api",
+	"scale-info/std",
 	"sp-api",
 	"sp-core/std",
 	"sp-inherents/std",
@@ -42,7 +44,5 @@ std = [
 	"sp-std/std",
 	"sp-storage",
 	"sp-trie/std",
-	"cumulus-primitives-core/std",
-	"cumulus-relay-chain-interface",
-	"cumulus-test-relay-sproof-builder",
+	"tracing",
 ]

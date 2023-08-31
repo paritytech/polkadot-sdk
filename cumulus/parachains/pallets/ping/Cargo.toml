@@ -1,6 +1,6 @@
 [package]
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 name = "cumulus-ping"
 version = "0.1.0"
 
@@ -13,27 +13,28 @@ sp-runtime = { path = "../../../../substrate/primitives/runtime", default-featur
 frame-support = { path = "../../../../substrate/frame/support", default-features = false}
 frame-system = { path = "../../../../substrate/frame/system", default-features = false}
 
-xcm = { path = "../../../../polkadot/xcm", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false}
 
 cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
 cumulus-pallet-xcm = { path = "../../../pallets/xcm", default-features = false }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"codec/std",
-	"scale-info/std",
+	"cumulus-pallet-xcm/std",
 	"cumulus-primitives-core/std",
-	"sp-std/std",
-	"sp-runtime/std",
 	"frame-support/std",
 	"frame-system/std",
+	"scale-info/std",
+	"sp-runtime/std",
+	"sp-std/std",
 	"xcm/std",
 ]
 
 try-runtime = [
-	"frame-system/try-runtime",
-	"frame-support/try-runtime",
 	"cumulus-pallet-xcm/try-runtime",
-	"sp-runtime/try-runtime"
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
 ]

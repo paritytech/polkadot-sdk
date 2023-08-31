@@ -5,15 +5,16 @@ authors = ["Anonymous"]
 description = "A new Cumulus FRAME-based Substrate Node, ready for hacking together a parachain."
 license = "Unlicense"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/cumulus/"
-edition = "2021"
+repository.workspace = true
+edition.workspace = true
 build = "build.rs"
+publish = false
 
 [dependencies]
-clap = { version = "4.3.24", features = ["derive"] }
+clap = { version = "4.4.1", features = ["derive"] }
 log = "0.4.20"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
-serde = { version = "1.0.183", features = ["derive"] }
+serde = { version = "1.0.188", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 futures = "0.3.28"
 
@@ -55,7 +56,7 @@ substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
 # Polkadot
 polkadot-cli = { path = "../../../polkadot/cli", features = ["rococo-native"] }
 polkadot-primitives = { path = "../../../polkadot/primitives" }
-xcm = { path = "../../../polkadot/xcm", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
 
 # Cumulus
 cumulus-client-cli = { path = "../../client/cli" }
@@ -76,13 +77,20 @@ substrate-build-script-utils = { path = "../../../substrate/utils/build-script-u
 [features]
 default = []
 runtime-benchmarks = [
+	"frame-benchmarking-cli/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
 	"parachain-template-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"parachain-template-runtime/try-runtime"
+	"parachain-template-runtime/try-runtime",
+	"polkadot-cli/try-runtime",
+	"sp-runtime/try-runtime",
 ]
 network-protocol-staging = [
+	"cumulus-client-service/network-protocol-staging",
 	"polkadot-cli/network-protocol-staging",
-	"cumulus-client-service/network-protocol-staging"
 ]

@@ -41,7 +41,7 @@ pub trait InitPolkadotBlockBuilder {
 	/// Init a Polkadot specific block builder at a specific block that works for the test runtime.
 	///
 	/// Same as [`InitPolkadotBlockBuilder::init_polkadot_block_builder`] besides that it takes a
-	/// [`BlockId`] to say which should be the parent block of the block that is being build.
+	/// `Hash` to say which should be the parent block of the block that is being build.
 	fn init_polkadot_block_builder_at(
 		&self,
 		hash: <Block as BlockT>::Hash,

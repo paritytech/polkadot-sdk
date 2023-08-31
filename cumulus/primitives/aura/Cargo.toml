@@ -1,8 +1,8 @@
 [package]
 name = "cumulus-primitives-aura"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
@@ -21,10 +21,10 @@ polkadot-primitives = { path = "../../../polkadot/primitives", default-features 
 default = [ "std" ]
 std = [
 	"codec/std",
+	"polkadot-core-primitives/std",
+	"polkadot-primitives/std",
 	"sp-api/std",
 	"sp-consensus-aura/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"polkadot-core-primitives/std",
-	"polkadot-primitives/std",
 ]

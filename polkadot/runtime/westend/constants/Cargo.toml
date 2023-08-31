@@ -1,6 +1,6 @@
 [package]
 name = "westend-runtime-constants"
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -16,12 +16,12 @@ sp-weights = { path = "../../../../substrate/primitives/weights", default-featur
 sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"frame-support/std",
 	"primitives/std",
 	"runtime-common/std",
 	"sp-core/std",
 	"sp-runtime/std",
-	"sp-weights/std"
+	"sp-weights/std",
 ]

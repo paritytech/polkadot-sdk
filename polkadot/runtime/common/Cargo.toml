@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-runtime-common"
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,7 +12,7 @@ parity-scale-codec = { version = "3.6.1", default-features = false, features = [
 log = { version = "0.4.17", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.163", default-features = false, features = ["alloc"] }
+serde = { version = "1.0.188", default-features = false, features = ["alloc"] }
 serde_derive = { version = "1.0.117" }
 static_assertions = "1.1.0"
 
@@ -49,7 +49,7 @@ libsecp256k1 = { version = "0.7.0", default-features = false }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false }
 
 slot-range-helper = { path = "slot_range_helper", default-features = false }
-xcm = { path = "../../xcm", default-features = false }
+xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.4.1"
@@ -63,65 +63,82 @@ libsecp256k1 = "0.7.0"
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
 
 [features]
-default = ["std"]
-experimental = [
-	"frame-support/experimental"
-]
+default = [ "std" ]
+experimental = [ "frame-support/experimental" ]
 no_std = []
 std = [
 	"bitvec/std",
-	"parity-scale-codec/std",
-	"scale-info/std",
-	"log/std",
-	"rustc-hex/std",
-	"serde/std",
-	"primitives/std",
-	"inherents/std",
-	"sp-core/std",
-	"sp-api/std",
-	"sp-std/std",
-	"sp-io/std",
+	"frame-benchmarking?/std",
+	"frame-election-provider-support/std",
 	"frame-support/std",
+	"frame-system/std",
+	"inherents/std",
+	"libsecp256k1/std",
+	"log/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
-	"pallet-session/std",
+	"pallet-election-provider-multi-phase/std",
 	"pallet-fast-unstake/std",
-	"pallet-staking/std",
+	"pallet-session/std",
 	"pallet-staking-reward-fn/std",
+	"pallet-staking/std",
 	"pallet-timestamp/std",
-	"pallet-vesting/std",
 	"pallet-transaction-payment/std",
 	"pallet-treasury/std",
-	"pallet-election-provider-multi-phase/std",
+	"pallet-vesting/std",
+	"parity-scale-codec/std",
+	"primitives/std",
+	"runtime-parachains/std",
+	"rustc-hex/std",
+	"scale-info/std",
+	"serde/std",
 	"slot-range-helper/std",
+	"sp-api/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-npos-elections/std",
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
-	"frame-system/std",
-	"libsecp256k1/std",
-	"runtime-parachains/std",
+	"sp-std/std",
 	"xcm/std",
-	"sp-npos-elections/std",
 ]
 runtime-benchmarks = [
-	"libsecp256k1/hmac",
-	"libsecp256k1/static-context",
 	"frame-benchmarking/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"runtime-parachains/runtime-benchmarks",
+	"libsecp256k1/hmac",
+	"libsecp256k1/static-context",
 	"pallet-babe/runtime-benchmarks",
-	"pallet-fast-unstake/runtime-benchmarks"
+	"pallet-balances/runtime-benchmarks",
+	"pallet-election-provider-multi-phase/runtime-benchmarks",
+	"pallet-fast-unstake/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
+	"pallet-vesting/runtime-benchmarks",
+	"primitives/runtime-benchmarks",
+	"runtime-parachains/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
 ]
 try-runtime = [
-	"runtime-parachains/try-runtime",
+	"frame-election-provider-support/try-runtime",
+	"frame-support-test/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
 	"pallet-authorship/try-runtime",
+	"pallet-babe?/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-election-provider-multi-phase/try-runtime",
+	"pallet-fast-unstake/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
-	"pallet-vesting/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-treasury/try-runtime",
-	"pallet-fast-unstake/try-runtime",
+	"pallet-vesting/try-runtime",
+	"runtime-parachains/try-runtime",
+	"sp-runtime/try-runtime",
 ]

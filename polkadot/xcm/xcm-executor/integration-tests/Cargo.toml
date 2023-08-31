@@ -4,7 +4,7 @@ description = "Integration tests for the XCM Executor"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version.workspace = true
+version = "1.0.0"
 publish = false
 
 [dependencies]
@@ -20,14 +20,10 @@ sp-consensus = { path = "../../../../substrate/primitives/consensus/common" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
 sp-state-machine = { path = "../../../../substrate/primitives/state-machine" }
-xcm = { path = "../..", default-features = false }
-xcm-executor = { path = ".." }
+xcm = { package = "staging-xcm", path = "../..", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = ".." }
 sp-tracing = { path = "../../../../substrate/primitives/tracing" }
 
 [features]
-default = ["std"]
-std = [
-	"xcm/std",
-	"sp-runtime/std",
-	"frame-support/std",
-]
+default = [ "std" ]
+std = [ "frame-support/std", "sp-runtime/std", "xcm/std" ]
