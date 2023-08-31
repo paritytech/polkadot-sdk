@@ -16,11 +16,14 @@
 
 //! Polkadot-to-KusamaBridgeHub headers sync entrypoint.
 
-use crate::cli::bridge::{CliBridgeBase, RelayToRelayHeadersCliBridge};
+use crate::cli::bridge::{
+	CliBridgeBase, RelayToRelayEquivocationDetectionCliBridge, RelayToRelayHeadersCliBridge,
+};
 
 use async_trait::async_trait;
 use relay_substrate_client::{AccountKeyPairOf, Client};
 use substrate_relay_helper::{
+	equivocation::SubstrateEquivocationDetectionPipeline,
 	finality::SubstrateFinalitySyncPipeline,
 	finality_base::{engine::Grandpa as GrandpaFinalityEngine, SubstrateFinalityPipeline},
 	TransactionParams,
@@ -32,9 +35,16 @@ pub struct PolkadotFinalityToBridgeHubKusama;
 
 substrate_relay_helper::generate_submit_finality_proof_call_builder!(
 	PolkadotFinalityToBridgeHubKusama,
-	PolkadotFinalityToBridgeHubKusamaCallBuilder,
+	SubmitFinalityProofCallBuilder,
 	relay_bridge_hub_kusama_client::runtime::Call::BridgePolkadotGrandpa,
 	relay_bridge_hub_kusama_client::runtime::BridgePolkadotGrandpaCall::submit_finality_proof
+);
+
+substrate_relay_helper::generate_report_equivocation_call_builder!(
+	PolkadotFinalityToBridgeHubKusama,
+	ReportEquivocationCallBuilder,
+	relay_polkadot_client::RuntimeCall::Grandpa,
+	relay_polkadot_client::GrandpaCall::report_equivocation
 );
 
 #[async_trait]
@@ -47,7 +57,7 @@ impl SubstrateFinalityPipeline for PolkadotFinalityToBridgeHubKusama {
 
 #[async_trait]
 impl SubstrateFinalitySyncPipeline for PolkadotFinalityToBridgeHubKusama {
-	type SubmitFinalityProofCallBuilder = PolkadotFinalityToBridgeHubKusamaCallBuilder;
+	type SubmitFinalityProofCallBuilder = SubmitFinalityProofCallBuilder;
 
 	async fn start_relay_guards(
 		target_client: &Client<Self::TargetChain>,
@@ -64,6 +74,11 @@ impl SubstrateFinalitySyncPipeline for PolkadotFinalityToBridgeHubKusama {
 	}
 }
 
+#[async_trait]
+impl SubstrateEquivocationDetectionPipeline for PolkadotFinalityToBridgeHubKusama {
+	type ReportEquivocationCallBuilder = ReportEquivocationCallBuilder;
+}
+
 /// `Polkadot` to BridgeHub `Kusama` bridge definition.
 pub struct PolkadotToBridgeHubKusamaCliBridge {}
 
@@ -74,4 +89,8 @@ impl CliBridgeBase for PolkadotToBridgeHubKusamaCliBridge {
 
 impl RelayToRelayHeadersCliBridge for PolkadotToBridgeHubKusamaCliBridge {
 	type Finality = PolkadotFinalityToBridgeHubKusama;
+}
+
+impl RelayToRelayEquivocationDetectionCliBridge for PolkadotToBridgeHubKusamaCliBridge {
+	type Equivocation = PolkadotFinalityToBridgeHubKusama;
 }

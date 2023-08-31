@@ -17,7 +17,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use bp_messages::MessageNonce;
-use bp_runtime::{Chain, EncodedOrDecodedCall, StorageMapKeyProvider};
+use bp_runtime::{
+	self,
+	extensions::{
+		ChargeTransactionPayment, CheckEra, CheckGenesis, CheckNonZeroSender, CheckNonce,
+		CheckSpecVersion, CheckTxVersion, CheckWeight, GenericSignedExtension,
+		SignedExtensionSchema,
+	},
+	Chain, EncodedOrDecodedCall, StorageMapKeyProvider, TransactionEra,
+};
 use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
@@ -271,6 +279,99 @@ impl AccountInfoStorageMapKeyProvider {
 		<Self as StorageMapKeyProvider>::final_key(Self::PALLET_NAME, id)
 	}
 }
+
+/// Extra signed extension data that is used by most chains.
+pub type CommonSignedExtra = (
+	CheckNonZeroSender,
+	CheckSpecVersion,
+	CheckTxVersion,
+	CheckGenesis<Hash>,
+	CheckEra<Hash>,
+	CheckNonce<Nonce>,
+	CheckWeight,
+	ChargeTransactionPayment<Balance>,
+);
+
+/// Extra signed extension data that starts with `CommonSignedExtra`.
+pub type SuffixedCommonSignedExtension<Suffix> =
+	GenericSignedExtension<(CommonSignedExtra, Suffix)>;
+
+/// Helper trait to define some extra methods on `SuffixedCommonSignedExtension`.
+pub trait SuffixedCommonSignedExtensionExt<Suffix: SignedExtensionSchema> {
+	/// Create signed extension from its components.
+	fn from_params(
+		spec_version: u32,
+		transaction_version: u32,
+		era: TransactionEra<BlockNumber, Hash>,
+		genesis_hash: Hash,
+		nonce: Nonce,
+		tip: Balance,
+		extra: (Suffix::Payload, Suffix::AdditionalSigned),
+	) -> Self;
+
+	/// Return transaction nonce.
+	fn nonce(&self) -> Nonce;
+
+	/// Return transaction tip.
+	fn tip(&self) -> Balance;
+}
+
+impl<Suffix> SuffixedCommonSignedExtensionExt<Suffix> for SuffixedCommonSignedExtension<Suffix>
+where
+	Suffix: SignedExtensionSchema,
+{
+	fn from_params(
+		spec_version: u32,
+		transaction_version: u32,
+		era: TransactionEra<BlockNumber, Hash>,
+		genesis_hash: Hash,
+		nonce: Nonce,
+		tip: Balance,
+		extra: (Suffix::Payload, Suffix::AdditionalSigned),
+	) -> Self {
+		GenericSignedExtension::new(
+			(
+				(
+					(),              // non-zero sender
+					(),              // spec version
+					(),              // tx version
+					(),              // genesis
+					era.frame_era(), // era
+					nonce.into(),    // nonce (compact encoding)
+					(),              // Check weight
+					tip.into(),      // transaction payment / tip (compact encoding)
+				),
+				extra.0,
+			),
+			Some((
+				(
+					(),
+					spec_version,
+					transaction_version,
+					genesis_hash,
+					era.signed_payload(genesis_hash),
+					(),
+					(),
+					(),
+				),
+				extra.1,
+			)),
+		)
+	}
+
+	fn nonce(&self) -> Nonce {
+		let common_payload = self.payload.0;
+		common_payload.5 .0
+	}
+
+	fn tip(&self) -> Balance {
+		let common_payload = self.payload.0;
+		common_payload.7 .0
+	}
+}
+
+/// Signed extension that is used by most chains.
+pub type CommonSignedExtension = SuffixedCommonSignedExtension<()>;
 
 #[cfg(test)]
 mod tests {

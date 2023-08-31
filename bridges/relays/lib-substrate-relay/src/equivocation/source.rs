@@ -40,7 +40,15 @@ pub struct SubstrateEquivocationSource<P: SubstrateEquivocationDetectionPipeline
 	transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
 }
 
-impl<P: SubstrateEquivocationDetectionPipeline> SubstrateEquivocationSource<P> {}
+impl<P: SubstrateEquivocationDetectionPipeline> SubstrateEquivocationSource<P> {
+	/// Create new instance of `SubstrateEquivocationSource`.
+	pub fn new(
+		client: Client<P::SourceChain>,
+		transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
+	) -> Self {
+		Self { client, transaction_params }
+	}
+}
 
 impl<P: SubstrateEquivocationDetectionPipeline> Clone for SubstrateEquivocationSource<P> {
 	fn clone(&self) -> Self {
