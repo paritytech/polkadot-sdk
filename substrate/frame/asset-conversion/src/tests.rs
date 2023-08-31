@@ -19,7 +19,11 @@ use crate::{mock::*, *};
 use frame_support::{
 	assert_noop, assert_ok,
 	instances::Instance1,
-	traits::{fungible::Inspect, fungibles::InspectEnumerable, Get},
+	traits::{
+		fungible::Inspect,
+		fungibles::{InspectEnumerable, Mutate},
+		AccountTouch, Get,
+	},
 };
 use sp_arithmetic::Permill;
 use sp_runtime::{DispatchError, TokenError};
@@ -1418,5 +1422,64 @@ fn cannot_block_pool_creation() {
 			10,
 			user,
 		));
+	});
+}
+
+#[test]
+fn swap_should_not_work() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let user2 = 2;
+		let user3 = 999;
+		let token_1 = NativeOrAssetId::Native;
+		let token_2 = NativeOrAssetId::Asset(2);
+		let token_3 = NativeOrAssetId::Asset(999);
+
+		create_tokens(user, vec![token_2, token_3]);
+		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+
+		let ed = get_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 100000 + ed));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user2, 10000 + ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 10000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 999, user, 10000));
+
+		let liquidity1 = 1000;
+		let liquidity2 = 1000;
+		let liquidity3 = 100000;
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			token_1,
+			token_2,
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		let pool_id3 = AssetConversion::get_pool_id(token_2.clone(), token_3.clone());
+		let pool_account3 = AssetConversion::get_pool_account(&pool_id3);
+
+		assert_ok!(<Assets as AccountTouch<_, _>>::touch(2, pool_account3, user2));
+		assert_ok!(<Assets as AccountTouch<_, _>>::touch(999, pool_account3, user2));
+		assert_ok!(<Assets as Mutate<_>>::mint_into(2, &pool_account3, liquidity3));
+		assert_ok!(<Assets as Mutate<_>>::mint_into(999, &pool_account3, liquidity3));
+
+		let input_amount = 1000;
+
+		assert!(balance(user3, token_1) == 0);
+
+		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
+			RuntimeOrigin::signed(user),
+			bvec![token_3, token_2, token_1],
+			input_amount,
+			1,
+			user3,
+			false,
+		));
+
+		assert!(balance(user3, token_1) > 0);
 	});
 }
