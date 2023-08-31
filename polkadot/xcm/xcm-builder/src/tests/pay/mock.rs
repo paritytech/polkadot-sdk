@@ -186,6 +186,7 @@ type OriginConverter = (
 	SignedAccountId32AsNative<AnyNetwork, RuntimeOrigin>,
 );
 type Barrier = AllowUnpaidExecutionFrom<Everything>;
+
 #[derive(Clone)]
 pub struct DummyWeightTrader;
 impl WeightTrader for DummyWeightTrader {

@@ -19,7 +19,7 @@
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	ensure,
-	traits::{Contains, ContainsPair, Get, PalletsInfoAccess},
+	traits::{Contains, ContainsPair, Defensive, Get, PalletsInfoAccess},
 };
 use parity_scale_codec::{Decode, Encode};
 use sp_core::defer;
@@ -705,7 +705,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			InitiateTeleport { assets, dest, xcm } => {
 				let old_holding = self.holding.clone();
-				let result = Config::TransactionalProcessor::process(|| -> Result<(), XcmError> {
+				let result = {
 					// We must do this first in order to resolve wildcards.
 					let assets = self.holding.saturating_take(assets);
 					for asset in assets.assets_iter() {
@@ -715,18 +715,19 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						// to leak into a trusted chain.
 						Config::AssetTransactor::can_check_out(&dest, &asset, &self.context)?;
 					}
+					// Note that we pass `None` as `maybe_failed_bin` and drop any assets which
+					// cannot be reanchored  because we have already checked all assets out.
+					let reanchored_assets = Self::reanchored(assets.clone(), &dest, None);
+					let mut message = vec![ReceiveTeleportedAsset(reanchored_assets), ClearOrigin];
+					message.extend(xcm.0.into_iter());
+					self.send(dest, Xcm(message), FeeReason::InitiateTeleport)?;
+
 					for asset in assets.assets_iter() {
 						Config::AssetTransactor::check_out(&dest, &asset, &self.context);
 					}
-					// Note that we pass `None` as `maybe_failed_bin` and drop any assets which
-					// cannot be reanchored  because we have already checked all assets out.
-					let assets = Self::reanchored(assets, &dest, None);
-					let mut message = vec![ReceiveTeleportedAsset(assets), ClearOrigin];
-					message.extend(xcm.0.into_iter());
-					self.send(dest, Xcm(message), FeeReason::InitiateTeleport)?;
 					Ok(())
-				});
-				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
+				};
+				if result.is_err() {
 					self.holding = old_holding;
 				}
 				result
@@ -906,41 +907,34 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Ok(())
 			},
 			ExportMessage { network, destination, xcm } => {
-				let old_holding = self.holding.clone();
-				let result = Config::TransactionalProcessor::process(|| -> Result<(), XcmError> {
-					// The actual message sent to the bridge for forwarding is prepended with
-					// `UniversalOrigin` and `DescendOrigin` in order to ensure that the message is
-					// executed with this Origin.
-					//
-					// Prepend the desired message with instructions which effectively rewrite the
-					// origin.
-					//
-					// This only works because the remote chain empowers the bridge
-					// to speak for the local network.
-					let origin = self.context.origin.ok_or(XcmError::BadOrigin)?;
-					let universal_source = Config::UniversalLocation::get()
-						.within_global(origin)
-						.map_err(|()| XcmError::Unanchored)?;
-					let hash = (self.origin_ref(), &destination).using_encoded(blake2_128);
-					let channel = u32::decode(&mut hash.as_ref()).unwrap_or(0);
-					// Hash identifies the lane on the exporter which we use. We use the pairwise
-					// combination of the origin and destination to ensure origin/destination pairs
-					// will generally have their own lanes.
-					let (ticket, fee) = validate_export::<Config::MessageExporter>(
-						network,
-						channel,
-						universal_source,
-						destination,
-						xcm,
-					)?;
-					self.take_fee(fee, FeeReason::Export(network))?;
-					Config::MessageExporter::deliver(ticket)?;
-					Ok(())
-				});
-				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
-					self.holding = old_holding;
-				}
-				result
+				// The actual message sent to the bridge for forwarding is prepended with
+				// `UniversalOrigin` and `DescendOrigin` in order to ensure that the message is
+				// executed with this Origin.
+				//
+				// Prepend the desired message with instructions which effectively rewrite the
+				// origin.
+				//
+				// This only works because the remote chain empowers the bridge
+				// to speak for the local network.
+				let origin = self.context.origin.ok_or(XcmError::BadOrigin)?;
+				let universal_source = Config::UniversalLocation::get()
+					.within_global(origin)
+					.map_err(|()| XcmError::Unanchored)?;
+				let hash = (self.origin_ref(), &destination).using_encoded(blake2_128);
+				let channel = u32::decode(&mut hash.as_ref()).unwrap_or(0);
+				// Hash identifies the lane on the exporter which we use. We use the pairwise
+				// combination of the origin and destination to ensure origin/destination pairs
+				// will generally have their own lanes.
+				let (ticket, fee) = validate_export::<Config::MessageExporter>(
+					network,
+					channel,
+					universal_source,
+					destination,
+					xcm,
+				)?;
+				self.take_fee(fee, FeeReason::Export(network))?;
+				let _ = Config::MessageExporter::deliver(ticket).defensive();
+				Ok(())
 			},
 			LockAsset { asset, unlocker } => {
 				let old_holding = self.holding.clone();

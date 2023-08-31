@@ -73,6 +73,7 @@ impl TransactAsset for DummyAssetTransactor {
 		Ok(asset.into())
 	}
 }
+
 #[derive(Clone)]
 pub struct DummyWeightTrader;
 impl WeightTrader for DummyWeightTrader {
