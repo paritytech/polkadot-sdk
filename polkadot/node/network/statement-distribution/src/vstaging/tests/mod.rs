@@ -356,7 +356,7 @@ async fn activate_leaf(
 	virtual_overseer: &mut VirtualOverseer,
 	leaf: &TestLeaf,
 	test_state: &TestState,
-	expect_session_info_request: bool,
+	is_new_session: bool,
 ) {
 	let activated = fresh_leaf(leaf.hash, leaf.number);
 
@@ -366,14 +366,14 @@ async fn activate_leaf(
 		))))
 		.await;
 
-	handle_leaf_activation(virtual_overseer, leaf, test_state, expect_session_info_request).await;
+	handle_leaf_activation(virtual_overseer, leaf, test_state, is_new_session).await;
 }
 
 async fn handle_leaf_activation(
 	virtual_overseer: &mut VirtualOverseer,
 	leaf: &TestLeaf,
 	test_state: &TestState,
-	expect_session_info_request: bool,
+	is_new_session: bool,
 ) {
 	let TestLeaf { number, hash, parent_hash, para_data, session, availability_cores } = leaf;
 
@@ -442,12 +442,22 @@ async fn handle_leaf_activation(
 		}
 	);
 
-	if expect_session_info_request {
+	if is_new_session {
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::RuntimeApi(
 				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionInfo(s, tx))) if parent == *hash && s == *session => {
 				tx.send(Ok(Some(test_state.session_info.clone()))).unwrap();
+			}
+		);
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
+			)) if parent == *hash && session_index == *session => {
+				tx.send(Ok(2)).unwrap();
 			}
 		);
 	}
