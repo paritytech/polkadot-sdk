@@ -50,11 +50,11 @@ pub use multilocation::{
 	Ancestor, AncestorThen, InteriorMultiLocation, MultiLocation, Parent, ParentThen,
 };
 pub use traits::{
-	send_xcm, validate_send, Error, ExecuteXcm, GetWeight, Outcome, PreparedMessage, Result,
-	SendError, SendResult, SendXcm, Weight, XcmHash,
+	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Result, SendError,
+	SendResult, SendXcm, Weight, XcmHash,
 };
 // These parts of XCM v2 are unchanged in XCM v3, and are re-imported here.
-pub use super::v2::OriginKind;
+pub use super::v2::{GetWeight, OriginKind};
 
 /// This module's XCM version.
 pub const VERSION: super::Version = 3;
