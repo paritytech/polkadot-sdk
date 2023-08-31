@@ -336,11 +336,11 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 
-			// TODO:
-			// T::EquivocationReportSystem::process_evidence(
-			// 	None,
-			// 	(*fork_equivocation_proof, key_owner_proof),
-			// )?;
+			T::EquivocationReportSystem::process_evidence(
+				None,
+				EquivocationEvidenceFor::ForkEquivocationProof(*equivocation_proof, key_owner_proofs),
+			)?;
+			// Waive the fee since the report is valid and beneficial
 			Ok(Pays::No.into())
 		}
 	}
