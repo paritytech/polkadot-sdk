@@ -2,7 +2,7 @@
 name = "polkadot-test-runtime"
 build = "build.rs"
 publish = false
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,7 +13,7 @@ parity-scale-codec = { version = "3.6.1", default-features = false, features = [
 log = { version = "0.4.17", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.163", default-features = false }
+serde = { version = "1.0.188", default-features = false }
 serde_derive = { version = "1.0.117", optional = true }
 smallvec = "1.8.0"
 
@@ -61,9 +61,9 @@ primitives = { package = "polkadot-primitives", path = "../../primitives", defau
 pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false }
 polkadot-parachain = { path = "../../parachain", default-features = false }
 polkadot-runtime-parachains = { path = "../parachains", default-features = false }
-xcm-builder = { path = "../../xcm/xcm-builder", default-features = false }
-xcm-executor = { path = "../../xcm/xcm-executor", default-features = false }
-xcm = { path = "../../xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false }
+xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.4.1"

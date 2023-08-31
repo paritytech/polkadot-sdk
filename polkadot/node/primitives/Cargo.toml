@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-primitives"
 description = "Primitives types for the Node-side"
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -20,10 +20,10 @@ sp-runtime = { path = "../../../substrate/primitives/runtime" }
 polkadot-parachain = { path = "../../parachain", default-features = false }
 schnorrkel = "0.9.1"
 thiserror = "1.0.31"
-serde = { version = "1.0.163", features = ["derive"] }
+serde = { version = "1.0.188", features = ["derive"] }
 
 [target.'cfg(not(target_os = "unknown"))'.dependencies]
-zstd = { version = "0.11.2", default-features = false }
+zstd = { version = "0.12.4", default-features = false }
 
 [dev-dependencies]
 polkadot-erasure-coding = { path = "../../erasure-coding" }
