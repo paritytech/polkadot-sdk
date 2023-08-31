@@ -388,3 +388,13 @@ cancel-pipeline-check-runtime-migration-westend:
   extends: .cancel-pipeline-template
   needs:
     - job: check-runtime-migration-westend
+
+cancel-pipeline-check-runtime-migration-polkadot:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-runtime-migration-polkadot
+
+cancel-pipeline-check-runtime-migration-kusama:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-runtime-migration-kusama
