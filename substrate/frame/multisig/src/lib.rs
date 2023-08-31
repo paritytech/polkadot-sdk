@@ -186,8 +186,7 @@ pub mod pallet {
 		Multisig<BlockNumberFor<T>, BalanceOf<T>, T::AccountId, T::MaxSignatories>,
 	>;
 
-	/// A mapping containing information on whether a multisig has an expiry
-	/// time or not.
+	/// Tracks optional expiry block numbers for [`Multisig`] entries
 	#[pallet::storage]
 	pub type MultisigExpiries<T: Config> = StorageDoubleMap<
 		_,
