@@ -34,7 +34,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
 	CandidateDescriptor, GroupRotationInfo, HeadData, PersistedValidationData, PvfExecTimeoutKind,
-	ScheduledCore, SessionIndex,
+	ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
 use sp_application_crypto::AppCrypto;
 use sp_keyring::Sr25519Keyring;
@@ -80,6 +80,7 @@ struct TestState {
 	head_data: HashMap<ParaId, HeadData>,
 	signing_context: SigningContext,
 	relay_parent: Hash,
+	minimum_backing_votes: u32,
 }
 
 impl TestState {
@@ -150,6 +151,7 @@ impl Default for TestState {
 			validation_data,
 			signing_context,
 			relay_parent,
+			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 		}
 	}
 }
@@ -250,6 +252,16 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 		}
 	);
 
+	// Check that subsystem job issues a request for the session index for child.
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
+		) if parent == test_state.relay_parent => {
+			tx.send(Ok(test_state.signing_context.session_index)).unwrap();
+		}
+	);
+
 	// Check that subsystem job issues a request for a validator set.
 	assert_matches!(
 		virtual_overseer.recv().await,
@@ -270,16 +282,6 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 		}
 	);
 
-	// Check that subsystem job issues a request for the session index for child.
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
-		) if parent == test_state.relay_parent => {
-			tx.send(Ok(test_state.signing_context.session_index)).unwrap();
-		}
-	);
-
 	// Check that subsystem job issues a request for the availability cores.
 	assert_matches!(
 		virtual_overseer.recv().await,
@@ -287,6 +289,17 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 			RuntimeApiMessage::Request(parent, RuntimeApiRequest::AvailabilityCores(tx))
 		) if parent == test_state.relay_parent => {
 			tx.send(Ok(test_state.availability_cores.clone())).unwrap();
+		}
+	);
+
+	// Check if subsystem job issues a request for the minimum backing votes.
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			parent,
+			RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
+		)) if parent == test_state.relay_parent && session_index == test_state.signing_context.session_index => {
+			tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
 		}
 	);
 }

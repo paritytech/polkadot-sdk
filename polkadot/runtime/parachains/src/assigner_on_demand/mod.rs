@@ -263,8 +263,8 @@ pub mod pallet {
 			Pallet::<T>::do_place_order(sender, max_amount, para_id, AllowDeath)
 		}
 
-		/// Same as the [`place_order_allow_death`] call , but with a check that placing the order
-		/// will not reap the account.
+		/// Same as the [`place_order_allow_death`](Self::place_order_allow_death) call , but with a
+		/// check that placing the order will not reap the account.
 		///
 		/// Parameters:
 		/// - `origin`: The sender of the call, funds will be withdrawn from this account.
