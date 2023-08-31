@@ -258,7 +258,7 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type ChannelInfo = ParachainSystem;
+	type ChannelInfo = MockedChannelInfo;
 	type VersionWrapper = ();
 	type XcmpQueue = EnqueueToLocalStorage<Pallet<Test>>;
 	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
@@ -269,6 +269,25 @@ impl Config for Test {
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	t.into()
+	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
+}
+
+pub const MAGIC_PARA_ID: u32 = 7777;
+
+pub struct MockedChannelInfo;
+impl GetChannelInfo for MockedChannelInfo {
+	fn get_channel_status(id: ParaId) -> ChannelStatus {
+		if id == MAGIC_PARA_ID.into() {
+			return ChannelStatus::Ready(10, usize::MAX)
+		}
+
+		ParachainSystem::get_channel_status(id)
+	}
+	fn get_channel_max(id: ParaId) -> Option<usize> {
+		if id == MAGIC_PARA_ID.into() {
+			return Some(10)
+		}
+
+		ParachainSystem::get_channel_max(id)
+	}
 }

@@ -286,6 +286,7 @@ pub enum OutboundState {
 
 /// Struct containing detailed information about the outbound channel.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct OutboundChannelDetails {
 	/// The `ParaId` of the parachain that this channel is connected with.
 	recipient: ParaId,
@@ -693,14 +694,6 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				mut last_index,
 			} = *status;
 
-			if result.len() == max_message_count {
-				// We check this condition in the beginning of the loop so that we don't include
-				// a message where the limit is 0.
-				break
-			}
-			if outbound_state == OutboundState::Suspended {
-				continue
-			}
 			let (max_size_now, max_size_ever) = match T::ChannelInfo::get_channel_status(para_id) {
 				ChannelStatus::Closed => {
 					// This means that there is no such channel anymore. Nothing to be done but
@@ -714,19 +707,33 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 					*status = OutboundChannelDetails::new(para_id);
 					continue
 				},
+				// FAIL-CI i am unsure if signals should be able to bypass this:
 				ChannelStatus::Full => continue,
 				ChannelStatus::Ready(n, e) => (n, e),
 			};
 
+			// This is a hard limit from the host config; not even signals can bypass it.
+			if result.len() == max_message_count {
+				// We check this condition in the beginning of the loop so that we don't include
+				// a message where the limit is 0.
+				break
+			}
+
 			let page = if signals_exist {
 				let page = <SignalMessages<T>>::get(para_id);
+				defensive_assert!(!page.is_empty(), "Signals must exist");
+
 				if page.len() < max_size_now {
 					<SignalMessages<T>>::remove(para_id);
 					signals_exist = false;
 					page
 				} else {
+					defensive!("Signals should fit into a single page");
 					continue
 				}
+			} else if outbound_state == OutboundState::Suspended {
+				// Signals are exempt from suspension.
+				continue
 			} else if last_index > first_index {
 				let page = <OutboundXcmpMessages<T>>::get(para_id, first_index);
 				if page.len() < max_size_now {
@@ -748,7 +755,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				// TODO: #274 This means that the channel's max message size has changed since
 				//   the message was sent. We should parse it and split into smaller messages but
 				//   since it's so unlikely then for now we just drop it.
-				log::warn!("WARNING: oversize message in queue. silently dropping.");
+				defensive!("WARNING: oversize message in queue. silently dropping.");
 			} else {
 				result.push((para_id, page));
 			}
@@ -761,6 +768,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				last_index,
 			};
 		}
+		debug_assert!(!statuses.iter().any(|s| s.signals_exist), "Signals should be handled");
 
 		// Sort the outbound messages by ascending recipient para id to satisfy the acceptance
 		// criteria requirement.
@@ -808,7 +816,6 @@ impl<T: Config> SendXcm for Pallet<T> {
 				let price = T::PriceForSiblingDelivery::price_for_parachain_delivery(id, &xcm);
 				let versioned_xcm: VersionedXcm<()> = T::VersionWrapper::wrap_version(&d, xcm)
 					.map_err(|()| SendError::DestinationUnsupported)?;
-				// FAIL-CI: @gav does this check belong here or into pallet-xcm?
 				validate_xcm_nesting(&versioned_xcm)
 					.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 

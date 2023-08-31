@@ -1649,14 +1649,6 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-/// Checks that the XCM is decodable with `MAX_XCM_DECODE_DEPTH`.
-pub(crate) fn validate_xcm_nesting(xcm: &VersionedXcm<()>) -> Result<(), ()> {
-	xcm.using_encoded(|mut enc| {
-		VersionedXcm::<()>::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ())
-	})
-	.map_err(|_| ())
-}
-
 pub struct LockTicket<T: Config> {
 	sovereign_account: T::AccountId,
 	amount: BalanceOf<T>,

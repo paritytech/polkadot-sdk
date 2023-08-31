@@ -13,11 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{mock::EnqueuedMessages, *};
+use super::{
+	mock::{EnqueuedMessages, MAGIC_PARA_ID},
+	*,
+};
 use XcmpMessageFormat::*;
 
 use cumulus_primitives_core::XcmpMessageHandler;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, experimental_hypothetically};
 use mock::{new_test_ext, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::BadOrigin;
 use std::iter::once;
@@ -426,4 +429,63 @@ fn xcmp_queue_validate_nested_xcm_works() {
 		Err(SendError::ExceedsMaxMessageSize),
 		<XcmpQueue as SendXcm>::validate(&mut Some(dest.into()), &mut Some(bad))
 	);
+}
+
+#[test]
+fn hrmp_signals_are_prioritized() {
+	let message = Xcm(vec![Trap(5)]);
+
+	// XcmpQueue - check dest/msg is valid
+	let dest = (Parent, X1(Parachain(MAGIC_PARA_ID)));
+	let mut dest_wrapper = Some(dest.into());
+	let mut msg_wrapper = Some(message.clone());
+	<XcmpQueue as SendXcm>::validate(&mut dest_wrapper, &mut msg_wrapper).unwrap();
+
+	// check wrapper were consumed
+	assert_eq!(None, dest_wrapper.take());
+	assert_eq!(None, msg_wrapper.take());
+
+	new_test_ext().execute_with(|| {
+		OutboundXcmpStatus::<Test>::set(vec![OutboundChannelDetails {
+			recipient: MAGIC_PARA_ID.into(),
+			state: OutboundState::Ok,
+			signals_exist: false,
+			first_index: 0,
+			last_index: 0,
+		}]);
+
+		// Enqueue some messages
+		for _ in 0..100 {
+			send_xcm::<XcmpQueue>(dest.into(), message.clone()).unwrap();
+		}
+
+		// Without a signal we get the messages in order:
+		experimental_hypothetically!({
+			let taken = XcmpQueue::take_outbound_messages(123);
+			assert_eq!(
+				taken,
+				vec![(
+					MAGIC_PARA_ID.into(),
+					(
+						XcmpMessageFormat::ConcatenatedVersionedXcm,
+						VersionedXcm::V3(message.clone()),
+						VersionedXcm::V3(message)
+					)
+						.encode()
+				)]
+			);
+		});
+
+		// But a signal gets prioritized instead of the messages:
+		XcmpQueue::send_signal(MAGIC_PARA_ID.into(), ChannelSignal::Suspend).unwrap();
+
+		let taken = XcmpQueue::take_outbound_messages(132);
+		assert_eq!(
+			taken,
+			vec![(
+				MAGIC_PARA_ID.into(),
+				(XcmpMessageFormat::Signals, ChannelSignal::Suspend).encode()
+			)]
+		);
+	});
 }
