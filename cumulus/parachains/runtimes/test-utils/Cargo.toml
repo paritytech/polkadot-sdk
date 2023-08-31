@@ -35,8 +35,8 @@ cumulus-test-relay-sproof-builder = { path = "../../../test/relay-sproof-builder
 parachain-info = { path = "../../pallets/parachain-info", default-features = false }
 
 # Polkadot
-xcm = { path = "../../../../polkadot/xcm", default-features = false}
-xcm-executor = { path = "../../../../polkadot/xcm/xcm-executor", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false}
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false}
 pallet-xcm = { path = "../../../../polkadot/xcm/pallet-xcm", default-features = false}
 polkadot-parachain = { path = "../../../../polkadot/parachain", default-features = false}
 

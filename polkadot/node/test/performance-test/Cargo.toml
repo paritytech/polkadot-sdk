@@ -20,7 +20,7 @@ polkadot-primitives = { path = "../../../primitives" }
 sc-executor-common = { path = "../../../../substrate/client/executor/common" }
 sp-maybe-compressed-blob = { path = "../../../../substrate/primitives/maybe-compressed-blob" }
 
-kusama-runtime = { path = "../../../runtime/kusama" }
+kusama-runtime = { package = "staging-kusama-runtime", path = "../../../runtime/kusama" }
 
 [[bin]]
 name = "gen-ref-constants"

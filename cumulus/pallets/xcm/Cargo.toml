@@ -14,7 +14,7 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 frame-support = { path = "../../../substrate/frame/support", default-features = false}
 frame-system = { path = "../../../substrate/frame/system", default-features = false}
 
-xcm = { path = "../../../polkadot/xcm", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
 
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 
