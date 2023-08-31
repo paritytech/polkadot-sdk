@@ -27,7 +27,6 @@ use codec::Encode;
 use frame_support::{storage::generator::StorageValue, traits::Get, weights::Weight};
 use frame_system::limits;
 use pallet_bridge_messages::WeightInfoExt as _;
-use sp_runtime::traits::SignedExtension;
 
 /// Macro that ensures that the runtime configuration and chain primitives crate are sharing
 /// the same types (nonce, block number, hash, hasher, account id and header).
@@ -346,16 +345,4 @@ pub fn check_message_lane_weights<
 			Weight::zero()
 		);
 	}
-}
-
-/// Check that the `AdditionalSigned` type of a wrapped runtime is the same as the one of the
-/// corresponding actual runtime.
-///
-/// This method doesn't perform any `assert`. If the condition is not true it will generate a
-/// compile-time error.
-pub fn check_additional_signed<SignedExt, IndirectSignedExt: SignedExtension>()
-where
-	SignedExt: SignedExtension,
-	IndirectSignedExt: SignedExtension<AdditionalSigned = SignedExt::AdditionalSigned>,
-{
 }

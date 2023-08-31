@@ -61,6 +61,9 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
+// The SignedExtension used by Rococo.
+pub use bp_polkadot_core::CommonSignedExtension as SignedExtension;
+
 /// Name of the parachains pallet in the Rococo runtime.
 pub const PARAS_PALLET_NAME: &str = "Paras";
 
