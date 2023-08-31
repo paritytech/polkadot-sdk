@@ -20,7 +20,8 @@
 // necessarily related to FRAME or even Substrate.
 //
 // Hence, `no_std` rather than sp-runtime.
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
+
 extern crate alloc;
 
 use derivative::Derivative;
