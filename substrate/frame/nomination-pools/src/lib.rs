@@ -1264,6 +1264,14 @@ impl<T: Config> BondedPool<T> {
 		};
 	}
 
+	/// Withdraw all the funds that are already unlocked from staking for the
+	/// [`BondedPool::bonded_account`].
+	///
+	/// Also reduces the [`TotalValueLocked`] by the difference of the
+	/// [`T::Staking::total_stake`] of the [`BondedPool::bonded_account`] that might occur by
+	/// [`T::Staking::withdraw_unbonded`].
+	///
+	/// Returns the result of [`T::Staking::withdraw_unbonded`]
 	fn withdraw_from_staking(&self, num_slashing_spans: u32) -> Result<bool, DispatchError> {
 		let bonded_account = self.bonded_account();
 
@@ -1461,9 +1469,7 @@ impl<T: Config> UnbondPool<T> {
 		new_points
 	}
 
-	/// Dissolve some points from the unbonding pool, reducing the balance of the pool and the
-	/// [`TotalValueLocked`] proportionally.
-	///
+	/// Dissolve some points from the unbonding pool, reducing the balance of the pool.
 	/// This is the opposite of `issue`.
 	///
 	/// Returns the actual amount of `Balance` that was removed from the pool.
@@ -3238,8 +3244,7 @@ impl<T: Config> Pallet<T> {
 				.unwrap_or_default();
 
 			ensure!(
-				TotalValueLocked::<T>::get() == 
-				expected_tvl,
+				TotalValueLocked::<T>::get() == expected_tvl,
 				"TVL deviates from the actual sum of funds of all Pools."
 			);
 
