@@ -257,7 +257,7 @@ fn should_sign_and_verify() {
 
 // vote equivocation report tests
 #[test]
-fn report_equivocation_current_set_works() {
+fn report_vote_equivocation_current_set_works() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
@@ -337,7 +337,7 @@ fn report_equivocation_current_set_works() {
 }
 
 #[test]
-fn report_equivocation_old_set_works() {
+fn report_vote_equivocation_old_set_works() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
@@ -420,7 +420,7 @@ fn report_equivocation_old_set_works() {
 }
 
 #[test]
-fn report_equivocation_invalid_set_id() {
+fn report_vote_equivocation_invalid_set_id() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
@@ -458,7 +458,7 @@ fn report_equivocation_invalid_set_id() {
 }
 
 #[test]
-fn report_equivocation_invalid_session() {
+fn report_vote_equivocation_invalid_session() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
@@ -501,7 +501,7 @@ fn report_equivocation_invalid_session() {
 }
 
 #[test]
-fn report_equivocation_invalid_key_owner_proof() {
+fn report_vote_equivocation_invalid_key_owner_proof() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
@@ -549,7 +549,7 @@ fn report_equivocation_invalid_key_owner_proof() {
 }
 
 #[test]
-fn report_equivocation_invalid_equivocation_proof() {
+fn report_vote_equivocation_invalid_equivocation_proof() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
@@ -617,7 +617,7 @@ fn report_equivocation_invalid_equivocation_proof() {
 }
 
 #[test]
-fn report_equivocation_validate_unsigned_prevents_duplicates() {
+fn report_vote_equivocation_validate_unsigned_prevents_duplicates() {
 	use sp_runtime::transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		ValidTransaction,
@@ -707,7 +707,7 @@ fn report_equivocation_validate_unsigned_prevents_duplicates() {
 }
 
 #[test]
-fn report_equivocation_has_valid_weight() {
+fn report_vote_equivocation_has_valid_weight() {
 	// the weight depends on the size of the validator set,
 	// but there's a lower bound of 100 validators.
 	assert!((1..=100)
@@ -726,7 +726,7 @@ fn report_equivocation_has_valid_weight() {
 }
 
 #[test]
-fn valid_equivocation_reports_dont_pay_fees() {
+fn valid_vote_equivocation_reports_dont_pay_fees() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
@@ -795,7 +795,7 @@ fn valid_equivocation_reports_dont_pay_fees() {
 
 // fork equivocation report tests
 #[test]
-fn report_equivocation_current_set_works() {
+fn report_fork_equivocation_current_set_works() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
@@ -875,7 +875,7 @@ fn report_equivocation_current_set_works() {
 }
 
 #[test]
-fn report_equivocation_old_set_works() {
+fn report_fork_equivocation_old_set_works() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
@@ -958,7 +958,7 @@ fn report_equivocation_old_set_works() {
 }
 
 #[test]
-fn report_equivocation_invalid_set_id() {
+fn report_fork_equivocation_invalid_set_id() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
@@ -996,7 +996,7 @@ fn report_equivocation_invalid_set_id() {
 }
 
 #[test]
-fn report_equivocation_invalid_session() {
+fn report_fork_equivocation_invalid_session() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
@@ -1039,7 +1039,7 @@ fn report_equivocation_invalid_session() {
 }
 
 #[test]
-fn report_equivocation_invalid_key_owner_proof() {
+fn report_fork_equivocation_invalid_key_owner_proof() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
@@ -1087,7 +1087,7 @@ fn report_equivocation_invalid_key_owner_proof() {
 }
 
 #[test]
-fn report_equivocation_invalid_equivocation_proof() {
+fn report_fork_equivocation_invalid_equivocation_proof() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
@@ -1155,7 +1155,7 @@ fn report_equivocation_invalid_equivocation_proof() {
 }
 
 #[test]
-fn report_equivocation_validate_unsigned_prevents_duplicates() {
+fn report_fork_equivocation_validate_unsigned_prevents_duplicates() {
 	use sp_runtime::transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		ValidTransaction,
@@ -1245,7 +1245,7 @@ fn report_equivocation_validate_unsigned_prevents_duplicates() {
 }
 
 #[test]
-fn report_equivocation_has_valid_weight() {
+fn report_fork_equivocation_has_valid_weight() {
 	// the weight depends on the size of the validator set,
 	// but there's a lower bound of 100 validators.
 	assert!((1..=100)
@@ -1264,7 +1264,7 @@ fn report_equivocation_has_valid_weight() {
 }
 
 #[test]
-fn valid_equivocation_reports_dont_pay_fees() {
+fn valid_fork_equivocation_reports_dont_pay_fees() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
