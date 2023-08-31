@@ -785,7 +785,7 @@ impl<T: Config> Pallet<T> {
 				},
 			);
 
-			// If an expiry is specified insert it into `MultisigExpiries` for
+			// If an expiry is specified insert it into [`MultisigExpiries`] for
 			// this specific [`Multisig`].
 			if let Some(expiry) = maybe_expiry {
 				<MultisigExpiries<T>>::insert(&id, call_hash, expiry);
