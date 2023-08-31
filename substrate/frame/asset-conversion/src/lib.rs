@@ -289,7 +289,7 @@ pub mod pallet {
 			send_to: T::AccountId,
 			/// The route of asset ids that the swap went through.
 			/// E.g. A -> Dot -> B
-			path: Path<T>,
+			balance_path: BalancePath<T>,
 			/// The amount of the first asset that was swapped.
 			amount_in: T::AssetBalance,
 			/// The amount of the second asset that was received.
@@ -359,6 +359,8 @@ pub mod pallet {
 		PoolMustContainNativeCurrency,
 		/// The provided path must consists of 2 assets at least.
 		InvalidPath,
+		/// The provided balance path must consists of 2 assets at least.
+		InvalidBalancePath,
 		/// It was not possible to calculate path data.
 		PathError,
 		/// The provided path must consists of unique assets.
@@ -734,9 +736,12 @@ pub mod pallet {
 
 			Self::validate_swap_path(&path)?;
 
-			let amounts = Self::get_amounts_out(&amount_in, &path)?;
-			let amount_out =
-				*amounts.last().defensive_ok_or("get_amounts_out() returned an empty result")?;
+			let balance_path = Self::balance_path_from_amount_in(amount_in, path.clone())?;
+
+			let amount_out = balance_path
+				.last()
+				.defensive_ok_or("get_amounts_out() returned an empty result")?
+				.1;
 
 			if let Some(amount_out_min) = amount_out_min {
 				ensure!(
@@ -745,7 +750,7 @@ pub mod pallet {
 				);
 			}
 
-			Self::withdraw_and_swap(sender, &amounts, path, send_to, keep_alive)?;
+			Self::withdraw_and_swap(sender, balance_path, send_to, keep_alive)?;
 			Ok(amount_out)
 		}
 
@@ -772,9 +777,12 @@ pub mod pallet {
 
 			Self::validate_swap_path(&path)?;
 
-			let amounts = Self::get_amounts_in(&amount_out, &path)?;
-			let amount_in =
-				*amounts.first().defensive_ok_or("get_amounts_in() returned an empty result")?;
+			let balance_path = Self::balance_path_from_amount_out(amount_out, path.clone())?;
+
+			let amount_in = balance_path
+				.first()
+				.defensive_ok_or("get_amounts_in() returned an empty result")?
+				.1;
 
 			if let Some(amount_in_max) = amount_in_max {
 				ensure!(
@@ -783,7 +791,7 @@ pub mod pallet {
 				);
 			}
 
-			Self::withdraw_and_swap(sender, &amounts, path, send_to, keep_alive)?;
+			Self::withdraw_and_swap(sender, balance_path, send_to, keep_alive)?;
 			Ok(amount_in)
 		}
 
@@ -854,30 +862,22 @@ pub mod pallet {
 		/// Swap assets along a `path`, depositing in `send_to`.
 		pub(crate) fn withdraw_and_swap(
 			sender: T::AccountId,
-			amounts: &Vec<T::AssetBalance>,
-			path: Path<T>,
+			balance_path: BalancePath<T>,
 			send_to: T::AccountId,
 			keep_alive: bool,
 		) -> Result<(), DispatchError> {
-			ensure!(amounts.len() > 1, Error::<T>::CorrespondenceError);
+			let asset_in = &balance_path.first().ok_or(Error::<T>::PathError)?.0;
+			let amount_in = balance_path.first().ok_or(Error::<T>::CorrespondenceError)?.1;
+			let amount_out = balance_path.last().defensive_ok_or("empty balance_path")?.1;
 
-			// We could probably change amounts arg to be balance_path
-			let amount_out =
-				*amounts.last().defensive_ok_or("get_amounts_out() returned an empty result")?;
-			let balance_path = Self::balance_path_from_amount_out(amount_out, path.clone())?;
-
-			let first_asset = path.first().ok_or(Error::<T>::PathError)?;
-			let first_amount = amounts.first().ok_or(Error::<T>::CorrespondenceError)?;
-
-			// TODO might need usage of keep_alive inside withdraw
-			let withdrawal = Self::withdraw(first_asset, &sender, *first_amount)?;
-			let credit_out = Self::do_swap(withdrawal, balance_path).map_err(|e| e.1)?;
+			let withdrawal = Self::withdraw(asset_in, &sender, amount_in, keep_alive)?;
+			let credit_out = Self::do_swap(withdrawal, &balance_path).map_err(|e| e.1)?;
 			Self::resolve(&send_to, credit_out).map_err(|_| Error::<T>::Overflow)?;
 			Self::deposit_event(Event::SwapExecuted {
 				who: sender,
 				send_to,
-				path,
-				amount_in: *first_amount,
+				balance_path,
+				amount_in,
 				amount_out,
 			});
 
@@ -887,7 +887,7 @@ pub mod pallet {
 		// Note: recursive
 		pub(crate) fn do_swap(
 			credit_in: Credit<T>,
-			balance_path: BalancePath<T>,
+			balance_path: &BalancePath<T>,
 		) -> Result<Credit<T>, (Credit<T>, DispatchError)> {
 			let path_len = balance_path.len() as u32;
 			if path_len == 0 {
@@ -902,7 +902,7 @@ pub mod pallet {
 					.map_err(|e| (e, Error::<T>::Overflow.into()))?;
 
 				// If this fails, credits are balanced, can return zero credit in error
-				let credit_out = Self::withdraw(&asset2.0, &pool_account, asset2.1)
+				let credit_out = Self::withdraw(&asset2.0, &pool_account, asset2.1, true)
 					.map_err(|e| (Credit::<T>::Native(Default::default()), e))?;
 
 				let (credit_out, reserve) = Self::get_balance(&pool_account, &asset2.0)
@@ -913,9 +913,8 @@ pub mod pallet {
 						Error::<T>::ReserveLeftLessThanMinimal.into()
 					})?;
 
-				// Can be optimized if balance_path was an iterator probably
 				let remaining = balance_path[2..].to_vec();
-				Self::do_swap(credit_out, remaining)
+				Self::do_swap(credit_out, &remaining)
 			} else {
 				Err((credit_in, Error::<T>::PathError.into()))
 			}
@@ -1244,7 +1243,50 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// TODO
+		/// Ensure that a balance path is valid.
+		pub(crate) fn validate_swap_balance_path(
+			balance_path: &BalancePath<T>,
+		) -> Result<(), DispatchError> {
+			ensure!(balance_path.len() >= 2, Error::<T>::InvalidBalancePath);
+
+			// validate all the pools in the path are unique
+			let mut pools = BoundedBTreeSet::<PoolIdOf<T>, T::MaxSwapPathLength>::new();
+			for assets_pair in balance_path.windows(2) {
+				if let [asset1, asset2] = assets_pair {
+					let pool_id = Self::get_pool_id(asset1.0.clone(), asset2.0.clone());
+					let new_element =
+						pools.try_insert(pool_id).map_err(|_| Error::<T>::Overflow)?;
+					if !new_element {
+						return Err(Error::<T>::NonUniquePath.into())
+					}
+				}
+			}
+			Ok(())
+		}
+
+		pub(crate) fn balance_path_from_amount_in(
+			amount_in: T::AssetBalance,
+			path: Path<T>,
+		) -> Result<BalancePath<T>, DispatchError> {
+			let mut path_with_ins: BalancePath<T> = vec![];
+			let mut first_amount: T::AssetBalance = amount_in;
+
+			for assets_pair in path.windows(2) {
+				if let [asset1, asset2] = assets_pair {
+					path_with_ins.push((asset1.clone(), first_amount));
+					let (reserve_in, reserve_out) = Self::get_reserves(asset1, asset2)?;
+					first_amount = Self::get_amount_out(&first_amount, &reserve_in, &reserve_out)?;
+				}
+			}
+
+			match path.first() {
+				Some(asset) => path_with_ins.push((asset.clone(), first_amount)),
+				None => return Err(Error::<T>::InvalidBalancePath.into()),
+			}
+
+			Ok(path_with_ins)
+		}
+
 		pub(crate) fn balance_path_from_amount_out(
 			amount_out: T::AssetBalance,
 			path: Path<T>,
@@ -1262,7 +1304,7 @@ pub mod pallet {
 
 			match path.first() {
 				Some(asset) => path_with_outs.push((asset.clone(), last_amount)),
-				None => return Err(Error::<T>::InvalidPath.into()),
+				None => return Err(Error::<T>::InvalidBalancePath.into()),
 			}
 
 			path_with_outs.reverse();

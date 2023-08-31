@@ -15,10 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! TODO
-
 use super::*;
-use frame_support::storage::with_transaction;
+use frame_support::{match_err, storage::with_transaction};
 use sp_runtime::TransactionOutcome;
 
 /// Trait for providing methods to swap between the various asset classes.
@@ -62,6 +60,7 @@ pub trait Swap<AccountId, Balance, MultiAssetId> {
 pub trait SwapCredit<AccountId, MultiAssetId, Credit> {
 	/// TODO
 	type Balance;
+
 	/// TODO
 	fn swap_exact_tokens_for_tokens(
 		path: Vec<MultiAssetId>,
@@ -143,11 +142,9 @@ impl<T: Config> Swap<T::AccountId, T::AssetBalance, T::MultiAssetId> for Pallet<
 	}
 }
 
-/// TODO
 impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<T> {
 	type Balance = T::AssetBalance;
 
-	/// TODO
 	fn swap_exact_tokens_for_tokens(
 		path: Vec<T::MultiAssetId>,
 		credit_in: Credit<T>,
@@ -161,7 +158,6 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 		Err((credit_in, Error::<T>::PoolNotFound.into()))
 	}
 
-	/// TODO
 	fn swap_tokens_for_exact_tokens(
 		path: Vec<T::MultiAssetId>,
 		amount_out: Self::Balance,
@@ -170,10 +166,11 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 		ensure!(amount_out > Zero::zero(), (credit_in, Error::<T>::ZeroAmount.into()));
 		ensure!(credit_in.peek() > Zero::zero(), (credit_in, Error::<T>::ZeroAmount.into()));
 
-		// TODO validate swap path (unique pools)
+		//let (credit_in, path) =
+		//path.try_into().map_with_prefix(credit_in, |_| Error::<T>::PathError.into())?;
 
-		let (credit_in, path) =
-			path.try_into().map_with_prefix(credit_in, |_| Error::<T>::PathError.into())?;
+		// Alternative, using new match_err macro, no need to re-shadow credit_in variable
+		let path = match_err!(path.try_into(), (|_| (credit_in, Error::<T>::PathError.into())));
 
 		let (credit_in, _) = Self::validate_swap_path(&path).map_with_prefix(credit_in, |e| e)?;
 
@@ -194,6 +191,9 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 		let (credit_in, balance_path) = Self::balance_path_from_amount_out(amount_out, path)
 			.map_with_prefix(credit_in, |e| e)?;
 
+		let (credit_in, _) =
+			Self::validate_swap_balance_path(&balance_path).map_with_prefix(credit_in, |e| e)?;
+
 		// Note
 		// with_transaction forces Error: From<DispatchError>, not present in (Credit,
 		// DispatchError) if we implement From<DispatchError> for the tuple, then there exists an
@@ -202,7 +202,7 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 		// Temporary workaround is this mutable binding, there is probably a better workaround
 		let mut credit_error: Credit<T> = Credit::<T>::Native(Default::default());
 
-		let transaction = with_transaction(|| match Self::do_swap(credit_in, balance_path) {
+		let transaction = with_transaction(|| match Self::do_swap(credit_in, &balance_path) {
 			Ok(swap) => TransactionOutcome::Commit(Ok(swap)),
 			Err(err) => {
 				credit_error = err.0;

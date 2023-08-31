@@ -1220,6 +1220,64 @@ impl<T, E> PrefixedResult<T, E> for Result<T, E> {
 	}
 }
 
+/// Macro alternative to map_err() closure.
+///
+/// This macro instead, does not move captured error values when the matched result is not an Error.
+/// Allows to use any variables passed to error after this statement, without cloning or copying
+/// them.
+///
+/// # Examples
+///
+/// ```
+/// type Error = (i32, &'static str);
+///
+/// fn vec_first(v: Vec<i32>) -> Result<i32, &'static str> {
+/// 	let n = v.first().ok_or("empty vector")?;
+/// 	Ok(n.clone())
+/// }
+///
+/// fn main() -> Result<(), Error> {
+/// 	let v = vec![1, 2, 3];
+/// 	let context_data = 10;
+///  	let num = frame_support::match_err!(vec_first(v), (|err| (context_data, err)));
+/// 	// context_data usage is allowed here, it was not moved
+/// 	let num2 = num + context_data;
+/// 	Ok(())
+/// }
+/// ```
+///
+/// Above example expands to:
+///
+/// ```
+/// type Error = (i32, &'static str);
+///
+/// fn vec_first(v: Vec<i32>) -> Result<i32, &'static str> {
+/// 	let n = v.first().ok_or("empty vector")?;
+/// 	Ok(n.clone())
+/// }
+///
+/// fn main() -> Result<(), Error> {
+/// 	let v = vec![1, 2, 3];
+/// 	let context_data = 10;
+///  	let num = match vec_first(v) {
+/// 		Ok(out) => out,
+/// 		Err(err) => return Err((context_data, err)),
+/// 	};
+/// 	// context_data usage is allowed here, it was not moved
+/// 	let num2 = num + context_data;
+/// 	Ok(())
+/// }
+/// ```
+#[macro_export]
+macro_rules! match_err {
+	($matched: expr, $err_closure: tt) => {
+		match $matched {
+			Ok(out) => out,
+			Err(err) => return Err($err_closure(err)),
+		}
+	};
+}
+
 #[cfg(test)]
 mod test {
 	use super::*;

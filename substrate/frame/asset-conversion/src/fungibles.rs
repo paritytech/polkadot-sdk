@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! TODO
-
 use super::*;
 
 /// TODO
@@ -93,14 +91,20 @@ impl<T: Config> Pallet<T> {
 		asset_id: &T::MultiAssetId,
 		who: &T::AccountId,
 		amount: T::AssetBalance,
+		keep_alive: bool,
 	) -> Result<Credit<T>, DispatchError> {
+		let preservation = match keep_alive {
+			true => Preserve,
+			false => Expendable,
+		};
+
 		match T::MultiAssetIdConverter::try_convert(asset_id) {
 			MultiAssetIdConversionResult::Converted(asset_id) =>
-				T::Assets::withdraw(asset_id, who, amount, Exact, Preserve, Polite)
+				T::Assets::withdraw(asset_id, who, amount, Exact, preservation, Polite)
 					.map(|c| c.into()),
 			MultiAssetIdConversionResult::Native => {
 				let amount = Self::convert_asset_balance_to_native_balance(amount)?;
-				T::Currency::withdraw(who, amount, Exact, Preserve, Polite).map(|c| c.into())
+				T::Currency::withdraw(who, amount, Exact, preservation, Polite).map(|c| c.into())
 			},
 			MultiAssetIdConversionResult::Unsupported(_) =>
 				Err(Error::<T>::UnsupportedAsset.into()),
