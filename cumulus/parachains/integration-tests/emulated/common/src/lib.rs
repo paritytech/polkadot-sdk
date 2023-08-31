@@ -34,7 +34,7 @@ use frame_support::{
 pub use impls::{RococoWococoMessageHandler, WococoRococoMessageHandler};
 pub use parachains_common::{AccountId, Balance};
 pub use paste;
-use polkadot_parachain::primitives::HrmpChannelId;
+use polkadot_parachain_primitives::primitives::HrmpChannelId;
 use polkadot_primitives::runtime_api::runtime_decl_for_parachain_host::ParachainHostV6;
 pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
 pub use sp_core::{sr25519, storage::Storage, Get};
