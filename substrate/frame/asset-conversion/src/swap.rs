@@ -191,20 +191,30 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 		);
 		let (credit_in, credit_change) = credit_in.split(*amount_in);
 
-		// let balance_path = Self::balance_path_from_amount_out(amount_out, path)
-		// 	.map_with_prefix(credit_in, |e| e)?;
+		let credit_balance_path = Self::balance_path_from_amount_out(amount_out, path)
+			.map_with_prefix(credit_in, |e| e)?;
+
+		// Note
+		// with_transaction forces Error: From<DispatchError>, not present in (Credit,
+		// DispatchError) if we implement From<DispatchError> for the tuple, then there exists an
+		// error tuple that can be returned with the credit on default (::zero()), specifically
+		// TransactionalError::LimitReached, which is a nested transactional level of 255.
+		// Temporary workaround is this mutable binding, there is probably a better workaround
+		let mut credit_error: Credit<T> = Credit::<T>::Native(Default::default());
 
 		let transaction = with_transaction(|| {
-			// TODO
-			match Self::do_swap(credit_id, balance_path) {
-				Ok(_) => TransactionOutcome::Commit(swap),
-				_ => TransactionOutcome::Rollback(swap),
+			match Self::do_swap(credit_balance_path.0, credit_balance_path.1) {
+				Ok(swap) => TransactionOutcome::Commit(Ok(swap)),
+				Err(err) => {
+					credit_error = err.0;
+					TransactionOutcome::Rollback(Err(err.1))
+				},
 			}
 		});
 
 		return match transaction {
 			Ok(out) => Ok((out, credit_change)),
-			Err(err) => Err(err),
+			Err(err) => Err((credit_error, err)),
 		}
 	}
 }

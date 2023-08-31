@@ -861,67 +861,71 @@ pub mod pallet {
 		) -> Result<(), DispatchError> {
 			ensure!(amounts.len() > 1, Error::<T>::CorrespondenceError);
 
-			// TODO ready / withdraw from sender
-			// TODO ready / migrate to Self::do_swap
-			// TODO ready / resolve credit from swap to send_to
+			// We could probably get rid of amounts arg? and just use balance_path from original
+			// amount_out
+			let amount_out =
+				*amounts.last().defensive_ok_or("get_amounts_out() returned an empty result")?;
+			let balance_path = Self::balance_path_from_amount_out(amount_out, path.clone())?;
 
-			if let Some([asset1, asset2]) = &path.get(0..2) {
-				let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
-				let pool_account = Self::get_pool_account(&pool_id);
-				// amounts should always contain a corresponding element to path.
-				let first_amount = amounts.first().ok_or(Error::<T>::CorrespondenceError)?;
+			let first_asset = path.first().ok_or(Error::<T>::PathError)?;
+			let first_amount = amounts.first().ok_or(Error::<T>::CorrespondenceError)?;
 
-				Self::transfer(asset1, &sender, &pool_account, *first_amount, keep_alive)?;
+			// TODO might need usage of keep_alive inside withdraw
+			let withdrawal = Self::withdraw(first_asset, &sender, *first_amount)?;
+			let credit_out = Self::do_swap(withdrawal, balance_path).map_err(|e| e.1)?;
+			Self::resolve(&send_to, credit_out).map_err(|_| Error::<T>::Overflow)?;
+			Self::deposit_event(Event::SwapExecuted {
+				who: sender,
+				send_to,
+				path,
+				amount_in: *first_amount,
+				amount_out,
+			});
 
-				let mut i = 0;
-				let path_len = path.len() as u32;
-				for assets_pair in path.windows(2) {
-					if let [asset1, asset2] = assets_pair {
-						let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
-						let pool_account = Self::get_pool_account(&pool_id);
-
-						let amount_out =
-							amounts.get((i + 1) as usize).ok_or(Error::<T>::CorrespondenceError)?;
-
-						let to = if i < path_len - 2 {
-							let asset3 = path.get((i + 2) as usize).ok_or(Error::<T>::PathError)?;
-							Self::get_pool_account(&Self::get_pool_id(
-								asset2.clone(),
-								asset3.clone(),
-							))
-						} else {
-							send_to.clone()
-						};
-
-						let reserve = Self::get_balance(&pool_account, asset2)?;
-						let reserve_left = reserve.saturating_sub(*amount_out);
-						Self::validate_minimal_amount(reserve_left, asset2)
-							.map_err(|_| Error::<T>::ReserveLeftLessThanMinimal)?;
-
-						Self::transfer(asset2, &pool_account, &to, *amount_out, true)?;
-					}
-					i.saturating_inc();
-				}
-				Self::deposit_event(Event::SwapExecuted {
-					who: sender,
-					send_to,
-					path,
-					amount_in: *first_amount,
-					amount_out: *amounts.last().expect("Always has more than 1 element"),
-				});
-			} else {
-				return Err(Error::<T>::InvalidPath.into())
-			}
 			Ok(())
 		}
 
-		/// TODO
-		/// see Self::balance_path_from_amount_out(...)
 		pub(crate) fn do_swap(
 			credit_in: Credit<T>,
 			balance_path: BalancePath<T>,
 		) -> Result<Credit<T>, (Credit<T>, DispatchError)> {
-			return Err((credit_in, Error::<T>::InvalidPath.into()))
+			let mut credit_out = credit_in;
+
+			let path_len = balance_path.len() as u32;
+
+			if path_len < 2 {
+				return Err((credit_out, Error::<T>::PathError.into()))
+			}
+
+			// TODO in progress, add resolve and fix the error propagations
+			let mut i = 0;
+			for assets_pair in balance_path.windows(2) {
+				if let [asset1, asset2] = assets_pair {
+					let pool_id = Self::get_pool_id(asset1.0.clone(), asset2.0.clone());
+					let pool_account = Self::get_pool_account(&pool_id);
+
+					let amount_out = asset2.1;
+
+					if i < path_len - 2 {
+						let asset3 =
+							balance_path.get((i + 2) as usize).ok_or(Error::<T>::PathError)?;
+						let send_to = Self::get_pool_account(&Self::get_pool_id(
+							asset2.0.clone(),
+							asset3.0.clone(),
+						));
+					}
+
+					let reserve = Self::get_balance(&pool_account, &asset2.0)?;
+					let reserve_left = reserve.saturating_sub(amount_out);
+					Self::validate_minimal_amount(reserve_left, &asset2.0)
+						.map_err(|_| Error::<T>::ReserveLeftLessThanMinimal)?;
+
+					credit_out = Self::withdraw(&asset2.0, &pool_account, amount_out)?;
+				}
+				i.saturating_inc();
+			}
+
+			return Ok(credit_out)
 		}
 
 		/// The account ID of the pool.
@@ -1262,11 +1266,12 @@ pub mod pallet {
 					last_amount = Self::get_amount_in(&last_amount, &reserve_in, &reserve_out)?;
 				}
 			}
-			if let Some(asset) = path.first() {
-				path_with_outs.push((asset.clone(), last_amount));
-			} else {
-				return Err(Error::<T>::InvalidPath.into())
+
+			match path.first() {
+				Some(asset) => path_with_outs.push((asset.clone(), last_amount)),
+				None => return Err(Error::<T>::InvalidPath.into()),
 			}
+
 			path_with_outs.reverse();
 			Ok(path_with_outs)
 		}

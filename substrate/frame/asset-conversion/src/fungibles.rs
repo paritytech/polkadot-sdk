@@ -81,7 +81,7 @@ impl<T: Config> Credit<T> {
 
 impl<T: Config> Pallet<T> {
 	/// TODO
-	fn resolve(who: &T::AccountId, credit: Credit<T>) -> Result<(), Credit<T>> {
+	pub fn resolve(who: &T::AccountId, credit: Credit<T>) -> Result<(), Credit<T>> {
 		match credit {
 			Credit::Native(c) => T::Currency::resolve(who, c).map_err(|c| c.into()),
 			Credit::Asset(c) => T::Assets::resolve(who, c).map_err(|c| c.into()),
@@ -89,7 +89,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// TODO
-	fn withdraw(
+	pub fn withdraw(
 		asset_id: &T::MultiAssetId,
 		who: &T::AccountId,
 		amount: T::AssetBalance,
