@@ -153,7 +153,8 @@ impl sp_std::fmt::Debug for Public {
 
 /// Bandersnatch signature.
 ///
-/// The signature is created via the [`VrfSecret::vrf_sign`] using [`SIGNING_CTX`] as `label`.
+/// The signature is created via the [`VrfSecret::vrf_sign`] using [`SIGNING_CTX`] as transcript
+/// `label`.
 #[cfg_attr(feature = "full_crypto", derive(Hash))]
 #[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, PassByInner, MaxEncodedLen, TypeInfo)]
 pub struct Signature([u8; SIGNATURE_SERIALIZED_LEN]);
@@ -281,6 +282,12 @@ impl TraitPair for Pair {
 		Public::unchecked_from(raw)
 	}
 
+	/// Sign a message.
+	///
+	/// In practice this produce a Schnorr signature of a transcript composed by
+	/// the constant label [`SINGING_CTX`] and `data` without any additional data.
+	///
+	/// See [`VrfSignData`] for additional details.
 	fn sign(&self, data: &[u8]) -> Signature {
 		let data = vrf::VrfSignData::new_unchecked(SIGNING_CTX, &[data], None);
 		self.vrf_sign(&data).signature
