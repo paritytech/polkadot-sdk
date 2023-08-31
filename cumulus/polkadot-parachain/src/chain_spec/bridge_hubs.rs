@@ -97,7 +97,7 @@ impl BridgeHubRuntimeType {
 		match self {
 			BridgeHubRuntimeType::Polkadot =>
 				Ok(Box::new(polkadot::BridgeHubChainSpec::from_json_bytes(
-					&include_bytes!("../../../parachains/chain-specs/bridge-hub-polkadot.json")[..],
+					&include_bytes!("../../chain-specs/bridge-hub-polkadot.json")[..],
 				)?)),
 			BridgeHubRuntimeType::PolkadotLocal => Ok(Box::new(polkadot::local_config(
 				polkadot::BRIDGE_HUB_POLKADOT_LOCAL,
@@ -113,7 +113,7 @@ impl BridgeHubRuntimeType {
 			))),
 			BridgeHubRuntimeType::Kusama =>
 				Ok(Box::new(kusama::BridgeHubChainSpec::from_json_bytes(
-					&include_bytes!("../../../parachains/chain-specs/bridge-hub-kusama.json")[..],
+					&include_bytes!("../../chain-specs/bridge-hub-kusama.json")[..],
 				)?)),
 			BridgeHubRuntimeType::KusamaLocal => Ok(Box::new(kusama::local_config(
 				kusama::BRIDGE_HUB_KUSAMA_LOCAL,
@@ -129,11 +129,11 @@ impl BridgeHubRuntimeType {
 			))),
 			BridgeHubRuntimeType::Westend =>
 				Ok(Box::new(westend::BridgeHubChainSpec::from_json_bytes(
-					&include_bytes!("../../../parachains/chain-specs/bridge-hub-westend.json")[..],
+					&include_bytes!("../../chain-specs/bridge-hub-westend.json")[..],
 				)?)),
 			BridgeHubRuntimeType::Rococo =>
 				Ok(Box::new(rococo::BridgeHubChainSpec::from_json_bytes(
-					&include_bytes!("../../../parachains/chain-specs/bridge-hub-rococo.json")[..],
+					&include_bytes!("../../chain-specs/bridge-hub-rococo.json")[..],
 				)?)),
 			BridgeHubRuntimeType::RococoLocal => Ok(Box::new(rococo::local_config(
 				rococo::BRIDGE_HUB_ROCOCO_LOCAL,
@@ -153,7 +153,7 @@ impl BridgeHubRuntimeType {
 			))),
 			BridgeHubRuntimeType::Wococo =>
 				Ok(Box::new(wococo::BridgeHubChainSpec::from_json_bytes(
-					&include_bytes!("../../../parachains/chain-specs/bridge-hub-wococo.json")[..],
+					&include_bytes!("../../chain-specs/bridge-hub-wococo.json")[..],
 				)?)),
 			BridgeHubRuntimeType::WococoLocal => Ok(Box::new(wococo::local_config(
 				wococo::BRIDGE_HUB_WOCOCO_LOCAL,

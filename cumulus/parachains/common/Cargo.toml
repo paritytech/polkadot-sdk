@@ -35,9 +35,9 @@ rococo-runtime-constants = { path = "../../../polkadot/runtime/rococo/constants"
 westend-runtime-constants = { path = "../../../polkadot/runtime/westend/constants", default-features = false}
 polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false}
 polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false}
-xcm = { path = "../../../polkadot/xcm", default-features = false}
-xcm-builder = { path = "../../../polkadot/xcm/xcm-builder", default-features = false}
-xcm-executor = { path = "../../../polkadot/xcm/xcm-executor", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false}
+xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false}
 
 # Cumulus
 pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false }
