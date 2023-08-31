@@ -18,7 +18,7 @@
 
 use crate::{
 	Config, OutboundState, OutboundXcmpMessages, OutboundXcmpStatus, Overweight, Pallet, ParaId,
-	QueueConfig, DEFAULT_POV_SIZE,
+	QueueConfig, Vec, DEFAULT_POV_SIZE,
 };
 use frame_support::{
 	pallet_prelude::*,
