@@ -444,6 +444,8 @@ impl pallet_nfts::Config for Runtime {
 	type OffchainPublic = AccountPublic;
 	type Locker = ();
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = ();
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
