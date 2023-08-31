@@ -17,7 +17,7 @@
 
 pub use crate::exec::{ExecResult, ExportedFunction};
 use crate::{Config, LOG_TARGET};
-use pallet_contracts_primitives::ExecReturnValue;
+pub use pallet_contracts_primitives::ExecReturnValue;
 
 /// Umbrella trait for all interfaces that serves for debugging.
 pub trait Debugger<T: Config>: Tracing<T> + CallInterceptor<T> {}
