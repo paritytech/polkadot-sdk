@@ -861,7 +861,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// ## Invariants:
 	///
-	/// * Each multisig in `MultisigExpiries` must have an entry inside the `Multisigs` storage map.
+	/// * Each multisig in [`MultisigExpiries`] must have an entry inside the [`Multisigs`] storage map.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		<MultisigExpiries<T>>::iter_keys().try_for_each(|(id, call_hash)| {
