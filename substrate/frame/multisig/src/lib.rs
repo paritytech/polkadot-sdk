@@ -538,7 +538,7 @@ pub mod pallet {
 		/// not the first approval, then it must be `Some`, with the timepoint (block number and
 		/// transaction index) of the first approval transaction.
 		/// - `call_hash`: The hash of the call to be executed.
-		/// - `expiry`: An optional expiry of the multisig operation defined in block number.
+		/// - `maybe_expiry`: An optional expiry of the multisig operation defined in block number.
 		///
 		/// ## Complexity
 		/// - `O(S)`.
