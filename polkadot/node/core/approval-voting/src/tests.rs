@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use self::test_helpers::mock::fresh_leaf;
 use super::*;
 use polkadot_node_primitives::{
 	approval::{
@@ -36,7 +37,6 @@ use polkadot_primitives::{
 	ValidationCode, ValidatorSignature,
 };
 use std::time::Duration;
-use test_helpers::mock::fresh_leaf;
 
 use assert_matches::assert_matches;
 use async_trait::async_trait;

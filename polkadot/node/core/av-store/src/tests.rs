@@ -19,6 +19,7 @@ use super::*;
 use assert_matches::assert_matches;
 use futures::{channel::oneshot, executor, future, Future};
 
+use self::test_helpers::mock::fresh_leaf;
 use ::test_helpers::TestCandidateBuilder;
 use parking_lot::Mutex;
 use polkadot_node_primitives::{AvailableData, BlockData, PoV, Proof};
@@ -34,7 +35,6 @@ use polkadot_primitives::{
 	PersistedValidationData, ValidatorId,
 };
 use sp_keyring::Sr25519Keyring;
-use test_helpers::mock::fresh_leaf;
 
 mod columns {
 	pub const DATA: u32 = 0;

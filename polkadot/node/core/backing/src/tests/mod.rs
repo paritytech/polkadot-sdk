@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use self::test_helpers::mock::fresh_leaf;
 use super::*;
 use ::test_helpers::{
 	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
@@ -41,7 +42,6 @@ use sp_keystore::Keystore;
 use sp_tracing as _;
 use statement_table::v2::Misbehavior;
 use std::collections::HashMap;
-use test_helpers::mock::fresh_leaf;
 
 mod prospective_parachains;
 
