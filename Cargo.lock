@@ -12318,7 +12318,7 @@ dependencies = [
  "sp-maybe-compressed-blob",
  "sp-runtime",
  "thiserror",
- "zstd 0.11.2+zstd.1.5.2",
+ "zstd 0.12.4",
 ]
 
 [[package]]
