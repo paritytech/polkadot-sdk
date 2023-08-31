@@ -18,7 +18,7 @@ use XcmpMessageFormat::*;
 
 use cumulus_primitives_core::XcmpMessageHandler;
 use frame_support::{assert_noop, assert_ok};
-use mock::{new_test_ext, EnqueueToLocalStorage, RuntimeOrigin as Origin, Test, XcmpQueue};
+use mock::{new_test_ext, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::BadOrigin;
 use std::iter::once;
 
@@ -273,7 +273,7 @@ fn xcm_enqueueing_backpressure_works() {
 		// Now enqueueing many more will only work until the drop threshold:
 		XcmpQueue::handle_xcmp_messages(once((para, 1, data.as_slice())), Weight::MAX);
 		XcmpQueue::handle_xcmp_messages(once((para, 1, data.as_slice())), Weight::MAX);
-		assert_eq!(EnqueuedMessages::get().len(), 128,);
+		assert_eq!(mock::EnqueuedMessages::get().len(), 128,);
 
 		EnqueueToLocalStorage::<Pallet<Test>>::sweep_queue(para);
 		XcmpQueue::handle_xcmp_messages(once((para, 1, small.as_slice())), Weight::MAX);

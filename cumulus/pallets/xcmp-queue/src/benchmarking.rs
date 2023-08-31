@@ -38,14 +38,13 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn enqueue_xcmp_messages(n: Linear<0, 1000>) {
+	fn enqueue_xcmp_message() {
 		assert!(QueueConfig::<T>::get().drop_threshold > 1000);
 		let msg = BoundedVec::<u8, MaxXcmpMessageLenOf<T>>::default();
-		let msgs = vec![msg; n as usize];
 
 		#[block]
 		{
-			Pallet::<T>::enqueue_xcmp_messages(0.into(), msgs, &mut WeightMeter::max_limit());
+			Pallet::<T>::enqueue_xcmp_message(0.into(), msg, &mut WeightMeter::max_limit()).unwrap();
 		}
 	}
 

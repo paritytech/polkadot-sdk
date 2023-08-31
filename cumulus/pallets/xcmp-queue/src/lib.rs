@@ -527,7 +527,7 @@ impl<T: Config> Pallet<T> {
 		xcm: BoundedVec<u8, MaxXcmpMessageLenOf<T>>,
 		meter: &mut WeightMeter,
 	) -> Result<(), ()> {
-		if meter.try_consume(T::WeightInfo::enqueue_xcmp_messages(1)).is_err() {
+		if meter.try_consume(T::WeightInfo::enqueue_xcmp_message()).is_err() {
 			defensive!("Out of weight: cannot enqueue XCMP messages; dropping msgs");
 			return Err(())
 		}
@@ -657,10 +657,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 						}
 					},
 				XcmpMessageFormat::ConcatenatedVersionedXcm => {
-					loop {
-						if data.is_empty() {
-							break
-						}
+					while !data.is_empty() {
 
 						let Ok(xcm) = Self::split_concatenated_xcms(&mut data, &mut meter) else {
 							defensive!(
