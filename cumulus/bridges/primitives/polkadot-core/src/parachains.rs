@@ -37,7 +37,8 @@ use parity_util_mem::MallocSizeOf;
 
 /// Parachain id.
 ///
-/// This is an equivalent of the `polkadot_parachain_primitives::Id`, which is a compact-encoded `u32`.
+/// This is an equivalent of the `polkadot_parachain_primitives::Id`, which is a compact-encoded
+/// `u32`.
 #[derive(
 	Clone,
 	CompactAs,
