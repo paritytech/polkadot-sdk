@@ -1426,7 +1426,7 @@ pub mod migrations {
 		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		UpgradeSessionKeys,
-		paras_registrar::migration::MigrateToV1<Runtime, ()>,
+		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ()>,
 	);
 }
 

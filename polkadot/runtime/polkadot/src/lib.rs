@@ -1541,7 +1541,7 @@ pub mod migrations {
 		frame_support::migrations::RemovePallet<TipsPalletName, <Runtime as frame_system::Config>::DbWeight>,
 
 		// Migrate parachain info format
-		paras_registrar::migration::MigrateToV1<Runtime, ParachainsToUnlock>,
+		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ParachainsToUnlock>,
 	);
 }
 

@@ -1757,7 +1757,7 @@ pub mod migrations {
 		UpgradeSessionKeys,
 
 		// Migrate parachain info format
-		paras_registrar::migration::MigrateToV1<Runtime, ParachainsToUnlock>,
+		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ParachainsToUnlock>,
 	);
 }
 

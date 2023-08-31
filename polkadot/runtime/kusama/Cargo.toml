@@ -103,7 +103,7 @@ frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarki
 pallet-election-provider-support-benchmarking = { path = "../../../substrate/frame/election-provider-support/benchmarking", default-features = false, optional = true }
 hex-literal = "0.4.1"
 
-runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false }
+runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, features = ["experimental"] }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
 

@@ -15,10 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use frame_support::{
-	dispatch::GetStorageVersion,
-	traits::{Contains, OnRuntimeUpgrade, StorageVersion},
-};
+use frame_support::traits::{Contains, OnRuntimeUpgrade};
 
 #[derive(Encode, Decode)]
 pub struct ParaInfoV1<Account, Balance> {
@@ -27,31 +24,25 @@ pub struct ParaInfoV1<Account, Balance> {
 	locked: bool,
 }
 
-pub struct MigrateToV1<T, UnlockParaIds>(sp_std::marker::PhantomData<(T, UnlockParaIds)>);
+pub struct VersionUncheckedMigrateToV1<T, UnlockParaIds>(
+	sp_std::marker::PhantomData<(T, UnlockParaIds)>,
+);
 impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
-	for MigrateToV1<T, UnlockParaIds>
+	for VersionUncheckedMigrateToV1<T, UnlockParaIds>
 {
 	fn on_runtime_upgrade() -> Weight {
-		let onchain_version = Pallet::<T>::on_chain_storage_version();
+		let mut count = 0u64;
+		Paras::<T>::translate::<ParaInfoV1<T::AccountId, BalanceOf<T>>, _>(|key, v1| {
+			count.saturating_inc();
+			Some(ParaInfo {
+				manager: v1.manager,
+				deposit: v1.deposit,
+				locked: if UnlockParaIds::contains(&key) { None } else { Some(v1.locked) },
+			})
+		});
 
-		if onchain_version == 0 {
-			let mut count = 1u64; // storage version read write
-			Paras::<T>::translate::<ParaInfoV1<T::AccountId, BalanceOf<T>>, _>(|key, v1| {
-				count.saturating_inc();
-				Some(ParaInfo {
-					manager: v1.manager,
-					deposit: v1.deposit,
-					locked: if UnlockParaIds::contains(&key) { None } else { Some(v1.locked) },
-				})
-			});
-
-			StorageVersion::new(1).put::<Pallet<T>>();
-			log::info!(target: "runtime::registrar", "Upgraded {} storages to version 1", count);
-			T::DbWeight::get().reads_writes(count, count)
-		} else {
-			log::info!(target: "runtime::registrar",  "Migration did not execute. This probably should be removed");
-			T::DbWeight::get().reads(1)
-		}
+		log::info!(target: "runtime::registrar", "Upgraded {} storages to version 1", count);
+		T::DbWeight::get().reads_writes(count, count)
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -68,3 +59,13 @@ impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
 		Ok(())
 	}
 }
+
+#[cfg(feature = "experimental")]
+pub type VersionCheckedMigrateToV1<T, UnlockParaIds> =
+	frame_support::migrations::VersionedMigration<
+		0,
+		1,
+		VersionUncheckedMigrateToV1<T, UnlockParaIds>,
+		super::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
