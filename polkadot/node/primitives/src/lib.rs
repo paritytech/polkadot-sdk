@@ -463,8 +463,8 @@ impl CollationResult {
 /// Collation function.
 ///
 /// Will be called with the hash of the relay chain block the parachain block should be build on and
-/// the [`ValidationData`] that provides information about the state of the parachain on the relay
-/// chain.
+/// the [`PersistedValidationData`] that provides information about the state of the parachain on
+/// the relay chain.
 ///
 /// Returns an optional [`CollationResult`].
 #[cfg(not(target_os = "unknown"))]
@@ -498,7 +498,7 @@ impl std::fmt::Debug for CollationGenerationConfig {
 	}
 }
 
-/// Parameters for [`CollationGenerationMessage::SubmitCollation`].
+/// Parameters for `CollationGenerationMessage::SubmitCollation`.
 #[derive(Debug)]
 pub struct SubmitCollationParams {
 	/// The relay-parent the collation is built against.
@@ -634,7 +634,7 @@ pub struct ErasureChunk {
 }
 
 impl ErasureChunk {
-	/// Convert bounded Vec Proof to regular Vec<Vec<u8>>
+	/// Convert bounded Vec Proof to regular `Vec<Vec<u8>>`
 	pub fn proof(&self) -> &Proof {
 		&self.proof
 	}

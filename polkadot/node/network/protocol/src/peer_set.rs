@@ -197,7 +197,7 @@ impl<T> IndexMut<PeerSet> for PerPeerSet<T> {
 
 /// Get `NonDefaultSetConfig`s for all available peer sets, at their default versions.
 ///
-/// Should be used during network configuration (added to [`NetworkConfiguration::extra_sets`])
+/// Should be used during network configuration (added to `NetworkConfiguration::extra_sets`)
 /// or shortly after startup to register the protocols with the network service.
 pub fn peer_sets_info(
 	is_authority: IsAuthority,
@@ -288,7 +288,7 @@ pub struct PeerSetProtocolNames {
 }
 
 impl PeerSetProtocolNames {
-	/// Construct [`PeerSetProtocols`] using `genesis_hash` and `fork_id`.
+	/// Construct [`PeerSetProtocolNames`] using `genesis_hash` and `fork_id`.
 	pub fn new(genesis_hash: Hash, fork_id: Option<&str>) -> Self {
 		let mut protocols = HashMap::new();
 		let mut names = HashMap::new();
