@@ -238,7 +238,7 @@ impl MultiLocation {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v2::{Junctions::*, Junction::*, MultiLocation};
+	/// # use staging_xcm::v2::{Junctions::*, Junction::*, MultiLocation};
 	/// # fn main() {
 	/// let mut m = MultiLocation::new(1, X2(PalletInstance(3), OnlyChild));
 	/// assert_eq!(
@@ -260,7 +260,7 @@ impl MultiLocation {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v2::{Junctions::*, Junction::*, MultiLocation};
+	/// # use staging_xcm::v2::{Junctions::*, Junction::*, MultiLocation};
 	/// let m = MultiLocation::new(1, X3(PalletInstance(3), OnlyChild, OnlyChild));
 	/// assert!(m.starts_with(&MultiLocation::new(1, X1(PalletInstance(3)))));
 	/// assert!(!m.starts_with(&MultiLocation::new(1, X1(GeneralIndex(99)))));
@@ -279,7 +279,7 @@ impl MultiLocation {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v2::{Junctions::*, Junction::*, MultiLocation};
+	/// # use staging_xcm::v2::{Junctions::*, Junction::*, MultiLocation};
 	/// # fn main() {
 	/// let mut m = MultiLocation::new(1, X1(Parachain(21)));
 	/// assert_eq!(m.append_with(X1(PalletInstance(3))), Ok(()));
@@ -302,7 +302,7 @@ impl MultiLocation {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v2::{Junctions::*, Junction::*, MultiLocation};
+	/// # use staging_xcm::v2::{Junctions::*, Junction::*, MultiLocation};
 	/// # fn main() {
 	/// let mut m = MultiLocation::new(2, X1(PalletInstance(3)));
 	/// assert_eq!(m.prepend_with(MultiLocation::new(1, X2(Parachain(21), OnlyChild))), Ok(()));
@@ -839,7 +839,7 @@ impl Junctions {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v2::{Junctions::*, Junction::*};
+	/// # use staging_xcm::v2::{Junctions::*, Junction::*};
 	/// # fn main() {
 	/// let mut m = X3(Parachain(2), PalletInstance(3), OnlyChild);
 	/// assert_eq!(m.match_and_split(&X2(Parachain(2), PalletInstance(3))), Some(&OnlyChild));
@@ -857,7 +857,7 @@ impl Junctions {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v2::{Junctions::*, Junction::*};
+	/// # use staging_xcm::v2::{Junctions::*, Junction::*};
 	/// let mut j = X3(Parachain(2), PalletInstance(3), OnlyChild);
 	/// assert!(j.starts_with(&X2(Parachain(2), PalletInstance(3))));
 	/// assert!(j.starts_with(&j));
