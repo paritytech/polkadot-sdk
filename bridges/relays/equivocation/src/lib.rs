@@ -23,6 +23,8 @@ use finality_relay::{FinalityPipeline, SourceClientBase};
 use relay_utils::{relay_loop::Client as RelayClient, TransactionTracker};
 use std::fmt::Debug;
 
+pub use equivocation_loop::run;
+
 pub trait EquivocationDetectionPipeline: FinalityPipeline {
 	/// Block number of the target chain.
 	type TargetNumber: relay_utils::BlockNumberBase;

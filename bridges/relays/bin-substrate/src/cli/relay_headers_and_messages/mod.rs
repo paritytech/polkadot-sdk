@@ -131,10 +131,8 @@ impl<Left: ChainWithTransactions + CliChain, Right: ChainWithTransactions + CliC
 pub struct BridgeEndCommonParams<Chain: ChainWithTransactions + CliChain> {
 	/// Chain client.
 	pub client: Client<Chain>,
-	/// Transactions signer.
-	pub sign: AccountKeyPairOf<Chain>,
-	/// Transactions mortality.
-	pub transactions_mortality: Option<u32>,
+	/// Params used for sending transactions to the chain.
+	pub tx_params: TransactionParams<AccountKeyPairOf<Chain>>,
 	/// Accounts, which balances are exposed as metrics by the relay process.
 	pub accounts: Vec<TaggedAccount<AccountIdOf<Chain>>>,
 }
@@ -181,15 +179,9 @@ where
 	) -> MessagesRelayParams<Bridge::MessagesLane> {
 		MessagesRelayParams {
 			source_client: self.source.client.clone(),
-			source_transaction_params: TransactionParams {
-				signer: self.source.sign.clone(),
-				mortality: self.source.transactions_mortality,
-			},
+			source_transaction_params: self.source.tx_params.clone(),
 			target_client: self.target.client.clone(),
-			target_transaction_params: TransactionParams {
-				signer: self.target.sign.clone(),
-				mortality: self.target.transactions_mortality,
-			},
+			target_transaction_params: self.target.tx_params.clone(),
 			source_to_target_headers_relay: Some(source_to_target_headers_relay),
 			target_to_source_headers_relay: Some(target_to_source_headers_relay),
 			lane_id,
@@ -328,11 +320,11 @@ where
 		{
 			let common = self.mut_base().mut_common();
 			common.left.accounts.push(TaggedAccount::Messages {
-				id: common.left.sign.public().into(),
+				id: common.left.tx_params.signer.public().into(),
 				bridged_chain: Self::Right::NAME.to_string(),
 			});
 			common.right.accounts.push(TaggedAccount::Messages {
-				id: common.right.sign.public().into(),
+				id: common.right.tx_params.signer.public().into(),
 				bridged_chain: Self::Left::NAME.to_string(),
 			});
 		}

@@ -19,8 +19,8 @@ use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumbe
 use relay_substrate_client::{Chain, ChainWithTransactions, Parachain, RelayChain};
 use strum::{EnumString, EnumVariantNames};
 use substrate_relay_helper::{
-	finality::SubstrateFinalitySyncPipeline, messages_lane::SubstrateMessageLane,
-	parachains::SubstrateParachainsPipeline,
+	equivocation::SubstrateEquivocationDetectionPipeline, finality::SubstrateFinalitySyncPipeline,
+	messages_lane::SubstrateMessageLane, parachains::SubstrateParachainsPipeline,
 };
 
 #[derive(Debug, PartialEq, Eq, EnumString, EnumVariantNames)]
@@ -51,6 +51,31 @@ pub trait CliBridgeBase: Sized {
 pub trait RelayToRelayHeadersCliBridge: CliBridgeBase {
 	/// Finality proofs synchronization pipeline.
 	type Finality: SubstrateFinalitySyncPipeline<
+		SourceChain = Self::Source,
+		TargetChain = Self::Target,
+	>;
+}
+
+/// Convenience trait that adds bounds to `CliBridgeBase`.
+pub trait RelayToRelayEquivocationDetectionCliBridgeBase: CliBridgeBase {
+	type BoundedSource: ChainWithTransactions;
+}
+
+impl<T> RelayToRelayEquivocationDetectionCliBridgeBase for T
+where
+	T: CliBridgeBase,
+	T::Source: ChainWithTransactions,
+{
+	type BoundedSource = T::Source;
+}
+
+/// Bridge representation that can be used from the CLI for detecting equivocations
+/// in the headers synchronized from a relay chain to a relay chain.
+pub trait RelayToRelayEquivocationDetectionCliBridge:
+	RelayToRelayEquivocationDetectionCliBridgeBase
+{
+	/// Equivocation detection pipeline.
+	type Equivocation: SubstrateEquivocationDetectionPipeline<
 		SourceChain = Self::Source,
 		TargetChain = Self::Target,
 	>;

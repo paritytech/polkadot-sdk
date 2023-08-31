@@ -16,8 +16,9 @@
 
 //! Types used to connect to the BridgeHub-Kusama-Substrate parachain.
 
-use bp_bridge_hub_kusama::{BridgeHubSignedExtension, AVERAGE_BLOCK_INTERVAL};
+use bp_bridge_hub_kusama::AVERAGE_BLOCK_INTERVAL;
 use bp_messages::MessageNonce;
+use bp_polkadot::SuffixedCommonSignedExtensionExt;
 use bp_runtime::ChainId;
 use codec::Encode;
 use relay_substrate_client::{
@@ -79,6 +80,7 @@ impl ChainWithTransactions for BridgeHubKusama {
 				param.genesis_hash,
 				unsigned.nonce,
 				unsigned.tip,
+				(((), ()), ((), ())),
 			),
 		)?;
 

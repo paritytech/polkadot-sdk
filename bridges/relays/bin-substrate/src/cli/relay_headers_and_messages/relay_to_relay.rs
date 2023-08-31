@@ -56,22 +56,24 @@ macro_rules! declare_relay_to_relay_bridge_schema {
 			pub struct [<$left_chain $right_chain HeadersAndMessages>] {
 				#[structopt(flatten)]
 				shared: HeadersAndMessagesSharedParams,
-				// default signer, which is always used to sign messages relay transactions on the left chain
+
 				#[structopt(flatten)]
 				left: [<$left_chain ConnectionParams>],
+				// default signer, which is always used to sign messages relay transactions on the left chain
+				#[structopt(flatten)]
+				left_sign: [<$left_chain SigningParams>],
 				// override for right->left headers signer
 				#[structopt(flatten)]
 				right_headers_to_left_sign_override: [<$right_chain HeadersTo $left_chain SigningParams>],
-				#[structopt(flatten)]
-				left_sign: [<$left_chain SigningParams>],
-				// default signer, which is always used to sign messages relay transactions on the right chain
+
 				#[structopt(flatten)]
 				right: [<$right_chain ConnectionParams>],
+				#[structopt(flatten)]
+				// default signer, which is always used to sign messages relay transactions on the right chain
+				right_sign: [<$right_chain SigningParams>],
 				// override for left->right headers signer
 				#[structopt(flatten)]
 				left_headers_to_right_sign_override: [<$left_chain HeadersTo $right_chain SigningParams>],
-				#[structopt(flatten)]
-				right_sign: [<$right_chain SigningParams>],
 			}
 
 			impl [<$left_chain $right_chain HeadersAndMessages>] {
@@ -88,14 +90,12 @@ macro_rules! declare_relay_to_relay_bridge_schema {
 							self.shared,
 							BridgeEndCommonParams {
 								client: self.left.into_client::<Left>().await?,
-								sign: self.left_sign.to_keypair::<Left>()?,
-								transactions_mortality: self.left_sign.transactions_mortality()?,
+								tx_params: self.left_sign.transaction_params::<Left>()?,
 								accounts: vec![],
 							},
 							BridgeEndCommonParams {
 								client: self.right.into_client::<Right>().await?,
-								sign: self.right_sign.to_keypair::<Right>()?,
-								transactions_mortality: self.right_sign.transactions_mortality()?,
+								tx_params: self.right_sign.transaction_params::<Right>()?,
 								accounts: vec![],
 							},
 						)?,

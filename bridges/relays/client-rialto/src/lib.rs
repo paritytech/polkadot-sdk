@@ -25,9 +25,8 @@ use relay_substrate_client::{
 	ChainWithTransactions, Error as SubstrateError, NonceOf, RelayChain, SignParam,
 	UnderlyingChainProvider, UnsignedTransaction,
 };
-use sp_core::{storage::StorageKey, Pair};
+use sp_core::{storage::StorageKey, Pair, Void};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
-use sp_session::MembershipProof;
 use std::time::Duration;
 
 /// Rialto header id.
@@ -56,7 +55,7 @@ impl ChainWithGrandpa for Rialto {
 	const SYNCED_HEADERS_GRANDPA_INFO_METHOD: &'static str =
 		RIALTO_SYNCED_HEADERS_GRANDPA_INFO_METHOD;
 
-	type KeyOwnerProof = MembershipProof;
+	type KeyOwnerProof = Void;
 }
 
 impl RelayChain for Rialto {
