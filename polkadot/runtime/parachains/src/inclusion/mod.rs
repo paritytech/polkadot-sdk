@@ -36,11 +36,11 @@ use frame_system::pallet_prelude::*;
 use pallet_message_queue::OnQueueChanged;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{
-	supermajority_threshold, well_known_keys, AvailabilityBitfield, BackedCandidate,
-	CandidateCommitments, CandidateDescriptor, CandidateHash, CandidateReceipt,
-	CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId,
-	SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId, ValidatorIndex,
-	ValidityAttestation,
+	effective_minimum_backing_votes, supermajority_threshold, well_known_keys,
+	AvailabilityBitfield, BackedCandidate, CandidateCommitments, CandidateDescriptor,
+	CandidateHash, CandidateReceipt, CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash,
+	HeadData, Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage,
+	ValidatorId, ValidatorIndex, ValidityAttestation,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
@@ -197,17 +197,6 @@ impl<H> Default for ProcessedCandidates<H> {
 			candidate_receipt_with_backing_validator_indices: Vec::new(),
 		}
 	}
-}
-
-/// Number of backing votes we need for a valid backing.
-///
-/// WARNING: This check has to be kept in sync with the node side checks.
-pub fn minimum_backing_votes(n_validators: usize) -> usize {
-	// For considerations on this value see:
-	// https://github.com/paritytech/polkadot/pull/1656#issuecomment-999734650
-	// and
-	// https://github.com/paritytech/polkadot/issues/4386
-	sp_std::cmp::min(n_validators, 2)
 }
 
 /// Reads the footprint of queues for a specific origin type.
@@ -622,6 +611,7 @@ impl<T: Config> Pallet<T> {
 			return Ok(ProcessedCandidates::default())
 		}
 
+		let minimum_backing_votes = configuration::Pallet::<T>::config().minimum_backing_votes;
 		let validators = shared::Pallet::<T>::active_validator_keys();
 
 		// Collect candidate receipts with backers.
@@ -738,7 +728,11 @@ impl<T: Config> Pallet<T> {
 
 							match maybe_amount_validated {
 								Ok(amount_validated) => ensure!(
-									amount_validated >= minimum_backing_votes(group_vals.len()),
+									amount_validated >=
+										effective_minimum_backing_votes(
+											group_vals.len(),
+											minimum_backing_votes
+										),
 									Error::<T>::InsufficientBacking,
 								),
 								Err(()) => {
