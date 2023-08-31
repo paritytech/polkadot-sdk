@@ -285,9 +285,9 @@ impl TraitPair for Pair {
 	/// Sign a message.
 	///
 	/// In practice this produce a Schnorr signature of a transcript composed by
-	/// the constant label [`SINGING_CTX`] and `data` without any additional data.
+	/// the constant label [`SIGNING_CTX`] and `data` without any additional data.
 	///
-	/// See [`VrfSignData`] for additional details.
+	/// See [`vrf::VrfSignData`] for additional details.
 	fn sign(&self, data: &[u8]) -> Signature {
 		let data = vrf::VrfSignData::new_unchecked(SIGNING_CTX, &[data], None);
 		self.vrf_sign(&data).signature
