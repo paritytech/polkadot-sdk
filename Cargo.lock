@@ -12318,7 +12318,7 @@ dependencies = [
  "sp-maybe-compressed-blob",
  "sp-runtime",
  "thiserror",
- "zstd 0.11.2+zstd.1.5.2",
+ "zstd 0.12.4",
 ]
 
 [[package]]
@@ -18321,28 +18321,8 @@ version = "4.0.0-dev"
 dependencies = [
  "futures",
  "sc-service",
- "substrate-test-utils-derive",
  "tokio",
  "trybuild",
-]
-
-[[package]]
-name = "substrate-test-utils-derive"
-version = "0.10.0-dev"
-dependencies = [
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "syn 2.0.29",
-]
-
-[[package]]
-name = "substrate-test-utils-test-crate"
-version = "0.1.0"
-dependencies = [
- "sc-service",
- "substrate-test-utils",
- "tokio",
 ]
 
 [[package]]
