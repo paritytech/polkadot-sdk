@@ -437,7 +437,7 @@ impl Junctions {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v3::{Junctions::*, Junction::*, MultiLocation};
+	/// # use staging_xcm::v3::{Junctions::*, Junction::*, MultiLocation};
 	/// # fn main() {
 	/// let mut m = X1(Parachain(21));
 	/// assert_eq!(m.append_with(X1(PalletInstance(3))), Ok(()));
@@ -568,7 +568,7 @@ impl Junctions {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v3::{Junctions::*, Junction::*};
+	/// # use staging_xcm::v3::{Junctions::*, Junction::*};
 	/// # fn main() {
 	/// let mut m = X3(Parachain(2), PalletInstance(3), OnlyChild);
 	/// assert_eq!(m.match_and_split(&X2(Parachain(2), PalletInstance(3))), Some(&OnlyChild));

@@ -34,7 +34,7 @@ No PR should be merged until all reviews' comments are addressed.
 
 ### Labels:
 
-The set of labels and their description can be found [here](linktobeinserted)
+The set of labels and their description can be found [here](https://paritytech.github.io/labels/doc_polkadot-sdk.html).
 
 ### Process:
 
