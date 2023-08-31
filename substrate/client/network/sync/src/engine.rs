@@ -543,8 +543,7 @@ where
 			None => {
 				log::error!(
 					target: LOG_TARGET,
-					"Received block announce from disconnected peer {}",
-					who,
+					"Received block announce from disconnected peer {who}",
 				);
 				debug_assert!(false);
 				return
@@ -570,11 +569,11 @@ where
 		let header = match self.client.header(hash) {
 			Ok(Some(header)) => header,
 			Ok(None) => {
-				log::warn!(target: LOG_TARGET, "Trying to announce unknown block: {}", hash);
+				log::warn!(target: LOG_TARGET, "Trying to announce unknown block: {hash}");
 				return
 			},
 			Err(e) => {
-				log::warn!(target: LOG_TARGET, "Error reading block header {}: {}", hash, e);
+				log::warn!(target: LOG_TARGET, "Error reading block header {hash}: {e}");
 				return
 			},
 		};
@@ -585,7 +584,7 @@ where
 		}
 
 		let is_best = self.client.info().best_hash == hash;
-		log::debug!(target: LOG_TARGET, "Reannouncing block {:?} is_best: {}", hash, is_best);
+		log::debug!(target: LOG_TARGET, "Reannouncing block {hash:?} is_best: {is_best}");
 
 		let data = data
 			.or_else(|| self.block_announce_data_cache.get(&hash).cloned())
@@ -594,7 +593,7 @@ where
 		for (who, ref mut peer) in self.peers.iter_mut() {
 			let inserted = peer.known_blocks.insert(hash);
 			if inserted {
-				log::trace!(target: LOG_TARGET, "Announcing block {:?} to {}", hash, who);
+				log::trace!(target: LOG_TARGET, "Announcing block {hash:?} to {who}");
 				let message = BlockAnnounce {
 					header: header.clone(),
 					state: if is_best { Some(BlockState::Best) } else { Some(BlockState::Normal) },
@@ -609,7 +608,7 @@ where
 
 	/// Inform sync about new best imported block.
 	pub fn new_best_block_imported(&mut self, hash: B::Hash, number: NumberFor<B>) {
-		log::debug!(target: LOG_TARGET, "New best block imported {:?}/#{}", hash, number);
+		log::debug!(target: LOG_TARGET, "New best block imported {hash:?}/#{number}");
 
 		self.chain_sync.update_chain_info(&hash, number);
 		self.network_service.set_notification_handshake(
@@ -697,8 +696,7 @@ where
 					if !success {
 						log::info!(
 							target: LOG_TARGET,
-							"💔 Invalid justification provided by {} for #{}",
-							peer, hash,
+							"💔 Invalid justification provided by {peer} for #{hash}",
 						);
 						self.network_service
 							.disconnect_peer(peer, self.block_announce_protocol_name.clone());
@@ -796,8 +794,7 @@ where
 						} else {
 							log::trace!(
 								target: LOG_TARGET,
-								"Received sync for peer earlier refused by sync layer: {}",
-								remote
+								"Received sync for peer earlier refused by sync layer: {remote}",
 							);
 						}
 					}
@@ -841,9 +838,9 @@ where
 	pub fn on_sync_peer_disconnected(&mut self, peer: PeerId) -> Result<(), ()> {
 		if let Some(info) = self.peers.remove(&peer) {
 			if self.important_peers.contains(&peer) {
-				log::warn!(target: LOG_TARGET, "Reserved peer {} disconnected", peer);
+				log::warn!(target: LOG_TARGET, "Reserved peer {peer} disconnected");
 			} else {
-				log::debug!(target: LOG_TARGET, "{} disconnected", peer);
+				log::debug!(target: LOG_TARGET, "{peer} disconnected");
 			}
 
 			if !self.default_peers_set_no_slot_connected_peers.remove(&peer) &&
@@ -884,13 +881,12 @@ where
 		sink: NotificationsSink,
 		inbound: bool,
 	) -> Result<(), ()> {
-		log::trace!(target: LOG_TARGET, "New peer {} {:?}", who, status);
+		log::trace!(target: LOG_TARGET, "New peer {who} {status:?}");
 
 		if self.peers.contains_key(&who) {
 			log::error!(
 				target: LOG_TARGET,
-				"Called on_sync_peer_connected with already connected peer {}",
-				who,
+				"Called on_sync_peer_connected with already connected peer {who}",
 			);
 			debug_assert!(false);
 			return Err(())
@@ -947,7 +943,7 @@ where
 					self.default_peers_set_no_slot_connected_peers.len() +
 					this_peer_reserved_slot
 		{
-			log::debug!(target: LOG_TARGET, "Too many full nodes, rejecting {}", who);
+			log::debug!(target: LOG_TARGET, "Too many full nodes, rejecting {who}");
 			return Err(())
 		}
 
@@ -955,7 +951,7 @@ where
 			(self.peers.len() - self.chain_sync.num_peers()) >= self.default_peers_set_num_light
 		{
 			// Make sure that not all slots are occupied by light clients.
-			log::debug!(target: LOG_TARGET, "Too many light nodes, rejecting {}", who);
+			log::debug!(target: LOG_TARGET, "Too many light nodes, rejecting {who}");
 			return Err(())
 		}
 
@@ -984,7 +980,7 @@ where
 			None
 		};
 
-		log::debug!(target: LOG_TARGET, "Connected {}", who);
+		log::debug!(target: LOG_TARGET, "Connected {who}");
 
 		self.peers.insert(who, peer);
 
