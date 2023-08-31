@@ -1738,6 +1738,8 @@ pub mod migrations {
 
 		// Upgrade SessionKeys to include BEEFY key
 		UpgradeSessionKeys,
+
+		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 	);
 }
 
