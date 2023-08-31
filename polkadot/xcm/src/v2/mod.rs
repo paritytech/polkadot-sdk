@@ -55,7 +55,7 @@ use super::{
 		NetworkId as NewNetworkId, Response as NewResponse, WeightLimit as NewWeightLimit,
 		Xcm as NewXcm,
 	},
-	DoubleEncoded, GetWeight,
+	DoubleEncoded,
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{ConstU32, WeakBoundedVec};
@@ -77,7 +77,7 @@ pub use multiasset::{
 pub use multilocation::{
 	Ancestor, AncestorThen, InteriorMultiLocation, Junctions, MultiLocation, Parent, ParentThen,
 };
-pub use traits::{Error, ExecuteXcm, Outcome, Result, SendError, SendResult, SendXcm};
+pub use traits::{Error, ExecuteXcm, GetWeight, Outcome, Result, SendError, SendResult, SendXcm};
 
 /// Basically just the XCM (more general) version of `ParachainDispatchOrigin`.
 #[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]

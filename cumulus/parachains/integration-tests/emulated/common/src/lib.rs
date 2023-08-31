@@ -65,7 +65,7 @@ decl_test_relay_chains! {
 			Hrmp: kusama_runtime::Hrmp,
 		}
 	},
-	#[api_version(5)]
+	#[api_version(6)]
 	pub struct Westend {
 		genesis = westend::genesis(),
 		on_init = (),

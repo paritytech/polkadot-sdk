@@ -20,7 +20,7 @@ use super::v2::{
 	Instruction as OldInstruction, Response as OldResponse, WeightLimit as OldWeightLimit,
 	Xcm as OldXcm,
 };
-use crate::{DoubleEncoded, GetWeight};
+use crate::DoubleEncoded;
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec, ConstU32};
 use core::{
@@ -54,7 +54,7 @@ pub use traits::{
 	SendResult, SendXcm, Weight, XcmHash,
 };
 // These parts of XCM v2 are unchanged in XCM v3, and are re-imported here.
-pub use super::v2::OriginKind;
+pub use super::v2::{GetWeight, OriginKind};
 
 /// This module's XCM version.
 pub const VERSION: super::Version = 3;
@@ -186,6 +186,7 @@ pub mod prelude {
 			AssetInstance::{self, *},
 			BodyId, BodyPart, Error as XcmError, ExecuteXcm,
 			Fungibility::{self, *},
+			GetWeight,
 			Instruction::*,
 			InteriorMultiLocation,
 			Junction::{self, *},
