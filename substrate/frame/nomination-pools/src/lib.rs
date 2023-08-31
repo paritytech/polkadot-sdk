@@ -3237,8 +3237,8 @@ impl<T: Config> Pallet<T> {
 				.reduce(|acc, total_balance| acc + total_balance)
 				.unwrap_or_default();
 
-			assert_eq!(
-				TotalValueLocked::<T>::get(),
+			ensure!(
+				TotalValueLocked::<T>::get() == 
 				expected_tvl,
 				"TVL deviates from the actual sum of funds of all Pools."
 			);
@@ -3248,7 +3248,7 @@ impl<T: Config> Pallet<T> {
 				.reduce(|acc, total_balance| acc + total_balance)
 				.unwrap_or_default();
 
-			assert!(
+			ensure!(
 				TotalValueLocked::<T>::get() <= total_balance_members,
 				"TVL must be equal to or less than the total balance of all PoolMembers."
 			);
