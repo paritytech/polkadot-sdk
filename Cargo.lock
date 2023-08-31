@@ -9421,11 +9421,11 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-std",
+ "staging-xcm",
+ "staging-xcm-executor",
  "wasm-instrument 0.4.0",
  "wasmi 0.30.0",
  "wat",
- "xcm",
- "xcm-executor",
 ]
 
 [[package]]
