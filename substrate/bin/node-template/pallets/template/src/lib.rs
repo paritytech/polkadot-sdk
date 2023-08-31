@@ -24,14 +24,15 @@
 //! The pallet sections in this template are:
 //!
 //! - A **configuration trait** that defines the types and parameters which the pallet depends on
-//!   (denoted by the `#[pallet::config]` attribute)
-//! - A **means to store pallet-specific data** (denoted by the `#[pallet::storage]` attribute)
+//!   (denoted by the `#[pallet::config]` attribute). See: [`Config`].
+//! - A **means to store pallet-specific data** (denoted by the `#[pallet::storage]` attribute).
+//!   See: [`storage_types`].
 //! - A **declaration of the events** this pallet emits (denoted by the `#[pallet::event]`
-//!   attribute)
+//!   attribute). See: [`Event`].
 //! - A **declaration of the errors** that this pallet can throw (denoted by the `#[pallet::error]`
-//!   attribute)
+//!   attribute). See: [`Error`].
 //! - A **set of dispatchable functions** that define the pallet's functionality (denoted by the
-//!   `#[pallet::call]` attribute)
+//!   `#[pallet::call]` attribute). See: [`dispatchables`].
 //!
 //! Run `cargo doc --package pallet-template --open` to view this pallet's documentation.
 
@@ -116,9 +117,9 @@ pub mod pallet {
 
 	/// Errors that can be returned by this pallet.
 	///
-	/// Errors tell users that something went wrong so it's important that they are informative.
-	/// Similar to events, error documentation is added to a node's metadata so it's important that
-	/// they have helpful documentation associated with them.
+	/// Errors tell users that something went wrong so it's important that their naming is
+	/// informative. Similar to events, error documentation is added to a node's metadata so it's
+	/// equally important that they have helpful documentation associated with them.
 	///
 	/// This type of runtime error can be up to 4 bytes in size should you want to return additional
 	/// information.
@@ -126,23 +127,28 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The value retrieved was `None` as no value was previously set.
 		NoneValue,
-		/// There was an attempt to increment the value in storage over `u32::MAX` (4294967295).
+		/// There was an attempt to increment the value in storage over `u32::MAX`.
 		StorageOverflow,
 	}
 
-	/// The pallet's dispatchable functions (`Call`s).
+	/// The pallet's dispatchable functions ([`Call`]s).
 	///
 	/// Dispatchable functions allows users to interact with the pallet and invoke state changes.
 	/// These functions materialize as "extrinsics", which are often compared to transactions.
 	/// They must always return a `DispatchResult` and be annotated with a weight and call index.
 	///
-	/// Read more about transaction types in Substrate chains: <https://docs.substrate.io/learn/transaction-types/>
+	/// The [`call_index`] macro is used to explicitly
+	/// define an index for calls in the [`Call`] enum. This is useful for pallets that may
+	/// introduce new dispatchables over time. If the order of a dispatchable changes, its index
+	/// will also change which will break backwards compatibility.
+	///
+	/// The [`weight`] macro is used to assign a weight to each call.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// This dispatchable takes a single u32 value as a parameter, writes the value to storage
-		/// and emits an event.
+		/// An example dispatchable that takes a single u32 value as a parameter, writes the value
+		/// to storage and emits an event.
 		///
-		/// The function checks that the _origin_ for this call is _Signed_ and returns a dispatch
+		/// It checks that the _origin_ for this call is _Signed_ and returns a dispatch
 		/// error if it isn't. Learn more about origins here: <https://docs.substrate.io/build/origins/>
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::do_something())]
@@ -160,7 +166,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// A dispatchable that may throw a custom error.
+		/// An example dispatchable that may throw a custom error.
 		///
 		/// It checks that the caller is a signed origin and reads the current value from the
 		/// `Something` storage item. If a current value exists, it is incremented by 1 and then
@@ -183,7 +189,8 @@ pub mod pallet {
 				// Return an error if the value has not been set.
 				None => Err(Error::<T>::NoneValue.into()),
 				Some(old) => {
-					// Increment the value read from storage; will error in the event of overflow.
+					// Increment the value read from storage. This will cause an error in the event
+					// of overflow.
 					let new = old.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
 					// Update the value in storage with the incremented result.
 					Something::<T>::put(new);
