@@ -48,7 +48,7 @@ primitives = { package = "polkadot-primitives", path = "../../primitives", defau
 rand = { version = "0.8.5", default-features = false }
 rand_chacha = { version = "0.3.1", default-features = false }
 static_assertions = { version = "1.1.0", optional = true }
-polkadot-parachain = { path = "../../parachain", default-features = false }
+polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
 polkadot-runtime-metrics = { path = "../metrics", default-features = false}
 
 [dev-dependencies]
@@ -83,7 +83,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-vesting/std",
 	"parity-scale-codec/std",
-	"polkadot-parachain/std",
+	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-metrics/std",
 	"primitives/std",
 	"rustc-hex/std",
@@ -111,7 +111,7 @@ runtime-benchmarks = [
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
-	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
 	"primitives/runtime-benchmarks",
 	"sp-application-crypto",
 	"sp-runtime/runtime-benchmarks",

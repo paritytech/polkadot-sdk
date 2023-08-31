@@ -26,7 +26,10 @@ use crate::{
 	paras_inherent::DisputedBitfield,
 	shared::AllowedRelayParentsTracker,
 };
-use primitives::{SignedAvailabilityBitfields, UncheckedSignedAvailabilityBitfields};
+use primitives::{
+	effective_minimum_backing_votes, SignedAvailabilityBitfields,
+	UncheckedSignedAvailabilityBitfields,
+};
 
 use assert_matches::assert_matches;
 use frame_support::assert_noop;
@@ -120,11 +123,14 @@ pub(crate) fn back_candidate(
 	kind: BackingKind,
 ) -> BackedCandidate {
 	let mut validator_indices = bitvec::bitvec![u8, BitOrderLsb0; 0; group.len()];
-	let threshold = minimum_backing_votes(group.len());
+	let threshold = effective_minimum_backing_votes(
+		group.len(),
+		configuration::Pallet::<Test>::config().minimum_backing_votes,
+	);
 
 	let signing = match kind {
 		BackingKind::Unanimous => group.len(),
-		BackingKind::Threshold => threshold,
+		BackingKind::Threshold => threshold as usize,
 		BackingKind::Lacking => threshold.saturating_sub(1),
 	};
 
@@ -1609,7 +1615,10 @@ fn backing_works() {
 		);
 
 		let backers = {
-			let num_backers = minimum_backing_votes(group_validators(GroupIndex(0)).unwrap().len());
+			let num_backers = effective_minimum_backing_votes(
+				group_validators(GroupIndex(0)).unwrap().len(),
+				configuration::Pallet::<Test>::config().minimum_backing_votes,
+			);
 			backing_bitfield(&(0..num_backers).collect::<Vec<_>>())
 		};
 		assert_eq!(
@@ -1631,7 +1640,10 @@ fn backing_works() {
 		);
 
 		let backers = {
-			let num_backers = minimum_backing_votes(group_validators(GroupIndex(0)).unwrap().len());
+			let num_backers = effective_minimum_backing_votes(
+				group_validators(GroupIndex(0)).unwrap().len(),
+				configuration::Pallet::<Test>::config().minimum_backing_votes,
+			);
 			backing_bitfield(&(0..num_backers).map(|v| v + 2).collect::<Vec<_>>())
 		};
 		assert_eq!(
@@ -1765,7 +1777,10 @@ fn can_include_candidate_with_ok_code_upgrade() {
 		assert_eq!(occupied_cores, vec![(CoreIndex::from(0), chain_a)]);
 
 		let backers = {
-			let num_backers = minimum_backing_votes(group_validators(GroupIndex(0)).unwrap().len());
+			let num_backers = effective_minimum_backing_votes(
+				group_validators(GroupIndex(0)).unwrap().len(),
+				configuration::Pallet::<Test>::config().minimum_backing_votes,
+			);
 			backing_bitfield(&(0..num_backers).collect::<Vec<_>>())
 		};
 		assert_eq!(

@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! [`ApprovalDistributionSubsystem`] implementation.
+//! [`ApprovalDistribution`] implementation.
 //!
-//! https://w3f.github.io/parachain-implementers-guide/node/approval/approval-distribution.html
+//! <https://w3f.github.io/parachain-implementers-guide/node/approval/approval-distribution.html>
 
 #![warn(missing_docs)]
 
