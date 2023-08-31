@@ -31,6 +31,9 @@ pub use polkadot_primitives::{Block, BlockNumber, Hash};
 ///
 /// The handle is reference counted and once the last is dropped, the
 /// block is unpinned.
+///
+/// This is useful for runtime API calls to blocks that are
+/// racing against finality, e.g. for slashing purposes.
 pub type UnpinHandle = sc_client_api::UnpinHandle<Block>;
 
 pub mod errors;

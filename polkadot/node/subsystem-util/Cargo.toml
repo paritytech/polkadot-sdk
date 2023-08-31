@@ -22,6 +22,7 @@ derive_more = "0.99.17"
 schnellru = "0.2.1"
 
 polkadot-node-subsystem = { path = "../subsystem" }
+polkadot-node-subsystem-types = { path = "../subsystem-types" }
 polkadot-node-jaeger = { path = "../jaeger" }
 polkadot-node-metrics = { path = "../metrics" }
 polkadot-node-network-protocol = { path = "../network/protocol" }
