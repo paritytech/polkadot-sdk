@@ -36,7 +36,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
 use frame_support::{
-	dispatch::{DispatchError, DispatchResult, Pays, PostDispatchInfo},
+	dispatch::{DispatchResult, Pays, PostDispatchInfo},
 	ensure,
 	inherent::{InherentData, InherentIdentifier, ProvideInherent},
 	storage,
@@ -52,7 +52,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
 		ValidTransaction,
 	},
-	RuntimeDebug,
+	DispatchError, RuntimeDebug,
 };
 use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
 use xcm::latest::XcmHash;

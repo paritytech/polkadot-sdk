@@ -22,9 +22,9 @@ use cumulus_primitives_core::{
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{
-	dispatch::{DispatchResult, RawOrigin, UnfilteredDispatchable},
+	dispatch::{DispatchResult, RawOrigin},
 	inherent::{InherentData, ProvideInherent},
-	traits::{OnFinalize, OnInitialize, OriginTrait},
+	traits::{OnFinalize, OnInitialize, OriginTrait, UnfilteredDispatchable},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
