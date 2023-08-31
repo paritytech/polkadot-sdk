@@ -334,6 +334,7 @@ members = [
 	"substrate/frame/salary",
 	"substrate/frame/scheduler",
 	"substrate/frame/scored-pool",
+	"substrate/frame/sassafras",
 	"substrate/frame/session",
 	"substrate/frame/session/benchmarking",
 	"substrate/frame/society",

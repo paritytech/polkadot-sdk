@@ -10378,6 +10378,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-sassafras"
+version = "0.3.4-dev"
+dependencies = [
+ "array-bytes",
+ "env_logger 0.10.0",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-session",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-consensus-sassafras",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-scheduler"
 version = "4.0.0-dev"
 dependencies = [
