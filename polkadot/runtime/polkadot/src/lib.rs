@@ -130,10 +130,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	authoring_version: 0,
 	spec_version: 9430,
 	impl_version: 0,
-	#[cfg(not(feature = "disable-runtime-api"))]
 	apis: RUNTIME_API_VERSIONS,
-	#[cfg(feature = "disable-runtime-api")]
-	apis: sp_version::create_apis_vec![[]],
 	transaction_version: 24,
 	state_version: 0,
 };
@@ -1599,7 +1596,6 @@ mod benches {
 	);
 }
 
-#[cfg(not(feature = "disable-runtime-api"))]
 sp_api::impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
