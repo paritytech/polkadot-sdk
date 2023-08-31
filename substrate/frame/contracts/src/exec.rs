@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	debug::{CallSpan, Tracing, CallInterceptor, CallInterceptorResult},
+	debug::{CallInterceptor, CallInterceptorResult, CallSpan, Tracing},
 	gas::GasMeter,
 	storage::{self, meter::Diff, WriteOutcome},
 	BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
@@ -907,10 +907,12 @@ where
 			// Every non delegate call or instantiate also optionally transfers the balance.
 			self.initial_transfer()?;
 
-			let call_span =
-				T::Debug::new_call_span(executable.code_hash(), entry_point, &input_data);
+			let contract_address = &top_frame!(self).account_id;
 
-			let output = match T::Debug::intercept_call() {
+			let call_span = T::Debug::new_call_span(contract_address, entry_point, &input_data);
+			let interception_result =
+				T::Debug::intercept_call(contract_address, entry_point, &input_data);
+			let output = match interception_result {
 				// Call into the Wasm blob.
 				CallInterceptorResult::Proceed => executable
 					.execute(self, &entry_point, input_data)
