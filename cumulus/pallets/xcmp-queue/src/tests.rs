@@ -407,3 +407,23 @@ fn xcmp_queue_consumes_dest_and_msg_on_ok_validate() {
 		);
 	});
 }
+
+#[test]
+fn xcmp_queue_validate_nested_xcm_works() {
+	let dest = (Parent, X1(Parachain(5555)));
+	// Message that is not too deeply nested:
+	let mut good = Xcm(vec![ClearOrigin]);
+	for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
+		good = Xcm(vec![SetAppendix(good)]);
+	}
+
+	// Check that the good message is validated:
+	assert_ok!(<XcmpQueue as SendXcm>::validate(&mut Some(dest.into()), &mut Some(good.clone())));
+
+	// Nesting the message one more time should reject it:
+	let bad = Xcm(vec![SetAppendix(good)]);
+	assert_eq!(
+		Err(SendError::ExceedsMaxMessageSize),
+		<XcmpQueue as SendXcm>::validate(&mut Some(dest.into()), &mut Some(bad))
+	);
+}

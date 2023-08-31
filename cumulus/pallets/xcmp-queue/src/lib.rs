@@ -480,17 +480,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub fn send_blob_message(recipient: ParaId, blob: Vec<u8>) -> Result<u32, MessageSendError> {
-		Self::send_fragment(recipient, XcmpMessageFormat::ConcatenatedEncodedBlob, blob)
-	}
-
-	pub fn send_xcm_message(
-		recipient: ParaId,
-		xcm: VersionedXcm<()>,
-	) -> Result<u32, MessageSendError> {
-		Self::send_fragment(recipient, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm)
-	}
-
 	fn suspend_channel(target: ParaId) {
 		<OutboundXcmpStatus<T>>::mutate(|s| {
 			if let Some(details) = s.iter_mut().find(|item| item.recipient == target) {
@@ -658,7 +647,6 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 					},
 				XcmpMessageFormat::ConcatenatedVersionedXcm => {
 					while !data.is_empty() {
-
 						let Ok(xcm) = Self::split_concatenated_xcms(&mut data, &mut meter) else {
 							defensive!(
 								"Could not parse incoming XCMP messages. Used weight: ",
@@ -822,8 +810,11 @@ impl<T: Config> SendXcm for Pallet<T> {
 				let xcm = msg.take().ok_or(SendError::MissingArgument)?;
 				let id = ParaId::from(*id);
 				let price = T::PriceForSiblingDelivery::price_for_parachain_delivery(id, &xcm);
-				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm)
+				let versioned_xcm: VersionedXcm<()> = T::VersionWrapper::wrap_version(&d, xcm)
 					.map_err(|()| SendError::DestinationUnsupported)?;
+				validate_xcm_nesting(&versioned_xcm)
+					.map_err(|()| SendError::ExceedsMaxMessageSize)?;
+
 				Ok(((id, versioned_xcm), price))
 			},
 			_ => {
@@ -837,6 +828,8 @@ impl<T: Config> SendXcm for Pallet<T> {
 
 	fn deliver((id, xcm): (ParaId, VersionedXcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		// Should be ensured by `Self::validate`:
+		debug_assert!(validate_xcm_nesting(&xcm).is_ok());
 
 		match Self::send_fragment(id, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm) {
 			Ok(_) => {
@@ -846,4 +839,12 @@ impl<T: Config> SendXcm for Pallet<T> {
 			Err(e) => Err(SendError::Transport(<&'static str>::from(e))),
 		}
 	}
+}
+
+/// Checks that the XCM is decodable with `MAX_XCM_DECODE_DEPTH`.
+pub(crate) fn validate_xcm_nesting(xcm: &VersionedXcm<()>) -> Result<(), ()> {
+	xcm.using_encoded(|mut enc| {
+		VersionedXcm::<()>::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ())
+	})
+	.map_err(|_| ())
 }

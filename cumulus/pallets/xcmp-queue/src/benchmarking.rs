@@ -44,7 +44,8 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::enqueue_xcmp_message(0.into(), msg, &mut WeightMeter::max_limit()).unwrap();
+			Pallet::<T>::enqueue_xcmp_message(0.into(), msg, &mut WeightMeter::max_limit())
+				.unwrap();
 		}
 	}
 
