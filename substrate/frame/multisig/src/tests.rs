@@ -366,7 +366,7 @@ fn mutlisig_wont_get_executed_when_expired() {
 		assert!(MultisigExpiries::<Test>::get(multi, hash).is_none());
 		assert!(Multisigs::<Test>::get(multi, hash).is_none());
 
-		// The deposit got undreserved after clearing the multisig.
+		// The deposit is unreserved after clearing the multisig.
 		assert_eq!(Balances::free_balance(1), 5);
 		assert_eq!(Balances::reserved_balance(1), 0);
 
