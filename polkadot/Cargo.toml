@@ -63,8 +63,8 @@ runtime-metrics = [ "polkadot-cli/runtime-metrics" ]
 pyroscope = [ "polkadot-cli/pyroscope" ]
 jemalloc-allocator = [
 	"dep:tikv-jemallocator",
-	"polkadot-node-core-pvf/jemalloc-allocator",
 	"polkadot-node-core-pvf-prepare-worker/jemalloc-allocator",
+	"polkadot-node-core-pvf/jemalloc-allocator",
 	"polkadot-overseer/jemalloc-allocator",
 ]
 
