@@ -438,11 +438,9 @@ impl Junctions {
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v3::{Junctions::*, Junction::*, MultiLocation};
-	/// # fn main() {
 	/// let mut m = X1(Parachain(21));
 	/// assert_eq!(m.append_with(X1(PalletInstance(3))), Ok(()));
 	/// assert_eq!(m, X2(Parachain(21), PalletInstance(3)));
-	/// # }
 	/// ```
 	pub fn append_with(&mut self, suffix: impl Into<Junctions>) -> Result<(), Junctions> {
 		let suffix = suffix.into();
@@ -569,11 +567,9 @@ impl Junctions {
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v3::{Junctions::*, Junction::*};
-	/// # fn main() {
 	/// let mut m = X3(Parachain(2), PalletInstance(3), OnlyChild);
 	/// assert_eq!(m.match_and_split(&X2(Parachain(2), PalletInstance(3))), Some(&OnlyChild));
 	/// assert_eq!(m.match_and_split(&X1(Parachain(2))), None);
-	/// # }
 	/// ```
 	pub fn match_and_split(&self, prefix: &Junctions) -> Option<&Junction> {
 		if prefix.len() + 1 != self.len() {
