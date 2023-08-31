@@ -16,7 +16,7 @@
 // limitations under the License.
 
 pub use crate::exec::{ExecResult, ExportedFunction};
-use crate::{CodeHash, Config, LOG_TARGET};
+use crate::{Config, LOG_TARGET};
 use pallet_contracts_primitives::ExecReturnValue;
 
 /// Umbrella trait for all interfaces that serves for debugging.
