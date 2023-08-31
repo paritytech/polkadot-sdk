@@ -41,7 +41,7 @@ use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
 use sp_tracing as _;
 use statement_table::v2::Misbehavior;
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 mod prospective_parachains;
 
@@ -80,6 +80,7 @@ struct TestState {
 	head_data: HashMap<ParaId, HeadData>,
 	signing_context: SigningContext,
 	relay_parent: Hash,
+	disabled_validators: Vec<ValidatorIndex>,
 }
 
 impl TestState {
@@ -150,6 +151,7 @@ impl Default for TestState {
 			validation_data,
 			signing_context,
 			relay_parent,
+			disabled_validators: Vec::new(),
 		}
 	}
 }
@@ -296,7 +298,7 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 		AllMessages::RuntimeApi(
 			RuntimeApiMessage::Request(parent, RuntimeApiRequest::DisabledValidators(tx))
 		) if parent == test_state.relay_parent => {
-			tx.send(Ok(Vec::new())).unwrap();
+			tx.send(Ok(test_state.disabled_validators.clone())).unwrap();
 		}
 	);
 }
@@ -2000,6 +2002,54 @@ fn new_leaf_view_doesnt_clobber_old() {
 			"first leaf appears to be inactive"
 		);
 
+		virtual_overseer
+	});
+}
+
+// Test that a disabled local validator doesn't do any work on `CandidateBackingMessage::Second`
+#[test]
+fn disabled_validator_doesnt_distribute_statement() {
+	let mut test_state = TestState::default();
+	test_state.disabled_validators.push(ValidatorIndex(0));
+
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		test_startup(&mut virtual_overseer, &test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+
+		let expected_head_data = test_state.head_data.get(&test_state.chain_ids[0]).unwrap();
+
+		let pov_hash = pov.hash();
+		let candidate = TestCandidateBuilder {
+			para_id: test_state.chain_ids[0],
+			relay_parent: test_state.relay_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+
+		let second = CandidateBackingMessage::Second(
+			test_state.relay_parent,
+			candidate.to_plain(),
+			pvd.clone(),
+			pov.clone(),
+		);
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
+
+		// Ensure backing subsystem is not doing any work
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::stop_work(test_state.relay_parent),
+			)))
+			.await;
 		virtual_overseer
 	});
 }
