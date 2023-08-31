@@ -2703,12 +2703,16 @@ pub mod env {
 		output_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
 		use frame_system::pallet_prelude::BlockNumberFor;
+		use pallet_xcm::WeightInfo;
 		use xcm::VersionedMultiLocation;
 
 		let timeout: BlockNumberFor<E::T> = ctx.read_sandbox_memory_as(memory, timeout_ptr)?;
 		let match_querier: VersionedMultiLocation =
 			ctx.read_sandbox_memory_as(memory, match_querier_ptr)?;
-		// TODO benchmark
+
+		let weight = <E::T as pallet_xcm::Config>::WeightInfo::new_query();
+		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
+
 		match ctx.ext.xcm_query(timeout, match_querier) {
 			Ok(query_id) => {
 				ctx.write_sandbox_memory(memory, output_ptr, &query_id.encode())?;
@@ -2730,12 +2734,15 @@ pub mod env {
 		query_id_ptr: u32,
 		output_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
+		use pallet_xcm::WeightInfo;
 		use xcm_executor::traits::QueryHandler;
 
 		let query_id: <pallet_xcm::Pallet<E::T> as QueryHandler>::QueryId =
 			ctx.read_sandbox_memory_as(memory, query_id_ptr)?;
 
-		// TODO benchmark
+		let weight = <E::T as pallet_xcm::Config>::WeightInfo::take_response();
+		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
+
 		let response = ctx.ext.xcm_take_response(query_id);
 		ctx.write_sandbox_memory(memory, output_ptr, &response.encode())?;
 		Ok(ReturnCode::Success)
