@@ -34,7 +34,7 @@ test-linux-stable:
         --locked \
         --release \
         --no-fail-fast \
-        --features runtime-benchmarks,try-runtime,experimental \
+        --features try-runtime,experimental \
         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
     # run runtime-api tests with `enable-staging-api` feature on the 1st node
     - if [ ${CI_NODE_INDEX} == 1 ]; then time cargo nextest run -p sp-api-test --features enable-staging-api; fi
@@ -44,6 +44,22 @@ test-linux-oldkernel-stable:
   extends: test-linux-stable
   tags:
     - oldkernel-vm
+
+# https://github.com/paritytech/ci_cd/issues/864
+test-linux-stable-runtime-benchmarks:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .pipeline-stopper-artifacts
+  variables:
+    RUST_TOOLCHAIN: stable
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+  script:
+    - cargo nextest run --features runtime-benchmarks benchmarking
 
 # can be used to run all tests
 # test-linux-stable-all:
