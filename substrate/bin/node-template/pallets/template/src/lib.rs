@@ -23,15 +23,15 @@
 //!
 //! The pallet sections in this template are:
 //!
-//! - A <strong>configuration trait</strong> that defines the types and parameters which the pallet
+//! - A **configuration trait** that defines the types and parameters which the pallet
 //!   depends on (denoted by the `#[pallet::config]` attribute)
-//! - A <strong>means to store pallet-specific data</strong> (denoted by the `#[pallet::storage]`
+//! - A **means to store pallet-specific data** (denoted by the `#[pallet::storage]`
 //!   attribute)
-//! - A <strong>declaration of the events</strong> this pallet emits (denoted by the
+//! - A **declaration of the events** this pallet emits (denoted by the
 //!   `#[pallet::event]` attribute)
-//! - A <strong>declaration of the errors</strong> that this pallet can throw (denoted by the
+//! - A **declaration of the errors** that this pallet can throw (denoted by the
 //!   `#[pallet::error]` attribute)
-//! - A <strong>set of dispatchable functions</strong> that define the pallet's functionality
+//! - A **set of dispatchable functions** that define the pallet's functionality
 //!   (denoted by the `#[pallet::call]` attribute)
 //!
 //! Run `cargo doc --package pallet-template --open` to view this pallet's documentation.
