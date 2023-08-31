@@ -16,20 +16,35 @@
 
 //! Types used to connect to the Rococo-Substrate chain.
 
+pub mod codegen_runtime;
+
+use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 use bp_rococo::ROCOCO_SYNCED_HEADERS_GRANDPA_INFO_METHOD;
 use bp_runtime::ChainId;
+use codec::Encode;
 use relay_substrate_client::{
-	Chain, ChainWithBalances, ChainWithGrandpa, RelayChain, UnderlyingChainProvider,
+	Chain, ChainWithBalances, ChainWithGrandpa, ChainWithTransactions, Error as SubstrateError,
+	RelayChain, SignParam, UnderlyingChainProvider, UnsignedTransaction,
 };
-use sp_core::storage::StorageKey;
+use sp_core::{storage::StorageKey, Pair};
+use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount, MultiAddress};
 use sp_session::MembershipProof;
 use std::time::Duration;
+
+pub use codegen_runtime::api::runtime_types;
+
+pub type RuntimeCall = runtime_types::rococo_runtime::RuntimeCall;
+
+pub type GrandpaCall = runtime_types::pallet_grandpa::pallet::Call;
 
 /// Rococo header id.
 pub type HeaderId = relay_utils::HeaderId<bp_rococo::Hash, bp_rococo::BlockNumber>;
 
 /// Rococo header type used in headers sync.
 pub type SyncHeader = relay_substrate_client::SyncHeader<bp_rococo::Header>;
+
+/// The address format for describing accounts.
+pub type Address = MultiAddress<bp_rococo::AccountId, ()>;
 
 /// Rococo chain definition
 #[derive(Debug, Clone, Copy)]
@@ -47,7 +62,7 @@ impl Chain for Rococo {
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
 
 	type SignedBlock = bp_rococo::SignedBlock;
-	type Call = ();
+	type Call = RuntimeCall;
 }
 
 impl ChainWithGrandpa for Rococo {
@@ -66,4 +81,55 @@ impl ChainWithBalances for Rococo {
 impl RelayChain for Rococo {
 	const PARAS_PALLET_NAME: &'static str = bp_rococo::PARAS_PALLET_NAME;
 	const PARACHAINS_FINALITY_PALLET_NAME: &'static str = "BridgeRococoParachain";
+}
+
+impl ChainWithTransactions for Rococo {
+	type AccountKeyPair = sp_core::sr25519::Pair;
+	type SignedTransaction =
+		bp_polkadot_core::UncheckedExtrinsic<Self::Call, bp_rococo::SignedExtension>;
+
+	fn sign_transaction(
+		param: SignParam<Self>,
+		unsigned: UnsignedTransaction<Self>,
+	) -> Result<Self::SignedTransaction, SubstrateError> {
+		let raw_payload = SignedPayload::new(
+			unsigned.call,
+			bp_rococo::SignedExtension::from_params(
+				param.spec_version,
+				param.transaction_version,
+				unsigned.era,
+				param.genesis_hash,
+				unsigned.nonce,
+				unsigned.tip,
+				((), ()),
+			),
+		)?;
+
+		let signature = raw_payload.using_encoded(|payload| param.signer.sign(payload));
+		let signer: sp_runtime::MultiSigner = param.signer.public().into();
+		let (call, extra, _) = raw_payload.deconstruct();
+
+		Ok(Self::SignedTransaction::new_signed(
+			call,
+			signer.into_account().into(),
+			signature.into(),
+			extra,
+		))
+	}
+
+	fn is_signed(tx: &Self::SignedTransaction) -> bool {
+		tx.signature.is_some()
+	}
+
+	fn is_signed_by(signer: &Self::AccountKeyPair, tx: &Self::SignedTransaction) -> bool {
+		tx.signature
+			.as_ref()
+			.map(|(address, _, _)| *address == Address::Id(signer.public().into()))
+			.unwrap_or(false)
+	}
+
+	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self>> {
+		let extra = &tx.signature.as_ref()?.2;
+		Some(UnsignedTransaction::new(tx.function, extra.nonce()).tip(extra.tip()))
+	}
 }

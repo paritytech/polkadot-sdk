@@ -18,8 +18,8 @@
 
 pub mod codegen_runtime;
 
-use bp_bridge_hub_cumulus::BridgeHubSignedExtension;
 use bp_messages::MessageNonce;
+use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 use bp_runtime::ChainId;
 use codec::Encode;
 use relay_substrate_client::{
@@ -98,6 +98,7 @@ impl ChainWithTransactions for RialtoParachain {
 				param.genesis_hash,
 				unsigned.nonce,
 				unsigned.tip,
+				(((), ()), ((), ())),
 			),
 		)?;
 

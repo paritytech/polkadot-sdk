@@ -35,7 +35,12 @@ pub trait SignedExtensionSchema: Encode + Decode + Debug + Eq + Clone + StaticTy
 	type AdditionalSigned: Encode + Debug + Eq + Clone + StaticTypeInfo;
 }
 
-// An implementation of `SignedExtensionSchema` using generic params.
+impl SignedExtensionSchema for () {
+	type Payload = ();
+	type AdditionalSigned = ();
+}
+
+/// An implementation of `SignedExtensionSchema` using generic params.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo)]
 pub struct GenericSignedExtensionSchema<P, S>(PhantomData<(P, S)>);
 
@@ -72,6 +77,9 @@ pub type CheckWeight = GenericSignedExtensionSchema<(), ()>;
 /// The `SignedExtensionSchema` for `pallet_transaction_payment::ChargeTransactionPayment`.
 pub type ChargeTransactionPayment<Balance> = GenericSignedExtensionSchema<Compact<Balance>, ()>;
 
+/// The `SignedExtensionSchema` for `polkadot-runtime-common::PrevalidateAttests`.
+pub type PrevalidateAttests = GenericSignedExtensionSchema<(), ()>;
+
 /// The `SignedExtensionSchema` for `BridgeRejectObsoleteHeadersAndMessages`.
 pub type BridgeRejectObsoleteHeadersAndMessages = GenericSignedExtensionSchema<(), ()>;
 
@@ -99,7 +107,7 @@ pub struct GenericSignedExtension<S: SignedExtensionSchema> {
 	// It may be set to `None` if extensions are decoded. We are never reconstructing transactions
 	// (and it makes no sense to do that) => decoded version of `SignedExtensions` is only used to
 	// read fields of the `payload`. And when resigning transaction, we're reconstructing
-	// `SignedExtensions` from the scratch.
+	// `SignedExtensions` from scratch.
 	additional_signed: Option<S::AdditionalSigned>,
 }
 

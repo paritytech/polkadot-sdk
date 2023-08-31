@@ -35,6 +35,7 @@ pub(crate) mod encode_message;
 pub(crate) mod send_message;
 
 mod chain_schema;
+mod detect_equivocations;
 mod init_bridge;
 mod register_parachain;
 mod relay_headers;
@@ -86,8 +87,13 @@ pub enum Command {
 	ResubmitTransactions(resubmit_transactions::ResubmitTransactions),
 	/// Register parachain.
 	RegisterParachain(register_parachain::RegisterParachain),
-	///
+	/// Relay parachain heads.
 	RelayParachains(relay_parachains::RelayParachains),
+	/// Detect and report equivocations.
+	///
+	/// Parses the source chain headers that were synchronized with the target chain looking for
+	/// equivocations. If any equivocation is found, it is reported to the source chain.
+	DetectEquivocations(detect_equivocations::DetectEquivocations),
 }
 
 impl Command {
@@ -119,6 +125,7 @@ impl Command {
 			Self::ResubmitTransactions(arg) => arg.run().await?,
 			Self::RegisterParachain(arg) => arg.run().await?,
 			Self::RelayParachains(arg) => arg.run().await?,
+			Self::DetectEquivocations(arg) => arg.run().await?,
 		}
 		Ok(())
 	}

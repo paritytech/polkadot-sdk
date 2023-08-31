@@ -16,11 +16,14 @@
 
 //! Wococo-to-Rococo bridge hubs headers sync entrypoint.
 
-use crate::cli::bridge::{CliBridgeBase, RelayToRelayHeadersCliBridge};
+use crate::cli::bridge::{
+	CliBridgeBase, RelayToRelayEquivocationDetectionCliBridge, RelayToRelayHeadersCliBridge,
+};
 
 use async_trait::async_trait;
 use relay_substrate_client::{AccountKeyPairOf, Client};
 use substrate_relay_helper::{
+	equivocation::SubstrateEquivocationDetectionPipeline,
 	finality::SubstrateFinalitySyncPipeline,
 	finality_base::{engine::Grandpa as GrandpaFinalityEngine, SubstrateFinalityPipeline},
 	TransactionParams,
@@ -32,9 +35,16 @@ pub struct WococoFinalityToBridgeHubRococo;
 
 substrate_relay_helper::generate_submit_finality_proof_call_builder!(
 	WococoFinalityToBridgeHubRococo,
-	WococoFinalityToBridgeHubRococoCallBuilder,
+	SubmitFinalityProofCallBuilder,
 	relay_bridge_hub_rococo_client::RuntimeCall::BridgeWococoGrandpa,
 	relay_bridge_hub_rococo_client::BridgeGrandpaCall::submit_finality_proof
+);
+
+substrate_relay_helper::generate_report_equivocation_call_builder!(
+	WococoFinalityToBridgeHubRococo,
+	ReportEquivocationCallBuilder,
+	relay_wococo_client::RuntimeCall::Grandpa,
+	relay_wococo_client::GrandpaCall::report_equivocation
 );
 
 #[async_trait]
@@ -47,7 +57,7 @@ impl SubstrateFinalityPipeline for WococoFinalityToBridgeHubRococo {
 
 #[async_trait]
 impl SubstrateFinalitySyncPipeline for WococoFinalityToBridgeHubRococo {
-	type SubmitFinalityProofCallBuilder = WococoFinalityToBridgeHubRococoCallBuilder;
+	type SubmitFinalityProofCallBuilder = SubmitFinalityProofCallBuilder;
 
 	async fn start_relay_guards(
 		target_client: &Client<Self::TargetChain>,
@@ -64,6 +74,11 @@ impl SubstrateFinalitySyncPipeline for WococoFinalityToBridgeHubRococo {
 	}
 }
 
+#[async_trait]
+impl SubstrateEquivocationDetectionPipeline for WococoFinalityToBridgeHubRococo {
+	type ReportEquivocationCallBuilder = ReportEquivocationCallBuilder;
+}
+
 /// `Wococo` to BridgeHub `Rococo` bridge definition.
 pub struct WococoToBridgeHubRococoCliBridge {}
 
@@ -74,4 +89,8 @@ impl CliBridgeBase for WococoToBridgeHubRococoCliBridge {
 
 impl RelayToRelayHeadersCliBridge for WococoToBridgeHubRococoCliBridge {
 	type Finality = WococoFinalityToBridgeHubRococo;
+}
+
+impl RelayToRelayEquivocationDetectionCliBridge for WococoToBridgeHubRococoCliBridge {
+	type Equivocation = WococoFinalityToBridgeHubRococo;
 }
