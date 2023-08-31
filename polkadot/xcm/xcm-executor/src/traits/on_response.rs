@@ -16,7 +16,7 @@
 
 use crate::Xcm;
 use core::result;
-use frame_support::{ensure, traits::Get, weights::Weight};
+use frame_support::pallet_prelude::{Get, TypeInfo};
 use parity_scale_codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use sp_arithmetic::traits::Zero;
 use sp_std::fmt::Debug;
