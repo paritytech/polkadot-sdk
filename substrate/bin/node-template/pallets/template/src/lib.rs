@@ -120,7 +120,8 @@ pub mod pallet {
 	/// Similar to events, error documentation is added to a node's metadata so it's important that
 	/// they have helpful documentation associated with them.
 	///
-	/// Note: the `Error` enum my always be generic over `<T>`, which is expanded to `<T: Config>`.
+	/// This type of runtime error can be up to 4 bytes in size should you want to return additional
+	/// information.
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The value retrieved was `None` as no value was previously set.
