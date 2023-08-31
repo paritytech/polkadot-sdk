@@ -58,13 +58,13 @@ pub struct ParachainToParachainBridge<
 	/// Override for right_relay->left headers signer.
 	pub right_headers_to_left_transaction_params:
 		TransactionParams<AccountKeyPairOf<<R2L as CliBridgeBase>::Target>>,
-	/// Override for left_relay->right headers signer.
-	pub left_headers_to_right_transaction_params:
-		TransactionParams<AccountKeyPairOf<<L2R as CliBridgeBase>::Target>>,
-
 	/// Override for right->left parachains signer.
 	pub right_parachains_to_left_transaction_params:
 		TransactionParams<AccountKeyPairOf<<R2L as CliBridgeBase>::Target>>,
+
+	/// Override for left_relay->right headers signer.
+	pub left_headers_to_right_transaction_params:
+		TransactionParams<AccountKeyPairOf<<L2R as CliBridgeBase>::Target>>,
 	/// Override for left->right parachains signer.
 	pub left_parachains_to_right_transaction_params:
 		TransactionParams<AccountKeyPairOf<<L2R as CliBridgeBase>::Target>>,
@@ -83,35 +83,33 @@ macro_rules! declare_parachain_to_parachain_bridge_schema {
 
 				#[structopt(flatten)]
 				left: [<$left_parachain ConnectionParams>],
-				#[structopt(flatten)]
-				left_relay: [<$left_chain ConnectionParams>],
-
 				// default signer, which is always used to sign messages relay transactions on the left chain
 				#[structopt(flatten)]
 				left_sign: [<$left_parachain SigningParams>],
-
-				#[structopt(flatten)]
-				right: [<$right_parachain ConnectionParams>],
-				#[structopt(flatten)]
-				right_relay: [<$right_chain ConnectionParams>],
-
-				// default signer, which is always used to sign messages relay transactions on the right chain
-				#[structopt(flatten)]
-				right_sign: [<$right_parachain SigningParams>],
-
 				// override for right_relay->left-parachain headers signer
 				#[structopt(flatten)]
 				right_relay_headers_to_left_sign_override: [<$right_chain HeadersTo $left_parachain SigningParams>],
-				// override for left_relay->right-parachain headers signer
-				#[structopt(flatten)]
-				left_relay_headers_to_right_sign_override: [<$left_chain HeadersTo $right_parachain SigningParams>],
-
 				// override for right->left parachains signer
 				#[structopt(flatten)]
 				right_parachains_to_left_sign_override: [<$right_chain ParachainsTo $left_parachain SigningParams>],
+
+				#[structopt(flatten)]
+				left_relay: [<$left_chain ConnectionParams>],
+
+				#[structopt(flatten)]
+				right: [<$right_parachain ConnectionParams>],
+				// default signer, which is always used to sign messages relay transactions on the right chain
+				#[structopt(flatten)]
+				right_sign: [<$right_parachain SigningParams>],
+				// override for left_relay->right-parachain headers signer
+				#[structopt(flatten)]
+				left_relay_headers_to_right_sign_override: [<$left_chain HeadersTo $right_parachain SigningParams>],
 				// override for left->right parachains signer
 				#[structopt(flatten)]
 				left_parachains_to_right_sign_override: [<$left_chain ParachainsTo $right_parachain SigningParams>],
+
+				#[structopt(flatten)]
+				right_relay: [<$right_chain ConnectionParams>],
 			}
 
 			impl [<$left_parachain $right_parachain HeadersAndMessages>] {
@@ -134,14 +132,12 @@ macro_rules! declare_parachain_to_parachain_bridge_schema {
 							self.shared,
 							BridgeEndCommonParams {
 								client: self.left.into_client::<Left>().await?,
-								sign: self.left_sign.to_keypair::<Left>()?,
-								transactions_mortality: self.left_sign.transactions_mortality()?,
+								tx_params: self.left_sign.transaction_params::<Left>()?,
 								accounts: vec![],
 							},
 							BridgeEndCommonParams {
 								client: self.right.into_client::<Right>().await?,
-								sign: self.right_sign.to_keypair::<Right>()?,
-								transactions_mortality: self.right_sign.transactions_mortality()?,
+								tx_params: self.right_sign.transaction_params::<Right>()?,
 								accounts: vec![],
 							},
 						)?,

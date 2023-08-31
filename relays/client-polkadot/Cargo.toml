@@ -6,15 +6,23 @@ edition = "2021"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
-relay-substrate-client = { path = "../client-substrate" }
-relay-utils = { path = "../utils" }
+codec = { package = "parity-scale-codec", version = "3.1.5", features = ["derive"] }
+scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+subxt = { version = "0.31.0", default-features = false, features = ["native"] }
 
 # Bridge dependencies
 
 bp-polkadot = { path = "../../primitives/chain-polkadot" }
+bp-polkadot-core = { path = "../../primitives/polkadot-core" }
 bp-runtime = { path = "../../primitives/runtime" }
+
+relay-substrate-client = { path = "../client-substrate" }
+relay-utils = { path = "../utils" }
 
 # Substrate Dependencies
 
+sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-session = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-weights = { git = "https://github.com/paritytech/substrate", branch = "master" }

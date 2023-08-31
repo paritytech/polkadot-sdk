@@ -40,7 +40,12 @@ pub struct SubstrateEquivocationTarget<P: SubstrateEquivocationDetectionPipeline
 	_phantom: PhantomData<P>,
 }
 
-impl<P: SubstrateEquivocationDetectionPipeline> SubstrateEquivocationTarget<P> {}
+impl<P: SubstrateEquivocationDetectionPipeline> SubstrateEquivocationTarget<P> {
+	/// Create new instance of `SubstrateEquivocationTarget`.
+	pub fn new(client: Client<P::TargetChain>) -> Self {
+		Self { client, _phantom: Default::default() }
+	}
+}
 
 impl<P: SubstrateEquivocationDetectionPipeline> Clone for SubstrateEquivocationTarget<P> {
 	fn clone(&self) -> Self {

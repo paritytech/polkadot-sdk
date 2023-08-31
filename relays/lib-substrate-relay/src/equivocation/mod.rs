@@ -20,14 +20,19 @@
 mod source;
 mod target;
 
-use crate::finality_base::{engine::Engine, SubstrateFinalityPipeline, SubstrateFinalityProof};
+use crate::{
+	equivocation::{source::SubstrateEquivocationSource, target::SubstrateEquivocationTarget},
+	finality_base::{engine::Engine, SubstrateFinalityPipeline, SubstrateFinalityProof},
+	TransactionParams,
+};
 
 use async_trait::async_trait;
 use bp_runtime::{AccountIdOf, BlockNumberOf, HashOf};
 use equivocation_detector::EquivocationDetectionPipeline;
 use finality_relay::FinalityPipeline;
 use pallet_grandpa::{Call as GrandpaCall, Config as GrandpaConfig};
-use relay_substrate_client::{AccountKeyPairOf, CallOf, Chain, ChainWithTransactions};
+use relay_substrate_client::{AccountKeyPairOf, CallOf, Chain, ChainWithTransactions, Client};
+use relay_utils::metrics::MetricsParams;
 use sp_core::Pair;
 use sp_runtime::traits::{Block, Header};
 use std::marker::PhantomData;
@@ -70,13 +75,15 @@ type FinalityVerificationContextfOf<P> =
 	<<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<
 		<P as SubstrateFinalityPipeline>::SourceChain,
 	>>::FinalityVerificationContext;
-type EquivocationProofOf<P> = <<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<
+/// The type of the equivocation proof used by the `SubstrateEquivocationDetectionPipeline`
+pub type EquivocationProofOf<P> = <<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<
 	<P as SubstrateFinalityPipeline>::SourceChain,
 >>::EquivocationProof;
 type EquivocationsFinderOf<P> = <<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<
 	<P as SubstrateFinalityPipeline>::SourceChain,
 >>::EquivocationsFinder;
-type KeyOwnerProofOf<P> = <<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<
+/// The type of the key owner proof used by the `SubstrateEquivocationDetectionPipeline`
+pub type KeyOwnerProofOf<P> = <<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<
 	<P as SubstrateFinalityPipeline>::SourceChain,
 >>::KeyOwnerProof;
 
@@ -146,4 +153,57 @@ where
 		}
 		.into()
 	}
+}
+
+/// Macro that generates `ReportEquivocationCallBuilder` implementation for the case where
+/// we only have access to the mocked version of the source chain runtime.
+#[rustfmt::skip]
+#[macro_export]
+macro_rules! generate_report_equivocation_call_builder {
+	($pipeline:ident, $mocked_builder:ident, $grandpa:path, $report_equivocation:path) => {
+		pub struct $mocked_builder;
+
+		impl $crate::equivocation::ReportEquivocationCallBuilder<$pipeline>
+			for $mocked_builder
+		{
+			fn build_report_equivocation_call(
+				equivocation_proof: $crate::equivocation::EquivocationProofOf<$pipeline>,
+				key_owner_proof: $crate::equivocation::KeyOwnerProofOf<$pipeline>,
+			) -> relay_substrate_client::CallOf<
+				<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::SourceChain
+			> {
+				bp_runtime::paste::item! {
+					$grandpa($report_equivocation {
+						equivocation_proof: Box::new(equivocation_proof),
+						key_owner_proof: key_owner_proof
+					})
+				}
+			}
+		}
+	};
+}
+
+/// Run Substrate-to-Substrate equivocations detection loop.
+pub async fn run<P: SubstrateEquivocationDetectionPipeline>(
+	source_client: Client<P::SourceChain>,
+	target_client: Client<P::TargetChain>,
+	source_transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
+	metrics_params: MetricsParams,
+) -> anyhow::Result<()> {
+	log::info!(
+		target: "bridge",
+		"Starting {} -> {} equivocations detection loop",
+		P::SourceChain::NAME,
+		P::TargetChain::NAME,
+	);
+
+	equivocation_detector::run(
+		SubstrateEquivocationSource::<P>::new(source_client, source_transaction_params),
+		SubstrateEquivocationTarget::<P>::new(target_client),
+		P::TargetChain::AVERAGE_BLOCK_INTERVAL,
+		metrics_params,
+		futures::future::pending(),
+	)
+	.await
+	.map_err(|e| anyhow::format_err!("{}", e))
 }

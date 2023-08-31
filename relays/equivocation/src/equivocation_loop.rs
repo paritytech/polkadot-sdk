@@ -24,6 +24,7 @@ use finality_relay::{FinalityProofsBuf, FinalityProofsStream};
 use futures::{select, FutureExt};
 use num_traits::Saturating;
 use relay_utils::{
+	metrics::MetricsParams,
 	relay_loop::{reconnect_failed_client, RECONNECT_DELAY},
 	FailedClient, MaybeConnectionError,
 };
@@ -275,7 +276,10 @@ impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
 				let mut context =
 					match self.build_equivocation_reporting_context(current_block_number).await {
 						Some(context) => context,
-						None => continue,
+						None => {
+							current_block_number = current_block_number.saturating_add(1.into());
+							continue
+						},
 					};
 				self.check_block(current_block_number, &mut context).await;
 				current_block_number = current_block_number.saturating_add(1.into());
@@ -311,16 +315,18 @@ impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
 }
 
 /// Spawn the equivocations detection loop.
-/// TODO: remove `#[allow(dead_code)]`
-#[allow(dead_code)]
 pub async fn run<P: EquivocationDetectionPipeline>(
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
 	tick: Duration,
+	metrics_params: MetricsParams,
 	exit_signal: impl Future<Output = ()> + 'static + Send,
 ) -> Result<(), relay_utils::Error> {
 	let exit_signal = exit_signal.shared();
 	relay_utils::relay_loop(source_client, target_client)
+		.with_metrics(metrics_params)
+		.expose()
+		.await?
 		.run(
 			format!("{}_to_{}_EquivocationDetection", P::SOURCE_NAME, P::TARGET_NAME),
 			move |source_client, target_client, _metrics| {

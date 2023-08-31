@@ -16,8 +16,14 @@
 
 //! Millau-to-Rialto headers sync entrypoint.
 
-use crate::cli::bridge::{CliBridgeBase, MessagesCliBridge, RelayToRelayHeadersCliBridge};
+use crate::cli::bridge::{
+	CliBridgeBase, MessagesCliBridge, RelayToRelayEquivocationDetectionCliBridge,
+	RelayToRelayHeadersCliBridge,
+};
 use substrate_relay_helper::{
+	equivocation::{
+		DirectReportGrandpaEquivocationCallBuilder, SubstrateEquivocationDetectionPipeline,
+	},
 	finality::{DirectSubmitGrandpaFinalityProofCallBuilder, SubstrateFinalitySyncPipeline},
 	finality_base::{engine::Grandpa as GrandpaFinalityEngine, SubstrateFinalityPipeline},
 };
@@ -41,6 +47,11 @@ impl SubstrateFinalitySyncPipeline for MillauFinalityToRialto {
 	>;
 }
 
+impl SubstrateEquivocationDetectionPipeline for MillauFinalityToRialto {
+	type ReportEquivocationCallBuilder =
+		DirectReportGrandpaEquivocationCallBuilder<Self, millau_runtime::Runtime>;
+}
+
 /// `Millau` to `Rialto` bridge definition.
 pub struct MillauToRialtoCliBridge {}
 
@@ -51,6 +62,10 @@ impl CliBridgeBase for MillauToRialtoCliBridge {
 
 impl RelayToRelayHeadersCliBridge for MillauToRialtoCliBridge {
 	type Finality = MillauFinalityToRialto;
+}
+
+impl RelayToRelayEquivocationDetectionCliBridge for MillauToRialtoCliBridge {
+	type Equivocation = MillauFinalityToRialto;
 }
 
 impl MessagesCliBridge for MillauToRialtoCliBridge {

@@ -60,6 +60,9 @@ impl ChainWithGrandpa for Wococo {
 	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = AVERAGE_HEADER_SIZE_IN_JUSTIFICATION;
 }
 
+// The SignedExtension used by Wococo.
+pub use bp_rococo::CommonSignedExtension as SignedExtension;
+
 /// Name of the With-Wococo GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_WOCOCO_GRANDPA_PALLET_NAME: &str = "BridgeWococoGrandpa";
 
