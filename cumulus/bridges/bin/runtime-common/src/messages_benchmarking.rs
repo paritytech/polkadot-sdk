@@ -65,6 +65,11 @@ fn prepare_inbound_message(
 
 	// we don't need to be super-precise with `expected_size` here
 	let xcm_size = expected_size.saturating_sub(location_encoded_size);
+
+	// XCM V3 introduced limit for max instructions
+	const MAX_INSTRUCTIONS_TO_DECODE: u32 = 100;
+	let xcm_size = sp_std::cmp::min(xcm_size, MAX_INSTRUCTIONS_TO_DECODE as usize);
+
 	let xcm = xcm::VersionedXcm::<()>::V3(vec![Instruction::ClearOrigin; xcm_size].into());
 
 	// this is the `BridgeMessage` from polkadot xcm builder, but it has no constructor
