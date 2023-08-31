@@ -51,11 +51,11 @@ pub fn slot_claim_input(randomness: &Randomness, slot: Slot, epoch: u64) -> VrfI
 
 /// Signing-data to claim slot ownership during block production.
 pub fn slot_claim_sign_data(randomness: &Randomness, slot: Slot, epoch: u64) -> VrfSignData {
-	let vrf_input = slot_claim_input(randomness, slot, epoch);
+	let input = slot_claim_input(randomness, slot, epoch);
 	VrfSignData::new_unchecked(
 		b"sassafras-slot-claim-transcript-v1.0",
 		Option::<&[u8]>::None,
-		Some(vrf_input),
+		Some(input),
 	)
 }
 
@@ -89,8 +89,8 @@ pub fn ticket_body_sign_data(ticket_body: &TicketBody, ticket_id_input: VrfInput
 /// Input should have been obtained via [`ticket_id_input`].
 /// Output should have been obtained from the input directly using the vrf secret key
 /// or from the vrf signature outputs.
-pub fn make_ticket_id(vrf_input: &VrfInput, vrf_output: &VrfOutput) -> TicketId {
-	let bytes = vrf_output.make_bytes::<16>(b"ticket-id", vrf_input);
+pub fn make_ticket_id(input: &VrfInput, output: &VrfOutput) -> TicketId {
+	let bytes = output.make_bytes::<16>(b"ticket-id", input);
 	u128::from_le_bytes(bytes)
 }
 
@@ -99,6 +99,6 @@ pub fn make_ticket_id(vrf_input: &VrfInput, vrf_output: &VrfOutput) -> TicketId 
 /// Input should have been obtained via [`revealed_key_input`].
 /// Output should have been obtained from the input directly using the vrf secret key
 /// or from the vrf signature outputs.
-pub fn make_revealed_key_seed(vrf_input: &VrfInput, vrf_output: &VrfOutput) -> [u8; 32] {
-	vrf_output.make_bytes::<32>(b"revealed-seed", vrf_input)
+pub fn make_revealed_key_seed(input: &VrfInput, output: &VrfOutput) -> [u8; 32] {
+	output.make_bytes::<32>(b"revealed-seed", input)
 }
