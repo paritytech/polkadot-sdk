@@ -256,7 +256,7 @@ impl TransactAsset for TestAssetTransactor {
 		who: &MultiLocation,
 		_context: &XcmContext,
 	) -> Result<(), XcmError> {
-		add_asset(*who, what.clone());
+		add_asset(who.clone(), what.clone());
 		Ok(())
 	}
 
@@ -283,7 +283,7 @@ pub fn to_account(l: impl Into<MultiLocation>) -> Result<u64, MultiLocation> {
 		// Accounts are their number
 		(0, [AccountIndex64 { index, .. }]) => *index,
 		// Children at 1000+id
-		(0, [Parachain(id])} => 1000 + *id as u64,
+		(0, [Parachain(id)]) => 1000 + *id as u64,
 		// Self at 3000
 		(0, []) => 3000,
 		// Parent at 3001
@@ -317,9 +317,9 @@ impl ConvertOrigin<TestOrigin> for TestOriginConverter {
 			(Native, (0, [Parachain(id)])) =>
 				Ok(TestOrigin::Parachain(*id)),
 			(Native, (1, [])) => Ok(TestOrigin::Relay),
-			(Native, (0, [AccountIndex64 { index, .. }]) =>
+			(Native, (0, [AccountIndex64 { index, .. }])) =>
 				Ok(TestOrigin::Signed(*index)),
-			(_, origin) => Err(origin),
+			_ => Err(origin),
 		}
 	}
 }
@@ -576,7 +576,7 @@ pub fn disallow_unlock(
 pub fn unlock_allowed(unlocker: &MultiLocation, asset: &MultiAsset, owner: &MultiLocation) -> bool {
 	ALLOWED_UNLOCKS.with(|l| {
 		l.borrow_mut()
-			.get(&(*owner, *unlocker))
+			.get(&(owner.clone(), unlocker.clone()))
 			.map_or(false, |x| x.contains_asset(asset))
 	})
 }
@@ -611,7 +611,7 @@ pub fn request_unlock_allowed(
 ) -> bool {
 	ALLOWED_REQUEST_UNLOCKS.with(|l| {
 		l.borrow_mut()
-			.get(&(*owner, *locker))
+			.get(&(owner.clone(), locker.clone()))
 			.map_or(false, |x| x.contains_asset(asset))
 	})
 }
@@ -621,11 +621,11 @@ impl Enact for TestTicket {
 	fn enact(self) -> Result<(), LockError> {
 		match &self.0 {
 			LockTraceItem::Lock { unlocker, asset, owner } =>
-				allow_unlock(*unlocker, asset.clone(), *owner),
+				allow_unlock(unlocker.clone(), asset.clone(), owner.clone()),
 			LockTraceItem::Unlock { unlocker, asset, owner } =>
-				disallow_unlock(*unlocker, asset.clone(), *owner),
+				disallow_unlock(unlocker.clone(), asset.clone(), owner.clone()),
 			LockTraceItem::Reduce { locker, asset, owner } =>
-				disallow_request_unlock(*locker, asset.clone(), *owner),
+				disallow_request_unlock(locker.clone(), asset.clone(), owner.clone()),
 			_ => {},
 		}
 		LOCK_TRACE.with(move |l| l.borrow_mut().push(self.0));
@@ -644,7 +644,7 @@ impl AssetLock for TestAssetLock {
 		asset: MultiAsset,
 		owner: MultiLocation,
 	) -> Result<Self::LockTicket, LockError> {
-		ensure!(assets(owner).contains_asset(&asset), LockError::AssetNotOwned);
+		ensure!(assets(owner.clone()).contains_asset(&asset), LockError::AssetNotOwned);
 		Ok(TestTicket(LockTraceItem::Lock { unlocker, asset, owner }))
 	}
 
@@ -662,7 +662,7 @@ impl AssetLock for TestAssetLock {
 		asset: MultiAsset,
 		owner: MultiLocation,
 	) -> Result<(), LockError> {
-		allow_request_unlock(locker, asset.clone(), owner);
+		allow_request_unlock(locker.clone(), asset.clone(), owner.clone());
 		let item = LockTraceItem::Note { locker, asset, owner };
 		LOCK_TRACE.with(move |l| l.borrow_mut().push(item));
 		Ok(())
@@ -708,16 +708,25 @@ impl AssetExchange for TestAssetExchange {
 	}
 }
 
-match_types! {
-	pub type SiblingPrefix: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: X1(Parachain(_)) }
-	};
-	pub type ChildPrefix: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(_)) }
-	};
-	pub type ParentPrefix: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here }
-	};
+pub struct SiblingPrefix;
+impl Contains<MultiLocation> for SiblingPrefix {
+	fn contains(loc: &MultiLocation) -> bool {
+		matches!(loc.unpack(), (1, [Parachain(_)]))
+	}
+}
+
+pub struct ChildPrefix;
+impl Contains<MultiLocation> for ChildPrefix {
+	fn contains(loc: &MultiLocation) -> bool {
+		matches!(loc.unpack(), (0, [Parachain(_)]))
+	}
+}
+
+pub struct ParentPrefix;
+impl Contains<MultiLocation> for ParentPrefix {
+	fn contains(loc: &MultiLocation) -> bool {
+		matches!(loc.unpack(), (1, []))
+	}
 }
 
 pub struct TestConfig;

@@ -1984,7 +1984,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 		max_weight: Weight,
 		_context: &XcmContext,
 	) -> Weight {
-		let origin = *origin;
+		let origin = origin.clone();
 		match (response, Queries::<T>::get(query_id)) {
 			(
 				Response::Version(v),
@@ -2002,7 +2002,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 					},
 					_ => {
 						Self::deposit_event(Event::InvalidResponder {
-							origin.clone(),
+							origin: origin.clone(),
 							query_id,
 							expected_location: None,
 						});

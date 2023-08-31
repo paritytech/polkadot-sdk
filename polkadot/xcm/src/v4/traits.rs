@@ -170,7 +170,7 @@ impl MaxEncodedLen for Error {
 impl From<OldError> for Error {
 	fn from(old_error: OldError) -> Self {
 		use OldError::*;
-		Ok(match old_error {
+		match old_error {
 			Overflow => Self::Overflow,
 			Unimplemented => Self::Unimplemented,
 			UntrustedReserveLocation => Self::UntrustedReserveLocation,
@@ -211,7 +211,7 @@ impl From<OldError> for Error {
 			Barrier => Self::Barrier,
 			WeightNotComputable => Self::WeightNotComputable,
 			ExceedsStackLimit => Self::ExceedsStackLimit,
-		})
+		}
 	}
 }
 
@@ -465,8 +465,8 @@ pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
 /// # Example
 /// ```rust
 /// # use parity_scale_codec::Encode;
-/// # use xcm::v4::{prelude::*, Weight};
-/// # use xcm::VersionedXcm;
+/// # use staging_xcm::v4::{prelude::*, Weight};
+/// # use staging_xcm::VersionedXcm;
 /// # use std::convert::Infallible;
 ///
 /// /// A sender that only passes the message through and does nothing.

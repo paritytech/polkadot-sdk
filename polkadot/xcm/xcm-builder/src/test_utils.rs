@@ -71,7 +71,7 @@ pub struct TestAssetTrap;
 impl DropAssets for TestAssetTrap {
 	fn drop_assets(origin: &MultiLocation, assets: Assets, _context: &XcmContext) -> Weight {
 		let mut t: Vec<(MultiLocation, MultiAssets)> = TrappedAssets::get();
-		t.push((*origin, assets.into()));
+		t.push((origin.clone(), assets.into()));
 		TrappedAssets::set(t);
 		Weight::from_parts(5, 5)
 	}
@@ -85,7 +85,7 @@ impl ClaimAssets for TestAssetTrap {
 		_context: &XcmContext,
 	) -> bool {
 		let mut t: Vec<(MultiLocation, MultiAssets)> = TrappedAssets::get();
-		if let (0, [GeneralIndex(i))] = ticket.unpack() {
+		if let (0, [GeneralIndex(i)]) = ticket.unpack() {
 			if let Some((l, a)) = t.get(*i as usize) {
 				if l == origin && a == what {
 					t.swap_remove(*i as usize);

@@ -85,8 +85,8 @@ impl<ParaId: IsSystem + From<u32>, RuntimeOrigin: OriginTrait> ConvertOrigin<Run
 			(
 				OriginKind::Superuser,
 				(0, [Junction::Parachain(id)]),
-			) if ParaId::from(id).is_system() => Ok(RuntimeOrigin::root()),
-			(_, origin) => Err(origin),
+			) if ParaId::from(*id).is_system() => Ok(RuntimeOrigin::root()),
+			_ => Err(origin),
 		}
 	}
 }
@@ -111,8 +111,8 @@ impl<ParaId: IsSystem + From<u32>, RuntimeOrigin: OriginTrait> ConvertOrigin<Run
 			(
 				OriginKind::Superuser,
 				(1, [Junction::Parachain(id)]),
-			) if ParaId::from(id).is_system() => Ok(RuntimeOrigin::root()),
-			(_, origin) => Err(origin),
+			) if ParaId::from(*id).is_system() => Ok(RuntimeOrigin::root()),
+			_ => Err(origin),
 		}
 	}
 }
@@ -133,8 +133,8 @@ impl<ParachainOrigin: From<u32>, RuntimeOrigin: From<ParachainOrigin>> ConvertOr
 			(
 				OriginKind::Native,
 				(0, [Junction::Parachain(id)]),
-			) => Ok(RuntimeOrigin::from(ParachainOrigin::from(id))),
-			(_, origin) => Err(origin),
+			) => Ok(RuntimeOrigin::from(ParachainOrigin::from(*id))),
+			_ => Err(origin),
 		}
 	}
 }
@@ -159,8 +159,8 @@ impl<ParachainOrigin: From<u32>, RuntimeOrigin: From<ParachainOrigin>> ConvertOr
 			(
 				OriginKind::Native,
 				(1, [Junction::Parachain(id)]),
-			) => Ok(RuntimeOrigin::from(ParachainOrigin::from(id))),
-			(_, origin) => Err(origin),
+			) => Ok(RuntimeOrigin::from(ParachainOrigin::from(*id))),
+			_ => Err(origin),
 		}
 	}
 }
@@ -206,9 +206,9 @@ where
 			(
 				OriginKind::Native,
 				(0, [Junction::AccountId32 { id, network }]),
-			) if matches!(network, None) || network == Network::get() =>
-				Ok(RuntimeOrigin::signed(id.into())),
-			(_, origin) => Err(origin),
+			) if matches!(network, None) || *network == Network::get() =>
+				Ok(RuntimeOrigin::signed((*id).into())),
+			_ => Err(origin),
 		}
 	}
 }
@@ -235,9 +235,9 @@ where
 			(
 				OriginKind::Native,
 				(0, [Junction::AccountKey20 { key, network }]),
-			) if (matches!(network, None) || network == Network::get()) =>
-				Ok(RuntimeOrigin::signed(key.into())),
-			(_, origin) => Err(origin),
+			) if (matches!(network, None) || *network == Network::get()) =>
+				Ok(RuntimeOrigin::signed((*key).into())),
+			_ => Err(origin),
 		}
 	}
 }

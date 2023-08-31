@@ -46,7 +46,7 @@ impl<AccountId> ConvertLocation<AccountId> for Tuple {
 ///
 /// ```rust
 /// # use xcm::latest::{MultiLocation, Junctions, Junction, OriginKind};
-/// # use xcm_executor::traits::ConvertOrigin;
+/// # use staging_xcm_executor::traits::ConvertOrigin;
 /// // A convertor that will bump the para id and pass it to the next one.
 /// struct BumpParaId;
 /// impl ConvertOrigin<u32> for BumpParaId {

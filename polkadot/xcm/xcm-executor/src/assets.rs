@@ -446,7 +446,7 @@ impl Assets {
 	/// Example:
 	///
 	/// ```
-	/// use xcm_executor::Assets;
+	/// use staging_xcm_executor::Assets;
 	/// use xcm::latest::prelude::*;
 	/// let assets_i_have: Assets = vec![ (Here, 100).into(), ([0; 32], 100).into() ].into();
 	/// let assets_they_want: MultiAssetFilter = vec![ (Here, 200).into(), ([0; 32], 50).into() ].into();
@@ -490,7 +490,7 @@ impl Assets {
 			MultiAssetFilter::Wild(AllOf { fun: WildNonFungible, id }) =>
 				for (c, instance) in self.non_fungible.iter() {
 					if c == id {
-						masked.non_fungible.insert((*c, *instance));
+						masked.non_fungible.insert((c.clone(), *instance));
 						if maybe_limit.map_or(false, |l| masked.len() >= l) {
 							return masked
 						}

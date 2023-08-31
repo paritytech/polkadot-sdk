@@ -22,7 +22,7 @@ use frame_support::{assert_ok, traits::tokens::Pay};
 
 /// Type representing both a location and an asset that is held at that location.
 /// The id of the held asset is relative to the location where it is being held.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
 pub struct AssetKind {
 	destination: MultiLocation,
 	asset_id: AssetId,

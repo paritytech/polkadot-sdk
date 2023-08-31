@@ -477,7 +477,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		match instr {
 			WithdrawAsset(assets) => {
-				let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
+				let origin = self.cloned_origin().ok_or(XcmError::BadOrigin)?;
 				// Take `assets` from the origin account (on-chain) and place in holding.
 				for asset in assets.into_inner().into_iter() {
 					Config::AssetTransactor::withdraw_asset(&asset, &origin, Some(&self.context))?;
@@ -488,7 +488,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			ReserveAssetDeposited(assets) => {
 				// check whether we trust origin to be our reserve location for this asset.
 				for asset in assets.into_inner().into_iter() {
-					let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
+					let origin = self.cloned_origin().ok_or(XcmError::BadOrigin)?;
 					// Must ensure that we recognise the asset as being managed by the origin.
 					ensure!(
 						Config::IsReserve::contains(&asset, &origin),
@@ -525,7 +525,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Ok(())
 			},
 			ReceiveTeleportedAsset(assets) => {
-				let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
+				let origin = self.cloned_origin().ok_or(XcmError::BadOrigin)?;
 				// check whether we trust origin to teleport this asset to us via config trait.
 				for asset in assets.inner() {
 					// We only trust the origin to send us assets that they identify as their
@@ -881,7 +881,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			RequestUnlock { asset, locker } => {
 				let origin = self.cloned_origin().ok_or(XcmError::BadOrigin)?;
 				let remote_asset = Self::try_reanchor(asset.clone(), &locker)?.0;
-				let remote_target = Self::try_reanchor_multilocation(origin, &locker)?.0;
+				let remote_target = Self::try_reanchor_multilocation(origin.clone(), &locker)?.0;
 				let reduce_ticket =
 					Config::AssetLocker::prepare_reduce_unlockable(locker.clone(), asset, origin.clone())?;
 				let msg =

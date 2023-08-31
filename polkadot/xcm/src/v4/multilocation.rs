@@ -146,7 +146,7 @@ impl MultiLocation {
 	/// To be used when pattern matching, for example:
 	///
 	/// ```rust
-	/// # use xcm::v4::{Junctions::*, Junction::*, MultiLocation};
+	/// # use staging_xcm::v4::{Junctions::*, Junction::*, MultiLocation};
 	/// fn get_parachain_id(loc: &MultiLocation) -> Option<u32> {
 	///     match loc.unpack() {
 	///         (0, [Parachain(id)]) => Some(*id),
@@ -281,7 +281,7 @@ impl MultiLocation {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v4::{Junctions::*, Junction::*, MultiLocation};
+	/// # use staging_xcm::v4::{Junctions::*, Junction::*, MultiLocation};
 	/// # fn main() {
 	/// let mut m = MultiLocation::new(1, [PalletInstance(3), OnlyChild]);
 	/// assert_eq!(
@@ -308,7 +308,7 @@ impl MultiLocation {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v4::{Junctions::*, Junction::*, MultiLocation, Parent};
+	/// # use staging_xcm::v4::{Junctions::*, Junction::*, MultiLocation, Parent};
 	/// # fn main() {
 	/// let mut m: MultiLocation = (Parent, Parachain(21), 69u64).into();
 	/// assert_eq!(m.append_with((Parent, PalletInstance(3))), Ok(()));
@@ -329,7 +329,7 @@ impl MultiLocation {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v4::{Junctions::*, Junction::*, MultiLocation, Parent};
+	/// # use staging_xcm::v4::{Junctions::*, Junction::*, MultiLocation, Parent};
 	/// # fn main() {
 	/// let mut m: MultiLocation = (Parent, Parachain(21), 69u64).into();
 	/// let r = m.appended_with((Parent, PalletInstance(3))).unwrap();
@@ -349,7 +349,7 @@ impl MultiLocation {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v4::{Junctions::*, Junction::*, MultiLocation, Parent};
+	/// # use staging_xcm::v4::{Junctions::*, Junction::*, MultiLocation, Parent};
 	/// # fn main() {
 	/// let mut m: MultiLocation = (Parent, Parent, PalletInstance(3)).into();
 	/// assert_eq!(m.prepend_with((Parent, Parachain(21), OnlyChild)), Ok(()));
@@ -398,7 +398,7 @@ impl MultiLocation {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v4::{Junctions::*, Junction::*, MultiLocation, Parent};
+	/// # use staging_xcm::v4::{Junctions::*, Junction::*, MultiLocation, Parent};
 	/// # fn main() {
 	/// let m: MultiLocation = (Parent, Parent, PalletInstance(3)).into();
 	/// let r = m.prepended_with((Parent, Parachain(21), OnlyChild)).unwrap();

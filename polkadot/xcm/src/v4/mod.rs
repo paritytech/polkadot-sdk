@@ -224,16 +224,18 @@ pub struct PalletInfo {
 	patch: u32,
 }
 
-impl From<OldPalletInfo> for PalletInfo {
-	fn from(old: OldPalletInfo) -> Self {
-		Self::new(
-			old.index,
-			old.name,
-			old.module_name,
-			old.major,
-			old.minor,
-			old.patch,
-		)
+impl TryInto<OldPalletInfo> for PalletInfo {
+	type Error = ();
+
+	fn try_into(self: Self) -> result::Result<OldPalletInfo, Self::Error> {
+		OldPalletInfo::new(
+			self.index,
+			self.name.into_inner(),
+			self.module_name.into_inner(),
+			self.major,
+			self.minor,
+			self.patch,
+		).map_err(|_| ())
 	}
 }
 
@@ -275,14 +277,16 @@ impl Default for MaybeErrorCode {
 	}
 }
 
-impl From<OldMaybeErrorCode> for MaybeErrorCode {
-	fn from(old: OldMaybeErrorCode) -> Self {
+impl TryFrom<OldMaybeErrorCode> for MaybeErrorCode {
+	type Error = ();
+
+	fn try_from(new: OldMaybeErrorCode) -> result::Result<Self, ()> {
 		use OldMaybeErrorCode::*;
-		match old {
+		Ok(match new {
 			Success => Self::Success,
-			Error(bounded_vec) => Self::Error(bounded_vec),
-			TruncatedError(bounded_vec) => Self::TruncatedError(bounded_vec),
-		}
+			Error(errors) => Self::Error(BoundedVec::<u8, MaxDispatchErrorLen>::try_from(errors.into_inner()).map_err(|_| ())?),
+			TruncatedError(errors) => Self::Error(BoundedVec::<u8, MaxDispatchErrorLen>::try_from(errors.into_inner()).map_err(|_| ())?),
+		})
 	}
 }
 
@@ -317,15 +321,15 @@ impl TryFrom<OldResponse> for Response {
 		Ok(match old {
 			Null => Self::Null,
 			Assets(assets) => Self::Assets(assets.try_into()?),
-			ExecutionResult(result) => Self::ExecutionResult(result.into()),
+			ExecutionResult(result) => Self::ExecutionResult(result.map(|(num, old_error)| (num, old_error.into()))),
 			Version(version) => Self::Version(version),
-			PalletsInfo(pallets_info) => {
-				let inner = pallets_info.into_inner().into_iter().map(From::from).collect::<Vec<_>>();
+			PalletsInfo(pallet_info) => {
+				let inner = pallet_info.into_iter().map(TryInto::try_into).collect::<result::Result<Vec<_>, _>>()?;
 				Self::PalletsInfo(
 					BoundedVec::<PalletInfo, MaxPalletsInfo>::try_from(inner).map_err(|_| ())?
 				)
 			},
-			DispatchResult(maybe_error) => Self::DispatchResult(maybe_error.into()),
+			DispatchResult(maybe_error) => Self::DispatchResult(maybe_error.try_into().map_err(|_| ())?),
 		})
 	}
 }
@@ -369,13 +373,12 @@ impl From<WeightLimit> for Option<Weight> {
 	}
 }
 
-impl TryFrom<OldWeightLimit> for WeightLimit {
-	type Error = ();
-	fn try_from(old: OldWeightLimit) -> result::Result<Self, ()> {
+impl From<OldWeightLimit> for WeightLimit {
+	fn from(old: OldWeightLimit) -> Self {
 		use OldWeightLimit::*;
 		match old {
-			Limited(w) => Ok(Self::Limited(w)),
-			Unlimited => Ok(Self::Unlimited),
+			Limited(w) => Self::Limited(w),
+			Unlimited => Self::Unlimited,
 		}
 	}
 }
@@ -1324,7 +1327,7 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			},
 			BuyExecution { fees, weight_limit } => {
 				let fees = fees.try_into()?;
-				let weight_limit = weight_limit.try_into()?;
+				let weight_limit = weight_limit.into();
 				Self::BuyExecution { fees, weight_limit }
 			},
 			ClearOrigin => Self::ClearOrigin,
@@ -1408,7 +1411,7 @@ mod tests {
 			OldInstruction::ClearOrigin,
 			OldInstruction::BuyExecution {
 				fees: (OldHere, 1u128).into(),
-				weight_limit: WeightLimit::Limited(Weight::from_parts(1, 1)),
+				weight_limit: OldWeightLimit::Limited(Weight::from_parts(1, 1)),
 			},
 			OldInstruction::DepositAsset {
 				assets: crate::v3::MultiAssetFilter::Wild(crate::v3::WildMultiAsset::AllCounted(1)),

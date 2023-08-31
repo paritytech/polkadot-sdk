@@ -20,7 +20,11 @@ use super::v2::{
 	Instruction as OldInstruction, Response as OldResponse, WeightLimit as OldWeightLimit,
 	Xcm as OldXcm,
 };
-use super::v4::{Xcm as NewXcm, Instruction as NewInstruction};
+use super::v4::{
+	Xcm as NewXcm, Instruction as NewInstruction, Response as NewResponse,
+	WeightLimit as NewWeightLimit, MaybeErrorCode as NewMaybeErrorCode,
+	PalletInfo as NewPalletInfo,
+};
 use crate::{DoubleEncoded, GetWeight};
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec, ConstU32};
@@ -252,11 +256,39 @@ impl PalletInfo {
 	}
 }
 
+impl TryInto<NewPalletInfo> for PalletInfo {
+	type Error = ();
+
+	fn try_into(self: Self) -> result::Result<NewPalletInfo, Self::Error> {
+		NewPalletInfo::new(
+			self.index,
+			self.name.into_inner(),
+			self.module_name.into_inner(),
+			self.major,
+			self.minor,
+			self.patch,
+		).map_err(|_| ())
+	}
+}
+
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub enum MaybeErrorCode {
 	Success,
 	Error(BoundedVec<u8, MaxDispatchErrorLen>),
 	TruncatedError(BoundedVec<u8, MaxDispatchErrorLen>),
+}
+
+impl TryFrom<NewMaybeErrorCode> for MaybeErrorCode {
+	type Error = ();
+
+	fn try_from(new: NewMaybeErrorCode) -> result::Result<Self, ()> {
+		use NewMaybeErrorCode::*;
+		Ok(match new {
+			Success => Self::Success,
+			Error(errors) => Self::Error(BoundedVec::<u8, MaxDispatchErrorLen>::try_from(errors.into_inner()).map_err(|_| ())?),
+			TruncatedError(errors) => Self::Error(BoundedVec::<u8, MaxDispatchErrorLen>::try_from(errors.into_inner()).map_err(|_| ())?),
+		})
+	}
 }
 
 impl From<Vec<u8>> for MaybeErrorCode {
@@ -300,16 +332,21 @@ impl Default for Response {
 impl TryFrom<NewResponse> for Response {
 	type Error = ();
 
-	fn from(new: NewResponse) -> Self {
+	fn try_from(new: NewResponse) -> result::Result<Self, Self::Error> {
 		use NewResponse::*;
-		match new {
+		Ok(match new {
 			Null => Self::Null,
 			Assets(assets) => Self::Assets(assets.try_into()?),
-			ExecutionResult(result) => Self::ExecutionResult(result),
+			ExecutionResult(result) => Self::ExecutionResult(result.map(|(num, old_error)| (num, old_error.into()))),
 			Version(version) => Self::Version(version),
-			PalletsInfo(pallet_info) => Self::PalletsInfo(pallet_info),
-			DispatchResult(maybe_error) => Self::DispatchResult(maybe_error),
-		}
+			PalletsInfo(pallet_info) => {
+				let inner = pallet_info.into_iter().map(TryInto::try_into).collect::<result::Result<Vec<_>, _>>()?;
+				Self::PalletsInfo(
+					BoundedVec::<PalletInfo, MaxPalletsInfo>::try_from(inner).map_err(|_| ())?
+				)
+			},
+			DispatchResult(maybe_error) => Self::DispatchResult(maybe_error.try_into().map_err(|_| ())?),
+		})
 	}
 }
 
@@ -352,13 +389,22 @@ impl From<WeightLimit> for Option<Weight> {
 	}
 }
 
-impl TryFrom<OldWeightLimit> for WeightLimit {
-	type Error = ();
-	fn try_from(x: OldWeightLimit) -> result::Result<Self, ()> {
+impl From<OldWeightLimit> for WeightLimit {
+	fn from(x: OldWeightLimit) -> Self {
 		use OldWeightLimit::*;
 		match x {
-			Limited(w) => Ok(Self::Limited(Weight::from_parts(w, DEFAULT_PROOF_SIZE))),
-			Unlimited => Ok(Self::Unlimited),
+			Limited(w) => Self::Limited(Weight::from_parts(w, DEFAULT_PROOF_SIZE)),
+			Unlimited => Self::Unlimited,
+		}
+	}
+}
+
+impl From<NewWeightLimit> for WeightLimit {
+	fn from(new: NewWeightLimit) -> Self {
+		use NewWeightLimit::*;
+		match new {
+			Limited(w) => Self::Limited(w),
+			Unlimited => Self::Unlimited,
 		}
 	}
 }
@@ -1255,13 +1301,13 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			QueryResponse { query_id, response, max_weight, querier: Some(querier) } => Self::QueryResponse {
 				query_id,
 				querier: querier.try_into()?,
-				response: response.into(),
+				response: response.try_into()?,
 				max_weight: max_weight,
 			},
 			QueryResponse { query_id, response, max_weight, querier: None } => Self::QueryResponse {
 				query_id,
 				querier: None,
-				response: response.into(),
+				response: response.try_into()?,
 				max_weight: max_weight,
 			},
 			TransferAsset { assets, beneficiary } => Self::TransferAsset {
@@ -1331,7 +1377,7 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			},
 			BuyExecution { fees, weight_limit } => {
 				let fees = fees.try_into()?;
-				let weight_limit = weight_limit.try_into()?;
+				let weight_limit = weight_limit.into();
 				Self::BuyExecution { fees, weight_limit }
 			},
 			ClearOrigin => Self::ClearOrigin,
@@ -1438,7 +1484,7 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			},
 			BuyExecution { fees, weight_limit } => Self::BuyExecution {
 				fees: fees.try_into()?,
-				weight_limit: weight_limit.try_into()?,
+				weight_limit: weight_limit.into(),
 			},
 			ClearOrigin => Self::ClearOrigin,
 			DescendOrigin(who) => Self::DescendOrigin(who.try_into()?),

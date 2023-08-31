@@ -103,7 +103,7 @@ impl<
 			.map_err(|()| Self::Error::LocationNotInvertible)?;
 		let beneficiary = BeneficiaryRefToLocation::convert(&who);
 
-		let query_id = Querier::new_query(asset_location, Timeout::get(), Interior::get());
+		let query_id = Querier::new_query(asset_location.clone(), Timeout::get(), Interior::get());
 
 		let message = Xcm(vec![
 			DescendOrigin(Interior::get()),

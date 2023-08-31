@@ -79,6 +79,8 @@ macro_rules! versioned_type {
 	($(#[$attr:meta])* pub enum $n:ident {
 		$(#[$index3:meta])+
 		V3($v3:ty),
+		$(#[$index4:meta])+
+		V4($v4:ty),
 	}) => {
 		#[derive(Derivative, Encode, Decode, TypeInfo)]
 		#[derivative(
@@ -93,6 +95,8 @@ macro_rules! versioned_type {
 		pub enum $n {
 			$(#[$index3])*
 			V3($v3),
+			$(#[$index4])*
+			V4($v4),
 		}
 		impl $n {
 			pub fn try_as<T>(&self) -> Result<&T, ()> where Self: TryAs<T> {
@@ -103,6 +107,15 @@ macro_rules! versioned_type {
 			fn try_as(&self) -> Result<&$v3, ()> {
 				match &self {
 					Self::V3(ref x) => Ok(x),
+					_ => Err(()),
+				}
+			}
+		}
+		impl TryAs<$v4> for $n {
+			fn try_as(&self) -> Result<&$v4, ()> {
+				match &self {
+					Self::V4(ref x) => Ok(x),
+					_ => Err(()),
 				}
 			}
 		}
@@ -110,13 +123,19 @@ macro_rules! versioned_type {
 			fn into_version(self, n: Version) -> Result<Self, ()> {
 				Ok(match n {
 					3 => Self::V3(self.try_into()?),
+					4 => Self::V4(self.try_into()?),
 					_ => return Err(()),
 				})
 			}
 		}
-		impl<T: Into<$v3>> From<T> for $n {
-			fn from(x: T) -> Self {
+		impl From<$v3> for $n {
+			fn from(x: $v3) -> Self {
 				$n::V3(x.into())
+			}
+		}
+		impl From<$v4> for $n {
+			fn from(x: $v4) -> Self {
+				$n::V4(x.into())
 			}
 		}
 		impl TryFrom<$n> for $v3 {
@@ -125,95 +144,17 @@ macro_rules! versioned_type {
 				use $n::*;
 				match x {
 					V3(x) => Ok(x),
+					V4(x) => x.try_into(),
 				}
 			}
 		}
-		impl MaxEncodedLen for $n {
-			fn max_encoded_len() -> usize {
-				<$v3>::max_encoded_len()
-			}
-		}
-	};
-
-	($(#[$attr:meta])* pub enum $n:ident {
-		$(#[$index2:meta])+
-		V2($v2:ty),
-		$(#[$index3:meta])+
-		V3($v3:ty),
-	}) => {
-		#[derive(Derivative, Encode, Decode, TypeInfo)]
-		#[derivative(
-			Clone(bound = ""),
-			Eq(bound = ""),
-			PartialEq(bound = ""),
-			Debug(bound = "")
-		)]
-		#[codec(encode_bound())]
-		#[codec(decode_bound())]
-		$(#[$attr])*
-		pub enum $n {
-			$(#[$index2])*
-			V2($v2),
-			$(#[$index3])*
-			V3($v3),
-		}
-		impl $n {
-			pub fn try_as<T>(&self) -> Result<&T, ()> where Self: TryAs<T> {
-				<Self as TryAs<T>>::try_as(&self)
-			}
-		}
-		impl TryAs<$v2> for $n {
-			fn try_as(&self) -> Result<&$v2, ()> {
-				match &self {
-					Self::V2(ref x) => Ok(x),
-					_ => Err(()),
-				}
-			}
-		}
-		impl TryAs<$v3> for $n {
-			fn try_as(&self) -> Result<&$v3, ()> {
-				match &self {
-					Self::V3(ref x) => Ok(x),
-					_ => Err(()),
-				}
-			}
-		}
-		impl IntoVersion for $n {
-			fn into_version(self, n: Version) -> Result<Self, ()> {
-				Ok(match n {
-					1 | 2 => Self::V2(self.try_into()?),
-					3 => Self::V3(self.try_into()?),
-					_ => return Err(()),
-				})
-			}
-		}
-		impl From<$v2> for $n {
-			fn from(x: $v2) -> Self {
-				$n::V2(x)
-			}
-		}
-		impl<T: Into<$v3>> From<T> for $n {
-			fn from(x: T) -> Self {
-				$n::V3(x.into())
-			}
-		}
-		impl TryFrom<$n> for $v2 {
+		impl TryFrom<$n> for $v4 {
 			type Error = ();
 			fn try_from(x: $n) -> Result<Self, ()> {
 				use $n::*;
 				match x {
-					V2(x) => Ok(x),
-					V3(x) => x.try_into(),
-				}
-			}
-		}
-		impl TryFrom<$n> for $v3 {
-			type Error = ();
-			fn try_from(x: $n) -> Result<Self, ()> {
-				use $n::*;
-				match x {
-					V2(x) => x.try_into(),
-					V3(x) => Ok(x),
+					V3(x) => x.try_into().map_err(|_| ()),
+					V4(x) => Ok(x),
 				}
 			}
 		}
@@ -299,8 +240,8 @@ macro_rules! versioned_type {
 				$n::V3(x.into())
 			}
 		}
-		impl<T: Into<$v4>> From<T> for $n {
-			fn from(x: T) -> Self {
+		impl From<$v4> for $n {
+			fn from(x: $v4) -> Self {
 				$n::V4(x.into())
 			}
 		}
@@ -356,6 +297,8 @@ versioned_type! {
 	pub enum VersionedAssetId {
 		#[codec(index = 3)]
 		V3(v3::AssetId),
+		#[codec(index = 4)]
+		V4(v4::AssetId),
 	}
 }
 
@@ -366,6 +309,8 @@ versioned_type! {
 		V2(v2::Response),
 		#[codec(index = 3)]
 		V3(v3::Response),
+		#[codec(index = 4)]
+		V4(v4::Response),
 	}
 }
 
@@ -376,6 +321,8 @@ versioned_type! {
 		V2(v2::NetworkId),
 		#[codec(index = 3)]
 		V3(v3::NetworkId),
+		#[codec(index = 4)]
+		V4(v4::NetworkId),
 	}
 }
 
@@ -386,6 +333,8 @@ versioned_type! {
 		V2(v2::Junction),
 		#[codec(index = 3)]
 		V3(v3::Junction),
+		#[codec(index = 4)]
+		V4(v4::Junction),
 	}
 }
 
@@ -409,6 +358,8 @@ versioned_type! {
 		V2(v2::InteriorMultiLocation),
 		#[codec(index = 3)]
 		V3(v3::InteriorMultiLocation),
+		#[codec(index = 4)]
+		V4(v4::InteriorMultiLocation),
 	}
 }
 
@@ -566,17 +517,29 @@ impl WrapVersion for AlwaysV3 {
 	}
 }
 
+/// `WrapVersion` implementation which attempts to always convert the XCM to version 3 before
+/// wrapping it.
+pub struct AlwaysV4;
+impl WrapVersion for AlwaysV4 {
+	fn wrap_version<Call>(
+		_: &latest::MultiLocation,
+		xcm: impl Into<VersionedXcm<Call>>,
+	) -> Result<VersionedXcm<Call>, ()> {
+		Ok(VersionedXcm::<Call>::V4(xcm.into().try_into()?))
+	}
+}
+
 /// `WrapVersion` implementation which attempts to always convert the XCM to the latest version
 /// before wrapping it.
-pub type AlwaysLatest = AlwaysV3;
+pub type AlwaysLatest = AlwaysV4;
 
 /// `WrapVersion` implementation which attempts to always convert the XCM to the most recent Long-
 /// Term-Support version before wrapping it.
-pub type AlwaysLts = AlwaysV3;
+pub type AlwaysLts = AlwaysV4;
 
 pub mod prelude {
 	pub use super::{
-		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV2, AlwaysV3, IntoVersion, Unsupported,
+		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV2, AlwaysV3, AlwaysV4, IntoVersion, Unsupported,
 		Version as XcmVersion, VersionedAssetId, VersionedInteriorMultiLocation,
 		VersionedMultiAsset, VersionedMultiAssets, VersionedMultiLocation, VersionedResponse,
 		VersionedXcm, WrapVersion,
@@ -596,13 +559,19 @@ pub mod opaque {
 		// Then override with the opaque types in v3
 		pub use crate::v3::opaque::{Instruction, Xcm};
 	}
+	pub mod v4 {
+		// Everything from v3
+		pub use crate::v4::*;
+		// Then override with the opaque types in v3
+		pub use crate::v4::opaque::{Instruction, Xcm};
+	}
 
 	pub mod latest {
-		pub use super::v3::*;
+		pub use super::v4::*;
 	}
 
 	pub mod lts {
-		pub use super::v3::*;
+		pub use super::v4::*;
 	}
 
 	/// The basic `VersionedXcm` type which just uses the `Vec<u8>` as an encoded call.
@@ -617,5 +586,57 @@ pub trait GetWeight<W> {
 #[test]
 fn conversion_works() {
 	use latest::prelude::*;
-	let _: VersionedMultiAssets = (Here, 1u128).into();
+	let assets: MultiAssets = (Here, 1u128).into();
+	let _: VersionedMultiAssets = assets.into();
+}
+
+
+#[test]
+fn size_limits() {
+	extern crate std;
+
+	let mut test_failed = false;
+	macro_rules! check_sizes {
+        ($(($kind:ty, $expected:expr),)+) => {
+            $({
+                let s = core::mem::size_of::<$kind>();
+                // Since the types often affect the size of other types in which they're included
+                // it is more convenient to check multiple types at the same time and only fail
+                // the test at the end. For debugging it's also useful to print out all of the sizes,
+                // even if they're within the expected range.
+                if s > $expected {
+                    test_failed = true;
+                    std::eprintln!(
+                        "assertion failed: size of '{}' is {} (which is more than the expected {})",
+                        stringify!($kind),
+                        s,
+                        $expected
+                    );
+                } else {
+                    std::eprintln!(
+                        "type '{}' is of size {} which is within the expected {}",
+                        stringify!($kind),
+                        s,
+                        $expected
+                    );
+                }
+            })+
+        }
+    }
+
+	check_sizes! {
+		(crate::v4::Instruction<()>, 112),
+		(crate::v4::MultiAsset, 80),
+		(crate::v4::MultiLocation, 24),
+		(crate::v4::AssetId, 40),
+		(crate::v4::Junctions, 16),
+		(crate::v4::Junction, 80),
+		(crate::v4::Response, 40),
+		(crate::v4::AssetInstance, 40),
+		(crate::v4::NetworkId, 48),
+		(crate::v4::BodyId, 32),
+		(crate::v4::MultiAssets, 24),
+		(crate::v4::BodyPart, 12),
+	}
+	assert!(!test_failed);
 }
