@@ -379,6 +379,7 @@ pub struct Validator {
 	signing_context: SigningContext,
 	key: ValidatorId,
 	index: ValidatorIndex,
+	disabled: bool,
 }
 
 impl Validator {
@@ -391,16 +392,19 @@ impl Validator {
 		// Note: request_validators and request_session_index_for_child do not and cannot
 		// run concurrently: they both have a mutable handle to the same sender.
 		// However, each of them returns a oneshot::Receiver, and those are resolved concurrently.
-		let (validators, session_index) = futures::try_join!(
+		let (validators, session_index, disabled_validators) = futures::try_join!(
 			request_validators(parent, sender).await,
 			request_session_index_for_child(parent, sender).await,
+			request_disabled_validators(parent, sender).await,
 		)?;
 
 		let signing_context = SigningContext { session_index: session_index?, parent_hash: parent };
 
 		let validators = validators?;
 
-		Self::construct(&validators, signing_context, keystore)
+		let disabled_validators = disabled_validators?;
+
+		Self::construct(&validators, &disabled_validators, signing_context, keystore)
 	}
 
 	/// Construct a validator instance without performing runtime fetches.
@@ -408,13 +412,17 @@ impl Validator {
 	/// This can be useful if external code also needs the same data.
 	pub fn construct(
 		validators: &[ValidatorId],
+		disabled_validators: &[ValidatorIndex],
 		signing_context: SigningContext,
 		keystore: KeystorePtr,
 	) -> Result<Self, Error> {
 		let (key, index) =
 			signing_key_and_index(validators, &keystore).ok_or(Error::NotAValidator)?;
 
-		Ok(Validator { signing_context, key, index })
+		let disabled =
+			disabled_validators.iter().find(|d: &&ValidatorIndex| **d == index).is_some();
+
+		Ok(Validator { signing_context, key, index, disabled })
 	}
 
 	/// Get this validator's id.
@@ -425,6 +433,11 @@ impl Validator {
 	/// Get this validator's local index.
 	pub fn index(&self) -> ValidatorIndex {
 		self.index
+	}
+
+	/// Get the enabled/disabled state of this validator
+	pub fn disabled(&self) -> bool {
+		self.disabled
 	}
 
 	/// Get the current signing context.

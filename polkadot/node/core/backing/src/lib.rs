@@ -379,6 +379,20 @@ struct TableContext {
 	validator: Option<Validator>,
 	groups: HashMap<ParaId, Vec<ValidatorIndex>>,
 	validators: Vec<ValidatorId>,
+	disabled_validators: Vec<ValidatorIndex>,
+}
+
+impl TableContext {
+	pub fn validator_is_disabled(&self, validator_idx: &ValidatorIndex) -> bool {
+		self.disabled_validators
+			.iter()
+			.find(|disabled_val_idx| *disabled_val_idx == validator_idx)
+			.is_some()
+	}
+
+	pub fn local_validator_is_disabled(&self) -> Option<bool> {
+		self.validator.as_ref().map(|v| v.disabled())
+	}
 }
 
 impl TableContextTrait for TableContext {
@@ -983,12 +997,16 @@ async fn construct_per_relay_parent_state<Context>(
 
 	let parent = relay_parent;
 
-	let (validators, groups, session_index, cores) = futures::try_join!(
+	let (validators, groups, session_index, cores, disabled_validators) = futures::try_join!(
 		request_validators(parent, ctx.sender()).await,
 		request_validator_groups(parent, ctx.sender()).await,
 		request_session_index_for_child(parent, ctx.sender()).await,
 		request_from_runtime(parent, ctx.sender(), |tx| {
 			RuntimeApiRequest::AvailabilityCores(tx)
+		},)
+		.await,
+		request_from_runtime(parent, ctx.sender(), |tx| {
+			RuntimeApiRequest::DisabledValidators(tx)
 		},)
 		.await,
 	)
@@ -998,22 +1016,27 @@ async fn construct_per_relay_parent_state<Context>(
 	let (validator_groups, group_rotation_info) = try_runtime_api!(groups);
 	let session_index = try_runtime_api!(session_index);
 	let cores = try_runtime_api!(cores);
+	let disabled_validators = try_runtime_api!(disabled_validators);
 
 	let signing_context = SigningContext { parent_hash: parent, session_index };
-	let validator =
-		match Validator::construct(&validators, signing_context.clone(), keystore.clone()) {
-			Ok(v) => Some(v),
-			Err(util::Error::NotAValidator) => None,
-			Err(e) => {
-				gum::warn!(
-					target: LOG_TARGET,
-					err = ?e,
-					"Cannot participate in candidate backing",
-				);
+	let validator = match Validator::construct(
+		&validators,
+		&disabled_validators,
+		signing_context.clone(),
+		keystore.clone(),
+	) {
+		Ok(v) => Some(v),
+		Err(util::Error::NotAValidator) => None,
+		Err(e) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				err = ?e,
+				"Cannot participate in candidate backing",
+			);
 
-				return Ok(None)
-			},
-		};
+			return Ok(None)
+		},
+	};
 
 	let mut groups = HashMap::new();
 	let n_cores = cores.len();
@@ -1043,7 +1066,7 @@ async fn construct_per_relay_parent_state<Context>(
 		}
 	}
 
-	let table_context = TableContext { groups, validators, validator };
+	let table_context = TableContext { validator, groups, validators, disabled_validators };
 	let table_config = TableConfig {
 		allow_multiple_seconded: match mode {
 			ProspectiveParachainsMode::Enabled { .. } => true,
@@ -1552,7 +1575,17 @@ async fn import_statement<Context>(
 
 	let stmt = primitive_statement_to_table(statement);
 
-	Ok(rp_state.table.import_statement(&rp_state.table_context, stmt))
+	// Don't import statement if the sender is disabled
+	if rp_state.table_context.validator_is_disabled(&stmt.sender) {
+		gum::warn!(
+			target: LOG_TARGET,
+			sender_validator_idx = ?stmt.sender,
+			"Not importing statement because the sender is disabled"
+		);
+		return Ok(None)
+	} else {
+		Ok(rp_state.table.import_statement(&rp_state.table_context, stmt))
+	}
 }
 
 /// Handles a summary received from [`import_statement`] and dispatches `Backed` notifications and
@@ -1940,6 +1973,13 @@ async fn handle_second_message<Context>(
 			"Subsystem asked to second for para outside of our assignment",
 		);
 
+		return Ok(())
+	}
+
+	// Just return if the local validator is disabled. If we are here the local node should be a
+	// validator but defensively use `unwrap_or(false)`) to continue processin in this case.
+	if rp_state.table_context.local_validator_is_disabled().unwrap_or(false) {
+		gum::warn!(target: LOG_TARGET, "Local validator is disabled. Don't validate and second");
 		return Ok(())
 	}
 

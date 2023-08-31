@@ -289,6 +289,16 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 			tx.send(Ok(test_state.availability_cores.clone())).unwrap();
 		}
 	);
+
+	// Check that subsystem job issues a request for the disabled validators.
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::DisabledValidators(tx))
+		) if parent == test_state.relay_parent => {
+			tx.send(Ok(Vec::new())).unwrap();
+		}
+	);
 }
 
 // Test that a `CandidateBackingMessage::Second` issues validation work
@@ -1418,6 +1428,7 @@ fn candidate_backing_reorders_votes() {
 
 	let table_context = TableContext {
 		validator: None,
+		disabled_validators: Vec::new(),
 		groups: validator_groups,
 		validators: validator_public.clone(),
 	};

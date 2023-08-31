@@ -183,6 +183,16 @@ async fn activate_leaf(
 				tx.send(Ok(test_state.availability_cores.clone())).unwrap();
 			}
 		);
+
+		// Check that the subsystem job issues a request for the disabled validators.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::DisabledValidators(tx))
+			) if parent == hash => {
+				tx.send(Ok(Vec::new())).unwrap();
+			}
+		);
 	}
 }
 
