@@ -808,7 +808,7 @@ impl<T: Config> Pallet<T> {
 	/// Removes a multisig operation from the state.
 	///
 	/// If the multisig had an expiry it will also get removed from the
-	/// `MultisigExpiries` storage map.
+	/// [`MultisigExpiries`] storage map.
 	fn remove_multisig(
 		id: &T::AccountId,
 		call_hash: [u8; 32],
