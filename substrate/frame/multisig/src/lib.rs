@@ -262,6 +262,7 @@ pub mod pallet {
 		},
 		/// A multisig operation has been cancelled.
 		MultisigCancelled {
+			cancelling: T::AccountId,
 			timepoint: Timepoint<BlockNumberFor<T>>,
 			multisig: T::AccountId,
 			call_hash: CallHash,
@@ -518,7 +519,7 @@ pub mod pallet {
 
 			Self::remove_multisig(&id, call_hash, &m.depositor, m.deposit, maybe_expiry);
 
-			Self::deposit_event(Event::MultisigCancelled { timepoint, multisig: id, call_hash });
+			Self::deposit_event(Event::MultisigCancelled { cancelling: who, timepoint, multisig: id, call_hash });
 			Ok(())
 		}
 
@@ -543,14 +544,15 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(S)`.
 		/// - Up to one balance-reserve or unreserve operation.
-		/// - One passthrough operation, one insert, both `O(S)` where `S` is the number of
-		///   signatories. `S` is capped by `MaxSignatories`, with weight being proportional.
+		/// - At most two inserts, both `O(S)` where `S` is the number of signatories. 
+		///   `S` is capped by `MaxSignatories`, with weight being proportional.
 		/// - One encode & hash, both of complexity `O(S)`.
 		/// - Up to one binary search and insert (`O(logS + S)`).
-		/// - I/O: 1 read `O(S)`, up to 1 mutate `O(S)`. Up to one remove.
+		/// - I/O: 2 reads `O(S)`, up to 2 mutations `O(S)`. Up to two removes.
 		/// - One event.
-		/// - Storage: inserts one item, value size bounded by `MaxSignatories`, with a deposit
-		///   taken for its lifetime of `DepositBase + threshold * DepositFactor`.
+		/// - Storage: inserts up to two items. One of them is bounded by `MaxSignatories`, with a 
+		///   deposit taken for its lifetime of `DepositBase + threshold * DepositFactor`. The other
+		///   value is a `BlockNumber`.
 		#[pallet::call_index(4)]
 		#[pallet::weight({
 			let s = other_signatories.len() as u32;
@@ -595,12 +597,12 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(S)`.
 		/// - Up to one balance-reserve or unreserve operation.
-		/// - One passthrough operation, one insert, both `O(S)` where `S` is the number of
-		///   signatories. `S` is capped by `MaxSignatories`, with weight being proportional.
+		/// - At most two inserts, both `O(S)` where `S` is the number of signatories. 
+		///   `S` is capped by `MaxSignatories`, with weight being proportional.
 		/// - One encode & hash, both of complexity `O(S)`.
 		/// - One event.
-		/// - I/O: 1 read `O(S)`, one remove.
-		/// - Storage: removes one item.
+		/// - I/O: 2 reads `O(S)`, up to two removes.
+		/// - Storage: removes up to two items.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::cancel_as_multi(signatories.len() as u32))]
 		pub fn clear_expired_multi(
@@ -610,7 +612,7 @@ pub mod pallet {
 			timepoint: Timepoint<BlockNumberFor<T>>,
 			call_hash: [u8; 32],
 		) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 
 			let id = Self::multi_account_id(&signatories, threshold);
 
@@ -627,7 +629,7 @@ pub mod pallet {
 			// Clean up all the state that is not needed anymore since the multisig expired.
 			Self::remove_multisig(&id, call_hash, &m.depositor, m.deposit, Some(expiry));
 
-			Self::deposit_event(Event::MultisigCancelled { timepoint, multisig: id, call_hash });
+			Self::deposit_event(Event::MultisigCancelled { cancelling: who, timepoint, multisig: id, call_hash });
 
 			Ok(())
 		}
