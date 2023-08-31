@@ -694,6 +694,8 @@ pub enum RuntimeApiRequest {
 		slashing::OpaqueKeyOwnershipProof,
 		RuntimeApiSender<Option<()>>,
 	),
+	/// Get the minimum required backing votes.
+	MinimumBackingVotes(SessionIndex, RuntimeApiSender<u32>),
 
 	/// Get the backing state of the given para.
 	/// This is a staging API that will not be available on production runtimes.
@@ -721,6 +723,9 @@ impl RuntimeApiRequest {
 
 	/// `SubmitReportDisputeLost`
 	pub const SUBMIT_REPORT_DISPUTE_LOST_RUNTIME_REQUIREMENT: u32 = 5;
+
+	/// `MinimumBackingVotes`
+	pub const MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT: u32 = 6;
 
 	/// Minimum version for backing state, required for async backing.
 	///
