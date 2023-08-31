@@ -86,14 +86,13 @@ impl<T: frame_system::Config> cumulus_pallet_xcmp_queue::WeightInfo for WeightIn
 	/// Storage: `MessageQueue::Pages` (r:0 w:1)
 	/// Proof: `MessageQueue::Pages` (`max_values`: None, `max_size`: Some(65585), added: 68060, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 1000]`.
-	fn enqueue_xcmp_messages(n: u32, ) -> Weight {
+	fn enqueue_xcmp_message() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `118`
 		//  Estimated: `3517`
 		// Minimum execution time: 5_334_000 picoseconds.
 		Weight::from_parts(5_457_000, 3517)
 			// Standard Error: 13_883
-			.saturating_add(Weight::from_parts(4_706_303, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
