@@ -94,29 +94,38 @@ impl<'a> GenesisConfigBuilderRuntimeCaller<'a> {
 		Ok(ext.into_storages())
 	}
 
-	/// Patch default `GenesisConfig` using given JSON patch and store it in the storage.
+	/// Patch default `RuntimeGenesisConfig` using given JSON patch and store it in the storage.
 	///
-	/// This function generates the `GenesisConfig` for the runtime by applying a provided JSON
-	/// patch. The patch modifies the default `GenesisConfig` allowing customization of the specific
-	/// keys. The resulting `GenesisConfig` is then deserialized from the patched JSON
-	/// representation and stored in the storage.
+	/// Refer to [get_storage_for_patch] for info how patch is applied.
+	pub fn get_storage_for_patch(&self, patch: Value) -> core::result::Result<Storage, String> {
+		let config = self.get_config_for_patch(patch)?;
+		self.get_storage_for_config(config)
+	}
+
+	/// Creates a `RuntimeGenesisConfig`, by applying given `patch` to default
+	/// `RuntimeGenesisConfig`.
+	///
+	/// This function generates the `RuntimeGenesisConfig` for the runtime by applying a provided
+	/// JSON patch. The patch modifies the default `RuntimeGenesisConfig` allowing customization of
+	/// the specific keys. The resulting `RuntimeGenesisConfig` is then returned.
 	///
 	/// If the provided JSON patch is incorrect or the deserialization fails the error will be
 	/// returned.
 	///
-	/// The patching process modifies the default `GenesisConfig` according to the following rules:
+	/// The patching process modifies the default `RuntimeGenesisConfig` according to the following
+	/// rules:
 	/// 1. Existing keys in the default configuration will be overridden by the corresponding values
 	///    in the patch.
 	/// 2. If a key exists in the patch but not in the default configuration, it will be added to
-	///    the resulting `GenesisConfig`.
+	///    the resulting `RuntimeGenesisConfig`.
 	/// 3. Keys in the default configuration that have null values in the patch will be removed from
-	///    the resulting  `GenesisConfig`. This is helpful for changing enum variant value.
+	///    the resulting  `RuntimeGenesisConfig`. This is helpful for changing enum variant value.
 	///
-	/// Please note that the patch may contain full `GenesisConfig`.
-	pub fn get_storage_for_patch(&self, patch: Value) -> core::result::Result<Storage, String> {
+	/// Please note that the patch may contain full `RuntimeGenesisConfig`.
+	pub fn get_config_for_patch(&self, patch: Value) -> core::result::Result<Value, String> {
 		let mut config = self.get_default_config()?;
 		json_patch::merge(&mut config, &patch);
-		self.get_storage_for_config(config)
+		Ok(config)
 	}
 }
 
