@@ -332,6 +332,7 @@ members = [
 	"substrate/frame/root-testing",
 	"substrate/frame/safe-mode",
 	"substrate/frame/salary",
+	"substrate/frame/sassafras",
 	"substrate/frame/scheduler",
 	"substrate/frame/scored-pool",
 	"substrate/frame/session",
