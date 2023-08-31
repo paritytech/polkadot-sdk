@@ -123,6 +123,10 @@ test-rust-feature-propagation:
 
 check-runtime-migration-polkadot:
   stage: check
+  # DAG
+  needs:
+    - job: check-runtime-migration-westend
+      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
@@ -132,6 +136,10 @@ check-runtime-migration-polkadot:
 
 check-runtime-migration-kusama:
   stage: check
+  # DAG
+  needs:
+    - job: check-runtime-migration-westend
+      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
