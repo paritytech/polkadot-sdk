@@ -447,11 +447,6 @@ pub mod opaque {
 	pub type VersionedXcm = super::VersionedXcm<()>;
 }
 
-// A simple trait to get the weight of some object.
-pub trait GetWeight<W> {
-	fn weight(&self) -> latest::Weight;
-}
-
 #[test]
 fn conversion_works() {
 	use latest::prelude::*;
