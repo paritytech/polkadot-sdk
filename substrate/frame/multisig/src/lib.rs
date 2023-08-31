@@ -525,8 +525,8 @@ pub mod pallet {
 		/// Register approval for a dispatch to be made from a deterministic composite account if
 		/// approved by a total of `threshold - 1` of `other_signatories`.
 		///
-		/// Payment: `DepositBase` will be reserved if this is the first approval, plus
-		/// `threshold` times `DepositFactor`. It is returned once this dispatch happens or
+		/// Payment: [`DepositBase`] will be reserved if this is the first approval, plus
+		/// `threshold` times [`DepositFactor`]. It is returned once this dispatch happens or
 		/// is cancelled.
 		///
 		/// The dispatch origin for this call must be _Signed_.
