@@ -191,6 +191,8 @@ members = [
 	"substrate/bin/node/rpc",
 	"substrate/bin/node/runtime",
 	"substrate/bin/node/testing",
+	"substrate/bin/node-sassafras/node",
+	"substrate/bin/node-sassafras/runtime",
 	"substrate/bin/node-template/node",
 	"substrate/bin/node-template/pallets/template",
 	"substrate/bin/node-template/runtime",
