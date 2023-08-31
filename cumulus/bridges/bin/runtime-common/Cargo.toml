@@ -1,9 +1,9 @@
 [package]
 name = "bridge-runtime-common"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
-repository = "https://github.com/paritytech/parity-bridges-common/"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
@@ -41,8 +41,8 @@ sp-std = { path = "../../../../substrate/primitives/std", default-features = fal
 sp-trie = { path = "../../../../substrate/primitives/trie", default-features = false }
 
 # Polkadot dependencies
-xcm = { path = "../../../../polkadot/xcm", default-features = false }
-xcm-builder = { path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
 
 [dev-dependencies]
 bp-test-utils = { path = "../../primitives/test-utils" }
