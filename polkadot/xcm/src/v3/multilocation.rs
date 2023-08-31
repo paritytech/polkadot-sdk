@@ -266,14 +266,12 @@ impl MultiLocation {
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v3::{Junctions::*, Junction::*, MultiLocation};
-	/// # fn main() {
 	/// let mut m = MultiLocation::new(1, X2(PalletInstance(3), OnlyChild));
 	/// assert_eq!(
 	///     m.match_and_split(&MultiLocation::new(1, X1(PalletInstance(3)))),
 	///     Some(&OnlyChild),
 	/// );
 	/// assert_eq!(m.match_and_split(&MultiLocation::new(1, Here)), None);
-	/// # }
 	/// ```
 	pub fn match_and_split(&self, prefix: &MultiLocation) -> Option<&Junction> {
 		if self.parents != prefix.parents {
@@ -293,11 +291,9 @@ impl MultiLocation {
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v3::{Junctions::*, Junction::*, MultiLocation, Parent};
-	/// # fn main() {
 	/// let mut m: MultiLocation = (Parent, Parachain(21), 69u64).into();
 	/// assert_eq!(m.append_with((Parent, PalletInstance(3))), Ok(()));
 	/// assert_eq!(m, MultiLocation::new(1, X2(Parachain(21), PalletInstance(3))));
-	/// # }
 	/// ```
 	pub fn append_with(&mut self, suffix: impl Into<Self>) -> Result<(), Self> {
 		let prefix = core::mem::replace(self, suffix.into());
@@ -314,11 +310,9 @@ impl MultiLocation {
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v3::{Junctions::*, Junction::*, MultiLocation, Parent};
-	/// # fn main() {
 	/// let mut m: MultiLocation = (Parent, Parachain(21), 69u64).into();
 	/// let r = m.appended_with((Parent, PalletInstance(3))).unwrap();
 	/// assert_eq!(r, MultiLocation::new(1, X2(Parachain(21), PalletInstance(3))));
-	/// # }
 	/// ```
 	pub fn appended_with(mut self, suffix: impl Into<Self>) -> Result<Self, (Self, Self)> {
 		match self.append_with(suffix) {
@@ -334,11 +328,9 @@ impl MultiLocation {
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v3::{Junctions::*, Junction::*, MultiLocation, Parent};
-	/// # fn main() {
 	/// let mut m: MultiLocation = (Parent, Parent, PalletInstance(3)).into();
 	/// assert_eq!(m.prepend_with((Parent, Parachain(21), OnlyChild)), Ok(()));
 	/// assert_eq!(m, MultiLocation::new(1, X1(PalletInstance(3))));
-	/// # }
 	/// ```
 	pub fn prepend_with(&mut self, prefix: impl Into<Self>) -> Result<(), Self> {
 		//     prefix     self (suffix)
@@ -383,11 +375,9 @@ impl MultiLocation {
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v3::{Junctions::*, Junction::*, MultiLocation, Parent};
-	/// # fn main() {
 	/// let m: MultiLocation = (Parent, Parent, PalletInstance(3)).into();
 	/// let r = m.prepended_with((Parent, Parachain(21), OnlyChild)).unwrap();
 	/// assert_eq!(r, MultiLocation::new(1, X1(PalletInstance(3))));
-	/// # }
 	/// ```
 	pub fn prepended_with(mut self, prefix: impl Into<Self>) -> Result<Self, (Self, Self)> {
 		match self.prepend_with(prefix) {
