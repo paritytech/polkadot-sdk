@@ -933,7 +933,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					xcm,
 				)?;
 				self.take_fee(fee, FeeReason::Export(network))?;
-				let _ = Config::MessageExporter::deliver(ticket).defensive();
+				let _ = Config::MessageExporter::deliver(ticket).defensive_proof("`deliver` should be infallible if called immediately after `validate_export`. `take_fee` does not effect the validity of the ticket therefore delivery should not fail.");
 				Ok(())
 			},
 			LockAsset { asset, unlocker } => {
