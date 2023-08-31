@@ -345,7 +345,7 @@ pub mod pallet {
 	/// The messages outbound in a given XCMP channel.
 	#[pallet::storage]
 	pub(super) type OutboundXcmpMessages<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, ParaId, Twox64Concat, u16, Vec<u8>, ValueQuery>;
+		StorageDoubleMap<_, Blake2_128Concat, ParaId, Twox64Concat, u64, Vec<u8>, ValueQuery>;
 
 	/// Any signal messages waiting to be sent.
 	#[pallet::storage]
@@ -410,9 +410,9 @@ pub struct OutboundChannelDetails {
 	/// Whether or not any signals exist in this channel.
 	signals_exist: bool,
 	/// The index of the first outbound message.
-	first_index: u16,
+	first_index: u64,
 	/// The index of the last outbound message.
-	last_index: u16,
+	last_index: u64,
 }
 
 impl OutboundChannelDetails {

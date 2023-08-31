@@ -16,7 +16,10 @@
 
 //! A module that is responsible for migration of storage.
 
-use crate::{Config, Overweight, Pallet, QueueConfig, DEFAULT_POV_SIZE};
+use crate::{
+	Config, OutboundState, OutboundXcmpMessages, OutboundXcmpStatus, Overweight, Pallet, ParaId,
+	QueueConfig, DEFAULT_POV_SIZE,
+};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{OnRuntimeUpgrade, StorageVersion},
@@ -32,21 +35,54 @@ pub struct Migration<T: Config>(PhantomData<T>);
 impl<T: Config> OnRuntimeUpgrade for Migration<T> {
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = T::DbWeight::get().reads(1);
+		let storage_version = StorageVersion::get::<Pallet<T>>();
 
-		if StorageVersion::get::<Pallet<T>>() == 1 {
+		if storage_version == 1 {
 			weight.saturating_accrue(migrate_to_v2::<T>());
 			StorageVersion::new(2).put::<Pallet<T>>();
 			weight.saturating_accrue(T::DbWeight::get().writes(1));
 		}
 
-		if StorageVersion::get::<Pallet<T>>() == 2 {
+		if storage_version == 2 {
 			weight.saturating_accrue(migrate_to_v3::<T>());
 			StorageVersion::new(3).put::<Pallet<T>>();
 			weight.saturating_accrue(T::DbWeight::get().writes(1));
 		}
 
+		if storage_version == 3 {
+			weight.saturating_accrue(migrate_to_v4::<T>());
+			StorageVersion::new(4).put::<Pallet<T>>();
+			weight.saturating_accrue(T::DbWeight::get().writes(1));
+		}
+
 		weight
 	}
+}
+
+mod v3 {
+	use super::*;
+	use codec::{Decode, Encode};
+	use frame_support::storage_alias;
+
+	#[derive(Encode, Decode, Debug)]
+	pub struct OutboundChannelDetails {
+		pub recipient: ParaId,
+		pub state: OutboundState,
+		pub signals_exist: bool,
+		pub first_index: u16,
+		pub last_index: u16,
+	}
+
+	#[storage_alias]
+	pub type OutboundXcmpMessages<T: Config> = StorageDoubleMap<
+		Pallet<T>,
+		Blake2_128Concat,
+		ParaId,
+		Twox64Concat,
+		u16,
+		Vec<u8>,
+		ValueQuery,
+	>;
 }
 
 mod v1 {
@@ -111,6 +147,36 @@ pub fn migrate_to_v3<T: Config>() -> Weight {
 	let overweight_messages = Overweight::<T>::initialize_counter() as u64;
 
 	T::DbWeight::get().reads_writes(overweight_messages, 1)
+}
+
+pub fn migrate_to_v4<T: Config>() -> Weight {
+	let translate = |pre: Vec<v3::OutboundChannelDetails>| -> Vec<super::OutboundChannelDetails> {
+		pre.into_iter()
+			.map(|details| super::OutboundChannelDetails {
+				recipient: details.recipient,
+				state: details.state,
+				signals_exist: details.signals_exist,
+				first_index: details.first_index as u64,
+				last_index: details.last_index as u64,
+			})
+			.collect()
+	};
+
+	if OutboundXcmpStatus::<T>::translate(|pre| pre.map(translate)).is_err() {
+		log::error!(
+			target: super::LOG_TARGET,
+			"unexpected error when performing translation of the OutboundXcmpStatus type during storage upgrade to v4"
+		);
+	}
+
+	let mut weight = T::DbWeight::get().reads_writes(1, 1);
+
+	for (paraid, idx, msg) in v3::OutboundXcmpMessages::<T>::drain() {
+		OutboundXcmpMessages::<T>::insert(paraid, idx as u64, msg);
+		weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+	}
+
+	weight
 }
 
 #[cfg(test)]
