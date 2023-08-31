@@ -861,8 +861,7 @@ pub mod pallet {
 		) -> Result<(), DispatchError> {
 			ensure!(amounts.len() > 1, Error::<T>::CorrespondenceError);
 
-			// We could probably get rid of amounts arg? and just use balance_path from original
-			// amount_out
+			// We could probably change amounts arg to be balance_path
 			let amount_out =
 				*amounts.last().defensive_ok_or("get_amounts_out() returned an empty result")?;
 			let balance_path = Self::balance_path_from_amount_out(amount_out, path.clone())?;
@@ -885,47 +884,41 @@ pub mod pallet {
 			Ok(())
 		}
 
+		// Note: recursive
 		pub(crate) fn do_swap(
 			credit_in: Credit<T>,
 			balance_path: BalancePath<T>,
 		) -> Result<Credit<T>, (Credit<T>, DispatchError)> {
-			let mut credit_out = credit_in;
-
 			let path_len = balance_path.len() as u32;
-
-			if path_len < 2 {
-				return Err((credit_out, Error::<T>::PathError.into()))
+			if path_len == 0 {
+				return Ok(credit_in)
 			}
 
-			// TODO in progress, add resolve and fix the error propagations
-			let mut i = 0;
-			for assets_pair in balance_path.windows(2) {
-				if let [asset1, asset2] = assets_pair {
-					let pool_id = Self::get_pool_id(asset1.0.clone(), asset2.0.clone());
-					let pool_account = Self::get_pool_account(&pool_id);
+			return if let Some([asset1, asset2]) = &balance_path.get(0..2) {
+				let pool_id = Self::get_pool_id(asset1.0.clone(), asset2.0.clone());
+				let pool_account = Self::get_pool_account(&pool_id);
 
-					let amount_out = asset2.1;
+				Self::resolve(&pool_account, credit_in)
+					.map_err(|e| (e, Error::<T>::Overflow.into()))?;
 
-					if i < path_len - 2 {
-						let asset3 =
-							balance_path.get((i + 2) as usize).ok_or(Error::<T>::PathError)?;
-						let send_to = Self::get_pool_account(&Self::get_pool_id(
-							asset2.0.clone(),
-							asset3.0.clone(),
-						));
-					}
+				// If this fails, credits are balanced, can return zero credit in error
+				let credit_out = Self::withdraw(&asset2.0, &pool_account, asset2.1)
+					.map_err(|e| (Credit::<T>::Native(Default::default()), e))?;
 
-					let reserve = Self::get_balance(&pool_account, &asset2.0)?;
-					let reserve_left = reserve.saturating_sub(amount_out);
-					Self::validate_minimal_amount(reserve_left, &asset2.0)
-						.map_err(|_| Error::<T>::ReserveLeftLessThanMinimal)?;
+				let (credit_out, reserve) = Self::get_balance(&pool_account, &asset2.0)
+					.map_with_prefix(credit_out, |e| e.into())?;
+				let reserve_left = reserve.saturating_sub(asset2.1);
+				let (credit_out, _) = Self::validate_minimal_amount(reserve_left, &asset2.0)
+					.map_with_prefix(credit_out, |_| {
+						Error::<T>::ReserveLeftLessThanMinimal.into()
+					})?;
 
-					credit_out = Self::withdraw(&asset2.0, &pool_account, amount_out)?;
-				}
-				i.saturating_inc();
+				// Can be optimized if balance_path was an iterator probably
+				let remaining = balance_path[2..].to_vec();
+				Self::do_swap(credit_out, remaining)
+			} else {
+				Err((credit_in, Error::<T>::PathError.into()))
 			}
-
-			return Ok(credit_out)
 		}
 
 		/// The account ID of the pool.

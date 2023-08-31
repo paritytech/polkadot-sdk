@@ -191,7 +191,7 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 		);
 		let (credit_in, credit_change) = credit_in.split(*amount_in);
 
-		let credit_balance_path = Self::balance_path_from_amount_out(amount_out, path)
+		let (credit_in, balance_path) = Self::balance_path_from_amount_out(amount_out, path)
 			.map_with_prefix(credit_in, |e| e)?;
 
 		// Note
@@ -202,14 +202,12 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 		// Temporary workaround is this mutable binding, there is probably a better workaround
 		let mut credit_error: Credit<T> = Credit::<T>::Native(Default::default());
 
-		let transaction = with_transaction(|| {
-			match Self::do_swap(credit_balance_path.0, credit_balance_path.1) {
-				Ok(swap) => TransactionOutcome::Commit(Ok(swap)),
-				Err(err) => {
-					credit_error = err.0;
-					TransactionOutcome::Rollback(Err(err.1))
-				},
-			}
+		let transaction = with_transaction(|| match Self::do_swap(credit_in, balance_path) {
+			Ok(swap) => TransactionOutcome::Commit(Ok(swap)),
+			Err(err) => {
+				credit_error = err.0;
+				TransactionOutcome::Rollback(Err(err.1))
+			},
 		});
 
 		return match transaction {
