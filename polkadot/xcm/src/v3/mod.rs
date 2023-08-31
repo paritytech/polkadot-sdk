@@ -1453,16 +1453,14 @@ mod tests {
 	}
 
 	#[test]
-	fn decoding_limits() {
+	fn decoding_respects_limit() {
 		let max_xcm = Xcm::<()>(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE as usize]);
-		let bytes = max_xcm.encode();
-		let decoded_xcm = Xcm::<()>::decode(&mut &bytes[..]);
-		assert!(matches!(decoded_xcm, Ok(_)));
+		let encoded = max_xcm.encode();
+		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_ok());
 
 		let big_xcm = Xcm::<()>(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE as usize + 1]);
-		let bytes = big_xcm.encode();
-		let decoded_xcm = Xcm::<()>::decode(&mut &bytes[..]);
-		assert!(matches!(decoded_xcm, Err(CodecError { .. })));
+		let encoded = big_xcm.encode();
+		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_err());
 
 		let nested_xcm = Xcm::<()>(vec![
 			DepositReserveAsset {
@@ -1472,20 +1470,14 @@ mod tests {
 			};
 			(MAX_INSTRUCTIONS_TO_DECODE / 2) as usize
 		]);
-		let bytes = nested_xcm.encode();
-		let decoded_xcm = Xcm::<()>::decode(&mut &bytes[..]);
-		assert!(matches!(decoded_xcm, Err(CodecError { .. })));
+		let encoded = nested_xcm.encode();
+		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_err());
 
-		let even_more_nested_xcm = Xcm::<()>(vec![
-			DepositReserveAsset {
-				assets: All.into(),
-				dest: Here.into(),
-				xcm: nested_xcm,
-			};
-			(MAX_INSTRUCTIONS_TO_DECODE / 2) as usize
-		]);
-		let bytes = even_more_nested_xcm.encode();
-		let decoded_xcm = Xcm::<()>::decode(&mut &bytes[..]);
-		assert!(matches!(decoded_xcm, Err(CodecError { .. })));
+		let even_more_nested_xcm = Xcm::<()>(vec![SetAppendix(nested_xcm); 64]);
+		let encoded = even_more_nested_xcm.encode();
+		assert_eq!(encoded.len(), 342530);
+		// This should not decode since the limit is 100
+		assert_eq!(MAX_INSTRUCTIONS_TO_DECODE, 100, "precondition");
+		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_err());
 	}
 }
