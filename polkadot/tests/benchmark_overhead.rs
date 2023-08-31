@@ -18,7 +18,7 @@ use assert_cmd::cargo::cargo_bin;
 use std::{process::Command, result::Result};
 use tempfile::tempdir;
 
-static RUNTIMES: [&str; 4] = ["polkadot", "kusama", "westend", "rococo"];
+static RUNTIMES: &[&str] = &["westend", "rococo"];
 
 /// `benchmark overhead` works for all dev runtimes.
 #[test]
@@ -32,7 +32,7 @@ fn benchmark_overhead_works() {
 /// `benchmark overhead` rejects all non-dev runtimes.
 #[test]
 fn benchmark_overhead_rejects_non_dev_runtimes() {
-	for runtime in RUNTIMES {
+	for runtime in RUNTIMES.into_iter() {
 		assert!(benchmark_overhead(runtime.into()).is_err());
 	}
 }
