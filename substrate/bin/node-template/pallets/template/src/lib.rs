@@ -1,8 +1,8 @@
 //! # Template Pallet
 //!
 //! A pallet with minimal functionality to help developers understand the essential components of
-//! writing a FRAME pallet. It is typically used in beginner tutorials or in Substrate template nodes
-//! as a starting point for creating a new pallet and **not meant to be used in production**.
+//! writing a FRAME pallet. It is typically used in beginner tutorials or in Substrate template
+//! nodes as a starting point for creating a new pallet and **not meant to be used in production**.
 //!
 //! ## Overview
 //!
@@ -23,16 +23,15 @@
 //!
 //! The pallet sections in this template are:
 //!
-//! - A **configuration trait** that defines the types and parameters which the pallet
-//!   depends on (denoted by the `#[pallet::config]` attribute)
-//! - A **means to store pallet-specific data** (denoted by the `#[pallet::storage]`
+//! - A **configuration trait** that defines the types and parameters which the pallet depends on
+//!   (denoted by the `#[pallet::config]` attribute)
+//! - A **means to store pallet-specific data** (denoted by the `#[pallet::storage]` attribute)
+//! - A **declaration of the events** this pallet emits (denoted by the `#[pallet::event]`
 //!   attribute)
-//! - A **declaration of the events** this pallet emits (denoted by the
-//!   `#[pallet::event]` attribute)
-//! - A **declaration of the errors** that this pallet can throw (denoted by the
-//!   `#[pallet::error]` attribute)
-//! - A **set of dispatchable functions** that define the pallet's functionality
-//!   (denoted by the `#[pallet::call]` attribute)
+//! - A **declaration of the errors** that this pallet can throw (denoted by the `#[pallet::error]`
+//!   attribute)
+//! - A **set of dispatchable functions** that define the pallet's functionality (denoted by the
+//!   `#[pallet::call]` attribute)
 //!
 //! Run `cargo doc --package pallet-template --open` to view this pallet's documentation.
 
@@ -99,6 +98,10 @@ pub mod pallet {
 	/// or other users) that some notable update in the runtime has occurred. In a FRAME pallet, the
 	/// documentation for each event field and its parameters is added to a node's metadata so it
 	/// can be used by external interfaces or tools.
+	///
+	///	The `generate_deposit` macro generates a function on `Pallet` called `deposit_event` which
+	/// will convert the event type of your pallet into `RuntimeEvent` (declared in the pallet's
+	/// [`Config`] trait) and deposit it using [`frame_system::Pallet::deposit_event`].
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
