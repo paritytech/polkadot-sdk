@@ -54,6 +54,7 @@ halt = { package = "test-parachain-halt", path = "../../../parachain/test-parach
 
 [features]
 ci-only-tests = []
+jemalloc-allocator = [ "polkadot-node-core-pvf-common/jemalloc-allocator" ]
 # This feature is used to export test code to other crates without putting it in the production build.
 # This is also used by the `puppet_worker` binary.
 test-utils = [
