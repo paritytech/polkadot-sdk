@@ -1512,7 +1512,8 @@ pub mod migrations {
 			let id: u32 = (*id).into();
 			// polkadot parachains/parathreads that are locked and never produced block
 			match id {
-				2003 | 2015 | 2036 | 2055 | 2097 | 2106 | 3336 | 3338 => true,
+				2003 | 2015 | 2017 | 2018 | 2025 | 2028 | 2036 | 2038 | 2053 | 2055 | 2090 |
+				2097 | 2106 | 3336 | 3338 | 3342 => true,
 				_ => false,
 			}
 		}
