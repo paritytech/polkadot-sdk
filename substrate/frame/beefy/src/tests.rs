@@ -1177,7 +1177,6 @@ fn report_fork_equivocation_invalid_equivocation_proof() {
 	});
 }
 
-#[ignore]
 #[test]
 fn report_fork_equivocation_validate_unsigned_prevents_duplicates() {
 	use sp_runtime::transaction_validity::{
@@ -1206,9 +1205,8 @@ fn report_fork_equivocation_validate_unsigned_prevents_duplicates() {
 		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
-		// generate an equivocation for a future set
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
-			(block_num, payload, set_id+1, &equivocation_keyring),
+			(block_num, payload, set_id, &equivocation_keyring),
 			header,
 		);
 
@@ -1229,23 +1227,24 @@ fn report_fork_equivocation_validate_unsigned_prevents_duplicates() {
 		);
 
 		// the transaction is valid when passed as local
-		let tx_tag = (equivocation_key, set_id, 3u64);
+		let tx_tag = (vec![equivocation_key], set_id, 3u64);
+
+		let call_result = <Beefy as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(
+			TransactionSource::Local,
+			&call,
+		);
 
 		assert_eq!(
-			<Beefy as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(
-				TransactionSource::Local,
-				&call,
-			),
+			call_result,
 			TransactionValidity::Ok(ValidTransaction {
 				priority: TransactionPriority::max_value(),
 				requires: vec![],
-				provides: vec![("BeefyEquivocation", tx_tag).encode()],
+				provides: vec![("BeefyEquivocation", tx_tag.clone()).encode()],
 				longevity: ReportLongevity::get(),
 				propagate: false,
 			})
 		);
 
-		// the pre dispatch checks should also pass
 		assert_ok!(<Beefy as sp_runtime::traits::ValidateUnsigned>::pre_dispatch(&call));
 
 		// we submit the report
@@ -1273,7 +1272,6 @@ fn report_fork_equivocation_validate_unsigned_prevents_duplicates() {
 	});
 }
 
-// TODO: adjust
 #[test]
 fn report_fork_equivocation_has_valid_weight() {
 	// the weight depends on the size of the validator set,
@@ -1325,9 +1323,9 @@ fn valid_fork_equivocation_reports_dont_pay_fees() {
 		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
 
 		// check the dispatch info for the call.
-		let info = Call::<Test>::report_vote_equivocation_unsigned {
+		let info = Call::<Test>::report_fork_equivocation_unsigned {
 			equivocation_proof: Box::new(equivocation_proof.clone()),
-			key_owner_proof: key_owner_proof.clone(),
+			key_owner_proofs: vec![key_owner_proof.clone()],
 		}
 		.get_dispatch_info();
 

@@ -325,59 +325,101 @@ where
 /// include unsigned equivocation reports.
 impl<T: Config> Pallet<T> {
 	pub fn validate_unsigned(source: TransactionSource, call: &Call<T>) -> TransactionValidity {
-		if let Call::report_vote_equivocation_unsigned { equivocation_proof, key_owner_proof } =
-			call
-		{
-			// discard equivocation report not coming from the local node
-			match source {
-				TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
-				_ => {
-					log::warn!(
-						target: LOG_TARGET,
-						"rejecting unsigned report equivocation transaction because it is not local/in-block."
-					);
-					return InvalidTransaction::Call.into()
-				},
+		// discard equivocation report not coming from the local node
+		match source {
+			TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
+			_ => {
+				log::warn!(
+					target: LOG_TARGET,
+					"rejecting unsigned report equivocation transaction because it is not local/in-block."
+				);
+				return InvalidTransaction::Call.into()
+			},
+		}
+		match call {
+			Call::report_vote_equivocation_unsigned { equivocation_proof, key_owner_proof } => {
+				let evidence = EquivocationEvidenceFor::<T>::VoteEquivocationProof(
+					*equivocation_proof.clone(),
+					key_owner_proof.clone(),
+				);
+				T::EquivocationReportSystem::check_evidence(evidence)?;
+
+				let longevity =
+					<T::EquivocationReportSystem as OffenceReportSystem<_, _>>::Longevity::get();
+
+				ValidTransaction::with_tag_prefix("BeefyEquivocation")
+				// We assign the maximum priority for any equivocation report.
+					.priority(TransactionPriority::MAX)
+				// Only one equivocation report for the same offender at the same slot.
+					.and_provides((
+						equivocation_proof.offender_id().clone(),
+						equivocation_proof.set_id(),
+						*equivocation_proof.round_number(),
+					))
+					.longevity(longevity)
+				// We don't propagate this. This can never be included on a remote node.
+					.propagate(false)
+					.build()
+			},
+			Call::report_fork_equivocation_unsigned { equivocation_proof, key_owner_proofs } => {
+				let evidence = EquivocationEvidenceFor::<T>::ForkEquivocationProof(
+					*equivocation_proof.clone(),
+					key_owner_proofs.clone(),
+				);
+				log::error!("checking evidence");
+				T::EquivocationReportSystem::check_evidence(evidence)?;
+
+				log::error!("passed evidence check");
+				let longevity =
+					<T::EquivocationReportSystem as OffenceReportSystem<_, _>>::Longevity::get();
+				log::error!("retrieved longevity");
+
+				ValidTransaction::with_tag_prefix("BeefyEquivocation")
+				// We assign the maximum priority for any equivocation report.
+					.priority(TransactionPriority::MAX)
+				// Only one equivocation report for the same offender at the same slot.
+					.and_provides((
+						equivocation_proof.offender_ids().clone(),
+						equivocation_proof.set_id(),
+						*equivocation_proof.round_number(),
+					))
+					.longevity(longevity)
+				// We don't propagate this. This can never be included on a remote node.
+					.propagate(false)
+					.build()
+			},
+			_ => {
+				log::error!(
+					target: LOG_TARGET,
+					"lolalol"
+				);
+				InvalidTransaction::Call.into()
 			}
 
-			let evidence = EquivocationEvidenceFor::<T>::VoteEquivocationProof(
-				*equivocation_proof.clone(),
-				key_owner_proof.clone(),
-			);
-			T::EquivocationReportSystem::check_evidence(evidence)?;
-
-			let longevity =
-				<T::EquivocationReportSystem as OffenceReportSystem<_, _>>::Longevity::get();
-
-			ValidTransaction::with_tag_prefix("BeefyEquivocation")
-				// We assign the maximum priority for any equivocation report.
-				.priority(TransactionPriority::MAX)
-				// Only one equivocation report for the same offender at the same slot.
-				.and_provides((
-					equivocation_proof.offender_id().clone(),
-					equivocation_proof.set_id(),
-					*equivocation_proof.round_number(),
-				))
-				.longevity(longevity)
-				// We don't propagate this. This can never be included on a remote node.
-				.propagate(false)
-				.build()
-		} else {
-			InvalidTransaction::Call.into()
 		}
 	}
 
 	pub fn pre_dispatch(call: &Call<T>) -> Result<(), TransactionValidityError> {
-		if let Call::report_vote_equivocation_unsigned { equivocation_proof, key_owner_proof } =
-			call
-		{
-			let evidence = EquivocationEvidenceFor::<T>::VoteEquivocationProof(
-				*equivocation_proof.clone(),
-				key_owner_proof.clone(),
-			);
-			T::EquivocationReportSystem::check_evidence(evidence)
-		} else {
-			Err(InvalidTransaction::Call.into())
+		match call {
+			Call::report_vote_equivocation_unsigned { equivocation_proof, key_owner_proof } =>
+			{
+				let evidence = EquivocationEvidenceFor::<T>::VoteEquivocationProof(
+					*equivocation_proof.clone(),
+					key_owner_proof.clone(),
+				);
+				T::EquivocationReportSystem::check_evidence(evidence)
+			},
+			Call::report_fork_equivocation_unsigned { equivocation_proof, key_owner_proofs } =>
+			{
+				let evidence = EquivocationEvidenceFor::<T>::ForkEquivocationProof(
+					*equivocation_proof.clone(),
+					key_owner_proofs.clone(),
+				);
+				T::EquivocationReportSystem::check_evidence(evidence)
+			},
+			_ => {
+				Err(InvalidTransaction::Call.into())
+			}
 		}
 	}
 }

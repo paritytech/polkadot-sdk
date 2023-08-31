@@ -559,5 +559,6 @@ impl<T: Config> IsMember<T::BeefyId> for Pallet<T> {
 }
 
 pub trait WeightInfo {
+	// TODO: distinguish for fork equivocation proofs
 	fn report_equivocation(validator_count: u32, max_nominators_per_validator: u32) -> Weight;
 }
