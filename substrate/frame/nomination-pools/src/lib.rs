@@ -3352,6 +3352,11 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
+	/// Reduces the balances of the [`SubPools::with_era`], that belong to the pool involved in the
+	/// slash, to the amount that is defined in the `slashed_unlocking` field of
+	/// [`sp_staking::OnStakingUpdate::on_slash`]
+	///
+	/// Emits [`Event::<T>::PoolsSlashed`].
 	fn on_slash(
 		pool_account: &T::AccountId,
 		// Bonded balance is always read directly from staking, therefore we don't need to update
