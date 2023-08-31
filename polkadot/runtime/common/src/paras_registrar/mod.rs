@@ -51,7 +51,7 @@ pub struct ParaInfo<Account, Balance> {
 	/// The amount reserved by the `manager` account for the registration.
 	deposit: Balance,
 	/// Whether the para registration should be locked from being controlled by the manager.
-	/// None means the lock is not set, and should be treated as false.
+	/// None means the lock had not been explicitly set, and should be treated as false.
 	locked: Option<bool>,
 }
 
