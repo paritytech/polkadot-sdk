@@ -39,7 +39,7 @@ pub use sp_consensus_babe::{
 	AllowedSlots as BabeAllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,
 };
 
-pub use polkadot_parachain::primitives::{BlockData, HorizontalMessages, UpwardMessages};
+pub use polkadot_parachain_primitives::primitives::{BlockData, HorizontalMessages, UpwardMessages};
 
 pub mod approval;
 
