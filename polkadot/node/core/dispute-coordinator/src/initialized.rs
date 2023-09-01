@@ -1281,7 +1281,7 @@ impl Initialized {
 			if blocks_including.len() > 0 {
 				ctx.send_message(ChainSelectionMessage::RevertBlocks(blocks_including)).await;
 			} else {
-				gum::debug!(
+				gum::warn!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?session,
