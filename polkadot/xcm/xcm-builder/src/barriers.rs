@@ -185,7 +185,8 @@ impl<
 						// Note the origin is *relative to local consensus*! So we need to escape
 						// local consensus with the `parents` before diving in into the
 						// `universal_location`.
-						actual_origin = Junctions::from([*new_global]).relative_to(&LocalUniversal::get());
+						actual_origin =
+							Junctions::from([*new_global]).relative_to(&LocalUniversal::get());
 					},
 					DescendOrigin(j) => {
 						let Ok(_) = actual_origin.append_with(j.clone()) else {

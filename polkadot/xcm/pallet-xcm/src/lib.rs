@@ -778,8 +778,8 @@ pub mod pallet {
 			let dest = MultiLocation::try_from(*dest).map_err(|()| Error::<T>::BadVersion)?;
 			let message: Xcm<()> = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
 
-			let message_id =
-				Self::send_xcm(interior, dest.clone(), message.clone()).map_err(Error::<T>::from)?;
+			let message_id = Self::send_xcm(interior, dest.clone(), message.clone())
+				.map_err(Error::<T>::from)?;
 			let e = Event::Sent { origin: origin_location, destination: dest, message, message_id };
 			Self::deposit_event(e);
 			Ok(())
@@ -793,8 +793,8 @@ pub mod pallet {
 		///
 		/// - `origin`: Must be capable of withdrawing the `assets` and executing XCM.
 		/// - `dest`: Destination context for the assets. Will typically be `[Parent,
-		///   Parachain(..)]` to send from parachain to parachain, or `[Parachain(..)]` to send
-		///   from relay to parachain.
+		///   Parachain(..)]` to send from parachain to parachain, or `[Parachain(..)]` to send from
+		///   relay to parachain.
 		/// - `beneficiary`: A beneficiary location for the assets in the context of `dest`. Will
 		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. The first item should be the currency used to to
@@ -842,8 +842,8 @@ pub mod pallet {
 		///
 		/// - `origin`: Must be capable of withdrawing the `assets` and executing XCM.
 		/// - `dest`: Destination context for the assets. Will typically be `[Parent,
-		///   Parachain(..)]` to send from parachain to parachain, or `[Parachain(..)]` to send
-		///   from relay to parachain.
+		///   Parachain(..)]` to send from parachain to parachain, or `[Parachain(..)]` to send from
+		///   relay to parachain.
 		/// - `beneficiary`: A beneficiary location for the assets in the context of `dest`. Will
 		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
@@ -1016,8 +1016,8 @@ pub mod pallet {
 		///
 		/// - `origin`: Must be capable of withdrawing the `assets` and executing XCM.
 		/// - `dest`: Destination context for the assets. Will typically be `[Parent,
-		///   Parachain(..)]` to send from parachain to parachain, or `[Parachain(..)]` to send
-		///   from relay to parachain.
+		///   Parachain(..)]` to send from parachain to parachain, or `[Parachain(..)]` to send from
+		///   relay to parachain.
 		/// - `beneficiary`: A beneficiary location for the assets in the context of `dest`. Will
 		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
@@ -1068,8 +1068,8 @@ pub mod pallet {
 		///
 		/// - `origin`: Must be capable of withdrawing the `assets` and executing XCM.
 		/// - `dest`: Destination context for the assets. Will typically be `[Parent,
-		///   Parachain(..)]` to send from parachain to parachain, or `[Parachain(..)]` to send
-		///   from relay to parachain.
+		///   Parachain(..)]` to send from parachain to parachain, or `[Parachain(..)]` to send from
+		///   relay to parachain.
 		/// - `beneficiary`: A beneficiary location for the assets in the context of `dest`. Will
 		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. The first item should be the currency used to to
@@ -1505,7 +1505,8 @@ impl<T: Config> Pallet<T> {
 		let versioned_dest = LatestVersionedMultiLocation(&dest);
 		let query_id = VersionNotifiers::<T>::take(XCM_VERSION, versioned_dest)
 			.ok_or(XcmError::InvalidLocation)?;
-		let (message_id, cost) = send_xcm::<T::XcmRouter>(dest.clone(), Xcm(vec![UnsubscribeVersion]))?;
+		let (message_id, cost) =
+			send_xcm::<T::XcmRouter>(dest.clone(), Xcm(vec![UnsubscribeVersion]))?;
 		Self::deposit_event(Event::VersionNotifyUnrequested {
 			destination: dest,
 			cost,
@@ -1921,7 +1922,11 @@ impl<T: Config> DropAssets for Pallet<T> {
 		let versioned = VersionedMultiAssets::from(MultiAssets::from(assets));
 		let hash = BlakeTwo256::hash_of(&(&origin, &versioned));
 		AssetTraps::<T>::mutate(hash, |n| *n += 1);
-		Self::deposit_event(Event::AssetsTrapped { hash, origin: origin.clone(), assets: versioned });
+		Self::deposit_event(Event::AssetsTrapped {
+			hash,
+			origin: origin.clone(),
+			assets: versioned,
+		});
 		// TODO #3735: Put the real weight in there.
 		Weight::zero()
 	}
@@ -1950,7 +1955,11 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 			1 => AssetTraps::<T>::remove(hash),
 			n => AssetTraps::<T>::insert(hash, n - 1),
 		}
-		Self::deposit_event(Event::AssetsClaimed { hash, origin: origin.clone(), assets: versioned });
+		Self::deposit_event(Event::AssetsClaimed {
+			hash,
+			origin: origin.clone(),
+			assets: versioned,
+		});
 		return true
 	}
 }
@@ -2013,7 +2022,10 @@ impl<T: Config> OnResponse for Pallet<T> {
 				if !is_active {
 					Queries::<T>::insert(
 						query_id,
-						QueryStatus::VersionNotifier { origin: origin.clone().into(), is_active: true },
+						QueryStatus::VersionNotifier {
+							origin: origin.clone().into(),
+							is_active: true,
+						},
 					);
 				}
 				// We're being notified of a version change.
@@ -2036,7 +2048,10 @@ impl<T: Config> OnResponse for Pallet<T> {
 					let match_querier = match MultiLocation::try_from(match_querier) {
 						Ok(mq) => mq,
 						Err(_) => {
-							Self::deposit_event(Event::InvalidQuerierVersion { origin: origin.clone(), query_id });
+							Self::deposit_event(Event::InvalidQuerierVersion {
+								origin: origin.clone(),
+								query_id,
+							});
 							return Weight::zero()
 						},
 					};
@@ -2053,7 +2068,10 @@ impl<T: Config> OnResponse for Pallet<T> {
 				let responder = match MultiLocation::try_from(responder) {
 					Ok(r) => r,
 					Err(_) => {
-						Self::deposit_event(Event::InvalidResponderVersion { origin: origin.clone(), query_id });
+						Self::deposit_event(Event::InvalidResponderVersion {
+							origin: origin.clone(),
+							query_id,
+						});
 						return Weight::zero()
 					},
 				};

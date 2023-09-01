@@ -152,10 +152,11 @@ impl Contains<MultiLocation> for OnlyParachains {
 pub struct CollectivesOrFellows;
 impl Contains<MultiLocation> for CollectivesOrFellows {
 	fn contains(loc: &MultiLocation) -> bool {
-		matches!(loc.unpack(), (0, [Parachain(COLLECTIVES_ID)]) | (
-			0,
-			[Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }]
-		))
+		matches!(
+			loc.unpack(),
+			(0, [Parachain(COLLECTIVES_ID)]) |
+				(0, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
+		)
 	}
 }
 

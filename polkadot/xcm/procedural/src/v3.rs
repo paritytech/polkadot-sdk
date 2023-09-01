@@ -161,7 +161,8 @@ pub mod junctions {
 			.map(|current_number| {
 				let number_ancestors = current_number + 1;
 				let variant = format_ident!("X{}", number_ancestors);
-				let idents = (0..=current_number).map(|i| format_ident!("j{}", i)).collect::<Vec<_>>();
+				let idents =
+					(0..=current_number).map(|i| format_ident!("j{}", i)).collect::<Vec<_>>();
 				let convert = idents
 					.iter()
 					.map(|ident| {
@@ -176,7 +177,8 @@ pub mod junctions {
 						[#(#idents),*].into()
 					},
 				}
-			}).collect::<TokenStream>();
+			})
+			.collect::<TokenStream>();
 
 		quote! {
 			impl core::convert::TryFrom<crate::v4::Junctions> for Junctions {

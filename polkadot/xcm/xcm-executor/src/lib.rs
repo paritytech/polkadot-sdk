@@ -858,7 +858,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			LockAsset { asset, unlocker } => {
 				let origin = self.cloned_origin().ok_or(XcmError::BadOrigin)?;
 				let (remote_asset, context) = Self::try_reanchor(asset.clone(), &unlocker)?;
-				let lock_ticket = Config::AssetLocker::prepare_lock(unlocker.clone(), asset, origin.clone())?;
+				let lock_ticket =
+					Config::AssetLocker::prepare_lock(unlocker.clone(), asset, origin.clone())?;
 				let owner =
 					origin.reanchored(&unlocker, &context).map_err(|_| XcmError::ReanchorFailed)?;
 				let msg = Xcm::<()>(vec![NoteUnlockable { asset: remote_asset, owner }]);
@@ -882,8 +883,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let origin = self.cloned_origin().ok_or(XcmError::BadOrigin)?;
 				let remote_asset = Self::try_reanchor(asset.clone(), &locker)?.0;
 				let remote_target = Self::try_reanchor_multilocation(origin.clone(), &locker)?.0;
-				let reduce_ticket =
-					Config::AssetLocker::prepare_reduce_unlockable(locker.clone(), asset, origin.clone())?;
+				let reduce_ticket = Config::AssetLocker::prepare_reduce_unlockable(
+					locker.clone(),
+					asset,
+					origin.clone(),
+				)?;
 				let msg =
 					Xcm::<()>(vec![UnlockAsset { asset: remote_asset, target: remote_target }]);
 				let (ticket, price) = validate_send::<Config::XcmSender>(locker, msg)?;

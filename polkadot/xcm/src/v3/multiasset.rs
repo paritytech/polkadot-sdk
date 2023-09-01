@@ -27,17 +27,19 @@
 //!   filtering an XCM holding account.
 
 use super::{InteriorMultiLocation, MultiLocation};
-use crate::v2::{
-	AssetId as OldAssetId, AssetInstance as OldAssetInstance, Fungibility as OldFungibility,
-	MultiAsset as OldMultiAsset, MultiAssetFilter as OldMultiAssetFilter,
-	MultiAssets as OldMultiAssets, WildFungibility as OldWildFungibility,
-	WildMultiAsset as OldWildMultiAsset,
-};
-use crate::v4::{
-	AssetId as NewAssetId, AssetInstance as NewAssetInstance, Fungibility as NewFungibility,
-	MultiAsset as NewMultiAsset, MultiAssetFilter as NewMultiAssetFilter,
-	MultiAssets as NewMultiAssets, WildFungibility as NewWildFungibility,
-	WildMultiAsset as NewWildMultiAsset,
+use crate::{
+	v2::{
+		AssetId as OldAssetId, AssetInstance as OldAssetInstance, Fungibility as OldFungibility,
+		MultiAsset as OldMultiAsset, MultiAssetFilter as OldMultiAssetFilter,
+		MultiAssets as OldMultiAssets, WildFungibility as OldWildFungibility,
+		WildMultiAsset as OldWildMultiAsset,
+	},
+	v4::{
+		AssetId as NewAssetId, AssetInstance as NewAssetInstance, Fungibility as NewFungibility,
+		MultiAsset as NewMultiAsset, MultiAssetFilter as NewMultiAssetFilter,
+		MultiAssets as NewMultiAssets, WildFungibility as NewWildFungibility,
+		WildMultiAsset as NewWildMultiAsset,
+	},
 };
 use alloc::{vec, vec::Vec};
 use core::{
@@ -805,8 +807,7 @@ impl TryFrom<NewWildMultiAsset> for WildMultiAsset {
 	fn try_from(new: NewWildMultiAsset) -> Result<Self, ()> {
 		use NewWildMultiAsset::*;
 		Ok(match new {
-			AllOf { id, fun } =>
-				Self::AllOf { id: id.try_into()?, fun: fun.try_into()? },
+			AllOf { id, fun } => Self::AllOf { id: id.try_into()?, fun: fun.try_into()? },
 			AllOfCounted { id, fun, count } =>
 				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count },
 			All => Self::All,

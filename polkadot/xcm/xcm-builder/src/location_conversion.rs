@@ -57,8 +57,7 @@ pub struct DescribePalletTerminal;
 impl DescribeLocation for DescribePalletTerminal {
 	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
 		match l.unpack() {
-			(0, [PalletInstance(i)]) =>
-				Some((b"Pallet", Compact::<u32>::from(*i as u32)).encode()),
+			(0, [PalletInstance(i)]) => Some((b"Pallet", Compact::<u32>::from(*i as u32)).encode()),
 			_ => return None,
 		}
 	}
@@ -133,19 +132,19 @@ impl DescribeLocation for LegacyDescribeForeignChainAccount {
 	fn describe_location(location: &MultiLocation) -> Option<Vec<u8>> {
 		Some(match location.unpack() {
 			// Used on the relay chain for sending paras that use 32 byte accounts
-			(0,	[Parachain(para_id), AccountId32 { id, .. }]) =>
+			(0, [Parachain(para_id), AccountId32 { id, .. }]) =>
 				LegacyDescribeForeignChainAccount::from_para_32(para_id, id, 0),
 
 			// Used on the relay chain for sending paras that use 20 byte accounts
-			(0,	[Parachain(para_id), AccountKey20 { key, .. }]) =>
+			(0, [Parachain(para_id), AccountKey20 { key, .. }]) =>
 				LegacyDescribeForeignChainAccount::from_para_20(para_id, key, 0),
 
 			// Used on para-chain for sending paras that use 32 byte accounts
-			(1,	[Parachain(para_id), AccountId32 { id, .. }]) =>
+			(1, [Parachain(para_id), AccountId32 { id, .. }]) =>
 				LegacyDescribeForeignChainAccount::from_para_32(para_id, id, 1),
 
 			// Used on para-chain for sending paras that use 20 byte accounts
-			(1,	[Parachain(para_id), AccountKey20 { key, .. }]) =>
+			(1, [Parachain(para_id), AccountKey20 { key, .. }]) =>
 				LegacyDescribeForeignChainAccount::from_para_20(para_id, key, 1),
 
 			// Used on para-chain for sending from the relay chain
@@ -272,8 +271,7 @@ impl<ParaId: From<u32> + Into<u32> + AccountIdConversion<AccountId>, AccountId: 
 {
 	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
 		match location.unpack() {
-			(0, [Parachain(id)]) =>
-				Some(ParaId::from(*id).into_account_truncating()),
+			(0, [Parachain(id)]) => Some(ParaId::from(*id).into_account_truncating()),
 			_ => None,
 		}
 	}
@@ -285,8 +283,7 @@ impl<ParaId: From<u32> + Into<u32> + AccountIdConversion<AccountId>, AccountId: 
 {
 	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
 		match location.unpack() {
-			(1, [Parachain(id)]) =>
-				Some(ParaId::from(*id).into_account_truncating()),
+			(1, [Parachain(id)]) => Some(ParaId::from(*id).into_account_truncating()),
 			_ => None,
 		}
 	}
@@ -300,9 +297,7 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
 		let id = match location.unpack() {
 			(0, [AccountId32 { id, network: None }]) => id,
-			(0, [AccountId32 { id, network }])
-				if *network == Network::get() =>
-				id,
+			(0, [AccountId32 { id, network }]) if *network == Network::get() => id,
 			_ => return None,
 		};
 		Some((*id).into())
@@ -328,9 +323,7 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 20]> + Into<[u8; 20]>
 	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
 		let key = match location.unpack() {
 			(0, [AccountKey20 { key, network: None }]) => key,
-			(0, [AccountKey20 { key, network }])
-				if *network == Network::get() =>
-				key,
+			(0, [AccountKey20 { key, network }]) if *network == Network::get() => key,
 			_ => return None,
 		};
 		Some((*key).into())
@@ -623,23 +616,11 @@ mod tests {
 				false,
 			),
 			(MultiLocation::new(2, [GlobalConsensus(ByGenesis([0; 32]))]), false),
-			(
-				MultiLocation::new(0, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]),
-				false,
-			),
-			(
-				MultiLocation::new(1, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]),
-				false,
-			),
+			(MultiLocation::new(0, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]), false),
+			(MultiLocation::new(1, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]), false),
 			(MultiLocation::new(2, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]), true),
-			(
-				MultiLocation::new(3, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]),
-				false,
-			),
-			(
-				MultiLocation::new(9, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]),
-				false,
-			),
+			(MultiLocation::new(3, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]), false),
+			(MultiLocation::new(9, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]), false),
 		];
 
 		for (location, expected_result) in test_data {
@@ -728,7 +709,8 @@ mod tests {
 			interior: [
 				Parachain(1),
 				AccountId32 { network: Some(NetworkId::Polkadot), id: [0u8; 32] },
-			].into(),
+			]
+			.into(),
 		};
 
 		assert_eq!(ForeignChainAliasAccount::<[u8; 32]>::convert_location(&mul).unwrap(), rem_1);
@@ -771,7 +753,8 @@ mod tests {
 			interior: [
 				Parachain(1),
 				AccountKey20 { network: Some(NetworkId::Polkadot), key: [0u8; 20] },
-			].into(),
+			]
+			.into(),
 		};
 
 		assert_eq!(ForeignChainAliasAccount::<[u8; 32]>::convert_location(&mul).unwrap(), rem_1);
@@ -887,7 +870,8 @@ mod tests {
 			interior: [
 				Parachain(1),
 				AccountId32 { network: Some(NetworkId::Polkadot), id: [0u8; 32] },
-			].into(),
+			]
+			.into(),
 		};
 
 		assert_eq!(ForeignChainAliasAccount::<[u8; 32]>::convert_location(&mul).unwrap(), rem_1);

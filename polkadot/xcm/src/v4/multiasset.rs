@@ -328,9 +328,7 @@ impl TryFrom<OldWildFungibility> for WildFungibility {
 }
 
 /// Classification of an asset being concrete or abstract.
-#[derive(
-	Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 pub enum AssetId {
 	/// A specific location identifying an asset.
@@ -722,7 +720,8 @@ impl TryFrom<OldWildMultiAsset> for WildMultiAsset {
 		Ok(match old {
 			AllOf { id, fun } => Self::AllOf { id: id.try_into()?, fun: fun.try_into()? },
 			All => Self::All,
-			AllOfCounted { id, fun, count } => Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count },
+			AllOfCounted { id, fun, count } =>
+				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count },
 			AllCounted(count) => Self::AllCounted(count),
 		})
 	}

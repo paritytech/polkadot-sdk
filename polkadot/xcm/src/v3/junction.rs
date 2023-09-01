@@ -22,11 +22,11 @@ use crate::{
 		BodyId as OldBodyId, BodyPart as OldBodyPart, Junction as OldJunction,
 		NetworkId as OldNetworkId,
 	},
+	v4::{
+		BodyId as NewBodyId, BodyPart as NewBodyPart, Junction as NewJunction,
+		NetworkId as NewNetworkId,
+	},
 	VersionedMultiLocation,
-};
-use crate::v4::{
-	BodyId as NewBodyId, BodyPart as NewBodyPart, NetworkId as NewNetworkId,
-	Junction as NewJunction
 };
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
 use core::convert::{TryFrom, TryInto};
@@ -474,7 +474,8 @@ impl TryFrom<NewJunction> for Junction {
 		use NewJunction::*;
 		Ok(match value {
 			Parachain(id) => Self::Parachain(id),
-			AccountId32 { network: Some(network), id } => Self::AccountId32 { network: network.try_into()?, id },
+			AccountId32 { network: Some(network), id } =>
+				Self::AccountId32 { network: network.try_into()?, id },
 			AccountId32 { network: None, id } => Self::AccountId32 { network: None, id },
 			AccountIndex64 { network: Some(network), index } =>
 				Self::AccountIndex64 { network: network.try_into()?, index },
@@ -482,8 +483,7 @@ impl TryFrom<NewJunction> for Junction {
 				Self::AccountIndex64 { network: None, index },
 			AccountKey20 { network: Some(network), key } =>
 				Self::AccountKey20 { network: network.try_into()?, key },
-			AccountKey20 { network: None, key } =>
-				Self::AccountKey20 { network: None, key },
+			AccountKey20 { network: None, key } => Self::AccountKey20 { network: None, key },
 			PalletInstance(index) => Self::PalletInstance(index),
 			GeneralIndex(id) => Self::GeneralIndex(id),
 			GeneralKey { length, data } => Self::GeneralKey { length, data },

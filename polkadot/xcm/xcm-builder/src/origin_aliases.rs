@@ -29,7 +29,9 @@ impl<Prefix: Contains<MultiLocation>> ContainsPair<MultiLocation, MultiLocation>
 	for AliasForeignAccountId32<Prefix>
 {
 	fn contains(origin: &MultiLocation, target: &MultiLocation) -> bool {
-		if let (prefix, Some(account_id @ AccountId32 { .. })) = origin.clone().split_last_interior() {
+		if let (prefix, Some(account_id @ AccountId32 { .. })) =
+			origin.clone().split_last_interior()
+		{
 			return Prefix::contains(&prefix) &&
 				*target == MultiLocation { parents: 0, interior: [account_id].into() }
 		}

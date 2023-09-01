@@ -186,7 +186,11 @@ fn weight_trader_tuple_should_work() {
 	let mut traders = Traders::new();
 	// trader one failed; trader two buys weight
 	assert_eq!(
-		traders.buy_weight(Weight::from_parts(5, 5), fungible_multi_asset(para_1.clone(), 10).into(), &ctx),
+		traders.buy_weight(
+			Weight::from_parts(5, 5),
+			fungible_multi_asset(para_1.clone(), 10).into(),
+			&ctx
+		),
 		Ok(vec![].into()),
 	);
 	// trader two refunds

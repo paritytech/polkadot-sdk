@@ -17,8 +17,10 @@
 //! XCM `MultiLocation` datatype.
 
 use super::{Junction, Junctions};
-use crate::{v2::MultiLocation as OldMultiLocation, VersionedMultiLocation};
-use crate::v4::MultiLocation as NewMultiLocation;
+use crate::{
+	v2::MultiLocation as OldMultiLocation, v4::MultiLocation as NewMultiLocation,
+	VersionedMultiLocation,
+};
 use core::{
 	convert::{TryFrom, TryInto},
 	result,

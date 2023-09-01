@@ -373,20 +373,19 @@ impl TryFrom<OldJunction> for Junction {
 		use OldJunction::*;
 		Ok(match value {
 			Parachain(id) => Self::Parachain(id),
-			AccountId32 { network: Some(network), id } => Self::AccountId32 { network: network.into(), id },
+			AccountId32 { network: Some(network), id } =>
+				Self::AccountId32 { network: network.into(), id },
 			AccountId32 { network: None, id } => Self::AccountId32 { network: None, id },
 			AccountIndex64 { network: Some(network), index } =>
 				Self::AccountIndex64 { network: network.into(), index },
 			AccountIndex64 { network: None, index } =>
 				Self::AccountIndex64 { network: None, index },
-			AccountKey20 { network: Some(network), key } => Self::AccountKey20 { network: network.into(), key },
+			AccountKey20 { network: Some(network), key } =>
+				Self::AccountKey20 { network: network.into(), key },
 			AccountKey20 { network: None, key } => Self::AccountKey20 { network: None, key },
 			PalletInstance(index) => Self::PalletInstance(index),
 			GeneralIndex(id) => Self::GeneralIndex(id),
-			GeneralKey { length, data } => Self::GeneralKey {
-				length,
-				data,
-			},
+			GeneralKey { length, data } => Self::GeneralKey { length, data },
 			OnlyChild => Self::OnlyChild,
 			Plurality { id, part } =>
 				Self::Plurality { id: id.try_into()?, part: part.try_into()? },

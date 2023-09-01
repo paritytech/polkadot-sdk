@@ -657,7 +657,10 @@ mod tests {
 			parents: 1,
 			interior: [Parachain(42), AccountIndex64 { network: None, index: 23 }].into(),
 		};
-		assert_eq!(m.prepend_with(MultiLocation { parents: 1, interior: [OnlyChild].into() }), Ok(()));
+		assert_eq!(
+			m.prepend_with(MultiLocation { parents: 1, interior: [OnlyChild].into() }),
+			Ok(())
+		);
 		assert_eq!(
 			m,
 			MultiLocation {

@@ -227,7 +227,8 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorMulti
 		xcm: &mut Option<Xcm<()>>,
 	) -> SendResult<Router::Ticket> {
 		let d = dest.as_ref().ok_or(MissingArgument)?;
-		let devolved = ensure_is_remote(UniversalLocation::get(), d.clone()).map_err(|_| NotApplicable)?;
+		let devolved =
+			ensure_is_remote(UniversalLocation::get(), d.clone()).map_err(|_| NotApplicable)?;
 		let (remote_network, remote_location) = devolved;
 
 		let xcm = xcm.take().ok_or(MissingArgument)?;

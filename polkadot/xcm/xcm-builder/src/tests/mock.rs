@@ -313,11 +313,9 @@ impl ConvertOrigin<TestOrigin> for TestOriginConverter {
 		match (kind, origin.unpack()) {
 			(Superuser, _) => Ok(TestOrigin::Root),
 			(SovereignAccount, _) => Ok(TestOrigin::Signed(to_account(origin)?)),
-			(Native, (0, [Parachain(id)])) =>
-				Ok(TestOrigin::Parachain(*id)),
+			(Native, (0, [Parachain(id)])) => Ok(TestOrigin::Parachain(*id)),
 			(Native, (1, [])) => Ok(TestOrigin::Relay),
-			(Native, (0, [AccountIndex64 { index, .. }])) =>
-				Ok(TestOrigin::Signed(*index)),
+			(Native, (0, [AccountIndex64 { index, .. }])) => Ok(TestOrigin::Signed(*index)),
 			_ => Err(origin),
 		}
 	}

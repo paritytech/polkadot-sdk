@@ -149,8 +149,7 @@ impl MaybeEquivalence<MultiLocation, AssetIdForAssets>
 		match value.unpack() {
 			(0, []) => Some(0 as AssetIdForAssets),
 			(1, []) => Some(1 as AssetIdForAssets),
-			(0, [PalletInstance(1), GeneralIndex(index)])
-				if ![0, 1].contains(index) =>
+			(0, [PalletInstance(1), GeneralIndex(index)]) if ![0, 1].contains(index) =>
 				Some(*index as AssetIdForAssets),
 			_ => None,
 		}
@@ -239,8 +238,8 @@ pub struct TreasuryToAccount;
 impl ConvertLocation<AccountId> for TreasuryToAccount {
 	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
 		match location.unpack() {
-			(1,	[Parachain(42), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }])
-				=> Some(TreasuryAccountId::get()), // Hardcoded test treasury account id
+			(1, [Parachain(42), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) =>
+				Some(TreasuryAccountId::get()), // Hardcoded test treasury account id
 			_ => None,
 		}
 	}

@@ -540,8 +540,8 @@ pub type AlwaysLts = AlwaysV4;
 
 pub mod prelude {
 	pub use super::{
-		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV2, AlwaysV3, AlwaysV4, IntoVersion, Unsupported,
-		Version as XcmVersion, VersionedAssetId, VersionedInteriorMultiLocation,
+		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV2, AlwaysV3, AlwaysV4, IntoVersion,
+		Unsupported, Version as XcmVersion, VersionedAssetId, VersionedInteriorMultiLocation,
 		VersionedMultiAsset, VersionedMultiAssets, VersionedMultiLocation, VersionedResponse,
 		VersionedXcm, WrapVersion,
 	};
@@ -585,7 +585,6 @@ fn conversion_works() {
 	let assets: MultiAssets = (Here, 1u128).into();
 	let _: VersionedMultiAssets = assets.into();
 }
-
 
 #[test]
 fn size_limits() {
