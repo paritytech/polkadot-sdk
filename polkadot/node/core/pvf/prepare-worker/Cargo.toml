@@ -19,7 +19,7 @@ tikv-jemallocator = { version = "0.5.0", optional = true }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 
 polkadot-node-core-pvf-common = { path = "../common" }
-polkadot-parachain = { path = "../../../../parachain" }
+polkadot-parachain-primitives = { path = "../../../../parachain" }
 polkadot-primitives = { path = "../../../../primitives" }
 
 sc-executor = { path = "../../../../../substrate/client/executor" }
@@ -34,7 +34,10 @@ tikv-jemalloc-ctl = "0.5.0"
 
 [features]
 builder = []
-jemalloc-allocator = ["dep:tikv-jemalloc-ctl"]
+jemalloc-allocator = [
+	"dep:tikv-jemalloc-ctl",
+	"polkadot-node-core-pvf-common/jemalloc-allocator",
+]
 tracking-allocator = ["dep:tracking-allocator", "dep:tikv-jemallocator"]
 
 [dev-dependencies]

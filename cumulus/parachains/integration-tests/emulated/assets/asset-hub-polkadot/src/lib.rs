@@ -1,4 +1,4 @@
-// Copyright Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -40,7 +40,7 @@ pub use integration_tests_common::{
 };
 pub use parachains_common::{AccountId, Balance};
 pub use polkadot_core_primitives::InboundDownwardMessage;
-pub use polkadot_parachain::primitives::{HrmpChannelId, Id};
+pub use polkadot_parachain_primitives::primitives::{HrmpChannelId, Id};
 pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
 pub use xcm::{
 	prelude::*,

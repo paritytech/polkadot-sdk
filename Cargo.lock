@@ -710,15 +710,15 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime",
  "polkadot-runtime-parachains",
  "sp-core",
  "sp-runtime",
  "sp-weights",
- "xcm",
+ "staging-xcm",
+ "staging-xcm-executor",
  "xcm-emulator",
- "xcm-executor",
 ]
 
 [[package]]
@@ -770,7 +770,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "primitive-types",
  "scale-info",
@@ -788,10 +788,10 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "sp-weights",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -810,15 +810,15 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime",
  "polkadot-runtime-parachains",
  "sp-core",
  "sp-runtime",
  "sp-weights",
- "xcm",
+ "staging-xcm",
+ "staging-xcm-executor",
  "xcm-emulator",
- "xcm-executor",
 ]
 
 [[package]]
@@ -866,7 +866,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "polkadot-runtime-constants",
  "scale-info",
@@ -884,10 +884,10 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "sp-weights",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -909,15 +909,15 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime",
  "polkadot-runtime-parachains",
  "sp-core",
  "sp-runtime",
  "sp-weights",
- "xcm",
+ "staging-xcm",
+ "staging-xcm-executor",
  "xcm-emulator",
- "xcm-executor",
 ]
 
 [[package]]
@@ -967,7 +967,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "primitive-types",
  "scale-info",
@@ -985,11 +985,11 @@ dependencies = [
  "sp-storage",
  "sp-transaction-pool",
  "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
  "westend-runtime-constants",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -1015,15 +1015,15 @@ dependencies = [
  "parachains-common",
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "sp-consensus-aura",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "staging-xcm",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
- "xcm",
- "xcm-executor",
 ]
 
 [[package]]
@@ -1043,10 +1043,10 @@ dependencies = [
  "sp-api",
  "sp-runtime",
  "sp-std",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -1865,7 +1865,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "scale-info",
  "serde",
@@ -1883,10 +1883,10 @@ dependencies = [
  "sp-storage",
  "sp-transaction-pool",
  "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -1927,7 +1927,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "polkadot-runtime-constants",
  "scale-info",
@@ -1946,10 +1946,10 @@ dependencies = [
  "sp-storage",
  "sp-transaction-pool",
  "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -1969,15 +1969,15 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime",
  "polkadot-runtime-parachains",
  "sp-core",
  "sp-runtime",
  "sp-weights",
- "xcm",
+ "staging-xcm",
+ "staging-xcm-executor",
  "xcm-emulator",
- "xcm-executor",
 ]
 
 [[package]]
@@ -2033,7 +2033,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "rococo-runtime-constants",
  "scale-info",
@@ -2053,11 +2053,11 @@ dependencies = [
  "sp-storage",
  "sp-transaction-pool",
  "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "static_assertions",
  "substrate-wasm-builder",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -2102,9 +2102,9 @@ dependencies = [
  "sp-io",
  "sp-keyring",
  "sp-runtime",
- "xcm",
- "xcm-builder",
- "xcm-executor",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
 ]
 
 [[package]]
@@ -2138,9 +2138,9 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-trie",
+ "staging-xcm",
+ "staging-xcm-builder",
  "static_assertions",
- "xcm",
- "xcm-builder",
 ]
 
 [[package]]
@@ -2597,15 +2597,15 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime",
  "polkadot-runtime-parachains",
  "sp-core",
  "sp-runtime",
  "sp-weights",
- "xcm",
+ "staging-xcm",
+ "staging-xcm-executor",
  "xcm-emulator",
- "xcm-executor",
 ]
 
 [[package]]
@@ -2653,7 +2653,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "polkadot-runtime-constants",
  "scale-info",
@@ -2672,10 +2672,10 @@ dependencies = [
  "sp-storage",
  "sp-transaction-pool",
  "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -2864,7 +2864,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "scale-info",
  "smallvec",
@@ -2880,10 +2880,10 @@ dependencies = [
  "sp-storage",
  "sp-transaction-pool",
  "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -3442,7 +3442,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "polkadot-node-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-test-client",
  "portpicker",
@@ -3555,7 +3555,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-version",
- "xcm",
+ "staging-xcm",
 ]
 
 [[package]]
@@ -3577,7 +3577,7 @@ dependencies = [
  "lazy_static",
  "log",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "sc-client-api",
  "scale-info",
  "sp-core",
@@ -3591,8 +3591,8 @@ dependencies = [
  "sp-tracing",
  "sp-trie",
  "sp-version",
+ "staging-xcm",
  "trie-db",
- "xcm",
 ]
 
 [[package]]
@@ -3645,7 +3645,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "xcm",
+ "staging-xcm",
 ]
 
 [[package]]
@@ -3667,9 +3667,9 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "xcm",
- "xcm-builder",
- "xcm-executor",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
 ]
 
 [[package]]
@@ -3684,7 +3684,7 @@ dependencies = [
  "scale-info",
  "sp-runtime",
  "sp-std",
- "xcm",
+ "staging-xcm",
 ]
 
 [[package]]
@@ -3706,14 +3706,14 @@ version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "scale-info",
  "sp-api",
  "sp-runtime",
  "sp-std",
  "sp-trie",
- "xcm",
+ "staging-xcm",
 ]
 
 [[package]]
@@ -3762,9 +3762,9 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "xcm",
- "xcm-builder",
- "xcm-executor",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
 ]
 
 [[package]]
@@ -3896,7 +3896,7 @@ dependencies = [
  "pallet-balances",
  "pallet-transaction-payment",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "sc-block-builder",
  "sc-consensus",
@@ -5892,10 +5892,10 @@ dependencies = [
  "sp-storage",
  "sp-transaction-pool",
  "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -6447,7 +6447,6 @@ dependencies = [
  "cumulus-primitives-core",
  "frame-support",
  "frame-system",
- "kusama-runtime",
  "kusama-runtime-constants",
  "lazy_static",
  "pallet-assets",
@@ -6463,7 +6462,7 @@ dependencies = [
  "paste",
  "penpal-runtime",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime",
  "polkadot-runtime-constants",
@@ -6479,11 +6478,12 @@ dependencies = [
  "sp-runtime",
  "sp-tracing",
  "sp-weights",
+ "staging-kusama-runtime",
+ "staging-xcm",
+ "staging-xcm-executor",
  "westend-runtime",
  "westend-runtime-constants",
- "xcm",
  "xcm-emulator",
- "xcm-executor",
 ]
 
 [[package]]
@@ -6913,119 +6913,6 @@ dependencies = [
  "sp-version",
  "static_assertions",
  "substrate-wasm-builder",
-]
-
-[[package]]
-name = "kusama-runtime"
-version = "1.0.0"
-dependencies = [
- "binary-merkle-tree",
- "bitvec",
- "frame-benchmarking",
- "frame-election-provider-support",
- "frame-executive",
- "frame-remote-externalities",
- "frame-support",
- "frame-system",
- "frame-system-benchmarking",
- "frame-system-rpc-runtime-api",
- "frame-try-runtime",
- "hex-literal 0.4.1",
- "kusama-runtime-constants",
- "log",
- "pallet-authority-discovery",
- "pallet-authorship",
- "pallet-babe",
- "pallet-bags-list",
- "pallet-balances",
- "pallet-beefy",
- "pallet-beefy-mmr",
- "pallet-bounties",
- "pallet-child-bounties",
- "pallet-collective",
- "pallet-conviction-voting",
- "pallet-democracy",
- "pallet-election-provider-multi-phase",
- "pallet-election-provider-support-benchmarking",
- "pallet-elections-phragmen",
- "pallet-fast-unstake",
- "pallet-grandpa",
- "pallet-identity",
- "pallet-im-online",
- "pallet-indices",
- "pallet-membership",
- "pallet-message-queue",
- "pallet-mmr",
- "pallet-multisig",
- "pallet-nis",
- "pallet-nomination-pools",
- "pallet-nomination-pools-benchmarking",
- "pallet-nomination-pools-runtime-api",
- "pallet-offences",
- "pallet-offences-benchmarking",
- "pallet-preimage",
- "pallet-proxy",
- "pallet-ranked-collective",
- "pallet-recovery",
- "pallet-referenda",
- "pallet-scheduler",
- "pallet-session",
- "pallet-session-benchmarking",
- "pallet-society",
- "pallet-staking",
- "pallet-staking-runtime-api",
- "pallet-state-trie-migration",
- "pallet-timestamp",
- "pallet-tips",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
- "pallet-treasury",
- "pallet-utility",
- "pallet-vesting",
- "pallet-whitelist",
- "pallet-xcm",
- "pallet-xcm-benchmarks",
- "parity-scale-codec",
- "polkadot-primitives",
- "polkadot-runtime-common",
- "polkadot-runtime-parachains",
- "rustc-hex",
- "scale-info",
- "separator",
- "serde",
- "serde_derive",
- "serde_json",
- "smallvec",
- "sp-api",
- "sp-application-crypto",
- "sp-arithmetic",
- "sp-authority-discovery",
- "sp-block-builder",
- "sp-consensus-babe",
- "sp-consensus-beefy",
- "sp-core",
- "sp-inherents",
- "sp-io",
- "sp-keyring",
- "sp-mmr-primitives",
- "sp-npos-elections",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-staking",
- "sp-std",
- "sp-storage",
- "sp-tracing",
- "sp-transaction-pool",
- "sp-trie",
- "sp-version",
- "static_assertions",
- "substrate-wasm-builder",
- "tiny-keccak",
- "tokio",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -10083,7 +9970,6 @@ dependencies = [
 name = "pallet-nfts-runtime-api"
 version = "4.0.0-dev"
 dependencies = [
- "frame-support",
  "pallet-nfts",
  "parity-scale-codec",
  "sp-api",
@@ -10942,7 +10828,7 @@ dependencies = [
  "log",
  "pallet-balances",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
  "scale-info",
  "serde",
@@ -10950,9 +10836,9 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "xcm",
- "xcm-builder",
- "xcm-executor",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
 ]
 
 [[package]]
@@ -10975,9 +10861,9 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-tracing",
- "xcm",
- "xcm-builder",
- "xcm-executor",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
 ]
 
 [[package]]
@@ -10995,8 +10881,8 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "xcm",
- "xcm-builder",
+ "staging-xcm",
+ "staging-xcm-builder",
 ]
 
 [[package]]
@@ -11063,10 +10949,10 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-timestamp",
+ "staging-xcm",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
- "xcm",
 ]
 
 [[package]]
@@ -11103,7 +10989,7 @@ dependencies = [
  "pallet-xcm",
  "parachain-info",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "scale-info",
  "smallvec",
@@ -11118,10 +11004,10 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -11147,10 +11033,10 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -11175,16 +11061,16 @@ dependencies = [
  "parachain-info",
  "parachains-common",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "sp-consensus-aura",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
  "sp-tracing",
+ "staging-xcm",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
- "xcm",
- "xcm-executor",
 ]
 
 [[package]]
@@ -11428,7 +11314,7 @@ dependencies = [
  "parachain-info",
  "parachains-common",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime-common",
  "scale-info",
@@ -11445,10 +11331,10 @@ dependencies = [
  "sp-storage",
  "sp-transaction-pool",
  "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -12064,7 +11950,7 @@ dependencies = [
  "polkadot-node-subsystem-test-helpers",
  "polkadot-node-subsystem-util",
  "polkadot-overseer",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "sp-core",
@@ -12221,7 +12107,7 @@ dependencies = [
  "polkadot-node-core-pvf-prepare-worker",
  "polkadot-node-metrics",
  "polkadot-node-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "rand 0.8.5",
  "slotmap",
@@ -12270,7 +12156,7 @@ dependencies = [
  "landlock",
  "libc",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "sc-executor",
  "sc-executor-common",
@@ -12292,13 +12178,12 @@ dependencies = [
  "futures",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "rayon",
  "sp-core",
  "sp-maybe-compressed-blob",
  "sp-tracing",
- "tikv-jemalloc-ctl",
  "tokio",
  "tracing-gum",
 ]
@@ -12313,7 +12198,7 @@ dependencies = [
  "libc",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "rayon",
  "sc-executor",
@@ -12425,7 +12310,7 @@ dependencies = [
  "futures",
  "parity-scale-codec",
  "polkadot-erasure-coding",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "schnorrkel 0.9.1",
  "serde",
@@ -12436,7 +12321,7 @@ dependencies = [
  "sp-maybe-compressed-blob",
  "sp-runtime",
  "thiserror",
- "zstd 0.11.2+zstd.1.5.2",
+ "zstd 0.12.4",
 ]
 
 [[package]]
@@ -12557,22 +12442,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "polkadot-parachain"
-version = "1.0.0"
-dependencies = [
- "bounded-collections",
- "derive_more",
- "frame-support",
- "parity-scale-codec",
- "polkadot-core-primitives",
- "scale-info",
- "serde",
- "sp-core",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "polkadot-parachain-bin"
 version = "1.0.0"
 dependencies = [
@@ -12645,6 +12514,7 @@ dependencies = [
  "sp-session",
  "sp-timestamp",
  "sp-transaction-pool",
+ "staging-xcm",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
@@ -12652,7 +12522,22 @@ dependencies = [
  "tempfile",
  "tokio",
  "wait-timeout",
- "xcm",
+]
+
+[[package]]
+name = "polkadot-parachain-primitives"
+version = "1.0.0"
+dependencies = [
+ "bounded-collections",
+ "derive_more",
+ "frame-support",
+ "parity-scale-codec",
+ "polkadot-core-primitives",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -12660,7 +12545,6 @@ name = "polkadot-performance-test"
 version = "1.0.0"
 dependencies = [
  "env_logger 0.9.3",
- "kusama-runtime",
  "log",
  "polkadot-erasure-coding",
  "polkadot-node-core-pvf-prepare-worker",
@@ -12669,6 +12553,7 @@ dependencies = [
  "quote",
  "sc-executor-common",
  "sp-maybe-compressed-blob",
+ "staging-kusama-runtime",
  "thiserror",
 ]
 
@@ -12680,7 +12565,7 @@ dependencies = [
  "hex-literal 0.4.1",
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "scale-info",
  "serde",
  "sp-api",
@@ -12835,13 +12720,13 @@ dependencies = [
  "sp-transaction-pool",
  "sp-trie",
  "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "static_assertions",
  "substrate-wasm-builder",
  "tiny-keccak",
  "tokio",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -12891,8 +12776,8 @@ dependencies = [
  "sp-session",
  "sp-staking",
  "sp-std",
+ "staging-xcm",
  "static_assertions",
- "xcm",
 ]
 
 [[package]]
@@ -12945,7 +12830,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-vesting",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "polkadot-runtime-metrics",
@@ -12968,10 +12853,10 @@ dependencies = [
  "sp-staking",
  "sp-std",
  "sp-tracing",
+ "staging-xcm",
+ "staging-xcm-executor",
  "static_assertions",
  "thousands",
- "xcm",
- "xcm-executor",
 ]
 
 [[package]]
@@ -12989,7 +12874,6 @@ dependencies = [
  "futures",
  "hex-literal 0.4.1",
  "is_executable",
- "kusama-runtime",
  "kusama-runtime-constants",
  "kvdb",
  "kvdb-rocksdb",
@@ -13033,7 +12917,7 @@ dependencies = [
  "polkadot-node-subsystem-types",
  "polkadot-node-subsystem-util",
  "polkadot-overseer",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-rpc",
  "polkadot-runtime",
@@ -13094,6 +12978,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "sp-weights",
+ "staging-kusama-runtime",
  "substrate-prometheus-endpoint",
  "tempfile",
  "thiserror",
@@ -13235,7 +13120,7 @@ dependencies = [
  "pallet-vesting",
  "pallet-xcm",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime-common",
  "polkadot-runtime-parachains",
@@ -13263,12 +13148,12 @@ dependencies = [
  "sp-transaction-pool",
  "sp-trie",
  "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
  "test-runtime-constants",
  "tiny-keccak",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -13284,7 +13169,7 @@ dependencies = [
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-overseer",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-rpc",
  "polkadot-runtime-common",
@@ -13329,9 +13214,9 @@ version = "1.0.0"
 dependencies = [
  "clap 4.4.1",
  "generate-bags",
- "kusama-runtime",
  "polkadot-runtime",
  "sp-io",
+ "staging-kusama-runtime",
  "westend-runtime",
 ]
 
@@ -14091,7 +13976,6 @@ version = "1.0.0"
 dependencies = [
  "clap 4.4.1",
  "frame-system",
- "kusama-runtime",
  "kusama-runtime-constants",
  "log",
  "pallet-bags-list-remote-tests",
@@ -14099,6 +13983,7 @@ dependencies = [
  "polkadot-runtime-constants",
  "sp-core",
  "sp-tracing",
+ "staging-kusama-runtime",
  "tokio",
  "westend-runtime",
  "westend-runtime-constants",
@@ -14258,7 +14143,7 @@ dependencies = [
  "parachain-info",
  "parachains-common",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "scale-info",
  "sp-api",
  "sp-block-builder",
@@ -14271,10 +14156,10 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -14332,7 +14217,7 @@ dependencies = [
  "pallet-xcm",
  "pallet-xcm-benchmarks",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime-common",
  "polkadot-runtime-parachains",
@@ -14363,13 +14248,13 @@ dependencies = [
  "sp-transaction-pool",
  "sp-trie",
  "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "static_assertions",
  "substrate-wasm-builder",
  "tiny-keccak",
  "tokio",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -16539,10 +16424,10 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -17163,6 +17048,21 @@ version = "0.10.0-dev"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "sp-consensus-sassafras"
+version = "0.3.4-dev"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-consensus-slots",
  "sp-core",
  "sp-runtime",
  "sp-std",
@@ -17856,7 +17756,120 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
-name = "staking-miner"
+name = "staging-kusama-runtime"
+version = "1.0.0"
+dependencies = [
+ "binary-merkle-tree",
+ "bitvec",
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-executive",
+ "frame-remote-externalities",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
+ "hex-literal 0.4.1",
+ "kusama-runtime-constants",
+ "log",
+ "pallet-authority-discovery",
+ "pallet-authorship",
+ "pallet-babe",
+ "pallet-bags-list",
+ "pallet-balances",
+ "pallet-beefy",
+ "pallet-beefy-mmr",
+ "pallet-bounties",
+ "pallet-child-bounties",
+ "pallet-collective",
+ "pallet-conviction-voting",
+ "pallet-democracy",
+ "pallet-election-provider-multi-phase",
+ "pallet-election-provider-support-benchmarking",
+ "pallet-elections-phragmen",
+ "pallet-fast-unstake",
+ "pallet-grandpa",
+ "pallet-identity",
+ "pallet-im-online",
+ "pallet-indices",
+ "pallet-membership",
+ "pallet-message-queue",
+ "pallet-mmr",
+ "pallet-multisig",
+ "pallet-nis",
+ "pallet-nomination-pools",
+ "pallet-nomination-pools-benchmarking",
+ "pallet-nomination-pools-runtime-api",
+ "pallet-offences",
+ "pallet-offences-benchmarking",
+ "pallet-preimage",
+ "pallet-proxy",
+ "pallet-ranked-collective",
+ "pallet-recovery",
+ "pallet-referenda",
+ "pallet-scheduler",
+ "pallet-session",
+ "pallet-session-benchmarking",
+ "pallet-society",
+ "pallet-staking",
+ "pallet-staking-runtime-api",
+ "pallet-state-trie-migration",
+ "pallet-timestamp",
+ "pallet-tips",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
+ "pallet-utility",
+ "pallet-vesting",
+ "pallet-whitelist",
+ "pallet-xcm",
+ "pallet-xcm-benchmarks",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
+ "rustc-hex",
+ "scale-info",
+ "separator",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "smallvec",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-arithmetic",
+ "sp-authority-discovery",
+ "sp-block-builder",
+ "sp-consensus-babe",
+ "sp-consensus-beefy",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-keyring",
+ "sp-mmr-primitives",
+ "sp-npos-elections",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-staking",
+ "sp-std",
+ "sp-storage",
+ "sp-tracing",
+ "sp-transaction-pool",
+ "sp-trie",
+ "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "static_assertions",
+ "substrate-wasm-builder",
+ "tiny-keccak",
+ "tokio",
+]
+
+[[package]]
+name = "staging-staking-miner"
 version = "1.0.0"
 dependencies = [
  "assert_cmd",
@@ -17868,7 +17881,6 @@ dependencies = [
  "frame-system",
  "futures-util",
  "jsonrpsee",
- "kusama-runtime",
  "log",
  "pallet-balances",
  "pallet-election-provider-multi-phase",
@@ -17889,11 +17901,80 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-version",
+ "staging-kusama-runtime",
  "sub-tokens",
  "thiserror",
  "tokio",
  "tracing-subscriber 0.3.17",
  "westend-runtime",
+]
+
+[[package]]
+name = "staging-xcm"
+version = "1.0.0"
+dependencies = [
+ "bounded-collections",
+ "derivative",
+ "environmental",
+ "hex",
+ "hex-literal 0.4.1",
+ "impl-trait-for-tuples",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-io",
+ "sp-weights",
+ "xcm-procedural",
+]
+
+[[package]]
+name = "staging-xcm-builder"
+version = "1.0.0"
+dependencies = [
+ "assert_matches",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-salary",
+ "pallet-transaction-payment",
+ "pallet-xcm",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "polkadot-test-runtime",
+ "primitive-types",
+ "scale-info",
+ "sp-arithmetic",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-weights",
+ "staging-xcm",
+ "staging-xcm-executor",
+]
+
+[[package]]
+name = "staging-xcm-executor"
+version = "1.0.0"
+dependencies = [
+ "environmental",
+ "frame-benchmarking",
+ "frame-support",
+ "impl-trait-for-tuples",
+ "log",
+ "parity-scale-codec",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-weights",
+ "staging-xcm",
 ]
 
 [[package]]
@@ -18259,28 +18340,8 @@ version = "4.0.0-dev"
 dependencies = [
  "futures",
  "sc-service",
- "substrate-test-utils-derive",
  "tokio",
  "trybuild",
-]
-
-[[package]]
-name = "substrate-test-utils-derive"
-version = "0.10.0-dev"
-dependencies = [
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "syn 2.0.29",
-]
-
-[[package]]
-name = "substrate-test-utils-test-crate"
-version = "0.1.0"
-dependencies = [
- "sc-service",
- "substrate-test-utils",
- "tokio",
 ]
 
 [[package]]
@@ -18524,7 +18585,7 @@ version = "1.0.0"
 dependencies = [
  "dlmalloc",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "sp-io",
  "sp-std",
  "substrate-wasm-builder",
@@ -18544,7 +18605,7 @@ dependencies = [
  "polkadot-node-core-pvf",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-service",
  "polkadot-test-service",
@@ -18573,7 +18634,7 @@ dependencies = [
  "dlmalloc",
  "log",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "sp-io",
  "sp-std",
  "substrate-wasm-builder",
@@ -18593,7 +18654,7 @@ dependencies = [
  "polkadot-node-core-pvf",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-service",
  "polkadot-test-service",
@@ -20411,7 +20472,7 @@ dependencies = [
  "pallet-xcm",
  "pallet-xcm-benchmarks",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime-common",
  "polkadot-runtime-parachains",
@@ -20442,13 +20503,13 @@ dependencies = [
  "sp-tracing",
  "sp-transaction-pool",
  "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-wasm-builder",
  "tiny-keccak",
  "tokio",
  "westend-runtime-constants",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -20804,54 +20865,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "xcm"
-version = "1.0.0"
-dependencies = [
- "bounded-collections",
- "derivative",
- "hex",
- "hex-literal 0.4.1",
- "impl-trait-for-tuples",
- "log",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-io",
- "sp-weights",
- "xcm-procedural",
-]
-
-[[package]]
-name = "xcm-builder"
-version = "1.0.0"
-dependencies = [
- "assert_matches",
- "frame-support",
- "frame-system",
- "impl-trait-for-tuples",
- "log",
- "pallet-assets",
- "pallet-balances",
- "pallet-salary",
- "pallet-transaction-payment",
- "pallet-xcm",
- "parity-scale-codec",
- "polkadot-parachain",
- "polkadot-primitives",
- "polkadot-runtime-parachains",
- "polkadot-test-runtime",
- "primitive-types",
- "scale-info",
- "sp-arithmetic",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "sp-weights",
- "xcm",
- "xcm-executor",
-]
-
-[[package]]
 name = "xcm-emulator"
 version = "0.1.0"
 dependencies = [
@@ -20880,27 +20893,8 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-trie",
- "xcm",
- "xcm-executor",
-]
-
-[[package]]
-name = "xcm-executor"
-version = "1.0.0"
-dependencies = [
- "environmental",
- "frame-benchmarking",
- "frame-support",
- "impl-trait-for-tuples",
- "log",
- "parity-scale-codec",
- "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "sp-weights",
- "xcm",
+ "staging-xcm",
+ "staging-xcm-executor",
 ]
 
 [[package]]
@@ -20920,8 +20914,8 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-tracing",
- "xcm",
- "xcm-executor",
+ "staging-xcm",
+ "staging-xcm-executor",
 ]
 
 [[package]]
@@ -20942,13 +20936,13 @@ dependencies = [
  "parity-scale-codec",
  "paste",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
  "sp-io",
  "sp-std",
- "xcm",
- "xcm-builder",
- "xcm-executor",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
 ]
 
 [[package]]
@@ -20964,7 +20958,7 @@ dependencies = [
  "pallet-xcm",
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
  "scale-info",
  "sp-core",
@@ -20972,9 +20966,9 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-tracing",
- "xcm",
- "xcm-builder",
- "xcm-executor",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "xcm-simulator",
 ]
 
@@ -20991,16 +20985,16 @@ dependencies = [
  "pallet-xcm",
  "parity-scale-codec",
  "polkadot-core-primitives",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
  "scale-info",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
- "xcm",
- "xcm-builder",
- "xcm-executor",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "xcm-simulator",
 ]
 

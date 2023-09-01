@@ -10,7 +10,7 @@ description = "Fuzz storage types of pallet-paged-list"
 publish = false
 
 [[bin]]
-name = "pallet-paged-list"
+name = "pallet-paged-list-fuzzer"
 path = "src/paged_list.rs"
 
 [dependencies]

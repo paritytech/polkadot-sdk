@@ -34,7 +34,7 @@ No PR should be merged until all reviews' comments are addressed.
 
 ### Labels:
 
-The set of labels and their description can be found [here](linktobeinserted)
+The set of labels and their description can be found [here](https://paritytech.github.io/labels/doc_polkadot-sdk.html).
 
 ### Process:
 
@@ -96,9 +96,9 @@ d) that the docs team was included in the review process of a docs update
 
 We use [labels](https://github.com/paritytech/polkadot-sdk/labels) to manage PRs and issues and communicate
 state of a PR. Please familiarise yourself with them. Best way to get started is to a pick a ticket tagged
-`[easy](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD0-easy)`
-or `[medium](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD1-medium)`
-and get going or `[mentor](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AC1-mentor)`
+[easy](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD0-easy)
+or [medium](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD1-medium)
+and get going. Alternatively, look out for issues tagged [mentor](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AC1-mentor)
 and get in contact with the mentor offering their support on that larger task.
 
 ****
