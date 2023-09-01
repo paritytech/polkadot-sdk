@@ -8,7 +8,6 @@ publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
-lazy_static = "1.4.0"
 paste = "1.0.14"
 
 # Substrate
@@ -16,12 +15,8 @@ grandpa = { package = "sc-consensus-grandpa", path = "../../../../../substrate/c
 sp-authority-discovery = { path = "../../../../../substrate/primitives/authority-discovery", default-features = false}
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false}
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false}
-frame-system = { path = "../../../../../substrate/frame/system", default-features = false}
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
-sp-weights = { path = "../../../../../substrate/primitives/weights", default-features = false}
 sp-consensus-babe = { path = "../../../../../substrate/primitives/consensus/babe", default-features = false}
-sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
-pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false}
 pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false}
 pallet-staking = { path = "../../../../../substrate/frame/staking", default-features = false}
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false}
@@ -43,12 +38,10 @@ rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/cons
 westend-runtime = { path = "../../../../../polkadot/runtime/westend" }
 westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/constants" }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 
 # Cumulus
 parachains-common = { path = "../../../common" }
-parachain-info = { path = "../../../pallets/parachain-info" }
 cumulus-primitives-core = { path = "../../../../primitives/core" }
 penpal-runtime = { path = "../../../runtimes/testing/penpal" }
 asset-hub-polkadot-runtime = { path = "../../../runtimes/assets/asset-hub-polkadot" }
@@ -63,7 +56,6 @@ cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue" }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false}
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system" }
 bp-messages = { path = "../../../../bridges/primitives/messages" }
-bp-runtime = { path = "../../../../bridges/primitives/runtime" }
 pallet-bridge-messages = { path = "../../../../bridges/modules/messages" }
 bridge-runtime-common = { path = "../../../../bridges/bin/runtime-common" }
 
@@ -80,10 +72,8 @@ runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
 	"kusama-runtime/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
@@ -98,5 +88,4 @@ runtime-benchmarks = [
 	"rococo-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"westend-runtime/runtime-benchmarks",
-	"xcm-executor/runtime-benchmarks",
 ]
