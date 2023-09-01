@@ -1,0 +1,19 @@
+title: Removed deprecated `Balances::transfer` and `Balances::set_balance_deprecated` functions.
+
+doc:
+    # Ideally the audience should be `DApp Builders`, but that is not currently supported
+  - audience: Exchange
+    description: The Balances pallet's dispatchables `set_balance_deprecated` and `transfer` were deprecated in [paritytech/substrate#12951](https://github.com/paritytech/substrate/pull/12951) and have now been removed.
+    # Ideally these notes would go into a `api_changes` section, but that is not currently supported
+    notes:
+      - Instead `force_set_balance` and `transfer_allow_death` should be used respectively.
+# Ideally, this section should be removed, but that is not currently supported
+migrations:
+    runtime:
+        - pallet: pallet-balances
+          description: No migrations are required for this change.
+
+crates:
+  - name: pallet-balances
+
+host_functions: []
