@@ -1036,6 +1036,7 @@ impl_runtime_apis! {
 			];
 
 			use bridge_runtime_common::messages_benchmarking::{
+				generate_xcm_builder_bridge_message_sample,
 				prepare_message_delivery_proof_from_grandpa_chain,
 				prepare_message_delivery_proof_from_parachain,
 				prepare_message_proof_from_grandpa_chain,
@@ -1070,7 +1071,7 @@ impl_runtime_apis! {
 						Runtime,
 						WithRialtoParachainsInstance,
 						WithRialtoParachainMessageBridge,
-					>(params, xcm::v3::Junctions::Here)
+					>(params, generate_xcm_builder_bridge_message_sample(xcm::v3::Junctions::Here))
 				}
 
 				fn prepare_message_delivery_proof(
@@ -1101,7 +1102,7 @@ impl_runtime_apis! {
 						Runtime,
 						RialtoGrandpaInstance,
 						WithRialtoMessageBridge,
-					>(params, xcm::v3::Junctions::Here)
+					>(params, generate_xcm_builder_bridge_message_sample(xcm::v3::Junctions::Here))
 				}
 
 				fn prepare_message_delivery_proof(
