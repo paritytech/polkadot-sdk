@@ -49,7 +49,9 @@ pub mod __private {
 	pub use sp_metadata_ir as metadata_ir;
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
-	pub use sp_runtime::{traits::Dispatchable, TransactionOutcome, RuntimeDebug, StateVersion};
+	pub use sp_runtime::{
+		traits::Dispatchable, DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
+	};
 	#[cfg(feature = "std")]
 	pub use sp_state_machine::BasicExternalities;
 	pub use sp_std;

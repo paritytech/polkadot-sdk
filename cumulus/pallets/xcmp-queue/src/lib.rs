@@ -608,7 +608,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 		iter: I,
 		max_weight: Weight,
 	) -> Weight {
-		let mut meter = WeightMeter::from_limit(max_weight);
+		let mut meter = WeightMeter::with_limit(max_weight);
 
 		for (sender, _sent_at, mut data) in iter {
 			let format = match XcmpMessageFormat::decode(&mut data) {
