@@ -25,8 +25,10 @@ use frame_support::{
 use parity_scale_codec::Decode;
 use sp_runtime::traits::{SaturatedConversion, Saturating, Zero};
 use sp_std::{marker::PhantomData, result::Result};
-use xcm::latest::{prelude::*, Weight};
-use xcm::v2::GetWeight;
+use xcm::{
+	latest::{prelude::*, Weight},
+	v2::GetWeight,
+};
 use xcm_executor::{
 	traits::{WeightBounds, WeightTrader},
 	Assets,

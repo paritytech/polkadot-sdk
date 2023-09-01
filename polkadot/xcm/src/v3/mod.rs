@@ -16,14 +16,16 @@
 
 //! Version 3 of the Cross-Consensus Message format data structures.
 
-use super::v2::{
-	Instruction as OldInstruction, Response as OldResponse, WeightLimit as OldWeightLimit,
-	Xcm as OldXcm,
-};
-use super::v4::{
-	Xcm as NewXcm, Instruction as NewInstruction, Response as NewResponse,
-	WeightLimit as NewWeightLimit, MaybeErrorCode as NewMaybeErrorCode,
-	PalletInfo as NewPalletInfo,
+use super::{
+	v2::{
+		Instruction as OldInstruction, Response as OldResponse, WeightLimit as OldWeightLimit,
+		Xcm as OldXcm,
+	},
+	v4::{
+		Instruction as NewInstruction, MaybeErrorCode as NewMaybeErrorCode,
+		PalletInfo as NewPalletInfo, Response as NewResponse, WeightLimit as NewWeightLimit,
+		Xcm as NewXcm,
+	},
 };
 use crate::DoubleEncoded;
 use alloc::{vec, vec::Vec};
@@ -281,7 +283,8 @@ impl TryInto<NewPalletInfo> for PalletInfo {
 			self.major,
 			self.minor,
 			self.patch,
-		).map_err(|_| ())
+		)
+		.map_err(|_| ())
 	}
 }
 
@@ -299,8 +302,14 @@ impl TryFrom<NewMaybeErrorCode> for MaybeErrorCode {
 		use NewMaybeErrorCode::*;
 		Ok(match new {
 			Success => Self::Success,
-			Error(errors) => Self::Error(BoundedVec::<u8, MaxDispatchErrorLen>::try_from(errors.into_inner()).map_err(|_| ())?),
-			TruncatedError(errors) => Self::Error(BoundedVec::<u8, MaxDispatchErrorLen>::try_from(errors.into_inner()).map_err(|_| ())?),
+			Error(errors) => Self::Error(
+				BoundedVec::<u8, MaxDispatchErrorLen>::try_from(errors.into_inner())
+					.map_err(|_| ())?,
+			),
+			TruncatedError(errors) => Self::Error(
+				BoundedVec::<u8, MaxDispatchErrorLen>::try_from(errors.into_inner())
+					.map_err(|_| ())?,
+			),
 		})
 	}
 }
@@ -351,15 +360,20 @@ impl TryFrom<NewResponse> for Response {
 		Ok(match new {
 			Null => Self::Null,
 			Assets(assets) => Self::Assets(assets.try_into()?),
-			ExecutionResult(result) => Self::ExecutionResult(result.map(|(num, old_error)| (num, old_error.into()))),
+			ExecutionResult(result) =>
+				Self::ExecutionResult(result.map(|(num, old_error)| (num, old_error.into()))),
 			Version(version) => Self::Version(version),
 			PalletsInfo(pallet_info) => {
-				let inner = pallet_info.into_iter().map(TryInto::try_into).collect::<result::Result<Vec<_>, _>>()?;
+				let inner = pallet_info
+					.into_iter()
+					.map(TryInto::try_into)
+					.collect::<result::Result<Vec<_>, _>>()?;
 				Self::PalletsInfo(
-					BoundedVec::<PalletInfo, MaxPalletsInfo>::try_from(inner).map_err(|_| ())?
+					BoundedVec::<PalletInfo, MaxPalletsInfo>::try_from(inner).map_err(|_| ())?,
 				)
 			},
-			DispatchResult(maybe_error) => Self::DispatchResult(maybe_error.try_into().map_err(|_| ())?),
+			DispatchResult(maybe_error) =>
+				Self::DispatchResult(maybe_error.try_into().map_err(|_| ())?),
 		})
 	}
 }
@@ -1312,18 +1326,20 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			WithdrawAsset(assets) => Self::WithdrawAsset(assets.try_into()?),
 			ReserveAssetDeposited(assets) => Self::ReserveAssetDeposited(assets.try_into()?),
 			ReceiveTeleportedAsset(assets) => Self::ReceiveTeleportedAsset(assets.try_into()?),
-			QueryResponse { query_id, response, max_weight, querier: Some(querier) } => Self::QueryResponse {
-				query_id,
-				querier: querier.try_into()?,
-				response: response.try_into()?,
-				max_weight: max_weight,
-			},
-			QueryResponse { query_id, response, max_weight, querier: None } => Self::QueryResponse {
-				query_id,
-				querier: None,
-				response: response.try_into()?,
-				max_weight: max_weight,
-			},
+			QueryResponse { query_id, response, max_weight, querier: Some(querier) } =>
+				Self::QueryResponse {
+					query_id,
+					querier: querier.try_into()?,
+					response: response.try_into()?,
+					max_weight,
+				},
+			QueryResponse { query_id, response, max_weight, querier: None } =>
+				Self::QueryResponse {
+					query_id,
+					querier: None,
+					response: response.try_into()?,
+					max_weight,
+				},
 			TransferAsset { assets, beneficiary } => Self::TransferAsset {
 				assets: assets.try_into()?,
 				beneficiary: beneficiary.try_into()?,
@@ -1338,11 +1354,8 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, require_weight_at_most, call } => Self::Transact {
-				origin_kind,
-				require_weight_at_most,
-				call: call.into(),
-			},
+			Transact { origin_kind, require_weight_at_most, call } =>
+				Self::Transact { origin_kind, require_weight_at_most, call: call.into() },
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
 				query_id: response_info.query_id,
 				destination: response_info.destination.try_into().map_err(|_| ())?,
@@ -1384,10 +1397,7 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 					query_id: response_info.query_id,
 					max_weight: response_info.max_weight,
 				};
-				Self::ReportHolding {
-					response_info,
-					assets: assets.try_into()?,
-				}
+				Self::ReportHolding { response_info, assets: assets.try_into()? }
 			},
 			BuyExecution { fees, weight_limit } => {
 				let fees = fees.try_into()?;
@@ -1406,10 +1416,8 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 				Self::ClaimAsset { assets, ticket }
 			},
 			Trap(code) => Self::Trap(code),
-			SubscribeVersion { query_id, max_response_weight } => Self::SubscribeVersion {
-				query_id,
-				max_response_weight: max_response_weight,
-			},
+			SubscribeVersion { query_id, max_response_weight } =>
+				Self::SubscribeVersion { query_id, max_response_weight },
 			UnsubscribeVersion => Self::UnsubscribeVersion,
 			_ => return Err(()),
 		})
@@ -1496,10 +1504,8 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 				};
 				Self::ReportHolding { response_info, assets: assets.try_into()? }
 			},
-			BuyExecution { fees, weight_limit } => Self::BuyExecution {
-				fees: fees.try_into()?,
-				weight_limit: weight_limit.into(),
-			},
+			BuyExecution { fees, weight_limit } =>
+				Self::BuyExecution { fees: fees.try_into()?, weight_limit: weight_limit.into() },
 			ClearOrigin => Self::ClearOrigin,
 			DescendOrigin(who) => Self::DescendOrigin(who.try_into()?),
 			RefundSurplus => Self::RefundSurplus,

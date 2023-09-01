@@ -16,12 +16,12 @@
 
 //! Version 4 of the Cross-Consensus Message format data structures.
 
-use super::v3::{
-	Instruction as OldInstruction, Xcm as OldXcm,
-	WeightLimit as OldWeightLimit, Response as OldResponse,
-	MaybeErrorCode as OldMaybeErrorCode, PalletInfo as OldPalletInfo,
-};
 pub use super::v2::GetWeight;
+use super::v3::{
+	Instruction as OldInstruction, MaybeErrorCode as OldMaybeErrorCode,
+	PalletInfo as OldPalletInfo, Response as OldResponse, WeightLimit as OldWeightLimit,
+	Xcm as OldXcm,
+};
 use crate::DoubleEncoded;
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
@@ -236,7 +236,8 @@ impl TryInto<OldPalletInfo> for PalletInfo {
 			self.major,
 			self.minor,
 			self.patch,
-		).map_err(|_| ())
+		)
+		.map_err(|_| ())
 	}
 }
 
@@ -285,8 +286,14 @@ impl TryFrom<OldMaybeErrorCode> for MaybeErrorCode {
 		use OldMaybeErrorCode::*;
 		Ok(match new {
 			Success => Self::Success,
-			Error(errors) => Self::Error(BoundedVec::<u8, MaxDispatchErrorLen>::try_from(errors.into_inner()).map_err(|_| ())?),
-			TruncatedError(errors) => Self::Error(BoundedVec::<u8, MaxDispatchErrorLen>::try_from(errors.into_inner()).map_err(|_| ())?),
+			Error(errors) => Self::Error(
+				BoundedVec::<u8, MaxDispatchErrorLen>::try_from(errors.into_inner())
+					.map_err(|_| ())?,
+			),
+			TruncatedError(errors) => Self::Error(
+				BoundedVec::<u8, MaxDispatchErrorLen>::try_from(errors.into_inner())
+					.map_err(|_| ())?,
+			),
 		})
 	}
 }
@@ -322,15 +329,20 @@ impl TryFrom<OldResponse> for Response {
 		Ok(match old {
 			Null => Self::Null,
 			Assets(assets) => Self::Assets(assets.try_into()?),
-			ExecutionResult(result) => Self::ExecutionResult(result.map(|(num, old_error)| (num, old_error.into()))),
+			ExecutionResult(result) =>
+				Self::ExecutionResult(result.map(|(num, old_error)| (num, old_error.into()))),
 			Version(version) => Self::Version(version),
 			PalletsInfo(pallet_info) => {
-				let inner = pallet_info.into_iter().map(TryInto::try_into).collect::<result::Result<Vec<_>, _>>()?;
+				let inner = pallet_info
+					.into_iter()
+					.map(TryInto::try_into)
+					.collect::<result::Result<Vec<_>, _>>()?;
 				Self::PalletsInfo(
-					BoundedVec::<PalletInfo, MaxPalletsInfo>::try_from(inner).map_err(|_| ())?
+					BoundedVec::<PalletInfo, MaxPalletsInfo>::try_from(inner).map_err(|_| ())?,
 				)
 			},
-			DispatchResult(maybe_error) => Self::DispatchResult(maybe_error.try_into().map_err(|_| ())?),
+			DispatchResult(maybe_error) =>
+				Self::DispatchResult(maybe_error.try_into().map_err(|_| ())?),
 		})
 	}
 }
@@ -958,8 +970,8 @@ pub enum Instruction<Call> {
 	///
 	/// As an example, to export a message for execution on Statemine (parachain #1000 in the
 	/// Kusama network), you would call with `network: NetworkId::Kusama` and
-	/// `destination: [Parachain(1000)].into()`. Alternatively, to export a message for execution on
-	/// Polkadot, you would call with `network: NetworkId:: Polkadot` and `destination: Here`.
+	/// `destination: [Parachain(1000)].into()`. Alternatively, to export a message for execution
+	/// on Polkadot, you would call with `network: NetworkId:: Polkadot` and `destination: Here`.
 	///
 	/// Kind: *Command*
 	///
@@ -1249,18 +1261,20 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			WithdrawAsset(assets) => Self::WithdrawAsset(assets.try_into()?),
 			ReserveAssetDeposited(assets) => Self::ReserveAssetDeposited(assets.try_into()?),
 			ReceiveTeleportedAsset(assets) => Self::ReceiveTeleportedAsset(assets.try_into()?),
-			QueryResponse { query_id, response, max_weight, querier: Some(querier) } => Self::QueryResponse {
-				query_id,
-				querier: querier.try_into()?,
-				response: response.try_into()?,
-				max_weight: max_weight,
-			},
-			QueryResponse { query_id, response, max_weight, querier: None } => Self::QueryResponse {
-				query_id,
-				querier: None,
-				response: response.try_into()?,
-				max_weight: max_weight,
-			},
+			QueryResponse { query_id, response, max_weight, querier: Some(querier) } =>
+				Self::QueryResponse {
+					query_id,
+					querier: querier.try_into()?,
+					response: response.try_into()?,
+					max_weight,
+				},
+			QueryResponse { query_id, response, max_weight, querier: None } =>
+				Self::QueryResponse {
+					query_id,
+					querier: None,
+					response: response.try_into()?,
+					max_weight,
+				},
 			TransferAsset { assets, beneficiary } => Self::TransferAsset {
 				assets: assets.try_into()?,
 				beneficiary: beneficiary.try_into()?,
@@ -1275,11 +1289,8 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, require_weight_at_most, call } => Self::Transact {
-				origin_kind,
-				require_weight_at_most,
-				call: call.into(),
-			},
+			Transact { origin_kind, require_weight_at_most, call } =>
+				Self::Transact { origin_kind, require_weight_at_most, call: call.into() },
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
 				query_id: response_info.query_id,
 				destination: response_info.destination.try_into().map_err(|_| ())?,
@@ -1321,10 +1332,7 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 					query_id: response_info.query_id,
 					max_weight: response_info.max_weight,
 				};
-				Self::ReportHolding {
-					response_info,
-					assets: assets.try_into()?,
-				}
+				Self::ReportHolding { response_info, assets: assets.try_into()? }
 			},
 			BuyExecution { fees, weight_limit } => {
 				let fees = fees.try_into()?;
@@ -1343,10 +1351,8 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 				Self::ClaimAsset { assets, ticket }
 			},
 			Trap(code) => Self::Trap(code),
-			SubscribeVersion { query_id, max_response_weight } => Self::SubscribeVersion {
-				query_id,
-				max_response_weight: max_response_weight,
-			},
+			SubscribeVersion { query_id, max_response_weight } =>
+				Self::SubscribeVersion { query_id, max_response_weight },
 			UnsubscribeVersion => Self::UnsubscribeVersion,
 			_ => return Err(()),
 		})
