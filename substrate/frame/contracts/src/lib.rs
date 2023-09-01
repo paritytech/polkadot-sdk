@@ -94,6 +94,7 @@ mod gas;
 mod schedule;
 mod storage;
 mod wasm;
+mod xcm;
 
 pub mod chain_extension;
 pub mod debug;
@@ -230,7 +231,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_xcm::Config {
+	pub trait Config: frame_system::Config {
 		/// The time implementation used to supply timestamps to contracts through `seal_now`.
 		type Time: Time;
 
@@ -401,6 +402,8 @@ pub mod pallet {
 		/// its type appears in the metadata. Only valid value is `()`.
 		#[pallet::constant]
 		type Environment: Get<Environment<Self>>;
+
+		type Xcm: crate::xcm::XCM<Self>;
 	}
 
 	#[pallet::hooks]
@@ -1002,6 +1005,8 @@ pub mod pallet {
 		/// in this error. Note that this usually  shouldn't happen as deploying such contracts
 		/// is rejected.
 		NoChainExtension,
+		/// TODO doc
+		XcmDisabled,
 		/// A contract with the same AccountId already exists.
 		DuplicateContract,
 		/// A contract self destructed in its constructor.

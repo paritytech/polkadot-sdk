@@ -1051,6 +1051,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 // for every function.
 #[define_env(doc)]
 pub mod env {
+	use crate::xcm::XCM;
 
 	/// Set the value at the given key in the contract storage.
 	///
@@ -2648,9 +2649,8 @@ pub mod env {
 		call_len: u32,
 		max_weight_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
-		use crate::exec::CallOf;
+		use crate::xcm::{CallOf, WeightInfo, XCM};
 		use frame_support::dispatch::DispatchInfo;
-		use pallet_xcm::WeightInfo;
 		use xcm::VersionedXcm;
 
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
@@ -2658,9 +2658,13 @@ pub mod env {
 			ctx.read_sandbox_memory_as_unbounded(memory, call_ptr, call_len)?;
 		let max_weight: Weight = ctx.read_sandbox_memory_as(memory, max_weight_ptr)?;
 
-		let weight = max_weight.saturating_add(<E::T as pallet_xcm::Config>::WeightInfo::execute());
+		let weight =
+			max_weight.saturating_add(<<E::T as Config>::Xcm as XCM<E::T>>::WeightInfo::execute());
 		let dispatch_info = DispatchInfo { weight, ..Default::default() };
-		ctx.call_dispatchable(dispatch_info, |ext| ext.xcm_execute(message, max_weight))
+
+		ctx.call_dispatchable(dispatch_info, |ext| {
+			<<E::T as Config>::Xcm as XCM<E::T>>::execute(ext.address(), message, max_weight)
+		})
 	}
 
 	fn xcm_send(
@@ -2670,7 +2674,7 @@ pub mod env {
 		call_len: u32,
 		dest_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
-		use pallet_xcm::WeightInfo;
+		use crate::xcm::{WeightInfo, XCM};
 		use xcm::{VersionedMultiLocation, VersionedXcm};
 
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
@@ -2678,9 +2682,9 @@ pub mod env {
 		let message: VersionedXcm<()> =
 			ctx.read_sandbox_memory_as_unbounded(memory, call_ptr, call_len)?;
 
-		let weight = <E::T as pallet_xcm::Config>::WeightInfo::send();
+		let weight = <<E::T as Config>::Xcm as XCM<E::T>>::WeightInfo::send();
 		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
-		match ctx.ext.xcm_send(dest, message) {
+		match <<E::T as Config>::Xcm as XCM<E::T>>::send(ctx.ext.address(), dest, message) {
 			Ok(_) => Ok(ReturnCode::Success),
 			Err(e) => {
 				if ctx.ext.append_debug_buffer("") {
@@ -2699,18 +2703,19 @@ pub mod env {
 		match_querier_ptr: u32,
 		output_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
+		use crate::xcm::{WeightInfo, XCM};
 		use frame_system::pallet_prelude::BlockNumberFor;
-		use pallet_xcm::WeightInfo;
 		use xcm::VersionedMultiLocation;
 
 		let timeout: BlockNumberFor<E::T> = ctx.read_sandbox_memory_as(memory, timeout_ptr)?;
 		let match_querier: VersionedMultiLocation =
 			ctx.read_sandbox_memory_as(memory, match_querier_ptr)?;
 
-		let weight = <E::T as pallet_xcm::Config>::WeightInfo::new_query();
+		let weight = <<E::T as Config>::Xcm as XCM<E::T>>::WeightInfo::query();
 		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
 
-		match ctx.ext.xcm_query(timeout, match_querier) {
+		match <<E::T as Config>::Xcm as XCM<E::T>>::query(ctx.ext.address(), timeout, match_querier)
+		{
 			Ok(query_id) => {
 				ctx.write_sandbox_memory(memory, output_ptr, &query_id.encode())?;
 				Ok(ReturnCode::Success)
@@ -2731,16 +2736,15 @@ pub mod env {
 		query_id_ptr: u32,
 		output_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
-		use pallet_xcm::WeightInfo;
-		use xcm_executor::traits::QueryHandler;
+		use crate::xcm::{WeightInfo, XCM};
 
-		let query_id: <pallet_xcm::Pallet<E::T> as QueryHandler>::QueryId =
+		let query_id: <<E::T as Config>::Xcm as XCM<E::T>>::QueryId =
 			ctx.read_sandbox_memory_as(memory, query_id_ptr)?;
 
-		let weight = <E::T as pallet_xcm::Config>::WeightInfo::take_response();
+		let weight = <<E::T as Config>::Xcm as XCM<E::T>>::WeightInfo::take_response();
 		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
-
-		let response = ctx.ext.xcm_take_response(query_id);
+		//
+		let response = <<E::T as Config>::Xcm as XCM<E::T>>::take_response(query_id);
 		ctx.write_sandbox_memory(memory, output_ptr, &response.encode())?;
 		Ok(ReturnCode::Success)
 	}

@@ -9407,6 +9407,7 @@ dependencies = [
  "pallet-proxy",
  "pallet-timestamp",
  "pallet-utility",
+ "pallet-xcm",
  "parity-scale-codec",
  "pretty_assertions",
  "rand 0.8.5",
