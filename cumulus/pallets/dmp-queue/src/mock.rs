@@ -94,39 +94,3 @@ impl HandleMessage for MockedDmpHandler {
 		unimplemented!()
 	}
 }
-
-/// TESTING ONLY
-#[cfg(feature = "try-runtime")]
-pub(crate) fn pre_upgrade_checks<T: crate::Config>() {
-	let index = PageIndex::<T>::get();
-
-	// Check that all pages are present.
-	assert!(index.begin_used <= index.end_used, "Invalid page index");
-	for p in index.begin_used..index.end_used {
-		assert!(Pages::<T>::contains_key(p), "Missing page");
-		assert!(Pages::<T>::get(p).len() > 0, "Empty page");
-	}
-
-	// Check that all overweight messages are present.
-	for i in 0..index.overweight_count {
-		assert!(Overweight::<T>::contains_key(i), "Missing overweight message");
-	}
-}
-
-/// TESTING ONLY
-#[cfg(feature = "try-runtime")]
-pub(crate) fn post_upgrade_checks<T: crate::Config>() {
-	let index = PageIndex::<T>::get();
-
-	// Check that all pages are removed.
-	for p in index.begin_used..index.end_used {
-		assert!(!Pages::<T>::contains_key(p), "Page should be gone");
-	}
-	assert!(Pages::<T>::iter_keys().next().is_none(), "Un-indexed pages");
-
-	// Check that all overweight messages are removed.
-	for i in 0..index.overweight_count {
-		assert!(!Overweight::<T>::contains_key(i), "Overweight message should be gone");
-	}
-	assert!(Overweight::<T>::iter_keys().next().is_none(), "Un-indexed overweight messages");
-}
