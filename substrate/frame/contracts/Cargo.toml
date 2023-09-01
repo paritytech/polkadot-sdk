@@ -59,13 +59,24 @@ env_logger = "0.9"
 pretty_assertions = "1"
 wat = "1"
 
+# Polkadot Dependencies
+xcm-simulator = {path = "../../../polkadot/xcm/xcm-simulator"}
+polkadot-runtime-parachains = {path = "../../../polkadot/runtime/parachains"}
+xcm-builder = {package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder"}
+polkadot-parachain = { path = "../../../polkadot/parachain"  }
+polkadot-primitives = { path = "../../../polkadot/primitives"  }
+
 # Substrate Dependencies
 pallet-balances = { path = "../balances" }
 pallet-timestamp = { path = "../timestamp" }
+pallet-message-queue = { path = "../message-queue" }
 pallet-insecure-randomness-collective-flip = { path = "../insecure-randomness-collective-flip" }
 pallet-utility = { path = "../utility" }
+pallet-assets = { path = "../assets" }
+pallet-uniques = { path = "../uniques" }
 pallet-proxy = { path = "../proxy" }
 sp-keystore = { path = "../../primitives/keystore" }
+sp-tracing = { path = "../../primitives/tracing" }
 
 [features]
 default = [ "std" ]
