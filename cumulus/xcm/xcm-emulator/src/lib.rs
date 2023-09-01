@@ -29,7 +29,8 @@ pub use frame_support::{
 	assert_ok,
 	sp_runtime::{traits::Header as HeaderT, AccountId32, DispatchResult},
 	traits::{
-		EnqueueMessage, Get, Hooks, OriginTrait, ProcessMessage, ProcessMessageError, ServiceQueues,
+		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnInitialize, OriginTrait,
+		ProcessMessage, ProcessMessageError, ServiceQueues,
 	},
 	weights::{Weight, WeightMeter},
 };
@@ -39,6 +40,7 @@ pub use pallet_message_queue;
 pub use sp_arithmetic::traits::Bounded;
 pub use sp_core::{blake2_256, parameter_types, sr25519, storage::Storage, Pair};
 pub use sp_io::TestExternalities;
+pub use sp_runtime::BoundedSlice;
 pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, fmt::Debug};
 pub use sp_tracing;
 
@@ -953,8 +955,7 @@ macro_rules! decl_test_networks {
 				}
 
 				fn process_downward_messages() {
-					use $crate::{Bounded};
-					use polkadot_parachain::primitives::RelayChainBlockNumber;
+					use $crate::{DmpMessageHandler, Bounded, Parachain, RelayChainBlockNumber, TestExt, Encode};
 
 					while let Some((to_para_id, messages))
 						= $crate::DOWNWARD_MESSAGES.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().pop_front()) {
@@ -977,7 +978,7 @@ macro_rules! decl_test_networks {
 
 								use $crate::{ProcessMessage, CumulusAggregateMessageOrigin, BoundedSlice, WeightMeter, TestExt};
 								for (block, msg) in msgs.clone().into_iter() {
-									let mut weight_meter = WeightMeter::max_limit();
+									let mut weight_meter = WeightMeter::new();
 									<$parachain>::ext_wrapper(|| {
 										let _ =  <$parachain as Parachain>::MessageProcessor::process_message(
 											&msg[..],
@@ -1016,10 +1017,10 @@ macro_rules! decl_test_networks {
 				}
 
 				fn process_upward_messages() {
-					use $crate::{Encode, ProcessMessage, TestExt};
+					use $crate::{Encode, ProcessMessage, TestExt, WeightMeter};
 
 					while let Some((from_para_id, msg)) = $crate::UPWARD_MESSAGES.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().pop_front()) {
-						let mut weight_meter = $crate::WeightMeter::new();
+						let mut weight_meter = WeightMeter::new();
 						<$relay_chain>::ext_wrapper(|| {
 							let _ =  <$relay_chain as $crate::RelayChain>::MessageProcessor::process_message(
 								&msg[..],

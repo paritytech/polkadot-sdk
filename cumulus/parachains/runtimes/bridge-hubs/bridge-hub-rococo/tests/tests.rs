@@ -43,7 +43,6 @@ parameter_types! {
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 }
 
-#[cfg(feature = "FAIL-CI")]
 fn construct_extrinsic(
 	sender: sp_keyring::AccountKeyring,
 	call: RuntimeCall,
@@ -73,7 +72,6 @@ fn construct_extrinsic(
 	)
 }
 
-#[cfg(feature = "FAIL-CI")]
 fn construct_and_apply_extrinsic(
 	relayer_at_target: sp_keyring::AccountKeyring,
 	batch: pallet_utility::Call<Runtime>,
@@ -84,7 +82,6 @@ fn construct_and_apply_extrinsic(
 	r.unwrap()
 }
 
-#[cfg(feature = "FAIL-CI")]
 fn executive_init_block(header: &HeaderFor<Runtime>) {
 	Executive::initialize_block(header)
 }
@@ -251,7 +248,6 @@ mod bridge_hub_rococo_tests {
 	}
 
 	#[test]
-	#[cfg(feature = "FAIL-CI")]
 	pub fn complex_relay_extrinsic_works() {
 		bridge_hub_test_utils::test_cases::complex_relay_extrinsic_works::<
 			Runtime,
@@ -431,7 +427,6 @@ mod bridge_hub_wococo_tests {
 	}
 
 	#[test]
-	#[cfg(feature = "FAIL-CI")]
 	pub fn complex_relay_extrinsic_works() {
 		bridge_hub_test_utils::test_cases::complex_relay_extrinsic_works::<
 			Runtime,

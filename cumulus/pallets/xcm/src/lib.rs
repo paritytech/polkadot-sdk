@@ -20,11 +20,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, DecodeLimit, Encode};
-use cumulus_primitives_core::{
-	relay_chain::BlockNumber as RelayBlockNumber, DmpMessageHandler, ParaId,
-};
-use frame_support::weights::Weight;
+use codec::{Decode, Encode};
+use cumulus_primitives_core::ParaId;
 pub use pallet::*;
 use scale_info::TypeInfo;
 use sp_runtime::{traits::BadOrigin, RuntimeDebug};

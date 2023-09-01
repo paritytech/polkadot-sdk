@@ -17,8 +17,6 @@
 
 #![cfg(test)]
 
-use super::migration::*;
-
 use frame_support::{
 	parameter_types,
 	traits::{ConstU16, ConstU64, Footprint, HandleMessage},
