@@ -39,7 +39,7 @@ sc-service = { path = "../../../../../substrate/client/service" }
 polkadot-node-core-pvf = { path = "../../../../node/core/pvf", features = ["test-utils"], optional = true }
 
 [dev-dependencies]
-polkadot-parachain = { path = "../../.." }
+polkadot-parachain-primitives = { path = "../../.." }
 polkadot-test-service = { path = "../../../../node/test/service" }
 # For the puppet worker, depend on ourselves with the test-utils feature.
 test-parachain-undying-collator = { path = "", features = ["test-utils"] }

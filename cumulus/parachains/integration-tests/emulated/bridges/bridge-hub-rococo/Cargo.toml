@@ -13,6 +13,10 @@ codec = { package = "parity-scale-codec", version = "3.4.0", default-features = 
 frame-support = { path = "../../../../../../substrate/frame/support", default-features = false}
 
 # Polkadot
+polkadot-core-primitives = { path = "../../../../../../polkadot/core-primitives", default-features = false}
+polkadot-parachain-primitives = { path = "../../../../../../polkadot/parachain", default-features = false}
+polkadot-runtime-parachains = { path = "../../../../../../polkadot/runtime/parachains" }
+polkadot-runtime = { path = "../../../../../../polkadot/runtime/polkadot" }
 xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false}
 pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 

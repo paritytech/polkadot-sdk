@@ -54,7 +54,7 @@ pub use polkadot_primitives;
 pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
 
 // Polkadot
-pub use polkadot_parachain::primitives::RelayChainBlockNumber;
+pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 pub use xcm::v3::prelude::{
 	Ancestor, MultiAssets, MultiLocation, Parachain as ParachainJunction, Parent, WeightLimit,
 	XcmHash, X1,
@@ -1006,7 +1006,7 @@ macro_rules! decl_test_networks {
 					use $crate::{Encode, ProcessMessage, TestExt};
 
 					while let Some((from_para_id, msg)) = $crate::UPWARD_MESSAGES.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().pop_front()) {
-						let mut weight_meter = $crate::WeightMeter::max_limit();
+						let mut weight_meter = $crate::WeightMeter::new();
 						<$relay_chain>::ext_wrapper(|| {
 							let _ =  <$relay_chain as $crate::RelayChain>::MessageProcessor::process_message(
 								&msg[..],

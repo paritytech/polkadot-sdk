@@ -28,9 +28,7 @@ use sp_runtime::{
 
 // Cumulus
 use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId, Balance, BlockNumber};
-
-// Polkadot
-use polkadot_parachain::primitives::{HeadData, ValidationCode};
+use polkadot_parachain_primitives::primitives::{HeadData, ValidationCode};
 use polkadot_primitives::{AssignmentId, ValidatorId};
 use polkadot_runtime_parachains::{
 	configuration::HostConfiguration,
