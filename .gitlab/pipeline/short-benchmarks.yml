@@ -40,6 +40,8 @@ short-benchmark-westend:
       artifacts: true
   variables:
     RUNTIME_CHAIN: benchmarked-runtime-chain
+  tags:
+    - benchmark
   script:
     - ./artifacts/polkadot-parachain benchmark pallet --wasm-execution compiled --chain $RUNTIME_CHAIN --pallet "*" --extrinsic "*" --steps 2 --repeat 1
 
