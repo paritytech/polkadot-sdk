@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -22,10 +22,7 @@ use crate::{Bridge, Call};
 
 use bp_xcm_bridge_hub_router::{BridgeState, MINIMAL_DELIVERY_FEE_FACTOR};
 use frame_benchmarking::benchmarks_instance_pallet;
-use frame_support::{
-	dispatch::UnfilteredDispatchable,
-	traits::{EnsureOrigin, Get, Hooks},
-};
+use frame_support::traits::{EnsureOrigin, Get, Hooks, UnfilteredDispatchable};
 use sp_runtime::traits::Zero;
 use xcm::prelude::*;
 

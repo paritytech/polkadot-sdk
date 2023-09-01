@@ -2,8 +2,8 @@
 name = "bp-polkadot-core"
 description = "Primitives of Polkadot-like runtime."
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
@@ -29,13 +29,13 @@ sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", d
 hex = "0.4"
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"bp-messages/std",
 	"bp-runtime/std",
+	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"codec/std",
 	"parity-util-mem",
 	"scale-info/std",
 	"serde",

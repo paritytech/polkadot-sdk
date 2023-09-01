@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -29,10 +29,10 @@ use bp_runtime::{
 	StorageMapKeyProvider,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{Blake2_128Concat, RuntimeDebug, Twox64Concat};
+use frame_support::{Blake2_128Concat, Twox64Concat};
 use scale_info::TypeInfo;
 use sp_core::storage::StorageKey;
-use sp_runtime::traits::Header as HeaderT;
+use sp_runtime::{traits::Header as HeaderT, RuntimeDebug};
 use sp_std::{marker::PhantomData, prelude::*};
 
 /// Best known parachain head hash.
