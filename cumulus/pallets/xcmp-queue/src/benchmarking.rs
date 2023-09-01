@@ -44,8 +44,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::enqueue_xcmp_message(0.into(), msg, &mut WeightMeter::max_limit())
-				.unwrap();
+			Pallet::<T>::enqueue_xcmp_message(0.into(), msg, &mut WeightMeter::new()).unwrap();
 		}
 	}
 
@@ -117,8 +116,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::split_concatenated_xcms(&mut &data[..], &mut WeightMeter::max_limit())
-				.unwrap();
+			Pallet::<T>::split_concatenated_xcms(&mut &data[..], &mut WeightMeter::new()).unwrap();
 		}
 	}
 
