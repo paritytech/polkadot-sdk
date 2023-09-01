@@ -27,10 +27,7 @@ use crate::{
 use bitflags::bitflags;
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use frame_support::{
-	dispatch::{DispatchError, DispatchInfo},
-	ensure,
-	pallet_prelude::DispatchResultWithPostInfo,
-	traits::Get,
+	dispatch::DispatchInfo, ensure, pallet_prelude::DispatchResultWithPostInfo, traits::Get,
 	weights::Weight,
 };
 use pallet_contracts_primitives::{ExecReturnValue, ReturnFlags};

@@ -45,8 +45,11 @@ use sp_core::{
 	Get,
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
-use sp_runtime::traits::{Convert, Hash, Zero};
-use sp_std::{marker::PhantomData, mem, prelude::*, vec::Vec};
+use sp_runtime::{
+	traits::{Convert, Dispatchable, Hash, Zero},
+	DispatchError,
+};
+use sp_std::{fmt::Debug, marker::PhantomData, mem, prelude::*, vec::Vec};
 use xcm::{v3::MultiLocation, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 
