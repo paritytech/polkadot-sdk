@@ -5914,7 +5914,6 @@ fn balance_api_returns_free_balance() {
 		.unwrap()
 		.account_id;
 
-
 		let value = 0;
 		// Call BOB which makes it call the balance runtime API.
 		// The contract code asserts that the returned balance is 0.
