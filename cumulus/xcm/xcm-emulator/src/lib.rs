@@ -248,6 +248,14 @@ pub trait Parachain: Chain {
 	type ParachainInfo: Get<ParaId>;
 	type ParachainSystem;
 
+	fn init();
+
+	fn new_block();
+
+	fn finalize_block();
+
+	fn set_last_head();
+
 	fn para_id() -> ParaId {
 		Self::ext_wrapper(|| Self::ParachainInfo::get())
 	}
@@ -263,8 +271,6 @@ pub trait Parachain: Chain {
 	fn sovereign_account_id_of(location: MultiLocation) -> AccountId {
 		Self::LocationToAccountId::convert_location(&location).unwrap()
 	}
-
-	fn init();
 }
 
 pub trait Bridge {
@@ -603,24 +609,39 @@ macro_rules! decl_test_parachains {
 				type ParachainSystem = $crate::ParachainSystemPallet<<Self as $crate::Chain>::Runtime>;
 				type ParachainInfo = $parachain_info;
 
-				// We run an empty block to open HRMP channels between Parachains
+				// We run an empty block during initialisation to open HRMP channels
+				// and have them ready for the next block
 				fn init() {
+					use $crate::{Chain, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain, TestExt};
+					// Set the last block head for later use in the next block
+					Self::set_last_head();
+					// Initialize a new block
+					Self::new_block();
+					// Finalize the new block
+					Self::finalize_block();
+				}
+
+				fn new_block() {
 					use $crate::{Chain, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain, TestExt};
 
 					let para_id = Self::para_id().into();
 
 					Self::ext_wrapper(|| {
-						// Inital Relay Chain and Parachain block numbers
-						let mut relay_block_number = <Self as NetworkComponent>::Network::relay_block_number();
-						let mut block_number = <Self as Chain>::System::block_number();
-
-						// Get Parachain's parent head data
-						let header = <Self as Chain>::System::finalize();
-						let parent_head_data = HeadData(header.encode());
+						// Increase Relay Chain block number
+						let mut relay_block_number = <$name as NetworkComponent>::Network::relay_block_number();
+						relay_block_number += 1;
+						<$name as NetworkComponent>::Network::set_relay_block_number(relay_block_number);
 
 						// Initialize a new Parachain block
+						let mut block_number = <Self as Chain>::System::block_number();
 						block_number += 1;
-
+						let parent_head_data = $crate::LAST_HEAD.with(|b| b.borrow_mut()
+							.get_mut(<Self as NetworkComponent>::Network::name())
+							.expect("network not initialized?")
+							.get(&para_id)
+							.expect("network not initialized?")
+							.clone()
+						);
 						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &Default::default());
 						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::on_initialize(block_number);
 
@@ -628,15 +649,33 @@ macro_rules! decl_test_parachains {
 							<Self as Chain>::RuntimeOrigin::none(),
 							<$name as NetworkComponent>::Network::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
 						);
+					});
+				}
 
-						// Finalize Parachain block and store parent head data for later use in the next block
+				fn finalize_block() {
+					use $crate::{Chain, Encode, Hooks, Network, NetworkComponent, Parachain, TestExt};
+
+					Self::ext_wrapper(|| {
+						let block_number = <Self as Chain>::System::block_number();
 						<Self as Parachain>::ParachainSystem::on_finalize(block_number);
-						let created_header = <Self as Chain>::System::finalize();
+					});
 
+					Self::set_last_head();
+				}
+
+
+				fn set_last_head() {
+					use $crate::{Chain, Encode, HeadData, Network, NetworkComponent, Parachain, TestExt};
+
+					let para_id = Self::para_id().into();
+
+					Self::ext_wrapper(|| {
+						// Store parent head data for use later.
+						let created_header = <Self as Chain>::System::finalize();
 						$crate::LAST_HEAD.with(|b| b.borrow_mut()
 							.get_mut(<Self as NetworkComponent>::Network::name())
 							.expect("network not initialized?")
-							.insert(para_id.into(), $crate::HeadData(created_header.encode()))
+							.insert(para_id, HeadData(created_header.encode()))
 						);
 					});
 				}
@@ -759,65 +798,27 @@ macro_rules! __impl_test_ext_for_parachain {
 				// Make sure the Network is initialized
 				<$name as NetworkComponent>::Network::init();
 
-				let para_id = <$name>::para_id().into();
-
-				// Initialize block
-				$local_ext.with(|v| {
-					v.borrow_mut().execute_with(|| {
-						// Increase Relay Chain block number
-						let mut relay_block_number = <$name as NetworkComponent>::Network::relay_block_number();
-						relay_block_number += 1;
-						<$name as NetworkComponent>::Network::set_relay_block_number(relay_block_number);
-
-						// Initialize a new Parachain block
-						let mut block_number = <Self as Chain>::System::block_number();
-						block_number += 1;
-						let parent_head_data = $crate::LAST_HEAD.with(|b| b.borrow_mut()
-							.get_mut(<Self as NetworkComponent>::Network::name())
-							.expect("network not initialized?")
-							.get(&para_id)
-							.expect("network not initialized?")
-							.clone()
-						);
-
-						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &Default::default());
-						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::on_initialize(block_number);
-
-						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
-							<Self as Chain>::RuntimeOrigin::none(),
-							<$name as NetworkComponent>::Network::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
-						);
-					})
-				});
+				// Initialize a new block
+				Self::new_block();
 
 				// Execute
 				let r = $local_ext.with(|v| v.borrow_mut().execute_with(execute));
 
-				// provide inbound DMP/HRMP messages through a side-channel.
-				// normally this would come through the `set_validation_data`,
-				// but we go around that.
-				<$name as NetworkComponent>::Network::process_messages();
+				// Finalize the block
+				Self::finalize_block();
 
-				// Finalize block and send messages if needed
+				let para_id = <$name>::para_id().into();
+
+				// Send messages if needed
 				$local_ext.with(|v| {
 					v.borrow_mut().execute_with(|| {
-						let block_number = <Self as Chain>::System::block_number();
+						// let block_number = <Self as Chain>::System::block_number();
 						let mock_header = $crate::HeaderT::new(
 							0,
 							Default::default(),
 							Default::default(),
 							Default::default(),
 							Default::default(),
-						);
-
-						// Finalize to get xcmp messages.
-						<Self as Parachain>::ParachainSystem::on_finalize(block_number);
-						// Store parent head data for use later.
-						let created_header = <Self as Chain>::System::finalize();
-						$crate::LAST_HEAD.with(|b| b.borrow_mut()
-							.get_mut(<Self as NetworkComponent>::Network::name())
-							.expect("network not initialized?")
-							.insert(para_id.into(), $crate::HeadData(created_header.encode()))
 						);
 
 						let collation_info = <Self as Parachain>::ParachainSystem::collect_collation_info(&mock_header);
@@ -853,11 +854,6 @@ macro_rules! __impl_test_ext_for_parachain {
 
 						// clean events
 						<Self as $crate::Chain>::System::reset_events();
-
-						// // reinitialize before next call.
-						// let next_block_number = block_number + 1;
-						// <Self as $crate::Chain>::System::initialize(&next_block_number, &created_header.hash(), &Default::default());
-						// <<Self as $crate::Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::on_initialize(next_block_number);
 					})
 				});
 
