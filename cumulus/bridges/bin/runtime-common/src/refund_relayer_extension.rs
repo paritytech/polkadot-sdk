@@ -1,4 +1,4 @@
-// Copyright 2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@ use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::{Parachain, ParachainIdOf, RangeInclusiveExt, StaticStrProvider};
 use codec::{Decode, Encode};
 use frame_support::{
-	dispatch::{CallableCallFor, DispatchInfo, Dispatchable, PostDispatchInfo},
+	dispatch::{CallableCallFor, DispatchInfo, PostDispatchInfo},
 	traits::IsSubType,
 	weights::Weight,
 	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
@@ -47,7 +47,7 @@ use pallet_transaction_payment::{Config as TransactionPaymentConfig, OnChargeTra
 use pallet_utility::{Call as UtilityCall, Config as UtilityConfig, Pallet as UtilityPallet};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Get, PostDispatchInfoOf, SignedExtension, Zero},
+	traits::{DispatchInfoOf, Dispatchable, Get, PostDispatchInfoOf, SignedExtension, Zero},
 	transaction_validity::{
 		TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransactionBuilder,
 	},
