@@ -25,7 +25,6 @@ use frame_support::traits::{
 use sp_core::crypto::Ss58Codec;
 use xcm_emulator::TestExt;
 
-#[cfg(not(feature = "runtime-benchmarks"))]
 #[test]
 fn pay_salary() {
 	let asset_id: u32 = 1984;
