@@ -47,9 +47,9 @@ But, in case these mechanisms don't work on their own, we need to trade bandwidt
 aggression.
 
 Aggression has 3 levels:
-- Aggression Level 0: The basic behaviors described above.
-- Aggression Level 1: The originator of a message sends to all peers. Other peers follow the rules above.
-- Aggression Level 2: All peers send all messages to all their row and column neighbors. This means that each validator
+* Aggression Level 0: The basic behaviors described above.
+* Aggression Level 1: The originator of a message sends to all peers. Other peers follow the rules above.
+* Aggression Level 2: All peers send all messages to all their row and column neighbors. This means that each validator
     will, on average, receive each message approximately 2*sqrt(n) times.
 
 These aggression levels are chosen based on how long a block has taken to finalize: assignments and approvals related to

@@ -172,9 +172,9 @@ MD044:
   # List of proper names
   names: ["Polkadot", "Substrate", "Cumulus", "Parity"]
   # Include code blocks
-  code_blocks: true
+  code_blocks: false
   # Include HTML elements
-  html_elements: true
+  html_elements: false
 
 # MD045/no-alt-text - Images should have alternate text (alt text)
 MD045: false

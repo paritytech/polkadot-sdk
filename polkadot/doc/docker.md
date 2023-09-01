@@ -91,7 +91,7 @@ services:
     ]
 ```
 
-With following `docker-compose.yml` you can set up a node and use polkadot-js-apps as the front end on port 80. After
+With following `docker-compose.yml` you can set up a node and use `polkadot-js-apps` as the front end on port 80. After
 starting the node use a browser and enter your Docker host IP in the URL field: _<http://[YOUR_DOCKER_HOST_IP]>_
 
 ```bash
@@ -134,7 +134,7 @@ If running on a low resource VPS, use `--memory` and `--cpus` to limit the resou
 
 ## Build your own image
 
-There are 3 options to build a polkadot container image:
+There are 3 options to build a Polkadot container image:
 - using the builder image
 - using the injected "Debian" image
 - using the generic injected image
@@ -143,18 +143,18 @@ There are 3 options to build a polkadot container image:
 
 To get up and running with the smallest footprint on your system, you may use an existing Polkadot Container image.
 
-You may also build a polkadot container image yourself (it takes a while...) using the container specs
+You may also build a Polkadot container image yourself (it takes a while...) using the container specs
 `scripts/ci/dockerfiles/polkadot/polkadot_builder.Dockerfile`.
 
 ### Debian injected
 
-The Debian injected image is how the official polkadot container image is produced. It relies on the Debian package that
+The Debian injected image is how the official Polkadot container image is produced. It relies on the Debian package that
 is published upon each release. The Debian injected image is usually available a few minutes after a new release is
 published. It has the benefit of relying on the GPG signatures embedded in the Debian package.
 
 ### Generic injected
 
-For simple testing purposes, the easiest option for polkadot and also random binaries, is to use the
+For simple testing purposes, the easiest option for Polkadot and also random binaries, is to use the
 `binary_injected.Dockerfile` container spec. This option is less secure since the injected binary is not checked at all
 but it has the benefit to be simple. This option requires to already have a valid `polkadot` binary, compiled for Linux.
 

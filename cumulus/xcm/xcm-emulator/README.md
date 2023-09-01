@@ -19,5 +19,5 @@ in particular things like disputes, staking and iamonline events can't be tested
 ## Alternatives
 
 If you just wish to test execution of various XCM instructions
-against the XCM VM then the `xcm-simulator` (in the polkadot
+against the XCM VM then the `xcm-simulator` (in the Polkadot
 repo) is the perfect tool for this.

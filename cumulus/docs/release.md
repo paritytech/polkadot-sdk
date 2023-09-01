@@ -126,8 +126,8 @@ https://github.com/paritytech/parachains-integration-tests/tree/release-v9270-v0
 3. `cargo build --release`
 4. Copy `./target/polkadot-parachain` to `./bin`
 5. Clone `it/release-<version>-fast-sudo` from Polkadot In case the branch does not exists (it is a manual process):
-cherry pick paritytech/polkadot@791c8b8 and run `find . -type f -name "*.toml" -print0 | xargs -0 sed -i '' -e
-'s/polkadot-vX.X.X/polkadot-v<version>/g'`
+	cherry pick `paritytech/polkadot@791c8b8` and run:
+	`find . -type f -name "*.toml" -print0 | xargs -0 sed -i '' -e 's/polkadot-vX.X.X/polkadot-v<version>/g'`
 6. `cargo build --release --features fast-runtime`
 7. Copy `./target/polkadot` into `./bin` (in Cumulus)
 8. Run the tests:

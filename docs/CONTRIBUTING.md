@@ -50,12 +50,12 @@ The set of labels and their description can be found [here](https://paritytech.g
    `T13-documentation`. The docs team will get in touch.
 5. If your PR changes files in these paths:
 
-   `polkadot` : '^runtime/polkadot'
-   `polkadot` : '^runtime/kusama'
-   `polkadot` : '^primitives/src/'
-   `polkadot` : '^runtime/common'
-   `substrate` : '^frame/'
-   `substrate` : '^primitives/'
+   `polkadot` : `^runtime/polkadot`
+   `polkadot` : `^runtime/kusama`
+   `polkadot` : `^primitives/src/`
+   `polkadot` : `^runtime/common`
+   `substrate` : `^frame/`
+   `substrate` : `^primitives/`
 
    It should be added to the [security audit board](https://github.com/orgs/paritytech/projects/103)
    and will need to undergo an audit before merge.

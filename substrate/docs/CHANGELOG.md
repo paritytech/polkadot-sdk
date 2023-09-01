@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog].
 ## 2.0.1-> 3.0.0 - Apollo 14
 
 Most notably, this is the first release of the new FRAME (2.0) with its new macro-syntax and some changes in types, and
-pallet versioning. This release also incorporates the faster and improve version 2.0 of the parity-scale-codec and
+pallet versioning. This release also incorporates the faster and improve version 2.0 of the `parity-scale-codec` and
 upgraded dependencies all-around. While the `FinalityTracker` pallet has been dropped, this release marks the first
 public appearance of a few new pallets, too;Bounties, Lottery, Tips (extracted from the `Treasury`-pallet, see #7536)
 and Merkle-Mountain-Ranges (MMR).
@@ -116,7 +116,7 @@ board](https://github.com/paritytech/substrate/discussions).
 * Migrate assets pallet to new macros (#7984)
 * contracts: Make ChainExtension trait generic over the runtime (#8003)
 * Decouple the session validators from im-online (#7127)
-* Update parity-scale-codec to 2.0 (#7994)
+* Update `parity-scale-codec` to 2.0 (#7994)
 * Merkle Mountain Range pallet improvements (#7891)
 * Cleaner GRANDPA RPC API for proving finality (#7339)
 * Migrate frame-system to pallet attribute macro (#7898)
@@ -279,7 +279,7 @@ Patch release with backports to fix broken nightly builds. Namely contains backp
 * Update to latest sysinfo prevents leaking fd-handlers (#6708)
 * Tracing values (#6679)
 * Graceful shutdown for the task manager (#6654)
-* Update substrate-networking Grafana dashboard (#6649)
+* Update `substrate-networking` Grafana dashboard (#6649)
 * *: Update to libp2p v0.21.1 (#6559)
 * Send Status message on all newly-opened legacy substreams (#6593)
 * babe: report equivocations (#6362)
@@ -511,7 +511,7 @@ PR](https://github.com/paritytech/substrate/pull/5947).
 * removes use of sc_client::Client from sc_network (#5147)
 * Use CLI to configure max instances cache (#5177)
 * client/service/src/builder.rs: Add build_info metric (#5192)
-* Remove substrate-ui.parity.io from CORS whitelist (#5142)
+* Remove `substrate-ui.parity.io` from CORS whitelist (#5142)
 * removes use of sc_client::Client from sc-rpc (#5063)
 * Use 128mb for db cache default (#5134)
 * Drop db-cache default from 1gig to 32mb (#5128)

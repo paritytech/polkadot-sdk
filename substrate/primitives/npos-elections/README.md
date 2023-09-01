@@ -1,6 +1,6 @@
 # sp-npos-elections
 
-A set of election algorithms to be used with a substrate runtime, typically within the staking sub-system. Notable
+A set of election algorithms to be used with a Substrate runtime, typically within the staking sub-system. Notable
 implementation include:
 
 - [`seq_phragmen`]: Implements the Phragmén Sequential Method. An un-ranked, relatively fast election method that

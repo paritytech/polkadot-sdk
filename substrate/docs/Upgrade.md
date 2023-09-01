@@ -1,4 +1,4 @@
-# Upgrade path for you building on substrate
+# Upgrade path for you building on Substrate
 
 ## master
  - crate rename has been fixed `sp-application-crypto` (was `sc-application-crypto`);

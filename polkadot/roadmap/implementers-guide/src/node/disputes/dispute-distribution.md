@@ -202,8 +202,8 @@ the dispute-coordinator already knows about the dispute.
 
 Goal 3 and 4 are obviously very related and both can easily be solved via rate
 limiting as we shall see below. Rate limits should already be implemented at the
-substrate level, but [are not](https://github.com/paritytech/substrate/issues/7750)
-at the time of writing. But even if they were, the enforced substrate limits would
+Substrate level, but [are not](https://github.com/paritytech/substrate/issues/7750)
+at the time of writing. But even if they were, the enforced Substrate limits would
 likely not be configurable and thus would still be to high for our needs as we can
 rely on the following observations:
 

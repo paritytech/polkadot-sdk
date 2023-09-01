@@ -106,7 +106,7 @@ front-end by connecting to the local node endpoint. A hosted version is also
 available on [IPFS (redirect) here](https://dotapps.io/) or [IPNS (direct)
 here](ipns://dotapps.io/?rpc=ws%3A%2F%2F127.0.0.1%3A9944#/explorer). You can
 also find the source code and instructions for hosting your own instance on the
-[polkadot-js/apps](https://github.com/polkadot-js/apps) repository.
+[`polkadot-js/apps`](https://github.com/polkadot-js/apps) repository.
 
 ### Multi-Node Local Testnet
 

@@ -199,7 +199,7 @@ Among these, we have two distinct VRF output computations:
 computes the VRF output with `schnorrkel::vrf::VRFInOut::make_bytes` using the context "A&V Core", reduces this number
 modulo the number of availability cores, and outputs the candidate just declared available by, and included by aka
 leaving, that availability core.  We drop any samples that return no candidate because no candidate was leaving the
-sampled availability core in this relay chain block.  We choose three samples initially, but we could make polkadot more
+sampled availability core in this relay chain block.  We choose three samples initially, but we could make Polkadot more
 secure and efficient by increasing this to four or five, and reducing the backing checks accordingly.  All successful
 `RelayVRFModulo` samples are assigned delay tranche zero.
 
@@ -347,7 +347,7 @@ actually have zero approval checkers and possibly only one checker overall.
 VRFs though require adversaries wait far longer between such attacks, which also helps against adversaries with little
 at stake because they compromised validators.  VRFs raise user confidence that no such "drive by" attacks occurred
 because the delay tranche system ensure at least some minimum number of approval checkers.  In this vein, VRFs permit
-reducing backing checks and increasing approval checks, which makes polkadot more efficient.
+reducing backing checks and increasing approval checks, which makes Polkadot more efficient.
 
 ## Gossip
 

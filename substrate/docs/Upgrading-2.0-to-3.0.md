@@ -82,7 +82,7 @@ The same goes for all `<Self as frame_system::Trait>` and alike, which simply be
 
 
 Since [#7810](https://github.com/paritytech/substrate/pull/7810) we don't define the ss58 prefix in the chainspec
-anymore but moved it into the runtime. Namely, `frame_system` now needs a new `SS58Prefix`, which in substrate node we
+anymore but moved it into the runtime. Namely, `frame_system` now needs a new `SS58Prefix`, which in Substrate node we
 have defined for ourselves as: `pub const SS58Prefix: u8 = 42;`. Use your own chain-specific value there.
 
 #### Weight Definition
@@ -365,7 +365,7 @@ A few minor things have changed in the `cli` (compared to 2.0.1):
    chainspec-builder](https://github.com/paritytech/substrate/commit/31499cd29ed30df932fb71b7459796f7160d0272)
 3. we [don't fallback to `--chain flaming-fir`
    anymore](https://github.com/paritytech/substrate/commit/13cdf1c8cd2ee62d411f82b64dc7eba860c9c6c6), if no chain is
-   given our substrate-node will error.
+   given our `substrate-node` will error.
 4. [the `subkey`-integration has seen a fix to the
    `insert`-command](https://github.com/paritytech/substrate/commit/54bde60cfd2c544c54e9e8623b6b8725b99557f8) that
    requires you to now add the `&cli` as a param.
@@ -493,7 +493,7 @@ telemetry_connection_notifier.map(|x| x.on_connect_stream()),` (see the service-
 
 In order to allow for remote-keystores, the keystore-subsystem has been reworked to support async operations and
 generally refactored to not provide the keys itself but only sign on request. This allows for remote-keystore to never
-hand out keys and thus to operate any substrate-based node in a manner without ever having the private keys in the local
+hand out keys and thus to operate any Substrate-based node in a manner without ever having the private keys in the local
 system memory.
 
 There are some operations, however, that the keystore must be local for performance reasons and for which a remote

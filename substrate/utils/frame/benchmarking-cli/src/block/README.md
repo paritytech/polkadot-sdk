@@ -47,7 +47,7 @@ behind the chain and get slashed for missing deadlines. It is therefore importan
 
 In this example you can see an unexpected result; only < 5% of the weight was used! The measured blocks can be executed
 much faster than predicted. This means that the benchmarking process massively over-estimated the execution time. Since
-they are off by so much, it is an issue [polkadot#5192].
+they are off by so much, it is an issue [`polkadot#5192`].
 
 The ideal range for these results would be 85-100%.
 

@@ -4,7 +4,7 @@ Automated testing is an essential tool to assure correctness.
 
 ## Scopes
 
-The testing strategy for polkadot is 4-fold:
+The testing strategy for Polkadot is 4-fold:
 
 ### Unit testing (1)
 
@@ -36,7 +36,7 @@ Launching many nodes with configurable network speed and node features in a clus
 [Simnet][simnet] comes into play which launches a full cluster of nodes. The scale is handled by spawning a kubernetes
 cluster and the meta description is covered by [Gurke][Gurke]. Asserts are made using Grafana rules, based on the
 existing prometheus metrics. This can be extended by adding an additional service translating `jaeger` spans into
-addition prometheus avoiding additional polkadot source changes.
+addition prometheus avoiding additional Polkadot source changes.
 
 _Behavior tests_ and _testing at scale_ have naturally soft boundary. The most significant difference is the presence of
 a real network and the number of nodes, since a single host often not capable to run multiple nodes at once.
@@ -93,7 +93,7 @@ bash <(curl -s https://codecov.io/bash) -f lcov.info
 or just printed as part of the PR using a github action i.e.
 [`jest-lcov-reporter`](https://github.com/marketplace/actions/jest-lcov-reporter).
 
-For full examples on how to use [`grcov` /w polkadot specifics see the github
+For full examples on how to use [`grcov` /w Polkadot specifics see the github
 repo](https://github.com/mozilla/grcov#coverallscodecov-output).
 
 ## Fuzzing

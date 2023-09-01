@@ -9,14 +9,14 @@ folder builds and contains several binaries and you need to provide the name of 
 You should refer to the [.Dockerfile](./substrate_builder.Dockerfile) for the actual list. At the time of editing, the
 list of included binaries is:
 
-- substrate
-- subkey
-- node-template
-- chain-spec-builder
+- `substrate`
+- `subkey`
+- `node-template`
+- `chain-spec-builder`
 
 First, install [Docker](https://docs.docker.com/get-docker/).
 
-Then to generate the latest parity/substrate image. Please run:
+Then to generate the latest `parity/substrate` image. Please run:
 ```sh
 ./build.sh
 ```

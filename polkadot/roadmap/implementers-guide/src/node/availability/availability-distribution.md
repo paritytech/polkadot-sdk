@@ -55,7 +55,7 @@ requester is responsible of making that availability a reality.
 
 It does that by querying checking occupied cores for all active leaves. For each occupied core it will spawn a task
 fetching the erasure chunk which has the `ValidatorIndex` of the node. For this an `ChunkFetchingRequest` is issued, via
-substrate's generic request/response protocol.
+Substrate's generic request/response protocol.
 
 The spawned task will start trying to fetch the chunk from validators in responsible group of the occupied core, in a
 random order. For ensuring that we use already open TCP connections wherever possible, the requester maintains a cache

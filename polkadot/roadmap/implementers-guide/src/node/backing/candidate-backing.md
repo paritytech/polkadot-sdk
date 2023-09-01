@@ -2,7 +2,7 @@
 
 The Candidate Backing subsystem ensures every parablock considered for relay block inclusion has been seconded by at
 least one validator, and approved by a quorum. Parablocks for which not enough validators will assert correctness are
-discarded. If the block later proves invalid, the initial backers are slashable; this gives polkadot a rational threat
+discarded. If the block later proves invalid, the initial backers are slashable; this gives Polkadot a rational threat
 model during subsequent stages.
 
 Its role is to produce backable candidates for inclusion in new relay-chain blocks. It does so by issuing signed

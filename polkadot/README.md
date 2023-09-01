@@ -22,7 +22,7 @@ Installation from the Debian repository will create a `systemd` service that can
 Polkadot node. This is disabled by default, and can be started by running `systemctl start polkadot`
 on demand (use `systemctl enable polkadot` to make it auto-start after reboot). By default, it will
 run as the `polkadot` user.  Command-line flags passed to the binary can be customized by editing
-`/etc/default/polkadot`. This file will not be overwritten on updating polkadot. You may also just
+`/etc/default/polkadot`. This file will not be overwritten on updating Polkadot. You may also just
 run the node directly from the command-line.
 
 ### Debian-based (Debian, Ubuntu)
