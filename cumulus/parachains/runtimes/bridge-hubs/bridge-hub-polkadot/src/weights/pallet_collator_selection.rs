@@ -178,6 +178,30 @@ impl<T: frame_system::Config> pallet_collator_selection::WeightInfo for WeightIn
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	fn update_bond(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `306 + c * (50 ±0)`
+		//  Estimated: `6287`
+		// Minimum execution time: 34_814_000 picoseconds.
+		Weight::from_parts(36_371_520, 0)
+			.saturating_add(Weight::from_parts(0, 6287))
+			// Standard Error: 2_391
+			.saturating_add(Weight::from_parts(201_700, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	fn take_candidate_slot(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `306 + c * (50 ±0)`
+		//  Estimated: `6287`
+		// Minimum execution time: 34_814_000 picoseconds.
+		Weight::from_parts(36_371_520, 0)
+			.saturating_add(Weight::from_parts(0, 6287))
+			// Standard Error: 2_391
+			.saturating_add(Weight::from_parts(201_700, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `System::BlockWeight` (r:1 w:1)
