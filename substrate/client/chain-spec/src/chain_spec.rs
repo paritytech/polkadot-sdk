@@ -198,7 +198,6 @@ enum Genesis<G> {
 	StateRootHash(StorageData),
 	/// Represents the full runtime genesis config in JSON format.
 	/// The contained object is a JSON blob that can be parsed by a compatible runtime.
-	#[serde(rename(serialize = "runtime"))]
 	RuntimeGenesisConfig(json::Value),
 	/// Represents a patch for the default runtime genesis config in JSON format.
 	/// The contained value is a JSON object that can be parsed by a compatible runtime.
@@ -375,24 +374,13 @@ impl<G, E> ChainSpecBuilder<G, E> {
 			code_substitutes: BTreeMap::new(),
 		};
 
-		let code = self.code.expect("with code must be called.");
-
-		let genesis_build_action = match self.genesis_build_action {
-			Some(GenesisBuildAction::Patch(patch)) => Some(GenesisBuildAction::Full(
-				RuntimeCaller::new(&code[..])
-					.get_config_for_patch(patch)
-					.expect("patch should be correct"),
-			)),
-			_ => self.genesis_build_action,
-		};
-
 		ChainSpec {
 			client_spec,
 			genesis: GenesisSource::GenesisBuilderApi(
-				genesis_build_action
+				self.genesis_build_action
 					.expect("with_genesis_config_patch or with_genesis_config must be called."),
 			),
-			code: code.into(),
+			code: self.code.expect("with code must be called.").into(),
 		}
 	}
 }
