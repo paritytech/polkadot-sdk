@@ -149,7 +149,7 @@ check-runtime-migration-kusama:
     - .check-runtime-migration
   variables:
     NETWORK: "kusama"
-    PACKAGE: "staging-kusama"
+    PACKAGE: "staging-kusama-runtime"
     WASM: "staging_kusama_runtime.wasm"
 
 # check-runtime-migration-westend:
