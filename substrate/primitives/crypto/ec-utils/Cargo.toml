@@ -29,12 +29,12 @@ sp-runtime-interface = { path = "../../runtime-interface", default-features = fa
 [dev-dependencies]
 sp-io = { path = "../../io", default-features = false }
 ark-algebra-test-templates = { version = "0.4.2", default-features = false }
-sp-ark-models = { version = "0.4.0-beta", default-features = false }
-sp-ark-bls12-377 = { version = "0.4.0-beta", default-features = false }
-sp-ark-bls12-381 = { version = "0.4.0-beta", default-features = false }
-sp-ark-bw6-761 = { version = "0.4.0-beta", default-features = false }
-sp-ark-ed-on-bls12-377 = { version = "0.4.0-beta", default-features = false }
-sp-ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0-beta", default-features = false }
+sp-ark-models = { version = "0.4.1-beta", default-features = false }
+sp-ark-bls12-377 = { version = "0.4.1-beta", default-features = false }
+sp-ark-bls12-381 = { version = "0.4.1-beta", default-features = false }
+sp-ark-bw6-761 = { version = "0.4.1-beta", default-features = false }
+sp-ark-ed-on-bls12-377 = { version = "0.4.1-beta", default-features = false }
+sp-ark-ed-on-bls12-381-bandersnatch = { version = "0.4.1-beta", default-features = false }
 
 [features]
 default = [ "std" ]
