@@ -118,7 +118,7 @@ test-rust-feature-propagation:
       time cargo install --locked --git https://github.com/paritytech/try-runtime-cli --tag v0.3.0
       echo "---------- Building runtime for ${NETWORK} ----------"
       time cargo build --release --locked -p "$NETWORK"-runtime --features try-runtime
-      echo "---------- Running try-runtime for ${NETWORK} ----------"
+      echo "---------- Executing `on-runtime-upgrade` for ${NETWORK} ----------"
       time try-runtime \
           --runtime ./target/release/wbuild/"$NETWORK"-runtime/target/wasm32-unknown-unknown/release/"$NETWORK"_runtime.wasm \
           on-runtime-upgrade --checks=pre-and-post live --uri wss://${NETWORK}-try-runtime-node.parity-chains.parity.io:443
@@ -148,7 +148,7 @@ check-runtime-migration-kusama:
     - .test-pr-refs
     - .check-runtime-migration
   variables:
-    NETWORK: "kusama"
+    NETWORK: "staging-kusama"
 
 # check-runtime-migration-westend:
 #   stage: check
