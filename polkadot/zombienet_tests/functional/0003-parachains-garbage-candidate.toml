@@ -2,12 +2,12 @@
 timeout = 1000
 bootnode = true
 
-[relaychain.genesis.runtime.runtime_genesis_config.configuration.config]
+[relaychain.genesis.runtimeGenesisConfigPatch.configuration.config]
   max_validators_per_core = 1
   needed_approvals = 2
 
 [relaychain]
-default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
+default_image = "docker.io/paritypr/zombienet:8c572276"
 chain = "rococo-local"
 chain_spec_command = "polkadot build-spec --chain rococo-local --disable-default-bootnode"
 default_command = "polkadot"

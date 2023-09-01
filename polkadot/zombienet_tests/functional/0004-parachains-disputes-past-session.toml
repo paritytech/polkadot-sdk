@@ -2,13 +2,13 @@
 timeout = 1000
 bootnode = true
 
-[relaychain.genesis.runtime.configuration.config]
+[relaychain.genesis.runtimeGenesisConfigPatch.configuration.config]
   max_validators_per_core = 1
   needed_approvals = 2
   group_rotation_frequency = 3
 
 [relaychain]
-default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
+default_image = "docker.io/paritypr/zombienet:8c572276"
 chain = "westend-local" # using westend-local to enable slashing
 default_command = "polkadot"
 
