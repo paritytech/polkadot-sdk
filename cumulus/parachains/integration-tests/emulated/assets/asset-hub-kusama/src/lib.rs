@@ -29,7 +29,7 @@ pub use integration_tests_common::{
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
 	AssetHubKusama, AssetHubKusamaPallet, AssetHubKusamaReceiver, AssetHubKusamaSender, Kusama,
 	KusamaPallet, KusamaReceiver, KusamaSender, PenpalKusamaA, PenpalKusamaAPallet,
-	PenpalKusamaAReceiver, PenpalKusamaASender,
+	PenpalKusamaAReceiver, PenpalKusamaASender, PenpalKusamaB, PenpalKusamaBPallet,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{
@@ -87,4 +87,5 @@ pub fn system_para_test_args(
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "runtime-benchmarks"))]
 mod tests;

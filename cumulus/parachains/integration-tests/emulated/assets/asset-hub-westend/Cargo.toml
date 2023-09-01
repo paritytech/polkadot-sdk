@@ -33,3 +33,19 @@ asset-hub-westend-runtime = { path = "../../../../runtimes/assets/asset-hub-west
 # Local
 xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false}
 integration-tests-common = { path = "../../common", default-features = false}
+
+[features]
+runtime-benchmarks = [
+	"asset-hub-westend-runtime/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"integration-tests-common/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"polkadot-runtime/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
