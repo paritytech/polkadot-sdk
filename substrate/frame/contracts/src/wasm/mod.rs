@@ -49,7 +49,7 @@ use frame_support::{
 use sp_core::Get;
 use sp_runtime::{DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
-use wasmi::{Instance, Linker, Memory, MemoryType, StackLimits, Store};
+use wasmi::{InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
 
 const BYTES_PER_PAGE: usize = 64 * 1024;
 
@@ -179,7 +179,7 @@ impl<T: Config> WasmBlob<T> {
 		determinism: Determinism,
 		stack_limits: StackLimits,
 		allow_deprecated: AllowDeprecatedInterface,
-	) -> Result<(Store<H>, Memory, Instance), &'static str>
+	) -> Result<(Store<H>, Memory, InstancePre), &'static str>
 	where
 		E: Environment<H>,
 	{
@@ -217,9 +217,7 @@ impl<T: Config> WasmBlob<T> {
 
 		let instance = linker
 			.instantiate(&mut store, &contract.module)
-			.map_err(|_| "can't instantiate module with provided definitions")?
-			.ensure_no_start(&mut store)
-			.map_err(|_| "start function is forbidden but found in the module")?;
+			.map_err(|_| "can't instantiate module with provided definitions")?;
 
 		Ok((store, memory, instance))
 	}
@@ -410,25 +408,34 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 			.add_fuel(fuel_limit)
 			.expect("We've set up engine to fuel consuming mode; qed");
 
-		let exported_func = instance
-			.get_export(&store, function.identifier())
-			.and_then(|export| export.into_func())
-			.ok_or_else(|| {
-				log::error!(target: LOG_TARGET, "failed to find entry point");
-				Error::<T>::CodeRejected
-			})?;
-
-		if let &ExportedFunction::Constructor = function {
-			WasmBlob::<T>::increment_refcount(self.code_hash)?;
-		}
-
-		let result = exported_func.call(&mut store, &[], &mut []);
-		let engine_consumed_total = store.fuel_consumed().expect("Fuel metering is enabled; qed");
 		// Sync this frame's gas meter with the engine's one.
-		let gas_meter = store.data_mut().ext().gas_meter_mut();
-		gas_meter.charge_fuel(engine_consumed_total)?;
+		let process_result = |mut store: Store<Runtime<E>>, result| {
+			let engine_consumed_total =
+				store.fuel_consumed().expect("Fuel metering is enabled; qed");
+			let gas_meter = store.data_mut().ext().gas_meter_mut();
+			gas_meter.charge_fuel(engine_consumed_total)?;
+			store.into_data().to_execution_result(result)
+		};
 
-		store.into_data().to_execution_result(result)
+		match instance.start(&mut store) {
+			Ok(instance) => {
+				let exported_func = instance
+					.get_export(&store, function.identifier())
+					.and_then(|export| export.into_func())
+					.ok_or_else(|| {
+						log::error!(target: LOG_TARGET, "failed to find entry point");
+						Error::<T>::CodeRejected
+					})?;
+
+				if let &ExportedFunction::Constructor = function {
+					WasmBlob::<T>::increment_refcount(self.code_hash)?;
+				}
+
+				let result = exported_func.call(&mut store, &[], &mut []);
+				process_result(store, result)
+			},
+			Err(err) => process_result(store, Err(err)),
+		}
 	}
 
 	fn code_hash(&self) -> &CodeHash<T> {
@@ -1878,32 +1885,37 @@ mod tests {
 		assert_ok!(execute(CODE_VALUE_TRANSFERRED, vec![], MockExt::default()));
 	}
 
-	const START_FN_ILLEGAL: &str = r#"
+	const START_FN_DOES_RUN: &str = r#"
 (module
-	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "seal0" "seal_deposit_event" (func $seal_deposit_event (param i32 i32 i32 i32)))
 	(import "env" "memory" (memory 1 1))
 
 	(start $start)
-	(func $start
-		(unreachable)
+	(func $start 
+		(call $seal_deposit_event
+			(i32.const 0) ;; Pointer to the start of topics buffer
+			(i32.const 0) ;; The length of the topics buffer.
+			(i32.const 0) ;; Pointer to the start of the data buffer
+			(i32.const 13) ;; Length of the buffer
+		)
 	)
 
-	(func (export "call")
-		(unreachable)
-	)
+	(func (export "call"))
 
-	(func (export "deploy")
-		(unreachable)
-	)
+	(func (export "deploy"))
 
-	(data (i32.const 8) "\01\02\03\04")
+	(data (i32.const 0) "\00\01\2A\00\00\00\00\00\00\00\E5\14\00")
 )
 "#;
 
 	#[test]
-	fn start_fn_illegal() {
-		let output = execute(START_FN_ILLEGAL, vec![], MockExt::default());
-		assert_err!(output, <Error<Test>>::CodeRejected,);
+	fn start_fn_does_run() {
+		let mut ext = MockExt::default();
+		execute(START_FN_DOES_RUN, vec![], &mut ext).unwrap();
+		assert_eq!(
+			ext.events[0].1,
+			[0x00_u8, 0x01, 0x2a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe5, 0x14, 0x00]
+		);
 	}
 
 	const CODE_TIMESTAMP_NOW: &str = r#"
