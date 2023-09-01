@@ -596,8 +596,7 @@ impl BlockEntry {
 					.filter_map(|(validator, assignment_bitfield)| {
 						self.approval_entries.get(&(*validator, assignment_bitfield.clone()))
 					})
-					.map(|approval_entry| approval_entry.approvals.clone().into_iter())
-					.flatten()
+					.flat_map(|approval_entry| approval_entry.approvals.clone().into_iter())
 					.collect()
 			});
 
