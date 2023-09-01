@@ -1271,7 +1271,7 @@ impl Initialized {
 		if import_result.has_fresh_byzantine_threshold_against() {
 			let blocks_including = self.scraper.get_blocks_including_candidate(&candidate_hash);
 			for (parent_block_number, parent_block_hash) in &blocks_including {
-				gum::trace!(
+				gum::warn!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?parent_block_number,
@@ -1282,7 +1282,7 @@ impl Initialized {
 			if blocks_including.len() > 0 {
 				ctx.send_message(ChainSelectionMessage::RevertBlocks(blocks_including)).await;
 			} else {
-				gum::debug!(
+				gum::warn!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?session,
