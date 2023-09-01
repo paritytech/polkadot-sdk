@@ -21,7 +21,8 @@ use super::v3::{
 	PalletInfo as OldPalletInfo, Response as OldResponse, WeightLimit as OldWeightLimit,
 	Xcm as OldXcm,
 };
-use crate::{DoubleEncoded, GetWeight};
+pub use super::v2::GetWeight;
+use crate::DoubleEncoded;
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
 use core::{
