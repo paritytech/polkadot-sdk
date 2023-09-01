@@ -358,6 +358,13 @@ where
 	fn ready(&self) -> ReadyIteratorFor<PoolApi> {
 		Box::new(self.pool.validated_pool().ready())
 	}
+
+	fn futures(&self) -> Vec<Self::InPoolTransaction> {
+		let pool = self.pool.validated_pool().pool.read();
+		let res = pool.futures().cloned().collect::<Vec<_>>();
+
+		res
+	}
 }
 
 impl<Block, Client> FullPool<Block, Client>
