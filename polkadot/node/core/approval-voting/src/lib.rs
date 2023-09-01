@@ -45,13 +45,13 @@ use polkadot_node_subsystem_util::{
 	self,
 	database::Database,
 	metrics::{self, prometheus},
-	runtime::{Config as RuntimeInfoConfig, RuntimeInfo},
+	runtime::{Config as RuntimeInfoConfig, ExtendedSessionInfo, RuntimeInfo},
 	TimeoutExt,
 };
 use polkadot_primitives::{
 	ApprovalVote, BlockNumber, CandidateHash, CandidateIndex, CandidateReceipt, DisputeStatement,
-	GroupIndex, Hash, PvfExecTimeoutKind, SessionIndex, SessionInfo, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
+	ExecutorParams, GroupIndex, Hash, PvfExecTimeoutKind, SessionIndex, SessionInfo,
+	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
@@ -643,6 +643,32 @@ impl CurrentlyCheckingSet {
 	}
 }
 
+async fn get_extended_session_info<'a, Sender>(
+	runtime_info: &'a mut RuntimeInfo,
+	sender: &mut Sender,
+	relay_parent: Hash,
+	session_index: SessionIndex,
+) -> Option<&'a ExtendedSessionInfo>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	match runtime_info
+		.get_session_info_by_index(sender, relay_parent, session_index)
+		.await
+	{
+		Ok(extended_info) => Some(&extended_info),
+		Err(_) => {
+			gum::debug!(
+				target: LOG_TARGET,
+				session = session_index,
+				?relay_parent,
+				"Can't obtain SessionInfo or ExecutorParams"
+			);
+			None
+		},
+	}
+}
+
 async fn get_session_info<'a, Sender>(
 	runtime_info: &'a mut RuntimeInfo,
 	sender: &mut Sender,
@@ -652,21 +678,9 @@ async fn get_session_info<'a, Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	match runtime_info
-		.get_session_info_by_index(sender, relay_parent, session_index)
+	get_extended_session_info(runtime_info, sender, relay_parent, session_index)
 		.await
-	{
-		Ok(extended_info) => Some(&extended_info.session_info),
-		Err(_) => {
-			gum::debug!(
-				target: LOG_TARGET,
-				session = session_index,
-				?relay_parent,
-				"Can't obtain SessionInfo"
-			);
-			None
-		},
-	}
+		.map(|extended_info| &extended_info.session_info)
 }
 
 struct State {
@@ -746,6 +760,7 @@ enum Action {
 		relay_block_hash: Hash,
 		candidate_index: CandidateIndex,
 		session: SessionIndex,
+		executor_params: ExecutorParams,
 		candidate: CandidateReceipt,
 		backing_group: GroupIndex,
 	},
@@ -968,6 +983,7 @@ async fn handle_actions<Context>(
 				relay_block_hash,
 				candidate_index,
 				session,
+				executor_params,
 				candidate,
 				backing_group,
 			} => {
@@ -1008,6 +1024,7 @@ async fn handle_actions<Context>(
 					},
 					None => {
 						let ctx = &mut *ctx;
+
 						currently_checking_set
 							.insert_relay_block_hash(
 								candidate_hash,
@@ -1022,6 +1039,7 @@ async fn handle_actions<Context>(
 										validator_index,
 										block_hash,
 										backing_group,
+										executor_params,
 										&launch_approval_span,
 									)
 									.await
@@ -2328,17 +2346,18 @@ async fn process_wakeup<Context>(
 		_ => return Ok(Vec::new()),
 	};
 
-	let session_info = match get_session_info(
-		session_info_provider,
-		ctx.sender(),
-		block_entry.parent_hash(),
-		block_entry.session(),
-	)
-	.await
-	{
-		Some(i) => i,
-		None => return Ok(Vec::new()),
-	};
+	let ExtendedSessionInfo { ref session_info, ref executor_params, .. } =
+		match get_extended_session_info(
+			session_info_provider,
+			ctx.sender(),
+			block_entry.parent_hash(),
+			block_entry.session(),
+		)
+		.await
+		{
+			Some(i) => i,
+			None => return Ok(Vec::new()),
+		};
 
 	let block_tick = slot_number_to_tick(state.slot_duration_millis, block_entry.slot());
 	let no_show_duration = slot_number_to_tick(
@@ -2425,6 +2444,7 @@ async fn process_wakeup<Context>(
 				relay_block_hash: relay_block,
 				candidate_index: i as _,
 				session: block_entry.session(),
+				executor_params: executor_params.clone(),
 				candidate: candidate_receipt,
 				backing_group,
 			});
@@ -2466,6 +2486,7 @@ async fn launch_approval<Context>(
 	validator_index: ValidatorIndex,
 	block_hash: Hash,
 	backing_group: GroupIndex,
+	executor_params: ExecutorParams,
 	span: &jaeger::Span,
 ) -> SubsystemResult<RemoteHandle<ApprovalState>> {
 	let (a_tx, a_rx) = oneshot::channel();
@@ -2611,6 +2632,7 @@ async fn launch_approval<Context>(
 				validation_code,
 				candidate.clone(),
 				available_data.pov,
+				executor_params,
 				PvfExecTimeoutKind::Approval,
 				val_tx,
 			))

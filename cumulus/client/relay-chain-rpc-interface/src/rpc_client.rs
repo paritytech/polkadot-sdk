@@ -588,6 +588,16 @@ impl RelayChainRpcClient {
 			.await
 	}
 
+	/// Get the minimum number of backing votes for a candidate.
+	pub async fn parachain_host_minimum_backing_votes(
+		&self,
+		at: RelayHash,
+		_session_index: SessionIndex,
+	) -> Result<u32, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_minimum_backing_votes", at, None::<()>)
+			.await
+	}
+
 	#[allow(missing_docs)]
 	pub async fn parachain_host_staging_async_backing_params(
 		&self,
