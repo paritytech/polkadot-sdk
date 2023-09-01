@@ -1,4 +1,4 @@
-// Copyright 2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -17,8 +17,11 @@
 use crate::{Config, Pallet, RelayBlockNumber};
 use bp_parachains::BestParaHeadHash;
 use bp_polkadot_core::parachains::{ParaHash, ParaId};
-use frame_support::{dispatch::CallableCallFor, traits::IsSubType, RuntimeDebug};
-use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
+use frame_support::{dispatch::CallableCallFor, traits::IsSubType};
+use sp_runtime::{
+	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+	RuntimeDebug,
+};
 
 /// Info about a `SubmitParachainHeads` call which tries to update a single parachain.
 #[derive(PartialEq, RuntimeDebug)]

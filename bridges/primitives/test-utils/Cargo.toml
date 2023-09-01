@@ -1,9 +1,10 @@
 [package]
 name = "bp-test-utils"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+publish = false
 
 [dependencies]
 bp-header-chain = { path = "../header-chain", default-features = false  }
@@ -21,10 +22,12 @@ sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", d
 sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"bp-header-chain/std",
+	"bp-parachains/std",
 	"bp-polkadot-core/std",
+	"bp-runtime/std",
 	"codec/std",
 	"ed25519-dalek/std",
 	"finality-grandpa/std",
@@ -33,4 +36,5 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-trie/std",
 ]
