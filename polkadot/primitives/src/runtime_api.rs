@@ -121,7 +121,7 @@ use crate::{
 };
 use parity_scale_codec::{Decode, Encode};
 use polkadot_core_primitives as pcp;
-use polkadot_parachain::primitives as ppp;
+use polkadot_parachain_primitives::primitives as ppp;
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 sp_api::decl_runtime_apis! {
@@ -239,6 +239,13 @@ sp_api::decl_runtime_apis! {
 			dispute_proof: vstaging::slashing::DisputeProof,
 			key_ownership_proof: vstaging::slashing::OpaqueKeyOwnershipProof,
 		) -> Option<()>;
+
+		/***** Staging *****/
+
+		/// Get the minimum number of backing votes for a parachain candidate.
+		/// This is a staging method! Do not use on production runtimes!
+		#[api_version(6)]
+		fn minimum_backing_votes() -> u32;
 
 		/***** Asynchronous backing *****/
 

@@ -1,4 +1,4 @@
-// Copyright 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -138,13 +138,24 @@ async fn activate_leaf(
 	}
 
 	for (hash, number) in ancestry_iter.take(requested_len) {
-		// Check that subsystem job issues a request for a validator set.
 		let msg = match next_overseer_message.take() {
 			Some(msg) => msg,
 			None => virtual_overseer.recv().await,
 		};
+
+		// Check that subsystem job issues a request for the session index for child.
 		assert_matches!(
 			msg,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
+			) if parent == hash => {
+				tx.send(Ok(test_state.signing_context.session_index)).unwrap();
+			}
+		);
+
+		// Check that subsystem job issues a request for a validator set.
+		assert_matches!(
+			virtual_overseer.recv().await,
 			AllMessages::RuntimeApi(
 				RuntimeApiMessage::Request(parent, RuntimeApiRequest::Validators(tx))
 			) if parent == hash => {
@@ -164,16 +175,6 @@ async fn activate_leaf(
 			}
 		);
 
-		// Check that subsystem job issues a request for the session index for child.
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
-			) if parent == hash => {
-				tx.send(Ok(test_state.signing_context.session_index)).unwrap();
-			}
-		);
-
 		// Check that subsystem job issues a request for the availability cores.
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -181,6 +182,17 @@ async fn activate_leaf(
 				RuntimeApiMessage::Request(parent, RuntimeApiRequest::AvailabilityCores(tx))
 			) if parent == hash => {
 				tx.send(Ok(test_state.availability_cores.clone())).unwrap();
+			}
+		);
+
+		// Check if subsystem job issues a request for the minimum backing votes.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
+			)) if parent == hash && session_index == test_state.signing_context.session_index => {
+				tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
 			}
 		);
 	}
