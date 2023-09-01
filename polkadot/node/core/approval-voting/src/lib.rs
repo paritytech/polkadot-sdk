@@ -23,7 +23,6 @@
 
 use itertools::Itertools;
 use jaeger::{hash_to_trace_identifier, PerLeafSpan};
-use lru::LruCache;
 use polkadot_node_jaeger as jaeger;
 use polkadot_node_primitives::{
 	approval::{
@@ -78,10 +77,11 @@ use std::{
 	collections::{
 		btree_map::Entry as BTMEntry, hash_map::Entry as HMEntry, BTreeMap, HashMap, HashSet,
 	},
-	num::NonZeroUsize,
 	sync::Arc,
 	time::Duration,
 };
+
+use schnellru::{ByLength, LruMap};
 
 use approval_checking::RequiredTranches;
 use bitvec::{order::Lsb0, vec::BitVec};
@@ -115,10 +115,7 @@ const APPROVAL_CHECKING_TIMEOUT: Duration = Duration::from_secs(120);
 /// Value rather arbitrarily: Should not be hit in practice, it exists to more easily diagnose dead
 /// lock issues for example.
 const WAIT_FOR_SIGS_TIMEOUT: Duration = Duration::from_millis(500);
-const APPROVAL_CACHE_SIZE: NonZeroUsize = match NonZeroUsize::new(1024) {
-	Some(cap) => cap,
-	None => panic!("Approval cache size must be non-zero."),
-};
+const APPROVAL_CACHE_SIZE: u32 = 1024;
 
 const TICK_TOO_FAR_IN_FUTURE: Tick = 20; // 10 seconds.
 const APPROVAL_DELAY: Tick = 2;
@@ -129,10 +126,7 @@ const MAX_APPROVAL_COALESCE_WAIT_TICKS: Tick = 12;
 
 // The maximum approval params we cache locally in the subsytem, so that we don't have
 // to do the back and forth to the runtime subsystem api.
-const APPROVAL_PARAMS_CACHE_SIZE: NonZeroUsize = match NonZeroUsize::new(128) {
-	Some(cap) => cap,
-	None => panic!("Approval params cache size must be non-zero."),
-};
+const APPROVAL_PARAMS_CACHE_SIZE: u32 = 128;
 
 /// Configuration for the approval voting subsystem
 #[derive(Debug, Clone)]
@@ -171,7 +165,7 @@ pub struct ApprovalVotingSubsystem {
 	metrics: Metrics,
 	// Store approval-voting params, so that we don't to always go to RuntimeAPI
 	// to ask this information which requires a task context switch.
-	approval_voting_params_cache: Option<LruCache<Hash, ApprovalVotingParams>>,
+	approval_voting_params_cache: Option<LruMap<Hash, ApprovalVotingParams>>,
 }
 
 #[derive(Clone)]
@@ -448,7 +442,7 @@ impl ApprovalVotingSubsystem {
 			keystore,
 			sync_oracle,
 			metrics,
-			Some(LruCache::new(APPROVAL_PARAMS_CACHE_SIZE)),
+			Some(LruMap::new(ByLength::new(APPROVAL_PARAMS_CACHE_SIZE))),
 		)
 	}
 
@@ -458,7 +452,7 @@ impl ApprovalVotingSubsystem {
 		keystore: Arc<LocalKeystore>,
 		sync_oracle: Box<dyn SyncOracle + Send>,
 		metrics: Metrics,
-		approval_voting_params_cache: Option<LruCache<Hash, ApprovalVotingParams>>,
+		approval_voting_params_cache: Option<LruMap<Hash, ApprovalVotingParams>>,
 	) -> Self {
 		ApprovalVotingSubsystem {
 			keystore,
@@ -724,7 +718,7 @@ impl CurrentlyCheckingSet {
 
 	pub async fn next(
 		&mut self,
-		approvals_cache: &mut lru::LruCache<CandidateHash, ApprovalOutcome>,
+		approvals_cache: &mut LruMap<CandidateHash, ApprovalOutcome>,
 	) -> (HashSet<Hash>, ApprovalState) {
 		if !self.currently_checking.is_empty() {
 			if let Some(approval_state) = self.currently_checking.next().await {
@@ -732,7 +726,8 @@ impl CurrentlyCheckingSet {
 					.candidate_hash_map
 					.remove(&approval_state.candidate_hash)
 					.unwrap_or_default();
-				approvals_cache.put(approval_state.candidate_hash, approval_state.approval_outcome);
+				approvals_cache
+					.insert(approval_state.candidate_hash, approval_state.approval_outcome);
 				return (out, approval_state)
 			}
 		}
@@ -775,7 +770,7 @@ struct State {
 	spans: HashMap<Hash, jaeger::PerLeafSpan>,
 	// Store approval-voting params, so that we don't to always go to RuntimeAPI
 	// to ask this information which requires a task context switch.
-	approval_voting_params_cache: Option<LruCache<Hash, ApprovalVotingParams>>,
+	approval_voting_params_cache: Option<LruMap<Hash, ApprovalVotingParams>>,
 }
 
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
@@ -859,7 +854,7 @@ impl State {
 				Ok(Ok(params)) => {
 					self.approval_voting_params_cache
 						.as_mut()
-						.map(|cache| cache.put(block_hash, params));
+						.map(|cache| cache.insert(block_hash, params));
 					params
 				},
 				_ => {
@@ -926,12 +921,12 @@ where
 	// `None` on start-up. Gets initialized/updated on leaf update
 	let mut session_info_provider = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 		keystore: None,
-		session_cache_lru_size: DISPUTE_WINDOW.into(),
+		session_cache_lru_size: DISPUTE_WINDOW.get(),
 	});
 	let mut wakeups = Wakeups::default();
 	let mut currently_checking_set = CurrentlyCheckingSet::default();
-	let mut approvals_cache = lru::LruCache::new(APPROVAL_CACHE_SIZE);
 	let mut delayed_approvals_timers = DelayedApprovalTimer::default();
+	let mut approvals_cache = LruMap::new(ByLength::new(APPROVAL_CACHE_SIZE));
 
 	let mut last_finalized_height: Option<BlockNumber> = {
 		let (tx, rx) = oneshot::channel();
@@ -1051,8 +1046,8 @@ where
 			&subsystem.metrics,
 			&mut wakeups,
 			&mut currently_checking_set,
-			&mut approvals_cache,
 			&mut delayed_approvals_timers,
+			&mut approvals_cache,
 			&mut subsystem.mode,
 			actions,
 		)
@@ -1099,8 +1094,8 @@ async fn handle_actions<Context>(
 	metrics: &Metrics,
 	wakeups: &mut Wakeups,
 	currently_checking_set: &mut CurrentlyCheckingSet,
-	approvals_cache: &mut lru::LruCache<CandidateHash, ApprovalOutcome>,
 	delayed_approvals_timers: &mut DelayedApprovalTimer,
+	approvals_cache: &mut LruMap<CandidateHash, ApprovalOutcome>,
 	mode: &mut Mode,
 	actions: Vec<Action>,
 ) -> SubsystemResult<bool> {

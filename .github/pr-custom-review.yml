@@ -14,22 +14,6 @@ rules:
       - ci
       - release-engineering
 
-  - name: Audit rules
-    check_type: changed_files
-    condition:
-      include: ^polkadot/runtime\/(kusama|polkadot|common)\/.*|^polkadot/primitives/src\/.+\.rs$|^substrate/primitives/.*|^substrate/frame/.*
-      exclude: ^polkadot/runtime\/(kusama|polkadot)\/src\/weights\/.+\.rs$|^substrate\/frame\/.+\.md$
-    all_distinct:
-      - min_approvals: 1
-        teams:
-          - locks-review
-      - min_approvals: 1
-        teams:
-          - polkadot-review
-      - min_approvals: 2
-        teams:
-          - srlabs
-
   - name: Core developers
     check_type: changed_files
     condition:

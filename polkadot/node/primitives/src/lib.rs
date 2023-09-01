@@ -22,7 +22,7 @@
 
 #![deny(missing_docs)]
 
-use std::{num::NonZeroUsize, pin::Pin};
+use std::pin::Pin;
 
 use bounded_vec::BoundedVec;
 use futures::Future;
@@ -140,12 +140,6 @@ impl SessionWindowSize {
 	#[doc(hidden)]
 	pub const fn unchecked_new(size: SessionIndex) -> Self {
 		Self(size)
-	}
-}
-
-impl From<SessionWindowSize> for NonZeroUsize {
-	fn from(value: SessionWindowSize) -> Self {
-		NonZeroUsize::new(value.get() as usize).expect("SessionWindowSize can't be 0. qed.")
 	}
 }
 
@@ -469,8 +463,8 @@ impl CollationResult {
 /// Collation function.
 ///
 /// Will be called with the hash of the relay chain block the parachain block should be build on and
-/// the [`ValidationData`] that provides information about the state of the parachain on the relay
-/// chain.
+/// the [`PersistedValidationData`] that provides information about the state of the parachain on
+/// the relay chain.
 ///
 /// Returns an optional [`CollationResult`].
 #[cfg(not(target_os = "unknown"))]
@@ -504,7 +498,7 @@ impl std::fmt::Debug for CollationGenerationConfig {
 	}
 }
 
-/// Parameters for [`CollationGenerationMessage::SubmitCollation`].
+/// Parameters for `CollationGenerationMessage::SubmitCollation`.
 #[derive(Debug)]
 pub struct SubmitCollationParams {
 	/// The relay-parent the collation is built against.
@@ -640,7 +634,7 @@ pub struct ErasureChunk {
 }
 
 impl ErasureChunk {
-	/// Convert bounded Vec Proof to regular Vec<Vec<u8>>
+	/// Convert bounded Vec Proof to regular `Vec<Vec<u8>>`
 	pub fn proof(&self) -> &Proof {
 		&self.proof
 	}
@@ -654,11 +648,4 @@ pub fn maybe_compress_pov(pov: PoV) -> PoV {
 
 	let pov = PoV { block_data: BlockData(raw) };
 	pov
-}
-
-/// How many votes we need to consider a candidate backed.
-///
-/// WARNING: This has to be kept in sync with the runtime check in the inclusion module.
-pub fn minimum_votes(n_validators: usize) -> usize {
-	std::cmp::min(2, n_validators)
 }

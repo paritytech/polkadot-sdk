@@ -1,8 +1,8 @@
 [package]
 name = "asset-hub-westend-runtime"
 version = "0.9.420"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 description = "Westend variant of Asset Hub parachain runtime"
 
 [dependencies]
@@ -59,9 +59,9 @@ polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", d
 polkadot-parachain = { path = "../../../../../polkadot/parachain", default-features = false}
 polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false}
 westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/constants", default-features = false}
-xcm = { path = "../../../../../polkadot/xcm", default-features = false}
-xcm-builder = { path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
-xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
@@ -110,8 +110,11 @@ runtime-benchmarks = [
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
+	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
@@ -120,6 +123,7 @@ try-runtime = [
 	"cumulus-pallet-xcm/try-runtime",
 	"cumulus-pallet-xcmp-queue/try-runtime",
 	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-asset-conversion-tx-payment/try-runtime",
@@ -140,6 +144,8 @@ try-runtime = [
 	"pallet-utility/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
+	"polkadot-runtime-common/try-runtime",
+	"sp-runtime/try-runtime",
 ]
 std = [
 	"assets-common/std",
@@ -147,14 +153,18 @@ std = [
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-dmp-queue/std",
 	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-session-benchmarking/std",
 	"cumulus-pallet-xcm/std",
 	"cumulus-pallet-xcmp-queue/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-utility/std",
+	"frame-benchmarking?/std",
 	"frame-executive/std",
 	"frame-support/std",
+	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
+	"frame-try-runtime?/std",
 	"log/std",
 	"pallet-asset-conversion-tx-payment/std",
 	"pallet-asset-conversion/std",
@@ -174,6 +184,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-uniques/std",
 	"pallet-utility/std",
+	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",
@@ -190,6 +201,7 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-std/std",
+	"sp-storage/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",

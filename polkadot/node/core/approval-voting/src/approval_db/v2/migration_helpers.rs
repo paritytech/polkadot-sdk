@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Approval DB migration helpers.
-use super::{StoredBlockRange, *};
+use super::*;
 use crate::backend::Backend;
 use polkadot_node_primitives::approval::v1::{
 	AssignmentCert, AssignmentCertKind, VrfOutput, VrfProof, VrfSignature, RELAY_VRF_MODULO_CONTEXT,

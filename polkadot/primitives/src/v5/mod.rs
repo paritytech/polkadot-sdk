@@ -397,6 +397,10 @@ pub const MAX_POV_SIZE: u32 = 5 * 1024 * 1024;
 /// Can be adjusted in configuration.
 pub const ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE: u32 = 10_000;
 
+/// Backing votes threshold used from the host prior to runtime API version 6 and from the runtime
+/// prior to v9 configuration migration.
+pub const LEGACY_MIN_BACKING_VOTES: u32 = 2;
+
 // The public key of a keypair used by a validator for determining assignments
 /// to approve included parachain candidates.
 mod assignment_app {
@@ -1016,7 +1020,7 @@ impl<H, N> OccupiedCore<H, N> {
 pub struct ScheduledCore {
 	/// The ID of a para scheduled.
 	pub para_id: Id,
-	/// DEPRECATED: see: https://github.com/paritytech/polkadot/issues/7575
+	/// DEPRECATED: see: <https://github.com/paritytech/polkadot/issues/7575>
 	///
 	/// Will be removed in a future version.
 	pub collator: Option<CollatorId>,
@@ -1742,6 +1746,14 @@ pub const fn supermajority_threshold(n: usize) -> usize {
 	n - byzantine_threshold(n)
 }
 
+/// Adjust the configured needed backing votes with the size of the backing group.
+pub fn effective_minimum_backing_votes(
+	group_len: usize,
+	configured_minimum_backing_votes: u32,
+) -> usize {
+	sp_std::cmp::min(group_len, configured_minimum_backing_votes as usize)
+}
+
 /// Information about validator sets of a session.
 ///
 /// NOTE: `SessionInfo` is frozen. Do not include new fields, consider creating a separate runtime
@@ -1782,8 +1794,8 @@ pub struct SessionInfo {
 	///
 	/// Therefore:
 	/// ```ignore
-	/// 		assignment_keys.len() == validators.len() && validators.len() <= discovery_keys.len()
-	/// 	```
+	/// 	assignment_keys.len() == validators.len() && validators.len() <= discovery_keys.len()
+	/// ```
 	pub assignment_keys: Vec<AssignmentId>,
 	/// Validators in shuffled ordering - these are the validator groups as produced
 	/// by the `Scheduler` module for the session and are typically referred to by

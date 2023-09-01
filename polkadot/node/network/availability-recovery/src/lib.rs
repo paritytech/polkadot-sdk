@@ -35,8 +35,8 @@ use futures::{
 	stream::{FuturesUnordered, StreamExt},
 	task::{Context, Poll},
 };
-use lru::LruCache;
 use rand::seq::SliceRandom;
+use schnellru::{ByLength, LruMap};
 
 use fatality::Nested;
 use polkadot_erasure_coding::{
@@ -82,10 +82,7 @@ const LOG_TARGET: &str = "parachain::availability-recovery";
 const N_PARALLEL: usize = 50;
 
 // Size of the LRU cache where we keep recovered data.
-const LRU_SIZE: NonZeroUsize = match NonZeroUsize::new(16) {
-	Some(cap) => cap,
-	None => panic!("Availability-recovery cache size must be non-zero."),
-};
+const LRU_SIZE: u32 = 16;
 
 const COST_INVALID_REQUEST: Rep = Rep::CostMajor("Peer sent unparsable request");
 
@@ -928,7 +925,7 @@ struct State {
 	live_block: (BlockNumber, Hash),
 
 	/// An LRU cache of recently recovered data.
-	availability_lru: LruCache<CandidateHash, CachedRecovery>,
+	availability_lru: LruMap<CandidateHash, CachedRecovery>,
 }
 
 impl Default for State {
@@ -936,7 +933,7 @@ impl Default for State {
 		Self {
 			ongoing_recoveries: FuturesUnordered::new(),
 			live_block: (0, Hash::default()),
-			availability_lru: LruCache::new(LRU_SIZE),
+			availability_lru: LruMap::new(ByLength::new(LRU_SIZE)),
 		}
 	}
 }
@@ -1153,7 +1150,7 @@ async fn query_chunk_size<Context>(
 
 #[overseer::contextbounds(AvailabilityRecovery, prefix = self::overseer)]
 impl AvailabilityRecoverySubsystem {
-	/// Create a new instance of `AvailabilityRecoverySubsystem` which never requests the  
+	/// Create a new instance of `AvailabilityRecoverySubsystem` which never requests the
 	/// `AvailabilityStoreSubsystem` subsystem.
 	pub fn with_availability_store_skip(
 		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
@@ -1335,7 +1332,7 @@ impl AvailabilityRecoverySubsystem {
 				output = state.ongoing_recoveries.select_next_some() => {
 					if let Some((candidate_hash, result)) = output {
 						if let Ok(recovery) = CachedRecovery::try_from(result) {
-							state.availability_lru.put(candidate_hash, recovery);
+							state.availability_lru.insert(candidate_hash, recovery);
 						}
 					}
 				}

@@ -276,9 +276,9 @@ impl SignedDisputeStatement {
 		self.session_index
 	}
 
-	/// Convert a [`SignedFullStatement`] to a [`SignedDisputeStatement`]
+	/// Convert a unchecked backing statement to a [`SignedDisputeStatement`]
 	///
-	/// As [`SignedFullStatement`] contains only the validator index and
+	/// As the unchecked backing statement contains only the validator index and
 	/// not the validator public key, the public key must be passed as well,
 	/// along with the signing context.
 	///

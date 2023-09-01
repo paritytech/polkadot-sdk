@@ -3,14 +3,14 @@ name = "pallet-xcm"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version.workspace = true
+version = "1.0.0"
 
 
 [dependencies]
 bounded-collections = { version = "0.1.8", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.163", optional = true, features = ["derive"] }
+serde = { version = "1.0.188", optional = true, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -21,18 +21,18 @@ sp-io = { path = "../../../substrate/primitives/io", default-features = false}
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
 sp-std = { path = "../../../substrate/primitives/std", default-features = false}
 
-xcm = { path = "..", default-features = false }
-xcm-executor = { path = "../xcm-executor", default-features = false }
+xcm = { package = "staging-xcm", path = "..", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
 
 [dev-dependencies]
 pallet-balances = { path = "../../../substrate/frame/balances" }
 polkadot-runtime-parachains = { path = "../../runtime/parachains" }
 polkadot-parachain = { path = "../../parachain" }
-xcm-builder = { path = "../xcm-builder" }
+xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder" }
 
 [features]
 default = [ "std" ]
-# Enable `VersionedRuntimeUpgrade` for the migrations that is currently still experimental.
+# Enable `VersionedMigration` for the migrations using the experimental feature.
 experimental = [ "frame-support/experimental" ]
 std = [
 	"bounded-collections/std",
@@ -53,6 +53,17 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 ]
-try-runtime = [ "frame-support/try-runtime" ]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"polkadot-runtime-parachains/try-runtime",
+	"sp-runtime/try-runtime",
+]
