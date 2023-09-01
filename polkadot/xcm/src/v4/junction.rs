@@ -441,7 +441,7 @@ mod tests {
 		assert_eq!(j, k);
 
 		let j = OldJunction::GeneralKey { length: 32, data: [1u8; 32] };
-		let k = OldJunction::try_from(Junction::try_from(j.clone()).unwrap()).unwrap();
+		let k = OldJunction::try_from(Junction::try_from(j).unwrap()).unwrap();
 		assert_eq!(j, k);
 
 		let j = Junction::from(BoundedVec::try_from(vec![1u8, 2, 3, 4]).unwrap());
@@ -451,7 +451,7 @@ mod tests {
 		assert_eq!(s, &[1u8, 2, 3, 4][..]);
 
 		let j = OldJunction::GeneralKey { length: 32, data: [1u8; 32] };
-		let k = OldJunction::try_from(Junction::try_from(j.clone()).unwrap()).unwrap();
+		let k = OldJunction::try_from(Junction::try_from(j).unwrap()).unwrap();
 		assert_eq!(j, k);
 	}
 }
