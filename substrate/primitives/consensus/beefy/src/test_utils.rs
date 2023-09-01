@@ -125,3 +125,16 @@ pub fn generate_fork_equivocation_proof_vote<Header>(
 	let signatories = vec![(signed_vote.id, signed_vote.signature)];
 	ForkEquivocationProof { commitment: signed_vote.commitment, signatories, correct_header }
 }
+
+/// Create a new `ForkEquivocationProof` based on signed commitment & correct header.
+pub fn generate_fork_equivocation_proof_sc<Header>(
+	commitment: Commitment<u64>,
+	keyrings: Vec<Keyring>,
+	correct_header: Header,
+) -> ForkEquivocationProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature, Header> {
+	let signatories = keyrings
+		.into_iter()
+		.map(|k| (k.public(), k.sign(&commitment.encode())))
+		.collect::<Vec<_>>();
+	ForkEquivocationProof { commitment, signatories, correct_header }
+}

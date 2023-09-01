@@ -19,7 +19,7 @@ use std::vec;
 
 use codec::Encode;
 use sp_consensus_beefy::{
-	check_vote_equivocation_proof, generate_vote_equivocation_proof, generate_fork_equivocation_proof_vote, known_payloads::MMR_ROOT_ID,
+	Commitment, check_vote_equivocation_proof, generate_vote_equivocation_proof, generate_fork_equivocation_proof_sc, generate_fork_equivocation_proof_vote, known_payloads::MMR_ROOT_ID,
 	Keyring as BeefyKeyring, Payload, ValidatorSet, KEY_TYPE as BEEFY_KEY_TYPE,
 };
 
@@ -1377,45 +1377,49 @@ fn report_fork_equivocation_sc_current_set_works() {
 			);
 		}
 
-		let equivocation_authority_index = 1;
-		let equivocation_key = &authorities[equivocation_authority_index];
-		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
 		assert_eq!(authorities.len(), 3);
+		let equivocation_authority_indices = [0, 2];
+		let equivocation_keys = equivocation_authority_indices.iter().map(|i| &authorities[*i]).collect::<Vec<_>>();
+		let equivocation_keyrings = equivocation_keys.iter().map(|k| BeefyKeyring::from_public(k).unwrap()).collect();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let commitment = Commitment { validator_set_id: set_id, block_number: block_num, payload };
 		// generate an fork equivocation proof, with a vote in the same round for a
 		// different payload than finalized
-		let equivocation_proof = generate_fork_equivocation_proof_vote(
-			(block_num, payload, set_id, &equivocation_keyring),
+		let equivocation_proof = generate_fork_equivocation_proof_sc(
+			commitment,
+			equivocation_keyrings,
 			header,
 		);
 
 		// create the key ownership proof
-		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
+		let key_owner_proofs = equivocation_keys.iter().map(|k| Historical::prove((BEEFY_KEY_TYPE, &k)).unwrap()).collect();
 
 		// report the equivocation and the tx should be dispatched successfully
 		assert_ok!(Beefy::report_fork_equivocation_unsigned(
 			RuntimeOrigin::none(),
 			Box::new(equivocation_proof),
-			vec![key_owner_proof],
+			key_owner_proofs,
 		),);
 
 		era += 1;
 		start_era(era);
 
-		// check that the balance of 0-th validator is slashed 100%.
-		let equivocation_validator_id = validators[equivocation_authority_index];
+		// check that the balance of equivocating validators is slashed 100%.
+		let equivocation_validator_ids = equivocation_authority_indices.iter().map(|i| validators[*i]).collect::<Vec<_>>();
 
-		assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
-		assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
-		assert_eq!(
-			Staking::eras_stakers(era, equivocation_validator_id),
-			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
-		);
+		for equivocation_validator_id in &equivocation_validator_ids {
+			assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
+			assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
+			assert_eq!(
+				Staking::eras_stakers(era, equivocation_validator_id),
+				pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
+			);
+		}
 
 		// check that the balances of all other validators are left intact.
 		for validator in &validators {
-			if *validator == equivocation_validator_id {
+			if equivocation_validator_ids.contains(&validator) {
 				continue
 			}
 
@@ -1449,11 +1453,11 @@ fn report_fork_equivocation_sc_old_set_works() {
 		let old_set_id = validator_set.id();
 
 		assert_eq!(authorities.len(), 3);
-		let equivocation_authority_index = 0;
-		let equivocation_key = &authorities[equivocation_authority_index];
+		let equivocation_authority_indices = [0, 2];
+		let equivocation_keys = equivocation_authority_indices.iter().map(|i| &authorities[*i]).collect::<Vec<_>>();
 
-		// create the key ownership proof in the "old" set
-		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
+		// create the key ownership proofs in the "old" set
+		let key_owner_proofs = equivocation_keys.iter().map(|k| Historical::prove((BEEFY_KEY_TYPE, &k)).unwrap()).collect();
 
 		era += 1;
 		start_era(era);
@@ -1473,13 +1477,17 @@ fn report_fork_equivocation_sc_old_set_works() {
 		let new_set_id = validator_set.id();
 		assert_eq!(old_set_id + 3, new_set_id);
 
-		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
+		let equivocation_keyrings = equivocation_keys.iter().map(|k| BeefyKeyring::from_public(k).unwrap()).collect();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
 		// generate an fork equivocation proof, with a vote in the same round for a
 		// different payload than finalized
-		let equivocation_proof = generate_fork_equivocation_proof_vote(
-			(block_num, payload, old_set_id, &equivocation_keyring),
+		let commitment = Commitment { validator_set_id: old_set_id, block_number: block_num, payload };
+		// generate an fork equivocation proof, with a vote in the same round for a
+		// different payload than finalized
+		let equivocation_proof = generate_fork_equivocation_proof_sc(
+			commitment,
+			equivocation_keyrings,
 			header,
 		);
 
@@ -1487,25 +1495,27 @@ fn report_fork_equivocation_sc_old_set_works() {
 		assert_ok!(Beefy::report_fork_equivocation_unsigned(
 			RuntimeOrigin::none(),
 			Box::new(equivocation_proof),
-			vec![key_owner_proof],
+			key_owner_proofs,
 		),);
 
 		era += 1;
 		start_era(era);
 
-		// check that the balance of 0-th validator is slashed 100%.
-		let equivocation_validator_id = validators[equivocation_authority_index];
+		// check that the balance of equivocating validators is slashed 100%.
+		let equivocation_validator_ids = equivocation_authority_indices.iter().map(|i| validators[*i]).collect::<Vec<_>>();
 
-		assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
-		assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
-		assert_eq!(
-			Staking::eras_stakers(era, equivocation_validator_id),
-			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
-		);
+		for equivocation_validator_id in &equivocation_validator_ids {
+			assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
+			assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
+			assert_eq!(
+				Staking::eras_stakers(era, equivocation_validator_id),
+				pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
+			);
+		}
 
 		// check that the balances of all other validators are left intact.
 		for validator in &validators {
-			if *validator == equivocation_validator_id {
+			if equivocation_validator_ids.contains(&validator) {
 				continue
 			}
 
@@ -1537,16 +1547,18 @@ fn report_fork_equivocation_sc_invalid_set_id() {
 		let authorities = validator_set.validators();
 		let set_id = validator_set.id();
 
-		let equivocation_authority_index = 0;
-		let equivocation_key = &authorities[equivocation_authority_index];
-		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
+		let equivocation_authority_indices = [0, 2];
+		let equivocation_keys = equivocation_authority_indices.iter().map(|i| &authorities[*i]).collect::<Vec<_>>();
+		let equivocation_keyrings = equivocation_keys.iter().map(|k| BeefyKeyring::from_public(k).unwrap()).collect();
 
-		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
+		let key_owner_proofs = equivocation_keys.iter().map(|k| Historical::prove((BEEFY_KEY_TYPE, &k)).unwrap()).collect();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
 		// generate an equivocation for a future set
-		let equivocation_proof = generate_fork_equivocation_proof_vote(
-			(block_num, payload, set_id+1, &equivocation_keyring),
+		let commitment = Commitment { validator_set_id: set_id+1, block_number: block_num, payload };
+		let equivocation_proof = generate_fork_equivocation_proof_sc(
+			commitment,
+			equivocation_keyrings,
 			header,
 		);
 
@@ -1554,7 +1566,7 @@ fn report_fork_equivocation_sc_invalid_set_id() {
 		assert_err!(Beefy::report_fork_equivocation_unsigned(
 			RuntimeOrigin::none(),
 			Box::new(equivocation_proof),
-			vec![key_owner_proof],
+			key_owner_proofs,
 		),
 			Error::<Test>::InvalidEquivocationProofSession,
 		);
@@ -1577,12 +1589,12 @@ fn report_fork_equivocation_sc_invalid_session() {
 		let validator_set = Beefy::validator_set().unwrap();
 		let authorities = validator_set.validators();
 
-		let equivocation_authority_index = 0;
-		let equivocation_key = &authorities[equivocation_authority_index];
-		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
+		let equivocation_authority_indices = [0, 2];
+		let equivocation_keys = equivocation_authority_indices.iter().map(|i| &authorities[*i]).collect::<Vec<_>>();
+		let equivocation_keyrings = equivocation_keys.iter().map(|k| BeefyKeyring::from_public(k).unwrap()).collect();
 
-		// generate a key ownership proof at current era set id
-		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
+		// generate key ownership proofs at current era set id
+		let key_owner_proofs = equivocation_keys.iter().map(|k| Historical::prove((BEEFY_KEY_TYPE, &k)).unwrap()).collect();
 
 		era += 1;
 		start_era(era);
@@ -1591,8 +1603,10 @@ fn report_fork_equivocation_sc_invalid_session() {
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
 		// generate an equivocation proof at following era set id = 3
-		let equivocation_proof = generate_fork_equivocation_proof_vote(
-			(block_num, payload, set_id, &equivocation_keyring),
+		let commitment = Commitment { validator_set_id: set_id, block_number: block_num, payload };
+		let equivocation_proof = generate_fork_equivocation_proof_sc(
+			commitment,
+			equivocation_keyrings,
 			header,
 		);
 
@@ -1601,7 +1615,7 @@ fn report_fork_equivocation_sc_invalid_session() {
 		assert_err!(Beefy::report_fork_equivocation_unsigned(
 			RuntimeOrigin::none(),
 			Box::new(equivocation_proof),
-			vec![key_owner_proof],
+			key_owner_proofs,
 		),
 			Error::<Test>::InvalidEquivocationProofSession,
 		);
@@ -1627,19 +1641,26 @@ fn report_fork_equivocation_sc_invalid_key_owner_proof() {
 
 		let invalid_owner_authority_index = 1;
 		let invalid_owner_key = &authorities[invalid_owner_authority_index];
+		let valid_owner_authority_index = 0;
+		let valid_owner_key = &authorities[valid_owner_authority_index];
 
 		// generate a key ownership proof for the authority at index 1
 		let invalid_key_owner_proof =
 			Historical::prove((BEEFY_KEY_TYPE, &invalid_owner_key)).unwrap();
+		// generate a key ownership proof for the authority at index 1
+		let valid_key_owner_proof =
+			Historical::prove((BEEFY_KEY_TYPE, &valid_owner_key)).unwrap();
 
-		let equivocation_authority_index = 0;
-		let equivocation_key = &authorities[equivocation_authority_index];
-		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
+		let equivocation_authority_indices = [0, 2];
+		let equivocation_keys = equivocation_authority_indices.iter().map(|i| &authorities[*i]).collect::<Vec<_>>();
+		let equivocation_keyrings = equivocation_keys.iter().map(|k| BeefyKeyring::from_public(k).unwrap()).collect();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
-		// generate an equivocation for a future set
-		let equivocation_proof = generate_fork_equivocation_proof_vote(
-			(block_num, payload, set_id+1, &equivocation_keyring),
+		// generate an equivocation proof for the authorities at indices [0, 2]
+		let commitment = Commitment { validator_set_id: set_id + 1, block_number: block_num, payload };
+		let equivocation_proof = generate_fork_equivocation_proof_sc(
+			commitment,
+			equivocation_keyrings,
 			header,
 		);
 
@@ -1649,11 +1670,11 @@ fn report_fork_equivocation_sc_invalid_key_owner_proof() {
 		start_era(era);
 
 		// report an equivocation for the current set using a key ownership
-		// proof for a different key than the one in the equivocation proof.
+		// proof for a different key than the ones in the equivocation proof.
 		assert_err!(Beefy::report_fork_equivocation_unsigned(
 			RuntimeOrigin::none(),
 			Box::new(equivocation_proof),
-			vec![invalid_key_owner_proof],
+			vec![valid_key_owner_proof, invalid_key_owner_proof],
 		),
 			Error::<Test>::InvalidKeyOwnershipProof,
 		);
@@ -1668,63 +1689,66 @@ fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 		start_era(1);
 
 		let block_num = System::block_number();
+		let header = System::finalize();
 		let validator_set = Beefy::validator_set().unwrap();
 		let authorities = validator_set.validators();
 		let set_id = validator_set.id();
 
-		let equivocation_authority_index = 0;
-		let equivocation_key = &authorities[equivocation_authority_index];
-		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
+		let equivocation_authority_indices = [0, 2];
+		let equivocation_keys = equivocation_authority_indices.iter().map(|i| &authorities[*i]).collect::<Vec<_>>();
+		let equivocation_keyrings: Vec<_> = equivocation_keys.iter().map(|k| BeefyKeyring::from_public(k).unwrap()).collect();
 
 		// generate a key ownership proof at set id in era 1
-		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
-
-		let assert_invalid_equivocation_proof = |equivocation_proof| {
-			assert_err!(
-				Beefy::report_vote_equivocation_unsigned(
-					RuntimeOrigin::none(),
-					Box::new(equivocation_proof),
-					key_owner_proof.clone(),
-				),
-				Error::<Test>::InvalidVoteEquivocationProof,
-			);
-		};
+		let key_owner_proofs: Vec<_> = equivocation_keys.iter().map(|k| Historical::prove((BEEFY_KEY_TYPE, &k)).unwrap()).collect();
 
 		start_era(2);
 
-		let payload1 = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
-		let payload2 = Payload::from_single_entry(MMR_ROOT_ID, vec![128]);
+		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
 
-		// both votes target the same block number and payload,
-		// there is no equivocation.
-		assert_invalid_equivocation_proof(generate_vote_equivocation_proof(
-			(block_num, payload1.clone(), set_id, &equivocation_keyring),
-			(block_num, payload1.clone(), set_id, &equivocation_keyring),
-		));
+		// commitment targets different round than finalized payload, there is no equivocation.
+		let equivocation_proof = generate_fork_equivocation_proof_sc(
+			Commitment { validator_set_id: set_id, block_number: block_num+1, payload: payload.clone() },
+			equivocation_keyrings.clone(),
+			header.clone(),
+		);
+		assert_err!(
+			Beefy::report_fork_equivocation_unsigned(
+				RuntimeOrigin::none(),
+				Box::new(equivocation_proof),
+				key_owner_proofs.clone(),
+			),
+			Error::<Test>::InvalidForkEquivocationProof,
+		);
 
-		// votes targeting different rounds, there is no equivocation.
-		assert_invalid_equivocation_proof(generate_vote_equivocation_proof(
-			(block_num, payload1.clone(), set_id, &equivocation_keyring),
-			(block_num + 1, payload2.clone(), set_id, &equivocation_keyring),
-		));
+		// commitment signed with a key that isn't part of the authority set
+		let equivocation_proof = generate_fork_equivocation_proof_sc(
+			Commitment { validator_set_id: set_id, block_number: block_num, payload: payload.clone() },
+			vec![BeefyKeyring::Eve],
+			header.clone(),
+		);
+		assert_err!(
+			Beefy::report_fork_equivocation_unsigned(
+				RuntimeOrigin::none(),
+				Box::new(equivocation_proof),
+				key_owner_proofs.clone(),
+			),
+			Error::<Test>::InvalidKeyOwnershipProof,
+		);
 
-		// votes signed with different authority keys
-		assert_invalid_equivocation_proof(generate_vote_equivocation_proof(
-			(block_num, payload1.clone(), set_id, &equivocation_keyring),
-			(block_num, payload1.clone(), set_id, &BeefyKeyring::Charlie),
-		));
-
-		// votes signed with a key that isn't part of the authority set
-		assert_invalid_equivocation_proof(generate_vote_equivocation_proof(
-			(block_num, payload1.clone(), set_id, &equivocation_keyring),
-			(block_num, payload1.clone(), set_id, &BeefyKeyring::Dave),
-		));
-
-		// votes targeting different set ids
-		assert_invalid_equivocation_proof(generate_vote_equivocation_proof(
-			(block_num, payload1, set_id, &equivocation_keyring),
-			(block_num, payload2, set_id + 1, &equivocation_keyring),
-		));
+		// commitment targets future set id
+		let equivocation_proof = generate_fork_equivocation_proof_sc(
+			Commitment { validator_set_id: set_id+1, block_number: block_num, payload: payload.clone() },
+			equivocation_keyrings,
+			header,
+		);
+		assert_err!(
+			Beefy::report_fork_equivocation_unsigned(
+				RuntimeOrigin::none(),
+				Box::new(equivocation_proof),
+				key_owner_proofs,
+			),
+			Error::<Test>::InvalidEquivocationProofSession,
+		);
 	});
 }
 
