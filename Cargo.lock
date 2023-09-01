@@ -697,9 +697,6 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "asset-hub-kusama-runtime",
- "cumulus-pallet-dmp-queue",
- "cumulus-pallet-parachain-system",
- "cumulus-pallet-xcmp-queue",
  "frame-support",
  "frame-system",
  "integration-tests-common",
@@ -713,11 +710,8 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime",
  "polkadot-runtime-parachains",
- "sp-core",
  "sp-runtime",
- "sp-weights",
  "staging-xcm",
- "staging-xcm-executor",
  "xcm-emulator",
 ]
 
@@ -798,12 +792,11 @@ dependencies = [
 name = "asset-hub-polkadot-integration-tests"
 version = "1.0.0"
 dependencies = [
- "cumulus-pallet-dmp-queue",
- "cumulus-pallet-parachain-system",
- "cumulus-pallet-xcmp-queue",
+ "asset-hub-kusama-runtime",
  "frame-support",
  "frame-system",
  "integration-tests-common",
+ "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
  "pallet-xcm",
@@ -813,11 +806,8 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime",
  "polkadot-runtime-parachains",
- "sp-core",
  "sp-runtime",
- "sp-weights",
  "staging-xcm",
- "staging-xcm-executor",
  "xcm-emulator",
 ]
 
@@ -896,9 +886,6 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "asset-hub-westend-runtime",
- "cumulus-pallet-dmp-queue",
- "cumulus-pallet-parachain-system",
- "cumulus-pallet-xcmp-queue",
  "frame-support",
  "frame-system",
  "integration-tests-common",
@@ -912,11 +899,8 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime",
  "polkadot-runtime-parachains",
- "sp-core",
  "sp-runtime",
- "sp-weights",
  "staging-xcm",
- "staging-xcm-executor",
  "xcm-emulator",
 ]
 
@@ -1957,13 +1941,10 @@ name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
  "bp-messages",
- "cumulus-pallet-parachain-system",
+ "cumulus-pallet-dmp-queue",
  "cumulus-pallet-xcmp-queue",
  "frame-support",
- "frame-system",
  "integration-tests-common",
- "pallet-assets",
- "pallet-balances",
  "pallet-bridge-messages",
  "pallet-xcm",
  "parachains-common",
@@ -1972,11 +1953,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime",
  "polkadot-runtime-parachains",
- "sp-core",
- "sp-runtime",
- "sp-weights",
  "staging-xcm",
- "staging-xcm-executor",
  "xcm-emulator",
 ]
 
@@ -2581,15 +2558,12 @@ dependencies = [
 name = "collectives-polkadot-integration-tests"
 version = "0.1.0"
 dependencies = [
- "asset-hub-polkadot-runtime",
  "collectives-polkadot-runtime",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "frame-support",
- "frame-system",
  "integration-tests-common",
  "pallet-assets",
- "pallet-balances",
  "pallet-core-fellowship",
  "pallet-salary",
  "pallet-xcm",
@@ -2601,9 +2575,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "sp-core",
  "sp-runtime",
- "sp-weights",
  "staging-xcm",
- "staging-xcm-executor",
  "xcm-emulator",
 ]
 
@@ -6434,7 +6406,6 @@ dependencies = [
  "asset-hub-polkadot-runtime",
  "asset-hub-westend-runtime",
  "bp-messages",
- "bp-runtime",
  "bridge-hub-kusama-runtime",
  "bridge-hub-polkadot-runtime",
  "bridge-hub-rococo-runtime",
@@ -6445,17 +6416,13 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
  "frame-support",
- "frame-system",
  "kusama-runtime-constants",
- "lazy_static",
  "pallet-assets",
- "pallet-balances",
  "pallet-bridge-messages",
  "pallet-im-online",
  "pallet-message-queue",
  "pallet-staking",
  "pallet-xcm",
- "parachain-info",
  "parachains-common",
  "parity-scale-codec",
  "paste",
@@ -6475,11 +6442,8 @@ dependencies = [
  "sp-consensus-beefy",
  "sp-core",
  "sp-runtime",
- "sp-tracing",
- "sp-weights",
  "staging-kusama-runtime",
  "staging-xcm",
- "staging-xcm-executor",
  "westend-runtime",
  "westend-runtime-constants",
  "xcm-emulator",
@@ -20858,9 +20822,7 @@ dependencies = [
 name = "xcm-emulator"
 version = "0.1.0"
 dependencies = [
- "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
- "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
  "cumulus-test-relay-sproof-builder",
@@ -20871,10 +20833,10 @@ dependencies = [
  "log",
  "pallet-balances",
  "pallet-message-queue",
- "parachain-info",
  "parachains-common",
  "parity-scale-codec",
  "paste",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime-parachains",
  "sp-arithmetic",
@@ -20882,7 +20844,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "sp-trie",
+ "sp-tracing",
  "staging-xcm",
  "staging-xcm-executor",
 ]
