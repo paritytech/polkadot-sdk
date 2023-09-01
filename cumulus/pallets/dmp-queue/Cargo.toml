@@ -22,6 +22,10 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false 
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 
+# Polkadot
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
+
+# Cumulus
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 
 [dev-dependencies]

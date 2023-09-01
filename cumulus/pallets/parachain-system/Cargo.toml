@@ -30,8 +30,8 @@ sp-trie = { path = "../../../substrate/primitives/trie", default-features = fals
 sp-version = { path = "../../../substrate/primitives/version", default-features = false}
 
 # Polkadot
-polkadot-parachain = { path = "../../../polkadot/parachain", default-features = false, features = [ "wasm-api" ]}
-xcm = { path = "../../../polkadot/xcm", default-features = false}
+polkadot-parachain-primitives = { path = "../../../polkadot/parachain", default-features = false, features = [ "wasm-api" ]}
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
 
 # Cumulus
 cumulus-pallet-parachain-system-proc-macro = { path = "proc-macro", default-features = false }
@@ -68,6 +68,7 @@ std = [
 	"log/std",
 	"pallet-message-queue/std",
 	"polkadot-parachain/std",
+	"polkadot-parachain-primitives/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-externalities/std",
@@ -90,6 +91,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 
