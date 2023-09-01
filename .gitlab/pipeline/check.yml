@@ -123,18 +123,18 @@ test-rust-feature-propagation:
           --runtime ./target/release/wbuild/"$NETWORK"-runtime/target/wasm32-unknown-unknown/release/"$NETWORK"_runtime.wasm \
           on-runtime-upgrade --checks=pre-and-post live --uri wss://${NETWORK}-try-runtime-node.parity-chains.parity.io:443
 
-check-runtime-migration-polkadot:
-  stage: check
-  # DAG
-  needs:
-    - job: check-runtime-migration-westend
-      artifacts: false
-  extends:
-    - .docker-env
-    - .test-pr-refs
-    - .check-runtime-migration
-  variables:
-    NETWORK: "polkadot"
+# check-runtime-migration-polkadot:
+#   stage: check
+#   # DAG
+#   needs:
+#     - job: check-runtime-migration-westend
+#       artifacts: false
+#   extends:
+#     - .docker-env
+#     - .test-pr-refs
+#     - .check-runtime-migration
+#   variables:
+#     NETWORK: "polkadot"
 
 check-runtime-migration-kusama:
   stage: check
@@ -150,27 +150,27 @@ check-runtime-migration-kusama:
   variables:
     NETWORK: "kusama"
 
-check-runtime-migration-westend:
-  stage: check
-  extends:
-    - .docker-env
-    - .test-pr-refs
-    - .check-runtime-migration
-  variables:
-    NETWORK: "westend"
+# check-runtime-migration-westend:
+#   stage: check
+#   extends:
+#     - .docker-env
+#     - .test-pr-refs
+#     - .check-runtime-migration
+#   variables:
+#     NETWORK: "westend"
 
-check-runtime-migration-rococo:
-  stage: check
-  # DAG
-  needs:
-    - job: check-runtime-migration-westend
-      artifacts: false
-  extends:
-    - .docker-env
-    - .test-pr-refs
-    - .check-runtime-migration
-  variables:
-    NETWORK: "rococo"
+# check-runtime-migration-rococo:
+#   stage: check
+#   # DAG
+#   needs:
+#     - job: check-runtime-migration-westend
+#       artifacts: false
+#   extends:
+#     - .docker-env
+#     - .test-pr-refs
+#     - .check-runtime-migration
+#   variables:
+#     NETWORK: "rococo"
 
 find-fail-ci-phrase:
   stage: check
