@@ -130,6 +130,6 @@ cherry pick paritytech/polkadot@791c8b8 and run `find . -type f -name "*.toml" -
 's/polkadot-vX.X.X/polkadot-v<version>/g'`
 6. `cargo build --release --features fast-runtime`
 7. Copy `./target/polkadot` into `./bin` (in Cumulus)
-8. Run the tests: - Asset Hub Polkadot: `yarn zombienet-test -c ./examples/statemint/config.toml -t
-	./examples/statemint` - Asset Hub Kusama: `yarn zombienet-test -c ./examples/statemine/config.toml -t
-	./examples/statemine`
+8. Run the tests:
+   - Asset Hub Polkadot: `yarn zombienet-test -c ./examples/statemint/config.toml -t ./examples/statemint`
+   - Asset Hub Kusama: `yarn zombienet-test -c ./examples/statemine/config.toml -t ./examples/statemine`

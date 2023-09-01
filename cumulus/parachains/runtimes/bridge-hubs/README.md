@@ -14,8 +14,12 @@
 
 _BridgeHub(s)_ are **_system parachains_** that will house trustless bridges from the local ecosystem to others. The
 current trustless bridges planned for the BridgeHub(s) are:
-- `BridgeHubPolkadot` system parachain: 1. Polkadot <-> Kusama bridge 2. Polkadot <-> Ethereum bridge (Snowbridge)
-- `BridgeHubKusama` system parachain: 1. Kusama <-> Polkadot bridge 2. Kusama <-> Ethereum bridge The high-level
+- `BridgeHubPolkadot` system parachain:
+	1. Polkadot <-> Kusama bridge
+	2. Polkadot <-> Ethereum bridge (Snowbridge)
+- `BridgeHubKusama` system parachain:
+	1. Kusama <-> Polkadot bridge
+	2. Kusama <-> Ethereum bridge The high-level
 	responsibilities of each bridge living on BridgeHub:
 - sync finality proofs between relay chains (or equivalent)
 - sync finality proofs between BridgeHub parachains

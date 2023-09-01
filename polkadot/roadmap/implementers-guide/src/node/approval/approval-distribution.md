@@ -46,10 +46,11 @@ unshared dimension as well as a few random peers.
 But, in case these mechanisms don't work on their own, we need to trade bandwidth for protocol liveness by introducing
 aggression.
 
-Aggression has 3 levels: Aggression Level 0: The basic behaviors described above. Aggression Level 1: The originator of
-    a message sends to all peers. Other peers follow the rules above. Aggression Level 2: All peers send all messages to
-    all their row and column neighbors. This means that each validator will, on average, receive each message
-    approximately 2*sqrt(n) times.
+Aggression has 3 levels:
+- Aggression Level 0: The basic behaviors described above.
+- Aggression Level 1: The originator of a message sends to all peers. Other peers follow the rules above.
+- Aggression Level 2: All peers send all messages to all their row and column neighbors. This means that each validator
+    will, on average, receive each message approximately 2*sqrt(n) times.
 
 These aggression levels are chosen based on how long a block has taken to finalize: assignments and approvals related to
 the unfinalized block will be propagated with more aggression. In particular, it's only the earliest unfinalized blocks
@@ -307,7 +308,6 @@ Imports an approval signature referenced by block hash and candidate index:
     * We guarantee elsewhere that all peers within `known_by` are aware of all assignments relative to the block.
     * We've checked that this specific approval has a corresponding assignment within the `BlockEntry`.
     * Thus, all peers are aware of the assignment or have a message to them in-flight which will make them so.
-
 
 #### `unify_with_peer(peer: PeerId, view)`
 
