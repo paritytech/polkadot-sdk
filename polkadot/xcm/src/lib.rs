@@ -188,7 +188,7 @@ macro_rules! versioned_type {
 			V2($v2),
 			$(#[$index3])*
 			V3($v3),
-			$(#[$index3])*
+			$(#[$index4])*
 			V4($v4),
 		}
 		impl $n {
@@ -237,12 +237,12 @@ macro_rules! versioned_type {
 		}
 		impl From<$v3> for $n {
 			fn from(x: $v3) -> Self {
-				$n::V3(x.into())
+				$n::V3(x)
 			}
 		}
 		impl From<$v4> for $n {
 			fn from(x: $v4) -> Self {
-				$n::V4(x.into())
+				$n::V4(x)
 			}
 		}
 		impl TryFrom<$n> for $v2 {

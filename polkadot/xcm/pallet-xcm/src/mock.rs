@@ -311,7 +311,7 @@ impl xcm_executor::Config for XcmConfig {
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>;
 
 parameter_types! {
-	pub static AdvertisedXcmVersion: pallet_xcm::XcmVersion = 3;
+	pub static AdvertisedXcmVersion: pallet_xcm::XcmVersion = 4;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
