@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -24,7 +24,8 @@ use bp_messages::*;
 use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, Parachain,
 };
-use frame_support::{dispatch::DispatchClass, RuntimeDebug};
+use frame_support::dispatch::DispatchClass;
+use sp_runtime::RuntimeDebug;
 use sp_std::prelude::Vec;
 
 /// BridgeHubPolkadot parachain.

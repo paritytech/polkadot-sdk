@@ -1,4 +1,4 @@
-// Copyright 2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -21,10 +21,9 @@ use bp_messages::{target_chain::MessageDispatch, InboundLaneData, LaneId, Messag
 use frame_support::{
 	dispatch::CallableCallFor,
 	traits::{Get, IsSubType},
-	RuntimeDebug,
 };
 use pallet_bridge_messages::{Config, Pallet};
-use sp_runtime::transaction_validity::TransactionValidity;
+use sp_runtime::{transaction_validity::TransactionValidity, RuntimeDebug};
 use sp_std::ops::RangeInclusive;
 
 /// Generic info about a messages delivery/confirmation proof.

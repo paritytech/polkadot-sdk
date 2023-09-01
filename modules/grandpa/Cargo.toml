@@ -1,8 +1,8 @@
 [package]
 name = "pallet-bridge-grandpa"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -36,16 +36,16 @@ sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"bp-header-chain/std",
 	"bp-runtime/std",
 	"bp-test-utils/std",
 	"codec/std",
 	"finality-grandpa/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"frame-benchmarking/std",
 	"log/std",
 	"scale-info/std",
 	"sp-consensus-grandpa/std",
@@ -56,8 +56,12 @@ std = [
 runtime-benchmarks = [
 	"bp-test-utils",
 	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
 ]

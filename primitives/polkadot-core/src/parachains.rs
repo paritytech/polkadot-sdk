@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -24,9 +24,9 @@
 
 use bp_runtime::{RawStorageProof, Size};
 use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
-use frame_support::RuntimeDebug;
 use scale_info::TypeInfo;
 use sp_core::Hasher;
+use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 
 #[cfg(feature = "std")]

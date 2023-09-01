@@ -1,4 +1,4 @@
-// Copyright 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -18,8 +18,9 @@
 //! during conversion.
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{traits::Get, RuntimeDebug};
+use frame_support::traits::Get;
 use scale_info::{Type, TypeInfo};
+use sp_runtime::RuntimeDebug;
 use sp_std::{marker::PhantomData, ops::Deref};
 
 /// Error that is returned when the value size exceeds maximal configured size.

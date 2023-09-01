@@ -2,8 +2,8 @@
 name = "pallet-bridge-messages"
 description = "Module that allows bridged chains to exchange messages using lane concept."
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
@@ -32,14 +32,14 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "m
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"bp-messages/std",
 	"bp-runtime/std",
 	"codec/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"frame-benchmarking/std",
 	"log/std",
 	"num-traits/std",
 	"scale-info/std",
@@ -49,8 +49,14 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"sp-runtime/try-runtime",
 ]
