@@ -88,7 +88,7 @@ build-staking-miner:
     - job: build-malus
       artifacts: false
   script:
-    - time cargo build --locked --release --package staking-miner
+    - time cargo build -q --locked --release --package staging-staking-miner
     # # pack artifacts
     # - mkdir -p ./artifacts
     # - mv ./target/release/staking-miner ./artifacts/.
@@ -366,4 +366,3 @@ build-subkey-linux:
 #   after_script: [""]
 #   tags:
 #     - osx
-
