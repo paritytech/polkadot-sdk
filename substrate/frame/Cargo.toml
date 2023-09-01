@@ -47,7 +47,7 @@ docify = "0.2.0"
 pallet-examples = { path = "./examples" }
 
 [features]
-default = [ "std", "runtime" ]
+default = [ "runtime", "std" ]
 runtime = [
 	"frame-executive",
 	"frame-system-rpc-runtime-api",
