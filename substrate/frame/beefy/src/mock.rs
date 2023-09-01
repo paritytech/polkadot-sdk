@@ -288,7 +288,7 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<BeefyId>) -> TestExternalit
 
 	let staking_config = pallet_staking::GenesisConfig::<Test> {
 		stakers,
-		validator_count: 2,
+		validator_count: authorities.len() as u32 - 1,
 		force_era: pallet_staking::Forcing::ForceNew,
 		minimum_validator_count: 0,
 		invulnerables: vec![],

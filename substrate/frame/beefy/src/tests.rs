@@ -88,7 +88,7 @@ fn session_change_updates_authorities() {
 		assert!(2 == Beefy::validator_set_id());
 
 		let want = beefy_log(ConsensusLog::AuthoritiesChange(
-			ValidatorSet::new(vec![mock_beefy_id(2), mock_beefy_id(4)], 2).unwrap(),
+			ValidatorSet::new(vec![mock_beefy_id(2), mock_beefy_id(3), mock_beefy_id(4)], 2).unwrap(),
 		));
 
 		let log = System::digest().logs[1].clone();
@@ -113,9 +113,9 @@ fn session_change_updates_next_authorities() {
 
 		let next_authorities = Beefy::next_authorities();
 
-		assert_eq!(next_authorities.len(), 2);
+		assert_eq!(next_authorities.len(), 3);
 		assert_eq!(want[1], next_authorities[0]);
-		assert_eq!(want[3], next_authorities[1]);
+		assert_eq!(want[3], next_authorities[2]);
 	});
 }
 
@@ -158,7 +158,7 @@ fn validator_set_updates_work() {
 
 		assert_eq!(vs.id(), 2u64);
 		assert_eq!(want[1], vs.validators()[0]);
-		assert_eq!(want[3], vs.validators()[1]);
+		assert_eq!(want[3], vs.validators()[2]);
 	});
 }
 
@@ -198,7 +198,7 @@ fn cleans_up_old_set_id_session_mappings() {
 /// Returns a list with 3 authorities with known keys:
 /// Alice, Bob and Charlie.
 pub fn test_authorities() -> Vec<BeefyId> {
-	let authorities = vec![BeefyKeyring::Alice, BeefyKeyring::Bob, BeefyKeyring::Charlie];
+	let authorities = vec![BeefyKeyring::Alice, BeefyKeyring::Bob, BeefyKeyring::Charlie, BeefyKeyring::Dave];
 	authorities.into_iter().map(|id| id.public()).collect()
 }
 
@@ -283,7 +283,7 @@ fn report_vote_equivocation_current_set_works() {
 			);
 		}
 
-		assert_eq!(authorities.len(), 2);
+		assert_eq!(authorities.len(), 3);
 		let equivocation_authority_index = 1;
 		let equivocation_key = &authorities[equivocation_authority_index];
 		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
@@ -349,7 +349,7 @@ fn report_vote_equivocation_old_set_works() {
 		let validators = Session::validators();
 		let old_set_id = validator_set.id();
 
-		assert_eq!(authorities.len(), 2);
+		assert_eq!(authorities.len(), 3);
 		let equivocation_authority_index = 0;
 		let equivocation_key = &authorities[equivocation_authority_index];
 
@@ -826,7 +826,7 @@ fn report_fork_equivocation_vote_current_set_works() {
 			);
 		}
 
-		assert_eq!(authorities.len(), 2);
+		assert_eq!(authorities.len(), 3);
 		let equivocation_authority_index = 1;
 		let equivocation_key = &authorities[equivocation_authority_index];
 		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
@@ -897,7 +897,7 @@ fn report_fork_equivocation_vote_old_set_works() {
 		let validators = Session::validators();
 		let old_set_id = validator_set.id();
 
-		assert_eq!(authorities.len(), 2);
+		assert_eq!(authorities.len(), 3);
 		let equivocation_authority_index = 0;
 		let equivocation_key = &authorities[equivocation_authority_index];
 
@@ -1377,10 +1377,10 @@ fn report_fork_equivocation_sc_current_set_works() {
 			);
 		}
 
-		assert_eq!(authorities.len(), 2);
 		let equivocation_authority_index = 1;
 		let equivocation_key = &authorities[equivocation_authority_index];
 		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
+		assert_eq!(authorities.len(), 3);
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
 		// generate an fork equivocation proof, with a vote in the same round for a
@@ -1448,7 +1448,7 @@ fn report_fork_equivocation_sc_old_set_works() {
 		let validators = Session::validators();
 		let old_set_id = validator_set.id();
 
-		assert_eq!(authorities.len(), 2);
+		assert_eq!(authorities.len(), 3);
 		let equivocation_authority_index = 0;
 		let equivocation_key = &authorities[equivocation_authority_index];
 
