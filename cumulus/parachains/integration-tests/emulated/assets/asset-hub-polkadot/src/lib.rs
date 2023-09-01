@@ -28,8 +28,8 @@ pub use integration_tests_common::{
 	},
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
 	AssetHubPolkadot, AssetHubPolkadotPallet, AssetHubPolkadotReceiver, AssetHubPolkadotSender,
-	PenpalPolkadotA, PenpalPolkadotAReceiver, Polkadot, PolkadotPallet, PolkadotReceiver,
-	PolkadotSender,
+	PenpalPolkadotA, PenpalPolkadotAPallet, PenpalPolkadotAReceiver, Polkadot, PolkadotPallet, PolkadotReceiver,
+	PolkadotSender, PenpalPolkadotB, PenpalPolkadotBPallet,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{

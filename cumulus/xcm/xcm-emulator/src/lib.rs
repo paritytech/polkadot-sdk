@@ -603,28 +603,41 @@ macro_rules! decl_test_parachains {
 				type ParachainSystem = $crate::ParachainSystemPallet<<Self as $crate::Chain>::Runtime>;
 				type ParachainInfo = $parachain_info;
 
+				// We run an empty block to open HRMP channels between Parachains
 				fn init() {
 					use $crate::{Chain, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain, TestExt};
 
-					let para_id = Self::para_id();
+					let para_id = Self::para_id().into();
 
 					Self::ext_wrapper(|| {
-						let block_number = <Self as Chain>::System::block_number();
+						// Inital Relay Chain and Parachain block numbers
 						let mut relay_block_number = <Self as NetworkComponent>::Network::relay_block_number();
+						let mut block_number = <Self as Chain>::System::block_number();
 
-						// Get parent head data
+						// Get Parachain's parent head data
 						let header = <Self as Chain>::System::finalize();
 						let parent_head_data = HeadData(header.encode());
+
+						// Initialize a new Parachain block
+						block_number += 1;
+
+						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &Default::default());
+						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::on_initialize(block_number);
+
+						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
+							<Self as Chain>::RuntimeOrigin::none(),
+							<$name as NetworkComponent>::Network::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+						);
+
+						// Finalize Parachain block and store parent head data for later use in the next block
+						<Self as Parachain>::ParachainSystem::on_finalize(block_number);
+						let created_header = <Self as Chain>::System::finalize();
 
 						$crate::LAST_HEAD.with(|b| b.borrow_mut()
 							.get_mut(<Self as NetworkComponent>::Network::name())
 							.expect("network not initialized?")
-							.insert(para_id.into(), parent_head_data.clone())
+							.insert(para_id.into(), $crate::HeadData(created_header.encode()))
 						);
-
-						let next_block_number = block_number + 1;
-						<Self as Chain>::System::initialize(&next_block_number, &header.hash(), &Default::default());
-						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::on_initialize(next_block_number);
 					});
 				}
 			}
@@ -751,6 +764,14 @@ macro_rules! __impl_test_ext_for_parachain {
 				// Initialize block
 				$local_ext.with(|v| {
 					v.borrow_mut().execute_with(|| {
+						// Increase Relay Chain block number
+						let mut relay_block_number = <$name as NetworkComponent>::Network::relay_block_number();
+						relay_block_number += 1;
+						<$name as NetworkComponent>::Network::set_relay_block_number(relay_block_number);
+
+						// Initialize a new Parachain block
+						let mut block_number = <Self as Chain>::System::block_number();
+						block_number += 1;
 						let parent_head_data = $crate::LAST_HEAD.with(|b| b.borrow_mut()
 							.get_mut(<Self as NetworkComponent>::Network::name())
 							.expect("network not initialized?")
@@ -759,10 +780,8 @@ macro_rules! __impl_test_ext_for_parachain {
 							.clone()
 						);
 
-						// Increase block number
-						let mut relay_block_number = <$name as NetworkComponent>::Network::relay_block_number();
-						relay_block_number += 1;
-						<$name as NetworkComponent>::Network::set_relay_block_number(relay_block_number);
+						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &Default::default());
+						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::on_initialize(block_number);
 
 						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
 							<Self as Chain>::RuntimeOrigin::none(),
@@ -835,10 +854,10 @@ macro_rules! __impl_test_ext_for_parachain {
 						// clean events
 						<Self as $crate::Chain>::System::reset_events();
 
-						// reinitialize before next call.
-						let next_block_number = block_number + 1;
-						<Self as $crate::Chain>::System::initialize(&next_block_number, &created_header.hash(), &Default::default());
-						<<Self as $crate::Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::on_initialize(next_block_number);
+						// // reinitialize before next call.
+						// let next_block_number = block_number + 1;
+						// <Self as $crate::Chain>::System::initialize(&next_block_number, &created_header.hash(), &Default::default());
+						// <<Self as $crate::Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::on_initialize(next_block_number);
 					})
 				});
 
