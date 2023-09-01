@@ -345,7 +345,7 @@ pub fn on_chain_votes<T: paras_inherent::Config>() -> Option<ScrapedOnChainVotes
 	<paras_inherent::Pallet<T>>::on_chain_votes()
 }
 
-/// Submits an PVF pre-checking vote. See [`paras::Pallet::submit_pvf_check_statement`].
+/// Submits an PVF pre-checking vote.
 pub fn submit_pvf_check_statement<T: paras::Config>(
 	stmt: PvfCheckStatement,
 	signature: ValidatorSignature,
@@ -353,8 +353,7 @@ pub fn submit_pvf_check_statement<T: paras::Config>(
 	<paras::Pallet<T>>::submit_pvf_check_statement(stmt, signature)
 }
 
-/// Returns the list of all PVF code hashes that require pre-checking. See
-/// [`paras::Pallet::pvfs_require_precheck`].
+/// Returns the list of all PVF code hashes that require pre-checking.
 pub fn pvfs_require_precheck<T: paras::Config>() -> Vec<ValidationCodeHash> {
 	<paras::Pallet<T>>::pvfs_require_precheck()
 }

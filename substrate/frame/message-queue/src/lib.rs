@@ -832,7 +832,7 @@ impl<T: Config> Pallet<T> {
 		);
 		ensure!(!is_processed, Error::<T>::AlreadyProcessed);
 		use MessageExecutionStatus::*;
-		let mut weight_counter = WeightMeter::from_limit(weight_limit);
+		let mut weight_counter = WeightMeter::with_limit(weight_limit);
 		match Self::process_message_payload(
 			origin.clone(),
 			page_index,
@@ -1150,7 +1150,7 @@ impl<T: Config> Pallet<T> {
 		//loop around this origin
 		let starting_origin = ServiceHead::<T>::get().unwrap();
 
-		while let Some(head) = Self::bump_service_head(&mut WeightMeter::max_limit()) {
+		while let Some(head) = Self::bump_service_head(&mut WeightMeter::new()) {
 			ensure!(
 				BookStateFor::<T>::contains_key(&head),
 				"Service head must point to an existing book"
@@ -1362,7 +1362,7 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 	fn service_queues(weight_limit: Weight) -> Weight {
 		// The maximum weight that processing a single message may take.
 		let overweight_limit = weight_limit;
-		let mut weight = WeightMeter::from_limit(weight_limit);
+		let mut weight = WeightMeter::with_limit(weight_limit);
 
 		let mut next = match Self::bump_service_head(&mut weight) {
 			Some(h) => h,
@@ -1402,7 +1402,7 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 		weight_limit: Weight,
 		(message_origin, page, index): Self::OverweightMessageAddress,
 	) -> Result<Weight, ExecuteOverweightError> {
-		let mut weight = WeightMeter::from_limit(weight_limit);
+		let mut weight = WeightMeter::with_limit(weight_limit);
 		if weight
 			.try_consume(
 				T::WeightInfo::execute_overweight_page_removed()
