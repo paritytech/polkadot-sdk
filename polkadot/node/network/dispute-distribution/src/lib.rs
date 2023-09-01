@@ -21,8 +21,8 @@
 //! - a sender
 //! - and a receiver
 //!
-//! The sender is responsible for getting our vote out, see [`sender`]. The receiver handles
-//! incoming [`DisputeRequest`]s and offers spam protection, see [`receiver`].
+//! The sender is responsible for getting our vote out, see `sender`. The receiver handles
+//! incoming [`DisputeRequest`](v1::DisputeRequest)s and offers spam protection, see `receiver`.
 
 use std::time::Duration;
 

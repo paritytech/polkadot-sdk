@@ -3,7 +3,7 @@ default_image = "{{RELAY_IMAGE}}"
 default_command = "polkadot"
 default_args = [ "-lparachain=debug" ]
 chain = "rococo-local"
-chain_spec_path = "zombienet/tests/0007-warp-sync-relaychain-spec.json"
+chain_spec_path = "cumulus/zombienet/tests/0007-warp-sync-relaychain-spec.json"
 
   [[relaychain.nodes]]
   name = "alice"
@@ -28,7 +28,7 @@ chain_spec_path = "zombienet/tests/0007-warp-sync-relaychain-spec.json"
 [[parachains]]
 id = 2000
 cumulus_based = true
-chain_spec_path = "zombienet/tests/0007-warp-sync-parachain-spec.json"
+chain_spec_path = "cumulus/zombienet/tests/0007-warp-sync-parachain-spec.json"
 add_to_genesis = false
 
   # Run 'dave' as parachain collator.

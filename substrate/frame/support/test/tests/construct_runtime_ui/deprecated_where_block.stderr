@@ -5,30 +5,30 @@ error: use of deprecated constant `WhereSection::_w`:
 
                For more info see:
                    <https://github.com/paritytech/substrate/pull/14437>
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | / construct_runtime! {
-4  | |     pub struct Runtime where
-5  | |         Block = Block,
-6  | |         NodeBlock = Block,
+20 | / construct_runtime! {
+21 | |     pub struct Runtime where
+22 | |         Block = Block,
+23 | |         NodeBlock = Block,
 ...  |
-10 | |     }
-11 | | }
+27 | |     }
+28 | | }
    | |_^
    |
    = note: `-D deprecated` implied by `-D warnings`
    = note: this error originates in the macro `frame_support::match_and_insert` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
    |
@@ -40,28 +40,28 @@ note: required by a bound in `frame_system::Event`
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied in `RuntimeEvent`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
    |
 note: required because it appears within the type `RuntimeEvent`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `Clone`
@@ -72,28 +72,28 @@ note: required by a bound in `Clone`
    = note: this error originates in the derive macro `Clone` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied in `RuntimeEvent`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
    |
 note: required because it appears within the type `RuntimeEvent`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `EncodeLike`
@@ -104,28 +104,28 @@ note: required by a bound in `EncodeLike`
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied in `RuntimeEvent`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
    |
 note: required because it appears within the type `RuntimeEvent`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `Decode`
@@ -136,15 +136,15 @@ note: required by a bound in `Decode`
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied in `frame_system::Event<Runtime>`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
    |
@@ -157,15 +157,15 @@ note: required by a bound in `From`
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied in `frame_system::Event<Runtime>`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
    |
@@ -178,38 +178,38 @@ note: required by a bound in `TryInto`
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
    |
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
- --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
-  |
-3 | construct_runtime! {
-  | ^ the trait `Config` is not implemented for `Runtime`
-  |
-  = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+   |
+20 | construct_runtime! {
+   | ^ the trait `Config` is not implemented for `Runtime`
+   |
+   = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `RawOrigin<_>: TryFrom<OriginCaller>` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
    |
@@ -217,15 +217,15 @@ error[E0277]: the trait bound `RawOrigin<_>: TryFrom<OriginCaller>` is not satis
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
    |
@@ -234,29 +234,29 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
    |
    = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
 note: required because it appears within the type `RuntimeCall`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `Clone`
@@ -267,29 +267,29 @@ note: required by a bound in `Clone`
    = note: this error originates in the derive macro `Clone` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
    |
    = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
 note: required because it appears within the type `RuntimeCall`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `EncodeLike`
@@ -300,29 +300,29 @@ note: required by a bound in `EncodeLike`
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
    |
    = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
 note: required because it appears within the type `RuntimeCall`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `Decode`
@@ -333,40 +333,40 @@ note: required by a bound in `Decode`
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
- --> tests/construct_runtime_ui/deprecated_where_block.rs:9:3
-  |
-9 |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-  |         ^^^^^^ the trait `Config` is not implemented for `Runtime`
-  |
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:26:3
+   |
+26 |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
+   |         ^^^^^^ the trait `Config` is not implemented for `Runtime`
+   |
 note: required by a bound in `frame_system::GenesisConfig`
- --> $WORKSPACE/substrate/frame/system/src/lib.rs
-  |
-  |     pub struct GenesisConfig<T: Config> {
-  |                                 ^^^^^^ required by this bound in `GenesisConfig`
+  --> $WORKSPACE/substrate/frame/system/src/lib.rs
+   |
+   |     pub struct GenesisConfig<T: Config> {
+   |                                 ^^^^^^ required by this bound in `GenesisConfig`
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied in `RuntimeEvent`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
    |
 note: required because it appears within the type `RuntimeEvent`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `Result`
@@ -377,28 +377,28 @@ note: required by a bound in `Result`
    = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::codec::Decode` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied in `RuntimeEvent`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
    |
 note: required because it appears within the type `RuntimeEvent`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `TryInto`
@@ -409,29 +409,29 @@ note: required by a bound in `TryInto`
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
    |
    = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
 note: required because it appears within the type `RuntimeCall`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:3:1
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
-3  | // construct_runtime! {
-4  | ||     pub struct Runtime where
-5  | ||         Block = Block,
-6  | ||         NodeBlock = Block,
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
 ...  ||
-10 | ||     }
-11 | || }
+27 | ||     }
+28 | || }
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `Result`

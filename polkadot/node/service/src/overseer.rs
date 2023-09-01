@@ -139,7 +139,7 @@ where
 	pub overseer_message_channel_capacity_override: Option<usize>,
 	/// Request-response protocol names source.
 	pub req_protocol_names: ReqProtocolNames,
-	/// [`PeerSet`] protocol names to protocols mapping.
+	/// `PeerSet` protocol names to protocols mapping.
 	pub peerset_protocol_names: PeerSetProtocolNames,
 	/// The offchain transaction pool factory.
 	pub offchain_transaction_pool_factory: OffchainTransactionPoolFactory<Block>,
