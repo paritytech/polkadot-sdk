@@ -116,11 +116,11 @@ test-rust-feature-propagation:
       export RUST_LOG=remote-ext=debug,runtime=debug
       echo "---------- Installing try-runtime-cli ----------"
       time cargo install --locked --git https://github.com/paritytech/try-runtime-cli --tag v0.3.0
-      echo "---------- Building runtime for ${NETWORK} ----------"
-      time cargo build --release --locked -p "$NETWORK"-runtime --features try-runtime
+      echo "---------- Building ${PACKAGE} runtime ----------"
+      time cargo build --release --locked -p "$PACKAGE" --features try-runtime
       echo "---------- Executing `on-runtime-upgrade` for ${NETWORK} ----------"
       time try-runtime \
-          --runtime ./target/release/wbuild/"$NETWORK"-runtime/target/wasm32-unknown-unknown/release/"$NETWORK"_runtime.wasm \
+          --runtime ./target/release/wbuild/"$PACKAGE"/target/wasm32-unknown-unknown/release/"$WASM" \
           on-runtime-upgrade --checks=pre-and-post live --uri wss://${NETWORK}-try-runtime-node.parity-chains.parity.io:443
 
 # check-runtime-migration-polkadot:
@@ -148,7 +148,9 @@ check-runtime-migration-kusama:
     - .test-pr-refs
     - .check-runtime-migration
   variables:
-    NETWORK: "staging-kusama"
+    NETWORK: "kusama"
+    PACKAGE: "staging-kusama"
+    WASM: "staging_kusama_runtime.wasm"
 
 # check-runtime-migration-westend:
 #   stage: check
