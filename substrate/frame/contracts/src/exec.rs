@@ -30,7 +30,7 @@ use frame_support::{
 	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::{Inspect, Mutate},
-		tokens::Preservation,
+		tokens::{Fortitude, Preservation},
 		Contains, OriginTrait, Randomness, Time,
 	},
 	weights::Weight,
@@ -1368,7 +1368,11 @@ where
 	}
 
 	fn balance(&self) -> BalanceOf<T> {
-		T::Currency::balance(&self.top_frame().account_id)
+		T::Currency::reducible_balance(
+			&self.top_frame().account_id,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		)
 	}
 
 	fn value_transferred(&self) -> BalanceOf<T> {
