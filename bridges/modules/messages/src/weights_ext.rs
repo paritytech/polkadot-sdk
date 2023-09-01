@@ -29,8 +29,8 @@ pub const EXPECTED_DEFAULT_MESSAGE_LENGTH: u32 = 128;
 /// calls we're checking here would fit 1KB.
 const SIGNED_EXTENSIONS_SIZE: u32 = 1024;
 
-/// Number of extra bytes (excluding size of storage value itself) of storage proof, built at
-/// Rialto chain. This mostly depends on number of entries (and their density) in the storage trie.
+/// Number of extra bytes (excluding size of storage value itself) of storage proof.
+/// This mostly depends on number of entries (and their density) in the storage trie.
 /// Some reserve is reserved to account future chain growth.
 pub const EXTRA_STORAGE_PROOF_SIZE: u32 = 1024;
 
