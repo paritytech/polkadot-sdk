@@ -58,7 +58,7 @@
 use crate::host::PrepareResultSender;
 use always_assert::always;
 use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData};
-use polkadot_parachain::primitives::ValidationCodeHash;
+use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParamsHash;
 use std::{
 	collections::HashMap,
