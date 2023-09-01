@@ -1,4 +1,4 @@
-// Copyright 2019-2023 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -32,10 +32,10 @@ pub use verification::{
 
 use bp_runtime::{BlockNumberOf, Chain, HashOf, HeaderId};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{RuntimeDebug, RuntimeDebugNoBound};
+use frame_support::RuntimeDebugNoBound;
 use scale_info::TypeInfo;
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature};
-use sp_runtime::{traits::Header as HeaderT, SaturatedConversion};
+use sp_runtime::{traits::Header as HeaderT, RuntimeDebug, SaturatedConversion};
 use sp_std::prelude::*;
 
 /// A GRANDPA Justification is a proof that a given header was finalized

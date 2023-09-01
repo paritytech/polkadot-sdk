@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -22,8 +22,9 @@ use crate::{
 
 use bp_runtime::{messages::MessageDispatchResult, Size};
 use codec::{Decode, Encode, Error as CodecError};
-use frame_support::{weights::Weight, Parameter, RuntimeDebug};
+use frame_support::{weights::Weight, Parameter};
 use scale_info::TypeInfo;
+use sp_core::RuntimeDebug;
 use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, marker::PhantomData, prelude::*};
 
 /// Proved messages from the source chain.

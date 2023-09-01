@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -20,7 +20,8 @@ use crate::{InboundLaneData, LaneId, MessageNonce, OutboundLaneData, Verificatio
 
 use crate::UnrewardedRelayer;
 use bp_runtime::Size;
-use frame_support::{Parameter, RuntimeDebug};
+use frame_support::Parameter;
+use sp_core::RuntimeDebug;
 use sp_std::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	fmt::Debug,
