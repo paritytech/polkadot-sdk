@@ -26,6 +26,7 @@ std = [
 	"pallet-default-config-example/std",
 	"pallet-dev-mode/std",
 	"pallet-example-basic/std",
+	"pallet-example-frame-crate/std",
 	"pallet-example-kitchensink/std",
 	"pallet-example-offchain-worker/std",
 	"pallet-example-split/std",
