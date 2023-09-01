@@ -354,13 +354,6 @@ pub mod well_known_keys {
 /// Unique identifier for the Parachains Inherent
 pub const PARACHAINS_INHERENT_IDENTIFIER: InherentIdentifier = *b"parachn0";
 
-// /// TODO: Make this two a parachain host configuration.
-// /// Maximum allowed candidates to be signed withing a signle approval votes.
-// pub const MAX_APPROVAL_COALESCE_COUNT: u64 = 6;
-// /// The maximum time we await for an approval to be coalesced with other approvals
-// /// before we sign it and distribute to our peers
-// pub const MAX_APPROVAL_COALESCE_WAIT_MILLIS: u64 = 500;
-
 /// The key type ID for parachain assignment key.
 pub const ASSIGNMENT_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"asgn");
 
@@ -1134,10 +1127,10 @@ impl<'a> ApprovalVoteMultipleCandidates<'a> {
 	/// Yields the signing payload for this approval vote.
 	pub fn signing_payload(&self, session_index: SessionIndex) -> Vec<u8> {
 		const MAGIC: [u8; 4] = *b"APPR";
-		// Make this backwards compatible with `ApprovalVote` so if we have just on candidate the signature
-		// will look the same.
-		// This gives us the nice benefit that old nodes can still check signatures when len is 1 and the
-		// new node can check the signature coming from old nodes.
+		// Make this backwards compatible with `ApprovalVote` so if we have just on candidate the
+		// signature will look the same.
+		// This gives us the nice benefit that old nodes can still check signatures when len is 1
+		// and the new node can check the signature coming from old nodes.
 		if self.0.len() == 1 {
 			(MAGIC, self.0.first().expect("QED: we just checked"), session_index).encode()
 		} else {

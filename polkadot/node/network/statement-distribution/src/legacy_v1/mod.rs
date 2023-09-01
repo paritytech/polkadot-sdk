@@ -1195,10 +1195,6 @@ async fn modify_reputation(
 	peer: PeerId,
 	rep: Rep,
 ) {
-	//TODO: Test teory in versi
-	if rep == COST_DUPLICATE_STATEMENT {
-		return
-	}
 	reputation.modify(sender, peer, rep).await;
 }
 

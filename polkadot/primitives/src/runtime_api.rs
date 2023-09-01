@@ -241,6 +241,7 @@ sp_api::decl_runtime_apis! {
 			key_ownership_proof: vstaging::slashing::OpaqueKeyOwnershipProof,
 		) -> Option<()>;
 
+		 /***** Staging *****/
 
 		/// Get the minimum number of backing votes for a parachain candidate.
 		/// This is a staging method! Do not use on production runtimes!

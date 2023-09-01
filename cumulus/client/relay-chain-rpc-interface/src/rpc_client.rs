@@ -31,7 +31,7 @@ use parity_scale_codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{
 		slashing,
-		vstaging::{AsyncBackingParams, BackingState},
+		vstaging::{ApprovalVotingParams, AsyncBackingParams, BackingState},
 		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
 		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
@@ -605,6 +605,19 @@ impl RelayChainRpcClient {
 	) -> Result<AsyncBackingParams, RelayChainError> {
 		self.call_remote_runtime_function(
 			"ParachainHost_staging_async_backing_params",
+			at,
+			None::<()>,
+		)
+		.await
+	}
+
+	#[allow(missing_docs)]
+	pub async fn parachain_host_staging_approval_voting_params(
+		&self,
+		at: RelayHash,
+	) -> Result<ApprovalVotingParams, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_staging_approval_voting_params",
 			at,
 			None::<()>,
 		)
