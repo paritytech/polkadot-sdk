@@ -361,9 +361,8 @@ where
 
 	fn futures(&self) -> Vec<Self::InPoolTransaction> {
 		let pool = self.pool.validated_pool().pool.read();
-		let res = pool.futures().cloned().collect::<Vec<_>>();
 
-		res
+		pool.futures().cloned().collect::<Vec<_>>()
 	}
 }
 
