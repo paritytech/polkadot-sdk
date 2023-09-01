@@ -21,7 +21,7 @@ use polkadot_node_core_pvf::{
 	start, Config, InvalidCandidate, Metrics, PrepareJobKind, PvfPrepData, ValidationError,
 	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
-use polkadot_parachain::primitives::{BlockData, ValidationParams, ValidationResult};
+use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::ExecutorParams;
 
 #[cfg(feature = "ci-only-tests")]

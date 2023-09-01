@@ -88,7 +88,7 @@ build-staking-miner:
     - job: build-malus
       artifacts: false
   script:
-    - time cargo build --locked --release --package staking-miner
+    - time cargo build -q --locked --release --package staging-staking-miner
     # # pack artifacts
     # - mkdir -p ./artifacts
     # - mv ./target/release/staking-miner ./artifacts/.
@@ -146,7 +146,7 @@ build-short-benchmark:
     - .run-immediately
     - .collect-artifacts
   script:
-    - cargo build --profile release --locked --features=runtime-benchmarks
+    - cargo build --profile release --locked --features=runtime-benchmarks --bin polkadot
     - mkdir -p artifacts
     - target/release/polkadot --version
     - cp ./target/release/polkadot ./artifacts/
@@ -265,6 +265,19 @@ build-runtime-testing:
     - job: build-runtime-starters
       artifacts: false
 
+build-short-benchmark-cumulus:
+  stage: build
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .collect-artifacts
+  script:
+    - cargo build --profile release --locked --features=runtime-benchmarks --bin polkadot-parachain
+    - mkdir -p artifacts
+    - target/release/polkadot-parachain --version
+    - cp ./target/release/polkadot-parachain ./artifacts/
+
 # substrate
 
 build-linux-substrate:
@@ -353,4 +366,3 @@ build-subkey-linux:
 #   after_script: [""]
 #   tags:
 #     - osx
-

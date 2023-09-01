@@ -315,11 +315,11 @@ mod tests {
 	use cumulus_primitives_core::UpwardMessage;
 	use frame_support::{
 		assert_ok,
-		dispatch::DispatchError,
 		traits::tokens::{
 			DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence,
 		},
 	};
+	use sp_runtime::DispatchError;
 	use xcm_executor::{traits::Error, Assets};
 
 	/// Validates [`validate`] for required Some(destination) and Some(message)

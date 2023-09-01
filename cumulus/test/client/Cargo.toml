@@ -29,7 +29,7 @@ pallet-balances = { path = "../../../substrate/frame/balances" }
 
 # Polkadot
 polkadot-primitives = { path = "../../../polkadot/primitives" }
-polkadot-parachain = { path = "../../../polkadot/parachain" }
+polkadot-parachain-primitives = { path = "../../../polkadot/parachain" }
 
 # Cumulus
 cumulus-test-runtime = { path = "../runtime" }

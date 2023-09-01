@@ -40,7 +40,9 @@ use polkadot_node_subsystem::{
 	SubsystemSender,
 };
 use polkadot_node_subsystem_util::executor_params_at_relay_parent;
-use polkadot_parachain::primitives::{ValidationParams, ValidationResult as WasmValidationResult};
+use polkadot_parachain_primitives::primitives::{
+	ValidationParams, ValidationResult as WasmValidationResult,
+};
 use polkadot_primitives::{
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, ExecutorParams, Hash,
 	OccupiedCoreAssumption, PersistedValidationData, PvfExecTimeoutKind, PvfPrepTimeoutKind,
@@ -111,10 +113,7 @@ pub struct CandidateValidationSubsystem {
 }
 
 impl CandidateValidationSubsystem {
-	/// Create a new `CandidateValidationSubsystem` with the given task spawner and isolation
-	/// strategy.
-	///
-	/// Check out [`IsolationStrategy`] to get more details.
+	/// Create a new `CandidateValidationSubsystem`.
 	pub fn with_config(
 		config: Option<Config>,
 		metrics: Metrics,
