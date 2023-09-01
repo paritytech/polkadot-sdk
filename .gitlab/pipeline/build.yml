@@ -146,7 +146,7 @@ build-short-benchmark:
     - .run-immediately
     - .collect-artifacts
   script:
-    - cargo build --profile release --locked --features=runtime-benchmarks
+    - cargo build --profile release --locked --features=runtime-benchmarks --bin polkadot
     - mkdir -p artifacts
     - target/release/polkadot --version
     - cp ./target/release/polkadot ./artifacts/
@@ -264,6 +264,19 @@ build-runtime-testing:
   needs:
     - job: build-runtime-starters
       artifacts: false
+
+build-short-benchmark-cumulus:
+  stage: build
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .collect-artifacts
+  script:
+    - cargo build --profile release --locked --features=runtime-benchmarks --bin polkadot-parachain
+    - mkdir -p artifacts
+    - target/release/polkadot-parachain --version
+    - cp ./target/release/polkadot-parachain ./artifacts/
 
 # substrate
 
