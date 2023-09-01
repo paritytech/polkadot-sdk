@@ -379,22 +379,67 @@ cancel-pipeline-build-short-benchmark:
   needs:
     - job: build-short-benchmark
 
-# cancel-pipeline-check-runtime-migration-rococo:
-#   extends: .cancel-pipeline-template
-#   needs:
-#     - job: check-runtime-migration-rococo
-
-# cancel-pipeline-check-runtime-migration-westend:
-#   extends: .cancel-pipeline-template
-#   needs:
-#     - job: check-runtime-migration-westend
-
-# cancel-pipeline-check-runtime-migration-polkadot:
-#   extends: .cancel-pipeline-template
-#   needs:
-#     - job: check-runtime-migration-polkadot
+# Relay chains
+cancel-pipeline-check-runtime-migration-polkadot:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-runtime-migration-polkadot
 
 cancel-pipeline-check-runtime-migration-kusama:
   extends: .cancel-pipeline-template
   needs:
     - job: check-runtime-migration-kusama
+
+cancel-pipeline-check-runtime-migration-rococo:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-runtime-migration-rococo
+
+cancel-pipeline-check-runtime-migration-westend:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-runtime-migration-westend
+
+# Asset hub chains
+cancel-pipeline-check-runtime-migration-asset-hub-polkadot:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-runtime-migration-asset-hub-polkadot
+
+cancel-pipeline-check-runtime-migration-asset-hub-kusama:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-runtime-migration-asset-hub-kusama
+
+cancel-pipeline-check-runtime-migration-asset-hub-westend:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-runtime-migration-asset-hub-westend
+
+# Bridge hub
+cancel-pipeline-check-runtime-migration-bridge-hub-polkadot:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-runtime-migration-bridge-hub-polkadot
+
+cancel-pipeline-check-runtime-migration-bridge-hub-kusama:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-runtime-migration-bridge-hub-kusama
+
+cancel-pipeline-check-runtime-migration-bridge-hub-rococo:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-runtime-migration-bridge-hub-rococo
+
+# Collectives
+cancel-pipeline-check-runtime-migration-collectives-polkadot:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-runtime-migration-collectives-polkadot
+
+# Contracts
+cancel-pipeline-check-runtime-migration-contracts-rococo:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-runtime-migration-contracts-rococo

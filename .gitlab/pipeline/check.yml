@@ -121,28 +121,31 @@ test-rust-feature-propagation:
       echo "---------- Executing `on-runtime-upgrade` for ${NETWORK} ----------"
       time try-runtime \
           --runtime ./target/release/wbuild/"$PACKAGE"/target/wasm32-unknown-unknown/release/"$WASM" \
-          on-runtime-upgrade --checks=pre-and-post live --uri wss://${NETWORK}-try-runtime-node.parity-chains.parity.io:443
+          on-runtime-upgrade --checks=pre-and-post live --uri ${URI}
 
-# check-runtime-migration-polkadot:
-#   stage: check
-#   # DAG
-#   needs:
-#     - job: check-runtime-migration-westend
-#       artifacts: false
-#   extends:
-#     - .docker-env
-#     - .test-pr-refs
-#     - .check-runtime-migration
-#   variables:
-#     NETWORK: "polkadot"
+# Check runtime migrations for relay chains
+check-runtime-migration-polkadot:
+  stage: check
+  # DAG
+  needs:
+    - job: check-runtime-migration-westend
+      artifacts: false
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "polkadot"
+    PACKAGE: "polkadot-runtime"
+    WASM: "polkadot_runtime.wasm"
+    URI: "wss://polkadot-try-runtime-node.parity-chains.parity.io:443"
 
 check-runtime-migration-kusama:
   stage: check
   # DAG
-  # todo: reenable this
-  # needs:
-  #   - job: check-runtime-migration-westend
-  #     artifacts: false
+  needs:
+    - job: check-runtime-migration-westend
+      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
@@ -151,28 +154,167 @@ check-runtime-migration-kusama:
     NETWORK: "kusama"
     PACKAGE: "staging-kusama-runtime"
     WASM: "staging_kusama_runtime.wasm"
+    URI: "wss://kusama-try-runtime-node.parity-chains.parity.io:443"
 
-# check-runtime-migration-westend:
-#   stage: check
-#   extends:
-#     - .docker-env
-#     - .test-pr-refs
-#     - .check-runtime-migration
-#   variables:
-#     NETWORK: "westend"
+check-runtime-migration-westend:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "westend"
+    PACKAGE: "kusama-runtime"
+    WASM: "westend_runtime.wasm"
+    URI: "wss://westend-try-runtime-node.parity-chains.parity.io:443"
 
-# check-runtime-migration-rococo:
-#   stage: check
-#   # DAG
-#   needs:
-#     - job: check-runtime-migration-westend
-#       artifacts: false
-#   extends:
-#     - .docker-env
-#     - .test-pr-refs
-#     - .check-runtime-migration
-#   variables:
-#     NETWORK: "rococo"
+check-runtime-migration-rococo:
+  stage: check
+  # DAG
+  needs:
+    - job: check-runtime-migration-westend
+      artifacts: false
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "rococo"
+    PACKAGE: "rococo-runtime"
+    WASM: "rococo_runtime.wasm"
+    URI: "wss://rococo-try-runtime-node.parity-chains.parity.io:443"
+
+# Check runtime migrations for asset hub chains
+check-runtime-migration-asset-hub-polkadot:
+  stage: check
+  # DAG
+  needs:
+    - job: check-runtime-migration-westend
+      artifacts: false
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "asset-hub-polkadot"
+    PACKAGE: "asset-hub-polkadot-runtime"
+    WASM: "asset_hub_polkadot_runtime.wasm"
+    URI: "wss://polkadot-asset-hub-rpc.polkadot.io:443"
+
+check-runtime-migration-asset-hub-kusama:
+  stage: check
+  # DAG
+  needs:
+    - job: check-runtime-migration-westend
+      artifacts: false
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "asset-hub-kusama"
+    PACKAGE: "asset-hub-kusama-runtime"
+    WASM: "asset_hub_kusama_runtime.wasm"
+    URI: "wss://kusama-asset-hub-rpc.polkadot.io:443"
+
+check-runtime-migration-asset-hub-westend:
+  stage: check
+  # DAG
+  needs:
+    - job: check-runtime-migration-westend
+      artifacts: false
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "asset-hub-westend"
+    PACKAGE: "asset-hub-westend-runtime"
+    WASM: "asset_hub_westend_runtime.wasm"
+    URI: "wss://westend-asset-hub-rpc.polkadot.io:443"
+
+# Check runtime migrations for bridge hub chains
+check-runtime-migration-bridge-hub-polkadot:
+  stage: check
+  # DAG
+  needs:
+    - job: check-runtime-migration-westend
+      artifacts: false
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "bridge-hub-polkadot"
+    PACKAGE: "bridge-hub-polkadot-runtime"
+    WASM: "bridge_hub_polkadot_runtime.wasm"
+    URI: "wss://polkadot-bridge-hub-rpc.polkadot.io:443"
+
+check-runtime-migration-bridge-hub-kusama:
+  stage: check
+  # DAG
+  needs:
+    - job: check-runtime-migration-westend
+      artifacts: false
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "bridge-hub-kusama"
+    PACKAGE: "bridge-hub-kusama-runtime"
+    WASM: "bridge_hub_kusama_runtime.wasm"
+    URI: "wss://kusama-bridge-hub-rpc.polkadot.io:443"
+
+check-runtime-migration-bridge-hub-rococo:
+  stage: check
+  # DAG
+  needs:
+    - job: check-runtime-migration-westend
+      artifacts: false
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "bridge-hub-rococo"
+    PACKAGE: "bridge-hub-rococo-runtime"
+    WASM: "bridge_hub_rococo_runtime.wasm"
+    URI: "wss://rococo-bridge-hub-rpc.polkadot.io:443"
+
+# Check runtime migrations for collective chains
+check-runtime-migration-collectives-polkadot:
+  stage: check
+  # DAG
+  needs:
+    - job: check-runtime-migration-westend
+      artifacts: false
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "collectives-polkadot"
+    PACKAGE: "collectives-polkadot-runtime"
+    WASM: "collectives_polkadot_runtime.wasm"
+    URI: "wss://polkadot-collectives-rpc.polkadot.io:443"
+
+# Check runtime migrations for contracts chains
+check-runtime-migration-contracts-rococo:
+  stage: check
+  # DAG
+  needs:
+    - job: check-runtime-migration-westend
+      artifacts: false
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "contracts-rococo"
+    PACKAGE: "contracts-rococo-runtime"
+    WASM: "contracts_rococo_runtime.wasm"
+    URI: "wss://rococo-contracts-rpc.polkadot.io:443"
 
 find-fail-ci-phrase:
   stage: check
