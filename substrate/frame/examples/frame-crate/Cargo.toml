@@ -5,7 +5,7 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 license = "MIT-0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "FRAME example pallet with umbrella crate"
 readme = "README.md"
 
@@ -20,10 +20,5 @@ frame = { path = "../..", default-features = false }
 
 
 [features]
-default = ["std"]
-std = [
-	"codec/std",
-	"scale-info/std",
-
-	"frame/std",
-]
+default = [ "std" ]
+std = [ "codec/std", "frame/std", "scale-info/std" ]

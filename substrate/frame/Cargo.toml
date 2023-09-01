@@ -5,7 +5,7 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "The single package to get you started with building frame pallets and runtimes"
 
 [package.metadata.docs.rs]
@@ -46,50 +46,40 @@ docify = "0.2.0"
 [dev-dependencies]
 pallet-examples = { path = "./examples" }
 
-
 [features]
 default = [ "std", "runtime" ]
-std = [
-	# external deps
-	"parity-scale-codec/std",
-	"scale-info/std",
-
-	# primitive deps
-	"sp-runtime/std",
-	"sp-std/std",
-	"sp-io/std",
-	"sp-core/std",
-	"sp-arithmetic/std",
-
-	# frame dpes
-	"frame-support/std",
-	"frame-system/std",
-
-	# Optional deps for runtime feature
-	"sp-version?/std",
-	"sp-api?/std",
-	"sp-block-builder?/std",
-	"sp-transaction-pool?/std",
-	"sp-offchain?/std",
-	"sp-session?/std",
-	"sp-consensus-aura?/std",
-	"sp-consensus-grandpa?/std",
-	"sp-inherents?/std",
-
-	"frame-executive?/std",
-	"frame-system-rpc-runtime-api?/std",
-]
 runtime = [
-	"sp-version",
+	"frame-executive",
+	"frame-system-rpc-runtime-api",
 	"sp-api",
 	"sp-block-builder",
-	"sp-transaction-pool",
-	"sp-offchain",
-	"sp-session",
 	"sp-consensus-aura",
 	"sp-consensus-grandpa",
 	"sp-inherents",
-
-	"frame-executive",
-	"frame-system-rpc-runtime-api"
+	"sp-offchain",
+	"sp-session",
+	"sp-transaction-pool",
+	"sp-version",
+]
+std = [
+	"frame-executive?/std",
+	"frame-support/std",
+	"frame-system-rpc-runtime-api?/std",
+	"frame-system/std",
+	"parity-scale-codec/std",
+	"scale-info/std",
+	"sp-api?/std",
+	"sp-arithmetic/std",
+	"sp-block-builder?/std",
+	"sp-consensus-aura?/std",
+	"sp-consensus-grandpa?/std",
+	"sp-core/std",
+	"sp-inherents?/std",
+	"sp-io/std",
+	"sp-offchain?/std",
+	"sp-runtime/std",
+	"sp-session?/std",
+	"sp-std/std",
+	"sp-transaction-pool?/std",
+	"sp-version?/std",
 ]
