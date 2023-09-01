@@ -1027,7 +1027,7 @@ macro_rules! decl_test_networks {
 					use $crate::{Bounded, ProcessMessage, WeightMeter};
 					use sp_core::Encode;
 					while let Some((from_para_id, msg)) = $crate::UPWARD_MESSAGES.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().pop_front()) {
-						let mut weight_meter = WeightMeter::max_limit();
+						let mut weight_meter = WeightMeter::new();
 						<$relay_chain>::ext_wrapper(|| {
 							let _ =  <$relay_chain as RelayChain>::MessageProcessor::process_message(
 								&msg[..],
