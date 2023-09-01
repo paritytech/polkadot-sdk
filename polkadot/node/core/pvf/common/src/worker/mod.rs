@@ -41,7 +41,9 @@ macro_rules! decl_worker_main {
 		}
 
 		fn main() {
-			$crate::__private::try_init_simple();
+			// TODO: Remove this dependency, and `pub use sp_tracing` in `lib.rs`.
+			// See <https://github.com/paritytech/polkadot/issues/7117>.
+			$crate::sp_tracing::try_init_simple();
 
 			let args = std::env::args().collect::<Vec<_>>();
 			if args.len() == 1 {

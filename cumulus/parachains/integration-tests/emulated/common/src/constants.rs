@@ -18,7 +18,7 @@ use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
 use grandpa::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId, Balance, BlockNumber};
-use polkadot_parachain::primitives::{HeadData, ValidationCode};
+use polkadot_parachain_primitives::primitives::{HeadData, ValidationCode};
 use polkadot_primitives::{AssignmentId, ValidatorId};
 use polkadot_runtime_parachains::{
 	configuration::HostConfiguration,
