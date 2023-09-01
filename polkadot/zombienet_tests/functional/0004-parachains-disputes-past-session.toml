@@ -8,7 +8,7 @@ bootnode = true
   group_rotation_frequency = 3
 
 [relaychain]
-default_image = "docker.io/paritypr/zombienet:8c572276"
+default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
 chain = "westend-local" # using westend-local to enable slashing
 default_command = "polkadot"
 
