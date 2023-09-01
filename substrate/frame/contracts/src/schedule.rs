@@ -348,13 +348,13 @@ macro_rules! replace_token {
 
 macro_rules! call_zero {
 	($name:ident, $( $arg:expr ),*) => {
-		<T as Config>::WeightInfo::$name($( replace_token!($arg 0) ),*)
+		T::WeightInfo::$name($( replace_token!($arg 0) ),*)
 	};
 }
 
 macro_rules! cost_args {
 	($name:ident, $( $arg: expr ),+) => {
-		(<T as Config>::WeightInfo::$name($( $arg ),+).saturating_sub(call_zero!($name, $( $arg ),+)))
+		(T::WeightInfo::$name($( $arg ),+).saturating_sub(call_zero!($name, $( $arg ),+)))
 	}
 }
 

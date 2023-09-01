@@ -1126,7 +1126,7 @@ where
 		value: BalanceOf<T>,
 	) -> DispatchResult {
 		if !value.is_zero() && from != to {
-			<T as Config>::Currency::transfer(from, to, value, preservation)
+			T::Currency::transfer(from, to, value, preservation)
 				.map_err(|_| Error::<T>::TransferFailed)?;
 		}
 		Ok(())
@@ -1392,7 +1392,7 @@ where
 	}
 
 	fn balance(&self) -> BalanceOf<T> {
-		<T as Config>::Currency::balance(&self.top_frame().account_id)
+		T::Currency::balance(&self.top_frame().account_id)
 	}
 
 	fn value_transferred(&self) -> BalanceOf<T> {
@@ -1408,7 +1408,7 @@ where
 	}
 
 	fn minimum_balance(&self) -> BalanceOf<T> {
-		<T as Config>::Currency::minimum_balance()
+		T::Currency::minimum_balance()
 	}
 
 	fn deposit_event(&mut self, topics: Vec<T::Hash>, data: Vec<u8>) {
@@ -1465,8 +1465,7 @@ where
 	}
 
 	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo {
-		let mut origin: <T as frame_system::Config>::RuntimeOrigin =
-			RawOrigin::Signed(self.address().clone()).into();
+		let mut origin: T::RuntimeOrigin = RawOrigin::Signed(self.address().clone()).into();
 		origin.add_filter(T::CallFilter::contains);
 		call.dispatch(origin)
 	}

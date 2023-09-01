@@ -253,10 +253,8 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
-		type RuntimeCall: Dispatchable<
-				RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin,
-				PostInfo = PostDispatchInfo,
-			> + GetDispatchInfo
+		type RuntimeCall: Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
+			+ GetDispatchInfo
 			+ codec::Decode
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
 
@@ -427,7 +425,7 @@ pub mod pallet {
 			}
 
 			ContractInfo::<T>::process_deletion_queue_batch(remaining_weight)
-				.saturating_add(<T as Config>::WeightInfo::on_process_deletion_queue_batch())
+				.saturating_add(T::WeightInfo::on_process_deletion_queue_batch())
 		}
 
 		fn integrity_test() {
@@ -505,7 +503,7 @@ pub mod pallet {
 	{
 		/// Deprecated version if [`Self::call`] for use in an in-storage `Call`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::call().saturating_add(<Pallet<T>>::compat_weight_limit(*gas_limit)))]
+		#[pallet::weight(T::WeightInfo::call().saturating_add(<Pallet<T>>::compat_weight_limit(*gas_limit)))]
 		#[allow(deprecated)]
 		#[deprecated(note = "1D weight is used in this extrinsic, please migrate to `call`")]
 		pub fn call_old_weight(
@@ -529,7 +527,7 @@ pub mod pallet {
 		/// Deprecated version if [`Self::instantiate_with_code`] for use in an in-storage `Call`.
 		#[pallet::call_index(1)]
 		#[pallet::weight(
-			<T as Config>::WeightInfo::instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32)
+			T::WeightInfo::instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32)
 			.saturating_add(<Pallet<T>>::compat_weight_limit(*gas_limit))
 		)]
 		#[allow(deprecated)]
@@ -559,7 +557,7 @@ pub mod pallet {
 		/// Deprecated version if [`Self::instantiate`] for use in an in-storage `Call`.
 		#[pallet::call_index(2)]
 		#[pallet::weight(
-			<T as Config>::WeightInfo::instantiate(data.len() as u32, salt.len() as u32).saturating_add(<Pallet<T>>::compat_weight_limit(*gas_limit))
+			T::WeightInfo::instantiate(data.len() as u32, salt.len() as u32).saturating_add(<Pallet<T>>::compat_weight_limit(*gas_limit))
 		)]
 		#[allow(deprecated)]
 		#[deprecated(note = "1D weight is used in this extrinsic, please migrate to `instantiate`")]
@@ -604,7 +602,7 @@ pub mod pallet {
 		/// only be instantiated by permissioned entities. The same is true when uploading
 		/// through [`Self::instantiate_with_code`].
 		#[pallet::call_index(3)]
-		#[pallet::weight(<T as Config>::WeightInfo::upload_code(code.len() as u32))]
+		#[pallet::weight(T::WeightInfo::upload_code(code.len() as u32))]
 		pub fn upload_code(
 			origin: OriginFor<T>,
 			code: Vec<u8>,
@@ -622,7 +620,7 @@ pub mod pallet {
 		/// A code can only be removed by its original uploader (its owner) and only if it is
 		/// not used by any contract.
 		#[pallet::call_index(4)]
-		#[pallet::weight(<T as Config>::WeightInfo::remove_code())]
+		#[pallet::weight(T::WeightInfo::remove_code())]
 		pub fn remove_code(
 			origin: OriginFor<T>,
 			code_hash: CodeHash<T>,
@@ -645,7 +643,7 @@ pub mod pallet {
 		/// that the contract address is no longer derived from its code hash after calling
 		/// this dispatchable.
 		#[pallet::call_index(5)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_code())]
+		#[pallet::weight(T::WeightInfo::set_code())]
 		pub fn set_code(
 			origin: OriginFor<T>,
 			dest: AccountIdLookupOf<T>,
@@ -692,7 +690,7 @@ pub mod pallet {
 		/// * If no account exists and the call value is not less than `existential_deposit`,
 		/// a regular account will be created and any value will be transferred.
 		#[pallet::call_index(6)]
-		#[pallet::weight(<T as Config>::WeightInfo::call().saturating_add(*gas_limit))]
+		#[pallet::weight(T::WeightInfo::call().saturating_add(*gas_limit))]
 		pub fn call(
 			origin: OriginFor<T>,
 			dest: AccountIdLookupOf<T>,
@@ -718,9 +716,7 @@ pub mod pallet {
 					output.result = Err(<Error<T>>::ContractReverted.into());
 				}
 			}
-			output
-				.gas_meter
-				.into_dispatch_result(output.result, <T as Config>::WeightInfo::call())
+			output.gas_meter.into_dispatch_result(output.result, T::WeightInfo::call())
 		}
 
 		/// Instantiates a new contract from the supplied `code` optionally transferring
@@ -750,7 +746,7 @@ pub mod pallet {
 		/// - The `deploy` function is executed in the context of the newly-created account.
 		#[pallet::call_index(7)]
 		#[pallet::weight(
-			<T as Config>::WeightInfo::instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32)
+			T::WeightInfo::instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32)
 			.saturating_add(*gas_limit)
 		)]
 		pub fn instantiate_with_code(
@@ -799,9 +795,7 @@ pub mod pallet {
 
 			output.gas_meter.into_dispatch_result(
 				output.result.map(|(_address, output)| output),
-				<T as Config>::WeightInfo::instantiate_with_code(
-					code_len, data_len, salt_len,
-				),
+				T::WeightInfo::instantiate_with_code(code_len, data_len, salt_len),
 			)
 		}
 
@@ -812,7 +806,7 @@ pub mod pallet {
 		/// must be supplied.
 		#[pallet::call_index(8)]
 		#[pallet::weight(
-			<T as Config>::WeightInfo::instantiate(data.len() as u32, salt.len() as u32).saturating_add(*gas_limit)
+			T::WeightInfo::instantiate(data.len() as u32, salt.len() as u32).saturating_add(*gas_limit)
 		)]
 		pub fn instantiate(
 			origin: OriginFor<T>,
@@ -843,7 +837,7 @@ pub mod pallet {
 			}
 			output.gas_meter.into_dispatch_result(
 				output.result.map(|(_address, output)| output),
-				<T as Config>::WeightInfo::instantiate(data_len, salt_len),
+				T::WeightInfo::instantiate(data_len, salt_len),
 			)
 		}
 
@@ -852,13 +846,12 @@ pub mod pallet {
 		/// for the chain. Note that while the migration is in progress, the pallet will also
 		/// leverage the `on_idle` hooks to run migration steps.
 		#[pallet::call_index(9)]
-		#[pallet::weight(<T as Config>::WeightInfo::migrate().saturating_add(*weight_limit))]
+		#[pallet::weight(T::WeightInfo::migrate().saturating_add(*weight_limit))]
 		pub fn migrate(origin: OriginFor<T>, weight_limit: Weight) -> DispatchResultWithPostInfo {
 			use migration::MigrateResult::*;
 			ensure_signed(origin)?;
 
-			let weight_limit =
-				weight_limit.saturating_add(<T as Config>::WeightInfo::migrate());
+			let weight_limit = weight_limit.saturating_add(T::WeightInfo::migrate());
 			let (result, weight) = Migration::<T>::migrate(weight_limit);
 
 			match result {
@@ -870,7 +863,7 @@ pub mod pallet {
 					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::Yes }),
 				NoMigrationInProgress | NoMigrationPerformed => {
 					let err: DispatchError = <Error<T>>::NoMigrationPerformed.into();
-					Err(err.with_weight(<T as Config>::WeightInfo::migrate()))
+					Err(err.with_weight(T::WeightInfo::migrate()))
 				},
 			}
 		}
@@ -1655,7 +1648,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Return the existential deposit of [`Config::Currency`].
 	fn min_balance() -> BalanceOf<T> {
-		<<T as Config>::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
+		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
 	}
 
 	/// Convert gas_limit from 1D Weight to a 2D Weight.

@@ -129,7 +129,7 @@ where
 	const VERSION: u16 = 14;
 
 	fn max_step_weight() -> Weight {
-		<T as Config>::WeightInfo::v14_migration_step()
+		T::WeightInfo::v14_migration_step()
 	}
 
 	fn step(&mut self) -> (IsFinished, Weight) {
@@ -168,7 +168,7 @@ where
 				hash,
 			);
 
-			<T as Config>::Currency::hold(
+			T::Currency::hold(
 				&HoldReason::CodeUploadDepositReserve.into(),
 				&code_info.owner,
 				amount,
@@ -185,10 +185,10 @@ where
 			});
 
 			self.last_code_hash = Some(hash);
-			(IsFinished::No, <T as Config>::WeightInfo::v14_migration_step())
+			(IsFinished::No, T::WeightInfo::v14_migration_step())
 		} else {
 			log::debug!(target: LOG_TARGET, "No more code upload deposit to migrate");
-			(IsFinished::Yes, <T as Config>::WeightInfo::v14_migration_step())
+			(IsFinished::Yes, T::WeightInfo::v14_migration_step())
 		}
 	}
 
@@ -228,7 +228,7 @@ where
 		let count = owner_balance_allocation.len();
 		for (owner, old_balance_allocation) in owner_balance_allocation {
 			let held =
-				<T as Config>::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &owner);
+				T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &owner);
 			log::debug!(
 				target: LOG_TARGET,
 				"Validating code upload deposit for owner 0x{:?}, reserved: {:?}, held: {:?}",
@@ -242,11 +242,11 @@ where
 				target: LOG_TARGET,
 				"Validating total balance for owner 0x{:?}, new: {:?}, old: {:?}",
 				HexDisplay::from(&owner.encode()),
-				<T as Config>::Currency::total_balance(&owner),
+				T::Currency::total_balance(&owner),
 				old_balance_allocation.total
 			);
 			ensure!(
-				<T as Config>::Currency::total_balance(&owner) ==
+				T::Currency::total_balance(&owner) ==
 					BalanceOf::<T>::decode(&mut &old_balance_allocation.total.encode()[..])
 						.unwrap(),
 				"Balance mismatch "

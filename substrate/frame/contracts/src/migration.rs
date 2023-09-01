@@ -272,7 +272,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 				"{name}: No Migration performed storage_version = latest_version = {:?}",
 				&storage_version
 			);
-			return <T as Config>::WeightInfo::on_runtime_upgrade_noop()
+			return T::WeightInfo::on_runtime_upgrade_noop()
 		}
 
 		// In case a migration is already in progress we create the next migration
@@ -284,7 +284,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 				&storage_version
 			);
 
-			return <T as Config>::WeightInfo::on_runtime_upgrade_in_progress()
+			return T::WeightInfo::on_runtime_upgrade_in_progress()
 		}
 
 		log::info!(
@@ -300,7 +300,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 			Self::run_all_steps().unwrap();
 		}
 
-		<T as Config>::WeightInfo::on_runtime_upgrade()
+		T::WeightInfo::on_runtime_upgrade()
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -364,13 +364,13 @@ impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 		let name = <Pallet<T>>::name();
 		let mut weight_left = weight_limit;
 
-		if weight_left.checked_reduce(<T as Config>::WeightInfo::migrate()).is_none() {
+		if weight_left.checked_reduce(T::WeightInfo::migrate()).is_none() {
 			return (MigrateResult::NoMigrationPerformed, Weight::zero())
 		}
 
 		MigrationInProgress::<T>::mutate_exists(|progress| {
 			let Some(cursor_before) = progress.as_mut() else {
-				return (MigrateResult::NoMigrationInProgress, <T as Config>::WeightInfo::migration_noop())
+				return (MigrateResult::NoMigrationInProgress, T::WeightInfo::migration_noop())
 			};
 
 			// if a migration is running it is always upgrading to the next version

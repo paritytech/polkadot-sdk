@@ -275,9 +275,9 @@ impl<T: Config> ContractInfo<T> {
 	/// Calculates the weight that is necessary to remove one key from the trie and how many
 	/// of those keys can be deleted from the deletion queue given the supplied weight limit.
 	pub fn deletion_budget(weight_limit: Weight) -> (Weight, u32) {
-		let base_weight = <T as Config>::WeightInfo::on_process_deletion_queue_batch();
-		let weight_per_key = <T as Config>::WeightInfo::on_initialize_per_trie_key(1) -
-			<T as Config>::WeightInfo::on_initialize_per_trie_key(0);
+		let base_weight = T::WeightInfo::on_process_deletion_queue_batch();
+		let weight_per_key = T::WeightInfo::on_initialize_per_trie_key(1) -
+			T::WeightInfo::on_initialize_per_trie_key(0);
 
 		// `weight_per_key` being zero makes no sense and would constitute a failure to
 		// benchmark properly. We opt for not removing any keys at all in this case.

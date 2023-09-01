@@ -99,7 +99,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 	const VERSION: u16 = 13;
 
 	fn max_step_weight() -> Weight {
-		<T as Config>::WeightInfo::v13_migration_step()
+		T::WeightInfo::v13_migration_step()
 	}
 
 	fn step(&mut self) -> (IsFinished, Weight) {
@@ -126,10 +126,10 @@ impl<T: Config> MigrationStep for Migration<T> {
 			};
 			ContractInfoOf::<T>::insert(key.clone(), info);
 			self.last_account = Some(key);
-			(IsFinished::No, <T as Config>::WeightInfo::v13_migration_step())
+			(IsFinished::No, T::WeightInfo::v13_migration_step())
 		} else {
 			log::debug!(target: LOG_TARGET, "No more contracts to migrate");
-			(IsFinished::Yes, <T as Config>::WeightInfo::v13_migration_step())
+			(IsFinished::Yes, T::WeightInfo::v13_migration_step())
 		}
 	}
 }
