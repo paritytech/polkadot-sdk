@@ -35,3 +35,8 @@ serde = [
 	"sp-application-crypto/serde",
 	"sp-runtime/serde",
 ]
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

@@ -30,3 +30,18 @@ sc-block-builder = { path = "../block-builder" }
 sp-tracing = { path = "../../primitives/tracing" }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 tokio = "1.17.0"
+
+[features]
+runtime-benchmarks = [
+	"sc-block-builder/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-offchain/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus-beefy/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-mmr-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+]

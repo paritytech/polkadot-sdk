@@ -21,3 +21,7 @@ serde_json = { version = "1.0.85", default-features = false, features = ["alloc"
 [features]
 default = [ "std" ]
 std = [ "serde_json/std", "sp-api/std", "sp-runtime/std", "sp-std/std" ]
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

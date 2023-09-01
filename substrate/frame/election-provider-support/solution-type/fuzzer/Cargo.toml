@@ -30,3 +30,13 @@ frame-support = { path = "../../../support" }
 [[bin]]
 name = "compact"
 path = "src/compact.rs"
+
+[features]
+runtime-benchmarks = [
+	"frame-election-provider-solution-type/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-arithmetic/runtime-benchmarks",
+	"sp-npos-elections/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

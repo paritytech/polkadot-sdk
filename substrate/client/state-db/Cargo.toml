@@ -17,3 +17,6 @@ codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive
 log = "0.4.17"
 parking_lot = "0.12.1"
 sp-core = { path = "../../primitives/core" }
+
+[features]
+runtime-benchmarks = [ "sp-core/runtime-benchmarks" ]

@@ -38,3 +38,31 @@ sp-runtime = { path = "../../../primitives/runtime" }
 sp-statement-store = { path = "../../../primitives/statement-store" }
 substrate-frame-rpc-system = { path = "../../../utils/frame/rpc/system" }
 substrate-state-trie-migration-rpc = { path = "../../../utils/frame/rpc/state-trie-migration-rpc" }
+
+[features]
+runtime-benchmarks = [
+	"mmr-rpc/runtime-benchmarks",
+	"node-primitives/runtime-benchmarks",
+	"pallet-transaction-payment-rpc/runtime-benchmarks",
+	"sc-chain-spec/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-consensus-babe-rpc/runtime-benchmarks",
+	"sc-consensus-babe/runtime-benchmarks",
+	"sc-consensus-grandpa-rpc/runtime-benchmarks",
+	"sc-consensus-grandpa/runtime-benchmarks",
+	"sc-rpc-api/runtime-benchmarks",
+	"sc-rpc-spec-v2/runtime-benchmarks",
+	"sc-rpc/runtime-benchmarks",
+	"sc-sync-state-rpc/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-block-builder/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus-babe/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-statement-store/runtime-benchmarks",
+	"substrate-frame-rpc-system/runtime-benchmarks",
+	"substrate-state-trie-migration-rpc/runtime-benchmarks",
+]

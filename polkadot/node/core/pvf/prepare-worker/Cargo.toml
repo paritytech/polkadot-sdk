@@ -33,3 +33,13 @@ tikv-jemalloc-ctl = "0.5.0"
 [features]
 builder = []
 jemalloc-allocator = [ "dep:tikv-jemalloc-ctl" ]
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-node-core-pvf-common/runtime-benchmarks",
+	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-executor-common/runtime-benchmarks",
+	"sc-executor-wasmtime/runtime-benchmarks",
+	"sc-executor/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+]

@@ -59,3 +59,11 @@ bls-experimental = [
 	"sp-application-crypto/bls-experimental",
 	"sp-core/bls-experimental",
 ]
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-mmr-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

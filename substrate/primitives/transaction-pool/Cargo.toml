@@ -20,3 +20,7 @@ sp-runtime = { path = "../runtime", default-features = false}
 [features]
 default = [ "std" ]
 std = [ "sp-api/std", "sp-runtime/std" ]
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

@@ -37,3 +37,23 @@ sc-keystore = { path = "../../../keystore" }
 sc-transaction-pool-api = { path = "../../../transaction-pool/api" }
 sp-keyring = { path = "../../../../primitives/keyring" }
 substrate-test-runtime-client = { path = "../../../../test-utils/runtime/client" }
+
+[features]
+runtime-benchmarks = [
+	"sc-consensus-babe/runtime-benchmarks",
+	"sc-consensus-epochs/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sc-keystore/runtime-benchmarks",
+	"sc-rpc-api/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus-babe/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+]

@@ -73,3 +73,17 @@ frame-feature-testing-2 = []
 # Disable ui tests
 disable-ui-tests = []
 no-metadata-docs = [ "frame-support/no-metadata-docs" ]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-executive/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-arithmetic/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine?/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"test-pallet/runtime-benchmarks",
+]

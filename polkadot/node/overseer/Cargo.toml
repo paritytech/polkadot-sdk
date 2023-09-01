@@ -40,3 +40,15 @@ default = []
 expand = [ "orchestra/expand" ]
 dotgraph = [ "orchestra/dotgraph" ]
 jemalloc-allocator = [ "dep:tikv-jemalloc-ctl" ]
+runtime-benchmarks = [
+	"client/runtime-benchmarks",
+	"gum/runtime-benchmarks",
+	"polkadot-node-metrics/runtime-benchmarks",
+	"polkadot-node-network-protocol/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem-types/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"test-helpers/runtime-benchmarks",
+]

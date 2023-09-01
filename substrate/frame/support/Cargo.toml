@@ -83,8 +83,16 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-arithmetic/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-genesis-builder/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"sp-state-machine?/runtime-benchmarks",
+	"sp-weights/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-system/try-runtime",

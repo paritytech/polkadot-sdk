@@ -22,3 +22,15 @@ sp-runtime-interface = { path = ".." }
 sp-runtime-interface-test-wasm = { path = "../test-wasm" }
 sp-runtime-interface-test-wasm-deprecated = { path = "../test-wasm-deprecated" }
 sp-state-machine = { path = "../../state-machine" }
+
+[features]
+runtime-benchmarks = [
+	"sc-executor-common/runtime-benchmarks",
+	"sc-executor/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-runtime-interface-test-wasm-deprecated/runtime-benchmarks",
+	"sp-runtime-interface-test-wasm/runtime-benchmarks",
+	"sp-runtime-interface/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+]

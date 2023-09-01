@@ -47,3 +47,28 @@ tokio = { version = "1.22.0", features = ["rt-multi-thread", "macros"] }
 sc-basic-authorship = { path = "../../basic-authorship" }
 substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "../../../test-utils/runtime/transaction-pool" }
+
+[features]
+runtime-benchmarks = [
+	"sc-basic-authorship/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-consensus-aura/runtime-benchmarks",
+	"sc-consensus-babe/runtime-benchmarks",
+	"sc-consensus-epochs/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sc-transaction-pool/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus-aura/runtime-benchmarks",
+	"sp-consensus-babe/runtime-benchmarks",
+	"sp-consensus-slots/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-timestamp/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+	"substrate-test-runtime-transaction-pool/runtime-benchmarks",
+]

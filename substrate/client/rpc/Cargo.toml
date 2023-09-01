@@ -54,3 +54,28 @@ pretty_assertions = "1.2.1"
 
 [features]
 test-helpers = []
+runtime-benchmarks = [
+	"sc-block-builder/runtime-benchmarks",
+	"sc-chain-spec/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-network-common/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sc-rpc-api/runtime-benchmarks",
+	"sc-tracing/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sc-transaction-pool/runtime-benchmarks",
+	"sc-utils/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+	"sp-offchain/runtime-benchmarks",
+	"sp-rpc/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-session/runtime-benchmarks",
+	"sp-statement-store/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+]

@@ -44,3 +44,7 @@ serde = [
 	"sp-arithmetic/serde",
 	"sp-core/serde",
 ]
+runtime-benchmarks = [
+	"sp-arithmetic/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+]

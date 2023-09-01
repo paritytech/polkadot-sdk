@@ -26,7 +26,12 @@ default = [ "std" ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
+	"sp-arithmetic/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"sp-weights/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 std = [
 	"frame-benchmarking/std",

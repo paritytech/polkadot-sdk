@@ -38,3 +38,14 @@ std = [
 	"sp-std/std",
 	"sp-trie/std",
 ]
+runtime-benchmarks = [
+	"bp-header-chain/runtime-benchmarks",
+	"bp-parachains/runtime-benchmarks",
+	"bp-polkadot-core/runtime-benchmarks",
+	"bp-runtime/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-consensus-grandpa/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+]

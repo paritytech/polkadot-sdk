@@ -47,3 +47,28 @@ sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }
 sp-keyring = { path = "../../../primitives/keyring" }
 sp-tracing = { path = "../../../primitives/tracing" }
 substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
+
+[features]
+runtime-benchmarks = [
+	"sc-block-builder/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sc-network-gossip/runtime-benchmarks",
+	"sc-network-sync/runtime-benchmarks",
+	"sc-network-test/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sc-utils/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-arithmetic/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus-beefy/runtime-benchmarks",
+	"sp-consensus-grandpa/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+	"sp-mmr-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+]

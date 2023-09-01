@@ -61,3 +61,17 @@ test-utils = [
 	"polkadot-node-core-pvf-prepare-worker",
 	"sp-tracing",
 ]
+runtime-benchmarks = [
+	"adder/runtime-benchmarks",
+	"gum/runtime-benchmarks",
+	"polkadot-core-primitives/runtime-benchmarks",
+	"polkadot-node-core-pvf-common/runtime-benchmarks",
+	"polkadot-node-core-pvf-execute-worker?/runtime-benchmarks",
+	"polkadot-node-core-pvf-prepare-worker?/runtime-benchmarks",
+	"polkadot-node-core-pvf/runtime-benchmarks",
+	"polkadot-node-metrics/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+]

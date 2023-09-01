@@ -39,5 +39,7 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
+	"polkadot-core-primitives/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]

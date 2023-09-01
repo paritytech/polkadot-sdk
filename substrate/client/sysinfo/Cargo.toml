@@ -29,3 +29,11 @@ sp-std = { path = "../../primitives/std" }
 
 [dev-dependencies]
 sp-runtime = { path = "../../primitives/runtime" }
+
+[features]
+runtime-benchmarks = [
+	"sc-telemetry/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

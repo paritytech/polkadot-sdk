@@ -28,3 +28,10 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 ]
+runtime-benchmarks = [
+	"polkadot-core-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-consensus-aura/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

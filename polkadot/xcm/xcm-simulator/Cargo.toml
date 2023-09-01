@@ -20,3 +20,15 @@ xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder" }
 polkadot-core-primitives = { path = "../../core-primitives" }
 polkadot-parachain = { path = "../../parachain" }
 polkadot-runtime-parachains = { path = "../../runtime/parachains" }
+
+[features]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"polkadot-core-primitives/runtime-benchmarks",
+	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+]

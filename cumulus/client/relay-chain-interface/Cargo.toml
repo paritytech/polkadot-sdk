@@ -19,3 +19,13 @@ async-trait = "0.1.73"
 thiserror = "1.0.47"
 jsonrpsee-core = "0.16.2"
 parity-scale-codec = "3.6.4"
+
+[features]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+]

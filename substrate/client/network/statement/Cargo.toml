@@ -24,3 +24,11 @@ sc-network-common = { path = "../common" }
 sc-network = { path = ".." }
 sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-statement-store = { path = "../../../primitives/statement-store" }
+
+[features]
+runtime-benchmarks = [
+	"sc-network-common/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-statement-store/runtime-benchmarks",
+]

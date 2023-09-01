@@ -25,3 +25,11 @@ sp-consensus = { path = "../consensus/common" }
 sp-database = { path = "../database" }
 sp-runtime = { path = "../runtime" }
 sp-state-machine = { path = "../state-machine" }
+
+[features]
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+]

@@ -31,3 +31,12 @@ sc-network = { path = ".." }
 sp-core = { path = "../../../primitives/core" }
 sp-runtime = { path = "../../../primitives/runtime" }
 thiserror = "1.0"
+
+[features]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

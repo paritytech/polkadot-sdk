@@ -16,3 +16,13 @@ polkadot-overseer = { path = "../../overseer" }
 polkadot-primitives = { path = "../../../primitives" }
 sp-blockchain = { path = "../../../../substrate/primitives/blockchain" }
 sp-inherents = { path = "../../../../substrate/primitives/inherents" }
+
+[features]
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+]

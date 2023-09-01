@@ -32,3 +32,17 @@ sp-consensus-grandpa = { path = "../../../../primitives/consensus/grandpa" }
 sp-keyring = { path = "../../../../primitives/keyring" }
 substrate-test-runtime-client = { path = "../../../../test-utils/runtime/client" }
 tokio = { version = "1.22.0", features = ["macros"] }
+
+[features]
+runtime-benchmarks = [
+	"sc-block-builder/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-consensus-grandpa/runtime-benchmarks",
+	"sc-rpc/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus-grandpa/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+]

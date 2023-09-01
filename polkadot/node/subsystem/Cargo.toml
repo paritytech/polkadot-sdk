@@ -10,3 +10,10 @@ license.workspace = true
 polkadot-overseer = { path = "../overseer" }
 polkadot-node-subsystem-types = { path = "../subsystem-types" }
 polkadot-node-jaeger = { path = "../jaeger" }
+
+[features]
+runtime-benchmarks = [
+	"polkadot-node-jaeger/runtime-benchmarks",
+	"polkadot-node-subsystem-types/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+]

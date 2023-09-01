@@ -30,3 +30,7 @@ std = [
 	"sp-std/std",
 	"thiserror",
 ]
+runtime-benchmarks = [
+	"sp-inherents/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

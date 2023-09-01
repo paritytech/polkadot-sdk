@@ -37,3 +37,17 @@ sp-tracing = { path = "../../../../substrate/primitives/tracing" }
 [features]
 # If not enabled, the dispute coordinator will do nothing.
 disputes = []
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-node-subsystem-util/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-keystore/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+	"test-helpers/runtime-benchmarks",
+]

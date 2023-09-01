@@ -31,3 +31,10 @@ std = [
 	"sp-runtime/std",
 	"sp-version/std",
 ]
+runtime-benchmarks = [
+	"frame-system/runtime-benchmarks",
+	"renamed-frame-support/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+]

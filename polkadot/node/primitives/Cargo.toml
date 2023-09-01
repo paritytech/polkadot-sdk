@@ -27,3 +27,15 @@ zstd = { version = "0.12.4", default-features = false }
 
 [dev-dependencies]
 polkadot-erasure-coding = { path = "../../erasure-coding" }
+
+[features]
+runtime-benchmarks = [
+	"polkadot-erasure-coding/runtime-benchmarks",
+	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-consensus-babe/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

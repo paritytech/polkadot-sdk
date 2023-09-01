@@ -35,3 +35,20 @@ polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 parking_lot = "0.12.0"
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
+
+[features]
+runtime-benchmarks = [
+	"erasure/runtime-benchmarks",
+	"gum/runtime-benchmarks",
+	"polkadot-node-jaeger/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-node-subsystem-util/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"test-helpers/runtime-benchmarks",
+]

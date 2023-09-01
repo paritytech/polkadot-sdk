@@ -27,3 +27,16 @@ sp-runtime = { path = "../../primitives/runtime" }
 [dev-dependencies]
 sp-state-machine = { path = "../../primitives/state-machine" }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+
+[features]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-block-builder/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+]

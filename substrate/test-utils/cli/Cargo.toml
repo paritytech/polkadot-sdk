@@ -27,3 +27,11 @@ futures = "0.3.28"
 
 [features]
 try-runtime = [ "node-cli/try-runtime" ]
+runtime-benchmarks = [
+	"node-cli/runtime-benchmarks",
+	"node-primitives/runtime-benchmarks",
+	"sc-cli/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-rpc/runtime-benchmarks",
+	"substrate-rpc-client/runtime-benchmarks",
+]

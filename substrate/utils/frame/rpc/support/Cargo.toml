@@ -29,3 +29,12 @@ tokio = "1.22.0"
 sp-core = { path = "../../../../primitives/core" }
 sp-runtime = { path = "../../../../primitives/runtime" }
 frame-system = { path = "../../../../frame/system" }
+
+[features]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sc-rpc-api/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

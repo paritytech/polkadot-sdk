@@ -31,3 +31,4 @@ std = [
 
 # Serde support without relying on std features.
 serde = [ "dep:serde", "scale-info/serde" ]
+runtime-benchmarks = [ "sp-timestamp/runtime-benchmarks" ]

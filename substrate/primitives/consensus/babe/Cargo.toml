@@ -52,3 +52,12 @@ serde = [
 	"sp-core/serde",
 	"sp-runtime/serde",
 ]
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-consensus-slots/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-timestamp?/runtime-benchmarks",
+]

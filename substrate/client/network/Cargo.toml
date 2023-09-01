@@ -67,3 +67,17 @@ substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 
 [features]
 default = []
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-network-common/runtime-benchmarks",
+	"sc-network-light/runtime-benchmarks",
+	"sc-network-sync/runtime-benchmarks",
+	"sc-utils/runtime-benchmarks",
+	"sp-arithmetic/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-test-primitives/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+	"substrate-test-runtime/runtime-benchmarks",
+]

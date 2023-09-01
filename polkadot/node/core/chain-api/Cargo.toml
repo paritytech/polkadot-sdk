@@ -22,3 +22,17 @@ parity-scale-codec = "3.6.1"
 polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 sp-core = { path = "../../../../substrate/primitives/core" }
+
+[features]
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-node-metrics/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-consensus-babe/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+]

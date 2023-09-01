@@ -42,3 +42,26 @@ sp-trie = { path = "../../../primitives/trie" }
 sp-io = { path = "../../../primitives/io" }
 substrate-test-runtime = { path = "../../../test-utils/runtime" }
 substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
+
+[features]
+runtime-benchmarks = [
+	"sc-block-builder/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-client-db/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sc-executor/runtime-benchmarks",
+	"sc-network-sync/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+	"substrate-test-runtime/runtime-benchmarks",
+]

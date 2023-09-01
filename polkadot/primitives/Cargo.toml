@@ -51,7 +51,17 @@ std = [
 	"sp-std/std",
 ]
 runtime-benchmarks = [
+	"application-crypto/runtime-benchmarks",
+	"inherents/runtime-benchmarks",
+	"polkadot-core-primitives/runtime-benchmarks",
 	"polkadot-parachain/runtime-benchmarks",
+	"primitives/runtime-benchmarks",
 	"runtime_primitives/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-arithmetic/runtime-benchmarks",
+	"sp-authority-discovery/runtime-benchmarks",
+	"sp-consensus-slots/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-keystore?/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]

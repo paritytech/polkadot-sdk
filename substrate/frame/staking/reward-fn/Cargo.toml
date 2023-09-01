@@ -20,3 +20,4 @@ sp-arithmetic = { path = "../../../primitives/arithmetic", default-features = fa
 [features]
 default = [ "std" ]
 std = [ "log/std", "sp-arithmetic/std" ]
+runtime-benchmarks = [ "sp-arithmetic/runtime-benchmarks" ]

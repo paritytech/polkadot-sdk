@@ -25,3 +25,13 @@ sp-rpc = { path = "../../primitives/rpc" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-version = { path = "../../primitives/version" }
 jsonrpsee = { version = "0.16.2", features = ["server", "client-core", "macros"] }
+
+[features]
+runtime-benchmarks = [
+	"sc-chain-spec/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-rpc/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+]

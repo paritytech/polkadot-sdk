@@ -45,3 +45,28 @@ futures = "0.3.28"
 network-protocol-staging = [
 	"polkadot-node-network-protocol/network-protocol-staging",
 ]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-relay-chain-interface/runtime-benchmarks",
+	"cumulus-relay-chain-rpc-interface/runtime-benchmarks",
+	"polkadot-availability-recovery/runtime-benchmarks",
+	"polkadot-collator-protocol/runtime-benchmarks",
+	"polkadot-core-primitives/runtime-benchmarks",
+	"polkadot-network-bridge/runtime-benchmarks",
+	"polkadot-node-collation-generation/runtime-benchmarks",
+	"polkadot-node-core-runtime-api/runtime-benchmarks",
+	"polkadot-node-network-protocol/runtime-benchmarks",
+	"polkadot-node-subsystem-util/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-authority-discovery/runtime-benchmarks",
+	"sc-network-common/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sc-tracing/runtime-benchmarks",
+	"sc-utils/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-consensus-babe/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

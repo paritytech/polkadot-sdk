@@ -58,8 +58,17 @@ runtime-benchmarks = [
 	"frame-benchmarking-cli?/runtime-benchmarks",
 	"polkadot-node-metrics/runtime-benchmarks",
 	"polkadot-performance-test?/runtime-benchmarks",
+	"sc-cli?/runtime-benchmarks",
+	"sc-executor/runtime-benchmarks",
 	"sc-service?/runtime-benchmarks",
+	"sc-storage-monitor/runtime-benchmarks",
+	"sc-sysinfo/runtime-benchmarks",
+	"sc-tracing?/runtime-benchmarks",
 	"service/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"try-runtime-cli?/runtime-benchmarks",
 ]
 full-node = [ "service/full-node" ]
 try-runtime = [ "service/try-runtime", "try-runtime-cli/try-runtime" ]

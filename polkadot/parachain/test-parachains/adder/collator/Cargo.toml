@@ -55,3 +55,20 @@ network-protocol-staging = [ "polkadot-cli/network-protocol-staging" ]
 # This feature is used to export test code to other crates without putting it in the production build.
 # This is also used by the `puppet_worker` binary.
 test-utils = [ "polkadot-node-core-pvf/test-utils" ]
+runtime-benchmarks = [
+	"polkadot-cli/runtime-benchmarks",
+	"polkadot-node-core-pvf?/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-service/runtime-benchmarks",
+	"polkadot-test-service/runtime-benchmarks",
+	"sc-cli/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"substrate-test-utils/runtime-benchmarks",
+	"test-parachain-adder-collator/runtime-benchmarks",
+	"test-parachain-adder/runtime-benchmarks",
+]

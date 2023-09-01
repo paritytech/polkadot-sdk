@@ -34,3 +34,9 @@ std = [
 	"sp-std/std",
 	"sp-trie/std",
 ]
+runtime-benchmarks = [
+	"sp-core?/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-trie?/runtime-benchmarks",
+]

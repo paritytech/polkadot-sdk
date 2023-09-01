@@ -44,3 +44,23 @@ sp-tracing = { path = "../../../../substrate/primitives/tracing" }
 # Cumulus
 cumulus-test-client = { path = "../../../test/client" }
 cumulus-test-relay-sproof-builder = { path = "../../../test/relay-sproof-builder" }
+
+[features]
+runtime-benchmarks = [
+	"cumulus-client-pov-recovery/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-relay-chain-interface/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks",
+	"cumulus-test-relay-sproof-builder/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-consensus-babe/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus-slots/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-timestamp/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+]

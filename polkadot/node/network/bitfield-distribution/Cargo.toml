@@ -29,3 +29,18 @@ log = "0.4.17"
 env_logger = "0.9.0"
 assert_matches = "1.4.0"
 rand_chacha = "0.3.1"
+
+[features]
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-node-network-protocol/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-node-subsystem-util/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-authority-discovery/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+]

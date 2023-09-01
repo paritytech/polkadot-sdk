@@ -34,3 +34,16 @@ sp-state-machine = { path = "../../../primitives/state-machine" }
 
 [dev-dependencies]
 sp-test-primitives = { path = "../../../primitives/test-primitives" }
+
+[features]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-utils/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-test-primitives/runtime-benchmarks",
+]

@@ -16,3 +16,9 @@ sc-client-db = { path = "../db", default-features = false}
 sp-core = { path = "../../primitives/core" }
 tokio = "1.22.0"
 thiserror = "1.0.30"
+
+[features]
+runtime-benchmarks = [
+	"sc-client-db/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+]

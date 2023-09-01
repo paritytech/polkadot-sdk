@@ -18,3 +18,14 @@ thiserror = "1.0.31"
 [dev-dependencies]
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
+
+[features]
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-node-subsystem-util/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+	"test-helpers/runtime-benchmarks",
+]

@@ -48,3 +48,20 @@ polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
 kvdb-shared-tests = "0.11.0"
 tempfile = "3.1.0"
 kvdb-memorydb = "0.13.0"
+
+[features]
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-node-jaeger/runtime-benchmarks",
+	"polkadot-node-metrics/runtime-benchmarks",
+	"polkadot-node-network-protocol/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"polkadot-primitives-test-helpers/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+]

@@ -34,3 +34,12 @@ std = [
 	"sp-trie/std",
 	"xcm/std",
 ]
+runtime-benchmarks = [
+	"polkadot-core-primitives/runtime-benchmarks",
+	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+]

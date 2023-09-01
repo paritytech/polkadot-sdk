@@ -22,3 +22,13 @@ sc-service = { path = "../../../client/service", default-features = false}
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-core = { path = "../../../primitives/core" }
 sp-runtime = { path = "../../../primitives/runtime" }
+
+[features]
+runtime-benchmarks = [
+	"sc-cli/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

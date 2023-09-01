@@ -22,3 +22,16 @@ sp-core = { path = "../../../../substrate/primitives/core" }
 clap = { version = "4.4.1", features = ["derive"] }
 log = "0.4.17"
 tokio = { version = "1.24.2", features = ["macros"] }
+
+[features]
+runtime-benchmarks = [
+	"frame-system/runtime-benchmarks",
+	"kusama-runtime-constants/runtime-benchmarks",
+	"kusama-runtime/runtime-benchmarks",
+	"pallet-bags-list-remote-tests/runtime-benchmarks",
+	"polkadot-runtime-constants/runtime-benchmarks",
+	"polkadot-runtime/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"westend-runtime-constants/runtime-benchmarks",
+	"westend-runtime/runtime-benchmarks",
+]

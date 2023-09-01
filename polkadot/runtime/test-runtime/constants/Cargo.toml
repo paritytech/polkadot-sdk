@@ -26,3 +26,11 @@ std = [
 	"sp-runtime/std",
 	"sp-weights/std",
 ]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"primitives/runtime-benchmarks",
+	"runtime-common/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-weights/runtime-benchmarks",
+]

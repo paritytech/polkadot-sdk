@@ -73,3 +73,18 @@ std = [
 	"substrate-test-runtime/std",
 ]
 wasm-extern-trace = []
+runtime-benchmarks = [
+	"sc-executor-common/runtime-benchmarks",
+	"sc-executor-wasmtime/runtime-benchmarks",
+	"sc-runtime-test/runtime-benchmarks",
+	"sc-tracing/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-runtime-interface/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"substrate-test-runtime/runtime-benchmarks",
+]

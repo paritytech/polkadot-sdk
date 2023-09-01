@@ -20,3 +20,7 @@ sp-core = { path = "../../../substrate/primitives/core" }
 [features]
 default = [ "std" ]
 std = [ "adder/std", "halt/std" ]
+runtime-benchmarks = [
+	"adder/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+]

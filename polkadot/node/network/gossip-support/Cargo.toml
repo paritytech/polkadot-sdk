@@ -34,3 +34,21 @@ polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 assert_matches = "1.4.0"
 async-trait = "0.1.57"
 lazy_static = "1.4.0"
+
+[features]
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-node-network-protocol/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-node-subsystem-util/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-network-common/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-authority-discovery/runtime-benchmarks",
+	"sp-consensus-babe/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+]

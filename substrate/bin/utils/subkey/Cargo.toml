@@ -19,3 +19,6 @@ name = "subkey"
 [dependencies]
 clap = { version = "4.4.1", features = ["derive"] }
 sc-cli = { path = "../../../client/cli" }
+
+[features]
+runtime-benchmarks = [ "sc-cli/runtime-benchmarks" ]

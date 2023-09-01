@@ -30,3 +30,11 @@ sp-runtime = { path = "../../../primitives/runtime" }
 
 [dev-dependencies]
 tempfile = "3.1.0"
+
+[features]
+runtime-benchmarks = [
+	"sc-consensus/runtime-benchmarks",
+	"sp-consensus-grandpa/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

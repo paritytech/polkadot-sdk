@@ -33,3 +33,10 @@ sp-tracing = { path = "../../../primitives/tracing" }
 
 [features]
 remote-test = []
+runtime-benchmarks = [
+	"sp-core/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"substrate-rpc-client/runtime-benchmarks",
+]

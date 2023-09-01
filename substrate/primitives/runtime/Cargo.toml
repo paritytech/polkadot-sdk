@@ -40,7 +40,16 @@ sp-tracing = { path = "../tracing" }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 
 [features]
-runtime-benchmarks = []
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-arithmetic/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-weights/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+]
 try-runtime = []
 default = [ "std" ]
 std = [

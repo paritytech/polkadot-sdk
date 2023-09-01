@@ -30,3 +30,11 @@ rand_chacha = "0.3.1"
 
 [features]
 network-protocol-staging = []
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-node-jaeger/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-authority-discovery/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+]

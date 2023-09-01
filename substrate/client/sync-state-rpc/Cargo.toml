@@ -24,3 +24,14 @@ sc-consensus-epochs = { path = "../consensus/epochs" }
 sc-consensus-grandpa = { path = "../consensus/grandpa" }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sp-runtime = { path = "../../primitives/runtime" }
+
+[features]
+runtime-benchmarks = [
+	"sc-chain-spec/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-consensus-babe/runtime-benchmarks",
+	"sc-consensus-epochs/runtime-benchmarks",
+	"sc-consensus-grandpa/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

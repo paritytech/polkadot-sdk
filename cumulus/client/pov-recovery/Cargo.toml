@@ -41,3 +41,20 @@ cumulus-test-service = { path = "../../test/service" }
 sc-cli = { path = "../../../substrate/client/cli" }
 sc-client-api = { path = "../../../substrate/client/api" }
 substrate-test-utils = { path = "../../../substrate/test-utils" }
+
+[features]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-relay-chain-interface/runtime-benchmarks",
+	"cumulus-test-service/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-cli/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"substrate-test-utils/runtime-benchmarks",
+]

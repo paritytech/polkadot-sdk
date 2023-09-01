@@ -18,3 +18,9 @@ pallet-bags-list = { path = "..", features = ["fuzz"]}
 [[bin]]
 name = "bags-list"
 path = "src/main.rs"
+
+[features]
+runtime-benchmarks = [
+	"frame-election-provider-support/runtime-benchmarks",
+	"pallet-bags-list/runtime-benchmarks",
+]

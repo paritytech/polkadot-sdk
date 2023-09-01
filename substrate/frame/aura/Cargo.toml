@@ -51,3 +51,13 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 experimental = []
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-consensus-aura/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

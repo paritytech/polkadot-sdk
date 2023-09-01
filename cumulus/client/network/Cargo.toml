@@ -50,3 +50,25 @@ polkadot-test-client = { path = "../../../polkadot/node/test/client" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-relay-chain-inprocess-interface = { path = "../relay-chain-inprocess-interface" }
 cumulus-test-service = { path = "../../test/service" }
+
+[features]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-relay-chain-inprocess-interface/runtime-benchmarks",
+	"cumulus-relay-chain-interface/runtime-benchmarks",
+	"cumulus-test-service/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-test-client/runtime-benchmarks",
+	"sc-cli/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"substrate-test-utils/runtime-benchmarks",
+]

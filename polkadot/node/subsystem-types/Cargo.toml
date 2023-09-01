@@ -24,3 +24,17 @@ smallvec = "1.8.0"
 substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
 thiserror = "1.0.31"
 async-trait = "0.1.57"
+
+[features]
+runtime-benchmarks = [
+	"polkadot-node-jaeger/runtime-benchmarks",
+	"polkadot-node-network-protocol/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-statement-table/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-authority-discovery/runtime-benchmarks",
+	"sp-consensus-babe/runtime-benchmarks",
+]

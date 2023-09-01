@@ -25,3 +25,15 @@ sp-blockchain = { path = "../../primitives/blockchain" }
 sp-core = { path = "../../primitives/core" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-state-machine = { path = "../../primitives/state-machine" }
+
+[features]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-executor/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sc-telemetry/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+]

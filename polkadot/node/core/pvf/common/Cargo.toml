@@ -38,3 +38,13 @@ tempfile = "3.3.0"
 # This feature is used to export test code to other crates without putting it in the production build.
 # Also used for building the puppet worker.
 test-utils = []
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-executor-common/runtime-benchmarks",
+	"sc-executor-wasmtime/runtime-benchmarks",
+	"sc-executor/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+]

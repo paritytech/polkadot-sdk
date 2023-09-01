@@ -39,3 +39,30 @@ asset-hub-polkadot-runtime = { path = "../../../../runtimes/assets/asset-hub-pol
 # Local
 xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false}
 integration-tests-common = { path = "../../common", default-features = false}
+
+[features]
+runtime-benchmarks = [
+	"asset-hub-polkadot-runtime/runtime-benchmarks",
+	"collectives-polkadot-runtime/runtime-benchmarks",
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"integration-tests-common/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-core-fellowship/runtime-benchmarks",
+	"pallet-salary/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"polkadot-core-primitives/runtime-benchmarks",
+	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"polkadot-runtime/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-weights/runtime-benchmarks",
+	"xcm-emulator/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+]

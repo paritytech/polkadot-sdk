@@ -20,3 +20,11 @@ criterion = { version = "0.4.0", default-features = false, features = ["cargo_be
 [[bench]]
 name = "scaling_with_validators"
 harness = false
+
+[features]
+runtime-benchmarks = [
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+]

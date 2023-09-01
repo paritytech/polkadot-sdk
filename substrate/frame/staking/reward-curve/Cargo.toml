@@ -22,3 +22,6 @@ syn = { version = "2.0.16", features = ["full", "visit"] }
 
 [dev-dependencies]
 sp-runtime = { path = "../../../primitives/runtime" }
+
+[features]
+runtime-benchmarks = [ "sp-runtime/runtime-benchmarks" ]

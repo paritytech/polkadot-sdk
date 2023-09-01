@@ -31,3 +31,10 @@ std = [
 	"sp-std/std",
 	"sp-trie/std",
 ]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+]

@@ -54,3 +54,8 @@ std = [
 	"tracing",
 	"trie-db/std",
 ]
+runtime-benchmarks = [
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+]

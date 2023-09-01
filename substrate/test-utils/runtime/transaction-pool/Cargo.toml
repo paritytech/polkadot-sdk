@@ -21,3 +21,12 @@ sc-transaction-pool-api = { path = "../../../client/transaction-pool/api" }
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-runtime = { path = "../../../primitives/runtime" }
 substrate-test-runtime-client = { path = "../client" }
+
+[features]
+runtime-benchmarks = [
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sc-transaction-pool/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+]

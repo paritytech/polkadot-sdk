@@ -50,6 +50,33 @@ sp-runtime = { path = "../../../primitives/runtime" }
 
 [features]
 stress-test = []
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"kitchensink-runtime/runtime-benchmarks",
+	"node-primitives/runtime-benchmarks",
+	"node-testing/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-contracts/runtime-benchmarks",
+	"pallet-glutton/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
+	"pallet-root-testing/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
+	"sc-executor/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-consensus-babe/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-statement-store/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+]
 
 [[bench]]
 name = "bench"

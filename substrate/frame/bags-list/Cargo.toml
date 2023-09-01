@@ -69,7 +69,9 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"sp-core",
+	"sp-core?/runtime-benchmarks",
 	"sp-io",
+	"sp-io?/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-tracing",
 ]

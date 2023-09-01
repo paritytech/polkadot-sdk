@@ -29,3 +29,12 @@ sc-chain-spec = { path = "../../../client/chain-spec" }
 sc-keystore = { path = "../../../client/keystore" }
 sp-core = { path = "../../../primitives/core" }
 sp-keystore = { path = "../../../primitives/keystore" }
+
+[features]
+runtime-benchmarks = [
+	"node-cli/runtime-benchmarks",
+	"sc-chain-spec/runtime-benchmarks",
+	"sc-keystore/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+]

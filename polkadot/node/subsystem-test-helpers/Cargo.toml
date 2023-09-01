@@ -22,3 +22,16 @@ sp-application-crypto = { path = "../../../substrate/primitives/application-cryp
 
 [dev-dependencies]
 polkadot-overseer = { path = "../overseer" }
+
+[features]
+runtime-benchmarks = [
+	"polkadot-node-subsystem-util/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-keystore/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+]

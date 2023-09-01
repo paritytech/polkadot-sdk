@@ -18,3 +18,12 @@ sp-state-machine = { path = "../../../../substrate/primitives/state-machine" }
 
 # Cumulus
 cumulus-primitives-parachain-inherent = { path = "../../../primitives/parachain-inherent" }
+
+[features]
+runtime-benchmarks = [
+	"cumulus-primitives-parachain-inherent/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+]

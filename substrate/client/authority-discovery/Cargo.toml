@@ -42,3 +42,16 @@ async-trait = "0.1.56"
 quickcheck = { version = "1.0.3", default-features = false }
 sp-tracing = { path = "../../primitives/tracing" }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+
+[features]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-authority-discovery/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+]

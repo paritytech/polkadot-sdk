@@ -28,3 +28,8 @@ std = [
 	"sp-std/std",
 ]
 try-runtime = [ "frame-support/try-runtime", "sp-runtime/try-runtime" ]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

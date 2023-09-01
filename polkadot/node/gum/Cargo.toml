@@ -12,3 +12,9 @@ tracing = "0.1.35"
 jaeger = { package = "polkadot-node-jaeger" , path = "../jaeger" }
 gum-proc-macro = { package = "tracing-gum-proc-macro" , path = "proc-macro" }
 polkadot-primitives = { path = "../../primitives", features = ["std"] }
+
+[features]
+runtime-benchmarks = [
+	"jaeger/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+]

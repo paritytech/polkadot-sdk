@@ -65,6 +65,8 @@ runtime-benchmarks = [
 	"pallet-collective/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"sp-core-hashing",
+	"sp-core/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [

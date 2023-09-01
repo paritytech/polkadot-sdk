@@ -19,3 +19,4 @@ sp-api = { path = "../../../primitives/api", default-features = false}
 [features]
 default = [ "std" ]
 std = [ "codec/std", "sp-api/std" ]
+runtime-benchmarks = [ "sp-api/runtime-benchmarks" ]

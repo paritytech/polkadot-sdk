@@ -41,3 +41,8 @@ bandersnatch-experimental = [
 	"sp-core/bandersnatch-experimental",
 	"sp-keystore/bandersnatch-experimental",
 ]
+runtime-benchmarks = [
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+]

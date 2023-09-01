@@ -27,3 +27,17 @@ sp-tracing = { path = "../../../../substrate/primitives/tracing" }
 [features]
 default = [ "std" ]
 std = [ "frame-support/std", "sp-runtime/std", "xcm/std" ]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"polkadot-test-client/runtime-benchmarks",
+	"polkadot-test-runtime/runtime-benchmarks",
+	"polkadot-test-service/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+]

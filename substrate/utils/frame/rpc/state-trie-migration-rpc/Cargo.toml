@@ -30,3 +30,13 @@ sp-runtime = { path = "../../../../primitives/runtime" }
 
 [dev-dependencies]
 serde_json = "1"
+
+[features]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-rpc-api/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+]

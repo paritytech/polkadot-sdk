@@ -63,3 +63,22 @@ substrate-build-script-utils = { path = "../../../substrate/utils/build-script-u
 [features]
 default = []
 fast-runtime = [ "polkadot-cli/fast-runtime" ]
+runtime-benchmarks = [
+	"erasure/runtime-benchmarks",
+	"gum/runtime-benchmarks",
+	"polkadot-cli/runtime-benchmarks",
+	"polkadot-node-core-backing/runtime-benchmarks",
+	"polkadot-node-core-candidate-validation/runtime-benchmarks",
+	"polkadot-node-core-dispute-coordinator/runtime-benchmarks",
+	"polkadot-node-core-pvf-common/runtime-benchmarks",
+	"polkadot-node-core-pvf-execute-worker/runtime-benchmarks",
+	"polkadot-node-core-pvf-prepare-worker/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-node-subsystem-types/runtime-benchmarks",
+	"polkadot-node-subsystem-util/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+]

@@ -41,3 +41,19 @@ either = "1.8.1"
 thiserror = "1.0.38"
 rand = "0.8.5"
 pin-project = "1.1.3"
+
+[features]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-relay-chain-interface/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-rpc-api/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-authority-discovery/runtime-benchmarks",
+	"sp-consensus-babe/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+]

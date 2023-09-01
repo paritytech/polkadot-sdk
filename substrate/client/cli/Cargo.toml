@@ -54,3 +54,19 @@ sp-tracing = { path = "../../primitives/tracing" }
 [features]
 default = [ "rocksdb" ]
 rocksdb = [ "sc-client-db/rocksdb" ]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-client-db/runtime-benchmarks",
+	"sc-keystore/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sc-telemetry/runtime-benchmarks",
+	"sc-tracing/runtime-benchmarks",
+	"sc-utils/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+]

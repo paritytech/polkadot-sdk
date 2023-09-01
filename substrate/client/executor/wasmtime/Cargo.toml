@@ -48,3 +48,12 @@ tempfile = "3.3.0"
 paste = "1.0"
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 cargo_metadata = "0.15.4"
+
+[features]
+runtime-benchmarks = [
+	"sc-allocator/runtime-benchmarks",
+	"sc-executor-common/runtime-benchmarks",
+	"sc-runtime-test/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-runtime-interface/runtime-benchmarks",
+]

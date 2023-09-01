@@ -19,3 +19,11 @@ sc-client-api = { path = "../../api" }
 sc-consensus = { path = "../common" }
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-runtime = { path = "../../../primitives/runtime" }
+
+[features]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

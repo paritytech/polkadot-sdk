@@ -18,3 +18,11 @@ thiserror = "1.0.31"
 tokio = "1.24.2"
 log = "0.4.17"
 parity-scale-codec = { version = "3.6.1", default-features = false }
+
+[features]
+runtime-benchmarks = [
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+]

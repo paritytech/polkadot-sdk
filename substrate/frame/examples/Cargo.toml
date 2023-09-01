@@ -37,3 +37,11 @@ try-runtime = [
 	"pallet-example-offchain-worker/try-runtime",
 	"pallet-example-split/try-runtime",
 ]
+runtime-benchmarks = [
+	"pallet-default-config-example/runtime-benchmarks",
+	"pallet-dev-mode/runtime-benchmarks",
+	"pallet-example-basic/runtime-benchmarks",
+	"pallet-example-kitchensink/runtime-benchmarks",
+	"pallet-example-offchain-worker/runtime-benchmarks",
+	"pallet-example-split/runtime-benchmarks",
+]

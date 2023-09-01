@@ -30,3 +30,11 @@ sp-runtime = { path = "../../primitives/runtime" }
 tokio = "1.22.0"
 quickcheck = { version = "1.0.3", default-features = false }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+
+[features]
+runtime-benchmarks = [
+	"sc-network-common/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+]

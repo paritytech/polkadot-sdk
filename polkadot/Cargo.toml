@@ -53,7 +53,16 @@ substrate-build-script-utils = { path = "../substrate/utils/build-script-utils" 
 maintenance = { status = "actively-developed" }
 
 [features]
-runtime-benchmarks = [ "polkadot-cli/runtime-benchmarks" ]
+runtime-benchmarks = [
+	"polkadot-cli/runtime-benchmarks",
+	"polkadot-core-primitives/runtime-benchmarks",
+	"polkadot-node-core-pvf-common/runtime-benchmarks",
+	"polkadot-node-core-pvf-execute-worker/runtime-benchmarks",
+	"polkadot-node-core-pvf-prepare-worker/runtime-benchmarks",
+	"polkadot-node-core-pvf/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"substrate-rpc-client/runtime-benchmarks",
+]
 try-runtime = [ "polkadot-cli/try-runtime" ]
 fast-runtime = [ "polkadot-cli/fast-runtime" ]
 runtime-metrics = [ "polkadot-cli/runtime-metrics" ]

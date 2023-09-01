@@ -29,3 +29,14 @@ sc-keystore = { path = "../keystore" }
 [dev-dependencies]
 tempfile = "3.1.0"
 env_logger = "0.9"
+
+[features]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-keystore/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-statement-store/runtime-benchmarks",
+]

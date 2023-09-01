@@ -28,3 +28,10 @@ sp-arithmetic = { path = "../../../primitives/arithmetic" }
 frame-election-provider-support = { path = ".." }
 frame-support = { path = "../../support" }
 trybuild = "1.0.74"
+
+[features]
+runtime-benchmarks = [
+	"frame-election-provider-support/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-arithmetic/runtime-benchmarks",
+]

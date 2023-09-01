@@ -21,3 +21,8 @@ sp-std = { path = "../std", default-features = false}
 [features]
 default = [ "std" ]
 std = [ "sp-api/std", "sp-inherents/std", "sp-runtime/std", "sp-std/std" ]
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

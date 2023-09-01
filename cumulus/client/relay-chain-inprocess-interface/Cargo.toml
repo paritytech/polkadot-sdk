@@ -44,3 +44,23 @@ cumulus-test-service = { path = "../../test/service" }
 
 [features]
 network-protocol-staging = [ "polkadot-service/network-protocol-staging" ]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-relay-chain-interface/runtime-benchmarks",
+	"cumulus-test-service/runtime-benchmarks",
+	"polkadot-cli/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-service/runtime-benchmarks",
+	"polkadot-test-client/runtime-benchmarks",
+	"sc-cli/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-sysinfo/runtime-benchmarks",
+	"sc-telemetry/runtime-benchmarks",
+	"sc-tracing/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+]

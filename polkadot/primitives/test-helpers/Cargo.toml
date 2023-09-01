@@ -13,3 +13,12 @@ sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-core = { path = "../../../substrate/primitives/core", features = ["std"] }
 polkadot-primitives = { path = ".." }
 rand = "0.8.5"
+
+[features]
+runtime-benchmarks = [
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

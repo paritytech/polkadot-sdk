@@ -22,3 +22,12 @@ sc-network-common = { path = "../network/common" }
 sc-network = { path = "../network" }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sp-runtime = { path = "../../primitives/runtime" }
+
+[features]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-network-common/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

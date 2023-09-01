@@ -13,3 +13,6 @@ polkadot-node-core-pvf = { path = "../../../polkadot/node/core/pvf", features = 
 
 [build-dependencies]
 toml = "0.7.6"
+
+[features]
+runtime-benchmarks = [ "polkadot-node-core-pvf/runtime-benchmarks" ]

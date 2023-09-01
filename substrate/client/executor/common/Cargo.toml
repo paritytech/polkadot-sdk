@@ -22,3 +22,4 @@ sp-wasm-interface = { path = "../../../primitives/wasm-interface" }
 
 [features]
 default = []
+runtime-benchmarks = [ "sc-allocator/runtime-benchmarks" ]

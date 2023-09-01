@@ -9,3 +9,9 @@ license.workspace = true
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 sp-core = { path = "../../substrate/primitives/core" }
 primitives = { package = "polkadot-primitives", path = "../primitives" }
+
+[features]
+runtime-benchmarks = [
+	"primitives/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+]

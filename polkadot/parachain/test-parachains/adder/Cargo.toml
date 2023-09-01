@@ -24,3 +24,7 @@ substrate-wasm-builder = { path = "../../../../substrate/utils/wasm-builder" }
 [features]
 default = [ "std" ]
 std = [ "parachain/std", "sp-io/std", "sp-std/std" ]
+runtime-benchmarks = [
+	"parachain/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+]

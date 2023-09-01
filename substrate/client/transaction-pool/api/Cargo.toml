@@ -21,3 +21,10 @@ sp-runtime = { path = "../../../primitives/runtime", default-features = false}
 
 [dev-dependencies]
 serde_json = "1.0"
+
+[features]
+runtime-benchmarks = [
+	"sp-blockchain/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

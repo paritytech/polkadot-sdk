@@ -24,3 +24,7 @@ std = [
 	"frame-support/std",
 	"scale-info/std",
 ]
+runtime-benchmarks = [
+	"bp-xcm-bridge-hub-router/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+]

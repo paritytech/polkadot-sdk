@@ -20,3 +20,7 @@ sp-api = { path = "../../../primitives/api", default-features = false}
 [features]
 default = [ "std" ]
 std = [ "codec/std", "pallet-nfts/std", "sp-api/std" ]
+runtime-benchmarks = [
+	"pallet-nfts/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+]

@@ -15,3 +15,4 @@ sp-runtime = { path = "../../../../substrate/primitives/runtime", default-featur
 [features]
 default = [ "std" ]
 std = [ "parity-scale-codec/std", "sp-runtime/std", "sp-std/std" ]
+runtime-benchmarks = [ "sp-runtime/runtime-benchmarks" ]

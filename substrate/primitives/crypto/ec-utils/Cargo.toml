@@ -60,3 +60,7 @@ std = [
 	"sp-runtime-interface/std",
 	"sp-std/std",
 ]
+runtime-benchmarks = [
+	"sp-io/runtime-benchmarks",
+	"sp-runtime-interface/runtime-benchmarks",
+]

@@ -40,3 +40,19 @@ sp-storage = { path = "../../primitives/storage" }
 thiserror = "1.0.30"
 sp-test-primitives = { path = "../../primitives/test-primitives" }
 substrate-test-runtime = { path = "../../test-utils/runtime" }
+
+[features]
+runtime-benchmarks = [
+	"sc-executor/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sc-utils/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-statement-store/runtime-benchmarks",
+	"sp-test-primitives/runtime-benchmarks",
+	"substrate-test-runtime/runtime-benchmarks",
+]

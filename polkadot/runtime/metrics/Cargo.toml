@@ -25,3 +25,7 @@ std = [
 	"sp-tracing/std",
 ]
 runtime-metrics = [ "frame-benchmarking", "sp-tracing/with-tracing" ]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"primitives/runtime-benchmarks",
+]

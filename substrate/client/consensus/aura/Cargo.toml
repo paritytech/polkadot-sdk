@@ -47,3 +47,29 @@ sp-timestamp = { path = "../../../primitives/timestamp" }
 sp-tracing = { path = "../../../primitives/tracing" }
 substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
 tokio = { version = "1.22.0" }
+
+[features]
+runtime-benchmarks = [
+	"sc-block-builder/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-consensus-slots/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sc-keystore/runtime-benchmarks",
+	"sc-network-test/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sc-telemetry/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-block-builder/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus-aura/runtime-benchmarks",
+	"sp-consensus-slots/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-timestamp/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+]

@@ -29,5 +29,9 @@ path = "src/gen_ref_constants.rs"
 [features]
 runtime-benchmarks = [
 	"kusama-runtime/runtime-benchmarks",
+	"polkadot-erasure-coding/runtime-benchmarks",
+	"polkadot-node-core-pvf-prepare-worker/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
+	"sc-executor-common/runtime-benchmarks",
 ]

@@ -46,3 +46,15 @@ std = [
 	"sp-trie/std",
 	"tracing",
 ]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-relay-chain-interface?/runtime-benchmarks",
+	"cumulus-test-relay-sproof-builder?/runtime-benchmarks",
+	"sc-client-api?/runtime-benchmarks",
+	"sp-api?/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-runtime?/runtime-benchmarks",
+	"sp-state-machine?/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+]

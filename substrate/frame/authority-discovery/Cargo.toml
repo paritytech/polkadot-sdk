@@ -52,3 +52,13 @@ try-runtime = [
 	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-authority-discovery/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

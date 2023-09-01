@@ -60,3 +60,7 @@ bandersnatch-experimental = [
 	"sp-core/bandersnatch-experimental",
 	"sp-io/bandersnatch-experimental",
 ]
+runtime-benchmarks = [
+	"sp-core/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+]

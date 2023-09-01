@@ -51,7 +51,15 @@ default = []
 test-helpers = []
 runtime-benchmarks = [
 	"kitchensink-runtime/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-state-db/runtime-benchmarks",
+	"sp-arithmetic/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
 ]
 rocksdb = [ "kvdb-rocksdb" ]
 

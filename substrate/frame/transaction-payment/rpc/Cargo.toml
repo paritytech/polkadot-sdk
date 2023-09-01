@@ -22,3 +22,14 @@ sp-core = { path = "../../../primitives/core" }
 sp-rpc = { path = "../../../primitives/rpc" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-weights = { path = "../../../primitives/weights" }
+
+[features]
+runtime-benchmarks = [
+	"pallet-transaction-payment-rpc-runtime-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-rpc/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-weights/runtime-benchmarks",
+]

@@ -24,3 +24,14 @@ sp-core = { path = "../../../../substrate/primitives/core" }
 parking_lot = "0.12.0"
 assert_matches = "1"
 kvdb-memorydb = "0.13.0"
+
+[features]
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-node-subsystem-util/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+]

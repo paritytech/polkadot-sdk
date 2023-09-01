@@ -26,3 +26,18 @@ substrate-prometheus-endpoint = { path = "../../../../substrate/utils/prometheus
 cumulus-client-consensus-common = { path = "../common" }
 cumulus-primitives-core = { path = "../../../primitives/core" }
 cumulus-relay-chain-interface = { path = "../../relay-chain-interface" }
+
+[features]
+runtime-benchmarks = [
+	"cumulus-client-consensus-common/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-relay-chain-interface/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-block-builder/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

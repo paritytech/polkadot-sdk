@@ -29,3 +29,10 @@ tikv-jemalloc-ctl = "0.5.0"
 
 [features]
 builder = []
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-node-core-pvf-common/runtime-benchmarks",
+	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+]

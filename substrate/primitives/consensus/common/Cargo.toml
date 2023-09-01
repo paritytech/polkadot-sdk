@@ -29,3 +29,10 @@ sp-test-primitives = { path = "../../test-primitives" }
 
 [features]
 default = []
+runtime-benchmarks = [
+	"sp-core/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-test-primitives/runtime-benchmarks",
+]

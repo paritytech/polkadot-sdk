@@ -31,3 +31,7 @@ std = [
 	"sp-std/std",
 	"sp-weights/std",
 ]
+runtime-benchmarks = [
+	"sp-runtime/runtime-benchmarks",
+	"sp-weights/runtime-benchmarks",
+]

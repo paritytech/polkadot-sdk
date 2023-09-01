@@ -63,3 +63,7 @@ std = [
 	"trie-db/std",
 	"trie-root/std",
 ]
+runtime-benchmarks = [
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

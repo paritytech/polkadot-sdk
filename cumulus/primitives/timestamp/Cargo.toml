@@ -25,3 +25,8 @@ std = [
 	"sp-std/std",
 	"sp-timestamp/std",
 ]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-timestamp/runtime-benchmarks",
+]

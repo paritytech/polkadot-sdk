@@ -42,3 +42,21 @@ parity-db = "0.4.8"
 sc-transaction-pool = { path = "../../../client/transaction-pool" }
 sc-transaction-pool-api = { path = "../../../client/transaction-pool/api" }
 futures = { version = "0.3.21", features = ["thread-pool"] }
+
+[features]
+runtime-benchmarks = [
+	"kitchensink-runtime/runtime-benchmarks",
+	"node-primitives/runtime-benchmarks",
+	"node-testing/runtime-benchmarks",
+	"sc-basic-authorship/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sc-transaction-pool/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-timestamp/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+]

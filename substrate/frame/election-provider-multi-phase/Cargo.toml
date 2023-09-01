@@ -77,6 +77,10 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking?/runtime-benchmarks",
 	"rand",
+	"sp-arithmetic/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-npos-elections/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"strum",
 ]

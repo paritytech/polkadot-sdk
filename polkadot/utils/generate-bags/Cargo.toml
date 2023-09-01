@@ -14,3 +14,12 @@ sp-io = { path = "../../../substrate/primitives/io" }
 westend-runtime = { path = "../../runtime/westend" }
 kusama-runtime = { package = "staging-kusama-runtime", path = "../../runtime/kusama" }
 polkadot-runtime = { path = "../../runtime/polkadot" }
+
+[features]
+runtime-benchmarks = [
+	"generate-bags/runtime-benchmarks",
+	"kusama-runtime/runtime-benchmarks",
+	"polkadot-runtime/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"westend-runtime/runtime-benchmarks",
+]

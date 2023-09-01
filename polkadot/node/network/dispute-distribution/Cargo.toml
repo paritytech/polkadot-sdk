@@ -36,3 +36,21 @@ futures-timer = "3.0.2"
 assert_matches = "1.4.0"
 lazy_static = "1.4.0"
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+
+[features]
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-erasure-coding/runtime-benchmarks",
+	"polkadot-node-network-protocol/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-node-subsystem-util/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"polkadot-primitives-test-helpers/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-keystore/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks",
+]

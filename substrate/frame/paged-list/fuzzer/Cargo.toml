@@ -20,3 +20,10 @@ honggfuzz = "0.5.49"
 frame-support = { path = "../../support", default-features = false, features = [ "std" ]}
 sp-io = { path = "../../../primitives/io", default-features = false, features = [ "std" ] }
 pallet-paged-list = { path = "..", default-features = false, features = [ "std" ] }
+
+[features]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"pallet-paged-list/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+]

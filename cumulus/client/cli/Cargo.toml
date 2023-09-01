@@ -16,3 +16,13 @@ sc-chain-spec = { path = "../../../substrate/client/chain-spec" }
 sc-service = { path = "../../../substrate/client/service" }
 sp-core = { path = "../../../substrate/primitives/core" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
+
+[features]
+runtime-benchmarks = [
+	"sc-chain-spec/runtime-benchmarks",
+	"sc-cli/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

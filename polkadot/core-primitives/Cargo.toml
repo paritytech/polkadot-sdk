@@ -21,3 +21,7 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 ]
+runtime-benchmarks = [
+	"sp-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
