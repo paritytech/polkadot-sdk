@@ -17,8 +17,7 @@
 
 //! Traits for encoding data related to pallet's storage items.
 
-use crate::traits::Footprint;
-use codec::{FullCodec, MaxEncodedLen};
+use codec::{Encode, FullCodec, MaxEncodedLen};
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::TypeInfo;
 pub use sp_core::storage::TrackedStorageKey;
@@ -130,6 +129,26 @@ impl WhitelistedStorageKeys for Tuple {
 			}
 		 )* );
 		combined_keys.into_iter().collect::<Vec<_>>()
+	}
+}
+
+/// The resource footprint of a bunch of blobs. We assume only the number of blobs and their total
+/// size in bytes matter.
+#[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
+pub struct Footprint {
+	/// The number of blobs.
+	pub count: u64,
+	/// The total size of the blobs in bytes.
+	pub size: u64,
+}
+
+impl Footprint {
+	pub fn from_parts(items: usize, len: usize) -> Self {
+		Self { count: items as u64, size: len as u64 }
+	}
+
+	pub fn from_encodable(e: impl Encode) -> Self {
+		Self::from_parts(1, e.encoded_size())
 	}
 }
 
