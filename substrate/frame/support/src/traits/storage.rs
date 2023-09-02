@@ -127,6 +127,27 @@ impl WhitelistedStorageKeys for Tuple {
 	}
 }
 
+pub trait Consideration<AccountId> {
+	type Ticket: Member + FullCodec + TypeInfo + MaxEncodedLen + Default;
+
+	fn update(
+		who: &AccountId,
+		old: Option<Self::Ticket>,
+		new: Option<Footprint>,
+	) -> Result<Self::Ticket, DispatchError>;
+
+	fn new(who: &AccountId, new: Footprint) -> Result<Self::Ticket, DispatchError> {
+		Self::update(who, None, Some(new))
+	}
+
+	fn drop(who: &AccountId, old: Self::Ticket) -> Result<Self::Ticket, DispatchError> {
+		Self::update(who, Some(old), None)
+	}
+}
+
+#[test]
+fn it_builds() {}
+
 macro_rules! impl_incrementable {
 	($($type:ty),+) => {
 		$(
