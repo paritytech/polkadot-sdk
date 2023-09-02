@@ -170,9 +170,6 @@ pub trait Consideration<AccountId> {
 	}
 }
 
-#[test]
-fn it_builds() {}
-
 macro_rules! impl_incrementable {
 	($($type:ty),+) => {
 		$(

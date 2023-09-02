@@ -92,11 +92,11 @@ pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 		who: &AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		ensure!(Self::hold_available(reason, who), TokenError::CannotCreateHold);
 		ensure!(
 			amount <= Self::reducible_balance(who, Protect, Force),
 			TokenError::FundsUnavailable
 		);
+		ensure!(Self::hold_available(reason, who), TokenError::CannotCreateHold);
 		Ok(())
 	}
 

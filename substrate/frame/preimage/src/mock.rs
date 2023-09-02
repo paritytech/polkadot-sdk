@@ -22,7 +22,7 @@ use super::*;
 use crate as pallet_preimage;
 use frame_support::{
 	ord_parameter_types,
-	traits::{fungible::FreezeMultiConsideration, ConstU32, ConstU64, Everything},
+	traits::{fungible::HoldConsideration, ConstU32, ConstU64, Everything},
 	weights::constants::RocksDbWeight,
 };
 use frame_system::EnsureSignedBy;
@@ -82,7 +82,7 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type MaxHolds = ConstU32<2>;
 }
 
 ord_parameter_types! {
@@ -103,7 +103,7 @@ impl Config for Test {
 	type ManagerOrigin = EnsureSignedBy<One, u64>;
 	type BaseDeposit = ConstU64<2>;
 	type ByteDeposit = ConstU64<1>;
-	type Consideration = FreezeMultiConsideration<u64, Balances, (), ConvertDeposit>;
+	type Consideration = HoldConsideration<u64, Balances, (), ConvertDeposit>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

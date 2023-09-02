@@ -45,6 +45,7 @@ mod imbalance;
 mod item_of;
 mod regular;
 
+use super::Precision::BestEffort;
 pub use freeze::{Inspect as InspectFreeze, Mutate as MutateFreeze};
 pub use hold::{
 	Balanced as BalancedHold, Inspect as InspectHold, Mutate as MutateHold,
@@ -60,26 +61,13 @@ use sp_runtime::traits::Convert;
 
 use crate::traits::{Consideration, Footprint};
 
+/// Consideration method using a `fungible` balance frozen as the cost exacted for the footprint.
+///
+/// The aggregate amount frozen under `R::get()` for any account which has multiple tickets,
+/// is the *cumulative* amounts of each ticket's footprint (each individually determined by `D`).
 pub struct FreezeConsideration<A, F, R, D>(sp_std::marker::PhantomData<(A, F, R, D)>);
 impl<A, F: MutateFreeze<A>, R: Get<F::Id>, D: Convert<Footprint, F::Balance>> Consideration<A>
 	for FreezeConsideration<A, F, R, D>
-{
-	type Ticket = ();
-	fn update(
-		who: &A,
-		_old: Option<Self::Ticket>,
-		new: Option<Footprint>,
-	) -> Result<Self::Ticket, sp_runtime::DispatchError> {
-		match new {
-			Some(footprint) => F::set_freeze(&R::get(), who, D::convert(footprint)),
-			None => F::thaw(&R::get(), who),
-		}
-	}
-}
-
-pub struct FreezeMultiConsideration<A, F, R, D>(sp_std::marker::PhantomData<(A, F, R, D)>);
-impl<A, F: MutateFreeze<A>, R: Get<F::Id>, D: Convert<Footprint, F::Balance>> Consideration<A>
-	for FreezeMultiConsideration<A, F, R, D>
 {
 	type Ticket = F::Balance;
 	fn update(
@@ -98,7 +86,7 @@ impl<A, F: MutateFreeze<A>, R: Get<F::Id>, D: Convert<Footprint, F::Balance>> Co
 				if old > new {
 					F::decrease_frozen(&R::get(), who, old - new)?;
 				} else if new > old {
-					F::extend_freeze(&R::get(), who, new - old)?;
+					F::increase_frozen(&R::get(), who, new - old)?;
 				}
 				Ok(new)
 			},
@@ -111,9 +99,75 @@ impl<A, F: MutateFreeze<A>, R: Get<F::Id>, D: Convert<Footprint, F::Balance>> Co
 	}
 }
 
+/// Consideration method using a `fungible` balance frozen as the cost exacted for the footprint.
 pub struct HoldConsideration<A, F, R, D>(sp_std::marker::PhantomData<(A, F, R, D)>);
 impl<A, F: MutateHold<A>, R: Get<F::Reason>, D: Convert<Footprint, F::Balance>> Consideration<A>
 	for HoldConsideration<A, F, R, D>
+{
+	type Ticket = F::Balance;
+	fn update(
+		who: &A,
+		old: Option<Self::Ticket>,
+		new: Option<Footprint>,
+	) -> Result<Self::Ticket, sp_runtime::DispatchError> {
+		match (old, new) {
+			(None, Some(footprint)) => {
+				let new = D::convert(footprint);
+				F::hold(&R::get(), who, new)?;
+				Ok(new)
+			},
+			(Some(old), Some(footprint)) => {
+				let new = D::convert(footprint);
+				if old > new {
+					F::release(&R::get(), who, old - new, BestEffort)?;
+				} else if new > old {
+					F::hold(&R::get(), who, new - old)?;
+				}
+				Ok(new)
+			},
+			(Some(old), None) => {
+				F::release(&R::get(), who, old, BestEffort)?;
+				Ok(Default::default())
+			},
+			(None, None) => Ok(Default::default()),
+		}
+	}
+}
+
+/// Basic consideration method using a `fungible` balance frozen as the cost exacted for the
+/// footprint.
+///
+/// NOTE: This is an optimized implementation, which can only be used for systems where each
+/// account has only a single active ticket associated with it since individual tickets do not
+/// track the specific balance which is frozen. If you are uncertain then use `FreezeConsideration`
+/// instead, since this works in all circumstances.
+pub struct SingletonFreezeConsideration<A, F, R, D>(sp_std::marker::PhantomData<(A, F, R, D)>);
+impl<A, F: MutateFreeze<A>, R: Get<F::Id>, D: Convert<Footprint, F::Balance>> Consideration<A>
+	for SingletonFreezeConsideration<A, F, R, D>
+{
+	type Ticket = ();
+	fn update(
+		who: &A,
+		_old: Option<Self::Ticket>,
+		new: Option<Footprint>,
+	) -> Result<Self::Ticket, sp_runtime::DispatchError> {
+		match new {
+			Some(footprint) => F::set_freeze(&R::get(), who, D::convert(footprint)),
+			None => F::thaw(&R::get(), who),
+		}
+	}
+}
+
+/// Basic consideration method using a `fungible` balance placed on hold as the cost exacted for the
+/// footprint.
+///
+/// NOTE: This is an optimized implementation, which can only be used for systems where each
+/// account has only a single active ticket associated with it since individual tickets do not
+/// track the specific balance which is frozen. If you are uncertain then use `FreezeConsideration`
+/// instead, since this works in all circumstances.
+pub struct SingletonHoldConsideration<A, F, R, D>(sp_std::marker::PhantomData<(A, F, R, D)>);
+impl<A, F: MutateHold<A>, R: Get<F::Reason>, D: Convert<Footprint, F::Balance>> Consideration<A>
+	for SingletonHoldConsideration<A, F, R, D>
 {
 	type Ticket = ();
 	fn update(

@@ -120,6 +120,7 @@ pub mod pallet {
 		/// The per-byte deposit for placing a preimage on chain.
 		type ByteDeposit: Get<BalanceOf<Self>>;
 
+		/// A means of providing some cost while data is stored on-chain.
 		type Consideration: Consideration<Self::AccountId>;
 	}
 
