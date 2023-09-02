@@ -3365,28 +3365,26 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 		slashed_unlocking: &BTreeMap<EraIndex, BalanceOf<T>>,
 		total_slashed: BalanceOf<T>,
 	) {
-		if let Some(pool_id) = ReversePoolIdLookup::<T>::get(pool_account).defensive() {
-			match SubPoolsStorage::<T>::get(pool_id) {
-				Some(mut sub_pools) => {
-					for (era, slashed_balance) in slashed_unlocking.iter() {
-						if let Some(pool) = sub_pools.with_era.get_mut(era) {
-							pool.balance = *slashed_balance;
-							Self::deposit_event(Event::<T>::UnbondingPoolSlashed {
-								era: *era,
-								pool_id,
-								balance: *slashed_balance,
-							});
-						}
-					}
-					SubPoolsStorage::<T>::insert(pool_id, sub_pools);
-				},
-				None => {},
-			};
+		let Some(pool_id) = ReversePoolIdLookup::<T>::get(pool_account).defensive() else { return };
+		// As the slashed account belongs to a [`BondedPool`] the [`TotalValueLocked`] decreases and
+		// an event is emitted.
+		TotalValueLocked::<T>::mutate(|tvl| {
+			tvl.saturating_reduce(total_slashed);
+		});
+		Self::deposit_event(Event::<T>::PoolSlashed { pool_id, balance: slashed_bonded });
 
-			TotalValueLocked::<T>::mutate(|tvl| {
-				tvl.saturating_reduce(total_slashed);
-			});
-			Self::deposit_event(Event::<T>::PoolSlashed { pool_id, balance: slashed_bonded });
-		}
+		let Some(mut sub_pools) = SubPoolsStorage::<T>::get(pool_id) else { return };
+		// set the reduced balance for each of the [`SubPools`]
+		slashed_unlocking.iter().for_each(|(era, slashed_balance)| {
+			if let Some(pool) = sub_pools.with_era.get_mut(era) {
+				pool.balance = *slashed_balance;
+				Self::deposit_event(Event::<T>::UnbondingPoolSlashed {
+					era: *era,
+					pool_id,
+					balance: *slashed_balance,
+				});
+			}
+		});
+		SubPoolsStorage::<T>::insert(pool_id, sub_pools);
 	}
 }
