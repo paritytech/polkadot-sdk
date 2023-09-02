@@ -50,8 +50,8 @@ construct_runtime! {
 parameter_types! {
 	pub ThisNetworkId: NetworkId = Polkadot;
 	pub BridgedNetworkId: NetworkId = Kusama;
-	pub UniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(ThisNetworkId::get()), Parachain(1000));
-	pub SiblingBridgeHubLocation: MultiLocation = ParentThen(X1(Parachain(1002))).into();
+	pub UniversalLocation: InteriorMultiLocation = [GlobalConsensus(ThisNetworkId::get()), Parachain(1000)].into();
+	pub SiblingBridgeHubLocation: MultiLocation = ParentThen([Parachain(1002)].into()).into();
 	pub BridgeFeeAsset: AssetId = MultiLocation::parent().into();
 	pub BridgeTable: Vec<(NetworkId, MultiLocation, Option<MultiAsset>)>
 		= vec![(BridgedNetworkId::get(), SiblingBridgeHubLocation::get(), Some((BridgeFeeAsset::get(), BASE_FEE).into()))];

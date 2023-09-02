@@ -40,7 +40,7 @@ pub trait Config<I: 'static>: crate::Config<I> {
 	fn ensure_bridged_target_destination() -> MultiLocation {
 		MultiLocation::new(
 			Self::UniversalLocation::get().len() as u8,
-			X1(GlobalConsensus(Self::BridgedNetworkId::get().unwrap())),
+			[GlobalConsensus(Self::BridgedNetworkId::get().unwrap())],
 		)
 	}
 }

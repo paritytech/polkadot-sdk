@@ -24,7 +24,7 @@ fn swap_locally_on_chain_using_local_assets() {
 	let asset_native = Box::new(asset_hub_kusama_runtime::xcm_config::KsmLocation::get());
 	let asset_one = Box::new(MultiLocation {
 		parents: 0,
-		interior: X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())),
+		interior: [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())].into(),
 	});
 
 	AssetHubKusama::execute_with(|| {
@@ -125,19 +125,19 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 	let foreign_asset1_at_asset_hub_kusama = Box::new(MultiLocation {
 		parents: 1,
-		interior: X3(
+		interior: [
 			Parachain(PenpalKusamaA::para_id().into()),
 			PalletInstance(ASSETS_PALLET_ID),
 			GeneralIndex(ASSET_ID.into()),
-		),
+		].into(),
 	});
 
 	let assets_para_destination: VersionedMultiLocation =
-		MultiLocation { parents: 1, interior: X1(Parachain(AssetHubKusama::para_id().into())) }
+		MultiLocation { parents: 1, interior: [Parachain(AssetHubKusama::para_id().into())].into() }
 			.into();
 
 	let penpal_location =
-		MultiLocation { parents: 1, interior: X1(Parachain(PenpalKusamaA::para_id().into())) };
+		MultiLocation { parents: 1, interior: [Parachain(PenpalKusamaA::para_id().into())].into() };
 
 	// 1. Create asset on penpal:
 	PenpalKusamaA::execute_with(|| {
@@ -165,10 +165,10 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 	let sov_penpal_on_asset_hub_kusama_as_location: MultiLocation = MultiLocation {
 		parents: 0,
-		interior: X1(AccountId32Junction {
+		interior: [AccountId32Junction {
 			network: None,
 			id: sov_penpal_on_asset_hub_kusama.clone().into(),
-		}),
+		}].into(),
 	};
 
 	let call_foreign_assets_create =
@@ -176,7 +176,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			<AssetHubKusama as Chain>::Runtime,
 			Instance2,
 		>::create {
-			id: *foreign_asset1_at_asset_hub_kusama,
+			id: *foreign_asset1_at_asset_hub_kusama.clone(),
 			min_balance: 1000,
 			admin: sov_penpal_on_asset_hub_kusama.clone().into(),
 		})
@@ -226,7 +226,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 	// Receive XCM message in Assets Parachain
 	AssetHubKusama::execute_with(|| {
 		assert!(<AssetHubKusama as AssetHubKusamaPallet>::ForeignAssets::asset_exists(
-			*foreign_asset1_at_asset_hub_kusama
+			*foreign_asset1_at_asset_hub_kusama.clone()
 		));
 
 		// 3: Mint foreign asset on asset_hub_kusama:
@@ -240,7 +240,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			<AssetHubKusama as Chain>::RuntimeOrigin::signed(
 				sov_penpal_on_asset_hub_kusama.clone().into()
 			),
-			*foreign_asset1_at_asset_hub_kusama,
+			*foreign_asset1_at_asset_hub_kusama.clone(),
 			sov_penpal_on_asset_hub_kusama.clone().into(),
 			3_000_000_000_000,
 		));

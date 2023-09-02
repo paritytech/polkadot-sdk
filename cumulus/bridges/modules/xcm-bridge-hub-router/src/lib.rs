@@ -430,7 +430,7 @@ mod tests {
 		run_test(|| {
 			assert_eq!(
 				send_xcm::<XcmBridgeHubRouter>(
-					MultiLocation::new(2, X2(GlobalConsensus(Rococo), Parachain(1000))),
+					MultiLocation::new(2, [GlobalConsensus(Rococo), Parachain(1000)]),
 					vec![].into(),
 				),
 				Err(SendError::NotApplicable),
@@ -443,7 +443,7 @@ mod tests {
 		run_test(|| {
 			assert_eq!(
 				send_xcm::<XcmBridgeHubRouter>(
-					MultiLocation::new(2, X2(GlobalConsensus(Rococo), Parachain(1000))),
+					MultiLocation::new(2, [GlobalConsensus(Rococo), Parachain(1000)]),
 					vec![ClearOrigin; HARD_MESSAGE_SIZE_LIMIT as usize].into(),
 				),
 				Err(SendError::ExceedsMaxMessageSize),
@@ -454,14 +454,14 @@ mod tests {
 	#[test]
 	fn returns_proper_delivery_price() {
 		run_test(|| {
-			let dest = MultiLocation::new(2, X1(GlobalConsensus(BridgedNetworkId::get())));
+			let dest = MultiLocation::new(2, [GlobalConsensus(BridgedNetworkId::get())]);
 			let xcm: Xcm<()> = vec![ClearOrigin].into();
 			let msg_size = xcm.encoded_size();
 
 			// initially the base fee is used: `BASE_FEE + BYTE_FEE * msg_size + HRMP_FEE`
 			let expected_fee = BASE_FEE + BYTE_FEE * (msg_size as u128) + HRMP_FEE;
 			assert_eq!(
-				XcmBridgeHubRouter::validate(&mut Some(dest), &mut Some(xcm.clone()))
+				XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut Some(xcm.clone()))
 					.unwrap()
 					.1
 					.get(0),
@@ -492,7 +492,7 @@ mod tests {
 				send_xcm::<XcmBridgeHubRouter>(
 					MultiLocation::new(
 						2,
-						X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(1000))
+						[GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]
 					),
 					vec![ClearOrigin].into(),
 				)
@@ -515,7 +515,7 @@ mod tests {
 				send_xcm::<XcmBridgeHubRouter>(
 					MultiLocation::new(
 						2,
-						X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(1000))
+						[GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]
 					),
 					vec![ClearOrigin].into(),
 				)
@@ -540,7 +540,7 @@ mod tests {
 				send_xcm::<XcmBridgeHubRouter>(
 					MultiLocation::new(
 						2,
-						X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(1000))
+						[GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]
 					),
 					vec![ClearOrigin].into(),
 				)

@@ -39,7 +39,7 @@ pub use cumulus_pallet_dmp_queue;
 pub use cumulus_pallet_parachain_system;
 pub use cumulus_pallet_xcmp_queue;
 pub use cumulus_primitives_core::{
-	relay_chain::HrmpChannelId, DmpMessageHandler, ParaId, XcmpMessageHandler,
+	relay_chain::HrmpChannelId, DmpMessageHandler, ParaId, XcmpMessageHandler, XcmError,
 };
 use pallet_bridge_messages::{Config, Instance1, Instance2, OutboundLanes, Pallet};
 pub use parachains_common::{AccountId, Balance};
@@ -56,7 +56,6 @@ pub use polkadot_runtime_parachains::{
 };
 pub use xcm::{
 	prelude::{OriginKind, Outcome, VersionedXcm, Weight},
-	v3::Error,
 	DoubleEncoded,
 };
 
@@ -231,7 +230,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 				/// Asserts a dispatchable is incompletely executed and XCM sent
 				pub fn assert_xcm_pallet_attempted_incomplete(
 					expected_weight: Option<$crate::impls::Weight>,
-					expected_error: Option<$crate::impls::Error>,
+					expected_error: Option<$crate::impls::XcmError>,
 				) {
 					$crate::impls::assert_expected_events!(
 						Self,
@@ -245,7 +244,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 									expected_weight.unwrap_or(*weight),
 									*weight
 								),
-								error: *error == expected_error.unwrap_or(*error),
+								error: *error == expected_error.unwrap_or((*error).into()).into(),
 							},
 						]
 					);
@@ -407,7 +406,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 				/// Asserts a dispatchable is incompletely executed and XCM sent
 				pub fn assert_xcm_pallet_attempted_incomplete(
 					expected_weight: Option<$crate::impls::Weight>,
-					expected_error: Option<$crate::impls::Error>,
+					expected_error: Option<$crate::impls::XcmError>,
 				) {
 					$crate::impls::assert_expected_events!(
 						Self,
@@ -421,14 +420,14 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 									expected_weight.unwrap_or(*weight),
 									*weight
 								),
-								error: *error == expected_error.unwrap_or(*error),
+								error: *error == expected_error.unwrap_or((*error).into()).into(),
 							},
 						]
 					);
 				}
 
 				/// Asserts a dispatchable throws and error when trying to be sent
-				pub fn assert_xcm_pallet_attempted_error(expected_error: Option<$crate::impls::Error>) {
+				pub fn assert_xcm_pallet_attempted_error(expected_error: Option<$crate::impls::XcmError>) {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
@@ -436,7 +435,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 							[<$chain RuntimeEvent>]::PolkadotXcm(
 								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Error(error) }
 							) => {
-								error: *error == expected_error.unwrap_or(*error),
+								error: *error == expected_error.unwrap_or((*error).into()).into(),
 							},
 						]
 					);
@@ -485,7 +484,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 				/// Asserts a XCM from Relay Chain is incompletely executed
 				pub fn assert_dmp_queue_incomplete(
 					expected_weight: Option<$crate::impls::Weight>,
-					expected_error: Option<$crate::impls::Error>,
+					expected_error: Option<$crate::impls::XcmError>,
 				) {
 					$crate::impls::assert_expected_events!(
 						Self,

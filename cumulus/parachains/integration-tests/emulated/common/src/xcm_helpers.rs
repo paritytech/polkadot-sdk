@@ -19,7 +19,7 @@ use xcm::{
 	prelude::{
 		AccountId32, All, BuyExecution, DepositAsset, MultiAsset, MultiAssets, MultiLocation,
 		OriginKind, RefundSurplus, Transact, UnpaidExecution, VersionedXcm, Weight, WeightLimit,
-		WithdrawAsset, Xcm, X1,
+		WithdrawAsset, Xcm,
 	},
 	DoubleEncoded,
 };
@@ -44,7 +44,7 @@ pub fn xcm_transact_paid_execution(
 			assets: All.into(),
 			beneficiary: MultiLocation {
 				parents: 0,
-				interior: X1(AccountId32 { network: None, id: beneficiary.into() }),
+				interior: [AccountId32 { network: None, id: beneficiary.into() }].into(),
 			},
 		},
 	]))

@@ -73,11 +73,11 @@ pub mod multilocation {
 						(0..cur_parents).map(|_| Token![_](Span::call_site())).collect::<Vec<_>>();
 
 					quote! {
-							impl< #(#types : Into<Junction>,)* > From<( #( #parents , )* #( #types , )* )> for MultiLocation {
-								fn from( ( #(#underscores,)* #(#idents,)* ): ( #(#parents,)* #(#types,)* ) ) -> Self {
-									Self { parents: #cur_parents as u8, interior: #interior }
-								}
+						impl< #(#types : Into<Junction>,)* > From<( #( #parents , )* #( #types , )* )> for MultiLocation {
+							fn from( ( #(#underscores,)* #(#idents,)* ): ( #(#parents,)* #(#types,)* ) ) -> Self {
+								Self { parents: #cur_parents as u8, interior: #interior }
 							}
+						}
 					}
 				});
 

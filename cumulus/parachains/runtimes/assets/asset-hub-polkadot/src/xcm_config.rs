@@ -22,7 +22,7 @@ use assets_common::matching::{
 	FromSiblingParachain, IsForeignConcreteAsset, StartsWith, StartsWithExplicitGlobalConsensus,
 };
 use frame_support::{
-	match_types, parameter_types,
+	parameter_types,
 	traits::{ConstU32, Contains, Everything, Nothing, PalletInfoAccess},
 };
 use frame_system::EnsureRoot;
@@ -48,7 +48,7 @@ parameter_types! {
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Polkadot);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorMultiLocation =
-		X2(GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into()));
+		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub UniversalLocationNetworkId: NetworkId = UniversalLocation::get().global_consensus().unwrap();
 	pub TrustBackedAssetsPalletLocation: MultiLocation =
 		PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
@@ -171,21 +171,32 @@ parameter_types! {
 	pub XcmAssetFeesReceiver: Option<AccountId> = Authorship::author();
 }
 
-match_types! {
-	pub type ParentOrParentsPlurality: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(Plurality { .. }) }
-	};
-	pub type ParentOrSiblings: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(_) }
-	};
-	pub type FellowsPlurality: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: X2(Parachain(1001), Plurality { id: BodyId::Technical, ..}) }
-	};
-	pub type FellowshipSalaryPallet: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: X2(Parachain(1001), PalletInstance(64)) }
-	};
+pub struct ParentOrParentsPlurality;
+impl Contains<MultiLocation> for ParentOrParentsPlurality {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
+	}
+}
+
+pub struct ParentOrSiblings;
+impl Contains<MultiLocation> for ParentOrSiblings {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [_]))
+	}
+}
+
+pub struct FellowsPlurality;
+impl Contains<MultiLocation> for FellowsPlurality {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(location.unpack(), (1, [Parachain(1001), Plurality { id: BodyId::Technical, .. }]))
+	}
+}
+
+pub struct FellowshipSalaryPallet;
+impl Contains<MultiLocation> for FellowshipSalaryPallet {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(location.unpack(), (1, [Parachain(1001), PalletInstance(64)]))
+	}
 }
 
 /// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
@@ -514,7 +525,7 @@ pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_assets::BenchmarkHelper<MultiLocation> for XcmBenchmarkHelper {
 	fn create_asset_id_parameter(id: u32) -> MultiLocation {
-		MultiLocation { parents: 1, interior: X1(Parachain(id)) }
+		MultiLocation { parents: 1, interior: [Parachain(id)].into() }
 	}
 }
 

@@ -68,7 +68,7 @@ pub struct FromSiblingParachain<SelfParaId>(sp_std::marker::PhantomData<SelfPara
 impl<SelfParaId: Get<ParaId>> ContainsPair<MultiLocation, MultiLocation>
 	for FromSiblingParachain<SelfParaId>
 {
-	fn contains(&a: &MultiLocation, b: &MultiLocation) -> bool {
+	fn contains(a: &MultiLocation, b: &MultiLocation) -> bool {
 		// `a` needs to be from `b` at least
 		if !a.starts_with(b) {
 			return false

@@ -86,7 +86,7 @@ parameter_types! {
 match_types! {
 	pub type ParentOrParentsExecutivePlurality: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(Plurality { id: BodyId::Executive, .. }) }
+		MultiLocation { parents: 1, interior: [Plurality { id: BodyId::Executive, .. }].into() }
 	};
 }
 

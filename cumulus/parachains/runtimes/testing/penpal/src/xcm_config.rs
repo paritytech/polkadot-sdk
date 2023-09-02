@@ -29,7 +29,7 @@ use super::{
 };
 use core::marker::PhantomData;
 use frame_support::{
-	match_types, parameter_types,
+	parameter_types,
 	traits::{
 		fungibles::{self, Balanced, Credit},
 		ConstU32, Contains, ContainsPair, Everything, Get, Nothing,
@@ -58,7 +58,7 @@ parameter_types! {
 	pub const RelayLocation: MultiLocation = MultiLocation::parent();
 	pub const RelayNetwork: Option<NetworkId> = None;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorMultiLocation = X1(Parachain(ParachainInfo::parachain_id().into()));
+	pub UniversalLocation: InteriorMultiLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
 }
 
 /// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
@@ -140,14 +140,18 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
-match_types! {
-	pub type ParentOrParentsExecutivePlurality: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(Plurality { id: BodyId::Executive, .. }) }
-	};
-	pub type CommonGoodAssetsParachain: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: X1(Parachain(1000)) }
-	};
+pub struct ParentOrParentsExecutivePlurality;
+impl Contains<MultiLocation> for ParentOrParentsExecutivePlurality {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [Plurality { id: BodyId::Executive, .. }]))
+	}
+}
+
+pub struct CommonGoodAssetsParachain;
+impl Contains<MultiLocation> for CommonGoodAssetsParachain {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(location.unpack(), (1, [Parachain(1000)]))
+	}
 }
 
 pub type Barrier = TrailingSetTopicAsId<
@@ -229,12 +233,12 @@ pub trait Reserve {
 // Takes the chain part of a MultiAsset
 impl Reserve for MultiAsset {
 	fn reserve(&self) -> Option<MultiLocation> {
-		if let AssetId::Concrete(location) = self.id {
+		if let AssetId::Concrete(location) = &self.id {
 			let first_interior = location.first_interior();
 			let parents = location.parent_count();
 			match (parents, first_interior) {
-				(0, Some(Parachain(id))) => Some(MultiLocation::new(0, X1(Parachain(*id)))),
-				(1, Some(Parachain(id))) => Some(MultiLocation::new(1, X1(Parachain(*id)))),
+				(0, Some(Parachain(id))) => Some(MultiLocation::new(0, [Parachain(*id)])),
+				(1, Some(Parachain(id))) => Some(MultiLocation::new(1, [Parachain(*id)])),
 				(1, _) => Some(MultiLocation::parent()),
 				_ => None,
 			}
@@ -260,11 +264,11 @@ impl ContainsPair<MultiAsset, MultiLocation> for MultiNativeAsset {
 
 parameter_types! {
 	/// The location that this chain recognizes as the Relay network's Asset Hub.
-	pub SystemAssetHubLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1000)));
+	pub SystemAssetHubLocation: MultiLocation = MultiLocation::new(1, [Parachain(1000)]);
 	// ALWAYS ensure that the index in PalletInstance stays up-to-date with
 	// the Relay Chain's Asset Hub's Assets pallet index
 	pub SystemAssetHubAssetsPalletLocation: MultiLocation =
-		MultiLocation::new(1, X2(Parachain(1000), PalletInstance(50)));
+		MultiLocation::new(1, [Parachain(1000), PalletInstance(50)]);
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 }
 

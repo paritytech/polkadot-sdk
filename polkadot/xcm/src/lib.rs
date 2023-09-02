@@ -134,8 +134,8 @@ macro_rules! versioned_type {
 				$n::V3(x.into())
 			}
 		}
-		impl From<$v4> for $n {
-			fn from(x: $v4) -> Self {
+		impl<T: Into<$v4>> From<T> for $n {
+			fn from(x: T) -> Self {
 				$n::V4(x.into())
 			}
 		}
@@ -236,14 +236,9 @@ macro_rules! versioned_type {
 				$n::V2(x)
 			}
 		}
-		impl From<$v3> for $n {
-			fn from(x: $v3) -> Self {
-				$n::V3(x)
-			}
-		}
-		impl From<$v4> for $n {
-			fn from(x: $v4) -> Self {
-				$n::V4(x)
+		impl<T: Into<$v4>> From<T> for $n {
+			fn from(x: T) -> Self {
+				$n::V4(x.into())
 			}
 		}
 		impl TryFrom<$n> for $v2 {

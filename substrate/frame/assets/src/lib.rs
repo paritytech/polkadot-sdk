@@ -260,7 +260,6 @@ pub mod pallet {
 		/// want to convert an `AssetId` into a parameter for calling dispatchable functions
 		/// directly.
 		type AssetIdParameter: Parameter
-			+ Copy
 			+ From<Self::AssetId>
 			+ Into<Self::AssetId>
 			+ MaxEncodedLen;

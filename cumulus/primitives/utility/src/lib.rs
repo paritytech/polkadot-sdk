@@ -183,7 +183,7 @@ impl<
 				.map_err(|_| XcmError::Overflow)?;
 
 		// Convert to the same kind of multiasset, with the required fungible balance
-		let required = first.id.into_multiasset(asset_balance.into());
+		let required = first.id.clone().into_multiasset(asset_balance.into());
 
 		// Substract payment
 		let unused = payment.checked_sub(required.clone()).map_err(|_| XcmError::TooExpensive)?;
@@ -206,7 +206,7 @@ impl<
 		{
 			// Get the local asset id in which we can refund fees
 			let (local_asset_id, outstanding_balance) =
-				Matcher::matches_fungibles(&(id, fun).into()).ok()?;
+				Matcher::matches_fungibles(&(id.clone(), fun).into()).ok()?;
 
 			let minimum_balance = ConcreteAssets::minimum_balance(local_asset_id.clone());
 
@@ -236,7 +236,7 @@ impl<
 
 			// Construct outstanding_concrete_asset with the same location id and substracted
 			// balance
-			let outstanding_concrete_asset: MultiAsset = (id, outstanding_minus_substracted).into();
+			let outstanding_concrete_asset: MultiAsset = (id.clone(), outstanding_minus_substracted).into();
 
 			// Substract from existing weight and balance
 			weight_outstanding = weight_outstanding.saturating_sub(weight);
@@ -287,7 +287,7 @@ impl<
 		if let Some(receiver) = ReceiverAccount::get() {
 			let ok = FungiblesMutateAdapter::deposit_asset(
 				&revenue,
-				&(X1(AccountId32 { network: None, id: receiver.into() }).into()),
+				&([AccountId32 { network: None, id: receiver.into() }].into()),
 				// We aren't able to track the XCM that initiated the fee deposit, so we create a
 				// fake message hash here
 				&XcmContext::with_message_id([0; 32]),

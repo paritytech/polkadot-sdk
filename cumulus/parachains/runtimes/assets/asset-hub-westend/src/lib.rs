@@ -73,7 +73,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::opaque::v3::MultiLocation;
+use xcm::latest::prelude::MultiLocation;
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, PoolAssetsConvertedConcreteId,
 	TrustBackedAssetsConvertedConcreteId, WestendLocation, XcmConfig,
@@ -1415,7 +1415,7 @@ pub mod migrations {
 
 				// fix new account
 				let new_pool_id = pallet_asset_conversion::Pallet::<T>::get_pool_id(
-					Box::new(valid_native_asset),
+					Box::new(valid_native_asset.clone()),
 					old_pool_id.1.clone(),
 				);
 				let new_pool_account =
@@ -1455,10 +1455,10 @@ pub mod migrations {
 
 				// move LocalOrForeignAssets
 				let _ = T::Assets::transfer(
-					*old_pool_id.1.as_ref(),
+					*old_pool_id.1.clone(),
 					&old_pool_account,
 					&new_pool_account,
-					T::Assets::balance(*old_pool_id.1.as_ref(), &old_pool_account),
+					T::Assets::balance(*old_pool_id.1.clone(), &old_pool_account),
 					Preservation::Expendable,
 				);
 				reads.saturating_accrue(1);

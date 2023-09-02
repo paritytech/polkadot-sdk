@@ -47,14 +47,14 @@ parameter_types! {
 	pub const MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_bridge_hub_rococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	pub const BridgeHubWococoChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_WOCOCO_CHAIN_ID;
-	pub BridgeWococoMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeWococoMessages as PalletInfoAccess>::index() as u8));
-	pub BridgeHubRococoUniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Rococo), Parachain(ParachainInfo::parachain_id().into()));
+	pub BridgeWococoMessagesPalletInstance: InteriorMultiLocation = [PalletInstance(<BridgeWococoMessages as PalletInfoAccess>::index() as u8)].into();
+	pub BridgeHubRococoUniversalLocation: InteriorMultiLocation = [GlobalConsensus(Rococo), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub WococoGlobalConsensusNetwork: NetworkId = NetworkId::Wococo;
 	pub ActiveOutboundLanesToBridgeHubWococo: &'static [bp_messages::LaneId] = &[DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO];
 	pub PriorityBoostPerMessage: u64 = 921_900_294;
 
 	pub FromAssetHubRococoToAssetHubWococoRoute: SenderAndLane = SenderAndLane::new(
-		ParentThen(X1(Parachain(1000))).into(),
+		ParentThen([Parachain(1000)].into()).into(),
 		DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO,
 	);
 }

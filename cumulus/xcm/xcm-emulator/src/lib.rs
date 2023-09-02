@@ -55,9 +55,9 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-pub use xcm::v3::prelude::{
+pub use xcm::latest::prelude::{
 	Ancestor, MultiAssets, MultiLocation, Parachain as ParachainJunction, Parent, WeightLimit,
-	XcmHash, X1,
+	XcmHash, Junctions
 };
 pub use xcm_executor::traits::ConvertLocation;
 
@@ -257,7 +257,8 @@ pub trait Parachain: Chain {
 	}
 
 	fn sibling_location_of(para_id: ParaId) -> MultiLocation {
-		(Parent, X1(ParachainJunction(para_id.into()))).into()
+		let junctions: Junctions = [ParachainJunction(para_id.into())].into();
+		(Parent, junctions).into()
 	}
 
 	fn sovereign_account_id_of(location: MultiLocation) -> AccountId {

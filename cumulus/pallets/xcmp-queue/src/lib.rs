@@ -1147,9 +1147,9 @@ impl<T: Config> SendXcm for Pallet<T> {
 	) -> SendResult<(ParaId, VersionedXcm<()>)> {
 		let d = dest.take().ok_or(SendError::MissingArgument)?;
 
-		match &d {
+		match d.unpack() {
 			// An HRMP message for a sibling parachain.
-			MultiLocation { parents: 1, interior: X1(Parachain(id)) } => {
+			(1, [Parachain(id)]) => {
 				let xcm = msg.take().ok_or(SendError::MissingArgument)?;
 				let id = ParaId::from(*id);
 				let price = T::PriceForSiblingDelivery::price_for_parachain_delivery(id, &xcm);

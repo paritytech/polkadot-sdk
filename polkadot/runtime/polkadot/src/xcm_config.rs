@@ -56,7 +56,7 @@ parameter_types! {
 	/// The Polkadot network ID. This is named.
 	pub const ThisNetwork: NetworkId = NetworkId::Polkadot;
 	/// Our location in the universe of consensus systems.
-	pub UniversalLocation: InteriorMultiLocation = X1(GlobalConsensus(ThisNetwork::get()));
+	pub UniversalLocation: InteriorMultiLocation = [GlobalConsensus(ThisNetwork::get())].into();
 	/// The Checking Account, which holds any native assets that have been teleported out and not back in (yet).
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	/// The Checking Account along with the indication that the local chain is able to mint tokens.
@@ -131,7 +131,7 @@ pub type XcmRouter = WithUniqueTopic<(
 
 parameter_types! {
 	pub const Dot: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
-	pub const StatemintLocation: MultiLocation = Parachain(STATEMINT_ID).into_location();
+	pub StatemintLocation: MultiLocation = Parachain(STATEMINT_ID).into_location();
 	pub DotForStatemint: (MultiAssetFilter, MultiLocation) = (Dot::get(), StatemintLocation::get());
 	pub CollectivesLocation: MultiLocation = Parachain(COLLECTIVES_ID).into_location();
 	pub DotForCollectives: (MultiAssetFilter, MultiLocation) = (Dot::get(), CollectivesLocation::get());
