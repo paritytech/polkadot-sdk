@@ -336,7 +336,7 @@ macro_rules! decl_test_network {
 						}
 					},
 					$(
-						(1, [$crate::Parachain(id)]) if id == $para_id => {
+						(1, [$crate::Parachain(id)]) if *id == $para_id => {
 							let encoded = $crate::encode_xcm(message, $crate::MessageKind::Xcmp);
 							let messages = vec![(para_id, 1, &encoded[..])];
 							let _weight = <$parachain>::handle_xcmp_messages(
