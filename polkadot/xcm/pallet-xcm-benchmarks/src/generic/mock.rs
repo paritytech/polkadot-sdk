@@ -19,8 +19,7 @@
 use crate::{generic, mock::*, *};
 use codec::Decode;
 use frame_support::{
-	match_types, parameter_types,
-	traits::{Everything, OriginTrait},
+	parameter_types, traits::{Everything, OriginTrait, Contains},
 	weights::Weight,
 };
 use sp_core::H256;
@@ -97,10 +96,11 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
-match_types! {
-	pub type OnlyParachains: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(_)) }
-	};
+pub struct OnlyParachains;
+impl Contains<MultiLocation> for OnlyParachains {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(location.unpack(), (0, [Parachain(_)]))
+	}
 }
 
 type Aliasers = AliasForeignAccountId32<OnlyParachains>;
