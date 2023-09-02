@@ -12,7 +12,7 @@ parity-scale-codec = { version = "3.6.1", default-features = false, features = [
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
-serde = { version = "1.0.163", default-features = false }
+serde = { version = "1.0.188", default-features = false }
 serde_derive = { version = "1.0.117", optional = true }
 static_assertions = "1.1.0"
 smallvec = "1.8.0"
@@ -98,9 +98,9 @@ runtime-common = { package = "polkadot-runtime-common", path = "../common", defa
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
 
-xcm = { package = "xcm", path = "../../xcm", default-features = false }
-xcm-executor = { package = "xcm-executor", path = "../../xcm/xcm-executor", default-features = false }
-xcm-builder = { package = "xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
+xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.4.1"
@@ -307,12 +307,6 @@ try-runtime = [
 	"runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-# When enabled, the runtime API will not be build.
-#
-# This is required by Cumulus to access certain types of the
-# runtime without clashing with the runtime API exported functions
-# in WASM.
-disable-runtime-api = []
 
 # A feature that should be enabled when the runtime should be build for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm

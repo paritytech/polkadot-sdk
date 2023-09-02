@@ -17,7 +17,7 @@ tokio = "1.24.2"
 # Polkadot dependencies
 polkadot-overseer = { path = "../../overseer" }
 polkadot-primitives = { path = "../../../primitives" }
-polkadot-parachain = { path = "../../../parachain" }
+polkadot-parachain-primitives = { path = "../../../parachain" }
 polkadot-rpc = { path = "../../../rpc" }
 polkadot-runtime-common = { path = "../../../runtime/common" }
 polkadot-service = { path = "../../service" }
@@ -68,7 +68,7 @@ runtime-benchmarks= [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
-	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",

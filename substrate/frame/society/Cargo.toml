@@ -34,7 +34,7 @@ sp-io = { path = "../../primitives/io" }
 
 [features]
 default = [ "std" ]
-# Enable `VersionedRuntimeUpgrade` for the migrations that is currently still experimental.
+# Enable `VersionedMigration` for migrations using this feature.
 experimental = [ "frame-support/experimental" ]
 std = [
 	"codec/std",
