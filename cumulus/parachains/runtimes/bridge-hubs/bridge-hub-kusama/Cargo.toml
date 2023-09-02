@@ -13,7 +13,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 hex-literal = { version = "0.4.1" }
 log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.183", optional = true, features = ["derive"] }
+serde = { version = "1.0.188", optional = true, features = ["derive"] }
 smallvec = "1.11.0"
 
 # Substrate
@@ -52,11 +52,11 @@ kusama-runtime-constants = { path = "../../../../../polkadot/runtime/kusama/cons
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false}
-polkadot-parachain = { path = "../../../../../polkadot/parachain", default-features = false}
+polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false}
 polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false}
-xcm = { path = "../../../../../polkadot/xcm", default-features = false}
-xcm-builder = { path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
-xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
@@ -110,7 +110,7 @@ std = [
 	"parachain-info/std",
 	"parachains-common/std",
 	"polkadot-core-primitives/std",
-	"polkadot-parachain/std",
+	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
 	"scale-info/std",
 	"serde",
@@ -148,7 +148,7 @@ runtime-benchmarks = [
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
-	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",

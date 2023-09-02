@@ -17,10 +17,7 @@
 
 use frame_support::{
 	assert_ok,
-	dispatch::{
-		DispatchClass, DispatchInfo, Dispatchable, GetDispatchInfo, Parameter, Pays,
-		UnfilteredDispatchable,
-	},
+	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Parameter, Pays},
 	dispatch_context::with_context,
 	pallet_prelude::{StorageInfoTrait, ValueQuery},
 	parameter_types,
@@ -28,6 +25,7 @@ use frame_support::{
 	traits::{
 		ConstU32, GetCallIndex, GetCallName, GetStorageVersion, OnFinalize, OnGenesis,
 		OnInitialize, OnRuntimeUpgrade, PalletError, PalletInfoAccess, StorageVersion,
+		UnfilteredDispatchable,
 	},
 	weights::{RuntimeDbWeight, Weight},
 };
@@ -37,7 +35,7 @@ use sp_io::{
 	TestExternalities,
 };
 use sp_runtime::{
-	traits::{Extrinsic as ExtrinsicT, SignaturePayload as SignaturePayloadT},
+	traits::{Dispatchable, Extrinsic as ExtrinsicT, SignaturePayload as SignaturePayloadT},
 	DispatchError, ModuleError,
 };
 
