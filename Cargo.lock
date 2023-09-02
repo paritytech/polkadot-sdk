@@ -5167,6 +5167,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
+ "log",
  "pallet-examples",
  "parity-scale-codec",
  "scale-info",

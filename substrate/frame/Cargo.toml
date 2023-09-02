@@ -42,6 +42,7 @@ frame-executive = { default-features = false, path = "../frame/executive", optio
 frame-system-rpc-runtime-api = { default-features = false, path = "../frame/system/rpc/runtime-api", optional = true }
 
 docify = "0.2.0"
+log = { version = "0.4.20", default-features = false }
 
 [dev-dependencies]
 pallet-examples = { path = "./examples" }
@@ -66,6 +67,7 @@ std = [
 	"frame-support/std",
 	"frame-system-rpc-runtime-api?/std",
 	"frame-system/std",
+	"log/std",
 	"parity-scale-codec/std",
 	"scale-info/std",
 	"sp-api?/std",

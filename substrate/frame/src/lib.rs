@@ -91,7 +91,7 @@
 pub use frame_support::pallet;
 
 /// The logging library of the runtime. Can be normally like the classic `log` crate.
-pub use frame_support::log;
+pub use log;
 
 /// The main prelude of this `FRAME`.
 ///
@@ -210,7 +210,7 @@ pub mod runtime {
 	#[allow(ambiguous_glob_reexports)]
 	pub mod apis {
 		// Types often used in the runtime APIs.
-		pub use frame_support::OpaqueMetadata;
+		pub use sp_core::OpaqueMetadata;
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
 		pub use sp_runtime::ApplyExtrinsicResult;
 
