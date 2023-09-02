@@ -22,7 +22,7 @@ workflow:
 
 variables:
   CI_IMAGE: "paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706"
-  BUILDAH_IMAGE: "quay.io/buildah/stable:v1.29"
+  # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
   RUSTY_CACHIER_SINGLE_BRANCH: master
@@ -333,3 +333,58 @@ cancel-pipeline-cargo-clippy:
   extends: .cancel-pipeline-template
   needs:
     - job: cargo-clippy
+
+cancel-pipeline-build-linux-stable:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: build-linux-stable
+
+cancel-pipeline-build-linux-stable-cumulus:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: build-linux-stable-cumulus
+
+cancel-pipeline-build-linux-substrate:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: build-linux-substrate
+
+cancel-pipeline-test-node-metrics:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: test-node-metrics
+
+cancel-pipeline-test-frame-ui:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: test-frame-ui
+
+cancel-pipeline-quick-benchmarks:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: quick-benchmarks
+
+cancel-pipeline-check-try-runtime:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-try-runtime
+
+cancel-pipeline-test-frame-examples-compile-to-wasm:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: test-frame-examples-compile-to-wasm
+
+cancel-pipeline-build-short-benchmark:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: build-short-benchmark
+
+cancel-pipeline-check-runtime-migration-rococo:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-runtime-migration-rococo
+
+cancel-pipeline-check-runtime-migration-westend:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: check-runtime-migration-westend

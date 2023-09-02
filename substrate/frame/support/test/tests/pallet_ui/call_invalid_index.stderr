@@ -1,5 +1,5 @@
 error: number too large to fit in target type
-  --> tests/pallet_ui/call_invalid_index.rs:15:24
+  --> tests/pallet_ui/call_invalid_index.rs:32:24
    |
-15 |         #[pallet::call_index(256)]
+32 |         #[pallet::call_index(256)]
    |                              ^^^

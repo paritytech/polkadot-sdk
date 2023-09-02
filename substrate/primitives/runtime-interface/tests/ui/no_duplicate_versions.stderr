@@ -1,11 +1,11 @@
 error: Duplicated version attribute
- --> $DIR/no_duplicate_versions.rs:7:2
-  |
-7 |     #[version(2)]
-  |     ^
+  --> tests/ui/no_duplicate_versions.rs:24:2
+   |
+24 |     #[version(2)]
+   |     ^
 
 error: Previous version with the same number defined here
- --> $DIR/no_duplicate_versions.rs:5:2
-  |
-5 |     #[version(2)]
-  |     ^
+  --> tests/ui/no_duplicate_versions.rs:22:2
+   |
+22 |     #[version(2)]
+   |     ^
