@@ -92,11 +92,11 @@ pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 		who: &AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		ensure!(Self::hold_available(reason, who), TokenError::CannotCreateHold);
 		ensure!(
 			amount <= Self::reducible_balance(who, Protect, Force),
 			TokenError::FundsUnavailable
 		);
+		ensure!(Self::hold_available(reason, who), TokenError::CannotCreateHold);
 		Ok(())
 	}
 
@@ -240,6 +240,41 @@ pub trait Mutate<AccountId>:
 		let actual = Self::increase_balance(who, amount, BestEffort)?;
 		Self::done_release(reason, who, actual);
 		Ok(actual)
+	}
+
+	/// Hold or release funds in the account of `who` to bring the balance on hold for `reason` to
+	/// exactly `amount`.
+	fn set_on_hold(
+		reason: &Self::Reason,
+		who: &AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		let current_amount = Self::balance_on_hold(reason, who);
+		if current_amount < amount {
+			Self::hold(reason, who, amount - current_amount)
+		} else if current_amount > amount {
+			Self::release(reason, who, current_amount - amount, Precision::Exact).map(|_| ())
+		} else {
+			Ok(())
+		}
+	}
+
+	/// Release all funds in the account of `who` on hold for `reason`.
+	///
+	/// The actual amount released is returned with `Ok`.
+	///
+	/// If `precision` is `BestEffort`, then the amount actually unreserved and returned as the
+	/// inner value of `Ok` may be smaller than the `amount` passed.
+	///
+	/// NOTE! The inner of the `Ok` result variant returns the *actual* amount released. This is the
+	/// opposite of the `ReservableCurrency::unreserve()` result, which gives the amount not able
+	/// to be released!
+	fn release_all(
+		reason: &Self::Reason,
+		who: &AccountId,
+		precision: Precision,
+	) -> Result<Self::Balance, DispatchError> {
+		Self::release(reason, who, Self::balance_on_hold(reason, who), precision)
 	}
 
 	/// Attempt to decrease the balance of `who` which is held for the given `reason` by `amount`.

@@ -17,9 +17,14 @@
 
 //! Traits for encoding data related to pallet's storage items.
 
+use codec::{Encode, FullCodec, MaxEncodedLen};
 use impl_trait_for_tuples::impl_for_tuples;
+use scale_info::TypeInfo;
 pub use sp_core::storage::TrackedStorageKey;
-use sp_runtime::{traits::Saturating, RuntimeDebug};
+use sp_runtime::{
+	traits::{Member, Saturating},
+	DispatchError, RuntimeDebug,
+};
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 /// An instance of a pallet in the storage.
@@ -124,6 +129,69 @@ impl WhitelistedStorageKeys for Tuple {
 			}
 		 )* );
 		combined_keys.into_iter().collect::<Vec<_>>()
+	}
+}
+
+/// The resource footprint of a bunch of blobs. We assume only the number of blobs and their total
+/// size in bytes matter.
+#[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
+pub struct Footprint {
+	/// The number of blobs.
+	pub count: u64,
+	/// The total size of the blobs in bytes.
+	pub size: u64,
+}
+
+impl Footprint {
+	pub fn from_parts(items: usize, len: usize) -> Self {
+		Self { count: items as u64, size: len as u64 }
+	}
+
+	pub fn from_encodable(e: impl Encode) -> Self {
+		Self::from_parts(1, e.encoded_size())
+	}
+}
+
+/// Some sort of cost taken from account temporarily in order to offset the cost to the chain of
+/// holding some data `Footprint` in state.
+///
+/// The cost may be increased, reduced or dropped entirely as the footprint changes.
+pub trait Consideration<AccountId> {
+	/// A single ticket corresponding to some particular datum held in storage. This is an opaque
+	/// type, but must itself be stored and generally it should be placed alongside whatever data
+	/// the ticket was created for.
+	///
+	/// While not technically a linear type owing to the need for `FullCodec`, *this should be
+	/// treated as one*. Don't type to duplicate it, and remember to drop it when you're done with
+	/// it.
+	type Ticket: Member + FullCodec + TypeInfo + MaxEncodedLen + Default;
+
+	/// Optionally consume an old ticket and alter the footprint, enforcing the new cost to `who`
+	/// and returning the new ticket (or an error if there was an issue).
+	///
+	/// For creating tickets and dropping them, you can use the simpler `new` and `drop` instead.
+	fn update(
+		who: &AccountId,
+		old: Option<Self::Ticket>,
+		new: Option<Footprint>,
+	) -> Result<Self::Ticket, DispatchError>;
+
+	/// Create a ticket for the `new` footprint attributable to `who`. This ticket *must* be
+	/// consumed (through either `drop` or `update`) if the footprint changes or is removed.
+	fn new(who: &AccountId, new: Footprint) -> Result<Self::Ticket, DispatchError> {
+		Self::update(who, None, Some(new))
+	}
+
+	/// Consume a ticket for some `old` footprint attributable to `who` which has now been freed.
+	fn drop(who: &AccountId, old: Self::Ticket) -> Result<(), DispatchError> {
+		Self::update(who, Some(old), None).map(|_| ())
+	}
+}
+
+impl<A> Consideration<A> for () {
+	type Ticket = ();
+	fn update(_: &A, _: Option<()>, _: Option<Footprint>) -> Result<(), DispatchError> {
+		Ok(())
 	}
 }
 
