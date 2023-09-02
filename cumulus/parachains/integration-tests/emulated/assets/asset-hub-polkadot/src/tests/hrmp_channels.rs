@@ -21,7 +21,6 @@ const MAX_MESSAGE_SIZE: u32 = 8192;
 
 /// Opening HRMP channels between Parachains should work
 #[test]
-#[cfg(feature = "FIXME-IGNORED")] // <https://github.com/paritytech/cumulus/issues/3027>
 fn open_hrmp_channel_between_paras_works() {
 	// Parchain A init values
 	let para_a_id = PenpalPolkadotA::para_id();
@@ -109,6 +108,8 @@ fn open_hrmp_channel_between_paras_works() {
 
 		PenpalPolkadotB::assert_xcm_pallet_sent();
 	});
+
+	PenpalPolkadotB::execute_with(|| {});
 
 	Polkadot::execute_with(|| {
 		type RuntimeEvent = <Polkadot as Chain>::RuntimeEvent;
