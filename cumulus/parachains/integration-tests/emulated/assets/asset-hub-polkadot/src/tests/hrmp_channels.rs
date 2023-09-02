@@ -109,6 +109,8 @@ fn open_hrmp_channel_between_paras_works() {
 		PenpalPolkadotB::assert_xcm_pallet_sent();
 	});
 
+	PenpalPolkadotB::execute_with(|| {});
+
 	Polkadot::execute_with(|| {
 		type RuntimeEvent = <Polkadot as Chain>::RuntimeEvent;
 

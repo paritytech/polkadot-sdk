@@ -23,6 +23,7 @@ use frame_support::traits::{
 	tokens::Pay,
 };
 use sp_core::crypto::Ss58Codec;
+use xcm_emulator::TestExt;
 
 #[test]
 fn pay_salary() {
@@ -59,7 +60,6 @@ fn pay_salary() {
 
 	AssetHubPolkadot::execute_with(|| {
 		type RuntimeEvent = <AssetHubPolkadot as Chain>::RuntimeEvent;
-
 		assert_expected_events!(
 			AssetHubPolkadot,
 			vec![
