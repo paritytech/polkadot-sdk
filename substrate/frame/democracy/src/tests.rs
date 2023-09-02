@@ -113,6 +113,7 @@ impl pallet_preimage::Config for Test {
 	type ManagerOrigin = EnsureRoot<u64>;
 	type BaseDeposit = ConstU64<0>;
 	type ByteDeposit = ConstU64<0>;
+	type Consideration = ();
 }
 
 impl pallet_scheduler::Config for Test {

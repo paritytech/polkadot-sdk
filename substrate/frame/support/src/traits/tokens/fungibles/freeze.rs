@@ -17,10 +17,13 @@
 
 //! The traits for putting freezes within a single fungible token class.
 
-use scale_info::TypeInfo;
-use sp_arithmetic::{ArithmeticError, traits::{CheckedAdd, CheckedSub}};
-use sp_runtime::{DispatchResult, TokenError};
 use crate::{ensure, traits::tokens::Fortitude};
+use scale_info::TypeInfo;
+use sp_arithmetic::{
+	traits::{CheckedAdd, CheckedSub},
+	ArithmeticError,
+};
+use sp_runtime::{DispatchResult, TokenError};
 
 /// Trait for inspecting a fungible asset which can be frozen. Freezing is essentially setting a
 /// minimum balance below which the total balance (inclusive of any funds placed on hold) may not
@@ -90,7 +93,10 @@ pub trait Mutate<AccountId>: Inspect<AccountId> {
 		fortitude: Fortitude,
 	) -> DispatchResult {
 		let force = fortitude == Fortitude::Force;
-		ensure!(force || Self::balance_freezable(asset.clone(), who) >= amount, TokenError::FundsUnavailable);
+		ensure!(
+			force || Self::balance_freezable(asset.clone(), who) >= amount,
+			TokenError::FundsUnavailable
+		);
 		Self::set_freeze(asset, id, who, amount)
 	}
 
@@ -107,7 +113,10 @@ pub trait Mutate<AccountId>: Inspect<AccountId> {
 		fortitude: Fortitude,
 	) -> DispatchResult {
 		let force = fortitude == Fortitude::Force;
-		ensure!(force || Self::balance_freezable(asset.clone(), who) >= amount, TokenError::FundsUnavailable);
+		ensure!(
+			force || Self::balance_freezable(asset.clone(), who) >= amount,
+			TokenError::FundsUnavailable
+		);
 		Self::extend_freeze(asset, id, who, amount)
 	}
 

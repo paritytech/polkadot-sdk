@@ -56,10 +56,14 @@ pub use item_of::ItemOf;
 pub use regular::{
 	Balanced, DecreaseIssuance, Dust, IncreaseIssuance, Inspect, Mutate, Unbalanced,
 };
+use sp_arithmetic::traits::Zero;
 use sp_core::Get;
-use sp_runtime::traits::Convert;
+use sp_runtime::{traits::Convert, DispatchError};
 
-use crate::traits::{Consideration, Footprint};
+use crate::{
+	ensure,
+	traits::{Consideration, Footprint},
+};
 
 /// Consideration method using a `fungible` balance frozen as the cost exacted for the footprint.
 ///
@@ -150,7 +154,8 @@ impl<A, F: MutateFreeze<A>, R: Get<F::Id>, D: Convert<Footprint, F::Balance>> Co
 		who: &A,
 		_old: Option<Self::Ticket>,
 		new: Option<Footprint>,
-	) -> Result<Self::Ticket, sp_runtime::DispatchError> {
+	) -> Result<Self::Ticket, DispatchError> {
+		ensure!(F::balance_frozen(&R::get(), who).is_zero(), DispatchError::Unavailable);
 		match new {
 			Some(footprint) => F::set_freeze(&R::get(), who, D::convert(footprint)),
 			None => F::thaw(&R::get(), who),
@@ -175,6 +180,7 @@ impl<A, F: MutateHold<A>, R: Get<F::Reason>, D: Convert<Footprint, F::Balance>> 
 		_old: Option<Self::Ticket>,
 		new: Option<Footprint>,
 	) -> Result<Self::Ticket, sp_runtime::DispatchError> {
+		ensure!(F::balance_on_hold(&R::get(), who).is_zero(), DispatchError::Unavailable);
 		match new {
 			Some(footprint) => F::set_on_hold(&R::get(), who, D::convert(footprint)),
 			None => F::release_all(&R::get(), who, super::Precision::BestEffort).map(|_| ()),
