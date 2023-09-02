@@ -75,7 +75,7 @@ use parachains_common::{
 	NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
 use sp_runtime::RuntimeDebug;
-use xcm::latest::prelude::{MultiLocation};
+use xcm::latest::prelude::MultiLocation;
 use xcm_config::{
 	FellowshipLocation, ForeignAssetsConvertedConcreteId, GovernanceLocation, KsmLocation,
 	PoolAssetsConvertedConcreteId, TrustBackedAssetsConvertedConcreteId, XcmConfig,

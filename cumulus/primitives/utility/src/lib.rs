@@ -236,7 +236,8 @@ impl<
 
 			// Construct outstanding_concrete_asset with the same location id and substracted
 			// balance
-			let outstanding_concrete_asset: MultiAsset = (id.clone(), outstanding_minus_substracted).into();
+			let outstanding_concrete_asset: MultiAsset =
+				(id.clone(), outstanding_minus_substracted).into();
 
 			// Substract from existing weight and balance
 			weight_outstanding = weight_outstanding.saturating_sub(weight);

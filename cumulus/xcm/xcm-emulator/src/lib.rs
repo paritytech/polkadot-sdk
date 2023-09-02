@@ -56,8 +56,8 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 pub use xcm::latest::prelude::{
-	Ancestor, MultiAssets, MultiLocation, Parachain as ParachainJunction, Parent, WeightLimit,
-	XcmHash, Junctions
+	Ancestor, Junctions, MultiAssets, MultiLocation, Parachain as ParachainJunction, Parent,
+	WeightLimit, XcmHash,
 };
 pub use xcm_executor::traits::ConvertLocation;
 

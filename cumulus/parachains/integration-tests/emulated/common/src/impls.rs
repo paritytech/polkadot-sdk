@@ -39,7 +39,7 @@ pub use cumulus_pallet_dmp_queue;
 pub use cumulus_pallet_parachain_system;
 pub use cumulus_pallet_xcmp_queue;
 pub use cumulus_primitives_core::{
-	relay_chain::HrmpChannelId, DmpMessageHandler, ParaId, XcmpMessageHandler, XcmError,
+	relay_chain::HrmpChannelId, DmpMessageHandler, ParaId, XcmError, XcmpMessageHandler,
 };
 use pallet_bridge_messages::{Config, Instance1, Instance2, OutboundLanes, Pallet};
 pub use parachains_common::{AccountId, Balance};

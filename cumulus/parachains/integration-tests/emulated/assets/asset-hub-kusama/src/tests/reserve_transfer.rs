@@ -361,8 +361,7 @@ fn limited_reserve_transfer_asset_from_system_para_to_para() {
 	let beneficiary_id = PenpalKusamaAReceiver::get();
 	let amount_to_send = ASSET_MIN_BALANCE * 1000;
 	let assets =
-		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], amount_to_send)
-			.into();
+		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], amount_to_send).into();
 
 	let system_para_test_args = TestContext {
 		sender: AssetHubKusamaSender::get(),
@@ -396,8 +395,7 @@ fn reserve_transfer_asset_from_system_para_to_para() {
 	let beneficiary_id = PenpalKusamaAReceiver::get();
 	let amount_to_send = ASSET_MIN_BALANCE * 1000;
 	let assets =
-		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], amount_to_send)
-			.into();
+		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], amount_to_send).into();
 
 	let system_para_test_args = TestContext {
 		sender: AssetHubKusamaSender::get(),

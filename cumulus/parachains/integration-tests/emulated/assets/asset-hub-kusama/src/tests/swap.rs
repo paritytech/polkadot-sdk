@@ -129,12 +129,15 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			Parachain(PenpalKusamaA::para_id().into()),
 			PalletInstance(ASSETS_PALLET_ID),
 			GeneralIndex(ASSET_ID.into()),
-		].into(),
+		]
+		.into(),
 	});
 
-	let assets_para_destination: VersionedMultiLocation =
-		MultiLocation { parents: 1, interior: [Parachain(AssetHubKusama::para_id().into())].into() }
-			.into();
+	let assets_para_destination: VersionedMultiLocation = MultiLocation {
+		parents: 1,
+		interior: [Parachain(AssetHubKusama::para_id().into())].into(),
+	}
+	.into();
 
 	let penpal_location =
 		MultiLocation { parents: 1, interior: [Parachain(PenpalKusamaA::para_id().into())].into() };
@@ -168,7 +171,8 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		interior: [AccountId32Junction {
 			network: None,
 			id: sov_penpal_on_asset_hub_kusama.clone().into(),
-		}].into(),
+		}]
+		.into(),
 	};
 
 	let call_foreign_assets_create =
