@@ -28,7 +28,6 @@ use frame_support::{
 use frame_system::EnsureSignedBy;
 use sp_core::H256;
 use sp_runtime::{
-	testing::Header,
 	traits::{BlakeTwo256, Convert, IdentityLookup},
 	BuildStorage,
 };
@@ -82,7 +81,6 @@ impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<1>;
-	type HoldIdentifier = ();
 	type RuntimeHoldReason = ();
 	type MaxHolds = ();
 }

@@ -17,9 +17,15 @@
 
 //! Traits for encoding data related to pallet's storage items.
 
+use crate::traits::Footprint;
+use codec::{FullCodec, MaxEncodedLen};
 use impl_trait_for_tuples::impl_for_tuples;
+use scale_info::TypeInfo;
 pub use sp_core::storage::TrackedStorageKey;
-use sp_runtime::{traits::Saturating, RuntimeDebug};
+use sp_runtime::{
+	traits::{Member, Saturating},
+	DispatchError, RuntimeDebug,
+};
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 /// An instance of a pallet in the storage.
