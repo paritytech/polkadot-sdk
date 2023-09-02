@@ -218,7 +218,7 @@ where
 			//
 			// TODO: If we got benchmarking that includes the proof size,
 			// we should be able to use the maximum pov size.
-			Some((validation_data.max_pov_size / 2) as usize),
+			Some(validation_data.max_pov_size as usize),
 		);
 
 		let res = self.aura_worker.lock().await.on_slot(info).await?;
