@@ -19,7 +19,7 @@ use super::{
 };
 use frame_support::{
 	parameter_types,
-	traits::{ConstU32, EitherOfDiverse, Everything, Nothing, Contains},
+	traits::{ConstU32, Contains, EitherOfDiverse, Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;

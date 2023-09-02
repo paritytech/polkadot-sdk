@@ -4,7 +4,7 @@ use super::{
 };
 use frame_support::{
 	parameter_types,
-	traits::{ConstU32, Everything, Nothing, Contains},
+	traits::{ConstU32, Contains, Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;

@@ -615,7 +615,8 @@ where
 				Parachain(SelfParaId::get().into()),
 				PalletInstance(<Assets as PalletInfoAccess>::index() as u8),
 				GeneralIndex(asset_id.into()),
-			].into(),
+			]
+			.into(),
 		}
 	}
 

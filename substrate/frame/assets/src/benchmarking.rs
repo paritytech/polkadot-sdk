@@ -108,8 +108,13 @@ fn add_approvals<T: Config<I>, I: 'static>(minter: T::AccountId, n: u32) {
 	);
 	let minter_lookup = T::Lookup::unlookup(minter.clone());
 	let origin = SystemOrigin::Signed(minter);
-	Assets::<T, I>::mint(origin.clone().into(), asset_id.clone(), minter_lookup, (100 * (n + 1)).into())
-		.unwrap();
+	Assets::<T, I>::mint(
+		origin.clone().into(),
+		asset_id.clone(),
+		minter_lookup,
+		(100 * (n + 1)).into(),
+	)
+	.unwrap();
 	let enough = T::Currency::minimum_balance();
 	for i in 0..n {
 		let target = account("approval", i, SEED);

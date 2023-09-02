@@ -160,7 +160,8 @@ mod tests {
 						GeneralIndex(1234),
 						GeneralIndex(2222),
 						GeneralKey { data: [0; 32], length: 32 },
-					].into(),
+					]
+					.into(),
 				),
 				Ok((1234, 1000)),
 			),
@@ -240,7 +241,10 @@ mod tests {
 			(ma_1000(1, Here), Err(MatchError::AssetNotHandled)),
 			// excluded as additional filter - Parachain100Pattern
 			(ma_1000(1, [Parachain(100)].into()), Err(MatchError::AssetNotHandled)),
-			(ma_1000(1, [Parachain(100), GeneralIndex(1234)].into()), Err(MatchError::AssetNotHandled)),
+			(
+				ma_1000(1, [Parachain(100), GeneralIndex(1234)].into()),
+				Err(MatchError::AssetNotHandled),
+			),
 			(
 				ma_1000(1, [Parachain(100), PalletInstance(13), GeneralIndex(1234)].into()),
 				Err(MatchError::AssetNotHandled),
@@ -261,13 +265,20 @@ mod tests {
 						GlobalConsensus(NetworkId::ByGenesis([9; 32])),
 						Parachain(200),
 						GeneralIndex(1234),
-					].into(),
+					]
+					.into(),
 				),
 				Err(MatchError::AssetNotHandled),
 			),
 			// ok
-			(ma_1000(1, [Parachain(200)].into()), Ok((MultiLocation::new(1, [Parachain(200)]), 1000))),
-			(ma_1000(2, [Parachain(200)].into()), Ok((MultiLocation::new(2, [Parachain(200)]), 1000))),
+			(
+				ma_1000(1, [Parachain(200)].into()),
+				Ok((MultiLocation::new(1, [Parachain(200)]), 1000)),
+			),
+			(
+				ma_1000(2, [Parachain(200)].into()),
+				Ok((MultiLocation::new(2, [Parachain(200)]), 1000)),
+			),
 			(
 				ma_1000(1, [Parachain(200), GeneralIndex(1234)].into()),
 				Ok((MultiLocation::new(1, [Parachain(200), GeneralIndex(1234)]), 1000)),
@@ -278,10 +289,7 @@ mod tests {
 			),
 			(
 				ma_1000(2, [GlobalConsensus(NetworkId::ByGenesis([7; 32]))].into()),
-				Ok((
-					MultiLocation::new(2, [GlobalConsensus(NetworkId::ByGenesis([7; 32]))]),
-					1000,
-				)),
+				Ok((MultiLocation::new(2, [GlobalConsensus(NetworkId::ByGenesis([7; 32]))]), 1000)),
 			),
 			(
 				ma_1000(
@@ -290,7 +298,8 @@ mod tests {
 						GlobalConsensus(NetworkId::ByGenesis([7; 32])),
 						Parachain(200),
 						GeneralIndex(1234),
-					].into(),
+					]
+					.into(),
 				),
 				Ok((
 					MultiLocation::new(

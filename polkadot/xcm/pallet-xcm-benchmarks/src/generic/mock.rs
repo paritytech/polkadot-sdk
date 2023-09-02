@@ -19,7 +19,8 @@
 use crate::{generic, mock::*, *};
 use codec::Decode;
 use frame_support::{
-	parameter_types, traits::{Everything, OriginTrait, Contains},
+	parameter_types,
+	traits::{Contains, Everything, OriginTrait},
 	weights::Weight,
 };
 use sp_core::H256;

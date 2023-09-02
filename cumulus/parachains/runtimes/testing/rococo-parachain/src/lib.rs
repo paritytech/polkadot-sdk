@@ -42,8 +42,8 @@ pub use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything,
-		IsInVec, Nothing, Randomness, Contains,
+		AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, ConstU8, Contains, EitherOfDiverse,
+		Everything, IsInVec, Nothing, Randomness,
 	},
 	weights::{
 		constants::{

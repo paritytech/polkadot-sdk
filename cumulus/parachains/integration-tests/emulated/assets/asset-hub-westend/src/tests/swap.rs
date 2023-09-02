@@ -118,15 +118,20 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			Parachain(PenpalWestendA::para_id().into()),
 			PalletInstance(ASSETS_PALLET_ID),
 			GeneralIndex(ASSET_ID.into()),
-		].into(),
+		]
+		.into(),
 	});
 
-	let assets_para_destination: VersionedMultiLocation =
-		MultiLocation { parents: 1, interior: [Parachain(AssetHubWestend::para_id().into())].into() }
-			.into();
+	let assets_para_destination: VersionedMultiLocation = MultiLocation {
+		parents: 1,
+		interior: [Parachain(AssetHubWestend::para_id().into())].into(),
+	}
+	.into();
 
-	let penpal_location =
-		MultiLocation { parents: 1, interior: [Parachain(PenpalWestendA::para_id().into())].into() };
+	let penpal_location = MultiLocation {
+		parents: 1,
+		interior: [Parachain(PenpalWestendA::para_id().into())].into(),
+	};
 
 	// 1. Create asset on penpal:
 	PenpalWestendA::execute_with(|| {
@@ -156,7 +161,8 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		interior: [AccountId32Junction {
 			network: None,
 			id: sov_penpal_on_asset_hub_westend.clone().into(),
-		}].into(),
+		}]
+		.into(),
 	};
 
 	let call_foreign_assets_create =

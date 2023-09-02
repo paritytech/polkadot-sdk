@@ -133,7 +133,8 @@ pub fn teleports_for_native_asset_works<
 						interior: [AccountId32 {
 							network: None,
 							id: target_account.clone().into(),
-						}].into(),
+						}]
+						.into(),
 					},
 				},
 				ExpectTransactStatus(MaybeErrorCode::Success),
@@ -356,7 +357,8 @@ pub fn teleports_for_foreign_assets_works<
 	};
 
 	// foreign creator, which can be sibling parachain to match ForeignCreators
-	let foreign_creator = MultiLocation { parents: 1, interior: [Parachain(foreign_para_id)].into() };
+	let foreign_creator =
+		MultiLocation { parents: 1, interior: [Parachain(foreign_para_id)].into() };
 	let foreign_creator_as_account_id =
 		SovereignAccountOf::convert_location(&foreign_creator).expect("");
 
@@ -466,7 +468,8 @@ pub fn teleports_for_foreign_assets_works<
 						interior: [AccountId32 {
 							network: None,
 							id: target_account.clone().into(),
-						}].into(),
+						}]
+						.into(),
 					},
 				},
 				ExpectTransactStatus(MaybeErrorCode::Success),
@@ -683,11 +686,13 @@ pub fn asset_transactor_transfer_with_local_consensus_currency_works<Runtime, Xc
 			let _ = RuntimeHelper::<XcmConfig>::do_transfer(
 				MultiLocation {
 					parents: 0,
-					interior: [AccountId32 { network: None, id: source_account.clone().into() }].into(),
+					interior: [AccountId32 { network: None, id: source_account.clone().into() }]
+						.into(),
 				},
 				MultiLocation {
 					parents: 0,
-					interior: [AccountId32 { network: None, id: target_account.clone().into() }].into(),
+					interior: [AccountId32 { network: None, id: target_account.clone().into() }]
+						.into(),
 				},
 				// local_consensus_currency_asset, e.g.: relaychain token (KSM, DOT, ...)
 				(
@@ -870,17 +875,16 @@ pub fn asset_transactor_transfer_with_pallet_assets_instance_works<
 				RuntimeHelper::<XcmConfig>::do_transfer(
 					MultiLocation {
 						parents: 0,
-						interior: [AccountId32 {
-							network: None,
-							id: alice_account.clone().into()
-						}].into(),
+						interior: [AccountId32 { network: None, id: alice_account.clone().into() }]
+							.into(),
 					},
 					MultiLocation {
 						parents: 0,
 						interior: [AccountId32 {
 							network: None,
 							id: charlie_account.clone().into()
-						}].into(),
+						}]
+						.into(),
 					},
 					(asset_id_as_multilocation.clone(), asset_minimum_asset_balance),
 				),
@@ -894,14 +898,13 @@ pub fn asset_transactor_transfer_with_pallet_assets_instance_works<
 				RuntimeHelper::<XcmConfig>::do_transfer(
 					MultiLocation {
 						parents: 0,
-						interior: [AccountId32 {
-							network: None,
-							id: alice_account.clone().into()
-						}].into(),
+						interior: [AccountId32 { network: None, id: alice_account.clone().into() }]
+							.into(),
 					},
 					MultiLocation {
 						parents: 0,
-						interior: [AccountId32 { network: None, id: bob_account.clone().into() }].into(),
+						interior: [AccountId32 { network: None, id: bob_account.clone().into() }]
+							.into(),
 					},
 					(asset_id_as_multilocation, asset_minimum_asset_balance),
 				),
@@ -1247,8 +1250,10 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 
 			// lets try create asset for different parachain(3333) (foreign_creator(2222) can create
 			// just his assets)
-			let foreign_asset_id_multilocation =
-				MultiLocation { parents: 1, interior: [Parachain(3333), GeneralIndex(1234567)].into() };
+			let foreign_asset_id_multilocation = MultiLocation {
+				parents: 1,
+				interior: [Parachain(3333), GeneralIndex(1234567)].into(),
+			};
 			let asset_id = AssetIdConverter::convert(&foreign_asset_id_multilocation).unwrap();
 
 			// prepare data for xcm::Transact(create)

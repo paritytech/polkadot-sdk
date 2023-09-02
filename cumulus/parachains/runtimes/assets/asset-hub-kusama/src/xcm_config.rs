@@ -620,7 +620,8 @@ where
 				Parachain(SelfParaId::get().into()),
 				PalletInstance(<Assets as PalletInfoAccess>::index() as u8),
 				GeneralIndex(asset_id.into()),
-			].into(),
+			]
+			.into(),
 		}
 	}
 	fn multiasset_id(asset_id: u32) -> sp_std::boxed::Box<MultiLocation> {

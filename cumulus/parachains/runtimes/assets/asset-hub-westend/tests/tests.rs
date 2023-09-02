@@ -414,13 +414,18 @@ fn test_assets_balances_api_works() {
 		.build()
 		.execute_with(|| {
 			let local_asset_id = 1;
-			let foreign_asset_id_multilocation =
-				MultiLocation { parents: 1, interior: [Parachain(1234), GeneralIndex(12345)].into() };
+			let foreign_asset_id_multilocation = MultiLocation {
+				parents: 1,
+				interior: [Parachain(1234), GeneralIndex(12345)].into(),
+			};
 
 			// check before
 			assert_eq!(Assets::balance(local_asset_id, AccountId::from(ALICE)), 0);
 			assert_eq!(
-				ForeignAssets::balance(foreign_asset_id_multilocation.clone(), AccountId::from(ALICE)),
+				ForeignAssets::balance(
+					foreign_asset_id_multilocation.clone(),
+					AccountId::from(ALICE)
+				),
 				0
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), 0);
@@ -477,7 +482,10 @@ fn test_assets_balances_api_works() {
 				minimum_asset_balance
 			);
 			assert_eq!(
-				ForeignAssets::balance(foreign_asset_id_multilocation.clone(), AccountId::from(ALICE)),
+				ForeignAssets::balance(
+					foreign_asset_id_multilocation.clone(),
+					AccountId::from(ALICE)
+				),
 				6 * minimum_asset_balance
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), some_currency);
