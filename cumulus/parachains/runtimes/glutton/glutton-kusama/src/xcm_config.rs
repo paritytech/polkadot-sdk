@@ -18,8 +18,8 @@ use super::{
 	RuntimeOrigin,
 };
 use frame_support::{
-	match_types, parameter_types,
-	traits::{Everything, Nothing},
+	parameter_types,
+	traits::{Everything, Nothing, Contains},
 	weights::Weight,
 };
 use xcm::latest::prelude::*;
@@ -31,7 +31,7 @@ use xcm_builder::{
 parameter_types! {
 	pub const KusamaLocation: MultiLocation = MultiLocation::parent();
 	pub const KusamaNetwork: Option<NetworkId> = Some(NetworkId::Kusama);
-	pub UniversalLocation: InteriorMultiLocation = X1(Parachain(ParachainInfo::parachain_id().into()));
+	pub UniversalLocation: InteriorMultiLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
 }
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
@@ -47,8 +47,11 @@ pub type XcmOriginToTransactDispatchOrigin = (
 	ParentAsSuperuser<RuntimeOrigin>,
 );
 
-match_types! {
-	pub type JustTheParent: impl Contains<MultiLocation> = { MultiLocation { parents:1, interior: Here } };
+pub struct JustTheParent;
+impl Contains<MultiLocation> for JustTheParent {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(location.unpack(), (1, []))
+	}
 }
 
 parameter_types! {

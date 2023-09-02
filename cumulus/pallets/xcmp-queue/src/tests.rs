@@ -321,8 +321,9 @@ fn xcmp_queue_consumes_dest_and_msg_on_ok_validate() {
 	let message = Xcm(vec![Trap(5)]);
 
 	// XcmpQueue - check dest/msg is valid
-	let dest = (Parent, X1(Parachain(5555)));
-	let mut dest_wrapper = Some(dest.into());
+	let junctions: Junctions = [Parachain(5555)].into();
+	let dest = (Parent, junctions);
+	let mut dest_wrapper = Some(dest.clone().into());
 	let mut msg_wrapper = Some(message.clone());
 	assert!(<XcmpQueue as SendXcm>::validate(&mut dest_wrapper, &mut msg_wrapper).is_ok());
 

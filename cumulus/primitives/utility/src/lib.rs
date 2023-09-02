@@ -396,7 +396,7 @@ mod tests {
 
 		// ParentAsUmp - check dest/msg is valid
 		let dest = (Parent, Here);
-		let mut dest_wrapper = Some(dest.into());
+		let mut dest_wrapper = Some(dest.clone().into());
 		let mut msg_wrapper = Some(message.clone());
 		assert!(<ParentAsUmp<(), (), ()> as SendXcm>::validate(
 			&mut dest_wrapper,

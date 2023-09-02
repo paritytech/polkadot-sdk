@@ -28,7 +28,7 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 			RuntimeEvent::Balances(pallet_balances::Event::Transfer { from, to, amount }) => {
 				from: *from == t.sender.account_id,
 				to: *to == Polkadot::sovereign_account_id_of(
-					t.args.dest
+					t.args.dest.clone()
 				),
 				amount:  *amount == t.args.amount,
 			},
@@ -39,7 +39,7 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 fn system_para_dest_assertions_incomplete(_t: RelayToSystemParaTest) {
 	AssetHubPolkadot::assert_dmp_queue_incomplete(
 		Some(Weight::from_parts(1_000_000_000, 0)),
-		Some(Error::UntrustedReserveLocation),
+		Some(XcmError::UntrustedReserveLocation),
 	);
 }
 
@@ -64,7 +64,7 @@ fn system_para_to_para_assertions(t: SystemParaToParaTest) {
 			) => {
 				from: *from == t.sender.account_id,
 				to: *to == AssetHubPolkadot::sovereign_account_id_of(
-					t.args.dest
+					t.args.dest.clone()
 				),
 				amount: *amount == t.args.amount,
 			},
@@ -90,7 +90,7 @@ fn system_para_to_para_assets_assertions(t: SystemParaToParaTest) {
 				asset_id: *asset_id == ASSET_ID,
 				from: *from == t.sender.account_id,
 				to: *to == AssetHubPolkadot::sovereign_account_id_of(
-					t.args.dest
+					t.args.dest.clone()
 				),
 				amount: *amount == t.args.amount,
 			},
@@ -360,8 +360,9 @@ fn limited_reserve_transfer_asset_from_system_para_to_para() {
 	let destination = AssetHubPolkadot::sibling_location_of(PenpalPolkadotA::para_id());
 	let beneficiary_id = PenpalPolkadotAReceiver::get();
 	let amount_to_send = ASSET_MIN_BALANCE * 1000;
+	let junctions: Junctions = [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())].into();
 	let assets =
-		(X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())), amount_to_send)
+		(junctions, amount_to_send)
 			.into();
 
 	let system_para_test_args = TestContext {
@@ -395,8 +396,9 @@ fn reserve_transfer_asset_from_system_para_to_para() {
 	let destination = AssetHubPolkadot::sibling_location_of(PenpalPolkadotA::para_id());
 	let beneficiary_id = PenpalPolkadotAReceiver::get();
 	let amount_to_send = ASSET_MIN_BALANCE * 1000;
+	let junctions: Junctions = [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())].into();
 	let assets =
-		(X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())), amount_to_send)
+		(junctions, amount_to_send)
 			.into();
 
 	let system_para_test_args = TestContext {

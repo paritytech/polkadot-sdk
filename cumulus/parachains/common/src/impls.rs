@@ -265,7 +265,7 @@ mod tests {
 	#[test]
 	fn assets_from_filters_correctly() {
 		parameter_types! {
-			pub SomeSiblingParachain: MultiLocation = MultiLocation::new(1, X1(Parachain(1234)));
+			pub SomeSiblingParachain: MultiLocation = MultiLocation::new(1, [Parachain(1234)]);
 		}
 
 		let asset_location = SomeSiblingParachain::get()

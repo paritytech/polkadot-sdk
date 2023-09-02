@@ -117,7 +117,7 @@ fn test_asset_xcm_trader() {
 			// Lets pay with: asset_amount_needed + asset_amount_extra
 			let asset_amount_extra = 100_u128;
 			let asset: MultiAsset =
-				(asset_multilocation, asset_amount_needed + asset_amount_extra).into();
+				(asset_multilocation.clone(), asset_amount_needed + asset_amount_extra).into();
 
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
 			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
@@ -188,7 +188,7 @@ fn test_asset_xcm_trader_with_refund() {
 			// lets calculate amount needed
 			let amount_bought = WeightToFee::weight_to_fee(&bought);
 
-			let asset: MultiAsset = (asset_multilocation, amount_bought).into();
+			let asset: MultiAsset = (asset_multilocation.clone(), amount_bought).into();
 
 			// Make sure buy_weight does not return an error
 			assert_ok!(trader.buy_weight(bought, asset.clone().into(), &ctx));
@@ -317,7 +317,7 @@ fn test_that_buying_ed_refund_does_not_refund() {
 
 			// We know we will have to buy at least ED, so lets make sure first it will
 			// fail with a payment of less than ED
-			let asset: MultiAsset = (asset_multilocation, amount_bought).into();
+			let asset: MultiAsset = (asset_multilocation.clone(), amount_bought).into();
 			assert_noop!(trader.buy_weight(bought, asset.into(), &ctx), XcmError::TooExpensive);
 
 			// Now lets buy ED at least
@@ -415,12 +415,12 @@ fn test_assets_balances_api_works() {
 		.execute_with(|| {
 			let local_asset_id = 1;
 			let foreign_asset_id_multilocation =
-				MultiLocation { parents: 1, interior: X2(Parachain(1234), GeneralIndex(12345)) };
+				MultiLocation { parents: 1, interior: [Parachain(1234), GeneralIndex(12345)].into() };
 
 			// check before
 			assert_eq!(Assets::balance(local_asset_id, AccountId::from(ALICE)), 0);
 			assert_eq!(
-				ForeignAssets::balance(foreign_asset_id_multilocation, AccountId::from(ALICE)),
+				ForeignAssets::balance(foreign_asset_id_multilocation.clone(), AccountId::from(ALICE)),
 				0
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), 0);
@@ -457,7 +457,7 @@ fn test_assets_balances_api_works() {
 			let foreign_asset_minimum_asset_balance = 3333333_u128;
 			assert_ok!(ForeignAssets::force_create(
 				RuntimeHelper::root_origin(),
-				foreign_asset_id_multilocation,
+				foreign_asset_id_multilocation.clone(),
 				AccountId::from(SOME_ASSET_ADMIN).into(),
 				false,
 				foreign_asset_minimum_asset_balance
@@ -466,7 +466,7 @@ fn test_assets_balances_api_works() {
 			// We first mint enough asset for the account to exist for assets
 			assert_ok!(ForeignAssets::mint(
 				RuntimeHelper::origin_of(AccountId::from(SOME_ASSET_ADMIN)),
-				foreign_asset_id_multilocation,
+				foreign_asset_id_multilocation.clone(),
 				AccountId::from(ALICE).into(),
 				6 * foreign_asset_minimum_asset_balance
 			));
@@ -477,7 +477,7 @@ fn test_assets_balances_api_works() {
 				minimum_asset_balance
 			);
 			assert_eq!(
-				ForeignAssets::balance(foreign_asset_id_multilocation, AccountId::from(ALICE)),
+				ForeignAssets::balance(foreign_asset_id_multilocation.clone(), AccountId::from(ALICE)),
 				6 * minimum_asset_balance
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), some_currency);
@@ -601,7 +601,7 @@ asset_test_utils::include_asset_transactor_transfer_with_pallet_assets_instance_
 	JustTry,
 	collator_session_keys(),
 	ExistentialDeposit::get(),
-	MultiLocation { parents: 1, interior: X2(Parachain(1313), GeneralIndex(12345)) },
+	MultiLocation { parents: 1, interior: [Parachain(1313), GeneralIndex(12345)].into() },
 	Box::new(|| {
 		assert!(Assets::asset_ids().collect::<Vec<_>>().is_empty());
 	}),
@@ -658,7 +658,7 @@ fn plain_receive_teleported_asset_works() {
 				MAX_XCM_DECODE_DEPTH,
 				&mut data.as_ref(),
 			)
-				.map(xcm::v3::Xcm::<RuntimeCall>::try_from).expect("failed").expect("failed");
+				.map(xcm::v4::Xcm::<RuntimeCall>::try_from).expect("failed").expect("failed");
 
 			let outcome =
 				XcmExecutor::<XcmConfig>::execute_xcm(Parent, maybe_msg, message_id, RuntimeHelper::xcm_max_weight(XcmReceivedFrom::Parent));

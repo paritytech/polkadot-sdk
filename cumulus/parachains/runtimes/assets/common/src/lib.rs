@@ -70,8 +70,8 @@ pub type ForeignAssetsConvertedConcreteId<AdditionalMultiLocationExclusionFilter
 			Equals<ParentLocation>,
 			// Here we rely on fact that something like this works:
 			// assert!(MultiLocation::new(1,
-			// X1(Parachain(100))).starts_with(&MultiLocation::parent()));
-			// assert!(X1(Parachain(100)).starts_with(&Here));
+			// [Parachain(100)]).starts_with(&MultiLocation::parent()));
+			// assert!([Parachain(100)].into().starts_with(&Here));
 			StartsWith<LocalMultiLocationPattern>,
 			// Here we can exclude more stuff or leave it as `()`
 			AdditionalMultiLocationExclusionFilter,
@@ -104,11 +104,11 @@ mod tests {
 	#[test]
 	fn asset_id_for_trust_backed_assets_convert_works() {
 		frame_support::parameter_types! {
-			pub TrustBackedAssetsPalletLocation: MultiLocation = MultiLocation::new(5, X1(PalletInstance(13)));
+			pub TrustBackedAssetsPalletLocation: MultiLocation = MultiLocation::new(5, [PalletInstance(13)]);
 		}
 		let local_asset_id = 123456789 as AssetIdForTrustBackedAssets;
 		let expected_reverse_ref =
-			MultiLocation::new(5, X2(PalletInstance(13), GeneralIndex(local_asset_id.into())));
+			MultiLocation::new(5, [PalletInstance(13), GeneralIndex(local_asset_id.into())]);
 
 		assert_eq!(
 			AssetIdForTrustBackedAssetsConvert::<TrustBackedAssetsPalletLocation>::convert_back(
@@ -129,7 +129,7 @@ mod tests {
 	#[test]
 	fn trust_backed_assets_match_fungibles_works() {
 		frame_support::parameter_types! {
-			pub TrustBackedAssetsPalletLocation: MultiLocation = MultiLocation::new(0, X1(PalletInstance(13)));
+			pub TrustBackedAssetsPalletLocation: MultiLocation = MultiLocation::new(0, [PalletInstance(13)]);
 		}
 		// setup convert
 		type TrustBackedAssetsConvert =
@@ -137,72 +137,72 @@ mod tests {
 
 		let test_data = vec![
 			// missing GeneralIndex
-			(ma_1000(0, X1(PalletInstance(13))), Err(MatchError::AssetIdConversionFailed)),
+			(ma_1000(0, [PalletInstance(13)].into()), Err(MatchError::AssetIdConversionFailed)),
 			(
-				ma_1000(0, X2(PalletInstance(13), GeneralKey { data: [0; 32], length: 32 })),
+				ma_1000(0, [PalletInstance(13), GeneralKey { data: [0; 32], length: 32 }].into()),
 				Err(MatchError::AssetIdConversionFailed),
 			),
 			(
-				ma_1000(0, X2(PalletInstance(13), Parachain(1000))),
+				ma_1000(0, [PalletInstance(13), Parachain(1000)].into()),
 				Err(MatchError::AssetIdConversionFailed),
 			),
 			// OK
-			(ma_1000(0, X2(PalletInstance(13), GeneralIndex(1234))), Ok((1234, 1000))),
+			(ma_1000(0, [PalletInstance(13), GeneralIndex(1234)].into()), Ok((1234, 1000))),
 			(
-				ma_1000(0, X3(PalletInstance(13), GeneralIndex(1234), GeneralIndex(2222))),
+				ma_1000(0, [PalletInstance(13), GeneralIndex(1234), GeneralIndex(2222)].into()),
 				Ok((1234, 1000)),
 			),
 			(
 				ma_1000(
 					0,
-					X4(
+					[
 						PalletInstance(13),
 						GeneralIndex(1234),
 						GeneralIndex(2222),
 						GeneralKey { data: [0; 32], length: 32 },
-					),
+					].into(),
 				),
 				Ok((1234, 1000)),
 			),
 			// wrong pallet instance
 			(
-				ma_1000(0, X2(PalletInstance(77), GeneralIndex(1234))),
+				ma_1000(0, [PalletInstance(77), GeneralIndex(1234)].into()),
 				Err(MatchError::AssetNotHandled),
 			),
 			(
-				ma_1000(0, X3(PalletInstance(77), GeneralIndex(1234), GeneralIndex(2222))),
-				Err(MatchError::AssetNotHandled),
-			),
-			// wrong parent
-			(
-				ma_1000(1, X2(PalletInstance(13), GeneralIndex(1234))),
-				Err(MatchError::AssetNotHandled),
-			),
-			(
-				ma_1000(1, X3(PalletInstance(13), GeneralIndex(1234), GeneralIndex(2222))),
-				Err(MatchError::AssetNotHandled),
-			),
-			(
-				ma_1000(1, X2(PalletInstance(77), GeneralIndex(1234))),
-				Err(MatchError::AssetNotHandled),
-			),
-			(
-				ma_1000(1, X3(PalletInstance(77), GeneralIndex(1234), GeneralIndex(2222))),
+				ma_1000(0, [PalletInstance(77), GeneralIndex(1234), GeneralIndex(2222)].into()),
 				Err(MatchError::AssetNotHandled),
 			),
 			// wrong parent
 			(
-				ma_1000(2, X2(PalletInstance(13), GeneralIndex(1234))),
+				ma_1000(1, [PalletInstance(13), GeneralIndex(1234)].into()),
 				Err(MatchError::AssetNotHandled),
 			),
 			(
-				ma_1000(2, X3(PalletInstance(13), GeneralIndex(1234), GeneralIndex(2222))),
+				ma_1000(1, [PalletInstance(13), GeneralIndex(1234), GeneralIndex(2222)].into()),
+				Err(MatchError::AssetNotHandled),
+			),
+			(
+				ma_1000(1, [PalletInstance(77), GeneralIndex(1234)].into()),
+				Err(MatchError::AssetNotHandled),
+			),
+			(
+				ma_1000(1, [PalletInstance(77), GeneralIndex(1234), GeneralIndex(2222)].into()),
+				Err(MatchError::AssetNotHandled),
+			),
+			// wrong parent
+			(
+				ma_1000(2, [PalletInstance(13), GeneralIndex(1234)].into()),
+				Err(MatchError::AssetNotHandled),
+			),
+			(
+				ma_1000(2, [PalletInstance(13), GeneralIndex(1234), GeneralIndex(2222)].into()),
 				Err(MatchError::AssetNotHandled),
 			),
 			// missing GeneralIndex
-			(ma_1000(0, X1(PalletInstance(77))), Err(MatchError::AssetNotHandled)),
-			(ma_1000(1, X1(PalletInstance(13))), Err(MatchError::AssetNotHandled)),
-			(ma_1000(2, X1(PalletInstance(13))), Err(MatchError::AssetNotHandled)),
+			(ma_1000(0, [PalletInstance(77)].into()), Err(MatchError::AssetNotHandled)),
+			(ma_1000(1, [PalletInstance(13)].into()), Err(MatchError::AssetNotHandled)),
+			(ma_1000(2, [PalletInstance(13)].into()), Err(MatchError::AssetNotHandled)),
 		];
 
 		for (multi_asset, expected_result) in test_data {
@@ -215,7 +215,7 @@ mod tests {
 	#[test]
 	fn multi_location_converted_concrete_id_converter_works() {
 		frame_support::parameter_types! {
-			pub Parachain100Pattern: MultiLocation = MultiLocation::new(1, X1(Parachain(100)));
+			pub Parachain100Pattern: MultiLocation = MultiLocation::new(1, [Parachain(100)]);
 			pub UniversalLocationNetworkId: NetworkId = NetworkId::ByGenesis([9; 32]);
 		}
 
@@ -231,75 +231,75 @@ mod tests {
 		let test_data = vec![
 			// excluded as local
 			(ma_1000(0, Here), Err(MatchError::AssetNotHandled)),
-			(ma_1000(0, X1(Parachain(100))), Err(MatchError::AssetNotHandled)),
+			(ma_1000(0, [Parachain(100)].into()), Err(MatchError::AssetNotHandled)),
 			(
-				ma_1000(0, X2(PalletInstance(13), GeneralIndex(1234))),
+				ma_1000(0, [PalletInstance(13), GeneralIndex(1234)].into()),
 				Err(MatchError::AssetNotHandled),
 			),
 			// excluded as parent
 			(ma_1000(1, Here), Err(MatchError::AssetNotHandled)),
 			// excluded as additional filter - Parachain100Pattern
-			(ma_1000(1, X1(Parachain(100))), Err(MatchError::AssetNotHandled)),
-			(ma_1000(1, X2(Parachain(100), GeneralIndex(1234))), Err(MatchError::AssetNotHandled)),
+			(ma_1000(1, [Parachain(100)].into()), Err(MatchError::AssetNotHandled)),
+			(ma_1000(1, [Parachain(100), GeneralIndex(1234)].into()), Err(MatchError::AssetNotHandled)),
 			(
-				ma_1000(1, X3(Parachain(100), PalletInstance(13), GeneralIndex(1234))),
+				ma_1000(1, [Parachain(100), PalletInstance(13), GeneralIndex(1234)].into()),
 				Err(MatchError::AssetNotHandled),
 			),
 			// excluded as additional filter - StartsWithExplicitGlobalConsensus
 			(
-				ma_1000(1, X1(GlobalConsensus(NetworkId::ByGenesis([9; 32])))),
+				ma_1000(1, [GlobalConsensus(NetworkId::ByGenesis([9; 32]))].into()),
 				Err(MatchError::AssetNotHandled),
 			),
 			(
-				ma_1000(2, X1(GlobalConsensus(NetworkId::ByGenesis([9; 32])))),
+				ma_1000(2, [GlobalConsensus(NetworkId::ByGenesis([9; 32]))].into()),
 				Err(MatchError::AssetNotHandled),
 			),
 			(
 				ma_1000(
 					2,
-					X3(
+					[
 						GlobalConsensus(NetworkId::ByGenesis([9; 32])),
 						Parachain(200),
 						GeneralIndex(1234),
-					),
+					].into(),
 				),
 				Err(MatchError::AssetNotHandled),
 			),
 			// ok
-			(ma_1000(1, X1(Parachain(200))), Ok((MultiLocation::new(1, X1(Parachain(200))), 1000))),
-			(ma_1000(2, X1(Parachain(200))), Ok((MultiLocation::new(2, X1(Parachain(200))), 1000))),
+			(ma_1000(1, [Parachain(200)].into()), Ok((MultiLocation::new(1, [Parachain(200)]), 1000))),
+			(ma_1000(2, [Parachain(200)].into()), Ok((MultiLocation::new(2, [Parachain(200)]), 1000))),
 			(
-				ma_1000(1, X2(Parachain(200), GeneralIndex(1234))),
-				Ok((MultiLocation::new(1, X2(Parachain(200), GeneralIndex(1234))), 1000)),
+				ma_1000(1, [Parachain(200), GeneralIndex(1234)].into()),
+				Ok((MultiLocation::new(1, [Parachain(200), GeneralIndex(1234)]), 1000)),
 			),
 			(
-				ma_1000(2, X2(Parachain(200), GeneralIndex(1234))),
-				Ok((MultiLocation::new(2, X2(Parachain(200), GeneralIndex(1234))), 1000)),
+				ma_1000(2, [Parachain(200), GeneralIndex(1234)].into()),
+				Ok((MultiLocation::new(2, [Parachain(200), GeneralIndex(1234)]), 1000)),
 			),
 			(
-				ma_1000(2, X1(GlobalConsensus(NetworkId::ByGenesis([7; 32])))),
+				ma_1000(2, [GlobalConsensus(NetworkId::ByGenesis([7; 32]))].into()),
 				Ok((
-					MultiLocation::new(2, X1(GlobalConsensus(NetworkId::ByGenesis([7; 32])))),
+					MultiLocation::new(2, [GlobalConsensus(NetworkId::ByGenesis([7; 32]))]),
 					1000,
 				)),
 			),
 			(
 				ma_1000(
 					2,
-					X3(
+					[
 						GlobalConsensus(NetworkId::ByGenesis([7; 32])),
 						Parachain(200),
 						GeneralIndex(1234),
-					),
+					].into(),
 				),
 				Ok((
 					MultiLocation::new(
 						2,
-						X3(
+						[
 							GlobalConsensus(NetworkId::ByGenesis([7; 32])),
 							Parachain(200),
 							GeneralIndex(1234),
-						),
+						],
 					),
 					1000,
 				)),

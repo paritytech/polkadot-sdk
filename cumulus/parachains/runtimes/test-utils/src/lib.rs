@@ -410,7 +410,7 @@ impl<
 }
 
 pub fn assert_metadata<Fungibles, AccountId>(
-	asset_id: impl Into<Fungibles::AssetId> + Copy,
+	asset_id: impl Into<Fungibles::AssetId> + Clone,
 	expected_name: &str,
 	expected_symbol: &str,
 	expected_decimals: u8,
@@ -418,20 +418,20 @@ pub fn assert_metadata<Fungibles, AccountId>(
 	Fungibles: frame_support::traits::tokens::fungibles::metadata::Inspect<AccountId>
 		+ frame_support::traits::tokens::fungibles::Inspect<AccountId>,
 {
-	assert_eq!(Fungibles::name(asset_id.into()), Vec::from(expected_name),);
-	assert_eq!(Fungibles::symbol(asset_id.into()), Vec::from(expected_symbol),);
+	assert_eq!(Fungibles::name(asset_id.clone().into()), Vec::from(expected_name),);
+	assert_eq!(Fungibles::symbol(asset_id.clone().into()), Vec::from(expected_symbol),);
 	assert_eq!(Fungibles::decimals(asset_id.into()), expected_decimals);
 }
 
 pub fn assert_total<Fungibles, AccountId>(
-	asset_id: impl Into<Fungibles::AssetId> + Copy,
+	asset_id: impl Into<Fungibles::AssetId> + Clone,
 	expected_total_issuance: impl Into<Fungibles::Balance>,
 	expected_active_issuance: impl Into<Fungibles::Balance>,
 ) where
 	Fungibles: frame_support::traits::tokens::fungibles::metadata::Inspect<AccountId>
 		+ frame_support::traits::tokens::fungibles::Inspect<AccountId>,
 {
-	assert_eq!(Fungibles::total_issuance(asset_id.into()), expected_total_issuance.into());
+	assert_eq!(Fungibles::total_issuance(asset_id.clone().into()), expected_total_issuance.into());
 	assert_eq!(Fungibles::active_issuance(asset_id.into()), expected_active_issuance.into());
 }
 

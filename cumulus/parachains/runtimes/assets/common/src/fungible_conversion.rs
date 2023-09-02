@@ -166,16 +166,16 @@ mod tests {
 
 	#[test]
 	fn converted_concrete_id_fungible_multi_asset_conversion_roundtrip_works() {
-		let location = MultiLocation::new(0, X1(GlobalConsensus(ByGenesis([0; 32]))));
+		let location = MultiLocation::new(0, [GlobalConsensus(ByGenesis([0; 32]))]);
 		let amount = 123456_u64;
 		let expected_multi_asset = MultiAsset {
-			id: Concrete(MultiLocation::new(0, X1(GlobalConsensus(ByGenesis([0; 32]))))),
+			id: Concrete(MultiLocation::new(0, [GlobalConsensus(ByGenesis([0; 32]))])),
 			fun: Fungible(123456_u128),
 		};
 
 		assert_eq!(
 			Converter::matches_fungibles(&expected_multi_asset).map_err(|_| ()),
-			Ok((location, amount))
+			Ok((location.clone(), amount))
 		);
 
 		assert_eq!(Converter::convert_ref((location, amount)), Ok(expected_multi_asset));
@@ -184,17 +184,17 @@ mod tests {
 	#[test]
 	fn converted_concrete_id_fungible_multi_asset_conversion_collection_works() {
 		let data = vec![
-			(MultiLocation::new(0, X1(GlobalConsensus(ByGenesis([0; 32])))), 123456_u64),
-			(MultiLocation::new(1, X1(GlobalConsensus(ByGenesis([1; 32])))), 654321_u64),
+			(MultiLocation::new(0, [GlobalConsensus(ByGenesis([0; 32]))]), 123456_u64),
+			(MultiLocation::new(1, [GlobalConsensus(ByGenesis([1; 32]))]), 654321_u64),
 		];
 
 		let expected_data = vec![
 			MultiAsset {
-				id: Concrete(MultiLocation::new(0, X1(GlobalConsensus(ByGenesis([0; 32]))))),
+				id: Concrete(MultiLocation::new(0, [GlobalConsensus(ByGenesis([0; 32]))])),
 				fun: Fungible(123456_u128),
 			},
 			MultiAsset {
-				id: Concrete(MultiLocation::new(1, X1(GlobalConsensus(ByGenesis([1; 32]))))),
+				id: Concrete(MultiLocation::new(1, [GlobalConsensus(ByGenesis([1; 32]))])),
 				fun: Fungible(654321_u128),
 			},
 		];

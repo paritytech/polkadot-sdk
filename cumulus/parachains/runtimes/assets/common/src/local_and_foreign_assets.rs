@@ -436,33 +436,33 @@ mod tests {
 			.unwrap();
 		let pool_asset =
 			AssetIdForPoolAssetsConvert::<PoolAssetsPalletLocation>::convert_back(&456).unwrap();
-		let foreign_asset1 = MultiLocation { parents: 1, interior: X1(Parachain(2222)) };
+		let foreign_asset1 = MultiLocation { parents: 1, interior: [Parachain(2222)].into() };
 		let foreign_asset2 = MultiLocation {
 			parents: 2,
-			interior: X2(GlobalConsensus(ByGenesis([1; 32])), Parachain(2222)),
+			interior: [GlobalConsensus(ByGenesis([1; 32])), Parachain(2222)].into(),
 		};
 
-		assert!(C::is_native(&Box::new(native_asset)));
-		assert!(!C::is_native(&Box::new(local_asset)));
-		assert!(!C::is_native(&Box::new(pool_asset)));
-		assert!(!C::is_native(&Box::new(foreign_asset1)));
-		assert!(!C::is_native(&Box::new(foreign_asset2)));
+		assert!(C::is_native(&Box::new(native_asset.clone())));
+		assert!(!C::is_native(&Box::new(local_asset.clone())));
+		assert!(!C::is_native(&Box::new(pool_asset.clone())));
+		assert!(!C::is_native(&Box::new(foreign_asset1.clone())));
+		assert!(!C::is_native(&Box::new(foreign_asset2.clone())));
 
 		assert_eq!(C::try_convert(&Box::new(native_asset)), MultiAssetIdConversionResult::Native);
 		assert_eq!(
-			C::try_convert(&Box::new(local_asset)),
+			C::try_convert(&Box::new(local_asset.clone())),
 			MultiAssetIdConversionResult::Converted(local_asset)
 		);
 		assert_eq!(
-			C::try_convert(&Box::new(pool_asset)),
+			C::try_convert(&Box::new(pool_asset.clone())),
 			MultiAssetIdConversionResult::Unsupported(Box::new(pool_asset))
 		);
 		assert_eq!(
-			C::try_convert(&Box::new(foreign_asset1)),
+			C::try_convert(&Box::new(foreign_asset1.clone())),
 			MultiAssetIdConversionResult::Converted(foreign_asset1)
 		);
 		assert_eq!(
-			C::try_convert(&Box::new(foreign_asset2)),
+			C::try_convert(&Box::new(foreign_asset2.clone())),
 			MultiAssetIdConversionResult::Converted(foreign_asset2)
 		);
 	}

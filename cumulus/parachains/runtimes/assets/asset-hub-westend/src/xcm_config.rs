@@ -592,7 +592,7 @@ pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_assets::BenchmarkHelper<MultiLocation> for XcmBenchmarkHelper {
 	fn create_asset_id_parameter(id: u32) -> MultiLocation {
-		MultiLocation { parents: 1, interior: X1(Parachain(id)) }
+		MultiLocation { parents: 1, interior: [Parachain(id)].into() }
 	}
 }
 
@@ -611,11 +611,11 @@ where
 	fn asset_id(asset_id: u32) -> MultiLocation {
 		MultiLocation {
 			parents: 1,
-			interior: X3(
+			interior: [
 				Parachain(SelfParaId::get().into()),
 				PalletInstance(<Assets as PalletInfoAccess>::index() as u8),
 				GeneralIndex(asset_id.into()),
-			),
+			].into(),
 		}
 	}
 

@@ -3,8 +3,8 @@ use super::{
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 use frame_support::{
-	match_types, parameter_types,
-	traits::{ConstU32, Everything, Nothing},
+	parameter_types,
+	traits::{ConstU32, Everything, Nothing, Contains},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -83,11 +83,11 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
-match_types! {
-	pub type ParentOrParentsExecutivePlurality: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: [Plurality { id: BodyId::Executive, .. }].into() }
-	};
+pub struct ParentOrParentsExecutivePlurality;
+impl Contains<MultiLocation> for ParentOrParentsExecutivePlurality {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [Plurality { id: BodyId::Executive, .. }]))
+	}
 }
 
 pub type Barrier = TrailingSetTopicAsId<

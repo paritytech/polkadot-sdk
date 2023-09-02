@@ -295,7 +295,7 @@ pub fn message_dispatch_routing_works<
 			// 2. this message is sent from other global consensus with destination of this Runtime sibling parachain (HRMP)
 			let bridging_message =
 				test_data::simulate_message_exporter_on_bridged_chain::<BridgedNetwork, RuntimeNetwork>(
-					(RuntimeNetwork::get(), X1(Parachain(sibling_parachain_id))),
+					(RuntimeNetwork::get(), [Parachain(sibling_parachain_id)].into()),
 				);
 
 			// 2.1. WITHOUT opened hrmp channel -> RoutingError
@@ -412,8 +412,8 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, XcmConfi
 
 			// set up relayer details and proofs
 
-			let message_destination =
-				X2(GlobalConsensus(local_relay_chain_id), Parachain(sibling_parachain_id));
+			let message_destination: Junctions =
+				[GlobalConsensus(local_relay_chain_id), Parachain(sibling_parachain_id)].into();
 			// some random numbers (checked by test)
 			let message_nonce = 1;
 			let para_header_number = 5;
@@ -424,16 +424,16 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, XcmConfi
 			let relayer_at_source = Dave;
 			let relayer_id_on_source: AccountId32 = relayer_at_source.public().into();
 
-			let xcm = vec![xcm::v3::Instruction::<()>::ClearOrigin; 42];
+			let xcm = vec![xcm::latest::Instruction::<()>::ClearOrigin; 42];
 			let expected_dispatch = xcm::latest::Xcm::<()>({
 				let mut expected_instructions = xcm.clone();
 				// dispatch prepends bridge pallet instance
 				expected_instructions.insert(
 					0,
-					DescendOrigin(X1(PalletInstance(
+					DescendOrigin([PalletInstance(
 						<pallet_bridge_messages::Pallet<Runtime, MPI> as PalletInfoAccess>::index()
 							as u8,
-					))),
+					)].into()),
 				);
 				expected_instructions
 			});
@@ -647,8 +647,8 @@ pub fn complex_relay_extrinsic_works<Runtime, AllPalletsWithoutSystem, XcmConfig
 
 			// set up relayer details and proofs
 
-			let message_destination =
-				X2(GlobalConsensus(local_relay_chain_id), Parachain(sibling_parachain_id));
+			let message_destination: Junctions =
+				[GlobalConsensus(local_relay_chain_id), Parachain(sibling_parachain_id)].into();
 			// some random numbers (checked by test)
 			let message_nonce = 1;
 			let para_header_number = 5;
@@ -660,10 +660,10 @@ pub fn complex_relay_extrinsic_works<Runtime, AllPalletsWithoutSystem, XcmConfig
 				// dispatch prepends bridge pallet instance
 				expected_instructions.insert(
 					0,
-					DescendOrigin(X1(PalletInstance(
+					DescendOrigin([PalletInstance(
 						<pallet_bridge_messages::Pallet<Runtime, MPI> as PalletInfoAccess>::index()
 							as u8,
-					))),
+					)].into()),
 				);
 				expected_instructions
 			});
@@ -795,8 +795,8 @@ pub mod test_data {
 		xcm_message: Xcm<InnerXcmRuntimeCall>,
 		destination: InteriorMultiLocation,
 	) -> Vec<u8> {
-		let location = xcm::VersionedInteriorMultiLocation::V3(destination);
-		let xcm = xcm::VersionedXcm::<InnerXcmRuntimeCall>::V3(xcm_message);
+		let location = xcm::VersionedInteriorMultiLocation::V4(destination);
+		let xcm = xcm::VersionedXcm::<InnerXcmRuntimeCall>::V4(xcm_message);
 		// this is the `BridgeMessage` from polkadot xcm builder, but it has no constructor
 		// or public fields, so just tuple
 		// (double encoding, because `.encode()` is called on original Xcm BLOB when it is pushed
@@ -938,8 +938,8 @@ pub mod test_data {
 		grab_haul_blob!(GrabbingHaulBlob, GRABBED_HAUL_BLOB_PAYLOAD);
 
 		// lets pretend that some parachain on bridged chain exported the message
-		let universal_source_on_bridged_chain =
-			X2(GlobalConsensus(SourceNetwork::get()), Parachain(5678));
+		let universal_source_on_bridged_chain: Junctions =
+			[GlobalConsensus(SourceNetwork::get()), Parachain(5678)].into();
 		let channel = 1_u32;
 
 		// simulate XCM message export

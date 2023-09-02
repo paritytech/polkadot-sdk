@@ -40,10 +40,10 @@ use sp_version::RuntimeVersion;
 pub use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
-	match_types, parameter_types,
+	parameter_types,
 	traits::{
 		AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything,
-		IsInVec, Nothing, Randomness,
+		IsInVec, Nothing, Randomness, Contains,
 	},
 	weights::{
 		constants::{
@@ -296,7 +296,7 @@ parameter_types! {
 	pub const RocLocation: MultiLocation = MultiLocation::parent();
 	pub const RococoNetwork: Option<NetworkId> = Some(NetworkId::Rococo);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorMultiLocation = X1(Parachain(ParachainInfo::parachain_id().into()));
+	pub UniversalLocation: InteriorMultiLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 }
 
@@ -386,16 +386,18 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 }
 
-match_types! {
-	// The parent or the parent's unit plurality.
-	pub type ParentOrParentsUnitPlurality: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(Plurality { id: BodyId::Unit, .. }) }
-	};
-	// The location recognized as the Relay network's Asset Hub.
-	pub type AssetHub: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: X1(Parachain(1000)) }
-	};
+pub struct ParentOrParentsUnitPlurality;
+impl Contains<MultiLocation> for ParentOrParentsUnitPlurality {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [Plurality { id: BodyId::Unit, .. }]))
+	}
+}
+
+pub struct AssetHub;
+impl Contains<MultiLocation> for AssetHub {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(location.unpack(), (1, [Parachain(1000)]))
+	}
 }
 
 pub type Barrier = TrailingSetTopicAsId<(
@@ -413,11 +415,11 @@ pub type Barrier = TrailingSetTopicAsId<(
 
 parameter_types! {
 	pub MaxAssetsIntoHolding: u32 = 64;
-	pub SystemAssetHubLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1000)));
+	pub SystemAssetHubLocation: MultiLocation = MultiLocation::new(1, [Parachain(1000)]);
 	// ALWAYS ensure that the index in PalletInstance stays up-to-date with
 	// the Relay Chain's Asset Hub's Assets pallet index
 	pub SystemAssetHubAssetsPalletLocation: MultiLocation =
-		MultiLocation::new(1, X2(Parachain(1000), PalletInstance(50)));
+		MultiLocation::new(1, [Parachain(1000), PalletInstance(50)]);
 }
 
 pub type Reserves = (NativeAsset, AssetsFrom<SystemAssetHubLocation>);

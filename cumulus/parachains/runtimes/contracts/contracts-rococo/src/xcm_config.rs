@@ -18,8 +18,8 @@ use super::{
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 use frame_support::{
-	match_types, parameter_types,
-	traits::{ConstU32, EitherOfDiverse, Everything, Nothing},
+	parameter_types,
+	traits::{ConstU32, EitherOfDiverse, Everything, Nothing, Contains},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -108,15 +108,18 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 }
 
-match_types! {
-	pub type ParentOrParentsPlurality: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(Plurality { .. }) }
-	};
-	pub type ParentOrSiblings: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(_) }
-	};
+pub struct ParentOrParentsPlurality;
+impl Contains<MultiLocation> for ParentOrParentsPlurality {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
+	}
+}
+
+pub struct ParentOrSiblings;
+impl Contains<MultiLocation> for ParentOrSiblings {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [_]))
+	}
 }
 
 pub type Barrier = TrailingSetTopicAsId<

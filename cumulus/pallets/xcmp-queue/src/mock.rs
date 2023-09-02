@@ -116,7 +116,7 @@ impl cumulus_pallet_parachain_system::Config for Test {
 
 parameter_types! {
 	pub const RelayChain: MultiLocation = MultiLocation::parent();
-	pub UniversalLocation: InteriorMultiLocation = X1(Parachain(1u32));
+	pub UniversalLocation: InteriorMultiLocation = [Parachain(1u32)].into();
 	pub UnitWeightCost: Weight = Weight::from_parts(1_000_000, 1024);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
@@ -183,11 +183,8 @@ impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
 		let origin = origin.into();
 		if kind == OriginKind::Superuser &&
 			matches!(
-				origin,
-				MultiLocation {
-					parents: 1,
-					interior: X1(Parachain(id)),
-				} if ParaId::from(id).is_system(),
+				origin.unpack(),
+				(1,	[Parachain(id)]) if ParaId::from(*id).is_system(),
 			) {
 			Ok(RuntimeOrigin::root())
 		} else {

@@ -30,7 +30,7 @@ pub use frame_support::{
 	dispatch::{
 		DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, Parameter, PostDispatchInfo,
 	},
-	ensure, match_types, parameter_types,
+	ensure, parameter_types,
 	sp_runtime::{traits::Dispatchable, DispatchError, DispatchErrorWithPostInfo},
 	traits::{ConstU32, Contains, Get, IsInVec},
 };

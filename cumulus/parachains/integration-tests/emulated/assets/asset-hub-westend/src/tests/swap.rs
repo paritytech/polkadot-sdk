@@ -21,7 +21,7 @@ fn swap_locally_on_chain_using_local_assets() {
 	let asset_native = Box::new(asset_hub_westend_runtime::xcm_config::WestendLocation::get());
 	let asset_one = Box::new(MultiLocation {
 		parents: 0,
-		interior: X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())),
+		interior: [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())].into(),
 	});
 
 	AssetHubWestend::execute_with(|| {
@@ -114,19 +114,19 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 	let foreign_asset1_at_asset_hub_westend = Box::new(MultiLocation {
 		parents: 1,
-		interior: X3(
+		interior: [
 			Parachain(PenpalWestendA::para_id().into()),
 			PalletInstance(ASSETS_PALLET_ID),
 			GeneralIndex(ASSET_ID.into()),
-		),
+		].into(),
 	});
 
 	let assets_para_destination: VersionedMultiLocation =
-		MultiLocation { parents: 1, interior: X1(Parachain(AssetHubWestend::para_id().into())) }
+		MultiLocation { parents: 1, interior: [Parachain(AssetHubWestend::para_id().into())].into() }
 			.into();
 
 	let penpal_location =
-		MultiLocation { parents: 1, interior: X1(Parachain(PenpalWestendA::para_id().into())) };
+		MultiLocation { parents: 1, interior: [Parachain(PenpalWestendA::para_id().into())].into() };
 
 	// 1. Create asset on penpal:
 	PenpalWestendA::execute_with(|| {
@@ -153,10 +153,10 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 	let sov_penpal_on_asset_hub_westend_as_location: MultiLocation = MultiLocation {
 		parents: 0,
-		interior: X1(AccountId32Junction {
+		interior: [AccountId32Junction {
 			network: None,
 			id: sov_penpal_on_asset_hub_westend.clone().into(),
-		}),
+		}].into(),
 	};
 
 	let call_foreign_assets_create =
@@ -164,7 +164,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			<AssetHubWestend as Chain>::Runtime,
 			Instance2,
 		>::create {
-			id: *foreign_asset1_at_asset_hub_westend,
+			id: *foreign_asset1_at_asset_hub_westend.clone(),
 			min_balance: 1000,
 			admin: sov_penpal_on_asset_hub_westend.clone().into(),
 		})
@@ -214,7 +214,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 	// Receive XCM message in Assets Parachain
 	AssetHubWestend::execute_with(|| {
 		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
-			*foreign_asset1_at_asset_hub_westend
+			*foreign_asset1_at_asset_hub_westend.clone()
 		));
 
 		// 3: Mint foreign asset on asset_hub_westend:
@@ -228,7 +228,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(
 				sov_penpal_on_asset_hub_westend.clone().into()
 			),
-			*foreign_asset1_at_asset_hub_westend,
+			*foreign_asset1_at_asset_hub_westend.clone(),
 			sov_penpal_on_asset_hub_westend.clone().into(),
 			3_000_000_000_000,
 		));
