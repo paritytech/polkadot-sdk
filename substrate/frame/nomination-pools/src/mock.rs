@@ -61,8 +61,11 @@ impl StakingMock {
 		BondedBalanceMap::set(&x)
 	}
 	/// Mimics a slash towards a pool specified by `pool_id`.
-	/// This sets the bonded balance of a pool to the `amount` and calls [`Pools::on_slash`] to
+	/// This reduces the bonded balance of a pool by `amount` and calls [`Pools::on_slash`] to
 	/// enact changes in the nomination-pool pallet.
+	///
+	/// Does not modify any [`SubPools::with_era`] of the pool as [`Default::default`] is passed for
+	/// `slashed_unlocking`.
 	pub fn slash_to(pool_id: PoolId, amount: Balance) {
 		let acc = Pools::create_bonded_account(pool_id);
 		let bonded = BondedBalanceMap::get();
