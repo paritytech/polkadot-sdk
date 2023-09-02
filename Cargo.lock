@@ -7908,7 +7908,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 name = "minimal-node"
 version = "4.0.0-dev"
 dependencies = [
- "clap 4.4.1",
+ "clap 4.4.2",
  "frame",
  "futures",
  "futures-timer",
