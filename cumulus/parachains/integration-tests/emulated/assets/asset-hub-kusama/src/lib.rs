@@ -28,10 +28,10 @@ pub use integration_tests_common::{
 	},
 	test_parachain_is_trusted_teleporter,
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	AssetHubKusama, AssetHubKusamaPallet, AssetHubKusamaReceiver, AssetHubKusamaSender, Kusama,
-	KusamaPallet, KusamaReceiver, KusamaSender, PenpalKusamaA, PenpalKusamaAPallet,
-	PenpalKusamaAReceiver, PenpalKusamaASender, PenpalKusamaB, PenpalKusamaBPallet,
-	BridgeHubKusama, BridgeHubKusamaReceiver,
+	AssetHubKusama, AssetHubKusamaPallet, AssetHubKusamaReceiver, AssetHubKusamaSender,
+	BridgeHubKusama, BridgeHubKusamaReceiver, Kusama, KusamaPallet, KusamaReceiver, KusamaSender,
+	PenpalKusamaA, PenpalKusamaAPallet, PenpalKusamaAReceiver, PenpalKusamaASender, PenpalKusamaB,
+	PenpalKusamaBPallet,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{

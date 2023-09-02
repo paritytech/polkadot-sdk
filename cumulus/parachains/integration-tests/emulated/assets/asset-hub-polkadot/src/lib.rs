@@ -29,10 +29,9 @@ pub use integration_tests_common::{
 	test_parachain_is_trusted_teleporter,
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
 	AssetHubPolkadot, AssetHubPolkadotPallet, AssetHubPolkadotReceiver, AssetHubPolkadotSender,
+	BridgeHubPolkadot, BridgeHubPolkadotReceiver, CollectivesPolkadot, CollectivesPolkadotReceiver,
 	PenpalPolkadotA, PenpalPolkadotAPallet, PenpalPolkadotAReceiver, PenpalPolkadotB,
 	PenpalPolkadotBPallet, Polkadot, PolkadotPallet, PolkadotReceiver, PolkadotSender,
-	CollectivesPolkadotReceiver, CollectivesPolkadot, BridgeHubPolkadotReceiver,
-	BridgeHubPolkadot
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{

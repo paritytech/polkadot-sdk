@@ -31,8 +31,9 @@ pub use integration_tests_common::{
 	test_parachain_is_trusted_teleporter,
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
 	AssetHubWestend, AssetHubWestendPallet, AssetHubWestendReceiver, AssetHubWestendSender,
-	PenpalWestendA, PenpalWestendAPallet, PenpalWestendAReceiver, PenpalWestendASender, Westend,
-	WestendPallet, WestendReceiver, WestendSender, CollectivesWestend, CollectivesWestendReceiver
+	CollectivesWestend, CollectivesWestendReceiver, PenpalWestendA, PenpalWestendAPallet,
+	PenpalWestendAReceiver, PenpalWestendASender, Westend, WestendPallet, WestendReceiver,
+	WestendSender,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{
