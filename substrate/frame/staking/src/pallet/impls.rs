@@ -27,8 +27,9 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		Currency, Defensive, DefensiveResult, EstimateNextNewSession, Get, Imbalance, OnUnbalanced,
-		TryCollect, UnixTime,
+		Currency, Defensive, DefensiveResult, EstimateNextNewSession,
+		ExistenceRequirement::KeepAlive, Get, Imbalance, LockableCurrency, OnUnbalanced,
+		TryCollect, UnixTime, WithdrawReasons,
 	},
 	weights::Weight,
 };
@@ -41,17 +42,17 @@ use sp_runtime::{
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	EraIndex, SessionIndex, Stake,
+	DelegatedStakeInterface, EraIndex, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
 use sp_std::prelude::*;
 
 use crate::{
-	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure, MaxNominationsOf,
-	MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
-	SessionInterface, StakingLedger, ValidatorPrefs,
+	delegation, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo,
+	ActiveEraInfo, BalanceOf, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
+	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
 };
 
 use super::pallet::*;
@@ -120,11 +121,12 @@ impl<T: Config> Pallet<T> {
 	pub(super) fn do_withdraw_unbonded(
 		controller: &T::AccountId,
 		num_slashing_spans: u32,
+		limit: Option<BalanceOf<T>>,
 	) -> Result<Weight, DispatchError> {
 		let mut ledger = Self::ledger(Controller(controller.clone()))?;
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
 		if let Some(current_era) = Self::current_era() {
-			ledger = ledger.consolidate_unlocked(current_era)
+			ledger = ledger.consolidate_unlocked(current_era, limit)
 		}
 		let new_total = ledger.total;
 
@@ -134,6 +136,10 @@ impl<T: Config> Pallet<T> {
 				// portion to fall below existential deposit + will have no more unlocking chunks
 				// left. We can now safely remove all staking-related information.
 				Self::kill_stash(&ledger.stash, num_slashing_spans)?;
+				// Remove the lock.
+				// todo(ank4n): this lock removal needs to be abstracted. For delegated accounts,
+				// locks are removed by delegator..
+				// T::Currency::remove_lock(STAKING_ID, &stash);
 
 				T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
 			} else {
@@ -1752,6 +1758,90 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		fn set_current_era(era: EraIndex) {
 			CurrentEra::<T>::put(era);
 		}
+	}
+}
+
+impl<T: Config> DelegatedStakeInterface for Pallet<T> {
+	type AccountId = T::AccountId;
+	type Balance = BalanceOf<T>;
+
+	fn delegated_bond_new(
+		delegator: Self::AccountId,
+		delegatee: Self::AccountId,
+		value: Self::Balance,
+		payee: Self::AccountId,
+	) -> sp_runtime::DispatchResult {
+		// delegate funds from delegator to delegatee.
+		delegation::delegate::<T>(delegator.clone(), delegatee.clone(), value)?;
+
+		// Bond with delegatee as a new staker.
+		Self::bond(
+			RawOrigin::Signed(delegatee.clone()).into(),
+			value,
+			RewardDestination::Account(payee.clone()),
+		)
+	}
+
+	// Just delegate balance.
+	fn delegated_bond_extra(
+		delegator: Self::AccountId,
+		delegatee: Self::AccountId,
+		extra: Self::Balance,
+	) -> sp_runtime::DispatchResult {
+		// delegate funds to from delegator to delegatee.
+		delegation::delegate::<T>(delegator.clone(), delegatee.clone(), extra)?;
+		// bond extra with delegatee as the staker.
+		Self::bond_extra(RawOrigin::Signed(delegatee.clone()).into(), extra)
+	}
+
+	fn delegated_bond_migrate(
+		delegator: Self::AccountId,
+		delegatee: Self::AccountId,
+		value: Self::Balance,
+	) -> sp_runtime::DispatchResult {
+		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
+
+		// ledger for delegatee account should always be bonded by stash.
+		let ledger = Self::ledger(Stash(delegatee.clone()))?;
+
+		// we want to transfer the bonded value only from active bond that is not part of delegation
+		// bond. We ignore the funds that are in unlocking period.
+		let active_direct = ledger.active - delegation::delegated_balance::<T>(&delegatee);
+		ensure!(ledger.active > value + T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
+
+		// Unbond `value` from delegatee and transfer it to delegator.
+		// fixme(ankan): Use the new staking ledger apis.
+		// T::Currency::set_lock(
+		// 	STAKING_ID,
+		// 	&delegatee,
+		// 	active_direct - value,
+		// 	WithdrawReasons::all(),
+		// );
+		T::Currency::transfer(&delegatee, &delegator, value, KeepAlive)?;
+
+		// Delegate the unbonded fund.
+		delegation::delegate::<T>(delegator, delegatee, value)?;
+
+		Ok(())
+	}
+
+	fn unbond(delegatee: Self::AccountId, value: Self::Balance) -> sp_runtime::DispatchResult {
+		Self::unbond(RawOrigin::Signed(delegatee).into(), value)
+			.map_err(|with_post| with_post.error)
+			.map(|_| ())
+	}
+
+	fn withdraw_unbonded(
+		delegatee: Self::AccountId,
+		delegator: Self::AccountId,
+		value: Self::Balance,
+	) -> Result<bool, DispatchError> {
+		// partial withdraw funds from the pool ledger.
+		let real_num_slashing_spans =
+			Self::slashing_spans(&delegatee).map_or(0, |s| s.iter().count());
+		let _ = Self::do_withdraw_unbonded(&delegatee, real_num_slashing_spans as u32, Some(value));
+		// withdraw unlocked amount to delegator.
+		delegation::withdraw::<T>(delegator.clone(), delegatee.clone(), value)
 	}
 }
 

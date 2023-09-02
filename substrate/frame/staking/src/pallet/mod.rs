@@ -46,10 +46,10 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, Exposure, Forcing, MaxNominationsOf, NegativeImbalanceOf, Nominations,
-	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger,
-	UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	delegation, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf,
+	EraPayout, EraRewardPoints, Exposure, Forcing, MaxNominationsOf, NegativeImbalanceOf,
+	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface,
+	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -581,6 +581,24 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
+	/// Map of Delegators to their delegation.
+	///
+	/// Note: We are not using a double map with delegator and delegatee account as keys since we
+	/// want to restrict delegators to delegate only to one account.
+	#[pallet::storage]
+	pub(crate) type Delegators<T: Config> =
+		CountedStorageMap<_, Twox64Concat, T::AccountId, (T::AccountId, BalanceOf<T>), OptionQuery>;
+
+	/// Map of Delegatee to their Ledger.
+	#[pallet::storage]
+	pub(crate) type Delegatees<T: Config> = CountedStorageMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		delegation::DelegationAggregate<T>,
+		OptionQuery,
+	>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -765,6 +783,16 @@ pub mod pallet {
 		CommissionTooLow,
 		/// Some bound is not met.
 		BoundNotMet,
+		/// Delegation not allowed.
+		///
+		/// Possible issues are
+		/// 1) A delegatee cannot delegate,
+		/// 2) Cannot delegate to self,
+		/// 3) Cannot delegate to multiple delegatees,
+		/// 4) Cannot delegate to a delegator.
+		InvalidDelegation,
+		/// The account does not have enough funds to perform the operation.
+		NotEnoughFunds,
 	}
 
 	#[pallet::hooks]
@@ -963,7 +991,11 @@ pub mod pallet {
 				if unlocking == T::MaxUnlockingChunks::get() as usize {
 					let real_num_slashing_spans =
 						Self::slashing_spans(&controller).map_or(0, |s| s.iter().count());
-					Some(Self::do_withdraw_unbonded(&controller, real_num_slashing_spans as u32)?)
+					Some(Self::do_withdraw_unbonded(
+						&controller,
+						real_num_slashing_spans as u32,
+						None,
+					)?)
 				} else {
 					None
 				}
@@ -1065,7 +1097,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 
-			let actual_weight = Self::do_withdraw_unbonded(&controller, num_slashing_spans)?;
+			let actual_weight = Self::do_withdraw_unbonded(&controller, num_slashing_spans, None)?;
 			Ok(Some(actual_weight).into())
 		}
 
