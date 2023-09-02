@@ -727,12 +727,9 @@ pub mod v5 {
 
 	/// This migration accumulates and initializes the [`TotalValueLocked`] for all pools.
 	pub struct VersionUncheckedMigrateV5ToV6<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV5ToV6<T> {
-		fn on_runtime_upgrade() -> Weight {
-			let migrated = BondedPools::<T>::count();
-			// The TVL should be the sum of all the funds that are actively staked and in the
-			// unbonding process of the account of each pool.
-			let tvl: BalanceOf<T> = BondedPools::<T>::iter()
+	impl<T: Config> VersionUncheckedMigrateV5ToV6<T> {
+		fn calculate_tvl_by_total_stake() -> BalanceOf<T> {
+			BondedPools::<T>::iter()
 				.map(|(id, inner)| {
 					T::Staking::total_stake(
 						&BondedPool { id, inner: inner.clone() }.bonded_account(),
@@ -740,7 +737,15 @@ pub mod v5 {
 					.unwrap_or_default()
 				})
 				.reduce(|acc, total_balance| acc + total_balance)
-				.unwrap_or_default();
+				.unwrap_or_default()
+		}
+	}
+	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV5ToV6<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let migrated = BondedPools::<T>::count();
+			// The TVL should be the sum of all the funds that are actively staked and in the
+			// unbonding process of the account of each pool.
+			let tvl: BalanceOf<T> = Self::calculate_tvl_by_total_stake();
 
 			TotalValueLocked::<T>::set(tvl);
 
@@ -778,11 +783,25 @@ pub mod v5 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
-			// ensure [`TotalValueLocked`] contains a value greater zero if any instances of
-			// BondedPools exist.
-			if !BondedPools::<T>::count().is_zero() {
-				ensure!(!TotalValueLocked::<T>::get().is_zero(), "tvl written incorrectly");
-			}
+			// check that the `TotalValueLocked` written is actually the sum of `total_stake` of the
+			// `BondedPools``
+			let tvl: BalanceOf<T> = Self::calculate_tvl_by_total_stake();
+			ensure!(
+				TotalValueLocked::<T>::get() == tvl,
+				"TVL written is not equal to total_balance `of all BondedPools."
+			);
+
+			// calculate the sum of `total_balance` of all `PoolMember` as the upper bound for the
+			// `TotalValueLocked`.
+			let total_balance_members: BalanceOf<T> = PoolMembers::<T>::iter()
+				.map(|(_, mut member)| member.total_balance())
+				.reduce(|acc, total_balance| acc + total_balance)
+				.unwrap_or_default();
+
+			ensure!(
+				TotalValueLocked::<T>::get() <= total_balance_members,
+				"TVL is greater than the balance of all PoolMembers."
+			);
 
 			ensure!(
 				Pallet::<T>::on_chain_storage_version() >= 6,
