@@ -16,8 +16,10 @@
 
 pub mod constants;
 pub mod impls;
+pub mod macros;
 pub mod xcm_helpers;
 
+pub use paste;
 use constants::{
 	accounts::{ALICE, BOB},
 	asset_hub_kusama, asset_hub_polkadot, asset_hub_westend, bridge_hub_kusama,
@@ -27,12 +29,19 @@ use impls::{RococoWococoMessageHandler, WococoRococoMessageHandler};
 
 // Substrate
 use frame_support::traits::OnInitialize;
+pub use pallet_balances;
 
 // Cumulus
 use xcm_emulator::{
 	decl_test_bridges, decl_test_networks, decl_test_parachains, decl_test_relay_chains,
 	decl_test_sender_receiver_accounts_parameter_types, DefaultMessageProcessor,
 };
+pub use xcm_emulator::Chain;
+pub use cumulus_pallet_xcmp_queue;
+
+// Polkadot
+pub use xcm::prelude::{AccountId32, WeightLimit};
+pub use pallet_xcm;
 
 decl_test_relay_chains! {
 	#[api_version(5)]
@@ -132,7 +141,7 @@ decl_test_parachains! {
 			Balances: asset_hub_polkadot_runtime::Balances,
 		}
 	},
-	pub struct Collectives {
+	pub struct CollectivesPolkadot {
 		genesis = collectives::genesis(),
 		on_init = {
 			collectives_polkadot_runtime::AuraExt::on_initialize(1);
@@ -293,6 +302,21 @@ decl_test_parachains! {
 			AssetConversion: asset_hub_westend_runtime::AssetConversion,
 		}
 	},
+	pub struct CollectivesWestend {
+		genesis = collectives::genesis(),
+		on_init = (),
+		runtime = collectives_polkadot_runtime,
+		core = {
+			XcmpMessageHandler: collectives_polkadot_runtime::XcmpQueue,
+			DmpMessageHandler: collectives_polkadot_runtime::DmpQueue,
+			LocationToAccountId: collectives_polkadot_runtime::xcm_config::LocationToAccountId,
+			ParachainInfo: collectives_polkadot_runtime::ParachainInfo,
+		},
+		pallets = {
+			PolkadotXcm: collectives_polkadot_runtime::PolkadotXcm,
+			Balances: collectives_polkadot_runtime::Balances,
+		}
+	},
 	pub struct PenpalWestendA {
 		genesis = penpal::genesis(penpal::PARA_ID_A),
 		on_init = {
@@ -308,6 +332,7 @@ decl_test_parachains! {
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
+			Balances: penpal_runtime::Balances,
 		}
 	},
 	// Rococo Parachains
@@ -344,6 +369,7 @@ decl_test_parachains! {
 		pallets = {
 			PolkadotXcm: asset_hub_kusama_runtime::PolkadotXcm,
 			Assets: asset_hub_kusama_runtime::Assets,
+			Balances: asset_hub_kusama_runtime::Balances,
 		}
 	},
 	// Wococo Parachains
@@ -378,6 +404,7 @@ decl_test_parachains! {
 		pallets = {
 			PolkadotXcm: asset_hub_polkadot_runtime::PolkadotXcm,
 			Assets: asset_hub_polkadot_runtime::Assets,
+			Balances: asset_hub_polkadot_runtime::Balances,
 		}
 	},
 	pub struct PenpalRococoA {
@@ -404,7 +431,7 @@ decl_test_networks! {
 		relay_chain = Polkadot,
 		parachains = vec![
 			AssetHubPolkadot,
-			Collectives,
+			CollectivesPolkadot,
 			BridgeHubPolkadot,
 			PenpalPolkadotA,
 			PenpalPolkadotB,
@@ -429,6 +456,7 @@ decl_test_networks! {
 		relay_chain = Westend,
 		parachains = vec![
 			AssetHubWestend,
+			CollectivesWestend,
 			PenpalWestendA,
 		],
 		bridge = ()
@@ -513,6 +541,11 @@ impl_accounts_helpers_for_parachain!(AssetHubWestend);
 impl_assets_helpers_for_parachain!(AssetHubWestend, Westend);
 impl_assert_events_helpers_for_parachain!(AssetHubWestend);
 
+// AssetHubRococo implementation
+impl_accounts_helpers_for_parachain!(AssetHubRococo);
+impl_assets_helpers_for_parachain!(AssetHubRococo, Rococo);
+impl_assert_events_helpers_for_parachain!(AssetHubRococo);
+
 // PenpalPolkadot implementations
 impl_assert_events_helpers_for_parachain!(PenpalPolkadotA);
 impl_assert_events_helpers_for_parachain!(PenpalPolkadotB);
@@ -524,9 +557,13 @@ impl_assert_events_helpers_for_parachain!(PenpalKusamaB);
 // PenpalWestendA implementation
 impl_assert_events_helpers_for_parachain!(PenpalWestendA);
 
-// Collectives implementation
-impl_accounts_helpers_for_parachain!(Collectives);
-impl_assert_events_helpers_for_parachain!(Collectives);
+// CollectivesPolkadot implementation
+impl_accounts_helpers_for_parachain!(CollectivesPolkadot);
+impl_assert_events_helpers_for_parachain!(CollectivesPolkadot);
+
+// CollectivesWestend implementation
+impl_accounts_helpers_for_parachain!(CollectivesWestend);
+impl_assert_events_helpers_for_parachain!(CollectivesWestend);
 
 // BridgeHubRococo implementation
 impl_accounts_helpers_for_parachain!(BridgeHubRococo);
@@ -546,7 +583,8 @@ decl_test_sender_receiver_accounts_parameter_types! {
 	AssetHubRococo { sender: ALICE, receiver: BOB },
 	AssetHubWococo { sender: ALICE, receiver: BOB },
 	// Collectives
-	Collectives { sender: ALICE, receiver: BOB },
+	CollectivesPolkadot { sender: ALICE, receiver: BOB },
+	CollectivesWestend { sender: ALICE, receiver: BOB },
 	// Bridged Hubs
 	BridgeHubPolkadot { sender: ALICE, receiver: BOB },
 	BridgeHubKusama { sender: ALICE, receiver: BOB },

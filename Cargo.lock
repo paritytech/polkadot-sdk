@@ -882,6 +882,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "asset-hub-rococo-integration-tests"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "integration-tests-common",
+ "parity-scale-codec",
+ "staging-xcm",
+ "xcm-emulator",
+]
+
+[[package]]
 name = "asset-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
@@ -2649,6 +2660,17 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+]
+
+[[package]]
+name = "collectives-westend-integration-tests"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "integration-tests-common",
+ "parity-scale-codec",
+ "staging-xcm",
+ "xcm-emulator",
 ]
 
 [[package]]
@@ -6421,6 +6443,7 @@ dependencies = [
  "frame-support",
  "kusama-runtime-constants",
  "pallet-assets",
+ "pallet-balances",
  "pallet-bridge-messages",
  "pallet-im-online",
  "pallet-message-queue",

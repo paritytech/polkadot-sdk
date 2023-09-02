@@ -24,7 +24,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use parachains_common::{impls::ToStakingPot, xcm_config::ConcreteNativeAssetFrom};
+use parachains_common::{impls::ToStakingPot, xcm_config::ConcreteNativeAssetFromSystem};
 use polkadot_parachain_primitives::primitives::Sibling;
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -177,6 +177,10 @@ pub type Barrier = TrailingSetTopicAsId<
 	>,
 >;
 
+/// Cases where a remote origin is accepted as trusted Teleporter:
+/// - teleportation of KSM from the parent Relay Chain and sibling parachains.
+pub type TrustedTeleporters = ConcreteNativeAssetFromSystem;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -187,7 +191,7 @@ impl xcm_executor::Config for XcmConfig {
 	// where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
 	/// Only allow teleportation of KSM.
-	type IsTeleporter = ConcreteNativeAssetFrom<KsmRelayLocation>;
+	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<

@@ -362,3 +362,16 @@ fn teleport_native_assets_from_relay_to_system_para_works() {
 // 	// Receiver's balance does not change
 // 	assert_eq!(receiver_balance_after, receiver_balance_before);
 // }
+
+#[test]
+fn teleport_to_other_system_parachains_works() {
+	let amount = ASSET_HUB_KUSAMA_ED * 100;
+	let expected_asset: VersionedMultiAssets = (Parent, amount).into();
+
+	// Works for the right origin and asset
+	test_parachain_is_trusted_teleporter!(
+		AssetHubKusama,        // Origin
+		vec![BridgeHubKusama], // Destinations
+		(expected_asset, amount)
+	);
+}

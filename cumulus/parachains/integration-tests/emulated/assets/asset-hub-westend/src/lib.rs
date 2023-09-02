@@ -28,10 +28,11 @@ pub use integration_tests_common::{
 		asset_hub_westend::ED as ASSET_HUB_WESTEND_ED, westend::ED as WESTEND_ED,
 		PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 	},
+	test_parachain_is_trusted_teleporter,
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
 	AssetHubWestend, AssetHubWestendPallet, AssetHubWestendReceiver, AssetHubWestendSender,
 	PenpalWestendA, PenpalWestendAPallet, PenpalWestendAReceiver, PenpalWestendASender, Westend,
-	WestendPallet, WestendReceiver, WestendSender,
+	WestendPallet, WestendReceiver, WestendSender, CollectivesWestend, CollectivesWestendReceiver
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{

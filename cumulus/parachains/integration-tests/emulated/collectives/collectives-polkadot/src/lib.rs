@@ -19,11 +19,14 @@ pub use frame_support::{assert_ok, sp_runtime::AccountId32};
 pub use integration_tests_common::{
 	constants::{
 		accounts::ALICE, asset_hub_polkadot::ED as ASSET_HUB_POLKADOT_ED,
+		collectives::ED as COLLECTIVES_POLKADOT_ED,
 		polkadot::ED as POLKADOT_ED, PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 	},
+	test_parachain_is_trusted_teleporter,
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	AssetHubPolkadot, AssetHubPolkadotPallet, AssetHubPolkadotReceiver, Collectives,
-	PenpalPolkadotA, Polkadot,
+	AssetHubPolkadot, AssetHubPolkadotPallet, AssetHubPolkadotReceiver, CollectivesPolkadot,
+	PenpalPolkadotA, Polkadot, CollectivesPolkadotSender, CollectivesPolkadotPallet,
+	BridgeHubPolkadotReceiver, BridgeHubPolkadot,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{

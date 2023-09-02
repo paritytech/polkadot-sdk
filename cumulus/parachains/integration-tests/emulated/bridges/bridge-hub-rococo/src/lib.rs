@@ -19,11 +19,14 @@ pub use frame_support::assert_ok;
 pub use integration_tests_common::{
 	constants::{
 		asset_hub_kusama::ED as ASSET_HUB_ROCOCO_ED, kusama::ED as ROCOCO_ED, PROOF_SIZE_THRESHOLD,
+		bridge_hub_rococo::ED as BRIDGE_HUB_ROCOCO_ED,
 		REF_TIME_THRESHOLD, XCM_V3,
 	},
+	test_parachain_is_trusted_teleporter,
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
 	AssetHubRococo, AssetHubRococoReceiver, AssetHubWococo, BridgeHubRococo, BridgeHubWococo,
-	PenpalRococoA, Rococo, RococoPallet,
+	PenpalRococoA, Rococo, RococoPallet, BridgeHubRococoSender, BridgeHubRococoPallet,
+	CollectivesPolkadotReceiver, CollectivesPolkadot, BridgeHubPolkadotReceiver, BridgeHubPolkadot
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{

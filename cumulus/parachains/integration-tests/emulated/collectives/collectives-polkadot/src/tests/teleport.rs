@@ -1,4 +1,4 @@
-// Copyright (C) Parity Technologies (UK) Ltd.
+// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -14,5 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-mod fellowship;
-mod teleport;
+use crate::*;
+
+#[test]
+fn teleport_to_other_system_parachains_works() {
+	let amount = COLLECTIVES_POLKADOT_ED * 100;
+	let native_asset: VersionedMultiAssets = (Parent, amount).into();
+
+	test_parachain_is_trusted_teleporter!(
+		CollectivesPolkadot,                       // Origin
+		vec![AssetHubPolkadot, BridgeHubPolkadot], // Destinations
+		(native_asset, amount)
+	);
+}

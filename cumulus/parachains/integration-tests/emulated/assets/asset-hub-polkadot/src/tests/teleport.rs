@@ -364,3 +364,15 @@ fn teleport_native_assets_from_relay_to_system_para_works() {
 // 	// Receiver's balance does not change
 // 	assert_eq!(receiver_balance_after, receiver_balance_before);
 // }
+
+#[test]
+fn teleport_to_other_system_parachains_works() {
+	let amount = ASSET_HUB_POLKADOT_ED * 100;
+	let native_asset: VersionedMultiAssets = (Parent, amount).into();
+
+	test_parachain_is_trusted_teleporter!(
+		AssetHubPolkadot,                             // Origin
+		vec![CollectivesPolkadot, BridgeHubPolkadot], // Destinations
+		(native_asset, amount)
+	);
+}

@@ -14,5 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-mod fellowship;
-mod teleport;
+use crate::*;
+
+#[test]
+fn teleport_to_other_system_parachains_works() {
+	let amount = COLLECTIVES_WESTEND_ED * 100;
+	let native_asset: VersionedMultiAssets = (Parent, amount).into();
+
+	test_parachain_is_trusted_teleporter!(
+		CollectivesWestend,    // Origin
+		vec![AssetHubWestend], // Destinations
+		(native_asset, amount)
+	);
+}

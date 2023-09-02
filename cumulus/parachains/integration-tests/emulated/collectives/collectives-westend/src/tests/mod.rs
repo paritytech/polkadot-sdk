@@ -14,5 +14,4 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-mod fellowship;
 mod teleport;
