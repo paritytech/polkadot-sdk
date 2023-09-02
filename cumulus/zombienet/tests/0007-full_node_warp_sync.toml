@@ -23,7 +23,7 @@ chain_spec_path = "0007-warp-sync-relaychain-spec.json"
   [[relaychain.nodes]]
   name = "dave"
   validator = true
-  args = ["--sync warp", "--reserved-only", "--reserved-nodes {{'alice'|zombie('multiAddress')}} {{'bob'|zombie('multiAddress')}} {{'charlie'|zombie('multiAddress')}}"]
+  args = ["--no-beefy", "--sync warp", "--reserved-only", "--reserved-nodes {{'alice'|zombie('multiAddress')}} {{'bob'|zombie('multiAddress')}} {{'charlie'|zombie('multiAddress')}}"]
 
 [[parachains]]
 id = 2000
