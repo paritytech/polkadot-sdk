@@ -23,9 +23,10 @@ use asset_hub_polkadot_runtime::xcm_config::{
 	XcmConfig,
 };
 pub use asset_hub_polkadot_runtime::{
-	AllPalletsWithoutSystem, AssetDeposit, Assets, Balances, ExistentialDeposit, ForeignAssets,
-	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime,
-	RuntimeCall, RuntimeEvent, SessionKeys, System, TrustBackedAssetsInstance, XcmpQueue,
+	xcm_config, AllPalletsWithoutSystem, AssetDeposit, Assets, Balances, ExistentialDeposit,
+	ForeignAssets, ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte,
+	ParachainSystem, Runtime, RuntimeCall, RuntimeEvent, SessionKeys, System,
+	ToKusamaXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
 };
 use asset_test_utils::{CollatorSessionKey, CollatorSessionKeys, ExtBuilder};
 use codec::{Decode, Encode};
@@ -699,6 +700,7 @@ fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works() {
 		}),
 		bridging_to_asset_hub_kusama,
 		WeightLimit::Unlimited,
+		Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
 	)
 }
 
@@ -716,7 +718,7 @@ fn receive_reserve_asset_deposited_ksm_from_asset_hub_kusama_works() {
 		ExistentialDeposit::get(),
 		AccountId::from([73; 32]),
 		AccountId::from(BLOCK_AUTHOR_ACCOUNT),
-		// receiving DOTs
+		// receiving KSMs
 		(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Kusama)) }, 1000000000000, 10_000_000_000),
 		bridging_to_asset_hub_kusama,
 		(X1(PalletInstance(53)), GlobalConsensus(Kusama), X1(Parachain(1000)))
@@ -805,4 +807,126 @@ fn xcm_reserve_transfer_filter_works() {
 				);
 			}
 		})
+}
+
+#[test]
+fn change_xcm_bridge_hub_router_byte_fee_by_governance_works() {
+	asset_test_utils::test_cases::change_storage_constant_by_governance_works::<
+		Runtime,
+		bridging::XcmBridgeHubRouterByteFee,
+		Balance,
+	>(
+		collator_session_keys(),
+		1000,
+		Box::new(|call| RuntimeCall::System(call).encode()),
+		|| {
+			(
+				bridging::XcmBridgeHubRouterByteFee::key().to_vec(),
+				bridging::XcmBridgeHubRouterByteFee::get(),
+			)
+		},
+		|old_value| {
+			if let Some(new_value) = old_value.checked_add(1) {
+				new_value
+			} else {
+				old_value.checked_sub(1).unwrap()
+			}
+		},
+	)
+}
+
+#[test]
+fn test_report_bridge_status_call_compatibility() {
+	// if this test fails, make sure `bp_asset_hub_polkadot` has valid encoding
+	assert_eq!(
+		RuntimeCall::ToKusamaXcmRouter(pallet_xcm_bridge_hub_router::Call::report_bridge_status {
+			bridge_id: Default::default(),
+			is_congested: true,
+		})
+		.encode(),
+		bp_asset_hub_polkadot::Call::ToKusamaXcmRouter(
+			bp_asset_hub_polkadot::XcmBridgeHubRouterCall::report_bridge_status {
+				bridge_id: Default::default(),
+				is_congested: true,
+			}
+		)
+		.encode()
+	)
+}
+
+#[test]
+fn report_bridge_status_from_xcm_bridge_router_works() {
+	asset_test_utils::test_cases_over_bridge::report_bridge_status_from_xcm_bridge_router_works::<
+		Runtime,
+		AllPalletsWithoutSystem,
+		XcmConfig,
+		ParachainSystem,
+		XcmpQueue,
+		LocationToAccountId,
+		ToKusamaXcmRouterInstance,
+	>(
+		collator_session_keys(),
+		ExistentialDeposit::get(),
+		AccountId::from(ALICE),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		bridging_to_asset_hub_kusama,
+		WeightLimit::Unlimited,
+		Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
+		|| {
+			sp_std::vec![Transact {
+				origin_kind: OriginKind::Xcm,
+				require_weight_at_most:
+					bp_asset_hub_polkadot::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+				call: bp_asset_hub_polkadot::Call::ToKusamaXcmRouter(
+					bp_asset_hub_polkadot::XcmBridgeHubRouterCall::report_bridge_status {
+						bridge_id: Default::default(),
+						is_congested: true,
+					}
+				)
+				.encode()
+				.into(),
+			}]
+			.into()
+		},
+		|| {
+			sp_std::vec![Transact {
+				origin_kind: OriginKind::Xcm,
+				require_weight_at_most:
+					bp_asset_hub_polkadot::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+				call: bp_asset_hub_polkadot::Call::ToKusamaXcmRouter(
+					bp_asset_hub_polkadot::XcmBridgeHubRouterCall::report_bridge_status {
+						bridge_id: Default::default(),
+						is_congested: false,
+					}
+				)
+				.encode()
+				.into(),
+			}]
+			.into()
+		},
+	)
+}
+
+#[test]
+fn check_sane_weight_report_bridge_status() {
+	use pallet_xcm_bridge_hub_router::WeightInfo;
+	let actual = <Runtime as pallet_xcm_bridge_hub_router::Config<ToKusamaXcmRouterInstance>>::WeightInfo::report_bridge_status();
+	let max_weight = bp_asset_hub_polkadot::XcmBridgeHubRouterTransactCallMaxWeight::get();
+	assert!(
+		actual.all_lte(max_weight),
+		"max_weight: {:?} should be adjusted to actual {:?}",
+		max_weight,
+		actual
+	);
 }

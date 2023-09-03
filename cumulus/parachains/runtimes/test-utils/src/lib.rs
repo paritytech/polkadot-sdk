@@ -410,16 +410,20 @@ impl<Runtime: frame_system::Config + pallet_xcm::Config, AllPalletsWithoutSystem
 		unwrap_pallet_xcm_event: &Box<dyn Fn(Vec<u8>) -> Option<pallet_xcm::Event<Runtime>>>,
 		assert_outcome: fn(Outcome),
 	) {
-		let outcome = <frame_system::Pallet<Runtime>>::events()
+		assert_outcome(Self::get_pallet_xcm_event_outcome(unwrap_pallet_xcm_event));
+	}
+
+	pub fn get_pallet_xcm_event_outcome(
+		unwrap_pallet_xcm_event: &Box<dyn Fn(Vec<u8>) -> Option<pallet_xcm::Event<Runtime>>>,
+	) -> Outcome {
+		<frame_system::Pallet<Runtime>>::events()
 			.into_iter()
 			.filter_map(|e| unwrap_pallet_xcm_event(e.event.encode()))
 			.find_map(|e| match e {
 				pallet_xcm::Event::Attempted { outcome } => Some(outcome),
 				_ => None,
 			})
-			.expect("No `pallet_xcm::Event::Attempted(outcome)` event found!");
-
-		assert_outcome(outcome);
+			.expect("No `pallet_xcm::Event::Attempted(outcome)` event found!")
 	}
 }
 

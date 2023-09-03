@@ -28,6 +28,9 @@ cumulus-primitives-core = { path = "../../primitives/core", default-features = f
 # Optional import for benchmarking
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true}
 
+# Bridges
+bp-xcm-bridge-hub-router = { path = "../../bridges/primitives/xcm-bridge-hub-router", default-features = false, optional = true }
+
 [dev-dependencies]
 
 # Substrate
@@ -43,6 +46,7 @@ cumulus-pallet-parachain-system = { path = "../parachain-system" }
 [features]
 default = [ "std" ]
 std = [
+	"bp-xcm-bridge-hub-router/std",
 	"codec/std",
 	"cumulus-primitives-core/std",
 	"frame-benchmarking?/std",
@@ -77,3 +81,4 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+bridging = [ "bp-xcm-bridge-hub-router" ]

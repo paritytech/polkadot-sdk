@@ -58,6 +58,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 	>,
 	ensure_configuration: fn() -> TestBridgingConfig,
 	weight_limit: WeightLimit,
+	maybe_paid_export_message: Option<AssetId>,
 ) where
 	Runtime: frame_system::Config
 		+ pallet_balances::Config
@@ -174,6 +175,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 			));
 
 			// check alice account decreased by balance_to_transfer
+			// TODO:check-parameter: change and assert in tests when (https://github.com/paritytech/polkadot/pull/7005) merged
 			assert_eq!(
 				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account),
 				alice_account_init_balance - balance_to_transfer.into()
@@ -217,38 +219,54 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 			);
 			let mut xcm_sent: Xcm<()> = xcm_sent.try_into().expect("versioned xcm");
 
-			// check sent XCM ExportMessage to bridge-hub
-			xcm_sent
-				.0
-				.matcher()
-				.match_next_inst(|instr| match instr {
-					// first instruction is UNpai (because we have explicit unpaid execution on
-					// bridge-hub now)
-					UnpaidExecution { weight_limit, check_origin }
-						if weight_limit == &Unlimited && check_origin.is_none() =>
-						Ok(()),
-					_ => Err(ProcessMessageError::BadFormat),
-				})
-				.expect("contains UnpaidExecution")
-				.match_next_inst(|instr| match instr {
-					// second instruction is ExportMessage
-					ExportMessage { network, destination, xcm: inner_xcm } => {
-						assert_eq!(network, &bridged_network);
-						let (_, target_location_junctions_without_global_consensus) =
-							target_location_from_different_consensus
-								.interior
-								.split_global()
-								.expect("split works");
-						assert_eq!(
-							destination,
-							&target_location_junctions_without_global_consensus
-						);
-						assert_matches_pallet_xcm_reserve_transfer_assets_instructions(inner_xcm);
-						Ok(())
-					},
-					_ => Err(ProcessMessageError::BadFormat),
-				})
-				.expect("contains ExportMessage");
+			// check sent XCM ExportMessage to BridgeHub
+
+			// 1. check paid or unpaid
+			if let Some(expected_fee_asset_id) = maybe_paid_export_message {
+				xcm_sent
+					.0
+					.matcher()
+					.match_next_inst(|instr| match instr {
+						WithdrawAsset(_) => Ok(()),
+						_ => Err(ProcessMessageError::BadFormat),
+					})
+					.expect("contains WithdrawAsset")
+					.match_next_inst(|instr| match instr {
+						BuyExecution { fees, .. } if fees.id.eq(&expected_fee_asset_id) => Ok(()),
+						_ => Err(ProcessMessageError::BadFormat),
+					})
+					.expect("contains BuyExecution")
+			} else {
+				xcm_sent
+					.0
+					.matcher()
+					.match_next_inst(|instr| match instr {
+						// first instruction could be UnpaidExecution (because we could have
+						// explicit unpaid execution on BridgeHub)
+						UnpaidExecution { weight_limit, check_origin }
+							if weight_limit == &Unlimited && check_origin.is_none() =>
+							Ok(()),
+						_ => Err(ProcessMessageError::BadFormat),
+					})
+					.expect("contains UnpaidExecution")
+			}
+			// 2. check ExportMessage
+			.match_next_inst(|instr| match instr {
+				// second instruction is ExportMessage
+				ExportMessage { network, destination, xcm: inner_xcm } => {
+					assert_eq!(network, &bridged_network);
+					let (_, target_location_junctions_without_global_consensus) =
+						target_location_from_different_consensus
+							.interior
+							.split_global()
+							.expect("split works");
+					assert_eq!(destination, &target_location_junctions_without_global_consensus);
+					assert_matches_pallet_xcm_reserve_transfer_assets_instructions(inner_xcm);
+					Ok(())
+				},
+				_ => Err(ProcessMessageError::BadFormat),
+			})
+			.expect("contains ExportMessage");
 		})
 }
 
@@ -501,4 +519,103 @@ fn assert_matches_pallet_xcm_reserve_transfer_assets_instructions<RuntimeCall>(
 			_ => Err(ProcessMessageError::BadFormat),
 		})
 		.expect("expected instruction DepositAsset");
+}
+
+pub fn report_bridge_status_from_xcm_bridge_router_works<
+	Runtime,
+	AllPalletsWithoutSystem,
+	XcmConfig,
+	HrmpChannelOpener,
+	HrmpChannelSource,
+	LocationToAccountId,
+	XcmBridgeHubRouterInstance,
+>(
+	collator_session_keys: CollatorSessionKeys<Runtime>,
+	existential_deposit: BalanceOf<Runtime>,
+	alice_account: AccountIdOf<Runtime>,
+	unwrap_pallet_xcm_event: Box<dyn Fn(Vec<u8>) -> Option<pallet_xcm::Event<Runtime>>>,
+	unwrap_xcmp_queue_event: Box<
+		dyn Fn(Vec<u8>) -> Option<cumulus_pallet_xcmp_queue::Event<Runtime>>,
+	>,
+	ensure_configuration: fn() -> TestBridgingConfig,
+	weight_limit: WeightLimit,
+	maybe_paid_export_message: Option<AssetId>,
+	congested_message: fn() -> Xcm<XcmConfig::RuntimeCall>,
+	uncongested_message: fn() -> Xcm<XcmConfig::RuntimeCall>,
+) where
+	Runtime: frame_system::Config
+		+ pallet_balances::Config
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config
+		+ cumulus_pallet_xcmp_queue::Config
+		+ pallet_xcm_bridge_hub_router::Config<XcmBridgeHubRouterInstance>,
+	AllPalletsWithoutSystem:
+		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
+	AccountIdOf<Runtime>: Into<[u8; 32]>,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	BalanceOf<Runtime>: From<Balance>,
+	<Runtime as pallet_balances::Config>::Balance: From<Balance> + Into<u128>,
+	XcmConfig: xcm_executor::Config,
+	LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
+	<Runtime as frame_system::Config>::AccountId:
+		Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
+	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
+		From<<Runtime as frame_system::Config>::AccountId>,
+	<Runtime as frame_system::Config>::AccountId: From<AccountId>,
+	HrmpChannelOpener: frame_support::inherent::ProvideInherent<
+		Call = cumulus_pallet_parachain_system::Call<Runtime>,
+	>,
+	HrmpChannelSource: XcmpMessageSource,
+	XcmBridgeHubRouterInstance: 'static,
+{
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys.collators())
+		.with_session_keys(collator_session_keys.session_keys())
+		.with_tracing()
+		.build()
+		.execute_with(|| {
+			// check transfer works
+			limited_reserve_transfer_assets_for_native_asset_works::<
+				Runtime,
+				AllPalletsWithoutSystem,
+				XcmConfig,
+				HrmpChannelOpener,
+				HrmpChannelSource,
+				LocationToAccountId,
+			>(
+				collator_session_keys,
+				existential_deposit,
+				alice_account,
+				unwrap_pallet_xcm_event,
+				unwrap_xcmp_queue_event,
+				ensure_configuration,
+				weight_limit,
+				maybe_paid_export_message,
+			);
+
+			let report_brigde_status = |is_congested: bool| {
+				// prepare bridge config
+				let TestBridgingConfig { local_bridge_hub_location, .. } = ensure_configuration();
+
+				// Call received XCM execution
+				let xcm = if is_congested { congested_message() } else { uncongested_message() };
+				let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+
+				// execute xcm as XcmpQueue would do
+				let outcome = XcmExecutor::<XcmConfig>::execute_xcm(
+					local_bridge_hub_location,
+					xcm,
+					hash,
+					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::xcm_max_weight(XcmReceivedFrom::Sibling),
+				);
+				assert_eq!(outcome.ensure_complete(), Ok(()));
+				assert_eq!(is_congested, pallet_xcm_bridge_hub_router::Pallet::<Runtime, XcmBridgeHubRouterInstance>::bridge().is_congested);
+			};
+
+			report_brigde_status(true);
+			report_brigde_status(false);
+		})
 }

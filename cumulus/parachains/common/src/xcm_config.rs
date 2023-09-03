@@ -14,16 +14,22 @@
 // limitations under the License.
 
 use crate::impls::AccountIdOf;
+use codec::Decode;
 use core::marker::PhantomData;
 use frame_support::{
-	traits::{fungibles::Inspect, tokens::ConversionToAssetBalance, ContainsPair},
+	ensure,
+	traits::{
+		fungibles::Inspect, tokens::ConversionToAssetBalance, Contains, ContainsPair,
+		ProcessMessageError,
+	},
 	weights::Weight,
 	DefaultNoBound,
 };
 use log;
 use sp_runtime::traits::Get;
-use xcm::latest::prelude::*;
-use xcm_builder::ExporterFor;
+use xcm::{latest::prelude::*, DoubleEncoded};
+use xcm_builder::{CreateMatcher, ExporterFor, MatchXcm};
+use xcm_executor::traits::ShouldExecute;
 
 /// A `ChargeFeeInFungibles` implementation that converts the output of
 /// a given WeightToFee implementation an amount charged in
@@ -168,6 +174,59 @@ impl<
 				j == network && location_filter.matches(remote_location)
 			})
 			.map(|(_, _, bridge_location, p)| (bridge_location, p))
+	}
+}
+
+/// Allows execution from `origin` if it is contained in `AllowedOrigin`
+/// and if it is just a straight `Transact` which contains `AllowedCall`.
+pub struct AllowUnpaidTransactsFrom<RuntimeCall, AllowedCall, AllowedOrigin>(
+	sp_std::marker::PhantomData<(RuntimeCall, AllowedCall, AllowedOrigin)>,
+);
+impl<
+		RuntimeCall: Decode,
+		AllowedCall: Contains<RuntimeCall>,
+		AllowedOrigin: Contains<MultiLocation>,
+	> ShouldExecute for AllowUnpaidTransactsFrom<RuntimeCall, AllowedCall, AllowedOrigin>
+{
+	fn should_execute<Call>(
+		origin: &MultiLocation,
+		instructions: &mut [Instruction<Call>],
+		max_weight: Weight,
+		_properties: &mut xcm_executor::traits::Properties,
+	) -> Result<(), ProcessMessageError> {
+		log::trace!(
+			target: "xcm::barriers",
+			"AllowUnpaidTransactFrom origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
+			origin, instructions, max_weight, _properties,
+		);
+
+		// we only allow from configured origins
+		ensure!(AllowedOrigin::contains(origin), ProcessMessageError::Unsupported);
+
+		// we expect an XCM program with single `Transact` call
+		instructions
+			.matcher()
+			.assert_remaining_insts(1)?
+			.match_next_inst(|inst| match inst {
+				Transact { origin_kind: OriginKind::Xcm, call: encoded_call, .. } => {
+					// this is a hack - don't know if there's a way to do that properly
+					// or else we can simply allow all calls
+					let mut decoded_call = DoubleEncoded::<RuntimeCall>::from(encoded_call.clone());
+					ensure!(
+						AllowedCall::contains(
+							decoded_call
+								.ensure_decoded()
+								.map_err(|_| ProcessMessageError::BadFormat)?
+						),
+						ProcessMessageError::BadFormat,
+					);
+
+					Ok(())
+				},
+				_ => Err(ProcessMessageError::BadFormat),
+			})?;
+
+		Ok(())
 	}
 }
 

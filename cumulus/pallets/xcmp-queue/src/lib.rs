@@ -35,6 +35,8 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+#[cfg(feature = "bridging")]
+pub mod bridging;
 pub mod weights;
 pub use weights::WeightInfo;
 
@@ -400,6 +402,13 @@ pub struct InboundChannelDetails {
 	message_metadata: Vec<(RelayBlockNumber, XcmpMessageFormat)>,
 }
 
+impl InboundChannelDetails {
+	#[cfg(feature = "bridging")]
+	pub(crate) fn is_suspended(&self) -> bool {
+		self.state == InboundState::Suspended
+	}
+}
+
 /// Struct containing detailed information about the outbound channel.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct OutboundChannelDetails {
@@ -434,6 +443,16 @@ impl OutboundChannelDetails {
 	pub fn with_suspended_state(mut self) -> OutboundChannelDetails {
 		self.state = OutboundState::Suspended;
 		self
+	}
+
+	#[cfg(feature = "bridging")]
+	pub(crate) fn is_suspended(&self) -> bool {
+		self.state == OutboundState::Suspended
+	}
+
+	#[cfg(feature = "bridging")]
+	pub(crate) fn queued_pages(&self) -> u16 {
+		self.last_index.saturating_sub(self.first_index)
 	}
 }
 

@@ -722,6 +722,7 @@ version = "0.9.420"
 dependencies = [
  "asset-test-utils",
  "assets-common",
+ "bp-asset-hub-kusama",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -761,6 +762,7 @@ dependencies = [
  "pallet-utility",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
+ "pallet-xcm-bridge-hub-router",
  "parachain-info",
  "parachains-common",
  "parity-scale-codec",
@@ -818,6 +820,7 @@ version = "0.9.420"
 dependencies = [
  "asset-test-utils",
  "assets-common",
+ "bp-asset-hub-polkadot",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -853,6 +856,7 @@ dependencies = [
  "pallet-utility",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
+ "pallet-xcm-bridge-hub-router",
  "parachain-info",
  "parachains-common",
  "parity-scale-codec",
@@ -996,6 +1000,7 @@ dependencies = [
  "pallet-collator-selection",
  "pallet-session",
  "pallet-xcm",
+ "pallet-xcm-bridge-hub-router",
  "parachain-info",
  "parachains-common",
  "parachains-runtimes-test-utils",
@@ -3626,6 +3631,7 @@ dependencies = [
 name = "cumulus-pallet-xcmp-queue"
 version = "0.1.0"
 dependencies = [
+ "bp-xcm-bridge-hub-router",
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
  "frame-benchmarking",

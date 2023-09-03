@@ -41,6 +41,9 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkad
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false}
 
+# Bridges
+pallet-xcm-bridge-hub-router = { path = "../../../../bridges/modules/xcm-bridge-hub-router", default-features = false }
+
 [dev-dependencies]
 hex-literal = "0.4.1"
 
@@ -63,6 +66,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-session/std",
+	"pallet-xcm-bridge-hub-router/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",

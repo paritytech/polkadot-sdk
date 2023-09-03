@@ -36,6 +36,12 @@ ASSET_HUB_POLKADOT_ACCOUNT_ADDRESS_FOR_LOCAL="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNe
 #						 &MultiLocation { parents: 2, interior: X2(GlobalConsensus(Kusama), Parachain(1000)) }).unwrap()
 #				 ).to_ss58check_with_version(0_u16.into())
 #		);
+#		println!("ASSET_HUB_POLKADOT_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_POLKADOT=\"{}\"",
+#				 frame_support::sp_runtime::AccountId32::new(
+#					 SiblingParachainConvertsVia::<Sibling, [u8; 32]>::convert_location(
+#						 &MultiLocation { parents: 1, interior: X1(Parachain(1000)) }).unwrap()
+#				 ).to_ss58check_with_version(0_u16.into())
+#		);
 #
 #		// SS58=2
 #		println!("GLOBAL_CONSENSUS_POLKADOT_SOVEREIGN_ACCOUNT=\"{}\"",
@@ -50,11 +56,19 @@ ASSET_HUB_POLKADOT_ACCOUNT_ADDRESS_FOR_LOCAL="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNe
 #						 &MultiLocation { parents: 2, interior: X2(GlobalConsensus(Polkadot), Parachain(1000)) }).unwrap()
 #				 ).to_ss58check_with_version(2_u16.into())
 #		);
+#		println!("ASSET_HUB_KUSAMA_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_KUSAMA=\"{}\"",
+#				 frame_support::sp_runtime::AccountId32::new(
+#					 SiblingParachainConvertsVia::<Sibling, [u8; 32]>::convert_location(
+#						 &MultiLocation { parents: 1, interior: X1(Parachain(1000)) }).unwrap()
+#				 ).to_ss58check_with_version(2_u16.into())
+#		);
 #	}
 GLOBAL_CONSENSUS_KUSAMA_SOVEREIGN_ACCOUNT="14zcUAhP5XypiFQWA3b1AnGKrhZqR4XWUo4deWkwuN5y983G"
 GLOBAL_CONSENSUS_KUSAMA_ASSET_HUB_KUSAMA_1000_SOVEREIGN_ACCOUNT="12GvRkNCmXFuaaziTJ2ZKAfa7MArKfLT2HYvLjQuepP3JuHf"
+ASSET_HUB_POLKADOT_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_POLKADOT="13cKp89SgdtqUngo2WiEijPrQWdHFhzYZLf2TJePKRvExk7o"
 GLOBAL_CONSENSUS_POLKADOT_SOVEREIGN_ACCOUNT="FxqimVubBRPqJ8kTwb3wL7G4q645hEkBEnXPyttLsTrFc5Q"
 GLOBAL_CONSENSUS_POLKADOT_ASSET_HUB_POLKADOT_1000_SOVEREIGN_ACCOUNT="FwGjEp7GXJXT9NjH8r4sqdyd8XZVogbxSs3iFakx4wFwJ5Y"
+ASSET_HUB_KUSAMA_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_KUSAMA="FBeL7EFTDeHnuViqaUHUXvhhUusN5FawDmHgfvzF97DXFr3"
 
 function init_ksm_dot() {
     ensure_relayer
@@ -136,6 +150,14 @@ case "$1" in
           "$GLOBAL_CONSENSUS_POLKADOT_ASSET_HUB_POLKADOT_1000_SOVEREIGN_ACCOUNT" \
           $((1000000000 + 50000000000 * 20))
       ;;
+  init-bridge-hub-kusama-local)
+      # SA of sibling asset hub pays for the execution
+      transfer_balance \
+          "ws://127.0.0.1:8943" \
+          "//Alice" \
+          "$ASSET_HUB_KUSAMA_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_KUSAMA" \
+          $((1000000000 + 50000000000 * 20))
+      ;;
   init-asset-hub-polkadot-local)
       # create foreign assets for native Polkadot token (governance call on Kusama)
             force_create_foreign_asset \
@@ -152,6 +174,14 @@ case "$1" in
           "ws://127.0.0.1:9010" \
           "//Alice" \
           "$GLOBAL_CONSENSUS_KUSAMA_ASSET_HUB_KUSAMA_1000_SOVEREIGN_ACCOUNT" \
+          $((1000000000 + 50000000000 * 20))
+      ;;
+  init-bridge-hub-polkadot-local)
+      # SA of sibling asset hub pays for the execution
+      transfer_balance \
+          "ws://127.0.0.1:8945" \
+          "//Alice" \
+          "$ASSET_HUB_POLKADOT_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_POLKADOT" \
           $((1000000000 + 50000000000 * 20))
       ;;
   reserve-transfer-assets-from-asset-hub-kusama-local)
@@ -187,7 +217,9 @@ case "$1" in
     Local (zombienet) run:
           - run-relay
           - init-asset-hub-kusama-local
+          - init-bridge-hub-kusama-local
           - init-asset-hub-polkadot-local
+          - init-bridge-hub-polkadot-local
           - reserve-transfer-assets-from-asset-hub-kusama-local
           - reserve-transfer-assets-from-asset-hub-polkadot-local";
     exit 1
