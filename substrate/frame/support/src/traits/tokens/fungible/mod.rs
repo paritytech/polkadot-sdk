@@ -45,7 +45,12 @@ mod imbalance;
 mod item_of;
 mod regular;
 
-use super::Precision::BestEffort;
+use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use scale_info::TypeInfo;
+use sp_std::marker::PhantomData;
+
+use super::{Fortitude::Polite, Precision::BestEffort};
 pub use freeze::{Inspect as InspectFreeze, Mutate as MutateFreeze};
 pub use hold::{
 	Balanced as BalancedHold, Inspect as InspectHold, Mutate as MutateHold,
@@ -69,72 +74,86 @@ use crate::{
 ///
 /// The aggregate amount frozen under `R::get()` for any account which has multiple tickets,
 /// is the *cumulative* amounts of each ticket's footprint (each individually determined by `D`).
-pub struct FreezeConsideration<A, F, R, D>(sp_std::marker::PhantomData<(A, F, R, D)>);
-impl<A, F: MutateFreeze<A>, R: Get<F::Id>, D: Convert<Footprint, F::Balance>> Consideration<A>
-	for FreezeConsideration<A, F, R, D>
+#[derive(
+	CloneNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	RuntimeDebugNoBound,
+)]
+#[scale_info(skip_type_params(A, F, R, D))]
+#[codec(mel_bound())]
+pub struct FreezeConsideration<A, F, R, D>(F::Balance, PhantomData<fn() -> (A, R, D)>)
+where
+	F: MutateFreeze<A>;
+impl<
+		A: 'static,
+		F: 'static + MutateFreeze<A>,
+		R: 'static + Get<F::Id>,
+		D: 'static + Convert<Footprint, F::Balance>,
+	> Consideration<A> for FreezeConsideration<A, F, R, D>
 {
-	type Ticket = F::Balance;
-	fn update(
-		who: &A,
-		old: Option<Self::Ticket>,
-		new: Option<Footprint>,
-	) -> Result<Self::Ticket, sp_runtime::DispatchError> {
-		match (old, new) {
-			(None, Some(footprint)) => {
-				let new = D::convert(footprint);
-				F::increase_frozen(&R::get(), who, new)?;
-				Ok(new)
-			},
-			(Some(old), Some(footprint)) => {
-				let new = D::convert(footprint);
-				if old > new {
-					F::decrease_frozen(&R::get(), who, old - new)?;
-				} else if new > old {
-					F::increase_frozen(&R::get(), who, new - old)?;
-				}
-				Ok(new)
-			},
-			(Some(old), None) => {
-				F::decrease_frozen(&R::get(), who, old)?;
-				Ok(Default::default())
-			},
-			(None, None) => Ok(Default::default()),
+	fn new(who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
+		let new = D::convert(footprint);
+		F::increase_frozen(&R::get(), who, new)?;
+		Ok(Self(new, PhantomData))
+	}
+	fn update(self, who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
+		let new = D::convert(footprint);
+		if self.0 > new {
+			F::decrease_frozen(&R::get(), who, self.0 - new)?;
+		} else if new > self.0 {
+			F::increase_frozen(&R::get(), who, new - self.0)?;
 		}
+		Ok(Self(new, PhantomData))
+	}
+	fn drop(self, who: &A) -> Result<(), DispatchError> {
+		F::decrease_frozen(&R::get(), who, self.0).map(|_| ())
 	}
 }
 
 /// Consideration method using a `fungible` balance frozen as the cost exacted for the footprint.
-pub struct HoldConsideration<A, F, R, D>(sp_std::marker::PhantomData<(A, F, R, D)>);
-impl<A, F: MutateHold<A>, R: Get<F::Reason>, D: Convert<Footprint, F::Balance>> Consideration<A>
-	for HoldConsideration<A, F, R, D>
+#[derive(
+	CloneNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	RuntimeDebugNoBound,
+)]
+#[scale_info(skip_type_params(A, F, R, D))]
+#[codec(mel_bound())]
+pub struct HoldConsideration<A, F, R, D>(F::Balance, PhantomData<fn() -> (A, R, D)>)
+where
+	F: MutateHold<A>;
+impl<
+		A: 'static,
+		F: 'static + MutateHold<A>,
+		R: 'static + Get<F::Reason>,
+		D: 'static + Convert<Footprint, F::Balance>,
+	> Consideration<A> for HoldConsideration<A, F, R, D>
 {
-	type Ticket = F::Balance;
-	fn update(
-		who: &A,
-		old: Option<Self::Ticket>,
-		new: Option<Footprint>,
-	) -> Result<Self::Ticket, sp_runtime::DispatchError> {
-		match (old, new) {
-			(None, Some(footprint)) => {
-				let new = D::convert(footprint);
-				F::hold(&R::get(), who, new)?;
-				Ok(new)
-			},
-			(Some(old), Some(footprint)) => {
-				let new = D::convert(footprint);
-				if old > new {
-					F::release(&R::get(), who, old - new, BestEffort)?;
-				} else if new > old {
-					F::hold(&R::get(), who, new - old)?;
-				}
-				Ok(new)
-			},
-			(Some(old), None) => {
-				F::release(&R::get(), who, old, BestEffort)?;
-				Ok(Default::default())
-			},
-			(None, None) => Ok(Default::default()),
+	fn new(who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
+		let new = D::convert(footprint);
+		F::hold(&R::get(), who, new)?;
+		Ok(Self(new, PhantomData))
+	}
+	fn update(self, who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
+		let new = D::convert(footprint);
+		if self.0 > new {
+			F::release(&R::get(), who, self.0 - new, BestEffort)?;
+		} else if new > self.0 {
+			F::hold(&R::get(), who, new - self.0)?;
 		}
+		Ok(Self(new, PhantomData))
+	}
+	fn drop(self, who: &A) -> Result<(), DispatchError> {
+		F::release(&R::get(), who, self.0, BestEffort).map(|_| ())
 	}
 }
 
@@ -145,21 +164,35 @@ impl<A, F: MutateHold<A>, R: Get<F::Reason>, D: Convert<Footprint, F::Balance>> 
 /// account has only a single active ticket associated with it since individual tickets do not
 /// track the specific balance which is frozen. If you are uncertain then use `FreezeConsideration`
 /// instead, since this works in all circumstances.
-pub struct SingletonFreezeConsideration<A, F, R, D>(sp_std::marker::PhantomData<(A, F, R, D)>);
-impl<A, F: MutateFreeze<A>, R: Get<F::Id>, D: Convert<Footprint, F::Balance>> Consideration<A>
-	for SingletonFreezeConsideration<A, F, R, D>
+#[derive(
+	CloneNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	RuntimeDebugNoBound,
+)]
+#[scale_info(skip_type_params(A, Fx, Rx, D))]
+#[codec(mel_bound())]
+pub struct LoneFreezeConsideration<A, Fx, Rx, D>(PhantomData<fn() -> (A, Fx, Rx, D)>);
+impl<
+		A: 'static,
+		Fx: 'static + MutateFreeze<A>,
+		Rx: 'static + Get<Fx::Id>,
+		D: 'static + Convert<Footprint, Fx::Balance>,
+	> Consideration<A> for LoneFreezeConsideration<A, Fx, Rx, D>
 {
-	type Ticket = ();
-	fn update(
-		who: &A,
-		_old: Option<Self::Ticket>,
-		new: Option<Footprint>,
-	) -> Result<Self::Ticket, DispatchError> {
-		ensure!(F::balance_frozen(&R::get(), who).is_zero(), DispatchError::Unavailable);
-		match new {
-			Some(footprint) => F::set_freeze(&R::get(), who, D::convert(footprint)),
-			None => F::thaw(&R::get(), who),
-		}
+	fn new(who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
+		ensure!(Fx::balance_frozen(&Rx::get(), who).is_zero(), DispatchError::Unavailable);
+		Fx::set_frozen(&Rx::get(), who, D::convert(footprint), Polite).map(|_| Self(PhantomData))
+	}
+	fn update(self, who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
+		Fx::set_frozen(&Rx::get(), who, D::convert(footprint), Polite).map(|_| Self(PhantomData))
+	}
+	fn drop(self, who: &A) -> Result<(), DispatchError> {
+		Fx::thaw(&Rx::get(), who).map(|_| ())
 	}
 }
 
@@ -170,20 +203,37 @@ impl<A, F: MutateFreeze<A>, R: Get<F::Id>, D: Convert<Footprint, F::Balance>> Co
 /// account has only a single active ticket associated with it since individual tickets do not
 /// track the specific balance which is frozen. If you are uncertain then use `FreezeConsideration`
 /// instead, since this works in all circumstances.
-pub struct SingletonHoldConsideration<A, F, R, D>(sp_std::marker::PhantomData<(A, F, R, D)>);
-impl<A, F: MutateHold<A>, R: Get<F::Reason>, D: Convert<Footprint, F::Balance>> Consideration<A>
-	for SingletonHoldConsideration<A, F, R, D>
+#[derive(
+	CloneNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	RuntimeDebugNoBound,
+)]
+#[scale_info(skip_type_params(A, Fx, Rx, D))]
+#[codec(mel_bound())]
+pub struct LoneHoldConsideration<A, Fx, Rx, D>(PhantomData<fn() -> (A, Fx, Rx, D)>);
+impl<
+		A: 'static,
+		F: 'static + MutateHold<A>,
+		R: 'static + Get<F::Reason>,
+		D: 'static + Convert<Footprint, F::Balance>,
+	> Consideration<A> for LoneHoldConsideration<A, F, R, D>
 {
-	type Ticket = ();
-	fn update(
-		who: &A,
-		_old: Option<Self::Ticket>,
-		new: Option<Footprint>,
-	) -> Result<Self::Ticket, sp_runtime::DispatchError> {
+	fn new(who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
 		ensure!(F::balance_on_hold(&R::get(), who).is_zero(), DispatchError::Unavailable);
-		match new {
-			Some(footprint) => F::set_on_hold(&R::get(), who, D::convert(footprint)),
-			None => F::release_all(&R::get(), who, super::Precision::BestEffort).map(|_| ()),
-		}
+		F::set_on_hold(&R::get(), who, D::convert(footprint)).map(|_| Self(PhantomData))
+	}
+	fn update(self, who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
+		F::set_on_hold(&R::get(), who, D::convert(footprint)).map(|_| Self(PhantomData))
+	}
+	fn drop(self, who: &A) -> Result<(), DispatchError> {
+		F::release_all(&R::get(), who, BestEffort).map(|_| ())
 	}
 }
+
+#[test]
+fn it_builds() {}
