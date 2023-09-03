@@ -883,9 +883,9 @@ fn pulse_every(interval: std::time::Duration) -> impl futures::Stream<Item = ()>
 /// Check if we can sandbox the root and emit a warning if not.
 ///
 /// We do this check by spawning a new process and trying to sandbox it. The process must be
-/// single-threaded, so we can't just fork here. To get as close as possible to running unshare and
-/// pivot_root in a worker, we try them... in a worker. The expected return status is 0 on success
-/// and -1 on failure.
+/// single-threaded, so we can't just fork here. To get as close as possible to running the check in
+/// a worker, we try it... in a worker. The expected return status is 0 on success and -1 on
+/// failure.
 fn check_can_unshare_user_namespace_and_change_root(
 	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
 	prepare_worker_program_path: &Path,
@@ -930,7 +930,9 @@ fn check_can_unshare_user_namespace_and_change_root(
 
 /// Check if landlock is supported and emit a warning if not.
 ///
-/// TODO: Run in child process.
+/// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
+/// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
+/// success and -1 on failure.
 fn check_landlock(
 	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
 	prepare_worker_program_path: &Path,

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Functions for getting the worker cache files.
+//! Shared functions for getting the known worker files.
 
 use std::path::{Path, PathBuf};
 

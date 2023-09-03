@@ -218,12 +218,10 @@ where
 	Fut: futures::Future<Output = Outcome>,
 	F: FnOnce(WorkerDir) -> Fut,
 {
-	let worker_dir_path = worker_dir.path.clone();
-
 	// Cheaply create a hard link to the artifact. The artifact is always at a known location in the
 	// worker cache, and the child can't access any other artifacts or gain any information from the
 	// original filename.
-	let link_path = worker_dir::execute_artifact(&worker_dir_path);
+	let link_path = worker_dir::execute_artifact(&worker_dir.path);
 	if let Err(err) = tokio::fs::hard_link(artifact_path, link_path).await {
 		gum::warn!(
 			target: LOG_TARGET,
@@ -237,26 +235,23 @@ where
 		}
 	}
 
+	let worker_dir_path = worker_dir.path.clone();
 	let outcome = f(worker_dir).await;
 
 	// Try to clear the worker dir.
-	//
-	// Note that it may not exist anymore because of the worker dying and being cleaned up.
 	if let Err(err) = clear_worker_dir_path(&worker_dir_path) {
-		if !matches!(err.kind(), io::ErrorKind::NotFound) {
-			gum::warn!(
-				target: LOG_TARGET,
-				worker_pid = %pid,
-				?worker_dir_path,
-				"failed to clear worker cache after the job: {:?}",
-				err,
-			);
-			return Outcome::InternalError {
-				err: InternalValidationError::CouldNotClearWorkerDir {
-					err: format!("{:?}", err),
-					path: worker_dir_path.to_str().map(String::from),
-				},
-			}
+		gum::warn!(
+			target: LOG_TARGET,
+			worker_pid = %pid,
+			?worker_dir_path,
+			"failed to clear worker cache after the job: {:?}",
+			err,
+		);
+		return Outcome::InternalError {
+			err: InternalValidationError::CouldNotClearWorkerDir {
+				err: format!("{:?}", err),
+				path: worker_dir_path.to_str().map(String::from),
+			},
 		}
 	}
 

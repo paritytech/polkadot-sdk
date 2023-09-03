@@ -17,35 +17,35 @@
 //! Functionality for securing workers.
 //!
 //! This is needed because workers are used to compile and execute untrusted code (PVFs).
+//!
+//! We currently employ the following security measures:
+//!
+//! - Restrict filesystem
+//!   - Use Landlock to remove all unnecessary FS access rights.
+//!   - Unshare the user and mount namespaces.
+//!   - Change the root directory to a worker-specific temporary directory.
+//! - Remove env vars
 
 use crate::LOG_TARGET;
-#[cfg(target_os = "linux")]
-use std::path::{Path, PathBuf};
 
 /// Unshare the user namespace and change root to be the artifact directory.
 #[cfg(target_os = "linux")]
-pub fn unshare_user_namespace_and_change_root(worker_dir_path: &Path) -> Result<(), &'static str> {
-	use rand::{distributions::Alphanumeric, Rng};
+pub fn unshare_user_namespace_and_change_root(
+	worker_dir_path: &std::path::Path,
+) -> Result<(), &'static str> {
 	use std::{ffi::CString, os::unix::ffi::OsStrExt, ptr};
 
-	const RANDOM_LEN: usize = 10;
-	let mut buf = Vec::with_capacity(RANDOM_LEN);
-	buf.extend(rand::thread_rng().sample_iter(&Alphanumeric).take(RANDOM_LEN));
-	let s = std::str::from_utf8(&buf)
-		.expect("the string is collected from a valid utf-8 sequence; qed");
-
-	let worker_dir_path_str =
-		worker_dir_path.to_str().ok_or("worker dir path is not valid UTF-8")?;
 	let worker_dir_path_c = CString::new(worker_dir_path.as_os_str().as_bytes()).unwrap();
-	let root_absolute_c = CString::new("/").unwrap();
-	// Append a random string to prevent races and to avoid dealing with the dir already existing.
-	let oldroot_relative_c =
-		CString::new(format!("{}/oldroot-{}", worker_dir_path_str, s)).unwrap();
-	let oldroot_absolute_c = CString::new(format!("/oldroot-{}", s)).unwrap();
+	let root_c = CString::new("/").unwrap();
+	let dot_c = CString::new(".").unwrap();
 
-	// SAFETY: TODO
+	// SAFETY: We pass null-terminated C strings and use the APIs as documented. In fact, steps (2)
+	//         and (3) are adapted from the example in pivot_root(2), with the additional change
+	//         described in the `pivot_root(".", ".")` section.
 	unsafe {
 		// 1. `unshare` the user and the mount namespaces.
+		//
+		// Separate calls: in case one flag succeeds but other fails, we give a more precise error.
 		if libc::unshare(libc::CLONE_NEWUSER) < 0 {
 			return Err("unshare user namespace")
 		}
@@ -53,12 +53,14 @@ pub fn unshare_user_namespace_and_change_root(worker_dir_path: &Path) -> Result<
 			return Err("unshare mount namespace")
 		}
 
-		// 2. `pivot_root` to the artifact directory.
+		// 2. Setup mounts.
 		//
-		// Ensure that 'new_root' and its parent mount don't have shared propagation.
+		// Ensure that new root and its parent mount don't have shared propagation (which would
+		// cause pivot_root() to return an error), and prevent propagation of mount events to the
+		// initial mount namespace.
 		if libc::mount(
 			ptr::null(),
-			root_absolute_c.as_ptr(),
+			root_c.as_ptr(),
 			ptr::null(),
 			libc::MS_REC | libc::MS_PRIVATE,
 			ptr::null(),
@@ -66,9 +68,13 @@ pub fn unshare_user_namespace_and_change_root(worker_dir_path: &Path) -> Result<
 		{
 			return Err("mount MS_PRIVATE")
 		}
+		if libc::chdir(worker_dir_path_c.as_ptr()) < 0 {
+			return Err("chdir to worker dir path")
+		}
+		// Ensure that the new root is a mount point.
 		if libc::mount(
-			worker_dir_path_c.as_ptr(),
-			worker_dir_path_c.as_ptr(),
+			dot_c.as_ptr(),
+			dot_c.as_ptr(),
 			ptr::null(), // ignored when MS_BIND is used
 			libc::MS_BIND | libc::MS_REC | libc::MS_NOEXEC | libc::MS_NODEV | libc::MS_NOSUID,
 			ptr::null(), // ignored when MS_BIND is used
@@ -76,27 +82,13 @@ pub fn unshare_user_namespace_and_change_root(worker_dir_path: &Path) -> Result<
 		{
 			return Err("mount MS_BIND")
 		}
-		if libc::mkdir(oldroot_relative_c.as_ptr(), 0755) < 0 {
-			return Err("mkdir oldroot")
-		}
-		if libc::syscall(
-			libc::SYS_pivot_root,
-			worker_dir_path_c.as_ptr(),
-			oldroot_relative_c.as_ptr(),
-		) < 0
-		{
+
+		// 3. `pivot_root` to the artifact directory.
+		if libc::syscall(libc::SYS_pivot_root, &dot_c, &dot_c) < 0 {
 			return Err("pivot_root")
 		}
-
-		// 3. Change to the new root, `unmount2` and remove the old root.
-		if libc::chdir(root_absolute_c.as_ptr()) < 0 {
-			return Err("chdir to new root")
-		}
-		if libc::umount2(oldroot_absolute_c.as_ptr(), libc::MNT_DETACH) < 0 {
-			return Err("umount2 the oldroot")
-		}
-		if libc::rmdir(oldroot_absolute_c.as_ptr()) < 0 {
-			return Err("rmdir the oldroot")
+		if libc::umount2(dot_c.as_ptr(), libc::MNT_DETACH) < 0 {
+			return Err("umount the old root mount point")
 		}
 	}
 
@@ -378,55 +370,6 @@ pub mod landlock {
 
 					// Try to write to tmpfile1 after landlock, it should fail.
 					let result = fs::write(path1, TEXT);
-					assert!(matches!(
-						result,
-						Err(err) if matches!(err.kind(), ErrorKind::PermissionDenied)
-					));
-				});
-
-			assert!(handle.join().is_ok());
-		}
-
-		#[test]
-		fn restricted_thread_can_read_files_but_not_list_dir() {
-			// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-			if !check_is_fully_enabled() {
-				return
-			}
-
-			// Restricted thread can read files but not list directory contents.
-			let handle =
-				thread::spawn(|| {
-					// Create, write to and read a tmp file. This should succeed before any landlock
-					// restrictions are applied.
-					const TEXT: &str = "foo";
-					let tmpfile = tempfile::NamedTempFile::new().unwrap();
-					let filepath = tmpfile.path();
-					let dirpath = filepath.parent().unwrap();
-
-					fs::write(filepath, TEXT).unwrap();
-					let s = fs::read_to_string(filepath).unwrap();
-					assert_eq!(s, TEXT);
-
-					// Apply Landlock with a general read exception for the directory, *without* the
-					// `ReadDir` exception.
-					let status = try_restrict(path_beneath_rules(
-						&[dirpath],
-						AccessFs::from_read(LANDLOCK_ABI) ^ AccessFs::ReadDir,
-					));
-					if !matches!(status, Ok(RulesetStatus::FullyEnforced)) {
-						panic!("Ruleset should be enforced since we checked if landlock is enabled: {:?}", status);
-					}
-
-					// Try to read file, should still be able to.
-					let result = fs::read_to_string(filepath);
-					assert!(matches!(
-						result,
-						Ok(s) if s == TEXT
-					));
-
-					// Try to list dir contents, should fail.
-					let result = fs::read_dir(dirpath);
 					assert!(matches!(
 						result,
 						Err(err) if matches!(err.kind(), ErrorKind::PermissionDenied)

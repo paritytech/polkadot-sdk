@@ -88,16 +88,15 @@ async fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Re
 ///
 /// # Parameters
 ///
-/// - `socket_path` specifies the path to the socket used to communicate with the host.
+/// - `worker_dir_path`: specifies the path to the worker-specific temporary directory.
 ///
-/// - `node_version`, if `Some`, is checked against the `worker_version`. A mismatch results in
+/// - `node_version`: if `Some`, is checked against the `worker_version`. A mismatch results in
 ///   immediate worker termination. `None` is used for tests and in other situations when version
 ///   check is not necessary.
 ///
 /// - `worker_version`: see above
 ///
-/// - `cache_path` contains the expected cache path for artifacts and is used to provide a sandbox
-///   exception for landlock.
+/// - `security_status`: contains the detected status of security features.
 ///
 /// # Flow
 ///
@@ -142,7 +141,7 @@ pub fn worker_entrypoint(
 					};
 
 					// Allow an exception for writing to the known file in the worker cache.
-					try_restrict(path_beneath_rules(&[temp_artifact_dest], AccessFs::WriteFile))
+					try_restrict(path_beneath_rules(&[&temp_artifact_dest], AccessFs::WriteFile))
 						.map(LandlockStatus::from_ruleset_status)
 						.map_err(|e| e.to_string())
 				};

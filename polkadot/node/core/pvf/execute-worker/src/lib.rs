@@ -112,16 +112,15 @@ async fn send_response(stream: &mut UnixStream, response: Response) -> io::Resul
 ///
 /// # Parameters
 ///
-/// - `socket_path` specifies the path to the socket used to communicate with the host.
+/// - `worker_dir_path`: specifies the path to the worker-specific temporary directory.
 ///
-/// - `node_version`, if `Some`, is checked against the `worker_version`. A mismatch results in
+/// - `node_version`: if `Some`, is checked against the `worker_version`. A mismatch results in
 ///   immediate worker termination. `None` is used for tests and in other situations when version
 ///   check is not necessary.
 ///
 /// - `worker_version`: see above
 ///
-/// - `cache_path` contains the expected cache path for artifacts and is used to provide a sandbox
-///   exception for landlock.
+/// - `security_status`: contains the detected status of security features.
 pub fn worker_entrypoint(
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,

@@ -205,8 +205,6 @@ pub fn worker_event_loop<F, Fut>(
 		security::remove_env_vars(debug_id);
 	}
 
-	gum::info!(target: LOG_TARGET, "5. {:?}", std::fs::read_dir(".").unwrap().map(|entry| entry.unwrap().path()).collect::<Vec<PathBuf>>());
-
 	// Run the main worker loop.
 	let rt = Runtime::new().expect("Creates tokio runtime. If this panics the worker will die and the host will detect that and deal with it.");
 	let err = rt

@@ -52,6 +52,8 @@ pub const JOB_TIMEOUT_WALL_CLOCK_FACTOR: u32 = 4;
 ///   should go through the handshake.
 ///
 /// - `spawn_timeout`: The amount of time to wait for the child process to spawn.
+///
+/// - `security_status`: contains the detected status of security features.
 #[doc(hidden)]
 pub async fn spawn_with_program_path(
 	debug_id: &'static str,
@@ -225,8 +227,6 @@ pub enum SpawnErr {
 	AcceptTimeout,
 	/// Failed to send handshake after successful spawning was signaled
 	Handshake,
-	/// Cache path is not a valid UTF-8 str.
-	InvalidCachePath(PathBuf),
 }
 
 /// This is a representation of a potentially running worker. Drop it and the process will be
@@ -387,11 +387,11 @@ pub async fn framed_recv(r: &mut (impl AsyncRead + Unpin)) -> io::Result<Vec<u8>
 ///   - artifact-2
 ///   - [...]
 /// + /tmp/
-///   - worker-dir-1/
-///     + socket                           (created by host)
-///     + tmp-artifact                     (created by worker) (prepare-only)
-///     + artifact (symlink -> artifact-1) (created by host)   (execute-only)
-///   - worker-dir-2/
+///   - worker-dir-1/  (new `/` for worker-1)
+///     + socket                            (created by host)
+///     + tmp-artifact                      (created by host) (prepare-only)
+///     + artifact     (link -> artifact-1) (created by host) (execute-only)
+///   - worker-dir-2/  (new `/` for worker-2)
 ///     + [...]
 /// ```
 #[derive(Debug)]
@@ -421,9 +421,10 @@ impl Drop for WorkerDir {
 
 // Not async since Rust has trouble with async recursion. There should be few files here anyway.
 //
-// TODO: Can a lingering malicious job still access future files in the cache?
-/// Clear the worker cache without deleting it. This is important because the worker has
-/// mounted its own separate filesystem here.
+// TODO: A lingering malicious job can still access future files in this dir. See
+// <https://github.com/paritytech/polkadot-sdk/issues/574> for how to fully secure this.
+/// Clear the temporary worker dir without deleting it. Not deleting is important because the worker
+/// has mounted its own separate filesystem here.
 ///
 /// Should be called right after a job has finished. We don't want jobs to have access to
 /// artifacts from previous jobs.
@@ -443,5 +444,9 @@ pub fn clear_worker_dir_path(worker_dir_path: &Path) -> io::Result<()> {
 		Ok(())
 	}
 
-	remove_dir_contents(worker_dir_path)
+	// Note the worker dir may not exist anymore because of the worker dying and being cleaned up.
+	match remove_dir_contents(worker_dir_path) {
+		Err(err) if matches!(err.kind(), io::ErrorKind::NotFound) => Ok(()),
+		result => result,
+	}
 }

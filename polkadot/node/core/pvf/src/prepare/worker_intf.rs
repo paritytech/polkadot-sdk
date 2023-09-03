@@ -269,11 +269,9 @@ where
 	Fut: futures::Future<Output = Outcome>,
 	F: FnOnce(PathBuf, UnixStream, WorkerDir) -> Fut,
 {
-	let worker_dir_path = worker_dir.path.clone();
-
 	// Create the tmp file here so that the child doesn't need any file creation rights. This will
 	// be cleared at the end of this function.
-	let tmp_file = worker_dir::prepare_tmp_artifact(&worker_dir_path);
+	let tmp_file = worker_dir::prepare_tmp_artifact(&worker_dir.path);
 	match tokio::fs::write(&tmp_file, &[]).await {
 		Ok(()) => (),
 		Err(err) => {
@@ -291,22 +289,19 @@ where
 		},
 	};
 
+	let worker_dir_path = worker_dir.path.clone();
 	let outcome = f(tmp_file, stream, worker_dir).await;
 
 	// Try to clear the worker dir.
-	//
-	// Note that it may not exist anymore because of the worker dying and being cleaned up.
 	if let Err(err) = clear_worker_dir_path(&worker_dir_path) {
-		if !matches!(err.kind(), io::ErrorKind::NotFound) {
-			gum::warn!(
-				target: LOG_TARGET,
-				worker_pid = %pid,
-				?worker_dir_path,
-				"failed to clear worker cache after the job: {:?}",
-				err,
-			);
-			return Outcome::ClearWorkerDir { err: format!("{:?}", err) }
-		}
+		gum::warn!(
+			target: LOG_TARGET,
+			worker_pid = %pid,
+			?worker_dir_path,
+			"failed to clear worker cache after the job: {:?}",
+			err,
+		);
+		return Outcome::ClearWorkerDir { err: format!("{:?}", err) }
 	}
 
 	outcome
