@@ -724,8 +724,23 @@ pub mod v5 {
 			Ok(())
 		}
 	}
+}
 
-	/// This migration accumulates and initializes the [`TotalValueLocked`] for all pools.
+/// This migration accumulates and initializes the [`TotalValueLocked`] for all pools.
+pub mod v6 {
+	use super::*;
+
+	/// [`VersionUncheckedMigrateV5ToV6`] wrapped in a
+	/// [`frame_support::migrations::VersionedMigration`], ensuring the migration is only
+	/// performed when on-chain version is 5.
+	#[cfg(feature = "experimental")]
+	pub type VersionCheckedMigrateV5ToV6<T> = frame_support::migrations::VersionedMigration<
+		5,
+		6,
+		VersionUncheckedMigrateV5ToV6<T>,
+		crate::pallet::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
 	pub struct VersionUncheckedMigrateV5ToV6<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> VersionUncheckedMigrateV5ToV6<T> {
 		fn calculate_tvl_by_total_stake() -> BalanceOf<T> {
@@ -740,6 +755,7 @@ pub mod v5 {
 				.unwrap_or_default()
 		}
 	}
+
 	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV5ToV6<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let migrated = BondedPools::<T>::count();
@@ -830,16 +846,4 @@ pub mod v5 {
 			Ok(())
 		}
 	}
-
-	/// [`VersionUncheckedMigrateV5ToV6`] wrapped in a
-	/// [`frame_support::migrations::VersionedRuntimeUpgrade`], ensuring the migration is only
-	/// performed when on-chain version is 5.
-	#[cfg(feature = "experimental")]
-	pub type VersionCheckedMigrateV5ToV6<T> = frame_support::migrations::VersionedRuntimeUpgrade<
-		5,
-		6,
-		VersionUncheckedMigrateV5ToV6<T>,
-		crate::pallet::Pallet<T>,
-		<T as frame_system::Config>::DbWeight,
-	>;
 }
