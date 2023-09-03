@@ -741,6 +741,7 @@ pub mod v6 {
 		crate::pallet::Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
+
 	pub struct VersionUncheckedMigrateV5ToV6<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> VersionUncheckedMigrateV5ToV6<T> {
 		fn calculate_tvl_by_total_stake() -> BalanceOf<T> {
@@ -804,7 +805,7 @@ pub mod v6 {
 			let tvl: BalanceOf<T> = Self::calculate_tvl_by_total_stake();
 			ensure!(
 				TotalValueLocked::<T>::get() == tvl,
-				"TVL written is not equal to total_balance `of all BondedPools."
+				"TVL written is not equal to `Staking::total_stake` of all `BondedPools`."
 			);
 
 			// calculate the sum of `total_balance` of all `PoolMember` as the upper bound for the
@@ -813,7 +814,7 @@ pub mod v6 {
 				.map(|(_, mut member)| member.total_balance())
 				.reduce(|acc, total_balance| acc + total_balance)
 				.unwrap_or_default();
-
+`
 			ensure!(
 				TotalValueLocked::<T>::get() <= total_balance_members,
 				"TVL is greater than the balance of all PoolMembers."
