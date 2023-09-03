@@ -1258,7 +1258,7 @@ mod tests {
 		let (mut handle, _) = config.take_protocol_handle().split();
 
 		let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
-		let genesis = engine.genesis_hash.clone();
+		let genesis = engine.genesis_hash;
 		let handshake = BlockAnnouncesHandshake::<Block>::build(
 			engine.roles,
 			*block.header().number(),
