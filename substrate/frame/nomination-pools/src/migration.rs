@@ -814,7 +814,7 @@ pub mod v6 {
 				.map(|(_, mut member)| member.total_balance())
 				.reduce(|acc, total_balance| acc + total_balance)
 				.unwrap_or_default();
-`
+
 			ensure!(
 				TotalValueLocked::<T>::get() <= total_balance_members,
 				"TVL is greater than the balance of all PoolMembers."

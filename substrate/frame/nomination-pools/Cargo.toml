@@ -36,7 +36,7 @@ sp-tracing = { path = "../../primitives/tracing" }
 
 [features]
 default = ["std"]
-# Enable `VersionedRuntimeUpgrade` for the migrations that is currently still experimental.
+# Enable `VersionedMigration` for the migrations that is currently still experimental.
 experimental = [
 	"frame-support/experimental"
 ]

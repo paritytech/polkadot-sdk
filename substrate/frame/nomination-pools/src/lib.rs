@@ -992,7 +992,6 @@ impl<T: Config> BondedPool<T> {
 	}
 
 	/// Issue points to [`Self`] for `new_funds`.
-	/// Increase the [`TotalValueLocked`] by `new_funds`.
 	fn issue(&mut self, new_funds: BalanceOf<T>) -> BalanceOf<T> {
 		let points_to_issue = self.balance_to_point(new_funds);
 		self.points = self.points.saturating_add(points_to_issue);
@@ -1211,7 +1210,8 @@ impl<T: Config> BondedPool<T> {
 		Ok(())
 	}
 
-	/// Bond exactly `amount` from `who`'s funds into this pool.
+	/// Bond exactly `amount` from `who`'s funds into this pool. Increases the [`TotalValueLocked`]
+	/// by `amount`.
 	///
 	/// If the bond is [`BondType::Create`], [`Staking::bond`] is called, and `who` is allowed to be
 	/// killed. Otherwise, [`Staking::bond_extra`] is called and `who` cannot be killed.
@@ -1469,8 +1469,8 @@ impl<T: Config> UnbondPool<T> {
 		new_points
 	}
 
-	/// Dissolve some points from the unbonding pool, reducing the balance of the pool.
-	/// This is the opposite of `issue`.
+	/// Dissolve some points from the unbonding pool, reducing the balance of the pool
+	/// proportionally. This is the opposite of `issue`.
 	///
 	/// Returns the actual amount of `Balance` that was removed from the pool.
 	fn dissolve(&mut self, points: BalanceOf<T>) -> BalanceOf<T> {
