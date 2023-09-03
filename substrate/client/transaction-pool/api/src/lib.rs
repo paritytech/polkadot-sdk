@@ -247,6 +247,9 @@ pub trait TransactionPool: Send + Sync {
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>>;
 
 	// *** logging
+	/// Get futures transaction list.
+	fn futures(&self) -> Vec<Self::InPoolTransaction>;
+
 	/// Returns pool status.
 	fn status(&self) -> PoolStatus;
 
