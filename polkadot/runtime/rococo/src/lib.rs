@@ -717,10 +717,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				// Specifically omitting the entire Balances pallet
 				RuntimeCall::Session(..) |
 				RuntimeCall::Grandpa(..) |
-				RuntimeCall::ImOnline(..) |			
+				RuntimeCall::ImOnline(..) |
 				RuntimeCall::Treasury(..) |
 				RuntimeCall::Bounties(..) |
-				RuntimeCall::ChildBounties(..) |				
+				RuntimeCall::ChildBounties(..) |
 				RuntimeCall::ConvictionVoting(..) |
 				RuntimeCall::Referenda(..) |
 				RuntimeCall::FellowshipCollective(..) |
