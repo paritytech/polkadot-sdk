@@ -569,6 +569,16 @@ fn can_quote_price() {
 			),
 			Some(60)
 		);
+		// including fee so should get less out...
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				NativeOrAssetId::Native,
+				NativeOrAssetId::Asset(2),
+				3000,
+				true,
+			),
+			Some(46)
+		);
 		// Check it still gives same price:
 		// (if the above accidentally exchanged then it would not give same quote as before)
 		assert_eq!(
@@ -580,6 +590,16 @@ fn can_quote_price() {
 			),
 			Some(60)
 		);
+		// including fee so should get less out...
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				NativeOrAssetId::Native,
+				NativeOrAssetId::Asset(2),
+				3000,
+				true,
+			),
+			Some(46)
+		);
 
 		// Check inverse:
 		assert_eq!(
@@ -590,6 +610,81 @@ fn can_quote_price() {
 				false,
 			),
 			Some(3000)
+		);
+		// including fee so should get less out...
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				NativeOrAssetId::Asset(2),
+				NativeOrAssetId::Native,
+				60,
+				true,
+			),
+			Some(2302)
+		);
+
+		//
+		// same tests as above but for quote_price_tokens_for_exact_tokens:
+		//
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				NativeOrAssetId::Native,
+				NativeOrAssetId::Asset(2),
+				60,
+				false,
+			),
+			Some(3000)
+		);
+		// including fee so should need to put more in...
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				NativeOrAssetId::Native,
+				NativeOrAssetId::Asset(2),
+				60,
+				true,
+			),
+			Some(4299)
+		);
+		// Check it still gives same price:
+		// (if the above accidentally exchanged then it would not give same quote as before)
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				NativeOrAssetId::Native,
+				NativeOrAssetId::Asset(2),
+				60,
+				false,
+			),
+			Some(3000)
+		);
+		// including fee so should need to put more in...
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				NativeOrAssetId::Native,
+				NativeOrAssetId::Asset(2),
+				60,
+				true,
+			),
+			Some(4299)
+		);
+
+		// Check inverse:
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				NativeOrAssetId::Asset(2),
+				NativeOrAssetId::Native,
+				3000,
+				false,
+			),
+			Some(60)
+		);
+		// including fee so should need to put more in...
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				NativeOrAssetId::Asset(2),
+				NativeOrAssetId::Native,
+				3000,
+				true,
+			),
+			Some(86)
 		);
 	});
 }
