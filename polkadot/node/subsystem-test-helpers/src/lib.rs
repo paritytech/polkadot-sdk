@@ -332,13 +332,13 @@ pub fn subsystem_test_harness<M, OverseerFactory, Overseer, TestFactory, Test>(
 
 	futures::executor::block_on(async move {
 		future::join(overseer, test)
-			.timeout(Duration::from_secs(5))
+			.timeout(Duration::from_secs(10))
 			.await
 			.expect("test timed out instead of completing")
 	});
 }
 
-/// A forward subsystem that implements [`Subsystem`].
+/// A forward subsystem that implements [`Subsystem`](overseer::Subsystem).
 ///
 /// It forwards all communication from the overseer to the internal message
 /// channel.

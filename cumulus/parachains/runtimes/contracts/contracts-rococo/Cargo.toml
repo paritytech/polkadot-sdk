@@ -1,8 +1,8 @@
 [package]
 name = "contracts-rococo-runtime"
 version = "0.2.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -55,11 +55,11 @@ pallet-contracts-primitives = { path = "../../../../../substrate/frame/contracts
 kusama-runtime-constants = { path = "../../../../../polkadot/runtime/kusama/constants", default-features = false}
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false}
-polkadot-parachain = { path = "../../../../../polkadot/parachain", default-features = false}
+polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false}
 polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false}
-xcm = { path = "../../../../../polkadot/xcm", default-features = false}
-xcm-builder = { path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
-xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
@@ -75,27 +75,34 @@ parachain-info = { path = "../../../pallets/parachain-info", default-features = 
 parachains-common = { path = "../../../common", default-features = false }
 
 [features]
-default = [
-	"std",
-]
+default = [ "std" ]
 std = [
 	"codec/std",
-	"log/std",
-	"scale-info/std",
+	"cumulus-pallet-aura-ext/std",
+	"cumulus-pallet-dmp-queue/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-session-benchmarking/std",
+	"cumulus-pallet-xcm/std",
+	"cumulus-pallet-xcmp-queue/std",
+	"cumulus-primitives-core/std",
+	"cumulus-primitives-utility/std",
+	"frame-benchmarking?/std",
 	"frame-executive/std",
 	"frame-support/std",
+	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
-    "frame-try-runtime/std",
+	"frame-try-runtime/std",
 	"kusama-runtime-constants/std",
+	"log/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-contracts-primitives/std",
 	"pallet-contracts/std",
-	"pallet-multisig/std",
 	"pallet-insecure-randomness-collective-flip/std",
+	"pallet-multisig/std",
 	"pallet-session/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
@@ -106,8 +113,9 @@ std = [
 	"parachain-info/std",
 	"parachains-common/std",
 	"polkadot-core-primitives/std",
-	"polkadot-parachain/std",
+	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
+	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -117,27 +125,24 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-std/std",
+	"sp-storage/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
+	"substrate-wasm-builder",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"cumulus-pallet-aura-ext/std",
-	"cumulus-pallet-dmp-queue/std",
-	"cumulus-pallet-parachain-system/std",
-	"cumulus-pallet-xcm/std",
-	"cumulus-pallet-xcmp-queue/std",
-	"cumulus-primitives-core/std",
-	"cumulus-primitives-utility/std",
-	"substrate-wasm-builder",
 ]
 
 runtime-benchmarks = [
-	"hex-literal",
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
+	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"hex-literal",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-contracts/runtime-benchmarks",
@@ -146,10 +151,11 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
-	"cumulus-pallet-parachain-system/runtime-benchmarks",
-	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 ]
 
 try-runtime = [
@@ -159,6 +165,7 @@ try-runtime = [
 	"cumulus-pallet-xcm/try-runtime",
 	"cumulus-pallet-xcmp-queue/try-runtime",
 	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-aura/try-runtime",
@@ -166,8 +173,8 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
 	"pallet-contracts/try-runtime",
-	"pallet-multisig/try-runtime",
 	"pallet-insecure-randomness-collective-flip/try-runtime",
+	"pallet-multisig/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
@@ -175,6 +182,8 @@ try-runtime = [
 	"pallet-utility/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
+	"polkadot-runtime-common/try-runtime",
+	"sp-runtime/try-runtime",
 ]
 
 experimental = [ "pallet-aura/experimental" ]

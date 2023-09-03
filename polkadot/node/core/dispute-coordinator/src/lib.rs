@@ -25,7 +25,7 @@
 //! When importing a dispute vote from another node, this will trigger dispute participation to
 //! recover and validate the block.
 
-use std::{num::NonZeroUsize, sync::Arc};
+use std::sync::Arc;
 
 use futures::FutureExt;
 
@@ -222,8 +222,7 @@ impl DisputeCoordinatorSubsystem {
 			// keep all sessions for a dispute window
 			let mut runtime_info = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 				keystore: None,
-				session_cache_lru_size: NonZeroUsize::new(DISPUTE_WINDOW.get() as usize)
-					.expect("DISPUTE_WINDOW can't be 0; qed."),
+				session_cache_lru_size: DISPUTE_WINDOW.get(),
 			});
 			let mut overlay_db = OverlayedBackend::new(&mut backend);
 			let (
@@ -399,6 +398,7 @@ impl DisputeCoordinatorSubsystem {
 						ParticipationRequest::new(
 							vote_state.votes().candidate_receipt.clone(),
 							session,
+							env.executor_params().clone(),
 							request_timer,
 						),
 					));

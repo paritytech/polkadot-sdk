@@ -22,8 +22,8 @@
 use super::*;
 use crate::mock::{RuntimeCall, *};
 
-use frame_support::{assert_err, assert_noop, assert_ok, dispatch::Dispatchable, traits::Currency};
-use sp_runtime::TransactionOutcome;
+use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
+use sp_runtime::{traits::Dispatchable, TransactionOutcome};
 
 /// Do something hypothetically by rolling back any changes afterwards.
 ///

@@ -1,8 +1,8 @@
 [package]
 name = "seedling-runtime"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
@@ -36,17 +36,20 @@ cumulus-primitives-core = { path = "../../../../primitives/core", default-featur
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
 
 [features]
-default = [ 
-	"std",
-]
+default = [ "std" ]
 std = [
 	"codec/std",
-	"scale-info/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-solo-to-para/std",
+	"cumulus-primitives-core/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
 	"pallet-sudo/std",
+	"parachain-info/std",
+	"parachains-common/std",
+	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-core/std",
@@ -57,10 +60,5 @@ std = [
 	"sp-std/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
-	"cumulus-pallet-parachain-system/std",
-	"cumulus-pallet-solo-to-para/std",
-	"cumulus-primitives-core/std",
-	"parachain-info/std",
-	"parachains-common/std",
 	"substrate-wasm-builder",
 ]

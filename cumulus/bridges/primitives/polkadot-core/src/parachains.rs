@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -37,7 +37,8 @@ use parity_util_mem::MallocSizeOf;
 
 /// Parachain id.
 ///
-/// This is an equivalent of the `polkadot_parachain::Id`, which is a compact-encoded `u32`.
+/// This is an equivalent of the `polkadot_parachain_primitives::Id`, which is a compact-encoded
+/// `u32`.
 #[derive(
 	Clone,
 	CompactAs,
@@ -64,7 +65,7 @@ impl From<u32> for ParaId {
 
 /// Parachain head.
 ///
-/// This is an equivalent of the `polkadot_parachain::HeadData`.
+/// This is an equivalent of the `polkadot_parachain_primitives::HeadData`.
 ///
 /// The parachain head means (at least in Cumulus) a SCALE-encoded parachain header.
 #[derive(

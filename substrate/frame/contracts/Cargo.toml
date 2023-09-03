@@ -1,12 +1,12 @@
 [package]
 name = "pallet-contracts"
 version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 build = "build.rs"
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "FRAME pallet for WASM contracts"
 readme = "README.md"
 include = ["src/**/*", "README.md", "CHANGELOG.md"]
@@ -26,7 +26,7 @@ serde = { version = "1", optional = true, features = ["derive"] }
 smallvec = { version = "1", default-features = false, features = [
 	"const_generics",
 ] }
-wasmi = { version = "0.30", default-features = false }
+wasmi = { version = "0.31", default-features = false }
 impl-trait-for-tuples = "0.2"
 
 # Only used in benchmarking to generate contract code

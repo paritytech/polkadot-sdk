@@ -1,16 +1,16 @@
 [package]
-name = "xcm-executor"
+name = "staging-xcm-executor"
 description = "An abstract and configurable XCM message executor."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version.workspace = true
+version = "1.0.0"
 
 [dependencies]
 impl-trait-for-tuples = "0.2.2"
 environmental = { version = "1.1.4", default-features = false }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-xcm = { path = "..", default-features = false }
+xcm = { package = "staging-xcm", path = "..", default-features = false }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 sp-arithmetic = { path = "../../../substrate/primitives/arithmetic", default-features = false }
@@ -22,20 +22,22 @@ log = { version = "0.4.17", default-features = false }
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 std = [
-	"parity-scale-codec/std",
-	"xcm/std",
-	"sp-std/std",
-	"sp-io/std",
-	"sp-arithmetic/std",
-	"sp-core/std",
-	"sp-runtime/std",
-	"sp-weights/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"log/std",
-	"frame-benchmarking/std",
+	"parity-scale-codec/std",
+	"sp-arithmetic/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-weights/std",
+	"xcm/std",
 ]

@@ -41,7 +41,7 @@ impl<T: Config> Pallet<T> {
 			_ => return Weight::zero(),
 		};
 
-		let mut meter = WeightMeter::max_limit();
+		let mut meter = WeightMeter::new();
 
 		if Self::process_core_count(&mut status) {
 			meter.consume(T::WeightInfo::process_core_count(status.core_count.into()));

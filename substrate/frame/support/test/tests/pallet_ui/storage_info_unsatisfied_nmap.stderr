@@ -1,7 +1,7 @@
 error[E0277]: the trait bound `Bar: MaxEncodedLen` is not satisfied
-  --> tests/pallet_ui/storage_info_unsatisfied_nmap.rs:12:12
+  --> tests/pallet_ui/storage_info_unsatisfied_nmap.rs:29:12
    |
-12 |     #[pallet::pallet]
+29 |     #[pallet::pallet]
    |               ^^^^^^ the trait `MaxEncodedLen` is not implemented for `Bar`
    |
    = help: the following other types implement trait `MaxEncodedLen`:
