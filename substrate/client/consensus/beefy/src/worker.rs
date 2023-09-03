@@ -1053,7 +1053,7 @@ pub(crate) mod tests {
 	use sp_api::HeaderT;
 	use sp_blockchain::Backend as BlockchainBackendT;
 	use sp_consensus_beefy::{
-		generate_fork_equivocation_proof_vote, generate_vote_equivocation_proof, known_payloads,
+		generate_fork_equivocation_proof_sc, generate_fork_equivocation_proof_vote, generate_vote_equivocation_proof, known_payloads,
 		known_payloads::MMR_ROOT_ID, mmr::MmrRootProvider, ForkEquivocationProof, Keyring, Payload,
 		SignedCommitment,
 	};
@@ -1746,11 +1746,7 @@ pub(crate) mod tests {
 			validator_set_id: validator_set.id(),
 		};
 		// only Bob and Charlie sign
-		let signatories: Vec<_> = vec![Keyring::Bob, Keyring::Charlie]
-			.iter()
-			.map(|k| (k.public(), k.sign(&commitment.encode())))
-			.collect();
-		let proof = ForkEquivocationProof { commitment, signatories, correct_header: header };
+		let proof = generate_fork_equivocation_proof_sc(commitment, vec![Keyring::Bob, Keyring::Charlie], header);
 		{
 			// expect fisher (Alice) to successfully process it
 			assert_eq!(

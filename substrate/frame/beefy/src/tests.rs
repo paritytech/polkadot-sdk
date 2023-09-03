@@ -256,6 +256,7 @@ fn should_sign_and_verify() {
 }
 
 // vote equivocation report tests
+// TODO: deduplicate by extracting common test structure of equivocation classes
 #[test]
 fn report_vote_equivocation_current_set_works() {
 	let authorities = test_authorities();
@@ -794,6 +795,7 @@ fn valid_vote_equivocation_reports_dont_pay_fees() {
 }
 
 // fork equivocation (via vote) report tests
+// TODO: deduplicate by extracting common test structure of equivocation classes
 #[test]
 fn report_fork_equivocation_vote_current_set_works() {
 	let authorities = test_authorities();
@@ -1345,6 +1347,7 @@ fn valid_fork_equivocation_vote_reports_dont_pay_fees() {
 }
 
 // fork equivocation (via signed commitment) report tests
+// TODO: deduplicate by extracting common test structure of equivocation classes
 #[test]
 fn report_fork_equivocation_sc_current_set_works() {
 	let authorities = test_authorities();
