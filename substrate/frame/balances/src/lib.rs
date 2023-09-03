@@ -240,6 +240,29 @@ pub mod pallet {
 
 			type WeightInfo = ();
 		}
+
+		pub struct SolochainDefaultConfig;
+
+		#[derive_impl(frame_system::config_preludes::SolochainDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for SolochainDefaultConfig {}
+
+		#[frame_support::register_default_impl(SolochainDefaultConfig)]
+		impl DefaultConfig for SolochainDefaultConfig {
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+
+			type Balance = u64;
+
+			type ReserveIdentifier = ();
+			type FreezeIdentifier = ();
+
+			type MaxLocks = ();
+			type MaxReserves = ();
+			type MaxFreezes = ();
+			type MaxHolds = ();
+
+			type WeightInfo = ();
+		}
 	}
 
 	#[pallet::config(with_default)]
