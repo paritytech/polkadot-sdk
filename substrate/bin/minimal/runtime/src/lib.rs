@@ -104,7 +104,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type DustRemoval = ();
 	type AccountStore = System;
-	type ExistentialDeposit = ConstU128<1>;
+	type ExistentialDeposit = ConstU64<1>;
 }
 
 #[derive_impl(pallet_sudo::config_preludes::SolochainDefaultConfig as pallet_sudo::DefaultConfig)]
