@@ -42,7 +42,7 @@ pub use polkadot_core_primitives::v2::{
 };
 
 // Export some polkadot-parachain primitives
-pub use polkadot_parachain::primitives::{
+pub use polkadot_parachain_primitives::primitives::{
 	HeadData, HorizontalMessages, HrmpChannelId, Id, UpwardMessage, UpwardMessages, ValidationCode,
 	ValidationCodeHash, LOWEST_PUBLIC_ID, LOWEST_USER_ID,
 };
@@ -389,6 +389,10 @@ pub const MAX_POV_SIZE: u32 = 5 * 1024 * 1024;
 ///
 /// Can be adjusted in configuration.
 pub const ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE: u32 = 10_000;
+
+/// Backing votes threshold used from the host prior to runtime API version 6 and from the runtime
+/// prior to v9 configuration migration.
+pub const LEGACY_MIN_BACKING_VOTES: u32 = 2;
 
 // The public key of a keypair used by a validator for determining assignments
 /// to approve included parachain candidates.
@@ -1693,6 +1697,14 @@ pub const fn byzantine_threshold(n: usize) -> usize {
 /// guaranteed to have at least f+1 honest validators.
 pub const fn supermajority_threshold(n: usize) -> usize {
 	n - byzantine_threshold(n)
+}
+
+/// Adjust the configured needed backing votes with the size of the backing group.
+pub fn effective_minimum_backing_votes(
+	group_len: usize,
+	configured_minimum_backing_votes: u32,
+) -> usize {
+	sp_std::cmp::min(group_len, configured_minimum_backing_votes as usize)
 }
 
 /// Information about validator sets of a session.

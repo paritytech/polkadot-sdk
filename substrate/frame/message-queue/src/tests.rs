@@ -381,7 +381,7 @@ fn service_queue_bails() {
 	// Not enough weight for `service_queue_base`.
 	build_and_execute::<Test>(|| {
 		set_weight("service_queue_base", 2.into_weight());
-		let mut meter = WeightMeter::from_limit(1.into_weight());
+		let mut meter = WeightMeter::with_limit(1.into_weight());
 
 		assert_storage_noop!(MessageQueue::service_queue(0u32.into(), &mut meter, Weight::MAX));
 		assert!(meter.consumed().is_zero());
@@ -389,7 +389,7 @@ fn service_queue_bails() {
 	// Not enough weight for `ready_ring_unknit`.
 	build_and_execute::<Test>(|| {
 		set_weight("ready_ring_unknit", 2.into_weight());
-		let mut meter = WeightMeter::from_limit(1.into_weight());
+		let mut meter = WeightMeter::with_limit(1.into_weight());
 
 		assert_storage_noop!(MessageQueue::service_queue(0u32.into(), &mut meter, Weight::MAX));
 		assert!(meter.consumed().is_zero());
@@ -399,7 +399,7 @@ fn service_queue_bails() {
 		set_weight("service_queue_base", 2.into_weight());
 		set_weight("ready_ring_unknit", 2.into_weight());
 
-		let mut meter = WeightMeter::from_limit(3.into_weight());
+		let mut meter = WeightMeter::with_limit(3.into_weight());
 		assert_storage_noop!(MessageQueue::service_queue(0.into(), &mut meter, Weight::MAX));
 		assert!(meter.consumed().is_zero());
 	});
@@ -426,7 +426,7 @@ fn service_page_works() {
 			msgs -= process;
 
 			//  Enough weight to process `process` messages.
-			let mut meter = WeightMeter::from_limit(((2 + (3 + 1) * process) as u64).into_weight());
+			let mut meter = WeightMeter::with_limit(((2 + (3 + 1) * process) as u64).into_weight());
 			System::reset_events();
 			let (processed, status) =
 				crate::Pallet::<Test>::service_page(&Here, &mut book, &mut meter, Weight::MAX);
@@ -449,7 +449,7 @@ fn service_page_bails() {
 	// Not enough weight for `service_page_base_completion`.
 	build_and_execute::<Test>(|| {
 		set_weight("service_page_base_completion", 2.into_weight());
-		let mut meter = WeightMeter::from_limit(1.into_weight());
+		let mut meter = WeightMeter::with_limit(1.into_weight());
 
 		let (page, _) = full_page::<Test>();
 		let mut book = book_for::<Test>(&page);
@@ -466,7 +466,7 @@ fn service_page_bails() {
 	// Not enough weight for `service_page_base_no_completion`.
 	build_and_execute::<Test>(|| {
 		set_weight("service_page_base_no_completion", 2.into_weight());
-		let mut meter = WeightMeter::from_limit(1.into_weight());
+		let mut meter = WeightMeter::with_limit(1.into_weight());
 
 		let (page, _) = full_page::<Test>();
 		let mut book = book_for::<Test>(&page);
@@ -487,7 +487,7 @@ fn service_page_item_bails() {
 	build_and_execute::<Test>(|| {
 		let _guard = StorageNoopGuard::default();
 		let (mut page, _) = full_page::<Test>();
-		let mut weight = WeightMeter::from_limit(10.into_weight());
+		let mut weight = WeightMeter::with_limit(10.into_weight());
 		let overweight_limit = 10.into_weight();
 		set_weight("service_page_item", 11.into_weight());
 
@@ -518,7 +518,7 @@ fn service_page_suspension_works() {
 		Pages::<Test>::insert(Here, 0, page);
 
 		// First we process 5 messages from this page.
-		let mut meter = WeightMeter::from_limit(5.into_weight());
+		let mut meter = WeightMeter::with_limit(5.into_weight());
 		let (_, status) =
 			crate::Pallet::<Test>::service_page(&Here, &mut book, &mut meter, Weight::MAX);
 
@@ -534,7 +534,7 @@ fn service_page_suspension_works() {
 			let (_, status) = crate::Pallet::<Test>::service_page(
 				&Here,
 				&mut book,
-				&mut WeightMeter::max_limit(),
+				&mut WeightMeter::new(),
 				Weight::MAX,
 			);
 			assert_eq!(status, NoProgress);
@@ -546,7 +546,7 @@ fn service_page_suspension_works() {
 		let (_, status) = crate::Pallet::<Test>::service_page(
 			&Here,
 			&mut book,
-			&mut WeightMeter::max_limit(),
+			&mut WeightMeter::new(),
 			Weight::MAX,
 		);
 		assert_eq!(status, NoMore);
@@ -564,7 +564,7 @@ fn bump_service_head_works() {
 
 		// Bump 99 times.
 		for i in 0..99 {
-			let current = MessageQueue::bump_service_head(&mut WeightMeter::max_limit()).unwrap();
+			let current = MessageQueue::bump_service_head(&mut WeightMeter::new()).unwrap();
 			assert_eq!(current, [Here, There, Everywhere(0)][i % 3]);
 		}
 
@@ -581,7 +581,7 @@ fn bump_service_head_bails() {
 		setup_bump_service_head::<Test>(0.into(), 1.into());
 
 		let _guard = StorageNoopGuard::default();
-		let mut meter = WeightMeter::from_limit(1.into_weight());
+		let mut meter = WeightMeter::with_limit(1.into_weight());
 		assert!(MessageQueue::bump_service_head(&mut meter).is_none());
 		assert_eq!(meter.consumed(), 0.into_weight());
 	});
@@ -591,7 +591,7 @@ fn bump_service_head_bails() {
 fn bump_service_head_trivial_works() {
 	build_and_execute::<Test>(|| {
 		set_weight("bump_service_head", 2.into_weight());
-		let mut meter = WeightMeter::max_limit();
+		let mut meter = WeightMeter::new();
 
 		assert_eq!(MessageQueue::bump_service_head(&mut meter), None, "Cannot bump");
 		assert_eq!(meter.consumed(), 2.into_weight());
@@ -616,7 +616,7 @@ fn bump_service_head_no_head_noops() {
 		ServiceHead::<Test>::kill();
 
 		// Nothing happens.
-		assert_storage_noop!(MessageQueue::bump_service_head(&mut WeightMeter::max_limit()));
+		assert_storage_noop!(MessageQueue::bump_service_head(&mut WeightMeter::new()));
 	});
 }
 
@@ -624,7 +624,7 @@ fn bump_service_head_no_head_noops() {
 fn service_page_item_consumes_correct_weight() {
 	build_and_execute::<Test>(|| {
 		let mut page = page::<Test>(b"weight=3");
-		let mut weight = WeightMeter::from_limit(10.into_weight());
+		let mut weight = WeightMeter::with_limit(10.into_weight());
 		let overweight_limit = 0.into_weight();
 		set_weight("service_page_item", 2.into_weight());
 
@@ -648,7 +648,7 @@ fn service_page_item_consumes_correct_weight() {
 fn service_page_item_skips_perm_overweight_message() {
 	build_and_execute::<Test>(|| {
 		let mut page = page::<Test>(b"TooMuch");
-		let mut weight = WeightMeter::from_limit(2.into_weight());
+		let mut weight = WeightMeter::with_limit(2.into_weight());
 		let overweight_limit = 0.into_weight();
 		set_weight("service_page_item", 2.into_weight());
 
