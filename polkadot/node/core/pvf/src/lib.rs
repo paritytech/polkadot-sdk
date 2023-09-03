@@ -102,6 +102,8 @@ pub mod testing;
 
 // Used by `decl_puppet_worker_main!`.
 #[cfg(feature = "test-utils")]
+pub use polkadot_node_core_pvf_common::worker;
+#[cfg(feature = "test-utils")]
 pub use sp_tracing;
 
 pub use error::{InvalidCandidate, ValidationError};
@@ -115,6 +117,7 @@ pub use polkadot_node_core_pvf_common::{
 	error::{InternalValidationError, PrepareError},
 	prepare::{PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
+	SecurityStatus,
 };
 
 // Re-export worker entrypoints.

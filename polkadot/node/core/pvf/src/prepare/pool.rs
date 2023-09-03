@@ -113,7 +113,6 @@ type Mux = FuturesUnordered<BoxFuture<'static, PoolEvent>>;
 struct Pool {
 	// Some variables related to the current session.
 	program_path: PathBuf,
-	cache_path: PathBuf,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
 	security_status: SecurityStatus,
@@ -132,7 +131,6 @@ struct Fatal;
 async fn run(
 	Pool {
 		program_path,
-		cache_path,
 		spawn_timeout,
 		node_version,
 		security_status,
@@ -161,7 +159,6 @@ async fn run(
 				handle_to_pool(
 					&metrics,
 					&program_path,
-					&cache_path,
 					spawn_timeout,
 					node_version.clone(),
 					security_status.clone(),
@@ -209,7 +206,6 @@ async fn purge_dead(
 fn handle_to_pool(
 	metrics: &Metrics,
 	program_path: &Path,
-	cache_path: &Path,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
 	security_status: SecurityStatus,
@@ -226,7 +222,6 @@ fn handle_to_pool(
 					program_path.to_owned(),
 					spawn_timeout,
 					node_version,
-					cache_path.to_owned(),
 					security_status,
 				)
 				.boxed(),
@@ -242,9 +237,7 @@ fn handle_to_pool(
 							worker,
 							idle,
 							pvf,
-							cache_path.to_owned(),
 							artifact_path,
-							security_status,
 							preparation_timer,
 						)
 						.boxed(),
@@ -274,7 +267,6 @@ async fn spawn_worker_task(
 	program_path: PathBuf,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
-	cache_path: PathBuf,
 	security_status: SecurityStatus,
 ) -> PoolEvent {
 	use futures_timer::Delay;
@@ -284,7 +276,6 @@ async fn spawn_worker_task(
 			&program_path,
 			spawn_timeout,
 			node_version.as_deref(),
-			&cache_path,
 			security_status.clone(),
 		)
 		.await
@@ -305,12 +296,10 @@ async fn start_work_task<Timer>(
 	worker: Worker,
 	idle: IdleWorker,
 	pvf: PvfPrepData,
-	cache_path: PathBuf,
 	artifact_path: PathBuf,
-	security_status: SecurityStatus,
 	_preparation_timer: Option<Timer>,
 ) -> PoolEvent {
-	let outcome = worker_intf::start_work(&metrics, idle, pvf, &cache_path, artifact_path, security_status).await;
+	let outcome = worker_intf::start_work(&metrics, idle, pvf, artifact_path).await;
 	PoolEvent::StartWork(worker, outcome)
 }
 
@@ -347,14 +336,29 @@ fn handle_mux(
 				),
 				// Return `Concluded`, but do not kill the worker since the error was on the host
 				// side.
-				Outcome::RenameTmpFileErr { worker: idle, result: _, err } =>
+				Outcome::RenameTmpFileErr { worker: idle, result: _, err, src, dest } =>
 					handle_concluded_no_rip(
 						from_pool,
 						spawned,
 						worker,
 						idle,
-						Err(PrepareError::RenameTmpFileErr(err)),
+						Err(PrepareError::RenameTmpFileErr { err, src, dest }),
 					),
+				// Could not clear worker cache. Kill the worker so other jobs can't see the data.
+				Outcome::ClearWorkerDir { err } => {
+					if attempt_retire(metrics, spawned, worker) {
+						reply(
+							from_pool,
+							FromPool::Concluded {
+								worker,
+								rip: true,
+								result: Err(PrepareError::ClearWorkerDir(err)),
+							},
+						)?;
+					}
+
+					Ok(())
+				},
 				Outcome::Unreachable => {
 					if attempt_retire(metrics, spawned, worker) {
 						reply(from_pool, FromPool::Rip(worker))?;
@@ -456,7 +460,6 @@ fn handle_concluded_no_rip(
 pub fn start(
 	metrics: Metrics,
 	program_path: PathBuf,
-	cache_path: PathBuf,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
 	security_status: SecurityStatus,
@@ -467,7 +470,6 @@ pub fn start(
 	let run = run(Pool {
 		metrics,
 		program_path,
-		cache_path,
 		spawn_timeout,
 		node_version,
 		security_status,

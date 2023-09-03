@@ -16,7 +16,7 @@
 
 //! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-pub use polkadot_node_core_pvf_common::executor_intf::Executor;
+pub use polkadot_node_core_pvf_common::{executor_intf::Executor, worker_dir, SecurityStatus};
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
@@ -30,7 +30,7 @@ use polkadot_node_core_pvf_common::{
 	executor_intf::NATIVE_STACK_MAX,
 	framed_recv, framed_send,
 	worker::{
-		bytes_to_path, cpu_time_monitor_loop,
+		cpu_time_monitor_loop,
 		security::LandlockStatus,
 		stringify_panic_payload,
 		thread::{self, WaitOutcome},
@@ -39,7 +39,7 @@ use polkadot_node_core_pvf_common::{
 };
 use polkadot_parachain::primitives::ValidationResult;
 use std::{
-	path::{Path, PathBuf},
+	path::PathBuf,
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
@@ -92,14 +92,7 @@ async fn recv_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 	Ok(handshake)
 }
 
-async fn recv_request(stream: &mut UnixStream) -> io::Result<(PathBuf, Vec<u8>, Duration)> {
-	let artifact_path = framed_recv(stream).await?;
-	let artifact_path = bytes_to_path(&artifact_path).ok_or_else(|| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			"execute pvf recv_request: non utf-8 artifact path".to_string(),
-		)
-	})?;
+async fn recv_request(stream: &mut UnixStream) -> io::Result<(Vec<u8>, Duration)> {
 	let params = framed_recv(stream).await?;
 	let execution_timeout = framed_recv(stream).await?;
 	let execution_timeout = Duration::decode(&mut &execution_timeout[..]).map_err(|_| {
@@ -108,7 +101,7 @@ async fn recv_request(stream: &mut UnixStream) -> io::Result<(PathBuf, Vec<u8>, 
 			"execute pvf recv_request: failed to decode duration".to_string(),
 		)
 	})?;
-	Ok((artifact_path, params, execution_timeout))
+	Ok((params, execution_timeout))
 }
 
 async fn send_response(stream: &mut UnixStream, response: Response) -> io::Result<()> {
@@ -130,22 +123,22 @@ async fn send_response(stream: &mut UnixStream, response: Response) -> io::Resul
 /// - `cache_path` contains the expected cache path for artifacts and is used to provide a sandbox
 ///   exception for landlock.
 pub fn worker_entrypoint(
-	socket_path: &str,
+	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
-	cache_path: &Path,
+	security_status: SecurityStatus,
 ) {
 	worker_event_loop(
 		"execute",
-		socket_path,
+		worker_dir_path,
 		node_version,
 		worker_version,
-		cache_path,
-		|mut stream| async move {
+		&security_status,
+		|mut stream, worker_dir_path| async move {
 			let worker_pid = std::process::id();
+			let artifact_path = worker_dir::execute_artifact(&worker_dir_path);
 
-			let Handshake { executor_params, security_status } =
-				recv_handshake(&mut stream).await?;
+			let Handshake { executor_params } = recv_handshake(&mut stream).await?;
 			let executor = Executor::new(executor_params).map_err(|e| {
 				io::Error::new(io::ErrorKind::Other, format!("cannot create executor: {}", e))
 			})?;
@@ -155,18 +148,13 @@ pub fn worker_entrypoint(
 				#[cfg(target_os = "linux")]
 				let landlock_status = {
 					use polkadot_node_core_pvf_common::worker::security::landlock::{
-						path_beneath_rules, try_restrict, Access, AccessFs, LANDLOCK_ABI,
+						path_beneath_rules, try_restrict, AccessFs,
 					};
 
-					// Allow an exception for reading from the artifact cache, but disallow listing
-					// the directory contents. Since we prepend artifact names with a random hash,
-					// this means attackers can't discover artifacts apart from the current job.
-					try_restrict(path_beneath_rules(
-						&[cache_path],
-						AccessFs::from_read(LANDLOCK_ABI) ^ AccessFs::ReadDir,
-					))
-					.map(LandlockStatus::from_ruleset_status)
-					.map_err(|e| e.to_string())
+					// Allow an exception for reading from the known artifact path.
+					try_restrict(path_beneath_rules(&[&artifact_path], AccessFs::ReadFile))
+						.map(LandlockStatus::from_ruleset_status)
+						.map_err(|e| e.to_string())
 				};
 				#[cfg(not(target_os = "linux"))]
 				let landlock_status: Result<LandlockStatus, String> = Ok(LandlockStatus::NotEnforced);
@@ -190,7 +178,7 @@ pub fn worker_entrypoint(
 			}
 
 			loop {
-				let (artifact_path, params, execution_timeout) = recv_request(&mut stream).await?;
+				let (params, execution_timeout) = recv_request(&mut stream).await?;
 				gum::debug!(
 					target: LOG_TARGET,
 					%worker_pid,
@@ -198,12 +186,8 @@ pub fn worker_entrypoint(
 					artifact_path.display(),
 				);
 
-				if !artifact_path.starts_with(cache_path) {
-					return Err(io::Error::new(io::ErrorKind::Other, format!("received an artifact path {artifact_path:?} that does not belong to expected artifact dir {cache_path:?}")))
-				}
-
 				// Get the artifact bytes.
-				let compiled_artifact_blob = match std::fs::read(artifact_path) {
+				let compiled_artifact_blob = match std::fs::read(&artifact_path) {
 					Ok(bytes) => bytes,
 					Err(err) => {
 						let response = Response::InternalError(

@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::SecurityStatus;
 use parity_scale_codec::{Decode, Encode};
 
 /// Preparation statistics, including the CPU time and memory taken.
@@ -55,12 +54,4 @@ pub enum PrepareJobKind {
 	Compilation,
 	/// A prechecking job.
 	Prechecking,
-}
-
-/// The payload of the one-time handshake that is done when a worker process is created. Carries
-/// data from the host to the worker.
-#[derive(Encode, Decode)]
-pub struct Handshake {
-	/// Status of security features on the current system.
-	pub security_status: SecurityStatus,
 }

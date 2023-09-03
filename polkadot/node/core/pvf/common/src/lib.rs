@@ -22,6 +22,7 @@ pub mod executor_intf;
 pub mod prepare;
 pub mod pvf;
 pub mod worker;
+pub mod worker_dir;
 
 pub use cpu_time::ProcessTime;
 
@@ -33,7 +34,6 @@ const LOG_TARGET: &str = "parachain::pvf-common";
 
 use std::mem;
 use tokio::io::{self, AsyncRead, AsyncReadExt as _, AsyncWrite, AsyncWriteExt as _};
-use parity_scale_codec::{Decode, Encode};
 
 #[cfg(feature = "test-utils")]
 pub mod tests {
@@ -44,7 +44,7 @@ pub mod tests {
 }
 
 /// Status of security features on the current system.
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Default)]
 pub struct SecurityStatus {
 	/// Whether the landlock features we use are fully available on this system.
 	pub can_enable_landlock: bool,

@@ -14,20 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{error::InternalValidationError, SecurityStatus};
+use crate::error::InternalValidationError;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_parachain::primitives::ValidationResult;
 use polkadot_primitives::ExecutorParams;
 use std::time::Duration;
 
 /// The payload of the one-time handshake that is done when a worker process is created. Carries
-/// data from the host to the worker.
+/// data from the host to the worker that would be too large for CLI parameters..
 #[derive(Encode, Decode)]
 pub struct Handshake {
 	/// The executor parameters.
 	pub executor_params: ExecutorParams,
-	/// Status of security features on the current system.
-	pub security_status: SecurityStatus,
 }
 
 /// The response from an execution job on the worker.

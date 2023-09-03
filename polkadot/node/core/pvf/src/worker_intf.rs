@@ -20,6 +20,7 @@ use crate::LOG_TARGET;
 use futures::FutureExt as _;
 use futures_timer::Delay;
 use pin_project::pin_project;
+use polkadot_node_core_pvf_common::{worker_dir, SecurityStatus};
 use rand::Rng;
 use std::{
 	fmt, mem,
@@ -46,9 +47,6 @@ pub const JOB_TIMEOUT_WALL_CLOCK_FACTOR: u32 = 4;
 ///
 /// - `program_path`: The path to the program.
 ///
-/// - `socket_dir_path`: An optional path to the dir where the socket should be created, if `None`
-///   use a temp dir.
-///
 /// - `extra_args`: Optional extra CLI arguments to the program. NOTE: Should only contain data
 ///   required before the handshake, like node/worker versions for the version check. Other data
 ///   should go through the handshake.
@@ -58,12 +56,14 @@ pub const JOB_TIMEOUT_WALL_CLOCK_FACTOR: u32 = 4;
 pub async fn spawn_with_program_path(
 	debug_id: &'static str,
 	program_path: impl Into<PathBuf>,
-	socket_dir_path: Option<&Path>,
 	extra_args: &[&str],
 	spawn_timeout: Duration,
+	security_status: SecurityStatus,
 ) -> Result<(IdleWorker, WorkerHandle), SpawnErr> {
 	let program_path = program_path.into();
-	with_transient_socket_path(debug_id, socket_dir_path, |socket_path| {
+	let worker_dir = WorkerDir::new(debug_id).await?;
+
+	with_transient_socket_path(&worker_dir.path.clone(), |socket_path| {
 		let socket_path = socket_path.to_owned();
 		let extra_args: Vec<String> = extra_args.iter().map(|arg| arg.to_string()).collect();
 
@@ -74,6 +74,8 @@ pub async fn spawn_with_program_path(
 					%debug_id,
 					?program_path,
 					?extra_args,
+					?worker_dir,
+					?socket_path,
 					"cannot bind unix socket: {:?}",
 					err,
 				);
@@ -81,18 +83,22 @@ pub async fn spawn_with_program_path(
 			})?;
 
 			let handle =
-				WorkerHandle::spawn(&program_path, &extra_args, socket_path).map_err(|err| {
-					gum::warn!(
-						target: LOG_TARGET,
-						%debug_id,
-						?program_path,
-						?extra_args,
-						"cannot spawn a worker: {:?}",
-						err,
-					);
-					SpawnErr::ProcessSpawn
-				})?;
+				WorkerHandle::spawn(&program_path, &extra_args, &worker_dir.path, security_status)
+					.map_err(|err| {
+						gum::warn!(
+							target: LOG_TARGET,
+							%debug_id,
+							?program_path,
+							?extra_args,
+							?worker_dir.path,
+							?socket_path,
+							"cannot spawn a worker: {:?}",
+							err,
+						);
+						SpawnErr::ProcessSpawn
+					})?;
 
+			let worker_dir_path = worker_dir.path.clone();
 			futures::select! {
 				accept_result = listener.accept().fuse() => {
 					let (stream, _) = accept_result.map_err(|err| {
@@ -101,12 +107,14 @@ pub async fn spawn_with_program_path(
 							%debug_id,
 							?program_path,
 							?extra_args,
+							?worker_dir_path,
+							?socket_path,
 							"cannot accept a worker: {:?}",
 							err,
 						);
 						SpawnErr::Accept
 					})?;
-					Ok((IdleWorker { stream, pid: handle.id() }, handle))
+					Ok((IdleWorker { stream, pid: handle.id(), worker_dir }, handle))
 				}
 				_ = Delay::new(spawn_timeout).fuse() => {
 					gum::warn!(
@@ -114,6 +122,8 @@ pub async fn spawn_with_program_path(
 						%debug_id,
 						?program_path,
 						?extra_args,
+						?worker_dir_path,
+						?socket_path,
 						?spawn_timeout,
 						"spawning and connecting to socket timed out",
 					);
@@ -125,22 +135,12 @@ pub async fn spawn_with_program_path(
 	.await
 }
 
-async fn with_transient_socket_path<T, F, Fut>(
-	debug_id: &'static str,
-	socket_dir_path: Option<&Path>,
-	f: F,
-) -> Result<T, SpawnErr>
+async fn with_transient_socket_path<T, F, Fut>(worker_dir_path: &Path, f: F) -> Result<T, SpawnErr>
 where
 	F: FnOnce(&Path) -> Fut,
 	Fut: futures::Future<Output = Result<T, SpawnErr>> + 'static,
 {
-	let socket_prefix = format!("pvf-host-{}-", debug_id);
-	let socket_path = if let Some(socket_dir_path) = socket_dir_path {
-		tmpfile_in(&socket_prefix, socket_dir_path).await
-	} else {
-		tmpfile(&socket_prefix).await
-	}
-	.map_err(|_| SpawnErr::TmpFile)?;
+	let socket_path = worker_dir::socket(worker_dir_path);
 
 	let result = f(&socket_path).await;
 
@@ -151,12 +151,12 @@ where
 	result
 }
 
-/// Returns a path under the given `dir`. The file name will start with the given prefix.
+/// Returns a path under the given `dir`. The path name will start with the given prefix.
 ///
 /// There is only a certain number of retries. If exceeded this function will give up and return an
 /// error.
-pub async fn tmpfile_in(prefix: &str, dir: &Path) -> io::Result<PathBuf> {
-	fn tmppath(prefix: &str, dir: &Path) -> PathBuf {
+pub async fn tmppath_in(prefix: &str, dir: &Path) -> io::Result<PathBuf> {
+	fn make_tmppath(prefix: &str, dir: &Path) -> PathBuf {
 		use rand::distributions::Alphanumeric;
 
 		const DESCRIMINATOR_LEN: usize = 10;
@@ -168,27 +168,27 @@ pub async fn tmpfile_in(prefix: &str, dir: &Path) -> io::Result<PathBuf> {
 		let s = std::str::from_utf8(&buf)
 			.expect("the string is collected from a valid utf-8 sequence; qed");
 
-		let mut file = dir.to_owned();
-		file.push(s);
-		file
+		let mut path = dir.to_owned();
+		path.push(s);
+		path
 	}
 
 	const NUM_RETRIES: usize = 50;
 
 	for _ in 0..NUM_RETRIES {
-		let candidate_path = tmppath(prefix, dir);
-		if !candidate_path.exists() {
-			return Ok(candidate_path)
+		let tmp_path = make_tmppath(prefix, dir);
+		if !tmp_path.exists() {
+			return Ok(tmp_path)
 		}
 	}
 
-	Err(io::Error::new(io::ErrorKind::Other, "failed to create a temporary file"))
+	Err(io::Error::new(io::ErrorKind::Other, "failed to create a temporary path"))
 }
 
-/// The same as [`tmpfile_in`], but uses [`std::env::temp_dir`] as the directory.
-pub async fn tmpfile(prefix: &str) -> io::Result<PathBuf> {
+/// The same as [`tmppath_in`], but uses [`std::env::temp_dir`] as the directory.
+pub async fn tmppath(prefix: &str) -> io::Result<PathBuf> {
 	let temp_dir = PathBuf::from(std::env::temp_dir());
-	tmpfile_in(prefix, &temp_dir).await
+	tmppath_in(prefix, &temp_dir).await
 }
 
 /// A struct that represents an idle worker.
@@ -202,13 +202,19 @@ pub struct IdleWorker {
 
 	/// The identifier of this process. Used to reset the niceness.
 	pub pid: u32,
+
+	/// The temporary per-worker path. We clean up the worker dir between jobs and delete it when
+	/// the worker dies.
+	pub worker_dir: WorkerDir,
 }
 
 /// An error happened during spawning a worker process.
 #[derive(Clone, Debug)]
 pub enum SpawnErr {
-	/// Cannot obtain a temporary file location.
-	TmpFile,
+	/// Cannot obtain a temporary path location.
+	TmpPath,
+	/// An FS error occurred.
+	Fs(String),
 	/// Cannot bind the socket to the given path.
 	Bind,
 	/// An error happened during accepting a connection to the socket.
@@ -246,25 +252,24 @@ impl WorkerHandle {
 	fn spawn(
 		program: impl AsRef<Path>,
 		extra_args: &[String],
-		socket_path: impl AsRef<Path>,
+		worker_dir_path: impl AsRef<Path>,
+		security_status: SecurityStatus,
 	) -> io::Result<Self> {
-		// Pass the socket path relative to the cache_path (what the child thinks is root).
-		let socket_path = if security_config.can_unshare_user_namespace_and_change_root {
-			Path::new(".").with_file_name(
-				socket_path
-					.as_ref()
-					.file_name()
-					.expect("socket paths are created with a filename; qed"),
-			)
-		} else {
-			// We are unable to pivot-root, so pass the socket path as-is.
-			socket_path.as_ref().as_os_str()
+		let security_args = {
+			let mut args = vec![];
+			if security_status.can_enable_landlock {
+				args.push("--can-enable-landlock".to_string());
+			}
+			if security_status.can_unshare_user_namespace_and_change_root {
+				args.push("--can-unshare-user-namespace-and-change-root".to_string());
+			}
+			args
 		};
-
 		let mut child = process::Command::new(program.as_ref())
 			.args(extra_args)
-			.arg("--socket-path")
-			.arg(socket_path)
+			.arg("--worker-dir-path")
+			.arg(worker_dir_path.as_ref().as_os_str())
+			.args(&security_args)
 			.stdout(std::process::Stdio::piped())
 			.kill_on_drop(true)
 			.spawn()?;
@@ -346,16 +351,6 @@ impl fmt::Debug for WorkerHandle {
 	}
 }
 
-/// Convert the given path into a byte buffer.
-pub fn path_to_bytes(path: &Path) -> &[u8] {
-	// Ideally, we take the `OsStr` of the path, send that and reconstruct this on the other side.
-	// However, libstd doesn't provide us with such an option. There are crates out there that
-	// allow for extraction of a path, but TBH it doesn't seem to be a real issue.
-	//
-	// However, should be there reports we can incorporate such a crate here.
-	path.to_str().expect("non-UTF-8 path").as_bytes()
-}
-
 /// Write some data prefixed by its length into `w`.
 pub async fn framed_send(w: &mut (impl AsyncWrite + Unpin), buf: &[u8]) -> io::Result<()> {
 	let len_buf = buf.len().to_le_bytes();
@@ -372,4 +367,81 @@ pub async fn framed_recv(r: &mut (impl AsyncRead + Unpin)) -> io::Result<Vec<u8>
 	let mut buf = vec![0; len];
 	r.read_exact(&mut buf).await?;
 	Ok(buf)
+}
+
+/// A temporary worker cache that contains only files needed by the worker. The worker will change
+/// its root (the `/` directory) to this cache directory; it should have access to no other paths on
+/// its filesystem. The worker cache should live in a tmp directory in the host's filesystem.
+///
+/// NOTE: This struct cleans up its associated directory when it is dropped. Therefore it should not
+/// implement `Clone`.
+///
+/// # File structure
+///
+/// The overall file structure for the PVF system is as follows. The `worker-dir`s are managed by
+/// this struct.
+///
+/// ```nocompile
+/// + /[...]/cache_path/
+///   - artifact-1
+///   - artifact-2
+///   - [...]
+/// + /tmp/
+///   - worker-dir-1/
+///     + socket                           (created by host)
+///     + tmp-artifact                     (created by worker) (prepare-only)
+///     + artifact (symlink -> artifact-1) (created by host)   (execute-only)
+///   - worker-dir-2/
+///     + [...]
+/// ```
+#[derive(Debug)]
+pub struct WorkerDir {
+	pub path: PathBuf,
+}
+
+impl WorkerDir {
+	/// Creates a new, empty worker cache with a random name in a tmp location.
+	pub async fn new(debug_id: &'static str) -> Result<Self, SpawnErr> {
+		let prefix = format!("worker-dir-{}-", debug_id);
+		let path = tmppath(&prefix).await.map_err(|_| SpawnErr::TmpPath)?;
+		tokio::fs::create_dir(&path)
+			.await
+			.map_err(|err| SpawnErr::Fs(err.to_string()))?;
+		Ok(Self { path })
+	}
+}
+
+// Try to clean up the temporary worker cache at the end of the worker's lifetime. It should be in a
+// temporary directory location, but we make a best effort not to leave it around.
+impl Drop for WorkerDir {
+	fn drop(&mut self) {
+		let _ = std::fs::remove_dir_all(&self.path);
+	}
+}
+
+// Not async since Rust has trouble with async recursion. There should be few files here anyway.
+//
+// TODO: Can a lingering malicious job still access future files in the cache?
+/// Clear the worker cache without deleting it. This is important because the worker has
+/// mounted its own separate filesystem here.
+///
+/// Should be called right after a job has finished. We don't want jobs to have access to
+/// artifacts from previous jobs.
+pub fn clear_worker_dir_path(worker_dir_path: &Path) -> io::Result<()> {
+	fn remove_dir_contents(path: &Path) -> io::Result<()> {
+		for entry in std::fs::read_dir(&path)? {
+			let entry = entry?;
+			let path = entry.path();
+
+			if entry.file_type()?.is_dir() {
+				remove_dir_contents(&path)?;
+				std::fs::remove_dir(path)?;
+			} else {
+				std::fs::remove_file(path)?;
+			}
+		}
+		Ok(())
+	}
+
+	remove_dir_contents(worker_dir_path)
 }

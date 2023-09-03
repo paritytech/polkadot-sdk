@@ -34,20 +34,20 @@ use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
 	executor_intf::Executor,
 	framed_recv, framed_send,
-	prepare::{Handshake, MemoryStats, PrepareJobKind, PrepareStats},
+	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
 	worker::{
-		bytes_to_path, cpu_time_monitor_loop,
+		cpu_time_monitor_loop,
 		security::LandlockStatus,
 		stringify_panic_payload,
 		thread::{self, WaitOutcome},
 		worker_event_loop,
 	},
-	ProcessTime,
+	worker_dir, ProcessTime, SecurityStatus,
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
-	path::{Path, PathBuf},
+	path::PathBuf,
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
@@ -69,18 +69,7 @@ impl AsRef<[u8]> for CompiledArtifact {
 	}
 }
 
-async fn recv_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
-	let handshake_enc = framed_recv(stream).await?;
-	let handshake = Handshake::decode(&mut &handshake_enc[..]).map_err(|_| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			"prepare pvf recv_handshake: failed to decode Handshake".to_owned(),
-		)
-	})?;
-	Ok(handshake)
-}
-
-async fn recv_request(stream: &mut UnixStream) -> io::Result<(PvfPrepData, PathBuf)> {
+async fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
 	let pvf = framed_recv(stream).await?;
 	let pvf = PvfPrepData::decode(&mut &pvf[..]).map_err(|e| {
 		io::Error::new(
@@ -88,14 +77,7 @@ async fn recv_request(stream: &mut UnixStream) -> io::Result<(PvfPrepData, PathB
 			format!("prepare pvf recv_request: failed to decode PvfPrepData: {}", e),
 		)
 	})?;
-	let tmp_file = framed_recv(stream).await?;
-	let tmp_file = bytes_to_path(&tmp_file).ok_or_else(|| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			"prepare pvf recv_request: non utf-8 artifact path".to_string(),
-		)
-	})?;
-	Ok((pvf, tmp_file))
+	Ok(pvf)
 }
 
 async fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<()> {
@@ -136,78 +118,62 @@ async fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Re
 /// 7. Send the result of preparation back to the host. If any error occurred in the above steps, we
 ///    send that in the `PrepareResult`.
 pub fn worker_entrypoint(
-	socket_path: &str,
+	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
-	cache_path: &Path,
+	security_status: SecurityStatus,
 ) {
 	worker_event_loop(
 		"prepare",
-		socket_path,
+		worker_dir_path,
 		node_version,
 		worker_version,
-		cache_path,
-		|mut stream| async move {
+		&security_status,
+		|mut stream, worker_dir_path| async move {
 			let worker_pid = std::process::id();
-
-			gum::info!(target: LOG_TARGET, "10. {:?}", std::fs::read_dir(".").unwrap().map(|entry| entry.unwrap().path()).collect::<Vec<PathBuf>>());
-
-			let Handshake { security_status } = recv_handshake(&mut stream).await?;
-
-			gum::info!(target: LOG_TARGET, "11. {:?}", std::fs::read_dir(".").unwrap().map(|entry| entry.unwrap().path()).collect::<Vec<PathBuf>>());
+			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_dir_path);
 
 			// Try to enable landlock.
-			// {
-			// 	#[cfg(target_os = "linux")]
-			// 	let landlock_status = {
-			// 		use polkadot_node_core_pvf_common::worker::security::landlock::{
-			// 			path_beneath_rules, try_restrict, Access, AccessFs, LANDLOCK_ABI,
-			// 		};
+			{
+				#[cfg(target_os = "linux")]
+				let landlock_status = {
+					use polkadot_node_core_pvf_common::worker::security::landlock::{
+						path_beneath_rules, try_restrict, AccessFs,
+					};
 
-			// 		// Allow an exception for writing to the artifact cache, with no allowance for
-			// 		// listing the directory contents. Since we prepend artifact names with a random
-			// 		// hash, this means attackers can't discover artifacts apart from the current
-			// 		// job.
-			// 		try_restrict(path_beneath_rules(
-			// 			&[cache_path],
-			// 			AccessFs::from_write(LANDLOCK_ABI),
-			// 		))
-			// 		.map(LandlockStatus::from_ruleset_status)
-			// 		.map_err(|e| e.to_string())
-			// 	};
-			// 	#[cfg(not(target_os = "linux"))]
-			// 	let landlock_status: Result<LandlockStatus, String> =
-			// Ok(LandlockStatus::NotEnforced);
+					// Allow an exception for writing to the known file in the worker cache.
+					try_restrict(path_beneath_rules(&[temp_artifact_dest], AccessFs::WriteFile))
+						.map(LandlockStatus::from_ruleset_status)
+						.map_err(|e| e.to_string())
+				};
+				#[cfg(not(target_os = "linux"))]
+				let landlock_status: Result<LandlockStatus, String> = Ok(LandlockStatus::NotEnforced);
 
-			// 	// Error if the host determined that landlock is fully enabled and we couldn't fully
-			// 	// enforce it here.
-			// 	if landlock_enabled && !matches!(landlock_status, Ok(LandlockStatus::FullyEnforced))
-			// 	{
-			// 		gum::warn!(
-			// 			target: LOG_TARGET,
-			// 			%worker_pid,
-			// 			"could not fully enable landlock: {:?}",
-			// 			landlock_status
-			// 		);
-			// 		return Err(io::Error::new(
-			// 			io::ErrorKind::Other,
-			// 			format!("could not fully enable landlock: {:?}", landlock_status),
-			// 		))
-			// 	}
-			// }
+				// Error if the host determined that landlock is fully enabled and we couldn't fully
+				// enforce it here.
+				if security_status.can_enable_landlock &&
+					!matches!(landlock_status, Ok(LandlockStatus::FullyEnforced))
+				{
+					gum::warn!(
+						target: LOG_TARGET,
+						%worker_pid,
+						"could not fully enable landlock: {:?}",
+						landlock_status
+					);
+					return Err(io::Error::new(
+						io::ErrorKind::Other,
+						format!("could not fully enable landlock: {:?}", landlock_status),
+					))
+				}
+			}
 
 			loop {
-				let (pvf, temp_artifact_dest) = recv_request(&mut stream).await?;
+				let pvf = recv_request(&mut stream).await?;
 				gum::debug!(
 					target: LOG_TARGET,
 					%worker_pid,
 					"worker: preparing artifact",
 				);
-
-				// if !temp_artifact_dest.starts_with(cache_path) {
-				// 	return Err(io::Error::new(io::ErrorKind::Other, format!("received an artifact
-				// path {temp_artifact_dest:?} that does not belong to expected cache path
-				// {cache_path:?}"))) }
 
 				let preparation_timeout = pvf.prep_timeout();
 				let prepare_job_kind = pvf.prep_kind();

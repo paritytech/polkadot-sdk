@@ -54,6 +54,9 @@ pub fn validate_candidate(
 macro_rules! decl_puppet_worker_main {
 	() => {
 		fn main() {
+			#[cfg(target_os = "linux")]
+			use $crate::worker::security;
+
 			$crate::sp_tracing::try_init_simple();
 
 			let args = std::env::args().collect::<Vec<_>>();
@@ -71,27 +74,68 @@ macro_rules! decl_puppet_worker_main {
 				},
 				"prepare-worker" => $crate::prepare_worker_entrypoint,
 				"execute-worker" => $crate::execute_worker_entrypoint,
+
+				"--check-can-enable-landlock" => {
+					#[cfg(target_os = "linux")]
+					let status = if security::landlock::status_is_fully_enabled(
+						&security::landlock::get_status(),
+					) {
+						0
+					} else {
+						-1
+					};
+					#[cfg(not(target_os = "linux"))]
+					let status = -1;
+					std::process::exit(status)
+				},
+				"--check-can-unshare-user-namespace-and-change-root" => {
+					#[cfg(target_os = "linux")]
+					let status = if security::unshare_user_namespace_and_change_root(&std::env::temp_dir()).is_ok() {
+						0
+					} else {
+						-1
+					};
+					#[cfg(not(target_os = "linux"))]
+					let status = -1;
+					std::process::exit(status)
+				},
+
 				other => panic!("unknown subcommand: {}", other),
 			};
 
+			let mut worker_dir_path = None;
 			let mut node_version = None;
-			let mut socket_path = None;
-			let mut cache_path = None;
+			let mut can_enable_landlock = false;
+			let mut can_unshare_user_namespace_and_change_root = false;
 
-			for i in (2..args.len()).step_by(2) {
+			let mut i = 2;
+			while i < args.len() {
 				match args[i].as_ref() {
-					"--socket-path" => socket_path = Some(args[i + 1].as_str()),
-					"--node-impl-version" => node_version = Some(args[i + 1].as_str()),
-					"--cache-path" => cache_path = Some(args[i + 1].as_str()),
+					"--worker-dir-path" => {
+						worker_dir_path = Some(args[i + 1].as_str());
+						i += 1
+					},
+					"--node-impl-version" => {
+						node_version = Some(args[i + 1].as_str());
+						i += 1
+					},
+					"--can-enable-landlock" => can_enable_landlock = true,
+					"--can-unshare-user-namespace-and-change-root" =>
+						can_unshare_user_namespace_and_change_root = true,
 					arg => panic!("Unexpected argument found: {}", arg),
 				}
+				i += 1;
 			}
-			let socket_path = socket_path.expect("the --socket-path argument is required");
-			let cache_path = cache_path.expect("the --cache-path argument is required");
+			let worker_dir_path =
+				worker_dir_path.expect("the --worker-dir-path argument is required");
 
-			let cache_path = &std::path::Path::new(cache_path);
+			let worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
+			let security_status = $crate::SecurityStatus {
+				can_enable_landlock,
+				can_unshare_user_namespace_and_change_root,
+			};
 
-			entrypoint(&socket_path, node_version, None, cache_path);
+			entrypoint(worker_dir_path, node_version, None, security_status);
 		}
 	};
 }

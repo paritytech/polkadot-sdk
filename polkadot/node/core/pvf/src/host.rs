@@ -205,8 +205,8 @@ pub fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Future<O
 
 	// Run checks for supported security features once per host startup. Warn here if not enabled.
 	let security_status = {
-		let can_enable_landlock = check_landlock();
-		let (can_unshare_user_namespace_and_change_root) =
+		let can_enable_landlock = check_landlock(&config.prepare_worker_program_path);
+		let can_unshare_user_namespace_and_change_root =
 			check_can_unshare_user_namespace_and_change_root(&config.prepare_worker_program_path);
 		SecurityStatus { can_enable_landlock, can_unshare_user_namespace_and_change_root }
 	};
@@ -218,7 +218,6 @@ pub fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Future<O
 	let (to_prepare_pool, from_prepare_pool, run_prepare_pool) = prepare::start_pool(
 		metrics.clone(),
 		config.prepare_worker_program_path.clone(),
-		config.cache_path.clone(),
 		config.prepare_worker_spawn_timeout,
 		config.node_version.clone(),
 		security_status.clone(),
@@ -239,7 +238,6 @@ pub fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Future<O
 		config.execute_workers_max_num,
 		config.execute_worker_spawn_timeout,
 		config.node_version,
-		config.cache_path.clone(),
 		security_status,
 	);
 
@@ -888,18 +886,21 @@ fn pulse_every(interval: std::time::Duration) -> impl futures::Stream<Item = ()>
 /// single-threaded, so we can't just fork here. To get as close as possible to running unshare and
 /// pivot_root in a worker, we try them... in a worker. The expected return status is 0 on success
 /// and -1 on failure.
-fn check_can_unshare_user_namespace_and_change_root(prepare_worker_program_path: &Path) -> bool {
+fn check_can_unshare_user_namespace_and_change_root(
+	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
+	prepare_worker_program_path: &Path,
+) -> bool {
 	#[cfg(target_os = "linux")]
 	{
-		match Command::new(prepare_worker_program_path)
+		match std::process::Command::new(prepare_worker_program_path)
 			.arg("--check-can-unshare-user-namespace-and-change-root")
 			.status()
 		{
-			Ok(0) => true,
+			Ok(status) if status.success() => true,
 			Ok(status) => {
 				gum::warn!(
-					target:LOG_TARGET,
-					%prepare_worker_program_path,
+					target: LOG_TARGET,
+					?prepare_worker_program_path,
 					?status,
 					"Cannot unshare user namespace and change root, which are Linux-specific kernel security features. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running with support for unsharing user namespaces for maximum security."
 				);
@@ -907,8 +908,8 @@ fn check_can_unshare_user_namespace_and_change_root(prepare_worker_program_path:
 			},
 			Err(err) => {
 				gum::warn!(
-					target:LOG_TARGET,
-					%prepare_worker_program_path,
+					target: LOG_TARGET,
+					?prepare_worker_program_path,
 					"Could not start child process: {}",
 					err
 				);
@@ -930,23 +931,38 @@ fn check_can_unshare_user_namespace_and_change_root(prepare_worker_program_path:
 /// Check if landlock is supported and emit a warning if not.
 ///
 /// TODO: Run in child process.
-fn check_landlock() -> bool {
+fn check_landlock(
+	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
+	prepare_worker_program_path: &Path,
+) -> bool {
 	#[cfg(target_os = "linux")]
 	{
-		use polkadot_node_core_pvf_common::worker::security::landlock;
-
-		let status = landlock::get_status();
-		if !landlock::status_is_fully_enabled(&status) {
-			let abi = landlock::LANDLOCK_ABI as u8;
-			gum::warn!(
-				target: LOG_TARGET,
-				?status,
-				%abi,
-				"Cannot fully enable landlock, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider upgrading the kernel version for maximum security."
-			);
-			false
-		} else {
-			true
+		match std::process::Command::new(prepare_worker_program_path)
+			.arg("--check-can-enable-landlock")
+			.status()
+		{
+			Ok(status) if status.success() => true,
+			Ok(status) => {
+				let abi =
+					polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI as u8;
+				gum::warn!(
+					target: LOG_TARGET,
+					?prepare_worker_program_path,
+					?status,
+					%abi,
+					"Cannot fully enable landlock, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider upgrading the kernel version for maximum security."
+				);
+				false
+			},
+			Err(err) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?prepare_worker_program_path,
+					"Could not start child process: {}",
+					err
+				);
+				false
+			},
 		}
 	}
 

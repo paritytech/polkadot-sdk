@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 
 /// Unshare the user namespace and change root to be the artifact directory.
 #[cfg(target_os = "linux")]
-pub fn unshare_user_namespace_and_change_root(cache_path: &Path) -> Result<(), &'static str> {
+pub fn unshare_user_namespace_and_change_root(worker_dir_path: &Path) -> Result<(), &'static str> {
 	use rand::{distributions::Alphanumeric, Rng};
 	use std::{ffi::CString, os::unix::ffi::OsStrExt, ptr};
 
@@ -34,29 +34,27 @@ pub fn unshare_user_namespace_and_change_root(cache_path: &Path) -> Result<(), &
 	let s = std::str::from_utf8(&buf)
 		.expect("the string is collected from a valid utf-8 sequence; qed");
 
-	let cache_path_str = match cache_path.to_str() {
-		Some(s) => s,
-		None => return Err("cache path is not valid UTF-8"),
-	};
-	let cache_path_c = CString::new(cache_path.as_os_str().as_bytes()).unwrap();
+	let worker_dir_path_str =
+		worker_dir_path.to_str().ok_or("worker dir path is not valid UTF-8")?;
+	let worker_dir_path_c = CString::new(worker_dir_path.as_os_str().as_bytes()).unwrap();
 	let root_absolute_c = CString::new("/").unwrap();
 	// Append a random string to prevent races and to avoid dealing with the dir already existing.
-	let oldroot_relative_c = CString::new(format!("{}/oldroot-{}", cache_path_str, s)).unwrap();
+	let oldroot_relative_c =
+		CString::new(format!("{}/oldroot-{}", worker_dir_path_str, s)).unwrap();
 	let oldroot_absolute_c = CString::new(format!("/oldroot-{}", s)).unwrap();
 
 	// SAFETY: TODO
 	unsafe {
-	// 1. `unshare` the user and the mount namespaces.
-	if libc::unshare(libc::CLONE_NEWUSER) < 0 {
-		return Err("unshare user namespace")
-	}
-	if libc::unshare(libc::CLONE_NEWNS) < 0 {
-		return Err("unshare mount namespace")
-	}
+		// 1. `unshare` the user and the mount namespaces.
+		if libc::unshare(libc::CLONE_NEWUSER) < 0 {
+			return Err("unshare user namespace")
+		}
+		if libc::unshare(libc::CLONE_NEWNS) < 0 {
+			return Err("unshare mount namespace")
+		}
 
 		// 2. `pivot_root` to the artifact directory.
-		gum::info!(target: LOG_TARGET, "1. {:?}", std::env::current_dir());
-		gum::info!(target: LOG_TARGET, "1.5. {:?}", std::fs::read_dir(".").unwrap().map(|entry| entry.unwrap().path()).collect::<Vec<PathBuf>>());
+		//
 		// Ensure that 'new_root' and its parent mount don't have shared propagation.
 		if libc::mount(
 			ptr::null(),
@@ -69,8 +67,8 @@ pub fn unshare_user_namespace_and_change_root(cache_path: &Path) -> Result<(), &
 			return Err("mount MS_PRIVATE")
 		}
 		if libc::mount(
-			cache_path_c.as_ptr(),
-			cache_path_c.as_ptr(),
+			worker_dir_path_c.as_ptr(),
+			worker_dir_path_c.as_ptr(),
 			ptr::null(), // ignored when MS_BIND is used
 			libc::MS_BIND | libc::MS_REC | libc::MS_NOEXEC | libc::MS_NODEV | libc::MS_NOSUID,
 			ptr::null(), // ignored when MS_BIND is used
@@ -81,8 +79,11 @@ pub fn unshare_user_namespace_and_change_root(cache_path: &Path) -> Result<(), &
 		if libc::mkdir(oldroot_relative_c.as_ptr(), 0755) < 0 {
 			return Err("mkdir oldroot")
 		}
-		if libc::syscall(libc::SYS_pivot_root, cache_path_c.as_ptr(), oldroot_relative_c.as_ptr()) <
-			0
+		if libc::syscall(
+			libc::SYS_pivot_root,
+			worker_dir_path_c.as_ptr(),
+			oldroot_relative_c.as_ptr(),
+		) < 0
 		{
 			return Err("pivot_root")
 		}
@@ -91,17 +92,12 @@ pub fn unshare_user_namespace_and_change_root(cache_path: &Path) -> Result<(), &
 		if libc::chdir(root_absolute_c.as_ptr()) < 0 {
 			return Err("chdir to new root")
 		}
-		gum::info!(target: LOG_TARGET, "2. {:?}", std::env::current_dir());
-		gum::info!(target: LOG_TARGET, "3. {:?}", std::fs::read_dir(".").unwrap().map(|entry| entry.unwrap().path()).collect::<Vec<PathBuf>>());
 		if libc::umount2(oldroot_absolute_c.as_ptr(), libc::MNT_DETACH) < 0 {
 			return Err("umount2 the oldroot")
 		}
 		if libc::rmdir(oldroot_absolute_c.as_ptr()) < 0 {
 			return Err("rmdir the oldroot")
 		}
-		gum::info!(target: LOG_TARGET, "4. {:?}", std::fs::read_dir(".").unwrap().map(|entry| entry.unwrap().path()).collect::<Vec<PathBuf>>());
-
-		// TODO: do some assertions
 	}
 
 	Ok(())

@@ -295,7 +295,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn artifacts_removes_cache_on_startup() {
-		let fake_cache_path = crate::worker_intf::tmpfile("test-cache").await.unwrap();
+		let fake_cache_path = crate::worker_intf::tmppath("test-cache").await.unwrap();
 		let fake_artifact_path = {
 			let mut p = fake_cache_path.clone();
 			p.push("wasmtime_0x1234567890123456789012345678901234567890123456789012345678901234");

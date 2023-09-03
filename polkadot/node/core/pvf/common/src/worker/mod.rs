@@ -18,12 +18,12 @@
 
 pub mod security;
 
-use crate::LOG_TARGET;
+use crate::{worker_dir, SecurityStatus, LOG_TARGET};
 use cpu_time::ProcessTime;
 use futures::never::Never;
 use std::{
 	any::Any,
-	path::{Path, PathBuf},
+	path::PathBuf,
 	sync::mpsc::{Receiver, RecvTimeoutError},
 	time::Duration,
 };
@@ -41,6 +41,9 @@ macro_rules! decl_worker_main {
 		}
 
 		fn main() {
+			#[cfg(target_os = "linux")]
+			use $crate::worker::security;
+
 			$crate::sp_tracing::try_init_simple();
 
 			let args = std::env::args().collect::<Vec<_>>();
@@ -58,9 +61,12 @@ macro_rules! decl_worker_main {
 					println!("{}", $worker_version);
 					return
 				},
-				"--check-can-unshare-user-namespace-and-change-root" => {
+
+				"--check-can-enable-landlock" => {
 					#[cfg(target_os = "linux")]
-					let status = if security::unshare_user_namespace_and_change_root().is_ok() {
+					let status = if security::landlock::status_is_fully_enabled(
+						&security::landlock::get_status(),
+					) {
 						0
 					} else {
 						-1
@@ -69,6 +75,18 @@ macro_rules! decl_worker_main {
 					let status = -1;
 					std::process::exit(status)
 				},
+				"--check-can-unshare-user-namespace-and-change-root" => {
+					#[cfg(target_os = "linux")]
+					let status = if security::unshare_user_namespace_and_change_root(&std::env::temp_dir()).is_ok() {
+						0
+					} else {
+						-1
+					};
+					#[cfg(not(target_os = "linux"))]
+					let status = -1;
+					std::process::exit(status)
+				},
+
 				subcommand => {
 					// Must be passed for compatibility with the single-binary test workers.
 					if subcommand != $expected_command {
@@ -80,24 +98,39 @@ macro_rules! decl_worker_main {
 				},
 			}
 
+			let mut worker_dir_path = None;
 			let mut node_version = None;
-			let mut socket_path = None;
-			let mut cache_path = None;
+			let mut can_enable_landlock = false;
+			let mut can_unshare_user_namespace_and_change_root = false;
 
-			for i in (2..args.len()).step_by(2) {
+			let mut i = 2;
+			while i < args.len() {
 				match args[i].as_ref() {
-					"--socket-path" => socket_path = Some(args[i + 1].as_str()),
-					"--node-impl-version" => node_version = Some(args[i + 1].as_str()),
-					"--cache-path" => cache_path = Some(args[i + 1].as_str()),
+					"--worker-dir-path" => {
+						worker_dir_path = Some(args[i + 1].as_str());
+						i += 1
+					},
+					"--node-impl-version" => {
+						node_version = Some(args[i + 1].as_str());
+						i += 1
+					},
+					"--can-enable-landlock" => can_enable_landlock = true,
+					"--can-unshare-user-namespace-and-change-root" =>
+						can_unshare_user_namespace_and_change_root = true,
 					arg => panic!("Unexpected argument found: {}", arg),
 				}
+				i += 1;
 			}
-			let socket_path = socket_path.expect("the --socket-path argument is required");
-			let cache_path = cache_path.expect("the --cache-path argument is required");
+			let worker_dir_path =
+				worker_dir_path.expect("the --worker-dir-path argument is required");
 
-			let cache_path = &std::path::Path::new(cache_path);
+			let worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
+			let security_status = $crate::SecurityStatus {
+				can_enable_landlock,
+				can_unshare_user_namespace_and_change_root
+			};
 
-			$entrypoint(&socket_path, node_version, Some($worker_version), cache_path);
+			$entrypoint(worker_dir_path, node_version, Some($worker_version), security_status);
 		}
 	};
 }
@@ -106,27 +139,21 @@ macro_rules! decl_worker_main {
 /// child process.
 pub const JOB_TIMEOUT_OVERHEAD: Duration = Duration::from_millis(50);
 
-/// Interprets the given bytes as a path. Returns `None` if the given bytes do not constitute a
-/// a proper utf-8 string.
-pub fn bytes_to_path(bytes: &[u8]) -> Option<PathBuf> {
-	std::str::from_utf8(bytes).ok().map(PathBuf::from)
-}
-
 // The worker version must be passed in so that we accurately get the version of the worker, and not
 // the version that this crate was compiled with.
 pub fn worker_event_loop<F, Fut>(
 	debug_id: &'static str,
-	socket_path: &str,
+	#[cfg_attr(not(target_os = "linux"), allow(unused_mut))] mut worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
-	cache_path: &Path,
+	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))] security_status: &SecurityStatus,
 	mut event_loop: F,
 ) where
-	F: FnMut(UnixStream) -> Fut,
+	F: FnMut(UnixStream, PathBuf) -> Fut,
 	Fut: futures::Future<Output = io::Result<Never>>,
 {
 	let worker_pid = std::process::id();
-	gum::debug!(target: LOG_TARGET, %worker_pid, "starting pvf worker ({})", debug_id);
+	gum::debug!(target: LOG_TARGET, %worker_pid, ?worker_dir_path, "starting pvf worker ({})", debug_id);
 
 	// Check for a mismatch between the node and worker versions.
 	if let (Some(node_version), Some(worker_version)) = (node_version, worker_version) {
@@ -146,26 +173,35 @@ pub fn worker_event_loop<F, Fut>(
 		}
 	}
 
-	// TODO: Call based on security_config, error out if should work but fails.
-	#[cfg(target_os = "linux")]
+	// Enable some security features.
+	//
+	// Landlock is enabled in the prepare- or execute-worker-specific code since we restrict the
+	// access rights based on whether we are preparing or executing. We also need to remove the
+	// socket before applying Landlock restrictions.
 	{
-		if let Err(err_ctx) = security::change_root(cache_path) {
-			let err = io::Error::last_os_error();
-			gum::error!(
-				target: LOG_TARGET,
-				%debug_id,
-				%worker_pid,
-				%err_ctx,
-				?cache_path,
-				"Could not change root to be the cache path: {}",
-				err
-			);
-			worker_shutdown_message(debug_id, worker_pid, err);
-			return
+		// Call based on whether we can change root. Error out if it should work but fails.
+		#[cfg(target_os = "linux")]
+		if security_status.can_unshare_user_namespace_and_change_root {
+			if let Err(err_ctx) = security::unshare_user_namespace_and_change_root(&worker_dir_path)
+			{
+				let err = io::Error::last_os_error();
+				gum::error!(
+					target: LOG_TARGET,
+					%debug_id,
+					%worker_pid,
+					%err_ctx,
+					?worker_dir_path,
+					"Could not change root to be the worker cache path: {}",
+					err
+				);
+				worker_shutdown_message(debug_id, worker_pid, err);
+				return
+			}
+			worker_dir_path = std::path::Path::new("/").to_owned();
 		}
-	}
 
-	security::remove_env_vars(debug_id);
+		security::remove_env_vars(debug_id);
+	}
 
 	gum::info!(target: LOG_TARGET, "5. {:?}", std::fs::read_dir(".").unwrap().map(|entry| entry.unwrap().path()).collect::<Vec<PathBuf>>());
 
@@ -173,10 +209,11 @@ pub fn worker_event_loop<F, Fut>(
 	let rt = Runtime::new().expect("Creates tokio runtime. If this panics the worker will die and the host will detect that and deal with it.");
 	let err = rt
 		.block_on(async move {
-			let stream = UnixStream::connect(socket_path).await?;
-			let _ = tokio::fs::remove_file(socket_path).await;
+			let socket_path = worker_dir::socket(&worker_dir_path);
+			let stream = UnixStream::connect(&socket_path).await?;
+			let _ = tokio::fs::remove_file(&socket_path).await;
 
-			let result = event_loop(stream).await;
+			let result = event_loop(stream, worker_dir_path).await;
 
 			result
 		})
