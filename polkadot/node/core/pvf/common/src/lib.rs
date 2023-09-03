@@ -27,7 +27,6 @@ pub mod worker_dir;
 pub use cpu_time::ProcessTime;
 
 // Used by `decl_worker_main!`.
-#[cfg(feature = "test-utils")]
 pub use sp_tracing;
 
 const LOG_TARGET: &str = "parachain::pvf-common";

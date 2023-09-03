@@ -33,8 +33,8 @@
 //! compile) in order to pre-check its validity.
 //!
 //! (b) PVF execution. This accepts the PVF
-//! [`params`][`polkadot_parachain::primitives::ValidationParams`]     and the `Pvf` code, prepares
-//! (verifies and compiles) the code, and then executes PVF     with the `params`.
+//! [`params`][`polkadot_parachain_primitives::primitives::ValidationParams`]     and the `Pvf`
+//! code, prepares (verifies and compiles) the code, and then executes PVF     with the `params`.
 //!
 //! (c) Heads up. This request allows to signal that the given PVF may be needed soon and that it
 //!     should be prepared for execution.
@@ -86,7 +86,7 @@
 //!
 //! The execute workers will be fed by the requests from the execution queue, which is basically a
 //! combination of a path to the compiled artifact and the
-//! [`params`][`polkadot_parachain::primitives::ValidationParams`].
+//! [`params`][`polkadot_parachain_primitives::primitives::ValidationParams`].
 
 mod artifacts;
 mod error;

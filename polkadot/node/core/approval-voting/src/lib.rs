@@ -45,13 +45,13 @@ use polkadot_node_subsystem_util::{
 	self,
 	database::Database,
 	metrics::{self, prometheus},
-	runtime::{Config as RuntimeInfoConfig, RuntimeInfo},
+	runtime::{Config as RuntimeInfoConfig, ExtendedSessionInfo, RuntimeInfo},
 	TimeoutExt,
 };
 use polkadot_primitives::{
 	ApprovalVote, BlockNumber, CandidateHash, CandidateIndex, CandidateReceipt, DisputeStatement,
-	GroupIndex, Hash, PvfExecTimeoutKind, SessionIndex, SessionInfo, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
+	ExecutorParams, GroupIndex, Hash, PvfExecTimeoutKind, SessionIndex, SessionInfo,
+	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
@@ -69,10 +69,11 @@ use std::{
 	collections::{
 		btree_map::Entry as BTMEntry, hash_map::Entry as HMEntry, BTreeMap, HashMap, HashSet,
 	},
-	num::NonZeroUsize,
 	sync::Arc,
 	time::Duration,
 };
+
+use schnellru::{ByLength, LruMap};
 
 use approval_checking::RequiredTranches;
 use criteria::{AssignmentCriteria, RealAssignmentCriteria};
@@ -102,10 +103,7 @@ const APPROVAL_CHECKING_TIMEOUT: Duration = Duration::from_secs(120);
 /// Value rather arbitrarily: Should not be hit in practice, it exists to more easily diagnose dead
 /// lock issues for example.
 const WAIT_FOR_SIGS_TIMEOUT: Duration = Duration::from_millis(500);
-const APPROVAL_CACHE_SIZE: NonZeroUsize = match NonZeroUsize::new(1024) {
-	Some(cap) => cap,
-	None => panic!("Approval cache size must be non-zero."),
-};
+const APPROVAL_CACHE_SIZE: u32 = 1024;
 
 const TICK_TOO_FAR_IN_FUTURE: Tick = 20; // 10 seconds.
 const APPROVAL_DELAY: Tick = 2;
@@ -627,7 +625,7 @@ impl CurrentlyCheckingSet {
 
 	pub async fn next(
 		&mut self,
-		approvals_cache: &mut lru::LruCache<CandidateHash, ApprovalOutcome>,
+		approvals_cache: &mut LruMap<CandidateHash, ApprovalOutcome>,
 	) -> (HashSet<Hash>, ApprovalState) {
 		if !self.currently_checking.is_empty() {
 			if let Some(approval_state) = self.currently_checking.next().await {
@@ -635,12 +633,39 @@ impl CurrentlyCheckingSet {
 					.candidate_hash_map
 					.remove(&approval_state.candidate_hash)
 					.unwrap_or_default();
-				approvals_cache.put(approval_state.candidate_hash, approval_state.approval_outcome);
+				approvals_cache
+					.insert(approval_state.candidate_hash, approval_state.approval_outcome);
 				return (out, approval_state)
 			}
 		}
 
 		future::pending().await
+	}
+}
+
+async fn get_extended_session_info<'a, Sender>(
+	runtime_info: &'a mut RuntimeInfo,
+	sender: &mut Sender,
+	relay_parent: Hash,
+	session_index: SessionIndex,
+) -> Option<&'a ExtendedSessionInfo>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	match runtime_info
+		.get_session_info_by_index(sender, relay_parent, session_index)
+		.await
+	{
+		Ok(extended_info) => Some(&extended_info),
+		Err(_) => {
+			gum::debug!(
+				target: LOG_TARGET,
+				session = session_index,
+				?relay_parent,
+				"Can't obtain SessionInfo or ExecutorParams"
+			);
+			None
+		},
 	}
 }
 
@@ -653,21 +678,9 @@ async fn get_session_info<'a, Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	match runtime_info
-		.get_session_info_by_index(sender, relay_parent, session_index)
+	get_extended_session_info(runtime_info, sender, relay_parent, session_index)
 		.await
-	{
-		Ok(extended_info) => Some(&extended_info.session_info),
-		Err(_) => {
-			gum::debug!(
-				target: LOG_TARGET,
-				session = session_index,
-				?relay_parent,
-				"Can't obtain SessionInfo"
-			);
-			None
-		},
-	}
+		.map(|extended_info| &extended_info.session_info)
 }
 
 struct State {
@@ -747,6 +760,7 @@ enum Action {
 		relay_block_hash: Hash,
 		candidate_index: CandidateIndex,
 		session: SessionIndex,
+		executor_params: ExecutorParams,
 		candidate: CandidateReceipt,
 		backing_group: GroupIndex,
 	},
@@ -782,11 +796,11 @@ where
 	// `None` on start-up. Gets initialized/updated on leaf update
 	let mut session_info_provider = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 		keystore: None,
-		session_cache_lru_size: DISPUTE_WINDOW.into(),
+		session_cache_lru_size: DISPUTE_WINDOW.get(),
 	});
 	let mut wakeups = Wakeups::default();
 	let mut currently_checking_set = CurrentlyCheckingSet::default();
-	let mut approvals_cache = lru::LruCache::new(APPROVAL_CACHE_SIZE);
+	let mut approvals_cache = LruMap::new(ByLength::new(APPROVAL_CACHE_SIZE));
 
 	let mut last_finalized_height: Option<BlockNumber> = {
 		let (tx, rx) = oneshot::channel();
@@ -922,7 +936,7 @@ async fn handle_actions<Context>(
 	metrics: &Metrics,
 	wakeups: &mut Wakeups,
 	currently_checking_set: &mut CurrentlyCheckingSet,
-	approvals_cache: &mut lru::LruCache<CandidateHash, ApprovalOutcome>,
+	approvals_cache: &mut LruMap<CandidateHash, ApprovalOutcome>,
 	mode: &mut Mode,
 	actions: Vec<Action>,
 ) -> SubsystemResult<bool> {
@@ -969,6 +983,7 @@ async fn handle_actions<Context>(
 				relay_block_hash,
 				candidate_index,
 				session,
+				executor_params,
 				candidate,
 				backing_group,
 			} => {
@@ -1009,6 +1024,7 @@ async fn handle_actions<Context>(
 					},
 					None => {
 						let ctx = &mut *ctx;
+
 						currently_checking_set
 							.insert_relay_block_hash(
 								candidate_hash,
@@ -1023,6 +1039,7 @@ async fn handle_actions<Context>(
 										validator_index,
 										block_hash,
 										backing_group,
+										executor_params,
 										&launch_approval_span,
 									)
 									.await
@@ -2329,17 +2346,18 @@ async fn process_wakeup<Context>(
 		_ => return Ok(Vec::new()),
 	};
 
-	let session_info = match get_session_info(
-		session_info_provider,
-		ctx.sender(),
-		block_entry.parent_hash(),
-		block_entry.session(),
-	)
-	.await
-	{
-		Some(i) => i,
-		None => return Ok(Vec::new()),
-	};
+	let ExtendedSessionInfo { ref session_info, ref executor_params, .. } =
+		match get_extended_session_info(
+			session_info_provider,
+			ctx.sender(),
+			block_entry.parent_hash(),
+			block_entry.session(),
+		)
+		.await
+		{
+			Some(i) => i,
+			None => return Ok(Vec::new()),
+		};
 
 	let block_tick = slot_number_to_tick(state.slot_duration_millis, block_entry.slot());
 	let no_show_duration = slot_number_to_tick(
@@ -2426,6 +2444,7 @@ async fn process_wakeup<Context>(
 				relay_block_hash: relay_block,
 				candidate_index: i as _,
 				session: block_entry.session(),
+				executor_params: executor_params.clone(),
 				candidate: candidate_receipt,
 				backing_group,
 			});
@@ -2467,6 +2486,7 @@ async fn launch_approval<Context>(
 	validator_index: ValidatorIndex,
 	block_hash: Hash,
 	backing_group: GroupIndex,
+	executor_params: ExecutorParams,
 	span: &jaeger::Span,
 ) -> SubsystemResult<RemoteHandle<ApprovalState>> {
 	let (a_tx, a_rx) = oneshot::channel();
@@ -2612,6 +2632,7 @@ async fn launch_approval<Context>(
 				validation_code,
 				candidate.clone(),
 				available_data.pov,
+				executor_params,
 				PvfExecTimeoutKind::Approval,
 				val_tx,
 			))
