@@ -14,21 +14,24 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{collections::HashSet, sync::Arc};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+};
 
 use async_trait::async_trait;
-use futures::{prelude::*, stream::BoxStream};
+use parking_lot::Mutex;
 
 use parity_scale_codec::Encode;
 
 use sc_network::{
-	config::parse_addr, multiaddr::Multiaddr, types::ProtocolName, Event as NetworkEvent,
-	IfDisconnected, NetworkEventStream, NetworkNotification, NetworkPeers, NetworkRequest,
-	NetworkService, OutboundFailure, ReputationChange, RequestFailure,
+	config::parse_addr, multiaddr::Multiaddr, types::ProtocolName, IfDisconnected, MessageSink,
+	NetworkPeers, NetworkRequest, NetworkService, OutboundFailure, ReputationChange,
+	RequestFailure,
 };
 
 use polkadot_node_network_protocol::{
-	peer_set::{PeerSet, PeerSetProtocolNames, ProtocolVersion},
+	peer_set::{PeerSet, ProtocolVersion},
 	request_response::{OutgoingRequest, Recipient, ReqProtocolNames, Requests},
 	PeerId,
 };
@@ -45,51 +48,50 @@ const LOG_TARGET: &'static str = "parachain::network-bridge-net";
 /// messages that are compatible with the passed peer set, as that is currently not enforced by
 /// this function. These are messages of type `WireMessage` parameterized on the matching type.
 pub(crate) fn send_message<M>(
-	net: &mut impl Network,
 	mut peers: Vec<PeerId>,
 	peer_set: PeerSet,
 	version: ProtocolVersion,
-	protocol_names: &PeerSetProtocolNames,
 	message: M,
 	metrics: &super::Metrics,
+	network_notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
 ) where
 	M: Encode + Clone,
 {
 	if peers.is_empty() {
 		return
 	}
+
 	let message = {
 		let encoded = message.encode();
 		metrics.on_notification_sent(peer_set, version, encoded.len(), peers.len());
 		encoded
 	};
 
+	let notification_sinks = network_notification_sinks.lock();
+
 	// optimization: avoid cloning the message for the last peer in the
 	// list. The message payload can be quite large. If the underlying
 	// network used `Bytes` this would not be necessary.
+	//
+	// peer may have gotten disconnect by the time `send_message()` is called
+	// at which point the the sink is not available.
 	let last_peer = peers.pop();
-
-	// We always send messages on the "main" name even when a negotiated
-	// fallback is used. The libp2p implementation handles the fallback
-	// under the hood.
-	let protocol_name = protocol_names.get_main_name(peer_set);
 	peers.into_iter().for_each(|peer| {
-		net.write_notification(peer, protocol_name.clone(), message.clone());
+		if let Some(sink) = notification_sinks.get(&(peer_set, peer)) {
+			sink.send_sync_notification(message.clone());
+		}
 	});
+
 	if let Some(peer) = last_peer {
-		net.write_notification(peer, protocol_name, message);
+		if let Some(sink) = notification_sinks.get(&(peer_set, peer)) {
+			sink.send_sync_notification(message.clone());
+		}
 	}
 }
 
 /// An abstraction over networking for the purposes of this subsystem.
 #[async_trait]
 pub trait Network: Clone + Send + 'static {
-	/// Get a stream of all events occurring on the network. This may include events unrelated
-	/// to the Polkadot protocol - the user of this function should filter only for events related
-	/// to the [`VALIDATION_PROTOCOL_NAME`](VALIDATION_PROTOCOL_NAME)
-	/// or [`COLLATION_PROTOCOL_NAME`](COLLATION_PROTOCOL_NAME)
-	fn event_stream(&mut self) -> BoxStream<'static, NetworkEvent>;
-
 	/// Ask the network to keep a substream open with these nodes and not disconnect from them
 	/// until removed from the protocol's peer set.
 	/// Note that `out_peers` setting has no effect on this.
@@ -121,16 +123,12 @@ pub trait Network: Clone + Send + 'static {
 	/// Disconnect a given peer from the protocol specified without harming reputation.
 	fn disconnect_peer(&self, who: PeerId, protocol: ProtocolName);
 
-	/// Write a notification to a peer on the given protocol.
-	fn write_notification(&self, who: PeerId, protocol: ProtocolName, message: Vec<u8>);
+	/// Get peer role.
+	fn peer_role(&self, who: PeerId, handshake: Vec<u8>) -> Option<sc_network::ObservedRole>;
 }
 
 #[async_trait]
 impl Network for Arc<NetworkService<Block, Hash>> {
-	fn event_stream(&mut self) -> BoxStream<'static, NetworkEvent> {
-		NetworkService::event_stream(self, "polkadot-network-bridge").boxed()
-	}
-
 	async fn set_reserved_peers(
 		&mut self,
 		protocol: ProtocolName,
@@ -153,10 +151,6 @@ impl Network for Arc<NetworkService<Block, Hash>> {
 
 	fn disconnect_peer(&self, who: PeerId, protocol: ProtocolName) {
 		NetworkService::disconnect_peer(&**self, who, protocol);
-	}
-
-	fn write_notification(&self, who: PeerId, protocol: ProtocolName, message: Vec<u8>) {
-		NetworkService::write_notification(&**self, who, protocol, message);
 	}
 
 	async fn start_request<AD: AuthorityDiscovery>(
@@ -229,6 +223,10 @@ impl Network for Arc<NetworkService<Block, Hash>> {
 			pending_response,
 			if_disconnected,
 		);
+	}
+
+	fn peer_role(&self, who: PeerId, handshake: Vec<u8>) -> Option<sc_network::ObservedRole> {
+		NetworkService::peer_role(self, who, handshake)
 	}
 }
 

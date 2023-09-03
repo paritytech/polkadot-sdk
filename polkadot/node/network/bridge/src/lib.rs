@@ -83,6 +83,7 @@ pub(crate) enum WireMessage<M> {
 	ViewUpdate(View),
 }
 
+#[derive(Debug)]
 pub(crate) struct PeerData {
 	/// The Latest view sent by the peer.
 	view: View,
