@@ -1921,3 +1921,134 @@ fn valid_fork_equivocation_sc_reports_dont_pay_fees() {
 		assert_eq!(post_info.pays_fee, Pays::Yes);
 	})
 }
+
+#[test]
+fn report_fork_equivocation_sc_stacked_reports_stack_correctly() {
+	let authorities = test_authorities();
+
+	new_test_ext_raw_authorities(authorities).execute_with(|| {
+		assert_eq!(Staking::current_era(), Some(0));
+		assert_eq!(Session::current_index(), 0);
+
+		let mut era = 1;
+		start_era(era);
+		let block_num = System::block_number();
+		let header = System::finalize();
+
+		era += 1;
+		start_era(era);
+
+		let validator_set = Beefy::validator_set().unwrap();
+		let authorities = validator_set.validators();
+		let set_id = validator_set.id();
+		let validators = Session::validators();
+
+		// make sure that all validators have the same balance
+		for validator in &validators {
+			assert_eq!(Balances::total_balance(validator), 10_000_000);
+			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+
+			assert_eq!(
+				Staking::eras_stakers(era, validator),
+				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+			);
+		}
+
+		assert_eq!(authorities.len(), 3);
+		let equivocation_authority_indices = [0, 2];
+		let equivocation_keys = equivocation_authority_indices.iter().map(|i| &authorities[*i]).collect::<Vec<_>>();
+		let equivocation_keyrings: Vec<_> = equivocation_keys.iter().map(|k| BeefyKeyring::from_public(k).unwrap()).collect();
+
+		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let commitment = Commitment { validator_set_id: set_id, block_number: block_num, payload };
+		// generate two fork equivocation proofs with a signed commitment in the same round for a
+		// different payload than finalized
+		// 1. the first equivocation proof is only for Alice
+		// 2. the second equivocation proof is for all equivocators
+		let equivocation_proof_singleton = generate_fork_equivocation_proof_sc(
+			commitment.clone(),
+			vec![equivocation_keyrings[0]],
+			header.clone(),
+		);
+		let equivocation_proof_full = generate_fork_equivocation_proof_sc(
+			commitment,
+			equivocation_keyrings,
+			header,
+		);
+
+		// create the key ownership proof
+		let key_owner_proofs: Vec<_> = equivocation_keys.iter().map(|k| Historical::prove((BEEFY_KEY_TYPE, &k)).unwrap()).collect();
+
+		// only report a single equivocator and the tx should be dispatched successfully
+		assert_ok!(Beefy::report_fork_equivocation_unsigned(
+			RuntimeOrigin::none(),
+			Box::new(equivocation_proof_singleton),
+			vec![key_owner_proofs[0].clone()],
+		),);
+
+		era += 1;
+		start_era(era);
+
+		// check that the balance of the reported equivocating validator is slashed 100%.
+		let equivocation_validator_ids = equivocation_authority_indices.iter().map(|i| validators[*i]).collect::<Vec<_>>();
+
+		assert_eq!(Balances::total_balance(&equivocation_validator_ids[0]), 10_000_000 - 10_000);
+		assert_eq!(Staking::slashable_balance_of(&equivocation_validator_ids[0]), 0);
+		assert_eq!(
+			Staking::eras_stakers(era, equivocation_validator_ids[0]),
+			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
+		);
+
+		// check that the balances of all other validators are left intact.
+		for validator in &validators {
+			if equivocation_validator_ids[0] == *validator {
+				continue
+			}
+
+			assert_eq!(Balances::total_balance(validator), 10_000_000);
+			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+
+			assert_eq!(
+				Staking::eras_stakers(era, validator),
+				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+			);
+		}
+
+		// report the full equivocation and the tx should be dispatched successfully
+		assert_ok!(Beefy::report_fork_equivocation_unsigned(
+			RuntimeOrigin::none(),
+			Box::new(equivocation_proof_full),
+			key_owner_proofs,
+		),);
+
+		era += 1;
+		start_era(era);
+
+		let equivocation_validator_ids = equivocation_authority_indices.iter().map(|i| validators[*i]).collect::<Vec<_>>();
+
+		// check that the balance of equivocating validators is slashed 100%, and the validator already reported isn't slashed again
+		for equivocation_validator_id in &equivocation_validator_ids {
+			assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
+			assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
+			assert_eq!(
+				Staking::eras_stakers(era, equivocation_validator_id),
+				pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
+			);
+		}
+
+		// check that the balances of all other validators are left intact.
+		for validator in &validators {
+			if equivocation_validator_ids.contains(&validator) {
+				continue
+			}
+
+			assert_eq!(Balances::total_balance(validator), 10_000_000);
+			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+
+			assert_eq!(
+				Staking::eras_stakers(era, validator),
+				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+			);
+		}
+	});
+}
