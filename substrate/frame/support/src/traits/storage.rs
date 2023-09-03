@@ -156,41 +156,38 @@ impl Footprint {
 /// holding some data `Footprint` in state.
 ///
 /// The cost may be increased, reduced or dropped entirely as the footprint changes.
-pub trait Consideration<AccountId> {
-	/// A single ticket corresponding to some particular datum held in storage. This is an opaque
-	/// type, but must itself be stored and generally it should be placed alongside whatever data
-	/// the ticket was created for.
-	///
-	/// While not technically a linear type owing to the need for `FullCodec`, *this should be
-	/// treated as one*. Don't type to duplicate it, and remember to drop it when you're done with
-	/// it.
-	type Ticket: Member + FullCodec + TypeInfo + MaxEncodedLen + Default;
+///
+/// A single ticket corresponding to some particular datum held in storage. This is an opaque
+/// type, but must itself be stored and generally it should be placed alongside whatever data
+/// the ticket was created for.
+///
+/// While not technically a linear type owing to the need for `FullCodec`, *this should be
+/// treated as one*. Don't type to duplicate it, and remember to drop it when you're done with
+/// it.
+#[must_use]
+pub trait Consideration<AccountId>: Member + FullCodec + TypeInfo + MaxEncodedLen {
+	/// Create a ticket for the `new` footprint attributable to `who`. This ticket *must* ultimately
+	/// be consumed through `update` or `drop` once the footprint changes or is removed.
+	fn new(who: &AccountId, new: Footprint) -> Result<Self, DispatchError>;
 
 	/// Optionally consume an old ticket and alter the footprint, enforcing the new cost to `who`
 	/// and returning the new ticket (or an error if there was an issue).
 	///
 	/// For creating tickets and dropping them, you can use the simpler `new` and `drop` instead.
-	fn update(
-		who: &AccountId,
-		old: Option<Self::Ticket>,
-		new: Option<Footprint>,
-	) -> Result<Self::Ticket, DispatchError>;
-
-	/// Create a ticket for the `new` footprint attributable to `who`. This ticket *must* be
-	/// consumed (through either `drop` or `update`) if the footprint changes or is removed.
-	fn new(who: &AccountId, new: Footprint) -> Result<Self::Ticket, DispatchError> {
-		Self::update(who, None, Some(new))
-	}
+	fn update(self, who: &AccountId, new: Footprint) -> Result<Self, DispatchError>;
 
 	/// Consume a ticket for some `old` footprint attributable to `who` which has now been freed.
-	fn drop(who: &AccountId, old: Self::Ticket) -> Result<(), DispatchError> {
-		Self::update(who, Some(old), None).map(|_| ())
-	}
+	fn drop(self, who: &AccountId) -> Result<(), DispatchError>;
 }
 
 impl<A> Consideration<A> for () {
-	type Ticket = ();
-	fn update(_: &A, _: Option<()>, _: Option<Footprint>) -> Result<(), DispatchError> {
+	fn new(_: &A, _: Footprint) -> Result<Self, DispatchError> {
+		Ok(())
+	}
+	fn update(self, _: &A, _: Footprint) -> Result<(), DispatchError> {
+		Ok(())
+	}
+	fn drop(self, _: &A) -> Result<(), DispatchError> {
 		Ok(())
 	}
 }
