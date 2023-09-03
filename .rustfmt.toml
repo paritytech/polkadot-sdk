@@ -19,7 +19,7 @@ trailing_comma = "Vertical"
 trailing_semicolon = false
 use_field_init_shorthand = true
 ignore = [
-    "bridges",
+    "cumulus/bridges",
 ]
 edition = "2021"
 # Format comments
