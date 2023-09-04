@@ -345,6 +345,7 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 
 /// Limited Reserve Transfers of a local asset from System Parachain to Parachain should work
 #[test]
+#[cfg(not(feature = "runtime-benchmarks"))] // Benchmarks use the No-OP processor.
 fn limited_reserve_transfer_asset_from_system_para_to_para() {
 	// Force create asset from Relay Chain and mint assets for System Parachain's sender account
 	AssetHubWestend::force_create_and_mint_asset(

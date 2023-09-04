@@ -118,6 +118,7 @@ fn swap_locally_on_chain_using_local_assets() {
 }
 
 #[test]
+#[cfg(not(feature = "runtime-benchmarks"))] // Benchmarks use the No-OP processor.
 fn swap_locally_on_chain_using_foreign_assets() {
 	use frame_support::weights::WeightToFee;
 
