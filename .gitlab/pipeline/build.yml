@@ -117,6 +117,8 @@ build-rustdoc:
     - time cargo doc --workspace --no-deps
     - rm -f ./target/doc/.lock
     - mv ./target/doc ./crate-docs
+    # FIXME: remove me after CI image gets nonroot
+    - chown -R nonroot:nonroot ./crate-docs
     # Inject Simple Analytics (https://www.simpleanalytics.com/) privacy preserving tracker into
     # all .html files
     - |
@@ -136,8 +138,6 @@ build-rustdoc:
         find "$path" -name '*.html' | xargs -I {} -P "$(nproc)" bash -c 'process_file "$@"' _ {}
       }
       inject_simple_analytics "./crate-docs"
-    # FIXME: remove me after CI image gets nonroot
-    - chown -R nonroot:nonroot ./crate-docs
     - echo "<meta http-equiv=refresh content=0;url=polkadot_service/index.html>" > ./crate-docs/index.html
 
 build-implementers-guide:
