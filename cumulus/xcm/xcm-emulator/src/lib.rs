@@ -812,7 +812,6 @@ macro_rules! __impl_test_ext_for_parachain {
 				// Send messages if needed
 				$local_ext.with(|v| {
 					v.borrow_mut().execute_with(|| {
-						// let block_number = <Self as Chain>::System::block_number();
 						let mock_header = $crate::HeaderT::new(
 							0,
 							Default::default(),
