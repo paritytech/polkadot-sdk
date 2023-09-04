@@ -716,6 +716,7 @@ macro_rules! assert_err {
 /// This can be used on `DispatchResultWithPostInfo` when the post info should
 /// be ignored.
 #[macro_export]
+#[deprecated(note = "Moved to `frame-test-utils`. Will be removed after Feb 2024.")]
 macro_rules! assert_err_ignore_postinfo {
 	( $x:expr , $y:expr $(,)? ) => {
 		$crate::assert_err!($x.map(|_| ()).map_err(|e| e.error), $y);
@@ -724,6 +725,7 @@ macro_rules! assert_err_ignore_postinfo {
 
 /// Assert an expression returns error with the given weight.
 #[macro_export]
+#[deprecated(note = "Moved to `frame-test-utils`. Will be removed after Feb 2024.")]
 macro_rules! assert_err_with_weight {
 	($call:expr, $err:expr, $weight:expr $(,)? ) => {
 		if let Err(dispatch_err_with_post) = $call {
@@ -796,7 +798,7 @@ pub mod _private {
 #[cfg(feature = "std")]
 pub mod testing_prelude {
 	pub use super::{
-		assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_error_encoded_size,
+		assert_err, assert_error_encoded_size,
 		assert_noop, assert_ok, assert_storage_noop, parameter_types, traits::Get,
 	};
 	pub use sp_arithmetic::assert_eq_error_rate;

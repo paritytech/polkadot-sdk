@@ -40,8 +40,9 @@ use crate::{
 };
 use assert_matches::assert_matches;
 use codec::Encode;
+use frame_test_utils::macros::{assert_err_ignore_postinfo, assert_err_with_weight};
 use frame_support::{
-	assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_noop, assert_ok,
+	assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok,
 	dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
 	parameter_types,
 	storage::child,

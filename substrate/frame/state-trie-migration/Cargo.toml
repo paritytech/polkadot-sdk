@@ -33,6 +33,7 @@ parking_lot = "0.12.1"
 tokio = { version = "1.22.0", features = ["macros"] }
 pallet-balances = { path = "../balances" }
 sp-tracing = { path = "../../primitives/tracing" }
+frame-test-utils = { path = "../test-utils" }
 
 [features]
 default = [ "std" ]

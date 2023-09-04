@@ -23,13 +23,14 @@ use super::*;
 
 use crate as utility;
 use frame_support::{
-	assert_err_ignore_postinfo, assert_noop, assert_ok,
+	assert_noop, assert_ok,
 	dispatch::{DispatchErrorWithPostInfo, Pays},
 	error::BadOrigin,
 	parameter_types, storage,
 	traits::{ConstU32, ConstU64, Contains},
 	weights::Weight,
 };
+use frame_test_utils::macros::assert_err_ignore_postinfo;
 use pallet_collective::{EnsureProportionAtLeast, Instance1};
 use sp_core::H256;
 use sp_runtime::{

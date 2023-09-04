@@ -29,6 +29,7 @@ pallet-root-testing = { path = "../root-testing" }
 pallet-collective = { path = "../collective" }
 pallet-timestamp = { path = "../timestamp" }
 sp-core = { path = "../../primitives/core" }
+frame-test-utils = { path = "../test-utils" }
 
 [features]
 default = [ "std" ]

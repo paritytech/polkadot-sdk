@@ -21,14 +21,12 @@
 
 mod tests;
 
-/// Everything important for testing.
-pub mod prelude {
-	pub use super::macros::*;
-}
-
 /// Testing macros.
 pub mod macros {
+	/// Experimental macros. Is not covered by semver and can be changed/removed at any time.
 	pub mod experimental {
-		pub use frame_test_utils_macros::{hypothetically, hypothetically_ok};
+		pub use frame_test_utils_macros::{hypothetical, hypothetical_ok};
 	}
+
+	pub use frame_test_utils_macros::{assert_err_ignore_postinfo, assert_err_with_weight};
 }

@@ -1480,7 +1480,7 @@ mod test {
 			);
 
 			// can't submit with bad witness.
-			frame_support::assert_err_ignore_postinfo!(
+			frame_test_utils::macros::assert_err_ignore_postinfo!(
 				StateTrieMigration::continue_migrate(
 					RuntimeOrigin::signed(1),
 					MigrationLimits { item: 5, size: 100 },
