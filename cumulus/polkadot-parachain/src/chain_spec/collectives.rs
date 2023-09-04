@@ -42,34 +42,33 @@ pub fn collectives_polkadot_development_config() -> CollectivesPolkadotChainSpec
 	properties.insert("tokenSymbol".into(), "DOT".into());
 	properties.insert("tokenDecimals".into(), 10.into());
 
-	CollectivesPolkadotChainSpec::builder()
-		.with_name("Polkadot Collectives Development")
-		.with_id("collectives_polkadot_dev")
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(collectives_polkadot_genesis(
-			// initial collators.
-			vec![(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_collator_keys_from_seed::<AuraId>("Alice"),
-			)],
-			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-			],
-			// 1002 avoids a potential collision with Kusama-1001 (Encointer) should there ever
-			// be a collective para on Kusama.
-			1002.into(),
-		))
-		.with_boot_nodes(Vec::new())
-		.with_properties(properties)
-		.with_extensions(Extensions { relay_chain: "polkadot-dev".into(), para_id: 1002 })
-		.with_code(
-			collectives_polkadot_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!"),
-		)
-		.build()
+	CollectivesPolkadotChainSpec::builder(
+		collectives_polkadot_runtime::WASM_BINARY
+			.expect("WASM binary was not build, please build it!"),
+		Extensions { relay_chain: "polkadot-dev".into(), para_id: 1002 },
+	)
+	.with_name("Polkadot Collectives Development")
+	.with_id("collectives_polkadot_dev")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(collectives_polkadot_genesis(
+		// initial collators.
+		vec![(
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_collator_keys_from_seed::<AuraId>("Alice"),
+		)],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+		],
+		// 1002 avoids a potential collision with Kusama-1001 (Encointer) should there ever
+		// be a collective para on Kusama.
+		1002.into(),
+	))
+	.with_boot_nodes(Vec::new())
+	.with_properties(properties)
+	.build()
 }
 
 /// Collectives Polkadot Local Config.
@@ -79,46 +78,45 @@ pub fn collectives_polkadot_local_config() -> CollectivesPolkadotChainSpec {
 	properties.insert("tokenSymbol".into(), "DOT".into());
 	properties.insert("tokenDecimals".into(), 10.into());
 
-	CollectivesPolkadotChainSpec::builder()
-		.with_name("Polkadot Collectives Local")
-		.with_id("collectives_polkadot_local")
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(collectives_polkadot_genesis(
-			// initial collators.
-			vec![
-				(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed::<AuraId>("Alice"),
-				),
-				(
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_collator_keys_from_seed::<AuraId>("Bob"),
-				),
-			],
-			vec![
+	CollectivesPolkadotChainSpec::builder(
+		collectives_polkadot_runtime::WASM_BINARY
+			.expect("WASM binary was not build, please build it!"),
+		Extensions { relay_chain: "polkadot-local".into(), para_id: 1002 },
+	)
+	.with_name("Polkadot Collectives Local")
+	.with_id("collectives_polkadot_local")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(collectives_polkadot_genesis(
+		// initial collators.
+		vec![
+			(
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_collator_keys_from_seed::<AuraId>("Alice"),
+			),
+			(
 				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie"),
-				get_account_id_from_seed::<sr25519::Public>("Dave"),
-				get_account_id_from_seed::<sr25519::Public>("Eve"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-			],
-			1002.into(),
-		))
-		.with_boot_nodes(Vec::new())
-		.with_properties(properties)
-		.with_extensions(Extensions { relay_chain: "polkadot-local".into(), para_id: 1002 })
-		.with_code(
-			collectives_polkadot_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!"),
-		)
-		.build()
+				get_collator_keys_from_seed::<AuraId>("Bob"),
+			),
+		],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			get_account_id_from_seed::<sr25519::Public>("Dave"),
+			get_account_id_from_seed::<sr25519::Public>("Eve"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+		],
+		1002.into(),
+	))
+	.with_boot_nodes(Vec::new())
+	.with_properties(properties)
+	.build()
 }
 
 fn collectives_polkadot_genesis(

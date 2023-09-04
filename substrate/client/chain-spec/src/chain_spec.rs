@@ -251,54 +251,54 @@ pub type NoExtension = Option<()>;
 
 /// Builder for creating [`ChainSpec`] instances.
 pub struct ChainSpecBuilder<G, E = NoExtension> {
-	name: Option<String>,
-	id: Option<String>,
-	chain_type: Option<ChainType>,
+	code: Vec<u8>,
+	extensions: E,
+	name: String,
+	id: String,
+	chain_type: ChainType,
+	genesis_build_action: GenesisBuildAction,
 	boot_nodes: Option<Vec<MultiaddrWithPeerId>>,
 	telemetry_endpoints: Option<TelemetryEndpoints>,
 	protocol_id: Option<String>,
 	fork_id: Option<String>,
 	properties: Option<Properties>,
-	extensions: Option<E>,
-	code: Option<Vec<u8>>,
-	genesis_build_action: Option<GenesisBuildAction>,
 	_genesis: PhantomData<G>,
 }
 
 impl<G, E> ChainSpecBuilder<G, E> {
 	/// Creates a new builder instance with no defaults.
-	pub fn new() -> Self {
+	pub fn new(code: &[u8], extensions: E) -> Self {
 		Self {
-			name: None,
-			id: None,
-			chain_type: None,
+			code: code.into(),
+			extensions,
+			name: "Development".to_string(),
+			id: "dev".to_string(),
+			chain_type: ChainType::Local,
+			genesis_build_action: GenesisBuildAction::Patch(Default::default()),
 			boot_nodes: None,
 			telemetry_endpoints: None,
 			protocol_id: None,
 			fork_id: None,
 			properties: None,
-			extensions: None,
-			code: None,
-			genesis_build_action: None,
 			_genesis: Default::default(),
 		}
 	}
 
 	/// Sets the spec name. This method must be called.
 	pub fn with_name(mut self, name: &str) -> Self {
-		self.name = Some(name.into());
+		self.name = name.into();
 		self
 	}
 
 	/// Sets the spec ID. This method must be called.
 	pub fn with_id(mut self, id: &str) -> Self {
-		self.id = Some(id.into());
+		self.id = id.into();
 		self
 	}
 
 	/// Sets the type of the chain. This method must be called.
 	pub fn with_chain_type(mut self, chain_type: ChainType) -> Self {
-		self.chain_type = Some(chain_type);
+		self.chain_type = chain_type;
 		self
 	}
 
@@ -334,40 +334,40 @@ impl<G, E> ChainSpecBuilder<G, E> {
 
 	/// Sets chain spec extensions. This method must be called.
 	pub fn with_extensions(mut self, extensions: E) -> Self {
-		self.extensions = Some(extensions);
+		self.extensions = extensions;
 		self
 	}
 
 	/// Sets the code. This method must be called.
 	pub fn with_code(mut self, code: &[u8]) -> Self {
-		self.code = Some(code.into());
+		self.code = code.into();
 		self
 	}
 
 	/// Sets the JSON patch for runtime's GenesisConfig.
 	pub fn with_genesis_config_patch(mut self, patch: json::Value) -> Self {
-		self.genesis_build_action = Some(GenesisBuildAction::Patch(patch));
+		self.genesis_build_action = GenesisBuildAction::Patch(patch);
 		self
 	}
 
 	/// Sets the full runtime's GenesisConfig JSON.
 	pub fn with_genesis_config(mut self, config: json::Value) -> Self {
-		self.genesis_build_action = Some(GenesisBuildAction::Full(config));
+		self.genesis_build_action = GenesisBuildAction::Full(config);
 		self
 	}
 
 	/// Builds a [`ChainSpec`] instance using the provided settings.
 	pub fn build(self) -> ChainSpec<G, E> {
 		let client_spec = ClientSpec {
-			name: self.name.expect("with_name must be called."),
-			id: self.id.expect("with_id must be called."),
-			chain_type: self.chain_type.expect("with_chain_type must be called."),
+			name: self.name,
+			id: self.id,
+			chain_type: self.chain_type,
 			boot_nodes: self.boot_nodes.unwrap_or(Default::default()),
 			telemetry_endpoints: self.telemetry_endpoints,
 			protocol_id: self.protocol_id,
 			fork_id: self.fork_id,
 			properties: self.properties,
-			extensions: self.extensions.expect("with_extensions must be called"),
+			extensions: self.extensions,
 			consensus_engine: (),
 			genesis: Default::default(),
 			code: Default::default(),
@@ -376,11 +376,8 @@ impl<G, E> ChainSpecBuilder<G, E> {
 
 		ChainSpec {
 			client_spec,
-			genesis: GenesisSource::GenesisBuilderApi(
-				self.genesis_build_action
-					.expect("with_genesis_config_patch or with_genesis_config must be called."),
-			),
-			code: self.code.expect("with code must be called.").into(),
+			genesis: GenesisSource::GenesisBuilderApi(self.genesis_build_action),
+			code: self.code,
 		}
 	}
 }
@@ -508,8 +505,8 @@ impl<G, E> ChainSpec<G, E> {
 	}
 
 	/// Provides a `ChainSpec` builder.
-	pub fn builder() -> ChainSpecBuilder<G, E> {
-		ChainSpecBuilder::new()
+	pub fn builder(code: &[u8], extensions: E) -> ChainSpecBuilder<G, E> {
+		ChainSpecBuilder::new(code, extensions)
 	}
 }
 
@@ -872,30 +869,31 @@ mod tests {
 
 	#[test]
 	fn generate_chain_spec_with_patch_works() {
-		let output: ChainSpec<()> = ChainSpecBuilder::new()
-			.with_name("TestName")
-			.with_id("test_id")
-			.with_extensions(Default::default())
-			.with_chain_type(ChainType::Local)
-			.with_code(substrate_test_runtime::wasm_binary_unwrap().into())
-			.with_genesis_config_patch(json!({
-				"babe": {
-					"epochConfig": {
-						"c": [
-							7,
-							10
-						],
-						"allowed_slots": "PrimaryAndSecondaryPlainSlots"
-					}
-				},
-				"substrateTest": {
-					"authorities": [
-						AccountKeyring::Ferdie.public().to_ss58check(),
-						AccountKeyring::Alice.public().to_ss58check()
+		let output: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(json!({
+			"babe": {
+				"epochConfig": {
+					"c": [
+						7,
+						10
 					],
+					"allowed_slots": "PrimaryAndSecondaryPlainSlots"
 				}
-			}))
-			.build();
+			},
+			"substrateTest": {
+				"authorities": [
+					AccountKeyring::Ferdie.public().to_ss58check(),
+					AccountKeyring::Alice.public().to_ss58check()
+				],
+			}
+		}))
+		.build();
 
 		let actual = output.as_json(false).unwrap();
 		let actual_raw = output.as_json(true).unwrap();
@@ -918,14 +916,15 @@ mod tests {
 	#[test]
 	fn generate_chain_spec_with_full_config_works() {
 		let j = include_str!("../../../test-utils/runtime/res/default_genesis_config.json");
-		let output: ChainSpec<()> = ChainSpecBuilder::new()
-			.with_name("TestName")
-			.with_id("test_id")
-			.with_extensions(Default::default())
-			.with_chain_type(ChainType::Local)
-			.with_code(substrate_test_runtime::wasm_binary_unwrap().into())
-			.with_genesis_config(from_str(j).unwrap())
-			.build();
+		let output: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config(from_str(j).unwrap())
+		.build();
 
 		let actual = output.as_json(false).unwrap();
 		let actual_raw = output.as_json(true).unwrap();
@@ -949,14 +948,15 @@ mod tests {
 	fn chain_spec_as_json_fails_with_invalid_config() {
 		let j =
 			include_str!("../../../test-utils/runtime/res/default_genesis_config_invalid_2.json");
-		let output: ChainSpec<()> = ChainSpecBuilder::new()
-			.with_name("TestName")
-			.with_id("test_id")
-			.with_extensions(Default::default())
-			.with_chain_type(ChainType::Local)
-			.with_code(substrate_test_runtime::wasm_binary_unwrap().into())
-			.with_genesis_config(from_str(j).unwrap())
-			.build();
+		let output: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config(from_str(j).unwrap())
+		.build();
 
 		assert_eq!(
 			output.as_json(true),
@@ -966,22 +966,23 @@ mod tests {
 
 	#[test]
 	fn chain_spec_as_json_fails_with_invalid_patch() {
-		let output: ChainSpec<()> = ChainSpecBuilder::new()
-			.with_name("TestName")
-			.with_id("test_id")
-			.with_extensions(Default::default())
-			.with_chain_type(ChainType::Local)
-			.with_code(substrate_test_runtime::wasm_binary_unwrap().into())
-			.with_genesis_config_patch(json!({
-				"invalid_pallet": {},
-				"substrateTest": {
-					"authorities": [
-						AccountKeyring::Ferdie.public().to_ss58check(),
-						AccountKeyring::Alice.public().to_ss58check()
-					],
-				}
-			}))
-			.build();
+		let output: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(json!({
+			"invalid_pallet": {},
+			"substrateTest": {
+				"authorities": [
+					AccountKeyring::Ferdie.public().to_ss58check(),
+					AccountKeyring::Alice.public().to_ss58check()
+				],
+			}
+		}))
+		.build();
 
 		assert!(output.as_json(true).unwrap_err().contains("Invalid JSON blob: unknown field `invalid_pallet`, expected one of `system`, `babe`, `substrateTest`, `balances`"));
 	}

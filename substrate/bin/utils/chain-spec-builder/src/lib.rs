@@ -224,7 +224,7 @@ pub fn generate_chain_spec(
 		.map(chain_spec::authority_keys_from_seed)
 		.collect::<Vec<_>>();
 
-	chain_spec::ChainSpec::builder()
+	chain_spec::ChainSpec::builder(kitchensink_runtime::wasm_binary_unwrap(), Default::default())
 		.with_name("Custom")
 		.with_id("custom")
 		.with_chain_type(sc_chain_spec::ChainType::Live)
@@ -234,8 +234,6 @@ pub fn generate_chain_spec(
 			sudo_account,
 			Some(endowed_accounts),
 		))
-		.with_extensions(Default::default())
-		.with_code(kitchensink_runtime::wasm_binary_unwrap())
 		.build()
 		.as_json(false)
 }
@@ -316,12 +314,10 @@ pub fn print_seeds(
 pub fn generate_chain_spec_for_runtime(cmd: &RuntimeCmd) -> Result<String, String> {
 	let code = fs::read(cmd.runtime_wasm_path.as_path()).expect("wasm blob file is readable");
 
-	let builder = chain_spec::ChainSpec::builder()
+	let builder = chain_spec::ChainSpec::builder(&code[..], Default::default())
 		.with_name(&cmd.chain_name[..])
 		.with_id(&cmd.chain_id[..])
-		.with_chain_type(sc_chain_spec::ChainType::Live)
-		.with_extensions(Default::default())
-		.with_code(&code[..]);
+		.with_chain_type(sc_chain_spec::ChainType::Live);
 
 	let builder = match cmd.action {
 		GenesisBuildAction::Patch(PatchCmd { ref patch_path }) => {

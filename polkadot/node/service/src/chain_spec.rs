@@ -977,55 +977,58 @@ pub fn polkadot_chain_spec_properties() -> serde_json::map::Map<String, serde_js
 /// Staging testnet config.
 #[cfg(feature = "kusama-native")]
 pub fn kusama_staging_testnet_config() -> Result<KusamaChainSpec, String> {
-	Ok(KusamaChainSpec::builder()
-		.with_name("Kusama Staging Testnet")
-		.with_id("kusama_staging_testnet")
-		.with_chain_type(ChainType::Live)
-		.with_genesis_config_patch(kusama_staging_testnet_config_genesis())
-		.with_telemetry_endpoints(
-			TelemetryEndpoints::new(vec![(KUSAMA_STAGING_TELEMETRY_URL.to_string(), 0)])
-				.expect("Kusama Staging telemetry url is valid; qed"),
-		)
-		.with_protocol_id(DEFAULT_PROTOCOL_ID)
-		.with_extensions(Default::default())
-		.with_code(kusama::WASM_BINARY.ok_or("Kusama development wasm not available")?)
-		.build())
+	Ok(KusamaChainSpec::builder(
+		kusama::WASM_BINARY.ok_or("Kusama development wasm not available")?,
+		Default::default(),
+	)
+	.with_name("Kusama Staging Testnet")
+	.with_id("kusama_staging_testnet")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(kusama_staging_testnet_config_genesis())
+	.with_telemetry_endpoints(
+		TelemetryEndpoints::new(vec![(KUSAMA_STAGING_TELEMETRY_URL.to_string(), 0)])
+			.expect("Kusama Staging telemetry url is valid; qed"),
+	)
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// Westend staging testnet config.
 #[cfg(feature = "westend-native")]
 pub fn westend_staging_testnet_config() -> Result<WestendChainSpec, String> {
-	Ok(WestendChainSpec::builder()
-		.with_name("Westend Staging Testnet")
-		.with_id("westend_staging_testnet")
-		.with_chain_type(ChainType::Live)
-		.with_genesis_config_patch(westend_staging_testnet_config_genesis())
-		.with_telemetry_endpoints(
-			TelemetryEndpoints::new(vec![(WESTEND_STAGING_TELEMETRY_URL.to_string(), 0)])
-				.expect("Westend Staging telemetry url is valid; qed"),
-		)
-		.with_protocol_id(DEFAULT_PROTOCOL_ID)
-		.with_extensions(Default::default())
-		.with_code(westend::WASM_BINARY.ok_or("Westend development wasm not available")?)
-		.build())
+	Ok(WestendChainSpec::builder(
+		westend::WASM_BINARY.ok_or("Westend development wasm not available")?,
+		Default::default(),
+	)
+	.with_name("Westend Staging Testnet")
+	.with_id("westend_staging_testnet")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(westend_staging_testnet_config_genesis())
+	.with_telemetry_endpoints(
+		TelemetryEndpoints::new(vec![(WESTEND_STAGING_TELEMETRY_URL.to_string(), 0)])
+			.expect("Westend Staging telemetry url is valid; qed"),
+	)
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// Rococo staging testnet config.
 #[cfg(feature = "rococo-native")]
 pub fn rococo_staging_testnet_config() -> Result<RococoChainSpec, String> {
-	Ok(RococoChainSpec::builder()
-		.with_name("Rococo Staging Testnet")
-		.with_id("rococo_staging_testnet")
-		.with_chain_type(ChainType::Live)
-		.with_genesis_config_patch(rococo_staging_testnet_config_genesis())
-		.with_telemetry_endpoints(
-			TelemetryEndpoints::new(vec![(ROCOCO_STAGING_TELEMETRY_URL.to_string(), 0)])
-				.expect("Rococo Staging telemetry url is valid; qed"),
-		)
-		.with_protocol_id(DEFAULT_PROTOCOL_ID)
-		.with_extensions(Default::default())
-		.with_code(rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?)
-		.build())
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?,
+		Default::default(),
+	)
+	.with_name("Rococo Staging Testnet")
+	.with_id("rococo_staging_testnet")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(rococo_staging_testnet_config_genesis())
+	.with_telemetry_endpoints(
+		TelemetryEndpoints::new(vec![(ROCOCO_STAGING_TELEMETRY_URL.to_string(), 0)])
+			.expect("Rococo Staging telemetry url is valid; qed"),
+	)
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 pub fn versi_chain_spec_properties() -> serde_json::map::Map<String, serde_json::Value> {
@@ -1042,20 +1045,21 @@ pub fn versi_chain_spec_properties() -> serde_json::map::Map<String, serde_json:
 /// Versi staging testnet config.
 #[cfg(feature = "rococo-native")]
 pub fn versi_staging_testnet_config() -> Result<RococoChainSpec, String> {
-	Ok(RococoChainSpec::builder()
-		.with_name("Versi Staging Testnet")
-		.with_id("versi_staging_testnet")
-		.with_chain_type(ChainType::Live)
-		.with_genesis_config_patch(rococo_staging_testnet_config_genesis())
-		.with_telemetry_endpoints(
-			TelemetryEndpoints::new(vec![(VERSI_STAGING_TELEMETRY_URL.to_string(), 0)])
-				.expect("Versi Staging telemetry url is valid; qed"),
-		)
-		.with_protocol_id("versi")
-		.with_properties(versi_chain_spec_properties())
-		.with_extensions(Default::default())
-		.with_code(rococo::WASM_BINARY.ok_or("Versi development wasm not available")?)
-		.build())
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Versi development wasm not available")?,
+		Default::default(),
+	)
+	.with_name("Versi Staging Testnet")
+	.with_id("versi_staging_testnet")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(rococo_staging_testnet_config_genesis())
+	.with_telemetry_endpoints(
+		TelemetryEndpoints::new(vec![(VERSI_STAGING_TELEMETRY_URL.to_string(), 0)])
+			.expect("Versi Staging telemetry url is valid; qed"),
+	)
+	.with_protocol_id("versi")
+	.with_properties(versi_chain_spec_properties())
+	.build())
 }
 
 /// Helper function to generate a crypto pair from seed
@@ -1439,87 +1443,93 @@ fn rococo_development_config_genesis() -> serde_json::Value {
 /// Polkadot development config (single validator Alice)
 #[cfg(feature = "polkadot-native")]
 pub fn polkadot_development_config() -> Result<PolkadotChainSpec, String> {
-	Ok(PolkadotChainSpec::builder()
-		.with_name("Development")
-		.with_id("polkadot_dev")
-		.with_chain_type(ChainType::Development)
-		.with_genesis_config_patch(polkadot_development_config_genesis())
-		.with_protocol_id(DEFAULT_PROTOCOL_ID)
-		.with_properties(polkadot_chain_spec_properties())
-		.with_extensions(Default::default())
-		.with_code(polkadot::WASM_BINARY.ok_or("Polkadot development wasm not available")?)
-		.build())
+	Ok(PolkadotChainSpec::builder(
+		polkadot::WASM_BINARY.ok_or("Polkadot development wasm not available")?,
+		Default::default(),
+	)
+	.with_name("Development")
+	.with_id("polkadot_dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(polkadot_development_config_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.with_properties(polkadot_chain_spec_properties())
+	.build())
 }
 
 /// Kusama development config (single validator Alice)
 #[cfg(feature = "kusama-native")]
 pub fn kusama_development_config() -> Result<KusamaChainSpec, String> {
-	Ok(KusamaChainSpec::builder()
-		.with_name("Development")
-		.with_id("kusama_dev")
-		.with_chain_type(ChainType::Development)
-		.with_genesis_config_patch(kusama_development_config_genesis())
-		.with_protocol_id(DEFAULT_PROTOCOL_ID)
-		.with_extensions(Default::default())
-		.with_code(kusama::WASM_BINARY.ok_or("Kusama development wasm not available")?)
-		.build())
+	Ok(KusamaChainSpec::builder(
+		kusama::WASM_BINARY.ok_or("Kusama development wasm not available")?,
+		Default::default(),
+	)
+	.with_name("Development")
+	.with_id("kusama_dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(kusama_development_config_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// Westend development config (single validator Alice)
 #[cfg(feature = "westend-native")]
 pub fn westend_development_config() -> Result<WestendChainSpec, String> {
-	Ok(WestendChainSpec::builder()
-		.with_name("Development")
-		.with_id("westend_dev")
-		.with_chain_type(ChainType::Development)
-		.with_genesis_config_patch(westend_development_config_genesis())
-		.with_protocol_id(DEFAULT_PROTOCOL_ID)
-		.with_extensions(Default::default())
-		.with_code(westend::WASM_BINARY.ok_or("Westend development wasm not available")?)
-		.build())
+	Ok(WestendChainSpec::builder(
+		westend::WASM_BINARY.ok_or("Westend development wasm not available")?,
+		Default::default(),
+	)
+	.with_name("Development")
+	.with_id("westend_dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(westend_development_config_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// Rococo development config (single validator Alice)
 #[cfg(feature = "rococo-native")]
 pub fn rococo_development_config() -> Result<RococoChainSpec, String> {
-	Ok(RococoChainSpec::builder()
-		.with_name("Development")
-		.with_id("rococo_dev")
-		.with_chain_type(ChainType::Development)
-		.with_genesis_config_patch(rococo_development_config_genesis())
-		.with_protocol_id(DEFAULT_PROTOCOL_ID)
-		.with_extensions(Default::default())
-		.with_code(rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?)
-		.build())
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?,
+		Default::default(),
+	)
+	.with_name("Development")
+	.with_id("rococo_dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(rococo_development_config_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// `Versi` development config (single validator Alice)
 #[cfg(feature = "rococo-native")]
 pub fn versi_development_config() -> Result<RococoChainSpec, String> {
-	Ok(RococoChainSpec::builder()
-		.with_name("Development")
-		.with_id("versi_dev")
-		.with_chain_type(ChainType::Development)
-		.with_genesis_config_patch(rococo_development_config_genesis())
-		.with_protocol_id("versi")
-		.with_extensions(Default::default())
-		.with_code(rococo::WASM_BINARY.ok_or("Versi development wasm not available")?)
-		.build())
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Versi development wasm not available")?,
+		Default::default(),
+	)
+	.with_name("Development")
+	.with_id("versi_dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(rococo_development_config_genesis())
+	.with_protocol_id("versi")
+	.build())
 }
 
 /// Wococo development config (single validator Alice)
 #[cfg(feature = "rococo-native")]
 pub fn wococo_development_config() -> Result<RococoChainSpec, String> {
 	const WOCOCO_DEV_PROTOCOL_ID: &str = "woco";
-	Ok(RococoChainSpec::builder()
-		.with_name("Development")
-		.with_id("wococo_dev")
-		.with_chain_type(ChainType::Development)
-		.with_genesis_config_patch(rococo_development_config_genesis())
-		.with_protocol_id(WOCOCO_DEV_PROTOCOL_ID)
-		.with_extensions(Default::default())
-		.with_code(rococo::WASM_BINARY.ok_or("Wococo development wasm not available")?)
-		.build())
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Wococo development wasm not available")?,
+		Default::default(),
+	)
+	.with_name("Development")
+	.with_id("wococo_dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(rococo_development_config_genesis())
+	.with_protocol_id(WOCOCO_DEV_PROTOCOL_ID)
+	.build())
 }
 
 #[cfg(feature = "polkadot-native")]
@@ -1537,16 +1547,17 @@ fn polkadot_local_testnet_genesis() -> serde_json::Value {
 /// Polkadot local testnet config (multivalidator Alice + Bob)
 #[cfg(feature = "polkadot-native")]
 pub fn polkadot_local_testnet_config() -> Result<PolkadotChainSpec, String> {
-	Ok(PolkadotChainSpec::builder()
-		.with_name("Local Testnet")
-		.with_id("local_testnet")
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(polkadot_local_testnet_genesis())
-		.with_protocol_id(DEFAULT_PROTOCOL_ID)
-		.with_properties(polkadot_chain_spec_properties())
-		.with_extensions(Default::default())
-		.with_code(polkadot::WASM_BINARY.ok_or("Polkadot development wasm not available")?)
-		.build())
+	Ok(PolkadotChainSpec::builder(
+		polkadot::WASM_BINARY.ok_or("Polkadot development wasm not available")?,
+		Default::default(),
+	)
+	.with_name("Local Testnet")
+	.with_id("local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(polkadot_local_testnet_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.with_properties(polkadot_chain_spec_properties())
+	.build())
 }
 
 #[cfg(feature = "kusama-native")]
@@ -1561,15 +1572,16 @@ fn kusama_local_testnet_genesis() -> serde_json::Value {
 /// Kusama local testnet config (multivalidator Alice + Bob)
 #[cfg(feature = "kusama-native")]
 pub fn kusama_local_testnet_config() -> Result<KusamaChainSpec, String> {
-	Ok(KusamaChainSpec::builder()
-		.with_name("Kusama Local Testnet")
-		.with_id("kusama_local_testnet")
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(kusama_local_testnet_genesis())
-		.with_protocol_id(DEFAULT_PROTOCOL_ID)
-		.with_extensions(Default::default())
-		.with_code(kusama::WASM_BINARY.ok_or("Kusama development wasm not available")?)
-		.build())
+	Ok(KusamaChainSpec::builder(
+		kusama::WASM_BINARY.ok_or("Kusama development wasm not available")?,
+		Default::default(),
+	)
+	.with_name("Kusama Local Testnet")
+	.with_id("kusama_local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(kusama_local_testnet_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 #[cfg(feature = "westend-native")]
@@ -1584,15 +1596,16 @@ fn westend_local_testnet_genesis() -> serde_json::Value {
 /// Westend local testnet config (multivalidator Alice + Bob)
 #[cfg(feature = "westend-native")]
 pub fn westend_local_testnet_config() -> Result<WestendChainSpec, String> {
-	Ok(WestendChainSpec::builder()
-		.with_name("Westend Local Testnet")
-		.with_id("westend_local_testnet")
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(westend_local_testnet_genesis())
-		.with_protocol_id(DEFAULT_PROTOCOL_ID)
-		.with_extensions(Default::default())
-		.with_code(westend::WASM_BINARY.ok_or("Westend development wasm not available")?)
-		.build())
+	Ok(WestendChainSpec::builder(
+		westend::WASM_BINARY.ok_or("Westend development wasm not available")?,
+		Default::default(),
+	)
+	.with_name("Westend Local Testnet")
+	.with_id("westend_local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(westend_local_testnet_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 #[cfg(feature = "rococo-native")]
@@ -1607,15 +1620,16 @@ fn rococo_local_testnet_genesis() -> serde_json::Value {
 /// Rococo local testnet config (multivalidator Alice + Bob)
 #[cfg(feature = "rococo-native")]
 pub fn rococo_local_testnet_config() -> Result<RococoChainSpec, String> {
-	Ok(RococoChainSpec::builder()
-		.with_name("Rococo Local Testnet")
-		.with_id("rococo_local_testnet")
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(rococo_local_testnet_genesis())
-		.with_protocol_id(DEFAULT_PROTOCOL_ID)
-		.with_extensions(Default::default())
-		.with_code(rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?)
-		.build())
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?,
+		Default::default(),
+	)
+	.with_name("Rococo Local Testnet")
+	.with_id("rococo_local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(rococo_local_testnet_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// Wococo is a temporary testnet that uses almost the same runtime as rococo.
@@ -1636,15 +1650,16 @@ fn wococo_local_testnet_genesis() -> serde_json::Value {
 /// Wococo local testnet config (multivalidator Alice + Bob + Charlie + Dave)
 #[cfg(feature = "rococo-native")]
 pub fn wococo_local_testnet_config() -> Result<RococoChainSpec, String> {
-	Ok(RococoChainSpec::builder()
-		.with_name("Wococo Local Testnet")
-		.with_id("wococo_local_testnet")
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(wococo_local_testnet_genesis())
-		.with_protocol_id(DEFAULT_PROTOCOL_ID)
-		.with_extensions(Default::default())
-		.with_code(rococo::WASM_BINARY.ok_or("Wococo development wasm not available")?)
-		.build())
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Wococo development wasm not available")?,
+		Default::default(),
+	)
+	.with_name("Wococo Local Testnet")
+	.with_id("wococo_local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(wococo_local_testnet_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// `Versi` is a temporary testnet that uses the same runtime as rococo.
@@ -1665,15 +1680,16 @@ fn versi_local_testnet_genesis() -> serde_json::Value {
 /// `Versi` local testnet config (multivalidator Alice + Bob + Charlie + Dave)
 #[cfg(feature = "rococo-native")]
 pub fn versi_local_testnet_config() -> Result<RococoChainSpec, String> {
-	Ok(RococoChainSpec::builder()
-		.with_name("Versi Local Testnet")
-		.with_id("versi_local_testnet")
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(versi_local_testnet_genesis())
-		.with_protocol_id("versi")
-		.with_extensions(Default::default())
-		.with_code(rococo::WASM_BINARY.ok_or("Versi development wasm not available")?)
-		.build())
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Versi development wasm not available")?,
+		Default::default(),
+	)
+	.with_name("Versi Local Testnet")
+	.with_id("versi_local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(versi_local_testnet_genesis())
+	.with_protocol_id("versi")
+	.build())
 }
 
 #[cfg(any(

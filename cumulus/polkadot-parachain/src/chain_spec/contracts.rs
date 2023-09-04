@@ -37,48 +37,46 @@ pub fn contracts_rococo_development_config() -> ContractsRococoChainSpec {
 	properties.insert("tokenSymbol".into(), "ROC".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	ContractsRococoChainSpec::builder()
-		.with_name("Contracts on Rococo Development")
-		.with_id("contracts-rococo-dev")
-		.with_chain_type(ChainType::Development)
-		.with_genesis_config_patch(contracts_rococo_genesis(
-			// initial collators.
-			vec![
-				(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed::<contracts_rococo_runtime::AuraId>("Alice"),
-				),
-				(
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_collator_keys_from_seed::<contracts_rococo_runtime::AuraId>("Bob"),
-				),
-			],
-			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie"),
-				get_account_id_from_seed::<sr25519::Public>("Dave"),
-				get_account_id_from_seed::<sr25519::Public>("Eve"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-			],
-			CONTRACTS_PARACHAIN_ID.into(),
-		))
-		.with_boot_nodes(Vec::new())
-		.with_extensions(Extensions {
+	ContractsRococoChainSpec::builder(
+		contracts_rococo_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		Extensions {
 			relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
 			para_id: CONTRACTS_PARACHAIN_ID,
-		})
-		.with_code(
-			contracts_rococo_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!"),
-		)
-		.build()
+		},
+	)
+	.with_name("Contracts on Rococo Development")
+	.with_id("contracts-rococo-dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(contracts_rococo_genesis(
+		// initial collators.
+		vec![
+			(
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_collator_keys_from_seed::<contracts_rococo_runtime::AuraId>("Alice"),
+			),
+			(
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_collator_keys_from_seed::<contracts_rococo_runtime::AuraId>("Bob"),
+			),
+		],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			get_account_id_from_seed::<sr25519::Public>("Dave"),
+			get_account_id_from_seed::<sr25519::Public>("Eve"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+		],
+		CONTRACTS_PARACHAIN_ID.into(),
+	))
+	.with_boot_nodes(Vec::new())
+	.build()
 }
 
 pub fn contracts_rococo_local_config() -> ContractsRococoChainSpec {
@@ -86,48 +84,46 @@ pub fn contracts_rococo_local_config() -> ContractsRococoChainSpec {
 	properties.insert("tokenSymbol".into(), "ROC".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	ContractsRococoChainSpec::builder()
-		.with_name("Contracts on Rococo")
-		.with_id("contracts-rococo-local")
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(contracts_rococo_genesis(
-			// initial collators.
-			vec![
-				(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed::<contracts_rococo_runtime::AuraId>("Alice"),
-				),
-				(
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_collator_keys_from_seed::<contracts_rococo_runtime::AuraId>("Bob"),
-				),
-			],
-			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie"),
-				get_account_id_from_seed::<sr25519::Public>("Dave"),
-				get_account_id_from_seed::<sr25519::Public>("Eve"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-			],
-			CONTRACTS_PARACHAIN_ID.into(),
-		))
-		.with_properties(properties)
-		.with_extensions(Extensions {
+	ContractsRococoChainSpec::builder(
+		contracts_rococo_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		Extensions {
 			relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
 			para_id: CONTRACTS_PARACHAIN_ID,
-		})
-		.with_code(
-			contracts_rococo_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!"),
-		)
-		.build()
+		},
+	)
+	.with_name("Contracts on Rococo")
+	.with_id("contracts-rococo-local")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(contracts_rococo_genesis(
+		// initial collators.
+		vec![
+			(
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_collator_keys_from_seed::<contracts_rococo_runtime::AuraId>("Alice"),
+			),
+			(
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_collator_keys_from_seed::<contracts_rococo_runtime::AuraId>("Bob"),
+			),
+		],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			get_account_id_from_seed::<sr25519::Public>("Dave"),
+			get_account_id_from_seed::<sr25519::Public>("Eve"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+		],
+		CONTRACTS_PARACHAIN_ID.into(),
+	))
+	.with_properties(properties)
+	.build()
 }
 
 pub fn contracts_rococo_config() -> ContractsRococoChainSpec {
@@ -136,7 +132,10 @@ pub fn contracts_rococo_config() -> ContractsRococoChainSpec {
 	properties.insert("tokenSymbol".into(), "ROC".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	ContractsRococoChainSpec::builder()
+	ContractsRococoChainSpec::builder(
+	 		contracts_rococo_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+			Extensions { relay_chain: "rococo".into(), para_id: CONTRACTS_PARACHAIN_ID }
+		)
 		.with_name("Contracts on Rococo")
 		.with_id("contracts-rococo")
 		.with_chain_type(ChainType::Live)
@@ -198,8 +197,6 @@ pub fn contracts_rococo_config() -> ContractsRococoChainSpec {
 			.expect("MultiaddrWithPeerId"),
 		])
 		.with_properties(properties)
-		.with_extensions(Extensions { relay_chain: "rococo".into(), para_id: CONTRACTS_PARACHAIN_ID })
-		.with_code(contracts_rococo_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"))
 		.build()
 }
 

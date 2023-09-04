@@ -22,15 +22,16 @@ use sc_service::ChainType;
 pub type ShellChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 pub fn get_shell_chain_spec() -> ShellChainSpec {
-	ShellChainSpec::builder()
-		.with_name("Shell Local Testnet")
-		.with_id("shell_local_testnet")
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(serde_json::json!({
-			"parachainInfo": { "parachainId": ParaId::from(1000) }
-		}))
-		.with_boot_nodes(Vec::new())
-		.with_extensions(Extensions { relay_chain: "westend".into(), para_id: 1000 })
-		.with_code(shell_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"))
-		.build()
+	ShellChainSpec::builder(
+		shell_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		Extensions { relay_chain: "westend".into(), para_id: 1000 },
+	)
+	.with_name("Shell Local Testnet")
+	.with_id("shell_local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(serde_json::json!({
+		"parachainInfo": { "parachainId": ParaId::from(1000) }
+	}))
+	.with_boot_nodes(Vec::new())
+	.build()
 }

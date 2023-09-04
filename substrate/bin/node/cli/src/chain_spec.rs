@@ -189,7 +189,7 @@ fn staging_testnet_config_genesis() -> serde_json::Value {
 
 /// Staging testnet config.
 pub fn staging_testnet_config() -> ChainSpec {
-	ChainSpec::builder()
+	ChainSpec::builder(wasm_binary_unwrap(), Default::default())
 		.with_name("Staging Testnet")
 		.with_id("staging_testnet")
 		.with_chain_type(ChainType::Live)
@@ -198,8 +198,6 @@ pub fn staging_testnet_config() -> ChainSpec {
 			TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
 				.expect("Staging telemetry url is valid; qed"),
 		)
-		.with_extensions(Default::default())
-		.with_code(wasm_binary_unwrap())
 		.build()
 }
 
@@ -384,13 +382,11 @@ fn development_config_genesis_json() -> serde_json::Value {
 
 /// Development config (single validator Alice).
 pub fn development_config() -> ChainSpec {
-	ChainSpec::builder()
+	ChainSpec::builder(wasm_binary_unwrap(), Default::default())
 		.with_name("Development")
 		.with_id("dev")
 		.with_chain_type(ChainType::Development)
 		.with_genesis_config_patch(development_config_genesis_json())
-		.with_extensions(Default::default())
-		.with_code(wasm_binary_unwrap())
 		.build()
 }
 
@@ -405,13 +401,11 @@ fn local_testnet_genesis() -> serde_json::Value {
 
 /// Local testnet config (multivalidator Alice + Bob).
 pub fn local_testnet_config() -> ChainSpec {
-	ChainSpec::builder()
+	ChainSpec::builder(wasm_binary_unwrap(), Default::default())
 		.with_name("Local Testnet")
 		.with_id("local_testnet")
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config_patch(local_testnet_genesis())
-		.with_extensions(Default::default())
-		.with_code(wasm_binary_unwrap())
 		.build()
 }
 
@@ -424,7 +418,7 @@ pub(crate) mod tests {
 
 	/// Local testnet config (single validator - Alice).
 	pub fn integration_test_config_with_single_authority() -> ChainSpec {
-		ChainSpec::builder()
+		ChainSpec::builder(wasm_binary_unwrap(), Default::default())
 			.with_name("Integration Test")
 			.with_id("test")
 			.with_chain_type(ChainType::Development)
@@ -434,20 +428,16 @@ pub(crate) mod tests {
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				None,
 			))
-			.with_extensions(Default::default())
-			.with_code(wasm_binary_unwrap())
 			.build()
 	}
 
 	/// Local testnet config (multivalidator Alice + Bob).
 	pub fn integration_test_config_with_two_authorities() -> ChainSpec {
-		ChainSpec::builder()
+		ChainSpec::builder(wasm_binary_unwrap(), Default::default())
 			.with_name("Integration Test")
 			.with_id("test")
 			.with_chain_type(ChainType::Development)
 			.with_genesis_config_patch(local_testnet_genesis())
-			.with_extensions(Default::default())
-			.with_code(wasm_binary_unwrap())
 			.build()
 	}
 

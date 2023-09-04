@@ -37,18 +37,17 @@ pub type PolkadotChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 /// Local testnet config (multivalidator Alice + Bob)
 pub fn polkadot_local_testnet_config() -> PolkadotChainSpec {
-	PolkadotChainSpec::builder()
-		.with_name("Local Testnet")
-		.with_id("local_testnet")
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(polkadot_local_testnet_genesis())
-		.with_protocol_id(DEFAULT_PROTOCOL_ID)
-		.with_extensions(Default::default())
-		.with_properties(polkadot_chain_spec_properties())
-		.with_code(
-			polkadot_test_runtime::WASM_BINARY.expect("Wasm binary must be built for testing"),
-		)
-		.build()
+	PolkadotChainSpec::builder(
+		polkadot_test_runtime::WASM_BINARY.expect("Wasm binary must be built for testing"),
+		Default::default(),
+	)
+	.with_name("Local Testnet")
+	.with_id("local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(polkadot_local_testnet_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.with_properties(polkadot_chain_spec_properties())
+	.build()
 }
 
 /// Local testnet genesis config (multivalidator Alice + Bob)

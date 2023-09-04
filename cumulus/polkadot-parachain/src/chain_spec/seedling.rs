@@ -24,20 +24,19 @@ use sp_core::sr25519;
 pub type SeedlingChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 pub fn get_seedling_chain_spec() -> SeedlingChainSpec {
-	SeedlingChainSpec::builder()
-		.with_name("Seedling Local Testnet")
-		.with_id("seedling_local_testnet")
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(seedling_testnet_genesis(
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			2000.into(),
-		))
-		.with_boot_nodes(Vec::new())
-		.with_extensions(Extensions { relay_chain: "westend".into(), para_id: 2000 })
-		.with_code(
-			seedling_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
-		)
-		.build()
+	SeedlingChainSpec::builder(
+		seedling_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		Extensions { relay_chain: "westend".into(), para_id: 2000 },
+	)
+	.with_name("Seedling Local Testnet")
+	.with_id("seedling_local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(seedling_testnet_genesis(
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		2000.into(),
+	))
+	.with_boot_nodes(Vec::new())
+	.build()
 }
 
 fn seedling_testnet_genesis(root_key: AccountId, parachain_id: ParaId) -> serde_json::Value {

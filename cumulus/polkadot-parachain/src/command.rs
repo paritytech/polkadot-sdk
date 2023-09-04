@@ -1102,25 +1102,24 @@ mod tests {
 		id: &str,
 		extension: E,
 	) -> DummyChainSpec<E> {
-		DummyChainSpec::builder()
-			.with_name("Dummy local testnet")
-			.with_id(id)
-			.with_chain_type(ChainType::Local)
-			.with_genesis_config_patch(crate::chain_spec::rococo_parachain::testnet_genesis(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				vec![
-					get_from_seed::<rococo_parachain_runtime::AuraId>("Alice"),
-					get_from_seed::<rococo_parachain_runtime::AuraId>("Bob"),
-				],
-				vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
-				1000.into(),
-			))
-			.with_extensions(extension)
-			.with_code(
-				rococo_parachain_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!"),
-			)
-			.build()
+		DummyChainSpec::builder(
+			rococo_parachain_runtime::WASM_BINARY
+				.expect("WASM binary was not build, please build it!"),
+			extension,
+		)
+		.with_name("Dummy local testnet")
+		.with_id(id)
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(crate::chain_spec::rococo_parachain::testnet_genesis(
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			vec![
+				get_from_seed::<rococo_parachain_runtime::AuraId>("Alice"),
+				get_from_seed::<rococo_parachain_runtime::AuraId>("Bob"),
+			],
+			vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
+			1000.into(),
+		))
+		.build()
 	}
 
 	#[test]

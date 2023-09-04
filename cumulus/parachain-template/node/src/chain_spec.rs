@@ -67,49 +67,48 @@ pub fn development_config() -> ChainSpec {
 	properties.insert("tokenDecimals".into(), 12.into());
 	properties.insert("ss58Format".into(), 42.into());
 
-	ChainSpec::builder()
-		.with_name("Development")
-		.with_id("dev")
-		.with_chain_type(ChainType::Development)
-		.with_genesis_config_patch(testnet_genesis(
-			// initial collators.
-			vec![
-				(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed("Alice"),
-				),
-				(
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_collator_keys_from_seed("Bob"),
-				),
-			],
-			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie"),
-				get_account_id_from_seed::<sr25519::Public>("Dave"),
-				get_account_id_from_seed::<sr25519::Public>("Eve"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-			],
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			1000.into(),
-		))
-		.with_extensions(Extensions {
+	ChainSpec::builder(
+		parachain_template_runtime::WASM_BINARY
+			.expect("WASM binary was not build, please build it!"),
+		Extensions {
 			relay_chain: "rococo-local".into(),
 			// You MUST set this to the correct network!
 			para_id: 1000,
-		})
-		.with_code(
-			parachain_template_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!"),
-		)
-		.build()
+		},
+	)
+	.with_name("Development")
+	.with_id("dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(testnet_genesis(
+		// initial collators.
+		vec![
+			(
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_collator_keys_from_seed("Alice"),
+			),
+			(
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_collator_keys_from_seed("Bob"),
+			),
+		],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			get_account_id_from_seed::<sr25519::Public>("Dave"),
+			get_account_id_from_seed::<sr25519::Public>("Eve"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+		],
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		1000.into(),
+	))
+	.build()
 }
 
 pub fn local_testnet_config() -> ChainSpec {
@@ -120,51 +119,50 @@ pub fn local_testnet_config() -> ChainSpec {
 	properties.insert("ss58Format".into(), 42.into());
 
 	#[allow(deprecated)]
-	ChainSpec::builder()
-		.with_name("Local Testnet")
-		.with_id("local_testnet")
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(testnet_genesis(
-			// initial collators.
-			vec![
-				(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed("Alice"),
-				),
-				(
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_collator_keys_from_seed("Bob"),
-				),
-			],
-			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie"),
-				get_account_id_from_seed::<sr25519::Public>("Dave"),
-				get_account_id_from_seed::<sr25519::Public>("Eve"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-			],
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			1000.into(),
-		))
-		.with_protocol_id("template-local")
-		.with_properties(properties)
-		.with_extensions(Extensions {
+	ChainSpec::builder(
+		parachain_template_runtime::WASM_BINARY
+			.expect("WASM binary was not build, please build it!"),
+		Extensions {
 			relay_chain: "rococo-local".into(),
 			// You MUST set this to the correct network!
 			para_id: 1000,
-		})
-		.with_code(
-			parachain_template_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!"),
-		)
-		.build()
+		},
+	)
+	.with_name("Local Testnet")
+	.with_id("local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(testnet_genesis(
+		// initial collators.
+		vec![
+			(
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_collator_keys_from_seed("Alice"),
+			),
+			(
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_collator_keys_from_seed("Bob"),
+			),
+		],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			get_account_id_from_seed::<sr25519::Public>("Dave"),
+			get_account_id_from_seed::<sr25519::Public>("Eve"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+		],
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		1000.into(),
+	))
+	.with_protocol_id("template-local")
+	.with_properties(properties)
+	.build()
 }
 
 fn testnet_genesis(

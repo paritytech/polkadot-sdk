@@ -214,51 +214,47 @@ pub mod rococo {
 		properties.insert("tokenDecimals".into(), 12.into());
 		modify_props(&mut properties);
 
-		BridgeHubChainSpec::builder()
-			.with_name(chain_name)
-			.with_id(super::ensure_id(id).expect("invalid id"))
-			.with_chain_type(ChainType::Local)
-			.with_genesis_config_patch(genesis(
-				// initial collators.
-				vec![
-					(
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed::<AuraId>("Alice"),
-					),
-					(
-						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed::<AuraId>("Bob"),
-					),
-				],
-				vec![
+		BridgeHubChainSpec::builder(
+			bridge_hub_rococo_runtime::WASM_BINARY
+				.expect("WASM binary was not build, please build it!"),
+			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+		)
+		.with_name(chain_name)
+		.with_id(super::ensure_id(id).expect("invalid id"))
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(genesis(
+			// initial collators.
+			vec![
+				(
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
+					get_collator_keys_from_seed::<AuraId>("Alice"),
+				),
+				(
 					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-				],
-				para_id,
-				bridges_pallet_owner_seed
-					.as_ref()
-					.map(|seed| get_account_id_from_seed::<sr25519::Public>(seed)),
-			))
-			.with_properties(properties)
-			.with_extensions(Extensions {
-				relay_chain: relay_chain.to_string(),
-				para_id: para_id.into(),
-			})
-			.with_code(
-				bridge_hub_rococo_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!"),
-			)
-			.build()
+					get_collator_keys_from_seed::<AuraId>("Bob"),
+				),
+			],
+			vec![
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_account_id_from_seed::<sr25519::Public>("Charlie"),
+				get_account_id_from_seed::<sr25519::Public>("Dave"),
+				get_account_id_from_seed::<sr25519::Public>("Eve"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+			],
+			para_id,
+			bridges_pallet_owner_seed
+				.as_ref()
+				.map(|seed| get_account_id_from_seed::<sr25519::Public>(seed)),
+		))
+		.with_properties(properties)
+		.build()
 	}
 
 	fn genesis(
@@ -371,48 +367,44 @@ pub mod kusama {
 		properties.insert("tokenSymbol".into(), "KSM".into());
 		properties.insert("tokenDecimals".into(), 12.into());
 
-		BridgeHubChainSpec::builder()
-			.with_name(chain_name)
-			.with_id(super::ensure_id(id).expect("invalid id"))
-			.with_chain_type(ChainType::Local)
-			.with_genesis_config_patch(genesis(
-				// initial collators.
-				vec![
-					(
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed::<AuraId>("Alice"),
-					),
-					(
-						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed::<AuraId>("Bob"),
-					),
-				],
-				vec![
+		BridgeHubChainSpec::builder(
+			bridge_hub_kusama_runtime::WASM_BINARY
+				.expect("WASM binary was not build, please build it!"),
+			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+		)
+		.with_name(chain_name)
+		.with_id(super::ensure_id(id).expect("invalid id"))
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(genesis(
+			// initial collators.
+			vec![
+				(
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
+					get_collator_keys_from_seed::<AuraId>("Alice"),
+				),
+				(
 					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-				],
-				para_id,
-			))
-			.with_properties(properties)
-			.with_extensions(Extensions {
-				relay_chain: relay_chain.to_string(),
-				para_id: para_id.into(),
-			})
-			.with_code(
-				bridge_hub_kusama_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!"),
-			)
-			.build()
+					get_collator_keys_from_seed::<AuraId>("Bob"),
+				),
+			],
+			vec![
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_account_id_from_seed::<sr25519::Public>("Charlie"),
+				get_account_id_from_seed::<sr25519::Public>("Dave"),
+				get_account_id_from_seed::<sr25519::Public>("Eve"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+			],
+			para_id,
+		))
+		.with_properties(properties)
+		.build()
 	}
 
 	fn genesis(
@@ -494,48 +486,44 @@ pub mod polkadot {
 		properties.insert("tokenSymbol".into(), "DOT".into());
 		properties.insert("tokenDecimals".into(), 10.into());
 
-		BridgeHubChainSpec::builder()
-			.with_name(chain_name)
-			.with_id(super::ensure_id(id).expect("invalid id"))
-			.with_chain_type(ChainType::Local)
-			.with_genesis_config_patch(genesis(
-				// initial collators.
-				vec![
-					(
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed::<AuraId>("Alice"),
-					),
-					(
-						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed::<AuraId>("Bob"),
-					),
-				],
-				vec![
+		BridgeHubChainSpec::builder(
+			bridge_hub_polkadot_runtime::WASM_BINARY
+				.expect("WASM binary was not build, please build it!"),
+			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+		)
+		.with_name(chain_name)
+		.with_id(super::ensure_id(id).expect("invalid id"))
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(genesis(
+			// initial collators.
+			vec![
+				(
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
+					get_collator_keys_from_seed::<AuraId>("Alice"),
+				),
+				(
 					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-				],
-				para_id,
-			))
-			.with_properties(properties)
-			.with_extensions(Extensions {
-				relay_chain: relay_chain.to_string(),
-				para_id: para_id.into(),
-			})
-			.with_code(
-				bridge_hub_polkadot_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!"),
-			)
-			.build()
+					get_collator_keys_from_seed::<AuraId>("Bob"),
+				),
+			],
+			vec![
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_account_id_from_seed::<sr25519::Public>("Charlie"),
+				get_account_id_from_seed::<sr25519::Public>("Dave"),
+				get_account_id_from_seed::<sr25519::Public>("Eve"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+			],
+			para_id,
+		))
+		.with_properties(properties)
+		.build()
 	}
 
 	fn genesis(
