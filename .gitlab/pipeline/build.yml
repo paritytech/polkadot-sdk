@@ -134,7 +134,7 @@ build-rustdoc:
         }
         export -f process_file
 
-        # Locate all .html files under the documentation root and use xargs to modify them in parallel.
+        # Modify .html files in parallel using xargs, otherwise it can take a long time.
         find "$path" -name '*.html' | xargs -I {} -P "$(nproc)" bash -c 'process_file "$@"' _ {}
       }
       inject_simple_analytics "./crate-docs"
