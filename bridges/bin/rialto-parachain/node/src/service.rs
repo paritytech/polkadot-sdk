@@ -95,7 +95,7 @@ pub fn new_partial<RuntimeApi, BIQ>(
 		ParachainClient<RuntimeApi>,
 		ParachainBackend,
 		(),
-		sc_consensus::DefaultImportQueue<Block, ParachainClient<RuntimeApi>>,
+		sc_consensus::DefaultImportQueue<Block>,
 		sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
 		(ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
 	>,
@@ -106,10 +106,8 @@ where
 	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
 		+ sp_api::Metadata<Block>
 		+ sp_session::SessionKeys<Block>
-		+ sp_api::ApiExt<
-			Block,
-			StateBackend = sc_client_api::StateBackendFor<ParachainBackend, Block>,
-		> + sp_offchain::OffchainWorkerApi<Block>
+		+ sp_api::ApiExt<Block>
+		+ sp_offchain::OffchainWorkerApi<Block>
 		+ sp_block_builder::BlockBuilder<Block>,
 	sc_client_api::StateBackendFor<ParachainBackend, Block>: sp_api::StateBackend<BlakeTwo256>,
 	BIQ: FnOnce(
@@ -118,10 +116,7 @@ where
 		&Configuration,
 		Option<TelemetryHandle>,
 		&TaskManager,
-	) -> Result<
-		sc_consensus::DefaultImportQueue<Block, ParachainClient<RuntimeApi>>,
-		sc_service::Error,
-	>,
+	) -> Result<sc_consensus::DefaultImportQueue<Block>, sc_service::Error>,
 {
 	let telemetry = config
 		.telemetry_endpoints
@@ -213,10 +208,8 @@ where
 	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
 		+ sp_api::Metadata<Block>
 		+ sp_session::SessionKeys<Block>
-		+ sp_api::ApiExt<
-			Block,
-			StateBackend = sc_client_api::StateBackendFor<ParachainBackend, Block>,
-		> + sp_offchain::OffchainWorkerApi<Block>
+		+ sp_api::ApiExt<Block>
+		+ sp_offchain::OffchainWorkerApi<Block>
 		+ sp_block_builder::BlockBuilder<Block>
 		+ cumulus_primitives_core::CollectCollationInfo<Block>,
 	sc_client_api::StateBackendFor<ParachainBackend, Block>: sp_api::StateBackend<BlakeTwo256>,
@@ -234,10 +227,7 @@ where
 		&Configuration,
 		Option<TelemetryHandle>,
 		&TaskManager,
-	) -> Result<
-		sc_consensus::DefaultImportQueue<Block, ParachainClient<RuntimeApi>>,
-		sc_service::Error,
-	>,
+	) -> Result<sc_consensus::DefaultImportQueue<Block>, sc_service::Error>,
 	BIC: FnOnce(
 		Arc<ParachainClient<RuntimeApi>>,
 		ParachainBlockImport<RuntimeApi>,
@@ -389,8 +379,7 @@ pub fn parachain_build_import_queue(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
-) -> Result<sc_consensus::DefaultImportQueue<Block, ParachainClient<RuntimeApi>>, sc_service::Error>
-{
+) -> Result<sc_consensus::DefaultImportQueue<Block>, sc_service::Error> {
 	let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
 	cumulus_client_consensus_aura::import_queue::<

@@ -70,14 +70,6 @@ pub enum Subcommand {
 	/// Benchmark runtime pallets.
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
-
-	/// FOR INTERNAL USE: analog of the "prepare-worker" command of the polkadot binary.
-	#[command(name = "prepare-worker", hide = true)]
-	PvfPrepareWorker(ValidationWorkerCommand),
-
-	/// FOR INTERNAL USE: analog of the "execute-worker" command of the polkadot binary.
-	#[command(name = "execute-worker", hide = true)]
-	PvfExecuteWorker(ValidationWorkerCommand),
 }
 
 /// Validation worker command.

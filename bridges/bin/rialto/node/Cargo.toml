@@ -1,3 +1,11 @@
+[[bin]]
+name = "rialto-bridge-node-execute-worker"
+path = "src/workers/execute-worker.rs"
+
+[[bin]]
+name = "rialto-bridge-node-prepare-worker"
+path = "src/workers/prepare-worker.rs"
+
 [package]
 name = "rialto-bridge-node"
 description = "Substrate node compatible with Rialto runtime"
@@ -18,29 +26,32 @@ rialto-runtime = { path = "../runtime" }
 
 # Substrate Dependencies
 
-sp-consensus-beefy = { git = "https://github.com/paritytech/substrate", branch = "master" }
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master" }
-frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" }
-node-inspect = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master"}
-sc-executor = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-consensus-beefy = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+frame-support = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+node-inspect = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sc-cli = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master"}
+sc-executor = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sc-service = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-authority-discovery = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-consensus-babe = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 
 # Polkadot Dependencies
-polkadot-node-core-pvf = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "master" }
-polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master", default-features = false, features = [ "full-node", "polkadot-native" ] }
+polkadot-node-core-pvf = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+polkadot-node-core-pvf-common = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+polkadot-node-core-pvf-execute-worker = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+polkadot-node-core-pvf-prepare-worker = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+polkadot-service = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false, features = [ "full-node", "polkadot-native" ] }
 
 [build-dependencies]
-substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "master" }
-frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
+substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 
 [features]
 default = []

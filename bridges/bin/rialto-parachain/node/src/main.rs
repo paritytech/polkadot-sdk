@@ -20,6 +20,7 @@
 
 mod chain_spec;
 #[macro_use]
+#[allow(deprecated)]
 mod service;
 mod cli;
 mod command;
