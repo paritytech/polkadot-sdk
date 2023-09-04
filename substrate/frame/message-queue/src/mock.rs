@@ -262,8 +262,8 @@ parameter_types! {
 /// Records all queue changes into [`QueueChanges`].
 pub struct RecordingQueueChangeHandler;
 impl OnQueueChanged<MessageOrigin> for RecordingQueueChangeHandler {
-	fn on_queue_changed(id: MessageOrigin, items_count: u64, items_size: u64) {
-		QueueChanges::mutate(|cs| cs.push((id, items_count, items_size)));
+	fn on_queue_changed(id: MessageOrigin, fp: Footprint) {
+		QueueChanges::mutate(|cs| cs.push((id, fp.count, fp.size)));
 	}
 }
 
