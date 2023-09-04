@@ -52,7 +52,6 @@ use sc_network_common::{
 	role::Roles,
 	sync::{
 		message::{BlockAnnounce, BlockAnnouncesHandshake, BlockState},
-		warp::WarpSyncParams,
 		BadPeer, ChainSync as ChainSyncT, ExtendedPeerInfo, SyncEvent,
 	},
 };
@@ -835,8 +834,8 @@ where
 	///
 	/// Returns a result if the handshake of this peer was indeed accepted.
 	pub fn on_sync_peer_disconnected(&mut self, peer_id: PeerId) -> Result<(), ()> {
-		if let Some(info) = self.peers.remove(&peer) {
-			if self.important_peers.contains(&peer) {
+		if let Some(info) = self.peers.remove(&peer_id) {
+			if self.important_peers.contains(&peer_id) {
 				log::warn!(target: LOG_TARGET, "Reserved peer {peer_id} disconnected");
 			} else {
 				log::debug!(target: LOG_TARGET, "{peer_id} disconnected");
@@ -883,7 +882,7 @@ where
 	) -> Result<(), ()> {
 		log::trace!(target: LOG_TARGET, "New peer {peer_id} {status:?}");
 
-		if self.peers.contains_key(&who) {
+		if self.peers.contains_key(&peer_id) {
 			log::error!(
 				target: LOG_TARGET,
 				"Called on_sync_peer_connected with already connected peer {peer_id}",
