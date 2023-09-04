@@ -119,8 +119,8 @@ jobs:
             ./release-artifacts/**/*
 
       - name: Check sha256 ${{ env.BINARY }}
-        working-directory: ./release-artifacts/${{ env.BINARY }}
         run: |
+          cd ./release-artifacts/${BINARY}
           . ../../.gitlab/common/lib.sh
 
           echo "Checking binary $BINARY"
