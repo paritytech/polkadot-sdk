@@ -209,6 +209,8 @@ fetch_release_artifacts() {
     -H "X-GitHub-Api-Version: 2022-11-28" \
     https://api.github.com/repos/${REPO}/releases/${RELEASE_ID} > release.json
 
+  cat release.json
+
   # Get Asset ids
   ids=($(jq -r '.assets[].id' < release.json ))
   count=$(jq '.assets|length' < release.json )
