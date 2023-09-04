@@ -858,7 +858,7 @@ mod benches {
 
 		advance_to::<T>(5);
 
-		let mut status = Status::<T>::get().ok_or(BenchmarkError::Weightless)?;
+		let mut status = Status::<T>::get().unwrap();
 		status.last_committed_timeslice = 3;
 		Status::<T>::put(&status);
 
