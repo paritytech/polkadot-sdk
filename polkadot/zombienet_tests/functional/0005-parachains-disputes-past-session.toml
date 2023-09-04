@@ -40,7 +40,7 @@ cumulus_based = true
 
   [parachains.collator]
   name = "collator"
-  command = "test-parachain"
+  command = "polkadot-parachain"
   validator = true
-  image = "{{TEST_PARACHAIN_IMAGE}}"
+  image = "{{CUMULUS_IMAGE}}"
   args = ["-lparachain=debug"]
