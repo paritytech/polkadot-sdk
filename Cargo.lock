@@ -9408,7 +9408,6 @@ dependencies = [
  "pallet-message-queue",
  "pallet-proxy",
  "pallet-timestamp",
- "pallet-uniques",
  "pallet-utility",
  "pallet-xcm",
  "parity-scale-codec",

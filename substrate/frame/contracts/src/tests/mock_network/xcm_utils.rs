@@ -16,49 +16,15 @@
 
 use codec::Encode;
 use core::{borrow::Borrow, marker::PhantomData};
-use frame_support::{ensure, pallet_prelude::Weight, traits::ProcessMessageError};
 use sp_core::blake2_256;
 use xcm::prelude::*;
-use xcm_executor::traits::{ConvertLocation, Properties, ShouldExecute};
+use xcm_executor::traits::{ConvertLocation };
 
-// TODO: Is this vulnerable to DoS? It's how the instructions work
-pub struct AllowNoteUnlockables;
-impl ShouldExecute for AllowNoteUnlockables {
-	fn should_execute<RuntimeCall>(
-		_origin: &MultiLocation,
-		instructions: &mut [Instruction<RuntimeCall>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		ensure!(instructions.len() == 1, ProcessMessageError::BadFormat);
-		match instructions.first() {
-			Some(NoteUnlockable { .. }) => Ok(()),
-			_ => Err(ProcessMessageError::BadFormat),
-		}
-	}
-}
-
-pub struct AllowUnlocks;
-impl ShouldExecute for AllowUnlocks {
-	fn should_execute<RuntimeCall>(
-		_origin: &MultiLocation,
-		instructions: &mut [Instruction<RuntimeCall>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		ensure!(instructions.len() == 1, ProcessMessageError::BadFormat);
-		match instructions.first() {
-			Some(UnlockAsset { .. }) => Ok(()),
-			_ => Err(ProcessMessageError::BadFormat),
-		}
-	}
-}
-
-/// Prefix for generating alias account for accounts coming  
+/// Prefix for generating alias account for accounts coming
 /// from chains that use 32 byte long representations.
 pub const FOREIGN_CHAIN_PREFIX_PARA_32: [u8; 37] = *b"ForeignChainAliasAccountPrefix_Para32";
 
-/// Prefix for generating alias account for accounts coming  
+/// Prefix for generating alias account for accounts coming
 /// from the relay chain using 32 byte long representations.
 pub const FOREIGN_CHAIN_PREFIX_RELAY: [u8; 36] = *b"ForeignChainAliasAccountPrefix_Relay";
 

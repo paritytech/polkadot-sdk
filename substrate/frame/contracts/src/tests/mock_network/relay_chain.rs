@@ -41,7 +41,7 @@ use xcm_executor::{Config, XcmExecutor};
 use super::{
 	mocks::relay_message_queue::*,
 	primitives::{AccountId, Balance},
-	xcm_utils::{AllowNoteUnlockables, AllowUnlocks, ForeignChainAliasAccount},
+	xcm_utils::{ ForeignChainAliasAccount},
 };
 
 parameter_types! {
@@ -146,8 +146,6 @@ impl Contains<MultiLocation> for ChildrenParachains {
 pub type XcmRouter = crate::tests::mock_network::RelayChainXcmRouter;
 pub type Barrier = WithComputedOrigin<
 	(
-		AllowNoteUnlockables,
-		AllowUnlocks,
 		AllowExplicitUnpaidExecutionFrom<ChildrenParachains>,
 		AllowTopLevelPaidExecutionFrom<Everything>,
 		AllowSubscriptionsFrom<Everything>,

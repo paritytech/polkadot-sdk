@@ -73,7 +73,6 @@ pallet-message-queue = { path = "../message-queue" }
 pallet-insecure-randomness-collective-flip = { path = "../insecure-randomness-collective-flip" }
 pallet-utility = { path = "../utility" }
 pallet-assets = { path = "../assets" }
-pallet-uniques = { path = "../uniques" }
 pallet-proxy = { path = "../proxy" }
 sp-keystore = { path = "../../primitives/keystore" }
 sp-tracing = { path = "../../primitives/tracing" }
