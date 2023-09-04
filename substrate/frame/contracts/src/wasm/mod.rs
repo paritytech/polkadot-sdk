@@ -287,16 +287,7 @@ impl<T: Config> WasmBlob<T> {
 		})
 	}
 
-	/// Load code with the given code hash.
-	fn load_code(
-		code_hash: CodeHash<T>,
-		gas_meter: &mut GasMeter<T>,
-	) -> Result<(CodeVec<T>, CodeInfo<T>), DispatchError> {
-		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		gas_meter.charge(CodeLoadToken(code_info.code_len))?;
-		let code = <PristineCode<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		Ok((code, code_info))
-	}
+
 
 	/// Create the module without checking the passed code.
 	///
@@ -344,7 +335,9 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 		code_hash: CodeHash<T>,
 		gas_meter: &mut GasMeter<T>,
 	) -> Result<Self, DispatchError> {
-		let (code, code_info) = Self::load_code(code_hash, gas_meter)?;
+		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
+		gas_meter.charge(CodeLoadToken(code_info.code_len))?;
+		let code = <PristineCode<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		Ok(Self { code, code_info, code_hash })
 	}
 
