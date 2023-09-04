@@ -92,8 +92,6 @@ test-linux-stable-additional-tests:
         --locked \
         --release \
         --features runtime-benchmarks,try-runtime
-    # https://github.com/paritytech/ci_cd/issues/864
-    - time cargo nextest run --features runtime-benchmarks benchmark --locked --cargo-profile testnet
 
 # https://github.com/paritytech/ci_cd/issues/864
 test-linux-stable-runtime-benchmarks:
