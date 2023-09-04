@@ -44,7 +44,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
-use polkadot_parachain::primitives::RelayChainBlockNumber;
+use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash},
@@ -1429,7 +1429,7 @@ impl<T: Config> Pallet<T> {
 	pub fn initialize_for_set_code_benchmark(max_code_size: u32) {
 		// insert dummy ValidationData
 		let vfp = PersistedValidationData {
-			parent_head: polkadot_parachain::primitives::HeadData(Default::default()),
+			parent_head: polkadot_parachain_primitives::primitives::HeadData(Default::default()),
 			relay_parent_number: 1,
 			relay_parent_storage_root: Default::default(),
 			max_pov_size: 1_000,
