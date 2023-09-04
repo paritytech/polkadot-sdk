@@ -17,7 +17,7 @@
 //! Helpers to deal with configuring the message queue in the runtime.
 
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
-use frame_support::traits::QueuePausedQuery;
+use frame_support::traits::{Footprint, QueuePausedQuery};
 use pallet_message_queue::OnQueueChanged;
 use sp_std::marker::PhantomData;
 
@@ -39,9 +39,9 @@ impl<Inner: QueuePausedQuery<ParaId>> QueuePausedQuery<AggregateMessageOrigin>
 impl<Inner: OnQueueChanged<ParaId>> OnQueueChanged<AggregateMessageOrigin>
 	for NarrowOriginToSibling<Inner>
 {
-	fn on_queue_changed(origin: AggregateMessageOrigin, count: u64, size: u64) {
+	fn on_queue_changed(origin: AggregateMessageOrigin, fp: Footprint) {
 		if let AggregateMessageOrigin::Sibling(id) = origin {
-			Inner::on_queue_changed(id, count, size)
+			Inner::on_queue_changed(id, fp)
 		}
 	}
 }
