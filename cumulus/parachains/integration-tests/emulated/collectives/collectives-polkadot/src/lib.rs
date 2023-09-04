@@ -80,4 +80,5 @@ pub fn system_para_test_args(
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "runtime-benchmarks"))]
 mod tests;
