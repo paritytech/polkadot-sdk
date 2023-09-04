@@ -22,7 +22,7 @@ version = "1.0.0"
 
 [dependencies]
 color-eyre = { version = "0.6.1", default-features = false }
-tikv-jemallocator = "0.5.0"
+tikv-jemallocator = { version = "0.5.0", optional = true }
 
 # Crates in our workspace, defined as dependencies so we can pass them feature flags.
 polkadot-cli = { path = "cli", features = [
@@ -37,6 +37,9 @@ polkadot-overseer = { path = "node/overseer" }
 # Needed for worker binaries.
 polkadot-node-core-pvf-common = { path = "node/core/pvf/common" }
 polkadot-node-core-pvf-execute-worker = { path = "node/core/pvf/execute-worker" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+tikv-jemallocator = "0.5.0"
 
 [dev-dependencies]
 assert_cmd = "2.0.4"
@@ -59,13 +62,16 @@ fast-runtime = [ "polkadot-cli/fast-runtime" ]
 runtime-metrics = [ "polkadot-cli/runtime-metrics" ]
 pyroscope = [ "polkadot-cli/pyroscope" ]
 jemalloc-allocator = [
+	"dep:tikv-jemallocator",
 	"polkadot-node-core-pvf-prepare-worker/jemalloc-allocator",
+	"polkadot-node-core-pvf/jemalloc-allocator",
 	"polkadot-overseer/jemalloc-allocator",
 ]
 
 # Enables timeout-based tests supposed to be run only in CI environment as they may be flaky
 # when run locally depending on system load
 ci-only-tests = [ "polkadot-node-core-pvf/ci-only-tests" ]
+network-protocol-staging = [ "polkadot-cli/network-protocol-staging" ]
 
 # Configuration for building a .deb package - for use with `cargo-deb`
 [package.metadata.deb]
