@@ -14,18 +14,84 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+use bp_polkadot_core::Signature;
 pub use bridge_hub_kusama_runtime::{
-	xcm_config::XcmConfig, AllPalletsWithoutSystem, Balances, ExistentialDeposit, ParachainSystem,
-	PolkadotXcm, Runtime, RuntimeEvent, SessionKeys,
+	bridge_hub_config,
+	xcm_config::{RelayNetwork, XcmConfig},
+	AllPalletsWithoutSystem, Balances, BridgeGrandpaPolkadotInstance,
+	BridgeRejectObsoleteHeadersAndMessages, ExistentialDeposit, ParachainSystem, PolkadotXcm,
+	Runtime, RuntimeCall, RuntimeEvent, SessionKeys, WithBridgeHubPolkadotMessagesInstance,
 };
-use codec::Decode;
+use bridge_hub_kusama_runtime::{
+	bridge_hub_config::WithBridgeHubPolkadotMessageBridge, BridgeParachainPolkadotInstance,
+	DeliveryRewardInBalance, Executive, RequiredStakeForStakeAndSlash, SignedExtra,
+	UncheckedExtrinsic,
+};
+use codec::{Decode, Encode};
 use frame_support::parameter_types;
-use parachains_common::{kusama::fee::WeightToFee, AccountId, AuraId};
+use parachains_common::{kusama::fee::WeightToFee, AccountId, AuraId, Balance};
+use sp_keyring::AccountKeyring::Alice;
+use sp_runtime::{
+	generic::{Era, SignedPayload},
+	traits::Block as BlockT,
+	AccountId32,
+};
+use xcm::latest::prelude::*;
 
-const ALICE: [u8; 32] = [1u8; 32];
+// Para id of sibling chain (e.g. Statemine) used in tests.
+pub const SIBLING_PARACHAIN_ID: u32 = 1000;
 
 parameter_types! {
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
+	pub RuntimeNetwork: NetworkId = RelayNetwork::get().unwrap();
+}
+
+fn construct_extrinsic(
+	sender: sp_keyring::AccountKeyring,
+	call: RuntimeCall,
+) -> UncheckedExtrinsic {
+	let extra: SignedExtra = (
+		frame_system::CheckNonZeroSender::<Runtime>::new(),
+		frame_system::CheckSpecVersion::<Runtime>::new(),
+		frame_system::CheckTxVersion::<Runtime>::new(),
+		frame_system::CheckGenesis::<Runtime>::new(),
+		frame_system::CheckEra::<Runtime>::from(Era::immortal()),
+		frame_system::CheckNonce::<Runtime>::from(0),
+		frame_system::CheckWeight::<Runtime>::new(),
+		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+		BridgeRejectObsoleteHeadersAndMessages::default(),
+		bridge_hub_config::BridgeRefundBridgeHubPolkadotMessages::default(),
+	);
+	let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
+	let signature = payload.using_encoded(|e| sender.sign(e));
+	UncheckedExtrinsic::new_signed(
+		call,
+		AccountId32::from(sender.public()).into(),
+		Signature::Sr25519(signature.clone()),
+		extra,
+	)
+}
+
+fn construct_and_apply_extrinsic(
+	relayer_at_target: sp_keyring::AccountKeyring,
+	batch: pallet_utility::Call<Runtime>,
+) -> sp_runtime::DispatchOutcome {
+	let batch_call = RuntimeCall::Utility(batch);
+	let xt = construct_extrinsic(relayer_at_target, batch_call);
+	let r = Executive::apply_extrinsic(xt);
+	r.unwrap()
+}
+
+fn executive_init_block(header: &<<Runtime as frame_system::Config>::Block as BlockT>::Header) {
+	Executive::initialize_block(header)
+}
+
+fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime> {
+	bridge_hub_test_utils::CollatorSessionKeys::new(
+		AccountId::from(Alice),
+		AccountId::from(Alice),
+		SessionKeys { aura: AuraId::from(Alice.public()) },
+	)
 }
 
 bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
@@ -35,11 +101,7 @@ bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
 	CheckingAccount,
 	WeightToFee,
 	ParachainSystem,
-	bridge_hub_test_utils::CollatorSessionKeys::new(
-		AccountId::from(ALICE),
-		AccountId::from(ALICE),
-		SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) }
-	),
+	collator_session_keys(),
 	ExistentialDeposit::get(),
 	Box::new(|runtime_event_encoded: Vec<u8>| {
 		match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
@@ -55,3 +117,148 @@ bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
 	}),
 	1002
 );
+
+#[test]
+fn initialize_bridge_by_governance_works() {
+	bridge_hub_test_utils::test_cases::initialize_bridge_by_governance_works::<
+		Runtime,
+		BridgeGrandpaPolkadotInstance,
+	>(
+		collator_session_keys(),
+		bp_bridge_hub_kusama::BRIDGE_HUB_KUSAMA_PARACHAIN_ID,
+		Box::new(|call| RuntimeCall::BridgePolkadotGrandpa(call).encode()),
+	)
+}
+
+#[test]
+fn change_delivery_reward_by_governance_works() {
+	bridge_hub_test_utils::test_cases::change_storage_constant_by_governance_works::<
+		Runtime,
+		DeliveryRewardInBalance,
+		u64,
+	>(
+		collator_session_keys(),
+		bp_bridge_hub_kusama::BRIDGE_HUB_KUSAMA_PARACHAIN_ID,
+		Box::new(|call| RuntimeCall::System(call).encode()),
+		|| (DeliveryRewardInBalance::key().to_vec(), DeliveryRewardInBalance::get()),
+		|old_value| old_value.checked_mul(2).unwrap(),
+	)
+}
+
+#[test]
+fn change_required_stake_by_governance_works() {
+	bridge_hub_test_utils::test_cases::change_storage_constant_by_governance_works::<
+		Runtime,
+		RequiredStakeForStakeAndSlash,
+		Balance,
+	>(
+		collator_session_keys(),
+		bp_bridge_hub_kusama::BRIDGE_HUB_KUSAMA_PARACHAIN_ID,
+		Box::new(|call| RuntimeCall::System(call).encode()),
+		|| (RequiredStakeForStakeAndSlash::key().to_vec(), RequiredStakeForStakeAndSlash::get()),
+		|old_value| {
+			if let Some(new_value) = old_value.checked_add(1) {
+				new_value
+			} else {
+				old_value.checked_sub(1).unwrap()
+			}
+		},
+	)
+}
+
+#[test]
+fn handle_export_message_from_system_parachain_add_to_outbound_queue_works() {
+	bridge_hub_test_utils::test_cases::handle_export_message_from_system_parachain_to_outbound_queue_works::<
+		Runtime,
+		XcmConfig,
+		WithBridgeHubPolkadotMessagesInstance,
+	>(
+		collator_session_keys(),
+		bp_bridge_hub_kusama::BRIDGE_HUB_KUSAMA_PARACHAIN_ID,
+		SIBLING_PARACHAIN_ID,
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::BridgePolkadotMessages(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		|| ExportMessage { network: Polkadot, destination: X1(Parachain(1234)), xcm: Xcm(vec![]) },
+		bridge_hub_config::ASSET_HUB_KUSAMA_TO_ASSET_HUB_POLKADOT_LANE_ID
+	)
+}
+
+#[test]
+fn message_dispatch_routing_works() {
+	bridge_hub_test_utils::test_cases::message_dispatch_routing_works::<
+		Runtime,
+		AllPalletsWithoutSystem,
+		XcmConfig,
+		ParachainSystem,
+		WithBridgeHubPolkadotMessagesInstance,
+		RuntimeNetwork,
+		bridge_hub_config::PolkadotGlobalConsensusNetwork,
+	>(
+		collator_session_keys(),
+		bp_bridge_hub_kusama::BRIDGE_HUB_KUSAMA_PARACHAIN_ID,
+		SIBLING_PARACHAIN_ID,
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::ParachainSystem(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		bridge_hub_config::ASSET_HUB_KUSAMA_TO_ASSET_HUB_POLKADOT_LANE_ID,
+	)
+}
+
+#[test]
+fn relayed_incoming_message_works() {
+	bridge_hub_test_utils::test_cases::relayed_incoming_message_works::<
+		Runtime,
+		AllPalletsWithoutSystem,
+		XcmConfig,
+		ParachainSystem,
+		BridgeGrandpaPolkadotInstance,
+		BridgeParachainPolkadotInstance,
+		WithBridgeHubPolkadotMessagesInstance,
+		WithBridgeHubPolkadotMessageBridge,
+	>(
+		collator_session_keys(),
+		bp_bridge_hub_kusama::BRIDGE_HUB_KUSAMA_PARACHAIN_ID,
+		bp_bridge_hub_polkadot::BRIDGE_HUB_POLKADOT_PARACHAIN_ID,
+		SIBLING_PARACHAIN_ID,
+		RuntimeNetwork::get(),
+		bridge_hub_config::ASSET_HUB_KUSAMA_TO_ASSET_HUB_POLKADOT_LANE_ID,
+	)
+}
+
+#[test]
+pub fn complex_relay_extrinsic_works() {
+	bridge_hub_test_utils::test_cases::complex_relay_extrinsic_works::<
+		Runtime,
+		AllPalletsWithoutSystem,
+		XcmConfig,
+		ParachainSystem,
+		BridgeGrandpaPolkadotInstance,
+		BridgeParachainPolkadotInstance,
+		WithBridgeHubPolkadotMessagesInstance,
+		WithBridgeHubPolkadotMessageBridge,
+	>(
+		collator_session_keys(),
+		bp_bridge_hub_kusama::BRIDGE_HUB_KUSAMA_PARACHAIN_ID,
+		bp_bridge_hub_polkadot::BRIDGE_HUB_POLKADOT_PARACHAIN_ID,
+		SIBLING_PARACHAIN_ID,
+		bridge_hub_config::BridgeHubPolkadotChainId::get(),
+		RuntimeNetwork::get(),
+		bridge_hub_config::ASSET_HUB_KUSAMA_TO_ASSET_HUB_POLKADOT_LANE_ID,
+		ExistentialDeposit::get(),
+		executive_init_block,
+		construct_and_apply_extrinsic,
+	);
+}

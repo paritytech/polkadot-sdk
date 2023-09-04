@@ -312,6 +312,26 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Minimum execution time: 2_611_000 picoseconds.
 		Weight::from_parts(2_707_000, 0)
 	}
+	// Storage: ParachainInfo ParachainId (r:1 w:0)
+	// Proof: ParachainInfo ParachainId (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	// Storage: BridgeKusamaMessages PalletOperatingMode (r:1 w:0)
+	// Proof: BridgeKusamaMessages PalletOperatingMode (max_values: Some(1), max_size: Some(2), added: 497, mode: MaxEncodedLen)
+	// Storage: BridgeKusamaMessages OutboundLanes (r:1 w:1)
+	// Proof: BridgeKusamaMessages OutboundLanes (max_values: Some(1), max_size: Some(44), added: 539, mode: MaxEncodedLen)
+	// Storage: BridgeKusamaMessages OutboundMessages (r:0 w:1)
+	// Proof: BridgeKusamaMessages OutboundMessages (max_values: None, max_size: Some(2621472), added: 2623947, mode: MaxEncodedLen)
+	/// The range of component `x` is `[1, 1000]`.
+	pub fn export_message(x: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `167`
+		//  Estimated: `1529`
+		// Minimum execution time: 30_323_000 picoseconds.
+		Weight::from_parts(32_469_359, 1529)
+			// Standard Error: 208
+			.saturating_add(Weight::from_parts(176_327, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
 	pub fn set_fees_mode() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`

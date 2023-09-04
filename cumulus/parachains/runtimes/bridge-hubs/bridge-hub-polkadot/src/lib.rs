@@ -22,6 +22,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+pub mod bridge_hub_config;
 mod weights;
 pub mod xcm_config;
 
@@ -59,6 +60,9 @@ use xcm_config::{
 	FellowshipLocation, GovernanceLocation, XcmConfig, XcmOriginToTransactDispatchOrigin,
 };
 
+use bp_parachains::SingleParaStoredHeaderDataBuilder;
+use bp_runtime::HeaderId;
+
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
@@ -73,7 +77,20 @@ use parachains_common::{
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
 	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
-// XCM Imports
+
+use crate::{
+	bridge_hub_config::{
+		BridgeRefundBridgeHubKusamaMessages, OnThisChainBlobDispatcher,
+		WithBridgeHubKusamaMessageBridge,
+	},
+	xcm_config::{UniversalLocation, XcmRouter},
+};
+
+use bridge_runtime_common::{
+	messages::{source::TargetHeaderChainAdapter, target::SourceHeaderChainAdapter},
+	messages_xcm_extension::{XcmAsPlainPayload, XcmBlobMessageDispatch},
+};
+
 use xcm::latest::prelude::BodyId;
 use xcm_executor::XcmExecutor;
 
@@ -99,6 +116,8 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	BridgeRejectObsoleteHeadersAndMessages,
+	BridgeRefundBridgeHubKusamaMessages,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -401,6 +420,102 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
 }
 
+// Add bridge pallets (GPA)
+/// Add GRANDPA bridge pallet to track Kusama relay chain on Polkadot BridgeHub
+pub type BridgeGrandpaKusamaInstance = pallet_bridge_grandpa::Instance1;
+impl pallet_bridge_grandpa::Config<BridgeGrandpaKusamaInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type BridgedChain = bp_kusama::Kusama;
+	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
+	type HeadersToKeep = RelayChainHeadersToKeep;
+	type WeightInfo = weights::pallet_bridge_grandpa::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	pub const RelayChainHeadersToKeep: u32 = 600;
+	pub const ParachainHeadsToKeep: u32 = 300;
+	/// Delay (in blocks) before registered relayer could get its stake back. It guarantees
+	/// that all pending delivery transactions are either dropped or mined and relayer is
+	/// slashed in case of misbehavior. So this value should be large enough (e.g. 24 hours).
+	pub const RelayerStakeLease: u32 = parachains_common::DAYS;
+	pub const KusamaBridgeParachainPalletName: &'static str = bp_kusama::PARAS_PALLET_NAME;
+	pub const MaxKusamaParaHeadDataSize: u32 = bp_kusama::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
+
+	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";
+	// Just initial value, and concrete values will be set up by governance call (`set_storage`) with `initialize` bridge call as a part of cutover plan (https://github.com/paritytech/parity-bridges-common/issues/1730)
+	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+	pub storage RequiredStakeForStakeAndSlash: Balance = 1;
+}
+#[cfg(not(feature = "runtime-benchmarks"))]
+parameter_types! {
+	// Just initial value, and concrete values will be set up by governance call (`set_storage`) with `initialize` bridge call as a part of cutover plan (https://github.com/paritytech/parity-bridges-common/issues/1730)
+	pub storage RequiredStakeForStakeAndSlash: Balance = Balance::MAX;
+}
+
+/// Add parachain bridge pallet to track Kusama BridgeHub parachain
+pub type BridgeParachainKusamaInstance = pallet_bridge_parachains::Instance1;
+impl pallet_bridge_parachains::Config<BridgeParachainKusamaInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_bridge_parachains::WeightInfo<Runtime>;
+	type BridgesGrandpaPalletInstance = BridgeGrandpaKusamaInstance;
+	type ParasPalletName = KusamaBridgeParachainPalletName;
+	type ParaStoredHeaderDataBuilder =
+		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_kusama::BridgeHubKusama>;
+	type HeadsToKeep = ParachainHeadsToKeep;
+	type MaxParaHeadDataSize = MaxKusamaParaHeadDataSize;
+}
+
+/// Add XCM messages support for Polkadot<->Kusama XCM messages
+pub type WithBridgeHubKusamaMessagesInstance = pallet_bridge_messages::Instance1;
+impl pallet_bridge_messages::Config<WithBridgeHubKusamaMessagesInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_bridge_messages::WeightInfo<Runtime>;
+	type BridgedChainId = bridge_hub_config::BridgeHubKusamaChainId;
+	type ActiveOutboundLanes = bridge_hub_config::ActiveOutboundLanesToBridgeHubKusama;
+	type MaxUnrewardedRelayerEntriesAtInboundLane =
+		bridge_hub_config::MaxUnrewardedRelayerEntriesAtInboundLane;
+	type MaxUnconfirmedMessagesAtInboundLane =
+		bridge_hub_config::MaxUnconfirmedMessagesAtInboundLane;
+	type MaximalOutboundPayloadSize =
+		bridge_hub_config::ToBridgeHubKusamaMaximalOutboundPayloadSize;
+	type OutboundPayload = XcmAsPlainPayload;
+	type InboundPayload = XcmAsPlainPayload;
+	type InboundRelayer = AccountId;
+	type DeliveryPayments = ();
+	type TargetHeaderChain = TargetHeaderChainAdapter<WithBridgeHubKusamaMessageBridge>;
+	type LaneMessageVerifier = bridge_hub_config::ToBridgeHubKusamaMessageVerifier;
+	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
+		Runtime,
+		WithBridgeHubKusamaMessagesInstance,
+		DeliveryRewardInBalance,
+	>;
+	type SourceHeaderChain = SourceHeaderChainAdapter<WithBridgeHubKusamaMessageBridge>;
+	type MessageDispatch =
+		XcmBlobMessageDispatch<OnThisChainBlobDispatcher<UniversalLocation>, Self::WeightInfo, ()>;
+	type OnMessagesDelivered = ();
+}
+
+/// Allows collect and claim rewards for relayers
+impl pallet_bridge_relayers::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Reward = Balance;
+	type PaymentProcedure =
+		bp_relayers::PayRewardFromAccount<pallet_balances::Pallet<Runtime>, AccountId>;
+	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
+		AccountId,
+		BlockNumber,
+		Balances,
+		RelayerStakeReserveId,
+		RequiredStakeForStakeAndSlash,
+		RelayerStakeLease,
+	>;
+	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -433,8 +548,24 @@ construct_runtime!(
 		// Handy utilities.
 		Utility: pallet_utility::{Pallet, Call, Event} = 40,
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 41,
+
+		// Polkadot<>Kusama bridge pallets
+		BridgeKusamaGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 51,
+		BridgeKusamaParachain: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage, Event<T>} = 52,
+		BridgeKusamaMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 53,
+		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 54,
 	}
 );
+
+bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
+	RuntimeCall, AccountId,
+	// Grandpa
+	BridgeKusamaGrandpa,
+	// Parachains
+	BridgeKusamaParachain,
+	// Messages
+	BridgeKusamaMessages
+}
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
@@ -456,6 +587,12 @@ mod benches {
 		// NOTE: Make sure you point to the individual modules below.
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
+		// Bridge pallets for Polkadot
+		[pallet_bridge_grandpa, BridgeKusamaGrandpa]
+		[pallet_bridge_parachains, BridgeParachainsBench::<Runtime, BridgeParachainKusamaInstance>]
+		[pallet_bridge_messages, BridgeMessagesBench::<Runtime, WithBridgeHubKusamaMessagesInstance>]
+		// Bridge relayer pallets
+		[pallet_bridge_relayers, BridgeRelayersBench::<Runtime>]
 	);
 }
 
@@ -603,6 +740,49 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl bp_kusama::KusamaFinalityApi<Block> for Runtime {
+		fn best_finalized() -> Option<HeaderId<bp_kusama::Hash, bp_kusama::BlockNumber>> {
+			BridgeKusamaGrandpa::best_finalized()
+		}
+		fn synced_headers_grandpa_info(
+		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_kusama::Header>> {
+			BridgeKusamaGrandpa::synced_headers_grandpa_info()
+		}
+	}
+
+	impl bp_bridge_hub_kusama::BridgeHubKusamaFinalityApi<Block> for Runtime {
+		fn best_finalized() -> Option<HeaderId<Hash, BlockNumber>> {
+			BridgeKusamaParachain::best_parachain_head_id::<
+				bp_bridge_hub_kusama::BridgeHubKusama
+			>().unwrap_or(None)
+		}
+	}
+
+	impl bp_bridge_hub_kusama::FromBridgeHubKusamaInboundLaneApi<Block> for Runtime {
+		fn message_details(
+			lane: bp_messages::LaneId,
+			messages: Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
+		) -> Vec<bp_messages::InboundMessageDetails> {
+			bridge_runtime_common::messages_api::inbound_message_details::<
+				Runtime,
+				WithBridgeHubKusamaMessagesInstance,
+			>(lane, messages)
+		}
+	}
+
+	impl bp_bridge_hub_kusama::ToBridgeHubKusamaOutboundLaneApi<Block> for Runtime {
+		fn message_details(
+			lane: bp_messages::LaneId,
+			begin: bp_messages::MessageNonce,
+			end: bp_messages::MessageNonce,
+		) -> Vec<bp_messages::OutboundMessageDetails> {
+			bridge_runtime_common::messages_api::outbound_message_details::<
+				Runtime,
+				WithBridgeHubKusamaMessagesInstance,
+			>(lane, begin, end)
+		}
+	}
+
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
@@ -638,6 +818,10 @@ impl_runtime_apis! {
 			// are referenced in that call.
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;
 			type XcmGeneric = pallet_xcm_benchmarks::generic::Pallet::<Runtime>;
+
+			use pallet_bridge_parachains::benchmarking::Pallet as BridgeParachainsBench;
+			use pallet_bridge_messages::benchmarking::Pallet as BridgeMessagesBench;
+			use pallet_bridge_relayers::benchmarking::Pallet as BridgeRelayersBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -748,7 +932,7 @@ impl_runtime_apis! {
 
 				fn export_message_origin_and_destination(
 				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
-					Err(BenchmarkError::Skip)
+					Ok((DotRelayLocation::get(), bridge_hub_config::KusamaGlobalConsensusNetwork::get(), X1(Parachain(100))))
 				}
 
 				fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {
@@ -758,6 +942,102 @@ impl_runtime_apis! {
 
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;
 			type XcmGeneric = pallet_xcm_benchmarks::generic::Pallet::<Runtime>;
+
+			use bridge_runtime_common::messages_benchmarking::{prepare_message_delivery_proof_from_parachain, prepare_message_proof_from_parachain};
+			use pallet_bridge_messages::benchmarking::{
+				Config as BridgeMessagesConfig,
+				Pallet as BridgeMessagesBench,
+				MessageDeliveryProofParams,
+				MessageProofParams,
+			};
+			impl BridgeMessagesConfig<WithBridgeHubKusamaMessagesInstance> for Runtime {
+				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
+					let bench_lane_id = <Self as BridgeMessagesConfig<WithBridgeHubKusamaMessagesInstance>>::bench_lane_id();
+					let bridged_chain_id = bp_runtime::BRIDGE_HUB_KUSAMA_CHAIN_ID;
+					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
+						relayer,
+						bp_relayers::RewardsAccountParams::new(
+							bench_lane_id,
+							bridged_chain_id,
+							bp_relayers::RewardsAccountOwner::BridgedChain
+						)
+					).is_some()
+				}
+				fn prepare_message_proof(
+					params: MessageProofParams,
+				) -> (bridge_hub_config::FromBridgeHubKusamaMessagesProof, Weight) {
+					use cumulus_primitives_core::XcmpMessageSource;
+					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(42.into());
+					prepare_message_proof_from_parachain::<
+						Runtime,
+						BridgeGrandpaKusamaInstance,
+						bridge_hub_config::WithBridgeHubKusamaMessageBridge,
+					>(params, X2(GlobalConsensus(xcm_config::RelayNetwork::get().unwrap()), Parachain(42)))
+				}
+				fn prepare_message_delivery_proof(
+					params: MessageDeliveryProofParams<AccountId>,
+				) -> bridge_hub_config::ToBridgeHubKusamaMessagesDeliveryProof {
+					prepare_message_delivery_proof_from_parachain::<
+						Runtime,
+						BridgeGrandpaKusamaInstance,
+						bridge_hub_config::WithBridgeHubKusamaMessageBridge,
+					>(params)
+				}
+				fn is_message_successfully_dispatched(_nonce: bp_messages::MessageNonce) -> bool {
+					use cumulus_primitives_core::XcmpMessageSource;
+					!XcmpQueue::take_outbound_messages(usize::MAX).is_empty()
+				}
+			}
+
+			use bridge_runtime_common::parachains_benchmarking::prepare_parachain_heads_proof;
+			use pallet_bridge_parachains::benchmarking::{
+				Config as BridgeParachainsConfig,
+				Pallet as BridgeParachainsBench,
+			};
+			use pallet_bridge_relayers::benchmarking::{
+				Pallet as BridgeRelayersBench,
+				Config as BridgeRelayersConfig,
+			};
+			impl BridgeParachainsConfig<BridgeParachainKusamaInstance> for Runtime {
+				fn parachains() -> Vec<bp_polkadot_core::parachains::ParaId> {
+					use bp_runtime::Parachain;
+					vec![bp_polkadot_core::parachains::ParaId(bp_bridge_hub_kusama::BridgeHubKusama::PARACHAIN_ID)]
+				}
+				fn prepare_parachain_heads_proof(
+					parachains: &[bp_polkadot_core::parachains::ParaId],
+					parachain_head_size: u32,
+					proof_size: bp_runtime::StorageProofSize,
+				) -> (
+					pallet_bridge_parachains::RelayBlockNumber,
+					pallet_bridge_parachains::RelayBlockHash,
+					bp_polkadot_core::parachains::ParaHeadsProof,
+					Vec<(bp_polkadot_core::parachains::ParaId, bp_polkadot_core::parachains::ParaHash)>,
+				) {
+					prepare_parachain_heads_proof::<Runtime, BridgeParachainKusamaInstance>(
+						parachains,
+						parachain_head_size,
+						proof_size,
+					)
+				}
+			}
+
+			impl BridgeRelayersConfig for Runtime {
+				fn prepare_rewards_account(
+					account_params: bp_relayers::RewardsAccountParams,
+					reward: Balance,
+				) {
+					let rewards_account = bp_relayers::PayRewardFromAccount::<
+						Balances,
+						AccountId
+					>::rewards_account(account_params);
+					Self::deposit_account(rewards_account, reward);
+				}
+				fn deposit_account(account: AccountId, balance: Balance) {
+					use frame_support::traits::fungible::Mutate;
+					Balances::mint_into(&account, balance.saturating_add(ExistentialDeposit::get())).unwrap();
+				}
+			}
 
 			let whitelist: Vec<TrackedStorageKey> = vec![
 				// Block Number
@@ -784,4 +1064,41 @@ impl_runtime_apis! {
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use bp_runtime::TransactionEra;
+	use bridge_hub_test_utils::test_header;
+	use codec::Encode;
+
+	pub type TestBlockHeader =
+		generic::Header<bp_polkadot_core::BlockNumber, bp_polkadot_core::Hasher>;
+
+	#[test]
+	fn ensure_signed_extension_definition_is_compatible_with_relay() {
+		let payload: SignedExtra = (
+			frame_system::CheckNonZeroSender::new(),
+			frame_system::CheckSpecVersion::new(),
+			frame_system::CheckTxVersion::new(),
+			frame_system::CheckGenesis::new(),
+			frame_system::CheckEra::from(sp_runtime::generic::Era::Immortal),
+			frame_system::CheckNonce::from(10),
+			frame_system::CheckWeight::new(),
+			pallet_transaction_payment::ChargeTransactionPayment::from(10),
+			BridgeRejectObsoleteHeadersAndMessages::default(),
+			BridgeRefundBridgeHubKusamaMessages::default(),
+		);
+		use bp_bridge_hub_polkadot::BridgeHubSignedExtension;
+		let bh_indirect_payload = bp_bridge_hub_polkadot::SignedExtension::from_params(
+			10,
+			10,
+			TransactionEra::Immortal,
+			test_header::<TestBlockHeader>(1).hash(),
+			10,
+			10,
+		);
+		assert_eq!(payload.encode(), bh_indirect_payload.encode());
+	}
 }

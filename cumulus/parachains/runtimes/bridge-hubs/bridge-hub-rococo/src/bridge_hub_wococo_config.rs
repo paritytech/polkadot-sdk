@@ -62,7 +62,7 @@ parameter_types! {
 /// Proof of messages, coming from Rococo.
 pub type FromRococoBridgeHubMessagesProof =
 	FromBridgedChainMessagesProof<bp_bridge_hub_rococo::Hash>;
-/// Messages delivery proof for Rococo Bridge Hub -> Wococo Bridge Hub messages.
+/// Messages delivery proof for Rococo BridgeHub -> Wococo BridgeHub messages.
 pub type ToRococoBridgeHubMessagesDeliveryProof =
 	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_rococo::Hash>;
 
@@ -73,7 +73,7 @@ pub type OnBridgeHubWococoBlobDispatcher = BridgeBlobDispatcher<
 	BridgeRococoMessagesPalletInstance,
 >;
 
-/// Export XCM messages to be relayed to the otherside
+/// Export XCM messages to be relayed to the other side.
 pub type ToBridgeHubRococoHaulBlobExporter = HaulBlobExporter<
 	XcmBlobHaulerAdapter<ToBridgeHubRococoXcmBlobHauler>,
 	RococoGlobalConsensusNetwork,

@@ -16,7 +16,6 @@
 
 //! Module contains predefined test-case scenarios for `Runtime` with bridging capabilities.
 
-use assert_matches::assert_matches;
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch, SourceHeaderChain},
 	LaneId, MessageKey, OutboundLaneData, Weight,
@@ -380,7 +379,6 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, XcmConfi
 	<Runtime as pallet_bridge_messages::Config<MPI>>::InboundRelayer: From<AccountId32>,
 {
 	assert_ne!(runtime_para_id, sibling_parachain_id);
-	assert_ne!(runtime_para_id, bridged_para_id);
 
 	ExtBuilder::<Runtime>::default()
 		.with_collators(collator_session_key.collators())
@@ -530,15 +528,24 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, XcmConfi
 					.last_delivered_nonce(),
 				1,
 			);
+
 			// verify relayed bridged XCM message is dispatched to destination sibling para
 			let dispatched = RuntimeHelper::<cumulus_pallet_xcmp_queue::Pallet<Runtime>>::take_xcm(
 				sibling_parachain_id.into(),
 			)
 			.unwrap();
-			let mut dispatched = xcm::latest::Xcm::<()>::try_from(dispatched).unwrap();
-			// We use `WithUniqueTopic`, so expect a trailing `SetTopic`.
-			assert_matches!(dispatched.0.pop(), Some(SetTopic(..)));
-			assert_eq!(dispatched, expected_dispatch);
+			// verify contains original message
+			let dispatched = xcm::latest::Xcm::<()>::try_from(dispatched).unwrap();
+			let mut dispatched_clone = dispatched.clone();
+			for (idx, expected_instr) in expected_dispatch.0.iter().enumerate() {
+				assert_eq!(expected_instr, &dispatched.0[idx]);
+				assert_eq!(expected_instr, &dispatched_clone.0.remove(0));
+			}
+			match dispatched_clone.0.len() {
+				0 => (),
+				1 => assert!(matches!(dispatched_clone.0[0], SetTopic(_))),
+				count => assert!(false, "Unexpected messages count: {:?}", count),
+			}
 		})
 }
 
@@ -601,7 +608,6 @@ pub fn complex_relay_extrinsic_works<Runtime, AllPalletsWithoutSystem, XcmConfig
 	+ From<pallet_bridge_messages::Call<Runtime, MPI>>
 {
 	assert_ne!(runtime_para_id, sibling_parachain_id);
-	assert_ne!(runtime_para_id, bridged_para_id);
 
 	// Relayer account at local/this BH.
 	let relayer_at_target = Bob;
@@ -681,7 +687,7 @@ pub fn complex_relay_extrinsic_works<Runtime, AllPalletsWithoutSystem, XcmConfig
 				message_proof,
 			) = test_data::make_complex_relayer_proofs::<BridgedHeader<Runtime, GPI>, MB, ()>(
 				lane_id,
-				xcm.into(),
+				xcm.clone().into(),
 				message_nonce,
 				message_destination,
 				para_header_number,
@@ -772,15 +778,24 @@ pub fn complex_relay_extrinsic_works<Runtime, AllPalletsWithoutSystem, XcmConfig
 				msg_proofs_rewards_account
 			)
 			.is_some());
+
 			// verify relayed bridged XCM message is dispatched to destination sibling para
 			let dispatched = RuntimeHelper::<cumulus_pallet_xcmp_queue::Pallet<Runtime>>::take_xcm(
 				sibling_parachain_id.into(),
 			)
 			.unwrap();
-			let mut dispatched = xcm::latest::Xcm::<()>::try_from(dispatched).unwrap();
-			// We use `WithUniqueTopic`, so expect a trailing `SetTopic`.
-			assert_matches!(dispatched.0.pop(), Some(SetTopic(..)));
-			assert_eq!(dispatched, expected_dispatch);
+			// verify contains original message
+			let dispatched = xcm::latest::Xcm::<()>::try_from(dispatched).unwrap();
+			let mut dispatched_clone = dispatched.clone();
+			for (idx, expected_instr) in expected_dispatch.0.iter().enumerate() {
+				assert_eq!(expected_instr, &dispatched.0[idx]);
+				assert_eq!(expected_instr, &dispatched_clone.0.remove(0));
+			}
+			match dispatched_clone.0.len() {
+				0 => (),
+				1 => assert!(matches!(dispatched_clone.0[0], SetTopic(_))),
+				count => assert!(false, "Unexpected messages count: {:?}", count),
+			}
 		})
 }
 
