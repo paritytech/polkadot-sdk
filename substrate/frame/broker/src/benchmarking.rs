@@ -867,7 +867,7 @@ mod benches {
 			Broker::<T>::do_tick();
 		}
 
-		let updated_status = Status::<T>::get().ok_or(BenchmarkError::Weightless)?;
+		let updated_status = Status::<T>::get().unwrap();
 		assert_eq!(status, updated_status);
 
 		Ok(())
