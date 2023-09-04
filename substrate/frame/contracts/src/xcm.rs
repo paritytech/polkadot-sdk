@@ -22,9 +22,11 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{DispatchError, DispatchResult};
 use xcm::{VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::QueryResponseStatus;
-pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
-mod pallet_xcm_extension;
+mod pallet_xcm_adapter;
+
+pub use pallet_xcm_adapter::PalletXCMAdapter;
+pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 pub trait XCM<T: Config> {
 	type QueryId: Encode + Decode + MaxEncodedLen;
@@ -65,10 +67,7 @@ pub trait XCM<T: Config> {
 	fn take_response(query_id: Self::QueryId) -> QueryResponseStatus<BlockNumberFor<T>>;
 }
 
-/// A no-op implementation of [`XCM`].
-pub struct Noop;
-
-impl<T: Config> XCM<T> for Noop {
+impl<T: Config> XCM<T> for () {
 	type QueryId = ();
 	type WeightInfo = Self;
 	fn execute(
@@ -109,7 +108,7 @@ pub trait WeightInfo {
 	fn take_response() -> Weight;
 }
 
-impl WeightInfo for Noop {
+impl WeightInfo for () {
 	fn execute() -> Weight {
 		Weight::zero()
 	}

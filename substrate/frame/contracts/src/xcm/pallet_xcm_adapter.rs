@@ -26,7 +26,10 @@ use sp_runtime::{DispatchError, DispatchResult};
 use xcm::{v3::MultiLocation, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 
-impl<T> WeightInfo for T
+/// A pallet-xcm adapter for the XCM trait.
+pub struct PalletXCMAdapter<T: pallet_xcm::Config>(sp_std::marker::PhantomData<T>);
+
+impl<T> WeightInfo for PalletXCMAdapter<T>
 where
 	T: pallet_xcm::Config,
 {
@@ -44,12 +47,12 @@ where
 	}
 }
 
-impl<T: Config> XCM<T> for T
+impl<T: Config> XCM<T> for PalletXCMAdapter<T>
 where
 	T: pallet_xcm::Config,
 {
 	type QueryId = <pallet_xcm::Pallet<T> as QueryHandler>::QueryId;
-	type WeightInfo = T;
+	type WeightInfo = Self;
 
 	fn execute(
 		origin: &AccountIdOf<T>,

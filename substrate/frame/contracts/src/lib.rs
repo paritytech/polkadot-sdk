@@ -108,6 +108,7 @@ use crate::{
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, WasmBlob},
+	xcm::XCM,
 };
 use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
 use environmental::*;
@@ -403,9 +404,11 @@ pub mod pallet {
 		#[pallet::constant]
 		type Environment: Get<Environment<Self>>;
 
-		/// Type that expose XCM API, to allows contracts to interact with other parachains.
-		/// Implement `pallet-xcm` for your config and set to `Self` to enable XCM API.
-		type Xcm: crate::xcm::XCM<Self>;
+		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
+		/// execute XCM messages.
+		///
+		/// Use [`xcm::PalletXCMAdapter`] to enable or `()` to disable.
+		type Xcm: XCM<Self>;
 	}
 
 	#[pallet::hooks]
