@@ -23,18 +23,18 @@ ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0", default-features = false
 ark-ed-on-bls12-377 = { version = "0.4.0", default-features = false }
 sp-std = { path = "../../std", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
-ark-scale = { version = "0.0.3", features = ["hazmat"], default-features = false }
+ark-scale = { version = "0.0.10", features = ["hazmat"], default-features = false }
 sp-runtime-interface = { path = "../../runtime-interface", default-features = false}
 
 [dev-dependencies]
 sp-io = { path = "../../io", default-features = false }
 ark-algebra-test-templates = { version = "0.4.2", default-features = false }
-sp-ark-models = { version = "0.4.0-beta", default-features = false }
-sp-ark-bls12-377 = { version = "0.4.0-beta", default-features = false }
-sp-ark-bls12-381 = { version = "0.4.0-beta", default-features = false }
-sp-ark-bw6-761 = { version = "0.4.0-beta", default-features = false }
-sp-ark-ed-on-bls12-377 = { version = "0.4.0-beta", default-features = false }
-sp-ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0-beta", default-features = false }
+sp-ark-models = { version = "0.4.1-beta", default-features = false }
+sp-ark-bls12-377 = { version = "0.4.1-beta", default-features = false }
+sp-ark-bls12-381 = { version = "0.4.1-beta", default-features = false }
+sp-ark-bw6-761 = { version = "0.4.1-beta", default-features = false }
+sp-ark-ed-on-bls12-377 = { version = "0.4.1-beta", default-features = false }
+sp-ark-ed-on-bls12-381-bandersnatch = { version = "0.4.1-beta", default-features = false }
 
 [features]
 default = [ "std" ]

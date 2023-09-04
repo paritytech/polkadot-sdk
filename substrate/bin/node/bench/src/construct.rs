@@ -282,6 +282,10 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 		Default::default()
 	}
 
+	fn futures(&self) -> Vec<Self::InPoolTransaction> {
+		unimplemented!()
+	}
+
 	fn status(&self) -> PoolStatus {
 		unimplemented!()
 	}
