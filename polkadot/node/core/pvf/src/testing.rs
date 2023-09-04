@@ -90,7 +90,9 @@ macro_rules! decl_puppet_worker_main {
 				},
 				"--check-can-unshare-user-namespace-and-change-root" => {
 					#[cfg(target_os = "linux")]
-					let status = if security::unshare_user_namespace_and_change_root(&std::env::temp_dir()).is_ok() {
+					let status = if security::unshare_user_namespace_and_change_root(&std::env::temp_dir())
+						.is_ok()
+					{
 						0
 					} else {
 						-1

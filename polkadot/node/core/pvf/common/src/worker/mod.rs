@@ -79,7 +79,9 @@ macro_rules! decl_worker_main {
 				},
 				"--check-can-unshare-user-namespace-and-change-root" => {
 					#[cfg(target_os = "linux")]
-					let status = if security::unshare_user_namespace_and_change_root(&std::env::temp_dir()).is_ok() {
+					let status = if security::unshare_user_namespace_and_change_root(&std::env::temp_dir())
+						.is_ok()
+					{
 						0
 					} else {
 						-1
@@ -129,7 +131,7 @@ macro_rules! decl_worker_main {
 			let worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
 			let security_status = $crate::SecurityStatus {
 				can_enable_landlock,
-				can_unshare_user_namespace_and_change_root
+				can_unshare_user_namespace_and_change_root,
 			};
 
 			$entrypoint(worker_dir_path, node_version, Some($worker_version), security_status);

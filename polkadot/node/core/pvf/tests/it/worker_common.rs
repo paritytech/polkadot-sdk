@@ -16,7 +16,10 @@
 
 use std::time::Duration;
 
-use polkadot_node_core_pvf::{testing::{spawn_with_program_path, SpawnErr}, SecurityStatus};
+use polkadot_node_core_pvf::{
+	testing::{spawn_with_program_path, SpawnErr},
+	SecurityStatus,
+};
 
 use crate::PUPPET_EXE;
 
