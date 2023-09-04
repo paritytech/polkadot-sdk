@@ -24,8 +24,8 @@ sp-core = { default-features = false, path = "../primitives/core" }
 sp-arithmetic = { default-features = false, path = "../primitives/arithmetic" }
 
 # frame deps, for developing FRAME pallets.
-frame-support = { default-features = false,  path = "./support" }
-frame-system = { default-features = false,  path = "./system" }
+frame-support = { default-features = false,  path = "support" }
+frame-system = { default-features = false,  path = "system" }
 
 # primitive types used for developing FRAME runtimes.
 sp-version = { default-features = false, path = "../primitives/version", optional = true }
