@@ -47,7 +47,7 @@ impl<'a> GenesisConfigBuilderRuntimeCaller<'a> {
 	pub fn new(code: &'a [u8]) -> Self {
 		GenesisConfigBuilderRuntimeCaller {
 			code: code.into(),
-			code_hash: sp_core::blake2_256(&code).to_vec(),
+			code_hash: sp_core::blake2_256(code).to_vec(),
 			executor: WasmExecutor::<sp_io::SubstrateHostFunctions>::builder()
 				.with_allow_missing_host_functions(true)
 				.build(),
@@ -73,7 +73,7 @@ impl<'a> GenesisConfigBuilderRuntimeCaller<'a> {
 	pub fn get_default_config(&self) -> core::result::Result<Value, String> {
 		let mut t = BasicExternalities::new_empty();
 		let call_result = self
-			.call(&mut t, "GenesisBuilder_create_default_config", &vec![])
+			.call(&mut t, "GenesisBuilder_create_default_config", &[])
 			.map_err(|e| format!("wasm call error {e}"))?;
 		let default_config = Vec::<u8>::decode(&mut &call_result[..])
 			.map_err(|e| format!("scale codec error: {e}"))?;

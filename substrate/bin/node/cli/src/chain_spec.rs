@@ -316,7 +316,7 @@ pub fn testnet_genesis(
 	let (initial_authorities, endowed_accounts, num_endowed_accounts, stakers) =
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
 
-	let json = serde_json::json!({
+	serde_json::json!({
 		"balances": {
 			"balances": endowed_accounts.iter().cloned().map(|x| (x, ENDOWMENT)).collect::<Vec<_>>(),
 		},
@@ -367,8 +367,7 @@ pub fn testnet_genesis(
 			"minCreateBond": 10 * DOLLARS,
 			"minJoinBond": 1 * DOLLARS,
 		},
-	});
-	json
+	})
 }
 
 fn development_config_genesis_json() -> serde_json::Value {

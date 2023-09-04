@@ -166,7 +166,7 @@
 //! // - `runtimeGenesisConfig` is a json object that can be parsed by compatible runtime. It is a
 //! //    json object the represents full `GenesisConfig` of the runtime. Similar to `runtime`.
 //! // - `runtimeGenesisConfigPatch` is a json object that can be parsed by compatible runtime. It
-//! // contains a patch to default runtime's `GenesisConfig`. It is opaque to the node.
+//! //   contains a patch to default runtime's `GenesisConfig`. It is opaque to the node.
 //! // - `raw` is a `json` object with two fields `top` and `children_default`. Each of these
 //! //   fields is a map of `key => value`. These key/value pairs represent the genesis storage.
 //! // - `stateRootHash` is a single hex encoded hash that represents the genesis hash. The hash

@@ -8355,6 +8355,7 @@ dependencies = [
  "parity-scale-codec",
  "sc-executor",
  "scale-info",
+ "serde_json",
  "sp-application-crypto",
  "sp-consensus-babe",
  "sp-core",

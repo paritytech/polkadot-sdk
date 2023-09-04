@@ -99,22 +99,22 @@ fn main() -> Result<(), String> {
 			convert_to_raw,
 		}) => {
 			let mut chain_spec = GenericChainSpec::<()>::from_json_file(input_chain_spec.clone())?;
-			runtime_wasm_path.clone().and_then(|path| {
+			if let Some(path) = runtime_wasm_path {
 				chain_spec
 					.set_code(&fs::read(path.as_path()).expect("wasm blob file is readable")[..])
 					.into()
-			});
+			}
 
 			chain_spec.as_json(convert_to_raw)
 		},
 		ChainSpecBuilderCmd::Verify(VerifyCmd { ref input_chain_spec, ref runtime_wasm_path }) => {
 			write_chain_spec = false;
 			let mut chain_spec = GenericChainSpec::<()>::from_json_file(input_chain_spec.clone())?;
-			runtime_wasm_path.clone().and_then(|path| {
+			if let Some(path) = runtime_wasm_path {
 				chain_spec
 					.set_code(&fs::read(path.as_path()).expect("wasm blob file is readable")[..])
 					.into()
-			});
+			};
 			chain_spec.as_json(true)
 		},
 	}?;

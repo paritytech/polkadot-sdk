@@ -869,5 +869,8 @@ fn default_config_as_json_works() {
 	let json = String::from_utf8(r.into()).expect("returned value is json. qed.");
 	let expected = include_str!("res/default_genesis_config.json").to_string();
 
-	assert_eq!(expected, json);
+	assert_eq!(
+		serde_json::from_str::<serde_json::Value>(&expected).unwrap(),
+		serde_json::from_str::<serde_json::Value>(&json).unwrap()
+	);
 }
