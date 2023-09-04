@@ -41,7 +41,7 @@ impl<T: Config> Pallet<T> {
 			_ => return Weight::zero(),
 		};
 
-		let mut meter = WeightMeter::max_limit();
+		let mut meter = WeightMeter::new();
 
 		if Self::process_core_count(&mut status) {
 			meter.consume(T::WeightInfo::process_core_count(status.core_count.into()));
@@ -96,7 +96,7 @@ impl<T: Config> Pallet<T> {
 
 	pub(crate) fn process_revenue() -> bool {
 		let Some((until, amount)) = T::Coretime::check_notify_revenue_info() else {
-			return false;
+			return false
 		};
 		let when: Timeslice =
 			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
@@ -290,7 +290,7 @@ impl<T: Config> Pallet<T> {
 		core: CoreIndex,
 	) {
 		let Some(workplan) = Workplan::<T>::take((timeslice, core)) else {
-			return;
+			return
 		};
 		let workload = Workload::<T>::get(core);
 		let parts_used = workplan.iter().map(|i| i.mask).fold(CoreMask::void(), |a, i| a | i);
