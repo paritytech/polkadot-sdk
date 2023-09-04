@@ -1889,7 +1889,7 @@ fn metadata_ir_pallet_runtime_docs() {
 		.find(|pallet| pallet.name == "Example")
 		.expect("Pallet should be present");
 
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0";
+	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
 	let expected = vec![" Pallet documentation", readme, readme];
 	assert_eq!(pallet.docs, expected);
 }
