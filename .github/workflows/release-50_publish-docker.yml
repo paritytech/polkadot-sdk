@@ -157,24 +157,26 @@ jobs:
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
 
-      - name: Build Injected Container image for ${{ env.BINARY }}
+      - name: Build Injected Container image for polkadot/stakingminer
         if: ${{ env.BINARY == 'polkadot' || env.BINARY == 'stacking-miner' }}
         env:
           BIN_FOLDER: ./release-artifacts
           IMAGE_NAME: ${{ env.BINARY }}
           OWNER: ${{ env.DOCKER_OWNER }}
+          TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
         run: |
           ls -al
           echo "Building container for $BINARY"
           ./docker/scripts/build-injected.sh
 
-      - name: Build Injected Container image for ${{ env.BINARY }}
+      - name: Build Injected Container image for polkadot-parachain
         if: ${{ env.BINARY == 'polkadot-parachain' }}
         env:
           BIN_FOLDER: ./release-artifacts
           IMAGE_NAME: ${{ env.BINARY }}
           OWNER: ${{ env.DOCKER_OWNER }}
           DOCKERFILE: docker/scripts/docker/polkadot-parachain_injected.Dockerfile
+          TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
         run: |
           ls -al
           mkdir -p $BIN_FOLDER/specs
@@ -197,7 +199,7 @@ jobs:
 
       - name: Check version for the published image for ${{ env.BINARY }}
         env:
-          RELEASE_TAG: ${{ steps.fetch_refs.outputs.release }}
+          RELEASE_TAG: ${{ steps.fetch_rc_refs.outputs.release || steps.fetch_release_refs.outputs.release  }}
         run: |
           echo "Checking tag ${RELEASE_TAG} for image ${REGISTRY}/${DOCKER_OWNER}/${BINARY}"
           $ENGINE run -i ${REGISTRY}/${DOCKER_OWNER}/${BINARY}:${RELEASE_TAG} --version
