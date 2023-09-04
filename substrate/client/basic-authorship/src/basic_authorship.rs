@@ -393,9 +393,6 @@ where
 			);
 		});
 
-
-		let block_size_limit = block_size_limit.unwrap_or(self.default_block_size_limit);
-
 		for inherent in inherents {
 			match block_builder.push(inherent, None) {
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
@@ -489,22 +486,22 @@ where
 				block_size_limit.checked_sub(block_size + pending_tx_encoded_size)
 			{
 				// There is enough space left in the block, we push the transaction
-				trace!("[{:?}] Pushing to the block.", pending_tx_hash);
+				trace!(target: LOG_TARGET, "[{:?}] Pushing to the block.", pending_tx_hash);
 				match sc_block_builder::BlockBuilder::push(
-					&mut block_builder,
+					block_builder,
 					pending_tx_data,
 					self.ensure_proof_size_limit_after_each_extrinsic.then(|| remaining_size),
 				) {
 					Ok(()) => {
 						transaction_pushed = true;
-						debug!("[{:?}] Pushed to the block.", pending_tx_hash);
+						debug!(target: LOG_TARGET, "[{:?}] Pushed to the block.", pending_tx_hash);
 					},
 					Err(ApplyExtrinsicFailed(TooBigStorageProof(proof_diff, _))) => {
 						pending_iterator.report_invalid(&pending_tx);
 						if pending_tx_encoded_size + proof_diff > block_size_limit {
 							// The transaction and its storage proof are too big to be included
 							// in a future block, we must ban the transaction right away
-							debug!("[{:?}] Invalid transaction: too big storage proof", pending_tx_hash);
+							debug!(target: LOG_TARGET, "[{:?}] Invalid transaction: too big storage proof", pending_tx_hash);
 							unqueue_invalid.push(pending_tx_hash);
 						} else {
 							// The transaction is suspicious, but it could be a false positive
@@ -515,23 +512,29 @@ where
 						pending_iterator.report_invalid(&pending_tx);
 						if skipped < MAX_SKIPPED_TRANSACTIONS {
 							skipped += 1;
-							debug!(
+							debug!(target: LOG_TARGET,
 								"Block seems full, but will try {} more transactions before quitting.",
 								MAX_SKIPPED_TRANSACTIONS - skipped,
 							);
 						} else if (self.now)() < soft_deadline {
-							debug!(
+							debug!(target: LOG_TARGET,
 								"Block seems full, but we still have time before the soft deadline, \
 								 so we will try a bit more before quitting."
 							);
 						} else {
-							debug!("Reached block weight limit, proceeding with proposing.");
+							debug!(
+								target: LOG_TARGET,
+								"Reached block weight limit, proceeding with proposing."
+							);
 							break EndProposingReason::HitBlockWeightLimit
 						}
 					},
 					Err(e) => {
 						pending_iterator.report_invalid(&pending_tx);
-						debug!("[{:?}] Invalid transaction: {}", pending_tx_hash, e);
+						debug!(
+							target: LOG_TARGET,
+							"[{:?}] Invalid transaction: {}", pending_tx_hash, e
+						);
 						unqueue_invalid.push(pending_tx_hash);
 					},
 				}
@@ -562,43 +565,6 @@ where
 					);
 					break EndProposingReason::HitBlockSizeLimit
 				}
-			}
-
-			trace!(target: LOG_TARGET, "[{:?}] Pushing to the block.", pending_tx_hash);
-			match sc_block_builder::BlockBuilder::push(block_builder, pending_tx_data) {
-				Ok(()) => {
-					transaction_pushed = true;
-					debug!(target: LOG_TARGET, "[{:?}] Pushed to the block.", pending_tx_hash);
-				},
-				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
-					pending_iterator.report_invalid(&pending_tx);
-					if skipped < MAX_SKIPPED_TRANSACTIONS {
-						skipped += 1;
-						debug!(target: LOG_TARGET,
-							"Block seems full, but will try {} more transactions before quitting.",
-							MAX_SKIPPED_TRANSACTIONS - skipped,
-						);
-					} else if (self.now)() < soft_deadline {
-						debug!(target: LOG_TARGET,
-							"Block seems full, but we still have time before the soft deadline, \
-							 so we will try a bit more before quitting."
-						);
-					} else {
-						debug!(
-							target: LOG_TARGET,
-							"Reached block weight limit, proceeding with proposing."
-						);
-						break EndProposingReason::HitBlockWeightLimit
-					}
-				},
-				Err(e) => {
-					pending_iterator.report_invalid(&pending_tx);
-					debug!(
-						target: LOG_TARGET,
-						"[{:?}] Invalid transaction: {}", pending_tx_hash, e
-					);
-					unqueue_invalid.push(pending_tx_hash);
-				},
 			}
 		};
 
