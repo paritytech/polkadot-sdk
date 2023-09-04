@@ -20,6 +20,9 @@
 //! to tip and keep the blockchain up to date with network updates.
 
 use crate::{
+	block_announce_validator::{
+		BlockAnnounceValidationResult, BlockAnnounceValidator as BlockAnnounceValidatorStream,
+	},
 	service::{self, chain_sync::ToServiceCommand},
 	warp::WarpSyncParams,
 	ChainSync, ClientError, SyncingService,
@@ -49,7 +52,8 @@ use sc_network_common::{
 	role::Roles,
 	sync::{
 		message::{BlockAnnounce, BlockAnnouncesHandshake, BlockState},
-		BadPeer, ChainSync as ChainSyncT, ExtendedPeerInfo, PollBlockAnnounceValidation, SyncEvent,
+		warp::WarpSyncParams,
+		BadPeer, ChainSync as ChainSyncT, ExtendedPeerInfo, SyncEvent,
 	},
 };
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
@@ -246,6 +250,9 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	/// Number of inbound peers accepted so far.
 	num_in_peers: usize,
 
+	/// Async processor of block announce validations.
+	block_announce_validator: BlockAnnounceValidatorStream<B>,
+
 	/// A cache for the data that was associated to a block announcement.
 	block_announce_data_cache: LruMap<B::Hash, Vec<u8>>,
 
@@ -380,7 +387,6 @@ where
 			protocol_id,
 			fork_id,
 			roles,
-			block_announce_validator,
 			max_parallel_downloads,
 			max_blocks_per_request,
 			warp_sync_config,
@@ -417,6 +423,9 @@ where
 				peers: HashMap::new(),
 				block_announce_data_cache: LruMap::new(ByLength::new(cache_capacity)),
 				block_announce_protocol_name,
+				block_announce_validator: BlockAnnounceValidatorStream::new(
+					block_announce_validator,
+				),
 				num_connected: num_connected.clone(),
 				is_major_syncing: is_major_syncing.clone(),
 				service_rx,
@@ -482,9 +491,9 @@ where
 		}
 	}
 
-	fn update_peer_info(&mut self, who: &PeerId) {
-		if let Some(info) = self.chain_sync.peer_info(who) {
-			if let Some(ref mut peer) = self.peers.get_mut(who) {
+	fn update_peer_info(&mut self, peer_id: &PeerId) {
+		if let Some(info) = self.chain_sync.peer_info(peer_id) {
+			if let Some(ref mut peer) = self.peers.get_mut(peer_id) {
 				peer.info.best_hash = info.best_hash;
 				peer.info.best_number = info.best_number;
 			}
@@ -492,14 +501,16 @@ where
 	}
 
 	/// Process the result of the block announce validation.
-	pub fn process_block_announce_validation_result(
+	fn process_block_announce_validation_result(
 		&mut self,
-		validation_result: PollBlockAnnounceValidation<B::Header>,
+		validation_result: BlockAnnounceValidationResult<B::Header>,
 	) {
 		match validation_result {
-			PollBlockAnnounceValidation::Skip => {},
-			PollBlockAnnounceValidation::Nothing { is_best: _, who, announce } => {
-				self.update_peer_info(&who);
+			BlockAnnounceValidationResult::Skip { peer_id: _ } => {},
+			BlockAnnounceValidationResult::Process { is_new_best, peer_id, announce } => {
+				self.chain_sync.on_validated_block_announce(is_new_best, peer_id, &announce);
+
+				self.update_peer_info(&peer_id);
 
 				if let Some(data) = announce.data {
 					if !data.is_empty() {
@@ -507,43 +518,31 @@ where
 					}
 				}
 			},
-			PollBlockAnnounceValidation::Failure { who, disconnect } => {
+			BlockAnnounceValidationResult::Failure { peer_id, disconnect } => {
 				if disconnect {
 					self.network_service
-						.disconnect_peer(who, self.block_announce_protocol_name.clone());
+						.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 				}
 
-				self.network_service.report_peer(who, rep::BAD_BLOCK_ANNOUNCEMENT);
+				self.network_service.report_peer(peer_id, rep::BAD_BLOCK_ANNOUNCEMENT);
 			},
 		}
 	}
 
 	/// Push a block announce validation.
-	///
-	/// It is required that [`ChainSync::poll_block_announce_validation`] is
-	/// called later to check for finished validations. The result of the validation
-	/// needs to be passed to [`SyncingEngine::process_block_announce_validation_result`]
-	/// to finish the processing.
-	///
-	/// # Note
-	///
-	/// This will internally create a future, but this future will not be registered
-	/// in the task before being polled once. So, it is required to call
-	/// [`ChainSync::poll_block_announce_validation`] to ensure that the future is
-	/// registered properly and will wake up the task when being ready.
 	pub fn push_block_announce_validation(
 		&mut self,
-		who: PeerId,
+		peer_id: PeerId,
 		announce: BlockAnnounce<B::Header>,
 	) {
 		let hash = announce.header.hash();
 
-		let peer = match self.peers.get_mut(&who) {
+		let peer = match self.peers.get_mut(&peer_id) {
 			Some(p) => p,
 			None => {
 				log::error!(
 					target: LOG_TARGET,
-					"Received block announce from disconnected peer {who}",
+					"Received block announce from disconnected peer {peer_id}",
 				);
 				debug_assert!(false);
 				return
@@ -557,7 +556,8 @@ where
 				BlockState::Normal => false,
 			};
 
-			self.chain_sync.push_block_announce_validation(who, hash, announce, is_best);
+			self.block_announce_validator
+				.push_block_announce_validation(peer_id, hash, announce, is_best);
 		}
 	}
 
@@ -590,10 +590,10 @@ where
 			.or_else(|| self.block_announce_data_cache.get(&hash).cloned())
 			.unwrap_or_default();
 
-		for (who, ref mut peer) in self.peers.iter_mut() {
+		for (peer_id, ref mut peer) in self.peers.iter_mut() {
 			let inserted = peer.known_blocks.insert(hash);
 			if inserted {
-				log::trace!(target: LOG_TARGET, "Announcing block {hash:?} to {who}");
+				log::trace!(target: LOG_TARGET, "Announcing block {hash:?} to {peer_id}");
 				let message = BlockAnnounce {
 					header: header.clone(),
 					state: if is_best { Some(BlockState::Best) } else { Some(BlockState::Normal) },
@@ -691,17 +691,17 @@ where
 						}
 					}
 				},
-				ToServiceCommand::JustificationImported(peer, hash, number, success) => {
+				ToServiceCommand::JustificationImported(peer_id, hash, number, success) => {
 					self.chain_sync.on_justification_import(hash, number, success);
 					if !success {
 						log::info!(
 							target: LOG_TARGET,
-							"💔 Invalid justification provided by {peer} for #{hash}",
+							"💔 Invalid justification provided by {peer_id} for #{hash}",
 						);
 						self.network_service
-							.disconnect_peer(peer, self.block_announce_protocol_name.clone());
+							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 						self.network_service.report_peer(
-							peer,
+							peer_id,
 							ReputationChange::new_fatal("Invalid justification"),
 						);
 					}
@@ -736,8 +736,11 @@ where
 					let _ = tx.send(self.chain_sync.num_sync_requests());
 				},
 				ToServiceCommand::PeersInfo(tx) => {
-					let peers_info =
-						self.peers.iter().map(|(id, peer)| (*id, peer.info.clone())).collect();
+					let peers_info = self
+						.peers
+						.iter()
+						.map(|(peer_id, peer)| (*peer_id, peer.info.clone()))
+						.collect();
 					let _ = tx.send(peers_info);
 				},
 				ToServiceCommand::OnBlockFinalized(hash, header) =>
@@ -780,14 +783,6 @@ where
 							if let Ok(announce) = BlockAnnounce::decode(&mut message.as_ref()) {
 								self.last_notification_io = Instant::now();
 								self.push_block_announce_validation(remote, announce);
-
-								// Make sure that the newly added block announce validation future
-								// was polled once to be registered in the task.
-								if let Poll::Ready(res) =
-									self.chain_sync.poll_block_announce_validation(cx)
-								{
-									self.process_block_announce_validation_result(res)
-								}
 							} else {
 								log::warn!(target: "sub-libp2p", "Failed to decode block announce");
 							}
@@ -822,10 +817,14 @@ where
 			Poll::Pending => {},
 		}
 
-		// poll `ChainSync` last because of a block announcement was received through the
-		// event stream between `SyncingEngine` and `Protocol` and the validation finished
-		// right after it as queued, the resulting block request (if any) can be sent right away.
-		while let Poll::Ready(result) = self.chain_sync.poll(cx) {
+		// Drive `ChainSync`.
+		while let Poll::Ready(()) = self.chain_sync.poll(cx) {}
+
+		// Poll block announce validations last, because if a block announcement was received
+		// through the event stream between `SyncingEngine` and `Protocol` and the validation
+		// finished right after it is queued, the resulting block request (if any) can be sent
+		// right away.
+		while let Poll::Ready(Some(result)) = self.block_announce_validator.poll_next_unpin(cx) {
 			self.process_block_announce_validation_result(result);
 		}
 
@@ -835,15 +834,15 @@ where
 	/// Called by peer when it is disconnecting.
 	///
 	/// Returns a result if the handshake of this peer was indeed accepted.
-	pub fn on_sync_peer_disconnected(&mut self, peer: PeerId) -> Result<(), ()> {
+	pub fn on_sync_peer_disconnected(&mut self, peer_id: PeerId) -> Result<(), ()> {
 		if let Some(info) = self.peers.remove(&peer) {
 			if self.important_peers.contains(&peer) {
-				log::warn!(target: LOG_TARGET, "Reserved peer {peer} disconnected");
+				log::warn!(target: LOG_TARGET, "Reserved peer {peer_id} disconnected");
 			} else {
-				log::debug!(target: LOG_TARGET, "{peer} disconnected");
+				log::debug!(target: LOG_TARGET, "{peer_id} disconnected");
 			}
 
-			if !self.default_peers_set_no_slot_connected_peers.remove(&peer) &&
+			if !self.default_peers_set_no_slot_connected_peers.remove(&peer_id) &&
 				info.inbound && info.info.roles.is_full()
 			{
 				match self.num_in_peers.checked_sub(1) {
@@ -860,9 +859,10 @@ where
 				}
 			}
 
-			self.chain_sync.peer_disconnected(&peer);
-			self.event_streams
-				.retain(|stream| stream.unbounded_send(SyncEvent::PeerDisconnected(peer)).is_ok());
+			self.chain_sync.peer_disconnected(&peer_id);
+			self.event_streams.retain(|stream| {
+				stream.unbounded_send(SyncEvent::PeerDisconnected(peer_id)).is_ok()
+			});
 			Ok(())
 		} else {
 			Err(())
@@ -876,38 +876,38 @@ where
 	/// from.
 	pub fn on_sync_peer_connected(
 		&mut self,
-		who: PeerId,
+		peer_id: PeerId,
 		status: &BlockAnnouncesHandshake<B>,
 		sink: NotificationsSink,
 		inbound: bool,
 	) -> Result<(), ()> {
-		log::trace!(target: LOG_TARGET, "New peer {who} {status:?}");
+		log::trace!(target: LOG_TARGET, "New peer {peer_id} {status:?}");
 
 		if self.peers.contains_key(&who) {
 			log::error!(
 				target: LOG_TARGET,
-				"Called on_sync_peer_connected with already connected peer {who}",
+				"Called on_sync_peer_connected with already connected peer {peer_id}",
 			);
 			debug_assert!(false);
 			return Err(())
 		}
 
 		if status.genesis_hash != self.genesis_hash {
-			self.network_service.report_peer(who, rep::GENESIS_MISMATCH);
+			self.network_service.report_peer(peer_id, rep::GENESIS_MISMATCH);
 
-			if self.important_peers.contains(&who) {
+			if self.important_peers.contains(&peer_id) {
 				log::error!(
 					target: LOG_TARGET,
 					"Reserved peer id `{}` is on a different chain (our genesis: {} theirs: {})",
-					who,
+					peer_id,
 					self.genesis_hash,
 					status.genesis_hash,
 				);
-			} else if self.boot_node_ids.contains(&who) {
+			} else if self.boot_node_ids.contains(&peer_id) {
 				log::error!(
 					target: LOG_TARGET,
 					"Bootnode with peer id `{}` is on a different chain (our genesis: {} theirs: {})",
-					who,
+					peer_id,
 					self.genesis_hash,
 					status.genesis_hash,
 				);
@@ -922,7 +922,7 @@ where
 			return Err(())
 		}
 
-		let no_slot_peer = self.default_peers_set_no_slot_peers.contains(&who);
+		let no_slot_peer = self.default_peers_set_no_slot_peers.contains(&peer_id);
 		let this_peer_reserved_slot: usize = if no_slot_peer { 1 } else { 0 };
 
 		// make sure to accept no more than `--in-peers` many full nodes
@@ -932,7 +932,7 @@ where
 		{
 			log::debug!(
 				target: LOG_TARGET,
-				"All inbound slots have been consumed, rejecting {who}",
+				"All inbound slots have been consumed, rejecting {peer_id}",
 			);
 			return Err(())
 		}
@@ -943,7 +943,7 @@ where
 					self.default_peers_set_no_slot_connected_peers.len() +
 					this_peer_reserved_slot
 		{
-			log::debug!(target: LOG_TARGET, "Too many full nodes, rejecting {who}");
+			log::debug!(target: LOG_TARGET, "Too many full nodes, rejecting {peer_id}");
 			return Err(())
 		}
 
@@ -951,7 +951,7 @@ where
 			(self.peers.len() - self.chain_sync.num_peers()) >= self.default_peers_set_num_light
 		{
 			// Make sure that not all slots are occupied by light clients.
-			log::debug!(target: LOG_TARGET, "Too many light nodes, rejecting {who}");
+			log::debug!(target: LOG_TARGET, "Too many light nodes, rejecting {peer_id}");
 			return Err(())
 		}
 
@@ -969,7 +969,7 @@ where
 		};
 
 		let req = if peer.info.roles.is_full() {
-			match self.chain_sync.new_peer(who, peer.info.best_hash, peer.info.best_number) {
+			match self.chain_sync.new_peer(peer_id, peer.info.best_hash, peer.info.best_number) {
 				Ok(req) => req,
 				Err(BadPeer(id, repu)) => {
 					self.network_service.report_peer(id, repu);
@@ -980,22 +980,22 @@ where
 			None
 		};
 
-		log::debug!(target: LOG_TARGET, "Connected {who}");
+		log::debug!(target: LOG_TARGET, "Connected {peer_id}");
 
-		self.peers.insert(who, peer);
+		self.peers.insert(peer_id, peer);
 
 		if no_slot_peer {
-			self.default_peers_set_no_slot_connected_peers.insert(who);
+			self.default_peers_set_no_slot_connected_peers.insert(peer_id);
 		} else if inbound && status.roles.is_full() {
 			self.num_in_peers += 1;
 		}
 
 		if let Some(req) = req {
-			self.chain_sync.send_block_request(who, req);
+			self.chain_sync.send_block_request(peer_id, req);
 		}
 
 		self.event_streams
-			.retain(|stream| stream.unbounded_send(SyncEvent::PeerConnected(who)).is_ok());
+			.retain(|stream| stream.unbounded_send(SyncEvent::PeerConnected(peer_id)).is_ok());
 
 		Ok(())
 	}
