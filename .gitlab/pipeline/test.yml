@@ -93,7 +93,7 @@ test-linux-stable-additional-tests:
         --release \
         --features runtime-benchmarks,try-runtime
     # https://github.com/paritytech/ci_cd/issues/864
-    - time cargo nextest run --features runtime-benchmarks benchmark --locked --profile testnet
+    - time cargo nextest run --features runtime-benchmarks benchmark --locked --release
 
 # these ones can be really slow so it's better to run them separately
 test-linux-stable-slow:
