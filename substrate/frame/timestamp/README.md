@@ -22,16 +22,16 @@ because of cumulative calculation errors and hence should be avoided.
 
 ### Dispatchable Functions
 
-* `set` - Sets the current time.
+- `set` - Sets the current time.
 
 ### Public functions
 
-* `get` - Gets the current time for the current block. If this function is called prior to
+- `get` - Gets the current time for the current block. If this function is called prior to
 setting the timestamp, it will return the timestamp of the previous block.
 
 ### Config Getters
 
-* `MinimumPeriod` - Gets the minimum (and advised) period between blocks for the chain.
+- `MinimumPeriod` - Gets the minimum (and advised) period between blocks for the chain.
 
 ## Usage
 
@@ -78,6 +78,6 @@ the Timestamp module for session management.
 
 ## Related Modules
 
-* [Session](https://docs.rs/pallet-session/latest/pallet_session/)
+- [Session](https://docs.rs/pallet-session/latest/pallet_session/)
 
 License: Apache-2.0
