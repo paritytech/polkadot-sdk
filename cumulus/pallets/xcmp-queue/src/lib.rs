@@ -710,7 +710,6 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 					*status = OutboundChannelDetails::new(para_id);
 					continue
 				},
-				// FAIL-CI i am unsure if signals should be able to bypass this:
 				ChannelStatus::Full => continue,
 				ChannelStatus::Ready(n, e) => (n, e),
 			};
