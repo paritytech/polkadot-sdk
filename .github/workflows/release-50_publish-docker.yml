@@ -157,8 +157,8 @@ jobs:
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
 
-      - name: Build Injected Container image for polkadot/stakingminer
-        if: ${{ env.BINARY == 'polkadot' || env.BINARY == 'stacking-miner' }}
+      - name: Build Injected Container image for polkadot/staking-miner
+        if: ${{ env.BINARY == 'polkadot' || env.BINARY == 'staking-miner' }}
         env:
           ARTIFACTS_FOLDER: ./release-artifacts
           IMAGE_NAME: ${{ env.BINARY }}
