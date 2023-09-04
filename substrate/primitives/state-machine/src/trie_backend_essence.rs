@@ -29,8 +29,6 @@ use hash_db::{self, AsHashDB, HashDB, HashDBRef, Hasher, Prefix};
 use parking_lot::RwLock;
 use sp_core::storage::{ChildInfo, ChildType, StateVersion};
 use sp_std::{boxed::Box, marker::PhantomData, sync::Arc, vec::Vec};
-#[cfg(feature = "std")]
-use sp_trie::recorder::Recorder;
 use sp_trie::{
 	child_delta_trie_root, delta_trie_root, empty_child_trie_root, read_child_trie_hash,
 	read_child_trie_value, read_trie_value,
@@ -113,7 +111,7 @@ where
 		) -> Option<core::result::Result<RE, Box<TrieError<<H as Hasher>::Out>>>>,
 	) -> Option<Result<RE>> {
 		if !matches!(self.state, IterState::Pending) {
-			return None
+			return None;
 		}
 
 		let result = backend.with_trie_db(self.root, self.child_info.as_ref(), |db| {
@@ -127,8 +125,8 @@ where
 			},
 			Some(Err(error)) => {
 				self.state = IterState::FinishedIncomplete;
-				if matches!(*error, TrieError::IncompleteDatabase(_)) &&
-					self.stop_on_incomplete_database
+				if matches!(*error, TrieError::IncompleteDatabase(_))
+					&& self.stop_on_incomplete_database
 				{
 					None
 				} else {
@@ -307,20 +305,12 @@ impl<S: TrieBackendStorage<H>, H: Hasher, C: TrieCacheProvider<H>, R: TrieRecord
 		let mut cache = self.trie_node_cache.as_ref().map(|c| c.as_trie_db_cache(storage_root));
 		let cache = cache.as_mut().map(|c| c as _);
 
-		#[cfg(feature = "std")]
-		{
-			let mut recorder = self.recorder.as_ref().map(|r| r.as_trie_recorder(storage_root));
-			let recorder = match recorder.as_mut() {
-				Some(recorder) => Some(recorder as &mut dyn TrieRecorder<H::Out>),
-				None => None,
-			};
-			callback(recorder, cache)
-		}
-
-		#[cfg(not(feature = "std"))]
-		{
-			callback(None, cache)
-		}
+		let mut recorder = self.recorder.as_ref().map(|r| r.as_trie_recorder(storage_root));
+		let recorder = match recorder.as_mut() {
+			Some(recorder) => Some(recorder as &mut dyn TrieRecorder<H::Out>),
+			None => None,
+		};
+		callback(recorder, cache)
 	}
 
 	/// Call the given closure passing it the recorder and the cache.
@@ -330,7 +320,6 @@ impl<S: TrieBackendStorage<H>, H: Hasher, C: TrieCacheProvider<H>, R: TrieRecord
 	/// the new storage root. This is required to register the changes in the cache
 	/// for the correct storage root. The given `storage_root` corresponds to the root of the "old"
 	/// trie. If the value is not given, `self.root` is used.
-	#[cfg(feature = "std")]
 	fn with_recorder_and_cache_for_storage_root<RE>(
 		&self,
 		storage_root: Option<H::Out>,
@@ -361,30 +350,6 @@ impl<S: TrieBackendStorage<H>, H: Hasher, C: TrieCacheProvider<H>, R: TrieRecord
 		};
 
 		result
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn with_recorder_and_cache_for_storage_root<RE>(
-		&self,
-		_storage_root: Option<H::Out>,
-		callback: impl FnOnce(
-			Option<&mut dyn TrieRecorder<H::Out>>,
-			Option<&mut dyn TrieCache<NodeCodec<H>>>,
-		) -> (Option<H::Out>, RE),
-	) -> RE {
-		if let Some(local_cache) = self.trie_node_cache.as_ref() {
-			let mut cache = local_cache.as_trie_db_mut_cache();
-
-			let (new_root, r) = callback(None, Some(&mut cache));
-
-			if let Some(new_root) = new_root {
-				local_cache.merge(cache, new_root);
-			}
-
-			r
-		} else {
-			callback(None, None).1
-		}
 	}
 }
 
@@ -438,7 +403,7 @@ where
 		#[cfg(feature = "std")]
 		{
 			if let Some(result) = self.cache.read().child_root.get(child_info.storage_key()) {
-				return Ok(*result)
+				return Ok(*result);
 			}
 		}
 
@@ -594,7 +559,7 @@ where
 
 		if self.root == Default::default() {
 			// A special-case for an empty storage root.
-			return Ok(Default::default())
+			return Ok(Default::default());
 		}
 
 		let trie_iter = self
@@ -679,7 +644,7 @@ where
 			self.with_recorder_and_cache_for_storage_root(Some(child_root), |recorder, cache| {
 				let mut eph = Ephemeral::new(self.backend_storage(), &mut write_overlay);
 				match match state_version {
-					StateVersion::V0 =>
+					StateVersion::V0 => {
 						child_delta_trie_root::<sp_trie::LayoutV0<H>, _, _, _, _, _, _>(
 							child_info.keyspace(),
 							&mut eph,
@@ -687,8 +652,9 @@ where
 							delta,
 							recorder,
 							cache,
-						),
-					StateVersion::V1 =>
+						)
+					},
+					StateVersion::V1 => {
 						child_delta_trie_root::<sp_trie::LayoutV1<H>, _, _, _, _, _, _>(
 							child_info.keyspace(),
 							&mut eph,
@@ -696,7 +662,8 @@ where
 							delta,
 							recorder,
 							cache,
-						),
+						)
+					},
 				} {
 					Ok(ret) => (Some(ret), ret),
 					Err(e) => {
@@ -828,7 +795,7 @@ impl<
 {
 	fn get(&self, key: &H::Out, prefix: Prefix) -> Option<DBValue> {
 		if *key == self.empty {
-			return Some([0u8].to_vec())
+			return Some([0u8].to_vec());
 		}
 		match self.storage.get(key, prefix) {
 			Ok(x) => x,

@@ -16,7 +16,7 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::{trie_cache, MemoryOptimizedValidationParams};
+use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use cumulus_primitives_core::{
 	relay_chain::Hash as RHash, ParachainBlockData, PersistedValidationData,
 };
@@ -25,21 +25,27 @@ use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use polkadot_parachain::primitives::{HeadData, RelayChainBlockNumber, ValidationResult};
 
 use codec::Encode;
-
 use frame_support::traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType};
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
 use sp_std::prelude::*;
+use sp_std::{
+	boxed::Box,
+	cell::{RefCell, RefMut},
+	collections::btree_set::BTreeSet,
+};
+use sp_trie::NodeCodec;
 use sp_trie::{MemoryDB, StorageProof};
 use trie_db::{RecordedForKey, TrieAccess};
+use trie_recorder::RecorderProvider;
 
 type TrieBackend<B> = sp_state_machine::TrieBackend<
 	MemoryDB<HashingFor<B>>,
 	HashingFor<B>,
 	trie_cache::CacheProvider<HashingFor<B>>,
-	RecorderImpl,
+	RecorderProvider<HashingFor<B>>,
 >;
 
 type Ext<'a, B> = sp_state_machine::Ext<'a, HashingFor<B>, TrieBackend<B>>;
@@ -48,30 +54,6 @@ fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 	sp_externalities::with_externalities(f).expect("Environmental externalities not set.")
 }
 
-struct RecorderImpl {}
-impl<H> trie_db::TrieRecorder<H> for RecorderImpl {
-	fn record<'a>(&mut self, access: TrieAccess<'a, H>) {}
-
-	fn trie_nodes_recorded_for_key(&self, key: &[u8]) -> RecordedForKey {
-		RecordedForKey::None
-	}
-}
-
-impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for RecorderImpl {
-	type Recorder<'a> = RecorderImpl;
-
-	fn drain_storage_proof(self) -> StorageProof {
-		todo!()
-	}
-
-	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_> {
-		todo!()
-	}
-
-	fn estimate_encoded_size(&self) -> usize {
-		todo!()
-	}
-}
 /// Validate the given parachain block.
 ///
 /// This function is doing roughly the following:
@@ -146,7 +128,7 @@ where
 
 	sp_std::mem::drop(storage_proof);
 
-	let recorder = RecorderImpl {};
+	let recorder = RecorderProvider::new();
 	let cache_provider = trie_cache::CacheProvider::new();
 	// We use the storage root of the `parent_head` to ensure that it is the correct root.
 	// This is already being done above while creating the in-memory db, but let's be paranoid!!

@@ -26,7 +26,6 @@ use crate::{
 };
 
 use codec::Codec;
-use core::marker::PhantomData;
 #[cfg(feature = "std")]
 use hash_db::HashDB;
 use hash_db::Hasher;
@@ -34,7 +33,6 @@ use sp_core::storage::{ChildInfo, StateVersion};
 #[cfg(feature = "std")]
 use sp_trie::{
 	cache::{LocalTrieCache, TrieCache},
-	recorder::Recorder,
 	MemoryDB,
 };
 #[cfg(not(feature = "std"))]
@@ -995,8 +993,8 @@ pub mod tests {
 			.storage_root(iter::once((&b"new-key"[..], Some(&b"new-value"[..]))), state_version);
 		assert!(!tx.drain().is_empty());
 		assert!(
-			new_root !=
-				test_trie(state_version, None, None)
+			new_root
+				!= test_trie(state_version, None, None)
 					.storage_root(iter::empty(), state_version)
 					.0
 		);
