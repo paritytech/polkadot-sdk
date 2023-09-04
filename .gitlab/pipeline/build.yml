@@ -117,6 +117,25 @@ build-rustdoc:
     - time cargo doc --workspace --no-deps
     - rm -f ./target/doc/.lock
     - mv ./target/doc ./crate-docs
+    # Inject Simple Analytics (https://www.simpleanalytics.com/) privacy preserving tracker into
+    # all .html files
+    - |
+      inject_simple_analytics() {
+        local path="$1"
+        local script_content="<script async defer src=\"https://apisa.parity.io/latest.js\"></script><noscript><img src=\"https://apisa.parity.io/latest.js\" alt=\"\" referrerpolicy=\"no-referrer-when-downgrade\" /></noscript>"
+
+        # Define a function that injects our script into the head of an html file.
+        process_file() {
+            local file="$1"
+            echo "Adding Simple Analytics script to $file"
+            sed -i "s|</head>|$script_content</head>|" "$file"
+        }
+        export -f process_file
+
+        # Locate all .html files under the documentation root and use xargs to process in parallel.
+        find "$path" -name '*.html' | xargs -I {} -P "$(nproc)" bash -c 'process_file "$@"' _ {}
+      }
+      inject_simple_analytics "./crate-docs"
     # FIXME: remove me after CI image gets nonroot
     - chown -R nonroot:nonroot ./crate-docs
     - echo "<meta http-equiv=refresh content=0;url=polkadot_service/index.html>" > ./crate-docs/index.html
