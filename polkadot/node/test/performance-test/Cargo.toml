@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-performance-test"
 publish = false
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -20,11 +20,14 @@ polkadot-primitives = { path = "../../../primitives" }
 sc-executor-common = { path = "../../../../substrate/client/executor/common" }
 sp-maybe-compressed-blob = { path = "../../../../substrate/primitives/maybe-compressed-blob" }
 
-kusama-runtime = { path = "../../../runtime/kusama" }
+kusama-runtime = { package = "staging-kusama-runtime", path = "../../../runtime/kusama" }
 
 [[bin]]
 name = "gen-ref-constants"
 path = "src/gen_ref_constants.rs"
 
 [features]
-runtime-benchmarks = [ "kusama-runtime/runtime-benchmarks" ]
+runtime-benchmarks = [
+	"kusama-runtime/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+]

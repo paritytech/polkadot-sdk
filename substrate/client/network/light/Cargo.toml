@@ -3,10 +3,10 @@ description = "Substrate light network protocol"
 name = "sc-network-light"
 version = "0.10.0-dev"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 documentation = "https://docs.rs/sc-network-light"
 
 [package.metadata.docs.rs]
@@ -22,7 +22,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", features = [
     "derive",
 ] }
 futures = "0.3.21"
-libp2p-identity = { version = "0.1.2", features = ["peerid"] }
+libp2p-identity = { version = "0.1.3", features = ["peerid"] }
 log = "0.4.16"
 prost = "0.11"
 sp-blockchain = { path = "../../../primitives/blockchain" }

@@ -1,9 +1,10 @@
 [package]
 name = "asset-test-utils"
 version = "1.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 description = "Test utils for Asset Hub runtimes."
+publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
@@ -34,10 +35,10 @@ parachain-info = { path = "../../../pallets/parachain-info", default-features = 
 parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false }
 
 # Polkadot
-xcm = { path = "../../../../../polkadot/xcm", default-features = false}
-xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
-polkadot-parachain = { path = "../../../../../polkadot/parachain", default-features = false}
+polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false}
 
 [dev-dependencies]
 hex-literal = "0.4.1"
@@ -50,7 +51,6 @@ default = [ "std" ]
 std = [
 	"assets-common/std",
 	"cumulus-pallet-dmp-queue/std",
-	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-xcmp-queue/std",
 	"cumulus-primitives-core/std",
@@ -66,8 +66,9 @@ std = [
 	"parachain-info/std",
 	"parachains-common/std",
 	"parachains-runtimes-test-utils/std",
-	"polkadot-parachain/std",
+	"polkadot-parachain-primitives/std",
 	"sp-consensus-aura/std",
+	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",

@@ -1,4 +1,4 @@
-// Copyright 2020 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -36,7 +36,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
 use frame_support::{
-	dispatch::{DispatchError, DispatchResult, Pays, PostDispatchInfo},
+	dispatch::{DispatchResult, Pays, PostDispatchInfo},
 	ensure,
 	inherent::{InherentData, InherentIdentifier, ProvideInherent},
 	storage,
@@ -44,7 +44,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
-use polkadot_parachain::primitives::RelayChainBlockNumber;
+use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash},
@@ -52,7 +52,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
 		ValidTransaction,
 	},
-	RuntimeDebug,
+	DispatchError, RuntimeDebug,
 };
 use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
 use xcm::latest::XcmHash;
@@ -1429,7 +1429,7 @@ impl<T: Config> Pallet<T> {
 	pub fn initialize_for_set_code_benchmark(max_code_size: u32) {
 		// insert dummy ValidationData
 		let vfp = PersistedValidationData {
-			parent_head: polkadot_parachain::primitives::HeadData(Default::default()),
+			parent_head: polkadot_parachain_primitives::primitives::HeadData(Default::default()),
 			relay_parent_number: 1,
 			relay_parent_storage_root: Default::default(),
 			max_pov_size: 1_000,
