@@ -21,6 +21,7 @@
 
 mod benchmark;
 mod construct_runtime;
+mod construct_runtime_v2;
 mod crate_version;
 mod derive_impl;
 mod dummy_part_checker;
@@ -1687,4 +1688,9 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 		#internal_mod
 	}
 	.into()
+}
+
+#[proc_macro_attribute]
+pub fn construct_runtime_v2(attr: TokenStream, item: TokenStream) -> TokenStream {
+	construct_runtime_v2::construct_runtime(attr, item)
 }
