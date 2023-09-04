@@ -380,6 +380,36 @@ mod tests {
 	}
 
 	#[test]
+	fn systematic_chunks() {
+		let pov = PoV { block_data: BlockData((0..255).collect()) };
+
+		let available_data = AvailableData { pov: pov.into(), validation_data: Default::default() };
+		let data_encoded = available_data.encode();
+		let chunks = obtain_chunks(10, &available_data).unwrap();
+
+		assert_eq!(chunks.len(), 10);
+
+		let mut systematic_bytes = Vec::with_capacity(data_encoded.len());
+		let systematic_len = 10 / 3 + 1;
+		for i in (0..(data_encoded.len() / systematic_len)).step_by(2) {
+			for chunk in chunks[..systematic_len].iter() {
+				systematic_bytes.push(chunk[i]);
+				systematic_bytes.push(chunk[i + 1]);
+			}
+		}
+		// not sure about this, probably need to handle
+		// the unused rest of the systematic chunks
+		systematic_bytes.resize(data_encoded.len(), 0);
+
+		assert_eq!(data_encoded, systematic_bytes);
+
+		let reconstructed: AvailableData =
+			AvailableData::decode(&mut &systematic_bytes[..]).unwrap();
+
+		assert_eq!(reconstructed, available_data);
+	}
+
+	#[test]
 	fn reconstruct_does_not_panic_on_low_validator_count() {
 		let reconstructed = reconstruct_v1(1, [].iter().cloned());
 		assert_eq!(reconstructed, Err(Error::NotEnoughValidators));
