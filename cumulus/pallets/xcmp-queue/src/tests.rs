@@ -20,7 +20,7 @@ use super::{
 use XcmpMessageFormat::*;
 
 use cumulus_primitives_core::XcmpMessageHandler;
-use frame_support::{assert_noop, assert_ok, experimental_hypothetically};
+use frame_support::{assert_err, assert_noop, assert_ok, experimental_hypothetically};
 use mock::{new_test_ext, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::BadOrigin;
 use std::iter::{once, repeat};
@@ -444,10 +444,39 @@ fn xcmp_queue_validate_nested_xcm_works() {
 }
 
 #[test]
+fn send_xcm_nested_works() {
+	let dest = (Parent, X1(Parachain(MAGIC_PARA_ID)));
+	// Message that is not too deeply nested:
+	let mut good = Xcm(vec![ClearOrigin]);
+	for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
+		good = Xcm(vec![SetAppendix(good)]);
+	}
+
+	// Check that the good message is sent:
+	new_test_ext().execute_with(|| {
+		assert_ok!(send_xcm::<XcmpQueue>(dest.into(), good.clone()));
+		assert_eq!(
+			XcmpQueue::take_outbound_messages(usize::MAX),
+			vec![(
+				MAGIC_PARA_ID.into(),
+				(XcmpMessageFormat::ConcatenatedVersionedXcm, VersionedXcm::V3(good.clone()))
+					.encode(),
+			)]
+		);
+	});
+
+	// Nesting the message one more time should not send it:
+	let bad = Xcm(vec![SetAppendix(good)]);
+	new_test_ext().execute_with(|| {
+		assert_err!(send_xcm::<XcmpQueue>(dest.into(), bad), SendError::ExceedsMaxMessageSize);
+		assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+	});
+}
+
+#[test]
 fn hrmp_signals_are_prioritized() {
 	let message = Xcm(vec![Trap(5)]);
 
-	// XcmpQueue - check dest/msg is valid
 	let dest = (Parent, X1(Parachain(MAGIC_PARA_ID)));
 	let mut dest_wrapper = Some(dest.into());
 	let mut msg_wrapper = Some(message.clone());
@@ -467,31 +496,25 @@ fn hrmp_signals_are_prioritized() {
 		}]);
 
 		// Enqueue some messages
-		for _ in 0..100 {
+		for _ in 0..129 {
 			send_xcm::<XcmpQueue>(dest.into(), message.clone()).unwrap();
 		}
 
 		// Without a signal we get the messages in order:
+		let mut expected_msg = XcmpMessageFormat::ConcatenatedVersionedXcm.encode();
+		for _ in 0..31 {
+			expected_msg.extend(VersionedXcm::V3(message.clone()).encode());
+		}
+
 		experimental_hypothetically!({
-			let taken = XcmpQueue::take_outbound_messages(123);
-			assert_eq!(
-				taken,
-				vec![(
-					MAGIC_PARA_ID.into(),
-					(
-						XcmpMessageFormat::ConcatenatedVersionedXcm,
-						VersionedXcm::V3(message.clone()),
-						VersionedXcm::V3(message)
-					)
-						.encode()
-				)]
-			);
+			let taken = XcmpQueue::take_outbound_messages(130);
+			assert_eq!(taken, vec![(MAGIC_PARA_ID.into(), expected_msg,)]);
 		});
 
 		// But a signal gets prioritized instead of the messages:
 		XcmpQueue::send_signal(MAGIC_PARA_ID.into(), ChannelSignal::Suspend).unwrap();
 
-		let taken = XcmpQueue::take_outbound_messages(132);
+		let taken = XcmpQueue::take_outbound_messages(130);
 		assert_eq!(
 			taken,
 			vec![(
