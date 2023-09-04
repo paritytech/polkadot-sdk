@@ -338,6 +338,13 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 			.await?)
 	}
 
+	async fn disabled_validators(
+		&self,
+		at: Hash,
+	) -> Result<Vec<polkadot_primitives::ValidatorIndex>, ApiError> {
+		Ok(self.rpc_client.parachain_host_disabled_validators(at).await?)
+	}
+
 	async fn staging_async_backing_params(&self, at: Hash) -> Result<AsyncBackingParams, ApiError> {
 		Ok(self.rpc_client.parachain_host_staging_async_backing_params(at).await?)
 	}
