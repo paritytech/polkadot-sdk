@@ -2,11 +2,10 @@
 
 This is a collection of components for building bridges.
 
-These components include Substrate pallets for syncing headers, passing arbitrary messages, as well
-as libraries for building relayers to provide cross-chain communication capabilities.
+These components include Substrate pallets for syncing headers, passing arbitrary messages, as well as libraries for
+building relayers to provide cross-chain communication capabilities.
 
-Three bridge nodes are also available. The nodes can be used to run test networks which bridge other
-Substrate chains.
+Three bridge nodes are also available. The nodes can be used to run test networks which bridge other Substrate chains.
 
 🚧 The bridges are currently under construction - a hardhat is recommended beyond this point 🚧
 
@@ -21,8 +20,8 @@ Substrate chains.
 
 ## Installation
 
-To get up and running you need both stable and nightly Rust. Rust nightly is used to build the Web
-Assembly (WASM) runtime for the node. You can configure the WASM support as so:
+To get up and running you need both stable and nightly Rust. Rust nightly is used to build the Web Assembly (WASM)
+runtime for the node. You can configure the WASM support as so:
 
 ```bash
 rustup install nightly
@@ -38,8 +37,8 @@ cargo build --all
 cargo test --all
 ```
 
-Also you can build the repo with
-[Parity CI Docker image](https://github.com/paritytech/scripts/tree/master/dockerfiles/bridges-ci):
+Also you can build the repo with [Parity CI Docker
+image](https://github.com/paritytech/scripts/tree/master/dockerfiles/bridges-ci):
 
 ```bash
 docker pull paritytech/bridges-ci:production
@@ -57,16 +56,14 @@ docker run --rm -it -w /shellhere/parity-bridges-common \
 If you want to reproduce other steps of CI process you can use the following
 [guide](https://github.com/paritytech/scripts#reproduce-ci-locally).
 
-If you need more information about setting up your development environment [Substrate's
-Installation page](https://docs.substrate.io/main-docs/install/) is a good
-resource.
+If you need more information about setting up your development environment [Substrate's Installation
+page](https://docs.substrate.io/main-docs/install/) is a good resource.
 
 ## High-Level Architecture
 
-This repo has support for bridging foreign chains together using a combination of Substrate pallets
-and external processes called relayers. A bridge chain is one that is able to follow the consensus
-of a foreign chain independently. For example, consider the case below where we want to bridge two
-Substrate based chains.
+This repo has support for bridging foreign chains together using a combination of Substrate pallets and external
+processes called relayers. A bridge chain is one that is able to follow the consensus of a foreign chain independently.
+For example, consider the case below where we want to bridge two Substrate based chains.
 
 ```
 +---------------+                 +---------------+
@@ -82,19 +79,19 @@ Substrate based chains.
                 +---------------+
 ```
 
-The Millau chain must be able to accept Rialto headers and verify their integrity. It does this by
-using a runtime module designed to track GRANDPA finality. Since two blockchains can't interact
-directly they need an external service, called a relayer, to communicate. The relayer will subscribe
-to new Rialto headers via RPC and submit them to the Millau chain for verification.
+The Millau chain must be able to accept Rialto headers and verify their integrity. It does this by using a runtime
+module designed to track GRANDPA finality. Since two blockchains can't interact directly they need an external service,
+called a relayer, to communicate. The relayer will subscribe to new Rialto headers via RPC and submit them to the Millau
+chain for verification.
 
-Take a look at [Bridge High Level Documentation](./docs/high-level-overview.md) for more in-depth
-description of the bridge interaction.
+Take a look at [Bridge High Level Documentation](./docs/high-level-overview.md) for more in-depth description of the
+bridge interaction.
 
 ## Project Layout
 
-Here's an overview of how the project is laid out. The main bits are the `bin`, which is the actual
-"blockchain", the `modules` which are used to build the blockchain's logic (a.k.a the runtime) and
-the `relays` which are used to pass messages between chains.
+Here's an overview of how the project is laid out. The main bits are the `bin`, which is the actual "blockchain", the
+`modules` which are used to build the blockchain's logic (a.k.a the runtime) and the `relays` which are used to pass
+messages between chains.
 
 ```
 ├── bin             // Node and Runtime for the various Substrate chains
@@ -117,16 +114,16 @@ the `relays` which are used to pass messages between chains.
 
 ## Running the Bridge
 
-To run the Bridge you need to be able to connect the bridge relay node to the RPC interface of nodes
-on each side of the bridge (source and target chain).
+To run the Bridge you need to be able to connect the bridge relay node to the RPC interface of nodes on each side of the
+bridge (source and target chain).
 
 There are 2 ways to run the bridge, described below:
 
-- building & running from source: with this option, you'll be able to run the bridge between two standalone
-chains that are running GRANDPA finality gadget to achieve finality;
+- building & running from source: with this option, you'll be able to run the bridge between two standalone chains that
+are running GRANDPA finality gadget to achieve finality;
 
-- running a Docker Compose setup: this is a recommended option, where you'll see bridges with parachains,
-complex relays and more.
+- running a Docker Compose setup: this is a recommended option, where you'll see bridges with parachains, complex relays
+and more.
 
 ### Using the Source
 
@@ -141,16 +138,15 @@ cargo build -p substrate-relay
 
 ### Running a Dev network
 
-We will launch a dev network to demonstrate how to relay a message between two Substrate based
-chains (named Rialto and Millau).
+We will launch a dev network to demonstrate how to relay a message between two Substrate based chains (named Rialto and
+Millau).
 
-To do this we will need two nodes, two relayers which will relay headers, and two relayers which
-will relay messages.
+To do this we will need two nodes, two relayers which will relay headers, and two relayers which will relay messages.
 
 #### Running from local scripts
 
-To run a simple dev network you can use the scripts located in the
-[`deployments/local-scripts` folder](./deployments/local-scripts).
+To run a simple dev network you can use the scripts located in the [`deployments/local-scripts`
+folder](./deployments/local-scripts).
 
 First, we must run the two Substrate nodes.
 
@@ -167,8 +163,8 @@ After the nodes are up we can run the header relayers.
 ./deployments/local-scripts/relay-rialto-to-millau.sh
 ```
 
-At this point you should see the relayer submitting headers from the Millau Substrate chain to the
-Rialto Substrate chain.
+At this point you should see the relayer submitting headers from the Millau Substrate chain to the Rialto Substrate
+chain.
 
 ```
 # Header Relayer Logs
@@ -192,20 +188,23 @@ You will also see the message lane relayers listening for new messages.
 [Millau_to_Rialto_MessageLane_00000000] [date] DEBUG bridge Asking Millau::ReceivingConfirmationsDelivery about best message nonces
 [...] [date] INFO bridge Synced Some(2) of Some(3) nonces in Millau::MessagesDelivery -> Rialto::MessagesDelivery race
 [...] [date] DEBUG bridge Asking Millau::MessagesDelivery about message nonces
-[...] [date] DEBUG bridge Received best nonces from Millau::ReceivingConfirmationsDelivery: TargetClientNonces { latest_nonce: 0, nonces_data: () }
+[...] [date] DEBUG bridge Received best nonces from Millau::ReceivingConfirmationsDelivery: TargetClientNonces {
+	  latest_nonce: 0, nonces_data: () }
 [...] [date] DEBUG bridge Asking Millau::ReceivingConfirmationsDelivery about finalized message nonces
-[...] [date] DEBUG bridge Received finalized nonces from Millau::ReceivingConfirmationsDelivery: TargetClientNonces { latest_nonce: 0, nonces_data: () }
+[...] [date] DEBUG bridge Received finalized nonces from Millau::ReceivingConfirmationsDelivery: TargetClientNonces {
+	  latest_nonce: 0, nonces_data: () }
 [...] [date] DEBUG bridge Received nonces from Millau::MessagesDelivery: SourceClientNonces { new_nonces: {}, confirmed_nonce: Some(0) }
 [...] [date] DEBUG bridge Asking Millau node about its state
-[...] [date] DEBUG bridge Received state from Millau node: ClientState { best_self: HeaderId(1593, 0xacac***), best_finalized_self: HeaderId(1590, 0x0be81d...), best_finalized_peer_at_best_self: HeaderId(0, 0xdcdd89...) }
+[...] [date] DEBUG bridge Received state from Millau node: ClientState { best_self: HeaderId(1593, 0xacac***), best_finalized_self:
+       HeaderId(1590, 0x0be81d...), best_finalized_peer_at_best_self: HeaderId(0, 0xdcdd89...) }
 ```
 
 To send a message see the ["How to send a message" section](#how-to-send-a-message).
 
 ### How to send a message
 
-In this section we'll show you how to quickly send a bridge message. The message is just an encoded XCM
-`Trap(43)` message.
+In this section we'll show you how to quickly send a bridge message. The message is just an encoded XCM `Trap(43)`
+message.
 
 ```bash
 # In `parity-bridges-common` folder
@@ -222,20 +221,20 @@ TRACE bridge Sent transaction to Millau node: 0x5e68...
 And at the Rialto node logs you'll something like this:
 
 ```
-... runtime::bridge-messages: Received messages: total=1, valid=1. Weight used: Weight(ref_time: 1215065371, proof_size: 48559)/Weight(ref_time: 1215065371, proof_size: 54703).
-``` 
+... runtime::bridge-messages: Received messages: total=1, valid=1. Weight used: Weight(ref_time: 1215065371, proof_size:
+    48559)/Weight(ref_time: 1215065371, proof_size: 54703).
+```
 
-It means that the message has been delivered and dispatched. Message may be dispatched with an
-error, though - the goal of our test bridge is to ensure that messages are successfully delivered
-and all involved components are working.
+It means that the message has been delivered and dispatched. Message may be dispatched with an error, though - the goal
+of our test bridge is to ensure that messages are successfully delivered and all involved components are working.
 
 ## Full Network Docker Compose Setup
 
-For a more sophisticated deployment which includes bidirectional header sync, message passing,
-monitoring dashboards, etc. see the [Deployments README](./deployments/README.md).
+For a more sophisticated deployment which includes bidirectional header sync, message passing, monitoring dashboards,
+etc. see the [Deployments README](./deployments/README.md).
 
-You should note that you can find images for all the bridge components published on
-[Docker Hub](https://hub.docker.com/u/paritytech).
+You should note that you can find images for all the bridge components published on [Docker
+Hub](https://hub.docker.com/u/paritytech).
 
 To run a Rialto node for example, you can use the following command:
 
@@ -247,13 +246,12 @@ docker run -p 30333:30333 -p 9933:9933 -p 9944:9944 \
 
 ## Community
 
-Main hangout for the community is [Element](https://element.io/) (formerly Riot). Element is a chat
-server like, for example, Discord. Most discussions around Polkadot and Substrate happen
-in various Element "rooms" (channels). So, joining Element might be a good idea, anyway.
+Main hangout for the community is [Element](https://element.io/) (formerly Riot). Element is a chat server like, for
+example, Discord. Most discussions around Polkadot and Substrate happen in various Element "rooms" (channels). So,
+joining Element might be a good idea, anyway.
 
-If you are interested in information exchange and development of Polkadot related bridges please
-feel free to join the [Polkadot Bridges](https://app.element.io/#/room/#bridges:web3.foundation)
-Element channel.
+If you are interested in information exchange and development of Polkadot related bridges please feel free to join the
+[Polkadot Bridges](https://app.element.io/#/room/#bridges:web3.foundation) Element channel.
 
-The [Substrate Technical](https://app.element.io/#/room/#substrate-technical:matrix.org) Element
-channel is most suited for discussions regarding Substrate itself.
+The [Substrate Technical](https://app.element.io/#/room/#substrate-technical:matrix.org) Element channel is most suited
+for discussions regarding Substrate itself.
