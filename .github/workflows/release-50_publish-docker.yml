@@ -95,9 +95,6 @@ jobs:
 
           fetch_release_artifacts
 
-          chmod a+x release-artifacts/$BINARY
-          ls -al
-
       - name: Cache the artifacts
         uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
@@ -122,17 +119,17 @@ jobs:
             ./release-artifacts/**/*
 
       - name: Check sha256 ${{ env.BINARY }}
-        working-directory: ./release-artifacts
+        working-directory: ./release-artifacts/${{ env.BINARY }}
         run: |
-          . ../.gitlab/common/lib.sh
+          . ../../.gitlab/common/lib.sh
 
           echo "Checking binary $BINARY"
           check_sha256 $BINARY && echo "OK" || echo "ERR"
 
       - name: Check GPG ${{ env.BINARY }}
-        working-directory: ./release-artifacts
+        working-directory: ./release-artifacts/${{ env.BINARY }}
         run: |
-          . ../.gitlab/common/lib.sh
+          . ../../.gitlab/common/lib.sh
           import_gpg_keys
           check_gpg $BINARY
 
@@ -151,6 +148,7 @@ jobs:
           echo "No tag, doing without"
 
       - name: Fetch release tags
+        working-directory: ./release-artifacts/${{ env.BINARY }}
         if: ${{ env.IMAGE_TYPE == 'release'}}
         id: fetch_release_refs
         run: |
