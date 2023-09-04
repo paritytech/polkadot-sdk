@@ -338,7 +338,7 @@ pub fn subsystem_test_harness<M, OverseerFactory, Overseer, TestFactory, Test>(
 	});
 }
 
-/// A forward subsystem that implements [`Subsystem`].
+/// A forward subsystem that implements [`Subsystem`](overseer::Subsystem).
 ///
 /// It forwards all communication from the overseer to the internal message
 /// channel.

@@ -43,7 +43,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers::mock::{fresh_leaf, make_ferdie_keystore};
 use polkadot_primitives::{
-	GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec, SessionInfo, ValidationCode,
+	ExecutorParams, GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec, SessionInfo,
+	ValidationCode,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt, dummy_hash, AlwaysZeroRng,
@@ -822,6 +823,17 @@ fn receiving_from_one_sends_to_another_and_to_candidate_backing() {
 			}
 		);
 
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::SessionExecutorParams(sess_index, tx))
+			)
+				if r == hash_a && sess_index == session_index
+			=> {
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
+			}
+		);
+
 		// notify of peers and view
 		handle
 			.send(FromOrchestra::Communication {
@@ -1048,6 +1060,17 @@ fn receiving_large_statement_from_one_sends_to_another_and_to_candidate_backing(
 				if r == hash_a && sess_index == session_index
 			=> {
 				let _ = tx.send(Ok(Some(session_info)));
+			}
+		);
+
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::SessionExecutorParams(sess_index, tx))
+			)
+				if r == hash_a && sess_index == session_index
+			=> {
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
 			}
 		);
 
@@ -1570,6 +1593,17 @@ fn delay_reputation_changes() {
 			}
 		);
 
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::SessionExecutorParams(sess_index, tx))
+			)
+				if r == hash_a && sess_index == session_index
+			=> {
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
+			}
+		);
+
 		// notify of peers and view
 		handle
 			.send(FromOrchestra::Communication {
@@ -2039,6 +2073,17 @@ fn share_prioritizes_backing_group() {
 			}
 		);
 
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::SessionExecutorParams(sess_index, tx))
+			)
+				if r == hash_a && sess_index == session_index
+			=> {
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
+			}
+		);
+
 		// notify of dummy peers and view
 		for (peer, pair) in dummy_peers.clone().into_iter().zip(dummy_pairs) {
 			handle
@@ -2350,6 +2395,17 @@ fn peer_cant_flood_with_large_statements() {
 			}
 		);
 
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::SessionExecutorParams(sess_index, tx))
+			)
+				if r == hash_a && sess_index == session_index
+			=> {
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
+			}
+		);
+
 		// notify of peers and view
 		handle
 			.send(FromOrchestra::Communication {
@@ -2561,6 +2617,17 @@ fn handle_multiple_seconded_statements() {
 				if r == relay_parent_hash && sess_index == session_index
 			=> {
 				let _ = tx.send(Ok(Some(session_info)));
+			}
+		);
+
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::SessionExecutorParams(sess_index, tx))
+			)
+				if r == relay_parent_hash && sess_index == session_index
+			=> {
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
 			}
 		);
 

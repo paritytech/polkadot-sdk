@@ -46,8 +46,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	CandidateHash, CoreState, GroupIndex, Hash, Id as ParaId, ScheduledCore, SessionInfo,
-	ValidatorIndex,
+	CandidateHash, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId, ScheduledCore,
+	SessionInfo, ValidatorIndex,
 };
 use test_helpers::mock::{fresh_leaf, make_ferdie_keystore};
 
@@ -258,6 +258,10 @@ impl TestState {
 						},
 						RuntimeApiRequest::SessionInfo(_, tx) => {
 							tx.send(Ok(Some(self.session_info.clone())))
+								.expect("Receiver should be alive.");
+						},
+						RuntimeApiRequest::SessionExecutorParams(_, tx) => {
+							tx.send(Ok(Some(ExecutorParams::default())))
 								.expect("Receiver should be alive.");
 						},
 						RuntimeApiRequest::AvailabilityCores(tx) => {

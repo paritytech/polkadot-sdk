@@ -188,7 +188,7 @@ pub mod pallet {
 		}
 
 		fn on_idle(_: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-			let mut meter = WeightMeter::from_limit(remaining_weight);
+			let mut meter = WeightMeter::with_limit(remaining_weight);
 			if meter.try_consume(T::WeightInfo::empty_on_idle()).is_err() {
 				return T::WeightInfo::empty_on_idle()
 			}
@@ -197,7 +197,7 @@ pub mod pallet {
 				Storage::<T>::get().saturating_mul_int(meter.remaining().proof_size());
 			let computation_weight_limit =
 				Compute::<T>::get().saturating_mul_int(meter.remaining().ref_time());
-			let mut meter = WeightMeter::from_limit(Weight::from_parts(
+			let mut meter = WeightMeter::with_limit(Weight::from_parts(
 				computation_weight_limit,
 				proof_size_limit,
 			));

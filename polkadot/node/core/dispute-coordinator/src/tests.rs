@@ -62,9 +62,9 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_primitives::{
 	ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CandidateReceipt, CoreIndex, DisputeStatement, GroupIndex, Hash, HeadData, Header, IndexedVec,
-	MultiDisputeStatementSet, ScrapedOnChainVotes, SessionIndex, SessionInfo, SigningContext,
-	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
+	CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex, Hash, HeadData,
+	Header, IndexedVec, MultiDisputeStatementSet, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 use crate::{
@@ -339,6 +339,17 @@ impl TestState {
 									assert_eq!(h, block_hash);
 									assert_eq!(session_index, i);
 									let _ = tx.send(Ok(Some(self.session_info())));
+								}
+							);
+							assert_matches!(
+								overseer_recv(virtual_overseer).await,
+								AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+									h,
+									RuntimeApiRequest::SessionExecutorParams(session_index, tx),
+								)) => {
+									assert_eq!(h, block_hash);
+									assert_eq!(session_index, i);
+									let _ = tx.send(Ok(Some(ExecutorParams::default())));
 								}
 							);
 						}
@@ -3471,6 +3482,16 @@ fn session_info_is_requested_only_once() {
 					let _ = tx.send(Ok(Some(test_state.session_info())));
 				}
 			);
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::SessionExecutorParams(session_index, tx),
+				)) => {
+					assert_eq!(session_index, 2);
+					let _ = tx.send(Ok(Some(ExecutorParams::default())));
+				}
+			);
 			test_state
 		})
 	});
@@ -3521,6 +3542,16 @@ fn session_info_big_jump_works() {
 						let _ = tx.send(Ok(Some(test_state.session_info())));
 					}
 				);
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::SessionExecutorParams(session_index, tx),
+					)) => {
+						assert_eq!(session_index, expected_idx);
+						let _ = tx.send(Ok(Some(ExecutorParams::default())));
+					}
+				);
 			}
 			test_state
 		})
@@ -3569,6 +3600,16 @@ fn session_info_small_jump_works() {
 					)) => {
 						assert_eq!(session_index, expected_idx);
 						let _ = tx.send(Ok(Some(test_state.session_info())));
+					}
+				);
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::SessionExecutorParams(session_index, tx),
+					)) => {
+						assert_eq!(session_index, expected_idx);
+						let _ = tx.send(Ok(Some(ExecutorParams::default())));
 					}
 				);
 			}
