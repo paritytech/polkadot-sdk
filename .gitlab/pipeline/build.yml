@@ -124,7 +124,7 @@ build-rustdoc:
         local path="$1"
         local script_content="<script async defer src=\"https://apisa.parity.io/latest.js\"></script><noscript><img src=\"https://apisa.parity.io/latest.js\" alt=\"\" referrerpolicy=\"no-referrer-when-downgrade\" /></noscript>"
 
-        # Define a function that injects our script into the head of an html file.
+        # Function that inject script into the head of an html file using sed.
         process_file() {
             local file="$1"
             echo "Adding Simple Analytics script to $file"
@@ -132,7 +132,7 @@ build-rustdoc:
         }
         export -f process_file
 
-        # Locate all .html files under the documentation root and use xargs to process in parallel.
+        # Locate all .html files under the documentation root and use xargs to modify them in parallel.
         find "$path" -name '*.html' | xargs -I {} -P "$(nproc)" bash -c 'process_file "$@"' _ {}
       }
       inject_simple_analytics "./crate-docs"
