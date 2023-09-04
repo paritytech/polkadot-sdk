@@ -46,7 +46,7 @@ on:
         type: choice
         options:
           - polkadot
-          - stacking-miner
+          - staking-miner
           - polkadot-parachain
 
 permissions:
