@@ -229,7 +229,7 @@ pub mod pallet {
 		AlreadyStored,
 		/// A [`MultisigExpiries`] entry cannot be created for a non-existent [`Multisig`].
 		UnexpectedExpiry,
-		/// The multisig operation got expired.
+		/// The multisig operation has expired.
 		MultisigExpired,
 		/// The multisig has not expired.
 		MultisigNotExpired,
