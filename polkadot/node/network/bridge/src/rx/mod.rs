@@ -320,6 +320,8 @@ async fn handle_validation_message<AD>(
 				w
 			};
 
+			notification_sinks.lock().remove(&(peer_set, peer));
+
 			if was_connected && version == peer_set.get_main_version() {
 				dispatch_validation_event_to_all(
 					NetworkBridgeEvent::PeerDisconnected(peer),
@@ -562,6 +564,8 @@ async fn handle_collation_message<AD>(
 
 				w
 			};
+
+			notification_sinks.lock().remove(&(peer_set, peer));
 
 			if was_connected && version == peer_set.get_main_version() {
 				dispatch_collation_event_to_all(NetworkBridgeEvent::PeerDisconnected(peer), sender)
