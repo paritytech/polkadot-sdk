@@ -19,7 +19,7 @@ use crate::cli::{chain_schema::*, Balance};
 use codec::Encode;
 use frame_support::Twox64Concat;
 use num_traits::Zero;
-use polkadot_parachain::primitives::{
+use polkadot_parachain_primitives::primitives::{
 	HeadData as ParaHeadData, Id as ParaId, ValidationCode as ParaValidationCode,
 };
 use polkadot_runtime_common::{

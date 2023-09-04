@@ -194,7 +194,7 @@ impl HeaderBuilder {
 			beefy_next_authority_set: BeefyNextAuthoritySet {
 				id: next_validator_set_id,
 				len: next_validators.len() as u32,
-				root: next_validators_mmr_root,
+				keyset_commitment: next_validators_mmr_root,
 			},
 			leaf_extra: (),
 		};

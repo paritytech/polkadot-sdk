@@ -11,7 +11,7 @@ async-std = "1.6.5"
 async-trait = "0.1"
 bp-header-chain = { path = "../../primitives/header-chain" }
 finality-relay = { path = "../finality" }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master" }
+frame-support = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 futures = "0.3.28"
 log = "0.4.20"
 num-traits = "0.2"

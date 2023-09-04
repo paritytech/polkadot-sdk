@@ -17,21 +17,21 @@ bp-xcm-bridge-hub-router = { path = "../../primitives/xcm-bridge-hub-router", de
 
 # Substrate Dependencies
 
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false, optional = true }
+frame-support = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+frame-system = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+sp-std = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 
 # Polkadot Dependencies
 
-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "master" }
-xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "master" }
+xcm = { package = "staging-xcm", git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 
 [dev-dependencies]
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-io = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-std = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 
 [features]
 default = [ "std" ]

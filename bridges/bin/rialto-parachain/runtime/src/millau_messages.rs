@@ -28,7 +28,8 @@ use bridge_runtime_common::{
 	},
 	messages_xcm_extension::{SenderAndLane, XcmBlobHauler, XcmBlobHaulerAdapter},
 };
-use frame_support::{parameter_types, weights::Weight, RuntimeDebug};
+use frame_support::{parameter_types, weights::Weight};
+use sp_runtime::RuntimeDebug;
 use xcm::latest::prelude::*;
 use xcm_builder::HaulBlobExporter;
 

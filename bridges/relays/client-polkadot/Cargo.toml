@@ -21,8 +21,8 @@ relay-utils = { path = "../utils" }
 
 # Substrate Dependencies
 
-sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-session = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-weights = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-session = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-weights = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
