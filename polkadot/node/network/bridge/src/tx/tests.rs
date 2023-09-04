@@ -138,26 +138,6 @@ fn new_test_network(
 	)
 }
 
-// wait until all needed validation and collation peers have connected.
-async fn await_peer_connections(
-	shared: &Shared,
-	num_validation_peers: usize,
-	num_collation_peers: usize,
-) {
-	loop {
-		{
-			let shared = shared.0.lock();
-			if shared.validation_peers.len() == num_validation_peers &&
-				shared.collation_peers.len() == num_collation_peers
-			{
-				break
-			}
-		}
-
-		futures_timer::Delay::new(std::time::Duration::from_millis(100)).await;
-	}
-}
-
 #[async_trait]
 impl Network for TestNetwork {
 	async fn set_reserved_peers(

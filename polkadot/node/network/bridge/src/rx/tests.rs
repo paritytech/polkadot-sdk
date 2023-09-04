@@ -25,7 +25,6 @@ use parking_lot::Mutex;
 use std::{
 	collections::HashSet,
 	sync::atomic::{AtomicBool, Ordering},
-	task::Poll,
 };
 
 use sc_network::{
@@ -51,7 +50,7 @@ use polkadot_node_subsystem_test_helpers::{
 	SingleItemSink, SingleItemStream, TestSubsystemContextHandle,
 };
 use polkadot_node_subsystem_util::metered;
-use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, Hash};
+use polkadot_primitives::{AuthorityDiscoveryId, Hash};
 
 use sp_keyring::Sr25519Keyring;
 
@@ -1495,6 +1494,9 @@ fn network_protocol_versioning_view_update() {
 #[test]
 #[cfg(feature = "network-protocol-staging")]
 fn network_protocol_versioning_subsystem_msg() {
+	use polkadot_primitives::CandidateHash;
+	use std::task::Poll;
+
 	let (oracle, _handle) = make_sync_oracle(false);
 	test_harness(Box::new(oracle), |test_harness| async move {
 		let TestHarness { mut network_handle, mut virtual_overseer, shared } = test_harness;
