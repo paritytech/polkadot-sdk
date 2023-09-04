@@ -124,7 +124,6 @@ fn glutton_genesis(
 		},
 		fixed: glutton_runtime::FixedConfig {
 			collators: collators.iter().cloned().map(|(acc, _)| acc).collect(),
-			..Default::default()
 		},
 		session: glutton_runtime::SessionConfig {
 			keys: collators
