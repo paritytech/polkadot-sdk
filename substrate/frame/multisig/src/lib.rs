@@ -37,8 +37,11 @@
 //!
 //! * `as_multi` - Approve and if possible dispatch a call from a composite origin formed from a
 //!   number of signed origins.
-//! * `approve_as_multi` - Approve a call from a composite origin.
+//! * `approve_as_multi_deprecated` - Approve a call from a composite origin. Should use the
+//!   `approve_as_multi` extrinsic instead.
 //! * `cancel_as_multi` - Cancel a call from a composite origin.
+//! * `approve_as_multi` - Approve a call from a composite origin.
+//! * `clear_expired_multi` - Removes an expired multisig operation from storage.
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -520,7 +523,12 @@ pub mod pallet {
 
 			Self::remove_multisig(&id, call_hash, &m.depositor, m.deposit, maybe_expiry);
 
-			Self::deposit_event(Event::MultisigCancelled { cancelling: who, timepoint, multisig: id, call_hash });
+			Self::deposit_event(Event::MultisigCancelled {
+				cancelling: who,
+				timepoint,
+				multisig: id,
+				call_hash,
+			});
 			Ok(())
 		}
 
@@ -545,13 +553,13 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(S)`.
 		/// - Up to one balance-reserve or unreserve operation.
-		/// - At most two inserts, both `O(S)` where `S` is the number of signatories. 
-		///   `S` is capped by `MaxSignatories`, with weight being proportional.
+		/// - At most two inserts, both `O(S)` where `S` is the number of signatories. `S` is capped
+		///   by `MaxSignatories`, with weight being proportional.
 		/// - One encode & hash, both of complexity `O(S)`.
 		/// - Up to one binary search and insert (`O(logS + S)`).
 		/// - I/O: 2 reads `O(S)`, up to 2 mutations `O(S)`. Up to two removes.
 		/// - One event.
-		/// - Storage: inserts up to two items. One of them is bounded by `MaxSignatories`, with a 
+		/// - Storage: inserts up to two items. One of them is bounded by `MaxSignatories`, with a
 		///   deposit taken for its lifetime of `DepositBase + threshold * DepositFactor`. The other
 		///   value is a `BlockNumber`.
 		#[pallet::call_index(4)]
@@ -598,8 +606,8 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(S)`.
 		/// - Up to one balance-reserve or unreserve operation.
-		/// - At most two inserts, both `O(S)` where `S` is the number of signatories. 
-		///   `S` is capped by `MaxSignatories`, with weight being proportional.
+		/// - At most two inserts, both `O(S)` where `S` is the number of signatories. `S` is capped
+		///   by `MaxSignatories`, with weight being proportional.
 		/// - One encode & hash, both of complexity `O(S)`.
 		/// - One event.
 		/// - I/O: 2 reads `O(S)`, up to two removes.
@@ -630,7 +638,12 @@ pub mod pallet {
 			// Clean up all the state that is not needed anymore since the multisig expired.
 			Self::remove_multisig(&id, call_hash, &m.depositor, m.deposit, Some(expiry));
 
-			Self::deposit_event(Event::MultisigCancelled { cancelling: who, timepoint, multisig: id, call_hash });
+			Self::deposit_event(Event::MultisigCancelled {
+				cancelling: who,
+				timepoint,
+				multisig: id,
+				call_hash,
+			});
 
 			Ok(())
 		}
@@ -864,7 +877,8 @@ impl<T: Config> Pallet<T> {
 	///
 	/// ## Invariants:
 	///
-	/// * Each multisig in [`MultisigExpiries`] must have an entry inside the [`Multisigs`] storage map.
+	/// * Each multisig in [`MultisigExpiries`] must have an entry inside the [`Multisigs`] storage
+	///   map.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		<MultisigExpiries<T>>::iter_keys().try_for_each(|(id, call_hash)| {
