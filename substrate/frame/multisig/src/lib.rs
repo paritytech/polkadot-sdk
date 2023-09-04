@@ -410,6 +410,7 @@ pub mod pallet {
 		}
 
 		/// DEPRECATED: Use the `approve_as_multi` extrinsic instead.
+		/// It will be removed after March 2024.
 		///
 		/// This extrinsic sets the expiry to `None`, while the `approve_as_multi` will allow you
 		/// to set it to a certain block number.
