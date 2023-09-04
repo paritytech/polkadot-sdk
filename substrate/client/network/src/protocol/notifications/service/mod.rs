@@ -54,15 +54,19 @@ const COMMAND_QUEUE_SIZE: usize = 64;
 type Subscribers = Arc<Mutex<Vec<TracingUnboundedSender<InnerNotificationEvent>>>>;
 
 /// Type represending a distributable message sink.
+/// Detached message sink must carry the protocol name for registering metrics.
 ///
 /// See documentation for [`PeerContext`] for more details.
-type NotificationSink = Arc<Mutex<NotificationsSink>>;
+type NotificationSink = Arc<Mutex<(NotificationsSink, ProtocolName)>>;
 
 #[async_trait::async_trait]
 impl MessageSink for NotificationSink {
 	/// Send synchronous `notification` to the peer associated with this [`MessageSink`].
 	fn send_sync_notification(&self, notification: Vec<u8>) {
-		self.lock().send_sync_notification(notification);
+		let sink = self.lock();
+
+		metrics::register_notification_sent(&sink.0.metrics(), &sink.1, notification.len());
+		sink.0.send_sync_notification(notification);
 	}
 
 	/// Send an asynchronous `notification` to to the peer associated with this [`MessageSink`],
@@ -73,9 +77,18 @@ impl MessageSink for NotificationSink {
 		// notification sink must be cloned because the lock cannot be held across `.await`
 		// this makes the implementation less efficient but not prohibitively so as the same
 		// method is also used by `NetworkService` when sending notifications.
+		let notification_len = notification.len();
 		let sink = self.lock().clone();
-		let sink = sink.reserve_notification().await.map_err(|_| error::Error::ConnectionClosed)?;
-		sink.send(notification).map_err(|_| error::Error::ChannelClosed)
+		let permit = sink
+			.0
+			.reserve_notification()
+			.await
+			.map_err(|_| error::Error::ConnectionClosed)?;
+
+		permit.send(notification).map_err(|_| error::Error::ChannelClosed).map(|res| {
+			metrics::register_notification_sent(&sink.0.metrics(), &sink.1, notification_len);
+			res
+		})
 	}
 }
 
@@ -218,6 +231,12 @@ impl NotificationService for NotificationHandle {
 		log::trace!(target: LOG_TARGET, "{}: send sync notification to {peer:?}", self.protocol);
 
 		if let Some(info) = self.peers.get(&peer) {
+			metrics::register_notification_sent(
+				&info.sink.metrics(),
+				&self.protocol,
+				notification.len(),
+			);
+
 			let _ = info.sink.send_sync_notification(notification);
 		}
 	}
@@ -230,15 +249,22 @@ impl NotificationService for NotificationHandle {
 	) -> Result<(), error::Error> {
 		log::trace!(target: LOG_TARGET, "{}: send async notification to {peer:?}", self.protocol);
 
-		self.peers
-			.get(&peer)
-			.ok_or_else(|| error::Error::PeerDoesntExist(*peer))?
-			.sink
-			.reserve_notification()
+		let notification_len = notification.len();
+		let sink = &self.peers.get(&peer).ok_or_else(|| error::Error::PeerDoesntExist(*peer))?.sink;
+
+		sink.reserve_notification()
 			.await
 			.map_err(|_| error::Error::ConnectionClosed)?
 			.send(notification)
 			.map_err(|_| error::Error::ChannelClosed)
+			.map(|res| {
+				metrics::register_notification_sent(
+					&sink.metrics(),
+					&self.protocol,
+					notification_len,
+				);
+				res
+			})
 	}
 
 	/// Set handshake for the notification protocol replacing the old handshake.
@@ -267,7 +293,10 @@ impl NotificationService for NotificationHandle {
 				} => {
 					self.peers.insert(
 						peer,
-						PeerContext { sink: sink.clone(), shared_sink: Arc::new(Mutex::new(sink)) },
+						PeerContext {
+							sink: sink.clone(),
+							shared_sink: Arc::new(Mutex::new((sink, self.protocol.clone()))),
+						},
 					);
 					return Some(NotificationEvent::NotificationStreamOpened {
 						peer,
@@ -290,7 +319,7 @@ impl NotificationService for NotificationHandle {
 						),
 						Some(context) => {
 							context.sink = sink.clone();
-							*context.shared_sink.lock() = sink.clone();
+							*context.shared_sink.lock() = (sink.clone(), self.protocol.clone());
 						},
 					}
 				},

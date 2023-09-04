@@ -109,28 +109,6 @@ const OPEN_TIMEOUT: Duration = Duration::from_secs(10);
 /// open substreams.
 const INITIAL_KEEPALIVE_TIME: Duration = Duration::from_secs(5);
 
-/// Metrics-related information.
-#[derive(Debug)]
-pub struct MetricsInfo {
-	/// Protocol name.
-	protocol: ProtocolName,
-
-	/// Metrics.
-	metrics: Option<metrics::Metrics>,
-}
-
-impl MetricsInfo {
-	/// Create new [`MetricsInfo`].
-	pub fn new(protocol: ProtocolName, metrics: Option<metrics::Metrics>) -> Self {
-		Self { protocol, metrics }
-	}
-
-	/// Create new empty [`MetricsInfo`].
-	pub fn new_empty() -> Self {
-		Self { protocol: ProtocolName::from(""), metrics: None }
-	}
-}
-
 /// The actual handler once the connection has been established.
 ///
 /// See the documentation at the module level for more information.
@@ -152,8 +130,8 @@ pub struct NotifsHandler {
 		ConnectionHandlerEvent<NotificationsOut, usize, NotifsHandlerOut, NotifsHandlerError>,
 	>,
 
-	/// Metrics-related information.
-	metrics_info: Vec<Arc<MetricsInfo>>,
+	/// Metrics.
+	metrics: Option<Arc<metrics::Metrics>>,
 }
 
 impl NotifsHandler {
@@ -164,11 +142,6 @@ impl NotifsHandler {
 		protocols: Vec<ProtocolConfig>,
 		metrics: Option<metrics::Metrics>,
 	) -> Self {
-		let metrics_info = protocols
-			.iter()
-			.map(|config| Arc::new(MetricsInfo::new(config.name.clone(), metrics.clone())))
-			.collect();
-
 		Self {
 			protocols: protocols
 				.into_iter()
@@ -186,7 +159,7 @@ impl NotifsHandler {
 			endpoint,
 			when_connection_open: Instant::now(),
 			events_queue: VecDeque::with_capacity(16),
-			metrics_info,
+			metrics: metrics.map_or(None, |metrics| Some(Arc::new(metrics))),
 		}
 	}
 }
@@ -372,11 +345,12 @@ pub enum NotifsHandlerOut {
 #[derive(Debug, Clone)]
 pub struct NotificationsSink {
 	inner: Arc<NotificationsSinkInner>,
+	metrics: Option<Arc<metrics::Metrics>>,
 }
 
-// NOTE: only used for testing but must be `pub` as other crates in `client/network` use this.
 impl NotificationsSink {
 	/// Create new
+	/// NOTE: only used for testing but must be `pub` as other crates in `client/network` use this.
 	pub fn new(
 		peer_id: PeerId,
 	) -> (Self, mpsc::Receiver<NotificationsSinkMessage>, mpsc::Receiver<NotificationsSinkMessage>)
@@ -389,12 +363,17 @@ impl NotificationsSink {
 					peer_id,
 					async_channel: FuturesMutex::new(async_tx),
 					sync_channel: Mutex::new(Some(sync_tx)),
-					metrics_info: Arc::new(MetricsInfo::new_empty()),
 				}),
+				metrics: None,
 			},
 			async_rx,
 			sync_rx,
 		)
+	}
+
+	/// Get reference to metrics.
+	pub fn metrics(&self) -> &Option<Arc<metrics::Metrics>> {
+		&self.metrics
 	}
 }
 
@@ -411,8 +390,6 @@ struct NotificationsSinkInner {
 	/// back-pressure cannot be properly exerted.
 	/// It will be removed in a future version.
 	sync_channel: Mutex<Option<mpsc::Sender<NotificationsSinkMessage>>>,
-	/// Metrics-related information.
-	metrics_info: Arc<MetricsInfo>,
 }
 
 /// Message emitted through the [`NotificationsSink`] and processed by the background task
@@ -447,12 +424,6 @@ impl NotificationsSink {
 
 		if let Some(tx) = lock.as_mut() {
 			let message = message.into();
-			metrics::register_notification_sent(
-				&self.inner.metrics_info.metrics,
-				&self.inner.metrics_info.protocol,
-				message.len(),
-			);
-
 			let result = tx.try_send(NotificationsSinkMessage::Notification { message });
 
 			if result.is_err() {
@@ -606,8 +577,8 @@ impl ConnectionHandler for NotifsHandler {
 								peer_id: self.peer_id,
 								async_channel: FuturesMutex::new(async_tx),
 								sync_channel: Mutex::new(Some(sync_tx)),
-								metrics_info: self.metrics_info[protocol_index].clone(),
 							}),
+							metrics: self.metrics.clone(),
 						};
 
 						self.protocols[protocol_index].state = State::Open {
@@ -957,8 +928,8 @@ pub mod tests {
 					peer_id: peer,
 					async_channel: FuturesMutex::new(async_tx),
 					sync_channel: Mutex::new(Some(sync_tx)),
-					metrics_info: Arc::new(MetricsInfo::new_empty()),
 				}),
+				metrics: None,
 			};
 			let (in_substream, out_substream) = MockSubstream::new();
 
@@ -1118,7 +1089,7 @@ pub mod tests {
 			},
 			peer_id: PeerId::random(),
 			events_queue: VecDeque::new(),
-			metrics_info: vec![Arc::new(MetricsInfo::new_empty())],
+			metrics: None,
 		}
 	}
 
@@ -1623,8 +1594,8 @@ pub mod tests {
 				peer_id: PeerId::random(),
 				async_channel: FuturesMutex::new(async_tx),
 				sync_channel: Mutex::new(Some(sync_tx)),
-				metrics_info: Arc::new(MetricsInfo::new_empty()),
 			}),
+			metrics: None,
 		};
 
 		handler.protocols[0].state = State::Open {

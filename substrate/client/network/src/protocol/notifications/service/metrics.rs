@@ -23,6 +23,8 @@ use prometheus_endpoint::{
 	U64,
 };
 
+use std::sync::Arc;
+
 /// Notification metrics.
 #[derive(Debug, Clone)]
 pub struct Metrics {
@@ -100,7 +102,11 @@ pub fn register_substream_closed(metrics: &Option<Metrics>, protocol: &ProtocolN
 }
 
 /// Register sent notification to Prometheus.
-pub fn register_notification_sent(metrics: &Option<Metrics>, protocol: &ProtocolName, size: usize) {
+pub fn register_notification_sent(
+	metrics: &Option<Arc<Metrics>>,
+	protocol: &ProtocolName,
+	size: usize,
+) {
 	if let Some(metrics) = metrics {
 		metrics
 			.notifications_sizes
