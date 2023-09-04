@@ -164,7 +164,30 @@ impl<T: Config> WasmBlob<T> {
 	///
 	/// Applies all necessary checks before removing the code.
 	pub fn remove(origin: &T::AccountId, code_hash: CodeHash<T>) -> DispatchResult {
-		Self::try_remove_code(origin, code_hash)
+		<CodeInfoOf<T>>::try_mutate_exists(&code_hash, |existing| {
+			if let Some(code_info) = existing {
+				ensure!(code_info.refcount == 0, <Error<T>>::CodeInUse);
+				ensure!(&code_info.owner == origin, BadOrigin);
+				let _ = T::Currency::release(
+					&HoldReason::CodeUploadDepositReserve.into(),
+					&code_info.owner,
+					code_info.deposit,
+					BestEffort,
+				);
+				let deposit_released = code_info.deposit;
+				let remover = code_info.owner.clone();
+
+				*existing = None;
+				<PristineCode<T>>::remove(&code_hash);
+				<Pallet<T>>::deposit_event(
+					vec![code_hash],
+					Event::CodeRemoved { code_hash, deposit_released, remover },
+				);
+				Ok(())
+			} else {
+				Err(<Error<T>>::CodeNotFound.into())
+			}
+		})
 	}
 
 	/// Creates and returns an instance of the supplied code.
@@ -258,36 +281,6 @@ impl<T: Config> WasmBlob<T> {
 			}
 		})
 	}
-
-	/// Try to remove code together with all associated information.
-	fn try_remove_code(origin: &T::AccountId, code_hash: CodeHash<T>) -> DispatchResult {
-		<CodeInfoOf<T>>::try_mutate_exists(&code_hash, |existing| {
-			if let Some(code_info) = existing {
-				ensure!(code_info.refcount == 0, <Error<T>>::CodeInUse);
-				ensure!(&code_info.owner == origin, BadOrigin);
-				let _ = T::Currency::release(
-					&HoldReason::CodeUploadDepositReserve.into(),
-					&code_info.owner,
-					code_info.deposit,
-					BestEffort,
-				);
-				let deposit_released = code_info.deposit;
-				let remover = code_info.owner.clone();
-
-				*existing = None;
-				<PristineCode<T>>::remove(&code_hash);
-				<Pallet<T>>::deposit_event(
-					vec![code_hash],
-					Event::CodeRemoved { code_hash, deposit_released, remover },
-				);
-				Ok(())
-			} else {
-				Err(<Error<T>>::CodeNotFound.into())
-			}
-		})
-	}
-
-
 
 	/// Create the module without checking the passed code.
 	///
