@@ -49,6 +49,9 @@ on:
           - stacking-miner
           - polkadot-parachain
 
+permissions:
+  contents: write
+
 env:
   RELEASE_ID: ${{ inputs.release_id }}
   ENGINE: docker
