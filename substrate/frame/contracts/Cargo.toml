@@ -61,9 +61,9 @@ wat = "1"
 
 # Polkadot Dependencies
 xcm-simulator = {path = "../../../polkadot/xcm/xcm-simulator"}
-polkadot-runtime-parachains = {path = "../../../polkadot/runtime/parachains"}
 xcm-builder = {package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder"}
-polkadot-parachain = { path = "../../../polkadot/parachain"  }
+polkadot-runtime-parachains = {path = "../../../polkadot/runtime/parachains"}
+polkadot-parachain-primitives = { path = "../../../polkadot/parachain"  }
 polkadot-primitives = { path = "../../../polkadot/primitives"  }
 
 # Substrate Dependencies

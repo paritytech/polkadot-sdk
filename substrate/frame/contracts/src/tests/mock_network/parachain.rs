@@ -33,7 +33,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_xcm::XcmPassthrough;
-use polkadot_parachain::primitives::Sibling;
+use polkadot_parachain_primitives::primitives::Sibling;
 use sp_core::{ConstU32, ConstU64, H256};
 use sp_runtime::traits::{Get, IdentityLookup, MaybeEquivalence};
 

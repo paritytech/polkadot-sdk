@@ -9371,7 +9371,7 @@ dependencies = [
  "pallet-utility",
  "pallet-xcm",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime-parachains",
  "pretty_assertions",
