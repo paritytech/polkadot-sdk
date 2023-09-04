@@ -53,7 +53,7 @@ sp-weights = { path = "../../../../../substrate/primitives/weights", default-fea
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false}
-polkadot-parachain = { path = "../../../../../polkadot/parachain", default-features = false}
+polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false}
 polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false}
 polkadot-runtime-constants = { path = "../../../../../polkadot/runtime/polkadot/constants", default-features = false}
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
@@ -105,7 +105,7 @@ runtime-benchmarks = [
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
-	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
@@ -180,7 +180,7 @@ std = [
 	"parachain-info/std",
 	"parachains-common/std",
 	"polkadot-core-primitives/std",
-	"polkadot-parachain/std",
+	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
 	"polkadot-runtime-constants/std",
 	"scale-info/std",

@@ -6,7 +6,7 @@ default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
 default_command = "substrate"
 
 chain = "gen-db"
-chain_spec_path = "substrate/zombienet/0003-block-building-warp-sync/chain-spec.json"
+chain_spec_path = "chain-spec.json"
 
   #we need at least 3 nodes for warp sync
   [[relaychain.nodes]]

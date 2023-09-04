@@ -23,7 +23,7 @@ pallet-transaction-payment = { path = "../../../substrate/frame/transaction-paym
 log = { version = "0.4.17", default-features = false }
 
 # Polkadot dependencies
-polkadot-parachain = { path = "../../parachain", default-features = false }
+polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
 
 [dev-dependencies]
 primitive-types = "0.12.1"
@@ -45,7 +45,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-salary/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
-	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-test-runtime/runtime-benchmarks",
 	"primitives/runtime-benchmarks",
@@ -58,7 +58,7 @@ std = [
 	"log/std",
 	"pallet-transaction-payment/std",
 	"parity-scale-codec/std",
-	"polkadot-parachain/std",
+	"polkadot-parachain-primitives/std",
 	"scale-info/std",
 	"sp-arithmetic/std",
 	"sp-io/std",

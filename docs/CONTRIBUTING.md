@@ -32,11 +32,11 @@ If it is an urgent fix with no large change to logic, then it may be merged afte
 contributor has reviewed it well and approved the review once CI is complete.
 No PR should be merged until all reviews' comments are addressed.
 
-### Labels:
+### Labels
 
 The set of labels and their description can be found [here](https://paritytech.github.io/labels/doc_polkadot-sdk.html).
 
-### Process:
+### Process
 
 1. Please use our [Pull Request Template](./PULL_REQUEST_TEMPLATE.md) and make sure all relevant
    information is reflected in your PR.
@@ -50,12 +50,12 @@ The set of labels and their description can be found [here](https://paritytech.g
    `T13-documentation`. The docs team will get in touch.
 5. If your PR changes files in these paths:
 
-   `polkadot` : '^runtime/polkadot'
-   `polkadot` : '^runtime/kusama'
-   `polkadot` : '^primitives/src/'
-   `polkadot` : '^runtime/common'
-   `substrate` : '^frame/'
-   `substrate` : '^primitives/'
+   `polkadot` : `^runtime/polkadot`
+   `polkadot` : `^runtime/kusama`
+   `polkadot` : `^primitives/src/`
+   `polkadot` : `^runtime/common`
+   `substrate` : `^frame/`
+   `substrate` : `^primitives/`
 
    It should be added to the [security audit board](https://github.com/orgs/paritytech/projects/103)
    and will need to undergo an audit before merge.
@@ -67,7 +67,7 @@ to change the code to make it work/compile.
 It should also mention potential storage migrations and if they require some special setup aside adding
 it to the list of migrations in the runtime.
 
-## Reviewing pull requests:
+## Reviewing pull requests
 
 When reviewing a pull request, the end-goal is to suggest useful changes to the author.
 Reviews should finish with approval unless there are issues that would result in:
@@ -96,9 +96,9 @@ d) that the docs team was included in the review process of a docs update
 
 We use [labels](https://github.com/paritytech/polkadot-sdk/labels) to manage PRs and issues and communicate
 state of a PR. Please familiarise yourself with them. Best way to get started is to a pick a ticket tagged
-`[easy](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD0-easy)`
-or `[medium](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD1-medium)`
-and get going or `[mentor](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AC1-mentor)`
+[easy](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD0-easy)
+or [medium](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD1-medium)
+and get going. Alternatively, look out for issues tagged [mentor](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AC1-mentor)
 and get in contact with the mentor offering their support on that larger task.
 
 ****
