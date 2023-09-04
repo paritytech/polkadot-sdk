@@ -486,7 +486,7 @@ impl Config for Test {
 	type MaxDelegateDependencies = MaxDelegateDependencies;
 	type Debug = TestDebug;
 	type Environment = ();
-	type Xcm = crate::xcm::NoopXcmConfig;
+	type Xcm = crate::xcm::Noop;
 }
 
 pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);

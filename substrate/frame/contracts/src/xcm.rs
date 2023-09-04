@@ -24,7 +24,6 @@ use xcm::{VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::QueryResponseStatus;
 pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
-// TODO move behind feature flag
 mod pallet_xcm_extension;
 
 pub trait XCM<T: Config> {
@@ -67,9 +66,9 @@ pub trait XCM<T: Config> {
 }
 
 /// A no-op implementation of [`XCM`].
-pub struct NoopXcmConfig;
+pub struct Noop;
 
-impl<T: Config> XCM<T> for NoopXcmConfig {
+impl<T: Config> XCM<T> for Noop {
 	type QueryId = ();
 	type WeightInfo = Self;
 	fn execute(
@@ -110,7 +109,7 @@ pub trait WeightInfo {
 	fn take_response() -> Weight;
 }
 
-impl WeightInfo for NoopXcmConfig {
+impl WeightInfo for Noop {
 	fn execute() -> Weight {
 		Weight::zero()
 	}

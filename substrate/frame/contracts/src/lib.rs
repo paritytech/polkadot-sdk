@@ -403,6 +403,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type Environment: Get<Environment<Self>>;
 
+		/// Type that expose XCM API, to allows contracts to interact with other parachains.
+		/// Implement `pallet-xcm` for your config and set to `Self` to enable XCM API.
 		type Xcm: crate::xcm::XCM<Self>;
 	}
 
