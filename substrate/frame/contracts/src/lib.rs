@@ -1005,7 +1005,7 @@ pub mod pallet {
 		/// in this error. Note that this usually  shouldn't happen as deploying such contracts
 		/// is rejected.
 		NoChainExtension,
-		/// TODO doc
+		/// Xcm function was invoked while the feature is disabled.
 		XcmDisabled,
 		/// A contract with the same AccountId already exists.
 		DuplicateContract,
