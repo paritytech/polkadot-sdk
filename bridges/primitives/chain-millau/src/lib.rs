@@ -29,7 +29,6 @@ use bp_runtime::{decl_bridge_finality_runtime_apis, decl_bridge_runtime_apis, Ch
 use frame_support::{
 	dispatch::DispatchClass,
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, IdentityFee, Weight},
-	RuntimeDebug,
 };
 use frame_system::limits;
 use scale_info::TypeInfo;
@@ -37,7 +36,7 @@ use serde::{Deserialize, Serialize};
 use sp_core::{storage::StateVersion, Hasher as HasherT};
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
-	MultiSignature, MultiSigner, Perbill,
+	MultiSignature, MultiSigner, Perbill, RuntimeDebug,
 };
 use sp_std::prelude::*;
 use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};

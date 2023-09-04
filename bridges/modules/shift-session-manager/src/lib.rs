@@ -122,16 +122,16 @@ mod tests {
 	use super::*;
 	use frame_support::{
 		parameter_types,
-		sp_io::TestExternalities,
 		sp_runtime::{
 			testing::UintAuthorityId,
 			traits::{BlakeTwo256, ConvertInto, IdentityLookup},
 			BuildStorage, Perbill, RuntimeAppPublic,
 		},
 		weights::Weight,
-		BasicExternalities,
 	};
 	use sp_core::H256;
+	use sp_io::TestExternalities;
+	use sp_state_machine::BasicExternalities;
 
 	type AccountId = u64;
 
