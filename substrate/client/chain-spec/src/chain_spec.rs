@@ -902,7 +902,7 @@ mod tests {
 			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_patch.json"))
 				.unwrap();
 		let expected_raw =
-			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_patch__raw.json"))
+			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_patch_raw.json"))
 				.unwrap();
 
 		//wasm blob may change overtime so let's zero it. Also ensure it is there:
@@ -933,7 +933,7 @@ mod tests {
 			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_config.json"))
 				.unwrap();
 		let expected_raw =
-			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_config__raw.json"))
+			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_config_raw.json"))
 				.unwrap();
 
 		//wasm blob may change overtime so let's zero it. Also ensure it is there:
