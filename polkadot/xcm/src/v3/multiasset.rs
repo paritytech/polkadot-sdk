@@ -521,8 +521,11 @@ impl Decode for MultiAssets {
 		if number_of_assets > MAX_ITEMS_IN_MULTIASSETS as u32 {
 			return Err(codec::Error::from("Max MultiAssets exceeded"))
 		}
-		Self::from_sorted_and_deduplicated(codec::decode_vec_with_len(input, number_of_assets as usize)?)
-			.map_err(|()| "Out of order".into())
+		Self::from_sorted_and_deduplicated(codec::decode_vec_with_len(
+			input,
+			number_of_assets as usize,
+		)?)
+		.map_err(|()| "Out of order".into())
 	}
 }
 
@@ -983,7 +986,8 @@ mod tests {
 		use super::*;
 
 		// Having lots of one asset will work since they are deduplicated
-		let lots_of_one_asset: MultiAssets = vec![(GeneralIndex(1), 1u128).into(); MAX_ITEMS_IN_MULTIASSETS + 1].into();
+		let lots_of_one_asset: MultiAssets =
+			vec![(GeneralIndex(1), 1u128).into(); MAX_ITEMS_IN_MULTIASSETS + 1].into();
 		let encoded = lots_of_one_asset.encode();
 		assert!(MultiAssets::decode(&mut &encoded[..]).is_ok());
 
