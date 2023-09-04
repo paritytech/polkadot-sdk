@@ -18,8 +18,8 @@
 
 mod contracts_config;
 use crate::tests::mock_network::{
-	primitives::{AccountId, AssetIdForAssets, Balance},
 	mocks::msg_queue::pallet as mock_msg_queue,
+	primitives::{AccountId, AssetIdForAssets, Balance},
 	xcm_utils::{AllowNoteUnlockables, ForeignChainAliasAccount},
 };
 use core::marker::PhantomData;

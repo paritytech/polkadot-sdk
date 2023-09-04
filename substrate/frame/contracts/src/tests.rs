@@ -16,9 +16,9 @@
 // limitations under the License.
 
 mod mock_network;
-mod test_xcm;
 mod pallet_dummy;
 mod test_debug;
+mod test_xcm;
 
 use self::{
 	test_debug::TestDebug,
@@ -567,7 +567,9 @@ where
 {
 	let fixture_path = [
 		// When `CARGO_MANIFEST_DIR` is not set, Rust resolves relative paths from the root folder
-		std::env::var("CARGO_MANIFEST_DIR").as_deref().unwrap_or("frame/contracts"),
+		std::env::var("CARGO_MANIFEST_DIR")
+			.as_deref()
+			.unwrap_or("substrate/frame/contracts"),
 		"/fixtures/",
 		fixture_name,
 		".wat",

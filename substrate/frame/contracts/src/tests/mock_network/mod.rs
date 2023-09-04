@@ -145,8 +145,5 @@ pub fn relay_ext() -> sp_io::TestExternalities {
 	ext
 }
 
-pub type RelaychainPalletXcm = pallet_xcm::Pallet<relay_chain::Runtime>;
 pub type ParachainPalletXcm = pallet_xcm::Pallet<parachain::Runtime>;
-pub type RelaychainBalances = pallet_balances::Pallet<relay_chain::Runtime>;
 pub type ParachainBalances = pallet_balances::Pallet<parachain::Runtime>;
-pub type ParachainAssets = pallet_assets::Pallet<parachain::Runtime>;

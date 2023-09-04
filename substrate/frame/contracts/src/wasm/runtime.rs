@@ -116,8 +116,10 @@ pub enum ReturnCode {
 	EcdsaRecoverFailed = 11,
 	/// sr25519 signature verification failed.
 	Sr25519VerifyFailed = 12,
-	/// The `seal_xcm_execute` was executed but returned an error.
-	XcmExcuteFailed = 13,
+	/// The `seal_xcm_query` was executed but returned an error.
+	XcmQueryFailed = 13,
+	/// The `seal_xcm_take_response` was executed but returned an error.
+	XcmTakeResponseFailed = 14,
 }
 
 impl From<ExecReturnValue> for ReturnCode {
@@ -636,7 +638,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		let mut bound_checked = memory
 			.get(ptr..ptr + D::max_encoded_len() as usize)
 			.ok_or_else(|| Error::<E::T>::OutOfBounds)?;
-		let decoded = D::decode_all_with_depth_limit(MAX_DECODE_NESTING, &mut bound_checked)
+		let decoded = D::decode_with_depth_limit(MAX_DECODE_NESTING, &mut bound_checked)
 			.map_err(|_| DispatchError::from(Error::<E::T>::DecodingFailed))?;
 		Ok(decoded)
 	}
@@ -661,8 +663,10 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		let ptr = ptr as usize;
 		let mut bound_checked =
 			memory.get(ptr..ptr + len as usize).ok_or_else(|| Error::<E::T>::OutOfBounds)?;
+
 		let decoded = D::decode_all_with_depth_limit(MAX_DECODE_NESTING, &mut bound_checked)
 			.map_err(|_| DispatchError::from(Error::<E::T>::DecodingFailed))?;
+
 		Ok(decoded)
 	}
 
@@ -2614,7 +2618,7 @@ pub mod env {
 	/// # Return Value
 	///
 	/// Returns `ReturnCode::Success` when the dispatchable was successfully executed and
-	/// returned `Ok`. When the dispatchable was exeuted but returned an error
+	/// returned `Ok`. When the dispatchable was executed but returned an error
 	/// `ReturnCode::CallRuntimeFailed` is returned. The full error is not
 	/// provided because it is not guaranteed to be stable.
 	///
@@ -2642,24 +2646,40 @@ pub mod env {
 		ctx.call_dispatchable(call.get_dispatch_info(), |ext| ext.call_runtime(call))
 	}
 
+	/// Execute an XCM message locally, using the contract's address as the origin.
+	/// This is equivalent to dispatching `pallet_xcm::execute` through call_runtime, except that
+	/// the function is called directly instead of being dispatched.
+	///
+	/// # Parameters
+	///
+	/// - `max_weight_ptr`: the pointer into the linear memory where the maximum weight is placed.
+	/// - `msg_ptr`: the pointer into the linear memory where the XCM message is placed.
+	/// - `msg_len`: the length of the XCM message in bytes.
+	///
+	/// # Return Value
+	///
+	/// Returns `ReturnCode::Success` when the XCM message was successfully executed. When the XCM
+	/// execution fails, `ReturnCode::CallRuntimeFailed` is returned.
+	#[unstable]
 	fn xcm_execute(
 		ctx: _,
 		memory: _,
-		call_ptr: u32,
-		call_len: u32,
 		max_weight_ptr: u32,
+		msg_ptr: u32,
+		msg_len: u32,
 	) -> Result<ReturnCode, TrapReason> {
 		use crate::xcm::{CallOf, WeightInfo, XCM};
 		use frame_support::dispatch::DispatchInfo;
 		use xcm::VersionedXcm;
 
-		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
-		let message: VersionedXcm<CallOf<E::T>> =
-			ctx.read_sandbox_memory_as_unbounded(memory, call_ptr, call_len)?;
+		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
 		let max_weight: Weight = ctx.read_sandbox_memory_as(memory, max_weight_ptr)?;
-
 		let weight =
 			max_weight.saturating_add(<<E::T as Config>::Xcm as XCM<E::T>>::WeightInfo::execute());
+
+		let message: VersionedXcm<CallOf<E::T>> =
+			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
+
 		let dispatch_info = DispatchInfo { weight, ..Default::default() };
 
 		ctx.call_dispatchable(dispatch_info, |ext| {
@@ -2667,23 +2687,40 @@ pub mod env {
 		})
 	}
 
+	/// Send an XCM message from the contract to the specified destination.
+	/// This is equivalent to dispatching `pallet_xcm::send` through call_runtime, except that
+	/// the function is called directly instead of being dispatched.
+	///
+	/// # Parameters
+	///
+	/// - `dest_ptr`: the pointer into the linear memory where the [`xcm::VersionedMultiLocation`]
+	///   is placed.
+	/// - `msg_ptr`: the pointer into the linear memory where the XCM message is placed.
+	/// - `msg_len`: the length of the XCM message in bytes.
+	///
+	/// # Return Value
+	///
+	/// Returns `ReturnCode::Success` when the XCM message was successfully sent. When the XCM
+	/// execution fails, `ReturnCode::CallRuntimeFailed` is returned.
+	#[unstable]
 	fn xcm_send(
 		ctx: _,
 		memory: _,
+		dest_ptr: u32,
 		call_ptr: u32,
 		call_len: u32,
-		dest_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
 		use crate::xcm::{WeightInfo, XCM};
 		use xcm::{VersionedMultiLocation, VersionedXcm};
 
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
 		let dest: VersionedMultiLocation = ctx.read_sandbox_memory_as(memory, dest_ptr)?;
+
 		let message: VersionedXcm<()> =
 			ctx.read_sandbox_memory_as_unbounded(memory, call_ptr, call_len)?;
-
 		let weight = <<E::T as Config>::Xcm as XCM<E::T>>::WeightInfo::send();
 		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
+
 		match <<E::T as Config>::Xcm as XCM<E::T>>::send(ctx.ext.address(), dest, message) {
 			Ok(_) => Ok(ReturnCode::Success),
 			Err(e) => {
@@ -2696,6 +2733,19 @@ pub mod env {
 		}
 	}
 
+	/// Create a new query, using the contract's address as the responder.
+	///
+	/// # Parameters
+	///
+	/// - `timeout_ptr`: the pointer into the linear memory where the timeout is placed.
+	/// - `match_querier_ptr`: the pointer into the linear memory where the match_querier is placed.
+	/// - `output_ptr`: the pointer into the linear memory where the query id is placed.
+	///
+	/// # Return Value
+	///
+	/// Returns `ReturnCode::Success` when the query was successfully created. When the query
+	/// creation fails, `ReturnCode::XcmQueryFailed` is returned.
+	#[unstable]
 	fn xcm_query(
 		ctx: _,
 		memory: _,
@@ -2725,11 +2775,23 @@ pub mod env {
 					ctx.ext.append_debug_buffer("call failed with: ");
 					ctx.ext.append_debug_buffer(e.into());
 				};
-				Ok(ReturnCode::CallRuntimeFailed)
+				Ok(ReturnCode::XcmQueryFailed)
 			},
 		}
 	}
 
+	/// Take an XCM response for the specified query.
+	///
+	/// # Parameters
+	///
+	/// - `query_id_ptr`: the pointer into the linear memory where the query id is placed.
+	/// - `output_ptr`: the pointer into the linear memory where the response is placed.
+	/// - `output_len_ptr`: the pointer into the linear memory where the response length is placed.
+	///
+	/// # Return Value
+	///
+	/// Returns `ReturnCode::Success` when successful, `ReturnCode::TakeResponseFailed` otherwise.
+	#[unstable]
 	fn xcm_take_response(
 		ctx: _,
 		memory: _,
@@ -2977,3 +3039,4 @@ pub mod env {
 		Ok(())
 	}
 }
+

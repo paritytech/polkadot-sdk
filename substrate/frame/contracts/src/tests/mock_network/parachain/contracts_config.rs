@@ -78,10 +78,10 @@ impl Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Schedule = Schedule;
 	type Time = super::Timestamp;
-	type UnsafeUnstableInterface = ConstBool<false>;
+	type UnsafeUnstableInterface = ConstBool<true>;
 	type WeightInfo = ();
 	type WeightPrice = Self;
 	type Debug = ();
 	type Environment = ();
-	type Xcm = crate::xcm::NoopXcmConfig;
+	type Xcm = Self;
 }
