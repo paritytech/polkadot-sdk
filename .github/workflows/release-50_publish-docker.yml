@@ -100,7 +100,7 @@ jobs:
         with:
           key: artifacts-${{ github.sha }}
           path: |
-            ./release-artifacts/${BINARY}/**/*
+            ./release-artifacts/${{ env.BINARY }}/**/*
 
   build-container:
     runs-on: ubuntu-latest
@@ -116,7 +116,7 @@ jobs:
           key: artifacts-${{ github.sha }}
           fail-on-cache-miss: true
           path: |
-            ./release-artifacts/${BINARY}/**/*
+            ./release-artifacts/${{ env.BINARY }}/**/*
 
       - name: Check sha256 ${{ env.BINARY }}
         working-directory: ./release-artifacts/${{ env.BINARY }}
