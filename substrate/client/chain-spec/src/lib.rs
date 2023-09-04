@@ -198,6 +198,7 @@ mod chain_spec;
 mod extension;
 mod genesis_block;
 mod genesis_config_builder;
+mod json_patch;
 
 pub use self::{
 	chain_spec::{ChainSpec as GenericChainSpec, ChainSpecBuilder, NoExtension},

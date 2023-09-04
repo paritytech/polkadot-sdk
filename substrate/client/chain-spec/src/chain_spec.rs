@@ -863,7 +863,7 @@ mod tests {
 			(json!({"code":"0x0"}), json_path!["code"])
 		};
 		assert!(json_contains_path(&json, &mut path));
-		json_patch::merge(&mut json, &zeroing_patch);
+		crate::json_patch::merge(&mut json, zeroing_patch);
 		json
 	}
 

@@ -14637,7 +14637,6 @@ name = "sc-chain-spec"
 version = "4.0.0-dev"
 dependencies = [
  "array-bytes",
- "json-patch",
  "log",
  "memmap2",
  "parity-scale-codec",

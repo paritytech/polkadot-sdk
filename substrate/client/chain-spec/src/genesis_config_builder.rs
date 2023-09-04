@@ -115,7 +115,7 @@ impl<'a> GenesisConfigBuilderRuntimeCaller<'a> {
 	/// Please note that the patch may contain full `GenesisConfig`.
 	pub fn get_storage_for_patch(&self, patch: Value) -> core::result::Result<Storage, String> {
 		let mut config = self.get_default_config()?;
-		json_patch::merge(&mut config, &patch);
+		crate::json_patch::merge(&mut config, patch);
 		self.get_storage_for_config(config)
 	}
 }
