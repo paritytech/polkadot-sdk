@@ -95,6 +95,22 @@ test-linux-stable-additional-tests:
     # https://github.com/paritytech/ci_cd/issues/864
     - time cargo nextest run --features runtime-benchmarks benchmark --locked --cargo-profile testnet
 
+# https://github.com/paritytech/ci_cd/issues/864
+test-linux-stable-runtime-benchmarks:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .pipeline-stopper-artifacts
+  variables:
+    RUST_TOOLCHAIN: stable
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+  script:
+    - time cargo nextest run --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+
 # these ones can be really slow so it's better to run them separately
 test-linux-stable-slow:
   stage: test
