@@ -39,7 +39,7 @@ id = 1000
 cumulus_based = true
 
   [parachains.collator]
-  name = "collator"
+  name = "alice"
   command = "polkadot-parachain"
   validator = true
   image = "{{CUMULUS_IMAGE}}"
