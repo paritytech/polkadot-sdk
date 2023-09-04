@@ -90,12 +90,6 @@ pub mod pallet {
 		Completed { error: bool },
 	}
 
-	#[pallet::error]
-	pub enum Error<T> {}
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
-
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
