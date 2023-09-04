@@ -20,7 +20,8 @@
 // necessarily related to FRAME or even Substrate.
 //
 // Hence, `no_std` rather than sp-runtime.
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
+
 extern crate alloc;
 
 use derivative::Derivative;
@@ -445,11 +446,6 @@ pub mod opaque {
 
 	/// The basic `VersionedXcm` type which just uses the `Vec<u8>` as an encoded call.
 	pub type VersionedXcm = super::VersionedXcm<()>;
-}
-
-// A simple trait to get the weight of some object.
-pub trait GetWeight<W> {
-	fn weight(&self) -> latest::Weight;
 }
 
 #[test]

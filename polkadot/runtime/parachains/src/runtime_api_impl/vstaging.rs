@@ -119,6 +119,11 @@ pub fn async_backing_params<T: configuration::Config>() -> AsyncBackingParams {
 	<configuration::Pallet<T>>::config().async_backing_params
 }
 
+/// Return the min backing votes threshold from the configuration.
+pub fn minimum_backing_votes<T: initializer::Config>() -> u32 {
+	<configuration::Pallet<T>>::config().minimum_backing_votes
+}
+
 /// Implementation for `DisabledValidators`
 pub fn disabled_validators<T: pallet_session::Config>() -> Vec<ValidatorIndex> {
 	<pallet_session::Pallet<T>>::disabled_validators()

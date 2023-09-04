@@ -232,6 +232,14 @@ pub trait RuntimeApiSubsystemClient {
 		session_index: SessionIndex,
 	) -> Result<Option<ExecutorParams>, ApiError>;
 
+	// === STAGING v6 ===
+	/// Get the minimum number of backing votes.
+	async fn minimum_backing_votes(
+		&self,
+		at: Hash,
+		session_index: SessionIndex,
+	) -> Result<u32, ApiError>;
+
 	/// Gets the disabled validators at a specific block height
 	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError>;
 
@@ -474,6 +482,14 @@ where
 		);
 
 		runtime_api.submit_report_dispute_lost(at, dispute_proof, key_ownership_proof)
+	}
+
+	async fn minimum_backing_votes(
+		&self,
+		at: Hash,
+		_session_index: SessionIndex,
+	) -> Result<u32, ApiError> {
+		self.client.runtime_api().minimum_backing_votes(at)
 	}
 
 	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {

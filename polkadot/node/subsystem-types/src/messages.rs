@@ -143,6 +143,7 @@ pub enum CandidateValidationMessage {
 	ValidateFromChainState(
 		CandidateReceipt,
 		Arc<PoV>,
+		ExecutorParams,
 		/// Execution timeout
 		PvfExecTimeoutKind,
 		oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
@@ -161,6 +162,7 @@ pub enum CandidateValidationMessage {
 		ValidationCode,
 		CandidateReceipt,
 		Arc<PoV>,
+		ExecutorParams,
 		/// Execution timeout
 		PvfExecTimeoutKind,
 		oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
@@ -691,6 +693,8 @@ pub enum RuntimeApiRequest {
 		slashing::OpaqueKeyOwnershipProof,
 		RuntimeApiSender<Option<()>>,
 	),
+	/// Get the minimum required backing votes.
+	MinimumBackingVotes(SessionIndex, RuntimeApiSender<u32>),
 	/// Returns all disabled validators at a given block height.
 	/// `V6`
 	DisabledValidators(RuntimeApiSender<Vec<ValidatorIndex>>),
@@ -721,6 +725,9 @@ impl RuntimeApiRequest {
 
 	/// `SubmitReportDisputeLost`
 	pub const SUBMIT_REPORT_DISPUTE_LOST_RUNTIME_REQUIREMENT: u32 = 5;
+
+	/// `MinimumBackingVotes`
+	pub const MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT: u32 = 6;
 
 	/// `DisabledValidators`
 	pub const DISABLED_VALIDATORS_RUNTIME_REQUIREMENT: u32 = 6;

@@ -1,4 +1,4 @@
-Integration of the GRANDPA finality gadget into substrate.
+Integration of the GRANDPA finality gadget into Substrate.
 
 This crate is unstable and the API and usage may change.
 
