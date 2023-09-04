@@ -45,22 +45,6 @@ test-linux-oldkernel-stable:
   tags:
     - oldkernel-vm
 
-# https://github.com/paritytech/ci_cd/issues/864
-test-linux-stable-runtime-benchmarks:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
-  variables:
-    RUST_TOOLCHAIN: stable
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-  script:
-    - cargo nextest run --features runtime-benchmarks benchmark --locked -q --profile testnet
-
 # can be used to run all tests
 # test-linux-stable-all:
 #   stage: test
@@ -108,7 +92,8 @@ test-linux-stable-additional-tests:
         --locked \
         --release \
         --features runtime-benchmarks,try-runtime
-  allow_failure: true
+    # https://github.com/paritytech/ci_cd/issues/864
+    - time cargo nextest run --features runtime-benchmarks benchmark --locked -q --profile testnet
 
 # these ones can be really slow so it's better to run them separately
 test-linux-stable-slow:
