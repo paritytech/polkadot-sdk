@@ -21,4 +21,4 @@ bp-messages = { path = "../../primitives/messages" }
 finality-relay = { path = "../finality" }
 relay-utils = { path = "../utils" }
 
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-arithmetic = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }

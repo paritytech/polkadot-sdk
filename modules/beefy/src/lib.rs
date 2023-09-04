@@ -441,7 +441,11 @@ mod tests {
 					InitializationData {
 						operating_mode: BasicOperatingMode::Normal,
 						best_block_number: 0,
-						authority_set: BeefyAuthoritySet { id: 0, len: 1, root: [0u8; 32].into() }
+						authority_set: BeefyAuthoritySet {
+							id: 0,
+							len: 1,
+							keyset_commitment: [0u8; 32].into()
+						}
 					}
 				),
 				Error::<TestRuntime, ()>::AlreadyInitialized,
@@ -458,7 +462,11 @@ mod tests {
 					InitializationData {
 						operating_mode: BasicOperatingMode::Normal,
 						best_block_number: 0,
-						authority_set: BeefyAuthoritySet { id: 0, len: 0, root: [0u8; 32].into() }
+						authority_set: BeefyAuthoritySet {
+							id: 0,
+							len: 0,
+							keyset_commitment: [0u8; 32].into()
+						}
 					}
 				),
 				Error::<TestRuntime, ()>::InvalidInitialAuthoritySet,

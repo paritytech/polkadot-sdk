@@ -15,4 +15,5 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 pub mod chain_spec;
+#[allow(deprecated)]
 pub mod service;

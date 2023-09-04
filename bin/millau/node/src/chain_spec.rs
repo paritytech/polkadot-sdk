@@ -21,7 +21,7 @@ use millau_runtime::{
 	WASM_BINARY,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_consensus_beefy::crypto::AuthorityId as BeefyId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};

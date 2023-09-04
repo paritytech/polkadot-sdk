@@ -42,7 +42,7 @@ fn verify_authority_set<T: Config<I>, I: 'static>(
 
 	// Ensure that the authority set that signed the commitment is the expected one.
 	let root = get_authorities_mmr_root::<T, I, _>(authority_set.validators().iter());
-	ensure!(root == authority_set_info.root, Error::<T, I>::InvalidValidatorSetRoot);
+	ensure!(root == authority_set_info.keyset_commitment, Error::<T, I>::InvalidValidatorSetRoot);
 
 	Ok(())
 }

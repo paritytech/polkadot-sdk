@@ -23,7 +23,7 @@ use rialto_runtime::{
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_consensus_beefy::crypto::AuthorityId as BeefyId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
@@ -249,8 +249,6 @@ fn testnet_genesis(
 				max_pov_size: polkadot_primitives::v5::MAX_POV_SIZE,
 				max_head_data_size: 32 * 1024,
 				group_rotation_frequency: 20,
-				chain_availability_period: 4,
-				thread_availability_period: 4,
 				max_upward_queue_count: 8,
 				max_upward_queue_size: 1024 * 1024,
 				max_downward_message_size: 1024 * 1024,
@@ -261,10 +259,8 @@ fn testnet_genesis(
 				hrmp_channel_max_capacity: 8,
 				hrmp_channel_max_total_size: 8 * 1024,
 				hrmp_max_parachain_inbound_channels: 4,
-				hrmp_max_parathread_inbound_channels: 4,
 				hrmp_channel_max_message_size: 1024 * 1024,
 				hrmp_max_parachain_outbound_channels: 4,
-				hrmp_max_parathread_outbound_channels: 4,
 				hrmp_max_message_num_per_candidate: 5,
 				dispute_period: 6,
 				no_show_slots: 2,

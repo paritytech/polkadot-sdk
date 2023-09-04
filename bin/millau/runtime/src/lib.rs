@@ -43,7 +43,7 @@ use pallet_grandpa::{
 use pallet_transaction_payment::{FeeDetails, Multiplier, RuntimeDispatchInfo};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_consensus_beefy::{crypto::AuthorityId as BeefyId, mmr::MmrLeafVersion, ValidatorSet};
+use sp_consensus_beefy::{ecdsa_crypto::AuthorityId as BeefyId, mmr::MmrLeafVersion, ValidatorSet};
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
@@ -73,7 +73,7 @@ pub use frame_support::{
 		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, IdentityFee, RuntimeDbWeight,
 		Weight,
 	},
-	RuntimeDebug, StorageValue,
+	StorageValue,
 };
 
 pub use frame_system::Call as SystemCall;
@@ -797,7 +797,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_consensus_beefy::BeefyApi<Block> for Runtime {
+	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			Beefy::genesis_block()
 		}
@@ -809,15 +809,15 @@ impl_runtime_apis! {
 		fn submit_report_equivocation_unsigned_extrinsic(
 			_equivocation_proof: sp_consensus_beefy::EquivocationProof<
 				NumberFor<Block>,
-				sp_consensus_beefy::crypto::AuthorityId,
-				sp_consensus_beefy::crypto::Signature
+				sp_consensus_beefy::ecdsa_crypto::AuthorityId,
+				sp_consensus_beefy::ecdsa_crypto::Signature
 			>,
 			_key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
 		) -> Option<()> { None }
 
 		fn generate_key_ownership_proof(
 			_set_id: sp_consensus_beefy::ValidatorSetId,
-			_authority_id: sp_consensus_beefy::crypto::AuthorityId,
+			_authority_id: sp_consensus_beefy::ecdsa_crypto::AuthorityId,
 		) -> Option<sp_consensus_beefy::OpaqueKeyOwnershipProof> { None }
 	}
 
@@ -1020,7 +1020,8 @@ impl_runtime_apis! {
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig,
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-			use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
+			use frame_benchmarking::{Benchmarking, BenchmarkBatch};
+			use frame_support::traits::TrackedStorageKey;
 
 			let whitelist: Vec<TrackedStorageKey> = vec![
 				// Block Number
