@@ -608,7 +608,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		let mut bound_checked = memory
 			.get(ptr..ptr + D::max_encoded_len() as usize)
 			.ok_or_else(|| Error::<E::T>::OutOfBounds)?;
-		let decoded = D::decode_all_with_depth_limit(MAX_DECODE_NESTING, &mut bound_checked)
+		let decoded = D::decode_with_depth_limit(MAX_DECODE_NESTING, &mut bound_checked)
 			.map_err(|_| DispatchError::from(Error::<E::T>::DecodingFailed))?;
 		Ok(decoded)
 	}
