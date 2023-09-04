@@ -623,11 +623,6 @@ impl<T: Config> Pallet<T> {
 				.ok_or("remove returned None")?
 				.ok_or("Element in Claimqueue was None.")?;
 
-			// Since the core is now occupied, the next entry in the claimqueue in order to achieve
-			// 12 second block times needs to be None
-			if core_claims.front() != Some(&None) {
-				core_claims.push_front(None);
-			}
 			Ok((pos as u32, pe))
 		})
 	}

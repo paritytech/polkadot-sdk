@@ -77,7 +77,7 @@ frame-benchmarking = { path = "../../../substrate/frame/benchmarking" }
 futures = "0.3.21"
 hex-literal = "0.4.1"
 gum = { package = "tracing-gum", path = "../gum" }
-serde = { version = "1.0.163", features = ["derive"] }
+serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.96"
 thiserror = "1.0.31"
 kvdb = "0.13.0"
@@ -94,7 +94,7 @@ is_executable = "1.0.1"
 polkadot-core-primitives = { path = "../../core-primitives" }
 polkadot-node-core-parachains-inherent = { path = "../core/parachains-inherent" }
 polkadot-overseer = { path = "../overseer" }
-polkadot-parachain = { path = "../../parachain" }
+polkadot-parachain-primitives = { path = "../../parachain" }
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-primitives = { path = "../primitives" }
 polkadot-rpc = { path = "../../rpc" }
@@ -113,7 +113,7 @@ westend-runtime-constants = { path = "../../runtime/westend/constants", optional
 
 # Polkadot Runtimes
 polkadot-runtime = { path = "../../runtime/polkadot", optional = true }
-kusama-runtime = { path = "../../runtime/kusama", optional = true }
+kusama-runtime = { package = "staging-kusama-runtime", path = "../../runtime/kusama", optional = true }
 westend-runtime = { path = "../../runtime/westend", optional = true }
 rococo-runtime = { path = "../../runtime/rococo", optional = true }
 
@@ -200,7 +200,7 @@ runtime-benchmarks = [
 	"pallet-babe/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
-	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
