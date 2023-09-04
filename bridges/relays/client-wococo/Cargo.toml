@@ -19,6 +19,6 @@ relay-substrate-client = { path = "../client-substrate" }
 relay-utils = { path = "../utils" }
 
 # Substrate Dependencies
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
-sp-session = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-session = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }

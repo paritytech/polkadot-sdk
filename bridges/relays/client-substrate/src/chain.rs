@@ -196,7 +196,7 @@ pub type AccountKeyPairOf<S> = <S as ChainWithTransactions>::AccountKeyPair;
 /// Substrate-based chain transactions signing scheme.
 pub trait ChainWithTransactions: Chain {
 	/// Type of key pairs used to sign transactions.
-	type AccountKeyPair: Pair;
+	type AccountKeyPair: Pair + Clone + Send + Sync;
 	/// Signed transaction.
 	type SignedTransaction: Clone + Debug + Codec + Send + 'static;
 

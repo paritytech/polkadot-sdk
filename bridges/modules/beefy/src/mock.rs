@@ -32,7 +32,7 @@ use sp_runtime::{
 	Perbill,
 };
 
-pub use sp_consensus_beefy::crypto::{AuthorityId as BeefyId, Pair as BeefyPair};
+pub use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Pair as BeefyPair};
 use sp_core::crypto::Wraps;
 use sp_runtime::traits::Keccak256;
 
@@ -194,7 +194,7 @@ pub fn validator_ids(index: u32, count: u32) -> Vec<BeefyId> {
 pub fn authority_set_info(id: u64, validators: &Vec<BeefyId>) -> TestBridgedAuthoritySetInfo {
 	let merkle_root = get_authorities_mmr_root::<TestRuntime, (), _>(validators.iter());
 
-	TestBridgedAuthoritySetInfo { id, len: validators.len() as u32, root: merkle_root }
+	TestBridgedAuthoritySetInfo { id, len: validators.len() as u32, keyset_commitment: merkle_root }
 }
 
 /// Sign BEEFY commitment.

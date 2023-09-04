@@ -155,60 +155,29 @@ pub fn run() -> sc_cli::Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run::<Block, RuntimeApi, ExecutorDispatch>(config))
 		},
-		Some(Subcommand::PvfPrepareWorker(cmd)) => {
-			let mut builder = sc_cli::LoggerBuilder::new("");
-			builder.with_colors(false);
-			let _ = builder.init();
-
-			polkadot_node_core_pvf::prepare_worker_entrypoint(
-				&cmd.socket_path,
-				Some(&cmd.node_impl_version),
-			);
-			Ok(())
-		},
-		Some(crate::cli::Subcommand::PvfExecuteWorker(cmd)) => {
-			let mut builder = sc_cli::LoggerBuilder::new("");
-			builder.with_colors(false);
-			let _ = builder.init();
-
-			polkadot_node_core_pvf::execute_worker_entrypoint(
-				&cmd.socket_path,
-				Some(&cmd.node_impl_version),
-			);
-			Ok(())
-		},
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
 
-			// some parameters that are used by polkadot nodes, but that are not used by our binary
-			// let jaeger_agent = None;
-			// let grandpa_pause = None;
-			// let no_beefy = true;
-			// let telemetry_worker_handler = None;
-			// let is_collator = crate::service::IsCollator::No;
-			let overseer_gen = polkadot_service::overseer::RealOverseerGen;
 			runner.run_node_until_exit(|config| async move {
-				let is_collator = polkadot_service::IsCollator::No;
-				let grandpa_pause = None;
-				let enable_beefy = true;
-				let jaeger_agent = None;
-				let telemetry_worker_handle = None;
-				let program_path = None;
-				let overseer_enable_anyways = false;
-
 				polkadot_service::new_full(
 					config,
-					is_collator,
-					grandpa_pause,
-					enable_beefy,
-					jaeger_agent,
-					telemetry_worker_handle,
-					program_path,
-					overseer_enable_anyways,
-					overseer_gen,
-					None,
-					None,
-					None,
+					polkadot_service::NewFullParams {
+						is_parachain_node: polkadot_service::IsParachainNode::No,
+						grandpa_pause: None,
+						enable_beefy: true,
+						jaeger_agent: None,
+						telemetry_worker_handle: None,
+						node_version: None,
+						workers_path: None,
+						workers_names: Some((
+							"rialto-bridge-node-prepare-worker".to_string(),
+							"rialto-bridge-node-execute-worker".to_string(),
+						)),
+						overseer_gen: polkadot_service::overseer::RealOverseerGen,
+						overseer_message_channel_capacity_override: None,
+						malus_finality_delay: None,
+						hwbench: None,
+					},
 				)
 				.map(|full| full.task_manager)
 				.map_err(service_error)
