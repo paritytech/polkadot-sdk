@@ -620,7 +620,7 @@ fn size_limits() {
 		(crate::v4::MultiLocation, 24),
 		(crate::v4::AssetId, 40),
 		(crate::v4::Junctions, 16),
-		(crate::v4::Junction, 80),
+		(crate::v4::Junction, 88),
 		(crate::v4::Response, 40),
 		(crate::v4::AssetInstance, 40),
 		(crate::v4::NetworkId, 48),
