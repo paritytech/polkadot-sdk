@@ -4670,7 +4670,7 @@ mod tests {
 			let (mut notif, _peerset) = development_notifs();
 			assert_eq!(1, notif.notif_protocols.len());
 
-			for action in actions {
+			'actions: for action in actions {
 				match action {
 					FuzzAction::FromSwarm(AFromSwarm(pid, swarm_event, connection_id)) => {
 						// build event
@@ -4710,189 +4710,211 @@ mod tests {
 								FromSwarm::DialFailure(event)
 							},
 						};
-						let entry_before = notif.peers.get(&(peer_id, 0.into())).cloned();
+						let entries_before: Vec<_> = (0..notif.notif_protocols.len())
+							.map(SetId::from)
+							.map(|set_id| notif.peers.get(&(peer_id, set_id)).cloned())
+							.collect();
 						// precheck
-						match &event {
-							FromSwarm::ConnectionEstablished(_) => {},
-							FromSwarm::ConnectionClosed(_) => {
-								if matches!(entry_before, None) {
-									// this is a forbidden state (debug_panic)
-									continue
-								}
-								if matches!(
-									entry_before,
-									Some(
-										PeerState::Requested |
-											PeerState::PendingRequest { .. } | PeerState::Backoff { .. } |
-											PeerState::Poisoned
-									)
-								) {
-									// these are forbidden states (debug_panic)
-									continue
-								}
-							},
-							FromSwarm::DialFailure(_) => {
-								if matches!(entry_before, Some(PeerState::Poisoned)) {
-									// this is a forbidden state (debug_panic)
-									continue
-								}
-							},
-							_ => {
-								unreachable!("no such variant is possible")
-							},
+						for entry_before in entries_before.iter().cloned() {
+							match &event {
+								FromSwarm::ConnectionEstablished(_) => {},
+								FromSwarm::ConnectionClosed(_) => {
+									if matches!(entry_before, None) {
+										// this is a forbidden state (debug_panic)
+										continue 'actions
+									}
+									if matches!(
+										entry_before,
+										Some(
+											PeerState::Requested |
+												PeerState::PendingRequest { .. } | PeerState::Backoff { .. } |
+												PeerState::Poisoned
+										)
+									) {
+										// these are forbidden states (debug_panic)
+										continue 'actions
+									}
+								},
+								FromSwarm::DialFailure(_) => {
+									if matches!(entry_before, Some(PeerState::Poisoned)) {
+										// this is a forbidden state (debug_panic)
+										continue 'actions
+									}
+								},
+								_ => {
+									unreachable!("no such variant is possible")
+								},
+							}
 						}
+						// call the event
 						notif.on_swarm_event(event);
-						let entry_after = notif.peers.get(&(peer_id, 0.into())).cloned();
-						match swarm_event {
-							FromSwarmE::ConnectionEstablished => {
-								if let Some(entry_before) = entry_before {
-									let entry_after = entry_after.unwrap();
-									match entry_before {
-										| PeerState::Requested |
-										PeerState::PendingRequest { .. } => {
-											assert!(matches!(
-												entry_after,
-												PeerState::Enabled { .. }
-											));
-										},
-										PeerState::Backoff { .. } => {
-											assert!(matches!(
-												entry_after,
-												PeerState::Disabled { .. }
-											));
-										},
-										// otherwise -> same state
-										PeerState::Poisoned => {
-											assert!(matches!(entry_after, PeerState::Poisoned));
-										},
-										PeerState::Disabled { .. } => {
-											assert!(matches!(
-												entry_after,
-												PeerState::Disabled { .. }
-											));
-										},
-										PeerState::DisabledPendingEnable { .. } => {
-											assert!(matches!(
-												entry_after,
-												PeerState::DisabledPendingEnable { .. }
-											));
-										},
-										PeerState::Enabled { .. } => {
-											assert!(matches!(
-												entry_after,
-												PeerState::Enabled { .. }
-											));
-										},
-										PeerState::Incoming { .. } => {
-											assert!(matches!(
-												entry_after,
-												PeerState::Incoming { .. }
-											));
-										},
-									}
-								} else {
-									let entry_after = entry_after.unwrap();
-									assert!(matches!(entry_after, PeerState::Disabled { .. }));
-								}
-							},
-							FromSwarmE::ConnectionClosed => {
-								if let Some(entry_before) = entry_before {
-									let entry_after = entry_after.unwrap();
-									match entry_before {
-										| PeerState::Requested |
-										PeerState::PendingRequest { .. } |
-										PeerState::Backoff { .. } |
-										PeerState::Poisoned => {
-											unreachable!("no such state is possible")
-										},
-										PeerState::Disabled { .. } => {
-											assert!(matches!(
-												entry_after,
-												PeerState::Backoff { .. } |
+						let entries_after: Vec<_> = (0..notif.notif_protocols.len())
+							.map(SetId::from)
+							.map(|set_id| notif.peers.get(&(peer_id, set_id)).cloned())
+							.collect();
+						// postcheck
+						for (entry_before, entry_after) in
+							entries_before.into_iter().zip(entries_after)
+						{
+							match swarm_event {
+								FromSwarmE::ConnectionEstablished => {
+									if let Some(entry_before) = entry_before {
+										let entry_after = entry_after.unwrap();
+										match entry_before {
+											| PeerState::Requested |
+											PeerState::PendingRequest { .. } => {
+												assert!(matches!(
+													entry_after,
+													PeerState::Enabled { .. }
+												));
+											},
+											PeerState::Backoff { .. } => {
+												assert!(matches!(
+													entry_after,
 													PeerState::Disabled { .. }
-											));
-										},
-										PeerState::DisabledPendingEnable { .. } => {
-											assert!(matches!(
-												entry_after,
-												PeerState::Backoff { .. } |
+												));
+											},
+											// otherwise -> same state
+											PeerState::Poisoned => {
+												assert!(matches!(entry_after, PeerState::Poisoned));
+											},
+											PeerState::Disabled { .. } => {
+												assert!(matches!(
+													entry_after,
+													PeerState::Disabled { .. }
+												));
+											},
+											PeerState::DisabledPendingEnable { .. } => {
+												assert!(matches!(
+													entry_after,
 													PeerState::DisabledPendingEnable { .. }
-											));
-										},
-										PeerState::Enabled { .. } => {
-											assert!(matches!(
-												entry_after,
-												PeerState::Backoff { .. } |
-													PeerState::Disabled { .. } | PeerState::Enabled { .. }
-											));
-										},
-										PeerState::Incoming { .. } => {
-											assert!(matches!(
-												entry_after,
-												PeerState::Backoff { .. } |
-													PeerState::Disabled { .. } | PeerState::Incoming { .. }
-											));
-										},
+												));
+											},
+											PeerState::Enabled { .. } => {
+												assert!(matches!(
+													entry_after,
+													PeerState::Enabled { .. }
+												));
+											},
+											PeerState::Incoming { .. } => {
+												assert!(matches!(
+													entry_after,
+													PeerState::Incoming { .. }
+												));
+											},
+										}
+									} else {
+										let entry_after = entry_after.unwrap();
+										assert!(matches!(entry_after, PeerState::Disabled { .. }));
 									}
-								} else {
-									// TODO
-								}
-							},
-							FromSwarmE::DialFailure => {
-								if let Some(entry_before) = entry_before {
-									let entry_after = entry_after.unwrap();
-									match entry_before {
-										| PeerState::Requested |
-										PeerState::PendingRequest { .. } => {
-											assert!(matches!(
-												entry_after,
-												PeerState::Backoff { .. }
-											));
-										},
-										// otherwise -> same state
-										PeerState::Backoff { .. } => {
-											assert!(matches!(
-												entry_after,
-												PeerState::Backoff { .. }
-											));
-										},
-										PeerState::Poisoned => {
-											assert!(matches!(entry_after, PeerState::Poisoned));
-										},
-										PeerState::Disabled { .. } => {
-											assert!(matches!(
-												entry_after,
-												PeerState::Disabled { .. }
-											));
-										},
-										PeerState::DisabledPendingEnable { .. } => {
-											assert!(matches!(
-												entry_after,
-												PeerState::DisabledPendingEnable { .. }
-											));
-										},
-										PeerState::Enabled { .. } => {
-											assert!(matches!(
-												entry_after,
-												PeerState::Enabled { .. }
-											));
-										},
-										PeerState::Incoming { .. } => {
-											assert!(matches!(
-												entry_after,
-												PeerState::Incoming { .. }
-											));
-										},
+								},
+								FromSwarmE::ConnectionClosed => {
+									if let Some(entry_before) = entry_before {
+										let entry_after = entry_after.unwrap();
+										match entry_before {
+											| PeerState::Requested |
+											PeerState::PendingRequest { .. } |
+											PeerState::Backoff { .. } |
+											PeerState::Poisoned => {
+												unreachable!("no such state is possible")
+											},
+											PeerState::Disabled { .. } => {
+												assert!(matches!(
+													entry_after,
+													PeerState::Backoff { .. } |
+														PeerState::Disabled { .. }
+												));
+											},
+											PeerState::DisabledPendingEnable { .. } => {
+												assert!(matches!(
+													entry_after,
+													PeerState::Backoff { .. } |
+														PeerState::DisabledPendingEnable { .. }
+												));
+											},
+											PeerState::Enabled { .. } => {
+												assert!(matches!(
+													entry_after,
+													PeerState::Backoff { .. } |
+														PeerState::Disabled { .. } |
+														PeerState::Enabled { .. }
+												));
+											},
+											PeerState::Incoming { .. } => {
+												assert!(matches!(
+													entry_after,
+													PeerState::Backoff { .. } |
+														PeerState::Disabled { .. } |
+														PeerState::Incoming { .. }
+												));
+											},
+										}
+									} else {
+										// TODO
 									}
-								} else {
-									assert!(entry_after.is_none());
-								}
-							},
+								},
+								FromSwarmE::DialFailure => {
+									if let Some(entry_before) = entry_before {
+										let entry_after = entry_after.unwrap();
+										match entry_before {
+											| PeerState::Requested |
+											PeerState::PendingRequest { .. } => {
+												assert!(matches!(
+													entry_after,
+													PeerState::Backoff { .. }
+												));
+											},
+											// otherwise -> same state
+											PeerState::Backoff { .. } => {
+												assert!(matches!(
+													entry_after,
+													PeerState::Backoff { .. }
+												));
+											},
+											PeerState::Poisoned => {
+												assert!(matches!(entry_after, PeerState::Poisoned));
+											},
+											PeerState::Disabled { .. } => {
+												assert!(matches!(
+													entry_after,
+													PeerState::Disabled { .. }
+												));
+											},
+											PeerState::DisabledPendingEnable { .. } => {
+												assert!(matches!(
+													entry_after,
+													PeerState::DisabledPendingEnable { .. }
+												));
+											},
+											PeerState::Enabled { .. } => {
+												assert!(matches!(
+													entry_after,
+													PeerState::Enabled { .. }
+												));
+											},
+											PeerState::Incoming { .. } => {
+												assert!(matches!(
+													entry_after,
+													PeerState::Incoming { .. }
+												));
+											},
+										}
+									} else {
+										assert!(entry_after.is_none());
+									}
+								},
+							}
 						}
 					},
 					FuzzAction::FromHandler(AFromHandler(pid, id, event)) => {
 						let peer_id = pid.0;
 						let conn = ConnectionId::new_unchecked(id);
+						let entry_before = notif.peers.get(&(peer_id, 0.into())).cloned();
+						if matches!(entry_before, None) {
+							// every event requires an entry with peer_id
+							continue
+						};
+						let entry_before = entry_before.unwrap();
 						match &event {
 							NotifsHandlerOut::OpenDesiredByRemote { protocol_index } => {
 								let _ = protocol_index;
@@ -4915,14 +4937,10 @@ mod tests {
 								todo!("add support for OpenResultOk")
 							},
 						}
-						let entry_before = notif.peers.get(&(peer_id, 0.into())).cloned();
-						if matches!(entry_before, None) {
-							// every event requires an entry with peer_id
-							continue
-						};
+
 						// todo precheck
 						notif.on_connection_handler_event(peer_id, conn, event);
-						let entry_after = notif.peers.get(&(peer_id, 0.into())).cloned();
+						let entry_after = notif.peers.get(&(peer_id, 0.into())).cloned().unwrap();
 						// todo postcheck
 					},
 				}
