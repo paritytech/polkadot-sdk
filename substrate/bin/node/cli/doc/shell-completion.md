@@ -1,10 +1,11 @@
-## Shell completion
+# Shell completion
 
-The Substrate cli command supports shell auto-completion. For this to work, you will need to run the completion script matching your build and system.
+The Substrate cli command supports shell auto-completion. For this to work, you will need to run the
+completion script matching your build and system.
 
 Assuming you built a release version using `cargo build --release` and use `bash` run the following:
 
-source target/release/completion-scripts/substrate.bash
+`source target/release/completion-scripts/substrate.bash`
 
 You can find completion scripts for:
 - bash
