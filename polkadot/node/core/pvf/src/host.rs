@@ -35,7 +35,7 @@ use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
 	pvf::PvfPrepData,
 };
-use polkadot_parachain::primitives::ValidationResult;
+use polkadot_parachain_primitives::primitives::ValidationResult;
 use std::{
 	collections::HashMap,
 	path::{Path, PathBuf},
