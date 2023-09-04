@@ -30,6 +30,8 @@
       artifacts: true
     - job: build-push-image-colander
       artifacts: true
+    - job: build-push-image-polkadot-parachain-debug
+      artifacts: true
   extends:
     - .kubernetes-env
     - .zombienet-refs
