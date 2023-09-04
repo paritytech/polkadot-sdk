@@ -297,7 +297,7 @@ impl<K: FullEncode, V: FullCodec, G: StorageMap<K, V>> storage::StorageMap<K, V>
 		let ret = f(&mut val);
 		if ret.is_ok() {
 			match G::from_query_to_optional_value(val) {
-				Some(ref val) => unhashed::put(final_key.as_ref(), &val.borrow()),
+				Some(ref val) => unhashed::put(final_key.as_ref(), &val),
 				None => unhashed::kill(final_key.as_ref()),
 			}
 		}
@@ -314,7 +314,7 @@ impl<K: FullEncode, V: FullCodec, G: StorageMap<K, V>> storage::StorageMap<K, V>
 		let ret = f(&mut val);
 		if ret.is_ok() {
 			match val {
-				Some(ref val) => unhashed::put(final_key.as_ref(), &val.borrow()),
+				Some(ref val) => unhashed::put(final_key.as_ref(), &val),
 				None => unhashed::kill(final_key.as_ref()),
 			}
 		}
