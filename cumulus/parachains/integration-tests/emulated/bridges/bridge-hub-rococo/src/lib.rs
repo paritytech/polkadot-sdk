@@ -26,13 +26,7 @@ pub use integration_tests_common::{
 	PenpalRococoA, Rococo, RococoPallet,
 };
 pub use parachains_common::{AccountId, Balance};
-pub use xcm::{
-	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{
-		Error,
-		NetworkId::{Rococo as RococoId, Wococo as WococoId},
-	},
-};
+pub use xcm::prelude::{AccountId32 as AccountId32Junction, *};
 pub use xcm_emulator::{
 	assert_expected_events, bx, helpers::weight_within_threshold, Chain, Parachain as Para,
 	RelayChain as Relay, Test, TestArgs, TestContext, TestExt,

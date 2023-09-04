@@ -30,7 +30,7 @@ fn example() {
 	let xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit, check_origin },
 		ExportMessage {
-			network: WococoId,
+			network: NetworkId::Wococo,
 			destination: [Parachain(AssetHubWococo::para_id().into())].into(),
 			xcm: remote_xcm,
 		},
