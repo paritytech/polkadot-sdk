@@ -152,6 +152,7 @@ jobs:
         if: ${{ env.IMAGE_TYPE == 'release'}}
         id: fetch_release_refs
         run: |
+          chmod a+rx $BINARY
           VERSION=$(./$BINARY --version | awk '{ print $2 }' )
           release=$( echo $VERSION | cut -f1 -d- )
           echo "tag=latest" >> $GITHUB_OUTPUT
