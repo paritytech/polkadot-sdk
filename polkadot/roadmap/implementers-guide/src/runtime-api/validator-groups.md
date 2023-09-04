@@ -1,6 +1,7 @@
 # Validator Groups
 
-Yields the validator groups used during the current session. The validators in the groups are referred to by their index into the validator-set and this is assumed to be as-of the child of the block whose state is being queried.
+Yields the validator groups used during the current session. The validators in the groups are referred to by their index
+into the validator-set and this is assumed to be as-of the child of the block whose state is being queried.
 
 ```rust
 /// A helper data-type for tracking validator-group rotations.
