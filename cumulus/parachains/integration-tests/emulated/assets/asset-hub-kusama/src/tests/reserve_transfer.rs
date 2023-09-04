@@ -162,7 +162,6 @@ fn system_para_to_para_reserve_transfer_assets(t: SystemParaToParaTest) -> Dispa
 /// Limited Reserve Transfers of native asset from Relay Chain to the System Parachain shouldn't
 /// work
 #[test]
-#[cfg(not(feature = "runtime-benchmarks"))] // Benchmarks use the No-OP processor.
 fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	// Init values for Relay Chain
 	let amount_to_send: Balance = KUSAMA_ED * 1000;
@@ -345,7 +344,6 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 
 /// Limited Reserve Transfers of a local asset from System Parachain to Parachain should work
 #[test]
-#[cfg(not(feature = "runtime-benchmarks"))] // Benchmarks use the No-OP processor.
 fn limited_reserve_transfer_asset_from_system_para_to_para() {
 	// Force create asset from Relay Chain and mint assets for System Parachain's sender account
 	AssetHubKusama::force_create_and_mint_asset(

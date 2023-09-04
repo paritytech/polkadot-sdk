@@ -156,7 +156,6 @@ fn system_para_limited_teleport_assets(t: SystemParaToRelayTest) -> DispatchResu
 
 /// Limited Teleport of native asset from Relay Chain to the System Parachain should work
 #[test]
-#[cfg(not(feature = "runtime-benchmarks"))] // Benchmarks use the No-OP processor.
 fn limited_teleport_native_assets_from_relay_to_system_para_works() {
 	// Init values for Relay Chain
 	let amount_to_send: Balance = POLKADOT_ED * 1000;
@@ -262,7 +261,6 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 
 /// Teleport of native asset from Relay Chain to the System Parachain should work
 #[test]
-#[cfg(not(feature = "runtime-benchmarks"))] // Benchmarks use the No-OP processor.
 fn teleport_native_assets_from_relay_to_system_para_works() {
 	// Init values for Relay Chain
 	let amount_to_send: Balance = POLKADOT_ED * 1000;
