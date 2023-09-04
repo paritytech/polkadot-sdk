@@ -174,8 +174,6 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 		PenpalKusamaA::assert_xcm_pallet_sent();
 	});
 
-	PenpalKusamaA::execute_with(|| {});
-
 	AssetHubKusama::execute_with(|| {
 		type RuntimeEvent = <AssetHubKusama as Chain>::RuntimeEvent;
 
