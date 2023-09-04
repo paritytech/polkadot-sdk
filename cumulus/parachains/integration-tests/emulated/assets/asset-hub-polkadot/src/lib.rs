@@ -28,8 +28,8 @@ pub use integration_tests_common::{
 	},
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
 	AssetHubPolkadot, AssetHubPolkadotPallet, AssetHubPolkadotReceiver, AssetHubPolkadotSender,
-	PenpalPolkadotA, PenpalPolkadotAReceiver, Polkadot, PolkadotPallet, PolkadotReceiver,
-	PolkadotSender,
+	PenpalPolkadotA, PenpalPolkadotAPallet, PenpalPolkadotAReceiver, PenpalPolkadotB,
+	PenpalPolkadotBPallet, Polkadot, PolkadotPallet, PolkadotReceiver, PolkadotSender,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{
@@ -87,4 +87,5 @@ pub fn system_para_test_args(
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "runtime-benchmarks"))]
 mod tests;
