@@ -1822,6 +1822,7 @@ dependencies = [
 name = "bridge-hub-kusama-runtime"
 version = "0.1.0"
 dependencies = [
+ "bp-asset-hub-kusama",
  "bp-bridge-hub-kusama",
  "bp-bridge-hub-polkadot",
  "bp-header-chain",
@@ -1902,6 +1903,7 @@ dependencies = [
 name = "bridge-hub-polkadot-runtime"
 version = "0.1.0"
 dependencies = [
+ "bp-asset-hub-polkadot",
  "bp-bridge-hub-kusama",
  "bp-bridge-hub-polkadot",
  "bp-header-chain",
@@ -2120,6 +2122,7 @@ dependencies = [
  "sp-io",
  "sp-keyring",
  "sp-runtime",
+ "sp-tracing",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",

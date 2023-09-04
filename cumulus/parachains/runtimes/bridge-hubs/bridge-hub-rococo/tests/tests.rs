@@ -191,7 +191,9 @@ mod bridge_hub_rococo_tests {
 				}
 			}),
 			|| ExportMessage { network: Wococo, destination: X1(Parachain(1234)), xcm: Xcm(vec![]) },
-			bridge_hub_rococo_config::DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO
+			bridge_hub_rococo_config::DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO,
+			None,
+			None,
 		)
 	}
 
@@ -370,7 +372,9 @@ mod bridge_hub_wococo_tests {
 				}
 			}),
 			|| ExportMessage { network: Rococo, destination: X1(Parachain(4321)), xcm: Xcm(vec![]) },
-			bridge_hub_wococo_config::DEFAULT_XCM_LANE_TO_BRIDGE_HUB_ROCOCO
+			bridge_hub_wococo_config::DEFAULT_XCM_LANE_TO_BRIDGE_HUB_ROCOCO,
+			None,
+			None,
 		)
 	}
 

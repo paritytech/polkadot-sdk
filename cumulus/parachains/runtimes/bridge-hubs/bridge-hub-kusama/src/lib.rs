@@ -493,9 +493,15 @@ impl pallet_bridge_messages::Config<WithBridgeHubPolkadotMessagesInstance> for R
 		DeliveryRewardInBalance,
 	>;
 	type SourceHeaderChain = SourceHeaderChainAdapter<WithBridgeHubPolkadotMessageBridge>;
-	type MessageDispatch =
-		XcmBlobMessageDispatch<OnThisChainBlobDispatcher<UniversalLocation>, Self::WeightInfo, ()>;
-	type OnMessagesDelivered = ();
+	type MessageDispatch = XcmBlobMessageDispatch<
+		OnThisChainBlobDispatcher<UniversalLocation>,
+		Self::WeightInfo,
+		cumulus_pallet_xcmp_queue::bridging::OutboundXcmpChannelCongestionStatusProvider<
+			bridge_hub_config::AssetHubKusamaParaId,
+			Runtime,
+		>,
+	>;
+	type OnMessagesDelivered = bridge_hub_config::OnMessagesDelivered;
 }
 
 /// Allows collect and claim rewards for relayers
@@ -942,7 +948,11 @@ impl_runtime_apis! {
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;
 			type XcmGeneric = pallet_xcm_benchmarks::generic::Pallet::<Runtime>;
 
-			use bridge_runtime_common::messages_benchmarking::{prepare_message_delivery_proof_from_parachain, prepare_message_proof_from_parachain};
+			use bridge_runtime_common::messages_benchmarking::{
+				generate_xcm_builder_bridge_message_sample,
+				prepare_message_delivery_proof_from_parachain,
+				prepare_message_proof_from_parachain
+			};
 			use pallet_bridge_messages::benchmarking::{
 				Config as BridgeMessagesConfig,
 				Pallet as BridgeMessagesBench,
@@ -972,7 +982,7 @@ impl_runtime_apis! {
 						Runtime,
 						BridgeGrandpaPolkadotInstance,
 						bridge_hub_config::WithBridgeHubPolkadotMessageBridge,
-					>(params, X2(GlobalConsensus(xcm_config::RelayNetwork::get().unwrap()), Parachain(42)))
+					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(xcm_config::RelayNetwork::get().unwrap()), Parachain(42))))
 				}
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<AccountId>,

@@ -46,7 +46,7 @@ cumulus-pallet-parachain-system = { path = "../parachain-system" }
 [features]
 default = [ "std" ]
 std = [
-	"bp-xcm-bridge-hub-router/std",
+	"bp-xcm-bridge-hub-router?/std",
 	"codec/std",
 	"cumulus-primitives-core/std",
 	"frame-benchmarking?/std",
