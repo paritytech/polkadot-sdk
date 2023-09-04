@@ -1,0 +1,12 @@
+[package]
+name = "frame-test-utils-macros"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+sp-runtime = { path = "../../../primitives/runtime" }
+sp-io = { path = "../../../primitives/io" }
+frame-support = { path = "../../support" }

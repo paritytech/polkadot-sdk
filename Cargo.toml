@@ -354,6 +354,8 @@ members = [
 	"substrate/frame/system",
 	"substrate/frame/system/benchmarking",
 	"substrate/frame/system/rpc/runtime-api",
+	"substrate/frame/test-utils",
+	"substrate/frame/test-utils/macros",
 	"substrate/frame/timestamp",
 	"substrate/frame/tips",
 	"substrate/frame/transaction-payment",

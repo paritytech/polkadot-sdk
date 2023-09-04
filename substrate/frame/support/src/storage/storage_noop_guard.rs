@@ -39,6 +39,12 @@
 #[must_use]
 pub struct StorageNoopGuard(sp_std::vec::Vec<u8>);
 
+impl StorageNoopGuard {
+	pub fn new() -> Self {
+		Self::default()
+	}
+}
+
 impl Default for StorageNoopGuard {
 	fn default() -> Self {
 		Self(sp_io::storage::root(sp_runtime::StateVersion::V1))

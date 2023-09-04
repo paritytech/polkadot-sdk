@@ -5533,6 +5533,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "frame-test-utils"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-test-utils-macros",
+ "sp-io",
+]
+
+[[package]]
+name = "frame-test-utils-macros"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "frame-try-runtime"
 version = "0.10.0-dev"
 dependencies = [
