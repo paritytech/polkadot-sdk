@@ -20,7 +20,7 @@ mod contracts_config;
 use crate::tests::mock_network::{
 	mocks::msg_queue::pallet as mock_msg_queue,
 	primitives::{AccountId, AssetIdForAssets, Balance},
-	xcm_utils::{ ForeignChainAliasAccount},
+	xcm_utils::ForeignChainAliasAccount,
 };
 use core::marker::PhantomData;
 use frame_support::{
@@ -233,10 +233,7 @@ impl Contains<MultiLocation> for ParentRelay {
 pub type XcmRouter = crate::tests::mock_network::ParachainXcmRouter<MsgQueue>;
 
 pub type Barrier = WithComputedOrigin<
-	(
-		AllowExplicitUnpaidExecutionFrom<ParentRelay>,
-		AllowTopLevelPaidExecutionFrom<Everything>,
-	),
+	(AllowExplicitUnpaidExecutionFrom<ParentRelay>, AllowTopLevelPaidExecutionFrom<Everything>),
 	UniversalLocation,
 	ConstU32<1>,
 >;

@@ -41,7 +41,7 @@ use xcm_executor::{Config, XcmExecutor};
 use super::{
 	mocks::relay_message_queue::*,
 	primitives::{AccountId, Balance},
-	xcm_utils::{ ForeignChainAliasAccount},
+	xcm_utils::ForeignChainAliasAccount,
 };
 
 parameter_types! {

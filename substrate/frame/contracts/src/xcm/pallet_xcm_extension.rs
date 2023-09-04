@@ -1,11 +1,13 @@
-use crate::{AccountIdOf, Config, RawOrigin};
+use crate::{
+	xcm::{CallOf, WeightInfo, XCM},
+	AccountIdOf, Config, RawOrigin,
+};
 use frame_support::{pallet_prelude::DispatchResultWithPostInfo, weights::Weight};
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_xcm::WeightInfo as XcmWeightInfo;
 use sp_runtime::{DispatchError, DispatchResult};
 use xcm::{v3::MultiLocation, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
-use crate::xcm::{XCM, WeightInfo, CallOf};
 
 impl<T> WeightInfo for T
 where
@@ -73,4 +75,3 @@ where
 		<pallet_xcm::Pallet<T> as QueryHandler>::take_response(query_id)
 	}
 }
-

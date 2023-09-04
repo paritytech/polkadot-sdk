@@ -4,7 +4,7 @@ use frame_support::{pallet_prelude::DispatchResultWithPostInfo, weights::Weight}
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{DispatchError, DispatchResult};
 use xcm::{VersionedMultiLocation, VersionedXcm};
-use xcm_executor::traits::{QueryResponseStatus};
+use xcm_executor::traits::QueryResponseStatus;
 pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 // TODO move behind feature flag
@@ -107,4 +107,3 @@ impl WeightInfo for NoopXcmConfig {
 		Weight::zero()
 	}
 }
-

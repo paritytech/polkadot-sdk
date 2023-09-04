@@ -18,7 +18,7 @@ use codec::Encode;
 use core::{borrow::Borrow, marker::PhantomData};
 use sp_core::blake2_256;
 use xcm::prelude::*;
-use xcm_executor::traits::{ConvertLocation };
+use xcm_executor::traits::ConvertLocation;
 
 /// Prefix for generating alias account for accounts coming
 /// from chains that use 32 byte long representations.
