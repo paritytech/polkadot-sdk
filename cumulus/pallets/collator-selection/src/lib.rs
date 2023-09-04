@@ -35,15 +35,21 @@
 //!
 //! 1. [`Invulnerables`]: a set of collators appointed by governance. These accounts will always be
 //!    collators.
-//! 2. [`Candidates`]: these are *candidates to the collation task* and may or may not be elected as
-//!    a final collator.
+//! 2. [`CandidateList`]: these are *candidates to the collation task* and may or may not be elected
+//!    as a final collator.
 //!
-//! The current implementation resolves congestion of [`Candidates`] in a first-come-first-serve
-//! manner.
+//! The current implementation resolves congestion of [`CandidateList`] through a simple election
+//! mechanism. Initially candidates register by placing the minimum bond, up until the maximum
+//! number of allowed candidates is reached. Then, if an account wants to register as a candidate,
+//! they have to replace an existing one by placing a greater deposit.
 //!
 //! Candidates will not be allowed to get kicked or `leave_intent` if the total number of collators
 //! would fall below `MinEligibleCollators`. This is to ensure that some collators will always
 //! exist, i.e. someone is eligible to produce a block.
+//!
+//! When a new session starts, candidates with the highest deposits will be selected in order until
+//! the desired amount of collators is reached. Candidates can increase or decrease their deposits
+//! between sessions in order to ensure they receive a slot in the collator list of that session.
 //!
 //! ### Rewards
 //!
