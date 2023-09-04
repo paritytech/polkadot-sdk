@@ -98,7 +98,7 @@ jobs:
       - name: Cache the artifacts
         uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
-          key: artifacts-${{ github.sha }}
+          key: artifacts-${{ env.BINARY }}-${{ github.sha }}
           path: |
             ./release-artifacts/${{ env.BINARY }}/**/*
 
@@ -113,7 +113,7 @@ jobs:
       - name: Get artifacts from cache
         uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
-          key: artifacts-${{ github.sha }}
+          key: artifacts-${{ env.BINARY }}-${{ github.sha }}
           fail-on-cache-miss: true
           path: |
             ./release-artifacts/${{ env.BINARY }}/**/*
