@@ -22,7 +22,9 @@
 use super::*;
 use crate::mock::{RuntimeCall, *};
 
-use frame_support::{assert_err, experimental_hypothetically_ok, assert_noop, assert_ok, traits::Currency};
+use frame_support::{
+	assert_err, assert_noop, assert_ok, experimental_hypothetically_ok, traits::Currency,
+};
 use sp_runtime::traits::Dispatchable;
 
 #[test]
