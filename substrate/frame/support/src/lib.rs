@@ -796,13 +796,13 @@ macro_rules! experimental_hypothetically {
 	};
 }
 
-/// Assert something to be [*hypothetically*] `Ok` without actually committing it.
+/// Assert something to be *hypothetically* `Ok` without actually committing it.
 ///
 /// Reverts any storage changes made by the closure.
 #[macro_export]
 macro_rules! experimental_hypothetically_ok {
 	($e:expr $(, $args:expr)* $(,)?) => {
-		let result = $crate::hypothetically!($e);
+		let result = $crate::experimental_hypothetically!($e);
 		$crate::assert_ok!(result $(, $args)*);
 	};
 }

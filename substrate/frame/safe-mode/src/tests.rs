@@ -22,32 +22,8 @@
 use super::*;
 use crate::mock::{RuntimeCall, *};
 
-use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
-use sp_runtime::{traits::Dispatchable, TransactionOutcome};
-
-/// Do something hypothetically by rolling back any changes afterwards.
-///
-/// Returns the original result of the closure.
-macro_rules! hypothetically {
-	( $e:expr ) => {
-		frame_support::storage::transactional::with_transaction(
-			|| -> TransactionOutcome<Result<_, sp_runtime::DispatchError>> {
-				sp_runtime::TransactionOutcome::Rollback(Ok($e))
-			},
-		)
-		.expect("Always returning Ok; qed")
-	};
-}
-
-/// Assert something to be [*hypothetically*] `Ok` without actually committing it.
-///
-/// Reverts any storage changes made by the closure.
-macro_rules! hypothetically_ok {
-	($e:expr $(, $args:expr)* $(,)?) => {
-		let result = hypothetically!($e);
-		assert_ok!(result $(, $args)*);
-	};
-}
+use frame_support::{assert_err, experimental_hypothetically_ok, assert_noop, assert_ok, traits::Currency};
+use sp_runtime::traits::Dispatchable;
 
 #[test]
 fn fails_to_filter_calls_to_safe_mode_pallet() {
@@ -348,7 +324,7 @@ fn can_force_release_deposit_with_config_origin() {
 	new_test_ext().execute_with(|| {
 		let activated_at_block = System::block_number();
 		assert_ok!(SafeMode::enter(RuntimeOrigin::signed(0)));
-		hypothetically_ok!(SafeMode::force_release_deposit(
+		experimental_hypothetically_ok!(SafeMode::force_release_deposit(
 			RuntimeOrigin::signed(mock::ForceDepositOrigin::get()),
 			0,
 			activated_at_block
@@ -394,7 +370,7 @@ fn can_release_deposit_while_entered() {
 		// We could slash in the same block or any later.
 		for i in 0..mock::EnterDuration::get() + 10 {
 			run_to(i);
-			hypothetically_ok!(SafeMode::force_release_deposit(
+			experimental_hypothetically_ok!(SafeMode::force_release_deposit(
 				RuntimeOrigin::signed(mock::ForceDepositOrigin::get()),
 				0,
 				1
@@ -429,7 +405,7 @@ fn can_slash_deposit_while_entered() {
 		// We could slash in the same block or any later.
 		for i in 0..mock::EnterDuration::get() + 10 {
 			run_to(i);
-			hypothetically_ok!(SafeMode::force_slash_deposit(
+			experimental_hypothetically_ok!(SafeMode::force_slash_deposit(
 				RuntimeOrigin::signed(mock::ForceDepositOrigin::get()),
 				0,
 				1
@@ -500,7 +476,7 @@ fn can_slash_deposit_with_config_origin() {
 	new_test_ext().execute_with(|| {
 		let activated_at_block = System::block_number();
 		assert_ok!(SafeMode::enter(RuntimeOrigin::signed(0)));
-		hypothetically_ok!(SafeMode::force_slash_deposit(
+		experimental_hypothetically_ok!(SafeMode::force_slash_deposit(
 			RuntimeOrigin::signed(mock::ForceDepositOrigin::get()),
 			0,
 			activated_at_block
