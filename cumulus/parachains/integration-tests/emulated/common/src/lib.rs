@@ -24,6 +24,7 @@ use constants::{
 	bridge_hub_polkadot, bridge_hub_rococo, collectives, kusama, penpal, polkadot, rococo, westend,
 };
 use impls::{RococoWococoMessageHandler, WococoRococoMessageHandler};
+use polkadot_primitives::runtime_api::runtime_decl_for_parachain_host::ParachainHostV6;
 
 // Substrate
 use frame_support::traits::OnInitialize;

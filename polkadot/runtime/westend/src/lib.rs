@@ -1695,6 +1695,10 @@ sp_api::impl_runtime_apis! {
 		fn minimum_backing_votes() -> u32 {
 			parachains_staging_runtime_api_impl::minimum_backing_votes::<Runtime>()
 		}
+
+		fn disabled_validators() -> Vec<ValidatorIndex> {
+			parachains_staging_runtime_api_impl::disabled_validators::<Runtime>()
+		}
 	}
 
 	impl beefy_primitives::BeefyApi<Block, BeefyId> for Runtime {
