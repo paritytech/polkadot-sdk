@@ -270,7 +270,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			max_head_data_size: Default::default(),
 			on_demand_cores: Default::default(),
 			on_demand_retries: Default::default(),
-			scheduling_lookahead: 1,
+			scheduling_lookahead: 2,
 			max_validators_per_core: Default::default(),
 			max_validators: None,
 			dispute_period: 6,
