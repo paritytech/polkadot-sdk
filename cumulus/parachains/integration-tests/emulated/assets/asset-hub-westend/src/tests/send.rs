@@ -116,8 +116,6 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 		PenpalWestendA::assert_xcm_pallet_sent();
 	});
 
-	PenpalWestendA::execute_with(|| {});
-
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
