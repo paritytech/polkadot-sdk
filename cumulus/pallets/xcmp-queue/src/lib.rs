@@ -46,7 +46,7 @@ use cumulus_primitives_core::{
 };
 use frame_support::{
 	defensive, defensive_assert,
-	traits::{EnqueueMessage, EnsureOrigin, Get, QueuePausedQuery},
+	traits::{EnqueueMessage, EnsureOrigin, Footprint, Get, QueuePausedQuery},
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight, WeightMeter},
 	BoundedVec,
 };
@@ -158,7 +158,7 @@ pub mod pallet {
 			})
 		}
 
-		/// Overwrites the number of messages which must be in the queue for the other side to be
+		/// Overwrites the number of pages which must be in the queue for the other side to be
 		/// told to suspend their sending.
 		///
 		/// - `origin`: Must pass `Root`.
@@ -174,7 +174,7 @@ pub mod pallet {
 			})
 		}
 
-		/// Overwrites the number of messages which must be in the queue after which we drop any
+		/// Overwrites the number of pages which must be in the queue after which we drop any
 		/// further messages from the channel.
 		///
 		/// - `origin`: Must pass `Root`.
@@ -190,7 +190,7 @@ pub mod pallet {
 			})
 		}
 
-		/// Overwrites the number of messages which the queue must be reduced to before it signals
+		/// Overwrites the number of pages which the queue must be reduced to before it signals
 		/// that message sending may recommence after it has been suspended.
 		///
 		/// - `origin`: Must pass `Root`.
@@ -324,14 +324,14 @@ impl OutboundChannelDetails {
 
 #[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct QueueConfigData {
-	/// The number of messages which must be in the queue for the other side to be told to suspend
+	/// The number of pages which must be in the queue for the other side to be told to suspend
 	/// their sending.
 	suspend_threshold: u32,
-	/// The number of messages which must be in the queue after which we drop any further messages
+	/// The number of pages which must be in the queue after which we drop any further messages
 	/// from the channel. This should normally not happen since the `suspend_threshold` can be used
 	/// to suspend the channel.
 	drop_threshold: u32,
-	/// The number of messages which the queue must be reduced to before it signals that
+	/// The number of pages which the queue must be reduced to before it signals that
 	/// message sending may recommence after it has been suspended.
 	resume_threshold: u32,
 	/// UNUSED - The amount of remaining weight under which we stop processing messages.
@@ -350,11 +350,14 @@ pub struct QueueConfigData {
 
 impl Default for QueueConfigData {
 	fn default() -> Self {
+		// NOTE that these default values are only used on genesis. They should give a rough idea of
+		// what to set these values to, but is in no way a recommendation.
 		#![allow(deprecated)]
 		Self {
-			suspend_threshold: 2048,
-			drop_threshold: 3096,
-			resume_threshold: 1024,
+			suspend_threshold: 32, // 64KiB * 32 = 2MiB
+			drop_threshold: 48,    // 64KiB * 48 = 3MiB
+			resume_threshold: 8,   // 64KiB * 8 = 512KiB
+			// unused:
 			threshold_weight: Weight::from_parts(100_000, 0),
 			weight_restrict_decay: Weight::from_parts(2, 0),
 			xcmp_max_individual_weight: Weight::from_parts(
@@ -514,14 +517,14 @@ impl<T: Config> Pallet<T> {
 		meter: &mut WeightMeter,
 	) -> Result<(), ()> {
 		if meter.try_consume(T::WeightInfo::enqueue_xcmp_message()).is_err() {
-			defensive!("Out of weight: cannot enqueue XCMP messages; dropping msgs");
+			defensive!("Out of weight: cannot enqueue XCMP messages; dropping msg");
 			return Err(())
 		}
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
 		let fp = T::XcmpQueue::footprint(sender);
-
-		let new_count = fp.count.saturating_add(1);
-		if new_count > drop_threshold as u64 {
+		// Assume that it will not fit into the current page:
+		let new_pages = fp.pages.saturating_add(1);
+		if new_pages > drop_threshold {
 			// This should not happen since the channel should have been suspended in
 			// [`on_queue_changed`].
 			log::error!("XCMP queue for sibling {:?} is full; dropping messages.", sender);
@@ -557,20 +560,20 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> OnQueueChanged<ParaId> for Pallet<T> {
 	// Suspends/Resumes the queue when certain thresholds are reached.
-	fn on_queue_changed(para: ParaId, count: u64, _size: u64) {
+	fn on_queue_changed(para: ParaId, fp: Footprint) {
 		let QueueConfigData { resume_threshold, suspend_threshold, .. } = <QueueConfig<T>>::get();
 
 		let mut suspended_channels = <InboundXcmpSuspended<T>>::get();
 		let suspended = suspended_channels.contains(&para);
 
-		if suspended && count <= resume_threshold as u64 {
+		if suspended && fp.pages <= resume_threshold {
 			if let Err(err) = Self::send_signal(para, ChannelSignal::Resume) {
 				log::error!("Cannot resume channel from sibling {:?}: {:?}", para, err);
 			} else {
 				suspended_channels.remove(&para);
 				<InboundXcmpSuspended<T>>::put(suspended_channels);
 			}
-		} else if !suspended && count >= suspend_threshold as u64 {
+		} else if !suspended && fp.pages >= suspend_threshold {
 			log::warn!("XCMP queue for sibling {:?} is full; suspending channel.", para);
 
 			if let Err(err) = Self::send_signal(para, ChannelSignal::Suspend) {

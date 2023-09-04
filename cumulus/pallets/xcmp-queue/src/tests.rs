@@ -23,7 +23,7 @@ use cumulus_primitives_core::XcmpMessageHandler;
 use frame_support::{assert_noop, assert_ok, experimental_hypothetically};
 use mock::{new_test_ext, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::BadOrigin;
-use std::iter::once;
+use std::iter::{once, repeat};
 
 #[test]
 fn empty_concatenated_works() {
@@ -70,8 +70,8 @@ fn xcm_enqueueing_many_works() {
 fn xcm_enqueueing_multiple_times_works() {
 	new_test_ext().execute_with(|| {
 		let mut encoded_xcms = vec![];
-		for i in 0..10 {
-			let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin; i as usize]));
+		for _ in 0..10 {
+			let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
 			encoded_xcms.push(xcm.encode());
 		}
 		let mut data = ConcatenatedVersionedXcm.encode();
@@ -90,6 +90,28 @@ fn xcm_enqueueing_multiple_times_works() {
 				.cycle()
 				.take(100)
 				.collect::<Vec<_>>(),
+		);
+	})
+}
+
+#[test]
+#[cfg_attr(debug_assertions, should_panic = "Defensive failure")]
+fn xcm_enqueueing_starts_dropping_on_overflow() {
+	new_test_ext().execute_with(|| {
+		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
+		let data = (ConcatenatedVersionedXcm, xcm).encode();
+		// Its possible to enqueue 256 messages at most:
+		let limit = 256;
+
+		XcmpQueue::handle_xcmp_messages(
+			repeat((1000.into(), 1, data.as_slice())).take(limit * 2),
+			Weight::MAX,
+		);
+		assert_eq!(EnqueuedMessages::get().len(), limit);
+		// The drop threshold for pages is 48, the others numbers dont really matter:
+		assert_eq!(
+			<Test as Config>::XcmpQueue::footprint(1000.into()),
+			Footprint { count: 256, size: 768, pages: 48 }
 		);
 	})
 }
@@ -245,24 +267,12 @@ fn suspend_and_resume_xcm_execution_work() {
 fn xcm_enqueueing_backpressure_works() {
 	let para: ParaId = 1000.into();
 	new_test_ext().execute_with(|| {
-		assert_ok!(XcmpQueue::update_resume_threshold(Origin::root(), 32));
-		assert_ok!(XcmpQueue::update_suspend_threshold(Origin::root(), 64));
-		assert_ok!(XcmpQueue::update_drop_threshold(Origin::root(), 128));
+		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
+		let data = (ConcatenatedVersionedXcm, xcm).encode();
 
-		let mut encoded_xcms = vec![];
-		for _ in 0..63 {
-			let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
-			encoded_xcms.push(xcm.encode());
-		}
-		let mut data = ConcatenatedVersionedXcm.encode();
-		data.extend(encoded_xcms.iter().flatten());
+		XcmpQueue::handle_xcmp_messages(repeat((para, 1, data.as_slice())).take(170), Weight::MAX);
 
-		XcmpQueue::handle_xcmp_messages(once((para, 1, data.as_slice())), Weight::MAX);
-
-		assert_eq!(
-			EnqueuedMessages::get(),
-			encoded_xcms.clone().into_iter().map(|xcm| (para, xcm)).collect::<Vec<_>>(),
-		);
+		assert_eq!(EnqueuedMessages::get().len(), 170,);
 		// Not yet suspended:
 		assert!(InboundXcmpSuspended::<Test>::get().is_empty());
 		// Enqueueing one more will suspend it:
@@ -274,36 +284,34 @@ fn xcm_enqueueing_backpressure_works() {
 		assert_eq!(InboundXcmpSuspended::<Test>::get().iter().collect::<Vec<_>>(), vec![&para]);
 
 		// Now enqueueing many more will only work until the drop threshold:
-		XcmpQueue::handle_xcmp_messages(once((para, 1, data.as_slice())), Weight::MAX);
-		XcmpQueue::handle_xcmp_messages(once((para, 1, data.as_slice())), Weight::MAX);
-		assert_eq!(mock::EnqueuedMessages::get().len(), 128,);
+		XcmpQueue::handle_xcmp_messages(repeat((para, 1, data.as_slice())).take(100), Weight::MAX);
+		assert_eq!(mock::EnqueuedMessages::get().len(), 256);
 
-		EnqueueToLocalStorage::<Pallet<Test>>::sweep_queue(para);
+		crate::mock::EnqueueToLocalStorage::<Pallet<Test>>::sweep_queue(para);
 		XcmpQueue::handle_xcmp_messages(once((para, 1, small.as_slice())), Weight::MAX);
 		// Got resumed:
 		assert!(InboundXcmpSuspended::<Test>::get().is_empty());
 		// Still resumed:
 		XcmpQueue::handle_xcmp_messages(once((para, 1, small.as_slice())), Weight::MAX);
 		assert!(InboundXcmpSuspended::<Test>::get().is_empty());
-		panic!("asdf");
 	});
 }
 
 #[test]
 fn update_suspend_threshold_works() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(<QueueConfig<Test>>::get().suspend_threshold, 2048);
-		assert_noop!(XcmpQueue::update_suspend_threshold(Origin::signed(2), 5), BadOrigin);
+		assert_eq!(<QueueConfig<Test>>::get().suspend_threshold, 32);
+		assert_noop!(XcmpQueue::update_suspend_threshold(Origin::signed(2), 49), BadOrigin);
 
-		assert_ok!(XcmpQueue::update_suspend_threshold(Origin::root(), 3000));
-		assert_eq!(<QueueConfig<Test>>::get().suspend_threshold, 3000);
+		assert_ok!(XcmpQueue::update_suspend_threshold(Origin::root(), 33));
+		assert_eq!(<QueueConfig<Test>>::get().suspend_threshold, 33);
 	});
 }
 
 #[test]
 fn update_drop_threshold_works() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(<QueueConfig<Test>>::get().drop_threshold, 3096);
+		assert_eq!(<QueueConfig<Test>>::get().drop_threshold, 48);
 		assert_ok!(XcmpQueue::update_drop_threshold(Origin::root(), 4000));
 		assert_noop!(XcmpQueue::update_drop_threshold(Origin::signed(2), 7), BadOrigin);
 
@@ -314,15 +322,19 @@ fn update_drop_threshold_works() {
 #[test]
 fn update_resume_threshold_works() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(<QueueConfig<Test>>::get().resume_threshold, 1024);
+		assert_eq!(<QueueConfig<Test>>::get().resume_threshold, 8);
 		assert_noop!(
 			XcmpQueue::update_resume_threshold(Origin::root(), 0),
 			Error::<Test>::BadQueueConfig
 		);
-		assert_ok!(XcmpQueue::update_resume_threshold(Origin::root(), 110));
+		assert_noop!(
+			XcmpQueue::update_resume_threshold(Origin::root(), 33),
+			Error::<Test>::BadQueueConfig
+		);
+		assert_ok!(XcmpQueue::update_resume_threshold(Origin::root(), 16));
 		assert_noop!(XcmpQueue::update_resume_threshold(Origin::signed(7), 3), BadOrigin);
 
-		assert_eq!(<QueueConfig<Test>>::get().resume_threshold, 110);
+		assert_eq!(<QueueConfig<Test>>::get().resume_threshold, 16);
 	});
 }
 

@@ -29,7 +29,7 @@ use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
-	traits::{Defensive, EnqueueMessage},
+	traits::{Defensive, EnqueueMessage, Footprint},
 	BoundedSlice,
 };
 use frame_system::pallet_prelude::*;
@@ -1166,10 +1166,11 @@ impl<BlockNumber> AcceptanceCheckErr<BlockNumber> {
 
 impl<T: Config> OnQueueChanged<AggregateMessageOrigin> for Pallet<T> {
 	// Write back the remaining queue capacity into `relay_dispatch_queue_remaining_capacity`.
-	fn on_queue_changed(origin: AggregateMessageOrigin, count: u64, size: u64) {
+	fn on_queue_changed(origin: AggregateMessageOrigin, fp: Footprint) {
 		let para = match origin {
 			AggregateMessageOrigin::Ump(UmpQueueId::Para(p)) => p,
 		};
+		let Footprint { count, size, .. } = fp;
 		let (count, size) = (count.saturated_into(), size.saturated_into());
 		// TODO paritytech/polkadot#6283: Remove all usages of `relay_dispatch_queue_size`
 		#[allow(deprecated)]

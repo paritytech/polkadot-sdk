@@ -221,7 +221,7 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 		let mut msgs = EnqueuedMessages::get();
 		msgs.push((origin, message.to_vec()));
 		EnqueuedMessages::set(&msgs);
-		T::on_queue_changed(origin, msgs.len() as u64, msgs.encoded_size() as u64);
+		T::on_queue_changed(origin, Self::footprint(origin));
 	}
 
 	fn enqueue_messages<'a>(
@@ -233,14 +233,14 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 			msgs.push((origin, message.to_vec()));
 		}
 		EnqueuedMessages::set(&msgs);
-		T::on_queue_changed(origin, msgs.len() as u64, msgs.encoded_size() as u64);
+		T::on_queue_changed(origin, Self::footprint(origin));
 	}
 
 	fn sweep_queue(origin: ParaId) {
 		let mut msgs = EnqueuedMessages::get();
 		msgs.retain(|(o, _)| o != &origin);
 		EnqueuedMessages::set(&msgs);
-		T::on_queue_changed(origin, msgs.len() as u64, msgs.encoded_size() as u64);
+		T::on_queue_changed(origin, Self::footprint(origin));
 	}
 
 	fn footprint(origin: ParaId) -> Footprint {
@@ -252,6 +252,7 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 				footprint.size += m.len() as u64;
 			}
 		}
+		footprint.pages = footprint.size as u32 / 16; // Number does not matter
 		footprint
 	}
 }
