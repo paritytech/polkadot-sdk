@@ -34,18 +34,17 @@ use frame_support::{
 use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
-use sp_core::{ConstU128, ConstU32, ConstU64, H256};
+use sp_core::{ConstU32, ConstU64, H256};
 use sp_runtime::traits::{Get, IdentityLookup, MaybeEquivalence};
 
 use sp_std::prelude::*;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
-	AsPrefixedGeneralIndex, ConvertedConcreteId, CurrencyAdapter as XcmCurrencyAdapter,
-	EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter, IsConcrete,
-	NativeAsset, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, WithComputedOrigin,
+	ConvertedConcreteId, CurrencyAdapter as XcmCurrencyAdapter, EnsureXcmOrigin,
+	FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter, IsConcrete, NativeAsset, NoChecking,
+	ParentAsSuperuser, ParentIsPreset, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, WithComputedOrigin,
 };
 use xcm_executor::{traits::JustTry, Config, XcmExecutor};
 
@@ -139,27 +138,6 @@ impl pallet_assets::Config for Runtime {
 	type CallbackHandle = ();
 }
 
-impl pallet_uniques::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type CollectionId = u32;
-	type ItemId = u32;
-	type Currency = Balances;
-	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
-	type ForceOrigin = EnsureRoot<AccountId>;
-	type CollectionDeposit = ConstU128<1_000>;
-	type ItemDeposit = ConstU128<1_000>;
-	type MetadataDepositBase = ConstU128<1_000>;
-	type AttributeDepositBase = ConstU128<1_000>;
-	type DepositPerByte = ConstU128<1>;
-	type StringLimit = ConstU32<64>;
-	type KeyLimit = ConstU32<64>;
-	type ValueLimit = ConstU32<128>;
-	type Locker = ();
-	type WeightInfo = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type Helper = ();
-}
-
 parameter_types! {
 	pub const ReservedXcmpWeight: Weight = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_div(4), 0);
 	pub const ReservedDmpWeight: Weight = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_div(4), 0);
@@ -242,18 +220,8 @@ pub type ForeignAssetsTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
-pub type ForeignUniquesTransactor = NonFungiblesAdapter<
-	ForeignUniques,
-	ConvertedConcreteId<u32, u32, AsPrefixedGeneralIndex<KsmLocation, u32, JustTry>, JustTry>,
-	SovereignAccountOf,
-	AccountId,
-	NoChecking,
-	(),
->;
-
 /// Means for transacting assets on this chain
-pub type AssetTransactors =
-	(LocalBalancesTransactor, ForeignAssetsTransactor, ForeignUniquesTransactor);
+pub type AssetTransactors = (LocalBalancesTransactor, ForeignAssetsTransactor);
 
 pub struct ParentRelay;
 impl Contains<MultiLocation> for ParentRelay {
@@ -378,6 +346,5 @@ construct_runtime!(
 		PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin},
 		Contracts: crate::{Pallet, Call, Storage, Event<T>, HoldReason},
 		Assets: pallet_assets,
-		ForeignUniques: pallet_uniques,
 	}
 );

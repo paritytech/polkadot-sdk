@@ -18,12 +18,12 @@
 
 use frame_support::{
 	construct_runtime, parameter_types,
-	traits::{AsEnsureOriginWithArg, Contains, Everything, Nothing},
+	traits::{Contains, Everything, Nothing},
 	weights::Weight,
 };
 
 use frame_system::EnsureRoot;
-use sp_core::{ConstU128, ConstU32, H256};
+use sp_core::{ConstU32, H256};
 use sp_runtime::traits::IdentityLookup;
 
 use polkadot_parachain::primitives::Id as ParaId;
@@ -31,13 +31,12 @@ use polkadot_runtime_parachains::{configuration, origin, shared};
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowSubscriptionsFrom,
-	AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex, ChildParachainAsNative,
-	ChildParachainConvertsVia, ChildSystemParachainAsSuperuser, ConvertedConcreteId,
-	CurrencyAdapter as XcmCurrencyAdapter, FixedRateOfFungible, FixedWeightBounds, IsConcrete,
-	NoChecking, NonFungiblesAdapter, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	AllowTopLevelPaidExecutionFrom, ChildParachainAsNative, ChildParachainConvertsVia,
+	ChildSystemParachainAsSuperuser, CurrencyAdapter as XcmCurrencyAdapter, FixedRateOfFungible,
+	FixedWeightBounds, IsConcrete, SiblingParachainConvertsVia, SignedAccountId32AsNative,
 	SignedToAccountId32, SovereignSignedViaLocation, WithComputedOrigin,
 };
-use xcm_executor::{traits::JustTry, Config, XcmExecutor};
+use xcm_executor::{Config, XcmExecutor};
 
 use super::{
 	mocks::relay_message_queue::*,
@@ -54,13 +53,10 @@ impl frame_system::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type Block = Block;
 	type Nonce = u64;
-	// type Index = u64;
-	// type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = ::sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	// type Header = Header;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = BlockHashCount;
 	type BlockWeights = ();
@@ -94,32 +90,10 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = ();
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
-	// type HoldIdentifier = ();
 	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 	type RuntimeHoldReason = ();
-}
-
-impl pallet_uniques::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type CollectionId = u32;
-	type ItemId = u32;
-	type Currency = Balances;
-	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
-	type ForceOrigin = EnsureRoot<AccountId>;
-	type CollectionDeposit = ConstU128<1_000>;
-	type ItemDeposit = ConstU128<1_000>;
-	type MetadataDepositBase = ConstU128<1_000>;
-	type AttributeDepositBase = ConstU128<1_000>;
-	type DepositPerByte = ConstU128<1>;
-	type StringLimit = ConstU32<64>;
-	type KeyLimit = ConstU32<64>;
-	type ValueLimit = ConstU32<128>;
-	type Locker = ();
-	type WeightInfo = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type Helper = ();
 }
 
 impl shared::Config for Runtime {}
@@ -145,16 +119,7 @@ pub type SovereignAccountOf = (
 pub type LocalBalancesTransactor =
 	XcmCurrencyAdapter<Balances, IsConcrete<TokenLocation>, SovereignAccountOf, AccountId, ()>;
 
-pub type LocalUniquesTransactor = NonFungiblesAdapter<
-	Uniques,
-	ConvertedConcreteId<u32, u32, AsPrefixedGeneralIndex<(), u32, JustTry>, JustTry>,
-	SovereignAccountOf,
-	AccountId,
-	NoChecking,
-	(),
->;
-
-pub type AssetTransactors = (LocalBalancesTransactor, LocalUniquesTransactor);
+pub type AssetTransactors = LocalBalancesTransactor;
 
 type LocalOriginConverter = (
 	SovereignSignedViaLocation<SovereignAccountOf, RuntimeOrigin>,
@@ -275,7 +240,6 @@ construct_runtime!(
 	pub enum Runtime {
 		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Uniques: pallet_uniques,
 		ParasOrigin: origin::{Pallet, Origin},
 		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin},
 		MessageQueue: pallet_message_queue::{Pallet, Event<T>},

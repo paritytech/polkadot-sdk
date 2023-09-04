@@ -71,7 +71,8 @@ pub fn relay_sovereign_account_id() -> AccountId {
 
 pub fn parachain_sovereign_account_id(para: u32) -> AccountId {
 	let location: MultiLocation = (Parachain(para),).into();
-	crate::tests::mock_network::relay_chain::SovereignAccountOf::convert_location(&location).unwrap()
+	crate::tests::mock_network::relay_chain::SovereignAccountOf::convert_location(&location)
+		.unwrap()
 }
 
 pub fn parachain_account_sovereign_account_id(

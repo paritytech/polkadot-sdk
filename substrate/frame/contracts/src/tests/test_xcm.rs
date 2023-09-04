@@ -21,7 +21,7 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_balances::{BalanceLock, Reasons};
 use pallet_contracts_primitives::Code;
-use xcm::{v3::prelude::*, VersionedMultiLocation,VersionedXcm};
+use xcm::{v3::prelude::*, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 use xcm_simulator::TestExt;
 

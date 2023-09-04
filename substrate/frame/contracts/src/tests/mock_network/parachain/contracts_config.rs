@@ -18,7 +18,8 @@ use super::{Balances, Runtime, RuntimeCall, RuntimeEvent};
 use crate::{
 	tests::mock_network::{
 		parachain::RuntimeHoldReason,
-		primitives::{Balance, CENTS}, },
+		primitives::{Balance, CENTS},
+	},
 	Config,
 };
 use frame_support::{
