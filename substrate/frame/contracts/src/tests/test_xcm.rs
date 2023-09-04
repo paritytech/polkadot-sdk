@@ -21,7 +21,7 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_balances::{BalanceLock, Reasons};
 use pallet_contracts_primitives::Code;
-use xcm::{v3::prelude::*, VersionedMultiLocation, VersionedResponse, VersionedXcm};
+use xcm::{v3::prelude::*, VersionedMultiLocation,VersionedXcm};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 use xcm_simulator::TestExt;
 
@@ -202,7 +202,7 @@ fn test_xcm_take_response() {
 			network: Some(NetworkId::ByGenesis([0u8; 32])),
 			id: ALICE.into(),
 		});
-		let query_id = ParachainPalletXcm::new_query(responder, 1u32.into(), querier.clone());
+		let query_id = ParachainPalletXcm::new_query(responder, 1u32.into(), querier);
 
 		let fee = parachain::estimate_message_fee(4);
 		let message = Xcm(vec![
