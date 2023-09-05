@@ -75,11 +75,6 @@ impl CallSpan for () {
 	}
 }
 
-pub enum CallInterceptorResult {
-	Proceed,
-	Stop(ExecResult),
-}
-
 pub trait CallInterceptor<T: Config> {
 	/// Allows to intercept contract calls and decide whether they should be executed or not.
 	/// If the call is intercepted, the mocked result of the call is returned.
@@ -89,11 +84,17 @@ pub trait CallInterceptor<T: Config> {
 	/// * `contract_address` - The address of the contract that is about to be executed.
 	/// * `entry_point` - Describes whether the call is the constructor or a regular call.
 	/// * `input_data` - The raw input data of the call.
+	///
+	/// # Returns
+	///
+	/// * `Some(ExecResult)` - If the call is intercepted, the mocked result of the call is
+	///   returned.
+	/// * `None` - If the call is not intercepted, the call should be executed normally.
 	fn intercept_call(
 		contract_address: &T::AccountId,
 		entry_point: ExportedFunction,
 		input_data: &[u8],
-	) -> CallInterceptorResult;
+	) -> Option<ExecResult>;
 }
 
 impl<T: Config> CallInterceptor<T> for () {
@@ -101,7 +102,7 @@ impl<T: Config> CallInterceptor<T> for () {
 		_contract_address: &T::AccountId,
 		_entry_point: ExportedFunction,
 		_input_data: &[u8],
-	) -> CallInterceptorResult {
-		CallInterceptorResult::Proceed
+	) -> Option<ExecResult> {
+		None
 	}
 }
