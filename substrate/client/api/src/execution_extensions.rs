@@ -23,7 +23,6 @@
 //! extensions to support APIs for particular execution context & capabilities.
 
 use parking_lot::RwLock;
-use sp_api::ExtensionProducer;
 use sp_core::traits::{ReadRuntimeVersion, ReadRuntimeVersionExt};
 use sp_externalities::{Extension, Extensions};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
@@ -96,7 +95,6 @@ impl<Block: BlockT, Ext: Default + Extension> ExtensionsFactory<Block>
 pub struct ExecutionExtensions<Block: BlockT> {
 	extensions_factory: RwLock<Box<dyn ExtensionsFactory<Block>>>,
 	read_runtime_version: Arc<dyn ReadRuntimeVersion>,
-	import_extension: Option<sp_api::ExtensionProducer>,
 }
 
 impl<Block: BlockT> ExecutionExtensions<Block> {
@@ -104,20 +102,13 @@ impl<Block: BlockT> ExecutionExtensions<Block> {
 	pub fn new(
 		extensions_factory: Option<Box<dyn ExtensionsFactory<Block>>>,
 		read_runtime_version: Arc<dyn ReadRuntimeVersion>,
-		import_extension: Option<ExtensionProducer>,
 	) -> Self {
 		Self {
 			extensions_factory: extensions_factory
 				.map(RwLock::new)
 				.unwrap_or_else(|| RwLock::new(Box::new(()))),
 			read_runtime_version,
-			import_extension,
 		}
-	}
-
-	/// Get extension that should be registered during block import
-	pub fn get_import_extension(&self) -> Option<ExtensionProducer> {
-		self.import_extension.clone()
 	}
 
 	/// Set the new extensions_factory

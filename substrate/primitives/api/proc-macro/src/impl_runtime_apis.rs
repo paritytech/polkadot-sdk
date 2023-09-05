@@ -365,10 +365,6 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 				fn register_extension<E: #crate_::Extension>(&mut self, extension: E) {
 					std::cell::RefCell::borrow_mut(&self.extensions).register(extension);
 				}
-
-				fn register_extension_with_type_id(&mut self, type_id: core::any::TypeId, extension: Box<dyn #crate_::Extension>) {
-					let _ = std::cell::RefCell::borrow_mut(&self.extensions).register_with_type_id(type_id, extension);
-				}
 			}
 
 			impl<Block: #crate_::BlockT, C> #crate_::ConstructRuntimeApi<Block, C>

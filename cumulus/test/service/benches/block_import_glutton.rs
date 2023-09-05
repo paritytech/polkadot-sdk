@@ -64,7 +64,7 @@ fn benchmark_block_import(c: &mut Criterion) {
 		let parent_hash = client.usage_info().chain.best_hash;
 		let parent_header = client.header(parent_hash).expect("Just fetched this hash.").unwrap();
 		let mut block_builder =
-			client.new_block_at(parent_hash, Default::default(), RecordProof::No, None).unwrap();
+			client.new_block_at(parent_hash, Default::default(), RecordProof::No).unwrap();
 		block_builder
 			.push(utils::extrinsic_set_validation_data(parent_header.clone()).clone())
 			.unwrap();

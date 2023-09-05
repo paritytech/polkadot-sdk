@@ -23,19 +23,7 @@ extern crate sp_runtime_interface;
 extern crate sp_std;
 extern crate sp_trie;
 
-use sp_externalities::Extension;
 use sp_runtime_interface::runtime_interface;
-use sp_trie::ProofSizeEstimationProvider;
-#[cfg(feature = "std")]
-use std::sync::Arc;
-
-#[cfg(feature = "std")]
-use sp_api::ExtensionProducer;
-
-use sp_std::boxed::Box;
-
-#[cfg(feature = "std")]
-use sp_runtime_interface::ExternalitiesExt;
 
 #[runtime_interface]
 pub trait ClawbackHostFunctions {

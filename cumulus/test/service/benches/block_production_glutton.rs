@@ -77,7 +77,7 @@ fn benchmark_block_production_compute(c: &mut Criterion) {
 					|| (set_validation_data_extrinsic.clone(), set_time_extrinsic.clone()),
 					|(validation_data, time)| {
 						let mut block_builder = client
-							.new_block_at(best_hash, Default::default(), RecordProof::Yes, None)
+							.new_block_at(best_hash, Default::default(), RecordProof::Yes)
 							.unwrap();
 						block_builder.push(validation_data).unwrap();
 						block_builder.push(time).unwrap();
@@ -99,7 +99,7 @@ fn benchmark_block_production_compute(c: &mut Criterion) {
 					|| (set_validation_data_extrinsic.clone(), set_time_extrinsic.clone()),
 					|(validation_data, time)| {
 						let mut block_builder = client
-							.new_block_at(best_hash, Default::default(), RecordProof::No, None)
+							.new_block_at(best_hash, Default::default(), RecordProof::No)
 							.unwrap();
 						block_builder.push(validation_data).unwrap();
 						block_builder.push(time).unwrap();

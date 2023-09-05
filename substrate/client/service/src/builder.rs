@@ -66,7 +66,7 @@ use sc_rpc_spec_v2::{chain_head::ChainHeadApiServer, transaction::TransactionApi
 use sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
 use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
-use sp_api::{CallApiAt, ExtensionProducer, ProvideRuntimeApi};
+use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::block_validation::{
 	BlockAnnounceValidator, Chain, DefaultBlockAnnounceValidator,
@@ -96,8 +96,9 @@ impl KeystoreContainer {
 	/// Construct KeystoreContainer
 	pub fn new(config: &KeystoreConfig) -> Result<Self, Error> {
 		let keystore = Arc::new(match config {
-			KeystoreConfig::Path { path, password } =>
-				LocalKeystore::open(path.clone(), password.clone())?,
+			KeystoreConfig::Path { path, password } => {
+				LocalKeystore::open(path.clone(), password.clone())?
+			},
 			KeystoreConfig::InMemory => LocalKeystore::in_memory(),
 		});
 
@@ -129,11 +130,11 @@ where
 }
 
 /// Create the initial parts of a full node with the default genesis block builder.
-pub fn new_full_parts_extension<TBl, TRtApi, TExec>(
+pub fn new_full_parts_record_import<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
-	import_extension_factory: Option<ExtensionProducer>,
+	enable_import_proof_recording: bool,
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
@@ -154,7 +155,7 @@ where
 		executor,
 		backend,
 		genesis_block_builder,
-		import_extension_factory,
+		enable_import_proof_recording,
 	)
 }
 /// Create the initial parts of a full node with the default genesis block builder.
@@ -167,23 +168,7 @@ where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	let backend = new_db_backend(config.db_config())?;
-
-	let genesis_block_builder = GenesisBlockBuilder::new(
-		config.chain_spec.as_storage_builder(),
-		!config.no_genesis(),
-		backend.clone(),
-		executor.clone(),
-	)?;
-
-	new_full_parts_with_genesis_builder(
-		config,
-		telemetry,
-		executor,
-		backend,
-		genesis_block_builder,
-		None,
-	)
+	new_full_parts_record_import(config, telemetry, executor, false)
 }
 
 /// Create the initial parts of a full node.
@@ -193,7 +178,7 @@ pub fn new_full_parts_with_genesis_builder<TBl, TRtApi, TExec, TBuildGenesisBloc
 	executor: TExec,
 	backend: Arc<TFullBackend<TBl>>,
 	genesis_block_builder: TBuildGenesisBlock,
-	import_extension_factory: Option<ExtensionProducer>,
+	enable_import_proof_recording: bool,
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
@@ -223,7 +208,6 @@ where
 		let extensions = sc_client_api::execution_extensions::ExecutionExtensions::new(
 			None,
 			Arc::new(executor.clone()),
-			import_extension_factory.clone(),
 		);
 
 		let wasm_runtime_substitutes = config
@@ -263,6 +247,7 @@ where
 				),
 				wasm_runtime_substitutes,
 			},
+			enable_import_proof_recording,
 		)?;
 
 		client
@@ -316,6 +301,7 @@ pub fn new_client<E, Block, RA, G>(
 	prometheus_registry: Option<Registry>,
 	telemetry: Option<TelemetryHandle>,
 	config: ClientConfig<Block>,
+	enable_import_proof_recording: bool,
 ) -> Result<
 	Client<
 		Backend<Block>,
@@ -350,6 +336,7 @@ where
 		prometheus_registry,
 		telemetry,
 		config,
+		enable_import_proof_recording,
 	)
 }
 
@@ -774,13 +761,14 @@ where
 	} = params;
 
 	if warp_sync_params.is_none() && config.network.sync_mode.is_warp() {
-		return Err("Warp sync enabled, but no warp sync provider configured.".into())
+		return Err("Warp sync enabled, but no warp sync provider configured.".into());
 	}
 
 	if client.requires_full_sync() {
 		match config.network.sync_mode {
-			SyncMode::LightState { .. } =>
-				return Err("Fast sync doesn't work for archive nodes".into()),
+			SyncMode::LightState { .. } => {
+				return Err("Fast sync doesn't work for archive nodes".into())
+			},
 			SyncMode::Warp => return Err("Warp sync doesn't work for archive nodes".into()),
 			SyncMode::Full => {},
 		}
@@ -800,8 +788,8 @@ where
 			&protocol_id,
 			config.chain_spec.fork_id(),
 			client.clone(),
-			net_config.network_config.default_peers_set.in_peers as usize +
-				net_config.network_config.default_peers_set.out_peers as usize,
+			net_config.network_config.default_peers_set.in_peers as usize
+				+ net_config.network_config.default_peers_set.out_peers as usize,
 		);
 		let config_name = protocol_config.name.clone();
 		spawn_handle.spawn("block-request-handler", Some("networking"), handler.run());
@@ -809,8 +797,8 @@ where
 	};
 
 	let (state_request_protocol_config, state_request_protocol_name) = {
-		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize +
-			net_config.network_config.default_peers_set.reserved_nodes.len();
+		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize
+			+ net_config.network_config.default_peers_set.reserved_nodes.len();
 		// Allow both outgoing and incoming requests.
 		let (handler, protocol_config) = StateRequestHandler::new(
 			&protocol_id,
@@ -1003,7 +991,7 @@ where
 			);
 			// This `return` might seem unnecessary, but we don't want to make it look like
 			// everything is working as normal even though the user is clearly misusing the API.
-			return
+			return;
 		}
 
 		future.await

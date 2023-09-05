@@ -91,7 +91,7 @@ pub fn drop_system_cache() {
 			target: "bench-logistics",
 			"Clearing system cache on windows is not supported. Benchmark might totally be wrong.",
 		);
-		return
+		return;
 	}
 
 	std::process::Command::new("sync")
@@ -283,7 +283,7 @@ impl<'a> Iterator for BlockContentIterator<'a> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		if self.content.size.map(|size| size <= self.iteration).unwrap_or(false) {
-			return None
+			return None;
 		}
 
 		let sender = self.keyring.at(self.iteration);
@@ -299,22 +299,24 @@ impl<'a> Iterator for BlockContentIterator<'a> {
 					signed_extra(0, kitchensink_runtime::ExistentialDeposit::get() + 1),
 				)),
 				function: match self.content.block_type {
-					BlockType::RandomTransfersKeepAlive =>
+					BlockType::RandomTransfersKeepAlive => {
 						RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
 							dest: sp_runtime::MultiAddress::Id(receiver),
 							value: kitchensink_runtime::ExistentialDeposit::get() + 1,
-						}),
+						})
+					},
 					BlockType::RandomTransfersReaping => {
 						RuntimeCall::Balances(BalancesCall::transfer_allow_death {
 							dest: sp_runtime::MultiAddress::Id(receiver),
 							// Transfer so that ending balance would be 1 less than existential
 							// deposit so that we kill the sender account.
-							value: 100 * DOLLARS -
-								(kitchensink_runtime::ExistentialDeposit::get() - 1),
+							value: 100 * DOLLARS
+								- (kitchensink_runtime::ExistentialDeposit::get() - 1),
 						})
 					},
-					BlockType::Noop =>
-						RuntimeCall::System(SystemCall::remark { remark: Vec::new() }),
+					BlockType::Noop => {
+						RuntimeCall::System(SystemCall::remark { remark: Vec::new() })
+					},
 				},
 			},
 			self.runtime_version.spec_version,
@@ -405,18 +407,18 @@ impl BenchDb {
 		)
 		.expect("Failed to create genesis block builder");
 
-		// TODO skunert Check back if this is correct
 		let client = sc_service::new_client(
 			backend.clone(),
 			executor.clone(),
 			genesis_block_builder,
 			None,
 			None,
-			ExecutionExtensions::new(None, Arc::new(executor), None),
+			ExecutionExtensions::new(None, Arc::new(executor)),
 			Box::new(task_executor.clone()),
 			None,
 			None,
 			client_config,
+			false,
 		)
 		.expect("Should not fail");
 

@@ -406,7 +406,6 @@ mod tests {
 			execution_extensions: Arc::new(ExecutionExtensions::new(
 				None,
 				Arc::new(executor.clone()),
-				None,
 			)),
 		};
 

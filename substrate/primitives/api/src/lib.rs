@@ -72,7 +72,6 @@ extern crate self as sp_api;
 
 #[doc(hidden)]
 pub use codec::{self, Decode, DecodeLimit, Encode};
-use core::any::TypeId;
 #[doc(hidden)]
 #[cfg(feature = "std")]
 pub use hash_db::Hasher;
@@ -506,16 +505,6 @@ pub use sp_api_proc_macro::mock_impl_runtime_apis;
 pub type ProofRecorder<B> = sp_trie::recorder::Recorder<HashingFor<B>>;
 
 #[cfg(feature = "std")]
-pub type ExtensionProducer = sp_std::sync::Arc<
-	dyn Fn(
-			Box<dyn sp_trie::ProofSizeEstimationProvider + Send + Sync>,
-		) -> (core::any::TypeId, Box<dyn Extension + Send + Sync>)
-		+ Send
-		+ Sync,
->;
-
-/// A type that is used as cache for the storage transactions.
-#[cfg(feature = "std")]
 pub type StorageChanges<Block> = sp_state_machine::StorageChanges<HashingFor<Block>>;
 
 /// Something that can be constructed to a runtime api.
@@ -631,9 +620,6 @@ pub trait ApiExt<Block: BlockT> {
 
 	/// Register an [`Extension`] that will be accessible while executing a runtime api call.
 	fn register_extension<E: Extension>(&mut self, extension: E);
-
-	/// Register an [`Extension`] that will be accessible while executing a runtime api call.
-	fn register_extension_with_type_id(&mut self, type_id: TypeId, extension: Box<dyn Extension>);
 }
 
 /// Parameters for [`CallApiAt::call_api_at`].

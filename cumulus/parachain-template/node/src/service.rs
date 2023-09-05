@@ -3,7 +3,6 @@
 // std
 use std::{sync::Arc, time::Duration};
 
-use cumulus_client_clawback::get_extension_factory;
 use cumulus_client_cli::CollatorOptions;
 // Local Runtime Types
 use parachain_template_runtime::{
@@ -103,11 +102,11 @@ pub fn new_partial(
 	let executor = ParachainExecutor::new_with_wasm_executor(wasm);
 
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts_extension::<Block, RuntimeApi, _>(
+		sc_service::new_full_parts_record_import::<Block, RuntimeApi, _>(
 			config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
-			Some(get_extension_factory()),
+			true,
 		)?;
 	let client = Arc::new(client);
 
@@ -380,13 +379,12 @@ fn start_consensus(
 
 	let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
-	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording_extension(
+	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
 		client.clone(),
 		transaction_pool,
 		prometheus_registry,
 		telemetry.clone(),
-		Some(get_extension_factory()),
 	);
 
 	let proposer = Proposer::new(proposer_factory);

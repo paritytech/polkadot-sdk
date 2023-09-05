@@ -113,7 +113,7 @@ pub type AnnounceBlockFn = Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>;
 pub struct RuntimeExecutor;
 
 impl sc_executor::NativeExecutionDispatch for RuntimeExecutor {
-	type ExtendHostFunctions = (cumulus_client_clawback::clawback_host_functions::HostFunctions);
+	type ExtendHostFunctions = cumulus_client_clawback::clawback_host_functions::HostFunctions;
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
 		cumulus_test_runtime::api::dispatch(method, data)
@@ -208,11 +208,8 @@ pub fn new_partial(
 		sc_executor::NativeElseWasmExecutor::<RuntimeExecutor>::new_with_wasm_executor(wasm);
 
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts_extension::<Block, RuntimeApi, _>(
-			config,
-			None,
-			executor,
-			Some(cumulus_client_clawback::get_extension_factory()),
+		sc_service::new_full_parts_record_import::<Block, RuntimeApi, _>(
+			config, None, executor, true,
 		)?;
 	let client = Arc::new(client);
 
@@ -267,18 +264,20 @@ async fn build_relay_chain_interface(
 			None,
 		)
 		.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?,
-		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
+		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) => {
 			return build_minimal_relay_chain_node_with_rpc(
 				relay_chain_config,
 				task_manager,
 				rpc_target_urls,
 			)
 			.await
-			.map(|r| r.0),
-		cumulus_client_cli::RelayChainMode::LightClient =>
+			.map(|r| r.0)
+		},
+		cumulus_client_cli::RelayChainMode::LightClient => {
 			return build_minimal_relay_chain_node_light_client(relay_chain_config, task_manager)
 				.await
-				.map(|r| r.0),
+				.map(|r| r.0)
+		},
 	};
 
 	task_manager.add_child(relay_chain_full_node.task_manager);

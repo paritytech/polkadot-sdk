@@ -32,7 +32,7 @@ use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
 use sc_client_api::backend;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
-use sp_api::{ApiExt, ExtensionProducer, ProvideRuntimeApi};
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed, HeaderBackend};
 use sp_consensus::{DisableProofRecording, EnableProofRecording, ProofRecording, Proposal};
 use sp_core::traits::SpawnNamed;
@@ -84,9 +84,7 @@ pub struct ProposerFactory<A, B, C, PR> {
 	telemetry: Option<TelemetryHandle>,
 	/// When estimating the block size, should the proof be included?
 	include_proof_in_block_size_estimation: bool,
-	/// Externalities extension to be used for block authoring
-	extension: Option<ExtensionProducer>,
-	/// Phantom member to pin the `Backend`/`ProofRecording` type.
+	/// phantom member to pin the `Backend`/`ProofRecording` type.
 	_phantom: PhantomData<(B, PR)>,
 }
 
@@ -111,7 +109,6 @@ impl<A, B, C> ProposerFactory<A, B, C, DisableProofRecording> {
 			telemetry,
 			client,
 			include_proof_in_block_size_estimation: false,
-			extension: None,
 			_phantom: PhantomData,
 		}
 	}
@@ -131,24 +128,6 @@ impl<A, B, C> ProposerFactory<A, B, C, EnableProofRecording> {
 		prometheus: Option<&PrometheusRegistry>,
 		telemetry: Option<TelemetryHandle>,
 	) -> Self {
-		Self::with_proof_recording_extension(
-			spawn_handle,
-			client,
-			transaction_pool,
-			prometheus,
-			telemetry,
-			None,
-		)
-	}
-
-	pub fn with_proof_recording_extension(
-		spawn_handle: impl SpawnNamed + 'static,
-		client: Arc<C>,
-		transaction_pool: Arc<A>,
-		prometheus: Option<&PrometheusRegistry>,
-		telemetry: Option<TelemetryHandle>,
-		extension: Option<ExtensionProducer>,
-	) -> Self {
 		ProposerFactory {
 			client,
 			spawn_handle: Box::new(spawn_handle),
@@ -158,7 +137,6 @@ impl<A, B, C> ProposerFactory<A, B, C, EnableProofRecording> {
 			soft_deadline_percent: DEFAULT_SOFT_DEADLINE_PERCENT,
 			telemetry,
 			include_proof_in_block_size_estimation: true,
-			extension,
 			_phantom: PhantomData,
 		}
 	}
@@ -233,7 +211,6 @@ where
 			telemetry: self.telemetry.clone(),
 			_phantom: PhantomData,
 			include_proof_in_block_size_estimation: self.include_proof_in_block_size_estimation,
-			extension: self.extension.clone(),
 		};
 
 		proposer
@@ -275,7 +252,6 @@ pub struct Proposer<B, Block: BlockT, C, A: TransactionPool, PR> {
 	default_block_size_limit: usize,
 	include_proof_in_block_size_estimation: bool,
 	soft_deadline_percent: Percent,
-	extension: Option<ExtensionProducer>,
 	telemetry: Option<TelemetryHandle>,
 	_phantom: PhantomData<(B, PR)>,
 }
@@ -352,20 +328,15 @@ where
 	PR: ProofRecording,
 {
 	async fn propose_with(
-		mut self,
+		self,
 		inherent_data: InherentData,
 		inherent_digests: Digest,
 		deadline: time::Instant,
 		block_size_limit: Option<usize>,
 	) -> Result<Proposal<Block, PR::Proof>, sp_blockchain::Error> {
 		let propose_with_timer = time::Instant::now();
-
-		let mut block_builder = self.client.new_block_at(
-			self.parent_hash,
-			inherent_digests,
-			PR::ENABLED,
-			self.extension.take(),
-		)?;
+		let mut block_builder =
+			self.client.new_block_at(self.parent_hash, inherent_digests, PR::ENABLED)?;
 
 		self.apply_inherents(&mut block_builder, inherent_data)?;
 
@@ -998,7 +969,7 @@ mod tests {
 		// 99 (header_size) + 718 (proof@initialize_block) + 246 (one Transfer extrinsic)
 		let block_limit = {
 			let builder =
-				client.new_block_at(genesis_header.hash(), Default::default(), true, None).unwrap();
+				client.new_block_at(genesis_header.hash(), Default::default(), true).unwrap();
 			builder.estimate_block_size(true) + extrinsics[0].encoded_size()
 		};
 		let block = block_on(proposer.propose(
