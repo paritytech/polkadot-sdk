@@ -118,10 +118,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	authoring_version: 0,
 	spec_version: 9430,
 	impl_version: 0,
-	#[cfg(not(feature = "disable-runtime-api"))]
 	apis: RUNTIME_API_VERSIONS,
-	#[cfg(feature = "disable-runtime-api")]
-	apis: sp_version::create_apis_vec![[]],
 	transaction_version: 22,
 	state_version: 1,
 };
@@ -1554,6 +1551,7 @@ pub mod migrations {
 		assigned_slots::migration::v1::VersionCheckedMigrateToV1<Runtime>,
 		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
+		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 	);
 }
 
@@ -1649,7 +1647,6 @@ mod benches {
 	);
 }
 
-#[cfg(not(feature = "disable-runtime-api"))]
 sp_api::impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
@@ -1846,6 +1843,10 @@ sp_api::impl_runtime_apis! {
 				dispute_proof,
 				key_ownership_proof,
 			)
+		}
+
+		fn minimum_backing_votes() -> u32 {
+			parachains_staging_runtime_api_impl::minimum_backing_votes::<Runtime>()
 		}
 
 		fn disabled_validators() -> Vec<ValidatorIndex> {

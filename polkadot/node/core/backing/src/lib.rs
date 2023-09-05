@@ -80,8 +80,8 @@ use futures::{
 
 use error::{Error, FatalResult};
 use polkadot_node_primitives::{
-	minimum_votes, AvailableData, InvalidCandidate, PoV, SignedFullStatementWithPVD,
-	StatementWithPVD, ValidationResult,
+	AvailableData, InvalidCandidate, PoV, SignedFullStatementWithPVD, StatementWithPVD,
+	ValidationResult,
 };
 use polkadot_node_subsystem::{
 	messages::{
@@ -96,16 +96,18 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	self as util,
 	backing_implicit_view::{FetchError as ImplicitViewFetchError, View as ImplicitView},
-	request_from_runtime, request_session_index_for_child, request_validator_groups,
-	request_validators,
-	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
+	executor_params_at_relay_parent, request_from_runtime, request_session_index_for_child,
+	request_validator_groups, request_validators,
+	runtime::{
+		self, prospective_parachains_mode, request_min_backing_votes, ProspectiveParachainsMode,
+	},
 	Validator,
 };
 use polkadot_primitives::{
 	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
-	CommittedCandidateReceipt, CoreIndex, CoreState, Hash, Id as ParaId, PersistedValidationData,
-	PvfExecTimeoutKind, SigningContext, ValidationCode, ValidatorId, ValidatorIndex,
-	ValidatorSignature, ValidityAttestation,
+	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, Hash, Id as ParaId,
+	PersistedValidationData, PvfExecTimeoutKind, SigningContext, ValidationCode, ValidatorId,
+	ValidatorIndex, ValidatorSignature, ValidityAttestation,
 };
 use sp_keystore::KeystorePtr;
 use statement_table::{
@@ -219,6 +221,8 @@ struct PerRelayParentState {
 	awaiting_validation: HashSet<CandidateHash>,
 	/// Data needed for retrying in case of `ValidatedCandidateCommand::AttestNoPoV`.
 	fallbacks: HashMap<CandidateHash, AttestingData>,
+	/// The minimum backing votes threshold.
+	minimum_backing_votes: u32,
 }
 
 struct PerCandidateState {
@@ -414,8 +418,8 @@ impl TableContextTrait for TableContext {
 		self.groups.get(group).map_or(false, |g| g.iter().any(|a| a == authority))
 	}
 
-	fn requisite_votes(&self, group: &ParaId) -> usize {
-		self.groups.get(group).map_or(usize::MAX, |g| minimum_votes(g.len()))
+	fn get_group_size(&self, group: &ParaId) -> Option<usize> {
+		self.groups.get(group).map(|g| g.len())
 	}
 }
 
@@ -565,6 +569,7 @@ async fn request_candidate_validation(
 	code: ValidationCode,
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
+	executor_params: ExecutorParams,
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
 
@@ -574,6 +579,7 @@ async fn request_candidate_validation(
 			code,
 			candidate_receipt,
 			pov,
+			executor_params,
 			PvfExecTimeoutKind::Backing,
 			tx,
 		))
@@ -640,6 +646,11 @@ async fn validate_and_make_available(
 		}
 	};
 
+	let executor_params = match executor_params_at_relay_parent(relay_parent, &mut sender).await {
+		Ok(ep) => ep,
+		Err(e) => return Err(Error::UtilError(e)),
+	};
+
 	let pov = match pov {
 		PoVData::Ready(pov) => pov,
 		PoVData::FetchFromValidator { from_validator, candidate_hash, pov_hash } =>
@@ -675,6 +686,7 @@ async fn validate_and_make_available(
 			validation_code,
 			candidate.clone(),
 			pov.clone(),
+			executor_params,
 		)
 		.await?
 	};
@@ -979,28 +991,25 @@ async fn construct_per_relay_parent_state<Context>(
 		($x: expr) => {
 			match $x {
 				Ok(x) => x,
-				Err(e) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						err = ?e,
-						"Failed to fetch runtime API data for job",
-					);
+				Err(err) => {
+					// Only bubble up fatal errors.
+					error::log_error(Err(Into::<runtime::Error>::into(err).into()))?;
 
 					// We can't do candidate validation work if we don't have the
 					// requisite runtime API data. But these errors should not take
 					// down the node.
-					return Ok(None);
-				}
+					return Ok(None)
+				},
 			}
-		}
+		};
 	}
 
 	let parent = relay_parent;
 
-	let (validators, groups, session_index, cores, disabled_validators) = futures::try_join!(
+	let (session_index, validators, groups, cores, disabled_validators) = futures::try_join!(
+		request_session_index_for_child(parent, ctx.sender()).await,
 		request_validators(parent, ctx.sender()).await,
 		request_validator_groups(parent, ctx.sender()).await,
-		request_session_index_for_child(parent, ctx.sender()).await,
 		request_from_runtime(parent, ctx.sender(), |tx| {
 			RuntimeApiRequest::AvailabilityCores(tx)
 		},)
@@ -1012,10 +1021,12 @@ async fn construct_per_relay_parent_state<Context>(
 	)
 	.map_err(Error::JoinMultiple)?;
 
+	let session_index = try_runtime_api!(session_index);
 	let validators: Vec<_> = try_runtime_api!(validators);
 	let (validator_groups, group_rotation_info) = try_runtime_api!(groups);
-	let session_index = try_runtime_api!(session_index);
 	let cores = try_runtime_api!(cores);
+	let minimum_backing_votes =
+		try_runtime_api!(request_min_backing_votes(parent, session_index, ctx.sender()).await);
 	let disabled_validators = try_runtime_api!(disabled_validators);
 
 	let signing_context = SigningContext { parent_hash: parent, session_index };
@@ -1084,6 +1095,7 @@ async fn construct_per_relay_parent_state<Context>(
 		issued_statements: HashSet::new(),
 		awaiting_validation: HashSet::new(),
 		fallbacks: HashMap::new(),
+		minimum_backing_votes,
 	}))
 }
 
@@ -1596,10 +1608,13 @@ async fn post_import_statement_actions<Context>(
 	rp_state: &mut PerRelayParentState,
 	summary: Option<&TableSummary>,
 ) -> Result<(), Error> {
-	if let Some(attested) = summary
-		.as_ref()
-		.and_then(|s| rp_state.table.attested_candidate(&s.candidate, &rp_state.table_context))
-	{
+	if let Some(attested) = summary.as_ref().and_then(|s| {
+		rp_state.table.attested_candidate(
+			&s.candidate,
+			&rp_state.table_context,
+			rp_state.minimum_backing_votes,
+		)
+	}) {
 		let candidate_hash = attested.candidate.hash();
 
 		// `HashSet::insert` returns true if the thing wasn't in there already.
@@ -2049,7 +2064,11 @@ fn handle_get_backed_candidates_message(
 			};
 			rp_state
 				.table
-				.attested_candidate(&candidate_hash, &rp_state.table_context)
+				.attested_candidate(
+					&candidate_hash,
+					&rp_state.table_context,
+					rp_state.minimum_backing_votes,
+				)
 				.and_then(|attested| table_attested_to_backed(attested, &rp_state.table_context))
 		})
 		.collect();

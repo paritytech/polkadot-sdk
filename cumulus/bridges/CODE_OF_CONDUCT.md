@@ -34,9 +34,9 @@ of preference.  We see that blockchains are naturally community platforms with u
 ultimate decision makers.  We assert that good software will maximise user agency by facilitate
 user-expression on the network. As such:
 
-- This project will strive to give users as much choice as is both reasonable and possible over what
+* This project will strive to give users as much choice as is both reasonable and possible over what
   protocol they adhere to; but
-- use of the project's technical forums, commenting systems, pull requests and issue trackers as a
+* use of the project's technical forums, commenting systems, pull requests and issue trackers as a
   means to express individual protocol preferences is forbidden.
 
 ## Our Responsibilities
