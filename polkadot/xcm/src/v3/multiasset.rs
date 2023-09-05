@@ -40,6 +40,7 @@ use core::{
 };
 use parity_scale_codec::{self as codec, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
+use bounded_collections::{BoundedVec, ConstU32};
 
 /// A general identifier for an instance of a non-fungible asset class.
 #[derive(
@@ -507,7 +508,7 @@ impl TryFrom<OldMultiAsset> for MultiAsset {
 pub struct MultiAssets(Vec<MultiAsset>);
 
 /// Maximum number of items in a single `MultiAssets` value that can be decoded.
-const MAX_ITEMS_IN_MULTIASSETS: usize = 20;
+pub const MAX_ITEMS_IN_MULTIASSETS: usize = 20;
 
 impl MaxEncodedLen for MultiAssets {
 	fn max_encoded_len() -> usize {
@@ -517,6 +518,7 @@ impl MaxEncodedLen for MultiAssets {
 
 impl Decode for MultiAssets {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+<<<<<<< Updated upstream
 		let number_of_assets: u32 = <codec::Compact<u32>>::decode(input)?.into();
 		if number_of_assets > MAX_ITEMS_IN_MULTIASSETS as u32 {
 			return Err(codec::Error::from("Max MultiAssets exceeded"))
@@ -526,6 +528,11 @@ impl Decode for MultiAssets {
 			number_of_assets as usize,
 		)?)
 		.map_err(|()| "Out of order".into())
+=======
+		let bounded_instructions = BoundedVec::<MultiAsset, ConstU32<{ MAX_ITEMS_IN_MULTIASSETS as u32 }>>::decode(input)?;
+		Self::from_sorted_and_deduplicated(bounded_instructions.into_inner())
+			.map_err(|()| "Out of order".into())
+>>>>>>> Stashed changes
 	}
 }
 
