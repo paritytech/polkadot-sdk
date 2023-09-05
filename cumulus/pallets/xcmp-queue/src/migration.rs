@@ -27,7 +27,7 @@ use frame_support::{
 };
 
 /// The current storage version.
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 /// Migrates the pallet storage to the most recent version.
 pub struct Migration<T: Config>(PhantomData<T>);
