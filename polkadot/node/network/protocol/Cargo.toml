@@ -18,7 +18,7 @@ sc-network = { path = "../../../../substrate/client/network" }
 sc-authority-discovery = { path = "../../../../substrate/client/authority-discovery" }
 strum = { version = "0.24", features = ["derive"] }
 futures = "0.3.21"
-thiserror = "1.0.31"
+thiserror = "1.0.48"
 fatality = "0.0.6"
 rand = "0.8"
 derive_more = "0.99"

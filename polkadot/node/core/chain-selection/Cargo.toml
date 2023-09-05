@@ -15,7 +15,7 @@ polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 kvdb = "0.13.0"
-thiserror = "1.0.31"
+thiserror = "1.0.48"
 parity-scale-codec = "3.6.1"
 
 [dev-dependencies]
