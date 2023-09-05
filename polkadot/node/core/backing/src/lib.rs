@@ -96,8 +96,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	self as util,
 	backing_implicit_view::{FetchError as ImplicitViewFetchError, View as ImplicitView},
-	request_from_runtime, request_session_index_for_child, request_validator_groups,
-	request_validators,
+	executor_params_at_relay_parent, request_from_runtime, request_session_index_for_child,
+	request_validator_groups, request_validators,
 	runtime::{
 		self, prospective_parachains_mode, request_min_backing_votes, ProspectiveParachainsMode,
 	},
@@ -105,9 +105,9 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
-	CommittedCandidateReceipt, CoreIndex, CoreState, Hash, Id as ParaId, PersistedValidationData,
-	PvfExecTimeoutKind, SigningContext, ValidationCode, ValidatorId, ValidatorIndex,
-	ValidatorSignature, ValidityAttestation,
+	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, Hash, Id as ParaId,
+	PersistedValidationData, PvfExecTimeoutKind, SigningContext, ValidationCode, ValidatorId,
+	ValidatorIndex, ValidatorSignature, ValidityAttestation,
 };
 use sp_keystore::KeystorePtr;
 use statement_table::{
@@ -555,6 +555,7 @@ async fn request_candidate_validation(
 	code: ValidationCode,
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
+	executor_params: ExecutorParams,
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
 
@@ -564,6 +565,7 @@ async fn request_candidate_validation(
 			code,
 			candidate_receipt,
 			pov,
+			executor_params,
 			PvfExecTimeoutKind::Backing,
 			tx,
 		))
@@ -630,6 +632,11 @@ async fn validate_and_make_available(
 		}
 	};
 
+	let executor_params = match executor_params_at_relay_parent(relay_parent, &mut sender).await {
+		Ok(ep) => ep,
+		Err(e) => return Err(Error::UtilError(e)),
+	};
+
 	let pov = match pov {
 		PoVData::Ready(pov) => pov,
 		PoVData::FetchFromValidator { from_validator, candidate_hash, pov_hash } =>
@@ -665,6 +672,7 @@ async fn validate_and_make_available(
 			validation_code,
 			candidate.clone(),
 			pov.clone(),
+			executor_params,
 		)
 		.await?
 	};
