@@ -1,0 +1,56 @@
+[package]
+name = "relay-substrate-client"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[dependencies]
+async-std = { version = "1.6.5", features = ["attributes"] }
+async-trait = "0.1"
+codec = { package = "parity-scale-codec", version = "3.1.5" }
+futures = "0.3.28"
+jsonrpsee = { version = "0.17", features = ["macros", "ws-client"] }
+log = "0.4.20"
+num-traits = "0.2"
+rand = "0.8"
+scale-info = { version = "2.9.0", features = ["derive"] }
+tokio = { version = "1.32", features = ["rt-multi-thread"] }
+thiserror = "1.0.47"
+
+# Bridge dependencies
+
+bp-header-chain = { path = "../../primitives/header-chain" }
+bp-messages = { path = "../../primitives/messages" }
+bp-polkadot-core = { path = "../../primitives/polkadot-core" }
+bp-runtime = { path = "../../primitives/runtime" }
+pallet-bridge-messages = { path = "../../modules/messages" }
+finality-relay = { path = "../finality" }
+relay-utils = { path = "../utils" }
+
+# Substrate Dependencies
+
+frame-support = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+frame-system = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+pallet-utility = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sc-chain-spec = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sc-rpc-api = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sc-transaction-pool-api = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-rpc = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-std = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-trie = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-version = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+
+# Polkadot Dependencies
+
+xcm = { package = "staging-xcm", git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+
+[features]
+default = []
+test-helpers = []

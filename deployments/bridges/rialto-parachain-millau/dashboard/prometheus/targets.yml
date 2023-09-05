@@ -1,0 +1,5 @@
+- targets:
+  - relay-millau-rialto-parachain-1:9616
+  - relay-millau-rialto-parachain-2:9616
+  - detect-millau-to-rialto-parachain-equivocations:9616
+  - detect-rialto-to-millau-equivocations:9616

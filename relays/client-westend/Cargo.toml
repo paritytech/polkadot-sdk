@@ -1,0 +1,20 @@
+[package]
+name = "relay-westend-client"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[dependencies]
+relay-substrate-client = { path = "../client-substrate" }
+relay-utils = { path = "../utils" }
+
+# Bridge dependencies
+
+bp-runtime = { path = "../../primitives/runtime" }
+bp-westend = { path = "../../primitives/chain-westend" }
+
+# Substrate Dependencies
+
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-session = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }

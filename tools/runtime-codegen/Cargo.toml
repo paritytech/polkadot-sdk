@@ -1,0 +1,20 @@
+[package]
+name = "runtime-codegen"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[workspace]
+
+[dependencies]
+clap = { version = "4.0.8", features = ["derive", "cargo"] }
+codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive"] }
+color-eyre = "0.6.1"
+proc-macro2 = "1.0.51"
+syn = "1.0"
+subxt-codegen = { git = "https://github.com/paritytech/subxt", branch = "master", default-features = false, features = [] }
+wasm-loader = { git = "https://github.com/chevdor/subwasm", branch = "master" }
+wasm-testbed = { git = "https://github.com/chevdor/subwasm", branch = "master" }

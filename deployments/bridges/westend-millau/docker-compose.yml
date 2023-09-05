@@ -1,0 +1,72 @@
+# Exposed ports: 10200-10203
+
+version: '3.5'
+services:
+  relay-headers-westend-to-millau-1:
+    image: ${SUBSTRATE_RELAY_IMAGE:-paritytech/substrate-relay}
+    entrypoint: /entrypoints/relay-headers-westend-to-millau-entrypoint.sh
+    volumes:
+      - ./bridges/westend-millau/entrypoints:/entrypoints
+    environment:
+      RUST_LOG: rpc=trace,bridge=trace
+    ports:
+      - "10200:9616"
+    depends_on:
+      - millau-node-alice
+
+  relay-headers-westend-to-millau-2:
+    image: ${SUBSTRATE_RELAY_IMAGE:-paritytech/substrate-relay}
+    entrypoint: /entrypoints/relay-headers-westend-to-millau-entrypoint.sh
+    volumes:
+      - ./bridges/westend-millau/entrypoints:/entrypoints
+    environment:
+      RUST_LOG: rpc=trace,bridge=trace
+      EXT_RELAY_ACCOUNT: //Westend.HeadersRelay2
+    ports:
+      - "10201:9616"
+    depends_on:
+      - millau-node-alice
+
+  relay-parachains-westend-to-millau-1:
+    image: ${SUBSTRATE_RELAY_IMAGE:-paritytech/substrate-relay}
+    entrypoint: /entrypoints/relay-parachains-westend-to-millau-entrypoint.sh
+    volumes:
+      - ./bridges/westend-millau/entrypoints:/entrypoints
+    environment:
+      RUST_LOG: rpc=trace,bridge=trace
+    ports:
+      - "10202:9616"
+    depends_on:
+      - millau-node-alice
+
+  relay-parachains-westend-to-millau-2:
+    image: ${SUBSTRATE_RELAY_IMAGE:-paritytech/substrate-relay}
+    entrypoint: /entrypoints/relay-parachains-westend-to-millau-entrypoint.sh
+    volumes:
+      - ./bridges/westend-millau/entrypoints:/entrypoints
+    environment:
+      RUST_LOG: rpc=trace,bridge=trace
+      EXT_RELAY_ACCOUNT: //Westend.AssetHubWestendHeaders2
+    ports:
+      - "10203:9616"
+    depends_on:
+      - millau-node-alice
+
+  # Note: These are being overridden from the top level `monitoring` compose file.
+  grafana-dashboard:
+    environment:
+      VIRTUAL_HOST: grafana.millau.brucke.link,grafana.rialto.brucke.link
+      VIRTUAL_PORT: 3000
+      LETSENCRYPT_HOST: grafana.millau.brucke.link,grafana.rialto.brucke.link
+      LETSENCRYPT_EMAIL: admin@parity.io
+    volumes:
+      - ./bridges/westend-millau/dashboard/grafana:/etc/grafana/dashboards/westend-millau:ro
+
+  prometheus-metrics:
+    volumes:
+      - ./bridges/westend-millau/dashboard/prometheus/targets.yml:/etc/prometheus/targets-westend-millau.yml
+    depends_on:
+      - relay-headers-westend-to-millau-1
+      - relay-headers-westend-to-millau-2
+      - relay-parachains-westend-to-millau-1
+      - relay-parachains-westend-to-millau-2

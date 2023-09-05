@@ -1,0 +1,93 @@
+# Compose file for quickly spinning up a local instance of the Rialto Parachain network.
+#
+# Since Rialto Parachain is unusable without Rialto, this file depends on some Rialto
+# network nodes.
+version: '3.5'
+services:
+  rialto-parachain-collator-alice: &rialto-parachain-collator
+    image: ${RIALTO_PARACHAIN_COLLATOR_IMAGE:-paritytech/rialto-parachain-collator}
+    entrypoint: >
+      /home/user/rialto-parachain-collator
+      --alice
+      --node-key=80cf382988364291a7968ae7825c01f68c50d679796a8983237d07fe0ccf363b
+      --collator
+      --force-authoring
+      --parachain-id 2000
+      --rpc-port 9944
+      --rpc-cors=all
+      --unsafe-rpc-external
+      --bootnodes
+      /dns/rialto-parachain-collator-bob/tcp/30333/p2p/12D3KooWEEkzPUdahNXAtzJpkmornEZXHhyyPbTvDkJK383LFvdR
+      --
+      --execution wasm
+      --chain /rialto-share/rialto-relaychain-spec-raw.json
+      --rpc-port 9945
+      --bootnodes
+      /dns/rialto-node-alice/tcp/30333/p2p/12D3KooWMF6JvV319a7kJn5pqkKbhR3fcM2cvK5vCbYZHeQhYzFE
+    volumes:
+      - rialto-share:/rialto-share:z
+    environment:
+      RUST_LOG: runtime=trace,rpc=trace,txpool=trace,parachain=trace,parity_ws=trace,sc_basic_authorship=trace,xcm=trace
+    depends_on:
+      - rialto-chainspec-exporter
+    ports:
+      - "20444:9944"
+
+  rialto-parachain-collator-bob:
+    <<: *rialto-parachain-collator
+    entrypoint: >
+      /home/user/rialto-parachain-collator
+      --bob
+      --node-key=90cf382988364291a7968ae7825c01f68c50d679796a8983237d07fe0ccf363b
+      --collator
+      --force-authoring
+      --parachain-id 2000
+      --rpc-port 9944
+      --rpc-cors=all
+      --unsafe-rpc-external
+      --bootnodes
+      /dns/rialto-parachain-collator-alice/tcp/30333/p2p/12D3KooWPoJr9Z2PyrFvTYCtto4iorLH11GKBwebJAyqAaFQxow5
+      --
+      --execution wasm
+      --chain /rialto-share/rialto-relaychain-spec-raw.json
+      --rpc-port 9945
+      --bootnodes
+      /dns/rialto-node-alice/tcp/30333/p2p/12D3KooWMF6JvV319a7kJn5pqkKbhR3fcM2cvK5vCbYZHeQhYzFE
+    ports:
+      - "20544:9944"
+
+  rialto-parachain-collator-charlie:
+    <<: *rialto-parachain-collator
+    entrypoint: >
+      /home/user/rialto-parachain-collator
+      --charlie
+      --node-key=42cf382988364291a7968ae7825c01f68c50d679796a8983237d07fe0ccf363b
+      --collator
+      --force-authoring
+      --parachain-id 2000
+      --rpc-port 9944
+      --rpc-cors=all
+      --unsafe-rpc-external
+      --bootnodes
+      /dns/rialto-parachain-collator-alice/tcp/30333/p2p/12D3KooWPoJr9Z2PyrFvTYCtto4iorLH11GKBwebJAyqAaFQxow5
+      --
+      --execution wasm
+      --chain /rialto-share/rialto-relaychain-spec-raw.json
+      --rpc-port 9945
+      --bootnodes
+      /dns/rialto-node-alice/tcp/30333/p2p/12D3KooWMF6JvV319a7kJn5pqkKbhR3fcM2cvK5vCbYZHeQhYzFE
+    ports:
+      - "20644:9944"
+
+  rialto-parachain-registrar:
+    image: ${SUBSTRATE_RELAY_IMAGE:-paritytech/substrate-relay}
+    entrypoint: /entrypoints/rialto-parachain-registrar-entrypoint.sh
+    volumes:
+      - ./networks/entrypoints:/entrypoints
+      - rialto-share:/rialto-share:z
+    environment:
+      RUST_LOG: bridge=trace
+    depends_on:
+      - rialto-node-alice
+      - rialto-parachain-collator-alice
+
