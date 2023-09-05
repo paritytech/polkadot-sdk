@@ -82,18 +82,18 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-/// export the main pallet macro. This can wrap a `mod pallet` and will transform it into being
-/// a pallet, eg `#[frame::pallet] mod pallet { .. }`.
+/// Exports the main pallet macro. This can wrap a `mod pallet` and will transform it into
+/// being a pallet, eg `#[frame::pallet] mod pallet { .. }`.
 ///
 /// Note that this is not part of the prelude, in order to make it such that the common way to
-/// define a macro is `#[frame::pallet] mod pallet { .. }`, followed by `#[pallet::foot]`,
+/// define a macro is `#[frame::pallet] mod pallet { .. }`, followed by `#[pallet::foo]`,
 /// `#[pallet::bar]` inside the mod.
 pub use frame_support::pallet;
 
 /// The logging library of the runtime. Can be normally like the classic `log` crate.
 pub use log;
 
-/// The main prelude of this `FRAME`.
+/// The main prelude of FRAME.
 ///
 /// This prelude should almost always be the first non-import line of code in any pallet or runtime.
 ///
@@ -130,7 +130,7 @@ pub mod prelude {
 	pub use super::derive::*;
 }
 
-/// The main testing prelude of `FRAME`.
+/// The main testing prelude of FRAME.
 ///
 /// A test setup typically starts with:
 ///
