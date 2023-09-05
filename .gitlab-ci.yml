@@ -221,8 +221,6 @@ test-deterministic-wasm:
   extends:
     - .docker-env
     - .common-refs
-    #removeme
-    - .run-immediately
   # DAG
   # needs:
   #   - job: test-frame-ui
