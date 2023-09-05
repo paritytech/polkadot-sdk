@@ -93,6 +93,7 @@ std = [
 	"pallet-proxy/std",
 	"pallet-timestamp/std",
 	"pallet-utility/std",
+	"pallet-xcm/std",
 	"rand/std",
 	"scale-info/std",
 	"serde",
@@ -104,9 +105,8 @@ std = [
 	"sp-std/std",
 	"wasm-instrument/std",
 	"wasmi/std",
-	"pallet-xcm/std",
-	"xcm/std",
 	"xcm-executor/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
