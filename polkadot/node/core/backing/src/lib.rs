@@ -1992,7 +1992,7 @@ async fn handle_second_message<Context>(
 	}
 
 	// Just return if the local validator is disabled. If we are here the local node should be a
-	// validator but defensively use `unwrap_or(false)`) to continue processin in this case.
+	// validator but defensively use `unwrap_or(false)`) to continue processing in this case.
 	if rp_state.table_context.local_validator_is_disabled().unwrap_or(false) {
 		gum::warn!(target: LOG_TARGET, "Local validator is disabled. Don't validate and second");
 		return Ok(())
