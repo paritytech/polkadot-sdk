@@ -181,6 +181,7 @@ impl RecoveryHandle for FailingRecoveryHandle {
 /// be able to perform chain operations.
 pub fn new_partial(
 	config: &mut Configuration,
+	enable_import_proof_record: bool,
 ) -> Result<
 	PartialComponents<
 		Client,
@@ -209,7 +210,10 @@ pub fn new_partial(
 
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts_record_import::<Block, RuntimeApi, _>(
-			config, None, executor, true,
+			config,
+			None,
+			executor,
+			enable_import_proof_record,
 		)?;
 	let client = Arc::new(client);
 
@@ -306,6 +310,7 @@ pub async fn start_node_impl<RB>(
 	rpc_ext_builder: RB,
 	consensus: Consensus,
 	collator_options: CollatorOptions,
+	proof_recording_during_import: bool,
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<Client>,
@@ -318,7 +323,7 @@ where
 {
 	let mut parachain_config = prepare_node_config(parachain_config);
 
-	let params = new_partial(&mut parachain_config)?;
+	let params = new_partial(&mut parachain_config, proof_recording_during_import)?;
 
 	let transaction_pool = params.transaction_pool.clone();
 	let mut task_manager = params.task_manager;
@@ -517,6 +522,7 @@ pub struct TestNodeBuilder {
 	consensus: Consensus,
 	relay_chain_mode: RelayChainMode,
 	endowed_accounts: Vec<AccountId>,
+	record_proof_during_import: bool,
 }
 
 impl TestNodeBuilder {
@@ -541,6 +547,7 @@ impl TestNodeBuilder {
 			consensus: Consensus::RelayChain,
 			endowed_accounts: Default::default(),
 			relay_chain_mode: RelayChainMode::Embedded,
+			record_proof_during_import: true,
 		}
 	}
 
@@ -653,6 +660,12 @@ impl TestNodeBuilder {
 		self
 	}
 
+	/// Record proofs during import.
+	pub fn disable_import_proof_recording(mut self) -> TestNodeBuilder {
+		self.record_proof_during_import = false;
+		self
+	}
+
 	/// Build the [`TestNode`].
 	pub async fn build(self) -> TestNode {
 		let parachain_config = node_config(
@@ -691,6 +704,7 @@ impl TestNodeBuilder {
 			|_| Ok(jsonrpsee::RpcModule::new(())),
 			self.consensus,
 			collator_options,
+			self.record_proof_during_import,
 		)
 		.await
 		.expect("could not create Cumulus test service");

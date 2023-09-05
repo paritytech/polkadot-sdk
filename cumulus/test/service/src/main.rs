@@ -139,6 +139,7 @@ fn main() -> Result<(), sc_cli::Error> {
 					|_| Ok(jsonrpsee::RpcModule::new(())),
 					consensus,
 					collator_options,
+					true,
 				))
 				.expect("could not create Cumulus test service");
 

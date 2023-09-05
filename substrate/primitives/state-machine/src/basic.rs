@@ -307,6 +307,10 @@ impl Externalities for BasicExternalities {
 
 	fn commit(&mut self) {}
 
+	fn proof_size(&self) -> Option<u32> {
+		None
+	}
+
 	fn read_write_count(&self) -> (u32, u32, u32, u32) {
 		unimplemented!("read_write_count is not supported in Basic")
 	}

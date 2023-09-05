@@ -239,6 +239,10 @@ pub trait Externalities: ExtensionStore {
 	/// no transaction is open that can be closed.
 	fn storage_commit_transaction(&mut self) -> Result<(), ()>;
 
+	/// Returns estimated proof size for the state queries so far.
+	/// Proof is reset on commit and wipe.
+	fn proof_size(&self) -> Option<u32>;
+
 	/// Index specified transaction slice and store it.
 	fn storage_index_transaction(&mut self, _index: u32, _hash: &[u8], _size: u32) {
 		unimplemented!("storage_index_transaction");
@@ -292,16 +296,6 @@ pub trait Externalities: ExtensionStore {
 	///
 	/// Adds new storage keys to the DB tracking whitelist.
 	fn set_whitelist(&mut self, new: Vec<TrackedStorageKey>);
-
-	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	/// Benchmarking related functionality and shouldn't be used anywhere else!
-	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	///
-	/// Returns estimated proof size for the state queries so far.
-	/// Proof is reset on commit and wipe.
-	fn proof_size(&self) -> Option<u32> {
-		None
-	}
 
 	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	/// Benchmarking related functionality and shouldn't be used anywhere else!

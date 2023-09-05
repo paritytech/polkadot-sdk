@@ -35,30 +35,7 @@ use sp_trie::NodeCodec;
 use sp_trie::{MemoryDB, StorageProof};
 use trie_db::{Hasher, RecordedForKey, TrieAccess};
 
-type TrieBackend<B> = sp_state_machine::TrieBackend<
-	MemoryDB<HashingFor<B>>,
-	HashingFor<B>,
-	trie_cache::CacheProvider<HashingFor<B>>,
-	RecorderProvider<HashingFor<B>>,
->;
-
-type Ext<'a, B> = sp_state_machine::Ext<'a, HashingFor<B>, TrieBackend<B>>;
-
-fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
-	sp_externalities::with_externalities(f).expect("Environmental externalities not set.")
-}
-
-pub(crate) struct RecorderProvider<H: Hasher> {
-	seen_nodes: RefCell<BTreeSet<H::Out>>,
-	encoded_size: RefCell<usize>,
-}
-
-impl<H: Hasher> RecorderProvider<H> {
-	pub fn new() -> Self {
-		Self { seen_nodes: Default::default(), encoded_size: Default::default() }
-	}
-}
-
+/// A trie recorder that only keeps track of the proof size.
 pub(crate) struct SizeRecorder<'a, H: Hasher> {
 	seen_nodes: RefMut<'a, BTreeSet<H::Out>>,
 	encoded_size: RefMut<'a, usize>,
@@ -66,9 +43,7 @@ pub(crate) struct SizeRecorder<'a, H: Hasher> {
 
 impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeRecorder<'a, H> {
 	fn record<'b>(&mut self, access: TrieAccess<'b, H::Out>) {
-		log::info!(target: "skunert", "recorder: record");
 		let mut encoded_size_update = 0;
-
 		match access {
 			TrieAccess::NodeOwned { hash, node_owned } => {
 				if !self.seen_nodes.get(&hash).is_some() {
@@ -76,7 +51,7 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeRecorder<'a, 
 					encoded_size_update += node.encoded_size();
 					log::info!(
 						target: "skunert",
-						"Recording node({encoded_size_update})",
+						"Recording node ({encoded_size_update} bytes)",
 					);
 					//TODO skunert: Check if this is correct, original has transaction handling
 					self.seen_nodes.insert(hash);
@@ -88,7 +63,7 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeRecorder<'a, 
 					encoded_size_update += node.encoded_size();
 					log::info!(
 						target: "skunert",
-						"Recording node ({encoded_size_update} bytes)",
+						"Recording encoded node ({encoded_size_update} bytes)",
 					);
 					self.seen_nodes.insert(hash);
 				}
@@ -115,6 +90,17 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeRecorder<'a, 
 
 	fn trie_nodes_recorded_for_key(&self, key: &[u8]) -> RecordedForKey {
 		RecordedForKey::None
+	}
+}
+
+pub(crate) struct RecorderProvider<H: Hasher> {
+	seen_nodes: RefCell<BTreeSet<H::Out>>,
+	encoded_size: RefCell<usize>,
+}
+
+impl<H: Hasher> RecorderProvider<H> {
+	pub fn new() -> Self {
+		Self { seen_nodes: Default::default(), encoded_size: Default::default() }
 	}
 }
 

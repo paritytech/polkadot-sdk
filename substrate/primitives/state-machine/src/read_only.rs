@@ -218,6 +218,10 @@ where
 	fn get_read_and_written_keys(&self) -> Vec<(Vec<u8>, u32, u32, bool)> {
 		unimplemented!("get_read_and_written_keys is not supported in ReadOnlyExternalities")
 	}
+
+	fn proof_size(&self) -> Option<u32> {
+		self.backend.proof_size()
+	}
 }
 
 impl<'a, H: Hasher, B: 'a + Backend<H>> sp_externalities::ExtensionStore
