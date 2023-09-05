@@ -993,7 +993,7 @@ mod tests {
 
 		// Fewer assets than the limit works
 		let mut few_assets: MultiAssets = Vec::new().into();
-		for i in 0..MAX_ITEMS_IN_MULTIASSETS - 1 {
+		for i in 0..MAX_ITEMS_IN_MULTIASSETS {
 			few_assets.push((GeneralIndex(i as u128), 1u128).into());
 		}
 		let encoded = few_assets.encode();
