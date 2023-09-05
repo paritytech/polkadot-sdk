@@ -844,7 +844,8 @@ impl Assignment {
 	}
 }
 
-/// An entry tracking a paras
+/// A parachain entry tracking an assignment, ensuring that it does not have too many timeouts
+/// in availability or that it sits in the claimqueue past its `ttl` value.
 #[derive(Clone, Encode, Decode, TypeInfo, PartialEq, RuntimeDebug)]
 pub struct ParasEntry<N = BlockNumber> {
 	/// The `Assignment`
@@ -873,7 +874,7 @@ impl<N> ParasEntry<N> {
 pub enum CoreOccupied<N> {
 	/// The core is not occupied.
 	Free,
-	/// A paras.
+	/// The core is occupied with a parachain entry.
 	Paras(ParasEntry<N>),
 }
 
