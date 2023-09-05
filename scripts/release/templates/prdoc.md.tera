@@ -1,0 +1,13 @@
+## Release {{ env.PRODUCT }} v{{ env.VERSION }}
+
+Changelog for `{{ env.TARGET_AUDIENCE }}`.
+
+{% for file in prdoc -%}
+#### PR #{{file.filename.number}}: {{ file.content.title }}
+{% for audience in file.content.doc %}
+{%- if audience.audience == env.TARGET_AUDIENCE %}
+{{ audience.description }}
+{% endif -%}
+
+{%- endfor %}
+{%- endfor %}
