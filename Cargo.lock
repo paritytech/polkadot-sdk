@@ -10978,6 +10978,7 @@ dependencies = [
  "cumulus-primitives-utility",
  "frame-support",
  "frame-system",
+ "kusama-runtime-constants",
  "log",
  "num-traits",
  "pallet-asset-tx-payment",
@@ -10986,8 +10987,12 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "parity-scale-codec",
+ "polkadot-core-primitives",
  "polkadot-primitives",
+ "polkadot-runtime-constants",
+ "rococo-runtime-constants",
  "scale-info",
+ "smallvec",
  "sp-consensus-aura",
  "sp-core",
  "sp-io",
@@ -10997,6 +11002,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "westend-runtime-constants",
 ]
 
 [[package]]

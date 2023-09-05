@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/// Universally recognized accounts.
 pub mod account {
 	use frame_support::PalletId;
 
@@ -28,6 +29,19 @@ pub mod account {
 	pub const REFERENDA_PALLET_ID: PalletId = PalletId(*b"py/refer");
 }
 
+/// Consensus-related.
+pub mod consensus {
+	/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
+	/// into the relay chain.
+	pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
+	/// How many parachain blocks are processed by the relay chain per parent. Limits the
+	/// number of blocks authored per slot.
+	pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
+	/// Relay chain slot duration, in milliseconds.
+	pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
+}
+
+/// Constants relating to DOT.
 pub mod currency {
 	use polkadot_core_primitives::Balance;
 	use polkadot_runtime_constants as constants;
@@ -41,12 +55,12 @@ pub mod currency {
 	pub const MILLICENTS: Balance = constants::currency::MILLICENTS;
 
 	pub const fn deposit(items: u32, bytes: u32) -> Balance {
-		// 1/100 of Polkadot.
+		// 1/100 of Polkadot
 		constants::currency::deposit(items, bytes) / 100
 	}
 }
 
-/// Fee-related.
+/// Constants related to Polkadot fee payment.
 pub mod fee {
 	use frame_support::{
 		pallet_prelude::Weight,
@@ -90,8 +104,8 @@ pub mod fee {
 	impl WeightToFeePolynomial for RefTimeToFee {
 		type Balance = Balance;
 		fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-			// in Polkadot, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT:
-			// in a parachain, we map to 1/10 of that, or 1/100 CENT
+			// In Polkadot, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT:
+			// The standard system parachain configuration is 1/10 of that, as in 1/100 CENT.
 			let p = super::currency::CENTS;
 			let q = 100 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
 
@@ -121,16 +135,4 @@ pub mod fee {
 			}]
 		}
 	}
-}
-
-/// Consensus-related.
-pub mod consensus {
-	/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-	/// into the relay chain.
-	pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
-	/// How many parachain blocks are processed by the relay chain per parent. Limits the
-	/// number of blocks authored per slot.
-	pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
-	/// Relay chain slot duration, in milliseconds.
-	pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 }
