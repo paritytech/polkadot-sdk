@@ -730,7 +730,7 @@ pub enum NotificationEvent {
 /// protocols that can do it.
 ///
 /// Both local and remote peer can close the substream at any time. Local peer can do so by calling
-/// [`NotificationService::close_substream()`] which instrucs `Notifications` to close the
+/// [`NotificationService::close_substream()`] which instructs `Notifications` to close the
 /// substream. Remote closing the substream is indicated to the local peer by receiving
 /// [`NotificationEvent::NotificationStreamClosed`] event.
 ///
