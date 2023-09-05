@@ -24,6 +24,7 @@ use crate::{
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 	paras_inherent::DisputedBitfield,
+	scheduler::{common::Assignment, CoreAssignment, ParasEntry},
 	shared::AllowedRelayParentsTracker,
 };
 use primitives::{
@@ -36,7 +37,6 @@ use frame_support::assert_noop;
 use keyring::Sr25519Keyring;
 use parity_scale_codec::DecodeAll;
 use primitives::{
-	v5::{Assignment, ParasEntry},
 	BlockNumber, CandidateCommitments, CandidateDescriptor, CollatorId,
 	CompactStatement as Statement, Hash, SignedAvailabilityBitfield, SignedStatement,
 	ValidationCode, ValidatorId, ValidityAttestation, PARACHAIN_KEY_TYPE_ID,

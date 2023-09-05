@@ -39,9 +39,9 @@
 use crate::{configuration, initializer::SessionChangeNotification, paras};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
+pub use polkadot_core_primitives::v2::BlockNumber;
 use primitives::{
-	v5::ParasEntry, CoreIndex, CoreOccupied, GroupIndex, GroupRotationInfo, Id as ParaId,
-	ScheduledCore, ValidatorIndex,
+	CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ScheduledCore, ValidatorIndex,
 };
 use sp_runtime::traits::{One, Saturating};
 use sp_std::{
@@ -51,7 +51,7 @@ use sp_std::{
 
 pub mod common;
 
-use common::{AssignmentProvider, AssignmentProviderConfig, CoreAssignment, FreedReason};
+use common::{Assignment, AssignmentProvider, AssignmentProviderConfig};
 
 pub use pallet::*;
 
@@ -101,6 +101,36 @@ pub mod pallet {
 	pub(crate) type AvailabilityCores<T: Config> =
 		StorageValue<_, Vec<CoreOccupied<BlockNumberFor<T>>>, ValueQuery>;
 
+	/// Representation of a core in `AvailabilityCores`.
+	///
+	/// This is not to be confused with `CoreState` which is an enriched variant of this and exposed
+	/// to the node side. It also provides information about scheduled/upcoming assignments for
+	/// example and is computed on the fly in the `availability_cores` runtime call.
+	#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+	#[cfg_attr(feature = "std", derive(PartialEq))]
+	pub enum CoreOccupied<N> {
+		/// No candidate is waiting availability on this core right now (the core is not occupied).
+		Free,
+		/// A para is currently waiting for availability/inclusion on this core.
+		Paras(ParasEntry<N>),
+	}
+
+	impl<N> CoreOccupied<N> {
+		/// Is core free?
+		pub fn is_free(&self) -> bool {
+			matches!(self, Self::Free)
+		}
+	}
+
+	/// Reasons a core might be freed.
+	#[derive(Clone, Copy)]
+	pub enum FreedReason {
+		/// The core's work concluded and the parablock assigned to it is considered available.
+		Concluded,
+		/// The core's work timed out.
+		TimedOut,
+	}
+
 	/// The block number where the session start occurred. Used to track how many group rotations
 	/// have occurred.
 	///
@@ -124,6 +154,54 @@ pub mod pallet {
 		BTreeMap<CoreIndex, VecDeque<Option<ParasEntry<BlockNumberFor<T>>>>>,
 		ValueQuery,
 	>;
+
+	/// Assignments as tracked in the claim queue.
+	#[derive(Clone, Encode, Decode, TypeInfo, PartialEq, RuntimeDebug)]
+	pub struct ParasEntry<N = BlockNumber> {
+		/// The underlying `Assignment`
+		pub assignment: Assignment,
+		/// The number of times the entry has timed out in availability already.
+		pub availability_timeouts: u32,
+		/// The block height until this entry needs to be backed.
+		///
+		/// If missed the entry will be removed from the claim queue without ever having occupied
+		/// the core.
+		pub ttl: N,
+	}
+
+	impl<N> ParasEntry<N> {
+		/// Return `Id` from the underlying `Assignment`.
+		pub fn para_id(&self) -> ParaId {
+			self.assignment.para_id
+		}
+
+		/// Create a new `ParasEntry`.
+		pub fn new(assignment: Assignment, now: N) -> Self {
+			ParasEntry { assignment, availability_timeouts: 0, ttl: now }
+		}
+	}
+
+	/// How a core is mapped to a backing group and a `ParaId`
+	#[derive(Clone, Encode, Decode, PartialEq, TypeInfo)]
+	#[cfg_attr(feature = "std", derive(Debug))]
+	pub struct CoreAssignment<BlockNumber> {
+		/// The core that is assigned.
+		pub core: CoreIndex,
+		/// The para id and accompanying information needed to collate and back a parablock.
+		pub paras_entry: ParasEntry<BlockNumber>,
+	}
+
+	impl<BlockNumber> CoreAssignment<BlockNumber> {
+		/// Returns the [`ParaId`] of the assignment.
+		pub fn para_id(&self) -> ParaId {
+			self.paras_entry.para_id()
+		}
+
+		/// Returns the inner [`ParasEntry`] of the assignment.
+		pub fn to_paras_entry(self) -> ParasEntry<BlockNumber> {
+			self.paras_entry
+		}
+	}
 }
 
 type PositionInClaimqueue = u32;
@@ -370,20 +448,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns an optional predicate that should be used for timing out occupied cores.
 	///
-	/// If `None`, no timing-out should be done. The predicate accepts the index of the core, and
-	/// the block number since which it has been occupied, and the respective parachain timeouts,
-	/// i.e. only within `config.paras_availability_period` of the last rotation would this return
-	/// `Some`, unless there are no rotations.
-	///
-	/// The timeout used to depend, but does not depend any more on group rotations. First of all
-	/// it only matters if a para got another chance (a retry). If there is a retry and it happens
-	/// still within the same group rotation a censoring backing group would need to censor again
-	/// and lose out again on backing rewards. This is bad for the censoring backing group, it does
-	/// not matter for the parachain as long as it is retried often enough (so it eventually gets a
-	/// try on another backing group) - the effect is similar to having a prolonged timeout. It
-	/// should also be noted that for both malicious and offline backing groups it is actually more
-	/// realistic that the candidate will not be backed to begin with, instead of getting backed
-	/// and then not made available.
+	/// If `None`, no timing-out should be done (we are within a group rotation). The predicate
+	/// accepts the index of the core, and the block number since which it has been occupied, and
+	/// the respective parachain timeouts. Only within `config.paras_availability_period` of the
+	/// last rotation would this return `Some`, unless there are no rotations.
 	pub(crate) fn availability_timeout_predicate(
 	) -> Option<impl Fn(CoreIndex, BlockNumberFor<T>) -> bool> {
 		let now = <frame_system::Pallet<T>>::block_number();
@@ -395,18 +463,22 @@ impl<T: Config> Pallet<T> {
 			blocks_since_session_start % config.group_rotation_frequency.max(1u8.into());
 
 		if blocks_since_last_rotation >= config.paras_availability_period {
+			// Shortcut: We already progressed more than availability period blocks into the group
+			// rotation. This means there can no longer exist a core that is still occupied from a
+			// backing of the previous rotation. Which would be the only cores we actually want to
+			// time out eventually.
 			None
 		} else {
-			Some(|core_index: CoreIndex, pending_since| {
+			Some(move |core_index: CoreIndex, pending_since| {
 				let availability_cores = AvailabilityCores::<T>::get();
-				let AssignmentProviderConfig { availability_period, .. } =
-					T::AssignmentProvider::get_provider_config(core_index);
-				let now = <frame_system::Pallet<T>>::block_number();
 				match availability_cores.get(core_index.0 as usize) {
 					None => true, // out-of-bounds, doesn't really matter what is returned.
 					Some(CoreOccupied::Free) => true, // core free, still doesn't matter.
 					Some(CoreOccupied::Paras(_)) =>
-						now.saturating_sub(pending_since) >= availability_period,
+					// This will never trigger a timeout of a block backed within the group
+					// rotation, because in that case `None` would have been returned instead of
+					// this predicate.
+					now.saturating_sub(pending_since) >= config.paras_availability_period,
 				}
 			})
 		}

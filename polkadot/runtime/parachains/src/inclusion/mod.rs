@@ -22,7 +22,7 @@
 use crate::{
 	configuration::{self, HostConfiguration},
 	disputes, dmp, hrmp, paras,
-	scheduler::{self, common::CoreAssignment},
+	scheduler::{self, CoreAssignment},
 	shared::{self, AllowedRelayParentsTracker},
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};

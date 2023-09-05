@@ -953,6 +953,7 @@ mod sanitizers {
 			back_candidate, collator_sign_candidate, BackingKind, TestCandidateBuilder,
 		},
 		mock::{new_test_ext, MockGenesisConfig},
+		scheduler::{common::Assignment, ParasEntry},
 	};
 	use bitvec::order::Lsb0;
 	use primitives::{
@@ -963,10 +964,7 @@ mod sanitizers {
 
 	use crate::mock::Test;
 	use keyring::Sr25519Keyring;
-	use primitives::{
-		v5::{Assignment, ParasEntry},
-		PARACHAIN_KEY_TYPE_ID,
-	};
+	use primitives::PARACHAIN_KEY_TYPE_ID;
 	use sc_keystore::LocalKeystore;
 	use sp_keystore::{Keystore, KeystorePtr};
 	use std::sync::Arc;

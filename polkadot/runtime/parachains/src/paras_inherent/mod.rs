@@ -29,10 +29,7 @@ use crate::{
 	initializer,
 	metrics::METRICS,
 	paras,
-	scheduler::{
-		self,
-		common::{CoreAssignment, FreedReason},
-	},
+	scheduler::{self, CoreAssignment, FreedReason},
 	shared, ParaId,
 };
 use bitvec::prelude::BitVec;
@@ -320,7 +317,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// When called from `create_inherent` the `context` must be set to
 	/// `ProcessInherentDataContext::ProvideInherent` so it guarantees the invariant that inherent
-	/// is not overweight.  
+	/// is not overweight.
 	/// It is **mandatory** that calls from `enter` set `context` to
 	/// `ProcessInherentDataContext::Enter` to ensure the weight invariant is checked.
 	///

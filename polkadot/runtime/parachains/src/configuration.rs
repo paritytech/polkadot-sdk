@@ -190,9 +190,16 @@ pub struct HostConfiguration<BlockNumber> {
 	///
 	/// Must be non-zero.
 	pub group_rotation_frequency: BlockNumber,
-	/// The availability period, in blocks. This is the amount of blocks
-	/// after inclusion that validators have to make the block available and signal its
-	/// availability to the chain.
+	/// The minimum availability period, in blocks.
+	///
+	/// This is the minimum amount of blocks after a core became occupied that validators have time
+	/// to make the block available.
+	///
+	/// This value only has effect on group rotations. If backers backed something at the end of
+	/// their rotation, the occupied core affects the backing group that comes afterwards. We limit
+	/// the effect one backing group can have on the next to `paras_availability_period` blocks.
+	///
+	/// Within a group rotation there is no timeout as backers are only affecting themselves.
 	///
 	/// Must be at least 1.
 	pub paras_availability_period: BlockNumber,
