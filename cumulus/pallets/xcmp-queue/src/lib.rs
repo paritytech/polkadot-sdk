@@ -341,10 +341,15 @@ pub mod pallet {
 	pub(super) type OutboundXcmpStatus<T: Config> =
 		StorageValue<_, Vec<OutboundChannelDetails>, ValueQuery>;
 
-	// The new way of doing it:
-	/// The messages outbound in a given XCMP channel.
+	/// The messages outbound in a given XCMP channel. This is the old queue with `u16` indices.
 	#[pallet::storage]
 	pub(super) type OutboundXcmpMessages<T: Config> =
+		StorageDoubleMap<_, Blake2_128Concat, ParaId, Twox64Concat, u16, Vec<u8>>;
+
+	// The new way of doing it:
+	/// The new queue of outbound XCMP messages in a given channel, using `u64` as the index.
+	#[pallet::storage]
+	pub(super) type OutboundXcmpMessageQueue<T: Config> =
 		StorageDoubleMap<_, Blake2_128Concat, ParaId, Twox64Concat, u64, Vec<u8>, ValueQuery>;
 
 	/// Any signal messages waiting to be sent.
@@ -525,19 +530,26 @@ impl<T: Config> Pallet<T> {
 			s.last_mut().expect("can't be empty; a new element was just pushed; qed")
 		};
 		let have_active = details.last_index > details.first_index;
-		let appended = have_active &&
-			<OutboundXcmpMessages<T>>::mutate(recipient, details.last_index - 1, |s| {
-				if XcmpMessageFormat::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &s[..]) !=
-					Ok(format)
-				{
-					return false
-				}
-				if s.len() + data.len() > max_message_size {
-					return false
-				}
-				s.extend_from_slice(&data[..]);
+		let appended = if have_active {
+			// Check if it exists in the old queue, if not we check the new queue
+			let mut msg = <OutboundXcmpMessages<T>>::take(recipient, details.last_index as u16 - 1)
+				.unwrap_or_else(|| {
+					<OutboundXcmpMessageQueue<T>>::get(recipient, details.last_index - 1)
+				});
+			if XcmpMessageFormat::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &msg[..]) !=
+				Ok(format)
+			{
+				false
+			} else if msg.len() + data.len() > max_message_size {
+				false
+			} else {
+				msg.extend_from_slice(&data[..]);
+				<OutboundXcmpMessageQueue<T>>::insert(recipient, details.last_index - 1, msg);
 				true
-			});
+			}
+		} else {
+			false
+		};
 		if appended {
 			Ok((details.last_index - details.first_index - 1) as u32)
 		} else {
@@ -546,7 +558,7 @@ impl<T: Config> Pallet<T> {
 			details.last_index += 1;
 			let mut new_page = format.encode();
 			new_page.extend_from_slice(&data[..]);
-			<OutboundXcmpMessages<T>>::insert(recipient, page_index, new_page);
+			<OutboundXcmpMessageQueue<T>>::insert(recipient, page_index, new_page);
 			let r = (details.last_index - details.first_index - 1) as u32;
 			<OutboundXcmpStatus<T>>::put(s);
 			Ok(r)
@@ -1053,7 +1065,8 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 					// This means that there is no such channel anymore. Nothing to be done but
 					// swallow the messages and discard the status.
 					for i in first_index..last_index {
-						<OutboundXcmpMessages<T>>::remove(para_id, i);
+						<OutboundXcmpMessages<T>>::remove(para_id, i as u16);
+						<OutboundXcmpMessageQueue<T>>::remove(para_id, i);
 					}
 					if signals_exist {
 						<SignalMessages<T>>::remove(para_id);
@@ -1075,9 +1088,11 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 					continue
 				}
 			} else if last_index > first_index {
-				let page = <OutboundXcmpMessages<T>>::get(para_id, first_index);
+				let page = <OutboundXcmpMessages<T>>::get(para_id, first_index as u16)
+					.unwrap_or_else(|| <OutboundXcmpMessageQueue<T>>::get(para_id, first_index));
 				if page.len() < max_size_now {
-					<OutboundXcmpMessages<T>>::remove(para_id, first_index);
+					<OutboundXcmpMessages<T>>::remove(para_id, first_index as u16);
+					<OutboundXcmpMessageQueue<T>>::remove(para_id, first_index);
 					first_index += 1;
 					page
 				} else {

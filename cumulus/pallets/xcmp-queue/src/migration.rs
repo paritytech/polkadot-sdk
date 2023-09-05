@@ -17,8 +17,8 @@
 //! A module that is responsible for migration of storage.
 
 use crate::{
-	Config, OutboundState, OutboundXcmpMessages, OutboundXcmpStatus, Overweight, Pallet, ParaId,
-	QueueConfig, Vec, DEFAULT_POV_SIZE,
+	Config, OutboundState, OutboundXcmpStatus, Overweight, Pallet, ParaId, QueueConfig, Vec
+	DEFAULT_POV_SIZE,
 };
 use frame_support::{
 	pallet_prelude::*,
@@ -169,14 +169,7 @@ pub fn migrate_to_v4<T: Config>() -> Weight {
 		);
 	}
 
-	let mut weight = T::DbWeight::get().reads_writes(1, 1);
-
-	for (paraid, idx, msg) in v3::OutboundXcmpMessages::<T>::drain() {
-		OutboundXcmpMessages::<T>::insert(paraid, idx as u64, msg);
-		weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-	}
-
-	weight
+	T::DbWeight::get().reads_writes(1, 1)
 }
 
 #[cfg(test)]
