@@ -94,7 +94,6 @@ impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for RecorderProvider<H
 	}
 
 	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_> {
-		log::info!(target: "skunert", "validate_block: as_trie_recorder");
 		SizeRecorder {
 			encoded_size: self.encoded_size.borrow_mut(),
 			seen_nodes: self.seen_nodes.borrow_mut(),
@@ -102,7 +101,6 @@ impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for RecorderProvider<H
 	}
 
 	fn estimate_encoded_size(&self) -> usize {
-		log::info!(target: "skunert", "validate_block: estimate_encoded_size");
 		*self.encoded_size.borrow()
 	}
 }

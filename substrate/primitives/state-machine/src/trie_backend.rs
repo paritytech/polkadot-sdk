@@ -155,7 +155,7 @@ impl<H: Hasher> TrieCacheProvider<H> for UnimplementedCacheProvider<H> {
 #[cfg(not(feature = "std"))]
 pub struct UnimplementedRecorderProvider<H> {
 	// Not strictly necessary, but the H bound allows to use this as a drop-in
-	// replacement for the `LocalTrieCache` in no-std contexts.
+	// replacement for the [`sp_trie::recorder::Recorder`] in no-std contexts.
 	_phantom: core::marker::PhantomData<H>,
 	// Statically prevents construction.
 	_infallible: core::convert::Infallible,
@@ -164,11 +164,11 @@ pub struct UnimplementedRecorderProvider<H> {
 #[cfg(not(feature = "std"))]
 impl<H: Hasher> trie_db::TrieRecorder<H::Out> for UnimplementedRecorderProvider<H> {
 	fn record<'a>(&mut self, access: trie_db::TrieAccess<'a, H::Out>) {
-		todo!()
+		unimplemented!()
 	}
 
 	fn trie_nodes_recorded_for_key(&self, key: &[u8]) -> trie_db::RecordedForKey {
-		todo!()
+		unimplemented!()
 	}
 }
 
@@ -1000,8 +1000,8 @@ pub mod tests {
 			.storage_root(iter::once((&b"new-key"[..], Some(&b"new-value"[..]))), state_version);
 		assert!(!tx.drain().is_empty());
 		assert!(
-			new_root
-				!= test_trie(state_version, None, None)
+			new_root !=
+				test_trie(state_version, None, None)
 					.storage_root(iter::empty(), state_version)
 					.0
 		);

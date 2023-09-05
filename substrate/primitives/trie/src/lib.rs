@@ -30,10 +30,6 @@ mod storage_proof;
 mod trie_codec;
 mod trie_stream;
 
-pub trait ProofSizeEstimationProvider {
-	fn estimate_proof_size(&self) -> usize;
-}
-
 /// Our `NodeCodec`-specific error.
 pub use error::Error;
 /// Various re-exports from the `hash-db` crate.

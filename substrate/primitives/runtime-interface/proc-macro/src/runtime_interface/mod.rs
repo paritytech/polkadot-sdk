@@ -69,7 +69,7 @@ pub fn runtime_interface_impl(
 	};
 
 	let res = expander::Expander::new("runtime_interface")
-		.dry(std::env::var("SP_RUNTIME_INTERFACE_EXPAND").is_err())
+		.dry(std::env::var("EXPAND_MACROS").is_err())
 		.verbose(true)
 		.write_to_out_dir(res)
 		.expect("Does not fail because of IO in OUT_DIR; qed");

@@ -244,11 +244,11 @@ impl<H: Hasher> crate::TrieRecorderProvider<H> for Recorder<H> {
 	}
 
 	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_> {
-		self.as_trie_recorder(storage_root)
+		Recorder::as_trie_recorder(&self, storage_root)
 	}
 
 	fn estimate_encoded_size(&self) -> usize {
-		self.estimate_encoded_size()
+		Recorder::estimate_encoded_size(&self)
 	}
 }
 
@@ -401,12 +401,6 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 			.get(&self.storage_root)
 			.and_then(|k| k.get(key).copied())
 			.unwrap_or(RecordedForKey::None)
-	}
-}
-
-impl<H: Hasher> crate::ProofSizeEstimationProvider for Recorder<H> {
-	fn estimate_proof_size(&self) -> usize {
-		self.estimate_encoded_size()
 	}
 }
 
