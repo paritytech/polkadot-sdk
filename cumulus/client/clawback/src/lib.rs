@@ -41,43 +41,6 @@ use sp_runtime_interface::ExternalitiesExt;
 pub trait ClawbackHostFunctions {
 	fn current_storage_proof_size(&mut self) -> u32 {
 		tracing::info!(target:"skunert", "current_storage_proof_size is called");
-		match self.extension::<PovUsageExt>() {
-			Some(ext) => ext.current_storage_proof_size(),
-			None => 0,
-		}
+		self.proof_size().unwrap_or_default()
 	}
-}
-
-pub trait ReportPovUsage: Send + Sync {
-	fn current_storage_proof_size(&self) -> u32;
-}
-
-#[cfg(feature = "std")]
-sp_externalities::decl_extension! {
-	pub struct PovUsageExt(PovUsageReporter);
-}
-
-pub struct PovUsageReporter {
-	recorder: Box<dyn ProofSizeEstimationProvider + Sync + Send>,
-}
-
-impl PovUsageReporter {
-	fn new(recorder: Box<dyn ProofSizeEstimationProvider + Sync + Send>) -> Self {
-		PovUsageReporter { recorder }
-	}
-
-	fn current_storage_proof_size(&self) -> u32 {
-		self.recorder.estimate_proof_size() as u32
-	}
-}
-
-#[cfg(feature = "std")]
-pub fn get_extension_factory() -> ExtensionProducer {
-	std::sync::Arc::new(|recorder| {
-		(
-			core::any::TypeId::of::<PovUsageExt>(),
-			Box::new(PovUsageExt(PovUsageReporter::new(recorder)))
-				as Box<dyn Extension + Send + Sync + 'static>,
-		)
-	}) as Arc<_>
 }

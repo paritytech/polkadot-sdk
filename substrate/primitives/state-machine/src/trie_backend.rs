@@ -517,6 +517,13 @@ where
 	fn wipe(&self) -> Result<(), Self::Error> {
 		Ok(())
 	}
+
+	fn proof_size(&self) -> Option<u32> {
+		self.essence
+			.recorder
+			.as_ref()
+			.map(|rec| rec.estimate_encoded_size().try_into().unwrap_or(0))
+	}
 }
 
 #[cfg(feature = "std")]

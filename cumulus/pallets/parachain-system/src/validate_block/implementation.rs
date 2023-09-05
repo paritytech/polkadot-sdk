@@ -313,7 +313,7 @@ fn host_storage_clear(key: &[u8]) {
 
 fn reclaim_pov_weight() -> u32 {
 	log::info!(target: "skunert", "Calling my replaced method.");
-	0
+	with_externalities(|ext| ext.proof_size()).unwrap_or(0)
 }
 
 fn host_storage_root(version: StateVersion) -> Vec<u8> {
