@@ -291,6 +291,15 @@ impl<T> ReadyTransactions for std::iter::Empty<T> {
 
 /// Events that the transaction pool listens for.
 pub enum ChainEvent<B: BlockT> {
+	/// New block have been added to the chain.
+	NewBlock {
+		/// Hash of the block.
+		hash: B::Hash,
+		/// Tree route from old best to new best parent that was calculated on import.
+		///
+		/// If `None`, no re-org happened on import.
+		tree_route: Option<Arc<sp_blockchain::TreeRoute<B>>>,
+	},
 	/// New best block have been added to the chain.
 	NewBestBlock {
 		/// Hash of the block.
@@ -313,7 +322,9 @@ impl<B: BlockT> ChainEvent<B> {
 	/// Returns the block hash associated to the event.
 	pub fn hash(&self) -> B::Hash {
 		match self {
-			Self::NewBestBlock { hash, .. } | Self::Finalized { hash, .. } => *hash,
+			Self::NewBlock { hash, .. } |
+			Self::NewBestBlock { hash, .. } |
+			Self::Finalized { hash, .. } => *hash,
 		}
 	}
 
