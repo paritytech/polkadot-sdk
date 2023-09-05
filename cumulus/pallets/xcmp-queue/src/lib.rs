@@ -897,8 +897,8 @@ impl MaybeDoubleEncodedVersionedXcm {
 			Ok(Either::Right(data.into()))
 		} else {
 			// There is no `unget` so we need to splice together the Inputs.
-			let i1: &mut dyn Input = &mut &[meta_version][..];
-			let mut input = InputSplicer { a: i1, b: input };
+			let a: &mut dyn Input = &mut &[meta_version][..];
+			let mut input = InputSplicer { a, b: input };
 
 			Ok(Either::Left(VersionedXcm::<()>::decode_with_depth_limit(
 				MAX_XCM_DECODE_DEPTH,
@@ -911,12 +911,12 @@ impl MaybeDoubleEncodedVersionedXcm {
 /// Splices together two [`Input`]s lime an `impl_for_tuples` would do.
 ///
 /// Both inputs are assumed to be `fuse`.
-struct InputSplicer<'a, I1: ?Sized, I2: ?Sized> {
-	a: &'a mut I1,
-	b: &'a mut I2,
+struct InputSplicer<'a, A: ?Sized, B: ?Sized> {
+	a: &'a mut A,
+	b: &'a mut B,
 }
 
-impl<'a, I1: Input + ?Sized, I2: Input + ?Sized> Input for InputSplicer<'a, I1, I2> {
+impl<'a, A: Input + ?Sized, B: Input + ?Sized> Input for InputSplicer<'a, A, B> {
 	fn remaining_len(&mut self) -> Result<Option<usize>, codec::Error> {
 		Ok(match (self.a.remaining_len()?, self.b.remaining_len()?) {
 			(Some(a), Some(b)) => Some(a.saturating_add(b)),
