@@ -21,7 +21,7 @@ polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 polkadot-node-subsystem = { path = "../../subsystem" }
 fatality = "0.0.6"
-thiserror = "1.0.31"
+thiserror = "1.0.48"
 tokio-util = "0.7.1"
 
 [dev-dependencies]
