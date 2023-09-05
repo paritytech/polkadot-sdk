@@ -257,12 +257,8 @@ impl<Number, Id, Signature> VoteEquivocationProof<Number, Id, Signature> {
 pub struct ForkEquivocationProof<Number, Id, Signature, Header> {
 	/// Commitment for a block on different fork than one at the same height in
 	/// this client's chain.
-	/// TODO: maybe replace {commitment, signatories} with SignedCommitment
-	/// (tradeoff: SignedCommitment not ideal since sigs optional, but fewer
-	/// types to juggle around) - check once usage pattern is clear
 	pub commitment: Commitment<Number>,
 	/// Signatures on this block
-	/// TODO: maybe change to HashMap - check once usage pattern is clear
 	pub signatories: Vec<(Id, Signature)>,
 	/// The proof is valid if
 	/// 1. the header is in our chain

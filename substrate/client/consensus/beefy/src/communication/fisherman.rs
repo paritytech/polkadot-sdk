@@ -130,10 +130,9 @@ where
 			return Ok(())
 		}
 
-		let offender_ids =
-			proof.signatories.iter().cloned().map(|(id, _sig)| id).collect::<Vec<_>>();
+		let offender_ids = proof.offender_ids();
 		if let Some(local_id) = self.key_store.authority_id(validator_set.validators()) {
-			if offender_ids.contains(&local_id) {
+			if offender_ids.contains(&&local_id) {
 				debug!(target: LOG_TARGET, "🥩 Skip equivocation report for own equivocation");
 				// TODO: maybe error here instead?
 				return Ok(())
@@ -146,6 +145,7 @@ where
 		// generate key ownership proof at that block
 		let key_owner_proofs = offender_ids
 			.iter()
+			.cloned()
 			.filter_map(|id| {
 				match runtime_api.generate_key_ownership_proof(hash, set_id, id.clone()) {
 					Ok(Some(proof)) => Some(Ok(proof)),
