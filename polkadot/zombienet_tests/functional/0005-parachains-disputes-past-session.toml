@@ -5,7 +5,7 @@ bootnode = true
 [relaychain.genesis.runtime.configuration.config]
   max_validators_per_core = 1
   needed_approvals = 2
-  group_rotation_frequency = 3
+  group_rotation_frequency = 4
 
 [relaychain]
 default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
@@ -41,6 +41,5 @@ cumulus_based = true
   [parachains.collator]
   name = "alice"
   command = "polkadot-parachain"
-  validator = true
   image = "{{CUMULUS_IMAGE}}"
   args = ["-lparachain=debug"]
