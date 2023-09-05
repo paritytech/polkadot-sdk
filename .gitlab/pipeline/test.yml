@@ -217,20 +217,16 @@ test-node-metrics:
     - time cargo test --profile testnet
       --locked
       --features=runtime-metrics -p polkadot-node-metrics > artifacts/log.txt
-  # FIXME!
-  allow_failure: true
 
 test-deterministic-wasm:
   stage: test
   extends:
     - .docker-env
     - .common-refs
-    #removeme
-    - .run-immediately
   # DAG
-  # needs:
-  #   - job: test-frame-ui
-  #     artifacts: false
+  needs:
+    - job: test-frame-ui
+      artifacts: false
   script:
     # build runtime
     - WASM_BUILD_NO_COLOR=1 cargo build -q --locked --release -p staging-kusama-runtime -p polkadot-runtime -p westend-runtime
