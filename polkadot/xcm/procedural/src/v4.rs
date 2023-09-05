@@ -20,7 +20,7 @@ use syn::{Result, Token};
 
 const MAX_JUNCTIONS: usize = 8;
 
-pub mod multilocation {
+pub mod location {
 	use super::*;
 
 	pub fn generate_conversion_functions(input: proc_macro::TokenStream) -> Result<TokenStream> {
@@ -52,16 +52,16 @@ pub mod multilocation {
 				};
 
 				let mut from_tuple = quote! {
-					impl< #(#types : Into<Junction>,)* > From<( Ancestor, #( #types ),* )> for MultiLocation {
+					impl< #(#types : Into<Junction>,)* > From<( Ancestor, #( #types ),* )> for Location {
 						fn from( ( Ancestor(parents), #(#idents),* ): ( Ancestor, #( #types ),* ) ) -> Self {
-							MultiLocation { parents, interior: #interior }
+							Location { parents, interior: #interior }
 						}
 					}
 
-					impl From<[Junction; #array_size]> for MultiLocation {
+					impl From<[Junction; #array_size]> for Location {
 						fn from(j: [Junction; #array_size]) -> Self {
 							let [#(#idents),*] = j;
-							MultiLocation { parents: 0, interior: #interior }
+							Location { parents: 0, interior: #interior }
 						}
 					}
 				};
@@ -73,7 +73,7 @@ pub mod multilocation {
 						(0..cur_parents).map(|_| Token![_](Span::call_site())).collect::<Vec<_>>();
 
 					quote! {
-						impl< #(#types : Into<Junction>,)* > From<( #( #parents , )* #( #types , )* )> for MultiLocation {
+						impl< #(#types : Into<Junction>,)* > From<( #( #parents , )* #( #types , )* )> for Location {
 							fn from( ( #(#underscores,)* #(#idents,)* ): ( #(#parents,)* #(#types,)* ) ) -> Self {
 								Self { parents: #cur_parents as u8, interior: #interior }
 							}
@@ -92,9 +92,9 @@ pub mod multilocation {
 				(0..cur_parents).map(|_| Token![_](Span::call_site())).collect::<Vec<_>>();
 
 			quote! {
-				impl From<( #(#parents,)* Junctions )> for MultiLocation {
+				impl From<( #(#parents,)* Junctions )> for Location {
 					fn from( (#(#underscores,)* junctions): ( #(#parents,)* Junctions ) ) -> Self {
-						MultiLocation { parents: #cur_parents as u8, interior: junctions }
+						Location { parents: #cur_parents as u8, interior: junctions }
 					}
 				}
 			}
@@ -102,15 +102,15 @@ pub mod multilocation {
 		from_tuples.extend(from_parent_junctions_tuples);
 
 		quote! {
-			impl From<(Ancestor, Junctions)> for MultiLocation {
+			impl From<(Ancestor, Junctions)> for Location {
 				fn from((Ancestor(parents), interior): (Ancestor, Junctions)) -> Self {
-					MultiLocation { parents, interior }
+					Location { parents, interior }
 				}
 			}
 
-			impl From<Junction> for MultiLocation {
+			impl From<Junction> for Location {
 				fn from(x: Junction) -> Self {
-					MultiLocation { parents: 0, interior: [x].into() }
+					Location { parents: 0, interior: [x].into() }
 				}
 			}
 

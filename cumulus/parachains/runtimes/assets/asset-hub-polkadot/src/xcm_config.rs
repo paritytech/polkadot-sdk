@@ -44,20 +44,20 @@ use xcm_builder::{
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
 parameter_types! {
-	pub const DotLocation: MultiLocation = MultiLocation::parent();
+	pub const DotLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Polkadot);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorMultiLocation =
+	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub UniversalLocationNetworkId: NetworkId = UniversalLocation::get().global_consensus().unwrap();
-	pub TrustBackedAssetsPalletLocation: MultiLocation =
+	pub TrustBackedAssetsPalletLocation: Location =
 		PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-	pub FellowshipLocation: MultiLocation = MultiLocation::new(1, Parachain(1001));
-	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
+	pub FellowshipLocation: Location = Location::new(1, Parachain(1001));
+	pub const GovernanceLocation: Location = Location::parent();
 }
 
-/// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
+/// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
 /// `Transact` in order to determine the dispatch Origin.
 pub type LocationToAccountId = (
@@ -78,7 +78,7 @@ pub type CurrencyTransactor = CurrencyAdapter<
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<DotLocation>,
-	// Convert an XCM MultiLocation into a local account id:
+	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -96,7 +96,7 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	Assets,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	TrustBackedAssetsConvertedConcreteId,
-	// Convert an XCM MultiLocation into a local account id:
+	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -113,7 +113,7 @@ pub type ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConverte
 		// Ignore `TrustBackedAssets` explicitly
 		StartsWith<TrustBackedAssetsPalletLocation>,
 		// Ignore assets that start explicitly with our `GlobalConsensus(NetworkId)`, means:
-		// - foreign assets from our consensus should be: `MultiLocation {parents: 1,
+		// - foreign assets from our consensus should be: `Location {parents: 1,
 		//   X*(Parachain(xyz), ..)}`
 		// - foreign assets outside our consensus with the same `GlobalConsensus(NetworkId)` won't
 		//   be accepted here
@@ -128,7 +128,7 @@ pub type ForeignFungiblesTransactor = FungiblesAdapter<
 	ForeignAssets,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	ForeignAssetsConvertedConcreteId,
-	// Convert an XCM MultiLocation into a local account id:
+	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -172,29 +172,29 @@ parameter_types! {
 }
 
 pub struct ParentOrParentsPlurality;
-impl Contains<MultiLocation> for ParentOrParentsPlurality {
-	fn contains(location: &MultiLocation) -> bool {
+impl Contains<Location> for ParentOrParentsPlurality {
+	fn contains(location: &Location) -> bool {
 		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
 	}
 }
 
 pub struct ParentOrSiblings;
-impl Contains<MultiLocation> for ParentOrSiblings {
-	fn contains(location: &MultiLocation) -> bool {
+impl Contains<Location> for ParentOrSiblings {
+	fn contains(location: &Location) -> bool {
 		matches!(location.unpack(), (1, []) | (1, [_]))
 	}
 }
 
 pub struct FellowsPlurality;
-impl Contains<MultiLocation> for FellowsPlurality {
-	fn contains(location: &MultiLocation) -> bool {
+impl Contains<Location> for FellowsPlurality {
+	fn contains(location: &Location) -> bool {
 		matches!(location.unpack(), (1, [Parachain(1001), Plurality { id: BodyId::Technical, .. }]))
 	}
 }
 
 pub struct FellowshipSalaryPallet;
-impl Contains<MultiLocation> for FellowshipSalaryPallet {
-	fn contains(location: &MultiLocation) -> bool {
+impl Contains<Location> for FellowshipSalaryPallet {
+	fn contains(location: &Location) -> bool {
 		matches!(location.unpack(), (1, [Parachain(1001), PalletInstance(64)]))
 	}
 }
@@ -470,7 +470,7 @@ pub type XcmRouter = WithUniqueTopic<(
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
+	pub ReachableDest: Option<Location> = Some(Parent.into());
 }
 
 impl pallet_xcm::Config for Runtime {
@@ -523,9 +523,9 @@ pub type ForeignCreatorsSovereignAccountOf = (
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<MultiLocation> for XcmBenchmarkHelper {
-	fn create_asset_id_parameter(id: u32) -> MultiLocation {
-		MultiLocation { parents: 1, interior: [Parachain(id)].into() }
+impl pallet_assets::BenchmarkHelper<Location> for XcmBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> Location {
+		Location { parents: 1, interior: [Parachain(id)].into() }
 	}
 }
 

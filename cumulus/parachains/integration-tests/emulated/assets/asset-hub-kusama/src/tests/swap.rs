@@ -21,7 +21,7 @@ use sp_runtime::{DispatchError, ModuleError};
 #[test]
 fn swap_locally_on_chain_using_local_assets() {
 	let asset_native = Box::new(asset_hub_kusama_runtime::xcm_config::KsmLocation::get());
-	let asset_one = Box::new(MultiLocation {
+	let asset_one = Box::new(Location {
 		parents: 0,
 		interior: [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())].into(),
 	});
@@ -122,7 +122,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 	let asset_native = Box::new(asset_hub_kusama_runtime::xcm_config::KsmLocation::get());
 
-	let foreign_asset1_at_asset_hub_kusama = Box::new(MultiLocation {
+	let foreign_asset1_at_asset_hub_kusama = Box::new(Location {
 		parents: 1,
 		interior: [
 			Parachain(PenpalKusamaA::para_id().into()),
@@ -132,14 +132,14 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		.into(),
 	});
 
-	let assets_para_destination: VersionedMultiLocation = MultiLocation {
+	let assets_para_destination: VersionedLocation = Location {
 		parents: 1,
 		interior: [Parachain(AssetHubKusama::para_id().into())].into(),
 	}
 	.into();
 
 	let penpal_location =
-		MultiLocation { parents: 1, interior: [Parachain(PenpalKusamaA::para_id().into())].into() };
+		Location { parents: 1, interior: [Parachain(PenpalKusamaA::para_id().into())].into() };
 
 	// 1. Create asset on penpal:
 	PenpalKusamaA::execute_with(|| {
@@ -165,7 +165,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		(sov_penpal_on_asset_hub_kusama.clone().into(), 1000_000_000_000_000_000 * KUSAMA_ED),
 	]);
 
-	let sov_penpal_on_asset_hub_kusama_as_location: MultiLocation = MultiLocation {
+	let sov_penpal_on_asset_hub_kusama_as_location: Location = Location {
 		parents: 0,
 		interior: [AccountId32Junction {
 			network: None,
@@ -186,11 +186,21 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		.encode()
 		.into();
 
+<<<<<<< Updated upstream
 	let buy_execution_fee_amount = parachains_common::kusama::fee::WeightToFee::weight_to_fee(
 		&Weight::from_parts(10_100_000_000_000, 300_000),
 	);
 	let buy_execution_fee = MultiAsset {
 		id: Concrete(MultiLocation { parents: 1, interior: Here }),
+=======
+	let buy_execution_fee_amount =
+		asset_hub_kusama_runtime::constants::fee::WeightToFee::weight_to_fee(&Weight::from_parts(
+			10_100_000_000_000,
+			300_000,
+		));
+	let buy_execution_fee = Asset {
+		id: Concrete(Location { parents: 1, interior: Here }),
+>>>>>>> Stashed changes
 		fun: Fungible(buy_execution_fee_amount),
 	};
 

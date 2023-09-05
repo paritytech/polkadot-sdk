@@ -125,14 +125,14 @@ impl<
 /// over the bridge.
 pub struct SenderAndLane {
 	/// Sending chain relative location.
-	pub location: MultiLocation,
+	pub location: Location,
 	/// Message lane, used by the sending chain.
 	pub lane: LaneId,
 }
 
 impl SenderAndLane {
 	/// Create new object using provided location and lane.
-	pub fn new(location: MultiLocation, lane: LaneId) -> Self {
+	pub fn new(location: Location, lane: LaneId) -> Self {
 		SenderAndLane { location, lane }
 	}
 }
@@ -353,7 +353,7 @@ mod tests {
 
 	parameter_types! {
 		pub TestSenderAndLane: SenderAndLane = SenderAndLane {
-			location: MultiLocation::new(1, [Parachain(1000)]),
+			location: Location::new(1, [Parachain(1000)]),
 			lane: TEST_LANE_ID,
 		};
 		pub DummyXcmMessage: Xcm<()> = Xcm::new();
@@ -371,7 +371,7 @@ mod tests {
 		type Ticket = ();
 
 		fn validate(
-			_destination: &mut Option<MultiLocation>,
+			_destination: &mut Option<Location>,
 			_message: &mut Option<Xcm<()>>,
 		) -> SendResult<Self::Ticket> {
 			Ok(((), Default::default()))

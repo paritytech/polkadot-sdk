@@ -289,7 +289,7 @@ macro_rules! versioned_type {
 }
 
 versioned_type! {
-	/// A single version's `Response` value, together with its version code.
+	/// A single version's `AssetId` value, together with its version code.
 	pub enum VersionedAssetId {
 		#[codec(index = 3)]
 		V3(v3::AssetId),
@@ -335,53 +335,61 @@ versioned_type! {
 }
 
 versioned_type! {
-	/// A single `MultiLocation` value, together with its version code.
+	/// A single `Location` value, together with its version code.
 	#[derive(Ord, PartialOrd)]
-	pub enum VersionedMultiLocation {
+	pub enum VersionedLocation {
 		#[codec(index = 1)] // v2 is same as v1 and therefore re-using the v1 index
 		V2(v2::MultiLocation),
 		#[codec(index = 3)]
 		V3(v3::MultiLocation),
 		#[codec(index = 4)]
-		V4(v4::MultiLocation),
+		V4(v4::Location),
 	}
 }
 
+pub type VersionedMultiLocation = VersionedLocation;
+
 versioned_type! {
-	/// A single `InteriorMultiLocation` value, together with its version code.
-	pub enum VersionedInteriorMultiLocation {
+	/// A single `InteriorLocation` value, together with its version code.
+	pub enum VersionedInteriorLocation {
 		#[codec(index = 2)] // while this is same as v1::Junctions, VersionedInteriorMultiLocation is introduced in v3
 		V2(v2::InteriorMultiLocation),
 		#[codec(index = 3)]
 		V3(v3::InteriorMultiLocation),
 		#[codec(index = 4)]
-		V4(v4::InteriorMultiLocation),
+		V4(v4::InteriorLocation),
 	}
 }
 
+pub type VersionedInteriorMultiLocation = VersionedInteriorLocation;
+
 versioned_type! {
-	/// A single `MultiAsset` value, together with its version code.
-	pub enum VersionedMultiAsset {
+	/// A single `Asset` value, together with its version code.
+	pub enum VersionedAsset {
 		#[codec(index = 1)] // v2 is same as v1 and therefore re-using the v1 index
 		V2(v2::MultiAsset),
 		#[codec(index = 3)]
 		V3(v3::MultiAsset),
 		#[codec(index = 4)]
-		V4(v4::MultiAsset),
+		V4(v4::Asset),
 	}
 }
 
+pub type VersionedMultiAsset = VersionedAsset;
+
 versioned_type! {
 	/// A single `MultiAssets` value, together with its version code.
-	pub enum VersionedMultiAssets {
+	pub enum VersionedAssets {
 		#[codec(index = 1)] // v2 is same as v1 and therefore re-using the v1 index
 		V2(v2::MultiAssets),
 		#[codec(index = 3)]
 		V3(v3::MultiAssets),
 		#[codec(index = 4)]
-		V4(v4::MultiAssets),
+		V4(v4::Assets),
 	}
 }
+
+pub type VersionedMultiAssets = VersionedAssets;
 
 /// A single XCM message, together with its version code.
 #[derive(Derivative, Encode, Decode, TypeInfo)]
@@ -469,11 +477,11 @@ impl<Call> TryFrom<VersionedXcm<Call>> for v4::Xcm<Call> {
 	}
 }
 
-/// Convert an `Xcm` datum into a `VersionedXcm`, based on a destination `MultiLocation` which will
+/// Convert an `Xcm` datum into a `VersionedXcm`, based on a destination `Location` which will
 /// interpret it.
 pub trait WrapVersion {
 	fn wrap_version<RuntimeCall>(
-		dest: &latest::MultiLocation,
+		dest: &latest::Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()>;
 }
@@ -482,7 +490,7 @@ pub trait WrapVersion {
 /// authored as.
 impl WrapVersion for () {
 	fn wrap_version<RuntimeCall>(
-		_: &latest::MultiLocation,
+		_: &latest::Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
 		Ok(xcm.into())
@@ -494,7 +502,7 @@ impl WrapVersion for () {
 pub struct AlwaysV2;
 impl WrapVersion for AlwaysV2 {
 	fn wrap_version<RuntimeCall>(
-		_: &latest::MultiLocation,
+		_: &latest::Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
 		Ok(VersionedXcm::<RuntimeCall>::V2(xcm.into().try_into()?))
@@ -506,7 +514,7 @@ impl WrapVersion for AlwaysV2 {
 pub struct AlwaysV3;
 impl WrapVersion for AlwaysV3 {
 	fn wrap_version<Call>(
-		_: &latest::MultiLocation,
+		_: &latest::Location,
 		xcm: impl Into<VersionedXcm<Call>>,
 	) -> Result<VersionedXcm<Call>, ()> {
 		Ok(VersionedXcm::<Call>::V3(xcm.into().try_into()?))
@@ -518,7 +526,7 @@ impl WrapVersion for AlwaysV3 {
 pub struct AlwaysV4;
 impl WrapVersion for AlwaysV4 {
 	fn wrap_version<Call>(
-		_: &latest::MultiLocation,
+		_: &latest::Location,
 		xcm: impl Into<VersionedXcm<Call>>,
 	) -> Result<VersionedXcm<Call>, ()> {
 		Ok(VersionedXcm::<Call>::V4(xcm.into().try_into()?))
@@ -537,6 +545,7 @@ pub mod prelude {
 	pub use super::{
 		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV2, AlwaysV3, AlwaysV4, IntoVersion,
 		Unsupported, Version as XcmVersion, VersionedAssetId, VersionedInteriorMultiLocation,
+		VersionedInteriorLocation, VersionedAsset, VersionedAssets, VersionedLocation,
 		VersionedMultiAsset, VersionedMultiAssets, VersionedMultiLocation, VersionedResponse,
 		VersionedXcm, WrapVersion,
 	};
@@ -577,8 +586,8 @@ pub mod opaque {
 #[test]
 fn conversion_works() {
 	use latest::prelude::*;
-	let assets: MultiAssets = (Here, 1u128).into();
-	let _: VersionedMultiAssets = assets.into();
+	let assets: Assets = (Here, 1u128).into();
+	let _: VersionedAssets = assets.into();
 }
 
 #[test]
@@ -616,8 +625,8 @@ fn size_limits() {
 
 	check_sizes! {
 		(crate::v4::Instruction<()>, 112),
-		(crate::v4::MultiAsset, 80),
-		(crate::v4::MultiLocation, 24),
+		(crate::v4::Asset, 80),
+		(crate::v4::Location, 24),
 		(crate::v4::AssetId, 40),
 		(crate::v4::Junctions, 16),
 		(crate::v4::Junction, 88),
@@ -625,7 +634,7 @@ fn size_limits() {
 		(crate::v4::AssetInstance, 40),
 		(crate::v4::NetworkId, 48),
 		(crate::v4::BodyId, 32),
-		(crate::v4::MultiAssets, 24),
+		(crate::v4::Assets, 24),
 		(crate::v4::BodyPart, 12),
 	}
 	assert!(!test_failed);

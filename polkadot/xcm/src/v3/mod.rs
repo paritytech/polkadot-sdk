@@ -55,7 +55,7 @@ pub use multiasset::{
 	WildFungibility, WildMultiAsset,
 };
 pub use multilocation::{
-	Ancestor, AncestorThen, InteriorMultiLocation, MultiLocation, Parent, ParentThen,
+	Ancestor, AncestorThen, InteriorMultiLocation, MultiLocation, Parent, ParentThen, Location,
 };
 pub use traits::{
 	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Result, SendError,

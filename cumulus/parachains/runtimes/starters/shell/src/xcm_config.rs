@@ -29,9 +29,9 @@ use xcm_builder::{
 };
 
 parameter_types! {
-	pub const RococoLocation: MultiLocation = MultiLocation::parent();
+	pub const RococoLocation: Location = Location::parent();
 	pub const RococoNetwork: Option<NetworkId> = Some(NetworkId::Rococo);
-	pub UniversalLocation: InteriorMultiLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
+	pub UniversalLocation: InteriorLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
 }
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
@@ -48,8 +48,8 @@ pub type XcmOriginToTransactDispatchOrigin = (
 );
 
 pub struct JustTheParent;
-impl Contains<MultiLocation> for JustTheParent {
-	fn contains(location: &MultiLocation) -> bool {
+impl Contains<Location> for JustTheParent {
+	fn contains(location: &Location) -> bool {
 		matches!(location.unpack(), (1, []))
 	}
 }

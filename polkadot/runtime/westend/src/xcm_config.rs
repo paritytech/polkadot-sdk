@@ -44,9 +44,9 @@ use xcm_builder::{
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
 parameter_types! {
-	pub const TokenLocation: MultiLocation = Here.into_location();
+	pub const TokenLocation: Location = Here.into_location();
 	pub const ThisNetwork: NetworkId = Westend;
-	pub UniversalLocation: InteriorMultiLocation = ThisNetwork::get().into();
+	pub UniversalLocation: InteriorLocation = ThisNetwork::get().into();
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	pub LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
 	/// The asset ID for the asset that we use to pay for message delivery fees.
@@ -63,7 +63,7 @@ pub type LocalAssetTransactor = XcmCurrencyAdapter<
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<TokenLocation>,
-	// We can convert the MultiLocations with our converter above:
+	// We can convert the Locations with our converter above:
 	LocationConverter,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -90,18 +90,18 @@ pub type XcmRouter = WithUniqueTopic<(
 )>;
 
 parameter_types! {
-	pub Westmint: MultiLocation = Parachain(1000).into_location();
-	pub Collectives: MultiLocation = Parachain(1001).into_location();
-	pub const Wnd: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
-	pub WndForWestmint: (MultiAssetFilter, MultiLocation) = (Wnd::get(), Westmint::get());
-	pub WndForCollectives: (MultiAssetFilter, MultiLocation) = (Wnd::get(), Collectives::get());
+	pub Westmint: Location = Parachain(1000).into_location();
+	pub Collectives: Location = Parachain(1001).into_location();
+	pub const Wnd: AssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
+	pub WndForWestmint: (AssetFilter, Location) = (Wnd::get(), Westmint::get());
+	pub WndForCollectives: (AssetFilter, Location) = (Wnd::get(), Collectives::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
+	pub ReachableDest: Option<Location> = Some(Parachain(1000).into());
 }
 
 pub type TrustedTeleporters =
@@ -271,7 +271,7 @@ impl xcm_executor::Config for XcmConfig {
 	type Aliasers = Nothing;
 }
 
-/// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
+/// Type to convert an `Origin` type value into a `Location` value which represents an interior
 /// location of this chain.
 pub type LocalOriginToLocation = (
 	// And a usual Signed origin to be used in XCM as a corresponding AccountId32

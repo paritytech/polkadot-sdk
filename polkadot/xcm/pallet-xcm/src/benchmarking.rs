@@ -32,7 +32,7 @@ benchmarks! {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
 		let msg = Xcm(vec![ClearOrigin]);
-		let versioned_dest: VersionedMultiLocation = T::ReachableDest::get().ok_or(
+		let versioned_dest: VersionedLocation = T::ReachableDest::get().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?
 		.into();
@@ -40,7 +40,7 @@ benchmarks! {
 	}: _<RuntimeOrigin<T>>(send_origin, Box::new(versioned_dest), Box::new(versioned_msg))
 
 	teleport_assets {
-		let asset: MultiAsset = (Here, 10).into();
+		let asset: Asset = (Here, 10).into();
 		let send_origin =
 			T::ExecuteXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone())
@@ -50,17 +50,17 @@ benchmarks! {
 		}
 
 		let recipient = [0u8; 32];
-		let versioned_dest: VersionedMultiLocation = T::ReachableDest::get().ok_or(
+		let versioned_dest: VersionedLocation = T::ReachableDest::get().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?
 		.into();
-		let versioned_beneficiary: VersionedMultiLocation =
+		let versioned_beneficiary: VersionedLocation =
 			AccountId32 { network: None, id: recipient.into() }.into();
-		let versioned_assets: VersionedMultiAssets = asset.into();
+		let versioned_assets: VersionedAssets = asset.into();
 	}: _<RuntimeOrigin<T>>(send_origin, Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
 
 	reserve_transfer_assets {
-		let asset: MultiAsset = (Here, 10).into();
+		let asset: Asset = (Here, 10).into();
 		let send_origin =
 			T::ExecuteXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone())
@@ -70,13 +70,13 @@ benchmarks! {
 		}
 
 		let recipient = [0u8; 32];
-		let versioned_dest: VersionedMultiLocation = T::ReachableDest::get().ok_or(
+		let versioned_dest: VersionedLocation = T::ReachableDest::get().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?
 		.into();
-		let versioned_beneficiary: VersionedMultiLocation =
+		let versioned_beneficiary: VersionedLocation =
 			AccountId32 { network: None, id: recipient.into() }.into();
-		let versioned_assets: VersionedMultiAssets = asset.into();
+		let versioned_assets: VersionedAssets = asset.into();
 	}: _<RuntimeOrigin<T>>(send_origin, Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
 
 	execute {
@@ -101,7 +101,7 @@ benchmarks! {
 	force_default_xcm_version {}: _(RawOrigin::Root, Some(2))
 
 	force_subscribe_version_notify {
-		let versioned_loc: VersionedMultiLocation = T::ReachableDest::get().ok_or(
+		let versioned_loc: VersionedLocation = T::ReachableDest::get().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?
 		.into();
@@ -111,7 +111,7 @@ benchmarks! {
 		let loc = T::ReachableDest::get().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
-		let versioned_loc: VersionedMultiLocation = loc.clone().into();
+		let versioned_loc: VersionedLocation = loc.clone().into();
 		let _ = Pallet::<T>::request_version_notify(loc);
 	}: _(RawOrigin::Root, Box::new(versioned_loc))
 
@@ -119,7 +119,7 @@ benchmarks! {
 
 	migrate_supported_version {
 		let old_version = XCM_VERSION - 1;
-		let loc = VersionedMultiLocation::from(MultiLocation::from(Parent));
+		let loc = VersionedLocation::from(Location::from(Parent));
 		SupportedVersion::<T>::insert(old_version, loc, old_version);
 	}: {
 		Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateSupportedVersion, Weight::zero());
@@ -127,7 +127,7 @@ benchmarks! {
 
 	migrate_version_notifiers {
 		let old_version = XCM_VERSION - 1;
-		let loc = VersionedMultiLocation::from(MultiLocation::from(Parent));
+		let loc = VersionedLocation::from(Location::from(Parent));
 		VersionNotifiers::<T>::insert(old_version, loc, 0);
 	}: {
 		Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateVersionNotifiers, Weight::zero());
@@ -137,7 +137,7 @@ benchmarks! {
 		let loc = T::ReachableDest::get().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(T::DbWeight::get().reads(1))),
 		)?;
-		let loc = VersionedMultiLocation::from(loc);
+		let loc = VersionedLocation::from(loc);
 		let current_version = T::AdvertisedXcmVersion::get();
 		VersionNotifyTargets::<T>::insert(current_version, loc, (0, Weight::zero(), current_version));
 	}: {
@@ -148,7 +148,7 @@ benchmarks! {
 		let loc = T::ReachableDest::get().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(T::DbWeight::get().reads_writes(1, 3))),
 		)?;
-		let loc = VersionedMultiLocation::from(loc);
+		let loc = VersionedLocation::from(loc);
 		let current_version = T::AdvertisedXcmVersion::get();
 		let old_version = current_version - 1;
 		VersionNotifyTargets::<T>::insert(current_version, loc, (0, Weight::zero(), old_version));
@@ -163,7 +163,7 @@ benchmarks! {
 			part: v2::BodyPart::Voice,
 		}
 		.into();
-		let bad_loc = VersionedMultiLocation::from(bad_loc);
+		let bad_loc = VersionedLocation::from(bad_loc);
 		let current_version = T::AdvertisedXcmVersion::get();
 		VersionNotifyTargets::<T>::insert(current_version, bad_loc, (0, Weight::zero(), current_version));
 	}: {
@@ -173,7 +173,7 @@ benchmarks! {
 	migrate_version_notify_targets {
 		let current_version = T::AdvertisedXcmVersion::get();
 		let old_version = current_version - 1;
-		let loc = VersionedMultiLocation::from(MultiLocation::from(Parent));
+		let loc = VersionedLocation::from(Location::from(Parent));
 		VersionNotifyTargets::<T>::insert(old_version, loc, (0, Weight::zero(), current_version));
 	}: {
 		Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
@@ -183,7 +183,7 @@ benchmarks! {
 		let loc = T::ReachableDest::get().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(T::DbWeight::get().reads_writes(1, 3))),
 		)?;
-		let loc = VersionedMultiLocation::from(loc);
+		let loc = VersionedLocation::from(loc);
 		let old_version = T::AdvertisedXcmVersion::get() - 1;
 		VersionNotifyTargets::<T>::insert(old_version, loc, (0, Weight::zero(), old_version));
 	}: {

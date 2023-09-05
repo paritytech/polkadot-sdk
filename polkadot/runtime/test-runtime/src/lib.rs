@@ -597,7 +597,7 @@ pub mod pallet_test_notifier {
 	pub enum Event<T: Config> {
 		QueryPrepared(QueryId),
 		NotifyQueryPrepared(QueryId),
-		ResponseReceived(MultiLocation, QueryId, Response),
+		ResponseReceived(Location, QueryId, Response),
 	}
 
 	#[pallet::error]

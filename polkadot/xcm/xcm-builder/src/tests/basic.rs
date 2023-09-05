@@ -28,11 +28,11 @@ fn basic_setup_works() {
 	assert_eq!(to_account((Parent, Parachain(1))), Ok(2001));
 	assert_eq!(to_account((Parent, Parachain(50))), Ok(2050));
 	assert_eq!(
-		to_account(MultiLocation::new(0, [AccountIndex64 { index: 1, network: None }])),
+		to_account(Location::new(0, [AccountIndex64 { index: 1, network: None }])),
 		Ok(1),
 	);
 	assert_eq!(
-		to_account(MultiLocation::new(0, [AccountIndex64 { index: 42, network: None }])),
+		to_account(Location::new(0, [AccountIndex64 { index: 42, network: None }])),
 		Ok(42),
 	);
 	assert_eq!(to_account(Here), Ok(3000));

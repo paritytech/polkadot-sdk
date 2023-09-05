@@ -68,10 +68,10 @@ pub fn relay_test_args(amount: Balance) -> TestArgs {
 
 /// Returns a `TestArgs` instance to de used for the System Parachain accross integraton tests
 pub fn system_para_test_args(
-	dest: MultiLocation,
+	dest: Location,
 	beneficiary_id: AccountId32,
 	amount: Balance,
-	assets: MultiAssets,
+	assets: Assets,
 	asset_id: Option<u32>,
 ) -> TestArgs {
 	TestArgs {

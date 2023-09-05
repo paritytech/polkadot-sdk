@@ -50,10 +50,10 @@ construct_runtime! {
 parameter_types! {
 	pub ThisNetworkId: NetworkId = Polkadot;
 	pub BridgedNetworkId: NetworkId = Kusama;
-	pub UniversalLocation: InteriorMultiLocation = [GlobalConsensus(ThisNetworkId::get()), Parachain(1000)].into();
-	pub SiblingBridgeHubLocation: MultiLocation = ParentThen([Parachain(1002)].into()).into();
-	pub BridgeFeeAsset: AssetId = MultiLocation::parent().into();
-	pub BridgeTable: Vec<(NetworkId, MultiLocation, Option<MultiAsset>)>
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ThisNetworkId::get()), Parachain(1000)].into();
+	pub SiblingBridgeHubLocation: Location = ParentThen([Parachain(1002)].into()).into();
+	pub BridgeFeeAsset: AssetId = Location::parent().into();
+	pub BridgeTable: Vec<(NetworkId, Location, Option<Asset>)>
 		= vec![(BridgedNetworkId::get(), SiblingBridgeHubLocation::get(), Some((BridgeFeeAsset::get(), BASE_FEE).into()))];
 }
 
@@ -110,7 +110,7 @@ impl SendXcm for TestToBridgeHubSender {
 	type Ticket = ();
 
 	fn validate(
-		_destination: &mut Option<MultiLocation>,
+		_destination: &mut Option<Location>,
 		_message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
 		Ok(((), (BridgeFeeAsset::get(), HRMP_FEE).into()))

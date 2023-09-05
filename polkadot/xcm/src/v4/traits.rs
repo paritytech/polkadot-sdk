@@ -44,10 +44,10 @@ pub enum Error {
 	/// Origin Register does not contain a value value for a teleport notification.
 	#[codec(index = 3)]
 	UntrustedTeleportLocation,
-	/// `MultiLocation` value too large to descend further.
+	/// `Location` value too large to descend further.
 	#[codec(index = 4)]
 	LocationFull,
-	/// `MultiLocation` value ascend more parents than known ancestors of local location.
+	/// `Location` value ascend more parents than known ancestors of local location.
 	#[codec(index = 5)]
 	LocationNotInvertible,
 	/// The Origin Register does not contain a valid value for instruction.
@@ -117,7 +117,7 @@ pub enum Error {
 	/// The message was unable to be exported.
 	#[codec(index = 27)]
 	ExportError,
-	/// `MultiLocation` value failed to be reanchored.
+	/// `Location` value failed to be reanchored.
 	#[codec(index = 28)]
 	ReanchorFailed,
 	/// No deal is possible under the given constraints.
@@ -322,13 +322,13 @@ pub trait ExecuteXcm<Call> {
 	type Prepared: PreparedMessage;
 	fn prepare(message: Xcm<Call>) -> result::Result<Self::Prepared, Xcm<Call>>;
 	fn execute(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		pre: Self::Prepared,
 		id: &mut XcmHash,
 		weight_credit: Weight,
 	) -> Outcome;
 	fn prepare_and_execute(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		message: Xcm<Call>,
 		id: &mut XcmHash,
 		weight_limit: Weight,
@@ -353,7 +353,7 @@ pub trait ExecuteXcm<Call> {
 	//	TODO: XCMv4
 	//	#[deprecated = "Use `prepare_and_execute` instead"]
 	fn execute_xcm(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		message: Xcm<Call>,
 		hash: XcmHash,
 		weight_limit: Weight,
@@ -377,7 +377,7 @@ pub trait ExecuteXcm<Call> {
 	//	TODO: XCMv4
 	//	#[deprecated = "Use `prepare_and_execute` instead"]
 	fn execute_xcm_in_credit(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		message: Xcm<Call>,
 		mut hash: XcmHash,
 		weight_limit: Weight,
@@ -396,7 +396,7 @@ pub trait ExecuteXcm<Call> {
 
 	/// Deduct some `fees` to the sovereign account of the given `location` and place them as per
 	/// the convention for fees.
-	fn charge_fees(location: impl Into<MultiLocation>, fees: MultiAssets) -> Result;
+	fn charge_fees(location: impl Into<Location>, fees: Assets) -> Result;
 }
 
 pub enum Weightless {}
@@ -412,14 +412,14 @@ impl<C> ExecuteXcm<C> for () {
 		Err(message)
 	}
 	fn execute(
-		_: impl Into<MultiLocation>,
+		_: impl Into<Location>,
 		_: Self::Prepared,
 		_: &mut XcmHash,
 		_: Weight,
 	) -> Outcome {
 		unreachable!()
 	}
-	fn charge_fees(_location: impl Into<MultiLocation>, _fees: MultiAssets) -> Result {
+	fn charge_fees(_location: impl Into<Location>, _fees: Assets) -> Result {
 		Err(Error::Unimplemented)
 	}
 }
@@ -454,7 +454,7 @@ pub enum SendError {
 pub type XcmHash = [u8; 32];
 
 /// Result value when attempting to send an XCM message.
-pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
+pub type SendResult<T> = result::Result<(T, Assets), SendError>;
 
 /// Utility for sending an XCM message to a given location.
 ///
@@ -473,7 +473,7 @@ pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
 /// struct Sender1;
 /// impl SendXcm for Sender1 {
 ///     type Ticket = Infallible;
-///     fn validate(_: &mut Option<MultiLocation>, _: &mut Option<Xcm<()>>) -> SendResult<Infallible> {
+///     fn validate(_: &mut Option<Location>, _: &mut Option<Xcm<()>>) -> SendResult<Infallible> {
 ///         Err(SendError::NotApplicable)
 ///     }
 ///     fn deliver(_: Infallible) -> Result<XcmHash, SendError> {
@@ -485,9 +485,9 @@ pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
 /// struct Sender2;
 /// impl SendXcm for Sender2 {
 ///     type Ticket = ();
-///     fn validate(destination: &mut Option<MultiLocation>, message: &mut Option<Xcm<()>>) -> SendResult<()> {
+///     fn validate(destination: &mut Option<Location>, message: &mut Option<Xcm<()>>) -> SendResult<()> {
 ///         match destination.as_ref().ok_or(SendError::MissingArgument)?.unpack() {
-///             (0, [_, _]) => Ok(((), MultiAssets::new())),
+///             (0, [_, _]) => Ok(((), Assets::new())),
 ///             _ => Err(SendError::Unroutable),
 ///         }
 ///     }
@@ -500,9 +500,9 @@ pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
 /// struct Sender3;
 /// impl SendXcm for Sender3 {
 ///     type Ticket = ();
-///     fn validate(destination: &mut Option<MultiLocation>, message: &mut Option<Xcm<()>>) -> SendResult<()> {
+///     fn validate(destination: &mut Option<Location>, message: &mut Option<Xcm<()>>) -> SendResult<()> {
 ///         match destination.as_ref().ok_or(SendError::MissingArgument)?.unpack() {
-///             (1, []) => Ok(((), MultiAssets::new())),
+///             (1, []) => Ok(((), Assets::new())),
 ///             _ => Err(SendError::NotApplicable),
 ///         }
 ///     }
@@ -543,7 +543,7 @@ pub trait SendXcm {
 	/// then this *MUST* return `NotApplicable`. Any other error will cause the tuple
 	/// implementation to exit early without trying other type fields.
 	fn validate(
-		destination: &mut Option<MultiLocation>,
+		destination: &mut Option<Location>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket>;
 
@@ -556,10 +556,10 @@ impl SendXcm for Tuple {
 	for_tuples! { type Ticket = (#( Option<Tuple::Ticket> ),* ); }
 
 	fn validate(
-		destination: &mut Option<MultiLocation>,
+		destination: &mut Option<Location>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
-		let mut maybe_cost: Option<MultiAssets> = None;
+		let mut maybe_cost: Option<Assets> = None;
 		let one_ticket: Self::Ticket = (for_tuples! { #(
 			if maybe_cost.is_some() {
 				None
@@ -593,7 +593,7 @@ impl SendXcm for Tuple {
 
 /// Convenience function for using a `SendXcm` implementation. Just interprets the `dest` and wraps
 /// both in `Some` before passing them as as mutable references into `T::send_xcm`.
-pub fn validate_send<T: SendXcm>(dest: MultiLocation, msg: Xcm<()>) -> SendResult<T::Ticket> {
+pub fn validate_send<T: SendXcm>(dest: Location, msg: Xcm<()>) -> SendResult<T::Ticket> {
 	T::validate(&mut Some(dest), &mut Some(msg))
 }
 
@@ -606,9 +606,9 @@ pub fn validate_send<T: SendXcm>(dest: MultiLocation, msg: Xcm<()>) -> SendResul
 /// Generally you'll want to validate and get the price first to ensure that the sender can pay it
 /// before actually doing the delivery.
 pub fn send_xcm<T: SendXcm>(
-	dest: MultiLocation,
+	dest: Location,
 	msg: Xcm<()>,
-) -> result::Result<(XcmHash, MultiAssets), SendError> {
+) -> result::Result<(XcmHash, Assets), SendError> {
 	let (ticket, price) = T::validate(&mut Some(dest), &mut Some(msg))?;
 	let hash = T::deliver(ticket)?;
 	Ok((hash, price))

@@ -44,24 +44,24 @@ pub type AccountId = AccountId32;
 pub type Balance = u128;
 
 thread_local! {
-	pub static SENT_XCM: RefCell<Vec<(MultiLocation, opaque::Xcm, XcmHash)>> = RefCell::new(Vec::new());
+	pub static SENT_XCM: RefCell<Vec<(Location, opaque::Xcm, XcmHash)>> = RefCell::new(Vec::new());
 }
-pub fn sent_xcm() -> Vec<(MultiLocation, opaque::Xcm, XcmHash)> {
+pub fn sent_xcm() -> Vec<(Location, opaque::Xcm, XcmHash)> {
 	SENT_XCM.with(|q| (*q.borrow()).clone())
 }
 pub struct TestSendXcm;
 impl SendXcm for TestSendXcm {
-	type Ticket = (MultiLocation, Xcm<()>, XcmHash);
+	type Ticket = (Location, Xcm<()>, XcmHash);
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
-	) -> SendResult<(MultiLocation, Xcm<()>, XcmHash)> {
+	) -> SendResult<(Location, Xcm<()>, XcmHash)> {
 		let msg = msg.take().unwrap();
 		let hash = fake_message_hash(&msg);
 		let triplet = (dest.take().unwrap(), msg, hash);
-		Ok((triplet, MultiAssets::new()))
+		Ok((triplet, Assets::new()))
 	}
-	fn deliver(triplet: (MultiLocation, Xcm<()>, XcmHash)) -> Result<XcmHash, SendError> {
+	fn deliver(triplet: (Location, Xcm<()>, XcmHash)) -> Result<XcmHash, SendError> {
 		let hash = triplet.2;
 		SENT_XCM.with(|q| q.borrow_mut().push(triplet));
 		Ok(hash)
@@ -132,9 +132,9 @@ impl configuration::Config for Runtime {
 
 // aims to closely emulate the Kusama XcmConfig
 parameter_types! {
-	pub const KsmLocation: MultiLocation = MultiLocation::here();
+	pub const KsmLocation: Location = Location::here();
 	pub const KusamaNetwork: NetworkId = NetworkId::Kusama;
-	pub UniversalLocation: InteriorMultiLocation = Here;
+	pub UniversalLocation: InteriorLocation = Here;
 	pub CheckAccount: (AccountId, MintLocation) = (XcmPallet::check_account(), MintLocation::Local);
 }
 
@@ -171,7 +171,7 @@ pub type Barrier = (
 );
 
 parameter_types! {
-	pub KusamaForStatemine: (MultiAssetFilter, MultiLocation) =
+	pub KusamaForStatemine: (AssetFilter, Location) =
 		(Wild(AllOf { id: Concrete(Here.into()), fun: WildFungible }), Parachain(1000).into());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 4;
@@ -211,7 +211,7 @@ pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, K
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Here.into());
+	pub ReachableDest: Option<Location> = Some(Here.into());
 }
 
 impl pallet_xcm::Config for Runtime {

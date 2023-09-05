@@ -33,18 +33,18 @@ use SendError::*;
 /// messages to be delivered to a parachain.
 pub trait PriceForParachainDelivery {
 	/// Return the assets required to deliver `message` to the given `para` destination.
-	fn price_for_parachain_delivery(para: ParaId, message: &Xcm<()>) -> MultiAssets;
+	fn price_for_parachain_delivery(para: ParaId, message: &Xcm<()>) -> Assets;
 }
 impl PriceForParachainDelivery for () {
-	fn price_for_parachain_delivery(_: ParaId, _: &Xcm<()>) -> MultiAssets {
-		MultiAssets::new()
+	fn price_for_parachain_delivery(_: ParaId, _: &Xcm<()>) -> Assets {
+		Assets::new()
 	}
 }
 
 /// Implementation of `PriceForParachainDelivery` which returns a fixed price.
 pub struct ConstantPrice<T>(sp_std::marker::PhantomData<T>);
-impl<T: Get<MultiAssets>> PriceForParachainDelivery for ConstantPrice<T> {
-	fn price_for_parachain_delivery(_: ParaId, _: &Xcm<()>) -> MultiAssets {
+impl<T: Get<Assets>> PriceForParachainDelivery for ConstantPrice<T> {
+	fn price_for_parachain_delivery(_: ParaId, _: &Xcm<()>) -> Assets {
 		T::get()
 	}
 }
@@ -59,7 +59,7 @@ pub struct ExponentialPrice<A, B, M, F>(sp_std::marker::PhantomData<(A, B, M, F)
 impl<A: Get<AssetId>, B: Get<u128>, M: Get<u128>, F: FeeTracker> PriceForParachainDelivery
 	for ExponentialPrice<A, B, M, F>
 {
-	fn price_for_parachain_delivery(para: ParaId, msg: &Xcm<()>) -> MultiAssets {
+	fn price_for_parachain_delivery(para: ParaId, msg: &Xcm<()>) -> Assets {
 		let msg_fee = (msg.encoded_size() as u128).saturating_mul(M::get());
 		let fee_sum = B::get().saturating_add(msg_fee);
 		let amount = F::get_fee_factor(para).saturating_mul_int(fee_sum);
@@ -76,7 +76,7 @@ impl<T: configuration::Config + dmp::Config, W: xcm::WrapVersion, P: PriceForPar
 	type Ticket = (HostConfiguration<BlockNumberFor<T>>, ParaId, Vec<u8>);
 
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(HostConfiguration<BlockNumberFor<T>>, ParaId, Vec<u8>)> {
 		let d = dest.take().ok_or(MissingArgument)?;

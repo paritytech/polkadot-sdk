@@ -140,7 +140,7 @@ fn reserve_transfer_should_work() {
 	// Child parachain #1 owns 1000 tokens held by us in reserve.
 	add_asset(Parachain(1), (Here, 1000));
 	// The remote account owned by gav.
-	let three: MultiLocation = [AccountIndex64 { index: 3, network: None }].into();
+	let three: Location = [AccountIndex64 { index: 3, network: None }].into();
 
 	// They want to transfer 100 of our native asset from sovereign account of parachain #1 into #2
 	// and let them know to hand it to account #3.
@@ -447,7 +447,7 @@ fn max_assets_limit_should_work() {
 
 	// Attempt to withdraw 4 different assets and then a different 4 and then the same 4 will fail.
 	let message = Xcm(vec![
-		WithdrawAsset(MultiAssets::from(vec![
+		WithdrawAsset(Assets::from(vec![
 			([1u8; 32], 100u128).into(),
 			([2u8; 32], 100u128).into(),
 			([3u8; 32], 100u128).into(),

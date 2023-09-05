@@ -152,7 +152,7 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 {
 	assert_ne!(runtime_para_id, sibling_parachain_id);
-	let sibling_parachain_location = MultiLocation::new(1, Parachain(sibling_parachain_id));
+	let sibling_parachain_location = Location::new(1, Parachain(sibling_parachain_id));
 
 	ExtBuilder::<Runtime>::default()
 		.with_collators(collator_session_key.collators())
@@ -793,9 +793,9 @@ pub mod test_data {
 
 	pub fn prepare_inbound_xcm<InnerXcmRuntimeCall>(
 		xcm_message: Xcm<InnerXcmRuntimeCall>,
-		destination: InteriorMultiLocation,
+		destination: InteriorLocation,
 	) -> Vec<u8> {
-		let location = xcm::VersionedInteriorMultiLocation::V4(destination);
+		let location = xcm::VersionedInteriorLocation::V4(destination);
 		let xcm = xcm::VersionedXcm::<InnerXcmRuntimeCall>::V4(xcm_message);
 		// this is the `BridgeMessage` from polkadot xcm builder, but it has no constructor
 		// or public fields, so just tuple

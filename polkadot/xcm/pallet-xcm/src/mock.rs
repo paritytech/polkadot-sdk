@@ -67,7 +67,7 @@ pub mod pallet_test_notifier {
 	pub enum Event<T: Config> {
 		QueryPrepared(QueryId),
 		NotifyQueryPrepared(QueryId),
-		ResponseReceived(MultiLocation, QueryId, Response),
+		ResponseReceived(Location, QueryId, Response),
 	}
 
 	#[pallet::error]
@@ -80,7 +80,7 @@ pub mod pallet_test_notifier {
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(1_000_000, 1_000_000))]
-		pub fn prepare_new_query(origin: OriginFor<T>, querier: MultiLocation) -> DispatchResult {
+		pub fn prepare_new_query(origin: OriginFor<T>, querier: Location) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let id = who
 				.using_encoded(|mut d| <[u8; 32]>::decode(&mut d))
@@ -98,7 +98,7 @@ pub mod pallet_test_notifier {
 		#[pallet::weight(Weight::from_parts(1_000_000, 1_000_000))]
 		pub fn prepare_new_notify_query(
 			origin: OriginFor<T>,
-			querier: MultiLocation,
+			querier: Location,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let id = who
@@ -142,12 +142,12 @@ construct_runtime!(
 );
 
 thread_local! {
-	pub static SENT_XCM: RefCell<Vec<(MultiLocation, Xcm<()>)>> = RefCell::new(Vec::new());
+	pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>)>> = RefCell::new(Vec::new());
 }
-pub(crate) fn sent_xcm() -> Vec<(MultiLocation, Xcm<()>)> {
+pub(crate) fn sent_xcm() -> Vec<(Location, Xcm<()>)> {
 	SENT_XCM.with(|q| (*q.borrow()).clone())
 }
-pub(crate) fn take_sent_xcm() -> Vec<(MultiLocation, Xcm<()>)> {
+pub(crate) fn take_sent_xcm() -> Vec<(Location, Xcm<()>)> {
 	SENT_XCM.with(|q| {
 		let mut r = Vec::new();
 		std::mem::swap(&mut r, &mut *q.borrow_mut());
@@ -157,15 +157,15 @@ pub(crate) fn take_sent_xcm() -> Vec<(MultiLocation, Xcm<()>)> {
 /// Sender that never returns error, always sends
 pub struct TestSendXcm;
 impl SendXcm for TestSendXcm {
-	type Ticket = (MultiLocation, Xcm<()>);
+	type Ticket = (Location, Xcm<()>);
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
-	) -> SendResult<(MultiLocation, Xcm<()>)> {
+	) -> SendResult<(Location, Xcm<()>)> {
 		let pair = (dest.take().unwrap(), msg.take().unwrap());
-		Ok((pair, MultiAssets::new()))
+		Ok((pair, Assets::new()))
 	}
-	fn deliver(pair: (MultiLocation, Xcm<()>)) -> Result<XcmHash, SendError> {
+	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = fake_message_hash(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
@@ -174,19 +174,19 @@ impl SendXcm for TestSendXcm {
 /// Sender that returns error if `X8` junction and stops routing
 pub struct TestSendXcmErrX8;
 impl SendXcm for TestSendXcmErrX8 {
-	type Ticket = (MultiLocation, Xcm<()>);
+	type Ticket = (Location, Xcm<()>);
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
-	) -> SendResult<(MultiLocation, Xcm<()>)> {
+	) -> SendResult<(Location, Xcm<()>)> {
 		let (dest, msg) = (dest.take().unwrap(), msg.take().unwrap());
 		if dest.len() == 8 {
 			Err(SendError::Transport("Destination location full"))
 		} else {
-			Ok(((dest, msg), MultiAssets::new()))
+			Ok(((dest, msg), Assets::new()))
 		}
 	}
-	fn deliver(pair: (MultiLocation, Xcm<()>)) -> Result<XcmHash, SendError> {
+	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = fake_message_hash(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
@@ -246,9 +246,9 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const RelayLocation: MultiLocation = Here.into_location();
+	pub const RelayLocation: Location = Here.into_location();
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub UniversalLocation: InteriorMultiLocation = Here;
+	pub UniversalLocation: InteriorLocation = Here;
 	pub UnitWeightCost: u64 = 1_000;
 }
 
@@ -268,7 +268,7 @@ type LocalOriginConverter = (
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (Concrete(RelayLocation::get()), 1, 1);
-	pub TrustedAssets: (MultiAssetFilter, MultiLocation) = (All.into(), Here.into());
+	pub TrustedAssets: (AssetFilter, Location) = (All.into(), Here.into());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -316,7 +316,7 @@ parameter_types! {
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
+	pub ReachableDest: Option<Location> = Some(Parachain(1000).into());
 }
 
 impl pallet_xcm::Config for Test {
@@ -363,13 +363,13 @@ pub(crate) fn last_events(n: usize) -> Vec<RuntimeEvent> {
 	System::events().into_iter().map(|e| e.event).rev().take(n).rev().collect()
 }
 
-pub(crate) fn buy_execution<C>(fees: impl Into<MultiAsset>) -> Instruction<C> {
+pub(crate) fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
 	use xcm::latest::prelude::*;
 	BuyExecution { fees: fees.into(), weight_limit: Unlimited }
 }
 
 pub(crate) fn buy_limited_execution<C>(
-	fees: impl Into<MultiAsset>,
+	fees: impl Into<Asset>,
 	weight: Weight,
 ) -> Instruction<C> {
 	use xcm::latest::prelude::*;

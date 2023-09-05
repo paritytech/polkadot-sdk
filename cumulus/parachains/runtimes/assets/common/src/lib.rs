@@ -21,14 +21,14 @@ pub mod local_and_foreign_assets;
 pub mod matching;
 pub mod runtime_api;
 
-use crate::matching::{Equals, LocalMultiLocationPattern, ParentLocation, StartsWith};
+use crate::matching::{Equals, LocalLocationPattern, ParentLocation, StartsWith};
 use frame_support::traits::EverythingBut;
 use parachains_common::AssetIdForTrustBackedAssets;
-use xcm::prelude::MultiLocation;
+use xcm::prelude::Location;
 use xcm_builder::{AsPrefixedGeneralIndex, MatchedConvertedConcreteId};
 use xcm_executor::traits::{Identity, JustTry};
 
-/// `MultiLocation` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
+/// `Location` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
 pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation> =
 	AsPrefixedGeneralIndex<TrustBackedAssetsPalletLocation, AssetIdForTrustBackedAssets, JustTry>;
 
@@ -42,45 +42,45 @@ pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, B
 		JustTry,
 	>;
 
-/// AssetId used for identifying assets by MultiLocation.
-pub type MultiLocationForAssetId = MultiLocation;
+/// AssetId used for identifying assets by Location.
+pub type LocationForAssetId = Location;
 
-/// [`MatchedConvertedConcreteId`] converter dedicated for storing `AssetId` as `MultiLocation`.
-pub type MultiLocationConvertedConcreteId<MultiLocationFilter, Balance> =
+/// [`MatchedConvertedConcreteId`] converter dedicated for storing `AssetId` as `Location`.
+pub type LocationConvertedConcreteId<LocationFilter, Balance> =
 	MatchedConvertedConcreteId<
-		MultiLocationForAssetId,
+		LocationForAssetId,
 		Balance,
-		MultiLocationFilter,
+		LocationFilter,
 		Identity,
 		JustTry,
 	>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for storing `ForeignAssets` with `AssetId` as
-/// `MultiLocation`.
+/// `Location`.
 ///
 /// Excludes by default:
 /// - parent as relay chain
-/// - all local MultiLocations
+/// - all local Locations
 ///
-/// `AdditionalMultiLocationExclusionFilter` can customize additional excluded MultiLocations
-pub type ForeignAssetsConvertedConcreteId<AdditionalMultiLocationExclusionFilter, Balance> =
-	MultiLocationConvertedConcreteId<
+/// `AdditionalLocationExclusionFilter` can customize additional excluded Locations
+pub type ForeignAssetsConvertedConcreteId<AdditionalLocationExclusionFilter, Balance> =
+	LocationConvertedConcreteId<
 		EverythingBut<(
 			// Excludes relay/parent chain currency
 			Equals<ParentLocation>,
 			// Here we rely on fact that something like this works:
-			// assert!(MultiLocation::new(1,
-			// [Parachain(100)]).starts_with(&MultiLocation::parent()));
+			// assert!(Location::new(1,
+			// [Parachain(100)]).starts_with(&Location::parent()));
 			// assert!([Parachain(100)].into().starts_with(&Here));
-			StartsWith<LocalMultiLocationPattern>,
+			StartsWith<LocalLocationPattern>,
 			// Here we can exclude more stuff or leave it as `()`
-			AdditionalMultiLocationExclusionFilter,
+			AdditionalLocationExclusionFilter,
 		)>,
 		Balance,
 	>;
 
 type AssetIdForPoolAssets = u32;
-/// `MultiLocation` vs `AssetIdForPoolAssets` converter for `PoolAssets`.
+/// `Location` vs `AssetIdForPoolAssets` converter for `PoolAssets`.
 pub type AssetIdForPoolAssetsConvert<PoolAssetsPalletLocation> =
 	AsPrefixedGeneralIndex<PoolAssetsPalletLocation, AssetIdForPoolAssets, JustTry>;
 /// [`MatchedConvertedConcreteId`] converter dedicated for `PoolAssets`
@@ -104,11 +104,11 @@ mod tests {
 	#[test]
 	fn asset_id_for_trust_backed_assets_convert_works() {
 		frame_support::parameter_types! {
-			pub TrustBackedAssetsPalletLocation: MultiLocation = MultiLocation::new(5, [PalletInstance(13)]);
+			pub TrustBackedAssetsPalletLocation: Location = Location::new(5, [PalletInstance(13)]);
 		}
 		let local_asset_id = 123456789 as AssetIdForTrustBackedAssets;
 		let expected_reverse_ref =
-			MultiLocation::new(5, [PalletInstance(13), GeneralIndex(local_asset_id.into())]);
+			Location::new(5, [PalletInstance(13), GeneralIndex(local_asset_id.into())]);
 
 		assert_eq!(
 			AssetIdForTrustBackedAssetsConvert::<TrustBackedAssetsPalletLocation>::convert_back(
@@ -129,7 +129,7 @@ mod tests {
 	#[test]
 	fn trust_backed_assets_match_fungibles_works() {
 		frame_support::parameter_types! {
-			pub TrustBackedAssetsPalletLocation: MultiLocation = MultiLocation::new(0, [PalletInstance(13)]);
+			pub TrustBackedAssetsPalletLocation: Location = Location::new(0, [PalletInstance(13)]);
 		}
 		// setup convert
 		type TrustBackedAssetsConvert =
@@ -216,7 +216,7 @@ mod tests {
 	#[test]
 	fn multi_location_converted_concrete_id_converter_works() {
 		frame_support::parameter_types! {
-			pub Parachain100Pattern: MultiLocation = MultiLocation::new(1, [Parachain(100)]);
+			pub Parachain100Pattern: Location = Location::new(1, [Parachain(100)]);
 			pub UniversalLocationNetworkId: NetworkId = NetworkId::ByGenesis([9; 32]);
 		}
 
@@ -273,23 +273,23 @@ mod tests {
 			// ok
 			(
 				ma_1000(1, [Parachain(200)].into()),
-				Ok((MultiLocation::new(1, [Parachain(200)]), 1000)),
+				Ok((Location::new(1, [Parachain(200)]), 1000)),
 			),
 			(
 				ma_1000(2, [Parachain(200)].into()),
-				Ok((MultiLocation::new(2, [Parachain(200)]), 1000)),
+				Ok((Location::new(2, [Parachain(200)]), 1000)),
 			),
 			(
 				ma_1000(1, [Parachain(200), GeneralIndex(1234)].into()),
-				Ok((MultiLocation::new(1, [Parachain(200), GeneralIndex(1234)]), 1000)),
+				Ok((Location::new(1, [Parachain(200), GeneralIndex(1234)]), 1000)),
 			),
 			(
 				ma_1000(2, [Parachain(200), GeneralIndex(1234)].into()),
-				Ok((MultiLocation::new(2, [Parachain(200), GeneralIndex(1234)]), 1000)),
+				Ok((Location::new(2, [Parachain(200), GeneralIndex(1234)]), 1000)),
 			),
 			(
 				ma_1000(2, [GlobalConsensus(NetworkId::ByGenesis([7; 32]))].into()),
-				Ok((MultiLocation::new(2, [GlobalConsensus(NetworkId::ByGenesis([7; 32]))]), 1000)),
+				Ok((Location::new(2, [GlobalConsensus(NetworkId::ByGenesis([7; 32]))]), 1000)),
 			),
 			(
 				ma_1000(
@@ -302,7 +302,7 @@ mod tests {
 					.into(),
 				),
 				Ok((
-					MultiLocation::new(
+					Location::new(
 						2,
 						[
 							GlobalConsensus(NetworkId::ByGenesis([7; 32])),
@@ -317,7 +317,7 @@ mod tests {
 
 		for (multi_asset, expected_result) in test_data {
 			assert_eq!(
-				<Convert as MatchesFungibles<MultiLocationForAssetId, u128>>::matches_fungibles(
+				<Convert as MatchesFungibles<LocationForAssetId, u128>>::matches_fungibles(
 					&multi_asset
 				),
 				expected_result,
@@ -327,8 +327,8 @@ mod tests {
 		}
 	}
 
-	// Create MultiAsset
-	fn ma_1000(parents: u8, interior: Junctions) -> MultiAsset {
-		(MultiLocation::new(parents, interior), 1000).into()
+	// Create Asset
+	fn ma_1000(parents: u8, interior: Junctions) -> Asset {
+		(Location::new(parents, interior), 1000).into()
 	}
 }

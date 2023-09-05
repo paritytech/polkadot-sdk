@@ -50,8 +50,8 @@ pub fn impl_conversion_functions_for_junctions_v3(input: TokenStream) -> TokenSt
 }
 
 #[proc_macro]
-pub fn impl_conversion_functions_for_multilocation_v4(input: TokenStream) -> TokenStream {
-	v4::multilocation::generate_conversion_functions(input)
+pub fn impl_conversion_functions_for_location_v4(input: TokenStream) -> TokenStream {
+	v4::location::generate_conversion_functions(input)
 		.unwrap_or_else(syn::Error::into_compile_error)
 		.into()
 }

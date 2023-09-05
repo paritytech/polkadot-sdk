@@ -49,7 +49,7 @@ pub use xcm_executor::{
 		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, Enact, ExportXcm, FeeManager,
 		FeeReason, LockError, OnResponse, TransactAsset,
 	},
-	Assets, Config,
+	HoldingAssets, Config,
 };
 
 pub enum TestOrigin {
@@ -113,52 +113,52 @@ impl GetDispatchInfo for TestCall {
 }
 
 thread_local! {
-	pub static SENT_XCM: RefCell<Vec<(MultiLocation, Xcm<()>, XcmHash)>> = RefCell::new(Vec::new());
+	pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>, XcmHash)>> = RefCell::new(Vec::new());
 	pub static EXPORTED_XCM: RefCell<
-		Vec<(NetworkId, u32, InteriorMultiLocation, InteriorMultiLocation, Xcm<()>, XcmHash)>
+		Vec<(NetworkId, u32, InteriorLocation, InteriorLocation, Xcm<()>, XcmHash)>
 	> = RefCell::new(Vec::new());
 	pub static EXPORTER_OVERRIDE: RefCell<Option<(
 		fn(
 			NetworkId,
 			u32,
-			&InteriorMultiLocation,
-			&InteriorMultiLocation,
+			&InteriorLocation,
+			&InteriorLocation,
 			&Xcm<()>,
-		) -> Result<MultiAssets, SendError>,
+		) -> Result<Assets, SendError>,
 		fn(
 			NetworkId,
 			u32,
-			InteriorMultiLocation,
-			InteriorMultiLocation,
+			InteriorLocation,
+			InteriorLocation,
 			Xcm<()>,
 		) -> Result<XcmHash, SendError>,
 	)>> = RefCell::new(None);
-	pub static SEND_PRICE: RefCell<MultiAssets> = RefCell::new(MultiAssets::new());
+	pub static SEND_PRICE: RefCell<Assets> = RefCell::new(Assets::new());
 	pub static SUSPENDED: Cell<bool> = Cell::new(false);
 }
-pub fn sent_xcm() -> Vec<(MultiLocation, opaque::Xcm, XcmHash)> {
+pub fn sent_xcm() -> Vec<(Location, opaque::Xcm, XcmHash)> {
 	SENT_XCM.with(|q| (*q.borrow()).clone())
 }
-pub fn set_send_price(p: impl Into<MultiAsset>) {
+pub fn set_send_price(p: impl Into<Asset>) {
 	SEND_PRICE.with(|l| l.replace(p.into().into()));
 }
 pub fn exported_xcm(
-) -> Vec<(NetworkId, u32, InteriorMultiLocation, InteriorMultiLocation, opaque::Xcm, XcmHash)> {
+) -> Vec<(NetworkId, u32, InteriorLocation, InteriorLocation, opaque::Xcm, XcmHash)> {
 	EXPORTED_XCM.with(|q| (*q.borrow()).clone())
 }
 pub fn set_exporter_override(
 	price: fn(
 		NetworkId,
 		u32,
-		&InteriorMultiLocation,
-		&InteriorMultiLocation,
+		&InteriorLocation,
+		&InteriorLocation,
 		&Xcm<()>,
-	) -> Result<MultiAssets, SendError>,
+	) -> Result<Assets, SendError>,
 	deliver: fn(
 		NetworkId,
 		u32,
-		InteriorMultiLocation,
-		InteriorMultiLocation,
+		InteriorLocation,
+		InteriorLocation,
 		Xcm<()>,
 	) -> Result<XcmHash, SendError>,
 ) {
@@ -170,17 +170,17 @@ pub fn clear_exporter_override() {
 }
 pub struct TestMessageSender;
 impl SendXcm for TestMessageSender {
-	type Ticket = (MultiLocation, Xcm<()>, XcmHash);
+	type Ticket = (Location, Xcm<()>, XcmHash);
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
-	) -> SendResult<(MultiLocation, Xcm<()>, XcmHash)> {
+	) -> SendResult<(Location, Xcm<()>, XcmHash)> {
 		let msg = msg.take().unwrap();
 		let hash = fake_message_hash(&msg);
 		let triplet = (dest.take().unwrap(), msg, hash);
 		Ok((triplet, SEND_PRICE.with(|l| l.borrow().clone())))
 	}
-	fn deliver(triplet: (MultiLocation, Xcm<()>, XcmHash)) -> Result<XcmHash, SendError> {
+	fn deliver(triplet: (Location, Xcm<()>, XcmHash)) -> Result<XcmHash, SendError> {
 		let hash = triplet.2;
 		SENT_XCM.with(|q| q.borrow_mut().push(triplet));
 		Ok(hash)
@@ -188,21 +188,21 @@ impl SendXcm for TestMessageSender {
 }
 pub struct TestMessageExporter;
 impl ExportXcm for TestMessageExporter {
-	type Ticket = (NetworkId, u32, InteriorMultiLocation, InteriorMultiLocation, Xcm<()>, XcmHash);
+	type Ticket = (NetworkId, u32, InteriorLocation, InteriorLocation, Xcm<()>, XcmHash);
 	fn validate(
 		network: NetworkId,
 		channel: u32,
-		uni_src: &mut Option<InteriorMultiLocation>,
-		dest: &mut Option<InteriorMultiLocation>,
+		uni_src: &mut Option<InteriorLocation>,
+		dest: &mut Option<InteriorLocation>,
 		msg: &mut Option<Xcm<()>>,
-	) -> SendResult<(NetworkId, u32, InteriorMultiLocation, InteriorMultiLocation, Xcm<()>, XcmHash)>
+	) -> SendResult<(NetworkId, u32, InteriorLocation, InteriorLocation, Xcm<()>, XcmHash)>
 	{
 		let (s, d, m) = (uni_src.take().unwrap(), dest.take().unwrap(), msg.take().unwrap());
-		let r: Result<MultiAssets, SendError> = EXPORTER_OVERRIDE.with(|e| {
+		let r: Result<Assets, SendError> = EXPORTER_OVERRIDE.with(|e| {
 			if let Some((ref f, _)) = &*e.borrow() {
 				f(network, channel, &s, &d, &m)
 			} else {
-				Ok(MultiAssets::new())
+				Ok(Assets::new())
 			}
 		});
 		let h = fake_message_hash(&m);
@@ -217,7 +217,7 @@ impl ExportXcm for TestMessageExporter {
 		}
 	}
 	fn deliver(
-		tuple: (NetworkId, u32, InteriorMultiLocation, InteriorMultiLocation, Xcm<()>, XcmHash),
+		tuple: (NetworkId, u32, InteriorLocation, InteriorLocation, Xcm<()>, XcmHash),
 	) -> Result<XcmHash, SendError> {
 		EXPORTER_OVERRIDE.with(|e| {
 			if let Some((_, ref f)) = &*e.borrow() {
@@ -233,26 +233,26 @@ impl ExportXcm for TestMessageExporter {
 }
 
 thread_local! {
-	pub static ASSETS: RefCell<BTreeMap<MultiLocation, Assets>> = RefCell::new(BTreeMap::new());
+	pub static ASSETS: RefCell<BTreeMap<Location, HoldingAssets>> = RefCell::new(BTreeMap::new());
 }
-pub fn assets(who: impl Into<MultiLocation>) -> Assets {
+pub fn assets(who: impl Into<Location>) -> HoldingAssets {
 	ASSETS.with(|a| a.borrow().get(&who.into()).cloned()).unwrap_or_default()
 }
-pub fn asset_list(who: impl Into<MultiLocation>) -> Vec<MultiAsset> {
-	MultiAssets::from(assets(who)).into_inner()
+pub fn asset_list(who: impl Into<Location>) -> Vec<Asset> {
+	Assets::from(assets(who)).into_inner()
 }
-pub fn add_asset(who: impl Into<MultiLocation>, what: impl Into<MultiAsset>) {
-	ASSETS.with(|a| a.borrow_mut().entry(who.into()).or_insert(Assets::new()).subsume(what.into()));
+pub fn add_asset(who: impl Into<Location>, what: impl Into<Asset>) {
+	ASSETS.with(|a| a.borrow_mut().entry(who.into()).or_insert(HoldingAssets::new()).subsume(what.into()));
 }
-pub fn clear_assets(who: impl Into<MultiLocation>) {
+pub fn clear_assets(who: impl Into<Location>) {
 	ASSETS.with(|a| a.borrow_mut().remove(&who.into()));
 }
 
 pub struct TestAssetTransactor;
 impl TransactAsset for TestAssetTransactor {
 	fn deposit_asset(
-		what: &MultiAsset,
-		who: &MultiLocation,
+		what: &Asset,
+		who: &Location,
 		_context: &XcmContext,
 	) -> Result<(), XcmError> {
 		add_asset(who.clone(), what.clone());
@@ -260,10 +260,10 @@ impl TransactAsset for TestAssetTransactor {
 	}
 
 	fn withdraw_asset(
-		what: &MultiAsset,
-		who: &MultiLocation,
+		what: &Asset,
+		who: &Location,
 		_maybe_context: Option<&XcmContext>,
-	) -> Result<Assets, XcmError> {
+	) -> Result<HoldingAssets, XcmError> {
 		ASSETS.with(|a| {
 			a.borrow_mut()
 				.get_mut(who)
@@ -274,7 +274,7 @@ impl TransactAsset for TestAssetTransactor {
 	}
 }
 
-pub fn to_account(l: impl Into<MultiLocation>) -> Result<u64, MultiLocation> {
+pub fn to_account(l: impl Into<Location>) -> Result<u64, Location> {
 	let l = l.into();
 	Ok(match l.unpack() {
 		// Siblings at 2000+id
@@ -305,9 +305,9 @@ pub fn to_account(l: impl Into<MultiLocation>) -> Result<u64, MultiLocation> {
 pub struct TestOriginConverter;
 impl ConvertOrigin<TestOrigin> for TestOriginConverter {
 	fn convert_origin(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		kind: OriginKind,
-	) -> Result<TestOrigin, MultiLocation> {
+	) -> Result<TestOrigin, Location> {
 		use OriginKind::*;
 		let origin = origin.into();
 		match (kind, origin.unpack()) {
@@ -322,18 +322,18 @@ impl ConvertOrigin<TestOrigin> for TestOriginConverter {
 }
 
 thread_local! {
-	pub static IS_RESERVE: RefCell<BTreeMap<MultiLocation, Vec<MultiAssetFilter>>> = RefCell::new(BTreeMap::new());
-	pub static IS_TELEPORTER: RefCell<BTreeMap<MultiLocation, Vec<MultiAssetFilter>>> = RefCell::new(BTreeMap::new());
-	pub static UNIVERSAL_ALIASES: RefCell<BTreeSet<(MultiLocation, Junction)>> = RefCell::new(BTreeSet::new());
+	pub static IS_RESERVE: RefCell<BTreeMap<Location, Vec<AssetFilter>>> = RefCell::new(BTreeMap::new());
+	pub static IS_TELEPORTER: RefCell<BTreeMap<Location, Vec<AssetFilter>>> = RefCell::new(BTreeMap::new());
+	pub static UNIVERSAL_ALIASES: RefCell<BTreeSet<(Location, Junction)>> = RefCell::new(BTreeSet::new());
 }
-pub fn add_reserve(from: MultiLocation, asset: MultiAssetFilter) {
+pub fn add_reserve(from: Location, asset: AssetFilter) {
 	IS_RESERVE.with(|r| r.borrow_mut().entry(from).or_default().push(asset));
 }
 #[allow(dead_code)]
-pub fn add_teleporter(from: MultiLocation, asset: MultiAssetFilter) {
+pub fn add_teleporter(from: Location, asset: AssetFilter) {
 	IS_TELEPORTER.with(|r| r.borrow_mut().entry(from).or_default().push(asset));
 }
-pub fn add_universal_alias(bridge: impl Into<MultiLocation>, consensus: impl Into<Junction>) {
+pub fn add_universal_alias(bridge: impl Into<Location>, consensus: impl Into<Junction>) {
 	UNIVERSAL_ALIASES.with(|r| r.borrow_mut().insert((bridge.into(), consensus.into())));
 }
 pub fn clear_universal_aliases() {
@@ -341,29 +341,29 @@ pub fn clear_universal_aliases() {
 }
 
 pub struct TestIsReserve;
-impl ContainsPair<MultiAsset, MultiLocation> for TestIsReserve {
-	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+impl ContainsPair<Asset, Location> for TestIsReserve {
+	fn contains(asset: &Asset, origin: &Location) -> bool {
 		IS_RESERVE
 			.with(|r| r.borrow().get(origin).map_or(false, |v| v.iter().any(|a| a.matches(asset))))
 	}
 }
 pub struct TestIsTeleporter;
-impl ContainsPair<MultiAsset, MultiLocation> for TestIsTeleporter {
-	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+impl ContainsPair<Asset, Location> for TestIsTeleporter {
+	fn contains(asset: &Asset, origin: &Location) -> bool {
 		IS_TELEPORTER
 			.with(|r| r.borrow().get(origin).map_or(false, |v| v.iter().any(|a| a.matches(asset))))
 	}
 }
 
 pub struct TestUniversalAliases;
-impl Contains<(MultiLocation, Junction)> for TestUniversalAliases {
-	fn contains(t: &(MultiLocation, Junction)) -> bool {
+impl Contains<(Location, Junction)> for TestUniversalAliases {
+	fn contains(t: &(Location, Junction)) -> bool {
 		UNIVERSAL_ALIASES.with(|r| r.borrow().contains(t))
 	}
 }
 
 pub enum ResponseSlot {
-	Expecting(MultiLocation),
+	Expecting(Location),
 	Received(Response),
 }
 thread_local! {
@@ -372,9 +372,9 @@ thread_local! {
 pub struct TestResponseHandler;
 impl OnResponse for TestResponseHandler {
 	fn expecting_response(
-		origin: &MultiLocation,
+		origin: &Location,
 		query_id: u64,
-		_querier: Option<&MultiLocation>,
+		_querier: Option<&Location>,
 	) -> bool {
 		QUERIES.with(|q| match q.borrow().get(&query_id) {
 			Some(ResponseSlot::Expecting(ref l)) => l == origin,
@@ -382,9 +382,9 @@ impl OnResponse for TestResponseHandler {
 		})
 	}
 	fn on_response(
-		_origin: &MultiLocation,
+		_origin: &Location,
 		query_id: u64,
-		_querier: Option<&MultiLocation>,
+		_querier: Option<&Location>,
 		response: xcm::latest::Response,
 		_max_weight: Weight,
 		_context: &XcmContext,
@@ -399,7 +399,7 @@ impl OnResponse for TestResponseHandler {
 		Weight::from_parts(10, 10)
 	}
 }
-pub fn expect_response(query_id: u64, from: MultiLocation) {
+pub fn expect_response(query_id: u64, from: Location) {
 	QUERIES.with(|q| q.borrow_mut().insert(query_id, ResponseSlot::Expecting(from)));
 }
 pub fn response(query_id: u64) -> Option<Response> {
@@ -423,9 +423,9 @@ impl<T: Config, BlockNumber: sp_runtime::traits::Zero> QueryHandler
 	type UniversalLocation = T::UniversalLocation;
 
 	fn new_query(
-		responder: impl Into<MultiLocation>,
+		responder: impl Into<Location>,
 		_timeout: Self::BlockNumber,
-		_match_querier: impl Into<MultiLocation>,
+		_match_querier: impl Into<Location>,
 	) -> Self::QueryId {
 		let query_id = 1;
 		expect_response(query_id, responder.into());
@@ -434,7 +434,7 @@ impl<T: Config, BlockNumber: sp_runtime::traits::Zero> QueryHandler
 
 	fn report_outcome(
 		message: &mut Xcm<()>,
-		responder: impl Into<MultiLocation>,
+		responder: impl Into<Location>,
 		timeout: Self::BlockNumber,
 	) -> Result<Self::QueryId, Self::Error> {
 		let responder = responder.into();
@@ -469,16 +469,16 @@ impl<T: Config, BlockNumber: sp_runtime::traits::Zero> QueryHandler
 }
 
 parameter_types! {
-	pub static ExecutorUniversalLocation: InteriorMultiLocation
+	pub static ExecutorUniversalLocation: InteriorLocation
 		= (ByGenesis([0; 32]), Parachain(42)).into();
 	pub UnitWeightCost: Weight = Weight::from_parts(10, 10);
 }
 parameter_types! {
 	// Nothing is allowed to be paid/unpaid by default.
-	pub static AllowExplicitUnpaidFrom: Vec<MultiLocation> = vec![];
-	pub static AllowUnpaidFrom: Vec<MultiLocation> = vec![];
-	pub static AllowPaidFrom: Vec<MultiLocation> = vec![];
-	pub static AllowSubsFrom: Vec<MultiLocation> = vec![];
+	pub static AllowExplicitUnpaidFrom: Vec<Location> = vec![];
+	pub static AllowUnpaidFrom: Vec<Location> = vec![];
+	pub static AllowPaidFrom: Vec<Location> = vec![];
+	pub static AllowSubsFrom: Vec<Location> = vec![];
 	// 1_000_000_000_000 => 1 unit of asset for 1 unit of ref time weight.
 	// 1024 * 1024 => 1 unit of asset for 1 unit of proof size weight.
 	pub static WeightPrice: (AssetId, u128, u128) =
@@ -489,7 +489,7 @@ parameter_types! {
 pub struct TestSuspender;
 impl CheckSuspension for TestSuspender {
 	fn is_suspended<Call>(
-		_origin: &MultiLocation,
+		_origin: &Location,
 		_instructions: &mut [Instruction<Call>],
 		_max_weight: Weight,
 		_properties: &mut Properties,
@@ -523,33 +523,33 @@ pub fn set_fee_waiver(waived: Vec<FeeReason>) {
 
 pub struct TestFeeManager;
 impl FeeManager for TestFeeManager {
-	fn is_waived(_: Option<&MultiLocation>, r: FeeReason) -> bool {
+	fn is_waived(_: Option<&Location>, r: FeeReason) -> bool {
 		IS_WAIVED.with(|l| l.borrow().contains(&r))
 	}
-	fn handle_fee(_: MultiAssets) {}
+	fn handle_fee(_: Assets) {}
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum LockTraceItem {
-	Lock { unlocker: MultiLocation, asset: MultiAsset, owner: MultiLocation },
-	Unlock { unlocker: MultiLocation, asset: MultiAsset, owner: MultiLocation },
-	Note { locker: MultiLocation, asset: MultiAsset, owner: MultiLocation },
-	Reduce { locker: MultiLocation, asset: MultiAsset, owner: MultiLocation },
+	Lock { unlocker: Location, asset: Asset, owner: Location },
+	Unlock { unlocker: Location, asset: Asset, owner: Location },
+	Note { locker: Location, asset: Asset, owner: Location },
+	Reduce { locker: Location, asset: Asset, owner: Location },
 }
 thread_local! {
 	pub static NEXT_INDEX: RefCell<u32> = RefCell::new(0);
 	pub static LOCK_TRACE: RefCell<Vec<LockTraceItem>> = RefCell::new(Vec::new());
-	pub static ALLOWED_UNLOCKS: RefCell<BTreeMap<(MultiLocation, MultiLocation), Assets>> = RefCell::new(BTreeMap::new());
-	pub static ALLOWED_REQUEST_UNLOCKS: RefCell<BTreeMap<(MultiLocation, MultiLocation), Assets>> = RefCell::new(BTreeMap::new());
+	pub static ALLOWED_UNLOCKS: RefCell<BTreeMap<(Location, Location), HoldingAssets>> = RefCell::new(BTreeMap::new());
+	pub static ALLOWED_REQUEST_UNLOCKS: RefCell<BTreeMap<(Location, Location), HoldingAssets>> = RefCell::new(BTreeMap::new());
 }
 
 pub fn take_lock_trace() -> Vec<LockTraceItem> {
 	LOCK_TRACE.with(|l| l.replace(Vec::new()))
 }
 pub fn allow_unlock(
-	unlocker: impl Into<MultiLocation>,
-	asset: impl Into<MultiAsset>,
-	owner: impl Into<MultiLocation>,
+	unlocker: impl Into<Location>,
+	asset: impl Into<Asset>,
+	owner: impl Into<Location>,
 ) {
 	ALLOWED_UNLOCKS.with(|l| {
 		l.borrow_mut()
@@ -559,9 +559,9 @@ pub fn allow_unlock(
 	});
 }
 pub fn disallow_unlock(
-	unlocker: impl Into<MultiLocation>,
-	asset: impl Into<MultiAsset>,
-	owner: impl Into<MultiLocation>,
+	unlocker: impl Into<Location>,
+	asset: impl Into<Asset>,
+	owner: impl Into<Location>,
 ) {
 	ALLOWED_UNLOCKS.with(|l| {
 		l.borrow_mut()
@@ -570,7 +570,7 @@ pub fn disallow_unlock(
 			.saturating_take(asset.into().into())
 	});
 }
-pub fn unlock_allowed(unlocker: &MultiLocation, asset: &MultiAsset, owner: &MultiLocation) -> bool {
+pub fn unlock_allowed(unlocker: &Location, asset: &Asset, owner: &Location) -> bool {
 	ALLOWED_UNLOCKS.with(|l| {
 		l.borrow_mut()
 			.get(&(owner.clone(), unlocker.clone()))
@@ -578,9 +578,9 @@ pub fn unlock_allowed(unlocker: &MultiLocation, asset: &MultiAsset, owner: &Mult
 	})
 }
 pub fn allow_request_unlock(
-	locker: impl Into<MultiLocation>,
-	asset: impl Into<MultiAsset>,
-	owner: impl Into<MultiLocation>,
+	locker: impl Into<Location>,
+	asset: impl Into<Asset>,
+	owner: impl Into<Location>,
 ) {
 	ALLOWED_REQUEST_UNLOCKS.with(|l| {
 		l.borrow_mut()
@@ -590,9 +590,9 @@ pub fn allow_request_unlock(
 	});
 }
 pub fn disallow_request_unlock(
-	locker: impl Into<MultiLocation>,
-	asset: impl Into<MultiAsset>,
-	owner: impl Into<MultiLocation>,
+	locker: impl Into<Location>,
+	asset: impl Into<Asset>,
+	owner: impl Into<Location>,
 ) {
 	ALLOWED_REQUEST_UNLOCKS.with(|l| {
 		l.borrow_mut()
@@ -602,9 +602,9 @@ pub fn disallow_request_unlock(
 	});
 }
 pub fn request_unlock_allowed(
-	locker: &MultiLocation,
-	asset: &MultiAsset,
-	owner: &MultiLocation,
+	locker: &Location,
+	asset: &Asset,
+	owner: &Location,
 ) -> bool {
 	ALLOWED_REQUEST_UNLOCKS.with(|l| {
 		l.borrow_mut()
@@ -637,27 +637,27 @@ impl AssetLock for TestAssetLock {
 	type ReduceTicket = TestTicket;
 
 	fn prepare_lock(
-		unlocker: MultiLocation,
-		asset: MultiAsset,
-		owner: MultiLocation,
+		unlocker: Location,
+		asset: Asset,
+		owner: Location,
 	) -> Result<Self::LockTicket, LockError> {
 		ensure!(assets(owner.clone()).contains_asset(&asset), LockError::AssetNotOwned);
 		Ok(TestTicket(LockTraceItem::Lock { unlocker, asset, owner }))
 	}
 
 	fn prepare_unlock(
-		unlocker: MultiLocation,
-		asset: MultiAsset,
-		owner: MultiLocation,
+		unlocker: Location,
+		asset: Asset,
+		owner: Location,
 	) -> Result<Self::UnlockTicket, LockError> {
 		ensure!(unlock_allowed(&unlocker, &asset, &owner), LockError::NotLocked);
 		Ok(TestTicket(LockTraceItem::Unlock { unlocker, asset, owner }))
 	}
 
 	fn note_unlockable(
-		locker: MultiLocation,
-		asset: MultiAsset,
-		owner: MultiLocation,
+		locker: Location,
+		asset: Asset,
+		owner: Location,
 	) -> Result<(), LockError> {
 		allow_request_unlock(locker.clone(), asset.clone(), owner.clone());
 		let item = LockTraceItem::Note { locker, asset, owner };
@@ -666,9 +666,9 @@ impl AssetLock for TestAssetLock {
 	}
 
 	fn prepare_reduce_unlockable(
-		locker: MultiLocation,
-		asset: MultiAsset,
-		owner: MultiLocation,
+		locker: Location,
+		asset: Asset,
+		owner: Location,
 	) -> Result<Self::ReduceTicket, xcm_executor::traits::LockError> {
 		ensure!(request_unlock_allowed(&locker, &asset, &owner), LockError::NotLocked);
 		Ok(TestTicket(LockTraceItem::Reduce { locker, asset, owner }))
@@ -676,26 +676,26 @@ impl AssetLock for TestAssetLock {
 }
 
 thread_local! {
-	pub static EXCHANGE_ASSETS: RefCell<Assets> = RefCell::new(Assets::new());
+	pub static EXCHANGE_ASSETS: RefCell<HoldingAssets> = RefCell::new(HoldingAssets::new());
 }
-pub fn set_exchange_assets(assets: impl Into<MultiAssets>) {
+pub fn set_exchange_assets(assets: impl Into<Assets>) {
 	EXCHANGE_ASSETS.with(|a| a.replace(assets.into().into()));
 }
-pub fn exchange_assets() -> MultiAssets {
+pub fn exchange_assets() -> Assets {
 	EXCHANGE_ASSETS.with(|a| a.borrow().clone().into())
 }
 pub struct TestAssetExchange;
 impl AssetExchange for TestAssetExchange {
 	fn exchange_asset(
-		_origin: Option<&MultiLocation>,
-		give: Assets,
-		want: &MultiAssets,
+		_origin: Option<&Location>,
+		give: HoldingAssets,
+		want: &Assets,
 		maximal: bool,
-	) -> Result<Assets, Assets> {
+	) -> Result<HoldingAssets, HoldingAssets> {
 		let mut have = EXCHANGE_ASSETS.with(|l| l.borrow().clone());
 		ensure!(have.contains_assets(want), give);
 		let get = if maximal {
-			std::mem::replace(&mut have, Assets::new())
+			std::mem::replace(&mut have, HoldingAssets::new())
 		} else {
 			have.saturating_take(want.clone().into())
 		};
@@ -706,22 +706,22 @@ impl AssetExchange for TestAssetExchange {
 }
 
 pub struct SiblingPrefix;
-impl Contains<MultiLocation> for SiblingPrefix {
-	fn contains(loc: &MultiLocation) -> bool {
+impl Contains<Location> for SiblingPrefix {
+	fn contains(loc: &Location) -> bool {
 		matches!(loc.unpack(), (1, [Parachain(_)]))
 	}
 }
 
 pub struct ChildPrefix;
-impl Contains<MultiLocation> for ChildPrefix {
-	fn contains(loc: &MultiLocation) -> bool {
+impl Contains<Location> for ChildPrefix {
+	fn contains(loc: &Location) -> bool {
 		matches!(loc.unpack(), (0, [Parachain(_)]))
 	}
 }
 
 pub struct ParentPrefix;
-impl Contains<MultiLocation> for ParentPrefix {
-	fn contains(loc: &MultiLocation) -> bool {
+impl Contains<Location> for ParentPrefix {
+	fn contains(loc: &Location) -> bool {
 		matches!(loc.unpack(), (1, []))
 	}
 }
@@ -754,7 +754,7 @@ impl Config for TestConfig {
 	type Aliasers = AliasForeignAccountId32<SiblingPrefix>;
 }
 
-pub fn fungible_multi_asset(location: MultiLocation, amount: u128) -> MultiAsset {
+pub fn fungible_multi_asset(location: Location, amount: u128) -> Asset {
 	(AssetId::from(location), Fungibility::Fungible(amount)).into()
 }
 

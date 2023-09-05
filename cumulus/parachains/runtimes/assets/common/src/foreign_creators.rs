@@ -17,7 +17,7 @@ use frame_support::traits::{
 	ContainsPair, EnsureOrigin, EnsureOriginWithArg, Everything, OriginTrait,
 };
 use pallet_xcm::{EnsureXcm, Origin as XcmOrigin};
-use xcm::latest::MultiLocation;
+use xcm::latest::Location;
 use xcm_executor::traits::ConvertLocation;
 
 /// `EnsureOriginWithArg` impl for `CreateOrigin` that allows only XCM origins that are locations
@@ -26,11 +26,11 @@ pub struct ForeignCreators<IsForeign, AccountOf, AccountId>(
 	sp_std::marker::PhantomData<(IsForeign, AccountOf, AccountId)>,
 );
 impl<
-		IsForeign: ContainsPair<MultiLocation, MultiLocation>,
+		IsForeign: ContainsPair<Location, Location>,
 		AccountOf: ConvertLocation<AccountId>,
 		AccountId: Clone,
 		RuntimeOrigin: From<XcmOrigin> + OriginTrait + Clone,
-	> EnsureOriginWithArg<RuntimeOrigin, MultiLocation>
+	> EnsureOriginWithArg<RuntimeOrigin, Location>
 	for ForeignCreators<IsForeign, AccountOf, AccountId>
 where
 	RuntimeOrigin::PalletsOrigin:
@@ -40,7 +40,7 @@ where
 
 	fn try_origin(
 		origin: RuntimeOrigin,
-		asset_location: &MultiLocation,
+		asset_location: &Location,
 	) -> sp_std::result::Result<Self::Success, RuntimeOrigin> {
 		let origin_location = EnsureXcm::<Everything>::try_origin(origin.clone())?;
 		if !IsForeign::contains(asset_location, &origin_location) {
@@ -50,7 +50,7 @@ where
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin(a: &MultiLocation) -> Result<RuntimeOrigin, ()> {
+	fn try_successful_origin(a: &Location) -> Result<RuntimeOrigin, ()> {
 		Ok(pallet_xcm::Origin::Xcm(a.clone()).into())
 	}
 }

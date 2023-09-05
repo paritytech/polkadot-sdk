@@ -19,56 +19,56 @@ use frame_support::{
 	traits::{Contains, ContainsPair},
 };
 use xcm::{
-	latest::prelude::{MultiAsset, MultiLocation},
+	latest::prelude::{Asset, Location},
 	prelude::*,
 };
 
 pub struct StartsWith<T>(sp_std::marker::PhantomData<T>);
-impl<Location: Get<MultiLocation>> Contains<MultiLocation> for StartsWith<Location> {
-	fn contains(t: &MultiLocation) -> bool {
+impl<Location: Get<Location>> Contains<Location> for StartsWith<Location> {
+	fn contains(t: &Location) -> bool {
 		t.starts_with(&Location::get())
 	}
 }
 
 pub struct Equals<T>(sp_std::marker::PhantomData<T>);
-impl<Location: Get<MultiLocation>> Contains<MultiLocation> for Equals<Location> {
-	fn contains(t: &MultiLocation) -> bool {
+impl<Location: Get<Location>> Contains<Location> for Equals<Location> {
+	fn contains(t: &Location) -> bool {
 		t == &Location::get()
 	}
 }
 
 pub struct StartsWithExplicitGlobalConsensus<T>(sp_std::marker::PhantomData<T>);
-impl<Network: Get<NetworkId>> Contains<MultiLocation>
+impl<Network: Get<NetworkId>> Contains<Location>
 	for StartsWithExplicitGlobalConsensus<Network>
 {
-	fn contains(t: &MultiLocation) -> bool {
+	fn contains(t: &Location) -> bool {
 		matches!(t.interior.global_consensus(), Ok(requested_network) if requested_network.eq(&Network::get()))
 	}
 }
 
 frame_support::parameter_types! {
-	pub LocalMultiLocationPattern: MultiLocation = MultiLocation::new(0, Here);
-	pub ParentLocation: MultiLocation = MultiLocation::parent();
+	pub LocalLocationPattern: Location = Location::new(0, Here);
+	pub ParentLocation: Location = Location::parent();
 }
 
 /// Accepts an asset if it is from the origin.
 pub struct IsForeignConcreteAsset<IsForeign>(sp_std::marker::PhantomData<IsForeign>);
-impl<IsForeign: ContainsPair<MultiLocation, MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
+impl<IsForeign: ContainsPair<Location, Location>> ContainsPair<Asset, Location>
 	for IsForeignConcreteAsset<IsForeign>
 {
-	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+	fn contains(asset: &Asset, origin: &Location) -> bool {
 		log::trace!(target: "xcm::contains", "IsForeignConcreteAsset asset: {:?}, origin: {:?}", asset, origin);
 		matches!(asset.id, Concrete(ref id) if IsForeign::contains(id, origin))
 	}
 }
 
-/// Checks if `a` is from sibling location `b`. Checks that `MultiLocation-a` starts with
-/// `MultiLocation-b`, and that the `ParaId` of `b` is not equal to `a`.
+/// Checks if `a` is from sibling location `b`. Checks that `Location-a` starts with
+/// `Location-b`, and that the `ParaId` of `b` is not equal to `a`.
 pub struct FromSiblingParachain<SelfParaId>(sp_std::marker::PhantomData<SelfParaId>);
-impl<SelfParaId: Get<ParaId>> ContainsPair<MultiLocation, MultiLocation>
+impl<SelfParaId: Get<ParaId>> ContainsPair<Location, Location>
 	for FromSiblingParachain<SelfParaId>
 {
-	fn contains(a: &MultiLocation, b: &MultiLocation) -> bool {
+	fn contains(a: &Location, b: &Location) -> bool {
 		// `a` needs to be from `b` at least
 		if !a.starts_with(b) {
 			return false
@@ -76,7 +76,7 @@ impl<SelfParaId: Get<ParaId>> ContainsPair<MultiLocation, MultiLocation>
 
 		// here we check if sibling
 		match a {
-			MultiLocation { parents: 1, interior } =>
+			Location { parents: 1, interior } =>
 				matches!(interior.first(), Some(Parachain(sibling_para_id)) if sibling_para_id.ne(&u32::from(SelfParaId::get()))),
 			_ => false,
 		}

@@ -31,7 +31,7 @@ use xcm::{
 };
 use xcm_executor::{
 	traits::{WeightBounds, WeightTrader},
-	Assets,
+	HoldingAssets,
 };
 
 pub struct FixedWeightBounds<T, C, M>(PhantomData<(T, C, M)>);
@@ -117,16 +117,16 @@ where
 }
 
 /// Function trait for handling some revenue. Similar to a negative imbalance (credit) handler, but
-/// for a `MultiAsset`. Sensible implementations will deposit the asset in some known treasury or
+/// for a `Asset`. Sensible implementations will deposit the asset in some known treasury or
 /// block-author account.
 pub trait TakeRevenue {
-	/// Do something with the given `revenue`, which is a single non-wildcard `MultiAsset`.
-	fn take_revenue(revenue: MultiAsset);
+	/// Do something with the given `revenue`, which is a single non-wildcard `Asset`.
+	fn take_revenue(revenue: Asset);
 }
 
 /// Null implementation just burns the revenue.
 impl TakeRevenue for () {
-	fn take_revenue(_revenue: MultiAsset) {}
+	fn take_revenue(_revenue: Asset) {}
 }
 
 /// Simple fee calculator that requires payment in a single fungible at a fixed rate.
@@ -146,9 +146,9 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 	fn buy_weight(
 		&mut self,
 		weight: Weight,
-		payment: Assets,
+		payment: HoldingAssets,
 		context: &XcmContext,
-	) -> Result<Assets, XcmError> {
+	) -> Result<HoldingAssets, XcmError> {
 		log::trace!(
 			target: "xcm::weight",
 			"FixedRateOfFungible::buy_weight weight: {:?}, payment: {:?}, context: {:?}",
@@ -168,7 +168,7 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 		Ok(unused)
 	}
 
-	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<MultiAsset> {
+	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<Asset> {
 		log::trace!(target: "xcm::weight", "FixedRateOfFungible::refund_weight weight: {:?}, context: {:?}", weight, context);
 		let (id, units_per_second, units_per_mb) = T::get();
 		let weight = weight.min(self.0);
@@ -197,7 +197,7 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> Drop for FixedRateOfFungible
 /// places any weight bought into the right account.
 pub struct UsingComponents<
 	WeightToFee: WeightToFeeT<Balance = Currency::Balance>,
-	AssetId: Get<MultiLocation>,
+	AssetId: Get<Location>,
 	AccountId,
 	Currency: CurrencyT<AccountId>,
 	OnUnbalanced: OnUnbalancedT<Currency::NegativeImbalance>,
@@ -208,7 +208,7 @@ pub struct UsingComponents<
 );
 impl<
 		WeightToFee: WeightToFeeT<Balance = Currency::Balance>,
-		AssetId: Get<MultiLocation>,
+		AssetId: Get<Location>,
 		AccountId,
 		Currency: CurrencyT<AccountId>,
 		OnUnbalanced: OnUnbalancedT<Currency::NegativeImbalance>,
@@ -221,9 +221,9 @@ impl<
 	fn buy_weight(
 		&mut self,
 		weight: Weight,
-		payment: Assets,
+		payment: HoldingAssets,
 		context: &XcmContext,
-	) -> Result<Assets, XcmError> {
+	) -> Result<HoldingAssets, XcmError> {
 		log::trace!(target: "xcm::weight", "UsingComponents::buy_weight weight: {:?}, payment: {:?}, context: {:?}", weight, payment, context);
 		let amount = WeightToFee::weight_to_fee(&weight);
 		let u128_amount: u128 = amount.try_into().map_err(|_| XcmError::Overflow)?;
@@ -234,7 +234,7 @@ impl<
 		Ok(unused)
 	}
 
-	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<MultiAsset> {
+	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<Asset> {
 		log::trace!(target: "xcm::weight", "UsingComponents::refund_weight weight: {:?}, context: {:?}", weight, context);
 		let weight = weight.min(self.0);
 		let amount = WeightToFee::weight_to_fee(&weight);
@@ -250,7 +250,7 @@ impl<
 }
 impl<
 		WeightToFee: WeightToFeeT<Balance = Currency::Balance>,
-		AssetId: Get<MultiLocation>,
+		AssetId: Get<Location>,
 		AccountId,
 		Currency: CurrencyT<AccountId>,
 		OnUnbalanced: OnUnbalancedT<Currency::NegativeImbalance>,

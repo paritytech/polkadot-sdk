@@ -27,12 +27,12 @@ use xcm_executor::traits::ConvertLocation;
 pub trait DescribeLocation {
 	/// Create a description of the given `location` if possible. No two locations should have the
 	/// same descriptor.
-	fn describe_location(location: &MultiLocation) -> Option<Vec<u8>>;
+	fn describe_location(location: &Location) -> Option<Vec<u8>>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl DescribeLocation for Tuple {
-	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
+	fn describe_location(l: &Location) -> Option<Vec<u8>> {
 		for_tuples!( #(
 			match Tuple::describe_location(l) {
 				Some(result) => return Some(result),
@@ -45,7 +45,7 @@ impl DescribeLocation for Tuple {
 
 pub struct DescribeTerminus;
 impl DescribeLocation for DescribeTerminus {
-	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
+	fn describe_location(l: &Location) -> Option<Vec<u8>> {
 		match (l.parents, &l.interior) {
 			(0, Here) => Some(Vec::new()),
 			_ => return None,
@@ -55,7 +55,7 @@ impl DescribeLocation for DescribeTerminus {
 
 pub struct DescribePalletTerminal;
 impl DescribeLocation for DescribePalletTerminal {
-	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
+	fn describe_location(l: &Location) -> Option<Vec<u8>> {
 		match l.unpack() {
 			(0, [PalletInstance(i)]) => Some((b"Pallet", Compact::<u32>::from(*i as u32)).encode()),
 			_ => return None,
@@ -65,7 +65,7 @@ impl DescribeLocation for DescribePalletTerminal {
 
 pub struct DescribeAccountId32Terminal;
 impl DescribeLocation for DescribeAccountId32Terminal {
-	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
+	fn describe_location(l: &Location) -> Option<Vec<u8>> {
 		match l.unpack() {
 			(0, [AccountId32 { id, .. }]) => Some((b"AccountId32", id).encode()),
 			_ => return None,
@@ -75,7 +75,7 @@ impl DescribeLocation for DescribeAccountId32Terminal {
 
 pub struct DescribeAccountKey20Terminal;
 impl DescribeLocation for DescribeAccountKey20Terminal {
-	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
+	fn describe_location(l: &Location) -> Option<Vec<u8>> {
 		match l.unpack() {
 			(0, [AccountKey20 { key, .. }]) => Some((b"AccountKey20", key).encode()),
 			_ => return None,
@@ -94,7 +94,7 @@ pub type DescribeAllTerminal = (
 
 pub struct DescribeFamily<DescribeInterior>(PhantomData<DescribeInterior>);
 impl<Suffix: DescribeLocation> DescribeLocation for DescribeFamily<Suffix> {
-	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
+	fn describe_location(l: &Location) -> Option<Vec<u8>> {
 		match (l.parents, l.interior.first()) {
 			(0, Some(Parachain(index))) => {
 				let tail = l.interior.clone().split_first().0;
@@ -120,7 +120,7 @@ pub struct HashedDescription<AccountId, Describe>(PhantomData<(AccountId, Descri
 impl<AccountId: From<[u8; 32]> + Clone, Describe: DescribeLocation> ConvertLocation<AccountId>
 	for HashedDescription<AccountId, Describe>
 {
-	fn convert_location(value: &MultiLocation) -> Option<AccountId> {
+	fn convert_location(value: &Location) -> Option<AccountId> {
 		Some(blake2_256(&Describe::describe_location(value)?).into())
 	}
 }
@@ -129,7 +129,7 @@ impl<AccountId: From<[u8; 32]> + Clone, Describe: DescribeLocation> ConvertLocat
 /// are recommended to use the more extensible `HashedDescription` type.
 pub struct LegacyDescribeForeignChainAccount;
 impl DescribeLocation for LegacyDescribeForeignChainAccount {
-	fn describe_location(location: &MultiLocation) -> Option<Vec<u8>> {
+	fn describe_location(location: &Location) -> Option<Vec<u8>> {
 		Some(match location.unpack() {
 			// Used on the relay chain for sending paras that use 32 byte accounts
 			(0, [Parachain(para_id), AccountId32 { id, .. }]) =>
@@ -243,16 +243,16 @@ pub struct Account32Hash<Network, AccountId>(PhantomData<(Network, AccountId)>);
 impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]> + Clone>
 	ConvertLocation<AccountId> for Account32Hash<Network, AccountId>
 {
-	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
+	fn convert_location(location: &Location) -> Option<AccountId> {
 		Some(("multiloc", location).using_encoded(blake2_256).into())
 	}
 }
 
-/// A [`MultiLocation`] consisting of a single `Parent` [`Junction`] will be converted to the
+/// A [`Location`] consisting of a single `Parent` [`Junction`] will be converted to the
 /// parent `AccountId`.
 pub struct ParentIsPreset<AccountId>(PhantomData<AccountId>);
 impl<AccountId: Decode + Eq + Clone> ConvertLocation<AccountId> for ParentIsPreset<AccountId> {
-	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
+	fn convert_location(location: &Location) -> Option<AccountId> {
 		if location.contains_parents_only(1) {
 			Some(
 				b"Parent"
@@ -269,7 +269,7 @@ pub struct ChildParachainConvertsVia<ParaId, AccountId>(PhantomData<(ParaId, Acc
 impl<ParaId: From<u32> + Into<u32> + AccountIdConversion<AccountId>, AccountId: Clone>
 	ConvertLocation<AccountId> for ChildParachainConvertsVia<ParaId, AccountId>
 {
-	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
+	fn convert_location(location: &Location) -> Option<AccountId> {
 		match location.unpack() {
 			(0, [Parachain(id)]) => Some(ParaId::from(*id).into_account_truncating()),
 			_ => None,
@@ -281,7 +281,7 @@ pub struct SiblingParachainConvertsVia<ParaId, AccountId>(PhantomData<(ParaId, A
 impl<ParaId: From<u32> + Into<u32> + AccountIdConversion<AccountId>, AccountId: Clone>
 	ConvertLocation<AccountId> for SiblingParachainConvertsVia<ParaId, AccountId>
 {
-	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
+	fn convert_location(location: &Location) -> Option<AccountId> {
 		match location.unpack() {
 			(1, [Parachain(id)]) => Some(ParaId::from(*id).into_account_truncating()),
 			_ => None,
@@ -294,7 +294,7 @@ pub struct AccountId32Aliases<Network, AccountId>(PhantomData<(Network, AccountI
 impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]> + Clone>
 	ConvertLocation<AccountId> for AccountId32Aliases<Network, AccountId>
 {
-	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
+	fn convert_location(location: &Location) -> Option<AccountId> {
 		let id = match location.unpack() {
 			(0, [AccountId32 { id, network: None }]) => id,
 			(0, [AccountId32 { id, network }]) if *network == Network::get() => id,
@@ -305,13 +305,13 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 }
 
 /// Conversion implementation which converts from a `[u8; 32]`-based `AccountId` into a
-/// `MultiLocation` consisting solely of a `AccountId32` junction with a fixed value for its
+/// `Location` consisting solely of a `AccountId32` junction with a fixed value for its
 /// network (provided by `Network`) and the `AccountId`'s `[u8; 32]` datum for the `id`.
 pub struct AliasesIntoAccountId32<Network, AccountId>(PhantomData<(Network, AccountId)>);
 impl<'a, Network: Get<Option<NetworkId>>, AccountId: Clone + Into<[u8; 32]> + Clone>
-	Convert<&'a AccountId, MultiLocation> for AliasesIntoAccountId32<Network, AccountId>
+	Convert<&'a AccountId, Location> for AliasesIntoAccountId32<Network, AccountId>
 {
-	fn convert(who: &AccountId) -> MultiLocation {
+	fn convert(who: &AccountId) -> Location {
 		AccountId32 { network: Network::get(), id: who.clone().into() }.into()
 	}
 }
@@ -320,7 +320,7 @@ pub struct AccountKey20Aliases<Network, AccountId>(PhantomData<(Network, Account
 impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 20]> + Into<[u8; 20]> + Clone>
 	ConvertLocation<AccountId> for AccountKey20Aliases<Network, AccountId>
 {
-	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
+	fn convert_location(location: &Location) -> Option<AccountId> {
 		let key = match location.unpack() {
 			(0, [AccountKey20 { key, network: None }]) => key,
 			(0, [AccountKey20 { key, network }]) if *network == Network::get() => key,
@@ -342,10 +342,10 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 20]> + Into<[u8; 20]>
 pub struct GlobalConsensusConvertsFor<UniversalLocation, AccountId>(
 	PhantomData<(UniversalLocation, AccountId)>,
 );
-impl<UniversalLocation: Get<InteriorMultiLocation>, AccountId: From<[u8; 32]> + Clone>
+impl<UniversalLocation: Get<InteriorLocation>, AccountId: From<[u8; 32]> + Clone>
 	ConvertLocation<AccountId> for GlobalConsensusConvertsFor<UniversalLocation, AccountId>
 {
-	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
+	fn convert_location(location: &Location) -> Option<AccountId> {
 		let universal_source = UniversalLocation::get();
 		log::trace!(
 			target: "xcm::location_conversion",
@@ -385,10 +385,10 @@ impl<UniversalLocation, AccountId> GlobalConsensusConvertsFor<UniversalLocation,
 pub struct GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>(
 	PhantomData<(UniversalLocation, AccountId)>,
 );
-impl<UniversalLocation: Get<InteriorMultiLocation>, AccountId: From<[u8; 32]> + Clone>
+impl<UniversalLocation: Get<InteriorLocation>, AccountId: From<[u8; 32]> + Clone>
 	ConvertLocation<AccountId> for GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>
 {
-	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
+	fn convert_location(location: &Location) -> Option<AccountId> {
 		let universal_source = UniversalLocation::get();
 		log::trace!(
 			target: "xcm::location_conversion",
@@ -446,12 +446,12 @@ mod tests {
 	#[test]
 	fn inverter_works_in_tree() {
 		parameter_types! {
-			pub UniversalLocation: InteriorMultiLocation = [Parachain(1), account20(), account20()].into();
+			pub UniversalLocation: InteriorLocation = [Parachain(1), account20(), account20()].into();
 		}
 
-		let input = MultiLocation::new(3, [Parachain(2), account32()]);
+		let input = Location::new(3, [Parachain(2), account32()]);
 		let inverted = UniversalLocation::get().invert_target(&input).unwrap();
-		assert_eq!(inverted, MultiLocation::new(2, [Parachain(1), account20(), account20()]));
+		assert_eq!(inverted, Location::new(2, [Parachain(1), account20(), account20()]));
 	}
 
 	// Network Topology
@@ -461,10 +461,10 @@ mod tests {
 	#[test]
 	fn inverter_uses_context_as_inverted_location() {
 		parameter_types! {
-			pub UniversalLocation: InteriorMultiLocation = [account20(), account20()].into();
+			pub UniversalLocation: InteriorLocation = [account20(), account20()].into();
 		}
 
-		let input = MultiLocation::grandparent();
+		let input = Location::grandparent();
 		let inverted = UniversalLocation::get().invert_target(&input).unwrap();
 		assert_eq!(inverted, [account20(), account20()].into());
 	}
@@ -476,10 +476,10 @@ mod tests {
 	#[test]
 	fn inverter_uses_only_child_on_missing_context() {
 		parameter_types! {
-			pub UniversalLocation: InteriorMultiLocation = PalletInstance(5).into();
+			pub UniversalLocation: InteriorLocation = PalletInstance(5).into();
 		}
 
-		let input = MultiLocation::grandparent();
+		let input = Location::grandparent();
 		let inverted = UniversalLocation::get().invert_target(&input).unwrap();
 		assert_eq!(inverted, (OnlyChild, PalletInstance(5)).into());
 	}
@@ -487,10 +487,10 @@ mod tests {
 	#[test]
 	fn inverter_errors_when_location_is_too_large() {
 		parameter_types! {
-			pub UniversalLocation: InteriorMultiLocation = Here;
+			pub UniversalLocation: InteriorLocation = Here;
 		}
 
-		let input = MultiLocation { parents: 99, interior: [Parachain(88)].into() };
+		let input = Location { parents: 99, interior: [Parachain(88)].into() };
 		let inverted = UniversalLocation::get().invert_target(&input);
 		assert_eq!(inverted, Err(()));
 	}
@@ -498,8 +498,8 @@ mod tests {
 	#[test]
 	fn global_consensus_converts_for_works() {
 		parameter_types! {
-			pub UniversalLocationInNetwork1: InteriorMultiLocation = [GlobalConsensus(ByGenesis([1; 32])), Parachain(1234)].into();
-			pub UniversalLocationInNetwork2: InteriorMultiLocation = [GlobalConsensus(ByGenesis([2; 32])), Parachain(1234)].into();
+			pub UniversalLocationInNetwork1: InteriorLocation = [GlobalConsensus(ByGenesis([1; 32])), Parachain(1234)].into();
+			pub UniversalLocationInNetwork2: InteriorLocation = [GlobalConsensus(ByGenesis([2; 32])), Parachain(1234)].into();
 		}
 		let network_1 = UniversalLocationInNetwork1::get().global_consensus().expect("NetworkId");
 		let network_2 = UniversalLocationInNetwork2::get().global_consensus().expect("NetworkId");
@@ -508,17 +508,17 @@ mod tests {
 		let network_5 = ByGenesis([5; 32]);
 
 		let test_data = vec![
-			(MultiLocation::parent(), false),
-			(MultiLocation::new(0, Here), false),
-			(MultiLocation::new(0, [GlobalConsensus(network_1)]), false),
-			(MultiLocation::new(1, [GlobalConsensus(network_1)]), false),
-			(MultiLocation::new(2, [GlobalConsensus(network_1)]), false),
-			(MultiLocation::new(0, [GlobalConsensus(network_2)]), false),
-			(MultiLocation::new(1, [GlobalConsensus(network_2)]), false),
-			(MultiLocation::new(2, [GlobalConsensus(network_2)]), true),
-			(MultiLocation::new(0, [GlobalConsensus(network_2), Parachain(1000)]), false),
-			(MultiLocation::new(1, [GlobalConsensus(network_2), Parachain(1000)]), false),
-			(MultiLocation::new(2, [GlobalConsensus(network_2), Parachain(1000)]), false),
+			(Location::parent(), false),
+			(Location::new(0, Here), false),
+			(Location::new(0, [GlobalConsensus(network_1)]), false),
+			(Location::new(1, [GlobalConsensus(network_1)]), false),
+			(Location::new(2, [GlobalConsensus(network_1)]), false),
+			(Location::new(0, [GlobalConsensus(network_2)]), false),
+			(Location::new(1, [GlobalConsensus(network_2)]), false),
+			(Location::new(2, [GlobalConsensus(network_2)]), true),
+			(Location::new(0, [GlobalConsensus(network_2), Parachain(1000)]), false),
+			(Location::new(1, [GlobalConsensus(network_2), Parachain(1000)]), false),
+			(Location::new(2, [GlobalConsensus(network_2), Parachain(1000)]), false),
 		];
 
 		for (location, expected_result) in test_data {
@@ -540,7 +540,7 @@ mod tests {
 								GlobalConsensusConvertsFor::<UniversalLocationInNetwork1, [u8; 32]>::from_params(network),
 								"expected_result: {}, but conversion passed: {:?}, location: {:?}", expected_result, account, location
 							),
-						_ => panic!("expected_result: {}, conversion passed: {:?}, but MultiLocation does not match expected pattern, location: {:?}", expected_result, account, location)
+						_ => panic!("expected_result: {}, conversion passed: {:?}, but Location does not match expected pattern, location: {:?}", expected_result, account, location)
 					}
 				},
 				None => {
@@ -556,32 +556,32 @@ mod tests {
 		// all success
 		let res_1_gc_network_3 =
 			GlobalConsensusConvertsFor::<UniversalLocationInNetwork1, [u8; 32]>::convert_location(
-				&MultiLocation::new(2, [GlobalConsensus(network_3)]),
+				&Location::new(2, [GlobalConsensus(network_3)]),
 			)
 			.expect("conversion is ok");
 		let res_2_gc_network_3 =
 			GlobalConsensusConvertsFor::<UniversalLocationInNetwork2, [u8; 32]>::convert_location(
-				&MultiLocation::new(2, [GlobalConsensus(network_3)]),
+				&Location::new(2, [GlobalConsensus(network_3)]),
 			)
 			.expect("conversion is ok");
 		let res_1_gc_network_4 =
 			GlobalConsensusConvertsFor::<UniversalLocationInNetwork1, [u8; 32]>::convert_location(
-				&MultiLocation::new(2, [GlobalConsensus(network_4)]),
+				&Location::new(2, [GlobalConsensus(network_4)]),
 			)
 			.expect("conversion is ok");
 		let res_2_gc_network_4 =
 			GlobalConsensusConvertsFor::<UniversalLocationInNetwork2, [u8; 32]>::convert_location(
-				&MultiLocation::new(2, [GlobalConsensus(network_4)]),
+				&Location::new(2, [GlobalConsensus(network_4)]),
 			)
 			.expect("conversion is ok");
 		let res_1_gc_network_5 =
 			GlobalConsensusConvertsFor::<UniversalLocationInNetwork1, [u8; 32]>::convert_location(
-				&MultiLocation::new(2, [GlobalConsensus(network_5)]),
+				&Location::new(2, [GlobalConsensus(network_5)]),
 			)
 			.expect("conversion is ok");
 		let res_2_gc_network_5 =
 			GlobalConsensusConvertsFor::<UniversalLocationInNetwork2, [u8; 32]>::convert_location(
-				&MultiLocation::new(2, [GlobalConsensus(network_5)]),
+				&Location::new(2, [GlobalConsensus(network_5)]),
 			)
 			.expect("conversion is ok");
 
@@ -597,15 +597,15 @@ mod tests {
 	#[test]
 	fn global_consensus_parachain_converts_for_works() {
 		parameter_types! {
-			pub UniversalLocation: InteriorMultiLocation = [GlobalConsensus(ByGenesis([9; 32])), Parachain(1234)].into();
+			pub UniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis([9; 32])), Parachain(1234)].into();
 		}
 
 		let test_data = vec![
-			(MultiLocation::parent(), false),
-			(MultiLocation::new(0, [Parachain(1000)]), false),
-			(MultiLocation::new(1, [Parachain(1000)]), false),
+			(Location::parent(), false),
+			(Location::new(0, [Parachain(1000)]), false),
+			(Location::new(1, [Parachain(1000)]), false),
 			(
-				MultiLocation::new(
+				Location::new(
 					2,
 					[
 						GlobalConsensus(ByGenesis([0; 32])),
@@ -615,12 +615,12 @@ mod tests {
 				),
 				false,
 			),
-			(MultiLocation::new(2, [GlobalConsensus(ByGenesis([0; 32]))]), false),
-			(MultiLocation::new(0, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]), false),
-			(MultiLocation::new(1, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]), false),
-			(MultiLocation::new(2, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]), true),
-			(MultiLocation::new(3, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]), false),
-			(MultiLocation::new(9, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]), false),
+			(Location::new(2, [GlobalConsensus(ByGenesis([0; 32]))]), false),
+			(Location::new(0, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]), false),
+			(Location::new(1, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]), false),
+			(Location::new(2, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]), true),
+			(Location::new(3, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]), false),
+			(Location::new(9, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]), false),
 		];
 
 		for (location, expected_result) in test_data {
@@ -645,7 +645,7 @@ mod tests {
 						_ => assert_eq!(
 							true,
 							expected_result,
-							"expected_result: {}, conversion passed: {:?}, but MultiLocation does not match expected pattern, location: {:?}", expected_result, account, location
+							"expected_result: {}, conversion passed: {:?}, but Location does not match expected pattern, location: {:?}", expected_result, account, location
 						)
 					}
 				},
@@ -662,22 +662,22 @@ mod tests {
 		// all success
 		let res_gc_a_p1000 =
 			GlobalConsensusParachainConvertsFor::<UniversalLocation, [u8; 32]>::convert_location(
-				&MultiLocation::new(2, [GlobalConsensus(ByGenesis([3; 32])), Parachain(1000)]),
+				&Location::new(2, [GlobalConsensus(ByGenesis([3; 32])), Parachain(1000)]),
 			)
 			.expect("conversion is ok");
 		let res_gc_a_p1001 =
 			GlobalConsensusParachainConvertsFor::<UniversalLocation, [u8; 32]>::convert_location(
-				&MultiLocation::new(2, [GlobalConsensus(ByGenesis([3; 32])), Parachain(1001)]),
+				&Location::new(2, [GlobalConsensus(ByGenesis([3; 32])), Parachain(1001)]),
 			)
 			.expect("conversion is ok");
 		let res_gc_b_p1000 =
 			GlobalConsensusParachainConvertsFor::<UniversalLocation, [u8; 32]>::convert_location(
-				&MultiLocation::new(2, [GlobalConsensus(ByGenesis([4; 32])), Parachain(1000)]),
+				&Location::new(2, [GlobalConsensus(ByGenesis([4; 32])), Parachain(1000)]),
 			)
 			.expect("conversion is ok");
 		let res_gc_b_p1001 =
 			GlobalConsensusParachainConvertsFor::<UniversalLocation, [u8; 32]>::convert_location(
-				&MultiLocation::new(2, [GlobalConsensus(ByGenesis([4; 32])), Parachain(1001)]),
+				&Location::new(2, [GlobalConsensus(ByGenesis([4; 32])), Parachain(1001)]),
 			)
 			.expect("conversion is ok");
 		assert_ne!(res_gc_a_p1000, res_gc_a_p1001);
@@ -690,7 +690,7 @@ mod tests {
 
 	#[test]
 	fn remote_account_convert_on_para_sending_para_32() {
-		let mul = MultiLocation {
+		let mul = Location {
 			parents: 1,
 			interior: [Parachain(1), AccountId32 { network: None, id: [0u8; 32] }].into(),
 		};
@@ -704,7 +704,7 @@ mod tests {
 			rem_1
 		);
 
-		let mul = MultiLocation {
+		let mul = Location {
 			parents: 1,
 			interior: [
 				Parachain(1),
@@ -715,7 +715,7 @@ mod tests {
 
 		assert_eq!(ForeignChainAliasAccount::<[u8; 32]>::convert_location(&mul).unwrap(), rem_1);
 
-		let mul = MultiLocation {
+		let mul = Location {
 			parents: 1,
 			interior: [Parachain(2), AccountId32 { network: None, id: [0u8; 32] }].into(),
 		};
@@ -734,7 +734,7 @@ mod tests {
 
 	#[test]
 	fn remote_account_convert_on_para_sending_para_20() {
-		let mul = MultiLocation {
+		let mul = Location {
 			parents: 1,
 			interior: [Parachain(1), AccountKey20 { network: None, key: [0u8; 20] }].into(),
 		};
@@ -748,7 +748,7 @@ mod tests {
 			rem_1
 		);
 
-		let mul = MultiLocation {
+		let mul = Location {
 			parents: 1,
 			interior: [
 				Parachain(1),
@@ -759,7 +759,7 @@ mod tests {
 
 		assert_eq!(ForeignChainAliasAccount::<[u8; 32]>::convert_location(&mul).unwrap(), rem_1);
 
-		let mul = MultiLocation {
+		let mul = Location {
 			parents: 1,
 			interior: [Parachain(2), AccountKey20 { network: None, key: [0u8; 20] }].into(),
 		};
@@ -778,7 +778,7 @@ mod tests {
 
 	#[test]
 	fn remote_account_convert_on_para_sending_relay() {
-		let mul = MultiLocation {
+		let mul = Location {
 			parents: 1,
 			interior: [AccountId32 { network: None, id: [0u8; 32] }].into(),
 		};
@@ -792,14 +792,14 @@ mod tests {
 			rem_1
 		);
 
-		let mul = MultiLocation {
+		let mul = Location {
 			parents: 1,
 			interior: [AccountId32 { network: Some(NetworkId::Polkadot), id: [0u8; 32] }].into(),
 		};
 
 		assert_eq!(ForeignChainAliasAccount::<[u8; 32]>::convert_location(&mul).unwrap(), rem_1);
 
-		let mul = MultiLocation {
+		let mul = Location {
 			parents: 1,
 			interior: [AccountId32 { network: None, id: [1u8; 32] }].into(),
 		};
@@ -818,7 +818,7 @@ mod tests {
 
 	#[test]
 	fn remote_account_convert_on_relay_sending_para_20() {
-		let mul = MultiLocation {
+		let mul = Location {
 			parents: 0,
 			interior: [Parachain(1), AccountKey20 { network: None, key: [0u8; 20] }].into(),
 		};
@@ -832,7 +832,7 @@ mod tests {
 			rem_1
 		);
 
-		let mul = MultiLocation {
+		let mul = Location {
 			parents: 0,
 			interior: [Parachain(2), AccountKey20 { network: None, key: [0u8; 20] }].into(),
 		};
@@ -851,7 +851,7 @@ mod tests {
 
 	#[test]
 	fn remote_account_convert_on_relay_sending_para_32() {
-		let mul = MultiLocation {
+		let mul = Location {
 			parents: 0,
 			interior: [Parachain(1), AccountId32 { network: None, id: [0u8; 32] }].into(),
 		};
@@ -865,7 +865,7 @@ mod tests {
 			rem_1
 		);
 
-		let mul = MultiLocation {
+		let mul = Location {
 			parents: 0,
 			interior: [
 				Parachain(1),
@@ -876,7 +876,7 @@ mod tests {
 
 		assert_eq!(ForeignChainAliasAccount::<[u8; 32]>::convert_location(&mul).unwrap(), rem_1);
 
-		let mul = MultiLocation {
+		let mul = Location {
 			parents: 0,
 			interior: [Parachain(2), AccountId32 { network: None, id: [0u8; 32] }].into(),
 		};
@@ -895,7 +895,7 @@ mod tests {
 
 	#[test]
 	fn remote_account_fails_with_bad_multilocation() {
-		let mul = MultiLocation {
+		let mul = Location {
 			parents: 1,
 			interior: [AccountKey20 { network: None, key: [0u8; 20] }].into(),
 		};

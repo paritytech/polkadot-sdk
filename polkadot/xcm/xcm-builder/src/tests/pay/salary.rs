@@ -25,9 +25,9 @@ use frame_support::{
 use sp_runtime::{traits::ConvertToValue, DispatchResult};
 
 parameter_types! {
-	pub Interior: InteriorMultiLocation = Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into();
+	pub Interior: InteriorLocation = Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into();
 	pub Timeout: BlockNumber = 5;
-	pub AssetHub: MultiLocation = (Parent, Parachain(1)).into();
+	pub AssetHub: Location = (Parent, Parachain(1)).into();
 	pub AssetIdGeneralIndex: u128 = 100;
 	pub AssetHubAssetId: AssetId = (PalletInstance(1), GeneralIndex(AssetIdGeneralIndex::get())).into();
 	pub LocatableAsset: LocatableAssetId = LocatableAssetId { asset_id: AssetHubAssetId::get(), location: AssetHub::get() };

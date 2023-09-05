@@ -36,18 +36,18 @@ use scale_info::TypeInfo;
 
 mod junction;
 pub(crate) mod junctions;
-mod multiasset;
-mod multilocation;
+mod asset;
+mod location;
 mod traits;
 
 pub use junction::{BodyId, BodyPart, Junction, NetworkId};
 pub use junctions::Junctions;
-pub use multiasset::{
-	AssetId, AssetInstance, Fungibility, MultiAsset, MultiAssetFilter, MultiAssets,
-	WildFungibility, WildMultiAsset,
+pub use asset::{
+	AssetId, AssetInstance, Fungibility, Asset, AssetFilter, Assets,
+	WildFungibility, WildAsset,
 };
-pub use multilocation::{
-	Ancestor, AncestorThen, InteriorMultiLocation, MultiLocation, Parent, ParentThen,
+pub use location::{
+	Ancestor, AncestorThen, InteriorLocation, Location, Parent, ParentThen,
 };
 pub use traits::{
 	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Result, SendError,
@@ -177,19 +177,19 @@ pub mod prelude {
 			BodyId, BodyPart, Error as XcmError, ExecuteXcm,
 			Fungibility::{self, *},
 			Instruction::*,
-			InteriorMultiLocation,
+			InteriorLocation,
 			Junction::{self, *},
 			Junctions::{self, Here},
-			MaybeErrorCode, MultiAsset,
-			MultiAssetFilter::{self, *},
-			MultiAssets, MultiLocation,
+			MaybeErrorCode, Asset,
+			AssetFilter::{self, *},
+			Assets, Location,
 			NetworkId::{self, *},
 			OriginKind, Outcome, PalletInfo, Parent, ParentThen, PreparedMessage, QueryId,
 			QueryResponseInfo, Response, Result as XcmResult, SendError, SendResult, SendXcm,
 			Weight,
 			WeightLimit::{self, *},
 			WildFungibility::{self, Fungible as WildFungible, NonFungible as WildNonFungible},
-			WildMultiAsset::{self, *},
+			WildAsset::{self, *},
 			XcmContext, XcmHash, XcmWeightInfo, VERSION as XCM_VERSION,
 		};
 	}
@@ -304,7 +304,7 @@ pub enum Response {
 	/// No response. Serves as a neutral default.
 	Null,
 	/// Some assets.
-	Assets(MultiAssets),
+	Assets(Assets),
 	/// The outcome of an XCM instruction.
 	ExecutionResult(Option<(u32, Error)>),
 	/// An XCM version.
@@ -351,7 +351,7 @@ impl TryFrom<OldResponse> for Response {
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub struct QueryResponseInfo {
 	/// The destination to which the query response message should be send.
-	pub destination: MultiLocation,
+	pub destination: Location,
 	/// The `query_id` field of the `QueryResponse` message.
 	#[codec(compact)]
 	pub query_id: QueryId,
@@ -400,7 +400,7 @@ impl From<OldWeightLimit> for WeightLimit {
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug)]
 pub struct XcmContext {
 	/// The current value of the Origin register of the `XCVM`.
-	pub origin: Option<MultiLocation>,
+	pub origin: Option<Location>,
 	/// The identity of the XCM; this may be a hash of its versioned encoding but could also be
 	/// a high-level identity set by an appropriate barrier.
 	pub message_id: XcmHash,
@@ -427,7 +427,7 @@ impl XcmContext {
 ///
 /// Consensus systems that may send and receive messages include blockchains and smart contracts.
 ///
-/// All messages are delivered from a known *origin*, expressed as a `MultiLocation`.
+/// All messages are delivered from a known *origin*, expressed as a `Location`.
 ///
 /// This is the inner XCM format and is version-sensitive. Messages are typically passed using the
 /// outer XCM format, known as `VersionedXcm`.
@@ -445,7 +445,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*.
 	///
 	/// Errors:
-	WithdrawAsset(MultiAssets),
+	WithdrawAsset(Assets),
 
 	/// Asset(s) (`assets`) have been received into the ownership of this system on the `origin`
 	/// system and equivalent derivatives should be placed into the Holding Register.
@@ -458,7 +458,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Trusted Indication*.
 	///
 	/// Errors:
-	ReserveAssetDeposited(MultiAssets),
+	ReserveAssetDeposited(Assets),
 
 	/// Asset(s) (`assets`) have been destroyed on the `origin` system and equivalent assets should
 	/// be created and placed into the Holding Register.
@@ -471,7 +471,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Trusted Indication*.
 	///
 	/// Errors:
-	ReceiveTeleportedAsset(MultiAssets),
+	ReceiveTeleportedAsset(Assets),
 
 	/// Respond with information that the local system is expecting.
 	///
@@ -495,7 +495,7 @@ pub enum Instruction<Call> {
 		query_id: QueryId,
 		response: Response,
 		max_weight: Weight,
-		querier: Option<MultiLocation>,
+		querier: Option<Location>,
 	},
 
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place equivalent assets
@@ -509,7 +509,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*.
 	///
 	/// Errors:
-	TransferAsset { assets: MultiAssets, beneficiary: MultiLocation },
+	TransferAsset { assets: Assets, beneficiary: Location },
 
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place equivalent assets
 	/// under the ownership of `dest` within this consensus system (i.e. its sovereign account).
@@ -529,7 +529,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*.
 	///
 	/// Errors:
-	TransferReserveAsset { assets: MultiAssets, dest: MultiLocation, xcm: Xcm<()> },
+	TransferReserveAsset { assets: Assets, dest: Location, xcm: Xcm<()> },
 
 	/// Apply the encoded transaction `call`, whose dispatch-origin should be `origin` as expressed
 	/// by the kind of origin `origin_kind`.
@@ -621,7 +621,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	DescendOrigin(InteriorMultiLocation),
+	DescendOrigin(InteriorLocation),
 
 	/// Immediately report the contents of the Error Register to the given destination via XCM.
 	///
@@ -643,7 +643,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	DepositAsset { assets: MultiAssetFilter, beneficiary: MultiLocation },
+	DepositAsset { assets: AssetFilter, beneficiary: Location },
 
 	/// Remove the asset(s) (`assets`) from the Holding Register and place equivalent assets under
 	/// the ownership of `dest` within this consensus system (i.e. deposit them into its sovereign
@@ -661,7 +661,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	DepositReserveAsset { assets: MultiAssetFilter, dest: MultiLocation, xcm: Xcm<()> },
+	DepositReserveAsset { assets: AssetFilter, dest: Location, xcm: Xcm<()> },
 
 	/// Remove the asset(s) (`want`) from the Holding Register and replace them with alternative
 	/// assets.
@@ -678,7 +678,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	ExchangeAsset { give: MultiAssetFilter, want: MultiAssets, maximal: bool },
+	ExchangeAsset { give: AssetFilter, want: Assets, maximal: bool },
 
 	/// Remove the asset(s) (`assets`) from holding and send a `WithdrawAsset` XCM message to a
 	/// reserve location.
@@ -694,7 +694,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	InitiateReserveWithdraw { assets: MultiAssetFilter, reserve: MultiLocation, xcm: Xcm<()> },
+	InitiateReserveWithdraw { assets: AssetFilter, reserve: Location, xcm: Xcm<()> },
 
 	/// Remove the asset(s) (`assets`) from holding and send a `ReceiveTeleportedAsset` XCM message
 	/// to a `dest` location.
@@ -710,7 +710,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	InitiateTeleport { assets: MultiAssetFilter, dest: MultiLocation, xcm: Xcm<()> },
+	InitiateTeleport { assets: AssetFilter, dest: Location, xcm: Xcm<()> },
 
 	/// Report to a given destination the contents of the Holding Register.
 	///
@@ -724,7 +724,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	ReportHolding { response_info: QueryResponseInfo, assets: MultiAssetFilter },
+	ReportHolding { response_info: QueryResponseInfo, assets: AssetFilter },
 
 	/// Pay for the execution of some XCM `xcm` and `orders` with up to `weight`
 	/// picoseconds of execution time, paying for this with up to `fees` from the Holding Register.
@@ -737,7 +737,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	BuyExecution { fees: MultiAsset, weight_limit: WeightLimit },
+	BuyExecution { fees: Asset, weight_limit: WeightLimit },
 
 	/// Refund any surplus weight previously bought with `BuyExecution`.
 	///
@@ -795,7 +795,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	ClaimAsset { assets: MultiAssets, ticket: MultiLocation },
+	ClaimAsset { assets: Assets, ticket: Location },
 
 	/// Always throws an error of type `Trap`.
 	///
@@ -839,7 +839,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors: *Infallible*
-	BurnAsset(MultiAssets),
+	BurnAsset(Assets),
 
 	/// Throw an error if Holding does not contain at least the given assets.
 	///
@@ -847,7 +847,7 @@ pub enum Instruction<Call> {
 	///
 	/// Errors:
 	/// - `ExpectationFalse`: If Holding Register does not contain the assets in the parameter.
-	ExpectAsset(MultiAssets),
+	ExpectAsset(Assets),
 
 	/// Ensure that the Origin Register equals some given value and throw an error if not.
 	///
@@ -855,7 +855,7 @@ pub enum Instruction<Call> {
 	///
 	/// Errors:
 	/// - `ExpectationFalse`: If Origin Register is not equal to the parameter.
-	ExpectOrigin(Option<MultiLocation>),
+	ExpectOrigin(Option<Location>),
 
 	/// Ensure that the Error Register equals some given value and throw an error if not.
 	///
@@ -976,7 +976,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors: *Fallible*.
-	ExportMessage { network: NetworkId, destination: InteriorMultiLocation, xcm: Xcm<()> },
+	ExportMessage { network: NetworkId, destination: InteriorLocation, xcm: Xcm<()> },
 
 	/// Lock the locally held asset and prevent further transfer or withdrawal.
 	///
@@ -992,7 +992,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*.
 	///
 	/// Errors:
-	LockAsset { asset: MultiAsset, unlocker: MultiLocation },
+	LockAsset { asset: Asset, unlocker: Location },
 
 	/// Remove the lock over `asset` on this chain and (if nothing else is preventing it) allow the
 	/// asset to be transferred.
@@ -1005,7 +1005,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*.
 	///
 	/// Errors:
-	UnlockAsset { asset: MultiAsset, target: MultiLocation },
+	UnlockAsset { asset: Asset, target: Location },
 
 	/// Asset (`asset`) has been locked on the `origin` system and may not be transferred. It may
 	/// only be unlocked with the receipt of the `UnlockAsset` instruction from this chain.
@@ -1020,7 +1020,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Trusted Indication*.
 	///
 	/// Errors:
-	NoteUnlockable { asset: MultiAsset, owner: MultiLocation },
+	NoteUnlockable { asset: Asset, owner: Location },
 
 	/// Send an `UnlockAsset` instruction to the `locker` for the given `asset`.
 	///
@@ -1034,7 +1034,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*.
 	///
 	/// Errors:
-	RequestUnlock { asset: MultiAsset, locker: MultiLocation },
+	RequestUnlock { asset: Asset, locker: Location },
 
 	/// Sets the Fees Mode Register.
 	///
@@ -1071,7 +1071,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors: If the existing state would not allow such a change.
-	AliasOrigin(MultiLocation),
+	AliasOrigin(Location),
 
 	/// A directive to indicate that the origin expects free execution of the message.
 	///
@@ -1083,7 +1083,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Indication*
 	///
 	/// Errors: If the given origin is `Some` and not equal to the current Origin register.
-	UnpaidExecution { weight_limit: WeightLimit, check_origin: Option<MultiLocation> },
+	UnpaidExecution { weight_limit: WeightLimit, check_origin: Option<Location> },
 }
 
 impl<Call> Xcm<Call> {

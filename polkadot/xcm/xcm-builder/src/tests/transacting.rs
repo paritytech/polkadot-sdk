@@ -65,7 +65,7 @@ fn transacting_should_refund_weight() {
 
 #[test]
 fn paid_transacting_should_refund_payment_for_unused_weight() {
-	let one: MultiLocation = AccountIndex64 { index: 1, network: None }.into();
+	let one: Location = AccountIndex64 { index: 1, network: None }.into();
 	AllowPaidFrom::set(vec![one.clone()]);
 	add_asset(AccountIndex64 { index: 1, network: None }, (Parent, 200u128));
 	WeightPrice::set((Parent.into(), 1_000_000_000_000, 1024 * 1024));

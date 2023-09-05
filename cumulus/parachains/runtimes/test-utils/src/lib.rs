@@ -36,7 +36,7 @@ use sp_consensus_aura::{SlotDuration, AURA_ENGINE_ID};
 use sp_core::Encode;
 use sp_runtime::{traits::Header, BuildStorage, Digest, DigestItem};
 use xcm::{
-	latest::{MultiAsset, MultiLocation, XcmContext, XcmHash},
+	latest::{Asset, Location, XcmContext, XcmHash},
 	prelude::*,
 	VersionedXcm, MAX_XCM_DECODE_DEPTH,
 };
@@ -269,12 +269,12 @@ impl<XcmConfig: xcm_executor::Config, AllPalletsWithoutSystem>
 	RuntimeHelper<XcmConfig, AllPalletsWithoutSystem>
 {
 	pub fn do_transfer(
-		from: MultiLocation,
-		to: MultiLocation,
-		(asset, amount): (MultiLocation, u128),
+		from: Location,
+		to: Location,
+		(asset, amount): (Location, u128),
 	) -> Result<Assets, XcmError> {
 		<XcmConfig::AssetTransactor as TransactAsset>::transfer_asset(
-			&MultiAsset { id: Concrete(asset), fun: Fungible(amount) },
+			&Asset { id: Concrete(asset), fun: Fungible(amount) },
 			&from,
 			&to,
 			// We aren't able to track the XCM that initiated the fee deposit, so we create a
@@ -291,9 +291,9 @@ impl<
 {
 	pub fn do_teleport_assets<HrmpChannelOpener>(
 		origin: <Runtime as frame_system::Config>::RuntimeOrigin,
-		dest: MultiLocation,
-		beneficiary: MultiLocation,
-		(asset, amount): (MultiLocation, u128),
+		dest: Location,
+		beneficiary: Location,
+		(asset, amount): (Location, u128),
 		open_hrmp_channel: Option<(u32, u32)>,
 		included_head: HeaderFor<Runtime>,
 		slot_digest: &[u8],
@@ -343,7 +343,7 @@ impl<
 		// execute xcm as parent origin
 		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 		<<Runtime as cumulus_pallet_dmp_queue::Config>::XcmExecutor>::execute_xcm(
-			MultiLocation::parent(),
+			Location::parent(),
 			xcm,
 			hash,
 			Self::xcm_max_weight(XcmReceivedFrom::Parent),

@@ -19,7 +19,7 @@ use crate::*;
 fn relay_sets_system_para_xcm_supported_version() {
 	// Init tests variables
 	let sudo_origin = <Polkadot as Chain>::RuntimeOrigin::root();
-	let system_para_destination: MultiLocation =
+	let system_para_destination: Location =
 		Polkadot::child_location_of(AssetHubPolkadot::para_id());
 
 	// Relay Chain sets supported version for Asset Parachain
@@ -49,7 +49,7 @@ fn system_para_sets_relay_xcm_supported_version() {
 	// Init test variables
 	let sudo_origin = <Polkadot as Chain>::RuntimeOrigin::root();
 	let parent_location = AssetHubPolkadot::parent_location();
-	let system_para_destination: VersionedMultiLocation =
+	let system_para_destination: VersionedLocation =
 		Polkadot::child_location_of(AssetHubPolkadot::para_id()).into();
 	let call = <AssetHubPolkadot as Chain>::RuntimeCall::PolkadotXcm(pallet_xcm::Call::<
 		<AssetHubPolkadot as Chain>::Runtime,

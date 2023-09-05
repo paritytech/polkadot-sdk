@@ -38,18 +38,18 @@ use xcm_builder::{
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
 parameter_types! {
-	pub const DotRelayLocation: MultiLocation = MultiLocation::parent();
+	pub const DotRelayLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Polkadot);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorMultiLocation =
+	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
-	pub FellowshipLocation: MultiLocation = MultiLocation::new(1, Parachain(1001));
-	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
+	pub FellowshipLocation: Location = Location::new(1, Parachain(1001));
+	pub const GovernanceLocation: Location = Location::parent();
 }
 
-/// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
+/// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
 /// `Transact` in order to determine the dispatch Origin.
 pub type LocationToAccountId = (
@@ -67,7 +67,7 @@ pub type CurrencyTransactor = CurrencyAdapter<
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<DotRelayLocation>,
-	// Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
+	// Do a simple punn to convert an AccountId32 Location into a native chain account ID:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -100,22 +100,22 @@ pub type XcmOriginToTransactDispatchOrigin = (
 );
 
 pub struct ParentOrParentsPlurality;
-impl Contains<MultiLocation> for ParentOrParentsPlurality {
-	fn contains(location: &MultiLocation) -> bool {
+impl Contains<Location> for ParentOrParentsPlurality {
+	fn contains(location: &Location) -> bool {
 		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
 	}
 }
 
 pub struct ParentOrSiblings;
-impl Contains<MultiLocation> for ParentOrSiblings {
-	fn contains(location: &MultiLocation) -> bool {
+impl Contains<Location> for ParentOrSiblings {
+	fn contains(location: &Location) -> bool {
 		matches!(location.unpack(), (1, []) | (1, [_]))
 	}
 }
 
 pub struct FellowsPlurality;
-impl Contains<MultiLocation> for FellowsPlurality {
-	fn contains(location: &MultiLocation) -> bool {
+impl Contains<Location> for FellowsPlurality {
+	fn contains(location: &Location) -> bool {
 		matches!(location.unpack(), (1, [Parachain(1001), Plurality { id: BodyId::Technical, .. }]))
 	}
 }
@@ -240,7 +240,7 @@ pub type XcmRouter = WithUniqueTopic<(
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
+	pub ReachableDest: Option<Location> = Some(Parent.into());
 }
 
 impl pallet_xcm::Config for Runtime {

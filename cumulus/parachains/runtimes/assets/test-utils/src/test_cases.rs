@@ -105,7 +105,7 @@ pub fn teleports_for_native_asset_works<
 				0.into()
 			);
 
-			let native_asset_id = MultiLocation::parent();
+			let native_asset_id = Location::parent();
 			let buy_execution_fee_amount_eta =
 				WeightToFee::weight_to_fee(&Weight::from_parts(90_000_000_000, 0));
 			let native_asset_amount_unit = existential_deposit;
@@ -114,13 +114,13 @@ pub fn teleports_for_native_asset_works<
 
 			// 1. process received teleported assets from relaychain
 			let xcm = Xcm(vec![
-				ReceiveTeleportedAsset(MultiAssets::from(vec![MultiAsset {
+				ReceiveTeleportedAsset(Assets::from(vec![Asset {
 					id: Concrete(native_asset_id.clone()),
 					fun: Fungible(native_asset_amount_received.into()),
 				}])),
 				ClearOrigin,
 				BuyExecution {
-					fees: MultiAsset {
+					fees: Asset {
 						id: Concrete(native_asset_id.clone()),
 						fun: Fungible(buy_execution_fee_amount_eta),
 					},
@@ -128,7 +128,7 @@ pub fn teleports_for_native_asset_works<
 				},
 				DepositAsset {
 					assets: Wild(AllCounted(1)),
-					beneficiary: MultiLocation {
+					beneficiary: Location {
 						parents: 0,
 						interior: [AccountId32 {
 							network: None,
@@ -159,8 +159,8 @@ pub fn teleports_for_native_asset_works<
 
 			// 2. try to teleport asset back to the relaychain
 			{
-				let dest = MultiLocation::parent();
-				let dest_beneficiary = MultiLocation::parent()
+				let dest = Location::parent();
+				let dest_beneficiary = Location::parent()
 					.appended_with(AccountId32 {
 						network: None,
 						id: sp_runtime::AccountId32::new([3; 32]).into(),
@@ -206,8 +206,8 @@ pub fn teleports_for_native_asset_works<
 			// 3. try to teleport asset away to other parachain (1234)
 			{
 				let other_para_id = 1234;
-				let dest = MultiLocation::new(1, [Parachain(other_para_id)]);
-				let dest_beneficiary = MultiLocation::new(1, [Parachain(other_para_id)])
+				let dest = Location::new(1, [Parachain(other_para_id)]);
+				let dest_beneficiary = Location::new(1, [Parachain(other_para_id)])
 					.appended_with(AccountId32 {
 						network: None,
 						id: sp_runtime::AccountId32::new([3; 32]).into(),
@@ -338,9 +338,9 @@ pub fn teleports_for_foreign_assets_works<
 	<WeightToFee as frame_support::weights::WeightToFee>::Balance: From<u128> + Into<u128>,
 	SovereignAccountOf: ConvertLocation<AccountIdOf<Runtime>>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
-		From<MultiLocation> + Into<MultiLocation>,
+		From<Location> + Into<Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
-		From<MultiLocation> + Into<MultiLocation>,
+		From<Location> + Into<Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::Balance:
 		From<Balance> + Into<u128>,
 	<Runtime as frame_system::Config>::AccountId:
@@ -351,22 +351,22 @@ pub fn teleports_for_foreign_assets_works<
 {
 	// foreign parachain with the same consenus currency as asset
 	let foreign_para_id = 2222;
-	let foreign_asset_id_multilocation = MultiLocation {
+	let foreign_asset_id_multilocation = Location {
 		parents: 1,
 		interior: [Parachain(foreign_para_id), GeneralIndex(1234567)].into(),
 	};
 
 	// foreign creator, which can be sibling parachain to match ForeignCreators
 	let foreign_creator =
-		MultiLocation { parents: 1, interior: [Parachain(foreign_para_id)].into() };
+		Location { parents: 1, interior: [Parachain(foreign_para_id)].into() };
 	let foreign_creator_as_account_id =
 		SovereignAccountOf::convert_location(&foreign_creator).expect("");
 
 	// we want to buy execution with local relay chain currency
 	let buy_execution_fee_amount =
 		WeightToFee::weight_to_fee(&Weight::from_parts(90_000_000_000, 0));
-	let buy_execution_fee = MultiAsset {
-		id: Concrete(MultiLocation::parent()),
+	let buy_execution_fee = Asset {
+		id: Concrete(Location::parent()),
 		fun: Fungible(buy_execution_fee_amount),
 	};
 
@@ -447,14 +447,14 @@ pub fn teleports_for_foreign_assets_works<
 				// BuyExecution with relaychain native token
 				WithdrawAsset(buy_execution_fee.clone().into()),
 				BuyExecution {
-					fees: MultiAsset {
-						id: Concrete(MultiLocation::parent()),
+					fees: Asset {
+						id: Concrete(Location::parent()),
 						fun: Fungible(buy_execution_fee_amount),
 					},
 					weight_limit: Limited(Weight::from_parts(403531000, 65536)),
 				},
 				// Process teleported asset
-				ReceiveTeleportedAsset(MultiAssets::from(vec![MultiAsset {
+				ReceiveTeleportedAsset(Assets::from(vec![Asset {
 					id: Concrete(foreign_asset_id_multilocation.clone()),
 					fun: Fungible(teleported_foreign_asset_amount),
 				}])),
@@ -463,7 +463,7 @@ pub fn teleports_for_foreign_assets_works<
 						id: Concrete(foreign_asset_id_multilocation.clone()),
 						fun: WildFungibility::Fungible,
 					}),
-					beneficiary: MultiLocation {
+					beneficiary: Location {
 						parents: 0,
 						interior: [AccountId32 {
 							network: None,
@@ -520,8 +520,8 @@ pub fn teleports_for_foreign_assets_works<
 
 			// 2. try to teleport asset back to source parachain (foreign_para_id)
 			{
-				let dest = MultiLocation::new(1, [Parachain(foreign_para_id)]);
-				let dest_beneficiary = MultiLocation::new(1, [Parachain(foreign_para_id)])
+				let dest = Location::new(1, [Parachain(foreign_para_id)]);
+				let dest_beneficiary = Location::new(1, [Parachain(foreign_para_id)])
 					.appended_with(AccountId32 {
 						network: None,
 						id: sp_runtime::AccountId32::new([3; 32]).into(),
@@ -684,19 +684,19 @@ pub fn asset_transactor_transfer_with_local_consensus_currency_works<Runtime, Xc
 
 			// transfer_asset (deposit/withdraw) ALICE -> BOB
 			let _ = RuntimeHelper::<XcmConfig>::do_transfer(
-				MultiLocation {
+				Location {
 					parents: 0,
 					interior: [AccountId32 { network: None, id: source_account.clone().into() }]
 						.into(),
 				},
-				MultiLocation {
+				Location {
 					parents: 0,
 					interior: [AccountId32 { network: None, id: target_account.clone().into() }]
 						.into(),
 				},
 				// local_consensus_currency_asset, e.g.: relaychain token (KSM, DOT, ...)
 				(
-					MultiLocation { parents: 1, interior: Here },
+					Location { parents: 1, interior: Here },
 					(BalanceOf::<Runtime>::from(1_u128) * unit).into(),
 				),
 			)
@@ -790,7 +790,7 @@ pub fn asset_transactor_transfer_with_pallet_assets_instance_works<
 		From<<Runtime as frame_system::Config>::AccountId>,
 	AssetsPalletInstance: 'static,
 	AssetId: Clone,
-	AssetIdConverter: MaybeEquivalence<MultiLocation, AssetId>,
+	AssetIdConverter: MaybeEquivalence<Location, AssetId>,
 {
 	ExtBuilder::<Runtime>::default()
 		.with_collators(collator_session_keys.collators())
@@ -873,12 +873,12 @@ pub fn asset_transactor_transfer_with_pallet_assets_instance_works<
 			// ExistentialDeposit)
 			assert_noop!(
 				RuntimeHelper::<XcmConfig>::do_transfer(
-					MultiLocation {
+					Location {
 						parents: 0,
 						interior: [AccountId32 { network: None, id: alice_account.clone().into() }]
 							.into(),
 					},
-					MultiLocation {
+					Location {
 						parents: 0,
 						interior: [AccountId32 {
 							network: None,
@@ -896,12 +896,12 @@ pub fn asset_transactor_transfer_with_pallet_assets_instance_works<
 			// transfer_asset (deposit/withdraw) ALICE -> BOB (ok - has ExistentialDeposit)
 			assert!(matches!(
 				RuntimeHelper::<XcmConfig>::do_transfer(
-					MultiLocation {
+					Location {
 						parents: 0,
 						interior: [AccountId32 { network: None, id: alice_account.clone().into() }]
 							.into(),
 					},
-					MultiLocation {
+					Location {
 						parents: 0,
 						interior: [AccountId32 { network: None, id: bob_account.clone().into() }]
 							.into(),
@@ -1060,23 +1060,23 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 		From<<Runtime as frame_system::Config>::AccountId>,
 	ForeignAssetsPalletInstance: 'static,
 	AssetId: Clone,
-	AssetIdConverter: MaybeEquivalence<MultiLocation, AssetId>,
+	AssetIdConverter: MaybeEquivalence<Location, AssetId>,
 {
 	// foreign parachain with the same consenus currency as asset
 	let foreign_asset_id_multilocation =
-		MultiLocation { parents: 1, interior: [Parachain(2222), GeneralIndex(1234567)].into() };
+		Location { parents: 1, interior: [Parachain(2222), GeneralIndex(1234567)].into() };
 	let asset_id = AssetIdConverter::convert(&foreign_asset_id_multilocation).unwrap();
 
 	// foreign creator, which can be sibling parachain to match ForeignCreators
-	let foreign_creator = MultiLocation { parents: 1, interior: [Parachain(2222)].into() };
+	let foreign_creator = Location { parents: 1, interior: [Parachain(2222)].into() };
 	let foreign_creator_as_account_id =
 		SovereignAccountOf::convert_location(&foreign_creator).expect("");
 
 	// we want to buy execution with local relay chain currency
 	let buy_execution_fee_amount =
 		WeightToFee::weight_to_fee(&Weight::from_parts(90_000_000_000, 0));
-	let buy_execution_fee = MultiAsset {
-		id: Concrete(MultiLocation::parent()),
+	let buy_execution_fee = Asset {
+		id: Concrete(Location::parent()),
 		fun: Fungible(buy_execution_fee_amount),
 	};
 
@@ -1250,7 +1250,7 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 
 			// lets try create asset for different parachain(3333) (foreign_creator(2222) can create
 			// just his assets)
-			let foreign_asset_id_multilocation = MultiLocation {
+			let foreign_asset_id_multilocation = Location {
 				parents: 1,
 				interior: [Parachain(3333), GeneralIndex(1234567)].into(),
 			};

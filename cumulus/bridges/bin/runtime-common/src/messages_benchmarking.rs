@@ -290,12 +290,12 @@ where
 /// Returns callback which generates `BridgeMessage` from Polkadot XCM builder based on
 /// `expected_message_size` for benchmark.
 pub fn generate_xcm_builder_bridge_message_sample(
-	destination: InteriorMultiLocation,
+	destination: InteriorLocation,
 ) -> impl Fn(usize) -> MessagePayload {
 	move |expected_message_size| -> MessagePayload {
 		// For XCM bridge hubs, it is the message that
 		// will be pushed further to some XCM queue (XCMP/UMP)
-		let location = xcm::VersionedInteriorMultiLocation::V4(destination.clone());
+		let location = xcm::VersionedInteriorLocation::V4(destination.clone());
 		let location_encoded_size = location.encoded_size();
 
 		// we don't need to be super-precise with `expected_size` here

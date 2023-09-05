@@ -117,7 +117,7 @@ fn test_asset_xcm_trader() {
 
 			// Lets pay with: asset_amount_needed + asset_amount_extra
 			let asset_amount_extra = 100_u128;
-			let asset: MultiAsset =
+			let asset: Asset =
 				(asset_multilocation.clone(), asset_amount_needed + asset_amount_extra).into();
 
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
@@ -189,7 +189,7 @@ fn test_asset_xcm_trader_with_refund() {
 			// lets calculate amount needed
 			let amount_bought = WeightToFee::weight_to_fee(&bought);
 
-			let asset: MultiAsset = (asset_multilocation.clone(), amount_bought).into();
+			let asset: Asset = (asset_multilocation.clone(), amount_bought).into();
 
 			// Make sure buy_weight does not return an error
 			assert_ok!(trader.buy_weight(bought, asset.clone().into(), &ctx));
@@ -265,7 +265,7 @@ fn test_asset_xcm_trader_refund_not_possible_since_amount_less_than_ed() {
 				"we are testing what happens when the amount does not exceed ED"
 			);
 
-			let asset: MultiAsset = (asset_multilocation, amount_bought).into();
+			let asset: Asset = (asset_multilocation, amount_bought).into();
 
 			// Buy weight should return an error
 			assert_noop!(trader.buy_weight(bought, asset.into(), &ctx), XcmError::TooExpensive);
@@ -318,11 +318,11 @@ fn test_that_buying_ed_refund_does_not_refund() {
 
 			// We know we will have to buy at least ED, so lets make sure first it will
 			// fail with a payment of less than ED
-			let asset: MultiAsset = (asset_multilocation.clone(), amount_bought).into();
+			let asset: Asset = (asset_multilocation.clone(), amount_bought).into();
 			assert_noop!(trader.buy_weight(bought, asset.into(), &ctx), XcmError::TooExpensive);
 
 			// Now lets buy ED at least
-			let asset: MultiAsset = (asset_multilocation, ExistentialDeposit::get()).into();
+			let asset: Asset = (asset_multilocation, ExistentialDeposit::get()).into();
 
 			// Buy weight should work
 			assert_ok!(trader.buy_weight(bought, asset.into(), &ctx));
@@ -385,7 +385,7 @@ fn test_asset_xcm_trader_not_possible_for_non_sufficient_assets() {
 
 			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
 
-			let asset: MultiAsset = (asset_multilocation, asset_amount_needed).into();
+			let asset: Asset = (asset_multilocation, asset_amount_needed).into();
 
 			// Make sure again buy_weight does return an error
 			assert_noop!(trader.buy_weight(bought, asset.into(), &ctx), XcmError::TooExpensive);
@@ -415,7 +415,7 @@ fn test_assets_balances_api_works() {
 		.build()
 		.execute_with(|| {
 			let local_asset_id = 1;
-			let foreign_asset_id_multilocation = MultiLocation {
+			let foreign_asset_id_multilocation = Location {
 				parents: 1,
 				interior: [Parachain(1234), GeneralIndex(12345)].into(),
 			};
@@ -432,7 +432,7 @@ fn test_assets_balances_api_works() {
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), 0);
 			assert!(Runtime::query_account_balances(AccountId::from(ALICE))
 				.unwrap()
-				.try_as::<MultiAssets>()
+				.try_as::<Assets>()
 				.unwrap()
 				.is_none());
 
@@ -491,7 +491,7 @@ fn test_assets_balances_api_works() {
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), some_currency);
 
-			let result: MultiAssets = Runtime::query_account_balances(AccountId::from(ALICE))
+			let result: Assets = Runtime::query_account_balances(AccountId::from(ALICE))
 				.unwrap()
 				.try_into()
 				.unwrap();
@@ -606,11 +606,11 @@ asset_test_utils::include_asset_transactor_transfer_with_pallet_assets_instance_
 	Runtime,
 	XcmConfig,
 	ForeignAssetsInstance,
-	MultiLocation,
+	Location,
 	JustTry,
 	collator_session_keys(),
 	ExistentialDeposit::get(),
-	MultiLocation { parents: 1, interior: [Parachain(1313), GeneralIndex(12345)].into() },
+	Location { parents: 1, interior: [Parachain(1313), GeneralIndex(12345)].into() },
 	Box::new(|| {
 		assert!(Assets::asset_ids().collect::<Vec<_>>().is_empty());
 	}),
@@ -625,7 +625,7 @@ asset_test_utils::include_create_and_manage_foreign_assets_for_local_consensus_p
 	WeightToFee,
 	ForeignCreatorsSovereignAccountOf,
 	ForeignAssetsInstance,
-	MultiLocation,
+	Location,
 	JustTry,
 	collator_session_keys(),
 	ExistentialDeposit::get(),

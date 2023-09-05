@@ -79,9 +79,9 @@ pub trait AssetLock {
 	/// WARNING: Don't call this with an undropped instance of `Self::LockTicket` or
 	/// `Self::UnlockTicket`.
 	fn prepare_lock(
-		unlocker: MultiLocation,
-		asset: MultiAsset,
-		owner: MultiLocation,
+		unlocker: Location,
+		asset: Asset,
+		owner: Location,
 	) -> Result<Self::LockTicket, LockError>;
 
 	/// Prepare to unlock an asset. On success, a `Self::UnlockTicket` it returned, which can be
@@ -90,9 +90,9 @@ pub trait AssetLock {
 	/// WARNING: Don't call this with an undropped instance of `Self::LockTicket` or
 	/// `Self::UnlockTicket`.
 	fn prepare_unlock(
-		locker: MultiLocation,
-		asset: MultiAsset,
-		owner: MultiLocation,
+		locker: Location,
+		asset: Asset,
+		owner: Location,
 	) -> Result<Self::UnlockTicket, LockError>;
 
 	/// Handler for when a location reports to us that an asset has been locked for us to unlock
@@ -103,9 +103,9 @@ pub trait AssetLock {
 	///
 	/// We should only act upon this message if we believe that the `origin` is honest.
 	fn note_unlockable(
-		locker: MultiLocation,
-		asset: MultiAsset,
-		owner: MultiLocation,
+		locker: Location,
+		asset: Asset,
+		owner: Location,
 	) -> Result<(), LockError>;
 
 	/// Handler for when an owner wishes to unlock an asset on a remote chain.
@@ -115,9 +115,9 @@ pub trait AssetLock {
 	///
 	/// WARNING: Don't call this with an undropped instance of `Self::ReduceTicket`.
 	fn prepare_reduce_unlockable(
-		locker: MultiLocation,
-		asset: MultiAsset,
-		owner: MultiLocation,
+		locker: Location,
+		asset: Asset,
+		owner: Location,
 	) -> Result<Self::ReduceTicket, LockError>;
 }
 
@@ -126,26 +126,26 @@ impl AssetLock for () {
 	type UnlockTicket = Infallible;
 	type ReduceTicket = Infallible;
 	fn prepare_lock(
-		_: MultiLocation,
-		_: MultiAsset,
-		_: MultiLocation,
+		_: Location,
+		_: Asset,
+		_: Location,
 	) -> Result<Self::LockTicket, LockError> {
 		Err(LockError::NotApplicable)
 	}
 	fn prepare_unlock(
-		_: MultiLocation,
-		_: MultiAsset,
-		_: MultiLocation,
+		_: Location,
+		_: Asset,
+		_: Location,
 	) -> Result<Self::UnlockTicket, LockError> {
 		Err(LockError::NotApplicable)
 	}
-	fn note_unlockable(_: MultiLocation, _: MultiAsset, _: MultiLocation) -> Result<(), LockError> {
+	fn note_unlockable(_: Location, _: Asset, _: Location) -> Result<(), LockError> {
 		Err(LockError::NotApplicable)
 	}
 	fn prepare_reduce_unlockable(
-		_: MultiLocation,
-		_: MultiAsset,
-		_: MultiLocation,
+		_: Location,
+		_: Asset,
+		_: Location,
 	) -> Result<Self::ReduceTicket, LockError> {
 		Err(LockError::NotApplicable)
 	}

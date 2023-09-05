@@ -37,7 +37,7 @@ use frame_support::{parameter_types, traits::PalletInfoAccess};
 use sp_runtime::RuntimeDebug;
 use xcm::{
 	latest::prelude::*,
-	prelude::{InteriorMultiLocation, NetworkId},
+	prelude::{InteriorLocation, NetworkId},
 };
 use xcm_builder::{BridgeBlobDispatcher, HaulBlobExporter};
 
@@ -47,8 +47,8 @@ parameter_types! {
 	pub const MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_bridge_hub_wococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	pub const BridgeHubRococoChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_ROCOCO_CHAIN_ID;
-	pub BridgeHubWococoUniversalLocation: InteriorMultiLocation = [GlobalConsensus(Wococo), Parachain(ParachainInfo::parachain_id().into())].into();
-	pub BridgeRococoMessagesPalletInstance: InteriorMultiLocation = [PalletInstance(<BridgeRococoMessages as PalletInfoAccess>::index() as u8)].into();
+	pub BridgeHubWococoUniversalLocation: InteriorLocation = [GlobalConsensus(Wococo), Parachain(ParachainInfo::parachain_id().into())].into();
+	pub BridgeRococoMessagesPalletInstance: InteriorLocation = [PalletInstance(<BridgeRococoMessages as PalletInfoAccess>::index() as u8)].into();
 	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
 	pub ActiveOutboundLanesToBridgeHubRococo: &'static [bp_messages::LaneId] = &[DEFAULT_XCM_LANE_TO_BRIDGE_HUB_ROCOCO];
 	pub PriorityBoostPerMessage: u64 = 921_900_294;

@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! XCM `Junctions`/`InteriorMultiLocation` datatype.
+//! XCM `Junctions`/`InteriorLocation` datatype.
 
-use super::{Junction, MultiLocation, NetworkId};
+use super::{Junction, Location, NetworkId};
 use alloc::sync::Arc;
 use core::{convert::TryFrom, mem, ops::Range, result};
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -28,7 +28,7 @@ pub(crate) const MAX_JUNCTIONS: usize = 8;
 /// Non-parent junctions that can be constructed, up to the length of 8. This specific `Junctions`
 /// implementation uses a Rust `enum` in order to make pattern matching easier.
 ///
-/// Parent junctions cannot be constructed with this type. Refer to `MultiLocation` for
+/// Parent junctions cannot be constructed with this type. Refer to `Location` for
 /// instructions on constructing parent junctions.
 #[derive(
 	Clone,
@@ -141,19 +141,19 @@ impl IntoIterator for Junctions {
 }
 
 impl Junctions {
-	/// Convert `self` into a `MultiLocation` containing 0 parents.
+	/// Convert `self` into a `Location` containing 0 parents.
 	///
 	/// Similar to `Into::into`, except that this method can be used in a const evaluation context.
-	pub const fn into_location(self) -> MultiLocation {
-		MultiLocation { parents: 0, interior: self }
+	pub const fn into_location(self) -> Location {
+		Location { parents: 0, interior: self }
 	}
 
-	/// Convert `self` into a `MultiLocation` containing `n` parents.
+	/// Convert `self` into a `Location` containing `n` parents.
 	///
 	/// Similar to `Self::into_location`, with the added ability to specify the number of parent
 	/// junctions.
-	pub const fn into_exterior(self, n: u8) -> MultiLocation {
-		MultiLocation { parents: n, interior: self }
+	pub const fn into_exterior(self, n: u8) -> Location {
+		Location { parents: n, interior: self }
 	}
 
 	/// Casts `self` into a slice containing `Junction`s.
@@ -193,7 +193,7 @@ impl Junctions {
 
 	/// Treating `self` as the universal context, return the location of the local consensus system
 	/// from the point of view of the given `target`.
-	pub fn invert_target(&self, target: &MultiLocation) -> Result<MultiLocation, ()> {
+	pub fn invert_target(&self, target: &Location) -> Result<Location, ()> {
 		let mut itself = self.clone();
 		let mut junctions = Self::Here;
 		for _ in 0..target.parent_count() {
@@ -202,7 +202,7 @@ impl Junctions {
 				.map_err(|_| ())?;
 		}
 		let parents = target.interior().len() as u8;
-		Ok(MultiLocation::new(parents, junctions))
+		Ok(Location::new(parents, junctions))
 	}
 
 	/// Execute a function `f` on every junction. We use this since we cannot implement a mutable
@@ -240,7 +240,7 @@ impl Junctions {
 	///
 	/// This will return an error if `relative` has as many (or more) parents than there are
 	/// junctions in `self`, implying that relative refers into a different global consensus.
-	pub fn within_global(mut self, relative: MultiLocation) -> Result<Self, ()> {
+	pub fn within_global(mut self, relative: Location) -> Result<Self, ()> {
 		if self.len() <= relative.parents as usize {
 			return Err(())
 		}
@@ -254,7 +254,7 @@ impl Junctions {
 	}
 
 	/// Consumes `self` and returns how `viewer` would address it locally.
-	pub fn relative_to(mut self, viewer: &Junctions) -> MultiLocation {
+	pub fn relative_to(mut self, viewer: &Junctions) -> Location {
 		let mut i = 0;
 		while match (self.first(), viewer.at(i)) {
 			(Some(x), Some(y)) => x == y,
@@ -267,7 +267,7 @@ impl Junctions {
 		// AUDIT NOTES:
 		// - above loop ensures that `i <= viewer.len()`.
 		// - `viewer.len()` is at most `MAX_JUNCTIONS`, so won't overflow a `u8`.
-		MultiLocation { parents: (viewer.len() - i) as u8, interior: self }
+		Location { parents: (viewer.len() - i) as u8, interior: self }
 	}
 
 	/// Returns first junction, or `None` if the location is empty.
@@ -497,7 +497,7 @@ impl Junctions {
 	///
 	/// # Example
 	/// ```rust
-	/// # use staging_xcm::v4::{Junctions, Junction::*, MultiLocation};
+	/// # use staging_xcm::v4::{Junctions, Junction::*, Location};
 	/// # fn main() {
 	/// let mut m = Junctions::from([Parachain(21)]);
 	/// assert_eq!(m.append_with([PalletInstance(3)]), Ok(()));
@@ -566,9 +566,9 @@ impl Junctions {
 	}
 }
 
-impl TryFrom<MultiLocation> for Junctions {
-	type Error = MultiLocation;
-	fn try_from(x: MultiLocation) -> result::Result<Self, MultiLocation> {
+impl TryFrom<Location> for Junctions {
+	type Error = Location;
+	fn try_from(x: Location) -> result::Result<Self, Location> {
 		if x.parents > 0 {
 			Err(x)
 		} else {
@@ -603,13 +603,13 @@ mod tests {
 
 	#[test]
 	fn inverting_works() {
-		let context: InteriorMultiLocation = (Parachain(1000), PalletInstance(42)).into();
+		let context: InteriorLocation = (Parachain(1000), PalletInstance(42)).into();
 		let target = (Parent, PalletInstance(69)).into();
 		let expected = (Parent, PalletInstance(42)).into();
 		let inverted = context.invert_target(&target).unwrap();
 		assert_eq!(inverted, expected);
 
-		let context: InteriorMultiLocation =
+		let context: InteriorLocation =
 			(Parachain(1000), PalletInstance(42), GeneralIndex(1)).into();
 		let target = (Parent, Parent, PalletInstance(69), GeneralIndex(2)).into();
 		let expected = (Parent, Parent, PalletInstance(42), GeneralIndex(1)).into();

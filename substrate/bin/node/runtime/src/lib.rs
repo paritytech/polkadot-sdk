@@ -1628,7 +1628,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type Balance = u128;
 	type PoolAssets = PoolAssets;
 	type AssetId = <Self as pallet_assets::Config<Instance1>>::AssetId;
-	type MultiAssetId = NativeOrAssetId<u32>;
+	type AssetId = NativeOrAssetId<u32>;
 	type PoolAssetId = <Self as pallet_assets::Config<Instance2>>::AssetId;
 	type PalletId = AssetConversionPalletId;
 	type LPFee = ConstU32<3>; // means 0.3%
@@ -1639,7 +1639,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type AllowMultiAssetPools = AllowMultiAssetPools;
 	type MaxSwapPathLength = ConstU32<4>;
 	type MintMinLiquidity = MintMinLiquidity;
-	type MultiAssetIdConverter = NativeOrAssetIdConverter<u32>;
+	type AssetIdConverter = NativeOrAssetIdConverter<u32>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }

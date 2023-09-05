@@ -31,7 +31,7 @@ pub struct ProcessXcmMessage<MessageOrigin, XcmExecutor, Call>(
 	PhantomData<(MessageOrigin, XcmExecutor, Call)>,
 );
 impl<
-		MessageOrigin: Into<MultiLocation> + FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug,
+		MessageOrigin: Into<Location> + FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug,
 		XcmExecutor: ExecuteXcm<Call>,
 		Call,
 	> ProcessMessage for ProcessXcmMessage<MessageOrigin, XcmExecutor, Call>

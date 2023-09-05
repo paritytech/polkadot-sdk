@@ -28,10 +28,10 @@ mod weights;
 pub mod xcm_config;
 
 use crate::xcm_config::{
-	LocalAndForeignAssetsMultiLocationMatcher, TrustBackedAssetsPalletLocation,
+	LocalAndForeignAssetsLocationMatcher, TrustBackedAssetsPalletLocation,
 };
 use assets_common::{
-	local_and_foreign_assets::{LocalAndForeignAssets, MultiLocationConverter},
+	local_and_foreign_assets::{LocalAndForeignAssets, LocationConverter},
 	AssetIdForTrustBackedAssetsConvert,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -73,7 +73,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::latest::prelude::MultiLocation;
+use xcm::latest::prelude::Location;
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, PoolAssetsConvertedConcreteId,
 	TrustBackedAssetsConvertedConcreteId, WestendLocation, XcmConfig,
@@ -84,7 +84,7 @@ use xcm_config::{
 pub use sp_runtime::BuildStorage;
 
 use assets_common::{
-	foreign_creators::ForeignCreators, matching::FromSiblingParachain, MultiLocationForAssetId,
+	foreign_creators::ForeignCreators, matching::FromSiblingParachain, LocationForAssetId,
 };
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm_executor::XcmExecutor;
@@ -307,7 +307,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type HigherPrecisionBalance = sp_core::U256;
 	type Currency = Balances;
 	type AssetBalance = Balance;
-	type AssetId = MultiLocation;
+	type AssetId = Location;
 	type Assets = LocalAndForeignAssets<
 		Assets,
 		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
@@ -322,14 +322,14 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PalletId = AssetConversionPalletId;
 	type AllowMultiAssetPools = AllowMultiAssetPools;
 	type MaxSwapPathLength = ConstU32<4>;
-	type MultiAssetId = Box<MultiLocation>;
+	type MultiAssetId = Box<Location>;
 	type MultiAssetIdConverter =
-		MultiLocationConverter<WestendLocation, LocalAndForeignAssetsMultiLocationMatcher>;
+		LocationConverter<WestendLocation, LocalAndForeignAssetsLocationMatcher>;
 	type MintMinLiquidity = ConstU128<100>;
 	type WeightInfo = weights::pallet_asset_conversion::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper =
-		crate::xcm_config::BenchmarkMultiLocationConverter<parachain_info::Pallet<Runtime>>;
+		crate::xcm_config::BenchmarkLocationConverter<parachain_info::Pallet<Runtime>>;
 }
 
 parameter_types! {
@@ -350,8 +350,8 @@ pub type ForeignAssetsInstance = pallet_assets::Instance2;
 impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
-	type AssetId = MultiLocationForAssetId;
-	type AssetIdParameter = MultiLocationForAssetId;
+	type AssetId = LocationForAssetId;
+	type AssetIdParameter = LocationForAssetId;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
 		(FromSiblingParachain<parachain_info::Pallet<Runtime>>,),
@@ -1041,18 +1041,18 @@ impl_runtime_apis! {
 		Block,
 		Balance,
 		u128,
-		Box<MultiLocation>,
+		Box<Location>,
 	> for Runtime
 	{
-		fn quote_price_exact_tokens_for_tokens(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
+		fn quote_price_exact_tokens_for_tokens(asset1: Box<Location>, asset2: Box<Location>, amount: u128, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		fn quote_price_tokens_for_exact_tokens(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
+		fn quote_price_tokens_for_exact_tokens(asset1: Box<Location>, asset2: Box<Location>, amount: u128, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		fn get_reserves(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>) -> Option<(Balance, Balance)> {
+		fn get_reserves(asset1: Box<Location>, asset2: Box<Location>) -> Option<(Balance, Balance)> {
 			AssetConversion::get_reserves(&asset1, &asset2).ok()
 		}
 	}
@@ -1106,7 +1106,7 @@ impl_runtime_apis! {
 		AccountId,
 	> for Runtime
 	{
-		fn query_account_balances(account: AccountId) -> Result<xcm::VersionedMultiAssets, assets_common::runtime_api::FungiblesAccessError> {
+		fn query_account_balances(account: AccountId) -> Result<xcm::VersionedAssets, assets_common::runtime_api::FungiblesAccessError> {
 			use assets_common::fungible_conversion::{convert, convert_balance};
 			Ok([
 				// collect pallet_balance
@@ -1226,29 +1226,29 @@ impl_runtime_apis! {
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
-				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
+				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(WestendLocation::get())
 				}
-				fn worst_case_holding(depositable_count: u32) -> MultiAssets {
+				fn worst_case_holding(depositable_count: u32) -> Assets {
 					// A mix of fungible, non-fungible, and concrete assets.
 					let holding_non_fungibles = MaxAssetsIntoHolding::get() / 2 - depositable_count;
 					let holding_fungibles = holding_non_fungibles - 1;
 					let fungibles_amount: u128 = 100;
 					let mut assets = (0..holding_fungibles)
 						.map(|i| {
-							MultiAsset {
+							Asset {
 								id: Concrete(GeneralIndex(i as u128).into()),
 								fun: Fungible(fungibles_amount * i as u128),
 							}
 						})
-						.chain(core::iter::once(MultiAsset { id: Concrete(Here.into()), fun: Fungible(u128::MAX) }))
-						.chain((0..holding_non_fungibles).map(|i| MultiAsset {
+						.chain(core::iter::once(Asset { id: Concrete(Here.into()), fun: Fungible(u128::MAX) }))
+						.chain((0..holding_non_fungibles).map(|i| Asset {
 							id: Concrete(GeneralIndex(i as u128).into()),
 							fun: NonFungible(asset_instance_from(i)),
 						}))
 						.collect::<Vec<_>>();
 
-					assets.push(MultiAsset {
+					assets.push(Asset {
 						id: Concrete(WestendLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
 					});
@@ -1257,12 +1257,12 @@ impl_runtime_apis! {
 			}
 
 			parameter_types! {
-				pub const TrustedTeleporter: Option<(MultiLocation, MultiAsset)> = Some((
+				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
 					WestendLocation::get(),
-					MultiAsset { fun: Fungible(UNITS), id: Concrete(WestendLocation::get()) },
+					Asset { fun: Fungible(UNITS), id: Concrete(WestendLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
-				pub const TrustedReserve: Option<(MultiLocation, MultiAsset)> = None;
+				pub const TrustedReserve: Option<(Location, Asset)> = None;
 			}
 
 			impl pallet_xcm_benchmarks::fungible::Config for Runtime {
@@ -1272,8 +1272,8 @@ impl_runtime_apis! {
 				type TrustedTeleporter = TrustedTeleporter;
 				type TrustedReserve = TrustedReserve;
 
-				fn get_multi_asset() -> MultiAsset {
-					MultiAsset {
+				fn get_multi_asset() -> Asset {
+					Asset {
 						id: Concrete(WestendLocation::get()),
 						fun: Fungible(UNITS),
 					}
@@ -1287,39 +1287,39 @@ impl_runtime_apis! {
 					(0u64, Response::Version(Default::default()))
 				}
 
-				fn worst_case_asset_exchange() -> Result<(MultiAssets, MultiAssets), BenchmarkError> {
+				fn worst_case_asset_exchange() -> Result<(Assets, Assets), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 
-				fn universal_alias() -> Result<(MultiLocation, Junction), BenchmarkError> {
+				fn universal_alias() -> Result<(Location, Junction), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 
-				fn transact_origin_and_runtime_call() -> Result<(MultiLocation, RuntimeCall), BenchmarkError> {
+				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
 					Ok((WestendLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
-				fn subscribe_origin() -> Result<MultiLocation, BenchmarkError> {
+				fn subscribe_origin() -> Result<Location, BenchmarkError> {
 					Ok(WestendLocation::get())
 				}
 
-				fn claimable_asset() -> Result<(MultiLocation, MultiLocation, MultiAssets), BenchmarkError> {
+				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
 					let origin = WestendLocation::get();
-					let assets: MultiAssets = (Concrete(WestendLocation::get()), 1_000 * UNITS).into();
-					let ticket = MultiLocation { parents: 0, interior: Here };
+					let assets: Assets = (Concrete(WestendLocation::get()), 1_000 * UNITS).into();
+					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}
 
-				fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError> {
+				fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 
 				fn export_message_origin_and_destination(
-				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
+				) -> Result<(Location, NetworkId, InteriorLocation), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 
-				fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {
+				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 			}
@@ -1375,13 +1375,13 @@ pub mod migrations {
 	use xcm::latest::prelude::*;
 
 	/// Temporary migration because of bug with native asset, it can be removed once applied on
-	/// `AssetHubWestend`. Migrates pools with `MultiLocation { parents: 0, interior: Here }` to
-	/// `MultiLocation { parents: 1, interior: Here }`
+	/// `AssetHubWestend`. Migrates pools with `Location { parents: 0, interior: Here }` to
+	/// `Location { parents: 1, interior: Here }`
 	pub struct NativeAssetParents0ToParents1Migration<T>(sp_std::marker::PhantomData<T>);
 	impl<
 			T: pallet_asset_conversion::Config<
-				MultiAssetId = Box<MultiLocation>,
-				AssetId = MultiLocation,
+				AssetId = Box<Location>,
+				AssetId = Location,
 			>,
 		> OnRuntimeUpgrade for NativeAssetParents0ToParents1Migration<T>
 	where
@@ -1394,7 +1394,7 @@ pub mod migrations {
 		sp_runtime::AccountId32: From<<T as frame_system::Config>::AccountId>,
 	{
 		fn on_runtime_upgrade() -> Weight {
-			let invalid_native_asset = MultiLocation { parents: 0, interior: Here };
+			let invalid_native_asset = Location { parents: 0, interior: Here };
 			let valid_native_asset = WestendLocation::get();
 
 			let mut reads: u64 = 1;

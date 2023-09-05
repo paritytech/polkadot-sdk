@@ -18,12 +18,12 @@ use sp_std::result;
 use xcm::latest::prelude::*;
 
 pub trait MatchesFungible<Balance> {
-	fn matches_fungible(a: &MultiAsset) -> Option<Balance>;
+	fn matches_fungible(a: &Asset) -> Option<Balance>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl<Balance> MatchesFungible<Balance> for Tuple {
-	fn matches_fungible(a: &MultiAsset) -> Option<Balance> {
+	fn matches_fungible(a: &Asset) -> Option<Balance> {
 		for_tuples!( #(
 			match Tuple::matches_fungible(a) { o @ Some(_) => return o, _ => () }
 		)* );
@@ -33,12 +33,12 @@ impl<Balance> MatchesFungible<Balance> for Tuple {
 }
 
 pub trait MatchesNonFungible<Instance> {
-	fn matches_nonfungible(a: &MultiAsset) -> Option<Instance>;
+	fn matches_nonfungible(a: &Asset) -> Option<Instance>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl<Instance> MatchesNonFungible<Instance> for Tuple {
-	fn matches_nonfungible(a: &MultiAsset) -> Option<Instance> {
+	fn matches_nonfungible(a: &Asset) -> Option<Instance> {
 		for_tuples!( #(
 			match Tuple::matches_nonfungible(a) { o @ Some(_) => return o, _ => () }
 		)* );
@@ -52,11 +52,11 @@ impl<Instance> MatchesNonFungible<Instance> for Tuple {
 pub enum Error {
 	/// The given asset is not handled. (According to [`XcmError::AssetNotFound`])
 	AssetNotHandled,
-	/// `MultiLocation` to `AccountId` conversion failed.
+	/// `Location` to `AccountId` conversion failed.
 	AccountIdConversionFailed,
 	/// `u128` amount to currency `Balance` conversion failed.
 	AmountToBalanceConversionFailed,
-	/// `MultiLocation` to `AssetId`/`ClassId` conversion failed.
+	/// `Location` to `AssetId`/`ClassId` conversion failed.
 	AssetIdConversionFailed,
 	/// `AssetInstance` to non-fungibles instance ID conversion failed.
 	InstanceConversionFailed,
@@ -77,12 +77,12 @@ impl From<Error> for XcmError {
 }
 
 pub trait MatchesFungibles<AssetId, Balance> {
-	fn matches_fungibles(a: &MultiAsset) -> result::Result<(AssetId, Balance), Error>;
+	fn matches_fungibles(a: &Asset) -> result::Result<(AssetId, Balance), Error>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl<AssetId, Balance> MatchesFungibles<AssetId, Balance> for Tuple {
-	fn matches_fungibles(a: &MultiAsset) -> result::Result<(AssetId, Balance), Error> {
+	fn matches_fungibles(a: &Asset) -> result::Result<(AssetId, Balance), Error> {
 		for_tuples!( #(
 			match Tuple::matches_fungibles(a) { o @ Ok(_) => return o, _ => () }
 		)* );
@@ -92,12 +92,12 @@ impl<AssetId, Balance> MatchesFungibles<AssetId, Balance> for Tuple {
 }
 
 pub trait MatchesNonFungibles<AssetId, Instance> {
-	fn matches_nonfungibles(a: &MultiAsset) -> result::Result<(AssetId, Instance), Error>;
+	fn matches_nonfungibles(a: &Asset) -> result::Result<(AssetId, Instance), Error>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl<AssetId, Instance> MatchesNonFungibles<AssetId, Instance> for Tuple {
-	fn matches_nonfungibles(a: &MultiAsset) -> result::Result<(AssetId, Instance), Error> {
+	fn matches_nonfungibles(a: &Asset) -> result::Result<(AssetId, Instance), Error> {
 		for_tuples!( #(
 			match Tuple::matches_nonfungibles(a) { o @ Ok(_) => return o, _ => () }
 		)* );

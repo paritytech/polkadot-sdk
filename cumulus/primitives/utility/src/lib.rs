@@ -36,17 +36,17 @@ use xcm_builder::TakeRevenue;
 use xcm_executor::traits::{MatchesFungibles, TransactAsset, WeightTrader};
 
 pub trait PriceForParentDelivery {
-	fn price_for_parent_delivery(message: &Xcm<()>) -> MultiAssets;
+	fn price_for_parent_delivery(message: &Xcm<()>) -> Assets;
 }
 
 impl PriceForParentDelivery for () {
-	fn price_for_parent_delivery(_: &Xcm<()>) -> MultiAssets {
-		MultiAssets::new()
+	fn price_for_parent_delivery(_: &Xcm<()>) -> Assets {
+		Assets::new()
 	}
 }
 
-impl<T: Get<MultiAssets>> PriceForParentDelivery for ConstantPrice<T> {
-	fn price_for_parent_delivery(_: &Xcm<()>) -> MultiAssets {
+impl<T: Get<Assets>> PriceForParentDelivery for ConstantPrice<T> {
+	fn price_for_parent_delivery(_: &Xcm<()>) -> Assets {
 		T::get()
 	}
 }
@@ -68,7 +68,7 @@ where
 	type Ticket = Vec<u8>;
 
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<Vec<u8>> {
 		let d = dest.take().ok_or(SendError::MissingArgument)?;
@@ -106,12 +106,12 @@ struct AssetTraderRefunder {
 	// The amount of weight bought minus the weigh already refunded
 	weight_outstanding: Weight,
 	// The concrete asset containing the asset location and outstanding balance
-	outstanding_concrete_asset: MultiAsset,
+	outstanding_concrete_asset: Asset,
 }
 
 /// Charges for execution in the first multiasset of those selected for fee payment
 /// Only succeeds for Concrete Fungible Assets
-/// First tries to convert the this MultiAsset into a local assetId
+/// First tries to convert the this Asset into a local assetId
 /// Then charges for this assetId as described by FeeCharger
 /// Weight, paid balance, local asset Id and the multilocation is stored for
 /// later refund purposes
@@ -145,9 +145,9 @@ impl<
 	fn buy_weight(
 		&mut self,
 		weight: Weight,
-		payment: xcm_executor::Assets,
+		payment: xcm_executor::HoldingAssets,
 		context: &XcmContext,
-	) -> Result<xcm_executor::Assets, XcmError> {
+	) -> Result<xcm_executor::HoldingAssets, XcmError> {
 		log::trace!(target: "xcm::weight", "TakeFirstAssetTrader::buy_weight weight: {:?}, payment: {:?}, context: {:?}", weight, payment, context);
 
 		// Make sure we dont enter twice
@@ -157,9 +157,9 @@ impl<
 
 		// We take the very first multiasset from payment
 		// (assets are sorted by fungibility/amount after this conversion)
-		let multiassets: MultiAssets = payment.clone().into();
+		let multiassets: Assets = payment.clone().into();
 
-		// Take the first multiasset from the selected MultiAssets
+		// Take the first multiasset from the selected Assets
 		let first = multiassets.get(0).ok_or(XcmError::AssetNotFound)?;
 
 		// Get the local asset id in which we can pay for fees
@@ -197,11 +197,11 @@ impl<
 		Ok(unused)
 	}
 
-	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<MultiAsset> {
+	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<Asset> {
 		log::trace!(target: "xcm::weight", "TakeFirstAssetTrader::refund_weight weight: {:?}, context: {:?}", weight, context);
 		if let Some(AssetTraderRefunder {
 			mut weight_outstanding,
-			outstanding_concrete_asset: MultiAsset { id, fun },
+			outstanding_concrete_asset: Asset { id, fun },
 		}) = self.0.clone()
 		{
 			// Get the local asset id in which we can refund fees
@@ -236,7 +236,7 @@ impl<
 
 			// Construct outstanding_concrete_asset with the same location id and substracted
 			// balance
-			let outstanding_concrete_asset: MultiAsset =
+			let outstanding_concrete_asset: Asset =
 				(id.clone(), outstanding_minus_substracted).into();
 
 			// Substract from existing weight and balance
@@ -284,7 +284,7 @@ impl<
 		ReceiverAccount: frame_support::traits::Get<Option<AccountId>>,
 	> TakeRevenue for XcmFeesTo32ByteAccount<FungiblesMutateAdapter, AccountId, ReceiverAccount>
 {
-	fn take_revenue(revenue: MultiAsset) {
+	fn take_revenue(revenue: Asset) {
 		if let Some(receiver) = ReceiverAccount::get() {
 			let ok = FungiblesMutateAdapter::deposit_asset(
 				&revenue,
@@ -321,18 +321,18 @@ mod tests {
 		},
 	};
 	use sp_runtime::DispatchError;
-	use xcm_executor::{traits::Error, Assets};
+	use xcm_executor::{traits::Error, HoldingAssets};
 
 	/// Validates [`validate`] for required Some(destination) and Some(message)
 	struct OkFixedXcmHashWithAssertingRequiredInputsSender;
 	impl OkFixedXcmHashWithAssertingRequiredInputsSender {
 		const FIXED_XCM_HASH: [u8; 32] = [9; 32];
 
-		fn fixed_delivery_asset() -> MultiAssets {
-			MultiAssets::new()
+		fn fixed_delivery_asset() -> Assets {
+			Assets::new()
 		}
 
-		fn expected_delivery_result() -> Result<(XcmHash, MultiAssets), SendError> {
+		fn expected_delivery_result() -> Result<(XcmHash, Assets), SendError> {
 			Ok((Self::FIXED_XCM_HASH, Self::fixed_delivery_asset()))
 		}
 	}
@@ -340,7 +340,7 @@ mod tests {
 		type Ticket = ();
 
 		fn validate(
-			destination: &mut Option<MultiLocation>,
+			destination: &mut Option<Location>,
 			message: &mut Option<Xcm<()>>,
 		) -> SendResult<Self::Ticket> {
 			assert!(destination.is_some());
@@ -428,9 +428,9 @@ mod tests {
 		type TestBalance = u128;
 		struct TestAssets;
 		impl MatchesFungibles<TestAssetId, TestBalance> for TestAssets {
-			fn matches_fungibles(a: &MultiAsset) -> Result<(TestAssetId, TestBalance), Error> {
+			fn matches_fungibles(a: &Asset) -> Result<(TestAssetId, TestBalance), Error> {
 				match a {
-					MultiAsset { fun: Fungible(amount), id: Concrete(_id) } => Ok((1, *amount)),
+					Asset { fun: Fungible(amount), id: Concrete(_id) } => Ok((1, *amount)),
 					_ => Err(Error::AssetNotHandled),
 				}
 			}
@@ -517,7 +517,7 @@ mod tests {
 			}
 		}
 		impl TakeRevenue for FeeChargerAssetsHandleRefund {
-			fn take_revenue(_: MultiAsset) {}
+			fn take_revenue(_: Asset) {}
 		}
 
 		// create new instance
@@ -532,8 +532,8 @@ mod tests {
 		let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 
 		// prepare test data
-		let asset: MultiAsset = (Here, AMOUNT).into();
-		let payment = Assets::from(asset);
+		let asset: Asset = (Here, AMOUNT).into();
+		let payment = HoldingAssets::from(asset);
 		let weight_to_buy = Weight::from_parts(1_000, 1_000);
 
 		// lets do first call (success)

@@ -197,7 +197,7 @@ pub type FellowshipSalaryInstance = pallet_salary::Instance1;
 use xcm::prelude::*;
 
 parameter_types! {
-	pub AssetHub: MultiLocation = (Parent, Parachain(1000)).into();
+	pub AssetHub: Location = (Parent, Parachain(1000)).into();
 	pub AssetHubUsdtId: AssetId = (PalletInstance(50), GeneralIndex(1984)).into();
 	pub UsdtAsset: LocatableAssetId = LocatableAssetId {
 		location: AssetHub::get(),
@@ -205,7 +205,7 @@ parameter_types! {
 	};
 	// The interior location on AssetHub for the paying account. This is the Fellowship Salary
 	// pallet instance (which sits at index 64). This sovereign account will need funding.
-	pub Interior: InteriorMultiLocation = PalletInstance(64).into();
+	pub Interior: InteriorLocation = PalletInstance(64).into();
 }
 
 const USDT_UNITS: u128 = 1_000_000;

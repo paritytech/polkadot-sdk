@@ -262,11 +262,11 @@ struct OkFixedXcmHashWithAssertingRequiredInputsSender;
 impl OkFixedXcmHashWithAssertingRequiredInputsSender {
 	const FIXED_XCM_HASH: [u8; 32] = [9; 32];
 
-	fn fixed_delivery_asset() -> MultiAssets {
-		MultiAssets::new()
+	fn fixed_delivery_asset() -> Assets {
+		Assets::new()
 	}
 
-	fn expected_delivery_result() -> Result<(XcmHash, MultiAssets), SendError> {
+	fn expected_delivery_result() -> Result<(XcmHash, Assets), SendError> {
 		Ok((Self::FIXED_XCM_HASH, Self::fixed_delivery_asset()))
 	}
 }
@@ -274,7 +274,7 @@ impl SendXcm for OkFixedXcmHashWithAssertingRequiredInputsSender {
 	type Ticket = ();
 
 	fn validate(
-		destination: &mut Option<MultiLocation>,
+		destination: &mut Option<Location>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
 		assert!(destination.is_some());

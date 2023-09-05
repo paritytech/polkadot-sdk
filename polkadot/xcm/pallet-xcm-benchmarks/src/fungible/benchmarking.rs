@@ -71,7 +71,7 @@ benchmarks_instance_pallet! {
 	transfer_asset {
 		let (sender_account, sender_location) = account_and_location::<T>(1);
 		let asset = T::get_multi_asset();
-		let assets: MultiAssets = vec![ asset.clone() ].into();
+		let assets: Assets = vec![ asset.clone() ].into();
 		// this xcm doesn't use holding
 
 		let dest_location = T::valid_destination()?;
@@ -113,7 +113,7 @@ benchmarks_instance_pallet! {
 				topic: None,
 			},
 		).unwrap();
-		let assets: MultiAssets = vec![ asset ].into();
+		let assets: Assets = vec![ asset ].into();
 		assert!(T::TransactAsset::balance(&dest_account).is_zero());
 
 		let mut executor = new_executor::<T>(sender_location);
@@ -137,7 +137,7 @@ benchmarks_instance_pallet! {
 				BenchmarkResult::from_weight(T::BlockWeights::get().max_block)
 			))?;
 
-		let assets: MultiAssets = vec![ transferable_reserve_asset ].into();
+		let assets: Assets = vec![ transferable_reserve_asset ].into();
 
 		let mut executor = new_executor::<T>(trusted_reserve);
 		let instruction = Instruction::ReserveAssetDeposited(assets.clone());
@@ -150,7 +150,7 @@ benchmarks_instance_pallet! {
 
 	initiate_reserve_withdraw {
 		let holding = T::worst_case_holding(1);
-		let assets_filter = MultiAssetFilter::Definite(holding.clone());
+		let assets_filter = AssetFilter::Definite(holding.clone());
 		let reserve = T::valid_destination().map_err(|_| BenchmarkError::Skip)?;
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding.into());
@@ -179,7 +179,7 @@ benchmarks_instance_pallet! {
 			)?;
 		}
 
-		let assets: MultiAssets = vec![ teleportable_asset ].into();
+		let assets: Assets = vec![ teleportable_asset ].into();
 
 		let mut executor = new_executor::<T>(trusted_teleporter);
 		let instruction = Instruction::ReceiveTeleportedAsset(assets.clone());

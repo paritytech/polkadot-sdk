@@ -36,12 +36,12 @@ fn open_hrmp_channel_between_paras_works() {
 	let para_a_sovereign_account = Kusama::fund_para_sovereign(fund_amount, para_a_id);
 	let para_b_sovereign_account = Kusama::fund_para_sovereign(fund_amount, para_b_id);
 
-	let relay_destination: VersionedMultiLocation = PenpalKusamaA::parent_location().into();
+	let relay_destination: VersionedLocation = PenpalKusamaA::parent_location().into();
 
 	// ---- Init Open channel from Parachain to System Parachain
 	let mut call = Kusama::init_open_channel_call(para_b_id, MAX_CAPACITY, MAX_MESSAGE_SIZE);
 	let origin_kind = OriginKind::Native;
-	let native_asset: MultiAsset = (Here, fee_amount).into();
+	let native_asset: Asset = (Here, fee_amount).into();
 	let beneficiary = Kusama::sovereign_account_id_of_child_para(para_a_id);
 
 	let mut xcm = xcm_transact_paid_execution(call, origin_kind, native_asset.clone(), beneficiary);

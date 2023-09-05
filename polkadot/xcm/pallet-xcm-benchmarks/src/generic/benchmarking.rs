@@ -77,7 +77,7 @@ benchmarks! {
 		let mut executor = new_executor::<T>(Default::default());
 		let (query_id, response) = T::worst_case_response();
 		let max_weight = Weight::MAX;
-		let querier: Option<MultiLocation> = Some(Here.into());
+		let querier: Option<Location> = Some(Here.into());
 		let instruction = Instruction::QueryResponse { query_id, response, max_weight, querier };
 		let xcm = Xcm(vec![instruction]);
 	}: {
@@ -164,7 +164,7 @@ benchmarks! {
 	} verify {
 		assert_eq!(
 			executor.origin(),
-			&Some(MultiLocation {
+			&Some(Location {
 				parents: 0,
 				interior: who,
 			}),

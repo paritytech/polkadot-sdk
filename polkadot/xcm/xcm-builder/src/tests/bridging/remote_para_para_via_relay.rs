@@ -24,7 +24,7 @@ parameter_types! {
 	pub UniversalLocation: Junctions = [GlobalConsensus(Local::get())].into();
 	pub ParaBridgeUniversalLocation: Junctions = [GlobalConsensus(Local::get()), Parachain(1)].into();
 	pub RemoteParaBridgeUniversalLocation: Junctions = [GlobalConsensus(Remote::get()), Parachain(1)].into();
-	pub BridgeTable: Vec<(NetworkId, MultiLocation, Option<MultiAsset>)>
+	pub BridgeTable: Vec<(NetworkId, Location, Option<Asset>)>
 		= vec![(Remote::get(), Parachain(1).into(), None)];
 }
 type TheBridge = TestBridge<
@@ -55,7 +55,7 @@ fn sending_to_bridged_chain_works() {
 			send_xcm::<LocalRouter>((Parent, Remote::get(), Parachain(1)).into(), msg)
 				.unwrap()
 				.1,
-			MultiAssets::new()
+			Assets::new()
 		);
 		assert_eq!(TheBridge::service(), 1);
 		let expected = vec![(
@@ -100,7 +100,7 @@ fn sending_to_sibling_of_bridged_chain_works() {
 	maybe_with_topic(|| {
 		let msg = Xcm(vec![Trap(1)]);
 		let dest = (Parent, Remote::get(), Parachain(1000)).into();
-		assert_eq!(send_xcm::<LocalRouter>(dest, msg).unwrap().1, MultiAssets::new());
+		assert_eq!(send_xcm::<LocalRouter>(dest, msg).unwrap().1, Assets::new());
 		assert_eq!(TheBridge::service(), 1);
 		let expected = vec![(
 			(Parent, Parachain(1000)).into(),
@@ -144,7 +144,7 @@ fn sending_to_relay_of_bridged_chain_works() {
 	maybe_with_topic(|| {
 		let msg = Xcm(vec![Trap(1)]);
 		let dest = (Parent, Remote::get()).into();
-		assert_eq!(send_xcm::<LocalRouter>(dest, msg).unwrap().1, MultiAssets::new());
+		assert_eq!(send_xcm::<LocalRouter>(dest, msg).unwrap().1, Assets::new());
 		assert_eq!(TheBridge::service(), 1);
 		let expected = vec![(
 			Parent.into(),

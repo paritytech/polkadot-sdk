@@ -66,12 +66,12 @@ where
 	}
 }
 
-/// Accepts an asset if it is a native asset from a particular `MultiLocation`.
+/// Accepts an asset if it is a native asset from a particular `Location`.
 pub struct ConcreteNativeAssetFrom<Location>(PhantomData<Location>);
-impl<Location: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
+impl<Location: Get<Location>> ContainsPair<Asset, Location>
 	for ConcreteNativeAssetFrom<Location>
 {
-	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+	fn contains(asset: &Asset, origin: &Location) -> bool {
 		log::trace!(target: "xcm::filter_asset_location",
 			"ConcreteNativeAsset asset: {:?}, origin: {:?}, location: {:?}",
 			asset, origin, Location::get());

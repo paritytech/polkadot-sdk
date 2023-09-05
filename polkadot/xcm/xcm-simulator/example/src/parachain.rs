@@ -114,8 +114,8 @@ impl pallet_balances::Config for Runtime {
 #[cfg(feature = "runtime-benchmarks")]
 pub struct UniquesHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_uniques::BenchmarkHelper<MultiLocation, AssetInstance> for UniquesHelper {
-	fn collection(i: u16) -> MultiLocation {
+impl pallet_uniques::BenchmarkHelper<Location, AssetInstance> for UniquesHelper {
+	fn collection(i: u16) -> Location {
 		GeneralIndex(i as u128).into()
 	}
 	fn item(i: u16) -> AssetInstance {
@@ -125,7 +125,7 @@ impl pallet_uniques::BenchmarkHelper<MultiLocation, AssetInstance> for UniquesHe
 
 impl pallet_uniques::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type CollectionId = MultiLocation;
+	type CollectionId = Location;
 	type ItemId = AssetInstance;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators;
@@ -147,12 +147,12 @@ impl pallet_uniques::Config for Runtime {
 // `EnsureOriginWithArg` impl for `CreateOrigin` which allows only XCM origins
 // which are locations containing the class location.
 pub struct ForeignCreators;
-impl EnsureOriginWithArg<RuntimeOrigin, MultiLocation> for ForeignCreators {
+impl EnsureOriginWithArg<RuntimeOrigin, Location> for ForeignCreators {
 	type Success = AccountId;
 
 	fn try_origin(
 		o: RuntimeOrigin,
-		a: &MultiLocation,
+		a: &Location,
 	) -> sp_std::result::Result<Self::Success, RuntimeOrigin> {
 		let origin_location = pallet_xcm::EnsureXcm::<Everything>::try_origin(o.clone())?;
 		if !a.starts_with(&origin_location) {
@@ -162,7 +162,7 @@ impl EnsureOriginWithArg<RuntimeOrigin, MultiLocation> for ForeignCreators {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin(a: &MultiLocation) -> Result<RuntimeOrigin, ()> {
+	fn try_successful_origin(a: &Location) -> Result<RuntimeOrigin, ()> {
 		Ok(pallet_xcm::Origin::Xcm(a.clone()).into())
 	}
 }
@@ -173,9 +173,9 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub const KsmLocation: MultiLocation = MultiLocation::parent();
+	pub const KsmLocation: Location = Location::parent();
 	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
-	pub UniversalLocation: InteriorMultiLocation = Parachain(MsgQueue::parachain_id().into()).into();
+	pub UniversalLocation: InteriorLocation = Parachain(MsgQueue::parachain_id().into()).into();
 }
 
 pub type LocationToAccountId = (
@@ -196,14 +196,14 @@ parameter_types! {
 	pub KsmPerSecondPerByte: (AssetId, u128, u128) = (Concrete(Parent.into()), 1, 1);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
-	pub ForeignPrefix: MultiLocation = (Parent,).into();
+	pub ForeignPrefix: Location = (Parent,).into();
 }
 
 pub type LocalAssetTransactor = (
 	XcmCurrencyAdapter<Balances, IsConcrete<KsmLocation>, LocationToAccountId, AccountId, ()>,
 	NonFungiblesAdapter<
 		ForeignUniques,
-		ConvertedConcreteId<MultiLocation, AssetInstance, JustTry, JustTry>,
+		ConvertedConcreteId<Location, AssetInstance, JustTry, JustTry>,
 		SovereignAccountOf,
 		AccountId,
 		NoChecking,
@@ -215,9 +215,9 @@ pub type XcmRouter = super::ParachainXcmRouter<MsgQueue>;
 pub type Barrier = AllowUnpaidExecutionFrom<Everything>;
 
 parameter_types! {
-	pub NftCollectionOne: MultiAssetFilter
+	pub NftCollectionOne: AssetFilter
 		= Wild(AllOf { fun: WildNonFungible, id: Concrete((Parent, GeneralIndex(1)).into()) });
-	pub NftCollectionOneForRelay: (MultiAssetFilter, MultiLocation)
+	pub NftCollectionOneForRelay: (AssetFilter, Location)
 		= (NftCollectionOne::get(), (Parent,).into());
 }
 pub type TrustedTeleporters = xcm_builder::Case<NftCollectionOneForRelay>;
@@ -400,21 +400,21 @@ pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, R
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
+	pub ReachableDest: Option<Location> = Some(Parent.into());
 }
 
 pub struct TrustedLockerCase<T>(PhantomData<T>);
-impl<T: Get<(MultiLocation, MultiAssetFilter)>> ContainsPair<MultiLocation, MultiAsset>
+impl<T: Get<(Location, AssetFilter)>> ContainsPair<Location, Asset>
 	for TrustedLockerCase<T>
 {
-	fn contains(origin: &MultiLocation, asset: &MultiAsset) -> bool {
+	fn contains(origin: &Location, asset: &Asset) -> bool {
 		let (o, a) = T::get();
 		a.matches(asset) && &o == origin
 	}
 }
 
 parameter_types! {
-	pub RelayTokenForRelay: (MultiLocation, MultiAssetFilter) = (Parent.into(), Wild(AllOf { id: Concrete(Parent.into()), fun: WildFungible }));
+	pub RelayTokenForRelay: (Location, AssetFilter) = (Parent.into(), Wild(AllOf { id: Concrete(Parent.into()), fun: WildFungible }));
 }
 
 pub type TrustedLockers = TrustedLockerCase<RelayTokenForRelay>;

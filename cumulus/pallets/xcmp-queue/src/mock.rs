@@ -115,8 +115,8 @@ impl cumulus_pallet_parachain_system::Config for Test {
 }
 
 parameter_types! {
-	pub const RelayChain: MultiLocation = MultiLocation::parent();
-	pub UniversalLocation: InteriorMultiLocation = [Parachain(1u32)].into();
+	pub const RelayChain: Location = Location::parent();
+	pub UniversalLocation: InteriorLocation = [Parachain(1u32)].into();
 	pub UnitWeightCost: Weight = Weight::from_parts(1_000_000, 1024);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
@@ -128,7 +128,7 @@ pub type LocalAssetTransactor = CurrencyAdapter<
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<RelayChain>,
-	// Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
+	// Do a simple punn to convert an AccountId32 Location into a native chain account ID:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -177,9 +177,9 @@ impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
 	for SystemParachainAsSuperuser<RuntimeOrigin>
 {
 	fn convert_origin(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		kind: OriginKind,
-	) -> Result<RuntimeOrigin, MultiLocation> {
+	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
 		if kind == OriginKind::Superuser &&
 			matches!(

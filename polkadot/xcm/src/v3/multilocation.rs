@@ -18,7 +18,7 @@
 
 use super::{Junction, Junctions};
 use crate::{
-	v2::MultiLocation as OldMultiLocation, v4::MultiLocation as NewMultiLocation,
+	v2::MultiLocation as OldMultiLocation, v4::Location as NewMultiLocation,
 	VersionedMultiLocation,
 };
 use core::{
@@ -75,6 +75,8 @@ pub struct MultiLocation {
 	/// The interior (i.e. non-parent) junctions that this `MultiLocation` contains.
 	pub interior: Junctions,
 }
+
+pub type Location = MultiLocation;
 
 impl Default for MultiLocation {
 	fn default() -> Self {

@@ -17,7 +17,7 @@
 use parachains_common::AccountId;
 use xcm::{
 	prelude::{
-		AccountId32, All, BuyExecution, DepositAsset, MultiAsset, MultiAssets, MultiLocation,
+		AccountId32, All, BuyExecution, DepositAsset, Asset, Assets, Location,
 		OriginKind, RefundSurplus, Transact, UnpaidExecution, VersionedXcm, Weight, WeightLimit,
 		WithdrawAsset, Xcm,
 	},
@@ -28,12 +28,12 @@ use xcm::{
 pub fn xcm_transact_paid_execution(
 	call: DoubleEncoded<()>,
 	origin_kind: OriginKind,
-	native_asset: MultiAsset,
+	native_asset: Asset,
 	beneficiary: AccountId,
 ) -> VersionedXcm<()> {
 	let weight_limit = WeightLimit::Unlimited;
 	let require_weight_at_most = Weight::from_parts(1000000000, 200000);
-	let native_assets: MultiAssets = native_asset.clone().into();
+	let native_assets: Assets = native_asset.clone().into();
 
 	VersionedXcm::from(Xcm(vec![
 		WithdrawAsset(native_assets),
@@ -42,7 +42,7 @@ pub fn xcm_transact_paid_execution(
 		RefundSurplus,
 		DepositAsset {
 			assets: All.into(),
-			beneficiary: MultiLocation {
+			beneficiary: Location {
 				parents: 0,
 				interior: [AccountId32 { network: None, id: beneficiary.into() }].into(),
 			},

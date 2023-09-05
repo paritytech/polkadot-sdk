@@ -37,8 +37,8 @@ pub trait Config<I: 'static>: crate::Config<I> {
 	/// Returns destination which is valid for this router instance.
 	/// (Needs to pass `T::Bridges`)
 	/// Make sure that `SendXcm` will pass.
-	fn ensure_bridged_target_destination() -> MultiLocation {
-		MultiLocation::new(
+	fn ensure_bridged_target_destination() -> Location {
+		Location::new(
 			Self::UniversalLocation::get().len() as u8,
 			[GlobalConsensus(Self::BridgedNetworkId::get().unwrap())],
 		)

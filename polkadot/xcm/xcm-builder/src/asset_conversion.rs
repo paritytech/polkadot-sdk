@@ -23,19 +23,19 @@ use xcm::latest::prelude::*;
 use xcm_executor::traits::{Error as MatchError, MatchesFungibles, MatchesNonFungibles};
 
 /// Converter struct implementing `AssetIdConversion` converting a numeric asset ID (must be
-/// `TryFrom/TryInto<u128>`) into a `GeneralIndex` junction, prefixed by some `MultiLocation` value.
-/// The `MultiLocation` value will typically be a `PalletInstance` junction.
+/// `TryFrom/TryInto<u128>`) into a `GeneralIndex` junction, prefixed by some `Location` value.
+/// The `Location` value will typically be a `PalletInstance` junction.
 pub struct AsPrefixedGeneralIndex<Prefix, AssetId, ConvertAssetId>(
 	PhantomData<(Prefix, AssetId, ConvertAssetId)>,
 );
 impl<
-		Prefix: Get<MultiLocation>,
+		Prefix: Get<Location>,
 		AssetId: Clone,
 		ConvertAssetId: MaybeEquivalence<u128, AssetId>,
-	> MaybeEquivalence<MultiLocation, AssetId>
+	> MaybeEquivalence<Location, AssetId>
 	for AsPrefixedGeneralIndex<Prefix, AssetId, ConvertAssetId>
 {
-	fn convert(id: &MultiLocation) -> Option<AssetId> {
+	fn convert(id: &Location) -> Option<AssetId> {
 		let prefix = Prefix::get();
 		if prefix.parent_count() != id.parent_count() ||
 			prefix
@@ -51,7 +51,7 @@ impl<
 			_ => None,
 		}
 	}
-	fn convert_back(what: &AssetId) -> Option<MultiLocation> {
+	fn convert_back(what: &AssetId) -> Option<Location> {
 		let mut location = Prefix::get();
 		let id = ConvertAssetId::convert_back(what)?;
 		location.push_interior(Junction::GeneralIndex(id)).ok()?;
@@ -65,12 +65,12 @@ pub struct ConvertedConcreteId<AssetId, Balance, ConvertAssetId, ConvertOther>(
 impl<
 		AssetId: Clone,
 		Balance: Clone,
-		ConvertAssetId: MaybeEquivalence<MultiLocation, AssetId>,
+		ConvertAssetId: MaybeEquivalence<Location, AssetId>,
 		ConvertBalance: MaybeEquivalence<u128, Balance>,
 	> MatchesFungibles<AssetId, Balance>
 	for ConvertedConcreteId<AssetId, Balance, ConvertAssetId, ConvertBalance>
 {
-	fn matches_fungibles(a: &MultiAsset) -> result::Result<(AssetId, Balance), MatchError> {
+	fn matches_fungibles(a: &Asset) -> result::Result<(AssetId, Balance), MatchError> {
 		let (amount, id) = match (&a.fun, &a.id) {
 			(Fungible(ref amount), Concrete(ref id)) => (amount, id),
 			_ => return Err(MatchError::AssetNotHandled),
@@ -84,12 +84,12 @@ impl<
 impl<
 		ClassId: Clone,
 		InstanceId: Clone,
-		ConvertClassId: MaybeEquivalence<MultiLocation, ClassId>,
+		ConvertClassId: MaybeEquivalence<Location, ClassId>,
 		ConvertInstanceId: MaybeEquivalence<AssetInstance, InstanceId>,
 	> MatchesNonFungibles<ClassId, InstanceId>
 	for ConvertedConcreteId<ClassId, InstanceId, ConvertClassId, ConvertInstanceId>
 {
-	fn matches_nonfungibles(a: &MultiAsset) -> result::Result<(ClassId, InstanceId), MatchError> {
+	fn matches_nonfungibles(a: &Asset) -> result::Result<(ClassId, InstanceId), MatchError> {
 		let (instance, class) = match (&a.fun, &a.id) {
 			(NonFungible(ref instance), Concrete(ref class)) => (instance, class),
 			_ => return Err(MatchError::AssetNotHandled),
@@ -112,7 +112,7 @@ impl<
 	> MatchesFungibles<AssetId, Balance>
 	for ConvertedAbstractId<AssetId, Balance, ConvertAssetId, ConvertBalance>
 {
-	fn matches_fungibles(a: &MultiAsset) -> result::Result<(AssetId, Balance), MatchError> {
+	fn matches_fungibles(a: &Asset) -> result::Result<(AssetId, Balance), MatchError> {
 		let (amount, id) = match (&a.fun, &a.id) {
 			(Fungible(ref amount), Abstract(ref id)) => (amount, id),
 			_ => return Err(MatchError::AssetNotHandled),
@@ -131,7 +131,7 @@ impl<
 	> MatchesNonFungibles<ClassId, InstanceId>
 	for ConvertedAbstractId<ClassId, InstanceId, ConvertClassId, ConvertInstanceId>
 {
-	fn matches_nonfungibles(a: &MultiAsset) -> result::Result<(ClassId, InstanceId), MatchError> {
+	fn matches_nonfungibles(a: &Asset) -> result::Result<(ClassId, InstanceId), MatchError> {
 		let (instance, class) = match (&a.fun, &a.id) {
 			(NonFungible(ref instance), Abstract(ref class)) => (instance, class),
 			_ => return Err(MatchError::AssetNotHandled),
@@ -154,13 +154,13 @@ pub struct MatchedConvertedConcreteId<AssetId, Balance, MatchAssetId, ConvertAss
 impl<
 		AssetId: Clone,
 		Balance: Clone,
-		MatchAssetId: Contains<MultiLocation>,
-		ConvertAssetId: MaybeEquivalence<MultiLocation, AssetId>,
+		MatchAssetId: Contains<Location>,
+		ConvertAssetId: MaybeEquivalence<Location, AssetId>,
 		ConvertBalance: MaybeEquivalence<u128, Balance>,
 	> MatchesFungibles<AssetId, Balance>
 	for MatchedConvertedConcreteId<AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance>
 {
-	fn matches_fungibles(a: &MultiAsset) -> result::Result<(AssetId, Balance), MatchError> {
+	fn matches_fungibles(a: &Asset) -> result::Result<(AssetId, Balance), MatchError> {
 		let (amount, id) = match (&a.fun, &a.id) {
 			(Fungible(ref amount), Concrete(ref id)) if MatchAssetId::contains(id) => (amount, id),
 			_ => return Err(MatchError::AssetNotHandled),
@@ -174,13 +174,13 @@ impl<
 impl<
 		ClassId: Clone,
 		InstanceId: Clone,
-		MatchClassId: Contains<MultiLocation>,
-		ConvertClassId: MaybeEquivalence<MultiLocation, ClassId>,
+		MatchClassId: Contains<Location>,
+		ConvertClassId: MaybeEquivalence<Location, ClassId>,
 		ConvertInstanceId: MaybeEquivalence<AssetInstance, InstanceId>,
 	> MatchesNonFungibles<ClassId, InstanceId>
 	for MatchedConvertedConcreteId<ClassId, InstanceId, MatchClassId, ConvertClassId, ConvertInstanceId>
 {
-	fn matches_nonfungibles(a: &MultiAsset) -> result::Result<(ClassId, InstanceId), MatchError> {
+	fn matches_nonfungibles(a: &Asset) -> result::Result<(ClassId, InstanceId), MatchError> {
 		let (instance, class) = match (&a.fun, &a.id) {
 			(NonFungible(ref instance), Concrete(ref class)) if MatchClassId::contains(class) =>
 				(instance, class),
@@ -200,10 +200,10 @@ mod tests {
 	use xcm_executor::traits::JustTry;
 
 	struct OnlyParentZero;
-	impl Contains<MultiLocation> for OnlyParentZero {
-		fn contains(a: &MultiLocation) -> bool {
+	impl Contains<Location> for OnlyParentZero {
+		fn contains(a: &Location) -> bool {
 			match a {
-				MultiLocation { parents: 0, .. } => true,
+				Location { parents: 0, .. } => true,
 				_ => false,
 			}
 		}
@@ -214,7 +214,7 @@ mod tests {
 		type AssetIdForTrustBackedAssets = u32;
 		type Balance = u128;
 		frame_support::parameter_types! {
-			pub TrustBackedAssetsPalletLocation: MultiLocation = PalletInstance(50).into();
+			pub TrustBackedAssetsPalletLocation: Location = PalletInstance(50).into();
 		}
 
 		// ConvertedConcreteId cfg
@@ -231,13 +231,13 @@ mod tests {
 		>;
 		assert_eq!(
 			TrustBackedAssetsPalletLocation::get(),
-			MultiLocation { parents: 0, interior: [PalletInstance(50)].into() }
+			Location { parents: 0, interior: [PalletInstance(50)].into() }
 		);
 
 		// err - does not match
 		assert_eq!(
-			Converter::matches_fungibles(&MultiAsset {
-				id: Concrete(MultiLocation::new(1, [PalletInstance(50), GeneralIndex(1)])),
+			Converter::matches_fungibles(&Asset {
+				id: Concrete(Location::new(1, [PalletInstance(50), GeneralIndex(1)])),
 				fun: Fungible(12345),
 			}),
 			Err(MatchError::AssetNotHandled)
@@ -245,8 +245,8 @@ mod tests {
 
 		// err - matches, but convert fails
 		assert_eq!(
-			Converter::matches_fungibles(&MultiAsset {
-				id: Concrete(MultiLocation::new(
+			Converter::matches_fungibles(&Asset {
+				id: Concrete(Location::new(
 					0,
 					[PalletInstance(50), GeneralKey { length: 1, data: [1; 32] }]
 				)),
@@ -257,8 +257,8 @@ mod tests {
 
 		// err - matches, but NonFungible
 		assert_eq!(
-			Converter::matches_fungibles(&MultiAsset {
-				id: Concrete(MultiLocation::new(0, [PalletInstance(50), GeneralIndex(1)])),
+			Converter::matches_fungibles(&Asset {
+				id: Concrete(Location::new(0, [PalletInstance(50), GeneralIndex(1)])),
 				fun: NonFungible(Index(54321)),
 			}),
 			Err(MatchError::AssetNotHandled)
@@ -266,8 +266,8 @@ mod tests {
 
 		// ok
 		assert_eq!(
-			Converter::matches_fungibles(&MultiAsset {
-				id: Concrete(MultiLocation::new(0, [PalletInstance(50), GeneralIndex(1)])),
+			Converter::matches_fungibles(&Asset {
+				id: Concrete(Location::new(0, [PalletInstance(50), GeneralIndex(1)])),
 				fun: Fungible(12345),
 			}),
 			Ok((1, 12345))
@@ -279,7 +279,7 @@ mod tests {
 		type ClassId = u32;
 		type ClassInstanceId = u64;
 		frame_support::parameter_types! {
-			pub TrustBackedAssetsPalletLocation: MultiLocation = PalletInstance(50).into();
+			pub TrustBackedAssetsPalletLocation: Location = PalletInstance(50).into();
 		}
 
 		// ConvertedConcreteId cfg
@@ -303,13 +303,13 @@ mod tests {
 		>;
 		assert_eq!(
 			TrustBackedAssetsPalletLocation::get(),
-			MultiLocation { parents: 0, interior: [PalletInstance(50)].into() }
+			Location { parents: 0, interior: [PalletInstance(50)].into() }
 		);
 
 		// err - does not match
 		assert_eq!(
-			Converter::matches_nonfungibles(&MultiAsset {
-				id: Concrete(MultiLocation::new(1, [PalletInstance(50), GeneralIndex(1)])),
+			Converter::matches_nonfungibles(&Asset {
+				id: Concrete(Location::new(1, [PalletInstance(50), GeneralIndex(1)])),
 				fun: NonFungible(Index(54321)),
 			}),
 			Err(MatchError::AssetNotHandled)
@@ -317,8 +317,8 @@ mod tests {
 
 		// err - matches, but convert fails
 		assert_eq!(
-			Converter::matches_nonfungibles(&MultiAsset {
-				id: Concrete(MultiLocation::new(
+			Converter::matches_nonfungibles(&Asset {
+				id: Concrete(Location::new(
 					0,
 					[PalletInstance(50), GeneralKey { length: 1, data: [1; 32] }]
 				)),
@@ -329,8 +329,8 @@ mod tests {
 
 		// err - matches, but Fungible vs NonFungible
 		assert_eq!(
-			Converter::matches_nonfungibles(&MultiAsset {
-				id: Concrete(MultiLocation::new(0, [PalletInstance(50), GeneralIndex(1)])),
+			Converter::matches_nonfungibles(&Asset {
+				id: Concrete(Location::new(0, [PalletInstance(50), GeneralIndex(1)])),
 				fun: Fungible(12345),
 			}),
 			Err(MatchError::AssetNotHandled)
@@ -338,8 +338,8 @@ mod tests {
 
 		// ok
 		assert_eq!(
-			Converter::matches_nonfungibles(&MultiAsset {
-				id: Concrete(MultiLocation::new(0, [PalletInstance(50), GeneralIndex(1)])),
+			Converter::matches_nonfungibles(&Asset {
+				id: Concrete(Location::new(0, [PalletInstance(50), GeneralIndex(1)])),
 				fun: NonFungible(Index(54321)),
 			}),
 			Ok((1, 54321))

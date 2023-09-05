@@ -258,9 +258,9 @@ macro_rules! __impl_ext {
 }
 
 thread_local! {
-	pub static PARA_MESSAGE_BUS: RefCell<VecDeque<(ParaId, MultiLocation, Xcm<()>)>>
+	pub static PARA_MESSAGE_BUS: RefCell<VecDeque<(ParaId, Location, Xcm<()>)>>
 		= RefCell::new(VecDeque::new());
-	pub static RELAY_MESSAGE_BUS: RefCell<VecDeque<(MultiLocation, Xcm<()>)>>
+	pub static RELAY_MESSAGE_BUS: RefCell<VecDeque<(Location, Xcm<()>)>>
 		= RefCell::new(VecDeque::new());
 }
 
@@ -382,11 +382,11 @@ macro_rules! decl_test_network {
 		pub struct ParachainXcmRouter<T>($crate::PhantomData<T>);
 
 		impl<T: $crate::Get<$crate::ParaId>> $crate::SendXcm for ParachainXcmRouter<T> {
-			type Ticket = ($crate::ParaId, $crate::MultiLocation, $crate::Xcm<()>);
+			type Ticket = ($crate::ParaId, $crate::Location, $crate::Xcm<()>);
 			fn validate(
-				destination: &mut Option<$crate::MultiLocation>,
+				destination: &mut Option<$crate::Location>,
 				message: &mut Option<$crate::Xcm<()>>,
-			) -> $crate::SendResult<($crate::ParaId, $crate::MultiLocation, $crate::Xcm<()>)> {
+			) -> $crate::SendResult<($crate::ParaId, $crate::Location, $crate::Xcm<()>)> {
 				use $crate::XcmpMessageHandlerT;
 
 				let d = destination.take().ok_or($crate::SendError::MissingArgument)?;
@@ -401,10 +401,10 @@ macro_rules! decl_test_network {
 					},
 				}
 				let m = message.take().ok_or($crate::SendError::MissingArgument)?;
-				Ok(((T::get(), d, m), $crate::MultiAssets::new()))
+				Ok(((T::get(), d, m), $crate::Assets::new()))
 			}
 			fn deliver(
-				triple: ($crate::ParaId, $crate::MultiLocation, $crate::Xcm<()>),
+				triple: ($crate::ParaId, $crate::Location, $crate::Xcm<()>),
 			) -> Result<$crate::XcmHash, $crate::SendError> {
 				let hash = $crate::fake_message_hash(&triple.2);
 				$crate::PARA_MESSAGE_BUS.with(|b| b.borrow_mut().push_back(triple));
@@ -415,11 +415,11 @@ macro_rules! decl_test_network {
 		/// XCM router for relay chain.
 		pub struct RelayChainXcmRouter;
 		impl $crate::SendXcm for RelayChainXcmRouter {
-			type Ticket = ($crate::MultiLocation, $crate::Xcm<()>);
+			type Ticket = ($crate::Location, $crate::Xcm<()>);
 			fn validate(
-				destination: &mut Option<$crate::MultiLocation>,
+				destination: &mut Option<$crate::Location>,
 				message: &mut Option<$crate::Xcm<()>>,
-			) -> $crate::SendResult<($crate::MultiLocation, $crate::Xcm<()>)> {
+			) -> $crate::SendResult<($crate::Location, $crate::Xcm<()>)> {
 				use $crate::DmpMessageHandlerT;
 
 				let d = destination.take().ok_or($crate::SendError::MissingArgument)?;
@@ -433,10 +433,10 @@ macro_rules! decl_test_network {
 					},
 				}
 				let m = message.take().ok_or($crate::SendError::MissingArgument)?;
-				Ok(((d, m), $crate::MultiAssets::new()))
+				Ok(((d, m), $crate::Assets::new()))
 			}
 			fn deliver(
-				pair: ($crate::MultiLocation, $crate::Xcm<()>),
+				pair: ($crate::Location, $crate::Xcm<()>),
 			) -> Result<$crate::XcmHash, $crate::SendError> {
 				let hash = $crate::fake_message_hash(&pair.1);
 				$crate::RELAY_MESSAGE_BUS.with(|b| b.borrow_mut().push_back(pair));

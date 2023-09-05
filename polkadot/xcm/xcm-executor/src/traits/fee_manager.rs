@@ -19,11 +19,11 @@ use xcm::prelude::*;
 /// Handle stuff to do with taking fees in certain XCM instructions.
 pub trait FeeManager {
 	/// Determine if a fee which would normally payable should be waived.
-	fn is_waived(origin: Option<&MultiLocation>, r: FeeReason) -> bool;
+	fn is_waived(origin: Option<&Location>, r: FeeReason) -> bool;
 
 	/// Do something with the fee which has been paid. Doing nothing here silently burns the
 	/// fees.
-	fn handle_fee(fee: MultiAssets);
+	fn handle_fee(fee: Assets);
 }
 
 /// Context under which a fee is paid.
@@ -52,8 +52,8 @@ pub enum FeeReason {
 }
 
 impl FeeManager for () {
-	fn is_waived(_: Option<&MultiLocation>, _: FeeReason) -> bool {
+	fn is_waived(_: Option<&Location>, _: FeeReason) -> bool {
 		true
 	}
-	fn handle_fee(_: MultiAssets) {}
+	fn handle_fee(_: Assets) {}
 }

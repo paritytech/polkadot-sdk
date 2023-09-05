@@ -30,7 +30,7 @@ use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 /// ownership of some `Interior` location of the local chain to a particular `Beneficiary`. The
 /// `AssetKind` value is not itself bounded (to avoid the issue of needing to wrap some preexisting
 /// datatype), however a converter type `AssetKindToLocatableAsset` must be provided in order to
-/// translate it into a `LocatableAsset`, which comprises both an XCM `MultiLocation` describing
+/// translate it into a `LocatableAsset`, which comprises both an XCM `Location` describing
 /// the XCM endpoint on which the asset to be paid resides and an XCM `AssetId` to identify the
 /// specific asset at that endpoint.
 ///
@@ -65,14 +65,14 @@ pub struct PayOverXcm<
 	)>,
 );
 impl<
-		Interior: Get<InteriorMultiLocation>,
+		Interior: Get<InteriorLocation>,
 		Router: SendXcm,
 		Querier: QueryHandler,
 		Timeout: Get<Querier::BlockNumber>,
 		Beneficiary: Clone,
 		AssetKind,
 		AssetKindToLocatableAsset: Convert<AssetKind, LocatableAssetId>,
-		BeneficiaryRefToLocation: for<'a> Convert<&'a Beneficiary, MultiLocation>,
+		BeneficiaryRefToLocation: for<'a> Convert<&'a Beneficiary, Location>,
 	> Pay
 	for PayOverXcm<
 		Interior,
@@ -115,7 +115,7 @@ impl<
 			})])),
 			TransferAsset {
 				beneficiary,
-				assets: vec![MultiAsset { id: asset_id, fun: Fungibility::Fungible(amount) }]
+				assets: vec![Asset { id: asset_id, fun: Fungibility::Fungible(amount) }]
 					.into(),
 			},
 		]);
@@ -190,16 +190,16 @@ pub struct LocatableAssetId {
 	/// The asset's ID.
 	pub asset_id: AssetId,
 	/// The (relative) location in which the asset ID is meaningful.
-	pub location: MultiLocation,
+	pub location: Location,
 }
 
 /// Adapter `struct` which implements a conversion from any `AssetKind` into a [`LocatableAssetId`]
 /// value using a fixed `Location` for the `location` field.
-pub struct FixedLocation<Location>(sp_std::marker::PhantomData<Location>);
-impl<Location: Get<MultiLocation>, AssetKind: Into<AssetId>> Convert<AssetKind, LocatableAssetId>
-	for FixedLocation<Location>
+pub struct FixedLocation<FixedLocationValue>(sp_std::marker::PhantomData<FixedLocationValue>);
+impl<FixedLocationValue: Get<Location>, AssetKind: Into<AssetId>> Convert<AssetKind, LocatableAssetId>
+	for FixedLocation<FixedLocationValue>
 {
 	fn convert(value: AssetKind) -> LocatableAssetId {
-		LocatableAssetId { asset_id: value.into(), location: Location::get() }
+		LocatableAssetId { asset_id: value.into(), location: FixedLocationValue::get() }
 	}
 }

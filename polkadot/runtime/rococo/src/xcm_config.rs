@@ -46,9 +46,9 @@ use xcm_builder::{
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
 parameter_types! {
-	pub TokenLocation: MultiLocation = Here.into_location();
+	pub TokenLocation: Location = Here.into_location();
 	pub const ThisNetwork: NetworkId = NetworkId::Rococo;
-	pub UniversalLocation: InteriorMultiLocation = ThisNetwork::get().into();
+	pub UniversalLocation: InteriorLocation = ThisNetwork::get().into();
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	pub LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
 }
@@ -57,7 +57,7 @@ pub type LocationConverter =
 	(ChildParachainConvertsVia<ParaId, AccountId>, AccountId32Aliases<ThisNetwork, AccountId>);
 
 /// Our asset transactor. This is what allows us to interest with the runtime facilities from the
-/// point of view of XCM-only concepts like `MultiLocation` and `MultiAsset`.
+/// point of view of XCM-only concepts like `Location` and `Asset`.
 ///
 /// Ours is only aware of the Balances pallet, which is mapped to `RocLocation`.
 pub type LocalAssetTransactor = XcmCurrencyAdapter<
@@ -65,7 +65,7 @@ pub type LocalAssetTransactor = XcmCurrencyAdapter<
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<TokenLocation>,
-	// We can convert the MultiLocations with our converter above:
+	// We can convert the Locations with our converter above:
 	LocationConverter,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -106,19 +106,19 @@ pub type XcmRouter = WithUniqueTopic<(
 )>;
 
 parameter_types! {
-	pub Roc: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
-	pub Rockmine: MultiLocation = Parachain(1000).into_location();
-	pub Contracts: MultiLocation = Parachain(1002).into_location();
-	pub Encointer: MultiLocation = Parachain(1003).into_location();
-	pub Tick: MultiLocation = Parachain(100).into_location();
-	pub Trick: MultiLocation = Parachain(110).into_location();
-	pub Track: MultiLocation = Parachain(120).into_location();
-	pub RocForTick: (MultiAssetFilter, MultiLocation) = (Roc::get(), Tick::get());
-	pub RocForTrick: (MultiAssetFilter, MultiLocation) = (Roc::get(), Trick::get());
-	pub RocForTrack: (MultiAssetFilter, MultiLocation) = (Roc::get(), Track::get());
-	pub RocForRockmine: (MultiAssetFilter, MultiLocation) = (Roc::get(), Rockmine::get());
-	pub RocForContracts: (MultiAssetFilter, MultiLocation) = (Roc::get(), Contracts::get());
-	pub RocForEncointer: (MultiAssetFilter, MultiLocation) = (Roc::get(), Encointer::get());
+	pub Roc: AssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
+	pub Rockmine: Location = Parachain(1000).into_location();
+	pub Contracts: Location = Parachain(1002).into_location();
+	pub Encointer: Location = Parachain(1003).into_location();
+	pub Tick: Location = Parachain(100).into_location();
+	pub Trick: Location = Parachain(110).into_location();
+	pub Track: Location = Parachain(120).into_location();
+	pub RocForTick: (AssetFilter, Location) = (Roc::get(), Tick::get());
+	pub RocForTrick: (AssetFilter, Location) = (Roc::get(), Trick::get());
+	pub RocForTrack: (AssetFilter, Location) = (Roc::get(), Track::get());
+	pub RocForRockmine: (AssetFilter, Location) = (Roc::get(), Rockmine::get());
+	pub RocForContracts: (AssetFilter, Location) = (Roc::get(), Contracts::get());
+	pub RocForEncointer: (AssetFilter, Location) = (Roc::get(), Encointer::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -132,8 +132,8 @@ pub type TrustedTeleporters = (
 );
 
 pub struct OnlyParachains;
-impl Contains<MultiLocation> for OnlyParachains {
-	fn contains(loc: &MultiLocation) -> bool {
+impl Contains<Location> for OnlyParachains {
+	fn contains(loc: &Location) -> bool {
 		matches!(loc.unpack(), (0, [Parachain(_)]))
 	}
 }
@@ -325,10 +325,10 @@ impl xcm_executor::Config for XcmConfig {
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
+	pub ReachableDest: Option<Location> = Some(Parachain(1000).into());
 }
 
-/// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
+/// Type to convert an `Origin` type value into a `Location` value which represents an interior
 /// location of this chain.
 pub type LocalOriginToLocation = (
 	// A usual Signed origin to be used in XCM as a corresponding AccountId32

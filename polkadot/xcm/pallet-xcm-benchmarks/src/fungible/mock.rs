@@ -101,10 +101,10 @@ parameter_types! {
 
 pub struct MatchAnyFungible;
 impl xcm_executor::traits::MatchesFungible<u64> for MatchAnyFungible {
-	fn matches_fungible(m: &MultiAsset) -> Option<u64> {
+	fn matches_fungible(m: &Asset) -> Option<u64> {
 		use sp_runtime::traits::SaturatedConversion;
 		match m {
-			MultiAsset { fun: Fungible(amount), .. } => Some((*amount).saturated_into::<u64>()),
+			Asset { fun: Fungible(amount), .. } => Some((*amount).saturated_into::<u64>()),
 			_ => None,
 		}
 	}
@@ -157,13 +157,13 @@ impl xcm_executor::Config for XcmConfig {
 impl crate::Config for Test {
 	type XcmConfig = XcmConfig;
 	type AccountIdConverter = AccountIdConverter;
-	fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
-		let valid_destination: MultiLocation =
+	fn valid_destination() -> Result<Location, BenchmarkError> {
+		let valid_destination: Location =
 			[AccountId32 { network: None, id: [0u8; 32] }].into();
 
 		Ok(valid_destination)
 	}
-	fn worst_case_holding(depositable_count: u32) -> MultiAssets {
+	fn worst_case_holding(depositable_count: u32) -> Assets {
 		crate::mock_worst_case_holding(
 			depositable_count,
 			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get(),
@@ -176,18 +176,18 @@ pub type TrustedReserves = xcm_builder::Case<ReserveConcreteFungible>;
 
 parameter_types! {
 	pub const CheckingAccount: Option<(u64, MintLocation)> = Some((100, MintLocation::Local));
-	pub ChildTeleporter: MultiLocation = Parachain(1000).into_location();
-	pub TrustedTeleporter: Option<(MultiLocation, MultiAsset)> = Some((
+	pub ChildTeleporter: Location = Parachain(1000).into_location();
+	pub TrustedTeleporter: Option<(Location, Asset)> = Some((
 		ChildTeleporter::get(),
-		MultiAsset { id: Concrete(Here.into_location()), fun: Fungible(100) },
+		Asset { id: Concrete(Here.into_location()), fun: Fungible(100) },
 	));
-	pub TrustedReserve: Option<(MultiLocation, MultiAsset)> = Some((
+	pub TrustedReserve: Option<(Location, Asset)> = Some((
 		ChildTeleporter::get(),
-		MultiAsset { id: Concrete(Here.into_location()), fun: Fungible(100) },
+		Asset { id: Concrete(Here.into_location()), fun: Fungible(100) },
 	));
-	pub TeleportConcreteFungible: (MultiAssetFilter, MultiLocation) =
+	pub TeleportConcreteFungible: (AssetFilter, Location) =
 		(Wild(AllOf { fun: WildFungible, id: Concrete(Here.into_location()) }), ChildTeleporter::get());
-	pub ReserveConcreteFungible: (MultiAssetFilter, MultiLocation) =
+	pub ReserveConcreteFungible: (AssetFilter, Location) =
 		(Wild(AllOf { fun: WildFungible, id: Concrete(Here.into_location()) }), ChildTeleporter::get());
 }
 
@@ -197,10 +197,10 @@ impl xcm_balances_benchmark::Config for Test {
 	type TrustedTeleporter = TrustedTeleporter;
 	type TrustedReserve = TrustedReserve;
 
-	fn get_multi_asset() -> MultiAsset {
+	fn get_multi_asset() -> Asset {
 		let amount =
 			<Balances as frame_support::traits::fungible::Inspect<u64>>::minimum_balance() as u128;
-		MultiAsset { id: Concrete(Here.into()), fun: Fungible(amount) }
+		Asset { id: Concrete(Here.into()), fun: Fungible(amount) }
 	}
 }
 

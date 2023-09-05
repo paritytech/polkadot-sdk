@@ -102,7 +102,7 @@ pub mod pallet {
 		/// The origin that is allowed to resume or suspend the XCMP queue.
 		type ControllerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The conversion function used to attempt to convert an XCM `MultiLocation` origin to a
+		/// The conversion function used to attempt to convert an XCM `Location` origin to a
 		/// superuser origin.
 		type ControllerOriginConverter: ConvertOrigin<Self::RuntimeOrigin>;
 
@@ -1142,7 +1142,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 	type Ticket = (ParaId, VersionedXcm<()>);
 
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(ParaId, VersionedXcm<()>)> {
 		let d = dest.take().ok_or(SendError::MissingArgument)?;

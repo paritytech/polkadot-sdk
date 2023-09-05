@@ -148,8 +148,8 @@ fn weight_bounds_should_respect_instructions_limit() {
 
 #[test]
 fn weight_trader_tuple_should_work() {
-	let para_1: MultiLocation = Parachain(1).into();
-	let para_2: MultiLocation = Parachain(2).into();
+	let para_1: Location = Parachain(1).into();
+	let para_2: Location = Parachain(2).into();
 
 	parameter_types! {
 		pub static HereWeightPrice: (AssetId, u128, u128) =

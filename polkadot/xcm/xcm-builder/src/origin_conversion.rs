@@ -21,7 +21,7 @@ use frame_system::RawOrigin as SystemRawOrigin;
 use polkadot_parachain_primitives::primitives::IsSystem;
 use sp_runtime::traits::TryConvert;
 use sp_std::marker::PhantomData;
-use xcm::latest::{BodyId, BodyPart, Junction, Junctions::*, MultiLocation, NetworkId, OriginKind};
+use xcm::latest::{BodyId, BodyPart, Junction, Junctions::*, Location, NetworkId, OriginKind};
 use xcm_executor::traits::{ConvertLocation, ConvertOrigin};
 
 /// Sovereign accounts use the system's `Signed` origin with an account ID derived from the
@@ -35,9 +35,9 @@ where
 	RuntimeOrigin::AccountId: Clone,
 {
 	fn convert_origin(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		kind: OriginKind,
-	) -> Result<RuntimeOrigin, MultiLocation> {
+	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
 		log::trace!(
 			target: "xcm::origin_conversion",
@@ -56,9 +56,9 @@ where
 pub struct ParentAsSuperuser<RuntimeOrigin>(PhantomData<RuntimeOrigin>);
 impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin> for ParentAsSuperuser<RuntimeOrigin> {
 	fn convert_origin(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		kind: OriginKind,
-	) -> Result<RuntimeOrigin, MultiLocation> {
+	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
 		log::trace!(target: "xcm::origin_conversion", "ParentAsSuperuser origin: {:?}, kind: {:?}", origin, kind);
 		if kind == OriginKind::Superuser && origin.contains_parents_only(1) {
@@ -76,9 +76,9 @@ impl<ParaId: IsSystem + From<u32>, RuntimeOrigin: OriginTrait> ConvertOrigin<Run
 	for ChildSystemParachainAsSuperuser<ParaId, RuntimeOrigin>
 {
 	fn convert_origin(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		kind: OriginKind,
-	) -> Result<RuntimeOrigin, MultiLocation> {
+	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
 		log::trace!(target: "xcm::origin_conversion", "ChildSystemParachainAsSuperuser origin: {:?}, kind: {:?}", origin, kind);
 		match (kind, origin.unpack()) {
@@ -97,9 +97,9 @@ impl<ParaId: IsSystem + From<u32>, RuntimeOrigin: OriginTrait> ConvertOrigin<Run
 	for SiblingSystemParachainAsSuperuser<ParaId, RuntimeOrigin>
 {
 	fn convert_origin(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		kind: OriginKind,
-	) -> Result<RuntimeOrigin, MultiLocation> {
+	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
 		log::trace!(
 			target: "xcm::origin_conversion",
@@ -122,9 +122,9 @@ impl<ParachainOrigin: From<u32>, RuntimeOrigin: From<ParachainOrigin>> ConvertOr
 	for ChildParachainAsNative<ParachainOrigin, RuntimeOrigin>
 {
 	fn convert_origin(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		kind: OriginKind,
-	) -> Result<RuntimeOrigin, MultiLocation> {
+	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
 		log::trace!(target: "xcm::origin_conversion", "ChildParachainAsNative origin: {:?}, kind: {:?}", origin, kind);
 		match (kind, origin.unpack()) {
@@ -142,9 +142,9 @@ impl<ParachainOrigin: From<u32>, RuntimeOrigin: From<ParachainOrigin>> ConvertOr
 	for SiblingParachainAsNative<ParachainOrigin, RuntimeOrigin>
 {
 	fn convert_origin(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		kind: OriginKind,
-	) -> Result<RuntimeOrigin, MultiLocation> {
+	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
 		log::trace!(
 			target: "xcm::origin_conversion",
@@ -167,9 +167,9 @@ impl<RelayOrigin: Get<RuntimeOrigin>, RuntimeOrigin> ConvertOrigin<RuntimeOrigin
 	for RelayChainAsNative<RelayOrigin, RuntimeOrigin>
 {
 	fn convert_origin(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		kind: OriginKind,
-	) -> Result<RuntimeOrigin, MultiLocation> {
+	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
 		log::trace!(target: "xcm::origin_conversion", "RelayChainAsNative origin: {:?}, kind: {:?}", origin, kind);
 		if kind == OriginKind::Native && origin.contains_parents_only(1) {
@@ -187,9 +187,9 @@ where
 	RuntimeOrigin::AccountId: From<[u8; 32]>,
 {
 	fn convert_origin(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		kind: OriginKind,
-	) -> Result<RuntimeOrigin, MultiLocation> {
+	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
 		log::trace!(
 			target: "xcm::origin_conversion",
@@ -214,9 +214,9 @@ where
 	RuntimeOrigin::AccountId: From<[u8; 20]>,
 {
 	fn convert_origin(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		kind: OriginKind,
-	) -> Result<RuntimeOrigin, MultiLocation> {
+	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
 		log::trace!(
 			target: "xcm::origin_conversion",
@@ -234,12 +234,12 @@ where
 
 /// `EnsureOrigin` barrier to convert from dispatch origin to XCM origin, if one exists.
 pub struct EnsureXcmOrigin<RuntimeOrigin, Conversion>(PhantomData<(RuntimeOrigin, Conversion)>);
-impl<RuntimeOrigin: OriginTrait + Clone, Conversion: TryConvert<RuntimeOrigin, MultiLocation>>
+impl<RuntimeOrigin: OriginTrait + Clone, Conversion: TryConvert<RuntimeOrigin, Location>>
 	EnsureOrigin<RuntimeOrigin> for EnsureXcmOrigin<RuntimeOrigin, Conversion>
 where
 	RuntimeOrigin::PalletsOrigin: PartialEq,
 {
-	type Success = MultiLocation;
+	type Success = Location;
 	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
 		let o = match Conversion::try_convert(o) {
 			Ok(location) => return Ok(location),
@@ -272,13 +272,13 @@ impl<
 		RuntimeOrigin: OriginTrait + Clone,
 		AccountId: Into<[u8; 32]>,
 		Network: Get<Option<NetworkId>>,
-	> TryConvert<RuntimeOrigin, MultiLocation>
+	> TryConvert<RuntimeOrigin, Location>
 	for SignedToAccountId32<RuntimeOrigin, AccountId, Network>
 where
 	RuntimeOrigin::PalletsOrigin: From<SystemRawOrigin<AccountId>>
 		+ TryInto<SystemRawOrigin<AccountId>, Error = RuntimeOrigin::PalletsOrigin>,
 {
-	fn try_convert(o: RuntimeOrigin) -> Result<MultiLocation, RuntimeOrigin> {
+	fn try_convert(o: RuntimeOrigin) -> Result<Location, RuntimeOrigin> {
 		o.try_with_caller(|caller| match caller.try_into() {
 			Ok(SystemRawOrigin::Signed(who)) =>
 				Ok(Junction::AccountId32 { network: Network::get(), id: who.into() }.into()),
@@ -289,7 +289,7 @@ where
 }
 
 /// `Convert` implementation to convert from some an origin which implements `Backing` into a
-/// corresponding `Plurality` `MultiLocation`.
+/// corresponding `Plurality` `Location`.
 ///
 /// Typically used when configuring `pallet-xcm` for allowing a collective's Origin to dispatch an
 /// XCM from a `Plurality` origin.
@@ -297,12 +297,12 @@ pub struct BackingToPlurality<RuntimeOrigin, COrigin, Body>(
 	PhantomData<(RuntimeOrigin, COrigin, Body)>,
 );
 impl<RuntimeOrigin: OriginTrait + Clone, COrigin: GetBacking, Body: Get<BodyId>>
-	TryConvert<RuntimeOrigin, MultiLocation> for BackingToPlurality<RuntimeOrigin, COrigin, Body>
+	TryConvert<RuntimeOrigin, Location> for BackingToPlurality<RuntimeOrigin, COrigin, Body>
 where
 	RuntimeOrigin::PalletsOrigin:
 		From<COrigin> + TryInto<COrigin, Error = RuntimeOrigin::PalletsOrigin>,
 {
-	fn try_convert(o: RuntimeOrigin) -> Result<MultiLocation, RuntimeOrigin> {
+	fn try_convert(o: RuntimeOrigin) -> Result<Location, RuntimeOrigin> {
 		o.try_with_caller(|caller| match caller.try_into() {
 			Ok(co) => match co.get_backing() {
 				Some(backing) => Ok(Junction::Plurality {
@@ -323,10 +323,10 @@ pub struct OriginToPluralityVoice<RuntimeOrigin, EnsureBodyOrigin, Body>(
 	PhantomData<(RuntimeOrigin, EnsureBodyOrigin, Body)>,
 );
 impl<RuntimeOrigin: Clone, EnsureBodyOrigin: EnsureOrigin<RuntimeOrigin>, Body: Get<BodyId>>
-	TryConvert<RuntimeOrigin, MultiLocation>
+	TryConvert<RuntimeOrigin, Location>
 	for OriginToPluralityVoice<RuntimeOrigin, EnsureBodyOrigin, Body>
 {
-	fn try_convert(o: RuntimeOrigin) -> Result<MultiLocation, RuntimeOrigin> {
+	fn try_convert(o: RuntimeOrigin) -> Result<Location, RuntimeOrigin> {
 		match EnsureBodyOrigin::try_origin(o) {
 			Ok(_) => Ok(Junction::Plurality { id: Body::get(), part: BodyPart::Voice }.into()),
 			Err(o) => Err(o),

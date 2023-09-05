@@ -14,15 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Support data structures for `MultiLocation`, primarily the `Junction` datatype.
+//! Support data structures for `Location`, primarily the `Junction` datatype.
 
-use super::MultiLocation;
+use super::Location;
 use crate::{
 	v3::{
 		BodyId as OldBodyId, BodyPart as OldBodyPart, Junction as OldJunction,
 		NetworkId as OldNetworkId,
 	},
-	VersionedMultiLocation,
+	VersionedLocation,
 };
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
 use core::convert::{TryFrom, TryInto};
@@ -395,25 +395,25 @@ impl TryFrom<OldJunction> for Junction {
 }
 
 impl Junction {
-	/// Convert `self` into a `MultiLocation` containing 0 parents.
+	/// Convert `self` into a `Location` containing 0 parents.
 	///
 	/// Similar to `Into::into`, except that this method can be used in a const evaluation context.
-	pub fn into_location(self) -> MultiLocation {
-		MultiLocation { parents: 0, interior: [self].into() }
+	pub fn into_location(self) -> Location {
+		Location { parents: 0, interior: [self].into() }
 	}
 
-	/// Convert `self` into a `MultiLocation` containing `n` parents.
+	/// Convert `self` into a `Location` containing `n` parents.
 	///
 	/// Similar to `Self::into_location`, with the added ability to specify the number of parent
 	/// junctions.
-	pub fn into_exterior(self, n: u8) -> MultiLocation {
-		MultiLocation { parents: n, interior: [self].into() }
+	pub fn into_exterior(self, n: u8) -> Location {
+		Location { parents: n, interior: [self].into() }
 	}
 
-	/// Convert `self` into a `VersionedMultiLocation` containing 0 parents.
+	/// Convert `self` into a `VersionedLocation` containing 0 parents.
 	///
 	/// Similar to `Into::into`, except that this method can be used in a const evaluation context.
-	pub fn into_versioned(self) -> VersionedMultiLocation {
+	pub fn into_versioned(self) -> VersionedLocation {
 		self.into_location().into_versioned()
 	}
 

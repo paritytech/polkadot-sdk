@@ -421,7 +421,7 @@ mod tests {
 	};
 	use sp_version::RuntimeVersion;
 	use std::cell::RefCell;
-	use xcm::latest::{MultiLocation, OriginKind};
+	use xcm::latest::{Location, OriginKind};
 
 	type Block = frame_system::mocking::MockBlock<Test>;
 	type Xcm = xcm::latest::Xcm<RuntimeCall>;
@@ -510,7 +510,7 @@ mod tests {
 		}
 
 		fn execute(
-			_origin: impl Into<MultiLocation>,
+			_origin: impl Into<Location>,
 			prepared: MockPrepared,
 			_id: &mut XcmHash,
 			_weight_credit: Weight,
@@ -526,7 +526,7 @@ mod tests {
 			o
 		}
 
-		fn charge_fees(_location: impl Into<MultiLocation>, _fees: MultiAssets) -> XcmResult {
+		fn charge_fees(_location: impl Into<Location>, _fees: Assets) -> XcmResult {
 			Err(XcmError::Unimplemented)
 		}
 	}

@@ -24,7 +24,7 @@ use frame_support::{assert_ok, traits::tokens::Pay};
 /// The id of the held asset is relative to the location where it is being held.
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 pub struct AssetKind {
-	destination: MultiLocation,
+	destination: Location,
 	asset_id: AssetId,
 }
 
@@ -37,8 +37,8 @@ impl sp_runtime::traits::Convert<AssetKind, LocatableAssetId> for LocatableAsset
 
 parameter_types! {
 	pub SenderAccount: AccountId = AccountId::new([3u8; 32]);
-	pub InteriorAccount: InteriorMultiLocation = AccountId32 { id: SenderAccount::get().into(), network: None }.into();
-	pub InteriorBody: InteriorMultiLocation = Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into();
+	pub InteriorAccount: InteriorLocation = AccountId32 { id: SenderAccount::get().into(), network: None }.into();
+	pub InteriorBody: InteriorLocation = Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into();
 	pub Timeout: BlockNumber = 5; // 5 blocks
 }
 

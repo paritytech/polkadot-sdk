@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	mock::*, AssetTraps, CurrentMigration, Error, LatestVersionedMultiLocation, Queries,
+	mock::*, AssetTraps, CurrentMigration, Error, LatestVersionedLocation, Queries,
 	QueryStatus, VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers,
 	VersionNotifyTargets,
 };
@@ -45,7 +45,7 @@ fn report_outcome_notify_works() {
 		(ALICE, INITIAL_BALANCE),
 		(ParaId::from(PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
-	let sender: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
+	let sender: Location = AccountId32 { network: None, id: ALICE.into() }.into();
 	let mut message = Xcm(vec![TransferAsset {
 		assets: (Here, SEND_AMOUNT).into(),
 		beneficiary: sender.clone(),
@@ -74,9 +74,9 @@ fn report_outcome_notify_works() {
 				TransferAsset { assets: (Here, SEND_AMOUNT).into(), beneficiary: sender },
 			])
 		);
-		let querier: MultiLocation = Here.into();
+		let querier: Location = Here.into();
 		let status = QueryStatus::Pending {
-			responder: MultiLocation::from(Parachain(PARA_ID)).into(),
+			responder: Location::from(Parachain(PARA_ID)).into(),
 			maybe_notify: Some((4, 2)),
 			timeout: 100,
 			maybe_match_querier: Some(querier.clone().into()),
@@ -122,7 +122,7 @@ fn report_outcome_works() {
 		(ALICE, INITIAL_BALANCE),
 		(ParaId::from(PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
-	let sender: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
+	let sender: Location = AccountId32 { network: None, id: ALICE.into() }.into();
 	let mut message = Xcm(vec![TransferAsset {
 		assets: (Here, SEND_AMOUNT).into(),
 		beneficiary: sender.clone(),
@@ -140,9 +140,9 @@ fn report_outcome_works() {
 				TransferAsset { assets: (Here, SEND_AMOUNT).into(), beneficiary: sender },
 			])
 		);
-		let querier: MultiLocation = Here.into();
+		let querier: Location = Here.into();
 		let status = QueryStatus::Pending {
-			responder: MultiLocation::from(Parachain(PARA_ID)).into(),
+			responder: Location::from(Parachain(PARA_ID)).into(),
 			maybe_notify: None,
 			timeout: 100,
 			maybe_match_querier: Some(querier.clone().into()),
@@ -184,13 +184,13 @@ fn custom_querier_works() {
 		(ParaId::from(PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
-		let querier: MultiLocation =
+		let querier: Location =
 			(Parent, AccountId32 { network: None, id: ALICE.into() }).into();
 
 		let r = TestNotifier::prepare_new_query(RuntimeOrigin::signed(ALICE), querier.clone());
 		assert_eq!(r, Ok(()));
 		let status = QueryStatus::Pending {
-			responder: MultiLocation::from(AccountId32 { network: None, id: ALICE.into() }).into(),
+			responder: Location::from(AccountId32 { network: None, id: ALICE.into() }).into(),
 			maybe_notify: None,
 			timeout: 100,
 			maybe_match_querier: Some(querier.clone().into()),
@@ -228,7 +228,7 @@ fn custom_querier_works() {
 			query_id: 0,
 			response: Response::ExecutionResult(None),
 			max_weight: Weight::zero(),
-			querier: Some(MultiLocation::here()),
+			querier: Some(Location::here()),
 		}]);
 		let hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::execute_xcm_in_credit(
@@ -245,7 +245,7 @@ fn custom_querier_works() {
 				origin: AccountId32 { network: None, id: ALICE.into() }.into(),
 				query_id: 0,
 				expected_querier: querier.clone(),
-				maybe_actual_querier: Some(MultiLocation::here()),
+				maybe_actual_querier: Some(Location::here()),
 			}),
 		);
 
@@ -288,7 +288,7 @@ fn send_works() {
 		(ParaId::from(PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
-		let sender: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
+		let sender: Location = AccountId32 { network: None, id: ALICE.into() }.into();
 		let message = Xcm(vec![
 			ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 			ClearOrigin,
@@ -332,7 +332,7 @@ fn send_fails_when_xcm_router_blocks() {
 		(ParaId::from(PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
-		let sender: MultiLocation =
+		let sender: Location =
 			Junction::AccountId32 { network: None, id: ALICE.into() }.into();
 		let message = Xcm(vec![
 			ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
@@ -342,7 +342,7 @@ fn send_fails_when_xcm_router_blocks() {
 		assert_noop!(
 			XcmPallet::send(
 				RuntimeOrigin::signed(ALICE),
-				Box::new(MultiLocation::ancestor(8).into()),
+				Box::new(Location::ancestor(8).into()),
 				Box::new(VersionedXcm::from(message.clone())),
 			),
 			crate::Error::<Test>::SendFailure
@@ -363,8 +363,8 @@ fn teleport_assets_works() {
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let weight = BaseXcmWeight::get() * 3;
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
-		let dest: MultiLocation = AccountId32 { network: None, id: BOB.into() }.into();
-		let assets: MultiAssets = (Here, SEND_AMOUNT).into();
+		let dest: Location = AccountId32 { network: None, id: BOB.into() }.into();
+		let assets: Assets = (Here, SEND_AMOUNT).into();
 		assert_ok!(XcmPallet::teleport_assets(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(RelayLocation::get().into()),
@@ -407,8 +407,8 @@ fn limited_teleport_assets_works() {
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let weight = BaseXcmWeight::get() * 3;
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
-		let dest: MultiLocation = AccountId32 { network: None, id: BOB.into() }.into();
-		let assets: MultiAssets = (Here, SEND_AMOUNT).into();
+		let dest: Location = AccountId32 { network: None, id: BOB.into() }.into();
+		let assets: Assets = (Here, SEND_AMOUNT).into();
 		assert_ok!(XcmPallet::limited_teleport_assets(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(RelayLocation::get().into()),
@@ -452,8 +452,8 @@ fn unlimited_teleport_assets_works() {
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let weight = BaseXcmWeight::get() * 3;
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
-		let dest: MultiLocation = AccountId32 { network: None, id: BOB.into() }.into();
-		let assets: MultiAssets = (Here, SEND_AMOUNT).into();
+		let dest: Location = AccountId32 { network: None, id: BOB.into() }.into();
+		let assets: Assets = (Here, SEND_AMOUNT).into();
 		assert_ok!(XcmPallet::limited_teleport_assets(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(RelayLocation::get().into()),
@@ -494,9 +494,9 @@ fn reserve_transfer_assets_works() {
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let weight = BaseXcmWeight::get() * 2;
-		let origin: MultiLocation = Parachain(PARA_ID).into();
-		let dest: MultiLocation = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
-		let assets: MultiAssets = (Here, SEND_AMOUNT).into();
+		let origin: Location = Parachain(PARA_ID).into();
+		let dest: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+		let assets: Assets = (Here, SEND_AMOUNT).into();
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		assert_ok!(XcmPallet::reserve_transfer_assets(
 			RuntimeOrigin::signed(ALICE),
@@ -543,9 +543,9 @@ fn limited_reserve_transfer_assets_works() {
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let weight = BaseXcmWeight::get() * 2;
-		let origin: MultiLocation = Parachain(PARA_ID).into();
-		let dest: MultiLocation = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
-		let assets: MultiAssets = (Here, SEND_AMOUNT).into();
+		let origin: Location = Parachain(PARA_ID).into();
+		let dest: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+		let assets: Assets = (Here, SEND_AMOUNT).into();
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
 			RuntimeOrigin::signed(ALICE),
@@ -593,9 +593,9 @@ fn unlimited_reserve_transfer_assets_works() {
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let weight = BaseXcmWeight::get() * 2;
-		let origin: MultiLocation = Parachain(PARA_ID).into();
-		let dest: MultiLocation = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
-		let assets: MultiAssets = (Here, SEND_AMOUNT).into();
+		let origin: Location = Parachain(PARA_ID).into();
+		let dest: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+		let assets: Assets = (Here, SEND_AMOUNT).into();
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
 			RuntimeOrigin::signed(ALICE),
@@ -641,7 +641,7 @@ fn execute_withdraw_to_deposit_works() {
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let weight = BaseXcmWeight::get() * 3;
-		let dest: MultiLocation = Junction::AccountId32 { network: None, id: BOB.into() }.into();
+		let dest: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		assert_ok!(XcmPallet::execute(
 			RuntimeOrigin::signed(ALICE),
@@ -667,7 +667,7 @@ fn trapped_assets_can_be_claimed() {
 	let balances = vec![(ALICE, INITIAL_BALANCE), (BOB, INITIAL_BALANCE)];
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let weight = BaseXcmWeight::get() * 6;
-		let dest: MultiLocation = Junction::AccountId32 { network: None, id: BOB.into() }.into();
+		let dest: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
 
 		assert_ok!(XcmPallet::execute(
 			RuntimeOrigin::signed(ALICE),
@@ -683,10 +683,10 @@ fn trapped_assets_can_be_claimed() {
 			]))),
 			weight
 		));
-		let source: MultiLocation =
+		let source: Location =
 			Junction::AccountId32 { network: None, id: ALICE.into() }.into();
 		let trapped = AssetTraps::<Test>::iter().collect::<Vec<_>>();
-		let vma = VersionedMultiAssets::from(MultiAssets::from((Here, SEND_AMOUNT)));
+		let vma = VersionedAssets::from(Assets::from((Here, SEND_AMOUNT)));
 		let hash = BlakeTwo256::hash_of(&(source.clone(), vma.clone()));
 		assert_eq!(
 			last_events(2),
@@ -740,15 +740,15 @@ fn trapped_assets_can_be_claimed() {
 #[test]
 fn fake_latest_versioned_multilocation_works() {
 	use codec::Encode;
-	let remote: MultiLocation = Parachain(1000).into();
-	let versioned_remote = LatestVersionedMultiLocation(&remote);
+	let remote: Location = Parachain(1000).into();
+	let versioned_remote = LatestVersionedLocation(&remote);
 	assert_eq!(versioned_remote.encode(), remote.into_versioned().encode());
 }
 
 #[test]
 fn basic_subscription_works() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
-		let remote: MultiLocation = Parachain(1000).into();
+		let remote: Location = Parachain(1000).into();
 		assert_ok!(XcmPallet::force_subscribe_version_notify(
 			RuntimeOrigin::root(),
 			Box::new(remote.clone().into()),
@@ -796,13 +796,13 @@ fn basic_subscription_works() {
 #[test]
 fn subscriptions_increment_id() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
-		let remote: MultiLocation = Parachain(1000).into();
+		let remote: Location = Parachain(1000).into();
 		assert_ok!(XcmPallet::force_subscribe_version_notify(
 			RuntimeOrigin::root(),
 			Box::new(remote.clone().into()),
 		));
 
-		let remote2: MultiLocation = Parachain(1001).into();
+		let remote2: Location = Parachain(1001).into();
 		assert_ok!(XcmPallet::force_subscribe_version_notify(
 			RuntimeOrigin::root(),
 			Box::new(remote2.clone().into()),
@@ -833,7 +833,7 @@ fn subscriptions_increment_id() {
 #[test]
 fn double_subscription_fails() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
-		let remote: MultiLocation = Parachain(1000).into();
+		let remote: Location = Parachain(1000).into();
 		assert_ok!(XcmPallet::force_subscribe_version_notify(
 			RuntimeOrigin::root(),
 			Box::new(remote.clone().into()),
@@ -851,7 +851,7 @@ fn double_subscription_fails() {
 #[test]
 fn unsubscribe_works() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
-		let remote: MultiLocation = Parachain(1000).into();
+		let remote: Location = Parachain(1000).into();
 		assert_ok!(XcmPallet::force_subscribe_version_notify(
 			RuntimeOrigin::root(),
 			Box::new(remote.clone().into()),
@@ -890,7 +890,7 @@ fn subscription_side_works() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
 		AdvertisedXcmVersion::set(1);
 
-		let remote: MultiLocation = Parachain(1000).into();
+		let remote: Location = Parachain(1000).into();
 		let weight = BaseXcmWeight::get();
 		let message =
 			Xcm(vec![SubscribeVersion { query_id: 0, max_response_weight: Weight::zero() }]);
@@ -933,7 +933,7 @@ fn subscription_side_upgrades_work_with_notify() {
 		AdvertisedXcmVersion::set(1);
 
 		// An entry from a previous runtime with v2 XCM.
-		let v2_location = VersionedMultiLocation::V2(xcm::v2::Junction::Parachain(1001).into());
+		let v2_location = VersionedLocation::V2(xcm::v2::Junction::Parachain(1001).into());
 		VersionNotifyTargets::<Test>::insert(1, v2_location, (70, Weight::zero(), 2));
 		let v3_location = Parachain(1003).into_versioned();
 		VersionNotifyTargets::<Test>::insert(3, v3_location, (72, Weight::zero(), 2));
@@ -986,7 +986,7 @@ fn subscription_side_upgrades_work_with_notify() {
 fn subscription_side_upgrades_work_without_notify() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
 		// An entry from a previous runtime with v2 XCM.
-		let v2_location = VersionedMultiLocation::V2(xcm::v2::Junction::Parachain(1001).into());
+		let v2_location = VersionedLocation::V2(xcm::v2::Junction::Parachain(1001).into());
 		VersionNotifyTargets::<Test>::insert(1, v2_location, (70, Weight::zero(), 2));
 		let v3_location = Parachain(1003).into_versioned();
 		VersionNotifyTargets::<Test>::insert(3, v3_location, (72, Weight::zero(), 2));
@@ -1010,7 +1010,7 @@ fn subscription_side_upgrades_work_without_notify() {
 #[test]
 fn subscriber_side_subscription_works() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
-		let remote: MultiLocation = Parachain(1000).into();
+		let remote: Location = Parachain(1000).into();
 		assert_ok!(XcmPallet::force_subscribe_version_notify(
 			RuntimeOrigin::root(),
 			Box::new(remote.clone().into()),
@@ -1063,8 +1063,8 @@ fn subscriber_side_subscription_works() {
 #[test]
 fn auto_subscription_works() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
-		let remote_v2: MultiLocation = Parachain(1000).into();
-		let remote_v4: MultiLocation = Parachain(1001).into();
+		let remote_v2: Location = Parachain(1000).into();
+		let remote_v4: Location = Parachain(1001).into();
 
 		assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(2)));
 
@@ -1165,9 +1165,9 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 		AdvertisedXcmVersion::set(1);
 
 		// An entry from a previous runtime with v0 XCM.
-		let v2_location = VersionedMultiLocation::V2(xcm::v2::Junction::Parachain(1001).into());
+		let v2_location = VersionedLocation::V2(xcm::v2::Junction::Parachain(1001).into());
 		VersionNotifyTargets::<Test>::insert(1, v2_location, (70, Weight::zero(), 1));
-		let v2_location = VersionedMultiLocation::V2(xcm::v2::Junction::Parachain(1002).into());
+		let v2_location = VersionedLocation::V2(xcm::v2::Junction::Parachain(1002).into());
 		VersionNotifyTargets::<Test>::insert(2, v2_location, (71, Weight::zero(), 1));
 		let v3_location = Parachain(1003).into_versioned();
 		VersionNotifyTargets::<Test>::insert(3, v3_location, (72, Weight::zero(), 1));

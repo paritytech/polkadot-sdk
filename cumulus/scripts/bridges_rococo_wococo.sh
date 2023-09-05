@@ -7,13 +7,13 @@ ASSET_HUB_KUSAMA_ACCOUNT_SEED_FOR_LOCAL="//Alice"
 # AccountId: [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125]
 ASSET_HUB_WOCOCO_ACCOUNT_SEED_FOR_LOCAL="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
 
-# SovereignAccount for `MultiLocation { parents: 2, interior: [GlobalConsensus(Rococo), Parachain(1000)].into() }` => 5CfNu7eH3SJvqqPt3aJh38T8dcFvhGzEohp9tsd41ANhXDnQ
+# SovereignAccount for `Location { parents: 2, interior: [GlobalConsensus(Rococo), Parachain(1000)].into() }` => 5CfNu7eH3SJvqqPt3aJh38T8dcFvhGzEohp9tsd41ANhXDnQ
 #
 # use sp_core::crypto::Ss58Codec;
 # println!("{}",
 #     frame_support::sp_runtime::AccountId32::new(
 #         GlobalConsensusParachainConvertsFor::<UniversalLocation, [u8; 32]>::convert_ref(
-#             MultiLocation { parents: 2, interior: [GlobalConsensus(Kusama), Parachain(1000)].into() }).unwrap()
+#             Location { parents: 2, interior: [GlobalConsensus(Kusama), Parachain(1000)].into() }).unwrap()
 #		).to_ss58check_with_version(42_u16.into())
 # );
 ASSET_HUB_ROCOCO_1000_SOVEREIGN_ACCOUNT="5CfNu7eH3SJvqqPt3aJh38T8dcFvhGzEohp9tsd41ANhXDnQ"
@@ -382,7 +382,7 @@ function remove_assets_transfer_send() {
 }
 
 # TODO: we need to fill sovereign account for bridge-hub, because, small ammouts does not match ExistentialDeposit, so no reserve pass
-# SA for BH: MultiLocation { parents: 1, interior: [Parachain(1013)].into() } - 5Eg2fntRRwLinojmk3sh5xscp7F3S6Zzm5oDVtoLTALKiypR on Kusama Asset Hub
+# SA for BH: Location { parents: 1, interior: [Parachain(1013)].into() } - 5Eg2fntRRwLinojmk3sh5xscp7F3S6Zzm5oDVtoLTALKiypR on Kusama Asset Hub
 
 function transfer_asset_via_bridge() {
     local url=$1

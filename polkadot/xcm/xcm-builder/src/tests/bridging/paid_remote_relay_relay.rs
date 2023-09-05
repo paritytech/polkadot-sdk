@@ -27,8 +27,8 @@ parameter_types! {
 	pub UniversalLocation: Junctions = [GlobalConsensus(Local::get()), Parachain(100)].into();
 	pub RelayUniversalLocation: Junctions = [GlobalConsensus(Local::get())].into();
 	pub RemoteUniversalLocation: Junctions = [GlobalConsensus(Remote::get())].into();
-	pub BridgeTable: Vec<(NetworkId, MultiLocation, Option<MultiAsset>)>
-		= vec![(Remote::get(), MultiLocation::parent(), Some((Parent, 200u128 + if UsingTopic::get() { 20 } else { 0 }).into()))];
+	pub BridgeTable: Vec<(NetworkId, Location, Option<Asset>)>
+		= vec![(Remote::get(), Location::parent(), Some((Parent, 200u128 + if UsingTopic::get() { 20 } else { 0 }).into()))];
 	// ^^^ 100 to use the bridge (export) and 100 for the remote execution weight (5 instructions
 	//     x (10 + 10) weight each).
 }
@@ -56,7 +56,7 @@ type LocalRouter = TestTopic<(LocalInnerRouter, LocalBridgeRouter)>;
 #[test]
 fn sending_to_bridged_chain_works() {
 	maybe_with_topic(|| {
-		let dest: MultiLocation = (Parent, Parent, Remote::get()).into();
+		let dest: Location = (Parent, Parent, Remote::get()).into();
 
 		// Initialize the local relay so that our parachain has funds to pay for export.
 		clear_assets(Parachain(100));
@@ -91,7 +91,7 @@ fn sending_to_bridged_chain_works() {
 			message: xcm_with_topic(
 				maybe_forward_id_for(&[0; 32]),
 				vec![
-					WithdrawAsset(MultiAsset::from((Here, price)).into()),
+					WithdrawAsset(Asset::from((Here, price)).into()),
 					BuyExecution { fees: (Here, price).into(), weight_limit: Unlimited },
 					ExportMessage {
 						network: ByGenesis([1; 32]),
@@ -110,7 +110,7 @@ fn sending_to_bridged_chain_works() {
 }
 #[test]
 fn sending_to_bridged_chain_without_funds_fails() {
-	let dest: MultiLocation = (Parent, Parent, Remote::get()).into();
+	let dest: Location = (Parent, Parent, Remote::get()).into();
 	// Routing won't work if we don't have enough funds.
 	assert_eq!(
 		send_xcm::<LocalRouter>(dest, Xcm(vec![Trap(1)])),
@@ -131,7 +131,7 @@ fn sending_to_bridged_chain_without_funds_fails() {
 #[test]
 fn sending_to_parachain_of_bridged_chain_works() {
 	maybe_with_topic(|| {
-		let dest: MultiLocation = (Parent, Parent, Remote::get(), Parachain(100)).into();
+		let dest: Location = (Parent, Parent, Remote::get(), Parachain(100)).into();
 
 		// Initialize the local relay so that our parachain has funds to pay for export.
 		clear_assets(Parachain(100));
@@ -166,7 +166,7 @@ fn sending_to_parachain_of_bridged_chain_works() {
 			message: xcm_with_topic(
 				maybe_forward_id_for(&[0; 32]),
 				vec![
-					WithdrawAsset(MultiAsset::from((Here, price)).into()),
+					WithdrawAsset(Asset::from((Here, price)).into()),
 					BuyExecution { fees: (Here, price).into(), weight_limit: Unlimited },
 					ExportMessage {
 						network: ByGenesis([1; 32]),
@@ -185,7 +185,7 @@ fn sending_to_parachain_of_bridged_chain_works() {
 }
 #[test]
 fn sending_to_parachain_of_bridged_chain_without_funds_fails() {
-	let dest: MultiLocation = (Parent, Parent, Remote::get(), Parachain(100)).into();
+	let dest: Location = (Parent, Parent, Remote::get(), Parachain(100)).into();
 	// Routing won't work if we don't have enough funds.
 	assert_eq!(
 		send_xcm::<LocalRouter>(dest, Xcm(vec![Trap(1)])),

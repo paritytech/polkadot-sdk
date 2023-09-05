@@ -56,7 +56,7 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 pub use xcm::latest::prelude::{
-	Ancestor, Junctions, MultiAssets, MultiLocation, Parachain as ParachainJunction, Parent,
+	Ancestor, Junctions, Assets, Location, Parachain as ParachainJunction, Parent,
 	WeightLimit, XcmHash,
 };
 pub use xcm_executor::traits::ConvertLocation;
@@ -228,11 +228,11 @@ pub trait RelayChain: Chain {
 	type MessageProcessor: ProcessMessage;
 	type SovereignAccountOf: ConvertLocation<AccountId>;
 
-	fn child_location_of(id: ParaId) -> MultiLocation {
+	fn child_location_of(id: ParaId) -> Location {
 		(Ancestor(0), ParachainJunction(id.into())).into()
 	}
 
-	fn sovereign_account_id_of(location: MultiLocation) -> AccountId {
+	fn sovereign_account_id_of(location: Location) -> AccountId {
 		Self::SovereignAccountOf::convert_location(&location).unwrap()
 	}
 
@@ -260,16 +260,16 @@ pub trait Parachain: Chain {
 		Self::ext_wrapper(|| Self::ParachainInfo::get())
 	}
 
-	fn parent_location() -> MultiLocation {
+	fn parent_location() -> Location {
 		(Parent).into()
 	}
 
-	fn sibling_location_of(para_id: ParaId) -> MultiLocation {
+	fn sibling_location_of(para_id: ParaId) -> Location {
 		let junctions: Junctions = [ParachainJunction(para_id.into())].into();
 		(Parent, junctions).into()
 	}
 
-	fn sovereign_account_id_of(location: MultiLocation) -> AccountId {
+	fn sovereign_account_id_of(location: Location) -> AccountId {
 		Self::LocationToAccountId::convert_location(&location).unwrap()
 	}
 }
@@ -1317,10 +1317,10 @@ pub struct TestAccount {
 /// Default `Args` provided by xcm-emulator to be stored in a `Test` instance
 #[derive(Clone)]
 pub struct TestArgs {
-	pub dest: MultiLocation,
-	pub beneficiary: MultiLocation,
+	pub dest: Location,
+	pub beneficiary: Location,
 	pub amount: Balance,
-	pub assets: MultiAssets,
+	pub assets: Assets,
 	pub asset_id: Option<u32>,
 	pub fee_asset_item: u32,
 	pub weight_limit: WeightLimit,

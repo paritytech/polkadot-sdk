@@ -27,7 +27,7 @@ use xcm_builder::{
 };
 use xcm_executor::{
 	traits::{TransactAsset, WeightTrader},
-	Assets,
+	HoldingAssets,
 };
 
 parameter_types! {
@@ -35,10 +35,10 @@ parameter_types! {
 	pub const AnyNetwork: Option<NetworkId> = None;
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 16;
-	pub const UniversalLocation: xcm::latest::InteriorMultiLocation = xcm::latest::Junctions::Here;
+	pub const UniversalLocation: xcm::latest::InteriorLocation = xcm::latest::Junctions::Here;
 }
 
-/// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
+/// Type to convert an `Origin` type value into a `Location` value which represents an interior
 /// location of this chain.
 pub type LocalOriginToLocation = (
 	// And a usual Signed origin to be used in XCM as a corresponding AccountId32
@@ -48,8 +48,8 @@ pub type LocalOriginToLocation = (
 pub struct DoNothingRouter;
 impl SendXcm for DoNothingRouter {
 	type Ticket = ();
-	fn validate(_dest: &mut Option<MultiLocation>, _msg: &mut Option<Xcm<()>>) -> SendResult<()> {
-		Ok(((), MultiAssets::new()))
+	fn validate(_dest: &mut Option<Location>, _msg: &mut Option<Xcm<()>>) -> SendResult<()> {
+		Ok(((), HoldingAssets::new()))
 	}
 	fn deliver(_: ()) -> Result<XcmHash, SendError> {
 		Ok([0; 32])
@@ -60,16 +60,16 @@ pub type Barrier = AllowUnpaidExecutionFrom<Everything>;
 
 pub struct DummyAssetTransactor;
 impl TransactAsset for DummyAssetTransactor {
-	fn deposit_asset(_what: &MultiAsset, _who: &MultiLocation, _context: &XcmContext) -> XcmResult {
+	fn deposit_asset(_what: &Asset, _who: &Location, _context: &XcmContext) -> XcmResult {
 		Ok(())
 	}
 
 	fn withdraw_asset(
-		_what: &MultiAsset,
-		_who: &MultiLocation,
+		_what: &Asset,
+		_who: &Location,
 		_maybe_context: Option<&XcmContext>,
-	) -> Result<Assets, XcmError> {
-		let asset: MultiAsset = (Parent, 100_000).into();
+	) -> Result<HoldingAssets, XcmError> {
+		let asset: Asset = (Parent, 100_000).into();
 		Ok(asset.into())
 	}
 }
@@ -83,10 +83,10 @@ impl WeightTrader for DummyWeightTrader {
 	fn buy_weight(
 		&mut self,
 		_weight: Weight,
-		_payment: Assets,
+		_payment: HoldingAssets,
 		_context: &XcmContext,
-	) -> Result<Assets, XcmError> {
-		Ok(Assets::default())
+	) -> Result<HoldingAssets, XcmError> {
+		Ok(HoldingAssets::default())
 	}
 }
 
@@ -125,7 +125,7 @@ impl xcm_executor::Config for XcmConfig {
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(xcm::latest::Junctions::Here.into());
+	pub ReachableDest: Option<Location> = Some(xcm::latest::Junctions::Here.into());
 }
 
 impl pallet_xcm::Config for crate::Runtime {
