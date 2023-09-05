@@ -19,7 +19,7 @@ futures = "0.3.21"
 log = "0.4.17"
 parking_lot = "0.12.1"
 schnellru = "0.2.1"
-thiserror = "1.0.30"
+thiserror = "1.0.48"
 sp-api = { path = "../api" }
 sp-consensus = { path = "../consensus/common" }
 sp-database = { path = "../database" }
