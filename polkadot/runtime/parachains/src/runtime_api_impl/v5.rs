@@ -56,6 +56,12 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 	let now = <frame_system::Pallet<T>>::block_number() + One::one();
 	let rotation_info = <scheduler::Pallet<T>>::group_rotation_info(now);
 
+	// This explicit update is only strictly required for session boundaries:
+	//
+	// At the end of a session we clear the claim queues: Without this update call, nothing would be
+	// scheduled to the client.
+	let scheduled = <scheduler::Pallet<T>>::update_claimqueue(Vec::new(), now);
+
 	let time_out_at = |backed_in_number, availability_period| {
 		let time_out_at = backed_in_number + availability_period;
 
@@ -126,9 +132,9 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 		.collect();
 
 	// This will overwrite only `Free` cores if the scheduler module is working as intended.
-	for scheduled in <scheduler::Pallet<T>>::scheduled_claimqueue() {
-		core_states[scheduled.core.0 as usize] = CoreState::Scheduled(primitives::ScheduledCore {
-			para_id: scheduled.paras_entry.para_id(),
+	for s in scheduled {
+		core_states[s.core.0 as usize] = CoreState::Scheduled(primitives::ScheduledCore {
+			para_id: s.paras_entry.para_id(),
 			collator: None,
 		});
 	}
