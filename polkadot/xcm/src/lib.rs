@@ -305,6 +305,7 @@ versioned_type! {
 }
 
 /// A single XCM message, together with its version code.
+// NOTE: Ensure that the variant indices never overlap with `MAGIC_MAYBE_DOUBLE_ENC_VXCM`.
 #[derive(Derivative, Encode, Decode, TypeInfo)]
 #[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
 #[codec(encode_bound())]

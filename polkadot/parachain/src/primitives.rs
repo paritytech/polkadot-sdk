@@ -336,6 +336,7 @@ impl DmpMessageHandler for () {
 
 /// The aggregate XCMP message format.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub enum XcmpMessageFormat {
 	/// Encoded `VersionedXcm` messages, all concatenated.
 	ConcatenatedVersionedXcm,

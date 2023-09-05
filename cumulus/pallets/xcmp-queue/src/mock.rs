@@ -294,3 +294,44 @@ impl GetChannelInfo for MockedChannelInfo {
 		ParachainSystem::get_channel_max(id)
 	}
 }
+
+pub(crate) fn mk_page() -> Vec<u8> {
+	let mut page = Vec::<u8>::new();
+
+	for i in 0..100 {
+		page.extend(match i % 5 {
+			0 => v2_xcm().encode(),
+			1 => v3_xcm().encode(),
+			// We cannot push an undecodable XCM here since it would break the decode stream.
+			// This is expected and the whole reason to introduce `MaybeDoubleEncodedVersionedXcm`
+			// instead.
+			2 => MaybeDoubleEncodedVersionedXcm(v2_xcm()).encode(),
+			3 => MaybeDoubleEncodedVersionedXcm(v3_xcm()).encode(),
+			4 => MaybeDoubleEncodedVersionedXcm(undecodable_xcm()).encode(),
+			_ => unreachable!(),
+		});
+	}
+
+	page
+}
+
+pub(crate) fn v2_xcm() -> VersionedXcm<()> {
+	let instr = xcm::v2::Instruction::<()>::ClearOrigin;
+	VersionedXcm::V2(xcm::v2::Xcm::<()>(vec![instr; 3]))
+}
+
+pub(crate) fn v3_xcm() -> VersionedXcm<()> {
+	let instr = xcm::v3::Instruction::<()>::Trap(1);
+	VersionedXcm::V3(xcm::v3::Xcm::<()>(vec![instr; 3]))
+}
+
+/// A too deeply nested XCM.
+pub(crate) fn undecodable_xcm() -> VersionedXcm<()> {
+	let mut xcm = Xcm(vec![ClearOrigin]);
+	for _ in 0..MAX_XCM_DECODE_DEPTH {
+		xcm = Xcm(vec![SetAppendix(xcm)]);
+	}
+	let xcm = VersionedXcm::V3(xcm);
+	assert!(validate_xcm_nesting(&xcm).is_err());
+	xcm
+}

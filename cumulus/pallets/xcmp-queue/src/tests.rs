@@ -14,11 +14,12 @@
 // limitations under the License.
 
 use super::{
-	mock::{EnqueuedMessages, MAGIC_PARA_ID},
+	mock::{mk_page, v2_xcm, v3_xcm, EnqueuedMessages, MAGIC_PARA_ID},
 	*,
 };
 use XcmpMessageFormat::*;
 
+use codec::Compact;
 use cumulus_primitives_core::XcmpMessageHandler;
 use frame_support::{assert_err, assert_noop, assert_ok, experimental_hypothetically};
 use mock::{new_test_ext, RuntimeOrigin as Origin, Test, XcmpQueue};
@@ -198,7 +199,7 @@ fn bad_blob_message_no_panic() {
 
 /// Invalid concatenated XCMs panic in debug mode.
 #[test]
-#[should_panic = "Could not parse incoming XCMP messages."]
+#[should_panic = "HRMP inbound decode stream broke; page will be dropped."]
 #[cfg(debug_assertions)]
 fn handle_invalid_data_panics() {
 	new_test_ext().execute_with(|| {
@@ -459,7 +460,10 @@ fn send_xcm_nested_works() {
 			XcmpQueue::take_outbound_messages(usize::MAX),
 			vec![(
 				MAGIC_PARA_ID.into(),
-				(XcmpMessageFormat::ConcatenatedVersionedXcm, VersionedXcm::V3(good.clone()))
+				(
+					XcmpMessageFormat::ConcatenatedVersionedXcm,
+					MaybeDoubleEncodedVersionedXcm(VersionedXcm::V3(good.clone()))
+				)
 					.encode(),
 			)]
 		);
@@ -502,8 +506,9 @@ fn hrmp_signals_are_prioritized() {
 
 		// Without a signal we get the messages in order:
 		let mut expected_msg = XcmpMessageFormat::ConcatenatedVersionedXcm.encode();
-		for _ in 0..31 {
-			expected_msg.extend(VersionedXcm::V3(message.clone()).encode());
+		for _ in 0..21 {
+			expected_msg
+				.extend(MaybeDoubleEncodedVersionedXcm(VersionedXcm::V3(message.clone())).encode());
 		}
 
 		experimental_hypothetically!({
@@ -523,4 +528,117 @@ fn hrmp_signals_are_prioritized() {
 			)]
 		);
 	});
+}
+
+#[test]
+fn maybe_double_encoded_versioned_xcm_works() {
+	// pre conditions
+	assert_eq!(VersionedXcm::<()>::V2(Default::default()).encode(), &[2, 0]);
+	assert_eq!(VersionedXcm::<()>::V3(Default::default()).encode(), &[3, 0]);
+}
+
+#[test]
+fn maybe_double_encoded_versioned_xcm_version_works() {
+	let v2 = VersionedXcm::<()>::V2(Default::default());
+	let dv2 = MaybeDoubleEncodedVersionedXcm(v2);
+	// Encoding is `[Magic=0, XcmLen=Compact(3), XcmVersion=2, VecLen=0]`.
+	let mut v = vec![0u8];
+	Compact::<u32>(2).using_encoded(|c| v.extend(c));
+	v.extend(&[2, 0u8]);
+	assert_eq!(dv2.encode(), v);
+
+	let v3 = VersionedXcm::<()>::V3(Default::default());
+	let dv3 = MaybeDoubleEncodedVersionedXcm(v3);
+	let mut v = vec![0u8];
+	Compact::<u32>(2).using_encoded(|c| v.extend(c));
+	v.extend(&[3, 0u8]);
+	assert_eq!(dv3.encode(), v);
+}
+
+#[test]
+fn maybe_double_encoded_versioned_xcm_decode_works() {
+	// `Maybe` decodes from XCM v2
+	let buff = v2_xcm().encode();
+	let xcm = MaybeDoubleEncodedVersionedXcm::decode(&mut &buff[..]).unwrap();
+	assert_eq!(xcm, Either::Left(v2_xcm()));
+
+	// `Maybe` decodes from XCM v3
+	let buff = v3_xcm().encode();
+	let xcm = MaybeDoubleEncodedVersionedXcm::decode(&mut &buff[..]).unwrap();
+	assert_eq!(xcm, Either::Left(v3_xcm()));
+
+	// `Maybe` decodes from `Maybe` v2
+	let buff = MaybeDoubleEncodedVersionedXcm(v2_xcm()).encode();
+	let xcm = MaybeDoubleEncodedVersionedXcm::decode(&mut &buff[..]).unwrap();
+	let Either::Right(mut double) = xcm else {
+		panic!();
+	};
+	let xcm = double.take_decoded().unwrap();
+	assert_eq!(xcm, v2_xcm());
+
+	// `Maybe` decodes from `Maybe` v3
+	let buff = MaybeDoubleEncodedVersionedXcm(v3_xcm()).encode();
+	let xcm = MaybeDoubleEncodedVersionedXcm::decode(&mut &buff[..]).unwrap();
+	let Either::Right(mut double) = xcm else {
+		panic!();
+	};
+	let xcm = double.take_decoded().unwrap();
+	assert_eq!(xcm, v3_xcm());
+}
+
+// Now also testing a page instead of just concat messages.
+#[test]
+fn maybe_double_encoded_versioned_xcm_decode_page_works() {
+	let page = mk_page();
+
+	// Now try to decode the page.
+	let input = &mut &page[..];
+	for i in 0..100 {
+		match (i % 5, MaybeDoubleEncodedVersionedXcm::decode(input)) {
+			(0, Ok(Either::Left(xcm))) => {
+				assert_eq!(xcm, v2_xcm());
+			},
+			(1, Ok(Either::Left(xcm))) => {
+				assert_eq!(xcm, v3_xcm());
+			},
+			(2, Ok(Either::Right(mut double))) => {
+				assert_eq!(double.take_decoded().unwrap(), v2_xcm());
+			},
+			(3, Ok(Either::Right(mut double))) => {
+				assert_eq!(double.take_decoded().unwrap(), v3_xcm());
+			},
+			(4, Ok(Either::Right(mut double))) => {
+				// A decoding error does *not* break the stream.
+				assert!(double.take_decoded().is_err());
+			},
+			unexpected => unreachable!("{:?}", unexpected),
+		}
+	}
+
+	assert_eq!(input.remaining_len(), Ok(Some(0)), "All data consumed");
+}
+
+#[test]
+fn split_concatenated_xcms_works() {
+	let page = mk_page();
+	let input = &mut &page[..];
+
+	for i in 0..100 {
+		let xcm = XcmpQueue::split_concatenated_xcms(input, &mut WeightMeter::new()).unwrap();
+		match (i % 5, xcm) {
+			// The `MaybeDoubleEncodedVersionedXcm` gets flattened:
+			(0, data) | (2, data) => {
+				assert_eq!(data, v2_xcm().encode());
+			},
+			(1, data) | (3, data) => {
+				assert_eq!(data, v3_xcm().encode());
+			},
+			(4, data) => {
+				let xcm = VersionedXcm::decode(&mut data.into_inner().as_ref()).unwrap();
+				assert!(crate::validate_xcm_nesting(&xcm).is_err(), "precondition");
+			},
+			unexpected => unreachable!("{:?}", unexpected),
+		}
+	}
+	assert_eq!(input.remaining_len(), Ok(Some(0)), "All data consumed");
 }

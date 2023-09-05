@@ -39,7 +39,7 @@ pub mod weights;
 pub use weights::WeightInfo;
 
 use bounded_collections::BoundedBTreeSet;
-use codec::{Decode, DecodeLimit, Encode};
+use codec::{Decode, DecodeLimit, Encode, Input};
 use cumulus_primitives_core::{
 	relay_chain::BlockNumber as RelayBlockNumber, ChannelStatus, GetChannelInfo, MessageSendError,
 	ParaId, XcmpMessageFormat, XcmpMessageHandler, XcmpMessageSource,
@@ -53,9 +53,9 @@ use frame_support::{
 use pallet_message_queue::OnQueueChanged;
 use polkadot_runtime_common::xcm_sender::PriceForParachainDelivery;
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{Either, RuntimeDebug};
 use sp_std::prelude::*;
-use xcm::{latest::prelude::*, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
+use xcm::{latest::prelude::*, DoubleEncoded, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::traits::ConvertOrigin;
 
 pub use pallet::*;
@@ -535,10 +535,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Split concatenated encoded `VersionedXcm`s into individual items.
+	/// Split concatenated encoded `VersionedXcm`s or `MaybeDoubleEncodedVersionedXcm`s into
+	/// individual items.
 	///
 	/// We directly encode them again since that is needed later on.
-	fn split_concatenated_xcms(
+	pub(crate) fn split_concatenated_xcms(
 		data: &mut &[u8],
 		meter: &mut WeightMeter,
 	) -> Result<BoundedVec<u8, MaxXcmpMessageLenOf<T>>, ()> {
@@ -551,10 +552,14 @@ impl<T: Config> Pallet<T> {
 			return Err(())
 		}
 
-		let xcm =
-			VersionedXcm::<T::RuntimeCall>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, data)
-				.map_err(|_| ())?;
-		xcm.encode().try_into().map_err(|_| ())
+		match MaybeDoubleEncodedVersionedXcm::decode(data).map_err(|_| ())? {
+			// Ugly legacy case: we have to decode and re-encode the XCM.
+			Either::Left(xcm) => xcm.encode(),
+			// New case: we dont have to de/encode the XCM at all.
+			Either::Right(double) => double.into_encoded(),
+		}
+		.try_into()
+		.map_err(|_| ())
 	}
 }
 
@@ -649,8 +654,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 					while !data.is_empty() {
 						let Ok(xcm) = Self::split_concatenated_xcms(&mut data, &mut meter) else {
 							defensive!(
-								"Could not parse incoming XCMP messages. Used weight: ",
-								meter.consumed_ratio()
+								"HRMP inbound decode stream broke; page will be dropped.",
 							);
 							break
 						};
@@ -836,7 +840,11 @@ impl<T: Config> SendXcm for Pallet<T> {
 		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 		debug_assert!(validate_xcm_nesting(&xcm).is_ok(), "Tickets are validated; qed");
 
-		match Self::send_fragment(id, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm) {
+		match Self::send_fragment(
+			id,
+			XcmpMessageFormat::ConcatenatedVersionedXcm,
+			MaybeDoubleEncodedVersionedXcm(xcm),
+		) {
 			Ok(_) => {
 				Self::deposit_event(Event::XcmpMessageSent { message_hash: hash });
 				Ok(hash)
@@ -852,4 +860,73 @@ pub(crate) fn validate_xcm_nesting(xcm: &VersionedXcm<()>) -> Result<(), ()> {
 		VersionedXcm::<()>::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ())
 	})
 	.map_err(|_| ())
+}
+
+/// Double-encodes a `VersionedXcm` while staying backwards compatible with non-double encoded
+/// `VersionedXcm`s.
+///
+/// So to say: This can decode either a `VersionedXcm` or a `DoubleEncoded` one, while always
+/// encoding to the latter.
+pub struct MaybeDoubleEncodedVersionedXcm(pub VersionedXcm<()>);
+
+/// Magic number used by [MaybeDoubleEncodedVersionedXcm] to identify a `VersionedXcm`.
+///
+/// THERE MUST NEVER BE A `VersionedXcm` WITH THIS ENUM DISCRIMINANT.
+pub const MAGIC_MAYBE_DOUBLE_ENC_VXCM: u8 = 0;
+
+impl Encode for MaybeDoubleEncodedVersionedXcm {
+	fn size_hint(&self) -> usize {
+		self.0.size_hint().saturating_add(1)
+	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		let buff: Vec<u8> = self.0.encode();
+		(MAGIC_MAYBE_DOUBLE_ENC_VXCM, &buff).using_encoded(f)
+	}
+}
+
+impl MaybeDoubleEncodedVersionedXcm {
+	/// Decode either a plain `VersionedXcm` or a double-encoded one.
+	pub fn decode<I: Input>(
+		input: &mut I,
+	) -> Result<Either<VersionedXcm<()>, DoubleEncoded<VersionedXcm<()>>>, codec::Error> {
+		let meta_version: u8 = input.read_byte()?;
+
+		if meta_version == MAGIC_MAYBE_DOUBLE_ENC_VXCM {
+			let data = Vec::<u8>::decode(input)?;
+			Ok(Either::Right(data.into()))
+		} else {
+			// There is no `unget` so we need to splice together the Inputs.
+			let i1: &mut dyn Input = &mut &[meta_version][..];
+			let mut input = InputSplicer { a: i1, b: input };
+
+			Ok(Either::Left(VersionedXcm::<()>::decode_with_depth_limit(
+				MAX_XCM_DECODE_DEPTH,
+				&mut input,
+			)?))
+		}
+	}
+}
+
+/// Splices together two [`Input`]s lime an `impl_for_tuples` would do.
+///
+/// Both inputs are assumed to be `fuse`.
+struct InputSplicer<'a, I1: ?Sized, I2: ?Sized> {
+	a: &'a mut I1,
+	b: &'a mut I2,
+}
+
+impl<'a, I1: Input + ?Sized, I2: Input + ?Sized> Input for InputSplicer<'a, I1, I2> {
+	fn remaining_len(&mut self) -> Result<Option<usize>, codec::Error> {
+		Ok(match (self.a.remaining_len()?, self.b.remaining_len()?) {
+			(Some(a), Some(b)) => Some(a.saturating_add(b)),
+			(Some(c), None) | (None, Some(c)) => Some(c),
+			(None, None) => None,
+		})
+	}
+
+	fn read(&mut self, into: &mut [u8]) -> Result<(), codec::Error> {
+		// NOTE: Do not remove the closure; `Result::or` does not work here.
+		self.a.read(into).or_else(|_| self.b.read(into))
+	}
 }
