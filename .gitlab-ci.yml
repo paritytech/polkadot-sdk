@@ -241,7 +241,7 @@ build-rustdoc:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
+    # - .run-immediately
   variables:
     SKIP_WASM_BUILD: 1
   artifacts:
@@ -289,6 +289,9 @@ publish-rustdoc:
   rules:
     - if: $CI_PIPELINE_SOURCE == "pipeline"
       when: never
+    # ---------- remove me -------------- #
+    - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
+    # ----------------------------------- #
     - if: $CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_REF_NAME == "master"
     - if: $CI_COMMIT_REF_NAME == "master"
     - if: $CI_COMMIT_REF_NAME =~ /^monthly-20[0-9]{2}-[0-9]{2}.*$/ # to support: monthly-2021-09+1
