@@ -133,10 +133,25 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 
 	// This will overwrite only `Free` cores if the scheduler module is working as intended.
 	for s in scheduled {
-		core_states[s.core.0 as usize] = CoreState::Scheduled(primitives::ScheduledCore {
-			para_id: s.paras_entry.para_id(),
-			collator: None,
-		});
+		let overwrite = match core_states[s.core.0 as usize] {
+			CoreState::Scheduled(_) | CoreState::Free => true,
+			// TODO: check the para occupying the core, has to be the same
+			CoreState::Occupied(occupied_core) => {
+				if occupied_core.candidate_descriptor.para_id == s.paras_entry.para_id() {
+					false
+				} else {
+					// A different para is being scheduled on this core
+					true
+				}
+			},
+		};
+
+		if overwrite {
+			core_states[s.core.0 as usize] = CoreState::Scheduled(primitives::ScheduledCore {
+				para_id: s.paras_entry.para_id(),
+				collator: None,
+			});
+		}
 	}
 
 	core_states
