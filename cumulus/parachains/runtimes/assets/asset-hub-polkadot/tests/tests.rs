@@ -19,12 +19,13 @@
 
 use asset_hub_polkadot_runtime::xcm_config::{
 	AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount, DotLocation,
-	ForeignCreatorsSovereignAccountOf, TrustBackedAssetsPalletLocation, XcmConfig,
+	ForeignCreatorsSovereignAccountOf, LocationToAccountId, TrustBackedAssetsPalletLocation,
+	XcmConfig,
 };
 pub use asset_hub_polkadot_runtime::{
 	AllPalletsWithoutSystem, AssetDeposit, Assets, Balances, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime,
-	RuntimeCall, RuntimeEvent, SessionKeys, System, TrustBackedAssetsInstance,
+	RuntimeCall, RuntimeEvent, SessionKeys, System, TrustBackedAssetsInstance, XcmpQueue,
 };
 use asset_test_utils::{CollatorSessionKeys, ExtBuilder};
 use codec::{Decode, Encode};
@@ -657,3 +658,32 @@ asset_test_utils::include_create_and_manage_foreign_assets_for_local_consensus_p
 		assert_eq!(ForeignAssets::asset_ids().collect::<Vec<_>>().len(), 1);
 	})
 );
+
+#[test]
+fn reserve_transfer_native_asset_works() {
+	asset_test_utils::test_cases::reserve_transfer_native_asset_works::<
+		Runtime,
+		AllPalletsWithoutSystem,
+		XcmConfig,
+		ParachainSystem,
+		XcmpQueue,
+		LocationToAccountId,
+	>(
+		collator_session_keys(),
+		ExistentialDeposit::get(),
+		AccountId::from(ALICE),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		WeightLimit::Unlimited,
+	);
+}
