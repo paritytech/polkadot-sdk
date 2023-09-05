@@ -564,7 +564,9 @@ where
 {
 	let fixture_path = [
 		// When `CARGO_MANIFEST_DIR` is not set, Rust resolves relative paths from the root folder
-		std::env::var("CARGO_MANIFEST_DIR").as_deref().unwrap_or("frame/contracts"),
+		std::env::var("CARGO_MANIFEST_DIR")
+			.as_deref()
+			.unwrap_or("substrate/frame/contracts"),
 		"/fixtures/",
 		fixture_name,
 		".wat",
@@ -5888,6 +5890,56 @@ fn root_cannot_instantiate() {
 				vec![],
 			),
 			DispatchError::RootNotAllowed
+		);
+	});
+}
+
+#[test]
+fn balance_api_returns_free_balance() {
+	let (wasm, _code_hash) = compile_module::<Test>("balance").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Instantiate the BOB contract without any extra balance.
+		let addr = Contracts::bare_instantiate(
+			ALICE,
+			0,
+			GAS_LIMIT,
+			None,
+			Code::Upload(wasm.to_vec()),
+			vec![],
+			vec![],
+			DebugInfo::Skip,
+			CollectEvents::Skip,
+		)
+		.result
+		.unwrap()
+		.account_id;
+
+		let value = 0;
+		// Call BOB which makes it call the balance runtime API.
+		// The contract code asserts that the returned balance is 0.
+		assert_ok!(Contracts::call(
+			RuntimeOrigin::signed(ALICE),
+			addr.clone(),
+			value,
+			GAS_LIMIT,
+			None,
+			vec![]
+		));
+
+		let value = 1;
+		// Calling with value will trap the contract.
+		assert_err_ignore_postinfo!(
+			Contracts::call(
+				RuntimeOrigin::signed(ALICE),
+				addr.clone(),
+				value,
+				GAS_LIMIT,
+				None,
+				vec![]
+			),
+			<Error<Test>>::ContractTrapped
 		);
 	});
 }

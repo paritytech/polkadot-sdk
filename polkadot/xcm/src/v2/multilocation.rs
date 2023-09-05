@@ -239,14 +239,12 @@ impl MultiLocation {
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v2::{Junctions::*, Junction::*, MultiLocation};
-	/// # fn main() {
 	/// let mut m = MultiLocation::new(1, X2(PalletInstance(3), OnlyChild));
 	/// assert_eq!(
 	///     m.match_and_split(&MultiLocation::new(1, X1(PalletInstance(3)))),
 	///     Some(&OnlyChild),
 	/// );
 	/// assert_eq!(m.match_and_split(&MultiLocation::new(1, Here)), None);
-	/// # }
 	/// ```
 	pub fn match_and_split(&self, prefix: &MultiLocation) -> Option<&Junction> {
 		if self.parents != prefix.parents {
@@ -280,11 +278,9 @@ impl MultiLocation {
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v2::{Junctions::*, Junction::*, MultiLocation};
-	/// # fn main() {
 	/// let mut m = MultiLocation::new(1, X1(Parachain(21)));
 	/// assert_eq!(m.append_with(X1(PalletInstance(3))), Ok(()));
 	/// assert_eq!(m, MultiLocation::new(1, X2(Parachain(21), PalletInstance(3))));
-	/// # }
 	/// ```
 	pub fn append_with(&mut self, suffix: Junctions) -> Result<(), Junctions> {
 		if self.interior.len().saturating_add(suffix.len()) > MAX_JUNCTIONS {
@@ -303,11 +299,9 @@ impl MultiLocation {
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v2::{Junctions::*, Junction::*, MultiLocation};
-	/// # fn main() {
 	/// let mut m = MultiLocation::new(2, X1(PalletInstance(3)));
 	/// assert_eq!(m.prepend_with(MultiLocation::new(1, X2(Parachain(21), OnlyChild))), Ok(()));
 	/// assert_eq!(m, MultiLocation::new(1, X1(PalletInstance(3))));
-	/// # }
 	/// ```
 	pub fn prepend_with(&mut self, mut prefix: MultiLocation) -> Result<(), MultiLocation> {
 		//     prefix     self (suffix)
@@ -840,11 +834,9 @@ impl Junctions {
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v2::{Junctions::*, Junction::*};
-	/// # fn main() {
 	/// let mut m = X3(Parachain(2), PalletInstance(3), OnlyChild);
 	/// assert_eq!(m.match_and_split(&X2(Parachain(2), PalletInstance(3))), Some(&OnlyChild));
 	/// assert_eq!(m.match_and_split(&X1(Parachain(2))), None);
-	/// # }
 	/// ```
 	pub fn match_and_split(&self, prefix: &Junctions) -> Option<&Junction> {
 		if prefix.len() + 1 != self.len() || !self.starts_with(prefix) {

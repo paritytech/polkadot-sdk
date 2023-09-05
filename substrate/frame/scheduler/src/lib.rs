@@ -318,7 +318,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Execute the scheduled calls
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			let mut weight_counter = WeightMeter::from_limit(T::MaximumWeight::get());
+			let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
 			Self::service_agendas(&mut weight_counter, now, u32::max_value());
 			weight_counter.consumed()
 		}
