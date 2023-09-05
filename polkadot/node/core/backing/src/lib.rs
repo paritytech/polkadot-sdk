@@ -390,8 +390,7 @@ impl TableContext {
 	pub fn validator_is_disabled(&self, validator_idx: &ValidatorIndex) -> bool {
 		self.disabled_validators
 			.iter()
-			.find(|disabled_val_idx| *disabled_val_idx == validator_idx)
-			.is_some()
+			.any(|disabled_val_idx| *disabled_val_idx == *validator_idx)
 	}
 
 	pub fn local_validator_is_disabled(&self) -> Option<bool> {
