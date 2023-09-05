@@ -518,21 +518,9 @@ impl MaxEncodedLen for MultiAssets {
 
 impl Decode for MultiAssets {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-<<<<<<< Updated upstream
-		let number_of_assets: u32 = <codec::Compact<u32>>::decode(input)?.into();
-		if number_of_assets > MAX_ITEMS_IN_MULTIASSETS as u32 {
-			return Err(codec::Error::from("Max MultiAssets exceeded"))
-		}
-		Self::from_sorted_and_deduplicated(codec::decode_vec_with_len(
-			input,
-			number_of_assets as usize,
-		)?)
-		.map_err(|()| "Out of order".into())
-=======
 		let bounded_instructions = BoundedVec::<MultiAsset, ConstU32<{ MAX_ITEMS_IN_MULTIASSETS as u32 }>>::decode(input)?;
 		Self::from_sorted_and_deduplicated(bounded_instructions.into_inner())
 			.map_err(|()| "Out of order".into())
->>>>>>> Stashed changes
 	}
 }
 
