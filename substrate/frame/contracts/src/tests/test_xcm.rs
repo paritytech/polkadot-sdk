@@ -147,8 +147,6 @@ fn test_xcm_send() {
 		]);
 		let message = VersionedXcm::V3(message);
 
-		println!("msg: \n{:?}", message.clone().encode());
-
 		assert_ok!(
 			ParachainContracts::bare_call(
 				ALICE,
@@ -184,9 +182,6 @@ fn test_xcm_query() {
 		let match_querier = VersionedMultiLocation::V3(match_querier);
 		let timeout: BlockNumberFor<parachain::Runtime> = 1u32.into();
 
-		println!("timeout encoded: {:?}", timeout.encode());
-		println!("match_querier encoded len: {:?}", match_querier.clone().encode().len());
-		println!("encoded: {:?}", (timeout, match_querier.clone()).encode());
 		let exec = ParachainContracts::bare_call(
 			ALICE,
 			contract_addr.clone(),
