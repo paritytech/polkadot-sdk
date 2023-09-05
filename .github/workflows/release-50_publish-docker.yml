@@ -121,7 +121,7 @@ jobs:
       - name: Check sha256 ${{ env.BINARY }}
         working-directory: ./release-artifacts/${{ env.BINARY }}
         run: |
-          . ../../github/scripts/common/lib.sh
+          . ../../.github/scripts/common/lib.sh
 
           echo "Checking binary $BINARY"
           check_sha256 $BINARY && echo "OK" || echo "ERR"
@@ -129,7 +129,7 @@ jobs:
       - name: Check GPG ${{ env.BINARY }}
         working-directory: ./release-artifacts/${{ env.BINARY }}
         run: |
-          . ../../github/scripts/common/lib.sh
+          . ../../.github/scripts/common/lib.sh
           import_gpg_keys
           check_gpg $BINARY
 
