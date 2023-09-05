@@ -119,6 +119,7 @@ impl StorageCmd {
 		}
 
 		if self.params.include_child_trees {
+			child_nodes.shuffle(&mut rng);
 			let number_of_child_keys = (child_nodes.len() * self.params.db_fraction as usize) / 100;
 			info!(
 				"Writing {} child keys of {} child keys.",
