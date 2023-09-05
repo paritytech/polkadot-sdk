@@ -13,24 +13,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/// Consensus-related.
+pub mod consensus {
+	/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
+	/// into the relay chain.
+	pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
+	/// How many parachain blocks are processed by the relay chain per parent. Limits the
+	/// number of blocks authored per slot.
+	pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
+	/// Relay chain slot duration, in milliseconds.
+	pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
+}
+
+/// Constants relating to KSM.
 pub mod currency {
+	use kusama_runtime_constants as constants;
 	use polkadot_core_primitives::Balance;
-	use polkadot_runtime_constants as constants;
 
 	/// The existential deposit. Set to 1/10 of its parent Relay Chain.
 	pub const EXISTENTIAL_DEPOSIT: Balance = constants::currency::EXISTENTIAL_DEPOSIT / 10;
 
 	pub const UNITS: Balance = constants::currency::UNITS;
 	pub const CENTS: Balance = constants::currency::CENTS;
+	pub const GRAND: Balance = constants::currency::GRAND;
 	pub const MILLICENTS: Balance = constants::currency::MILLICENTS;
 
 	pub const fn deposit(items: u32, bytes: u32) -> Balance {
-		// 1/100 of Polkadot
+		// map to 1/100 of what the kusama relay chain charges (v9020)
 		constants::currency::deposit(items, bytes) / 100
 	}
 }
 
-/// Fee-related.
+/// Constants related to Kusama fee payment.
 pub mod fee {
 	use frame_support::{
 		pallet_prelude::Weight,
@@ -42,6 +56,9 @@ pub mod fee {
 	use polkadot_core_primitives::Balance;
 	use smallvec::smallvec;
 	pub use sp_runtime::Perbill;
+
+	/// The block saturation level. Fees will be updates based on this value.
+	pub const TARGET_BLOCK_FULLNESS: Perbill = Perbill::from_percent(25);
 
 	/// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
 	/// node's balance type.
@@ -71,8 +88,8 @@ pub mod fee {
 	impl WeightToFeePolynomial for RefTimeToFee {
 		type Balance = Balance;
 		fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-			// in Polkadot, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT:
-			// in Bridge Hub, we map to 1/10 of that, or 1/100 CENT
+			// In Kusama, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT:
+			// The standard system parachain configuration is 1/10 of that, as in 1/100 CENT.
 			let p = super::currency::CENTS;
 			let q = 100 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
 
@@ -102,16 +119,4 @@ pub mod fee {
 			}]
 		}
 	}
-}
-
-/// Consensus-related.
-pub mod consensus {
-	/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-	/// into the relay chain.
-	pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
-	/// How many parachain blocks are processed by the relay chain per parent. Limits the
-	/// number of blocks authored per slot.
-	pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
-	/// Relay chain slot duration, in milliseconds.
-	pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 }

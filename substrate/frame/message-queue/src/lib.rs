@@ -1092,7 +1092,7 @@ impl<T: Config> Pallet<T> {
 			origin.clone(),
 			page_index,
 			page.first_index,
-			payload.deref(),
+			payload,
 			weight,
 			overweight_limit,
 		) {
@@ -1242,7 +1242,7 @@ impl<T: Config> Pallet<T> {
 					if let Some((_, processed, message)) =
 						page.peek_index(i.try_into().expect("std-only code"))
 					{
-						let msg = String::from_utf8_lossy(message.deref());
+						let msg = String::from_utf8_lossy(message);
 						if processed {
 							page_info.push('*');
 						}
