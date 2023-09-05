@@ -3,6 +3,7 @@
 
 # build jobs from polkadot
 
+# build with network staging
 build-linux-stable:
   stage: build
   extends:
