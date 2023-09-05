@@ -66,9 +66,7 @@ impl<'a> GenesisConfigBuilderRuntimeCaller<'a> {
 			)
 			.0
 	}
-}
 
-impl<'a> GenesisConfigBuilderRuntimeCaller<'a> {
 	/// Calls [`sp_genesis_builder::GenesisBuilder::create_default_config`] provided by runtime.
 	pub fn get_default_config(&self) -> core::result::Result<Value, String> {
 		let mut t = BasicExternalities::new_empty();

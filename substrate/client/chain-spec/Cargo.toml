@@ -20,7 +20,6 @@ serde_json = "1.0.85"
 sc-client-api = { path = "../api" }
 sc-chain-spec-derive = { path = "derive" }
 sc-executor = { path = "../executor" }
-sc-executor-common = { path = "../../client/executor/common" }
 sp-io = { default-features = false, path = "../../primitives/io" }
 sc-network = { path = "../network" }
 sc-telemetry = { path = "../telemetry" }

@@ -23,18 +23,14 @@ const ROCOCO_EPOCH_DURATION_ENV: &str = "ROCOCO_EPOCH_DURATION";
 const ROCOCO_FAST_RUNTIME_ENV: &str = "ROCOCO_FAST_RUNTIME";
 
 fn main() {
-	#[cfg(feature = "std")]
-	{
-		let mut builder =
-			WasmBuilder::new().with_current_project().import_memory().export_heap_base();
+	let mut builder = WasmBuilder::new().with_current_project().import_memory().export_heap_base();
 
-		if env::var(ROCOCO_EPOCH_DURATION_ENV).is_ok() | env::var(ROCOCO_FAST_RUNTIME_ENV).is_ok() {
-			builder = builder.enable_feature("fast-runtime")
-		};
+	if env::var(ROCOCO_EPOCH_DURATION_ENV).is_ok() | env::var(ROCOCO_FAST_RUNTIME_ENV).is_ok() {
+		builder = builder.enable_feature("fast-runtime")
+	};
 
-		builder.build();
+	builder.build();
 
-		println!("cargo:rerun-if-env-changed={}", ROCOCO_EPOCH_DURATION_ENV);
-		println!("cargo:rerun-if-env-changed={}", ROCOCO_FAST_RUNTIME_ENV);
-	}
+	println!("cargo:rerun-if-env-changed={}", ROCOCO_EPOCH_DURATION_ENV);
+	println!("cargo:rerun-if-env-changed={}", ROCOCO_FAST_RUNTIME_ENV);
 }
