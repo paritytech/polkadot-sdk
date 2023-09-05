@@ -1,5 +1,5 @@
 error: Invalid attribute: Duplicate attribute
-  --> $DIR/storage_multiple_renames.rs:20:3
+  --> tests/pallet_ui/storage_multiple_renames.rs:37:3
    |
-20 |     #[pallet::storage_prefix = "Baz"]
+37 |     #[pallet::storage_prefix = "Baz"]
    |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -21,7 +21,7 @@ use frame_support::{
 	ensure,
 	traits::{Contains, Get, ProcessMessageError},
 };
-use polkadot_parachain::primitives::IsSystem;
+use polkadot_parachain_primitives::primitives::IsSystem;
 use sp_std::{cell::Cell, marker::PhantomData, ops::ControlFlow, result::Result};
 use xcm::prelude::*;
 use xcm_executor::traits::{CheckSuspension, OnResponse, Properties, ShouldExecute};

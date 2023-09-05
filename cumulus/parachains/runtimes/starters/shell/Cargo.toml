@@ -25,9 +25,9 @@ sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-
 sp-version = { path = "../../../../../substrate/primitives/version", default-features = false}
 
 # Polkadot
-xcm = { path = "../../../../../polkadot/xcm", default-features = false}
-xcm-builder = { path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
-xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
 
 # Cumulus
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }

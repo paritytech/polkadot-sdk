@@ -16,7 +16,7 @@ sp-maybe-compressed-blob = { package = "sp-maybe-compressed-blob", path = "../..
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["bit-vec", "derive"] }
 
 polkadot-primitives = { path = "../../../primitives" }
-polkadot-parachain = { path = "../../../parachain" }
+polkadot-parachain-primitives = { path = "../../../parachain" }
 polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }

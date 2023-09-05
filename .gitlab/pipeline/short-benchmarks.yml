@@ -2,6 +2,9 @@
 # Here are all jobs that are executed during "short-benchmarks" stage
 
 # Run all pallet benchmarks only once to check if there are any errors
+
+# run short-benchmarks for relay chain runtimes from polkadot
+
 short-benchmark-polkadot: &short-bench
   stage: short-benchmarks
   extends:
@@ -12,6 +15,8 @@ short-benchmark-polkadot: &short-bench
       artifacts: true
   variables:
     RUNTIME: polkadot
+  tags:
+    - benchmark
   script:
     - ./artifacts/polkadot benchmark pallet --execution wasm --wasm-execution compiled --chain $RUNTIME-dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
 
@@ -24,3 +29,60 @@ short-benchmark-westend:
   <<: *short-bench
   variables:
     RUNTIME: westend
+
+# run short-benchmarks for system parachain runtimes from cumulus
+
+.short-benchmark-cumulus: &short-bench-cumulus
+  stage: short-benchmarks
+  extends:
+    - .common-refs
+    - .docker-env
+  needs:
+    - job: build-short-benchmark-cumulus
+      artifacts: true
+  variables:
+    RUNTIME_CHAIN: benchmarked-runtime-chain
+  tags:
+    - benchmark
+  script:
+    - ./artifacts/polkadot-parachain benchmark pallet --wasm-execution compiled --chain $RUNTIME_CHAIN --pallet "*" --extrinsic "*" --steps 2 --repeat 1
+
+short-benchmark-asset-hub-polkadot:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: asset-hub-polkadot-dev
+
+short-benchmark-asset-hub-kusama:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: asset-hub-kusama-dev
+
+short-benchmark-asset-hub-westend:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: asset-hub-westend-dev
+
+short-benchmark-bridge-hub-polkadot:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: bridge-hub-polkadot-dev
+
+short-benchmark-bridge-hub-kusama:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: bridge-hub-kusama-dev
+
+short-benchmark-bridge-hub-rococo:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: bridge-hub-rococo-dev
+
+short-benchmark-collectives-polkadot:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: collectives-polkadot-dev
+
+short-benchmark-glutton-kusama:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: glutton-kusama-dev-1300

@@ -25,14 +25,12 @@ use crate::{
 };
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
-	dispatch::{
-		fmt::Debug, DispatchError, DispatchResult, DispatchResultWithPostInfo, Dispatchable,
-	},
+	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	ensure,
 	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::{Inspect, Mutate},
-		tokens::Preservation,
+		tokens::{Fortitude, Preservation},
 		Contains, OriginTrait, Randomness, Time,
 	},
 	weights::Weight,
@@ -47,8 +45,11 @@ use sp_core::{
 	Get,
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
-use sp_runtime::traits::{Convert, Hash, Zero};
-use sp_std::{marker::PhantomData, mem, prelude::*, vec::Vec};
+use sp_runtime::{
+	traits::{Convert, Dispatchable, Hash, Zero},
+	DispatchError,
+};
+use sp_std::{fmt::Debug, marker::PhantomData, mem, prelude::*, vec::Vec};
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type MomentOf<T> = <<T as Config>::Time as Time>::Moment;
@@ -1367,7 +1368,11 @@ where
 	}
 
 	fn balance(&self) -> BalanceOf<T> {
-		T::Currency::balance(&self.top_frame().account_id)
+		T::Currency::reducible_balance(
+			&self.top_frame().account_id,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		)
 	}
 
 	fn value_transferred(&self) -> BalanceOf<T> {
@@ -1620,13 +1625,13 @@ mod tests {
 	}
 
 	struct MockCtx<'a> {
-		ext: &'a mut dyn Ext<T = Test>,
+		ext: &'a mut MockStack<'a>,
 		input_data: Vec<u8>,
 	}
 
 	#[derive(Clone)]
 	struct MockExecutable {
-		func: Rc<dyn Fn(MockCtx, &Self) -> ExecResult + 'static>,
+		func: Rc<dyn for<'a> Fn(MockCtx<'a>, &Self) -> ExecResult + 'static>,
 		func_type: ExportedFunction,
 		code_hash: CodeHash<Test>,
 		code_info: CodeInfo<Test>,
@@ -1719,6 +1724,16 @@ mod tests {
 			if let &Constructor = function {
 				Self::increment_refcount(self.code_hash).unwrap();
 			}
+			// # Safety
+			//
+			// We know that we **always** call execute with a `MockStack` in this test.
+			//
+			// # Note
+			//
+			// The transmute is necessary because `execute` has to be generic over all
+			// `E: Ext`. However, `MockExecutable` can't be generic over `E` as it would
+			// constitute a cycle.
+			let ext = unsafe { std::mem::transmute(ext) };
 			if function == &self.func_type {
 				(self.func)(MockCtx { ext, input_data }, &self)
 			} else {
