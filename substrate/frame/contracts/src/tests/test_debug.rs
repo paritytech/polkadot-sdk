@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::{
-	debug::{CallInterceptor, CallInterceptorResult, CallSpan, ExportedFunction, Tracing},
+	debug::{CallInterceptor, CallSpan, ExecResult, ExportedFunction, Tracing},
 	AccountIdOf,
 };
 use frame_support::traits::Currency;
@@ -74,15 +74,12 @@ impl CallInterceptor<Test> for TestDebug {
 		contract_address: &<Test as frame_system::Config>::AccountId,
 		_entry_point: ExportedFunction,
 		_input_data: &[u8],
-	) -> CallInterceptorResult {
+	) -> Option<ExecResult> {
 		INTERCEPTED_ADDRESS.with(|i| {
 			if i.borrow().as_ref() == Some(contract_address) {
-				CallInterceptorResult::Stop(Ok(ExecReturnValue {
-					flags: ReturnFlags::REVERT,
-					data: vec![],
-				}))
+				Some(Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: vec![] }))
 			} else {
-				CallInterceptorResult::Proceed
+				None
 			}
 		})
 	}
