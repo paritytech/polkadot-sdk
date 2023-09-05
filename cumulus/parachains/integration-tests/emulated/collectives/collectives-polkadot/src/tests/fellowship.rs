@@ -63,14 +63,15 @@ fn pay_salary() {
 		assert_expected_events!(
 			AssetHubPolkadot,
 			vec![
-						RuntimeEvent::Assets(pallet_assets::Event::Transferred { asset_id: id, from, to, amount }) =>
-			{ 				asset_id: id == &asset_id,
-							from: from == &pay_from,
-							to: to == &pay_to,
-							amount: amount == &pay_amount,
-						},
-						RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success { .. }) => {},
-					]
+				RuntimeEvent::Assets(pallet_assets::Event::Transferred { asset_id: id, from, to, amount }) =>
+				{
+					asset_id: id == &asset_id,
+					from: from == &pay_from,
+					to: to == &pay_to,
+					amount: amount == &pay_amount,
+				},
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true, .. }) => {},
+			]
 		);
 	});
 }
