@@ -136,6 +136,7 @@ fn test_xcm_send() {
 	let contract_addr = instantiate_test_contract("xcm_send");
 	let fee = parachain::estimate_message_fee(4); // Accounts for the `DescendOrigin` instruction added by `send_xcm`
 
+	// Send XCM instructions through the contract, to lock some funds on the relay chain.
 	ParaA::execute_with(|| {
 		let dest = MultiLocation::from(Parent);
 		let dest = VersionedMultiLocation::V3(dest);
@@ -182,6 +183,7 @@ fn test_xcm_query() {
 		let match_querier = VersionedMultiLocation::V3(match_querier);
 		let timeout: BlockNumberFor<parachain::Runtime> = 1u32.into();
 
+		// Invoke the contract to create an XCM query.
 		let exec = ParachainContracts::bare_call(
 			ALICE,
 			contract_addr.clone(),
@@ -195,8 +197,9 @@ fn test_xcm_query() {
 		);
 
 		let mut data = &exec.result.unwrap().data[..];
-
 		let query_id = QueryId::decode(&mut data).expect("Failed to decode message");
+
+		// Verify that the query exists and is pending.
 		let response = ParachainPalletXcm::take_response(query_id);
 		let expected_response = QueryResponseStatus::Pending { timeout };
 		assert_eq!(response, expected_response);
@@ -207,6 +210,7 @@ fn test_xcm_query() {
 fn test_xcm_take_response() {
 	MockNet::reset();
 	let contract_addr = instantiate_test_contract("xcm_take_response");
+
 	ParaA::execute_with(|| {
 		let querier: MultiLocation =
 			(Parent, AccountId32 { network: None, id: ALICE.into() }).into();
@@ -214,20 +218,11 @@ fn test_xcm_take_response() {
 			network: Some(NetworkId::ByGenesis([0u8; 32])),
 			id: ALICE.into(),
 		});
+
+		// Register a new query.
 		let query_id = ParachainPalletXcm::new_query(responder, 1u32.into(), querier);
 
-		let fee = parachain::estimate_message_fee(4);
-		let message = Xcm(vec![
-			WithdrawAsset(vec![(Parent, fee).into()].into()),
-			BuyExecution { fees: (Parent, fee).into(), weight_limit: WeightLimit::Unlimited },
-			QueryResponse {
-				query_id,
-				response: Response::ExecutionResult(None),
-				max_weight: Weight::zero(),
-				querier: Some(querier),
-			},
-		]);
-
+		// Helper closure to call the contract to take the response.
 		let call = |query_id: QueryId| {
 			let exec = ParachainContracts::bare_call(
 				ALICE,
@@ -250,6 +245,18 @@ fn test_xcm_take_response() {
 		// Query is not yet answered.
 		assert_eq!(QueryResponseStatus::Pending { timeout: 1u32.into() }, call(query_id));
 
+		// Execute the XCM message that answers the query.
+		let fee = parachain::estimate_message_fee(4);
+		let message = Xcm(vec![
+			WithdrawAsset(vec![(Parent, fee).into()].into()),
+			BuyExecution { fees: (Parent, fee).into(), weight_limit: WeightLimit::Unlimited },
+			QueryResponse {
+				query_id,
+				response: Response::ExecutionResult(None),
+				max_weight: Weight::zero(),
+				querier: Some(querier),
+			},
+		]);
 		ParachainPalletXcm::execute(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(VersionedXcm::V3(message)),
@@ -257,7 +264,7 @@ fn test_xcm_take_response() {
 		)
 		.unwrap();
 
-		// Query is answered.
+		// First call returns the response.
 		assert_eq!(
 			QueryResponseStatus::Ready {
 				response: Response::ExecutionResult(None),
@@ -266,7 +273,7 @@ fn test_xcm_take_response() {
 			call(query_id)
 		);
 
-		// Query is not found. (Query was already answered)
+		// Second call returns `NotFound`. (Query was already answered)
 		assert_eq!(QueryResponseStatus::NotFound, call(query_id));
 	})
 }
