@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["GLUTTON_PARA_DEV_PREFIX","GLUTTON_PARA_GENESIS_PREFIX","GLUTTON_PARA_LOCAL_PREFIX","KUSAMA_TEST_PARA_PREFIX","POLKADOT_TEST_PARA_PREFIX"],"enum":["Runtime"],"fn":["extract_parachain_id","load_spec","run","runtime"],"macro":["construct_async_run","construct_benchmark_partials"],"struct":["EmptyChainSpecWithId"],"trait":["RuntimeResolver"]};

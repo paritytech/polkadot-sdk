@@ -1,0 +1,5 @@
+(function() {var implementors = {
+"kitchensink_runtime":[["impl <a class=\"trait\" href=\"pallet_whitelist/pallet/trait.Config.html\" title=\"trait pallet_whitelist::pallet::Config\">Config</a> for <a class=\"struct\" href=\"kitchensink_runtime/struct.Runtime.html\" title=\"struct kitchensink_runtime::Runtime\">Runtime</a>"]],
+"polkadot_runtime":[["impl <a class=\"trait\" href=\"pallet_whitelist/pallet/trait.Config.html\" title=\"trait pallet_whitelist::pallet::Config\">Config</a> for <a class=\"struct\" href=\"polkadot_runtime/struct.Runtime.html\" title=\"struct polkadot_runtime::Runtime\">Runtime</a>"]],
+"staging_kusama_runtime":[["impl <a class=\"trait\" href=\"pallet_whitelist/pallet/trait.Config.html\" title=\"trait pallet_whitelist::pallet::Config\">Config</a> for <a class=\"struct\" href=\"staging_kusama_runtime/struct.Runtime.html\" title=\"struct staging_kusama_runtime::Runtime\">Runtime</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

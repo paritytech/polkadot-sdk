@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PROOF_SIZE_THRESHOLD","REF_TIME_THRESHOLD","XCM_V2","XCM_V3"],"mod":["accounts","asset_hub_kusama","asset_hub_polkadot","asset_hub_westend","bridge_hub_kusama","bridge_hub_polkadot","bridge_hub_rococo","collators","collectives","kusama","penpal","polkadot","rococo","validators","westend"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BRIDGE_HUB_POLKADOT","BRIDGE_HUB_POLKADOT_DEVELOPMENT","BRIDGE_HUB_POLKADOT_ED","BRIDGE_HUB_POLKADOT_LOCAL"],"fn":["genesis","local_config"],"type":["BridgeHubChainSpec","RuntimeApi"]};
