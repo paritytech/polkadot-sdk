@@ -19,7 +19,7 @@ validators. Validators validate the block and register the new parachain head in
 [`Heads` map](https://github.com/paritytech/polkadot/blob/88013730166ba90745ae7c9eb3e0c1be1513c7cc/runtime/parachains/src/paras/mod.rs#L645)
 of the [`paras`](https://github.com/paritytech/polkadot/tree/master/runtime/parachains/src/paras) pallet,
 deployed at the relay chain. Keep in mind that this pallet, deployed at a relay chain, is **NOT** a bridge pallet,
-even though the names are similar. 
+even though the names are similar.
 
 And what the bridge parachains pallet does, is simply verifying storage proofs of parachain heads within that
 `Heads` map. It does that using relay chain header, that has been previously imported by the
