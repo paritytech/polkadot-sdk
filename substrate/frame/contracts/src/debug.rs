@@ -86,11 +86,12 @@ pub trait CallInterceptor<T: Config> {
 	/// * `entry_point` - Describes whether the call is the constructor or a regular call.
 	/// * `input_data` - The raw input data of the call.
 	///
-	/// # Returns
+	/// # Expected behavior
 	///
-	/// * `Some(ExecResult)` - If the call is intercepted, the mocked result of the call is
-	///   returned.
-	/// * `None` - If the call is not intercepted, the call should be executed normally.
+	/// This method should return:
+	/// * `Some(ExecResult)` - if the call should be intercepted and the mocked result of the call
+	/// is returned.
+	/// * `None` - otherwise, i.e. the call should be executed normally
 	fn intercept_call(
 		contract_address: &T::AccountId,
 		entry_point: ExportedFunction,
