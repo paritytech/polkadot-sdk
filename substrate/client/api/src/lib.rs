@@ -49,7 +49,6 @@ pub trait UsageProvider<Block: sp_runtime::traits::Block> {
 pub mod utils {
 	use sp_blockchain::{Error, HeaderBackend, HeaderMetadata};
 	use sp_runtime::traits::Block as BlockT;
-	use std::borrow::Borrow;
 
 	/// Returns a function for checking block ancestry, the returned function will
 	/// return `true` if the given hash (second parameter) is a descendent of the
