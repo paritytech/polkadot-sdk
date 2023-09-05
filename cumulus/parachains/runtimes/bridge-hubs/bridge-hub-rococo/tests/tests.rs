@@ -19,7 +19,6 @@
 use bp_polkadot_core::Signature;
 use bridge_hub_rococo_runtime::{
 	bridge_hub_rococo_config, bridge_hub_wococo_config,
-	constants::fee::WeightToFee,
 	xcm_config::{RelayNetwork, XcmConfig},
 	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, DeliveryRewardInBalance,
 	Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, RequiredStakeForStakeAndSlash,
@@ -28,7 +27,7 @@ use bridge_hub_rococo_runtime::{
 use codec::{Decode, Encode};
 use frame_support::parameter_types;
 use frame_system::pallet_prelude::HeaderFor;
-use parachains_common::{AccountId, AuraId, Balance};
+use parachains_common::{rococo::fee::WeightToFee, AccountId, AuraId, Balance};
 use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},

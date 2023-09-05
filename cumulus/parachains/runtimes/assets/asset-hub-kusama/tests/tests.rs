@@ -21,7 +21,6 @@ use asset_hub_kusama_runtime::xcm_config::{
 	AssetFeeAsExistentialDepositMultiplierFeeCharger, KsmLocation, TrustBackedAssetsPalletLocation,
 };
 pub use asset_hub_kusama_runtime::{
-	constants::fee::WeightToFee,
 	xcm_config::{CheckingAccount, ForeignCreatorsSovereignAccountOf, XcmConfig},
 	AllPalletsWithoutSystem, AssetDeposit, Assets, Balances, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime,
@@ -35,7 +34,9 @@ use frame_support::{
 	traits::fungibles::InspectEnumerable,
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
-use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
+use parachains_common::{
+	kusama::fee::WeightToFee, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
+};
 use sp_runtime::traits::MaybeEquivalence;
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{Identity, JustTry, WeightTrader};

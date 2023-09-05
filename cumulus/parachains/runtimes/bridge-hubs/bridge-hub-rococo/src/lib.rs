@@ -24,11 +24,9 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod bridge_hub_rococo_config;
 pub mod bridge_hub_wococo_config;
-pub mod constants;
 mod weights;
 pub mod xcm_config;
 
-use constants::{consensus::*, currency::*};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -79,7 +77,6 @@ use crate::{
 		BridgeRefundBridgeHubRococoMessages, OnBridgeHubWococoBlobDispatcher,
 		WithBridgeHubRococoMessageBridge,
 	},
-	constants::fee::WeightToFee,
 	xcm_config::XcmRouter,
 };
 use bridge_runtime_common::{
@@ -87,8 +84,10 @@ use bridge_runtime_common::{
 	messages_xcm_extension::{XcmAsPlainPayload, XcmBlobMessageDispatch},
 };
 use parachains_common::{
-	impls::DealWithFees, AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
-	AVERAGE_ON_INITIALIZE_RATIO, HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+	impls::DealWithFees,
+	rococo::{consensus::*, currency::*, fee::WeightToFee},
+	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
+	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
 use xcm_executor::XcmExecutor;
 
