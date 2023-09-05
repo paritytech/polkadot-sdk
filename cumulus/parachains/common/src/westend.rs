@@ -15,21 +15,23 @@
 
 pub mod currency {
 	use polkadot_core_primitives::Balance;
-	use rococo_runtime_constants as constants;
+	use westend_runtime_constants as constants;
 
-	/// The existential deposit. Set to 1/10 of its parent Relay Chain (v9010).
+	/// The existential deposit. Set to 1/10 of its parent Relay Chain.
 	pub const EXISTENTIAL_DEPOSIT: Balance = constants::currency::EXISTENTIAL_DEPOSIT / 10;
 
 	pub const UNITS: Balance = constants::currency::UNITS;
 	pub const CENTS: Balance = constants::currency::CENTS;
 	pub const MILLICENTS: Balance = constants::currency::MILLICENTS;
+	pub const GRAND: Balance = constants::currency::GRAND;
 
 	pub const fn deposit(items: u32, bytes: u32) -> Balance {
-		// map to 1/100 of what the rococo relay chain charges
+		// 1/100 of Westend testnet
 		constants::currency::deposit(items, bytes) / 100
 	}
 }
 
+/// Fee-related.
 pub mod fee {
 	use frame_support::{
 		pallet_prelude::Weight,
@@ -49,8 +51,8 @@ pub mod fee {
 	/// node's balance type.
 	///
 	/// This should typically create a mapping between the following ranges:
-	///   - `[0, MAXIMUM_BLOCK_WEIGHT]`
-	///   - `[Balance::min, Balance::max]`
+	///   - [0, MAXIMUM_BLOCK_WEIGHT]
+	///   - [Balance::min, Balance::max]
 	///
 	/// Yet, it can be used for any other sort of change to weight-fee. Some examples being:
 	///   - Setting it to `0` will essentially disable the weight fee.
@@ -73,8 +75,8 @@ pub mod fee {
 	impl WeightToFeePolynomial for RefTimeToFee {
 		type Balance = Balance;
 		fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-			// in Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT:
-			// in Bridge Hub, we map to 1/10 of that, or 1/100 CENT
+			// In Westend, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT:
+			// The standard system parachain configuration is 1/10 of that, as in 1/100 CENT.
 			let p = super::currency::CENTS;
 			let q = 100 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
 
