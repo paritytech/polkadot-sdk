@@ -75,6 +75,7 @@ impl CallSpan for () {
 	}
 }
 
+/// Provides an interface for intercepting contract calls.
 pub trait CallInterceptor<T: Config> {
 	/// Allows to intercept contract calls and decide whether they should be executed or not.
 	/// If the call is intercepted, the mocked result of the call is returned.

@@ -911,16 +911,13 @@ where
 			let contract_address = &top_frame!(self).account_id;
 
 			let call_span = T::Debug::new_call_span(contract_address, entry_point, &input_data);
-			let interception_result =
-				T::Debug::intercept_call(contract_address, entry_point, &input_data);
-			let output = match interception_result {
-				// Call into the Wasm blob.
-				None => executable
-					.execute(self, &entry_point, input_data)
-					.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?,
-				// Return the output of the interceptor.
-				Some(output) => output?,
-			};
+
+			let output = T::Debug::intercept_call(contract_address, entry_point, &input_data)
+				.unwrap_or_else(|| {
+					executable
+						.execute(self, &entry_point, input_data)
+						.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })
+				})?;
 
 			call_span.after_call(&output);
 

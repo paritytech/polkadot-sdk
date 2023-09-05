@@ -124,18 +124,18 @@ fn unsafe_debugging_works() {
 		.account_id
 	}
 
-	fn constructor_frame(contract_account: AccountId32, after: bool) -> DebugFrame {
+	fn constructor_frame(contract_account: &AccountId32, after: bool) -> DebugFrame {
 		DebugFrame {
-			contract_account,
+			contract_account: contract_account.clone(),
 			call: ExportedFunction::Constructor,
 			input: vec![],
 			result: if after { Some(vec![]) } else { None },
 		}
 	}
 
-	fn call_frame(contract_account: AccountId32, args: Vec<u8>, after: bool) -> DebugFrame {
+	fn call_frame(contract_account: &AccountId32, args: Vec<u8>, after: bool) -> DebugFrame {
 		DebugFrame {
-			contract_account,
+			contract_account: contract_account.clone(),
 			call: ExportedFunction::Call,
 			input: args,
 			result: if after { Some(vec![]) } else { None },
@@ -153,10 +153,10 @@ fn unsafe_debugging_works() {
 		assert_eq!(
 			current_stack(),
 			vec![
-				constructor_frame(addr_caller.clone(), false),
-				constructor_frame(addr_caller.clone(), true),
-				constructor_frame(addr_callee.clone(), false),
-				constructor_frame(addr_callee.clone(), true),
+				constructor_frame(&addr_caller, false),
+				constructor_frame(&addr_caller, true),
+				constructor_frame(&addr_callee, false),
+				constructor_frame(&addr_callee, true),
 			]
 		);
 
@@ -176,10 +176,10 @@ fn unsafe_debugging_works() {
 		assert_eq!(
 			stack_top,
 			vec![
-				call_frame(addr_caller.clone(), main_args.clone(), false),
-				call_frame(addr_callee.clone(), inner_args.clone(), false),
-				call_frame(addr_callee, inner_args, true),
-				call_frame(addr_caller, main_args, true),
+				call_frame(&addr_caller, main_args.clone(), false),
+				call_frame(&addr_callee, inner_args.clone(), false),
+				call_frame(&addr_callee, inner_args, true),
+				call_frame(&addr_caller, main_args, true),
 			]
 		);
 	});
