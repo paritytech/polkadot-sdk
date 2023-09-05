@@ -616,6 +616,53 @@ fn unlimited_reserve_transfer_assets_works() {
 	});
 }
 
+/// Test `limited_reserve_withdraw_assets` with unlimited weight purchasing
+///
+/// Asserts that the sender's balance is decreased and the beneficiary's balance
+/// is increased. Verifies the correct message is sent and event is emitted.
+#[test]
+fn unlimited_reserve_withdraw_assets_works() {
+	let balances = vec![
+		(ALICE, INITIAL_BALANCE),
+		(ParaId::from(PARA_ID).into_account_truncating(), INITIAL_BALANCE),
+	];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		let weight = BaseXcmWeight::get() * 2;
+		let dest: MultiLocation = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		// TODO: for a more accurate test, use derivative/synthetic (pallet_assets) asset instead of
+		// native (pallet_balances) `Here` asset, but mock doesn't have `pallet_assets` and not sure
+		// it's worth adding just for this.
+		assert_ok!(XcmPallet::limited_reserve_withdraw_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(Parachain(PARA_ID).into()),
+			Box::new(dest.into()),
+			Box::new((Here, SEND_AMOUNT).into()),
+			0,
+			WeightLimit::Unlimited,
+		));
+		// Alice spent amount
+		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE - SEND_AMOUNT);
+		// Check destination XCM program
+		assert_eq!(
+			sent_xcm(),
+			vec![(
+				Parachain(PARA_ID).into(),
+				Xcm(vec![
+					WithdrawAsset((Parent, SEND_AMOUNT).into()),
+					ClearOrigin,
+					buy_execution((Parent, SEND_AMOUNT)),
+					DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
+				]),
+			)]
+		);
+		assert_eq!(
+			last_event(),
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+		);
+	});
+}
+
 /// Test local execution of XCM
 ///
 /// Asserts that the sender's balance is decreased and the beneficiary's balance

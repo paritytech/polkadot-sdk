@@ -92,6 +92,9 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 1489))
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
+	fn reserve_withdraw_assets() -> Weight {
+		Weight::from_parts(20_000_000, 0)
+	}
 	fn execute() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
