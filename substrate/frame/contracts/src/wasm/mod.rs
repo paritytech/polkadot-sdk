@@ -771,9 +771,18 @@ mod tests {
 		executable.execute(ext.borrow_mut(), entry_point, input_data)
 	}
 
-	/// Execute the supplied code.
+	/// Execute the `call` function within the supplied code.
 	fn execute<E: BorrowMut<MockExt>>(wat: &str, input_data: Vec<u8>, ext: E) -> ExecResult {
 		execute_internal(wat, input_data, ext, &ExportedFunction::Call, true, false)
+	}
+
+	/// Execute the `deploy` function within the supplied code.
+	fn execute_instantiate<E: BorrowMut<MockExt>>(
+		wat: &str,
+		input_data: Vec<u8>,
+		ext: E,
+	) -> ExecResult {
+		execute_internal(wat, input_data, ext, &ExportedFunction::Constructor, true, false)
 	}
 
 	/// Execute the supplied code with disabled unstable functions.
@@ -1883,9 +1892,19 @@ mod tests {
 "#;
 
 	#[test]
-	fn start_fn_does_run() {
+	fn start_fn_does_run_on_call() {
 		let mut ext = MockExt::default();
 		execute(START_FN_DOES_RUN, vec![], &mut ext).unwrap();
+		assert_eq!(
+			ext.events[0].1,
+			[0x00_u8, 0x01, 0x2a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe5, 0x14, 0x00]
+		);
+	}
+
+	#[test]
+	fn start_fn_does_run_on_deploy() {
+		let mut ext = MockExt::default();
+		execute_instantiate(START_FN_DOES_RUN, vec![], &mut ext).unwrap();
 		assert_eq!(
 			ext.events[0].1,
 			[0x00_u8, 0x01, 0x2a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe5, 0x14, 0x00]
