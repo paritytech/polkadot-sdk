@@ -30,7 +30,7 @@ beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../subs
 
 # Polkadot
 polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false}
-polkadot-parachain = { path = "../../../../../polkadot/parachain", default-features = false}
+polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false}
 polkadot-service = { path = "../../../../../polkadot/node/service", default-features = false, features = ["full-node"] }
 polkadot-primitives = { path = "../../../../../polkadot/primitives", default-features = false}
 polkadot-runtime-parachains = { path = "../../../../../polkadot/runtime/parachains" }
@@ -90,7 +90,7 @@ runtime-benchmarks = [
 	"pallet-staking/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
-	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-runtime/runtime-benchmarks",
