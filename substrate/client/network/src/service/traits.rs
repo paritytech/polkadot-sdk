@@ -772,6 +772,9 @@ pub trait NotificationService: Debug + Send {
 	/// Set handshake for the notification protocol replacing the old handshake.
 	async fn set_handshake(&mut self, handshake: Vec<u8>) -> Result<(), ()>;
 
+	/// Non-blocking variant of `set_handshake()` that
+	fn try_set_handshake(&mut self, handshake: Vec<u8>) -> Result<(), ()>;
+
 	/// Get next event from the `Notifications` event stream.
 	async fn next_event(&mut self) -> Option<NotificationEvent>;
 

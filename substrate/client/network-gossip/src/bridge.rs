@@ -537,6 +537,10 @@ mod tests {
 			unimplemented!();
 		}
 
+		fn try_set_handshake(&mut self, _handshake: Vec<u8>) -> Result<(), ()> {
+			unimplemented!();
+		}
+
 		async fn next_event(&mut self) -> Option<NotificationEvent> {
 			self.rx.next().await
 		}

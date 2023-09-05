@@ -274,6 +274,11 @@ impl NotificationService for NotificationHandle {
 		self.tx.send(NotificationCommand::SetHandshake(handshake)).await.map_err(|_| ())
 	}
 
+	/// Non-blocking variant of `set_handshake()` that
+	fn try_set_handshake(&mut self, handshake: Vec<u8>) -> Result<(), ()> {
+		self.tx.try_send(NotificationCommand::SetHandshake(handshake)).map_err(|_| ())
+	}
+
 	/// Get next event from the `Notifications` event stream.
 	async fn next_event(&mut self) -> Option<NotificationEvent> {
 		loop {

@@ -703,20 +703,15 @@ where
 					log::debug!(target: "sync", "New best block imported {:?}/#{}", hash, number);
 
 					self.chain_sync.update_chain_info(&hash, number);
-					// TODO: remove once `SyncingEngine` is refactored
-					while let Poll::Pending = self
-						.notification_service
-						.set_handshake(
-							BlockAnnouncesHandshake::<B>::build(
-								self.roles,
-								number,
-								hash,
-								self.genesis_hash,
-							)
-							.encode(),
+					let _ = self.notification_service.try_set_handshake(
+						BlockAnnouncesHandshake::<B>::build(
+							self.roles,
+							number,
+							hash,
+							self.genesis_hash,
 						)
-						.poll_unpin(cx)
-					{}
+						.encode(),
+					);
 				},
 				ToServiceCommand::Status(tx) => {
 					let mut status = self.chain_sync.status();

@@ -768,3 +768,24 @@ async fn notification_sink_replaced() {
 		Some(NotificationsSinkMessage::Notification { message: vec![1, 3, 3, 7] }),
 	);
 }
+
+#[tokio::test]
+async fn set_handshake() {
+	let (proto, mut notif) = notification_service("/proto/1".into());
+	let (_handle, mut stream) = proto.split();
+
+	assert!(notif.try_set_handshake(vec![1, 3, 3, 7]).is_ok());
+
+	match stream.next().await {
+		Some(NotificationCommand::SetHandshake(handshake)) => {
+			assert_eq!(handshake, vec![1, 3, 3, 7]);
+		},
+		_ => panic!("invalid event received"),
+	}
+
+	for _ in 0..COMMAND_QUEUE_SIZE {
+		assert!(notif.try_set_handshake(vec![1, 3, 3, 7]).is_ok());
+	}
+
+	assert!(notif.try_set_handshake(vec![1, 3, 3, 7]).is_err());
+}

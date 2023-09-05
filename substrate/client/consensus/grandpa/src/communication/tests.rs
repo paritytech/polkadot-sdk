@@ -256,6 +256,10 @@ impl NotificationService for TestNotificationService {
 		unimplemented!();
 	}
 
+	fn try_set_handshake(&mut self, _handshake: Vec<u8>) -> Result<(), ()> {
+		unimplemented!();
+	}
+
 	/// Get next event from the `Notifications` event stream.
 	async fn next_event(&mut self) -> Option<NotificationEvent> {
 		self.rx.next().await
