@@ -65,7 +65,7 @@ impl StorageCmd {
 		let (mut rng, _) = new_rng(None);
 		kvs.shuffle(&mut rng);
 		let number_of_keys = (kvs.len() * self.params.db_fraction as usize) / 100;
-		let number_of_keys = if number_of_keys != 0 {number_of_keys} else {1};
+		let number_of_keys = if number_of_keys != 0 { number_of_keys } else { 1 };
 
 		info!("Writing {} keys of {} keys", number_of_keys, kvs.len());
 		let mut child_nodes = Vec::new();
@@ -120,7 +120,11 @@ impl StorageCmd {
 
 		if self.params.include_child_trees {
 			let number_of_child_keys = (child_nodes.len() * self.params.db_fraction as usize) / 100;
-			info!("Writing {} child keys of {} child keys.", number_of_child_keys, child_nodes.len());
+			info!(
+				"Writing {} child keys of {} child keys.",
+				number_of_child_keys,
+				child_nodes.len()
+			);
 
 			for (key, info) in child_nodes.into_iter().take(number_of_child_keys) {
 				if let Some(original_v) = client
