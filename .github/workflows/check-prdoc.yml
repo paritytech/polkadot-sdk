@@ -1,0 +1,35 @@
+name: Check PRdoc
+
+on:
+  pull_request:
+    types: [labeled, opened, synchronize, unlabeled]
+
+env:
+          # todo: switch to paritytech once built+published
+          # see https://github.com/paritytech/scripts/pull/595
+          IMAGE: chevdor/prdoc:v0.0.4
+
+jobs:
+  check-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull image
+        run: |
+          echo "Pulling $IMAGE"
+          docker pull $IMAGE
+          docker run --rm -it $IMAGE --version
+
+      - name: Check if PRdoc is required
+        run: |
+            # Fetch the labels for the PR under test
+            echo "Fetch the labels for $API_BASE/${REPO}/pulls/${GITHUB_PR}"
+            labels=$( curl -H "Authorization: token ${GITHUB_TOKEN}" -s "$API_BASE/${REPO}/pulls/${GITHUB_PR}" | jq '.labels | .[] | .name' | tr "\n" ",")
+            echo "Labels: ${labels}"
+
+      - name: Check PRdoc
+        env:
+          MOUNT: /prdoc
+          GITHUB_PR: ${{ github.event.pull_request.number }}
+          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TODO
