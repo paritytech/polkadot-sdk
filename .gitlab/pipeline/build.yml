@@ -18,7 +18,7 @@ build-linux-stable:
     # Ensure we run the UI tests.
     RUN_UI_TESTS: 1
   script:
-    - time cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
+    - time cargo build --locked --profile testnet --features pyroscope,fast-runtime,network-protocol-staging --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
     # pack artifacts
     - mkdir -p ./artifacts
     - VERSION="${CI_COMMIT_REF_NAME}" # will be tag or branch name
@@ -185,7 +185,7 @@ build-linux-stable-cumulus:
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
     - echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
-    - time cargo build --release --locked --bin polkadot-parachain
+    - time cargo build --release --locked --features network-protocol-staging --bin polkadot-parachain
     - echo "___Packing the artifacts___"
     - mkdir -p ./artifacts
     - mv ./target/release/polkadot-parachain ./artifacts/.
