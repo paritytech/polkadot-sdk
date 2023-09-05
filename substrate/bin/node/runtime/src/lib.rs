@@ -2014,6 +2014,16 @@ mod runtime {
 	pub struct Runtime;
 
 	#[frame::pallets]
+	#[frame::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId
+	)]
 	pub struct Pallets {
 		System: frame_system,
 		Utility: pallet_utility,
