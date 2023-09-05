@@ -25,14 +25,13 @@ use frame_support::traits::Get;
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
-use sp_std::prelude::*;
 use sp_std::{
 	boxed::Box,
 	cell::{RefCell, RefMut},
 	collections::btree_set::BTreeSet,
+	prelude::*,
 };
-use sp_trie::NodeCodec;
-use sp_trie::{MemoryDB, StorageProof};
+use sp_trie::{MemoryDB, NodeCodec, StorageProof};
 use trie_db::{Hasher, RecordedForKey, TrieAccess};
 
 /// A trie recorder that only keeps track of the proof size.
@@ -45,44 +44,27 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeRecorder<'a, 
 	fn record<'b>(&mut self, access: TrieAccess<'b, H::Out>) {
 		let mut encoded_size_update = 0;
 		match access {
-			TrieAccess::NodeOwned { hash, node_owned } => {
+			TrieAccess::NodeOwned { hash, node_owned } =>
 				if !self.seen_nodes.get(&hash).is_some() {
 					let node = node_owned.to_encoded::<NodeCodec<H>>();
 					encoded_size_update += node.encoded_size();
-					log::info!(
-						target: "skunert",
-						"Recording node ({encoded_size_update} bytes)",
-					);
-					//TODO skunert: Check if this is correct, original has transaction handling
 					self.seen_nodes.insert(hash);
-				}
-			},
+				},
 			TrieAccess::EncodedNode { hash, encoded_node } => {
 				if !self.seen_nodes.get(&hash).is_some() {
 					let node = encoded_node.into_owned();
 					encoded_size_update += node.encoded_size();
-					log::info!(
-						target: "skunert",
-						"Recording encoded node ({encoded_size_update} bytes)",
-					);
 					self.seen_nodes.insert(hash);
 				}
 			},
-			TrieAccess::Value { hash, value, .. } => {
+			TrieAccess::Value { hash, value, .. } =>
 				if !self.seen_nodes.get(&hash).is_some() {
 					let value = value.into_owned();
 
 					encoded_size_update += value.encoded_size();
-					log::info!(
-						target: "skunert",
-						"Recording value ({encoded_size_update} bytes)",
-					);
-
 					self.seen_nodes.insert(hash);
-				}
-			},
-			TrieAccess::Hash { .. } => {},
-			TrieAccess::NonExisting { .. } => {},
+				},
+			TrieAccess::Hash { .. } | TrieAccess::NonExisting { .. } => {},
 		};
 
 		*self.encoded_size += encoded_size_update;

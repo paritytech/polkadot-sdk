@@ -32,8 +32,7 @@ use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
-use sp_std::prelude::*;
-use sp_std::sync::Arc;
+use sp_std::{prelude::*, sync::Arc};
 use sp_trie::{MemoryDB, TrieRecorderProvider};
 use trie_recorder::RecorderProvider;
 
@@ -314,8 +313,7 @@ fn host_storage_clear(key: &[u8]) {
 }
 
 fn reclaim_pov_weight() -> u32 {
-	log::info!(target: "skunert", "Calling my replaced method.");
-	with_externalities(|ext| ext.proof_size()).unwrap_or(0)
+	with_externalities(|ext| ext.proof_size()).unwrap_or_default()
 }
 
 fn host_storage_root(version: StateVersion) -> Vec<u8> {
