@@ -28,6 +28,7 @@ log = { version = "0.4.17", default-features = false }
 
 [dev-dependencies]
 pallet-balances = { path = "../balances" }
+sp-core = { path = "../../primitives/core", default-features = false}
 
 [features]
 default = [ "std" ]
