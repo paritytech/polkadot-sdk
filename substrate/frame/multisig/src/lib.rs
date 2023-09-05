@@ -516,7 +516,13 @@ pub mod pallet {
 
 			let maybe_expiry = <MultisigExpiries<T>>::get(&id, H256::from(call_hash));
 
-			Self::remove_multisig(&id, call_hash, &m.depositor, m.deposit, maybe_expiry);
+			Self::remove_multisig(
+				&id,
+				H256::from(call_hash),
+				&m.depositor,
+				m.deposit,
+				maybe_expiry,
+			);
 
 			Self::deposit_event(Event::MultisigCancelled {
 				cancelling: who,
@@ -631,7 +637,7 @@ pub mod pallet {
 			);
 
 			// Clean up all the state that is not needed anymore since the multisig expired.
-			Self::remove_multisig(&id, call_hash.0, &m.depositor, m.deposit, Some(expiry));
+			Self::remove_multisig(&id, call_hash, &m.depositor, m.deposit, Some(expiry));
 
 			Self::deposit_event(Event::MultisigCancelled {
 				cancelling: who,
@@ -691,14 +697,19 @@ impl<T: Config> Pallet<T> {
 
 			let maybe_expiry = <MultisigExpiries<T>>::get(&id, H256::from(call_hash));
 			// Ensure that the mutlisig did not expire.
-			match maybe_expiry {
-				Some(expiry) if expiry < <frame_system::Pallet<T>>::block_number() => {
+			if let Some(expiry) = maybe_expiry {
+				if expiry < <frame_system::Pallet<T>>::block_number() {
 					// If the multisig is expired we will take the chance to remove it now so that
 					// the multisig creator does not have to make a separate call to clean it up.
-					Self::remove_multisig(&id, call_hash, &m.depositor, m.deposit, maybe_expiry);
+					Self::remove_multisig(
+						&id,
+						H256::from(call_hash),
+						&m.depositor,
+						m.deposit,
+						maybe_expiry,
+					);
 					return Err(Error::<T>::MultisigExpired.into())
-				},
-				_ => {},
+				}
 			};
 
 			// Ensure that either we have not yet signed or that it is at threshold.
@@ -720,7 +731,13 @@ impl<T: Config> Pallet<T> {
 
 				// Clean up storage before executing call to avoid an possibility of reentrancy
 				// attack.
-				Self::remove_multisig(&id, call_hash, &m.depositor, m.deposit, maybe_expiry);
+				Self::remove_multisig(
+					&id,
+					H256::from(call_hash),
+					&m.depositor,
+					m.deposit,
+					maybe_expiry,
+				);
 
 				let result = call.dispatch(RawOrigin::Signed(id.clone()).into());
 				Self::deposit_event(Event::MultisigExecuted {
@@ -818,21 +835,21 @@ impl<T: Config> Pallet<T> {
 
 	/// Removes a multisig operation from the state.
 	///
-	/// If the multisig had an expiry it will also get removed from the
+	/// If the multisig had an expiry date it will also get removed from the
 	/// [`MultisigExpiries`] storage map.
 	fn remove_multisig(
 		id: &T::AccountId,
-		call_hash: [u8; 32],
+		call_hash: H256,
 		depositor: &T::AccountId,
 		deposit: BalanceOf<T>,
 		expiry: Option<BlockNumberFor<T>>,
 	) {
 		let err_amount = T::Currency::unreserve(&depositor, deposit);
 		debug_assert!(err_amount.is_zero());
-		<Multisigs<T>>::remove(id, call_hash);
+		<Multisigs<T>>::remove(id, call_hash.0);
 
 		if expiry.is_some() {
-			<MultisigExpiries<T>>::remove(id, H256::from(call_hash));
+			<MultisigExpiries<T>>::remove(id, call_hash);
 		}
 	}
 
