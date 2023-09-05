@@ -201,4 +201,9 @@ pub struct PalletCmd {
 	/// This exists only to restore legacy behaviour. It should never actually be needed.
 	#[arg(long)]
 	pub unsafe_overwrite_results: bool,
+
+	/// Sanity check for benchmarks. Checks whether an extrinsic's maximum weight exceeds the max
+	/// extrinsic weight. If present, it takes the max value within the component range.
+	#[arg(long)]
+	pub sanity_check: bool,
 }

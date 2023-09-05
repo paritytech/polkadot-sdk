@@ -63,7 +63,7 @@ use frame_support::{
 		Contains, EitherOfDiverse, InstanceFilter, KeyOwnerProofSystem, LockIdentifier,
 		PrivilegeCmp, ProcessMessage, ProcessMessageError, StorageMapShim, WithdrawReasons,
 	},
-	weights::{ConstantMultiplier, WeightMeter},
+	weights::{ConstantMultiplier, RuntimeDbWeight, WeightMeter},
 	PalletId,
 };
 use frame_system::EnsureRoot;
@@ -2092,6 +2092,8 @@ sp_api::impl_runtime_apis! {
 		fn benchmark_metadata(extra: bool) -> (
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
+			Weight,
+			RuntimeDbWeight,
 		) {
 			use frame_benchmarking::{Benchmarking, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
@@ -2103,7 +2105,9 @@ sp_api::impl_runtime_apis! {
 			list_benchmarks!(list, extra);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
-			return (list, storage_info)
+			let max_extrinsic_weight = BlockWeights::get().per_class.get(DispatchClass::Normal).max_extrinsic.unwrap();
+			let db_weight: RuntimeDbWeight = <Self as frame_system::Config>::DbWeight::get();
+			(list, storage_info, max_extrinsic_weight, db_weight)
 		}
 
 		fn dispatch_benchmark(

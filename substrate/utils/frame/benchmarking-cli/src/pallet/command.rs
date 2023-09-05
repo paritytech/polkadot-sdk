@@ -18,10 +18,13 @@
 use super::{writer, PalletCmd};
 use codec::{Decode, Encode};
 use frame_benchmarking::{
-	Analysis, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList, BenchmarkParameter,
-	BenchmarkResult, BenchmarkSelector,
+	Analysis, AnalysisChoice, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList,
+	BenchmarkParameter, BenchmarkResult, BenchmarkSelector,
 };
-use frame_support::traits::StorageInfo;
+use frame_support::{
+	traits::StorageInfo,
+	weights::{RuntimeDbWeight, Weight},
+};
 use linked_hash_map::LinkedHashMap;
 use sc_cli::{execution_method_from_cli, CliConfiguration, Result, SharedParams};
 use sc_client_db::BenchmarkingState;
@@ -48,11 +51,11 @@ const LOG_TARGET: &'static str = "frame::benchmark::pallet";
 #[derive(Serialize, Debug, Clone, Eq, PartialEq)]
 pub(crate) struct ComponentRange {
 	/// Name of the component.
-	name: String,
+	pub(crate) name: String,
 	/// Minimal valid value of the component.
 	min: u32,
 	/// Maximal valid value of the component.
-	max: u32,
+	pub(crate) max: u32,
 }
 
 /// How the PoV size of a storage item should be estimated.
@@ -175,20 +178,6 @@ impl PalletCmd {
 			};
 		}
 
-		if let Some(json_input) = &self.json_input {
-			let raw_data = match std::fs::read(json_input) {
-				Ok(raw_data) => raw_data,
-				Err(error) =>
-					return Err(format!("Failed to read {:?}: {}", json_input, error).into()),
-			};
-			let batches: Vec<BenchmarkBatchSplitResults> = match serde_json::from_slice(&raw_data) {
-				Ok(batches) => batches,
-				Err(error) =>
-					return Err(format!("Failed to deserialize {:?}: {}", json_input, error).into()),
-			};
-			return self.output_from_results(&batches)
-		}
-
 		let spec = config.chain_spec;
 		let pallet = self.pallet.clone().unwrap_or_default();
 		let pallet = pallet.as_bytes();
@@ -257,9 +246,25 @@ impl PalletCmd {
 		.execute()
 		.map_err(|e| format!("{}: {}", ERROR_METADATA_NOT_FOUND, e))?;
 
-		let (list, storage_info) =
-			<(Vec<BenchmarkList>, Vec<StorageInfo>) as Decode>::decode(&mut &result[..])
-				.map_err(|e| format!("Failed to decode benchmark metadata: {:?}", e))?;
+		let (list, storage_info, max_extrinsic_weight, db_weight) =
+			<(Vec<BenchmarkList>, Vec<StorageInfo>, Weight, RuntimeDbWeight) as Decode>::decode(
+				&mut &result[..],
+			)
+			.map_err(|e| format!("Failed to decode benchmark metadata: {:?}", e))?;
+
+		if let Some(json_input) = &self.json_input {
+			let raw_data = match std::fs::read(json_input) {
+				Ok(raw_data) => raw_data,
+				Err(error) =>
+					return Err(format!("Failed to read {:?}: {}", json_input, error).into()),
+			};
+			let batches: Vec<BenchmarkBatchSplitResults> = match serde_json::from_slice(&raw_data) {
+				Ok(batches) => batches,
+				Err(error) =>
+					return Err(format!("Failed to deserialize {:?}: {}", json_input, error).into()),
+			};
+			return self.output_from_results(&batches, max_extrinsic_weight, db_weight)
+		}
 
 		// Use the benchmark list and the user input to determine the set of benchmarks to run.
 		let mut benchmarks_to_run = Vec::new();
@@ -501,7 +506,14 @@ impl PalletCmd {
 		// Combine all of the benchmark results, so that benchmarks of the same pallet/function
 		// are together.
 		let batches = combine_batches(batches, batches_db);
-		self.output(&batches, &storage_info, &component_ranges, pov_modes)
+		self.output(
+			&batches,
+			&storage_info,
+			&component_ranges,
+			pov_modes,
+			max_extrinsic_weight,
+			db_weight,
+		)
 	}
 
 	fn output(
@@ -510,6 +522,8 @@ impl PalletCmd {
 		storage_info: &[StorageInfo],
 		component_ranges: &HashMap<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>,
 		pov_modes: PovModesMap,
+		max_extrinsic_weight: Weight,
+		db_weight: RuntimeDbWeight,
 	) -> Result<()> {
 		// Jsonify the result and write it to a file or stdout if desired.
 		if !self.jsonify(&batches)? {
@@ -517,24 +531,43 @@ impl PalletCmd {
 			self.print_summary(&batches, &storage_info, pov_modes.clone())
 		}
 
+		// Which analysis function should be used when outputting benchmarks
+		let analysis_choice: AnalysisChoice =
+			self.output_analysis.clone().try_into().map_err(writer::io_error)?;
+		let pov_analysis_choice: AnalysisChoice =
+			self.output_pov_analysis.clone().try_into().map_err(writer::io_error)?;
+
+		// // Organize results by pallet into a JSON map
+		let all_results = writer::map_results(
+			&batches,
+			&storage_info,
+			&component_ranges,
+			pov_modes.clone(),
+			self.default_pov_mode,
+			&analysis_choice,
+			&pov_analysis_choice,
+			self.worst_case_map_values,
+			self.additional_trie_layers,
+			max_extrinsic_weight,
+			db_weight,
+			self.sanity_check,
+		)?;
+
 		// Create the weights.rs file.
 		if let Some(output_path) = &self.output {
-			writer::write_results(
-				&batches,
-				&storage_info,
-				&component_ranges,
-				pov_modes,
-				self.default_pov_mode,
-				output_path,
-				self,
-			)?;
+			writer::write_results(output_path, self, analysis_choice, all_results)?;
 		}
 
 		Ok(())
 	}
 
 	/// Re-analyze a batch historic benchmark timing data. Will not take the PoV into account.
-	fn output_from_results(&self, batches: &[BenchmarkBatchSplitResults]) -> Result<()> {
+	fn output_from_results(
+		&self,
+		batches: &[BenchmarkBatchSplitResults],
+		max_extrinsic_weight: Weight,
+		db_weight: RuntimeDbWeight,
+	) -> Result<()> {
 		let mut component_ranges =
 			HashMap::<(Vec<u8>, Vec<u8>), HashMap<String, (u32, u32)>>::new();
 		for batch in batches {
@@ -566,7 +599,14 @@ impl PalletCmd {
 			})
 			.collect();
 
-		self.output(batches, &[], &component_ranges, Default::default())
+		self.output(
+			batches,
+			&[],
+			&component_ranges,
+			Default::default(),
+			max_extrinsic_weight,
+			db_weight,
+		)
 	}
 
 	/// Jsonifies the passed batches and writes them to stdout or into a file.

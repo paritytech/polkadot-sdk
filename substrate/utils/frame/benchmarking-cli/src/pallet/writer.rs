@@ -35,7 +35,10 @@ use crate::{
 use frame_benchmarking::{
 	Analysis, AnalysisChoice, BenchmarkBatchSplitResults, BenchmarkResult, BenchmarkSelector,
 };
-use frame_support::traits::StorageInfo;
+use frame_support::{
+	traits::StorageInfo,
+	weights::{RuntimeDbWeight, Weight},
+};
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::Zero;
 
@@ -59,7 +62,7 @@ struct TemplateData {
 
 // This was the final data we have about each benchmark.
 #[derive(Serialize, Default, Debug, Clone, PartialEq)]
-struct BenchmarkData {
+pub(crate) struct BenchmarkData {
 	name: String,
 	components: Vec<Component>,
 	#[serde(serialize_with = "string_serialize")]
@@ -116,7 +119,7 @@ struct ComponentSlope {
 }
 
 // Small helper to create an `io::Error` from a string.
-fn io_error(s: &str) -> std::io::Error {
+pub(crate) fn io_error(s: &str) -> std::io::Error {
 	use std::io::{Error, ErrorKind};
 	Error::new(ErrorKind::Other, s)
 }
@@ -129,7 +132,7 @@ fn io_error(s: &str) -> std::io::Error {
 // p1 -> [b1, b2, b3]
 // p2 -> [b1, b2]
 // ```
-fn map_results(
+pub(crate) fn map_results(
 	batches: &[BenchmarkBatchSplitResults],
 	storage_info: &[StorageInfo],
 	component_ranges: &HashMap<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>,
@@ -139,6 +142,9 @@ fn map_results(
 	pov_analysis_choice: &AnalysisChoice,
 	worst_case_map_values: u32,
 	additional_trie_layers: u8,
+	max_extrinsic_weight: Weight,
+	db_weight: RuntimeDbWeight,
+	sanity_check: bool,
 ) -> Result<HashMap<(String, String), Vec<BenchmarkData>>, std::io::Error> {
 	// Skip if batches is empty.
 	if batches.is_empty() {
@@ -166,10 +172,84 @@ fn map_results(
 			worst_case_map_values,
 			additional_trie_layers,
 		);
+		// Sanity check for benchmarks. Checks whether an extrinsic's maximum weight (based on max
+		// component) exceeds the max extrinsic weight.
+		benchmark_sanity_check(&benchmark_data, max_extrinsic_weight, db_weight, sanity_check)?;
 		let pallet_benchmarks = all_benchmarks.entry((pallet_string, instance_string)).or_default();
 		pallet_benchmarks.push(benchmark_data);
 	}
 	Ok(all_benchmarks)
+}
+
+// Calculates the total maximum weight of an extrinsic, based on the max component, and compares it
+// with the max extrinsic weight.
+//
+// `max_extrinsic_weight` & `db_weight` are obtained from the runtime.
+fn benchmark_sanity_check(
+	result: &BenchmarkData,
+	max_extrinsic_weight: Weight,
+	db_weight: RuntimeDbWeight,
+	sanity_check: bool,
+) -> Result<(), std::io::Error> {
+	fn max_component(parameter: &ComponentSlope, component_ranges: &Vec<ComponentRange>) -> u64 {
+		for component in component_ranges {
+			if parameter.name == component.name {
+				return component.max.into()
+			}
+		}
+		0
+	}
+
+	let mut total_weight = Weight::from_parts(
+		result.base_weight.try_into().unwrap(),
+		result.base_calculated_proof_size.try_into().unwrap(),
+	);
+	for component in &result.component_weight {
+		total_weight = total_weight.saturating_add(
+			Weight::from_parts(component.slope.try_into().unwrap(), 0)
+				.saturating_mul(max_component(&component, &result.component_ranges)),
+		);
+	}
+	total_weight =
+		total_weight.saturating_add(db_weight.reads(result.base_reads.try_into().unwrap()));
+	for component in &result.component_reads {
+		total_weight = total_weight.saturating_add(
+			db_weight
+				.reads(component.slope.try_into().unwrap())
+				.saturating_mul(max_component(&component, &result.component_ranges)),
+		);
+	}
+	total_weight =
+		total_weight.saturating_add(db_weight.writes(result.base_writes.try_into().unwrap()));
+	for component in &result.component_writes {
+		total_weight = total_weight.saturating_add(
+			db_weight
+				.writes(component.slope.try_into().unwrap())
+				.saturating_mul(max_component(&component, &result.component_ranges)),
+		);
+	}
+	for component in &result.component_calculated_proof_size {
+		total_weight = total_weight.saturating_add(
+			Weight::from_parts(0, component.slope.try_into().unwrap())
+				.saturating_mul(max_component(&component, &result.component_ranges)),
+		);
+	}
+	if total_weight.ref_time() > max_extrinsic_weight.ref_time() ||
+		total_weight.proof_size() > max_extrinsic_weight.proof_size()
+	{
+		let err_message = format!("Extrinsic {} exceeds the max extrinsic weight", result.name);
+		println!("\u{1b}[31mWARNING!!!\u{1b}[39m {:?}", err_message);
+		println!("Extrinsic {}: {:?}\nPercentage of max extrinsic weight: {:.2}% (ref_time), {:.2}% (proof_size)", 
+			result.name,
+			total_weight,
+			(total_weight.ref_time() as f64 / max_extrinsic_weight.ref_time() as f64) * 100.0,
+			(total_weight.proof_size() as f64 / max_extrinsic_weight.proof_size() as f64) * 100.0,
+		);
+		if sanity_check {
+			return Err(io_error(&err_message))
+		}
+	}
+	Ok(())
 }
 
 // Get an iterator of errors.
@@ -376,13 +456,10 @@ fn get_benchmark_data(
 
 /// Create weight file from benchmark data and Handlebars template.
 pub(crate) fn write_results(
-	batches: &[BenchmarkBatchSplitResults],
-	storage_info: &[StorageInfo],
-	component_ranges: &HashMap<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>,
-	pov_modes: PovModesMap,
-	default_pov_mode: PovEstimationMode,
 	path: &PathBuf,
 	cmd: &PalletCmd,
+	analysis_choice: AnalysisChoice,
+	all_results: HashMap<(String, String), Vec<BenchmarkData>>,
 ) -> Result<(), sc_cli::Error> {
 	// Use custom template if provided.
 	let template: String = match &cmd.template {
@@ -404,12 +481,6 @@ pub(crate) fn write_results(
 
 	// Full CLI args passed to trigger the benchmark.
 	let args = std::env::args().collect::<Vec<String>>();
-
-	// Which analysis function should be used when outputting benchmarks
-	let analysis_choice: AnalysisChoice =
-		cmd.output_analysis.clone().try_into().map_err(io_error)?;
-	let pov_analysis_choice: AnalysisChoice =
-		cmd.output_pov_analysis.clone().try_into().map_err(io_error)?;
 
 	if cmd.additional_trie_layers > 4 {
 		println!(
@@ -439,18 +510,6 @@ pub(crate) fn write_results(
 	// Don't HTML escape any characters.
 	handlebars.register_escape_fn(|s| -> String { s.to_string() });
 
-	// Organize results by pallet into a JSON map
-	let all_results = map_results(
-		batches,
-		storage_info,
-		component_ranges,
-		pov_modes,
-		default_pov_mode,
-		&analysis_choice,
-		&pov_analysis_choice,
-		cmd.worst_case_map_values,
-		cmd.additional_trie_layers,
-	)?;
 	let mut created_files = Vec::new();
 
 	for ((pallet, instance), results) in all_results.iter() {
@@ -964,6 +1023,9 @@ mod test {
 			&AnalysisChoice::MedianSlopes,
 			1_000_000,
 			0,
+			Weight::MAX,
+			RuntimeDbWeight { read: 1000, write: 1000 },
+			false,
 		)
 		.unwrap();
 		let result =
@@ -1021,6 +1083,9 @@ mod test {
 			&AnalysisChoice::MedianSlopes,
 			1_000_000,
 			0,
+			Weight::MAX,
+			RuntimeDbWeight { read: 1000, write: 1000 },
+			false,
 		)
 		.unwrap();
 		let result =
@@ -1078,6 +1143,9 @@ mod test {
 			&AnalysisChoice::MedianSlopes,
 			1_000_000,
 			0,
+			Weight::MAX,
+			RuntimeDbWeight { read: 1000, write: 1000 },
+			false,
 		)
 		.unwrap();
 		let result =
@@ -1133,6 +1201,9 @@ mod test {
 			&AnalysisChoice::MedianSlopes,
 			1_000_000,
 			0,
+			Weight::MAX,
+			RuntimeDbWeight { read: 1000, write: 1000 },
+			false,
 		)
 		.unwrap();
 		let result =
@@ -1190,6 +1261,9 @@ mod test {
 			&AnalysisChoice::MedianSlopes,
 			1_000_000,
 			0,
+			Weight::MAX,
+			RuntimeDbWeight { read: 1000, write: 1000 },
+			false,
 		)
 		.unwrap();
 		let result =
@@ -1218,6 +1292,9 @@ mod test {
 			&AnalysisChoice::MedianSlopes,
 			1_000_000,
 			0,
+			Weight::MAX,
+			RuntimeDbWeight { read: 1000, write: 1000 },
+			false,
 		)
 		.unwrap();
 
@@ -1254,6 +1331,25 @@ mod test {
 	}
 
 	#[test]
+	fn sanity_check_works() {
+		assert!(map_results(
+			&[test_data(b"first", b"first", BenchmarkParameter::a, 10, 3),],
+			&test_storage_info(),
+			&Default::default(),
+			Default::default(),
+			PovEstimationMode::MaxEncodedLen,
+			&AnalysisChoice::default(),
+			&AnalysisChoice::MedianSlopes,
+			1_000_000,
+			0,
+			Weight::from_parts(20_000, 1_000_000),
+			RuntimeDbWeight { read: 1000, write: 1000 },
+			true,
+		)
+		.is_err());
+	}
+
+	#[test]
 	fn additional_trie_layers_work() {
 		let mapped_results = map_results(
 			&[test_data(b"first", b"first", BenchmarkParameter::a, 10, 3)],
@@ -1265,6 +1361,9 @@ mod test {
 			&AnalysisChoice::MedianSlopes,
 			1_000_000,
 			2,
+			Weight::MAX,
+			RuntimeDbWeight { read: 1000, write: 1000 },
+			false,
 		)
 		.unwrap();
 		let with_layer = &mapped_results
@@ -1280,6 +1379,9 @@ mod test {
 			&AnalysisChoice::MedianSlopes,
 			1_000_000,
 			0,
+			Weight::MAX,
+			RuntimeDbWeight { read: 1000, write: 1000 },
+			false,
 		)
 		.unwrap();
 		let without_layer = &mapped_results
@@ -1313,6 +1415,9 @@ mod test {
 			&AnalysisChoice::MedianSlopes,
 			1_000_000,
 			0,
+			Weight::MAX,
+			RuntimeDbWeight { read: 1000, write: 1000 },
+			false,
 		)
 		.unwrap();
 

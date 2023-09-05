@@ -17,7 +17,10 @@
 
 //! Interfaces, types and utils for benchmarking a FRAME runtime.
 use codec::{Decode, Encode};
-use frame_support::{dispatch::DispatchErrorWithPostInfo, pallet_prelude::*, traits::StorageInfo};
+use frame_support::{
+	dispatch::DispatchErrorWithPostInfo, pallet_prelude::*, traits::StorageInfo,
+	weights::RuntimeDbWeight,
+};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -235,7 +238,7 @@ sp_api::decl_runtime_apis! {
 		/// Parameters
 		/// - `extra`: Also list benchmarks marked "extra" which would otherwise not be
 		///            needed for weight calculation.
-		fn benchmark_metadata(extra: bool) -> (Vec<BenchmarkList>, Vec<StorageInfo>);
+		fn benchmark_metadata(extra: bool) -> (Vec<BenchmarkList>, Vec<StorageInfo>, Weight, RuntimeDbWeight);
 
 		/// Dispatch the given benchmark.
 		fn dispatch_benchmark(config: BenchmarkConfig) -> Result<Vec<BenchmarkBatch>, sp_runtime::RuntimeString>;

@@ -25,7 +25,9 @@ use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime,
+	dispatch::DispatchClass,
+	parameter_types,
 	traits::{
 		ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, KeyOwnerProofSystem, Randomness,
 		StorageInfo,
@@ -34,7 +36,7 @@ pub use frame_support::{
 		constants::{
 			BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
 		},
-		IdentityFee, Weight,
+		IdentityFee, RuntimeDbWeight, Weight,
 	},
 	StorageValue,
 };
@@ -514,6 +516,8 @@ impl_runtime_apis! {
 		fn benchmark_metadata(extra: bool) -> (
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
+			Weight,
+			RuntimeDbWeight,
 		) {
 			use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
@@ -524,8 +528,9 @@ impl_runtime_apis! {
 			list_benchmarks!(list, extra);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
-
-			(list, storage_info)
+			let max_extrinsic_weight = BlockWeights::get().per_class.get(DispatchClass::Normal).max_extrinsic.unwrap();
+			let db_weight: RuntimeDbWeight = <Self as frame_system::Config>::DbWeight::get();
+			(list, storage_info, max_extrinsic_weight, db_weight)
 		}
 
 		fn dispatch_benchmark(

@@ -45,7 +45,7 @@ use frame_support::{
 		constants::{
 			BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
 		},
-		ConstantMultiplier, IdentityFee, Weight,
+		ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight,
 	},
 	BoundedVec, PalletId,
 };
@@ -2683,6 +2683,8 @@ impl_runtime_apis! {
 		fn benchmark_metadata(extra: bool) -> (
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
+			Weight,
+			RuntimeDbWeight,
 		) {
 			use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
@@ -2701,8 +2703,10 @@ impl_runtime_apis! {
 			list_benchmarks!(list, extra);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
+			let max_extrinsic_weight = RuntimeBlockWeights::get().per_class.get(DispatchClass::Normal).max_extrinsic.unwrap();
+			let db_weight: RuntimeDbWeight = <Self as frame_system::Config>::DbWeight::get();
 
-			(list, storage_info)
+			(list, storage_info, max_extrinsic_weight, db_weight)
 		}
 
 		fn dispatch_benchmark(
