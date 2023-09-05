@@ -192,7 +192,7 @@ pub mod rococo {
 	pub(crate) const BRIDGE_HUB_ROCOCO_LOCAL: &str = "bridge-hub-rococo-local";
 	pub(crate) const BRIDGE_HUB_ROCOCO_DEVELOPMENT: &str = "bridge-hub-rococo-dev";
 	const BRIDGE_HUB_ROCOCO_ED: BridgeHubBalance =
-		bridge_hub_rococo_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+		parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
 	/// Specialized `ChainSpec` for the normal parachain runtime.
 	pub type BridgeHubChainSpec =
@@ -372,7 +372,7 @@ pub mod kusama {
 	pub(crate) const BRIDGE_HUB_KUSAMA_LOCAL: &str = "bridge-hub-kusama-local";
 	pub(crate) const BRIDGE_HUB_KUSAMA_DEVELOPMENT: &str = "bridge-hub-kusama-dev";
 	const BRIDGE_HUB_KUSAMA_ED: BridgeHubBalance =
-		bridge_hub_kusama_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+		parachains_common::kusama::currency::EXISTENTIAL_DEPOSIT;
 
 	/// Specialized `ChainSpec` for the normal parachain runtime.
 	pub type BridgeHubChainSpec =
@@ -509,7 +509,7 @@ pub mod polkadot {
 	pub(crate) const BRIDGE_HUB_POLKADOT_LOCAL: &str = "bridge-hub-polkadot-local";
 	pub(crate) const BRIDGE_HUB_POLKADOT_DEVELOPMENT: &str = "bridge-hub-polkadot-dev";
 	const BRIDGE_HUB_POLKADOT_ED: BridgeHubBalance =
-		bridge_hub_polkadot_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+		parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
 
 	/// Specialized `ChainSpec` for the normal parachain runtime.
 	pub type BridgeHubChainSpec =
