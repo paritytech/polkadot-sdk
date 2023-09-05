@@ -23,20 +23,13 @@ mod keyword {
 	syn::custom_keyword!(frame);
 	syn::custom_keyword!(pallet_index);
 	syn::custom_keyword!(disable_call);
+	syn::custom_keyword!(disable_unsigned);
 }
 
 enum PalletAttr {
 	PalletIndex(proc_macro2::Span, u8),
 	DisableCall(proc_macro2::Span),
-}
-
-impl PalletAttr {
-	fn span(&self) -> proc_macro2::Span {
-		match self {
-			Self::PalletIndex(span, _) => *span,
-			Self::DisableCall(span) => *span,
-		}
-	}
+	DisableUnsigned(proc_macro2::Span),
 }
 
 impl syn::parse::Parse for PalletAttr {
@@ -60,6 +53,8 @@ impl syn::parse::Parse for PalletAttr {
 			Ok(PalletAttr::PalletIndex(pallet_index.span(), pallet_index.base10_parse()?))
 		} else if lookahead.peek(keyword::disable_call) {
 			Ok(PalletAttr::DisableCall(content.parse::<keyword::disable_call>()?.span()))
+		} else if lookahead.peek(keyword::disable_unsigned) {
+			Ok(PalletAttr::DisableUnsigned(content.parse::<keyword::disable_unsigned>()?.span()))
 		} else {
 			Err(lookahead.error())
 		}
@@ -96,11 +91,13 @@ impl Pallet {
 
 		let mut pallet_index = index;
 		let mut disable_call = false;
+		let mut disable_unsigned = false;
 
 		while let Some(pallet_attr) = take_first_item_pallet_attr::<PalletAttr>(item)? {
 			match pallet_attr {
 				PalletAttr::PalletIndex(_, index) => pallet_index = index,
 				PalletAttr::DisableCall(_) => disable_call = true,
+				PalletAttr::DisableUnsigned(_) => disable_unsigned = true,
 			}
 		}
 
@@ -147,19 +144,20 @@ impl Pallet {
 			}
 		}
 
-		if disable_call {
-			pallet_parts =
-				pallet_parts
-					.into_iter()
-					.filter(|part| {
-						if let PalletPartKeyword::Call(_) = part.keyword {
-							false
-						} else {
-							true
-						}
-					})
-					.collect();
-		}
+		pallet_parts = pallet_parts
+			.into_iter()
+			.filter(|part| {
+				if let (true, &PalletPartKeyword::Call(_)) = (disable_call, &part.keyword) {
+					false
+				} else if let (true, &PalletPartKeyword::ValidateUnsigned(_)) =
+					(disable_unsigned, &part.keyword)
+				{
+					false
+				} else {
+					true
+				}
+			})
+			.collect();
 
 		let cfg_pattern = vec![];
 

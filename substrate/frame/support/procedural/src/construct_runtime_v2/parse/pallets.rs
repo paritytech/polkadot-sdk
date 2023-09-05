@@ -18,7 +18,7 @@
 use crate::{
 	construct_runtime::parse::Pallet, construct_runtime_v2::parse::pallet_decl::PalletDeclaration,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use syn::{spanned::Spanned, Ident};
 
 #[derive(Debug, Clone)]
