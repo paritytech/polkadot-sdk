@@ -54,14 +54,8 @@ pub async fn spawn(
 		extra_args.extend_from_slice(&["--node-impl-version", node_version]);
 	}
 
-	Ok(spawn_with_program_path(
-		"prepare",
-		program_path,
-		&extra_args,
-		spawn_timeout,
-		security_status,
-	)
-	.await?)
+	spawn_with_program_path("prepare", program_path, &extra_args, spawn_timeout, security_status)
+		.await
 }
 
 /// Outcome of PVF preparation.
