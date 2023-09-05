@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Bridge definitions.
+//! Polkadot BridgeHub definitions.
 
 use crate::{
 	BridgeKusamaMessages, BridgeParachainKusamaInstance, Runtime,
@@ -168,8 +168,7 @@ pub type BridgeRefundBridgeHubKusamaMessages = RefundBridgedParachainMessages<
 bp_runtime::generate_static_str_provider!(BridgeRefundBridgeHubKusamaMessages);
 
 // TODO: rework once dynamic lanes are supported (https://github.com/paritytech/parity-bridges-common/issues/1760)
-//       now we support only StatemineToStatemint
-/// Lanes setup
+//       now we support only AHP<>AHK Lanes setup
 pub const ASSET_HUB_POLKADOT_TO_ASSET_HUB_KUSAMA_LANE_ID: LaneId = LaneId([0, 0, 0, 0]);
 parameter_types! {
 	pub ActiveOutboundLanesToBridgeHubKusama: &'static [bp_messages::LaneId] = &[ASSET_HUB_POLKADOT_TO_ASSET_HUB_KUSAMA_LANE_ID];
@@ -179,7 +178,7 @@ parameter_types! {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{constants, BridgeGrandpaKusamaInstance};
+	use crate::BridgeGrandpaKusamaInstance;
 	use bridge_runtime_common::{
 		assert_complete_bridge_types,
 		integrity::{
@@ -188,7 +187,7 @@ mod tests {
 			AssertCompleteBridgeConstants,
 		},
 	};
-	use parachains_common::Balance;
+	use parachains_common::{polkadot, Balance};
 
 	/// Every additional message in the message delivery transaction boosts its priority.
 	/// So the priority of transaction with `N+1` messages is larger than priority of
@@ -199,7 +198,7 @@ mod tests {
 	///
 	/// We want this tip to be large enough (delivery transactions with more messages = less
 	/// operational costs and a faster bridge), so this value should be significant.
-	const FEE_BOOST_PER_MESSAGE: Balance = 5 * constants::currency::UNITS;
+	const FEE_BOOST_PER_MESSAGE: Balance = 5 * polkadot::currency::UNITS;
 
 	#[test]
 	fn ensure_lane_weights_are_correct() {

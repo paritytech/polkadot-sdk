@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Bridge definitions.
+//! Kusama BridgeHub definitions.
 
 use crate::{
 	BridgeParachainPolkadotInstance, BridgePolkadotMessages, Runtime,
@@ -179,7 +179,7 @@ parameter_types! {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{constants, BridgeGrandpaPolkadotInstance};
+	use crate::BridgeGrandpaPolkadotInstance;
 	use bridge_runtime_common::{
 		assert_complete_bridge_types,
 		integrity::{
@@ -188,7 +188,7 @@ mod tests {
 			AssertCompleteBridgeConstants,
 		},
 	};
-	use parachains_common::Balance;
+	use parachains_common::{kusama, Balance};
 
 	/// Every additional message in the message delivery transaction boosts its priority.
 	/// So the priority of transaction with `N+1` messages is larger than priority of
@@ -199,7 +199,7 @@ mod tests {
 	///
 	/// We want this tip to be large enough (delivery transactions with more messages = less
 	/// operational costs and a faster bridge), so this value should be significant.
-	const FEE_BOOST_PER_MESSAGE: Balance = constants::currency::UNITS;
+	const FEE_BOOST_PER_MESSAGE: Balance = kusama::currency::UNITS;
 
 	#[test]
 	fn ensure_lane_weights_are_correct() {

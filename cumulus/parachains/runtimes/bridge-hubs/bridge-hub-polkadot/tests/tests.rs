@@ -17,7 +17,6 @@
 use bp_polkadot_core::Signature;
 pub use bridge_hub_polkadot_runtime::{
 	bridge_hub_config,
-	constants::fee::WeightToFee,
 	xcm_config::{DotRelayLocation, RelayNetwork, XcmConfig},
 	AllPalletsWithoutSystem, Balances, BridgeGrandpaKusamaInstance,
 	BridgeRejectObsoleteHeadersAndMessages, ExistentialDeposit, ParachainSystem, PolkadotXcm,

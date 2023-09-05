@@ -528,8 +528,7 @@ impl pallet_xcm::Config for Runtime {
 	type XcmTeleportFilter = Everything;
 	// Allow reserve based transfer to everywhere except for bridging, here we strictly check what
 	// assets are allowed.
-	type XcmReserveTransferFilter =
-		EverythingBut<bridging::IsNotAllowedExplicitlyForReserveTransfer>;
+	type XcmReserveTransferFilter = EverythingBut<bridging::DisallowForReserveTransfer>;
 	type Weigher = WeightInfoBounds<
 		crate::weights::xcm::AssetHubPolkadotXcmWeight<RuntimeCall>,
 		RuntimeCall,
@@ -682,11 +681,12 @@ pub mod bridging {
 		>;
 
 	/// Filter out those assets which are not allowed for bridged reserve based transfer.
-	/// (asset, location) filter for `pallet_xcm::Config::XcmReserveTransferFilter`.
-	pub type IsNotAllowedExplicitlyForReserveTransfer = ExcludeOnlyForRemoteDestination<
+	/// Filter is made of (asset, location) and used by
+	/// `pallet_xcm::Config::XcmReserveTransferFilter`.
+	pub type DisallowForReserveTransfer = ExcludeOnlyForRemoteDestination<
 		UniversalLocation,
 		FilteredNetworkExportTable,
-		IsNotAllowedConcreteAssetBy<AllowedReserveTransferAssetsLocations>,
+		DisallowConcreteAssetUnless<AllowedReserveTransferAssetsLocations>,
 	>;
 
 	impl Contains<RuntimeCall> for ToKusamaXcmRouter {
