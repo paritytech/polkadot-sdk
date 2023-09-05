@@ -144,7 +144,7 @@ where
 		let Phase::PendingTargetBlock = self.phase else {
 			error!(
 				target: LOG_TARGET,
-				"Attempt to set warp sync target block in invalide phase.",
+				"Attempt to set warp sync target block in invalid phase.",
 			);
 			debug_assert!(false);
 			return
