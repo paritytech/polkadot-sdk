@@ -39,7 +39,7 @@ rules:
   # if there are any changes in the bridges subtree (in case of backport changes back to bridges repo)
   - name: Bridges subtree files
     check_type: changed_files
-    condition: ^cumulus/bridges/.*
+    condition: ^bridges/.*
     min_approvals: 1
     teams:
       - bridges-core
