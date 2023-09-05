@@ -1071,9 +1071,9 @@ pub(crate) mod tests {
 	use sp_api::HeaderT;
 	use sp_blockchain::Backend as BlockchainBackendT;
 	use sp_consensus_beefy::{
-		generate_fork_equivocation_proof_sc, generate_fork_equivocation_proof_vote, generate_vote_equivocation_proof, known_payloads,
-		known_payloads::MMR_ROOT_ID, mmr::MmrRootProvider, ForkEquivocationProof, Keyring, Payload,
-		SignedCommitment,
+		generate_fork_equivocation_proof_sc, generate_fork_equivocation_proof_vote,
+		generate_vote_equivocation_proof, known_payloads, known_payloads::MMR_ROOT_ID,
+		mmr::MmrRootProvider, Keyring, Payload, SignedCommitment,
 	};
 	use sp_runtime::traits::One;
 	use std::marker::PhantomData;
@@ -1735,7 +1735,11 @@ pub(crate) mod tests {
 		{
 			// expect fisher (Alice) to successfully process it
 			assert_eq!(
-				alice_worker.comms.gossip_validator.fisherman.report_fork_equivocation(proof.clone()),
+				alice_worker
+					.comms
+					.gossip_validator
+					.fisherman
+					.report_fork_equivocation(proof.clone()),
 				Ok(())
 			);
 			// verify Alice reports Bob's equivocation to runtime
@@ -1750,7 +1754,11 @@ pub(crate) mod tests {
 		{
 			// expect fisher (Alice) to successfully process it
 			assert_eq!(
-				alice_worker.comms.gossip_validator.fisherman.report_fork_equivocation(proof.clone()),
+				alice_worker
+					.comms
+					.gossip_validator
+					.fisherman
+					.report_fork_equivocation(proof.clone()),
 				Ok(())
 			);
 			// verify Alice does *not* report her own equivocation to runtime
@@ -1767,11 +1775,19 @@ pub(crate) mod tests {
 			validator_set_id: validator_set.id(),
 		};
 		// only Bob and Charlie sign
-		let proof = generate_fork_equivocation_proof_sc(commitment, vec![Keyring::Bob, Keyring::Charlie], header);
+		let proof = generate_fork_equivocation_proof_sc(
+			commitment,
+			vec![Keyring::Bob, Keyring::Charlie],
+			header,
+		);
 		{
 			// expect fisher (Alice) to successfully process it
 			assert_eq!(
-				alice_worker.comms.gossip_validator.fisherman.report_fork_equivocation(proof.clone()),
+				alice_worker
+					.comms
+					.gossip_validator
+					.fisherman
+					.report_fork_equivocation(proof.clone()),
 				Ok(())
 			);
 			// verify Alice report Bob's and Charlie's equivocation to runtime

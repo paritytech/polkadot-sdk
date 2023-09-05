@@ -360,16 +360,16 @@ impl<T: Config> Pallet<T> {
 					<T::EquivocationReportSystem as OffenceReportSystem<_, _>>::Longevity::get();
 
 				ValidTransaction::with_tag_prefix("BeefyEquivocation")
-				// We assign the maximum priority for any equivocation report.
+					// We assign the maximum priority for any equivocation report.
 					.priority(TransactionPriority::MAX)
-				// Only one equivocation report for the same offender at the same slot.
+					// Only one equivocation report for the same offender at the same slot.
 					.and_provides((
 						equivocation_proof.offender_id().clone(),
 						equivocation_proof.set_id(),
 						*equivocation_proof.round_number(),
 					))
 					.longevity(longevity)
-				// We don't propagate this. This can never be included on a remote node.
+					// We don't propagate this. This can never be included on a remote node.
 					.propagate(false)
 					.build()
 			},
@@ -387,16 +387,16 @@ impl<T: Config> Pallet<T> {
 				log::error!("retrieved longevity");
 
 				ValidTransaction::with_tag_prefix("BeefyEquivocation")
-				// We assign the maximum priority for any equivocation report.
+					// We assign the maximum priority for any equivocation report.
 					.priority(TransactionPriority::MAX)
-				// Only one equivocation report for the same offender at the same slot.
+					// Only one equivocation report for the same offender at the same slot.
 					.and_provides((
 						equivocation_proof.offender_ids().clone(),
 						equivocation_proof.set_id(),
 						*equivocation_proof.round_number(),
 					))
 					.longevity(longevity)
-				// We don't propagate this. This can never be included on a remote node.
+					// We don't propagate this. This can never be included on a remote node.
 					.propagate(false)
 					.build()
 			},
@@ -406,32 +406,27 @@ impl<T: Config> Pallet<T> {
 					"lolalol"
 				);
 				InvalidTransaction::Call.into()
-			}
-
+			},
 		}
 	}
 
 	pub fn pre_dispatch(call: &Call<T>) -> Result<(), TransactionValidityError> {
 		match call {
-			Call::report_vote_equivocation_unsigned { equivocation_proof, key_owner_proof } =>
-			{
+			Call::report_vote_equivocation_unsigned { equivocation_proof, key_owner_proof } => {
 				let evidence = EquivocationEvidenceFor::<T>::VoteEquivocationProof(
 					*equivocation_proof.clone(),
 					key_owner_proof.clone(),
 				);
 				T::EquivocationReportSystem::check_evidence(evidence)
 			},
-			Call::report_fork_equivocation_unsigned { equivocation_proof, key_owner_proofs } =>
-			{
+			Call::report_fork_equivocation_unsigned { equivocation_proof, key_owner_proofs } => {
 				let evidence = EquivocationEvidenceFor::<T>::ForkEquivocationProof(
 					*equivocation_proof.clone(),
 					key_owner_proofs.clone(),
 				);
 				T::EquivocationReportSystem::check_evidence(evidence)
 			},
-			_ => {
-				Err(InvalidTransaction::Call.into())
-			}
+			_ => Err(InvalidTransaction::Call.into()),
 		}
 	}
 }

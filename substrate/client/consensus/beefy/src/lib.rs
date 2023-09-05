@@ -260,13 +260,13 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	let mut block_import_justif = links.from_block_import_justif_stream.subscribe(100_000).fuse();
 
 	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
-    let fisherman = Fisherman {
-        backend: backend.clone(),
-        key_store: key_store.clone(),
-        runtime: runtime.clone(),
-        payload_provider: payload_provider.clone(),
-        _phantom: PhantomData,
-    };
+	let fisherman = Fisherman {
+		backend: backend.clone(),
+		key_store: key_store.clone(),
+		runtime: runtime.clone(),
+		payload_provider: payload_provider.clone(),
+		_phantom: PhantomData,
+	};
 	// Default votes filter is to discard everything.
 	// Validator is updated later with correct starting round and set id.
 	let (gossip_validator, gossip_report_stream) =

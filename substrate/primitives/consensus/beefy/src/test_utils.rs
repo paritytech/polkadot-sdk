@@ -18,7 +18,7 @@
 #![cfg(feature = "std")]
 
 use crate::{
-	ecdsa_crypto, Commitment, ForkEquivocationProof, Payload, SignedCommitment, ValidatorSetId,
+	ecdsa_crypto, Commitment, ForkEquivocationProof, Payload, ValidatorSetId,
 	VoteEquivocationProof, VoteMessage,
 };
 use codec::Encode;
