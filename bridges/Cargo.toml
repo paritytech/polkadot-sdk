@@ -6,9 +6,30 @@ license = "GPL-3.0-only"
 
 [workspace]
 resolver = "2"
-
 members = [
-"bin/runtime-common",
-"modules/*",
-"primitives/*",
+	"bin/runtime-common",
+	"modules/grandpa",
+	"modules/messages",
+	"modules/parachains",
+	"modules/relayers",
+	"modules/xcm-bridge-hub-router",
+	"primitives/chain-asset-hub-kusama",
+	"primitives/chain-asset-hub-polkadot",
+	"primitives/chain-bridge-hub-cumulus",
+	"primitives/chain-bridge-hub-kusama",
+	"primitives/chain-bridge-hub-polkadot",
+	"primitives/chain-bridge-hub-rococo",
+	"primitives/chain-bridge-hub-wococo",
+	"primitives/chain-kusama",
+	"primitives/chain-polkadot",
+	"primitives/chain-rococo",
+	"primitives/chain-wococo",
+	"primitives/header-chain",
+	"primitives/messages",
+	"primitives/parachains",
+	"primitives/polkadot-core",
+	"primitives/relayers",
+	"primitives/runtime",
+	"primitives/test-utils",
+	"primitives/xcm-bridge-hub-router",
 ]
