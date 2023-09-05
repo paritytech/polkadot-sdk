@@ -420,7 +420,7 @@ impl Validator {
 			signing_key_and_index(validators, &keystore).ok_or(Error::NotAValidator)?;
 
 		let disabled =
-			disabled_validators.iter().find(|d: &&ValidatorIndex| **d == index).is_some();
+			disabled_validators.iter().any(|d: &ValidatorIndex| *d == index);
 
 		Ok(Validator { signing_context, key, index, disabled })
 	}
