@@ -34,13 +34,13 @@ jobs:
             echo "labels=${labels}" >> "$GITHUB_OUTPUT"
 
       - name: No PRdoc required
-        if: startsWith(${{ steps.get-labels.outputs.labels }}, "R0")
+        if: ${{ startsWith(steps.get-labels.outputs.labels, "R0") }}
         run: |
           echo "PR detected as silent, no PRdoc is required, exiting..."
           exit 0
 
-      - name: PRdoc check for PR# ${GITHUB_PR}
-        if: ${{ ! startsWith(${{ steps.get-labels.outputs.labels }}, "R0") }}
+      - name: PRdoc check for PR
+        if: ${{ !startsWith(steps.get-labels.outputs.labels, "R0") }}
         run: |
           echo "Checking for $GITHUB_PR in $MOUNT"
           echo TODO
