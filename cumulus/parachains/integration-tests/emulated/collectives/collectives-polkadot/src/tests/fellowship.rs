@@ -58,11 +58,8 @@ fn pay_salary() {
 		);
 	});
 
-	Collectives::execute_with(|| {});
-
 	AssetHubPolkadot::execute_with(|| {
 		type RuntimeEvent = <AssetHubPolkadot as Chain>::RuntimeEvent;
-
 		assert_expected_events!(
 			AssetHubPolkadot,
 			vec![
