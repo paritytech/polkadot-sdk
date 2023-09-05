@@ -393,6 +393,9 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 			E::increment_refcount(self.code_hash)?;
 		}
 
+		// Any abort in start function (includes `return` + `terminate`) will make us skip the
+		// call into the subsequent exported function. This means that calling `return` returns data
+		// from the whole contract execution.
 		match instance.start(&mut store) {
 			Ok(instance) => {
 				let exported_func = instance
