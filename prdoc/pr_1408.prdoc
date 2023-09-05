@@ -1,0 +1,16 @@
+# This PR does not need a prdoc but it is provided in order to test
+title: PRdoc check
+
+doc:
+  - audience: Core Dev
+    description: |
+      This PRdoc is an **example**.
+
+migrations:
+  db: []
+
+  runtime: []
+
+crates: []
+
+host_functions: []
