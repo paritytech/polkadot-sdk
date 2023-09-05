@@ -173,7 +173,7 @@ where
 			.replace_implementation(host_default_child_storage_next_key),
 		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
-		cumulus_client_clawback::clawback_host_functions::host_current_storage_proof_size
+		cumulus_primitives_reclaim::pov_reclaim_host_functions::host_current_storage_proof_size
 			.replace_implementation(reclaim_pov_weight),
 	);
 

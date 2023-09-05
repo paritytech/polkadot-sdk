@@ -81,7 +81,7 @@ xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
 
 # Cumulus
 cumulus-client-cli = { path = "../client/cli" }
-cumulus-client-clawback = { path = "../client/clawback" }
+cumulus-primitives-reclaim = { path = "../primitives/pov-reclaim" }
 cumulus-client-collator = { path = "../client/collator" }
 cumulus-client-consensus-aura = { path = "../client/consensus/aura" }
 cumulus-client-consensus-relay-chain = { path = "../client/consensus/relay-chain" }

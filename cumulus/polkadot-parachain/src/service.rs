@@ -65,13 +65,13 @@ use polkadot_primitives::CollatorPair;
 #[cfg(not(feature = "runtime-benchmarks"))]
 type HostFunctions = (
 	sp_io::SubstrateHostFunctions,
-	cumulus_client_clawback::clawback_host_functions::HostFunctions,
+	cumulus_primitives_reclaim::pov_reclaim_host_functions::HostFunctions,
 );
 
 #[cfg(feature = "runtime-benchmarks")]
 type HostFunctions = (
 	sp_io::SubstrateHostFunctions,
-	cumulus_client_clawback::clawback_host_functions::HostFunctions,
+	cumulus_primitives_reclaim::pov_reclaim_host_functions::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 

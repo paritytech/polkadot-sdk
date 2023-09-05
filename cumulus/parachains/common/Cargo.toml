@@ -37,7 +37,7 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm
 pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false }
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../primitives/utility", default-features = false }
-cumulus-client-clawback = { path = "../../client/clawback", default-features = false }
+cumulus-primitives-reclaim = { path = "../../primitives/pov-reclaim", default-features = false }
 
 [dev-dependencies]
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false}

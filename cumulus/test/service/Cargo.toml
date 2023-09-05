@@ -66,7 +66,7 @@ polkadot-overseer = { path = "../../../polkadot/node/overseer" }
 cumulus-client-cli = { path = "../../client/cli" }
 parachains-common = { path = "../../parachains/common" }
 cumulus-client-consensus-common = { path = "../../client/consensus/common" }
-cumulus-client-clawback = { path = "../../client/clawback" }
+cumulus-primitives-reclaim = { path = "../../primitives/pov-reclaim" }
 cumulus-client-consensus-relay-chain = { path = "../../client/consensus/relay-chain" }
 cumulus-client-service = { path = "../../client/service" }
 cumulus-primitives-core = { path = "../../primitives/core" }

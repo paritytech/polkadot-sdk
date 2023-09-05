@@ -1,0 +1,15 @@
+[package]
+name = "cumulus-primitives-reclaim"
+version = "0.0.1"
+authors = [ "Sebastian Kunert <sebastian@Sebastians-MBP>" ]
+
+[dependencies]
+sp-runtime-interface = { path = "../../../substrate/primitives/runtime-interface", default-features = false }
+tracing = { version = "0.1.37", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"sp-runtime-interface/std",
+	"tracing/std"
+]

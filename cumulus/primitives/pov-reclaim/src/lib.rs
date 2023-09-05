@@ -15,18 +15,12 @@
 //
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate sp_api;
-extern crate sp_core;
-extern crate sp_externalities;
-extern crate sp_runtime;
 extern crate sp_runtime_interface;
-extern crate sp_std;
-extern crate sp_trie;
 
 use sp_runtime_interface::runtime_interface;
 
 #[runtime_interface]
-pub trait ClawbackHostFunctions {
+pub trait PovReclaimHostFunctions {
 	fn current_storage_proof_size(&mut self) -> u32 {
 		tracing::info!(target:"skunert", "current_storage_proof_size is called");
 		self.proof_size().unwrap_or_default()

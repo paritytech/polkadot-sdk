@@ -122,8 +122,8 @@ pub struct AssetsFrom<T>(PhantomData<T>);
 impl<T: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation> for AssetsFrom<T> {
 	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
 		let loc = T::get();
-		&loc == origin &&
-			matches!(asset, MultiAsset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
+		&loc == origin
+			&& matches!(asset, MultiAsset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
 			if asset_loc.match_and_split(&loc).is_some())
 	}
 }
@@ -332,7 +332,7 @@ where
 	) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
 		log::info!(target: "skunert", "Calling pre dispatch of my extension");
 		let proof_size =
-			cumulus_client_clawback::clawback_host_functions::current_storage_proof_size();
+			cumulus_primitives_reclaim::pov_reclaim_host_functions::current_storage_proof_size();
 		log::info!(target: "skunert","Got proof size: {}", proof_size);
 		Ok(())
 	}
@@ -346,7 +346,7 @@ where
 	) -> Result<(), TransactionValidityError> {
 		log::info!(target: "skunert", "Calling post dispatch of my extension");
 		let proof_size =
-			cumulus_client_clawback::clawback_host_functions::current_storage_proof_size();
+			cumulus_primitives_reclaim::pov_reclaim_host_functions::current_storage_proof_size();
 		log::info!(target: "skunert","Got proof size: {}", proof_size);
 		Ok(())
 	}

@@ -727,7 +727,6 @@ version = "0.9.420"
 dependencies = [
  "asset-test-utils",
  "assets-common",
- "cumulus-client-clawback",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -735,6 +734,7 @@ dependencies = [
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
+ "cumulus-primitives-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -3275,20 +3275,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-client-clawback"
-version = "0.0.1"
-dependencies = [
- "sp-api",
- "sp-core",
- "sp-externalities",
- "sp-runtime",
- "sp-runtime-interface",
- "sp-std",
- "sp-trie",
- "tracing",
-]
-
-[[package]]
 name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
@@ -3578,10 +3564,10 @@ version = "0.1.0"
 dependencies = [
  "assert_matches",
  "bytes",
- "cumulus-client-clawback",
  "cumulus-pallet-parachain-system-proc-macro",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
+ "cumulus-primitives-reclaim",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
  "environmental",
@@ -3751,6 +3737,14 @@ dependencies = [
  "sp-std",
  "sp-storage",
  "sp-trie",
+ "tracing",
+]
+
+[[package]]
+name = "cumulus-primitives-reclaim"
+version = "0.0.1"
+dependencies = [
+ "sp-runtime-interface",
  "tracing",
 ]
 
@@ -3989,7 +3983,6 @@ dependencies = [
  "async-trait",
  "clap 4.4.2",
  "criterion 0.5.1",
- "cumulus-client-clawback",
  "cumulus-client-cli",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-relay-chain",
@@ -3998,6 +3991,7 @@ dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
+ "cumulus-primitives-reclaim",
  "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-minimal-node",
@@ -10921,7 +10915,6 @@ version = "0.1.0"
 dependencies = [
  "clap 4.4.2",
  "color-print",
- "cumulus-client-clawback",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -10930,6 +10923,7 @@ dependencies = [
  "cumulus-client-service",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
+ "cumulus-primitives-reclaim",
  "cumulus-relay-chain-interface",
  "frame-benchmarking",
  "frame-benchmarking-cli",
@@ -11032,8 +11026,8 @@ dependencies = [
 name = "parachains-common"
 version = "1.0.0"
 dependencies = [
- "cumulus-client-clawback",
  "cumulus-primitives-core",
+ "cumulus-primitives-reclaim",
  "cumulus-primitives-utility",
  "frame-support",
  "frame-system",
@@ -12471,7 +12465,6 @@ dependencies = [
  "collectives-polkadot-runtime",
  "color-print",
  "contracts-rococo-runtime",
- "cumulus-client-clawback",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -12481,6 +12474,7 @@ dependencies = [
  "cumulus-client-service",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
+ "cumulus-primitives-reclaim",
  "cumulus-relay-chain-interface",
  "frame-benchmarking",
  "frame-benchmarking-cli",
