@@ -163,7 +163,7 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attemps to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Common Good Assets parachain, parent and its exec plurality get free
+					// System Assets parachain, parent and its exec plurality get free
 					// execution
 					AllowExplicitUnpaidExecutionFrom<(
 						CommonGoodAssetsParachain,
