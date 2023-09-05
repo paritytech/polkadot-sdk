@@ -31,14 +31,8 @@ use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
 use sp_std::prelude::*;
-use sp_std::{
-	boxed::Box,
-	cell::{RefCell, RefMut},
-	collections::btree_set::BTreeSet,
-};
-use sp_trie::NodeCodec;
-use sp_trie::{MemoryDB, StorageProof};
-use trie_db::{RecordedForKey, TrieAccess};
+use sp_std::sync::Arc;
+use sp_trie::{MemoryDB, TrieRecorderProvider};
 use trie_recorder::RecorderProvider;
 
 type TrieBackend<B> = sp_state_machine::TrieBackend<

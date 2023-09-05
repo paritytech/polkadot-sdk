@@ -16,19 +16,12 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::{trie_cache, MemoryOptimizedValidationParams};
-use cumulus_primitives_core::{
-	relay_chain::Hash as RHash, ParachainBlockData, PersistedValidationData,
-};
-use cumulus_primitives_parachain_inherent::ParachainInherentData;
-
-use polkadot_parachain::primitives::{HeadData, RelayChainBlockNumber, ValidationResult};
+use super::trie_cache;
 
 use codec::Encode;
 
 use core::borrow::BorrowMut;
-use frame_support::traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType};
-use sp_core::storage::{ChildInfo, StateVersion};
+use frame_support::traits::Get;
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
