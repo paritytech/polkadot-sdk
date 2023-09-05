@@ -17,7 +17,7 @@
 //! A module that is responsible for migration of storage.
 
 use crate::{
-	Config, OutboundState, OutboundXcmpStatus, Overweight, Pallet, ParaId, QueueConfig, Vec
+	Config, OutboundState, OutboundXcmpStatus, Overweight, Pallet, ParaId, QueueConfig, Vec,
 	DEFAULT_POV_SIZE,
 };
 use frame_support::{
