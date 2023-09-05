@@ -564,7 +564,9 @@ where
 {
 	let fixture_path = [
 		// When `CARGO_MANIFEST_DIR` is not set, Rust resolves relative paths from the root folder
-		std::env::var("CARGO_MANIFEST_DIR").as_deref().unwrap_or("frame/contracts"),
+		std::env::var("CARGO_MANIFEST_DIR")
+			.as_deref()
+			.unwrap_or("substrate/frame/contracts"),
 		"/fixtures/",
 		fixture_name,
 		".wat",

@@ -47,12 +47,13 @@ use sc_network::{
 	NetworkService, NetworkStateInfo, NetworkStatusProvider,
 };
 use sc_network_bitswap::BitswapRequestHandler;
-use sc_network_common::{role::Roles, sync::warp::WarpSyncParams};
+use sc_network_common::role::Roles;
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 use sc_network_sync::{
 	block_request_handler::BlockRequestHandler, engine::SyncingEngine,
 	service::network::NetworkServiceProvider, state_request_handler::StateRequestHandler,
-	warp_request_handler::RequestHandler as WarpSyncRequestHandler, SyncingService,
+	warp::WarpSyncParams, warp_request_handler::RequestHandler as WarpSyncRequestHandler,
+	SyncingService,
 };
 use sc_rpc::{
 	author::AuthorApiServer,

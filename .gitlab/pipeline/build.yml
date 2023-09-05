@@ -114,11 +114,30 @@ build-rustdoc:
   script:
     # FIXME: it fails with `RUSTDOCFLAGS="-Dwarnings"` and `--all-features`
     # FIXME: return to stable when https://github.com/rust-lang/rust/issues/96937 gets into stable
-    - time cargo doc --workspace --no-deps
+    - time cargo doc --features try-runtime,experimental --workspace --no-deps
     - rm -f ./target/doc/.lock
     - mv ./target/doc ./crate-docs
     # FIXME: remove me after CI image gets nonroot
     - chown -R nonroot:nonroot ./crate-docs
+    # Inject Simple Analytics (https://www.simpleanalytics.com/) privacy preserving tracker into
+    # all .html files
+    - |
+      inject_simple_analytics() {
+        local path="$1"
+        local script_content="<script async defer src=\"https://apisa.parity.io/latest.js\"></script><noscript><img src=\"https://apisa.parity.io/latest.js\" alt=\"\" referrerpolicy=\"no-referrer-when-downgrade\" /></noscript>"
+
+        # Function that inject script into the head of an html file using sed.
+        process_file() {
+            local file="$1"
+            echo "Adding Simple Analytics script to $file"
+            sed -i "s|</head>|$script_content</head>|" "$file"
+        }
+        export -f process_file
+
+        # Modify .html files in parallel using xargs, otherwise it can take a long time.
+        find "$path" -name '*.html' | xargs -I {} -P "$(nproc)" bash -c 'process_file "$@"' _ {}
+      }
+      inject_simple_analytics "./crate-docs"
     - echo "<meta http-equiv=refresh content=0;url=polkadot_service/index.html>" > ./crate-docs/index.html
 
 build-implementers-guide:
