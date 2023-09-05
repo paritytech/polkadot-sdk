@@ -130,4 +130,8 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"pallet-xcm/try-runtime",
+	"polkadot-runtime-parachains/try-runtime"
 ]
