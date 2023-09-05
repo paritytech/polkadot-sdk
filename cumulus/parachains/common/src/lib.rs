@@ -17,6 +17,10 @@
 
 pub mod impls;
 pub mod message_queue;
+pub mod kusama;
+pub mod polkadot;
+pub mod rococo;
+pub mod westend;
 pub mod xcm_config;
 pub use constants::*;
 pub use opaque::*;
