@@ -419,8 +419,7 @@ impl Validator {
 		let (key, index) =
 			signing_key_and_index(validators, &keystore).ok_or(Error::NotAValidator)?;
 
-		let disabled =
-			disabled_validators.iter().any(|d: &ValidatorIndex| *d == index);
+		let disabled = disabled_validators.iter().any(|d: &ValidatorIndex| *d == index);
 
 		Ok(Validator { signing_context, key, index, disabled })
 	}
