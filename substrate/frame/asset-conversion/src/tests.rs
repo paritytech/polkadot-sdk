@@ -690,7 +690,8 @@ fn can_quote_price() {
 		//
 		// roundtrip: Without fees one should get the original number
 		//
-		let amount_in = 60;
+		let amount_in = 100;
+
 		assert_eq!(
 			AssetConversion::quote_price_exact_tokens_for_tokens(
 				NativeOrAssetId::Asset(2),
@@ -706,7 +707,6 @@ fn can_quote_price() {
 			)),
 			Some(amount_in)
 		);
-		let amount_in = 3000;
 		assert_eq!(
 			AssetConversion::quote_price_exact_tokens_for_tokens(
 				NativeOrAssetId::Native,
@@ -723,7 +723,6 @@ fn can_quote_price() {
 			Some(amount_in)
 		);
 
-		let amount_in = 3000;
 		assert_eq!(
 			AssetConversion::quote_price_tokens_for_exact_tokens(
 				NativeOrAssetId::Asset(2),
@@ -739,7 +738,6 @@ fn can_quote_price() {
 			)),
 			Some(amount_in)
 		);
-		let amount_in = 60;
 		assert_eq!(
 			AssetConversion::quote_price_tokens_for_exact_tokens(
 				NativeOrAssetId::Native,
