@@ -144,5 +144,5 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 /// Run pallet test.
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
-	new_test_ext().execute_with(|| test())
+	new_test_ext().execute_with(test)
 }

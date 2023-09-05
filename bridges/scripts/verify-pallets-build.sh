@@ -89,17 +89,26 @@ rm -rf $BRIDGES_FOLDER/scripts/update-weights-setup.sh
 rm -rf $BRIDGES_FOLDER/scripts/update_substrate.sh
 rm -rf $BRIDGES_FOLDER/tools
 rm -f $BRIDGES_FOLDER/.dockerignore
+rm -f $BRIDGES_FOLDER/local.Dockerfile.dockerignore
 rm -f $BRIDGES_FOLDER/deny.toml
 rm -f $BRIDGES_FOLDER/.gitlab-ci.yml
 rm -f $BRIDGES_FOLDER/.editorconfig
 rm -f $BRIDGES_FOLDER/Cargo.toml
 rm -f $BRIDGES_FOLDER/ci.Dockerfile
+rm -f $BRIDGES_FOLDER/local.Dockerfile
 rm -f $BRIDGES_FOLDER/CODEOWNERS
 rm -f $BRIDGES_FOLDER/Dockerfile
+rm -f $BRIDGES_FOLDER/rustfmt.toml
 
 # let's fix Cargo.toml a bit (it'll be helpful if we are in the bridges repo)
 if [[ ! -f "Cargo.toml" ]]; then
 	cat > Cargo.toml <<-CARGO_TOML
+	[workspace.package]
+	authors = ["Parity Technologies <admin@parity.io>"]
+	edition = "2021"
+	repository = "https://github.com/paritytech/parity-bridges-common.git"
+	license = "GPL-3.0-only"
+
 	[workspace]
 	resolver = "2"
 
