@@ -32,7 +32,7 @@ pub trait XCM<T: Config> {
 	type QueryId: Encode + Decode + MaxEncodedLen;
 	type WeightInfo: WeightInfo;
 
-	/// Execute an XCM message locally. see [`pallet_xcm::execute`]
+	/// Execute an XCM message locally. see [`pallet_xcm::pallet::Pallet::execute`]
 	///
 	/// - `origin`: the origin of the call.
 	/// - `message`: the XCM message to be executed.
@@ -43,7 +43,8 @@ pub trait XCM<T: Config> {
 		max_weight: Weight,
 	) -> DispatchResultWithPostInfo;
 
-	/// Send an XCM message to be executed by a remote location. see [`pallet_xcm::send`]
+	/// Send an XCM message to be executed by a remote location. see
+	/// [`pallet_xcm::pallet::Pallet::send`]
 	///
 	/// - `origin`: the origin of the call.
 	/// - `dest`: the destination of the message.
@@ -54,7 +55,7 @@ pub trait XCM<T: Config> {
 		msg: VersionedXcm<()>,
 	) -> DispatchResult;
 
-	/// Query a remote location. see [`QueryHandler::new_query`]
+	/// Query a remote location. see [`xcm_executor::traits::QueryHandler::new_query`]
 	///
 	/// - `origin`: the origin of the call, used to determine the responder.
 	/// - `timeout`: the maximum block number that the query should be responded to.
