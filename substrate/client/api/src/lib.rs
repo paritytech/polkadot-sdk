@@ -69,7 +69,7 @@ pub mod utils {
 			}
 
 			let mut hash = hash;
-			if let Some((current_hash, current_parent_hash)) = current.as_ref() {
+			if let Some((current_hash, current_parent_hash)) = &current {
 				if base == current_hash {
 					return Ok(false)
 				}

@@ -8,24 +8,36 @@ The format is based on [Keep a Changelog].
 
 ## 2.0.1-> 3.0.0 - Apollo 14
 
-Most notably, this is the first release of the new FRAME (2.0) with its new macro-syntax and some changes in types, and pallet versioning. This release also incorporates the faster and improve version 2.0 of the parity-scale-codec and upgraded dependencies all-around. While the `FinalityTracker` pallet has been dropped, this release marks the first public appearance of a few new pallets, too;Bounties, Lottery, Tips (extracted from the `Treasury`-pallet, see #7536) and Merkle-Mountain-Ranges (MMR).
+Most notably, this is the first release of the new FRAME (2.0) with its new macro-syntax and some changes in types, and
+pallet versioning. This release also incorporates the faster and improve version 2.0 of the `parity-scale-codec` and
+upgraded dependencies all-around. While the `FinalityTracker` pallet has been dropped, this release marks the first
+public appearance of a few new pallets, too;Bounties, Lottery, Tips (extracted from the `Treasury`-pallet, see #7536)
+and Merkle-Mountain-Ranges (MMR).
 
-On the client side, the most notable changes are around the keystore, making it async and switching to a different signing model allowing for remote-signing to be implemented; and various changes to improve networking and light-client support, like adding the Grandpa warp sync request-response protocol (#7711).
+On the client side, the most notable changes are around the keystore, making it async and switching to a different
+signing model allowing for remote-signing to be implemented; and various changes to improve networking and light-client
+support, like adding the Grandpa warp sync request-response protocol (#7711).
 
-_Contracts_: Please note that the contracts pallet _is not part_ of this release. The pallet is not yet ready and will be released separately in the coming weeks. The currently released contracts pallet _is not compatible_ with the new FRAME, thus if you need the contracts pallet, we recommend you wait with the upgrade until it has been released, too.
+_Contracts_: Please note that the contracts pallet _is not part_ of this release. The pallet is not yet ready and will
+be released separately in the coming weeks. The currently released contracts pallet _is not compatible_ with the new
+FRAME, thus if you need the contracts pallet, we recommend you wait with the upgrade until it has been released, too.
 ### Upgrade instructions
 
-Not too much has changed on the top and API level for developing Substrate between 2.0 and 3.0. The easiest and quickest path for upgrading is just to take the latest node-template and try applying your changes to it:
+Not too much has changed on the top and API level for developing Substrate between 2.0 and 3.0. The easiest and quickest
+path for upgrading is just to take the latest node-template and try applying your changes to it:
 1. take a diff between 2.0 and your changes
 2. store that diff
 3. remove everything, copy over the 3.0 node-template
 4. try re-applying your diff, manually, a hunk at a time.
 
-If that doesn't work for you, we are working on an in-depth-guide for all major changes that took place and how you need to adapt your code for it. [You can find the upgrade guide under `docs/` in the repo](https://github.com/paritytech/substrate/blob/master/docs/Upgrading-2.0-to-3.0.md), if you have further questions or problem, please [feel free to ask in the github discussion board](https://github.com/paritytech/substrate/discussions).
+If that doesn't work for you, we are working on an in-depth-guide for all major changes that took place and how you need
+to adapt your code for it. [You can find the upgrade guide under `docs/` in the
+repo](https://github.com/paritytech/substrate/blob/master/docs/Upgrading-2.0-to-3.0.md), if you have further questions
+or problem, please [feel free to ask in the github discussion
+board](https://github.com/paritytech/substrate/discussions).
 
 
-Runtime
--------
+#### Runtime
 
 * contracts: Charge rent for code storage (#7935)
 * contracts: Emit event on contract termination (#8014)
@@ -63,8 +75,7 @@ Runtime
 * Move proxies migration (#7205)
 * Introduce `cancel_proposal` to rid us of those pesky proposals (#7111)
 
-Client
-------
+#### Client
 
 * Remove backwards-compatibility networking hack (#8068)
 * Extend SS58 network identifiers (#8039)
@@ -97,8 +108,7 @@ Client
 * Refactor CurrencyToVote (#6896)
 * client/network: Stop sending noise legacy handshake (#7211)
 
-API
----
+#### API
 
 * pallet macro: easier syntax for `#[pallet::pallet]` with `struct Pallet<T>(_)` (#8091)
 * WasmExecutor takes a cache directory (#8057)
@@ -106,7 +116,7 @@ API
 * Migrate assets pallet to new macros (#7984)
 * contracts: Make ChainExtension trait generic over the runtime (#8003)
 * Decouple the session validators from im-online (#7127)
-* Update parity-scale-codec to 2.0 (#7994)
+* Update `parity-scale-codec` to 2.0 (#7994)
 * Merkle Mountain Range pallet improvements (#7891)
 * Cleaner GRANDPA RPC API for proving finality (#7339)
 * Migrate frame-system to pallet attribute macro (#7898)
@@ -136,8 +146,7 @@ API
 * SystemOrigin trait (#7226)
 * permit setting treasury pallet initial funding through genesis (#7214)
 
-Runtime Migrations
-------------------
+#### Runtime Migrations
 
 * Migrate assets pallet to new macros (#7984)
 * Fix elections-phragmen and proxy issue (#7040)
@@ -149,8 +158,7 @@ Runtime Migrations
 
 ## 2.0.0-> 2.0.1
 
-Patch release with backports to fix broken nightly builds.
-Namely contains backports of
+Patch release with backports to fix broken nightly builds. Namely contains backports of
 
 * [#7381: Make Substrate compile with latest nightly](https://github.com/paritytech/substrate/pull/7381)
 * [#7238: Fix compilation with environmental on latest nightly](https://github.com/paritytech/substrate/pull/7238)
@@ -161,8 +169,7 @@ Namely contains backports of
 
 ## 2.0.0-rc6 -> 2.0.0 – two dot 😮
 
-Runtime
--------
+### Runtime
 
 * Rename `ModuleToIndex` to `PalletRuntimeSetup` (#7148)
 * Bounties (#5715)
@@ -174,8 +181,7 @@ Runtime
 * Time-delay proxies (#6770)
 * Refcounts are now u32 (#7164)
 
-Client
-------
+### Client
 
 * Rename `inspect-key` to `inspect` (#7160)
 * Send import notification always for re-orgs (#7118)
@@ -190,8 +196,7 @@ Client
 * Fix benchmark read/write key tracker for keys in child storages. (#6905)
 * *: Update to next libp2p version 0.24.0 (#6891)
 
-API
----
+### API
 
 * grandpa-rpc: use FinalityProofProvider to check finality for rpc (#6215)
 * pow: replace the thread-base mining loop with a future-based mining worker (#7060)
@@ -204,16 +209,14 @@ API
 * Add a `LightSyncState` field to the chain spec (#6894)
 * *: Update to next libp2p version 0.24.0 (#6891)
 
-Runtime Migrations
-------------------
+### Runtime Migrations
 
 * Time-delay proxies (#6770)
 
 
 ## 2.0.0-rc5 -> 2.0.0-rc6 – Rock Hyrax
 
-Runtime
--------
+### Runtime
 
 * Custom Codec Implementation for NPoS Election (#6720)
 * Successful `note_imminent_preimage` is free (#6793)
@@ -224,8 +227,7 @@ Runtime
 * pallet-evm: add support for tuple-based precompile declarations (#6681)
 * grandpa: allow noting that the set has stalled (#6725)
 
-Client
-------
+#### Client
 
 * Merge Subkey into sc-cli (#4954)
 * RpcHandlers Refactorings (#6846)
@@ -239,8 +241,7 @@ Client
 * Name all the tasks! (#6726)
 * Child nodes can be handled by adding a child `TaskManager` to the parent's `TaskManager` (#6771)
 
-API
----
+### API
 
 * pow: add access to pre-digest for algorithm verifiers (#6900)
 * babe, aura, pow: only call check_inherents if authoring version is compatible (#6862)
@@ -254,8 +255,7 @@ API
 
 ## 2.0.0-rc4 -> 2.0.0-rc5 – River Dolphin
 
-Runtime
--------
+### Runtime
 
 * Support using system storage directly for EVM balance and nonce (#6659)
 * Properly filter out duplicate voters in elections. (#6693)
@@ -273,14 +273,13 @@ Runtime
 * pallet-evm: customizable chain id (#6537)
 * Refactor as_sub to make things clearer. (#6503)
 
-Client
-------
+### Client
 
 * Update wasmtime to (almost) latest master (#6662)
 * Update to latest sysinfo prevents leaking fd-handlers (#6708)
 * Tracing values (#6679)
 * Graceful shutdown for the task manager (#6654)
-* Update substrate-networking Grafana dashboard (#6649)
+* Update `substrate-networking` Grafana dashboard (#6649)
 * *: Update to libp2p v0.21.1 (#6559)
 * Send Status message on all newly-opened legacy substreams (#6593)
 * babe: report equivocations (#6362)
@@ -288,8 +287,7 @@ Client
 * Remove the service, replacing it with a struct of individual chain components (#6352)
 * Fix tx-pool returning the same transaction multiple times (#6535)
 
-API
----
+### API
 
 * Better handling of stable-only build (#6569)
 * Remove the service builder (#6557)
@@ -302,8 +300,7 @@ API
 
 ## 2.0.0-rc3 -> 2.0.0-rc4 (Rhinoceros)
 
-Runtime
--------
+### Runtime
 
 * Staking Payout Creates Controller (#6496)
 * `pallet-scheduler`: Check that `when` is not in the past (#6480)
@@ -321,8 +318,7 @@ Runtime
 * Add events for balance reserve and unreserve functions (#6330)
 * Introduce frozen indices. (#6307)
 
-Client
-------
+### Client
 
 * client/network/service: Add primary dimension to connection metrics (#6472)
 * Fix Babe secondary plain slots claiming (#6451)
@@ -340,8 +336,7 @@ Client
 * new crate sc-light (#6235)
 * Allow adding a prefix to the informant (#6174)
 
-API
----
+### API
 
 * seal: Remove ext_dispatch_call and ext_get_runtime_storage (#6464)
 * seal: Refactor ext_gas_price (#6478)
@@ -356,16 +351,14 @@ API
 
 ## 2.0.0-rc2 -> 2.0.0-rc3
 
-Runtime
--------
+### Runtime
 
 * Introduce stacked filtering (#6273)
 * Allow "pure" proxied accounts (#6236)
 * Allow over-weight collective proposals to be closed (#6163)
 * Fix Election when ForceNone V1 (#6166)
 
-Client
-------
+### Client
 
 * Make transaction pool prune transactions only of canonical blocks (#6123)
 * Rename all the election operations (#6245)
@@ -381,14 +374,12 @@ Client
 
 ## 2.0.0-alpha.8 -> 2.0.0-rc1
 
-Runtime
--------
+### Runtime
 
 * Allow operational recovery path if on_initialize use fullblock. (#6089)
 * Maximum extrinsic weight limit (#6067)
 
-Client
-------
+### Client
 
 * Add JSON format to import blocks and set it as default (#5816)
 * Upgrade to libp2p v0.19 - Changes the default PeerId representation (#6064)
@@ -396,17 +387,17 @@ Client
 
 ## 2.0.0-alpha.7 -> 2.0.0-alpha.8
 
-**License Changed**
-From this release forward, the code is released under a new – more relaxed – license scheme: Client (`sc-*`) is released under "GPL 3.0 or newer with the Classpath Exception", while primitives, FRAME, the pallets, utils and test-utils are released under "Apache 2.0". More details in the [Relax licensing scheme PR](https://github.com/paritytech/substrate/pull/5947).
+**License Changed** From this release forward, the code is released under a new – more relaxed – license scheme: Client
+(`sc-*`) is released under "GPL 3.0 or newer with the Classpath Exception", while primitives, FRAME, the pallets, utils
+and test-utils are released under "Apache 2.0". More details in the [Relax licensing scheme
+PR](https://github.com/paritytech/substrate/pull/5947).
 
-Runtime
--------
+### Runtime
 
 * Democracy weight (#5828)
 * Make `Digest` support `StorageAppend` (#5922)
 
-Client
-------
+### Client
 
 * Meter block import results via prometheus (#6025)
 * Added RuntimePublic for ecdsa public key. (#6029)
@@ -418,8 +409,7 @@ Client
 
 ## 2.0.0-alpha.6 -> 2.0.0-alpha.7
 
-Runtime
--------
+### Runtime
 
 * Use `storage::append` in the implementation of the storage types (#5889)
 * pallet-sudo: Store `DispatchResult` in `Sudid` event (#5804)
@@ -431,8 +421,7 @@ Runtime
 * Transaction versioning in the RuntimeVersion (#5582)
 * emit TipClosed event on success tip payout (#5656)
 
-Client
-------
+### Client
 
 * Adds `export-state` subcommand (#5842)
 * Drop ClientProvider (#5823)
@@ -454,8 +443,7 @@ Client
 * Use a Kademlia instance per `ProtocolId`. (#5045)
 * Report tasks metrics to Prometheus (#5619)
 
-API
----
+### API
 
 * Child trie api changes BREAKING (#4857)
 * Pass max-total to RewardRemainder on end_era (#5697)
@@ -463,8 +451,7 @@ API
 
 ## 2.0.0-alpha.5 -> 2.0.0-alpha.6
 
-Runtime
--------
+### Runtime
 
 * Unsigned Validation best practices (#5563)
 * Generate Unit Tests for Benchmarks (#5527)
@@ -473,8 +460,7 @@ Runtime
 * Pass transaction source to validate_transaction (#5366)
 * on_initialize return weight consumed and default cost to default DispatchInfo instead of zero (#5382)
 
-Client
-------
+### Client
 
 * Add new RPC method to get the chain type (#5576)
 * Reuse wasmtime instances, the PR (#5567)
@@ -488,10 +474,10 @@ Client
 * Make transactions and block announces use notifications substre… (#5360)
 * Adds state_queryStorageAt (#5362)
 * Offchain Phragmén BREAKING. (#4517)
-* `sc_rpc::system::SystemInfo.impl_version` now returns the full version (2.0.0-alpha.2-b950f731c-x86_64-linux-gnu) instead of the short version (1.0.0) (#5271)
+* `sc_rpc::system::SystemInfo.impl_version` now returns the full version (2.0.0-alpha.2-b950f731c-x86_64-linux-gnu)
+  instead of the short version (1.0.0) (#5271)
 
-API
----
+### API
 
 * Unsigned Validation best practices (#5563)
 * Split the Roles in three types (#5520)
@@ -501,16 +487,14 @@ API
 
 ## 2.0.0-alpha.4 -> 2.0.0-alpha.5
 
-Runtime
--------
+### Runtime
 
 * pallet-evm: configurable gasometer config (#5320)
 * Adds new event phase `Initialization` (#5302)
 
 ## 2.0.0-alpha.3 -> 2.0.0-alpha.4
 
-Runtime
--------
+### Runtime
 
 * Move runtime upgrade to `frame-executive` (#5197)
 * Split fees and tips between author and treasury independently (#5207)
@@ -520,22 +504,20 @@ Runtime
 * Adds `vested_transfer` to Vesting pallet (#5029)
 * Change extrinsic_count to extrinsic_index in pallet-utility (#5044)
 
-Client
-------
+### Client
 
 * client/finality-grandpa: Add Prometheus metrics to GossipValidator (#5237)
 * removes use of sc_client::Client from node-transaction-factory (#5158)
 * removes use of sc_client::Client from sc_network (#5147)
 * Use CLI to configure max instances cache (#5177)
 * client/service/src/builder.rs: Add build_info metric (#5192)
-* Remove substrate-ui.parity.io from CORS whitelist (#5142)
+* Remove `substrate-ui.parity.io` from CORS whitelist (#5142)
 * removes use of sc_client::Client from sc-rpc (#5063)
 * Use 128mb for db cache default (#5134)
 * Drop db-cache default from 1gig to 32mb (#5128)
 * Add more metrics to prometheus (#5034)
 
-API
----
+### API
 
 * Produce block always on updated transaction pool state (#5227)
 * Add `ext_terminate` (#5234)
