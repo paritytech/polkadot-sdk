@@ -698,13 +698,12 @@ fn can_quote_price() {
 				amount_in,
 				false,
 			)
-			.map(|amount| AssetConversion::quote_price_exact_tokens_for_tokens(
+			.and_then(|amount| AssetConversion::quote_price_exact_tokens_for_tokens(
 				NativeOrAssetId::Native,
 				NativeOrAssetId::Asset(2),
 				amount,
 				false,
-			))
-			.flatten(),
+			)),
 			Some(amount_in)
 		);
 		let amount_in = 3000;
@@ -715,13 +714,12 @@ fn can_quote_price() {
 				amount_in,
 				false,
 			)
-			.map(|amount| AssetConversion::quote_price_exact_tokens_for_tokens(
+			.and_then(|amount| AssetConversion::quote_price_exact_tokens_for_tokens(
 				NativeOrAssetId::Asset(2),
 				NativeOrAssetId::Native,
 				amount,
 				false,
-			))
-			.flatten(),
+			)),
 			Some(amount_in)
 		);
 
@@ -733,13 +731,12 @@ fn can_quote_price() {
 				amount_in,
 				false,
 			)
-			.map(|amount| AssetConversion::quote_price_tokens_for_exact_tokens(
+			.and_then(|amount| AssetConversion::quote_price_tokens_for_exact_tokens(
 				NativeOrAssetId::Native,
 				NativeOrAssetId::Asset(2),
 				amount,
 				false,
-			))
-			.flatten(),
+			)),
 			Some(amount_in)
 		);
 		let amount_in = 60;
@@ -750,13 +747,12 @@ fn can_quote_price() {
 				amount_in,
 				false,
 			)
-			.map(|amount| AssetConversion::quote_price_tokens_for_exact_tokens(
+			.and_then(|amount| AssetConversion::quote_price_tokens_for_exact_tokens(
 				NativeOrAssetId::Asset(2),
 				NativeOrAssetId::Native,
 				amount,
 				false,
-			))
-			.flatten(),
+			)),
 			Some(amount_in)
 		);
 	});
