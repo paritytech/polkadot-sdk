@@ -204,12 +204,12 @@ benchmarks! {
 		let match_querier = MultiLocation::from(Here);
 		let query_id = Pallet::<T>::new_query(responder, timeout, match_querier);
 		let infos = (0 .. xcm::v3::MaxPalletsInfo::get()).map(|_| PalletInfo::new(
-			1u32,
+			u32::MAX,
 			(0..xcm::v3::MaxPalletNameLen::get()).map(|_| 97u8).collect::<Vec<_>>().try_into().unwrap(),
 			(0..xcm::v3::MaxPalletNameLen::get()).map(|_| 97u8).collect::<Vec<_>>().try_into().unwrap(),
-			1u32,
-			0u32,
-			0u32,
+			u32::MAX,
+			u32::MAX,
+			u32::MAX,
 		).unwrap()).collect::<Vec<_>>();
 		Pallet::<T>::expect_response(query_id, Response::PalletsInfo(infos.try_into().unwrap()));
 
