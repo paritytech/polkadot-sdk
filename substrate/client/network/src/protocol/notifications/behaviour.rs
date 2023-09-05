@@ -4632,7 +4632,7 @@ mod tests {
 			let pid = PId::arbitrary(u)?;
 			let conn = usize::arbitrary(u)?;
 			let t = u8::arbitrary(u)? % 6;
-			let protocol_index = 0; // always 0 because we deal with only one protocol
+			let protocol_index = usize::arbitrary(u)?;
 			let event = match t {
 				0 => NotifsHandlerOut::OpenDesiredByRemote { protocol_index },
 				1 => NotifsHandlerOut::CloseDesired { protocol_index },
@@ -4909,39 +4909,47 @@ mod tests {
 					FuzzAction::FromHandler(AFromHandler(pid, id, event)) => {
 						let peer_id = pid.0;
 						let conn = ConnectionId::new_unchecked(id);
-						let entry_before = notif.peers.get(&(peer_id, 0.into())).cloned();
-						if matches!(entry_before, None) {
-							// every event requires an entry with peer_id
-							continue
-						};
-						let entry_before = entry_before.unwrap();
-						match &event {
-							NotifsHandlerOut::OpenDesiredByRemote { protocol_index } => {
-								let _ = protocol_index;
-							},
-							NotifsHandlerOut::CloseDesired { protocol_index } => {
-								let _ = protocol_index;
-							},
-							NotifsHandlerOut::CloseResult { protocol_index } => {
-								let _ = protocol_index;
-							},
-							// TODO OpenResultOk
-							NotifsHandlerOut::OpenResultErr { protocol_index } => {
-								let _ = protocol_index;
-							},
-							NotifsHandlerOut::Notification { protocol_index, message } => {
-								let _ = protocol_index;
-								let _ = message;
-							},
-							_ => {
-								todo!("add support for OpenResultOk")
-							},
-						}
+						let entries_before: Vec<_> = (0..notif.notif_protocols.len())
+							.map(SetId::from)
+							.map(|set_id| notif.peers.get(&(peer_id, set_id)).cloned())
+							.collect();
+						for entry_before in entries_before.iter().cloned() {
+							if matches!(entry_before, None) {
+								// every event requires an entry with peer_id
+								continue 'actions
+							};
+							let entry_before = entry_before.unwrap();
+							match &event {
+								NotifsHandlerOut::OpenDesiredByRemote { protocol_index } => {
+									let _ = protocol_index;
+								},
+								NotifsHandlerOut::CloseDesired { protocol_index } => {
+									let _ = protocol_index;
+								},
+								NotifsHandlerOut::CloseResult { protocol_index } => {
+									let _ = protocol_index;
+								},
+								// TODO OpenResultOk
+								NotifsHandlerOut::OpenResultErr { protocol_index } => {
+									let _ = protocol_index;
+								},
+								NotifsHandlerOut::Notification { protocol_index, message } => {
+									let _ = protocol_index;
+									let _ = message;
+								},
+								_ => {
+									todo!("add support for OpenResultOk")
+								},
+							}
 
-						// todo precheck
-						notif.on_connection_handler_event(peer_id, conn, event);
-						let entry_after = notif.peers.get(&(peer_id, 0.into())).cloned().unwrap();
-						// todo postcheck
+							// todo precheck
+							notif.on_connection_handler_event(peer_id, conn, event.clone());
+							let entries_after: Vec<_> = (0..notif.notif_protocols.len())
+								.map(SetId::from)
+								.map(|set_id| notif.peers.get(&(peer_id, set_id)).cloned())
+								.collect();
+							// todo postcheck
+						}
 					},
 				}
 			}

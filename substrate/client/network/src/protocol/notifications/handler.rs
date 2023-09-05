@@ -263,7 +263,7 @@ pub enum NotifsHandlerIn {
 }
 
 /// Event that can be emitted by a `NotifsHandler`.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum NotifsHandlerOut {
 	/// Acknowledges a [`NotifsHandlerIn::Open`].
 	OpenResultOk {
