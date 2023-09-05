@@ -103,7 +103,9 @@ pub mod weights;
 #[cfg(test)]
 mod tests;
 use crate::{
-	exec::{AccountIdOf, ErrorOrigin, ExecError, Executable, Ext, Key, MomentOf, Stack as ExecStack},
+	exec::{
+		AccountIdOf, ErrorOrigin, ExecError, Executable, Ext, Key, MomentOf, Stack as ExecStack,
+	},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, WasmBlob},

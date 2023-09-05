@@ -397,7 +397,6 @@ pub trait Executable<T: Config>: Sized {
 		gas_meter: &mut GasMeter<T>,
 	) -> Result<Self, DispatchError>;
 
-
 	/// Execute the specified exported function and return the result.
 	///
 	/// When the specified function is `Constructor` the executable is stored and its
@@ -1529,7 +1528,7 @@ where
 	fn increment_refcount(code_hash: CodeHash<Self::T>) -> Result<(), DispatchError> {
 		<CodeInfoOf<Self::T>>::mutate(code_hash, |existing| -> Result<(), DispatchError> {
 			if let Some(info) = existing {
-				*info.refcount() = info.refcount().saturating_add(1);
+				*info.refcount_mut() = info.refcount().saturating_add(1);
 				Ok(())
 			} else {
 				Err(Error::<T>::CodeNotFound.into())
@@ -1540,7 +1539,7 @@ where
 	fn decrement_refcount(code_hash: CodeHash<T>) {
 		<CodeInfoOf<T>>::mutate(code_hash, |existing| {
 			if let Some(info) = existing {
-				*info.refcount() = info.refcount().saturating_sub(1);
+				*info.refcount_mut() = info.refcount().saturating_sub(1);
 			}
 		});
 	}
@@ -1619,11 +1618,7 @@ mod tests {
 	use pallet_contracts_primitives::ReturnFlags;
 	use pretty_assertions::assert_eq;
 	use sp_runtime::{traits::Hash, DispatchError};
-	use std::{
-		cell::RefCell,
-		collections::hash_map::{Entry, HashMap},
-		rc::Rc,
-	};
+	use std::{cell::RefCell, collections::hash_map::HashMap, rc::Rc};
 
 	type System = frame_system::Pallet<Test>;
 
@@ -1706,7 +1701,7 @@ mod tests {
 			input_data: Vec<u8>,
 		) -> ExecResult {
 			if let &Constructor = function {
-				Self::increment_refcount(self.code_hash).unwrap();
+				E::increment_refcount(self.code_hash).unwrap();
 			}
 			// # Safety
 			//
@@ -1717,7 +1712,7 @@ mod tests {
 			// The transmute is necessary because `execute` has to be generic over all
 			// `E: Ext`. However, `MockExecutable` can't be generic over `E` as it would
 			// constitute a cycle.
-			let ext = unsafe { std::mem::transmute(ext) };
+			let ext = unsafe { mem::transmute(ext) };
 			if function == &self.func_type {
 				(self.func)(MockCtx { ext, input_data }, &self)
 			} else {

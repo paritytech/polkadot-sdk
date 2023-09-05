@@ -311,8 +311,13 @@ impl<T: Config> CodeInfo<T> {
 		}
 	}
 
-	/// Return mutabke reference to the refcount of the module.
-	pub fn refcount(&mut self) -> &mut u64 {
+	/// Returns reference count of the module.
+	pub fn refcount(&self) -> u64 {
+		self.refcount
+	}
+
+	/// Return mutable reference to the refcount of the module.
+	pub fn refcount_mut(&mut self) -> &mut u64 {
 		&mut self.refcount
 	}
 
@@ -714,7 +719,10 @@ mod tests {
 		fn nonce(&mut self) -> u64 {
 			995
 		}
-
+		fn increment_refcount(_code_hash: CodeHash<Self::T>) -> Result<(), DispatchError> {
+			Ok(())
+		}
+		fn decrement_refcount(_code_hash: CodeHash<Self::T>) {}
 		fn add_delegate_dependency(
 			&mut self,
 			code: CodeHash<Self::T>,
@@ -722,7 +730,6 @@ mod tests {
 			self.delegate_dependencies.borrow_mut().insert(code);
 			Ok(())
 		}
-
 		fn remove_delegate_dependency(
 			&mut self,
 			code: &CodeHash<Self::T>,
