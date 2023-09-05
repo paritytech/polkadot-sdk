@@ -94,12 +94,12 @@ mod gas;
 mod schedule;
 mod storage;
 mod wasm;
-mod xcm;
 
 pub mod chain_extension;
 pub mod debug;
 pub mod migration;
 pub mod weights;
+pub mod xcm;
 
 #[cfg(test)]
 mod tests;

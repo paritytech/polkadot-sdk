@@ -25,6 +25,7 @@ use pallet_contracts::{
 	migration::{v12, v13, v14, v15},
 	weights::SubstrateWeight,
 	Config, DebugInfo, DefaultAddressGenerator, Frame, Schedule,
+	xcm::PalletXCMAdapter
 };
 use sp_runtime::Perbill;
 
@@ -79,5 +80,5 @@ impl Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Debug = ();
 	type Environment = ();
-	type Xcm = ();
+	type Xcm = PalletXCMAdapter<Self>;
 }

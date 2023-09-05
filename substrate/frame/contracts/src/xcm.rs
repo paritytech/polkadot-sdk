@@ -23,7 +23,7 @@ use sp_runtime::{DispatchError, DispatchResult};
 use xcm::{VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::QueryResponseStatus;
 
-mod pallet_xcm_adapter;
+pub mod pallet_xcm_adapter;
 
 pub use pallet_xcm_adapter::PalletXCMAdapter;
 pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;

@@ -16,9 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	Box,
 	xcm::{CallOf, WeightInfo, XCM},
-	AccountIdOf, Config, RawOrigin,
+	AccountIdOf, Box, Config, RawOrigin,
 };
 use frame_support::{pallet_prelude::DispatchResultWithPostInfo, weights::Weight};
 use frame_system::pallet_prelude::BlockNumberFor;
