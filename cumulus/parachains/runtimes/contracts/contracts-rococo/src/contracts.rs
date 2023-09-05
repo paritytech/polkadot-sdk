@@ -24,8 +24,8 @@ use frame_support::{
 use pallet_contracts::{
 	migration::{v12, v13, v14, v15},
 	weights::SubstrateWeight,
+	xcm::PalletXCMAdapter,
 	Config, DebugInfo, DefaultAddressGenerator, Frame, Schedule,
-	xcm::PalletXCMAdapter
 };
 use sp_runtime::Perbill;
 
