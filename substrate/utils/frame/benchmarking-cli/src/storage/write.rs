@@ -119,10 +119,10 @@ impl StorageCmd {
 		}
 
 		if self.params.include_child_trees {
-			child_nodes.shuffle(&mut rng);
-			info!("Writing {} child keys", child_nodes.len());
+			let number_of_child_keys = (child_nodes.len() * self.params.db_fraction as usize) / 100;
+			info!("Writing {} child keys of {} child keys.", number_of_child_keys, child_nodes.len());
 
-			for (key, info) in child_nodes {
+			for (key, info) in child_nodes.into_iter().take(number_of_child_keys) {
 				if let Some(original_v) = client
 					.child_storage(best_hash, &info.clone(), &key)
 					.expect("Checked above to exist")

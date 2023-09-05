@@ -74,9 +74,10 @@ impl StorageCmd {
 
 		if self.params.include_child_trees {
 			child_nodes.shuffle(&mut rng);
+			let number_of_child_keys = (child_nodes.len() * self.params.db_fraction as usize) / 100;
+			info!("Reading {} child keys of {} child keys", number_of_child_keys, child_nodes.len());
 
-			info!("Reading {} child keys", child_nodes.len());
-			for (key, info) in child_nodes.as_slice() {
+			for (key, info) in child_nodes.iter().take(number_of_child_keys) {
 				let start = Instant::now();
 				let v = client
 					.child_storage(best_hash, info, key)
