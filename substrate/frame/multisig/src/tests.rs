@@ -160,7 +160,7 @@ fn multisig_deposit_is_taken_and_returned() {
 fn cancel_multisig_returns_deposit() {
 	ExtBuilder::default().build_and_execute(|| {
 		let call = call_transfer(6, 15).encode();
-		let hash = blake2_256(&call);
+		let hash = H256::from(blake2_256(&call));
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
 			3,
@@ -181,7 +181,13 @@ fn cancel_multisig_returns_deposit() {
 		));
 		assert_eq!(Balances::free_balance(1), 6);
 		assert_eq!(Balances::reserved_balance(1), 4);
-		assert_ok!(Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 3, vec![2, 3], now(), hash));
+		assert_ok!(Multisig::cancel_as_multi(
+			RuntimeOrigin::signed(1),
+			3,
+			vec![2, 3],
+			now(),
+			hash.0
+		));
 		assert_eq!(Balances::free_balance(1), 10);
 		assert_eq!(Balances::reserved_balance(1), 0);
 	});
@@ -196,7 +202,7 @@ fn timepoint_checking_works() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let hash = blake2_256(&call.encode());
+		let hash = H256::from(blake2_256(&call.encode()));
 
 		assert_noop!(
 			Multisig::approve_as_multi(
@@ -257,7 +263,7 @@ fn mutlisig_with_expiry_works() {
 
 		let call = call_transfer(6, 15);
 		let call_weight = call.get_dispatch_info().weight;
-		let hash = blake2_256(&call.encode());
+		let hash = H256::from(blake2_256(&call.encode()));
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
 			2,
@@ -301,7 +307,7 @@ fn mutlisig_with_expiry_works() {
 		),);
 
 		assert!(MultisigExpiries::<Test>::get(multi, hash).is_none());
-		assert!(Multisigs::<Test>::get(multi, hash).is_none());
+		assert!(Multisigs::<Test>::get(multi, hash.0).is_none());
 
 		// The deposit is unreserved after clearing the multisig.
 		assert_eq!(Balances::free_balance(1), 5);
@@ -321,7 +327,7 @@ fn mutlisig_wont_get_executed_when_expired() {
 
 		let call = call_transfer(6, 15);
 		let call_weight = call.get_dispatch_info().weight;
-		let hash = blake2_256(&call.encode());
+		let hash = H256::from(blake2_256(&call.encode()));
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
 			2,
@@ -364,7 +370,7 @@ fn mutlisig_wont_get_executed_when_expired() {
 		));
 
 		assert!(MultisigExpiries::<Test>::get(multi, hash).is_none());
-		assert!(Multisigs::<Test>::get(multi, hash).is_none());
+		assert!(Multisigs::<Test>::get(multi, hash.0).is_none());
 
 		// The deposit is unreserved after clearing the multisig.
 		assert_eq!(Balances::free_balance(1), 5);
@@ -396,7 +402,7 @@ fn multisig_2_of_3_works() {
 
 		let call = call_transfer(6, 15);
 		let call_weight = call.get_dispatch_info().weight;
-		let hash = blake2_256(&call.encode());
+		let hash = H256::from(blake2_256(&call.encode()));
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
 			2,
@@ -430,7 +436,7 @@ fn multisig_3_of_3_works() {
 
 		let call = call_transfer(6, 15);
 		let call_weight = call.get_dispatch_info().weight;
-		let hash = blake2_256(&call.encode());
+		let hash = H256::from(blake2_256(&call.encode()));
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
 			3,
@@ -467,7 +473,7 @@ fn multisig_3_of_3_works() {
 fn cancel_multisig_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let call = call_transfer(6, 15).encode();
-		let hash = blake2_256(&call);
+		let hash = H256::from(blake2_256(&call));
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
 			3,
@@ -487,10 +493,16 @@ fn cancel_multisig_works() {
 			None
 		));
 		assert_noop!(
-			Multisig::cancel_as_multi(RuntimeOrigin::signed(2), 3, vec![1, 3], now(), hash),
+			Multisig::cancel_as_multi(RuntimeOrigin::signed(2), 3, vec![1, 3], now(), hash.0),
 			Error::<Test>::NotOwner,
 		);
-		assert_ok!(Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 3, vec![2, 3], now(), hash),);
+		assert_ok!(Multisig::cancel_as_multi(
+			RuntimeOrigin::signed(1),
+			3,
+			vec![2, 3],
+			now(),
+			hash.0
+		),);
 	});
 }
 
@@ -587,7 +599,7 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 
 		let call = call_transfer(6, 10);
 		let call_weight = call.get_dispatch_info().weight;
-		let hash = blake2_256(&call.encode());
+		let hash = H256::from(blake2_256(&call.encode()));
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(1),
 			2,
@@ -628,7 +640,7 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 				approving: 3,
 				timepoint: now(),
 				multisig: multi,
-				call_hash: hash,
+				call_hash: hash.0,
 				result: Err(TokenError::FundsUnavailable.into()),
 			}
 			.into(),
@@ -687,7 +699,7 @@ fn too_many_signatories_fails() {
 fn duplicate_approvals_are_ignored() {
 	ExtBuilder::default().build_and_execute(|| {
 		let call = call_transfer(6, 15).encode();
-		let hash = blake2_256(&call);
+		let hash = H256::from(blake2_256(&call));
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
 			2,
@@ -742,7 +754,7 @@ fn multisig_1_of_3_works() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let hash = blake2_256(&call.encode());
+		let hash = H256::from(blake2_256(&call.encode()));
 		assert_noop!(
 			Multisig::approve_as_multi(
 				RuntimeOrigin::signed(1),
@@ -833,7 +845,7 @@ fn multisig_handles_no_preimage_after_all_approve() {
 
 		let call = call_transfer(6, 15);
 		let call_weight = call.get_dispatch_info().weight;
-		let hash = blake2_256(&call.encode());
+		let hash = H256::from(blake2_256(&call.encode()));
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
 			3,

@@ -147,14 +147,14 @@ benchmarks! {
 		let (mut signatories, call) = setup_multi::<T>(s, z)?;
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
 		let caller = signatories.pop().ok_or("signatories should have len 2 or more")?;
-		let call_hash = call.using_encoded(blake2_256);
+		let call_hash = H256::from(call.using_encoded(blake2_256));
 		// Whitelist caller account from further DB operations.
 		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
 		frame_benchmarking::benchmarking::add_to_whitelist(caller_key.into());
 		// Create the multi
 	}: approve_as_multi(RawOrigin::Signed(caller), s as u16, signatories, None, call_hash, Weight::zero(), Some(42u32.into()))
 	verify {
-		assert!(Multisigs::<T>::contains_key(multi_account_id, call_hash));
+		assert!(Multisigs::<T>::contains_key(multi_account_id, call_hash.0));
 	}
 
 	approve_as_multi_approve {
@@ -166,7 +166,7 @@ benchmarks! {
 		let mut signatories2 = signatories.clone();
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
 		let caller = signatories.pop().ok_or("signatories should have len 2 or more")?;
-		let call_hash = call.using_encoded(blake2_256);
+		let call_hash = H256::from(call.using_encoded(blake2_256));
 		// before the call, get the timepoint
 		let timepoint = Multisig::<T>::timepoint();
 		// Create the multi
@@ -184,7 +184,7 @@ benchmarks! {
 		frame_benchmarking::benchmarking::add_to_whitelist(caller_key.into());
 	}: approve_as_multi(RawOrigin::Signed(caller2), s as u16, signatories2, Some(timepoint), call_hash, Weight::zero(), None)
 	verify {
-		let multisig = Multisigs::<T>::get(multi_account_id, call_hash).ok_or("multisig not created")?;
+		let multisig = Multisigs::<T>::get(multi_account_id, call_hash.0).ok_or("multisig not created")?;
 		assert_eq!(multisig.approvals.len(), 2);
 	}
 
@@ -218,12 +218,12 @@ benchmarks! {
 		let (mut signatories, call) = setup_multi::<T>(s, z)?;
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
 		let caller = signatories.pop().ok_or("signatories should have len 2 or more")?;
-		let call_hash = call.using_encoded(blake2_256);
+		let call_hash = H256::from(call.using_encoded(blake2_256));
 		let timepoint = Multisig::<T>::timepoint();
 		// Create the multi
 		let o = RawOrigin::Signed(caller.clone()).into();
 		Multisig::<T>::approve_as_multi(o, s as u16, signatories.clone(), None, call_hash, Weight::zero(), Some(3u32.into()))?;
-		assert!(Multisigs::<T>::contains_key(&multi_account_id, call_hash));
+		assert!(Multisigs::<T>::contains_key(&multi_account_id, call_hash.0));
 		// Multisig expires after block 3 so we proceed to block 4.
 		System::<T>::set_block_number(4u32.into());
 		// Whitelist caller account from further DB operations.
@@ -233,7 +233,7 @@ benchmarks! {
 		signatories.push(caller.clone());
 	}: _(RawOrigin::Signed(caller), s as u16, signatories, timepoint, call_hash)
 	verify {
-		assert!(!Multisigs::<T>::contains_key(multi_account_id.clone(), call_hash));
+		assert!(!Multisigs::<T>::contains_key(multi_account_id.clone(), call_hash.0));
 		assert!(!MultisigExpiries::<T>::contains_key(multi_account_id, call_hash));
 	}
 

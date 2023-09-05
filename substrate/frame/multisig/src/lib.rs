@@ -64,6 +64,7 @@ use frame_support::{
 };
 use frame_system::{self as system, pallet_prelude::BlockNumberFor, RawOrigin};
 use scale_info::TypeInfo;
+use sp_core::H256;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	traits::{Dispatchable, TrailingZeroInput, Zero},
@@ -191,14 +192,8 @@ pub mod pallet {
 
 	/// Tracks optional expiry block numbers for [`Multisig`] entries
 	#[pallet::storage]
-	pub type MultisigExpiries<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		T::AccountId,
-		Blake2_128Concat,
-		[u8; 32],
-		BlockNumberFor<T>,
-	>;
+	pub type MultisigExpiries<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, T::AccountId, Blake2_128Concat, H256, BlockNumberFor<T>>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -519,7 +514,7 @@ pub mod pallet {
 			ensure!(m.when == timepoint, Error::<T>::WrongTimepoint);
 			ensure!(m.depositor == who, Error::<T>::NotOwner);
 
-			let maybe_expiry = <MultisigExpiries<T>>::get(&id, call_hash);
+			let maybe_expiry = <MultisigExpiries<T>>::get(&id, H256::from(call_hash));
 
 			Self::remove_multisig(&id, call_hash, &m.depositor, m.deposit, maybe_expiry);
 
@@ -575,7 +570,7 @@ pub mod pallet {
 			threshold: u16,
 			other_signatories: Vec<T::AccountId>,
 			maybe_timepoint: Option<Timepoint<BlockNumberFor<T>>>,
-			call_hash: [u8; 32],
+			call_hash: H256,
 			max_weight: Weight,
 			maybe_expiry: Option<BlockNumberFor<T>>,
 		) -> DispatchResultWithPostInfo {
@@ -585,7 +580,7 @@ pub mod pallet {
 				threshold,
 				other_signatories,
 				maybe_timepoint,
-				CallOrHash::Hash(call_hash),
+				CallOrHash::Hash(call_hash.into()),
 				max_weight,
 				maybe_expiry,
 			)
@@ -619,13 +614,13 @@ pub mod pallet {
 			threshold: u16,
 			signatories: Vec<T::AccountId>,
 			timepoint: Timepoint<BlockNumberFor<T>>,
-			call_hash: [u8; 32],
+			call_hash: H256,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			let id = Self::multi_account_id(&signatories, threshold);
 
-			let m = <Multisigs<T>>::get(&id, call_hash).ok_or(Error::<T>::NotFound)?;
+			let m = <Multisigs<T>>::get(&id, call_hash.0).ok_or(Error::<T>::NotFound)?;
 			let expiry =
 				<MultisigExpiries<T>>::get(&id, call_hash).ok_or(Error::<T>::MultisigNotExpired)?;
 
@@ -636,13 +631,13 @@ pub mod pallet {
 			);
 
 			// Clean up all the state that is not needed anymore since the multisig expired.
-			Self::remove_multisig(&id, call_hash, &m.depositor, m.deposit, Some(expiry));
+			Self::remove_multisig(&id, call_hash.0, &m.depositor, m.deposit, Some(expiry));
 
 			Self::deposit_event(Event::MultisigCancelled {
 				cancelling: who,
 				timepoint,
 				multisig: id,
-				call_hash,
+				call_hash: call_hash.0,
 			});
 
 			Ok(())
@@ -694,7 +689,7 @@ impl<T: Config> Pallet<T> {
 			let timepoint = maybe_timepoint.ok_or(Error::<T>::NoTimepoint)?;
 			ensure!(m.when == timepoint, Error::<T>::WrongTimepoint);
 
-			let maybe_expiry = <MultisigExpiries<T>>::get(&id, call_hash);
+			let maybe_expiry = <MultisigExpiries<T>>::get(&id, H256::from(call_hash));
 			// Ensure that the mutlisig did not expire.
 			match maybe_expiry {
 				Some(expiry) if expiry < <frame_system::Pallet<T>>::block_number() => {
@@ -778,7 +773,7 @@ impl<T: Config> Pallet<T> {
 			// Not yet started; The expiry for this [`Multisig`] cannot already be specified
 			// in [`MultisigExpiries`].
 			ensure!(
-				<MultisigExpiries<T>>::get(&id, call_hash).is_none(),
+				<MultisigExpiries<T>>::get(&id, H256::from(call_hash)).is_none(),
 				Error::<T>::UnexpectedExpiry
 			);
 
@@ -804,7 +799,7 @@ impl<T: Config> Pallet<T> {
 			// If an expiry is specified insert it into [`MultisigExpiries`] for
 			// this specific [`Multisig`].
 			if let Some(expiry) = maybe_expiry {
-				<MultisigExpiries<T>>::insert(&id, call_hash, expiry);
+				<MultisigExpiries<T>>::insert(&id, H256::from(call_hash), expiry);
 			}
 
 			Self::deposit_event(Event::NewMultisig {
@@ -837,7 +832,7 @@ impl<T: Config> Pallet<T> {
 		<Multisigs<T>>::remove(id, call_hash);
 
 		if expiry.is_some() {
-			<MultisigExpiries<T>>::remove(id, call_hash);
+			<MultisigExpiries<T>>::remove(id, H256::from(call_hash));
 		}
 	}
 
@@ -882,7 +877,7 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		<MultisigExpiries<T>>::iter_keys().try_for_each(|(id, call_hash)| {
-			ensure!(<Multisigs<T>>::get(id, call_hash).is_some(), Error::<T>::NotFound);
+			ensure!(<Multisigs<T>>::get(id, call_hash.0).is_some(), Error::<T>::NotFound);
 
 			Ok(())
 		})
