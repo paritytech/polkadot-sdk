@@ -7,7 +7,8 @@ name: Release - Publish Docker Image
 # image and publishes it.
 
 on:
-  # release: TODO: activate automated run later
+  #TODO: activate automated run later
+  # release:
   #  types:
   #    - published
   workflow_dispatch:
@@ -70,9 +71,9 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
 
-      #- name: Fetch release artifacts based on final release tag TODO: this step will be needed when automated triggering will work
+      #TODO: this step will be needed when automated triggering will work
         #this step runs only if the workflow is triggered automatically when new release is published
         # if: ${{ env.EVENT_NAME == 'release' && env.EVENT_ACTION != '' && env.EVENT_ACTION == 'published' }}
         # run: |
@@ -84,14 +85,13 @@ jobs:
         #     wget "$URL" -O "$f"
         #   done
         #   chmod a+x $BINARY
-        #   cp -f ${TMP}/lib.sh .
         #   ls -al
 
       - name: Fetch rc artifacts or release artifacts based on release id
         #this step runs only if the workflow is triggered manually
         if: ${{ env.EVENT_NAME  == 'workflow_dispatch' }}
         run: |
-          . ./.gitlab/common/lib.sh
+          . ./.github/scripts/common/lib.sh
 
           fetch_release_artifacts
 
@@ -108,7 +108,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
 
       - name: Get artifacts from cache
         uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
@@ -121,7 +121,7 @@ jobs:
       - name: Check sha256 ${{ env.BINARY }}
         working-directory: ./release-artifacts/${{ env.BINARY }}
         run: |
-          . ../../.gitlab/common/lib.sh
+          . ../../github/scripts/common/lib.sh
 
           echo "Checking binary $BINARY"
           check_sha256 $BINARY && echo "OK" || echo "ERR"
@@ -129,7 +129,7 @@ jobs:
       - name: Check GPG ${{ env.BINARY }}
         working-directory: ./release-artifacts/${{ env.BINARY }}
         run: |
-          . ../../.gitlab/common/lib.sh
+          . ../../github/scripts/common/lib.sh
           import_gpg_keys
           check_gpg $BINARY
 
