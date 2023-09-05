@@ -300,12 +300,6 @@ impl<T: Config> WasmBlob<T> {
 }
 
 impl<T: Config> CodeInfo<T> {
-	/// Return the refcount of the module.
-	#[cfg(test)]
-	pub fn refcount(&self) -> u64 {
-		self.refcount
-	}
-
 	#[cfg(test)]
 	pub fn new(owner: T::AccountId) -> Self {
 		CodeInfo {
@@ -315,6 +309,11 @@ impl<T: Config> CodeInfo<T> {
 			code_len: 0,
 			determinism: Determinism::Enforced,
 		}
+	}
+
+	/// Return mutabke reference to the refcount of the module.
+	pub fn refcount(&mut self) -> &mut u64 {
+		&mut self.refcount
 	}
 
 	/// Returns the deposit of the module.
@@ -332,25 +331,6 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 		gas_meter.charge(CodeLoadToken(code_info.code_len))?;
 		let code = <PristineCode<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		Ok(Self { code, code_info, code_hash })
-	}
-
-	fn increment_refcount(code_hash: CodeHash<T>) -> Result<(), DispatchError> {
-		<CodeInfoOf<T>>::mutate(code_hash, |existing| -> Result<(), DispatchError> {
-			if let Some(info) = existing {
-				info.refcount = info.refcount.saturating_add(1);
-				Ok(())
-			} else {
-				Err(Error::<T>::CodeNotFound.into())
-			}
-		})
-	}
-
-	fn decrement_refcount(code_hash: CodeHash<T>) {
-		<CodeInfoOf<T>>::mutate(code_hash, |existing| {
-			if let Some(info) = existing {
-				info.refcount = info.refcount.saturating_sub(1);
-			}
-		});
 	}
 
 	fn execute<E: Ext<T = T>>(
@@ -403,6 +383,11 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 			store.into_data().to_execution_result(result)
 		};
 
+		// Start function should already see the correct refcount in case it will be ever inspected.
+		if let &ExportedFunction::Constructor = function {
+			E::increment_refcount(self.code_hash)?;
+		}
+
 		match instance.start(&mut store) {
 			Ok(instance) => {
 				let exported_func = instance
@@ -412,10 +397,6 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 						log::error!(target: LOG_TARGET, "failed to find entry point");
 						Error::<T>::CodeRejected
 					})?;
-
-				if let &ExportedFunction::Constructor = function {
-					WasmBlob::<T>::increment_refcount(self.code_hash)?;
-				}
 
 				let result = exported_func.call(&mut store, &[], &mut []);
 				process_result(store, result)
@@ -1877,7 +1858,7 @@ mod tests {
 	(import "env" "memory" (memory 1 1))
 
 	(start $start)
-	(func $start 
+	(func $start
 		(call $seal_deposit_event
 			(i32.const 0) ;; Pointer to the start of topics buffer
 			(i32.const 0) ;; The length of the topics buffer.
