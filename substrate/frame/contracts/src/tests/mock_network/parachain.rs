@@ -136,6 +136,8 @@ impl pallet_assets::Config for Runtime {
 	type RemoveItemsLimit = RemoveItemsLimit;
 	type AssetIdParameter = AssetIdForAssets;
 	type CallbackHandle = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 parameter_types! {
@@ -319,7 +321,7 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
+	type ReachableDest = crate::tests::mock_network::relay_chain::ReachableDest;
 	type AdminOrigin = EnsureRoot<AccountId>;
 }
 

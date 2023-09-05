@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	Box,
 	xcm::{CallOf, WeightInfo, XCM},
 	AccountIdOf, Config, RawOrigin,
 };
