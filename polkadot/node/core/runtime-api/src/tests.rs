@@ -250,6 +250,10 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		Ok(self.authorities.clone())
 	}
 
+	async fn disabled_validators(&self, _: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
+		todo!("Not required for tests")
+	}
+
 	async fn staging_async_backing_params(
 		&self,
 		_: Hash,
