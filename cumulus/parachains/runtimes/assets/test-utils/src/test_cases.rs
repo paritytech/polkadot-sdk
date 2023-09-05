@@ -15,23 +15,25 @@
 
 //! Module contains predefined test-case scenarios for `Runtime` with various assets.
 
+use crate::assert_matches_reserve_asset_deposited_instructions;
 use codec::Encode;
+use cumulus_primitives_core::XcmpMessageSource;
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{fungibles::InspectEnumerable, Get, OnFinalize, OnInitialize, OriginTrait},
+	traits::{fungibles::InspectEnumerable, Currency, Get, OnFinalize, OnInitialize, OriginTrait},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::{AccountId, Balance};
 use parachains_runtimes_test_utils::{
-	assert_metadata, assert_total, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder,
-	ValidatorIdOf, XcmReceivedFrom,
+	assert_metadata, assert_total, mock_open_hrmp_channel, AccountIdOf, BalanceOf,
+	CollatorSessionKeys, ExtBuilder, ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_runtime::{
 	traits::{MaybeEquivalence, StaticLookup, Zero},
 	DispatchError, Saturating,
 };
-use xcm::latest::prelude::*;
+use xcm::{latest::prelude::*, VersionedMultiAssets};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
@@ -1339,3 +1341,188 @@ macro_rules! include_create_and_manage_foreign_assets_for_local_consensus_parach
 		}
 	}
 );
+
+/// Test-case makes sure that `Runtime` can reserve-transfer asset to other parachains
+pub fn reserve_transfer_native_asset_works<
+	Runtime,
+	AllPalletsWithoutSystem,
+	XcmConfig,
+	HrmpChannelOpener,
+	HrmpChannelSource,
+	LocationToAccountId,
+>(
+	collator_session_keys: CollatorSessionKeys<Runtime>,
+	existential_deposit: BalanceOf<Runtime>,
+	alice_account: AccountIdOf<Runtime>,
+	unwrap_pallet_xcm_event: Box<dyn Fn(Vec<u8>) -> Option<pallet_xcm::Event<Runtime>>>,
+	unwrap_xcmp_queue_event: Box<
+		dyn Fn(Vec<u8>) -> Option<cumulus_pallet_xcmp_queue::Event<Runtime>>,
+	>,
+	weight_limit: WeightLimit,
+) where
+	Runtime: frame_system::Config
+		+ pallet_balances::Config
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config
+		+ cumulus_pallet_xcmp_queue::Config,
+	AllPalletsWithoutSystem:
+		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
+	AccountIdOf<Runtime>: Into<[u8; 32]>,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	BalanceOf<Runtime>: From<Balance>,
+	<Runtime as pallet_balances::Config>::Balance: From<Balance> + Into<u128>,
+	XcmConfig: xcm_executor::Config,
+	LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
+	<Runtime as frame_system::Config>::AccountId:
+		Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
+	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
+		From<<Runtime as frame_system::Config>::AccountId>,
+	<Runtime as frame_system::Config>::AccountId: From<AccountId>,
+	HrmpChannelOpener: frame_support::inherent::ProvideInherent<
+		Call = cumulus_pallet_parachain_system::Call<Runtime>,
+	>,
+	HrmpChannelSource: XcmpMessageSource,
+{
+	let runtime_para_id = 1000;
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys.collators())
+		.with_session_keys(collator_session_keys.session_keys())
+		.with_tracing()
+		.with_safe_xcm_version(3)
+		.with_para_id(runtime_para_id.into())
+		.build()
+		.execute_with(|| {
+			let mut alice = [0u8; 32];
+			alice[0] = 1;
+			let included_head = RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::run_to_block(
+				2,
+				AccountId::from(alice).into(),
+			);
+
+			// reserve-transfer native asset with local reserve to remote parachain (1234)
+
+			let other_para_id = 1234;
+			let native_asset = MultiLocation::parent();
+			let dest = MultiLocation::new(1, X1(Parachain(other_para_id)));
+			let dest_beneficiary = MultiLocation::new(1, X1(Parachain(other_para_id)))
+				.appended_with(AccountId32 {
+					network: None,
+					id: sp_runtime::AccountId32::new([3; 32]).into(),
+				})
+				.unwrap();
+
+			let reserve_account = LocationToAccountId::convert_location(&dest)
+				.expect("Sovereign account for reserves");
+			let balance_to_transfer = 1_000_000_000_000_u128;
+
+			// open HRMP to other parachain
+			mock_open_hrmp_channel::<Runtime, HrmpChannelOpener>(
+				runtime_para_id.into(),
+				other_para_id.into(),
+				included_head,
+				&alice,
+			);
+
+			// drip ED to account
+			let alice_account_init_balance = existential_deposit + balance_to_transfer.into();
+			let _ = <pallet_balances::Pallet<Runtime>>::deposit_creating(
+				&alice_account,
+				alice_account_init_balance,
+			);
+			// SA of target location needs to have at least ED, otherwise making reserve fails
+			let _ = <pallet_balances::Pallet<Runtime>>::deposit_creating(
+				&reserve_account,
+				existential_deposit,
+			);
+
+			// we just check here, that user retains enough balance after withdrawal
+			// and also we check if `balance_to_transfer` is more than `existential_deposit`,
+			assert!(
+				(<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account) -
+					balance_to_transfer.into()) >=
+					existential_deposit
+			);
+			// SA has just ED
+			assert_eq!(
+				<pallet_balances::Pallet<Runtime>>::free_balance(&reserve_account),
+				existential_deposit
+			);
+
+			// local native asset (pallet_balances)
+			let asset_to_transfer = MultiAsset {
+				fun: Fungible(balance_to_transfer.into()),
+				id: Concrete(native_asset),
+			};
+
+			// pallet_xcm call reserve transfer
+			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(
+				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(alice_account.clone()),
+				Box::new(dest.into_versioned()),
+				Box::new(dest_beneficiary.into_versioned()),
+				Box::new(VersionedMultiAssets::from(MultiAssets::from(asset_to_transfer))),
+				0,
+				weight_limit,
+			));
+
+			// check alice account decreased by balance_to_transfer
+			// TODO:check-parameter: change and assert in tests when (https://github.com/paritytech/polkadot/pull/7005) merged
+			assert_eq!(
+				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account),
+				alice_account_init_balance - balance_to_transfer.into()
+			);
+
+			// check reserve account
+			// check reserve account increased by balance_to_transfer
+			assert_eq!(
+				<pallet_balances::Pallet<Runtime>>::free_balance(&reserve_account),
+				existential_deposit + balance_to_transfer.into()
+			);
+
+			// check events
+			// check pallet_xcm attempted
+			RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::assert_pallet_xcm_event_outcome(
+				&unwrap_pallet_xcm_event,
+				|outcome| {
+					assert_ok!(outcome.ensure_complete());
+				},
+			);
+
+			// check that xcm was sent
+			let xcm_sent_message_hash = <frame_system::Pallet<Runtime>>::events()
+				.into_iter()
+				.filter_map(|e| unwrap_xcmp_queue_event(e.event.encode()))
+				.find_map(|e| match e {
+					cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash } =>
+						Some(message_hash),
+					_ => None,
+				});
+
+			// read xcm
+			let xcm_sent = RuntimeHelper::<HrmpChannelSource, AllPalletsWithoutSystem>::take_xcm(
+				other_para_id.into(),
+			)
+			.unwrap();
+
+			assert_eq!(
+				xcm_sent_message_hash,
+				Some(xcm_sent.using_encoded(sp_io::hashing::blake2_256))
+			);
+			let mut xcm_sent: Xcm<()> = xcm_sent.try_into().expect("versioned xcm");
+
+			// check sent XCM Program to other parachain
+			println!("reserve_transfer_native_asset_works sent xcm: {:?}", xcm_sent);
+			let reserve_assets_deposited = MultiAssets::from(vec![MultiAsset {
+				id: Concrete(MultiLocation { parents: 1, interior: Here }),
+				fun: Fungible(1000000000000),
+			}]);
+
+			assert_matches_reserve_asset_deposited_instructions(
+				&mut xcm_sent,
+				&reserve_assets_deposited,
+				&dest_beneficiary,
+			);
+		})
+}
