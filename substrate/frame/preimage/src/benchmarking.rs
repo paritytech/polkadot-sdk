@@ -221,5 +221,31 @@ benchmarks! {
 		assert_eq!(StatusFor::<T>::get(&hash), Some(s));
 	}
 
+	ensure_upgraded {
+		let n in 0..MAX_HASH_UPGRADE_BULK_COUNT;
+		let alice: T::AccountId = frame_benchmarking::whitelisted_caller();
+		let hashes = (0..n).map(|i| insert_old_unrequested(i, alice.clone())).collect::<Vec<_>>();
+		CurrencyOf::<T>::make_free_balance_be(&alice, BalanceOf::<T>::max_value() / 2.into());
+
+	}: _(alice, hashes)
+	verify {
+		assert_eq!(RequestStatusFor::<T>::iter_keys().count(), n);
+		assert_eq!(StatusFor::<T>::iter_keys().count(), 0);
+	}
+
 	impl_benchmark_test_suite!(Preimage, crate::mock::new_test_ext(), crate::mock::Test);
+}
+
+fn insert_old_unrequested<T: Config>(
+	seed: u32,
+	acc: T::AccountId,
+) -> <T as frame_system::Config>::Hash {
+	let preimage = seed.to_le_bytes().into_iter().cycle().take(MAX_SIZE.into()).collect::<Vec<_>>();
+	let hash = <T as frame_system::Config>::Hashing::hash(&preimage[..]);
+
+	StatusFor::<T>::insert(
+		&hash,
+		OldRequestStatus::Unrequested { deposit: (acc, 123u32.into()), len: preimage.len() as u32 },
+	);
+	hash
 }

@@ -64,11 +64,15 @@ pub trait WeightInfo {
 	fn unrequest_preimage() -> Weight;
 	fn unrequest_unnoted_preimage() -> Weight;
 	fn unrequest_multi_referenced_preimage() -> Weight;
+	fn ensure_updated(_: u32) -> Weight;
 }
 
 /// Weights for pallet_preimage using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	fn ensure_updated(_: u32) -> Weight {
+		Weight::MAX // FAIL-CI
+	}
 	/// Storage: Preimage StatusFor (r:1 w:1)
 	/// Proof: Preimage StatusFor (max_values: None, max_size: Some(91), added: 2566, mode: MaxEncodedLen)
 	/// Storage: Preimage PreimageFor (r:0 w:1)
@@ -226,6 +230,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
+	fn ensure_updated(_: u32) -> Weight {
+		Weight::MAX // FAIL-CI
+	}
 	/// Storage: Preimage StatusFor (r:1 w:1)
 	/// Proof: Preimage StatusFor (max_values: None, max_size: Some(91), added: 2566, mode: MaxEncodedLen)
 	/// Storage: Preimage PreimageFor (r:0 w:1)

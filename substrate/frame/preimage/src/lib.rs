@@ -37,7 +37,10 @@ mod mock;
 mod tests;
 pub mod weights;
 
-use sp_runtime::traits::{BadOrigin, Hash, Saturating};
+use sp_runtime::{
+	traits::{BadOrigin, Hash, Saturating},
+	Perbill,
+};
 use sp_std::{borrow::Cow, prelude::*};
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -90,6 +93,10 @@ type TicketOf<T> =
 
 /// Maximum size of preimage we can store is 4mb.
 const MAX_SIZE: u32 = 4 * 1024 * 1024;
+/// Hard-limit on the number of hashes that can be passed to `ensure_updated`.
+///
+/// Exists only for benchmarking purposes.
+pub const MAX_HASH_UPGRADE_BULK_COUNT: u32 = 10_000;
 
 #[frame_support::pallet]
 #[allow(deprecated)]
@@ -153,6 +160,8 @@ pub mod pallet {
 		Requested,
 		/// The preimage request cannot be removed since no outstanding requests exist.
 		NotRequested,
+		/// More than `MAX_HASH_UPGRADE_BULK_COUNT` hashes were requested to be upgraded at once.
+		TooMany,
 	}
 
 	/// The request status of a given hash.
@@ -170,7 +179,7 @@ pub mod pallet {
 	pub(super) type PreimageFor<T: Config> =
 		StorageMap<_, Identity, (T::Hash, u32), BoundedVec<u8, ConstU32<MAX_SIZE>>>;
 
-	#[pallet::call]
+	#[pallet::call(weight = T::WeightInfo)]
 	impl<T: Config> Pallet<T> {
 		/// Register a preimage on-chain.
 		///
@@ -197,7 +206,6 @@ pub mod pallet {
 		/// - `hash`: The hash of the preimage to be removed from the store.
 		/// - `len`: The length of the preimage of `hash`.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::unnote_preimage())]
 		pub fn unnote_preimage(origin: OriginFor<T>, hash: T::Hash) -> DispatchResult {
 			let maybe_sender = Self::ensure_signed_or_manager(origin)?;
 			Self::do_unnote_preimage(&hash, maybe_sender)
@@ -208,7 +216,6 @@ pub mod pallet {
 		/// If the preimage requests has already been provided on-chain, we unreserve any deposit
 		/// a user may have paid, and take the control of the preimage out of their hands.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::request_preimage())]
 		pub fn request_preimage(origin: OriginFor<T>, hash: T::Hash) -> DispatchResult {
 			T::ManagerOrigin::ensure_origin(origin)?;
 			Self::do_request_preimage(&hash);
@@ -219,16 +226,34 @@ pub mod pallet {
 		///
 		/// NOTE: THIS MUST NOT BE CALLED ON `hash` MORE TIMES THAN `request_preimage`.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::unrequest_preimage())]
 		pub fn unrequest_preimage(origin: OriginFor<T>, hash: T::Hash) -> DispatchResult {
 			T::ManagerOrigin::ensure_origin(origin)?;
 			Self::do_unrequest_preimage(&hash)
+		}
+
+		/// Ensure that the a bulk of pre-images is upgraded.
+		///
+		/// The caller pays no fee if at least 90% of pre-images were successfully upgraded.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::ensure_updated(hashes.len() as u32))]
+		pub fn ensure_updated(
+			origin: OriginFor<T>,
+			hashes: Vec<T::Hash>,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+			ensure!(hashes.len() <= MAX_HASH_UPGRADE_BULK_COUNT as usize, Error::<T>::TooMany);
+
+			let updated = hashes.iter().map(Self::do_ensure_updated).filter(|b| *b).count() as u32;
+			let ratio = Perbill::from_rational(updated, hashes.len() as u32);
+
+			let pays: Pays = (ratio >= Perbill::from_percent(90)).into();
+			Ok(pays.into())
 		}
 	}
 }
 
 impl<T: Config> Pallet<T> {
-	fn ensure_updated(h: &T::Hash) -> bool {
+	fn do_ensure_updated(h: &T::Hash) -> bool {
 		#[allow(deprecated)]
 		let r = match StatusFor::<T>::take(h) {
 			Some(r) => r,
@@ -292,7 +317,7 @@ impl<T: Config> Pallet<T> {
 		let len = preimage.len() as u32;
 		ensure!(len <= MAX_SIZE, Error::<T>::TooBig);
 
-		Self::ensure_updated(&hash);
+		Self::do_ensure_updated(&hash);
 		// We take a deposit only if there is a provided depositor and the preimage was not
 		// previously requested. This also allows the tx to pay no fee.
 		let status = match (RequestStatusFor::<T>::get(hash), maybe_depositor) {
@@ -329,7 +354,7 @@ impl<T: Config> Pallet<T> {
 	// If the preimage already exists before the request is made, the deposit for the preimage is
 	// returned to the user, and removed from their management.
 	fn do_request_preimage(hash: &T::Hash) {
-		Self::ensure_updated(&hash);
+		Self::do_ensure_updated(&hash);
 		let (count, maybe_len, maybe_ticket) =
 			RequestStatusFor::<T>::get(hash).map_or((1, None, None), |x| match x {
 				RequestStatus::Requested { maybe_ticket, mut count, maybe_len } => {
@@ -357,7 +382,7 @@ impl<T: Config> Pallet<T> {
 		hash: &T::Hash,
 		maybe_check_owner: Option<T::AccountId>,
 	) -> DispatchResult {
-		Self::ensure_updated(&hash);
+		Self::do_ensure_updated(&hash);
 		match RequestStatusFor::<T>::get(hash).ok_or(Error::<T>::NotNoted)? {
 			RequestStatus::Requested { maybe_ticket: Some((owner, ticket)), count, maybe_len } => {
 				ensure!(maybe_check_owner.map_or(true, |c| c == owner), Error::<T>::NotAuthorized);
@@ -386,7 +411,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Clear a preimage request.
 	fn do_unrequest_preimage(hash: &T::Hash) -> DispatchResult {
-		Self::ensure_updated(&hash);
+		Self::do_ensure_updated(&hash);
 		match RequestStatusFor::<T>::get(hash).ok_or(Error::<T>::NotRequested)? {
 			RequestStatus::Requested { mut count, maybe_len, maybe_ticket } if count > 1 => {
 				count.saturating_dec();
@@ -436,7 +461,7 @@ impl<T: Config> Pallet<T> {
 
 	fn len(hash: &T::Hash) -> Option<u32> {
 		use RequestStatus::*;
-		Self::ensure_updated(&hash);
+		Self::do_ensure_updated(&hash);
 		match RequestStatusFor::<T>::get(hash) {
 			Some(Requested { maybe_len: Some(len), .. }) | Some(Unrequested { len, .. }) =>
 				Some(len),
@@ -459,7 +484,7 @@ impl<T: Config> PreimageProvider<T::Hash> for Pallet<T> {
 	}
 
 	fn preimage_requested(hash: &T::Hash) -> bool {
-		Self::ensure_updated(hash);
+		Self::do_ensure_updated(hash);
 		matches!(RequestStatusFor::<T>::get(hash), Some(RequestStatus::Requested { .. }))
 	}
 
@@ -503,7 +528,7 @@ impl<T: Config<Hash = PreimageHash>> QueryPreimage for Pallet<T> {
 	}
 
 	fn is_requested(hash: &T::Hash) -> bool {
-		Self::ensure_updated(&hash);
+		Self::do_ensure_updated(&hash);
 		matches!(RequestStatusFor::<T>::get(hash), Some(RequestStatus::Requested { .. }))
 	}
 
