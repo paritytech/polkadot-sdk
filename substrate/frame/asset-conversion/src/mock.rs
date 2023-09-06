@@ -170,8 +170,8 @@ impl Config for Test {
 	type Balance = u128;
 	type HigherPrecisionBalance = sp_core::U256;
 
-	type AssetId = NativeOrAssetId<u32>;
-	type AssetIdConverter = NativeOrAssetIdConverter<u32>;
+	type MultiAssetId = NativeOrAssetId<u32>;
+	type MultiAssetIdConverter = NativeOrAssetIdConverter<u32>;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();

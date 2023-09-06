@@ -78,6 +78,95 @@ pub trait TryAs<T> {
 
 macro_rules! versioned_type {
 	($(#[$attr:meta])* pub enum $n:ident {
+		$(#[$index2:meta])+
+		V2($v2:ty),
+		$(#[$index3:meta])+
+		V3($v3:ty),
+	}) => {
+		#[derive(Derivative, Encode, Decode, TypeInfo)]
+		#[derivative(
+			Clone(bound = ""),
+			Eq(bound = ""),
+			PartialEq(bound = ""),
+			Debug(bound = "")
+		)]
+		#[codec(encode_bound())]
+		#[codec(decode_bound())]
+		$(#[$attr])*
+		pub enum $n {
+			$(#[$index2])*
+			V2($v2),
+			$(#[$index3])*
+			V3($v3),
+		}
+		impl $n {
+			pub fn try_as<T>(&self) -> Result<&T, ()> where Self: TryAs<T> {
+				<Self as TryAs<T>>::try_as(&self)
+			}
+		}
+		impl TryAs<$v2> for $n {
+			fn try_as(&self) -> Result<&$v2, ()> {
+				match &self {
+					Self::V2(ref x) => Ok(x),
+					_ => Err(()),
+				}
+			}
+		}
+		impl TryAs<$v3> for $n {
+			fn try_as(&self) -> Result<&$v3, ()> {
+				match &self {
+					Self::V3(ref x) => Ok(x),
+					_ => Err(()),
+				}
+			}
+		}
+		impl IntoVersion for $n {
+			fn into_version(self, n: Version) -> Result<Self, ()> {
+				Ok(match n {
+					1 | 2 => Self::V2(self.try_into()?),
+					3 => Self::V3(self.try_into()?),
+					_ => return Err(()),
+				})
+			}
+		}
+		impl From<$v2> for $n {
+			fn from(x: $v2) -> Self {
+				$n::V2(x)
+			}
+		}
+		impl<T: Into<$v3>> From<T> for $n {
+			fn from(x: T) -> Self {
+				$n::V3(x.into())
+			}
+		}
+		impl TryFrom<$n> for $v2 {
+			type Error = ();
+			fn try_from(x: $n) -> Result<Self, ()> {
+				use $n::*;
+				match x {
+					V2(x) => Ok(x),
+					V3(x) => x.try_into(),
+				}
+			}
+		}
+		impl TryFrom<$n> for $v3 {
+			type Error = ();
+			fn try_from(x: $n) -> Result<Self, ()> {
+				use $n::*;
+				match x {
+					V2(x) => x.try_into(),
+					V3(x) => Ok(x),
+				}
+			}
+		}
+		impl MaxEncodedLen for $n {
+			fn max_encoded_len() -> usize {
+				<$v3>::max_encoded_len()
+			}
+		}
+	};
+
+	($(#[$attr:meta])* pub enum $n:ident {
 		$(#[$index3:meta])+
 		V3($v3:ty),
 		$(#[$index4:meta])+
@@ -315,10 +404,8 @@ versioned_type! {
 	pub enum VersionedNetworkId {
 		#[codec(index = 2)]
 		V2(v2::NetworkId),
-		#[codec(index = 3)]
+		#[codec(index = 3)] // Same for v4
 		V3(v3::NetworkId),
-		#[codec(index = 4)]
-		V4(v4::NetworkId),
 	}
 }
 
@@ -327,10 +414,8 @@ versioned_type! {
 	pub enum VersionedJunction {
 		#[codec(index = 2)]
 		V2(v2::Junction),
-		#[codec(index = 3)]
+		#[codec(index = 3)] // Same as v4
 		V3(v3::Junction),
-		#[codec(index = 4)]
-		V4(v4::Junction),
 	}
 }
 

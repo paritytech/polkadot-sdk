@@ -253,7 +253,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type Balance = u64;
 	type HigherPrecisionBalance = u128;
 
-	type AssetId = NativeOrAssetId<u32>;
+	type MultiAssetId = NativeOrAssetId<u32>;
 	type MultiAssetIdConverter = NativeOrAssetIdConverter<u32>;
 
 	pallet_asset_conversion::runtime_benchmarks_enabled! {

@@ -16,219 +16,14 @@
 
 //! Cross-Consensus Message format data structures.
 
-use crate::v3::Error as OldError;
+pub use crate::v3::{Error, Result, XcmHash, SendError};
 use core::result;
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
 pub use sp_weights::Weight;
 
 use super::*;
-
-/// Error codes used in XCM. The first errors codes have explicit indices and are part of the XCM
-/// format. Those trailing are merely part of the XCM implementation; there is no expectation that
-/// they will retain the same index over time.
-#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
-pub enum Error {
-	// Errors that happen due to instructions being executed. These alone are defined in the
-	// XCM specification.
-	/// An arithmetic overflow happened.
-	#[codec(index = 0)]
-	Overflow,
-	/// The instruction is intentionally unsupported.
-	#[codec(index = 1)]
-	Unimplemented,
-	/// Origin Register does not contain a value value for a reserve transfer notification.
-	#[codec(index = 2)]
-	UntrustedReserveLocation,
-	/// Origin Register does not contain a value value for a teleport notification.
-	#[codec(index = 3)]
-	UntrustedTeleportLocation,
-	/// `Location` value too large to descend further.
-	#[codec(index = 4)]
-	LocationFull,
-	/// `Location` value ascend more parents than known ancestors of local location.
-	#[codec(index = 5)]
-	LocationNotInvertible,
-	/// The Origin Register does not contain a valid value for instruction.
-	#[codec(index = 6)]
-	BadOrigin,
-	/// The location parameter is not a valid value for the instruction.
-	#[codec(index = 7)]
-	InvalidLocation,
-	/// The given asset is not handled.
-	#[codec(index = 8)]
-	AssetNotFound,
-	/// An asset transaction (like withdraw or deposit) failed (typically due to type conversions).
-	#[codec(index = 9)]
-	FailedToTransactAsset(#[codec(skip)] &'static str),
-	/// An asset cannot be withdrawn, potentially due to lack of ownership, availability or rights.
-	#[codec(index = 10)]
-	NotWithdrawable,
-	/// An asset cannot be deposited under the ownership of a particular location.
-	#[codec(index = 11)]
-	LocationCannotHold,
-	/// Attempt to send a message greater than the maximum supported by the transport protocol.
-	#[codec(index = 12)]
-	ExceedsMaxMessageSize,
-	/// The given message cannot be translated into a format supported by the destination.
-	#[codec(index = 13)]
-	DestinationUnsupported,
-	/// Destination is routable, but there is some issue with the transport mechanism.
-	#[codec(index = 14)]
-	Transport(#[codec(skip)] &'static str),
-	/// Destination is known to be unroutable.
-	#[codec(index = 15)]
-	Unroutable,
-	/// Used by `ClaimAsset` when the given claim could not be recognized/found.
-	#[codec(index = 16)]
-	UnknownClaim,
-	/// Used by `Transact` when the functor cannot be decoded.
-	#[codec(index = 17)]
-	FailedToDecode,
-	/// Used by `Transact` to indicate that the given weight limit could be breached by the
-	/// functor.
-	#[codec(index = 18)]
-	MaxWeightInvalid,
-	/// Used by `BuyExecution` when the Holding Register does not contain payable fees.
-	#[codec(index = 19)]
-	NotHoldingFees,
-	/// Used by `BuyExecution` when the fees declared to purchase weight are insufficient.
-	#[codec(index = 20)]
-	TooExpensive,
-	/// Used by the `Trap` instruction to force an error intentionally. Its code is included.
-	#[codec(index = 21)]
-	Trap(u64),
-	/// Used by `ExpectAsset`, `ExpectError` and `ExpectOrigin` when the expectation was not true.
-	#[codec(index = 22)]
-	ExpectationFalse,
-	/// The provided pallet index was not found.
-	#[codec(index = 23)]
-	PalletNotFound,
-	/// The given pallet's name is different to that expected.
-	#[codec(index = 24)]
-	NameMismatch,
-	/// The given pallet's version has an incompatible version to that expected.
-	#[codec(index = 25)]
-	VersionIncompatible,
-	/// The given operation would lead to an overflow of the Holding Register.
-	#[codec(index = 26)]
-	HoldingWouldOverflow,
-	/// The message was unable to be exported.
-	#[codec(index = 27)]
-	ExportError,
-	/// `Location` value failed to be reanchored.
-	#[codec(index = 28)]
-	ReanchorFailed,
-	/// No deal is possible under the given constraints.
-	#[codec(index = 29)]
-	NoDeal,
-	/// Fees were required which the origin could not pay.
-	#[codec(index = 30)]
-	FeesNotMet,
-	/// Some other error with locking.
-	#[codec(index = 31)]
-	LockError,
-	/// The state was not in a condition where the operation was valid to make.
-	#[codec(index = 32)]
-	NoPermission,
-	/// The universal location of the local consensus is improper.
-	#[codec(index = 33)]
-	Unanchored,
-	/// An asset cannot be deposited, probably because (too much of) it already exists.
-	#[codec(index = 34)]
-	NotDepositable,
-
-	// Errors that happen prior to instructions being executed. These fall outside of the XCM
-	// spec.
-	/// XCM version not able to be handled.
-	UnhandledXcmVersion,
-	/// Execution of the XCM would potentially result in a greater weight used than weight limit.
-	WeightLimitReached(Weight),
-	/// The XCM did not pass the barrier condition for execution.
-	///
-	/// The barrier condition differs on different chains and in different circumstances, but
-	/// generally it means that the conditions surrounding the message were not such that the chain
-	/// considers the message worth spending time executing. Since most chains lift the barrier to
-	/// execution on appropriate payment, presentation of an NFT voucher, or based on the message
-	/// origin, it means that none of those were the case.
-	Barrier,
-	/// The weight of an XCM message is not computable ahead of execution.
-	WeightNotComputable,
-	/// Recursion stack limit reached
-	ExceedsStackLimit,
-}
-
-impl MaxEncodedLen for Error {
-	fn max_encoded_len() -> usize {
-		// TODO: max_encoded_len doesn't quite work here as it tries to take notice of the fields
-		// marked `codec(skip)`. We can hard-code it with the right answer for now.
-		1
-	}
-}
-
-impl From<OldError> for Error {
-	fn from(old_error: OldError) -> Self {
-		use OldError::*;
-		match old_error {
-			Overflow => Self::Overflow,
-			Unimplemented => Self::Unimplemented,
-			UntrustedReserveLocation => Self::UntrustedReserveLocation,
-			UntrustedTeleportLocation => Self::UntrustedTeleportLocation,
-			LocationFull => Self::LocationFull,
-			LocationNotInvertible => Self::LocationNotInvertible,
-			BadOrigin => Self::BadOrigin,
-			InvalidLocation => Self::InvalidLocation,
-			AssetNotFound => Self::AssetNotFound,
-			FailedToTransactAsset(s) => Self::FailedToTransactAsset(s),
-			NotWithdrawable => Self::NotWithdrawable,
-			LocationCannotHold => Self::LocationCannotHold,
-			ExceedsMaxMessageSize => Self::ExceedsMaxMessageSize,
-			DestinationUnsupported => Self::DestinationUnsupported,
-			Transport(s) => Self::Transport(s),
-			Unroutable => Self::Unroutable,
-			UnknownClaim => Self::UnknownClaim,
-			FailedToDecode => Self::FailedToDecode,
-			MaxWeightInvalid => Self::MaxWeightInvalid,
-			NotHoldingFees => Self::NotHoldingFees,
-			TooExpensive => Self::TooExpensive,
-			Trap(i) => Self::Trap(i),
-			ExpectationFalse => Self::ExpectationFalse,
-			PalletNotFound => Self::PalletNotFound,
-			NameMismatch => Self::NameMismatch,
-			VersionIncompatible => Self::VersionIncompatible,
-			HoldingWouldOverflow => Self::HoldingWouldOverflow,
-			ExportError => Self::ExportError,
-			ReanchorFailed => Self::ReanchorFailed,
-			NoDeal => Self::NoDeal,
-			FeesNotMet => Self::FeesNotMet,
-			LockError => Self::LockError,
-			NoPermission => Self::NoPermission,
-			Unanchored => Self::Unanchored,
-			NotDepositable => Self::NotDepositable,
-			UnhandledXcmVersion => Self::UnhandledXcmVersion,
-			WeightLimitReached(weight) => Self::WeightLimitReached(weight),
-			Barrier => Self::Barrier,
-			WeightNotComputable => Self::WeightNotComputable,
-			ExceedsStackLimit => Self::ExceedsStackLimit,
-		}
-	}
-}
-
-impl From<SendError> for Error {
-	fn from(e: SendError) -> Self {
-		match e {
-			SendError::NotApplicable | SendError::Unroutable | SendError::MissingArgument =>
-				Error::Unroutable,
-			SendError::Transport(s) => Error::Transport(s),
-			SendError::DestinationUnsupported => Error::DestinationUnsupported,
-			SendError::ExceedsMaxMessageSize => Error::ExceedsMaxMessageSize,
-			SendError::Fees => Error::FeesNotMet,
-		}
-	}
-}
-
-pub type Result = result::Result<(), Error>;
 
 /*
 TODO: XCMv4
@@ -424,35 +219,6 @@ impl<C> ExecuteXcm<C> for () {
 	}
 }
 
-/// Error result value when attempting to send an XCM message.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, scale_info::TypeInfo)]
-pub enum SendError {
-	/// The message and destination combination was not recognized as being reachable.
-	///
-	/// This is not considered fatal: if there are alternative transport routes available, then
-	/// they may be attempted.
-	NotApplicable,
-	/// Destination is routable, but there is some issue with the transport mechanism. This is
-	/// considered fatal.
-	/// A human-readable explanation of the specific issue is provided.
-	Transport(#[codec(skip)] &'static str),
-	/// Destination is known to be unroutable. This is considered fatal.
-	Unroutable,
-	/// The given message cannot be translated into a format that the destination can be expected
-	/// to interpret.
-	DestinationUnsupported,
-	/// Message could not be sent due to its size exceeding the maximum allowed by the transport
-	/// layer.
-	ExceedsMaxMessageSize,
-	/// A needed argument is `None` when it should be `Some`.
-	MissingArgument,
-	/// Fees needed to be paid in order to send the message and they were unavailable.
-	Fees,
-}
-
-/// A hash type for identifying messages.
-pub type XcmHash = [u8; 32];
-
 /// Result value when attempting to send an XCM message.
 pub type SendResult<T> = result::Result<(T, Assets), SendError>;
 
@@ -487,7 +253,7 @@ pub type SendResult<T> = result::Result<(T, Assets), SendError>;
 ///     type Ticket = ();
 ///     fn validate(destination: &mut Option<Location>, message: &mut Option<Xcm<()>>) -> SendResult<()> {
 ///         match destination.as_ref().ok_or(SendError::MissingArgument)?.unpack() {
-///             (0, [_, _]) => Ok(((), Assets::new())),
+///             (0, [j1, j2]) => Ok(((), Assets::new())),
 ///             _ => Err(SendError::Unroutable),
 ///         }
 ///     }

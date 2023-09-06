@@ -18,223 +18,15 @@
 
 use super::Location;
 use crate::{
-	v3::{
-		BodyId as OldBodyId, BodyPart as OldBodyPart, Junction as OldJunction,
-		NetworkId as OldNetworkId,
-	},
 	VersionedLocation,
+	v3::Junction as OldJunction
 };
+pub use crate::v3::{BodyId, BodyPart, NetworkId};
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
-use core::convert::{TryFrom, TryInto};
+use core::convert::{TryFrom};
 use parity_scale_codec::{self, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-
-/// A global identifier of a data structure existing within consensus.
-///
-/// Maintenance note: Networks with global consensus and which are practically bridgeable within the
-/// Polkadot ecosystem are given preference over explicit naming in this enumeration.
-#[derive(
-	Copy,
-	Clone,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	Encode,
-	Decode,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
-	Serialize,
-	Deserialize,
-)]
-pub enum NetworkId {
-	/// Network specified by the first 32 bytes of its genesis block.
-	ByGenesis([u8; 32]),
-	/// Network defined by the first 32-bytes of the hash and number of some block it contains.
-	ByFork { block_number: u64, block_hash: [u8; 32] },
-	/// The Polkadot mainnet Relay-chain.
-	Polkadot,
-	/// The Kusama canary-net Relay-chain.
-	Kusama,
-	/// The Westend testnet Relay-chain.
-	Westend,
-	/// The Rococo testnet Relay-chain.
-	Rococo,
-	/// The Wococo testnet Relay-chain.
-	Wococo,
-	/// An Ethereum network specified by its chain ID.
-	Ethereum {
-		/// The EIP-155 chain ID.
-		#[codec(compact)]
-		chain_id: u64,
-	},
-	/// The Bitcoin network, including hard-forks supported by Bitcoin Core development team.
-	BitcoinCore,
-	/// The Bitcoin network, including hard-forks supported by Bitcoin Cash developers.
-	BitcoinCash,
-}
-
-impl From<OldNetworkId> for Option<NetworkId> {
-	fn from(old: OldNetworkId) -> Self {
-		Some(NetworkId::from(old))
-	}
-}
-
-impl From<OldNetworkId> for NetworkId {
-	fn from(old: OldNetworkId) -> Self {
-		use OldNetworkId::*;
-		match old {
-			ByGenesis(hash) => Self::ByGenesis(hash),
-			ByFork { block_number, block_hash } => Self::ByFork { block_number, block_hash },
-			Polkadot => Self::Polkadot,
-			Kusama => Self::Kusama,
-			Westend => Self::Westend,
-			Rococo => Self::Rococo,
-			Wococo => Self::Wococo,
-			Ethereum { chain_id } => Self::Ethereum { chain_id },
-			BitcoinCore => Self::BitcoinCore,
-			BitcoinCash => Self::BitcoinCash,
-		}
-	}
-}
-
-/// An identifier of a pluralistic body.
-#[derive(
-	Copy,
-	Clone,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	Encode,
-	Decode,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
-	Serialize,
-	Deserialize,
-)]
-pub enum BodyId {
-	/// The only body in its context.
-	Unit,
-	/// A named body.
-	Moniker([u8; 4]),
-	/// An indexed body.
-	Index(#[codec(compact)] u32),
-	/// The unambiguous executive body (for Polkadot, this would be the Polkadot council).
-	Executive,
-	/// The unambiguous technical body (for Polkadot, this would be the Technical Committee).
-	Technical,
-	/// The unambiguous legislative body (for Polkadot, this could be considered the opinion of a
-	/// majority of lock-voters).
-	Legislative,
-	/// The unambiguous judicial body (this doesn't exist on Polkadot, but if it were to get a
-	/// "grand oracle", it may be considered as that).
-	Judicial,
-	/// The unambiguous defense body (for Polkadot, an opinion on the topic given via a public
-	/// referendum on the `staking_admin` track).
-	Defense,
-	/// The unambiguous administration body (for Polkadot, an opinion on the topic given via a
-	/// public referendum on the `general_admin` track).
-	Administration,
-	/// The unambiguous treasury body (for Polkadot, an opinion on the topic given via a public
-	/// referendum on the `treasurer` track).
-	Treasury,
-}
-
-impl TryFrom<OldBodyId> for BodyId {
-	type Error = ();
-	fn try_from(value: OldBodyId) -> Result<Self, ()> {
-		use OldBodyId::*;
-		Ok(match value {
-			Unit => Self::Unit,
-			Moniker(name) => Self::Moniker(name),
-			Index(n) => Self::Index(n),
-			Executive => Self::Executive,
-			Technical => Self::Technical,
-			Legislative => Self::Legislative,
-			Judicial => Self::Judicial,
-			Defense => Self::Defense,
-			Administration => Self::Administration,
-			Treasury => Self::Treasury,
-		})
-	}
-}
-
-/// A part of a pluralistic body.
-#[derive(
-	Copy,
-	Clone,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	Encode,
-	Decode,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
-	Serialize,
-	Deserialize,
-)]
-pub enum BodyPart {
-	/// The body's declaration, under whatever means it decides.
-	Voice,
-	/// A given number of members of the body.
-	Members {
-		#[codec(compact)]
-		count: u32,
-	},
-	/// A given number of members of the body, out of some larger caucus.
-	Fraction {
-		#[codec(compact)]
-		nom: u32,
-		#[codec(compact)]
-		denom: u32,
-	},
-	/// No less than the given proportion of members of the body.
-	AtLeastProportion {
-		#[codec(compact)]
-		nom: u32,
-		#[codec(compact)]
-		denom: u32,
-	},
-	/// More than than the given proportion of members of the body.
-	MoreThanProportion {
-		#[codec(compact)]
-		nom: u32,
-		#[codec(compact)]
-		denom: u32,
-	},
-}
-
-impl BodyPart {
-	/// Returns `true` if the part represents a strict majority (> 50%) of the body in question.
-	pub fn is_majority(&self) -> bool {
-		match self {
-			BodyPart::Fraction { nom, denom } if *nom * 2 > *denom => true,
-			BodyPart::AtLeastProportion { nom, denom } if *nom * 2 > *denom => true,
-			BodyPart::MoreThanProportion { nom, denom } if *nom * 2 >= *denom => true,
-			_ => false,
-		}
-	}
-}
-
-impl TryFrom<OldBodyPart> for BodyPart {
-	type Error = ();
-	fn try_from(value: OldBodyPart) -> Result<Self, ()> {
-		use OldBodyPart::*;
-		Ok(match value {
-			Voice => Self::Voice,
-			Members { count } => Self::Members { count },
-			Fraction { nom, denom } => Self::Fraction { nom, denom },
-			AtLeastProportion { nom, denom } => Self::AtLeastProportion { nom, denom },
-			MoreThanProportion { nom, denom } => Self::MoreThanProportion { nom, denom },
-		})
-	}
-}
 
 /// A single item in a path to describe the relative location of a consensus system.
 ///
@@ -373,23 +165,19 @@ impl TryFrom<OldJunction> for Junction {
 		use OldJunction::*;
 		Ok(match value {
 			Parachain(id) => Self::Parachain(id),
-			AccountId32 { network: Some(network), id } =>
-				Self::AccountId32 { network: network.into(), id },
-			AccountId32 { network: None, id } => Self::AccountId32 { network: None, id },
-			AccountIndex64 { network: Some(network), index } =>
-				Self::AccountIndex64 { network: network.into(), index },
-			AccountIndex64 { network: None, index } =>
-				Self::AccountIndex64 { network: None, index },
-			AccountKey20 { network: Some(network), key } =>
-				Self::AccountKey20 { network: network.into(), key },
-			AccountKey20 { network: None, key } => Self::AccountKey20 { network: None, key },
+			AccountId32 { network, id } =>
+				Self::AccountId32 { network, id },
+			AccountIndex64 { network, index } =>
+				Self::AccountIndex64 { network, index },
+			AccountKey20 { network, key } =>
+				Self::AccountKey20 { network, key },
 			PalletInstance(index) => Self::PalletInstance(index),
 			GeneralIndex(id) => Self::GeneralIndex(id),
 			GeneralKey { length, data } => Self::GeneralKey { length, data },
 			OnlyChild => Self::OnlyChild,
 			Plurality { id, part } =>
-				Self::Plurality { id: id.try_into()?, part: part.try_into()? },
-			GlobalConsensus(network) => Self::GlobalConsensus(network.try_into().map_err(|_| ())?),
+				Self::Plurality { id, part },
+			GlobalConsensus(network) => Self::GlobalConsensus(network),
 		})
 	}
 }

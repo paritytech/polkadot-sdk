@@ -23,8 +23,7 @@ use crate::{
 		NetworkId as OldNetworkId,
 	},
 	v4::{
-		BodyId as NewBodyId, BodyPart as NewBodyPart, Junction as NewJunction,
-		NetworkId as NewNetworkId,
+		Junction as NewJunction,
 	},
 	VersionedMultiLocation,
 };
@@ -104,34 +103,6 @@ impl TryFrom<OldNetworkId> for NetworkId {
 	}
 }
 
-impl TryFrom<NewNetworkId> for Option<NetworkId> {
-	type Error = ();
-
-	fn try_from(new: NewNetworkId) -> Result<Self, Self::Error> {
-		Ok(Some(NetworkId::try_from(new)?))
-	}
-}
-
-impl TryFrom<NewNetworkId> for NetworkId {
-	type Error = ();
-
-	fn try_from(new: NewNetworkId) -> Result<Self, Self::Error> {
-		use NewNetworkId::*;
-		Ok(match new {
-			ByGenesis(hash) => Self::ByGenesis(hash),
-			ByFork { block_number, block_hash } => Self::ByFork { block_number, block_hash },
-			Polkadot => Self::Polkadot,
-			Kusama => Self::Kusama,
-			Westend => Self::Westend,
-			Rococo => Self::Rococo,
-			Wococo => Self::Wococo,
-			Ethereum { chain_id } => Self::Ethereum { chain_id },
-			BitcoinCore => Self::BitcoinCore,
-			BitcoinCash => Self::BitcoinCash,
-		})
-	}
-}
-
 /// An identifier of a pluralistic body.
 #[derive(
 	Copy,
@@ -199,24 +170,6 @@ impl TryFrom<OldBodyId> for BodyId {
 			Administration => Self::Administration,
 			Treasury => Self::Treasury,
 		})
-	}
-}
-
-impl From<NewBodyId> for BodyId {
-	fn from(new: NewBodyId) -> Self {
-		use NewBodyId::*;
-		match new {
-			Unit => Self::Unit,
-			Moniker(n) => Self::Moniker(n),
-			Index(n) => Self::Index(n),
-			Executive => Self::Executive,
-			Technical => Self::Technical,
-			Legislative => Self::Legislative,
-			Judicial => Self::Judicial,
-			Defense => Self::Defense,
-			Administration => Self::Administration,
-			Treasury => Self::Treasury,
-		}
 	}
 }
 
@@ -290,19 +243,6 @@ impl TryFrom<OldBodyPart> for BodyPart {
 			AtLeastProportion { nom, denom } => Self::AtLeastProportion { nom, denom },
 			MoreThanProportion { nom, denom } => Self::MoreThanProportion { nom, denom },
 		})
-	}
-}
-
-impl From<NewBodyPart> for BodyPart {
-	fn from(new: NewBodyPart) -> Self {
-		use NewBodyPart::*;
-		match new {
-			Voice => Self::Voice,
-			Members { count } => Self::Members { count },
-			Fraction { nom, denom } => Self::Fraction { nom, denom },
-			AtLeastProportion { nom, denom } => Self::AtLeastProportion { nom, denom },
-			MoreThanProportion { nom, denom } => Self::MoreThanProportion { nom, denom },
-		}
 	}
 }
 
@@ -474,22 +414,18 @@ impl TryFrom<NewJunction> for Junction {
 		use NewJunction::*;
 		Ok(match value {
 			Parachain(id) => Self::Parachain(id),
-			AccountId32 { network: Some(network), id } =>
-				Self::AccountId32 { network: network.try_into()?, id },
-			AccountId32 { network: None, id } => Self::AccountId32 { network: None, id },
-			AccountIndex64 { network: Some(network), index } =>
-				Self::AccountIndex64 { network: network.try_into()?, index },
-			AccountIndex64 { network: None, index } =>
-				Self::AccountIndex64 { network: None, index },
-			AccountKey20 { network: Some(network), key } =>
-				Self::AccountKey20 { network: network.try_into()?, key },
-			AccountKey20 { network: None, key } => Self::AccountKey20 { network: None, key },
+			AccountId32 { network, id } =>
+				Self::AccountId32 { network, id },
+			AccountIndex64 { network, index } =>
+				Self::AccountIndex64 { network, index },
+			AccountKey20 { network, key } =>
+				Self::AccountKey20 { network, key },
 			PalletInstance(index) => Self::PalletInstance(index),
 			GeneralIndex(id) => Self::GeneralIndex(id),
 			GeneralKey { length, data } => Self::GeneralKey { length, data },
 			OnlyChild => Self::OnlyChild,
-			Plurality { id, part } => Self::Plurality { id: id.into(), part: part.into() },
-			GlobalConsensus(network) => Self::GlobalConsensus(network.try_into()?),
+			Plurality { id, part } => Self::Plurality { id, part },
+			GlobalConsensus(network) => Self::GlobalConsensus(network),
 		})
 	}
 }

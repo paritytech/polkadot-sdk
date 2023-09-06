@@ -18,8 +18,8 @@
 
 pub use super::v2::GetWeight;
 use super::v3::{
-	Instruction as OldInstruction, MaybeErrorCode as OldMaybeErrorCode,
-	PalletInfo as OldPalletInfo, Response as OldResponse, WeightLimit as OldWeightLimit,
+	Instruction as OldInstruction, QueryResponseInfo as OldQueryResponseInfo,
+	PalletInfo as OldPalletInfo, Response as OldResponse,
 	Xcm as OldXcm,
 };
 use crate::DoubleEncoded;
@@ -54,7 +54,7 @@ pub use traits::{
 	SendResult, SendXcm, Weight, XcmHash,
 };
 // These parts of XCM v3 are unchanged in XCM v4, and are re-imported here.
-pub use super::v3::OriginKind;
+pub use super::v3::{OriginKind, MaybeErrorCode, WeightLimit};
 
 /// This module's XCM version.
 pub const VERSION: super::Version = 4;
@@ -257,47 +257,6 @@ impl PalletInfo {
 	}
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
-pub enum MaybeErrorCode {
-	Success,
-	Error(BoundedVec<u8, MaxDispatchErrorLen>),
-	TruncatedError(BoundedVec<u8, MaxDispatchErrorLen>),
-}
-
-impl From<Vec<u8>> for MaybeErrorCode {
-	fn from(v: Vec<u8>) -> Self {
-		match BoundedVec::try_from(v) {
-			Ok(error) => MaybeErrorCode::Error(error),
-			Err(error) => MaybeErrorCode::TruncatedError(BoundedVec::truncate_from(error)),
-		}
-	}
-}
-
-impl Default for MaybeErrorCode {
-	fn default() -> MaybeErrorCode {
-		MaybeErrorCode::Success
-	}
-}
-
-impl TryFrom<OldMaybeErrorCode> for MaybeErrorCode {
-	type Error = ();
-
-	fn try_from(new: OldMaybeErrorCode) -> result::Result<Self, ()> {
-		use OldMaybeErrorCode::*;
-		Ok(match new {
-			Success => Self::Success,
-			Error(errors) => Self::Error(
-				BoundedVec::<u8, MaxDispatchErrorLen>::try_from(errors.into_inner())
-					.map_err(|_| ())?,
-			),
-			TruncatedError(errors) => Self::Error(
-				BoundedVec::<u8, MaxDispatchErrorLen>::try_from(errors.into_inner())
-					.map_err(|_| ())?,
-			),
-		})
-	}
-}
-
 /// Response data to a query.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Response {
@@ -342,7 +301,7 @@ impl TryFrom<OldResponse> for Response {
 				)
 			},
 			DispatchResult(maybe_error) =>
-				Self::DispatchResult(maybe_error.try_into().map_err(|_| ())?),
+				Self::DispatchResult(maybe_error),
 		})
 	}
 }
@@ -359,40 +318,15 @@ pub struct QueryResponseInfo {
 	pub max_weight: Weight,
 }
 
-/// An optional weight limit.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
-pub enum WeightLimit {
-	/// No weight limit imposed.
-	Unlimited,
-	/// Weight limit imposed of the inner value.
-	Limited(Weight),
-}
+impl TryFrom<OldQueryResponseInfo> for QueryResponseInfo {
+	type Error = ();
 
-impl From<Option<Weight>> for WeightLimit {
-	fn from(x: Option<Weight>) -> Self {
-		match x {
-			Some(w) => WeightLimit::Limited(w),
-			None => WeightLimit::Unlimited,
-		}
-	}
-}
-
-impl From<WeightLimit> for Option<Weight> {
-	fn from(x: WeightLimit) -> Self {
-		match x {
-			WeightLimit::Limited(w) => Some(w),
-			WeightLimit::Unlimited => None,
-		}
-	}
-}
-
-impl From<OldWeightLimit> for WeightLimit {
-	fn from(old: OldWeightLimit) -> Self {
-		use OldWeightLimit::*;
-		match old {
-			Limited(w) => Self::Limited(w),
-			Unlimited => Self::Unlimited,
-		}
+	fn try_from(old: OldQueryResponseInfo) -> result::Result<Self, Self::Error> {
+		Ok(Self {
+			destination: old.destination.try_into()?,
+			query_id: old.query_id,
+			max_weight: old.max_weight,
+		})
 	}
 }
 
@@ -1418,7 +1352,7 @@ mod tests {
 			OldInstruction::ClearOrigin,
 			OldInstruction::BuyExecution {
 				fees: (OldHere, 1u128).into(),
-				weight_limit: OldWeightLimit::Limited(Weight::from_parts(1, 1)),
+				weight_limit: WeightLimit::Limited(Weight::from_parts(1, 1)),
 			},
 			OldInstruction::DepositAsset {
 				assets: crate::v3::MultiAssetFilter::Wild(crate::v3::WildMultiAsset::AllCounted(1)),

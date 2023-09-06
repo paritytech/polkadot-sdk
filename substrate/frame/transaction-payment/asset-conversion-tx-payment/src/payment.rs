@@ -83,9 +83,9 @@ impl<T, C, CON> OnChargeAssetTransaction<T> for AssetConversionAdapter<C, CON>
 where
 	T: Config,
 	C: Inspect<<T as frame_system::Config>::AccountId>,
-	CON: Swap<T::AccountId, T::HigherPrecisionBalance, T::AssetId>,
+	CON: Swap<T::AccountId, T::HigherPrecisionBalance, T::MultiAssetId>,
 	T::HigherPrecisionBalance: From<BalanceOf<T>> + TryInto<AssetBalanceOf<T>>,
-	T::AssetId: From<AssetIdOf<T>>,
+	T::MultiAssetId: From<AssetIdOf<T>>,
 	BalanceOf<T>: IsType<<C as Inspect<<T as frame_system::Config>::AccountId>>::Balance>,
 {
 	type Balance = BalanceOf<T>;

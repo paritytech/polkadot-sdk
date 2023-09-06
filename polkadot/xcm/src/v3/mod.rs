@@ -22,8 +22,8 @@ use super::{
 		Xcm as OldXcm,
 	},
 	v4::{
-		Instruction as NewInstruction, MaybeErrorCode as NewMaybeErrorCode,
-		PalletInfo as NewPalletInfo, Response as NewResponse, WeightLimit as NewWeightLimit,
+		Instruction as NewInstruction, QueryResponseInfo as NewQueryResponseInfo,
+		PalletInfo as NewPalletInfo, Response as NewResponse,
 		Xcm as NewXcm,
 	},
 };
@@ -295,25 +295,6 @@ pub enum MaybeErrorCode {
 	TruncatedError(BoundedVec<u8, MaxDispatchErrorLen>),
 }
 
-impl TryFrom<NewMaybeErrorCode> for MaybeErrorCode {
-	type Error = ();
-
-	fn try_from(new: NewMaybeErrorCode) -> result::Result<Self, ()> {
-		use NewMaybeErrorCode::*;
-		Ok(match new {
-			Success => Self::Success,
-			Error(errors) => Self::Error(
-				BoundedVec::<u8, MaxDispatchErrorLen>::try_from(errors.into_inner())
-					.map_err(|_| ())?,
-			),
-			TruncatedError(errors) => Self::Error(
-				BoundedVec::<u8, MaxDispatchErrorLen>::try_from(errors.into_inner())
-					.map_err(|_| ())?,
-			),
-		})
-	}
-}
-
 impl From<Vec<u8>> for MaybeErrorCode {
 	fn from(v: Vec<u8>) -> Self {
 		match BoundedVec::try_from(v) {
@@ -390,6 +371,18 @@ pub struct QueryResponseInfo {
 	pub max_weight: Weight,
 }
 
+impl TryFrom<NewQueryResponseInfo> for QueryResponseInfo {
+	type Error = ();
+
+	fn try_from(new: NewQueryResponseInfo) -> result::Result<Self, Self::Error> {
+		Ok(Self {
+			destination: new.destination.try_into()?,
+			query_id: new.query_id,
+			max_weight: new.max_weight,
+		})
+	}
+}
+
 /// An optional weight limit.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub enum WeightLimit {
@@ -422,16 +415,6 @@ impl From<OldWeightLimit> for WeightLimit {
 		use OldWeightLimit::*;
 		match x {
 			Limited(w) => Self::Limited(Weight::from_parts(w, DEFAULT_PROOF_SIZE)),
-			Unlimited => Self::Unlimited,
-		}
-	}
-}
-
-impl From<NewWeightLimit> for WeightLimit {
-	fn from(new: NewWeightLimit) -> Self {
-		use NewWeightLimit::*;
-		match new {
-			Limited(w) => Self::Limited(w),
 			Unlimited => Self::Unlimited,
 		}
 	}
@@ -1419,7 +1402,26 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			SubscribeVersion { query_id, max_response_weight } =>
 				Self::SubscribeVersion { query_id, max_response_weight },
 			UnsubscribeVersion => Self::UnsubscribeVersion,
-			_ => return Err(()),
+			BurnAsset(assets) => Self::BurnAsset(assets.try_into()?),
+			ExpectAsset(assets) => Self::ExpectAsset(assets.try_into()?),
+			ExpectOrigin(maybe_origin) => Self::ExpectOrigin(maybe_origin.map(|origin| origin.try_into()).transpose()?),
+			ExpectError(maybe_error) => Self::ExpectError(maybe_error),
+			ExpectTransactStatus(maybe_error_code) => Self::ExpectTransactStatus(maybe_error_code),
+			QueryPallet { module_name, response_info } => Self::QueryPallet { module_name, response_info: response_info.try_into()? },
+			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } => Self::ExpectPallet { index, name, module_name, crate_major, min_crate_minor },
+			ReportTransactStatus(response_info) => Self::ReportTransactStatus(response_info.try_into()?),
+			ClearTransactStatus => Self::ClearTransactStatus,
+			UniversalOrigin(junction) => Self::UniversalOrigin(junction.try_into()?),
+			ExportMessage { network, destination, xcm } => Self::ExportMessage { network, destination: destination.try_into()?, xcm: xcm.try_into()? },
+			LockAsset { asset, unlocker } => Self::LockAsset { asset: asset.try_into()?, unlocker: unlocker.try_into()? },
+			UnlockAsset { asset, target } => Self::UnlockAsset { asset: asset.try_into()?, target: target.try_into()? },
+			NoteUnlockable { asset, owner } => Self::NoteUnlockable { asset: asset.try_into()?, owner: owner.try_into()? },
+			RequestUnlock { asset, locker } => Self::RequestUnlock { asset: asset.try_into()?, locker: locker.try_into()? },
+			SetFeesMode { jit_withdraw } => Self::SetFeesMode { jit_withdraw },
+			SetTopic(topic) => Self::SetTopic(topic),
+			ClearTopic => Self::ClearTopic,
+			AliasOrigin(location) => Self::AliasOrigin(location.try_into()?),
+			UnpaidExecution { weight_limit, check_origin } => Self::UnpaidExecution { weight_limit, check_origin: check_origin.map(|origin| origin.try_into()).transpose()? },
 		})
 	}
 }
