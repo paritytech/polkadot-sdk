@@ -116,7 +116,7 @@ where
 
 		let asset_consumed = CON::swap_tokens_for_exact_tokens(
 			who.clone(),
-			vec![asset_id.into(), T::AssetIdConverter::get_native()],
+			vec![asset_id.into(), T::MultiAssetIdConverter::get_native()],
 			T::HigherPrecisionBalance::from(native_asset_required),
 			None,
 			who.clone(),
@@ -172,7 +172,7 @@ where
 			match CON::swap_exact_tokens_for_tokens(
 				who.clone(), // we already deposited the native to `who`
 				vec![
-					T::AssetIdConverter::get_native(), // we provide the native
+					T::MultiAssetIdConverter::get_native(), // we provide the native
 					asset_id.into(),                        // we want asset_id back
 				],
 				T::HigherPrecisionBalance::from(swap_back), /* amount of the native asset to

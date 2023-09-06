@@ -67,14 +67,14 @@ where
 }
 
 /// Accepts an asset if it is a native asset from a particular `Location`.
-pub struct ConcreteNativeAssetFrom<Location>(PhantomData<Location>);
-impl<Location: Get<Location>> ContainsPair<Asset, Location>
-	for ConcreteNativeAssetFrom<Location>
+pub struct ConcreteNativeAssetFrom<LocationValue>(PhantomData<LocationValue>);
+impl<LocationValue: Get<Location>> ContainsPair<Asset, Location>
+	for ConcreteNativeAssetFrom<LocationValue>
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
 		log::trace!(target: "xcm::filter_asset_location",
 			"ConcreteNativeAsset asset: {:?}, origin: {:?}, location: {:?}",
-			asset, origin, Location::get());
-		matches!(asset.id, Concrete(ref id) if id == origin && origin == &Location::get())
+			asset, origin, LocationValue::get());
+		matches!(asset.id, Concrete(ref id) if id == origin && origin == &LocationValue::get())
 	}
 }

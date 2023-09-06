@@ -1639,7 +1639,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type AllowMultiAssetPools = AllowMultiAssetPools;
 	type MaxSwapPathLength = ConstU32<4>;
 	type MintMinLiquidity = MintMinLiquidity;
-	type AssetIdConverter = NativeOrAssetIdConverter<u32>;
+	type MultiAssetIdConverter = NativeOrAssetIdConverter<u32>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }

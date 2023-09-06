@@ -183,7 +183,7 @@ impl<
 				.map_err(|_| XcmError::Overflow)?;
 
 		// Convert to the same kind of multiasset, with the required fungible balance
-		let required = first.id.clone().into_multiasset(asset_balance.into());
+		let required = first.id.clone().into_asset(asset_balance.into());
 
 		// Substract payment
 		let unused = payment.checked_sub(required.clone()).map_err(|_| XcmError::TooExpensive)?;

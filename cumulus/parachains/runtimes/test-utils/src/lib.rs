@@ -40,7 +40,7 @@ use xcm::{
 	prelude::*,
 	VersionedXcm, MAX_XCM_DECODE_DEPTH,
 };
-use xcm_executor::{traits::TransactAsset, Assets};
+use xcm_executor::{traits::TransactAsset, HoldingAssets};
 
 pub mod test_cases;
 
@@ -272,7 +272,7 @@ impl<XcmConfig: xcm_executor::Config, AllPalletsWithoutSystem>
 		from: Location,
 		to: Location,
 		(asset, amount): (Location, u128),
-	) -> Result<Assets, XcmError> {
+	) -> Result<HoldingAssets, XcmError> {
 		<XcmConfig::AssetTransactor as TransactAsset>::transfer_asset(
 			&Asset { id: Concrete(asset), fun: Fungible(amount) },
 			&from,

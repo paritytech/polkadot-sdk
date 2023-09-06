@@ -20,7 +20,7 @@ use frame_support::traits::{
 	},
 	AccountTouch, Contains, ContainsPair, Get, PalletInfoAccess,
 };
-use pallet_asset_conversion::{AssetIdConversionResult, AssetIdConverter};
+use pallet_asset_conversion::{MultiAssetIdConversionResult, MultiAssetIdConverter};
 use parachains_common::AccountId;
 use sp_runtime::{traits::MaybeEquivalence, DispatchError, DispatchResult};
 use sp_std::{boxed::Box, marker::PhantomData};
@@ -31,7 +31,7 @@ pub struct LocationConverter<NativeAssetLocation: Get<Location>, LocationMatcher
 }
 
 impl<NativeAssetLocation, LocationMatcher>
-	AssetIdConverter<Box<Location>, Location>
+	MultiAssetIdConverter<Box<Location>, Location>
 	for LocationConverter<NativeAssetLocation, LocationMatcher>
 where
 	NativeAssetLocation: Get<Location>,
@@ -47,15 +47,15 @@ where
 
 	fn try_convert(
 		asset_id: &Box<Location>,
-	) -> AssetIdConversionResult<Box<Location>, Location> {
+	) -> MultiAssetIdConversionResult<Box<Location>, Location> {
 		if Self::is_native(&asset_id) {
-			return AssetIdConversionResult::Native
+			return MultiAssetIdConversionResult::Native
 		}
 
 		if LocationMatcher::contains(&asset_id) {
-			AssetIdConversionResult::Converted(*asset_id.clone())
+			MultiAssetIdConversionResult::Converted(*asset_id.clone())
 		} else {
-			AssetIdConversionResult::Unsupported(asset_id.clone())
+			MultiAssetIdConversionResult::Unsupported(asset_id.clone())
 		}
 	}
 }
@@ -411,7 +411,7 @@ mod tests {
 		AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
 	};
 	use frame_support::traits::EverythingBut;
-	use pallet_asset_conversion::{AssetIdConversionResult, AssetIdConverter};
+	use pallet_asset_conversion::{MultiAssetIdConversionResult, MultiAssetIdConverter};
 	use sp_runtime::traits::MaybeEquivalence;
 	use xcm::latest::prelude::*;
 
@@ -448,22 +448,22 @@ mod tests {
 		assert!(!C::is_native(&Box::new(foreign_asset1.clone())));
 		assert!(!C::is_native(&Box::new(foreign_asset2.clone())));
 
-		assert_eq!(C::try_convert(&Box::new(native_asset)), AssetIdConversionResult::Native);
+		assert_eq!(C::try_convert(&Box::new(native_asset)), MultiAssetIdConversionResult::Native);
 		assert_eq!(
 			C::try_convert(&Box::new(local_asset.clone())),
-			AssetIdConversionResult::Converted(local_asset)
+			MultiAssetIdConversionResult::Converted(local_asset)
 		);
 		assert_eq!(
 			C::try_convert(&Box::new(pool_asset.clone())),
-			AssetIdConversionResult::Unsupported(Box::new(pool_asset))
+			MultiAssetIdConversionResult::Unsupported(Box::new(pool_asset))
 		);
 		assert_eq!(
 			C::try_convert(&Box::new(foreign_asset1.clone())),
-			AssetIdConversionResult::Converted(foreign_asset1)
+			MultiAssetIdConversionResult::Converted(foreign_asset1)
 		);
 		assert_eq!(
 			C::try_convert(&Box::new(foreign_asset2.clone())),
-			AssetIdConversionResult::Converted(foreign_asset2)
+			MultiAssetIdConversionResult::Converted(foreign_asset2)
 		);
 	}
 }

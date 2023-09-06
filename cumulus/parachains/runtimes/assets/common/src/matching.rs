@@ -24,16 +24,16 @@ use xcm::{
 };
 
 pub struct StartsWith<T>(sp_std::marker::PhantomData<T>);
-impl<Location: Get<Location>> Contains<Location> for StartsWith<Location> {
+impl<LocationValue: Get<Location>> Contains<Location> for StartsWith<LocationValue> {
 	fn contains(t: &Location) -> bool {
-		t.starts_with(&Location::get())
+		t.starts_with(&LocationValue::get())
 	}
 }
 
 pub struct Equals<T>(sp_std::marker::PhantomData<T>);
-impl<Location: Get<Location>> Contains<Location> for Equals<Location> {
+impl<LocationValue: Get<Location>> Contains<Location> for Equals<LocationValue> {
 	fn contains(t: &Location) -> bool {
-		t == &Location::get()
+		t == &LocationValue::get()
 	}
 }
 
