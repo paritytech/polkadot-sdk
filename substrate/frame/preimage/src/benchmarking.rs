@@ -122,9 +122,9 @@ benchmarks! {
 		T::ManagerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 		hash
 	) verify {
-		let deposit = T::BaseDeposit::get() + T::ByteDeposit::get() * MAX_SIZE.into();
-		let s = RequestStatus::Requested { deposit: Some((noter, deposit)), count: 1, len: Some(MAX_SIZE) };
-		assert_eq!(StatusFor::<T>::get(&hash), Some(s));
+		let ticket = TicketOf::<T>::new(&noter, Footprint { count: 1, size: MAX_SIZE as u64 }).unwrap();
+		let s = RequestStatus::Requested { maybe_ticket: Some((noter, ticket)), count: 1, maybe_len: Some(MAX_SIZE) };
+		assert_eq!(RequestStatusFor::<T>::get(&hash), Some(s));
 	}
 	// Cheap request - would unreserve the deposit but none was held.
 	request_no_deposit_preimage {
@@ -138,8 +138,8 @@ benchmarks! {
 		T::ManagerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 		hash
 	) verify {
-		let s = RequestStatus::Requested { deposit: None, count: 2, len: Some(MAX_SIZE) };
-		assert_eq!(StatusFor::<T>::get(&hash), Some(s));
+		let s = RequestStatus::Requested { maybe_ticket: None, count: 2, maybe_len: Some(MAX_SIZE) };
+		assert_eq!(RequestStatusFor::<T>::get(&hash), Some(s));
 	}
 	// Cheap request - the preimage is not yet noted, so deposit to unreserve.
 	request_unnoted_preimage {
@@ -148,8 +148,8 @@ benchmarks! {
 		T::ManagerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 		hash
 	) verify {
-		let s = RequestStatus::Requested { deposit: None, count: 1, len: None };
-		assert_eq!(StatusFor::<T>::get(&hash), Some(s));
+		let s = RequestStatus::Requested { maybe_ticket: None, count: 1, maybe_len: None };
+		assert_eq!(RequestStatusFor::<T>::get(&hash), Some(s));
 	}
 	// Cheap request - the preimage is already requested, so just a counter bump.
 	request_requested_preimage {
@@ -163,8 +163,8 @@ benchmarks! {
 		T::ManagerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 		hash
 	) verify {
-		let s = RequestStatus::Requested { deposit: None, count: 2, len: None };
-		assert_eq!(StatusFor::<T>::get(&hash), Some(s));
+		let s = RequestStatus::Requested { maybe_ticket: None, count: 2, maybe_len: None };
+		assert_eq!(RequestStatusFor::<T>::get(&hash), Some(s));
 	}
 
 	// Expensive unrequest - last reference and it's noted, so will destroy the preimage.
@@ -184,7 +184,7 @@ benchmarks! {
 		T::ManagerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 		hash
 	) verify {
-		assert_eq!(StatusFor::<T>::get(&hash), None);
+		assert_eq!(RequestStatusFor::<T>::get(&hash), None);
 	}
 	// Cheap unrequest - last reference, but it's not noted.
 	unrequest_unnoted_preimage {
@@ -198,7 +198,7 @@ benchmarks! {
 		T::ManagerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 		hash
 	) verify {
-		assert_eq!(StatusFor::<T>::get(&hash), None);
+		assert_eq!(RequestStatusFor::<T>::get(&hash), None);
 	}
 	// Cheap unrequest - not the last reference.
 	unrequest_multi_referenced_preimage {
@@ -217,8 +217,8 @@ benchmarks! {
 		T::ManagerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 		hash
 	) verify {
-		let s = RequestStatus::Requested { deposit: None, count: 1, len: None };
-		assert_eq!(StatusFor::<T>::get(&hash), Some(s));
+		let s = RequestStatus::Requested { maybe_ticket: None, count: 1, maybe_len: None };
+		assert_eq!(RequestStatusFor::<T>::get(&hash), Some(s));
 	}
 
 	impl_benchmark_test_suite!(Preimage, crate::mock::new_test_ext(), crate::mock::Test);
