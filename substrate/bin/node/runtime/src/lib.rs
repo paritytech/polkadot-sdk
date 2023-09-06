@@ -2093,6 +2093,7 @@ construct_runtime!(
 		SafeMode: pallet_safe_mode,
 		Statement: pallet_statement,
 		Broker: pallet_broker,
+		TasksExample: tasks_example,
 	}
 );
 
