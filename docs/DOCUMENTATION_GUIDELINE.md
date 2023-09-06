@@ -1,11 +1,10 @@
 # Substrate Documentation Guidelines
 
-This document is focused on documenting parts of substrate that relate to its
-external API. The list of such crates can be found in [CODEOWNERS](./CODEOWNERS).
-Search for the crates auto-assigned to the `docs-audit` team.
+This document is focused on documenting parts of Substrate that relate to its external API. The list of such crates can
+be found in [CODEOWNERS](./CODEOWNERS). Search for the crates auto-assigned to the `docs-audit` team.
 
-These crates are used by external developers and need thorough documentation.
-They are the most concerned with FRAME development.
+These crates are used by external developers and need thorough documentation. They are the most concerned with FRAME
+development.
 
 - [Substrate Documentation Guidelines](#substrate-documentation-guidelines)
   - [General/Non-Pallet Crates](#generalnon-pallet-crates)
@@ -35,22 +34,19 @@ First, consider the case for all such crates, except for those that are pallets.
 The first question is, what should you document? Use this filter:
 
 1. In the crates assigned to `docs-audit` in [CODEOWNERS](./CODEOWNERS),
-2. All `pub` items need to be documented. If not `pub`, it doesn't appear in the
-rust-docs, and is not public facing.
+2. All `pub` items need to be documented. If not `pub`, it doesn't appear in the rust-docs, and is not public facing.
 
-   * Within `pub` items, sometimes they are only `pub` to be used by another
-   internal crate, and you can foresee that this won't be used by anyone else.
-   These need **not** be documented thoroughly.
+   - Within `pub` items, sometimes they are only `pub` to be used by another internal crate, and you can foresee that
+   this won't be used by anyone else. These need **not** be documented thoroughly.
 
-   * Reminder: `trait` items are public by definition if the trait is public.
+   - Reminder: `trait` items are public by definition if the trait is public.
 
 3. All public modules (`mod`) should have reasonable module-level documentation (`//!`).
 
 #### Rust Docs vs. Code Comments
 
-Note that anything starting with `///` is an external rust-doc, and everything
-starting with `//` does not appear in the rust-docs.
-It's important to not confuse the two in your documentation.
+Note that anything starting with `///` is an external rust-doc, and everything starting with `//` does not appear in the
+rust-docs. It's important to not confuse the two in your documentation.
 
 ```rust
 /// Computes the square root of the input, returning `Ok(_)` if successful.
@@ -73,100 +69,88 @@ pub fn sqrt(x: u32) -> Result<u32, ()> {
 There are good sources to look into:
 
 - [Rust Documentation Guide](https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html)
-- [Documentation in Rust Book](https://doc.rust-lang.org/book/ch14-02-publishing-to-crates-io.html#making-useful-documentation-comments)
-- [Guide on Writing Documentation for a Rust Crate](https://blog.guillaume-gomez.fr/articles/2020-03-12+Guide+on+how+to+write+documentation+for+a+Rust+crate)
+- [Documentation in Rust
+  Book](https://doc.rust-lang.org/book/ch14-02-publishing-to-crates-io.html#making-useful-documentation-comments)
+- [Guide on Writing Documentation for a Rust
+  Crate](https://blog.guillaume-gomez.fr/articles/2020-03-12+Guide+on+how+to+write+documentation+for+a+Rust+crate)
 
-As mentioned [here](https://web.mit.edu/rust-lang_v1.25/arch/amd64_ubuntu1404/share/doc/rust/html/book/first-edition/documentation.html#writing-documentation-comments) and [here](https://blog.guillaume-gomez.fr/articles/2020-03-12+Guide+on+how+to+write+documentation+for+a+Rust+crate),
-always start with a **single sentence** demonstrating what is documented. All additional
-documentation should be added *after a newline*. Strive to make the first sentence succinct
-and short.The reason for this is the first paragraph of docs about an item (everything
-before the first newline) is used as the excerpt that rust doc displays about
-this item when it appears in tables, such as the table listing all functions in
-a module. If this excerpt is too long, the module docs will be very difficult
-to read.
+As mentioned
+[here](https://web.mit.edu/rust-lang_v1.25/arch/amd64_ubuntu1404/share/doc/rust/html/book/first-edition/documentation.html#writing-documentation-comments)
+and [here](https://blog.guillaume-gomez.fr/articles/2020-03-12+Guide+on+how+to+write+documentation+for+a+Rust+crate),
+always start with a **single sentence** demonstrating what is documented. All additional documentation should be added
+*after a newline*. Strive to make the first sentence succinct and short.The reason for this is the first paragraph of
+docs about an item (everything before the first newline) is used as the excerpt that rust doc displays about this item
+when it appears in tables, such as the table listing all functions in a module. If this excerpt is too long, the module
+docs will be very difficult to read.
 
-About [special sections](https://web.mit.edu/rust-lang_v1.25/arch/amd64_ubuntu1404/share/doc/rust/html/book/first-edition/documentation.html#special-sections), we will most likely not need to think about panic and safety in any runtime related code. Our code is never `unsafe`, and will (almost) never panic.
+About [special
+sections](https://web.mit.edu/rust-lang_v1.25/arch/amd64_ubuntu1404/share/doc/rust/html/book/first-edition/documentation.html#special-sections),
+we will most likely not need to think about panic and safety in any runtime related code. Our code is never `unsafe`,
+and will (almost) never panic.
 
-Use `# Examples as much as possible. These are great ways to further
-demonstrate what your APIs are doing, and add free test coverage. As an
-additional benefit, any code in rust-docs is treated as an "integration tests",
-not unit tests, which tests your crate in a different way than unit tests. So,
-it is both a win for "more documentation" and a win for "more test coverage".
+Use `# Examples as much as possible. These are great ways to further demonstrate what your APIs are doing, and add free
+test coverage. As an additional benefit, any code in rust-docs is treated as an "integration tests", not unit tests,
+which tests your crate in a different way than unit tests. So, it is both a win for "more documentation" and a win for
+"more test coverage".
 
-You can also consider having an `# Error` section optionally. Of course, this
-only applies if there is a `Result` being returned, and if the `Error` variants
-are overly complicated.
+You can also consider having an `# Error` section optionally. Of course, this only applies if there is a `Result` being
+returned, and if the `Error` variants are overly complicated.
 
-Strive to include correct links to other items in your written docs as much as
-possible. In other words, avoid \`some_func\` and instead use \[\`some_fund\`\].
-Read more about how to correctly use links in your rust-docs
-[here](https://doc.rust-lang.org/rustdoc/write-documentation/linking-to-items-by-name.html#valid-links)
-and [here](https://rust-lang.github.io/rfcs/1946-intra-rustdoc-links.html#additions-to-the-documentation-syntax).
-Strive to include correct links to other items in your written docs as much as
-possible. In other words, avoid `` `some_func` `` and instead use
-``[`some_func`]``.
+Strive to include correct links to other items in your written docs as much as possible. In other words, avoid
+\`some_func\` and instead use \[\`some_fund\`\]. Read more about how to correctly use links in your rust-docs
+[here](https://doc.rust-lang.org/rustdoc/write-documentation/linking-to-items-by-name.html#valid-links) and
+[here](https://rust-lang.github.io/rfcs/1946-intra-rustdoc-links.html#additions-to-the-documentation-syntax). Strive to
+include correct links to other items in your written docs as much as possible. In other words, avoid `` `some_func` ``
+and instead use ``[`some_func`]``.
 
-> While you are linking, you might become conscious of the fact that you are
-in need of linking to (too many) foreign items in order to explain your API.
-This is leaning more towards API-Design rather than documentation, but it is a
-warning that the subject API might be slightly wrong. For example, most "glue"
-traits[^1] in `frame/support` should be designed and documented without making
-hard assumptions about particular pallets that implement them.
+> While you are linking, you might become conscious of the fact that you are in need of linking to (too many) foreign
+items in order to explain your API. This is leaning more towards API-Design rather than documentation, but it is a
+warning that the subject API might be slightly wrong. For example, most "glue" traits[^1] in `frame/support` should be
+designed and documented without making hard assumptions about particular pallets that implement them.
 
 ---
 
 #### TLDR
 
-0. Have the goal of enforcing `#![deny(missing_docs)]` mentally, even if it is
-not enforced by the compiler 🙈.
-1. Start with a single, clear and concise sentence. Follow up with more context,
-after a newline, if needed.
+0. Have the goal of enforcing `#![deny(missing_docs)]` mentally, even if it is not enforced by the compiler 🙈.
+1. Start with a single, clear and concise sentence. Follow up with more context, after a newline, if needed.
 2. Use examples as much as reasonably possible.
 3. Use links as much as possible.
-4. Think about context. If you are explaining a lot of foreign topics while
-documenting a trait that should not explicitly depend on them, you have likely
-not designed it properly.
+4. Think about context. If you are explaining a lot of foreign topics while documenting a trait that should not
+explicitly depend on them, you have likely not designed it properly.
 
 ---
 
 #### Proc-Macros
 
-Note that there are special considerations when documenting proc macros. Doc
-links will appear to function _within_ your proc macro crate, but often will no
-longer function when these proc macros are re-exported elsewhere in your
-project. The exception is doc links to _other proc macros_ which will function
-just fine if they are also being re-exported. It is also often necessary to
-disambiguate between a proc macro and a function of the same name, which can be
-done using the `macro@my_macro_name` syntax in your link. Read more about how to
-correctly use links in your rust-docs [here](https://doc.rust-lang.org/rustdoc/write-documentation/linking-to-items-by-name.html#valid-links)
-and [here](https://rust-lang.github.io/rfcs/1946-intra-rustdoc-links.html#additions-to-the-documentation-syntax).
+Note that there are special considerations when documenting proc macros. Doc links will appear to function _within_ your
+proc macro crate, but often will no longer function when these proc macros are re-exported elsewhere in your project.
+The exception is doc links to _other proc macros_ which will function just fine if they are also being re-exported. It
+is also often necessary to disambiguate between a proc macro and a function of the same name, which can be done using
+the `macro@my_macro_name` syntax in your link. Read more about how to correctly use links in your rust-docs
+[here](https://doc.rust-lang.org/rustdoc/write-documentation/linking-to-items-by-name.html#valid-links) and
+[here](https://rust-lang.github.io/rfcs/1946-intra-rustdoc-links.html#additions-to-the-documentation-syntax).
 
 ---
 
 ### Other Guidelines
 
-The above five guidelines must always be reasonably respected in the
-documentation.
+The above five guidelines must always be reasonably respected in the documentation.
 
-The following are a set of notes that may not necessarily hold in all
-circumstances:
+The following are a set of notes that may not necessarily hold in all circumstances:
 
 ---
 
 #### Document Through Code
 
-You should make sure that your code is properly-named and well-organized so that
-your code functions as a form of documentation. However, within the complexity
-of our projects in Polkadot/Substrate that is not enough. Particularly, things
-like examples, errors and panics cannot be documented only through properly-
-named and well-organized code.
+You should make sure that your code is properly-named and well-organized so that your code functions as a form of
+documentation. However, within the complexity of our projects in Polkadot/Substrate that is not enough. Particularly,
+things like examples, errors and panics cannot be documented only through properly- named and well-organized code.
 
-> Our north star is self-documenting code that also happens to be well-documented
-and littered with examples.
+> Our north star is self-documenting code that also happens to be well-documented and littered with examples.
 
-* Your written documents should *complement* the code, not *repeat* it. As an
-example, a documentation on top of a code example should never look like the
-following:
+- Your written documents should *complement* the code, not *repeat* it. As an example, a documentation on top of a code
+example should never look like the following:
 
 ```rust
  /// Sends request and handles the response.
@@ -175,15 +159,14 @@ following:
  }
  ```
 
-In the above example, the documentation has added no useful information not
-already contained within the properly-named trait and is redundant.
+In the above example, the documentation has added no useful information not already contained within the properly-named
+trait and is redundant.
 
 ---
 
 #### Formatting Matters
 
-The way you format your documents (newlines, heading and so on) makes a
-difference. Consider the below examples:
+The way you format your documents (newlines, heading and so on) makes a difference. Consider the below examples:
 
 ```rust
 /// This function works with input u32 x and multiplies it by two. If
@@ -206,16 +189,15 @@ fn multiply_by_2(x: u32) -> u32 { .. }
 // More efficiency can be achieved if we improve this via such and such.
 fn multiply_by_2(x: u32) -> u32 { .. }
 ```
-They are both roughly conveying the same set of facts, but one is easier to
-follow because it was formatted cleanly. Especially for traits and types that
-you can foresee will be seen and used a lot, try and write a well formatted
+They are both roughly conveying the same set of facts, but one is easier to follow because it was formatted cleanly.
+Especially for traits and types that you can foresee will be seen and used a lot, try and write a well formatted
 version.
 
-Similarly, make sure your comments are wrapped at 100 characters line-width (as
-defined by our [`rustfmt.toml`](../rustfmt.toml)), no **more and no less**! The
-more is fixed by `rustfmt` and our CI, but if you (for some unknown reason)
-wrap your lines at 59 characters, it will pass the CI, and it will not look good
-🫣. Consider using a plugin like [rewrap](https://marketplace.visualstudio.com/items?itemName=stkb.rewrap) (for Visual Studio Code) to properly do this.
+Similarly, make sure your comments are wrapped at 100 characters line-width (as defined by our
+[`rustfmt.toml`](../rustfmt.toml)), no **more and no less**! The more is fixed by `rustfmt` and our CI, but if you (for
+some unknown reason) wrap your lines at 59 characters, it will pass the CI, and it will not look good 🫣. Consider using
+a plugin like [rewrap](https://marketplace.visualstudio.com/items?itemName=stkb.rewrap) (for Visual Studio Code) to
+properly do this.
 
 [^1]: Those that help two pallets talk to each other.
 
@@ -224,12 +206,11 @@ wrap your lines at 59 characters, it will pass the CI, and it will not look good
 
 ## Pallet Crates
 
-The guidelines so far have been general in nature, and are applicable to crates
-that are pallets and crates that're not pallets.
+The guidelines so far have been general in nature, and are applicable to crates that are pallets and crates that're not
+pallets.
 
-The following is relevant to how to document parts of a crate that is a pallet.
-See [`pallet-fast-unstake`](../frame/fast-unstake/src/lib.rs) as one example of
-adhering these guidelines.
+The following is relevant to how to document parts of a crate that is a pallet. See
+[`pallet-fast-unstake`](../frame/fast-unstake/src/lib.rs) as one example of adhering these guidelines.
 
 ---
 
@@ -252,15 +233,20 @@ For the top-level pallet docs, consider the following template:
 //!
 //! ### Example
 //!
-//! <Your pallet must have a few tests that cover important user journeys. Use https://crates.io/crates/docify to reuse these as examples>.
+//! <Your pallet must have a few tests that cover important user journeys. Use https://crates.io/crates/docify to reuse
+//! these as examples>.
 //!
 //! ## Pallet API
 //!
-//! <Reminder: inside the [`pallet`] module, a template that leads the reader to the relevant items is auto-generated. There is no need to repeat things like "See Config trait for ...", which are generated inside [`pallet`] here anyways. You can use the below line as-is:>
+//! <Reminder: inside the [`pallet`] module, a template that leads the reader to the relevant items is auto-generated.
+//! There is no need to repeat things like "See Config trait for ...", which are generated inside [`pallet`] here anyways.
+//! You can use the below line as-is:>
 //!
-//! See the [`pallet`] module for more information about the interfaces this pallet exposes, including its configuration trait, dispatchables, storage items, events and errors.
+//! See the [`pallet`] module for more information about the interfaces this pallet exposes, including its configuration
+//! trait, dispatchables, storage items, events and errors.
 //!
-//! <The audience of this is those who want to know how this pallet works, to the extent of being able to build something on top of it, like a DApp or another pallet>
+//! <The audience of this is those who want to know how this pallet works, to the extent of being able to build something
+//! on top of it, like a DApp or another pallet>
 //!
 //! This section can most often be left as-is.
 //!
@@ -268,7 +254,8 @@ For the top-level pallet docs, consider the following template:
 //!
 //! <The format of this section is up to you, but we suggest the Design-oriented approach that follows>
 //!
-//! <The audience of this would be your future self, or anyone who wants to gain a deep understanding of how the pallet works so that they can eventually propose optimizations to it>
+//! <The audience of this would be your future self, or anyone who wants to gain a deep understanding of how the pallet
+//! works so that they can eventually propose optimizations to it>
 //!
 //! ### Design Goals (optional)
 //!
@@ -276,31 +263,31 @@ For the top-level pallet docs, consider the following template:
 //!
 //! ### Design (optional)
 //!
-//! <Describe how you've reached those goals. This should describe the storage layout of your pallet and what was your approach in designing it that way.>
+//! <Describe how you've reached those goals. This should describe the storage layout of your pallet and what was your
+//! approach in designing it that way.>
 //!
 //! ### Terminology (optional)
 //!
-//! <Optionally, explain any non-obvious terminology here. You can link to it if you want to use the terminology further up>
+//! <Optionally, explain any non-obvious terminology here. You can link to it if you want to use the terminology further
+//! up>
 ```
 
 
-This template's details (heading 3s and beyond) are left flexible, and at the
-discretion of the developer to make the best final choice about. For example,
-you might want to include `### Terminology` or not. Moreover, you might find it
+This template's details (heading 3s and beyond) are left flexible, and at the discretion of the developer to make the
+best final choice about. For example, you might want to include `### Terminology` or not. Moreover, you might find it
 more useful to include it in `## Overview`.
 
-Nonetheless, the high level flow of going from the most high level explanation
-to the most low level explanation is important to follow.
+Nonetheless, the high level flow of going from the most high level explanation to the most low level explanation is
+important to follow.
 
-As a rule of thumb, the Heading 2s (`##`) in this template can be considered a
-strict rule, while the Heading 3s (`###`) and beyond are flexible.
+As a rule of thumb, the Heading 2s (`##`) in this template can be considered a strict rule, while the Heading 3s (`###`)
+and beyond are flexible.
 
 ---
 
 #### Polkadot and Substrate
 
-Optionally, in order to demonstrate the relation between the two, you can start
-the pallet documentation with:
+Optionally, in order to demonstrate the relation between the two, you can start the pallet documentation with:
 
 ```
 //! > Made with *Substrate*, for *Polkadot*.
@@ -331,7 +318,8 @@ For each dispatchable (`fn` item inside `#[pallet::call]`), consider the followi
 ///
 /// ## Errors (optional)
 ///
-/// <If an extensive list of errors can be returned, list them individually instead of mentioning them in the section above>
+/// <If an extensive list of errors can be returned, list them individually instead of mentioning them in the section
+/// above>
 ///
 /// ## Events (optional)
 ///
@@ -339,29 +327,26 @@ For each dispatchable (`fn` item inside `#[pallet::call]`), consider the followi
 pub fn name_of_dispatchable(origin: OriginFor<T>, ...) -> DispatchResult {}
 ```
 
-Consider the fact that these docs will be part of the metadata of the associated dispatchable, and might be used by wallets and explorers.
+Consider the fact that these docs will be part of the metadata of the associated dispatchable, and might be used by
+wallets and explorers.
 
 ---
 
 ### Storage Items
 
-1. If a map-like type is being used, always note the choice of your hashers as
-private code docs (`// Hasher X chosen because ...`). Recall that this is not
-relevant information to external people, so it must be documented as `//`.
+1. If a map-like type is being used, always note the choice of your hashers as private code docs (`// Hasher X chosen
+because ...`). Recall that this is not relevant information to external people, so it must be documented as `//`.
 
-2. Consider explaining the crypto-economics of how a deposit is being taken in
-return of the storage being used.
+2. Consider explaining the crypto-economics of how a deposit is being taken in return of the storage being used.
 
-3. Consider explaining why it is safe for the storage item to be unbounded, if
-`#[pallet::unbounded]` or `#[pallet::without_storage_info]` is being used.
+3. Consider explaining why it is safe for the storage item to be unbounded, if `#[pallet::unbounded]` or
+`#[pallet::without_storage_info]` is being used.
 
 ---
 
 ### Errors and Events
 
-Consider the fact that, similar to dispatchables, these docs will be part of
-the metadata of the associated event/error, and might be used by wallets and
-explorers.
+Consider the fact that, similar to dispatchables, these docs will be part of the metadata of the associated event/error,
+and might be used by wallets and explorers.
 
-Specifically for `error`, explain why the error has happened, and what can be
-done in order to avoid it.
+Specifically for `error`, explain why the error has happened, and what can be done in order to avoid it.

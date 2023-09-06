@@ -18,7 +18,7 @@ required-features = ["test-utils"]
 
 [dependencies]
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-clap = { version = "4.0.9", features = ["derive"] }
+clap = { version = "4.4.2", features = ["derive"] }
 futures = "0.3.21"
 futures-timer = "3.0.2"
 log = "0.4.17"
@@ -39,7 +39,7 @@ sc-service = { path = "../../../../../substrate/client/service" }
 polkadot-node-core-pvf = { path = "../../../../node/core/pvf", features = ["test-utils"], optional = true }
 
 [dev-dependencies]
-polkadot-parachain = { path = "../../.." }
+polkadot-parachain-primitives = { path = "../../.." }
 polkadot-test-service = { path = "../../../../node/test/service" }
 
 substrate-test-utils = { path = "../../../../../substrate/test-utils" }

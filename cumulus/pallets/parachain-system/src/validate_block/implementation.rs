@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -22,7 +22,9 @@ use cumulus_primitives_core::{
 };
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
 
-use polkadot_parachain::primitives::{HeadData, RelayChainBlockNumber, ValidationResult};
+use polkadot_parachain_primitives::primitives::{
+	HeadData, RelayChainBlockNumber, ValidationResult,
+};
 
 use codec::Encode;
 
