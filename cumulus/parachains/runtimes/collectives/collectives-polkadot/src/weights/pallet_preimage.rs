@@ -50,6 +50,21 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_preimage`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_preimage::WeightInfo for WeightInfo<T> {
+	fn ensure_updated(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `193 + n * (91 ±0)`
+		//  Estimated: `3593 + n * (2566 ±0)`
+		// Minimum execution time: 2_000_000 picoseconds.
+		Weight::from_parts(2_000_000, 3593)
+			// Standard Error: 13_720
+			.saturating_add(Weight::from_parts(17_309_199, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 2566).saturating_mul(n.into()))
+	}
+
 	/// Storage: `Preimage::StatusFor` (r:1 w:1)
 	/// Proof: `Preimage::StatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
 	/// Storage: `Preimage::PreimageFor` (r:0 w:1)
