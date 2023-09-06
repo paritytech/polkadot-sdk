@@ -328,7 +328,7 @@ build-linux-substrate:
       cut -d ' ' -f 2 | tee ./artifacts/substrate/VERSION;
       fi
     - sha256sum ./artifacts/substrate/substrate | tee ./artifacts/substrate/substrate.sha256
-    - cp -r ./docker/substrate_injected.Dockerfile ./artifacts/substrate/
+    - cp -r ./docker/dockerfiles/substrate_injected.Dockerfile ./artifacts/substrate/
     # - printf '\n# building node-template\n\n'
     # - ./scripts/ci/node-template-release.sh ./artifacts/substrate/substrate-node-template.tar.gz
 
