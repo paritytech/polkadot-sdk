@@ -840,11 +840,8 @@ impl<T: Config> SendXcm for Pallet<T> {
 		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 		debug_assert!(validate_xcm_nesting(&xcm).is_ok(), "Tickets are validated; qed");
 
-		match Self::send_fragment(
-			id,
-			XcmpMessageFormat::ConcatenatedVersionedXcm,
-			MaybeDoubleEncodedVersionedXcm(xcm),
-		) {
+		// To enable double encoding; use `MaybeDoubleEncodedVersionedXcm(xcm)` instead of `xcm`.
+		match Self::send_fragment(id, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm) {
 			Ok(_) => {
 				Self::deposit_event(Event::XcmpMessageSent { message_hash: hash });
 				Ok(hash)
