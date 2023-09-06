@@ -1,5 +1,5 @@
 [relaychain]
-default_image = "parity/polkadot:latest"
+default_image = "{{RELAY_IMAGE}}"
 default_command = "polkadot"
 chain = "rococo-local"
 
@@ -20,6 +20,6 @@ chain = "asset-hub-kusama-local"
   [[parachains.collators]]
   name = "charlie"
   validator = true
-  image = "parity/polkadot-parachain:latest"
+  image = "{{POLKADOT_PARACHAIN_IMAGE}}"
   command = "polkadot-parachain"
   args = ["--force-authoring"]
