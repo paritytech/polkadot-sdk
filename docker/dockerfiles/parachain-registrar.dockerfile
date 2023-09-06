@@ -9,7 +9,7 @@ CMD [ "--version" ]
 
 # To use the pjs build stage to access the blockchain from the host machine:
 #
-#   docker build -f docker/parachain-registrar.dockerfile --target pjs -t parachain-registrar:pjs .
+#   docker build -f docker/dockerfiles/parachain-registrar.dockerfile --target pjs -t parachain-registrar:pjs .
 #   alias pjs='docker run --rm --net cumulus_testing_net parachain-registrar:pjs --ws ws://172.28.1.1:9944'
 #
 # Then, as long as the chain is running, you can use the polkadot-js-api CLI like:

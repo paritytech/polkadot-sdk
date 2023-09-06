@@ -35,7 +35,7 @@ build-push-image-polkadot-parachain-debug:
     - job: build-linux-stable-cumulus
       artifacts: true
   variables:
-    DOCKERFILE: "docker/polkadot-parachain/polkadot-parachain-debug_unsigned_injected.Dockerfile"
+    DOCKERFILE: "docker/dockerfiles/polkadot-parachain/polkadot-parachain-debug_unsigned_injected.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/polkadot-parachain-debug"
 
 build-push-image-test-parachain:
@@ -48,7 +48,7 @@ build-push-image-test-parachain:
     - job: build-test-parachain
       artifacts: true
   variables:
-    DOCKERFILE: "docker/test-parachain_injected.Dockerfile"
+    DOCKERFILE: "docker/dockerfiles/test-parachain_injected.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/test-parachain"
 # publish-s3:
 #   stage: publish
@@ -114,7 +114,7 @@ build-push-image-polkadot-debug:
     - job: build-linux-stable
       artifacts: true
   variables:
-    DOCKERFILE: "docker/polkadot/polkadot_injected_debug.Dockerfile"
+    DOCKERFILE: "docker/dockerfiles/polkadot/polkadot_injected_debug.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/polkadot-debug"
 
 build-push-image-colander:
@@ -127,7 +127,7 @@ build-push-image-colander:
     - job: build-test-collators
       artifacts: true
   variables:
-    DOCKERFILE: "docker/collator_injected.Dockerfile"
+    DOCKERFILE: "docker/dockerfiles/collator_injected.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/colander"
 
 build-push-image-malus:
@@ -140,7 +140,7 @@ build-push-image-malus:
     - job: build-malus
       artifacts: true
   variables:
-    DOCKERFILE: "docker/malus_injected.Dockerfile"
+    DOCKERFILE: "docker/dockerfiles/malus_injected.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/malus"
 
 build-push-image-substrate-pr:
@@ -153,7 +153,7 @@ build-push-image-substrate-pr:
     - job: build-linux-substrate
       artifacts: true
   variables:
-    DOCKERFILE: "docker/substrate_injected.Dockerfile"
+    DOCKERFILE: "docker/dockerfiles/substrate_injected.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/substrate"
 # old way
 
@@ -201,7 +201,7 @@ build-push-image-substrate-pr:
 #     GIT_STRATEGY: none
 #     DOCKER_USER: ${PARITYPR_USER}
 #     DOCKER_PASS: ${PARITYPR_PASS}
-#     # docker/polkadot/polkadot_injected_debug.Dockerfile
+#     # docker/dockerfiles/polkadot/polkadot_injected_debug.Dockerfile
 #     DOCKERFILE: polkadot_injected_debug.Dockerfile
 #     IMAGE_NAME: docker.io/paritypr/polkadot-debug
 #   needs:
@@ -230,7 +230,7 @@ build-push-image-substrate-pr:
 #     GIT_STRATEGY: none
 #     DOCKER_USER: ${PARITYPR_USER}
 #     DOCKER_PASS: ${PARITYPR_PASS}
-#     # scripts/ci/dockerfiles/collator_injected.Dockerfile
+#     # docker/dockerfiles/collator_injected.Dockerfile
 #     DOCKERFILE: collator_injected.Dockerfile
 #     IMAGE_NAME: docker.io/paritypr/colander
 #   needs:
@@ -258,7 +258,7 @@ build-push-image-substrate-pr:
 #     GIT_STRATEGY: none
 #     DOCKER_USER: ${PARITYPR_USER}
 #     DOCKER_PASS: ${PARITYPR_PASS}
-#     # scripts/ci/dockerfiles/malus_injected.Dockerfile
+#     # docker/dockerfiles/malus_injected.Dockerfile
 #     DOCKERFILE: malus_injected.Dockerfile
 #     IMAGE_NAME: docker.io/paritypr/malus
 #   needs:

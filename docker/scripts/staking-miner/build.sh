@@ -10,4 +10,4 @@ ENGINE=podman
 
 echo "Building the staking-miner using the Builder image"
 echo "PROJECT_ROOT=$PROJECT_ROOT"
-$ENGINE build -t staking-miner -f staking-miner_builder.Dockerfile "$PROJECT_ROOT"
+$ENGINE build -t staking-miner -f "${PROJECT_ROOT}/docker/dockerfiles/staking-miner/staking-miner_builder.Dockerfile" "$PROJECT_ROOT"

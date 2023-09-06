@@ -52,7 +52,7 @@ anyone to get a working container image without requiring any of the Rust toolch
 ```bash
 docker build \
 	--tag $OWNER/$IMAGE_NAME \
-	--file ./docker/polkadot-parachain/polkadot-parachain_builder.Containerfile .
+ --file ./docker/dockerfiles/polkadot-parachain/polkadot-parachain_builder.Containerfile .
 ```
 
 You may then run your new container:

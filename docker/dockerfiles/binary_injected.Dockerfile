@@ -27,7 +27,7 @@ LABEL io.parity.image.authors=${AUTHORS} \
 	io.parity.image.created="${BUILD_DATE}" \
 	io.parity.image.documentation="${DOC_URL}" \
 	io.parity.image.description="${DESCRIPTION}" \
-	io.parity.image.source="https://github.com/paritytech/polkadot-sdk/blob/${VCS_REF}/docker/scripts/binary_injected.Dockerfile"
+	io.parity.image.source="https://github.com/paritytech/polkadot-sdk/blob/${VCS_REF}/docker/dockerfiles/binary_injected.Dockerfile"
 
 USER root
 WORKDIR /app
