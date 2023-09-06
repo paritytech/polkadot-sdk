@@ -653,9 +653,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 				XcmpMessageFormat::ConcatenatedVersionedXcm => {
 					while !data.is_empty() {
 						let Ok(xcm) = Self::split_concatenated_xcms(&mut data, &mut meter) else {
-							defensive!(
-								"HRMP inbound decode stream broke; page will be dropped.",
-							);
+							defensive!("HRMP inbound decode stream broke; page will be dropped.",);
 							break
 						};
 

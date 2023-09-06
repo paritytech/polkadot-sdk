@@ -195,7 +195,7 @@ pub mod pallet {
 				},
 			}
 
-			Weight::MAX // FAIL-CI what do?
+			Weight::zero() // FAIL-CI what do?
 		}
 	}
 }

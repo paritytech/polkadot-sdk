@@ -76,7 +76,7 @@ pub(crate) fn migrate_page<T: crate::Config>(p: PageCounter) {
 	for (m, (block, msg)) in page.iter().enumerate() {
 		let Ok(bound) = BoundedVec::<u8, _>::try_from(msg.clone()) else {
 			log::error!(target: LOG, "[Page {p}] Message #{m}: TOO LONG - ignoring");
-			continue;
+			continue
 		};
 
 		T::DmpSink::handle_message(bound.as_bounded_slice());
@@ -87,11 +87,11 @@ pub(crate) fn migrate_page<T: crate::Config>(p: PageCounter) {
 pub(crate) fn migrate_overweight<T: crate::Config>(i: OverweightIndex) {
 	let Some((block, msg)) = Overweight::<T>::take(i) else {
 		log::error!(target: LOG, "[Overweight {i}] Message: EMPTY - storage corrupted?");
-		return;
+		return
 	};
 	let Ok(bound) = BoundedVec::<u8, _>::try_from(msg) else {
 		log::error!(target: LOG, "[Overweight {i}] Message: TOO LONG - ignoring");
-		return;
+		return
 	};
 
 	T::DmpSink::handle_message(bound.as_bounded_slice());
