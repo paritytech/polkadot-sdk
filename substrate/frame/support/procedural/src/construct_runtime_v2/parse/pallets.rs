@@ -56,26 +56,17 @@ impl AllPalletsDeclaration {
 		let mut indices = HashMap::new();
 		let mut names = HashMap::new();
 
-		let mut last_index: Option<u8> = None;
-
 		let mut pallet_decls = vec![];
 		let mut pallets = vec![];
 
-		for (index, item) in item.fields.iter_mut().enumerate() {
+		for item in item.fields.iter_mut() {
 			match item.ty.clone() {
 				syn::Type::Path(ref path) => {
-					let pallet_decl = PalletDeclaration::try_from(attr_span, index, item, path)?;
+					let pallet_decl = PalletDeclaration::try_from(attr_span, item, path)?;
 					pallet_decls.push(pallet_decl);
 				},
 				syn::Type::TraitObject(syn::TypeTraitObject { bounds, .. }) => {
-					let current_index = match last_index {
-						Some(index) => index.checked_add(1).ok_or_else(|| {
-							let msg = "Pallet index doesn't fit into u8, index is 256";
-							syn::Error::new(name.span(), msg)
-						}),
-						None => Ok(0),
-					}?;
-					let pallet = Pallet::try_from(attr_span, current_index, item, &bounds)?;
+					let pallet = Pallet::try_from(attr_span, item, &bounds)?;
 
 					if let Some(used_pallet) = indices.insert(pallet.index, pallet.name.clone()) {
 						let msg = format!(
@@ -96,7 +87,6 @@ impl AllPalletsDeclaration {
 						return Err(err)
 					}
 
-					last_index = Some(pallet.index);
 					pallets.push(pallet);
 				},
 				_ => continue,

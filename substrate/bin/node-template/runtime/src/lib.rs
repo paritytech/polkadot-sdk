@@ -296,16 +296,22 @@ mod runtime {
 		RuntimeLockId
 	)]
 	pub struct Pallets {
+		#[frame::pallet_index(0)]
 		System: frame_system,
+		#[frame::pallet_index(1)]
 		Timestamp: pallet_timestamp,
+		#[frame::pallet_index(2)]
 		Aura: pallet_aura,
+		#[frame::pallet_index(3)]
 		Grandpa: pallet_grandpa,
+		#[frame::pallet_index(4)]
 		Balances: pallet_balances,
+		#[frame::pallet_index(5)]
 		TransactionPayment: pallet_transaction_payment,
+		#[frame::pallet_index(6)]
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
-		#[frame::pallet_index(8)]
-		#[frame::disable_call]
+		#[frame::pallet_index(7)]
 		TemplateModule: pallet_template,
 	}
 }

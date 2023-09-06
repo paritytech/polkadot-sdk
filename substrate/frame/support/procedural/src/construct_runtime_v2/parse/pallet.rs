@@ -80,7 +80,6 @@ where
 impl Pallet {
 	pub fn try_from(
 		attr_span: proc_macro2::Span,
-		index: u8,
 		item: &mut syn::Field,
 		bounds: &Punctuated<syn::TypeParamBound, token::Plus>,
 	) -> syn::Result<Self> {
@@ -89,17 +88,20 @@ impl Pallet {
 			.clone()
 			.ok_or(Error::new(attr_span, "Invalid pallet declaration, expected a named field"))?;
 
-		let mut pallet_index = index;
+		let mut pallet_index: Option<u8> = None;
 		let mut disable_call = false;
 		let mut disable_unsigned = false;
 
 		while let Some(pallet_attr) = take_first_item_pallet_attr::<PalletAttr>(item)? {
 			match pallet_attr {
-				PalletAttr::PalletIndex(_, index) => pallet_index = index,
+				PalletAttr::PalletIndex(_, index) => pallet_index = Some(index),
 				PalletAttr::DisableCall(_) => disable_call = true,
 				PalletAttr::DisableUnsigned(_) => disable_unsigned = true,
 			}
 		}
+
+		let pallet_index = pallet_index
+			.ok_or(Error::new(attr_span, "Invalid pallet declaration, expected a pallet index"))?;
 
 		let mut pallet_path = None;
 		let mut pallet_parts = vec![];

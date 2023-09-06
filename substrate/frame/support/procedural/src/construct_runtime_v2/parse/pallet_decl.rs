@@ -25,8 +25,6 @@ pub struct PalletDeclaration {
 	pub name: Ident,
 	/// Optional attributes tagged right above a pallet declaration.
 	pub attrs: Vec<Attribute>,
-	/// Optional fixed index, e.g. `MyPallet ...  = 3,`.
-	pub index: Option<u8>,
 	/// The path of the pallet, e.g. `frame_system` in `System: frame_system`.
 	pub path: syn::Path,
 	/// The instance of the pallet, e.g. `Instance1` in `Council: pallet_collective::<Instance1>`.
@@ -36,7 +34,6 @@ pub struct PalletDeclaration {
 impl PalletDeclaration {
 	pub fn try_from(
 		attr_span: proc_macro2::Span,
-		index: usize,
 		item: &mut syn::Field,
 		path: &syn::TypePath,
 	) -> syn::Result<Self> {
@@ -65,8 +62,6 @@ impl PalletDeclaration {
 			}
 		}
 
-		let index = Some(index as u8);
-
-		Ok(Self { name, path, instance, index, attrs: item.attrs.clone() })
+		Ok(Self { name, path, instance, attrs: item.attrs.clone() })
 	}
 }
