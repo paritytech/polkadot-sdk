@@ -28,7 +28,7 @@ RUN apt-get update && \
 	apt-get clean && \
 	find /var/lib/apt/lists/ -type f -not -name lock -delete; \
 	# add user and link ~/.local/share/polkadot-parachain to /data
-	useradd -m -u 10000 -U -s /bin/sh -d /polkadot-parachain polkadot-parachain && \
+	useradd -m -u 1000 -U -s /bin/sh -d /polkadot-parachain polkadot-parachain && \
 	mkdir -p /data /polkadot-parachain/.local/share && \
 	chown -R polkadot-parachain:polkadot-parachain /data && \
 	ln -s /data /polkadot-parachain/.local/share/polkadot-parachain && \

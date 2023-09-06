@@ -12,6 +12,7 @@
     - export DEBUG=zombie
     - export RELAY_IMAGE=${POLKADOT_IMAGE}
     - export COL_IMAGE=${COL_IMAGE}
+    - export POLKADOT_PARACHAIN_IMAGE=${POLKADOT_PARACHAIN_IMAGE}
 
 .zombienet-after-script:
   after_script:
@@ -24,6 +25,8 @@
   image: "${ZOMBIENET_IMAGE}"
   needs:
     - job: build-push-image-test-parachain
+      artifacts: true
+    - job: build-push-image-polkadot-parachain-debug
       artifacts: true
   variables:
     POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master"
