@@ -155,8 +155,7 @@ impl pallet_preimage::Config for Test {
 	type WeightInfo = ();
 	type Currency = ();
 	type ManagerOrigin = EnsureRoot<u64>;
-	type BaseDeposit = ();
-	type ByteDeposit = ();
+	type Consideration = ();
 }
 
 pub struct TestWeightInfo;
