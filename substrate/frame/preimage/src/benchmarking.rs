@@ -221,5 +221,33 @@ benchmarks! {
 		assert_eq!(RequestStatusFor::<T>::get(&hash), Some(s));
 	}
 
+	ensure_updated {
+		let n in 0..MAX_HASH_UPGRADE_BULK_COUNT;
+		let caller = funded_account::<T>("caller", 0);
+		let hashes = (0..n).map(|i| insert_old_unrequested::<T>(i, caller.clone())).collect::<Vec<_>>();
+	}: _(RawOrigin::Signed(caller), hashes)
+	verify {
+		assert_eq!(RequestStatusFor::<T>::iter_keys().count(), n as usize);
+		#[allow(deprecated)]
+		let c = StatusFor::<T>::iter_keys().count();
+		assert_eq!(c, 0);
+	}
+
 	impl_benchmark_test_suite!(Preimage, crate::mock::new_test_ext(), crate::mock::Test);
+}
+
+fn insert_old_unrequested<T: Config>(
+	s: u32,
+	acc: T::AccountId,
+) -> <T as frame_system::Config>::Hash {
+	// The preimage size does not matter here as it is not touched.
+	let preimage = s.to_le_bytes();
+	let hash = <T as frame_system::Config>::Hashing::hash(&preimage[..]);
+
+	#[allow(deprecated)]
+	StatusFor::<T>::insert(
+		&hash,
+		OldRequestStatus::Unrequested { deposit: (acc, 123u32.into()), len: preimage.len() as u32 },
+	);
+	hash
 }
