@@ -35,9 +35,9 @@
 //!
 //! ## Overview
 //!
-//! In Substrate blockchains pallets may contain dispatchable calls that can only be called at
+//! In Substrate blockchains, pallets may contain dispatchable calls that can only be called at
 //! the system level of the chain (i.e. dispatchables that require a `Root` origin).
-//! Setting a privileged account called the _sudo key_ allows you to make such calls as an
+//! Setting a privileged account, called the _sudo key_, allows you to make such calls as an
 //! extrinisic.
 //!
 //! Here's an example of a privileged function in another pallet:
@@ -76,7 +76,7 @@
 //! the pallet. You can change this key at anytime once your chain is live using the
 //! [`set_key`](Pallet::set_key) dispatchable, however <strong>only one sudo key can be set at a
 //! time</strong>. The pallet also allows you to make a call using
-//! [`sudo_unchecked_weight`](Pallet::sudo_unchecked_weight) which allows the sudo account to
+//! [`sudo_unchecked_weight`](Pallet::sudo_unchecked_weight), which allows the sudo account to
 //! execute a call with a custom weight.
 //!
 //! <div class="example-wrap" style="display:inline-block"><pre class="compile_fail"
