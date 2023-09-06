@@ -789,7 +789,7 @@ where
 	Pool: MaintainedTransactionPool<Block = Block>,
 {
 	let import_stream = client
-		.import_notification_stream()
+		.every_import_notification_stream()
 		.filter_map(|n| ready(n.try_into().ok()))
 		.fuse();
 	let finality_stream = client.finality_notification_stream().map(Into::into).fuse();
