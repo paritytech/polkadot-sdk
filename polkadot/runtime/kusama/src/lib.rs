@@ -1215,6 +1215,7 @@ impl parachains_paras::Config for Runtime {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
+	type OnNewHead = Registrar;
 }
 
 parameter_types! {
@@ -1710,6 +1711,19 @@ pub mod migrations {
 		}
 	}
 
+	pub struct ParachainsToUnlock;
+	impl Contains<ParaId> for ParachainsToUnlock {
+		fn contains(id: &ParaId) -> bool {
+			let id: u32 = (*id).into();
+			// ksuama parachains/parathreads that are locked and never produced block
+			match id {
+				2003 | 2008 | 2018 | 2077 | 2089 | 2111 | 2112 | 2120 | 2126 | 2127 | 2130 |
+				2226 | 2227 | 2231 | 2233 | 2237 | 2256 | 2257 | 2261 | 2268 | 2275 => true,
+				_ => false,
+			}
+		}
+	}
+
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
 		init_state_migration::InitMigrate,
@@ -1741,6 +1755,8 @@ pub mod migrations {
 		UpgradeSessionKeys,
 
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
+		// Migrate parachain info format
+		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ParachainsToUnlock>,
 	);
 }
 

@@ -611,6 +611,7 @@ fn can_quote_price() {
 			),
 			Some(3000)
 		);
+
 		// including fee so should get less out...
 		assert_eq!(
 			AssetConversion::quote_price_exact_tokens_for_tokens(
@@ -753,6 +754,105 @@ fn can_quote_price() {
 			)),
 			Some(amount_in)
 		);
+	});
+}
+
+#[test]
+fn quote_price_exact_tokens_for_tokens_matches_execution() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let user2 = 2;
+		let token_1 = NativeOrAssetId::Native;
+		let token_2 = NativeOrAssetId::Asset(2);
+
+		create_tokens(user, vec![token_2]);
+		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 100000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			token_1,
+			token_2,
+			10000,
+			200,
+			1,
+			1,
+			user,
+		));
+
+		let amount = 1;
+		let quoted_price = 49;
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(token_2, token_1, amount, true,),
+			Some(quoted_price)
+		);
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user2, amount));
+		let prior_dot_balance = 20000;
+		assert_eq!(prior_dot_balance, balance(user2, token_1));
+		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
+			RuntimeOrigin::signed(user2),
+			bvec![token_2, token_1],
+			amount,
+			1,
+			user2,
+			false,
+		));
+
+		assert_eq!(prior_dot_balance + quoted_price, balance(user2, token_1));
+	});
+}
+
+#[test]
+fn quote_price_tokens_for_exact_tokens_matches_execution() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let user2 = 2;
+		let token_1 = NativeOrAssetId::Native;
+		let token_2 = NativeOrAssetId::Asset(2);
+
+		create_tokens(user, vec![token_2]);
+		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 100000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			token_1,
+			token_2,
+			10000,
+			200,
+			1,
+			1,
+			user,
+		));
+
+		let amount = 49;
+		let quoted_price = 1;
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(token_2, token_1, amount, true,),
+			Some(quoted_price)
+		);
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user2, amount));
+		let prior_dot_balance = 20000;
+		assert_eq!(prior_dot_balance, balance(user2, token_1));
+		let prior_asset_balance = 49;
+		assert_eq!(prior_asset_balance, balance(user2, token_2));
+		assert_ok!(AssetConversion::swap_tokens_for_exact_tokens(
+			RuntimeOrigin::signed(user2),
+			bvec![token_2, token_1],
+			amount,
+			1,
+			user2,
+			false,
+		));
+
+		assert_eq!(prior_dot_balance + amount, balance(user2, token_1));
+		assert_eq!(prior_asset_balance - quoted_price, balance(user2, token_2));
 	});
 }
 
@@ -1551,7 +1651,11 @@ fn cannot_block_pool_creation() {
 		let pool_account =
 			AssetConversion::get_pool_account(&AssetConversion::get_pool_id(token_2, token_1));
 		// And transfers the ED to that pool account
-		assert_ok!(Balances::transfer(RuntimeOrigin::signed(attacker), pool_account, ed));
+		assert_ok!(Balances::transfer_allow_death(
+			RuntimeOrigin::signed(attacker),
+			pool_account,
+			ed
+		));
 		// Then, the attacker creates 14 tokens and sends one of each to the pool account
 		for i in 10..25 {
 			create_tokens(attacker, vec![NativeOrAssetId::Asset(i)]);
