@@ -36,8 +36,8 @@ test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../pri
 tikv-jemalloc-ctl = "0.5.0"
 
 [features]
-default = ["futures_channel"]
-expand = [ "orchestra/expand" ]
+default = [ "futures_channel" ]
 dotgraph = [ "orchestra/dotgraph" ]
-futures_channel = ["orchestra/futures_channel", "metered/futures_channel"]
+expand = [ "orchestra/expand" ]
+futures_channel = [ "metered/futures_channel", "orchestra/futures_channel" ]
 jemalloc-allocator = [ "dep:tikv-jemalloc-ctl" ]
