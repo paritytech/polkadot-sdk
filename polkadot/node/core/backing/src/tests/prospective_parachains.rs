@@ -1,4 +1,4 @@
-// Copyright 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -138,13 +138,24 @@ async fn activate_leaf(
 	}
 
 	for (hash, number) in ancestry_iter.take(requested_len) {
-		// Check that subsystem job issues a request for a validator set.
 		let msg = match next_overseer_message.take() {
 			Some(msg) => msg,
 			None => virtual_overseer.recv().await,
 		};
+
+		// Check that subsystem job issues a request for the session index for child.
 		assert_matches!(
 			msg,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
+			) if parent == hash => {
+				tx.send(Ok(test_state.signing_context.session_index)).unwrap();
+			}
+		);
+
+		// Check that subsystem job issues a request for a validator set.
+		assert_matches!(
+			virtual_overseer.recv().await,
 			AllMessages::RuntimeApi(
 				RuntimeApiMessage::Request(parent, RuntimeApiRequest::Validators(tx))
 			) if parent == hash => {
@@ -164,16 +175,6 @@ async fn activate_leaf(
 			}
 		);
 
-		// Check that subsystem job issues a request for the session index for child.
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
-			) if parent == hash => {
-				tx.send(Ok(test_state.signing_context.session_index)).unwrap();
-			}
-		);
-
 		// Check that subsystem job issues a request for the availability cores.
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -181,6 +182,17 @@ async fn activate_leaf(
 				RuntimeApiMessage::Request(parent, RuntimeApiRequest::AvailabilityCores(tx))
 			) if parent == hash => {
 				tx.send(Ok(test_state.availability_cores.clone())).unwrap();
+			}
+		);
+
+		// Check if subsystem job issues a request for the minimum backing votes.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
+			)) if parent == hash && session_index == test_state.signing_context.session_index => {
+				tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
 			}
 		);
 	}
@@ -202,6 +214,24 @@ async fn assert_validate_seconded_candidate(
 			RuntimeApiMessage::Request(parent, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
 		) if parent == relay_parent && hash == validation_code.hash() => {
 			tx.send(Ok(Some(validation_code.clone()))).unwrap();
+		}
+	);
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
+		) => {
+			tx.send(Ok(1u32.into())).unwrap();
+		}
+	);
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
+		) if sess_idx == 1 => {
+			tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 		}
 	);
 
@@ -227,6 +257,7 @@ async fn assert_validate_seconded_candidate(
 			_validation_code,
 			candidate_receipt,
 			_pov,
+			_,
 			timeout,
 			tx,
 		)) if &_pvd == pvd &&
@@ -1327,7 +1358,7 @@ fn concurrent_dependent_candidates() {
 					tx.send(pov.clone()).unwrap();
 				},
 				AllMessages::CandidateValidation(
-					CandidateValidationMessage::ValidateFromExhaustive(.., candidate, _, _, tx),
+					CandidateValidationMessage::ValidateFromExhaustive(.., candidate, _, _, _, tx),
 				) => {
 					let candidate_hash = candidate.hash();
 					let (head_data, pvd) = if candidate_hash == candidate_a_hash {
@@ -1384,6 +1415,20 @@ fn concurrent_dependent_candidates() {
 						break
 					}
 				},
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::SessionIndexForChild(tx),
+				)) => {
+					tx.send(Ok(1u32.into())).unwrap();
+				},
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::SessionExecutorParams(sess_idx, tx),
+				)) => {
+					assert_eq!(sess_idx, 1);
+					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+				},
+
 				_ => panic!("unexpected message received from overseer: {:?}", msg),
 			}
 		}

@@ -1,5 +1,5 @@
 error[E0425]: cannot find function `bar` in module `test`
-  --> tests/ui/no_feature_gated_method.rs:16:8
+  --> tests/ui/no_feature_gated_method.rs:33:8
    |
-16 |     test::bar();
+33 |     test::bar();
    |           ^^^ not found in `test`
