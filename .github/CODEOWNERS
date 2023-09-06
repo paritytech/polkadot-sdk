@@ -22,7 +22,7 @@
 /.github @paritytech/ci @paritytech/release-engineering
 /.gitlab @paritytech/ci
 /bridges @paritytech/bridges-core
-/cumulus @paritytech/cumulus-locks-review
+/cumulus @paritytech/cumulus-locks-review @paritytech/core-devs
 /docker @paritytech/ci @paritytech/release-engineering
 /docs @paritytech/docs-audit
 /polkadot @paritytech/polkadot-review
