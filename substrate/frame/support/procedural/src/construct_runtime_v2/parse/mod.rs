@@ -136,7 +136,7 @@ impl Def {
 			pallets: pallets
 				.ok_or_else(|| syn::Error::new(item_span, "Missing `#[frame::pallets]`"))?,
 			runtime_types: runtime_types
-				.ok_or_else(|| syn::Error::new(item_span, "Missing `#[frame::runtime_types]`"))?,
+				.ok_or_else(|| syn::Error::new(item_span, "Missing `#[frame::derive]`"))?,
 		};
 
 		Ok(def)
