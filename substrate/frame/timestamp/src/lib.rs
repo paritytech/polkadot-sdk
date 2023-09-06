@@ -37,18 +37,18 @@
 //! The Timestamp pallet is designed to create a consensus-based time source. This helps ensure that
 //! nodes maintain a synchronized view of time that all network participants can agree on.
 //!
-//! The pallet defines an _acceptable range_ using a configurable constant to specify some limit on
-//! how much time must pass before setting the new timestamp. Validator nodes in the network must
-//! verify that the timestamp falls within this acceptable range and reject blocks that do not.
+//! It defines an _acceptable range_ using a configurable constant to specify how much time must
+//! pass before setting the new timestamp. Validator nodes in the network must verify that the
+//! timestamp falls within this acceptable range and reject blocks that do not.
 //!
 //! > **Note:** The timestamp set by this pallet is the recommended way to query the onchain time
-//! > instead of
-//! using block numbers alone. Measuring time with block numbers can cause cumulative calculation
-//! errors if depended upon in time critical operations and hence should generally be avoided.
+//! > instead of using block numbers alone. Measuring time with block numbers can cause cumulative
+//! > calculation errors if depended upon in time critical operations and hence should generally be
+//! > avoided.
 //!
-//! ## Example Usage
+//! ## Example
 //!
-//! To get the current time for the current block:
+//! To get the current time for the current block in another pallet:
 //!
 //! ```
 //! use pallet_timestamp::{self as timestamp};
@@ -70,13 +70,14 @@
 //! 		#[pallet::weight(0)]
 //! 		pub fn get_time(origin: OriginFor<T>) -> DispatchResult {
 //! 			let _sender = ensure_signed(origin)?;
-//! 			let _now = <timestamp::Pallet<T>>::get();
+//! 			let _now = <timestamp::Pallet::<T>::get();
 //! 			Ok(())
 //! 		}
 //! 	}
 //! }
 //! # fn main() {}
 //! ```
+//!
 //!  If [`Pallet::get`] is called prior to setting the timestamp, it will return the timestamp of
 //! the previous block.
 //!
@@ -100,23 +101,27 @@
 //! assertion in the `on_finalize` runtime hook. See [`frame_support::traits::Hooks`] for more
 //! information about how hooks work.
 //!
-//! This pallet implements [`Time`] so it can be used to configure other pallets that require it.
+//! Because inherents are applied to a block in the order they appear in the runtime
+//! construction, the index position of this pallet in
+//! [`construct_runtime`](frame_support::construct_runtime) must always be before any other pallets'
+//! index that depends on it.
 //!
-//! Because a pallet's inherents are applied to a block in the order they appear in the runtime
-//! construction, its index position must always be before any other pallet's index that depends on
-//! it.
-//!
-//! The [`Config::OnTimestampSet`] configuration trait is used to notify a timestamp has been
-//! updated to any pallet that implements [`OnTimestampSet`] (e.g. Babe and Aura).
+//! The [`Config::OnTimestampSet`] configuration trait can be used to notify another pallet that a
+//! timestamp has been updated for any pallet that implements [`OnTimestampSet`] (e.g. the Babe and
+//! Aura pallets).
+//! This pallet also implements [`Time`] and [`UnixTime`] so it can be used to configure other
+//! pallets that require these types (for e.g. in the Staking pallet).
 //!
 //! ## Panics
 //!
-//! There are 2 cases where this pallet could cause the runtime to panic.
+//! There are 3 cases where this pallet could cause the runtime to panic.
 //!
-//! 1. If a timestamp is set more than once per block:
+//! 1. If no timestamp is set at the end of a block.
+//!
+//! 2. If a timestamp is set more than once per block:
 #![doc = docify::embed!("src/tests.rs", double_timestamp_should_fail)]
 //!
-//! 2. If a timestamp is set before the [`Config::MinimumPeriod`] is elapsed:
+//! 3. If a timestamp is set before the [`Config::MinimumPeriod`] is elapsed:
 #![doc = docify::embed!("src/tests.rs", block_period_minimum_enforced)]
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -160,10 +165,10 @@ pub mod pallet {
 
 		/// The minimum period between blocks.
 		///
-		/// Beware that this is different to the *expected* period that the block production
+		/// Be aware that this is different to the *expected* period that the block production
 		/// apparatus provides. Your chosen consensus system will generally work with this to
-		/// determine a sensible block time. e.g. For Aura, it will be double this period on default
-		/// settings.
+		/// determine a sensible block time. For example, in the Aura pallet it will be double this
+		/// period on default settings.
 		#[pallet::constant]
 		type MinimumPeriod: Get<Self::Moment>;
 
@@ -198,9 +203,8 @@ pub mod pallet {
 		}
 
 		/// At the end of block execution, the `on_finalize` hook checks that the timestamp was
-		/// updated. Upon success, it removes the boolean value from storage.
-		///
-		/// If the value resolves to `false`, the pallet will panic.
+		/// updated. Upon success, it removes the boolean value from storage. If the value resolves
+		/// to `false`, the pallet will panic.
 		///
 		/// ## Complexity
 		/// - `O(1)`
@@ -252,19 +256,14 @@ pub mod pallet {
 		}
 	}
 
-	/// This pallet must implement the `ProvideInherent` trait.
-	///
-	/// This allows block authoring nodes to write a timestamp to storage without needing to sign
-	/// the data they submit.
-	///
 	/// To check the inherent is valid, we simply take the max value between the current timestamp
 	/// and the current timestamp plus the [`Config::MinimumPeriod`].
 	/// We also check that the timestamp has not already been set in this block.
 	///
 	/// ## Errors:
-	/// - `InherentError::TooFarInFuture`: If the timestamp is larger than the current timestamp +
+	/// - [`InherentError::TooFarInFuture`]: If the timestamp is larger than the current timestamp +
 	///   minimum drift period).
-	/// - `InherentError::TooEarly`: If the timestamp is less than the current + minimum period.
+	/// - [`InherentError::TooEarly`]: If the timestamp is less than the current + minimum period.
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {
 		type Call = Call<T>;
