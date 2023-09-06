@@ -85,8 +85,7 @@ pub enum RequestStatus<AccountId, Ticket> {
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type TicketOf<T> =
-	<<T as Config>::Consideration as Consideration<<T as frame_system::Config>::AccountId>>::Ticket;
+type TicketOf<T> = <T as Config>::Consideration;
 
 /// Maximum size of preimage we can store is 4mb.
 const MAX_SIZE: u32 = 4 * 1024 * 1024;
@@ -239,8 +238,10 @@ impl<T: Config> Pallet<T> {
 				// unreserve deposit
 				T::Currency::unreserve(&who, amount);
 				// take consideration
-				let ticket = T::Consideration::new(&who, Footprint::from_parts(1, len as usize))
-					.unwrap_or_default();
+				let Ok(ticket) =
+					T::Consideration::new(&who, Footprint::from_parts(1, len as usize))
+						.defensive_proof("Unexpected inability to take deposit after unreserved")
+				else { return true };
 				RequestStatus::Unrequested { ticket: (who, ticket), len }
 			},
 			OldRequestStatus::Requested { deposit: maybe_deposit, count, len: maybe_len } => {
@@ -249,9 +250,10 @@ impl<T: Config> Pallet<T> {
 					T::Currency::unreserve(&who, deposit);
 					// take consideration
 					if let Some(len) = maybe_len {
-						let ticket =
+						let Ok(ticket) =
 							T::Consideration::new(&who, Footprint::from_parts(1, len as usize))
-								.unwrap_or_default();
+								.defensive_proof("Unexpected inability to take deposit after unreserved")
+						else { return true };
 						Some((who, ticket))
 					} else {
 						None
@@ -361,7 +363,7 @@ impl<T: Config> Pallet<T> {
 		match RequestStatusFor::<T>::get(hash).ok_or(Error::<T>::NotNoted)? {
 			RequestStatus::Requested { maybe_ticket: Some((owner, ticket)), count, maybe_len } => {
 				ensure!(maybe_check_owner.map_or(true, |c| c == owner), Error::<T>::NotAuthorized);
-				let _ = T::Consideration::drop(&owner, ticket);
+				let _ = ticket.drop(&owner);
 				RequestStatusFor::<T>::insert(
 					hash,
 					RequestStatus::Requested { maybe_ticket: None, count, maybe_len },
@@ -374,7 +376,7 @@ impl<T: Config> Pallet<T> {
 			},
 			RequestStatus::Unrequested { ticket: (owner, ticket), len } => {
 				ensure!(maybe_check_owner.map_or(true, |c| c == owner), Error::<T>::NotAuthorized);
-				let _ = T::Consideration::drop(&owner, ticket);
+				let _ = ticket.drop(&owner);
 				RequestStatusFor::<T>::remove(hash);
 
 				Self::remove(hash, len);
