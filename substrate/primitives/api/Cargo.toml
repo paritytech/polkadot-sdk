@@ -23,7 +23,7 @@ sp-version = { path = "../version", default-features = false}
 sp-state-machine = { path = "../state-machine", default-features = false, optional = true}
 sp-trie = { path = "../trie", default-features = false, optional = true}
 hash-db = { version = "0.16.0", optional = true }
-thiserror = { version = "1.0.30", optional = true }
+thiserror = { version = "1.0.48", optional = true }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 sp-metadata-ir = { path = "../metadata-ir", default-features = false, optional = true}
 log = { version = "0.4.17", default-features = false }

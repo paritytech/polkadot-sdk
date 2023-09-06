@@ -1,18 +1,17 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 // Substrate
 use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
@@ -632,7 +631,7 @@ pub mod rococo {
 pub mod asset_hub_polkadot {
 	use super::*;
 	pub const PARA_ID: u32 = 1000;
-	pub const ED: Balance = asset_hub_polkadot_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	pub const ED: Balance = parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = asset_hub_polkadot_runtime::RuntimeGenesisConfig {
@@ -689,7 +688,7 @@ pub mod asset_hub_polkadot {
 pub mod asset_hub_westend {
 	use super::*;
 	pub const PARA_ID: u32 = 1000;
-	pub const ED: Balance = asset_hub_westend_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	pub const ED: Balance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = asset_hub_westend_runtime::RuntimeGenesisConfig {
@@ -746,7 +745,7 @@ pub mod asset_hub_westend {
 pub mod asset_hub_kusama {
 	use super::*;
 	pub const PARA_ID: u32 = 1000;
-	pub const ED: Balance = asset_hub_kusama_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	pub const ED: Balance = parachains_common::kusama::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = asset_hub_kusama_runtime::RuntimeGenesisConfig {
@@ -864,7 +863,7 @@ pub mod penpal {
 pub mod collectives {
 	use super::*;
 	pub const PARA_ID: u32 = 1001;
-	pub const ED: Balance = collectives_polkadot_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	pub const ED: Balance = parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = collectives_polkadot_runtime::RuntimeGenesisConfig {
@@ -921,7 +920,7 @@ pub mod collectives {
 pub mod bridge_hub_kusama {
 	use super::*;
 	pub const PARA_ID: u32 = 1002;
-	pub const ED: Balance = bridge_hub_kusama_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	pub const ED: Balance = parachains_common::kusama::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = bridge_hub_kusama_runtime::RuntimeGenesisConfig {
@@ -978,7 +977,7 @@ pub mod bridge_hub_kusama {
 pub mod bridge_hub_polkadot {
 	use super::*;
 	pub const PARA_ID: u32 = 1002;
-	pub const ED: Balance = bridge_hub_polkadot_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	pub const ED: Balance = parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = bridge_hub_polkadot_runtime::RuntimeGenesisConfig {
@@ -1035,7 +1034,7 @@ pub mod bridge_hub_polkadot {
 pub mod bridge_hub_rococo {
 	use super::*;
 	pub const PARA_ID: u32 = 1013;
-	pub const ED: Balance = bridge_hub_rococo_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	pub const ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = bridge_hub_rococo_runtime::RuntimeGenesisConfig {
