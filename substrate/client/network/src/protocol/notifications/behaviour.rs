@@ -4679,7 +4679,7 @@ mod tests {
 						let event = match swarm_event {
 							FromSwarmE::ConnectionEstablished => {
 								let event = ConnectionEstablished {
-									peer_id: peer_id,
+									peer_id,
 									connection_id: conn,
 									endpoint: &connected,
 									failed_addresses: &[],
@@ -4689,14 +4689,10 @@ mod tests {
 							},
 							FromSwarmE::ConnectionClosed => {
 								let event = ConnectionClosed {
-									peer_id: peer_id,
+									peer_id,
 									connection_id: conn,
 									endpoint: &connected,
-									handler: NotifsHandler::new(
-										peer_id,
-										connected.clone(),
-										vec![],
-									),
+									handler: NotifsHandler::new(peer_id, connected.clone(), vec![]),
 									remaining_established: 0usize,
 								};
 								FromSwarm::ConnectionClosed(event)
@@ -4915,7 +4911,7 @@ mod tests {
 							.collect();
 						for entry_before in entries_before.iter().cloned() {
 							if matches!(entry_before, None) {
-								// every event requires an entry with peer_id
+								// every event requires an entry with peer_id/set_id
 								continue 'actions
 							};
 							let _entry_before = entry_before.unwrap();
@@ -4941,14 +4937,74 @@ mod tests {
 									todo!("add support for OpenResultOk")
 								},
 							}
+						}
 
-							// todo precheck
-							notif.on_connection_handler_event(peer_id, conn, event.clone());
-							let _entries_after: Vec<_> = (0..notif.notif_protocols.len())
-								.map(SetId::from)
-								.map(|set_id| notif.peers.get(&(peer_id, set_id)).cloned())
-								.collect();
-							// todo postcheck
+						// todo precheck
+						notif.on_connection_handler_event(peer_id, conn, event.clone());
+						let entries_after: Vec<_> = (0..notif.notif_protocols.len())
+							.map(SetId::from)
+							.map(|set_id| notif.peers.get(&(peer_id, set_id)).cloned())
+							.collect();
+						// todo postcheck
+						for (entry_before, entry_after) in
+							entries_before.into_iter().zip(entries_after)
+						{
+							let entry_before = entry_before
+								.expect("every event must be called on an existing entry");
+							match &event {
+								NotifsHandlerOut::OpenDesiredByRemote { protocol_index } => {
+									let _ = protocol_index;
+									let entry_after = entry_after.unwrap();
+									match entry_before {
+										PeerState::Enabled { .. } => {
+											assert!(matches!(
+												entry_after,
+												PeerState::Enabled { .. }
+											));
+										},
+										PeerState::Incoming { .. } => {
+											assert!(matches!(
+												entry_after,
+												PeerState::Incoming { .. }
+											));
+										},
+										PeerState::Disabled { .. } => {
+											assert!(matches!(
+												entry_after,
+												PeerState::Disabled { .. } |
+													PeerState::Incoming { .. }
+											));
+										},
+										PeerState::DisabledPendingEnable { .. } => {
+											assert!(matches!(
+												entry_after,
+												PeerState::Enabled { .. } |
+													PeerState::DisabledPendingEnable { .. }
+											));
+										},
+										_ => {
+											unreachable!("no such state is possible")
+										},
+									}
+								},
+								NotifsHandlerOut::CloseDesired { protocol_index } => {
+									let _ = protocol_index;
+								},
+								NotifsHandlerOut::CloseResult { protocol_index } => {
+									let _ = protocol_index;
+								},
+								// TODO OpenResultOk
+								NotifsHandlerOut::OpenResultErr { protocol_index } => {
+									let _ = protocol_index;
+								},
+								NotifsHandlerOut::Notification { protocol_index, message } => {
+									let _ = protocol_index;
+									let _ = message;
+								},
+								_ => {
+									todo!("add support for OpenResultOk")
+								},
+							}
 						}
 					},
 				}
