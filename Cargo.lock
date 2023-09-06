@@ -4882,6 +4882,18 @@ dependencies = [
 
 [[package]]
 name = "expander"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3774182a5df13c3d1690311ad32fbe913feef26baba609fa2dd5f72042bd2ab6"
+dependencies = [
+ "blake2",
+ "fs-err",
+ "proc-macro2",
+ "quote",
+]
+
+[[package]]
+name = "expander"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f86a749cf851891866c10515ef6c299b5c69661465e9c3bbe7e07a2b77fb0f7"
@@ -6930,15 +6942,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "layout-rs"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1164ef87cb9607c2d887216eca79f0fc92895affe1789bba805dd38d829584e0"
-dependencies = [
- "log",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8753,9 +8756,9 @@ checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
 name = "orchestra"
-version = "0.3.3"
+version = "0.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46d78e1deb2a8d54fc1f063a544130db4da31dfe4d5d3b493186424910222a76"
+checksum = "227585216d05ba65c7ab0a0450a3cf2cbd81a98862a54c4df8e14d5ac6adb015"
 dependencies = [
  "async-trait",
  "dyn-clonable",
@@ -8770,16 +8773,12 @@ dependencies = [
 
 [[package]]
 name = "orchestra-proc-macro"
-version = "0.3.3"
+version = "0.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d035b1f968d91a826f2e34a9d6d02cb2af5aa7ca39ebd27922d850ab4b2dd2c6"
+checksum = "2871aadd82a2c216ee68a69837a526dfe788ecbe74c4c5038a6acdbff6653066"
 dependencies = [
- "anyhow",
- "expander 2.0.0",
- "fs-err",
- "indexmap 2.0.0",
- "itertools 0.11.0",
- "layout-rs",
+ "expander 0.0.6",
+ "itertools 0.10.5",
  "petgraph",
  "proc-macro-crate",
  "proc-macro2",
@@ -13376,9 +13375,9 @@ dependencies = [
 
 [[package]]
 name = "prioritized-metered-channel"
-version = "0.5.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e99f0c89bd88f393aab44a4ab949351f7bc7e7e1179d11ecbfe50cbe4c47e342"
+checksum = "382698e48a268c832d0b181ed438374a6bb708a82a8ca273bb0f61c74cf209c4"
 dependencies = [
  "coarsetime",
  "crossbeam-queue",
