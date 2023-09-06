@@ -199,7 +199,7 @@ impl From<i32> for Id {
 	}
 }
 
-// System parachain ID is considered `< 2000`
+// System parachain ID is considered `< 2000`.
 const SYSTEM_INDEX_END: u32 = 1999;
 const PUBLIC_INDEX_START: u32 = 2000;
 
