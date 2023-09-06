@@ -143,6 +143,7 @@ mod tests {
 		type SS58Prefix = ();
 		type OnSetCode = ();
 		type MaxConsumers = ConstU32<16>;
+		type RuntimeTask = RuntimeTask;
 	}
 
 	impl pallet::Config for Test {

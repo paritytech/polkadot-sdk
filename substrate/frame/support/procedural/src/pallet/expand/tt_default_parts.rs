@@ -31,6 +31,19 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 
 	let call_part = def.call.as_ref().map(|_| quote::quote!(Call,));
 
+	// TODO: maybe allow `task_enum: Option<ItemEnum>` to sit on `Def` itself?
+	let task_part = def.item.content.as_ref().and_then(|(_, items)| {
+		items.iter().find_map(|item| {
+			if let syn::Item::Enum(item_enum) = item {
+				if item_enum.ident == "Task" {
+					println!("found task enum in tt_default_parts!");
+					return Some(item_enum)
+				}
+			}
+			None
+		})
+	});
+
 	let storage_part = (!def.storages.is_empty()).then(|| quote::quote!(Storage,));
 
 	let event_part = def.event.as_ref().map(|event| {
@@ -101,7 +114,7 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 					tokens = [{
 						expanded::{
 							Pallet, #call_part #storage_part #event_part #error_part #origin_part #config_part
-							#inherent_part #validate_unsigned_part #freeze_reason_part
+							#inherent_part #validate_unsigned_part #freeze_reason_part #task_part
 							#hold_reason_part #lock_id_part #slash_reason_part
 						}
 					}]

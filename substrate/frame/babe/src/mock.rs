@@ -71,6 +71,7 @@ impl frame_system::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type Hash = H256;
 	type Version = ();
 	type Hashing = sp_runtime::traits::BlakeTwo256;
@@ -139,6 +140,7 @@ impl pallet_balances::Config for Test {
 	type Balance = u128;
 	type DustRemoval = ();
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeTask = RuntimeTask;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 	type WeightInfo = ();

@@ -646,7 +646,6 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// ```
 ///
 /// where `TestDefaultConfig` was defined and registered as follows:
-///
 /// ```ignore
 /// pub struct TestDefaultConfig;
 ///
@@ -673,7 +672,6 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// ```
 ///
 /// The above call to `derive_impl` would expand to roughly the following:
-///
 /// ```ignore
 /// impl frame_system::Config for Test {
 ///     use frame_system::config_preludes::TestDefaultConfig;
@@ -876,12 +874,14 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	let item = syn::parse_macro_input!(item as TraitItemType);
 	if item.ident != "RuntimeCall" &&
 		item.ident != "RuntimeEvent" &&
+		item.ident != "RuntimeTask" &&
 		item.ident != "RuntimeOrigin" &&
 		item.ident != "PalletInfo"
 	{
 		return syn::Error::new_spanned(
 			item,
-			"`#[inject_runtime_type]` can only be attached to `RuntimeCall`, `RuntimeEvent`, `RuntimeOrigin` or `PalletInfo`",
+			"`#[inject_runtime_type]` can only be attached to `RuntimeCall`, `RuntimeEvent`, \
+			`RuntimeTask`, `RuntimeOrigin` or `PalletInfo`",
 		)
 		.to_compile_error()
 		.into();

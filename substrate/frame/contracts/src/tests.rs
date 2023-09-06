@@ -340,6 +340,7 @@ impl frame_system::Config for Test {
 	type Nonce = u64;
 	type Hash = H256;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
@@ -363,6 +364,7 @@ impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type Balance = u64;
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeTask = RuntimeTask;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;

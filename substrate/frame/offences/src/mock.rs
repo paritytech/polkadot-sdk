@@ -82,6 +82,7 @@ impl frame_system::Config for Runtime {
 	type DbWeight = RocksDbWeight;
 	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;
+	type RuntimeTask = RuntimeTask;
 	type RuntimeCall = RuntimeCall;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;

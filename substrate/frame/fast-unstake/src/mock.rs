@@ -52,6 +52,7 @@ impl frame_system::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = Nonce;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type Hash = sp_core::H256;
 	type Hashing = sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
@@ -87,6 +88,7 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeTask = RuntimeTask;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;

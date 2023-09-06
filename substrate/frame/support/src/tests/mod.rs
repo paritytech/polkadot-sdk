@@ -49,6 +49,8 @@ pub mod frame_system {
 			type RuntimeCall = ();
 			#[inject_runtime_type]
 			type PalletInfo = ();
+			#[inject_runtime_type]
+			type RuntimeTask = ();
 			type DbWeight = ();
 		}
 	}
@@ -68,6 +70,8 @@ pub mod frame_system {
 		type RuntimeOrigin;
 		#[pallet::no_default_bounds]
 		type RuntimeCall;
+		#[pallet::no_default_bounds]
+		type RuntimeTask;
 		#[pallet::no_default_bounds]
 		type PalletInfo: crate::traits::PalletInfo;
 		type DbWeight: Get<crate::weights::RuntimeDbWeight>;
@@ -196,6 +200,7 @@ crate::construct_runtime!(
 impl Config for Runtime {
 	type Block = Block;
 	type AccountId = AccountId;
+	type RuntimeTask = RuntimeTask;
 }
 
 fn new_test_ext() -> TestExternalities {

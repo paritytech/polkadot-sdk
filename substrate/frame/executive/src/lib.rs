@@ -872,6 +872,7 @@ mod tests {
 		type RuntimeOrigin = RuntimeOrigin;
 		type Nonce = u64;
 		type RuntimeCall = RuntimeCall;
+		type RuntimeTask = RuntimeTask;
 		type Hash = sp_core::H256;
 		type Hashing = BlakeTwo256;
 		type AccountId = u64;
@@ -905,6 +906,7 @@ mod tests {
 		type MaxFreezes = ConstU32<1>;
 		type RuntimeHoldReason = ();
 		type MaxHolds = ConstU32<1>;
+		type RuntimeTask = RuntimeTask;
 	}
 
 	parameter_types! {

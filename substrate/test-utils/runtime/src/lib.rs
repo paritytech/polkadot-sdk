@@ -349,6 +349,7 @@ impl frame_system::pallet::Config for Runtime {
 	type BlockLength = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type Nonce = Nonce;
 	type Hash = H256;
 	type Hashing = Hashing;
@@ -391,6 +392,7 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type DustRemoval = ();
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeTask = RuntimeTask;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;

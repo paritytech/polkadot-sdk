@@ -53,6 +53,7 @@ impl frame_system::Config for Test {
 	type Nonce = u64;
 	type Hash = H256;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type Hashing = BlakeTwo256;
 	type AccountId = u64;
 	type Lookup = IdentityLookup<Self::AccountId>;
@@ -84,6 +85,7 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type MaxHolds = ();
+	type RuntimeTask = RuntimeTask;
 }
 
 impl pallet_preimage::Config for Test {

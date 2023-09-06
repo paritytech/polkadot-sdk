@@ -53,6 +53,7 @@ impl frame_system::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;
 	type Hash = H256;
+	type RuntimeTask = RuntimeTask;
 	type RuntimeCall = RuntimeCall;
 	type Hashing = BlakeTwo256;
 	type AccountId = u64;
@@ -85,6 +86,7 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type MaxHolds = ();
+	type RuntimeTask = RuntimeTask;
 }
 
 impl Config for Test {

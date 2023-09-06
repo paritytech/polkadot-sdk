@@ -69,6 +69,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+	type RuntimeTask = RuntimeTask;
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]

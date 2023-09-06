@@ -87,6 +87,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
+use tasks_example;
 
 #[cfg(any(feature = "std", test))]
 pub use frame_system::Call as SystemCall;
@@ -287,6 +288,7 @@ impl frame_system::Config for Runtime {
 	type DbWeight = RocksDbWeight;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type Nonce = Nonce;
 	type Hash = Hash;
 	type Hashing = BlakeTwo256;
@@ -307,6 +309,11 @@ impl frame_system::Config for Runtime {
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
+
+impl tasks_example::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeTask = RuntimeTask;
+}
 
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -512,6 +519,7 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type DustRemoval = ();
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeTask = RuntimeTask;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = frame_system::Pallet<Runtime>;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
@@ -2171,6 +2179,7 @@ mod benches {
 		[pallet_conviction_voting, ConvictionVoting]
 		[pallet_contracts, Contracts]
 		[pallet_core_fellowship, CoreFellowship]
+		[tasks_example, TasksExample]
 		[pallet_democracy, Democracy]
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]

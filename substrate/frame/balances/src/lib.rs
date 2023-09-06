@@ -249,6 +249,10 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		/// The overarching task type.
+		#[pallet::no_default]
+		type RuntimeTask: AggregatedTask;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 

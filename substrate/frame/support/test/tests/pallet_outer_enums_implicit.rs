@@ -32,6 +32,7 @@ impl frame_system::Config for Runtime {
 	type BlockHashCount = ConstU32<10>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type RuntimeEvent = RuntimeEvent;
 	type PalletInfo = PalletInfo;
 	type OnSetCode = ();
@@ -90,6 +91,8 @@ fn module_error_outer_enum_expand_implicit() {
 			frame_system::Error::NonDefaultComposite => (),
 			frame_system::Error::NonZeroRefCount => (),
 			frame_system::Error::CallFiltered => (),
+			frame_system::Error::InvalidTask => (),
+			frame_system::Error::FailedTask => (),
 			frame_system::Error::__Ignore(_, _) => (),
 		},
 

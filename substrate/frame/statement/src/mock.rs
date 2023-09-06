@@ -53,6 +53,7 @@ impl frame_system::Config for Test {
 	type BlockLength = ();
 	type DbWeight = RocksDbWeight;
 	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeTask = RuntimeTask;
 	type RuntimeCall = RuntimeCall;
 	type Nonce = u64;
 	type Hash = H256;
@@ -87,6 +88,7 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxHolds = ();
+	type RuntimeTask = RuntimeTask;
 }
 
 ord_parameter_types! {

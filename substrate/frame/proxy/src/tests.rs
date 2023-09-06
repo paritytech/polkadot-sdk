@@ -48,6 +48,7 @@ impl frame_system::Config for Test {
 	type BlockHashCount = ConstU64<250>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type RuntimeEvent = RuntimeEvent;
 	type PalletInfo = PalletInfo;
 	type OnSetCode = ();
@@ -64,6 +65,7 @@ impl pallet_balances::Config for Test {
 	type DustRemoval = ();
 	type AccountStore = System;
 	type ExistentialDeposit = ConstU64<1>;
+	type RuntimeTask = RuntimeTask;
 }
 
 impl pallet_utility::Config for Test {

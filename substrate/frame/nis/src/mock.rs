@@ -56,6 +56,7 @@ impl frame_system::Config for Test {
 	type BlockLength = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type Nonce = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
@@ -90,6 +91,7 @@ impl pallet_balances::Config<Instance1> for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxHolds = ConstU32<1>;
+	type RuntimeTask = RuntimeTask;
 }
 
 impl pallet_balances::Config<Instance2> for Test {
@@ -110,6 +112,7 @@ impl pallet_balances::Config<Instance2> for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type MaxHolds = ();
+	type RuntimeTask = RuntimeTask;
 }
 
 parameter_types! {

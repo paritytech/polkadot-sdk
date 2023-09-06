@@ -1086,6 +1086,7 @@ mod mock {
 		type BlockWeights = ();
 		type BlockLength = ();
 		type RuntimeOrigin = RuntimeOrigin;
+		type RuntimeTask = RuntimeTask;
 		type RuntimeCall = RuntimeCall;
 		type Nonce = u64;
 		type Hash = H256;
@@ -1127,6 +1128,7 @@ mod mock {
 		type MaxFreezes = ();
 		type RuntimeHoldReason = ();
 		type MaxHolds = ();
+		type RuntimeTask = RuntimeTask;
 	}
 
 	/// Test only Weights for state migration.

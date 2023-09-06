@@ -42,6 +42,7 @@ impl frame_system::Config for Test {
 	type DbWeight = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type Nonce = u64;
 	type Hash = H256;
 	type Hashing = ::sp_runtime::traits::BlakeTwo256;
@@ -75,6 +76,7 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type MaxHolds = ();
+	type RuntimeTask = RuntimeTask;
 }
 
 impl Config for Test {

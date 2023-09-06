@@ -94,6 +94,7 @@ impl frame_system::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type Hash = H256;
 	type Hashing = ::sp_runtime::traits::BlakeTwo256;
 	type AccountId = u64;
@@ -135,6 +136,7 @@ impl Config for Test {
 	type FreezeIdentifier = TestId;
 	type MaxFreezes = ConstU32<2>;
 	type MaxHolds = ConstU32<2>;
+	type RuntimeTask = RuntimeTask;
 }
 
 #[derive(Clone)]

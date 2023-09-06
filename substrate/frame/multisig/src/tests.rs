@@ -44,6 +44,7 @@ impl frame_system::Config for Test {
 	type Block = Block;
 	type BlockHashCount = ConstU32<250>;
 	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeTask = RuntimeTask;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type BaseCallFilter = TestBaseCallFilter;
@@ -61,6 +62,7 @@ impl pallet_balances::Config for Test {
 	type DustRemoval = ();
 	type AccountStore = System;
 	type ExistentialDeposit = ConstU64<1>;
+	type RuntimeTask = RuntimeTask;
 }
 
 pub struct TestBaseCallFilter;

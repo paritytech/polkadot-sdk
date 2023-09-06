@@ -92,6 +92,7 @@ impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type RuntimeEvent = RuntimeEvent;
 	type PalletInfo = PalletInfo;
 	type OnSetCode = ();
@@ -115,6 +116,7 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeTask = RuntimeTask;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
