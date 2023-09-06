@@ -4951,10 +4951,10 @@ mod tests {
 						{
 							let entry_before = entry_before
 								.expect("every event must be called on an existing entry");
+							let entry_after = entry_after.unwrap();
 							match &event {
 								NotifsHandlerOut::OpenDesiredByRemote { protocol_index } => {
 									let _ = protocol_index;
-									let entry_after = entry_after.unwrap();
 									match entry_before {
 										PeerState::Enabled { .. } => {
 											assert!(matches!(
@@ -4989,20 +4989,91 @@ mod tests {
 								},
 								NotifsHandlerOut::CloseDesired { protocol_index } => {
 									let _ = protocol_index;
+									match entry_before {
+										PeerState::Enabled { .. } => {
+											assert!(matches!(
+												entry_after,
+												PeerState::Backoff { .. } |
+													PeerState::Disabled { .. } | PeerState::Enabled { .. }
+											));
+										},
+										PeerState::Disabled { .. } => {
+											assert!(matches!(
+												entry_after,
+												PeerState::Disabled { .. }
+											));
+										},
+										PeerState::DisabledPendingEnable { .. } => {
+											assert!(matches!(
+												entry_after,
+												PeerState::DisabledPendingEnable { .. }
+											));
+										},
+										_ => {
+											unreachable!("no such state is possible")
+										},
+									}
 								},
 								NotifsHandlerOut::CloseResult { protocol_index } => {
 									let _ = protocol_index;
+									match entry_before {
+										PeerState::Incoming { .. } |
+										PeerState::DisabledPendingEnable { .. } |
+										PeerState::Disabled { .. } |
+										PeerState::Enabled { .. } => {
+											assert!(matches!(entry_after, PeerState::Poisoned));
+											// TODO check connection state is
+											// ConnectionState::Closed
+										},
+										_ => {
+											unreachable!("no such state is possible")
+										},
+									}
 								},
-								// TODO OpenResultOk
+								NotifsHandlerOut::OpenResultOk { protocol_index, .. } => {
+									let _ = protocol_index;
+									// TODO
+								},
 								NotifsHandlerOut::OpenResultErr { protocol_index } => {
 									let _ = protocol_index;
+									match entry_before {
+										PeerState::Enabled { .. } => {
+											assert!(matches!(
+												entry_after,
+												PeerState::Disabled { .. } |
+													PeerState::Enabled { .. }
+											));
+										},
+										PeerState::Disabled { .. } => {
+											// same state
+											assert!(matches!(
+												entry_after,
+												PeerState::Disabled { .. }
+											));
+										},
+										PeerState::Incoming { .. } => {
+											// same state
+											assert!(matches!(
+												entry_after,
+												PeerState::Incoming { .. }
+											));
+										},
+										PeerState::DisabledPendingEnable { .. } => {
+											// same state
+											assert!(matches!(
+												entry_after,
+												PeerState::DisabledPendingEnable { .. }
+											));
+										},
+										_ => {
+											unreachable!("no such state is possible")
+										},
+									}
 								},
 								NotifsHandlerOut::Notification { protocol_index, message } => {
 									let _ = protocol_index;
 									let _ = message;
-								},
-								_ => {
-									todo!("add support for OpenResultOk")
+									// TODO check connection state is ConnectionState::Open(s)
 								},
 							}
 						}
