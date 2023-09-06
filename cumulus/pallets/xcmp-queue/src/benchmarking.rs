@@ -34,12 +34,12 @@ mod benchmarks {
 	#[benchmark]
 	fn set_config_with_u32() {
 		#[extrinsic_call]
-		Pallet::<T>::update_resume_threshold(RawOrigin::Root, 100);
+		Pallet::<T>::update_resume_threshold(RawOrigin::Root, 1);
 	}
 
 	#[benchmark]
 	fn enqueue_xcmp_message() {
-		assert!(QueueConfig::<T>::get().drop_threshold > 1000);
+		assert!(QueueConfig::<T>::get().drop_threshold * MaxXcmpMessageLenOf::<T>::get() > 1000);
 		let msg = BoundedVec::<u8, MaxXcmpMessageLenOf<T>>::default();
 
 		#[block]
@@ -94,7 +94,8 @@ mod benchmarks {
 		let max_downward_message_size = MaxXcmpMessageLenOf::<T>::get() as usize;
 
 		// Assumes `xcm::MAX_INSTRUCTIONS_TO_DECODE`: 100
-		let mut xcm = Xcm::<T>(vec![ClearOrigin; 100]);
+		let max_instrs = 100 - MAX_XCM_DECODE_DEPTH;
+		let mut xcm = Xcm::<T>(vec![ClearOrigin; max_instrs as usize]);
 
 		for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
 			xcm = Xcm::<T>(vec![Instruction::SetAppendix(xcm)]);
