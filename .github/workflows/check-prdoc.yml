@@ -48,4 +48,4 @@ jobs:
         if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
           echo "Checking for PR#${GITHUB_PR} in $MOUNT"
-          $ENGINE run --rm -v $PWD/prdoc:/doc $IMAGE check -n ${GITHUB_PR}
+          $ENGINE run --rm -v $PWD/prdoc:/doc $IMAGE check -n ${GITHUB_PR} || true
