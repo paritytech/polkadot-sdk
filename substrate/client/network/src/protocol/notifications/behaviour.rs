@@ -4679,7 +4679,7 @@ mod tests {
 						let event = match swarm_event {
 							FromSwarmE::ConnectionEstablished => {
 								let event = ConnectionEstablished {
-									peer_id: peer_id.clone(),
+									peer_id: peer_id,
 									connection_id: conn,
 									endpoint: &connected,
 									failed_addresses: &[],
@@ -4689,11 +4689,11 @@ mod tests {
 							},
 							FromSwarmE::ConnectionClosed => {
 								let event = ConnectionClosed {
-									peer_id: peer_id.clone(),
+									peer_id: peer_id,
 									connection_id: conn,
 									endpoint: &connected,
 									handler: NotifsHandler::new(
-										peer_id.clone(),
+										peer_id,
 										connected.clone(),
 										vec![],
 									),
@@ -4703,7 +4703,7 @@ mod tests {
 							},
 							FromSwarmE::DialFailure => {
 								let event = DialFailure {
-									peer_id: Some(peer_id.clone()),
+									peer_id: Some(peer_id),
 									error: &libp2p::swarm::DialError::Banned,
 									connection_id: conn,
 								};
@@ -4918,7 +4918,7 @@ mod tests {
 								// every event requires an entry with peer_id
 								continue 'actions
 							};
-							let entry_before = entry_before.unwrap();
+							let _entry_before = entry_before.unwrap();
 							match &event {
 								NotifsHandlerOut::OpenDesiredByRemote { protocol_index } => {
 									let _ = protocol_index;
@@ -4944,7 +4944,7 @@ mod tests {
 
 							// todo precheck
 							notif.on_connection_handler_event(peer_id, conn, event.clone());
-							let entries_after: Vec<_> = (0..notif.notif_protocols.len())
+							let _entries_after: Vec<_> = (0..notif.notif_protocols.len())
 								.map(SetId::from)
 								.map(|set_id| notif.peers.get(&(peer_id, set_id)).cloned())
 								.collect();
