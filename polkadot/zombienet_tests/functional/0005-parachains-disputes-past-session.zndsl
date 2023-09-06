@@ -32,7 +32,7 @@ honest-flaky-validator-1: reports parachain_candidate_disputes_total is at least
 honest-flaky-validator-1: pause
 
 # Wait for 1 full session to pass after the last unconcluded dispute.
-sleep 120 seconds
+sleep 110 seconds
 
 # Now resume flaky validators
 honest-flaky-validator: resume
