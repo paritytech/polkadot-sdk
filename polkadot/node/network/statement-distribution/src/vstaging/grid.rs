@@ -2273,7 +2273,7 @@ mod tests {
 			Some(v),
 		)).collect::<Vec<_>>();
 
-		let mut pairwise_check_topologies = |i, j| {
+		let pairwise_check_topologies = |i, j| {
 			let v_i = ValidatorIndex(i);
 			let v_j = ValidatorIndex(j);
 
