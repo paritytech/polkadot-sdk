@@ -47,7 +47,8 @@ where
 		Some(msg)
 	}
 
-	/// Specifies if we need to replace some outgoing message with another (potentially empty) message
+	/// Specifies if we need to replace some outgoing message with another (potentially empty)
+	/// message
 	fn need_intercept_outgoing(
 		&self,
 		_msg: &<Self::Message as overseer::AssociateOutgoing>::OutgoingMessages,
