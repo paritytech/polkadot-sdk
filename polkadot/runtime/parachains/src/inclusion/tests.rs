@@ -945,7 +945,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					&[chain_b_assignment.clone()].into_iter().collect(),
+					&[chain_b_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::UnscheduledCandidate
@@ -1000,7 +1000,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed_b, backed_a],
-					&[chain_a_assignment.clone(), chain_b_assignment.clone()].into_iter().collect(),
+					&[chain_a_assignment, chain_b_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::ScheduledOutOfOrder
@@ -1033,7 +1033,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					&[chain_a_assignment.clone()].into_iter().collect(),
+					&[chain_a_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::InsufficientBacking
@@ -1090,7 +1090,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed_b, backed_a],
-					&[chain_a_assignment.clone(), chain_b_assignment.clone()].into_iter().collect(),
+					&[chain_a_assignment, chain_b_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::DisallowedRelayParent
@@ -1128,7 +1128,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					&[thread_a_assignment.clone()].into_iter().collect(),
+					&[thread_a_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::NotCollatorSigned
@@ -1178,7 +1178,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					&[chain_a_assignment.clone()].into_iter().collect(),
+					&[chain_a_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::CandidateScheduledBeforeParaFree
@@ -1218,7 +1218,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					&[chain_a_assignment.clone()].into_iter().collect(),
+					&[chain_a_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::CandidateScheduledBeforeParaFree
@@ -1262,7 +1262,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					&[chain_a_assignment.clone()].into_iter().collect(),
+					&[chain_a_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::PrematureCodeUpgrade
@@ -1296,7 +1296,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					&[chain_a_assignment.clone()].into_iter().collect(),
+					&[chain_a_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Err(Error::<Test>::ValidationDataHashMismatch.into()),
@@ -1331,7 +1331,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					&[chain_a_assignment.clone()].into_iter().collect(),
+					&[chain_a_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::InvalidValidationCodeHash
@@ -1366,7 +1366,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					&[chain_a_assignment.clone()].into_iter().collect(),
+					&[chain_a_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::ParaHeadMismatch
@@ -1526,7 +1526,7 @@ fn backing_works() {
 		} = ParaInclusion::process_candidates(
 			&allowed_relay_parents,
 			backed_candidates.clone(),
-			&[chain_a_assignment.clone(), chain_b_assignment.clone(), thread_a_assignment.clone()]
+			&[chain_a_assignment, chain_b_assignment, thread_a_assignment]
 				.into_iter()
 				.collect(),
 			&group_validators,
@@ -1740,7 +1740,7 @@ fn can_include_candidate_with_ok_code_upgrade() {
 			ParaInclusion::process_candidates(
 				&allowed_relay_parents,
 				vec![backed_a],
-				&[chain_a_assignment.clone()].into_iter().collect(),
+				&[chain_a_assignment].into_iter().collect(),
 				&group_validators,
 			)
 			.expect("candidates scheduled, in order, and backed");
@@ -1951,7 +1951,7 @@ fn check_allowed_relay_parents() {
 		ParaInclusion::process_candidates(
 			&allowed_relay_parents,
 			backed_candidates.clone(),
-			&[chain_a_assignment.clone(), chain_b_assignment.clone(), thread_a_assignment.clone()]
+			&[chain_a_assignment, chain_b_assignment, thread_a_assignment]
 				.into_iter()
 				.collect(),
 			&group_validators,
@@ -2189,7 +2189,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 			ParaInclusion::process_candidates(
 				&allowed_relay_parents,
 				vec![backed_a],
-				&[chain_a_assignment.clone()].into_iter().collect(),
+				&[chain_a_assignment].into_iter().collect(),
 				&group_validators,
 			)
 			.expect("candidates scheduled, in order, and backed");
