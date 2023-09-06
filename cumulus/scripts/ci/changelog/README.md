@@ -61,7 +61,7 @@ all the labels that are used, search for `meta` in the templates. Currently, the
 Note that labels with the same letter are mutually exclusive. A PR should not have both `B0` and `B5`, or both `C1` and
 `C9`. In case of conflicts, the template will decide which label will be considered.
 
-## Dev and debuggin
+## Dev and debugging
 
 ### Hot Reload
 

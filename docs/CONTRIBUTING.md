@@ -80,17 +80,35 @@ Reviews should finish with approval unless there are issues that would result in
 
 The reviewers are also responsible to check:
 
-a) if a changelog is necessary and attached
-
-b) the quality of information in the changelog file
-
-c) the PR has an impact on docs
-
-d) that the docs team was included in the review process of a docs update
+1. if a changelog is necessary and attached
+1. the quality of information in the changelog file
+1. the PR has an impact on docs
+1. that the docs team was included in the review process of a docs update
 
 **Reviews may not be used as an effective veto for a PR because**:
 1. There exists a somewhat cleaner/better/faster way of accomplishing the same feature/fix.
 2. It does not fit well with some other contributors' longer-term vision for the project.
+
+## Documentation
+
+All Pull Requests must contain proper title & description.
+
+Some Pull Requests can be exempt of `prdoc` documentation, those
+must be labelled with
+[`R0-silent`](https://github.com/paritytech/labels/blob/main/ruled_labels/specs_polkadot-sdk.yaml#L89-L91).
+
+Non "silent" PRs must come with documentation in the form of a `.prdoc` file.
+A `.prdoc` documentation is made of a text file (YAML) named `/prdoc/pr_NNNN.prdoc` where `NNNN` is the PR number.
+For convenience, those file can also contain a short description/title: `/prdoc/pr_NNNN_pr-foobar.prdoc`.
+
+The CI automation checks for the presence and validity of a `prdoc` in the `/prdoc` folder.
+Those files need to comply with a specific [schema](https://github.com/paritytech/prdoc/blob/master/schema_user.json). It
+is highly recommended to [make your editor aware](https://github.com/paritytech/prdoc#schemas) of the schema as it is
+self-described and will assist you in writing correct content.
+
+This schema is also embedded in the
+[prdoc](https://github.com/paritytech/prdoc) utility that can also be used to generate and check the validity of a
+`prdoc` locally.
 
 ## Helping out
 
