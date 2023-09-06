@@ -142,3 +142,16 @@ zombienet-cumulus-0007-full_node_warp_sync:
       --local-dir="${LOCAL_DIR}"
       --concurrency=1
       --test="0007-full_node_warp_sync.zndsl"
+
+
+zombienet-cumulus-0008-parachain_extrinsic_gets_finalized:
+  extends:
+    - .zombienet-cumulus-common
+    - .zombienet-refs
+    - .zombienet-before-script
+    - .zombienet-after-script
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}"
+      --concurrency=1
+      --test="0008-parachain_extrinsic_gets_finalized.zndsl"
