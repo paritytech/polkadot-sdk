@@ -1,12 +1,11 @@
+# Shell completion
 
-== Shell completion
-
-The Substrate cli command supports shell auto-completion. For this to work, you will need to run the completion script matching your build and system.
+The Substrate cli command supports shell auto-completion. For this to work, you will need to run the
+completion script matching your build and system.
 
 Assuming you built a release version using `cargo build --release` and use `bash` run the following:
 
-[source, shell]
-source target/release/completion-scripts/substrate.bash
+`source target/release/completion-scripts/substrate.bash`
 
 You can find completion scripts for:
 - bash
@@ -17,25 +16,19 @@ You can find completion scripts for:
 
 To make this change persistent, you can proceed as follows:
 
-.First install
-
-[source, shell]
-----
+```shell
 COMPL_DIR=$HOME/.completion
 mkdir -p $COMPL_DIR
 cp -f target/release/completion-scripts/substrate.bash $COMPL_DIR/
 echo "source $COMPL_DIR/substrate.bash" >> $HOME/.bash_profile
 source $HOME/.bash_profile
-----
-
-.Update
+```
 
 When you build a new version of Substrate, the following will ensure your auto-completion script matches the current binary:
 
-[source, shell]
-----
+```shell
 COMPL_DIR=$HOME/.completion
 mkdir -p $COMPL_DIR
 cp -f target/release/completion-scripts/substrate.bash $COMPL_DIR/
 source $HOME/.bash_profile
-----
+```
