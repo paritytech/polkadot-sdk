@@ -60,3 +60,36 @@ pub(crate) fn assert_matches_reserve_asset_deposited_instructions<RuntimeCall>(
 		})
 		.expect("expected instruction DepositAsset");
 }
+
+/// Helper function to verify `xcm` contains all relevant instructions expected on destination
+/// chain as part of a reserve-asset-withdrawal.
+pub(crate) fn assert_matches_reserve_assets_withdrawal_instructions<RuntimeCall>(
+	xcm: &mut Xcm<RuntimeCall>,
+	expected_reserve_assets: &MultiAssets,
+	expected_beneficiary: &MultiLocation,
+) {
+	let _ = xcm
+		.0
+		.matcher()
+		.match_next_inst(|instr| match instr {
+			WithdrawAsset(reserve_assets) if reserve_assets == expected_reserve_assets => Ok(()),
+			_ => Err(ProcessMessageError::BadFormat),
+		})
+		.expect("expected instruction WithdrawAsset for reserve asset")
+		.match_next_inst(|instr| match instr {
+			ClearOrigin => Ok(()),
+			_ => Err(ProcessMessageError::BadFormat),
+		})
+		.expect("expected instruction ClearOrigin")
+		.match_next_inst(|instr| match instr {
+			BuyExecution { .. } => Ok(()),
+			_ => Err(ProcessMessageError::BadFormat),
+		})
+		.expect("expected instruction BuyExecution")
+		.match_next_inst(|instr| match instr {
+			DepositAsset { assets: _, beneficiary } if beneficiary == expected_beneficiary =>
+				Ok(()),
+			_ => Err(ProcessMessageError::BadFormat),
+		})
+		.expect("expected instruction DepositAsset");
+}

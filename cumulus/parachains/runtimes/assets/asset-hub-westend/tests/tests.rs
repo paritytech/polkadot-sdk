@@ -695,3 +695,33 @@ fn reserve_transfer_native_asset_works() {
 		WeightLimit::Unlimited,
 	);
 }
+
+#[test]
+fn reserve_withdraw_foreign_asset_works() {
+	asset_test_utils::test_cases::reserve_withdraw_foreign_asset_works::<
+		Runtime,
+		AllPalletsWithoutSystem,
+		XcmConfig,
+		ForeignAssetsInstance,
+		ParachainSystem,
+		XcmpQueue,
+		LocationToAccountId,
+	>(
+		collator_session_keys(),
+		ExistentialDeposit::get(),
+		AccountId::from(ALICE),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		WeightLimit::Unlimited,
+	);
+}

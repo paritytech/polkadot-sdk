@@ -15,7 +15,10 @@
 
 //! Module contains predefined test-case scenarios for `Runtime` with various assets.
 
-use crate::assert_matches_reserve_asset_deposited_instructions;
+use crate::{
+	assert_matches_reserve_asset_deposited_instructions,
+	assert_matches_reserve_assets_withdrawal_instructions,
+};
 use codec::Encode;
 use cumulus_primitives_core::XcmpMessageSource;
 use frame_support::{
@@ -1522,6 +1525,233 @@ pub fn reserve_transfer_native_asset_works<
 			assert_matches_reserve_asset_deposited_instructions(
 				&mut xcm_sent,
 				&reserve_assets_deposited,
+				&dest_beneficiary,
+			);
+		})
+}
+
+/// Test-case makes sure that `Runtime` can initiate withdrawal of reserve-based foreign asset
+pub fn reserve_withdraw_foreign_asset_works<
+	Runtime,
+	AllPalletsWithoutSystem,
+	XcmConfig,
+	ForeignAssetsPalletInstance,
+	HrmpChannelOpener,
+	HrmpChannelSource,
+	LocationToAccountId,
+>(
+	collator_session_keys: CollatorSessionKeys<Runtime>,
+	existential_deposit: BalanceOf<Runtime>,
+	alice_account: AccountIdOf<Runtime>,
+	unwrap_pallet_xcm_event: Box<dyn Fn(Vec<u8>) -> Option<pallet_xcm::Event<Runtime>>>,
+	unwrap_xcmp_queue_event: Box<
+		dyn Fn(Vec<u8>) -> Option<cumulus_pallet_xcmp_queue::Event<Runtime>>,
+	>,
+	weight_limit: WeightLimit,
+) where
+	Runtime: frame_system::Config
+		+ pallet_assets::Config<ForeignAssetsPalletInstance>
+		+ pallet_balances::Config
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config
+		+ cumulus_pallet_xcmp_queue::Config,
+	ForeignAssetsPalletInstance: 'static,
+	AllPalletsWithoutSystem:
+		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
+	AccountIdOf<Runtime>: Into<[u8; 32]>,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	BalanceOf<Runtime>: From<Balance>,
+	<Runtime as pallet_balances::Config>::Balance: From<Balance> + Into<u128>,
+	XcmConfig: xcm_executor::Config,
+	LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
+	<Runtime as frame_system::Config>::AccountId:
+		Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
+	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
+		From<<Runtime as frame_system::Config>::AccountId>,
+	<Runtime as frame_system::Config>::AccountId: From<AccountId>,
+	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId: From<MultiLocation>,
+	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
+		From<MultiLocation>,
+	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::Balance:
+		From<Balance> + Into<u128>,
+	HrmpChannelOpener: frame_support::inherent::ProvideInherent<
+		Call = cumulus_pallet_parachain_system::Call<Runtime>,
+	>,
+	HrmpChannelSource: XcmpMessageSource,
+{
+	let runtime_para_id = 1000;
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys.collators())
+		.with_session_keys(collator_session_keys.session_keys())
+		.with_tracing()
+		.with_safe_xcm_version(3)
+		.with_para_id(runtime_para_id.into())
+		.build()
+		.execute_with(|| {
+			let mut alice = [0u8; 32];
+			alice[0] = 1;
+			let included_head = RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::run_to_block(
+				2,
+				AccountId::from(alice).into(),
+			);
+
+			// Let's assume remote parachain (1234) has and acts as a reserve for its own
+			// native asset (`BLA`).
+			// Local AssetHub user Alice has previously received `wBLA` as reserve-based foreign
+			// asset with its reserve on parachain 1234.
+			// Verify Alice can withdraw wBLA here to send BLAs to some beneficiary on para 1234.
+
+			let other_para_id = 1234;
+			let foreign_asset_id = MultiLocation::new(1, X1(Parachain(other_para_id)));
+			let dest = MultiLocation::new(1, X1(Parachain(other_para_id)));
+			let dest_beneficiary = MultiLocation::new(1, X1(Parachain(other_para_id)))
+				.appended_with(AccountId32 {
+					network: None,
+					id: sp_runtime::AccountId32::new([3; 32]).into(),
+				})
+				.unwrap();
+
+			let reserve_account = LocationToAccountId::convert_location(&dest)
+				.expect("Sovereign account for reserves");
+			let balance_to_transfer = 1_000_000_000_000_u128;
+
+			// open HRMP to other parachain
+			mock_open_hrmp_channel::<Runtime, HrmpChannelOpener>(
+				runtime_para_id.into(),
+				other_para_id.into(),
+				included_head,
+				&alice,
+			);
+
+			// drip ED to alice account
+			let _ = <pallet_balances::Pallet<Runtime>>::deposit_creating(
+				&alice_account,
+				existential_deposit,
+			);
+			// SA of target location needs to have at least ED, otherwise making reserve fails
+			let _ = <pallet_balances::Pallet<Runtime>>::deposit_creating(
+				&reserve_account,
+				existential_deposit,
+			);
+			let existential_deposit: u128 = existential_deposit.into();
+
+			// create foreign assets with remote reserve (what we want to test withdraw for)
+			assert_ok!(
+				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::force_create(
+					RuntimeHelper::<Runtime>::root_origin(),
+					foreign_asset_id.into(),
+					reserve_account.clone().into(),
+					false,
+					existential_deposit.into()
+				)
+			);
+			// drip foreign asset to alice
+			assert_ok!(<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::mint(
+				RuntimeHelper::<Runtime>::origin_of(reserve_account.clone()),
+				foreign_asset_id.into(),
+				alice_account.clone().into(),
+				(existential_deposit + balance_to_transfer).into()
+			));
+
+			assert_eq!(
+				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account),
+				existential_deposit.into()
+			);
+			assert_eq!(
+				<pallet_balances::Pallet<Runtime>>::free_balance(&reserve_account),
+				existential_deposit.into()
+			);
+			assert_eq!(
+				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
+					foreign_asset_id.into(),
+					alice_account.clone()
+				),
+				(existential_deposit + balance_to_transfer).into()
+			);
+
+			// foreign asset to withdraw
+			let asset_to_withdraw = MultiAsset {
+				fun: Fungible(balance_to_transfer.into()),
+				id: Concrete(foreign_asset_id),
+			};
+
+			// pallet_xcm call reserve withdraw
+			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_withdraw_assets(
+				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(alice_account.clone()),
+				Box::new(dest.into_versioned()),
+				Box::new(dest_beneficiary.into_versioned()),
+				Box::new(VersionedMultiAssets::from(MultiAssets::from(asset_to_withdraw))),
+				0,
+				weight_limit,
+			));
+
+			// check alice account (balances not changed)
+			assert_eq!(
+				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account),
+				existential_deposit.into()
+			);
+			// check reserve account (balances not changed)
+			assert_eq!(
+				<pallet_balances::Pallet<Runtime>>::free_balance(&reserve_account),
+				existential_deposit.into()
+			);
+			// `ForeignAssets` for alice account is decreased
+			// TODO:check-parameter: change and assert in tests when (https://github.com/paritytech/polkadot/pull/7005) merged
+			assert_eq!(
+				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
+					foreign_asset_id.into(),
+					alice_account.clone()
+				),
+				existential_deposit.into()
+			);
+
+			// check events
+			// check pallet_xcm attempted
+			RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::assert_pallet_xcm_event_outcome(
+				&unwrap_pallet_xcm_event,
+				|outcome| {
+					assert_ok!(outcome.ensure_complete());
+				},
+			);
+
+			// check that xcm was sent
+			let xcm_sent_message_hash = <frame_system::Pallet<Runtime>>::events()
+				.into_iter()
+				.filter_map(|e| unwrap_xcmp_queue_event(e.event.encode()))
+				.find_map(|e| match e {
+					cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash } =>
+						Some(message_hash),
+					_ => None,
+				});
+
+			// read xcm
+			let xcm_sent = RuntimeHelper::<HrmpChannelSource, AllPalletsWithoutSystem>::take_xcm(
+				other_para_id.into(),
+			)
+			.unwrap();
+
+			assert_eq!(
+				xcm_sent_message_hash,
+				Some(xcm_sent.using_encoded(sp_io::hashing::blake2_256))
+			);
+			let mut xcm_sent: Xcm<()> = xcm_sent.try_into().expect("versioned xcm");
+
+			// check sent XCM Program to other parachain
+			println!("reserve_withdraw_foreign_asset_works sent xcm: {:?}", xcm_sent);
+
+			// The reserve assets (BLA) as seen by their native parachain.
+			// We expect the destination parachain to execute `WithdrawAsset()` on this.
+			let expected_reanchored_reserve_assets = MultiAssets::from(vec![MultiAsset {
+				id: Concrete(MultiLocation { parents: 0, interior: Here }),
+				fun: Fungible(1000000000000),
+			}]);
+
+			assert_matches_reserve_assets_withdrawal_instructions(
+				&mut xcm_sent,
+				&expected_reanchored_reserve_assets,
 				&dest_beneficiary,
 			);
 		})
