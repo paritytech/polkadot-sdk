@@ -28,10 +28,12 @@ Cargo.toml @paritytech/core-devs
 *.md @paritytech/docs-audit
 
 # CI / Releng
-/.github/ @paritytech/ci @paritytech/release-engineering
+/.github @paritytech/ci @paritytech/release-engineering
 /.gitlab-ci.yml @paritytech/ci
-/.gitlab/ @paritytech/ci
-/scripts/ci/ @paritytech/ci @paritytech/release-engineering
+/.gitlab @paritytech/ci
+/scripts/ci @paritytech/ci @paritytech/release-engineering
+/.config @paritytech/ci
+/.cargo @paritytech/ci
 
 # WASM executor, low-level client <-> WASM interface and other WASM-related code
 /substrate/client/allocator/ @koute
