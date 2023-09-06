@@ -460,10 +460,7 @@ fn send_xcm_nested_works() {
 			XcmpQueue::take_outbound_messages(usize::MAX),
 			vec![(
 				MAGIC_PARA_ID.into(),
-				(
-					XcmpMessageFormat::ConcatenatedVersionedXcm,
-					MaybeDoubleEncodedVersionedXcm(VersionedXcm::V3(good.clone()))
-				)
+				(XcmpMessageFormat::ConcatenatedVersionedXcm, VersionedXcm::V3(good.clone()))
 					.encode(),
 			)]
 		);
@@ -506,9 +503,8 @@ fn hrmp_signals_are_prioritized() {
 
 		// Without a signal we get the messages in order:
 		let mut expected_msg = XcmpMessageFormat::ConcatenatedVersionedXcm.encode();
-		for _ in 0..21 {
-			expected_msg
-				.extend(MaybeDoubleEncodedVersionedXcm(VersionedXcm::V3(message.clone())).encode());
+		for _ in 0..31 {
+			expected_msg.extend(VersionedXcm::V3(message.clone()).encode());
 		}
 
 		experimental_hypothetically!({
