@@ -177,6 +177,7 @@ pub mod v1 {
 	pub fn image_count<T: Config>() -> Option<u32> {
 		// Use iter_values() to ensure that the values are decodable.
 		let images = crate::PreimageFor::<T>::iter_values().count() as u32;
+		#[allow(deprecated)]
 		let status = crate::StatusFor::<T>::iter_values().count() as u32;
 
 		if images == status {
