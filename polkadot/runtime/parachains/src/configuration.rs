@@ -201,7 +201,9 @@ pub struct HostConfiguration<BlockNumber> {
 	///
 	/// Within a group rotation there is no timeout as backers are only affecting themselves.
 	///
-	/// Must be at least 1.
+	/// Must be at least 1. With a value of 1, the previous group will not be able to negatively
+	/// affect the following group at the expense of a tight availability timeline at group
+	/// rotation boundaries.
 	pub paras_availability_period: BlockNumber,
 	/// The amount of blocks ahead to schedule paras.
 	pub scheduling_lookahead: u32,

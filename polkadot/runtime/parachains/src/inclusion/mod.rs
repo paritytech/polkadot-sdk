@@ -22,7 +22,7 @@
 use crate::{
 	configuration::{self, HostConfiguration},
 	disputes, dmp, hrmp, paras,
-	scheduler::{self, CoreAssignment},
+	scheduler::{self, AvailabilityTimeoutStatus},
 	shared::{self, AllowedRelayParentsTracker},
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
@@ -46,7 +46,10 @@ use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
 #[cfg(feature = "std")]
 use sp_std::fmt;
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
+use sp_std::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	prelude::*,
+};
 
 pub use pallet::*;
 
@@ -597,7 +600,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn process_candidates<GV>(
 		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 		candidates: Vec<BackedCandidate<T::Hash>>,
-		scheduled: Vec<CoreAssignment<BlockNumberFor<T>>>,
+		scheduled: &BTreeMap<ParaId, CoreIndex>,
 		group_validators: GV,
 	) -> Result<ProcessedCandidates<T::Hash>, DispatchError>
 	where
@@ -620,20 +623,18 @@ impl<T: Config> Pallet<T> {
 
 		// Do all checks before writing storage.
 		let core_indices_and_backers = {
-			let mut skip = 0;
 			let mut core_indices_and_backers = Vec::with_capacity(candidates.len());
 			let mut last_core = None;
 
-			let mut check_assignment_in_order =
-				|assignment: &CoreAssignment<BlockNumberFor<T>>| -> DispatchResult {
-					ensure!(
-						last_core.map_or(true, |core| assignment.core > core),
-						Error::<T>::ScheduledOutOfOrder,
-					);
+			let mut check_assignment_in_order = |core_idx| -> DispatchResult {
+				ensure!(
+					last_core.map_or(true, |core| core_idx > core),
+					Error::<T>::ScheduledOutOfOrder,
+				);
 
-					last_core = Some(assignment.core);
-					Ok(())
-				};
+				last_core = Some(core_idx);
+				Ok(())
+			};
 
 			// We combine an outer loop over candidates with an inner loop over the scheduled,
 			// where each iteration of the outer loop picks up at the position
@@ -645,9 +646,7 @@ impl<T: Config> Pallet<T> {
 			//
 			// In the meantime, we do certain sanity checks on the candidates and on the scheduled
 			// list.
-			'next_backed_candidate: for (candidate_idx, backed_candidate) in
-				candidates.iter().enumerate()
-			{
+			for (candidate_idx, backed_candidate) in candidates.iter().enumerate() {
 				let relay_parent_hash = backed_candidate.descriptor().relay_parent;
 				let para_id = backed_candidate.descriptor().para_id;
 
@@ -681,108 +680,89 @@ impl<T: Config> Pallet<T> {
 				let para_id = backed_candidate.descriptor().para_id;
 				let mut backers = bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()];
 
-				for (i, core_assignment) in scheduled[skip..].iter().enumerate() {
-					check_assignment_in_order(core_assignment)?;
+				let core_idx = *scheduled.get(&para_id).ok_or(Error::<T>::UnscheduledCandidate)?;
+				check_assignment_in_order(core_idx)?;
+				ensure!(
+					<PendingAvailability<T>>::get(&para_id).is_none() &&
+						<PendingAvailabilityCommitments<T>>::get(&para_id).is_none(),
+					Error::<T>::CandidateScheduledBeforeParaFree,
+				);
 
-					if para_id == core_assignment.paras_entry.para_id() {
-						ensure!(
-							<PendingAvailability<T>>::get(&para_id).is_none() &&
-								<PendingAvailabilityCommitments<T>>::get(&para_id).is_none(),
-							Error::<T>::CandidateScheduledBeforeParaFree,
-						);
+				// The candidate based upon relay parent `N` should be backed by a group
+				// assigned to core at block `N + 1`. Thus, `relay_parent_number + 1`
+				// will always land in the current session.
+				let group_idx = <scheduler::Pallet<T>>::group_assigned_to_core(
+					core_idx,
+					relay_parent_number + One::one(),
+				)
+				.ok_or_else(|| {
+					log::warn!(
+						target: LOG_TARGET,
+						"Failed to compute group index for candidate {}",
+						candidate_idx
+					);
+					Error::<T>::InvalidAssignment
+				})?;
+				let group_vals =
+					group_validators(group_idx).ok_or_else(|| Error::<T>::InvalidGroupIndex)?;
 
-						// account for already skipped, and then skip this one.
-						skip = i + skip + 1;
+				// check the signatures in the backing and that it is a majority.
+				{
+					let maybe_amount_validated = primitives::check_candidate_backing(
+						&backed_candidate,
+						&signing_context,
+						group_vals.len(),
+						|intra_group_vi| {
+							group_vals
+								.get(intra_group_vi)
+								.and_then(|vi| validators.get(vi.0 as usize))
+								.map(|v| v.clone())
+						},
+					);
 
-						// The candidate based upon relay parent `N` should be backed by a group
-						// assigned to core at block `N + 1`. Thus, `relay_parent_number + 1`
-						// will always land in the current session.
-						let group_idx = <scheduler::Pallet<T>>::group_assigned_to_core(
-							core_assignment.core,
-							relay_parent_number + One::one(),
-						)
-						.ok_or_else(|| {
-							log::warn!(
-								target: LOG_TARGET,
-								"Failed to compute group index for candidate {}",
-								candidate_idx
-							);
-							Error::<T>::InvalidAssignment
-						})?;
-						let group_vals = group_validators(group_idx)
-							.ok_or_else(|| Error::<T>::InvalidGroupIndex)?;
-
-						// check the signatures in the backing and that it is a majority.
-						{
-							let maybe_amount_validated = primitives::check_candidate_backing(
-								&backed_candidate,
-								&signing_context,
-								group_vals.len(),
-								|intra_group_vi| {
-									group_vals
-										.get(intra_group_vi)
-										.and_then(|vi| validators.get(vi.0 as usize))
-										.map(|v| v.clone())
-								},
-							);
-
-							match maybe_amount_validated {
-								Ok(amount_validated) => ensure!(
-									amount_validated >=
-										effective_minimum_backing_votes(
-											group_vals.len(),
-											minimum_backing_votes
-										),
-									Error::<T>::InsufficientBacking,
+					match maybe_amount_validated {
+						Ok(amount_validated) => ensure!(
+							amount_validated >=
+								effective_minimum_backing_votes(
+									group_vals.len(),
+									minimum_backing_votes
 								),
-								Err(()) => {
-									Err(Error::<T>::InvalidBacking)?;
-								},
-							}
-
-							let mut backer_idx_and_attestation =
-								Vec::<(ValidatorIndex, ValidityAttestation)>::with_capacity(
-									backed_candidate.validator_indices.count_ones(),
-								);
-							let candidate_receipt = backed_candidate.receipt();
-
-							for ((bit_idx, _), attestation) in backed_candidate
-								.validator_indices
-								.iter()
-								.enumerate()
-								.filter(|(_, signed)| **signed)
-								.zip(backed_candidate.validity_votes.iter().cloned())
-							{
-								let val_idx = group_vals
-									.get(bit_idx)
-									.expect("this query succeeded above; qed");
-								backer_idx_and_attestation.push((*val_idx, attestation));
-
-								backers.set(val_idx.0 as _, true);
-							}
-							candidate_receipt_with_backing_validator_indices
-								.push((candidate_receipt, backer_idx_and_attestation));
-						}
-
-						core_indices_and_backers.push((
-							(core_assignment.core, core_assignment.paras_entry.para_id()),
-							backers,
-							group_idx,
-							relay_parent_number,
-						));
-						continue 'next_backed_candidate
+							Error::<T>::InsufficientBacking,
+						),
+						Err(()) => {
+							Err(Error::<T>::InvalidBacking)?;
+						},
 					}
+
+					let mut backer_idx_and_attestation =
+						Vec::<(ValidatorIndex, ValidityAttestation)>::with_capacity(
+							backed_candidate.validator_indices.count_ones(),
+						);
+					let candidate_receipt = backed_candidate.receipt();
+
+					for ((bit_idx, _), attestation) in backed_candidate
+						.validator_indices
+						.iter()
+						.enumerate()
+						.filter(|(_, signed)| **signed)
+						.zip(backed_candidate.validity_votes.iter().cloned())
+					{
+						let val_idx =
+							group_vals.get(bit_idx).expect("this query succeeded above; qed");
+						backer_idx_and_attestation.push((*val_idx, attestation));
+
+						backers.set(val_idx.0 as _, true);
+					}
+					candidate_receipt_with_backing_validator_indices
+						.push((candidate_receipt, backer_idx_and_attestation));
 				}
 
-				// end of loop reached means that the candidate didn't appear in the non-traversed
-				// section of the `scheduled` slice. either it was not scheduled or didn't appear in
-				// `candidates` in the correct order.
-				ensure!(false, Error::<T>::UnscheduledCandidate);
-			}
-
-			// check remainder of scheduled cores, if any.
-			for assignment in scheduled[skip..].iter() {
-				check_assignment_in_order(assignment)?;
+				core_indices_and_backers.push((
+					(core_idx, para_id),
+					backers,
+					group_idx,
+					relay_parent_number,
+				));
 			}
 
 			core_indices_and_backers
@@ -1043,13 +1023,13 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns a vector of cleaned-up core IDs.
 	pub(crate) fn collect_pending(
-		pred: impl Fn(CoreIndex, BlockNumberFor<T>) -> bool,
+		pred: impl Fn(BlockNumberFor<T>) -> AvailabilityTimeoutStatus<BlockNumberFor<T>>,
 	) -> Vec<CoreIndex> {
 		let mut cleaned_up_ids = Vec::new();
 		let mut cleaned_up_cores = Vec::new();
 
 		for (para_id, pending_record) in <PendingAvailability<T>>::iter() {
-			if pred(pending_record.core, pending_record.backed_in_number) {
+			if pred(pending_record.backed_in_number).timed_out {
 				cleaned_up_ids.push(para_id);
 				cleaned_up_cores.push(pending_record.core);
 			}

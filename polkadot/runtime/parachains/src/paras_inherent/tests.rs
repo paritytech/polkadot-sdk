@@ -953,7 +953,6 @@ mod sanitizers {
 			back_candidate, collator_sign_candidate, BackingKind, TestCandidateBuilder,
 		},
 		mock::{new_test_ext, MockGenesisConfig},
-		scheduler::{common::Assignment, ParasEntry},
 	};
 	use bitvec::order::Lsb0;
 	use primitives::{
@@ -1237,21 +1236,10 @@ mod sanitizers {
 			let has_concluded_invalid =
 				|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
 
-			let entry_ttl = 10_000;
 			let scheduled = (0_usize..2)
 				.into_iter()
-				.map(|idx| {
-					let core_idx = CoreIndex::from(idx as u32);
-					let ca = CoreAssignment {
-						paras_entry: ParasEntry::new(
-							Assignment::new(ParaId::from(1_u32 + idx as u32)),
-							entry_ttl,
-						),
-						core: core_idx,
-					};
-					ca
-				})
-				.collect::<Vec<_>>();
+				.map(|idx| (ParaId::from(1_u32 + idx as u32), CoreIndex::from(idx as u32)))
+				.collect::<BTreeMap<_, _>>();
 
 			let group_validators = |group_index: GroupIndex| {
 				match group_index {
@@ -1302,7 +1290,7 @@ mod sanitizers {
 
 			// nothing is scheduled, so no paraids match, thus all backed candidates are skipped
 			{
-				let scheduled = &Vec::new();
+				let scheduled = &BTreeMap::new();
 				assert!(sanitize_backed_candidates::<Test, _>(
 					backed_candidates.clone(),
 					has_concluded_invalid,

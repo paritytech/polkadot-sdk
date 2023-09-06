@@ -29,7 +29,7 @@ use crate::{
 	initializer,
 	metrics::METRICS,
 	paras,
-	scheduler::{self, CoreAssignment, FreedReason},
+	scheduler::{self, FreedReason},
 	shared, ParaId,
 };
 use bitvec::prelude::BitVec;
@@ -242,8 +242,8 @@ pub mod pallet {
 		T: Config,
 	{
 		// Handle timeouts for any availability core work.
-		let availability_pred = <scheduler::Pallet<T>>::availability_timeout_predicate();
-		let freed_timeout = if let Some(pred) = availability_pred {
+		let freed_timeout = if <scheduler::Pallet<T>>::availability_timeout_check_required() {
+			let pred = <scheduler::Pallet<T>>::availability_timeout_predicate();
 			<inclusion::Pallet<T>>::collect_pending(pred)
 		} else {
 			Vec::new()
@@ -580,7 +580,10 @@ impl<T: Config> Pallet<T> {
 
 		let freed = collect_all_freed_cores::<T, _>(freed_concluded.iter().cloned());
 
-		let scheduled = <scheduler::Pallet<T>>::update_claimqueue(freed, now);
+		<scheduler::Pallet<T>>::update_claimqueue(freed, now);
+		let scheduled = <scheduler::Pallet<T>>::scheduled_paras()
+			.map(|(core_idx, para_id)| (para_id, core_idx))
+			.collect();
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
 
@@ -605,7 +608,7 @@ impl<T: Config> Pallet<T> {
 						.verify_backed_candidate(&allowed_relay_parents, candidate_idx, backed_candidate)
 						.is_err()
 			},
-			&scheduled[..],
+			&scheduled,
 		);
 
 		METRICS.on_candidates_sanitized(backed_candidates.len() as u64);
@@ -617,7 +620,7 @@ impl<T: Config> Pallet<T> {
 		} = <inclusion::Pallet<T>>::process_candidates(
 			&allowed_relay_parents,
 			backed_candidates.clone(),
-			scheduled,
+			&scheduled,
 			<scheduler::Pallet<T>>::group_validators,
 		)?;
 		// Note which of the scheduled cores were actually occupied by a backed candidate.
@@ -914,18 +917,13 @@ fn sanitize_backed_candidates<
 >(
 	mut backed_candidates: Vec<BackedCandidate<T::Hash>>,
 	mut candidate_has_concluded_invalid_dispute_or_is_invalid: F,
-	scheduled: &[CoreAssignment<BlockNumberFor<T>>],
+	scheduled: &BTreeMap<ParaId, CoreIndex>,
 ) -> Vec<BackedCandidate<T::Hash>> {
 	// Remove any candidates that were concluded invalid.
 	// This does not assume sorting.
 	backed_candidates.indexed_retain(move |candidate_idx, backed_candidate| {
 		!candidate_has_concluded_invalid_dispute_or_is_invalid(candidate_idx, backed_candidate)
 	});
-
-	let scheduled_paras_to_core_idx = scheduled
-		.into_iter()
-		.map(|core_assignment| (core_assignment.paras_entry.para_id(), core_assignment.core))
-		.collect::<BTreeMap<ParaId, CoreIndex>>();
 
 	// Assure the backed candidate's `ParaId`'s core is free.
 	// This holds under the assumption that `Scheduler::schedule` is called _before_.
@@ -935,7 +933,7 @@ fn sanitize_backed_candidates<
 	backed_candidates.retain(|backed_candidate| {
 		let desc = backed_candidate.descriptor();
 
-		scheduled_paras_to_core_idx.get(&desc.para_id).is_some()
+		scheduled.get(&desc.para_id).is_some()
 	});
 
 	// Sort the `Vec` last, once there is a guarantee that these
@@ -945,8 +943,7 @@ fn sanitize_backed_candidates<
 	// but also allows this to be done in place.
 	backed_candidates.sort_by(|x, y| {
 		// Never panics, since we filtered all panic arguments out in the previous `fn retain`.
-		scheduled_paras_to_core_idx[&x.descriptor().para_id]
-			.cmp(&scheduled_paras_to_core_idx[&y.descriptor().para_id])
+		scheduled[&x.descriptor().para_id].cmp(&scheduled[&y.descriptor().para_id])
 	});
 
 	backed_candidates
