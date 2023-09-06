@@ -614,7 +614,6 @@ pub mod pallet {
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
-			let mut total_weight = Weight::zero();
 			total_weight.saturating_accrue(Self::enqueue_inbound_downward_messages(
 				relevant_messaging_state.dmq_mqc_head,
 				downward_messages,
