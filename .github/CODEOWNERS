@@ -83,3 +83,7 @@ Cargo.toml @paritytech/core-devs
 /substrate/frame/nomination-pools/ @paritytech/staking-core @paritytech/docs-audit
 /substrate/frame/staking/ @paritytech/staking-core @paritytech/docs-audit
 /substrate/primitives/npos-elections/ @paritytech/staking-core @paritytech/docs-audit
+
+# Cumulus
+/cumulus/xcm/xcm-emulator @nachopal
+/cumulus/parachains/integration-tests @nachopal
