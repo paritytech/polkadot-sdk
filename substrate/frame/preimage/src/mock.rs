@@ -101,8 +101,6 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureSignedBy<One, u64>;
-	type BaseDeposit = ConstU64<2>;
-	type ByteDeposit = ConstU64<1>;
 	type Consideration = HoldConsideration<u64, Balances, (), ConvertDeposit>;
 }
 

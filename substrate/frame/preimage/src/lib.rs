@@ -107,17 +107,12 @@ pub mod pallet {
 		type WeightInfo: weights::WeightInfo;
 
 		/// Currency type for this pallet.
+		// TODO: Remove.
 		type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// An origin that can request a preimage be placed on-chain without a deposit or fee, or
 		/// manage existing preimages.
 		type ManagerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
-		/// The base deposit for placing a preimage on chain.
-		type BaseDeposit: Get<BalanceOf<Self>>;
-
-		/// The per-byte deposit for placing a preimage on chain.
-		type ByteDeposit: Get<BalanceOf<Self>>;
 
 		/// A means of providing some cost while data is stored on-chain.
 		type Consideration: Consideration<Self::AccountId>;
@@ -241,7 +236,9 @@ impl<T: Config> Pallet<T> {
 				let Ok(ticket) =
 					T::Consideration::new(&who, Footprint::from_parts(1, len as usize))
 						.defensive_proof("Unexpected inability to take deposit after unreserved")
-				else { return true };
+				else {
+					return true
+				};
 				RequestStatus::Unrequested { ticket: (who, ticket), len }
 			},
 			OldRequestStatus::Requested { deposit: maybe_deposit, count, len: maybe_len } => {
@@ -252,8 +249,12 @@ impl<T: Config> Pallet<T> {
 					if let Some(len) = maybe_len {
 						let Ok(ticket) =
 							T::Consideration::new(&who, Footprint::from_parts(1, len as usize))
-								.defensive_proof("Unexpected inability to take deposit after unreserved")
-						else { return true };
+								.defensive_proof(
+									"Unexpected inability to take deposit after unreserved",
+								)
+						else {
+							return true
+						};
 						Some((who, ticket))
 					} else {
 						None
