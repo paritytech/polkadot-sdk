@@ -84,7 +84,7 @@ frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-fea
 frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
 hex-literal = { version = "0.4.1" }
 
-runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, features=["experimental"] }
+runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, features = ["experimental"] }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
