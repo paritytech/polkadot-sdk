@@ -176,7 +176,7 @@ jobs:
           ARTIFACTS_FOLDER: ./release-artifacts
           IMAGE_NAME: ${{ env.BINARY }}
           OWNER: ${{ env.DOCKER_OWNER }}
-          DOCKERFILE: docker/polkadot-parachain_injected.Dockerfile
+          DOCKERFILE: docker/polkadot-parachain/polkadot-parachain_injected.Dockerfile
           TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
         run: |
           ls -al

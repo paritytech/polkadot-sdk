@@ -35,7 +35,7 @@ build-push-image-polkadot-parachain-debug:
     - job: build-linux-stable-cumulus
       artifacts: true
   variables:
-    DOCKERFILE: "docker/polkadot-parachain-debug_unsigned_injected.Dockerfile"
+    DOCKERFILE: "docker/polkadot-parachain/polkadot-parachain-debug_unsigned_injected.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/polkadot-parachain-debug"
 
 build-push-image-test-parachain:
@@ -114,7 +114,7 @@ build-push-image-polkadot-debug:
     - job: build-linux-stable
       artifacts: true
   variables:
-    DOCKERFILE: "docker/polkadot_injected_debug.Dockerfile"
+    DOCKERFILE: "docker/polkadot/polkadot_injected_debug.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/polkadot-debug"
 
 build-push-image-colander:
@@ -201,7 +201,7 @@ build-push-image-substrate-pr:
 #     GIT_STRATEGY: none
 #     DOCKER_USER: ${PARITYPR_USER}
 #     DOCKER_PASS: ${PARITYPR_PASS}
-#     # scripts/ci/dockerfiles/polkadot_injected_debug.Dockerfile
+#     # docker/polkadot/polkadot_injected_debug.Dockerfile
 #     DOCKERFILE: polkadot_injected_debug.Dockerfile
 #     IMAGE_NAME: docker.io/paritypr/polkadot-debug
 #   needs:

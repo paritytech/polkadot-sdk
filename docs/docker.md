@@ -144,7 +144,7 @@ There are 3 options to build a Polkadot container image:
 To get up and running with the smallest footprint on your system, you may use an existing Polkadot Container image.
 
 You may also build a Polkadot container image yourself (it takes a while...) using the container specs
-`scripts/ci/dockerfiles/polkadot/polkadot_builder.Dockerfile`.
+`docker/polkadot/polkadot_builder.Dockerfile`.
 
 ### Debian injected
 
