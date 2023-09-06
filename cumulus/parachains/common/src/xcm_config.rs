@@ -89,7 +89,8 @@ impl ContainsPair<MultiAsset, MultiLocation> for ConcreteNativeAssetFromSystem {
 			// The Relay Chain
 			MultiLocation { parents: 1, interior: Here } => true,
 			// System parachain
-			MultiLocation { parents: 1, interior: X1(Parachain(id)) } if *id < 2000 => true,
+			// TODO: reuse SystemParachains matcher when https://github.com/paritytech/polkadot-sdk/pull/1234 is merged
+			MultiLocation { parents: 1, interior: X1(Parachain(id)) } => *id < 2000,
 			// Others
 			_ => false,
 		};
