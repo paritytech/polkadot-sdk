@@ -131,6 +131,7 @@ pallet-vesting = { path = "../../../frame/vesting", default-features = false}
 pallet-whitelist = { path = "../../../frame/whitelist", default-features = false}
 pallet-tx-pause = { path = "../../../frame/tx-pause", default-features = false}
 pallet-safe-mode = { path = "../../../frame/safe-mode", default-features = false}
+tasks-example = { path = "../../../frame/examples/tasks-example", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
