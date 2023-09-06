@@ -16,11 +16,22 @@
 #   eyou can use them for mentioning unlike an email.
 # - The latest matching rule, if multiple, takes precedence.
 
-# CI
+# Top levels
+/docker @paritytech/ci @paritytech/release-engineering
+/prdoc @paritytech/release-engineering
+/docs @paritytech/docs-audit
+/substrate @paritytech/SubstrateTeamLeads
+/polkadot @paritytech/polkadot-review
+/cumulus @paritytech/cumulus-locks-review
+.rustfmt.toml @paritytech/core-devs
+Cargo.toml @paritytech/core-devs
+*.md @paritytech/docs-audit
+
+# CI / Releng
 /.github/ @paritytech/ci @paritytech/release-engineering
 /.gitlab-ci.yml @paritytech/ci
+/.gitlab/ @paritytech/ci
 /scripts/ci/ @paritytech/ci @paritytech/release-engineering
-
 
 # WASM executor, low-level client <-> WASM interface and other WASM-related code
 /substrate/client/allocator/ @koute
