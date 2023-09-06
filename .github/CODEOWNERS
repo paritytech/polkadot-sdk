@@ -21,6 +21,7 @@
 /.config @paritytech/ci
 /.github @paritytech/ci @paritytech/release-engineering
 /.gitlab @paritytech/ci
+/bridges @paritytech/bridges-core
 /cumulus @paritytech/cumulus-locks-review
 /docker @paritytech/ci @paritytech/release-engineering
 /docs @paritytech/docs-audit
