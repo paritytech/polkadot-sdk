@@ -17,23 +17,22 @@
 # - The latest matching rule, if multiple, takes precedence.
 
 # Top levels
-/docker @paritytech/ci @paritytech/release-engineering
-/prdoc @paritytech/release-engineering
-/docs @paritytech/docs-audit
-/substrate @paritytech/SubstrateTeamLeads
-/polkadot @paritytech/polkadot-review
+/.cargo @paritytech/ci
+/.config @paritytech/ci
+/.github @paritytech/ci @paritytech/release-engineering
+/.gitlab @paritytech/ci
 /cumulus @paritytech/cumulus-locks-review
+/docker @paritytech/ci @paritytech/release-engineering
+/docs @paritytech/docs-audit
+/polkadot @paritytech/polkadot-review
+/scripts/ci @paritytech/ci @paritytech/release-engineering
+/substrate @paritytech/SubstrateTeamLeads
+/prdoc @paritytech/release-engineering
+
+.gitlab-ci.yml @paritytech/ci
 .rustfmt.toml @paritytech/core-devs
 Cargo.toml @paritytech/core-devs
 *.md @paritytech/docs-audit
-
-# CI / Releng
-/.github @paritytech/ci @paritytech/release-engineering
-/.gitlab-ci.yml @paritytech/ci
-/.gitlab @paritytech/ci
-/scripts/ci @paritytech/ci @paritytech/release-engineering
-/.config @paritytech/ci
-/.cargo @paritytech/ci
 
 # WASM executor, low-level client <-> WASM interface and other WASM-related code
 /substrate/client/allocator/ @koute
