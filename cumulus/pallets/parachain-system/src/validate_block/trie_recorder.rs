@@ -28,8 +28,10 @@ use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as Heade
 use sp_std::{
 	boxed::Box,
 	cell::{RefCell, RefMut},
+	collections::btree_map::BTreeMap,
 	collections::btree_set::BTreeSet,
 	prelude::*,
+	sync::Arc,
 };
 use sp_trie::{MemoryDB, NodeCodec, StorageProof};
 use trie_db::{Hasher, RecordedForKey, TrieAccess};
@@ -38,18 +40,20 @@ use trie_db::{Hasher, RecordedForKey, TrieAccess};
 pub(crate) struct SizeRecorder<'a, H: Hasher> {
 	seen_nodes: RefMut<'a, BTreeSet<H::Out>>,
 	encoded_size: RefMut<'a, usize>,
+	recorded_keys: RefMut<'a, BTreeMap<Arc<[u8]>, RecordedForKey>>,
 }
 
 impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeRecorder<'a, H> {
 	fn record<'b>(&mut self, access: TrieAccess<'b, H::Out>) {
 		let mut encoded_size_update = 0;
 		match access {
-			TrieAccess::NodeOwned { hash, node_owned } =>
+			TrieAccess::NodeOwned { hash, node_owned } => {
 				if !self.seen_nodes.get(&hash).is_some() {
 					let node = node_owned.to_encoded::<NodeCodec<H>>();
 					encoded_size_update += node.encoded_size();
 					self.seen_nodes.insert(hash);
-				},
+				}
+			},
 			TrieAccess::EncodedNode { hash, encoded_node } => {
 				if !self.seen_nodes.get(&hash).is_some() {
 					let node = encoded_node.into_owned();
@@ -57,32 +61,52 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeRecorder<'a, 
 					self.seen_nodes.insert(hash);
 				}
 			},
-			TrieAccess::Value { hash, value, .. } =>
+			TrieAccess::Value { hash, value, full_key } => {
 				if !self.seen_nodes.get(&hash).is_some() {
 					let value = value.into_owned();
 
 					encoded_size_update += value.encoded_size();
 					self.seen_nodes.insert(hash);
-				},
-			TrieAccess::Hash { .. } | TrieAccess::NonExisting { .. } => {},
+				}
+				self.recorded_keys
+					.entry(full_key.into())
+					.and_modify(|e| *e = RecordedForKey::Value)
+					.or_insert_with(|| RecordedForKey::Value);
+			},
+			TrieAccess::Hash { full_key } => {
+				self.recorded_keys
+					.entry(full_key.into())
+					.or_insert_with(|| RecordedForKey::Hash);
+			},
+			TrieAccess::NonExisting { full_key } => {
+				self.recorded_keys
+					.entry(full_key.into())
+					.and_modify(|e| *e = RecordedForKey::Value)
+					.or_insert_with(|| RecordedForKey::Value);
+			},
 		};
 
 		*self.encoded_size += encoded_size_update;
 	}
 
 	fn trie_nodes_recorded_for_key(&self, key: &[u8]) -> RecordedForKey {
-		RecordedForKey::None
+		self.recorded_keys.get(key).copied().unwrap_or(RecordedForKey::None)
 	}
 }
 
 pub(crate) struct RecorderProvider<H: Hasher> {
 	seen_nodes: RefCell<BTreeSet<H::Out>>,
 	encoded_size: RefCell<usize>,
+	recorded_keys: RefCell<BTreeMap<Arc<[u8]>, RecordedForKey>>,
 }
 
 impl<H: Hasher> RecorderProvider<H> {
 	pub fn new() -> Self {
-		Self { seen_nodes: Default::default(), encoded_size: Default::default() }
+		Self {
+			seen_nodes: Default::default(),
+			encoded_size: Default::default(),
+			recorded_keys: Default::default(),
+		}
 	}
 }
 
@@ -97,6 +121,7 @@ impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for RecorderProvider<H
 		SizeRecorder {
 			encoded_size: self.encoded_size.borrow_mut(),
 			seen_nodes: self.seen_nodes.borrow_mut(),
+			recorded_keys: self.recorded_keys.borrow_mut(),
 		}
 	}
 
