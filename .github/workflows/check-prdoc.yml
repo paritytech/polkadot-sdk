@@ -1,0 +1,51 @@
+name: Check PRdoc
+
+on:
+  pull_request:
+    types: [labeled, opened, synchronize, unlabeled]
+
+env:
+  # todo: switch to paritytech/prdoc once the container is built & published
+  # see https://github.com/paritytech/scripts/pull/595
+  IMAGE: chevdor/prdoc:v0.0.4
+  API_BASE: https://api.github.com/repos
+  REPO: ${{ github.repository }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GITHUB_PR: ${{ github.event.pull_request.number }}
+  MOUNT: /prdoc
+  ENGINE: docker
+
+jobs:
+  check-prdoc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull image
+        run: |
+          echo "Pulling $IMAGE"
+          docker pull $IMAGE
+          docker run --rm $IMAGE --version
+
+      - name: Check if PRdoc is required
+        id: get-labels
+        run: |
+            # Fetch the labels for the PR under test
+            echo "Fetch the labels for $API_BASE/${REPO}/pulls/${GITHUB_PR}"
+            labels=$( curl -H "Authorization: token ${GITHUB_TOKEN}" -s "$API_BASE/${REPO}/pulls/${GITHUB_PR}" | jq '.labels | .[] | .name' | tr "\n" ",")
+            echo "Labels: ${labels}"
+            echo "labels=${labels}" >> "$GITHUB_OUTPUT"
+
+      - name: No PRdoc required
+        if: ${{ contains(steps.get-labels.outputs.labels, 'R0') }}
+        run: |
+          echo "PR detected as silent, no PRdoc is required, exiting..."
+          exit 0
+
+      - name: Checkout repo
+        if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac #v4.0.0
+
+      - name: PRdoc check for PR#${{ github.event.pull_request.number }}
+        if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
+        run: |
+          echo "Checking for PR#$GITHUB_PR in $MOUNT"
+          $ENGINE run --rm -v $PWD/prdoc:/doc $IMAGE check -n 1408
