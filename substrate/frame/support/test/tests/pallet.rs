@@ -17,10 +17,7 @@
 
 use frame_support::{
 	assert_ok,
-	dispatch::{
-		DispatchClass, DispatchInfo, Dispatchable, GetDispatchInfo, Parameter, Pays,
-		UnfilteredDispatchable,
-	},
+	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Parameter, Pays},
 	dispatch_context::with_context,
 	pallet_prelude::{StorageInfoTrait, ValueQuery},
 	parameter_types,
@@ -28,6 +25,7 @@ use frame_support::{
 	traits::{
 		ConstU32, GetCallIndex, GetCallName, GetStorageVersion, OnFinalize, OnGenesis,
 		OnInitialize, OnRuntimeUpgrade, PalletError, PalletInfoAccess, StorageVersion,
+		UnfilteredDispatchable,
 	},
 	weights::{RuntimeDbWeight, Weight},
 };
@@ -37,7 +35,7 @@ use sp_io::{
 	TestExternalities,
 };
 use sp_runtime::{
-	traits::{Extrinsic as ExtrinsicT, SignaturePayload as SignaturePayloadT},
+	traits::{Dispatchable, Extrinsic as ExtrinsicT, SignaturePayload as SignaturePayloadT},
 	DispatchError, ModuleError,
 };
 
@@ -1388,7 +1386,7 @@ fn metadata() {
 		}
 	}
 
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0";
+	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
 	let expected_pallet_doc = vec![" Pallet documentation", readme, readme];
 
 	let pallets = vec![
@@ -1891,7 +1889,7 @@ fn metadata_ir_pallet_runtime_docs() {
 		.find(|pallet| pallet.name == "Example")
 		.expect("Pallet should be present");
 
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0";
+	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
 	let expected = vec![" Pallet documentation", readme, readme];
 	assert_eq!(pallet.docs, expected);
 }
@@ -1921,7 +1919,7 @@ fn extrinsic_metadata_ir_types() {
 #[test]
 fn test_pallet_runtime_docs() {
 	let docs = crate::pallet::Pallet::<Runtime>::pallet_documentation_metadata();
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0";
+	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
 	let expected = vec![" Pallet documentation", readme, readme];
 	assert_eq!(docs, expected);
 }

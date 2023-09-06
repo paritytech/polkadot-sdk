@@ -12,12 +12,12 @@ path = "src/main.rs"
 
 [dependencies]
 async-trait = "0.1.73"
-clap = { version = "4.3.24", features = ["derive"] }
+clap = { version = "4.4.2", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 futures = "0.3.28"
 hex-literal = "0.4.1"
 log = "0.4.20"
-serde = { version = "1.0.183", features = ["derive"] }
+serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.105"
 
 # Local
@@ -77,7 +77,7 @@ substrate-state-trie-migration-rpc = { path = "../../substrate/utils/frame/rpc/s
 polkadot-cli = { path = "../../polkadot/cli", features = ["rococo-native"] }
 polkadot-primitives = { path = "../../polkadot/primitives" }
 polkadot-service = { path = "../../polkadot/node/service" }
-xcm = { path = "../../polkadot/xcm" }
+xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
 
 # Cumulus
 cumulus-client-cli = { path = "../client/cli" }

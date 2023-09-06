@@ -32,11 +32,11 @@ If it is an urgent fix with no large change to logic, then it may be merged afte
 contributor has reviewed it well and approved the review once CI is complete.
 No PR should be merged until all reviews' comments are addressed.
 
-### Labels:
+### Labels
 
-The set of labels and their description can be found [here](linktobeinserted)
+The set of labels and their description can be found [here](https://paritytech.github.io/labels/doc_polkadot-sdk.html).
 
-### Process:
+### Process
 
 1. Please use our [Pull Request Template](./PULL_REQUEST_TEMPLATE.md) and make sure all relevant
    information is reflected in your PR.
@@ -50,12 +50,12 @@ The set of labels and their description can be found [here](linktobeinserted)
    `T13-documentation`. The docs team will get in touch.
 5. If your PR changes files in these paths:
 
-   `polkadot` : '^runtime/polkadot'
-   `polkadot` : '^runtime/kusama'
-   `polkadot` : '^primitives/src/'
-   `polkadot` : '^runtime/common'
-   `substrate` : '^frame/'
-   `substrate` : '^primitives/'
+   `polkadot` : `^runtime/polkadot`
+   `polkadot` : `^runtime/kusama`
+   `polkadot` : `^primitives/src/`
+   `polkadot` : `^runtime/common`
+   `substrate` : `^frame/`
+   `substrate` : `^primitives/`
 
    It should be added to the [security audit board](https://github.com/orgs/paritytech/projects/103)
    and will need to undergo an audit before merge.
@@ -67,7 +67,7 @@ to change the code to make it work/compile.
 It should also mention potential storage migrations and if they require some special setup aside adding
 it to the list of migrations in the runtime.
 
-## Reviewing pull requests:
+## Reviewing pull requests
 
 When reviewing a pull request, the end-goal is to suggest useful changes to the author.
 Reviews should finish with approval unless there are issues that would result in:
@@ -80,25 +80,43 @@ Reviews should finish with approval unless there are issues that would result in
 
 The reviewers are also responsible to check:
 
-a) if a changelog is necessary and attached
-
-b) the quality of information in the changelog file
-
-c) the PR has an impact on docs
-
-d) that the docs team was included in the review process of a docs update
+1. if a changelog is necessary and attached
+1. the quality of information in the changelog file
+1. the PR has an impact on docs
+1. that the docs team was included in the review process of a docs update
 
 **Reviews may not be used as an effective veto for a PR because**:
 1. There exists a somewhat cleaner/better/faster way of accomplishing the same feature/fix.
 2. It does not fit well with some other contributors' longer-term vision for the project.
 
+## Documentation
+
+All Pull Requests must contain proper title & description.
+
+Some Pull Requests can be exempt of `prdoc` documentation, those
+must be labelled with
+[`R0-silent`](https://github.com/paritytech/labels/blob/main/ruled_labels/specs_polkadot-sdk.yaml#L89-L91).
+
+Non "silent" PRs must come with documentation in the form of a `.prdoc` file.
+A `.prdoc` documentation is made of a text file (YAML) named `/prdoc/pr_NNNN.prdoc` where `NNNN` is the PR number.
+For convenience, those file can also contain a short description/title: `/prdoc/pr_NNNN_pr-foobar.prdoc`.
+
+The CI automation checks for the presence and validity of a `prdoc` in the `/prdoc` folder.
+Those files need to comply with a specific [schema](https://github.com/paritytech/prdoc/blob/master/schema_user.json). It
+is highly recommended to [make your editor aware](https://github.com/paritytech/prdoc#schemas) of the schema as it is
+self-described and will assist you in writing correct content.
+
+This schema is also embedded in the
+[prdoc](https://github.com/paritytech/prdoc) utility that can also be used to generate and check the validity of a
+`prdoc` locally.
+
 ## Helping out
 
 We use [labels](https://github.com/paritytech/polkadot-sdk/labels) to manage PRs and issues and communicate
 state of a PR. Please familiarise yourself with them. Best way to get started is to a pick a ticket tagged
-`[easy](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD0-easy)`
-or `[medium](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD1-medium)`
-and get going or `[mentor](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AC1-mentor)`
+[easy](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD0-easy)
+or [medium](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD1-medium)
+and get going. Alternatively, look out for issues tagged [mentor](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AC1-mentor)
 and get in contact with the mentor offering their support on that larger task.
 
 ****

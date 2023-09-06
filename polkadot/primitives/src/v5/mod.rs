@@ -42,7 +42,7 @@ pub use polkadot_core_primitives::v2::{
 };
 
 // Export some polkadot-parachain primitives
-pub use polkadot_parachain::primitives::{
+pub use polkadot_parachain_primitives::primitives::{
 	HeadData, HorizontalMessages, HrmpChannelId, Id, UpwardMessage, UpwardMessages, ValidationCode,
 	ValidationCodeHash, LOWEST_PUBLIC_ID, LOWEST_USER_ID,
 };
@@ -389,6 +389,10 @@ pub const MAX_POV_SIZE: u32 = 5 * 1024 * 1024;
 ///
 /// Can be adjusted in configuration.
 pub const ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE: u32 = 10_000;
+
+/// Backing votes threshold used from the host prior to runtime API version 6 and from the runtime
+/// prior to v9 configuration migration.
+pub const LEGACY_MIN_BACKING_VOTES: u32 = 2;
 
 // The public key of a keypair used by a validator for determining assignments
 /// to approve included parachain candidates.
@@ -824,60 +828,6 @@ pub struct ParathreadEntry {
 	pub claim: ParathreadClaim,
 	/// Number of retries
 	pub retries: u32,
-}
-
-/// An assignment for a parachain scheduled to be backed and included in a relay chain block.
-#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebug)]
-pub struct Assignment {
-	/// Assignment's ParaId
-	pub para_id: Id,
-}
-
-impl Assignment {
-	/// Create a new `Assignment`.
-	pub fn new(para_id: Id) -> Self {
-		Self { para_id }
-	}
-}
-
-/// An entry tracking a paras
-#[derive(Clone, Encode, Decode, TypeInfo, PartialEq, RuntimeDebug)]
-pub struct ParasEntry<N = BlockNumber> {
-	/// The `Assignment`
-	pub assignment: Assignment,
-	/// The number of times the entry has timed out in availability.
-	pub availability_timeouts: u32,
-	/// The block height where this entry becomes invalid.
-	pub ttl: N,
-}
-
-impl<N> ParasEntry<N> {
-	/// Return `Id` from the underlying `Assignment`.
-	pub fn para_id(&self) -> Id {
-		self.assignment.para_id
-	}
-
-	/// Create a new `ParasEntry`.
-	pub fn new(assignment: Assignment, now: N) -> Self {
-		ParasEntry { assignment, availability_timeouts: 0, ttl: now }
-	}
-}
-
-/// What is occupying a specific availability core.
-#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(PartialEq))]
-pub enum CoreOccupied<N> {
-	/// The core is not occupied.
-	Free,
-	/// A paras.
-	Paras(ParasEntry<N>),
-}
-
-impl<N> CoreOccupied<N> {
-	/// Is core free?
-	pub fn is_free(&self) -> bool {
-		matches!(self, Self::Free)
-	}
 }
 
 /// A helper data-type for tracking validator-group rotations.
@@ -1693,6 +1643,14 @@ pub const fn byzantine_threshold(n: usize) -> usize {
 /// guaranteed to have at least f+1 honest validators.
 pub const fn supermajority_threshold(n: usize) -> usize {
 	n - byzantine_threshold(n)
+}
+
+/// Adjust the configured needed backing votes with the size of the backing group.
+pub fn effective_minimum_backing_votes(
+	group_len: usize,
+	configured_minimum_backing_votes: u32,
+) -> usize {
+	sp_std::cmp::min(group_len, configured_minimum_backing_votes as usize)
 }
 
 /// Information about validator sets of a session.

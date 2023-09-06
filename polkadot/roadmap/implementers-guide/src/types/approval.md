@@ -6,9 +6,11 @@ The public key of a keypair used by a validator for determining assignments to a
 
 ## `AssignmentCert`
 
-An `AssignmentCert`, short for Assignment Certificate, is a piece of data provided by a validator to prove that they have been selected to perform approval checks on an included candidate.
+An `AssignmentCert`, short for Assignment Certificate, is a piece of data provided by a validator to prove that they
+have been selected to perform approval checks on an included candidate.
 
-These certificates can be checked in the context of a specific block, candidate, and validator assignment VRF key. The block state will also provide further context about the availability core states at that block.
+These certificates can be checked in the context of a specific block, candidate, and validator assignment VRF key. The
+block state will also provide further context about the availability core states at that block.
 
 ```rust
 enum AssignmentCertKind {
@@ -53,7 +55,8 @@ struct ApprovalVote(Hash);
 
 ## `SignedApprovalVote`
 
-An approval vote signed with a validator's key. This should be verifiable under the `ValidatorId` corresponding to the `ValidatorIndex` of the session, which should be implicit from context.
+An approval vote signed with a validator's key. This should be verifiable under the `ValidatorId` corresponding to the
+`ValidatorIndex` of the session, which should be implicit from context.
 
 ```rust
 struct SignedApprovalVote {
@@ -65,9 +68,11 @@ struct SignedApprovalVote {
 
 ## `IndirectSignedApprovalVote`
 
-A signed approval vote which references the candidate indirectly via the block. If there exists a look-up to the candidate hash from the block hash and candidate index, then this can be transformed into a `SignedApprovalVote`.
+A signed approval vote which references the candidate indirectly via the block. If there exists a look-up to the
+candidate hash from the block hash and candidate index, then this can be transformed into a `SignedApprovalVote`.
 
-Although this vote references the candidate by a specific block hash and candidate index, the signature is computed on the actual `SignedApprovalVote` payload.
+Although this vote references the candidate by a specific block hash and candidate index, the signature is computed on
+the actual `SignedApprovalVote` payload.
 
 ```rust
 struct IndirectSignedApprovalVote {
@@ -82,7 +87,9 @@ struct IndirectSignedApprovalVote {
 
 ## `CheckedAssignmentCert`
 
-An assignment cert which has checked both the VRF and the validity of the implied assignment according to the selection criteria rules of the protocol. This type should be declared in such a way as to be instantiatable only when the checks have actually been done. Fields should be accessible via getters, not direct struct access.
+An assignment cert which has checked both the VRF and the validity of the implied assignment according to the selection
+criteria rules of the protocol. This type should be declared in such a way as to be instantiatable only when the checks
+have actually been done. Fields should be accessible via getters, not direct struct access.
 
 ```rust
 struct CheckedAssignmentCert {
