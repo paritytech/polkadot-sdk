@@ -3,7 +3,6 @@
 const testKeyring = require('@polkadot/keyring/testing');
 const { WsProvider, ApiPromise } = require('@polkadot/api');
 const assert = require("assert");
-require('console-stamp')(console, '[HH:MM:ss.l]');
 
 async function run(nodeName, networkInfo, args) {
   const {wsUri, userDefinedTypes} = networkInfo.nodesByName[nodeName];
