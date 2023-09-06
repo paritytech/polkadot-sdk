@@ -191,6 +191,7 @@ pub mod v1 {
 #[cfg(test)]
 #[cfg(feature = "try-runtime")]
 mod test {
+	#![allow(deprecated)]
 	use super::*;
 	use crate::mock::{Test as T, *};
 
