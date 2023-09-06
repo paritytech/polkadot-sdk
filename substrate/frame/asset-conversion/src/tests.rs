@@ -1389,7 +1389,11 @@ fn cannot_block_pool_creation() {
 		let pool_account =
 			AssetConversion::get_pool_account(&AssetConversion::get_pool_id(token_2, token_1));
 		// And transfers the ED to that pool account
-		assert_ok!(Balances::transfer(RuntimeOrigin::signed(attacker), pool_account, ed));
+		assert_ok!(Balances::transfer_allow_death(
+			RuntimeOrigin::signed(attacker),
+			pool_account,
+			ed
+		));
 		// Then, the attacker creates 14 tokens and sends one of each to the pool account
 		for i in 10..25 {
 			create_tokens(attacker, vec![NativeOrAssetId::Asset(i)]);
