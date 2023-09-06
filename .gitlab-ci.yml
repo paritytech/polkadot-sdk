@@ -197,8 +197,6 @@ default:
   extends: .build-refs
 
 include:
-  # weights jobs
-  - gitlab/pipeline/weights.yml
   # check jobs
   - .gitlab/pipeline/check.yml
   # test jobs
