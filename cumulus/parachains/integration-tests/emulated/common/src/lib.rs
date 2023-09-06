@@ -332,7 +332,7 @@ decl_test_parachains! {
 	pub struct AssetHubRococo {
 		genesis = asset_hub_kusama::genesis(),
 		on_init = {
-			asset_hub_polkadot_runtime::AuraExt::on_initialize(1);
+			asset_hub_kusama_runtime::AuraExt::on_initialize(1);
 		},
 		runtime = asset_hub_kusama_runtime,
 		core = {
