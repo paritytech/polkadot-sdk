@@ -16,7 +16,7 @@
 use super::*;
 use cumulus_primitives_core::XcmpMessageHandler;
 use frame_support::{assert_noop, assert_ok};
-use mock::{new_test_ext, RuntimeCall, RuntimeOrigin, Test, XcmpQueue};
+use mock::{new_test_ext, ParachainSystem, RuntimeCall, RuntimeOrigin, Test, XcmpQueue};
 use sp_runtime::traits::BadOrigin;
 
 #[test]
@@ -340,4 +340,24 @@ fn xcmp_queue_consumes_dest_and_msg_on_ok_validate() {
 			)
 		);
 	});
+}
+
+#[test]
+fn xcmp_queue_send_xcm_works() {
+	new_test_ext().execute_with(|| {
+		let dest = (Parent, X1(Parachain(12345))).into();
+		let msg = Xcm(vec![ClearOrigin]);
+
+		// try to send without opened HRMP channel to the para_id 12345
+		assert_eq!(
+			send_xcm::<XcmpQueue>(dest, msg.clone()),
+			Err(SendError::Transport("NoChannel")),
+		);
+
+		// open HRMP channel to the para_id 12345
+		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(12345.into());
+
+		// now send works
+		assert_ok!(send_xcm::<XcmpQueue>(dest, msg));
+	})
 }
