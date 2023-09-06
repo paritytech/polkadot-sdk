@@ -242,6 +242,13 @@ For the top-level pallet docs, consider the following template:
 //!
 //! <single-liner about the pallet>.
 //!
+//! ## Pallet API
+//!
+//! <Reminder: inside the [`pallet`] module, a template that leads the reader to the relevant items is auto-generated. There is no need to repeat things like "See Config trait for ...", which are generated inside [`pallet`] here anyways. You can use the below line as-is:>
+//!
+//! See the [`pallet`] module for more information about the interfaces this pallet exposes, including its
+//! configuration trait, dispatchables, storage items, events and errors.
+//!
 //! ## Overview
 //!
 //! <should be high-level details that are relevant to the most broad audience>
@@ -252,15 +259,12 @@ For the top-level pallet docs, consider the following template:
 //!
 //! ### Example
 //!
-//! <Your pallet must have a few tests that cover important user journeys. Use https://crates.io/crates/docify to reuse these as examples>.
+//! <Your pallet must have a few tests that cover important user journeys. Use https://crates.io/crates/docify to
+//! reuse these as examples.>
 //!
-//! ## Pallet API
-//!
-//! <Reminder: inside the [`pallet`] module, a template that leads the reader to the relevant items is auto-generated. There is no need to repeat things like "See Config trait for ...", which are generated inside [`pallet`] here anyways. You can use the below line as-is:>
-//!
-//! See the [`pallet`] module for more information about the interfaces this pallet exposes, including its configuration trait, dispatchables, storage items, events and errors.
-//!
-//! <The audience of this is those who want to know how this pallet works, to the extent of being able to build something on top of it, like a DApp or another pallet>
+//! <The audience of this is those who want to know how this pallet works, to the extent of being able to build
+//! something on top of it, like a DApp or another pallet. In some cases, you might want to add an example of how to
+//! use this pallet in other pallets.>
 //!
 //! This section can most often be left as-is.
 //!
