@@ -47,5 +47,5 @@ jobs:
       - name: PRdoc check for PR#${{ github.event.pull_request.number }}
         if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
-          echo "Checking for PR#$GITHUB_PR in $MOUNT"
-          $ENGINE run --rm -v $PWD/prdoc:/doc $IMAGE check -n 1408
+          echo "Checking for PR#${GITHUB_PR} in $MOUNT"
+          $ENGINE run --rm -v $PWD/prdoc:/doc $IMAGE check -n ${GITHUB_PR}
