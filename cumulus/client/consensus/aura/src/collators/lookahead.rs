@@ -283,7 +283,7 @@ where
 
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
-			for n_built in 0..2 {
+			for n_built in 0..1 {
 				let slot_claim = match can_build_upon(parent_hash).await {
 					None => break,
 					Some(c) => c,
