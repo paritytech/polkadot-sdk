@@ -712,6 +712,7 @@ dependencies = [
  "polkadot-runtime",
  "polkadot-runtime-parachains",
  "sp-runtime",
+ "staging-kusama-runtime",
  "staging-xcm",
  "xcm-emulator",
 ]

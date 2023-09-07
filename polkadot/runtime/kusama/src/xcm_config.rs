@@ -17,9 +17,9 @@
 //! XCM configurations for the Kusama runtime.
 
 use super::{
-	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, Fellows, ParaId, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeOrigin, StakingAdmin, TransactionByteFee, WeightToFee,
-	XcmPallet,
+	governance::Treasurer, parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp,
+	Fellows, ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, StakingAdmin,
+	TransactionByteFee, WeightToFee, XcmPallet,
 };
 use frame_support::{
 	match_types, parameter_types,
@@ -353,6 +353,8 @@ parameter_types! {
 	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
 	// Fellows pluralistic body.
 	pub const FellowsBodyId: BodyId = BodyId::Technical;
+	// Treasuer pluralistic body.
+	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -365,6 +367,8 @@ parameter_types! {
 pub type LocalOriginToLocation = (
 	// And a usual Signed origin to be used in XCM as a corresponding AccountId32
 	SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>,
+	// Treasury Origin to be used to reserve transfer
+	TreasurerToPlurality,
 );
 
 /// Type to convert the `StakingAdmin` origin to a Plurality `MultiLocation` value.
@@ -373,6 +377,9 @@ pub type StakingAdminToPlurality =
 
 /// Type to convert the Fellows origin to a Plurality `MultiLocation` value.
 pub type FellowsToPlurality = OriginToPluralityVoice<RuntimeOrigin, Fellows, FellowsBodyId>;
+
+/// Type to convert the Fellows origin to a Plurality `MultiLocation` value.
+pub type TreasurerToPlurality = OriginToPluralityVoice<RuntimeOrigin, Treasurer, TreasurerBodyId>;
 
 /// Type to convert a pallet `Origin` type value into a `MultiLocation` value which represents an
 /// interior location of this chain for a destination chain.

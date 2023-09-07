@@ -15,16 +15,16 @@
 
 // Substrate
 use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
+use frame_support::PalletId;
 use grandpa::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, storage::Storage, Pair, Public};
 use sp_runtime::{
-	traits::{IdentifyAccount, Verify},
+	traits::{AccountIdConversion, IdentifyAccount, Verify},
 	BuildStorage, MultiSignature, Perbill,
 };
-
 // Cumulus
 use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId, Balance, BlockNumber};
 use polkadot_parachain_primitives::primitives::{HeadData, ValidationCode};
@@ -74,6 +74,10 @@ pub mod accounts {
 	pub const FERDIE_STASH: &str = "Ferdie//stash";
 	pub const FERDIE_BEEFY: &str = "Ferdie//stash";
 
+	pub fn get_treasury_address() -> AccountId {
+		PalletId(*b"py/trsry").into_account_truncating()
+	}
+
 	pub fn init_balances() -> Vec<AccountId> {
 		vec![
 			get_account_id_from_seed::<sr25519::Public>(ALICE),
@@ -88,6 +92,7 @@ pub mod accounts {
 			get_account_id_from_seed::<sr25519::Public>(DAVE_STASH),
 			get_account_id_from_seed::<sr25519::Public>(EVE_STASH),
 			get_account_id_from_seed::<sr25519::Public>(FERDIE_STASH),
+			get_treasury_address(),
 		]
 	}
 }

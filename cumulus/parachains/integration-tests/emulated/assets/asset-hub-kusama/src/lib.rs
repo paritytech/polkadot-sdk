@@ -22,8 +22,8 @@ pub use frame_support::{
 };
 pub use integration_tests_common::{
 	constants::{
-		asset_hub_kusama::ED as ASSET_HUB_KUSAMA_ED, kusama::ED as KUSAMA_ED, PROOF_SIZE_THRESHOLD,
-		REF_TIME_THRESHOLD, XCM_V3,
+		accounts::get_treasury_address, asset_hub_kusama::ED as ASSET_HUB_KUSAMA_ED,
+		kusama::ED as KUSAMA_ED, PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 	},
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
 	AssetHubKusama, AssetHubKusamaPallet, AssetHubKusamaReceiver, AssetHubKusamaSender, Kusama,
@@ -31,6 +31,7 @@ pub use integration_tests_common::{
 	PenpalKusamaAReceiver, PenpalKusamaASender, PenpalKusamaB, PenpalKusamaBPallet,
 };
 pub use parachains_common::{AccountId, Balance};
+pub use staging_kusama_runtime::governance::pallet_custom_origins::Origin;
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},
 	v3::{Error, NetworkId::Kusama as KusamaId},
@@ -46,6 +47,7 @@ pub const ASSET_MIN_BALANCE: u128 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
 
 pub type RelayToSystemParaTest = Test<Kusama, AssetHubKusama>;
+pub type RelayToParaTest = Test<Kusama, PenpalKusamaA>;
 pub type SystemParaToRelayTest = Test<AssetHubKusama, Kusama>;
 pub type SystemParaToParaTest = Test<AssetHubKusama, PenpalKusamaA>;
 
@@ -58,6 +60,19 @@ pub fn relay_test_args(amount: Balance) -> TestArgs {
 			id: AssetHubKusamaReceiver::get().into(),
 		}
 		.into(),
+		amount,
+		assets: (Here, amount).into(),
+		asset_id: None,
+		fee_asset_item: 0,
+		weight_limit: WeightLimit::Unlimited,
+	}
+}
+
+pub fn relay_to_para_test_args(amount: Balance) -> TestArgs {
+	TestArgs {
+		dest: Kusama::child_location_of(PenpalKusamaA::para_id()),
+		beneficiary: AccountId32Junction { network: None, id: PenpalKusamaAReceiver::get().into() }
+			.into(),
 		amount,
 		assets: (Here, amount).into(),
 		asset_id: None,

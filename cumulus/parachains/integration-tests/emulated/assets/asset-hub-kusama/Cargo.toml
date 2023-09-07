@@ -24,6 +24,7 @@ polkadot-core-primitives = { path = "../../../../../../polkadot/core-primitives"
 polkadot-parachain-primitives = { path = "../../../../../../polkadot/parachain", default-features = false}
 polkadot-runtime-parachains = { path = "../../../../../../polkadot/runtime/parachains" }
 polkadot-runtime = { path = "../../../../../../polkadot/runtime/polkadot" }
+staging-kusama-runtime = { path = "../../../../../../polkadot/runtime/kusama" }
 xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false}
 pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 
