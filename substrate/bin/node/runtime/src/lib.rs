@@ -1619,6 +1619,8 @@ parameter_types! {
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);  // should be non-zero if AllowMultiAssetPools is true, otherwise can be zero.
 }
 
+type MaxSwapLength = ConstU32<4>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -1637,7 +1639,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type WeightInfo = pallet_asset_conversion::weights::SubstrateWeight<Runtime>;
 	type AllowMultiAssetPools = AllowMultiAssetPools;
-	type MaxSwapPathLength = ConstU32<4>;
+	type MaxSwapPathLength = MaxSwapLength;
 	type MintMinLiquidity = MintMinLiquidity;
 	type MultiAssetIdConverter = NativeOrAssetIdConverter<u32>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -2517,15 +2519,16 @@ impl_runtime_apis! {
 		Block,
 		Balance,
 		u128,
-		NativeOrAssetId<u32>
+		NativeOrAssetId<u32>,
+		MaxSwapLength
 	> for Runtime
 	{
-		fn quote_price_exact_tokens_for_tokens(asset1: NativeOrAssetId<u32>, asset2: NativeOrAssetId<u32>, amount: u128, include_fee: bool) -> Option<Balance> {
-			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
+		fn quote_price_exact_tokens_for_tokens(path: BoundedVec<NativeOrAssetId<u32>, MaxSwapLength>, amount: u128, include_fee: bool) -> Option<Balance> {
+			AssetConversion::quote_price_exact_tokens_for_tokens(path, amount, include_fee)
 		}
 
-		fn quote_price_tokens_for_exact_tokens(asset1: NativeOrAssetId<u32>, asset2: NativeOrAssetId<u32>, amount: u128, include_fee: bool) -> Option<Balance> {
-			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
+		fn quote_price_tokens_for_exact_tokens(path: BoundedVec<NativeOrAssetId<u32>, MaxSwapLength>, amount: u128, include_fee: bool) -> Option<Balance> {
+			AssetConversion::quote_price_tokens_for_exact_tokens(path, amount, include_fee)
 		}
 
 		fn get_reserves(asset1: NativeOrAssetId<u32>, asset2: NativeOrAssetId<u32>) -> Option<(Balance, Balance)> {

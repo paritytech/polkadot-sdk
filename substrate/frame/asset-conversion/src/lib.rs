@@ -82,7 +82,7 @@ use sp_runtime::{
 	traits::{
 		CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Ensure, MaybeDisplay, TrailingZeroInput,
 	},
-	DispatchError,
+	DispatchError, BoundedVec,
 };
 use sp_std::prelude::*;
 pub use types::*;
@@ -1018,48 +1018,44 @@ pub mod pallet {
 
 		/// Used by the RPC service to provide current prices.
 		pub fn quote_price_exact_tokens_for_tokens(
-			asset1: T::MultiAssetId,
-			asset2: T::MultiAssetId,
-			amount: T::AssetBalance,
+			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			amount_in: T::AssetBalance,
 			include_fee: bool,
 		) -> Option<T::AssetBalance> {
-			let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
-			let pool_account = Self::get_pool_account(&pool_id);
-
-			let balance1 = Self::get_balance(&pool_account, &asset1).ok()?;
-			let balance2 = Self::get_balance(&pool_account, &asset2).ok()?;
-			if !balance1.is_zero() {
-				if include_fee {
-					Self::get_amount_out(&amount, &balance1, &balance2).ok()
-				} else {
-					Self::quote(&amount, &balance1, &balance2).ok()
-				}
+			Self::validate_swap_path(&path).ok()?;
+			Some(if include_fee {
+				*Self::get_amounts_out(&amount_in, &path).ok()?.last()?
 			} else {
-				None
-			}
+				let mut result = amount_in;
+				for assets_pair in path.windows(2).rev() {
+					if let [asset1, asset2] = assets_pair {
+						let (reserve_in, reserve_out) = Self::get_reserves(asset1, asset2).ok()?;
+						result = reserve_out * result / reserve_in;
+					}
+				}
+				result
+			})
 		}
 
 		/// Used by the RPC service to provide current prices.
 		pub fn quote_price_tokens_for_exact_tokens(
-			asset1: T::MultiAssetId,
-			asset2: T::MultiAssetId,
-			amount: T::AssetBalance,
+			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			amount_out: T::AssetBalance,
 			include_fee: bool,
 		) -> Option<T::AssetBalance> {
-			let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
-			let pool_account = Self::get_pool_account(&pool_id);
-
-			let balance1 = Self::get_balance(&pool_account, &asset1).ok()?;
-			let balance2 = Self::get_balance(&pool_account, &asset2).ok()?;
-			if !balance1.is_zero() {
-				if include_fee {
-					Self::get_amount_in(&amount, &balance1, &balance2).ok()
-				} else {
-					Self::quote(&amount, &balance2, &balance1).ok()
-				}
+			Self::validate_swap_path(&path).ok()?;
+			Some(if include_fee {
+				*Self::get_amounts_in(&amount_out, &path).ok()?.first()?
 			} else {
-				None
-			}
+				let mut result = amount_out;
+				for assets_pair in path.windows(2).rev() {
+					if let [asset1, asset2] = assets_pair {
+						let (reserve_in, reserve_out) = Self::get_reserves(asset1, asset2).ok()?;
+						result = reserve_in * result / reserve_out;
+					}
+				}
+				result
+			})
 		}
 
 		/// Calculates the optimal amount from the reserves.
@@ -1285,7 +1281,7 @@ impl<T: Config> Swap<T::AccountId, T::HigherPrecisionBalance, T::MultiAssetId> f
 sp_api::decl_runtime_apis! {
 	/// This runtime api allows people to query the size of the liquidity pools
 	/// and quote prices for swaps.
-	pub trait AssetConversionApi<Balance, AssetBalance, AssetId> where
+	pub trait AssetConversionApi<Balance, AssetBalance, AssetId, MaxPathLength> where
 		Balance: Codec + MaybeDisplay,
 		AssetBalance: frame_support::traits::tokens::Balance,
 		AssetId: Codec
@@ -1294,13 +1290,13 @@ sp_api::decl_runtime_apis! {
 		///
 		/// Note that the price may have changed by the time the transaction is executed.
 		/// (Use `amount_in_max` to control slippage.)
-		fn quote_price_tokens_for_exact_tokens(asset1: AssetId, asset2: AssetId, amount: AssetBalance, include_fee: bool) -> Option<Balance>;
+		fn quote_price_tokens_for_exact_tokens(path: BoundedVec<AssetId, MaxPathLength>, amount: AssetBalance, include_fee: bool) -> Option<Balance>;
 
 		/// Provides a quote for [`Pallet::swap_exact_tokens_for_tokens`].
 		///
 		/// Note that the price may have changed by the time the transaction is executed.
 		/// (Use `amount_out_min` to control slippage.)
-		fn quote_price_exact_tokens_for_tokens(asset1: AssetId, asset2: AssetId, amount: AssetBalance, include_fee: bool) -> Option<Balance>;
+		fn quote_price_exact_tokens_for_tokens(path: BoundedVec<AssetId, MaxPathLength>, amount: AssetBalance, include_fee: bool) -> Option<Balance>;
 
 		/// Returns the size of the liquidity pool for the given asset pair.
 		fn get_reserves(asset1: AssetId, asset2: AssetId) -> Option<(Balance, Balance)>;

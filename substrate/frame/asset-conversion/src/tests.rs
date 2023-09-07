@@ -22,6 +22,7 @@ use frame_support::{
 	traits::{fungible::Inspect, fungibles::InspectEnumerable, Get},
 };
 use sp_arithmetic::Permill;
+use sp_core::bounded_vec::BoundedVec;
 use sp_runtime::{DispatchError, TokenError};
 
 fn events() -> Vec<Event<Test>> {
@@ -542,6 +543,10 @@ fn can_quote_price() {
 		let user = 1;
 		let token_1 = NativeOrAssetId::Native;
 		let token_2 = NativeOrAssetId::Asset(2);
+		let asset_to_dot: BoundedVec<_, _> =
+			bvec![NativeOrAssetId::Asset(2), NativeOrAssetId::Native];
+		let dot_to_asset: BoundedVec<_, _> =
+			bvec![NativeOrAssetId::Native, NativeOrAssetId::Asset(2)];
 
 		create_tokens(user, vec![token_2]);
 		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
@@ -561,65 +566,35 @@ fn can_quote_price() {
 		));
 
 		assert_eq!(
-			AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(2),
-				3000,
-				false,
-			),
+			AssetConversion::quote_price_exact_tokens_for_tokens(dot_to_asset.clone(), 3000, false,),
 			Some(60)
 		);
 		// including fee so should get less out...
 		assert_eq!(
-			AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(2),
-				3000,
-				true,
-			),
+			AssetConversion::quote_price_exact_tokens_for_tokens(dot_to_asset.clone(), 3000, true,),
 			Some(46)
 		);
 		// Check it still gives same price:
 		// (if the above accidentally exchanged then it would not give same quote as before)
 		assert_eq!(
-			AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(2),
-				3000,
-				false,
-			),
+			AssetConversion::quote_price_exact_tokens_for_tokens(dot_to_asset.clone(), 3000, false,),
 			Some(60)
 		);
 		// including fee so should get less out...
 		assert_eq!(
-			AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(2),
-				3000,
-				true,
-			),
+			AssetConversion::quote_price_exact_tokens_for_tokens(dot_to_asset.clone(), 3000, true,),
 			Some(46)
 		);
 
 		// Check inverse:
 		assert_eq!(
-			AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrAssetId::Asset(2),
-				NativeOrAssetId::Native,
-				60,
-				false,
-			),
+			AssetConversion::quote_price_exact_tokens_for_tokens(asset_to_dot.clone(), 60, false,),
 			Some(3000)
 		);
 
 		// including fee so should get less out...
 		assert_eq!(
-			AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrAssetId::Asset(2),
-				NativeOrAssetId::Native,
-				60,
-				true,
-			),
+			AssetConversion::quote_price_exact_tokens_for_tokens(asset_to_dot.clone(), 60, true,),
 			Some(2302)
 		);
 
@@ -627,64 +602,34 @@ fn can_quote_price() {
 		// same tests as above but for quote_price_tokens_for_exact_tokens:
 		//
 		assert_eq!(
-			AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(2),
-				60,
-				false,
-			),
+			AssetConversion::quote_price_tokens_for_exact_tokens(dot_to_asset.clone(), 60, false,),
 			Some(3000)
 		);
 		// including fee so should need to put more in...
 		assert_eq!(
-			AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(2),
-				60,
-				true,
-			),
+			AssetConversion::quote_price_tokens_for_exact_tokens(dot_to_asset.clone(), 60, true,),
 			Some(4299)
 		);
 		// Check it still gives same price:
 		// (if the above accidentally exchanged then it would not give same quote as before)
 		assert_eq!(
-			AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(2),
-				60,
-				false,
-			),
+			AssetConversion::quote_price_tokens_for_exact_tokens(dot_to_asset.clone(), 60, false,),
 			Some(3000)
 		);
 		// including fee so should need to put more in...
 		assert_eq!(
-			AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(2),
-				60,
-				true,
-			),
+			AssetConversion::quote_price_tokens_for_exact_tokens(dot_to_asset.clone(), 60, true,),
 			Some(4299)
 		);
 
 		// Check inverse:
 		assert_eq!(
-			AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Asset(2),
-				NativeOrAssetId::Native,
-				3000,
-				false,
-			),
+			AssetConversion::quote_price_tokens_for_exact_tokens(asset_to_dot.clone(), 3000, false,),
 			Some(60)
 		);
 		// including fee so should need to put more in...
 		assert_eq!(
-			AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Asset(2),
-				NativeOrAssetId::Native,
-				3000,
-				true,
-			),
+			AssetConversion::quote_price_tokens_for_exact_tokens(asset_to_dot.clone(), 3000, true,),
 			Some(86)
 		);
 
@@ -695,14 +640,12 @@ fn can_quote_price() {
 
 		assert_eq!(
 			AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrAssetId::Asset(2),
-				NativeOrAssetId::Native,
+				asset_to_dot.clone(),
 				amount_in,
 				false,
 			)
 			.and_then(|amount| AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(2),
+				dot_to_asset.clone(),
 				amount,
 				false,
 			)),
@@ -710,14 +653,12 @@ fn can_quote_price() {
 		);
 		assert_eq!(
 			AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(2),
+				dot_to_asset.clone(),
 				amount_in,
 				false,
 			)
 			.and_then(|amount| AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrAssetId::Asset(2),
-				NativeOrAssetId::Native,
+				asset_to_dot.clone(),
 				amount,
 				false,
 			)),
@@ -726,32 +667,24 @@ fn can_quote_price() {
 
 		assert_eq!(
 			AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Asset(2),
-				NativeOrAssetId::Native,
+				asset_to_dot.clone(),
 				amount_in,
 				false,
 			)
 			.and_then(|amount| AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(2),
+				dot_to_asset.clone(),
 				amount,
 				false,
 			)),
 			Some(amount_in)
 		);
 		assert_eq!(
-			AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(2),
-				amount_in,
-				false,
-			)
-			.and_then(|amount| AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Asset(2),
-				NativeOrAssetId::Native,
-				amount,
-				false,
-			)),
+			AssetConversion::quote_price_tokens_for_exact_tokens(dot_to_asset, amount_in, false,)
+				.and_then(|amount| AssetConversion::quote_price_tokens_for_exact_tokens(
+					asset_to_dot,
+					amount,
+					false,
+				)),
 			Some(amount_in)
 		);
 	});
@@ -785,7 +718,11 @@ fn quote_price_exact_tokens_for_tokens_matches_execution() {
 		let amount = 1;
 		let quoted_price = 49;
 		assert_eq!(
-			AssetConversion::quote_price_exact_tokens_for_tokens(token_2, token_1, amount, true,),
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				bvec![token_2, token_1],
+				amount,
+				true,
+			),
 			Some(quoted_price)
 		);
 
@@ -833,7 +770,11 @@ fn quote_price_tokens_for_exact_tokens_matches_execution() {
 		let amount = 49;
 		let quoted_price = 1;
 		assert_eq!(
-			AssetConversion::quote_price_tokens_for_exact_tokens(token_2, token_1, amount, true,),
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				vec![token_2, token_1].try_into().unwrap(),
+				amount,
+				true,
+			),
 			Some(quoted_price)
 		);
 
