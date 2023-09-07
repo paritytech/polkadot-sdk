@@ -476,10 +476,10 @@ pub type AssetFeeAsExistentialDepositMultiplierFeeCharger = AssetFeeAsExistentia
 	TrustBackedAssetsInstance,
 >;
 
-/// Cases where a remote origin is accepted as a Trusted Teleporter:
+/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
-/// - teleportation of WND from the parent Relay Chain and sibling system parachains; and
-/// - teleportation of sibling parachains' assets (as `ForeignCreators`).
+/// - WND with the parent Relay Chain and sibling system parachains; and
+/// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
 pub type TrustedTeleporters = (
 	ConcreteNativeAssetFromSystem,
 	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,

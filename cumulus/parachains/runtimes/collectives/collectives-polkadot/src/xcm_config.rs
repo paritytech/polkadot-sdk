@@ -227,8 +227,8 @@ pub type Barrier = TrailingSetTopicAsId<
 	>,
 >;
 
-/// Cases where a remote origin is accepted as trusted Teleporter:
-/// - teleportation of DOT from the parent Relay Chain and sibling parachains.
+/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
+/// - DOT with the parent Relay Chain and sibling parachains.
 pub type TrustedTeleporters = ConcreteNativeAssetFromSystem;
 
 pub struct XcmConfig;
