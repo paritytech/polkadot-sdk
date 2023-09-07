@@ -113,6 +113,8 @@ pub mod pallet {
 		/// The Weight information for this pallet.
 		type WeightInfo: weights::WeightInfo;
 
+		type RuntimeHoldReason: From<HoldReason>;
+
 		/// Currency type for this pallet.
 		// TODO: Remove.
 		type Currency: ReservableCurrency<Self::AccountId>;
@@ -156,6 +158,13 @@ pub mod pallet {
 		NotRequested,
 		/// More than `MAX_HASH_UPGRADE_BULK_COUNT` hashes were requested to be upgraded at once.
 		TooMany,
+	}
+
+	/// A reason for the pallet contracts placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The funds are held as storage deposit for a preimage.
+		Preimage,
 	}
 
 	/// The request status of a given hash.

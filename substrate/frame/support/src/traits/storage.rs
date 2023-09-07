@@ -18,11 +18,13 @@
 //! Traits for encoding data related to pallet's storage items.
 
 use codec::{Encode, FullCodec, MaxEncodedLen};
+use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::TypeInfo;
 pub use sp_core::storage::TrackedStorageKey;
+use sp_core::Get;
 use sp_runtime::{
-	traits::{Member, Saturating},
+	traits::{Convert, Member, Saturating},
 	DispatchError, RuntimeDebug,
 };
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
@@ -149,6 +151,20 @@ impl Footprint {
 
 	pub fn from_encodable(e: impl Encode) -> Self {
 		Self::from_parts(1, e.encoded_size())
+	}
+}
+
+/// A storage price that increases linearly with the number of elements and their size.
+pub struct LinearStoragePrice<Base, Slope, Balance>(PhantomData<(Base, Slope, Balance)>);
+impl<Base, Slope, Balance> Convert<Footprint, Balance> for LinearStoragePrice<Base, Slope, Balance>
+where
+	Base: Get<Balance>,
+	Slope: Get<Balance>,
+	Balance: From<u64> + sp_runtime::Saturating,
+{
+	fn convert(a: Footprint) -> Balance {
+		let s: Balance = (a.count.saturating_mul(a.size)).into();
+		s.saturating_mul(Slope::get()).saturating_add(Base::get())
 	}
 }
 
