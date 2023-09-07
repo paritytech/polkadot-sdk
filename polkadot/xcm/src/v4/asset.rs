@@ -870,28 +870,12 @@ mod tests {
 		let r = Assets::from_sorted_and_deduplicated(bad_fun);
 		assert!(r.is_err());
 
-		let good_abstract_fun = vec![(Here, 100).into(), ([0u8; 32], 10).into()];
-		let r = Assets::from_sorted_and_deduplicated(good_abstract_fun.clone());
-		assert_eq!(r, Ok(Assets(good_abstract_fun)));
-
-		let bad_abstract_fun = vec![([0u8; 32], 10).into(), (Here, 10).into()];
-		let r = Assets::from_sorted_and_deduplicated(bad_abstract_fun);
-		assert!(r.is_err());
-
 		let good_nft = vec![(Here, ()).into(), (Here, *b"good").into()];
 		let r = Assets::from_sorted_and_deduplicated(good_nft.clone());
 		assert_eq!(r, Ok(Assets(good_nft)));
 
 		let bad_nft = vec![(Here, *b"bad!").into(), (Here, ()).into()];
 		let r = Assets::from_sorted_and_deduplicated(bad_nft);
-		assert!(r.is_err());
-
-		let good_abstract_nft = vec![(Here, ()).into(), ([0u8; 32], ()).into()];
-		let r = Assets::from_sorted_and_deduplicated(good_abstract_nft.clone());
-		assert_eq!(r, Ok(Assets(good_abstract_nft)));
-
-		let bad_abstract_nft = vec![([0u8; 32], ()).into(), (Here, ()).into()];
-		let r = Assets::from_sorted_and_deduplicated(bad_abstract_nft);
 		assert!(r.is_err());
 
 		let mixed_good = vec![(Here, 10).into(), (Here, *b"good").into()];
