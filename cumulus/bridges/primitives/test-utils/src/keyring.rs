@@ -38,7 +38,7 @@ pub struct Account(pub u16);
 
 impl Account {
 	pub fn public(&self) -> VerifyingKey {
-		(&self.pair()).into()
+		self.pair().verifying_key()
 	}
 
 	pub fn pair(&self) -> SigningKey {
