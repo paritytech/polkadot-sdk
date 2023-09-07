@@ -183,6 +183,13 @@ where
 			let relay_parent = relay_parent_header.hash();
 
 			if !is_para_scheduled(relay_parent, params.para_id, &mut params.overseer_handle).await {
+				tracing::trace!(
+					target: crate::LOG_TARGET,
+					?relay_parent,
+					?params.para_id,
+					"Para is not scheduled on any core, skipping import notification",
+				);
+
 				continue
 			}
 
