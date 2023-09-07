@@ -5868,7 +5868,7 @@ dependencies = [
  "parachain-info",
  "parachains-common",
  "parity-scale-codec",
- "polkadot-parachain",
+ "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "scale-info",
  "smallvec",
