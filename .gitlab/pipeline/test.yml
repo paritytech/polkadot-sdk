@@ -231,8 +231,6 @@ test-node-metrics:
     - time cargo test --profile testnet
       --locked
       --features=runtime-metrics -p polkadot-node-metrics > artifacts/log.txt
-  # FIXME!
-  allow_failure: true
 
 test-deterministic-wasm:
   stage: test
@@ -244,7 +242,15 @@ test-deterministic-wasm:
     - job: test-frame-ui
       artifacts: false
   script:
-    - .gitlab/test_deterministic_wasm.sh
+    # build runtime
+    - WASM_BUILD_NO_COLOR=1 cargo build -q --locked --release -p staging-kusama-runtime -p polkadot-runtime -p westend-runtime
+    # make checksum
+    - sha256sum target/release/wbuild/*-runtime/target/wasm32-unknown-unknown/release/*.wasm > checksum.sha256
+    - cargo clean
+    # build again
+    - WASM_BUILD_NO_COLOR=1 cargo build -q --locked --release -p staging-kusama-runtime -p polkadot-runtime -p westend-runtime
+    # confirm checksum
+    - sha256sum -c checksum.sha256
 
 cargo-check-benches:
   stage: test
