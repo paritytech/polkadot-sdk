@@ -1190,15 +1190,15 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	// need a keystore, regardless of which protocol we use below.
 	let keystore_opt = if role.is_authority() { Some(keystore_container.keystore()) } else { None };
 
-	if enable_beefy {
+	// beefy is enabled if its notification service exists
+	if let Some(notification_service) = beefy_notification_service {
 		let justifications_protocol_name = beefy_on_demand_justifications_handler.protocol_name();
 		let network_params = beefy::BeefyNetworkParams {
 			network: network.clone(),
 			sync: sync_service.clone(),
 			gossip_protocol_name: beefy_gossip_proto_name,
 			justifications_protocol_name,
-			notification_service: beefy_notification_service
-				.expect("BEEFY was enabled so `NotificationService` exists; qed"),
+			notification_service,
 			_phantom: core::marker::PhantomData::<Block>,
 		};
 		let payload_provider = beefy_primitives::mmr::MmrRootProvider::new(client.clone());

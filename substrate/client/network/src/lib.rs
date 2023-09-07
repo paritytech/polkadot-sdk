@@ -262,7 +262,7 @@ pub mod transport;
 pub mod types;
 pub mod utils;
 
-pub use event::{DhtEvent, Event, SyncEvent};
+pub use event::{DhtEvent, Event};
 #[doc(inline)]
 pub use libp2p::{multiaddr, Multiaddr, PeerId};
 pub use request_responses::{Config, IfDisconnected, RequestFailure};
@@ -283,8 +283,8 @@ pub use service::{
 		NotificationSender as NotificationSenderT, NotificationSenderError,
 		NotificationSenderReady, NotificationService,
 	},
-	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationCommand, NotificationSender,
-	NotificationsSink, OutboundFailure, ProtocolHandle, PublicKey,
+	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender, OutboundFailure,
+	PublicKey,
 };
 pub use types::ProtocolName;
 

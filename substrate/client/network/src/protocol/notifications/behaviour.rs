@@ -17,10 +17,9 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
-	config::ProtocolHandlePair,
 	protocol::notifications::{
 		handler::{self, NotificationsSink, NotifsHandler, NotifsHandlerIn, NotifsHandlerOut},
-		service::{metrics, NotificationCommand, ProtocolHandle},
+		service::{metrics, NotificationCommand, ProtocolHandle, ProtocolHandlePair},
 	},
 	protocol_controller::{self, IncomingIndex, Message, SetId},
 	service::traits::{Direction, ValidationResult},

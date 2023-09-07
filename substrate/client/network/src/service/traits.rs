@@ -772,7 +772,11 @@ pub trait NotificationService: Debug + Send {
 	/// Set handshake for the notification protocol replacing the old handshake.
 	async fn set_handshake(&mut self, handshake: Vec<u8>) -> Result<(), ()>;
 
-	/// Non-blocking variant of `set_handshake()` that
+	/// Non-blocking variant of `set_handshake()` that attempts to update the handshake
+	/// and returns an error if the channel is blocked.
+	///
+	/// Technically the function can return an error if the channel to `Notifications` is closed
+	/// but that doesn't happen under normal operation.
 	fn try_set_handshake(&mut self, handshake: Vec<u8>) -> Result<(), ()>;
 
 	/// Get next event from the `Notifications` event stream.

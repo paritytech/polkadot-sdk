@@ -52,8 +52,7 @@ use std::{
 use notifications::{Notifications, NotificationsOut};
 
 pub use notifications::{
-	notification_service, NotificationCommand, NotificationsSink, NotifsHandlerError,
-	ProtocolHandle, ProtocolHandlePair, Ready,
+	notification_service, NotificationsSink, NotifsHandlerError, ProtocolHandlePair, Ready,
 };
 
 mod notifications;

@@ -41,6 +41,7 @@ use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnbound
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 pub(crate) mod metrics;
+
 #[cfg(test)]
 mod tests;
 
@@ -274,7 +275,11 @@ impl NotificationService for NotificationHandle {
 		self.tx.send(NotificationCommand::SetHandshake(handshake)).await.map_err(|_| ())
 	}
 
-	/// Non-blocking variant of `set_handshake()` that
+	/// Non-blocking variant of `set_handshake()` that attempts to update the handshake
+	/// and returns an error if the channel is blocked.
+	///
+	/// Technically the function can return an error if the channel to `Notifications` is closed
+	/// but that doesn't happen under normal operation.
 	fn try_set_handshake(&mut self, handshake: Vec<u8>) -> Result<(), ()> {
 		self.tx.try_send(NotificationCommand::SetHandshake(handshake)).map_err(|_| ())
 	}
@@ -386,7 +391,7 @@ impl ProtocolHandlePair {
 
 	/// Consume `self` and split [`ProtocolHandlePair`] into a handle which allows it to send events
 	/// to the protocol and a stream of commands received from the protocol.
-	pub fn split(
+	pub(crate) fn split(
 		self,
 	) -> (ProtocolHandle, Box<dyn Stream<Item = NotificationCommand> + Send + Unpin>) {
 		(
@@ -399,7 +404,7 @@ impl ProtocolHandlePair {
 /// Handle that is passed on to `Notifications` and allows it to directly communicate
 /// with the protocol.
 #[derive(Debug)]
-pub struct ProtocolHandle {
+pub(crate) struct ProtocolHandle {
 	/// Protocol name.
 	protocol: ProtocolName,
 

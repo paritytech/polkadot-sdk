@@ -22,7 +22,7 @@
 pub use self::{
 	behaviour::{Notifications, NotificationsOut, ProtocolConfig},
 	handler::{NotificationsSink, NotifsHandlerError, Ready},
-	service::{notification_service, NotificationCommand, ProtocolHandle, ProtocolHandlePair},
+	service::{notification_service, ProtocolHandlePair},
 };
 
 mod behaviour;

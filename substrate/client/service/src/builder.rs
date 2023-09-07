@@ -750,6 +750,11 @@ where
 	}
 
 	let protocol_id = config.protocol_id();
+	let genesis_hash = client
+		.block_hash(0u32.into())
+		.ok()
+		.flatten()
+		.expect("Genesis block exists; qed");
 
 	let block_announce_validator = if let Some(f) = block_announce_validator_builder {
 		f(client.clone())
@@ -792,11 +797,7 @@ where
 			// Allow both outgoing and incoming requests.
 			let (handler, protocol_config) = WarpSyncRequestHandler::new(
 				protocol_id.clone(),
-				client
-					.block_hash(0u32.into())
-					.ok()
-					.flatten()
-					.expect("Genesis block exists; qed"),
+				genesis_hash,
 				config.chain_spec.fork_id(),
 				warp_with_provider.clone(),
 			);
@@ -838,11 +839,7 @@ where
 	let (transactions_handler_proto, transactions_config) =
 		sc_network_transactions::TransactionsHandlerPrototype::new(
 			protocol_id.clone(),
-			client
-				.block_hash(0u32.into())
-				.ok()
-				.flatten()
-				.expect("Genesis block exists; qed"),
+			genesis_hash,
 			config.chain_spec.fork_id(),
 		);
 	net_config.add_notification_protocol(transactions_config);
