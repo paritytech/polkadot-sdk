@@ -3553,6 +3553,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
+ "rand 0.8.5",
  "sc-client-api",
  "scale-info",
  "sp-core",
@@ -3568,6 +3569,7 @@ dependencies = [
  "sp-version",
  "staging-xcm",
  "trie-db",
+ "trie-standardmap",
 ]
 
 [[package]]

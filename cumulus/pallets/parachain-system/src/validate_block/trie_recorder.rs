@@ -15,25 +15,17 @@
 // along with Cumulus. If not, see <http://www.gnu.org/licenses/>.
 
 //! The actual implementation of the validate block functionality.
-
-use super::trie_cache;
+#![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Encode;
 
-use core::borrow::BorrowMut;
-use frame_support::traits::Get;
-use sp_externalities::{set_and_run_with_externalities, Externalities};
-use sp_io::KillStorageResult;
-use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
 use sp_std::{
-	boxed::Box,
 	cell::{RefCell, RefMut},
 	collections::btree_map::BTreeMap,
 	collections::btree_set::BTreeSet,
-	prelude::*,
 	sync::Arc,
 };
-use sp_trie::{MemoryDB, NodeCodec, StorageProof};
+use sp_trie::{NodeCodec, StorageProof};
 use trie_db::{Hasher, RecordedForKey, TrieAccess};
 
 /// A trie recorder that only keeps track of the proof size.
@@ -117,7 +109,7 @@ impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for RecorderProvider<H
 		unimplemented!("Draining storage proof not supported!")
 	}
 
-	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_> {
+	fn as_trie_recorder(&self, _storage_root: H::Out) -> Self::Recorder<'_> {
 		SizeRecorder {
 			encoded_size: self.encoded_size.borrow_mut(),
 			seen_nodes: self.seen_nodes.borrow_mut(),

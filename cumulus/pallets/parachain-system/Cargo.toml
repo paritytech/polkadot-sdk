@@ -41,6 +41,8 @@ cumulus-primitives-reclaim = { path = "../../primitives/pov-reclaim", default-fe
 assert_matches = "1.5"
 hex-literal = "0.4.1"
 lazy_static = "1.4"
+trie-standardmap = "0.16.0"
+rand = "0.8.5"
 
 # Substrate
 sc-client-api = { path = "../../../substrate/client/api" }
@@ -51,6 +53,7 @@ sp-version = { path = "../../../substrate/primitives/version" }
 # Cumulus
 cumulus-test-client = { path = "../../test/client" }
 cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
+
 
 [features]
 default = [ "std" ]

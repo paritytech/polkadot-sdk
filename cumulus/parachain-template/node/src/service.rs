@@ -40,7 +40,10 @@ use substrate_prometheus_endpoint::Registry;
 pub struct ParachainNativeExecutor;
 
 impl sc_executor::NativeExecutionDispatch for ParachainNativeExecutor {
-	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	type ExtendHostFunctions = (
+		cumulus_primitives_reclaim::pov_reclaim_host_functions::HostFunctions,
+		frame_benchmarking::benchmarking::HostFunctions,
+	);
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
 		parachain_template_runtime::api::dispatch(method, data)

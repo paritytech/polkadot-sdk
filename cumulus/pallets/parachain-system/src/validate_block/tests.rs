@@ -26,9 +26,12 @@ use cumulus_test_client::{
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use sp_keyring::AccountKeyring::*;
-use sp_runtime::traits::Header as HeaderT;
+use sp_runtime::traits::{HashingFor, Header as HeaderT};
+use sp_trie::TrieRecorderProvider;
 use std::{env, process::Command};
+use trie_standardmap::{Alphabet, StandardMap, ValueMode};
 
+use crate::validate_block::trie_recorder::RecorderProvider;
 use crate::validate_block::MemoryOptimizedValidationParams;
 
 fn call_validate_block_encoded_header(
@@ -289,4 +292,74 @@ fn validation_params_and_memory_optimized_validation_params_encode_and_decode() 
 
 	let decoded = ValidationParams::decode_all(&mut &encoded[..]).unwrap();
 	assert_eq!(decoded, validation_params);
+}
+
+const TEST_DATA: &[(&[u8], &[u8])] =
+	&[(b"key1", &[1; 64]), (b"key2", &[2; 64]), (b"key3", &[3; 64]), (b"key4", &[4; 64])];
+
+use trie_db::{Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieMut, TrieRecorder};
+type MemoryDB = sp_trie::MemoryDB<sp_core::Blake2Hasher>;
+type Layout = sp_trie::LayoutV1<sp_core::Blake2Hasher>;
+type Recorder = sp_trie::recorder::Recorder<sp_core::Blake2Hasher>;
+
+fn create_trie() -> (MemoryDB, TrieHash<Layout>, Vec<(Vec<u8>, Vec<u8>)>) {
+	let mut db = MemoryDB::default();
+	let mut root = Default::default();
+
+	let mut seed = Default::default();
+	let x = StandardMap {
+		alphabet: Alphabet::Low,
+		min_key: 5,
+		journal_key: 0,
+		value_mode: ValueMode::Random,
+		count: 1000,
+	}
+	.make_with(&mut seed);
+
+	{
+		let mut trie = TrieDBMutBuilder::<Layout>::new(&mut db, &mut root).build();
+		for (k, v) in x.iter() {
+			trie.insert(k, v).expect("Inserts data");
+		}
+	}
+
+	(db, root, x)
+}
+use rand::Rng;
+#[test]
+fn recorder_does_its_thing() {
+	let (db, root, values) = create_trie();
+
+	let mut rng = rand::thread_rng();
+	for _ in 1..100 {
+		let reference_recorder = Recorder::default();
+		let recorder_under_test: RecorderProvider<sp_core::Blake2Hasher> = RecorderProvider::new();
+		{
+			let mut reference_trie_recorder = reference_recorder.as_trie_recorder(root);
+			let reference_trie = TrieDBBuilder::<Layout>::new(&db, &root)
+				.with_recorder(&mut reference_trie_recorder)
+				.build();
+
+			let mut trie_recorder_under_test = recorder_under_test.as_trie_recorder(root);
+			let test_trie = TrieDBBuilder::<Layout>::new(&db, &root)
+				.with_recorder(&mut trie_recorder_under_test)
+				.build();
+
+			for _ in 0..100 {
+				let index: usize = rng.gen_range(0..values.len());
+				test_trie.get(&values[index].0).unwrap().unwrap();
+				reference_trie.get(&values[index].0).unwrap().unwrap();
+			}
+
+			for _ in 0..100 {
+				let index: usize = rng.gen_range(0..values.len());
+				test_trie.get_hash(&values[index].0);
+				reference_trie.get_hash(&values[index].0);
+			}
+		}
+		assert_eq!(
+			reference_recorder.estimate_encoded_size(),
+			recorder_under_test.estimate_encoded_size()
+		);
+	}
 }
