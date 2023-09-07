@@ -49,7 +49,7 @@ use polkadot_primitives::{
 	ScheduledCore, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::TestCandidateBuilder;
-use test_helpers::mock::fresh_leaf;
+use test_helpers::mock::new_leaf;
 
 mod prospective_parachains;
 
@@ -311,7 +311,7 @@ async fn setup_system(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 
 	overseer_signal(
 		virtual_overseer,
-		OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+		OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 			test_state.relay_parent,
 			1,
 		))),

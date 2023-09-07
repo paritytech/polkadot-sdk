@@ -53,7 +53,7 @@ use polkadot_node_subsystem::{
 	ActiveLeavesUpdate, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_test_helpers::{
-	mock::{fresh_leaf, make_ferdie_keystore},
+	mock::{make_ferdie_keystore, new_leaf},
 	subsystem_test_harness, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
@@ -735,7 +735,7 @@ async fn activate_leaf(
 ) {
 	handle
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
-			activated: Some(fresh_leaf(activate, 10)),
+			activated: Some(new_leaf(activate, 10)),
 			deactivated: deactivate.into_iter().collect(),
 		})))
 		.await;

@@ -31,7 +31,7 @@ use polkadot_primitives::{
 };
 use polkadot_primitives_test_helpers::make_candidate;
 use std::sync::Arc;
-use test_helpers::mock::fresh_leaf;
+use test_helpers::mock::new_leaf;
 
 const ALLOWED_ANCESTRY_LEN: u32 = 3;
 const ASYNC_BACKING_PARAMETERS: AsyncBackingParams =
@@ -197,7 +197,7 @@ async fn activate_leaf_with_params(
 ) {
 	let TestLeaf { number, hash, .. } = leaf;
 
-	let activated = fresh_leaf(*hash, *number);
+	let activated = new_leaf(*hash, *number);
 
 	virtual_overseer
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
@@ -492,7 +492,7 @@ fn should_do_no_work_if_async_backing_disabled_for_leaf() {
 		// Start work on some new parent.
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(fresh_leaf(hash, 1)),
+				ActiveLeavesUpdate::start_work(new_leaf(hash, 1)),
 			)))
 			.await;
 
@@ -1308,7 +1308,7 @@ fn correctly_updates_leaves() {
 			.await;
 
 		// Activate a leaf and remove one at the same time.
-		let activated = fresh_leaf(leaf_c.hash, leaf_c.number);
+		let activated = new_leaf(leaf_c.hash, leaf_c.number);
 		let update = ActiveLeavesUpdate {
 			activated: Some(activated),
 			deactivated: [leaf_b.hash][..].into(),
@@ -1334,7 +1334,7 @@ fn correctly_updates_leaves() {
 			.await;
 
 		// Activate and deactivate the same leaf.
-		let activated = fresh_leaf(leaf_a.hash, leaf_a.number);
+		let activated = new_leaf(leaf_a.hash, leaf_a.number);
 		let update = ActiveLeavesUpdate {
 			activated: Some(activated),
 			deactivated: [leaf_a.hash][..].into(),
@@ -1558,7 +1558,7 @@ fn uses_ancestry_only_within_session() {
 			vec![Hash::repeat_byte(4), Hash::repeat_byte(3), Hash::repeat_byte(2)];
 		let session_change_hash = Hash::repeat_byte(3);
 
-		let activated = fresh_leaf(hash, number);
+		let activated = new_leaf(hash, number);
 
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(

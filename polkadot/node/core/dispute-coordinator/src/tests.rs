@@ -58,7 +58,7 @@ use polkadot_node_subsystem::{
 	ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_test_helpers::{
-	make_buffered_subsystem_context, mock::fresh_leaf, TestSubsystemContextHandle,
+	make_buffered_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
 	ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
@@ -275,7 +275,7 @@ impl TestState {
 		gum::debug!(?block_number, "Activating block in activate_leaf_at_session.");
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(fresh_leaf(block_hash, block_number)),
+				ActiveLeavesUpdate::start_work(new_leaf(block_hash, block_number)),
 			)))
 			.await;
 
@@ -443,7 +443,7 @@ impl TestState {
 			);
 			virtual_overseer
 				.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-					ActiveLeavesUpdate::start_work(fresh_leaf(*leaf, n as u32)),
+					ActiveLeavesUpdate::start_work(new_leaf(*leaf, n as u32)),
 				)))
 				.await;
 

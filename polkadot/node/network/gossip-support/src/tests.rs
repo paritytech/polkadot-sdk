@@ -34,7 +34,7 @@ use polkadot_node_subsystem::messages::{AllMessages, RuntimeApiMessage, RuntimeA
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt as _;
 use polkadot_primitives::{GroupIndex, IndexedVec};
-use test_helpers::mock::{fresh_leaf, make_ferdie_keystore};
+use test_helpers::mock::{make_ferdie_keystore, new_leaf};
 
 use super::*;
 
@@ -192,7 +192,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>, AD: AuthorityDiscovery>(
 const TIMEOUT: Duration = Duration::from_millis(100);
 
 async fn overseer_signal_active_leaves(overseer: &mut VirtualOverseer, leaf: Hash) {
-	let leaf = fresh_leaf(leaf, 0xdeadcafe);
+	let leaf = new_leaf(leaf, 0xdeadcafe);
 	overseer
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
 			leaf,

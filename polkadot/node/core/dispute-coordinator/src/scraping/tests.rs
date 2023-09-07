@@ -32,7 +32,7 @@ use polkadot_node_subsystem::{
 	ActivatedLeaf, ActiveLeavesUpdate, SpawnGlue,
 };
 use polkadot_node_subsystem_test_helpers::{
-	make_subsystem_context, mock::fresh_leaf, TestSubsystemContext, TestSubsystemContextHandle,
+	make_subsystem_context, mock::new_leaf, TestSubsystemContext, TestSubsystemContextHandle,
 	TestSubsystemSender,
 };
 use polkadot_node_subsystem_util::{reexports::SubsystemContext, TimeoutExt};
@@ -141,7 +141,7 @@ fn make_candidate_receipt(relay_parent: Hash) -> CandidateReceipt {
 
 /// Get a dummy `ActivatedLeaf` for a given block number.
 fn get_activated_leaf(n: BlockNumber) -> ActivatedLeaf {
-	fresh_leaf(get_block_number_hash(n), n)
+	new_leaf(get_block_number_hash(n), n)
 }
 
 /// Get a dummy relay parent hash for dummy block number.

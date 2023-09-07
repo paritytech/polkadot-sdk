@@ -19,7 +19,7 @@ use super::*;
 use assert_matches::assert_matches;
 use futures::{channel::oneshot, executor, future, Future};
 
-use self::test_helpers::mock::fresh_leaf;
+use self::test_helpers::mock::new_leaf;
 use ::test_helpers::TestCandidateBuilder;
 use parking_lot::Mutex;
 use polkadot_node_primitives::{AvailableData, BlockData, PoV, Proof};
@@ -223,7 +223,7 @@ fn runtime_api_error_does_not_stop_the_subsystem() {
 
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(new_leaf, 1))),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(new_leaf, 1))),
 		)
 		.await;
 
@@ -848,7 +848,7 @@ fn we_dont_miss_anything_if_import_notifications_are_missed() {
 
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(new_leaf, 4))),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(new_leaf, 4))),
 		)
 		.await;
 
@@ -1160,7 +1160,7 @@ async fn import_leaf(
 
 	overseer_signal(
 		virtual_overseer,
-		OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(new_leaf, 1))),
+		OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(new_leaf, 1))),
 	)
 	.await;
 

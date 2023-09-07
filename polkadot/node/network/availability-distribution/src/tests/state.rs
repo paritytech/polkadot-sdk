@@ -49,7 +49,7 @@ use polkadot_primitives::{
 	CandidateHash, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId, ScheduledCore,
 	SessionInfo, ValidatorIndex,
 };
-use test_helpers::mock::{fresh_leaf, make_ferdie_keystore};
+use test_helpers::mock::{make_ferdie_keystore, new_leaf};
 
 use super::mock::{make_session_info, OccupiedCoreBuilder};
 use crate::LOG_TARGET;
@@ -173,7 +173,7 @@ impl TestState {
 				.iter()
 				.zip(advanced)
 				.map(|(old, new)| ActiveLeavesUpdate {
-					activated: Some(fresh_leaf(*new, 1)),
+					activated: Some(new_leaf(*new, 1)),
 					deactivated: vec![*old].into(),
 				})
 				.collect::<Vec<_>>()

@@ -45,7 +45,7 @@ use assert_matches::assert_matches;
 use futures::Future;
 use parity_scale_codec::Encode;
 use rand::{Rng, SeedableRng};
-use test_helpers::mock::fresh_leaf;
+use test_helpers::mock::new_leaf;
 
 use std::sync::Arc;
 
@@ -358,7 +358,7 @@ async fn activate_leaf(
 	test_state: &TestState,
 	is_new_session: bool,
 ) {
-	let activated = fresh_leaf(leaf.hash, leaf.number);
+	let activated = new_leaf(leaf.hash, leaf.number);
 
 	virtual_overseer
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(

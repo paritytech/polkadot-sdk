@@ -31,7 +31,7 @@ use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
 use polkadot_node_primitives::{BlockData, PoV, Proof};
 use polkadot_node_subsystem::messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest};
 use polkadot_node_subsystem_test_helpers::{
-	make_subsystem_context, mock::fresh_leaf, TestSubsystemContextHandle,
+	make_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
@@ -559,7 +559,7 @@ fn availability_is_recovered_from_chunks_if_no_group_provided() {
 	test_harness_fast_path(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				test_state.current,
 				1,
 			))),
@@ -643,7 +643,7 @@ fn availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunk
 	test_harness_chunks_only(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				test_state.current,
 				1,
 			))),
@@ -727,7 +727,7 @@ fn bad_merkle_path_leads_to_recovery_error() {
 	test_harness_fast_path(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				test_state.current,
 				1,
 			))),
@@ -783,7 +783,7 @@ fn wrong_chunk_index_leads_to_recovery_error() {
 	test_harness_fast_path(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				test_state.current,
 				1,
 			))),
@@ -855,7 +855,7 @@ fn invalid_erasure_coding_leads_to_invalid_error() {
 
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				test_state.current,
 				1,
 			))),
@@ -902,7 +902,7 @@ fn fast_path_backing_group_recovers() {
 	test_harness_fast_path(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				test_state.current,
 				1,
 			))),
@@ -950,7 +950,7 @@ fn recovers_from_only_chunks_if_pov_large() {
 	test_harness_chunks_if_pov_large(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				test_state.current,
 				1,
 			))),
@@ -1052,7 +1052,7 @@ fn fast_path_backing_group_recovers_if_pov_small() {
 	test_harness_chunks_if_pov_large(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				test_state.current,
 				1,
 			))),
@@ -1109,7 +1109,7 @@ fn no_answers_in_fast_path_causes_chunk_requests() {
 	test_harness_fast_path(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				test_state.current,
 				1,
 			))),
@@ -1169,7 +1169,7 @@ fn task_canceled_when_receivers_dropped() {
 	test_harness_chunks_only(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				test_state.current,
 				1,
 			))),
@@ -1209,7 +1209,7 @@ fn chunks_retry_until_all_nodes_respond() {
 	test_harness_chunks_only(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				test_state.current,
 				1,
 			))),
@@ -1268,7 +1268,7 @@ fn not_returning_requests_wont_stall_retrieval() {
 	test_harness_chunks_only(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				test_state.current,
 				1,
 			))),
@@ -1338,7 +1338,7 @@ fn all_not_returning_requests_still_recovers_on_return() {
 	test_harness_chunks_only(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				test_state.current,
 				1,
 			))),
@@ -1413,7 +1413,7 @@ fn returns_early_if_we_have_the_data() {
 	test_harness_chunks_only(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				test_state.current,
 				1,
 			))),
@@ -1448,7 +1448,7 @@ fn does_not_query_local_validator() {
 	test_harness_chunks_only(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				test_state.current,
 				1,
 			))),
@@ -1505,7 +1505,7 @@ fn invalid_local_chunk_is_ignored() {
 	test_harness_chunks_only(|mut virtual_overseer, req_cfg| async move {
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				test_state.current,
 				1,
 			))),

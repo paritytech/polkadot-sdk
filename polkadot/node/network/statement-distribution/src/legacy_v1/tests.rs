@@ -41,7 +41,7 @@ use polkadot_node_subsystem::{
 	},
 	RuntimeApiError,
 };
-use polkadot_node_subsystem_test_helpers::mock::{fresh_leaf, make_ferdie_keystore};
+use polkadot_node_subsystem_test_helpers::mock::{make_ferdie_keystore, new_leaf};
 use polkadot_primitives::{
 	ExecutorParams, GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec, SessionInfo,
 	ValidationCode,
@@ -786,7 +786,7 @@ fn receiving_from_one_sends_to_another_and_to_candidate_backing() {
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(fresh_leaf(hash_a, 1)),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -1026,7 +1026,7 @@ fn receiving_large_statement_from_one_sends_to_another_and_to_candidate_backing(
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(fresh_leaf(hash_a, 1)),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -1556,7 +1556,7 @@ fn delay_reputation_changes() {
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(fresh_leaf(hash_a, 1)),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -2036,7 +2036,7 @@ fn share_prioritizes_backing_group() {
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(fresh_leaf(hash_a, 1)),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -2358,7 +2358,7 @@ fn peer_cant_flood_with_large_statements() {
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(fresh_leaf(hash_a, 1)),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -2583,7 +2583,7 @@ fn handle_multiple_seconded_statements() {
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(fresh_leaf(relay_parent_hash, 1)),
+				ActiveLeavesUpdate::start_work(new_leaf(relay_parent_hash, 1)),
 			)))
 			.await;
 

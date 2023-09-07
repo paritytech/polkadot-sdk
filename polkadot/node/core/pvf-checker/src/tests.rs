@@ -24,7 +24,7 @@ use polkadot_node_subsystem::{
 	ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError,
 };
 use polkadot_node_subsystem_test_helpers::{
-	make_subsystem_context, mock::fresh_leaf, TestSubsystemContextHandle,
+	make_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
 	BlockNumber, Hash, Header, PvfCheckStatement, SessionIndex, ValidationCode, ValidationCodeHash,
@@ -196,7 +196,7 @@ impl TestState {
 				},
 			);
 
-			Some(fresh_leaf(activated_leaf.block_hash, activated_leaf.block_number))
+			Some(new_leaf(activated_leaf.block_hash, activated_leaf.block_number))
 		} else {
 			None
 		};

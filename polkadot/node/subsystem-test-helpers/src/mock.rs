@@ -50,8 +50,8 @@ pub fn dummy_unpin_handle(block: Hash) -> UnpinHandle<Block> {
 	UnpinHandle::new(block, dummy_sink)
 }
 
-/// Create a new fresh leaf with the given hash and number.
-pub fn fresh_leaf(hash: Hash, number: BlockNumber) -> ActivatedLeaf {
+/// Create a new leaf with the given hash and number.
+pub fn new_leaf(hash: Hash, number: BlockNumber) -> ActivatedLeaf {
 	ActivatedLeaf {
 		hash,
 		number,

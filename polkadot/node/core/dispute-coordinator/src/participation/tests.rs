@@ -35,7 +35,7 @@ use polkadot_node_subsystem::{
 	ActiveLeavesUpdate, SpawnGlue,
 };
 use polkadot_node_subsystem_test_helpers::{
-	make_subsystem_context, mock::fresh_leaf, TestSubsystemContext, TestSubsystemContextHandle,
+	make_subsystem_context, mock::new_leaf, TestSubsystemContext, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
 	BlakeTwo256, CandidateCommitments, HashT, Header, PersistedValidationData, ValidationCode,
@@ -99,7 +99,7 @@ async fn activate_leaf<Context>(
 	participation
 		.process_active_leaves_update(
 			ctx,
-			&ActiveLeavesUpdate::start_work(fresh_leaf(block_hash, block_number)),
+			&ActiveLeavesUpdate::start_work(new_leaf(block_hash, block_number)),
 		)
 		.await
 }

@@ -19,7 +19,7 @@ use futures::{executor, pending, pin_mut, poll, select, stream, FutureExt};
 use std::{collections::HashMap, sync::atomic, task::Poll};
 
 use ::test_helpers::{dummy_candidate_descriptor, dummy_candidate_receipt, dummy_hash};
-use node_test_helpers::mock::{dummy_unpin_handle, fresh_leaf};
+use node_test_helpers::mock::{dummy_unpin_handle, new_leaf};
 use polkadot_node_network_protocol::{PeerId, UnifiedReputationChange};
 use polkadot_node_primitives::{
 	BlockData, CollationGenerationConfig, CollationResult, DisputeMessage, InvalidDisputeVote, PoV,
@@ -413,11 +413,11 @@ fn overseer_start_stop_works() {
 
 		let expected_heartbeats = vec![
 			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
-				activated: Some(fresh_leaf(first_block_hash, 1)),
+				activated: Some(new_leaf(first_block_hash, 1)),
 				deactivated: Default::default(),
 			}),
 			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
-				activated: Some(fresh_leaf(second_block_hash, 2)),
+				activated: Some(new_leaf(second_block_hash, 2)),
 				deactivated: [first_block_hash].as_ref().into(),
 			}),
 		];
@@ -512,11 +512,11 @@ fn overseer_finalize_works() {
 
 		let expected_heartbeats = vec![
 			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
-				activated: Some(fresh_leaf(first_block_hash, 1)),
+				activated: Some(new_leaf(first_block_hash, 1)),
 				deactivated: Default::default(),
 			}),
 			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
-				activated: Some(fresh_leaf(second_block_hash, 2)),
+				activated: Some(new_leaf(second_block_hash, 2)),
 				deactivated: Default::default(),
 			}),
 			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
@@ -614,11 +614,11 @@ fn overseer_finalize_leaf_preserves_it() {
 		handle.block_finalized(first_block).await;
 
 		let expected_heartbeats = vec![
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				first_block_hash,
 				1,
 			))),
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				second_block_hash,
 				2,
 			))),
@@ -707,7 +707,7 @@ fn do_not_send_empty_leaves_update_on_block_finalization() {
 		handle.block_imported(imported_block.clone()).await;
 
 		let expected_heartbeats = vec![
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(fresh_leaf(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 				imported_block.hash,
 				imported_block.number,
 			))),

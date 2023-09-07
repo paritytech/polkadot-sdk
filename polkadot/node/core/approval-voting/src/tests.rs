@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use self::test_helpers::mock::fresh_leaf;
+use self::test_helpers::mock::new_leaf;
 use super::*;
 use polkadot_node_primitives::{
 	approval::{
@@ -778,7 +778,7 @@ async fn import_block(
 	overseer_send(
 		overseer,
 		FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
-			fresh_leaf(*new_head, number),
+			new_leaf(*new_head, number),
 		))),
 	)
 	.await;

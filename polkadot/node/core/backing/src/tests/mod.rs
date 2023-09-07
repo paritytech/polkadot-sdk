@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use self::test_helpers::mock::fresh_leaf;
+use self::test_helpers::mock::new_leaf;
 use super::*;
 use ::test_helpers::{
 	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
@@ -234,7 +234,7 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 	// Start work on some new parent.
 	virtual_overseer
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
-			fresh_leaf(test_state.relay_parent, 1),
+			new_leaf(test_state.relay_parent, 1),
 		))))
 		.await;
 
