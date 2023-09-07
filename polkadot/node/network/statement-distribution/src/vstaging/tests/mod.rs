@@ -30,7 +30,6 @@ use polkadot_node_subsystem::messages::{
 	RuntimeApiMessage, RuntimeApiRequest,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
-use polkadot_node_subsystem_types::{jaeger, ActivatedLeaf, LeafStatus};
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::vstaging::{
 	AssignmentPair, AsyncBackingParams, BlockNumber, CommittedCandidateReceipt, CoreState,
@@ -46,6 +45,7 @@ use assert_matches::assert_matches;
 use futures::Future;
 use parity_scale_codec::Encode;
 use rand::{Rng, SeedableRng};
+use test_helpers::mock::new_leaf;
 
 use std::sync::Arc;
 
@@ -356,14 +356,9 @@ async fn activate_leaf(
 	virtual_overseer: &mut VirtualOverseer,
 	leaf: &TestLeaf,
 	test_state: &TestState,
-	expect_session_info_request: bool,
+	is_new_session: bool,
 ) {
-	let activated = ActivatedLeaf {
-		hash: leaf.hash,
-		number: leaf.number,
-		status: LeafStatus::Fresh,
-		span: Arc::new(jaeger::Span::Disabled),
-	};
+	let activated = new_leaf(leaf.hash, leaf.number);
 
 	virtual_overseer
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
@@ -371,14 +366,14 @@ async fn activate_leaf(
 		))))
 		.await;
 
-	handle_leaf_activation(virtual_overseer, leaf, test_state, expect_session_info_request).await;
+	handle_leaf_activation(virtual_overseer, leaf, test_state, is_new_session).await;
 }
 
 async fn handle_leaf_activation(
 	virtual_overseer: &mut VirtualOverseer,
 	leaf: &TestLeaf,
 	test_state: &TestState,
-	expect_session_info_request: bool,
+	is_new_session: bool,
 ) {
 	let TestLeaf { number, hash, parent_hash, para_data, session, availability_cores } = leaf;
 
@@ -447,12 +442,22 @@ async fn handle_leaf_activation(
 		}
 	);
 
-	if expect_session_info_request {
+	if is_new_session {
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::RuntimeApi(
 				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionInfo(s, tx))) if parent == *hash && s == *session => {
 				tx.send(Ok(Some(test_state.session_info.clone()))).unwrap();
+			}
+		);
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
+			)) if parent == *hash && session_index == *session => {
+				tx.send(Ok(2)).unwrap();
 			}
 		);
 	}

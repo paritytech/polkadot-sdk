@@ -19,10 +19,6 @@
 
 use parking_lot::RwLock;
 use sp_application_crypto::{AppCrypto, AppPair, IsWrappedBy};
-#[cfg(feature = "bandersnatch-experimental")]
-use sp_core::bandersnatch;
-#[cfg(feature = "bls-experimental")]
-use sp_core::{bls377, bls381};
 use sp_core::{
 	crypto::{ByteArray, ExposeSecret, KeyTypeId, Pair as CorePair, SecretString, VrfSecret},
 	ecdsa, ed25519, sr25519,
@@ -35,6 +31,14 @@ use std::{
 	path::PathBuf,
 	sync::Arc,
 };
+
+sp_keystore::bandersnatch_experimental_enabled! {
+use sp_core::bandersnatch;
+}
+
+sp_keystore::bls_experimental_enabled! {
+use sp_core::{bls377, bls381};
+}
 
 use crate::{Error, Result};
 
@@ -132,6 +136,25 @@ impl LocalKeystore {
 }
 
 impl Keystore for LocalKeystore {
+	fn insert(
+		&self,
+		key_type: KeyTypeId,
+		suri: &str,
+		public: &[u8],
+	) -> std::result::Result<(), ()> {
+		self.0.write().insert(key_type, suri, public).map_err(|_| ())
+	}
+
+	fn keys(&self, key_type: KeyTypeId) -> std::result::Result<Vec<Vec<u8>>, TraitError> {
+		self.0.read().raw_public_keys(key_type).map_err(|e| e.into())
+	}
+
+	fn has_keys(&self, public_keys: &[(Vec<u8>, KeyTypeId)]) -> bool {
+		public_keys
+			.iter()
+			.all(|(p, t)| self.0.read().key_phrase_by_type(p, *t).ok().flatten().is_some())
+	}
+
 	fn sr25519_public_keys(&self, key_type: KeyTypeId) -> Vec<sr25519::Public> {
 		self.public_keys::<sr25519::Pair>(key_type)
 	}
@@ -236,140 +259,113 @@ impl Keystore for LocalKeystore {
 		Ok(sig)
 	}
 
-	#[cfg(feature = "bandersnatch-experimental")]
-	fn bandersnatch_public_keys(&self, key_type: KeyTypeId) -> Vec<bandersnatch::Public> {
-		self.public_keys::<bandersnatch::Pair>(key_type)
+	sp_keystore::bandersnatch_experimental_enabled! {
+		fn bandersnatch_public_keys(&self, key_type: KeyTypeId) -> Vec<bandersnatch::Public> {
+			self.public_keys::<bandersnatch::Pair>(key_type)
+		}
+
+		/// Generate a new pair compatible with the 'bandersnatch' signature scheme.
+		///
+		/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
+		fn bandersnatch_generate_new(
+			&self,
+			key_type: KeyTypeId,
+			seed: Option<&str>,
+		) -> std::result::Result<bandersnatch::Public, TraitError> {
+			self.generate_new::<bandersnatch::Pair>(key_type, seed)
+		}
+
+		fn bandersnatch_sign(
+			&self,
+			key_type: KeyTypeId,
+			public: &bandersnatch::Public,
+			msg: &[u8],
+		) -> std::result::Result<Option<bandersnatch::Signature>, TraitError> {
+			self.sign::<bandersnatch::Pair>(key_type, public, msg)
+		}
+
+		fn bandersnatch_vrf_sign(
+			&self,
+			key_type: KeyTypeId,
+			public: &bandersnatch::Public,
+			data: &bandersnatch::vrf::VrfSignData,
+		) -> std::result::Result<Option<bandersnatch::vrf::VrfSignature>, TraitError> {
+			self.vrf_sign::<bandersnatch::Pair>(key_type, public, data)
+		}
+
+		fn bandersnatch_vrf_output(
+			&self,
+			key_type: KeyTypeId,
+			public: &bandersnatch::Public,
+			input: &bandersnatch::vrf::VrfInput,
+		) -> std::result::Result<Option<bandersnatch::vrf::VrfOutput>, TraitError> {
+			self.vrf_output::<bandersnatch::Pair>(key_type, public, input)
+		}
+
+		fn bandersnatch_ring_vrf_sign(
+			&self,
+			key_type: KeyTypeId,
+			public: &bandersnatch::Public,
+			data: &bandersnatch::vrf::VrfSignData,
+			prover: &bandersnatch::ring_vrf::RingProver,
+		) -> std::result::Result<Option<bandersnatch::ring_vrf::RingVrfSignature>, TraitError> {
+			let sig = self
+				.0
+				.read()
+				.key_pair_by_type::<bandersnatch::Pair>(public, key_type)?
+				.map(|pair| pair.ring_vrf_sign(data, prover));
+			Ok(sig)
+		}
 	}
 
-	/// Generate a new pair compatible with the 'bandersnatch' signature scheme.
-	///
-	/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
-	#[cfg(feature = "bandersnatch-experimental")]
-	fn bandersnatch_generate_new(
-		&self,
-		key_type: KeyTypeId,
-		seed: Option<&str>,
-	) -> std::result::Result<bandersnatch::Public, TraitError> {
-		self.generate_new::<bandersnatch::Pair>(key_type, seed)
-	}
+	sp_keystore::bls_experimental_enabled! {
+		fn bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<bls381::Public> {
+			self.public_keys::<bls381::Pair>(key_type)
+		}
 
-	#[cfg(feature = "bandersnatch-experimental")]
-	fn bandersnatch_sign(
-		&self,
-		key_type: KeyTypeId,
-		public: &bandersnatch::Public,
-		msg: &[u8],
-	) -> std::result::Result<Option<bandersnatch::Signature>, TraitError> {
-		self.sign::<bandersnatch::Pair>(key_type, public, msg)
-	}
+		/// Generate a new pair compatible with the 'bls381' signature scheme.
+		///
+		/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
+		fn bls381_generate_new(
+			&self,
+			key_type: KeyTypeId,
+			seed: Option<&str>,
+		) -> std::result::Result<bls381::Public, TraitError> {
+			self.generate_new::<bls381::Pair>(key_type, seed)
+		}
 
-	#[cfg(feature = "bandersnatch-experimental")]
-	fn bandersnatch_vrf_sign(
-		&self,
-		key_type: KeyTypeId,
-		public: &bandersnatch::Public,
-		data: &bandersnatch::vrf::VrfSignData,
-	) -> std::result::Result<Option<bandersnatch::vrf::VrfSignature>, TraitError> {
-		self.vrf_sign::<bandersnatch::Pair>(key_type, public, data)
-	}
+		fn bls381_sign(
+			&self,
+			key_type: KeyTypeId,
+			public: &bls381::Public,
+			msg: &[u8],
+		) -> std::result::Result<Option<bls381::Signature>, TraitError> {
+			self.sign::<bls381::Pair>(key_type, public, msg)
+		}
 
-	#[cfg(feature = "bandersnatch-experimental")]
-	fn bandersnatch_vrf_output(
-		&self,
-		key_type: KeyTypeId,
-		public: &bandersnatch::Public,
-		input: &bandersnatch::vrf::VrfInput,
-	) -> std::result::Result<Option<bandersnatch::vrf::VrfOutput>, TraitError> {
-		self.vrf_output::<bandersnatch::Pair>(key_type, public, input)
-	}
+		fn bls377_public_keys(&self, key_type: KeyTypeId) -> Vec<bls377::Public> {
+			self.public_keys::<bls377::Pair>(key_type)
+		}
 
-	#[cfg(feature = "bandersnatch-experimental")]
-	fn bandersnatch_ring_vrf_sign(
-		&self,
-		key_type: KeyTypeId,
-		public: &bandersnatch::Public,
-		data: &bandersnatch::vrf::VrfSignData,
-		prover: &bandersnatch::ring_vrf::RingProver,
-	) -> std::result::Result<Option<bandersnatch::ring_vrf::RingVrfSignature>, TraitError> {
-		let sig = self
-			.0
-			.read()
-			.key_pair_by_type::<bandersnatch::Pair>(public, key_type)?
-			.map(|pair| pair.ring_vrf_sign(data, prover));
-		Ok(sig)
-	}
+		/// Generate a new pair compatible with the 'bls377' signature scheme.
+		///
+		/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
+		fn bls377_generate_new(
+			&self,
+			key_type: KeyTypeId,
+			seed: Option<&str>,
+		) -> std::result::Result<bls377::Public, TraitError> {
+			self.generate_new::<bls377::Pair>(key_type, seed)
+		}
 
-	#[cfg(feature = "bls-experimental")]
-	fn bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<bls381::Public> {
-		self.public_keys::<bls381::Pair>(key_type)
-	}
-
-	#[cfg(feature = "bls-experimental")]
-	/// Generate a new pair compatible with the 'bls381' signature scheme.
-	///
-	/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
-	fn bls381_generate_new(
-		&self,
-		key_type: KeyTypeId,
-		seed: Option<&str>,
-	) -> std::result::Result<bls381::Public, TraitError> {
-		self.generate_new::<bls381::Pair>(key_type, seed)
-	}
-
-	#[cfg(feature = "bls-experimental")]
-	fn bls381_sign(
-		&self,
-		key_type: KeyTypeId,
-		public: &bls381::Public,
-		msg: &[u8],
-	) -> std::result::Result<Option<bls381::Signature>, TraitError> {
-		self.sign::<bls381::Pair>(key_type, public, msg)
-	}
-
-	#[cfg(feature = "bls-experimental")]
-	fn bls377_public_keys(&self, key_type: KeyTypeId) -> Vec<bls377::Public> {
-		self.public_keys::<bls377::Pair>(key_type)
-	}
-
-	#[cfg(feature = "bls-experimental")]
-	/// Generate a new pair compatible with the 'bls377' signature scheme.
-	///
-	/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
-	fn bls377_generate_new(
-		&self,
-		key_type: KeyTypeId,
-		seed: Option<&str>,
-	) -> std::result::Result<bls377::Public, TraitError> {
-		self.generate_new::<bls377::Pair>(key_type, seed)
-	}
-
-	#[cfg(feature = "bls-experimental")]
-	fn bls377_sign(
-		&self,
-		key_type: KeyTypeId,
-		public: &bls377::Public,
-		msg: &[u8],
-	) -> std::result::Result<Option<bls377::Signature>, TraitError> {
-		self.sign::<bls377::Pair>(key_type, public, msg)
-	}
-
-	fn insert(
-		&self,
-		key_type: KeyTypeId,
-		suri: &str,
-		public: &[u8],
-	) -> std::result::Result<(), ()> {
-		self.0.write().insert(key_type, suri, public).map_err(|_| ())
-	}
-
-	fn keys(&self, key_type: KeyTypeId) -> std::result::Result<Vec<Vec<u8>>, TraitError> {
-		self.0.read().raw_public_keys(key_type).map_err(|e| e.into())
-	}
-
-	fn has_keys(&self, public_keys: &[(Vec<u8>, KeyTypeId)]) -> bool {
-		public_keys
-			.iter()
-			.all(|(p, t)| self.0.read().key_phrase_by_type(p, *t).ok().flatten().is_some())
+		fn bls377_sign(
+			&self,
+			key_type: KeyTypeId,
+			public: &bls377::Public,
+			msg: &[u8],
+		) -> std::result::Result<Option<bls377::Signature>, TraitError> {
+			self.sign::<bls377::Pair>(key_type, public, msg)
+		}
 	}
 }
 

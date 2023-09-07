@@ -87,9 +87,7 @@ pub mod weights;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	dispatch::{
-		DispatchError, DispatchResult, Dispatchable, GetDispatchInfo, Parameter, RawOrigin,
-	},
+	dispatch::{DispatchResult, GetDispatchInfo, Parameter, RawOrigin},
 	ensure,
 	traits::{
 		schedule::{self, DispatchTime, MaybeHashed},
@@ -105,8 +103,8 @@ use frame_system::{
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{BadOrigin, One, Saturating, Zero},
-	BoundedVec, RuntimeDebug,
+	traits::{BadOrigin, Dispatchable, One, Saturating, Zero},
+	BoundedVec, DispatchError, RuntimeDebug,
 };
 use sp_std::{borrow::Borrow, cmp::Ordering, marker::PhantomData, prelude::*};
 
@@ -320,7 +318,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Execute the scheduled calls
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			let mut weight_counter = WeightMeter::from_limit(T::MaximumWeight::get());
+			let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
 			Self::service_agendas(&mut weight_counter, now, u32::max_value());
 			weight_counter.consumed()
 		}
