@@ -49,6 +49,6 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-runtime/runtime-benchmarks",
-	"staging-kusama-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"staging-kusama-runtime/runtime-benchmarks",
 ]
