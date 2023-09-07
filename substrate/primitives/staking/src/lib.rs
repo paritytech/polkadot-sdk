@@ -39,8 +39,8 @@ pub type SessionIndex = u32;
 /// Counter for the number of eras that have passed.
 pub type EraIndex = u32;
 
-/// Counter for paged storage items.
-pub type PageIndex = u32;
+/// Type for identifying a page.
+pub type Page = u32;
 
 /// Representation of the status of a staker.
 #[derive(RuntimeDebug, TypeInfo)]
@@ -267,7 +267,7 @@ pub trait StakingInterface {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn max_exposure_page_size() -> PageIndex;
+	fn max_exposure_page_size() -> Page;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn add_era_stakers(
@@ -318,7 +318,7 @@ impl<
 	/// `IndividualExposure` with each chunk having maximum of `page_size` elements.
 	pub fn into_pages(
 		self,
-		page_size: PageIndex,
+		page_size: Page,
 	) -> (PagedExposureMetadata<Balance>, Vec<ExposurePage<AccountId, Balance>>) {
 		let individual_chunks = self.others.chunks(page_size as usize);
 		let mut exposure_pages: Vec<ExposurePage<AccountId, Balance>> =
@@ -344,7 +344,7 @@ impl<
 				total: self.total,
 				own: self.own,
 				nominator_count: self.others.len() as u32,
-				page_count: exposure_pages.len() as PageIndex,
+				page_count: exposure_pages.len() as Page,
 			},
 			exposure_pages,
 		)
@@ -395,7 +395,7 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	/// Number of nominators backing this validator.
 	pub nominator_count: u32,
 	/// Number of pages of nominators.
-	pub page_count: PageIndex,
+	pub page_count: Page,
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);

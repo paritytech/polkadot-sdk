@@ -1956,7 +1956,7 @@ sp_api::impl_runtime_apis! {
 			Staking::api_nominations_quota(balance)
 		}
 
-		fn eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -> sp_staking::PageIndex {
+		fn eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -> sp_staking::Page {
 			Staking::api_eras_stakers_page_count(era, account)
 		}
 	}

@@ -41,7 +41,7 @@ use sp_runtime::{
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	EraIndex, PageIndex, SessionIndex, Stake, StakingInterface,
+	EraIndex, Page, SessionIndex, Stake, StakingInterface,
 };
 use sp_std::prelude::*;
 
@@ -160,7 +160,7 @@ impl<T: Config> Pallet<T> {
 	pub(super) fn do_payout_stakers_by_page(
 		validator_stash: T::AccountId,
 		era: EraIndex,
-		page: PageIndex,
+		page: Page,
 	) -> DispatchResultWithPostInfo {
 		// Validate input data
 		let current_era = CurrentEra::<T>::get().ok_or_else(|| {
@@ -1078,7 +1078,7 @@ impl<T: Config> Pallet<T> {
 		Self::eras_stakers(era, &account)
 	}
 
-	pub fn api_eras_stakers_page_count(era: EraIndex, account: T::AccountId) -> PageIndex {
+	pub fn api_eras_stakers_page_count(era: EraIndex, account: T::AccountId) -> Page {
 		EraInfo::<T>::get_page_count(era, &account)
 	}
 }
@@ -1814,7 +1814,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			CurrentEra::<T>::put(era);
 		}
 
-		fn max_exposure_page_size() -> PageIndex {
+		fn max_exposure_page_size() -> Page {
 			T::MaxExposurePageSize::get()
 		}
 	}

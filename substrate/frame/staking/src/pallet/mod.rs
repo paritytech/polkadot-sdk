@@ -35,7 +35,7 @@ use sp_runtime::{
 	traits::{CheckedSub, SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
 };
-use sp_staking::{EraIndex, PageIndex, SessionIndex};
+use sp_staking::{EraIndex, Page, SessionIndex};
 use sp_std::prelude::*;
 
 mod impls;
@@ -488,7 +488,7 @@ pub mod pallet {
 		(
 			NMapKey<Twox64Concat, EraIndex>,
 			NMapKey<Twox64Concat, T::AccountId>,
-			NMapKey<Twox64Concat, PageIndex>,
+			NMapKey<Twox64Concat, Page>,
 		),
 		ExposurePage<T::AccountId, BalanceOf<T>>,
 		OptionQuery,
@@ -509,7 +509,7 @@ pub mod pallet {
 		EraIndex,
 		Twox64Concat,
 		T::AccountId,
-		Vec<PageIndex>,
+		Vec<Page>,
 		ValueQuery,
 	>;
 
@@ -1866,7 +1866,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			validator_stash: T::AccountId,
 			era: EraIndex,
-			page: PageIndex,
+			page: Page,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			Self::do_payout_stakers_by_page(validator_stash, era, page)

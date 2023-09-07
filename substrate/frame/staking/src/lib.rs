@@ -319,7 +319,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{Offence, OffenceError, ReportOffence},
-	EraIndex, ExposurePage, OnStakingUpdate, PageIndex, PagedExposureMetadata, SessionIndex,
+	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
@@ -1013,7 +1013,7 @@ impl<T: Config> EraInfo<T> {
 		era: EraIndex,
 		ledger: &StakingLedger<T>,
 		validator: &T::AccountId,
-		page: PageIndex,
+		page: Page,
 	) -> bool {
 		ledger.legacy_claimed_rewards.binary_search(&era).is_ok() ||
 			Self::is_rewards_claimed(era, validator, page)
@@ -1024,7 +1024,7 @@ impl<T: Config> EraInfo<T> {
 	/// This is only used for paged rewards. Once older non-paged rewards are no longer
 	/// relevant, `is_rewards_claimed_with_legacy_fallback` can be removed and this function can
 	/// be made public.
-	fn is_rewards_claimed(era: EraIndex, validator: &T::AccountId, page: PageIndex) -> bool {
+	fn is_rewards_claimed(era: EraIndex, validator: &T::AccountId, page: Page) -> bool {
 		ClaimedRewards::<T>::get(era, validator).contains(&page)
 	}
 
@@ -1035,7 +1035,7 @@ impl<T: Config> EraInfo<T> {
 	pub(crate) fn get_paged_exposure(
 		era: EraIndex,
 		validator: &T::AccountId,
-		page: PageIndex,
+		page: Page,
 	) -> Option<PagedExposure<T::AccountId, BalanceOf<T>>> {
 		let overview = <ErasStakersOverview<T>>::get(&era, validator);
 
@@ -1091,7 +1091,7 @@ impl<T: Config> EraInfo<T> {
 	/// Returns the number of pages of exposure a validator has for the given era.
 	///
 	/// For eras where paged exposure does not exist, this returns 1 to keep backward compatibility.
-	pub(crate) fn get_page_count(era: EraIndex, validator: &T::AccountId) -> PageIndex {
+	pub(crate) fn get_page_count(era: EraIndex, validator: &T::AccountId) -> Page {
 		<ErasStakersOverview<T>>::get(&era, validator)
 			.map(|overview| {
 				if overview.page_count == 0 && overview.own > Zero::zero() {
@@ -1112,7 +1112,7 @@ impl<T: Config> EraInfo<T> {
 		era: EraIndex,
 		validator: &T::AccountId,
 		ledger: &StakingLedger<T>,
-	) -> Option<PageIndex> {
+	) -> Option<Page> {
 		if Self::is_non_paged_exposure(era, validator) {
 			return match ledger.legacy_claimed_rewards.binary_search(&era) {
 				// already claimed
@@ -1124,7 +1124,7 @@ impl<T: Config> EraInfo<T> {
 
 		// Find next claimable page of paged exposure.
 		let page_count = Self::get_page_count(era, validator);
-		let all_claimable_pages: Vec<PageIndex> = (0..page_count).collect();
+		let all_claimable_pages: Vec<Page> = (0..page_count).collect();
 		let claimed_pages = ClaimedRewards::<T>::get(era, validator);
 
 		all_claimable_pages.into_iter().find(|p| !claimed_pages.contains(p))
@@ -1145,7 +1145,7 @@ impl<T: Config> EraInfo<T> {
 
 	/// Creates an entry to track validator reward has been claimed for a given era and page.
 	/// Noop if already claimed.
-	pub(crate) fn set_rewards_as_claimed(era: EraIndex, validator: &T::AccountId, page: PageIndex) {
+	pub(crate) fn set_rewards_as_claimed(era: EraIndex, validator: &T::AccountId, page: Page) {
 		let mut claimed_pages = ClaimedRewards::<T>::get(era, validator);
 
 		// this should never be called if the reward has already been claimed
@@ -1178,7 +1178,7 @@ impl<T: Config> EraInfo<T> {
 
 		<ErasStakersOverview<T>>::insert(era, &validator, &exposure_metadata);
 		exposure_pages.iter().enumerate().for_each(|(page, paged_exposure)| {
-			<ErasStakersPaged<T>>::insert((era, &validator, page as PageIndex), &paged_exposure);
+			<ErasStakersPaged<T>>::insert((era, &validator, page as Page), &paged_exposure);
 		});
 	}
 
