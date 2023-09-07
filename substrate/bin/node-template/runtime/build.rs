@@ -5,6 +5,7 @@ fn main() {
 			.with_current_project()
 			.export_heap_base()
 			.import_memory()
+			.enable_feature("allocator-v1")
 			.build();
 	}
 }

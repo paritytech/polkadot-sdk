@@ -7590,6 +7590,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lol_alloc"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36aabc32b791f1a506e0bb90e0fa03e983500549d7b1f2dad45b5fc20ef45974"
+dependencies = [
+ "spin 0.9.8",
+]
+
+[[package]]
 name = "lru"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8492,6 +8501,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
  "scale-info",
+ "sp-allocator-v1",
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -16678,6 +16688,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-allocator-v1"
+version = "7.0.0"
+dependencies = [
+ "lol_alloc",
+ "sp-io",
+]
+
+[[package]]
 name = "sp-api"
 version = "4.0.0-dev"
 dependencies = [
@@ -17665,6 +17683,9 @@ name = "spin"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
+dependencies = [
+ "lock_api",
+]
 
 [[package]]
 name = "spinners"

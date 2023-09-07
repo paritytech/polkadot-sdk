@@ -1,0 +1,33 @@
+[package]
+name = "sp-allocator-v1"
+version = "7.0.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://substrate.io"
+repository = "https://github.com/paritytech/substrate/"
+description = "I/O for Substrate runtimes"
+documentation = "https://docs.rs/sp-io"
+readme = "README.md"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+lol_alloc = { version = "0.4", optional = true }
+
+# not used just enable feature
+sp-io = { path = "../io", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"sp-io/std",
+]
+
+allocator-v1 = [
+	"lol_alloc",
+	"sp-io/disable_allocator",
+	"sp-io/disable_panic_handler",
+	"sp-io/disable_oom",
+]

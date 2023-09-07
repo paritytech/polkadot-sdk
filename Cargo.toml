@@ -369,6 +369,7 @@ members = [
 	"substrate/frame/utility",
 	"substrate/frame/vesting",
 	"substrate/frame/whitelist",
+	"substrate/primitives/allocator-v1",
 	"substrate/primitives/api",
 	"substrate/primitives/api/proc-macro",
 	"substrate/primitives/api/test",
