@@ -662,8 +662,8 @@ impl TestNodeBuilder {
 	}
 
 	/// Record proofs during import.
-	pub fn disable_import_proof_recording(mut self) -> TestNodeBuilder {
-		self.record_proof_during_import = false;
+	pub fn import_proof_recording(mut self, should_record_proof: bool) -> TestNodeBuilder {
+		self.record_proof_during_import = should_record_proof;
 		self
 	}
 

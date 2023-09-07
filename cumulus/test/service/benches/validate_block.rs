@@ -79,6 +79,7 @@ fn benchmark_block_validation(c: &mut Criterion) {
 	// Each account should only be included in one transfer.
 	let (src_accounts, dst_accounts, account_ids) = utils::create_benchmark_accounts();
 
+	let para_id = ParaId::from(cumulus_test_runtime::PARACHAIN_ID);
 	let mut test_client_builder = TestClientBuilder::with_default_backend();
 	let genesis_init = test_client_builder.genesis_init_mut();
 	*genesis_init = cumulus_test_client::GenesisParameters { endowed_accounts: account_ids };
@@ -94,8 +95,11 @@ fn benchmark_block_validation(c: &mut Criterion) {
 		..Default::default()
 	};
 
-	let mut sproof_builder: RelayStateSproofBuilder = Default::default();
-	sproof_builder.included_para_head = Some(parent_header.clone().encode().into());
+	let mut sproof_builder = RelayStateSproofBuilder {
+		included_para_head: Some(parent_header.clone().encode().into()),
+		para_id,
+		..Default::default()
+	};
 
 	let mut block_builder =
 		client.init_block_builder(Some(validation_data), sproof_builder.clone());

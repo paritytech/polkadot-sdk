@@ -227,7 +227,6 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 			None,
 			None,
 			client_config,
-			false,
 		)
 		.expect("Creates new client");
 

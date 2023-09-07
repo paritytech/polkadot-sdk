@@ -114,7 +114,7 @@ impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for RecorderProvider<H
 	type Recorder<'a> = SizeRecorder<'a, H> where H: 'a;
 
 	fn drain_storage_proof(self) -> StorageProof {
-		panic!("Tried to drain storage proof")
+		unimplemented!("Draining storage proof not supported!")
 	}
 
 	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_> {

@@ -116,7 +116,6 @@ where
 	config: ClientConfig<Block>,
 	telemetry: Option<TelemetryHandle>,
 	unpin_worker_sender: TracingUnboundedSender<Block::Hash>,
-	enable_import_proof_recording: bool,
 	_phantom: PhantomData<RA>,
 }
 
@@ -186,7 +185,7 @@ where
 	)
 }
 
-/// Relevant client configuration items relevant for the client.
+/// Client configuration items.
 #[derive(Debug, Clone)]
 pub struct ClientConfig<Block: BlockT> {
 	/// Enable the offchain worker db.
@@ -200,6 +199,8 @@ pub struct ClientConfig<Block: BlockT> {
 	/// Map of WASM runtime substitute starting at the child of the given block until the runtime
 	/// version doesn't match anymore.
 	pub wasm_runtime_substitutes: HashMap<NumberFor<Block>, Vec<u8>>,
+	/// Enable recording of storage proofs during block import
+	pub enable_import_proof_recording: bool,
 }
 
 impl<Block: BlockT> Default for ClientConfig<Block> {
@@ -210,6 +211,7 @@ impl<Block: BlockT> Default for ClientConfig<Block> {
 			wasm_runtime_overrides: None,
 			no_genesis: false,
 			wasm_runtime_substitutes: HashMap::new(),
+			enable_import_proof_recording: false,
 		}
 	}
 }
@@ -250,7 +252,6 @@ where
 		prometheus_registry,
 		telemetry,
 		config,
-		false,
 	)
 }
 
@@ -388,7 +389,6 @@ where
 		prometheus_registry: Option<Registry>,
 		telemetry: Option<TelemetryHandle>,
 		config: ClientConfig<Block>,
-		enable_import_proof_recording: bool,
 	) -> sp_blockchain::Result<Self>
 	where
 		G: BuildGenesisBlock<
@@ -451,7 +451,6 @@ where
 			config,
 			telemetry,
 			unpin_worker_sender,
-			enable_import_proof_recording,
 			_phantom: Default::default(),
 		})
 	}
@@ -866,7 +865,7 @@ where
 
 				runtime_api.set_call_context(CallContext::Onchain);
 
-				if self.enable_import_proof_recording {
+				if self.config.enable_import_proof_recording {
 					log::info!(target:"skunert", "Block import with proof recording.");
 					runtime_api.record_proof();
 				}

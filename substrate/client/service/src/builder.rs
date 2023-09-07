@@ -247,8 +247,8 @@ where
 					SyncMode::LightState { .. } | SyncMode::Warp { .. }
 				),
 				wasm_runtime_substitutes,
+				enable_import_proof_recording,
 			},
-			enable_import_proof_recording,
 		)?;
 
 		client
@@ -302,7 +302,6 @@ pub fn new_client<E, Block, RA, G>(
 	prometheus_registry: Option<Registry>,
 	telemetry: Option<TelemetryHandle>,
 	config: ClientConfig<Block>,
-	enable_import_proof_recording: bool,
 ) -> Result<
 	Client<
 		Backend<Block>,
@@ -337,7 +336,6 @@ where
 		prometheus_registry,
 		telemetry,
 		config,
-		enable_import_proof_recording,
 	)
 }
 

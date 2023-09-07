@@ -23,7 +23,6 @@ use sp_runtime_interface::runtime_interface;
 #[runtime_interface]
 pub trait PovReclaimHostFunctions {
 	fn current_storage_proof_size(&mut self) -> u32 {
-		tracing::info!(target:"skunert", "current_storage_proof_size is called");
 		self.proof_size().unwrap_or_default()
 	}
 }
