@@ -27,15 +27,15 @@ unsafe fn alloc(size: usize) -> *mut u8 {
 	ALLOCATOR.alloc(core::alloc::Layout::array::<u8>(size).unwrap())
 }
 
-#[no_mangle]
-unsafe fn dealloc(ptr: *mut u8, size: usize) {
-	ALLOCATOR.dealloc(ptr, core::alloc::Layout::array::<u8>(size).unwrap())
-}
-
-#[no_mangle]
-unsafe fn realloc(ptr: *mut u8, size: usize, new_size: usize) -> *mut u8 {
-	ALLOCATOR.realloc(ptr, core::alloc::Layout::array::<u8>(size).unwrap(), new_size)
-}
+// #[no_mangle]
+// unsafe fn dealloc(ptr: *mut u8, size: usize) {
+// 	ALLOCATOR.dealloc(ptr, core::alloc::Layout::array::<u8>(size).unwrap())
+// }
+//
+// #[no_mangle]
+// unsafe fn realloc(ptr: *mut u8, size: usize, new_size: usize) -> *mut u8 {
+// 	ALLOCATOR.realloc(ptr, core::alloc::Layout::array::<u8>(size).unwrap(), new_size)
+// }
 
 // TODO: maybe it's better to rename this crate to `sp-runtime-abi`.
 /// The dummy function represents the version of runtime ABI.
@@ -44,7 +44,7 @@ fn v1() {
 	// nop
 }
 
-// TODO
+// TODO: design a better error message for panic.
 /// A default panic handler for WASM environment.
 #[cfg(all(not(feature = "disable_panic_handler"), not(feature = "std")))]
 #[panic_handler]
