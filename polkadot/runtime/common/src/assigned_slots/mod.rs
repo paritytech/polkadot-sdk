@@ -685,6 +685,7 @@ mod tests {
 		type BlockLength = ();
 		type RuntimeOrigin = RuntimeOrigin;
 		type RuntimeCall = RuntimeCall;
+		type RuntimeTask = RuntimeTask;
 		type Nonce = u64;
 		type Hash = H256;
 		type Hashing = BlakeTwo256;
@@ -712,6 +713,7 @@ mod tests {
 	impl pallet_balances::Config for Test {
 		type Balance = u64;
 		type RuntimeEvent = RuntimeEvent;
+		type RuntimeTask = RuntimeTask;
 		type DustRemoval = ();
 		type ExistentialDeposit = ExistentialDeposit;
 		type AccountStore = System;

@@ -150,6 +150,7 @@ impl frame_system::Config for TestRuntime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type Hash = ThisChainHash;
 	type Hashing = ThisChainHasher;
 	type AccountId = ThisChainAccountId;
@@ -182,6 +183,7 @@ impl pallet_utility::Config for TestRuntime {
 impl pallet_balances::Config for TestRuntime {
 	type Balance = ThisChainBalance;
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeTask = RuntimeTask;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;

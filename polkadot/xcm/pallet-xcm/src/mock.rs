@@ -200,6 +200,7 @@ parameter_types! {
 impl frame_system::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type Nonce = u64;
 	type Hash = H256;
 	type Hashing = ::sp_runtime::traits::BlakeTwo256;
@@ -233,6 +234,7 @@ impl pallet_balances::Config for Test {
 	type MaxLocks = MaxLocks;
 	type Balance = Balance;
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeTask = RuntimeTask;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
