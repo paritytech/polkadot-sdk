@@ -44,6 +44,7 @@ pub(crate) const MAX_JUNCTIONS: usize = 8;
 	serde::Serialize,
 	serde::Deserialize,
 )]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub enum Junctions {
 	/// The interpreting consensus system.
 	Here,
