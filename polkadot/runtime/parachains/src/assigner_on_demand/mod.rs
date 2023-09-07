@@ -34,7 +34,7 @@ mod tests;
 
 use crate::{
 	configuration, paras,
-	scheduler::common::{AssignmentProvider, AssignmentProviderConfig},
+	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
 };
 
 use frame_support::{
@@ -46,7 +46,7 @@ use frame_support::{
 	},
 };
 use frame_system::pallet_prelude::*;
-use primitives::{v5::Assignment, CoreIndex, Id as ParaId};
+use primitives::{CoreIndex, Id as ParaId};
 use sp_runtime::{
 	traits::{One, SaturatedConversion},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
@@ -606,7 +606,6 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumberFor<T>> {
 		let config = <configuration::Pallet<T>>::config();
 		AssignmentProviderConfig {
-			availability_period: config.paras_availability_period,
 			max_availability_timeouts: config.on_demand_retries,
 			ttl: config.on_demand_ttl,
 		}
