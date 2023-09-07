@@ -187,11 +187,14 @@ impl PerSessionState {
 		}
 	}
 
-	fn supply_topology(&mut self, topology: &SessionGridTopology) {
+	fn supply_topology(&mut self, topology: &SessionGridTopology, local_index: Option<ValidatorIndex>) {
+		// Note: we use the local index rather than the `self.local_validator` as the
+		// former may be `Some` when the latter is `None`, due to the set of nodes in
+		// discovery being a superset of the active validators for consensus.
 		let grid_view = grid::build_session_topology(
 			self.session_info.validator_groups.iter(),
 			topology,
-			self.local_validator,
+			local_index,
 		);
 
 		self.grid_view = Some(grid_view);
@@ -368,9 +371,10 @@ pub(crate) async fn handle_network_update<Context>(
 		NetworkBridgeEvent::NewGossipTopology(topology) => {
 			let new_session_index = topology.session;
 			let new_topology = topology.topology;
+			let local_index = topology.local_index;
 
 			if let Some(per_session) = state.per_session.get_mut(&new_session_index) {
-				per_session.supply_topology(&new_topology);
+				per_session.supply_topology(&new_topology, local_index);
 			}
 
 			// TODO [https://github.com/paritytech/polkadot/issues/6194]
