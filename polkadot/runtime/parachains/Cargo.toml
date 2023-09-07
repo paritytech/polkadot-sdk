@@ -84,6 +84,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-vesting/std",
 	"parity-scale-codec/std",
+	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-metrics/std",
 	"primitives/std",
@@ -101,7 +102,6 @@ std = [
 	"sp-std/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"polkadot-core-primitives/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
