@@ -3555,7 +3555,6 @@ dependencies = [
  "polkadot-parachain-primitives",
  "sc-client-api",
  "scale-info",
- "sp-api",
  "sp-core",
  "sp-externalities",
  "sp-inherents",
@@ -3716,10 +3715,9 @@ dependencies = [
 
 [[package]]
 name = "cumulus-primitives-reclaim"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "sp-runtime-interface",
- "tracing",
 ]
 
 [[package]]

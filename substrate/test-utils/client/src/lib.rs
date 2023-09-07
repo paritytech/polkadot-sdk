@@ -351,7 +351,7 @@ pub(crate) fn parse_rpc_result(
 
 	if let Some(error) = error {
 		return Err(serde_json::from_value(error.clone())
-			.expect("the JSONRPC result's error is always valid; qed"));
+			.expect("the JSONRPC result's error is always valid; qed"))
 	}
 
 	Ok(RpcTransactionOutput { result, receiver })
@@ -385,7 +385,7 @@ where
 				if notification.is_new_best {
 					blocks.insert(*notification.header.number());
 					if blocks.len() == count {
-						break;
+						break
 					}
 				}
 			}

@@ -16,8 +16,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate sp_runtime_interface;
-
 use sp_runtime_interface::runtime_interface;
 
 #[runtime_interface]

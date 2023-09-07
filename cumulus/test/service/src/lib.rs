@@ -269,20 +269,18 @@ async fn build_relay_chain_interface(
 			None,
 		)
 		.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?,
-		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) => {
+		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
 			return build_minimal_relay_chain_node_with_rpc(
 				relay_chain_config,
 				task_manager,
 				rpc_target_urls,
 			)
 			.await
-			.map(|r| r.0)
-		},
-		cumulus_client_cli::RelayChainMode::LightClient => {
+			.map(|r| r.0),
+		cumulus_client_cli::RelayChainMode::LightClient =>
 			return build_minimal_relay_chain_node_light_client(relay_chain_config, task_manager)
 				.await
-				.map(|r| r.0)
-		},
+				.map(|r| r.0),
 	};
 
 	task_manager.add_child(relay_chain_full_node.task_manager);

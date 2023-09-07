@@ -93,11 +93,9 @@ where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as Extrinsic>::Call: IsSubType<crate::Call<PSC>>,
 {
-	sp_api::init_runtime_logger();
 	let block_data = codec::decode_from_bytes::<ParachainBlockData<B>>(block_data)
 		.expect("Invalid parachain block data");
 
-	log::info!(target:"skunert", "Hello World from validate block!");
 	let parent_header =
 		codec::decode_from_bytes::<B::Header>(parent_head.clone()).expect("Invalid parent head");
 
