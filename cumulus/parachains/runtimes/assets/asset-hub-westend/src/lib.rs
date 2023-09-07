@@ -1380,7 +1380,7 @@ pub mod migrations {
 	pub struct NativeAssetParents0ToParents1Migration<T>(sp_std::marker::PhantomData<T>);
 	impl<
 			T: pallet_asset_conversion::Config<
-				AssetId = Box<Location>,
+				MultiAssetId = Box<Location>,
 				AssetId = Location,
 			>,
 		> OnRuntimeUpgrade for NativeAssetParents0ToParents1Migration<T>
