@@ -2000,6 +2000,7 @@ async fn handle_incoming_manifest_common<'a, Context>(
 		None => {
 			// TODO [now]: this is way too heavy and is just for debugging now.
 			gum::debug!(
+				target: LOG_TARGET,
 				?peer,
 				?manifest_kind,
 				expected_validators = ?grid_topology
