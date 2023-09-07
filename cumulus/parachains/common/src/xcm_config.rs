@@ -106,9 +106,9 @@ mod tests {
 	};
 
 	#[test]
-	fn native_asset_from_sibling_system_para_works() {
+	fn native_asset_from_relay_works() {
 		let expected_asset: MultiAsset = (Parent, 1000000).into();
-		let expected_origin: MultiLocation = (Parent, Parachain(1999)).into();
+		let expected_origin: MultiLocation = (Parent, Here).into();
 
 		assert!(ConcreteNativeAssetFromSystem::contains(&expected_asset, &expected_origin));
 	}
@@ -128,10 +128,22 @@ mod tests {
 	}
 
 	#[test]
-	fn native_asset_from_sibling_system_para_fails_for_wrong_origin() {
-		let expected_asset: MultiAsset = (Parent, 1000000).into();
-		let unexpected_origin: MultiLocation = (Parent, Parachain(2000)).into();
+	fn native_asset_from_sibling_system_para_works_for_correct_asset() {
+		// (para_id, expected_result)
+		let test_data = vec![
+			(0, true),
+			(1, true),
+			(1000, true),
+			(1999, true),
+			(2000, false), // Not a System Parachain
+			(2001, false), // Not a System Parachain
+		];
 
-		assert!(!ConcreteNativeAssetFromSystem::contains(&expected_asset, &unexpected_origin));
+		let expected_asset: MultiAsset = (Parent, 1000000).into();
+
+		for (para_id, expected_result) in test_data {
+			let origin: MultiLocation = (Parent, Parachain(para_id)).into();
+			assert_eq!(expected_result, ConcreteNativeAssetFromSystem::contains(&expected_asset, &origin));
+		}
 	}
 }
