@@ -311,8 +311,6 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 			MultiLocation { parents: 0, interior: X1(AccountId32 { id, network }) }
 				if network == Network::get() =>
 				id,
-			MultiLocation { parents: 0, interior: X1(Plurality { id: BodyId::Treasury, .. }) } =>
-				PalletId(*b"py/trsry").into_account_truncating(),
 			_ => return None,
 		};
 		Some(id.into())
