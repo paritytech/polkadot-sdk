@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use assert_matches::assert_matches;
 
@@ -25,15 +25,15 @@ use sp_core::testing::TaskExecutor;
 use ::test_helpers::{dummy_collator, dummy_collator_signature, dummy_hash};
 use polkadot_node_primitives::DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION;
 use polkadot_node_subsystem::{
-	jaeger,
 	messages::{
 		AllMessages, ChainApiMessage, DisputeCoordinatorMessage, RuntimeApiMessage,
 		RuntimeApiRequest,
 	},
-	ActivatedLeaf, ActiveLeavesUpdate, LeafStatus, SpawnGlue,
+	ActivatedLeaf, ActiveLeavesUpdate, SpawnGlue,
 };
 use polkadot_node_subsystem_test_helpers::{
-	make_subsystem_context, TestSubsystemContext, TestSubsystemContextHandle, TestSubsystemSender,
+	make_subsystem_context, mock::new_leaf, TestSubsystemContext, TestSubsystemContextHandle,
+	TestSubsystemSender,
 };
 use polkadot_node_subsystem_util::{reexports::SubsystemContext, TimeoutExt};
 use polkadot_primitives::{
@@ -141,12 +141,7 @@ fn make_candidate_receipt(relay_parent: Hash) -> CandidateReceipt {
 
 /// Get a dummy `ActivatedLeaf` for a given block number.
 fn get_activated_leaf(n: BlockNumber) -> ActivatedLeaf {
-	ActivatedLeaf {
-		hash: get_block_number_hash(n),
-		number: n,
-		status: LeafStatus::Fresh,
-		span: Arc::new(jaeger::Span::Disabled),
-	}
+	new_leaf(get_block_number_hash(n), n)
 }
 
 /// Get a dummy relay parent hash for dummy block number.
