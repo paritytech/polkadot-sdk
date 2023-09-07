@@ -1930,7 +1930,7 @@ sp_api::impl_runtime_apis! {
 			use sp_storage::TrackedStorageKey;
 			use xcm::latest::prelude::*;
 			use xcm_config::{
-				LocalCheckAccount, LocationConverter, Rockmine, TokenLocation, XcmConfig,
+				LocalCheckAccount, LocationConverter, AssetHub, TokenLocation, XcmConfig,
 			};
 
 			impl frame_system_benchmarking::Config for Runtime {}
@@ -1939,7 +1939,7 @@ sp_api::impl_runtime_apis! {
 				type XcmConfig = XcmConfig;
 				type AccountIdConverter = LocationConverter;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
-					Ok(Rockmine::get())
+					Ok(AssetHub::get())
 				}
 				fn worst_case_holding(_depositable_count: u32) -> MultiAssets {
 					// Rococo only knows about ROC
@@ -1952,7 +1952,7 @@ sp_api::impl_runtime_apis! {
 
 			parameter_types! {
 				pub const TrustedTeleporter: Option<(MultiLocation, MultiAsset)> = Some((
-					Rockmine::get(),
+					AssetHub::get(),
 					MultiAsset { fun: Fungible(1 * UNITS), id: Concrete(TokenLocation::get()) },
 				));
 				pub const TrustedReserve: Option<(MultiLocation, MultiAsset)> = None;
@@ -1991,15 +1991,15 @@ sp_api::impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(MultiLocation, RuntimeCall), BenchmarkError> {
-					Ok((Rockmine::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					Ok((AssetHub::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
 				fn subscribe_origin() -> Result<MultiLocation, BenchmarkError> {
-					Ok(Rockmine::get())
+					Ok(AssetHub::get())
 				}
 
 				fn claimable_asset() -> Result<(MultiLocation, MultiLocation, MultiAssets), BenchmarkError> {
-					let origin = Rockmine::get();
+					let origin = AssetHub::get();
 					let assets: MultiAssets = (Concrete(TokenLocation::get()), 1_000 * UNITS).into();
 					let ticket = MultiLocation { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))

@@ -111,7 +111,7 @@ pub mod xcm {
 /// System Parachains.
 pub mod system_parachain {
 	/// Statemint parachain ID.
-	pub const WESTMINT_ID: u32 = 1000;
+	pub const ASSET_HUB_ID: u32 = 1000;
 	/// Collectives parachain ID.
 	pub const COLLECTIVES_ID: u32 = 1001;
 }

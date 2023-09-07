@@ -107,8 +107,8 @@ pub type XcmRouter = WithUniqueTopic<(
 
 parameter_types! {
 	pub const Wnd: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
-	pub const Westmint: MultiLocation = Parachain(WESTMINT_ID).into_location();
-	pub const WndForWestmint: (MultiAssetFilter, MultiLocation) = (Wnd::get(), Westmint::get());
+	pub const AssetHub: MultiLocation = Parachain(ASSET_HUB_ID).into_location();
+	pub const WndForAssetHub: (MultiAssetFilter, MultiLocation) = (Wnd::get(), AssetHub::get());
 	pub const Collectives: MultiLocation = Parachain(COLLECTIVES_ID).into_location();
 	pub const WndForCollectives: (MultiAssetFilter, MultiLocation) = (Wnd::get(), Collectives::get());
 	pub const MaxInstructions: u32 = 100;
@@ -116,7 +116,7 @@ parameter_types! {
 }
 
 pub type TrustedTeleporters =
-	(xcm_builder::Case<WndForWestmint>, xcm_builder::Case<WndForCollectives>);
+	(xcm_builder::Case<WndForAssetHub>, xcm_builder::Case<WndForCollectives>);
 
 match_types! {
 	pub type OnlyParachains: impl Contains<MultiLocation> = {
