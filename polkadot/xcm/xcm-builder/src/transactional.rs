@@ -15,9 +15,9 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use frame_support::{
-	dispatch::DispatchError,
 	storage::{with_transaction, TransactionOutcome},
 };
+use sp_runtime::DispatchError;
 use xcm::latest::prelude::*;
 use xcm_executor::traits::ProcessTransaction;
 
