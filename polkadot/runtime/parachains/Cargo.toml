@@ -84,6 +84,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-vesting/std",
 	"parity-scale-codec/std",
+	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-metrics/std",
 	"primitives/std",
