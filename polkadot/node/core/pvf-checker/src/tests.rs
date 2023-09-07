@@ -17,14 +17,15 @@
 use ::test_helpers::{dummy_digest, dummy_hash};
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
 use polkadot_node_subsystem::{
-	jaeger,
 	messages::{
 		AllMessages, CandidateValidationMessage, PreCheckOutcome, PvfCheckerMessage,
 		RuntimeApiMessage, RuntimeApiRequest,
 	},
-	ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, LeafStatus, OverseerSignal, RuntimeApiError,
+	ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError,
 };
-use polkadot_node_subsystem_test_helpers::{make_subsystem_context, TestSubsystemContextHandle};
+use polkadot_node_subsystem_test_helpers::{
+	make_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
+};
 use polkadot_primitives::{
 	BlockNumber, Hash, Header, PvfCheckStatement, SessionIndex, ValidationCode, ValidationCodeHash,
 	ValidatorId,
@@ -195,12 +196,7 @@ impl TestState {
 				},
 			);
 
-			Some(ActivatedLeaf {
-				hash: activated_leaf.block_hash,
-				span: Arc::new(jaeger::Span::Disabled),
-				number: activated_leaf.block_number,
-				status: LeafStatus::Fresh,
-			})
+			Some(new_leaf(activated_leaf.block_hash, activated_leaf.block_number))
 		} else {
 			None
 		};
