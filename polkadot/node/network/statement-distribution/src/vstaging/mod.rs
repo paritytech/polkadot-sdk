@@ -548,6 +548,13 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 		);
 	}
 
+	gum::debug!(
+		target: LOG_TARGET,
+		"Activated leaves. Now tracking {} leaves across {} sessions",
+		state.per_relay_parent.len(),
+		state.per_session.len(),
+	);
+
 	// Reconcile all peers' views with the active leaf and any relay parents
 	// it implies. If they learned about the block before we did, this reconciliation will give
 	// non-empty results and we should send them messages concerning all activated relay-parents.
@@ -611,6 +618,7 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 	let relay_parents = state.implicit_view.all_allowed_relay_parents().collect::<HashSet<_>>();
 
 	// fast exit for no-op.
+	// TODO [now]: this looks suspicious.
 	if relay_parents.len() == state.per_relay_parent.len() {
 		return
 	}
@@ -620,6 +628,7 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 
 	// Clean up all requests
 	for leaf in leaves {
+		// TODO [now]: this is only cleaning up leaves. seems like a bug?
 		state.request_manager.remove_by_relay_parent(*leaf);
 	}
 
