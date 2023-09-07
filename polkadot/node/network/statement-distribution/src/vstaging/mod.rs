@@ -1756,6 +1756,7 @@ async fn provide_candidate_to_grid<Context>(
 		gum::debug!(
 			target: LOG_TARGET,
 			?candidate_hash,
+			local_validator = ?local_validator.index,
 			n_peers = manifest_peers.len(),
 			"Sending manifest to peers"
 		);
@@ -1771,6 +1772,7 @@ async fn provide_candidate_to_grid<Context>(
 		gum::debug!(
 			target: LOG_TARGET,
 			?candidate_hash,
+			local_validator = ?local_validator.index,
 			n_peers = ack_peers.len(),
 			"Sending acknowledgement to peers"
 		);
@@ -1996,6 +1998,18 @@ async fn handle_incoming_manifest_common<'a, Context>(
 
 	let sender_index = match sender_index {
 		None => {
+			// TODO [now]: this is way too heavy and is just for debugging now.
+			gum::debug!(
+				?peer,
+				?manifest_kind,
+				expected_validators = ?grid_topology
+					.iter_sending_for_group(manifest_summary.claimed_group_index, manifest_kind)
+					.map(|v| (v.0, per_session.session_info.discovery_keys.get(v.0 as usize)))
+					.collect::<Vec<_>>(),
+				peer_keys = ?peer_state.discovery_ids.as_ref().into_iter().flatten().collect::<Vec<_>>(),
+				"Unknown peer for manifest?"
+			);
+
 			modify_reputation(
 				reputation,
 				ctx.sender(),
@@ -2003,6 +2017,7 @@ async fn handle_incoming_manifest_common<'a, Context>(
 				COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN,
 			)
 			.await;
+
 			return None
 		},
 		Some(s) => s,
@@ -2054,6 +2069,18 @@ async fn handle_incoming_manifest_common<'a, Context>(
 	) {
 		modify_reputation(reputation, ctx.sender(), peer, COST_INACCURATE_ADVERTISEMENT).await;
 		return None
+	}
+
+	// TODO [now] just for debug
+	if acknowledge {
+		gum::debug!(
+			target: LOG_TARGET,
+			?candidate_hash,
+			from = ?sender_index,
+			local_index = ?local_validator.index,
+			?manifest_kind,
+			"immediate ack, known candidate"
+		);
 	}
 
 	Some(ManifestImportSuccess { relay_parent_state, per_session, acknowledge, sender_index })
