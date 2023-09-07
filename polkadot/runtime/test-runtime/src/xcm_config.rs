@@ -68,7 +68,7 @@ impl TransactAsset for DummyAssetTransactor {
 		_what: &Asset,
 		_who: &Location,
 		_maybe_context: Option<&XcmContext>,
-	) -> Result<Holding, XcmError> {
+	) -> Result<Assets, XcmError> {
 		let asset: Asset = (Parent, 100_000).into();
 		Ok(asset.into())
 	}
