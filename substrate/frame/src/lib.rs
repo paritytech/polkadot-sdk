@@ -176,7 +176,7 @@ pub mod runtime {
 		pub use frame_support::derive_impl;
 
 		/// Macros to easily impl traits such as `Get` for types.
-		// TODO: using linking in the Get int he line above triggers an ICE :/
+		// TODO: using linking in the Get in the line above triggers an ICE :/
 		pub use frame_support::{ord_parameter_types, parameter_types};
 
 		/// Const types that can easily be used in conjuncture with `Get`.

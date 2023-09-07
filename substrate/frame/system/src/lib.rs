@@ -254,7 +254,7 @@ pub mod pallet {
 		/// * Use a normal 32 byte account id, with a [`DefaultConfig::Lookup`] that implies no
 		///   'account-indexing' pallet is being used.
 		/// * Given that we don't know anything about the existence of a currency system in scope,
-		///   an [`DefaultConfig::AccountData`] is chosen that has no addition data. overwrite this
+		///   an [`DefaultConfig::AccountData`] is chosen that has no addition data. Overwrite this
 		///   if you use `pallet-balances` or similar.
 		/// * Make sure to overwrite [`DefaultConfig::Version`].
 		/// * 2s block time, and a default 5mb block size is used.
