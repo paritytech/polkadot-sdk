@@ -16,8 +16,9 @@
 
 use super::*;
 use futures::{channel::oneshot, executor};
+use overseer::jaeger;
 use polkadot_node_network_protocol::{self as net_protocol, OurView};
-use polkadot_node_subsystem::{messages::NetworkBridgeEvent, ActivatedLeaf};
+use polkadot_node_subsystem::messages::NetworkBridgeEvent;
 
 use assert_matches::assert_matches;
 use async_trait::async_trait;
@@ -39,15 +40,14 @@ use polkadot_node_network_protocol::{
 	view, ObservedRole, Versioned,
 };
 use polkadot_node_subsystem::{
-	jaeger,
 	messages::{
 		AllMessages, ApprovalDistributionMessage, BitfieldDistributionMessage,
 		GossipSupportMessage, StatementDistributionMessage,
 	},
-	ActiveLeavesUpdate, FromOrchestra, LeafStatus, OverseerSignal,
+	ActiveLeavesUpdate, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_test_helpers::{
-	SingleItemSink, SingleItemStream, TestSubsystemContextHandle,
+	mock::new_leaf, SingleItemSink, SingleItemStream, TestSubsystemContextHandle,
 };
 use polkadot_node_subsystem_util::metered;
 use polkadot_primitives::{AuthorityDiscoveryId, Hash};
@@ -605,12 +605,7 @@ fn send_our_view_upon_connection() {
 		let head = Hash::repeat_byte(1);
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: head,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(head, 1)),
 			)))
 			.await;
 
@@ -692,12 +687,7 @@ fn sends_view_updates_to_peers() {
 
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -763,12 +753,7 @@ fn do_not_send_view_update_until_synced() {
 
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -779,12 +764,7 @@ fn do_not_send_view_update_until_synced() {
 
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_b,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_b, 1)),
 			)))
 			.await;
 
@@ -850,12 +830,7 @@ fn do_not_send_view_update_when_only_finalized_block_changed() {
 		// This should trigger the view update to our peers.
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -1073,12 +1048,7 @@ fn peer_disconnect_from_just_one_peerset() {
 
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -1312,12 +1282,7 @@ fn sent_views_include_finalized_number_update() {
 			.await;
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_b,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_b, 1)),
 			)))
 			.await;
 
@@ -1391,12 +1356,7 @@ fn our_view_updates_decreasing_order_and_limited_to_max() {
 			// get the correct view.
 			virtual_overseer
 				.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-					ActiveLeavesUpdate::start_work(ActivatedLeaf {
-						hash,
-						number: i as _,
-						status: LeafStatus::Fresh,
-						span: Arc::new(jaeger::Span::Disabled),
-					}),
+					ActiveLeavesUpdate::start_work(new_leaf(hash, i as _)),
 				)))
 				.await;
 		}
@@ -1445,12 +1405,7 @@ fn network_protocol_versioning_view_update() {
 		let head = Hash::repeat_byte(1);
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: head,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(head, 1)),
 			)))
 			.await;
 
