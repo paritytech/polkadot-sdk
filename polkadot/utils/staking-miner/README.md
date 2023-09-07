@@ -51,7 +51,7 @@ to be installed. The trade-off however is that it takes a little longer to build
 tasks. You may build the multi-stage image the root of the Polkadot repository with:
 ```
 TODO: UPDATE THAT
-docker build -t staking-miner -f scripts/ci/dockerfiles/staking-miner/staking-miner_builder.Dockerfile .
+docker build -t staking-miner -f docker/dockerfiles/staking-miner/staking-miner_builder.Dockerfile .
 ```
 
 ### Running
