@@ -172,15 +172,15 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 		// Alternative, using new match_err macro, no need to re-shadow credit_in variable
 		let path = match_err!(path.try_into(), (|_| (credit_in, Error::<T>::PathError.into())));
 
-		let (credit_in, _) = Self::validate_swap_path(&path).map_with_prefix(credit_in, |e| e)?;
+		match_err!(Self::validate_swap_path(&path), (|e| (credit_in, e)));
 
-		let (credit_in, amounts) = Self::get_amounts_in(&amount_out, &path)
-			.map_with_prefix(credit_in, |_| Error::<T>::PathError.into())?;
+		let amounts = match_err!(
+			Self::get_amounts_in(&amount_out, &path),
+			(|_| (credit_in, Error::<T>::PathError.into()))
+		);
 
-		let (credit_in, amount_in) = amounts
-			.first()
-			.ok_or(Error::<T>::PathError.into())
-			.map_with_prefix(credit_in, |e| e)?;
+		let amount_in =
+			match_err!(amounts.first().ok_or(Error::<T>::PathError.into()), (|e| (credit_in, e)));
 
 		ensure!(
 			credit_in.peek() >= *amount_in,
@@ -188,11 +188,10 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 		);
 		let (credit_in, credit_change) = credit_in.split(*amount_in);
 
-		let (credit_in, balance_path) = Self::balance_path_from_amount_out(amount_out, path)
-			.map_with_prefix(credit_in, |e| e)?;
+		let balance_path =
+			match_err!(Self::balance_path_from_amount_out(amount_out, path), (|e| (credit_in, e)));
 
-		let (credit_in, _) =
-			Self::validate_swap_balance_path(&balance_path).map_with_prefix(credit_in, |e| e)?;
+		match_err!(Self::validate_swap_balance_path(&balance_path), (|e| (credit_in, e)));
 
 		// Note
 		// with_transaction forces Error: From<DispatchError>, not present in (Credit,
@@ -205,8 +204,10 @@ impl<T: Config> SwapCredit<T::AccountId, T::MultiAssetId, Credit<T>> for Pallet<
 		let transaction = with_transaction(|| match Self::do_swap(credit_in, &balance_path) {
 			Ok(swap) => TransactionOutcome::Commit(Ok(swap)),
 			Err(err) => {
-				credit_error = err.0;
-				TransactionOutcome::Rollback(Err(err.1))
+				let (credit, error) = err;
+
+				credit_error = credit;
+				TransactionOutcome::Rollback(Err(error))
 			},
 		});
 
