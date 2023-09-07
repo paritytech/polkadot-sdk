@@ -105,7 +105,7 @@ impl Metrics {
 
 	pub fn on_report_event(&self) {
 		if let Some(metrics) = self.0.as_ref() {
-			metrics.messages_sent.with_label_values(&["report_peer"]).inc();
+			self.on_message("report_peer");
 			metrics.report_events.inc()
 		}
 	}
