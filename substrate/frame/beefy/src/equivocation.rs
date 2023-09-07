@@ -288,18 +288,12 @@ where
 
 				// Validate equivocation proof (check commitment is to unexpected payload and
 				// signatures are valid).
-				// NOTE: For proving a fork equivocation, equivocation proofs
-				// currently include headers that the verifier calculates hashes
-				// of and compares with on-chain
-				// `<frame_system::Pallet<T>>::block_hash(block_number)`. Since
-				// this mapping has a horizon of 4096 blocks, equivocations
-				// predating this horizon cannot be slashed. While this thwarts
-				// attacks assuming a 2/3rds of validators honestly participate
-				// in BEEFY finalization and at least one honest relayer can
-				// update the beefy light client at least once every 4096
-				// blocks, this is clearly only a temporary solution. This
-				// verification is to be replaced with mmr ancestry/pre-fix
-				// proofs.
+				// NOTE: Fork equivocation proof currently only prevents attacks
+				// assuming 2/3rds of validators honestly participate in BEEFY
+				// finalization and at least one honest relayer can update the
+				// beefy light client at least once every 4096 blocks. See
+				// https://github.com/paritytech/polkadot-sdk/issues/1441 for
+				// replacement solution.
 				if !sp_consensus_beefy::check_fork_equivocation_proof(
 					&equivocation_proof,
 					&expected_block_hash,
