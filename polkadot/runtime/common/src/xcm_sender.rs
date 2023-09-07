@@ -119,7 +119,7 @@ mod tests {
 	parameter_types! {
 		pub const BaseDeliveryFee: u128 = 300_000_000;
 		pub const TransactionByteFee: u128 = 1_000_000;
-		pub FeeAssetId: AssetId = Concrete(Here.into());
+		pub FeeAssetId: AssetId = AssetId(Here.into());
 	}
 
 	struct TestFeeTracker;

@@ -617,10 +617,6 @@ mod tests {
 		let non_fungible = WildAsset::from((Junctions::from([GeneralIndex(2)]), WildNonFungible)).counted(2).into();
 		let all = WildAsset::AllCounted(6).into();
 
-		let fungible = assets.min(&fungible);
-		let fungible = fungible.assets_iter().collect::<Vec<_>>();
-		let non_fungible = assets.min(&non_fungible);
-		let non_fungible = non_fungible.assets_iter().collect::<Vec<_>>();
 		let all = assets.min(&all);
 		let all = all.assets_iter().collect::<Vec<_>>();
 		assert_eq!(all, vec![CF(3000), CNF(40), CNF(80)]);
@@ -719,7 +715,6 @@ mod tests {
 		assets.subsume(CF(3000));
 		assets.subsume(CNF(80));
 		let mask = WildAsset::from((Junctions::from([GeneralIndex(1)]), WildFungible)).counted(2).into();
-		let taken = assets.try_take(mask).unwrap();
 		assert_eq!(
 			Assets::from(assets).inner(),
 			&vec![
@@ -737,7 +732,6 @@ mod tests {
 		assets.subsume(CF(3000));
 		assets.subsume(CNF(80));
 		let mask = WildAsset::from((Junctions::from([GeneralIndex(2)]), WildNonFungible)).counted(2).into();
-		let taken = assets.try_take(mask).unwrap();
 		assert_eq!(
 			Assets::from(assets).inner(),
 			&vec![CF(3000), CNF(40), CNF(80)]

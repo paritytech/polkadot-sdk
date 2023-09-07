@@ -427,7 +427,7 @@ mod tests {
 		impl MatchesFungibles<TestAssetId, TestBalance> for TestAssets {
 			fn matches_fungibles(a: &Asset) -> Result<(TestAssetId, TestBalance), Error> {
 				match a {
-					Asset { fun: Fungible(amount), id: Concrete(_id) } => Ok((1, *amount)),
+					Asset { fun: Fungible(amount), id: AssetId(_id) } => Ok((1, *amount)),
 					_ => Err(Error::AssetNotHandled),
 				}
 			}
