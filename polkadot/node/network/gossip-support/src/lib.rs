@@ -408,7 +408,8 @@ where
 		}
 
 		for (peer_id, auths) in authority_ids {
-			if self.connected_authorities_by_peer_id.get(&peer_id) != Some(&auths) {
+			// If the peer is connected _and_ the authority IDs have changed.
+			if self.connected_authorities_by_peer_id.get(&peer_id).map_or(false, |x| x != &auths) {
 				sender
 					.send_message(NetworkBridgeRxMessage::UpdatedAuthorityIds {
 						peer_id,
