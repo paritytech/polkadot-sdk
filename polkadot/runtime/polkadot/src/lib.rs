@@ -47,8 +47,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		ConstU32, EitherOf, EitherOfDiverse, InstanceFilter, KeyOwnerProofSystem, PrivilegeCmp,
-		ProcessMessage, ProcessMessageError, WithdrawReasons,
+		ConstU32, Contains, EitherOf, EitherOfDiverse, InstanceFilter, KeyOwnerProofSystem,
+		PrivilegeCmp, ProcessMessage, ProcessMessageError, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -1091,6 +1091,7 @@ impl parachains_paras::Config for Runtime {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
+	type OnNewHead = Registrar;
 }
 
 parameter_types! {
@@ -1503,6 +1504,19 @@ pub mod migrations {
 		type PalletName = TipsPalletName;
 	}
 
+	pub struct ParachainsToUnlock;
+	impl Contains<ParaId> for ParachainsToUnlock {
+		fn contains(id: &ParaId) -> bool {
+			let id: u32 = (*id).into();
+			// polkadot parachains/parathreads that are locked and never produced block
+			match id {
+				2003 | 2015 | 2017 | 2018 | 2025 | 2028 | 2036 | 2038 | 2053 | 2055 | 2090 |
+				2097 | 2106 | 3336 | 3338 | 3342 => true,
+				_ => false,
+			}
+		}
+	}
+
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
 		pallet_im_online::migration::v1::Migration<Runtime>,
@@ -1525,6 +1539,8 @@ pub mod migrations {
 		frame_support::migrations::RemovePallet<TipsPalletName, <Runtime as frame_system::Config>::DbWeight>,
 
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
+		// Migrate parachain info format
+		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ParachainsToUnlock>,
 	);
 }
 
