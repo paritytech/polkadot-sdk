@@ -629,8 +629,8 @@ pub type AlwaysLts = AlwaysV4;
 pub mod prelude {
 	pub use super::{
 		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV2, AlwaysV3, AlwaysV4, IntoVersion,
-		Unsupported, Version as XcmVersion, VersionedAssetId, VersionedInteriorMultiLocation,
-		VersionedInteriorLocation, VersionedAsset, VersionedAssets, VersionedLocation,
+		Unsupported, Version as XcmVersion, VersionedAsset, VersionedAssetId, VersionedAssets,
+		VersionedInteriorLocation, VersionedInteriorMultiLocation, VersionedLocation,
 		VersionedMultiAsset, VersionedMultiAssets, VersionedMultiLocation, VersionedResponse,
 		VersionedXcm, WrapVersion,
 	};

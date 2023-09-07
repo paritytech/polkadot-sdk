@@ -18,9 +18,8 @@
 
 pub use super::v2::GetWeight;
 use super::v3::{
-	Instruction as OldInstruction, QueryResponseInfo as OldQueryResponseInfo,
-	PalletInfo as OldPalletInfo, Response as OldResponse,
-	Xcm as OldXcm,
+	Instruction as OldInstruction, PalletInfo as OldPalletInfo,
+	QueryResponseInfo as OldQueryResponseInfo, Response as OldResponse, Xcm as OldXcm,
 };
 use crate::DoubleEncoded;
 use alloc::{vec, vec::Vec};
@@ -34,27 +33,24 @@ use derivative::Derivative;
 use parity_scale_codec::{self, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
+mod asset;
 mod junction;
 pub(crate) mod junctions;
-mod asset;
 mod location;
 mod traits;
 
+pub use asset::{
+	Asset, AssetFilter, AssetId, AssetInstance, Assets, Fungibility, WildAsset, WildFungibility,
+};
 pub use junction::{BodyId, BodyPart, Junction, NetworkId};
 pub use junctions::Junctions;
-pub use asset::{
-	AssetId, AssetInstance, Fungibility, Asset, AssetFilter, Assets,
-	WildFungibility, WildAsset,
-};
-pub use location::{
-	Ancestor, AncestorThen, InteriorLocation, Location, Parent, ParentThen,
-};
+pub use location::{Ancestor, AncestorThen, InteriorLocation, Location, Parent, ParentThen};
 pub use traits::{
 	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Result, SendError,
 	SendResult, SendXcm, Weight, XcmHash,
 };
 // These parts of XCM v3 are unchanged in XCM v4, and are re-imported here.
-pub use super::v3::{OriginKind, MaybeErrorCode, WeightLimit};
+pub use super::v3::{MaybeErrorCode, OriginKind, WeightLimit};
 
 /// This module's XCM version.
 pub const VERSION: super::Version = 4;
@@ -171,25 +167,24 @@ impl<Call> From<Xcm<Call>> for Vec<Instruction<Call>> {
 pub mod prelude {
 	mod contents {
 		pub use super::super::{
-			send_xcm, validate_send, Ancestor, AncestorThen,
+			send_xcm, validate_send, Ancestor, AncestorThen, Asset,
+			AssetFilter::{self, *},
 			AssetId::{self, *},
 			AssetInstance::{self, *},
-			BodyId, BodyPart, Error as XcmError, ExecuteXcm,
+			Assets, BodyId, BodyPart, Error as XcmError, ExecuteXcm,
 			Fungibility::{self, *},
 			Instruction::*,
 			InteriorLocation,
 			Junction::{self, *},
 			Junctions::{self, Here},
-			MaybeErrorCode, Asset,
-			AssetFilter::{self, *},
-			Assets, Location,
+			Location, MaybeErrorCode,
 			NetworkId::{self, *},
 			OriginKind, Outcome, PalletInfo, Parent, ParentThen, PreparedMessage, QueryId,
 			QueryResponseInfo, Response, Result as XcmResult, SendError, SendResult, SendXcm,
 			Weight,
 			WeightLimit::{self, *},
-			WildFungibility::{self, Fungible as WildFungible, NonFungible as WildNonFungible},
 			WildAsset::{self, *},
+			WildFungibility::{self, Fungible as WildFungible, NonFungible as WildNonFungible},
 			XcmContext, XcmHash, XcmWeightInfo, VERSION as XCM_VERSION,
 		};
 	}
@@ -300,8 +295,7 @@ impl TryFrom<OldResponse> for Response {
 					BoundedVec::<PalletInfo, MaxPalletsInfo>::try_from(inner).map_err(|_| ())?,
 				)
 			},
-			DispatchResult(maybe_error) =>
-				Self::DispatchResult(maybe_error),
+			DispatchResult(maybe_error) => Self::DispatchResult(maybe_error),
 		})
 	}
 }

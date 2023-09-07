@@ -27,9 +27,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 mod weights;
 pub mod xcm_config;
 
-use crate::xcm_config::{
-	LocalAndForeignAssetsLocationMatcher, TrustBackedAssetsPalletLocation,
-};
+use crate::xcm_config::{LocalAndForeignAssetsLocationMatcher, TrustBackedAssetsPalletLocation};
 use assets_common::{
 	local_and_foreign_assets::{LocalAndForeignAssets, LocationConverter},
 	AssetIdForTrustBackedAssetsConvert,
@@ -1378,12 +1376,8 @@ pub mod migrations {
 	/// `AssetHubWestend`. Migrates pools with `Location { parents: 0, interior: Here }` to
 	/// `Location { parents: 1, interior: Here }`
 	pub struct NativeAssetParents0ToParents1Migration<T>(sp_std::marker::PhantomData<T>);
-	impl<
-			T: pallet_asset_conversion::Config<
-				MultiAssetId = Box<Location>,
-				AssetId = Location,
-			>,
-		> OnRuntimeUpgrade for NativeAssetParents0ToParents1Migration<T>
+	impl<T: pallet_asset_conversion::Config<MultiAssetId = Box<Location>, AssetId = Location>>
+		OnRuntimeUpgrade for NativeAssetParents0ToParents1Migration<T>
 	where
 		<T as pallet_asset_conversion::Config>::PoolAssetId: Into<u32>,
 		AccountIdOf<Runtime>: Into<[u8; 32]>,

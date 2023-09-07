@@ -16,7 +16,7 @@
 
 use crate::HoldingAssets;
 use sp_std::result::Result;
-use xcm::latest::{Error as XcmError, Asset, Location, Result as XcmResult, XcmContext};
+use xcm::latest::{Asset, Error as XcmError, Location, Result as XcmResult, XcmContext};
 
 /// Facility for asset transacting.
 ///
@@ -31,11 +31,7 @@ pub trait TransactAsset {
 	/// Ensure that `check_in` will do as expected.
 	///
 	/// When composed as a tuple, all type-items are called and at least one must result in `Ok`.
-	fn can_check_in(
-		_origin: &Location,
-		_what: &Asset,
-		_context: &XcmContext,
-	) -> XcmResult {
+	fn can_check_in(_origin: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
 		Err(XcmError::Unimplemented)
 	}
 
@@ -61,11 +57,7 @@ pub trait TransactAsset {
 	/// Ensure that `check_out` will do as expected.
 	///
 	/// When composed as a tuple, all type-items are called and at least one must result in `Ok`.
-	fn can_check_out(
-		_dest: &Location,
-		_what: &Asset,
-		_context: &XcmContext,
-	) -> XcmResult {
+	fn can_check_out(_dest: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
 		Err(XcmError::Unimplemented)
 	}
 
@@ -267,27 +259,15 @@ mod tests {
 
 	pub struct NotFoundTransactor;
 	impl TransactAsset for NotFoundTransactor {
-		fn can_check_in(
-			_origin: &Location,
-			_what: &Asset,
-			_context: &XcmContext,
-		) -> XcmResult {
+		fn can_check_in(_origin: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
 			Err(XcmError::AssetNotFound)
 		}
 
-		fn can_check_out(
-			_dest: &Location,
-			_what: &Asset,
-			_context: &XcmContext,
-		) -> XcmResult {
+		fn can_check_out(_dest: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
 			Err(XcmError::AssetNotFound)
 		}
 
-		fn deposit_asset(
-			_what: &Asset,
-			_who: &Location,
-			_context: &XcmContext,
-		) -> XcmResult {
+		fn deposit_asset(_what: &Asset, _who: &Location, _context: &XcmContext) -> XcmResult {
 			Err(XcmError::AssetNotFound)
 		}
 
@@ -311,27 +291,15 @@ mod tests {
 
 	pub struct OverflowTransactor;
 	impl TransactAsset for OverflowTransactor {
-		fn can_check_in(
-			_origin: &Location,
-			_what: &Asset,
-			_context: &XcmContext,
-		) -> XcmResult {
+		fn can_check_in(_origin: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
 			Err(XcmError::Overflow)
 		}
 
-		fn can_check_out(
-			_dest: &Location,
-			_what: &Asset,
-			_context: &XcmContext,
-		) -> XcmResult {
+		fn can_check_out(_dest: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
 			Err(XcmError::Overflow)
 		}
 
-		fn deposit_asset(
-			_what: &Asset,
-			_who: &Location,
-			_context: &XcmContext,
-		) -> XcmResult {
+		fn deposit_asset(_what: &Asset, _who: &Location, _context: &XcmContext) -> XcmResult {
 			Err(XcmError::Overflow)
 		}
 
@@ -355,27 +323,15 @@ mod tests {
 
 	pub struct SuccessfulTransactor;
 	impl TransactAsset for SuccessfulTransactor {
-		fn can_check_in(
-			_origin: &Location,
-			_what: &Asset,
-			_context: &XcmContext,
-		) -> XcmResult {
+		fn can_check_in(_origin: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
 			Ok(())
 		}
 
-		fn can_check_out(
-			_dest: &Location,
-			_what: &Asset,
-			_context: &XcmContext,
-		) -> XcmResult {
+		fn can_check_out(_dest: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
 			Ok(())
 		}
 
-		fn deposit_asset(
-			_what: &Asset,
-			_who: &Location,
-			_context: &XcmContext,
-		) -> XcmResult {
+		fn deposit_asset(_what: &Asset, _who: &Location, _context: &XcmContext) -> XcmResult {
 			Ok(())
 		}
 

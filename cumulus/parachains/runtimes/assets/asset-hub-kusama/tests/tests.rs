@@ -38,7 +38,7 @@ use parachains_common::{
 	kusama::fee::WeightToFee, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 };
 use sp_runtime::traits::MaybeEquivalence;
-use xcm::latest::prelude::{*, Assets as XcmAssets};
+use xcm::latest::prelude::{Assets as XcmAssets, *};
 use xcm_executor::traits::{Identity, JustTry, WeightTrader};
 
 const ALICE: [u8; 32] = [1u8; 32];
@@ -407,10 +407,8 @@ fn test_assets_balances_api_works() {
 		.build()
 		.execute_with(|| {
 			let local_asset_id = 1;
-			let foreign_asset_id_multilocation = Location {
-				parents: 1,
-				interior: [Parachain(1234), GeneralIndex(12345)].into(),
-			};
+			let foreign_asset_id_multilocation =
+				Location { parents: 1, interior: [Parachain(1234), GeneralIndex(12345)].into() };
 
 			// check before
 			assert_eq!(Assets::balance(local_asset_id, AccountId::from(ALICE)), 0);

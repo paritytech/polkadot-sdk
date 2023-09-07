@@ -96,10 +96,7 @@ pub mod pallet_test_notifier {
 
 		#[pallet::call_index(1)]
 		#[pallet::weight(Weight::from_parts(1_000_000, 1_000_000))]
-		pub fn prepare_new_notify_query(
-			origin: OriginFor<T>,
-			querier: Location,
-		) -> DispatchResult {
+		pub fn prepare_new_notify_query(origin: OriginFor<T>, querier: Location) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let id = who
 				.using_encoded(|mut d| <[u8; 32]>::decode(&mut d))
@@ -368,10 +365,7 @@ pub(crate) fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
 	BuyExecution { fees: fees.into(), weight_limit: Unlimited }
 }
 
-pub(crate) fn buy_limited_execution<C>(
-	fees: impl Into<Asset>,
-	weight: Weight,
-) -> Instruction<C> {
+pub(crate) fn buy_limited_execution<C>(fees: impl Into<Asset>, weight: Weight) -> Instruction<C> {
 	use xcm::latest::prelude::*;
 	BuyExecution { fees: fees.into(), weight_limit: Limited(weight) }
 }

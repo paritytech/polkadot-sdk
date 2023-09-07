@@ -194,8 +194,7 @@ impl generic::Config for Test {
 	}
 
 	fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
-		let origin: Location =
-			(Parachain(1), AccountId32 { network: None, id: [0; 32] }).into();
+		let origin: Location = (Parachain(1), AccountId32 { network: None, id: [0; 32] }).into();
 		let target: Location = AccountId32 { network: None, id: [0; 32] }.into();
 		Ok((origin, target))
 	}

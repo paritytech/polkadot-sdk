@@ -17,21 +17,20 @@
 //! Cross-Consensus Message format asset data structures.
 //!
 //! This encompasses four types for representing assets:
-//! - `Asset`: A description of a single asset, either an instance of a non-fungible or some
-//!   amount of a fungible.
-//! - `Assets`: A collection of `Asset`s. These are stored in a `Vec` and sorted with
-//!   fungibles first.
+//! - `Asset`: A description of a single asset, either an instance of a non-fungible or some amount
+//!   of a fungible.
+//! - `Assets`: A collection of `Asset`s. These are stored in a `Vec` and sorted with fungibles
+//!   first.
 //! - `Wild`: A single asset wildcard, this can either be "all" assets, or all assets of a specific
 //!   kind.
-//! - `AssetFilter`: A combination of `Wild` and `Assets` designed for efficiently
-//!   filtering an XCM holding account.
+//! - `AssetFilter`: A combination of `Wild` and `Assets` designed for efficiently filtering an XCM
+//!   holding account.
 
 use super::{InteriorLocation, Location};
 use crate::v3::{
 	AssetId as OldAssetId, AssetInstance as OldAssetInstance, Fungibility as OldFungibility,
-	MultiAsset as OldAsset, MultiAssetFilter as OldAssetFilter,
-	MultiAssets as OldAssets, WildFungibility as OldWildFungibility,
-	WildMultiAsset as OldWildAsset,
+	MultiAsset as OldAsset, MultiAssetFilter as OldAssetFilter, MultiAssets as OldAssets,
+	WildFungibility as OldWildFungibility, WildMultiAsset as OldWildAsset,
 };
 use alloc::{vec, vec::Vec};
 use core::{
@@ -377,11 +376,7 @@ impl AssetId {
 
 	/// Mutate the asset to represent the same value from the perspective of a new `target`
 	/// location. The local chain's location is provided in `context`.
-	pub fn reanchor(
-		&mut self,
-		target: &Location,
-		context: &InteriorLocation,
-	) -> Result<(), ()> {
+	pub fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
 		if let AssetId::Concrete(ref mut l) = self {
 			l.reanchor(target, context)?;
 		}
@@ -452,21 +447,13 @@ impl Asset {
 
 	/// Mutate the location of the asset identifier if concrete, giving it the same location
 	/// relative to a `target` context. The local context is provided as `context`.
-	pub fn reanchor(
-		&mut self,
-		target: &Location,
-		context: &InteriorLocation,
-	) -> Result<(), ()> {
+	pub fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
 		self.id.reanchor(target, context)
 	}
 
 	/// Mutate the location of the asset identifier if concrete, giving it the same location
 	/// relative to a `target` context. The local context is provided as `context`.
-	pub fn reanchored(
-		mut self,
-		target: &Location,
-		context: &InteriorLocation,
-	) -> Result<Self, ()> {
+	pub fn reanchored(mut self, target: &Location, context: &InteriorLocation) -> Result<Self, ()> {
 		self.id.reanchor(target, context)?;
 		Ok(self)
 	}
@@ -678,11 +665,7 @@ impl Assets {
 
 	/// Mutate the location of the asset identifier if concrete, giving it the same location
 	/// relative to a `target` context. The local context is provided as `context`.
-	pub fn reanchor(
-		&mut self,
-		target: &Location,
-		context: &InteriorLocation,
-	) -> Result<(), ()> {
+	pub fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
 		self.0.iter_mut().try_for_each(|i| i.reanchor(target, context))
 	}
 
@@ -750,11 +733,7 @@ impl WildAsset {
 
 	/// Mutate the asset to represent the same value from the perspective of a new `target`
 	/// location. The local chain's location is provided in `context`.
-	pub fn reanchor(
-		&mut self,
-		target: &Location,
-		context: &InteriorLocation,
-	) -> Result<(), ()> {
+	pub fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
 		use WildAsset::*;
 		match self {
 			AllOf { ref mut id, .. } | AllOfCounted { ref mut id, .. } =>
@@ -842,11 +821,7 @@ impl AssetFilter {
 
 	/// Mutate the location of the asset identifier if concrete, giving it the same location
 	/// relative to a `target` context. The local context is provided as `context`.
-	pub fn reanchor(
-		&mut self,
-		target: &Location,
-		context: &InteriorLocation,
-	) -> Result<(), ()> {
+	pub fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
 		match self {
 			AssetFilter::Definite(ref mut assets) => assets.reanchor(target, context),
 			AssetFilter::Wild(ref mut wild) => wild.reanchor(target, context),

@@ -22,9 +22,7 @@ use crate::{
 		BodyId as OldBodyId, BodyPart as OldBodyPart, Junction as OldJunction,
 		NetworkId as OldNetworkId,
 	},
-	v4::{
-		Junction as NewJunction,
-	},
+	v4::Junction as NewJunction,
 	VersionedMultiLocation,
 };
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
@@ -414,12 +412,9 @@ impl TryFrom<NewJunction> for Junction {
 		use NewJunction::*;
 		Ok(match value {
 			Parachain(id) => Self::Parachain(id),
-			AccountId32 { network, id } =>
-				Self::AccountId32 { network, id },
-			AccountIndex64 { network, index } =>
-				Self::AccountIndex64 { network, index },
-			AccountKey20 { network, key } =>
-				Self::AccountKey20 { network, key },
+			AccountId32 { network, id } => Self::AccountId32 { network, id },
+			AccountIndex64 { network, index } => Self::AccountIndex64 { network, index },
+			AccountKey20 { network, key } => Self::AccountKey20 { network, key },
 			PalletInstance(index) => Self::PalletInstance(index),
 			GeneralIndex(id) => Self::GeneralIndex(id),
 			GeneralKey { length, data } => Self::GeneralKey { length, data },

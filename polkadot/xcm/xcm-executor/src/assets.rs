@@ -21,11 +21,11 @@ use sp_std::{
 	prelude::*,
 };
 use xcm::latest::{
-	AssetId, AssetInstance,
+	Asset, AssetFilter, AssetId, AssetInstance, Assets,
 	Fungibility::{Fungible, NonFungible},
-	InteriorLocation, Asset, AssetFilter, Assets, Location,
-	WildFungibility::{Fungible as WildFungible, NonFungible as WildNonFungible},
+	InteriorLocation, Location,
 	WildAsset::{All, AllCounted, AllOf, AllOfCounted},
+	WildFungibility::{Fungible as WildFungible, NonFungible as WildNonFungible},
 };
 
 /// List of non-wildcard fungible and non-fungible assets.
@@ -132,8 +132,8 @@ impl HoldingAssets {
 
 	/// Mutate `self` to contain all given `assets`, saturating if necessary.
 	///
-	/// NOTE: [`HoldingAssets`] are always sorted, allowing us to optimize this function from `O(n^2)` to
-	/// `O(n)`.
+	/// NOTE: [`HoldingAssets`] are always sorted, allowing us to optimize this function from
+	/// `O(n^2)` to `O(n)`.
 	pub fn subsume_assets(&mut self, mut assets: HoldingAssets) {
 		let mut f_iter = assets.fungible.iter_mut();
 		let mut g_iter = self.fungible.iter_mut();

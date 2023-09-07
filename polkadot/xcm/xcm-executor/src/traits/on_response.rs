@@ -21,19 +21,15 @@ use parity_scale_codec::{FullCodec, MaxEncodedLen};
 use sp_arithmetic::traits::Zero;
 use sp_std::fmt::Debug;
 use xcm::latest::{
-	Error as XcmError, InteriorLocation, Location, QueryId, Response,
-	Result as XcmResult, Weight, XcmContext,
+	Error as XcmError, InteriorLocation, Location, QueryId, Response, Result as XcmResult, Weight,
+	XcmContext,
 };
 
 /// Define what needs to be done upon receiving a query response.
 pub trait OnResponse {
 	/// Returns `true` if we are expecting a response from `origin` for query `query_id` that was
 	/// queried by `querier`.
-	fn expecting_response(
-		origin: &Location,
-		query_id: u64,
-		querier: Option<&Location>,
-	) -> bool;
+	fn expecting_response(origin: &Location, query_id: u64, querier: Option<&Location>) -> bool;
 	/// Handler for receiving a `response` from `origin` relating to `query_id` initiated by
 	/// `querier`.
 	fn on_response(
@@ -46,11 +42,7 @@ pub trait OnResponse {
 	) -> Weight;
 }
 impl OnResponse for () {
-	fn expecting_response(
-		_origin: &Location,
-		_query_id: u64,
-		_querier: Option<&Location>,
-	) -> bool {
+	fn expecting_response(_origin: &Location, _query_id: u64, _querier: Option<&Location>) -> bool {
 		false
 	}
 	fn on_response(

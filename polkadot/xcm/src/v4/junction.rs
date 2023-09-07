@@ -17,13 +17,10 @@
 //! Support data structures for `Location`, primarily the `Junction` datatype.
 
 use super::Location;
-use crate::{
-	VersionedLocation,
-	v3::Junction as OldJunction
-};
 pub use crate::v3::{BodyId, BodyPart, NetworkId};
+use crate::{v3::Junction as OldJunction, VersionedLocation};
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
-use core::convert::{TryFrom};
+use core::convert::TryFrom;
 use parity_scale_codec::{self, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
@@ -165,18 +162,14 @@ impl TryFrom<OldJunction> for Junction {
 		use OldJunction::*;
 		Ok(match value {
 			Parachain(id) => Self::Parachain(id),
-			AccountId32 { network, id } =>
-				Self::AccountId32 { network, id },
-			AccountIndex64 { network, index } =>
-				Self::AccountIndex64 { network, index },
-			AccountKey20 { network, key } =>
-				Self::AccountKey20 { network, key },
+			AccountId32 { network, id } => Self::AccountId32 { network, id },
+			AccountIndex64 { network, index } => Self::AccountIndex64 { network, index },
+			AccountKey20 { network, key } => Self::AccountKey20 { network, key },
 			PalletInstance(index) => Self::PalletInstance(index),
 			GeneralIndex(id) => Self::GeneralIndex(id),
 			GeneralKey { length, data } => Self::GeneralKey { length, data },
 			OnlyChild => Self::OnlyChild,
-			Plurality { id, part } =>
-				Self::Plurality { id, part },
+			Plurality { id, part } => Self::Plurality { id, part },
 			GlobalConsensus(network) => Self::GlobalConsensus(network),
 		})
 	}

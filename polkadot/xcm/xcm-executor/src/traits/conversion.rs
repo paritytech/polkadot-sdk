@@ -82,18 +82,12 @@ impl<AccountId> ConvertLocation<AccountId> for Tuple {
 /// ```
 pub trait ConvertOrigin<Origin> {
 	/// Attempt to convert `origin` to the generic `Origin` whilst consuming it.
-	fn convert_origin(
-		origin: impl Into<Location>,
-		kind: OriginKind,
-	) -> Result<Origin, Location>;
+	fn convert_origin(origin: impl Into<Location>, kind: OriginKind) -> Result<Origin, Location>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl<O> ConvertOrigin<O> for Tuple {
-	fn convert_origin(
-		origin: impl Into<Location>,
-		kind: OriginKind,
-	) -> Result<O, Location> {
+	fn convert_origin(origin: impl Into<Location>, kind: OriginKind) -> Result<O, Location> {
 		for_tuples!( #(
 			let origin = match Tuple::convert_origin(origin, kind) {
 				Err(o) => o,

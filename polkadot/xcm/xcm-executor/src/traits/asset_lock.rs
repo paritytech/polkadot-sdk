@@ -102,11 +102,7 @@ pub trait AssetLock {
 	/// sending chain can ensure the lock does not remain.
 	///
 	/// We should only act upon this message if we believe that the `origin` is honest.
-	fn note_unlockable(
-		locker: Location,
-		asset: Asset,
-		owner: Location,
-	) -> Result<(), LockError>;
+	fn note_unlockable(locker: Location, asset: Asset, owner: Location) -> Result<(), LockError>;
 
 	/// Handler for when an owner wishes to unlock an asset on a remote chain.
 	///
@@ -125,18 +121,10 @@ impl AssetLock for () {
 	type LockTicket = Infallible;
 	type UnlockTicket = Infallible;
 	type ReduceTicket = Infallible;
-	fn prepare_lock(
-		_: Location,
-		_: Asset,
-		_: Location,
-	) -> Result<Self::LockTicket, LockError> {
+	fn prepare_lock(_: Location, _: Asset, _: Location) -> Result<Self::LockTicket, LockError> {
 		Err(LockError::NotApplicable)
 	}
-	fn prepare_unlock(
-		_: Location,
-		_: Asset,
-		_: Location,
-	) -> Result<Self::UnlockTicket, LockError> {
+	fn prepare_unlock(_: Location, _: Asset, _: Location) -> Result<Self::UnlockTicket, LockError> {
 		Err(LockError::NotApplicable)
 	}
 	fn note_unlockable(_: Location, _: Asset, _: Location) -> Result<(), LockError> {

@@ -490,10 +490,7 @@ mod tests {
 			let old_bridge = XcmBridgeHubRouter::bridge();
 			assert_eq!(
 				send_xcm::<XcmBridgeHubRouter>(
-					Location::new(
-						2,
-						[GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]
-					),
+					Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]),
 					vec![ClearOrigin].into(),
 				)
 				.map(drop),
@@ -513,10 +510,7 @@ mod tests {
 			let old_bridge = XcmBridgeHubRouter::bridge();
 			assert_eq!(
 				send_xcm::<XcmBridgeHubRouter>(
-					Location::new(
-						2,
-						[GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]
-					),
+					Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]),
 					vec![ClearOrigin].into(),
 				)
 				.map(drop),
@@ -538,10 +532,7 @@ mod tests {
 			let old_bridge = XcmBridgeHubRouter::bridge();
 			assert_eq!(
 				send_xcm::<XcmBridgeHubRouter>(
-					Location::new(
-						2,
-						[GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]
-					),
+					Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]),
 					vec![ClearOrigin].into(),
 				)
 				.map(drop),

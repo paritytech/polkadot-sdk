@@ -186,10 +186,7 @@ pub mod pallet {
 
 		/// Required origin for sending XCM messages. If successful, it resolves to `Location`
 		/// which exists as an interior location within this chain's XCM context.
-		type SendXcmOrigin: EnsureOrigin<
-			<Self as SysConfig>::RuntimeOrigin,
-			Success = Location,
-		>;
+		type SendXcmOrigin: EnsureOrigin<<Self as SysConfig>::RuntimeOrigin, Success = Location>;
 
 		/// The type used to actually dispatch an XCM to its destination.
 		type XcmRouter: SendXcm;
@@ -197,10 +194,7 @@ pub mod pallet {
 		/// Required origin for executing XCM messages, including the teleport functionality. If
 		/// successful, then it resolves to `Location` which exists as an interior location
 		/// within this chain's XCM context.
-		type ExecuteXcmOrigin: EnsureOrigin<
-			<Self as SysConfig>::RuntimeOrigin,
-			Success = Location,
-		>;
+		type ExecuteXcmOrigin: EnsureOrigin<<Self as SysConfig>::RuntimeOrigin, Success = Location>;
 
 		/// Our XCM filter which messages to be executed using `XcmExecutor` must pass.
 		type XcmExecuteFilter: Contains<(Location, Xcm<<Self as SysConfig>::RuntimeCall>)>;
@@ -274,12 +268,7 @@ pub mod pallet {
 		/// Execution of an XCM message was attempted.
 		Attempted { outcome: xcm::latest::Outcome },
 		/// A XCM message was sent.
-		Sent {
-			origin: Location,
-			destination: Location,
-			message: Xcm<()>,
-			message_id: XcmHash,
-		},
+		Sent { origin: Location, destination: Location, message: Xcm<()>, message_id: XcmHash },
 		/// Query response received which does not match a registered query. This may be because a
 		/// matching query was never registered, it may be because it is a duplicate response, or
 		/// because the query timed out.
@@ -366,18 +355,10 @@ pub mod pallet {
 		/// A version information message is sent to them and its cost is included.
 		VersionNotifyStarted { destination: Location, cost: Assets, message_id: XcmHash },
 		/// We have requested that a remote chain send us XCM version change notifications.
-		VersionNotifyRequested {
-			destination: Location,
-			cost: Assets,
-			message_id: XcmHash,
-		},
+		VersionNotifyRequested { destination: Location, cost: Assets, message_id: XcmHash },
 		/// We have requested that a remote chain stops sending us XCM version change
 		/// notifications.
-		VersionNotifyUnrequested {
-			destination: Location,
-			cost: Assets,
-			message_id: XcmHash,
-		},
+		VersionNotifyUnrequested { destination: Location, cost: Assets, message_id: XcmHash },
 		/// Fees were paid from a location for an operation (often for using `SendXcm`).
 		FeesPaid { paying: Location, fees: Assets },
 		/// Some assets have been claimed from an asset trap
@@ -935,11 +916,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			let location = *location;
-			SupportedVersion::<T>::insert(
-				XCM_VERSION,
-				LatestVersionedLocation(&location),
-				version,
-			);
+			SupportedVersion::<T>::insert(XCM_VERSION, LatestVersionedLocation(&location), version);
 			Self::deposit_event(Event::SupportedVersionChanged { location, version });
 			Ok(())
 		}
@@ -2029,11 +2006,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 					);
 				}
 				// We're being notified of a version change.
-				SupportedVersion::<T>::insert(
-					XCM_VERSION,
-					LatestVersionedLocation(&origin),
-					v,
-				);
+				SupportedVersion::<T>::insert(XCM_VERSION, LatestVersionedLocation(&origin), v);
 				Self::deposit_event(Event::SupportedVersionChanged {
 					location: origin,
 					version: v,
@@ -2206,9 +2179,7 @@ impl<Prefix: Get<Location>, Body: Get<BodyId>> Contains<Location>
 ///
 /// May reasonably be used with `EnsureXcm`.
 pub struct IsVoiceOfBody<Prefix, Body>(PhantomData<(Prefix, Body)>);
-impl<Prefix: Get<Location>, Body: Get<BodyId>> Contains<Location>
-	for IsVoiceOfBody<Prefix, Body>
-{
+impl<Prefix: Get<Location>, Body: Get<BodyId>> Contains<Location> for IsVoiceOfBody<Prefix, Body> {
 	fn contains(l: &Location) -> bool {
 		let maybe_suffix = l.match_and_split(&Prefix::get());
 		matches!(maybe_suffix, Some(Plurality { id, part }) if id == &Body::get() && part == &BodyPart::Voice)
@@ -2243,8 +2214,7 @@ where
 /// `EnsureOrigin` implementation succeeding with a `Location` value to recognize and filter
 /// the `Origin::Response` item.
 pub struct EnsureResponse<F>(PhantomData<F>);
-impl<O: OriginTrait + From<Origin>, F: Contains<Location>> EnsureOrigin<O>
-	for EnsureResponse<F>
+impl<O: OriginTrait + From<Origin>, F: Contains<Location>> EnsureOrigin<O> for EnsureResponse<F>
 where
 	O::PalletsOrigin: From<Origin> + TryInto<Origin, Error = O::PalletsOrigin>,
 {

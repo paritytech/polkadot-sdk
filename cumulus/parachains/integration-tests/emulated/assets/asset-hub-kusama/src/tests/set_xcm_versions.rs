@@ -19,8 +19,7 @@ use crate::*;
 fn relay_sets_system_para_xcm_supported_version() {
 	// Init tests variables
 	let sudo_origin = <Kusama as Chain>::RuntimeOrigin::root();
-	let system_para_destination: Location =
-		Kusama::child_location_of(AssetHubKusama::para_id());
+	let system_para_destination: Location = Kusama::child_location_of(AssetHubKusama::para_id());
 
 	// Relay Chain sets supported version for Asset Parachain
 	Kusama::execute_with(|| {

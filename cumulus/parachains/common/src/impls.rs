@@ -23,7 +23,7 @@ use frame_support::traits::{
 use pallet_asset_tx_payment::HandleCredit;
 use sp_runtime::traits::Zero;
 use sp_std::marker::PhantomData;
-use xcm::latest::{AssetId, Fungibility::Fungible, Asset, Location};
+use xcm::latest::{Asset, AssetId, Fungibility::Fungible, Location};
 
 /// Type alias to conveniently refer to the `Currency::NegativeImbalance` associated type.
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<

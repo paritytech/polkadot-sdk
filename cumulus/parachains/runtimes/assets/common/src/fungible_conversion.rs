@@ -32,9 +32,7 @@ where
 	ConvertAssetId: MaybeEquivalence<Location, AssetId>,
 	ConvertBalance: MaybeEquivalence<u128, Balance>,
 {
-	fn convert_ref(
-		value: impl Borrow<(AssetId, Balance)>,
-	) -> Result<Asset, FungiblesAccessError>;
+	fn convert_ref(value: impl Borrow<(AssetId, Balance)>) -> Result<Asset, FungiblesAccessError>;
 }
 
 /// Checks for `Location`.
@@ -58,9 +56,7 @@ impl<
 	> AssetConverter<AssetId, Balance, ConvertAssetId, ConvertBalance>
 	for ConvertedConcreteId<AssetId, Balance, ConvertAssetId, ConvertBalance>
 {
-	fn convert_ref(
-		value: impl Borrow<(AssetId, Balance)>,
-	) -> Result<Asset, FungiblesAccessError> {
+	fn convert_ref(value: impl Borrow<(AssetId, Balance)>) -> Result<Asset, FungiblesAccessError> {
 		let (asset_id, balance) = value.borrow();
 		match ConvertAssetId::convert_back(asset_id) {
 			Some(asset_id_as_multilocation) => match ConvertBalance::convert_back(balance) {
@@ -81,9 +77,7 @@ impl<
 	> AssetConverter<AssetId, Balance, ConvertAssetId, ConvertBalance>
 	for MatchedConvertedConcreteId<AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance>
 {
-	fn convert_ref(
-		value: impl Borrow<(AssetId, Balance)>,
-	) -> Result<Asset, FungiblesAccessError> {
+	fn convert_ref(value: impl Borrow<(AssetId, Balance)>) -> Result<Asset, FungiblesAccessError> {
 		let (asset_id, balance) = value.borrow();
 		match ConvertAssetId::convert_back(asset_id) {
 			Some(asset_id_as_multilocation) => match ConvertBalance::convert_back(balance) {
@@ -142,10 +136,7 @@ where
 }
 
 /// Helper function to convert `Balance` with Location` to `Asset`
-pub fn convert_balance<
-	T: frame_support::pallet_prelude::Get<Location>,
-	Balance: TryInto<u128>,
->(
+pub fn convert_balance<T: frame_support::pallet_prelude::Get<Location>, Balance: TryInto<u128>>(
 	balance: Balance,
 ) -> Result<Asset, FungiblesAccessError> {
 	match balance.try_into() {

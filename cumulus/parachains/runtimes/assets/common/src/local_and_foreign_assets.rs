@@ -30,8 +30,7 @@ pub struct LocationConverter<NativeAssetLocation: Get<Location>, LocationMatcher
 	_phantom: PhantomData<(NativeAssetLocation, LocationMatcher)>,
 }
 
-impl<NativeAssetLocation, LocationMatcher>
-	MultiAssetIdConverter<Box<Location>, Location>
+impl<NativeAssetLocation, LocationMatcher> MultiAssetIdConverter<Box<Location>, Location>
 	for LocationConverter<NativeAssetLocation, LocationMatcher>
 where
 	NativeAssetLocation: Get<Location>,
@@ -355,8 +354,7 @@ where
 	Assets:
 		Balanced<AccountId> + Inspect<AccountId, Balance = u128, AssetId = u32> + PalletInfoAccess,
 	LocalAssetIdConverter: MaybeEquivalence<Location, u32>,
-	ForeignAssets:
-		Balanced<AccountId> + Inspect<AccountId, Balance = u128, AssetId = Location>,
+	ForeignAssets: Balanced<AccountId> + Inspect<AccountId, Balance = u128, AssetId = Location>,
 {
 	type OnDropDebt = DebtDropIndirection<Assets, LocalAssetIdConverter, ForeignAssets>;
 	type OnDropCredit = CreditDropIndirection<Assets, LocalAssetIdConverter, ForeignAssets>;
@@ -371,8 +369,7 @@ impl<Assets, LocalAssetIdConverter, ForeignAssets> HandleImbalanceDrop<Location,
 where
 	Assets: Balanced<AccountId> + Inspect<AccountId, Balance = u128, AssetId = u32>,
 	LocalAssetIdConverter: MaybeEquivalence<Location, u32>,
-	ForeignAssets:
-		Balanced<AccountId> + Inspect<AccountId, Balance = u128, AssetId = Location>,
+	ForeignAssets: Balanced<AccountId> + Inspect<AccountId, Balance = u128, AssetId = Location>,
 {
 	fn handle(asset: Location, amount: u128) {
 		if let Some(asset_id) = LocalAssetIdConverter::convert(&asset) {
@@ -392,8 +389,7 @@ impl<Assets, LocalAssetIdConverter, ForeignAssets> HandleImbalanceDrop<Location,
 where
 	Assets: Balanced<AccountId> + Inspect<AccountId, Balance = u128, AssetId = u32>,
 	LocalAssetIdConverter: MaybeEquivalence<Location, u32>,
-	ForeignAssets:
-		Balanced<AccountId> + Inspect<AccountId, Balance = u128, AssetId = Location>,
+	ForeignAssets: Balanced<AccountId> + Inspect<AccountId, Balance = u128, AssetId = Location>,
 {
 	fn handle(asset: Location, amount: u128) {
 		if let Some(asset_id) = LocalAssetIdConverter::convert(&asset) {
@@ -423,10 +419,8 @@ mod tests {
 			pub PoolAssetsPalletLocation: Location = PalletInstance(55_u8).into();
 		}
 
-		type C = LocationConverter<
-			WestendLocation,
-			EverythingBut<StartsWith<PoolAssetsPalletLocation>>,
-		>;
+		type C =
+			LocationConverter<WestendLocation, EverythingBut<StartsWith<PoolAssetsPalletLocation>>>;
 
 		let native_asset = WestendLocation::get();
 		let local_asset =

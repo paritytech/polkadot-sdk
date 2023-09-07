@@ -198,11 +198,7 @@ impl<
 		CheckingAccount,
 	>
 {
-	fn can_check_in(
-		_origin: &Location,
-		what: &Asset,
-		_context: &XcmContext,
-	) -> XcmResult {
+	fn can_check_in(_origin: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
 		log::trace!(
 			target: "xcm::fungibles_adapter",
 			"can_check_in origin: {:?}, what: {:?}",
@@ -236,11 +232,7 @@ impl<
 		}
 	}
 
-	fn can_check_out(
-		_origin: &Location,
-		what: &Asset,
-		_context: &XcmContext,
-	) -> XcmResult {
+	fn can_check_out(_origin: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
 		log::trace!(
 			target: "xcm::fungibles_adapter",
 			"can_check_in origin: {:?}, what: {:?}",

@@ -17,9 +17,9 @@
 use parachains_common::AccountId;
 use xcm::{
 	prelude::{
-		AccountId32, All, BuyExecution, DepositAsset, Asset, Assets, Location,
-		OriginKind, RefundSurplus, Transact, UnpaidExecution, VersionedXcm, Weight, WeightLimit,
-		WithdrawAsset, Xcm,
+		AccountId32, All, Asset, Assets, BuyExecution, DepositAsset, Location, OriginKind,
+		RefundSurplus, Transact, UnpaidExecution, VersionedXcm, Weight, WeightLimit, WithdrawAsset,
+		Xcm,
 	},
 	DoubleEncoded,
 };

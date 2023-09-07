@@ -67,10 +67,7 @@ where
 {
 	type Ticket = Vec<u8>;
 
-	fn validate(
-		dest: &mut Option<Location>,
-		msg: &mut Option<Xcm<()>>,
-	) -> SendResult<Vec<u8>> {
+	fn validate(dest: &mut Option<Location>, msg: &mut Option<Xcm<()>>) -> SendResult<Vec<u8>> {
 		let d = dest.take().ok_or(SendError::MissingArgument)?;
 
 		if d.contains_parents_only(1) {

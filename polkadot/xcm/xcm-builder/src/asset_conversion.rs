@@ -28,12 +28,8 @@ use xcm_executor::traits::{Error as MatchError, MatchesFungibles, MatchesNonFung
 pub struct AsPrefixedGeneralIndex<Prefix, AssetId, ConvertAssetId>(
 	PhantomData<(Prefix, AssetId, ConvertAssetId)>,
 );
-impl<
-		Prefix: Get<Location>,
-		AssetId: Clone,
-		ConvertAssetId: MaybeEquivalence<u128, AssetId>,
-	> MaybeEquivalence<Location, AssetId>
-	for AsPrefixedGeneralIndex<Prefix, AssetId, ConvertAssetId>
+impl<Prefix: Get<Location>, AssetId: Clone, ConvertAssetId: MaybeEquivalence<u128, AssetId>>
+	MaybeEquivalence<Location, AssetId> for AsPrefixedGeneralIndex<Prefix, AssetId, ConvertAssetId>
 {
 	fn convert(id: &Location) -> Option<AssetId> {
 		let prefix = Prefix::get();

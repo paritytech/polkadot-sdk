@@ -30,8 +30,7 @@ impl<
 		AccountOf: ConvertLocation<AccountId>,
 		AccountId: Clone,
 		RuntimeOrigin: From<XcmOrigin> + OriginTrait + Clone,
-	> EnsureOriginWithArg<RuntimeOrigin, Location>
-	for ForeignCreators<IsForeign, AccountOf, AccountId>
+	> EnsureOriginWithArg<RuntimeOrigin, Location> for ForeignCreators<IsForeign, AccountOf, AccountId>
 where
 	RuntimeOrigin::PalletsOrigin:
 		From<XcmOrigin> + TryInto<XcmOrigin, Error = RuntimeOrigin::PalletsOrigin>,

@@ -22,9 +22,8 @@ use super::{
 		Xcm as OldXcm,
 	},
 	v4::{
-		Instruction as NewInstruction, QueryResponseInfo as NewQueryResponseInfo,
-		PalletInfo as NewPalletInfo, Response as NewResponse,
-		Xcm as NewXcm,
+		Instruction as NewInstruction, PalletInfo as NewPalletInfo,
+		QueryResponseInfo as NewQueryResponseInfo, Response as NewResponse, Xcm as NewXcm,
 	},
 };
 use crate::DoubleEncoded;
@@ -55,7 +54,7 @@ pub use multiasset::{
 	WildFungibility, WildMultiAsset,
 };
 pub use multilocation::{
-	Ancestor, AncestorThen, InteriorMultiLocation, MultiLocation, Parent, ParentThen, Location,
+	Ancestor, AncestorThen, InteriorMultiLocation, Location, MultiLocation, Parent, ParentThen,
 };
 pub use traits::{
 	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Result, SendError,
@@ -1404,24 +1403,39 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			UnsubscribeVersion => Self::UnsubscribeVersion,
 			BurnAsset(assets) => Self::BurnAsset(assets.try_into()?),
 			ExpectAsset(assets) => Self::ExpectAsset(assets.try_into()?),
-			ExpectOrigin(maybe_origin) => Self::ExpectOrigin(maybe_origin.map(|origin| origin.try_into()).transpose()?),
+			ExpectOrigin(maybe_origin) =>
+				Self::ExpectOrigin(maybe_origin.map(|origin| origin.try_into()).transpose()?),
 			ExpectError(maybe_error) => Self::ExpectError(maybe_error),
 			ExpectTransactStatus(maybe_error_code) => Self::ExpectTransactStatus(maybe_error_code),
-			QueryPallet { module_name, response_info } => Self::QueryPallet { module_name, response_info: response_info.try_into()? },
-			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } => Self::ExpectPallet { index, name, module_name, crate_major, min_crate_minor },
-			ReportTransactStatus(response_info) => Self::ReportTransactStatus(response_info.try_into()?),
+			QueryPallet { module_name, response_info } =>
+				Self::QueryPallet { module_name, response_info: response_info.try_into()? },
+			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } =>
+				Self::ExpectPallet { index, name, module_name, crate_major, min_crate_minor },
+			ReportTransactStatus(response_info) =>
+				Self::ReportTransactStatus(response_info.try_into()?),
 			ClearTransactStatus => Self::ClearTransactStatus,
 			UniversalOrigin(junction) => Self::UniversalOrigin(junction.try_into()?),
-			ExportMessage { network, destination, xcm } => Self::ExportMessage { network, destination: destination.try_into()?, xcm: xcm.try_into()? },
-			LockAsset { asset, unlocker } => Self::LockAsset { asset: asset.try_into()?, unlocker: unlocker.try_into()? },
-			UnlockAsset { asset, target } => Self::UnlockAsset { asset: asset.try_into()?, target: target.try_into()? },
-			NoteUnlockable { asset, owner } => Self::NoteUnlockable { asset: asset.try_into()?, owner: owner.try_into()? },
-			RequestUnlock { asset, locker } => Self::RequestUnlock { asset: asset.try_into()?, locker: locker.try_into()? },
+			ExportMessage { network, destination, xcm } => Self::ExportMessage {
+				network,
+				destination: destination.try_into()?,
+				xcm: xcm.try_into()?,
+			},
+			LockAsset { asset, unlocker } =>
+				Self::LockAsset { asset: asset.try_into()?, unlocker: unlocker.try_into()? },
+			UnlockAsset { asset, target } =>
+				Self::UnlockAsset { asset: asset.try_into()?, target: target.try_into()? },
+			NoteUnlockable { asset, owner } =>
+				Self::NoteUnlockable { asset: asset.try_into()?, owner: owner.try_into()? },
+			RequestUnlock { asset, locker } =>
+				Self::RequestUnlock { asset: asset.try_into()?, locker: locker.try_into()? },
 			SetFeesMode { jit_withdraw } => Self::SetFeesMode { jit_withdraw },
 			SetTopic(topic) => Self::SetTopic(topic),
 			ClearTopic => Self::ClearTopic,
 			AliasOrigin(location) => Self::AliasOrigin(location.try_into()?),
-			UnpaidExecution { weight_limit, check_origin } => Self::UnpaidExecution { weight_limit, check_origin: check_origin.map(|origin| origin.try_into()).transpose()? },
+			UnpaidExecution { weight_limit, check_origin } => Self::UnpaidExecution {
+				weight_limit,
+				check_origin: check_origin.map(|origin| origin.try_into()).transpose()?,
+			},
 		})
 	}
 }

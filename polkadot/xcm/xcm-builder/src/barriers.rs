@@ -153,11 +153,8 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 pub struct WithComputedOrigin<InnerBarrier, LocalUniversal, MaxPrefixes>(
 	PhantomData<(InnerBarrier, LocalUniversal, MaxPrefixes)>,
 );
-impl<
-		InnerBarrier: ShouldExecute,
-		LocalUniversal: Get<InteriorLocation>,
-		MaxPrefixes: Get<u32>,
-	> ShouldExecute for WithComputedOrigin<InnerBarrier, LocalUniversal, MaxPrefixes>
+impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPrefixes: Get<u32>>
+	ShouldExecute for WithComputedOrigin<InnerBarrier, LocalUniversal, MaxPrefixes>
 {
 	fn should_execute<Call>(
 		origin: &Location,
@@ -413,12 +410,8 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 					reserve: Location { parents: 1, interior: Here },
 					..
 				} |
-				DepositReserveAsset {
-					dest: Location { parents: 1, interior: Here }, ..
-				} |
-				TransferReserveAsset {
-					dest: Location { parents: 1, interior: Here }, ..
-				} => {
+				DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. } |
+				TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
 					Err(ProcessMessageError::Unsupported) // Deny
 				},
 

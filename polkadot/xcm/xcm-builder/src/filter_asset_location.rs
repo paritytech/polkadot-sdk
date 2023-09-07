@@ -18,7 +18,7 @@
 
 use frame_support::traits::{ContainsPair, Get};
 use sp_std::marker::PhantomData;
-use xcm::latest::{AssetId::Concrete, Asset, AssetFilter, Location};
+use xcm::latest::{Asset, AssetFilter, AssetId::Concrete, Location};
 
 /// Accepts an asset iff it is a native asset.
 pub struct NativeAsset;
@@ -31,9 +31,7 @@ impl ContainsPair<Asset, Location> for NativeAsset {
 
 /// Accepts an asset if it is contained in the given `T`'s `Get` implementation.
 pub struct Case<T>(PhantomData<T>);
-impl<T: Get<(AssetFilter, Location)>> ContainsPair<Asset, Location>
-	for Case<T>
-{
+impl<T: Get<(AssetFilter, Location)>> ContainsPair<Asset, Location> for Case<T> {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
 		log::trace!(target: "xcm::contains", "Case asset: {:?}, origin: {:?}", asset, origin);
 		let (a, o) = T::get();

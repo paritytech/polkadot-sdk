@@ -35,10 +35,9 @@ use crate::{
 		WildMultiAsset as OldWildMultiAsset,
 	},
 	v4::{
-		AssetId as NewAssetId, AssetInstance as NewAssetInstance, Fungibility as NewFungibility,
-		Asset as NewMultiAsset, AssetFilter as NewMultiAssetFilter,
-		Assets as NewMultiAssets, WildFungibility as NewWildFungibility,
-		WildAsset as NewWildMultiAsset,
+		Asset as NewMultiAsset, AssetFilter as NewMultiAssetFilter, AssetId as NewAssetId,
+		AssetInstance as NewAssetInstance, Assets as NewMultiAssets, Fungibility as NewFungibility,
+		WildAsset as NewWildMultiAsset, WildFungibility as NewWildFungibility,
 	},
 };
 use alloc::{vec, vec::Vec};

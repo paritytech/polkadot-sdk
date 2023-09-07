@@ -38,9 +38,7 @@ impl<LocationValue: Get<Location>> Contains<Location> for Equals<LocationValue> 
 }
 
 pub struct StartsWithExplicitGlobalConsensus<T>(sp_std::marker::PhantomData<T>);
-impl<Network: Get<NetworkId>> Contains<Location>
-	for StartsWithExplicitGlobalConsensus<Network>
-{
+impl<Network: Get<NetworkId>> Contains<Location> for StartsWithExplicitGlobalConsensus<Network> {
 	fn contains(t: &Location) -> bool {
 		matches!(t.interior.global_consensus(), Ok(requested_network) if requested_network.eq(&Network::get()))
 	}

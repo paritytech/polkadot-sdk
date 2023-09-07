@@ -18,8 +18,7 @@
 
 use super::{Junction, Junctions};
 use crate::{
-	v2::MultiLocation as OldMultiLocation, v4::Location as NewMultiLocation,
-	VersionedMultiLocation,
+	v2::MultiLocation as OldMultiLocation, v4::Location as NewMultiLocation, VersionedMultiLocation,
 };
 use core::{
 	convert::{TryFrom, TryInto},

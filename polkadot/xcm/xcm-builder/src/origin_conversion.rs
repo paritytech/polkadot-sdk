@@ -272,8 +272,7 @@ impl<
 		RuntimeOrigin: OriginTrait + Clone,
 		AccountId: Into<[u8; 32]>,
 		Network: Get<Option<NetworkId>>,
-	> TryConvert<RuntimeOrigin, Location>
-	for SignedToAccountId32<RuntimeOrigin, AccountId, Network>
+	> TryConvert<RuntimeOrigin, Location> for SignedToAccountId32<RuntimeOrigin, AccountId, Network>
 where
 	RuntimeOrigin::PalletsOrigin: From<SystemRawOrigin<AccountId>>
 		+ TryInto<SystemRawOrigin<AccountId>, Error = RuntimeOrigin::PalletsOrigin>,

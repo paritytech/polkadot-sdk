@@ -26,10 +26,7 @@ pub mod pallet {
 	use frame_benchmarking::BenchmarkError;
 	use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::Encode};
 	use sp_runtime::traits::Dispatchable;
-	use xcm::latest::{
-		InteriorLocation, Junction, Asset, Assets, Location, NetworkId,
-		Response,
-	};
+	use xcm::latest::{Asset, Assets, InteriorLocation, Junction, Location, NetworkId, Response};
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + crate::Config {

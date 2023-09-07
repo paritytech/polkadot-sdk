@@ -357,18 +357,15 @@ pub fn teleports_for_foreign_assets_works<
 	};
 
 	// foreign creator, which can be sibling parachain to match ForeignCreators
-	let foreign_creator =
-		Location { parents: 1, interior: [Parachain(foreign_para_id)].into() };
+	let foreign_creator = Location { parents: 1, interior: [Parachain(foreign_para_id)].into() };
 	let foreign_creator_as_account_id =
 		SovereignAccountOf::convert_location(&foreign_creator).expect("");
 
 	// we want to buy execution with local relay chain currency
 	let buy_execution_fee_amount =
 		WeightToFee::weight_to_fee(&Weight::from_parts(90_000_000_000, 0));
-	let buy_execution_fee = Asset {
-		id: Concrete(Location::parent()),
-		fun: Fungible(buy_execution_fee_amount),
-	};
+	let buy_execution_fee =
+		Asset { id: Concrete(Location::parent()), fun: Fungible(buy_execution_fee_amount) };
 
 	let teleported_foreign_asset_amount = 10000000000000;
 	let runtime_para_id = 1000;
@@ -1075,10 +1072,8 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 	// we want to buy execution with local relay chain currency
 	let buy_execution_fee_amount =
 		WeightToFee::weight_to_fee(&Weight::from_parts(90_000_000_000, 0));
-	let buy_execution_fee = Asset {
-		id: Concrete(Location::parent()),
-		fun: Fungible(buy_execution_fee_amount),
-	};
+	let buy_execution_fee =
+		Asset { id: Concrete(Location::parent()), fun: Fungible(buy_execution_fee_amount) };
 
 	const ASSET_NAME: &str = "My super coin";
 	const ASSET_SYMBOL: &str = "MY_S_COIN";
@@ -1250,10 +1245,8 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 
 			// lets try create asset for different parachain(3333) (foreign_creator(2222) can create
 			// just his assets)
-			let foreign_asset_id_multilocation = Location {
-				parents: 1,
-				interior: [Parachain(3333), GeneralIndex(1234567)].into(),
-			};
+			let foreign_asset_id_multilocation =
+				Location { parents: 1, interior: [Parachain(3333), GeneralIndex(1234567)].into() };
 			let asset_id = AssetIdConverter::convert(&foreign_asset_id_multilocation).unwrap();
 
 			// prepare data for xcm::Transact(create)

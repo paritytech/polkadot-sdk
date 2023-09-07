@@ -416,11 +416,7 @@ impl Location {
 	/// The context of `self` is provided as `context`.
 	///
 	/// Does not modify `self` in case of overflow.
-	pub fn reanchor(
-		&mut self,
-		target: &Location,
-		context: &InteriorLocation,
-	) -> Result<(), ()> {
+	pub fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
 		// TODO: https://github.com/paritytech/polkadot/issues/4489 Optimize this.
 
 		// 1. Use our `context` to figure out how the `target` would address us.
@@ -657,10 +653,7 @@ mod tests {
 			parents: 1,
 			interior: [Parachain(42), AccountIndex64 { network: None, index: 23 }].into(),
 		};
-		assert_eq!(
-			m.prepend_with(Location { parents: 1, interior: [OnlyChild].into() }),
-			Ok(())
-		);
+		assert_eq!(m.prepend_with(Location { parents: 1, interior: [OnlyChild].into() }), Ok(()));
 		assert_eq!(
 			m,
 			Location {
@@ -732,10 +725,7 @@ mod tests {
 		takes_location(ParentThen([Parachain(75)].into()));
 		takes_location([Parachain(100), PalletInstance(3)]);
 
-		assert_eq!(
-			v3::Location::from(v3::Junctions::Here).try_into(),
-			Ok(Location::here())
-		);
+		assert_eq!(v3::Location::from(v3::Junctions::Here).try_into(), Ok(Location::here()));
 		assert_eq!(v3::Location::from(v3::Parent).try_into(), Ok(Location::parent()));
 		assert_eq!(
 			v3::Location::from((v3::Parent, v3::Parent, v3::Junction::GeneralIndex(42u128),))

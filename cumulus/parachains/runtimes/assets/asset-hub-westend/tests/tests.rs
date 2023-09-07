@@ -45,7 +45,10 @@ use parachains_common::{
 use sp_io;
 use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
-use xcm::{latest::prelude::{*, Assets as XcmAssets}, VersionedXcm, MAX_XCM_DECODE_DEPTH};
+use xcm::{
+	latest::prelude::{Assets as XcmAssets, *},
+	VersionedXcm, MAX_XCM_DECODE_DEPTH,
+};
 use xcm_executor::{
 	traits::{Identity, JustTry, WeightTrader},
 	XcmExecutor,
@@ -415,10 +418,8 @@ fn test_assets_balances_api_works() {
 		.build()
 		.execute_with(|| {
 			let local_asset_id = 1;
-			let foreign_asset_id_multilocation = Location {
-				parents: 1,
-				interior: [Parachain(1234), GeneralIndex(12345)].into(),
-			};
+			let foreign_asset_id_multilocation =
+				Location { parents: 1, interior: [Parachain(1234), GeneralIndex(12345)].into() };
 
 			// check before
 			assert_eq!(Assets::balance(local_asset_id, AccountId::from(ALICE)), 0);

@@ -49,7 +49,7 @@ pub use xcm_executor::{
 		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, Enact, ExportXcm, FeeManager,
 		FeeReason, LockError, OnResponse, TransactAsset,
 	},
-	HoldingAssets, Config,
+	Config, HoldingAssets,
 };
 
 pub enum TestOrigin {
@@ -195,8 +195,7 @@ impl ExportXcm for TestMessageExporter {
 		uni_src: &mut Option<InteriorLocation>,
 		dest: &mut Option<InteriorLocation>,
 		msg: &mut Option<Xcm<()>>,
-	) -> SendResult<(NetworkId, u32, InteriorLocation, InteriorLocation, Xcm<()>, XcmHash)>
-	{
+	) -> SendResult<(NetworkId, u32, InteriorLocation, InteriorLocation, Xcm<()>, XcmHash)> {
 		let (s, d, m) = (uni_src.take().unwrap(), dest.take().unwrap(), msg.take().unwrap());
 		let r: Result<Assets, SendError> = EXPORTER_OVERRIDE.with(|e| {
 			if let Some((ref f, _)) = &*e.borrow() {
@@ -242,7 +241,12 @@ pub fn asset_list(who: impl Into<Location>) -> Vec<Asset> {
 	Assets::from(assets(who)).into_inner()
 }
 pub fn add_asset(who: impl Into<Location>, what: impl Into<Asset>) {
-	ASSETS.with(|a| a.borrow_mut().entry(who.into()).or_insert(HoldingAssets::new()).subsume(what.into()));
+	ASSETS.with(|a| {
+		a.borrow_mut()
+			.entry(who.into())
+			.or_insert(HoldingAssets::new())
+			.subsume(what.into())
+	});
 }
 pub fn clear_assets(who: impl Into<Location>) {
 	ASSETS.with(|a| a.borrow_mut().remove(&who.into()));
@@ -250,11 +254,7 @@ pub fn clear_assets(who: impl Into<Location>) {
 
 pub struct TestAssetTransactor;
 impl TransactAsset for TestAssetTransactor {
-	fn deposit_asset(
-		what: &Asset,
-		who: &Location,
-		_context: &XcmContext,
-	) -> Result<(), XcmError> {
+	fn deposit_asset(what: &Asset, who: &Location, _context: &XcmContext) -> Result<(), XcmError> {
 		add_asset(who.clone(), what.clone());
 		Ok(())
 	}
@@ -371,11 +371,7 @@ thread_local! {
 }
 pub struct TestResponseHandler;
 impl OnResponse for TestResponseHandler {
-	fn expecting_response(
-		origin: &Location,
-		query_id: u64,
-		_querier: Option<&Location>,
-	) -> bool {
+	fn expecting_response(origin: &Location, query_id: u64, _querier: Option<&Location>) -> bool {
 		QUERIES.with(|q| match q.borrow().get(&query_id) {
 			Some(ResponseSlot::Expecting(ref l)) => l == origin,
 			_ => false,
@@ -601,11 +597,7 @@ pub fn disallow_request_unlock(
 			.saturating_take(asset.into().into())
 	});
 }
-pub fn request_unlock_allowed(
-	locker: &Location,
-	asset: &Asset,
-	owner: &Location,
-) -> bool {
+pub fn request_unlock_allowed(locker: &Location, asset: &Asset, owner: &Location) -> bool {
 	ALLOWED_REQUEST_UNLOCKS.with(|l| {
 		l.borrow_mut()
 			.get(&(owner.clone(), locker.clone()))
@@ -654,11 +646,7 @@ impl AssetLock for TestAssetLock {
 		Ok(TestTicket(LockTraceItem::Unlock { unlocker, asset, owner }))
 	}
 
-	fn note_unlockable(
-		locker: Location,
-		asset: Asset,
-		owner: Location,
-	) -> Result<(), LockError> {
+	fn note_unlockable(locker: Location, asset: Asset, owner: Location) -> Result<(), LockError> {
 		allow_request_unlock(locker.clone(), asset.clone(), owner.clone());
 		let item = LockTraceItem::Note { locker, asset, owner };
 		LOCK_TRACE.with(move |l| l.borrow_mut().push(item));

@@ -15,9 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	mock::*, AssetTraps, CurrentMigration, Error, LatestVersionedLocation, Queries,
-	QueryStatus, VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers,
-	VersionNotifyTargets,
+	mock::*, AssetTraps, CurrentMigration, Error, LatestVersionedLocation, Queries, QueryStatus,
+	VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers, VersionNotifyTargets,
 };
 use frame_support::{
 	assert_noop, assert_ok,
@@ -184,8 +183,7 @@ fn custom_querier_works() {
 		(ParaId::from(PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
-		let querier: Location =
-			(Parent, AccountId32 { network: None, id: ALICE.into() }).into();
+		let querier: Location = (Parent, AccountId32 { network: None, id: ALICE.into() }).into();
 
 		let r = TestNotifier::prepare_new_query(RuntimeOrigin::signed(ALICE), querier.clone());
 		assert_eq!(r, Ok(()));
@@ -332,8 +330,7 @@ fn send_fails_when_xcm_router_blocks() {
 		(ParaId::from(PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
-		let sender: Location =
-			Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+		let sender: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
 		let message = Xcm(vec![
 			ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 			buy_execution((Parent, SEND_AMOUNT)),
@@ -683,8 +680,7 @@ fn trapped_assets_can_be_claimed() {
 			]))),
 			weight
 		));
-		let source: Location =
-			Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+		let source: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
 		let trapped = AssetTraps::<Test>::iter().collect::<Vec<_>>();
 		let vma = VersionedAssets::from(Assets::from((Here, SEND_AMOUNT)));
 		let hash = BlakeTwo256::hash_of(&(source.clone(), vma.clone()));

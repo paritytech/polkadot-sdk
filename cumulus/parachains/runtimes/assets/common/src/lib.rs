@@ -47,13 +47,7 @@ pub type LocationForAssetId = Location;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for storing `AssetId` as `Location`.
 pub type LocationConvertedConcreteId<LocationFilter, Balance> =
-	MatchedConvertedConcreteId<
-		LocationForAssetId,
-		Balance,
-		LocationFilter,
-		Identity,
-		JustTry,
-	>;
+	MatchedConvertedConcreteId<LocationForAssetId, Balance, LocationFilter, Identity, JustTry>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for storing `ForeignAssets` with `AssetId` as
 /// `Location`.
@@ -271,14 +265,8 @@ mod tests {
 				Err(MatchError::AssetNotHandled),
 			),
 			// ok
-			(
-				ma_1000(1, [Parachain(200)].into()),
-				Ok((Location::new(1, [Parachain(200)]), 1000)),
-			),
-			(
-				ma_1000(2, [Parachain(200)].into()),
-				Ok((Location::new(2, [Parachain(200)]), 1000)),
-			),
+			(ma_1000(1, [Parachain(200)].into()), Ok((Location::new(1, [Parachain(200)]), 1000))),
+			(ma_1000(2, [Parachain(200)].into()), Ok((Location::new(2, [Parachain(200)]), 1000))),
 			(
 				ma_1000(1, [Parachain(200), GeneralIndex(1234)].into()),
 				Ok((Location::new(1, [Parachain(200), GeneralIndex(1234)]), 1000)),

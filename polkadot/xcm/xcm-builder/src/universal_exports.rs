@@ -118,9 +118,7 @@ impl ExporterFor for Tuple {
 }
 
 pub struct NetworkExportTable<T>(sp_std::marker::PhantomData<T>);
-impl<T: Get<Vec<(NetworkId, Location, Option<Asset>)>>> ExporterFor
-	for NetworkExportTable<T>
-{
+impl<T: Get<Vec<(NetworkId, Location, Option<Asset>)>>> ExporterFor for NetworkExportTable<T> {
 	fn exporter_for(
 		network: &NetworkId,
 		_: &InteriorLocation,

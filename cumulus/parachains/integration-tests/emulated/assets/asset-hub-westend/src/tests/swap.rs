@@ -121,16 +121,12 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		.into(),
 	});
 
-	let assets_para_destination: VersionedLocation = Location {
-		parents: 1,
-		interior: [Parachain(AssetHubWestend::para_id().into())].into(),
-	}
-	.into();
+	let assets_para_destination: VersionedLocation =
+		Location { parents: 1, interior: [Parachain(AssetHubWestend::para_id().into())].into() }
+			.into();
 
-	let penpal_location = Location {
-		parents: 1,
-		interior: [Parachain(PenpalWestendA::para_id().into())].into(),
-	};
+	let penpal_location =
+		Location { parents: 1, interior: [Parachain(PenpalWestendA::para_id().into())].into() };
 
 	// 1. Create asset on penpal:
 	PenpalWestendA::execute_with(|| {
@@ -179,10 +175,8 @@ fn swap_locally_on_chain_using_foreign_assets() {
 	let buy_execution_fee_amount = parachains_common::westend::fee::WeightToFee::weight_to_fee(
 		&Weight::from_parts(10_100_000_000_000, 300_000),
 	);
-	let buy_execution_fee = Asset {
-		id: Concrete(Location::new(1, Here)),
-		fun: Fungible(buy_execution_fee_amount),
-	};
+	let buy_execution_fee =
+		Asset { id: Concrete(Location::new(1, Here)), fun: Fungible(buy_execution_fee_amount) };
 
 	let xcm = VersionedXcm::from(Xcm(vec![
 		WithdrawAsset { 0: vec![buy_execution_fee.clone()].into() },

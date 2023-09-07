@@ -16,7 +16,7 @@
 
 //! Cross-Consensus Message format data structures.
 
-pub use crate::v3::{Error, Result, XcmHash, SendError};
+pub use crate::v3::{Error, Result, SendError, XcmHash};
 use core::result;
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -206,12 +206,7 @@ impl<C> ExecuteXcm<C> for () {
 	fn prepare(message: Xcm<C>) -> result::Result<Self::Prepared, Xcm<C>> {
 		Err(message)
 	}
-	fn execute(
-		_: impl Into<Location>,
-		_: Self::Prepared,
-		_: &mut XcmHash,
-		_: Weight,
-	) -> Outcome {
+	fn execute(_: impl Into<Location>, _: Self::Prepared, _: &mut XcmHash, _: Weight) -> Outcome {
 		unreachable!()
 	}
 	fn charge_fees(_location: impl Into<Location>, _fees: Assets) -> Result {

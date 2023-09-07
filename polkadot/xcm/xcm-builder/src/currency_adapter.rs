@@ -20,7 +20,7 @@ use super::MintLocation;
 use frame_support::traits::{ExistenceRequirement::AllowDeath, Get, WithdrawReasons};
 use sp_runtime::traits::CheckedSub;
 use sp_std::{marker::PhantomData, result};
-use xcm::latest::{Error as XcmError, Asset, Location, Result, XcmContext};
+use xcm::latest::{Asset, Error as XcmError, Location, Result, XcmContext};
 use xcm_executor::{
 	traits::{ConvertLocation, MatchesFungible, TransactAsset},
 	HoldingAssets,

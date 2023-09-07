@@ -115,8 +115,7 @@ impl<
 			})])),
 			TransferAsset {
 				beneficiary,
-				assets: vec![Asset { id: asset_id, fun: Fungibility::Fungible(amount) }]
-					.into(),
+				assets: vec![Asset { id: asset_id, fun: Fungibility::Fungible(amount) }].into(),
 			},
 		]);
 
@@ -196,8 +195,8 @@ pub struct LocatableAssetId {
 /// Adapter `struct` which implements a conversion from any `AssetKind` into a [`LocatableAssetId`]
 /// value using a fixed `Location` for the `location` field.
 pub struct FixedLocation<FixedLocationValue>(sp_std::marker::PhantomData<FixedLocationValue>);
-impl<FixedLocationValue: Get<Location>, AssetKind: Into<AssetId>> Convert<AssetKind, LocatableAssetId>
-	for FixedLocation<FixedLocationValue>
+impl<FixedLocationValue: Get<Location>, AssetKind: Into<AssetId>>
+	Convert<AssetKind, LocatableAssetId> for FixedLocation<FixedLocationValue>
 {
 	fn convert(value: AssetKind) -> LocatableAssetId {
 		LocatableAssetId { asset_id: value.into(), location: FixedLocationValue::get() }

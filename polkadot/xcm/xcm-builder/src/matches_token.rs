@@ -19,10 +19,11 @@
 use frame_support::traits::Get;
 use sp_std::marker::PhantomData;
 use xcm::latest::{
+	Asset,
 	AssetId::{Abstract, Concrete},
 	AssetInstance,
 	Fungibility::{Fungible, NonFungible},
-	Asset, Location,
+	Location,
 };
 use xcm_executor::traits::{MatchesFungible, MatchesNonFungible};
 

@@ -27,7 +27,7 @@ pub use xcm_executor::{
 	traits::{
 		AssetExchange, AssetLock, ConvertOrigin, Enact, LockError, OnResponse, TransactAsset,
 	},
-	HoldingAssets, Config,
+	Config, HoldingAssets,
 };
 
 parameter_types! {

@@ -139,9 +139,7 @@ parameter_types! {
 
 type AssetIdForAssets = u128;
 
-pub struct FromLocationToAsset<Location, AssetId>(
-	core::marker::PhantomData<(Location, AssetId)>,
-);
+pub struct FromLocationToAsset<Location, AssetId>(core::marker::PhantomData<(Location, AssetId)>);
 impl MaybeEquivalence<Location, AssetIdForAssets>
 	for FromLocationToAsset<Location, AssetIdForAssets>
 {
