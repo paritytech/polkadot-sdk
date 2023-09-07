@@ -913,16 +913,13 @@ pub fn run() -> Result<()> {
 						.map(|r| r.0)
 						.map_err(Into::into),
 					Runtime::Glutton =>
-						crate::service::start_shell_node::<glutton_runtime::RuntimeApi>(
-							config,
-							polkadot_config,
-							collator_options,
-							id,
-							hwbench,
-						)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into),
+						crate::service::start_lookahead_aura_node::<
+								chain_spec::glutton::RuntimeApi,
+								AuraId,
+							>(config, polkadot_config, collator_options, id, hwbench)
+							.await
+							.map(|r| r.0)
+							.map_err(Into::into),
 				}
 			})
 		},
