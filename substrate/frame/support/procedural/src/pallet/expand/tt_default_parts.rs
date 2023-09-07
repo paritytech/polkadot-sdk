@@ -37,7 +37,7 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 			if let syn::Item::Enum(item_enum) = item {
 				if item_enum.ident == "Task" {
 					println!("found task enum in tt_default_parts!");
-					return Some(item_enum)
+					return Some(quote::quote!(Task, ))
 				}
 			}
 			None
