@@ -27,6 +27,7 @@ use frame_support::{
 		Get,
 	},
 	weights::Weight,
+	CloneNoBound,
 };
 use polkadot_runtime_common::xcm_sender::ConstantPrice;
 use sp_runtime::{traits::Saturating, SaturatedConversion};
@@ -117,6 +118,7 @@ struct AssetTraderRefunder {
 /// later refund purposes
 /// Important: Errors if the Trader is being called twice by 2 BuyExecution instructions
 /// Alternatively we could just return payment in the aforementioned case
+#[derive(CloneNoBound)]
 pub struct TakeFirstAssetTrader<
 	AccountId,
 	FeeCharger: ChargeWeightInFungibles<AccountId, ConcreteAssets>,
@@ -268,19 +270,6 @@ impl<
 		if let Some(asset_trader) = self.0.clone() {
 			HandleRefund::take_revenue(asset_trader.outstanding_concrete_asset);
 		}
-	}
-}
-
-impl<
-		AccountId,
-		FeeCharger: ChargeWeightInFungibles<AccountId, ConcreteAssets>,
-		Matcher: MatchesFungibles<ConcreteAssets::AssetId, ConcreteAssets::Balance>,
-		ConcreteAssets: fungibles::Mutate<AccountId> + fungibles::Balanced<AccountId>,
-		HandleRefund: TakeRevenue,
-	> Clone for TakeFirstAssetTrader<AccountId, FeeCharger, Matcher, ConcreteAssets, HandleRefund>
-{
-	fn clone(&self) -> Self {
-		Self(self.0.clone(), PhantomData)
 	}
 }
 

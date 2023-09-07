@@ -21,6 +21,7 @@ use frame_support::{
 		constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND},
 		WeightToFee as WeightToFeeT,
 	},
+	CloneNoBound,
 };
 use parity_scale_codec::Decode;
 use sp_runtime::traits::{SaturatedConversion, Saturating, Zero};
@@ -130,6 +131,7 @@ impl TakeRevenue for () {
 ///
 /// The constant `Get` type parameter should be the fungible ID, the amount of it required for one
 /// second of weight and the amount required for 1 MB of proof.
+#[derive(CloneNoBound)]
 pub struct FixedRateOfFungible<T: Get<(AssetId, u128, u128)>, R: TakeRevenue>(
 	Weight,
 	u128,
@@ -190,18 +192,9 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> Drop for FixedRateOfFungible
 	}
 }
 
-impl<T, R> Clone for FixedRateOfFungible<T, R>
-where
-	T: Get<(AssetId, u128, u128)>,
-	R: TakeRevenue,
-{
-	fn clone(&self) -> FixedRateOfFungible<T, R> {
-		Self(self.0, self.1, PhantomData)
-	}
-}
-
 /// Weight trader which uses the configured `WeightToFee` to set the right price for weight and then
 /// places any weight bought into the right account.
+#[derive(CloneNoBound)]
 pub struct UsingComponents<
 	WeightToFee: WeightToFeeT<Balance = Currency::Balance>,
 	AssetId: Get<MultiLocation>,
@@ -265,18 +258,5 @@ impl<
 {
 	fn drop(&mut self) {
 		OnUnbalanced::on_unbalanced(Currency::issue(self.1));
-	}
-}
-
-impl<WeightToFee, AssetId, AccountId, Currency, OnUnbalanced> Clone
-	for UsingComponents<WeightToFee, AssetId, AccountId, Currency, OnUnbalanced>
-where
-	WeightToFee: WeightToFeeT<Balance = Currency::Balance>,
-	AssetId: Get<MultiLocation>,
-	Currency: CurrencyT<AccountId>,
-	OnUnbalanced: OnUnbalancedT<Currency::NegativeImbalance>,
-{
-	fn clone(&self) -> UsingComponents<WeightToFee, AssetId, AccountId, Currency, OnUnbalanced> {
-		Self(self.0, self.1, PhantomData)
 	}
 }

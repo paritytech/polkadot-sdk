@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use xcm::latest::prelude::*;
+
 /// Provides mechanisms for transactional processing of XCM instructions.
 ///
 /// This trait defines the behavior required to process XCM instructions in a transactional
@@ -28,6 +29,7 @@ use xcm::latest::prelude::*;
 pub trait ProcessTransaction {
 	/// Whether the processor (i.e. the type implementing this trait) is transactional.
 	const IS_TRANSACTIONAL: bool;
+
 	/// Processes an XCM instruction encapsulated within the provided closure. Responsible for
 	/// processing an XCM instruction transactionally. If the closure returns an error, any
 	/// changes made during its execution should be rolled back. In the case where the
