@@ -190,7 +190,6 @@ impl xcm_executor::Config for XcmConfig {
 	// BridgeHub does not recognize a reserve location for any asset. Users must teleport KSM
 	// where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
-	/// Only allow teleportation of KSM.
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;

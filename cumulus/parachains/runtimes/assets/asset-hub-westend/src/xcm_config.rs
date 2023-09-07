@@ -495,9 +495,6 @@ impl xcm_executor::Config for XcmConfig {
 	// Asset Hub acting _as_ a reserve location for WND and assets created under `pallet-assets`.
 	// For WND, users must use teleport where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
-	// We allow:
-	// - teleportation of WND
-	// - teleportation of sibling parachain's assets (as ForeignCreators)
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
