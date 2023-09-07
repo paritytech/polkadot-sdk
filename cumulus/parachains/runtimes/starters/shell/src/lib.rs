@@ -186,8 +186,8 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 impl parachain_info::Config for Runtime {}
 
 parameter_types! {
-	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(10) *
-		RuntimeBlockWeights::get().max_block; // FAIl-CI this is probably too conservative.
+	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(25) *
+		RuntimeBlockWeights::get().max_block; // FAIL-CI this is probably too conservative.
 }
 
 impl pallet_message_queue::Config for Runtime {
