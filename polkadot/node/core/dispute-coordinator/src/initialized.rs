@@ -389,7 +389,7 @@ impl Initialized {
 				"Processing unapplied validator slashes",
 			);
 
-			let pinned_hash = self.runtime_info.get_pinned_hash(session_index);
+			let pinned_hash = self.runtime_info.get_block_in_session(session_index);
 			let inclusions = self.scraper.get_blocks_including_candidate(&candidate_hash);
 			if pinned_hash.is_none() && inclusions.is_empty() {
 				gum::info!(
@@ -400,9 +400,9 @@ impl Initialized {
 				return
 			}
 
-			// Find the first inclusion parent that we can use
+			// Find a relay block that we can use
 			// to generate key ownership proof on.
-			// We use inclusion parents because of the proper session index.
+			// We use inclusion parents as a fallback.
 			let mut key_ownership_proofs = Vec::new();
 			let mut dispute_proofs = Vec::new();
 

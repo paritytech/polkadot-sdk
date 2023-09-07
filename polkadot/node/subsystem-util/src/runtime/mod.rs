@@ -158,7 +158,7 @@ impl RuntimeInfo {
 	}
 
 	/// Get the hash of a pinned block for the given session index, if any.
-	pub fn get_pinned_hash(&self, session_index: SessionIndex) -> Option<Hash> {
+	pub fn get_block_in_session(&self, session_index: SessionIndex) -> Option<Hash> {
 		self.pinned_blocks.peek(&session_index).map(|h| h.hash())
 	}
 
