@@ -15,7 +15,7 @@ polkadot-node-subsystem-util = { path = "../subsystem-util" }
 polkadot-primitives = { path = "../../primitives" }
 sp-core = { path = "../../../substrate/primitives/core" }
 sp-maybe-compressed-blob  = { path = "../../../substrate/primitives/maybe-compressed-blob" }
-thiserror = "1.0.31"
+thiserror = "1.0.48"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["bit-vec", "derive"] }
 
 [dev-dependencies]
