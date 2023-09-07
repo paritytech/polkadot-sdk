@@ -319,6 +319,22 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 	}
 }
 
+/// Extracts the `AccountId32` from the passed Treasury plurality if the network matches.
+pub struct TreasuryVoiceConvertsVia<Network, AccountId>(PhantomData<(Network, AccountId)>);
+impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]> + Clone>
+	ConvertLocation<AccountId> for TreasuryVoiceConvertsVia<Network, AccountId>
+{
+	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
+		let id: [u8; 32] = match *location {
+			MultiLocation { parents: 0, interior: X1(Plurality { id: BodyId::Treasury, .. }) } |
+			MultiLocation { parents: 1, interior: X1(Plurality { id: BodyId::Treasury, .. }) } =>
+				PalletId(*b"py/trsry").into_account_truncating(),
+			_ => return None,
+		};
+		Some(id.into())
+	}
+}
+
 /// Conversion implementation which converts from a `[u8; 32]`-based `AccountId` into a
 /// `MultiLocation` consisting solely of a `AccountId32` junction with a fixed value for its
 /// network (provided by `Network`) and the `AccountId`'s `[u8; 32]` datum for the `id`.
