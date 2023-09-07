@@ -38,7 +38,7 @@ use parachains_common::{
 	kusama::fee::WeightToFee, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 };
 use sp_runtime::traits::MaybeEquivalence;
-use xcm::latest::prelude::*;
+use xcm::latest::prelude::{*, Assets as XcmAssets};
 use xcm_executor::traits::{Identity, JustTry, WeightTrader};
 
 const ALICE: [u8; 32] = [1u8; 32];
@@ -424,7 +424,7 @@ fn test_assets_balances_api_works() {
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), 0);
 			assert!(Runtime::query_account_balances(AccountId::from(ALICE))
 				.unwrap()
-				.try_as::<Assets>()
+				.try_as::<XcmAssets>()
 				.unwrap()
 				.is_none());
 
@@ -483,7 +483,7 @@ fn test_assets_balances_api_works() {
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), some_currency);
 
-			let result: Assets = Runtime::query_account_balances(AccountId::from(ALICE))
+			let result: XcmAssets = Runtime::query_account_balances(AccountId::from(ALICE))
 				.unwrap()
 				.try_into()
 				.unwrap();
