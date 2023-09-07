@@ -49,7 +49,7 @@ pub struct DoNothingRouter;
 impl SendXcm for DoNothingRouter {
 	type Ticket = ();
 	fn validate(_dest: &mut Option<Location>, _msg: &mut Option<Xcm<()>>) -> SendResult<()> {
-		Ok(((), HoldingAssets::new()))
+		Ok(((), Assets::new()))
 	}
 	fn deliver(_: ()) -> Result<XcmHash, SendError> {
 		Ok([0; 32])
@@ -68,7 +68,7 @@ impl TransactAsset for DummyAssetTransactor {
 		_what: &Asset,
 		_who: &Location,
 		_maybe_context: Option<&XcmContext>,
-	) -> Result<HoldingAssets, XcmError> {
+	) -> Result<Holding, XcmError> {
 		let asset: Asset = (Parent, 100_000).into();
 		Ok(asset.into())
 	}
