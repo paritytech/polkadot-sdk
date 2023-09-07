@@ -343,7 +343,7 @@ pub(crate) async fn handle_network_update<Context>(
 						true
 					},
 					Entry::Occupied(e) => {
-						gum::trace!(
+						gum::debug!(
 							target: LOG_TARGET,
 							authority_id = ?a,
 							existing_peer = ?e.get(),
@@ -419,6 +419,12 @@ pub(crate) async fn handle_network_update<Context>(
 				"Updated `AuthorityDiscoveryId`s"
 			);
 
+			// defensive: ensure peers are actually connected
+			let peer_state = match state.peers.get_mut(&peer_id) {
+				None => return,
+				Some(p) => p,
+			};
+
 			// Remove the authority IDs which were previously mapped to the peer
 			// but aren't part of the new set.
 			state.authorities.retain(|a, p| p != &peer_id || authority_ids.contains(a));
@@ -428,9 +434,7 @@ pub(crate) async fn handle_network_update<Context>(
 				state.authorities.insert(a, peer_id);
 			}
 
-			if let Some(peer_state) = state.peers.get_mut(&peer_id) {
-				peer_state.discovery_ids = Some(authority_ids);
-			}
+			peer_state.discovery_ids = Some(authority_ids);
 		},
 	}
 }
