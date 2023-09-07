@@ -48,10 +48,10 @@ pub use origin_conversion::{
 
 mod asset_conversion;
 pub use asset_conversion::{
-	AsPrefixedGeneralIndex, ConvertedAbstractId, ConvertedConcreteId, MatchedConvertedConcreteId,
+	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId,
 };
 #[allow(deprecated)]
-pub use asset_conversion::{ConvertedAbstractAssetId, ConvertedConcreteAssetId};
+pub use asset_conversion::{ConvertedConcreteAssetId};
 
 mod barriers;
 pub use barriers::{
@@ -84,7 +84,7 @@ pub use weight::{
 };
 
 mod matches_token;
-pub use matches_token::{IsAbstract, IsConcrete};
+pub use matches_token::IsConcrete;
 
 mod matcher;
 pub use matcher::{CreateMatcher, MatchXcm, Matcher};

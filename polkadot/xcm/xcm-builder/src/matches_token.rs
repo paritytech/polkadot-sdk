@@ -20,14 +20,14 @@ use frame_support::traits::Get;
 use sp_std::marker::PhantomData;
 use xcm::latest::{
 	Asset,
-	AssetId::{Abstract, Concrete},
+	AssetId,
 	AssetInstance,
 	Fungibility::{Fungible, NonFungible},
 	Location,
 };
 use xcm_executor::traits::{MatchesFungible, MatchesNonFungible};
 
-/// Converts a `Asset` into balance `B` if it is a concrete fungible with an id equal to that
+/// Converts a `Asset` into balance `B` if its id is equal to that
 /// given by `T`'s `Get`.
 ///
 /// # Example
@@ -51,7 +51,7 @@ pub struct IsConcrete<T>(PhantomData<T>);
 impl<T: Get<Location>, B: TryFrom<u128>> MatchesFungible<B> for IsConcrete<T> {
 	fn matches_fungible(a: &Asset) -> Option<B> {
 		match (&a.id, &a.fun) {
-			(Concrete(ref id), Fungible(ref amount)) if id == &T::get() =>
+			(AssetId(ref id), Fungible(ref amount)) if id == &T::get() =>
 				(*amount).try_into().ok(),
 			_ => None,
 		}
@@ -60,50 +60,7 @@ impl<T: Get<Location>, B: TryFrom<u128>> MatchesFungible<B> for IsConcrete<T> {
 impl<T: Get<Location>, I: TryFrom<AssetInstance>> MatchesNonFungible<I> for IsConcrete<T> {
 	fn matches_nonfungible(a: &Asset) -> Option<I> {
 		match (&a.id, &a.fun) {
-			(Concrete(id), NonFungible(instance)) if id == &T::get() => (*instance).try_into().ok(),
-			_ => None,
-		}
-	}
-}
-
-/// Same as [`IsConcrete`] but for a fungible with abstract location.
-///
-/// # Example
-///
-/// ```
-/// use xcm::latest::prelude::*;
-/// use staging_xcm_builder::IsAbstract;
-/// use xcm_executor::traits::{MatchesFungible, MatchesNonFungible};
-///
-/// frame_support::parameter_types! {
-/// 	pub TargetLocation: [u8; 32] = [7u8; 32];
-/// }
-///
-/// # fn main() {
-/// let asset = ([7u8; 32], 999u128).into();
-/// // match `asset` if it is an abstract asset in `TargetLocation`.
-/// assert_eq!(<IsAbstract<TargetLocation> as MatchesFungible<u128>>::matches_fungible(&asset), Some(999));
-/// let nft = ([7u8; 32], [42u8; 4]).into();
-/// assert_eq!(
-///     <IsAbstract<TargetLocation> as MatchesNonFungible<[u8; 4]>>::matches_nonfungible(&nft),
-///     Some([42u8; 4])
-/// );
-/// # }
-/// ```
-pub struct IsAbstract<T>(PhantomData<T>);
-impl<T: Get<[u8; 32]>, B: TryFrom<u128>> MatchesFungible<B> for IsAbstract<T> {
-	fn matches_fungible(a: &Asset) -> Option<B> {
-		match (&a.id, &a.fun) {
-			(Abstract(ref id), Fungible(ref amount)) if id == &T::get() =>
-				(*amount).try_into().ok(),
-			_ => None,
-		}
-	}
-}
-impl<T: Get<[u8; 32]>, B: TryFrom<AssetInstance>> MatchesNonFungible<B> for IsAbstract<T> {
-	fn matches_nonfungible(a: &Asset) -> Option<B> {
-		match (&a.id, &a.fun) {
-			(Abstract(id), NonFungible(instance)) if id == &T::get() => (*instance).try_into().ok(),
+			(AssetId(id), NonFungible(instance)) if id == &T::get() => (*instance).try_into().ok(),
 			_ => None,
 		}
 	}

@@ -113,7 +113,7 @@ impl<T: Get<Location>> ContainsPair<Asset, Location> for AssetsFrom<T> {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
 		let loc = T::get();
 		&loc == origin &&
-			matches!(asset, Asset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
+			matches!(asset, Asset { id: AssetId(asset_loc), fun: Fungible(_a) }
 			if asset_loc.match_and_split(&loc).is_some())
 	}
 }

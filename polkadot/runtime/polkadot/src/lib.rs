@@ -2125,14 +2125,14 @@ sp_api::impl_runtime_apis! {
 				}
 				fn worst_case_holding(_depositable_count: u32) -> Assets {
 					// Polkadot only knows about DOT
-					vec![Asset { id: Concrete(TokenLocation::get()), fun: Fungible(1_000_000 * UNITS) }].into()
+					vec![Asset { id: AssetId(TokenLocation::get()), fun: Fungible(1_000_000 * UNITS) }].into()
 				}
 			}
 
 			parameter_types! {
 				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
 					StatemintLocation::get(),
-					Asset { id: Concrete(TokenLocation::get()), fun: Fungible(1 * UNITS) }
+					Asset { id: AssetId(TokenLocation::get()), fun: Fungible(1 * UNITS) }
 				));
 				pub const TrustedReserve: Option<(Location, Asset)> = None;
 			}
@@ -2146,7 +2146,7 @@ sp_api::impl_runtime_apis! {
 
 				fn get_multi_asset() -> Asset {
 					Asset {
-						id: Concrete(TokenLocation::get()),
+						id: AssetId(TokenLocation::get()),
 						fun: Fungible(1 * UNITS)
 					}
 				}
@@ -2179,7 +2179,7 @@ sp_api::impl_runtime_apis! {
 
 				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
 					let origin = StatemintLocation::get();
-					let assets: Assets = (Concrete(TokenLocation::get()), 1_000 * UNITS).into();
+					let assets: Assets = (AssetId(TokenLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}

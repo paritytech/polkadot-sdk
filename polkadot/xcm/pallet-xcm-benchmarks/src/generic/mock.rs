@@ -155,7 +155,7 @@ impl generic::Config for Test {
 	type RuntimeCall = RuntimeCall;
 
 	fn worst_case_response() -> (u64, Response) {
-		let assets: Assets = (Concrete(Here.into()), 100).into();
+		let assets: Assets = (AssetId(Here.into()), 100).into();
 		(0, Response::Assets(assets))
 	}
 
@@ -177,13 +177,13 @@ impl generic::Config for Test {
 	}
 
 	fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
-		let assets: Assets = (Concrete(Here.into()), 100).into();
+		let assets: Assets = (AssetId(Here.into()), 100).into();
 		let ticket = Location { parents: 0, interior: [GeneralIndex(0)].into() };
 		Ok((Default::default(), ticket, assets))
 	}
 
 	fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
-		let assets: Asset = (Concrete(Here.into()), 100).into();
+		let assets: Asset = (AssetId(Here.into()), 100).into();
 		Ok((Default::default(), Default::default(), assets))
 	}
 

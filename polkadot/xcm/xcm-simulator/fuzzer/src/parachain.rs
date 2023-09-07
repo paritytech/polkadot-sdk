@@ -125,7 +125,7 @@ pub type XcmOriginToCallOrigin = (
 
 parameter_types! {
 	pub const UnitWeightCost: Weight = Weight::from_parts(1, 1);
-	pub KsmPerSecondPerByte: (AssetId, u128, u128) = (Concrete(Parent.into()), 1, 1);
+	pub KsmPerSecondPerByte: (AssetId, u128, u128) = (AssetId(Parent.into()), 1, 1);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }

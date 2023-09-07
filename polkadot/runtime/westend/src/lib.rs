@@ -2030,7 +2030,7 @@ sp_api::impl_runtime_apis! {
 			impl runtime_parachains::disputes::slashing::benchmarking::Config for Runtime {}
 
 			use xcm::latest::{
-				AssetId::*, Fungibility::*, InteriorLocation, Junction, Junctions::*,
+				AssetId, Fungibility::*, InteriorLocation, Junction, Junctions::*,
 				Asset, Assets, Location, NetworkId, Response,
 			};
 			use xcm_config::{Westmint, TokenLocation};
@@ -2044,7 +2044,7 @@ sp_api::impl_runtime_apis! {
 				fn worst_case_holding(_depositable_count: u32) -> Assets {
 					// Westend only knows about WND.
 					vec![Asset{
-						id: Concrete(TokenLocation::get()),
+						id: AssetId(TokenLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
 					}].into()
 				}
@@ -2053,7 +2053,7 @@ sp_api::impl_runtime_apis! {
 			parameter_types! {
 				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
 					Westmint::get(),
-					Asset { fun: Fungible(1 * UNITS), id: Concrete(TokenLocation::get()) },
+					Asset { fun: Fungible(1 * UNITS), id: AssetId(TokenLocation::get()) },
 				));
 				pub const TrustedReserve: Option<(Location, Asset)> = None;
 			}
@@ -2067,7 +2067,7 @@ sp_api::impl_runtime_apis! {
 
 				fn get_multi_asset() -> Asset {
 					Asset {
-						id: Concrete(TokenLocation::get()),
+						id: AssetId(TokenLocation::get()),
 						fun: Fungible(1 * UNITS),
 					}
 				}
@@ -2100,7 +2100,7 @@ sp_api::impl_runtime_apis! {
 
 				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
 					let origin = Westmint::get();
-					let assets: Assets = (Concrete(TokenLocation::get()), 1_000 * UNITS).into();
+					let assets: Assets = (AssetId(TokenLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}

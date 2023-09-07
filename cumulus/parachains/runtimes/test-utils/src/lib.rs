@@ -274,7 +274,7 @@ impl<XcmConfig: xcm_executor::Config, AllPalletsWithoutSystem>
 		(asset, amount): (Location, u128),
 	) -> Result<HoldingAssets, XcmError> {
 		<XcmConfig::AssetTransactor as TransactAsset>::transfer_asset(
-			&Asset { id: Concrete(asset), fun: Fungible(amount) },
+			&Asset { id: AssetId(asset), fun: Fungible(amount) },
 			&from,
 			&to,
 			// We aren't able to track the XCM that initiated the fee deposit, so we create a
@@ -318,7 +318,7 @@ impl<
 			origin,
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
-			Box::new((Concrete(asset), amount).into()),
+			Box::new((AssetId(asset), amount).into()),
 			0,
 		)
 	}

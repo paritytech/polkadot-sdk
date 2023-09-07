@@ -59,7 +59,7 @@ benchmarks! {
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding);
 
-		let fee_asset = Concrete(Here.into());
+		let fee_asset = AssetId(Here.into());
 
 		let instruction = Instruction::<XcmCallOf<T>>::BuyExecution {
 			fees: (fee_asset, 100_000_000u128).into(), // should be something inside of holding

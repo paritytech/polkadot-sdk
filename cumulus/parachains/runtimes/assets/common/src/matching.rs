@@ -56,7 +56,7 @@ impl<IsForeign: ContainsPair<Location, Location>> ContainsPair<Asset, Location>
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
 		log::trace!(target: "xcm::contains", "IsForeignConcreteAsset asset: {:?}, origin: {:?}", asset, origin);
-		matches!(asset.id, Concrete(ref id) if IsForeign::contains(id, origin))
+		matches!(asset.id, AssetId(ref id) if IsForeign::contains(id, origin))
 	}
 }
 

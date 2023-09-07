@@ -680,7 +680,7 @@ impl_runtime_apis! {
 					// just concrete assets according to relay chain.
 					let assets: Vec<Asset> = vec![
 						Asset {
-							id: Concrete(DotRelayLocation::get()),
+							id: AssetId(DotRelayLocation::get()),
 							fun: Fungible(1_000_000 * UNITS),
 						}
 					];
@@ -691,7 +691,7 @@ impl_runtime_apis! {
 			parameter_types! {
 				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
 					DotRelayLocation::get(),
-					Asset { fun: Fungible(UNITS), id: Concrete(DotRelayLocation::get()) },
+					Asset { fun: Fungible(UNITS), id: AssetId(DotRelayLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 				pub const TrustedReserve: Option<(Location, Asset)> = None;
@@ -706,7 +706,7 @@ impl_runtime_apis! {
 
 				fn get_multi_asset() -> Asset {
 					Asset {
-						id: Concrete(DotRelayLocation::get()),
+						id: AssetId(DotRelayLocation::get()),
 						fun: Fungible(UNITS),
 					}
 				}
@@ -737,7 +737,7 @@ impl_runtime_apis! {
 
 				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
 					let origin = DotRelayLocation::get();
-					let assets: Assets = (Concrete(DotRelayLocation::get()), 1_000 * UNITS).into();
+					let assets: Assets = (AssetId(DotRelayLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}

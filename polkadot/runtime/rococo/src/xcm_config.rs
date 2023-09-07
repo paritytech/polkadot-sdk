@@ -89,7 +89,7 @@ parameter_types! {
 	/// The amount of weight an XCM operation takes. This is a safe overestimate.
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000_000_000, 64 * 1024);
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = Concrete(TokenLocation::get());
+	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }
@@ -106,7 +106,7 @@ pub type XcmRouter = WithUniqueTopic<(
 )>;
 
 parameter_types! {
-	pub Roc: AssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
+	pub Roc: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
 	pub Rockmine: Location = Parachain(1000).into_location();
 	pub Contracts: Location = Parachain(1002).into_location();
 	pub Encointer: Location = Parachain(1003).into_location();

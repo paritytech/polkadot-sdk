@@ -113,7 +113,7 @@ parameter_types! {
 	/// calculations getting too crazy.
 	pub const MaxInstructions: u32 = 100;
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = Concrete(TokenLocation::get());
+	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }
@@ -130,7 +130,7 @@ pub type XcmRouter = WithUniqueTopic<(
 )>;
 
 parameter_types! {
-	pub const Dot: AssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
+	pub const Dot: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
 	pub StatemintLocation: Location = Parachain(STATEMINT_ID).into_location();
 	pub DotForStatemint: (AssetFilter, Location) = (Dot::get(), StatemintLocation::get());
 	pub CollectivesLocation: Location = Parachain(COLLECTIVES_ID).into_location();

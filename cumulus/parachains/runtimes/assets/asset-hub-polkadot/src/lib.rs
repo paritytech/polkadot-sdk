@@ -1103,19 +1103,19 @@ impl_runtime_apis! {
 					let mut assets = (0..holding_fungibles)
 						.map(|i| {
 							Asset {
-								id: Concrete(GeneralIndex(i as u128).into()),
+								id: AssetId(GeneralIndex(i as u128).into()),
 								fun: Fungible(fungibles_amount * i as u128),
 							}
 						})
-						.chain(core::iter::once(Asset { id: Concrete(Here.into()), fun: Fungible(u128::MAX) }))
+						.chain(core::iter::once(Asset { id: AssetId(Here.into()), fun: Fungible(u128::MAX) }))
 						.chain((0..holding_non_fungibles).map(|i| Asset {
-							id: Concrete(GeneralIndex(i as u128).into()),
+							id: AssetId(GeneralIndex(i as u128).into()),
 							fun: NonFungible(asset_instance_from(i)),
 						}))
 						.collect::<Vec<_>>();
 
 					assets.push(Asset {
-						id: Concrete(DotLocation::get()),
+						id: AssetId(DotLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
 					});
 					assets.into()
@@ -1125,7 +1125,7 @@ impl_runtime_apis! {
 			parameter_types! {
 				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
 					DotLocation::get(),
-					Asset { fun: Fungible(UNITS), id: Concrete(DotLocation::get()) },
+					Asset { fun: Fungible(UNITS), id: AssetId(DotLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 				pub const TrustedReserve: Option<(Location, Asset)> = None;
@@ -1140,7 +1140,7 @@ impl_runtime_apis! {
 
 				fn get_multi_asset() -> Asset {
 					Asset {
-						id: Concrete(DotLocation::get()),
+						id: AssetId(DotLocation::get()),
 						fun: Fungible(UNITS),
 					}
 				}
@@ -1171,7 +1171,7 @@ impl_runtime_apis! {
 
 				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
 					let origin = DotLocation::get();
-					let assets: Assets = (Concrete(DotLocation::get()), 1_000 * UNITS).into();
+					let assets: Assets = (AssetId(DotLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}

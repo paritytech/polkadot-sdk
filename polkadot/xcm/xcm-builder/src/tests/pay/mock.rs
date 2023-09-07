@@ -130,7 +130,7 @@ parameter_types! {
 	pub UnitWeightCost: u64 = 1_000;
 	pub static AdvertisedXcmVersion: u32 = 3;
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
-	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (Concrete(RelayLocation::get()), 1, 1);
+	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), 1, 1);
 	pub TrustedAssets: (AssetFilter, Location) = (All.into(), Here.into());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;

@@ -193,7 +193,7 @@ pub type XcmOriginToCallOrigin = (
 
 parameter_types! {
 	pub const UnitWeightCost: Weight = Weight::from_parts(1, 1);
-	pub KsmPerSecondPerByte: (AssetId, u128, u128) = (Concrete(Parent.into()), 1, 1);
+	pub KsmPerSecondPerByte: (AssetId, u128, u128) = (AssetId(Parent.into()), 1, 1);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub ForeignPrefix: Location = (Parent,).into();
@@ -216,7 +216,7 @@ pub type Barrier = AllowUnpaidExecutionFrom<Everything>;
 
 parameter_types! {
 	pub NftCollectionOne: AssetFilter
-		= Wild(AllOf { fun: WildNonFungible, id: Concrete((Parent, GeneralIndex(1)).into()) });
+		= Wild(AllOf { fun: WildNonFungible, id: AssetId((Parent, GeneralIndex(1)).into()) });
 	pub NftCollectionOneForRelay: (AssetFilter, Location)
 		= (NftCollectionOne::get(), (Parent,).into());
 }
@@ -412,7 +412,7 @@ impl<T: Get<(Location, AssetFilter)>> ContainsPair<Location, Asset> for TrustedL
 }
 
 parameter_types! {
-	pub RelayTokenForRelay: (Location, AssetFilter) = (Parent.into(), Wild(AllOf { id: Concrete(Parent.into()), fun: WildFungible }));
+	pub RelayTokenForRelay: (Location, AssetFilter) = (Parent.into(), Wild(AllOf { id: AssetId(Parent.into()), fun: WildFungible }));
 }
 
 pub type TrustedLockers = TrustedLockerCase<RelayTokenForRelay>;

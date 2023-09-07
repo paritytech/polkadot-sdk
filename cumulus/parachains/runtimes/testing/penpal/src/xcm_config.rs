@@ -192,7 +192,7 @@ impl<T: Get<Location>> ContainsPair<Asset, Location> for AssetsFrom<T> {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
 		let loc = T::get();
 		&loc == origin &&
-			matches!(asset, Asset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
+			matches!(asset, Asset { id: AssetId(asset_loc), fun: Fungible(_a) }
 			if asset_loc.match_and_split(&loc).is_some())
 	}
 }
@@ -233,17 +233,12 @@ pub trait Reserve {
 // Takes the chain part of a Asset
 impl Reserve for Asset {
 	fn reserve(&self) -> Option<Location> {
-		if let AssetId::Concrete(location) = &self.id {
-			let first_interior = location.first_interior();
-			let parents = location.parent_count();
-			match (parents, first_interior) {
-				(0, Some(Parachain(id))) => Some(Location::new(0, [Parachain(*id)])),
-				(1, Some(Parachain(id))) => Some(Location::new(1, [Parachain(*id)])),
-				(1, _) => Some(Location::parent()),
-				_ => None,
-			}
-		} else {
-			None
+		let location = &self.id.0;
+		match location.unpack() {
+			(0, [Parachain(id), ..]) => Some(Location::new(0, [Parachain(*id)])),
+			(1, [Parachain(id), ..]) => Some(Location::new(1, [Parachain(*id)])),
+			(1, _) => Some(Location::parent()),
+			_ => None,
 		}
 	}
 }

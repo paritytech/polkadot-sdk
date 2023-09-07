@@ -169,7 +169,7 @@ pub mod prelude {
 		pub use super::super::{
 			send_xcm, validate_send, Ancestor, AncestorThen, Asset,
 			AssetFilter::{self, *},
-			AssetId::{self, *},
+			AssetId,
 			AssetInstance::{self, *},
 			Assets, BodyId, BodyPart, Error as XcmError, ExecuteXcm,
 			Fungibility::{self, *},

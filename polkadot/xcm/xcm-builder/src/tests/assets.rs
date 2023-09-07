@@ -345,26 +345,26 @@ fn max_assets_limit_should_work() {
 	// we'll let them have message execution for free.
 	AllowUnpaidFrom::set(vec![[Parachain(1)].into()]);
 	// Child parachain #1 owns 1000 tokens held by us in reserve.
-	add_asset(Parachain(1), ([1u8; 32], 1000u128));
-	add_asset(Parachain(1), ([2u8; 32], 1000u128));
-	add_asset(Parachain(1), ([3u8; 32], 1000u128));
-	add_asset(Parachain(1), ([4u8; 32], 1000u128));
-	add_asset(Parachain(1), ([5u8; 32], 1000u128));
-	add_asset(Parachain(1), ([6u8; 32], 1000u128));
-	add_asset(Parachain(1), ([7u8; 32], 1000u128));
-	add_asset(Parachain(1), ([8u8; 32], 1000u128));
-	add_asset(Parachain(1), ([9u8; 32], 1000u128));
+	add_asset(Parachain(1), (Junctions::from([GeneralIndex(0)]), 1000u128));
+	add_asset(Parachain(1), (Junctions::from([GeneralIndex(1)]), 1000u128));
+	add_asset(Parachain(1), (Junctions::from([GeneralIndex(2)]), 1000u128));
+	add_asset(Parachain(1), (Junctions::from([GeneralIndex(3)]), 1000u128));
+	add_asset(Parachain(1), (Junctions::from([GeneralIndex(4)]), 1000u128));
+	add_asset(Parachain(1), (Junctions::from([GeneralIndex(5)]), 1000u128));
+	add_asset(Parachain(1), (Junctions::from([GeneralIndex(6)]), 1000u128));
+	add_asset(Parachain(1), (Junctions::from([GeneralIndex(7)]), 1000u128));
+	add_asset(Parachain(1), (Junctions::from([GeneralIndex(8)]), 1000u128));
 
 	// Attempt to withdraw 8 (=2x4)different assets. This will succeed.
 	let message = Xcm(vec![
-		WithdrawAsset(([1u8; 32], 100u128).into()),
-		WithdrawAsset(([2u8; 32], 100u128).into()),
-		WithdrawAsset(([3u8; 32], 100u128).into()),
-		WithdrawAsset(([4u8; 32], 100u128).into()),
-		WithdrawAsset(([5u8; 32], 100u128).into()),
-		WithdrawAsset(([6u8; 32], 100u128).into()),
-		WithdrawAsset(([7u8; 32], 100u128).into()),
-		WithdrawAsset(([8u8; 32], 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(0)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(1)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(2)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(3)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(4)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(5)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(6)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(7)]), 100u128).into()),
 	]);
 	let hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::execute_xcm(
@@ -377,15 +377,15 @@ fn max_assets_limit_should_work() {
 
 	// Attempt to withdraw 9 different assets will fail.
 	let message = Xcm(vec![
-		WithdrawAsset(([1u8; 32], 100u128).into()),
-		WithdrawAsset(([2u8; 32], 100u128).into()),
-		WithdrawAsset(([3u8; 32], 100u128).into()),
-		WithdrawAsset(([4u8; 32], 100u128).into()),
-		WithdrawAsset(([5u8; 32], 100u128).into()),
-		WithdrawAsset(([6u8; 32], 100u128).into()),
-		WithdrawAsset(([7u8; 32], 100u128).into()),
-		WithdrawAsset(([8u8; 32], 100u128).into()),
-		WithdrawAsset(([9u8; 32], 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(0)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(1)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(2)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(3)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(4)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(5)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(6)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(7)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(8)]), 100u128).into()),
 	]);
 	let hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::execute_xcm(
@@ -399,18 +399,18 @@ fn max_assets_limit_should_work() {
 	// Attempt to withdraw 4 different assets and then the same 4 and then a different 4 will
 	// succeed.
 	let message = Xcm(vec![
-		WithdrawAsset(([1u8; 32], 100u128).into()),
-		WithdrawAsset(([2u8; 32], 100u128).into()),
-		WithdrawAsset(([3u8; 32], 100u128).into()),
-		WithdrawAsset(([4u8; 32], 100u128).into()),
-		WithdrawAsset(([1u8; 32], 100u128).into()),
-		WithdrawAsset(([2u8; 32], 100u128).into()),
-		WithdrawAsset(([3u8; 32], 100u128).into()),
-		WithdrawAsset(([4u8; 32], 100u128).into()),
-		WithdrawAsset(([5u8; 32], 100u128).into()),
-		WithdrawAsset(([6u8; 32], 100u128).into()),
-		WithdrawAsset(([7u8; 32], 100u128).into()),
-		WithdrawAsset(([8u8; 32], 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(0)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(1)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(2)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(3)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(0)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(1)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(2)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(3)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(4)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(5)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(6)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(7)]), 100u128).into()),
 	]);
 	let hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::execute_xcm(
@@ -423,18 +423,18 @@ fn max_assets_limit_should_work() {
 
 	// Attempt to withdraw 4 different assets and then a different 4 and then the same 4 will fail.
 	let message = Xcm(vec![
-		WithdrawAsset(([1u8; 32], 100u128).into()),
-		WithdrawAsset(([2u8; 32], 100u128).into()),
-		WithdrawAsset(([3u8; 32], 100u128).into()),
-		WithdrawAsset(([4u8; 32], 100u128).into()),
-		WithdrawAsset(([5u8; 32], 100u128).into()),
-		WithdrawAsset(([6u8; 32], 100u128).into()),
-		WithdrawAsset(([7u8; 32], 100u128).into()),
-		WithdrawAsset(([8u8; 32], 100u128).into()),
-		WithdrawAsset(([1u8; 32], 100u128).into()),
-		WithdrawAsset(([2u8; 32], 100u128).into()),
-		WithdrawAsset(([3u8; 32], 100u128).into()),
-		WithdrawAsset(([4u8; 32], 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(0)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(1)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(2)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(3)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(4)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(5)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(6)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(7)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(0)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(1)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(2)]), 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(3)]), 100u128).into()),
 	]);
 	let hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::execute_xcm(
@@ -448,16 +448,16 @@ fn max_assets_limit_should_work() {
 	// Attempt to withdraw 4 different assets and then a different 4 and then the same 4 will fail.
 	let message = Xcm(vec![
 		WithdrawAsset(Assets::from(vec![
-			([1u8; 32], 100u128).into(),
-			([2u8; 32], 100u128).into(),
-			([3u8; 32], 100u128).into(),
-			([4u8; 32], 100u128).into(),
-			([5u8; 32], 100u128).into(),
-			([6u8; 32], 100u128).into(),
-			([7u8; 32], 100u128).into(),
-			([8u8; 32], 100u128).into(),
+			(Junctions::from([GeneralIndex(0)]), 100u128).into(),
+			(Junctions::from([GeneralIndex(1)]), 100u128).into(),
+			(Junctions::from([GeneralIndex(2)]), 100u128).into(),
+			(Junctions::from([GeneralIndex(3)]), 100u128).into(),
+			(Junctions::from([GeneralIndex(4)]), 100u128).into(),
+			(Junctions::from([GeneralIndex(5)]), 100u128).into(),
+			(Junctions::from([GeneralIndex(6)]), 100u128).into(),
+			(Junctions::from([GeneralIndex(7)]), 100u128).into(),
 		])),
-		WithdrawAsset(([1u8; 32], 100u128).into()),
+		WithdrawAsset((Junctions::from([GeneralIndex(0)]), 100u128).into()),
 	]);
 	let hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::execute_xcm(

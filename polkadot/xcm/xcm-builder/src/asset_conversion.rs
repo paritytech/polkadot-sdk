@@ -68,7 +68,7 @@ impl<
 {
 	fn matches_fungibles(a: &Asset) -> result::Result<(AssetId, Balance), MatchError> {
 		let (amount, id) = match (&a.fun, &a.id) {
-			(Fungible(ref amount), Concrete(ref id)) => (amount, id),
+			(Fungible(ref amount), AssetId(ref id)) => (amount, id),
 			_ => return Err(MatchError::AssetNotHandled),
 		};
 		let what = ConvertAssetId::convert(id).ok_or(MatchError::AssetIdConversionFailed)?;
@@ -87,49 +87,7 @@ impl<
 {
 	fn matches_nonfungibles(a: &Asset) -> result::Result<(ClassId, InstanceId), MatchError> {
 		let (instance, class) = match (&a.fun, &a.id) {
-			(NonFungible(ref instance), Concrete(ref class)) => (instance, class),
-			_ => return Err(MatchError::AssetNotHandled),
-		};
-		let what = ConvertClassId::convert(class).ok_or(MatchError::AssetIdConversionFailed)?;
-		let instance =
-			ConvertInstanceId::convert(instance).ok_or(MatchError::InstanceConversionFailed)?;
-		Ok((what, instance))
-	}
-}
-
-pub struct ConvertedAbstractId<AssetId, Balance, ConvertAssetId, ConvertOther>(
-	PhantomData<(AssetId, Balance, ConvertAssetId, ConvertOther)>,
-);
-impl<
-		AssetId: Clone,
-		Balance: Clone,
-		ConvertAssetId: MaybeEquivalence<[u8; 32], AssetId>,
-		ConvertBalance: MaybeEquivalence<u128, Balance>,
-	> MatchesFungibles<AssetId, Balance>
-	for ConvertedAbstractId<AssetId, Balance, ConvertAssetId, ConvertBalance>
-{
-	fn matches_fungibles(a: &Asset) -> result::Result<(AssetId, Balance), MatchError> {
-		let (amount, id) = match (&a.fun, &a.id) {
-			(Fungible(ref amount), Abstract(ref id)) => (amount, id),
-			_ => return Err(MatchError::AssetNotHandled),
-		};
-		let what = ConvertAssetId::convert(id).ok_or(MatchError::AssetIdConversionFailed)?;
-		let amount =
-			ConvertBalance::convert(amount).ok_or(MatchError::AmountToBalanceConversionFailed)?;
-		Ok((what, amount))
-	}
-}
-impl<
-		ClassId: Clone,
-		InstanceId: Clone,
-		ConvertClassId: MaybeEquivalence<[u8; 32], ClassId>,
-		ConvertInstanceId: MaybeEquivalence<AssetInstance, InstanceId>,
-	> MatchesNonFungibles<ClassId, InstanceId>
-	for ConvertedAbstractId<ClassId, InstanceId, ConvertClassId, ConvertInstanceId>
-{
-	fn matches_nonfungibles(a: &Asset) -> result::Result<(ClassId, InstanceId), MatchError> {
-		let (instance, class) = match (&a.fun, &a.id) {
-			(NonFungible(ref instance), Abstract(ref class)) => (instance, class),
+			(NonFungible(ref instance), AssetId(ref class)) => (instance, class),
 			_ => return Err(MatchError::AssetNotHandled),
 		};
 		let what = ConvertClassId::convert(class).ok_or(MatchError::AssetIdConversionFailed)?;
@@ -141,8 +99,6 @@ impl<
 
 #[deprecated = "Use `ConvertedConcreteId` instead"]
 pub type ConvertedConcreteAssetId<A, B, C, O> = ConvertedConcreteId<A, B, C, O>;
-#[deprecated = "Use `ConvertedAbstractId` instead"]
-pub type ConvertedAbstractAssetId<A, B, C, O> = ConvertedAbstractId<A, B, C, O>;
 
 pub struct MatchedConvertedConcreteId<AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertOther>(
 	PhantomData<(AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertOther)>,
@@ -158,7 +114,7 @@ impl<
 {
 	fn matches_fungibles(a: &Asset) -> result::Result<(AssetId, Balance), MatchError> {
 		let (amount, id) = match (&a.fun, &a.id) {
-			(Fungible(ref amount), Concrete(ref id)) if MatchAssetId::contains(id) => (amount, id),
+			(Fungible(ref amount), AssetId(ref id)) if MatchAssetId::contains(id) => (amount, id),
 			_ => return Err(MatchError::AssetNotHandled),
 		};
 		let what = ConvertAssetId::convert(id).ok_or(MatchError::AssetIdConversionFailed)?;
@@ -178,7 +134,7 @@ impl<
 {
 	fn matches_nonfungibles(a: &Asset) -> result::Result<(ClassId, InstanceId), MatchError> {
 		let (instance, class) = match (&a.fun, &a.id) {
-			(NonFungible(ref instance), Concrete(ref class)) if MatchClassId::contains(class) =>
+			(NonFungible(ref instance), AssetId(ref class)) if MatchClassId::contains(class) =>
 				(instance, class),
 			_ => return Err(MatchError::AssetNotHandled),
 		};
@@ -233,7 +189,7 @@ mod tests {
 		// err - does not match
 		assert_eq!(
 			Converter::matches_fungibles(&Asset {
-				id: Concrete(Location::new(1, [PalletInstance(50), GeneralIndex(1)])),
+				id: AssetId(Location::new(1, [PalletInstance(50), GeneralIndex(1)])),
 				fun: Fungible(12345),
 			}),
 			Err(MatchError::AssetNotHandled)
@@ -242,7 +198,7 @@ mod tests {
 		// err - matches, but convert fails
 		assert_eq!(
 			Converter::matches_fungibles(&Asset {
-				id: Concrete(Location::new(
+				id: AssetId(Location::new(
 					0,
 					[PalletInstance(50), GeneralKey { length: 1, data: [1; 32] }]
 				)),
@@ -254,7 +210,7 @@ mod tests {
 		// err - matches, but NonFungible
 		assert_eq!(
 			Converter::matches_fungibles(&Asset {
-				id: Concrete(Location::new(0, [PalletInstance(50), GeneralIndex(1)])),
+				id: AssetId(Location::new(0, [PalletInstance(50), GeneralIndex(1)])),
 				fun: NonFungible(Index(54321)),
 			}),
 			Err(MatchError::AssetNotHandled)
@@ -263,7 +219,7 @@ mod tests {
 		// ok
 		assert_eq!(
 			Converter::matches_fungibles(&Asset {
-				id: Concrete(Location::new(0, [PalletInstance(50), GeneralIndex(1)])),
+				id: AssetId(Location::new(0, [PalletInstance(50), GeneralIndex(1)])),
 				fun: Fungible(12345),
 			}),
 			Ok((1, 12345))
@@ -305,7 +261,7 @@ mod tests {
 		// err - does not match
 		assert_eq!(
 			Converter::matches_nonfungibles(&Asset {
-				id: Concrete(Location::new(1, [PalletInstance(50), GeneralIndex(1)])),
+				id: AssetId(Location::new(1, [PalletInstance(50), GeneralIndex(1)])),
 				fun: NonFungible(Index(54321)),
 			}),
 			Err(MatchError::AssetNotHandled)
@@ -314,7 +270,7 @@ mod tests {
 		// err - matches, but convert fails
 		assert_eq!(
 			Converter::matches_nonfungibles(&Asset {
-				id: Concrete(Location::new(
+				id: AssetId(Location::new(
 					0,
 					[PalletInstance(50), GeneralKey { length: 1, data: [1; 32] }]
 				)),
@@ -326,7 +282,7 @@ mod tests {
 		// err - matches, but Fungible vs NonFungible
 		assert_eq!(
 			Converter::matches_nonfungibles(&Asset {
-				id: Concrete(Location::new(0, [PalletInstance(50), GeneralIndex(1)])),
+				id: AssetId(Location::new(0, [PalletInstance(50), GeneralIndex(1)])),
 				fun: Fungible(12345),
 			}),
 			Err(MatchError::AssetNotHandled)
@@ -335,7 +291,7 @@ mod tests {
 		// ok
 		assert_eq!(
 			Converter::matches_nonfungibles(&Asset {
-				id: Concrete(Location::new(0, [PalletInstance(50), GeneralIndex(1)])),
+				id: AssetId(Location::new(0, [PalletInstance(50), GeneralIndex(1)])),
 				fun: NonFungible(Index(54321)),
 			}),
 			Ok((1, 54321))

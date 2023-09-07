@@ -124,7 +124,7 @@ type LocalOriginConverter = (
 
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
-	pub KsmPerSecondPerByte: (AssetId, u128, u128) = (Concrete(TokenLocation::get()), 1, 1);
+	pub KsmPerSecondPerByte: (AssetId, u128, u128) = (AssetId(TokenLocation::get()), 1, 1);
 	pub const MaxInstructions: u32 = u32::MAX;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }

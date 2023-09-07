@@ -417,11 +417,7 @@ impl TryFrom<OldAssetId> for AssetId {
 impl TryFrom<NewAssetId> for AssetId {
 	type Error = ();
 	fn try_from(new: NewAssetId) -> Result<Self, Self::Error> {
-		use NewAssetId::*;
-		Ok(match new {
-			Concrete(l) => Self::Concrete(l.try_into()?),
-			Abstract(v) => Self::Abstract(v),
-		})
+		Ok(Self::Concrete(new.0.try_into()?))
 	}
 }
 

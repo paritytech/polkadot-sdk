@@ -178,16 +178,16 @@ parameter_types! {
 	pub ChildTeleporter: Location = Parachain(1000).into_location();
 	pub TrustedTeleporter: Option<(Location, Asset)> = Some((
 		ChildTeleporter::get(),
-		Asset { id: Concrete(Here.into_location()), fun: Fungible(100) },
+		Asset { id: AssetId(Here.into_location()), fun: Fungible(100) },
 	));
 	pub TrustedReserve: Option<(Location, Asset)> = Some((
 		ChildTeleporter::get(),
-		Asset { id: Concrete(Here.into_location()), fun: Fungible(100) },
+		Asset { id: AssetId(Here.into_location()), fun: Fungible(100) },
 	));
 	pub TeleportConcreteFungible: (AssetFilter, Location) =
-		(Wild(AllOf { fun: WildFungible, id: Concrete(Here.into_location()) }), ChildTeleporter::get());
+		(Wild(AllOf { fun: WildFungible, id: AssetId(Here.into_location()) }), ChildTeleporter::get());
 	pub ReserveConcreteFungible: (AssetFilter, Location) =
-		(Wild(AllOf { fun: WildFungible, id: Concrete(Here.into_location()) }), ChildTeleporter::get());
+		(Wild(AllOf { fun: WildFungible, id: AssetId(Here.into_location()) }), ChildTeleporter::get());
 }
 
 impl xcm_balances_benchmark::Config for Test {
@@ -199,7 +199,7 @@ impl xcm_balances_benchmark::Config for Test {
 	fn get_multi_asset() -> Asset {
 		let amount =
 			<Balances as frame_support::traits::fungible::Inspect<u64>>::minimum_balance() as u128;
-		Asset { id: Concrete(Here.into()), fun: Fungible(amount) }
+		Asset { id: AssetId(Here.into()), fun: Fungible(amount) }
 	}
 }
 

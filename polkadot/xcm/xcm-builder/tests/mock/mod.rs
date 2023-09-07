@@ -172,7 +172,7 @@ pub type Barrier = (
 
 parameter_types! {
 	pub KusamaForStatemine: (AssetFilter, Location) =
-		(Wild(AllOf { id: Concrete(Here.into()), fun: WildFungible }), Parachain(1000).into());
+		(Wild(AllOf { id: AssetId(Here.into()), fun: WildFungible }), Parachain(1000).into());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 4;
 }

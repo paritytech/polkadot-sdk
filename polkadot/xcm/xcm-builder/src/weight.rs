@@ -197,22 +197,22 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> Drop for FixedRateOfFungible
 /// places any weight bought into the right account.
 pub struct UsingComponents<
 	WeightToFee: WeightToFeeT<Balance = Currency::Balance>,
-	AssetId: Get<Location>,
+	AssetIdValue: Get<Location>,
 	AccountId,
 	Currency: CurrencyT<AccountId>,
 	OnUnbalanced: OnUnbalancedT<Currency::NegativeImbalance>,
 >(
 	Weight,
 	Currency::Balance,
-	PhantomData<(WeightToFee, AssetId, AccountId, Currency, OnUnbalanced)>,
+	PhantomData<(WeightToFee, AssetIdValue, AccountId, Currency, OnUnbalanced)>,
 );
 impl<
 		WeightToFee: WeightToFeeT<Balance = Currency::Balance>,
-		AssetId: Get<Location>,
+		AssetIdValue: Get<Location>,
 		AccountId,
 		Currency: CurrencyT<AccountId>,
 		OnUnbalanced: OnUnbalancedT<Currency::NegativeImbalance>,
-	> WeightTrader for UsingComponents<WeightToFee, AssetId, AccountId, Currency, OnUnbalanced>
+	> WeightTrader for UsingComponents<WeightToFee, AssetIdValue, AccountId, Currency, OnUnbalanced>
 {
 	fn new() -> Self {
 		Self(Weight::zero(), Zero::zero(), PhantomData)
@@ -227,7 +227,7 @@ impl<
 		log::trace!(target: "xcm::weight", "UsingComponents::buy_weight weight: {:?}, payment: {:?}, context: {:?}", weight, payment, context);
 		let amount = WeightToFee::weight_to_fee(&weight);
 		let u128_amount: u128 = amount.try_into().map_err(|_| XcmError::Overflow)?;
-		let required = (Concrete(AssetId::get()), u128_amount).into();
+		let required = (AssetId(AssetIdValue::get()), u128_amount).into();
 		let unused = payment.checked_sub(required).map_err(|_| XcmError::TooExpensive)?;
 		self.0 = self.0.saturating_add(weight);
 		self.1 = self.1.saturating_add(amount);
@@ -242,7 +242,7 @@ impl<
 		self.1 = self.1.saturating_sub(amount);
 		let amount: u128 = amount.saturated_into();
 		if amount > 0 {
-			Some((AssetId::get(), amount).into())
+			Some((AssetIdValue::get(), amount).into())
 		} else {
 			None
 		}

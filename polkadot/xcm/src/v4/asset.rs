@@ -326,26 +326,14 @@ impl TryFrom<OldWildFungibility> for WildFungibility {
 	}
 }
 
-/// Classification of an asset being concrete or abstract.
+/// Location to identify an asset.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-pub enum AssetId {
-	/// A specific location identifying an asset.
-	Concrete(Location),
-	/// An abstract location; this is a name which may mean different specific locations on
-	/// different chains at different times.
-	Abstract([u8; 32]),
-}
+pub struct AssetId(pub Location);
 
 impl<T: Into<Location>> From<T> for AssetId {
 	fn from(x: T) -> Self {
-		Self::Concrete(x.into())
-	}
-}
-
-impl From<[u8; 32]> for AssetId {
-	fn from(x: [u8; 32]) -> Self {
-		Self::Abstract(x)
+		Self(x.into())
 	}
 }
 
@@ -354,32 +342,23 @@ impl TryFrom<OldAssetId> for AssetId {
 	fn try_from(old: OldAssetId) -> Result<Self, ()> {
 		use OldAssetId::*;
 		Ok(match old {
-			Concrete(l) => Self::Concrete(l.try_into()?),
-			Abstract(v) if v.len() <= 32 => {
-				let mut r = [0u8; 32];
-				r[..v.len()].copy_from_slice(&v[..]);
-				Self::Abstract(r)
-			},
-			_ => return Err(()),
+			Concrete(l) => Self(l.try_into()?),
+			Abstract(_) => return Err(()),
 		})
 	}
 }
 
 impl AssetId {
-	/// Prepend a `Location` to a concrete asset, giving it a new root location.
+	/// Prepend a `Location` to an asset id, giving it a new root location.
 	pub fn prepend_with(&mut self, prepend: &Location) -> Result<(), ()> {
-		if let AssetId::Concrete(ref mut l) = self {
-			l.prepend_with(prepend.clone()).map_err(|_| ())?;
-		}
+		self.0.prepend_with(prepend.clone()).map_err(|_| ())?;
 		Ok(())
 	}
 
 	/// Mutate the asset to represent the same value from the perspective of a new `target`
 	/// location. The local chain's location is provided in `context`.
 	pub fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
-		if let AssetId::Concrete(ref mut l) = self {
-			l.reanchor(target, context)?;
-		}
+		self.0.reanchor(target, context)?;
 		Ok(())
 	}
 

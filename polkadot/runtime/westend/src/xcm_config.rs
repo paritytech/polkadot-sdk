@@ -50,7 +50,7 @@ parameter_types! {
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	pub LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = Concrete(TokenLocation::get());
+	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }
@@ -92,7 +92,7 @@ pub type XcmRouter = WithUniqueTopic<(
 parameter_types! {
 	pub Westmint: Location = Parachain(1000).into_location();
 	pub Collectives: Location = Parachain(1001).into_location();
-	pub const Wnd: AssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
+	pub const Wnd: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
 	pub WndForWestmint: (AssetFilter, Location) = (Wnd::get(), Westmint::get());
 	pub WndForCollectives: (AssetFilter, Location) = (Wnd::get(), Collectives::get());
 	pub const MaxInstructions: u32 = 100;

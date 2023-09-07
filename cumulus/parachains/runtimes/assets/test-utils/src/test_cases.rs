@@ -115,13 +115,13 @@ pub fn teleports_for_native_asset_works<
 			// 1. process received teleported assets from relaychain
 			let xcm = Xcm(vec![
 				ReceiveTeleportedAsset(Assets::from(vec![Asset {
-					id: Concrete(native_asset_id.clone()),
+					id: AssetId(native_asset_id.clone()),
 					fun: Fungible(native_asset_amount_received.into()),
 				}])),
 				ClearOrigin,
 				BuyExecution {
 					fees: Asset {
-						id: Concrete(native_asset_id.clone()),
+						id: AssetId(native_asset_id.clone()),
 						fun: Fungible(buy_execution_fee_amount_eta),
 					},
 					weight_limit: Limited(Weight::from_parts(303531000, 65536)),
@@ -365,7 +365,7 @@ pub fn teleports_for_foreign_assets_works<
 	let buy_execution_fee_amount =
 		WeightToFee::weight_to_fee(&Weight::from_parts(90_000_000_000, 0));
 	let buy_execution_fee =
-		Asset { id: Concrete(Location::parent()), fun: Fungible(buy_execution_fee_amount) };
+		Asset { id: AssetId(Location::parent()), fun: Fungible(buy_execution_fee_amount) };
 
 	let teleported_foreign_asset_amount = 10000000000000;
 	let runtime_para_id = 1000;
@@ -445,19 +445,19 @@ pub fn teleports_for_foreign_assets_works<
 				WithdrawAsset(buy_execution_fee.clone().into()),
 				BuyExecution {
 					fees: Asset {
-						id: Concrete(Location::parent()),
+						id: AssetId(Location::parent()),
 						fun: Fungible(buy_execution_fee_amount),
 					},
 					weight_limit: Limited(Weight::from_parts(403531000, 65536)),
 				},
 				// Process teleported asset
 				ReceiveTeleportedAsset(Assets::from(vec![Asset {
-					id: Concrete(foreign_asset_id_multilocation.clone()),
+					id: AssetId(foreign_asset_id_multilocation.clone()),
 					fun: Fungible(teleported_foreign_asset_amount),
 				}])),
 				DepositAsset {
 					assets: Wild(AllOf {
-						id: Concrete(foreign_asset_id_multilocation.clone()),
+						id: AssetId(foreign_asset_id_multilocation.clone()),
 						fun: WildFungibility::Fungible,
 					}),
 					beneficiary: Location {
@@ -1073,7 +1073,7 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 	let buy_execution_fee_amount =
 		WeightToFee::weight_to_fee(&Weight::from_parts(90_000_000_000, 0));
 	let buy_execution_fee =
-		Asset { id: Concrete(Location::parent()), fun: Fungible(buy_execution_fee_amount) };
+		Asset { id: AssetId(Location::parent()), fun: Fungible(buy_execution_fee_amount) };
 
 	const ASSET_NAME: &str = "My super coin";
 	const ASSET_SYMBOL: &str = "MY_S_COIN";

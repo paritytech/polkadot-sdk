@@ -75,6 +75,6 @@ impl<LocationValue: Get<Location>> ContainsPair<Asset, Location>
 		log::trace!(target: "xcm::filter_asset_location",
 			"ConcreteNativeAsset asset: {:?}, origin: {:?}, location: {:?}",
 			asset, origin, LocationValue::get());
-		matches!(asset.id, Concrete(ref id) if id == origin && origin == &LocationValue::get())
+		matches!(asset.id, AssetId(ref id) if id == origin && origin == &LocationValue::get())
 	}
 }
