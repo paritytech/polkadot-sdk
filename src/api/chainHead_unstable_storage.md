@@ -64,7 +64,7 @@ This function should be seen as a complement to `chainHead_unstable_follow`, all
 
 If the `type` of an item is `value`, and `key` is associated with a storage value in the trie, then the result will include an item that contains this storage value. If `key` is not associated with a storage value in the trie, then the result will not include such item.
 
-If the `type` of an item is `hash`, the behaviour is similar to a `type` equal to `value`, except that the cryptographic hash of the value is included in the result rather than the value itself. The hashing algorithm used is the one of the chain, which is typically blake2b. This can lead to significantly less bandwidth usage and can be used in order to compare the value of an item with a known hash and querying the full value only if it differs.
+If the `type` of an item is `hash`, the behavior is similar to a `type` equal to `value`, except that the cryptographic hash of the value is included in the result rather than the value itself. The hashing algorithm used is the one of the chain, which is typically blake2b. This can lead to significantly less bandwidth usage and can be used in order to compare the value of an item with a known hash and querying the full value only if it differs.
 
 If the `type` of an item is `descendantsValues` or `descendantsHashes`, then the result will contain zero or more items whose key starts with the `key` of this item.
 

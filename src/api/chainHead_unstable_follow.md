@@ -200,7 +200,7 @@ The `value` field is set if this item corresponds to one of the requested items 
 
 The `hash` field is set if this item corresponds to one of the requested items whose `type` was `"hash"` or `"descendantsHashes"`. The `hash` field is a string containing the hexadecimal-encoded hash of the storage entry.
 
-The `closestDescendantMerkleValue` field is set if this item corresponds to one of the requested items whose `type` was `"closestDescendantMerkleValue"`. The trie node whose Merkle value is indicated in `closestDescendantMerkleValue` is not indicated, as determining the key of this node might incur an overhead for the JSON-RPC server.
+The `closestDescendantMerkleValue` field is set if this item corresponds to one of the requested items whose `type` was `"closestDescendantMerkleValue"`. The trie node whose Merkle value is indicated in `closestDescendantMerkleValue` is not indicated, as determining the key of this node might incur an overhead for the JSON-RPC server. The Merkle value is equal to either the node value or the hash of the node value, as defined in the [Polkadot specification](https://spec.polkadot.network/chap-state#defn-merkle-value).
 
 ### operationWaitingForContinue
 
