@@ -77,7 +77,15 @@ pub struct Requester {
 
 	/// Prometheus Metrics
 	metrics: Metrics,
+	// TODO: use helper function to compute the chunk index we need to request and pass it to
+	// FetchTaskConfig::new() and save it in a HashMap<Height, ChunkIndex>. I think It's useful to
+	// cache it because we may hold availability chunks for multiple parablocks in the same relay
+	// parent. use an LruCache with the capacity of the number of relay blocks in a session and
+	// fallback to the helper function if the entry is not present in the cache.
 }
+
+// TODO: helper function for computing the chunk index for the validator, starting from the block
+// height and array of all the validators (not just in group)
 
 #[overseer::contextbounds(AvailabilityDistribution, prefix = self::overseer)]
 impl Requester {
@@ -231,6 +239,8 @@ impl Requester {
 							// guaranteed to be fetchable by the state trie.
 							leaf,
 							leaf_session_index,
+							// TODO: query the hashmap and pass in the chunk index to
+							// FetchTaskConfig.
 							|info| FetchTaskConfig::new(leaf, &core, tx, metrics, info, span),
 						)
 						.await

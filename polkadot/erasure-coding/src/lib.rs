@@ -139,6 +139,21 @@ pub fn obtain_chunks<T: Encode>(n_validators: usize, data: &T) -> Result<Vec<Vec
 	Ok(shards.into_iter().map(|w: WrappedShard| w.into_inner()).collect())
 }
 
+/// Reconstruct the v1 available data from the set of systematic chunks.
+///
+/// Provide an iterator containing chunk data and the corresponding index.
+/// The indices of the present chunks must be indicated. If too few chunks
+/// are provided, recovery is not possible.
+pub fn reconstruct_from_systematic_v1<'a, I: 'a>(
+	_n_validators: usize,
+	_chunks: I,
+) -> Result<AvailableData, Error>
+where
+	I: IntoIterator<Item = (&'a [u8], usize)>,
+{
+	todo!()
+}
+
 /// Reconstruct the v1 available data from a set of chunks.
 ///
 /// Provide an iterator containing chunk data and the corresponding index.

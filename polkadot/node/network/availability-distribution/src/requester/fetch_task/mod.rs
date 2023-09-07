@@ -168,6 +168,7 @@ impl FetchTaskConfig {
 			request: ChunkFetchingRequest {
 				candidate_hash: core.candidate_hash,
 				index: session_info.our_index,
+				// TODO: this will no longer be our index. we need to take into account the per-height shuffling of systemic chunks.
 			},
 			erasure_root: core.candidate_descriptor.erasure_root,
 			relay_parent: core.candidate_descriptor.relay_parent,
