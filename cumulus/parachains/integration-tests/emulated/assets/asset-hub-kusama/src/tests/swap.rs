@@ -189,8 +189,8 @@ fn swap_locally_on_chain_using_foreign_assets() {
 	let buy_execution_fee_amount = parachains_common::kusama::fee::WeightToFee::weight_to_fee(
 		&Weight::from_parts(10_100_000_000_000, 300_000),
 	);
-	let buy_execution_fee = MultiAsset {
-		id: Concrete(Location { parents: 1, interior: Here }),
+	let buy_execution_fee = Asset {
+		id: Concrete(Location::new(1, Here)),
 		fun: Fungible(buy_execution_fee_amount),
 	};
 
