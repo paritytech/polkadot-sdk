@@ -187,7 +187,11 @@ impl PerSessionState {
 		}
 	}
 
-	fn supply_topology(&mut self, topology: &SessionGridTopology, local_index: Option<ValidatorIndex>) {
+	fn supply_topology(
+		&mut self,
+		topology: &SessionGridTopology,
+		local_index: Option<ValidatorIndex>,
+	) {
 		// Note: we use the local index rather than the `self.local_validator` as the
 		// former may be `Some` when the latter is `None`, due to the set of nodes in
 		// discovery being a superset of the active validators for consensus.
@@ -1992,8 +1996,13 @@ async fn handle_incoming_manifest_common<'a, Context>(
 
 	let sender_index = match sender_index {
 		None => {
-			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN)
-				.await;
+			modify_reputation(
+				reputation,
+				ctx.sender(),
+				peer,
+				COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN,
+			)
+			.await;
 			return None
 		},
 		Some(s) => s,

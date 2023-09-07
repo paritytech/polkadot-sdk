@@ -1916,7 +1916,7 @@ fn advertisements_rejected_from_incorrect_peers() {
 			assert_matches!(
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_a && r == COST_UNEXPECTED_MANIFEST_DISALLOWED.into() => { }
+					if p == peer_a && r == COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN.into() => { }
 			);
 		}
 
