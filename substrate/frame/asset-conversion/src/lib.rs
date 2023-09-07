@@ -82,7 +82,7 @@ use sp_runtime::{
 	traits::{
 		CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Ensure, MaybeDisplay, TrailingZeroInput,
 	},
-	DispatchError, BoundedVec,
+	BoundedVec, DispatchError,
 };
 use sp_std::prelude::*;
 pub use types::*;

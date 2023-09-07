@@ -691,6 +691,64 @@ fn can_quote_price() {
 }
 
 #[test]
+fn quote_price_between_two_non_native_currencies() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrAssetId::Native;
+		let token_2 = NativeOrAssetId::Asset(2);
+		let token_3 = NativeOrAssetId::Asset(3);
+
+		create_tokens(user, vec![token_2, token_3]);
+		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_3));
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 100000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 3, user, 1000));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			token_1,
+			token_2,
+			10000,
+			200,
+			1,
+			1,
+			user,
+		));
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			token_1,
+			token_3,
+			10000,
+			400,
+			1,
+			1,
+			user,
+		));
+
+		let amount = 10;
+		let quoted_price = 18;
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				bvec![token_2, token_1, token_3],
+				amount,
+				true,
+			),
+			Some(quoted_price)
+		);
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				bvec![token_2, token_1, token_3],
+				quoted_price,
+				true,
+			),
+			Some(amount)
+		);
+	});
+}
+
+#[test]
 fn quote_price_exact_tokens_for_tokens_matches_execution() {
 	new_test_ext().execute_with(|| {
 		let user = 1;

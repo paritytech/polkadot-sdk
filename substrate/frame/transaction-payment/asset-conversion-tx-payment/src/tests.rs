@@ -221,8 +221,7 @@ fn transaction_payment_in_asset_possible() {
 
 			let fee_in_native = base_weight + tx_weight + len as u64;
 			let input_quote = AssetConversion::quote_price_tokens_for_exact_tokens(
-				bvec![NativeOrAssetId::Asset(asset_id),
-				NativeOrAssetId::Native],
+				bvec![NativeOrAssetId::Asset(asset_id), NativeOrAssetId::Native],
 				fee_in_native,
 				true,
 			);
@@ -330,8 +329,7 @@ fn transaction_payment_without_fee() {
 			let len = 10;
 			let fee_in_native = base_weight + weight + len as u64;
 			let input_quote = AssetConversion::quote_price_tokens_for_exact_tokens(
-				bvec![NativeOrAssetId::Asset(asset_id),
-				NativeOrAssetId::Native],
+				bvec![NativeOrAssetId::Asset(asset_id), NativeOrAssetId::Native],
 				fee_in_native,
 				true,
 			);
@@ -348,8 +346,7 @@ fn transaction_payment_without_fee() {
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 
 			let refund = AssetConversion::quote_price_exact_tokens_for_tokens(
-				bvec![NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(asset_id)],
+				bvec![NativeOrAssetId::Native, NativeOrAssetId::Asset(asset_id)],
 				fee_in_native,
 				true,
 			)
@@ -405,8 +402,7 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			let len = 10;
 			let fee_in_native = base_weight + weight + len as u64 + tip;
 			let input_quote = AssetConversion::quote_price_tokens_for_exact_tokens(
-				bvec![NativeOrAssetId::Asset(asset_id),
-				NativeOrAssetId::Native],
+				bvec![NativeOrAssetId::Asset(asset_id), NativeOrAssetId::Native],
 				fee_in_native,
 				true,
 			);
@@ -421,8 +417,7 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			let final_weight = 50;
 			let expected_fee = fee_in_native - final_weight - tip;
 			let expected_token_refund = AssetConversion::quote_price_exact_tokens_for_tokens(
-				bvec![NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(asset_id)],
+				bvec![NativeOrAssetId::Native, NativeOrAssetId::Asset(asset_id)],
 				fee_in_native - expected_fee - tip,
 				true,
 			)
@@ -486,8 +481,7 @@ fn payment_from_account_with_only_assets() {
 			let fee_in_native = base_weight + weight + len as u64;
 			let ed = Balances::minimum_balance();
 			let fee_in_asset = AssetConversion::quote_price_tokens_for_exact_tokens(
-				bvec![NativeOrAssetId::Asset(asset_id),
-				NativeOrAssetId::Native],
+				bvec![NativeOrAssetId::Asset(asset_id), NativeOrAssetId::Native],
 				fee_in_native + ed,
 				true,
 			)
@@ -502,8 +496,7 @@ fn payment_from_account_with_only_assets() {
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 
 			let refund = AssetConversion::quote_price_exact_tokens_for_tokens(
-				bvec![NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(asset_id)],
+				bvec![NativeOrAssetId::Native, NativeOrAssetId::Asset(asset_id)],
 				ed,
 				true,
 			)
@@ -578,8 +571,7 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 			// validate even a small fee gets converted to asset.
 			let fee_in_native = base_weight + weight + len as u64;
 			let fee_in_asset = AssetConversion::quote_price_tokens_for_exact_tokens(
-				bvec![NativeOrAssetId::Asset(asset_id),
-				NativeOrAssetId::Native],
+				bvec![NativeOrAssetId::Asset(asset_id), NativeOrAssetId::Native],
 				fee_in_native,
 				true,
 			)
