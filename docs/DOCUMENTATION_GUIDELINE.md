@@ -123,9 +123,9 @@ explicitly depend on them, you have likely not designed it properly.
 
 #### Proc-Macros
 
-Note that there are special considerations when documenting proc macros. Doc links will appear to function _within_ your
+Note that there are special considerations when documenting proc macros. Doc links will appear to function *within* your
 proc macro crate, but often will no longer function when these proc macros are re-exported elsewhere in your project.
-The exception is doc links to _other proc macros_ which will function just fine if they are also being re-exported. It
+The exception is doc links to *other proc macros* which will function just fine if they are also being re-exported. It
 is also often necessary to disambiguate between a proc macro and a function of the same name, which can be done using
 the `macro@my_macro_name` syntax in your link. Read more about how to correctly use links in your rust-docs
 [here](https://doc.rust-lang.org/rustdoc/write-documentation/linking-to-items-by-name.html#valid-links) and
@@ -189,6 +189,7 @@ fn multiply_by_2(x: u32) -> u32 { .. }
 // More efficiency can be achieved if we improve this via such and such.
 fn multiply_by_2(x: u32) -> u32 { .. }
 ```
+
 They are both roughly conveying the same set of facts, but one is easier to follow because it was formatted cleanly.
 Especially for traits and types that you can foresee will be seen and used a lot, try and write a well formatted
 version.
@@ -202,7 +203,6 @@ properly do this.
 [^1]: Those that help two pallets talk to each other.
 
 ---
-
 
 ## Pallet Crates
 
@@ -270,7 +270,6 @@ For the top-level pallet docs, consider the following template:
 //! <Optionally, explain any non-obvious terminology here. You can link to it if you want to use the terminology further
 //! up>
 ```
-
 
 This template's details (heading 3s and beyond) are left flexible, and at the discretion of the developer to make the
 best final choice about. For example, you might want to include `### Terminology` or not. Moreover, you might find it
