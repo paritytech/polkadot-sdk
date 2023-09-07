@@ -53,6 +53,9 @@ Cargo.toml @paritytech/core-devs
 # /primitives/core (to be added later)
 # /primitives/io (to be added later)
 
+# Networking-related code
+/substrate/client/network @paritytech/networking 
+
 # FRAME
 /substrate/frame/ @paritytech/frame-coders @paritytech/docs-audit
 /substrate/frame/nfts/ @jsidorenko @paritytech/docs-audit
