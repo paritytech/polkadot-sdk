@@ -265,6 +265,12 @@ impl RequestManager {
 				HEntry::Vacant(_) => (),
 			}
 		}
+
+		gum::debug!(
+			target: LOG_TARGET,
+			"Requests remaining after cleanup: {}",
+			self.by_priority.len(),
+		);
 	}
 
 	/// Returns true if there are pending requests that are dispatchable.
@@ -354,6 +360,13 @@ impl RequestManager {
 				None => continue,
 				Some(t) => t,
 			};
+
+			gum::debug!(
+				target: crate::LOG_TARGET,
+				candidate_hash = ?id.candidate_hash,
+				peer = ?target,
+				"Issuing candidate request"
+			);
 
 			let (request, response_fut) = OutgoingRequest::new(
 				RequestRecipient::Peer(target),

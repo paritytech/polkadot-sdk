@@ -353,7 +353,13 @@ impl Candidates {
 				);
 				c.has_claims()
 			},
-		})
+		});
+
+		gum::debug!(
+			target: crate::LOG_TARGET,
+			"Candidates remaining after cleanup: {}",
+			self.candidates.len(),
+		);
 	}
 }
 
