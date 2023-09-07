@@ -611,7 +611,6 @@
 <a href="#611" id="611">611</a>
 <a href="#612" id="612">612</a>
 <a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -648,7 +647,7 @@
 
 <span class="kw">use crate</span>::{
 	configuration, paras,
-	scheduler::common::{AssignmentProvider, AssignmentProviderConfig},
+	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
 };
 
 <span class="kw">use </span>frame_support::{
@@ -660,7 +659,7 @@
 	},
 };
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>primitives::{v5::Assignment, CoreIndex, Id <span class="kw">as </span>ParaId};
+<span class="kw">use </span>primitives::{CoreIndex, Id <span class="kw">as </span>ParaId};
 <span class="kw">use </span>sp_runtime::{
 	traits::{One, SaturatedConversion},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
@@ -1220,7 +1219,6 @@
 	<span class="kw">fn </span>get_provider_config(_core_idx: CoreIndex) -&gt; AssignmentProviderConfig&lt;BlockNumberFor&lt;T&gt;&gt; {
 		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
 		AssignmentProviderConfig {
-			availability_period: config.paras_availability_period,
 			max_availability_timeouts: config.on_demand_retries,
 			ttl: config.on_demand_ttl,
 		}

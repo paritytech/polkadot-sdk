@@ -70,30 +70,6 @@
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
-<a href="#89" id="89">89</a>
-<a href="#90" id="90">90</a>
-<a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -113,10 +89,7 @@
 </span><span class="doccomment">//! Common traits and types used by the scheduler and assignment providers.
 
 </span><span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>primitives::{
-	v5::{Assignment, ParasEntry},
-	CoreIndex, Id <span class="kw">as </span>ParaId,
-};
+<span class="kw">use </span>primitives::{CoreIndex, Id <span class="kw">as </span>ParaId};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
@@ -124,21 +97,22 @@
 </span><span class="attr">#[allow(unused)]
 </span><span class="kw">use </span><span class="kw">crate</span>::configuration::HostConfiguration;
 
-<span class="doccomment">/// Reasons a core might be freed
-</span><span class="attr">#[derive(Clone, Copy)]
-</span><span class="kw">pub enum </span>FreedReason {
-	<span class="doccomment">/// The core&#39;s work concluded and the parablock assigned to it is considered available.
-	</span>Concluded,
-	<span class="doccomment">/// The core&#39;s work timed out.
-	</span>TimedOut,
+<span class="doccomment">/// An assignment for a parachain scheduled to be backed and included in a relay chain block.
+</span><span class="attr">#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebug)]
+</span><span class="kw">pub struct </span>Assignment {
+	<span class="doccomment">/// Assignment&#39;s ParaId
+	</span><span class="kw">pub </span>para_id: ParaId,
+}
+
+<span class="kw">impl </span>Assignment {
+	<span class="doccomment">/// Create a new `Assignment`.
+	</span><span class="kw">pub fn </span>new(para_id: ParaId) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ para_id }
+	}
 }
 
 <span class="doccomment">/// A set of variables required by the scheduler in order to operate.
 </span><span class="kw">pub struct </span>AssignmentProviderConfig&lt;BlockNumber&gt; {
-	<span class="doccomment">/// The availability period specified by the implementation.
-	/// See [`HostConfiguration::paras_availability_period`] for more information.
-	</span><span class="kw">pub </span>availability_period: BlockNumber,
-
 	<span class="doccomment">/// How many times a collation can time out on availability.
 	/// Zero timeouts still means that a collation can be provided as per the slot auction
 	/// assignment provider.
@@ -167,27 +141,5 @@
 
 	<span class="doccomment">/// Returns a set of variables needed by the scheduler
 	</span><span class="kw">fn </span>get_provider_config(core_idx: CoreIndex) -&gt; AssignmentProviderConfig&lt;BlockNumber&gt;;
-}
-
-<span class="doccomment">/// How a core is mapped to a backing group and a `ParaId`
-</span><span class="attr">#[derive(Clone, Encode, Decode, PartialEq, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Debug))]
-</span><span class="kw">pub struct </span>CoreAssignment&lt;BlockNumber&gt; {
-	<span class="doccomment">/// The core that is assigned.
-	</span><span class="kw">pub </span>core: CoreIndex,
-	<span class="doccomment">/// The para id and accompanying information needed to collate and back a parablock.
-	</span><span class="kw">pub </span>paras_entry: ParasEntry&lt;BlockNumber&gt;,
-}
-
-<span class="kw">impl</span>&lt;BlockNumber&gt; CoreAssignment&lt;BlockNumber&gt; {
-	<span class="doccomment">/// Returns the [`ParaId`] of the assignment.
-	</span><span class="kw">pub fn </span>para_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ParaId {
-		<span class="self">self</span>.paras_entry.para_id()
-	}
-
-	<span class="doccomment">/// Returns the inner [`ParasEntry`] of the assignment.
-	</span><span class="kw">pub fn </span>to_paras_entry(<span class="self">self</span>) -&gt; ParasEntry&lt;BlockNumber&gt; {
-		<span class="self">self</span>.paras_entry
-	}
 }
 </code></pre></div></section></main></body></html>

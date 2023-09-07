@@ -888,7 +888,6 @@
 <a href="#888" id="888">888</a>
 <a href="#889" id="889">889</a>
 <a href="#890" id="890">890</a>
-<a href="#891" id="891">891</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -923,8 +922,7 @@
 <span class="kw">use </span>sc_consensus_babe::{<span class="self">self</span>, SlotProportion};
 <span class="kw">use </span>sc_executor::NativeElseWasmExecutor;
 <span class="kw">use </span>sc_network::{event::Event, NetworkEventStream, NetworkService};
-<span class="kw">use </span>sc_network_common::sync::warp::WarpSyncParams;
-<span class="kw">use </span>sc_network_sync::SyncingService;
+<span class="kw">use </span>sc_network_sync::{warp::WarpSyncParams, SyncingService};
 <span class="kw">use </span>sc_service::{config::Configuration, error::Error <span class="kw">as </span>ServiceError, RpcHandlers, TaskManager};
 <span class="kw">use </span>sc_statement_store::Store <span class="kw">as </span>StatementStore;
 <span class="kw">use </span>sc_telemetry::{Telemetry, TelemetryWorker};

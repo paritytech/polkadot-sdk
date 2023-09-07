@@ -941,6 +941,64 @@
 <a href="#941" id="941">941</a>
 <a href="#942" id="942">942</a>
 <a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -967,11 +1025,16 @@
 		BlockAnnounceValidationResult, BlockAnnounceValidator <span class="kw">as </span>BlockAnnounceValidatorStream,
 	},
 	service::{<span class="self">self</span>, chain_sync::ToServiceCommand},
+	warp::WarpSyncParams,
 	ChainSync, ClientError, SyncingService,
 };
 
 <span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>futures::{FutureExt, StreamExt};
+<span class="kw">use </span>futures::{
+	channel::oneshot,
+	future::{BoxFuture, Fuse},
+	FutureExt, StreamExt,
+};
 <span class="kw">use </span>futures_timer::Delay;
 <span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>prometheus_endpoint::{
@@ -990,7 +1053,6 @@
 	role::Roles,
 	sync::{
 		message::{BlockAnnounce, BlockAnnouncesHandshake, BlockState},
-		warp::WarpSyncParams,
 		BadPeer, ChainSync <span class="kw">as </span>ChainSyncT, ExtendedPeerInfo, SyncEvent,
 	},
 };
@@ -1009,6 +1071,9 @@
 	task::Poll,
 	time::{Duration, Instant},
 };
+
+<span class="doccomment">/// Log target for this file.
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;sync&quot;</span>;
 
 <span class="doccomment">/// Interval at which we perform time based maintenance
 </span><span class="kw">const </span>TICK_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(<span class="number">1100</span>);
@@ -1194,6 +1259,10 @@
 	<span class="doccomment">/// The `PeerId`&#39;s of all boot nodes.
 	</span>boot_node_ids: HashSet&lt;PeerId&gt;,
 
+	<span class="doccomment">/// A channel to get target block header if we skip over proofs downloading during warp sync.
+	</span>warp_sync_target_block_header_rx:
+		Fuse&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;B::Header, oneshot::Canceled&gt;&gt;&gt;,
+
 	<span class="doccomment">/// Protocol name used for block announcements
 	</span>block_announce_protocol_name: ProtocolName,
 
@@ -1242,7 +1311,11 @@
 		<span class="kw">let </span>max_blocks_per_request = <span class="kw">if </span>net_config.network_config.max_blocks_per_request &gt;
 			<span class="kw">crate</span>::MAX_BLOCKS_IN_RESPONSE <span class="kw">as </span>u32
 		{
-			<span class="macro">log::info!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;clamping maximum blocks per request to {}&quot;</span>, <span class="kw">crate</span>::MAX_BLOCKS_IN_RESPONSE);
+			<span class="macro">log::info!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;clamping maximum blocks per request to {}&quot;</span>,
+				<span class="kw">crate</span>::MAX_BLOCKS_IN_RESPONSE,
+			);
 			<span class="kw">crate</span>::MAX_BLOCKS_IN_RESPONSE <span class="kw">as </span>u32
 		} <span class="kw">else </span>{
 			net_config.network_config.max_blocks_per_request
@@ -1295,6 +1368,19 @@
 			total.saturating_sub(net_config.network_config.default_peers_set_num_full) <span class="kw">as </span>usize
 		};
 
+		<span class="comment">// Split warp sync params into warp sync config and a channel to retreive target block
+		// header.
+		</span><span class="kw">let </span>(warp_sync_config, warp_sync_target_block_header_rx) =
+			warp_sync_params.map_or((<span class="prelude-val">None</span>, <span class="prelude-val">None</span>), |params| {
+				<span class="kw">let </span>(config, target_block_rx) = params.split();
+				(<span class="prelude-val">Some</span>(config), target_block_rx)
+			});
+
+		<span class="comment">// Make sure polling of the target block channel is a no-op if there is no block to
+		// retrieve.
+		</span><span class="kw">let </span>warp_sync_target_block_header_rx = warp_sync_target_block_header_rx
+			.map_or(futures::future::pending().boxed().fuse(), |rx| rx.boxed().fuse());
+
 		<span class="kw">let </span>(chain_sync, block_announce_config) = ChainSync::new(
 			mode,
 			client.clone(),
@@ -1303,7 +1389,7 @@
 			roles,
 			max_parallel_downloads,
 			max_blocks_per_request,
-			warp_sync_params,
+			warp_sync_config,
 			metrics_registry,
 			network_service.clone(),
 			import_queue,
@@ -1347,6 +1433,7 @@
 				genesis_hash,
 				important_peers,
 				default_peers_set_no_slot_connected_peers: HashSet::new(),
+				warp_sync_target_block_header_rx,
 				boot_node_ids,
 				default_peers_set_no_slot_peers,
 				default_peers_set_num_full,
@@ -1361,7 +1448,7 @@
 					<span class="kw">match </span>Metrics::register(r, is_major_syncing.clone()) {
 						<span class="prelude-val">Ok</span>(metrics) =&gt; <span class="prelude-val">Some</span>(metrics),
 						<span class="prelude-val">Err</span>(err) =&gt; {
-							<span class="macro">log::error!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Failed to register metrics {err:?}&quot;</span>);
+							<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to register metrics {err:?}&quot;</span>);
 							<span class="prelude-val">None
 						</span>},
 					}
@@ -1453,7 +1540,10 @@
 		<span class="kw">let </span>peer = <span class="kw">match </span><span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="prelude-val">Some</span>(p) =&gt; p,
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="macro">log::error!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Received block announce from disconnected peer {}&quot;</span>, peer_id);
+				<span class="macro">log::error!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;Received block announce from disconnected peer {peer_id}&quot;</span>,
+				);
 				<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 				<span class="kw">return
 			</span>},
@@ -1479,11 +1569,11 @@
 		<span class="kw">let </span>header = <span class="kw">match </span><span class="self">self</span>.client.header(hash) {
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(header)) =&gt; header,
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
-				<span class="macro">log::warn!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Trying to announce unknown block: {}&quot;</span>, hash);
+				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Trying to announce unknown block: {hash}&quot;</span>);
 				<span class="kw">return
 			</span>},
 			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="macro">log::warn!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Error reading block header {}: {}&quot;</span>, hash, e);
+				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Error reading block header {hash}: {e}&quot;</span>);
 				<span class="kw">return
 			</span>},
 		};
@@ -1494,7 +1584,7 @@
 		</span>}
 
 		<span class="kw">let </span>is_best = <span class="self">self</span>.client.info().best_hash == hash;
-		<span class="macro">log::debug!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Reannouncing block {:?} is_best: {}&quot;</span>, hash, is_best);
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Reannouncing block {hash:?} is_best: {is_best}&quot;</span>);
 
 		<span class="kw">let </span>data = data
 			.or_else(|| <span class="self">self</span>.block_announce_data_cache.get(<span class="kw-2">&amp;</span>hash).cloned())
@@ -1503,7 +1593,7 @@
 		<span class="kw">for </span>(peer_id, <span class="kw-2">ref mut </span>peer) <span class="kw">in </span><span class="self">self</span>.peers.iter_mut() {
 			<span class="kw">let </span>inserted = peer.known_blocks.insert(hash);
 			<span class="kw">if </span>inserted {
-				<span class="macro">log::trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Announcing block {:?} to {}&quot;</span>, hash, peer_id);
+				<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Announcing block {hash:?} to {peer_id}&quot;</span>);
 				<span class="kw">let </span>message = BlockAnnounce {
 					header: header.clone(),
 					state: <span class="kw">if </span>is_best { <span class="prelude-val">Some</span>(BlockState::Best) } <span class="kw">else </span>{ <span class="prelude-val">Some</span>(BlockState::Normal) },
@@ -1518,7 +1608,7 @@
 
 	<span class="doccomment">/// Inform sync about new best imported block.
 	</span><span class="kw">pub fn </span>new_best_block_imported(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: B::Hash, number: NumberFor&lt;B&gt;) {
-		<span class="macro">log::debug!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;New best block imported {:?}/#{}&quot;</span>, hash, number);
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;New best block imported {hash:?}/#{number}&quot;</span>);
 
 		<span class="self">self</span>.chain_sync.update_chain_info(<span class="kw-2">&amp;</span>hash, number);
 		<span class="self">self</span>.network_service.set_notification_handshake(
@@ -1562,7 +1652,10 @@
 			// consider it connected or are also all stalled. In order to unstall the node,
 			// disconnect all peers and allow `ProtocolController` to establish new connections.
 			</span><span class="kw">if </span><span class="self">self</span>.last_notification_io.elapsed() &gt; INACTIVITY_EVICT_THRESHOLD {
-				<span class="macro">log::debug!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;syncing has halted due to inactivity, evicting all peers&quot;</span>);
+				<span class="macro">log::debug!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;syncing has halted due to inactivity, evicting all peers&quot;</span>,
+				);
 
 				<span class="kw">for </span>peer <span class="kw">in </span><span class="self">self</span>.peers.keys() {
 					<span class="self">self</span>.network_service.report_peer(<span class="kw-2">*</span>peer, rep::INACTIVE_SUBSTREAM);
@@ -1601,7 +1694,10 @@
 				ToServiceCommand::JustificationImported(peer_id, hash, number, success) =&gt; {
 					<span class="self">self</span>.chain_sync.on_justification_import(hash, number, success);
 					<span class="kw">if </span>!success {
-						<span class="macro">log::info!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;💔 Invalid justification provided by {} for #{}&quot;</span>, peer_id, hash);
+						<span class="macro">log::info!</span>(
+							target: LOG_TARGET,
+							<span class="string">&quot;💔 Invalid justification provided by {peer_id} for #{hash}&quot;</span>,
+						);
 						<span class="self">self</span>.network_service
 							.disconnect_peer(peer_id, <span class="self">self</span>.block_announce_protocol_name.clone());
 						<span class="self">self</span>.network_service.report_peer(
@@ -1666,7 +1762,7 @@
 					},
 					<span class="prelude-val">Err</span>(()) =&gt; {
 						<span class="macro">log::debug!</span>(
-							target: <span class="string">&quot;sync&quot;</span>,
+							target: LOG_TARGET,
 							<span class="string">&quot;Failed to register peer {remote:?}: {received_handshake:?}&quot;</span>,
 						);
 						<span class="kw">let _ </span>= tx.send(<span class="bool-val">false</span>);
@@ -1675,7 +1771,7 @@
 				sc_network::SyncEvent::NotificationStreamClosed { remote } =&gt; {
 					<span class="kw">if </span><span class="self">self</span>.on_sync_peer_disconnected(remote).is_err() {
 						<span class="macro">log::trace!</span>(
-							target: <span class="string">&quot;sync&quot;</span>,
+							target: LOG_TARGET,
 							<span class="string">&quot;Disconnected peer which had earlier been refused by on_sync_peer_connected {}&quot;</span>,
 							remote
 						);
@@ -1692,9 +1788,8 @@
 							}
 						} <span class="kw">else </span>{
 							<span class="macro">log::trace!</span>(
-								target: <span class="string">&quot;sync&quot;</span>,
-								<span class="string">&quot;Received sync for peer earlier refused by sync layer: {}&quot;</span>,
-								remote
+								target: LOG_TARGET,
+								<span class="string">&quot;Received sync for peer earlier refused by sync layer: {remote}&quot;</span>,
 							);
 						}
 					}
@@ -1705,6 +1800,21 @@
 					}
 				},
 			}
+		}
+
+		<span class="comment">// Retreive warp sync target block header just before polling `ChainSync`
+		// to make progress as soon as we receive it.
+		</span><span class="kw">match </span><span class="self">self</span>.warp_sync_target_block_header_rx.poll_unpin(cx) {
+			Poll::Ready(<span class="prelude-val">Ok</span>(target)) =&gt; {
+				<span class="self">self</span>.chain_sync.set_warp_sync_target_block(target);
+			},
+			Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; {
+				<span class="macro">log::error!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;Failed to get target block for warp sync. Error: {err:?}&quot;</span>,
+				);
+			},
+			Poll::Pending =&gt; {},
 		}
 
 		<span class="comment">// Drive `ChainSync`.
@@ -1727,9 +1837,9 @@
 	</span><span class="kw">pub fn </span>on_sync_peer_disconnected(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(info) = <span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="kw">if </span><span class="self">self</span>.important_peers.contains(<span class="kw-2">&amp;</span>peer_id) {
-				<span class="macro">log::warn!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Reserved peer {} disconnected&quot;</span>, peer_id);
+				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Reserved peer {peer_id} disconnected&quot;</span>);
 			} <span class="kw">else </span>{
-				<span class="macro">log::debug!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;{} disconnected&quot;</span>, peer_id);
+				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;{peer_id} disconnected&quot;</span>);
 			}
 
 			<span class="kw">if </span>!<span class="self">self</span>.default_peers_set_no_slot_connected_peers.remove(<span class="kw-2">&amp;</span>peer_id) &amp;&amp;
@@ -1741,7 +1851,7 @@
 					},
 					<span class="prelude-val">None </span>=&gt; {
 						<span class="macro">log::error!</span>(
-							target: <span class="string">&quot;sync&quot;</span>,
+							target: LOG_TARGET,
 							<span class="string">&quot;trying to disconnect an inbound node which is not counted as inbound&quot;
 						</span>);
 						<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
@@ -1771,10 +1881,13 @@
 		sink: NotificationsSink,
 		inbound: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-		<span class="macro">log::trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;New peer {} {:?}&quot;</span>, peer_id, status);
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;New peer {peer_id} {status:?}&quot;</span>);
 
 		<span class="kw">if </span><span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>peer_id) {
-			<span class="macro">log::error!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Called on_sync_peer_connected with already connected peer {}&quot;</span>, peer_id);
+			<span class="macro">log::error!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;Called on_sync_peer_connected with already connected peer {peer_id}&quot;</span>,
+			);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(())
 		}
@@ -1784,7 +1897,7 @@
 
 			<span class="kw">if </span><span class="self">self</span>.important_peers.contains(<span class="kw-2">&amp;</span>peer_id) {
 				<span class="macro">log::error!</span>(
-					target: <span class="string">&quot;sync&quot;</span>,
+					target: LOG_TARGET,
 					<span class="string">&quot;Reserved peer id `{}` is on a different chain (our genesis: {} theirs: {})&quot;</span>,
 					peer_id,
 					<span class="self">self</span>.genesis_hash,
@@ -1792,7 +1905,7 @@
 				);
 			} <span class="kw">else if </span><span class="self">self</span>.boot_node_ids.contains(<span class="kw-2">&amp;</span>peer_id) {
 				<span class="macro">log::error!</span>(
-					target: <span class="string">&quot;sync&quot;</span>,
+					target: LOG_TARGET,
 					<span class="string">&quot;Bootnode with peer id `{}` is on a different chain (our genesis: {} theirs: {})&quot;</span>,
 					peer_id,
 					<span class="self">self</span>.genesis_hash,
@@ -1800,7 +1913,7 @@
 				);
 			} <span class="kw">else </span>{
 				<span class="macro">log::debug!</span>(
-					target: <span class="string">&quot;sync&quot;</span>,
+					target: LOG_TARGET,
 					<span class="string">&quot;Peer is on different chain (our genesis: {} theirs: {})&quot;</span>,
 					<span class="self">self</span>.genesis_hash, status.genesis_hash
 				);
@@ -1817,7 +1930,10 @@
 			status.roles.is_full() &amp;&amp;
 			inbound &amp;&amp; <span class="self">self</span>.num_in_peers == <span class="self">self</span>.max_in_peers
 		{
-			<span class="macro">log::debug!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;All inbound slots have been consumed, rejecting {peer_id}&quot;</span>);
+			<span class="macro">log::debug!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;All inbound slots have been consumed, rejecting {peer_id}&quot;</span>,
+			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(())
 		}
 
@@ -1827,7 +1943,7 @@
 					<span class="self">self</span>.default_peers_set_no_slot_connected_peers.len() +
 					this_peer_reserved_slot
 		{
-			<span class="macro">log::debug!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Too many full nodes, rejecting {}&quot;</span>, peer_id);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Too many full nodes, rejecting {peer_id}&quot;</span>);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(())
 		}
 
@@ -1835,7 +1951,7 @@
 			(<span class="self">self</span>.peers.len() - <span class="self">self</span>.chain_sync.num_peers()) &gt;= <span class="self">self</span>.default_peers_set_num_light
 		{
 			<span class="comment">// Make sure that not all slots are occupied by light clients.
-			</span><span class="macro">log::debug!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Too many light nodes, rejecting {}&quot;</span>, peer_id);
+			</span><span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Too many light nodes, rejecting {peer_id}&quot;</span>);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(())
 		}
 
@@ -1864,7 +1980,7 @@
 			<span class="prelude-val">None
 		</span>};
 
-		<span class="macro">log::debug!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Connected {}&quot;</span>, peer_id);
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Connected {peer_id}&quot;</span>);
 
 		<span class="self">self</span>.peers.insert(peer_id, peer);
 

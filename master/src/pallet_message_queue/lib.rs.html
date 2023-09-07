@@ -2561,7 +2561,7 @@
 			origin.clone(),
 			page_index,
 			page.first_index,
-			payload.deref(),
+			payload,
 			weight,
 			overweight_limit,
 		) {
@@ -2711,7 +2711,7 @@
 					<span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, processed, message)) =
 						page.peek_index(i.try_into().expect(<span class="string">&quot;std-only code&quot;</span>))
 					{
-						<span class="kw">let </span>msg = String::from_utf8_lossy(message.deref());
+						<span class="kw">let </span>msg = String::from_utf8_lossy(message);
 						<span class="kw">if </span>processed {
 							page_info.push(<span class="string">&#39;*&#39;</span>);
 						}

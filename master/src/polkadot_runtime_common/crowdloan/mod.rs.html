@@ -2232,8 +2232,6 @@
 <a href="#2232" id="2232">2232</a>
 <a href="#2233" id="2233">2233</a>
 <a href="#2234" id="2234">2234</a>
-<a href="#2235" id="2235">2235</a>
-<a href="#2236" id="2236">2236</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2677,8 +2675,6 @@
 			);
 
 			NextFundIndex::&lt;T&gt;::put(new_fund_index);
-			<span class="comment">// Add a lock to the para so that the configuration cannot be changed.
-			</span>T::Registrar::apply_lock(index);
 
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Created { para_id: index });
 			<span class="prelude-val">Ok</span>(())

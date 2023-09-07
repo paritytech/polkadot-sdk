@@ -289,7 +289,7 @@
 				<span class="kw">let </span>runtime_code = RuntimeCode {
 					code_fetcher: <span class="kw-2">&amp;</span>WrappedRuntimeCode((<span class="kw-2">&amp;</span>code).into()),
 					heap_pages: <span class="prelude-val">None</span>,
-					hash: Vec::new(),
+					hash: make_hash(<span class="kw-2">&amp;</span>code),
 				};
 				<span class="kw">let </span>version = <span class="self">Self</span>::runtime_version(<span class="kw-2">&amp;</span>executor, <span class="kw-2">&amp;</span>runtime_code)<span class="question-mark">?</span>;
 				<span class="kw">let </span>spec_version = version.spec_version;

@@ -395,22 +395,6 @@
 <a href="#395" id="395">395</a>
 <a href="#396" id="396">396</a>
 <a href="#397" id="397">397</a>
-<a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
-<a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
-<a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -431,17 +415,17 @@
 //! functions.
 
 </span><span class="kw">use crate</span>::{
-	configuration, disputes, dmp, hrmp, inclusion, initializer, paras, paras_inherent, scheduler,
+	disputes, dmp, hrmp, inclusion, initializer, paras, paras_inherent,
+	scheduler::{<span class="self">self</span>, CoreOccupied},
 	session_info, shared,
 };
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>primitives::{
 	slashing, AuthorityDiscoveryId, CandidateEvent, CandidateHash, CommittedCandidateReceipt,
-	CoreIndex, CoreOccupied, CoreState, DisputeState, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	OccupiedCore, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
+	Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCore, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 <span class="kw">use </span>sp_runtime::traits::One;
 <span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, prelude::<span class="kw-2">*</span>};
@@ -465,29 +449,15 @@
 <span class="doccomment">/// Implementation for the `availability_cores` function of the runtime API.
 </span><span class="kw">pub fn </span>availability_cores&lt;T: initializer::Config&gt;() -&gt; Vec&lt;CoreState&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;&gt; {
 	<span class="kw">let </span>cores = &lt;scheduler::Pallet&lt;T&gt;&gt;::availability_cores();
-	<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
 	<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() + One::one();
-	<span class="kw">let </span>rotation_info = &lt;scheduler::Pallet&lt;T&gt;&gt;::group_rotation_info(now);
 
-	<span class="kw">let </span>time_out_at = |backed_in_number, availability_period| {
-		<span class="kw">let </span>time_out_at = backed_in_number + availability_period;
+	<span class="comment">// This explicit update is only strictly required for session boundaries:
+	//
+	// At the end of a session we clear the claim queues: Without this update call, nothing would be
+	// scheduled to the client.
+	</span>&lt;scheduler::Pallet&lt;T&gt;&gt;::update_claimqueue(Vec::new(), now);
 
-		<span class="kw">let </span>current_window = rotation_info.last_rotation_at() + availability_period;
-		<span class="kw">let </span>next_rotation = rotation_info.next_rotation_at();
-
-		<span class="comment">// If we are within `period` blocks of rotation, timeouts are being checked
-		// actively. We could even time out this block.
-		</span><span class="kw">if </span>time_out_at &lt; current_window {
-			time_out_at
-		} <span class="kw">else if </span>time_out_at &lt;= next_rotation {
-			<span class="comment">// Otherwise, it will time out at the sooner of the next rotation
-			</span>next_rotation
-		} <span class="kw">else </span>{
-			<span class="comment">// or the scheduled time-out. This is by definition within `period` blocks
-			// of `next_rotation` and is thus a valid timeout block.
-			</span>time_out_at
-		}
-	};
+	<span class="kw">let </span>time_out_for = &lt;scheduler::Pallet&lt;T&gt;&gt;::availability_timeout_predicate();
 
 	<span class="kw">let </span>group_responsible_for =
 		|backed_in_number, core_index| <span class="kw">match </span>&lt;scheduler::Pallet&lt;T&gt;&gt;::group_assigned_to_core(
@@ -506,7 +476,9 @@
 			},
 		};
 
-	<span class="kw">let </span><span class="kw-2">mut </span>core_states: Vec&lt;<span class="kw">_</span>&gt; = cores
+	<span class="kw">let </span>scheduled: BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = &lt;scheduler::Pallet&lt;T&gt;&gt;::scheduled_paras().collect();
+
+	cores
 		.into_iter()
 		.enumerate()
 		.map(|(i, core)| <span class="kw">match </span>core {
@@ -521,7 +493,7 @@
 						i <span class="kw">as </span>u32,
 					)),
 					occupied_since: backed_in_number,
-					time_out_at: time_out_at(backed_in_number, config.paras_availability_period),
+					time_out_at: time_out_for(backed_in_number).live_until,
 					next_up_on_time_out: &lt;scheduler::Pallet&lt;T&gt;&gt;::next_up_on_time_out(CoreIndex(
 						i <span class="kw">as </span>u32,
 					)),
@@ -534,19 +506,15 @@
 					candidate_descriptor: pending_availability.candidate_descriptor().clone(),
 				})
 			},
-			CoreOccupied::Free =&gt; CoreState::Free,
+			CoreOccupied::Free =&gt; {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(para_id) = scheduled.get(<span class="kw-2">&amp;</span>CoreIndex(i <span class="kw">as _</span>)).cloned() {
+					CoreState::Scheduled(primitives::ScheduledCore { para_id, collator: <span class="prelude-val">None </span>})
+				} <span class="kw">else </span>{
+					CoreState::Free
+				}
+			},
 		})
-		.collect();
-
-	<span class="comment">// This will overwrite only `Free` cores if the scheduler module is working as intended.
-	</span><span class="kw">for </span>scheduled <span class="kw">in </span>&lt;scheduler::Pallet&lt;T&gt;&gt;::scheduled_claimqueue() {
-		core_states[scheduled.core.<span class="number">0 </span><span class="kw">as </span>usize] = CoreState::Scheduled(primitives::ScheduledCore {
-			para_id: scheduled.paras_entry.para_id(),
-			collator: <span class="prelude-val">None</span>,
-		});
-	}
-
-	core_states
+		.collect()
 }
 
 <span class="doccomment">/// Returns current block number being processed and the corresponding root hash.

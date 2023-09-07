@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["common","migration","pallet"]};
+window.SIDEBAR_ITEMS = {"mod":["common","migration","pallet"],"type":["BlockNumber"]};

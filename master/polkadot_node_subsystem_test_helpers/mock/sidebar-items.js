@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["make_ferdie_keystore"]};
+window.SIDEBAR_ITEMS = {"fn":["dummy_unpin_handle","make_ferdie_keystore","new_leaf"]};

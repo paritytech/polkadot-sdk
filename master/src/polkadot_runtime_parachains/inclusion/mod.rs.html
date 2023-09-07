@@ -1329,26 +1329,6 @@
 <a href="#1329" id="1329">1329</a>
 <a href="#1330" id="1330">1330</a>
 <a href="#1331" id="1331">1331</a>
-<a href="#1332" id="1332">1332</a>
-<a href="#1333" id="1333">1333</a>
-<a href="#1334" id="1334">1334</a>
-<a href="#1335" id="1335">1335</a>
-<a href="#1336" id="1336">1336</a>
-<a href="#1337" id="1337">1337</a>
-<a href="#1338" id="1338">1338</a>
-<a href="#1339" id="1339">1339</a>
-<a href="#1340" id="1340">1340</a>
-<a href="#1341" id="1341">1341</a>
-<a href="#1342" id="1342">1342</a>
-<a href="#1343" id="1343">1343</a>
-<a href="#1344" id="1344">1344</a>
-<a href="#1345" id="1345">1345</a>
-<a href="#1346" id="1346">1346</a>
-<a href="#1347" id="1347">1347</a>
-<a href="#1348" id="1348">1348</a>
-<a href="#1349" id="1349">1349</a>
-<a href="#1350" id="1350">1350</a>
-<a href="#1351" id="1351">1351</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1373,7 +1353,7 @@
 </span><span class="kw">use crate</span>::{
 	configuration::{<span class="self">self</span>, HostConfiguration},
 	disputes, dmp, hrmp, paras,
-	scheduler::{<span class="self">self</span>, common::CoreAssignment},
+	scheduler::{<span class="self">self</span>, AvailabilityTimeoutStatus},
 	shared::{<span class="self">self</span>, AllowedRelayParentsTracker},
 };
 <span class="kw">use </span>bitvec::{order::Lsb0 <span class="kw">as </span>BitOrderLsb0, vec::BitVec};
@@ -1397,7 +1377,10 @@
 <span class="kw">use </span>sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>sp_std::fmt;
-<span class="kw">use </span>sp_std::{collections::btree_set::BTreeSet, prelude::<span class="kw-2">*</span>};
+<span class="kw">use </span>sp_std::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	prelude::<span class="kw-2">*</span>,
+};
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 
@@ -1948,7 +1931,7 @@
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>process_candidates&lt;GV&gt;(
 		allowed_relay_parents: <span class="kw-2">&amp;</span>AllowedRelayParentsTracker&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;,
 		candidates: Vec&lt;BackedCandidate&lt;T::Hash&gt;&gt;,
-		scheduled: Vec&lt;CoreAssignment&lt;BlockNumberFor&lt;T&gt;&gt;&gt;,
+		scheduled: <span class="kw-2">&amp;</span>BTreeMap&lt;ParaId, CoreIndex&gt;,
 		group_validators: GV,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ProcessedCandidates&lt;T::Hash&gt;, DispatchError&gt;
 	<span class="kw">where
@@ -1971,20 +1954,18 @@
 
 		<span class="comment">// Do all checks before writing storage.
 		</span><span class="kw">let </span>core_indices_and_backers = {
-			<span class="kw">let </span><span class="kw-2">mut </span>skip = <span class="number">0</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>core_indices_and_backers = Vec::with_capacity(candidates.len());
 			<span class="kw">let </span><span class="kw-2">mut </span>last_core = <span class="prelude-val">None</span>;
 
-			<span class="kw">let </span><span class="kw-2">mut </span>check_assignment_in_order =
-				|assignment: <span class="kw-2">&amp;</span>CoreAssignment&lt;BlockNumberFor&lt;T&gt;&gt;| -&gt; DispatchResult {
-					<span class="macro">ensure!</span>(
-						last_core.map_or(<span class="bool-val">true</span>, |core| assignment.core &gt; core),
-						Error::&lt;T&gt;::ScheduledOutOfOrder,
-					);
+			<span class="kw">let </span><span class="kw-2">mut </span>check_assignment_in_order = |core_idx| -&gt; DispatchResult {
+				<span class="macro">ensure!</span>(
+					last_core.map_or(<span class="bool-val">true</span>, |core| core_idx &gt; core),
+					Error::&lt;T&gt;::ScheduledOutOfOrder,
+				);
 
-					last_core = <span class="prelude-val">Some</span>(assignment.core);
-					<span class="prelude-val">Ok</span>(())
-				};
+				last_core = <span class="prelude-val">Some</span>(core_idx);
+				<span class="prelude-val">Ok</span>(())
+			};
 
 			<span class="comment">// We combine an outer loop over candidates with an inner loop over the scheduled,
 			// where each iteration of the outer loop picks up at the position
@@ -1996,9 +1977,7 @@
 			//
 			// In the meantime, we do certain sanity checks on the candidates and on the scheduled
 			// list.
-			</span><span class="lifetime">&#39;next_backed_candidate</span>: <span class="kw">for </span>(candidate_idx, backed_candidate) <span class="kw">in
-				</span>candidates.iter().enumerate()
-			{
+			</span><span class="kw">for </span>(candidate_idx, backed_candidate) <span class="kw">in </span>candidates.iter().enumerate() {
 				<span class="kw">let </span>relay_parent_hash = backed_candidate.descriptor().relay_parent;
 				<span class="kw">let </span>para_id = backed_candidate.descriptor().para_id;
 
@@ -2032,108 +2011,89 @@
 				<span class="kw">let </span>para_id = backed_candidate.descriptor().para_id;
 				<span class="kw">let </span><span class="kw-2">mut </span>backers = <span class="macro">bitvec::bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; validators.len()];
 
-				<span class="kw">for </span>(i, core_assignment) <span class="kw">in </span>scheduled[skip..].iter().enumerate() {
-					check_assignment_in_order(core_assignment)<span class="question-mark">?</span>;
+				<span class="kw">let </span>core_idx = <span class="kw-2">*</span>scheduled.get(<span class="kw-2">&amp;</span>para_id).ok_or(Error::&lt;T&gt;::UnscheduledCandidate)<span class="question-mark">?</span>;
+				check_assignment_in_order(core_idx)<span class="question-mark">?</span>;
+				<span class="macro">ensure!</span>(
+					&lt;PendingAvailability&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>para_id).is_none() &amp;&amp;
+						&lt;PendingAvailabilityCommitments&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>para_id).is_none(),
+					Error::&lt;T&gt;::CandidateScheduledBeforeParaFree,
+				);
 
-					<span class="kw">if </span>para_id == core_assignment.paras_entry.para_id() {
-						<span class="macro">ensure!</span>(
-							&lt;PendingAvailability&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>para_id).is_none() &amp;&amp;
-								&lt;PendingAvailabilityCommitments&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>para_id).is_none(),
-							Error::&lt;T&gt;::CandidateScheduledBeforeParaFree,
-						);
+				<span class="comment">// The candidate based upon relay parent `N` should be backed by a group
+				// assigned to core at block `N + 1`. Thus, `relay_parent_number + 1`
+				// will always land in the current session.
+				</span><span class="kw">let </span>group_idx = &lt;scheduler::Pallet&lt;T&gt;&gt;::group_assigned_to_core(
+					core_idx,
+					relay_parent_number + One::one(),
+				)
+				.ok_or_else(|| {
+					<span class="macro">log::warn!</span>(
+						target: LOG_TARGET,
+						<span class="string">&quot;Failed to compute group index for candidate {}&quot;</span>,
+						candidate_idx
+					);
+					Error::&lt;T&gt;::InvalidAssignment
+				})<span class="question-mark">?</span>;
+				<span class="kw">let </span>group_vals =
+					group_validators(group_idx).ok_or_else(|| Error::&lt;T&gt;::InvalidGroupIndex)<span class="question-mark">?</span>;
 
-						<span class="comment">// account for already skipped, and then skip this one.
-						</span>skip = i + skip + <span class="number">1</span>;
+				<span class="comment">// check the signatures in the backing and that it is a majority.
+				</span>{
+					<span class="kw">let </span>maybe_amount_validated = primitives::check_candidate_backing(
+						<span class="kw-2">&amp;</span>backed_candidate,
+						<span class="kw-2">&amp;</span>signing_context,
+						group_vals.len(),
+						|intra_group_vi| {
+							group_vals
+								.get(intra_group_vi)
+								.and_then(|vi| validators.get(vi.<span class="number">0 </span><span class="kw">as </span>usize))
+								.map(|v| v.clone())
+						},
+					);
 
-						<span class="comment">// The candidate based upon relay parent `N` should be backed by a group
-						// assigned to core at block `N + 1`. Thus, `relay_parent_number + 1`
-						// will always land in the current session.
-						</span><span class="kw">let </span>group_idx = &lt;scheduler::Pallet&lt;T&gt;&gt;::group_assigned_to_core(
-							core_assignment.core,
-							relay_parent_number + One::one(),
-						)
-						.ok_or_else(|| {
-							<span class="macro">log::warn!</span>(
-								target: LOG_TARGET,
-								<span class="string">&quot;Failed to compute group index for candidate {}&quot;</span>,
-								candidate_idx
-							);
-							Error::&lt;T&gt;::InvalidAssignment
-						})<span class="question-mark">?</span>;
-						<span class="kw">let </span>group_vals = group_validators(group_idx)
-							.ok_or_else(|| Error::&lt;T&gt;::InvalidGroupIndex)<span class="question-mark">?</span>;
-
-						<span class="comment">// check the signatures in the backing and that it is a majority.
-						</span>{
-							<span class="kw">let </span>maybe_amount_validated = primitives::check_candidate_backing(
-								<span class="kw-2">&amp;</span>backed_candidate,
-								<span class="kw-2">&amp;</span>signing_context,
-								group_vals.len(),
-								|intra_group_vi| {
-									group_vals
-										.get(intra_group_vi)
-										.and_then(|vi| validators.get(vi.<span class="number">0 </span><span class="kw">as </span>usize))
-										.map(|v| v.clone())
-								},
-							);
-
-							<span class="kw">match </span>maybe_amount_validated {
-								<span class="prelude-val">Ok</span>(amount_validated) =&gt; <span class="macro">ensure!</span>(
-									amount_validated &gt;=
-										effective_minimum_backing_votes(
-											group_vals.len(),
-											minimum_backing_votes
-										),
-									Error::&lt;T&gt;::InsufficientBacking,
+					<span class="kw">match </span>maybe_amount_validated {
+						<span class="prelude-val">Ok</span>(amount_validated) =&gt; <span class="macro">ensure!</span>(
+							amount_validated &gt;=
+								effective_minimum_backing_votes(
+									group_vals.len(),
+									minimum_backing_votes
 								),
-								<span class="prelude-val">Err</span>(()) =&gt; {
-									<span class="prelude-val">Err</span>(Error::&lt;T&gt;::InvalidBacking)<span class="question-mark">?</span>;
-								},
-							}
+							Error::&lt;T&gt;::InsufficientBacking,
+						),
+						<span class="prelude-val">Err</span>(()) =&gt; {
+							<span class="prelude-val">Err</span>(Error::&lt;T&gt;::InvalidBacking)<span class="question-mark">?</span>;
+						},
+					}
 
-							<span class="kw">let </span><span class="kw-2">mut </span>backer_idx_and_attestation =
-								Vec::&lt;(ValidatorIndex, ValidityAttestation)&gt;::with_capacity(
-									backed_candidate.validator_indices.count_ones(),
-								);
-							<span class="kw">let </span>candidate_receipt = backed_candidate.receipt();
+					<span class="kw">let </span><span class="kw-2">mut </span>backer_idx_and_attestation =
+						Vec::&lt;(ValidatorIndex, ValidityAttestation)&gt;::with_capacity(
+							backed_candidate.validator_indices.count_ones(),
+						);
+					<span class="kw">let </span>candidate_receipt = backed_candidate.receipt();
 
-							<span class="kw">for </span>((bit_idx, <span class="kw">_</span>), attestation) <span class="kw">in </span>backed_candidate
-								.validator_indices
-								.iter()
-								.enumerate()
-								.filter(|(<span class="kw">_</span>, signed)| <span class="kw-2">**</span>signed)
-								.zip(backed_candidate.validity_votes.iter().cloned())
-							{
-								<span class="kw">let </span>val_idx = group_vals
-									.get(bit_idx)
-									.expect(<span class="string">&quot;this query succeeded above; qed&quot;</span>);
-								backer_idx_and_attestation.push((<span class="kw-2">*</span>val_idx, attestation));
+					<span class="kw">for </span>((bit_idx, <span class="kw">_</span>), attestation) <span class="kw">in </span>backed_candidate
+						.validator_indices
+						.iter()
+						.enumerate()
+						.filter(|(<span class="kw">_</span>, signed)| <span class="kw-2">**</span>signed)
+						.zip(backed_candidate.validity_votes.iter().cloned())
+					{
+						<span class="kw">let </span>val_idx =
+							group_vals.get(bit_idx).expect(<span class="string">&quot;this query succeeded above; qed&quot;</span>);
+						backer_idx_and_attestation.push((<span class="kw-2">*</span>val_idx, attestation));
 
-								backers.set(val_idx.<span class="number">0 </span><span class="kw">as _</span>, <span class="bool-val">true</span>);
-							}
-							candidate_receipt_with_backing_validator_indices
-								.push((candidate_receipt, backer_idx_and_attestation));
-						}
-
-						core_indices_and_backers.push((
-							(core_assignment.core, core_assignment.paras_entry.para_id()),
-							backers,
-							group_idx,
-							relay_parent_number,
-						));
-						<span class="kw">continue </span><span class="lifetime">&#39;next_backed_candidate
-					</span>}
+						backers.set(val_idx.<span class="number">0 </span><span class="kw">as _</span>, <span class="bool-val">true</span>);
+					}
+					candidate_receipt_with_backing_validator_indices
+						.push((candidate_receipt, backer_idx_and_attestation));
 				}
 
-				<span class="comment">// end of loop reached means that the candidate didn&#39;t appear in the non-traversed
-				// section of the `scheduled` slice. either it was not scheduled or didn&#39;t appear in
-				// `candidates` in the correct order.
-				</span><span class="macro">ensure!</span>(<span class="bool-val">false</span>, Error::&lt;T&gt;::UnscheduledCandidate);
-			}
-
-			<span class="comment">// check remainder of scheduled cores, if any.
-			</span><span class="kw">for </span>assignment <span class="kw">in </span>scheduled[skip..].iter() {
-				check_assignment_in_order(assignment)<span class="question-mark">?</span>;
+				core_indices_and_backers.push((
+					(core_idx, para_id),
+					backers,
+					group_idx,
+					relay_parent_number,
+				));
 			}
 
 			core_indices_and_backers
@@ -2394,13 +2354,13 @@
 	///
 	/// Returns a vector of cleaned-up core IDs.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>collect_pending(
-		pred: <span class="kw">impl </span>Fn(CoreIndex, BlockNumberFor&lt;T&gt;) -&gt; bool,
+		pred: <span class="kw">impl </span>Fn(BlockNumberFor&lt;T&gt;) -&gt; AvailabilityTimeoutStatus&lt;BlockNumberFor&lt;T&gt;&gt;,
 	) -&gt; Vec&lt;CoreIndex&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>cleaned_up_ids = Vec::new();
 		<span class="kw">let </span><span class="kw-2">mut </span>cleaned_up_cores = Vec::new();
 
 		<span class="kw">for </span>(para_id, pending_record) <span class="kw">in </span>&lt;PendingAvailability&lt;T&gt;&gt;::iter() {
-			<span class="kw">if </span>pred(pending_record.core, pending_record.backed_in_number) {
+			<span class="kw">if </span>pred(pending_record.backed_in_number).timed_out {
 				cleaned_up_ids.push(para_id);
 				cleaned_up_cores.push(pending_record.core);
 			}

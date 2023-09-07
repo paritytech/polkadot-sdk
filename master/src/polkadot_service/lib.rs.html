@@ -2172,7 +2172,7 @@
 	}: NewFullParams&lt;OverseerGenerator&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;NewFull, Error&gt; {
 	<span class="kw">use </span>polkadot_node_network_protocol::request_response::IncomingRequest;
-	<span class="kw">use </span>sc_network_common::sync::warp::WarpSyncParams;
+	<span class="kw">use </span>sc_network_sync::warp::WarpSyncParams;
 
 	<span class="kw">let </span>is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
 	<span class="kw">let </span>role = config.role.clone();

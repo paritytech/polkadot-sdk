@@ -997,6 +997,7 @@
 <a href="#997" id="997">997</a>
 <a href="#998" id="998">998</a>
 <a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1046,12 +1047,13 @@
 	NetworkService, NetworkStateInfo, NetworkStatusProvider,
 };
 <span class="kw">use </span>sc_network_bitswap::BitswapRequestHandler;
-<span class="kw">use </span>sc_network_common::{role::Roles, sync::warp::WarpSyncParams};
+<span class="kw">use </span>sc_network_common::role::Roles;
 <span class="kw">use </span>sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 <span class="kw">use </span>sc_network_sync::{
 	block_request_handler::BlockRequestHandler, engine::SyncingEngine,
 	service::network::NetworkServiceProvider, state_request_handler::StateRequestHandler,
-	warp_request_handler::RequestHandler <span class="kw">as </span>WarpSyncRequestHandler, SyncingService,
+	warp::WarpSyncParams, warp_request_handler::RequestHandler <span class="kw">as </span>WarpSyncRequestHandler,
+	SyncingService,
 };
 <span class="kw">use </span>sc_rpc::{
 	author::AuthorApiServer,

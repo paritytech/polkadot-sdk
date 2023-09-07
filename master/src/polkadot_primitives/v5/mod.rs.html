@@ -1884,60 +1884,6 @@
 <a href="#1884" id="1884">1884</a>
 <a href="#1885" id="1885">1885</a>
 <a href="#1886" id="1886">1886</a>
-<a href="#1887" id="1887">1887</a>
-<a href="#1888" id="1888">1888</a>
-<a href="#1889" id="1889">1889</a>
-<a href="#1890" id="1890">1890</a>
-<a href="#1891" id="1891">1891</a>
-<a href="#1892" id="1892">1892</a>
-<a href="#1893" id="1893">1893</a>
-<a href="#1894" id="1894">1894</a>
-<a href="#1895" id="1895">1895</a>
-<a href="#1896" id="1896">1896</a>
-<a href="#1897" id="1897">1897</a>
-<a href="#1898" id="1898">1898</a>
-<a href="#1899" id="1899">1899</a>
-<a href="#1900" id="1900">1900</a>
-<a href="#1901" id="1901">1901</a>
-<a href="#1902" id="1902">1902</a>
-<a href="#1903" id="1903">1903</a>
-<a href="#1904" id="1904">1904</a>
-<a href="#1905" id="1905">1905</a>
-<a href="#1906" id="1906">1906</a>
-<a href="#1907" id="1907">1907</a>
-<a href="#1908" id="1908">1908</a>
-<a href="#1909" id="1909">1909</a>
-<a href="#1910" id="1910">1910</a>
-<a href="#1911" id="1911">1911</a>
-<a href="#1912" id="1912">1912</a>
-<a href="#1913" id="1913">1913</a>
-<a href="#1914" id="1914">1914</a>
-<a href="#1915" id="1915">1915</a>
-<a href="#1916" id="1916">1916</a>
-<a href="#1917" id="1917">1917</a>
-<a href="#1918" id="1918">1918</a>
-<a href="#1919" id="1919">1919</a>
-<a href="#1920" id="1920">1920</a>
-<a href="#1921" id="1921">1921</a>
-<a href="#1922" id="1922">1922</a>
-<a href="#1923" id="1923">1923</a>
-<a href="#1924" id="1924">1924</a>
-<a href="#1925" id="1925">1925</a>
-<a href="#1926" id="1926">1926</a>
-<a href="#1927" id="1927">1927</a>
-<a href="#1928" id="1928">1928</a>
-<a href="#1929" id="1929">1929</a>
-<a href="#1930" id="1930">1930</a>
-<a href="#1931" id="1931">1931</a>
-<a href="#1932" id="1932">1932</a>
-<a href="#1933" id="1933">1933</a>
-<a href="#1934" id="1934">1934</a>
-<a href="#1935" id="1935">1935</a>
-<a href="#1936" id="1936">1936</a>
-<a href="#1937" id="1937">1937</a>
-<a href="#1938" id="1938">1938</a>
-<a href="#1939" id="1939">1939</a>
-<a href="#1940" id="1940">1940</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2768,60 +2714,6 @@
 	</span><span class="kw">pub </span>claim: ParathreadClaim,
 	<span class="doccomment">/// Number of retries
 	</span><span class="kw">pub </span>retries: u32,
-}
-
-<span class="doccomment">/// An assignment for a parachain scheduled to be backed and included in a relay chain block.
-</span><span class="attr">#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebug)]
-</span><span class="kw">pub struct </span>Assignment {
-	<span class="doccomment">/// Assignment&#39;s ParaId
-	</span><span class="kw">pub </span>para_id: Id,
-}
-
-<span class="kw">impl </span>Assignment {
-	<span class="doccomment">/// Create a new `Assignment`.
-	</span><span class="kw">pub fn </span>new(para_id: Id) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ para_id }
-	}
-}
-
-<span class="doccomment">/// An entry tracking a paras
-</span><span class="attr">#[derive(Clone, Encode, Decode, TypeInfo, PartialEq, RuntimeDebug)]
-</span><span class="kw">pub struct </span>ParasEntry&lt;N = BlockNumber&gt; {
-	<span class="doccomment">/// The `Assignment`
-	</span><span class="kw">pub </span>assignment: Assignment,
-	<span class="doccomment">/// The number of times the entry has timed out in availability.
-	</span><span class="kw">pub </span>availability_timeouts: u32,
-	<span class="doccomment">/// The block height where this entry becomes invalid.
-	</span><span class="kw">pub </span>ttl: N,
-}
-
-<span class="kw">impl</span>&lt;N&gt; ParasEntry&lt;N&gt; {
-	<span class="doccomment">/// Return `Id` from the underlying `Assignment`.
-	</span><span class="kw">pub fn </span>para_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Id {
-		<span class="self">self</span>.assignment.para_id
-	}
-
-	<span class="doccomment">/// Create a new `ParasEntry`.
-	</span><span class="kw">pub fn </span>new(assignment: Assignment, now: N) -&gt; <span class="self">Self </span>{
-		ParasEntry { assignment, availability_timeouts: <span class="number">0</span>, ttl: now }
-	}
-}
-
-<span class="doccomment">/// What is occupying a specific availability core.
-</span><span class="attr">#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
-</span><span class="kw">pub enum </span>CoreOccupied&lt;N&gt; {
-	<span class="doccomment">/// The core is not occupied.
-	</span>Free,
-	<span class="doccomment">/// A paras.
-	</span>Paras(ParasEntry&lt;N&gt;),
-}
-
-<span class="kw">impl</span>&lt;N&gt; CoreOccupied&lt;N&gt; {
-	<span class="doccomment">/// Is core free?
-	</span><span class="kw">pub fn </span>is_free(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Free)
-	}
 }
 
 <span class="doccomment">/// A helper data-type for tracking validator-group rotations.

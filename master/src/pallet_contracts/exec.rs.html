@@ -3887,6 +3887,16 @@
 <a href="#3887" id="3887">3887</a>
 <a href="#3888" id="3888">3888</a>
 <a href="#3889" id="3889">3889</a>
+<a href="#3890" id="3890">3890</a>
+<a href="#3891" id="3891">3891</a>
+<a href="#3892" id="3892">3892</a>
+<a href="#3893" id="3893">3893</a>
+<a href="#3894" id="3894">3894</a>
+<a href="#3895" id="3895">3895</a>
+<a href="#3896" id="3896">3896</a>
+<a href="#3897" id="3897">3897</a>
+<a href="#3898" id="3898">3898</a>
+<a href="#3899" id="3899">3899</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -5514,13 +5524,13 @@
 	}
 
 	<span class="kw">struct </span>MockCtx&lt;<span class="lifetime">&#39;a</span>&gt; {
-		ext: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="kw">dyn </span>Ext&lt;T = Test&gt;,
+		ext: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>MockStack&lt;<span class="lifetime">&#39;a</span>&gt;,
 		input_data: Vec&lt;u8&gt;,
 	}
 
 	<span class="attr">#[derive(Clone)]
 	</span><span class="kw">struct </span>MockExecutable {
-		func: Rc&lt;<span class="kw">dyn </span>Fn(MockCtx, <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; ExecResult + <span class="lifetime">&#39;static</span>&gt;,
+		func: Rc&lt;<span class="kw">dyn for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Fn(MockCtx&lt;<span class="lifetime">&#39;a</span>&gt;, <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; ExecResult + <span class="lifetime">&#39;static</span>&gt;,
 		func_type: ExportedFunction,
 		code_hash: CodeHash&lt;Test&gt;,
 		code_info: CodeInfo&lt;Test&gt;,
@@ -5613,6 +5623,16 @@
 			<span class="kw">if let </span><span class="kw-2">&amp;</span>Constructor = function {
 				<span class="self">Self</span>::increment_refcount(<span class="self">self</span>.code_hash).unwrap();
 			}
+			<span class="comment">// # Safety
+			//
+			// We know that we **always** call execute with a `MockStack` in this test.
+			//
+			// # Note
+			//
+			// The transmute is necessary because `execute` has to be generic over all
+			// `E: Ext`. However, `MockExecutable` can&#39;t be generic over `E` as it would
+			// constitute a cycle.
+			</span><span class="kw">let </span>ext = <span class="kw">unsafe </span>{ std::mem::transmute(ext) };
 			<span class="kw">if </span>function == <span class="kw-2">&amp;</span><span class="self">self</span>.func_type {
 				(<span class="self">self</span>.func)(MockCtx { ext, input_data }, <span class="kw-2">&amp;</span><span class="self">self</span>)
 			} <span class="kw">else </span>{

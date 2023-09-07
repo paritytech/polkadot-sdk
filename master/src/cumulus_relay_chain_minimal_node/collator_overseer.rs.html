@@ -259,6 +259,14 @@
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -297,13 +305,14 @@
 <span class="kw">use </span>polkadot_node_subsystem_util::metrics::{prometheus::Registry, Metrics};
 <span class="kw">use </span>polkadot_overseer::{
 	BlockInfo, DummySubsystem, Handle, Overseer, OverseerConnector, OverseerHandle, SpawnGlue,
-	KNOWN_LEAVES_CACHE_SIZE,
+	UnpinHandle, KNOWN_LEAVES_CACHE_SIZE,
 };
 <span class="kw">use </span>polkadot_primitives::CollatorPair;
 
 <span class="kw">use </span>sc_authority_discovery::Service <span class="kw">as </span>AuthorityDiscoveryService;
 <span class="kw">use </span>sc_network::NetworkStateInfo;
 <span class="kw">use </span>sc_service::TaskManager;
+<span class="kw">use </span>sc_utils::mpsc::tracing_unbounded;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
 <span class="kw">use </span>cumulus_primitives_core::relay_chain::{Block, Hash <span class="kw">as </span>PHash};
@@ -482,20 +491,25 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), RelayChainError&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>finality = client.finality_notification_stream().<span class="kw">await</span><span class="question-mark">?</span>.fuse();
 	<span class="kw">let </span><span class="kw-2">mut </span>imports = client.import_notification_stream().<span class="kw">await</span><span class="question-mark">?</span>.fuse();
+	<span class="comment">// Collators do no need to pin any specific blocks
+	</span><span class="kw">let </span>(dummy_sink, <span class="kw">_</span>) = tracing_unbounded(<span class="string">&quot;does-not-matter&quot;</span>, <span class="number">42</span>);
+	<span class="kw">let </span>dummy_unpin_handle = UnpinHandle::new(Default::default(), dummy_sink);
 
 	<span class="kw">loop </span>{
 		<span class="macro">select! </span>{
 			f = finality.next() =&gt; {
 				<span class="kw">match </span>f {
 					<span class="prelude-val">Some</span>(header) =&gt; {
+						<span class="kw">let </span>hash = header.hash();
 						<span class="macro">tracing::info!</span>(
 							target: <span class="string">&quot;minimal-polkadot-node&quot;</span>,
 							<span class="string">&quot;Received finalized block via RPC: #{} ({} -&gt; {})&quot;</span>,
 							header.number,
 							header.parent_hash,
-							header.hash()
+							hash,
 						);
-						<span class="kw">let </span>block_info = BlockInfo { hash: header.hash(), parent_hash: header.parent_hash, number: header.number };
+						<span class="kw">let </span>unpin_handle = dummy_unpin_handle.clone();
+						<span class="kw">let </span>block_info = BlockInfo { hash, parent_hash: header.parent_hash, number: header.number, unpin_handle };
 						handle.block_finalized(block_info).<span class="kw">await</span>;
 					}
 					<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(RelayChainError::GenericError(<span class="string">&quot;Relay chain finality stream ended.&quot;</span>.to_string())),
@@ -504,14 +518,16 @@
 			i = imports.next() =&gt; {
 				<span class="kw">match </span>i {
 					<span class="prelude-val">Some</span>(header) =&gt; {
+						<span class="kw">let </span>hash = header.hash();
 						<span class="macro">tracing::info!</span>(
 							target: <span class="string">&quot;minimal-polkadot-node&quot;</span>,
 							<span class="string">&quot;Received imported block via RPC: #{} ({} -&gt; {})&quot;</span>,
 							header.number,
 							header.parent_hash,
-							header.hash()
+							hash,
 						);
-						<span class="kw">let </span>block_info = BlockInfo { hash: header.hash(), parent_hash: header.parent_hash, number: header.number };
+						<span class="kw">let </span>unpin_handle = dummy_unpin_handle.clone();
+						<span class="kw">let </span>block_info = BlockInfo { hash, parent_hash: header.parent_hash, number: header.number, unpin_handle };
 						handle.block_imported(block_info).<span class="kw">await</span>;
 					}
 					<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(RelayChainError::GenericError(<span class="string">&quot;Relay chain import stream ended.&quot;</span>.to_string())),

@@ -2317,6 +2317,8 @@
 <a href="#2317" id="2317">2317</a>
 <a href="#2318" id="2318">2318</a>
 <a href="#2319" id="2319">2319</a>
+<a href="#2320" id="2320">2320</a>
+<a href="#2321" id="2321">2321</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3350,6 +3352,7 @@
 	<span class="kw">type </span>UnsignedPriority = ParasUnsignedPriority;
 	<span class="kw">type </span>QueueFootprinter = ParaInclusion;
 	<span class="kw">type </span>NextSessionRotation = Babe;
+	<span class="kw">type </span>OnNewHead = Registrar;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -3869,6 +3872,7 @@
 		parachains_scheduler::migration::v1::MigrateToV1&lt;Runtime&gt;,
 		parachains_configuration::migration::v8::MigrateToV8&lt;Runtime&gt;,
 		parachains_configuration::migration::v9::MigrateToV9&lt;Runtime&gt;,
+		paras_registrar::migration::VersionCheckedMigrateToV1&lt;Runtime, ()&gt;,
 	);
 }
 

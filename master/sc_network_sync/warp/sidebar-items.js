@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["TargetBlockImportResult","WarpProofImportResult"],"struct":["WarpSync"]};
+window.SIDEBAR_ITEMS = {"enum":["TargetBlockImportResult","WarpProofImportResult","WarpSyncConfig","WarpSyncParams"],"struct":["WarpSync"]};

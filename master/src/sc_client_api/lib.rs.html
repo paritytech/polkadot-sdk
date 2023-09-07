@@ -88,9 +88,6 @@
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
-<a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -142,7 +139,6 @@
 </span><span class="kw">pub mod </span>utils {
 	<span class="kw">use </span>sp_blockchain::{Error, HeaderBackend, HeaderMetadata};
 	<span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
-	<span class="kw">use </span>std::borrow::Borrow;
 
 	<span class="doccomment">/// Returns a function for checking block ancestry, the returned function will
 	/// return `true` if the given hash (second parameter) is a descendent of the
@@ -162,10 +158,8 @@
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
 			}
 
-			<span class="kw">let </span>current = current.as_ref().map(|(c, p)| (c.borrow(), p.borrow()));
-
 			<span class="kw">let </span><span class="kw-2">mut </span>hash = hash;
-			<span class="kw">if let </span><span class="prelude-val">Some</span>((current_hash, current_parent_hash)) = current {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>((current_hash, current_parent_hash)) = <span class="kw-2">&amp;</span>current {
 				<span class="kw">if </span>base == current_hash {
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
 				}

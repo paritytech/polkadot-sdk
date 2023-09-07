@@ -1465,6 +1465,7 @@
 <a href="#1465" id="1465">1465</a>
 <a href="#1466" id="1466">1466</a>
 <a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2206,6 +2207,7 @@
 		<span class="kw">type </span>UnsignedPriority = ParasUnsignedPriority;
 		<span class="kw">type </span>QueueFootprinter = ();
 		<span class="kw">type </span>NextSessionRotation = <span class="kw">crate</span>::mock::TestNextSessionRotation;
+		<span class="kw">type </span>OnNewHead = ();
 	}
 
 	<span class="kw">impl </span>parachains_shared::Config <span class="kw">for </span>Test {}

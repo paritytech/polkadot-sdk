@@ -297,6 +297,33 @@
 <a href="#297" id="297">297</a>
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -318,37 +345,76 @@
 </span><span class="doccomment">//! Warp sync support.
 
 </span><span class="kw">use crate</span>::{
-	oneshot,
 	schema::v1::{StateRequest, StateResponse},
 	state::{ImportResult, StateSync},
 };
-<span class="kw">use </span>futures::FutureExt;
+<span class="kw">use </span>futures::channel::oneshot;
 <span class="kw">use </span>log::error;
 <span class="kw">use </span>sc_client_api::ProofProvider;
 <span class="kw">use </span>sc_network_common::sync::{
 	message::{BlockAttributes, BlockData, BlockRequest, Direction, FromBlock},
 	warp::{
-		EncodedProof, VerificationResult, WarpProofRequest, WarpSyncParams, WarpSyncPhase,
-		WarpSyncProgress, WarpSyncProvider,
+		EncodedProof, VerificationResult, WarpProofRequest, WarpSyncPhase, WarpSyncProgress,
+		WarpSyncProvider,
 	},
 };
 <span class="kw">use </span>sp_blockchain::HeaderBackend;
 <span class="kw">use </span>sp_consensus_grandpa::{AuthorityList, SetId};
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header, NumberFor, Zero};
-<span class="kw">use </span>std::{sync::Arc, task::Poll};
+<span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">enum </span>Phase&lt;B: BlockT, Client&gt; {
-	WarpProof {
+<span class="doccomment">/// Log target for this file.
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;sync&quot;</span>;
+
+<span class="doccomment">/// The different types of warp syncing, passed to `build_network`.
+</span><span class="kw">pub enum </span>WarpSyncParams&lt;Block: BlockT&gt; {
+	<span class="doccomment">/// Standard warp sync for the chain.
+	</span>WithProvider(Arc&lt;<span class="kw">dyn </span>WarpSyncProvider&lt;Block&gt;&gt;),
+	<span class="doccomment">/// Skip downloading proofs and wait for a header of the state that should be downloaded.
+	///
+	/// It is expected that the header provider ensures that the header is trusted.
+	</span>WaitForTarget(oneshot::Receiver&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Header&gt;),
+}
+
+<span class="doccomment">/// Warp sync configuration as accepted by [`WarpSync`].
+</span><span class="kw">pub enum </span>WarpSyncConfig&lt;Block: BlockT&gt; {
+	<span class="doccomment">/// Standard warp sync for the chain.
+	</span>WithProvider(Arc&lt;<span class="kw">dyn </span>WarpSyncProvider&lt;Block&gt;&gt;),
+	<span class="doccomment">/// Skip downloading proofs and wait for a header of the state that should be downloaded.
+	///
+	/// It is expected that the header provider ensures that the header is trusted.
+	</span>WaitForTarget,
+}
+
+<span class="kw">impl</span>&lt;Block: BlockT&gt; WarpSyncParams&lt;Block&gt; {
+	<span class="doccomment">/// Split `WarpSyncParams` into `WarpSyncConfig` and warp sync target block header receiver.
+	</span><span class="kw">pub fn </span>split(
+		<span class="self">self</span>,
+	) -&gt; (WarpSyncConfig&lt;Block&gt;, <span class="prelude-ty">Option</span>&lt;oneshot::Receiver&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Header&gt;&gt;) {
+		<span class="kw">match </span><span class="self">self </span>{
+			WarpSyncParams::WithProvider(provider) =&gt;
+				(WarpSyncConfig::WithProvider(provider), <span class="prelude-val">None</span>),
+			WarpSyncParams::WaitForTarget(rx) =&gt; (WarpSyncConfig::WaitForTarget, <span class="prelude-val">Some</span>(rx)),
+		}
+	}
+}
+
+<span class="doccomment">/// Warp sync phase.
+</span><span class="kw">enum </span>Phase&lt;B: BlockT, Client&gt; {
+	<span class="doccomment">/// Downloading warp proofs.
+	</span>WarpProof {
 		set_id: SetId,
 		authorities: AuthorityList,
 		last_hash: B::Hash,
 		warp_sync_provider: Arc&lt;<span class="kw">dyn </span>WarpSyncProvider&lt;B&gt;&gt;,
 	},
-	PendingTargetBlock {
-		target_block: <span class="prelude-ty">Option</span>&lt;oneshot::Receiver&lt;B::Header&gt;&gt;,
-	},
-	TargetBlock(B::Header),
-	State(StateSync&lt;B, Client&gt;),
+	<span class="doccomment">/// Waiting for target block to be set externally if we skip warp proofs downloading,
+	/// and start straight from the target block (used by parachains warp sync).
+	</span>PendingTargetBlock,
+	<span class="doccomment">/// Downloading target block.
+	</span>TargetBlock(B::Header),
+	<span class="doccomment">/// Downloading state.
+	</span>State(StateSync&lt;B, Client&gt;),
 }
 
 <span class="doccomment">/// Import warp proof result.
@@ -382,10 +448,10 @@
 	<span class="doccomment">/// Create a new instance. When passing a warp sync provider we will be checking for proof and
 	/// authorities. Alternatively we can pass a target block when we want to skip downloading
 	/// proofs, in this case we will continue polling until the target block is known.
-	</span><span class="kw">pub fn </span>new(client: Arc&lt;Client&gt;, warp_sync_params: WarpSyncParams&lt;B&gt;) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(client: Arc&lt;Client&gt;, warp_sync_config: WarpSyncConfig&lt;B&gt;) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>last_hash = client.hash(Zero::zero()).unwrap().expect(<span class="string">&quot;Genesis header always exists&quot;</span>);
-		<span class="kw">match </span>warp_sync_params {
-			WarpSyncParams::WithProvider(warp_sync_provider) =&gt; {
+		<span class="kw">match </span>warp_sync_config {
+			WarpSyncConfig::WithProvider(warp_sync_provider) =&gt; {
 				<span class="kw">let </span>phase = Phase::WarpProof {
 					set_id: <span class="number">0</span>,
 					authorities: warp_sync_provider.current_authorities(),
@@ -394,35 +460,23 @@
 				};
 				<span class="self">Self </span>{ client, phase, total_proof_bytes: <span class="number">0 </span>}
 			},
-			WarpSyncParams::WaitForTarget(block) =&gt; <span class="self">Self </span>{
-				client,
-				phase: Phase::PendingTargetBlock { target_block: <span class="prelude-val">Some</span>(block) },
-				total_proof_bytes: <span class="number">0</span>,
-			},
+			WarpSyncConfig::WaitForTarget =&gt;
+				<span class="self">Self </span>{ client, phase: Phase::PendingTargetBlock, total_proof_bytes: <span class="number">0 </span>},
 		}
 	}
 
-	<span class="doccomment">/// Poll to make progress.
-	///
-	/// This only makes progress when `phase = Phase::PendingTargetBlock` and the pending block was
-	/// sent.
-	</span><span class="kw">pub fn </span>poll(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>std::task::Context) {
-		<span class="kw">let </span>new_phase = <span class="kw">if let </span>Phase::PendingTargetBlock { target_block: <span class="prelude-val">Some</span>(target_block) } =
-			<span class="kw-2">&amp;mut </span><span class="self">self</span>.phase
-		{
-			<span class="kw">match </span>target_block.poll_unpin(cx) {
-				Poll::Ready(<span class="prelude-val">Ok</span>(target)) =&gt; Phase::TargetBlock(target),
-				Poll::Ready(<span class="prelude-val">Err</span>(e)) =&gt; {
-					<span class="macro">error!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Failed to get target block. Error: {:?}&quot;</span>,e);
-					Phase::PendingTargetBlock { target_block: <span class="prelude-val">None </span>}
-				},
-				<span class="kw">_ </span>=&gt; <span class="kw">return</span>,
-			}
-		} <span class="kw">else </span>{
+	<span class="doccomment">/// Set target block externally in case we skip warp proof downloading.
+	</span><span class="kw">pub fn </span>set_target_block(<span class="kw-2">&amp;mut </span><span class="self">self</span>, header: B::Header) {
+		<span class="kw">let </span>Phase::PendingTargetBlock = <span class="self">self</span>.phase <span class="kw">else </span>{
+			<span class="macro">error!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;Attempt to set warp sync target block in invalid phase.&quot;</span>,
+			);
+			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			<span class="kw">return
 		</span>};
 
-		<span class="self">self</span>.phase = new_phase;
+		<span class="self">self</span>.phase = Phase::TargetBlock(header);
 	}
 
 	<span class="doccomment">///  Validate and import a state response.

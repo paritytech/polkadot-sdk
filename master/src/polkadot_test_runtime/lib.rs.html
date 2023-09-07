@@ -1137,6 +1137,7 @@
 <a href="#1137" id="1137">1137</a>
 <a href="#1138" id="1138">1138</a>
 <a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1679,6 +1680,7 @@
 	<span class="kw">type </span>UnsignedPriority = ParasUnsignedPriority;
 	<span class="kw">type </span>QueueFootprinter = ParaInclusion;
 	<span class="kw">type </span>NextSessionRotation = Babe;
+	<span class="kw">type </span>OnNewHead = ();
 }
 
 <span class="kw">impl </span>parachains_dmp::Config <span class="kw">for </span>Runtime {}

@@ -975,6 +975,35 @@
 <a href="#975" id="975">975</a>
 <a href="#976" id="976">976</a>
 <a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1011,6 +1040,7 @@
 	WildMultiAsset <span class="kw">as </span>OldWildMultiAsset,
 };
 <span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>bounded_collections::{BoundedVec, ConstU32};
 <span class="kw">use </span>core::{
 	cmp::Ordering,
 	convert::{TryFrom, TryInto},
@@ -1483,9 +1513,8 @@
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
 </span><span class="kw">pub struct </span>MultiAssets(Vec&lt;MultiAsset&gt;);
 
-<span class="doccomment">/// Maximum number of items we expect in a single `MultiAssets` value. Note this is not (yet)
-/// enforced, and just serves to provide a sensible `max_encoded_len` for `MultiAssets`.
-</span><span class="kw">const </span>MAX_ITEMS_IN_MULTIASSETS: usize = <span class="number">20</span>;
+<span class="doccomment">/// Maximum number of items in a single `MultiAssets` value that can be decoded.
+</span><span class="kw">pub const </span>MAX_ITEMS_IN_MULTIASSETS: usize = <span class="number">20</span>;
 
 <span class="kw">impl </span>MaxEncodedLen <span class="kw">for </span>MultiAssets {
 	<span class="kw">fn </span>max_encoded_len() -&gt; usize {
@@ -1494,8 +1523,10 @@
 }
 
 <span class="kw">impl </span>Decode <span class="kw">for </span>MultiAssets {
-	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, parity_scale_codec::Error&gt; {
-		<span class="self">Self</span>::from_sorted_and_deduplicated(Vec::&lt;MultiAsset&gt;::decode(input)<span class="question-mark">?</span>)
+	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
+		<span class="kw">let </span>bounded_instructions =
+			BoundedVec::&lt;MultiAsset, ConstU32&lt;{ MAX_ITEMS_IN_MULTIASSETS <span class="kw">as </span>u32 }&gt;&gt;::decode(input)<span class="question-mark">?</span>;
+		<span class="self">Self</span>::from_sorted_and_deduplicated(bounded_instructions.into_inner())
 			.map_err(|()| <span class="string">&quot;Out of order&quot;</span>.into())
 	}
 }
@@ -1950,6 +1981,33 @@
 		<span class="kw">let </span>mixed_bad = <span class="macro">vec!</span>[(Here, <span class="kw-2">*</span><span class="string">b&quot;bad!&quot;</span>).into(), (Here, <span class="number">10</span>).into()];
 		<span class="kw">let </span>r = MultiAssets::from_sorted_and_deduplicated(mixed_bad);
 		<span class="macro">assert!</span>(r.is_err());
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>decoding_respects_limit() {
+		<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+		<span class="comment">// Having lots of one asset will work since they are deduplicated
+		</span><span class="kw">let </span>lots_of_one_asset: MultiAssets =
+			<span class="macro">vec!</span>[(GeneralIndex(<span class="number">1</span>), <span class="number">1u128</span>).into(); MAX_ITEMS_IN_MULTIASSETS + <span class="number">1</span>].into();
+		<span class="kw">let </span>encoded = lots_of_one_asset.encode();
+		<span class="macro">assert!</span>(MultiAssets::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_ok());
+
+		<span class="comment">// Fewer assets than the limit works
+		</span><span class="kw">let </span><span class="kw-2">mut </span>few_assets: MultiAssets = Vec::new().into();
+		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..MAX_ITEMS_IN_MULTIASSETS {
+			few_assets.push((GeneralIndex(i <span class="kw">as </span>u128), <span class="number">1u128</span>).into());
+		}
+		<span class="kw">let </span>encoded = few_assets.encode();
+		<span class="macro">assert!</span>(MultiAssets::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_ok());
+
+		<span class="comment">// Having lots of different assets will not work
+		</span><span class="kw">let </span><span class="kw-2">mut </span>too_many_different_assets: MultiAssets = Vec::new().into();
+		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..MAX_ITEMS_IN_MULTIASSETS + <span class="number">1 </span>{
+			too_many_different_assets.push((GeneralIndex(i <span class="kw">as </span>u128), <span class="number">1u128</span>).into());
+		}
+		<span class="kw">let </span>encoded = too_many_different_assets.encode();
+		<span class="macro">assert!</span>(MultiAssets::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_err());
 	}
 }
 </code></pre></div></section></main></body></html>

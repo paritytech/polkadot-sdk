@@ -2712,6 +2712,22 @@
 <a href="#2712" id="2712">2712</a>
 <a href="#2713" id="2713">2713</a>
 <a href="#2714" id="2714">2714</a>
+<a href="#2715" id="2715">2715</a>
+<a href="#2716" id="2716">2716</a>
+<a href="#2717" id="2717">2717</a>
+<a href="#2718" id="2718">2718</a>
+<a href="#2719" id="2719">2719</a>
+<a href="#2720" id="2720">2720</a>
+<a href="#2721" id="2721">2721</a>
+<a href="#2722" id="2722">2722</a>
+<a href="#2723" id="2723">2723</a>
+<a href="#2724" id="2724">2724</a>
+<a href="#2725" id="2725">2725</a>
+<a href="#2726" id="2726">2726</a>
+<a href="#2727" id="2727">2727</a>
+<a href="#2728" id="2728">2728</a>
+<a href="#2729" id="2729">2729</a>
+<a href="#2730" id="2730">2730</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3929,6 +3945,7 @@
 	<span class="kw">type </span>UnsignedPriority = ParasUnsignedPriority;
 	<span class="kw">type </span>QueueFootprinter = ParaInclusion;
 	<span class="kw">type </span>NextSessionRotation = Babe;
+	<span class="kw">type </span>OnNewHead = Registrar;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -4424,6 +4441,19 @@
 		}
 	}
 
+	<span class="kw">pub struct </span>ParachainsToUnlock;
+	<span class="kw">impl </span>Contains&lt;ParaId&gt; <span class="kw">for </span>ParachainsToUnlock {
+		<span class="kw">fn </span>contains(id: <span class="kw-2">&amp;</span>ParaId) -&gt; bool {
+			<span class="kw">let </span>id: u32 = (<span class="kw-2">*</span>id).into();
+			<span class="comment">// ksuama parachains/parathreads that are locked and never produced block
+			</span><span class="kw">match </span>id {
+				<span class="number">2003 </span>| <span class="number">2008 </span>| <span class="number">2018 </span>| <span class="number">2077 </span>| <span class="number">2089 </span>| <span class="number">2111 </span>| <span class="number">2112 </span>| <span class="number">2120 </span>| <span class="number">2126 </span>| <span class="number">2127 </span>| <span class="number">2130 </span>|
+				<span class="number">2226 </span>| <span class="number">2227 </span>| <span class="number">2231 </span>| <span class="number">2233 </span>| <span class="number">2237 </span>| <span class="number">2256 </span>| <span class="number">2257 </span>| <span class="number">2261 </span>| <span class="number">2268 </span>| <span class="number">2275 </span>=&gt; <span class="bool-val">true</span>,
+				<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
+			}
+		}
+	}
+
 	<span class="doccomment">/// Unreleased migrations. Add new ones here:
 	</span><span class="kw">pub type </span>Unreleased = (
 		init_state_migration::InitMigrate,
@@ -4455,6 +4485,8 @@
 		</span>UpgradeSessionKeys,
 
 		parachains_configuration::migration::v9::MigrateToV9&lt;Runtime&gt;,
+		<span class="comment">// Migrate parachain info format
+		</span>paras_registrar::migration::VersionCheckedMigrateToV1&lt;Runtime, ParachainsToUnlock&gt;,
 	);
 }
 

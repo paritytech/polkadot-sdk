@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["FreedReason"],"struct":["AssignmentProviderConfig","CoreAssignment"],"trait":["AssignmentProvider"]};
+window.SIDEBAR_ITEMS = {"struct":["Assignment","AssignmentProviderConfig"],"trait":["AssignmentProvider"]};

@@ -1582,6 +1582,10 @@
 <a href="#1582" id="1582">1582</a>
 <a href="#1583" id="1583">1583</a>
 <a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
+<a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1892,6 +1896,8 @@
 				<span class="prelude-val">Ok</span>(session_idx)
 					<span class="kw">if </span><span class="self">self</span>.gaps_in_cache || session_idx &gt; <span class="self">self</span>.highest_session_seen =&gt;
 				{
+					<span class="comment">// Pin the block from the new session.
+					</span><span class="self">self</span>.runtime_info.pin_block(session_idx, new_leaf.unpin_handle);
 					<span class="comment">// Fetch the last `DISPUTE_WINDOW` number of sessions unless there are no gaps
 					// in cache and we are not missing too many `SessionInfo`s
 					</span><span class="kw">let </span><span class="kw-2">mut </span>lower_bound = session_idx.saturating_sub(DISPUTE_WINDOW.get() - <span class="number">1</span>);
@@ -1971,26 +1977,28 @@
 				<span class="string">&quot;Processing unapplied validator slashes&quot;</span>,
 			);
 
+			<span class="kw">let </span>pinned_hash = <span class="self">self</span>.runtime_info.get_block_in_session(session_index);
 			<span class="kw">let </span>inclusions = <span class="self">self</span>.scraper.get_blocks_including_candidate(<span class="kw-2">&amp;</span>candidate_hash);
-			<span class="kw">if </span>inclusions.is_empty() {
+			<span class="kw">if </span>pinned_hash.is_none() &amp;&amp; inclusions.is_empty() {
 				<span class="macro">gum::info!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Couldn&#39;t find inclusion parent for an unapplied slash&quot;</span>,
+					<span class="question-mark">?</span>session_index,
+					<span class="string">&quot;Couldn&#39;t find blocks in the session for an unapplied slash&quot;</span>,
 				);
 				<span class="kw">return
 			</span>}
 
-			<span class="comment">// Find the first inclusion parent that we can use
+			<span class="comment">// Find a relay block that we can use
 			// to generate key ownership proof on.
-			// We use inclusion parents because of the proper session index.
+			// We use inclusion parents as a fallback.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>key_ownership_proofs = Vec::new();
 			<span class="kw">let </span><span class="kw-2">mut </span>dispute_proofs = Vec::new();
 
-			<span class="kw">for </span>(_height, inclusion_parent) <span class="kw">in </span>inclusions {
+			<span class="kw">let </span>blocks_in_the_session =
+				pinned_hash.into_iter().chain(inclusions.into_iter().map(|(_n, h)| h));
+			<span class="kw">for </span>hash <span class="kw">in </span>blocks_in_the_session {
 				<span class="kw">for </span>(validator_index, validator_id) <span class="kw">in </span>pending.keys.iter() {
-					<span class="kw">let </span>res =
-						key_ownership_proof(ctx.sender(), inclusion_parent, validator_id.clone())
-							.<span class="kw">await</span>;
+					<span class="kw">let </span>res = key_ownership_proof(ctx.sender(), hash, validator_id.clone()).<span class="kw">await</span>;
 
 					<span class="kw">match </span>res {
 						<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(key_ownership_proof)) =&gt; {

@@ -2583,6 +2583,22 @@
 <a href="#2583" id="2583">2583</a>
 <a href="#2584" id="2584">2584</a>
 <a href="#2585" id="2585">2585</a>
+<a href="#2586" id="2586">2586</a>
+<a href="#2587" id="2587">2587</a>
+<a href="#2588" id="2588">2588</a>
+<a href="#2589" id="2589">2589</a>
+<a href="#2590" id="2590">2590</a>
+<a href="#2591" id="2591">2591</a>
+<a href="#2592" id="2592">2592</a>
+<a href="#2593" id="2593">2593</a>
+<a href="#2594" id="2594">2594</a>
+<a href="#2595" id="2595">2595</a>
+<a href="#2596" id="2596">2596</a>
+<a href="#2597" id="2597">2597</a>
+<a href="#2598" id="2598">2598</a>
+<a href="#2599" id="2599">2599</a>
+<a href="#2600" id="2600">2600</a>
+<a href="#2601" id="2601">2601</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2632,8 +2648,8 @@
 <span class="kw">use </span>frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		ConstU32, EitherOf, EitherOfDiverse, InstanceFilter, KeyOwnerProofSystem, PrivilegeCmp,
-		ProcessMessage, ProcessMessageError, WithdrawReasons,
+		ConstU32, Contains, EitherOf, EitherOfDiverse, InstanceFilter, KeyOwnerProofSystem,
+		PrivilegeCmp, ProcessMessage, ProcessMessageError, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -3676,6 +3692,7 @@
 	<span class="kw">type </span>UnsignedPriority = ParasUnsignedPriority;
 	<span class="kw">type </span>QueueFootprinter = ParaInclusion;
 	<span class="kw">type </span>NextSessionRotation = Babe;
+	<span class="kw">type </span>OnNewHead = Registrar;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -4088,6 +4105,19 @@
 		<span class="kw">type </span>PalletName = TipsPalletName;
 	}
 
+	<span class="kw">pub struct </span>ParachainsToUnlock;
+	<span class="kw">impl </span>Contains&lt;ParaId&gt; <span class="kw">for </span>ParachainsToUnlock {
+		<span class="kw">fn </span>contains(id: <span class="kw-2">&amp;</span>ParaId) -&gt; bool {
+			<span class="kw">let </span>id: u32 = (<span class="kw-2">*</span>id).into();
+			<span class="comment">// polkadot parachains/parathreads that are locked and never produced block
+			</span><span class="kw">match </span>id {
+				<span class="number">2003 </span>| <span class="number">2015 </span>| <span class="number">2017 </span>| <span class="number">2018 </span>| <span class="number">2025 </span>| <span class="number">2028 </span>| <span class="number">2036 </span>| <span class="number">2038 </span>| <span class="number">2053 </span>| <span class="number">2055 </span>| <span class="number">2090 </span>|
+				<span class="number">2097 </span>| <span class="number">2106 </span>| <span class="number">3336 </span>| <span class="number">3338 </span>| <span class="number">3342 </span>=&gt; <span class="bool-val">true</span>,
+				<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
+			}
+		}
+	}
+
 	<span class="doccomment">/// Unreleased migrations. Add new ones here:
 	</span><span class="kw">pub type </span>Unreleased = (
 		pallet_im_online::migration::v1::Migration&lt;Runtime&gt;,
@@ -4110,6 +4140,8 @@
 		frame_support::migrations::RemovePallet&lt;TipsPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
 
 		parachains_configuration::migration::v9::MigrateToV9&lt;Runtime&gt;,
+		<span class="comment">// Migrate parachain info format
+		</span>paras_registrar::migration::VersionCheckedMigrateToV1&lt;Runtime, ParachainsToUnlock&gt;,
 	);
 }
 

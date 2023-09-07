@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/common/src/paras_registrar.rs`."><title>paras_registrar.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-ba5701c5741a7b69.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0 (90c541806 2023-05-31)" data-search-js="search-e077946657036a58.js" data-settings-js="settings-298e1ea74db45b39.js" data-settings-css="settings-7bfb4c59cc6bc502.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../static.files/source-script-905937fbbdc8e9ea.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-f61008743c98d196.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../polkadot_runtime_common/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/common/src/paras_registrar/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ba5701c5741a7b69.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0 (90c541806 2023-05-31)" data-search-js="search-e077946657036a58.js" data-settings-js="settings-298e1ea74db45b39.js" data-settings-css="settings-7bfb4c59cc6bc502.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../../static.files/source-script-905937fbbdc8e9ea.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-f61008743c98d196.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../polkadot_runtime_common/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1571,6 +1571,41 @@
 <a href="#1571" id="1571">1571</a>
 <a href="#1572" id="1572">1572</a>
 <a href="#1573" id="1573">1573</a>
+<a href="#1574" id="1574">1574</a>
+<a href="#1575" id="1575">1575</a>
+<a href="#1576" id="1576">1576</a>
+<a href="#1577" id="1577">1577</a>
+<a href="#1578" id="1578">1578</a>
+<a href="#1579" id="1579">1579</a>
+<a href="#1580" id="1580">1580</a>
+<a href="#1581" id="1581">1581</a>
+<a href="#1582" id="1582">1582</a>
+<a href="#1583" id="1583">1583</a>
+<a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
+<a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a>
+<a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
+<a href="#1592" id="1592">1592</a>
+<a href="#1593" id="1593">1593</a>
+<a href="#1594" id="1594">1594</a>
+<a href="#1595" id="1595">1595</a>
+<a href="#1596" id="1596">1596</a>
+<a href="#1597" id="1597">1597</a>
+<a href="#1598" id="1598">1598</a>
+<a href="#1599" id="1599">1599</a>
+<a href="#1600" id="1600">1600</a>
+<a href="#1601" id="1601">1601</a>
+<a href="#1602" id="1602">1602</a>
+<a href="#1603" id="1603">1603</a>
+<a href="#1604" id="1604">1604</a>
+<a href="#1605" id="1605">1605</a>
+<a href="#1606" id="1606">1606</a>
+<a href="#1607" id="1607">1607</a>
+<a href="#1608" id="1608">1608</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1590,7 +1625,9 @@
 </span><span class="doccomment">//! Pallet to handle parachain registration and related fund management.
 //! In essence this is a simple wrapper around `paras`.
 
-</span><span class="kw">use </span>frame_support::{
+</span><span class="kw">pub mod </span>migration;
+
+<span class="kw">use </span>frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	pallet_prelude::Weight,
@@ -1608,7 +1645,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::traits::{OnSwap, Registrar};
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
-<span class="kw">use </span>runtime_parachains::paras::ParaKind;
+<span class="kw">use </span>runtime_parachains::paras::{OnNewHead, ParaKind};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
 	traits::{CheckedSub, Saturating},
@@ -1622,7 +1659,15 @@
 	<span class="doccomment">/// The amount reserved by the `manager` account for the registration.
 	</span>deposit: Balance,
 	<span class="doccomment">/// Whether the para registration should be locked from being controlled by the manager.
-	</span>locked: bool,
+	/// None means the lock had not been explicitly set, and should be treated as false.
+	</span>locked: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+}
+
+<span class="kw">impl</span>&lt;Account, Balance&gt; ParaInfo&lt;Account, Balance&gt; {
+	<span class="doccomment">/// Returns if the para is locked.
+	</span><span class="kw">pub fn </span>is_locked(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		<span class="self">self</span>.locked.unwrap_or(<span class="bool-val">false</span>)
+	}
 }
 
 <span class="kw">type </span>BalanceOf&lt;T&gt; =
@@ -1669,8 +1714,12 @@
 	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 
+	<span class="doccomment">/// The current storage version.
+	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">1</span>);
+
 	<span class="attr">#[pallet::pallet]
 	#[pallet::without_storage_info]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
 	<span class="attr">#[pallet::config]
@@ -2019,12 +2068,12 @@
 
 	<span class="comment">// Apply a lock to the parachain.
 	</span><span class="kw">fn </span>apply_lock(id: ParaId) {
-		Paras::&lt;T&gt;::mutate(id, |x| x.as_mut().map(|info| info.locked = <span class="bool-val">true</span>));
+		Paras::&lt;T&gt;::mutate(id, |x| x.as_mut().map(|info| info.locked = <span class="prelude-val">Some</span>(<span class="bool-val">true</span>)));
 	}
 
 	<span class="comment">// Remove a lock from the parachain.
 	</span><span class="kw">fn </span>remove_lock(id: ParaId) {
-		Paras::&lt;T&gt;::mutate(id, |x| x.as_mut().map(|info| info.locked = <span class="bool-val">false</span>));
+		Paras::&lt;T&gt;::mutate(id, |x| x.as_mut().map(|info| info.locked = <span class="prelude-val">Some</span>(<span class="bool-val">false</span>)));
 	}
 
 	<span class="comment">// Register a Para ID under control of `manager`.
@@ -2054,9 +2103,7 @@
 		);
 		runtime_parachains::schedule_parathread_upgrade::&lt;T&gt;(id)
 			.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::CannotUpgrade)<span class="question-mark">?</span>;
-		<span class="comment">// Once a para has upgraded to a parachain, it can no longer be managed by the owner.
-		// Intentionally, the flag stays with the para even after downgrade.
-		</span><span class="self">Self</span>::apply_lock(id);
+
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -2106,7 +2153,7 @@
 			.map_err(|e| e.into())
 			.and_then(|who| -&gt; DispatchResult {
 				<span class="kw">let </span>para_info = Paras::&lt;T&gt;::get(id).ok_or(Error::&lt;T&gt;::NotRegistered)<span class="question-mark">?</span>;
-				<span class="macro">ensure!</span>(!para_info.locked, Error::&lt;T&gt;::ParaLocked);
+				<span class="macro">ensure!</span>(!para_info.is_locked(), Error::&lt;T&gt;::ParaLocked);
 				<span class="macro">ensure!</span>(para_info.manager == who, Error::&lt;T&gt;::NotOwner);
 				<span class="prelude-val">Ok</span>(())
 			})
@@ -2139,7 +2186,7 @@
 
 		<span class="kw">let </span>deposit = deposit_override.unwrap_or_else(T::ParaDeposit::get);
 		&lt;T <span class="kw">as </span>Config&gt;::Currency::reserve(<span class="kw-2">&amp;</span>who, deposit)<span class="question-mark">?</span>;
-		<span class="kw">let </span>info = ParaInfo { manager: who.clone(), deposit, locked: <span class="bool-val">false </span>};
+		<span class="kw">let </span>info = ParaInfo { manager: who.clone(), deposit, locked: <span class="prelude-val">None </span>};
 
 		Paras::&lt;T&gt;::insert(id, info);
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Reserved { para_id: id, who });
@@ -2158,7 +2205,7 @@
 	) -&gt; DispatchResult {
 		<span class="kw">let </span>deposited = <span class="kw">if let </span><span class="prelude-val">Some</span>(para_data) = Paras::&lt;T&gt;::get(id) {
 			<span class="macro">ensure!</span>(para_data.manager == who, Error::&lt;T&gt;::NotOwner);
-			<span class="macro">ensure!</span>(!para_data.locked, Error::&lt;T&gt;::ParaLocked);
+			<span class="macro">ensure!</span>(!para_data.is_locked(), Error::&lt;T&gt;::ParaLocked);
 			para_data.deposit
 		} <span class="kw">else </span>{
 			<span class="macro">ensure!</span>(!ensure_reserved, Error::&lt;T&gt;::NotReserved);
@@ -2174,7 +2221,7 @@
 		} <span class="kw">else if let </span><span class="prelude-val">Some</span>(rebate) = deposited.checked_sub(<span class="kw-2">&amp;</span>deposit) {
 			&lt;T <span class="kw">as </span>Config&gt;::Currency::unreserve(<span class="kw-2">&amp;</span>who, rebate);
 		};
-		<span class="kw">let </span>info = ParaInfo { manager: who.clone(), deposit, locked: <span class="bool-val">false </span>};
+		<span class="kw">let </span>info = ParaInfo { manager: who.clone(), deposit, locked: <span class="prelude-val">None </span>};
 
 		Paras::&lt;T&gt;::insert(id, info);
 		<span class="comment">// We check above that para has no lifecycle, so this should not fail.
@@ -2235,6 +2282,21 @@
 		<span class="kw">let </span>res2 = runtime_parachains::schedule_parathread_upgrade::&lt;T&gt;(to_upgrade);
 		<span class="macro">debug_assert!</span>(res2.is_ok());
 		T::OnSwap::on_swap(to_upgrade, to_downgrade);
+	}
+}
+
+<span class="kw">impl</span>&lt;T: Config&gt; OnNewHead <span class="kw">for </span>Pallet&lt;T&gt; {
+	<span class="kw">fn </span>on_new_head(id: ParaId, _head: <span class="kw-2">&amp;</span>HeadData) -&gt; Weight {
+		<span class="comment">// mark the parachain locked if the locked value is not already set
+		</span><span class="kw">let </span><span class="kw-2">mut </span>writes = <span class="number">0</span>;
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>info) = Paras::&lt;T&gt;::get(id) {
+			<span class="kw">if </span>info.locked.is_none() {
+				info.locked = <span class="prelude-val">Some</span>(<span class="bool-val">true</span>);
+				Paras::&lt;T&gt;::insert(id, info);
+				writes += <span class="number">1</span>;
+			}
+		}
+		T::DbWeight::get().reads_writes(<span class="number">1</span>, writes)
 	}
 }
 
@@ -2357,6 +2419,7 @@
 		<span class="kw">type </span>UnsignedPriority = ParasUnsignedPriority;
 		<span class="kw">type </span>QueueFootprinter = ();
 		<span class="kw">type </span>NextSessionRotation = <span class="kw">crate</span>::mock::TestNextSessionRotation;
+		<span class="kw">type </span>OnNewHead = ();
 	}
 
 	<span class="kw">impl </span>configuration::Config <span class="kw">for </span>Test {
@@ -2843,8 +2906,10 @@
 			));
 
 			<span class="macro">assert_noop!</span>(Registrar::add_lock(RuntimeOrigin::signed(<span class="number">2</span>), para_id), BadOrigin);
-			<span class="comment">// Once they begin onboarding, we lock them in.
-			</span><span class="macro">assert_ok!</span>(Registrar::add_lock(RuntimeOrigin::signed(<span class="number">1</span>), para_id));
+
+			<span class="comment">// Once they produces new block, we lock them in.
+			</span>Registrar::on_new_head(para_id, <span class="kw-2">&amp;</span>Default::default());
+
 			<span class="comment">// Owner cannot pass origin check when checking lock
 			</span><span class="macro">assert_noop!</span>(
 				Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed(<span class="number">1</span>), para_id),
@@ -2856,6 +2921,11 @@
 			</span><span class="macro">assert_ok!</span>(Registrar::remove_lock(para_origin(para_id), para_id));
 			<span class="comment">// Owner can pass origin check again
 			</span><span class="macro">assert_ok!</span>(Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed(<span class="number">1</span>), para_id));
+
+			<span class="comment">// Won&#39;t lock again after it is unlocked
+			</span>Registrar::on_new_head(para_id, <span class="kw-2">&amp;</span>Default::default());
+
+			<span class="macro">assert_ok!</span>(Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed(<span class="number">1</span>), para_id));
 		});
 	}
 

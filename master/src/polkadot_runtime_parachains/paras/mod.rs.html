@@ -2217,6 +2217,27 @@
 <a href="#2217" id="2217">2217</a>
 <a href="#2218" id="2218">2218</a>
 <a href="#2219" id="2219">2219</a>
+<a href="#2220" id="2220">2220</a>
+<a href="#2221" id="2221">2221</a>
+<a href="#2222" id="2222">2222</a>
+<a href="#2223" id="2223">2223</a>
+<a href="#2224" id="2224">2224</a>
+<a href="#2225" id="2225">2225</a>
+<a href="#2226" id="2226">2226</a>
+<a href="#2227" id="2227">2227</a>
+<a href="#2228" id="2228">2228</a>
+<a href="#2229" id="2229">2229</a>
+<a href="#2230" id="2230">2230</a>
+<a href="#2231" id="2231">2231</a>
+<a href="#2232" id="2232">2232</a>
+<a href="#2233" id="2233">2233</a>
+<a href="#2234" id="2234">2234</a>
+<a href="#2235" id="2235">2235</a>
+<a href="#2236" id="2236">2236</a>
+<a href="#2237" id="2237">2237</a>
+<a href="#2238" id="2238">2238</a>
+<a href="#2239" id="2239">2239</a>
+<a href="#2240" id="2240">2240</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2700,6 +2721,22 @@
 	}
 }
 
+<span class="doccomment">/// Runtime hook for when a parachain head is updated.
+</span><span class="kw">pub trait </span>OnNewHead {
+	<span class="doccomment">/// Called when a parachain head is updated.
+	/// Returns the weight consumed by this function.
+	</span><span class="kw">fn </span>on_new_head(id: ParaId, head: <span class="kw-2">&amp;</span>HeadData) -&gt; Weight;
+}
+
+<span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
+</span><span class="kw">impl </span>OnNewHead <span class="kw">for </span>Tuple {
+	<span class="kw">fn </span>on_new_head(id: ParaId, head: <span class="kw-2">&amp;</span>HeadData) -&gt; Weight {
+		<span class="kw">let </span><span class="kw-2">mut </span>weight: Weight = Default::default();
+		<span class="macro">for_tuples!</span>( #( weight.saturating_accrue(Tuple::on_new_head(id, head)); )* );
+		weight
+	}
+}
+
 <span class="kw">pub trait </span>WeightInfo {
 	<span class="kw">fn </span>force_set_current_code(c: u32) -&gt; Weight;
 	<span class="kw">fn </span>force_set_current_head(s: u32) -&gt; Weight;
@@ -2793,6 +2830,9 @@
 		/// This is used to judge whether or not a para-chain can offboard. Per default this should
 		/// be set to the `ParaInclusion` pallet.
 		</span><span class="kw">type </span>QueueFootprinter: QueueFootprinter&lt;Origin = UmpQueueId&gt;;
+
+		<span class="doccomment">/// Runtime hook for when a parachain head is updated.
+		</span><span class="kw">type </span>OnNewHead: OnNewHead;
 
 		<span class="doccomment">/// Weight information for extrinsics in this pallet.
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
@@ -4181,10 +4221,10 @@
 		new_head: HeadData,
 		execution_context: BlockNumberFor&lt;T&gt;,
 	) -&gt; Weight {
-		Heads::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>id, new_head);
+		Heads::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;</span>new_head);
 		MostRecentContext::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>id, execution_context);
 
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(expected_at) = FutureCodeUpgrades::&lt;T&gt;::get(<span class="kw-2">&amp;</span>id) {
+		<span class="kw">let </span>weight = <span class="kw">if let </span><span class="prelude-val">Some</span>(expected_at) = FutureCodeUpgrades::&lt;T&gt;::get(<span class="kw-2">&amp;</span>id) {
 			<span class="kw">if </span>expected_at &lt;= execution_context {
 				FutureCodeUpgrades::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>id);
 				UpgradeGoAheadSignal::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>id);
@@ -4224,7 +4264,9 @@
 			// the `Abort` signal.
 			</span>UpgradeGoAheadSignal::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>id);
 			T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">2</span>)
-		}
+		};
+
+		weight.saturating_add(T::OnNewHead::on_new_head(id, <span class="kw-2">&amp;</span>new_head))
 	}
 
 	<span class="doccomment">/// Returns the list of PVFs (aka validation code) that require casting a vote by a validator in

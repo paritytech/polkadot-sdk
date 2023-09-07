@@ -128,11 +128,11 @@
 </span><span class="doccomment">//! The Polkadot multiplexing assignment provider.
 //! Provides blockspace assignments for both bulk and on demand parachains.
 </span><span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
-<span class="kw">use </span>primitives::{v5::Assignment, CoreIndex, Id <span class="kw">as </span>ParaId};
+<span class="kw">use </span>primitives::{CoreIndex, Id <span class="kw">as </span>ParaId};
 
 <span class="kw">use crate</span>::{
 	configuration, paras,
-	scheduler::common::{AssignmentProvider, AssignmentProviderConfig},
+	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
 };
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;

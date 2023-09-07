@@ -944,6 +944,19 @@
 <a href="#944" id="944">944</a>
 <a href="#945" id="945">945</a>
 <a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1033,7 +1046,7 @@
 <span class="kw">pub use </span>polkadot_node_subsystem_types::{
 	errors::{SubsystemError, SubsystemResult},
 	jaeger, ActivatedLeaf, ActiveLeavesUpdate, LeafStatus, OverseerSignal,
-	RuntimeApiSubsystemClient,
+	RuntimeApiSubsystemClient, UnpinHandle,
 };
 
 <span class="kw">pub mod </span>metrics;
@@ -1191,23 +1204,35 @@
 /// `HeaderBackend::block_number_from_id()`.
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>BlockInfo {
-	<span class="doccomment">/// hash of the block.
+	<span class="doccomment">/// Hash of the block.
 	</span><span class="kw">pub </span>hash: Hash,
-	<span class="doccomment">/// hash of the parent block.
+	<span class="doccomment">/// Hash of the parent block.
 	</span><span class="kw">pub </span>parent_hash: Hash,
-	<span class="doccomment">/// block&#39;s number.
+	<span class="doccomment">/// Block&#39;s number.
 	</span><span class="kw">pub </span>number: BlockNumber,
+	<span class="doccomment">/// A handle to unpin the block on drop.
+	</span><span class="kw">pub </span>unpin_handle: UnpinHandle,
 }
 
 <span class="kw">impl </span>From&lt;BlockImportNotification&lt;Block&gt;&gt; <span class="kw">for </span>BlockInfo {
 	<span class="kw">fn </span>from(n: BlockImportNotification&lt;Block&gt;) -&gt; <span class="self">Self </span>{
-		BlockInfo { hash: n.hash, parent_hash: n.header.parent_hash, number: n.header.number }
+		<span class="kw">let </span>hash = n.hash;
+		<span class="kw">let </span>parent_hash = n.header.parent_hash;
+		<span class="kw">let </span>number = n.header.number;
+		<span class="kw">let </span>unpin_handle = n.into_unpin_handle();
+
+		BlockInfo { hash, parent_hash, number, unpin_handle }
 	}
 }
 
 <span class="kw">impl </span>From&lt;FinalityNotification&lt;Block&gt;&gt; <span class="kw">for </span>BlockInfo {
 	<span class="kw">fn </span>from(n: FinalityNotification&lt;Block&gt;) -&gt; <span class="self">Self </span>{
-		BlockInfo { hash: n.hash, parent_hash: n.header.parent_hash, number: n.header.number }
+		<span class="kw">let </span>hash = n.hash;
+		<span class="kw">let </span>parent_hash = n.header.parent_hash;
+		<span class="kw">let </span>number = n.header.number;
+		<span class="kw">let </span>unpin_handle = n.into_unpin_handle();
+
+		BlockInfo { hash, parent_hash, number, unpin_handle }
 	}
 }
 
@@ -1738,6 +1763,7 @@
 				hash: block.hash,
 				number: block.number,
 				status,
+				unpin_handle: block.unpin_handle,
 				span,
 			}),
 			<span class="prelude-val">None </span>=&gt; ActiveLeavesUpdate::default(),

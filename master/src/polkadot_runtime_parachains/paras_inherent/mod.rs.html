@@ -1029,12 +1029,6 @@
 <a href="#1029" id="1029">1029</a>
 <a href="#1030" id="1030">1030</a>
 <a href="#1031" id="1031">1031</a>
-<a href="#1032" id="1032">1032</a>
-<a href="#1033" id="1033">1033</a>
-<a href="#1034" id="1034">1034</a>
-<a href="#1035" id="1035">1035</a>
-<a href="#1036" id="1036">1036</a>
-<a href="#1037" id="1037">1037</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1066,10 +1060,7 @@
 	initializer,
 	metrics::METRICS,
 	paras,
-	scheduler::{
-		<span class="self">self</span>,
-		common::{CoreAssignment, FreedReason},
-	},
+	scheduler::{<span class="self">self</span>, FreedReason},
 	shared, ParaId,
 };
 <span class="kw">use </span>bitvec::prelude::BitVec;
@@ -1282,8 +1273,8 @@
 		T: Config,
 	{
 		<span class="comment">// Handle timeouts for any availability core work.
-		</span><span class="kw">let </span>availability_pred = &lt;scheduler::Pallet&lt;T&gt;&gt;::availability_timeout_predicate();
-		<span class="kw">let </span>freed_timeout = <span class="kw">if let </span><span class="prelude-val">Some</span>(pred) = availability_pred {
+		</span><span class="kw">let </span>freed_timeout = <span class="kw">if </span>&lt;scheduler::Pallet&lt;T&gt;&gt;::availability_timeout_check_required() {
+			<span class="kw">let </span>pred = &lt;scheduler::Pallet&lt;T&gt;&gt;::availability_timeout_predicate();
 			&lt;inclusion::Pallet&lt;T&gt;&gt;::collect_pending(pred)
 		} <span class="kw">else </span>{
 			Vec::new()
@@ -1357,7 +1348,7 @@
 	///
 	/// When called from `create_inherent` the `context` must be set to
 	/// `ProcessInherentDataContext::ProvideInherent` so it guarantees the invariant that inherent
-	/// is not overweight.  
+	/// is not overweight.
 	/// It is **mandatory** that calls from `enter` set `context` to
 	/// `ProcessInherentDataContext::Enter` to ensure the weight invariant is checked.
 	///
@@ -1620,7 +1611,10 @@
 
 		<span class="kw">let </span>freed = collect_all_freed_cores::&lt;T, <span class="kw">_</span>&gt;(freed_concluded.iter().cloned());
 
-		<span class="kw">let </span>scheduled = &lt;scheduler::Pallet&lt;T&gt;&gt;::update_claimqueue(freed, now);
+		&lt;scheduler::Pallet&lt;T&gt;&gt;::update_claimqueue(freed, now);
+		<span class="kw">let </span>scheduled = &lt;scheduler::Pallet&lt;T&gt;&gt;::scheduled_paras()
+			.map(|(core_idx, para_id)| (para_id, core_idx))
+			.collect();
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() <span class="kw">as </span>u64);
 
@@ -1645,7 +1639,7 @@
 						.verify_backed_candidate(<span class="kw-2">&amp;</span>allowed_relay_parents, candidate_idx, backed_candidate)
 						.is_err()
 			},
-			<span class="kw-2">&amp;</span>scheduled[..],
+			<span class="kw-2">&amp;</span>scheduled,
 		);
 
 		METRICS.on_candidates_sanitized(backed_candidates.len() <span class="kw">as </span>u64);
@@ -1657,7 +1651,7 @@
 		} = &lt;inclusion::Pallet&lt;T&gt;&gt;::process_candidates(
 			<span class="kw-2">&amp;</span>allowed_relay_parents,
 			backed_candidates.clone(),
-			scheduled,
+			<span class="kw-2">&amp;</span>scheduled,
 			&lt;scheduler::Pallet&lt;T&gt;&gt;::group_validators,
 		)<span class="question-mark">?</span>;
 		<span class="comment">// Note which of the scheduled cores were actually occupied by a backed candidate.
@@ -1954,18 +1948,13 @@
 &gt;(
 	<span class="kw-2">mut </span>backed_candidates: Vec&lt;BackedCandidate&lt;T::Hash&gt;&gt;,
 	<span class="kw-2">mut </span>candidate_has_concluded_invalid_dispute_or_is_invalid: F,
-	scheduled: <span class="kw-2">&amp;</span>[CoreAssignment&lt;BlockNumberFor&lt;T&gt;&gt;],
+	scheduled: <span class="kw-2">&amp;</span>BTreeMap&lt;ParaId, CoreIndex&gt;,
 ) -&gt; Vec&lt;BackedCandidate&lt;T::Hash&gt;&gt; {
 	<span class="comment">// Remove any candidates that were concluded invalid.
 	// This does not assume sorting.
 	</span>backed_candidates.indexed_retain(<span class="kw">move </span>|candidate_idx, backed_candidate| {
 		!candidate_has_concluded_invalid_dispute_or_is_invalid(candidate_idx, backed_candidate)
 	});
-
-	<span class="kw">let </span>scheduled_paras_to_core_idx = scheduled
-		.into_iter()
-		.map(|core_assignment| (core_assignment.paras_entry.para_id(), core_assignment.core))
-		.collect::&lt;BTreeMap&lt;ParaId, CoreIndex&gt;&gt;();
 
 	<span class="comment">// Assure the backed candidate&#39;s `ParaId`&#39;s core is free.
 	// This holds under the assumption that `Scheduler::schedule` is called _before_.
@@ -1975,7 +1964,7 @@
 	</span>backed_candidates.retain(|backed_candidate| {
 		<span class="kw">let </span>desc = backed_candidate.descriptor();
 
-		scheduled_paras_to_core_idx.get(<span class="kw-2">&amp;</span>desc.para_id).is_some()
+		scheduled.get(<span class="kw-2">&amp;</span>desc.para_id).is_some()
 	});
 
 	<span class="comment">// Sort the `Vec` last, once there is a guarantee that these
@@ -1985,8 +1974,7 @@
 	// but also allows this to be done in place.
 	</span>backed_candidates.sort_by(|x, y| {
 		<span class="comment">// Never panics, since we filtered all panic arguments out in the previous `fn retain`.
-		</span>scheduled_paras_to_core_idx[<span class="kw-2">&amp;</span>x.descriptor().para_id]
-			.cmp(<span class="kw-2">&amp;</span>scheduled_paras_to_core_idx[<span class="kw-2">&amp;</span>y.descriptor().para_id])
+		</span>scheduled[<span class="kw-2">&amp;</span>x.descriptor().para_id].cmp(<span class="kw-2">&amp;</span>scheduled[<span class="kw-2">&amp;</span>y.descriptor().para_id])
 	});
 
 	backed_candidates

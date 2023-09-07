@@ -321,9 +321,6 @@
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
 <a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -362,12 +359,13 @@
 	/// - Request revenue information for a previous timeslice
 	/// - Initialize an instantaneous core pool historical revenue record
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_tick() -&gt; Weight {
+		<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::new();
+		meter.consume(T::WeightInfo::do_tick_base());
+
 		<span class="kw">let </span>(<span class="kw-2">mut </span>status, config) = <span class="kw">match </span>(Status::&lt;T&gt;::get(), Configuration::&lt;T&gt;::get()) {
 			(<span class="prelude-val">Some</span>(s), <span class="prelude-val">Some</span>(c)) =&gt; (s, c),
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span>Weight::zero(),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span>meter.consumed(),
 		};
-
-		<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::new();
 
 		<span class="kw">if </span><span class="self">Self</span>::process_core_count(<span class="kw-2">&amp;mut </span>status) {
 			meter.consume(T::WeightInfo::process_core_count(status.core_count.into()));
@@ -421,9 +419,7 @@
 	</span>}
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>process_revenue() -&gt; bool {
-		<span class="kw">let </span><span class="prelude-val">Some</span>((until, amount)) = T::Coretime::check_notify_revenue_info() <span class="kw">else </span>{
-			<span class="kw">return </span><span class="bool-val">false
-		</span>};
+		<span class="kw">let </span><span class="prelude-val">Some</span>((until, amount)) = T::Coretime::check_notify_revenue_info() <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
 		<span class="kw">let </span>when: Timeslice =
 			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
 		<span class="kw">let </span><span class="kw-2">mut </span>revenue = T::ConvertBalance::convert_back(amount);
@@ -615,9 +611,7 @@
 		rc_begin: RelayBlockNumberOf&lt;T&gt;,
 		core: CoreIndex,
 	) {
-		<span class="kw">let </span><span class="prelude-val">Some</span>(workplan) = Workplan::&lt;T&gt;::take((timeslice, core)) <span class="kw">else </span>{
-			<span class="kw">return
-		</span>};
+		<span class="kw">let </span><span class="prelude-val">Some</span>(workplan) = Workplan::&lt;T&gt;::take((timeslice, core)) <span class="kw">else </span>{ <span class="kw">return </span>};
 		<span class="kw">let </span>workload = Workload::&lt;T&gt;::get(core);
 		<span class="kw">let </span>parts_used = workplan.iter().map(|i| i.mask).fold(CoreMask::void(), |a, i| a | i);
 		<span class="kw">let </span><span class="kw-2">mut </span>workplan = workplan.into_inner();
