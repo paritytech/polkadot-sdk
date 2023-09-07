@@ -25,7 +25,7 @@ static RUNTIMES: &[&str] = &["westend", "rococo"];
 fn benchmark_overhead_works() {
 	for runtime in RUNTIMES {
 		let runtime = format!("{}-dev", runtime);
-		assert!(benchmark_overhead(runtime).is_ok());
+		assert!(benchmark_overhead(&runtime).is_ok());
 	}
 }
 
@@ -33,11 +33,11 @@ fn benchmark_overhead_works() {
 #[test]
 fn benchmark_overhead_rejects_non_dev_runtimes() {
 	for runtime in RUNTIMES.into_iter() {
-		assert!(benchmark_overhead(runtime.into()).is_err());
+		assert!(benchmark_overhead(runtime).is_err());
 	}
 }
 
-fn benchmark_overhead(runtime: String) -> Result<(), String> {
+fn benchmark_overhead(runtime: &str) -> Result<(), String> {
 	let tmp_dir = tempdir().expect("could not create a temp dir");
 	let base_path = tmp_dir.path();
 
