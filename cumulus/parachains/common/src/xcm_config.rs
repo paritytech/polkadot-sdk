@@ -143,7 +143,10 @@ mod tests {
 
 		for (para_id, expected_result) in test_data {
 			let origin: MultiLocation = (Parent, Parachain(para_id)).into();
-			assert_eq!(expected_result, ConcreteNativeAssetFromSystem::contains(&expected_asset, &origin));
+			assert_eq!(
+				expected_result,
+				ConcreteNativeAssetFromSystem::contains(&expected_asset, &origin)
+			);
 		}
 	}
 }
