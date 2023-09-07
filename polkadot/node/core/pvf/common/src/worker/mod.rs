@@ -60,6 +60,10 @@ macro_rules! decl_worker_main {
 					println!("{}", $worker_version);
 					return
 				},
+				"sleep" => {
+					std::thread::sleep(std::time::Duration::from_secs(5));
+					return
+				},
 				subcommand => {
 					// Must be passed for compatibility with the single-binary test workers.
 					if subcommand != $expected_command {

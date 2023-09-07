@@ -92,7 +92,6 @@ members = [
 	"cumulus/primitives/utility",
 	"cumulus/test/client",
 	"cumulus/test/relay-sproof-builder",
-	"cumulus/test/relay-validation-worker-provider",
 	"cumulus/test/runtime",
 	"cumulus/test/service",
 	"cumulus/xcm/xcm-emulator",
