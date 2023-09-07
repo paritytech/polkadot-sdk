@@ -61,6 +61,7 @@ impl frame_system::Config for TestRuntime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type Block = Block;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
