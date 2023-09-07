@@ -17,9 +17,7 @@ frame-system-rpc-runtime-api = { path = "../../../../../substrate/frame/system/r
 frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true}
 frame-try-runtime = { path = "../../../../../substrate/frame/try-runtime", default-features = false, optional = true}
 pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false}
-pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false}
 pallet-glutton = { path = "../../../../../substrate/frame/glutton", default-features = false, optional = true}
-pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
 pallet-sudo = { path = "../../../../../substrate/frame/sudo", default-features = false, optional = true}
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
 sp-api = { path = "../../../../../substrate/primitives/api", default-features = false}
@@ -47,7 +45,6 @@ cumulus-pallet-session-benchmarking = {path = "../../../../pallets/session-bench
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-timestamp = { path = "../../../../primitives/timestamp", default-features = false }
-pallet-fixed = { path = "../../../../pallets/fixed", default-features = false }
 parachain-info = { path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
 
@@ -63,7 +60,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-fixed/runtime-benchmarks",
 	"pallet-glutton/runtime-benchmarks",
 	"pallet-sudo?/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
@@ -86,10 +82,7 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime?/std",
 	"pallet-aura/std",
-	"pallet-authorship/std",
-	"pallet-fixed/std",
 	"pallet-glutton/std",
-	"pallet-session/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"parachain-info/std",
@@ -120,10 +113,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-aura/try-runtime",
-	"pallet-authorship/try-runtime",
-	"pallet-fixed/try-runtime",
 	"pallet-glutton/try-runtime",
-	"pallet-session/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"parachain-info/try-runtime",

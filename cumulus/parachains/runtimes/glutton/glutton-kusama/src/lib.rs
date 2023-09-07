@@ -202,28 +202,8 @@ impl pallet_timestamp::Config for Runtime {
 	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
 
-impl pallet_authorship::Config for Runtime {
-	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
-	type EventHandler = (Fixed,);
-}
-
 pub const PERIOD: u32 = 6 * HOURS;
 pub const OFFSET: u32 = 0;
-
-impl pallet_session::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type ValidatorId = <Self as frame_system::Config>::AccountId;
-	type ValidatorIdOf = pallet_fixed::IdentityCollator;
-	// TODO: decide how often the session should end, collators aren't changing
-	// often but there may be additions by the root user which need to come in
-	// at some point so we must have new sessions.
-	type ShouldEndSession = pallet_session::PeriodicSessions<ConstU32<PERIOD>, ConstU32<OFFSET>>;
-	type NextSessionRotation = pallet_session::PeriodicSessions<ConstU32<PERIOD>, ConstU32<OFFSET>>;
-	type SessionManager = Fixed;
-	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
-	type Keys = SessionKeys;
-	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
-}
 
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
@@ -240,16 +220,6 @@ parameter_types! {
 }
 
 pub type FixedUpdateOrigin = EnsureRoot<AccountId>;
-
-impl pallet_fixed::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type UpdateOrigin = FixedUpdateOrigin;
-	type MaxCollators = ConstU32<100>;
-	type ValidatorId = <Self as frame_system::Config>::AccountId;
-	type ValidatorIdOf = pallet_fixed::IdentityCollator;
-	type ValidatorRegistration = Session;
-	type WeightInfo = weights::pallet_fixed::WeightInfo<Runtime>;
-}
 
 impl pallet_glutton::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -271,15 +241,13 @@ construct_runtime! {
 			Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned,
 		} = 1,
 		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>} = 2,
+		// TODO: probably not needed now, but I'm not sure
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 3,
 
 		// DMP handler.
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin} = 10,
 
 		// Collator support
-		Authorship: pallet_authorship::{Pallet, Storage} = 20,
-		Fixed: pallet_fixed::{Pallet, Call, Storage, Event<T>, Config<T>} = 21,
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
 		Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
 		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config<T>} = 24,
 
@@ -338,8 +306,6 @@ mod benches {
 	define_benchmarks!(
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_glutton, Glutton]
-		[pallet_session, SessionBench::<Runtime>]
-		[pallet_fixed, Fixed]
 	);
 }
 
@@ -451,7 +417,6 @@ impl_runtime_apis! {
 			use frame_benchmarking::{Benchmarking, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
-			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -468,8 +433,8 @@ impl_runtime_apis! {
 			use sp_storage::TrackedStorageKey;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
-			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+			// use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
+			// impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 			impl frame_system_benchmarking::Config for Runtime {
 				fn setup_set_code_requirements(code: &sp_std::vec::Vec<u8>) -> Result<(), BenchmarkError> {
 					ParachainSystem::initialize_for_set_code_benchmark(code.len() as u32);

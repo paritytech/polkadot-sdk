@@ -49,7 +49,6 @@ members = [
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",
 	"cumulus/pallets/dmp-queue",
-	"cumulus/pallets/fixed",
 	"cumulus/pallets/parachain-system",
 	"cumulus/pallets/parachain-system/proc-macro",
 	"cumulus/pallets/session-benchmarking",

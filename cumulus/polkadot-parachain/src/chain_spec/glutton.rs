@@ -16,7 +16,7 @@
 
 use crate::chain_spec::{get_account_id_from_seed, Extensions};
 use cumulus_primitives_core::ParaId;
-use parachains_common::{AccountId, AuraId};
+use parachains_common::AuraId;
 use sc_service::ChainType;
 use sp_core::sr25519;
 
@@ -33,15 +33,7 @@ pub fn glutton_development_config(para_id: ParaId) -> GluttonChainSpec {
 		// ID
 		"glutton_dev",
 		ChainType::Local,
-		move || {
-			glutton_genesis(
-				para_id,
-				vec![(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed::<AuraId>("Alice"),
-				)],
-			)
-		},
+		move || glutton_genesis(para_id, vec![get_collator_keys_from_seed::<AuraId>("Alice")]),
 		Vec::new(),
 		None,
 		None,
@@ -62,14 +54,8 @@ pub fn glutton_local_config(para_id: ParaId) -> GluttonChainSpec {
 			glutton_genesis(
 				para_id,
 				vec![
-					(
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed::<AuraId>("Alice"),
-					),
-					(
-						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed::<AuraId>("Bob"),
-					),
+					get_collator_keys_from_seed::<AuraId>("Alice"),
+					get_collator_keys_from_seed::<AuraId>("Bob"),
 				],
 			)
 		},
@@ -105,7 +91,7 @@ pub fn glutton_config(para_id: ParaId) -> GluttonChainSpec {
 
 fn glutton_genesis(
 	parachain_id: ParaId,
-	collators: Vec<(AccountId, AuraId)>,
+	collators: Vec<AuraId>,
 ) -> glutton_runtime::RuntimeGenesisConfig {
 	glutton_runtime::RuntimeGenesisConfig {
 		system: glutton_runtime::SystemConfig {
@@ -122,22 +108,7 @@ fn glutton_genesis(
 			trash_data_count: Default::default(),
 			..Default::default()
 		},
-		fixed: glutton_runtime::FixedConfig {
-			collators: collators.iter().cloned().map(|(acc, _)| acc).collect(),
-		},
-		session: glutton_runtime::SessionConfig {
-			keys: collators
-				.into_iter()
-				.map(|(acc, aura)| {
-					(
-						acc.clone(),                           // account id
-						acc,                                   // validator id
-						glutton_runtime::SessionKeys { aura }, // session keys
-					)
-				})
-				.collect(),
-		},
-		aura: Default::default(),
+		aura: glutton_runtime::AuraConfig { authorities: collators },
 		aura_ext: Default::default(),
 		sudo: glutton_runtime::SudoConfig {
 			key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
