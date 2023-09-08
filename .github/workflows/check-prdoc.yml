@@ -5,9 +5,7 @@ on:
     types: [labeled, opened, synchronize, unlabeled]
 
 env:
-  # todo: switch to paritytech/prdoc once the container is built & published
-  # see https://github.com/paritytech/scripts/pull/595
-  IMAGE: chevdor/prdoc:v0.0.4
+  IMAGE: paritytech/prdoc:v0.0.5
   API_BASE: https://api.github.com/repos
   REPO: ${{ github.repository }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -28,11 +26,11 @@ jobs:
       - name: Check if PRdoc is required
         id: get-labels
         run: |
-            # Fetch the labels for the PR under test
-            echo "Fetch the labels for $API_BASE/${REPO}/pulls/${GITHUB_PR}"
-            labels=$( curl -H "Authorization: token ${GITHUB_TOKEN}" -s "$API_BASE/${REPO}/pulls/${GITHUB_PR}" | jq '.labels | .[] | .name' | tr "\n" ",")
-            echo "Labels: ${labels}"
-            echo "labels=${labels}" >> "$GITHUB_OUTPUT"
+          # Fetch the labels for the PR under test
+          echo "Fetch the labels for $API_BASE/${REPO}/pulls/${GITHUB_PR}"
+          labels=$( curl -H "Authorization: token ${GITHUB_TOKEN}" -s "$API_BASE/${REPO}/pulls/${GITHUB_PR}" | jq '.labels | .[] | .name' | tr "\n" ",")
+          echo "Labels: ${labels}"
+          echo "labels=${labels}" >> "$GITHUB_OUTPUT"
 
       - name: No PRdoc required
         if: ${{ contains(steps.get-labels.outputs.labels, 'R0') }}
