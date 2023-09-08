@@ -4,6 +4,7 @@ version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
+publish = false
 
 [dependencies]
 

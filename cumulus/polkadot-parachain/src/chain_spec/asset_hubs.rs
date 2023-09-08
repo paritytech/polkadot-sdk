@@ -1,4 +1,4 @@
-// Copyright 2019-2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -32,11 +32,11 @@ pub type AssetHubWestendChainSpec =
 	sc_service::GenericChainSpec<asset_hub_westend_runtime::RuntimeGenesisConfig, Extensions>;
 
 const ASSET_HUB_POLKADOT_ED: AssetHubBalance =
-	asset_hub_polkadot_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
 const ASSET_HUB_KUSAMA_ED: AssetHubBalance =
-	asset_hub_kusama_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	parachains_common::kusama::currency::EXISTENTIAL_DEPOSIT;
 const ASSET_HUB_WESTEND_ED: AssetHubBalance =
-	asset_hub_westend_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
 
 /// Generate the session keys from individual elements.
 ///

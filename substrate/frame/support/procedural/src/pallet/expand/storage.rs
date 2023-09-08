@@ -22,7 +22,6 @@ use crate::{
 		Def,
 	},
 };
-use itertools::Itertools;
 use quote::ToTokens;
 use std::{collections::HashMap, ops::IndexMut};
 use syn::spanned::Spanned;
@@ -443,11 +442,14 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 
 			let cfg_attrs = &storage.cfg_attrs;
 
-			// If the storage item is public, just link to it rather than copy-pasting the docs.
+			// If the storage item is public, link it and otherwise just mention it.
+			//
+			// We can not just copy the docs from a non-public type as it may links to internal
+			// types which makes the compiler very unhappy :(
 			let getter_doc_line = if matches!(storage.vis, syn::Visibility::Public(_)) {
 				format!("An auto-generated getter for [`{}`].", storage.ident)
 			} else {
-				storage.docs.iter().map(|d| d.into_token_stream().to_string()).join("\n")
+				format!("An auto-generated getter for `{}`.", storage.ident)
 			};
 
 			match &storage.metadata {

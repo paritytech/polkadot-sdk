@@ -87,9 +87,7 @@ pub mod weights;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	dispatch::{
-		DispatchError, DispatchResult, Dispatchable, GetDispatchInfo, Parameter, RawOrigin,
-	},
+	dispatch::{DispatchResult, GetDispatchInfo, Parameter, RawOrigin},
 	ensure,
 	traits::{
 		schedule::{self, DispatchTime, MaybeHashed},
@@ -105,8 +103,8 @@ use frame_system::{
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{BadOrigin, One, Saturating, Zero},
-	BoundedVec, RuntimeDebug,
+	traits::{BadOrigin, Dispatchable, One, Saturating, Zero},
+	BoundedVec, DispatchError, RuntimeDebug,
 };
 use sp_std::{borrow::Borrow, cmp::Ordering, marker::PhantomData, prelude::*};
 
@@ -320,7 +318,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Execute the scheduled calls
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			let mut weight_counter = WeightMeter::from_limit(T::MaximumWeight::get());
+			let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
 			Self::service_agendas(&mut weight_counter, now, u32::max_value());
 			weight_counter.consumed()
 		}
@@ -1096,7 +1094,14 @@ impl<T: Config> Pallet<T> {
 
 		let (call, lookup_len) = match T::Preimages::peek(&task.call) {
 			Ok(c) => c,
-			Err(_) => return Err((Unavailable, Some(task))),
+			Err(_) => {
+				Self::deposit_event(Event::CallUnavailable {
+					task: (when, agenda_index),
+					id: task.maybe_id,
+				});
+
+				return Err((Unavailable, Some(task)))
+			},
 		};
 
 		let _ = weight.try_consume(T::WeightInfo::service_task(
@@ -1106,15 +1111,7 @@ impl<T: Config> Pallet<T> {
 		));
 
 		match Self::execute_dispatch(weight, task.origin.clone(), call) {
-			Err(Unavailable) => {
-				debug_assert!(false, "Checked to exist with `peek`");
-				Self::deposit_event(Event::CallUnavailable {
-					task: (when, agenda_index),
-					id: task.maybe_id,
-				});
-				Err((Unavailable, Some(task)))
-			},
-			Err(Overweight) if is_first => {
+			Err(()) if is_first => {
 				T::Preimages::drop(&task.call);
 				Self::deposit_event(Event::PermanentlyOverweight {
 					task: (when, agenda_index),
@@ -1122,7 +1119,7 @@ impl<T: Config> Pallet<T> {
 				});
 				Err((Unavailable, Some(task)))
 			},
-			Err(Overweight) => Err((Overweight, Some(task))),
+			Err(()) => Err((Overweight, Some(task))),
 			Ok(result) => {
 				Self::deposit_event(Event::Dispatched {
 					task: (when, agenda_index),
@@ -1162,11 +1159,13 @@ impl<T: Config> Pallet<T> {
 	///
 	/// NOTE: Only the weight for this function will be counted (origin lookup, dispatch and the
 	/// call itself).
+	///
+	/// Returns an error if the call is overweight.
 	fn execute_dispatch(
 		weight: &mut WeightMeter,
 		origin: T::PalletsOrigin,
 		call: <T as Config>::RuntimeCall,
-	) -> Result<DispatchResult, ServiceTaskError> {
+	) -> Result<DispatchResult, ()> {
 		let base_weight = match origin.as_system_ref() {
 			Some(&RawOrigin::Signed(_)) => T::WeightInfo::execute_dispatch_signed(),
 			_ => T::WeightInfo::execute_dispatch_unsigned(),
@@ -1176,7 +1175,7 @@ impl<T: Config> Pallet<T> {
 		let max_weight = base_weight.saturating_add(call_weight);
 
 		if !weight.can_consume(max_weight) {
-			return Err(Overweight)
+			return Err(())
 		}
 
 		let dispatch_origin = origin.into();
