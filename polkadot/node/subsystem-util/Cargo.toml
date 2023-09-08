@@ -22,6 +22,7 @@ derive_more = "0.99.17"
 schnellru = "0.2.1"
 
 polkadot-node-subsystem = { path = "../subsystem" }
+polkadot-node-subsystem-types = { path = "../subsystem-types" }
 polkadot-node-jaeger = { path = "../jaeger" }
 polkadot-node-metrics = { path = "../metrics" }
 polkadot-node-network-protocol = { path = "../network/protocol" }
@@ -33,6 +34,7 @@ metered = { package = "prioritized-metered-channel", version = "0.2.0" }
 sp-core = { path = "../../../substrate/primitives/core" }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
 sp-keystore = { path = "../../../substrate/primitives/keystore" }
+sc-client-api = { path = "../../../substrate/client/api" }
 
 kvdb = "0.13.0"
 parity-db = { version = "0.4.8"}
