@@ -19,7 +19,7 @@
 //! This module defines `HostState` and `HostContext` structs which provide logic and state
 //! required for execution of host.
 
-use wasmtime::Caller;
+use wasmtime::{AsContextMut, Caller, Val};
 
 use sc_allocator::{AllocationStats, FreeingBumpHeapAllocator};
 use sp_wasm_interface::{Pointer, WordSize};
@@ -41,8 +41,8 @@ pub struct HostState {
 
 impl HostState {
 	/// Constructs a new `HostState`.
-	pub fn new(allocator: FreeingBumpHeapAllocator) -> Self {
-		HostState { allocator: Some(allocator), panic_message: None }
+	pub fn new(allocator: Option<FreeingBumpHeapAllocator>) -> Self {
+		HostState { allocator, panic_message: None }
 	}
 
 	/// Takes the error message out of the host state, leaving a `None` in its place.
@@ -88,23 +88,35 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 
 	fn allocate_memory(&mut self, size: WordSize) -> sp_wasm_interface::Result<Pointer<u8>> {
 		let memory = self.caller.data().memory();
-		let mut allocator = self
-			.host_state_mut()
-			.allocator
-			.take()
-			.expect("allocator is not empty when calling a function in wasm; qed");
+		if let Some(alloc) = self.caller.data().alloc {
+			let params = [Val::I32(size as i32)];
+			let mut results = [Val::I32(0)];
 
-		// We can not return on error early, as we need to store back allocator.
-		let res = allocator
-			.allocate(&mut MemoryWrapper(&memory, &mut self.caller), size)
-			.map_err(|e| e.to_string());
+			alloc.call(self.caller.as_context_mut(), &params, &mut results);
+			let data_ptr = results[0].i32().unwrap();
+			let data_ptr = Pointer::new( data_ptr as u32);
 
-		self.host_state_mut().allocator = Some(allocator);
+			Ok(data_ptr)
+		} else {
+			let mut allocator = self
+				.host_state_mut()
+				.allocator
+				.take()
+				.expect("allocator is not empty when calling a function in wasm; qed");
 
-		res
+			// We can not return on error early, as we need to store back allocator.
+			let res = allocator
+				.allocate(&mut MemoryWrapper(&memory, &mut self.caller), size)
+				.map_err(|e| e.to_string());
+
+			self.host_state_mut().allocator = Some(allocator);
+
+			res
+		}
 	}
 
 	fn deallocate_memory(&mut self, ptr: Pointer<u8>) -> sp_wasm_interface::Result<()> {
+		log::info!("deallocate_memory");
 		let memory = self.caller.data().memory();
 		let mut allocator = self
 			.host_state_mut()

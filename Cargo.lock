@@ -16693,6 +16693,7 @@ version = "7.0.0"
 dependencies = [
  "lol_alloc",
  "sp-io",
+ "sp-std",
 ]
 
 [[package]]

@@ -49,13 +49,31 @@ fn v1() {
 #[cfg(all(not(feature = "disable_panic_handler"), not(feature = "std")))]
 #[panic_handler]
 #[no_mangle]
-pub fn panic(_info: &core::panic::PanicInfo) -> ! {
-	core::arch::wasm32::unreachable()
+pub fn panic(info: &core::panic::PanicInfo) -> ! {
+	let message = sp_std::alloc::format!("{}", info);
+	#[cfg(feature = "improved_panic_error_reporting")]
+	{
+		sp_io::panic_handler::abort_on_panic(&message);
+	}
+	#[cfg(not(feature = "improved_panic_error_reporting"))]
+	{
+		sp_io::logging::log(LogLevel::Error, "runtime", message.as_bytes());
+		core::arch::wasm32::unreachable();
+	}
 }
+
 
 /// A default OOM handler for WASM environment.
 #[cfg(all(not(feature = "disable_oom"), enable_alloc_error_handler))]
 #[alloc_error_handler]
 pub fn oom(_layout: core::alloc::Layout) -> ! {
-	core::arch::wasm32::unreachable()
+	#[cfg(feature = "improved_panic_error_reporting")]
+	{
+		panic_handler::abort_on_panic("Runtime memory exhausted.");
+	}
+	#[cfg(not(feature = "improved_panic_error_reporting"))]
+	{
+		sp_io::logging::log(LogLevel::Error, "runtime", b"Runtime memory exhausted. Aborting");
+		core::arch::wasm32::unreachable();
+	}
 }

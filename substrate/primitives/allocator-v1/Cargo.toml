@@ -18,15 +18,20 @@ lol_alloc = { version = "0.4", optional = true }
 
 # not used just enable feature
 sp-io = { path = "../io", default-features = false }
+sp-std = { path = "../std", default-features = false }
 
 [features]
 default = ["std"]
 std = [
 	"sp-io/std",
+	"sp-std/std",
 ]
 
+improved_panic_error_reporting = []
+
 allocator-v1 = [
-	"lol_alloc",
+	"dep:lol_alloc",
+	"improved_panic_error_reporting",
 	"sp-io/disable_allocator",
 	"sp-io/disable_panic_handler",
 	"sp-io/disable_oom",
