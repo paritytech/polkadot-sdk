@@ -357,13 +357,14 @@ use frame_support::{
 	pallet_prelude::{MaxEncodedLen, *},
 	storage::bounded_btree_map::BoundedBTreeMap,
 	traits::{
-		Currency, Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating,
-		ExistenceRequirement, Get,
+		fungible::{Inspect as FungibleInspect, Mutate as FungibleMutate},
+		tokens::Preservation, Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
 	},
 	DefaultNoBound, PalletError,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
+use frame_support::traits::tokens::Fortitude;
 use sp_core::U256;
 use sp_runtime::{
 	traits::{
@@ -405,7 +406,7 @@ pub use weights::WeightInfo;
 
 /// The balance type used by the currency system.
 pub type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as FungibleInspect<<T as frame_system::Config>::AccountId>>::Balance;
 /// Type used for unique identifier of each pool.
 pub type PoolId = u32;
 
@@ -1008,7 +1009,7 @@ impl<T: Config> BondedPool<T> {
 	/// The pools balance that is transferrable.
 	fn transferrable_balance(&self) -> BalanceOf<T> {
 		let account = self.bonded_account();
-		T::Currency::free_balance(&account)
+		T::Currency::reducible_balance(&account, Preservation::Expendable, Fortitude::Polite)
 			.saturating_sub(T::Staking::active_stake(&account).unwrap_or_default())
 	}
 
@@ -1201,8 +1202,8 @@ impl<T: Config> BondedPool<T> {
 			&bonded_account,
 			amount,
 			match ty {
-				BondType::Create => ExistenceRequirement::AllowDeath,
-				BondType::Later => ExistenceRequirement::KeepAlive,
+				BondType::Create => Preservation::Expendable,
+				BondType::Later => Preservation::Preserve,
 			},
 		)?;
 		// We must calculate the points issued *before* we bond who's funds, else points:balance
@@ -1389,7 +1390,7 @@ impl<T: Config> RewardPool<T> {
 	///
 	/// This is sum of all the rewards that are claimable by pool members.
 	fn current_balance(id: PoolId) -> BalanceOf<T> {
-		T::Currency::free_balance(&Pallet::<T>::create_reward_account(id))
+		T::Currency::reducible_balance(&Pallet::<T>::create_reward_account(id), Preservation::Expendable, Fortitude::Polite)
 			.saturating_sub(T::Currency::minimum_balance())
 	}
 }
@@ -1509,7 +1510,8 @@ impl<T: Config> Get<u32> for TotalUnbondingPools<T> {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::traits::StorageVersion;
+	use frame_support::traits::{fungible, StorageVersion};
+	use frame_support::traits::tokens::Fortitude;
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use sp_runtime::Perbill;
 
@@ -1529,7 +1531,11 @@ pub mod pallet {
 		type WeightInfo: weights::WeightInfo;
 
 		/// The nominating balance.
-		type Currency: Currency<Self::AccountId>;
+		// FIXME(ank4n)
+		type Currency: FungibleInspect<Self::AccountId> + FungibleMutate<Self::AccountId>
+			+ fungible::MutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>;
+
+		type RuntimeFreezeReason: From<FreezeReason>;
 
 		/// The type that is used for reward counter.
 		///
@@ -1882,6 +1888,15 @@ pub mod pallet {
 		}
 	}
 
+	/// A reason for freezing funds.
+	#[pallet::composite_enum]
+	pub enum FreezeReason {
+		/// The Pallet has locked funds for maintaining the Existential Deposit of a
+		/// NominationPool.
+		#[codec(index = 0)]
+		PoolMinimumBalance,
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Stake funds with a pool. The amount to bond is transferred from the member to the
@@ -2195,7 +2210,7 @@ pub mod pallet {
 				&bonded_pool.bonded_account(),
 				&member_account,
 				balance_to_unbond,
-				ExistenceRequirement::AllowDeath,
+				Preservation::Expendable,
 			)
 			.defensive()?;
 
@@ -2660,7 +2675,7 @@ pub mod pallet {
 			#[pallet::compact] max_transfer: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let caller_balance = T::Currency::free_balance(&who);
+			let caller_balance = T::Currency::reducible_balance(&who, Preservation::Expendable, Fortitude::Polite);
 			Self::do_top_up_reward_deficit(who, pool_id, max_transfer.min(caller_balance))
 		}
 	}
@@ -2729,12 +2744,12 @@ impl<T: Config> Pallet<T> {
 
 		// This shouldn't fail, but if it does we don't really care. Remaining balance can consist
 		// of unclaimed pending commission, errorneous transfers to the reward account, etc.
-		let reward_pool_remaining = T::Currency::free_balance(&reward_account);
+		let reward_pool_remaining = T::Currency::reducible_balance(&reward_account, Preservation::Expendable, Fortitude::Polite);
 		let _ = T::Currency::transfer(
 			&reward_account,
 			&bonded_pool.roles.depositor,
 			reward_pool_remaining,
-			ExistenceRequirement::AllowDeath,
+			Preservation::Expendable,
 		);
 
 		// NOTE: this is purely defensive.
@@ -2868,9 +2883,8 @@ impl<T: Config> Pallet<T> {
 			&bonded_pool.reward_account(),
 			member_account,
 			pending_rewards,
-			// defensive: the depositor has put existential deposit into the pool and it stays
-			// untouched, reward account shall not die.
-			ExistenceRequirement::KeepAlive,
+			// defensive: the depositor has put existential deposit into the pool and it stays::Preservation
+			// untouched, reward account shall not die.::Preserve,
 		)?;
 
 		Self::deposit_event(Event::<T>::PaidOut {
@@ -2878,7 +2892,6 @@ impl<T: Config> Pallet<T> {
 			pool_id: member.pool_id,
 			payout: pending_rewards,
 		});
-
 		Ok(pending_rewards)
 	}
 
@@ -2913,11 +2926,17 @@ impl<T: Config> Pallet<T> {
 		bonded_pool.try_inc_members()?;
 		let points = bonded_pool.try_bond_funds(&who, amount, BondType::Create)?;
 
+		// lock the minimum balance for the reward account.
 		T::Currency::transfer(
 			&who,
 			&bonded_pool.reward_account(),
 			T::Currency::minimum_balance(),
-			ExistenceRequirement::AllowDeath,
+			Preservation::Expendable,
+		)?;
+		T::Currency::set_freeze(
+			&FreezeReason::PoolMinimumBalance.into(),
+			&bonded_pool.reward_account(),
+			T::Currency::minimum_balance(),
 		)?;
 
 		PoolMembers::<T>::insert(
@@ -3030,8 +3049,7 @@ impl<T: Config> Pallet<T> {
 		T::Currency::transfer(
 			&bonded_pool.reward_account(),
 			&payee,
-			commission,
-			ExistenceRequirement::KeepAlive,
+			commission,Preservation::Preserve,
 		)?;
 
 		// Add pending commission to total claimed counter.
@@ -3039,7 +3057,6 @@ impl<T: Config> Pallet<T> {
 			reward_pool.total_commission_claimed.saturating_add(commission);
 		// Reset total pending commission counter to zero.
 		reward_pool.total_commission_pending = Zero::zero();
-		// Commit reward pool updates
 		RewardPools::<T>::insert(pool_id, reward_pool);
 
 		Self::deposit_event(Event::<T>::PoolCommissionClaimed { pool_id, commission });
@@ -3095,7 +3112,7 @@ impl<T: Config> Pallet<T> {
 			&who,
 			&Self::create_reward_account(pool),
 			top_up_amount,
-			ExistenceRequirement::KeepAlive,
+			Preservation::Preserve,
 		)?;
 
 		// The topped up amount should not be claimable by delegators.
@@ -3182,14 +3199,14 @@ impl<T: Config> Pallet<T> {
 
 		for id in reward_pools {
 			let account = Self::create_reward_account(id);
-			if T::Currency::free_balance(&account) < T::Currency::minimum_balance() {
+			if T::Currency::reducible_balance(&account, Preservation::Expendable, Fortitude::Polite) < T::Currency::minimum_balance() {
 				log!(
 					warn,
 					"reward pool of {:?}: {:?} (ed = {:?}), should only happen because ED has \
 					changed recently. Pool operators should be notified to top up the reward \
 					account",
 					id,
-					T::Currency::free_balance(&account),
+					T::Currency::reducible_balance(&account, Preservation::Expendable, Fortitude::Polite),
 					T::Currency::minimum_balance(),
 				)
 			}

@@ -279,7 +279,7 @@ pub mod v2 {
 								&reward_account,
 								&who,
 								last_claim,
-								ExistenceRequirement::KeepAlive,
+								Preservation::Preserve,
 							);
 
 							if let Err(reason) = outcome {
@@ -304,7 +304,7 @@ pub mod v2 {
 							&reward_account,
 							&bonded_pool.roles.depositor,
 							leftover,
-							ExistenceRequirement::KeepAlive,
+							Preservation::Preserve
 						);
 						log!(warn, "paying {:?} leftover to the depositor: {:?}", leftover, o);
 					}
