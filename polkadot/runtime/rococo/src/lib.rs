@@ -60,8 +60,9 @@ use beefy_primitives::{
 use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		Contains, EitherOfDiverse, InstanceFilter, KeyOwnerProofSystem, LockIdentifier,
-		PrivilegeCmp, ProcessMessage, ProcessMessageError, StorageMapShim, WithdrawReasons,
+		Contains, EitherOfDiverse, EverythingBut, InstanceFilter, KeyOwnerProofSystem,
+		LockIdentifier, PrivilegeCmp, ProcessMessage, ProcessMessageError, StorageMapShim,
+		WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -137,12 +138,12 @@ pub fn native_version() -> NativeVersion {
 /// Disable all calls to the Identity pallet. This will lock the state of the pallet, preventing
 /// further updates to identities and sub-identities. The locked state will be the genesis state of
 /// a new system chain and then removed from the Relay Chain.
-pub struct DisableIdentity;
-impl Contains<RuntimeCall> for DisableIdentity {
+pub struct IdentityCalls;
+impl Contains<RuntimeCall> for IdentityCalls {
 	fn contains(c: &RuntimeCall) -> bool {
 		match c {
-			RuntimeCall::Identity(_) => false,
-			_ => true,
+			RuntimeCall::Identity(_) => true,
+			_ => false,
 		}
 	}
 }
@@ -153,7 +154,7 @@ parameter_types! {
 }
 
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = DisableIdentity;
+	type BaseCallFilter = EverythingBut<IdentityCalls>;
 	type BlockWeights = BlockWeights;
 	type BlockLength = BlockLength;
 	type DbWeight = RocksDbWeight;
