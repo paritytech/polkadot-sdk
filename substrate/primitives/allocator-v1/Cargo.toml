@@ -31,7 +31,6 @@ improved_panic_error_reporting = []
 
 allocator-v1 = [
 	"dep:lol_alloc",
-	"improved_panic_error_reporting",
 	"sp-io/disable_allocator",
 	"sp-io/disable_panic_handler",
 	"sp-io/disable_oom",
