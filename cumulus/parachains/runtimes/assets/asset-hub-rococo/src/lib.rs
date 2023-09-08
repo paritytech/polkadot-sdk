@@ -809,6 +809,38 @@ impl pallet_nfts::Config for Runtime {
 	type Helper = ();
 }
 
+/// XCM router instance to BridgeHub with bridging capabilities for `Polkadot` global consensus with
+/// dynamic fees and back-pressure.
+pub type ToPolkadotXcmRouterInstance = pallet_assets::Instance1;
+impl pallet_xcm_bridge_hub_router::Config<ToPolkadotXcmRouterInstance> for Runtime {
+	type WeightInfo = weights::pallet_xcm_bridge_hub_router::WeightInfo<Runtime>;
+
+	type UniversalLocation = xcm_config::UniversalLocation;
+	type BridgedNetworkId = xcm_config::bridging::PolkadotNetwork;
+	type Bridges = xcm_config::bridging::FilteredNetworkExportTable;
+
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type BridgeHubOrigin =
+		EnsureXcm<assets_common::matching::Equals<xcm_config::bridging::BridgeHubRococo>>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BridgeHubOrigin = EitherOfDiverse<
+		// for running benchmarks
+		EnsureRoot<AccountId>,
+		// for running tests with `--feature runtime-benchmarks`
+		EnsureXcm<assets_common::matching::Equals<xcm_config::bridging::BridgeHubRococo>>,
+	>;
+
+	type ToBridgeHubSender = XcmpQueue;
+	type WithBridgeHubChannel =
+		cumulus_pallet_xcmp_queue::bridging::InboundAndOutboundXcmpChannelCongestionStatusProvider<
+			xcm_config::bridging::BridgeHubRococoParaId,
+			Runtime,
+		>;
+
+	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
+	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -844,6 +876,9 @@ construct_runtime!(
 		Utility: pallet_utility::{Pallet, Call, Event} = 40,
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 41,
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 42,
+
+		// Bridge utilities.
+		ToPolkadotXcmRouter: pallet_xcm_bridge_hub_router::<Instance1>::{Pallet, Storage, Call} = 43,
 
 		// The main stage.
 		Assets: pallet_assets::<Instance1>::{Pallet, Call, Storage, Event<T>} = 50,
@@ -918,6 +953,7 @@ mod benches {
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		[pallet_xcm_bridge_hub_router, XcmBridgeHubRouterBench<Runtime, ToPolkadotXcmRouterInstance>]
 		// XCM
 		[pallet_xcm, PolkadotXcm]
 		// NOTE: Make sure you point to the individual modules below.
@@ -1157,6 +1193,7 @@ impl_runtime_apis! {
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
+			use pallet_xcm_bridge_hub_router::benchmarking::Pallet as XcmBridgeHubRouterBench;
 
 			// This is defined once again in dispatch_benchmark, because list_benchmarks!
 			// and add_benchmarks! are macros exported by define_benchmarks! macros and those types
@@ -1199,6 +1236,25 @@ impl_runtime_apis! {
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+
+			use pallet_xcm_bridge_hub_router::benchmarking::{
+				Pallet as XcmBridgeHubRouterBench,
+				Config as XcmBridgeHubRouterConfig,
+			};
+
+			impl XcmBridgeHubRouterConfig<ToPolkadotXcmRouterInstance> for Runtime {
+				fn make_congested() {
+					cumulus_pallet_xcmp_queue::bridging::suspend_channel_for_benchmarks::<Runtime>(
+						xcm_config::bridging::BridgeHubRococoParaId::get().into()
+					);
+				}
+				fn ensure_bridged_target_destination() -> MultiLocation {
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(
+						xcm_config::bridging::BridgeHubRococoParaId::get().into()
+					);
+					xcm_config::bridging::AssetHubPolkadot::get()
+				}
+			}
 
 			use xcm::latest::prelude::*;
 			use xcm_config::{RocLocation, MaxAssetsIntoHolding};
@@ -1273,7 +1329,10 @@ impl_runtime_apis! {
 				}
 
 				fn universal_alias() -> Result<(MultiLocation, Junction), BenchmarkError> {
-					Err(BenchmarkError::Skip)
+					match xcm_config::bridging::BridgingBenchmarksHelper::prepare_universal_alias() {
+						Some(alias) => Ok(alias),
+						None => Err(BenchmarkError::Skip)
+					}
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(MultiLocation, RuntimeCall), BenchmarkError> {
