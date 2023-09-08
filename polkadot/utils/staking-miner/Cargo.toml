@@ -1,5 +1,5 @@
 [[bin]]
-name = "staging-staking-miner"
+name = "staking-miner"
 path = "src/main.rs"
 
 [package]
