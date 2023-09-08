@@ -18,15 +18,13 @@
 //! Preimage pallet benchmarking.
 
 use super::*;
-use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller, BenchmarkError};
+use frame_benchmarking::v1::{benchmarks, whitelisted_caller, BenchmarkError};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
 use sp_std::{prelude::*, vec};
 
 use crate::Pallet as Preimage;
-
-const SEED: u32 = 0;
 
 fn funded_account<T: Config>() -> T::AccountId {
 	let caller: T::AccountId = whitelisted_caller();
