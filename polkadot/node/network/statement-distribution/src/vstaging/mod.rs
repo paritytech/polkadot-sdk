@@ -2617,6 +2617,13 @@ pub(crate) async fn handle_response<Context>(
 	let &requests::CandidateIdentifier { relay_parent, candidate_hash, group_index } =
 		response.candidate_identifier();
 
+	gum::trace!(
+		target: LOG_TARGET,
+		?candidate_hash,
+		peer = ?response.requested_peer(),
+		"Received response",
+	);
+
 	let post_confirmation = {
 		let relay_parent_state = match state.per_relay_parent.get_mut(&relay_parent) {
 			None => return,
@@ -2655,12 +2662,29 @@ pub(crate) async fn handle_response<Context>(
 
 		let (candidate, pvd, statements) = match res.request_status {
 			requests::CandidateRequestStatus::Outdated => return,
-			requests::CandidateRequestStatus::Incomplete => return,
+			requests::CandidateRequestStatus::Incomplete => {
+				gum::trace!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					"Response incomplete. Retrying"
+				);
+
+				return
+			}
 			requests::CandidateRequestStatus::Complete {
 				candidate,
 				persisted_validation_data,
 				statements,
-			} => (candidate, persisted_validation_data, statements),
+			} => {
+				gum::trace!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					n_statements = statements.len(),
+					"Successfully received candidate"
+				);
+
+				(candidate, persisted_validation_data, statements)
+			}
 		};
 
 		for statement in statements {
@@ -2732,6 +2756,13 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 	let ResponderMessage { request, sent_feedback } = message;
 	let AttestedCandidateRequest { candidate_hash, ref mask } = &request.payload;
 
+	gum::trace!(
+		target: LOG_TARGET,
+		?candidate_hash,
+		peer = ?request.peer,
+		"Received request"
+	);
+
 	// Signal to the responder that we started processing this request.
 	let _ = sent_feedback.send(());
 
@@ -2740,12 +2771,12 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 		Some(c) => c,
 	};
 
-	let relay_parent_state = match state.per_relay_parent.get(&confirmed.relay_parent()) {
+	let relay_parent_state = match state.per_relay_parent.get_mut(&confirmed.relay_parent()) {
 		None => return,
 		Some(s) => s,
 	};
 
-	let local_validator = match relay_parent_state.local_validator.as_ref() {
+	let local_validator = match relay_parent_state.local_validator.as_mut() {
 		None => return,
 		Some(s) => s,
 	};
@@ -2777,28 +2808,38 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 		return
 	}
 
-	// check peer is allowed to request the candidate (i.e. we've sent them a manifest)
-	{
-		let mut can_request = false;
-		for validator_id in find_validator_ids(peer_data.iter_known_discovery_ids(), |a| {
+	// check peer is allowed to request the candidate (i.e. they're in the cluster or we've sent them a manifest)
+	let (validator_id, is_cluster) = {
+		let mut validator_id = None;
+		let mut is_cluster = false;
+		for v in find_validator_ids(peer_data.iter_known_discovery_ids(), |a| {
 			per_session.authority_lookup.get(a)
 		}) {
-			if local_validator.grid_tracker.can_request(validator_id, *candidate_hash) {
-				can_request = true;
+			if local_validator.cluster_tracker.can_request(v, *candidate_hash) {
+				validator_id = Some(v);
+				is_cluster = true;
+				break
+			}
+
+			if local_validator.grid_tracker.can_request(v, *candidate_hash) {
+				validator_id = Some(v);
 				break
 			}
 		}
 
-		if !can_request {
-			let _ = request.send_outgoing_response(OutgoingResponse {
-				result: Err(()),
-				reputation_changes: vec![COST_UNEXPECTED_REQUEST],
-				sent_feedback: None,
-			});
+		match validator_id {
+			Some(v) => (v, is_cluster),
+			None => {
+				let _ = request.send_outgoing_response(OutgoingResponse {
+					result: Err(()),
+					reputation_changes: vec![COST_UNEXPECTED_REQUEST],
+					sent_feedback: None,
+				});
 
-			return
+				return
+			}
 		}
-	}
+	};
 
 	// Transform mask with 'OR' semantics into one with 'AND' semantics for the API used
 	// below.
@@ -2807,19 +2848,39 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 		validated_in_group: !mask.validated_in_group.clone(),
 	};
 
+	let statements: Vec<_> = relay_parent_state
+		.statement_store
+		.group_statements(
+			&per_session.groups,
+			confirmed.group_index(),
+			*candidate_hash,
+			&and_mask,
+		)
+		.map(|s| s.as_unchecked().clone())
+		.collect();
+
+	// Update bookkeeping about which statements peers have received.
+	for statement in &statements {
+		if is_cluster {
+			local_validator.cluster_tracker.note_sent(
+				validator_id,
+				statement.unchecked_validator_index(),
+				statement.unchecked_payload().clone(),
+			);
+		} else {
+			local_validator.grid_tracker.sent_or_received_direct_statement(
+				&per_session.groups,
+				statement.unchecked_validator_index(),
+				validator_id,
+				statement.unchecked_payload(),
+			);
+		}
+	}
+
 	let response = AttestedCandidateResponse {
 		candidate_receipt: (&**confirmed.candidate_receipt()).clone(),
 		persisted_validation_data: confirmed.persisted_validation_data().clone(),
-		statements: relay_parent_state
-			.statement_store
-			.group_statements(
-				&per_session.groups,
-				confirmed.group_index(),
-				*candidate_hash,
-				&and_mask,
-			)
-			.map(|s| s.as_unchecked().clone())
-			.collect(),
+		statements,
 	};
 
 	let _ = request.send_response(response);
