@@ -26,6 +26,7 @@
 /docker @paritytech/ci @paritytech/release-engineering
 /docs @paritytech/docs-audit
 /polkadot @paritytech/polkadot-review
+/polkadot/xcm @paritytech/xcm
 /scripts/ci @paritytech/ci @paritytech/release-engineering
 /substrate @paritytech/SubstrateTeamLeads
 /prdoc @paritytech/release-engineering
