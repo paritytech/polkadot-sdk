@@ -251,7 +251,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type MintMinLiquidity = ConstU64<100>; // 100 is good enough when the main currency has 12 decimals.
 
 	type Balance = u64;
-	type HigherPrecisionBalance = u128;
+	type HigherPrecisionBalance = u64;
 
 	type MultiAssetId = NativeOrAssetId<u32>;
 	type MultiAssetIdConverter = NativeOrAssetIdConverter<u32>;

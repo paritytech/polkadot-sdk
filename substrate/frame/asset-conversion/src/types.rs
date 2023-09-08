@@ -34,7 +34,7 @@ pub type Path<T> = BoundedVec<<T as Config>::MultiAssetId, <T as Config>::MaxSwa
 /// TODO
 ///
 /// Example: [(asset1, amount_in), (asset2, amount_out), (asset2, amount_out), (asset3, amount_out)]
-pub(super) type BalancePath<T> = Vec<(<T as Config>::MultiAssetId, <T as Config>::AssetBalance)>;
+pub(super) type BalancePath<T> = Vec<(<T as Config>::MultiAssetId, <T as Config>::HigherPrecisionBalance)>;
 
 /// Stores the lp_token asset id a particular pool has been assigned.
 #[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]

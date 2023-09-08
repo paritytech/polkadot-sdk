@@ -127,10 +127,11 @@ pub mod pallet {
 			+ BalancedFungible<Self::AccountId>;
 
 		/// The `Currency::Balance` type of the native currency.
-		type Balance: Balance + Into<Self::AssetBalance>;
+		type Balance: Balance;// + Into<Self::AssetBalance>;
 
 		/// The type used to describe the amount of fractions converted into assets.
-		type AssetBalance: Balance + Into<Self::Balance>;
+		type AssetBalance: Balance //+ Into<Self::Balance>
+		;
 
 		/// A type used for conversions between `Balance` and `AssetBalance`.
 		type HigherPrecisionBalance: IntegerSquareRoot
@@ -141,7 +142,9 @@ pub mod pallet {
 			+ From<Self::AssetBalance>
 			+ From<Self::Balance>
 			+ TryInto<Self::AssetBalance>
-			+ TryInto<Self::Balance>;
+			+ TryInto<Self::Balance>
+			+ Clone
+			+ Copy;
 
 		/// Identifier for the class of non-native asset.
 		/// Note: A `From<u32>` bound here would prevent `MultiLocation` from being used as an
@@ -289,7 +292,7 @@ pub mod pallet {
 			send_to: T::AccountId,
 			/// The route of asset ids that the swap went through.
 			/// E.g. A -> Dot -> B
-			balance_path: BalancePath<T>,
+			path: Path<T>,
 			/// The amount of the first asset that was swapped.
 			amount_in: T::AssetBalance,
 			/// The amount of the second asset that was received.
@@ -740,19 +743,19 @@ pub mod pallet {
 
 			let balance_path = Self::balance_path_from_amount_in(amount_in, path.clone())?;
 
-			let (_, amount_out) = *balance_path
+			let (_, amount_out) = balance_path
 				.last()
 				.defensive_ok_or("get_amounts_out() returned an empty result")?;
 
 			if let Some(amount_out_min) = amount_out_min {
 				ensure!(
-					amount_out >= amount_out_min,
+					*amount_out >= (amount_out_min).into(),
 					Error::<T>::ProvidedMinimumNotSufficientForSwap
 				);
 			}
 
-			Self::withdraw_and_swap(sender, balance_path, send_to, keep_alive)?;
-			Ok(amount_out)
+			Self::withdraw_and_swap(sender, balance_path.clone(), send_to, keep_alive)?;
+			Ok((*amount_out).try_into().ok().unwrap())
 		}
 
 		/// Take the `path[0]` asset and swap some amount for `amount_out` of the `path[1]`. If an
@@ -786,13 +789,13 @@ pub mod pallet {
 
 			if let Some(amount_in_max) = amount_in_max {
 				ensure!(
-					amount_in <= amount_in_max,
+					amount_in <= amount_in_max.into(),
 					Error::<T>::ProvidedMaximumNotSufficientForSwap
 				);
 			}
 
 			Self::withdraw_and_swap(sender, balance_path, send_to, keep_alive)?;
-			Ok(amount_in)
+			Ok(amount_in.try_into().ok().unwrap())
 		}
 
 		/// Transfer an `amount` of `asset_id`, respecting the `keep_alive` requirements.
@@ -871,15 +874,15 @@ pub mod pallet {
 
 			let (_, amount_out) = *balance_path.last().ok_or(Error::<T>::PathError)?;
 
-			let withdrawal = Self::withdraw(&asset_in, &sender, amount_in, keep_alive)?;
+			let withdrawal = Self::withdraw(&asset_in, &sender, (amount_in).try_into().ok().unwrap(), keep_alive)?;
 			let credit_out = Self::do_swap(withdrawal, &balance_path).map_err(|(_, err)| err)?;
 			Self::resolve(&send_to, credit_out).map_err(|_| Error::<T>::Overflow)?;
 			Self::deposit_event(Event::SwapExecuted {
 				who: sender,
 				send_to,
-				balance_path,
-				amount_in,
-				amount_out,
+				path: balance_path.iter().map(|(p, _b)| p.clone()).collect::<Vec<_>>().try_into().unwrap(),
+				amount_in: (amount_in).try_into().ok().unwrap(),
+				amount_out: (amount_out).try_into().ok().unwrap(),
 			});
 
 			Ok(())
@@ -903,14 +906,14 @@ pub mod pallet {
 					.map_err(|e| (e, Error::<T>::Overflow.into()))?;
 
 				// If this fails, credits are balanced, can return zero credit in error
-				let credit_out = Self::withdraw(&asset2, &pool_account, *asset2_amount, true)
+				let credit_out = Self::withdraw(&asset2, &pool_account, (asset2_amount.clone()).try_into().ok().unwrap(), true)
 					.map_err(|e| (Credit::<T>::Native(Default::default()), e))?;
 
 				let reserve = match_err!(
 					Self::get_balance(&pool_account, &asset2),
 					(|e: Error<T>| (credit_out, e.into()))
 				);
-				let reserve_left = reserve.saturating_sub(*asset2_amount);
+				let reserve_left = reserve.saturating_sub((asset2_amount.clone()).try_into().ok().unwrap());
 				match_err!(
 					Self::validate_minimal_amount(reserve_left, &asset2),
 					(|_| (credit_out, Error::<T>::ReserveLeftLessThanMinimal.into()))
@@ -1276,14 +1279,14 @@ pub mod pallet {
 
 			for assets_pair in path.windows(2) {
 				if let [asset1, asset2] = assets_pair {
-					path_with_ins.push((asset1.clone(), first_amount));
+					path_with_ins.push((asset1.clone(), first_amount.into()));
 					let (reserve_in, reserve_out) = Self::get_reserves(asset1, asset2)?;
 					first_amount = Self::get_amount_out(&first_amount, &reserve_in, &reserve_out)?;
 				}
 			}
 
 			match path.first() {
-				Some(asset) => path_with_ins.push((asset.clone(), first_amount)),
+				Some(asset) => path_with_ins.push((asset.clone(), first_amount.into())),
 				None => return Err(Error::<T>::InvalidBalancePath.into()),
 			}
 
@@ -1299,14 +1302,14 @@ pub mod pallet {
 
 			for assets_pair in path.windows(2).rev() {
 				if let [asset1, asset2] = assets_pair {
-					path_with_outs.push((asset1.clone(), last_amount));
+					path_with_outs.push((asset1.clone(), last_amount.into()));
 					let (reserve_in, reserve_out) = Self::get_reserves(asset1, asset2)?;
 					last_amount = Self::get_amount_in(&last_amount, &reserve_in, &reserve_out)?;
 				}
 			}
 
 			match path.first() {
-				Some(asset) => path_with_outs.push((asset.clone(), last_amount)),
+				Some(asset) => path_with_outs.push((asset.clone(), last_amount.into())),
 				None => return Err(Error::<T>::InvalidBalancePath.into()),
 			}
 
