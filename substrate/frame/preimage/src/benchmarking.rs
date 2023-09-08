@@ -18,7 +18,7 @@
 //! Preimage pallet benchmarking.
 
 use super::*;
-use frame_benchmarking::v1::{account, benchmarks, whitelist_account, BenchmarkError};
+use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller, BenchmarkError};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
@@ -28,9 +28,9 @@ use crate::Pallet as Preimage;
 
 const SEED: u32 = 0;
 
-fn funded_account<T: Config>(name: &'static str, index: u32) -> T::AccountId {
-	let caller: T::AccountId = account(name, index, SEED);
-	T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+fn funded_account<T: Config>() -> T::AccountId {
+	let caller: T::AccountId = whitelisted_caller();
+	T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
 	caller
 }
 
@@ -49,8 +49,7 @@ benchmarks! {
 	// Expensive note - will reserve.
 	note_preimage {
 		let s in 0 .. MAX_SIZE;
-		let caller = funded_account::<T>("caller", 0);
-		whitelist_account!(caller);
+		let caller = funded_account::<T>();
 		let (preimage, hash) = sized_preimage_and_hash::<T>(s);
 	}: _(RawOrigin::Signed(caller), preimage)
 	verify {
@@ -59,8 +58,7 @@ benchmarks! {
 	// Cheap note - will not reserve since it was requested.
 	note_requested_preimage {
 		let s in 0 .. MAX_SIZE;
-		let caller = funded_account::<T>("caller", 0);
-		whitelist_account!(caller);
+		let caller = funded_account::<T>();
 		let (preimage, hash) = sized_preimage_and_hash::<T>(s);
 		assert_ok!(Preimage::<T>::request_preimage(
 			T::ManagerOrigin::try_successful_origin()
@@ -89,8 +87,7 @@ benchmarks! {
 
 	// Expensive unnote - will unreserve.
 	unnote_preimage {
-		let caller = funded_account::<T>("caller", 0);
-		whitelist_account!(caller);
+		let caller = funded_account::<T>();
 		let (preimage, hash) = preimage_and_hash::<T>();
 		assert_ok!(Preimage::<T>::note_preimage(RawOrigin::Signed(caller.clone()).into(), preimage));
 	}: _(RawOrigin::Signed(caller), hash)
@@ -115,8 +112,7 @@ benchmarks! {
 	// Expensive request - will unreserve the noter's deposit.
 	request_preimage {
 		let (preimage, hash) = preimage_and_hash::<T>();
-		let noter = funded_account::<T>("noter", 0);
-		whitelist_account!(noter);
+		let noter = funded_account::<T>();
 		assert_ok!(Preimage::<T>::note_preimage(RawOrigin::Signed(noter.clone()).into(), preimage));
 	}: _<T::RuntimeOrigin>(
 		T::ManagerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
@@ -223,7 +219,7 @@ benchmarks! {
 
 	ensure_updated {
 		let n in 0..MAX_HASH_UPGRADE_BULK_COUNT;
-		let caller = funded_account::<T>("caller", 0);
+		let caller = funded_account::<T>();
 		let hashes = (0..n).map(|i| insert_old_unrequested::<T>(i, caller.clone())).collect::<Vec<_>>();
 	}: _(RawOrigin::Signed(caller), hashes)
 	verify {
