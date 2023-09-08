@@ -251,7 +251,7 @@ pub mod pallet {
 
 		/// The overarching task type.
 		#[pallet::no_default]
-		type RuntimeTask: AggregatedTask;
+		type RuntimeTask: Task;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;

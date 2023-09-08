@@ -56,19 +56,3 @@ pub trait Task: Sized + FullCodec + TypeInfo + Clone + Debug + PartialEq + Eq {
 		Self::TASK_INDEX
 	}
 }
-
-/// Contains a subset of [`Task`] that can be generalized over the aggregated `RuntimeTask`
-/// enum.
-pub trait AggregatedTask: Sized + FullCodec + TypeInfo + Clone + Debug + PartialEq + Eq {
-	/// Checks if a particular instance of this `Task` variant is a valid piece of work.
-	fn is_valid(&self) -> bool;
-
-	/// Performs the work for this particular `Task` variant.
-	fn run(&self) -> Result<(), DispatchError>;
-
-	/// Returns the weight of executing this `Task`.
-	fn weight(&self) -> Weight;
-
-	/// A unique value representing this `Task`. Analogous to `call_index`, but for tasks.
-	fn task_index(&self) -> u64;
-}

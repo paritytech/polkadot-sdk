@@ -123,7 +123,7 @@ mod tx_pause;
 pub use tx_pause::{TransactionPause, TransactionPauseError};
 
 pub mod tasks;
-pub use tasks::{AggregatedTask, Task};
+pub use tasks::Task;
 
 #[cfg(feature = "try-runtime")]
 mod try_runtime;

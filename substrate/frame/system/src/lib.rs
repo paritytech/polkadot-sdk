@@ -297,7 +297,7 @@ pub mod pallet {
 
 		/// The aggregated `RuntimeTask` type.
 		#[pallet::no_default_bounds]
-		type RuntimeTask: AggregatedTask;
+		type RuntimeTask: Task;
 
 		/// This stores the number of previous transactions associated with a sender account.
 		type Nonce: Parameter

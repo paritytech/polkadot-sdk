@@ -48,7 +48,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		#[pallet::no_default]
-		type RuntimeTask: AggregatedTask;
+		type RuntimeTask: Task;
 
 		/// An input parameter to this pallet. This value can have a default, because it is not
 		/// reliant on `frame_system::Config` or the overarching runtime in any way.

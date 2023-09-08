@@ -60,7 +60,11 @@ pub fn expand_outer_task(pallet_decls: &[Pallet], scrate: &TokenStream) -> Token
 			#( #task_variants )*
 		}
 
-		impl #scrate::traits::AggregatedTask for RuntimeTask {
+		impl #scrate::traits::Task for RuntimeTask {
+			type Enumeration: Iterator<Item = Self>;
+
+			const TASK_INDEX: u64 = 0;
+
 			fn is_valid(&self) -> bool {
 				use #scrate::traits::tasks::prelude::*;
 				todo!();
