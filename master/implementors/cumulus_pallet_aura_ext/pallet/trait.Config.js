@@ -1,5 +1,5 @@
 (function() {var implementors = {
-"asset_hub_kusama_runtime":[["impl <a class=\"trait\" href=\"cumulus_pallet_aura_ext/pallet/trait.Config.html\" title=\"trait cumulus_pallet_aura_ext::pallet::Config\">Config</a> for <a class=\"struct\" href=\"asset_hub_kusama_runtime/struct.Runtime.html\" title=\"struct asset_hub_kusama_runtime::Runtime\">Runtime</a>"]],
+"asset_hub_kusama_runtime":[["impl Config for <a class=\"struct\" href=\"asset_hub_kusama_runtime/struct.Runtime.html\" title=\"struct asset_hub_kusama_runtime::Runtime\">Runtime</a>"]],
 "asset_hub_polkadot_runtime":[["impl Config for <a class=\"struct\" href=\"asset_hub_polkadot_runtime/struct.Runtime.html\" title=\"struct asset_hub_polkadot_runtime::Runtime\">Runtime</a>"]],
 "asset_hub_westend_runtime":[["impl Config for <a class=\"struct\" href=\"asset_hub_westend_runtime/struct.Runtime.html\" title=\"struct asset_hub_westend_runtime::Runtime\">Runtime</a>"]],
 "bridge_hub_kusama_runtime":[["impl Config for <a class=\"struct\" href=\"bridge_hub_kusama_runtime/struct.Runtime.html\" title=\"struct bridge_hub_kusama_runtime::Runtime\">Runtime</a>"]],
