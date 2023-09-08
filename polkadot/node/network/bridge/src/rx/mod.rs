@@ -247,6 +247,7 @@ where
 								NetworkBridgeEvent::PeerViewChange(peer, View::default()),
 							],
 							&mut sender,
+							&metrics,
 						)
 						.await;
 
@@ -355,6 +356,7 @@ where
 							dispatch_validation_event_to_all(
 								NetworkBridgeEvent::PeerDisconnected(peer),
 								&mut sender,
+								&metrics,
 							)
 							.await,
 						PeerSet::Collation =>
@@ -493,7 +495,7 @@ where
 						network_service.report_peer(remote, report.into());
 					}
 
-					dispatch_validation_events_to_all(events, &mut sender).await;
+					dispatch_validation_events_to_all(events, &mut sender, &metrics).await;
 				}
 
 				if !c_messages.is_empty() {
@@ -995,8 +997,9 @@ fn send_collation_message_vstaging(
 async fn dispatch_validation_event_to_all(
 	event: NetworkBridgeEvent<net_protocol::VersionedValidationProtocol>,
 	ctx: &mut impl overseer::NetworkBridgeRxSenderTrait,
+	metrics: &Metrics,
 ) {
-	dispatch_validation_events_to_all(std::iter::once(event), ctx).await
+	dispatch_validation_events_to_all(std::iter::once(event), ctx, metrics).await
 }
 
 async fn dispatch_collation_event_to_all(
@@ -1041,12 +1044,13 @@ fn dispatch_collation_event_to_all_unbounded(
 	}
 }
 
-fn try_send_validation_event<E>(
+fn send_or_queue_validation_event<E, Sender>(
 	event: E,
-	sender: &mut (impl overseer::NetworkBridgeRxSenderTrait + overseer::SubsystemSender<E>),
+	sender: &mut Sender,
 	delayed_queue: &FuturesUnordered<BoxFuture<'static, ()>>,
 ) where
 	E: Send + 'static,
+	Sender: overseer::NetworkBridgeRxSenderTrait + overseer::SubsystemSender<E>,
 {
 	match sender.try_send_message(event) {
 		Ok(()) => {},
@@ -1068,6 +1072,7 @@ fn try_send_validation_event<E>(
 async fn dispatch_validation_events_to_all<I>(
 	events: I,
 	sender: &mut impl overseer::NetworkBridgeRxSenderTrait,
+	metrics: &Metrics,
 ) where
 	I: IntoIterator<Item = NetworkBridgeEvent<net_protocol::VersionedValidationProtocol>>,
 	I::IntoIter: Send,
@@ -1078,21 +1083,27 @@ async fn dispatch_validation_events_to_all<I>(
 	// the slow path future in the `delayed_messages` queue.
 	for event in events {
 		if let Ok(msg) = event.focus().map(StatementDistributionMessage::from) {
-			try_send_validation_event(msg, sender, &delayed_messages);
+			send_or_queue_validation_event(msg, sender, &delayed_messages);
 		}
 		if let Ok(msg) = event.focus().map(BitfieldDistributionMessage::from) {
-			try_send_validation_event(msg, sender, &delayed_messages);
+			send_or_queue_validation_event(msg, sender, &delayed_messages);
 		}
 		if let Ok(msg) = event.focus().map(ApprovalDistributionMessage::from) {
-			try_send_validation_event(msg, sender, &delayed_messages);
+			send_or_queue_validation_event(msg, sender, &delayed_messages);
 		}
 		if let Ok(msg) = event.focus().map(GossipSupportMessage::from) {
-			try_send_validation_event(msg, sender, &delayed_messages);
+			send_or_queue_validation_event(msg, sender, &delayed_messages);
 		}
 	}
 
-	// Here we wait for all the delayed messages to be sent.
-	let _: Vec<()> = delayed_messages.collect().await;
+	let delayed_messages_count = delayed_messages.len();
+	metrics.on_delayed_rx_queue(delayed_messages_count);
+
+	if delayed_messages_count > 0 {
+		// Here we wait for all the delayed messages to be sent.
+		let _timer = metrics.time_delayed_rx_events(); // Dropped after `await` is completed
+		let _: Vec<()> = delayed_messages.collect().await;
+	}
 }
 
 async fn dispatch_collation_events_to_all<I>(

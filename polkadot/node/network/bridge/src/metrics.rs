@@ -115,6 +115,17 @@ impl Metrics {
 			metrics.messages_sent.with_label_values(&[message_type]).inc()
 		}
 	}
+
+	pub fn on_delayed_rx_queue(&self, queue_size: usize) {
+		if let Some(metrics) = self.0.as_ref() {
+			metrics.rx_delayed_processing.observe(queue_size as f64);
+		}
+	}
+	pub fn time_delayed_rx_events(
+		&self,
+	) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
+		self.0.as_ref().map(|metrics| metrics.rx_delayed_processing_time.start_timer())
+	}
 }
 
 #[derive(Clone)]
@@ -132,6 +143,11 @@ pub(crate) struct MetricsInner {
 	bytes_sent: prometheus::CounterVec<prometheus::U64>,
 
 	messages_sent: prometheus::CounterVec<prometheus::U64>,
+	// The reason why a `Histogram` is used to track a queue size is that
+	// we need not only an average size of the queue (that will be 0 normally), but
+	// we also need a dynamics for this queue size in case of messages delays.
+	rx_delayed_processing: prometheus::Histogram,
+	rx_delayed_processing_time: prometheus::Histogram,
 }
 
 impl metrics::Metrics for Metrics {
@@ -233,6 +249,24 @@ impl metrics::Metrics for Metrics {
 						"The number of messages sent via network bridge",
 					),
 					&["type"]
+				)?,
+				registry,
+			)?,
+			rx_delayed_processing: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_network_bridge_rx_delayed",
+						"Number of events being delayed while broadcasting from the network bridge",
+					).buckets(vec![0.0, 1.0, 2.0, 8.0, 16.0]),
+				)?,
+				registry,
+			)?,
+			rx_delayed_processing_time: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_network_bridge_rx_delayed_time",
+						"Time spent for waiting of the delayed events",
+					),
 				)?,
 				registry,
 			)?,
