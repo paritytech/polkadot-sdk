@@ -69,6 +69,7 @@ members = [
 	"cumulus/parachains/pallets/ping",
 	"cumulus/parachains/runtimes/assets/asset-hub-kusama",
 	"cumulus/parachains/runtimes/assets/asset-hub-polkadot",
+	"cumulus/parachains/runtimes/assets/asset-hub-rococo",
 	"cumulus/parachains/runtimes/assets/asset-hub-westend",
 	"cumulus/parachains/runtimes/assets/common",
 	"cumulus/parachains/runtimes/assets/test-utils",
