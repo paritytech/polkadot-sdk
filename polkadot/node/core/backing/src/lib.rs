@@ -1799,8 +1799,6 @@ async fn maybe_validate_and_import<Context>(
 
 	let summary = res?;
 	post_import_statement_actions(ctx, rp_state, summary.as_ref()).await;
-	// TODO [now]
-	gum::info!("Imported statement. Got summary {:?}. Local group {:?}", summary, rp_state.assignment);
 
 	if let Some(summary) = summary {
 		// import_statement already takes care of communicating with the
