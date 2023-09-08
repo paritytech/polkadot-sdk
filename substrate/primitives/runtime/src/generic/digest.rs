@@ -106,6 +106,13 @@ pub enum DigestItem {
 	/// 1. Runtime code blob is changed or
 	/// 2. `heap_pages` value is changed.
 	RuntimeEnvironmentUpdated,
+
+	/// Commitment on auxilary data associated to a block.
+	///
+	/// It represents the SCALE-encoded hash of this auxilary data.
+	///
+	/// If this digest item isn't present, the block has no auxliary data associated.
+	AuxilaryData(Vec<u8>),
 }
 
 #[cfg(feature = "serde")]

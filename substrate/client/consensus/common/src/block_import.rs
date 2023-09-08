@@ -189,6 +189,8 @@ pub struct BlockImportParams<Block: BlockT> {
 	pub post_digests: Vec<DigestItem>,
 	/// The body of the block.
 	pub body: Option<Vec<Block::Extrinsic>>,
+	/// Auxiliary data associated to the block.
+	pub body_aux: Vec<u8>,
 	/// Indexed transaction body of the block.
 	pub indexed_body: Option<Vec<Vec<u8>>>,
 	/// Specify how the new state is computed.
@@ -227,6 +229,7 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			justifications: None,
 			post_digests: Vec::new(),
 			body: None,
+			body_aux: Vec::new(),
 			indexed_body: None,
 			state_action: StateAction::Execute,
 			finalized: false,

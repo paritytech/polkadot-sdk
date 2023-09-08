@@ -682,6 +682,27 @@ pub trait Trie {
 	}
 }
 
+
+#[cfg(feature = "std")]
+sp_externalities::decl_extension! {
+	#[derive(Default)]
+	pub struct AuxilaryDataStore {
+		data: std::collection::BTreeMap<Vec<u8>, std::collections::BTreeMap<Vec<u8>, Vec<u8>>>,
+		data_: std::collection::BTreeMap<Vec<u8>, std::collections::BTreeMap<Vec<u8>, Vec<u8>>>,
+	}
+}
+
+#[runtime_interface]
+pub trait AuxilaryData {
+	fn hash(&self) -> Vec<u8> {
+		if let Some(store) = self.extension::<AuxilaryDataStore>() {
+			LayoutV1::<sp_core::Blake2Hasher>::ordered_trie_root(input)
+		} else {
+			Vec::new()
+		}
+	}
+}
+
 /// Interface that provides miscellaneous functions for communicating between the runtime and the
 /// node.
 #[runtime_interface]

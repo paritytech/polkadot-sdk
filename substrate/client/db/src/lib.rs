@@ -402,6 +402,7 @@ pub(crate) mod columns {
 	pub const HEADER: u32 = 4;
 	pub const BODY: u32 = 5;
 	pub const JUSTIFICATIONS: u32 = 6;
+	pub const BODY_AUX: u32 = 7;
 	pub const AUX: u32 = 8;
 	/// Offchain workers local storage
 	pub const OFFCHAIN: u32 = 9;
@@ -416,6 +417,7 @@ struct PendingBlock<Block: BlockT> {
 	body: Option<Vec<Block::Extrinsic>>,
 	indexed_body: Option<Vec<Vec<u8>>>,
 	leaf_state: NewBlockState,
+	body_aux: Vec<u8>,
 }
 
 // wrapper that implements trait required for state_db
@@ -899,10 +901,11 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		indexed_body: Option<Vec<Vec<u8>>>,
 		justifications: Option<Justifications>,
 		leaf_state: NewBlockState,
+		body_aux: Vec<u8>,
 	) -> ClientResult<()> {
 		assert!(self.pending_block.is_none(), "Only one block per operation is allowed");
 		self.pending_block =
-			Some(PendingBlock { header, body, indexed_body, justifications, leaf_state });
+			Some(PendingBlock { header, body, indexed_body, justifications, leaf_state, body_aux });
 		Ok(())
 	}
 
@@ -1498,6 +1501,8 @@ impl<Block: BlockT> Backend<Block> {
 					justifications.encode(),
 				);
 			}
+
+			transaction.set_from_vec(columns::BODY_AUX, &lookup_key, pending_block.body_aux);
 
 			if number.is_zero() {
 				transaction.set(columns::META, meta_keys::GENESIS_HASH, hash.as_ref());

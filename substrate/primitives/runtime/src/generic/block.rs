@@ -87,6 +87,8 @@ pub struct Block<Header, Extrinsic> {
 	pub header: Header,
 	/// The accompanying extrinsics.
 	pub extrinsics: Vec<Extrinsic>,
+	/// Auxiliary data associated to this block.
+	pub aux_data: Vec<u8>,
 }
 
 impl<Header, Extrinsic> traits::HeaderProvider for Block<Header, Extrinsic>
@@ -111,14 +113,21 @@ where
 	fn extrinsics(&self) -> &[Self::Extrinsic] {
 		&self.extrinsics[..]
 	}
-	fn deconstruct(self) -> (Self::Header, Vec<Self::Extrinsic>) {
-		(self.header, self.extrinsics)
+	fn aux_data(&self) -> &[u8] {
+		&self.aux_data
 	}
-	fn new(header: Self::Header, extrinsics: Vec<Self::Extrinsic>) -> Self {
-		Block { header, extrinsics }
+	fn deconstruct(self) -> (Self::Header, Vec<Self::Extrinsic>, Vec<u8>) {
+		(self.header, self.extrinsics, self.aux_data)
 	}
-	fn encode_from(header: &Self::Header, extrinsics: &[Self::Extrinsic]) -> Vec<u8> {
-		(header, extrinsics).encode()
+	fn new(header: Self::Header, extrinsics: Vec<Self::Extrinsic>, aux_data: Vec<u8>) -> Self {
+		Block { header, extrinsics, aux_data }
+	}
+	fn encode_from(
+		header: &Self::Header,
+		extrinsics: &[Self::Extrinsic],
+		aux_data: &[u8],
+	) -> Vec<u8> {
+		(header, extrinsics, aux_data).encode()
 	}
 }
 

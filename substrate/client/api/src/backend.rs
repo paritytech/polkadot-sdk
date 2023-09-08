@@ -170,6 +170,7 @@ pub trait BlockImportOperation<Block: BlockT> {
 		indexed_body: Option<Vec<Vec<u8>>>,
 		justifications: Option<Justifications>,
 		state: NewBlockState,
+		body_aux: Vec<u8>,
 	) -> sp_blockchain::Result<()>;
 
 	/// Inject storage data into the database.
