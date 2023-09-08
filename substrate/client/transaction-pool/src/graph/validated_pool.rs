@@ -571,7 +571,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 	/// Consumers of this stream should use the `ready` method to actually get the
 	/// pending transactions in the right order.
 	pub fn import_notification_stream(&self) -> EventStream<ExtrinsicHash<B>> {
-		const CHANNEL_BUFFER_SIZE: usize = 1024;
+		const CHANNEL_BUFFER_SIZE: usize = 32 * 1024;
 
 		let (sink, stream) = channel(CHANNEL_BUFFER_SIZE);
 		self.import_notification_sinks.lock().push(sink);

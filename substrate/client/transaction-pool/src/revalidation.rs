@@ -116,15 +116,18 @@ async fn batch_revalidate<Api: ChainApi>(
 					),
 				);
 			},
-			Err(validation_err) => {
-				log::debug!(
-					target: LOG_TARGET,
-					"[{:?}]: Removing due to error during revalidation: {}",
-					ext_hash,
-					validation_err
-				);
-				invalid_hashes.push(ext_hash);
-			},
+			Err(validation_err) =>
+			// ugly hack, for some reason block at which revalidation was requested is not yet
+			// accessible by number in db
+				if !validation_err.to_string().contains("Could not get hash for block") {
+					log::debug!(
+						target: LOG_TARGET,
+						"[{:?}]: Removing due to error during revalidation: {}",
+						ext_hash,
+						validation_err
+					);
+					invalid_hashes.push(ext_hash);
+				},
 		}
 	}
 
