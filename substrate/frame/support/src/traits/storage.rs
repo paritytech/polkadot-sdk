@@ -153,7 +153,7 @@ impl Footprint {
 }
 
 /// Some sort of cost taken from account temporarily in order to offset the cost to the chain of
-/// holding some data `Footprint` in state.
+/// holding some data [`Footprint`] in state.
 ///
 /// The cost may be increased, reduced or dropped entirely as the footprint changes.
 ///
