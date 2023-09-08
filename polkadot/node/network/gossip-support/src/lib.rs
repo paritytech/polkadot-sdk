@@ -407,7 +407,6 @@ where
 			}
 		}
 
-
 		// peer was authority and now isn't
 		for (peer_id, current) in self.connected_peers.iter_mut() {
 			// empty -> nonempty is handled in the next loop
@@ -461,8 +460,7 @@ where
 				}
 			},
 			NetworkBridgeEvent::PeerDisconnected(peer_id) => {
-				if let Some(authority_ids) = self.connected_peers.remove(&peer_id)
-				{
+				if let Some(authority_ids) = self.connected_peers.remove(&peer_id) {
 					authority_ids.into_iter().for_each(|a| {
 						self.connected_authorities.remove(&a);
 					});

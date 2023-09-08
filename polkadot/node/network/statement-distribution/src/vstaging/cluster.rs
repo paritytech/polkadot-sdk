@@ -332,14 +332,10 @@ impl ClusterTracker {
 	}
 
 	/// Whether a validator can request a candidate from us.
-	pub fn can_request(
-		&self,
-		target: ValidatorIndex,
-		candidate_hash: CandidateHash,
-	) -> bool {
-		self.validators.contains(&target)
-			&& self.we_sent_seconded(target, candidate_hash)
-			&& !self.they_sent_seconded(target, candidate_hash)
+	pub fn can_request(&self, target: ValidatorIndex, candidate_hash: CandidateHash) -> bool {
+		self.validators.contains(&target) &&
+			self.we_sent_seconded(target, candidate_hash) &&
+			!self.they_sent_seconded(target, candidate_hash)
 	}
 
 	/// Returns a Vec of pending statements to be sent to a particular validator

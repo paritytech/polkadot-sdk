@@ -2670,7 +2670,7 @@ pub(crate) async fn handle_response<Context>(
 				);
 
 				return
-			}
+			},
 			requests::CandidateRequestStatus::Complete {
 				candidate,
 				persisted_validation_data,
@@ -2684,7 +2684,7 @@ pub(crate) async fn handle_response<Context>(
 				);
 
 				(candidate, persisted_validation_data, statements)
-			}
+			},
 		};
 
 		for statement in statements {
@@ -2808,7 +2808,8 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 		return
 	}
 
-	// check peer is allowed to request the candidate (i.e. they're in the cluster or we've sent them a manifest)
+	// check peer is allowed to request the candidate (i.e. they're in the cluster or we've sent
+	// them a manifest)
 	let (validator_id, is_cluster) = {
 		let mut validator_id = None;
 		let mut is_cluster = false;
@@ -2837,7 +2838,7 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 				});
 
 				return
-			}
+			},
 		}
 	};
 
@@ -2850,12 +2851,7 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 
 	let statements: Vec<_> = relay_parent_state
 		.statement_store
-		.group_statements(
-			&per_session.groups,
-			confirmed.group_index(),
-			*candidate_hash,
-			&and_mask,
-		)
+		.group_statements(&per_session.groups, confirmed.group_index(), *candidate_hash, &and_mask)
 		.map(|s| s.as_unchecked().clone())
 		.collect();
 
