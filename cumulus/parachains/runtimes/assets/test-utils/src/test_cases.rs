@@ -78,6 +78,7 @@ pub fn teleports_for_native_asset_works<
 		Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
 		From<<Runtime as frame_system::Config>::AccountId>,
+	<Runtime as frame_system::Config>::AccountId: From<AccountId>,
 	XcmConfig: xcm_executor::Config,
 	CheckingAccount: Get<AccountIdOf<Runtime>>,
 	HrmpChannelOpener: frame_support::inherent::ProvideInherent<
@@ -96,7 +97,7 @@ pub fn teleports_for_native_asset_works<
 
 			let included_head = RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::run_to_block(
 				2,
-				AccountId::from(alice),
+				AccountId::from(alice).into(),
 			);
 			// check Balances before
 			assert_eq!(<pallet_balances::Pallet<Runtime>>::free_balance(&target_account), 0.into());
@@ -346,6 +347,7 @@ pub fn teleports_for_foreign_assets_works<
 		Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
 		From<<Runtime as frame_system::Config>::AccountId>,
+	<Runtime as frame_system::Config>::AccountId: From<AccountId>,
 	ForeignAssetsPalletInstance: 'static,
 {
 	// foreign parachain with the same consenus currency as asset
@@ -391,7 +393,7 @@ pub fn teleports_for_foreign_assets_works<
 
 			let included_head = RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::run_to_block(
 				2,
-				AccountId::from(alice),
+				AccountId::from(alice).into(),
 			);
 			// checks target_account before
 			assert_eq!(
@@ -1005,6 +1007,7 @@ macro_rules! include_asset_transactor_transfer_with_pallet_assets_instance_works
 	}
 );
 
+/// Test-case makes sure that `Runtime` can create and manage `ForeignAssets`
 pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_works<
 	Runtime,
 	XcmConfig,
