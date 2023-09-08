@@ -31,16 +31,16 @@
 //! The main limitation is block propagation time - i.e. the new blocks created by an author
 //! must be propagated to the next author before their turn.
 
-use codec::{Codec, Decode, Encode};
+use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
-	self as consensus_common, ParachainBlockImportMarker, ParentSearchParams,
+	self as consensus_common, load_abridged_host_configuration, ParachainBlockImportMarker,
+	ParentSearchParams,
 };
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{
-	relay_chain::{self, Hash as PHash},
-	AbridgedHostConfiguration, CollectCollationInfo, PersistedValidationData,
+	relay_chain::Hash as PHash, CollectCollationInfo, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 
@@ -424,39 +424,23 @@ async fn max_ancestry_lookback(
 	relay_parent: PHash,
 	relay_client: &impl RelayChainInterface,
 ) -> usize {
-	let bytes = match relay_client
-		.get_storage_by_key(relay_parent, relay_chain::well_known_keys::ACTIVE_CONFIG)
-		.await
-	{
-		Ok(bytes) => bytes,
-		Err(err) => {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				?err,
-				"Failed to read active config from relay chain client",
-			);
-			return 0
-		},
-	};
-
-	let read_result = match bytes {
-		Some(bytes) => AbridgedHostConfiguration::decode(&mut &bytes[..]).map_err(|err| {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				?err,
-				"Failed to decode active config value from relay chain storage",
-			)
-		}),
-		None => {
+	match load_abridged_host_configuration(relay_parent, relay_client).await {
+		Ok(Some(config)) => config.async_backing_params.allowed_ancestry_len as usize,
+		Ok(None) => {
 			tracing::error!(
 				target: crate::LOG_TARGET,
 				"Active config is missing in relay chain storage",
 			);
-			Err(())
+			0
 		},
-	};
-
-	read_result
-		.map(|config| config.async_backing_params.allowed_ancestry_len as usize)
-		.unwrap_or(0)
+		Err(err) => {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				?err,
+				?relay_parent,
+				"Failed to read active config from relay chain client",
+			);
+			0
+		},
+	}
 }
