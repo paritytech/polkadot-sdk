@@ -1049,6 +1049,7 @@ impl parachains_paras::Config for Runtime {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
+	type OnNewHead = ();
 }
 
 parameter_types! {
@@ -1430,6 +1431,7 @@ pub mod migrations {
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		UpgradeSessionKeys,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
+		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ()>,
 	);
 }
 

@@ -605,7 +605,7 @@ fn fails_when_explicit_origin_required() {
 }
 
 fn call_transfer() -> RuntimeCall {
-	RuntimeCall::Balances(pallet_balances::Call::transfer { dest: 1, value: 1 })
+	RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { dest: 1, value: 1 })
 }
 
 fn signed(who: u64) -> RuntimeOrigin {
