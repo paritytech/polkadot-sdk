@@ -91,6 +91,10 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(18_446_744_073_709_551_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
+	fn reserve_withdraw_assets() -> Weight {
+		Weight::from_parts(23_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+	}
 	/// Storage: `Benchmark::Override` (r:0 w:0)
 	/// Proof: `Benchmark::Override` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn execute() -> Weight {
