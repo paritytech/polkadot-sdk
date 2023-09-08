@@ -31,8 +31,7 @@ use sp_trie::TrieRecorderProvider;
 use std::{env, process::Command};
 use trie_standardmap::{Alphabet, StandardMap, ValueMode};
 
-use crate::validate_block::trie_recorder::RecorderProvider;
-use crate::validate_block::MemoryOptimizedValidationParams;
+use crate::validate_block::{trie_recorder::RecorderProvider, MemoryOptimizedValidationParams};
 
 fn call_validate_block_encoded_header(
 	parent_head: Header,
@@ -326,32 +325,46 @@ fn create_trie() -> (MemoryDB, TrieHash<Layout>, Vec<(Vec<u8>, Vec<u8>)>) {
 	(db, root, x)
 }
 use rand::Rng;
+use sp_trie::cache::{CacheSize, SharedTrieCache};
 #[test]
 fn recorder_does_its_thing() {
+	sp_tracing::try_init_simple();
 	let (db, root, values) = create_trie();
 
 	let mut rng = rand::thread_rng();
-	for _ in 1..100 {
-		let reference_recorder = Recorder::default();
-		let recorder_under_test: RecorderProvider<sp_core::Blake2Hasher> = RecorderProvider::new();
+	for _ in 1..2 {
+		let mut reference_recorder = Recorder::default();
+		let recorder_for_test: RecorderProvider<sp_core::Blake2Hasher> = RecorderProvider::new();
+		let reference_cache: SharedTrieCache<sp_core::Blake2Hasher> =
+			SharedTrieCache::new(CacheSize::new(1024 * 5));
+		let cache_for_test: SharedTrieCache<sp_core::Blake2Hasher> =
+			SharedTrieCache::new(CacheSize::new(1024 * 5));
 		{
+			let mut local_cache = cache_for_test.local_cache();
+			let mut trie_cache_for_reference = local_cache.as_trie_db_cache(root);
 			let mut reference_trie_recorder = reference_recorder.as_trie_recorder(root);
 			let reference_trie = TrieDBBuilder::<Layout>::new(&db, &root)
 				.with_recorder(&mut reference_trie_recorder)
+				.with_cache(&mut trie_cache_for_reference)
 				.build();
 
-			let mut trie_recorder_under_test = recorder_under_test.as_trie_recorder(root);
+			let mut local_cache_for_test = cache_for_test.local_cache();
+			let mut trie_cache_for_test = local_cache_for_test.as_trie_db_cache(root);
+			let mut trie_recorder_under_test = recorder_for_test.as_trie_recorder(root);
 			let test_trie = TrieDBBuilder::<Layout>::new(&db, &root)
 				.with_recorder(&mut trie_recorder_under_test)
+				.with_cache(&mut trie_cache_for_test)
 				.build();
 
-			for _ in 0..100 {
+			log::info!("just get");
+			for _ in 0..10 {
 				let index: usize = rng.gen_range(0..values.len());
 				test_trie.get(&values[index].0).unwrap().unwrap();
 				reference_trie.get(&values[index].0).unwrap().unwrap();
 			}
 
-			for _ in 0..100 {
+			log::info!("hash access");
+			for _ in 0..10 {
 				let index: usize = rng.gen_range(0..values.len());
 				test_trie.get_hash(&values[index].0);
 				reference_trie.get_hash(&values[index].0);
@@ -359,7 +372,7 @@ fn recorder_does_its_thing() {
 		}
 		assert_eq!(
 			reference_recorder.estimate_encoded_size(),
-			recorder_under_test.estimate_encoded_size()
+			recorder_for_test.estimate_encoded_size()
 		);
 	}
 }

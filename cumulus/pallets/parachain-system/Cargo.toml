@@ -20,6 +20,7 @@ frame-system = { path = "../../../substrate/frame/system", default-features = fa
 sp-core = { path = "../../../substrate/primitives/core", default-features = false}
 sp-externalities = { path = "../../../substrate/primitives/externalities", default-features = false}
 sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false}
+sp-api = { path = "../../../substrate/primitives/api", default-features = false}
 sp-io = { path = "../../../substrate/primitives/io", default-features = false}
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
 sp-state-machine = { path = "../../../substrate/primitives/state-machine", default-features = false}
