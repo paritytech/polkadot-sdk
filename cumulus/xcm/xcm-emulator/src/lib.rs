@@ -1329,9 +1329,9 @@ pub struct TestArgs {
 }
 
 /// Auxiliar struct to help creating a new `Test` instance
-pub struct TestContext<T, R: Chain, D: Chain> {
-	pub sender: AccountIdOf<R::Runtime>,
-	pub receiver: AccountIdOf<D::Runtime>,
+pub struct TestContext<T, Origin: Chain, Destination: Chain> {
+	pub sender: AccountIdOf<Origin::Runtime>,
+	pub receiver: AccountIdOf<Destination::Runtime>,
 	pub args: T,
 }
 
