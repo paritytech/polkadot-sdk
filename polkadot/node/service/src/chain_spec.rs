@@ -754,16 +754,6 @@ fn rococo_staging_testnet_config_genesis(
 	}
 }
 
-/// Returns the properties for the [`PolkadotChainSpec`].
-pub fn polkadot_chain_spec_properties() -> serde_json::map::Map<String, serde_json::Value> {
-	serde_json::json!({
-		"tokenDecimals": 10,
-	})
-	.as_object()
-	.expect("Map given; qed")
-	.clone()
-}
-
 /// Westend staging testnet config.
 #[cfg(feature = "westend-native")]
 pub fn westend_staging_testnet_config() -> Result<WestendChainSpec, String> {

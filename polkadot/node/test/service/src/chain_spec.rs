@@ -36,6 +36,16 @@ const DEFAULT_PROTOCOL_ID: &str = "dot";
 pub type PolkadotChainSpec =
 	sc_service::GenericChainSpec<polkadot_test_runtime::RuntimeGenesisConfig, Extensions>;
 
+/// Returns the properties for the [`PolkadotChainSpec`].
+pub fn polkadot_chain_spec_properties() -> serde_json::map::Map<String, serde_json::Value> {
+	serde_json::json!({
+		"tokenDecimals": 10,
+	})
+	.as_object()
+	.expect("Map given; qed")
+	.clone()
+}
+
 /// Local testnet config (multivalidator Alice + Bob)
 pub fn polkadot_local_testnet_config() -> PolkadotChainSpec {
 	PolkadotChainSpec::from_genesis(
