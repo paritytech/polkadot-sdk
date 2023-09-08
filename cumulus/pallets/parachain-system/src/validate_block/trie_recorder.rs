@@ -38,13 +38,12 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<
 	fn record<'b>(&mut self, access: TrieAccess<'b, H::Out>) {
 		let mut encoded_size_update = 0;
 		match access {
-			TrieAccess::NodeOwned { hash, node_owned } => {
+			TrieAccess::NodeOwned { hash, node_owned } =>
 				if !self.seen_nodes.get(&hash).is_some() {
 					let node = node_owned.to_encoded::<NodeCodec<H>>();
 					encoded_size_update += node.encoded_size();
 					self.seen_nodes.insert(hash);
-				}
-			},
+				},
 			TrieAccess::EncodedNode { hash, encoded_node } => {
 				if !self.seen_nodes.get(&hash).is_some() {
 					let node = encoded_node.into_owned();

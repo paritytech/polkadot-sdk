@@ -111,7 +111,7 @@ where
 		) -> Option<core::result::Result<RE, Box<TrieError<<H as Hasher>::Out>>>>,
 	) -> Option<Result<RE>> {
 		if !matches!(self.state, IterState::Pending) {
-			return None;
+			return None
 		}
 
 		let result = backend.with_trie_db(self.root, self.child_info.as_ref(), |db| {
