@@ -268,10 +268,8 @@ fn check_event_type(
 			});
 
 			if !has_is_type_bound {
-				let msg = format!(
-					"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
-					bound: `IsType<<Self as frame_system::Config>::RuntimeEvent>`"
-				);
+				let msg = "Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
+					bound: `IsType<<Self as frame_system::Config>::RuntimeEvent>`".to_string();
 				return Err(syn::Error::new(type_.span(), msg))
 			}
 
