@@ -292,4 +292,7 @@ impl<T: frame_system::Config> runtime_parachains::hrmp::WeightInfo for WeightInf
 			.saturating_add(T::DbWeight::get().reads(14))
 			.saturating_add(T::DbWeight::get().writes(8))
 	}
+	fn establish_system_channel() -> Weight {
+		Weight::from_parts(1, 1)
+	}
 }
