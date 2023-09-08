@@ -290,13 +290,13 @@ impl<G, E> ChainSpecBuilder<G, E> {
 		self
 	}
 
-	/// Sets the spec ID. This method must be called.
+	/// Sets the spec ID.
 	pub fn with_id(mut self, id: &str) -> Self {
 		self.id = id.into();
 		self
 	}
 
-	/// Sets the type of the chain. This method must be called.
+	/// Sets the type of the chain.
 	pub fn with_chain_type(mut self, chain_type: ChainType) -> Self {
 		self.chain_type = chain_type;
 		self
@@ -332,13 +332,13 @@ impl<G, E> ChainSpecBuilder<G, E> {
 		self
 	}
 
-	/// Sets chain spec extensions. This method must be called.
+	/// Sets chain spec extensions.
 	pub fn with_extensions(mut self, extensions: E) -> Self {
 		self.extensions = extensions;
 		self
 	}
 
-	/// Sets the code. This method must be called.
+	/// Sets the code.
 	pub fn with_code(mut self, code: &[u8]) -> Self {
 		self.code = code.into();
 		self
