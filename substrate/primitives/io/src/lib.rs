@@ -111,9 +111,6 @@ use sp_core::bls377;
 #[cfg(feature = "std")]
 use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
 
-#[cfg(feature = "std")]
-use std::str::FromStr;
-
 use sp_runtime_interface::{
 	pass_by::{PassBy, PassByCodec},
 	runtime_interface, Pointer,
@@ -1578,8 +1575,8 @@ pub trait Logging {
 	///
 	/// Uses the host as default log level but can be overwritten with [`RUNTIME_LOG_ENV`].
 	fn max_level() -> LogLevelFilter {
-		if let Ok(env) = std::env::var(RUNTIME_LOG_ENV) {
-			if let Ok(level) = log::LevelFilter::from_str(&env) {
+		if let Ok(level) = std::env::var(RUNTIME_LOG_ENV) {
+			if let Ok(level) = level.parse::<log::LevelFilter>() {
 				return level.into()
 			}
 		}
