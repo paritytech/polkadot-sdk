@@ -179,9 +179,7 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	/// Current time for the current block.
-	///
-	/// todo: add note whether cleared or how to use this storage?
+	/// The current time for the current block.
 	#[pallet::storage]
 	#[pallet::getter(fn now)]
 	pub type Now<T: Config> = StorageValue<_, T::Moment, ValueQuery>;
@@ -231,7 +229,7 @@ pub mod pallet {
 		///
 		/// ## Complexity
 		/// - `O(1)` (Note that implementations of `OnTimestampSet` must also be `O(1)`)
-		/// - 1 storage read and 1 storage mutation (codec `O(1)`). (because of `DidUpdate::take` in
+		/// - 1 storage read and 1 storage mutation (codec `O(1)` because of `DidUpdate::take` in
 		///   `on_finalize`)
 		/// - 1 event handler `on_timestamp_set`. Must be `O(1)`.
 		#[pallet::call_index(0)]
