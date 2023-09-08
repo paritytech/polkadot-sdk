@@ -34,13 +34,13 @@ use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
 use sp_std::{prelude::*, sync::Arc};
 use sp_trie::{MemoryDB, TrieRecorderProvider};
-use trie_recorder::RecorderProvider;
+use trie_recorder::SizeOnlyRecorderProvider;
 
 type TrieBackend<B> = sp_state_machine::TrieBackend<
 	MemoryDB<HashingFor<B>>,
 	HashingFor<B>,
 	trie_cache::CacheProvider<HashingFor<B>>,
-	RecorderProvider<HashingFor<B>>,
+	SizeOnlyRecorderProvider<HashingFor<B>>,
 >;
 
 type Ext<'a, B> = sp_state_machine::Ext<'a, HashingFor<B>, TrieBackend<B>>;
@@ -93,7 +93,6 @@ where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as Extrinsic>::Call: IsSubType<crate::Call<PSC>>,
 {
-	sp_api::init_runtime_logger();
 	let block_data = codec::decode_from_bytes::<ParachainBlockData<B>>(block_data)
 		.expect("Invalid parachain block data");
 
@@ -122,7 +121,7 @@ where
 
 	sp_std::mem::drop(storage_proof);
 
-	let recorder = RecorderProvider::new();
+	let recorder = SizeOnlyRecorderProvider::new();
 	let cache_provider = trie_cache::CacheProvider::new();
 	// We use the storage root of the `parent_head` to ensure that it is the correct root.
 	// This is already being done above while creating the in-memory db, but let's be paranoid!!

@@ -3556,7 +3556,6 @@ dependencies = [
  "rand 0.8.5",
  "sc-client-api",
  "scale-info",
- "sp-api",
  "sp-core",
  "sp-externalities",
  "sp-inherents",

@@ -28,28 +28,27 @@ use sp_trie::{NodeCodec, StorageProof};
 use trie_db::{Hasher, RecordedForKey, TrieAccess};
 
 /// A trie recorder that only keeps track of the proof size.
-pub(crate) struct SizeRecorder<'a, H: Hasher> {
+pub(crate) struct SizeOnlyRecorder<'a, H: Hasher> {
 	seen_nodes: RefMut<'a, BTreeSet<H::Out>>,
 	encoded_size: RefMut<'a, usize>,
 	recorded_keys: RefMut<'a, BTreeMap<Arc<[u8]>, RecordedForKey>>,
 }
 
-impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeRecorder<'a, H> {
+impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<'a, H> {
 	fn record<'b>(&mut self, access: TrieAccess<'b, H::Out>) {
 		let mut encoded_size_update = 0;
 		match access {
-			TrieAccess::NodeOwned { hash, node_owned } =>
+			TrieAccess::NodeOwned { hash, node_owned } => {
 				if !self.seen_nodes.get(&hash).is_some() {
 					let node = node_owned.to_encoded::<NodeCodec<H>>();
-					log::info!(target: "skunert", "TrieAccess::NodeOwned");
 					encoded_size_update += node.encoded_size();
 					self.seen_nodes.insert(hash);
-				},
+				}
+			},
 			TrieAccess::EncodedNode { hash, encoded_node } => {
 				if !self.seen_nodes.get(&hash).is_some() {
 					let node = encoded_node.into_owned();
 
-					log::info!(target: "skunert", "TrieAccess::EncodedNode");
 					encoded_size_update += node.encoded_size();
 					self.seen_nodes.insert(hash);
 				}
@@ -57,7 +56,6 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeRecorder<'a, 
 			TrieAccess::Value { hash, value, full_key } => {
 				if !self.seen_nodes.get(&hash).is_some() {
 					let value = value.into_owned();
-					log::info!(target: "skunert", "TrieAccess::Value");
 					encoded_size_update += value.encoded_size();
 					self.seen_nodes.insert(hash);
 				}
@@ -87,13 +85,13 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeRecorder<'a, 
 	}
 }
 
-pub(crate) struct RecorderProvider<H: Hasher> {
+pub(crate) struct SizeOnlyRecorderProvider<H: Hasher> {
 	seen_nodes: RefCell<BTreeSet<H::Out>>,
 	encoded_size: RefCell<usize>,
 	recorded_keys: RefCell<BTreeMap<Arc<[u8]>, RecordedForKey>>,
 }
 
-impl<H: Hasher> RecorderProvider<H> {
+impl<H: Hasher> SizeOnlyRecorderProvider<H> {
 	pub fn new() -> Self {
 		Self {
 			seen_nodes: Default::default(),
@@ -103,15 +101,15 @@ impl<H: Hasher> RecorderProvider<H> {
 	}
 }
 
-impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for RecorderProvider<H> {
-	type Recorder<'a> = SizeRecorder<'a, H> where H: 'a;
+impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for SizeOnlyRecorderProvider<H> {
+	type Recorder<'a> = SizeOnlyRecorder<'a, H> where H: 'a;
 
 	fn drain_storage_proof(self) -> StorageProof {
 		unimplemented!("Draining storage proof not supported!")
 	}
 
 	fn as_trie_recorder(&self, _storage_root: H::Out) -> Self::Recorder<'_> {
-		SizeRecorder {
+		SizeOnlyRecorder {
 			encoded_size: self.encoded_size.borrow_mut(),
 			seen_nodes: self.seen_nodes.borrow_mut(),
 			recorded_keys: self.recorded_keys.borrow_mut(),
@@ -124,5 +122,160 @@ impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for RecorderProvider<H
 }
 
 // This is safe here since we are single-threaded in WASM
-unsafe impl<H: Hasher> Send for RecorderProvider<H> {}
-unsafe impl<H: Hasher> Sync for RecorderProvider<H> {}
+unsafe impl<H: Hasher> Send for SizeOnlyRecorderProvider<H> {}
+unsafe impl<H: Hasher> Sync for SizeOnlyRecorderProvider<H> {}
+
+#[cfg(test)]
+mod tests {
+	use rand::Rng;
+	use sp_trie::{
+		cache::{CacheSize, SharedTrieCache},
+		MemoryDB, TrieRecorderProvider,
+	};
+	use trie_db::{Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieMut, TrieRecorder};
+	use trie_standardmap::{Alphabet, StandardMap, ValueMode};
+
+	use crate::validate_block::trie_recorder::SizeOnlyRecorderProvider;
+
+	type Recorder = sp_trie::recorder::Recorder<sp_core::Blake2Hasher>;
+
+	fn create_trie() -> (
+		sp_trie::MemoryDB<sp_core::Blake2Hasher>,
+		TrieHash<sp_trie::LayoutV1<sp_core::Blake2Hasher>>,
+		Vec<(Vec<u8>, Vec<u8>)>,
+	) {
+		let mut db = MemoryDB::default();
+		let mut root = Default::default();
+
+		let mut seed = Default::default();
+		let test_data: Vec<(Vec<u8>, Vec<u8>)> = StandardMap {
+			alphabet: Alphabet::Low,
+			min_key: 16,
+			journal_key: 0,
+			value_mode: ValueMode::Random,
+			count: 1000,
+		}
+		.make_with(&mut seed)
+		.into_iter()
+		.map(|(k, v)| {
+			// Double the length so we end up with some values of 2 bytes and some of 64
+			let v = [v.clone(), v].concat();
+			(k, v)
+		})
+		.collect();
+
+		// Fill database with values
+		{
+			let mut trie = TrieDBMutBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher>>::new(
+				&mut db, &mut root,
+			)
+			.build();
+			for (k, v) in &test_data {
+				trie.insert(k, v).expect("Inserts data");
+			}
+		}
+
+		(db, root, test_data)
+	}
+
+	#[test]
+	fn recorder_equivalence_cache() {
+		sp_tracing::try_init_simple();
+		let (db, root, test_data) = create_trie();
+
+		let mut rng = rand::thread_rng();
+		for _ in 1..10 {
+			let reference_recorder = Recorder::default();
+			let recorder_for_test: SizeOnlyRecorderProvider<sp_core::Blake2Hasher> =
+				SizeOnlyRecorderProvider::new();
+			let reference_cache: SharedTrieCache<sp_core::Blake2Hasher> =
+				SharedTrieCache::new(CacheSize::new(1024 * 5));
+			let cache_for_test: SharedTrieCache<sp_core::Blake2Hasher> =
+				SharedTrieCache::new(CacheSize::new(1024 * 5));
+			{
+				let local_cache = cache_for_test.local_cache();
+				let mut trie_cache_for_reference = local_cache.as_trie_db_cache(root);
+				let mut reference_trie_recorder = reference_recorder.as_trie_recorder(root);
+				let reference_trie =
+					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher>>::new(&db, &root)
+						.with_recorder(&mut reference_trie_recorder)
+						.with_cache(&mut trie_cache_for_reference)
+						.build();
+
+				let local_cache_for_test = reference_cache.local_cache();
+				let mut trie_cache_for_test = local_cache_for_test.as_trie_db_cache(root);
+				let mut trie_recorder_under_test = recorder_for_test.as_trie_recorder(root);
+				let test_trie =
+					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher>>::new(&db, &root)
+						.with_recorder(&mut trie_recorder_under_test)
+						.with_cache(&mut trie_cache_for_test)
+						.build();
+
+				// Access random values from the test data
+				for _ in 0..100 {
+					let index: usize = rng.gen_range(0..test_data.len());
+					test_trie.get(&test_data[index].0).unwrap().unwrap();
+					reference_trie.get(&test_data[index].0).unwrap().unwrap();
+				}
+
+				// Check that we have the same nodes recorded for both recorders
+				for (key, _) in test_data.iter() {
+					let refe = reference_trie_recorder.trie_nodes_recorded_for_key(key);
+					let comp = trie_recorder_under_test.trie_nodes_recorded_for_key(key);
+					assert!(matches!(refe, comp));
+				}
+			}
+
+			// Check that we have the same size recorded for both recorders
+			assert_eq!(
+				reference_recorder.estimate_encoded_size(),
+				recorder_for_test.estimate_encoded_size()
+			);
+		}
+	}
+
+	#[test]
+	fn recorder_equivalence_no_cache() {
+		sp_tracing::try_init_simple();
+		let (db, root, test_data) = create_trie();
+
+		let mut rng = rand::thread_rng();
+		for _ in 1..10 {
+			let reference_recorder = Recorder::default();
+			let recorder_for_test: SizeOnlyRecorderProvider<sp_core::Blake2Hasher> =
+				SizeOnlyRecorderProvider::new();
+			{
+				let mut reference_trie_recorder = reference_recorder.as_trie_recorder(root);
+				let reference_trie =
+					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher>>::new(&db, &root)
+						.with_recorder(&mut reference_trie_recorder)
+						.build();
+
+				let mut trie_recorder_under_test = recorder_for_test.as_trie_recorder(root);
+				let test_trie =
+					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher>>::new(&db, &root)
+						.with_recorder(&mut trie_recorder_under_test)
+						.build();
+
+				for _ in 0..200 {
+					let index: usize = rng.gen_range(0..test_data.len());
+					test_trie.get(&test_data[index].0).unwrap().unwrap();
+					reference_trie.get(&test_data[index].0).unwrap().unwrap();
+				}
+
+				// Check that we have the same nodes recorded for both recorders
+				for (key, _) in test_data.iter() {
+					let refe = reference_trie_recorder.trie_nodes_recorded_for_key(key);
+					let comp = trie_recorder_under_test.trie_nodes_recorded_for_key(key);
+					assert!(matches!(refe, comp));
+				}
+			}
+
+			// Check that we have the same size recorded for both recorders
+			assert_eq!(
+				reference_recorder.estimate_encoded_size(),
+				recorder_for_test.estimate_encoded_size()
+			);
+		}
+	}
+}
