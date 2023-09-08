@@ -953,7 +953,7 @@ async fn handle_incoming_peer_message<Context>(
 							);
 						}, 
 						None => {
-							gum::warn!(
+							gum::debug!(
 								target: LOG_TARGET,
 								candidate_hash = ?&statement.payload().candidate_hash(),
 								?origin,
