@@ -715,7 +715,7 @@ fn can_quote_price() {
 			Some(amount_in)
 		);
 		assert_eq!(
-			AssetConversion::quote_price_tokens_for_exact_tokens(native_to_asset, amount_in, false,)
+			AssetConversion::quote_price_tokens_for_exact_tokens(native_to_asset, amount_in, false)
 				.and_then(|amount| AssetConversion::quote_price_tokens_for_exact_tokens(
 					asset_to_native,
 					amount,
