@@ -94,8 +94,7 @@ where
 		sender_origin.clone().into(),
 		recipient,
 		capacity,
-		message_size,
-		false
+		message_size
 	));
 
 	if matches!(until, ParachainSetupStep::Requested) {
@@ -329,8 +328,7 @@ frame_benchmarking::benchmarks! {
 					sender_origin.clone().into(),
 					recipient_id,
 					capacity,
-					message_size,
-					false
+					message_size
 				));
 				assert!(HrmpOpenChannelRequests::<T>::get(&channel_id).is_some());
 			} else {
