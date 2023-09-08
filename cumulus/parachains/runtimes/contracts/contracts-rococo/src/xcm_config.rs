@@ -24,7 +24,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
-use parachains_common::xcm_config::ConcreteNativeAssetFromSystem;
+use parachains_common::xcm_config::ConcreteAssetFromSystem;
 use polkadot_parachain_primitives::primitives::Sibling;
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -145,7 +145,7 @@ pub type Barrier = TrailingSetTopicAsId<
 	>,
 >;
 
-pub type TrustedTeleporter = ConcreteNativeAssetFromSystem;
+pub type TrustedTeleporter = ConcreteAssetFromSystem<RelayLocation>;
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {

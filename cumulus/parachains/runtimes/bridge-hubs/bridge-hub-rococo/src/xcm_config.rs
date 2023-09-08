@@ -30,7 +30,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use parachains_common::{impls::ToStakingPot, xcm_config::ConcreteNativeAssetFromSystem};
+use parachains_common::{impls::ToStakingPot, xcm_config::ConcreteAssetFromSystem};
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_core::Get;
 use xcm::latest::prelude::*;
@@ -226,7 +226,7 @@ pub type Barrier = TrailingSetTopicAsId<
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 /// - NativeToken with the parent Relay Chain and sibling parachains.
-pub type TrustedTeleporters = ConcreteNativeAssetFromSystem;
+pub type TrustedTeleporters = ConcreteAssetFromSystem<RelayLocation>;
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {

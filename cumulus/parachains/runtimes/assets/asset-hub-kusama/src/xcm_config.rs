@@ -33,7 +33,7 @@ use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
-	xcm_config::{AssetFeeAsExistentialDepositMultiplier, ConcreteNativeAssetFromSystem},
+	xcm_config::{AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem},
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::ConvertInto;
@@ -478,7 +478,7 @@ pub type AssetFeeAsExistentialDepositMultiplierFeeCharger = AssetFeeAsExistentia
 /// - KSM with the parent Relay Chain and sibling system parachains; and
 /// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
 pub type TrustedTeleporters = (
-	ConcreteNativeAssetFromSystem,
+	ConcreteAssetFromSystem<KsmLocation>,
 	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
 );
 

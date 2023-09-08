@@ -80,11 +80,12 @@ impl<Location: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
 }
 
 /// Accepts an asset if it is a native asset from the system (Relay Chain or system parachain).
-pub struct ConcreteNativeAssetFromSystem;
-impl ContainsPair<MultiAsset, MultiLocation> for ConcreteNativeAssetFromSystem {
+pub struct ConcreteAssetFromSystem<AssetLocation>(PhantomData<AssetLocation>);
+impl<AssetLocation: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
+	for ConcreteAssetFromSystem<AssetLocation>
+{
 	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
-		log::trace!(target: "xcm::contains", "ConcreteNativeAssetFromSystem asset: {:?}, origin: {:?}", asset, origin);
-		let parent = MultiLocation::parent();
+		log::trace!(target: "xcm::contains", "ConcreteAssetFromSystem asset: {:?}, origin: {:?}", asset, origin);
 		let is_system = match origin {
 			// The Relay Chain
 			MultiLocation { parents: 1, interior: Here } => true,
@@ -94,23 +95,30 @@ impl ContainsPair<MultiAsset, MultiLocation> for ConcreteNativeAssetFromSystem {
 			// Others
 			_ => false,
 		};
-		matches!(asset.id, Concrete(id) if id == parent && is_system)
+		matches!(asset.id, Concrete(id) if id == AssetLocation::get() && is_system)
 	}
 }
 
 #[cfg(test)]
 mod tests {
-	use super::{
-		ConcreteNativeAssetFromSystem, ContainsPair, GeneralIndex, Here, MultiAsset, MultiLocation,
+	use frame_support::parameter_types;
+
+use super::{
+		ConcreteAssetFromSystem, ContainsPair, GeneralIndex, Here, MultiAsset, MultiLocation,
 		PalletInstance, Parachain, Parent,
 	};
+
+	parameter_types! {
+		pub const RelayLocation: MultiLocation = MultiLocation::parent();
+	}
+
 
 	#[test]
 	fn native_asset_from_relay_works() {
 		let expected_asset: MultiAsset = (Parent, 1000000).into();
 		let expected_origin: MultiLocation = (Parent, Here).into();
 
-		assert!(ConcreteNativeAssetFromSystem::contains(&expected_asset, &expected_origin));
+		assert!(<ConcreteAssetFromSystem<AssetLocation>>::contains(&expected_asset, &expected_origin));
 	}
 
 	#[test]
@@ -123,7 +131,7 @@ mod tests {
 		let expected_origin: MultiLocation = (Parent, Parachain(1000)).into();
 
 		unexpected_assets.iter().for_each(|asset| {
-			assert!(!ConcreteNativeAssetFromSystem::contains(asset, &expected_origin));
+			assert!(!<ConcreteAssetFromSystem<AssetLocation>>::contains(asset, &expected_origin));
 		});
 	}
 
@@ -145,7 +153,7 @@ mod tests {
 			let origin: MultiLocation = (Parent, Parachain(para_id)).into();
 			assert_eq!(
 				expected_result,
-				ConcreteNativeAssetFromSystem::contains(&expected_asset, &origin)
+				<ConcreteAssetFromSystem<AssetLocation>>::contains(&expected_asset, &origin)
 			);
 		}
 	}
