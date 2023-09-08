@@ -903,41 +903,7 @@ async fn handle_incoming_peer_message<Context>(
 			ctx.send_message(NetworkBridgeTxMessage::DisconnectPeer(origin, PeerSet::Collation))
 				.await;
 		},
-		Versioned::V1(V1::CollationSeconded(relay_parent, statement)) => {
-			if !matches!(statement.unchecked_payload(), Statement::Seconded(_)) {
-				gum::warn!(
-					target: LOG_TARGET,
-					?statement,
-					?origin,
-					"Collation seconded message received with none-seconded statement.",
-				);
-			} else {
-				let statement = runtime
-					.check_signature(ctx.sender(), relay_parent, statement)
-					.await?
-					.map_err(Error::InvalidStatementSignature)?;
-
-				let removed =
-					state.collation_result_senders.remove(&statement.payload().candidate_hash());
-
-				if let Some(sender) = removed {
-					gum::trace!(
-						target: LOG_TARGET,
-						?statement,
-						?origin,
-						"received a valid `CollationSeconded`",
-					);
-					let _ = sender.send(CollationSecondedSignal { statement, relay_parent });
-				} else {
-					gum::debug!(
-						target: LOG_TARGET,
-						candidate_hash = ?&statement.payload().candidate_hash(),
-						?origin,
-						"received an unexpected `CollationSeconded`: unknown statement",
-					);
-				}
-			}
-		},
+		Versioned::V1(V1::CollationSeconded(relay_parent, statement)) |
 		Versioned::VStaging(VStaging::CollationSeconded(relay_parent, statement)) => {
 			if !matches!(statement.unchecked_payload(), Statement::Seconded(_)) {
 				gum::warn!(
