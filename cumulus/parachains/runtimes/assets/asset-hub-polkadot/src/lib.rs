@@ -70,10 +70,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{
-		tokens::nonfungibles_v2::Inspect, AccountIdLookup, BlakeTwo256, Block as BlockT,
-		ConvertInto, Verify,
-	},
+	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -89,8 +86,8 @@ use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse,
-		InstanceFilter,
+		tokens::nonfungibles_v2::Inspect, AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64,
+		ConstU8, EitherOfDiverse, InstanceFilter,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
