@@ -492,6 +492,7 @@ fn store_preimage_bound_too_large_errors() {
 
 #[test]
 fn ensure_updated_works() {
+	#![allow(deprecated)]
 	new_test_ext().execute_with(|| {
 		let alice = 2;
 
