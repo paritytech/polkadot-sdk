@@ -944,14 +944,15 @@ async fn handle_incoming_peer_message<Context>(
 						},
 					};
 					match relay_parent.collations.get(&statement.payload().candidate_hash()) {
-						Some(_) => { // We've seen this collation before, so a seconded statement is expected
+						Some(_) => {
+							// We've seen this collation before, so a seconded statement is expected
 							gum::trace!(
 								target: LOG_TARGET,
 								?statement,
 								?origin,
 								"received a valid `CollationSeconded`",
 							);
-						}, 
+						},
 						None => {
 							gum::debug!(
 								target: LOG_TARGET,
@@ -959,7 +960,7 @@ async fn handle_incoming_peer_message<Context>(
 								?origin,
 								"received an unexpected `CollationSeconded`: unknown statement",
 							);
-						}
+						},
 					}
 				}
 			}
