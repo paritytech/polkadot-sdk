@@ -262,6 +262,7 @@
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -285,14 +286,15 @@
 </span><span class="attr">#![warn(missing_docs)]
 #![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-</span><span class="kw">pub mod </span>bls12_377;
+</span><span class="kw">use </span>sp_runtime_interface::runtime_interface;
+<span class="kw">use </span>sp_std::vec::Vec;
+
+<span class="kw">pub mod </span>bls12_377;
 <span class="kw">pub mod </span>bls12_381;
 <span class="kw">pub mod </span>bw6_761;
 <span class="kw">pub mod </span>ed_on_bls12_377;
 <span class="kw">pub mod </span>ed_on_bls12_381_bandersnatch;
 <span class="kw">mod </span>utils;
-
-<span class="kw">use </span>sp_runtime_interface::runtime_interface;
 
 <span class="doccomment">/// Interfaces for working with elliptic curves related types from within the runtime.
 /// All type are (de-)serialized through the wrapper types from the ark-scale trait,
