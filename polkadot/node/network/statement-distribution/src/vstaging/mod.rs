@@ -616,27 +616,19 @@ fn find_local_validator_state(
 pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 	// deactivate the leaf in the implicit view.
 	for leaf in leaves {
-		state.implicit_view.deactivate_leaf(*leaf);
+		let pruned = state.implicit_view.deactivate_leaf(*leaf);
+		for pruned_rp in pruned {
+			// clean up per-relay-parent data based on everything removed.
+			state.per_relay_parent.remove(&pruned_rp);
+			// clean up requests related to this relay parent.
+			state.request_manager.remove_by_relay_parent(*leaf);
+		}
 	}
 
-	let relay_parents = state.implicit_view.all_allowed_relay_parents().collect::<HashSet<_>>();
-
-	// fast exit for no-op.
-	// TODO [now]: this looks suspicious.
-	if relay_parents.len() == state.per_relay_parent.len() {
-		return
-	}
-
-	// clean up per-relay-parent data based on everything removed.
-	state.per_relay_parent.retain(|r, _| relay_parents.contains(r));
-
-	// Clean up all requests
-	for leaf in leaves {
-		// TODO [now]: this is only cleaning up leaves. seems like a bug?
-		state.request_manager.remove_by_relay_parent(*leaf);
-	}
-
-	state.candidates.on_deactivate_leaves(&leaves, |h| relay_parents.contains(h));
+	state.candidates.on_deactivate_leaves(
+		&leaves,
+		|h| state.per_relay_parent.contains_key(h),
+	);
 
 	// clean up sessions based on everything remaining.
 	let sessions: HashSet<_> = state.per_relay_parent.values().map(|r| r.session).collect();
