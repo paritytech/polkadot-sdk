@@ -207,6 +207,25 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_idle(_block: BlockNumberFor<T>, weight: Weight) -> Weight {
+			let mut meter = WeightMeter::with_limit(weight);
+
+			let Some(mut states) = migration::v3::InboundXcmpStatus::<T>::get() else {
+				return meter.consumed();
+			};
+			/*let current = match (migration::v3::LastMigratedPara::<T>::get(), states.pop()) {
+				(None, Some(para)) => para,
+				
+			}*/
+			log::info!("There are {} channels to be migrated. current=", states.len());
+			
+
+			meter.consumed()
+		}
+	}
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {

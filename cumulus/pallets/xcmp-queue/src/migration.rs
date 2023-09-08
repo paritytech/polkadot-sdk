@@ -27,9 +27,9 @@ use frame_support::{
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
 /// Migrates the pallet storage to the most recent version.
-pub struct Migration<T: Config>(PhantomData<T>);
+pub struct MigrationToV3<T: Config>(PhantomData<T>);
 
-impl<T: Config> OnRuntimeUpgrade for Migration<T> {
+impl<T: Config> OnRuntimeUpgrade for MigrationToV3<T> {
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = T::DbWeight::get().reads(1);
 
@@ -74,6 +74,51 @@ mod v1 {
 				xcmp_max_individual_weight: 20u64 * WEIGHT_REF_TIME_PER_MILLIS,
 			}
 		}
+	}
+}
+
+pub mod v3 {
+	use super::*;
+	use crate::*;
+
+	#[frame_support::storage_alias]
+	pub(crate) type LastMigratedPara<T: Config> = 
+		StorageValue<Pallet<T>, ParaId, OptionQuery>;
+
+	/// Status of the inbound XCMP channels.
+	#[frame_support::storage_alias]
+	pub(crate) type InboundXcmpStatus<T: Config> =
+		StorageValue<Pallet<T>, Vec<InboundChannelDetails>, OptionQuery>;
+
+	/// Inbound aggregate XCMP messages. It can only be one per ParaId/block.
+	#[frame_support::storage_alias]
+	pub(crate) type InboundXcmpMessages<T: Config> = StorageDoubleMap<
+		Pallet<T>,
+		Blake2_128Concat,
+		ParaId,
+		Twox64Concat,
+		RelayBlockNumber,
+		Vec<u8>,
+		ValueQuery,
+	>;
+	
+	#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo)]
+	pub struct InboundChannelDetails {
+		/// The `ParaId` of the parachain that this channel is connected with.
+		sender: ParaId,
+		/// The state of the channel.
+		state: InboundState,
+		/// The ordered metadata of each inbound message.
+		///
+		/// Contains info about the relay block number that the message was sent at, and the format
+		/// of the incoming message.
+		message_metadata: Vec<(RelayBlockNumber, XcmpMessageFormat)>,
+	}
+
+	#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug, TypeInfo)]
+	pub enum InboundState {
+		Ok,
+		Suspended,
 	}
 }
 
