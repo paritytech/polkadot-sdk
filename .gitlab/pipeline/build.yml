@@ -163,7 +163,7 @@ build-short-benchmark:
     - .run-immediately
     - .collect-artifacts
   script:
-    - cargo build --profile release --locked --features=runtime-benchmarks --bin polkadot
+    - cargo build --profile release --locked --features=runtime-benchmarks --bin polkadot --workspace
     - mkdir -p artifacts
     - target/release/polkadot --version
     - cp ./target/release/polkadot ./artifacts/

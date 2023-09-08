@@ -121,7 +121,7 @@ test-linux-stable-runtime-benchmarks:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
-    - time cargo nextest run --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+    - time cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
 
 # these ones can be really slow so it's better to run them separately
 test-linux-stable-slow:
@@ -185,7 +185,7 @@ test-doc:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
-    - time cargo test --doc
+    - time cargo test --doc --workspace
 
 test-rustdoc:
   stage: test
