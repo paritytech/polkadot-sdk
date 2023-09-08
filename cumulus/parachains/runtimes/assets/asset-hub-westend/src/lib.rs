@@ -1354,6 +1354,7 @@ impl_runtime_apis! {
 			Ok(batches)
 		}
 	}
+
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn create_default_config() -> Vec<u8> {
 			create_default_config::<RuntimeGenesisConfig>()
