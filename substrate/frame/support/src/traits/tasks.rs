@@ -24,7 +24,7 @@ pub mod prelude {
 	pub use codec::FullCodec;
 	pub use scale_info::TypeInfo;
 	pub use sp_runtime::DispatchError;
-	pub use sp_std::{fmt::Debug, iter::Iterator};
+	pub use sp_std::{fmt::Debug, iter::Iterator, vec::IntoIter};
 	pub use sp_weights::Weight;
 }
 
@@ -37,7 +37,9 @@ pub trait Task: Sized + FullCodec + TypeInfo + Clone + Debug + PartialEq + Eq {
 	type Enumeration: Iterator<Item = Self>;
 
 	/// A unique value representing this `Task`. Analogous to `call_index`, but for tasks.
-	const TASK_INDEX: u64;
+	///
+	/// Set to [`None`] for the aggregated `RuntimeTask` type.
+	const TASK_INDEX: Option<u64>;
 
 	/// Inspects the pallet's state and enumerates tasks of this type.
 	fn enumerate() -> Self::Enumeration;
@@ -51,8 +53,10 @@ pub trait Task: Sized + FullCodec + TypeInfo + Clone + Debug + PartialEq + Eq {
 	/// Returns the weight of executing this `Task`.
 	fn weight(&self) -> Weight;
 
-	/// A unique value representing this `Task`. Analogous to `call_index`, but for tasks.
-	fn task_index(&self) -> u64 {
+	/// A unique value representing this `Task`. Analogous to `call_index`, but for tasks.'
+	///
+	/// Set to [`None`] for the aggregated `RuntimeTask` type.
+	fn task_index(&self) -> Option<u64> {
 		Self::TASK_INDEX
 	}
 }
