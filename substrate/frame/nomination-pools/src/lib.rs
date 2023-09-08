@@ -554,8 +554,8 @@ impl<T: Config> PoolMember<T> {
 		let unbonding_balance = self.unbonding_eras.iter().fold(
 			BalanceOf::<T>::zero(),
 			|accumulator, (era, unlocked_points)| {
-				// if the [`SubPools::with_era`] has already been merged into the
-				// [`SubPools::no_era`] use this pool instead.
+				// if the `SubPools::with_era` has already been merged into the
+				// `SubPools::no_era` use this pool instead.
 				let era_pool = sub_pools.with_era.get(era).unwrap_or(&sub_pools.no_era);
 				accumulator.saturating_add(era_pool.point_to_balance(*unlocked_points))
 			},
@@ -3363,14 +3363,14 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 		total_slashed: BalanceOf<T>,
 	) {
 		let Some(pool_id) = ReversePoolIdLookup::<T>::get(pool_account).defensive() else { return };
-		// As the slashed account belongs to a [`BondedPool`] the [`TotalValueLocked`] decreases and
+		// As the slashed account belongs to a `BondedPool` the `TotalValueLocked` decreases and
 		// an event is emitted.
 		TotalValueLocked::<T>::mutate(|tvl| {
 			tvl.saturating_reduce(total_slashed);
 		});
 
 		if let Some(mut sub_pools) = SubPoolsStorage::<T>::get(pool_id) {
-			// set the reduced balance for each of the [`SubPools`]
+			// set the reduced balance for each of the `SubPools`
 			slashed_unlocking.iter().for_each(|(era, slashed_balance)| {
 				if let Some(pool) = sub_pools.with_era.get_mut(era) {
 					pool.balance = *slashed_balance;
