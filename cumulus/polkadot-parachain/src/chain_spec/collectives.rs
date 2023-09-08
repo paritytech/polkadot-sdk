@@ -25,7 +25,7 @@ use sp_core::sr25519;
 pub type CollectivesPolkadotChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 const COLLECTIVES_POLKADOT_ED: CollectivesBalance =
-	collectives_polkadot_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
 
 /// Generate the session keys from individual elements.
 ///
