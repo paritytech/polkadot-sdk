@@ -41,7 +41,7 @@ fn benchmark_block_import(c: &mut Criterion) {
 	let (src_accounts, dst_accounts, account_ids) = utils::create_benchmark_accounts();
 
 	for bench_parameters in &[(true, Alice), (false, Bob)] {
-		let alice = runtime.block_on(
+		let node = runtime.block_on(
 			cumulus_test_service::TestNodeBuilder::new(
 				para_id,
 				tokio_handle.clone(),
@@ -53,8 +53,8 @@ fn benchmark_block_import(c: &mut Criterion) {
 			.build(),
 		);
 
-		let client = alice.client;
-		let backend = alice.backend;
+		let client = node.client;
+		let backend = node.backend;
 
 		let (max_transfer_count, extrinsics) =
 			utils::create_benchmarking_transfer_extrinsics(&client, &src_accounts, &dst_accounts);
