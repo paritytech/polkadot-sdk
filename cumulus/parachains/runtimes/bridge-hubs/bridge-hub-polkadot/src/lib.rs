@@ -22,6 +22,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+pub mod bridge_bulletin_config;
 pub mod bridge_kusama_config;
 mod weights;
 pub mod xcm_config;
@@ -522,6 +523,48 @@ impl pallet_bridge_relayers::Config for Runtime {
 	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
 }
 
+/// Add GRANDPA bridge pallet to track Bulletin chain on Polkadot BridgeHub
+pub type BridgeGrandpaBulletinInstance = pallet_bridge_grandpa::Instance2;
+impl pallet_bridge_grandpa::Config<BridgeGrandpaBulletinInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type BridgedChain = bp_polkadot_bulletin::PolkadotBulletin;
+	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
+	type HeadersToKeep = RelayChainHeadersToKeep;
+	type WeightInfo = (); // TODO
+}
+
+/// Add XCM messages support for Polkadot<->Bulletin XCM messages
+pub type WithPolkadotBulletinMessagesInstance = pallet_bridge_messages::Instance2;
+impl pallet_bridge_messages::Config<WithPolkadotBulletinMessagesInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = (); // TODO
+	type BridgedChainId = bridge_bulletin_config::PolkadotBulletinChainId;
+	type ActiveOutboundLanes = bridge_bulletin_config::ActiveOutboundLanesToPolkadotBulletin;
+	type MaxUnrewardedRelayerEntriesAtInboundLane =
+		bridge_bulletin_config::MaxUnrewardedRelayerEntriesAtInboundLane;
+	type MaxUnconfirmedMessagesAtInboundLane =
+		bridge_bulletin_config::MaxUnconfirmedMessagesAtInboundLane;
+	type MaximalOutboundPayloadSize =
+		bridge_bulletin_config::ToPolkadotBulletinMaximalOutboundPayloadSize;
+	type OutboundPayload = XcmAsPlainPayload;
+	type InboundPayload = XcmAsPlainPayload;
+	type InboundRelayer = AccountId;
+	type DeliveryPayments = ();
+	type TargetHeaderChain = TargetHeaderChainAdapter<WithPolkadotBulletinMessageBridge>;
+	type LaneMessageVerifier = bridge_bulletin_config::ToPolkadotBulletinMessageVerifier;
+	type DeliveryConfirmationPayments = (); // TODO
+	type SourceHeaderChain = SourceHeaderChainAdapter<WithPolkadotBulletinMessageBridge>;
+	type MessageDispatch = XcmBlobMessageDispatch<
+		OnThisChainBlobDispatcher<UniversalLocation>,
+		Self::WeightInfo,
+		cumulus_pallet_xcmp_queue::bridging::OutboundXcmpChannelCongestionStatusProvider<
+			bridge_bulletin_config::AssetHubPolkadotParaId,
+			Runtime,
+		>,
+	>;
+	type OnMessagesDelivered = bridge_bulletin_config::OnMessagesDelivered;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -560,6 +603,10 @@ construct_runtime!(
 		BridgeKusamaParachain: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage, Event<T>} = 52,
 		BridgeKusamaMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 53,
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 54,
+
+		// Polkadot<>Bulletin bridge pallets
+		BridgePolkadotBulletinGrandpa: pallet_bridge_grandpa::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 55,
+		BridgePolkadotBulletinMessages: pallet_bridge_messages::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 56,
 	}
 );
 

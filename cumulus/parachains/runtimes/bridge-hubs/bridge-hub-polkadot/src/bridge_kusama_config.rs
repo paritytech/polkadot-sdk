@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Polkadot BridgeHub definitions.
+//! Definitions, related to bridge with Kusama Bridge Hub.
 
 use crate::{
 	BridgeKusamaMessages, BridgeParachainKusamaInstance, Runtime,
@@ -41,7 +41,7 @@ use xcm_builder::{BridgeBlobDispatcher, HaulBlobExporter};
 
 parameter_types! {
 	pub const MaxUnrewardedRelayerEntriesAtInboundLane: bp_messages::MessageNonce =
-		bp_bridge_hub_polkadot::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
+		bp_bridge_hub_polkadot::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX; // TODO: change this to `bp_bridge_hub_kusama` + in other places too
 	pub const MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_bridge_hub_polkadot::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	pub const BridgeHubKusamaChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_KUSAMA_CHAIN_ID;
