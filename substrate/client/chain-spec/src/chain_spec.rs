@@ -284,7 +284,7 @@ impl<G, E> ChainSpecBuilder<G, E> {
 		}
 	}
 
-	/// Sets the spec name. This method must be called.
+	/// Sets the spec name.
 	pub fn with_name(mut self, name: &str) -> Self {
 		self.name = name.into();
 		self
