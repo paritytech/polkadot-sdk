@@ -304,14 +304,9 @@ frame_benchmarking::benchmarks! {
 		let sender_origin: crate::Origin = 1u32.into();
 		let recipient_id: ParaId = 2u32.into();
 
-		// make sure para is registered, and has enough balance.
-		let ed = T::Currency::minimum_balance();
-		let sender_deposit: BalanceOf<T> =
-			Configuration::<T>::config().hrmp_sender_deposit.unique_saturated_into();
-		let recipient_deposit: BalanceOf<T> =
-			Configuration::<T>::config().hrmp_recipient_deposit.unique_saturated_into();
-		register_parachain_with_balance::<T>(sender_id, sender_deposit + ed);
-		register_parachain_with_balance::<T>(recipient_id, recipient_deposit + ed);
+		// make sure para is registered, and has zero balance.
+		register_parachain_with_balance::<T>(sender_id, Zero::zero());
+		register_parachain_with_balance::<T>(recipient_id, Zero::zero());
 
 		let capacity = Configuration::<T>::config().hrmp_channel_max_capacity;
 		let message_size = Configuration::<T>::config().hrmp_channel_max_message_size;
@@ -349,6 +344,25 @@ frame_benchmarking::benchmarks! {
 	verify {
 		assert_last_event::<T>(
 			Event::<T>::HrmpChannelForceOpened(sender_id, recipient_id, capacity, message_size).into()
+		);
+	}
+
+	establish_system_channel {
+		let sender_id: ParaId = 1u32.into();
+		let recipient_id: ParaId = 2u32.into();
+
+		let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+
+		// make sure para is registered, and has zero balance.
+		register_parachain_with_balance::<T>(sender_id, Zero::zero());
+		register_parachain_with_balance::<T>(recipient_id, Zero::zero());
+
+		let capacity = Configuration::<T>::config().hrmp_channel_max_capacity;
+		let message_size = Configuration::<T>::config().hrmp_channel_max_message_size;
+	}: _(frame_system::RawOrigin::Signed(caller), sender_id, recipient_id)
+	verify {
+		assert_last_event::<T>(
+			Event::<T>::HrmpSystemChannelOpened(sender_id, recipient_id, capacity, message_size).into()
 		);
 	}
 }

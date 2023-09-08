@@ -62,6 +62,7 @@ pub trait WeightInfo {
 	fn hrmp_cancel_open_request(c: u32) -> Weight;
 	fn clean_open_channel_requests(c: u32) -> Weight;
 	fn force_open_hrmp_channel(c: u32) -> Weight;
+	fn establish_system_channel() -> Weight;
 }
 
 /// A weight info that is only suitable for testing.
@@ -93,6 +94,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::MAX
 	}
 	fn force_open_hrmp_channel(_: u32) -> Weight {
+		Weight::MAX
+	}
+	fn establish_system_channel() -> Weight {
 		Weight::MAX
 	}
 }
@@ -662,7 +666,7 @@ pub mod pallet {
 		///
 		/// Any signed origin can call this function.
 		#[pallet::call_index(8)]
-		#[pallet::weight(1)] // todo
+		#[pallet::weight(<T as Config>::WeightInfo::establish_system_channel())]
 		pub fn establish_system_channel(
 			origin: OriginFor<T>,
 			sender: ParaId,
