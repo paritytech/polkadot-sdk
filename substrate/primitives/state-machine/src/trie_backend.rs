@@ -163,11 +163,11 @@ pub struct UnimplementedRecorderProvider<H> {
 
 #[cfg(not(feature = "std"))]
 impl<H: Hasher> trie_db::TrieRecorder<H::Out> for UnimplementedRecorderProvider<H> {
-	fn record<'a>(&mut self, access: trie_db::TrieAccess<'a, H::Out>) {
+	fn record<'a>(&mut self, _access: trie_db::TrieAccess<'a, H::Out>) {
 		unimplemented!()
 	}
 
-	fn trie_nodes_recorded_for_key(&self, key: &[u8]) -> trie_db::RecordedForKey {
+	fn trie_nodes_recorded_for_key(&self, _key: &[u8]) -> trie_db::RecordedForKey {
 		unimplemented!()
 	}
 }
@@ -180,7 +180,7 @@ impl<H: Hasher> TrieRecorderProvider<H> for UnimplementedRecorderProvider<H> {
 		unimplemented!()
 	}
 
-	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_> {
+	fn as_trie_recorder(&self, _storage_root: H::Out) -> Self::Recorder<'_> {
 		unimplemented!()
 	}
 
@@ -1000,8 +1000,8 @@ pub mod tests {
 			.storage_root(iter::once((&b"new-key"[..], Some(&b"new-value"[..]))), state_version);
 		assert!(!tx.drain().is_empty());
 		assert!(
-			new_root !=
-				test_trie(state_version, None, None)
+			new_root
+				!= test_trie(state_version, None, None)
 					.storage_root(iter::empty(), state_version)
 					.0
 		);

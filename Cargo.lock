@@ -10989,7 +10989,6 @@ name = "parachains-common"
 version = "1.0.0"
 dependencies = [
  "cumulus-primitives-core",
- "cumulus-primitives-reclaim",
  "cumulus-primitives-utility",
  "frame-support",
  "frame-system",

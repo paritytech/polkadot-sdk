@@ -35,15 +35,16 @@ pub(crate) struct SizeOnlyRecorder<'a, H: Hasher> {
 }
 
 impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<'a, H> {
-	fn record<'b>(&mut self, access: TrieAccess<'b, H::Out>) {
+	fn record(&mut self, access: TrieAccess<'_, H::Out>) {
 		let mut encoded_size_update = 0;
 		match access {
-			TrieAccess::NodeOwned { hash, node_owned } =>
+			TrieAccess::NodeOwned { hash, node_owned } => {
 				if !self.seen_nodes.get(&hash).is_some() {
 					let node = node_owned.to_encoded::<NodeCodec<H>>();
 					encoded_size_update += node.encoded_size();
 					self.seen_nodes.insert(hash);
-				},
+				}
+			},
 			TrieAccess::EncodedNode { hash, encoded_node } => {
 				if !self.seen_nodes.get(&hash).is_some() {
 					let node = encoded_node.into_owned();
@@ -219,9 +220,9 @@ mod tests {
 
 				// Check that we have the same nodes recorded for both recorders
 				for (key, _) in test_data.iter() {
-					let refe = reference_trie_recorder.trie_nodes_recorded_for_key(key);
-					let comp = trie_recorder_under_test.trie_nodes_recorded_for_key(key);
-					assert!(matches!(refe, comp));
+					let reference = reference_trie_recorder.trie_nodes_recorded_for_key(key);
+					let test_value = trie_recorder_under_test.trie_nodes_recorded_for_key(key);
+					assert_eq!(format!("{:?}", reference), format!("{:?}", test_value));
 				}
 			}
 
@@ -264,9 +265,9 @@ mod tests {
 
 				// Check that we have the same nodes recorded for both recorders
 				for (key, _) in test_data.iter() {
-					let refe = reference_trie_recorder.trie_nodes_recorded_for_key(key);
-					let comp = trie_recorder_under_test.trie_nodes_recorded_for_key(key);
-					assert!(matches!(refe, comp));
+					let reference = reference_trie_recorder.trie_nodes_recorded_for_key(key);
+					let test_value = trie_recorder_under_test.trie_nodes_recorded_for_key(key);
+					assert_eq!(format!("{:?}", reference), format!("{:?}", test_value));
 				}
 			}
 

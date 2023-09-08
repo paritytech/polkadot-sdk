@@ -28,7 +28,9 @@ use hash_db::{self, AsHashDB, HashDB, HashDBRef, Hasher, Prefix};
 #[cfg(feature = "std")]
 use parking_lot::RwLock;
 use sp_core::storage::{ChildInfo, ChildType, StateVersion};
-use sp_std::{boxed::Box, marker::PhantomData, sync::Arc, vec::Vec};
+#[cfg(feature = "std")]
+use sp_std::sync::Arc;
+use sp_std::{boxed::Box, marker::PhantomData, vec::Vec};
 use sp_trie::{
 	child_delta_trie_root, delta_trie_root, empty_child_trie_root, read_child_trie_hash,
 	read_child_trie_value, read_trie_value,

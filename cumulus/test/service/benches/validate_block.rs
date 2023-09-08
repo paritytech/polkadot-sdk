@@ -18,7 +18,9 @@
 use codec::{Decode, Encode};
 use core::time::Duration;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
-use cumulus_primitives_core::{relay_chain::AccountId, PersistedValidationData, ValidationParams};
+use cumulus_primitives_core::{
+	relay_chain::AccountId, ParaId, PersistedValidationData, ValidationParams,
+};
 use cumulus_test_client::{
 	generate_extrinsic_with_pair, BuildParachainBlockData, InitBlockBuilder, TestClientBuilder,
 	ValidationResult,
@@ -95,7 +97,7 @@ fn benchmark_block_validation(c: &mut Criterion) {
 		..Default::default()
 	};
 
-	let mut sproof_builder = RelayStateSproofBuilder {
+	let sproof_builder = RelayStateSproofBuilder {
 		included_para_head: Some(parent_header.clone().encode().into()),
 		para_id,
 		..Default::default()

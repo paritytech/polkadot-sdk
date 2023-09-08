@@ -61,6 +61,7 @@ std = [
 	"cumulus-pallet-parachain-system-proc-macro/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-parachain-inherent/std",
+	"cumulus-primitives-reclaim/std",
 	"environmental/std",
 	"frame-support/std",
 	"frame-system/std",
