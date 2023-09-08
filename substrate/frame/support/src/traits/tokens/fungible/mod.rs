@@ -235,5 +235,3 @@ impl<
 	}
 }
 
-#[test]
-fn it_builds() {}
