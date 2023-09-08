@@ -1456,6 +1456,32 @@
 <a href="#1456" id="1456">1456</a>
 <a href="#1457" id="1457">1457</a>
 <a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
+<a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2384,16 +2410,42 @@
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>statement,
 						<span class="question-mark">?</span>origin,
-						<span class="string">&quot;received a valid `CollationSeconded`&quot;</span>,
+						<span class="string">&quot;received a valid `CollationSeconded`, forwarding result to collator&quot;</span>,
 					);
 					<span class="kw">let _ </span>= sender.send(CollationSecondedSignal { statement, relay_parent });
 				} <span class="kw">else </span>{
-					<span class="macro">gum::debug!</span>(
-						target: LOG_TARGET,
-						candidate_hash = <span class="question-mark">?</span><span class="kw-2">&amp;</span>statement.payload().candidate_hash(),
-						<span class="question-mark">?</span>origin,
-						<span class="string">&quot;received an unexpected `CollationSeconded`: unknown statement&quot;</span>,
-					);
+					<span class="comment">// Checking whether the `CollationSeconded` statement is unexpected
+					</span><span class="kw">let </span>relay_parent = <span class="kw">match </span>state.per_relay_parent.get(<span class="kw-2">&amp;</span>relay_parent) {
+						<span class="prelude-val">Some</span>(per_relay_parent) =&gt; per_relay_parent,
+						<span class="prelude-val">None </span>=&gt; {
+							<span class="macro">gum::debug!</span>(
+								target: LOG_TARGET,
+								candidate_relay_parent = %relay_parent,
+								candidate_hash = <span class="question-mark">?</span><span class="kw-2">&amp;</span>statement.payload().candidate_hash(),
+								<span class="string">&quot;Seconded statement relay parent is out of our view&quot;</span>,
+							);
+							<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+						},
+					};
+					<span class="kw">match </span>relay_parent.collations.get(<span class="kw-2">&amp;</span>statement.payload().candidate_hash()) {
+						<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
+							<span class="comment">// We&#39;ve seen this collation before, so a seconded statement is expected
+							</span><span class="macro">gum::trace!</span>(
+								target: LOG_TARGET,
+								<span class="question-mark">?</span>statement,
+								<span class="question-mark">?</span>origin,
+								<span class="string">&quot;received a valid `CollationSeconded`&quot;</span>,
+							);
+						},
+						<span class="prelude-val">None </span>=&gt; {
+							<span class="macro">gum::debug!</span>(
+								target: LOG_TARGET,
+								candidate_hash = <span class="question-mark">?</span><span class="kw-2">&amp;</span>statement.payload().candidate_hash(),
+								<span class="question-mark">?</span>origin,
+								<span class="string">&quot;received an unexpected `CollationSeconded`: unknown statement&quot;</span>,
+							);
+						},
+					}
 				}
 			}
 		},
