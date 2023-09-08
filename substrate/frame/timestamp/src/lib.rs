@@ -110,7 +110,7 @@
 //! timestamp has been updated for any pallet that implements [`OnTimestampSet`] (e.g. the Babe and
 //! Aura pallets).
 //! This pallet also implements [`Time`] and [`UnixTime`] so it can be used to configure other
-//! pallets that require these types (for e.g. in the Staking pallet).
+//! pallets that require these types (e.g. in Staking pallet).
 //!
 //! ## Panics
 //!
@@ -262,7 +262,7 @@ pub mod pallet {
 	///
 	/// ## Errors:
 	/// - [`InherentError::TooFarInFuture`]: If the timestamp is larger than the current timestamp +
-	///   minimum drift period).
+	///   minimum drift period.
 	/// - [`InherentError::TooEarly`]: If the timestamp is less than the current + minimum period.
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {
