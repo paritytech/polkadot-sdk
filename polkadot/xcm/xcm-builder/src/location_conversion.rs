@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::universal_exports::ensure_is_remote;
-use frame_support::{traits::Get, PalletId};
+use frame_support::traits::Get;
 use parity_scale_codec::{Compact, Decode, Encode};
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{AccountIdConversion, Convert, TrailingZeroInput};
@@ -318,15 +318,20 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 }
 
 /// Extracts the `AccountId32` from the passed Treasury plurality if the network matches.
-pub struct TreasuryVoiceConvertsVia<Network, AccountId>(PhantomData<(Network, AccountId)>);
-impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]> + Clone>
-	ConvertLocation<AccountId> for TreasuryVoiceConvertsVia<Network, AccountId>
+pub struct TreasuryVoiceConvertsVia<Network, AccountId, TreasuryAccount>(
+	PhantomData<(Network, AccountId, TreasuryAccount)>,
+);
+impl<
+		Network: Get<Option<NetworkId>>,
+		AccountId: From<[u8; 32]> + Into<[u8; 32]> + Clone,
+		TreasuryAccount: Get<AccountId>,
+	> ConvertLocation<AccountId> for TreasuryVoiceConvertsVia<Network, AccountId, TreasuryAccount>
 {
 	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
 		let id: [u8; 32] = match *location {
 			MultiLocation { parents: 0, interior: X1(Plurality { id: BodyId::Treasury, .. }) } |
 			MultiLocation { parents: 1, interior: X1(Plurality { id: BodyId::Treasury, .. }) } =>
-				PalletId(*b"py/trsry").into_account_truncating(),
+				TreasuryAccount::get().into(),
 			_ => return None,
 		};
 		Some(id.into())

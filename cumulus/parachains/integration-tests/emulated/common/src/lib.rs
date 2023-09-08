@@ -56,7 +56,7 @@ decl_test_relay_chains! {
 		runtime = kusama_runtime,
 		core = {
 			MessageProcessor: DefaultMessageProcessor<Kusama>,
-			SovereignAccountOf: kusama_runtime::xcm_config::SovereignAccountOf,
+			SovereignAccountOf: kusama_runtime::xcm_config::SovereignAccountOf<kusama_runtime::xcm_config::TreasuryAccount>,
 		},
 		pallets = {
 			XcmPallet: kusama_runtime::XcmPallet,
