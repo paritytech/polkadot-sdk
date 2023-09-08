@@ -50,7 +50,10 @@ use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, Runtim
 use scale_info::TypeInfo;
 use sp_std::marker::PhantomData;
 
-use super::{Fortitude::Polite, Precision::BestEffort};
+use super::{
+	Fortitude::{Force, Polite},
+	Precision::BestEffort,
+};
 pub use freeze::{Inspect as InspectFreeze, Mutate as MutateFreeze};
 pub use hold::{
 	Balanced as BalancedHold, Inspect as InspectHold, Mutate as MutateHold,
@@ -155,6 +158,9 @@ impl<
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		F::release(&R::get(), who, self.0, BestEffort).map(|_| ())
 	}
+	fn burn(self, who: &A) {
+		let _ = F::burn_held(&R::get(), who, self.0, BestEffort, Force);
+	}
 }
 
 /// Basic consideration method using a `fungible` balance frozen as the cost exacted for the
@@ -232,5 +238,8 @@ impl<
 	}
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		F::release_all(&R::get(), who, BestEffort).map(|_| ())
+	}
+	fn burn(self, who: &A) {
+		let _ = F::burn_all_held(&R::get(), who, BestEffort, Force);
 	}
 }
