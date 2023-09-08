@@ -102,14 +102,6 @@ pub mod pallet {
 	}
 }
 
-/// Ensure that the origin `o` represents the root. Returns `Ok` or an `Err` otherwise.
-pub fn ensure_root<OuterOrigin, AccountId>(o: OuterOrigin) -> Result<(), &'static str>
-where
-	OuterOrigin: Into<Result<RawOrigin<AccountId>, OuterOrigin>>,
-{
-	o.into().map(|_| ()).map_err(|_| "bad origin: expected to be a root origin")
-}
-
 /// Same semantic as [`frame_system`].
 // Note: we cannot use [`frame_system`] here since the pallet does not depend on
 // [`frame_system::Config`].
