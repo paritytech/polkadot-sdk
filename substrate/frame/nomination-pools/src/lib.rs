@@ -3372,7 +3372,7 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 		if let Some(mut sub_pools) = SubPoolsStorage::<T>::get(pool_id) {
 			// set the reduced balance for each of the `SubPools`
 			slashed_unlocking.iter().for_each(|(era, slashed_balance)| {
-				if let Some(pool) = sub_pools.with_era.get_mut(era) {
+				if let Some(pool) = sub_pools.with_era.get_mut(era).defensive() {
 					pool.balance = *slashed_balance;
 					Self::deposit_event(Event::<T>::UnbondingPoolSlashed {
 						era: *era,
