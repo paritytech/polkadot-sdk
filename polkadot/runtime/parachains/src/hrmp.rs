@@ -21,13 +21,15 @@ use crate::{
 use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
 use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
-use polkadot_parachain_primitives::primitives::HorizontalMessages;
+use polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};
 use primitives::{
 	Balance, Hash, HrmpChannelId, Id as ParaId, InboundHrmpMessage, OutboundHrmpMessage,
 	SessionIndex,
 };
 use scale_info::TypeInfo;
-use sp_runtime::traits::{AccountIdConversion, BlakeTwo256, Hash as HashT, UniqueSaturatedInto};
+use sp_runtime::traits::{
+	AccountIdConversion, BlakeTwo256, Hash as HashT, UniqueSaturatedInto, Zero,
+};
 use sp_std::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	fmt, mem,
@@ -279,6 +281,9 @@ pub mod pallet {
 		/// An HRMP channel was opened via Root origin.
 		/// `[sender, recipient, proposed_max_capacity, proposed_max_message_size]`
 		HrmpChannelForceOpened(ParaId, ParaId, u32, u32),
+		/// An HRMP channel was opened between two system chains.
+		/// `[sender, recipient, proposed_max_capacity, proposed_max_message_size]`
+		HrmpSystemChannelOpened(ParaId, ParaId, u32, u32),
 	}
 
 	#[pallet::error]
@@ -321,6 +326,8 @@ pub mod pallet {
 		OpenHrmpChannelAlreadyConfirmed,
 		/// The provided witness data is wrong.
 		WrongWitness,
+		/// The channel between these two chains cannot be authorized.
+		ChannelCreationNotAuthorized,
 	}
 
 	/// The set of pending HRMP open channel requests.
@@ -479,6 +486,7 @@ pub mod pallet {
 				recipient,
 				proposed_max_capacity,
 				proposed_max_message_size,
+				false,
 			)?;
 			Self::deposit_event(Event::OpenChannelRequested(
 				origin,
@@ -600,8 +608,8 @@ pub mod pallet {
 		/// the `max_capacity` and `max_message_size` are still subject to the Relay Chain's
 		/// configured limits.
 		///
-		/// Expected use is when one of the `ParaId`s involved in the channel is governed by the
-		/// Relay Chain, e.g. a system parachain.
+		/// Expected use is when one (and only one) of the `ParaId`s involved in the channel is
+		/// governed by the system, e.g. a system parachain.
 		///
 		/// Origin must be the `ChannelManager`.
 		#[pallet::call_index(7)]
@@ -628,8 +636,9 @@ pub mod pallet {
 					0
 				};
 
-			// Now we proceed with normal init/accept.
-			Self::init_open_channel(sender, recipient, max_capacity, max_message_size)?;
+			// Now we proceed with normal init/accept, except that we set `no_deposit` to true such
+			// that it will not require deposits from either member.
+			Self::init_open_channel(sender, recipient, max_capacity, max_message_size, true)?;
 			Self::accept_open_channel(recipient, sender)?;
 			Self::deposit_event(Event::HrmpChannelForceOpened(
 				sender,
@@ -639,6 +648,50 @@ pub mod pallet {
 			));
 
 			Ok(Some(<T as Config>::WeightInfo::force_open_hrmp_channel(cancel_request)).into())
+		}
+
+		/// Establish an HRMP channel between two system chains. If the channel does not already
+		/// exist, the transaction fees will be refunded to the caller. The system does not take
+		/// deposits for channels between system chains, and automatically sets the message number
+		/// and size limits to the maximum allowed by the network's configuration.
+		///
+		/// Arguments:
+		///
+		/// - `sender`: A system chain, `ParaId`.
+		/// - `recipient`: A system chain, `ParaId`.
+		///
+		/// Any signed origin can call this function.
+		#[pallet::call_index(8)]
+		#[pallet::weight(1)] // todo
+		pub fn establish_system_channel(
+			origin: OriginFor<T>,
+			sender: ParaId,
+			recipient: ParaId,
+		) -> DispatchResultWithPostInfo {
+			let _caller = ensure_signed(origin)?;
+
+			// to recognize current chains needs
+			// https://github.com/paritytech/polkadot-sdk/pull/1406
+			ensure!(
+				sender.is_system() && recipient.is_system(),
+				Error::<T>::ChannelCreationNotAuthorized
+			);
+
+			let config = <configuration::Pallet<T>>::config();
+			let max_message_size = config.hrmp_channel_max_message_size;
+			let max_capacity = config.hrmp_channel_max_capacity;
+
+			Self::init_open_channel(sender, recipient, max_capacity, max_message_size, true)?;
+			Self::accept_open_channel(recipient, sender)?;
+
+			Self::deposit_event(Event::HrmpSystemChannelOpened(
+				sender,
+				recipient,
+				max_capacity,
+				max_message_size,
+			));
+
+			Ok(Pays::No.into())
 		}
 	}
 }
@@ -661,7 +714,7 @@ fn preopen_hrmp_channel<T: Config>(
 	max_capacity: u32,
 	max_message_size: u32,
 ) -> DispatchResult {
-	<Pallet<T>>::init_open_channel(sender, recipient, max_capacity, max_message_size)?;
+	<Pallet<T>>::init_open_channel(sender, recipient, max_capacity, max_message_size, false)?;
 	<Pallet<T>>::accept_open_channel(recipient, sender)?;
 	Ok(())
 }
@@ -817,6 +870,10 @@ impl<T: Config> Pallet<T> {
 				"can't be `None` due to the invariant that the list contains the same items as the set; qed",
 			);
 
+			let system_channel = request.sender_deposit.is_zero();
+			let sender_deposit = request.sender_deposit;
+			let recipient_deposit = if system_channel { 0 } else { config.hrmp_recipient_deposit };
+
 			if request.confirmed {
 				if <paras::Pallet<T>>::is_valid_para(channel_id.sender) &&
 					<paras::Pallet<T>>::is_valid_para(channel_id.recipient)
@@ -824,8 +881,8 @@ impl<T: Config> Pallet<T> {
 					HrmpChannels::<T>::insert(
 						&channel_id,
 						HrmpChannel {
-							sender_deposit: request.sender_deposit,
-							recipient_deposit: config.hrmp_recipient_deposit,
+							sender_deposit,
+							recipient_deposit,
 							max_capacity: request.max_capacity,
 							max_total_size: request.max_total_size,
 							max_message_size: request.max_message_size,
@@ -1177,11 +1234,16 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Basically the same as [`hrmp_init_open_channel`](Pallet::hrmp_init_open_channel) but
 	/// intended for calling directly from other pallets rather than dispatched.
+	///
+	/// The parameter `no_deposit` allows the caller to establish the channel without deposits.
+	/// This should be used only for channels established via governance or channels between system
+	/// chains. All other channels should use `false`.
 	pub fn init_open_channel(
 		origin: ParaId,
 		recipient: ParaId,
 		proposed_max_capacity: u32,
 		proposed_max_message_size: u32,
+		no_deposit: bool,
 	) -> DispatchResult {
 		ensure!(origin != recipient, Error::<T>::OpenHrmpChannelToSelf);
 		ensure!(
@@ -1219,10 +1281,14 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::OpenHrmpChannelLimitExceeded,
 		);
 
-		T::Currency::reserve(
-			&origin.into_account_truncating(),
-			config.hrmp_sender_deposit.unique_saturated_into(),
-		)?;
+		// In practice should only be zero (for governance/system chains) or the default.
+		let deposit = if no_deposit { 0 } else { config.hrmp_sender_deposit };
+		if !deposit.is_zero() {
+			T::Currency::reserve(
+				&origin.into_account_truncating(),
+				deposit.unique_saturated_into(),
+			)?;
+		}
 
 		// mutating storage directly now -- shall not bail henceforth.
 
@@ -1232,7 +1298,7 @@ impl<T: Config> Pallet<T> {
 			HrmpOpenChannelRequest {
 				confirmed: false,
 				_age: 0,
-				sender_deposit: config.hrmp_sender_deposit,
+				sender_deposit: deposit,
 				max_capacity: proposed_max_capacity,
 				max_message_size: proposed_max_message_size,
 				max_total_size: config.hrmp_channel_max_total_size,
@@ -1254,7 +1320,7 @@ impl<T: Config> Pallet<T> {
 		if let Err(dmp::QueueDownwardMessageError::ExceedsMaxMessageSize) =
 			<dmp::Pallet<T>>::queue_downward_message(&config, recipient, notification_bytes)
 		{
-			// this should never happen unless the max downward message size is configured to an
+			// this should never happen unless the max downward message size is configured to a
 			// jokingly small number.
 			log::error!(
 				target: "runtime::hrmp",
@@ -1287,10 +1353,15 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::AcceptHrmpChannelLimitExceeded,
 		);
 
-		T::Currency::reserve(
-			&origin.into_account_truncating(),
-			config.hrmp_recipient_deposit.unique_saturated_into(),
-		)?;
+		// The channel cleanup / para offboarding does not store recipient deposits. If the deposit
+		// was overridden for the sender, which should only happen for channels established by
+		// governance or for the system itself, then it also does not take a recipient deposit.
+		if !channel_req.sender_deposit.is_zero() {
+			T::Currency::reserve(
+				&origin.into_account_truncating(),
+				config.hrmp_recipient_deposit.unique_saturated_into(),
+			)?;
+		}
 
 		// persist the updated open channel request and then increment the number of accepted
 		// channels.

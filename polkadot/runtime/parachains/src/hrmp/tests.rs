@@ -251,7 +251,7 @@ fn close_channel_works() {
 		register_parachain(para_b);
 
 		run_to_block(5, Some(vec![4, 5]));
-		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
 
 		run_to_block(6, Some(vec![6]));
@@ -286,7 +286,7 @@ fn send_recv_messages() {
 		register_parachain(para_b);
 
 		run_to_block(5, Some(vec![4, 5]));
-		Hrmp::init_open_channel(para_a, para_b, 2, 20).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 20, false).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
 
 		// On Block 6:
@@ -324,7 +324,7 @@ fn hrmp_mqc_head_fixture() {
 		register_parachain(para_b);
 
 		run_to_block(2, Some(vec![1, 2]));
-		Hrmp::init_open_channel(para_a, para_b, 2, 20).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 20, false).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
 
 		run_to_block(3, Some(vec![3]));
@@ -366,7 +366,7 @@ fn accept_incoming_request_and_offboard() {
 		register_parachain(para_b);
 
 		run_to_block(5, Some(vec![4, 5]));
-		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
 		deregister_parachain(para_a);
 
@@ -393,9 +393,9 @@ fn check_sent_messages() {
 
 		// Open two channels to the same receiver, b:
 		// a -> b, c -> b
-		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
-		Hrmp::init_open_channel(para_c, para_b, 2, 8).unwrap();
+		Hrmp::init_open_channel(para_c, para_b, 2, 8, false).unwrap();
 		Hrmp::accept_open_channel(para_b, para_c).unwrap();
 
 		// On Block 6: session change.
@@ -453,7 +453,7 @@ fn verify_externally_accessible() {
 		register_parachain(para_a);
 		register_parachain(para_b);
 		run_to_block(5, Some(vec![4, 5]));
-		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
 		run_to_block(8, Some(vec![8]));
 
@@ -511,7 +511,7 @@ fn charging_deposits() {
 		run_to_block(5, Some(vec![4, 5]));
 
 		assert_noop!(
-			Hrmp::init_open_channel(para_a, para_b, 2, 8),
+			Hrmp::init_open_channel(para_a, para_b, 2, 8, false),
 			pallet_balances::Error::<Test, _>::InsufficientBalance
 		);
 	});
@@ -521,7 +521,7 @@ fn charging_deposits() {
 		register_parachain_with_balance(para_b, 0);
 		run_to_block(5, Some(vec![4, 5]));
 
-		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
 
 		assert_noop!(
 			Hrmp::accept_open_channel(para_b, para_a),
@@ -543,7 +543,7 @@ fn refund_deposit_on_normal_closure() {
 		register_parachain_with_balance(para_a, 100);
 		register_parachain_with_balance(para_b, 110);
 		run_to_block(5, Some(vec![4, 5]));
-		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
 		assert_eq!(<Test as Config>::Currency::free_balance(&para_a.into_account_truncating()), 80);
 		assert_eq!(<Test as Config>::Currency::free_balance(&para_b.into_account_truncating()), 95);
@@ -576,7 +576,7 @@ fn refund_deposit_on_offboarding() {
 		register_parachain_with_balance(para_a, 100);
 		register_parachain_with_balance(para_b, 110);
 		run_to_block(5, Some(vec![4, 5]));
-		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
 		assert_eq!(<Test as Config>::Currency::free_balance(&para_a.into_account_truncating()), 80);
 		assert_eq!(<Test as Config>::Currency::free_balance(&para_b.into_account_truncating()), 95);
@@ -618,7 +618,7 @@ fn no_dangling_open_requests() {
 		run_to_block(5, Some(vec![4, 5]));
 
 		// Start opening a channel a->b
-		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
 		assert_eq!(<Test as Config>::Currency::free_balance(&para_a.into_account_truncating()), 80);
 
 		// Then deregister one parachain, but don't wait two sessions until it takes effect.
@@ -656,7 +656,7 @@ fn cancel_pending_open_channel_request() {
 		run_to_block(5, Some(vec![4, 5]));
 
 		// Start opening a channel a->b
-		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
 		assert_eq!(<Test as Config>::Currency::free_balance(&para_a.into_account_truncating()), 80);
 
 		// Cancel opening the channel
@@ -686,7 +686,7 @@ fn watermark_maxed_out_at_relay_parent() {
 		register_parachain(para_b);
 
 		run_to_block(5, Some(vec![4, 5]));
-		Hrmp::init_open_channel(para_a, para_b, 2, 20).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 20, false).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
 
 		// On Block 6:
