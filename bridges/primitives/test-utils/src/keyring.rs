@@ -18,7 +18,7 @@
 
 use bp_header_chain::{justification::JustificationVerificationContext, AuthoritySet};
 use codec::Encode;
-use ed25519_dalek::{Keypair, PublicKey, SecretKey, Signature};
+use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 use finality_grandpa::voter_set::VoterSet;
 use sp_consensus_grandpa::{AuthorityId, AuthorityList, AuthorityWeight, SetId};
 use sp_runtime::RuntimeDebug;
@@ -37,29 +37,15 @@ pub const FERDIE: Account = Account(5);
 pub struct Account(pub u16);
 
 impl Account {
-	pub fn public(&self) -> PublicKey {
-		(&self.secret()).into()
+	pub fn public(&self) -> VerifyingKey {
+		self.pair().verifying_key()
 	}
 
-	pub fn secret(&self) -> SecretKey {
+	pub fn pair(&self) -> SigningKey {
 		let data = self.0.encode();
 		let mut bytes = [0_u8; 32];
 		bytes[0..data.len()].copy_from_slice(&data);
-		SecretKey::from_bytes(&bytes)
-			.expect("A static array of the correct length is a known good.")
-	}
-
-	pub fn pair(&self) -> Keypair {
-		let mut pair: [u8; 64] = [0; 64];
-
-		let secret = self.secret();
-		pair[..32].copy_from_slice(&secret.to_bytes());
-
-		let public = self.public();
-		pair[32..].copy_from_slice(&public.to_bytes());
-
-		Keypair::from_bytes(&pair)
-			.expect("We expect the SecretKey to be good, so this must also be good.")
+		SigningKey::from_bytes(&bytes)
 	}
 
 	pub fn sign(&self, msg: &[u8]) -> Signature {
