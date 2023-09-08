@@ -176,7 +176,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		&Weight::from_parts(10_100_000_000_000, 300_000),
 	);
 	let buy_execution_fee =
-		Asset { id: Concrete(Location::new(1, Here)), fun: Fungible(buy_execution_fee_amount) };
+		Asset { id: AssetId(Location::new(1, Here)), fun: Fungible(buy_execution_fee_amount) };
 
 	let xcm = VersionedXcm::from(Xcm(vec![
 		WithdrawAsset { 0: vec![buy_execution_fee.clone()].into() },

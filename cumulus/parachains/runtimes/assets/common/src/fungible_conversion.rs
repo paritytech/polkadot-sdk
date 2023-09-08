@@ -160,7 +160,7 @@ mod tests {
 		let location = Location::new(0, [GlobalConsensus(ByGenesis([0; 32]))]);
 		let amount = 123456_u64;
 		let expected_multi_asset = Asset {
-			id: Concrete(Location::new(0, [GlobalConsensus(ByGenesis([0; 32]))])),
+			id: AssetId(Location::new(0, [GlobalConsensus(ByGenesis([0; 32]))])),
 			fun: Fungible(123456_u128),
 		};
 
@@ -181,11 +181,11 @@ mod tests {
 
 		let expected_data = vec![
 			Asset {
-				id: Concrete(Location::new(0, [GlobalConsensus(ByGenesis([0; 32]))])),
+				id: AssetId(Location::new(0, [GlobalConsensus(ByGenesis([0; 32]))])),
 				fun: Fungible(123456_u128),
 			},
 			Asset {
-				id: Concrete(Location::new(1, [GlobalConsensus(ByGenesis([1; 32]))])),
+				id: AssetId(Location::new(1, [GlobalConsensus(ByGenesis([1; 32]))])),
 				fun: Fungible(654321_u128),
 			},
 		];

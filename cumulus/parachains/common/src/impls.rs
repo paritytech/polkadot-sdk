@@ -271,7 +271,7 @@ mod tests {
 		let asset_location = SomeSiblingParachain::get()
 			.pushed_with_interior(GeneralIndex(42))
 			.expect("multilocation will only have 2 junctions; qed");
-		let asset = Asset { id: Concrete(asset_location), fun: 1_000_000u128.into() };
+		let asset = Asset { id: AssetId(asset_location), fun: 1_000_000u128.into() };
 		assert!(
 			AssetsFrom::<SomeSiblingParachain>::contains(&asset, &SomeSiblingParachain::get()),
 			"AssetsFrom should allow assets from any of its interior locations"
