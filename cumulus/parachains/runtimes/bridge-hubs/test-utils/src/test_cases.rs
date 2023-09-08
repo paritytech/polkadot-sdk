@@ -16,7 +16,6 @@
 
 //! Module contains predefined test-case scenarios for `Runtime` with bridging capabilities.
 
-use assert_matches::assert_matches;
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch, SourceHeaderChain},
 	LaneId, MessageKey, OutboundLaneData, Weight,
@@ -50,7 +49,7 @@ use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::Header as HeaderT, AccountId32};
 use xcm::latest::prelude::*;
 use xcm_builder::DispatchBlobError;
-use xcm_executor::XcmExecutor;
+use xcm_executor::{traits::TransactAsset, XcmExecutor};
 
 // Re-export test_case from assets
 pub use asset_test_utils::include_teleports_for_native_asset_works;
@@ -137,6 +136,8 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 	>,
 	export_message_instruction: fn() -> Instruction<XcmConfig::RuntimeCall>,
 	expected_lane_id: LaneId,
+	existential_deposit: Option<MultiAsset>,
+	maybe_paid_export_message: Option<MultiAsset>,
 ) where
 	Runtime: frame_system::Config
 		+ pallet_balances::Config
@@ -170,10 +171,35 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 			);
 
 			// prepare `ExportMessage`
-			let xcm = Xcm(vec![
-				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-				export_message_instruction(),
-			]);
+			let xcm = if let Some(fee) = maybe_paid_export_message {
+				// deposit ED to origin (if needed)
+				if let Some(ed) = existential_deposit {
+					XcmConfig::AssetTransactor::deposit_asset(
+						&ed,
+						&sibling_parachain_location,
+						&XcmContext::with_message_id([0; 32]),
+					)
+					.expect("deposited ed");
+				}
+				// deposit fee to origin
+				XcmConfig::AssetTransactor::deposit_asset(
+					&fee,
+					&sibling_parachain_location,
+					&XcmContext::with_message_id([0; 32]),
+				)
+				.expect("deposited fee");
+
+				Xcm(vec![
+					WithdrawAsset(MultiAssets::from(vec![fee.clone()])),
+					BuyExecution { fees: fee, weight_limit: Unlimited },
+					export_message_instruction(),
+				])
+			} else {
+				Xcm(vec![
+					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+					export_message_instruction(),
+				])
+			};
 
 			// execute XCM
 			let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
@@ -249,6 +275,7 @@ pub fn message_dispatch_routing_works<
 	XcmConfig: xcm_executor::Config,
 	MessagesPalletInstance: 'static,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	<Runtime as frame_system::Config>::AccountId: From<AccountId32>,
 	HrmpChannelOpener: frame_support::inherent::ProvideInherent<
 		Call = cumulus_pallet_parachain_system::Call<Runtime>,
 	>,
@@ -272,7 +299,7 @@ pub fn message_dispatch_routing_works<
 
 			let included_head = RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::run_to_block(
 				2,
-				AccountId::from(alice),
+				AccountId::from(alice).into(),
 			);
 			// 1. this message is sent from other global consensus with destination of this Runtime relay chain (UMP)
 			let bridging_message =
@@ -374,11 +401,11 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, XcmConfi
 	ParaHash: From<<<Runtime as pallet_bridge_grandpa::Config<GPI>>::BridgedChain as bp_runtime::Chain>::Hash>,
 	<Runtime as frame_system::Config>::AccountId:
 	Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
+	<Runtime as frame_system::Config>::AccountId: From<AccountId32>,
 	AccountIdOf<Runtime>: From<sp_core::sr25519::Public>,
 	<Runtime as pallet_bridge_messages::Config<MPI>>::InboundRelayer: From<AccountId32>,
 {
 	assert_ne!(runtime_para_id, sibling_parachain_id);
-	assert_ne!(runtime_para_id, bridged_para_id);
 
 	ExtBuilder::<Runtime>::default()
 		.with_collators(collator_session_key.collators())
@@ -393,7 +420,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, XcmConfi
 
 			let included_head = RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::run_to_block(
 				2,
-				AccountId::from(alice),
+				AccountId::from(alice).into(),
 			);
 			mock_open_hrmp_channel::<Runtime, HrmpChannelOpener>(
 				runtime_para_id.into(),
@@ -528,15 +555,24 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, XcmConfi
 					.last_delivered_nonce(),
 				1,
 			);
+
 			// verify relayed bridged XCM message is dispatched to destination sibling para
 			let dispatched = RuntimeHelper::<cumulus_pallet_xcmp_queue::Pallet<Runtime>>::take_xcm(
 				sibling_parachain_id.into(),
 			)
 			.unwrap();
-			let mut dispatched = xcm::latest::Xcm::<()>::try_from(dispatched).unwrap();
-			// We use `WithUniqueTopic`, so expect a trailing `SetTopic`.
-			assert_matches!(dispatched.0.pop(), Some(SetTopic(..)));
-			assert_eq!(dispatched, expected_dispatch);
+			// verify contains original message
+			let dispatched = xcm::latest::Xcm::<()>::try_from(dispatched).unwrap();
+			let mut dispatched_clone = dispatched.clone();
+			for (idx, expected_instr) in expected_dispatch.0.iter().enumerate() {
+				assert_eq!(expected_instr, &dispatched.0[idx]);
+				assert_eq!(expected_instr, &dispatched_clone.0.remove(0));
+			}
+			match dispatched_clone.0.len() {
+				0 => (),
+				1 => assert!(matches!(dispatched_clone.0[0], SetTopic(_))),
+				count => assert!(false, "Unexpected messages count: {:?}", count),
+			}
 		})
 }
 
@@ -591,6 +627,7 @@ pub fn complex_relay_extrinsic_works<Runtime, AllPalletsWithoutSystem, XcmConfig
 	<Runtime as frame_system::Config>::AccountId:
 	Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
 	AccountIdOf<Runtime>: From<sp_core::sr25519::Public>,
+	<Runtime as frame_system::Config>::AccountId: From<AccountId32>,
 	<Runtime as pallet_bridge_messages::Config<MPI>>::InboundRelayer: From<AccountId32>,
 	<Runtime as pallet_utility::Config>::RuntimeCall:
 	From<pallet_bridge_grandpa::Call<Runtime, GPI>>
@@ -598,7 +635,6 @@ pub fn complex_relay_extrinsic_works<Runtime, AllPalletsWithoutSystem, XcmConfig
 	+ From<pallet_bridge_messages::Call<Runtime, MPI>>
 {
 	assert_ne!(runtime_para_id, sibling_parachain_id);
-	assert_ne!(runtime_para_id, bridged_para_id);
 
 	// Relayer account at local/this BH.
 	let relayer_at_target = Bob;
@@ -622,7 +658,7 @@ pub fn complex_relay_extrinsic_works<Runtime, AllPalletsWithoutSystem, XcmConfig
 
 			let included_head = RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::run_to_block(
 				2,
-				AccountId::from(alice),
+				AccountId::from(alice).into(),
 			);
 			let zero: BlockNumberFor<Runtime> = 0u32.into();
 			let genesis_hash = frame_system::Pallet::<Runtime>::block_hash(zero);
@@ -678,7 +714,7 @@ pub fn complex_relay_extrinsic_works<Runtime, AllPalletsWithoutSystem, XcmConfig
 				message_proof,
 			) = test_data::make_complex_relayer_proofs::<BridgedHeader<Runtime, GPI>, MB, ()>(
 				lane_id,
-				xcm.into(),
+				xcm.clone().into(),
 				message_nonce,
 				message_destination,
 				para_header_number,
@@ -769,15 +805,24 @@ pub fn complex_relay_extrinsic_works<Runtime, AllPalletsWithoutSystem, XcmConfig
 				msg_proofs_rewards_account
 			)
 			.is_some());
+
 			// verify relayed bridged XCM message is dispatched to destination sibling para
 			let dispatched = RuntimeHelper::<cumulus_pallet_xcmp_queue::Pallet<Runtime>>::take_xcm(
 				sibling_parachain_id.into(),
 			)
 			.unwrap();
-			let mut dispatched = xcm::latest::Xcm::<()>::try_from(dispatched).unwrap();
-			// We use `WithUniqueTopic`, so expect a trailing `SetTopic`.
-			assert_matches!(dispatched.0.pop(), Some(SetTopic(..)));
-			assert_eq!(dispatched, expected_dispatch);
+			// verify contains original message
+			let dispatched = xcm::latest::Xcm::<()>::try_from(dispatched).unwrap();
+			let mut dispatched_clone = dispatched.clone();
+			for (idx, expected_instr) in expected_dispatch.0.iter().enumerate() {
+				assert_eq!(expected_instr, &dispatched.0[idx]);
+				assert_eq!(expected_instr, &dispatched_clone.0.remove(0));
+			}
+			match dispatched_clone.0.len() {
+				0 => (),
+				1 => assert!(matches!(dispatched_clone.0[0], SetTopic(_))),
+				count => assert!(false, "Unexpected messages count: {:?}", count),
+			}
 		})
 }
 
@@ -928,7 +973,7 @@ pub mod test_data {
 	);
 
 	/// Simulates `HaulBlobExporter` and all its wrapping and captures generated plain bytes,
-	/// which are transfered over bridge.
+	/// which are transferred over bridge.
 	pub(crate) fn simulate_message_exporter_on_bridged_chain<
 		SourceNetwork: Get<NetworkId>,
 		DestinationNetwork: Get<NetworkId>,

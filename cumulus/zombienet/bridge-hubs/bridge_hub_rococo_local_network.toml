@@ -12,6 +12,7 @@ chain = "rococo-local"
 	rpc_port = 9932
 	ws_port = 9942
 	extra_args = ["--no-mdns --bootnodes {{'bob-validator'|zombie('multiAddress')}}"]
+	balance = 2000000000000
 
 	[[relaychain.nodes]]
 	name = "bob-validator"
@@ -19,6 +20,7 @@ chain = "rococo-local"
 	rpc_port = 9933
 	ws_port = 9943
 	extra_args = ["--no-mdns --bootnodes {{'alice-validator'|zombie('multiAddress')}}"]
+	balance = 2000000000000
 
 	[[relaychain.nodes]]
 	name = "charlie-validator"
@@ -26,6 +28,7 @@ chain = "rococo-local"
 	rpc_port = 9934
 	ws_port = 9944
 	extra_args = ["--no-mdns --bootnodes {{'alice-validator'|zombie('multiAddress')}}"]
+	balance = 2000000000000
 
 [[parachains]]
 id = 1013
