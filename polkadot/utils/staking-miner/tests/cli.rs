@@ -17,10 +17,12 @@
 use assert_cmd::{cargo::cargo_bin, Command};
 use serde_json::{Result, Value};
 
+const BIN_NAME: &str = "staking-miner";
+
 #[test]
 fn cli_version_works() {
 	let crate_name = env!("CARGO_PKG_NAME");
-	let output = Command::new(cargo_bin(crate_name)).arg("--version").output().unwrap();
+	let output = Command::new(cargo_bin(BIN_NAME)).arg("--version").output().unwrap();
 
 	assert!(output.status.success(), "command returned with non-success exit code");
 	let version = String::from_utf8_lossy(&output.stdout).trim().to_owned();
