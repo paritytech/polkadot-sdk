@@ -15,6 +15,7 @@ short-benchmark-polkadot: &short-bench
       artifacts: true
   variables:
     RUNTIME: polkadot
+    RUNTIME_LOG: off
   tags:
     - benchmark
   script:
@@ -42,6 +43,7 @@ short-benchmark-westend:
       artifacts: true
   variables:
     RUNTIME_CHAIN: benchmarked-runtime-chain
+    RUNTIME_LOG: off
   tags:
     - benchmark
   script:
