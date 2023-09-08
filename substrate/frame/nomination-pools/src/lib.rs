@@ -1532,7 +1532,7 @@ pub mod pallet {
 
 		/// The nominating balance.
 		// FIXME(ank4n)
-		type Currency: FungibleInspect<Self::AccountId> + FungibleMutate<Self::AccountId>
+		type Currency: FungibleMutate<Self::AccountId>
 			+ fungible::MutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>;
 
 		type RuntimeFreezeReason: From<FreezeReason>;
@@ -1675,8 +1675,8 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub min_join_bond: BalanceOf<T>,
-		pub min_create_bond: BalanceOf<T>,
+		#[serde(skip)]
+		pub _config: sp_std::marker::PhantomData<T>,
 		pub max_pools: Option<u32>,
 		pub max_members_per_pool: Option<u32>,
 		pub max_members: Option<u32>,
@@ -1686,8 +1686,7 @@ pub mod pallet {
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
 			Self {
-				min_join_bond: Zero::zero(),
-				min_create_bond: Zero::zero(),
+				_config: Default::default(),
 				max_pools: Some(16),
 				max_members_per_pool: Some(32),
 				max_members: Some(16 * 32),
@@ -1699,8 +1698,6 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			MinJoinBond::<T>::put(self.min_join_bond);
-			MinCreateBond::<T>::put(self.min_create_bond);
 			if let Some(max_pools) = self.max_pools {
 				MaxPools::<T>::put(max_pools);
 			}

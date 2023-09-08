@@ -40,6 +40,25 @@ pub fn default_reward_account() -> AccountId {
 	Pools::create_reward_account(1)
 }
 
+#[derive(
+Encode,
+Decode,
+Copy,
+Clone,
+Eq,
+PartialEq,
+Ord,
+PartialOrd,
+MaxEncodedLen,
+TypeInfo,
+RuntimeDebug,
+)]
+pub enum TestId {
+	Foo,
+	Bar,
+	Baz,
+}
+
 parameter_types! {
 	pub static MinJoinBondConfig: Balance = 2;
 	pub static CurrentEra: EraIndex = 0;
@@ -51,8 +70,8 @@ parameter_types! {
 	pub static StakingMinBond: Balance = 10;
 	pub storage Nominations: Option<Vec<AccountId>> = None;
 }
-
 pub struct StakingMock;
+
 impl StakingMock {
 	pub(crate) fn set_bonded_balance(who: AccountId, bonded: Balance) {
 		let mut x = BondedBalanceMap::get();
@@ -221,7 +240,7 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type FreezeIdentifier = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type MaxHolds = ();
@@ -251,6 +270,7 @@ impl pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RewardCounter = RewardCounter;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
