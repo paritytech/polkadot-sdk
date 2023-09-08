@@ -3362,7 +3362,7 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 		slashed_unlocking: &BTreeMap<EraIndex, BalanceOf<T>>,
 		total_slashed: BalanceOf<T>,
 	) {
-		let Some(pool_id) = ReversePoolIdLookup::<T>::get(pool_account).defensive() else { return };
+		let Some(pool_id) = ReversePoolIdLookup::<T>::get(pool_account) else { return };
 		// As the slashed account belongs to a `BondedPool` the `TotalValueLocked` decreases and
 		// an event is emitted.
 		TotalValueLocked::<T>::mutate(|tvl| {
