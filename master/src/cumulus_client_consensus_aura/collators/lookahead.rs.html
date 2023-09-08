@@ -429,6 +429,21 @@
 <a href="#429" id="429">429</a>
 <a href="#430" id="430">430</a>
 <a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -465,7 +480,8 @@
 </span><span class="kw">use </span>codec::{Codec, Encode};
 <span class="kw">use </span>cumulus_client_collator::service::ServiceInterface <span class="kw">as </span>CollatorServiceInterface;
 <span class="kw">use </span>cumulus_client_consensus_common::{
-	<span class="self">self </span><span class="kw">as </span>consensus_common, ParachainBlockImportMarker, ParentSearchParams,
+	<span class="self">self </span><span class="kw">as </span>consensus_common, load_abridged_host_configuration, ParachainBlockImportMarker,
+	ParentSearchParams,
 };
 <span class="kw">use </span>cumulus_client_consensus_proposer::ProposerInterface;
 <span class="kw">use </span>cumulus_primitives_aura::AuraUnincludedSegmentApi;
@@ -847,17 +863,31 @@
 	<span class="prelude-val">Some</span>(SlotClaim::unchecked::&lt;P&gt;(author_pub, slot, timestamp))
 }
 
-<span class="kw">async fn </span>max_ancestry_lookback(
-	_relay_parent: PHash,
-	_relay_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>RelayChainInterface,
+<span class="doccomment">/// Reads allowed ancestry length parameter from the relay chain storage at the given relay parent.
+///
+/// Falls back to 0 in case of an error.
+</span><span class="kw">async fn </span>max_ancestry_lookback(
+	relay_parent: PHash,
+	relay_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>RelayChainInterface,
 ) -&gt; usize {
-	<span class="comment">// TODO [https://github.com/paritytech/cumulus/issues/2706]
-	// We need to read the relay-chain state to know what the maximum
-	// age truly is, but that depends on those pallets existing.
-	//
-	// For now, just provide the conservative value of &#39;2&#39;.
-	// Overestimating can cause problems, as we&#39;d be building on forks of the
-	// chain that can never get included. Underestimating is less of an issue.
-	</span><span class="number">2
-</span>}
+	<span class="kw">match </span>load_abridged_host_configuration(relay_parent, relay_client).<span class="kw">await </span>{
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(config)) =&gt; config.async_backing_params.allowed_ancestry_len <span class="kw">as </span>usize,
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
+			<span class="macro">tracing::error!</span>(
+				target: <span class="kw">crate</span>::LOG_TARGET,
+				<span class="string">&quot;Active config is missing in relay chain storage&quot;</span>,
+			);
+			<span class="number">0
+		</span>},
+		<span class="prelude-val">Err</span>(err) =&gt; {
+			<span class="macro">tracing::error!</span>(
+				target: <span class="kw">crate</span>::LOG_TARGET,
+				<span class="question-mark">?</span>err,
+				<span class="question-mark">?</span>relay_parent,
+				<span class="string">&quot;Failed to read active config from relay chain client&quot;</span>,
+			);
+			<span class="number">0
+		</span>},
+	}
+}
 </code></pre></div></section></main></body></html>

@@ -165,6 +165,80 @@
 <a href="#165" id="165">165</a>
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -184,9 +258,14 @@
 
 </span><span class="doccomment">//! Traits for encoding data related to pallet&#39;s storage items.
 
-</span><span class="kw">use </span>impl_trait_for_tuples::impl_for_tuples;
+</span><span class="kw">use </span>codec::{Encode, FullCodec, MaxEncodedLen};
+<span class="kw">use </span>impl_trait_for_tuples::impl_for_tuples;
+<span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">pub use </span>sp_core::storage::TrackedStorageKey;
-<span class="kw">use </span>sp_runtime::{traits::Saturating, RuntimeDebug};
+<span class="kw">use </span>sp_runtime::{
+	traits::{Member, Saturating},
+	DispatchError, RuntimeDebug,
+};
 <span class="kw">use </span>sp_std::{collections::btree_set::BTreeSet, prelude::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// An instance of a pallet in the storage.
@@ -291,6 +370,75 @@
 			}
 		 )* );
 		combined_keys.into_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+	}
+}
+
+<span class="doccomment">/// The resource footprint of a bunch of blobs. We assume only the number of blobs and their total
+/// size in bytes matter.
+</span><span class="attr">#[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
+</span><span class="kw">pub struct </span>Footprint {
+	<span class="doccomment">/// The number of blobs.
+	</span><span class="kw">pub </span>count: u64,
+	<span class="doccomment">/// The total size of the blobs in bytes.
+	</span><span class="kw">pub </span>size: u64,
+}
+
+<span class="kw">impl </span>Footprint {
+	<span class="kw">pub fn </span>from_parts(items: usize, len: usize) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ count: items <span class="kw">as </span>u64, size: len <span class="kw">as </span>u64 }
+	}
+
+	<span class="kw">pub fn </span>from_encodable(e: <span class="kw">impl </span>Encode) -&gt; <span class="self">Self </span>{
+		<span class="self">Self</span>::from_parts(<span class="number">1</span>, e.encoded_size())
+	}
+}
+
+<span class="doccomment">/// Some sort of cost taken from account temporarily in order to offset the cost to the chain of
+/// holding some data [`Footprint`] in state.
+///
+/// The cost may be increased, reduced or dropped entirely as the footprint changes.
+///
+/// A single ticket corresponding to some particular datum held in storage. This is an opaque
+/// type, but must itself be stored and generally it should be placed alongside whatever data
+/// the ticket was created for.
+///
+/// While not technically a linear type owing to the need for `FullCodec`, *this should be
+/// treated as one*. Don&#39;t type to duplicate it, and remember to drop it when you&#39;re done with
+/// it.
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub trait </span>Consideration&lt;AccountId&gt;: Member + FullCodec + TypeInfo + MaxEncodedLen {
+	<span class="doccomment">/// Create a ticket for the `new` footprint attributable to `who`. This ticket *must* ultimately
+	/// be consumed through `update` or `drop` once the footprint changes or is removed.
+	</span><span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>AccountId, new: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt;;
+
+	<span class="doccomment">/// Optionally consume an old ticket and alter the footprint, enforcing the new cost to `who`
+	/// and returning the new ticket (or an error if there was an issue).
+	///
+	/// For creating tickets and dropping them, you can use the simpler `new` and `drop` instead.
+	</span><span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>AccountId, new: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt;;
+
+	<span class="doccomment">/// Consume a ticket for some `old` footprint attributable to `who` which should now been freed.
+	</span><span class="kw">fn </span>drop(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt;;
+
+	<span class="doccomment">/// Consume a ticket for some `old` footprint attributable to `who` which should be sacrificed.
+	///
+	/// This is infallible. In the general case (and it is left unimplemented), then it is
+	/// equivalent to the consideration never being dropped. Cases which can handle this properly
+	/// should implement, but it *MUST* rely on the loss of the consideration to the owner.
+	</span><span class="kw">fn </span>burn(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>AccountId) {
+		<span class="kw">let _ </span>= <span class="self">self</span>;
+	}
+}
+
+<span class="kw">impl</span>&lt;A&gt; Consideration&lt;A&gt; <span class="kw">for </span>() {
+	<span class="kw">fn </span>new(<span class="kw">_</span>: <span class="kw-2">&amp;</span>A, <span class="kw">_</span>: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
+		<span class="prelude-val">Ok</span>(())
+	}
+	<span class="kw">fn </span>update(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>A, <span class="kw">_</span>: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+		<span class="prelude-val">Ok</span>(())
+	}
+	<span class="kw">fn </span>drop(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>A) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+		<span class="prelude-val">Ok</span>(())
 	}
 }
 

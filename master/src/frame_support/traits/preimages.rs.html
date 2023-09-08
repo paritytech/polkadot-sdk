@@ -328,7 +328,6 @@
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -349,6 +348,7 @@
 </span><span class="doccomment">//! Stuff for dealing with 32-byte hashed preimages.
 
 </span><span class="kw">use </span>codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+<span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_core::{RuntimeDebug, H256};
 <span class="kw">use </span>sp_io::hashing::blake2_256;
 <span class="kw">use </span>sp_runtime::{traits::ConstU32, DispatchError};
@@ -360,9 +360,7 @@
 <span class="doccomment">/// The maximum we expect a single legacy hash lookup to be.
 </span><span class="kw">const </span>MAX_LEGACY_LEN: u32 = <span class="number">1_000_000</span>;
 
-<span class="attr">#[derive(
-	Encode, Decode, MaxEncodedLen, Clone, Eq, PartialEq, scale_info::TypeInfo, RuntimeDebug,
-)]
+<span class="attr">#[derive(Encode, Decode, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, RuntimeDebug)]
 #[codec(mel_bound())]
 </span><span class="kw">pub enum </span>Bounded&lt;T&gt; {
 	<span class="doccomment">/// A Blake2 256 hash with no preimage length. We

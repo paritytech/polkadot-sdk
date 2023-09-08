@@ -76,6 +76,78 @@
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -95,8 +167,13 @@
 
 </span><span class="doccomment">//! The traits for putting freezes within a single fungible token class.
 
-</span><span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_runtime::DispatchResult;
+</span><span class="kw">use crate</span>::{ensure, traits::tokens::Fortitude};
+<span class="kw">use </span>scale_info::TypeInfo;
+<span class="kw">use </span>sp_arithmetic::{
+	traits::{CheckedAdd, CheckedSub},
+	ArithmeticError,
+};
+<span class="kw">use </span>sp_runtime::{DispatchResult, TokenError};
 
 <span class="doccomment">/// Trait for inspecting a fungible asset which can be frozen. Freezing is essentially setting a
 /// minimum balance below which the total balance (inclusive of any funds placed on hold) may not
@@ -153,5 +230,72 @@
 
 	<span class="doccomment">/// Remove an existing lock.
 	</span><span class="kw">fn </span>thaw(asset: <span class="self">Self</span>::AssetId, id: <span class="kw-2">&amp;</span><span class="self">Self</span>::Id, who: <span class="kw-2">&amp;</span>AccountId) -&gt; DispatchResult;
+
+	<span class="doccomment">/// Attempt to alter the amount frozen under the given `id` to `amount`.
+	///
+	/// Fail if the account of `who` has fewer freezable funds than `amount`, unless `fortitude` is
+	/// `Fortitude::Force`.
+	</span><span class="kw">fn </span>set_frozen(
+		asset: <span class="self">Self</span>::AssetId,
+		id: <span class="kw-2">&amp;</span><span class="self">Self</span>::Id,
+		who: <span class="kw-2">&amp;</span>AccountId,
+		amount: <span class="self">Self</span>::Balance,
+		fortitude: Fortitude,
+	) -&gt; DispatchResult {
+		<span class="kw">let </span>force = fortitude == Fortitude::Force;
+		<span class="macro">ensure!</span>(
+			force || <span class="self">Self</span>::balance_freezable(asset.clone(), who) &gt;= amount,
+			TokenError::FundsUnavailable
+		);
+		<span class="self">Self</span>::set_freeze(asset, id, who, amount)
+	}
+
+	<span class="doccomment">/// Attempt to set the amount frozen under the given `id` to `amount`, iff this would increase
+	/// the amount frozen under `id`. Do nothing otherwise.
+	///
+	/// Fail if the account of `who` has fewer freezable funds than `amount`, unless `fortitude` is
+	/// `Fortitude::Force`.
+	</span><span class="kw">fn </span>ensure_frozen(
+		asset: <span class="self">Self</span>::AssetId,
+		id: <span class="kw-2">&amp;</span><span class="self">Self</span>::Id,
+		who: <span class="kw-2">&amp;</span>AccountId,
+		amount: <span class="self">Self</span>::Balance,
+		fortitude: Fortitude,
+	) -&gt; DispatchResult {
+		<span class="kw">let </span>force = fortitude == Fortitude::Force;
+		<span class="macro">ensure!</span>(
+			force || <span class="self">Self</span>::balance_freezable(asset.clone(), who) &gt;= amount,
+			TokenError::FundsUnavailable
+		);
+		<span class="self">Self</span>::extend_freeze(asset, id, who, amount)
+	}
+
+	<span class="doccomment">/// Decrease the amount which is being frozen for a particular lock, failing in the case of
+	/// underflow.
+	</span><span class="kw">fn </span>decrease_frozen(
+		asset: <span class="self">Self</span>::AssetId,
+		id: <span class="kw-2">&amp;</span><span class="self">Self</span>::Id,
+		who: <span class="kw-2">&amp;</span>AccountId,
+		amount: <span class="self">Self</span>::Balance,
+	) -&gt; DispatchResult {
+		<span class="kw">let </span>a = <span class="self">Self</span>::balance_frozen(asset.clone(), id, who)
+			.checked_sub(<span class="kw-2">&amp;</span>amount)
+			.ok_or(ArithmeticError::Underflow)<span class="question-mark">?</span>;
+		<span class="self">Self</span>::set_frozen(asset, id, who, a, Fortitude::Polite)
+	}
+
+	<span class="doccomment">/// Increase the amount which is being frozen for a particular lock, failing in the case that
+	/// too little balance is available for being frozen.
+	</span><span class="kw">fn </span>increase_frozen(
+		asset: <span class="self">Self</span>::AssetId,
+		id: <span class="kw-2">&amp;</span><span class="self">Self</span>::Id,
+		who: <span class="kw-2">&amp;</span>AccountId,
+		amount: <span class="self">Self</span>::Balance,
+	) -&gt; DispatchResult {
+		<span class="kw">let </span>a = <span class="self">Self</span>::balance_frozen(asset.clone(), id, who)
+			.checked_add(<span class="kw-2">&amp;</span>amount)
+			.ok_or(ArithmeticError::Overflow)<span class="question-mark">?</span>;
+		<span class="self">Self</span>::set_frozen(asset, id, who, a, Fortitude::Polite)
+	}
 }
 </code></pre></div></section></main></body></html>

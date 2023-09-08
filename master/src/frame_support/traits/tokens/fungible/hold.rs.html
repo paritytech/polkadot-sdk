@@ -395,6 +395,60 @@
 <a href="#395" id="395">395</a>
 <a href="#396" id="396">396</a>
 <a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -489,11 +543,11 @@
 		who: <span class="kw-2">&amp;</span>AccountId,
 		amount: <span class="self">Self</span>::Balance,
 	) -&gt; DispatchResult {
-		<span class="macro">ensure!</span>(<span class="self">Self</span>::hold_available(reason, who), TokenError::CannotCreateHold);
 		<span class="macro">ensure!</span>(
 			amount &lt;= <span class="self">Self</span>::reducible_balance(who, Protect, Force),
 			TokenError::FundsUnavailable
 		);
+		<span class="macro">ensure!</span>(<span class="self">Self</span>::hold_available(reason, who), TokenError::CannotCreateHold);
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -639,6 +693,41 @@
 		<span class="prelude-val">Ok</span>(actual)
 	}
 
+	<span class="doccomment">/// Hold or release funds in the account of `who` to bring the balance on hold for `reason` to
+	/// exactly `amount`.
+	</span><span class="kw">fn </span>set_on_hold(
+		reason: <span class="kw-2">&amp;</span><span class="self">Self</span>::Reason,
+		who: <span class="kw-2">&amp;</span>AccountId,
+		amount: <span class="self">Self</span>::Balance,
+	) -&gt; DispatchResult {
+		<span class="kw">let </span>current_amount = <span class="self">Self</span>::balance_on_hold(reason, who);
+		<span class="kw">if </span>current_amount &lt; amount {
+			<span class="self">Self</span>::hold(reason, who, amount - current_amount)
+		} <span class="kw">else if </span>current_amount &gt; amount {
+			<span class="self">Self</span>::release(reason, who, current_amount - amount, Precision::Exact).map(|<span class="kw">_</span>| ())
+		} <span class="kw">else </span>{
+			<span class="prelude-val">Ok</span>(())
+		}
+	}
+
+	<span class="doccomment">/// Release all funds in the account of `who` on hold for `reason`.
+	///
+	/// The actual amount released is returned with `Ok`.
+	///
+	/// If `precision` is `BestEffort`, then the amount actually unreserved and returned as the
+	/// inner value of `Ok` may be smaller than the `amount` passed.
+	///
+	/// NOTE! The inner of the `Ok` result variant returns the *actual* amount released. This is the
+	/// opposite of the `ReservableCurrency::unreserve()` result, which gives the amount not able
+	/// to be released!
+	</span><span class="kw">fn </span>release_all(
+		reason: <span class="kw-2">&amp;</span><span class="self">Self</span>::Reason,
+		who: <span class="kw-2">&amp;</span>AccountId,
+		precision: Precision,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Balance, DispatchError&gt; {
+		<span class="self">Self</span>::release(reason, who, <span class="self">Self</span>::balance_on_hold(reason, who), precision)
+	}
+
 	<span class="doccomment">/// Attempt to decrease the balance of `who` which is held for the given `reason` by `amount`.
 	///
 	/// If `precision` is `BestEffort`, then as much as possible is reduced, up to `amount`, and the
@@ -666,6 +755,25 @@
 		<span class="self">Self</span>::set_total_issuance(<span class="self">Self</span>::total_issuance().saturating_sub(amount));
 		<span class="self">Self</span>::done_burn_held(reason, who, amount);
 		<span class="prelude-val">Ok</span>(amount)
+	}
+
+	<span class="doccomment">/// Attempt to decrease the balance of `who` which is held for the given `reason` to zero.
+	///
+	/// If `precision` is `BestEffort`, then as much as possible is reduced, up to `amount`, and the
+	/// amount of tokens reduced is returned. Otherwise, if the total amount can be reduced, then it
+	/// is and the amount returned, and if not, then nothing changes and `Err` is returned.
+	///
+	/// If `force` is `Force`, then locks/freezes will be ignored. This should only be used when
+	/// conducting slashing or other activity which materially disadvantages the account holder
+	/// since it could provide a means of circumventing freezes.
+	</span><span class="kw">fn </span>burn_all_held(
+		reason: <span class="kw-2">&amp;</span><span class="self">Self</span>::Reason,
+		who: <span class="kw-2">&amp;</span>AccountId,
+		precision: Precision,
+		force: Fortitude,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Balance, DispatchError&gt; {
+		<span class="kw">let </span>amount = <span class="self">Self</span>::balance_on_hold(reason, who);
+		<span class="self">Self</span>::burn_held(reason, who, amount, precision, force)
 	}
 
 	<span class="doccomment">/// Transfer held funds into a destination account.

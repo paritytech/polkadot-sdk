@@ -412,6 +412,21 @@
 <a href="#412" id="412">412</a>
 <a href="#413" id="413">413</a>
 <a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -434,8 +449,8 @@
 };
 
 <span class="kw">use </span>cumulus_primitives_core::{
-	relay_chain::{BlockId <span class="kw">as </span>RBlockId, OccupiedCoreAssumption},
-	ParaId,
+	relay_chain::{<span class="self">self</span>, BlockId <span class="kw">as </span>RBlockId, OccupiedCoreAssumption},
+	AbridgedHostConfiguration, ParaId,
 };
 <span class="kw">use </span>cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 
@@ -825,5 +840,20 @@
 			(slot, t)
 		})
 		.ok()
+}
+
+<span class="doccomment">/// Reads abridged host configuration from the relay chain storage at the given relay parent.
+</span><span class="kw">pub async fn </span>load_abridged_host_configuration(
+	relay_parent: PHash,
+	relay_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>RelayChainInterface,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;AbridgedHostConfiguration&gt;, RelayChainError&gt; {
+	relay_client
+		.get_storage_by_key(relay_parent, relay_chain::well_known_keys::ACTIVE_CONFIG)
+		.<span class="kw">await</span><span class="question-mark">?
+		</span>.map(|bytes| {
+			AbridgedHostConfiguration::decode(<span class="kw-2">&amp;mut &amp;</span>bytes[..])
+				.map_err(RelayChainError::DeserializationError)
+		})
+		.transpose()
 }
 </code></pre></div></section></main></body></html>
