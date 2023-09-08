@@ -65,6 +65,7 @@ Cargo.toml @paritytech/core-devs
 
 # GRANDPA, BABE, consensus stuff
 /substrate/client/consensus/babe/ @andresilva
+/substrate/client/consensus/beefy/ @acatangiu
 /substrate/client/consensus/grandpa/ @andresilva
 /substrate/client/consensus/pow/ @sorpaas
 /substrate/client/consensus/slots/ @andresilva
