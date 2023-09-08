@@ -18,7 +18,12 @@
 
 #![warn(missing_docs)]
 
-use std::{collections::HashMap, iter::Iterator, num::NonZeroUsize, pin::Pin};
+use std::{
+	collections::{HashMap, VecDeque},
+	iter::Iterator,
+	num::NonZeroUsize,
+	pin::Pin,
+};
 
 use futures::{
 	channel::oneshot,
@@ -30,7 +35,7 @@ use futures::{
 	task::{Context, Poll},
 };
 use schnellru::{ByLength, LruMap};
-use task::{FetchChunksParams, FetchFullParams};
+use task::{FetchChunks, FetchChunksParams, FetchFull, FetchFullParams};
 
 use fatality::Nested;
 use polkadot_erasure_coding::{
@@ -47,8 +52,8 @@ use polkadot_node_subsystem::{
 	errors::RecoveryError,
 	jaeger,
 	messages::{AvailabilityRecoveryMessage, AvailabilityStoreMessage},
-	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
-	SubsystemResult,
+	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
+	SubsystemContext, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::request_session_info;
 use polkadot_primitives::{
@@ -103,7 +108,7 @@ pub struct AvailabilityRecoverySubsystem {
 }
 
 /// Expensive erasure coding computations that we want to run on a blocking thread.
-enum ErasureTask {
+pub enum ErasureTask {
 	/// Reconstructs `AvailableData` from chunks given `n_validators`.
 	Reconstruct(
 		usize,
@@ -287,7 +292,6 @@ struct State {
 
 	/// An LRU cache of recently recovered data.
 	availability_lru: LruMap<CandidateHash, CachedRecovery>,
-	// TODO: an LRU cache of erasure indices shuffling of all validators (per relay-parent).
 }
 
 impl Default for State {
@@ -338,7 +342,7 @@ async fn launch_recovery_task<Context>(
 	receipt: CandidateReceipt,
 	response_sender: oneshot::Sender<Result<AvailableData, RecoveryError>>,
 	metrics: &Metrics,
-	recovery_strategy: RecoveryStrategy,
+	recovery_strategies: VecDeque<Box<dyn RecoveryStrategy<<Context as SubsystemContext>::Sender>>>,
 	bypass_availability_store: bool,
 ) -> error::Result<()> {
 	let candidate_hash = receipt.hash();
@@ -352,7 +356,7 @@ async fn launch_recovery_task<Context>(
 		bypass_availability_store,
 	};
 
-	let recovery_task = RecoveryTask::new(ctx.sender().clone(), params, recovery_strategy);
+	let recovery_task = RecoveryTask::new(ctx.sender().clone(), params, recovery_strategies);
 
 	let (remote, remote_handle) = recovery_task.run().remote_handle();
 
@@ -457,24 +461,26 @@ async fn handle_recover<Context>(
 				erasure_task_tx: erasure_task_tx.clone(),
 			};
 
-			let recovery_strategy = if let Some(backing_validators) = backing_validators {
+			let mut recovery_strategies: VecDeque<
+				Box<dyn RecoveryStrategy<<Context as SubsystemContext>::Sender>>,
+			> = VecDeque::with_capacity(2);
+
+			if let Some(backing_validators) = backing_validators {
 				match recovery_strategy_kind {
 					RecoveryStrategyKind::BackersFirstAlways |
 					RecoveryStrategyKind::BackersFirstIfSizeLower(_) |
-					RecoveryStrategyKind::BypassAvailabilityStore => RecoveryStrategy::new()
-						.then_fetch_full_from_backers(FetchFullParams {
+					RecoveryStrategyKind::BypassAvailabilityStore =>
+						recovery_strategies.push_back(Box::new(FetchFull::new(FetchFullParams {
 							group_name: "backers",
 							validators: backing_validators.to_vec(),
 							skip_if: skip_backing_group_if,
 							erasure_task_tx,
-						})
-						.then_fetch_chunks_from_validators(fetch_chunks_params),
-					RecoveryStrategyKind::ChunksAlways => RecoveryStrategy::new()
-						.then_fetch_chunks_from_validators(fetch_chunks_params),
-				}
-			} else {
-				RecoveryStrategy::new().then_fetch_chunks_from_validators(fetch_chunks_params)
-			};
+						}))),
+					RecoveryStrategyKind::ChunksAlways => {},
+				};
+			}
+
+			recovery_strategies.push_back(Box::new(FetchChunks::new(fetch_chunks_params)));
 
 			launch_recovery_task(
 				state,
@@ -483,7 +489,7 @@ async fn handle_recover<Context>(
 				receipt,
 				response_sender,
 				metrics,
-				*recovery_strategy,
+				recovery_strategies,
 				recovery_strategy_kind == RecoveryStrategyKind::BypassAvailabilityStore,
 			)
 			.await

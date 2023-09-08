@@ -16,6 +16,8 @@
 
 //! Recovery task and associated strategies.
 
+#![warn(missing_docs)]
+
 use crate::{
 	futures_undead::FuturesUndead, is_chunk_valid, is_unavailable, metrics::Metrics, ErasureTask,
 	LOG_TARGET,
@@ -56,33 +58,50 @@ const TIMEOUT_START_NEW_REQUESTS: Duration = CHUNK_REQUEST_TIMEOUT;
 #[cfg(test)]
 const TIMEOUT_START_NEW_REQUESTS: Duration = Duration::from_millis(100);
 
+#[async_trait::async_trait]
+/// Common trait for runnable recovery strategies.
+pub trait RecoveryStrategy<Sender: overseer::AvailabilityRecoverySenderTrait>: Send {
+	/// Main entry point of the strategy.
+	async fn run(
+		&mut self,
+		state: &mut State,
+		sender: &mut Sender,
+		common_params: &RecoveryParams,
+	) -> Result<AvailableData, RecoveryError>;
+
+	/// Return the name of the strategy for logging purposes.
+	fn display_name(&self) -> &'static str;
+}
+
+/// Recovery parameters common to all strategies in a `RecoveryTask`.
 pub struct RecoveryParams {
 	/// Discovery ids of `validators`.
-	pub(crate) validator_authority_keys: Vec<AuthorityDiscoveryId>,
+	pub validator_authority_keys: Vec<AuthorityDiscoveryId>,
 
 	/// Number of validators relevant to this `RecoveryTask`.
-	pub(crate) n_validators: usize,
+	pub n_validators: usize,
 
-	/// The number of pieces needed.
-	pub(crate) threshold: usize,
+	/// The number of chunks needed.
+	pub threshold: usize,
 
 	/// A hash of the relevant candidate.
-	pub(crate) candidate_hash: CandidateHash,
+	pub candidate_hash: CandidateHash,
 
-	/// The root of the erasure encoding of the para block.
-	pub(crate) erasure_root: Hash,
+	/// The root of the erasure encoding of the candidate.
+	pub erasure_root: Hash,
 
-	/// Metrics to report
-	pub(crate) metrics: Metrics,
+	/// Metrics to report.
+	pub metrics: Metrics,
 
-	/// Do not request data from availability-store
-	pub(crate) bypass_availability_store: bool,
+	/// Do not request data from availability-store. Useful for collators.
+	pub bypass_availability_store: bool,
 }
-/// Represents intermediate data that must be passed between `RecoveryStrategy`s belonging to the
-/// same `RecoveryTask` or data that is used by state methods common to multiple RecoveryStrategies.
+/// Intermediate/common data that must be passed between `RecoveryStrategy`s belonging to the
+/// same `RecoveryTask`.
 pub struct State {
 	/// Chunks received so far.
 	received_chunks: HashMap<ValidatorIndex, ErasureChunk>,
+	/// Collection of in-flight requests.
 	requesting_chunks: FuturesUndead<Result<Option<ErasureChunk>, (ValidatorIndex, RequestError)>>,
 }
 
@@ -99,6 +118,7 @@ impl State {
 		self.received_chunks.len()
 	}
 
+	/// Retrieve the local chunks held in the av-store (either 0 or 1).
 	async fn populate_from_av_store<Sender: overseer::AvailabilityRecoverySenderTrait>(
 		&mut self,
 		params: &RecoveryParams,
@@ -146,6 +166,7 @@ impl State {
 		}
 	}
 
+	/// Launch chunk requests in parallel, according to the parameters.
 	async fn launch_parallel_chunk_requests<Sender>(
 		&mut self,
 		params: &RecoveryParams,
@@ -314,24 +335,26 @@ impl State {
 
 /// A stateful reconstruction of availability data in reference to
 /// a candidate hash.
-pub struct RecoveryTask<Sender> {
+pub struct RecoveryTask<Sender: overseer::AvailabilityRecoverySenderTrait> {
 	sender: Sender,
-	/// The common parameters of the recovery process, regardless of the strategy.
 	params: RecoveryParams,
-	strategy: RecoveryStrategy,
+	strategies: VecDeque<Box<dyn RecoveryStrategy<Sender>>>,
 	state: State,
-}
-
-impl<Sender> RecoveryTask<Sender> {
-	pub fn new(sender: Sender, params: RecoveryParams, strategy: RecoveryStrategy) -> Self {
-		Self { sender, params, strategy, state: State::new() }
-	}
 }
 
 impl<Sender> RecoveryTask<Sender>
 where
 	Sender: overseer::AvailabilityRecoverySenderTrait,
 {
+	/// Instantiate a new recovery task.
+	pub fn new(
+		sender: Sender,
+		params: RecoveryParams,
+		strategies: VecDeque<Box<dyn RecoveryStrategy<Sender>>>,
+	) -> Self {
+		Self { sender, params, strategies, state: State::new() }
+	}
+
 	async fn in_availability_store(&mut self) -> Option<AvailableData> {
 		if !self.params.bypass_availability_store {
 			let (tx, rx) = oneshot::channel();
@@ -358,6 +381,8 @@ where
 		None
 	}
 
+	/// Run this recovery task to completion. It will loop through the configured strategies
+	/// in-order and return whenever the first one recovers the full `AvailableData`.
 	pub async fn run(mut self) -> Result<AvailableData, RecoveryError> {
 		if let Some(data) = self.in_availability_store().await {
 			return Ok(data)
@@ -368,57 +393,44 @@ where
 		let _timer = self.params.metrics.time_full_recovery();
 
 		let res = loop {
-			let (current_strategy, next_strategy) = self.strategy.pop_first();
-			self.strategy = next_strategy;
+			if let Some(mut current_strategy) = self.strategies.pop_front() {
+				// Make sure we are not referencing futures from past RecoveryStrategy runs.
+				if self.state.requesting_chunks.total_len() != 0 {
+					self.state.requesting_chunks = FuturesUndead::new();
+				}
 
-			// Make sure we are not referencing futures from past RecoveryStrategy runs.
-			if self.state.requesting_chunks.total_len() != 0 {
-				self.state.requesting_chunks = FuturesUndead::new();
-			}
-
-			let recovery_strategy_name = current_strategy.display_name();
-
-			if let Some(name) = recovery_strategy_name {
 				gum::info!(
 					target: LOG_TARGET,
 					candidate_hash = ?self.params.candidate_hash,
 					"Starting `{}` strategy",
-					&name,
+					current_strategy.display_name(),
 				);
-			}
 
-			let res = match current_strategy {
-				RecoveryStrategy::Nil => Err(RecoveryError::Unavailable),
-				RecoveryStrategy::FullFromBackers(inner, _) =>
-					inner.run(&mut self.state, &mut self.sender, &self.params).await,
-				RecoveryStrategy::ChunksFromValidators(inner, _) =>
-					inner.run(&mut self.state, &mut self.sender, &self.params).await,
-			};
+				let res =
+					current_strategy.run(&mut self.state, &mut self.sender, &self.params).await;
 
-			match res {
-				Err(RecoveryError::Unavailable) => {
-					if !matches!(&self.strategy, RecoveryStrategy::Nil) {
-						if let Some(recovery_strategy_name) = recovery_strategy_name {
+				match res {
+					Err(RecoveryError::Unavailable) =>
+						if self.strategies.front().is_some() {
 							gum::warn!(
 								target: LOG_TARGET,
 								candidate_hash = ?self.params.candidate_hash,
 								"Recovery strategy `{}` did not conclude. Trying the next one.",
-								recovery_strategy_name,
+								current_strategy.display_name(),
 							);
-						}
-						continue
-					} else {
-						// We have no other strategies to try.
-						gum::error!(
-							target: LOG_TARGET,
-							candidate_hash = ?self.params.candidate_hash,
-							"Recovery of available data failed.",
-						);
-						break Err(RecoveryError::Unavailable)
-					}
-				},
-				Err(err) => break Err(err),
-				Ok(data) => break Ok(data),
+							continue
+						},
+					Err(err) => break Err(err),
+					Ok(data) => break Ok(data),
+				}
+			} else {
+				// We have no other strategies to try.
+				gum::error!(
+					target: LOG_TARGET,
+					candidate_hash = ?self.params.candidate_hash,
+					"Recovery of available data failed.",
+				);
+				break Err(RecoveryError::Unavailable)
 			}
 		};
 
@@ -432,86 +444,40 @@ where
 	}
 }
 
-pub enum RecoveryStrategy {
-	Nil,
-	FullFromBackers(FetchFull, Box<RecoveryStrategy>),
-	ChunksFromValidators(FetchChunks, Box<RecoveryStrategy>),
-}
-
-impl RecoveryStrategy {
-	pub fn new() -> Box<Self> {
-		Box::new(RecoveryStrategy::Nil)
-	}
-
-	fn display_name(&self) -> Option<&'static str> {
-		match self {
-			Self::Nil => None,
-			Self::FullFromBackers(_, _) => Some("Full recovery from backers"),
-			Self::ChunksFromValidators(_, _) => Some("Chunks recovery"),
-		}
-	}
-
-	pub fn then_fetch_full_from_backers(self: Box<Self>, params: FetchFullParams) -> Box<Self> {
-		match *self {
-			Self::Nil => Box::new(Self::FullFromBackers(FetchFull::new(params), self)),
-			Self::ChunksFromValidators(task, next) => {
-				let next = next.then_fetch_full_from_backers(params);
-				Box::new(Self::ChunksFromValidators(task, next))
-			},
-			Self::FullFromBackers(task, next) => {
-				let next = next.then_fetch_full_from_backers(params);
-				Box::new(Self::FullFromBackers(task, next))
-			},
-		}
-	}
-
-	pub fn then_fetch_chunks_from_validators(
-		self: Box<Self>,
-		params: FetchChunksParams,
-	) -> Box<Self> {
-		match *self {
-			Self::Nil => Box::new(Self::ChunksFromValidators(FetchChunks::new(params), self)),
-			Self::ChunksFromValidators(task, next) => {
-				let next = next.then_fetch_chunks_from_validators(params);
-				Box::new(Self::ChunksFromValidators(task, next))
-			},
-			Self::FullFromBackers(task, next) => {
-				let next = next.then_fetch_chunks_from_validators(params);
-				Box::new(Self::FullFromBackers(task, next))
-			},
-		}
-	}
-
-	fn pop_first(self) -> (Self, Self) {
-		match self {
-			Self::Nil => (Self::Nil, Self::Nil),
-			Self::FullFromBackers(inner, next) =>
-				(Self::FullFromBackers(inner, Box::new(Self::Nil)), *next),
-			Self::ChunksFromValidators(inner, next) =>
-				(Self::ChunksFromValidators(inner, Box::new(Self::Nil)), *next),
-		}
-	}
-}
-
+/// `RecoveryStrategy` that sequentially tries to fetch the full `AvailableData` from
+/// already-connected validators in the configured validator set.
 pub struct FetchFull {
 	params: FetchFullParams,
 }
 
 pub struct FetchFullParams {
-	pub(crate) group_name: &'static str,
-	pub(crate) validators: Vec<ValidatorIndex>,
-	pub(crate) skip_if: Box<dyn Fn() -> bool + Send>,
-	// channel to the erasure task handler.
-	pub(crate) erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
+	/// Name of the validator group used for recovery. For logging purposes.
+	/// (e.g."backers"/"approval-checkers")
+	pub group_name: &'static str,
+	/// Validators that will be used for fetching the data.
+	pub validators: Vec<ValidatorIndex>,
+	/// Predicate that if is true, will result in skipping this strategy.
+	pub skip_if: Box<dyn Fn() -> bool + Send>,
+	/// Channel to the erasure task handler.
+	pub erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 }
 
 impl FetchFull {
-	fn new(params: FetchFullParams) -> Self {
+	/// Create a new `FetchFull` recovery strategy.
+	pub fn new(mut params: FetchFullParams) -> Self {
+		params.validators.shuffle(&mut rand::thread_rng());
 		Self { params }
 	}
+}
 
-	async fn run<Sender: overseer::AvailabilityRecoverySenderTrait>(
-		mut self,
+#[async_trait::async_trait]
+impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender> for FetchFull {
+	fn display_name(&self) -> &'static str {
+		"Full recovery from backers"
+	}
+
+	async fn run(
+		&mut self,
 		_: &mut State,
 		sender: &mut Sender,
 		common_params: &RecoveryParams,
@@ -606,30 +572,32 @@ impl FetchFull {
 	}
 }
 
+/// `RecoveryStrategy` that requests chunks from validators, in parallel.
 pub struct FetchChunks {
-	/// How many request have been unsuccessful so far.
+	/// How many requests have been unsuccessful so far.
 	error_count: usize,
-	/// Total number of responses that have been received.
-	///
-	/// including failed ones.
+	/// Total number of responses that have been received, including failed ones.
 	total_received_responses: usize,
 
-	/// a random shuffling of the validators which indicates the order in which we connect to the
+	/// A random shuffling of the validators which indicates the order in which we connect to the
 	/// validators and request the chunk from them.
 	validators: VecDeque<ValidatorIndex>,
 
-	// channel to the erasure task handler.
+	/// Channel to the erasure task handler.
 	erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 }
 
+/// Parameters specific to the `FetchChunks` strategy.
 pub struct FetchChunksParams {
-	pub(crate) n_validators: usize,
-	// channel to the erasure task handler.
-	pub(crate) erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
+	/// Total number of validators.
+	pub n_validators: usize,
+	/// Channel to the erasure task handler.
+	pub erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 }
 
 impl FetchChunks {
-	fn new(params: FetchChunksParams) -> Self {
+	/// Instantiate a new strategy.
+	pub fn new(params: FetchChunksParams) -> Self {
 		let mut shuffling: Vec<_> = (0..params.n_validators)
 			.map(|i| ValidatorIndex(i.try_into().expect("number of validators must fit in a u32")))
 			.collect();
@@ -677,8 +645,91 @@ impl FetchChunks {
 		)
 	}
 
-	async fn run<Sender: overseer::AvailabilityRecoverySenderTrait>(
-		mut self,
+	async fn attempt_recovery(
+		&mut self,
+		state: &mut State,
+		common_params: &RecoveryParams,
+	) -> Result<AvailableData, RecoveryError> {
+		let recovery_duration = common_params.metrics.time_erasure_recovery();
+
+		// Send request to reconstruct available data from chunks.
+		let (avilable_data_tx, available_data_rx) = oneshot::channel();
+		self.erasure_task_tx
+			.send(ErasureTask::Reconstruct(
+				common_params.n_validators,
+				// Safe to leave an empty vec in place, as we're stopping the recovery process if
+				// this reconstruct fails.
+				std::mem::take(&mut state.received_chunks),
+				avilable_data_tx,
+			))
+			.await
+			.map_err(|_| RecoveryError::ChannelClosed)?;
+
+		let available_data_response =
+			available_data_rx.await.map_err(|_| RecoveryError::ChannelClosed)?;
+
+		match available_data_response {
+			Ok(data) => {
+				// Send request to re-encode the chunks and check merkle root.
+				let (reencode_tx, reencode_rx) = oneshot::channel();
+				self.erasure_task_tx
+					.send(ErasureTask::Reencode(
+						common_params.n_validators,
+						common_params.erasure_root,
+						data,
+						reencode_tx,
+					))
+					.await
+					.map_err(|_| RecoveryError::ChannelClosed)?;
+
+				let reencode_response =
+					reencode_rx.await.map_err(|_| RecoveryError::ChannelClosed)?;
+
+				if let Some(data) = reencode_response {
+					gum::trace!(
+						target: LOG_TARGET,
+						candidate_hash = ?common_params.candidate_hash,
+						erasure_root = ?common_params.erasure_root,
+						"Data recovery from chunks complete",
+					);
+
+					Ok(data)
+				} else {
+					recovery_duration.map(|rd| rd.stop_and_discard());
+					gum::trace!(
+						target: LOG_TARGET,
+						candidate_hash = ?common_params.candidate_hash,
+						erasure_root = ?common_params.erasure_root,
+						"Data recovery error - root mismatch",
+					);
+
+					Err(RecoveryError::Invalid)
+				}
+			},
+			Err(err) => {
+				recovery_duration.map(|rd| rd.stop_and_discard());
+				gum::trace!(
+					target: LOG_TARGET,
+					candidate_hash = ?common_params.candidate_hash,
+					erasure_root = ?common_params.erasure_root,
+					?err,
+					"Data recovery error ",
+				);
+
+				Err(RecoveryError::Invalid)
+			},
+		}
+	}
+}
+
+#[async_trait::async_trait]
+impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender> for FetchChunks {
+	fn display_name(&self) -> &'static str {
+		"Fetch chunks"
+	}
+
+	async fn run(
+		&mut self,
 		state: &mut State,
 		sender: &mut Sender,
 		common_params: &RecoveryParams,
@@ -764,168 +815,12 @@ impl FetchChunks {
 			self.error_count += error_count;
 		}
 	}
-
-	async fn attempt_recovery(
-		&mut self,
-		state: &mut State,
-		common_params: &RecoveryParams,
-	) -> Result<AvailableData, RecoveryError> {
-		let recovery_duration = common_params.metrics.time_erasure_recovery();
-
-		// Send request to reconstruct available data from chunks.
-		let (avilable_data_tx, available_data_rx) = oneshot::channel();
-		self.erasure_task_tx
-			.send(ErasureTask::Reconstruct(
-				common_params.n_validators,
-				// Safe to leave an empty vec in place, as we're stopping the recovery process if
-				// this reconstruct fails.
-				std::mem::take(&mut state.received_chunks),
-				avilable_data_tx,
-			))
-			.await
-			.map_err(|_| RecoveryError::ChannelClosed)?;
-
-		let available_data_response =
-			available_data_rx.await.map_err(|_| RecoveryError::ChannelClosed)?;
-
-		match available_data_response {
-			Ok(data) => {
-				// Send request to re-encode the chunks and check merkle root.
-				let (reencode_tx, reencode_rx) = oneshot::channel();
-				self.erasure_task_tx
-					.send(ErasureTask::Reencode(
-						common_params.n_validators,
-						common_params.erasure_root,
-						data,
-						reencode_tx,
-					))
-					.await
-					.map_err(|_| RecoveryError::ChannelClosed)?;
-
-				let reencode_response =
-					reencode_rx.await.map_err(|_| RecoveryError::ChannelClosed)?;
-
-				if let Some(data) = reencode_response {
-					gum::trace!(
-						target: LOG_TARGET,
-						candidate_hash = ?common_params.candidate_hash,
-						erasure_root = ?common_params.erasure_root,
-						"Data recovery from chunks complete",
-					);
-
-					Ok(data)
-				} else {
-					recovery_duration.map(|rd| rd.stop_and_discard());
-					gum::trace!(
-						target: LOG_TARGET,
-						candidate_hash = ?common_params.candidate_hash,
-						erasure_root = ?common_params.erasure_root,
-						"Data recovery error - root mismatch",
-					);
-
-					Err(RecoveryError::Invalid)
-				}
-			},
-			Err(err) => {
-				recovery_duration.map(|rd| rd.stop_and_discard());
-				gum::trace!(
-					target: LOG_TARGET,
-					candidate_hash = ?common_params.candidate_hash,
-					erasure_root = ?common_params.erasure_root,
-					?err,
-					"Data recovery error ",
-				);
-
-				Err(RecoveryError::Invalid)
-			},
-		}
-	}
 }
 
 #[cfg(test)]
 mod tests {
-	use std::ops::Deref;
-
 	use super::*;
-	use assert_matches::assert_matches;
 	use polkadot_erasure_coding::recovery_threshold;
-	use RecoveryStrategy::*;
-
-	impl std::fmt::Debug for RecoveryStrategy {
-		fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-			match self {
-				Nil => write!(f, "Nil"),
-				ChunksFromValidators(_, next) =>
-					write!(f, "{:?} -> {}", self.display_name(), format!("{next:?}")),
-				FullFromBackers(_, next) =>
-					write!(f, "{:?} -> {}", self.display_name(), format!("{next:?}")),
-			}
-		}
-	}
-
-	#[test]
-	fn test_recovery_strategy_linked_list_ops() {
-		let fetch_full_params = FetchFullParams {
-			group_name: "backers",
-			validators: vec![],
-			skip_if: Box::new(|| true),
-			erasure_task_tx: futures::channel::mpsc::channel(0).0,
-		};
-		let fetch_full_params_2 = FetchFullParams {
-			group_name: "approval-checkers",
-			validators: vec![],
-			skip_if: Box::new(|| true),
-			erasure_task_tx: futures::channel::mpsc::channel(0).0,
-		};
-
-		let fetch_chunks_params = FetchChunksParams {
-			n_validators: 2,
-			erasure_task_tx: futures::channel::mpsc::channel(0).0,
-		};
-		let fetch_chunks_params_2 = FetchChunksParams {
-			n_validators: 3,
-			erasure_task_tx: futures::channel::mpsc::channel(0).0,
-		};
-		let recovery_strategy = RecoveryStrategy::new()
-			.then_fetch_full_from_backers(fetch_full_params)
-			.then_fetch_full_from_backers(fetch_full_params_2)
-			.then_fetch_chunks_from_validators(fetch_chunks_params)
-			.then_fetch_chunks_from_validators(fetch_chunks_params_2);
-
-		// Check that the builder correctly chains strategies.
-		assert_matches!(
-				recovery_strategy.deref(),
-				FullFromBackers(_, next)
-					if matches!(next.deref(), FullFromBackers(_, next)
-						if matches!(next.deref(), ChunksFromValidators(_, next)
-							if matches!(next.deref(), ChunksFromValidators(_, next)
-								if matches!(next.deref(), Nil)
-							)
-						)
-					)
-		);
-
-		// Check the order for the `pop_first` operation.
-		let (current, next) = recovery_strategy.pop_first();
-		assert_matches!(current, FullFromBackers(task, next) if task.params.group_name == "backers" && matches!(*next, Nil));
-		assert_matches!(&next, FullFromBackers(task, _) if task.params.group_name == "approval-checkers");
-
-		let (current, next) = next.pop_first();
-		assert_matches!(current, FullFromBackers(task, next) if task.params.group_name == "approval-checkers" && matches!(*next, Nil));
-		assert_matches!(&next, ChunksFromValidators(task, _) if task.validators.len() == 2);
-
-		let (current, next) = next.pop_first();
-		assert_matches!(current, ChunksFromValidators(task, next) if task.validators.len() == 2 && matches!(*next, Nil));
-		assert_matches!(&next, ChunksFromValidators(task, _) if task.validators.len() == 3);
-
-		let (current, next) = next.pop_first();
-		assert_matches!(current, ChunksFromValidators(task, next) if task.validators.len() == 3 && matches!(*next, Nil));
-		assert_matches!(&next, Nil);
-
-		let (current, next) = next.pop_first();
-		assert_matches!(current, Nil);
-		assert_matches!(next, Nil);
-	}
 
 	#[test]
 	fn parallel_request_calculation_works_as_expected() {
