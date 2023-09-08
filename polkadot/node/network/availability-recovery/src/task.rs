@@ -482,7 +482,7 @@ impl RecoveryStrategy {
 		}
 	}
 
-	fn pop_first(self: Self) -> (Self, Self) {
+	fn pop_first(self) -> (Self, Self) {
 		match self {
 			Self::Nil => (Self::Nil, Self::Nil),
 			Self::FullFromBackers(inner, next) =>
