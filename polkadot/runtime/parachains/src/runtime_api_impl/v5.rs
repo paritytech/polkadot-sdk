@@ -18,17 +18,17 @@
 //! functions.
 
 use crate::{
-	configuration, disputes, dmp, hrmp, inclusion, initializer, paras, paras_inherent, scheduler,
+	disputes, dmp, hrmp, inclusion, initializer, paras, paras_inherent,
+	scheduler::{self, CoreOccupied},
 	session_info, shared,
 };
 use frame_system::pallet_prelude::*;
 use primitives::{
 	slashing, AuthorityDiscoveryId, CandidateEvent, CandidateHash, CommittedCandidateReceipt,
-	CoreIndex, CoreOccupied, CoreState, DisputeState, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	OccupiedCore, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCore, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sp_runtime::traits::One;
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
@@ -52,35 +52,15 @@ pub fn validator_groups<T: initializer::Config>(
 /// Implementation for the `availability_cores` function of the runtime API.
 pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, BlockNumberFor<T>>> {
 	let cores = <scheduler::Pallet<T>>::availability_cores();
-	let config = <configuration::Pallet<T>>::config();
 	let now = <frame_system::Pallet<T>>::block_number() + One::one();
-	let rotation_info = <scheduler::Pallet<T>>::group_rotation_info(now);
 
 	// This explicit update is only strictly required for session boundaries:
 	//
 	// At the end of a session we clear the claim queues: Without this update call, nothing would be
 	// scheduled to the client.
-	let scheduled = <scheduler::Pallet<T>>::update_claimqueue(Vec::new(), now);
+	<scheduler::Pallet<T>>::update_claimqueue(Vec::new(), now);
 
-	let time_out_at = |backed_in_number, availability_period| {
-		let time_out_at = backed_in_number + availability_period;
-
-		let current_window = rotation_info.last_rotation_at() + availability_period;
-		let next_rotation = rotation_info.next_rotation_at();
-
-		// If we are within `period` blocks of rotation, timeouts are being checked
-		// actively. We could even time out this block.
-		if time_out_at < current_window {
-			time_out_at
-		} else if time_out_at <= next_rotation {
-			// Otherwise, it will time out at the sooner of the next rotation
-			next_rotation
-		} else {
-			// or the scheduled time-out. This is by definition within `period` blocks
-			// of `next_rotation` and is thus a valid timeout block.
-			time_out_at
-		}
-	};
+	let time_out_for = <scheduler::Pallet<T>>::availability_timeout_predicate();
 
 	let group_responsible_for =
 		|backed_in_number, core_index| match <scheduler::Pallet<T>>::group_assigned_to_core(
@@ -99,7 +79,9 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 			},
 		};
 
-	let mut core_states: Vec<_> = cores
+	let scheduled: BTreeMap<_, _> = <scheduler::Pallet<T>>::scheduled_paras().collect();
+
+	cores
 		.into_iter()
 		.enumerate()
 		.map(|(i, core)| match core {
@@ -114,7 +96,7 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 						i as u32,
 					)),
 					occupied_since: backed_in_number,
-					time_out_at: time_out_at(backed_in_number, config.paras_availability_period),
+					time_out_at: time_out_for(backed_in_number).live_until,
 					next_up_on_time_out: <scheduler::Pallet<T>>::next_up_on_time_out(CoreIndex(
 						i as u32,
 					)),
@@ -127,28 +109,15 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 					candidate_descriptor: pending_availability.candidate_descriptor().clone(),
 				})
 			},
-			CoreOccupied::Free => CoreState::Free,
+			CoreOccupied::Free => {
+				if let Some(para_id) = scheduled.get(&CoreIndex(i as _)).cloned() {
+					CoreState::Scheduled(primitives::ScheduledCore { para_id, collator: None })
+				} else {
+					CoreState::Free
+				}
+			},
 		})
-		.collect();
-
-	// This will overwrite only `Free` cores if the scheduler module is working as intended.
-	for s in scheduled {
-		let overwrite = match &core_states[s.core.0 as usize] {
-			CoreState::Scheduled(_) | CoreState::Free => true,
-			// TODO: check the para occupying the core, has to be the same
-			CoreState::Occupied(occupied_core) =>
-				occupied_core.candidate_descriptor.para_id != s.paras_entry.para_id(),
-		};
-
-		if overwrite {
-			core_states[s.core.0 as usize] = CoreState::Scheduled(primitives::ScheduledCore {
-				para_id: s.paras_entry.para_id(),
-				collator: None,
-			});
-		}
-	}
-
-	core_states
+		.collect()
 }
 
 /// Returns current block number being processed and the corresponding root hash.

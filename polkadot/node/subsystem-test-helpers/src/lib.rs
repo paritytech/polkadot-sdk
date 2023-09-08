@@ -435,42 +435,6 @@ impl Future for Yield {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use futures::executor::block_on;
-	use polkadot_node_subsystem::messages::CollatorProtocolMessage;
-	use polkadot_overseer::{dummy::dummy_overseer_builder, Handle, HeadSupportsParachains};
-	use polkadot_primitives::Hash;
-	use sp_core::traits::SpawnNamed;
-
-	struct AlwaysSupportsParachains;
-
-	#[async_trait::async_trait]
-	impl HeadSupportsParachains for AlwaysSupportsParachains {
-		async fn head_supports_parachains(&self, _head: &Hash) -> bool {
-			true
-		}
-	}
-
-	#[test]
-	fn forward_subsystem_works() {
-		let spawner = sp_core::testing::TaskExecutor::new();
-		let (tx, rx) = mpsc::channel(2);
-		let (overseer, handle) =
-			dummy_overseer_builder(spawner.clone(), AlwaysSupportsParachains, None)
-				.unwrap()
-				.replace_collator_protocol(|_| ForwardSubsystem(tx))
-				.build()
-				.unwrap();
-
-		let mut handle = Handle::new(handle);
-
-		spawner.spawn("overseer", None, overseer.run().then(|_| async { () }).boxed());
-
-		block_on(handle.send_msg_anon(CollatorProtocolMessage::CollateOn(Default::default())));
-		assert!(matches!(
-			block_on(rx.into_future()).0.unwrap(),
-			CollatorProtocolMessage::CollateOn(_)
-		));
-	}
 
 	#[test]
 	fn macro_arbitrary_order() {
