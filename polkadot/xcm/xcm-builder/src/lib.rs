@@ -47,11 +47,11 @@ pub use origin_conversion::{
 };
 
 mod asset_conversion;
+#[allow(deprecated)]
+pub use asset_conversion::ConvertedConcreteAssetId;
 pub use asset_conversion::{
 	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId,
 };
-#[allow(deprecated)]
-pub use asset_conversion::{ConvertedConcreteAssetId};
 
 mod barriers;
 pub use barriers::{

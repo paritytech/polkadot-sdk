@@ -19,9 +19,7 @@
 use frame_support::traits::Get;
 use sp_std::marker::PhantomData;
 use xcm::latest::{
-	Asset,
-	AssetId,
-	AssetInstance,
+	Asset, AssetId, AssetInstance,
 	Fungibility::{Fungible, NonFungible},
 	Location,
 };
@@ -51,8 +49,7 @@ pub struct IsConcrete<T>(PhantomData<T>);
 impl<T: Get<Location>, B: TryFrom<u128>> MatchesFungible<B> for IsConcrete<T> {
 	fn matches_fungible(a: &Asset) -> Option<B> {
 		match (&a.id, &a.fun) {
-			(AssetId(ref id), Fungible(ref amount)) if id == &T::get() =>
-				(*amount).try_into().ok(),
+			(AssetId(ref id), Fungible(ref amount)) if id == &T::get() => (*amount).try_into().ok(),
 			_ => None,
 		}
 	}

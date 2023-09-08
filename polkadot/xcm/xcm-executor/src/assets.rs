@@ -700,10 +700,7 @@ mod tests {
 		assets.subsume(CF(3000));
 		assets.subsume(CNF(80));
 		let all = assets.try_take(WildAsset::AllCounted(6).into()).unwrap();
-		assert_eq!(
-			Assets::from(all).inner(),
-			&vec![CF(3000), CNF(40), CNF(80)]
-		);
+		assert_eq!(Assets::from(all).inner(), &vec![CF(3000), CNF(40), CNF(80)]);
 	}
 
 	#[test]
@@ -712,14 +709,7 @@ mod tests {
 		assets.subsume(CNF(40));
 		assets.subsume(CF(3000));
 		assets.subsume(CNF(80));
-		assert_eq!(
-			Assets::from(assets).inner(),
-			&vec![
-				CF(3000),
-				CNF(40),
-				CNF(80),
-			]
-		);
+		assert_eq!(Assets::from(assets).inner(), &vec![CF(3000), CNF(40), CNF(80),]);
 	}
 
 	#[test]
@@ -728,9 +718,6 @@ mod tests {
 		assets.subsume(CNF(40));
 		assets.subsume(CF(3000));
 		assets.subsume(CNF(80));
-		assert_eq!(
-			Assets::from(assets).inner(),
-			&vec![CF(3000), CNF(40), CNF(80)]
-		);
+		assert_eq!(Assets::from(assets).inner(), &vec![CF(3000), CNF(40), CNF(80)]);
 	}
 }
