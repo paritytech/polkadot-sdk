@@ -612,7 +612,7 @@ impl UnhandledResponse {
 					reputation_changes: vec![],
 					request_status: CandidateRequestStatus::Incomplete,
 				}
-			}
+			},
 			Ok(response) => response,
 		};
 

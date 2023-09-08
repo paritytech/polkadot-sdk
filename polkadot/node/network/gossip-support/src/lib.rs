@@ -407,14 +407,13 @@ where
 			}
 		}
 
-
 		// peer was authority and now isn't
 		for (peer_id, current) in self.connected_peers.iter_mut() {
 			// empty -> nonempty is handled in the next loop
 			if !current.is_empty() && !authority_ids.contains_key(peer_id) {
 				sender
 					.send_message(NetworkBridgeRxMessage::UpdatedAuthorityIds {
-						peer_id: peer_id.clone(),
+						peer_id: *peer_id,
 						authority_ids: HashSet::new(),
 					})
 					.await;
@@ -461,8 +460,7 @@ where
 				}
 			},
 			NetworkBridgeEvent::PeerDisconnected(peer_id) => {
-				if let Some(authority_ids) = self.connected_peers.remove(&peer_id)
-				{
+				if let Some(authority_ids) = self.connected_peers.remove(&peer_id) {
 					authority_ids.into_iter().for_each(|a| {
 						self.connected_authorities.remove(&a);
 					});

@@ -187,7 +187,11 @@ impl PerSessionState {
 		}
 	}
 
-	fn supply_topology(&mut self, topology: &SessionGridTopology, local_index: Option<ValidatorIndex>) {
+	fn supply_topology(
+		&mut self,
+		topology: &SessionGridTopology,
+		local_index: Option<ValidatorIndex>,
+	) {
 		// Note: we use the local index rather than the `self.local_validator` as the
 		// former may be `Some` when the latter is `None`, due to the set of nodes in
 		// discovery being a superset of the active validators for consensus.
@@ -625,10 +629,9 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 		}
 	}
 
-	state.candidates.on_deactivate_leaves(
-		&leaves,
-		|h| state.per_relay_parent.contains_key(h),
-	);
+	state
+		.candidates
+		.on_deactivate_leaves(&leaves, |h| state.per_relay_parent.contains_key(h));
 
 	// clean up sessions based on everything remaining.
 	let sessions: HashSet<_> = state.per_relay_parent.values().map(|r| r.session).collect();
@@ -2003,8 +2006,13 @@ async fn handle_incoming_manifest_common<'a, Context>(
 				"Unknown peer for manifest?"
 			);
 
-			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN)
-				.await;
+			modify_reputation(
+				reputation,
+				ctx.sender(),
+				peer,
+				COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN,
+			)
+			.await;
 			return None
 		},
 		Some(s) => s,
@@ -2652,7 +2660,7 @@ pub(crate) async fn handle_response<Context>(
 				);
 
 				return
-			}
+			},
 			requests::CandidateRequestStatus::Complete {
 				candidate,
 				persisted_validation_data,
@@ -2666,7 +2674,7 @@ pub(crate) async fn handle_response<Context>(
 				);
 
 				(candidate, persisted_validation_data, statements)
-			}
+			},
 		};
 
 		for statement in statements {
@@ -2790,7 +2798,8 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 		return
 	}
 
-	// check peer is allowed to request the candidate (i.e. they're in the cluster or we've sent them a manifest)
+	// check peer is allowed to request the candidate (i.e. they're in the cluster or we've sent
+	// them a manifest)
 	let (validator_id, is_cluster) = {
 		let mut validator_id = None;
 		let mut is_cluster = false;
@@ -2819,7 +2828,7 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 				});
 
 				return
-			}
+			},
 		}
 	};
 
@@ -2832,12 +2841,7 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 
 	let statements: Vec<_> = relay_parent_state
 		.statement_store
-		.group_statements(
-			&per_session.groups,
-			confirmed.group_index(),
-			*candidate_hash,
-			&and_mask,
-		)
+		.group_statements(&per_session.groups, confirmed.group_index(), *candidate_hash, &and_mask)
 		.map(|s| s.as_unchecked().clone())
 		.collect();
 
