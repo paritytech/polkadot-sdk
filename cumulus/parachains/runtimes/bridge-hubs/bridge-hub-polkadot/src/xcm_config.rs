@@ -19,7 +19,7 @@ use super::{
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 use crate::{
-	bridge_hub_config::ToBridgeHubKusamaHaulBlobExporter, BridgeGrandpaKusamaInstance,
+	bridge_kusama_config::ToBridgeHubKusamaHaulBlobExporter, BridgeGrandpaKusamaInstance,
 	DeliveryRewardInBalance, RequiredStakeForStakeAndSlash,
 };
 use frame_support::{

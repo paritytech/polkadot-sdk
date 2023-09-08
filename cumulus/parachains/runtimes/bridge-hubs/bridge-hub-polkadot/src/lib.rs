@@ -22,7 +22,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod bridge_hub_config;
+pub mod bridge_kusama_config;
 mod weights;
 pub mod xcm_config;
 
@@ -79,7 +79,7 @@ use parachains_common::{
 };
 
 use crate::{
-	bridge_hub_config::{
+	bridge_kusama_config::{
 		BridgeRefundBridgeHubKusamaMessages, OnThisChainBlobDispatcher,
 		WithBridgeHubKusamaMessageBridge,
 	},
@@ -474,20 +474,20 @@ pub type WithBridgeHubKusamaMessagesInstance = pallet_bridge_messages::Instance1
 impl pallet_bridge_messages::Config<WithBridgeHubKusamaMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_bridge_messages::WeightInfo<Runtime>;
-	type BridgedChainId = bridge_hub_config::BridgeHubKusamaChainId;
-	type ActiveOutboundLanes = bridge_hub_config::ActiveOutboundLanesToBridgeHubKusama;
+	type BridgedChainId = bridge_kusama_config::BridgeHubKusamaChainId;
+	type ActiveOutboundLanes = bridge_kusama_config::ActiveOutboundLanesToBridgeHubKusama;
 	type MaxUnrewardedRelayerEntriesAtInboundLane =
-		bridge_hub_config::MaxUnrewardedRelayerEntriesAtInboundLane;
+		bridge_kusama_config::MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane =
-		bridge_hub_config::MaxUnconfirmedMessagesAtInboundLane;
+		bridge_kusama_config::MaxUnconfirmedMessagesAtInboundLane;
 	type MaximalOutboundPayloadSize =
-		bridge_hub_config::ToBridgeHubKusamaMaximalOutboundPayloadSize;
+		bridge_kusama_config::ToBridgeHubKusamaMaximalOutboundPayloadSize;
 	type OutboundPayload = XcmAsPlainPayload;
 	type InboundPayload = XcmAsPlainPayload;
 	type InboundRelayer = AccountId;
 	type DeliveryPayments = ();
 	type TargetHeaderChain = TargetHeaderChainAdapter<WithBridgeHubKusamaMessageBridge>;
-	type LaneMessageVerifier = bridge_hub_config::ToBridgeHubKusamaMessageVerifier;
+	type LaneMessageVerifier = bridge_kusama_config::ToBridgeHubKusamaMessageVerifier;
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
 		WithBridgeHubKusamaMessagesInstance,
@@ -498,11 +498,11 @@ impl pallet_bridge_messages::Config<WithBridgeHubKusamaMessagesInstance> for Run
 		OnThisChainBlobDispatcher<UniversalLocation>,
 		Self::WeightInfo,
 		cumulus_pallet_xcmp_queue::bridging::OutboundXcmpChannelCongestionStatusProvider<
-			bridge_hub_config::AssetHubPolkadotParaId,
+			bridge_kusama_config::AssetHubPolkadotParaId,
 			Runtime,
 		>,
 	>;
-	type OnMessagesDelivered = bridge_hub_config::OnMessagesDelivered;
+	type OnMessagesDelivered = bridge_kusama_config::OnMessagesDelivered;
 }
 
 /// Allows collect and claim rewards for relayers
@@ -938,7 +938,7 @@ impl_runtime_apis! {
 
 				fn export_message_origin_and_destination(
 				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
-					Ok((DotRelayLocation::get(), bridge_hub_config::KusamaGlobalConsensusNetwork::get(), X1(Parachain(100))))
+					Ok((DotRelayLocation::get(), bridge_kusama_config::KusamaGlobalConsensusNetwork::get(), X1(Parachain(100))))
 				}
 
 				fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {
@@ -975,23 +975,23 @@ impl_runtime_apis! {
 				}
 				fn prepare_message_proof(
 					params: MessageProofParams,
-				) -> (bridge_hub_config::FromBridgeHubKusamaMessagesProof, Weight) {
+				) -> (bridge_kusama_config::FromBridgeHubKusamaMessagesProof, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(42.into());
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						BridgeGrandpaKusamaInstance,
-						bridge_hub_config::WithBridgeHubKusamaMessageBridge,
+						bridge_kusama_config::WithBridgeHubKusamaMessageBridge,
 					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(xcm_config::RelayNetwork::get().unwrap()), Parachain(42))))
 				}
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<AccountId>,
-				) -> bridge_hub_config::ToBridgeHubKusamaMessagesDeliveryProof {
+				) -> bridge_kusama_config::ToBridgeHubKusamaMessagesDeliveryProof {
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,
 						BridgeGrandpaKusamaInstance,
-						bridge_hub_config::WithBridgeHubKusamaMessageBridge,
+						bridge_kusama_config::WithBridgeHubKusamaMessageBridge,
 					>(params)
 				}
 				fn is_message_successfully_dispatched(_nonce: bp_messages::MessageNonce) -> bool {
