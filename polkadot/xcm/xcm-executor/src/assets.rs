@@ -613,8 +613,6 @@ mod tests {
 		assets.subsume(CNF(40));
 		assets.subsume(CF(3000));
 		assets.subsume(CNF(80));
-		let fungible = WildAsset::from((Junctions::from([GeneralIndex(1)]), WildFungible)).counted(2).into();
-		let non_fungible = WildAsset::from((Junctions::from([GeneralIndex(2)]), WildNonFungible)).counted(2).into();
 		let all = WildAsset::AllCounted(6).into();
 
 		let all = assets.min(&all);
@@ -714,7 +712,6 @@ mod tests {
 		assets.subsume(CNF(40));
 		assets.subsume(CF(3000));
 		assets.subsume(CNF(80));
-		let mask = WildAsset::from((Junctions::from([GeneralIndex(1)]), WildFungible)).counted(2).into();
 		assert_eq!(
 			Assets::from(assets).inner(),
 			&vec![
@@ -731,7 +728,6 @@ mod tests {
 		assets.subsume(CNF(40));
 		assets.subsume(CF(3000));
 		assets.subsume(CNF(80));
-		let mask = WildAsset::from((Junctions::from([GeneralIndex(2)]), WildNonFungible)).counted(2).into();
 		assert_eq!(
 			Assets::from(assets).inner(),
 			&vec![CF(3000), CNF(40), CNF(80)]
