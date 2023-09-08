@@ -134,11 +134,16 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-/// We currently allow all calls.
-pub struct BaseFilter;
-impl Contains<RuntimeCall> for BaseFilter {
-	fn contains(_call: &RuntimeCall) -> bool {
-		true
+/// Disable all calls to the Identity pallet. This will lock the state of the pallet, preventing
+/// further updates to identities and sub-identities. The locked state will be the genesis state of
+/// a new system chain and then removed from the Relay Chain.
+pub struct DisableIdentity;
+impl Contains<RuntimeCall> for DisableIdentity {
+	fn contains(c: &RuntimeCall) -> bool {
+		match c {
+			RuntimeCall::Identity(_) => false,
+			_ => true,
+		}
 	}
 }
 
@@ -148,7 +153,7 @@ parameter_types! {
 }
 
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = BaseFilter;
+	type BaseCallFilter = DisableIdentity;
 	type BlockWeights = BlockWeights;
 	type BlockLength = BlockLength;
 	type DbWeight = RocksDbWeight;
