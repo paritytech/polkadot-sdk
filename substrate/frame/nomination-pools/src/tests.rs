@@ -6602,7 +6602,6 @@ mod commission {
 	}
 }
 mod slash {
-
 	use super::*;
 
 	#[test]

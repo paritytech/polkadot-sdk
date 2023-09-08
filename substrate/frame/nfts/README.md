@@ -13,9 +13,11 @@ The NFTs pallet provides functionality for non-fungible tokens' management, incl
 * Attributes Management
 * NFT Burning
 
-To use it in your runtime, you need to implement [`nfts::Config`](https://paritytech.github.io/substrate/master/pallet_nfts/pallet/trait.Config.html).
+To use it in your runtime, you need to implement
+[`nfts::Config`](https://paritytech.github.io/substrate/master/pallet_nfts/pallet/trait.Config.html).
 
-The supported dispatchable functions are documented in the [`nfts::Call`](https://paritytech.github.io/substrate/master/pallet_nfts/pallet/enum.Call.html) enum.
+The supported dispatchable functions are documented in the
+[`nfts::Call`](https://paritytech.github.io/substrate/master/pallet_nfts/pallet/enum.Call.html) enum.
 
 ### Terminology
 
@@ -24,8 +26,9 @@ The supported dispatchable functions are documented in the [`nfts::Call`](https:
 * **NFT transfer:** The action of sending an item from one account to another.
 * **Atomic swap:** The action of exchanging items between accounts without needing a 3rd party service.
 * **NFT burning:** The destruction of an item.
-* **Non-fungible token (NFT):** An item for which each unit has unique characteristics. There is exactly
-  one instance of such an item in existence and there is exactly one owning account (though that owning account could be a proxy account or multi-sig account).
+* **Non-fungible token (NFT):** An item for which each unit has unique characteristics. There is exactly one instance of
+  such an item in existence and there is exactly one owning account (though that owning account could be a proxy account
+  or multi-sig account).
 * **Soul Bound NFT:** An item that is non-transferable from the account which it is minted into.
 
 ### Goals
@@ -35,10 +38,8 @@ The NFTs pallet in Substrate is designed to make the following possible:
 * Allow accounts to permissionlessly create nft collections.
 * Allow a named (permissioned) account to mint and burn unique items within a collection.
 * Move items between accounts permissionlessly.
-* Allow a named (permissioned) account to freeze and unfreeze items within a
-  collection or the entire collection.
-* Allow the owner of an item to delegate the ability to transfer the item to some
-  named third-party.
+* Allow a named (permissioned) account to freeze and unfreeze items within a collection or the entire collection.
+* Allow the owner of an item to delegate the ability to transfer the item to some named third-party.
 * Allow third-parties to store information in an NFT _without_ owning it (Eg. save game state).
 
 ## Interface
@@ -71,7 +72,8 @@ The NFTs pallet in Substrate is designed to make the following possible:
 * `clear_all_transfer_approvals`: Clears all transfer approvals set by calling the `approve_transfer`.
 * `lock_collection`: Prevent all items within a collection from being transferred (making them all `soul bound`).
 * `lock_item_properties`: Lock item's metadata or attributes.
-* `transfer_ownership`: Alter the owner of a collection, moving all associated deposits. (Ownership of individual items will not be affected.)
+* `transfer_ownership`: Alter the owner of a collection, moving all associated deposits. (Ownership of individual items
+  will not be affected.)
 * `set_team`: Alter the permissioned accounts of a collection.
 * `set_collection_max_supply`: Change the max supply of a collection.
 * `update_mint_settings`: Update the minting settings for collection.
@@ -94,8 +96,8 @@ The NFTs pallet in Substrate is designed to make the following possible:
 * `force_collection_config`: Change collection's config.
 * `force_set_attribute`: Set an attribute.
 
-Please refer to the [`Call`](https://paritytech.github.io/substrate/master/pallet_nfts/pallet/enum.Call.html) enum
-and its associated variants for documentation on each function.
+Please refer to the [`Call`](https://paritytech.github.io/substrate/master/pallet_nfts/pallet/enum.Call.html) enum and
+its associated variants for documentation on each function.
 
 ## Related Modules
 
