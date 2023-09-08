@@ -80,7 +80,7 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
 };
-use parachains_common::{AccountId, Signature, HOURS, SLOT_DURATION};
+use parachains_common::{AccountId, Signature, SLOT_DURATION};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -198,12 +198,10 @@ impl cumulus_pallet_aura_ext::Config for Runtime {}
 impl pallet_timestamp::Config for Runtime {
 	type Moment = u64;
 	type OnTimestampSet = Aura;
+	// TODO: set this to 0 so that anyone can produce blocks at anytime?
 	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
 	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
-
-pub const PERIOD: u32 = 6 * HOURS;
-pub const OFFSET: u32 = 0;
 
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
@@ -213,13 +211,6 @@ impl pallet_aura::Config for Runtime {
 	#[cfg(feature = "experimental")]
 	type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Self>;
 }
-
-parameter_types! {
-	// Symbolic, could be removed.
-	pub const SessionLength: BlockNumber = 6 * HOURS;
-}
-
-pub type FixedUpdateOrigin = EnsureRoot<AccountId>;
 
 impl pallet_glutton::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -433,8 +424,6 @@ impl_runtime_apis! {
 			use sp_storage::TrackedStorageKey;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
-			// use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			// impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 			impl frame_system_benchmarking::Config for Runtime {
 				fn setup_set_code_requirements(code: &sp_std::vec::Vec<u8>) -> Result<(), BenchmarkError> {
 					ParachainSystem::initialize_for_set_code_benchmark(code.len() as u32);

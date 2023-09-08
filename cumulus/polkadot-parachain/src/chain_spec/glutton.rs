@@ -78,7 +78,15 @@ pub fn glutton_config(para_id: ParaId) -> GluttonChainSpec {
 		// ID
 		format!("glutton-kusama-{}", para_id).as_str(),
 		ChainType::Live,
-		move || glutton_genesis(para_id, vec![]),
+		move || {
+			glutton_genesis(
+				para_id,
+				vec![
+					get_collator_keys_from_seed::<AuraId>("Alice"),
+					get_collator_keys_from_seed::<AuraId>("Bob"),
+				],
+			)
+		},
 		Vec::new(),
 		None,
 		// Protocol ID
