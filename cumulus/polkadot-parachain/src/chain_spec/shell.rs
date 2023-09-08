@@ -16,7 +16,10 @@
 
 use crate::chain_spec::Extensions;
 use cumulus_primitives_core::ParaId;
+use parachains_common::AuraId;
 use sc_service::ChainType;
+
+use super::get_collator_keys_from_seed;
 
 /// Specialized `ChainSpec` for the shell parachain runtime.
 pub type ShellChainSpec =
@@ -27,7 +30,9 @@ pub fn get_shell_chain_spec() -> ShellChainSpec {
 		"Shell Local Testnet",
 		"shell_local_testnet",
 		ChainType::Local,
-		move || shell_testnet_genesis(1000.into()),
+		move || {
+			shell_testnet_genesis(1000.into(), vec![get_collator_keys_from_seed::<AuraId>("Alice")])
+		},
 		Vec::new(),
 		None,
 		None,
@@ -37,7 +42,10 @@ pub fn get_shell_chain_spec() -> ShellChainSpec {
 	)
 }
 
-fn shell_testnet_genesis(parachain_id: ParaId) -> shell_runtime::RuntimeGenesisConfig {
+fn shell_testnet_genesis(
+	parachain_id: ParaId,
+	collators: Vec<AuraId>,
+) -> shell_runtime::RuntimeGenesisConfig {
 	shell_runtime::RuntimeGenesisConfig {
 		system: shell_runtime::SystemConfig {
 			code: shell_runtime::WASM_BINARY
@@ -47,5 +55,7 @@ fn shell_testnet_genesis(parachain_id: ParaId) -> shell_runtime::RuntimeGenesisC
 		},
 		parachain_info: shell_runtime::ParachainInfoConfig { parachain_id, ..Default::default() },
 		parachain_system: Default::default(),
+		aura: shell_runtime::AuraConfig { authorities: collators },
+		aura_ext: Default::default(),
 	}
 }
