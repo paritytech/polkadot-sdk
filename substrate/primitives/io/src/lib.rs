@@ -111,6 +111,9 @@ use sp_core::bls377;
 #[cfg(feature = "std")]
 use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
 
+#[cfg(feature = "std")]
+use std::str::FromStr;
+
 use sp_runtime_interface::{
 	pass_by::{PassBy, PassByCodec},
 	runtime_interface, Pointer,
@@ -1553,6 +1556,9 @@ pub trait PanicHandler {
 	}
 }
 
+/// Set a different log level for the runtime instead of using the one from the host.
+pub const RUNTIME_LOG_ENV: &str = "RUNTIME_LOG";
+
 /// Interface that provides functions for logging from within the runtime.
 #[runtime_interface]
 pub trait Logging {
@@ -1568,8 +1574,16 @@ pub trait Logging {
 		}
 	}
 
-	/// Returns the max log level used by the host.
+	/// Returns the max log level for the runtime.
+	///
+	/// Uses the host as default log level but can be overwritten with [`RUNTIME_LOG_ENV`].
 	fn max_level() -> LogLevelFilter {
+		if let Ok(env) = std::env::var(RUNTIME_LOG_ENV) {
+			if let Ok(level) = log::LevelFilter::from_str(&env) {
+				return level.into()
+			}
+		}
+
 		log::max_level().into()
 	}
 }
