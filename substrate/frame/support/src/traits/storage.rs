@@ -169,7 +169,7 @@ where
 }
 
 /// Some sort of cost taken from account temporarily in order to offset the cost to the chain of
-/// holding some data `Footprint` in state.
+/// holding some data [`Footprint`] in state.
 ///
 /// The cost may be increased, reduced or dropped entirely as the footprint changes.
 ///
@@ -192,8 +192,17 @@ pub trait Consideration<AccountId>: Member + FullCodec + TypeInfo + MaxEncodedLe
 	/// For creating tickets and dropping them, you can use the simpler `new` and `drop` instead.
 	fn update(self, who: &AccountId, new: Footprint) -> Result<Self, DispatchError>;
 
-	/// Consume a ticket for some `old` footprint attributable to `who` which has now been freed.
+	/// Consume a ticket for some `old` footprint attributable to `who` which should now been freed.
 	fn drop(self, who: &AccountId) -> Result<(), DispatchError>;
+
+	/// Consume a ticket for some `old` footprint attributable to `who` which should be sacrificed.
+	///
+	/// This is infallible. In the general case (and it is left unimplemented), then it is
+	/// equivalent to the consideration never being dropped. Cases which can handle this properly
+	/// should implement, but it *MUST* rely on the loss of the consideration to the owner.
+	fn burn(self, _: &AccountId) {
+		let _ = self;
+	}
 }
 
 impl<A> Consideration<A> for () {

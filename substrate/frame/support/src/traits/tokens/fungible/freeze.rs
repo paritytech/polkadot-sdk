@@ -103,7 +103,7 @@ pub trait Mutate<AccountId>: Inspect<AccountId> {
 		Self::extend_freeze(id, who, amount)
 	}
 
-	/// Decrease the amount which is being frozen for a particular lock, failing in the case of
+	/// Decrease the amount which is being frozen for a particular freeze, failing in the case of
 	/// underflow.
 	fn decrease_frozen(id: &Self::Id, who: &AccountId, amount: Self::Balance) -> DispatchResult {
 		let a = Self::balance_frozen(id, who)
@@ -112,7 +112,7 @@ pub trait Mutate<AccountId>: Inspect<AccountId> {
 		Self::set_freeze(id, who, a)
 	}
 
-	/// Increase the amount which is being frozen for a particular lock, failing in the case that
+	/// Increase the amount which is being frozen for a particular freeze, failing in the case that
 	/// too little balance is available for being frozen.
 	fn increase_frozen(id: &Self::Id, who: &AccountId, amount: Self::Balance) -> DispatchResult {
 		let a = Self::balance_frozen(id, who)
