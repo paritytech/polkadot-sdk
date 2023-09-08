@@ -171,7 +171,7 @@ where
 		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
 		cumulus_primitives_reclaim::pov_reclaim_host_functions::host_current_storage_proof_size
-			.replace_implementation(reclaim_pov_weight),
+			.replace_implementation(host_current_storage_proof_size),
 	);
 
 	run_with_externalities::<B, _, _>(&backend, || {
@@ -310,7 +310,7 @@ fn host_storage_clear(key: &[u8]) {
 	with_externalities(|ext| ext.place_storage(key.to_vec(), None))
 }
 
-fn reclaim_pov_weight() -> u32 {
+fn host_current_storage_proof_size() -> u32 {
 	with_externalities(|ext| ext.proof_size()).unwrap_or_default()
 }
 
