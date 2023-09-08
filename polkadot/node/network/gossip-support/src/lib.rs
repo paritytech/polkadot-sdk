@@ -413,7 +413,7 @@ where
 			if !current.is_empty() && !authority_ids.contains_key(peer_id) {
 				sender
 					.send_message(NetworkBridgeRxMessage::UpdatedAuthorityIds {
-						peer_id: peer_id.clone(),
+						peer_id: *peer_id,
 						authority_ids: HashSet::new(),
 					})
 					.await;
