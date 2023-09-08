@@ -2356,7 +2356,7 @@ sp_api::impl_runtime_apis! {
 			use frame_benchmarking::baseline::Pallet as Baseline;
 			use xcm::latest::prelude::*;
 			use xcm_config::{
-				LocalCheckAccount, SovereignAccountOf, Statemine, TokenLocation, XcmConfig,
+				LocalCheckAccount, SovereignAccountOf, TreasuryAccount, Statemine, TokenLocation, XcmConfig,
 			};
 
 			impl pallet_session_benchmarking::Config for Runtime {}
@@ -2369,7 +2369,7 @@ sp_api::impl_runtime_apis! {
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = XcmConfig;
-				type AccountIdConverter = SovereignAccountOf;
+				type AccountIdConverter = SovereignAccountOf<TreasuryAccount>;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
 					Ok(Statemine::get())
 				}
