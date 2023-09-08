@@ -51,8 +51,8 @@ use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 use {cumulus_primitives_core::ParaId, sp_core::Get};
 
 parameter_types! {
-	pub const KsmLocation: MultiLocation = MultiLocation::parent();
-	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Kusama);
+	pub const RocLocation: MultiLocation = MultiLocation::parent();
+	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Rococo);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorMultiLocation =
 		X2(GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into()));
@@ -87,7 +87,7 @@ pub type CurrencyTransactor = CurrencyAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
-	IsConcrete<KsmLocation>,
+	IsConcrete<RocLocation>,
 	// Convert an XCM MultiLocation into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
@@ -476,12 +476,12 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmSender = XcmRouter;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	// Asset Hub Kusama does not recognize a reserve location for any asset. This does not prevent
-	// Asset Hub acting _as_ a reserve location for KSM and assets created under `pallet-assets`.
-	// For KSM, users must use teleport where allowed (e.g. with the Relay Chain).
+	// Asset Hub Rococo does not recognize a reserve location for any asset. This does not prevent
+	// Asset Hub acting _as_ a reserve location for ROC and assets created under `pallet-assets`.
+	// For ROC, users must use teleport where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
 	// We allow:
-	// - teleportation of KSM
+	// - teleportation of ROC
 	// - teleportation of sibling parachain's assets (as ForeignCreators)
 	type IsTeleporter = (
 		NativeAsset,
@@ -490,12 +490,12 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::AssetHubKusamaXcmWeight<RuntimeCall>,
+		crate::weights::xcm::AssetHubRococoXcmWeight<RuntimeCall>,
 		RuntimeCall,
 		MaxInstructions,
 	>;
 	type Trader = (
-		UsingComponents<WeightToFee, KsmLocation, AccountId, Balances, ToStakingPot<Runtime>>,
+		UsingComponents<WeightToFee, RocLocation, AccountId, Balances, ToStakingPot<Runtime>>,
 		cumulus_primitives_utility::TakeFirstAssetTrader<
 			AccountId,
 			AssetFeeAsExistentialDepositMultiplierFeeCharger,
@@ -556,7 +556,7 @@ impl pallet_xcm::Config for Runtime {
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;
 	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::AssetHubKusamaXcmWeight<RuntimeCall>,
+		crate::weights::xcm::AssetHubRococoXcmWeight<RuntimeCall>,
 		RuntimeCall,
 		MaxInstructions,
 	>;

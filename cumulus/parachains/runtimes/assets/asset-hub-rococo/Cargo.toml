@@ -3,7 +3,7 @@ name = "asset-hub-rococo-runtime"
 version = "0.9.420"
 authors.workspace = true
 edition.workspace = true
-description = "Kusama variant of Asset Hub parachain runtime"
+description = "Rococo variant of Asset Hub parachain runtime"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
@@ -55,7 +55,7 @@ sp-weights = { path = "../../../../../substrate/primitives/weights", default-fea
 primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "scale-info", "num-traits"] }
 
 # Polkadot
-kusama-runtime-constants = { path = "../../../../../polkadot/runtime/kusama/constants", default-features = false}
+rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/constants", default-features = false}
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false}
@@ -174,7 +174,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime?/std",
-	"kusama-runtime-constants/std",
+	"rococo-runtime-constants/std",
 	"log/std",
 	"pallet-asset-conversion-tx-payment/std",
 	"pallet-asset-conversion/std",

@@ -15,12 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for the Statemine (Kusama Assets Hub) chain.
+//! Tests for the Rococo Assets Hub chain.
 
-use asset_hub_kusama_runtime::xcm_config::{
-	AssetFeeAsExistentialDepositMultiplierFeeCharger, KsmLocation, TrustBackedAssetsPalletLocation,
+use asset_hub_rococo_runtime::xcm_config::{
+	AssetFeeAsExistentialDepositMultiplierFeeCharger, RocLocation, TrustBackedAssetsPalletLocation,
 };
-pub use asset_hub_kusama_runtime::{
+pub use asset_hub_rococo_runtime::{
 	xcm_config::{CheckingAccount, ForeignCreatorsSovereignAccountOf, XcmConfig},
 	AllPalletsWithoutSystem, AssetDeposit, Assets, Balances, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime,
@@ -35,7 +35,7 @@ use frame_support::{
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use parachains_common::{
-	kusama::fee::WeightToFee, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
+	rococo::fee::WeightToFee, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 };
 use sp_runtime::traits::MaybeEquivalence;
 use xcm::latest::prelude::*;
@@ -483,7 +483,7 @@ fn test_assets_balances_api_works() {
 
 			// check currency
 			assert!(result.inner().iter().any(|asset| asset.eq(
-				&assets_common::fungible_conversion::convert_balance::<KsmLocation, Balance>(
+				&assets_common::fungible_conversion::convert_balance::<RocLocation, Balance>(
 					some_currency
 				)
 				.unwrap()

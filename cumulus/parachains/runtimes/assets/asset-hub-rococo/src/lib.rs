@@ -13,9 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Asset Hub Kusama Runtime
+//! # Asset Hub Rococo Runtime
 //!
-//! Asset Hub Kusama, formerly known as "Statemine", is the canary network for its Polkadot cousin.
+//! Asset Hub Rococo, formerly known as "Rockmine", is the test network for its Kusama cousin.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -69,7 +69,7 @@ use pallet_nfts::PalletFeatures;
 pub use parachains_common as common;
 use parachains_common::{
 	impls::DealWithFees,
-	kusama::{consensus::*, currency::*, fee::WeightToFee},
+	rococo::{consensus::*, currency::*, fee::WeightToFee},
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, Hash, Header, Nonce,
 	Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT,
 	NORMAL_DISPATCH_RATIO, SLOT_DURATION,
@@ -77,8 +77,8 @@ use parachains_common::{
 use sp_runtime::RuntimeDebug;
 use xcm::opaque::v3::MultiLocation;
 use xcm_config::{
-	FellowshipLocation, ForeignAssetsConvertedConcreteId, GovernanceLocation, KsmLocation,
-	PoolAssetsConvertedConcreteId, TrustBackedAssetsConvertedConcreteId, XcmConfig,
+	FellowshipLocation, ForeignAssetsConvertedConcreteId, GovernanceLocation,
+	PoolAssetsConvertedConcreteId, RocLocation, TrustBackedAssetsConvertedConcreteId, XcmConfig,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -105,11 +105,8 @@ impl_opaque_keys! {
 #[cfg(feature = "state-trie-version-1")]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	// Note: "statemine" is the legacy name for this chain. It has been renamed to
-	// "asset-hub-kusama". Many wallets/tools depend on the `spec_name`, so it remains "statemine"
-	// for the time being. Wallets/tools should update to treat "asset-hub-kusama" equally.
-	spec_name: create_runtime_str!("statemine"),
-	impl_name: create_runtime_str!("statemine"),
+	spec_name: create_runtime_str!("asset-hub-rococo"),
+	impl_name: create_runtime_str!("asset-hub-rococo"),
 	authoring_version: 1,
 	spec_version: 10000,
 	impl_version: 0,
@@ -121,11 +118,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 #[cfg(not(feature = "state-trie-version-1"))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	// Note: "statemine" is the legacy name for this change. It has been renamed to
-	// "asset-hub-kusama". Many wallets/tools depend on the `spec_name`, so it remains "statemine"
-	// for the time being. Wallets/tools should update to treat "asset-hub-kusama" equally.
-	spec_name: create_runtime_str!("statemine"),
-	impl_name: create_runtime_str!("statemine"),
+	spec_name: create_runtime_str!("asset-hub-rococo"),
+	impl_name: create_runtime_str!("asset-hub-rococo"),
 	authoring_version: 1,
 	spec_version: 10000,
 	impl_version: 0,
@@ -348,7 +342,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type MaxSwapPathLength = ConstU32<4>;
 	type MultiAssetId = Box<MultiLocation>;
 	type MultiAssetIdConverter =
-		MultiLocationConverter<KsmLocation, LocalAndForeignAssetsMultiLocationMatcher>;
+		MultiLocationConverter<RocLocation, LocalAndForeignAssetsMultiLocationMatcher>;
 	type MintMinLiquidity = ConstU128<100>;
 	type WeightInfo = weights::pallet_asset_conversion::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1100,7 +1094,7 @@ impl_runtime_apis! {
 				{
 					let balance = Balances::free_balance(account.clone());
 					if balance > 0 {
-						vec![convert_balance::<KsmLocation, Balance>(balance)?]
+						vec![convert_balance::<RocLocation, Balance>(balance)?]
 					} else {
 						vec![]
 					}
@@ -1207,14 +1201,14 @@ impl_runtime_apis! {
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
 			use xcm::latest::prelude::*;
-			use xcm_config::{KsmLocation, MaxAssetsIntoHolding};
+			use xcm_config::{RocLocation, MaxAssetsIntoHolding};
 			use pallet_xcm_benchmarks::asset_instance_from;
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
-					Ok(KsmLocation::get())
+					Ok(RocLocation::get())
 				}
 				fn worst_case_holding(depositable_count: u32) -> MultiAssets {
 					// A mix of fungible, non-fungible, and concrete assets.
@@ -1236,7 +1230,7 @@ impl_runtime_apis! {
 						.collect::<Vec<_>>();
 
 					assets.push(MultiAsset {
-						id: Concrete(KsmLocation::get()),
+						id: Concrete(RocLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
 					});
 					assets.into()
@@ -1245,8 +1239,8 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub const TrustedTeleporter: Option<(MultiLocation, MultiAsset)> = Some((
-					KsmLocation::get(),
-					MultiAsset { fun: Fungible(UNITS), id: Concrete(KsmLocation::get()) },
+					RocLocation::get(),
+					MultiAsset { fun: Fungible(UNITS), id: Concrete(RocLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 				pub const TrustedReserve: Option<(MultiLocation, MultiAsset)> = None;
@@ -1261,7 +1255,7 @@ impl_runtime_apis! {
 
 				fn get_multi_asset() -> MultiAsset {
 					MultiAsset {
-						id: Concrete(KsmLocation::get()),
+						id: Concrete(RocLocation::get()),
 						fun: Fungible(UNITS),
 					}
 				}
@@ -1283,16 +1277,16 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(MultiLocation, RuntimeCall), BenchmarkError> {
-					Ok((KsmLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					Ok((RocLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
 				fn subscribe_origin() -> Result<MultiLocation, BenchmarkError> {
-					Ok(KsmLocation::get())
+					Ok(RocLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(MultiLocation, MultiLocation, MultiAssets), BenchmarkError> {
-					let origin = KsmLocation::get();
-					let assets: MultiAssets = (Concrete(KsmLocation::get()), 1_000 * UNITS).into();
+					let origin = RocLocation::get();
+					let assets: MultiAssets = (Concrete(RocLocation::get()), 1_000 * UNITS).into();
 					let ticket = MultiLocation { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}
@@ -1397,7 +1391,7 @@ fn ensure_key_ss58() {
 mod tests {
 	use super::*;
 	use crate::{CENTS, MILLICENTS};
-	use parachains_common::kusama::fee;
+	use parachains_common::rococo::fee;
 	use sp_runtime::traits::Zero;
 	use sp_weights::WeightToFee;
 
