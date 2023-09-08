@@ -103,7 +103,7 @@ impl<AssetLocation: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
 mod tests {
 	use frame_support::parameter_types;
 
-use super::{
+	use super::{
 		ConcreteAssetFromSystem, ContainsPair, GeneralIndex, Here, MultiAsset, MultiLocation,
 		PalletInstance, Parachain, Parent,
 	};
@@ -112,13 +112,15 @@ use super::{
 		pub const RelayLocation: MultiLocation = MultiLocation::parent();
 	}
 
-
 	#[test]
 	fn native_asset_from_relay_works() {
 		let expected_asset: MultiAsset = (Parent, 1000000).into();
 		let expected_origin: MultiLocation = (Parent, Here).into();
 
-		assert!(<ConcreteAssetFromSystem<AssetLocation>>::contains(&expected_asset, &expected_origin));
+		assert!(<ConcreteAssetFromSystem<AssetLocation>>::contains(
+			&expected_asset,
+			&expected_origin
+		));
 	}
 
 	#[test]
