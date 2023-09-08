@@ -489,3 +489,26 @@ fn store_preimage_bound_too_large_errors() {
 		assert_ok!(<Preimage as StorePreimage>::bound(data.clone()));
 	});
 }
+
+#[test]
+fn ensure_updated_works() {
+	new_test_ext().execute_with(|| {
+		let alice = 2;
+
+		for i in 0..100 {
+			let hashes =
+				(0..100).map(|j| insert_old_unrequested::<Test>(j, alice)).collect::<Vec<_>>();
+			let old = hashes.iter().take(i).cloned().collect::<Vec<_>>();
+			let bad = vec![hashed([0; 32]); 100 - i];
+
+			let hashes = [old.as_slice(), bad.as_slice()].concat();
+			let res = Preimage::ensure_updated(RuntimeOrigin::signed(alice), hashes).unwrap();
+
+			// Alice pays a fee when less than 90% of the hashes are new.
+			assert_eq!(res.pays_fee, (i < 90).into());
+
+			assert_eq!(RequestStatusFor::<Test>::iter().count(), i);
+			assert_eq!(StatusFor::<Test>::iter().count(), 100 - i);
+		}
+	});
+}
