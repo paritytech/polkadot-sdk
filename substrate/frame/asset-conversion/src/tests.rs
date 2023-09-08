@@ -614,7 +614,7 @@ fn can_quote_price() {
 
 		// including fee so should get less out...
 		assert_eq!(
-			AssetConversion::quote_price_exact_tokens_for_tokens(asset_to_native.clone(), 60, true,),
+			AssetConversion::quote_price_exact_tokens_for_tokens(asset_to_native.clone(), 60, true),
 			Some(2302)
 		);
 
