@@ -54,6 +54,7 @@ fn benchmark_block_import(c: &mut Criterion) {
 		);
 
 		let client = alice.client;
+		let backend = alice.backend;
 
 		let (max_transfer_count, extrinsics) =
 			utils::create_benchmarking_transfer_extrinsics(&client, &src_accounts, &dst_accounts);
@@ -73,12 +74,15 @@ fn benchmark_block_import(c: &mut Criterion) {
 
 		group.bench_function(
 			format!(
-				"(transfers = {max_transfer_count}, import = {}) block import",
+				"(transfers = {max_transfer_count}, proof_recording = {}) block import",
 				bench_parameters.0
 			),
 			|b| {
 				b.iter_batched(
-					|| benchmark_block.block.clone(),
+					|| {
+						backend.reset_trie_cache();
+						benchmark_block.block.clone()
+					},
 					|block| {
 						client.runtime_api().execute_block(parent_hash, block).unwrap();
 					},

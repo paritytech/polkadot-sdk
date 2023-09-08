@@ -16,22 +16,12 @@
 //! Auxiliary struct/enums for parachain runtimes.
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
-use codec::{Decode, Encode};
-use frame_support::{
-	dispatch::{DispatchInfo, PostDispatchInfo},
-	traits::{
-		fungibles::{self, Balanced, Credit},
-		Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced,
-	},
+use frame_support::traits::{
+	fungibles::{self, Balanced, Credit},
+	Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced,
 };
-use frame_system::Config;
 use pallet_asset_tx_payment::HandleCredit;
-use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, Zero},
-	transaction_validity::TransactionValidityError,
-	DispatchResult,
-};
+use sp_runtime::traits::Zero;
 use sp_std::marker::PhantomData;
 use xcm::latest::{AssetId, Fungibility::Fungible, MultiAsset, MultiLocation};
 
@@ -122,8 +112,8 @@ pub struct AssetsFrom<T>(PhantomData<T>);
 impl<T: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation> for AssetsFrom<T> {
 	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
 		let loc = T::get();
-		&loc == origin &&
-			matches!(asset, MultiAsset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
+		&loc == origin
+			&& matches!(asset, MultiAsset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
 			if asset_loc.match_and_split(&loc).is_some())
 	}
 }

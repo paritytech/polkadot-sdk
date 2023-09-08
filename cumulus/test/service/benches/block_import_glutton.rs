@@ -43,6 +43,7 @@ fn benchmark_block_import(c: &mut Criterion) {
 		cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle.clone(), Alice).build(),
 	);
 	let client = alice.client;
+	let backend = alice.backend;
 
 	let mut group = c.benchmark_group("Block import");
 	group.sample_size(20);
@@ -79,7 +80,10 @@ fn benchmark_block_import(c: &mut Criterion) {
 			),
 			|b| {
 				b.iter_batched(
-					|| benchmark_block.block.clone(),
+					|| {
+						backend.reset_trie_cache();
+						benchmark_block.block.clone()
+					},
 					|block| {
 						client.runtime_api().execute_block(parent_hash, block).unwrap();
 					},
