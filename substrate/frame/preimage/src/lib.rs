@@ -249,7 +249,7 @@ pub mod pallet {
 			let updated = hashes.iter().map(Self::do_ensure_updated).filter(|b| *b).count() as u32;
 			let ratio = Perbill::from_rational(updated, hashes.len() as u32);
 
-			let pays: Pays = (ratio >= Perbill::from_percent(90)).into();
+			let pays: Pays = (ratio < Perbill::from_percent(90)).into();
 			Ok(pays.into())
 		}
 	}
