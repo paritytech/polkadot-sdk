@@ -304,8 +304,12 @@ frame_benchmarking::benchmarks! {
 		let sender_origin: crate::Origin = 1u32.into();
 		let recipient_id: ParaId = 2u32.into();
 
-		// make sure para is registered, and has zero balance.
-		register_parachain_with_balance::<T>(sender_id, Zero::zero());
+		// Make sure para is registered. The sender does actually need the normal deposit because it
+		// is first going the "init" route.
+		let ed = T::Currency::minimum_balance();
+		let sender_deposit: BalanceOf<T> =
+			Configuration::<T>::config().hrmp_sender_deposit.unique_saturated_into();
+		register_parachain_with_balance::<T>(sender_id, sender_deposit + ed);
 		register_parachain_with_balance::<T>(recipient_id, Zero::zero());
 
 		let capacity = Configuration::<T>::config().hrmp_channel_max_capacity;
