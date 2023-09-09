@@ -126,7 +126,7 @@ runtime-benchmarks = [
 	"runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-  "xcm-executor",
+	"xcm-executor",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
