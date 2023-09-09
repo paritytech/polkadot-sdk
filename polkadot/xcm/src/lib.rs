@@ -474,6 +474,7 @@ versioned_type! {
 	}
 }
 
+#[deprecated(since = "4", note = "Use `VersionedAssets` instead")]
 pub type VersionedMultiAssets = VersionedAssets;
 
 /// A single XCM message, together with its version code.
