@@ -241,6 +241,72 @@ fn force_open_channel_works_with_existing_request() {
 }
 
 #[test]
+fn open_system_channel_works() {
+	let para_a = 1.into();
+	let para_b = 3.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// We need both A & B to be registered and live parachains.
+		register_parachain(para_a);
+		register_parachain(para_b);
+
+		run_to_block(5, Some(vec![4, 5]));
+		Hrmp::establish_system_channel(RuntimeOrigin::signed(1), para_a, para_b).unwrap();
+		Hrmp::assert_storage_consistency_exhaustive();
+		assert!(System::events().iter().any(|record| record.event ==
+			MockEvent::Hrmp(Event::HrmpSystemChannelOpened(para_a, para_b, 2, 8))));
+
+		// Advance to a block 6, but without session change. That means that the channel has
+		// not been created yet.
+		run_to_block(6, None);
+		assert!(!channel_exists(para_a, para_b));
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		// Now let the session change happen and thus open the channel.
+		run_to_block(8, Some(vec![8]));
+		assert!(channel_exists(para_a, para_b));
+	});
+}
+
+#[test]
+fn open_system_channel_does_not_work_for_non_system_chains() {
+	let para_a = 2001.into();
+	let para_b = 2003.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// We need both A & B to be registered and live parachains.
+		register_parachain(para_a);
+		register_parachain(para_b);
+
+		run_to_block(5, Some(vec![4, 5]));
+		assert_noop!(
+			Hrmp::establish_system_channel(RuntimeOrigin::signed(1), para_a, para_b),
+			Error::<Test>::ChannelCreationNotAuthorized
+		);
+		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
+fn open_system_channel_does_not_work_with_one_non_system_chain() {
+	let para_a = 1.into();
+	let para_b = 2003.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// We need both A & B to be registered and live parachains.
+		register_parachain(para_a);
+		register_parachain(para_b);
+
+		run_to_block(5, Some(vec![4, 5]));
+		assert_noop!(
+			Hrmp::establish_system_channel(RuntimeOrigin::signed(1), para_a, para_b),
+			Error::<Test>::ChannelCreationNotAuthorized
+		);
+		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
 fn close_channel_works() {
 	let para_a = 5.into();
 	let para_b = 2.into();
