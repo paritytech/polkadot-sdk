@@ -77,6 +77,8 @@ members = [
 	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo",
 	"cumulus/parachains/runtimes/bridge-hubs/test-utils",
 	"cumulus/parachains/runtimes/collectives/collectives-polkadot",
+	"cumulus/parachains/runtimes/coretime/coretime-kusama",
+	"cumulus/parachains/runtimes/coretime/coretime-polkadot",
 	"cumulus/parachains/runtimes/contracts/contracts-rococo",
 	"cumulus/parachains/runtimes/glutton/glutton-kusama",
 	"cumulus/parachains/runtimes/starters/seedling",
