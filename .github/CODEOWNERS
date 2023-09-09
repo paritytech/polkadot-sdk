@@ -21,6 +21,8 @@
 /.gitlab-ci.yml @paritytech/ci
 /scripts/ci/ @paritytech/ci @paritytech/release-engineering
 
+# XCM
+/polkadot/xcm/ @paritytech/xcm
 
 # WASM executor, low-level client <-> WASM interface and other WASM-related code
 /substrate/client/allocator/ @koute
