@@ -74,8 +74,8 @@ impl MultiLocation {
 		MultiLocation { parents, interior: junctions }
 	}
 
-	/// Consume `self` and return the equivalent `VersionedMultiLocation` value.
-	pub fn versioned(self) -> crate::VersionedMultiLocation {
+	/// Consume `self` and return the equivalent `VersionedLocation` value.
+	pub fn versioned(self) -> crate::VersionedLocation {
 		self.into()
 	}
 

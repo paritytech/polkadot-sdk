@@ -23,7 +23,7 @@ use crate::{
 		NetworkId as OldNetworkId,
 	},
 	v4::Junction as NewJunction,
-	VersionedMultiLocation,
+	VersionedLocation,
 };
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
 use core::convert::{TryFrom, TryInto};
@@ -441,10 +441,10 @@ impl Junction {
 		MultiLocation { parents: n, interior: Junctions::X1(self) }
 	}
 
-	/// Convert `self` into a `VersionedMultiLocation` containing 0 parents.
+	/// Convert `self` into a `VersionedLocation` containing 0 parents.
 	///
 	/// Similar to `Into::into`, except that this method can be used in a const evaluation context.
-	pub const fn into_versioned(self) -> VersionedMultiLocation {
+	pub const fn into_versioned(self) -> VersionedLocation {
 		self.into_location().into_versioned()
 	}
 

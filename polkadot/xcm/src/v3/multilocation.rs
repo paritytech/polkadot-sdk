@@ -18,7 +18,7 @@
 
 use super::{Junction, Junctions};
 use crate::{
-	v2::MultiLocation as OldMultiLocation, v4::Location as NewMultiLocation, VersionedMultiLocation,
+	v2::MultiLocation as OldMultiLocation, v4::Location as NewMultiLocation, VersionedLocation,
 };
 use core::{
 	convert::{TryFrom, TryInto},
@@ -94,9 +94,9 @@ impl MultiLocation {
 		MultiLocation { parents, interior: interior.into() }
 	}
 
-	/// Consume `self` and return the equivalent `VersionedMultiLocation` value.
-	pub const fn into_versioned(self) -> VersionedMultiLocation {
-		VersionedMultiLocation::V3(self)
+	/// Consume `self` and return the equivalent `VersionedLocation` value.
+	pub const fn into_versioned(self) -> VersionedLocation {
+		VersionedLocation::V3(self)
 	}
 
 	/// Creates a new `MultiLocation` with 0 parents and a `Here` interior.

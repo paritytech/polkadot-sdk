@@ -404,8 +404,10 @@ versioned_type! {
 	pub enum VersionedNetworkId {
 		#[codec(index = 2)]
 		V2(v2::NetworkId),
-		#[codec(index = 3)] // Same for v4
+		#[codec(index = 3)]
 		V3(v3::NetworkId),
+		#[codec(index = 4)]
+		V4(v4::NetworkId),
 	}
 }
 
@@ -432,12 +434,13 @@ versioned_type! {
 	}
 }
 
+#[deprecated(note = "Use `VersionedLocation` instead")]
 pub type VersionedMultiLocation = VersionedLocation;
 
 versioned_type! {
 	/// A single `InteriorLocation` value, together with its version code.
 	pub enum VersionedInteriorLocation {
-		#[codec(index = 2)] // while this is same as v1::Junctions, VersionedInteriorMultiLocation is introduced in v3
+		#[codec(index = 2)] // while this is same as v1::Junctions, VersionedInteriorLocation is introduced in v3
 		V2(v2::InteriorMultiLocation),
 		#[codec(index = 3)]
 		V3(v3::InteriorMultiLocation),
@@ -446,6 +449,7 @@ versioned_type! {
 	}
 }
 
+#[deprecated(note = "Use `VersionedInteriorLocation` instead")]
 pub type VersionedInteriorMultiLocation = VersionedInteriorLocation;
 
 versioned_type! {
@@ -460,6 +464,7 @@ versioned_type! {
 	}
 }
 
+#[deprecated(note = "Use `VersionedAsset` instead")]
 pub type VersionedMultiAsset = VersionedAsset;
 
 versioned_type! {
@@ -474,7 +479,7 @@ versioned_type! {
 	}
 }
 
-#[deprecated(since = "4", note = "Use `VersionedAssets` instead")]
+#[deprecated(note = "Use `VersionedAssets` instead")]
 pub type VersionedMultiAssets = VersionedAssets;
 
 /// A single XCM message, together with its version code.
@@ -631,9 +636,7 @@ pub mod prelude {
 	pub use super::{
 		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV2, AlwaysV3, AlwaysV4, IntoVersion,
 		Unsupported, Version as XcmVersion, VersionedAsset, VersionedAssetId, VersionedAssets,
-		VersionedInteriorLocation, VersionedInteriorMultiLocation, VersionedLocation,
-		VersionedMultiAsset, VersionedMultiAssets, VersionedMultiLocation, VersionedResponse,
-		VersionedXcm, WrapVersion,
+		VersionedInteriorLocation, VersionedLocation, VersionedResponse, VersionedXcm, WrapVersion,
 	};
 }
 
@@ -651,9 +654,9 @@ pub mod opaque {
 		pub use crate::v3::opaque::{Instruction, Xcm};
 	}
 	pub mod v4 {
-		// Everything from v3
+		// Everything from v4
 		pub use crate::v4::*;
-		// Then override with the opaque types in v3
+		// Then override with the opaque types in v4
 		pub use crate::v4::opaque::{Instruction, Xcm};
 	}
 
@@ -698,7 +701,7 @@ fn size_limits() {
                         $expected
                     );
                 } else {
-                    std::eprintln!(
+                    std::println!(
                         "type '{}' is of size {} which is within the expected {}",
                         stringify!($kind),
                         s,
