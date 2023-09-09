@@ -17,12 +17,14 @@
 
 use crate::construct_runtime::Pallet;
 use proc_macro2::TokenStream as TokenStream2;
+use proc_utils::*;
 use quote::quote;
 
 /// Expands aggregate `RuntimeTask` enum.
 pub fn expand_outer_task(pallet_decls: &[Pallet], scrate: &TokenStream2) -> TokenStream2 {
 	let mut from_impls = Vec::new();
 	let mut task_variants = Vec::new();
+	let mut variant_names = Vec::new();
 	for decl in pallet_decls {
 		if let Some(_) = decl.find_part("Task") {
 			let variant_name = &decl.name;
@@ -44,22 +46,14 @@ pub fn expand_outer_task(pallet_decls: &[Pallet], scrate: &TokenStream2) -> Toke
 				#[codec(index = #index)]
 				#variant_name(#path::pallet::Task<Runtime>),
 			});
+
+			variant_names.push(quote!(#variant_name));
 		}
-	}
-	use quote::ToTokens;
-	if !task_variants.is_empty() {
-		println!(
-			"{:#?}",
-			task_variants
-				.iter()
-				.map(|item| item.to_token_stream().to_string())
-				.collect::<Vec<_>>()
-		);
 	}
 
 	let prelude = quote!(#scrate::traits::tasks::prelude);
 
-	quote! {
+	let output = quote! {
 		/// An aggregation of all `Task` enums across all pallets included in the current runtime.
 		#[derive(
 			Clone, Eq, PartialEq,
@@ -78,19 +72,26 @@ pub fn expand_outer_task(pallet_decls: &[Pallet], scrate: &TokenStream2) -> Toke
 			const TASK_INDEX: Option<u64> = None;
 
 			fn is_valid(&self) -> bool {
-				use #prelude::*;
-				todo!();
+				match self {
+					#(#variant_names(val) => val.is_valid()),*
+				}
 			}
 
 			fn run(&self) -> Result<(), #scrate::traits::tasks::prelude::DispatchError> {
-				todo!();
+				match self {
+					#(#variant_names(val) => val.run()),*
+				}
 			}
 
 			fn weight(&self) -> #scrate::pallet_prelude::Weight {
-				todo!();
+				match self {
+					#(#variant_names(val) => val.weight()),*
+				}
 			}
 		}
 
 		#( #from_impls )*
-	}
+	};
+	output.pretty_print();
+	output
 }
