@@ -14,7 +14,7 @@ active syncing strategy.</p>
     warp_sync_config: <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="warp/enum.WarpSyncConfig.html" title="enum sc_network_sync::warp::WarpSyncConfig">WarpSyncConfig</a>&lt;B&gt;&gt;,
     metrics_registry: <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;Registry&gt;,
     network_service: <a class="struct" href="service/network/struct.NetworkServiceHandle.html" title="struct sc_network_sync::service::network::NetworkServiceHandle">NetworkServiceHandle</a>,
-    import_queue: <a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn ImportQueueService&lt;B&gt;&gt;,
+    import_queue: <a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="../sc_consensus/import_queue/trait.ImportQueueService.html" title="trait sc_consensus::import_queue::ImportQueueService">ImportQueueService</a>&lt;B&gt;&gt;,
     block_request_protocol_name: ProtocolName,
     state_request_protocol_name: ProtocolName,
     warp_sync_protocol_name: <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ProtocolName&gt;
