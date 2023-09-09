@@ -135,6 +135,8 @@ try-runtime = [
 	"bridge-hub-rococo-runtime/try-runtime",
 	"collectives-polkadot-runtime/try-runtime",
 	"contracts-rococo-runtime/try-runtime",
+	"coretime-kusama-runtime/try-runtime",
+	"coretime-polkadot-runtime/try-runtime",
 	"glutton-runtime/try-runtime",
 	"penpal-runtime/try-runtime",
 	"polkadot-cli/try-runtime",
