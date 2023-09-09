@@ -532,10 +532,13 @@ impl<T: Config> Pallet<T> {
 		let have_active = details.last_index > details.first_index;
 		let appended = if have_active {
 			// Check if it exists in the old queue, if not we check the new queue
-			let mut msg = <OutboundXcmpMessages<T>>::take(recipient, details.last_index as u16 - 1)
-				.unwrap_or_else(|| {
-					<OutboundXcmpMessageQueue<T>>::get(recipient, details.last_index - 1)
-				});
+			let mut msg = if let Ok(last_index) = u16::try_from(details.last_index - 1) {
+				<OutboundXcmpMessages<T>>::take(recipient, last_index).unwrap_or_else(|| {
+					<OutboundXcmpMessageQueue<T>>::get(recipient, last_index as u64)
+				})
+			} else {
+				<OutboundXcmpMessageQueue<T>>::get(recipient, details.last_index - 1)
+			};
 			if XcmpMessageFormat::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &msg[..]) !=
 				Ok(format)
 			{
