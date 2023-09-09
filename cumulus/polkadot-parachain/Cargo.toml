@@ -115,6 +115,8 @@ runtime-benchmarks = [
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
 	"collectives-polkadot-runtime/runtime-benchmarks",
 	"contracts-rococo-runtime/runtime-benchmarks",
+	"coretime-kusama-runtime/runtime-benchmarks",
+	"coretime-polkadot-runtime/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"glutton-runtime/runtime-benchmarks",
