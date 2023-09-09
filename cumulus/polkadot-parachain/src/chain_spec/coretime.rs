@@ -138,14 +138,14 @@ pub mod kusama {
 	use crate::chain_spec::{
 		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
 	};
-	use parachains_common::{constants::kusama_currency, AccountId, AuraId};
+	use parachains_common::{kusama::currency, AccountId, AuraId};
 	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
 	pub(crate) const CORETIME_KUSAMA: &str = "coretime-kusama";
 	pub(crate) const CORETIME_KUSAMA_LOCAL: &str = "coretime-kusama-local";
 	pub(crate) const CORETIME_KUSAMA_DEVELOPMENT: &str = "coretime-kusama-dev";
-	const CORETIME_KUSAMA_ED: CoretimeBalance = kusama_currency::EXISTENTIAL_DEPOSIT;
+	const CORETIME_KUSAMA_ED: CoretimeBalance = currency::EXISTENTIAL_DEPOSIT;
 
 	/// Specialized `ChainSpec` for the normal parachain runtime.
 	pub type CoretimeChainSpec =
@@ -265,14 +265,14 @@ pub mod polkadot {
 	use crate::chain_spec::{
 		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
 	};
-	use parachains_common::{constants::polkadot_currency, AccountId, AuraId};
+	use parachains_common::{polkadot::currency, AccountId, AuraId};
 	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
 	pub(crate) const CORETIME_POLKADOT: &str = "coretime-polkadot";
 	pub(crate) const CORETIME_POLKADOT_LOCAL: &str = "coretime-polkadot-local";
 	pub(crate) const CORETIME_POLKADOT_DEVELOPMENT: &str = "coretime-polkadot-dev";
-	const CORETIME_POLKADOT_ED: CoretimeBalance = polkadot_currency::EXISTENTIAL_DEPOSIT;
+	const CORETIME_POLKADOT_ED: CoretimeBalance = currency::EXISTENTIAL_DEPOSIT;
 
 	/// Specialized `ChainSpec` for the normal parachain runtime.
 	pub type CoretimeChainSpec =
