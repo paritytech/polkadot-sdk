@@ -24,6 +24,7 @@ pub mod asset_hubs;
 pub mod bridge_hubs;
 pub mod collectives;
 pub mod contracts;
+pub mod coretime;
 pub mod glutton;
 pub mod penpal;
 pub mod rococo_parachain;

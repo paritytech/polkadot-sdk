@@ -49,6 +49,7 @@ enum Runtime {
 	CollectivesWestend,
 	Glutton,
 	BridgeHub(chain_spec::bridge_hubs::BridgeHubRuntimeType),
+	Coretime(chain_spec::coretime::CoretimeRuntimeType),
 }
 
 trait RuntimeResolver {
@@ -104,6 +105,10 @@ fn runtime(id: &str) -> Runtime {
 		Runtime::BridgeHub(
 			id.parse::<chain_spec::bridge_hubs::BridgeHubRuntimeType>()
 				.expect("Invalid value"),
+		)
+	} else if id.starts_with(chain_spec::coretime::CoretimeRuntimeType::ID_PREFIX) {
+		Runtime::Coretime(
+			id.parse::<chain_spec::coretime::CoretimeRuntimeType>().expect("Invalid value"),
 		)
 	} else if id.starts_with("glutton") {
 		Runtime::Glutton
@@ -212,7 +217,16 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 				.expect("invalid value")
 				.load_config()?,
 
-		// -- Penpall
+		// -- Coretime
+		coretime_like_id
+			if coretime_like_id
+				.starts_with(chain_spec::coretime::CoretimeRuntimeType::ID_PREFIX) =>
+			coretime_like_id
+				.parse::<chain_spec::coretime::CoretimeRuntimeType>()
+				.expect("invalid value")
+				.load_config()?,
+
+		// -- Penpal
 		"penpal-kusama" => Box::new(chain_spec::penpal::get_penpal_chain_spec(
 			para_id.expect("Must specify parachain id"),
 			"kusama-local",
@@ -263,6 +277,8 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 					Box::new(chain_spec::contracts::ContractsRococoChainSpec::from_json_file(path)?),
 				Runtime::BridgeHub(bridge_hub_runtime_type) =>
 					bridge_hub_runtime_type.chain_spec_from_json_file(path)?,
+				Runtime::Coretime(coretime_runtime_type) =>
+					coretime_runtime_type.chain_spec_from_json_file(path)?,
 				Runtime::Penpal(_para_id) =>
 					Box::new(chain_spec::penpal::PenpalChainSpec::from_json_file(path)?),
 				Runtime::Glutton =>
@@ -601,6 +617,47 @@ macro_rules! construct_async_run {
 					}
 				}
 			},
+			Runtime::Coretime(coretime_runtime_type) => {
+				match coretime_runtime_type {
+				   chain_spec::coretime::CoretimeRuntimeType::Polkadot |
+				   chain_spec::coretime::CoretimeRuntimeType::PolkadotLocal |
+				   chain_spec::coretime::CoretimeRuntimeType::PolkadotDevelopment => {
+					   runner.async_run(|$config| {
+						   let $components = new_partial::<chain_spec::coretime::polkadot::RuntimeApi, _>(
+							   &$config,
+							   crate::service::aura_build_import_queue::<_, AuraId>,
+						   )?;
+
+						   let task_manager = $components.task_manager;
+						   { $( $code )* }.map(|v| (v, task_manager))
+					   })
+				   },
+				   chain_spec::coretime::CoretimeRuntimeType::Kusama |
+				   chain_spec::coretime::CoretimeRuntimeType::KusamaLocal |
+				   chain_spec::coretime::CoretimeRuntimeType::KusamaDevelopment => {
+					   runner.async_run(|$config| {
+						   let $components = new_partial::<chain_spec::coretime::kusama::RuntimeApi, _>(
+							   &$config,
+							   crate::service::aura_build_import_queue::<_, AuraId>,
+						   )?;
+
+						   let task_manager = $components.task_manager;
+						   { $( $code )* }.map(|v| (v, task_manager))
+					   })
+				   },
+				   chain_spec::coretime::CoretimeRuntimeType::Westend => {
+					   runner.async_run(|$config| {
+						   let $components = new_partial::<chain_spec::coretime::westend::RuntimeApi, _>(
+							   &$config,
+							   crate::service::aura_build_import_queue::<_, AuraId>,
+						   )?;
+
+						   let task_manager = $components.task_manager;
+						   { $( $code )* }.map(|v| (v, task_manager))
+					   })
+				   },
+			   }
+		   },
 			Runtime::Penpal(_) | Runtime::Default => {
 				runner.async_run(|$config| {
 					let $components = new_partial::<
@@ -807,6 +864,7 @@ pub fn run() -> Result<()> {
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into),
+
 					Runtime::AssetHubKusama => crate::service::start_generic_aura_node::<
 						asset_hub_kusama_runtime::RuntimeApi,
 						AuraId,
@@ -821,6 +879,7 @@ pub fn run() -> Result<()> {
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into),
+
 					Runtime::CollectivesPolkadot | Runtime::CollectivesWestend =>
 						crate::service::start_generic_aura_node::<
 							collectives_polkadot_runtime::RuntimeApi,
@@ -840,6 +899,7 @@ pub fn run() -> Result<()> {
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into),
+
 					Runtime::Seedling => crate::service::start_shell_node::<
 						seedling_runtime::RuntimeApi,
 					>(config, polkadot_config, collator_options, id, hwbench)
@@ -856,6 +916,7 @@ pub fn run() -> Result<()> {
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into),
+
 					Runtime::BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal |
@@ -901,6 +962,36 @@ pub fn run() -> Result<()> {
 							.map(|r| r.0),
 					}
 					.map_err(Into::into),
+
+					Runtime::Coretime(coretime_runtime_type) => match coretime_runtime_type {
+						chain_spec::coretime::CoretimeRuntimeType::Polkadot |
+						chain_spec::coretime::CoretimeRuntimeType::PolkadotLocal |
+						chain_spec::coretime::CoretimeRuntimeType::PolkadotDevelopment =>
+							crate::service::start_generic_aura_node::<
+								chain_spec::coretime::polkadot::RuntimeApi,
+								AuraId,
+							>(config, polkadot_config, collator_options, id, hwbench)
+								.await
+								.map(|r| r.0),
+						chain_spec::coretime::CoretimeRuntimeType::Kusama |
+						chain_spec::coretime::CoretimeRuntimeType::KusamaLocal |
+						chain_spec::coretime::CoretimeRuntimeType::KusamaDevelopment =>
+							crate::service::start_generic_aura_node::<
+								chain_spec::coretime::kusama::RuntimeApi,
+								AuraId,
+							>(config, polkadot_config, collator_options, id, hwbench)
+							.await
+							.map(|r| r.0),
+						chain_spec::coretime::CoretimeRuntimeType::Westend =>
+							crate::service::start_generic_aura_node::<
+								chain_spec::coretime::westend::RuntimeApi,
+								AuraId,
+							>(config, polkadot_config, collator_options, id, hwbench)
+							.await
+							.map(|r| r.0),
+					}
+					.map_err(Into::into),
+
 					Runtime::Penpal(_) | Runtime::Default =>
 						crate::service::start_rococo_parachain_node(
 							config,
@@ -912,6 +1003,7 @@ pub fn run() -> Result<()> {
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into),
+
 					Runtime::Glutton =>
 						crate::service::start_shell_node::<glutton_runtime::RuntimeApi>(
 							config,
