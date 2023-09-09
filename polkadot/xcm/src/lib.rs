@@ -710,18 +710,18 @@ fn size_limits() {
     }
 
 	check_sizes! {
-		(crate::v4::Instruction<()>, 112),
-		(crate::v4::Asset, 80),
-		(crate::v4::Location, 24),
-		(crate::v4::AssetId, 40),
-		(crate::v4::Junctions, 16),
-		(crate::v4::Junction, 88),
-		(crate::v4::Response, 40),
-		(crate::v4::AssetInstance, 40),
-		(crate::v4::NetworkId, 48),
-		(crate::v4::BodyId, 32),
-		(crate::v4::Assets, 24),
-		(crate::v4::BodyPart, 12),
+		(crate::latest::Instruction<()>, 112),
+		(crate::latest::Asset, 80),
+		(crate::latest::Location, 24),
+		(crate::latest::AssetId, 40),
+		(crate::latest::Junctions, 16),
+		(crate::latest::Junction, 88),
+		(crate::latest::Response, 40),
+		(crate::latest::AssetInstance, 40),
+		(crate::latest::NetworkId, 48),
+		(crate::latest::BodyId, 32),
+		(crate::latest::Assets, 24),
+		(crate::latest::BodyPart, 12),
 	}
 	assert!(!test_failed);
 }
