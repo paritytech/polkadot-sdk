@@ -53,9 +53,8 @@ const SEED_SERIALIZED_LEN: usize = 32;
 // Short-Weierstrass form serialized sizes.
 const PUBLIC_SERIALIZED_LEN: usize = 33;
 const SIGNATURE_SERIALIZED_LEN: usize = 65;
+const RING_SIGNATURE_SERIALIZED_LEN: usize = 755;
 const PREOUT_SERIALIZED_LEN: usize = 33;
-const PEDERSEN_SIGNATURE_SERIALIZED_LEN: usize = 163;
-const RING_PROOF_SERIALIZED_LEN: usize = 592;
 
 // Max size of serialized ring-vrf context params.
 //
@@ -506,7 +505,7 @@ pub mod vrf {
 		}
 
 		fn vrf_output(&self, input: &Self::VrfInput) -> Self::VrfOutput {
-			let output = self.secret.0.vrf_preout(&input.0);
+			let output = self.secret.vrf_preout(&input.0);
 			VrfOutput(output)
 		}
 	}
@@ -539,24 +538,26 @@ pub mod vrf {
 	#[cfg(feature = "full_crypto")]
 	impl Pair {
 		fn vrf_sign_gen<const N: usize>(&self, data: &VrfSignData) -> VrfSignature {
-			let ios: Vec<_> = data
-				.inputs
-				.iter()
-				.map(|i| self.secret.clone().0.vrf_inout(i.0.clone()))
-				.collect();
+			let ios = core::array::from_fn(|i| {
+				let input = data.inputs[i].0.clone();
+				self.secret.vrf_inout(input)
+			});
 
-			let signature: ThinVrfSignature<N> =
-				self.secret.sign_thin_vrf(data.transcript.clone(), ios.as_slice());
+			let thin_signature: ThinVrfSignature<N> =
+				self.secret.sign_thin_vrf(data.transcript.clone(), &ios);
 
-			let mut sign_bytes = [0; SIGNATURE_SERIALIZED_LEN];
-			signature
-				.signature
-				.serialize_compressed(sign_bytes.as_mut_slice())
+			let outputs: Vec<_> = thin_signature.preouts.into_iter().map(VrfOutput).collect();
+			let outputs = VrfIosVec::truncate_from(outputs);
+
+			let mut signature =
+				VrfSignature { signature: Signature([0; SIGNATURE_SERIALIZED_LEN]), outputs };
+
+			thin_signature
+				.proof
+				.serialize_compressed(signature.signature.0.as_mut_slice())
 				.expect("serialization can't fail");
 
-			let outputs: Vec<_> = signature.preoutputs.into_iter().map(VrfOutput).collect();
-			let outputs = VrfIosVec::truncate_from(outputs);
-			VrfSignature { signature: Signature(sign_bytes), outputs }
+			signature
 		}
 
 		/// Generate an arbitrary number of bytes from the given `context` and VRF `input`.
@@ -566,7 +567,7 @@ pub mod vrf {
 			input: &VrfInput,
 		) -> [u8; N] {
 			let transcript = Transcript::new_labeled(context);
-			let inout = self.secret.clone().0.vrf_inout(input.0.clone());
+			let inout = self.secret.vrf_inout(input.0.clone());
 			inout.vrf_output_bytes(transcript)
 		}
 	}
@@ -581,30 +582,23 @@ pub mod vrf {
 				return false
 			};
 
-			let Ok(preouts) = signature
-				.outputs
-				.iter()
-				.map(|o| o.0.clone())
-				.collect::<arrayvec::ArrayVec<bandersnatch_vrfs::VrfPreOut, N>>()
-				.into_inner()
-			else {
-				return false
-			};
+			let preouts: [bandersnatch_vrfs::VrfPreOut; N] =
+				core::array::from_fn(|i| signature.outputs[i].0.clone());
 
 			// Deserialize only the proof, the rest has already been deserialized
 			// This is another hack used because backend signature type is generic over
 			// the number of ios.
-			let Ok(signature) =
+			let Ok(proof) =
 				ThinVrfSignature::<0>::deserialize_compressed(signature.signature.as_ref())
-					.map(|s| s.signature)
+					.map(|s| s.proof)
 			else {
 				return false
 			};
-			let signature = ThinVrfSignature { signature, preoutputs: preouts };
+			let signature = ThinVrfSignature { proof, preouts };
 
 			let inputs = data.inputs.iter().map(|i| i.0.clone());
 
-			signature.verify_thin_vrf(data.transcript.clone(), inputs, &public).is_ok()
+			public.verify_thin_vrf(data.transcript.clone(), inputs, &signature).is_ok()
 		}
 	}
 
@@ -627,7 +621,7 @@ pub mod vrf {
 pub mod ring_vrf {
 	use super::{vrf::*, *};
 	pub use bandersnatch_vrfs::ring::{RingProof, RingProver, RingVerifier, KZG};
-	use bandersnatch_vrfs::{CanonicalDeserialize, PedersenVrfSignature, PublicKey};
+	use bandersnatch_vrfs::{CanonicalDeserialize, PublicKey};
 
 	/// Context used to produce ring signatures.
 	#[derive(Clone)]
@@ -649,7 +643,7 @@ pub mod ring_vrf {
 			let mut pks = Vec::with_capacity(public_keys.len());
 			for public_key in public_keys {
 				let pk = PublicKey::deserialize_compressed(public_key.as_slice()).ok()?;
-				pks.push(pk.0 .0.into());
+				pks.push(pk.0.into());
 			}
 
 			let prover_key = self.0.prover_key(pks);
@@ -662,7 +656,7 @@ pub mod ring_vrf {
 			let mut pks = Vec::with_capacity(public_keys.len());
 			for public_key in public_keys {
 				let pk = PublicKey::deserialize_compressed(public_key.as_slice()).ok()?;
-				pks.push(pk.0 .0.into());
+				pks.push(pk.0.into());
 			}
 
 			let verifier_key = self.0.verifier_key(pks);
@@ -711,10 +705,8 @@ pub mod ring_vrf {
 	pub struct RingVrfSignature {
 		/// VRF (pre)outputs.
 		pub outputs: VrfIosVec<VrfOutput>,
-		/// Pedersen VRF signature.
-		pub signature: [u8; PEDERSEN_SIGNATURE_SERIALIZED_LEN],
-		/// Ring proof.
-		pub ring_proof: [u8; RING_PROOF_SERIALIZED_LEN],
+		/// Ring signature.
+		pub signature: [u8; RING_SIGNATURE_SERIALIZED_LEN],
 	}
 
 	#[cfg(feature = "full_crypto")]
@@ -741,31 +733,27 @@ pub mod ring_vrf {
 			data: &VrfSignData,
 			prover: &RingProver,
 		) -> RingVrfSignature {
-			let ios: Vec<_> = data
-				.inputs
-				.iter()
-				.map(|i| self.secret.clone().0.vrf_inout(i.0.clone()))
-				.collect();
+			let ios = core::array::from_fn(|i| {
+				let input = data.inputs[i].0.clone();
+				self.secret.vrf_inout(input)
+			});
 
 			let ring_signature: bandersnatch_vrfs::RingVrfSignature<N> =
-				self.secret.sign_ring_vrf(data.transcript.clone(), ios.as_slice(), prover);
+				bandersnatch_vrfs::RingProver { ring_prover: prover, secret: &self.secret }
+					.sign_ring_vrf(data.transcript.clone(), &ios);
 
-			let outputs: Vec<_> = ring_signature.preoutputs.into_iter().map(VrfOutput).collect();
+			let outputs: Vec<_> = ring_signature.preouts.into_iter().map(VrfOutput).collect();
 			let outputs = VrfIosVec::truncate_from(outputs);
 
-			let mut signature = [0; PEDERSEN_SIGNATURE_SERIALIZED_LEN];
-			ring_signature
-				.signature
-				.serialize_compressed(signature.as_mut_slice())
-				.expect("ped-signature serialization can't fail");
+			let mut signature =
+				RingVrfSignature { outputs, signature: [0; RING_SIGNATURE_SERIALIZED_LEN] };
 
-			let mut ring_proof = [0; RING_PROOF_SERIALIZED_LEN];
 			ring_signature
-				.ring_proof
-				.serialize_compressed(ring_proof.as_mut_slice())
-				.expect("ring-proof serialization can't fail");
+				.proof
+				.serialize_compressed(signature.signature.as_mut_slice())
+				.expect("ring-signature serialization can't fail");
 
-			RingVrfSignature { outputs, signature, ring_proof }
+			signature
 		}
 	}
 
@@ -774,7 +762,7 @@ pub mod ring_vrf {
 		///
 		/// The signature is verifiable if it has been produced by a member of the ring
 		/// from which the [`RingVerifier`] has been constructed.
-		pub fn verify(&self, data: &VrfSignData, verifier: &RingVerifier) -> bool {
+		pub fn ring_vrf_verify(&self, data: &VrfSignData, verifier: &RingVerifier) -> bool {
 			const _: () = assert!(MAX_VRF_IOS == 3, "`MAX_VRF_IOS` expected to be 3");
 			let preouts_len = self.outputs.len();
 			if preouts_len != data.inputs.len() {
@@ -782,43 +770,37 @@ pub mod ring_vrf {
 			}
 			// Workaround to overcome backend signature generic over the number of IOs.
 			match preouts_len {
-				0 => self.verify_gen::<0>(data, verifier),
-				1 => self.verify_gen::<1>(data, verifier),
-				2 => self.verify_gen::<2>(data, verifier),
-				3 => self.verify_gen::<3>(data, verifier),
+				0 => self.ring_vrf_verify_gen::<0>(data, verifier),
+				1 => self.ring_vrf_verify_gen::<1>(data, verifier),
+				2 => self.ring_vrf_verify_gen::<2>(data, verifier),
+				3 => self.ring_vrf_verify_gen::<3>(data, verifier),
 				_ => unreachable!(),
 			}
 		}
 
-		fn verify_gen<const N: usize>(&self, data: &VrfSignData, verifier: &RingVerifier) -> bool {
-			let Ok(preoutputs) = self
-				.outputs
-				.iter()
-				.map(|o| o.0.clone())
-				.collect::<arrayvec::ArrayVec<bandersnatch_vrfs::VrfPreOut, N>>()
-				.into_inner()
+		fn ring_vrf_verify_gen<const N: usize>(
+			&self,
+			data: &VrfSignData,
+			verifier: &RingVerifier,
+		) -> bool {
+			let Ok(vrf_signature) =
+				bandersnatch_vrfs::RingVrfSignature::<0>::deserialize_compressed(
+					self.signature.as_slice(),
+				)
 			else {
 				return false
 			};
 
-			let Ok(signature) =
-				PedersenVrfSignature::deserialize_compressed(self.signature.as_slice())
-			else {
-				return false
-			};
+			let preouts: [bandersnatch_vrfs::VrfPreOut; N] =
+				core::array::from_fn(|i| self.outputs[i].0.clone());
 
-			let Ok(ring_proof) = RingProof::deserialize_compressed(self.ring_proof.as_slice())
-			else {
-				return false
-			};
-
-			let ring_signature =
-				bandersnatch_vrfs::RingVrfSignature { signature, preoutputs, ring_proof };
+			let signature =
+				bandersnatch_vrfs::RingVrfSignature { proof: vrf_signature.proof, preouts };
 
 			let inputs = data.inputs.iter().map(|i| i.0.clone());
 
-			ring_signature
-				.verify_ring_vrf(data.transcript.clone(), inputs, verifier)
+			bandersnatch_vrfs::RingVerifier(verifier)
+				.verify_ring_vrf(data.transcript.clone(), inputs, &signature)
 				.is_ok()
 		}
 	}
@@ -846,7 +828,7 @@ mod tests {
 		let pair = SecretKey::from_seed(DEV_SEED);
 		let public = pair.to_public();
 
-		assert_eq!(public.0.size_of_serialized(), PUBLIC_SERIALIZED_LEN);
+		assert_eq!(public.size_of_serialized(), PUBLIC_SERIALIZED_LEN);
 		assert_eq!(ring_ctx.max_keyset_size(), RING_DOMAIN_SIZE - 257);
 
 		// Wrapper
@@ -987,7 +969,7 @@ mod tests {
 		let signature = pair.ring_vrf_sign(&data, &prover);
 
 		let verifier = ring_ctx.verifier(&pks).unwrap();
-		assert!(signature.verify(&data, &verifier));
+		assert!(signature.ring_vrf_verify(&data, &verifier));
 	}
 
 	#[test]
@@ -1006,7 +988,7 @@ mod tests {
 		let signature = pair.ring_vrf_sign(&data, &prover);
 
 		let verifier = ring_ctx.verifier(&pks).unwrap();
-		assert!(!signature.verify(&data, &verifier));
+		assert!(!signature.ring_vrf_verify(&data, &verifier));
 	}
 
 	#[test]
@@ -1062,10 +1044,8 @@ mod tests {
 
 		let bytes = expected.encode();
 
-		let expected_len = data.inputs.len() * PREOUT_SERIALIZED_LEN +
-			PEDERSEN_SIGNATURE_SERIALIZED_LEN +
-			RING_PROOF_SERIALIZED_LEN +
-			1;
+		let expected_len =
+			data.inputs.len() * PREOUT_SERIALIZED_LEN + RING_SIGNATURE_SERIALIZED_LEN + 1;
 		assert_eq!(bytes.len(), expected_len);
 
 		let decoded = RingVrfSignature::decode(&mut bytes.as_slice()).unwrap();
