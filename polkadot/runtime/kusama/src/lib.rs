@@ -158,16 +158,14 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-/// Disable all calls to the Identity pallet. This will lock the state of the pallet, preventing
-/// further updates to identities and sub-identities. The locked state will be the genesis state of
-/// a new system chain and then removed from the Relay Chain.
+/// A type to identify calls to the Identity pallet. These will be filtered to prevent invocation,
+/// locking the state of the pallet and preventing further updates to identities and sub-identities.
+/// The locked state will be the genesis state of a new system chain and then removed from the Relay
+/// Chain.
 pub struct IdentityCalls;
 impl Contains<RuntimeCall> for IdentityCalls {
 	fn contains(c: &RuntimeCall) -> bool {
-		match c {
-			RuntimeCall::Identity(_) => true,
-			_ => false,
-		}
+		matches!(c, RuntimeCall::Identity(_))
 	}
 }
 
