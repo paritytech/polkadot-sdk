@@ -49,6 +49,7 @@ fn bad_message_is_handled() {
 			&mut 0,
 			Weight::from_parts(10_000_000_000, 0),
 			Weight::from_parts(10_000_000_000, 0),
+			true,
 		);
 	});
 }
@@ -73,6 +74,7 @@ fn handle_blob_message() {
 			&mut 0,
 			Weight::from_parts(10_000_000_000, 0),
 			Weight::from_parts(10_000_000_000, 0),
+			true,
 		);
 	});
 }
@@ -91,6 +93,7 @@ fn handle_invalid_data() {
 			&mut 0,
 			Weight::from_parts(10_000_000_000, 0),
 			Weight::from_parts(10_000_000_000, 0),
+			true,
 		);
 	});
 }
