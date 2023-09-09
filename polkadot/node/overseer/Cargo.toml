@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-overseer"
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -25,12 +25,12 @@ tikv-jemalloc-ctl = { version = "0.5.0", optional = true }
 
 [dev-dependencies]
 metered = { package = "prioritized-metered-channel", version = "0.2.0" }
-
 sp-core = { path = "../../../substrate/primitives/core" }
 futures = { version = "0.3.21", features = ["thread-pool"] }
 femme = "2.2.1"
 assert_matches = "1.4.0"
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
+node-test-helpers = { package = "polkadot-node-subsystem-test-helpers", path = "../subsystem-test-helpers" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemalloc-ctl = "0.5.0"

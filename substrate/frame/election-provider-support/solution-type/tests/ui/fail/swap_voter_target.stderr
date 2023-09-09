@@ -1,5 +1,5 @@
 error: Expected `VoterIndex`
- --> $DIR/swap_voter_target.rs:4:2
-  |
-4 |     TargetIndex = u16,
-  |     ^^^^^^^^^^^
+  --> tests/ui/fail/swap_voter_target.rs:21:2
+   |
+21 |     TargetIndex = u16,
+   |     ^^^^^^^^^^^

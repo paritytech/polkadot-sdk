@@ -1,4 +1,4 @@
-// Copyright 2023 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -29,7 +29,7 @@ use parachains_common::{
 	xcm_config::{ConcreteNativeAssetFrom, RelayOrOtherSystemParachains},
 	TREASURY_PALLET_ID,
 };
-use polkadot_parachain::primitives::Sibling;
+use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_constants::system_parachain::SystemParachains;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::prelude::*;

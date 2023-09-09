@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-runtime-constants"
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,7 +15,7 @@ sp-runtime = { path = "../../../../substrate/primitives/runtime", default-featur
 sp-weights = { path = "../../../../substrate/primitives/weights", default-features = false }
 sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
 
-xcm = { package = "xcm", path = "../../../xcm", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../xcm", default-features = false }
 
 [features]
 default = [ "std" ]

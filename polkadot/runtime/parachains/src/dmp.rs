@@ -81,9 +81,9 @@ impl From<QueueDownwardMessageError> for SendError {
 	}
 }
 
-/// An error returned by [`check_processed_downward_messages`] that indicates an acceptance check
-/// didn't pass.
-pub enum ProcessedDownwardMessagesAcceptanceErr {
+/// An error returned by [`Pallet::check_processed_downward_messages`] that indicates an acceptance
+/// check didn't pass.
+pub(crate) enum ProcessedDownwardMessagesAcceptanceErr {
 	/// If there are pending messages then `processed_downward_messages` should be at least 1,
 	AdvancementRule,
 	/// `processed_downward_messages` should not be greater than the number of pending messages.
