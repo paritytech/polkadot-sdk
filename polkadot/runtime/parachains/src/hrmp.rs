@@ -497,7 +497,6 @@ pub mod pallet {
 				recipient,
 				proposed_max_capacity,
 				proposed_max_message_size,
-				false,
 			)?;
 			Self::deposit_event(Event::OpenChannelRequested(
 				origin,
@@ -649,7 +648,7 @@ pub mod pallet {
 
 			// Now we proceed with normal init/accept, except that we set `no_deposit` to true such
 			// that it will not require deposits from either member.
-			Self::init_open_channel(sender, recipient, max_capacity, max_message_size, true)?;
+			Self::init_open_channel(sender, recipient, max_capacity, max_message_size)?;
 			Self::accept_open_channel(recipient, sender)?;
 			Self::deposit_event(Event::HrmpChannelForceOpened(
 				sender,
@@ -671,7 +670,8 @@ pub mod pallet {
 		/// - `sender`: A system chain, `ParaId`.
 		/// - `recipient`: A system chain, `ParaId`.
 		///
-		/// Any signed origin can call this function.
+		/// Any signed origin can call this function, but _both_ inputs MUST be system chains. If
+		/// the channel does not exist yet, there is no fee.
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config>::WeightInfo::establish_system_channel())]
 		pub fn establish_system_channel(
@@ -692,7 +692,7 @@ pub mod pallet {
 			let max_message_size = config.hrmp_channel_max_message_size;
 			let max_capacity = config.hrmp_channel_max_capacity;
 
-			Self::init_open_channel(sender, recipient, max_capacity, max_message_size, true)?;
+			Self::init_open_channel(sender, recipient, max_capacity, max_message_size)?;
 			Self::accept_open_channel(recipient, sender)?;
 
 			Self::deposit_event(Event::HrmpSystemChannelOpened(
@@ -806,7 +806,7 @@ fn preopen_hrmp_channel<T: Config>(
 	max_capacity: u32,
 	max_message_size: u32,
 ) -> DispatchResult {
-	<Pallet<T>>::init_open_channel(sender, recipient, max_capacity, max_message_size, false)?;
+	<Pallet<T>>::init_open_channel(sender, recipient, max_capacity, max_message_size)?;
 	<Pallet<T>>::accept_open_channel(recipient, sender)?;
 	Ok(())
 }
@@ -1322,20 +1322,17 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Initiate opening a channel from a parachain to a given recipient with given channel
-	/// parameters.
+	/// parameters. If neither chain is part of the system, then a deposit from the `Configuration`
+	/// will be required for `origin` (the sender) upon opening the request and the `recipient` upon
+	/// accepting it.
 	///
 	/// Basically the same as [`hrmp_init_open_channel`](Pallet::hrmp_init_open_channel) but
 	/// intended for calling directly from other pallets rather than dispatched.
-	///
-	/// The parameter `no_deposit` allows the caller to establish the channel without deposits.
-	/// This should be used only for channels established via governance or channels between system
-	/// chains. All other channels should use `false`.
 	pub fn init_open_channel(
 		origin: ParaId,
 		recipient: ParaId,
 		proposed_max_capacity: u32,
 		proposed_max_message_size: u32,
-		no_deposit: bool,
 	) -> DispatchResult {
 		ensure!(origin != recipient, Error::<T>::OpenHrmpChannelToSelf);
 		ensure!(
@@ -1373,8 +1370,9 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::OpenHrmpChannelLimitExceeded,
 		);
 
-		// In practice should only be zero (for governance/system chains) or the default.
-		let deposit = if no_deposit { 0 } else { config.hrmp_sender_deposit };
+		// Do not require deposits for channels with or amongst the system.
+		let is_system = origin.is_system() || recipient.is_system();
+		let deposit = if is_system { 0 } else { config.hrmp_sender_deposit };
 		if !deposit.is_zero() {
 			T::Currency::reserve(
 				&origin.into_account_truncating(),
@@ -1445,10 +1443,10 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::AcceptHrmpChannelLimitExceeded,
 		);
 
-		// The channel cleanup / para offboarding does not store recipient deposits. If the deposit
-		// was overridden for the sender, which should only happen for channels established by
-		// governance or for the system itself, then it also does not take a recipient deposit.
-		if !channel_req.sender_deposit.is_zero() {
+		// Do not require deposits for channels with or amongst the system.
+		let is_system = origin.is_system() || sender.is_system();
+		let deposit = if is_system { 0 } else { config.hrmp_recipient_deposit };
+		if !deposit.is_zero() {
 			T::Currency::reserve(
 				&origin.into_account_truncating(),
 				config.hrmp_recipient_deposit.unique_saturated_into(),

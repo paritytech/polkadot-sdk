@@ -14,6 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+// NOTE: System chains, identified by ParaId < 2000, are treated as special in HRMP channel
+// initialization. Namely, they do not require a deposit if even one ParaId is a system para. If
+// both paras are system chains, then they are also configured to the system's max configuration.
+
 use super::*;
 use crate::mock::{
 	deregister_parachain, new_test_ext, register_parachain, register_parachain_with_balance,
@@ -133,10 +137,10 @@ fn empty_state_consistent_state() {
 
 #[test]
 fn open_channel_works() {
-	let para_a = 1.into();
-	let para_a_origin: crate::Origin = 1.into();
-	let para_b = 3.into();
-	let para_b_origin: crate::Origin = 3.into();
+	let para_a = 2001.into();
+	let para_a_origin: crate::Origin = 2001.into();
+	let para_b = 2003.into();
+	let para_b_origin: crate::Origin = 2003.into();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// We need both A & B to be registered and alive parachains.
@@ -171,12 +175,15 @@ fn open_channel_works() {
 #[test]
 fn force_open_channel_works() {
 	let para_a = 1.into();
-	let para_b = 3.into();
+	let para_b = 2003.into();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// We need both A & B to be registered and live parachains.
 		register_parachain(para_a);
 		register_parachain(para_b);
+
+		let para_b_free_balance =
+			<Test as Config>::Currency::free_balance(&para_b.into_account_truncating());
 
 		run_to_block(5, Some(vec![4, 5]));
 		Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_a, para_b, 2, 8).unwrap();
@@ -193,14 +200,19 @@ fn force_open_channel_works() {
 		// Now let the session change happen and thus open the channel.
 		run_to_block(8, Some(vec![8]));
 		assert!(channel_exists(para_a, para_b));
+		// Because para_a is a system chain, para_b's free balance should not have changed.
+		assert_eq!(
+			<Test as Config>::Currency::free_balance(&para_b.into_account_truncating()),
+			para_b_free_balance
+		);
 	});
 }
 
 #[test]
 fn force_open_channel_works_with_existing_request() {
-	let para_a = 1.into();
-	let para_a_origin: crate::Origin = 1.into();
-	let para_b = 3.into();
+	let para_a = 2001.into();
+	let para_a_origin: crate::Origin = 2001.into();
+	let para_b = 2003.into();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// We need both A & B to be registered and live parachains.
@@ -308,16 +320,16 @@ fn open_system_channel_does_not_work_with_one_non_system_chain() {
 
 #[test]
 fn close_channel_works() {
-	let para_a = 5.into();
-	let para_b = 2.into();
-	let para_b_origin: crate::Origin = 2.into();
+	let para_a = 2005.into();
+	let para_b = 2002.into();
+	let para_b_origin: crate::Origin = 2002.into();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		register_parachain(para_a);
 		register_parachain(para_b);
 
 		run_to_block(5, Some(vec![4, 5]));
-		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
 
 		run_to_block(6, Some(vec![6]));
@@ -341,8 +353,8 @@ fn close_channel_works() {
 
 #[test]
 fn send_recv_messages() {
-	let para_a = 32.into();
-	let para_b = 64.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
 
 	let mut genesis = GenesisConfigBuilder::default();
 	genesis.hrmp_channel_max_message_size = 20;
@@ -352,7 +364,7 @@ fn send_recv_messages() {
 		register_parachain(para_b);
 
 		run_to_block(5, Some(vec![4, 5]));
-		Hrmp::init_open_channel(para_a, para_b, 2, 20, false).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 20).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
 
 		// On Block 6:
@@ -390,7 +402,7 @@ fn hrmp_mqc_head_fixture() {
 		register_parachain(para_b);
 
 		run_to_block(2, Some(vec![1, 2]));
-		Hrmp::init_open_channel(para_a, para_b, 2, 20, false).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 20).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
 
 		run_to_block(3, Some(vec![3]));
@@ -424,15 +436,15 @@ fn hrmp_mqc_head_fixture() {
 
 #[test]
 fn accept_incoming_request_and_offboard() {
-	let para_a = 32.into();
-	let para_b = 64.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		register_parachain(para_a);
 		register_parachain(para_b);
 
 		run_to_block(5, Some(vec![4, 5]));
-		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
 		deregister_parachain(para_a);
 
@@ -446,9 +458,9 @@ fn accept_incoming_request_and_offboard() {
 
 #[test]
 fn check_sent_messages() {
-	let para_a = 32.into();
-	let para_b = 64.into();
-	let para_c = 97.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
+	let para_c = 2097.into();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		register_parachain(para_a);
@@ -459,9 +471,9 @@ fn check_sent_messages() {
 
 		// Open two channels to the same receiver, b:
 		// a -> b, c -> b
-		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
-		Hrmp::init_open_channel(para_c, para_b, 2, 8, false).unwrap();
+		Hrmp::init_open_channel(para_c, para_b, 2, 8).unwrap();
 		Hrmp::accept_open_channel(para_b, para_c).unwrap();
 
 		// On Block 6: session change.
@@ -510,8 +522,8 @@ fn check_sent_messages() {
 fn verify_externally_accessible() {
 	use primitives::{well_known_keys, AbridgedHrmpChannel};
 
-	let para_a = 20.into();
-	let para_b = 21.into();
+	let para_a = 2020.into();
+	let para_b = 2021.into();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// Register two parachains, wait until a session change, then initiate channel open
@@ -519,7 +531,7 @@ fn verify_externally_accessible() {
 		register_parachain(para_a);
 		register_parachain(para_b);
 		run_to_block(5, Some(vec![4, 5]));
-		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
 		run_to_block(8, Some(vec![8]));
 
@@ -568,8 +580,8 @@ fn verify_externally_accessible() {
 
 #[test]
 fn charging_deposits() {
-	let para_a = 32.into();
-	let para_b = 64.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		register_parachain_with_balance(para_a, 0);
@@ -577,7 +589,7 @@ fn charging_deposits() {
 		run_to_block(5, Some(vec![4, 5]));
 
 		assert_noop!(
-			Hrmp::init_open_channel(para_a, para_b, 2, 8, false),
+			Hrmp::init_open_channel(para_a, para_b, 2, 8),
 			pallet_balances::Error::<Test, _>::InsufficientBalance
 		);
 	});
@@ -587,7 +599,7 @@ fn charging_deposits() {
 		register_parachain_with_balance(para_b, 0);
 		run_to_block(5, Some(vec![4, 5]));
 
-		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
 
 		assert_noop!(
 			Hrmp::accept_open_channel(para_b, para_a),
@@ -598,8 +610,8 @@ fn charging_deposits() {
 
 #[test]
 fn refund_deposit_on_normal_closure() {
-	let para_a = 32.into();
-	let para_b = 64.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
 
 	let mut genesis = GenesisConfigBuilder::default();
 	genesis.hrmp_sender_deposit = 20;
@@ -609,7 +621,7 @@ fn refund_deposit_on_normal_closure() {
 		register_parachain_with_balance(para_a, 100);
 		register_parachain_with_balance(para_b, 110);
 		run_to_block(5, Some(vec![4, 5]));
-		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
 		assert_eq!(<Test as Config>::Currency::free_balance(&para_a.into_account_truncating()), 80);
 		assert_eq!(<Test as Config>::Currency::free_balance(&para_b.into_account_truncating()), 95);
@@ -631,8 +643,8 @@ fn refund_deposit_on_normal_closure() {
 
 #[test]
 fn refund_deposit_on_offboarding() {
-	let para_a = 32.into();
-	let para_b = 64.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
 
 	let mut genesis = GenesisConfigBuilder::default();
 	genesis.hrmp_sender_deposit = 20;
@@ -642,7 +654,7 @@ fn refund_deposit_on_offboarding() {
 		register_parachain_with_balance(para_a, 100);
 		register_parachain_with_balance(para_b, 110);
 		run_to_block(5, Some(vec![4, 5]));
-		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
 		assert_eq!(<Test as Config>::Currency::free_balance(&para_a.into_account_truncating()), 80);
 		assert_eq!(<Test as Config>::Currency::free_balance(&para_b.into_account_truncating()), 95);
@@ -671,8 +683,8 @@ fn refund_deposit_on_offboarding() {
 
 #[test]
 fn no_dangling_open_requests() {
-	let para_a = 32.into();
-	let para_b = 64.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
 
 	let mut genesis = GenesisConfigBuilder::default();
 	genesis.hrmp_sender_deposit = 20;
@@ -684,7 +696,7 @@ fn no_dangling_open_requests() {
 		run_to_block(5, Some(vec![4, 5]));
 
 		// Start opening a channel a->b
-		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
 		assert_eq!(<Test as Config>::Currency::free_balance(&para_a.into_account_truncating()), 80);
 
 		// Then deregister one parachain, but don't wait two sessions until it takes effect.
@@ -709,8 +721,8 @@ fn no_dangling_open_requests() {
 
 #[test]
 fn cancel_pending_open_channel_request() {
-	let para_a = 32.into();
-	let para_b = 64.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
 
 	let mut genesis = GenesisConfigBuilder::default();
 	genesis.hrmp_sender_deposit = 20;
@@ -722,7 +734,7 @@ fn cancel_pending_open_channel_request() {
 		run_to_block(5, Some(vec![4, 5]));
 
 		// Start opening a channel a->b
-		Hrmp::init_open_channel(para_a, para_b, 2, 8, false).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
 		assert_eq!(<Test as Config>::Currency::free_balance(&para_a.into_account_truncating()), 80);
 
 		// Cancel opening the channel
@@ -741,8 +753,8 @@ fn cancel_pending_open_channel_request() {
 
 #[test]
 fn watermark_maxed_out_at_relay_parent() {
-	let para_a = 32.into();
-	let para_b = 64.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
 
 	let mut genesis = GenesisConfigBuilder::default();
 	genesis.hrmp_channel_max_message_size = 20;
@@ -752,7 +764,7 @@ fn watermark_maxed_out_at_relay_parent() {
 		register_parachain(para_b);
 
 		run_to_block(5, Some(vec![4, 5]));
-		Hrmp::init_open_channel(para_a, para_b, 2, 20, false).unwrap();
+		Hrmp::init_open_channel(para_a, para_b, 2, 20).unwrap();
 		Hrmp::accept_open_channel(para_b, para_a).unwrap();
 
 		// On Block 6:

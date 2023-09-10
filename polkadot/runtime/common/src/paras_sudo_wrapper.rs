@@ -166,7 +166,6 @@ pub mod pallet {
 				recipient,
 				max_capacity,
 				max_message_size,
-				false, // although set by root, this wrapper is used to simulate real networks
 			)?;
 			<hrmp::Pallet<T>>::accept_open_channel(recipient, sender)?;
 			Ok(())
