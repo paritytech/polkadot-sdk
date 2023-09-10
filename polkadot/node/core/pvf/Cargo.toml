@@ -38,7 +38,7 @@ substrate-build-script-utils = { path = "../../../../substrate/utils/build-scrip
 
 [dev-dependencies]
 assert_matches = "1.4.0"
-hex-literal = "0.3.4"
+hex-literal = "0.4.1"
 polkadot-node-core-pvf-common = { path = "common", features = ["test-utils"] }
 # For the puppet worker, depend on ourselves with the test-utils feature.
 polkadot-node-core-pvf = { path = ".", features = ["test-utils"] }
