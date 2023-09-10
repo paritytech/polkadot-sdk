@@ -77,21 +77,18 @@ macro_rules! decl_puppet_worker_main {
 
 				"--check-can-enable-landlock" => {
 					#[cfg(target_os = "linux")]
-					let status = if security::landlock::status_is_fully_enabled(
-						&security::landlock::get_status(),
-					) {
-						0
-					} else {
-						-1
-					};
+					let status = if security::landlock::check_is_fully_enabled() { 0 } else { -1 };
 					#[cfg(not(target_os = "linux"))]
 					let status = -1;
 					std::process::exit(status)
 				},
 				"--check-can-unshare-user-namespace-and-change-root" => {
 					#[cfg(target_os = "linux")]
-					let status = if security::unshare_user_namespace_and_change_root(&std::env::temp_dir())
-						.is_ok()
+					let status = if security::unshare_user_namespace_and_change_root(
+						polkadot_node_core_pvf_common::worker::WorkerKind::Execute,
+						&std::env::temp_dir(),
+					)
+					.is_ok()
 					{
 						0
 					} else {

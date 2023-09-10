@@ -23,6 +23,7 @@ use cpu_time::ProcessTime;
 use futures::never::Never;
 use std::{
 	any::Any,
+	fmt,
 	path::PathBuf,
 	sync::mpsc::{Receiver, RecvTimeoutError},
 	time::Duration,
@@ -66,21 +67,18 @@ macro_rules! decl_worker_main {
 
 				"--check-can-enable-landlock" => {
 					#[cfg(target_os = "linux")]
-					let status = if security::landlock::status_is_fully_enabled(
-						&security::landlock::get_status(),
-					) {
-						0
-					} else {
-						-1
-					};
+					let status = if security::landlock::check_is_fully_enabled() { 0 } else { -1 };
 					#[cfg(not(target_os = "linux"))]
 					let status = -1;
 					std::process::exit(status)
 				},
 				"--check-can-unshare-user-namespace-and-change-root" => {
 					#[cfg(target_os = "linux")]
-					let status = if security::unshare_user_namespace_and_change_root(&std::env::temp_dir())
-						.is_ok()
+					let status = if security::unshare_user_namespace_and_change_root(
+						WorkerKind::Execute,
+						&std::env::temp_dir(),
+					)
+					.is_ok()
 					{
 						0
 					} else {
@@ -143,10 +141,25 @@ macro_rules! decl_worker_main {
 /// child process.
 pub const JOB_TIMEOUT_OVERHEAD: Duration = Duration::from_millis(50);
 
+#[derive(Debug, Clone, Copy)]
+pub enum WorkerKind {
+	Prepare,
+	Execute,
+}
+
+impl fmt::Display for WorkerKind {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Prepare => write!(f, "prepare"),
+			Self::Execute => write!(f, "execute"),
+		}
+	}
+}
+
 // The worker version must be passed in so that we accurately get the version of the worker, and not
 // the version that this crate was compiled with.
 pub fn worker_event_loop<F, Fut>(
-	debug_id: &'static str,
+	worker_kind: WorkerKind,
 	#[cfg_attr(not(target_os = "linux"), allow(unused_mut))] mut worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
@@ -157,14 +170,14 @@ pub fn worker_event_loop<F, Fut>(
 	Fut: futures::Future<Output = io::Result<Never>>,
 {
 	let worker_pid = std::process::id();
-	gum::debug!(target: LOG_TARGET, %worker_pid, ?worker_dir_path, "starting pvf worker ({})", debug_id);
+	gum::debug!(target: LOG_TARGET, %worker_pid, ?worker_dir_path, "starting pvf worker ({})", worker_kind);
 
 	// Check for a mismatch between the node and worker versions.
 	if let (Some(node_version), Some(worker_version)) = (node_version, worker_version) {
 		if node_version != worker_version {
 			gum::error!(
 				target: LOG_TARGET,
-				%debug_id,
+				%worker_kind,
 				%worker_pid,
 				%node_version,
 				%worker_version,
@@ -172,39 +185,38 @@ pub fn worker_event_loop<F, Fut>(
 			);
 			kill_parent_node_in_emergency();
 			let err = io::Error::new(io::ErrorKind::Unsupported, "Version mismatch");
-			worker_shutdown_message(debug_id, worker_pid, err);
+			worker_shutdown_message(worker_kind, worker_pid, err);
 			return
 		}
 	}
 
 	// Enable some security features.
 	//
-	// Landlock is enabled in the prepare- or execute-worker-specific code since we restrict the
-	// access rights based on whether we are preparing or executing. We also need to remove the
-	// socket before applying Landlock restrictions.
+	// Landlock is enabled a bit later after the socket has been removed.
 	{
 		// Call based on whether we can change root. Error out if it should work but fails.
 		#[cfg(target_os = "linux")]
 		if security_status.can_unshare_user_namespace_and_change_root {
-			if let Err(err_ctx) = security::unshare_user_namespace_and_change_root(&worker_dir_path)
+			if let Err(err_ctx) =
+				security::unshare_user_namespace_and_change_root(worker_kind, &worker_dir_path)
 			{
 				let err = io::Error::last_os_error();
 				gum::error!(
 					target: LOG_TARGET,
-					%debug_id,
+					%worker_kind,
 					%worker_pid,
 					%err_ctx,
 					?worker_dir_path,
 					"Could not change root to be the worker cache path: {}",
 					err
 				);
-				worker_shutdown_message(debug_id, worker_pid, err);
+				worker_shutdown_message(worker_kind, worker_pid, err);
 				return
 			}
 			worker_dir_path = std::path::Path::new("/").to_owned();
 		}
 
-		security::remove_env_vars(debug_id);
+		security::remove_env_vars(worker_kind);
 	}
 
 	// Run the main worker loop.
@@ -215,6 +227,25 @@ pub fn worker_event_loop<F, Fut>(
 			let stream = UnixStream::connect(&socket_path).await?;
 			let _ = tokio::fs::remove_file(&socket_path).await;
 
+			#[cfg(target_os = "linux")]
+			if security_status.can_enable_landlock {
+				let landlock_status =
+					security::landlock::enable_for_worker(worker_kind, &worker_dir_path);
+				if !matches!(landlock_status, Ok(landlock::RulesetStatus::FullyEnforced)) {
+					// We previously were able to enable landlock, so this should never happen.
+					//
+					// TODO: Make this a real error in secure-mode. See:
+					// <https://github.com/paritytech/polkadot-sdk/issues/1444>
+					gum::error!(
+						target: LOG_TARGET,
+						%worker_kind,
+						%worker_pid,
+						"could not fully enable landlock: {:?}. This should not happen, please report to the Polkadot devs",
+						landlock_status
+					);
+				}
+			}
+
 			let result = event_loop(stream, worker_dir_path).await;
 
 			result
@@ -222,7 +253,7 @@ pub fn worker_event_loop<F, Fut>(
 		// It's never `Ok` because it's `Ok(Never)`.
 		.unwrap_err();
 
-	worker_shutdown_message(debug_id, worker_pid, err);
+	worker_shutdown_message(worker_kind, worker_pid, err);
 
 	// We don't want tokio to wait for the tasks to finish. We want to bring down the worker as fast
 	// as possible and not wait for stalled validation to finish. This isn't strictly necessary now,
@@ -231,8 +262,8 @@ pub fn worker_event_loop<F, Fut>(
 }
 
 /// Provide a consistent message on worker shutdown.
-fn worker_shutdown_message(debug_id: &'static str, worker_pid: u32, err: io::Error) {
-	gum::debug!(target: LOG_TARGET, %worker_pid, "quitting pvf worker ({}): {:?}", debug_id, err);
+fn worker_shutdown_message(worker_kind: WorkerKind, worker_pid: u32, err: io::Error) {
+	gum::debug!(target: LOG_TARGET, %worker_pid, "quitting pvf worker ({}): {:?}", worker_kind, err);
 }
 
 /// Loop that runs in the CPU time monitor thread on prepare and execute jobs. Continuously wakes up

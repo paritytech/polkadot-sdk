@@ -37,8 +37,8 @@ use polkadot_node_core_pvf_common::{
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
 	worker::{
+		WorkerKind,
 		cpu_time_monitor_loop,
-		security::LandlockStatus,
 		stringify_panic_payload,
 		thread::{self, WaitOutcome},
 		worker_event_loop,
@@ -123,7 +123,7 @@ pub fn worker_entrypoint(
 	security_status: SecurityStatus,
 ) {
 	worker_event_loop(
-		"prepare",
+		WorkerKind::Prepare,
 		worker_dir_path,
 		node_version,
 		worker_version,
@@ -131,40 +131,6 @@ pub fn worker_entrypoint(
 		|mut stream, worker_dir_path| async move {
 			let worker_pid = std::process::id();
 			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_dir_path);
-
-			// Try to enable landlock.
-			{
-				#[cfg(target_os = "linux")]
-				let landlock_status = {
-					use polkadot_node_core_pvf_common::worker::security::landlock::{
-						path_beneath_rules, try_restrict, AccessFs,
-					};
-
-					// Allow an exception for writing to the known file in the worker cache.
-					try_restrict(path_beneath_rules(&[&temp_artifact_dest], AccessFs::WriteFile))
-						.map(LandlockStatus::from_ruleset_status)
-						.map_err(|e| e.to_string())
-				};
-				#[cfg(not(target_os = "linux"))]
-				let landlock_status: Result<LandlockStatus, String> = Ok(LandlockStatus::NotEnforced);
-
-				// Error if the host determined that landlock is fully enabled and we couldn't fully
-				// enforce it here.
-				if security_status.can_enable_landlock &&
-					!matches!(landlock_status, Ok(LandlockStatus::FullyEnforced))
-				{
-					gum::warn!(
-						target: LOG_TARGET,
-						%worker_pid,
-						"could not fully enable landlock: {:?}",
-						landlock_status
-					);
-					return Err(io::Error::new(
-						io::ErrorKind::Other,
-						format!("could not fully enable landlock: {:?}", landlock_status),
-					))
-				}
-			}
 
 			loop {
 				let pvf = recv_request(&mut stream).await?;

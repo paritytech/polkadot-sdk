@@ -26,18 +26,21 @@
 //!   - Change the root directory to a worker-specific temporary directory.
 //! - Remove env vars
 
-use crate::LOG_TARGET;
+use crate::{worker::WorkerKind, LOG_TARGET};
+use std::path::Path;
 
 /// Unshare the user namespace and change root to be the artifact directory.
 #[cfg(target_os = "linux")]
 pub fn unshare_user_namespace_and_change_root(
-	worker_dir_path: &std::path::Path,
+	worker_kind: WorkerKind,
+	worker_dir_path: &Path,
 ) -> Result<(), &'static str> {
 	use std::{ffi::CString, os::unix::ffi::OsStrExt, ptr};
 
-	let worker_dir_path_c = CString::new(worker_dir_path.as_os_str().as_bytes()).unwrap();
-	let root_c = CString::new("/").unwrap();
-	let dot_c = CString::new(".").unwrap();
+	let worker_dir_path_c = CString::new(worker_dir_path.as_os_str().as_bytes())
+		.expect("on unix; the path will never contain 0 bytes; qed");
+	let root_c = CString::new("/").expect("input contains no 0 bytes; qed");
+	let dot_c = CString::new(".").expect("input contains no 0 bytes; qed");
 
 	// SAFETY: We pass null-terminated C strings and use the APIs as documented. In fact, steps (2)
 	//         and (3) are adapted from the example in pivot_root(2), with the additional change
@@ -72,11 +75,16 @@ pub fn unshare_user_namespace_and_change_root(
 			return Err("chdir to worker dir path")
 		}
 		// Ensure that the new root is a mount point.
+		let additional_flags =
+			if let WorkerKind::Execute = worker_kind { libc::MS_RDONLY } else { 0 };
 		if libc::mount(
 			dot_c.as_ptr(),
 			dot_c.as_ptr(),
 			ptr::null(), // ignored when MS_BIND is used
-			libc::MS_BIND | libc::MS_REC | libc::MS_NOEXEC | libc::MS_NODEV | libc::MS_NOSUID,
+			libc::MS_BIND |
+				libc::MS_REC | libc::MS_NOEXEC |
+				libc::MS_NODEV | libc::MS_NOSUID |
+				libc::MS_NOATIME | additional_flags,
 			ptr::null(), // ignored when MS_BIND is used
 		) < 0
 		{
@@ -96,7 +104,7 @@ pub fn unshare_user_namespace_and_change_root(
 }
 
 /// Delete all env vars to prevent malicious code from accessing them.
-pub fn remove_env_vars(debug_id: &'static str) {
+pub fn remove_env_vars(worker_kind: WorkerKind) {
 	for (key, value) in std::env::vars_os() {
 		// TODO: *theoretically* the value (or mere presence) of `RUST_LOG` can be a source of
 		// randomness for malicious code. In the future we can remove it also and log in the host;
@@ -125,7 +133,7 @@ pub fn remove_env_vars(debug_id: &'static str) {
 		if !err_reasons.is_empty() {
 			gum::warn!(
 				target: LOG_TARGET,
-				%debug_id,
+				%worker_kind,
 				?key,
 				?value,
 				"Attempting to remove badly-formatted env var, this may cause the PVF worker to crash. Please remove it yourself. Reasons: {:?}",
@@ -137,30 +145,7 @@ pub fn remove_env_vars(debug_id: &'static str) {
 	}
 }
 
-/// To what degree landlock is enabled. It's a separate struct from `RulesetStatus` because that is
-/// only available on Linux, plus this has a nicer name.
-#[derive(Debug)]
-pub enum LandlockStatus {
-	FullyEnforced,
-	PartiallyEnforced,
-	NotEnforced,
-	/// Thread panicked, we don't know what the status is.
-	Unavailable,
-}
-
-impl LandlockStatus {
-	#[cfg(target_os = "linux")]
-	pub fn from_ruleset_status(ruleset_status: ::landlock::RulesetStatus) -> Self {
-		use ::landlock::RulesetStatus::*;
-		match ruleset_status {
-			FullyEnforced => LandlockStatus::FullyEnforced,
-			PartiallyEnforced => LandlockStatus::PartiallyEnforced,
-			NotEnforced => LandlockStatus::NotEnforced,
-		}
-	}
-}
-
-/// The	[landlock] docs say it best:
+/// The [landlock] docs say it best:
 ///
 /// > "Landlock is a security feature available since Linux 5.13. The goal is to enable to restrict
 /// ambient rights (e.g., global filesystem access) for a set of processes by creating safe security
@@ -174,10 +159,12 @@ impl LandlockStatus {
 pub mod landlock {
 	pub use landlock::{path_beneath_rules, Access, AccessFs};
 
+	use crate::worker::WorkerKind;
 	use landlock::{
 		PathBeneath, PathFd, Ruleset, RulesetAttr, RulesetCreatedAttr, RulesetError, RulesetStatus,
 		ABI,
 	};
+	use std::path::Path;
 
 	/// Landlock ABI version. We use ABI V1 because:
 	///
@@ -208,29 +195,43 @@ pub mod landlock {
 	/// supports it or if it introduces some new feature that is beneficial to security.
 	pub const LANDLOCK_ABI: ABI = ABI::V1;
 
-	// TODO: <https://github.com/landlock-lsm/rust-landlock/issues/36>
-	/// Returns to what degree landlock is enabled with the given ABI on the current Linux
-	/// environment.
-	pub fn get_status() -> Result<RulesetStatus, Box<dyn std::error::Error>> {
-		match std::thread::spawn(|| try_restrict(std::iter::empty())).join() {
-			Ok(Ok(status)) => Ok(status),
-			Ok(Err(ruleset_err)) => Err(ruleset_err.into()),
-			Err(_err) => Err("a panic occurred in try_restrict".into()),
+	/// Tried to enable landlock for the given kind of worker.
+	pub fn enable_for_worker(
+		worker_kind: WorkerKind,
+		worker_dir_path: &Path,
+	) -> Result<RulesetStatus, String> {
+		use crate::worker_dir;
+
+		match worker_kind {
+			WorkerKind::Prepare => {
+				let temp_artifact_dest = worker_dir::prepare_tmp_artifact(worker_dir_path);
+
+				// Allow an exception for writing to the known file in the worker cache.
+				try_restrict(path_beneath_rules(&[&temp_artifact_dest], AccessFs::WriteFile))
+					.map_err(|e| e.to_string())
+			},
+			WorkerKind::Execute => {
+				let artifact_path = worker_dir::execute_artifact(worker_dir_path);
+
+				// Allow an exception for reading from the known artifact path.
+				try_restrict(path_beneath_rules(&[&artifact_path], AccessFs::ReadFile))
+					.map_err(|e| e.to_string())
+			},
 		}
 	}
 
-	/// Based on the given `status`, returns a single bool indicating whether the given landlock
-	/// ABI is fully enabled on the current Linux environment.
-	pub fn status_is_fully_enabled(
-		status: &Result<RulesetStatus, Box<dyn std::error::Error>>,
-	) -> bool {
-		matches!(status, Ok(RulesetStatus::FullyEnforced))
-	}
-
+	// TODO: <https://github.com/landlock-lsm/rust-landlock/issues/36>
 	/// Runs a check for landlock and returns a single bool indicating whether the given landlock
 	/// ABI is fully enabled on the current Linux environment.
 	pub fn check_is_fully_enabled() -> bool {
-		status_is_fully_enabled(&get_status())
+		let status_from_thread: Result<RulesetStatus, Box<dyn std::error::Error>> =
+			match std::thread::spawn(|| try_restrict(std::iter::empty())).join() {
+				Ok(Ok(status)) => Ok(status),
+				Ok(Err(ruleset_err)) => Err(ruleset_err.into()),
+				Err(_err) => Err("a panic occurred in try_restrict".into()),
+			};
+
+		matches!(status_from_thread, Ok(RulesetStatus::FullyEnforced))
 	}
 
 	/// Tries to restrict the current thread (should only be called in a process' main thread) with
@@ -244,7 +245,7 @@ pub mod landlock {
 	/// # Returns
 	///
 	/// The status of the restriction (whether it was fully, partially, or not-at-all enforced).
-	pub fn try_restrict(
+	fn try_restrict(
 		fs_exceptions: impl Iterator<Item = Result<PathBeneath<PathFd>, RulesetError>>,
 	) -> Result<RulesetStatus, RulesetError> {
 		let status = Ruleset::new()

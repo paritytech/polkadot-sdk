@@ -31,10 +31,9 @@ use polkadot_node_core_pvf_common::{
 	framed_recv, framed_send,
 	worker::{
 		cpu_time_monitor_loop,
-		security::LandlockStatus,
 		stringify_panic_payload,
 		thread::{self, WaitOutcome},
-		worker_event_loop,
+		worker_event_loop, WorkerKind,
 	},
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
@@ -128,7 +127,7 @@ pub fn worker_entrypoint(
 	security_status: SecurityStatus,
 ) {
 	worker_event_loop(
-		"execute",
+		WorkerKind::Execute,
 		worker_dir_path,
 		node_version,
 		worker_version,
@@ -141,40 +140,6 @@ pub fn worker_entrypoint(
 			let executor = Executor::new(executor_params).map_err(|e| {
 				io::Error::new(io::ErrorKind::Other, format!("cannot create executor: {}", e))
 			})?;
-
-			// Try to enable landlock.
-			{
-				#[cfg(target_os = "linux")]
-				let landlock_status = {
-					use polkadot_node_core_pvf_common::worker::security::landlock::{
-						path_beneath_rules, try_restrict, AccessFs,
-					};
-
-					// Allow an exception for reading from the known artifact path.
-					try_restrict(path_beneath_rules(&[&artifact_path], AccessFs::ReadFile))
-						.map(LandlockStatus::from_ruleset_status)
-						.map_err(|e| e.to_string())
-				};
-				#[cfg(not(target_os = "linux"))]
-				let landlock_status: Result<LandlockStatus, String> = Ok(LandlockStatus::NotEnforced);
-
-				// Error if the host determined that landlock is fully enabled and we couldn't fully
-				// enforce it here.
-				if security_status.can_enable_landlock &&
-					!matches!(landlock_status, Ok(LandlockStatus::FullyEnforced))
-				{
-					gum::warn!(
-						target: LOG_TARGET,
-						%worker_pid,
-						"could not fully enable landlock: {:?}",
-						landlock_status
-					);
-					return Err(io::Error::new(
-						io::ErrorKind::Other,
-						format!("could not fully enable landlock: {:?}", landlock_status),
-					))
-				}
-			}
 
 			loop {
 				let (params, execution_timeout) = recv_request(&mut stream).await?;
