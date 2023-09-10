@@ -37,11 +37,9 @@ use polkadot_node_core_pvf_common::{
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
 	worker::{
-		WorkerKind,
-		cpu_time_monitor_loop,
-		stringify_panic_payload,
+		cpu_time_monitor_loop, stringify_panic_payload,
 		thread::{self, WaitOutcome},
-		worker_event_loop,
+		worker_event_loop, WorkerKind,
 	},
 	worker_dir, ProcessTime, SecurityStatus,
 };

@@ -30,8 +30,7 @@ use polkadot_node_core_pvf_common::{
 	executor_intf::NATIVE_STACK_MAX,
 	framed_recv, framed_send,
 	worker::{
-		cpu_time_monitor_loop,
-		stringify_panic_payload,
+		cpu_time_monitor_loop, stringify_panic_payload,
 		thread::{self, WaitOutcome},
 		worker_event_loop, WorkerKind,
 	},
