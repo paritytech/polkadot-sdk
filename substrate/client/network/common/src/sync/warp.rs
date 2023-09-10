@@ -15,10 +15,9 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
-use futures::channel::oneshot;
 pub use sp_consensus_grandpa::{AuthorityList, SetId};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
-use std::{fmt, sync::Arc};
+use std::fmt;
 
 /// Scale-encoded warp sync proof response.
 pub struct EncodedProof(pub Vec<u8>);
@@ -28,16 +27,6 @@ pub struct EncodedProof(pub Vec<u8>);
 pub struct WarpProofRequest<B: BlockT> {
 	/// Start collecting proofs from this block.
 	pub begin: B::Hash,
-}
-
-/// The different types of warp syncing.
-pub enum WarpSyncParams<Block: BlockT> {
-	/// Standard warp sync for the chain.
-	WithProvider(Arc<dyn WarpSyncProvider<Block>>),
-	/// Skip downloading proofs and wait for a header of the state that should be downloaded.
-	///
-	/// It is expected that the header provider ensures that the header is trusted.
-	WaitForTarget(oneshot::Receiver<<Block as BlockT>::Header>),
 }
 
 /// Proof verification result.

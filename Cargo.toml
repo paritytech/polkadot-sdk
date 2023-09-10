@@ -454,6 +454,7 @@ members = [
 	"substrate/utils/prometheus",
 	"substrate/utils/wasm-builder",
 ]
+default-members = [ "polkadot" ]
 
 [profile.release]
 # Polkadot runtime requires unwinding.
