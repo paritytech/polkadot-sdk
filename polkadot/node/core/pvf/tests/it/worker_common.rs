@@ -14,34 +14,38 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use polkadot_node_core_pvf::testing::{spawn_with_program_path, SpawnErr};
 use std::time::Duration;
 
-#[cfg(test)]
-use polkadot_node_core_pvf::testing::{spawn_with_program_path, SpawnErr};
+fn worker_path(name: &str) -> std::path::PathBuf {
+	let mut worker_path = std::env::current_exe().unwrap();
+	worker_path.pop();
+	worker_path.pop();
+	worker_path.push(name);
+	worker_path
+}
 
 // Test spawning a program that immediately exits with a failure code.
 #[tokio::test]
 async fn spawn_immediate_exit() {
-	let mut worker_path = std::env::current_exe().unwrap();
-	worker_path.pop();
-	worker_path.pop();
-	worker_path.push("polkadot-prepare-worker");
-	let result =
-		spawn_with_program_path("integration-test", worker_path, &["exit"], Duration::from_secs(2))
-			.await;
+	// There's no explicit `exit` subcommand in the worker; it will panic on an unknown
+	// subcommand anyway
+	let result = spawn_with_program_path(
+		"integration-test",
+		worker_path("polkadot-prepare-worker"),
+		&["exit"],
+		Duration::from_secs(2),
+	)
+	.await;
 	assert!(matches!(result, Err(SpawnErr::AcceptTimeout)));
 }
 
 #[tokio::test]
 async fn spawn_timeout() {
-	let mut worker_path = std::env::current_exe().unwrap();
-	worker_path.pop();
-	worker_path.pop();
-	worker_path.push("polkadot-execute-worker");
 	let result = spawn_with_program_path(
 		"integration-test",
-		worker_path,
-		&["sleep"],
+		worker_path("polkadot-execute-worker"),
+		&["test-sleep"],
 		Duration::from_secs(2),
 	)
 	.await;
@@ -50,13 +54,9 @@ async fn spawn_timeout() {
 
 #[tokio::test]
 async fn should_connect() {
-	let mut worker_path = std::env::current_exe().unwrap();
-	worker_path.pop();
-	worker_path.pop();
-	worker_path.push("polkadot-prepare-worker");
 	let _ = spawn_with_program_path(
 		"integration-test",
-		worker_path,
+		worker_path("polkadot-prepare-worker"),
 		&["prepare-worker"],
 		Duration::from_secs(2),
 	)

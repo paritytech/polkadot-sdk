@@ -60,7 +60,7 @@ macro_rules! decl_worker_main {
 					println!("{}", $worker_version);
 					return
 				},
-				"sleep" => {
+				"test-sleep" => {
 					std::thread::sleep(std::time::Duration::from_secs(5));
 					return
 				},
