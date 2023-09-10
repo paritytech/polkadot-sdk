@@ -63,6 +63,7 @@ pub trait WeightInfo {
 	fn clean_open_channel_requests(c: u32) -> Weight;
 	fn force_open_hrmp_channel(c: u32) -> Weight;
 	fn establish_system_channel() -> Weight;
+	fn poke_channel_deposits() -> Weight;
 }
 
 /// A weight info that is only suitable for testing.
@@ -97,6 +98,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::MAX
 	}
 	fn establish_system_channel() -> Weight {
+		Weight::MAX
+	}
+	fn poke_channel_deposits() -> Weight {
 		Weight::MAX
 	}
 }
@@ -288,6 +292,9 @@ pub mod pallet {
 		/// An HRMP channel was opened between two system chains.
 		/// `[sender, recipient, proposed_max_capacity, proposed_max_message_size]`
 		HrmpSystemChannelOpened(ParaId, ParaId, u32, u32),
+		/// An HRMP channel's deposits were updated.
+		/// `[sender, recipient]`
+		OpenChannelDepositsUpdated(ParaId, ParaId),
 	}
 
 	#[pallet::error]
@@ -696,6 +703,87 @@ pub mod pallet {
 			));
 
 			Ok(Pays::No.into())
+		}
+
+		/// Update the deposits held for an HRMP channel. If at least one of the chains is a system
+		/// chain, any deposits held will be unreserved.
+		///
+		/// Arguments:
+		///
+		/// - `sender`: A chain, `ParaId`.
+		/// - `recipient`: A chain, `ParaId`.
+		///
+		/// Any signed origin can call this function.
+		#[pallet::call_index(9)]
+		#[pallet::weight(<T as Config>::WeightInfo::poke_channel_deposits())]
+		pub fn poke_channel_deposits(
+			origin: OriginFor<T>,
+			sender: ParaId,
+			recipient: ParaId,
+		) -> DispatchResult {
+			let _caller = ensure_signed(origin)?;
+			let channel_id = HrmpChannelId { sender, recipient };
+			let is_system = sender.is_system() || recipient.is_system();
+
+			let config = <configuration::Pallet<T>>::config();
+
+			// Channels with and amongst the system do not require a deposit.
+			let (new_sender_deposit, new_recipient_deposit) = if is_system {
+				(0, 0)
+			} else {
+				(config.hrmp_sender_deposit, config.hrmp_recipient_deposit)
+			};
+
+			let _ = HrmpChannels::<T>::mutate(&channel_id, |channel| -> DispatchResult {
+				if let Some(ref mut channel) = channel {
+					let current_sender_deposit = channel.sender_deposit;
+					let current_recipient_deposit = channel.recipient_deposit;
+
+					// nothing to update
+					if current_sender_deposit == new_sender_deposit &&
+						current_recipient_deposit == new_recipient_deposit
+					{
+						return Ok(())
+					}
+
+					// sender
+					if current_sender_deposit > new_sender_deposit {
+						T::Currency::unreserve(
+							&channel_id.sender.into_account_truncating(),
+							(current_sender_deposit - new_sender_deposit).unique_saturated_into(),
+						);
+					} else if current_sender_deposit < new_sender_deposit {
+						T::Currency::reserve(
+							&channel_id.sender.into_account_truncating(),
+							(new_sender_deposit - current_sender_deposit).unique_saturated_into(),
+						)?;
+					}
+
+					// recipient
+					if current_recipient_deposit > new_recipient_deposit {
+						T::Currency::unreserve(
+							&channel_id.recipient.into_account_truncating(),
+							(current_recipient_deposit - new_recipient_deposit)
+								.unique_saturated_into(),
+						);
+					} else if current_recipient_deposit < new_recipient_deposit {
+						T::Currency::reserve(
+							&channel_id.recipient.into_account_truncating(),
+							(new_recipient_deposit - current_recipient_deposit)
+								.unique_saturated_into(),
+						)?;
+					}
+
+					// update storage
+					channel.sender_deposit = new_sender_deposit;
+					channel.recipient_deposit = new_recipient_deposit;
+				}
+				Ok(())
+			});
+
+			Self::deposit_event(Event::OpenChannelDepositsUpdated(sender, recipient));
+
+			Ok(())
 		}
 	}
 }

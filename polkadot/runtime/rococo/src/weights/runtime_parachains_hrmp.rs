@@ -292,4 +292,7 @@ impl<T: frame_system::Config> runtime_parachains::hrmp::WeightInfo for WeightInf
 	fn establish_system_channel() -> Weight {
 		Weight::from_parts(1, 1)
 	}
+	fn poke_channel_deposits() -> Weight {
+		Weight::from_parts(1, 1)
+	}
 }
