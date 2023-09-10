@@ -1121,6 +1121,14 @@ async fn handle_peer_view_change<Context>(
 			},
 		};
 
+		// TODO [now]: too verbose
+		gum::debug!(
+			target: LOG_TARGET,
+			leaf = ?added,
+			relay_parents = ?block_hashes,
+			"Peer view change: new leaf, advertising for given relay parents"
+		);
+
 		for block_hash in block_hashes {
 			let per_relay_parent = match state.per_relay_parent.get_mut(block_hash) {
 				Some(per_relay_parent) => per_relay_parent,
