@@ -95,7 +95,7 @@ pallet-offences-benchmarking = { path = "../../../substrate/frame/offences/bench
 pallet-session-benchmarking = { path = "../../../substrate/frame/session/benchmarking", default-features = false, optional = true }
 hex-literal = { version = "0.4.1", optional = true }
 
-runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, features=["experimental"] }
+runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, features = ["experimental"] }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false }
