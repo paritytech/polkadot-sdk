@@ -108,6 +108,12 @@ const RECONNECT_TIMEOUT: Duration = Duration::from_secs(12);
 /// connected.
 type ReconnectTimeout = Fuse<futures_timer::Delay>;
 
+enum ShouldAdvertiseTo {
+	Yes,
+	NotAuthority,
+	AlreadyAdvertised,
+}
+
 /// Info about validators we are currently connected to.
 ///
 /// It keeps track to which validators we advertised our collation.
@@ -129,10 +135,10 @@ impl ValidatorGroup {
 		candidate_hash: &CandidateHash,
 		peer_ids: &HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
 		peer: &PeerId,
-	) -> bool {
+	) -> ShouldAdvertiseTo {
 		let authority_ids = match peer_ids.get(peer) {
 			Some(authority_ids) => authority_ids,
-			None => return false,
+			None => return ShouldAdvertiseTo::NotAuthority,
 		};
 
 		for id in authority_ids {
@@ -151,11 +157,13 @@ impl ValidatorGroup {
 				.get(candidate_hash)
 				.map_or(true, |advertised| !advertised[validator_index])
 			{
-				return true
+				return ShouldAdvertiseTo::Yes
+			} else {
+				return ShouldAdvertiseTo::AlreadyAdvertised
 			}
 		}
 
-		false
+		ShouldAdvertiseTo::NotAuthority
 	}
 
 	/// Should be called after we advertised our collation to the given `peer` to keep track of it.
@@ -687,22 +695,38 @@ async fn advertise_collation<Context>(
 				.validator_group
 				.should_advertise_to(candidate_hash, peer_ids, &peer);
 
-		if !should_advertise {
-			gum::debug!(
-				target: LOG_TARGET,
-				?relay_parent,
-				peer_id = %peer,
-				"Not advertising collation since validator is not interested",
-			);
-			continue
+		match should_advertise {
+			ShouldAdvertiseTo::Yes => {}
+			ShouldAdvertiseTo::NotAuthority => {
+				gum::trace!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?candidate_hash,
+					peer_id = %peer,
+					"Not advertising collation: not relevant to peer"
+				);
+				continue
+			}
+			ShouldAdvertiseTo::AlreadyAdvertised => {
+				gum::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?candidate_hash,
+					peer_id = %peer,
+					"Not advertising collation: already advertised"
+				);
+				continue
+			}
 		}
 
 		gum::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
+			?candidate_hash,
 			peer_id = %peer,
 			"Advertising collation.",
 		);
+
 		collation.status.advance_to_advertised();
 
 		let collation_message = match protocol_version {
