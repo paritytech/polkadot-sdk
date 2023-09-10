@@ -1,6 +1,60 @@
 # This file is part of .gitlab-ci.yml
 # Here are all jobs that are executed during "publish" stage
 
+publish-rustdoc:
+  stage: publish
+  extends: .kubernetes-env
+  variables:
+    CI_IMAGE: node:18
+    GIT_DEPTH: 100
+    RUSTDOCS_DEPLOY_REFS: "master"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_REF_NAME == "master"
+    - if: $CI_COMMIT_REF_NAME == "master"
+  needs:
+    - job: build-rustdoc
+      artifacts: true
+  script:
+    # If $CI_COMMIT_REF_NAME doesn't match one of $RUSTDOCS_DEPLOY_REFS space-separated values, we
+    # exit immediately.
+    # Putting spaces at the front and back to ensure we are not matching just any substring, but the
+    # whole space-separated value.
+    # setup ssh
+    - eval $(ssh-agent)
+    - ssh-add - <<< ${GITHUB_SSH_PRIV_KEY}
+    - mkdir ~/.ssh && touch ~/.ssh/known_hosts
+    - ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+    # Set git config
+    - git config user.email "devops-team@parity.io"
+    - git config user.name "${GITHUB_USER}"
+    - git config remote.origin.url "git@github.com:/paritytech/${CI_PROJECT_NAME}.git"
+    - git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+    - git fetch origin gh-pages
+    # Save README and docs
+    - cp -r ./crate-docs/ /tmp/doc/
+    - cp README.md /tmp/doc/
+    # we don't need to commit changes because we copy docs to /tmp
+    - git checkout gh-pages --force
+    # Install `index-tpl-crud` and generate index.html based on RUSTDOCS_DEPLOY_REFS
+    - which index-tpl-crud &> /dev/null || yarn global add @substrate/index-tpl-crud
+    - index-tpl-crud upsert ./index.html ${CI_COMMIT_REF_NAME}
+    # Ensure the destination dir doesn't exist.
+    - rm -rf ${CI_COMMIT_REF_NAME}
+    - mv -f /tmp/doc ${CI_COMMIT_REF_NAME}
+    # Upload files
+    - git add --all
+    # `git commit` has an exit code of > 0 if there is nothing to commit.
+    # This causes GitLab to exit immediately and marks this job failed.
+    # We don't want to mark the entire job failed if there's nothing to
+    # publish though, hence the `|| true`.
+    - git commit -m "___Updated docs for ${CI_COMMIT_REF_NAME}___" ||
+      echo "___Nothing to commit___"
+    - git push origin gh-pages --force
+  after_script:
+    - rm -rf .git/ ./*
+
 # cumulus
 
 .build-push-image:
@@ -35,7 +89,7 @@ build-push-image-polkadot-parachain-debug:
     - job: build-linux-stable-cumulus
       artifacts: true
   variables:
-    DOCKERFILE: "docker/polkadot-parachain-debug_unsigned_injected.Dockerfile"
+    DOCKERFILE: "docker/dockerfiles/polkadot-parachain/polkadot-parachain-debug_unsigned_injected.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/polkadot-parachain-debug"
 
 build-push-image-test-parachain:
@@ -48,7 +102,7 @@ build-push-image-test-parachain:
     - job: build-test-parachain
       artifacts: true
   variables:
-    DOCKERFILE: "docker/test-parachain_injected.Dockerfile"
+    DOCKERFILE: "docker/dockerfiles/test-parachain_injected.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/test-parachain"
 # publish-s3:
 #   stage: publish
@@ -114,7 +168,7 @@ build-push-image-polkadot-debug:
     - job: build-linux-stable
       artifacts: true
   variables:
-    DOCKERFILE: "docker/polkadot_injected_debug.Dockerfile"
+    DOCKERFILE: "docker/dockerfiles/polkadot/polkadot_injected_debug.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/polkadot-debug"
 
 build-push-image-colander:
@@ -127,7 +181,7 @@ build-push-image-colander:
     - job: build-test-collators
       artifacts: true
   variables:
-    DOCKERFILE: "docker/collator_injected.Dockerfile"
+    DOCKERFILE: "docker/dockerfiles/collator_injected.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/colander"
 
 build-push-image-malus:
@@ -140,7 +194,7 @@ build-push-image-malus:
     - job: build-malus
       artifacts: true
   variables:
-    DOCKERFILE: "docker/malus_injected.Dockerfile"
+    DOCKERFILE: "docker/dockerfiles/malus_injected.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/malus"
 
 build-push-image-substrate-pr:
@@ -153,7 +207,7 @@ build-push-image-substrate-pr:
     - job: build-linux-substrate
       artifacts: true
   variables:
-    DOCKERFILE: "docker/substrate_injected.Dockerfile"
+    DOCKERFILE: "docker/dockerfiles/substrate_injected.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/substrate"
 # old way
 
@@ -201,7 +255,7 @@ build-push-image-substrate-pr:
 #     GIT_STRATEGY: none
 #     DOCKER_USER: ${PARITYPR_USER}
 #     DOCKER_PASS: ${PARITYPR_PASS}
-#     # scripts/ci/dockerfiles/polkadot_injected_debug.Dockerfile
+#     # docker/dockerfiles/polkadot/polkadot_injected_debug.Dockerfile
 #     DOCKERFILE: polkadot_injected_debug.Dockerfile
 #     IMAGE_NAME: docker.io/paritypr/polkadot-debug
 #   needs:
@@ -230,7 +284,7 @@ build-push-image-substrate-pr:
 #     GIT_STRATEGY: none
 #     DOCKER_USER: ${PARITYPR_USER}
 #     DOCKER_PASS: ${PARITYPR_PASS}
-#     # scripts/ci/dockerfiles/collator_injected.Dockerfile
+#     # docker/dockerfiles/collator_injected.Dockerfile
 #     DOCKERFILE: collator_injected.Dockerfile
 #     IMAGE_NAME: docker.io/paritypr/colander
 #   needs:
@@ -258,7 +312,7 @@ build-push-image-substrate-pr:
 #     GIT_STRATEGY: none
 #     DOCKER_USER: ${PARITYPR_USER}
 #     DOCKER_PASS: ${PARITYPR_PASS}
-#     # scripts/ci/dockerfiles/malus_injected.Dockerfile
+#     # docker/dockerfiles/malus_injected.Dockerfile
 #     DOCKERFILE: malus_injected.Dockerfile
 #     IMAGE_NAME: docker.io/paritypr/malus
 #   needs:
