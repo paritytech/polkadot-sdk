@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use self::test_helpers::mock::new_leaf;
 use super::*;
 use polkadot_node_primitives::{
 	approval::{
@@ -26,7 +27,7 @@ use polkadot_node_subsystem::{
 	messages::{
 		AllMessages, ApprovalVotingMessage, AssignmentCheckResult, AvailabilityRecoveryMessage,
 	},
-	ActivatedLeaf, ActiveLeavesUpdate, LeafStatus,
+	ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
@@ -777,12 +778,7 @@ async fn import_block(
 	overseer_send(
 		overseer,
 		FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
-			ActivatedLeaf {
-				hash: *new_head,
-				number,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			},
+			new_leaf(*new_head, number),
 		))),
 	)
 	.await;
