@@ -777,24 +777,6 @@ pub mod v6 {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			ensure!(
-				PoolMembers::<T>::iter_keys().count() == PoolMembers::<T>::iter_values().count(),
-				"There are undecodable PoolMembers in storage. This migration will not fix that."
-			);
-			ensure!(
-				BondedPools::<T>::iter_keys().count() == BondedPools::<T>::iter_values().count(),
-				"There are undecodable BondedPools in storage. This migration will not fix that."
-			);
-			ensure!(
-				SubPoolsStorage::<T>::iter_keys().count() ==
-					SubPoolsStorage::<T>::iter_values().count(),
-				"There are undecodable SubPools in storage. This migration will not fix that."
-			);
-			ensure!(
-				Metadata::<T>::iter_keys().count() == Metadata::<T>::iter_values().count(),
-				"There are undecodable Metadata in storage. This migration will not fix that."
-			);
-
 			Ok(Vec::new())
 		}
 
@@ -823,25 +805,6 @@ pub mod v6 {
 			ensure!(
 				Pallet::<T>::on_chain_storage_version() >= 6,
 				"nomination-pools::migration::v6: wrong storage version"
-			);
-
-			// These should not have been touched - just in case.
-			ensure!(
-				PoolMembers::<T>::iter_keys().count() == PoolMembers::<T>::iter_values().count(),
-				"There are undecodable PoolMembers in storage."
-			);
-			ensure!(
-				BondedPools::<T>::iter_keys().count() == BondedPools::<T>::iter_values().count(),
-				"There are undecodable BondedPools in storage."
-			);
-			ensure!(
-				SubPoolsStorage::<T>::iter_keys().count() ==
-					SubPoolsStorage::<T>::iter_values().count(),
-				"There are undecodable SubPools in storage."
-			);
-			ensure!(
-				Metadata::<T>::iter_keys().count() == Metadata::<T>::iter_values().count(),
-				"There are undecodable Metadata in storage."
 			);
 
 			Ok(())
