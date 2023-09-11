@@ -3366,7 +3366,7 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 		// As the slashed account belongs to a `BondedPool` the `TotalValueLocked` decreases and
 		// an event is emitted.
 		TotalValueLocked::<T>::mutate(|tvl| {
-			tvl.saturating_reduce(total_slashed);
+			tvl.defensive_saturating_reduce(total_slashed);
 		});
 
 		if let Some(mut sub_pools) = SubPoolsStorage::<T>::get(pool_id) {
