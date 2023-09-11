@@ -76,19 +76,19 @@ pub fn expand_outer_task(pallet_decls: &[Pallet], scrate: &TokenStream2) -> Toke
 
 			fn is_valid(&self) -> bool {
 				match self {
-					#(#variant_names(val) => val.is_valid()),*
+					#(RuntimeTask::#variant_names(val) => val.is_valid()),*
 				}
 			}
 
 			fn run(&self) -> Result<(), #scrate::traits::tasks::prelude::DispatchError> {
 				match self {
-					#(#variant_names(val) => val.run()),*
+					#(RuntimeTask::#variant_names(val) => val.run()),*
 				}
 			}
 
 			fn weight(&self) -> #scrate::pallet_prelude::Weight {
 				match self {
-					#(#variant_names(val) => val.weight()),*
+					#(RuntimeTask::#variant_names(val) => val.weight()),*
 				}
 			}
 
