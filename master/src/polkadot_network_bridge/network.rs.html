@@ -246,6 +246,7 @@
 <a href="#246" id="246">246</a>
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -309,6 +310,7 @@
 	<span class="kw">let </span>message = {
 		<span class="kw">let </span>encoded = message.encode();
 		metrics.on_notification_sent(peer_set, version, encoded.len(), peers.len());
+		metrics.on_message(std::any::type_name::&lt;M&gt;());
 		encoded
 	};
 

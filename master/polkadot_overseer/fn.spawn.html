@@ -4,7 +4,7 @@
     signal_tx: MeteredSender&lt;<a class="enum" href="enum.OverseerSignal.html" title="enum polkadot_overseer::OverseerSignal">OverseerSignal</a>&gt;,
     unbounded_meter: Meter,
     ctx: Ctx,
-    s: SubSys,
+    subsystem: SubSys,
     subsystem_name: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.str.html">str</a>,
     futures: &amp;mut FuturesUnordered&lt;BoxFuture&lt;'static, <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.SubsystemError.html" title="enum polkadot_overseer::SubsystemError">SubsystemError</a>&gt;&gt;&gt;
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.OrchestratedSubsystem.html" title="struct polkadot_overseer::OrchestratedSubsystem">OrchestratedSubsystem</a>&lt;M&gt;, <a class="enum" href="enum.SubsystemError.html" title="enum polkadot_overseer::SubsystemError">SubsystemError</a>&gt;<span class="where fmt-newline">where

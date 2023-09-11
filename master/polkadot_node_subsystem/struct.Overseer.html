@@ -22,8 +22,8 @@
 and wait for all subsystems to go down.</p>
 <p>The definition of a termination signal is up to the user and
 implementation specific.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.broadcast_signal" class="method"><a class="srclink rightside" href="../src/polkadot_overseer/lib.rs.html#456-462">source</a><h4 class="code-header">pub async fn <a href="#method.broadcast_signal" class="fn">broadcast_signal</a>(
-    &amp;mut self,
+</div></details><details class="toggle method-toggle" open><summary><section id="method.broadcast_signal" class="method"><a class="srclink rightside" href="../src/polkadot_overseer/lib.rs.html#456-462">source</a><h4 class="code-header">pub async fn <a href="#method.broadcast_signal" class="fn">broadcast_signal</a>&lt;'a&gt;(
+    &amp;'a mut self,
     signal: <a class="enum" href="enum.OverseerSignal.html" title="enum polkadot_node_subsystem::OverseerSignal">OverseerSignal</a>
 ) -&gt; impl <a class="trait" href="gen/trait.Future.html" title="trait polkadot_node_subsystem::gen::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.SubsystemError.html" title="enum polkadot_node_subsystem::SubsystemError">SubsystemError</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Broadcast a signal to all subsystems.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.route_message" class="method"><a class="srclink rightside" href="../src/polkadot_overseer/lib.rs.html#456-462">source</a><h4 class="code-header">pub async fn <a href="#method.route_message" class="fn">route_message</a>(
