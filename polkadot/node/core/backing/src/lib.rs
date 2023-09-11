@@ -1588,7 +1588,7 @@ async fn import_statement<Context>(
 
 	// Don't import statement if the sender is disabled
 	if rp_state.table_context.validator_is_disabled(&stmt.sender) {
-		gum::warn!(
+		gum::debug!(
 			target: LOG_TARGET,
 			sender_validator_idx = ?stmt.sender,
 			"Not importing statement because the sender is disabled"
