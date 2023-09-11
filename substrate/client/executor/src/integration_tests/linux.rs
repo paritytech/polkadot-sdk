@@ -69,16 +69,16 @@ fn memory_consumption(wasm_method: WasmExecutionMethod) {
 		Smaps::new().get_rss(base_addr).expect("failed to get rss")
 	}
 
-	let (_, probe_1) = instance
+	let (_, ptr_1) = instance
 		.call_export_with_base_ptr("test_dirty_plenty_memory", &(heap_base as u32, 1u32).encode())
 		.unwrap();
-	let (_, probe_2) = instance
+	let (_, ptr_2) = instance
 		.call_export_with_base_ptr(
 			"test_dirty_plenty_memory",
 			&(heap_base as u32, 1024u32).encode(),
 		)
 		.unwrap();
 
-	assert_eq!(probe_rss(probe_1.unwrap()), 0);
-	assert_eq!(probe_rss(probe_2.unwrap()), 0);
+	assert_eq!(probe_rss(ptr_1.unwrap()), 0);
+	assert_eq!(probe_rss(ptr_2.unwrap()), 0);
 }
