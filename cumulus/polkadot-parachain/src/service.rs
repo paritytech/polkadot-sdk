@@ -93,7 +93,6 @@ impl sc_executor::NativeExecutionDispatch for ShellRuntimeExecutor {
 
 /// Native Asset Hub Polkadot (Statemint) executor instance.
 pub struct AssetHubPolkadotRuntimeExecutor;
-
 impl sc_executor::NativeExecutionDispatch for AssetHubPolkadotRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -108,7 +107,6 @@ impl sc_executor::NativeExecutionDispatch for AssetHubPolkadotRuntimeExecutor {
 
 /// Native Asset Hub Kusama (Statemine) executor instance.
 pub struct AssetHubKusamaExecutor;
-
 impl sc_executor::NativeExecutionDispatch for AssetHubKusamaExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -123,7 +121,6 @@ impl sc_executor::NativeExecutionDispatch for AssetHubKusamaExecutor {
 
 /// Native Asset Hub Westend (Westmint) executor instance.
 pub struct AssetHubWestendExecutor;
-
 impl sc_executor::NativeExecutionDispatch for AssetHubWestendExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -138,7 +135,6 @@ impl sc_executor::NativeExecutionDispatch for AssetHubWestendExecutor {
 
 /// Native Polkadot Collectives executor instance.
 pub struct CollectivesPolkadotRuntimeExecutor;
-
 impl sc_executor::NativeExecutionDispatch for CollectivesPolkadotRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -153,7 +149,6 @@ impl sc_executor::NativeExecutionDispatch for CollectivesPolkadotRuntimeExecutor
 
 /// Native BridgeHubPolkadot executor instance.
 pub struct BridgeHubPolkadotRuntimeExecutor;
-
 impl sc_executor::NativeExecutionDispatch for BridgeHubPolkadotRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -168,7 +163,6 @@ impl sc_executor::NativeExecutionDispatch for BridgeHubPolkadotRuntimeExecutor {
 
 /// Native BridgeHubKusama executor instance.
 pub struct BridgeHubKusamaRuntimeExecutor;
-
 impl sc_executor::NativeExecutionDispatch for BridgeHubKusamaRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -183,7 +177,6 @@ impl sc_executor::NativeExecutionDispatch for BridgeHubKusamaRuntimeExecutor {
 
 /// Native BridgeHubRococo executor instance.
 pub struct BridgeHubRococoRuntimeExecutor;
-
 impl sc_executor::NativeExecutionDispatch for BridgeHubRococoRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -198,7 +191,6 @@ impl sc_executor::NativeExecutionDispatch for BridgeHubRococoRuntimeExecutor {
 
 /// Native contracts executor instance.
 pub struct ContractsRococoRuntimeExecutor;
-
 impl sc_executor::NativeExecutionDispatch for ContractsRococoRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -213,7 +205,6 @@ impl sc_executor::NativeExecutionDispatch for ContractsRococoRuntimeExecutor {
 
 /// Native Glutton executor instance.
 pub struct GluttonRuntimeExecutor;
-
 impl sc_executor::NativeExecutionDispatch for GluttonRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -223,6 +214,30 @@ impl sc_executor::NativeExecutionDispatch for GluttonRuntimeExecutor {
 
 	fn native_version() -> sc_executor::NativeVersion {
 		shell_runtime::native_version()
+	}
+}
+
+/// Native `PeoplePolkadot` executor instance.
+pub struct PeoplePolkadotRuntimeExecutor;
+impl sc_executor::NativeExecutionDispatch for PeoplePolkadotRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		people_polkadot_runtime::api::dispatch(method, data)
+	}
+	fn native_version() -> sc_executor::NativeVersion {
+		people_polkadot_runtime::native_version()
+	}
+}
+
+/// Native `PeopleKusama` executor instance.
+pub struct PeopleKusamaRuntimeExecutor;
+impl sc_executor::NativeExecutionDispatch for PeopleKusamaRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		people_kusama_runtime::api::dispatch(method, data)
+	}
+	fn native_version() -> sc_executor::NativeVersion {
+		people_kusama_runtime::native_version()
 	}
 }
 

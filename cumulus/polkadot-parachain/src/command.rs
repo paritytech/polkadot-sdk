@@ -49,6 +49,7 @@ enum Runtime {
 	CollectivesWestend,
 	Glutton,
 	BridgeHub(chain_spec::bridge_hubs::BridgeHubRuntimeType),
+	People(chain_spec::people::PeopleRuntimeType),
 }
 
 trait RuntimeResolver {
@@ -107,6 +108,8 @@ fn runtime(id: &str) -> Runtime {
 		)
 	} else if id.starts_with("glutton") {
 		Runtime::Glutton
+	} else if id.starts_with(chain_spec::people::PeopleRuntimeType::ID_PREFIX) {
+		Runtime::People(id.parse::<chain_spec::people::PeopleRuntimeType>().expect("Invalid value"))
 	} else {
 		log::warn!("No specific runtime was recognized for ChainSpec's id: '{}', so Runtime::default() will be used", id);
 		Runtime::default()
@@ -234,6 +237,14 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 			para_id.expect("Must specify parachain id"),
 		)),
 
+		// -- People
+		people_like_id
+			if people_like_id.starts_with(chain_spec::people::PeopleRuntimeType::ID_PREFIX) =>
+			people_like_id
+				.parse::<chain_spec::people::PeopleRuntimeType>()
+				.expect("invalid value")
+				.load_config()?,
+
 		// -- Fallback (generic chainspec)
 		"" => {
 			log::warn!("No ChainSpec.id specified, so using default one, based on rococo-parachain runtime");
@@ -267,6 +278,8 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 					Box::new(chain_spec::penpal::PenpalChainSpec::from_json_file(path)?),
 				Runtime::Glutton =>
 					Box::new(chain_spec::glutton::GluttonChainSpec::from_json_file(path)?),
+				Runtime::People(people_runtime_type) =>
+					people_runtime_type.chain_spec_from_json_file(path)?,
 				Runtime::Default => Box::new(
 					chain_spec::rococo_parachain::RococoParachainChainSpec::from_json_file(path)?,
 				),
@@ -623,7 +636,59 @@ macro_rules! construct_async_run {
 					let task_manager = $components.task_manager;
 					{ $( $code )* }.map(|v| (v, task_manager))
 				})
-			}
+			},
+			Runtime::People(people_runtime_type) => {
+				match people_runtime_type {
+				 	chain_spec::people::PeopleRuntimeType::Polkadot |
+					chain_spec::people::PeopleRuntimeType::PolkadotLocal |
+					chain_spec::people::PeopleRuntimeType::PolkadotDevelopment => {
+						runner.async_run(|$config| {
+							let $components = new_partial::<chain_spec::people::polkadot::RuntimeApi, _>(
+								&$config,
+								crate::service::aura_build_import_queue::<_, AuraId>,
+							)?;
+
+							let task_manager = $components.task_manager;
+							{ $( $code )* }.map(|v| (v, task_manager))
+						})
+					},
+					chain_spec::people::PeopleRuntimeType::Kusama |
+					chain_spec::people::PeopleRuntimeType::KusamaLocal |
+					chain_spec::people::PeopleRuntimeType::KusamaDevelopment => {
+						runner.async_run(|$config| {
+							let $components = new_partial::<chain_spec::people::kusama::RuntimeApi, _>(
+								&$config,
+								crate::service::aura_build_import_queue::<_, AuraId>,
+							)?;
+
+							let task_manager = $components.task_manager;
+							{ $( $code )* }.map(|v| (v, task_manager))
+						})
+					},
+					chain_spec::people::PeopleRuntimeType::Rococo => {
+						runner.async_run(|$config| {
+							let $components = new_partial::<chain_spec::people::rococo::RuntimeApi, _>(
+								&$config,
+								crate::service::aura_build_import_queue::<_, AuraId>,
+							)?;
+
+							let task_manager = $components.task_manager;
+							{ $( $code )* }.map(|v| (v, task_manager))
+						})
+					},
+					chain_spec::people::PeopleRuntimeType::Westend => {
+						runner.async_run(|$config| {
+							let $components = new_partial::<chain_spec::people::westend::RuntimeApi, _>(
+								&$config,
+								crate::service::aura_build_import_queue::<_, AuraId>,
+							)?;
+
+							let task_manager = $components.task_manager;
+							{ $( $code )* }.map(|v| (v, task_manager))
+						})
+					},
+				}
+		    }
 		}
 	}}
 }
@@ -923,6 +988,41 @@ pub fn run() -> Result<()> {
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into),
+					Runtime::People(people_runtime_type) => match people_runtime_type {
+						chain_spec::people::PeopleRuntimeType::Polkadot |
+						chain_spec::people::PeopleRuntimeType::PolkadotLocal |
+						chain_spec::people::PeopleRuntimeType::PolkadotDevelopment =>
+							crate::service::start_generic_aura_node::<
+								chain_spec::people::polkadot::RuntimeApi,
+								AuraId,
+							>(config, polkadot_config, collator_options, id, hwbench)
+								.await
+								.map(|r| r.0),
+						chain_spec::people::PeopleRuntimeType::Kusama |
+						chain_spec::people::PeopleRuntimeType::KusamaLocal |
+						chain_spec::people::PeopleRuntimeType::KusamaDevelopment =>
+							crate::service::start_generic_aura_node::<
+								chain_spec::people::kusama::RuntimeApi,
+								AuraId,
+							>(config, polkadot_config, collator_options, id, hwbench)
+							.await
+							.map(|r| r.0),
+						chain_spec::people::PeopleRuntimeType::Rococo =>
+							crate::service::start_generic_aura_node::<
+								chain_spec::people::rococo::RuntimeApi,
+								AuraId,
+							>(config, polkadot_config, collator_options, id, hwbench)
+							.await
+							.map(|r| r.0),
+						chain_spec::people::PeopleRuntimeType::Westend =>
+							crate::service::start_generic_aura_node::<
+								chain_spec::people::westend::RuntimeApi,
+								AuraId,
+							>(config, polkadot_config, collator_options, id, hwbench)
+							.await
+							.map(|r| r.0),
+					}
+					.map_err(Into::into),
 				}
 			})
 		},
