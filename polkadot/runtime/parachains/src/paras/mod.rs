@@ -1551,7 +1551,14 @@ impl<T: Config> Pallet<T> {
 					weight += Self::proceed_with_onboarding(*id, sessions_observed);
 				},
 				PvfCheckCause::Upgrade { id, included_at, set_go_ahead } => {
-					weight += Self::proceed_with_upgrade(*id, code_hash, now, *included_at, cfg, *set_go_ahead);
+					weight += Self::proceed_with_upgrade(
+						*id,
+						code_hash,
+						now,
+						*included_at,
+						cfg,
+						*set_go_ahead,
+					);
 				},
 			}
 		}
