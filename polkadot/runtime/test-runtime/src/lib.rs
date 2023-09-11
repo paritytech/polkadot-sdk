@@ -44,6 +44,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{Everything, KeyOwnerProofSystem, WithdrawReasons},
+	PalletId,
 };
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_session::historical as session_historical;
@@ -321,6 +322,7 @@ parameter_types! {
 	pub const OnChainMaxWinners: u32 = u32::MAX;
 	// Unbounded number of election targets and voters.
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default().build();
+	pub const BurnAccountId: PalletId = PalletId(*b"burnburn");
 }
 
 pub struct OnChainSeqPhragmen;
@@ -351,6 +353,7 @@ impl pallet_staking::Config for Runtime {
 	type AdminOrigin = frame_system::EnsureNever<()>;
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type TreasuryPalletId = BurnAccountId; // burn inflation if treasury fraction > 0.
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type NextNewSession = Session;
