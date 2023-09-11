@@ -55,22 +55,6 @@ test-linux-oldkernel-stable:
   tags:
     - oldkernel-vm
 
-# https://github.com/paritytech/ci_cd/issues/864
-test-linux-stable-runtime-benchmarks:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
-  variables:
-    RUST_TOOLCHAIN: stable
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-  script:
-    - time cargo nextest run --features runtime-benchmarks benchmark --locked --cargo-profile testnet
-
 # can be used to run all tests
 # test-linux-stable-all:
 #   stage: test
@@ -97,7 +81,7 @@ test-linux-stable-runtime-benchmarks:
 #         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
 #     # todo: add flacky-test collector
 
-# for some reasons these tests fail if run with all tests
+# TODO: remove me
 test-linux-stable-additional-tests:
   stage: test
   extends:
@@ -115,7 +99,24 @@ test-linux-stable-additional-tests:
     # the jobs should be removed
     - exit 0
 
-# these ones can be really slow so it's better to run them separately
+
+# https://github.com/paritytech/ci_cd/issues/864
+test-linux-stable-runtime-benchmarks:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .pipeline-stopper-artifacts
+  variables:
+    RUST_TOOLCHAIN: stable
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+  script:
+    - time cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+
+# TODO: remove me
 test-linux-stable-slow:
   stage: test
   # remove after cache is setup
@@ -172,7 +173,7 @@ test-doc:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
-    - time cargo test --doc
+    - time cargo test --doc --workspace
 
 test-rustdoc:
   stage: test
@@ -355,7 +356,7 @@ quick-benchmarks:
     WASM_BUILD_NO_COLOR: 1
     WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
   script:
-    - time cargo run --locked --release --features runtime-benchmarks -- benchmark pallet --execution wasm --wasm-execution compiled --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
+    - time cargo run --locked --release -p node-cli --bin substrate-node --features runtime-benchmarks -- benchmark pallet --execution wasm --wasm-execution compiled --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
 
 test-frame-examples-compile-to-wasm:
   # into one job
