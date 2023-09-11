@@ -216,7 +216,21 @@ where
 					};
 
 					match peer_map.entry(peer) {
-						hash_map::Entry::Occupied(_) => continue,
+						hash_map::Entry::Occupied(e) => {
+							if peer_set == PeerSet::Collation {
+								// TODO [now]: just for debug
+								gum::debug!(
+									target: LOG_TARGET,
+									action = "PeerConnected",
+									peer_set = ?peer_set,
+									peer = ?peer,
+									known_view = ?e.get().view,
+									"Already connected?"
+								);
+							}
+
+							continue
+						},
 						hash_map::Entry::Vacant(vacant) => {
 							vacant.insert(PeerData { view: View::default(), version });
 						},
@@ -288,6 +302,14 @@ where
 							&mut sender,
 						)
 						.await;
+
+						gum::debug!(
+							target: LOG_TARGET,
+							action = "PeerConnected",
+							peer = ?peer,
+							?local_view,
+							"Informing collation peer of our view"
+						);
 
 						match CollationVersion::try_from(version)
 							.expect("try_get_protocol has already checked version is known; qed")
