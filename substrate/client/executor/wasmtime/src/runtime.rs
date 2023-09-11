@@ -120,9 +120,29 @@ impl WasmtimeInstance {
 				let mut instance_wrapper = instance_creator.instantiate()?;
 				let heap_base = instance_wrapper.extract_heap_base()?;
 				let entrypoint = instance_wrapper.resolve_entrypoint(method)?;
-
 				let allocator = FreeingBumpHeapAllocator::new(heap_base);
+
 				perform_call(data, &mut instance_wrapper, entrypoint, allocator, allocation_stats)
+			},
+		}
+	}
+
+	/// **Testing Only**. This function returns the base address of the linear memory.
+	fn call_impl_with_base_ptr(
+		&mut self,
+		method: InvokeMethod,
+		data: &[u8],
+	) -> Result<(Vec<u8>, Option<*const u8>)> {
+		match &mut self.strategy {
+			Strategy::RecreateInstance(ref mut instance_creator) => {
+				let mut instance_wrapper = instance_creator.instantiate()?;
+				let heap_base = instance_wrapper.extract_heap_base()?;
+				let entrypoint = instance_wrapper.resolve_entrypoint(method)?;
+				let allocator = FreeingBumpHeapAllocator::new(heap_base);
+				let bytes =
+					perform_call(data, &mut instance_wrapper, entrypoint, allocator, &mut None)?;
+
+				Ok((bytes, Some(instance_wrapper.base_ptr())))
 			},
 		}
 	}
@@ -139,20 +159,18 @@ impl WasmInstance for WasmtimeInstance {
 		(result, allocation_stats)
 	}
 
+	fn call_export_with_base_ptr(
+		&mut self,
+		method: &str,
+		data: &[u8],
+	) -> std::result::Result<(Vec<u8>, Option<*const u8>), Error> {
+		self.call_impl_with_base_ptr(method.into(), data)
+	}
+
 	fn get_global_const(&mut self, name: &str) -> Result<Option<Value>> {
 		match &mut self.strategy {
 			Strategy::RecreateInstance(ref mut instance_creator) =>
 				instance_creator.instantiate()?.get_global_val(name),
-		}
-	}
-
-	fn linear_memory_base_ptr(&self) -> Option<*const u8> {
-		match &self.strategy {
-			Strategy::RecreateInstance(_) => {
-				// We do not keep the wasm instance around, therefore there is no linear memory
-				// associated with it.
-				None
-			},
 		}
 	}
 }

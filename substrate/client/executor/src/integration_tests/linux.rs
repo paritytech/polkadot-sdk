@@ -64,20 +64,18 @@ fn memory_consumption(wasm_method: WasmExecutionMethod) {
 		.as_i32()
 		.expect("`__heap_base` is an `i32`");
 
-	fn probe_rss(instance: &dyn sc_executor_common::wasm_runtime::WasmInstance) -> usize {
-		let base_addr = instance.linear_memory_base_ptr().unwrap() as usize;
+	fn probe_rss(base_ptr: *const u8) -> usize {
+		let base_addr = base_ptr as usize;
 		Smaps::new().get_rss(base_addr).expect("failed to get rss")
 	}
 
-	instance
-		.call_export("test_dirty_plenty_memory", &(heap_base as u32, 1u32).encode())
+	let (_, probe_1) = instance
+		.call_export_with_base_ptr("test_dirty_plenty_memory", &(heap_base as u32, 1u32).encode())
 		.unwrap();
-	let probe_1 = probe_rss(&*instance);
-	instance
-		.call_export("test_dirty_plenty_memory", &(heap_base as u32, 1024u32).encode())
+	let (_, probe_2) = instance
+		.call_export_with_base_ptr("test_dirty_plenty_memory", &(heap_base as u32, 1024u32).encode())
 		.unwrap();
-	let probe_2 = probe_rss(&*instance);
 
-	assert_eq!(probe_1, 0);
-	assert_eq!(probe_2, 0);
+	assert_eq!(probe_rss(probe_1), Some(0));
+	assert_eq!(probe_rss(probe_2), Some(0));
 }
