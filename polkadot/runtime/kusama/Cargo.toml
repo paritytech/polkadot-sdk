@@ -28,6 +28,7 @@ offchain-primitives = { package = "sp-offchain", path = "../../../substrate/prim
 sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false }
 sp-arithmetic = { path = "../../../substrate/primitives/arithmetic", default-features = false }
+sp-genesis-builder = { path = "../../../substrate/primitives/genesis-builder", default-features = false }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 sp-mmr-primitives = { path = "../../../substrate/primitives/merkle-mountain-range", default-features = false }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
@@ -211,6 +212,7 @@ std = [
 	"sp-application-crypto/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
+	"sp-genesis-builder/std",
 	"sp-io/std",
 	"sp-mmr-primitives/std",
 	"sp-npos-elections/std",
@@ -342,9 +344,13 @@ try-runtime = [
 # A feature that should be enabled when the runtime should be build for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller like logging for example.
-on-chain-release-build = [ "sp-api/disable-logging" ]
+on-chain-release-build = [ "disable-genesis-builder", "sp-api/disable-logging" ]
 
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
 fast-runtime = []
 
 runtime-metrics = [ "runtime-parachains/runtime-metrics", "sp-io/with-tracing" ]
+
+# When enabled, the GenesisBuilder API will not be supprted, GenesisConfig shall be
+# stripped from the final binary
+disable-genesis-builder = []
