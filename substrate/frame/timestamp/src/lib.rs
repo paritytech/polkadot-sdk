@@ -102,13 +102,13 @@
 //! information about how hooks work.
 //!
 //! Because inherents are applied to a block in the order they appear in the runtime
-//! construction, the index position of this pallet in
-//! [`construct_runtime`](frame_support::construct_runtime) must always be before any other pallets'
-//! index that depends on it.
+//! construction, the index of this pallet in
+//! [`construct_runtime`](frame_support::construct_runtime) must always be less than any other pallet
+//! that depends on it.
 //!
-//! The [`Config::OnTimestampSet`] configuration trait can be used to notify another pallet that a
-//! timestamp has been updated for any pallet that implements [`OnTimestampSet`] (e.g. the Babe and
-//! Aura pallets).
+//! The [`Config::OnTimestampSet`] configuration trait can be set to another pallet we want to notify that
+//! the timestamp has been updated, as long as it implements [`OnTimestampSet`]. Examples are the Babe and
+//! Aura pallets.
 //! This pallet also implements [`Time`] and [`UnixTime`] so it can be used to configure other
 //! pallets that require these types (e.g. in Staking pallet).
 //!
