@@ -3900,14 +3900,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-test-relay-validation-worker-provider"
-version = "0.1.0"
-dependencies = [
- "polkadot-node-core-pvf",
- "toml 0.7.6",
-]
-
-[[package]]
 name = "cumulus-test-runtime"
 version = "0.1.0"
 dependencies = [
@@ -3958,7 +3950,6 @@ dependencies = [
  "cumulus-relay-chain-minimal-node",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
- "cumulus-test-relay-validation-worker-provider",
  "cumulus-test-runtime",
  "frame-system",
  "frame-system-rpc-runtime-api",
@@ -12018,7 +12009,6 @@ dependencies = [
  "slotmap",
  "sp-core",
  "sp-maybe-compressed-blob",
- "sp-tracing",
  "sp-wasm-interface",
  "substrate-build-script-utils",
  "tempfile",
@@ -18462,7 +18452,6 @@ dependencies = [
  "sp-keyring",
  "substrate-test-utils",
  "test-parachain-adder",
- "test-parachain-adder-collator",
  "tokio",
 ]
 
@@ -18511,7 +18500,6 @@ dependencies = [
  "sp-keyring",
  "substrate-test-utils",
  "test-parachain-undying",
- "test-parachain-undying-collator",
  "tokio",
 ]
 
