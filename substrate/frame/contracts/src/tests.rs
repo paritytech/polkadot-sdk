@@ -35,8 +35,8 @@ use crate::{
 	wasm::{Determinism, ReturnCode as RuntimeReturnCode},
 	weights::WeightInfo,
 	BalanceOf, Code, CodeHash, CodeInfoOf, CollectEvents, Config, ContractInfo, ContractInfoOf,
-	DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error, HoldReason,
-	MigrationInProgress, Origin, Pallet, PristineCode, Schedule,
+	ContractOrigin, DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error,
+	HoldReason, MigrationInProgress, Pallet, PristineCode, Schedule,
 };
 use assert_matches::assert_matches;
 use codec::Encode;
@@ -74,7 +74,7 @@ frame_support::construct_runtime!(
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Randomness: pallet_insecure_randomness_collective_flip::{Pallet, Storage},
 		Utility: pallet_utility::{Pallet, Call, Storage, Event},
-		Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>, HoldReason},
+		Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>, HoldReason, Origin<T>},
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>},
 		Dummy: pallet_dummy
 	}
@@ -401,7 +401,9 @@ impl pallet_proxy::Config for Test {
 	type AnnouncementDepositFactor = ConstU64<1>;
 }
 
-impl pallet_dummy::Config for Test {}
+impl pallet_dummy::Config for Test {
+	type ContractOrigin =  pallet_dummy::EnsureContract<crate::AccountIdOf<Test>>;
+}
 
 parameter_types! {
 	pub MySchedule: Schedule<Test> = {
@@ -457,7 +459,18 @@ parameter_types! {
 	pub static UnstableInterface: bool = true;
 }
 
+// // TODO automate somehow??
+// impl From<ContractOrigin<AccountId32>> for RuntimeOrigin {
+// 	fn from(o: ContractOrigin<AccountId32>) -> Self {
+// 		match o {
+// 			ContractOrigin::Root => RuntimeOrigin::root(),
+// 			ContractOrigin::Signed(a) => RuntimeOrigin::signed(a),
+// 		}
+// 	}
+// }
+
 impl Config for Test {
+	type RuntimeOrigin = RuntimeOrigin;
 	type Time = Timestamp;
 	type Randomness = Randomness;
 	type Currency = Balances;
@@ -605,7 +618,7 @@ impl<'a> From<ExtensionInput<'a>> for Vec<u8> {
 	}
 }
 
-impl Default for Origin<crate::AccountIdOf<Test>> {
+impl Default for ContractOrigin<crate::AccountIdOf<Test>> {
 	fn default() -> Self {
 		Self::Signed(ALICE)
 	}
@@ -1269,21 +1282,24 @@ fn deploy_and_call_other_contract() {
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(crate::Event::Called {
-						caller: Origin::from_account_id(caller_addr.clone()),
+						caller: ContractOrigin::from_account_id(caller_addr.clone()),
 						contract: callee_addr.clone(),
 					}),
 					topics: vec![
-						hash(&Origin::from_account_id(caller_addr.clone())),
+						hash(&ContractOrigin::from_account_id(caller_addr.clone())),
 						hash(&callee_addr)
 					],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(crate::Event::Called {
-						caller: Origin::from_account_id(ALICE),
+						caller: ContractOrigin::from_account_id(ALICE),
 						contract: caller_addr.clone(),
 					}),
-					topics: vec![hash(&Origin::from_account_id(ALICE)), hash(&caller_addr)],
+					topics: vec![
+						hash(&ContractOrigin::from_account_id(ALICE)),
+						hash(&caller_addr)
+					],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -1614,10 +1630,13 @@ fn self_destruct_works() {
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(crate::Event::Called {
-						caller: Origin::from_account_id(ALICE),
+						caller: ContractOrigin::from_account_id(ALICE),
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&Origin::from_account_id(ALICE)), hash(&addr)],
+					topics: vec![
+						hash(&ContractOrigin::from_account_id(ALICE)),
+						hash(&addr)
+					],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -4015,10 +4034,13 @@ fn storage_deposit_works() {
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(crate::Event::Called {
-						caller: Origin::from_account_id(ALICE),
+						caller: ContractOrigin::from_account_id(ALICE),
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&Origin::from_account_id(ALICE)), hash(&addr)],
+					topics: vec![
+						hash(&ContractOrigin::from_account_id(ALICE)),
+						hash(&addr)
+					],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -4034,10 +4056,13 @@ fn storage_deposit_works() {
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(crate::Event::Called {
-						caller: Origin::from_account_id(ALICE),
+						caller: ContractOrigin::from_account_id(ALICE),
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&Origin::from_account_id(ALICE)), hash(&addr)],
+					topics: vec![
+						hash(&ContractOrigin::from_account_id(ALICE)),
+						hash(&addr)
+					],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -4053,10 +4078,13 @@ fn storage_deposit_works() {
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(crate::Event::Called {
-						caller: Origin::from_account_id(ALICE),
+						caller: ContractOrigin::from_account_id(ALICE),
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&Origin::from_account_id(ALICE)), hash(&addr)],
+					topics: vec![
+						hash(&ContractOrigin::from_account_id(ALICE)),
+						hash(&addr)
+					],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -4559,22 +4587,22 @@ fn set_code_hash() {
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(crate::Event::Called {
-						caller: Origin::from_account_id(ALICE),
+						caller: ContractOrigin::from_account_id(ALICE),
 						contract: contract_addr.clone(),
 					}),
 					topics: vec![
-						hash(&Origin::from_account_id(ALICE)),
+						hash(&ContractOrigin::from_account_id(ALICE)),
 						hash(&contract_addr)
 					],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(crate::Event::Called {
-						caller: Origin::from_account_id(ALICE),
+						caller: ContractOrigin::from_account_id(ALICE),
 						contract: contract_addr.clone(),
 					}),
 					topics: vec![
-						hash(&Origin::from_account_id(ALICE)),
+						hash(&ContractOrigin::from_account_id(ALICE)),
 						hash(&contract_addr)
 					],
 				},
@@ -5942,4 +5970,28 @@ fn balance_api_returns_free_balance() {
 			<Error<Test>>::ContractTrapped
 		);
 	});
+}
+
+#[test]
+fn dispatch_contract_only() {
+	use frame_support::error::BadOrigin;
+	use sp_runtime::traits::Dispatchable;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let call = RuntimeCall::Dummy(pallet_dummy::Call::contract_only {});
+
+		// dispatch from signed contract origin
+		let origin: <Test as Config>::RuntimeOrigin = ContractOrigin::Signed(ALICE.into()).into();
+		assert_ok!(call.clone().dispatch(origin));
+
+		// dispatch from root contract origin
+		let origin: <Test as Config>::RuntimeOrigin = ContractOrigin::Root.into();
+		assert_err!(call.clone().dispatch(origin), BadOrigin);
+
+		// dispatch from signed system origin
+		let origin: <Test as frame_system::Config>::RuntimeOrigin =
+			frame_system::RawOrigin::Signed(ALICE.into()).into();
+
+		assert_err!(call.dispatch(origin), BadOrigin);
+	})
 }

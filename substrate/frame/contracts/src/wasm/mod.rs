@@ -456,7 +456,7 @@ mod tests {
 		gas::GasMeter,
 		storage::WriteOutcome,
 		tests::{RuntimeCall, Test, ALICE, BOB},
-		BalanceOf, CodeHash, Error, Origin, Pallet as Contracts,
+		BalanceOf, CodeHash, ContractOrigin, Error, Pallet as Contracts,
 	};
 	use assert_matches::assert_matches;
 	use frame_support::{
@@ -526,7 +526,7 @@ mod tests {
 		ecdsa_recover: RefCell<Vec<([u8; 65], [u8; 32])>>,
 		sr25519_verify: RefCell<Vec<([u8; 64], Vec<u8>, [u8; 32])>>,
 		code_hashes: Vec<CodeHash<Test>>,
-		caller: Origin<AccountIdOf<Test>>,
+		caller: ContractOrigin<AccountIdOf<Test>>,
 		delegate_dependencies: RefCell<HashSet<CodeHash<Test>>>,
 	}
 
@@ -639,7 +639,7 @@ mod tests {
 			}
 			Ok(result)
 		}
-		fn caller(&self) -> Origin<AccountIdOf<Self::T>> {
+		fn caller(&self) -> ContractOrigin<AccountIdOf<Self::T>> {
 			self.caller.clone()
 		}
 		fn is_contract(&self, _address: &AccountIdOf<Self::T>) -> bool {
@@ -656,7 +656,7 @@ mod tests {
 			false
 		}
 		fn caller_is_root(&self) -> bool {
-			&self.caller == &Origin::Root
+			&self.caller == &ContractOrigin::Root
 		}
 		fn address(&self) -> &AccountIdOf<Self::T> {
 			&BOB
@@ -1621,7 +1621,7 @@ mod tests {
 	#[test]
 	fn caller_traps_when_no_account_id() {
 		let mut ext = MockExt::default();
-		ext.caller = Origin::Root;
+		ext.caller = ContractOrigin::Root;
 		assert_eq!(
 			execute(CODE_CALLER, vec![], ext),
 			Err(ExecError { error: DispatchError::RootNotAllowed, origin: ErrorOrigin::Caller })
@@ -3139,7 +3139,7 @@ mod tests {
 		let output = execute(
 			CODE_CALLER_IS_ROOT,
 			vec![],
-			MockExt { caller: Origin::Root, ..MockExt::default() },
+			MockExt { caller: ContractOrigin::Root, ..MockExt::default() },
 		)
 		.unwrap();
 		assert_eq!(output, ExecReturnValue { flags: ReturnFlags::empty(), data: 1u32.encode() },);
