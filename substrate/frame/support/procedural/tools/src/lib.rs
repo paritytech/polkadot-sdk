@@ -48,7 +48,7 @@ pub fn generate_crate_access(unique_id: &str, def_crate: &str) -> TokenStream {
 
 /// Generate the crate access for the crate using 2018 syntax.
 ///
-/// It tries to find `<def_crate>`.
+/// It tries to find `<def_crate>` and returns it as a path.
 pub fn generate_crate_access_2018(def_crate: &str) -> Result<syn::Path, Error> {
 	let indent = match crate_name(def_crate) {
 		Ok(FoundCrate::Itself) => {
