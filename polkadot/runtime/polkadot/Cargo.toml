@@ -94,7 +94,7 @@ pallet-session-benchmarking = { path = "../../../substrate/frame/session/benchma
 pallet-nomination-pools-benchmarking = { path = "../../../substrate/frame/nomination-pools/benchmarking", default-features = false, optional = true }
 hex-literal = { version = "0.4.1", optional = true }
 
-runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false }
+runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, features = ["experimental"] }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
 
@@ -107,7 +107,7 @@ hex-literal = "0.4.1"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
 sp-trie = { path = "../../../substrate/primitives/trie" }
-serde_json = "1.0.96"
+serde_json = "1.0.106"
 separator = "0.4.1"
 remote-externalities = { package = "frame-remote-externalities" , path = "../../../substrate/utils/frame/remote-externalities" }
 tokio = { version = "1.24.2", features = ["macros"] }

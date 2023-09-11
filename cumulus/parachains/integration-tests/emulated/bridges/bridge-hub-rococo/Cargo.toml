@@ -3,6 +3,7 @@ name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
+license = "Apache-2.0"
 description = "Bridge Hub Rococo runtime integration tests with xcm-emulator"
 publish = false
 
@@ -24,8 +25,8 @@ pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-featu
 parachains-common = { path = "../../../../common" }
 cumulus-pallet-xcmp-queue = { path = "../../../../../pallets/xcmp-queue", default-features = false}
 cumulus-pallet-dmp-queue = { path = "../../../../../pallets/dmp-queue", default-features = false}
-pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false}
-bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false}
+pallet-bridge-messages = { path = "../../../../../../bridges/modules/messages", default-features = false}
+bp-messages = { path = "../../../../../../bridges/primitives/messages", default-features = false}
 
 # Local
 xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false}

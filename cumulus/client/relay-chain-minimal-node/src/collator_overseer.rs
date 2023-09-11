@@ -36,13 +36,14 @@ use polkadot_node_network_protocol::{
 use polkadot_node_subsystem_util::metrics::{prometheus::Registry, Metrics};
 use polkadot_overseer::{
 	BlockInfo, DummySubsystem, Handle, Overseer, OverseerConnector, OverseerHandle, SpawnGlue,
-	KNOWN_LEAVES_CACHE_SIZE,
+	UnpinHandle, KNOWN_LEAVES_CACHE_SIZE,
 };
 use polkadot_primitives::CollatorPair;
 
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_network::NetworkStateInfo;
 use sc_service::TaskManager;
+use sc_utils::mpsc::tracing_unbounded;
 use sp_runtime::traits::Block as BlockT;
 
 use cumulus_primitives_core::relay_chain::{Block, Hash as PHash};
@@ -221,20 +222,25 @@ async fn forward_collator_events(
 ) -> Result<(), RelayChainError> {
 	let mut finality = client.finality_notification_stream().await?.fuse();
 	let mut imports = client.import_notification_stream().await?.fuse();
+	// Collators do no need to pin any specific blocks
+	let (dummy_sink, _) = tracing_unbounded("does-not-matter", 42);
+	let dummy_unpin_handle = UnpinHandle::new(Default::default(), dummy_sink);
 
 	loop {
 		select! {
 			f = finality.next() => {
 				match f {
 					Some(header) => {
+						let hash = header.hash();
 						tracing::info!(
 							target: "minimal-polkadot-node",
 							"Received finalized block via RPC: #{} ({} -> {})",
 							header.number,
 							header.parent_hash,
-							header.hash()
+							hash,
 						);
-						let block_info = BlockInfo { hash: header.hash(), parent_hash: header.parent_hash, number: header.number };
+						let unpin_handle = dummy_unpin_handle.clone();
+						let block_info = BlockInfo { hash, parent_hash: header.parent_hash, number: header.number, unpin_handle };
 						handle.block_finalized(block_info).await;
 					}
 					None => return Err(RelayChainError::GenericError("Relay chain finality stream ended.".to_string())),
@@ -243,14 +249,16 @@ async fn forward_collator_events(
 			i = imports.next() => {
 				match i {
 					Some(header) => {
+						let hash = header.hash();
 						tracing::info!(
 							target: "minimal-polkadot-node",
 							"Received imported block via RPC: #{} ({} -> {})",
 							header.number,
 							header.parent_hash,
-							header.hash()
+							hash,
 						);
-						let block_info = BlockInfo { hash: header.hash(), parent_hash: header.parent_hash, number: header.number };
+						let unpin_handle = dummy_unpin_handle.clone();
+						let block_info = BlockInfo { hash, parent_hash: header.parent_hash, number: header.number, unpin_handle };
 						handle.block_imported(block_info).await;
 					}
 					None => return Err(RelayChainError::GenericError("Relay chain import stream ended.".to_string())),
