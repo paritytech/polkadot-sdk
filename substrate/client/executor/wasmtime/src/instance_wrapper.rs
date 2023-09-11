@@ -26,7 +26,7 @@ use sc_executor_common::{
 };
 use sp_wasm_interface::{Pointer, Value, WordSize};
 use wasmtime::{
-	AsContext, AsContextMut, Engine, Extern, Instance, InstancePre, Memory, Table, Val,
+	AsContext, AsContextMut, Engine, Extern, Instance, InstancePre, Memory, Mutability, Table, Val,
 };
 
 /// Invoked entrypoint format.
@@ -116,12 +116,12 @@ impl EntryPoint {
 pub(crate) struct MemoryWrapper<'a, C>(pub &'a wasmtime::Memory, pub &'a mut C);
 
 impl<C: AsContextMut> sc_allocator::Memory for MemoryWrapper<'_, C> {
-	fn with_access<R>(&self, run: impl FnOnce(&[u8]) -> R) -> R {
-		run(self.0.data(&self.1))
-	}
-
 	fn with_access_mut<R>(&mut self, run: impl FnOnce(&mut [u8]) -> R) -> R {
 		run(self.0.data_mut(&mut self.1))
+	}
+
+	fn with_access<R>(&self, run: impl FnOnce(&[u8]) -> R) -> R {
+		run(self.0.data(&self.1))
 	}
 
 	fn grow(&mut self, additional: u32) -> std::result::Result<(), ()> {
@@ -272,6 +272,9 @@ impl InstanceWrapper {
 		};
 
 		let global = global.into_global().ok_or_else(|| format!("`{}` is not a global", name))?;
+		if global.ty(&self.store).mutability() != Mutability::Const {
+			return Err(format!("`{}` is not a const global", name).into())
+		}
 
 		match global.get(&mut self.store) {
 			Val::I32(val) => Ok(Some(Value::I32(val))),
