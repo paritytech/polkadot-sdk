@@ -351,6 +351,6 @@ fast-runtime = []
 
 runtime-metrics = [ "runtime-parachains/runtime-metrics", "sp-io/with-tracing" ]
 
-# When enabled, the GenesisBuilder API will not be supprted, GenesisConfig shall be
+# When enabled, the GenesisBuilder API will not be supported, GenesisConfig shall be
 # stripped from the final binary
 disable-genesis-builder = []
