@@ -35,6 +35,7 @@ sp-runtime = { path = "../../primitives/runtime", default-features = false}
 sp-state-machine = { path = "../../primitives/state-machine" }
 sp-statement-store = { path = "../../primitives/statement-store" }
 sp-storage = { path = "../../primitives/storage" }
+sp-trie = { path = "../../primitives/trie" }
 
 [dev-dependencies]
 thiserror = "1.0.48"

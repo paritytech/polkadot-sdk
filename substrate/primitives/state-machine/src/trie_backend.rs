@@ -30,7 +30,6 @@ use codec::Codec;
 use hash_db::HashDB;
 use hash_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion};
-use sp_trie::PrefixedMemoryDB;
 #[cfg(feature = "std")]
 use sp_trie::{
 	cache::{LocalTrieCache, TrieCache},
@@ -39,6 +38,7 @@ use sp_trie::{
 };
 #[cfg(not(feature = "std"))]
 use sp_trie::{Error, NodeCodec};
+use sp_trie::{MerkleValue, PrefixedMemoryDB};
 use trie_db::TrieCache as TrieCacheT;
 #[cfg(not(feature = "std"))]
 use trie_db::{node::NodeOwned, CachedValue};
@@ -405,7 +405,7 @@ where
 		self.essence.child_storage(child_info, key)
 	}
 
-	fn closest_merkle_value(&self, key: &[u8]) -> Result<Option<H::Out>, Self::Error> {
+	fn closest_merkle_value(&self, key: &[u8]) -> Result<Option<MerkleValue<H::Out>>, Self::Error> {
 		self.essence.closest_merkle_value(key)
 	}
 
@@ -413,7 +413,7 @@ where
 		&self,
 		child_info: &ChildInfo,
 		key: &[u8],
-	) -> Result<Option<H::Out>, Self::Error> {
+	) -> Result<Option<MerkleValue<H::Out>>, Self::Error> {
 		self.essence.child_closest_merkle_value(child_info, key)
 	}
 

@@ -37,7 +37,7 @@ use sp_state_machine::{
 };
 use sp_trie::{
 	cache::{CacheSize, SharedTrieCache},
-	prefixed_key, MemoryDB,
+	prefixed_key, MemoryDB, MerkleValue,
 };
 use std::{
 	cell::{Cell, RefCell},
@@ -382,7 +382,10 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for BenchmarkingState<B> {
 			.child_storage_hash(child_info, key)
 	}
 
-	fn closest_merkle_value(&self, key: &[u8]) -> Result<Option<B::Hash>, Self::Error> {
+	fn closest_merkle_value(
+		&self,
+		key: &[u8],
+	) -> Result<Option<MerkleValue<B::Hash>>, Self::Error> {
 		self.add_read_key(None, key);
 		self.state.borrow().as_ref().ok_or_else(state_err)?.closest_merkle_value(key)
 	}
@@ -391,7 +394,7 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for BenchmarkingState<B> {
 		&self,
 		child_info: &ChildInfo,
 		key: &[u8],
-	) -> Result<Option<B::Hash>, Self::Error> {
+	) -> Result<Option<MerkleValue<B::Hash>>, Self::Error> {
 		self.add_read_key(None, key);
 		self.state
 			.borrow()

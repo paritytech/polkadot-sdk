@@ -28,6 +28,7 @@ use sp_state_machine::{
 	backend::{AsTrieBackend, Backend as StateBackend},
 	BackendTransaction, IterArgs, StorageIterator, StorageKey, StorageValue, TrieBackend,
 };
+use sp_trie::MerkleValue;
 use std::sync::Arc;
 
 /// State abstraction for recording stats about state access.
@@ -144,7 +145,10 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 		self.state.child_storage_hash(child_info, key)
 	}
 
-	fn closest_merkle_value(&self, key: &[u8]) -> Result<Option<B::Hash>, Self::Error> {
+	fn closest_merkle_value(
+		&self,
+		key: &[u8],
+	) -> Result<Option<MerkleValue<B::Hash>>, Self::Error> {
 		self.state.closest_merkle_value(key)
 	}
 
@@ -152,7 +156,7 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 		&self,
 		child_info: &ChildInfo,
 		key: &[u8],
-	) -> Result<Option<B::Hash>, Self::Error> {
+	) -> Result<Option<MerkleValue<B::Hash>>, Self::Error> {
 		self.state.child_closest_merkle_value(child_info, key)
 	}
 
