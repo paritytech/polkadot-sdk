@@ -898,8 +898,6 @@ impl<T: Config> Pallet<T> {
 
 			Ok(())
 		})
-
-		// TODO: Come up with more invariants: https://github.com/paritytech/substrate/issues/12831
 	}
 }
 
