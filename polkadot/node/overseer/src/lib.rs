@@ -62,14 +62,13 @@
 use std::{
 	collections::{hash_map, HashMap},
 	fmt::{self, Debug},
-	num::NonZeroUsize,
 	pin::Pin,
 	sync::Arc,
 	time::Duration,
 };
 
 use futures::{channel::oneshot, future::BoxFuture, select, Future, FutureExt, StreamExt};
-use lru::LruCache;
+use schnellru::LruMap;
 
 use client::{BlockImportNotification, BlockchainEvents, FinalityNotification};
 use polkadot_primitives::{Block, BlockNumber, Hash};
@@ -88,7 +87,7 @@ use polkadot_node_subsystem_types::messages::{
 pub use polkadot_node_subsystem_types::{
 	errors::{SubsystemError, SubsystemResult},
 	jaeger, ActivatedLeaf, ActiveLeavesUpdate, LeafStatus, OverseerSignal,
-	RuntimeApiSubsystemClient,
+	RuntimeApiSubsystemClient, UnpinHandle,
 };
 
 pub mod metrics;
@@ -113,10 +112,7 @@ pub use orchestra::{
 
 /// Store 2 days worth of blocks, not accounting for forks,
 /// in the LRU cache. Assumes a 6-second block time.
-pub const KNOWN_LEAVES_CACHE_SIZE: NonZeroUsize = match NonZeroUsize::new(2 * 24 * 3600 / 6) {
-	Some(cap) => cap,
-	None => panic!("Known leaves cache size must be non-zero"),
-};
+pub const KNOWN_LEAVES_CACHE_SIZE: u32 = 2 * 24 * 3600 / 6;
 
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 mod memory_stats;
@@ -249,23 +245,35 @@ impl Handle {
 /// `HeaderBackend::block_number_from_id()`.
 #[derive(Debug, Clone)]
 pub struct BlockInfo {
-	/// hash of the block.
+	/// Hash of the block.
 	pub hash: Hash,
-	/// hash of the parent block.
+	/// Hash of the parent block.
 	pub parent_hash: Hash,
-	/// block's number.
+	/// Block's number.
 	pub number: BlockNumber,
+	/// A handle to unpin the block on drop.
+	pub unpin_handle: UnpinHandle,
 }
 
 impl From<BlockImportNotification<Block>> for BlockInfo {
 	fn from(n: BlockImportNotification<Block>) -> Self {
-		BlockInfo { hash: n.hash, parent_hash: n.header.parent_hash, number: n.header.number }
+		let hash = n.hash;
+		let parent_hash = n.header.parent_hash;
+		let number = n.header.number;
+		let unpin_handle = n.into_unpin_handle();
+
+		BlockInfo { hash, parent_hash, number, unpin_handle }
 	}
 }
 
 impl From<FinalityNotification<Block>> for BlockInfo {
 	fn from(n: FinalityNotification<Block>) -> Self {
-		BlockInfo { hash: n.hash, parent_hash: n.header.parent_hash, number: n.header.number }
+		let hash = n.hash;
+		let parent_hash = n.header.parent_hash;
+		let number = n.header.number;
+		let unpin_handle = n.into_unpin_handle();
+
+		BlockInfo { hash, parent_hash, number, unpin_handle }
 	}
 }
 
@@ -632,7 +640,7 @@ pub struct Overseer<SupportsParachains> {
 	pub supports_parachains: SupportsParachains,
 
 	/// An LRU cache for keeping track of relay-chain heads that have already been seen.
-	pub known_leaves: LruCache<Hash, ()>,
+	pub known_leaves: LruMap<Hash, ()>,
 
 	/// Various Prometheus metrics.
 	pub metrics: OverseerMetrics,
@@ -796,6 +804,7 @@ where
 				hash: block.hash,
 				number: block.number,
 				status,
+				unpin_handle: block.unpin_handle,
 				span,
 			}),
 			None => ActiveLeavesUpdate::default(),
@@ -880,9 +889,10 @@ where
 		let span = Arc::new(span);
 		self.span_per_active_leaf.insert(*hash, span.clone());
 
-		let status = if let Some(_) = self.known_leaves.put(*hash, ()) {
+		let status = if self.known_leaves.get(hash).is_some() {
 			LeafStatus::Stale
 		} else {
+			self.known_leaves.insert(*hash, ());
 			LeafStatus::Fresh
 		};
 

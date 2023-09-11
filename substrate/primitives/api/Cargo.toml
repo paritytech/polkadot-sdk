@@ -1,11 +1,11 @@
 [package]
 name = "sp-api"
 version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Substrate runtime api primitives"
 readme = "README.md"
 
@@ -23,7 +23,7 @@ sp-version = { path = "../version", default-features = false}
 sp-state-machine = { path = "../state-machine", default-features = false, optional = true}
 sp-trie = { path = "../trie", default-features = false, optional = true}
 hash-db = { git = "https://github.com/paritytech/trie.git", branch = "lexnv/expose_merkle_value", optional = true }
-thiserror = { version = "1.0.30", optional = true }
+thiserror = { version = "1.0.48", optional = true }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 sp-metadata-ir = { path = "../metadata-ir", default-features = false, optional = true}
 log = { version = "0.4.17", default-features = false }

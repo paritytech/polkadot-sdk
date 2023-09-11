@@ -1,8 +1,8 @@
 [package]
-authors = ["Parity Technologies <admin@parity.io>"]
+authors.workspace = true
 name = "cumulus-relay-chain-rpc-interface"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
 
 
 [dependencies]
@@ -33,11 +33,11 @@ tracing = "0.1.37"
 async-trait = "0.1.73"
 url = "2.4.0"
 serde_json = "1.0.105"
-serde = "1.0.183"
-lru = "0.11.0"
+serde = "1.0.188"
+schnellru = "0.2.1"
 smoldot = { version = "0.11.0",  default_features = false, features = ["std"]}
 smoldot-light = { version = "0.9.0", default_features = false, features = ["std"] }
 either = "1.8.1"
-thiserror = "1.0.38"
+thiserror = "1.0.48"
 rand = "0.8.5"
 pin-project = "1.1.3"

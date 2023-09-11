@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-service"
 rust-version = "1.60"
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -77,16 +77,16 @@ frame-benchmarking = { path = "../../../substrate/frame/benchmarking" }
 futures = "0.3.21"
 hex-literal = "0.4.1"
 gum = { package = "tracing-gum", path = "../gum" }
-serde = { version = "1.0.163", features = ["derive"] }
+serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.96"
-thiserror = "1.0.31"
+thiserror = "1.0.48"
 kvdb = "0.13.0"
 kvdb-rocksdb = { version = "0.19.0", optional = true }
 parity-db = { version = "0.4.8", optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 
 async-trait = "0.1.57"
-lru = "0.11.0"
+schnellru = "0.2.1"
 log = "0.4.17"
 is_executable = "1.0.1"
 
@@ -94,7 +94,7 @@ is_executable = "1.0.1"
 polkadot-core-primitives = { path = "../../core-primitives" }
 polkadot-node-core-parachains-inherent = { path = "../core/parachains-inherent" }
 polkadot-overseer = { path = "../overseer" }
-polkadot-parachain = { path = "../../parachain" }
+polkadot-parachain-primitives = { path = "../../parachain" }
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-primitives = { path = "../primitives" }
 polkadot-rpc = { path = "../../rpc" }
@@ -113,7 +113,7 @@ westend-runtime-constants = { path = "../../runtime/westend/constants", optional
 
 # Polkadot Runtimes
 polkadot-runtime = { path = "../../runtime/polkadot", optional = true }
-kusama-runtime = { path = "../../runtime/kusama", optional = true }
+kusama-runtime = { package = "staging-kusama-runtime", path = "../../runtime/kusama", optional = true }
 westend-runtime = { path = "../../runtime/westend", optional = true }
 rococo-runtime = { path = "../../runtime/rococo", optional = true }
 
@@ -192,16 +192,39 @@ westend-native = [ "westend-runtime", "westend-runtime-constants" ]
 rococo-native = [ "rococo-runtime", "rococo-runtime-constants" ]
 
 runtime-benchmarks = [
+	"frame-benchmarking-cli/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
 	"kusama-runtime?/runtime-benchmarks",
+	"pallet-babe/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-runtime?/runtime-benchmarks",
+	"polkadot-test-client/runtime-benchmarks",
 	"rococo-runtime?/runtime-benchmarks",
+	"sc-client-db/runtime-benchmarks",
 	"service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 	"westend-runtime?/runtime-benchmarks",
 ]
 try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
 	"kusama-runtime?/try-runtime",
+	"pallet-babe/try-runtime",
+	"pallet-im-online/try-runtime",
+	"pallet-staking/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"polkadot-runtime-common/try-runtime",
+	"polkadot-runtime-parachains/try-runtime",
 	"polkadot-runtime?/try-runtime",
 	"rococo-runtime?/try-runtime",
+	"sp-runtime/try-runtime",
 	"westend-runtime?/try-runtime",
 ]
 fast-runtime = [

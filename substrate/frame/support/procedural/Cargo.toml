@@ -1,11 +1,11 @@
 [package]
 name = "frame-support-procedural"
 version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Proc macro of Support code for the runtime."
 
 [package.metadata.docs.rs]
@@ -21,9 +21,9 @@ cfg-expr = "0.15.4"
 itertools = "0.10.3"
 proc-macro2 = "1.0.56"
 quote = "1.0.28"
-syn = { version = "2.0.16", features = ["full"] }
+syn = { version = "2.0.31", features = ["full"] }
 frame-support-procedural-tools = { path = "tools" }
-proc-macro-warning = { version = "0.4.1", default-features = false }
+proc-macro-warning = { version = "0.4.2", default-features = false }
 macro_magic = { version = "0.4.2", features = ["proc_support"] }
 expander = "2.0.0"
 

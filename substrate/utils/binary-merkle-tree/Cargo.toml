@@ -1,10 +1,10 @@
 [package]
 name = "binary-merkle-tree"
 version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
-repository = "https://github.com/paritytech/substrate"
+repository.workspace = true
 description = "A no-std/Substrate compatible library to construct binary merkle tree."
 homepage = "https://substrate.io"
 

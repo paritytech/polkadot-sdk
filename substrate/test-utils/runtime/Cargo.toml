@@ -1,12 +1,12 @@
 [package]
 name = "substrate-test-runtime"
 version = "2.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 build = "build.rs"
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 publish = false
 
 [package.metadata.docs.rs]
@@ -48,7 +48,7 @@ sp-externalities = { path = "../../primitives/externalities", default-features =
 # 3rd party
 array-bytes = { version = "6.1", optional = true }
 log = { version = "0.4.17", default-features = false }
-serde = { version = "1.0.163", features = ["alloc", "derive"], default-features = false }
+serde = { version = "1.0.188", features = ["alloc", "derive"], default-features = false }
 serde_json = { version = "1.0.85", default-features = false, features = ["alloc"] }
 
 [dev-dependencies]

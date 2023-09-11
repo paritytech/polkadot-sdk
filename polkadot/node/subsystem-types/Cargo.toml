@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-subsystem-types"
 description = "Subsystem traits and message definitions"
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -19,8 +19,9 @@ sc-network = { path = "../../../substrate/client/network" }
 sp-api = { path = "../../../substrate/primitives/api" }
 sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
 sp-authority-discovery = { path = "../../../substrate/primitives/authority-discovery" }
+sc-client-api = { path = "../../../substrate/client/api" }
 sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
 smallvec = "1.8.0"
 substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
-thiserror = "1.0.31"
+thiserror = "1.0.48"
 async-trait = "0.1.57"

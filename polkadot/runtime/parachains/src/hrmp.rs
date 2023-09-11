@@ -21,7 +21,7 @@ use crate::{
 use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
 use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
-use polkadot_parachain::primitives::HorizontalMessages;
+use polkadot_parachain_primitives::primitives::HorizontalMessages;
 use primitives::{
 	Balance, Hash, HrmpChannelId, Id as ParaId, InboundHrmpMessage, OutboundHrmpMessage,
 	SessionIndex,
@@ -149,17 +149,17 @@ pub struct HrmpChannel {
 	pub recipient_deposit: Balance,
 }
 
-/// An error returned by [`check_hrmp_watermark`] that indicates an acceptance criteria check
-/// didn't pass.
-pub enum HrmpWatermarkAcceptanceErr<BlockNumber> {
+/// An error returned by [`Pallet::check_hrmp_watermark`] that indicates an acceptance criteria
+/// check didn't pass.
+pub(crate) enum HrmpWatermarkAcceptanceErr<BlockNumber> {
 	AdvancementRule { new_watermark: BlockNumber, last_watermark: BlockNumber },
 	AheadRelayParent { new_watermark: BlockNumber, relay_chain_parent_number: BlockNumber },
 	LandsOnBlockWithNoMessages { new_watermark: BlockNumber },
 }
 
-/// An error returned by [`check_outbound_hrmp`] that indicates an acceptance criteria check
+/// An error returned by [`Pallet::check_outbound_hrmp`] that indicates an acceptance criteria check
 /// didn't pass.
-pub enum OutboundHrmpAcceptanceErr {
+pub(crate) enum OutboundHrmpAcceptanceErr {
 	MoreMessagesThanPermitted { sent: u32, permitted: u32 },
 	NotSorted { idx: u32 },
 	NoSuchChannel { idx: u32, channel_id: HrmpChannelId },

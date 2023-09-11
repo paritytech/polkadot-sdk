@@ -88,10 +88,10 @@ pub(crate) struct MonitorConfig {
 	///
 	/// `--submission-strategy always`: always submit.
 	///
-	/// `--submission-strategy "percent-better <percent>"`: submit if the submission is `n` percent
+	/// `--submission-strategy "percent-better percent"`: submit if the submission is `n` percent
 	/// better.
 	///
-	/// `--submission-strategy "no-worse-than  <percent>"`: submit if submission is no more than
+	/// `--submission-strategy "no-worse-than percent"`: submit if submission is no more than
 	/// `n` percent worse.
 	#[clap(long, default_value = "if-leading")]
 	pub submission_strategy: SubmissionStrategy,
@@ -190,8 +190,8 @@ pub(crate) enum Solver {
 /// Possible options:
 /// * --submission-strategy if-leading: only submit if leading
 /// * --submission-strategy always: always submit
-/// * --submission-strategy "percent-better <percent>": submit if submission is `n` percent better.
-/// * --submission-strategy "no-worse-than<percent>": submit if submission is no more than `n`
+/// * --submission-strategy "percent-better percent": submit if submission is `n` percent better.
+/// * --submission-strategy "no-worse-than percent": submit if submission is no more than `n`
 ///   percent worse.
 impl FromStr for SubmissionStrategy {
 	type Err = String;

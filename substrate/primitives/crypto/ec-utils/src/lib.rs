@@ -21,14 +21,15 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use sp_runtime_interface::runtime_interface;
+use sp_std::vec::Vec;
+
 pub mod bls12_377;
 pub mod bls12_381;
 pub mod bw6_761;
 pub mod ed_on_bls12_377;
 pub mod ed_on_bls12_381_bandersnatch;
 mod utils;
-
-use sp_runtime_interface::runtime_interface;
 
 /// Interfaces for working with elliptic curves related types from within the runtime.
 /// All type are (de-)serialized through the wrapper types from the ark-scale trait,
