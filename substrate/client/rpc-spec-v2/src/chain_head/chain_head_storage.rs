@@ -160,11 +160,16 @@ where
 
 		result
 			.map(|opt| {
-				QueryResult::Ok(opt.map(|storage_data| StorageResult {
-					key: hex_string(&key.0),
-					result: StorageResultType::ClosestDescendantMerkleValue(hex_string(
-						&storage_data.as_ref(),
-					)),
+				QueryResult::Ok(opt.map(|storage_data| {
+					let result = match &storage_data {
+						sc_client_api::MerkleValue::Node(data) => hex_string(&data.as_slice()),
+						sc_client_api::MerkleValue::Hash(hash) => hex_string(&hash.as_ref()),
+					};
+
+					StorageResult {
+						key: hex_string(&key.0),
+						result: StorageResultType::ClosestDescendantMerkleValue(result),
+					}
 				}))
 			})
 			.unwrap_or_else(|error| QueryResult::Err(error.to_string()))
