@@ -22,13 +22,12 @@ use super::{
 };
 use frame_support::{
 	match_types, parameter_types,
-	traits::{Contains, Everything, Nothing},
+	traits::{Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
 use rococo_runtime_constants::currency::CENTS;
 use runtime_common::{
-	crowdloan, paras_registrar,
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 	ToAuthor,
 };
@@ -42,7 +41,7 @@ use xcm_builder::{
 	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
 	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
-use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
+use xcm_executor::XcmExecutor;
 
 parameter_types! {
 	pub const TokenLocation: MultiLocation = Here.into_location();
@@ -154,138 +153,6 @@ pub type Barrier = TrailingSetTopicAsId<(
 	>,
 )>;
 
-/// A call filter for the XCM Transact instruction. This is a temporary measure until we
-/// properly account for proof size weights.
-///
-/// Calls that are allowed through this filter must:
-/// 1. Have a fixed weight;
-/// 2. Cannot lead to another call being made;
-/// 3. Have a defined proof size weight, e.g. no unbounded vecs in call parameters.
-pub struct SafeCallFilter;
-impl Contains<RuntimeCall> for SafeCallFilter {
-	fn contains(call: &RuntimeCall) -> bool {
-		#[cfg(feature = "runtime-benchmarks")]
-		{
-			if matches!(call, RuntimeCall::System(frame_system::Call::remark_with_event { .. })) {
-				return true
-			}
-		}
-
-		match call {
-			RuntimeCall::System(
-				frame_system::Call::kill_prefix { .. } | frame_system::Call::set_heap_pages { .. },
-			) |
-			RuntimeCall::Babe(..) |
-			RuntimeCall::Timestamp(..) |
-			RuntimeCall::Indices(..) |
-			RuntimeCall::Balances(..) |
-			RuntimeCall::Crowdloan(
-				crowdloan::Call::create { .. } |
-				crowdloan::Call::contribute { .. } |
-				crowdloan::Call::withdraw { .. } |
-				crowdloan::Call::refund { .. } |
-				crowdloan::Call::dissolve { .. } |
-				crowdloan::Call::edit { .. } |
-				crowdloan::Call::poke { .. } |
-				crowdloan::Call::contribute_all { .. },
-			) |
-			RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
-			RuntimeCall::Grandpa(..) |
-			RuntimeCall::ImOnline(..) |
-			RuntimeCall::Democracy(
-				pallet_democracy::Call::second { .. } |
-				pallet_democracy::Call::vote { .. } |
-				pallet_democracy::Call::emergency_cancel { .. } |
-				pallet_democracy::Call::fast_track { .. } |
-				pallet_democracy::Call::veto_external { .. } |
-				pallet_democracy::Call::cancel_referendum { .. } |
-				pallet_democracy::Call::delegate { .. } |
-				pallet_democracy::Call::undelegate { .. } |
-				pallet_democracy::Call::clear_public_proposals { .. } |
-				pallet_democracy::Call::unlock { .. } |
-				pallet_democracy::Call::remove_vote { .. } |
-				pallet_democracy::Call::remove_other_vote { .. } |
-				pallet_democracy::Call::blacklist { .. } |
-				pallet_democracy::Call::cancel_proposal { .. },
-			) |
-			RuntimeCall::Council(
-				pallet_collective::Call::vote { .. } |
-				pallet_collective::Call::disapprove_proposal { .. } |
-				pallet_collective::Call::close { .. },
-			) |
-			RuntimeCall::TechnicalCommittee(
-				pallet_collective::Call::vote { .. } |
-				pallet_collective::Call::disapprove_proposal { .. } |
-				pallet_collective::Call::close { .. },
-			) |
-			RuntimeCall::PhragmenElection(
-				pallet_elections_phragmen::Call::remove_voter { .. } |
-				pallet_elections_phragmen::Call::submit_candidacy { .. } |
-				pallet_elections_phragmen::Call::renounce_candidacy { .. } |
-				pallet_elections_phragmen::Call::remove_member { .. } |
-				pallet_elections_phragmen::Call::clean_defunct_voters { .. },
-			) |
-			RuntimeCall::TechnicalMembership(
-				pallet_membership::Call::add_member { .. } |
-				pallet_membership::Call::remove_member { .. } |
-				pallet_membership::Call::swap_member { .. } |
-				pallet_membership::Call::change_key { .. } |
-				pallet_membership::Call::set_prime { .. } |
-				pallet_membership::Call::clear_prime { .. },
-			) |
-			RuntimeCall::Treasury(..) |
-			RuntimeCall::Claims(
-				super::claims::Call::claim { .. } |
-				super::claims::Call::mint_claim { .. } |
-				super::claims::Call::move_claim { .. },
-			) |
-			RuntimeCall::Utility(pallet_utility::Call::as_derivative { .. }) |
-			RuntimeCall::Identity(
-				pallet_identity::Call::add_registrar { .. } |
-				pallet_identity::Call::set_identity { .. } |
-				pallet_identity::Call::clear_identity { .. } |
-				pallet_identity::Call::request_judgement { .. } |
-				pallet_identity::Call::cancel_request { .. } |
-				pallet_identity::Call::set_fee { .. } |
-				pallet_identity::Call::set_account_id { .. } |
-				pallet_identity::Call::set_fields { .. } |
-				pallet_identity::Call::provide_judgement { .. } |
-				pallet_identity::Call::kill_identity { .. } |
-				pallet_identity::Call::add_sub { .. } |
-				pallet_identity::Call::rename_sub { .. } |
-				pallet_identity::Call::remove_sub { .. } |
-				pallet_identity::Call::quit_sub { .. },
-			) |
-			RuntimeCall::Society(..) |
-			RuntimeCall::Recovery(..) |
-			RuntimeCall::Vesting(..) |
-			RuntimeCall::Bounties(
-				pallet_bounties::Call::propose_bounty { .. } |
-				pallet_bounties::Call::approve_bounty { .. } |
-				pallet_bounties::Call::propose_curator { .. } |
-				pallet_bounties::Call::unassign_curator { .. } |
-				pallet_bounties::Call::accept_curator { .. } |
-				pallet_bounties::Call::award_bounty { .. } |
-				pallet_bounties::Call::claim_bounty { .. } |
-				pallet_bounties::Call::close_bounty { .. },
-			) |
-			RuntimeCall::ChildBounties(..) |
-			RuntimeCall::Hrmp(..) |
-			RuntimeCall::Registrar(
-				paras_registrar::Call::deregister { .. } |
-				paras_registrar::Call::swap { .. } |
-				paras_registrar::Call::remove_lock { .. } |
-				paras_registrar::Call::reserve { .. } |
-				paras_registrar::Call::add_lock { .. },
-			) |
-			RuntimeCall::XcmPallet(pallet_xcm::Call::limited_reserve_transfer_assets {
-				..
-			}) => true,
-			_ => false,
-		}
-	}
-}
-
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -314,8 +181,8 @@ impl xcm_executor::Config for XcmConfig {
 	type FeeManager = ();
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
-	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
-	type SafeCallFilter = SafeCallFilter;
+	type CallDispatcher = RuntimeCall;
+	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
 }
 
