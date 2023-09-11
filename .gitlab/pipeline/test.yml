@@ -23,13 +23,9 @@ test-linux-stable:
     - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
     # add experimental to features after https://github.com/paritytech/substrate/pull/14502 is merged
     # "upgrade_version_checks_should_work" is currently failing
-    # they fail if run with other tests
-    # "rx::tests::sent_views_include_finalized_number_update", "follow_chain_works", "create_snapshot_works" and "block_execution_works"
-    #  & !test(rx::tests::sent_views_include_finalized_number_update) & !test(follow_chain_works) & !test(create_snapshot_works) & !test(block_execution_works)
-    # can be found in test-linux-stable-slow
+    # -E 'all() & !test(upgrade_version_checks_should_work)' \
     - |
       time cargo nextest run \
-        -E 'all() & !test(upgrade_version_checks_should_work)' \
         --workspace \
         --locked \
         --release \
@@ -58,6 +54,22 @@ test-linux-oldkernel-stable:
   extends: test-linux-stable
   tags:
     - oldkernel-vm
+
+# https://github.com/paritytech/ci_cd/issues/864
+test-linux-stable-runtime-benchmarks:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .pipeline-stopper-artifacts
+  variables:
+    RUST_TOOLCHAIN: stable
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+  script:
+    - time cargo nextest run --features runtime-benchmarks benchmark --locked --cargo-profile testnet
 
 # can be used to run all tests
 # test-linux-stable-all:
@@ -103,22 +115,6 @@ test-linux-stable-additional-tests:
     # the jobs should be removed
     - exit 0
 
-# https://github.com/paritytech/ci_cd/issues/864
-test-linux-stable-runtime-benchmarks:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
-  variables:
-    RUST_TOOLCHAIN: stable
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-  script:
-    - time cargo nextest run --features runtime-benchmarks benchmark --locked --cargo-profile testnet
-
 # these ones can be really slow so it's better to run them separately
 test-linux-stable-slow:
   stage: test
@@ -135,13 +131,6 @@ test-linux-stable-slow:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
-    # - |
-    #   time cargo nextest run \
-    #     -E 'test(rx::tests::sent_views_include_finalized_number_update) + test(follow_chain_works) + test(create_snapshot_works) + test(block_execution_works)' \
-    #     --workspace \
-    #     --locked \
-    #     --release \
-    #     --features runtime-benchmarks,try-runtime
     # tests were moved to test-linux-stable
     # the jobs should be removed
     - exit 0
