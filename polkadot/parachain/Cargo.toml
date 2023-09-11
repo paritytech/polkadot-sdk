@@ -12,11 +12,11 @@ version = "1.0.0"
 # various unnecessary Substrate-specific endpoints.
 parity-scale-codec = { version = "3.6.1", default-features = false, features = [ "derive" ] }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive", "serde"] }
-sp-std = { path = "../../substrate/primitives/std", default-features = false }
-sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
-sp-core = { path = "../../substrate/primitives/core", default-features = false, features = ["serde"] }
-frame-support = { path = "../../substrate/frame/support", default-features = false }
-polkadot-core-primitives = { path = "../core-primitives", default-features = false }
+sp-std = { path = "../../substrate/primitives/std", default-features = false, version = "10.0.0" }
+sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false, features = ["serde"], version = "26.0.0" }
+sp-core = { path = "../../substrate/primitives/core", default-features = false, features = ["serde"], version = "23.0.0" }
+frame-support = { path = "../../substrate/frame/support", default-features = false, version = "23.0.0" }
+polkadot-core-primitives = { path = "../core-primitives", default-features = false, version = "2.0.0" }
 derive_more = "0.99.11"
 bounded-collections = { version = "0.1.8", default-features = false, features = ["serde"] }
 

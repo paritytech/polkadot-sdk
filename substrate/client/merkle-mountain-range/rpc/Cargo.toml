@@ -1,6 +1,6 @@
 [package]
 name = "mmr-rpc"
-version = "4.0.0-dev"
+version = "23.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -15,11 +15,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"] }
 serde = { version = "1.0.188", features = ["derive"] }
-sp-api = { path = "../../../primitives/api" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-core = { path = "../../../primitives/core" }
-sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
-sp-runtime = { path = "../../../primitives/runtime" }
+sp-api = { version = "21.0.0", path = "../../../primitives/api" }
+sp-blockchain = { version = "23.0.0", path = "../../../primitives/blockchain" }
+sp-core = { version = "23.0.0", path = "../../../primitives/core" }
+sp-mmr-primitives = { version = "21.0.0", path = "../../../primitives/merkle-mountain-range" }
+sp-runtime = { version = "26.0.0", path = "../../../primitives/runtime" }
 anyhow = "1"
 
 [dev-dependencies]

@@ -5,6 +5,7 @@ authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 publish = false
+description = "pallet-bridge-grandpa"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -16,21 +17,21 @@ scale-info = { version = "2.9.0", default-features = false, features = ["derive"
 
 # Bridge Dependencies
 
-bp-runtime = { path = "../../primitives/runtime", default-features = false }
-bp-header-chain = { path = "../../primitives/header-chain", default-features = false }
+bp-runtime = { path = "../../primitives/runtime", default-features = false, version = "0.1.0" }
+bp-header-chain = { path = "../../primitives/header-chain", default-features = false, version = "0.1.0" }
 
 # Substrate Dependencies
 
-frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../../substrate/frame/system", default-features = false }
-sp-consensus-grandpa = { path = "../../../../substrate/primitives/consensus/grandpa", default-features = false, features = ["serde"] }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
-sp-trie = { path = "../../../../substrate/primitives/trie", default-features = false }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "23.0.0" }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false, version = "23.0.0" }
+sp-consensus-grandpa = { path = "../../../../substrate/primitives/consensus/grandpa", default-features = false, features = ["serde"], version = "8.0.0" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, features = ["serde"], version = "26.0.0" }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false, version = "10.0.0" }
+sp-trie = { path = "../../../../substrate/primitives/trie", default-features = false, version = "24.0.0" }
 
 # Optional Benchmarking Dependencies
-bp-test-utils = { path = "../../primitives/test-utils", default-features = false, optional = true }
-frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }
+bp-test-utils = { path = "../../primitives/test-utils", default-features = false, optional = true, version = "0.1.0" }
+frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "23.0.0" }
 
 [dev-dependencies]
 sp-core = { path = "../../../../substrate/primitives/core" }

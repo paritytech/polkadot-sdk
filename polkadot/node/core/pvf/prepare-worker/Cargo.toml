@@ -1,31 +1,29 @@
 [package]
 name = "polkadot-node-core-pvf-prepare-worker"
 description = "Polkadot crate that contains the logic for preparing PVFs. Used by the polkadot-prepare-worker binary."
-version = "1.0.0"
+version = "2.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
 futures = "0.3.21"
-gum = { package = "tracing-gum", path = "../../../gum" }
+gum = { package = "tracing-gum", path = "../../../gum", version = "2.0.0" }
 libc = "0.2.139"
 rayon = "1.5.1"
 tikv-jemalloc-ctl = { version = "0.5.0", optional = true }
 tokio = { version = "1.24.2", features = ["fs", "process"] }
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-
-polkadot-node-core-pvf-common = { path = "../common" }
-polkadot-parachain-primitives = { path = "../../../../parachain" }
-polkadot-primitives = { path = "../../../../primitives" }
-
-sc-executor = { path = "../../../../../substrate/client/executor" }
-sc-executor-common = { path = "../../../../../substrate/client/executor/common" }
-sc-executor-wasmtime = { path = "../../../../../substrate/client/executor/wasmtime" }
-sp-io = { path = "../../../../../substrate/primitives/io" }
-sp-maybe-compressed-blob = { path = "../../../../../substrate/primitives/maybe-compressed-blob" }
-sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
+polkadot-node-core-pvf-common = { version = "2.0.0", path = "../common" }
+polkadot-parachain-primitives = { version = "1.0.0", path = "../../../../parachain" }
+polkadot-primitives = { version = "2.0.0", path = "../../../../primitives" }
+sc-executor = { version = "0.27.0", path = "../../../../../substrate/client/executor" }
+sc-executor-common = { version = "0.24.0", path = "../../../../../substrate/client/executor/common" }
+sc-executor-wasmtime = { version = "0.24.0", path = "../../../../../substrate/client/executor/wasmtime" }
+sp-io = { version = "25.0.0", path = "../../../../../substrate/primitives/io" }
+sp-maybe-compressed-blob = { version = "7.0.0", path = "../../../../../substrate/primitives/maybe-compressed-blob" }
+sp-tracing = { version = "12.0.0", path = "../../../../../substrate/primitives/tracing" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemalloc-ctl = "0.5.0"

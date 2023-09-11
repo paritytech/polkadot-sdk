@@ -1,16 +1,17 @@
 [package]
 name = "slot-range-helper"
-version = "1.0.0"
+version = "2.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "slot-range-helper"
 
 [dependencies]
 paste = "1.0"
 enumn = "0.1.12"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-sp-std = { package = "sp-std", path = "../../../../substrate/primitives/std", default-features = false }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+sp-std = { package = "sp-std", path = "../../../../substrate/primitives/std", default-features = false, version = "10.0.0" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, version = "26.0.0" }
 
 [features]
 default = [ "std" ]

@@ -1,6 +1,6 @@
 [package]
 name = "sc-rpc-api"
-version = "0.10.0-dev"
+version = "0.28.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -18,10 +18,10 @@ scale-info = { version = "2.5.0", default-features = false, features = ["derive"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.85"
 thiserror = "1.0"
-sc-chain-spec = { path = "../chain-spec" }
-sc-transaction-pool-api = { path = "../transaction-pool/api" }
-sp-core = { path = "../../primitives/core" }
-sp-rpc = { path = "../../primitives/rpc" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-version = { path = "../../primitives/version" }
+sc-chain-spec = { version = "22.0.0", path = "../chain-spec" }
+sc-transaction-pool-api = { version = "23.0.0", path = "../transaction-pool/api" }
+sp-core = { version = "23.0.0", path = "../../primitives/core" }
+sp-rpc = { version = "21.0.0", path = "../../primitives/rpc" }
+sp-runtime = { version = "26.0.0", path = "../../primitives/runtime" }
+sp-version = { version = "24.0.0", path = "../../primitives/version" }
 jsonrpsee = { version = "0.16.2", features = ["server", "client-core", "macros"] }

@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-statement-distribution"
 description = "Statement Distribution Subsystem"
-version = "1.0.0"
+version = "2.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,15 +9,15 @@ license.workspace = true
 [dependencies]
 futures = "0.3.21"
 futures-timer = "3.0.2"
-gum = { package = "tracing-gum", path = "../../gum" }
-polkadot-primitives = { path = "../../../primitives" }
-sp-staking = { path = "../../../../substrate/primitives/staking", default-features = false }
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-polkadot-node-subsystem-types = { path = "../../subsystem-types" }
-polkadot-node-network-protocol = { path = "../protocol" }
+gum = { package = "tracing-gum", path = "../../gum", version = "2.0.0" }
+polkadot-primitives = { version = "2.0.0", path = "../../../primitives" }
+sp-staking = { path = "../../../../substrate/primitives/staking", default-features = false, version = "21.0.0" }
+sp-keystore = { version = "0.29.0", path = "../../../../substrate/primitives/keystore" }
+polkadot-node-subsystem = { version = "2.0.0", path = "../../subsystem" }
+polkadot-node-primitives = { version = "2.0.0", path = "../../primitives" }
+polkadot-node-subsystem-util = { version = "2.0.0", path = "../../subsystem-util" }
+polkadot-node-subsystem-types = { version = "2.0.0", path = "../../subsystem-types" }
+polkadot-node-network-protocol = { version = "2.0.0", path = "../protocol" }
 arrayvec = "0.7.4"
 indexmap = "1.9.1"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }

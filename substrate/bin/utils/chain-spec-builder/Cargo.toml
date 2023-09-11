@@ -9,6 +9,7 @@ homepage = "https://substrate.io"
 repository.workspace = true
 readme = "README.md"
 publish = false
+description = "chain-spec-builder"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -24,8 +25,8 @@ crate-type = ["rlib"]
 ansi_term = "0.12.1"
 clap = { version = "4.4.2", features = ["derive"] }
 rand = "0.8"
-node-cli = { path = "../../node/cli" }
-sc-chain-spec = { path = "../../../client/chain-spec" }
-sc-keystore = { path = "../../../client/keystore" }
-sp-core = { path = "../../../primitives/core" }
-sp-keystore = { path = "../../../primitives/keystore" }
+node-cli = { version = "2.0.0", path = "../../node/cli" }
+sc-chain-spec = { version = "22.0.0", path = "../../../client/chain-spec" }
+sc-keystore = { version = "20.0.0", path = "../../../client/keystore" }
+sp-core = { version = "23.0.0", path = "../../../primitives/core" }
+sp-keystore = { version = "0.29.0", path = "../../../primitives/keystore" }

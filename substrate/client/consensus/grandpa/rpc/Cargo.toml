@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-grandpa-rpc"
-version = "0.10.0-dev"
+version = "0.14.0"
 authors.workspace = true
 description = "RPC extensions for the GRANDPA finality gadget"
 repository.workspace = true
@@ -17,16 +17,16 @@ log = "0.4.8"
 parity-scale-codec = { version = "3.6.1", features = ["derive"] }
 serde = { version = "1.0.188", features = ["derive"] }
 thiserror = "1.0"
-sc-client-api = { path = "../../../api" }
-sc-consensus-grandpa = { path = ".." }
-sc-rpc = { path = "../../../rpc" }
-sp-blockchain = { path = "../../../../primitives/blockchain" }
-sp-core = { path = "../../../../primitives/core" }
-sp-runtime = { path = "../../../../primitives/runtime" }
+sc-client-api = { version = "23.0.0", path = "../../../api" }
+sc-consensus-grandpa = { version = "0.14.0", path = ".." }
+sc-rpc = { version = "24.0.0", path = "../../../rpc" }
+sp-blockchain = { version = "23.0.0", path = "../../../../primitives/blockchain" }
+sp-core = { version = "23.0.0", path = "../../../../primitives/core" }
+sp-runtime = { version = "26.0.0", path = "../../../../primitives/runtime" }
 
 [dev-dependencies]
 sc-block-builder = { path = "../../../block-builder" }
-sc-rpc = { path = "../../../rpc", features = ["test-helpers"]}
+sc-rpc = { path = "../../../rpc", features = ["test-helpers"] }
 sp-core = { path = "../../../../primitives/core" }
 sp-consensus-grandpa = { path = "../../../../primitives/consensus/grandpa" }
 sp-keyring = { path = "../../../../primitives/keyring" }

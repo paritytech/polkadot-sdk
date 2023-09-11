@@ -1,6 +1,6 @@
 [package]
 name = "sp-runtime-interface-test-wasm-deprecated"
-version = "2.0.0"
+version = "0.0.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -8,17 +8,18 @@ license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
+description = "sp-runtime-interface-test-wasm-deprecated"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-core = { path = "../../core", default-features = false}
-sp-io = { path = "../../io", default-features = false}
-sp-runtime-interface = { path = "..", default-features = false}
+sp-core = { path = "../../core", default-features = false, version = "23.0.0" }
+sp-io = { path = "../../io", default-features = false, version = "25.0.0" }
+sp-runtime-interface = { path = "..", default-features = false, version = "19.0.0" }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
+substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true, version = "12.0.0" }
 
 [features]
 default = [ "std" ]

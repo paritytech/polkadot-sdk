@@ -3,7 +3,8 @@ name = "pallet-xcm-benchmarks"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "1.0.0"
+version = "2.0.0"
+description = "pallet-xcm-benchmarks"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -11,15 +12,15 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-frame-support = { path = "../../../substrate/frame/support", default-features = false}
-frame-system = { path = "../../../substrate/frame/system", default-features = false}
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
-sp-std = { path = "../../../substrate/primitives/std", default-features = false}
-sp-io = { path = "../../../substrate/primitives/io", default-features = false}
-xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false}
-xcm = { package = "staging-xcm", path = "..", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "23.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "23.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "26.0.0" }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "10.0.0" }
+sp-io = { path = "../../../substrate/primitives/io", default-features = false, version = "25.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false, version = "2.0.0" }
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, version = "23.0.0" }
+xcm = { package = "staging-xcm", path = "..", default-features = false, version = "2.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false, version = "2.0.0" }
 log = "0.4.17"
 
 [dev-dependencies]
@@ -28,10 +29,8 @@ pallet-assets = { path = "../../../substrate/frame/assets" }
 sp-core = { path = "../../../substrate/primitives/core" }
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
 xcm = { package = "staging-xcm", path = ".." }
-# temp
 pallet-xcm = { path = "../pallet-xcm" }
 polkadot-runtime-common = { path = "../../runtime/common" }
-# westend-runtime = { path = "../../runtime/westend", features = ["runtime-benchmarks"] }
 polkadot-primitives = { path = "../../primitives" }
 
 [features]
@@ -51,11 +50,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-xcm/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
-	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

@@ -1,18 +1,17 @@
 [package]
 name = "cumulus-client-cli"
-version = "0.1.0"
+version = "0.2.0"
 authors.workspace = true
 edition.workspace = true
+description = "cumulus-client-cli"
 
 [dependencies]
 clap = { version = "4.4.2", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 url = "2.4.0"
-
-# Substrate
-sc-cli = { path = "../../../substrate/client/cli" }
-sc-client-api = { path = "../../../substrate/client/api" }
-sc-chain-spec = { path = "../../../substrate/client/chain-spec" }
-sc-service = { path = "../../../substrate/client/service" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sc-cli = { version = "0.31.0", path = "../../../substrate/client/cli" }
+sc-client-api = { version = "23.0.0", path = "../../../substrate/client/api" }
+sc-chain-spec = { version = "22.0.0", path = "../../../substrate/client/chain-spec" }
+sc-service = { version = "0.30.0", path = "../../../substrate/client/service" }
+sp-core = { version = "23.0.0", path = "../../../substrate/primitives/core" }
+sp-runtime = { version = "26.0.0", path = "../../../substrate/primitives/runtime" }

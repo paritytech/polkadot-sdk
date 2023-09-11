@@ -10,19 +10,19 @@ publish = false
 [dependencies]
 # Bridge Dependencies
 
-bp-polkadot-core = { path = "../polkadot-core", default-features = false }
-bp-messages = { path = "../messages", default-features = false }
-bp-runtime = { path = "../runtime", default-features = false }
+bp-polkadot-core = { path = "../polkadot-core", default-features = false, version = "0.1.0" }
+bp-messages = { path = "../messages", default-features = false, version = "0.1.0" }
+bp-runtime = { path = "../runtime", default-features = false, version = "0.1.0" }
 
 # Substrate Based Dependencies
 
-frame-system = { path = "../../../../substrate/frame/system", default-features = false }
-frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-sp-api = { path = "../../../../substrate/primitives/api", default-features = false }
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false, version = "23.0.0" }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "23.0.0" }
+sp-api = { path = "../../../../substrate/primitives/api", default-features = false, version = "21.0.0" }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false, version = "10.0.0" }
 
 # Polkadot Dependencies
-polkadot-primitives = { path = "../../../../polkadot/primitives", default-features = false }
+polkadot-primitives = { path = "../../../../polkadot/primitives", default-features = false, version = "2.0.0" }
 
 [features]
 default = [ "std" ]

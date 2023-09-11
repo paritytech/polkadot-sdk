@@ -1,6 +1,6 @@
 [package]
 name = "sc-cli"
-version = "0.10.0-dev"
+version = "0.31.0"
 authors.workspace = true
 description = "Substrate CLI interface."
 edition.workspace = true
@@ -30,21 +30,21 @@ serde_json = "1.0.85"
 thiserror = "1.0.48"
 tiny-bip39 = "1.0.0"
 tokio = { version = "1.22.0", features = ["signal", "rt-multi-thread", "parking_lot"] }
-sc-client-api = { path = "../api" }
-sc-client-db = { path = "../db", default-features = false}
-sc-keystore = { path = "../keystore" }
-sc-network = { path = "../network" }
-sc-service = { path = "../service", default-features = false}
-sc-telemetry = { path = "../telemetry" }
-sc-tracing = { path = "../tracing" }
-sc-utils = { path = "../utils" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-keyring = { path = "../../primitives/keyring" }
-sp-keystore = { path = "../../primitives/keystore" }
-sp-panic-handler = { path = "../../primitives/panic-handler" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-version = { path = "../../primitives/version" }
+sc-client-api = { version = "23.0.0", path = "../api" }
+sc-client-db = { path = "../db", default-features = false, version = "0.30.0" }
+sc-keystore = { version = "20.0.0", path = "../keystore" }
+sc-network = { version = "0.29.0", path = "../network" }
+sc-service = { path = "../service", default-features = false, version = "0.30.0" }
+sc-telemetry = { version = "10.0.0", path = "../telemetry" }
+sc-tracing = { version = "23.0.0", path = "../tracing" }
+sc-utils = { version = "9.0.0", path = "../utils" }
+sp-blockchain = { version = "23.0.0", path = "../../primitives/blockchain" }
+sp-core = { version = "23.0.0", path = "../../primitives/core" }
+sp-keyring = { version = "26.0.0", path = "../../primitives/keyring" }
+sp-keystore = { version = "0.29.0", path = "../../primitives/keystore" }
+sp-panic-handler = { version = "10.0.0", path = "../../primitives/panic-handler" }
+sp-runtime = { version = "26.0.0", path = "../../primitives/runtime" }
+sp-version = { version = "24.0.0", path = "../../primitives/version" }
 
 [dev-dependencies]
 tempfile = "3.1.0"

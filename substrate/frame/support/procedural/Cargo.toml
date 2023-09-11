@@ -1,6 +1,6 @@
 [package]
 name = "frame-support-procedural"
-version = "4.0.0-dev"
+version = "18.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -22,7 +22,7 @@ itertools = "0.10.3"
 proc-macro2 = "1.0.56"
 quote = "1.0.28"
 syn = { version = "2.0.31", features = ["full"] }
-frame-support-procedural-tools = { path = "tools" }
+frame-support-procedural-tools = { version = "7.0.0", path = "tools" }
 proc-macro-warning = { version = "0.4.2", default-features = false }
 macro_magic = { version = "0.4.2", features = ["proc_support"] }
 expander = "2.0.0"

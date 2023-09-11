@@ -4,11 +4,12 @@ path = "src/main.rs"
 
 [package]
 name = "staging-staking-miner"
-version = "1.0.0"
+version = "0.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 publish = false
+description = "staging-staking-miner"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
@@ -21,29 +22,28 @@ serde = "1.0.188"
 serde_json = "1.0"
 thiserror = "1.0.48"
 tokio = { version = "1.24.2", features = ["macros", "rt-multi-thread", "sync"] }
-remote-externalities = { package = "frame-remote-externalities" , path = "../../../substrate/utils/frame/remote-externalities" }
+remote-externalities = { package = "frame-remote-externalities", path = "../../../substrate/utils/frame/remote-externalities", version = "0.30.0" }
 signal-hook-tokio = { version = "0.3", features = ["futures-v0_3"] }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-version = { path = "../../../substrate/primitives/version" }
-sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-npos-elections = { path = "../../../substrate/primitives/npos-elections" }
-sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
+sp-core = { version = "23.0.0", path = "../../../substrate/primitives/core" }
+sp-version = { version = "24.0.0", path = "../../../substrate/primitives/version" }
+sp-state-machine = { version = "0.30.0", path = "../../../substrate/primitives/state-machine" }
+sp-runtime = { version = "26.0.0", path = "../../../substrate/primitives/runtime" }
+sp-npos-elections = { version = "21.0.0", path = "../../../substrate/primitives/npos-elections" }
+sc-transaction-pool-api = { version = "23.0.0", path = "../../../substrate/client/transaction-pool/api" }
+frame-system = { version = "23.0.0", path = "../../../substrate/frame/system" }
+frame-support = { version = "23.0.0", path = "../../../substrate/frame/support" }
+frame-election-provider-support = { version = "23.0.0", path = "../../../substrate/frame/election-provider-support" }
+pallet-election-provider-multi-phase = { version = "22.0.0", path = "../../../substrate/frame/election-provider-multi-phase" }
+pallet-staking = { version = "23.0.0", path = "../../../substrate/frame/staking" }
+pallet-balances = { version = "23.0.0", path = "../../../substrate/frame/balances" }
+pallet-transaction-payment = { version = "23.0.0", path = "../../../substrate/frame/transaction-payment" }
 
-frame-system = { path = "../../../substrate/frame/system" }
-frame-support = { path = "../../../substrate/frame/support" }
-frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support" }
-pallet-election-provider-multi-phase = { path = "../../../substrate/frame/election-provider-multi-phase" }
-pallet-staking = { path = "../../../substrate/frame/staking" }
-pallet-balances = { path = "../../../substrate/frame/balances" }
-pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment" }
+core-primitives = { package = "polkadot-core-primitives", path = "../../core-primitives", version = "2.0.0" }
 
-core-primitives = { package = "polkadot-core-primitives", path = "../../core-primitives" }
-
-runtime-common = { package = "polkadot-runtime-common", path = "../../runtime/common" }
-polkadot-runtime = { path = "../../runtime/polkadot" }
-kusama-runtime = { package = "staging-kusama-runtime", path = "../../runtime/kusama" }
-westend-runtime = { path = "../../runtime/westend" }
+runtime-common = { package = "polkadot-runtime-common", path = "../../runtime/common", version = "2.0.0" }
+polkadot-runtime = { version = "2.0.0", path = "../../runtime/polkadot" }
+kusama-runtime = { package = "staging-kusama-runtime", path = "../../runtime/kusama", version = "2.0.0" }
+westend-runtime = { version = "2.0.0", path = "../../runtime/westend" }
 exitcode = "1.1"
 
 sub-tokens = { git = "https://github.com/paritytech/substrate-debug-kit", branch = "master" }

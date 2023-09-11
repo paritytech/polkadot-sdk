@@ -1,6 +1,6 @@
 [package]
 name = "sc-statement-store"
-version = "4.0.0-dev"
+version = "5.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -17,14 +17,14 @@ log = "0.4.17"
 parking_lot = "0.12.1"
 parity-db = "0.4.8"
 tokio = { version = "1.22.0", features = ["time"] }
-sp-statement-store = { path = "../../primitives/statement-store" }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
-sp-api = { path = "../../primitives/api" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-runtime = { path = "../../primitives/runtime" }
-sc-client-api = { path = "../api" }
-sc-keystore = { path = "../keystore" }
+sp-statement-store = { version = "5.0.0", path = "../../primitives/statement-store" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus", version = "0.14.0" }
+sp-api = { version = "21.0.0", path = "../../primitives/api" }
+sp-blockchain = { version = "23.0.0", path = "../../primitives/blockchain" }
+sp-core = { version = "23.0.0", path = "../../primitives/core" }
+sp-runtime = { version = "26.0.0", path = "../../primitives/runtime" }
+sc-client-api = { version = "23.0.0", path = "../api" }
+sc-keystore = { version = "20.0.0", path = "../keystore" }
 
 [dev-dependencies]
 tempfile = "3.1.0"

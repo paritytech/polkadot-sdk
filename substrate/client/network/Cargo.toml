@@ -1,7 +1,7 @@
 [package]
 description = "Substrate network protocol"
 name = "sc-network"
-version = "0.10.0-dev"
+version = "0.29.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -39,14 +39,14 @@ smallvec = "1.11.0"
 thiserror = "1.0"
 unsigned-varint = { version = "0.7.1", features = ["futures", "asynchronous_codec"] }
 zeroize = "1.4.3"
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
-sc-client-api = { path = "../api" }
-sc-network-common = { path = "common" }
-sc-utils = { path = "../utils" }
-sp-arithmetic = { path = "../../primitives/arithmetic" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-runtime = { path = "../../primitives/runtime" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus", version = "0.14.0" }
+sc-client-api = { version = "23.0.0", path = "../api" }
+sc-network-common = { version = "0.28.0", path = "common" }
+sc-utils = { version = "9.0.0", path = "../utils" }
+sp-arithmetic = { version = "18.0.0", path = "../../primitives/arithmetic" }
+sp-blockchain = { version = "23.0.0", path = "../../primitives/blockchain" }
+sp-core = { version = "23.0.0", path = "../../primitives/core" }
+sp-runtime = { version = "26.0.0", path = "../../primitives/runtime" }
 wasm-timer = "0.2"
 
 [dev-dependencies]

@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-core-pvf-execute-worker"
 description = "Polkadot crate that contains the logic for executing PVFs. Used by the polkadot-execute-worker binary."
-version = "1.0.0"
+version = "2.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,19 +9,17 @@ license.workspace = true
 [dependencies]
 cpu-time = "1.0.0"
 futures = "0.3.21"
-gum = { package = "tracing-gum", path = "../../../gum" }
+gum = { package = "tracing-gum", path = "../../../gum", version = "2.0.0" }
 rayon = "1.5.1"
 tokio = { version = "1.24.2", features = ["fs", "process"] }
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-
-polkadot-node-core-pvf-common = { path = "../common" }
-polkadot-parachain-primitives = { path = "../../../../parachain" }
-polkadot-primitives = { path = "../../../../primitives" }
-
-sp-core = { path = "../../../../../substrate/primitives/core" }
-sp-maybe-compressed-blob = { path = "../../../../../substrate/primitives/maybe-compressed-blob" }
-sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
+polkadot-node-core-pvf-common = { version = "2.0.0", path = "../common" }
+polkadot-parachain-primitives = { version = "1.0.0", path = "../../../../parachain" }
+polkadot-primitives = { version = "2.0.0", path = "../../../../primitives" }
+sp-core = { version = "23.0.0", path = "../../../../../substrate/primitives/core" }
+sp-maybe-compressed-blob = { version = "7.0.0", path = "../../../../../substrate/primitives/maybe-compressed-blob" }
+sp-tracing = { version = "12.0.0", path = "../../../../../substrate/primitives/tracing" }
 
 [features]
 builder = []

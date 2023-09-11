@@ -1,25 +1,24 @@
 [package]
 name = "polkadot-collator-protocol"
-version = "1.0.0"
+version = "2.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "polkadot-collator-protocol"
 
 [dependencies]
 bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 futures = "0.3.21"
 futures-timer = "3"
-gum = { package = "tracing-gum", path = "../../gum" }
-
-sp-core = { path = "../../../../substrate/primitives/core" }
-sp-runtime = { path = "../../../../substrate/primitives/runtime" }
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
-
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-network-protocol = { path = "../protocol" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-polkadot-node-subsystem = { path = "../../subsystem" }
+gum = { package = "tracing-gum", path = "../../gum", version = "2.0.0" }
+sp-core = { version = "23.0.0", path = "../../../../substrate/primitives/core" }
+sp-runtime = { version = "26.0.0", path = "../../../../substrate/primitives/runtime" }
+sp-keystore = { version = "0.29.0", path = "../../../../substrate/primitives/keystore" }
+polkadot-primitives = { version = "2.0.0", path = "../../../primitives" }
+polkadot-node-network-protocol = { version = "2.0.0", path = "../protocol" }
+polkadot-node-primitives = { version = "2.0.0", path = "../../primitives" }
+polkadot-node-subsystem-util = { version = "2.0.0", path = "../../subsystem-util" }
+polkadot-node-subsystem = { version = "2.0.0", path = "../../subsystem" }
 fatality = "0.0.6"
 thiserror = "1.0.48"
 tokio-util = "0.7.1"
@@ -34,6 +33,5 @@ sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sc-keystore = { path = "../../../../substrate/client/keystore" }
 sc-network = { path = "../../../../substrate/client/network" }
 parity-scale-codec = { version = "3.6.1", features = ["std"] }
-
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }

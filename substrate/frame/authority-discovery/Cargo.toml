@@ -1,6 +1,6 @@
 [package]
 name = "pallet-authority-discovery"
-version = "4.0.0-dev"
+version = "23.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -17,15 +17,13 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 ] }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
-pallet-session = { path = "../session", default-features = false, features = [
-	"historical",
-]}
-sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false}
-sp-authority-discovery = { path = "../../primitives/authority-discovery", default-features = false}
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
+frame-support = { path = "../support", default-features = false, version = "23.0.0" }
+frame-system = { path = "../system", default-features = false, version = "23.0.0" }
+pallet-session = { path = "../session", default-features = false, features = ["historical"], version = "23.0.0" }
+sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, version = "25.0.0" }
+sp-authority-discovery = { path = "../../primitives/authority-discovery", default-features = false, version = "21.0.0" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "26.0.0" }
+sp-std = { path = "../../primitives/std", default-features = false, version = "10.0.0" }
 
 [dev-dependencies]
 sp-core = { path = "../../primitives/core" }
@@ -41,8 +39,6 @@ std = [
 	"scale-info/std",
 	"sp-application-crypto/std",
 	"sp-authority-discovery/std",
-	"sp-core/std",
-	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 ]

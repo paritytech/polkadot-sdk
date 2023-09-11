@@ -5,11 +5,12 @@ authors.workspace = true
 edition.workspace = true
 build = "build.rs"
 publish = false
+description = "cumulus-test-relay-validation-worker-provider"
 
 [dependencies]
 
 # Polkadot
-polkadot-node-core-pvf = { path = "../../../polkadot/node/core/pvf", features = ["test-utils"] }
+polkadot-node-core-pvf = { path = "../../../polkadot/node/core/pvf", features = ["test-utils"], version = "2.0.0" }
 
 [build-dependencies]
 toml = "0.7.6"

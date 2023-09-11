@@ -1,6 +1,6 @@
 [package]
 name = "sp-consensus-slots"
-version = "0.10.0-dev"
+version = "0.27.0"
 authors.workspace = true
 description = "Primitives for slots-based consensus"
 edition.workspace = true
@@ -16,8 +16,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true }
-sp-std = { path = "../../std", default-features = false}
-sp-timestamp = { path = "../../timestamp", default-features = false}
+sp-std = { path = "../../std", default-features = false, version = "10.0.0" }
+sp-timestamp = { path = "../../timestamp", default-features = false, version = "21.0.0" }
 
 [features]
 default = [ "std" ]

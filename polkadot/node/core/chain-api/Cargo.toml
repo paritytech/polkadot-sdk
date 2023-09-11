@@ -1,19 +1,20 @@
 [package]
 name = "polkadot-node-core-chain-api"
-version = "1.0.0"
+version = "2.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "polkadot-node-core-chain-api"
 
 [dependencies]
 futures = "0.3.21"
-gum = { package = "tracing-gum", path = "../../gum" }
-sp-blockchain = { path = "../../../../substrate/primitives/blockchain" }
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-metrics = { path = "../../metrics" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-sc-client-api = { path = "../../../../substrate/client/api" }
-sc-consensus-babe = { path = "../../../../substrate/client/consensus/babe" }
+gum = { package = "tracing-gum", path = "../../gum", version = "2.0.0" }
+sp-blockchain = { version = "23.0.0", path = "../../../../substrate/primitives/blockchain" }
+polkadot-primitives = { version = "2.0.0", path = "../../../primitives" }
+polkadot-node-metrics = { version = "2.0.0", path = "../../metrics" }
+polkadot-node-subsystem = { version = "2.0.0", path = "../../subsystem" }
+sc-client-api = { version = "23.0.0", path = "../../../../substrate/client/api" }
+sc-consensus-babe = { version = "0.29.0", path = "../../../../substrate/client/consensus/babe" }
 
 [dev-dependencies]
 futures = { version = "0.3.21", features = ["thread-pool"] }

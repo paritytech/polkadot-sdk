@@ -1,23 +1,23 @@
 [package]
 name = "remote-ext-tests-bags-list"
 publish = false
-version = "1.0.0"
+version = "0.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "remote-ext-tests-bags-list"
 
 [dependencies]
-polkadot-runtime = { path = "../../../runtime/polkadot" }
-kusama-runtime = { package = "staging-kusama-runtime", path = "../../../runtime/kusama" }
-westend-runtime = { path = "../../../runtime/westend" }
-polkadot-runtime-constants = { path = "../../../runtime/polkadot/constants" }
-kusama-runtime-constants = { path = "../../../runtime/kusama/constants" }
-westend-runtime-constants = { path = "../../../runtime/westend/constants" }
-
-pallet-bags-list-remote-tests = { path = "../../../../substrate/frame/bags-list/remote-tests" }
-sp-tracing = { path = "../../../../substrate/primitives/tracing" }
-frame-system = { path = "../../../../substrate/frame/system" }
-sp-core = { path = "../../../../substrate/primitives/core" }
+polkadot-runtime = { version = "2.0.0", path = "../../../runtime/polkadot" }
+kusama-runtime = { package = "staging-kusama-runtime", path = "../../../runtime/kusama", version = "2.0.0" }
+westend-runtime = { version = "2.0.0", path = "../../../runtime/westend" }
+polkadot-runtime-constants = { version = "2.0.0", path = "../../../runtime/polkadot/constants" }
+kusama-runtime-constants = { version = "2.0.0", path = "../../../runtime/kusama/constants" }
+westend-runtime-constants = { version = "2.0.0", path = "../../../runtime/westend/constants" }
+pallet-bags-list-remote-tests = { version = "0.0.0", path = "../../../../substrate/frame/bags-list/remote-tests" }
+sp-tracing = { version = "12.0.0", path = "../../../../substrate/primitives/tracing" }
+frame-system = { version = "23.0.0", path = "../../../../substrate/frame/system" }
+sp-core = { version = "23.0.0", path = "../../../../substrate/primitives/core" }
 
 clap = { version = "4.4.2", features = ["derive"] }
 log = "0.4.17"

@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-rococo-integration-tests"
-version = "1.0.0"
+version = "0.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -11,23 +11,21 @@ publish = false
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
 
 # Substrate
-frame-support = { path = "../../../../../../substrate/frame/support", default-features = false}
+frame-support = { path = "../../../../../../substrate/frame/support", default-features = false, version = "23.0.0" }
 
 # Polkadot
-polkadot-core-primitives = { path = "../../../../../../polkadot/core-primitives", default-features = false}
-polkadot-parachain-primitives = { path = "../../../../../../polkadot/parachain", default-features = false}
-polkadot-runtime-parachains = { path = "../../../../../../polkadot/runtime/parachains" }
-polkadot-runtime = { path = "../../../../../../polkadot/runtime/polkadot" }
-xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false}
-pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
-
-# Cumulus
-parachains-common = { path = "../../../../common" }
-cumulus-pallet-xcmp-queue = { path = "../../../../../pallets/xcmp-queue", default-features = false}
-cumulus-pallet-dmp-queue = { path = "../../../../../pallets/dmp-queue", default-features = false}
-pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false}
-bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false}
+polkadot-core-primitives = { path = "../../../../../../polkadot/core-primitives", default-features = false, version = "2.0.0" }
+polkadot-parachain-primitives = { path = "../../../../../../polkadot/parachain", default-features = false, version = "1.0.0" }
+polkadot-runtime-parachains = { version = "2.0.0", path = "../../../../../../polkadot/runtime/parachains" }
+polkadot-runtime = { version = "2.0.0", path = "../../../../../../polkadot/runtime/polkadot" }
+xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false, version = "2.0.0" }
+pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "2.0.0" }
+parachains-common = { version = "2.0.0", path = "../../../../common" }
+cumulus-pallet-xcmp-queue = { path = "../../../../../pallets/xcmp-queue", default-features = false, version = "0.2.0" }
+cumulus-pallet-dmp-queue = { path = "../../../../../pallets/dmp-queue", default-features = false, version = "0.2.0" }
+pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false, version = "0.1.0" }
+bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false, version = "0.1.0" }
 
 # Local
-xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false}
-integration-tests-common = { path = "../../common", default-features = false}
+xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false, version = "0.0.0" }
+integration-tests-common = { path = "../../common", default-features = false, version = "0.0.0" }

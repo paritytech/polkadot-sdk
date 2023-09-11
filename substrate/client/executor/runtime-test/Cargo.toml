@@ -1,6 +1,6 @@
 [package]
 name = "sc-runtime-test"
-version = "2.0.0"
+version = "0.0.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -8,19 +8,20 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 publish = false
 homepage = "https://substrate.io"
 repository.workspace = true
+description = "sc-runtime-test"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-core = { path = "../../../primitives/core", default-features = false}
-sp-io = { path = "../../../primitives/io", default-features = false, features = ["improved_panic_error_reporting"]}
-sp-runtime = { path = "../../../primitives/runtime", default-features = false}
-sp-runtime-interface = { path = "../../../primitives/runtime-interface", default-features = false}
-sp-std = { path = "../../../primitives/std", default-features = false}
+sp-core = { path = "../../../primitives/core", default-features = false, version = "23.0.0" }
+sp-io = { path = "../../../primitives/io", default-features = false, features = ["improved_panic_error_reporting"], version = "25.0.0" }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "26.0.0" }
+sp-runtime-interface = { path = "../../../primitives/runtime-interface", default-features = false, version = "19.0.0" }
+sp-std = { path = "../../../primitives/std", default-features = false, version = "10.0.0" }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
+substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true, version = "12.0.0" }
 
 [features]
 default = [ "std" ]
