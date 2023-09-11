@@ -27,9 +27,7 @@ use crate::{
 use sc_allocator::{AllocationStats, FreeingBumpHeapAllocator};
 use sc_executor_common::{
 	error::{Error, Result, WasmError},
-	runtime_blob::{
-		RuntimeBlob,
-	},
+	runtime_blob::RuntimeBlob,
 	util::checked_range,
 	wasm_runtime::{HeapAllocStrategy, InvokeMethod, WasmInstance, WasmModule},
 };
@@ -82,7 +80,6 @@ impl InstanceCreator {
 		InstanceWrapper::new(&self.engine, &self.instance_pre)
 	}
 }
-
 
 /// A `WasmModule` implementation using wasmtime to compile the runtime module to machine code
 /// and execute the compiled code.

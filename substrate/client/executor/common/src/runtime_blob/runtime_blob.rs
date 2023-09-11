@@ -20,8 +20,8 @@ use crate::{error::WasmError, wasm_runtime::HeapAllocStrategy};
 use wasm_instrument::{
 	export_mutable_globals,
 	parity_wasm::elements::{
-		deserialize_buffer, serialize, ExportEntry, External, Internal, MemorySection,
-		MemoryType, Module, Section,
+		deserialize_buffer, serialize, ExportEntry, External, Internal, MemorySection, MemoryType,
+		Module, Section,
 	},
 };
 
