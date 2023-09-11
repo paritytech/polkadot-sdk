@@ -18,7 +18,7 @@ futures = "0.3.21"
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 log = "0.4.17"
 parking_lot = "0.12.1"
-serde_json = "1.0.85"
+serde_json = "1.0.106"
 sc-block-builder = { path = "../block-builder" }
 sc-chain-spec = { path = "../chain-spec" }
 sc-client-api = { path = "../api" }
