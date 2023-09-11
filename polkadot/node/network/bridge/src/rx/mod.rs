@@ -893,6 +893,15 @@ fn handle_peer_messages<RawMessage: Decode, OutMessage: From<RawMessage>>(
 
 		outgoing_events.push(match message {
 			WireMessage::ViewUpdate(new_view) => {
+				// TODO [now]: too verbose
+				gum::debug!(
+					target: LOG_TARGET,
+					old_view = ?peer_data.view,
+					?new_view,
+					?peer,
+					action="NewViewForDebug"
+				);
+
 				if new_view.len() > MAX_VIEW_HEADS ||
 					new_view.finalized_number < peer_data.view.finalized_number
 				{
