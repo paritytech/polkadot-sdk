@@ -1553,9 +1553,6 @@ pub trait PanicHandler {
 	}
 }
 
-/// Set a different log level for the runtime instead of using the one from the host.
-pub const RUNTIME_LOG_ENV: &str = "RUNTIME_LOG";
-
 /// Interface that provides functions for logging from within the runtime.
 #[runtime_interface]
 pub trait Logging {
@@ -1571,16 +1568,8 @@ pub trait Logging {
 		}
 	}
 
-	/// Returns the max log level for the runtime.
-	///
-	/// Uses the host as default log level but can be overwritten with [`RUNTIME_LOG_ENV`].
+	/// Returns the max log level used by the host.
 	fn max_level() -> LogLevelFilter {
-		if let Ok(level) = std::env::var(RUNTIME_LOG_ENV) {
-			if let Ok(level) = level.parse::<log::LevelFilter>() {
-				return level.into()
-			}
-		}
-
 		log::max_level().into()
 	}
 }
