@@ -414,8 +414,8 @@ impl<Context: Send> ApprovalVotingSubsystem {
 		let future = run::<DbBackend, Context>(
 			ctx,
 			self,
-			Box::new(SystemClock),
-			Box::new(RealAssignmentCriteria),
+			Arc::new(SystemClock),
+			Arc::new(RealAssignmentCriteria),
 			backend,
 		)
 		.map_err(|e| SubsystemError::with_origin("approval-voting", e))
@@ -686,8 +686,8 @@ where
 struct State {
 	keystore: Arc<LocalKeystore>,
 	slot_duration_millis: u64,
-	clock: Box<dyn Clock + Send + Sync>,
-	assignment_criteria: Box<dyn AssignmentCriteria + Send + Sync>,
+	clock: Arc<dyn Clock + Send + Sync>,
+	assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
 	spans: HashMap<Hash, jaeger::PerLeafSpan>,
 }
 
@@ -774,8 +774,8 @@ enum Action {
 async fn run<B, Context>(
 	mut ctx: Context,
 	mut subsystem: ApprovalVotingSubsystem,
-	clock: Box<dyn Clock + Send + Sync>,
-	assignment_criteria: Box<dyn AssignmentCriteria + Send + Sync>,
+	clock: Arc<dyn Clock + Send + Sync>,
+	assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
 	mut backend: B,
 ) -> SubsystemResult<()>
 where
@@ -1304,8 +1304,7 @@ async fn handle_from_overseer<Context>(
 			},
 			ApprovalVotingMessage::CheckAssignments(assignments, res) => {
 				let check_outcome =
-					check_assignments(ctx.sender(), state, db, session_info_provider, assignments)
-						.await?;
+					check_assignments(ctx, state, db, session_info_provider, assignments).await?;
 				let _ = res.send(check_outcome);
 
 				// No actions, just checking!
@@ -1989,19 +1988,21 @@ where
 	Ok((res, actions))
 }
 
-/// This function implements a batch assignment checker with a thread pool backend for all signature
-/// checks TODO(before merge): Figure out ideal batch size.
-async fn check_assignments<Sender>(
-	sender: &mut Sender,
+/// This function implements a batch assignment checker with per signature check task backend.
+///
+/// The indexing of the candidates in `assignments` arguments is the same in the
+/// `Vec<AssignmentCheckResult>` return value.
+///
+/// TODO(before merge): Figure out ideal batch size.
+#[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
+async fn check_assignments<Context>(
+	ctx: &mut Context,
 	state: &State,
 	db: &OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
 	assignments: Vec<(IndirectAssignmentCert, CandidateIndex)>,
-) -> SubsystemResult<Vec<AssignmentCheckResult>>
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
-	let check_results = FuturesUnordered::new();
+) -> SubsystemResult<Vec<AssignmentCheckResult>> {
+	let mut check_results = Vec::new();
 	let mut results = Vec::new();
 
 	// For each assignment we launch a separate task and we wait all of them.
@@ -2028,7 +2029,7 @@ where
 
 		let session_info = match get_session_info(
 			session_info_provider,
-			sender,
+			ctx.sender(),
 			block_entry.parent_hash(),
 			block_entry.session(),
 		)
@@ -2088,8 +2089,14 @@ where
 
 		let backing_group = approval_entry.backing_group();
 		let assignment_cert = assignment.cert.clone();
-		let check_task = async move {
-			let res = state.assignment_criteria.check_assignment_cert(
+		let (tx, rx) = oneshot::channel();
+
+		let assignment_criteria = state.assignment_criteria.clone();
+		let clock = state.clock.clone();
+		let slot_duration_millis = state.slot_duration_millis;
+
+		let check_task = Box::pin(async move {
+			let res = assignment_criteria.check_assignment_cert(
 				claimed_core_index,
 				assignment.validator,
 				&criteria::Config::from(&session_info),
@@ -2099,20 +2106,23 @@ where
 			);
 
 			let tranche = match res {
-				Err(crate::criteria::InvalidAssignment(reason)) =>
-					return AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCert(
+				Err(crate::criteria::InvalidAssignment(reason)) => {
+					let _ = tx.send(AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCert(
 						assignment.validator,
 						format!("{:?}", reason),
-					)),
+					)));
+					return
+				},
 				Ok(tranche) => {
 					let current_tranche =
-						state.clock.tranche_now(state.slot_duration_millis, block_entry.slot());
+						clock.tranche_now(slot_duration_millis, block_entry.slot());
 
 					let too_far_in_future =
 						current_tranche + TICK_TOO_FAR_IN_FUTURE as DelayTranche;
 
 					if tranche >= too_far_in_future {
-						return AssignmentCheckResult::TooFarInFuture
+						let _ = tx.send(AssignmentCheckResult::TooFarInFuture);
+						return
 					}
 
 					tranche
@@ -2121,15 +2131,37 @@ where
 
 			let checked_assignment =
 				CheckedIndirectAssignmentCert::from_unchecked(assignment, tranche);
-			AssignmentCheckResult::Accepted(checked_assignment)
-		};
 
-		check_results.push(check_task);
+			let _ = tx.send(AssignmentCheckResult::Accepted(checked_assignment));
+		});
+
+		if let Err(err) = ctx.spawn("check-assignment", check_task) {
+			gum::warn!(
+				target: LOG_TARGET,
+				error = ?err,
+				"Failed to spawn `check-assignment` task",
+			);
+			results.push(AssignmentCheckResult::TaskSpawn);
+		} else {
+			check_results.push(rx.boxed());
+		}
 	}
 
-	let task_results: Vec<_> = check_results.collect().await;
+	for check_result in check_results {
+		let result = match check_result.await {
+			Ok(result) => result,
+			Err(e) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					error = ?e,
+					"`check-assignment` canceled channel",
+				);
+				AssignmentCheckResult::Channel
+			},
+		};
 
-	results.extend(task_results.into_iter());
+		results.push(result);
+	}
 
 	Ok(results)
 }
