@@ -6142,6 +6142,24 @@ fn set_min_commission_works_with_admin_origin() {
 	})
 }
 
+#[test]
+fn set_treasury_fraction_works_with_admin_origin() {
+	ExtBuilder::default().build_and_execute(|| {
+		// no treasury fraction set initially.
+		assert_eq!(TreasuryInflationFraction::<Test>::get().unwrap(), Zero::zero());
+
+		// root can set tresury fraction.
+		assert_ok!(Staking::set_treasury_fraction(RuntimeOrigin::root(), Percent::from_parts(10)));
+		assert_eq!(TreasuryInflationFraction::<Test>::get(), Some(Percent::from_parts(10)));
+
+		// non priviledged origin can not set treasury fraction.
+		assert_noop!(
+			Staking::set_treasury_fraction(RuntimeOrigin::signed(2), Percent::from_parts(15)),
+			BadOrigin
+		);
+	})
+}
+
 mod staking_interface {
 	use frame_support::storage::with_storage_layer;
 	use sp_staking::StakingInterface;
