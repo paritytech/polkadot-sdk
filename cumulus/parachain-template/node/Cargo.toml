@@ -13,7 +13,7 @@ publish = false
 [dependencies]
 clap = { version = "4.4.2", features = ["derive"] }
 log = "0.4.20"
-codec = { package = "parity-scale-codec", version = "3.0.0" }
+codec = { package = "parity-scale-codec", version = "3.6.8" }
 serde = { version = "1.0.188", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 futures = "0.3.28"

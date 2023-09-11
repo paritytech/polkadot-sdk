@@ -13,7 +13,7 @@ hex = "0.4.3"
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-jaeger = { path = "../../jaeger" }
-parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "3.6.8", default-features = false, features = ["derive"] }
 sc-network = { path = "../../../../substrate/client/network" }
 sc-authority-discovery = { path = "../../../../substrate/client/authority-discovery" }
 strum = { version = "0.24", features = ["derive"] }

@@ -8,7 +8,7 @@ license.workspace = true
 [dependencies]
 futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../gum" }
-parity-scale-codec = { version = "3.6.1", features = ["std"] }
+parity-scale-codec = { version = "3.6.8", features = ["std"] }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-erasure-coding = { path = "../../../erasure-coding" }
 polkadot-node-network-protocol = { path = "../protocol" }

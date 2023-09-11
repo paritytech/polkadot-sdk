@@ -25,7 +25,7 @@ sp-blockchain = { path = "../../primitives/blockchain" }
 sp-version = { path = "../../primitives/version" }
 sc-client-api = { path = "../api" }
 sc-utils = { path = "../utils" }
-codec = { package = "parity-scale-codec", version = "3.6.1" }
+codec = { package = "parity-scale-codec", version = "3.6.8" }
 thiserror = "1.0"
 serde = "1.0"
 hex = "0.4"

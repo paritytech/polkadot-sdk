@@ -7,7 +7,7 @@ description = "Base pallet for cumulus-based parachains"
 
 [dependencies]
 bytes = { version = "1.4.0", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.8", default-features = false, features = ["derive"] }
 environmental = { version = "1.1.4", default-features = false }
 impl-trait-for-tuples = "0.2.1"
 log = { version = "0.4.20", default-features = false }

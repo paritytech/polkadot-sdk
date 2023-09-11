@@ -11,7 +11,7 @@ bp-header-chain = { path = "../header-chain", default-features = false  }
 bp-parachains = { path = "../parachains", default-features = false }
 bp-polkadot-core = { path = "../polkadot-core", default-features = false  }
 bp-runtime = { path = "../runtime", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.8", default-features = false }
 ed25519-dalek = { version = "2.0", default-features = false }
 finality-grandpa = { version = "0.16.2", default-features = false }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false }

@@ -38,7 +38,7 @@ async-trait = "0.1.57"
 clap = { version = "4.4.2", features = ["derive"] }
 hex = { version = "0.4.3", default-features = false }
 log = "0.4.17"
-parity-scale-codec = "3.6.1"
+parity-scale-codec = "3.6.8"
 serde = "1.0.188"
 serde_json = "1.0.85"
 zstd = { version = "0.12.4", default-features = false }

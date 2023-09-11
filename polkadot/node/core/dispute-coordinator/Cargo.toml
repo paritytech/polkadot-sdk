@@ -8,7 +8,7 @@ license.workspace = true
 [dependencies]
 futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../gum" }
-parity-scale-codec = "3.6.1"
+parity-scale-codec = "3.6.8"
 kvdb = "0.13.0"
 thiserror = "1.0.48"
 schnellru = "0.2.1"

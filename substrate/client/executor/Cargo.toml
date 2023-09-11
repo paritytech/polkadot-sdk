@@ -18,7 +18,7 @@ parking_lot = "0.12.1"
 schnellru = "0.2.1"
 tracing = "0.1.29"
 
-codec = { package = "parity-scale-codec", version = "3.6.1" }
+codec = { package = "parity-scale-codec", version = "3.6.8" }
 sc-executor-common = { path = "common" }
 sc-executor-wasmtime = { path = "wasmtime" }
 sp-api = { path = "../../primitives/api" }
