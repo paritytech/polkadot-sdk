@@ -1193,7 +1193,7 @@ async fn handle_network_msg<Context>(
 
 			// TODO [now]: too verbose
 			if let Some(data) = state.peer_data.get(&peer_id) {
-				gum::warn!(
+				gum::debug!(
 					target: LOG_TARGET,
 					?peer_id,
 					view = ?data.view,
