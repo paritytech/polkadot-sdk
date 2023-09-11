@@ -34,13 +34,13 @@ use crate::v2::{
 	WildMultiAsset as OldWildMultiAsset,
 };
 use alloc::{vec, vec::Vec};
+use bounded_collections::{BoundedVec, ConstU32};
 use core::{
 	cmp::Ordering,
 	convert::{TryFrom, TryInto},
 };
 use parity_scale_codec::{self as codec, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use bounded_collections::{BoundedVec, ConstU32};
 
 /// A general identifier for an instance of a non-fungible asset class.
 #[derive(
@@ -518,7 +518,8 @@ impl MaxEncodedLen for MultiAssets {
 
 impl Decode for MultiAssets {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		let bounded_instructions = BoundedVec::<MultiAsset, ConstU32<{ MAX_ITEMS_IN_MULTIASSETS as u32 }>>::decode(input)?;
+		let bounded_instructions =
+			BoundedVec::<MultiAsset, ConstU32<{ MAX_ITEMS_IN_MULTIASSETS as u32 }>>::decode(input)?;
 		Self::from_sorted_and_deduplicated(bounded_instructions.into_inner())
 			.map_err(|()| "Out of order".into())
 	}

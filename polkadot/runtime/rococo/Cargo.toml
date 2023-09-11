@@ -84,7 +84,7 @@ frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-fea
 frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
 hex-literal = { version = "0.4.1" }
 
-runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, features=["experimental"] }
+runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, features = ["experimental"] }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
@@ -99,7 +99,7 @@ keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyrin
 remote-externalities = { package = "frame-remote-externalities" , path = "../../../substrate/utils/frame/remote-externalities" }
 sp-trie = { path = "../../../substrate/primitives/trie" }
 separator = "0.4.1"
-serde_json = "1.0.96"
+serde_json = "1.0.106"
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
 tokio = { version = "1.24.2", features = ["macros"] }
 
