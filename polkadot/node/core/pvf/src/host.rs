@@ -218,6 +218,7 @@ pub fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Future<O
 	let (to_prepare_pool, from_prepare_pool, run_prepare_pool) = prepare::start_pool(
 		metrics.clone(),
 		config.prepare_worker_program_path.clone(),
+		config.cache_path.clone(),
 		config.prepare_worker_spawn_timeout,
 		config.node_version.clone(),
 		security_status.clone(),
@@ -235,6 +236,7 @@ pub fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Future<O
 	let (to_execute_queue_tx, run_execute_queue) = execute::start(
 		metrics,
 		config.execute_worker_program_path.to_owned(),
+		config.cache_path.clone(),
 		config.execute_workers_max_num,
 		config.execute_worker_spawn_timeout,
 		config.node_version,

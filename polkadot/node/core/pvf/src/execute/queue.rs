@@ -140,6 +140,7 @@ struct Queue {
 
 	// Some variables related to the current session.
 	program_path: PathBuf,
+	cache_path: PathBuf,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
 	security_status: SecurityStatus,
@@ -154,6 +155,7 @@ impl Queue {
 	fn new(
 		metrics: Metrics,
 		program_path: PathBuf,
+		cache_path: PathBuf,
 		worker_capacity: usize,
 		spawn_timeout: Duration,
 		node_version: Option<String>,
@@ -163,6 +165,7 @@ impl Queue {
 		Self {
 			metrics,
 			program_path,
+			cache_path,
 			spawn_timeout,
 			node_version,
 			security_status,
@@ -409,6 +412,7 @@ fn spawn_extra_worker(queue: &mut Queue, job: ExecuteJob) {
 	queue.mux.push(
 		spawn_worker_task(
 			queue.program_path.clone(),
+			queue.cache_path.clone(),
 			job,
 			queue.spawn_timeout,
 			queue.node_version.clone(),
@@ -428,6 +432,7 @@ fn spawn_extra_worker(queue: &mut Queue, job: ExecuteJob) {
 /// execute other jobs with a compatible execution environment.
 async fn spawn_worker_task(
 	program_path: PathBuf,
+	cache_path: PathBuf,
 	job: ExecuteJob,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
@@ -438,6 +443,7 @@ async fn spawn_worker_task(
 	loop {
 		match super::worker_intf::spawn(
 			&program_path,
+			&cache_path,
 			job.executor_params.clone(),
 			spawn_timeout,
 			node_version.as_deref(),
@@ -503,6 +509,7 @@ fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 pub fn start(
 	metrics: Metrics,
 	program_path: PathBuf,
+	cache_path: PathBuf,
 	worker_capacity: usize,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
@@ -512,6 +519,7 @@ pub fn start(
 	let run = Queue::new(
 		metrics,
 		program_path,
+		cache_path,
 		worker_capacity,
 		spawn_timeout,
 		node_version,

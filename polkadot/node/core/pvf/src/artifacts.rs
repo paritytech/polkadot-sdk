@@ -172,9 +172,10 @@ impl Artifacts {
 	///
 	/// The recognized artifacts will be filled in the table and unrecognized will be removed.
 	pub async fn new(cache_path: &Path) -> Self {
-		// Make sure that the cache path directory and all its parents are created.
-		// First delete the entire cache. Nodes are long-running so this should populate shortly.
+		// First delete the entire cache. This includes artifacts and any leftover worker dirs (see
+		// [`WorkerDir`]). Nodes are long-running so this should populate shortly.
 		let _ = tokio::fs::remove_dir_all(cache_path).await;
+		// Make sure that the cache path directory and all its parents are created.
 		let _ = tokio::fs::create_dir_all(cache_path).await;
 
 		Self { artifacts: HashMap::new() }

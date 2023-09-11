@@ -42,6 +42,7 @@ use tokio::{io, net::UnixStream};
 /// Sends a handshake message to the worker as soon as it is spawned.
 pub async fn spawn(
 	program_path: &Path,
+	cache_path: &Path,
 	executor_params: ExecutorParams,
 	spawn_timeout: Duration,
 	node_version: Option<&str>,
@@ -55,6 +56,7 @@ pub async fn spawn(
 	let (mut idle_worker, worker_handle) = spawn_with_program_path(
 		"execute",
 		program_path,
+		cache_path,
 		&extra_args,
 		spawn_timeout,
 		security_status,

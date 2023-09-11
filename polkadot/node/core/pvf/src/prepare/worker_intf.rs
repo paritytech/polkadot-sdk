@@ -45,6 +45,7 @@ use tokio::{io, net::UnixStream};
 /// Sends a handshake message to the worker as soon as it is spawned.
 pub async fn spawn(
 	program_path: &Path,
+	cache_path: &Path,
 	spawn_timeout: Duration,
 	node_version: Option<&str>,
 	security_status: SecurityStatus,
@@ -54,8 +55,15 @@ pub async fn spawn(
 		extra_args.extend_from_slice(&["--node-impl-version", node_version]);
 	}
 
-	spawn_with_program_path("prepare", program_path, &extra_args, spawn_timeout, security_status)
-		.await
+	spawn_with_program_path(
+		"prepare",
+		program_path,
+		cache_path,
+		&extra_args,
+		spawn_timeout,
+		security_status,
+	)
+	.await
 }
 
 /// Outcome of PVF preparation.

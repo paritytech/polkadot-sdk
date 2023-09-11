@@ -47,6 +47,8 @@ pub const JOB_TIMEOUT_WALL_CLOCK_FACTOR: u32 = 4;
 ///
 /// - `program_path`: The path to the program.
 ///
+/// - `cache_path`: The path to the artifact cache.
+///
 /// - `extra_args`: Optional extra CLI arguments to the program. NOTE: Should only contain data
 ///   required before the handshake, like node/worker versions for the version check. Other data
 ///   should go through the handshake.
@@ -58,12 +60,13 @@ pub const JOB_TIMEOUT_WALL_CLOCK_FACTOR: u32 = 4;
 pub async fn spawn_with_program_path(
 	debug_id: &'static str,
 	program_path: impl Into<PathBuf>,
+	cache_path: &Path,
 	extra_args: &[&str],
 	spawn_timeout: Duration,
 	security_status: SecurityStatus,
 ) -> Result<(IdleWorker, WorkerHandle), SpawnErr> {
 	let program_path = program_path.into();
-	let worker_dir = WorkerDir::new(debug_id).await?;
+	let worker_dir = WorkerDir::new(debug_id, cache_path).await?;
 
 	with_transient_socket_path(&worker_dir.path.clone(), |socket_path| {
 		let socket_path = socket_path.to_owned();
@@ -188,6 +191,7 @@ pub async fn tmppath_in(prefix: &str, dir: &Path) -> io::Result<PathBuf> {
 }
 
 /// The same as [`tmppath_in`], but uses [`std::env::temp_dir`] as the directory.
+#[cfg(test)]
 pub async fn tmppath(prefix: &str) -> io::Result<PathBuf> {
 	let temp_dir = PathBuf::from(std::env::temp_dir());
 	tmppath_in(prefix, &temp_dir).await
@@ -369,24 +373,23 @@ pub async fn framed_recv(r: &mut (impl AsyncRead + Unpin)) -> io::Result<Vec<u8>
 	Ok(buf)
 }
 
-/// A temporary worker cache that contains only files needed by the worker. The worker will change
-/// its root (the `/` directory) to this cache directory; it should have access to no other paths on
-/// its filesystem. The worker cache should live in a tmp directory in the host's filesystem.
+/// A temporary worker dir that contains only files needed by the worker. The worker will change its
+/// root (the `/` directory) to this directory; it should have access to no other paths on its
+/// filesystem.
 ///
 /// NOTE: This struct cleans up its associated directory when it is dropped. Therefore it should not
 /// implement `Clone`.
 ///
 /// # File structure
 ///
-/// The overall file structure for the PVF system is as follows. The `worker-dir`s are managed by
+/// The overall file structure for the PVF system is as follows. The `worker-dir-X`s are managed by
 /// this struct.
 ///
 /// ```nocompile
-/// + /[...]/cache_path/
+/// + /<cache_path>/
 ///   - artifact-1
 ///   - artifact-2
 ///   - [...]
-/// + /tmp/
 ///   - worker-dir-1/  (new `/` for worker-1)
 ///     + socket                            (created by host)
 ///     + tmp-artifact                      (created by host) (prepare-only)
@@ -400,10 +403,10 @@ pub struct WorkerDir {
 }
 
 impl WorkerDir {
-	/// Creates a new, empty worker cache with a random name in a tmp location.
-	pub async fn new(debug_id: &'static str) -> Result<Self, SpawnErr> {
+	/// Creates a new, empty worker dir with a random name in the given cache dir.
+	pub async fn new(debug_id: &'static str, cache_dir: &Path) -> Result<Self, SpawnErr> {
 		let prefix = format!("worker-dir-{}-", debug_id);
-		let path = tmppath(&prefix).await.map_err(|_| SpawnErr::TmpPath)?;
+		let path = tmppath_in(&prefix, cache_dir).await.map_err(|_| SpawnErr::TmpPath)?;
 		tokio::fs::create_dir(&path)
 			.await
 			.map_err(|err| SpawnErr::Fs(err.to_string()))?;
@@ -411,8 +414,8 @@ impl WorkerDir {
 	}
 }
 
-// Try to clean up the temporary worker cache at the end of the worker's lifetime. It should be in a
-// temporary directory location, but we make a best effort not to leave it around.
+// Try to clean up the temporary worker dir at the end of the worker's lifetime. It should be wiped
+// on startup, but we make a best effort not to leave it around.
 impl Drop for WorkerDir {
 	fn drop(&mut self) {
 		let _ = std::fs::remove_dir_all(&self.path);

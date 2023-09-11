@@ -113,6 +113,7 @@ type Mux = FuturesUnordered<BoxFuture<'static, PoolEvent>>;
 struct Pool {
 	// Some variables related to the current session.
 	program_path: PathBuf,
+	cache_path: PathBuf,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
 	security_status: SecurityStatus,
@@ -131,6 +132,7 @@ struct Fatal;
 async fn run(
 	Pool {
 		program_path,
+		cache_path,
 		spawn_timeout,
 		node_version,
 		security_status,
@@ -159,6 +161,7 @@ async fn run(
 				handle_to_pool(
 					&metrics,
 					&program_path,
+					&cache_path,
 					spawn_timeout,
 					node_version.clone(),
 					security_status.clone(),
@@ -206,6 +209,7 @@ async fn purge_dead(
 fn handle_to_pool(
 	metrics: &Metrics,
 	program_path: &Path,
+	cache_path: &Path,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
 	security_status: SecurityStatus,
@@ -220,6 +224,7 @@ fn handle_to_pool(
 			mux.push(
 				spawn_worker_task(
 					program_path.to_owned(),
+					cache_path.to_owned(),
 					spawn_timeout,
 					node_version,
 					security_status,
@@ -265,6 +270,7 @@ fn handle_to_pool(
 
 async fn spawn_worker_task(
 	program_path: PathBuf,
+	cache_path: PathBuf,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
 	security_status: SecurityStatus,
@@ -274,6 +280,7 @@ async fn spawn_worker_task(
 	loop {
 		match worker_intf::spawn(
 			&program_path,
+			&cache_path,
 			spawn_timeout,
 			node_version.as_deref(),
 			security_status.clone(),
@@ -460,6 +467,7 @@ fn handle_concluded_no_rip(
 pub fn start(
 	metrics: Metrics,
 	program_path: PathBuf,
+	cache_path: PathBuf,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
 	security_status: SecurityStatus,
@@ -470,6 +478,7 @@ pub fn start(
 	let run = run(Pool {
 		metrics,
 		program_path,
+		cache_path,
 		spawn_timeout,
 		node_version,
 		security_status,

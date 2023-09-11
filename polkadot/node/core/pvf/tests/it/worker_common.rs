@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::time::Duration;
+use std::{env, time::Duration};
 
 use polkadot_node_core_pvf::{
 	testing::{spawn_with_program_path, SpawnErr},
@@ -29,6 +29,7 @@ async fn spawn_immediate_exit() {
 	let result = spawn_with_program_path(
 		"integration-test",
 		PUPPET_EXE,
+		&env::temp_dir(),
 		&["exit"],
 		Duration::from_secs(2),
 		SecurityStatus::default(),
@@ -42,6 +43,7 @@ async fn spawn_timeout() {
 	let result = spawn_with_program_path(
 		"integration-test",
 		PUPPET_EXE,
+		&env::temp_dir(),
 		&["sleep"],
 		Duration::from_secs(2),
 		SecurityStatus::default(),
@@ -55,6 +57,7 @@ async fn should_connect() {
 	let _ = spawn_with_program_path(
 		"integration-test",
 		PUPPET_EXE,
+		&env::temp_dir(),
 		&["prepare-worker"],
 		Duration::from_secs(2),
 		SecurityStatus::default(),

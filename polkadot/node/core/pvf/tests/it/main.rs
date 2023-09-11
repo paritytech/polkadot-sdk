@@ -282,8 +282,12 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 	{
 		// Get the artifact path (asserting it exists).
 		let mut cache_dir: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
-		assert_eq!(cache_dir.len(), 1);
-		let artifact_path = cache_dir.pop().unwrap().unwrap();
+		// Should contain the artifact and the worker dir.
+		assert_eq!(cache_dir.len(), 2);
+		let mut artifact_path = cache_dir.pop().unwrap().unwrap();
+		if artifact_path.path().is_dir() {
+			artifact_path = cache_dir.pop().unwrap().unwrap();
+		}
 
 		// Delete the artifact.
 		std::fs::remove_file(artifact_path.path()).unwrap();
