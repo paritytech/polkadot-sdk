@@ -619,45 +619,45 @@ macro_rules! construct_async_run {
 			},
 			Runtime::Coretime(coretime_runtime_type) => {
 				match coretime_runtime_type {
-				   chain_spec::coretime::CoretimeRuntimeType::Polkadot |
-				   chain_spec::coretime::CoretimeRuntimeType::PolkadotLocal |
-				   chain_spec::coretime::CoretimeRuntimeType::PolkadotDevelopment => {
-					   runner.async_run(|$config| {
-						   let $components = new_partial::<chain_spec::coretime::polkadot::RuntimeApi, _>(
-							   &$config,
-							   crate::service::aura_build_import_queue::<_, AuraId>,
-						   )?;
+					chain_spec::coretime::CoretimeRuntimeType::Polkadot |
+					chain_spec::coretime::CoretimeRuntimeType::PolkadotLocal |
+					chain_spec::coretime::CoretimeRuntimeType::PolkadotDevelopment => {
+						runner.async_run(|$config| {
+							let $components = new_partial::<chain_spec::coretime::polkadot::RuntimeApi, _>(
+								&$config,
+								crate::service::aura_build_import_queue::<_, AuraId>,
+							)?;
 
-						   let task_manager = $components.task_manager;
-						   { $( $code )* }.map(|v| (v, task_manager))
-					   })
-				   },
-				   chain_spec::coretime::CoretimeRuntimeType::Kusama |
-				   chain_spec::coretime::CoretimeRuntimeType::KusamaLocal |
-				   chain_spec::coretime::CoretimeRuntimeType::KusamaDevelopment => {
-					   runner.async_run(|$config| {
-						   let $components = new_partial::<chain_spec::coretime::kusama::RuntimeApi, _>(
-							   &$config,
-							   crate::service::aura_build_import_queue::<_, AuraId>,
-						   )?;
+							let task_manager = $components.task_manager;
+							{ $( $code )* }.map(|v| (v, task_manager))
+						})
+					},
+					chain_spec::coretime::CoretimeRuntimeType::Kusama |
+					chain_spec::coretime::CoretimeRuntimeType::KusamaLocal |
+					chain_spec::coretime::CoretimeRuntimeType::KusamaDevelopment => {
+						runner.async_run(|$config| {
+							let $components = new_partial::<chain_spec::coretime::kusama::RuntimeApi, _>(
+								&$config,
+								crate::service::aura_build_import_queue::<_, AuraId>,
+							)?;
 
-						   let task_manager = $components.task_manager;
-						   { $( $code )* }.map(|v| (v, task_manager))
-					   })
-				   },
-				   chain_spec::coretime::CoretimeRuntimeType::Westend => {
-					   runner.async_run(|$config| {
-						   let $components = new_partial::<chain_spec::coretime::westend::RuntimeApi, _>(
-							   &$config,
-							   crate::service::aura_build_import_queue::<_, AuraId>,
-						   )?;
+							let task_manager = $components.task_manager;
+							{ $( $code )* }.map(|v| (v, task_manager))
+						})
+					},
+					chain_spec::coretime::CoretimeRuntimeType::Westend => {
+						runner.async_run(|$config| {
+							let $components = new_partial::<chain_spec::coretime::westend::RuntimeApi, _>(
+								&$config,
+								crate::service::aura_build_import_queue::<_, AuraId>,
+							)?;
 
-						   let task_manager = $components.task_manager;
-						   { $( $code )* }.map(|v| (v, task_manager))
-					   })
-				   },
-			   }
-		   },
+							let task_manager = $components.task_manager;
+							{ $( $code )* }.map(|v| (v, task_manager))
+						})
+					},
+				}
+			},
 			Runtime::Penpal(_) | Runtime::Default => {
 				runner.async_run(|$config| {
 					let $components = new_partial::<
@@ -800,31 +800,31 @@ pub fn run() -> Result<()> {
 				// that both file paths exist, the node will exit, as the user must decide (by
 				// deleting one path) the information that they want to use as their DB.
 				let old_name = match config.chain_spec.id() {
-				     "asset-hub-polkadot" => Some("statemint"),
-				     "asset-hub-kusama" => Some("statemine"),
-				     "asset-hub-westend" => Some("westmint"),
-				     "asset-hub-rococo" => Some("rockmine"),
-				     _ => None,
+					"asset-hub-polkadot" => Some("statemint"),
+					"asset-hub-kusama" => Some("statemine"),
+					"asset-hub-westend" => Some("westmint"),
+					"asset-hub-rococo" => Some("rockmine"),
+					_ => None,
 				};
 
 				if let Some(old_name) = old_name {
-				    let new_path = config.base_path.config_dir(config.chain_spec.id());
-				    let old_path = config.base_path.config_dir(old_name);
+					let new_path = config.base_path.config_dir(config.chain_spec.id());
+					let old_path = config.base_path.config_dir(old_name);
 
-				    if old_path.exists() && new_path.exists() {
-				         return Err(format!(
+					if old_path.exists() && new_path.exists() {
+							return Err(format!(
 							"Found legacy {} path {} and new asset-hub path {}. Delete one path such that only one exists.",
 							old_name, old_path.display(), new_path.display()
 						).into())
-				    }
+					}
 
-				    if old_path.exists() {
-				        std::fs::rename(old_path.clone(), new_path.clone())?;
+					if old_path.exists() {
+						std::fs::rename(old_path.clone(), new_path.clone())?;
 						info!(
 							"Statemint renamed to Asset Hub. The filepath with associated data on disk has been renamed from {} to {}.",
 							old_path.display(), new_path.display()
 						);
-				    }
+					}
 				}
 
 				let hwbench = (!cli.no_hardware_benchmarks).then_some(
