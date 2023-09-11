@@ -3281,7 +3281,7 @@ mod withdraw_unbonded {
 
 				// Given
 				// current bond is 600, we slash it all to 300.
-				StakingMock::set_bonded_balance(default_bonded_account(), 300);
+				StakingMock::slash_to(1, 300);
 				Balances::make_free_balance_be(&default_bonded_account(), 300);
 				assert_eq!(StakingMock::total_stake(&default_bonded_account()), Ok(300));
 
@@ -3301,6 +3301,7 @@ mod withdraw_unbonded {
 						Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
 						Event::Bonded { member: 40, pool_id: 1, bonded: 40, joined: true },
 						Event::Bonded { member: 550, pool_id: 1, bonded: 550, joined: true },
+						Event::PoolSlashed { pool_id: 1, balance: 300 },
 						Event::Unbonded { member: 40, pool_id: 1, balance: 20, points: 20, era: 3 },
 						Event::Unbonded {
 							member: 550,
