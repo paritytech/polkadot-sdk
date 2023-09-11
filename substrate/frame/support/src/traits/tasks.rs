@@ -34,7 +34,8 @@ use prelude::*;
 /// off-chain worker) including methods for enumerating, validating, indexing, and running
 /// tasks of this type.
 pub trait Task: Sized + FullCodec + TypeInfo + Clone + Debug + PartialEq + Eq {
-	type Enumeration: Iterator<Item = Self>;
+	/// An [`Iterator`] over tasks of this type used as the return type for `enumerate`.
+	type Enumeration: Iterator;
 
 	/// A unique value representing this `Task`. Analogous to `call_index`, but for tasks.
 	///
