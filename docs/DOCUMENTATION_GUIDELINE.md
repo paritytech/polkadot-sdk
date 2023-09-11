@@ -225,7 +225,8 @@ For the top-level pallet docs, consider the following template:
 //!
 //! ## Pallet API
 //!
-//! <Reminder: inside the [`pallet`] module, a template that leads the reader to the relevant items is auto-generated. There is no need to repeat things like "See Config trait for ...", which are generated inside [`pallet`] here anyways. You can use the below line as-is:>
+//! <Reminder: inside the [`pallet`] module, a template that leads the reader to the relevant items is auto-generated. There is no need to repeat 
+//! things like "See Config trait for ...", which are generated inside [`pallet`] here anyways. You can use the line below as-is:>
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes, including its
 //! configuration trait, dispatchables, storage items, events and errors.
