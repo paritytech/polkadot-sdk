@@ -105,7 +105,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
-	state_version: 0,
+	state_version: 1,
 };
 
 pub const MILLISECS_PER_BLOCK: u64 = 6000;
