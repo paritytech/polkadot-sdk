@@ -62,7 +62,7 @@ test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../pri
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
 thousands = "0.2.0"
 assert_matches = "1"
-serde_json = "1.0.96"
+serde_json = "1.0.106"
 
 [features]
 default = [ "std" ]
@@ -84,6 +84,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-vesting/std",
 	"parity-scale-codec/std",
+	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-metrics/std",
 	"primitives/std",

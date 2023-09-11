@@ -47,7 +47,6 @@ on:
         type: choice
         options:
           - polkadot
-          - staking-miner
           - polkadot-parachain
 
 permissions:
@@ -96,7 +95,7 @@ jobs:
           fetch_release_artifacts
 
       - name: Cache the artifacts
-        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
         with:
           key: artifacts-${{ env.BINARY }}-${{ github.sha }}
           path: |
@@ -111,7 +110,7 @@ jobs:
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
 
       - name: Get artifacts from cache
-        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
         with:
           key: artifacts-${{ env.BINARY }}-${{ github.sha }}
           fail-on-cache-miss: true
@@ -157,18 +156,6 @@ jobs:
           release=$( echo $VERSION | cut -f1 -d- )
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
-
-      - name: Build Injected Container image for polkadot/staking-miner
-        if: ${{ env.BINARY == 'polkadot' || env.BINARY == 'staking-miner' }}
-        env:
-          ARTIFACTS_FOLDER: ./release-artifacts
-          IMAGE_NAME: ${{ env.BINARY }}
-          OWNER: ${{ env.DOCKER_OWNER }}
-          TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
-        run: |
-          ls -al
-          echo "Building container for $BINARY"
-          ./docker/scripts/build-injected.sh
 
       - name: Build Injected Container image for polkadot-parachain
         if: ${{ env.BINARY == 'polkadot-parachain' }}
