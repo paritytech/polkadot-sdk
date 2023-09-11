@@ -1,5 +1,5 @@
 error: Missing `#[frame::pallets]`
- --> tests/construct_runtime_v2_ui/missing_pallets.rs:2:1
-  |
-2 | mod runtime {
-  | ^^^
+  --> tests/construct_runtime_v2_ui/missing_pallets.rs:19:1
+   |
+19 | mod runtime {
+   | ^^^

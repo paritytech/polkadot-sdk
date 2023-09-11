@@ -1,5 +1,5 @@
 error: Invalid pallet declaration, expected a #[frame::pallet_index]
- --> tests/construct_runtime_v2_ui/missing_pallet_index.rs:9:9
-  |
-9 |         System: frame_system
-  |         ^^^^^^
+  --> tests/construct_runtime_v2_ui/missing_pallet_index.rs:26:9
+   |
+26 |         System: frame_system
+   |         ^^^^^^

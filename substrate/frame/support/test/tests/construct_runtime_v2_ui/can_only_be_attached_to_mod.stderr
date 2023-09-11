@@ -1,5 +1,5 @@
 error: expected `mod`
- --> tests/construct_runtime_v2_ui/can_only_be_attached_to_mod.rs:2:1
-  |
-2 | fn construct_runtime() {}
-  | ^^
+  --> tests/construct_runtime_v2_ui/can_only_be_attached_to_mod.rs:19:1
+   |
+19 | fn construct_runtime() {}
+   | ^^

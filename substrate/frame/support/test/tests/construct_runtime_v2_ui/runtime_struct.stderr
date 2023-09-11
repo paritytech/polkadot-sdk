@@ -1,5 +1,5 @@
 error: Invalid frame::runtime, expected struct definition
- --> tests/construct_runtime_v2_ui/runtime_struct.rs:4:5
-  |
-4 |     pub enum Runtime {}
-  |     ^^^
+  --> tests/construct_runtime_v2_ui/runtime_struct.rs:21:5
+   |
+21 |     pub enum Runtime {}
+   |     ^^^
