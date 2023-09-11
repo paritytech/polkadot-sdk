@@ -15,11 +15,10 @@ short-benchmark-polkadot: &short-bench
       artifacts: true
   variables:
     RUNTIME: polkadot
-    RUNTIME_LOG: off
   tags:
     - benchmark
   script:
-    - ./artifacts/polkadot benchmark pallet --execution wasm --wasm-execution compiled --chain $RUNTIME-dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
+    - ./artifacts/polkadot benchmark pallet --chain $RUNTIME-dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
 
 short-benchmark-kusama:
   <<: *short-bench
@@ -43,11 +42,10 @@ short-benchmark-westend:
       artifacts: true
   variables:
     RUNTIME_CHAIN: benchmarked-runtime-chain
-    RUNTIME_LOG: off
   tags:
     - benchmark
   script:
-    - ./artifacts/polkadot-parachain benchmark pallet --wasm-execution compiled --chain $RUNTIME_CHAIN --pallet "*" --extrinsic "*" --steps 2 --repeat 1
+    - ./artifacts/polkadot-parachain benchmark pallet --chain $RUNTIME_CHAIN --pallet "*" --extrinsic "*" --steps 2 --repeat 1
 
 short-benchmark-asset-hub-polkadot:
   <<: *short-bench-cumulus

@@ -163,7 +163,7 @@ build-short-benchmark:
     - .run-immediately
     - .collect-artifacts
   script:
-    - cargo build --profile release --locked --features=runtime-benchmarks --bin polkadot
+    - cargo build --profile release --locked --features=runtime-benchmarks,on-chain-release-build --bin polkadot
     - mkdir -p artifacts
     - target/release/polkadot --version
     - cp ./target/release/polkadot ./artifacts/
@@ -290,7 +290,7 @@ build-short-benchmark-cumulus:
     - .run-immediately
     - .collect-artifacts
   script:
-    - cargo build --profile release --locked --features=runtime-benchmarks --bin polkadot-parachain
+    - cargo build --profile release --locked --features=runtime-benchmarks,on-chain-release-build --bin polkadot-parachain
     - mkdir -p artifacts
     - target/release/polkadot-parachain --version
     - cp ./target/release/polkadot-parachain ./artifacts/
