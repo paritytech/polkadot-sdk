@@ -33,7 +33,7 @@ fn memory_consumption_compiled() {
 
 	if std::env::var("RUN_TEST").is_ok() {
 		memory_consumption(WasmExecutionMethod::Compiled {
-			instantiation_strategy: sc_executor_wasmtime::InstantiationStrategy::PoolingCopyOnWrite,
+			instantiation_strategy: sc_executor_wasmtime::InstantiationStrategy::RecreateInstance,
 		});
 	} else {
 		// We need to run the test in isolation, to not getting interfered by the other tests.
