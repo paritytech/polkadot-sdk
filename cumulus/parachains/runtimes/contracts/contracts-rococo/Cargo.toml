@@ -4,6 +4,7 @@ version = "0.3.0"
 authors.workspace = true
 edition.workspace = true
 description = "contracts-rococo-runtime"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]

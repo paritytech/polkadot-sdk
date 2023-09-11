@@ -4,6 +4,7 @@ version = "0.2.0"
 authors.workspace = true
 edition.workspace = true
 description = "cumulus-client-service"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
 futures = "0.3.28"

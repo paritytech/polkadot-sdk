@@ -4,6 +4,7 @@ version = "0.2.0"
 authors.workspace = true
 edition.workspace = true
 description = "cumulus-client-collator"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
 parking_lot = "0.12.1"

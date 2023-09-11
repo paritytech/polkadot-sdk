@@ -5,6 +5,7 @@ authors.workspace = true
 build = "build.rs"
 edition.workspace = true
 description = "Runs a polkadot parachain node which could be a collator."
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [[bin]]
 name = "polkadot-parachain"

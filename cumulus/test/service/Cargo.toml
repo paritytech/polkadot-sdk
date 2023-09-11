@@ -5,6 +5,7 @@ authors.workspace = true
 edition.workspace = true
 publish = false
 description = "cumulus-test-service"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [[bin]]
 name = "test-parachain"
