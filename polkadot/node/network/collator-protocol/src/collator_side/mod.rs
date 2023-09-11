@@ -1214,7 +1214,8 @@ async fn handle_network_msg<Context>(
 			handle_incoming_peer_message(ctx, runtime, state, remote, msg).await?;
 		},
 		UpdatedAuthorityIds(peer_id, authority_ids) => {
-			gum::trace!(target: LOG_TARGET, ?peer_id, ?authority_ids, "Updated authority ids");
+			// TODO [now]: too verbose
+			gum::debug!(target: LOG_TARGET, ?peer_id, ?authority_ids, "Updated authority ids");
 			if state.peer_ids.insert(peer_id, authority_ids).is_none() {
 				declare(ctx, state, &peer_id, version).await;
 			}
