@@ -30,8 +30,8 @@ use crate::{
 use bytes::Bytes;
 use futures::channel::oneshot;
 use libp2p::{
-	core::Multiaddr, identify::Info as IdentifyInfo, identity::PublicKey, kad::RecordKey,
-	swarm::NetworkBehaviour, PeerId,
+	connection_limits::ConnectionLimits, core::Multiaddr, identify::Info as IdentifyInfo,
+	identity::PublicKey, kad::RecordKey, swarm::NetworkBehaviour, PeerId,
 };
 
 use parking_lot::Mutex;
@@ -43,7 +43,7 @@ pub use crate::request_responses::{InboundFailure, OutboundFailure, RequestId, R
 
 /// General behaviour of the network. Combines all protocols together.
 #[derive(NetworkBehaviour)]
-#[behaviour(out_event = "BehaviourOut")]
+#[behaviour(to_swarm = "BehaviourOut")]
 pub struct Behaviour<B: BlockT> {
 	/// All the substrate-specific protocols.
 	substrate: Protocol<B>,
@@ -52,6 +52,8 @@ pub struct Behaviour<B: BlockT> {
 	peer_info: peer_info::PeerInfoBehaviour,
 	/// Discovers nodes of the network.
 	discovery: DiscoveryBehaviour,
+	/// Connection limits.
+	connection_limits: libp2p::connection_limits::Behaviour,
 	/// Generic request-response protocols.
 	request_responses: request_responses::RequestResponsesBehaviour,
 }
@@ -173,6 +175,7 @@ impl<B: BlockT> Behaviour<B> {
 		request_response_protocols: Vec<ProtocolConfig>,
 		peer_store_handle: PeerStoreHandle,
 		external_addresses: Arc<Mutex<HashSet<Multiaddr>>>,
+		connection_limits: ConnectionLimits,
 	) -> Result<Self, request_responses::RegisterError> {
 		Ok(Self {
 			substrate,
@@ -186,6 +189,7 @@ impl<B: BlockT> Behaviour<B> {
 				request_response_protocols.into_iter(),
 				Box::new(peer_store_handle),
 			)?,
+			connection_limits: libp2p::connection_limits::Behaviour::new(connection_limits),
 		})
 	}
 
@@ -253,7 +257,7 @@ impl<B: BlockT> Behaviour<B> {
 	pub fn add_self_reported_address_to_dht(
 		&mut self,
 		peer_id: &PeerId,
-		supported_protocols: &[impl AsRef<[u8]>],
+		supported_protocols: &[impl AsRef<str>],
 		addr: Multiaddr,
 	) {
 		self.discovery.add_self_reported_address(peer_id, supported_protocols, addr);
@@ -355,5 +359,11 @@ impl From<DiscoveryOut> for BehaviourOut {
 				BehaviourOut::Dht(DhtEvent::ValuePutFailed(key), duration),
 			DiscoveryOut::RandomKademliaStarted => BehaviourOut::RandomKademliaStarted,
 		}
+	}
+}
+
+impl From<void::Void> for BehaviourOut {
+	fn from(e: void::Void) -> Self {
+		void::unreachable(e)
 	}
 }

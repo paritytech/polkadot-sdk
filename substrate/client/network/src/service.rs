@@ -56,17 +56,15 @@ use crate::{
 
 use either::Either;
 use futures::{channel::oneshot, prelude::*};
-#[allow(deprecated)]
 use libp2p::{
-	connection_limits::Exceeded,
+	connection_limits::{ConnectionLimits, Exceeded},
 	core::{upgrade, ConnectedPoint, Endpoint},
 	identify::Info as IdentifyInfo,
 	kad::record::Key as KademliaKey,
 	multiaddr,
-	ping::Failure as PingFailure,
 	swarm::{
-		AddressScore, ConnectionError, ConnectionId, ConnectionLimits, DialError, Executor,
-		ListenError, NetworkBehaviour, Swarm, SwarmBuilder, SwarmEvent, THandlerErr,
+		ConnectionError, ConnectionId, DialError, Executor, ListenError, NetworkBehaviour, Swarm,
+		SwarmBuilder, SwarmEvent, THandlerErr,
 	},
 	Multiaddr, PeerId,
 };
@@ -437,6 +435,11 @@ where
 					request_response_protocols,
 					params.peer_store.clone(),
 					external_addresses.clone(),
+					ConnectionLimits::default()
+						.with_max_established_per_peer(Some(crate::MAX_CONNECTIONS_PER_PEER as u32))
+						.with_max_established_incoming(Some(
+							crate::MAX_CONNECTIONS_ESTABLISHED_INCOMING,
+						)),
 				);
 
 				match result {
@@ -460,15 +463,7 @@ where
 					SpawnImpl(params.executor),
 				)
 			};
-			#[allow(deprecated)]
 			let builder = builder
-				.connection_limits(
-					ConnectionLimits::default()
-						.with_max_established_per_peer(Some(crate::MAX_CONNECTIONS_PER_PEER as u32))
-						.with_max_established_incoming(Some(
-							crate::MAX_CONNECTIONS_ESTABLISHED_INCOMING,
-						)),
-				)
 				.substream_upgrade_protocol_override(upgrade::Version::V1Lazy)
 				.notify_handler_buffer_size(NonZeroUsize::new(32).expect("32 != 0; qed"))
 				// NOTE: 24 is somewhat arbitrary and should be tuned in the future if necessary.
@@ -500,11 +495,7 @@ where
 
 		// Add external addresses.
 		for addr in &network_config.public_addresses {
-			Swarm::<Behaviour<B>>::add_external_address(
-				&mut swarm,
-				addr.clone(),
-				AddressScore::Infinite,
-			);
+			Swarm::<Behaviour<B>>::add_external_address(&mut swarm, addr.clone());
 		}
 
 		let listen_addresses = Arc::new(Mutex::new(HashSet::new()));
@@ -689,7 +680,7 @@ where
 
 		let peer_id = Swarm::<Behaviour<B>>::local_peer_id(swarm).to_base58();
 		let listened_addresses = swarm.listeners().cloned().collect();
-		let external_addresses = swarm.external_addresses().map(|r| &r.addr).cloned().collect();
+		let external_addresses = swarm.external_addresses().cloned().collect();
 
 		NetworkState {
 			peer_id,
@@ -761,8 +752,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkService<B, H> {
 			.into_iter()
 			.map(|mut addr| {
 				let peer = match addr.pop() {
-					Some(multiaddr::Protocol::P2p(key)) => PeerId::from_multihash(key)
-						.map_err(|_| "Invalid PeerId format".to_string())?,
+					Some(multiaddr::Protocol::P2p(peer_id)) => peer_id,
 					_ => return Err("Missing PeerId from address".to_string()),
 				};
 
@@ -1444,7 +1434,12 @@ where
 				peer_id,
 				info:
 					IdentifyInfo {
-						protocol_version, agent_version, mut listen_addrs, protocols, ..
+						protocol_version,
+						agent_version,
+						mut listen_addrs,
+						protocols,
+						observed_addr,
+						..
 					},
 			}) => {
 				if listen_addrs.len() > 30 {
@@ -1456,11 +1451,17 @@ where
 					listen_addrs.truncate(30);
 				}
 				for addr in listen_addrs {
-					self.network_service
-						.behaviour_mut()
-						.add_self_reported_address_to_dht(&peer_id, &protocols, addr);
+					self.network_service.behaviour_mut().add_self_reported_address_to_dht(
+						&peer_id,
+						&protocols,
+						addr.clone(),
+					);
 				}
 				self.peer_store_handle.add_known_peer(peer_id);
+				// Confirm the observed address manually since they are no longer trusted by
+				// default (libp2p >= 0.52)
+				// TODO: remove this when/if AutoNAT is implemented.
+				self.network_service.add_external_address(observed_addr);
 			},
 			SwarmEvent::Behaviour(BehaviourOut::Discovered(peer_id)) => {
 				self.peer_store_handle.add_known_peer(peer_id);
@@ -1605,8 +1606,14 @@ where
 					}
 				}
 			},
-			SwarmEvent::ConnectionClosed { peer_id, cause, endpoint, num_established } => {
-				debug!(target: "sub-libp2p", "Libp2p => Disconnected({:?}, {:?})", peer_id, cause);
+			SwarmEvent::ConnectionClosed {
+				connection_id,
+				peer_id,
+				cause,
+				endpoint,
+				num_established,
+			} => {
+				debug!(target: "sub-libp2p", "Libp2p => Disconnected({:?} via {:?}, {:?})", peer_id, connection_id, cause);
 				if let Some(metrics) = self.metrics.as_ref() {
 					let direction = match endpoint {
 						ConnectedPoint::Dialer { .. } => "out",
@@ -1615,10 +1622,12 @@ where
 					let reason = match cause {
 						Some(ConnectionError::IO(_)) => "transport-error",
 						Some(ConnectionError::Handler(Either::Left(Either::Left(
-							Either::Right(Either::Left(PingFailure::Timeout)),
+							Either::Left(Either::Right(_)),
 						)))) => "ping-timeout",
 						Some(ConnectionError::Handler(Either::Left(Either::Left(
-							Either::Left(NotifsHandlerError::SyncNotificationsClogged),
+							Either::Left(Either::Left(
+								NotifsHandlerError::SyncNotificationsClogged,
+							)),
 						)))) => "sync-notifications-clogged",
 						Some(ConnectionError::Handler(_)) => "protocol-error",
 						Some(ConnectionError::KeepAliveTimeout) => "keep-alive-timeout",
@@ -1646,12 +1655,12 @@ where
 				}
 				self.listen_addresses.lock().remove(&address);
 			},
-			SwarmEvent::OutgoingConnectionError { peer_id, error } => {
+			SwarmEvent::OutgoingConnectionError { connection_id, peer_id, error } => {
 				if let Some(peer_id) = peer_id {
 					trace!(
 						target: "sub-libp2p",
-						"Libp2p => Failed to reach {:?}: {}",
-						peer_id, error,
+						"Libp2p => Failed to reach {:?} via {:?}: {}",
+						peer_id, connection_id, error,
 					);
 
 					let not_reported = !self.reported_invalid_boot_nodes.contains(&peer_id);
@@ -1689,12 +1698,11 @@ where
 							} else {
 								None
 							},
-						DialError::ConnectionLimit(_) => Some("limit-reached"),
-						DialError::InvalidPeerId(_) |
-						DialError::WrongPeerId { .. } |
-						DialError::LocalPeerId { .. } => Some("invalid-peer-id"),
+						// DialError::ConnectionLimit(_) => Some("limit-reached"),
+						// DialError::InvalidPeerId(_) |
+						DialError::LocalPeerId { .. } | DialError::WrongPeerId { .. } =>
+							Some("invalid-peer-id"),
 						DialError::Transport(_) => Some("transport-error"),
-						DialError::Banned |
 						DialError::NoAddresses |
 						DialError::DialPeerConditionFalse(_) |
 						DialError::Aborted => None, // ignore them
@@ -1704,21 +1712,26 @@ where
 					}
 				}
 			},
-			SwarmEvent::Dialing(peer_id) => {
-				trace!(target: "sub-libp2p", "Libp2p => Dialing({:?})", peer_id)
+			SwarmEvent::Dialing { connection_id, peer_id } => {
+				trace!(target: "sub-libp2p", "Libp2p => Dialing({:?}) via {:?}", peer_id, connection_id)
 			},
-			SwarmEvent::IncomingConnection { local_addr, send_back_addr } => {
-				trace!(target: "sub-libp2p", "Libp2p => IncomingConnection({},{}))",
-					local_addr, send_back_addr);
+			SwarmEvent::IncomingConnection { connection_id, local_addr, send_back_addr } => {
+				trace!(target: "sub-libp2p", "Libp2p => IncomingConnection({},{} via {:?}))",
+					local_addr, send_back_addr, connection_id);
 				if let Some(metrics) = self.metrics.as_ref() {
 					metrics.incoming_connections_total.inc();
 				}
 			},
-			SwarmEvent::IncomingConnectionError { local_addr, send_back_addr, error } => {
+			SwarmEvent::IncomingConnectionError {
+				connection_id,
+				local_addr,
+				send_back_addr,
+				error,
+			} => {
 				debug!(
 					target: "sub-libp2p",
-					"Libp2p => IncomingConnectionError({},{}): {}",
-					local_addr, send_back_addr, error,
+					"Libp2p => IncomingConnectionError({},{} via {:?}): {}",
+					local_addr, send_back_addr, connection_id, error,
 				);
 				if let Some(metrics) = self.metrics.as_ref() {
 					#[allow(deprecated)]
@@ -1729,7 +1742,6 @@ where
 							} else {
 								None
 							},
-						ListenError::ConnectionLimit(_) => Some("limit-reached"),
 						ListenError::WrongPeerId { .. } | ListenError::LocalPeerId { .. } =>
 							Some("invalid-peer-id"),
 						ListenError::Transport(_) => Some("transport-error"),
@@ -1742,17 +1754,6 @@ where
 							.with_label_values(&[reason])
 							.inc();
 					}
-				}
-			},
-			#[allow(deprecated)]
-			SwarmEvent::BannedPeer { peer_id, endpoint } => {
-				debug!(
-					target: "sub-libp2p",
-					"Libp2p => BannedPeer({}). Connected via {:?}.",
-					peer_id, endpoint,
-				);
-				if let Some(metrics) = self.metrics.as_ref() {
-					metrics.incoming_connections_errors_total.with_label_values(&["banned"]).inc();
 				}
 			},
 			SwarmEvent::ListenerClosed { reason, addresses, .. } => {
