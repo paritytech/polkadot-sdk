@@ -35,8 +35,8 @@ use polkadot_node_subsystem::{
 		ApprovalCheckError, ApprovalCheckResult, ApprovalDistributionMessage,
 		ApprovalVotingMessage, AssignmentCheckError, AssignmentCheckResult,
 		AvailabilityRecoveryMessage, BlockDescription, CandidateValidationMessage, ChainApiMessage,
-		ChainSelectionMessage, DisputeCoordinatorMessage, HighestApprovedAncestorBlock,
-		RuntimeApiMessage, RuntimeApiRequest,
+		ChainSelectionMessage, CheckedIndirectAssignmentCert, DisputeCoordinatorMessage,
+		HighestApprovedAncestorBlock, RuntimeApiMessage, RuntimeApiRequest,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
@@ -1302,6 +1302,19 @@ async fn handle_from_overseer<Context>(
 
 				actions
 			},
+			ApprovalVotingMessage::CheckAssignments(assignments, res) => {
+				let check_outcome =
+					check_assignments(ctx.sender(), state, db, session_info_provider, assignments)
+						.await?;
+				let _ = res.send(check_outcome);
+
+				// No actions, just checking!
+				Vec::new()
+			},
+
+			ApprovalVotingMessage::ImportCheckedAssignments(_, _, _) => {
+				todo!("This must be implemented ASAP");
+			},
 			ApprovalVotingMessage::CheckAndImportApproval(a, res) =>
 				check_and_import_approval(
 					ctx.sender(),
@@ -1933,7 +1946,10 @@ where
 		approval_entry.import_assignment(tranche, assignment.validator, tick_now);
 
 		if is_duplicate {
-			AssignmentCheckResult::AcceptedDuplicate
+			let checked_assignment =
+				CheckedIndirectAssignmentCert::from_unchecked(assignment, tranche);
+
+			AssignmentCheckResult::AcceptedDuplicate(checked_assignment)
 		} else {
 			gum::trace!(
 				target: LOG_TARGET,
@@ -1942,8 +1958,10 @@ where
 				para_id = ?candidate_entry.candidate_receipt().descriptor.para_id,
 				"Imported assignment.",
 			);
+			let checked_assignment =
+				CheckedIndirectAssignmentCert::from_unchecked(assignment, tranche);
 
-			AssignmentCheckResult::Accepted
+			AssignmentCheckResult::Accepted(checked_assignment)
 		}
 	};
 
@@ -1969,6 +1987,151 @@ where
 	db.write_candidate_entry(candidate_entry.into());
 
 	Ok((res, actions))
+}
+
+/// This function implements a batch assignment checker with a thread pool backend for all signature
+/// checks TODO(before merge): Figure out ideal batch size.
+async fn check_assignments<Sender>(
+	sender: &mut Sender,
+	state: &State,
+	db: &OverlayedBackend<'_, impl Backend>,
+	session_info_provider: &mut RuntimeInfo,
+	assignments: Vec<(IndirectAssignmentCert, CandidateIndex)>,
+) -> SubsystemResult<Vec<AssignmentCheckResult>>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	let check_results = FuturesUnordered::new();
+	let mut results = Vec::new();
+
+	// For each assignment we launch a separate task and we wait all of them.
+	for (assignment, candidate_index) in assignments {
+		let mut check_assignment_span = state
+			.spans
+			.get(&assignment.block_hash)
+			.map(|span| span.child("check-assignment"))
+			.unwrap_or_else(|| jaeger::Span::new(assignment.block_hash, "check-assignment"))
+			.with_relay_parent(assignment.block_hash)
+			.with_uint_tag("candidate-index", candidate_index as u64)
+			.with_stage(jaeger::Stage::ApprovalChecking);
+
+		let block_entry = match db.load_block_entry(&assignment.block_hash)? {
+			Some(b) => b,
+			None => {
+				results.push(AssignmentCheckResult::Bad(AssignmentCheckError::UnknownBlock(
+					assignment.block_hash,
+				)));
+
+				continue
+			},
+		};
+
+		let session_info = match get_session_info(
+			session_info_provider,
+			sender,
+			block_entry.parent_hash(),
+			block_entry.session(),
+		)
+		.await
+		{
+			Some(s) => s.clone(),
+			None => {
+				results.push(AssignmentCheckResult::Bad(
+					AssignmentCheckError::UnknownSessionIndex(block_entry.session()),
+				));
+
+				continue
+			},
+		};
+
+		let (claimed_core_index, assigned_candidate_hash) =
+			match block_entry.candidate(candidate_index as usize) {
+				Some((c, h)) => (*c, *h),
+				// no candidate at core.
+				None => {
+					results.push(AssignmentCheckResult::Bad(
+						AssignmentCheckError::InvalidCandidateIndex(candidate_index),
+					));
+					continue
+				},
+			};
+
+		check_assignment_span
+			.add_string_tag("candidate-hash", format!("{:?}", assigned_candidate_hash));
+		check_assignment_span.add_string_tag(
+			"traceID",
+			format!("{:?}", jaeger::hash_to_trace_identifier(assigned_candidate_hash.0)),
+		);
+
+		let mut candidate_entry = match db.load_candidate_entry(&assigned_candidate_hash).unwrap() {
+			Some(c) => c,
+			None => {
+				results.push(AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCandidate(
+					candidate_index,
+					assigned_candidate_hash,
+				)));
+				continue
+			},
+		};
+
+		// Check the assignment.
+		let approval_entry = match candidate_entry.approval_entry_mut(&assignment.block_hash) {
+			Some(a) => a,
+			None => {
+				results.push(AssignmentCheckResult::Bad(AssignmentCheckError::Internal(
+					assignment.block_hash,
+					assigned_candidate_hash,
+				)));
+				continue
+			},
+		};
+
+		let backing_group = approval_entry.backing_group();
+		let assignment_cert = assignment.cert.clone();
+		let check_task = async move {
+			let res = state.assignment_criteria.check_assignment_cert(
+				claimed_core_index,
+				assignment.validator,
+				&criteria::Config::from(&session_info),
+				block_entry.relay_vrf_story(),
+				&assignment_cert,
+				backing_group,
+			);
+
+			let tranche = match res {
+				Err(crate::criteria::InvalidAssignment(reason)) =>
+					return AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCert(
+						assignment.validator,
+						format!("{:?}", reason),
+					)),
+				Ok(tranche) => {
+					let current_tranche =
+						state.clock.tranche_now(state.slot_duration_millis, block_entry.slot());
+
+					let too_far_in_future =
+						current_tranche + TICK_TOO_FAR_IN_FUTURE as DelayTranche;
+
+					if tranche >= too_far_in_future {
+						return AssignmentCheckResult::TooFarInFuture
+					}
+
+					tranche
+				},
+			};
+
+			let checked_assignment =
+				CheckedIndirectAssignmentCert::from_unchecked(assignment, tranche);
+			AssignmentCheckResult::Accepted(checked_assignment)
+		};
+
+		check_results.push(check_task);
+	}
+
+	let task_results: Vec<_> = check_results.collect().await;
+
+	results.extend(task_results.into_iter());
+
+	Ok(results)
 }
 
 async fn check_and_import_approval<T, Sender>(
