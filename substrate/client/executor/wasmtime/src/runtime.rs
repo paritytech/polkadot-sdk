@@ -170,13 +170,7 @@ impl WasmInstance for WasmtimeInstance {
 	fn get_global_const(&mut self, name: &str) -> Result<Option<Value>> {
 		match &mut self.strategy {
 			Strategy::RecreateInstance(ref mut instance_creator) => {
-				let val = instance_creator.instantiate()?.get_global_val(name);
-				if let Ok(Some(val)) = val {
-					if val.ty(&self.store).mutability() != Mutability::Const {
-						return Err(format!("`{}` is not a const global", name).into())
-					}
-				}
-				val
+				instance_creator.instantiate()?.get_global_val(name)
 			},
 		}
 	}
