@@ -605,7 +605,7 @@ impl<'a> From<ExtensionInput<'a>> for Vec<u8> {
 	}
 }
 
-impl Default for Origin<Test> {
+impl Default for Origin<crate::AccountIdOf<Test>> {
 	fn default() -> Self {
 		Self::Signed(ALICE)
 	}
@@ -1273,7 +1273,7 @@ fn deploy_and_call_other_contract() {
 						contract: callee_addr.clone(),
 					}),
 					topics: vec![
-						hash(&Origin::<Test>::from_account_id(caller_addr.clone())),
+						hash(&Origin::from_account_id(caller_addr.clone())),
 						hash(&callee_addr)
 					],
 				},
@@ -1283,7 +1283,7 @@ fn deploy_and_call_other_contract() {
 						caller: Origin::from_account_id(ALICE),
 						contract: caller_addr.clone(),
 					}),
-					topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&caller_addr)],
+					topics: vec![hash(&Origin::from_account_id(ALICE)), hash(&caller_addr)],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -1617,7 +1617,7 @@ fn self_destruct_works() {
 						caller: Origin::from_account_id(ALICE),
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&addr)],
+					topics: vec![hash(&Origin::from_account_id(ALICE)), hash(&addr)],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -4018,7 +4018,7 @@ fn storage_deposit_works() {
 						caller: Origin::from_account_id(ALICE),
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&addr)],
+					topics: vec![hash(&Origin::from_account_id(ALICE)), hash(&addr)],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -4037,7 +4037,7 @@ fn storage_deposit_works() {
 						caller: Origin::from_account_id(ALICE),
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&addr)],
+					topics: vec![hash(&Origin::from_account_id(ALICE)), hash(&addr)],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -4056,7 +4056,7 @@ fn storage_deposit_works() {
 						caller: Origin::from_account_id(ALICE),
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&addr)],
+					topics: vec![hash(&Origin::from_account_id(ALICE)), hash(&addr)],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -4563,7 +4563,7 @@ fn set_code_hash() {
 						contract: contract_addr.clone(),
 					}),
 					topics: vec![
-						hash(&Origin::<Test>::from_account_id(ALICE)),
+						hash(&Origin::from_account_id(ALICE)),
 						hash(&contract_addr)
 					],
 				},
@@ -4574,7 +4574,7 @@ fn set_code_hash() {
 						contract: contract_addr.clone(),
 					}),
 					topics: vec![
-						hash(&Origin::<Test>::from_account_id(ALICE)),
+						hash(&Origin::from_account_id(ALICE)),
 						hash(&contract_addr)
 					],
 				},

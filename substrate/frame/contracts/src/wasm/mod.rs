@@ -526,7 +526,7 @@ mod tests {
 		ecdsa_recover: RefCell<Vec<([u8; 65], [u8; 32])>>,
 		sr25519_verify: RefCell<Vec<([u8; 64], Vec<u8>, [u8; 32])>>,
 		code_hashes: Vec<CodeHash<Test>>,
-		caller: Origin<Test>,
+		caller: Origin<AccountIdOf<Test>>,
 		delegate_dependencies: RefCell<HashSet<CodeHash<Test>>>,
 	}
 
@@ -639,7 +639,7 @@ mod tests {
 			}
 			Ok(result)
 		}
-		fn caller(&self) -> Origin<Self::T> {
+		fn caller(&self) -> Origin<AccountIdOf<Self::T>> {
 			self.caller.clone()
 		}
 		fn is_contract(&self, _address: &AccountIdOf<Self::T>) -> bool {

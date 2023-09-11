@@ -209,7 +209,7 @@ pub trait Ext: sealing::Sealed {
 	) -> Result<WriteOutcome, DispatchError>;
 
 	/// Returns the caller.
-	fn caller(&self) -> Origin<Self::T>;
+	fn caller(&self) -> Origin<AccountIdOf<Self::T>>;
 
 	/// Check if a contract lives at the specified `address`.
 	fn is_contract(&self, address: &AccountIdOf<Self::T>) -> bool;
@@ -440,7 +440,7 @@ pub struct Stack<'a, T: Config, E> {
 	/// Please note that it is possible that the id of a Signed origin belongs to a contract rather
 	/// than a plain account when being called through one of the contract RPCs where the
 	/// client can freely choose the origin. This usually makes no sense but is still possible.
-	origin: Origin<T>,
+	origin: Origin<T::AccountId>,
 	/// The cost schedule used when charging from the gas meter.
 	schedule: &'a Schedule<T>,
 	/// The gas meter where costs are charged to.
@@ -496,7 +496,7 @@ pub struct Frame<T: Config> {
 	/// If `false` the contract enabled its defense against reentrance attacks.
 	allows_reentry: bool,
 	/// The caller of the currently executing frame which was spawned by `delegate_call`.
-	delegate_caller: Option<Origin<T>>,
+	delegate_caller: Option<Origin<T::AccountId>>,
 }
 
 /// Used in a delegate call frame arguments in order to override the executable and caller.
@@ -504,7 +504,7 @@ struct DelegatedCall<T: Config, E> {
 	/// The executable which is run instead of the contracts own `executable`.
 	executable: E,
 	/// The caller of the contract.
-	caller: Origin<T>,
+	caller: Origin<T::AccountId>,
 }
 
 /// Parameter passed in when creating a new `Frame`.
@@ -666,7 +666,7 @@ where
 	///
 	/// Result<(ExecReturnValue, CodeSize), (ExecError, CodeSize)>
 	pub fn run_call(
-		origin: Origin<T>,
+		origin: Origin<T::AccountId>,
 		dest: T::AccountId,
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
@@ -733,7 +733,7 @@ where
 	/// Create a new call stack.
 	fn new(
 		args: FrameArgs<T, E>,
-		origin: Origin<T>,
+		origin: Origin<T::AccountId>,
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		schedule: &'a Schedule<T>,
@@ -1335,7 +1335,7 @@ where
 		&self.top_frame().account_id
 	}
 
-	fn caller(&self) -> Origin<T> {
+	fn caller(&self) -> Origin<T::AccountId> {
 		if let Some(caller) = &self.top_frame().delegate_caller {
 			caller.clone()
 		} else {
@@ -3151,7 +3151,7 @@ mod tests {
 							caller: Origin::from_account_id(ALICE),
 							contract: BOB,
 						}),
-						topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&BOB)],
+						topics: vec![hash(&Origin::from_account_id(ALICE)), hash(&BOB)],
 					},
 				]
 			);
@@ -3251,7 +3251,7 @@ mod tests {
 							caller: Origin::from_account_id(ALICE),
 							contract: BOB,
 						}),
-						topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&BOB)],
+						topics: vec![hash(&Origin::from_account_id(ALICE)), hash(&BOB)],
 					},
 				]
 			);

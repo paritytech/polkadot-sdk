@@ -119,7 +119,7 @@ use frame_support::{
 		ConstU32, Contains, Get, Randomness, Time,
 	},
 	weights::Weight,
-	BoundedVec, DefaultNoBound, RuntimeDebugNoBound,
+	BoundedVec, DefaultNoBound,
 };
 use frame_system::{
 	ensure_signed,
@@ -921,7 +921,7 @@ pub mod pallet {
 		/// rolled back.
 		Called {
 			/// The caller of the `contract`.
-			caller: Origin<T>,
+			caller: Origin<T::AccountId>,
 			/// The contract that was called.
 			contract: T::AccountId,
 		},
@@ -1116,22 +1116,27 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type MigrationInProgress<T: Config> =
 		StorageValue<_, migration::Cursor, OptionQuery>;
+
+	// #[pallet::origin]
+	// pub type Origin<T> = crate::Origin<<T as frame_system::Config>::AccountId>;
+
 }
 
 /// The type of origins supported by the contracts pallet.
-#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebugNoBound)]
-pub enum Origin<T: Config> {
+#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+pub enum Origin<AccountId> {
 	Root,
-	Signed(T::AccountId),
+	Signed(AccountId),
 }
 
-impl<T: Config> Origin<T> {
+impl<AccountId> Origin<AccountId> {
 	/// Creates a new Signed Caller from an AccountId.
-	pub fn from_account_id(account_id: T::AccountId) -> Self {
+	pub fn from_account_id(account_id: AccountId) -> Self {
 		Origin::Signed(account_id)
 	}
 	/// Creates a new Origin from a `RuntimeOrigin`.
-	pub fn from_runtime_origin(o: OriginFor<T>) -> Result<Self, DispatchError> {
+	pub fn from_runtime_origin<T>(o:  T) -> Result<Self, DispatchError> where T: Into<Result<RawOrigin<AccountId>, T>>
+	{
 		match o.into() {
 			Ok(RawOrigin::Root) => Ok(Self::Root),
 			Ok(RawOrigin::Signed(t)) => Ok(Self::Signed(t)),
@@ -1139,7 +1144,7 @@ impl<T: Config> Origin<T> {
 		}
 	}
 	/// Returns the AccountId of a Signed Origin or an error if the origin is Root.
-	pub fn account_id(&self) -> Result<&T::AccountId, DispatchError> {
+	pub fn account_id(&self) -> Result<&AccountId, DispatchError> {
 		match self {
 			Origin::Signed(id) => Ok(id),
 			Origin::Root => Err(DispatchError::RootNotAllowed),
@@ -1149,7 +1154,7 @@ impl<T: Config> Origin<T> {
 
 /// Context of a contract invocation.
 struct CommonInput<'a, T: Config> {
-	origin: Origin<T>,
+	origin: Origin<T::AccountId>,
 	value: BalanceOf<T>,
 	data: Vec<u8>,
 	gas_limit: Weight,
@@ -1286,7 +1291,7 @@ trait Invokable<T: Config>: Sized {
 	/// This method ensures that the given `origin` is allowed to invoke the current `Invokable`.
 	///
 	/// Called by dispatchables and public functions through the [`Invokable::run_guarded`].
-	fn ensure_origin(&self, origin: Origin<T>) -> Result<(), DispatchError>;
+	fn ensure_origin(&self, origin: Origin<T::AccountId>) -> Result<(), DispatchError>;
 }
 
 impl<T: Config> Invokable<T> for CallInput<T> {
@@ -1332,7 +1337,7 @@ impl<T: Config> Invokable<T> for CallInput<T> {
 		}
 	}
 
-	fn ensure_origin(&self, _origin: Origin<T>) -> Result<(), DispatchError> {
+	fn ensure_origin(&self, _origin: Origin<T::AccountId>) -> Result<(), DispatchError> {
 		Ok(())
 	}
 }
@@ -1379,7 +1384,7 @@ impl<T: Config> Invokable<T> for InstantiateInput<T> {
 		InternalOutput { result: try_exec(), gas_meter, storage_deposit }
 	}
 
-	fn ensure_origin(&self, origin: Origin<T>) -> Result<(), DispatchError> {
+	fn ensure_origin(&self, origin: Origin<T::AccountId>) -> Result<(), DispatchError> {
 		match origin {
 			Origin::Signed(_) => Ok(()),
 			Origin::Root => Err(DispatchError::RootNotAllowed),

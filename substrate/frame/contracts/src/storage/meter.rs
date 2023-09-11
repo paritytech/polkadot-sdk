@@ -363,7 +363,7 @@ where
 	///
 	/// This tries to [`Ext::check_limit`] on `origin` and fails if this is not possible.
 	pub fn new(
-		origin: &Origin<T>,
+		origin: &Origin<T::AccountId>,
 		limit: Option<BalanceOf<T>>,
 		min_leftover: BalanceOf<T>,
 	) -> Result<Self, DispatchError> {
@@ -386,7 +386,7 @@ where
 	///
 	/// This drops the root meter in order to make sure it is only called when the whole
 	/// execution did finish.
-	pub fn try_into_deposit(self, origin: &Origin<T>) -> Result<DepositOf<T>, DispatchError> {
+	pub fn try_into_deposit(self, origin: &Origin<T::AccountId>) -> Result<DepositOf<T>, DispatchError> {
 		// Only refund or charge deposit if the origin is not root.
 		let origin = match origin {
 			Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
@@ -702,7 +702,7 @@ mod tests {
 	}
 
 	struct ChargingTestCase {
-		origin: Origin<Test>,
+		origin: Origin<AccountIdOf<Test>>,
 		deposit: DepositOf<Test>,
 		expected: TestExt,
 	}
@@ -768,7 +768,7 @@ mod tests {
 	fn charging_works() {
 		let test_cases = vec![
 			ChargingTestCase {
-				origin: Origin::<Test>::from_account_id(ALICE),
+				origin: Origin::from_account_id(ALICE),
 				deposit: Deposit::Refund(28),
 				expected: TestExt {
 					limit_checks: vec![LimitCheck { origin: ALICE, limit: 100, min_leftover: 0 }],
@@ -795,7 +795,7 @@ mod tests {
 				},
 			},
 			ChargingTestCase {
-				origin: Origin::<Test>::Root,
+				origin: Origin::Root,
 				deposit: Deposit::Charge(0),
 				expected: TestExt { limit_checks: vec![], charges: vec![] },
 			},
@@ -859,7 +859,7 @@ mod tests {
 	fn termination_works() {
 		let test_cases = vec![
 			ChargingTestCase {
-				origin: Origin::<Test>::from_account_id(ALICE),
+				origin: Origin::from_account_id(ALICE),
 				deposit: Deposit::Refund(107),
 				expected: TestExt {
 					limit_checks: vec![LimitCheck { origin: ALICE, limit: 1_000, min_leftover: 0 }],
@@ -880,7 +880,7 @@ mod tests {
 				},
 			},
 			ChargingTestCase {
-				origin: Origin::<Test>::Root,
+				origin: Origin::Root,
 				deposit: Deposit::Charge(0),
 				expected: TestExt { limit_checks: vec![], charges: vec![] },
 			},
