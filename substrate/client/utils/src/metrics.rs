@@ -46,11 +46,6 @@ lazy_static! {
 		),
 		&["entity", "action"], // name of channel, send|received|dropped
 	).expect("Creating of statics doesn't fail. qed");
-
-	pub static SENT_LABEL: &'static str = "send";
-	pub static RECEIVED_LABEL: &'static str = "received";
-	pub static DROPPED_LABEL: &'static str = "dropped";
-
 	pub static ref UNBOUNDED_CHANNELS_SIZE: GenericGaugeVec<AtomicU64> = GenericGaugeVec::new(
 		Opts::new(
 			"substrate_unbounded_channel_size",
@@ -59,6 +54,10 @@ lazy_static! {
 		&["entity"], // name of channel
 	).expect("Creating of statics doesn't fail. qed");
 }
+
+pub static SENT_LABEL: &'static str = "send";
+pub static RECEIVED_LABEL: &'static str = "received";
+pub static DROPPED_LABEL: &'static str = "dropped";
 
 /// Register the statics to report to registry
 pub fn register_globals(registry: &Registry) -> Result<(), PrometheusError> {

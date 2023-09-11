@@ -20,7 +20,9 @@
 
 pub use async_channel::{TryRecvError, TrySendError};
 
-use crate::metrics::{DROPPED_LABEL, RECEIVED_LABEL, SENT_LABEL, UNBOUNDED_CHANNELS_COUNTER};
+use crate::metrics::{
+	DROPPED_LABEL, RECEIVED_LABEL, SENT_LABEL, UNBOUNDED_CHANNELS_COUNTER, UNBOUNDED_CHANNELS_SIZE,
+};
 use async_channel::{Receiver, Sender};
 use futures::{
 	stream::{FusedStream, Stream},
@@ -103,7 +105,9 @@ impl<T> TracingUnboundedSender<T> {
 	pub fn unbounded_send(&self, msg: T) -> Result<(), TrySendError<T>> {
 		self.inner.try_send(msg).map(|s| {
 			UNBOUNDED_CHANNELS_COUNTER.with_label_values(&[self.name, SENT_LABEL]).inc();
-			UNBOUNDED_CHANNELS_SIZE.with_label_values(&[self.name]).set(self.inner.len());
+			UNBOUNDED_CHANNELS_SIZE
+				.with_label_values(&[self.name])
+				.set(self.inner.len().saturated_into());
 
 			if self.inner.len() >= self.queue_size_warning &&
 				self.warning_fired
@@ -142,7 +146,9 @@ impl<T> TracingUnboundedReceiver<T> {
 	pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
 		self.inner.try_recv().map(|s| {
 			UNBOUNDED_CHANNELS_COUNTER.with_label_values(&[self.name, RECEIVED_LABEL]).inc();
-			UNBOUNDED_CHANNELS_SIZE.with_label_values(&[self.name]).set(self.inner.len());
+			UNBOUNDED_CHANNELS_SIZE
+				.with_label_values(&[self.name])
+				.set(self.inner.len().saturated_into());
 			s
 		})
 	}
@@ -185,7 +191,9 @@ impl<T> Stream for TracingUnboundedReceiver<T> {
 			Poll::Ready(msg) => {
 				if msg.is_some() {
 					UNBOUNDED_CHANNELS_COUNTER.with_label_values(&[s.name, RECEIVED_LABEL]).inc();
-					UNBOUNDED_CHANNELS_SIZE.with_label_values(&[self.name]).set(self.inner.len());
+					UNBOUNDED_CHANNELS_SIZE
+						.with_label_values(&[s.name])
+						.set(s.inner.len().saturated_into());
 				}
 				Poll::Ready(msg)
 			},
