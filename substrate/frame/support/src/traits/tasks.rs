@@ -24,7 +24,7 @@ pub mod prelude {
 	pub use codec::FullCodec;
 	pub use scale_info::TypeInfo;
 	pub use sp_runtime::DispatchError;
-	pub use sp_std::{fmt::Debug, iter::Iterator, vec::IntoIter};
+	pub use sp_std::{fmt::Debug, iter::Iterator, vec, vec::IntoIter};
 	pub use sp_weights::Weight;
 }
 

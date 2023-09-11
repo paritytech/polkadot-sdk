@@ -25,6 +25,7 @@ pub fn expand_outer_task(pallet_decls: &[Pallet], scrate: &TokenStream2) -> Toke
 	let mut from_impls = Vec::new();
 	let mut task_variants = Vec::new();
 	let mut variant_names = Vec::new();
+	let mut task_paths = Vec::new();
 	for decl in pallet_decls {
 		if let Some(_) = decl.find_part("Task") {
 			let variant_name = &decl.name;
@@ -48,6 +49,8 @@ pub fn expand_outer_task(pallet_decls: &[Pallet], scrate: &TokenStream2) -> Toke
 			});
 
 			variant_names.push(quote!(#variant_name));
+
+			task_paths.push(quote!(#path::pallet::Task));
 		}
 	}
 
@@ -67,7 +70,7 @@ pub fn expand_outer_task(pallet_decls: &[Pallet], scrate: &TokenStream2) -> Toke
 		}
 
 		impl #scrate::traits::Task for RuntimeTask {
-			type Enumeration = #prelude::IntoIter<#scrate::traits::Task<T>>;
+			type Enumeration = #prelude::IntoIter<RuntimeTask>;
 
 			const TASK_INDEX: Option<u64> = None;
 
@@ -87,6 +90,12 @@ pub fn expand_outer_task(pallet_decls: &[Pallet], scrate: &TokenStream2) -> Toke
 				match self {
 					#(#variant_names(val) => val.weight()),*
 				}
+			}
+
+			fn enumerate() -> Self::Enumeration {
+				let mut all_tasks = Vec::new();
+				#(all_tasks.extend(#task_paths::enumerate().map(RuntimeTask::from).collect::<Vec<_>>());)*
+				all_tasks.into_iter()
 			}
 		}
 
