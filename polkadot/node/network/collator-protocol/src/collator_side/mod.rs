@@ -1233,8 +1233,10 @@ async fn handle_network_msg<Context>(
 		},
 		UpdatedAuthorityIds(peer_id, authority_ids) => {
 			gum::trace!(target: LOG_TARGET, ?peer_id, ?authority_ids, "Updated authority ids");
-			if state.peer_ids.insert(peer_id, authority_ids).is_none() {
-				declare(ctx, state, &peer_id, version).await;
+			if let Some(version) = state.peer_data.get(&peer_id).map(|d| d.version) {
+				if state.peer_ids.insert(peer_id, authority_ids).is_none() {
+					declare(ctx, state, &peer_id, version).await;
+				}
 			}
 		},
 		NewGossipTopology { .. } => {
