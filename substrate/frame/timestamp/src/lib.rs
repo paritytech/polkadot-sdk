@@ -158,7 +158,7 @@ pub mod pallet {
 			+ MaxEncodedLen
 			+ scale_info::StaticTypeInfo;
 
-		/// A means of notifying another pallet when the timestamp is set.
+		/// Something which can be notified (e.g. another pallet) when the timestamp is set.
 		///
 		/// This can be set to `()` if it is not needed.
 		type OnTimestampSet: OnTimestampSet<Self::Moment>;
