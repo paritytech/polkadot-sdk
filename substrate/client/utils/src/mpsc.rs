@@ -20,9 +20,7 @@
 
 pub use async_channel::{TryRecvError, TrySendError};
 
-use crate::metrics::{
-	DROPPED_LABEL, RECEIVED_LABEL, SENT_LABEL, UNBOUNDED_CHANNELS_COUNTER,
-};
+use crate::metrics::{DROPPED_LABEL, RECEIVED_LABEL, SENT_LABEL, UNBOUNDED_CHANNELS_COUNTER};
 use async_channel::{Receiver, Sender};
 use futures::{
 	stream::{FusedStream, Stream},
