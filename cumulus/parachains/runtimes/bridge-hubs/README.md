@@ -45,17 +45,28 @@ Copy the apropriate binary (zombienet-linux) from the latest release to ~/local_
 
 ---
 # 2. Build polkadot binary
-git clone https://github.com/paritytech/polkadot.git
-cd polkadot
 
-# if you want to test Kusama/Polkadot bridge, we need "sudo pallet + fast-runtime",
-# so please, find the latest polkadot's repository branch `it/release-vX.Y.Z-fast-sudo`
-# e.g:
-# git checkout -b it/release-v0.9.43-fast-sudo --track origin/it/release-v0.9.43-fast-sudo
+# If you want to test Kusama/Polkadot bridge, we need "sudo pallet + fast-runtime",
+# so we need to use sudoif in polkadot directory.
+#
+# Install sudoif: (skip if already installed)
+# cd <somewhere-outside-polkadot-sdk-git-repo-dir>
+# git clone https://github.com/paritytech/parachain-utils.git
+# cd parachain-utils # -> this is <parachain-utils-git-repo-dir>
+# cargo build --release --bin sudofi
+#
+# cd <polkadot-sdk-git-repo-dir>/pokladot
+# <parachain-utils-git-repo-dir>/target/release/sudoif
 
-cargo build --release --features fast-runtime
+cd <polkadot-sdk-git-repo-dir>
+cargo build --release --features fast-runtime --bin polkadot
 cp target/release/polkadot ~/local_bridge_testing/bin/polkadot
 
+cargo build --release --features fast-runtime --bin polkadot-prepare-worker
+cp target/release/polkadot-prepare-worker ~/local_bridge_testing/bin/polkadot-prepare-worker
+
+cargo build --release --features fast-runtime --bin polkadot-execute-worker
+cp target/release/polkadot-execute-worker ~/local_bridge_testing/bin/polkadot-execute-worker
 
 ---
 # 3. Build substrate-relay binary
@@ -74,7 +85,7 @@ cp target/release/substrate-relay ~/local_bridge_testing/bin/substrate-relay
 
 ---
 # 4. Build cumulus polkadot-parachain binary
-cd <cumulus-git-repo-dir>
+cd <polkadot-sdk-git-repo-dir>
 
 # checkout desired branch or use master:
 # git checkout -b master --track origin/master
@@ -83,25 +94,7 @@ cargo build --release --locked --bin polkadot-parachain
 cp target/release/polkadot-parachain ~/local_bridge_testing/bin/polkadot-parachain
 cp target/release/polkadot-parachain ~/local_bridge_testing/bin/polkadot-parachain-asset-hub
 
-
-
-# !!! READ HERE (TODO remove once all mentioned branches bellow are merged)
-# The use case "moving assets over bridge" is not merged yet and is implemented in separate branches.
-# So, if you want to try it, you need to checkout different branch and continue with these instructions there.
-
-# For Kusama/Polkadot local bridge testing:
-#
-# build BridgeHubs (polkadot-parachain) from branch:
-# git checkout -b bridge-hub-kusama-polkadot --track origin/bridge-hub-kusama-polkadot
-# cargo build --release --locked --bin polkadot-parachain
-# cp target/release/polkadot-parachain ~/local_bridge_testing/bin/polkadot-parachain
-#
-# build AssetHubs (polkadot-parachain-asset-hub) from branch:
-# git checkout -b bko-transfer-asset-via-bridge-pallet-xcm --track origin/bko-transfer-asset-via-bridge-pallet-xcm
-# cargo build --release --locked --bin polkadot-parachain
-# cp target/release/polkadot-parachain ~/local_bridge_testing/bin/polkadot-parachain-asset-hub
-
-# For Rococo/Wococo local bridge testing:
+# For Rococo/Wococo local bridge testing: (obsolete)
 #
 # build AssetHubs (polkadot-parachain-asset-hub) from branch:
 # git checkout -b bko-transfer-asset-via-bridge-pallet-xcm-ro-wo --track origin/bko-transfer-asset-via-bridge-pallet-xcm-ro-wo
@@ -236,27 +229,33 @@ Check [requirements](#requirements-for-local-runtesting) for "sudo pallet + fast
 
 ### 1. Run chains (Kusama + BridgeHub + AssetHub, Polkadot + BridgeHub + AssetHub) with zombienet
 
+
 ```
+cd <polkadot-sdk-git-repo-dir>
+
 # Kusama + BridgeHubKusama + AssetHubKusama
 POLKADOT_BINARY_PATH=~/local_bridge_testing/bin/polkadot \
 POLKADOT_PARACHAIN_BINARY_PATH=~/local_bridge_testing/bin/polkadot-parachain \
 POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_KUSAMA=~/local_bridge_testing/bin/polkadot-parachain-asset-hub \
-	~/local_bridge_testing/bin/zombienet-linux --provider native spawn ./zombienet/bridge-hubs/bridge_hub_kusama_local_network.toml
+	~/local_bridge_testing/bin/zombienet-linux --provider native spawn ./cumulus/zombienet/bridge-hubs/bridge_hub_kusama_local_network.toml
 ```
 
 ```
+cd <polkadot-sdk-git-repo-dir>
+
 # Polkadot + BridgeHubPolkadot + AssetHubPolkadot
 POLKADOT_BINARY_PATH=~/local_bridge_testing/bin/polkadot \
 POLKADOT_PARACHAIN_BINARY_PATH=~/local_bridge_testing/bin/polkadot-parachain \
 POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_POLKADOT=~/local_bridge_testing/bin/polkadot-parachain-asset-hub \
-	~/local_bridge_testing/bin/zombienet-linux --provider native spawn ./zombienet/bridge-hubs/bridge_hub_polkadot_local_network.toml
+	~/local_bridge_testing/bin/zombienet-linux --provider native spawn ./cumulus/zombienet/bridge-hubs/bridge_hub_polkadot_local_network.toml
 ```
 
 ### 2. Init bridge and run relayer (BridgeHubKusama, BridgeHubPolkadot)
 
 ```
-cd <cumulus-git-repo-dir>
-./scripts/bridges_kusama_polkadot.sh run-relay
+cd <polkadot-sdk-git-repo-dir>
+
+./cumulus/scripts/bridges_kusama_polkadot.sh run-relay
 ```
 
 ### 3. Initialize transfer asset over bridge (DOTs/KSMs)
@@ -265,22 +264,28 @@ This initialization does several things:
 - creates `ForeignAssets` for wrappedDOTs/wrappedKSMs
 - drips SA for AssetHubKusama on AssetHubPolkadot (and vice versa) which holds reserved assets on source chains
 ```
-./scripts/bridges_kusama_polkadot.sh init-asset-hub-kusama-local
-./scripts/bridges_kusama_polkadot.sh init-bridge-hub-kusama-local
-./scripts/bridges_kusama_polkadot.sh init-asset-hub-polkadot-local
-./scripts/bridges_kusama_polkadot.sh init-bridge-hub-polkadot-local
+cd <polkadot-sdk-git-repo-dir>
+
+./cumulus/scripts/bridges_kusama_polkadot.sh init-asset-hub-kusama-local
+./cumulus/scripts/bridges_kusama_polkadot.sh init-bridge-hub-kusama-local
+./cumulus/scripts/bridges_kusama_polkadot.sh init-asset-hub-polkadot-local
+./cumulus/scripts/bridges_kusama_polkadot.sh init-bridge-hub-polkadot-local
 ```
 
 ### 4. Send messages - transfer asset over bridge (DOTs/KSMs)
 
 Do (asset) transfers:
 ```
+cd <polkadot-sdk-git-repo-dir>
+
 # KSMs from Kusama's Asset Hub to Polkadot's.
-./scripts/bridges_kusama_polkadot.sh reserve-transfer-assets-from-asset-hub-kusama-local
+./cumulus/scripts/bridges_kusama_polkadot.sh reserve-transfer-assets-from-asset-hub-kusama-local
 ```
 ```
+cd <polkadot-sdk-git-repo-dir>
+
 # DOTs from Polkadot's Asset Hub to Kusama's.
-./scripts/bridges_kusama_polkadot.sh reserve-transfer-assets-from-asset-hub-polkadot-local
+./cumulus/scripts/bridges_kusama_polkadot.sh reserve-transfer-assets-from-asset-hub-polkadot-local
 ```
 
 - open explorers: (see zombienets)

@@ -1,5 +1,5 @@
 [relaychain]
-default_command = "../polkadot/target/release/polkadot"
+default_command = "./target/release/polkadot"
 default_args = [ "-lparachain=debug" ]
 chain = "kusama-local"
 

@@ -94,14 +94,14 @@ cumulus_based = true
 		"-- --port 51433 --rpc-port 58833 --ws-port 58843 --no-mdns", "--bootnodes {{'alice-validator'|zombie('multiAddress')}}"
 	]
 
-[[hrmp_channels]]
-sender = 1000
-recipient = 1002
-max_capacity = 4
-max_message_size = 524288
-
-[[hrmp_channels]]
-sender = 1002
-recipient = 1000
-max_capacity = 4
-max_message_size = 524288
+#[[hrmp_channels]]
+#sender = 1000
+#recipient = 1002
+#max_capacity = 4
+#max_message_size = 524288
+#
+#[[hrmp_channels]]
+#sender = 1002
+#recipient = 1000
+#max_capacity = 4
+#max_message_size = 524288

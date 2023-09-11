@@ -87,8 +87,8 @@ function ensure_polkadot_js_api() {
         echo ""
         echo ""
         echo "-------------------"
-        echo "Installing (nodejs) sub module: ./scripts/generate_hex_encoded_call"
-        pushd ./scripts/generate_hex_encoded_call
+        echo "Installing (nodejs) sub module: $(dirname "$0")/generate_hex_encoded_call"
+        pushd $(dirname "$0")/generate_hex_encoded_call
         npm install
         popd
     fi
@@ -103,7 +103,7 @@ function generate_hex_encoded_call_data() {
     shift
     echo "Input params: $@"
 
-    node ./scripts/generate_hex_encoded_call "$type" "$endpoint" "$output" "$@"
+    node $(dirname "$0")/generate_hex_encoded_call "$type" "$endpoint" "$output" "$@"
     local retVal=$?
 
     if [ $type != "check" ]; then
@@ -129,7 +129,7 @@ function transfer_balance() {
     polkadot-js-api \
         --ws "${runtime_para_endpoint}" \
         --seed "${seed?}" \
-        tx.balances.transfer \
+        tx.balances.transferAllowDeath \
             "${target_account}" \
             "${amount}"
 }
@@ -198,6 +198,34 @@ function send_governance_transact() {
         tx.xcmPallet.send \
             "${dest}" \
             "${message}"
+}
+
+function open_hrmp_channels() {
+    local relay_url=$1
+    local relay_chain_seed=$2
+    local sender_para_id=$3
+    local recipient_para_id=$4
+    local max_capacity=$5
+    local max_message_size=$6
+    echo "  calling open_hrmp_channels:"
+    echo "      relay_url: ${relay_url}"
+    echo "      relay_chain_seed: ${relay_chain_seed}"
+    echo "      sender_para_id: ${sender_para_id}"
+    echo "      recipient_para_id: ${recipient_para_id}"
+    echo "      max_capacity: ${max_capacity}"
+    echo "      max_message_size: ${max_message_size}"
+    echo "      params:"
+    echo "--------------------------------------------------"
+
+    polkadot-js-api \
+        --ws "${relay_url?}" \
+        --seed "${relay_chain_seed?}" \
+        --sudo \
+        tx.hrmp.forceOpenHrmpChannel \
+            ${sender_para_id} \
+            ${recipient_para_id} \
+            ${max_capacity} \
+            ${max_message_size}
 }
 
 function allow_assets_transfer_send() {

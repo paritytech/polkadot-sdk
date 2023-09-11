@@ -133,6 +133,7 @@ case "$1" in
     run_relay
     ;;
   init-asset-hub-kusama-local)
+      ensure_polkadot_js_api
       # create foreign assets for native Polkadot token (governance call on Kusama)
       force_create_foreign_asset \
           "ws://127.0.0.1:9942" \
@@ -149,8 +150,18 @@ case "$1" in
           "//Alice" \
           "$GLOBAL_CONSENSUS_POLKADOT_ASSET_HUB_POLKADOT_1000_SOVEREIGN_ACCOUNT" \
           $((1000000000 + 50000000000 * 20))
+      # HRMP
+      open_hrmp_channels \
+          "ws://127.0.0.1:9942" \
+          "//Alice" \
+          1000 1002 4 524288
+      open_hrmp_channels \
+          "ws://127.0.0.1:9942" \
+          "//Alice" \
+          1002 1000 4 524288
       ;;
   init-bridge-hub-kusama-local)
+      ensure_polkadot_js_api
       # SA of sibling asset hub pays for the execution
       transfer_balance \
           "ws://127.0.0.1:8943" \
@@ -159,22 +170,32 @@ case "$1" in
           $((1000000000 + 50000000000 * 20))
       ;;
   init-asset-hub-polkadot-local)
+      ensure_polkadot_js_api
       # create foreign assets for native Polkadot token (governance call on Kusama)
-            force_create_foreign_asset \
-                "ws://127.0.0.1:9945" \
-                "//Alice" \
-                1000 \
-                "ws://127.0.0.1:9010" \
-                "$(jq --null-input '{ "parents": 2, "interior": { "X1": { "GlobalConsensus": "Kusama" } } }')" \
-                "$GLOBAL_CONSENSUS_KUSAMA_SOVEREIGN_ACCOUNT" \
-                1000000000 \
-                true
+      force_create_foreign_asset \
+          "ws://127.0.0.1:9945" \
+          "//Alice" \
+          1000 \
+          "ws://127.0.0.1:9010" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": { "GlobalConsensus": "Kusama" } } }')" \
+          "$GLOBAL_CONSENSUS_KUSAMA_SOVEREIGN_ACCOUNT" \
+          10000000000 \
+          true
       # drip SA which holds reserves
       transfer_balance \
           "ws://127.0.0.1:9010" \
           "//Alice" \
           "$GLOBAL_CONSENSUS_KUSAMA_ASSET_HUB_KUSAMA_1000_SOVEREIGN_ACCOUNT" \
           $((1000000000 + 50000000000 * 20))
+      # HRMP
+      open_hrmp_channels \
+          "ws://127.0.0.1:9945" \
+          "//Alice" \
+          1000 1002 4 524288
+      open_hrmp_channels \
+          "ws://127.0.0.1:9945" \
+          "//Alice" \
+          1002 1000 4 524288
       ;;
   init-bridge-hub-polkadot-local)
       # SA of sibling asset hub pays for the execution
@@ -192,7 +213,7 @@ case "$1" in
           "//Alice" \
           "$(jq --null-input '{ "V3": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Polkadot" }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V3": { "parents": 0, "interior": { "X1": { "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } } } } }')" \
-          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 1, "interior": "Here" } }, "fun": { "Fungible": 1000000000000 } } ] }')" \
+          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 1, "interior": "Here" } }, "fun": { "Fungible": 200000000000 } } ] }')" \
           0 \
           "Unlimited"
       ;;
@@ -204,7 +225,7 @@ case "$1" in
           "//Alice" \
           "$(jq --null-input '{ "V3": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Kusama" }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V3": { "parents": 0, "interior": { "X1": { "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } } } } }')" \
-          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 1, "interior": "Here" } }, "fun": { "Fungible": 2000000000000 } } ] }')" \
+          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 1, "interior": "Here" } }, "fun": { "Fungible": 3000000000 } } ] }')" \
           0 \
           "Unlimited"
       ;;
