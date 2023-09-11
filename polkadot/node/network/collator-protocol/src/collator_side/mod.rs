@@ -622,6 +622,12 @@ async fn declare<Context>(
 	version: CollationVersion,
 ) {
 	if let Some(wire_message) = declare_message(state, version) {
+		// TODO [now]: debug
+		gum::debug!(
+			target: LOG_TARGET,
+			?peer,
+			"Declaring"
+		);
 		ctx.send_message(NetworkBridgeTxMessage::SendCollationMessage(vec![*peer], wire_message))
 			.await;
 	}
