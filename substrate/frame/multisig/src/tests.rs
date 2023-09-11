@@ -254,7 +254,7 @@ fn timepoint_checking_works() {
 }
 
 #[test]
-fn mutlisig_with_expiry_works() {
+fn multisig_with_expiry_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), multi, 5));
