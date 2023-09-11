@@ -77,26 +77,6 @@ build-malus:
     - echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
     - cp -r ./docker/* ./artifacts
 
-build-staking-miner:
-  stage: build
-  extends:
-    - .docker-env
-    - .common-refs
-    # - .collect-artifacts
-  # DAG
-  needs:
-    - job: build-malus
-      artifacts: false
-  script:
-    - time cargo build -q --locked --release --package staging-staking-miner
-    # # pack artifacts
-    # - mkdir -p ./artifacts
-    # - mv ./target/release/staking-miner ./artifacts/.
-    # - echo -n "${CI_COMMIT_REF_NAME}" > ./artifacts/VERSION
-    # - echo -n "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}" > ./artifacts/EXTRATAG
-    # - echo "staking-miner = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
-    # - cp -r ./scripts/* ./artifacts
-
 build-rustdoc:
   stage: build
   extends:
@@ -358,7 +338,7 @@ build-subkey-linux:
   extends: .build-subkey
   # DAG
   needs:
-    - job: build-staking-miner
+    - job: build-malus
       artifacts: false
 # tbd
 # build-subkey-macos:
