@@ -72,3 +72,5 @@ std = [
 	"sp-version/std",
 	"substrate-wasm-builder",
 ]
+
+experimental = [ "pallet-aura/experimental" ]
