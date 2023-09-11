@@ -183,17 +183,16 @@ pub struct ChainScraper {
 	/// All candidates we have seen backed.
 	backed_candidates: candidates::ScrapedCandidates,
 
-	/// Latest relay blocks observed by the provider.
-	///
-	/// We assume that ancestors of cached blocks are already processed, i.e. we have saved
-	/// corresponding included candidates.
 	/// Maps included candidate hashes to one or more relay block heights and hashes.
 	/// These correspond to all the relay blocks which marked a candidate as included,
 	/// and are needed to apply reversions in case a dispute is concluded against the
 	/// candidate.
 	inclusions: Inclusions,
 
-	/// Cache used to avoid redundant scraping of ancestry.
+	/// Latest relay blocks observed by the provider.
+	///
+	/// This is used to avoid redundant scraping of ancestry. We assume that ancestors of cached
+	/// blocks are already processed, i.e. we have saved corresponding included candidates.
 	last_observed_blocks: LruMap<Hash, ()>,
 }
 
