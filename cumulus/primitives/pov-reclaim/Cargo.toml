@@ -6,9 +6,13 @@ edition.workspace = true
 
 [dependencies]
 sp-runtime-interface = { path = "../../../substrate/primitives/runtime-interface", default-features = false }
+sp-externalities = { path = "../../../substrate/primitives/externalities", default-features = false }
+sp-proof-size-ext = { path = "../../../substrate/primitives/proof-size-ext", default-features = false }
 
 [features]
 default = ["std"]
 std = [
 	"sp-runtime-interface/std",
+	"sp-proof-size-ext/std",
+	"sp-externalities/std",
 ]

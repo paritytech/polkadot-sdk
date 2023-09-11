@@ -47,6 +47,7 @@ sp-core = { path = "../../primitives/core" }
 sp-keystore = { path = "../../primitives/keystore" }
 sp-session = { path = "../../primitives/session" }
 sp-state-machine = { path = "../../primitives/state-machine" }
+sp-proof-size-ext = { path = "../../primitives/proof-size-ext" }
 sp-consensus = { path = "../../primitives/consensus/common" }
 sc-consensus = { path = "../consensus/common" }
 sp-storage = { path = "../../primitives/storage" }

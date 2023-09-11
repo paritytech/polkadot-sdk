@@ -16,11 +16,18 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use sp_externalities::ExternalitiesExt;
+
+#[cfg(feature = "std")]
+use sp_proof_size_ext::ProofSizeExt;
 use sp_runtime_interface::runtime_interface;
 
 #[runtime_interface]
 pub trait PovReclaimHostFunctions {
 	fn current_storage_proof_size(&mut self) -> u32 {
-		self.proof_size().unwrap_or_default()
+		match self.extension::<ProofSizeExt>() {
+			Some(ext) => ext.current_storage_proof_size(),
+			None => 0,
+		}
 	}
 }

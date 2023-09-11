@@ -397,6 +397,7 @@ members = [
 	"substrate/primitives/genesis-builder",
 	"substrate/primitives/inherents",
 	"substrate/primitives/io",
+	"substrate/primitives/proof-size-ext",
 	"substrate/primitives/keyring",
 	"substrate/primitives/keystore",
 	"substrate/primitives/maybe-compressed-blob",

@@ -3719,6 +3719,8 @@ dependencies = [
 name = "cumulus-primitives-reclaim"
 version = "0.1.0"
 dependencies = [
+ "sp-externalities",
+ "sp-proof-size-ext",
  "sp-runtime-interface",
 ]
 
@@ -14626,6 +14628,7 @@ dependencies = [
  "sp-blockchain",
  "sp-core",
  "sp-inherents",
+ "sp-proof-size-ext",
  "sp-runtime",
  "sp-state-machine",
  "substrate-test-runtime-client",
@@ -15680,6 +15683,7 @@ dependencies = [
  "sp-core",
  "sp-externalities",
  "sp-keystore",
+ "sp-proof-size-ext",
  "sp-runtime",
  "sp-session",
  "sp-state-machine",
@@ -17335,6 +17339,15 @@ dependencies = [
  "backtrace",
  "lazy_static",
  "regex",
+]
+
+[[package]]
+name = "sp-proof-size-ext"
+version = "4.0.0-dev"
+dependencies = [
+ "sp-externalities",
+ "sp-runtime",
+ "sp-trie",
 ]
 
 [[package]]

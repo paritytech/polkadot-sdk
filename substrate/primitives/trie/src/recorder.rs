@@ -228,6 +228,12 @@ impl<H: Hasher> Recorder<H> {
 	}
 }
 
+impl<H: Hasher> crate::ProofSizeProvider for Recorder<H> {
+	fn estimate_encoded_size(&self) -> usize {
+		self.estimate_encoded_size()
+	}
+}
+
 /// The [`TrieRecorder`](trie_db::TrieRecorder) implementation.
 pub struct TrieRecorder<'a, H: Hasher> {
 	inner: MutexGuard<'a, RecorderInner<H::Out>>,
