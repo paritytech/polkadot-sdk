@@ -55,9 +55,9 @@ bridge-hub-rococo-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-r
 xcm-emulator = { default-features = false, path = "../../../../xcm/xcm-emulator" }
 cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../pallets/xcmp-queue" }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system" }
-bp-messages = { path = "../../../../bridges/primitives/messages" }
-pallet-bridge-messages = { path = "../../../../bridges/modules/messages" }
-bridge-runtime-common = { path = "../../../../bridges/bin/runtime-common" }
+bp-messages = { path = "../../../../../bridges/primitives/messages" }
+pallet-bridge-messages = { path = "../../../../../bridges/modules/messages" }
+bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common" }
 
 [features]
 runtime-benchmarks = [

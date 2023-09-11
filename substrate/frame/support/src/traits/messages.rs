@@ -17,6 +17,7 @@
 
 //! Traits for managing message queuing and handling.
 
+use super::storage::Footprint;
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, Get, TypedGet};
@@ -117,13 +118,11 @@ impl<OverweightAddr> ServiceQueues for NoopServiceQueues<OverweightAddr> {
 
 /// The resource footprint of a queue.
 #[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
-pub struct Footprint {
+pub struct QueueFootprint {
 	/// The number of pages in the queue (including overweight pages).
 	pub pages: u32,
-	/// The number of messages in the queue (including overweight messages).
-	pub count: u64,
-	/// The total size of all messages in the queue (including overweight messages).
-	pub size: u64,
+	/// The storage footprint of the queue (including overweight messages).
+	pub fp: Footprint,
 }
 
 /// Can enqueue messages for multiple origins.
@@ -144,7 +143,7 @@ pub trait EnqueueMessage<Origin: MaxEncodedLen> {
 	fn sweep_queue(origin: Origin);
 
 	/// Return the state footprint of the given queue.
-	fn footprint(origin: Origin) -> Footprint;
+	fn footprint(origin: Origin) -> QueueFootprint;
 }
 
 impl<Origin: MaxEncodedLen> EnqueueMessage<Origin> for () {
@@ -156,8 +155,8 @@ impl<Origin: MaxEncodedLen> EnqueueMessage<Origin> for () {
 	) {
 	}
 	fn sweep_queue(_: Origin) {}
-	fn footprint(_: Origin) -> Footprint {
-		Footprint::default()
+	fn footprint(_: Origin) -> QueueFootprint {
+		QueueFootprint::default()
 	}
 }
 
@@ -183,7 +182,7 @@ impl<E: EnqueueMessage<O>, O: MaxEncodedLen, N: MaxEncodedLen, C: Convert<N, O>>
 		E::sweep_queue(C::convert(origin));
 	}
 
-	fn footprint(origin: N) -> Footprint {
+	fn footprint(origin: N) -> QueueFootprint {
 		E::footprint(C::convert(origin))
 	}
 }
@@ -205,7 +204,7 @@ pub trait HandleMessage {
 	fn sweep_queue();
 
 	/// Return the state footprint of the queue.
-	fn footprint() -> Footprint;
+	fn footprint() -> QueueFootprint;
 }
 
 /// Adapter type to transform an [`EnqueueMessage`] with an origin into a [`HandleMessage`] impl.
@@ -230,7 +229,7 @@ where
 		E::sweep_queue(O::get());
 	}
 
-	fn footprint() -> Footprint {
+	fn footprint() -> QueueFootprint {
 		E::footprint(O::get())
 	}
 }
