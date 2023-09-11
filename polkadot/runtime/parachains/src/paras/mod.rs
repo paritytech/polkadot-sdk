@@ -386,11 +386,8 @@ pub(crate) enum PvfCheckCause<BlockNumber> {
 		///
 		/// See https://github.com/paritytech/polkadot/issues/4601 for detailed explanation.
 		included_at: BlockNumber,
-<<<<<<< Updated upstream
-=======
 		/// Whether or not the given para should be sent the `GoAhead` signal.
 		set_go_ahead: SetGoAhead,
->>>>>>> Stashed changes
 	},
 }
 
@@ -900,9 +897,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			let config = configuration::Pallet::<T>::config();
-<<<<<<< Updated upstream
-			Self::schedule_code_upgrade(para, new_code, relay_parent_number, &config);
-=======
 			Self::schedule_code_upgrade(
 				para,
 				new_code,
@@ -910,7 +904,6 @@ pub mod pallet {
 				&config,
 				SetGoAhead::No,
 			);
->>>>>>> Stashed changes
 			Self::deposit_event(Event::CodeUpgradeScheduled(para));
 			Ok(())
 		}
@@ -1216,11 +1209,7 @@ impl<T: Config> Pallet<T> {
 		let current_block = frame_system::Pallet::<T>::block_number();
 		// Schedule the upgrade with a delay just like if a parachain triggered the upgrade.
 		let upgrade_block = current_block.saturating_add(config.validation_upgrade_delay);
-<<<<<<< Updated upstream
-		Self::schedule_code_upgrade(id, new_code, upgrade_block, &config);
-=======
 		Self::schedule_code_upgrade(id, new_code, upgrade_block, &config, set_go_ahead);
->>>>>>> Stashed changes
 		Self::deposit_event(Event::CodeUpgradeScheduled(id));
 		Ok(())
 	}
@@ -1595,10 +1584,7 @@ impl<T: Config> Pallet<T> {
 		now: BlockNumberFor<T>,
 		relay_parent_number: BlockNumberFor<T>,
 		cfg: &configuration::HostConfiguration<BlockNumberFor<T>>,
-<<<<<<< Updated upstream
-=======
 		set_go_ahead: SetGoAhead,
->>>>>>> Stashed changes
 	) -> Weight {
 		let mut weight = Weight::zero();
 
@@ -1622,14 +1608,6 @@ impl<T: Config> Pallet<T> {
 		weight += T::DbWeight::get().reads_writes(1, 4);
 		FutureCodeUpgrades::<T>::insert(&id, expected_at);
 
-<<<<<<< Updated upstream
-		UpcomingUpgrades::<T>::mutate(|upcoming_upgrades| {
-			let insert_idx = upcoming_upgrades
-				.binary_search_by_key(&expected_at, |&(_, b)| b)
-				.unwrap_or_else(|idx| idx);
-			upcoming_upgrades.insert(insert_idx, (id, expected_at));
-		});
-=======
 		// Only set an upcoming upgrade if `GoAhead` signal should be set for the respective para.
 		if set_go_ahead == SetGoAhead::Yes {
 			UpcomingUpgrades::<T>::mutate(|upcoming_upgrades| {
@@ -1639,7 +1617,6 @@ impl<T: Config> Pallet<T> {
 				upcoming_upgrades.insert(insert_idx, (id, expected_at));
 			});
 		}
->>>>>>> Stashed changes
 
 		let expected_at = expected_at.saturated_into();
 		let log = ConsensusLog::ParaScheduleUpgradeCode(id, *code_hash, expected_at);
@@ -1878,10 +1855,7 @@ impl<T: Config> Pallet<T> {
 		new_code: ValidationCode,
 		inclusion_block_number: BlockNumberFor<T>,
 		cfg: &configuration::HostConfiguration<BlockNumberFor<T>>,
-<<<<<<< Updated upstream
-=======
 		set_go_ahead: SetGoAhead,
->>>>>>> Stashed changes
 	) -> Weight {
 		let mut weight = T::DbWeight::get().reads(1);
 

@@ -440,9 +440,6 @@ fn code_upgrade_applied_after_delay() {
 			// this parablock is in the context of block 1.
 			let expected_at = 1 + validation_upgrade_delay;
 			let next_possible_upgrade_at = 1 + validation_upgrade_cooldown;
-<<<<<<< Updated upstream
-			Paras::schedule_code_upgrade(para_id, new_code.clone(), 1, &Configuration::config());
-=======
 			Paras::schedule_code_upgrade(
 				para_id,
 				new_code.clone(),
@@ -450,7 +447,6 @@ fn code_upgrade_applied_after_delay() {
 				&Configuration::config(),
 				SetGoAhead::Yes,
 			);
->>>>>>> Stashed changes
 			// Include votes for super-majority.
 			submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
 
@@ -519,8 +515,6 @@ fn code_upgrade_applied_after_delay() {
 }
 
 #[test]
-<<<<<<< Updated upstream
-=======
 fn code_upgrade_applied_without_setting_go_ahead_signal() {
 	let code_retention_period = 10;
 	let validation_upgrade_delay = 5;
@@ -643,7 +637,6 @@ fn code_upgrade_applied_without_setting_go_ahead_signal() {
 }
 
 #[test]
->>>>>>> Stashed changes
 fn code_upgrade_applied_after_delay_even_when_late() {
 	let code_retention_period = 10;
 	let validation_upgrade_delay = 5;
@@ -685,9 +678,6 @@ fn code_upgrade_applied_after_delay_even_when_late() {
 			// this parablock is in the context of block 1.
 			let expected_at = 1 + validation_upgrade_delay;
 			let next_possible_upgrade_at = 1 + validation_upgrade_cooldown;
-<<<<<<< Updated upstream
-			Paras::schedule_code_upgrade(para_id, new_code.clone(), 1, &Configuration::config());
-=======
 			Paras::schedule_code_upgrade(
 				para_id,
 				new_code.clone(),
@@ -695,7 +685,6 @@ fn code_upgrade_applied_after_delay_even_when_late() {
 				&Configuration::config(),
 				SetGoAhead::Yes,
 			);
->>>>>>> Stashed changes
 			// Include votes for super-majority.
 			submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
 
@@ -773,9 +762,6 @@ fn submit_code_change_when_not_allowed_is_err() {
 		const EXPECTED_SESSION: SessionIndex = 1;
 		run_to_block(1, Some(vec![1]));
 
-<<<<<<< Updated upstream
-		Paras::schedule_code_upgrade(para_id, new_code.clone(), 1, &Configuration::config());
-=======
 		Paras::schedule_code_upgrade(
 			para_id,
 			new_code.clone(),
@@ -783,7 +769,6 @@ fn submit_code_change_when_not_allowed_is_err() {
 			&Configuration::config(),
 			SetGoAhead::Yes,
 		);
->>>>>>> Stashed changes
 		// Include votes for super-majority.
 		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
 
@@ -795,9 +780,6 @@ fn submit_code_change_when_not_allowed_is_err() {
 		// ignore it. Note that this is only true from perspective of this module.
 		run_to_block(2, None);
 		assert!(!Paras::can_upgrade_validation_code(para_id));
-<<<<<<< Updated upstream
-		Paras::schedule_code_upgrade(para_id, newer_code.clone(), 2, &Configuration::config());
-=======
 		Paras::schedule_code_upgrade(
 			para_id,
 			newer_code.clone(),
@@ -805,7 +787,6 @@ fn submit_code_change_when_not_allowed_is_err() {
 			&Configuration::config(),
 			SetGoAhead::Yes,
 		);
->>>>>>> Stashed changes
 		assert_eq!(
 			FutureCodeUpgrades::<Test>::get(&para_id),
 			Some(1 + validation_upgrade_delay), /* did not change since the same assertion from
@@ -863,9 +844,6 @@ fn upgrade_restriction_elapsed_doesnt_mean_can_upgrade() {
 		const EXPECTED_SESSION: SessionIndex = 1;
 		run_to_block(1, Some(vec![1]));
 
-<<<<<<< Updated upstream
-		Paras::schedule_code_upgrade(para_id, new_code.clone(), 0, &Configuration::config());
-=======
 		Paras::schedule_code_upgrade(
 			para_id,
 			new_code.clone(),
@@ -873,7 +851,6 @@ fn upgrade_restriction_elapsed_doesnt_mean_can_upgrade() {
 			&Configuration::config(),
 			SetGoAhead::Yes,
 		);
->>>>>>> Stashed changes
 		// Include votes for super-majority.
 		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
 
@@ -892,9 +869,6 @@ fn upgrade_restriction_elapsed_doesnt_mean_can_upgrade() {
 		assert!(!Paras::can_upgrade_validation_code(para_id));
 
 		// And scheduling another upgrade does not do anything. `expected_at` is still the same.
-<<<<<<< Updated upstream
-		Paras::schedule_code_upgrade(para_id, newer_code.clone(), 30, &Configuration::config());
-=======
 		Paras::schedule_code_upgrade(
 			para_id,
 			newer_code.clone(),
@@ -902,7 +876,6 @@ fn upgrade_restriction_elapsed_doesnt_mean_can_upgrade() {
 			&Configuration::config(),
 			SetGoAhead::Yes,
 		);
->>>>>>> Stashed changes
 		assert_eq!(FutureCodeUpgrades::<Test>::get(&para_id), Some(0 + validation_upgrade_delay));
 	});
 }
@@ -954,9 +927,6 @@ fn full_parachain_cleanup_storage() {
 		let expected_at = {
 			// this parablock is in the context of block 1.
 			let expected_at = 1 + validation_upgrade_delay;
-<<<<<<< Updated upstream
-			Paras::schedule_code_upgrade(para_id, new_code.clone(), 1, &Configuration::config());
-=======
 			Paras::schedule_code_upgrade(
 				para_id,
 				new_code.clone(),
@@ -964,7 +934,6 @@ fn full_parachain_cleanup_storage() {
 				&Configuration::config(),
 				SetGoAhead::Yes,
 			);
->>>>>>> Stashed changes
 			// Include votes for super-majority.
 			submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
 
@@ -1059,10 +1028,7 @@ fn cannot_offboard_ongoing_pvf_check() {
 			new_code.clone(),
 			RELAY_PARENT,
 			&Configuration::config(),
-<<<<<<< Updated upstream
-=======
 			SetGoAhead::Yes,
->>>>>>> Stashed changes
 		);
 		assert!(!Paras::pvfs_require_precheck().is_empty());
 
@@ -1215,9 +1181,6 @@ fn code_hash_at_returns_up_to_end_of_code_retention_period() {
 		let para_id = ParaId::from(0);
 		let old_code: ValidationCode = vec![1, 2, 3].into();
 		let new_code: ValidationCode = vec![4, 5, 6].into();
-<<<<<<< Updated upstream
-		Paras::schedule_code_upgrade(para_id, new_code.clone(), 0, &Configuration::config());
-=======
 		Paras::schedule_code_upgrade(
 			para_id,
 			new_code.clone(),
@@ -1225,7 +1188,6 @@ fn code_hash_at_returns_up_to_end_of_code_retention_period() {
 			&Configuration::config(),
 			SetGoAhead::Yes,
 		);
->>>>>>> Stashed changes
 		// Include votes for super-majority.
 		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
 
@@ -1333,10 +1295,7 @@ fn pvf_check_coalescing_onboarding_and_upgrade() {
 			validation_code.clone(),
 			RELAY_PARENT,
 			&Configuration::config(),
-<<<<<<< Updated upstream
-=======
 			SetGoAhead::Yes,
->>>>>>> Stashed changes
 		);
 		assert!(!Paras::pvfs_require_precheck().is_empty());
 
@@ -1441,9 +1400,6 @@ fn pvf_check_upgrade_reject() {
 		// Expected current session index.
 		const EXPECTED_SESSION: SessionIndex = 1;
 
-<<<<<<< Updated upstream
-		Paras::schedule_code_upgrade(a, new_code.clone(), RELAY_PARENT, &Configuration::config());
-=======
 		Paras::schedule_code_upgrade(
 			a,
 			new_code.clone(),
@@ -1451,7 +1407,6 @@ fn pvf_check_upgrade_reject() {
 			&Configuration::config(),
 			SetGoAhead::Yes,
 		);
->>>>>>> Stashed changes
 		check_code_is_stored(&new_code);
 
 		// 1/3 of validators vote against `new_code`. PVF should not be rejected yet.
@@ -1631,9 +1586,6 @@ fn include_pvf_check_statement_refunds_weight() {
 		// Expected current session index.
 		const EXPECTED_SESSION: SessionIndex = 1;
 
-<<<<<<< Updated upstream
-		Paras::schedule_code_upgrade(a, new_code.clone(), RELAY_PARENT, &Configuration::config());
-=======
 		Paras::schedule_code_upgrade(
 			a,
 			new_code.clone(),
@@ -1641,7 +1593,6 @@ fn include_pvf_check_statement_refunds_weight() {
 			&Configuration::config(),
 			SetGoAhead::Yes,
 		);
->>>>>>> Stashed changes
 
 		let mut stmts = IntoIterator::into_iter([0, 1, 2, 3])
 			.map(|i| {
@@ -1736,9 +1687,6 @@ fn poke_unused_validation_code_doesnt_remove_code_with_users() {
 
 		// Then we add a user to the code, say by upgrading.
 		run_to_block(2, None);
-<<<<<<< Updated upstream
-		Paras::schedule_code_upgrade(para_id, validation_code.clone(), 1, &Configuration::config());
-=======
 		Paras::schedule_code_upgrade(
 			para_id,
 			validation_code.clone(),
@@ -1746,7 +1694,6 @@ fn poke_unused_validation_code_doesnt_remove_code_with_users() {
 			&Configuration::config(),
 			SetGoAhead::Yes,
 		);
->>>>>>> Stashed changes
 		Paras::note_new_head(para_id, HeadData::default(), 1);
 
 		// Finally we poke the code, which should not remove it from the storage.
@@ -1811,9 +1758,6 @@ fn add_trusted_validation_code_insta_approval() {
 
 		// Then some parachain upgrades it's code with the relay-parent 1.
 		run_to_block(2, None);
-<<<<<<< Updated upstream
-		Paras::schedule_code_upgrade(para_id, validation_code.clone(), 1, &Configuration::config());
-=======
 		Paras::schedule_code_upgrade(
 			para_id,
 			validation_code.clone(),
@@ -1821,7 +1765,6 @@ fn add_trusted_validation_code_insta_approval() {
 			&Configuration::config(),
 			SetGoAhead::Yes,
 		);
->>>>>>> Stashed changes
 		Paras::note_new_head(para_id, HeadData::default(), 1);
 
 		// Verify that the code upgrade has `expected_at` set to `26`.
@@ -1857,9 +1800,6 @@ fn add_trusted_validation_code_enacts_existing_pvf_vote() {
 	new_test_ext(genesis_config).execute_with(|| {
 		// First, some parachain upgrades it's code with the relay-parent 1.
 		run_to_block(2, None);
-<<<<<<< Updated upstream
-		Paras::schedule_code_upgrade(para_id, validation_code.clone(), 1, &Configuration::config());
-=======
 		Paras::schedule_code_upgrade(
 			para_id,
 			validation_code.clone(),
@@ -1867,7 +1807,6 @@ fn add_trusted_validation_code_enacts_existing_pvf_vote() {
 			&Configuration::config(),
 			SetGoAhead::Yes,
 		);
->>>>>>> Stashed changes
 		Paras::note_new_head(para_id, HeadData::default(), 1);
 
 		// No upgrade should be scheduled at this point. PVF pre-checking vote should run for
