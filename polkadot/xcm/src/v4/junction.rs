@@ -17,8 +17,8 @@
 //! Support data structures for `Location`, primarily the `Junction` datatype.
 
 use super::Location;
-pub use crate::v3::{BodyId, BodyPart, NetworkId};
-use crate::{v3::Junction as OldJunction, VersionedLocation};
+pub use crate::v3::{BodyId, BodyPart};
+use crate::{v3::{Junction as OldJunction, NetworkId as OldNetworkId}, VersionedLocation};
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
 use core::convert::TryFrom;
 use parity_scale_codec::{self, Decode, Encode, MaxEncodedLen};
@@ -101,6 +101,76 @@ pub enum Junction {
 	GlobalConsensus(NetworkId),
 }
 
+/// A global identifier of a data structure existing within consensus.
+///
+/// Maintenance note: Networks with global consensus and which are practically bridgeable within the
+/// Polkadot ecosystem are given preference over explicit naming in this enumeration.
+#[derive(
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+	Serialize,
+	Deserialize,
+)]
+pub enum NetworkId {
+	/// Network specified by the first 32 bytes of its genesis block.
+	ByGenesis([u8; 32]),
+	/// Network defined by the first 32-bytes of the hash and number of some block it contains.
+	ByFork { block_number: u64, block_hash: [u8; 32] },
+	/// The Polkadot mainnet Relay-chain.
+	Polkadot,
+	/// The Kusama canary-net Relay-chain.
+	Kusama,
+	/// The Westend testnet Relay-chain.
+	Westend,
+	/// The Rococo testnet Relay-chain.
+	Rococo,
+	/// The Wococo testnet Relay-chain.
+	Wococo,
+	/// An Ethereum network specified by its chain ID.
+	Ethereum {
+		/// The EIP-155 chain ID.
+		#[codec(compact)]
+		chain_id: u64,
+	},
+	/// The Bitcoin network, including hard-forks supported by Bitcoin Core development team.
+	BitcoinCore,
+	/// The Bitcoin network, including hard-forks supported by Bitcoin Cash developers.
+	BitcoinCash,
+}
+
+impl From<OldNetworkId> for Option<NetworkId> {
+	fn from(old: OldNetworkId) -> Self {
+		Some(NetworkId::from(old))
+	}
+}
+
+impl From<OldNetworkId> for NetworkId {
+	fn from(old: OldNetworkId) -> Self {
+		use OldNetworkId::*;
+		match old {
+			ByGenesis(hash) => Self::ByGenesis(hash),
+			ByFork { block_number, block_hash } => Self::ByFork { block_number, block_hash },
+			Polkadot => Self::Polkadot,
+			Kusama => Self::Kusama,
+			Westend => Self::Westend,
+			Rococo => Self::Rococo,
+			Wococo => Self::Wococo,
+			Ethereum { chain_id } => Self::Ethereum { chain_id },
+			BitcoinCore => Self::BitcoinCore,
+			BitcoinCash => Self::BitcoinCash,
+		}
+	}
+}
+
 impl From<NetworkId> for Junction {
 	fn from(n: NetworkId) -> Self {
 		Self::GlobalConsensus(n)
@@ -162,15 +232,15 @@ impl TryFrom<OldJunction> for Junction {
 		use OldJunction::*;
 		Ok(match value {
 			Parachain(id) => Self::Parachain(id),
-			AccountId32 { network, id } => Self::AccountId32 { network, id },
-			AccountIndex64 { network, index } => Self::AccountIndex64 { network, index },
-			AccountKey20 { network, key } => Self::AccountKey20 { network, key },
+			AccountId32 { network: maybe_network, id } => Self::AccountId32 { network: maybe_network.map(|network| network.into()), id },
+			AccountIndex64 { network: maybe_network, index } => Self::AccountIndex64 { network: maybe_network.map(|network| network.into()), index },
+			AccountKey20 { network: maybe_network, key } => Self::AccountKey20 { network: maybe_network.map(|network| network.into()), key },
 			PalletInstance(index) => Self::PalletInstance(index),
 			GeneralIndex(id) => Self::GeneralIndex(id),
 			GeneralKey { length, data } => Self::GeneralKey { length, data },
 			OnlyChild => Self::OnlyChild,
 			Plurality { id, part } => Self::Plurality { id, part },
-			GlobalConsensus(network) => Self::GlobalConsensus(network),
+			GlobalConsensus(network) => Self::GlobalConsensus(network.into()),
 		})
 	}
 }

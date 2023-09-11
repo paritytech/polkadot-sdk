@@ -338,7 +338,7 @@ macro_rules! versioned_type {
 					V2(x) => Ok(x),
 					V3(x) => x.try_into(),
 					V4(x) => {
-						let v3: $v3 = x.try_into()?;
+						let v3: $v3 = x.try_into().map_err(|_| ())?;
 						v3.try_into()
 					},
 				}
@@ -351,7 +351,7 @@ macro_rules! versioned_type {
 				match x {
 					V2(x) => x.try_into(),
 					V3(x) => Ok(x),
-					V4(x) => x.try_into(),
+					V4(x) => x.try_into().map_err(|_| ()),
 				}
 			}
 		}
