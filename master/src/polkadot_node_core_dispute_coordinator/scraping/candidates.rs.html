@@ -167,11 +167,6 @@
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -294,18 +289,13 @@
 
 	<span class="comment">// Removes all candidates up to a given height. The candidates at the block height are NOT
 	// removed.
-	</span><span class="kw">pub fn </span>remove_up_to_height(<span class="kw-2">&amp;mut </span><span class="self">self</span>, height: <span class="kw-2">&amp;</span>BlockNumber) -&gt; HashSet&lt;CandidateHash&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>candidates_modified: HashSet&lt;CandidateHash&gt; = HashSet::new();
+	</span><span class="kw">pub fn </span>remove_up_to_height(<span class="kw-2">&amp;mut </span><span class="self">self</span>, height: <span class="kw-2">&amp;</span>BlockNumber) {
 		<span class="kw">let </span>not_stale = <span class="self">self</span>.candidates_by_block_number.split_off(<span class="kw-2">&amp;</span>height);
 		<span class="kw">let </span>stale = std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.candidates_by_block_number);
 		<span class="self">self</span>.candidates_by_block_number = not_stale;
-		<span class="kw">for </span>candidates <span class="kw">in </span>stale.values() {
-			<span class="kw">for </span>c <span class="kw">in </span>candidates {
-				<span class="self">self</span>.candidates.remove(c);
-				candidates_modified.insert(<span class="kw-2">*</span>c);
-			}
+		<span class="kw">for </span>candidate <span class="kw">in </span>stale.values().flatten() {
+			<span class="self">self</span>.candidates.remove(candidate);
 		}
-		candidates_modified
 	}
 
 	<span class="kw">pub fn </span>insert(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block_number: BlockNumber, candidate_hash: CandidateHash) {

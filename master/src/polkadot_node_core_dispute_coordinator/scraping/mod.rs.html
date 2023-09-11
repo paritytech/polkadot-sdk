@@ -481,6 +481,23 @@
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -497,7 +514,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>std::collections::{BTreeMap, HashSet};
+</span><span class="kw">use </span>std::collections::{btree_map::Entry, BTreeMap, HashSet};
 
 <span class="kw">use </span>futures::channel::oneshot;
 <span class="kw">use </span>schnellru::{ByLength, LruMap};
@@ -561,49 +578,66 @@
 /// concluding against a candidate. Each candidate hash maps to a number of
 /// block heights, which in turn map to vectors of blocks at those heights.
 </span><span class="kw">pub struct </span>Inclusions {
-	inclusions_inner: BTreeMap&lt;CandidateHash, BTreeMap&lt;BlockNumber, Vec&lt;Hash&gt;&gt;&gt;,
+	inclusions_inner: BTreeMap&lt;CandidateHash, BTreeMap&lt;BlockNumber, HashSet&lt;Hash&gt;&gt;&gt;,
+	<span class="doccomment">/// Keeps track at which block number a candidate was inserted. Used in `remove_up_to_height`.
+	/// Without this tracking we won&#39;t be able to remove all candidates before block X.
+	</span>candidates_by_block_number: BTreeMap&lt;BlockNumber, HashSet&lt;CandidateHash&gt;&gt;,
 }
 
 <span class="kw">impl </span>Inclusions {
 	<span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ inclusions_inner: BTreeMap::new() }
+		<span class="self">Self </span>{ inclusions_inner: BTreeMap::new(), candidates_by_block_number: BTreeMap::new() }
 	}
 
-	<span class="comment">// Add parent block to the vector which has CandidateHash as an outer key and
-	// BlockNumber as an inner key
-	</span><span class="kw">pub fn </span>insert(
+	<span class="kw">pub fn </span>insert(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		candidate_hash: CandidateHash,
 		block_number: BlockNumber,
 		block_hash: Hash,
 	) {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(blocks_including) = <span class="self">self</span>.inclusions_inner.get_mut(<span class="kw-2">&amp;</span>candidate_hash) {
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(blocks_at_height) = blocks_including.get_mut(<span class="kw-2">&amp;</span>block_number) {
-				blocks_at_height.push(block_hash);
-			} <span class="kw">else </span>{
-				blocks_including.insert(block_number, Vec::from([block_hash]));
-			}
-		} <span class="kw">else </span>{
-			<span class="kw">let </span><span class="kw-2">mut </span>blocks_including: BTreeMap&lt;BlockNumber, Vec&lt;Hash&gt;&gt; = BTreeMap::new();
-			blocks_including.insert(block_number, Vec::from([block_hash]));
-			<span class="self">self</span>.inclusions_inner.insert(candidate_hash, blocks_including);
-		}
+		<span class="self">self</span>.inclusions_inner
+			.entry(candidate_hash)
+			.or_default()
+			.entry(block_number)
+			.or_default()
+			.insert(block_hash);
+
+		<span class="self">self</span>.candidates_by_block_number
+			.entry(block_number)
+			.or_default()
+			.insert(candidate_hash);
 	}
 
-	<span class="kw">pub fn </span>remove_up_to_height(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		height: <span class="kw-2">&amp;</span>BlockNumber,
-		candidates_modified: HashSet&lt;CandidateHash&gt;,
-	) {
-		<span class="kw">for </span>candidate <span class="kw">in </span>candidates_modified {
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(blocks_including) = <span class="self">self</span>.inclusions_inner.get_mut(<span class="kw-2">&amp;</span>candidate) {
-				<span class="comment">// Returns everything after the given key, including the key. This works because the
-				// blocks are sorted in ascending order.
-				</span><span class="kw-2">*</span>blocks_including = blocks_including.split_off(height);
+	<span class="doccomment">/// Removes all candidates up to a given height.
+	///
+	/// The candidates at the block height are NOT removed.
+	</span><span class="kw">pub fn </span>remove_up_to_height(<span class="kw-2">&amp;mut </span><span class="self">self</span>, height: <span class="kw-2">&amp;</span>BlockNumber) {
+		<span class="kw">let </span>not_stale = <span class="self">self</span>.candidates_by_block_number.split_off(<span class="kw-2">&amp;</span>height);
+		<span class="kw">let </span>stale = std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.candidates_by_block_number);
+		<span class="self">self</span>.candidates_by_block_number = not_stale;
+
+		<span class="kw">for </span>candidate <span class="kw">in </span>stale.into_values().flatten() {
+			<span class="macro">debug_assert!</span>(<span class="self">self</span>.inclusions_inner.get(<span class="kw-2">&amp;</span>candidate).is_some());
+			<span class="kw">match </span><span class="self">self</span>.inclusions_inner.entry(candidate) {
+				Entry::Vacant(<span class="kw">_</span>) =&gt; {
+					<span class="macro">gum::debug!</span>(
+						target: LOG_TARGET,
+						<span class="string">&quot;Inconsistency in `Inclusions` detected on pruning!&quot;
+					</span>);
+				},
+				Entry::Occupied(<span class="kw-2">mut </span>e) =&gt; {
+					<span class="kw">let </span><span class="kw-2">mut </span>blocks_including = std::mem::take(e.get_mut());
+					<span class="comment">// Returns everything after the given key, including the key. This works because
+					// the blocks are sorted in ascending order.
+					</span>blocks_including = blocks_including.split_off(<span class="kw-2">&amp;</span>height);
+					<span class="kw">if </span>blocks_including.is_empty() {
+						e.remove_entry();
+					} <span class="kw">else </span>{
+						<span class="kw-2">*</span>e.get_mut() = blocks_including;
+					}
+				},
 			}
 		}
-		<span class="self">self</span>.inclusions_inner
-			.retain(|<span class="kw">_</span>, blocks_including| blocks_including.keys().len() &gt; <span class="number">0</span>);
 	}
 
 	<span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, candidate: <span class="kw-2">&amp;</span>CandidateHash) -&gt; Vec&lt;(BlockNumber, Hash)&gt; {
@@ -616,6 +650,10 @@
 			}
 		}
 		inclusions_as_vec
+	}
+
+	<span class="kw">pub fn </span>contains(<span class="kw-2">&amp;</span><span class="self">self</span>, candidate: <span class="kw-2">&amp;</span>CandidateHash) -&gt; bool {
+		<span class="self">self</span>.inclusions_inner.get(candidate).is_some()
 	}
 }
 
@@ -642,20 +680,20 @@
 /// another precaution to have their `CandidateReceipts` available in case a dispute is raised on
 /// them,
 </span><span class="kw">pub struct </span>ChainScraper {
-	<span class="doccomment">/// All candidates we have seen included, which not yet have been finalized.
-	</span>included_candidates: candidates::ScrapedCandidates,
-	<span class="doccomment">/// All candidates we have seen backed
+	<span class="doccomment">/// All candidates we have seen backed.
 	</span>backed_candidates: candidates::ScrapedCandidates,
-	<span class="doccomment">/// Latest relay blocks observed by the provider.
-	///
-	/// We assume that ancestors of cached blocks are already processed, i.e. we have saved
-	/// corresponding included candidates.
-	</span>last_observed_blocks: LruMap&lt;Hash, ()&gt;,
+
 	<span class="doccomment">/// Maps included candidate hashes to one or more relay block heights and hashes.
 	/// These correspond to all the relay blocks which marked a candidate as included,
 	/// and are needed to apply reversions in case a dispute is concluded against the
 	/// candidate.
 	</span>inclusions: Inclusions,
+
+	<span class="doccomment">/// Latest relay blocks observed by the provider.
+	///
+	/// This is used to avoid redundant scraping of ancestry. We assume that ancestors of cached
+	/// blocks are already processed, i.e. we have saved corresponding included candidates.
+	</span>last_observed_blocks: LruMap&lt;Hash, ()&gt;,
 }
 
 <span class="kw">impl </span>ChainScraper {
@@ -677,10 +715,9 @@
 		</span>Sender: overseer::DisputeCoordinatorSenderTrait,
 	{
 		<span class="kw">let </span><span class="kw-2">mut </span>s = <span class="self">Self </span>{
-			included_candidates: candidates::ScrapedCandidates::new(),
 			backed_candidates: candidates::ScrapedCandidates::new(),
-			last_observed_blocks: LruMap::new(ByLength::new(LRU_OBSERVED_BLOCKS_CAPACITY)),
 			inclusions: Inclusions::new(),
+			last_observed_blocks: LruMap::new(ByLength::new(LRU_OBSERVED_BLOCKS_CAPACITY)),
 		};
 		<span class="kw">let </span>update =
 			ActiveLeavesUpdate { activated: <span class="prelude-val">Some</span>(initial_head), deactivated: Default::default() };
@@ -690,7 +727,7 @@
 
 	<span class="doccomment">/// Check whether we have seen a candidate included on any chain.
 	</span><span class="kw">pub fn </span>is_candidate_included(<span class="kw-2">&amp;</span><span class="self">self</span>, candidate_hash: <span class="kw-2">&amp;</span>CandidateHash) -&gt; bool {
-		<span class="self">self</span>.included_candidates.contains(candidate_hash)
+		<span class="self">self</span>.inclusions.contains(candidate_hash)
 	}
 
 	<span class="doccomment">/// Check whether the candidate is backed
@@ -781,9 +818,7 @@
 		{
 			<span class="prelude-val">Some</span>(key_to_prune) =&gt; {
 				<span class="self">self</span>.backed_candidates.remove_up_to_height(<span class="kw-2">&amp;</span>key_to_prune);
-				<span class="kw">let </span>candidates_modified =
-					<span class="self">self</span>.included_candidates.remove_up_to_height(<span class="kw-2">&amp;</span>key_to_prune);
-				<span class="self">self</span>.inclusions.remove_up_to_height(<span class="kw-2">&amp;</span>key_to_prune, candidates_modified);
+				<span class="self">self</span>.inclusions.remove_up_to_height(<span class="kw-2">&amp;</span>key_to_prune);
 			},
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="comment">// Nothing to prune. We are still in the beginning of the chain and there are not
@@ -820,7 +855,6 @@
 						<span class="question-mark">?</span>block_number,
 						<span class="string">&quot;Processing included event&quot;
 					</span>);
-					<span class="self">self</span>.included_candidates.insert(block_number, candidate_hash);
 					<span class="self">self</span>.inclusions.insert(candidate_hash, block_number, block_hash);
 					included_receipts.push(receipt);
 				},
