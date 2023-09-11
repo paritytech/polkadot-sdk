@@ -82,15 +82,13 @@ benchmarks! {
 	reserve_withdraw_assets {
 		let send_origin =
 			T::ExecuteXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone())
-			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-
 		let recipient = [0u8; 32];
 		let dest = T::ReachableDest::get().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
-		// use native asset of destination
-		let asset: MultiAsset = (dest.clone(), 10).into();
+		// For reserve_withdraw_assets we'd use destination native asset `(dest.clone(), 10).into()`,
+		// but for weighing it doesn't matter, and it's easier to use Balances asset here.
+		let asset: MultiAsset = (Here, 10).into();
 		let versioned_dest: VersionedMultiLocation = dest.into();
 		let versioned_beneficiary: VersionedMultiLocation =
 			AccountId32 { network: None, id: recipient.into() }.into();
