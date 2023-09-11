@@ -436,9 +436,12 @@ impl TryFrom<NewJunction> for Junction {
 		use NewJunction::*;
 		Ok(match value {
 			Parachain(id) => Self::Parachain(id),
-			AccountId32 { network: maybe_network, id } => Self::AccountId32 { network: maybe_network.map(|network| network.into()), id },
-			AccountIndex64 { network: maybe_network, index } => Self::AccountIndex64 { network: maybe_network.map(|network| network.into()), index },
-			AccountKey20 { network: maybe_network, key } => Self::AccountKey20 { network: maybe_network.map(|network| network.into()), key },
+			AccountId32 { network: maybe_network, id } =>
+				Self::AccountId32 { network: maybe_network.map(|network| network.into()), id },
+			AccountIndex64 { network: maybe_network, index } =>
+				Self::AccountIndex64 { network: maybe_network.map(|network| network.into()), index },
+			AccountKey20 { network: maybe_network, key } =>
+				Self::AccountKey20 { network: maybe_network.map(|network| network.into()), key },
 			PalletInstance(index) => Self::PalletInstance(index),
 			GeneralIndex(id) => Self::GeneralIndex(id),
 			GeneralKey { length, data } => Self::GeneralKey { length, data },

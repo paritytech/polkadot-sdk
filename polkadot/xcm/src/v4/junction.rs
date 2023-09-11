@@ -18,7 +18,10 @@
 
 use super::Location;
 pub use crate::v3::{BodyId, BodyPart};
-use crate::{v3::{Junction as OldJunction, NetworkId as OldNetworkId}, VersionedLocation};
+use crate::{
+	v3::{Junction as OldJunction, NetworkId as OldNetworkId},
+	VersionedLocation,
+};
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
 use core::convert::TryFrom;
 use parity_scale_codec::{self, Decode, Encode, MaxEncodedLen};
@@ -232,9 +235,12 @@ impl TryFrom<OldJunction> for Junction {
 		use OldJunction::*;
 		Ok(match value {
 			Parachain(id) => Self::Parachain(id),
-			AccountId32 { network: maybe_network, id } => Self::AccountId32 { network: maybe_network.map(|network| network.into()), id },
-			AccountIndex64 { network: maybe_network, index } => Self::AccountIndex64 { network: maybe_network.map(|network| network.into()), index },
-			AccountKey20 { network: maybe_network, key } => Self::AccountKey20 { network: maybe_network.map(|network| network.into()), key },
+			AccountId32 { network: maybe_network, id } =>
+				Self::AccountId32 { network: maybe_network.map(|network| network.into()), id },
+			AccountIndex64 { network: maybe_network, index } =>
+				Self::AccountIndex64 { network: maybe_network.map(|network| network.into()), index },
+			AccountKey20 { network: maybe_network, key } =>
+				Self::AccountKey20 { network: maybe_network.map(|network| network.into()), key },
 			PalletInstance(index) => Self::PalletInstance(index),
 			GeneralIndex(id) => Self::GeneralIndex(id),
 			GeneralKey { length, data } => Self::GeneralKey { length, data },
