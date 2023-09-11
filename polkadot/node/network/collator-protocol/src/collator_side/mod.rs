@@ -1109,7 +1109,7 @@ async fn handle_peer_view_change<Context>(
 
 	*current = view;
 
-	if added.is_empty() && !view.is_empty() {
+	if added.is_empty() && !current.is_empty() {
 		// TODO [now]: too verbose
 		gum::debug!(
 			target: LOG_TARGET,
