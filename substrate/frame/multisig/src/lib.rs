@@ -787,7 +787,7 @@ impl<T: Config> Pallet<T> {
 			// Not yet started; there should be no timepoint given.
 			ensure!(maybe_timepoint.is_none(), Error::<T>::UnexpectedTimepoint);
 
-			// Not yet started; The expiry for this [`Multisig`] cannot already be specified
+			// Not yet started; the expiry for this [`Multisig`] cannot already be specified
 			// in [`MultisigExpiries`].
 			ensure!(
 				<MultisigExpiries<T>>::get(&id, H256::from(call_hash)).is_none(),
