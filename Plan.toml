@@ -2877,47 +2877,6 @@ path = "substrate/primitives/std"
 
 [[crate]]
 publish = false
-name = "sp-consensus-sassafras"
-from = "0.0.0"
-to = "0.0.0"
-bump = "unknown"
-reason = "changed"
-path = "substrate/primitives/consensus/sassafras"
-remove_feature = []
-verify = true
-
-[[crate.rewrite_dep]]
-name = "sp-api"
-version = "21.0.0"
-path = "substrate/primitives/api"
-
-[[crate.rewrite_dep]]
-name = "sp-application-crypto"
-version = "25.0.0"
-path = "substrate/primitives/application-crypto"
-
-[[crate.rewrite_dep]]
-name = "sp-consensus-slots"
-version = "0.27.0"
-path = "substrate/primitives/consensus/slots"
-
-[[crate.rewrite_dep]]
-name = "sp-core"
-version = "23.0.0"
-path = "substrate/primitives/core"
-
-[[crate.rewrite_dep]]
-name = "sp-runtime"
-version = "26.0.0"
-path = "substrate/primitives/runtime"
-
-[[crate.rewrite_dep]]
-name = "sp-std"
-version = "10.0.0"
-path = "substrate/primitives/std"
-
-[[crate]]
-publish = false
 name = "sp-runtime-interface-test"
 from = "0.0.0"
 to = "0.0.0"

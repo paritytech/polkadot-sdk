@@ -385,7 +385,6 @@ members = [
 	"substrate/primitives/consensus/common",
 	"substrate/primitives/consensus/grandpa",
 	"substrate/primitives/consensus/pow",
-	"substrate/primitives/consensus/sassafras",
 	"substrate/primitives/consensus/slots",
 	"substrate/primitives/core",
 	"substrate/primitives/core/hashing",
