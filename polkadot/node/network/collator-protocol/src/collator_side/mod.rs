@@ -1092,14 +1092,24 @@ async fn handle_peer_view_change<Context>(
 ) {
 	let PeerData { view: current, version } = match state.peer_data.get_mut(&peer_id) {
 		Some(peer_data) => peer_data,
-		None => return,
+		None => {
+			// TODO [now]: too verbose
+			gum::debug!(
+				target: LOG_TARGET,
+				?peer_id,
+				?view,
+				"Received view for unconnected peer"
+			);
+
+			return
+		},
 	};
 
 	let added: Vec<Hash> = view.difference(&*current).cloned().collect();
 
 	*current = view;
 
-	if added.is_empty() {
+	if added.is_empty() && !view.is_empty() {
 		// TODO [now]: too verbose
 		gum::debug!(
 			target: LOG_TARGET,
@@ -1219,7 +1229,8 @@ async fn handle_network_msg<Context>(
 			}
 		},
 		PeerViewChange(peer_id, view) => {
-			gum::trace!(target: LOG_TARGET, ?peer_id, ?view, "Peer view change");
+			// TODO [now]: trace
+			gum::debug!(target: LOG_TARGET, ?peer_id, ?view, "Peer view change");
 			handle_peer_view_change(ctx, state, peer_id, view).await;
 		},
 		PeerDisconnected(peer_id) => {
