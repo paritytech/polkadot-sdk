@@ -72,7 +72,7 @@ impl Smaps {
 			.0
 			.iter()
 			.find(|(range, _)| addr >= range.start && addr < range.end)
-			.unwrap()
+			.expect(format!("`{addr}` must be in range"))
 			.1
 	}
 
