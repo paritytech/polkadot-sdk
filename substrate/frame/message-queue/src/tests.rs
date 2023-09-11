@@ -987,8 +987,9 @@ fn footprint_works() {
 		BookStateFor::<Test>::insert(origin, book);
 
 		let info = MessageQueue::footprint(origin);
-		assert_eq!(info.count as usize, msgs);
-		assert_eq!(info.size, page.remaining_size as u64);
+		assert_eq!(info.fp.count as usize, msgs);
+		assert_eq!(info.fp.size, page.remaining_size as u64);
+		assert_eq!(info.pages, 1);
 
 		// Sweeping a queue never calls OnQueueChanged.
 		assert!(QueueChanges::take().is_empty());
@@ -1013,7 +1014,7 @@ fn footprint_on_swept_works() {
 
 		MessageQueue::sweep_queue(Here);
 		let fp = MessageQueue::footprint(Here);
-		assert_eq!((1, 1, 1), (fp.count, fp.size, fp.pages));
+		assert_eq!((1, 1, 1), (fp.fp.count, fp.fp.size, fp.pages));
 	})
 }
 
@@ -1025,13 +1026,13 @@ fn footprint_num_pages_works() {
 		MessageQueue::enqueue_message(msg("weight=2"), Here);
 		MessageQueue::enqueue_message(msg("weight=3"), Here);
 
-		assert_eq!(MessageQueue::footprint(Here), Footprint { pages: 2, count: 2, size: 16 });
+		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 16));
 
 		// Mark the messages as overweight.
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 0.into_weight());
 		assert_eq!(System::events().len(), 2);
 		// Overweight does not change the footprint.
-		assert_eq!(MessageQueue::footprint(Here), Footprint { pages: 2, count: 2, size: 16 });
+		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 16));
 
 		// Now execute the second message.
 		assert_eq!(
@@ -1039,14 +1040,14 @@ fn footprint_num_pages_works() {
 				.unwrap(),
 			3.into_weight()
 		);
-		assert_eq!(MessageQueue::footprint(Here), Footprint { pages: 1, count: 1, size: 8 });
+		assert_eq!(MessageQueue::footprint(Here), fp(1, 1, 8));
 		// And the first one:
 		assert_eq!(
 			<MessageQueue as ServiceQueues>::execute_overweight(2.into_weight(), (Here, 0, 0))
 				.unwrap(),
 			2.into_weight()
 		);
-		assert_eq!(MessageQueue::footprint(Here), Footprint::default());
+		assert_eq!(MessageQueue::footprint(Here), Default::default());
 	})
 }
 

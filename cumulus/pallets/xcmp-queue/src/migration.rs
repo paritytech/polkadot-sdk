@@ -81,10 +81,6 @@ pub mod v3 {
 	use super::*;
 	use crate::*;
 
-	#[frame_support::storage_alias]
-	pub(crate) type LastMigratedPara<T: Config> = 
-		StorageValue<Pallet<T>, ParaId, OptionQuery>;
-
 	/// Status of the inbound XCMP channels.
 	#[frame_support::storage_alias]
 	pub(crate) type InboundXcmpStatus<T: Config> =
@@ -99,23 +95,25 @@ pub mod v3 {
 		Twox64Concat,
 		RelayBlockNumber,
 		Vec<u8>,
-		ValueQuery,
+		OptionQuery,
 	>;
-	
+
 	#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo)]
 	pub struct InboundChannelDetails {
 		/// The `ParaId` of the parachain that this channel is connected with.
-		sender: ParaId,
+		pub sender: ParaId,
 		/// The state of the channel.
-		state: InboundState,
+		pub state: InboundState,
 		/// The ordered metadata of each inbound message.
 		///
 		/// Contains info about the relay block number that the message was sent at, and the format
 		/// of the incoming message.
-		message_metadata: Vec<(RelayBlockNumber, XcmpMessageFormat)>,
+		pub message_metadata: Vec<(RelayBlockNumber, XcmpMessageFormat)>,
 	}
 
-	#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug, TypeInfo)]
+	#[derive(
+		Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug, TypeInfo,
+	)]
 	pub enum InboundState {
 		Ok,
 		Suspended,

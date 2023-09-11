@@ -46,7 +46,7 @@ use cumulus_primitives_core::{
 };
 use frame_support::{
 	defensive, defensive_assert,
-	traits::{EnqueueMessage, EnsureOrigin, Footprint, Get, QueuePausedQuery},
+	traits::{EnqueueMessage, EnsureOrigin, Get, QueueFootprint, QueuePausedQuery},
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight, WeightMeter},
 	BoundedVec,
 };
@@ -210,17 +210,55 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_idle(_block: BlockNumberFor<T>, weight: Weight) -> Weight {
+			use migration::v3;
 			let mut meter = WeightMeter::with_limit(weight);
 
-			let Some(mut states) = migration::v3::InboundXcmpStatus::<T>::get() else {
+			let Some(mut states) = v3::InboundXcmpStatus::<T>::get() else {
+				log::info!("Lazy migration finished: item gone");
 				return meter.consumed();
 			};
-			/*let current = match (migration::v3::LastMigratedPara::<T>::get(), states.pop()) {
-				(None, Some(para)) => para,
-				
-			}*/
-			log::info!("There are {} channels to be migrated. current=", states.len());
-			
+			let Some(ref mut next) = states.first_mut() else {
+				log::info!("Lazy migration finished: item empty");
+				v3::InboundXcmpStatus::<T>::kill();
+				return meter.consumed();
+			};
+			log::info!(
+				"Migrating inbound HRMP channel with sibling {}, msgs left {}.",
+				next.sender,
+				next.message_metadata.len()
+			);
+			// We take the last element since the MQ is a FIFO and we want to keep the order.
+			let Some((block_number, format)) = next.message_metadata.pop() else {
+				states.remove(0);
+				v3::InboundXcmpStatus::<T>::put(states);
+				return meter.consumed();
+			};
+			if format != XcmpMessageFormat::ConcatenatedVersionedXcm {
+				log::warn!(
+					"Dropping message with format {:?} (not ConcatenatedVersionedXcm)",
+					format
+				);
+				InboundXcmpMessages::<T>::remove(&next.sender, &block_number);
+				v3::InboundXcmpStatus::<T>::put(states);
+				return meter.consumed()
+			}
+
+			let Some(msg) = v3::InboundXcmpMessages::<T>::take(&next.sender, &block_number) else {
+				defensive!("Storage corrupted: HRMP message missing:", (next.sender, block_number));
+				v3::InboundXcmpStatus::<T>::put(states);
+				return meter.consumed();
+			};
+
+			let Ok(msg): Result<BoundedVec<_, _>, _> = msg.try_into() else {
+				log::warn!("Message dropped: too big");
+				v3::InboundXcmpStatus::<T>::put(states);
+				return meter.consumed();
+			};
+
+			// Finally; we have a proper message.
+			T::XcmpQueue::enqueue_message(msg.as_bounded_slice(), next.sender);
+			log::info!("Migrated HRMP message to MQ: {:?}", (next.sender, block_number));
+			v3::InboundXcmpStatus::<T>::put(states);
 
 			meter.consumed()
 		}
@@ -584,7 +622,7 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> OnQueueChanged<ParaId> for Pallet<T> {
 	// Suspends/Resumes the queue when certain thresholds are reached.
-	fn on_queue_changed(para: ParaId, fp: Footprint) {
+	fn on_queue_changed(para: ParaId, fp: QueueFootprint) {
 		let QueueConfigData { resume_threshold, suspend_threshold, .. } = <QueueConfig<T>>::get();
 
 		let mut suspended_channels = <InboundXcmpSuspended<T>>::get();

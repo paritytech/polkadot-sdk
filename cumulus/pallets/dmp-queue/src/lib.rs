@@ -96,6 +96,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+			// FAIL-CI move to on_idle
 			let state = MigrationStatus::<T>::get();
 			let index = PageIndex::<T>::get();
 			log::info!(target: LOG, "on_initialize: block={:?}, state={:?}, index={:?}", now, state, index);

@@ -29,7 +29,7 @@ use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
-	traits::{Defensive, EnqueueMessage, Footprint},
+	traits::{Defensive, EnqueueMessage, Footprint, QueueFootprint},
 	BoundedSlice,
 };
 use frame_system::pallet_prelude::*;
@@ -922,7 +922,7 @@ impl<T: Config> Pallet<T> {
 
 	pub(crate) fn relay_dispatch_queue_size(para_id: ParaId) -> (u32, u32) {
 		let fp = T::MessageQueue::footprint(AggregateMessageOrigin::Ump(UmpQueueId::Para(para_id)));
-		(fp.count as u32, fp.size as u32)
+		(fp.fp.count as u32, fp.fp.size as u32)
 	}
 
 	/// Check that all the upward messages sent by a candidate pass the acceptance criteria.
@@ -1146,11 +1146,11 @@ impl<BlockNumber> AcceptanceCheckErr<BlockNumber> {
 
 impl<T: Config> OnQueueChanged<AggregateMessageOrigin> for Pallet<T> {
 	// Write back the remaining queue capacity into `relay_dispatch_queue_remaining_capacity`.
-	fn on_queue_changed(origin: AggregateMessageOrigin, fp: Footprint) {
+	fn on_queue_changed(origin: AggregateMessageOrigin, fp: QueueFootprint) {
 		let para = match origin {
 			AggregateMessageOrigin::Ump(UmpQueueId::Para(p)) => p,
 		};
-		let Footprint { count, size, .. } = fp;
+		let QueueFootprint { fp: Footprint { count, size }, .. } = fp;
 		let (count, size) = (count.saturated_into(), size.saturated_into());
 		// TODO paritytech/polkadot#6283: Remove all usages of `relay_dispatch_queue_size`
 		#[allow(deprecated)]
@@ -1327,6 +1327,6 @@ impl<T: Config> QueueFootprinter for Pallet<T> {
 	type Origin = UmpQueueId;
 
 	fn message_count(origin: Self::Origin) -> u64 {
-		T::MessageQueue::footprint(AggregateMessageOrigin::Ump(origin)).count
+		T::MessageQueue::footprint(AggregateMessageOrigin::Ump(origin)).fp.count
 	}
 }

@@ -21,7 +21,11 @@ use XcmpMessageFormat::*;
 
 use codec::Compact;
 use cumulus_primitives_core::XcmpMessageHandler;
-use frame_support::{assert_err, assert_noop, assert_ok, experimental_hypothetically};
+use frame_support::{
+	assert_err, assert_noop, assert_ok, experimental_hypothetically,
+	traits::{Footprint, Hooks},
+	StorageNoopGuard,
+};
 use mock::{new_test_ext, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::BadOrigin;
 use std::iter::{once, repeat};
@@ -112,7 +116,7 @@ fn xcm_enqueueing_starts_dropping_on_overflow() {
 		// The drop threshold for pages is 48, the others numbers dont really matter:
 		assert_eq!(
 			<Test as Config>::XcmpQueue::footprint(1000.into()),
-			Footprint { count: 256, size: 768, pages: 48 }
+			QueueFootprint { fp: Footprint { count: 256, size: 768 }, pages: 48 }
 		);
 	})
 }
@@ -637,4 +641,56 @@ fn split_concatenated_xcms_works() {
 		}
 	}
 	assert_eq!(input.remaining_len(), Ok(Some(0)), "All data consumed");
+}
+
+#[test]
+fn lazy_migration_works() {
+	use crate::migration::v3::*;
+
+	new_test_ext().execute_with(|| {
+		EnqueuedMessages::set(&vec![]);
+		let _g = StorageNoopGuard::default(); // No storage is leaked.
+
+		let mut channels = vec![];
+		for i in 0..20 {
+			let para = ParaId::from(i);
+			let mut message_metadata = vec![];
+			for block in 0..30 {
+				message_metadata.push((block, XcmpMessageFormat::ConcatenatedVersionedXcm));
+				InboundXcmpMessages::<Test>::insert(para, block, vec![(i + block) as u8]);
+			}
+
+			channels.push(InboundChannelDetails {
+				sender: para,
+				state: InboundState::Ok,
+				message_metadata,
+			});
+		}
+		InboundXcmpStatus::<Test>::set(Some(channels));
+
+		for para in 0..20u32 {
+			assert_eq!(InboundXcmpStatus::<Test>::get().unwrap().len() as u32, 20 - para);
+			assert_eq!(InboundXcmpMessages::<Test>::iter_prefix(ParaId::from(para)).count(), 30);
+
+			for block in 0..30 {
+				XcmpQueue::on_idle(0u32.into(), Weight::MAX);
+				assert_eq!(
+					EnqueuedMessages::get(),
+					vec![(para.into(), vec![(29 - block + para) as u8])]
+				);
+				EnqueuedMessages::set(&vec![]);
+			}
+			// One more to jump to the next channel:
+			XcmpQueue::on_idle(0u32.into(), Weight::MAX);
+
+			assert_eq!(InboundXcmpStatus::<Test>::get().unwrap().len() as u32, 20 - para - 1);
+			assert_eq!(InboundXcmpMessages::<Test>::iter_prefix(ParaId::from(para)).count(), 0);
+		}
+		// One more for the cleanup:
+		XcmpQueue::on_idle(0u32.into(), Weight::MAX);
+
+		assert!(!InboundXcmpStatus::<Test>::exists());
+		assert_eq!(InboundXcmpMessages::<Test>::iter().count(), 0);
+		EnqueuedMessages::set(&vec![]);
+	});
 }

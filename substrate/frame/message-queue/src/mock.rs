@@ -262,8 +262,8 @@ parameter_types! {
 /// Records all queue changes into [`QueueChanges`].
 pub struct RecordingQueueChangeHandler;
 impl OnQueueChanged<MessageOrigin> for RecordingQueueChangeHandler {
-	fn on_queue_changed(id: MessageOrigin, fp: Footprint) {
-		QueueChanges::mutate(|cs| cs.push((id, fp.count, fp.size)));
+	fn on_queue_changed(id: MessageOrigin, fp: QueueFootprint) {
+		QueueChanges::mutate(|cs| cs.push((id, fp.fp.count, fp.fp.size)));
 	}
 }
 
@@ -349,4 +349,8 @@ pub fn num_overweight_enqueued_events() -> u32 {
 			matches!(e.event, RuntimeEvent::MessageQueue(crate::Event::OverweightEnqueued { .. }))
 		})
 		.count() as u32
+}
+
+pub fn fp(pages: u32, count: u64, size: u64) -> QueueFootprint {
+	QueueFootprint { fp: Footprint { count, size }, pages }
 }

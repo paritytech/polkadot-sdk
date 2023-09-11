@@ -195,7 +195,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		DefensiveTruncateFrom, EnqueueMessage, ExecuteOverweightError, Footprint, ProcessMessage,
-		ProcessMessageError, QueuePausedQuery, ServiceQueues,
+		ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
 	},
 	BoundedSlice, CloneNoBound, DefaultNoBound,
 };
@@ -423,20 +423,23 @@ impl<MessageOrigin> Default for BookState<MessageOrigin> {
 	}
 }
 
-impl<MessageOrigin> From<BookState<MessageOrigin>> for Footprint {
+impl<MessageOrigin> From<BookState<MessageOrigin>> for QueueFootprint {
 	fn from(book: BookState<MessageOrigin>) -> Self {
-		Footprint { pages: book.count, count: book.message_count, size: book.size }
+		QueueFootprint {
+			pages: book.count,
+			fp: Footprint { count: book.message_count, size: book.size },
+		}
 	}
 }
 
 /// Handler code for when the items in a queue change.
 pub trait OnQueueChanged<Id> {
 	/// Note that the queue `id` now has `item_count` items in it, taking up `items_size` bytes.
-	fn on_queue_changed(id: Id, fp: Footprint);
+	fn on_queue_changed(id: Id, fp: QueueFootprint);
 }
 
 impl<Id> OnQueueChanged<Id> for () {
-	fn on_queue_changed(_: Id, _: Footprint) {}
+	fn on_queue_changed(_: Id, _: QueueFootprint) {}
 }
 
 #[frame_support::pallet]
@@ -1456,7 +1459,7 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 		BookStateFor::<T>::insert(&origin, &book_state);
 	}
 
-	fn footprint(origin: MessageOriginOf<T>) -> Footprint {
+	fn footprint(origin: MessageOriginOf<T>) -> QueueFootprint {
 		BookStateFor::<T>::get(&origin).into()
 	}
 }

@@ -19,6 +19,7 @@ use crate::*;
 
 use codec::DecodeAll;
 use frame_benchmarking::v2::*;
+use frame_support::{traits::Hooks, StorageNoopGuard};
 use frame_system::RawOrigin;
 
 #[benchmarks]
@@ -118,6 +119,16 @@ mod benchmarks {
 		#[block]
 		{
 			Pallet::<T>::split_concatenated_xcms(&mut &data[..], &mut WeightMeter::new()).unwrap();
+		}
+	}
+
+	#[benchmark]
+	fn on_idle_migration() {
+		let _g = StorageNoopGuard::default();
+
+		#[block]
+		{
+			Pallet::<T>::on_idle(0u32.into(), Weight::MAX);
 		}
 	}
 

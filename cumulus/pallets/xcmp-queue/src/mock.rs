@@ -21,6 +21,7 @@ use cumulus_primitives_core::{IsSystem, ParaId};
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, Everything, Nothing, OriginTrait},
+	BoundedSlice,
 };
 use frame_system::EnsureRoot;
 use sp_core::H256;
@@ -202,8 +203,6 @@ parameter_types! {
 	pub storage EnqueuedMessages: Vec<(ParaId, Vec<u8>)> = Default::default();
 }
 
-use frame_support::{traits::Footprint, BoundedSlice};
-
 pub struct EnqueueToLocalStorage<T>(PhantomData<T>);
 
 pub fn enqueued_messages(origin: ParaId) -> Vec<Vec<u8>> {
@@ -243,16 +242,16 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 		T::on_queue_changed(origin, Self::footprint(origin));
 	}
 
-	fn footprint(origin: ParaId) -> Footprint {
+	fn footprint(origin: ParaId) -> QueueFootprint {
 		let msgs = EnqueuedMessages::get();
-		let mut footprint = Footprint::default();
+		let mut footprint = QueueFootprint::default();
 		for (o, m) in msgs {
 			if o == origin {
-				footprint.count += 1;
-				footprint.size += m.len() as u64;
+				footprint.fp.count += 1;
+				footprint.fp.size += m.len() as u64;
 			}
 		}
-		footprint.pages = footprint.size as u32 / 16; // Number does not matter
+		footprint.pages = footprint.fp.size as u32 / 16; // Number does not matter
 		footprint
 	}
 }
