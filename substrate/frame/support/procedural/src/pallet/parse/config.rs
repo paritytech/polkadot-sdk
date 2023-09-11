@@ -165,21 +165,6 @@ pub struct PalletAttr {
 	typ: PalletAttrType,
 }
 
-/// Prase for `$path<optional>`, returning the whole path.
-pub struct ConfigBoundParse(syn::Path);
-
-impl syn::parse::Parse for ConfigBoundParse {
-	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-		let config_path = input.parse::<syn::Path>()?;
-
-		if input.peek(syn::token::Lt) {
-			input.parse::<syn::AngleBracketedGenericArguments>()?;
-		}
-
-		Ok(Self(config_path))
-	}
-}
-
 /// Parse for `IsType<<Self as $path>::RuntimeEvent>` and retrieve `$path`
 pub struct IsTypeBoundEventParse(syn::Path);
 

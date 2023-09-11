@@ -282,7 +282,7 @@ fn construct_runtime_implicit_to_explicit(
 		expansion = quote::quote!(
 			#frame_support::__private::tt_call! {
 				macro = [{ #pallet_path::tt_default_parts }]
-				frame_support = [{ #frame_support }]
+				your_tt_return = [{ #frame_support::__private::tt_return }]
 				~~> #frame_support::match_and_insert! {
 					target = [{ #expansion }]
 					pattern = [{ #pallet_name: #pallet_path #pallet_instance }]
@@ -318,7 +318,7 @@ fn construct_runtime_explicit_to_explicit_expanded(
 		expansion = quote::quote!(
 			#frame_support::__private::tt_call! {
 				macro = [{ #pallet_path::tt_extra_parts }]
-				frame_support = [{ #frame_support }]
+				your_tt_return = [{ #frame_support::__private::tt_return }]
 				~~> #frame_support::match_and_insert! {
 					target = [{ #expansion }]
 					pattern = [{ #pallet_name: #pallet_path #pallet_instance }]
@@ -783,7 +783,7 @@ fn decl_static_assertions(
 		quote! {
 			#scrate::__private::tt_call! {
 				macro = [{ #path::tt_error_token }]
-				frame_support = [{ #scrate }]
+				your_tt_return = [{ #scrate::__private::tt_return }]
 				~~> #scrate::assert_error_encoded_size! {
 					path = [{ #path }]
 					runtime = [{ #runtime }]
