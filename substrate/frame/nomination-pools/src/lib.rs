@@ -3382,6 +3382,8 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 				}
 			});
 			SubPoolsStorage::<T>::insert(pool_id, sub_pools);
+		} else if !slashed_unlocking.is_empty() {
+			defensive!("Expected SubPools were not found");
 		}
 		Self::deposit_event(Event::<T>::PoolSlashed { pool_id, balance: slashed_bonded });
 	}
