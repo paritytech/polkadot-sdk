@@ -76,6 +76,8 @@ macro_rules! decl_worker_main {
 					#[cfg(target_os = "linux")]
 					let status = if security::unshare_user_namespace_and_change_root(
 						WorkerKind::Execute,
+						// We're not accessing any files, so we can try to pivot_root in the temp
+						// dir without conflicts with other processes.
 						&std::env::temp_dir(),
 					)
 					.is_ok()
@@ -184,7 +186,7 @@ pub fn worker_event_loop<F, Fut>(
 				"Node and worker version mismatch, node needs restarting, forcing shutdown",
 			);
 			kill_parent_node_in_emergency();
-			let err = io::Error::new(io::ErrorKind::Unsupported, "Version mismatch");
+			let err = String::from("Version mismatch");
 			worker_shutdown_message(worker_kind, worker_pid, err);
 			return
 		}
@@ -195,17 +197,20 @@ pub fn worker_event_loop<F, Fut>(
 	// Landlock is enabled a bit later after the socket has been removed.
 	{
 		// Call based on whether we can change root. Error out if it should work but fails.
+		//
+		// NOTE: This should not be called in a multi-threaded context (i.e. inside the tokio
+		// runtime). `unshare(2)`:
+		//
+		//       > CLONE_NEWUSER requires that the calling process is not threaded.
 		#[cfg(target_os = "linux")]
 		if security_status.can_unshare_user_namespace_and_change_root {
-			if let Err(err_ctx) =
+			if let Err(err) =
 				security::unshare_user_namespace_and_change_root(worker_kind, &worker_dir_path)
 			{
-				let err = io::Error::last_os_error();
 				gum::error!(
 					target: LOG_TARGET,
 					%worker_kind,
 					%worker_pid,
-					%err_ctx,
 					?worker_dir_path,
 					"Could not change root to be the worker cache path: {}",
 					err
@@ -253,7 +258,7 @@ pub fn worker_event_loop<F, Fut>(
 		// It's never `Ok` because it's `Ok(Never)`.
 		.unwrap_err();
 
-	worker_shutdown_message(worker_kind, worker_pid, err);
+	worker_shutdown_message(worker_kind, worker_pid, err.to_string());
 
 	// We don't want tokio to wait for the tasks to finish. We want to bring down the worker as fast
 	// as possible and not wait for stalled validation to finish. This isn't strictly necessary now,
@@ -262,8 +267,8 @@ pub fn worker_event_loop<F, Fut>(
 }
 
 /// Provide a consistent message on worker shutdown.
-fn worker_shutdown_message(worker_kind: WorkerKind, worker_pid: u32, err: io::Error) {
-	gum::debug!(target: LOG_TARGET, %worker_pid, "quitting pvf worker ({}): {:?}", worker_kind, err);
+fn worker_shutdown_message(worker_kind: WorkerKind, worker_pid: u32, err: String) {
+	gum::debug!(target: LOG_TARGET, %worker_pid, "quitting pvf worker ({}): {}", worker_kind, err);
 }
 
 /// Loop that runs in the CPU time monitor thread on prepare and execute jobs. Continuously wakes up

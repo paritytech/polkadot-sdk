@@ -21,7 +21,7 @@ use polkadot_primitives::ExecutorParams;
 use std::time::Duration;
 
 /// The payload of the one-time handshake that is done when a worker process is created. Carries
-/// data from the host to the worker that would be too large for CLI parameters..
+/// data from the host to the worker.
 #[derive(Encode, Decode)]
 pub struct Handshake {
 	/// The executor parameters.

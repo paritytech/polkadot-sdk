@@ -27,14 +27,17 @@
 //! - Remove env vars
 
 use crate::{worker::WorkerKind, LOG_TARGET};
-use std::path::Path;
 
 /// Unshare the user namespace and change root to be the artifact directory.
+///
+/// NOTE: This should not be called in a multi-threaded context. `unshare(2)`:
+///
+///       > CLONE_NEWUSER requires that the calling process is not threaded.
 #[cfg(target_os = "linux")]
 pub fn unshare_user_namespace_and_change_root(
 	worker_kind: WorkerKind,
-	worker_dir_path: &Path,
-) -> Result<(), &'static str> {
+	worker_dir_path: &std::path::Path,
+) -> Result<(), String> {
 	use std::{ffi::CString, os::unix::ffi::OsStrExt, ptr};
 
 	let worker_dir_path_c = CString::new(worker_dir_path.as_os_str().as_bytes())
@@ -42,65 +45,72 @@ pub fn unshare_user_namespace_and_change_root(
 	let root_c = CString::new("/").expect("input contains no 0 bytes; qed");
 	let dot_c = CString::new(".").expect("input contains no 0 bytes; qed");
 
-	// SAFETY: We pass null-terminated C strings and use the APIs as documented. In fact, steps (2)
-	//         and (3) are adapted from the example in pivot_root(2), with the additional change
-	//         described in the `pivot_root(".", ".")` section.
-	unsafe {
-		// 1. `unshare` the user and the mount namespaces.
-		//
-		// Separate calls: in case one flag succeeds but other fails, we give a more precise error.
-		if libc::unshare(libc::CLONE_NEWUSER) < 0 {
-			return Err("unshare user namespace")
-		}
-		if libc::unshare(libc::CLONE_NEWNS) < 0 {
-			return Err("unshare mount namespace")
+	// Wrapper around all the work to prevent repetitive error handling.
+	//
+	// # Errors
+	//
+	// It's the caller's responsibility to call `Error::last_os_error`. Note that that alone does
+	// not give the context of which call failed, so we return a &str error.
+	|| -> Result<(), &'static str> {
+		// SAFETY: We pass null-terminated C strings and use the APIs as documented. In fact, steps
+		//         (2) and (3) are adapted from the example in pivot_root(2), with the additional
+		//         change described in the `pivot_root(".", ".")` section.
+		unsafe {
+			// 1. `unshare` the user and the mount namespaces.
+			if libc::unshare(libc::CLONE_NEWUSER | libc::CLONE_NEWNS) < 0 {
+				return Err("unshare user and mount namespaces")
+			}
+
+			// 2. Setup mounts.
+			//
+			// Ensure that new root and its parent mount don't have shared propagation (which would
+			// cause pivot_root() to return an error), and prevent propagation of mount events to
+			// the initial mount namespace.
+			if libc::mount(
+				ptr::null(),
+				root_c.as_ptr(),
+				ptr::null(),
+				libc::MS_REC | libc::MS_PRIVATE,
+				ptr::null(),
+			) < 0
+			{
+				return Err("mount MS_PRIVATE")
+			}
+			if libc::chdir(worker_dir_path_c.as_ptr()) < 0 {
+				return Err("chdir to worker dir path")
+			}
+			// Ensure that the new root is a mount point.
+			let additional_flags =
+				if let WorkerKind::Execute = worker_kind { libc::MS_RDONLY } else { 0 };
+			if libc::mount(
+				dot_c.as_ptr(),
+				dot_c.as_ptr(),
+				ptr::null(), // ignored when MS_BIND is used
+				libc::MS_BIND |
+					libc::MS_REC | libc::MS_NOEXEC |
+					libc::MS_NODEV | libc::MS_NOSUID |
+					libc::MS_NOATIME | additional_flags,
+				ptr::null(), // ignored when MS_BIND is used
+			) < 0
+			{
+				return Err("mount MS_BIND")
+			}
+
+			// 3. `pivot_root` to the artifact directory.
+			if libc::syscall(libc::SYS_pivot_root, &dot_c, &dot_c) < 0 {
+				return Err("pivot_root")
+			}
+			if libc::umount2(dot_c.as_ptr(), libc::MNT_DETACH) < 0 {
+				return Err("umount the old root mount point")
+			}
 		}
 
-		// 2. Setup mounts.
-		//
-		// Ensure that new root and its parent mount don't have shared propagation (which would
-		// cause pivot_root() to return an error), and prevent propagation of mount events to the
-		// initial mount namespace.
-		if libc::mount(
-			ptr::null(),
-			root_c.as_ptr(),
-			ptr::null(),
-			libc::MS_REC | libc::MS_PRIVATE,
-			ptr::null(),
-		) < 0
-		{
-			return Err("mount MS_PRIVATE")
-		}
-		if libc::chdir(worker_dir_path_c.as_ptr()) < 0 {
-			return Err("chdir to worker dir path")
-		}
-		// Ensure that the new root is a mount point.
-		let additional_flags =
-			if let WorkerKind::Execute = worker_kind { libc::MS_RDONLY } else { 0 };
-		if libc::mount(
-			dot_c.as_ptr(),
-			dot_c.as_ptr(),
-			ptr::null(), // ignored when MS_BIND is used
-			libc::MS_BIND |
-				libc::MS_REC | libc::MS_NOEXEC |
-				libc::MS_NODEV | libc::MS_NOSUID |
-				libc::MS_NOATIME | additional_flags,
-			ptr::null(), // ignored when MS_BIND is used
-		) < 0
-		{
-			return Err("mount MS_BIND")
-		}
-
-		// 3. `pivot_root` to the artifact directory.
-		if libc::syscall(libc::SYS_pivot_root, &dot_c, &dot_c) < 0 {
-			return Err("pivot_root")
-		}
-		if libc::umount2(dot_c.as_ptr(), libc::MNT_DETACH) < 0 {
-			return Err("umount the old root mount point")
-		}
-	}
-
-	Ok(())
+		Ok(())
+	}()
+	.map_err(|err_ctx| {
+		let err = std::io::Error::last_os_error();
+		format!("{}: {}", err_ctx, err)
+	})
 }
 
 /// Delete all env vars to prevent malicious code from accessing them.
