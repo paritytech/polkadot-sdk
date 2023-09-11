@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::helper;
-use frame_support_procedural_tools::{get_doc_literals, is_using_frame_crate};
+use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;
 use syn::{spanned::Spanned, token, Token};
 
@@ -235,16 +235,7 @@ fn check_event_type(
 
 			let has_is_type_bound = type_.bounds.iter().any(|s| {
 				syn::parse2::<IsTypeBoundEventParse>(s.to_token_stream()).map_or(false, |b| {
-					let mut expected_system_config = if is_using_frame_crate(&frame_system) {
-						// in this case we know that the only valid frame_system path is one that is
-						// `frame_system`, as `frame` re-exports it as such.
-						let fixed_frame_system =
-							syn::parse2::<syn::Path>(quote::quote!(frame_system))
-								.expect("is a valid path; qed");
-						fixed_frame_system
-					} else {
-						frame_system.clone()
-					};
+					let mut expected_system_config = frame_system.clone();
 					expected_system_config
 						.segments
 						.push(syn::PathSegment::from(syn::Ident::new("Config", b.0.span())));
@@ -346,16 +337,7 @@ impl ConfigDef {
 
 		let has_frame_system_supertrait = item.supertraits.iter().any(|s| {
 			syn::parse2::<syn::Path>(s.to_token_stream()).map_or(false, |b| {
-				let mut expected_system_config = if is_using_frame_crate(&frame_system) {
-					// in this case we know that the only valid supertrait is one that is
-					// `frame_system::Config`, as `frame` re-exports it as such.
-					let fixed_frame_system = syn::parse2::<syn::Path>(quote::quote!(frame_system))
-						.expect("is a valid path; qed");
-					fixed_frame_system
-				} else {
-					// a possible renamed frame-system, which is a direct dependency.
-					frame_system.clone()
-				};
+				let mut expected_system_config = frame_system.clone();
 				expected_system_config
 					.segments
 					.push(syn::PathSegment::from(syn::Ident::new("Config", b.span())));
