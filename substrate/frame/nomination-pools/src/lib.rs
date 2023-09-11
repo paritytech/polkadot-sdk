@@ -1626,9 +1626,9 @@ pub mod pallet {
 
 	/// The sum of funds across all pools.
 	///
-	/// This might be higher but never lower than the actual sum of the currently unlocking and
-	/// bonded funds as this is only decreased if a user withdraws unlocked funds or a slash
-	/// happened.
+	/// This might be lower but never higher than the sum of `total_balance` of all [`PoolMembers`]
+	/// because calling `pool_withdraw_unbonded` might decrease the total stake of the pool's
+	/// `bonded_account` without adjusting the pallet-internal `UnbondingPool`'s.
 	#[pallet::storage]
 	pub type TotalValueLocked<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
