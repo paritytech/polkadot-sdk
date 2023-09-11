@@ -71,7 +71,6 @@ var sourcesIndex = JSON.parse('{\
 "cumulus_relay_chain_rpc_interface":["",[],["lib.rs","light_client_worker.rs","reconnecting_ws_client.rs","rpc_client.rs","tokio_platform.rs"]],\
 "cumulus_test_client":["",[],["block_builder.rs","lib.rs"]],\
 "cumulus_test_relay_sproof_builder":["",[],["lib.rs"]],\
-"cumulus_test_relay_validation_worker_provider":["",[],["lib.rs"]],\
 "cumulus_test_runtime":["",[],["lib.rs","test_pallet.rs"]],\
 "cumulus_test_service":["",[],["bench_utils.rs","chain_spec.rs","genesis.rs","lib.rs"]],\
 "fixed_point":["",[],["fixed_point.rs"]],\
@@ -259,7 +258,7 @@ var sourcesIndex = JSON.parse('{\
 "polkadot_node_core_parachains_inherent":["",[],["lib.rs"]],\
 "polkadot_node_core_prospective_parachains":["",[],["error.rs","fragment_tree.rs","lib.rs","metrics.rs"]],\
 "polkadot_node_core_provisioner":["",[["disputes",[["prioritized_selection",[],["mod.rs"]]],["mod.rs"]]],["error.rs","lib.rs","metrics.rs"]],\
-"polkadot_node_core_pvf":["",[["execute",[],["mod.rs","queue.rs","worker_intf.rs"]],["prepare",[],["mod.rs","pool.rs","queue.rs","worker_intf.rs"]]],["artifacts.rs","error.rs","host.rs","lib.rs","metrics.rs","priority.rs","testing.rs","worker_intf.rs"]],\
+"polkadot_node_core_pvf":["",[["execute",[],["mod.rs","queue.rs","worker_intf.rs"]],["prepare",[],["mod.rs","pool.rs","queue.rs","worker_intf.rs"]]],["artifacts.rs","error.rs","host.rs","lib.rs","metrics.rs","priority.rs","worker_intf.rs"]],\
 "polkadot_node_core_pvf_checker":["",[],["interest_view.rs","lib.rs","metrics.rs","runtime_api.rs"]],\
 "polkadot_node_core_pvf_common":["",[["worker",[],["mod.rs","security.rs"]]],["error.rs","execute.rs","executor_intf.rs","lib.rs","prepare.rs","pvf.rs"]],\
 "polkadot_node_core_pvf_execute_worker":["",[],["lib.rs"]],\
@@ -293,7 +292,6 @@ var sourcesIndex = JSON.parse('{\
 "polkadot_test_runtime":["",[],["lib.rs","xcm_config.rs"]],\
 "polkadot_test_service":["",[],["chain_spec.rs","lib.rs"]],\
 "polkadot_voter_bags":["",[],["main.rs"]],\
-"puppet_worker":["",[],["puppet_worker.rs"]],\
 "reconstruct":["",[],["reconstruct.rs"]],\
 "reduce":["",[],["common.rs","reduce.rs"]],\
 "remote_ext_tests_bags_list":["",[],["main.rs"]],\

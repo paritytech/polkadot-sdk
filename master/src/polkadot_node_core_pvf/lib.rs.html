@@ -115,16 +115,6 @@
 <a href="#115" id="115">115</a>
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -227,10 +217,6 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;test-utils&quot;</span>)]
 </span><span class="kw">pub mod </span>testing;
 
-<span class="comment">// Used by `decl_puppet_worker_main!`.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;test-utils&quot;</span>)]
-</span><span class="kw">pub use </span>sp_tracing;
-
 <span class="kw">pub use </span>error::{InvalidCandidate, ValidationError};
 <span class="kw">pub use </span>host::{start, Config, ValidationHost, EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME};
 <span class="kw">pub use </span>metrics::Metrics;
@@ -243,12 +229,6 @@
 	prepare::{PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
 };
-
-<span class="comment">// Re-export worker entrypoints.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;test-utils&quot;</span>)]
-</span><span class="kw">pub use </span>polkadot_node_core_pvf_execute_worker::worker_entrypoint <span class="kw">as </span>execute_worker_entrypoint;
-<span class="attr">#[cfg(feature = <span class="string">&quot;test-utils&quot;</span>)]
-</span><span class="kw">pub use </span>polkadot_node_core_pvf_prepare_worker::worker_entrypoint <span class="kw">as </span>prepare_worker_entrypoint;
 
 <span class="doccomment">/// The log target for this crate.
 </span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::pvf&quot;</span>;

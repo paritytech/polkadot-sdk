@@ -2,11 +2,11 @@
     client: <a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Client&gt;,
     backend: <a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Backend&gt;,
     blocks: <a class="type" href="../sp_runtime/traits/type.NumberFor.html" title="type sp_runtime::traits::NumberFor">NumberFor</a>&lt;Block&gt;
-) -&gt; ClientResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;<span class="where fmt-newline">where
+) -&gt; <a class="type" href="../sp_blockchain/error/type.Result.html" title="type sp_blockchain::error::Result">ClientResult</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;<span class="where fmt-newline">where
     Block: <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>,
-    Client: AuxStore + HeaderMetadata&lt;Block, Error = Error&gt; + HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + UsageProvider&lt;Block&gt;,
+    Client: <a class="trait" href="../sc_client_api/backend/trait.AuxStore.html" title="trait sc_client_api::backend::AuxStore">AuxStore</a> + <a class="trait" href="../sp_blockchain/header_metadata/trait.HeaderMetadata.html" title="trait sp_blockchain::header_metadata::HeaderMetadata">HeaderMetadata</a>&lt;Block, Error = <a class="enum" href="../sp_blockchain/error/enum.Error.html" title="enum sp_blockchain::error::Error">Error</a>&gt; + <a class="trait" href="../sp_blockchain/backend/trait.HeaderBackend.html" title="trait sp_blockchain::backend::HeaderBackend">HeaderBackend</a>&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + <a class="trait" href="../sc_client_api/trait.UsageProvider.html" title="trait sc_client_api::UsageProvider">UsageProvider</a>&lt;Block&gt;,
     Client::Api: <a class="trait" href="trait.BabeApi.html" title="trait sc_consensus_babe::BabeApi">BabeApi</a>&lt;Block&gt;,
-    Backend: BackendT&lt;Block&gt;,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Reverts protocol aux data to at most the last finalized block.
+    Backend: <a class="trait" href="../sc_client_api/backend/trait.Backend.html" title="trait sc_client_api::backend::Backend">BackendT</a>&lt;Block&gt;,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Reverts protocol aux data to at most the last finalized block.
 In particular, epoch-changes and block weights announced after the revert
 point are removed.</p>
 </div></details></section></div></main></body></html>
