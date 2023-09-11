@@ -175,7 +175,7 @@ impl InstanceWrapper {
 		Ok(InstanceWrapper { instance, store })
 	}
 
-	// *Only for test*
+	/// **Testing Only**.
 	pub(crate) fn base_ptr(&mut self) -> *const u8 {
 		let mem = self.store.data().memory();
 		mem.data_ptr(self.store.as_context_mut())

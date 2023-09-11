@@ -79,6 +79,6 @@ fn memory_consumption(wasm_method: WasmExecutionMethod) {
 		)
 		.unwrap();
 
-	assert_eq!(probe_rss(probe_1), Some(0));
-	assert_eq!(probe_rss(probe_2), Some(0));
+	assert_eq!(probe_rss(probe_1.unwrap()), 0);
+	assert_eq!(probe_rss(probe_2.unwrap()), 0);
 }

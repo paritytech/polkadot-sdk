@@ -127,7 +127,7 @@ impl WasmtimeInstance {
 		}
 	}
 
-	/// **Testing Only**. This function returns the base address of the linear memory.
+	/// **Testing Only**.
 	fn call_impl_with_base_ptr(
 		&mut self,
 		method: InvokeMethod,
