@@ -297,6 +297,37 @@
 <a href="#297" id="297">297</a>
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -306,7 +337,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+//  http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
@@ -314,41 +345,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="doccomment">//! # Sudo Pallet
+</span><span class="doccomment">//! &gt; Made with *Substrate*, for *Polkadot*.
 //!
-//! - [`Config`]
-//! - [`Call`]
+//! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/sudo)
+//! [![polkadot]](https://polkadot.network)
+//!
+//! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&amp;labelColor=555555&amp;logo=github
+//! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&amp;logo=polkadot&amp;logoColor=white
+//!
+//! # Sudo Pallet
+//!
+//! A pallet to provide a way to execute privileged runtime calls using a specified sudo (&quot;superuser
+//! do&quot;) account.
+//!
+//! ## Pallet API
+//!
+//! See the [`pallet`] module for more information about the interfaces this pallet exposes,
+//! including its configuration trait, dispatchables, storage items, events and errors.
 //!
 //! ## Overview
 //!
-//! The Sudo pallet allows for a single account (called the &quot;sudo key&quot;)
-//! to execute dispatchable functions that require a `Root` call
-//! or designate a new account to replace them as the sudo key.
-//! Only one account can be the sudo key at a time.
+//! In Substrate blockchains, pallets may contain dispatchable calls that can only be called at
+//! the system level of the chain (i.e. dispatchables that require a `Root` origin).
+//! Setting a privileged account, called the _sudo key_, allows you to make such calls as an
+//! extrinisic.
 //!
-//! ## Interface
-//!
-//! ### Dispatchable Functions
-//!
-//! Only the sudo key can call the dispatchable functions from the Sudo pallet.
-//!
-//! * `sudo` - Make a `Root` call to a dispatchable function.
-//! * `set_key` - Assign a new account to be the sudo key.
-//!
-//! ## Usage
-//!
-//! ### Executing Privileged Functions
-//!
-//! The Sudo pallet itself is not intended to be used within other pallets.
-//! Instead, you can build &quot;privileged functions&quot; (i.e. functions that require `Root` origin) in
-//! other pallets. You can execute these privileged functions by calling `sudo` with the sudo key
-//! account. Privileged functions cannot be directly executed via an extrinsic.
-//!
-//! Learn more about privileged functions and `Root` origin in the [`Origin`] type documentation.
-//!
-//! ### Simple Code Snippet
-//!
-//! This is an example of a pallet that exposes a privileged function:
+//! Here&#39;s an example of a privileged function in another pallet:
 //!
 //! ```
 //! #[frame_support::pallet]
@@ -375,28 +397,59 @@
 //!         }
 //! 	}
 //! }
-//! # fn main() {}
 //! ```
 //!
-//! ### Signed Extension
+//! With the Sudo pallet configured in your chain&#39;s runtime you can execute this privileged
+//! function by constructing a call using the [`sudo`](Pallet::sudo) dispatchable.
 //!
-//! The Sudo pallet defines the following extension:
+//! To use this pallet in your runtime, a sudo key must be specified in the [`GenesisConfig`] of
+//! the pallet. You can change this key at anytime once your chain is live using the
+//! [`set_key`](Pallet::set_key) dispatchable, however &lt;strong&gt;only one sudo key can be set at a
+//! time&lt;/strong&gt;. The pallet also allows you to make a call using
+//! [`sudo_unchecked_weight`](Pallet::sudo_unchecked_weight), which allows the sudo account to
+//! execute a call with a custom weight.
 //!
-//!   - [`CheckOnlySudoAccount`]: Ensures that the signed transactions are only valid if they are
-//!     signed by sudo account.
+//! &lt;div class=&quot;example-wrap&quot; style=&quot;display:inline-block&quot;&gt;&lt;pre class=&quot;compile_fail&quot;
+//! style=&quot;white-space:normal;font:inherit;&quot;&gt;
+//! &lt;strong&gt;Note:&lt;/strong&gt; this pallet is not meant to be used inside other pallets. It is only
+//! meant to be used by constructing runtime calls from outside the runtime.
+//! &lt;/pre&gt;&lt;/div&gt;
 //!
-//! ## Genesis Config
+//! This pallet also defines a [`SignedExtension`](sp_runtime::traits::SignedExtension) called
+//! [`CheckOnlySudoAccount`] to ensure that only signed transactions by the sudo account are
+//! accepted by the transaction pool. The intended use of this signed extension is to prevent other
+//! accounts from spamming the transaction pool for the initial phase of a chain, during which
+//! developers may only want a sudo account to be able to make transactions.
 //!
-//! The Sudo pallet depends on the [`GenesisConfig`].
-//! You need to set an initial superuser account as the sudo `key`.
+//! Learn more about the `Root` origin in the [`RawOrigin`](frame_system::RawOrigin) type
+//! documentation.
 //!
-//! ## Related Pallets
+//! ### Examples
 //!
-//! * [Democracy](../pallet_democracy/index.html)
+//! 1. You can make a privileged runtime call using `sudo` with an account that matches the sudo
+//!    key.
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests.rs&quot;</span>, sudo_basics)]
+</span><span class="doccomment">//!
+//! 2. Only an existing sudo key can set a new one.
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests.rs&quot;</span>, set_key_basics)]
+</span><span class="doccomment">//!
+//! 3. You can also make non-privileged calls using `sudo_as`.
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests.rs&quot;</span>, sudo_as_emits_events_correctly)]
+</span><span class="doccomment">//!
+//! ## Low Level / Implementation Details
 //!
-//! [`Origin`]: https://docs.substrate.io/main-docs/build/origins/
+//! This pallet checks that the caller of its dispatchables is a signed account and ensures that the
+//! caller matches the sudo key in storage.
+//! A caller of this pallet&#39;s dispatchables does not pay any fees to dispatch a call. If the account
+//! making one of these calls is not the sudo key, the pallet returns a [`Error::RequireSudo`]
+//! error.
+//!
+//! Once an origin is verified, sudo calls use `dispatch_bypass_filter` from the
+//! [`UnfilteredDispatchable`](frame_support::traits::UnfilteredDispatchable) trait to allow call
+//! execution without enforcing any further origin checks.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![deny(missing_docs)]
+#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">use </span>sp_runtime::{traits::StaticLookup, DispatchResult};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
@@ -560,12 +613,21 @@
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
-		<span class="doccomment">/// A sudo just took place. \[result\]
-		</span>Sudid { sudo_result: DispatchResult },
-		<span class="doccomment">/// The \[sudoer\] just switched identity; the old key is supplied if one existed.
-		</span>KeyChanged { old_sudoer: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt; },
-		<span class="doccomment">/// A sudo just took place. \[result\]
-		</span>SudoAsDone { sudo_result: DispatchResult },
+		<span class="doccomment">/// A sudo call just took place.
+		</span>Sudid {
+			<span class="doccomment">/// The result of the call made by the sudo user.
+			</span>sudo_result: DispatchResult,
+		},
+		<span class="doccomment">/// The sudo key has been updated.
+		</span>KeyChanged {
+			<span class="doccomment">/// The old sudo key if one was previously set.
+			</span>old_sudoer: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
+		},
+		<span class="doccomment">/// A [sudo_as](Pallet::sudo_as) call just took place.
+		</span>SudoAsDone {
+			<span class="doccomment">/// The result of the call made by the sudo user.
+			</span>sudo_result: DispatchResult,
+		},
 	}
 
 	<span class="attr">#[pallet::error]

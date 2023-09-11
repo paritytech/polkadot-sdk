@@ -9,23 +9,23 @@
         parent: Block::<a class="associatedtype" href="../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
         inherent_digests: <a class="struct" href="../sp_runtime/generic/digest/struct.Digest.html" title="struct sp_runtime::generic::digest::Digest">Digest</a>,
         record_proof: R
-    ) -&gt; Result&lt;<a class="struct" href="struct.BlockBuilder.html" title="struct sc_block_builder::BlockBuilder">BlockBuilder</a>&lt;'_, Block, RA, B&gt;&gt;;
+    ) -&gt; <a class="type" href="../sp_blockchain/error/type.Result.html" title="type sp_blockchain::error::Result">Result</a>&lt;<a class="struct" href="struct.BlockBuilder.html" title="struct sc_block_builder::BlockBuilder">BlockBuilder</a>&lt;'_, Block, RA, B&gt;&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.new_block" class="fn">new_block</a>(
         &amp;self,
         inherent_digests: <a class="struct" href="../sp_runtime/generic/digest/struct.Digest.html" title="struct sp_runtime::generic::digest::Digest">Digest</a>
-    ) -&gt; Result&lt;<a class="struct" href="struct.BlockBuilder.html" title="struct sc_block_builder::BlockBuilder">BlockBuilder</a>&lt;'_, Block, RA, B&gt;&gt;;
+    ) -&gt; <a class="type" href="../sp_blockchain/error/type.Result.html" title="type sp_blockchain::error::Result">Result</a>&lt;<a class="struct" href="struct.BlockBuilder.html" title="struct sc_block_builder::BlockBuilder">BlockBuilder</a>&lt;'_, Block, RA, B&gt;&gt;;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Block builder provider</p>
 </div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.new_block_at" class="method"><a class="srclink rightside" href="../src/sc_block_builder/lib.rs.html#117-122">source</a><h4 class="code-header">fn <a href="#tymethod.new_block_at" class="fn">new_block_at</a>&lt;R: <a class="trait" href="https://doc.rust-lang.org/1.70.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="enum.RecordProof.html" title="enum sc_block_builder::RecordProof">RecordProof</a>&gt;&gt;(
     &amp;self,
     parent: Block::<a class="associatedtype" href="../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
     inherent_digests: <a class="struct" href="../sp_runtime/generic/digest/struct.Digest.html" title="struct sp_runtime::generic::digest::Digest">Digest</a>,
     record_proof: R
-) -&gt; Result&lt;<a class="struct" href="struct.BlockBuilder.html" title="struct sc_block_builder::BlockBuilder">BlockBuilder</a>&lt;'_, Block, RA, B&gt;&gt;</h4></section></summary><div class="docblock"><p>Create a new block, built on top of <code>parent</code>.</p>
+) -&gt; <a class="type" href="../sp_blockchain/error/type.Result.html" title="type sp_blockchain::error::Result">Result</a>&lt;<a class="struct" href="struct.BlockBuilder.html" title="struct sc_block_builder::BlockBuilder">BlockBuilder</a>&lt;'_, Block, RA, B&gt;&gt;</h4></section></summary><div class="docblock"><p>Create a new block, built on top of <code>parent</code>.</p>
 <p>When proof recording is enabled, all accessed trie nodes are saved.
 These recorded trie nodes can be used by a third party to proof the
 output of this block builder without having access to the full storage.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.new_block" class="method"><a class="srclink rightside" href="../src/sc_block_builder/lib.rs.html#125-128">source</a><h4 class="code-header">fn <a href="#tymethod.new_block" class="fn">new_block</a>(
     &amp;self,
     inherent_digests: <a class="struct" href="../sp_runtime/generic/digest/struct.Digest.html" title="struct sp_runtime::generic::digest::Digest">Digest</a>
-) -&gt; Result&lt;<a class="struct" href="struct.BlockBuilder.html" title="struct sc_block_builder::BlockBuilder">BlockBuilder</a>&lt;'_, Block, RA, B&gt;&gt;</h4></section></summary><div class="docblock"><p>Create a new block, built on the head of the chain.</p>
+) -&gt; <a class="type" href="../sp_blockchain/error/type.Result.html" title="type sp_blockchain::error::Result">Result</a>&lt;<a class="struct" href="struct.BlockBuilder.html" title="struct sc_block_builder::BlockBuilder">BlockBuilder</a>&lt;'_, Block, RA, B&gt;&gt;</h4></section></summary><div class="docblock"><p>Create a new block, built on the head of the chain.</p>
 </div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../implementors/sc_block_builder/trait.BlockBuilderProvider.js" async></script></section></div></main></body></html>
