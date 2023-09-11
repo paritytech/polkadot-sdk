@@ -23,6 +23,7 @@ members = [
 	"cumulus/bridges/primitives/chain-bridge-hub-wococo",
 	"cumulus/bridges/primitives/chain-kusama",
 	"cumulus/bridges/primitives/chain-polkadot",
+	"cumulus/bridges/primitives/chain-polkadot-bulletin",
 	"cumulus/bridges/primitives/chain-rococo",
 	"cumulus/bridges/primitives/chain-wococo",
 	"cumulus/bridges/primitives/header-chain",

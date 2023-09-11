@@ -26,7 +26,7 @@ use bp_runtime::{
 };
 use frame_support::dispatch::DispatchClass;
 use sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug};
-use sp_std::prelude::Vec;
+
 /// BridgeHubRococo parachain.
 #[derive(RuntimeDebug)]
 pub struct BridgeHubRococo;
