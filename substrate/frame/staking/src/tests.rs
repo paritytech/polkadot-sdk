@@ -1725,6 +1725,35 @@ fn rebond_emits_right_value_in_event() {
 }
 
 #[test]
+fn minting_into_treasury_works() {
+	let fraction_to_treasury = 20;
+
+	ExtBuilder::default()
+		.nominate(false)
+		.treasury_fraction(fraction_to_treasury)
+		.build_and_execute(|| {
+			assert_eq!(<TreasuryInflationFraction<Test>>::get().unwrap(), Percent::from_parts(20));
+
+			// check validators account state.
+			assert_eq!(Session::validators().len(), 2);
+			assert!(Session::validators().contains(&11) & Session::validators().contains(&21));
+			// treasury account 42.
+			assert_eq!(Balances::free_balance(treasury_account_id()), 0);
+
+			start_active_era(1);
+
+			let treasury_payout = Balances::free_balance(treasury_account_id());
+			let validators_payout = ErasValidatorReward::<Test>::get(0).unwrap();
+
+			// treasury fraction is correctly distributed.
+			assert_eq!(
+				treasury_payout * 100 / (treasury_payout + validators_payout),
+				fraction_to_treasury as Balance
+			);
+		})
+}
+
+#[test]
 fn reward_to_stake_works() {
 	ExtBuilder::default()
 		.nominate(false)
@@ -1758,6 +1787,68 @@ fn reward_to_stake_works() {
 
 			// Compute total payout now for whole duration as other parameter won't change
 			let total_payout_0 = current_total_payout_for_duration(reward_time_per_era());
+			Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
+			Pallet::<Test>::reward_by_ids(vec![(21, 1)]);
+
+			// New era --> rewards are paid --> stakes are changed
+			mock::start_active_era(1);
+			mock::make_all_reward_payment(0);
+
+			assert_eq!(Staking::eras_stakers(active_era(), 11).total, 1000);
+			assert_eq!(Staking::eras_stakers(active_era(), 21).total, 2000);
+
+			let _11_balance = Balances::free_balance(&11);
+			let _21_balance = Balances::free_balance(&21);
+
+			assert_eq!(_11_balance, 1000 + total_payout_0 / 2);
+			assert_eq!(_21_balance, 2000 + total_payout_0 / 2);
+
+			// Trigger another new era as the info are frozen before the era start.
+			mock::start_active_era(2);
+
+			// -- new infos
+			assert_eq!(Staking::eras_stakers(active_era(), 11).total, _11_balance);
+			assert_eq!(Staking::eras_stakers(active_era(), 21).total, _21_balance);
+		});
+
+	// with treasury payout.
+	let fraction_to_treasury = 20;
+	ExtBuilder::default()
+		.nominate(false)
+		.set_status(31, StakerStatus::Idle)
+		.set_status(41, StakerStatus::Idle)
+		.set_stake(21, 2000)
+		.treasury_fraction(fraction_to_treasury)
+		.build_and_execute(|| {
+			assert_eq!(Staking::validator_count(), 2);
+			// Confirm account 10 and 20 are validators
+			assert!(<Validators<Test>>::contains_key(&11) && <Validators<Test>>::contains_key(&21));
+
+			assert_eq!(Staking::eras_stakers(active_era(), 11).total, 1000);
+			assert_eq!(Staking::eras_stakers(active_era(), 21).total, 2000);
+
+			// Give the man some money.
+			let _ = Balances::make_free_balance_be(&10, 1000);
+			let _ = Balances::make_free_balance_be(&20, 1000);
+
+			// Bypass logic and change current exposure
+			ErasStakers::<Test>::insert(0, 21, Exposure { total: 69, own: 69, others: vec![] });
+			<Ledger<Test>>::insert(
+				&20,
+				StakingLedger {
+					stash: 21,
+					total: 69,
+					active: 69,
+					unlocking: Default::default(),
+					claimed_rewards: bounded_vec![],
+				},
+			);
+
+			// Compute total payout now for whole duration as other parameter won't change
+			let total_payout_0 = current_total_payout_for_duration(reward_time_per_era());
+			// adjust expectations of validator payout based on treasury payout in the era.
+			let total_payout_0 = Percent::from_parts(100 - fraction_to_treasury) * total_payout_0;
+
 			Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
 			Pallet::<Test>::reward_by_ids(vec![(21, 1)]);
 

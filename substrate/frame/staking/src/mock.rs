@@ -29,6 +29,7 @@ use frame_support::{
 		OnUnbalanced, OneSessionHandler,
 	},
 	weights::constants::RocksDbWeight,
+	PalletId,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_core::H256;
@@ -36,8 +37,8 @@ use sp_io;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	testing::UintAuthorityId,
-	traits::{IdentityLookup, Zero},
-	BuildStorage,
+	traits::{AccountIdConversion, IdentityLookup, Zero},
+	BuildStorage, Percent,
 };
 use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
 
@@ -237,6 +238,7 @@ parameter_types! {
 	pub static MaxWinners: u32 = 100;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static AbsoluteMaxNominations: u32 = 16;
+	pub const TreasuryPalletId: PalletId = PalletId(*b"Treasury");
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -298,6 +300,7 @@ impl crate::pallet::pallet::Config for Test {
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type EraPayout = ConvertCurve<RewardCurve>;
+	type TreasuryPalletId = TreasuryPalletId;
 	type NextNewSession = Session;
 	type MaxNominatorRewardedPerValidator = ConstU32<64>;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
@@ -346,6 +349,7 @@ pub struct ExtBuilder {
 	pub min_nominator_bond: Balance,
 	min_validator_bond: Balance,
 	balance_factor: Balance,
+	treasury_fraction: Percent,
 	status: BTreeMap<AccountId, StakerStatus<AccountId>>,
 	stakes: BTreeMap<AccountId, Balance>,
 	stakers: Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
@@ -358,6 +362,7 @@ impl Default for ExtBuilder {
 			validator_count: 2,
 			minimum_validator_count: 0,
 			balance_factor: 1,
+			treasury_fraction: Percent::from_percent(0),
 			invulnerables: vec![],
 			has_stakers: true,
 			initialize_first_session: true,
@@ -443,6 +448,10 @@ impl ExtBuilder {
 	}
 	pub fn balance_factor(mut self, factor: Balance) -> Self {
 		self.balance_factor = factor;
+		self
+	}
+	pub fn treasury_fraction(mut self, fraction: u8) -> Self {
+		self.treasury_fraction = Percent::from_parts(fraction);
 		self
 	}
 	fn build(self) -> sp_io::TestExternalities {
@@ -532,6 +541,7 @@ impl ExtBuilder {
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: self.min_nominator_bond,
 			min_validator_bond: self.min_validator_bond,
+			treasury_inflation_fraction: self.treasury_fraction,
 			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
@@ -775,6 +785,10 @@ pub(crate) fn make_all_reward_payment(era: EraIndex) {
 		let ledger = <Ledger<Test>>::get(&validator_controller).unwrap();
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), ledger.stash, era));
 	}
+}
+
+pub(crate) fn treasury_account_id() -> AccountId {
+	TreasuryPalletId::get().into_account_truncating()
 }
 
 #[macro_export]

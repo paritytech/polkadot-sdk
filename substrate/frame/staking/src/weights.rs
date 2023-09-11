@@ -82,6 +82,7 @@ pub trait WeightInfo {
 	fn chill_other() -> Weight;
 	fn force_apply_min_commission() -> Weight;
 	fn set_min_commission() -> Weight;
+	fn set_treasury_fraction() -> Weight;
 }
 
 /// Weights for pallet_staking using the Substrate node and recommended hardware.
@@ -793,6 +794,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(3_679_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: Staking TreasuryInflationTreasury (r:0 w:1)
+	/// Proof: Staking TreasuryInflationTreasury (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	fn set_treasury_fraction() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 3_415_000 picoseconds.
+		Weight::from_parts(3_679_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests
@@ -1496,6 +1507,16 @@ impl WeightInfo for () {
 	/// Storage: Staking MinCommission (r:0 w:1)
 	/// Proof: Staking MinCommission (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
 	fn set_min_commission() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 3_415_000 picoseconds.
+		Weight::from_parts(3_679_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: Staking TreasuryInflationTreasury (r:0 w:1)
+	/// Proof: Staking TreasuryInflationTreasury (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	fn set_treasury_fraction() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

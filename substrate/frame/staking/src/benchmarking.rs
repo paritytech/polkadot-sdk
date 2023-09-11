@@ -939,6 +939,13 @@ benchmarks! {
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
 	}
 
+	set_treasury_fraction {
+		let treasury_fraction = Perbill::max_value();
+	}: _(RawOrigin::Root, treasury_fraction)
+	verify {
+		assert_eq!(TreasuryInflationFraction::<T>::get(), Perbill::from_percent(100));
+	}
+
 	impl_benchmark_test_suite!(
 		Staking,
 		crate::mock::ExtBuilder::default().has_stakers(true),

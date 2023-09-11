@@ -197,6 +197,9 @@ pub mod pallet {
 		/// See [Era payout](./index.html#era-payout).
 		type EraPayout: EraPayout<BalanceOf<Self>>;
 
+		/// The treasury pot account ID.
+		type TreasuryPalletId: Get<frame_support::PalletId>;
+
 		/// Something that can estimate the next session change, accurately or as a best effort
 		/// guess.
 		type NextNewSession: EstimateNextNewSession<BlockNumberFor<Self>>;
@@ -580,6 +583,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
+	/// The percentage of the reward inflation that is minted directly into the treasury.
+	#[pallet::storage]
+	pub type TreasuryInflationFraction<T: Config> = StorageValue<_, Percent, OptionQuery>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -595,6 +602,7 @@ pub mod pallet {
 		pub min_validator_bond: BalanceOf<T>,
 		pub max_validator_count: Option<u32>,
 		pub max_nominator_count: Option<u32>,
+		pub treasury_inflation_fraction: Percent,
 	}
 
 	#[pallet::genesis_build]
@@ -608,6 +616,7 @@ pub mod pallet {
 			SlashRewardFraction::<T>::put(self.slash_reward_fraction);
 			MinNominatorBond::<T>::put(self.min_nominator_bond);
 			MinValidatorBond::<T>::put(self.min_validator_bond);
+			TreasuryInflationFraction::<T>::put(self.treasury_inflation_fraction);
 			if let Some(x) = self.max_validator_count {
 				MaxValidatorsCount::<T>::put(x);
 			}
@@ -1774,6 +1783,15 @@ pub mod pallet {
 		pub fn set_min_commission(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			MinCommission::<T>::put(new);
+			Ok(())
+		}
+
+		/// Sets the minimum amount of commission that each validators must maintain.
+		#[pallet::call_index(26)]
+		#[pallet::weight(T::WeightInfo::set_treasury_fraction())]
+		pub fn set_treasury_fraction(origin: OriginFor<T>, new: Percent) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			TreasuryInflationFraction::<T>::put(new);
 			Ok(())
 		}
 	}

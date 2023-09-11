@@ -793,4 +793,14 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: Staking TreasuryInflationTreasury (r:0 w:1)
+	/// Proof: Staking TreasuryInflationTreasury (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	fn set_treasury_fraction() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 3_415_000 picoseconds.
+		Weight::from_parts(3_175_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }

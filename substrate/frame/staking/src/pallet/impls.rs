@@ -35,7 +35,9 @@ use frame_support::{
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
 use sp_runtime::{
-	traits::{Bounded, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
+	traits::{
+		Bounded, CheckedSub, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero,
+	},
 	Perbill,
 };
 use sp_staking::{
@@ -53,6 +55,8 @@ use crate::{
 };
 
 use super::{pallet::*, STAKING_ID};
+
+use sp_runtime::traits::AccountIdConversion;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
@@ -72,6 +76,11 @@ impl<T: Config> Pallet<T> {
 	pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
 		// Weight note: consider making the stake accessible through stash.
 		Self::bonded(stash).and_then(Self::ledger).map(|l| l.active).unwrap_or_default()
+	}
+
+	/// Derives the treasury account from the pallet's ID.
+	pub(crate) fn treasury_account_id() -> T::AccountId {
+		T::TreasuryPalletId::get().into_account_truncating()
 	}
 
 	/// Internal impl of [`Self::slashable_balance_of`] that returns [`VoteWeight`].
@@ -450,14 +459,29 @@ impl<T: Config> Pallet<T> {
 			let era_duration = (now_as_millis_u64 - active_era_start).saturated_into::<u64>();
 			let staked = Self::eras_total_stake(&active_era.index);
 			let issuance = T::Currency::total_issuance();
-			let (validator_payout, remainder) =
+			let (total_payout, remainder) =
 				T::EraPayout::era_payout(staked, issuance, era_duration);
+
+			let treasury_payout =
+				<TreasuryInflationFraction<T>>::get().unwrap_or_default() * total_payout;
+
+			let validator_payout = total_payout
+				.checked_sub(&treasury_payout)
+				.unwrap_or_else(|| treasury_payout.saturating_sub(total_payout));
 
 			Self::deposit_event(Event::<T>::EraPaid {
 				era_index: active_era.index,
 				validator_payout,
 				remainder,
 			});
+
+			// Pay treasury now, if relevant.
+			if !treasury_payout.is_zero() {
+				<T::Currency as Currency<T::AccountId>>::deposit_creating(
+					&Self::treasury_account_id(),
+					treasury_payout,
+				);
+			}
 
 			// Set ending era reward.
 			<ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
