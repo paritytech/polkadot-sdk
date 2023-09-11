@@ -115,6 +115,7 @@ use frame_support::{
 	ensure,
 	error::BadOrigin,
 	traits::{
+		OriginTrait,
 		fungible::{Inspect, Mutate, MutateHold},
 		ConstU32, Contains, Get, Randomness, Time,
 	},
@@ -231,6 +232,10 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+
+		type RuntimeOrigin: From<Origin<Self::AccountId>>
+			+ OriginTrait<Call = <Self as Config>::RuntimeCall, AccountId = Self::AccountId>;
+
 		/// The time implementation used to supply timestamps to contracts through `seal_now`.
 		type Time: Time;
 
@@ -253,7 +258,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
-		type RuntimeCall: Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
+		type RuntimeCall: Dispatchable<RuntimeOrigin = <Self as Config>::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ codec::Decode
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
@@ -277,7 +282,7 @@ pub mod pallet {
 		/// Therefore please make sure to be restrictive about which dispatchables are allowed
 		/// in order to not introduce a new DoS vector like memory allocation patterns that can
 		/// be exploited to drive the runtime into a panic.
-		type CallFilter: Contains<<Self as frame_system::Config>::RuntimeCall>;
+		type CallFilter: Contains<<Self as Config>::RuntimeCall>;
 
 		/// Used to answer contracts' queries regarding the current weight price. This is **not**
 		/// used to calculate the actual fee and is only for informational purposes.
