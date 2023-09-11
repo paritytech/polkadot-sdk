@@ -1767,7 +1767,7 @@ dependencies = [
  "sp-state-machine",
  "sp-std",
  "sp-trie",
- "trie-db 0.27.1 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
+ "trie-db",
 ]
 
 [[package]]
@@ -3564,7 +3564,7 @@ dependencies = [
  "sp-trie",
  "sp-version",
  "staging-xcm",
- "trie-db 0.27.1 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
+ "trie-db",
 ]
 
 [[package]]
@@ -5930,6 +5930,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash256-std-hasher"
+version = "0.15.2"
+source = "git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value#1fa98e53a783b620d15936250bf2037d87dc05d5"
+dependencies = [
+ "crunchy",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6733,7 +6741,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19ea4653859ca2266a86419d3f592d3f22e7a854b482f99180d2498507902048"
 dependencies = [
  "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "hash256-std-hasher",
+ "hash256-std-hasher 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tiny-keccak",
+]
+
+[[package]]
+name = "keccak-hasher"
+version = "0.16.0"
+source = "git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value#1fa98e53a783b620d15936250bf2037d87dc05d5"
+dependencies = [
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
+ "hash256-std-hasher 0.15.2 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
  "tiny-keccak",
 ]
 
@@ -7787,15 +7805,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a634b1c61a95585bd15607c6ab0c4e5b226e695ff2800ba0cdccddf208c406c"
 dependencies = [
  "autocfg",
-]
-
-[[package]]
-name = "memory-db"
-version = "0.32.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "808b50db46293432a45e63bc15ea51e0ab4c0a1647b8eb114e31a3e698dd6fbe"
-dependencies = [
- "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -17047,7 +17056,7 @@ dependencies = [
  "ed25519-zebra 3.1.0",
  "futures",
  "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
- "hash256-std-hasher",
+ "hash256-std-hasher 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "impl-serde",
  "lazy_static",
  "libsecp256k1",
@@ -17321,7 +17330,7 @@ name = "sp-runtime"
 version = "24.0.0"
 dependencies = [
  "either",
- "hash256-std-hasher",
+ "hash256-std-hasher 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
@@ -17463,7 +17472,7 @@ dependencies = [
  "sp-trie",
  "thiserror",
  "tracing",
- "trie-db 0.27.1 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
+ "trie-db",
 ]
 
 [[package]]
@@ -17573,7 +17582,7 @@ dependencies = [
  "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
  "hashbrown 0.13.2",
  "lazy_static",
- "memory-db 0.32.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
+ "memory-db",
  "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.1",
@@ -17585,9 +17594,9 @@ dependencies = [
  "thiserror",
  "tracing",
  "trie-bench",
- "trie-db 0.27.1 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
- "trie-root 0.18.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
- "trie-standardmap",
+ "trie-db",
+ "trie-root",
+ "trie-standardmap 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -18176,7 +18185,7 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-trie",
- "trie-db 0.27.1 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
+ "trie-db",
 ]
 
 [[package]]
@@ -18251,7 +18260,7 @@ dependencies = [
  "sp-version",
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
- "trie-db 0.27.1 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
+ "trie-db",
 ]
 
 [[package]]
@@ -19159,30 +19168,16 @@ dependencies = [
 [[package]]
 name = "trie-bench"
 version = "0.37.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f54b4f9d51d368e62cf7e0730c7c1e18fc658cc84333656bab5b328f44aa964"
+source = "git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value#1fa98e53a783b620d15936250bf2037d87dc05d5"
 dependencies = [
  "criterion 0.4.0",
- "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "keccak-hasher",
- "memory-db 0.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
+ "keccak-hasher 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
+ "memory-db",
  "parity-scale-codec",
- "trie-db 0.27.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "trie-root 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "trie-standardmap",
-]
-
-[[package]]
-name = "trie-db"
-version = "0.27.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "767abe6ffed88a1889671a102c2861ae742726f52e0a5a425b92c9fbfa7e9c85"
-dependencies = [
- "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "hashbrown 0.13.2",
- "log",
- "rustc-hex",
- "smallvec",
+ "trie-db",
+ "trie-root",
+ "trie-standardmap 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
 ]
 
 [[package]]
@@ -19195,15 +19190,6 @@ dependencies = [
  "log",
  "rustc-hex",
  "smallvec",
-]
-
-[[package]]
-name = "trie-root"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4ed310ef5ab98f5fa467900ed906cb9232dd5376597e00fd4cba2a449d06c0b"
-dependencies = [
- "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -19221,7 +19207,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "684aafb332fae6f83d7fe10b3fbfdbe39a1b3234c4e2a618f030815838519516"
 dependencies = [
  "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "keccak-hasher",
+ "keccak-hasher 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "trie-standardmap"
+version = "0.16.0"
+source = "git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value#1fa98e53a783b620d15936250bf2037d87dc05d5"
+dependencies = [
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
+ "keccak-hasher 0.16.0 (git+https://github.com/paritytech/trie.git?branch=lexnv/expose_merkle_value)",
 ]
 
 [[package]]
