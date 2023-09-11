@@ -18,7 +18,7 @@
 
 use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, FragmentTreeMembership},
-	TimeoutExt,
+	ActivatedLeaf, TimeoutExt,
 };
 use polkadot_primitives::{vstaging as vstaging_primitives, BlockNumber, Header, OccupiedCore};
 
@@ -356,12 +356,7 @@ fn seconding_sanity_check_allowed() {
 		// `a` is grandparent of `b`.
 		let leaf_a_hash = Hash::from_low_u64_be(130);
 		let leaf_a_parent = get_parent_hash(leaf_a_hash);
-		let activated = ActivatedLeaf {
-			hash: leaf_a_hash,
-			number: LEAF_A_BLOCK_NUMBER,
-			status: LeafStatus::Fresh,
-			span: Arc::new(jaeger::Span::Disabled),
-		};
+		let activated = new_leaf(leaf_a_hash, LEAF_A_BLOCK_NUMBER);
 		let min_relay_parents = vec![(para_id, LEAF_A_BLOCK_NUMBER - LEAF_A_ANCESTRY_LEN)];
 		let test_leaf_a = TestLeaf { activated, min_relay_parents };
 
@@ -369,12 +364,7 @@ fn seconding_sanity_check_allowed() {
 		const LEAF_B_ANCESTRY_LEN: BlockNumber = 4;
 
 		let leaf_b_hash = Hash::from_low_u64_be(128);
-		let activated = ActivatedLeaf {
-			hash: leaf_b_hash,
-			number: LEAF_B_BLOCK_NUMBER,
-			status: LeafStatus::Fresh,
-			span: Arc::new(jaeger::Span::Disabled),
-		};
+		let activated = new_leaf(leaf_b_hash, LEAF_B_BLOCK_NUMBER);
 		let min_relay_parents = vec![(para_id, LEAF_B_BLOCK_NUMBER - LEAF_B_ANCESTRY_LEN)];
 		let test_leaf_b = TestLeaf { activated, min_relay_parents };
 
@@ -513,24 +503,14 @@ fn seconding_sanity_check_disallowed() {
 		// `a` is grandparent of `b`.
 		let leaf_a_hash = Hash::from_low_u64_be(130);
 		let leaf_a_parent = get_parent_hash(leaf_a_hash);
-		let activated = ActivatedLeaf {
-			hash: leaf_a_hash,
-			number: LEAF_A_BLOCK_NUMBER,
-			status: LeafStatus::Fresh,
-			span: Arc::new(jaeger::Span::Disabled),
-		};
+		let activated = new_leaf(leaf_a_hash, LEAF_A_BLOCK_NUMBER);
 		let min_relay_parents = vec![(para_id, LEAF_A_BLOCK_NUMBER - LEAF_A_ANCESTRY_LEN)];
 		let test_leaf_a = TestLeaf { activated, min_relay_parents };
 
 		const LEAF_B_BLOCK_NUMBER: BlockNumber = LEAF_A_BLOCK_NUMBER + 2;
 		const LEAF_B_ANCESTRY_LEN: BlockNumber = 4;
 
-		let activated = ActivatedLeaf {
-			hash: leaf_b_hash,
-			number: LEAF_B_BLOCK_NUMBER,
-			status: LeafStatus::Fresh,
-			span: Arc::new(jaeger::Span::Disabled),
-		};
+		let activated = new_leaf(leaf_b_hash, LEAF_B_BLOCK_NUMBER);
 		let min_relay_parents = vec![(para_id, LEAF_B_BLOCK_NUMBER - LEAF_B_ANCESTRY_LEN)];
 		let test_leaf_b = TestLeaf { activated, min_relay_parents };
 
@@ -732,12 +712,7 @@ fn prospective_parachains_reject_candidate() {
 
 		let leaf_a_hash = Hash::from_low_u64_be(130);
 		let leaf_a_parent = get_parent_hash(leaf_a_hash);
-		let activated = ActivatedLeaf {
-			hash: leaf_a_hash,
-			number: LEAF_A_BLOCK_NUMBER,
-			status: LeafStatus::Fresh,
-			span: Arc::new(jaeger::Span::Disabled),
-		};
+		let activated = new_leaf(leaf_a_hash, LEAF_A_BLOCK_NUMBER);
 		let min_relay_parents = vec![(para_id, LEAF_A_BLOCK_NUMBER - LEAF_A_ANCESTRY_LEN)];
 		let test_leaf_a = TestLeaf { activated, min_relay_parents };
 
@@ -915,12 +890,7 @@ fn second_multiple_candidates_per_relay_parent() {
 		let leaf_hash = Hash::from_low_u64_be(130);
 		let leaf_parent = get_parent_hash(leaf_hash);
 		let leaf_grandparent = get_parent_hash(leaf_parent);
-		let activated = ActivatedLeaf {
-			hash: leaf_hash,
-			number: LEAF_BLOCK_NUMBER,
-			status: LeafStatus::Fresh,
-			span: Arc::new(jaeger::Span::Disabled),
-		};
+		let activated = new_leaf(leaf_hash, LEAF_BLOCK_NUMBER);
 		let min_relay_parents = vec![(para_id, LEAF_BLOCK_NUMBER - LEAF_ANCESTRY_LEN)];
 		let test_leaf_a = TestLeaf { activated, min_relay_parents };
 
@@ -1056,12 +1026,7 @@ fn backing_works() {
 
 		let leaf_hash = Hash::from_low_u64_be(130);
 		let leaf_parent = get_parent_hash(leaf_hash);
-		let activated = ActivatedLeaf {
-			hash: leaf_hash,
-			number: LEAF_BLOCK_NUMBER,
-			status: LeafStatus::Fresh,
-			span: Arc::new(jaeger::Span::Disabled),
-		};
+		let activated = new_leaf(leaf_hash, LEAF_BLOCK_NUMBER);
 		let min_relay_parents = vec![(para_id, LEAF_BLOCK_NUMBER - LEAF_ANCESTRY_LEN)];
 		let test_leaf_a = TestLeaf { activated, min_relay_parents };
 
@@ -1222,12 +1187,7 @@ fn concurrent_dependent_candidates() {
 		let leaf_hash = Hash::from_low_u64_be(130);
 		let leaf_parent = get_parent_hash(leaf_hash);
 		let leaf_grandparent = get_parent_hash(leaf_parent);
-		let activated = ActivatedLeaf {
-			hash: leaf_hash,
-			number: LEAF_BLOCK_NUMBER,
-			status: LeafStatus::Fresh,
-			span: Arc::new(jaeger::Span::Disabled),
-		};
+		let activated = new_leaf(leaf_hash, LEAF_BLOCK_NUMBER);
 		let min_relay_parents = vec![(para_id, LEAF_BLOCK_NUMBER - LEAF_ANCESTRY_LEN)];
 		let test_leaf_a = TestLeaf { activated, min_relay_parents };
 
@@ -1468,12 +1428,7 @@ fn seconding_sanity_check_occupy_same_depth() {
 		let leaf_hash = Hash::from_low_u64_be(130);
 		let leaf_parent = get_parent_hash(leaf_hash);
 
-		let activated = ActivatedLeaf {
-			hash: leaf_hash,
-			number: LEAF_BLOCK_NUMBER,
-			status: LeafStatus::Fresh,
-			span: Arc::new(jaeger::Span::Disabled),
-		};
+		let activated = new_leaf(leaf_hash, LEAF_BLOCK_NUMBER);
 
 		let min_block_number = LEAF_BLOCK_NUMBER - LEAF_ANCESTRY_LEN;
 		let min_relay_parents = vec![(para_id_a, min_block_number), (para_id_b, min_block_number)];
@@ -1627,12 +1582,7 @@ fn occupied_core_assignment() {
 
 		let leaf_a_hash = Hash::from_low_u64_be(130);
 		let leaf_a_parent = get_parent_hash(leaf_a_hash);
-		let activated = ActivatedLeaf {
-			hash: leaf_a_hash,
-			number: LEAF_A_BLOCK_NUMBER,
-			status: LeafStatus::Fresh,
-			span: Arc::new(jaeger::Span::Disabled),
-		};
+		let activated = new_leaf(leaf_a_hash, LEAF_A_BLOCK_NUMBER);
 		let min_relay_parents = vec![(para_id, LEAF_A_BLOCK_NUMBER - LEAF_A_ANCESTRY_LEN)];
 		let test_leaf_a = TestLeaf { activated, min_relay_parents };
 

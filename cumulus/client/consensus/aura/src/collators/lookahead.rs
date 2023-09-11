@@ -34,7 +34,8 @@
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
-	self as consensus_common, ParachainBlockImportMarker, ParentSearchParams,
+	self as consensus_common, load_abridged_host_configuration, ParachainBlockImportMarker,
+	ParentSearchParams,
 };
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
@@ -416,16 +417,30 @@ where
 	Some(SlotClaim::unchecked::<P>(author_pub, slot, timestamp))
 }
 
+/// Reads allowed ancestry length parameter from the relay chain storage at the given relay parent.
+///
+/// Falls back to 0 in case of an error.
 async fn max_ancestry_lookback(
-	_relay_parent: PHash,
-	_relay_client: &impl RelayChainInterface,
+	relay_parent: PHash,
+	relay_client: &impl RelayChainInterface,
 ) -> usize {
-	// TODO [https://github.com/paritytech/cumulus/issues/2706]
-	// We need to read the relay-chain state to know what the maximum
-	// age truly is, but that depends on those pallets existing.
-	//
-	// For now, just provide the conservative value of '2'.
-	// Overestimating can cause problems, as we'd be building on forks of the
-	// chain that can never get included. Underestimating is less of an issue.
-	2
+	match load_abridged_host_configuration(relay_parent, relay_client).await {
+		Ok(Some(config)) => config.async_backing_params.allowed_ancestry_len as usize,
+		Ok(None) => {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				"Active config is missing in relay chain storage",
+			);
+			0
+		},
+		Err(err) => {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				?err,
+				?relay_parent,
+				"Failed to read active config from relay chain client",
+			);
+			0
+		},
+	}
 }
