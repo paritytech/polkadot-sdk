@@ -2,7 +2,7 @@
 
 # Address: 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
 # AccountId: [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125]
-ASSET_HUB_KUSAMA_ACCOUNT_SEED_FOR_LOCAL="//Alice"
+ASSET_HUB_ROCOCO_ACCOUNT_SEED_FOR_LOCAL="//Alice"
 # Address: 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
 # AccountId: [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125]
 ASSET_HUB_WOCOCO_ACCOUNT_SEED_FOR_LOCAL="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
@@ -13,7 +13,7 @@ ASSET_HUB_WOCOCO_ACCOUNT_SEED_FOR_LOCAL="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPc
 # println!("{}",
 #     frame_support::sp_runtime::AccountId32::new(
 #         GlobalConsensusParachainConvertsFor::<UniversalLocation, [u8; 32]>::convert_ref(
-#             MultiLocation { parents: 2, interior: X2(GlobalConsensus(Kusama), Parachain(1000)) }).unwrap()
+#             MultiLocation { parents: 2, interior: X2(GlobalConsensus(Rococo), Parachain(1000)) }).unwrap()
 #		).to_ss58check_with_version(42_u16.into())
 # );
 ASSET_HUB_ROCOCO_1000_SOVEREIGN_ACCOUNT="5CfNu7eH3SJvqqPt3aJh38T8dcFvhGzEohp9tsd41ANhXDnQ"
@@ -403,8 +403,8 @@ function remove_assets_transfer_send() {
     send_governance_transact "${relay_url}" "${relay_chain_seed}" "${runtime_para_id}" "${hex_encoded_data}" 200000000 12000
 }
 
-# TODO: we need to fill sovereign account for bridge-hub, because, small ammouts does not match ExistentialDeposit, so no reserve pass
-# SA for BH: MultiLocation { parents: 1, interior: X1(Parachain(1013)) } - 5Eg2fntRRwLinojmk3sh5xscp7F3S6Zzm5oDVtoLTALKiypR on Kusama Asset Hub
+# TODO: we need to fill sovereign account for bridge-hub, because, small amounts does not match ExistentialDeposit, so no reserve pass
+# SA for BH: MultiLocation { parents: 1, interior: X1(Parachain(1013)) } - 5Eg2fntRRwLinojmk3sh5xscp7F3S6Zzm5oDVtoLTALKiypR on Rococo Asset Hub
 
 function transfer_asset_via_bridge() {
     local url=$1
@@ -605,12 +605,12 @@ case "$1" in
     run_relay
     ;;
   allow-transfers-local)
-      # this allows send transfers on asset hub kusama local (by governance-like)
-      ./$0 "allow-transfer-on-asset-hub-kusama-local"
+      # this allows send transfers on asset hub rococo local (by governance-like)
+      ./$0 "allow-transfer-on-asset-hub-rococo-local"
       # this allows receive transfers on asset hub westend local (by governance-like)
       ./$0 "allow-transfer-on-asset-hub-westend-local"
       ;;
-  allow-transfer-on-asset-hub-kusama-local)
+  allow-transfer-on-asset-hub-rococo-local)
       ensure_polkadot_js_api
       allow_assets_transfer_send \
           "ws://127.0.0.1:9942" \
@@ -635,16 +635,16 @@ case "$1" in
           "//Alice" \
           "$ASSET_HUB_ROCOCO_1000_SOVEREIGN_ACCOUNT" \
           $((1000000000 + 50000000000 * 20)) # ExistentialDeposit + maxTargetLocationFee * 20
-      # create foreign assets for native Kusama token (yes, Kusama, because we are using Kusama Asset Hub runtime on rococo)
+      # create foreign assets for native Rococo token
       force_create_foreign_asset \
           "ws://127.0.0.1:9945" \
           "//Alice" \
           1000 \
           "ws://127.0.0.1:9010" \
-          "Kusama" \
+          "Rococo" \
           "$ASSET_HUB_ROCOCO_1000_SOVEREIGN_ACCOUNT"
       ;;
-  remove-assets-transfer-from-asset-hub-kusama-local)
+  remove-assets-transfer-from-asset-hub-rococo-local)
       ensure_polkadot_js_api
       remove_assets_transfer_send \
           "ws://127.0.0.1:9942" \
@@ -653,19 +653,19 @@ case "$1" in
           "ws://127.0.0.1:9910" \
           "Wococo"
       ;;
-  transfer-asset-from-asset-hub-kusama-local)
+  transfer-asset-from-asset-hub-rococo-local)
       ensure_polkadot_js_api
       transfer_asset_via_bridge \
           "ws://127.0.0.1:9910" \
-          "$ASSET_HUB_KUSAMA_ACCOUNT_SEED_FOR_LOCAL" \
+          "$ASSET_HUB_ROCOCO_ACCOUNT_SEED_FOR_LOCAL" \
           "$ASSET_HUB_WOCOCO_ACCOUNT_SEED_FOR_LOCAL" \
           "Wococo"
       ;;
-  ping-via-bridge-from-asset-hub-kusama-local)
+  ping-via-bridge-from-asset-hub-rococo-local)
       ensure_polkadot_js_api
       ping_via_bridge \
           "ws://127.0.0.1:9910" \
-          "$ASSET_HUB_KUSAMA_ACCOUNT_SEED_FOR_LOCAL" \
+          "$ASSET_HUB_ROCOCO_ACCOUNT_SEED_FOR_LOCAL" \
           "$ASSET_HUB_WOCOCO_ACCOUNT_SEED_FOR_LOCAL" \
           "Wococo"
       ;;
@@ -704,11 +704,11 @@ case "$1" in
     Local (zombienet) run:
           - run-relay
           - allow-transfers-local
-              - allow-transfer-on-asset-hub-kusama-local
+              - allow-transfer-on-asset-hub-rococo-local
               - allow-transfer-on-asset-hub-westend-local
-              - remove-assets-transfer-from-asset-hub-kusama-local
-          - transfer-asset-from-asset-hub-kusama-local
-          - ping-via-bridge-from-asset-hub-kusama-local
+              - remove-assets-transfer-from-asset-hub-rococo-local
+          - transfer-asset-from-asset-hub-rococo-local
+          - ping-via-bridge-from-asset-hub-rococo-local
     Live Rococo/Wococo run:
           - transfer-asset-from-asset-hub-rococo
           - ping-via-bridge-from-asset-hub-rococo";
