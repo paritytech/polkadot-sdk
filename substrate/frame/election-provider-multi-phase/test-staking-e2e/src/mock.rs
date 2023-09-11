@@ -242,6 +242,7 @@ parameter_types! {
 	pub const MaxNominatorRewardedPerValidator: u32 = 256;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(40);
 	pub HistoryDepth: u32 = 84;
+	pub const BurnAccountId: frame_support::PalletId = frame_support::PalletId(*b"burnburn");
 }
 
 impl pallet_bags_list::Config for Runtime {
@@ -270,6 +271,7 @@ impl pallet_staking::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>; // root can cancel slashes
 	type SessionInterface = Self;
 	type EraPayout = ();
+	type TreasuryPalletId = BurnAccountId; // burn inflation if treasury fraction > 0.
 	type NextNewSession = Session;
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;

@@ -160,6 +160,7 @@ parameter_types! {
 	pub const BondingDuration: EraIndex = 3;
 	pub static LedgerSlashPerEra: (BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) = (Zero::zero(), BTreeMap::new());
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(75);
+	pub const BurnAccountId: frame_support::PalletId = frame_support::PalletId(*b"burnburn");
 }
 
 impl pallet_staking::Config for Test {
@@ -177,6 +178,7 @@ impl pallet_staking::Config for Test {
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type TreasuryPalletId = BurnAccountId; // burn inflation if treasury fraction > 0.
 	type NextNewSession = Session;
 	type MaxNominatorRewardedPerValidator = ConstU32<64>;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;

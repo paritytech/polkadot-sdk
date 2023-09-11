@@ -144,6 +144,7 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
+	pub const BurnAccountId: frame_support::PalletId = frame_support::PalletId(*b"burnburn");
 }
 
 pub struct OnChainSeqPhragmen;
@@ -171,6 +172,7 @@ impl pallet_staking::Config for Test {
 	type BondingDuration = ();
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type TreasuryPalletId = BurnAccountId; // burn inflation if treasury fraction > 0.
 	type NextNewSession = Session;
 	type MaxNominatorRewardedPerValidator = ConstU32<64>;
 	type OffendingValidatorsThreshold = ();

@@ -114,6 +114,7 @@ parameter_types! {
 	pub static CurrentEra: u32 = 0;
 	pub static Ongoing: bool = false;
 	pub static MaxWinners: u32 = 100;
+	pub const BurnAccountId: frame_support::PalletId = frame_support::PalletId(*b"burnburn");
 }
 
 pub struct MockElection;
@@ -149,6 +150,7 @@ impl pallet_staking::Config for Runtime {
 	type BondingDuration = BondingDuration;
 	type SessionInterface = ();
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type TreasuryPalletId = BurnAccountId; // burn inflation if treasury fraction > 0.
 	type NextNewSession = ();
 	type HistoryDepth = ConstU32<84>;
 	type MaxNominatorRewardedPerValidator = ConstU32<64>;
