@@ -811,13 +811,24 @@ pub enum CollationGenerationMessage {
 	SubmitCollation(SubmitCollationParams),
 }
 
+/// A checked assignment certificate and it's corresponding tranche number.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CheckedIndirectAssignmentCert(IndirectAssignmentCert, u32);
+
+impl CheckedIndirectAssignmentCert {
+	/// Construction from an unchecked certificate and it's corresponding tranche number.
+	pub fn from_unchecked(assignment: IndirectAssignmentCert, tranche: u32) -> Self {
+		Self(assignment, tranche)
+	}
+}
+
 /// The result type of [`ApprovalVotingMessage::CheckAndImportAssignment`] request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AssignmentCheckResult {
 	/// The vote was accepted and should be propagated onwards.
-	Accepted,
+	Accepted(CheckedIndirectAssignmentCert),
 	/// The vote was valid but duplicate and should not be propagated onwards.
-	AcceptedDuplicate,
+	AcceptedDuplicate(CheckedIndirectAssignmentCert),
 	/// The vote was valid but too far in the future to accept right now.
 	TooFarInFuture,
 	/// The vote was bad and should be ignored, reporting the peer who propagated it.
@@ -909,6 +920,20 @@ pub enum ApprovalVotingMessage {
 		CandidateIndex,
 		oneshot::Sender<AssignmentCheckResult>,
 	),
+	/// Check if the assignments are valid and can be accepted by our view of the protocol.
+	/// Should not be sent unless the block hash is known.
+	CheckAssignments(
+		Vec<(IndirectAssignmentCert, CandidateIndex)>,
+		oneshot::Sender<Vec<AssignmentCheckResult>>,
+	),
+
+	/// Imports previously checked assignments.
+	ImportCheckedAssignments(
+		Vec<CheckedIndirectAssignmentCert>,
+		CandidateIndex,
+		oneshot::Sender<Vec<AssignmentCheckResult>>,
+	),
+
 	/// Check if the approval vote is valid and can be accepted by our view of the
 	/// protocol.
 	///
