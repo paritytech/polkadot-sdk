@@ -81,14 +81,6 @@ macro_rules! test_wasm_execution {
 					instantiation_strategy: sc_executor_wasmtime::InstantiationStrategy::Pooling
 				});
 			}
-
-			#[test]
-			fn [<$method_name _compiled_legacy_instance_reuse>]() {
-				let _ = sp_tracing::try_init_simple();
-				$method_name(WasmExecutionMethod::Compiled {
-					instantiation_strategy: sc_executor_wasmtime::InstantiationStrategy::LegacyInstanceReuse
-				});
-			}
 		}
 	};
 }

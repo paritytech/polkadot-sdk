@@ -30,7 +30,7 @@ type HostFunctions = sp_io::SubstrateHostFunctions;
 
 #[macro_export]
 macro_rules! test_wasm_execution {
-	(@no_legacy_instance_reuse $method_name:ident) => {
+	($method_name:ident) => {
 		paste::item! {
 			#[test]
 			fn [<$method_name _recreate_instance_cow>]() {
@@ -57,19 +57,6 @@ macro_rules! test_wasm_execution {
 			fn [<$method_name _pooling_vanilla>]() {
 				$method_name(
 					InstantiationStrategy::Pooling
-				);
-			}
-		}
-	};
-
-	($method_name:ident) => {
-		test_wasm_execution!(@no_legacy_instance_reuse $method_name);
-
-		paste::item! {
-			#[test]
-			fn [<$method_name _legacy_instance_reuse>]() {
-				$method_name(
-					InstantiationStrategy::LegacyInstanceReuse
 				);
 			}
 		}
@@ -330,14 +317,14 @@ fn test_max_memory_pages_exported_memory_without_precompilation(
 	test_max_memory_pages(instantiation_strategy, false, false);
 }
 
-test_wasm_execution!(@no_legacy_instance_reuse test_max_memory_pages_imported_memory_with_precompilation);
+test_wasm_execution!(test_max_memory_pages_imported_memory_with_precompilation);
 fn test_max_memory_pages_imported_memory_with_precompilation(
 	instantiation_strategy: InstantiationStrategy,
 ) {
 	test_max_memory_pages(instantiation_strategy, true, true);
 }
 
-test_wasm_execution!(@no_legacy_instance_reuse test_max_memory_pages_exported_memory_with_precompilation);
+test_wasm_execution!(test_max_memory_pages_exported_memory_with_precompilation);
 fn test_max_memory_pages_exported_memory_with_precompilation(
 	instantiation_strategy: InstantiationStrategy,
 ) {
