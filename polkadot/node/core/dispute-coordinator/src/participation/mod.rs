@@ -337,7 +337,7 @@ async fn participate(
 				target: LOG_TARGET,
 				candidate_hash = ?req.candidate_hash(),
 				session = req.session(),
-				"Can't fetch availability data participation"
+				"Can't fetch availability data in participation"
 			);
 			send_result(&mut result_sender, req, ParticipationOutcome::Unavailable).await;
 			return
