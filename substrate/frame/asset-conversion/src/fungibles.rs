@@ -50,7 +50,7 @@ impl<T: Config> Credit<T> {
 	pub fn peek(&self) -> T::AssetBalance {
 		match self {
 			Credit::Native(c) => {
-				let c : T::HigherPrecisionBalance = c.peek().into();
+				let c: T::HigherPrecisionBalance = c.peek().into();
 				c.try_into().ok().unwrap()
 			},
 			Credit::Asset(c) => c.peek(),
@@ -62,7 +62,7 @@ impl<T: Config> Credit<T> {
 		match self {
 			Credit::Native(c) => {
 				let (left, right) = c.split({
-					let a : T::HigherPrecisionBalance = amount.into();
+					let a: T::HigherPrecisionBalance = amount.into();
 					a.try_into().ok().unwrap()
 				});
 				(left.into(), right.into())
