@@ -19,7 +19,7 @@
 # CI
 /.github/ @paritytech/ci @paritytech/release-engineering
 /.gitlab-ci.yml @paritytech/ci
-/scripts/ci/ @paritytech/ci @paritytech/release-engineering
+/.gitlab/ @paritytech/ci
 
 # XCM
 /polkadot/xcm/ @paritytech/xcm
