@@ -1295,6 +1295,18 @@
 <a href="#1295" id="1295">1295</a>
 <a href="#1296" id="1296">1296</a>
 <a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2540,56 +2552,68 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>bp_runtime::TransactionEra;
-	<span class="kw">use </span>bridge_hub_test_utils::test_header;
 	<span class="kw">use </span>codec::Encode;
-
-	<span class="kw">pub type </span>TestBlockHeader =
-		sp_runtime::generic::Header&lt;bp_polkadot_core::BlockNumber, bp_polkadot_core::Hasher&gt;;
+	<span class="kw">use </span>sp_runtime::{
+		generic::Era,
+		traits::{SignedExtension, Zero},
+	};
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>ensure_signed_extension_definition_is_compatible_with_relay() {
-		<span class="kw">let </span>payload: SignedExtra = (
-			frame_system::CheckNonZeroSender::new(),
-			frame_system::CheckSpecVersion::new(),
-			frame_system::CheckTxVersion::new(),
-			frame_system::CheckGenesis::new(),
-			frame_system::CheckEra::from(sp_runtime::generic::Era::Immortal),
-			frame_system::CheckNonce::from(<span class="number">10</span>),
-			frame_system::CheckWeight::new(),
-			pallet_transaction_payment::ChargeTransactionPayment::from(<span class="number">10</span>),
-			BridgeRejectObsoleteHeadersAndMessages {},
-			(
-				BridgeRefundBridgeHubRococoMessages::default(),
-				BridgeRefundBridgeHubWococoMessages::default(),
-			),
-		);
+		<span class="kw">use </span>bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 
-		{
-			<span class="kw">use </span>bp_bridge_hub_rococo::BridgeHubSignedExtension;
-			<span class="kw">let </span>bhr_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
-				<span class="number">10</span>,
-				<span class="number">10</span>,
-				TransactionEra::Immortal,
-				test_header::&lt;TestBlockHeader&gt;(<span class="number">1</span>).hash(),
-				<span class="number">10</span>,
-				<span class="number">10</span>,
+		sp_io::TestExternalities::default().execute_with(|| {
+			frame_system::BlockHash::&lt;Runtime&gt;::insert(BlockNumber::zero(), Hash::default());
+			<span class="kw">let </span>payload: SignedExtra = (
+				frame_system::CheckNonZeroSender::new(),
+				frame_system::CheckSpecVersion::new(),
+				frame_system::CheckTxVersion::new(),
+				frame_system::CheckGenesis::new(),
+				frame_system::CheckEra::from(Era::Immortal),
+				frame_system::CheckNonce::from(<span class="number">10</span>),
+				frame_system::CheckWeight::new(),
+				pallet_transaction_payment::ChargeTransactionPayment::from(<span class="number">10</span>),
+				BridgeRejectObsoleteHeadersAndMessages,
+				(
+					BridgeRefundBridgeHubRococoMessages::default(),
+					BridgeRefundBridgeHubWococoMessages::default(),
+				),
 			);
-			<span class="macro">assert_eq!</span>(payload.encode(), bhr_indirect_payload.encode());
-		}
 
-		{
-			<span class="kw">use </span>bp_bridge_hub_wococo::BridgeHubSignedExtension;
-			<span class="kw">let </span>bhw_indirect_payload = bp_bridge_hub_wococo::SignedExtension::from_params(
-				<span class="number">10</span>,
-				<span class="number">10</span>,
-				TransactionEra::Immortal,
-				test_header::&lt;TestBlockHeader&gt;(<span class="number">1</span>).hash(),
-				<span class="number">10</span>,
-				<span class="number">10</span>,
-			);
-			<span class="macro">assert_eq!</span>(payload.encode(), bhw_indirect_payload.encode());
-		}
+			{
+				<span class="kw">let </span>bhr_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
+					VERSION.spec_version,
+					VERSION.transaction_version,
+					bp_runtime::TransactionEra::Immortal,
+					System::block_hash(BlockNumber::zero()),
+					<span class="number">10</span>,
+					<span class="number">10</span>,
+					(((), ()), ((), ())),
+				);
+				<span class="macro">assert_eq!</span>(payload.encode(), bhr_indirect_payload.encode());
+				<span class="macro">assert_eq!</span>(
+					payload.additional_signed().unwrap().encode(),
+					bhr_indirect_payload.additional_signed().unwrap().encode()
+				)
+			}
+
+			{
+				<span class="kw">let </span>bhw_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
+					VERSION.spec_version,
+					VERSION.transaction_version,
+					bp_runtime::TransactionEra::Immortal,
+					System::block_hash(BlockNumber::zero()),
+					<span class="number">10</span>,
+					<span class="number">10</span>,
+					(((), ()), ((), ())),
+				);
+				<span class="macro">assert_eq!</span>(payload.encode(), bhw_indirect_payload.encode());
+				<span class="macro">assert_eq!</span>(
+					payload.additional_signed().unwrap().encode(),
+					bhw_indirect_payload.additional_signed().unwrap().encode()
+				)
+			}
+		});
 	}
 }
 </code></pre></div></section></main></body></html>
