@@ -21,7 +21,7 @@ cfg-expr = "0.15.4"
 itertools = "0.10.3"
 proc-macro2 = "1.0.56"
 quote = "1.0.28"
-syn = { version = "2.0.31", features = ["full"] }
+syn = { version = "2.0.32", features = ["full"] }
 frame-support-procedural-tools = { path = "tools" }
 proc-macro-warning = { version = "0.4.2", default-features = false }
 macro_magic = { version = "0.4.2", features = ["proc_support"] }
