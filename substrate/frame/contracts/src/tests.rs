@@ -459,16 +459,6 @@ parameter_types! {
 	pub static UnstableInterface: bool = true;
 }
 
-// // TODO automate somehow??
-// impl From<ContractOrigin<AccountId32>> for RuntimeOrigin {
-// 	fn from(o: ContractOrigin<AccountId32>) -> Self {
-// 		match o {
-// 			ContractOrigin::Root => RuntimeOrigin::root(),
-// 			ContractOrigin::Signed(a) => RuntimeOrigin::signed(a),
-// 		}
-// 	}
-// }
-
 impl Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Time = Timestamp;
