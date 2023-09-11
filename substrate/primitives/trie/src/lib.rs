@@ -45,13 +45,16 @@ pub use storage_proof::{CompactProof, StorageProof};
 /// for trie compact proof.
 pub use trie_codec::{decode_compact, encode_compact, Error as CompactProofError};
 pub use trie_db::proof::VerifyError;
-use trie_db::proof::{generate_proof, verify_proof};
 /// Various re-exports from the `trie-db` crate.
 pub use trie_db::{
 	nibble_ops,
 	node::{NodePlan, ValuePlan},
 	CError, DBValue, Query, Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator,
 	TrieDBKeyIterator, TrieDBRawIterator, TrieLayout, TrieMut, TrieRecorder,
+};
+use trie_db::{
+	proof::{generate_proof, verify_proof},
+	MerkleValue,
 };
 /// The Substrate format implementation of `TrieStream`.
 pub use trie_stream::TrieStream;
@@ -295,14 +298,15 @@ pub fn read_trie_value<L: TrieLayout, DB: hash_db::HashDBRef<L::Hash, trie_db::D
 		.get(key)
 }
 
-/// Read the closest merkle value from the trie.
-pub fn read_trie_closest_merkle_value<L: TrieLayout, DB>(
+/// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
+/// the provided key.
+pub fn read_trie_first_descedant_value<L: TrieLayout, DB>(
 	db: &DB,
 	root: &TrieHash<L>,
 	key: &[u8],
 	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
 	cache: Option<&mut dyn TrieCache<L::Codec>>,
-) -> Result<Option<TrieHash<L>>, Box<TrieError<L>>>
+) -> Result<Option<MerkleValue<TrieHash<L>>>, Box<TrieError<L>>>
 where
 	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
@@ -310,7 +314,7 @@ where
 		.with_optional_cache(cache)
 		.with_optional_recorder(recorder)
 		.build()
-		.get_closest_merkle_value(key)
+		.lookup_first_descendant(key)
 }
 
 /// Read a value from the trie with given Query.
@@ -415,15 +419,16 @@ where
 		.get_hash(key)
 }
 
-/// Read the closest merkle value from the child trie.
-pub fn read_child_trie_closest_merkle_value<L: TrieConfiguration, DB>(
+/// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
+/// the provided child key.
+pub fn read_child_trie_first_descedant_value<L: TrieConfiguration, DB>(
 	keyspace: &[u8],
 	db: &DB,
 	root: &TrieHash<L>,
 	key: &[u8],
 	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
 	cache: Option<&mut dyn TrieCache<L::Codec>>,
-) -> Result<Option<TrieHash<L>>, Box<TrieError<L>>>
+) -> Result<Option<MerkleValue<TrieHash<L>>>, Box<TrieError<L>>>
 where
 	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
@@ -432,7 +437,7 @@ where
 		.with_optional_recorder(recorder)
 		.with_optional_cache(cache)
 		.build()
-		.get_closest_merkle_value(key)
+		.lookup_first_descendant(key)
 }
 
 /// Read a value from the child trie with given query.
