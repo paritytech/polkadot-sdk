@@ -1,0 +1,5 @@
+error: Missing `#[frame::runtime]`
+ --> tests/construct_runtime_v2_ui/missing_runtime.rs:2:1
+  |
+2 | mod runtime {}
+  | ^^^

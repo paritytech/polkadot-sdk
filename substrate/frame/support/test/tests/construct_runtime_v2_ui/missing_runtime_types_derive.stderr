@@ -1,0 +1,5 @@
+error: Missing `#[frame::derive]`
+ --> tests/construct_runtime_v2_ui/missing_runtime_types_derive.rs:2:1
+  |
+2 | mod runtime {
+  | ^^^

@@ -109,7 +109,7 @@ fn construct_runtime_final_expansion(
 			syn::Error::new(
 				pallets_name.span(),
 				"`System` pallet declaration is missing. \
-			 Please add this line: `System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},`",
+			 Please add this line: `System: frame_system,`",
 			)
 		})?;
 	if !system_pallet.cfg_pattern.is_empty() {

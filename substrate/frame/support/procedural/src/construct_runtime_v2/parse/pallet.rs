@@ -101,7 +101,7 @@ impl Pallet {
 		}
 
 		let pallet_index = pallet_index
-			.ok_or(Error::new(attr_span, "Invalid pallet declaration, expected a pallet index"))?;
+			.ok_or(Error::new(attr_span, "Invalid pallet declaration, expected a #[frame::pallet_index]"))?;
 
 		let mut pallet_path = None;
 		let mut pallet_parts = vec![];

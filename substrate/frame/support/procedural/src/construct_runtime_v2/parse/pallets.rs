@@ -48,7 +48,7 @@ impl AllPalletsDeclaration {
 			item
 		} else {
 			let msg = "Invalid frame::pallets, expected struct definition";
-			return Err(syn::Error::new(item.span(), msg))
+			return Err(syn::Error::new(attr_span, msg))
 		};
 
 		let name = item.ident.clone();
@@ -62,11 +62,11 @@ impl AllPalletsDeclaration {
 		for item in item.fields.iter_mut() {
 			match item.ty.clone() {
 				syn::Type::Path(ref path) => {
-					let pallet_decl = PalletDeclaration::try_from(attr_span, item, path)?;
+					let pallet_decl = PalletDeclaration::try_from(item.span(), item, path)?;
 					pallet_decls.push(pallet_decl);
 				},
 				syn::Type::TraitObject(syn::TypeTraitObject { bounds, .. }) => {
-					let pallet = Pallet::try_from(attr_span, item, &bounds)?;
+					let pallet = Pallet::try_from(item.span(), item, &bounds)?;
 
 					if let Some(used_pallet) = indices.insert(pallet.index, pallet.name.clone()) {
 						let msg = format!(

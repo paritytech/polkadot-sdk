@@ -1,0 +1,5 @@
+error: Invalid frame::pallets, expected struct definition
+ --> tests/construct_runtime_v2_ui/pallets_struct.rs:6:14
+  |
+6 |     #[frame::pallets]
+  |              ^^^^^^^
