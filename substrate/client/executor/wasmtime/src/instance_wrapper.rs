@@ -26,7 +26,7 @@ use sc_executor_common::{
 };
 use sp_wasm_interface::{Pointer, Value, WordSize};
 use wasmtime::{
-	AsContext, AsContextMut, Engine, Extern, Instance, InstancePre, Memory, Mutability, Table, Val,
+	AsContext, AsContextMut, Engine, Extern, Instance, InstancePre, Memory, Table, Val,
 };
 
 /// Invoked entrypoint format.
@@ -272,9 +272,6 @@ impl InstanceWrapper {
 		};
 
 		let global = global.into_global().ok_or_else(|| format!("`{}` is not a global", name))?;
-		if global.ty(&self.store).mutability() != Mutability::Const {
-			return Err(format!("`{}` is not a const global", name).into())
-		}
 
 		match global.get(&mut self.store) {
 			Val::I32(val) => Ok(Some(Value::I32(val))),
