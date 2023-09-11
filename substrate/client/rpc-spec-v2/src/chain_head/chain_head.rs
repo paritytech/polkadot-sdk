@@ -329,13 +329,6 @@ where
 		let items = items
 			.into_iter()
 			.map(|query| {
-				if query.query_type == StorageQueryType::ClosestDescendantMerkleValue {
-					// Note: remove this once all types are implemented.
-					return Err(ChainHeadRpcError::InvalidParam(
-						"Storage query type not supported".into(),
-					))
-				}
-
 				Ok(StorageQuery {
 					key: StorageKey(parse_hex_param(query.key)?),
 					query_type: query.query_type,
