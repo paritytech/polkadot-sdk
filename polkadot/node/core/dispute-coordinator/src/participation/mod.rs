@@ -260,6 +260,13 @@ impl Participation {
 		req: ParticipationRequest,
 		recent_head: Hash,
 	) -> FatalResult<()> {
+		gum::trace!(
+			target: LOG_TARGET,
+			candidate_hash = ?req.candidate_hash(),
+			session = req.session(),
+			"Forking participation"
+		);
+
 		let participation_timer = self.metrics.time_participation();
 		if self.running_participations.insert(*req.candidate_hash()) {
 			let sender = ctx.sender().clone();
@@ -314,12 +321,24 @@ async fn participate(
 		},
 		Ok(Ok(data)) => data,
 		Ok(Err(RecoveryError::Invalid)) => {
+			gum::debug!(
+				target: LOG_TARGET,
+				candidate_hash = ?req.candidate_hash(),
+				session = req.session(),
+				"Invalid availability data during participation"
+			);
 			// the available data was recovered but it is invalid, therefore we'll
 			// vote negatively for the candidate dispute
 			send_result(&mut result_sender, req, ParticipationOutcome::Invalid).await;
 			return
 		},
 		Ok(Err(RecoveryError::Unavailable)) | Ok(Err(RecoveryError::ChannelClosed)) => {
+			gum::debug!(
+				target: LOG_TARGET,
+				candidate_hash = ?req.candidate_hash(),
+				session = req.session(),
+				"Can't fetch availability data participation"
+			);
 			send_result(&mut result_sender, req, ParticipationOutcome::Unavailable).await;
 			return
 		},
