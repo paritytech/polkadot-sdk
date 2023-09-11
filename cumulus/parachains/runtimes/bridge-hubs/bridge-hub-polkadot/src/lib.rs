@@ -84,6 +84,9 @@ use crate::{
 		BridgeRefundBridgeHubKusamaMessages, OnThisChainBlobDispatcher,
 		WithBridgeHubKusamaMessageBridge,
 	},
+	bridge_bulletin_config::{
+		WithPolkadotBulletinMessageBridge,
+	},
 	xcm_config::{UniversalLocation, XcmRouter},
 };
 
@@ -557,12 +560,9 @@ impl pallet_bridge_messages::Config<WithPolkadotBulletinMessagesInstance> for Ru
 	type MessageDispatch = XcmBlobMessageDispatch<
 		OnThisChainBlobDispatcher<UniversalLocation>,
 		Self::WeightInfo,
-		cumulus_pallet_xcmp_queue::bridging::OutboundXcmpChannelCongestionStatusProvider<
-			bridge_bulletin_config::AssetHubPolkadotParaId,
-			Runtime,
-		>,
+		(),
 	>;
-	type OnMessagesDelivered = bridge_bulletin_config::OnMessagesDelivered;
+	type OnMessagesDelivered = ();
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1147,14 +1147,16 @@ mod tests {
 			BridgeRejectObsoleteHeadersAndMessages::default(),
 			BridgeRefundBridgeHubKusamaMessages::default(),
 		);
-		use bp_bridge_hub_polkadot::BridgeHubSignedExtension;
-		let bh_indirect_payload = bp_bridge_hub_polkadot::SignedExtension::from_params(
+		use bp_bridge_hub_polkadot::SignedExtension as BridgeHubSignedExtension;
+		use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
+		let bh_indirect_payload = BridgeHubSignedExtension::from_params(
 			10,
 			10,
 			TransactionEra::Immortal,
 			test_header::<TestBlockHeader>(1).hash(),
 			10,
 			10,
+			(((), ()), ((), ())),
 		);
 		assert_eq!(payload.encode(), bh_indirect_payload.encode());
 	}
