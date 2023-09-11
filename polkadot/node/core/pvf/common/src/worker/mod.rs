@@ -33,7 +33,7 @@ use tokio::{io, net::UnixStream, runtime::Runtime};
 /// spawning the desired worker.
 #[macro_export]
 macro_rules! decl_worker_main {
-	($expected_command:expr, $entrypoint:expr, $worker_version:expr) => {
+	($expected_command:expr, $entrypoint:expr, $worker_version:expr $(,)*) => {
 		fn print_help(expected_command: &str) {
 			println!("{} {}", expected_command, $worker_version);
 			println!();
