@@ -3,7 +3,7 @@
 )<span class="where fmt-newline">where
     B: <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>,
     BI: BlockImport&lt;B, Error = Error&gt; + <a class="trait" href="https://doc.rust-lang.org/1.70.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.70.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
-    C: <a class="trait" href="../sp_blockchain/backend/trait.HeaderBackend.html" title="trait sp_blockchain::backend::HeaderBackend">HeaderBackend</a>&lt;B&gt; + ProvideRuntimeApi&lt;B&gt;,
+    C: HeaderBackend&lt;B&gt; + ProvideRuntimeApi&lt;B&gt;,
     E: Environment&lt;B&gt;,
     E::Proposer: Proposer&lt;B, Proof = P&gt;,
     TP: TransactionPool&lt;Block = B&gt;,
