@@ -3418,6 +3418,14 @@
 <a href="#3418" id="3418">3418</a>
 <a href="#3419" id="3419">3419</a>
 <a href="#3420" id="3420">3420</a>
+<a href="#3421" id="3421">3421</a>
+<a href="#3422" id="3422">3422</a>
+<a href="#3423" id="3423">3423</a>
+<a href="#3424" id="3424">3424</a>
+<a href="#3425" id="3425">3425</a>
+<a href="#3426" id="3426">3426</a>
+<a href="#3427" id="3427">3427</a>
+<a href="#3428" id="3428">3428</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3469,7 +3477,7 @@
 <span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_runtime::{DispatchError, RuntimeDebug};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>wasmi::{Instance, Linker, Memory, MemoryType, StackLimits, Store};
+<span class="kw">use </span>wasmi::{InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
 
 <span class="kw">const </span>BYTES_PER_PAGE: usize = <span class="number">64 </span>* <span class="number">1024</span>;
 
@@ -3584,7 +3592,30 @@
 	///
 	/// Applies all necessary checks before removing the code.
 	</span><span class="kw">pub fn </span>remove(origin: <span class="kw-2">&amp;</span>T::AccountId, code_hash: CodeHash&lt;T&gt;) -&gt; DispatchResult {
-		<span class="self">Self</span>::try_remove_code(origin, code_hash)
+		&lt;CodeInfoOf&lt;T&gt;&gt;::try_mutate_exists(<span class="kw-2">&amp;</span>code_hash, |existing| {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(code_info) = existing {
+				<span class="macro">ensure!</span>(code_info.refcount == <span class="number">0</span>, &lt;Error&lt;T&gt;&gt;::CodeInUse);
+				<span class="macro">ensure!</span>(<span class="kw-2">&amp;</span>code_info.owner == origin, BadOrigin);
+				<span class="kw">let _ </span>= T::Currency::release(
+					<span class="kw-2">&amp;</span>HoldReason::CodeUploadDepositReserve.into(),
+					<span class="kw-2">&amp;</span>code_info.owner,
+					code_info.deposit,
+					BestEffort,
+				);
+				<span class="kw">let </span>deposit_released = code_info.deposit;
+				<span class="kw">let </span>remover = code_info.owner.clone();
+
+				<span class="kw-2">*</span>existing = <span class="prelude-val">None</span>;
+				&lt;PristineCode&lt;T&gt;&gt;::remove(<span class="kw-2">&amp;</span>code_hash);
+				&lt;Pallet&lt;T&gt;&gt;::deposit_event(
+					<span class="macro">vec!</span>[code_hash],
+					Event::CodeRemoved { code_hash, deposit_released, remover },
+				);
+				<span class="prelude-val">Ok</span>(())
+			} <span class="kw">else </span>{
+				<span class="prelude-val">Err</span>(&lt;Error&lt;T&gt;&gt;::CodeNotFound.into())
+			}
+		})
 	}
 
 	<span class="doccomment">/// Creates and returns an instance of the supplied code.
@@ -3599,7 +3630,7 @@
 		determinism: Determinism,
 		stack_limits: StackLimits,
 		allow_deprecated: AllowDeprecatedInterface,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(Store&lt;H&gt;, Memory, Instance), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(Store&lt;H&gt;, Memory, InstancePre), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;
 	<span class="kw">where
 		</span>E: Environment&lt;H&gt;,
 	{
@@ -3637,9 +3668,7 @@
 
 		<span class="kw">let </span>instance = linker
 			.instantiate(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>contract.module)
-			.map_err(|<span class="kw">_</span>| <span class="string">&quot;can&#39;t instantiate module with provided definitions&quot;</span>)<span class="question-mark">?
-			</span>.ensure_no_start(<span class="kw-2">&amp;mut </span>store)
-			.map_err(|<span class="kw">_</span>| <span class="string">&quot;start function is forbidden but found in the module&quot;</span>)<span class="question-mark">?</span>;
+			.map_err(|<span class="kw">_</span>| <span class="string">&quot;can&#39;t instantiate module with provided definitions&quot;</span>)<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>((store, memory, instance))
 	}
@@ -3681,45 +3710,6 @@
 		})
 	}
 
-	<span class="doccomment">/// Try to remove code together with all associated information.
-	</span><span class="kw">fn </span>try_remove_code(origin: <span class="kw-2">&amp;</span>T::AccountId, code_hash: CodeHash&lt;T&gt;) -&gt; DispatchResult {
-		&lt;CodeInfoOf&lt;T&gt;&gt;::try_mutate_exists(<span class="kw-2">&amp;</span>code_hash, |existing| {
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(code_info) = existing {
-				<span class="macro">ensure!</span>(code_info.refcount == <span class="number">0</span>, &lt;Error&lt;T&gt;&gt;::CodeInUse);
-				<span class="macro">ensure!</span>(<span class="kw-2">&amp;</span>code_info.owner == origin, BadOrigin);
-				<span class="kw">let _ </span>= T::Currency::release(
-					<span class="kw-2">&amp;</span>HoldReason::CodeUploadDepositReserve.into(),
-					<span class="kw-2">&amp;</span>code_info.owner,
-					code_info.deposit,
-					BestEffort,
-				);
-				<span class="kw">let </span>deposit_released = code_info.deposit;
-				<span class="kw">let </span>remover = code_info.owner.clone();
-
-				<span class="kw-2">*</span>existing = <span class="prelude-val">None</span>;
-				&lt;PristineCode&lt;T&gt;&gt;::remove(<span class="kw-2">&amp;</span>code_hash);
-				&lt;Pallet&lt;T&gt;&gt;::deposit_event(
-					<span class="macro">vec!</span>[code_hash],
-					Event::CodeRemoved { code_hash, deposit_released, remover },
-				);
-				<span class="prelude-val">Ok</span>(())
-			} <span class="kw">else </span>{
-				<span class="prelude-val">Err</span>(&lt;Error&lt;T&gt;&gt;::CodeNotFound.into())
-			}
-		})
-	}
-
-	<span class="doccomment">/// Load code with the given code hash.
-	</span><span class="kw">fn </span>load_code(
-		code_hash: CodeHash&lt;T&gt;,
-		gas_meter: <span class="kw-2">&amp;mut </span>GasMeter&lt;T&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(CodeVec&lt;T&gt;, CodeInfo&lt;T&gt;), DispatchError&gt; {
-		<span class="kw">let </span>code_info = &lt;CodeInfoOf&lt;T&gt;&gt;::get(code_hash).ok_or(Error::&lt;T&gt;::CodeNotFound)<span class="question-mark">?</span>;
-		gas_meter.charge(CodeLoadToken(code_info.code_len))<span class="question-mark">?</span>;
-		<span class="kw">let </span>code = &lt;PristineCode&lt;T&gt;&gt;::get(code_hash).ok_or(Error::&lt;T&gt;::CodeNotFound)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>((code, code_info))
-	}
-
 	<span class="doccomment">/// Create the module without checking the passed code.
 	///
 	/// # Note
@@ -3738,12 +3728,6 @@
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; CodeInfo&lt;T&gt; {
-	<span class="doccomment">/// Return the refcount of the module.
-	</span><span class="attr">#[cfg(test)]
-	</span><span class="kw">pub fn </span>refcount(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-		<span class="self">self</span>.refcount
-	}
-
 	<span class="attr">#[cfg(test)]
 	</span><span class="kw">pub fn </span>new(owner: T::AccountId) -&gt; <span class="self">Self </span>{
 		CodeInfo {
@@ -3753,6 +3737,16 @@
 			code_len: <span class="number">0</span>,
 			determinism: Determinism::Enforced,
 		}
+	}
+
+	<span class="doccomment">/// Returns reference count of the module.
+	</span><span class="kw">pub fn </span>refcount(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+		<span class="self">self</span>.refcount
+	}
+
+	<span class="doccomment">/// Return mutable reference to the refcount of the module.
+	</span><span class="kw">pub fn </span>refcount_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>u64 {
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>.refcount
 	}
 
 	<span class="doccomment">/// Returns the deposit of the module.
@@ -3766,27 +3760,10 @@
 		code_hash: CodeHash&lt;T&gt;,
 		gas_meter: <span class="kw-2">&amp;mut </span>GasMeter&lt;T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
-		<span class="kw">let </span>(code, code_info) = <span class="self">Self</span>::load_code(code_hash, gas_meter)<span class="question-mark">?</span>;
+		<span class="kw">let </span>code_info = &lt;CodeInfoOf&lt;T&gt;&gt;::get(code_hash).ok_or(Error::&lt;T&gt;::CodeNotFound)<span class="question-mark">?</span>;
+		gas_meter.charge(CodeLoadToken(code_info.code_len))<span class="question-mark">?</span>;
+		<span class="kw">let </span>code = &lt;PristineCode&lt;T&gt;&gt;::get(code_hash).ok_or(Error::&lt;T&gt;::CodeNotFound)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ code, code_info, code_hash })
-	}
-
-	<span class="kw">fn </span>increment_refcount(code_hash: CodeHash&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
-		&lt;CodeInfoOf&lt;T&gt;&gt;::mutate(code_hash, |existing| -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(info) = existing {
-				info.refcount = info.refcount.saturating_add(<span class="number">1</span>);
-				<span class="prelude-val">Ok</span>(())
-			} <span class="kw">else </span>{
-				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::CodeNotFound.into())
-			}
-		})
-	}
-
-	<span class="kw">fn </span>decrement_refcount(code_hash: CodeHash&lt;T&gt;) {
-		&lt;CodeInfoOf&lt;T&gt;&gt;::mutate(code_hash, |existing| {
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(info) = existing {
-				info.refcount = info.refcount.saturating_sub(<span class="number">1</span>);
-			}
-		});
 	}
 
 	<span class="kw">fn </span>execute&lt;E: Ext&lt;T = T&gt;&gt;(
@@ -3830,25 +3807,38 @@
 			.add_fuel(fuel_limit)
 			.expect(<span class="string">&quot;We&#39;ve set up engine to fuel consuming mode; qed&quot;</span>);
 
-		<span class="kw">let </span>exported_func = instance
-			.get_export(<span class="kw-2">&amp;</span>store, function.identifier())
-			.and_then(|export| export.into_func())
-			.ok_or_else(|| {
-				<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;failed to find entry point&quot;</span>);
-				Error::&lt;T&gt;::CodeRejected
-			})<span class="question-mark">?</span>;
+		<span class="comment">// Sync this frame&#39;s gas meter with the engine&#39;s one.
+		</span><span class="kw">let </span>process_result = |<span class="kw-2">mut </span>store: Store&lt;Runtime&lt;E&gt;&gt;, result| {
+			<span class="kw">let </span>engine_consumed_total =
+				store.fuel_consumed().expect(<span class="string">&quot;Fuel metering is enabled; qed&quot;</span>);
+			<span class="kw">let </span>gas_meter = store.data_mut().ext().gas_meter_mut();
+			gas_meter.charge_fuel(engine_consumed_total)<span class="question-mark">?</span>;
+			store.into_data().to_execution_result(result)
+		};
 
-		<span class="kw">if let </span><span class="kw-2">&amp;</span>ExportedFunction::Constructor = function {
-			WasmBlob::&lt;T&gt;::increment_refcount(<span class="self">self</span>.code_hash)<span class="question-mark">?</span>;
+		<span class="comment">// Start function should already see the correct refcount in case it will be ever inspected.
+		</span><span class="kw">if let </span><span class="kw-2">&amp;</span>ExportedFunction::Constructor = function {
+			E::increment_refcount(<span class="self">self</span>.code_hash)<span class="question-mark">?</span>;
 		}
 
-		<span class="kw">let </span>result = exported_func.call(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;mut </span>[]);
-		<span class="kw">let </span>engine_consumed_total = store.fuel_consumed().expect(<span class="string">&quot;Fuel metering is enabled; qed&quot;</span>);
-		<span class="comment">// Sync this frame&#39;s gas meter with the engine&#39;s one.
-		</span><span class="kw">let </span>gas_meter = store.data_mut().ext().gas_meter_mut();
-		gas_meter.charge_fuel(engine_consumed_total)<span class="question-mark">?</span>;
+		<span class="comment">// Any abort in start function (includes `return` + `terminate`) will make us skip the
+		// call into the subsequent exported function. This means that calling `return` returns data
+		// from the whole contract execution.
+		</span><span class="kw">match </span>instance.start(<span class="kw-2">&amp;mut </span>store) {
+			<span class="prelude-val">Ok</span>(instance) =&gt; {
+				<span class="kw">let </span>exported_func = instance
+					.get_export(<span class="kw-2">&amp;</span>store, function.identifier())
+					.and_then(|export| export.into_func())
+					.ok_or_else(|| {
+						<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;failed to find entry point&quot;</span>);
+						Error::&lt;T&gt;::CodeRejected
+					})<span class="question-mark">?</span>;
 
-		store.into_data().to_execution_result(result)
+				<span class="kw">let </span>result = exported_func.call(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;mut </span>[]);
+				process_result(store, result)
+			},
+			<span class="prelude-val">Err</span>(err) =&gt; process_result(store, <span class="prelude-val">Err</span>(err)),
+		}
 	}
 
 	<span class="kw">fn </span>code_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CodeHash&lt;T&gt; {
@@ -4160,7 +4150,10 @@
 		<span class="kw">fn </span>nonce(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; u64 {
 			<span class="number">995
 		</span>}
-
+		<span class="kw">fn </span>increment_refcount(_code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+			<span class="prelude-val">Ok</span>(())
+		}
+		<span class="kw">fn </span>decrement_refcount(_code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) {}
 		<span class="kw">fn </span>add_delegate_dependency(
 			<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 			code: CodeHash&lt;<span class="self">Self</span>::T&gt;,
@@ -4168,7 +4161,6 @@
 			<span class="self">self</span>.delegate_dependencies.borrow_mut().insert(code);
 			<span class="prelude-val">Ok</span>(())
 		}
-
 		<span class="kw">fn </span>remove_delegate_dependency(
 			<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 			code: <span class="kw-2">&amp;</span>CodeHash&lt;<span class="self">Self</span>::T&gt;,
@@ -4210,9 +4202,18 @@
 		executable.execute(ext.borrow_mut(), entry_point, input_data)
 	}
 
-	<span class="doccomment">/// Execute the supplied code.
+	<span class="doccomment">/// Execute the `call` function within the supplied code.
 	</span><span class="kw">fn </span>execute&lt;E: BorrowMut&lt;MockExt&gt;&gt;(wat: <span class="kw-2">&amp;</span>str, input_data: Vec&lt;u8&gt;, ext: E) -&gt; ExecResult {
 		execute_internal(wat, input_data, ext, <span class="kw-2">&amp;</span>ExportedFunction::Call, <span class="bool-val">true</span>, <span class="bool-val">false</span>)
+	}
+
+	<span class="doccomment">/// Execute the `deploy` function within the supplied code.
+	</span><span class="kw">fn </span>execute_instantiate&lt;E: BorrowMut&lt;MockExt&gt;&gt;(
+		wat: <span class="kw-2">&amp;</span>str,
+		input_data: Vec&lt;u8&gt;,
+		ext: E,
+	) -&gt; ExecResult {
+		execute_internal(wat, input_data, ext, <span class="kw-2">&amp;</span>ExportedFunction::Constructor, <span class="bool-val">true</span>, <span class="bool-val">false</span>)
 	}
 
 	<span class="doccomment">/// Execute the supplied code with disabled unstable functions.
@@ -5298,32 +5299,47 @@
 		<span class="macro">assert_ok!</span>(execute(CODE_VALUE_TRANSFERRED, <span class="macro">vec!</span>[], MockExt::default()));
 	}
 
-	<span class="kw">const </span>START_FN_ILLEGAL: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>START_FN_DOES_RUN: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
 (module
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
+	(import &quot;seal0&quot; &quot;seal_deposit_event&quot; (func $seal_deposit_event (param i32 i32 i32 i32)))
 	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
 
 	(start $start)
 	(func $start
-		(unreachable)
+		(call $seal_deposit_event
+			(i32.const 0) ;; Pointer to the start of topics buffer
+			(i32.const 0) ;; The length of the topics buffer.
+			(i32.const 0) ;; Pointer to the start of the data buffer
+			(i32.const 13) ;; Length of the buffer
+		)
 	)
 
-	(func (export &quot;call&quot;)
-		(unreachable)
-	)
+	(func (export &quot;call&quot;))
 
-	(func (export &quot;deploy&quot;)
-		(unreachable)
-	)
+	(func (export &quot;deploy&quot;))
 
-	(data (i32.const 8) &quot;\01\02\03\04&quot;)
+	(data (i32.const 0) &quot;\00\01\2A\00\00\00\00\00\00\00\E5\14\00&quot;)
 )
 &quot;#</span>;
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>start_fn_illegal() {
-		<span class="kw">let </span>output = execute(START_FN_ILLEGAL, <span class="macro">vec!</span>[], MockExt::default());
-		<span class="macro">assert_err!</span>(output, &lt;Error&lt;Test&gt;&gt;::CodeRejected,);
+	</span><span class="kw">fn </span>start_fn_does_run_on_call() {
+		<span class="kw">let </span><span class="kw-2">mut </span>ext = MockExt::default();
+		execute(START_FN_DOES_RUN, <span class="macro">vec!</span>[], <span class="kw-2">&amp;mut </span>ext).unwrap();
+		<span class="macro">assert_eq!</span>(
+			ext.events[<span class="number">0</span>].<span class="number">1</span>,
+			[<span class="number">0x00_u8</span>, <span class="number">0x01</span>, <span class="number">0x2a</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0xe5</span>, <span class="number">0x14</span>, <span class="number">0x00</span>]
+		);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>start_fn_does_run_on_deploy() {
+		<span class="kw">let </span><span class="kw-2">mut </span>ext = MockExt::default();
+		execute_instantiate(START_FN_DOES_RUN, <span class="macro">vec!</span>[], <span class="kw-2">&amp;mut </span>ext).unwrap();
+		<span class="macro">assert_eq!</span>(
+			ext.events[<span class="number">0</span>].<span class="number">1</span>,
+			[<span class="number">0x00_u8</span>, <span class="number">0x01</span>, <span class="number">0x2a</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0xe5</span>, <span class="number">0x14</span>, <span class="number">0x00</span>]
+		);
 	}
 
 	<span class="kw">const </span>CODE_TIMESTAMP_NOW: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;

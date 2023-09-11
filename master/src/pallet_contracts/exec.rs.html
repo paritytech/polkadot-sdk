@@ -3876,27 +3876,6 @@
 <a href="#3876" id="3876">3876</a>
 <a href="#3877" id="3877">3877</a>
 <a href="#3878" id="3878">3878</a>
-<a href="#3879" id="3879">3879</a>
-<a href="#3880" id="3880">3880</a>
-<a href="#3881" id="3881">3881</a>
-<a href="#3882" id="3882">3882</a>
-<a href="#3883" id="3883">3883</a>
-<a href="#3884" id="3884">3884</a>
-<a href="#3885" id="3885">3885</a>
-<a href="#3886" id="3886">3886</a>
-<a href="#3887" id="3887">3887</a>
-<a href="#3888" id="3888">3888</a>
-<a href="#3889" id="3889">3889</a>
-<a href="#3890" id="3890">3890</a>
-<a href="#3891" id="3891">3891</a>
-<a href="#3892" id="3892">3892</a>
-<a href="#3893" id="3893">3893</a>
-<a href="#3894" id="3894">3894</a>
-<a href="#3895" id="3895">3895</a>
-<a href="#3896" id="3896">3896</a>
-<a href="#3897" id="3897">3897</a>
-<a href="#3898" id="3898">3898</a>
-<a href="#3899" id="3899">3899</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3920,7 +3899,7 @@
 	storage::{<span class="self">self</span>, meter::Diff, WriteOutcome},
 	BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
 	DebugBufferVec, Determinism, Error, Event, Nonce, Origin, Pallet <span class="kw">as </span>Contracts, Schedule,
-	WasmBlob, LOG_TARGET,
+	LOG_TARGET,
 };
 <span class="kw">use </span>frame_support::{
 	crypto::ecdsa::ECDSAExt,
@@ -4217,6 +4196,22 @@
 	<span class="doccomment">/// Returns a nonce that is incremented for every instantiated contract.
 	</span><span class="kw">fn </span>nonce(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; u64;
 
+	<span class="doccomment">/// Increment the reference count of a of a stored code by one.
+	///
+	/// # Errors
+	///
+	/// [`Error::CodeNotFound`] is returned if no stored code found having the specified
+	/// `code_hash`.
+	</span><span class="kw">fn </span>increment_refcount(code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt;;
+
+	<span class="doccomment">/// Decrement the reference count of a stored code by one.
+	///
+	/// # Note
+	///
+	/// A contract whose reference count dropped to zero isn&#39;t automatically removed. A
+	/// `remove_code` transaction must be submitted by the original uploader to do so.
+	</span><span class="kw">fn </span>decrement_refcount(code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;);
+
 	<span class="doccomment">/// Adds a delegate dependency to [`ContractInfo`]&#39;s `delegate_dependencies` field.
 	///
 	/// This ensures that the delegated contract is not removed while it is still in use. It
@@ -4279,22 +4274,6 @@
 		code_hash: CodeHash&lt;T&gt;,
 		gas_meter: <span class="kw-2">&amp;mut </span>GasMeter&lt;T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt;;
-
-	<span class="doccomment">/// Increment the reference count of a of a stored code by one.
-	///
-	/// # Errors
-	///
-	/// [`Error::CodeNotFound`] is returned if no stored code found having the specified
-	/// `code_hash`.
-	</span><span class="kw">fn </span>increment_refcount(code_hash: CodeHash&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt;;
-
-	<span class="doccomment">/// Decrement the reference count of a stored code by one.
-	///
-	/// # Note
-	///
-	/// A contract whose reference count dropped to zero isn&#39;t automatically removed. A
-	/// `remove_code` transaction must be submitted by the original uploader to do so.
-	</span><span class="kw">fn </span>decrement_refcount(code_hash: CodeHash&lt;T&gt;);
 
 	<span class="doccomment">/// Execute the specified exported function and return the result.
 	///
@@ -5184,10 +5163,10 @@
 
 		info.queue_trie_for_deletion();
 		ContractInfoOf::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>frame.account_id);
-		E::decrement_refcount(info.code_hash);
+		<span class="self">Self</span>::decrement_refcount(info.code_hash);
 
 		<span class="kw">for </span>(code_hash, deposit) <span class="kw">in </span>info.delegate_dependencies() {
-			E::decrement_refcount(<span class="kw-2">*</span>code_hash);
+			<span class="self">Self</span>::decrement_refcount(<span class="kw-2">*</span>code_hash);
 			frame
 				.nested_storage
 				.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(<span class="kw-2">*</span>deposit));
@@ -5390,8 +5369,8 @@
 
 		frame.nested_storage.charge_deposit(frame.account_id.clone(), deposit);
 
-		E::increment_refcount(hash)<span class="question-mark">?</span>;
-		E::decrement_refcount(prev_hash);
+		<span class="self">Self</span>::increment_refcount(hash)<span class="question-mark">?</span>;
+		<span class="self">Self</span>::decrement_refcount(prev_hash);
 		Contracts::&lt;<span class="self">Self</span>::T&gt;::deposit_event(
 			<span class="macro">vec!</span>[T::Hashing::hash_of(<span class="kw-2">&amp;</span>frame.account_id), hash, prev_hash],
 			Event::ContractCodeUpdated {
@@ -5424,6 +5403,25 @@
 		}
 	}
 
+	<span class="kw">fn </span>increment_refcount(code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+		&lt;CodeInfoOf&lt;<span class="self">Self</span>::T&gt;&gt;::mutate(code_hash, |existing| -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(info) = existing {
+				<span class="kw-2">*</span>info.refcount_mut() = info.refcount().saturating_add(<span class="number">1</span>);
+				<span class="prelude-val">Ok</span>(())
+			} <span class="kw">else </span>{
+				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::CodeNotFound.into())
+			}
+		})
+	}
+
+	<span class="kw">fn </span>decrement_refcount(code_hash: CodeHash&lt;T&gt;) {
+		&lt;CodeInfoOf&lt;T&gt;&gt;::mutate(code_hash, |existing| {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(info) = existing {
+				<span class="kw-2">*</span>info.refcount_mut() = info.refcount().saturating_sub(<span class="number">1</span>);
+			}
+		});
+	}
+
 	<span class="kw">fn </span>add_delegate_dependency(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;,
@@ -5436,7 +5434,7 @@
 		<span class="kw">let </span>deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_info.deposit());
 
 		info.add_delegate_dependency(code_hash, deposit)<span class="question-mark">?</span>;
-		&lt;WasmBlob&lt;T&gt;&gt;::increment_refcount(code_hash)<span class="question-mark">?</span>;
+		<span class="self">Self</span>::increment_refcount(code_hash)<span class="question-mark">?</span>;
 		frame
 			.nested_storage
 			.charge_deposit(frame.account_id.clone(), StorageDeposit::Charge(deposit));
@@ -5451,8 +5449,7 @@
 		<span class="kw">let </span>info = frame.contract_info.get(<span class="kw-2">&amp;</span>frame.account_id);
 
 		<span class="kw">let </span>deposit = info.remove_delegate_dependency(code_hash)<span class="question-mark">?</span>;
-		&lt;WasmBlob&lt;T&gt;&gt;::decrement_refcount(<span class="kw-2">*</span>code_hash);
-
+		<span class="self">Self</span>::decrement_refcount(<span class="kw-2">*</span>code_hash);
 		frame
 			.nested_storage
 			.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(deposit));
@@ -5499,11 +5496,7 @@
 	<span class="kw">use </span>pallet_contracts_primitives::ReturnFlags;
 	<span class="kw">use </span>pretty_assertions::assert_eq;
 	<span class="kw">use </span>sp_runtime::{traits::Hash, DispatchError};
-	<span class="kw">use </span>std::{
-		cell::RefCell,
-		collections::hash_map::{Entry, HashMap},
-		rc::Rc,
-	};
+	<span class="kw">use </span>std::{cell::RefCell, collections::hash_map::HashMap, rc::Rc};
 
 	<span class="kw">type </span>System = frame_system::Pallet&lt;Test&gt;;
 
@@ -5534,7 +5527,6 @@
 		func_type: ExportedFunction,
 		code_hash: CodeHash&lt;Test&gt;,
 		code_info: CodeInfo&lt;Test&gt;,
-		refcount: u64,
 	}
 
 	<span class="attr">#[derive(Default, Clone)]
@@ -5563,36 +5555,10 @@
 						func_type,
 						code_hash: hash,
 						code_info: CodeInfo::&lt;Test&gt;::new(ALICE),
-						refcount: <span class="number">1</span>,
 					},
 				);
 				hash
 			})
-		}
-
-		<span class="kw">fn </span>increment_refcount(code_hash: CodeHash&lt;Test&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
-			Loader::mutate(|loader| {
-				<span class="kw">match </span>loader.map.entry(code_hash) {
-					Entry::Vacant(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(&lt;Error&lt;Test&gt;&gt;::CodeNotFound)<span class="question-mark">?</span>,
-					Entry::Occupied(<span class="kw-2">mut </span>entry) =&gt; entry.get_mut().refcount += <span class="number">1</span>,
-				}
-				<span class="prelude-val">Ok</span>(())
-			})
-		}
-
-		<span class="kw">fn </span>decrement_refcount(code_hash: CodeHash&lt;Test&gt;) {
-			<span class="kw">use </span>std::collections::hash_map::Entry::Occupied;
-			Loader::mutate(|loader| {
-				<span class="kw">let </span><span class="kw-2">mut </span>entry = <span class="kw">match </span>loader.map.entry(code_hash) {
-					Occupied(e) =&gt; e,
-					<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;code_hash does not exist&quot;</span>),
-				};
-				<span class="kw">let </span>refcount = <span class="kw-2">&amp;mut </span>entry.get_mut().refcount;
-				<span class="kw-2">*</span>refcount -= <span class="number">1</span>;
-				<span class="kw">if </span><span class="kw-2">*</span>refcount == <span class="number">0 </span>{
-					entry.remove();
-				}
-			});
 		}
 	}
 
@@ -5606,14 +5572,6 @@
 			})
 		}
 
-		<span class="kw">fn </span>increment_refcount(code_hash: CodeHash&lt;Test&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
-			MockLoader::increment_refcount(code_hash)
-		}
-
-		<span class="kw">fn </span>decrement_refcount(code_hash: CodeHash&lt;Test&gt;) {
-			MockLoader::decrement_refcount(code_hash);
-		}
-
 		<span class="kw">fn </span>execute&lt;E: Ext&lt;T = Test&gt;&gt;(
 			<span class="self">self</span>,
 			ext: <span class="kw-2">&amp;mut </span>E,
@@ -5621,7 +5579,7 @@
 			input_data: Vec&lt;u8&gt;,
 		) -&gt; ExecResult {
 			<span class="kw">if let </span><span class="kw-2">&amp;</span>Constructor = function {
-				<span class="self">Self</span>::increment_refcount(<span class="self">self</span>.code_hash).unwrap();
+				E::increment_refcount(<span class="self">self</span>.code_hash).unwrap();
 			}
 			<span class="comment">// # Safety
 			//
@@ -5632,7 +5590,7 @@
 			// The transmute is necessary because `execute` has to be generic over all
 			// `E: Ext`. However, `MockExecutable` can&#39;t be generic over `E` as it would
 			// constitute a cycle.
-			</span><span class="kw">let </span>ext = <span class="kw">unsafe </span>{ std::mem::transmute(ext) };
+			</span><span class="kw">let </span>ext = <span class="kw">unsafe </span>{ mem::transmute(ext) };
 			<span class="kw">if </span>function == <span class="kw-2">&amp;</span><span class="self">self</span>.func_type {
 				(<span class="self">self</span>.func)(MockCtx { ext, input_data }, <span class="kw-2">&amp;</span><span class="self">self</span>)
 			} <span class="kw">else </span>{

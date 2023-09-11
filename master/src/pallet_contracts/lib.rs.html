@@ -1716,6 +1716,8 @@
 <a href="#1716" id="1716">1716</a>
 <a href="#1717" id="1717">1717</a>
 <a href="#1718" id="1718">1718</a>
+<a href="#1719" id="1719">1719</a>
+<a href="#1720" id="1720">1720</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1821,7 +1823,9 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 <span class="kw">use crate</span>::{
-	exec::{AccountIdOf, ErrorOrigin, ExecError, Executable, Key, MomentOf, Stack <span class="kw">as </span>ExecStack},
+	exec::{
+		AccountIdOf, ErrorOrigin, ExecError, Executable, Ext, Key, MomentOf, Stack <span class="kw">as </span>ExecStack,
+	},
 	gas::GasMeter,
 	storage::{meter::Meter <span class="kw">as </span>StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, WasmBlob},
@@ -2376,8 +2380,8 @@
 				} <span class="kw">else </span>{
 					<span class="kw">return </span><span class="prelude-val">Err</span>(&lt;Error&lt;T&gt;&gt;::ContractNotFound.into())
 				};
-				&lt;WasmBlob&lt;T&gt;&gt;::increment_refcount(code_hash)<span class="question-mark">?</span>;
-				&lt;WasmBlob&lt;T&gt;&gt;::decrement_refcount(contract.code_hash);
+				&lt;ExecStack&lt;T, WasmBlob&lt;T&gt;&gt;&gt;::increment_refcount(code_hash)<span class="question-mark">?</span>;
+				&lt;ExecStack&lt;T, WasmBlob&lt;T&gt;&gt;&gt;::decrement_refcount(contract.code_hash);
 				<span class="self">Self</span>::deposit_event(
 					<span class="macro">vec!</span>[T::Hashing::hash_of(<span class="kw-2">&amp;</span>dest), code_hash, contract.code_hash],
 					Event::ContractCodeUpdated {
