@@ -42,20 +42,20 @@ xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
 
 # Bridges
-bp-bridge-hub-rococo = { path = "../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }
-bp-bridge-hub-wococo = { path = "../../../../bridges/primitives/chain-bridge-hub-wococo", default-features = false }
-bp-header-chain = { path = "../../../../bridges/primitives/header-chain", default-features = false }
-bp-messages = { path = "../../../../bridges/primitives/messages", default-features = false }
-bp-parachains = { path = "../../../../bridges/primitives/parachains", default-features = false }
-bp-polkadot-core = { path = "../../../../bridges/primitives/polkadot-core", default-features = false }
-bp-relayers = { path = "../../../../bridges/primitives/relayers", default-features = false }
-bp-runtime = { path = "../../../../bridges/primitives/runtime", default-features = false }
-bp-test-utils = { path = "../../../../bridges/primitives/test-utils", default-features = false }
-pallet-bridge-grandpa = { path = "../../../../bridges/modules/grandpa", default-features = false }
-pallet-bridge-parachains = { path = "../../../../bridges/modules/parachains", default-features = false }
-pallet-bridge-messages = { path = "../../../../bridges/modules/messages", default-features = false }
-pallet-bridge-relayers = { path = "../../../../bridges/modules/relayers", default-features = false }
-bridge-runtime-common = { path = "../../../../bridges/bin/runtime-common", default-features = false }
+bp-bridge-hub-rococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }
+bp-bridge-hub-wococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-wococo", default-features = false }
+bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false }
+bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false }
+bp-parachains = { path = "../../../../../bridges/primitives/parachains", default-features = false }
+bp-polkadot-core = { path = "../../../../../bridges/primitives/polkadot-core", default-features = false }
+bp-relayers = { path = "../../../../../bridges/primitives/relayers", default-features = false }
+bp-runtime = { path = "../../../../../bridges/primitives/runtime", default-features = false }
+bp-test-utils = { path = "../../../../../bridges/primitives/test-utils", default-features = false }
+pallet-bridge-grandpa = { path = "../../../../../bridges/modules/grandpa", default-features = false }
+pallet-bridge-parachains = { path = "../../../../../bridges/modules/parachains", default-features = false }
+pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false }
+pallet-bridge-relayers = { path = "../../../../../bridges/modules/relayers", default-features = false }
+bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
 
 [features]
 default = [ "std" ]
