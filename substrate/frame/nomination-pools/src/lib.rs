@@ -538,7 +538,7 @@ impl<T: Config> PoolMember<T> {
 	/// Total balance of the member, both active and unbonding.
 	/// Doesn't mutate state.
 	#[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
-	fn total_balance(&mut self) -> BalanceOf<T> {
+	fn total_balance(&self) -> BalanceOf<T> {
 		let pool = match BondedPool::<T>::get(self.pool_id).defensive() {
 			Some(pool) => pool,
 			None => return Zero::zero(),
@@ -3170,6 +3170,7 @@ impl<T: Config> Pallet<T> {
 		let mut pools_members = BTreeMap::<PoolId, u32>::new();
 		let mut pools_members_pending_rewards = BTreeMap::<PoolId, BalanceOf<T>>::new();
 		let mut all_members = 0u32;
+		let mut total_balance_members = Default::default();
 		PoolMembers::<T>::iter().try_for_each(|(_, d)| -> Result<(), TryRuntimeError> {
 			let bonded_pool = BondedPools::<T>::get(d.pool_id).unwrap();
 			ensure!(!d.total_points().is_zero(), "No member should have zero points");
@@ -3185,6 +3186,7 @@ impl<T: Config> Pallet<T> {
 				let pending_rewards = d.pending_rewards(current_rc).unwrap();
 				*pools_members_pending_rewards.entry(d.pool_id).or_default() += pending_rewards;
 			} // else this pool has been heavily slashed and cannot have any rewards anymore.
+			total_balance_members += d.total_balance();
 
 			Ok(())
 		})?;
@@ -3209,6 +3211,7 @@ impl<T: Config> Pallet<T> {
 			Ok(())
 		})?;
 
+		let mut expected_tvl: BalanceOf<T> = Default::default();
 		BondedPools::<T>::iter().try_for_each(|(id, inner)| -> Result<(), TryRuntimeError> {
 			let bonded_pool = BondedPool { id, inner };
 			ensure!(
@@ -3230,36 +3233,25 @@ impl<T: Config> Pallet<T> {
 				pool is being destroyed and the depositor is the last member",
 			);
 
-			let expected_tvl: BalanceOf<T> = BondedPools::<T>::iter()
-				.map(|(id, inner)| {
-					T::Staking::total_stake(
-						&BondedPool { id, inner: inner.clone() }.bonded_account(),
-					)
-					.unwrap_or_default()
-				})
-				.reduce(|acc, total_balance| acc + total_balance)
-				.unwrap_or_default();
+			expected_tvl +=
+				T::Staking::total_stake(&bonded_pool.bonded_account()).unwrap_or_default();
 
-			ensure!(
-				TotalValueLocked::<T>::get() == expected_tvl,
-				"TVL deviates from the actual sum of funds of all Pools."
-			);
-
-			let total_balance_members: BalanceOf<T> = PoolMembers::<T>::iter()
-				.map(|(_, mut member)| member.total_balance())
-				.reduce(|acc, total_balance| acc + total_balance)
-				.unwrap_or_default();
-
-			ensure!(
-				TotalValueLocked::<T>::get() <= total_balance_members,
-				"TVL must be equal to or less than the total balance of all PoolMembers."
-			);
 			Ok(())
 		})?;
 
 		ensure!(
 			MaxPoolMembers::<T>::get().map_or(true, |max| all_members <= max),
 			Error::<T>::MaxPoolMembers
+		);
+
+		ensure!(
+			TotalValueLocked::<T>::get() == expected_tvl,
+			"TVL deviates from the actual sum of funds of all Pools."
+		);
+
+		ensure!(
+			TotalValueLocked::<T>::get() <= total_balance_members,
+			"TVL must be equal to or less than the total balance of all PoolMembers."
 		);
 
 		if level <= 1 {

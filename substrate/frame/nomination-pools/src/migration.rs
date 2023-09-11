@@ -793,7 +793,7 @@ pub mod v6 {
 			// calculate the sum of `total_balance` of all `PoolMember` as the upper bound for the
 			// `TotalValueLocked`.
 			let total_balance_members: BalanceOf<T> = PoolMembers::<T>::iter()
-				.map(|(_, mut member)| member.total_balance())
+				.map(|(_, member)| member.total_balance())
 				.reduce(|acc, total_balance| acc + total_balance)
 				.unwrap_or_default();
 
