@@ -1099,6 +1099,16 @@ async fn handle_peer_view_change<Context>(
 
 	*current = view;
 
+	if added.is_empty() {
+		// TODO [now]: too verbose
+		gum::debug!(
+			target: LOG_TARGET,
+			?peer_id,
+			?current,
+			"Unchanged view"
+		);
+	}
+
 	for added in added.into_iter() {
 		let block_hashes = match state
 			.per_relay_parent
@@ -1180,6 +1190,17 @@ async fn handle_network_msg<Context>(
 					return Ok(())
 				},
 			};
+
+			// TODO [now]: too verbose
+			if let Some(data) = state.peer_data.get(&peer_id) {
+				gum::warn!(
+					target: LOG_TARGET,
+					?peer_id,
+					view = ?data.view,
+					"Peer re-connected?",
+				);
+			}
+
 			state
 				.peer_data
 				.entry(peer_id)
@@ -1202,9 +1223,11 @@ async fn handle_network_msg<Context>(
 			handle_peer_view_change(ctx, state, peer_id, view).await;
 		},
 		PeerDisconnected(peer_id) => {
-			gum::trace!(target: LOG_TARGET, ?peer_id, "Peer disconnected");
+			// TODO [now]: too verbose
+			let is_validator = state.peer_ids.remove(&peer_id).is_some();
+			gum::debug!(target: LOG_TARGET, ?peer_id, ?is_validator, "Peer disconnected");
 			state.peer_data.remove(&peer_id);
-			state.peer_ids.remove(&peer_id);
+
 		},
 		OurViewChange(view) => {
 			gum::trace!(target: LOG_TARGET, ?view, "Own view change");
