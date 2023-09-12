@@ -427,6 +427,8 @@
 <a href="#427" id="427">427</a>
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -640,6 +642,7 @@
 <span class="kw">impl</span>&lt;B: BlockT, BI, BE&gt; ParachainBlockImportMarker <span class="kw">for </span>ParachainBlockImport&lt;B, BI, BE&gt; {}
 
 <span class="doccomment">/// Parameters when searching for suitable parents to build on top of.
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>ParentSearchParams {
 	<span class="doccomment">/// The relay-parent that is intended to be used.
 	</span><span class="kw">pub </span>relay_parent: PHash,
@@ -657,6 +660,7 @@
 }
 
 <span class="doccomment">/// A potential parent block returned from [`find_potential_parents`]
+</span><span class="attr">#[derive(Debug, PartialEq)]
 </span><span class="kw">pub struct </span>PotentialParent&lt;B: BlockT&gt; {
 	<span class="doccomment">/// The hash of the block.
 	</span><span class="kw">pub </span>hash: B::Hash,
