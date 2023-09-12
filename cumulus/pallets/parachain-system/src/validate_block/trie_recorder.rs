@@ -20,9 +20,9 @@
 use codec::Encode;
 
 use sp_std::{
-	alloc::rc::Rc,
 	cell::{RefCell, RefMut},
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	rc::Rc,
 };
 use sp_trie::{NodeCodec, ProofSizeProvider, StorageProof};
 use trie_db::{Hasher, RecordedForKey, TrieAccess};

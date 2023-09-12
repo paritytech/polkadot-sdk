@@ -177,7 +177,7 @@ where
 
 		let runtime_code = self.check_override(runtime_code, &state, at_hash)?.0;
 
-		let mut extensions = self.execution_extensions.extensions(at_hash, at_number);
+		let mut extensions = self.execution_extensions.extensions(at_hash, at_number, None);
 
 		let mut sm = StateMachine::new(
 			&state,
@@ -290,7 +290,11 @@ where
 			method,
 			call_data,
 			&runtime_code,
-			&mut self.execution_extensions.extensions(at_hash, at_number),
+			&mut self.execution_extensions.extensions(
+				at_hash,
+				at_number,
+				None::<&sp_trie::recorder::Recorder<HashingFor<Block>>>,
+			),
 		)
 		.map_err(Into::into)
 	}

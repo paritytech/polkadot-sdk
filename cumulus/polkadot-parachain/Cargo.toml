@@ -81,7 +81,6 @@ xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
 
 # Cumulus
 cumulus-client-cli = { path = "../client/cli" }
-cumulus-primitives-reclaim = { path = "../primitives/pov-reclaim" }
 cumulus-client-collator = { path = "../client/collator" }
 cumulus-client-consensus-aura = { path = "../client/consensus/aura" }
 cumulus-client-consensus-relay-chain = { path = "../client/consensus/relay-chain" }
@@ -90,6 +89,7 @@ cumulus-client-consensus-proposer = { path = "../client/consensus/proposer" }
 cumulus-client-service = { path = "../client/service" }
 cumulus-primitives-core = { path = "../primitives/core" }
 cumulus-primitives-parachain-inherent = { path = "../primitives/parachain-inherent" }
+cumulus-primitives-reclaim = { path = "../primitives/pov-reclaim" }
 cumulus-relay-chain-interface = { path = "../client/relay-chain-interface" }
 color-print = "0.3.4"
 

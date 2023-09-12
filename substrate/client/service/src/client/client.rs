@@ -867,10 +867,6 @@ where
 
 				if self.config.enable_import_proof_recording {
 					runtime_api.record_proof();
-					if let Some(recorder) = runtime_api.proof_recorder() {
-						runtime_api
-							.register_extension(sp_proof_size_ext::ProofSizeExt::new(recorder));
-					};
 				}
 
 				runtime_api.execute_block(
@@ -1733,11 +1729,16 @@ where
 	fn initialize_extensions(
 		&self,
 		at: Block::Hash,
+		recorder: Option<&sp_trie::recorder::Recorder<HashingFor<Block>>>,
 		extensions: &mut sp_externalities::Extensions,
 	) -> Result<(), sp_api::ApiError> {
 		let block_number = self.expect_block_number_from_id(&BlockId::Hash(at))?;
 
-		extensions.merge(self.executor.execution_extensions().extensions(at, block_number));
+		extensions.merge(self.executor.execution_extensions().extensions(
+			at,
+			block_number,
+			recorder,
+		));
 
 		Ok(())
 	}

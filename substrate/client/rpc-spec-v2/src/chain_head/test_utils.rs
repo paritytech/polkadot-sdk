@@ -29,7 +29,7 @@ use sp_blockchain::{BlockStatus, CachedHeaderMetadata, HeaderBackend, HeaderMeta
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
 	generic::SignedBlock,
-	traits::{Block as BlockT, Header as HeaderT},
+	traits::{Block as BlockT, HashingFor, Header as HeaderT},
 	Justifications,
 };
 use std::sync::Arc;
@@ -218,9 +218,10 @@ impl<Block: BlockT, Client: CallApiAt<Block>> CallApiAt<Block> for ChainHeadMock
 	fn initialize_extensions(
 		&self,
 		at: <Block as BlockT>::Hash,
+		recorder: Option<&sp_trie::recorder::Recorder<HashingFor<Block>>>,
 		extensions: &mut sp_api::Extensions,
 	) -> Result<(), sp_api::ApiError> {
-		self.client.initialize_extensions(at, extensions)
+		self.client.initialize_extensions(at, recorder, extensions)
 	}
 }
 
