@@ -317,21 +317,40 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 	}
 }
 
+/// Create a description of the remote treasury `location` if possible. No two locations should have
+/// the same descriptor.
+pub struct DescribeTreasuryVoice;
+
+impl DescribeLocation for DescribeTreasuryVoice {
+	fn describe_location(location: &MultiLocation) -> Option<Vec<u8>> {
+		Some(match location {
+			// Used on the relay chain for sending paras that use 32 byte accounts
+			MultiLocation {
+				parents: 1,
+				interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
+			} => (b"ParentChain", "Treasury").encode(),
+			// No other conversions provided
+			_ => return None,
+		})
+	}
+}
+
+pub type ForeignChainAliasTreasuryAccount<AccountId> =
+	HashedDescription<AccountId, DescribeTreasuryVoice>;
+
 /// Extracts the `AccountId32` from the passed Treasury plurality if the network matches.
-pub struct TreasuryVoiceConvertsVia<Network, AccountId, TreasuryAccount>(
-	PhantomData<(Network, AccountId, TreasuryAccount)>,
+pub struct LocalTreasuryVoiceConvertsVia<TreasuryAccount, AccountId>(
+	PhantomData<(TreasuryAccount, AccountId)>,
 );
-impl<
-		Network: Get<Option<NetworkId>>,
-		AccountId: From<[u8; 32]> + Into<[u8; 32]> + Clone,
-		TreasuryAccount: Get<AccountId>,
-	> ConvertLocation<AccountId> for TreasuryVoiceConvertsVia<Network, AccountId, TreasuryAccount>
+impl<TreasuryAccount: Get<AccountId>, AccountId: From<[u8; 32]> + Into<[u8; 32]> + Clone>
+	ConvertLocation<AccountId> for LocalTreasuryVoiceConvertsVia<TreasuryAccount, AccountId>
 {
 	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
 		let id: [u8; 32] = match *location {
-			MultiLocation { parents: 0, interior: X1(Plurality { id: BodyId::Treasury, .. }) } |
-			MultiLocation { parents: 1, interior: X1(Plurality { id: BodyId::Treasury, .. }) } =>
-				TreasuryAccount::get().into(),
+			MultiLocation {
+				parents: 0,
+				interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
+			} => TreasuryAccount::get().into(),
 			_ => return None,
 		};
 		Some(id.into())
@@ -455,6 +474,9 @@ mod tests {
 
 	pub type ForeignChainAliasAccount<AccountId> =
 		HashedDescription<AccountId, LegacyDescribeForeignChainAccount>;
+
+	pub type ForeignChainAliasTreasuryAccount<AccountId> =
+		HashedDescription<AccountId, DescribeTreasuryVoice>;
 
 	use frame_support::parameter_types;
 	use xcm::latest::Junction;
@@ -945,5 +967,23 @@ mod tests {
 			interior: X1(AccountKey20 { network: None, key: [0u8; 20] }),
 		};
 		assert!(ForeignChainAliasAccount::<[u8; 32]>::convert_location(&mul).is_none());
+	}
+
+	#[test]
+	fn remote_account_convert_on_para_sending_relay_treasury() {
+		let mul = MultiLocation {
+			parents: 1,
+			interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
+		};
+		let actual_description =
+			ForeignChainAliasTreasuryAccount::<[u8; 32]>::convert_location(&mul).unwrap();
+
+		assert_eq!(
+			[
+				128, 166, 237, 68, 141, 208, 22, 171, 109, 209, 245, 209, 146, 93, 164, 90, 13, 49,
+				146, 204, 252, 157, 96, 95, 93, 150, 206, 140, 98, 193, 120, 176
+			],
+			actual_description
+		);
 	}
 }

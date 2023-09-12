@@ -2369,7 +2369,7 @@ sp_api::impl_runtime_apis! {
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = XcmConfig;
-				type AccountIdConverter = SovereignAccountOf<TreasuryAccount>;
+				type AccountIdConverter = SovereignAccountOf;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
 					Ok(Statemine::get())
 				}

@@ -39,9 +39,9 @@ use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
 	ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	CurrencyAdapter as XcmCurrencyAdapter, IsChildSystemParachain, IsConcrete, MintLocation,
-	OriginToPluralityVoice, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, TreasuryVoiceConvertsVia,
+	CurrencyAdapter as XcmCurrencyAdapter, IsChildSystemParachain, IsConcrete,
+	LocalTreasuryVoiceConvertsVia, MintLocation, OriginToPluralityVoice, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
 	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::traits::WithOriginFilter;
@@ -67,13 +67,13 @@ parameter_types! {
 
 /// The canonical means of converting a `MultiLocation` into an `AccountId`, used when we want to
 /// determine the sovereign account controlled by a location.
-pub type SovereignAccountOf<TreasuryAccount> = (
+pub type SovereignAccountOf = (
 	// We can convert a child parachain using the standard `AccountId` conversion.
 	ChildParachainConvertsVia<ParaId, AccountId>,
 	// We can directly alias an `AccountId32` into a local account.
 	AccountId32Aliases<ThisNetwork, AccountId>,
 	// We can directly alias a Treasury voice into a local treasury account.
-	TreasuryVoiceConvertsVia<ThisNetwork, AccountId, TreasuryAccount>,
+	LocalTreasuryVoiceConvertsVia<TreasuryAccount, AccountId>,
 );
 
 /// Our asset transactor. This is what allows us to interest with the runtime facilities from the
@@ -86,7 +86,7 @@ pub type LocalAssetTransactor = XcmCurrencyAdapter<
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<TokenLocation>,
 	// We can convert the MultiLocations with our converter above:
-	SovereignAccountOf<TreasuryAccount>,
+	SovereignAccountOf,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
 	// We track our teleports in/out to keep total issuance correct.
@@ -96,7 +96,7 @@ pub type LocalAssetTransactor = XcmCurrencyAdapter<
 /// The means that we convert the XCM message origin location into a local dispatch origin.
 type LocalOriginConverter = (
 	// A `Signed` origin of the sovereign account that the original location controls.
-	SovereignSignedViaLocation<SovereignAccountOf<TreasuryAccount>, RuntimeOrigin>,
+	SovereignSignedViaLocation<SovereignAccountOf, RuntimeOrigin>,
 	// A child parachain, natively expressed, has the `Parachain` origin.
 	ChildParachainAsNative<parachains_origin::Origin, RuntimeOrigin>,
 	// The AccountId32 location type can be expressed natively as a `Signed` origin.
@@ -425,7 +425,7 @@ impl pallet_xcm::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyMatcher = ();
 	type TrustedLockers = ();
-	type SovereignAccountOf = SovereignAccountOf<TreasuryAccount>;
+	type SovereignAccountOf = SovereignAccountOf;
 	type MaxLockers = ConstU32<8>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
