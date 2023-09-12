@@ -41,7 +41,7 @@ use polkadot_primitives::{
 	GroupIndex, Hash, HashT, HeadData, Id as ParaId,
 };
 
-use crate::LOG_TARGET;
+use crate::{scraping::Inclusions, LOG_TARGET};
 
 use super::ChainScraper;
 
@@ -419,8 +419,8 @@ fn scraper_requests_candidates_of_non_finalized_ancestors() {
 			&mut virtual_overseer,
 			&chain,
 			finalized_block_number,
-			BLOCKS_TO_SKIP -
-				(finalized_block_number - DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION) as usize, /* Expect the provider not to go past finalized block. */
+			BLOCKS_TO_SKIP
+				- (finalized_block_number - DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION) as usize, /* Expect the provider not to go past finalized block. */
 			get_backed_and_included_candidate_events,
 		);
 		join(process_active_leaves_update(ctx.sender(), &mut ordering, next_update), overseer_fut)
@@ -524,8 +524,8 @@ fn scraper_handles_backed_but_not_included_candidate() {
 		// Bump the finalized block outside `BACKED_CANDIDATE_LIFETIME_AFTER_FINALIZATION`.
 		// The candidate should be removed.
 		assert!(
-			finalized_block_number <
-				TEST_TARGET_BLOCK_NUMBER + DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION
+			finalized_block_number
+				< TEST_TARGET_BLOCK_NUMBER + DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION
 		);
 		finalized_block_number +=
 			TEST_TARGET_BLOCK_NUMBER + DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION;
@@ -575,8 +575,8 @@ fn scraper_handles_the_same_candidate_incuded_in_two_different_block_heights() {
 		// Finalize blocks to enforce pruning of scraped events.
 		// The magic candidate was added twice, so it shouldn't be removed if we finalize two more
 		// blocks.
-		finalized_block_number = test_targets.first().expect("there are two block nums") +
-			DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION;
+		finalized_block_number = test_targets.first().expect("there are two block nums")
+			+ DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION;
 		process_finalized_block(&mut scraper, &finalized_block_number);
 
 		let magic_candidate = make_candidate_receipt(get_magic_candidate_hash());
@@ -661,4 +661,251 @@ fn inclusions_per_candidate_properly_adds_and_prunes() {
 		// Now both inclusions have exceeded their lifetimes after finalization and should be purged
 		assert!(scraper.get_blocks_including_candidate(&candidate.hash()).len() == 0);
 	});
+}
+
+// ----- Inclusions tests -----
+
+#[test]
+fn inclusions_initialization() {
+	let inclusions = Inclusions::new();
+
+	assert!(inclusions.inclusions_inner.is_empty(), "Expected inclusions_inner to be empty");
+	assert!(
+		inclusions.candidates_by_block_number.is_empty(),
+		"Expected candidates_by_block_number to be empty"
+	);
+}
+#[test]
+fn inclusions_insertion() {
+	let mut inclusions = Inclusions::new();
+	let candidate_receipt = make_candidate_receipt(get_magic_candidate_hash());
+	let candidate_hash = candidate_receipt.hash();
+	let block_number = 0;
+	let block_hash = get_block_number_hash(block_number);
+
+	inclusions.insert(candidate_hash.clone(), block_number.clone(), block_hash.clone());
+
+	// Check inclusions_inner
+	assert!(
+		inclusions.inclusions_inner.contains_key(&candidate_hash),
+		"Expected candidate_hash to be present in inclusions_inner"
+	);
+	let inner_map = inclusions.inclusions_inner.get(&candidate_hash).unwrap();
+	assert!(
+		inner_map.contains_key(&block_number),
+		"Expected block_number to be present for the candidate_hash in inclusions_inner"
+	);
+	let hash_set = inner_map.get(&block_number).unwrap();
+	assert!(
+		hash_set.contains(&block_hash),
+		"Expected block_hash to be present for the block_number in inclusions_inner"
+	);
+
+	// Check candidates_by_block_number
+	assert!(
+		inclusions.candidates_by_block_number.contains_key(&block_number),
+		"Expected block_number to be present in candidates_by_block_number"
+	);
+	let candidate_set = inclusions.candidates_by_block_number.get(&block_number).unwrap();
+	assert!(
+		candidate_set.contains(&candidate_hash),
+		"Expected candidate_hash to be present for the block_number in candidates_by_block_number"
+	);
+}
+
+#[test]
+fn inclusions_get() {
+	let mut inclusions = Inclusions::new();
+	let candidate_receipt = make_candidate_receipt(get_magic_candidate_hash());
+	let candidate_hash = candidate_receipt.hash();
+
+	// Insert the candidate with multiple block numbers and block hashes
+	let block_numbers = [0, 1, 2];
+	let block_hashes: Vec<_> =
+		block_numbers.iter().map(|&num| get_block_number_hash(num)).collect();
+
+	for (&block_number, &block_hash) in block_numbers.iter().zip(&block_hashes) {
+		inclusions.insert(candidate_hash.clone(), block_number, block_hash);
+	}
+
+	// Call the get method for that candidate
+	let result = inclusions.get(&candidate_hash);
+
+	// Verify that the method returns the correct list of block numbers and hashes associated with that candidate
+	assert_eq!(
+		result.len(),
+		block_numbers.len(),
+		"Expected the same number of results as inserted block numbers"
+	);
+
+	for (&block_number, &block_hash) in block_numbers.iter().zip(&block_hashes) {
+		assert!(
+			result.contains(&(block_number, block_hash)),
+			"Expected to find ({}, {}) in the result",
+			block_number,
+			block_hash
+		);
+	}
+}
+
+#[test]
+fn inclusions_iterative_removal() {
+	let mut inclusions = Inclusions::new();
+
+	// Insert 3 candidates in the specified blocks
+	let candidate1 = make_candidate_receipt(BlakeTwo256::hash(&"c1".encode())).hash();
+	let candidate2 = make_candidate_receipt(BlakeTwo256::hash(&"c2".encode())).hash();
+	let candidate3 = make_candidate_receipt(BlakeTwo256::hash(&"c3".encode())).hash();
+
+	inclusions.insert(candidate1.clone(), 0, get_block_number_hash(0));
+	inclusions.insert(candidate2.clone(), 1, get_block_number_hash(1));
+	inclusions.insert(candidate3.clone(), 0, get_block_number_hash(0));
+	inclusions.insert(candidate3.clone(), 2, get_block_number_hash(2));
+
+	// Remove a height that has no blocks and observe no changes
+	inclusions.remove_up_to_height(&0);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(inclusions.contains(&candidate2), "Expected candidate2 to remain");
+	assert!(inclusions.contains(&candidate3), "Expected candidate3 to remain");
+
+	// Remove block 0 and check
+	inclusions.remove_up_to_height(&1);
+	assert!(!inclusions.contains(&candidate1), "Expected candidate1 to be removed");
+	assert!(inclusions.contains(&candidate2), "Expected candidate2 to remain");
+	assert!(inclusions.contains(&candidate3), "Expected candidate3 to remain");
+
+	// Remove block 1 and check
+	inclusions.remove_up_to_height(&2);
+	assert!(!inclusions.contains(&candidate1), "Expected candidate1 to be removed");
+	assert!(!inclusions.contains(&candidate2), "Expected candidate2 to be removed");
+	assert!(inclusions.contains(&candidate3), "Expected candidate3 to remain");
+
+	// Remove block 2 and check
+	inclusions.remove_up_to_height(&3);
+	assert!(!inclusions.contains(&candidate1), "Expected candidate1 to be removed");
+	assert!(!inclusions.contains(&candidate2), "Expected candidate2 to be removed");
+	assert!(!inclusions.contains(&candidate3), "Expected candidate3 to be removed");
+}
+
+#[test]
+fn inclusions_duplicate_insertion_same_height_and_block() {
+	let mut inclusions = Inclusions::new();
+
+	// Insert a candidate
+	let candidate1 = make_candidate_receipt(get_magic_candidate_hash()).hash();
+	let block_number = 0;
+	let block_hash = get_block_number_hash(block_number);
+
+	// Insert the candidate once
+	inclusions.insert(candidate1.clone(), block_number, block_hash.clone());
+
+	// Insert the same candidate again at the same height and block
+	inclusions.insert(candidate1.clone(), block_number, block_hash.clone());
+
+	// Check inclusions_inner
+	assert!(
+		inclusions.inclusions_inner.contains_key(&candidate1),
+		"Expected candidate1 to be present in inclusions_inner"
+	);
+	let inner_map = inclusions.inclusions_inner.get(&candidate1).unwrap();
+	assert!(
+		inner_map.contains_key(&block_number),
+		"Expected block_number to be present for the candidate1 in inclusions_inner"
+	);
+	let hash_set = inner_map.get(&block_number).unwrap();
+	assert_eq!(
+		hash_set.len(),
+		1,
+		"Expected only one block_hash for the block_number in inclusions_inner"
+	);
+	assert!(
+		hash_set.contains(&block_hash),
+		"Expected block_hash to be present for the block_number in inclusions_inner"
+	);
+
+	// Check candidates_by_block_number
+	assert!(
+		inclusions.candidates_by_block_number.contains_key(&block_number),
+		"Expected block_number to be present in candidates_by_block_number"
+	);
+	let candidate_set = inclusions.candidates_by_block_number.get(&block_number).unwrap();
+	assert_eq!(
+		candidate_set.len(),
+		1,
+		"Expected only one candidate for the block_number in candidates_by_block_number"
+	);
+	assert!(
+		candidate_set.contains(&candidate1),
+		"Expected candidate1 to be present for the block_number in candidates_by_block_number"
+	);
+}
+
+#[test]
+fn test_duplicate_insertion_same_height_different_blocks() {
+	let mut inclusions = Inclusions::new();
+
+	// Insert a candidate
+	let candidate1 = make_candidate_receipt(get_magic_candidate_hash()).hash();
+	let block_number = 0;
+	let block_hash1 = BlakeTwo256::hash(&"b1".encode());
+	let block_hash2 = BlakeTwo256::hash(&"b2".encode()); // Different block hash for the same height
+	inclusions.insert(candidate1.clone(), block_number, block_hash1.clone());
+	inclusions.insert(candidate1.clone(), block_number, block_hash2.clone());
+
+	// Check inclusions_inner
+	assert!(
+		inclusions.inclusions_inner.contains_key(&candidate1),
+		"Expected candidate1 to be present in inclusions_inner"
+	);
+	let inner_map = inclusions.inclusions_inner.get(&candidate1).unwrap();
+	assert!(
+		inner_map.contains_key(&block_number),
+		"Expected block_number to be present for the candidate1 in inclusions_inner"
+	);
+	let hash_set = inner_map.get(&block_number).unwrap();
+	assert_eq!(
+		hash_set.len(),
+		2,
+		"Expected two block_hashes for the block_number in inclusions_inner"
+	);
+	assert!(
+		hash_set.contains(&block_hash1),
+		"Expected block_hash1 to be present for the block_number in inclusions_inner"
+	);
+	assert!(
+		hash_set.contains(&block_hash2),
+		"Expected block_hash2 to be present for the block_number in inclusions_inner"
+	);
+
+	// Check candidates_by_block_number
+	assert!(
+		inclusions.candidates_by_block_number.contains_key(&block_number),
+		"Expected block_number to be present in candidates_by_block_number"
+	);
+	let candidate_set = inclusions.candidates_by_block_number.get(&block_number).unwrap();
+	assert_eq!(
+		candidate_set.len(),
+		1,
+		"Expected only one candidate for the block_number in candidates_by_block_number"
+	);
+	assert!(
+		candidate_set.contains(&candidate1),
+		"Expected candidate1 to be present for the block_number in candidates_by_block_number"
+	);
+}
+
+#[test]
+fn inclusions_remove_with_empty_maps() {
+	let mut inclusions = Inclusions::new();
+	let height = 5;
+
+	// Ensure both maps are empty before the operation
+	assert!(inclusions.candidates_by_block_number.is_empty());
+	assert!(inclusions.inclusions_inner.is_empty());
+
+	inclusions.remove_up_to_height(&height);
+
+	// Ensure both maps remain empty after the operation
+	assert!(inclusions.candidates_by_block_number.is_empty());
+	assert!(inclusions.inclusions_inner.is_empty());
 }
