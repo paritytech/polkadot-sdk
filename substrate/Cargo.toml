@@ -26,4 +26,3 @@ sc-consensus-pow = { path = "client/consensus/pow" }
 
 sp-runtime = { path = "primitives/runtime" }
 frame-support = { path = "frame/support" }
-
