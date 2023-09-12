@@ -69,6 +69,8 @@ const BENEFIT_VALID_MESSAGE: Rep = Rep::BenefitMinor("Peer sent a valid message"
 const BENEFIT_VALID_MESSAGE_FIRST: Rep =
 	Rep::BenefitMinorFirst("Valid message with new information");
 
+const MAX_ASSIGNMENT_IMPORT_BATCH_SIZE: usize = 8;
+const MAX_ASSIGNMENT_IMPORT_BATCH_WAIT: Duration = Duration::from_millis(50);
 /// The Approval Distribution subsystem.
 pub struct ApprovalDistribution {
 	metrics: Metrics,
@@ -208,6 +210,12 @@ struct State {
 
 	/// Aggregated reputation change
 	reputation: ReputationAggregator,
+
+	/// Assignments currently pending checking.
+	currently_checking_assignments: HashSet<MessageSubject>,
+
+	/// Batch checks buffer.
+	batched_assignment_checks: Vec<(IndirectAssignmentCert, CandidateIndex, PeerId)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -769,6 +777,304 @@ impl State {
 		self.enable_aggression(ctx, Resend::No, metrics).await;
 	}
 
+	// Adds an assignment to the batch queue. If queue size reached threshold, the batch is sent
+	// to approval distribution for check/import.
+	async fn queue_assignment_check<Context, R>(
+		&mut self,
+		ctx: &mut Context,
+		metrics: &Metrics,
+		peer: PeerId,
+		assignment: IndirectAssignmentCert,
+		claimed_candidate_index: CandidateIndex,
+		rng: &mut R,
+	) where
+		R: CryptoRng + Rng,
+	{
+		let block_hash = assignment.block_hash;
+		let validator_index = assignment.validator;
+
+		// compute metadata on the assignment.
+		let message_subject = MessageSubject(block_hash, claimed_candidate_index, validator_index);
+
+		self.currently_checking_assignments.insert(message_subject);
+		self.batched_assignment_checks.push((assignment, claimed_candidate_index, peer));
+
+		if self.currently_checking_assignments.len() >= MAX_ASSIGNMENT_IMPORT_BATCH_SIZE {
+			// Send the batch now.
+			let current_batch = std::mem::take(&mut self.batched_assignment_checks);
+			self.check_assignment_batch(
+				ctx,
+				metrics,
+				current_batch,
+				rng,
+			).await;
+		}
+	}
+
+	async fn check_assignment_batch<Context, R>(
+		&mut self,
+		ctx: &mut Context,
+		metrics: &Metrics,
+		assignments: Vec<(IndirectAssignmentCert, CandidateIndex, PeerId)>,
+		rng: &mut R,
+	) where
+		R: CryptoRng + Rng,
+	{
+		let batched_assignments = assignments.iter().cloned().map(|(cert, candidate_index, _)| (cert, candidate_index)).collect::<Vec<_>>();
+		let (tx, rx) = oneshot::channel();
+		ctx.send_message(ApprovalVotingMessage::CheckAndImportAssignments(batched_assignments, tx))
+			.await;
+
+		let timer = metrics.time_awaiting_approval_voting();
+		let results = match rx.await {
+			Ok(results) => results,
+			Err(_) => {
+				gum::debug!(target: LOG_TARGET, "The approval voting subsystem is down");
+				return
+			},
+		};
+		drop(timer);
+
+		gum::trace!(
+			target: LOG_TARGET,
+			count = ?assignments.len(),
+			?results,
+			"Checked assignments",
+		);
+
+		for (result, (assignment, claimed_candidate_index, peer_id)) in
+			results.into_iter().zip(assignments.iter())
+		{
+			let block_hash = assignment.block_hash;
+			let validator_index = assignment.validator;
+
+			// compute metadata on the assignment.
+			let message_subject =
+				MessageSubject(block_hash, *claimed_candidate_index, validator_index);
+			let message_kind = MessageKind::Assignment;
+
+			let entry = self
+				.blocks
+				.get_mut(&block_hash)
+				.expect("Checked it is some before calling `check_assignment_batch`");
+
+			match result {
+				AssignmentCheckResult::Accepted => {
+					modify_reputation(
+						&mut self.reputation,
+						ctx.sender(),
+						*peer_id,
+						BENEFIT_VALID_MESSAGE_FIRST,
+					)
+					.await;
+					entry.knowledge.known_messages.insert(message_subject.clone(), message_kind);
+					if let Some(peer_knowledge) = entry.known_by.get_mut(&peer_id) {
+						peer_knowledge.received.insert(message_subject.clone(), message_kind);
+					}
+				},
+				AssignmentCheckResult::AcceptedDuplicate => {
+					// "duplicate" assignments aren't necessarily equal.
+					// There is more than one way each validator can be assigned to each core.
+					// cf. https://github.com/paritytech/polkadot/pull/2160#discussion_r557628699
+					if let Some(peer_knowledge) = entry.known_by.get_mut(&peer_id) {
+						peer_knowledge.received.insert(message_subject.clone(), message_kind);
+					}
+					gum::debug!(
+						target: LOG_TARGET,
+						hash = ?block_hash,
+						?peer_id,
+						"Got an `AcceptedDuplicate` assignment",
+					);
+					continue
+				},
+				AssignmentCheckResult::TooFarInFuture => {
+					gum::debug!(
+						target: LOG_TARGET,
+						hash = ?block_hash,
+						?peer_id,
+						"Got an assignment too far in the future",
+					);
+					modify_reputation(
+						&mut self.reputation,
+						ctx.sender(),
+						*peer_id,
+						COST_ASSIGNMENT_TOO_FAR_IN_THE_FUTURE,
+					)
+					.await;
+					continue
+				},
+				AssignmentCheckResult::Bad(error) => {
+					gum::info!(
+						target: LOG_TARGET,
+						hash = ?block_hash,
+						?peer_id,
+						%error,
+						"Got a bad assignment from peer",
+					);
+					modify_reputation(
+						&mut self.reputation,
+						ctx.sender(),
+						*peer_id,
+						COST_INVALID_MESSAGE,
+					)
+					.await;
+					continue
+				},
+				_ => { /* TODO: log errors */ },
+			}
+
+			self.propagate_assignment(
+				ctx,
+				metrics,
+				MessageSource::Peer(*peer_id),
+				assignment.clone(),
+				message_subject,
+				*claimed_candidate_index,
+				rng,
+			).await;
+		}
+	}
+
+	// Propagate an assignment according to topology.
+	// Invariant: to our knowledge, none of the peers except for the `source` know about the
+	// assignment.
+	async fn propagate_assignment<Context, R>(
+		&mut self,
+		ctx: &mut Context,
+		metrics: &Metrics,
+		source: MessageSource,
+		assignment: IndirectAssignmentCert,
+		metadata: MessageSubject,
+		claimed_candidate_index: CandidateIndex,
+		rng: &mut R,
+	) where
+		R: CryptoRng + Rng,
+	{
+		metrics.on_assignment_imported();
+
+		let entry = self
+			.blocks
+			.get_mut(&assignment.block_hash)
+			.expect("Checked it is some before calling `check_assignment_batch`");
+			
+		let topology = self.topologies.get_topology(entry.session);
+		let local = source == MessageSource::Local;
+		let validator_index = assignment.validator;
+		let block_hash = assignment.block_hash;
+
+		let required_routing = topology.map_or(RequiredRouting::PendingTopology, |t| {
+			t.local_grid_neighbors().required_routing_by_index(validator_index, local)
+		});
+
+		let message_state = match entry.candidates.get_mut(claimed_candidate_index as usize) {
+			Some(candidate_entry) => {
+				// set the approval state for validator_index to Assigned
+				// unless the approval state is set already
+				candidate_entry.messages.entry(validator_index).or_insert_with(|| MessageState {
+					required_routing,
+					local,
+					random_routing: Default::default(),
+					approval_state: ApprovalState::Assigned(assignment.cert.clone()),
+				})
+			},
+			None => {
+				gum::warn!(
+					target: LOG_TARGET,
+					hash = ?block_hash,
+					?claimed_candidate_index,
+					"Expected a candidate entry on `propagate_assignment`",
+				);
+
+				return
+			},
+		};
+
+		// Dispatch the message to all peers in the routing set which
+		// know the block.
+		//
+		// If the topology isn't known yet (race with networking subsystems)
+		// then messages will be sent when we get it.
+
+		let assignments = vec![(assignment, claimed_candidate_index)];
+		let n_peers_total = self.peer_data.len();
+		let source_peer = source.peer_id();
+
+		let mut peer_filter = move |peer| {
+			if Some(peer) == source_peer.as_ref() {
+				return false
+			}
+
+			if let Some(true) = topology
+				.as_ref()
+				.map(|t| t.local_grid_neighbors().route_to_peer(required_routing, peer))
+			{
+				return true
+			}
+
+			// Note: at this point, we haven't received the message from any peers
+			// other than the source peer, and we just got it, so we haven't sent it
+			// to any peers either.
+			let route_random = message_state.random_routing.sample(n_peers_total, rng);
+
+			if route_random {
+				message_state.random_routing.inc_sent();
+			}
+
+			route_random
+		};
+
+		let (v1_peers, vstaging_peers) = {
+			let peer_data = &self.peer_data;
+			let peers = entry
+				.known_by
+				.keys()
+				.filter_map(|p| peer_data.get_key_value(p))
+				.filter(|(p, _)| peer_filter(p))
+				.map(|(p, peer_data)| (*p, peer_data.version))
+				.collect::<Vec<_>>();
+
+			// Add the metadata of the assignment to the knowledge of each peer.
+			for (peer, _) in peers.iter() {
+				// we already filtered peers above, so this should always be Some
+				if let Some(peer_knowledge) = entry.known_by.get_mut(peer) {
+					peer_knowledge.sent.insert(metadata.clone(), MessageKind::Assignment);
+				}
+			}
+
+			if !peers.is_empty() {
+				gum::trace!(
+					target: LOG_TARGET,
+					?block_hash,
+					?claimed_candidate_index,
+					local = source.peer_id().is_none(),
+					num_peers = peers.len(),
+					"Sending an assignment to peers",
+				);
+			}
+
+			let v1_peers = filter_peers_by_version(&peers, ValidationVersion::V1);
+			let vstaging_peers = filter_peers_by_version(&peers, ValidationVersion::VStaging);
+
+			(v1_peers, vstaging_peers)
+		};
+
+		if !v1_peers.is_empty() {
+			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+				v1_peers,
+				versioned_assignments_packet(ValidationVersion::V1, assignments.clone()),
+			))
+			.await;
+		}
+
+		if !vstaging_peers.is_empty() {
+			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+				vstaging_peers,
+				versioned_assignments_packet(ValidationVersion::VStaging, assignments.clone()),
+			))
+			.await;
+		}
+	}
+
 	async fn import_and_circulate_assignment<Context, R>(
 		&mut self,
 		ctx: &mut Context,
@@ -885,95 +1191,14 @@ impl State {
 				return
 			}
 
-			let (tx, rx) = oneshot::channel();
-
-			ctx.send_message(ApprovalVotingMessage::CheckAndImportAssignment(
-				assignment.clone(),
+			self.queue_assignment_check(
+				ctx,
+				metrics,
+				peer_id,
+				assignment,
 				claimed_candidate_index,
-				tx,
-			))
-			.await;
-
-			let timer = metrics.time_awaiting_approval_voting();
-			let result = match rx.await {
-				Ok(result) => result,
-				Err(_) => {
-					gum::debug!(target: LOG_TARGET, "The approval voting subsystem is down");
-					return
-				},
-			};
-			drop(timer);
-
-			gum::trace!(
-				target: LOG_TARGET,
-				?source,
-				?message_subject,
-				?result,
-				"Checked assignment",
-			);
-			match result {
-				AssignmentCheckResult::Accepted => {
-					modify_reputation(
-						&mut self.reputation,
-						ctx.sender(),
-						peer_id,
-						BENEFIT_VALID_MESSAGE_FIRST,
-					)
-					.await;
-					entry.knowledge.known_messages.insert(message_subject.clone(), message_kind);
-					if let Some(peer_knowledge) = entry.known_by.get_mut(&peer_id) {
-						peer_knowledge.received.insert(message_subject.clone(), message_kind);
-					}
-				},
-				AssignmentCheckResult::AcceptedDuplicate => {
-					// "duplicate" assignments aren't necessarily equal.
-					// There is more than one way each validator can be assigned to each core.
-					// cf. https://github.com/paritytech/polkadot/pull/2160#discussion_r557628699
-					if let Some(peer_knowledge) = entry.known_by.get_mut(&peer_id) {
-						peer_knowledge.received.insert(message_subject.clone(), message_kind);
-					}
-					gum::debug!(
-						target: LOG_TARGET,
-						hash = ?block_hash,
-						?peer_id,
-						"Got an `AcceptedDuplicate` assignment",
-					);
-					return
-				},
-				AssignmentCheckResult::TooFarInFuture => {
-					gum::debug!(
-						target: LOG_TARGET,
-						hash = ?block_hash,
-						?peer_id,
-						"Got an assignment too far in the future",
-					);
-					modify_reputation(
-						&mut self.reputation,
-						ctx.sender(),
-						peer_id,
-						COST_ASSIGNMENT_TOO_FAR_IN_THE_FUTURE,
-					)
-					.await;
-					return
-				},
-				AssignmentCheckResult::Bad(error) => {
-					gum::info!(
-						target: LOG_TARGET,
-						hash = ?block_hash,
-						?peer_id,
-						%error,
-						"Got a bad assignment from peer",
-					);
-					modify_reputation(
-						&mut self.reputation,
-						ctx.sender(),
-						peer_id,
-						COST_INVALID_MESSAGE,
-					)
-					.await;
-					return
-				},
-			}
+				rng,
+			).await;
 		} else {
 			if !entry.knowledge.insert(message_subject.clone(), message_kind) {
 				// if we already imported an assignment, there is no need to distribute it again
@@ -989,126 +1214,16 @@ impl State {
 					?message_subject,
 					"Importing locally a new assignment",
 				);
+				self.propagate_assignment(
+					ctx,
+					metrics,
+					source,
+					assignment,
+					message_subject,
+					claimed_candidate_index,
+					rng,
+				).await;
 			}
-		}
-
-		// Invariant: to our knowledge, none of the peers except for the `source` know about the
-		// assignment.
-		metrics.on_assignment_imported();
-
-		let topology = self.topologies.get_topology(entry.session);
-		let local = source == MessageSource::Local;
-
-		let required_routing = topology.map_or(RequiredRouting::PendingTopology, |t| {
-			t.local_grid_neighbors().required_routing_by_index(validator_index, local)
-		});
-
-		let message_state = match entry.candidates.get_mut(claimed_candidate_index as usize) {
-			Some(candidate_entry) => {
-				// set the approval state for validator_index to Assigned
-				// unless the approval state is set already
-				candidate_entry.messages.entry(validator_index).or_insert_with(|| MessageState {
-					required_routing,
-					local,
-					random_routing: Default::default(),
-					approval_state: ApprovalState::Assigned(assignment.cert.clone()),
-				})
-			},
-			None => {
-				gum::warn!(
-					target: LOG_TARGET,
-					hash = ?block_hash,
-					?claimed_candidate_index,
-					"Expected a candidate entry on import_and_circulate_assignment",
-				);
-
-				return
-			},
-		};
-
-		// Dispatch the message to all peers in the routing set which
-		// know the block.
-		//
-		// If the topology isn't known yet (race with networking subsystems)
-		// then messages will be sent when we get it.
-
-		let assignments = vec![(assignment, claimed_candidate_index)];
-		let n_peers_total = self.peer_data.len();
-		let source_peer = source.peer_id();
-
-		let mut peer_filter = move |peer| {
-			if Some(peer) == source_peer.as_ref() {
-				return false
-			}
-
-			if let Some(true) = topology
-				.as_ref()
-				.map(|t| t.local_grid_neighbors().route_to_peer(required_routing, peer))
-			{
-				return true
-			}
-
-			// Note: at this point, we haven't received the message from any peers
-			// other than the source peer, and we just got it, so we haven't sent it
-			// to any peers either.
-			let route_random = message_state.random_routing.sample(n_peers_total, rng);
-
-			if route_random {
-				message_state.random_routing.inc_sent();
-			}
-
-			route_random
-		};
-
-		let (v1_peers, vstaging_peers) = {
-			let peer_data = &self.peer_data;
-			let peers = entry
-				.known_by
-				.keys()
-				.filter_map(|p| peer_data.get_key_value(p))
-				.filter(|(p, _)| peer_filter(p))
-				.map(|(p, peer_data)| (*p, peer_data.version))
-				.collect::<Vec<_>>();
-
-			// Add the metadata of the assignment to the knowledge of each peer.
-			for (peer, _) in peers.iter() {
-				// we already filtered peers above, so this should always be Some
-				if let Some(peer_knowledge) = entry.known_by.get_mut(peer) {
-					peer_knowledge.sent.insert(message_subject.clone(), message_kind);
-				}
-			}
-
-			if !peers.is_empty() {
-				gum::trace!(
-					target: LOG_TARGET,
-					?block_hash,
-					?claimed_candidate_index,
-					local = source.peer_id().is_none(),
-					num_peers = peers.len(),
-					"Sending an assignment to peers",
-				);
-			}
-
-			let v1_peers = filter_peers_by_version(&peers, ValidationVersion::V1);
-			let vstaging_peers = filter_peers_by_version(&peers, ValidationVersion::VStaging);
-
-			(v1_peers, vstaging_peers)
-		};
-
-		if !v1_peers.is_empty() {
-			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				v1_peers,
-				versioned_assignments_packet(ValidationVersion::V1, assignments.clone()),
-			))
-			.await;
-		}
-
-		if !vstaging_peers.is_empty() {
-			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				vstaging_peers,
-				versioned_assignments_packet(ValidationVersion::VStaging, assignments.clone()),
-			))
-			.await;
 		}
 	}
 
@@ -1905,8 +2020,14 @@ impl ApprovalDistribution {
 		let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
 		let mut reputation_delay = new_reputation_delay();
 
+		let mut assignment_batch_build_timeout =
+			futures_timer::Delay::new(MAX_ASSIGNMENT_IMPORT_BATCH_WAIT).fuse();
+
 		loop {
 			select! {
+				_ = assignment_batch_build_timeout => {
+
+				}
 				_ = reputation_delay => {
 					state.reputation.send(ctx.sender()).await;
 					reputation_delay = new_reputation_delay();
