@@ -357,7 +357,7 @@ parameter_types! {
 	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
 	// Fellows pluralistic body.
 	pub const FellowsBodyId: BodyId = BodyId::Technical;
-	// Treasuer pluralistic body.
+	// Treasurer pluralistic body.
 	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
 }
 
