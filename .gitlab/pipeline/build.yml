@@ -111,6 +111,8 @@ build-rustdoc:
             sed -i "s|</head>|$script_content</head>|" "$file"
         }
         export -f process_file
+        # xargs runs process_file in seperate shells without access to outer variables.
+        # to make script_content available inside process_file, export it as an env var here.
         export script_content
 
         # Modify .html files in parallel using xargs, otherwise it can take a long time.
