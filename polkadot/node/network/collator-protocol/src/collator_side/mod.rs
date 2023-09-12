@@ -1427,7 +1427,7 @@ async fn run_inner<Context>(
 						// The request it still alive, it should be kept in a waiting queue.
 					} else {
 						for authority_id in state.peer_ids.get(&peer_id).into_iter().flatten() {
-							// Timeout not hit, this peer is no longer interested in this relay parent.
+							// This peer has received the candidate. Not interested anymore.
 							state.validator_groups_buf.reset_validator_interest(candidate_hash, authority_id);
 						}
 						waiting.waiting_peers.remove(&(peer_id, candidate_hash));
