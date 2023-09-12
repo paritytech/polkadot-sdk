@@ -1285,6 +1285,9 @@ pub fn polkadot_testnet_genesis(
 	const STASH: u128 = 100 * DOT;
 
 	polkadot::RuntimeGenesisConfig {
+		sudo: polkadot::SudoConfig {
+			key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+		},
 		system: polkadot::SystemConfig { code: wasm_binary.to_vec(), ..Default::default() },
 		indices: polkadot::IndicesConfig { indices: vec![] },
 		balances: polkadot::BalancesConfig {

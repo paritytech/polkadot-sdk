@@ -102,6 +102,8 @@ xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
 
+pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false }
+
 [dev-dependencies]
 hex-literal = "0.4.1"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
@@ -171,6 +173,7 @@ std = [
 	"pallet-session/std",
 	"pallet-staking-runtime-api/std",
 	"pallet-staking/std",
+	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-tips/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",

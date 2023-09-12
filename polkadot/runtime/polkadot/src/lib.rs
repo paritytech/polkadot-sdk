@@ -1320,6 +1320,12 @@ impl frame_support::traits::OnRuntimeUpgrade for InitiateNominationPools {
 	}
 }
 
+impl pallet_sudo::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type WeightInfo = ();
+}
+
 construct_runtime! {
 	pub enum Runtime
 	{
@@ -1415,6 +1421,8 @@ construct_runtime! {
 
 		// Generalized message queue
 		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 100,
+
+		Sudo: pallet_sudo = 255,
 	}
 }
 
