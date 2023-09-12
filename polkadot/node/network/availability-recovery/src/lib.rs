@@ -424,7 +424,7 @@ async fn handle_recover<Context>(
 	let _span = span.child("session-info-ctx-received");
 	match session_info {
 		Some(session_info) => {
-			let mut skip_backing_group_if: Box<dyn Fn() -> bool + Send> = Box::new(|| false);
+			let mut prefer_backing_group = true;
 
 			if let RecoveryStrategyKind::BackersFirstIfSizeLower(small_pov_limit) =
 				recovery_strategy_kind
@@ -435,7 +435,7 @@ async fn handle_recover<Context>(
 				if let Ok(Some(chunk_size)) = chunk_size {
 					let pov_size_estimate =
 						chunk_size.saturating_mul(session_info.validators.len()) / 3;
-					let prefer_backing_group = pov_size_estimate < small_pov_limit;
+					prefer_backing_group = pov_size_estimate < small_pov_limit;
 
 					gum::trace!(
 						target: LOG_TARGET,
@@ -445,8 +445,6 @@ async fn handle_recover<Context>(
 						enabled = prefer_backing_group,
 						"Prefer fetch from backing group",
 					);
-
-					skip_backing_group_if = Box::new(move || !prefer_backing_group);
 				}
 			};
 
@@ -466,17 +464,15 @@ async fn handle_recover<Context>(
 			> = VecDeque::with_capacity(2);
 
 			if let Some(backing_validators) = backing_validators {
-				match recovery_strategy_kind {
-					RecoveryStrategyKind::BackersFirstAlways |
-					RecoveryStrategyKind::BackersFirstIfSizeLower(_) |
-					RecoveryStrategyKind::BypassAvailabilityStore =>
+				match (&recovery_strategy_kind, prefer_backing_group) {
+					(RecoveryStrategyKind::BackersFirstAlways, true) |
+					(RecoveryStrategyKind::BackersFirstIfSizeLower(_), true) |
+					(RecoveryStrategyKind::BypassAvailabilityStore, true) =>
 						recovery_strategies.push_back(Box::new(FetchFull::new(FetchFullParams {
-							group_name: "backers",
 							validators: backing_validators.to_vec(),
-							skip_if: skip_backing_group_if,
 							erasure_task_tx,
 						}))),
-					RecoveryStrategyKind::ChunksAlways => {},
+					_ => {},
 				};
 			}
 

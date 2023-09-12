@@ -78,7 +78,7 @@ pub struct RecoveryParams {
 	/// Discovery ids of `validators`.
 	pub validator_authority_keys: Vec<AuthorityDiscoveryId>,
 
-	/// Number of validators relevant to this `RecoveryTask`.
+	/// Number of validators.
 	pub n_validators: usize,
 
 	/// The number of chunks needed.
@@ -96,6 +96,7 @@ pub struct RecoveryParams {
 	/// Do not request data from availability-store. Useful for collators.
 	pub bypass_availability_store: bool,
 }
+
 /// Intermediate/common data that must be passed between `RecoveryStrategy`s belonging to the
 /// same `RecoveryTask`.
 pub struct State {
@@ -392,55 +393,55 @@ where
 
 		let _timer = self.params.metrics.time_full_recovery();
 
-		let res = loop {
-			if let Some(mut current_strategy) = self.strategies.pop_front() {
-				// Make sure we are not referencing futures from past RecoveryStrategy runs.
-				if self.state.requesting_chunks.total_len() != 0 {
-					self.state.requesting_chunks = FuturesUndead::new();
-				}
-
-				gum::info!(
-					target: LOG_TARGET,
-					candidate_hash = ?self.params.candidate_hash,
-					"Starting `{}` strategy",
-					current_strategy.display_name(),
-				);
-
-				let res =
-					current_strategy.run(&mut self.state, &mut self.sender, &self.params).await;
-
-				match res {
-					Err(RecoveryError::Unavailable) =>
-						if self.strategies.front().is_some() {
-							gum::warn!(
-								target: LOG_TARGET,
-								candidate_hash = ?self.params.candidate_hash,
-								"Recovery strategy `{}` did not conclude. Trying the next one.",
-								current_strategy.display_name(),
-							);
-							continue
-						},
-					Err(err) => break Err(err),
-					Ok(data) => break Ok(data),
-				}
-			} else {
-				// We have no other strategies to try.
-				gum::error!(
-					target: LOG_TARGET,
-					candidate_hash = ?self.params.candidate_hash,
-					"Recovery of available data failed.",
-				);
-				break Err(RecoveryError::Unavailable)
+		while let Some(mut current_strategy) = self.strategies.pop_front() {
+			// Make sure we are not referencing futures from past RecoveryStrategy runs.
+			if self.state.requesting_chunks.total_len() != 0 {
+				self.state.requesting_chunks = FuturesUndead::new();
 			}
-		};
 
-		match &res {
-			Ok(_) => self.params.metrics.on_recovery_succeeded(),
-			Err(RecoveryError::Invalid) => self.params.metrics.on_recovery_invalid(),
-			Err(_) => self.params.metrics.on_recovery_failed(),
+			gum::debug!(
+				target: LOG_TARGET,
+				candidate_hash = ?self.params.candidate_hash,
+				"Starting `{}` strategy",
+				current_strategy.display_name(),
+			);
+
+			let res = current_strategy.run(&mut self.state, &mut self.sender, &self.params).await;
+
+			match res {
+				Err(RecoveryError::Unavailable) =>
+					if self.strategies.front().is_some() {
+						gum::debug!(
+							target: LOG_TARGET,
+							candidate_hash = ?self.params.candidate_hash,
+							"Recovery strategy `{}` did not conclude. Trying the next one.",
+							current_strategy.display_name(),
+						);
+						continue
+					},
+				Err(err) => {
+					match &err {
+						RecoveryError::Invalid => self.params.metrics.on_recovery_invalid(),
+						_ => self.params.metrics.on_recovery_failed(),
+					}
+					return Err(err)
+				},
+				Ok(data) => {
+					self.params.metrics.on_recovery_succeeded();
+					return Ok(data)
+				},
+			}
 		}
 
-		res
+		// We have no other strategies to try.
+		gum::warn!(
+			target: LOG_TARGET,
+			candidate_hash = ?self.params.candidate_hash,
+			"Recovery of available data failed.",
+		);
+		self.params.metrics.on_recovery_failed();
+
+		Err(RecoveryError::Unavailable)
 	}
 }
 
@@ -451,13 +452,8 @@ pub struct FetchFull {
 }
 
 pub struct FetchFullParams {
-	/// Name of the validator group used for recovery. For logging purposes.
-	/// (e.g."backers"/"approval-checkers")
-	pub group_name: &'static str,
 	/// Validators that will be used for fetching the data.
 	pub validators: Vec<ValidatorIndex>,
-	/// Predicate that if is true, will result in skipping this strategy.
-	pub skip_if: Box<dyn Fn() -> bool + Send>,
 	/// Channel to the erasure task handler.
 	pub erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 }
@@ -482,25 +478,6 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 		sender: &mut Sender,
 		common_params: &RecoveryParams,
 	) -> Result<AvailableData, RecoveryError> {
-		if (self.params.skip_if)() {
-			gum::trace!(
-				target: LOG_TARGET,
-				candidate_hash = ?common_params.candidate_hash,
-				erasure_root = ?common_params.erasure_root,
-				"Skipping requesting availability data from {}",
-				self.params.group_name
-			);
-
-			return Err(RecoveryError::Unavailable)
-		}
-
-		gum::trace!(
-			target: LOG_TARGET,
-			candidate_hash = ?common_params.candidate_hash,
-			erasure_root = ?common_params.erasure_root,
-			"Requesting full availability data from {}",
-			self.params.group_name
-		);
 		loop {
 			// Pop the next validator, and proceed to next fetch_chunks_task if we're out.
 			let validator_index =
