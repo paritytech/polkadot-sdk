@@ -776,8 +776,7 @@ fn inclusions_iterative_removal() {
 	// C2		x
 	// C3	x		x
 	// C4			x
-	// C5				x	
-
+	// C5				x
 	inclusions.insert(candidate1, 0, get_block_number_hash(0));
 	inclusions.insert(candidate2, 1, get_block_number_hash(1));
 	inclusions.insert(candidate3, 0, get_block_number_hash(0));
@@ -811,8 +810,7 @@ fn inclusions_iterative_removal() {
 	assert!(!inclusions.contains(&candidate2), "Expected candidate2 to be removed");
 	assert!(!inclusions.contains(&candidate3), "Expected candidate3 to be removed");
 	assert!(!inclusions.contains(&candidate4), "Expected candidate4 to be removed");
-	assert!(!inclusions.contains(&candidate5), "Expected candidate4 to be removed");
-
+	assert!(!inclusions.contains(&candidate5), "Expected candidate5 to be removed");
 }
 
 #[test]
