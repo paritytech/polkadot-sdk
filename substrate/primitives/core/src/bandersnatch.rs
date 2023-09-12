@@ -68,7 +68,7 @@ const PREOUT_SERIALIZED_LEN: usize = 33;
 //  2048        → 295 KB
 // NOTE: This is quite big but looks like there is an upcoming fix
 // in the backend.
-const RING_CONTEXT_SERIALIZED_LEN: usize = 147752;
+const RING_CONTEXT_SERIALIZED_LEN: usize = 147748;
 
 /// Bandersnatch public key.
 #[cfg_attr(feature = "full_crypto", derive(Hash))]
@@ -277,7 +277,7 @@ impl TraitPair for Pair {
 		let mut raw = [0; PUBLIC_SERIALIZED_LEN];
 		public
 			.serialize_compressed(raw.as_mut_slice())
-			.expect("key buffer length is good; qed");
+			.expect("serialization length is constant and checked by test; qed");
 		Public::unchecked_from(raw)
 	}
 
@@ -355,7 +355,7 @@ pub mod vrf {
 			let mut bytes = [0; PREOUT_SERIALIZED_LEN];
 			self.0
 				.serialize_compressed(bytes.as_mut_slice())
-				.expect("preout serialization can't fail");
+				.expect("serialization length is constant and checked by test; qed");
 			bytes.encode()
 		}
 	}
@@ -555,7 +555,7 @@ pub mod vrf {
 			thin_signature
 				.proof
 				.serialize_compressed(signature.signature.0.as_mut_slice())
-				.expect("serialization can't fail");
+				.expect("serialization length is constant and checked by test; qed");
 
 			signature
 		}
@@ -670,7 +670,7 @@ pub mod ring_vrf {
 			let mut buf = Box::new([0; RING_CONTEXT_SERIALIZED_LEN]);
 			self.0
 				.serialize_compressed(buf.as_mut_slice())
-				.expect("preout serialization can't fail");
+				.expect("serialization length is constant and checked by test; qed");
 			buf.encode()
 		}
 	}
@@ -751,7 +751,7 @@ pub mod ring_vrf {
 			ring_signature
 				.proof
 				.serialize_compressed(signature.signature.as_mut_slice())
-				.expect("ring-signature serialization can't fail");
+				.expect("serialization length is constant and checked by test; qed");
 
 			signature
 		}
@@ -822,16 +822,42 @@ mod tests {
 	}
 
 	#[test]
-	fn assumptions_sanity_check() {
-		// Backend
-		let ring_ctx = RingContext::new_testing();
-		let pair = SecretKey::from_seed(DEV_SEED);
-		let public = pair.to_public();
+	fn backend_assumptions_sanity_check() {
+		let kzg = KZG::testing_kzg_setup([0; 32], RING_DOMAIN_SIZE as u32);
+		assert_eq!(kzg.max_keyset_size(), RING_DOMAIN_SIZE - 257);
+		assert_eq!(kzg.compressed_size(), RING_CONTEXT_SERIALIZED_LEN);
 
-		assert_eq!(public.size_of_serialized(), PUBLIC_SERIALIZED_LEN);
-		assert_eq!(ring_ctx.max_keyset_size(), RING_DOMAIN_SIZE - 257);
+		let pks: Vec<_> = (0..16)
+			.map(|i| SecretKey::from_seed(&[i as u8; 32]).to_public().0.into())
+			.collect();
 
-		// Wrapper
+		let secret = SecretKey::from_seed(&[0u8; 32]);
+
+		let public = secret.to_public();
+		assert_eq!(public.compressed_size(), PUBLIC_SERIALIZED_LEN);
+
+		let input = VrfInput::new(b"foo", &[]);
+		let preout = secret.vrf_preout(&input.0);
+		assert_eq!(preout.compressed_size(), PREOUT_SERIALIZED_LEN);
+
+		let prover_key = kzg.prover_key(pks);
+		let ring_prover = kzg.init_ring_prover(prover_key, 0);
+
+		let data = VrfSignData::new_unchecked(b"mydata", &[b"tdata"], None);
+
+		let thin_signature: bandersnatch_vrfs::ThinVrfSignature<0> =
+			secret.sign_thin_vrf(data.transcript.clone(), &[]);
+		assert_eq!(thin_signature.compressed_size(), SIGNATURE_SERIALIZED_LEN);
+
+		// Check ring signature serialized size (without preouts)
+		let ring_signature: bandersnatch_vrfs::RingVrfSignature<0> =
+			bandersnatch_vrfs::RingProver { ring_prover: &ring_prover, secret: &secret }
+				.sign_ring_vrf(data.transcript.clone(), &[]);
+		assert_eq!(ring_signature.compressed_size(), RING_SIGNATURE_SERIALIZED_LEN);
+	}
+
+	#[test]
+	fn max_vrf_ios_bound_respected() {
 		let inputs: Vec<_> = (0..MAX_VRF_IOS - 1).map(|_| VrfInput::new(b"", &[])).collect();
 		let mut sign_data = VrfSignData::new(b"", &[b""], inputs).unwrap();
 		let res = sign_data.push_vrf_input(VrfInput::new(b"", b""));
