@@ -17,7 +17,6 @@
 
 use crate::construct_runtime::Pallet;
 use proc_macro2::TokenStream as TokenStream2;
-use proc_utils::*;
 use quote::quote;
 
 /// Expands aggregate `RuntimeTask` enum.
@@ -107,6 +106,7 @@ pub fn expand_outer_task(pallet_decls: &[Pallet], scrate: &TokenStream2) -> Toke
 
 		#( #from_impls )*
 	};
-	output.pretty_print();
+	// use proc_utils::*;
+	// output.pretty_print();
 	output
 }
