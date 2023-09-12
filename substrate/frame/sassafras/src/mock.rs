@@ -85,7 +85,7 @@ impl pallet_sassafras::Config for Test {
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 	type EpochDuration = ConstU64<EPOCH_DURATION>;
 	type EpochChangeTrigger = SameAuthoritiesForever;
-	type MaxAuthorities = ConstU32<10>;
+	type MaxAuthorities = ConstU32<20>;
 	type MaxTickets = ConstU32<MAX_TICKETS>;
 }
 

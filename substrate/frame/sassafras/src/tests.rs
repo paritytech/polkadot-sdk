@@ -606,6 +606,25 @@ fn obsolete_tickets_are_removed_on_epoch_change() {
 	})
 }
 
+fn tickets_read() -> Vec<TicketEnvelope> {
+	use std::{fs::File, io::Read};
+
+	let mut file = File::open("tickets.bin").expect("Failed to open tickets file");
+	let mut buf = Vec::new();
+	file.read_to_end(&mut buf).expect("Failed to read tickets file");
+
+	Vec::<TicketEnvelope>::decode(&mut &buf[..]).expect("Failed to decode tickets buffer")
+}
+
+fn tickets_write(tickets: Vec<TicketEnvelope>) {
+	use std::{fs::File, io::Write};
+
+	let mut file = File::create("tickets.bin").expect("Failed to create file");
+	let buf = tickets.encode();
+	println!("LEN: {}", buf.len());
+	file.write_all(&buf).expect("Failed to write to file");
+}
+
 // TODO davxy: create a read_tickets method which reads pre-constructed good tickets
 // from a file. Creating this stuff "on-the-fly" is just too much expensive
 //
@@ -613,9 +632,10 @@ fn obsolete_tickets_are_removed_on_epoch_change() {
 // `submit_ticket` call which tests for ticket validity.
 #[test]
 fn submit_tickets_with_ring_proof_check_works() {
-	let (pairs, mut ext) = new_test_ext_with_pairs(10, true);
-	let pair = &pairs[0];
+	let (pairs, mut ext) = new_test_ext_with_pairs(20, true);
 	let segments_count = 3;
+
+	let tickets = tickets_read();
 
 	ext.execute_with(|| {
 		let start_slot = Slot::from(100);
@@ -625,7 +645,7 @@ fn submit_tickets_with_ring_proof_check_works() {
 
 		// Tweak the epoch config to discard some of the tickets
 		let mut config = EpochConfig::<Test>::get();
-		config.redundancy_factor = 7;
+		config.redundancy_factor = 20;
 		config.attempts_number = attempts_number;
 		EpochConfig::<Test>::set(config);
 
@@ -638,7 +658,7 @@ fn submit_tickets_with_ring_proof_check_works() {
 		);
 
 		// Populate the segments via the `submit_tickets`
-		let tickets = make_tickets(attempts_number, pair);
+		// let tickets = make_tickets(attempts_number, pair);
 		let segment_len = tickets.len() / segments_count as usize;
 		for i in 0..segments_count as usize {
 			println!("Submit tickets");
@@ -656,8 +676,21 @@ fn submit_tickets_with_ring_proof_check_works() {
 		finalize_block(start_block);
 
 		// Check against the expected results given the known inputs
-		assert_eq!(NextTicketsSegments::<Test>::get(0).len(), 6);
-		assert_eq!(NextTicketsSegments::<Test>::get(1).len(), 1);
-		assert_eq!(NextTicketsSegments::<Test>::get(2).len(), 2);
+		assert_eq!(NextTicketsSegments::<Test>::get(0).len(), 3);
+		assert_eq!(NextTicketsSegments::<Test>::get(1).len(), 3);
+		assert_eq!(NextTicketsSegments::<Test>::get(2).len(), 5);
 	})
+}
+
+#[test]
+fn serialize_test_tickets() {
+	let attempts = 20;
+
+	let (pairs, mut ext) = new_test_ext_with_pairs(20, true);
+	let pair = &pairs[0];
+
+	ext.execute_with(|| {
+		let tickets = make_tickets(attempts, &pair);
+		tickets_write(tickets);
+	});
 }

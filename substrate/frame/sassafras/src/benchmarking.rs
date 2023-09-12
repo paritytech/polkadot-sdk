@@ -19,7 +19,6 @@
 
 use super::*;
 
-use sp_consensus_sassafras::AuthorityPair;
 use sp_core::crypto::Pair;
 
 use frame_benchmarking::v2::*;

@@ -25,11 +25,11 @@ sp-consensus-sassafras = { version = "0.3.4-dev", default-features = false, path
 sp-io = { version = "23.0.0", default-features = false, path = "../../primitives/io" }
 sp-runtime = { version = "24.0.0", default-features = false, path = "../../primitives/runtime" }
 sp-std = { version = "8.0.0", default-features = false, path = "../../primitives/std" }
-sp-core = { version = "21.0.0", path = "../../primitives/core" }
 
 [dev-dependencies]
 array-bytes = "6.1"
 env_logger = "0.10"
+sp-core = { version = "21.0.0", path = "../../primitives/core" }
 
 [features]
 default = ["std"]
