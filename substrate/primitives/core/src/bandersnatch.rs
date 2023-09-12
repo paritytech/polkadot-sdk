@@ -849,7 +849,6 @@ mod tests {
 			secret.sign_thin_vrf(data.transcript.clone(), &[]);
 		assert_eq!(thin_signature.compressed_size(), SIGNATURE_SERIALIZED_LEN);
 
-		// Check ring signature serialized size (without preouts)
 		let ring_signature: bandersnatch_vrfs::RingVrfSignature<0> =
 			bandersnatch_vrfs::RingProver { ring_prover: &ring_prover, secret: &secret }
 				.sign_ring_vrf(data.transcript.clone(), &[]);
