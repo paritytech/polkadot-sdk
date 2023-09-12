@@ -419,8 +419,8 @@ fn scraper_requests_candidates_of_non_finalized_ancestors() {
 			&mut virtual_overseer,
 			&chain,
 			finalized_block_number,
-			BLOCKS_TO_SKIP
-				- (finalized_block_number - DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION) as usize, /* Expect the provider not to go past finalized block. */
+			BLOCKS_TO_SKIP -
+				(finalized_block_number - DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION) as usize, /* Expect the provider not to go past finalized block. */
 			get_backed_and_included_candidate_events,
 		);
 		join(process_active_leaves_update(ctx.sender(), &mut ordering, next_update), overseer_fut)
@@ -524,8 +524,8 @@ fn scraper_handles_backed_but_not_included_candidate() {
 		// Bump the finalized block outside `BACKED_CANDIDATE_LIFETIME_AFTER_FINALIZATION`.
 		// The candidate should be removed.
 		assert!(
-			finalized_block_number
-				< TEST_TARGET_BLOCK_NUMBER + DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION
+			finalized_block_number <
+				TEST_TARGET_BLOCK_NUMBER + DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION
 		);
 		finalized_block_number +=
 			TEST_TARGET_BLOCK_NUMBER + DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION;
@@ -575,8 +575,8 @@ fn scraper_handles_the_same_candidate_incuded_in_two_different_block_heights() {
 		// Finalize blocks to enforce pruning of scraped events.
 		// The magic candidate was added twice, so it shouldn't be removed if we finalize two more
 		// blocks.
-		finalized_block_number = test_targets.first().expect("there are two block nums")
-			+ DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION;
+		finalized_block_number = test_targets.first().expect("there are two block nums") +
+			DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION;
 		process_finalized_block(&mut scraper, &finalized_block_number);
 
 		let magic_candidate = make_candidate_receipt(get_magic_candidate_hash());
@@ -731,7 +731,8 @@ fn inclusions_get() {
 	// Call the get method for that candidate
 	let result = inclusions.get(&candidate_hash);
 
-	// Verify that the method returns the correct list of block numbers and hashes associated with that candidate
+	// Verify that the method returns the correct list of block numbers and hashes associated with
+	// that candidate
 	assert_eq!(
 		result.len(),
 		block_numbers.len(),
