@@ -216,6 +216,9 @@ struct State {
 
 	/// Batch checks buffer.
 	batched_assignment_checks: Vec<(IndirectAssignmentCert, CandidateIndex, PeerId)>,
+
+	/// Approvals corresponding to assignments in `currently_checking_assignments`.
+	defered_approvals: HashMap<PeerId, Vec<IndirectSignedApprovalVote>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -801,13 +804,7 @@ impl State {
 
 		if self.currently_checking_assignments.len() >= MAX_ASSIGNMENT_IMPORT_BATCH_SIZE {
 			// Send the batch now.
-			let current_batch = std::mem::take(&mut self.batched_assignment_checks);
-			self.check_assignment_batch(
-				ctx,
-				metrics,
-				current_batch,
-				rng,
-			).await;
+			self.check_assignment_batch(ctx, metrics, rng).await;
 		}
 	}
 
@@ -815,12 +812,16 @@ impl State {
 		&mut self,
 		ctx: &mut Context,
 		metrics: &Metrics,
-		assignments: Vec<(IndirectAssignmentCert, CandidateIndex, PeerId)>,
 		rng: &mut R,
 	) where
 		R: CryptoRng + Rng,
 	{
-		let batched_assignments = assignments.iter().cloned().map(|(cert, candidate_index, _)| (cert, candidate_index)).collect::<Vec<_>>();
+		let assignments = std::mem::take(&mut self.batched_assignment_checks);
+		let batched_assignments = assignments
+			.iter()
+			.cloned()
+			.map(|(cert, candidate_index, _)| (cert, candidate_index))
+			.collect::<Vec<_>>();
 		let (tx, rx) = oneshot::channel();
 		ctx.send_message(ApprovalVotingMessage::CheckAndImportAssignments(batched_assignments, tx))
 			.await;
@@ -931,7 +932,23 @@ impl State {
 				message_subject,
 				*claimed_candidate_index,
 				rng,
-			).await;
+			)
+			.await;
+		}
+
+		// Process any pending approvals for the `currently_checking_assignments`.
+		self.currently_checking_assignments.clear();
+		let approvals = std::mem::take(&mut self.defered_approvals);
+		for (peer_id, votes) in approvals {
+			for vote in votes {
+				self.import_and_circulate_approval_inner(
+					ctx,
+					metrics,
+					MessageSource::Peer(peer_id),
+					vote,
+				)
+				.await;
+			}
 		}
 	}
 
@@ -956,7 +973,7 @@ impl State {
 			.blocks
 			.get_mut(&assignment.block_hash)
 			.expect("Checked it is some before calling `check_assignment_batch`");
-			
+
 		let topology = self.topologies.get_topology(entry.session);
 		let local = source == MessageSource::Local;
 		let validator_index = assignment.validator;
@@ -1198,7 +1215,8 @@ impl State {
 				assignment,
 				claimed_candidate_index,
 				rng,
-			).await;
+			)
+			.await;
 		} else {
 			if !entry.knowledge.insert(message_subject.clone(), message_kind) {
 				// if we already imported an assignment, there is no need to distribute it again
@@ -1222,12 +1240,38 @@ impl State {
 					message_subject,
 					claimed_candidate_index,
 					rng,
-				).await;
+				)
+				.await;
 			}
 		}
 	}
 
 	async fn import_and_circulate_approval<Context>(
+		&mut self,
+		ctx: &mut Context,
+		metrics: &Metrics,
+		source: MessageSource,
+		vote: IndirectSignedApprovalVote,
+	) {
+		// Local messages are never defered.
+		if let Some(peer) = source.peer_id() {
+			let block_hash = vote.block_hash;
+			let validator_index = vote.validator;
+			let candidate_index = vote.candidate_index;
+			let message_subject = MessageSubject(block_hash, candidate_index, validator_index);
+
+			if self.currently_checking_assignments.contains(&message_subject) {
+				self.defered_approvals
+					.entry(peer)
+					.and_modify(|approvals| approvals.push(vote.clone()))
+					.or_insert_with(|| vec![vote.clone()]);
+			}
+		}
+
+		self.import_and_circulate_approval_inner(ctx, metrics, source, vote).await;
+	}
+
+	async fn import_and_circulate_approval_inner<Context>(
 		&mut self,
 		ctx: &mut Context,
 		metrics: &Metrics,
