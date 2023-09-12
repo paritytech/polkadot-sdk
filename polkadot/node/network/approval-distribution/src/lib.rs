@@ -20,7 +20,10 @@
 
 #![warn(missing_docs)]
 
-use futures::{channel::oneshot, select, FutureExt as _};
+use futures::{
+	channel::{mpsc::channel, oneshot},
+	select, FutureExt as _,
+};
 use polkadot_node_jaeger as jaeger;
 use polkadot_node_network_protocol::{
 	self as net_protocol,
@@ -218,7 +221,7 @@ struct State {
 	batched_assignment_checks: Vec<(IndirectAssignmentCert, CandidateIndex, PeerId)>,
 
 	/// Approvals corresponding to assignments in `currently_checking_assignments`.
-	defered_approvals: HashMap<PeerId, Vec<IndirectSignedApprovalVote>>,
+	deferred_approvals: HashMap<PeerId, Vec<IndirectSignedApprovalVote>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -802,27 +805,56 @@ impl State {
 		self.currently_checking_assignments.insert(message_subject);
 		self.batched_assignment_checks.push((assignment, claimed_candidate_index, peer));
 
-		if self.currently_checking_assignments.len() >= MAX_ASSIGNMENT_IMPORT_BATCH_SIZE {
+		if self.batched_assignment_checks.len() >= MAX_ASSIGNMENT_IMPORT_BATCH_SIZE {
 			// Send the batch now.
-			self.check_assignment_batch(ctx, metrics, rng).await;
+			loop {
+				if self.check_assignment_batch(ctx, metrics, rng).await == 0 {
+					break
+				}
+			}
 		}
 	}
 
+	/// Batch checks and propagates assignments.
+	///
+	/// Invariant: All batches contain unique assignments.
+	///
+	/// Must be called in a loop until it returns 0 to consumne all assignments.
 	pub async fn check_assignment_batch<Context, R>(
 		&mut self,
 		ctx: &mut Context,
 		metrics: &Metrics,
 		rng: &mut R,
-	) where
+	) -> usize
+	where
 		R: CryptoRng + Rng,
 	{
-		let assignments = std::mem::take(&mut self.batched_assignment_checks);
-		
 		// Exit early when there are no assignments.
-		if assignments.is_empty() {
-			return
+		if self.batched_assignment_checks.is_empty() {
+			return 0
+		}
+		let assignments = std::mem::take(&mut self.batched_assignment_checks);
+
+		let mut unique_assignments = Vec::new();
+		let mut leftover = Vec::new();
+		for check in assignments {
+			if !unique_assignments.contains(&check) {
+				unique_assignments.push(check);
+			} else {
+				leftover.push(check);
+			}
 		}
 
+		let assignments = unique_assignments;
+
+		gum::trace!(
+			target: LOG_TARGET,
+			num_assigmnents = ?assignments.len(),
+			num_left_over = ?leftover.len(),
+			"Importing an assignment batch",
+		);
+
+		self.batched_assignment_checks = leftover;
 		let batched_assignments = assignments
 			.iter()
 			.cloned()
@@ -837,7 +869,7 @@ impl State {
 			Ok(results) => results,
 			Err(_) => {
 				gum::debug!(target: LOG_TARGET, "The approval voting subsystem is down");
-				return
+				return 0
 			},
 		};
 		drop(timer);
@@ -944,7 +976,7 @@ impl State {
 
 		// Process any pending approvals for the `currently_checking_assignments`.
 		self.currently_checking_assignments.clear();
-		let approvals = std::mem::take(&mut self.defered_approvals);
+		let approvals = std::mem::take(&mut self.deferred_approvals);
 		for (peer_id, votes) in approvals {
 			for vote in votes {
 				self.import_and_circulate_approval_inner(
@@ -956,6 +988,8 @@ impl State {
 				.await;
 			}
 		}
+
+		self.batched_assignment_checks.len()
 	}
 
 	// Propagate an assignment according to topology.
@@ -1267,10 +1301,20 @@ impl State {
 			let message_subject = MessageSubject(block_hash, candidate_index, validator_index);
 
 			if self.currently_checking_assignments.contains(&message_subject) {
-				self.defered_approvals
+				gum::trace!(
+					target: LOG_TARGET,
+					?message_subject,
+					"Deferring approval import until it's assignment is processed first",
+				);
+
+				self.deferred_approvals
 					.entry(peer)
 					.and_modify(|approvals| approvals.push(vote.clone()))
 					.or_insert_with(|| vec![vote.clone()]);
+
+				// The message will be processed as soon as the corresponding assignments are
+				// checked.
+				return
 			}
 		}
 
@@ -2069,14 +2113,21 @@ impl ApprovalDistribution {
 	) {
 		let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
 		let mut reputation_delay = new_reputation_delay();
-		let new_assignment_batch_delay = || futures_timer::Delay::new(MAX_ASSIGNMENT_IMPORT_BATCH_WAIT).fuse();
+		let new_assignment_batch_delay =
+			|| futures_timer::Delay::new(MAX_ASSIGNMENT_IMPORT_BATCH_WAIT).fuse();
 		let mut assignment_batch_delay = new_assignment_batch_delay();
-		
+
 		loop {
 			select! {
 				_ = assignment_batch_delay => {
 					// Timer expired, we need to check/import whatever is in the queue.
-					state.check_assignment_batch(&mut ctx, &self.metrics, rng).await;
+					// Consume all messages in queue.
+					loop {
+						if state.check_assignment_batch(&mut ctx, &self.metrics, rng).await == 0 {
+							break;
+						}
+					}
+
 					assignment_batch_delay = new_assignment_batch_delay();
 				}
 				_ = reputation_delay => {
