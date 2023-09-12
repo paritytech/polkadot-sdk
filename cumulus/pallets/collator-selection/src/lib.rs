@@ -48,8 +48,8 @@
 //! exist, i.e. someone is eligible to produce a block.
 //!
 //! When a new session starts, candidates with the highest deposits will be selected in order until
-//! the desired amount of collators is reached. Candidates can increase or decrease their deposits
-//! between sessions in order to ensure they receive a slot in the collator list of that session.
+//! the desired number of collators is reached. Candidates can increase or decrease their deposits
+//! between sessions in order to ensure they receive a slot in the collator list.
 //!
 //! ### Rewards
 //!
@@ -551,7 +551,7 @@ pub mod pallet {
 				<CandidateList<T>>::decode_len()
 					.unwrap_or_default()
 					.try_into()
-					.unwrap_or_default(),
+					.unwrap_or(T::MaxCandidates::get()),
 			);
 
 			Ok(Some(weight_used).into())
@@ -596,7 +596,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			ensure!(new_deposit >= <CandidacyBond<T>>::get(), Error::<T>::DepositTooLow);
-			// The function below will try to mutate the `Candidates` entry for
+			// The function below will try to mutate the `CandidateList` entry for
 			// the caller to update their deposit to the new value of
 			// `new_deposit`. The return value is a tuple of the position of
 			// the entry in the list, used for weight calculation, and the new
@@ -688,10 +688,10 @@ pub mod pallet {
 						Ok((target_info_idx, candidates[target_info_idx].clone()))
 					},
 				)?;
-			T::Currency::unreserve(&target_info.who, target_info.deposit);
-			<LastAuthoredBlock<T>>::remove(target_info.who.clone());
 			ensure!(deposit > target_info.deposit, Error::<T>::InsufficientBond);
 			T::Currency::reserve(&who, deposit)?;
+			T::Currency::unreserve(&target_info.who, target_info.deposit);
+			<LastAuthoredBlock<T>>::remove(target_info.who.clone());
 			<LastAuthoredBlock<T>>::insert(
 				who.clone(),
 				frame_system::Pallet::<T>::block_number() + T::KickThreshold::get(),
@@ -724,17 +724,11 @@ pub mod pallet {
 		/// Return the total number of accounts that are eligible collators (candidates and
 		/// invulnerables).
 		fn eligible_collators() -> u32 {
-			// TODO[GMP]: rethink unwraps with `MaxCandidates` in mind.
 			<CandidateList<T>>::decode_len()
 				.unwrap_or_default()
+				.saturating_add(Invulnerables::<T>::decode_len().unwrap_or_default())
 				.try_into()
 				.unwrap_or(u32::MAX)
-				.saturating_add(
-					Invulnerables::<T>::decode_len()
-						.unwrap_or_default()
-						.try_into()
-						.unwrap_or(u32::MAX),
-				)
 		}
 
 		/// Removes a candidate if they exist and sends them back their deposit.

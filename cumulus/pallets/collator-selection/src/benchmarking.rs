@@ -91,7 +91,6 @@ fn register_candidates<T: Config>(count: u32) {
 	assert!(<CandidacyBond<T>>::get() > 0u32.into(), "Bond cannot be zero!");
 
 	for who in candidates {
-		// TODO[GMP] revisit this, need it for Currency reserve in increase_bid
 		T::Currency::make_free_balance_be(&who, <CandidacyBond<T>>::get() * 3u32.into());
 		<CollatorSelection<T>>::register_as_candidate(RawOrigin::Signed(who).into()).unwrap();
 	}
