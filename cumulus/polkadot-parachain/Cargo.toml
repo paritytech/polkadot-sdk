@@ -34,10 +34,10 @@ bridge-hub-rococo-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-
 bridge-hub-kusama-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-kusama" }
 bridge-hub-polkadot-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-polkadot" }
 penpal-runtime = { path = "../parachains/runtimes/testing/penpal" }
-# people-kusama-runtime = { path = "../parachains/runtimes/people/people-kusama" }
-# people-polkadot-runtime = { path = "../parachains/runtimes/people/people-polkadot" }
-# people-rococo-runtime = { path = "../parachains/runtimes/people/people-rococo" }
-# people-westend-runtime = { path = "../parachains/runtimes/people/people-westend" }
+people-kusama-runtime = { path = "../parachains/runtimes/people/people-kusama" }
+people-polkadot-runtime = { path = "../parachains/runtimes/people/people-polkadot" }
+people-rococo-runtime = { path = "../parachains/runtimes/people/people-rococo" }
+people-westend-runtime = { path = "../parachains/runtimes/people/people-westend" }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 parachains-common = { path = "../parachains/common" }
 
@@ -121,6 +121,10 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"glutton-runtime/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
+	"people-kusama-runtime/runtime-benchmarks",
+	"people-polkadot-runtime/runtime-benchmarks",
+	"people-rococo-runtime/runtime-benchmarks",
+	"people-westend-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-service/runtime-benchmarks",
@@ -139,6 +143,10 @@ try-runtime = [
 	"contracts-rococo-runtime/try-runtime",
 	"glutton-runtime/try-runtime",
 	"penpal-runtime/try-runtime",
+	"people-kusama-runtime/try-runtime",
+	"people-polkadot-runtime/try-runtime",
+	"people-rococo-runtime/try-runtime",
+	"people-westend-runtime/try-runtime",
 	"polkadot-cli/try-runtime",
 	"polkadot-service/try-runtime",
 	"shell-runtime/try-runtime",
