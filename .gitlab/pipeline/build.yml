@@ -77,26 +77,6 @@ build-malus:
     - echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
     - cp -r ./docker/* ./artifacts
 
-build-staking-miner:
-  stage: build
-  extends:
-    - .docker-env
-    - .common-refs
-    # - .collect-artifacts
-  # DAG
-  needs:
-    - job: build-malus
-      artifacts: false
-  script:
-    - time cargo build -q --locked --release --package staging-staking-miner
-    # # pack artifacts
-    # - mkdir -p ./artifacts
-    # - mv ./target/release/staking-miner ./artifacts/.
-    # - echo -n "${CI_COMMIT_REF_NAME}" > ./artifacts/VERSION
-    # - echo -n "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}" > ./artifacts/EXTRATAG
-    # - echo "staking-miner = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
-    # - cp -r ./scripts/* ./artifacts
-
 build-rustdoc:
   stage: build
   extends:
@@ -131,6 +111,9 @@ build-rustdoc:
             sed -i "s|</head>|$script_content</head>|" "$file"
         }
         export -f process_file
+        # xargs runs process_file in seperate shells without access to outer variables.
+        # to make script_content available inside process_file, export it as an env var here.
+        export script_content
 
         # Modify .html files in parallel using xargs, otherwise it can take a long time.
         find "$path" -name '*.html' | xargs -I {} -P "$(nproc)" bash -c 'process_file "$@"' _ {}
@@ -358,7 +341,7 @@ build-subkey-linux:
   extends: .build-subkey
   # DAG
   needs:
-    - job: build-staking-miner
+    - job: build-malus
       artifacts: false
 # tbd
 # build-subkey-macos:
