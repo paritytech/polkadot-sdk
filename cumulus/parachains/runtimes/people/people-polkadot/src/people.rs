@@ -18,11 +18,9 @@ use super::*;
 use frame_support::{parameter_types, traits::ConstU32};
 
 parameter_types! {
-	// All deposits reduced by factor of 10 from the Relay Chain.
-	// todo: switch to `fn deposit`
-	pub const BasicDeposit: Balance = 100 * CENTS;       // 258 bytes on-chain
-	pub const FieldDeposit: Balance = 25 * CENTS;        // 66 bytes on-chain
-	pub const SubAccountDeposit: Balance = 20 * CENTS;   // 53 bytes on-chain
+	pub const BasicDeposit: Balance = deposit(1, 258);
+	pub const FieldDeposit: Balance = deposit(0, 66);
+	pub const SubAccountDeposit: Balance = deposit(1, 53);
 }
 
 impl pallet_identity::Config for Runtime {
