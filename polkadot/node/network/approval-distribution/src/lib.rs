@@ -808,7 +808,7 @@ impl State {
 		}
 	}
 
-	async fn check_assignment_batch<Context, R>(
+	pub async fn check_assignment_batch<Context, R>(
 		&mut self,
 		ctx: &mut Context,
 		metrics: &Metrics,
@@ -817,6 +817,12 @@ impl State {
 		R: CryptoRng + Rng,
 	{
 		let assignments = std::mem::take(&mut self.batched_assignment_checks);
+		
+		// Exit early when there are no assignments.
+		if assignments.is_empty() {
+			return
+		}
+
 		let batched_assignments = assignments
 			.iter()
 			.cloned()
@@ -2063,14 +2069,15 @@ impl ApprovalDistribution {
 	) {
 		let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
 		let mut reputation_delay = new_reputation_delay();
-
-		let mut assignment_batch_build_timeout =
-			futures_timer::Delay::new(MAX_ASSIGNMENT_IMPORT_BATCH_WAIT).fuse();
-
+		let new_assignment_batch_delay = || futures_timer::Delay::new(MAX_ASSIGNMENT_IMPORT_BATCH_WAIT).fuse();
+		let mut assignment_batch_delay = new_assignment_batch_delay();
+		
 		loop {
 			select! {
-				_ = assignment_batch_build_timeout => {
-
+				_ = assignment_batch_delay => {
+					// Timer expired, we need to check/import whatever is in the queue.
+					state.check_assignment_batch(&mut ctx, &self.metrics, rng).await;
+					assignment_batch_delay = new_assignment_batch_delay();
 				}
 				_ = reputation_delay => {
 					state.reputation.send(ctx.sender()).await;
