@@ -40,7 +40,7 @@ use std::{
 		Arc,
 	},
 };
-use wasmtime::{AsContext, Engine, Memory, Mutability, Table};
+use wasmtime::{AsContext, Engine, Memory, Table};
 
 #[derive(Default)]
 pub(crate) struct StoreData {
