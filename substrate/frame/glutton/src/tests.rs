@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2023 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -252,7 +252,7 @@ fn on_idle_weight_over_unity_is_close_enough_works() {
 fn waste_at_most_ref_time_weight_close_enough() {
 	new_test_ext().execute_with(|| {
 		let mut meter =
-			WeightMeter::from_limit(Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, u64::MAX));
+			WeightMeter::with_limit(Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, u64::MAX));
 		// Over-spending fails defensively.
 		Glutton::waste_at_most_ref_time(&mut meter);
 
@@ -269,7 +269,7 @@ fn waste_at_most_ref_time_weight_close_enough() {
 fn waste_at_most_proof_size_weight_close_enough() {
 	new_test_ext().execute_with(|| {
 		let mut meter =
-			WeightMeter::from_limit(Weight::from_parts(u64::MAX, WEIGHT_PROOF_SIZE_PER_MB * 5));
+			WeightMeter::with_limit(Weight::from_parts(u64::MAX, WEIGHT_PROOF_SIZE_PER_MB * 5));
 		// Over-spending fails defensively.
 		Glutton::waste_at_most_proof_size(&mut meter);
 

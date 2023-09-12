@@ -21,10 +21,10 @@
 //! - a sender
 //! - and a receiver
 //!
-//! The sender is responsible for getting our vote out, see [`sender`]. The receiver handles
-//! incoming [`DisputeRequest`]s and offers spam protection, see [`receiver`].
+//! The sender is responsible for getting our vote out, see `sender`. The receiver handles
+//! incoming [`DisputeRequest`](v1::DisputeRequest)s and offers spam protection, see `receiver`.
 
-use std::{num::NonZeroUsize, time::Duration};
+use std::time::Duration;
 
 use futures::{channel::mpsc, FutureExt, StreamExt, TryFutureExt};
 
@@ -165,8 +165,7 @@ where
 	) -> Self {
 		let runtime = RuntimeInfo::new_with_config(runtime::Config {
 			keystore: Some(keystore),
-			session_cache_lru_size: NonZeroUsize::new(DISPUTE_WINDOW.get() as usize)
-				.expect("Dispute window can not be 0; qed"),
+			session_cache_lru_size: DISPUTE_WINDOW.get(),
 		});
 		let (tx, sender_rx) = NestingSender::new_root(1);
 		let disputes_sender = DisputeSender::new(tx, metrics.clone());
