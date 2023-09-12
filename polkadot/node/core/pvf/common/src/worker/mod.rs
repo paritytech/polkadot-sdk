@@ -34,7 +34,7 @@ use tokio::{io, net::UnixStream, runtime::Runtime};
 /// spawning the desired worker.
 #[macro_export]
 macro_rules! decl_worker_main {
-	($expected_command:expr, $entrypoint:expr, $worker_version:expr) => {
+	($expected_command:expr, $entrypoint:expr, $worker_version:expr $(,)*) => {
 		fn print_help(expected_command: &str) {
 			println!("{} {}", expected_command, $worker_version);
 			println!();
@@ -89,6 +89,11 @@ macro_rules! decl_worker_main {
 					#[cfg(not(target_os = "linux"))]
 					let status = -1;
 					std::process::exit(status)
+				},
+
+				"test-sleep" => {
+					std::thread::sleep(std::time::Duration::from_secs(5));
+					return
 				},
 
 				subcommand => {

@@ -14,21 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{env, time::Duration};
-
 use polkadot_node_core_pvf::{
 	testing::{spawn_with_program_path, SpawnErr},
 	SecurityStatus,
 };
+use std::{env, time::Duration};
 
-use crate::PUPPET_EXE;
+fn worker_path(name: &str) -> std::path::PathBuf {
+	let mut worker_path = std::env::current_exe().unwrap();
+	worker_path.pop();
+	worker_path.pop();
+	worker_path.push(name);
+	worker_path
+}
 
 // Test spawning a program that immediately exits with a failure code.
 #[tokio::test]
 async fn spawn_immediate_exit() {
+	// There's no explicit `exit` subcommand in the worker; it will panic on an unknown
+	// subcommand anyway
 	let result = spawn_with_program_path(
 		"integration-test",
-		PUPPET_EXE,
+		worker_path("polkadot-prepare-worker"),
 		&env::temp_dir(),
 		&["exit"],
 		Duration::from_secs(2),
@@ -42,9 +49,9 @@ async fn spawn_immediate_exit() {
 async fn spawn_timeout() {
 	let result = spawn_with_program_path(
 		"integration-test",
-		PUPPET_EXE,
+		worker_path("polkadot-execute-worker"),
 		&env::temp_dir(),
-		&["sleep"],
+		&["test-sleep"],
 		Duration::from_secs(2),
 		SecurityStatus::default(),
 	)
@@ -56,7 +63,7 @@ async fn spawn_timeout() {
 async fn should_connect() {
 	let _ = spawn_with_program_path(
 		"integration-test",
-		PUPPET_EXE,
+		worker_path("polkadot-prepare-worker"),
 		&env::temp_dir(),
 		&["prepare-worker"],
 		Duration::from_secs(2),
