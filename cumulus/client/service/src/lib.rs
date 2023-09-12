@@ -484,6 +484,7 @@ where
 		import_queue,
 		block_announce_validator_builder: Some(Box::new(move |_| block_announce_validator)),
 		warp_sync_params,
+        block_relay: None,
 	})
 }
 
