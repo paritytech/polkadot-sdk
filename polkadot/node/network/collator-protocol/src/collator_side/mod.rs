@@ -1181,8 +1181,7 @@ async fn handle_network_msg<Context>(
 		PeerConnected(peer_id, observed_role, protocol_version, maybe_authority) => {
 			// If it is possible that a disconnected validator would attempt a reconnect
 			// it should be handled here.
-			// TODO [now]: too verbose
-			gum::debug!(target: LOG_TARGET, ?peer_id, ?observed_role, ?maybe_authority, "Peer connected");
+			gum::trace!(target: LOG_TARGET, ?peer_id, ?observed_role, ?maybe_authority, "Peer connected");
 
 			let version = match protocol_version.try_into() {
 				Ok(version) => version,

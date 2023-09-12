@@ -558,7 +558,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 
 	gum::debug!(
 		target: LOG_TARGET,
-		"Activated leaves. Now tracking {} leaves across {} sessions",
+		"Activated leaves. Now tracking {} relay-parents across {} sessions",
 		state.per_relay_parent.len(),
 		state.per_session.len(),
 	);
@@ -1993,19 +1993,6 @@ async fn handle_incoming_manifest_common<'a, Context>(
 
 	let sender_index = match sender_index {
 		None => {
-			// TODO [now]: this is way too heavy and is just for debugging now.
-			gum::debug!(
-				target: LOG_TARGET,
-				?peer,
-				?manifest_kind,
-				expected_validators = ?grid_topology
-					.iter_sending_for_group(manifest_summary.claimed_group_index, manifest_kind)
-					.map(|v| (v.0, per_session.session_info.discovery_keys.get(v.0 as usize)))
-					.collect::<Vec<_>>(),
-				peer_keys = ?peer_state.discovery_ids.as_ref().into_iter().flatten().collect::<Vec<_>>(),
-				"Unknown peer for manifest?"
-			);
-
 			modify_reputation(
 				reputation,
 				ctx.sender(),
@@ -2066,9 +2053,8 @@ async fn handle_incoming_manifest_common<'a, Context>(
 		return None
 	}
 
-	// TODO [now] just for debug
 	if acknowledge {
-		gum::debug!(
+		gum::trace!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			from = ?sender_index,
