@@ -20,10 +20,7 @@
 
 #![warn(missing_docs)]
 
-use futures::{
-	channel::{mpsc::channel, oneshot},
-	select, FutureExt as _,
-};
+use futures::{channel::oneshot, select, FutureExt as _};
 use polkadot_node_jaeger as jaeger;
 use polkadot_node_network_protocol::{
 	self as net_protocol,
