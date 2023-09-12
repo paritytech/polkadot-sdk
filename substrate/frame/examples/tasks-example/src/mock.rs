@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Mock runtime for tasks-example tests.
+//! Mock runtime for `tasks-example` tests.
+#![cfg(test)]
 
 use crate::{self as tasks_example};
 
