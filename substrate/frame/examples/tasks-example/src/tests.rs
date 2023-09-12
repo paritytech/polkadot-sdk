@@ -43,5 +43,9 @@ fn incrementing_and_decrementing_works() {
 		TasksExample::decrement(RuntimeOrigin::root()).unwrap();
 		TasksExample::decrement(RuntimeOrigin::root()).unwrap();
 		assert!(TasksExample::decrement(RuntimeOrigin::root()).is_err());
+		for _ in 0..255 {
+			TasksExample::increment(RuntimeOrigin::root()).unwrap();
+		}
+		assert!(TasksExample::increment(RuntimeOrigin::root()).is_err());
 	});
 }
