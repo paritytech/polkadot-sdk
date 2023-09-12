@@ -2131,8 +2131,6 @@
 <a href="#2131" id="2131">2131</a>
 <a href="#2132" id="2132">2132</a>
 <a href="#2133" id="2133">2133</a>
-<a href="#2134" id="2134">2134</a>
-<a href="#2135" id="2135">2135</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2737,8 +2735,6 @@
 		<span class="kw">let </span>gap_block = info
 			.block_gap
 			.map_or(<span class="bool-val">false</span>, |(start, <span class="kw">_</span>)| <span class="kw-2">*</span>import_headers.post().number() == start);
-
-		<span class="macro">assert!</span>(justifications.is_some() &amp;&amp; finalized || justifications.is_none() || gap_block);
 
 		<span class="comment">// the block is lower than our last finalized block so it must revert
 		// finality, refusing import.
