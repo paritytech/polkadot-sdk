@@ -517,13 +517,6 @@ where
 	fn wipe(&self) -> Result<(), Self::Error> {
 		Ok(())
 	}
-
-	fn proof_size(&self) -> Option<u32> {
-		self.essence
-			.recorder
-			.as_ref()
-			.map(|rec| rec.estimate_encoded_size().try_into().unwrap_or(0))
-	}
 }
 
 #[cfg(feature = "std")]
@@ -1000,8 +993,8 @@ pub mod tests {
 			.storage_root(iter::once((&b"new-key"[..], Some(&b"new-value"[..]))), state_version);
 		assert!(!tx.drain().is_empty());
 		assert!(
-			new_root
-				!= test_trie(state_version, None, None)
+			new_root !=
+				test_trie(state_version, None, None)
 					.storage_root(iter::empty(), state_version)
 					.0
 		);

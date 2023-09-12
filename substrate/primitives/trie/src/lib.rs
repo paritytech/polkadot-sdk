@@ -160,7 +160,6 @@ pub trait ProofSizeProvider {
 	fn estimate_encoded_size(&self) -> usize;
 }
 
-
 /// TrieDB error over `TrieConfiguration` trait.
 pub type TrieError<L> = trie_db::TrieError<TrieHash<L>, CError<L>>;
 /// Reexport from `hash_db`, with genericity set for `Hasher` trait.

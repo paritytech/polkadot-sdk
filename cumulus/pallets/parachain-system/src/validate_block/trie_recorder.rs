@@ -14,9 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <http://www.gnu.org/licenses/>.
 
-//! The actual implementation of the validate block functionality.
-#![cfg_attr(not(feature = "std"), no_std)]
-
 use codec::Encode;
 
 use sp_std::{
