@@ -143,7 +143,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 
 			// Increment the value and emit an event
-			let new_val = Value::<T>::get().unwrap().checked_add(1).ok_or("Value overflow")?;
+			let new_val = Value::<T>::get().unwrap_or(0).checked_add(1).ok_or("Value overflow")?;
 			Value::<T>::put(new_val);
 			Self::deposit_event(Event::Incremented { new_val });
 
@@ -154,7 +154,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 
 			// Decrement the value and emit an event
-			let new_val = Value::<T>::get().unwrap().checked_sub(1).ok_or("Value underflow")?;
+			let new_val = Value::<T>::get().unwrap_or(0).checked_sub(1).ok_or("Value underflow")?;
 			Value::<T>::put(new_val);
 			Self::deposit_event(Event::Decremented { new_val });
 

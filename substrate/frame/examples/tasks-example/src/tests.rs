@@ -31,3 +31,17 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	.unwrap();
 	t.into()
 }
+
+#[test]
+fn incrementing_and_decrementing_works() {
+	new_test_ext().execute_with(|| {
+		assert!(TasksExample::decrement(RuntimeOrigin::root()).is_err());
+		TasksExample::increment(RuntimeOrigin::root()).unwrap();
+		TasksExample::decrement(RuntimeOrigin::root()).unwrap();
+		TasksExample::increment(RuntimeOrigin::root()).unwrap();
+		TasksExample::increment(RuntimeOrigin::root()).unwrap();
+		TasksExample::decrement(RuntimeOrigin::root()).unwrap();
+		TasksExample::decrement(RuntimeOrigin::root()).unwrap();
+		assert!(TasksExample::decrement(RuntimeOrigin::root()).is_err());
+	});
+}
