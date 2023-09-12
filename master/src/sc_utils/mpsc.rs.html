@@ -213,6 +213,19 @@
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
 <a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -235,7 +248,9 @@
 
 </span><span class="kw">pub use </span>async_channel::{TryRecvError, TrySendError};
 
-<span class="kw">use </span><span class="kw">crate</span>::metrics::UNBOUNDED_CHANNELS_COUNTER;
+<span class="kw">use </span><span class="kw">crate</span>::metrics::{
+	DROPPED_LABEL, RECEIVED_LABEL, SENT_LABEL, UNBOUNDED_CHANNELS_COUNTER, UNBOUNDED_CHANNELS_SIZE,
+};
 <span class="kw">use </span>async_channel::{Receiver, Sender};
 <span class="kw">use </span>futures::{
 	stream::{FusedStream, Stream},
@@ -317,7 +332,10 @@
 	<span class="doccomment">/// Proxy function to `async_channel::Sender::try_send`.
 	</span><span class="kw">pub fn </span>unbounded_send(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: T) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrySendError&lt;T&gt;&gt; {
 		<span class="self">self</span>.inner.try_send(msg).map(|s| {
-			UNBOUNDED_CHANNELS_COUNTER.with_label_values(<span class="kw-2">&amp;</span>[<span class="self">self</span>.name, <span class="string">&quot;send&quot;</span>]).inc();
+			UNBOUNDED_CHANNELS_COUNTER.with_label_values(<span class="kw-2">&amp;</span>[<span class="self">self</span>.name, SENT_LABEL]).inc();
+			UNBOUNDED_CHANNELS_SIZE
+				.with_label_values(<span class="kw-2">&amp;</span>[<span class="self">self</span>.name])
+				.set(<span class="self">self</span>.inner.len().saturated_into());
 
 			<span class="kw">if </span><span class="self">self</span>.inner.len() &gt;= <span class="self">self</span>.queue_size_warning &amp;&amp;
 				<span class="self">self</span>.warning_fired
@@ -355,7 +373,10 @@
 	/// that discounts the messages taken out.
 	</span><span class="kw">pub fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;T, TryRecvError&gt; {
 		<span class="self">self</span>.inner.try_recv().map(|s| {
-			UNBOUNDED_CHANNELS_COUNTER.with_label_values(<span class="kw-2">&amp;</span>[<span class="self">self</span>.name, <span class="string">&quot;received&quot;</span>]).inc();
+			UNBOUNDED_CHANNELS_COUNTER.with_label_values(<span class="kw-2">&amp;</span>[<span class="self">self</span>.name, RECEIVED_LABEL]).inc();
+			UNBOUNDED_CHANNELS_SIZE
+				.with_label_values(<span class="kw-2">&amp;</span>[<span class="self">self</span>.name])
+				.set(<span class="self">self</span>.inner.len().saturated_into());
 			s
 		})
 	}
@@ -370,14 +391,16 @@
 	<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="comment">// Close the channel to prevent any further messages to be sent into the channel
 		</span><span class="self">self</span>.close();
-		<span class="comment">// the number of messages about to be dropped
+		<span class="comment">// The number of messages about to be dropped
 		</span><span class="kw">let </span>count = <span class="self">self</span>.inner.len();
-		<span class="comment">// discount the messages
+		<span class="comment">// Discount the messages
 		</span><span class="kw">if </span>count &gt; <span class="number">0 </span>{
 			UNBOUNDED_CHANNELS_COUNTER
-				.with_label_values(<span class="kw-2">&amp;</span>[<span class="self">self</span>.name, <span class="string">&quot;dropped&quot;</span>])
+				.with_label_values(<span class="kw-2">&amp;</span>[<span class="self">self</span>.name, DROPPED_LABEL])
 				.inc_by(count.saturated_into());
 		}
+		<span class="comment">// Reset the size metric to 0
+		</span>UNBOUNDED_CHANNELS_SIZE.with_label_values(<span class="kw-2">&amp;</span>[<span class="self">self</span>.name]).set(<span class="number">0</span>);
 		<span class="comment">// Drain all the pending messages in the channel since they can never be accessed,
 		// this can be removed once https://github.com/smol-rs/async-channel/issues/23 is
 		// resolved
@@ -395,7 +418,10 @@
 		<span class="kw">match </span>Pin::new(<span class="kw-2">&amp;mut </span>s.inner).poll_next(cx) {
 			Poll::Ready(msg) =&gt; {
 				<span class="kw">if </span>msg.is_some() {
-					UNBOUNDED_CHANNELS_COUNTER.with_label_values(<span class="kw-2">&amp;</span>[s.name, <span class="string">&quot;received&quot;</span>]).inc();
+					UNBOUNDED_CHANNELS_COUNTER.with_label_values(<span class="kw-2">&amp;</span>[s.name, RECEIVED_LABEL]).inc();
+					UNBOUNDED_CHANNELS_SIZE
+						.with_label_values(<span class="kw-2">&amp;</span>[s.name])
+						.set(s.inner.len().saturated_into());
 				}
 				Poll::Ready(msg)
 			},

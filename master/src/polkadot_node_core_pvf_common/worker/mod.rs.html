@@ -519,7 +519,7 @@
 /// spawning the desired worker.
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>decl_worker_main {
-	(<span class="macro-nonterminal">$expected_command</span>:expr, <span class="macro-nonterminal">$entrypoint</span>:expr, <span class="macro-nonterminal">$worker_version</span>:expr) =&gt; {
+	(<span class="macro-nonterminal">$expected_command</span>:expr, <span class="macro-nonterminal">$entrypoint</span>:expr, <span class="macro-nonterminal">$worker_version</span>:expr $(,)<span class="kw-2">*</span>) =&gt; {
 		<span class="kw">fn </span>print_help(expected_command: <span class="kw-2">&amp;</span>str) {
 			<span class="macro">println!</span>(<span class="string">&quot;{} {}&quot;</span>, expected_command, <span class="macro-nonterminal">$worker_version</span>);
 			<span class="macro">println!</span>();

@@ -565,6 +565,7 @@
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -622,7 +623,8 @@
 	}
 
 	<span class="kw">fn </span>impl_version() -&gt; String {
-		NODE_VERSION.into()
+		<span class="kw">let </span>commit_hash = <span class="macro">env!</span>(<span class="string">&quot;SUBSTRATE_CLI_COMMIT_HASH&quot;</span>);
+		<span class="macro">format!</span>(<span class="string">&quot;{NODE_VERSION}-{commit_hash}&quot;</span>)
 	}
 
 	<span class="kw">fn </span>description() -&gt; String {
