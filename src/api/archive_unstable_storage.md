@@ -98,7 +98,6 @@ This event only ever happens if the `type` of one of the `items` provided as a p
 ```json
 {
     "event": "done",
-    "operationId": ...
 }
 ```
 
