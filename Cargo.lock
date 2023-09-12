@@ -18039,12 +18039,11 @@ dependencies = [
 
 [[package]]
 name = "substrate"
-version = "0.0.1"
+version = "1.0.0"
 dependencies = [
  "aquamarine",
  "chain-spec-builder",
  "frame-support",
- "node-cli",
  "sc-cli",
  "sc-consensus-aura",
  "sc-consensus-babe",
