@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["create_account","payout","set_payment_account","set_statement","set_unlock_block","update_balance","update_validity_status"]};

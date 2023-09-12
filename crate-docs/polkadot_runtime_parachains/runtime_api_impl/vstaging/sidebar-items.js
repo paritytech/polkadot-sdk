@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["async_backing_params","backing_state","minimum_backing_votes"]};

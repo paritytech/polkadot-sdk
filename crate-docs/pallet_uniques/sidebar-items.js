@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["migration","pallet","weights"],"struct":["CollectionDetails","CollectionMetadata","DestroyWitness","ItemDetails","ItemMetadata"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ApprovalDistributionMessage","BitfieldDistributionMessage","CollationProtocol","CollatorProtocolMessage","GossipSupportNetworkMessage","StatementDistributionMessage","ValidationProtocol"],"fn":["declare_signature_payload"],"struct":["StatementMetadata"]};

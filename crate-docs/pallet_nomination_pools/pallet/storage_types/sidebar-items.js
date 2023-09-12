@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["BondedPools","ClaimPermissions","GlobalMaxCommission","LastPoolId","MaxPoolMembers","MaxPoolMembersPerPool","MaxPools","Metadata","MinCreateBond","MinJoinBond","PoolMembers","ReversePoolIdLookup","RewardPools","SubPoolsStorage"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["DisputeLocation","DisputeResult"],"mod":["migration","pallet","slashing"],"struct":["TestWeightInfo"],"trait":["DisputesHandler","RewardValidators","SlashingHandler","WeightInfo"]};

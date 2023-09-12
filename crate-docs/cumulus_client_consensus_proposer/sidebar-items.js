@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["Error","Proposer"],"trait":["ProposerInterface"],"type":["ProposalOf"]};

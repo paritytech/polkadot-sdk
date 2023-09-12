@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["AsyncBackingParams","BackingState","CandidatePendingAvailability","Constraints","InboundHrmpLimitations","OutboundHrmpChannelLimitations"],"type":["ParaId"]};

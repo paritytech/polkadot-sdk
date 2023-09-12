@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["BackersOnDisputes","Disputes","Frozen","Included","LastPrunedSession"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["SpawnedSubsystem"],"trait":["Spawner","Subsystem","SubsystemContext"]};

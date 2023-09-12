@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["build_transport"],"struct":["BandwidthSinks"]};

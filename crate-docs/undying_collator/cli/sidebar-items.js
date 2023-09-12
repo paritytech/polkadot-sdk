@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Subcommand"],"static":["DEFAULT_VALUE"],"struct":["Cli","ExportGenesisStateCommand","ExportGenesisWasmCommand","RunCmd"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["change_storage_constant_by_governance_works"]};

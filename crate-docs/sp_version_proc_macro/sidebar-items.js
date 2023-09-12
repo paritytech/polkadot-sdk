@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"attr":["runtime_version"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["MINIMAL_DELIVERY_FEE_FACTOR"],"enum":["XcmBridgeHubRouterCall"],"struct":["BridgeState"],"trait":["XcmChannelStatusProvider"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["ONCE_INIT"],"enum":["TryLockError"],"mod":["atomic","mpsc"],"struct":["Arc","Barrier","BarrierWaitResult","Condvar","Exclusive","LazyLock","Mutex","MutexGuard","Once","OnceLock","OnceState","PoisonError","RwLock","RwLockReadGuard","RwLockWriteGuard","WaitTimeoutResult","Weak"],"type":["LockResult","TryLockResult"]};

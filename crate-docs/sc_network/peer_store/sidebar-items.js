@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["BANNED_THRESHOLD","LOG_TARGET"],"struct":["PeerStore","PeerStoreHandle"],"trait":["PeerStoreProvider"]};

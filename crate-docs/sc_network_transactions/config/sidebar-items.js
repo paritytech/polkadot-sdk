@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["TransactionImport"],"struct":["EmptyTransactionPool"],"trait":["TransactionPool"],"type":["TransactionImportFuture"]};

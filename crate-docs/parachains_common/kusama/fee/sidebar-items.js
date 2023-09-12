@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["TARGET_BLOCK_FULLNESS"],"struct":["Perbill","ProofSizeToFee","RefTimeToFee","WeightToFee"]};

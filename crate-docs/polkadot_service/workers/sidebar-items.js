@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["determine_workers_paths"]};

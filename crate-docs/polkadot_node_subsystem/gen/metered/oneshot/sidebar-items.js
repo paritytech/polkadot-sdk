@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Error","Reason"],"fn":["channel"],"struct":["Measurements","MeteredReceiver","MeteredSender","OutputWithMeasurements"],"trait":["Measurable"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["BlockAddress","Error","ExtrinsicAddress"],"mod":["cli","command"],"struct":["DebugPrinter","Inspector"],"trait":["ChainAccess","PrettyPrinter"],"type":["BlockAddressFor"]};

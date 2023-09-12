@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["CurrentPhase","DesiredTargets","MinimumUntrustedScore","QueuedSolution","Round","SignedSubmissionIndices","SignedSubmissionNextIndex","SignedSubmissionsMap","Snapshot","SnapshotMetadata"]};

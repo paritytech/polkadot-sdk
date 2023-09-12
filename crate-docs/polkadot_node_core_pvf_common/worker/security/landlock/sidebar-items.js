@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["LANDLOCK_ABI"],"fn":["check_is_fully_enabled","get_status","status_is_fully_enabled","try_restrict_thread"]};

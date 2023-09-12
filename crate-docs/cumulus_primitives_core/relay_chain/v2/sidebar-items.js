@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["BlakeTwo256","CandidateHash","InboundDownwardMessage","InboundHrmpMessage","OutboundHrmpMessage","UncheckedExtrinsic"],"trait":["HashT"],"type":["AccountId","AccountIndex","AccountPublic","Balance","Block","BlockId","BlockNumber","ChainId","DownwardMessage","Hash","Header","Moment","Nonce","Remark","Signature"]};

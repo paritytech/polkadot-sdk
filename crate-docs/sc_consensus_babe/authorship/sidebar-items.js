@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["claim_slot","claim_slot_using_keys"]};

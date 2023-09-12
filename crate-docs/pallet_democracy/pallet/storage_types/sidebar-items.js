@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["Blacklist","Cancellations","DepositOf","LastTabledWasExternal","LowestUnbaked","MetadataOf","NextExternal","PublicPropCount","PublicProps","ReferendumCount","ReferendumInfoOf","VotingOf"]};

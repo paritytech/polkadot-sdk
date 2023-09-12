@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"type":["Pair","Public"]};

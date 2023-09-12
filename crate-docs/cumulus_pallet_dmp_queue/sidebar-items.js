@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["migration","pallet"],"struct":["ConfigData","PageIndexData"],"type":["MessageId","OverweightIndex","PageCounter"]};

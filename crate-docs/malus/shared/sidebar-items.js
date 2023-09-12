@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["MALICIOUS_POV","MALUS"],"fn":["launch_processing_task"]};

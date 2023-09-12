@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Data","IdentityField","Judgement"],"mod":["pallet","weights"],"struct":["IdentityFields","IdentityInfo","RegistrarInfo","Registration"],"type":["RegistrarIndex"]};

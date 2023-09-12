@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["error","hash"],"trait":["AuthorApiClient","AuthorApiServer"]};

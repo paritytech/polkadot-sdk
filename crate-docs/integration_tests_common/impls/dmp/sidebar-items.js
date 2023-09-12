@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Call","QueueDownwardMessageError"],"fn":["__type_value_for_initial_factor"],"mod":["pallet"],"struct":["InitialFactor","Pallet"],"trait":["Config"],"type":["Module"]};

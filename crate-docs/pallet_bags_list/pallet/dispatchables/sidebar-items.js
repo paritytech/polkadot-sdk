@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["put_in_front_of","put_in_front_of_other","rebag"]};

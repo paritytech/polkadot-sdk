@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["GenericSignedExtension","GenericSignedExtensionSchema"],"trait":["SignedExtensionSchema"],"type":["BridgeRejectObsoleteHeadersAndMessages","ChargeTransactionPayment","CheckEra","CheckGenesis","CheckNonZeroSender","CheckNonce","CheckSpecVersion","CheckTxVersion","CheckWeight","RefundBridgedParachainMessagesSchema"]};

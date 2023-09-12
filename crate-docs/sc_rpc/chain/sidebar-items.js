@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["new_full"],"mod":["error"],"struct":["Chain"],"trait":["ChainApiClient","ChainApiServer"]};

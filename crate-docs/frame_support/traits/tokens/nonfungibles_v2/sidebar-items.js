@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"trait":["Create","Destroy","Inspect","InspectEnumerable","InspectRole","Mutate","Transfer"]};

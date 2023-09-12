@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["NodeRole"],"struct":["Health","PeerInfo","SyncState","SystemInfo"]};

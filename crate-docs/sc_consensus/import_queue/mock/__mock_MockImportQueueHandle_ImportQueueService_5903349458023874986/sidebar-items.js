@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["__import_blocks","__import_justifications"]};

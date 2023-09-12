@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["Pair","Public","Signature"],"type":["AuthorityId","AuthoritySignature"]};

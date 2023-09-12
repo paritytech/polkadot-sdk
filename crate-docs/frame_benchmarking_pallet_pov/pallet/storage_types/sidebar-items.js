@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["BoundedValue","DoubleMap1M","LargeValue","LargeValue2","Map16M","Map1M","UnboundedMap","UnboundedMap2","UnboundedMapTwox","UnboundedValue","Value","Value2"]};

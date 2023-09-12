@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Keyring"],"mod":["ed25519"],"struct":["KeyringIter"]};

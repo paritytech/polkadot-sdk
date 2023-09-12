@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Recipient","RequestError","Requests"],"struct":["OutgoingRequest"],"type":["OutgoingResult","ResponseSender"]};

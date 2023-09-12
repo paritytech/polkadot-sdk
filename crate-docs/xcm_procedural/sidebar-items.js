@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"derive":["XcmWeightInfoTrait"],"macro":["impl_conversion_functions_for_junctions_v3","impl_conversion_functions_for_multilocation_v2","impl_conversion_functions_for_multilocation_v3"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["VrfOutput","VrfProof","VrfSignData","VrfSignature","VrfTranscript"],"type":["VrfInput"]};

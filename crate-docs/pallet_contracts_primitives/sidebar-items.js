@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Code","ContractAccessError","StorageDeposit"],"struct":["CodeUploadReturnValue","ContractResult","ExecReturnValue","InstantiateReturnValue","ReturnFlags"],"type":["CodeUploadResult","ContractExecResult","ContractInstantiateResult","GetStorageResult"]};

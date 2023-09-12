@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["block_import","import_queue","metrics","shared_data"],"struct":["LongestChain"]};

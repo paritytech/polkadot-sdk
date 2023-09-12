@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["are_runtimes_compatible"],"struct":["RuntimeVersions","RuntimeWrapper"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Validation"],"struct":["DefaultBlockAnnounceValidator"],"trait":["BlockAnnounceValidator","Chain"]};

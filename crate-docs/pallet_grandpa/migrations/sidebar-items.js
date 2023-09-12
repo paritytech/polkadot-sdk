@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["v4"],"struct":["CleanupSetIdSessionMap"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["plan_config_change","report_equivocation","report_equivocation_unsigned"]};

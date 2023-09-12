@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["MessageIntent","ValidationResult"],"struct":["DiscardAll","GossipEngine","TopicNotification"],"trait":["Network","Syncing","Validator","ValidatorContext"]};

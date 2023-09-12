@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["select_all"],"struct":["IntoIter","Iter","IterMut","SelectAll"]};

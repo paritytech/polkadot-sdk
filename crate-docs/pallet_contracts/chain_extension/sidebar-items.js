@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["BufInBufOutState","InitState","OnlyInState","PrimInBufOutState","RetVal"],"struct":["ChargedAmount","Diff","Environment","ReturnFlags"],"trait":["BufIn","BufOut","ChainExtension","Ext","PrimIn","PrimOut","RegisteredChainExtension","State","SysConfig"],"type":["Result"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"macro":["log"],"mod":["pallet","weights"]};

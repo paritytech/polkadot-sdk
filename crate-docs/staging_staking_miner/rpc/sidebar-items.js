@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["RpcHelperError"],"fn":["await_request_and_decode"],"struct":["SharedRpcClient"],"trait":["RpcApiClient"],"type":["Uri"]};

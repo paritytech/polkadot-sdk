@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["close_tip","report_awesome","retract_tip","slash_tip","tip","tip_new"]};

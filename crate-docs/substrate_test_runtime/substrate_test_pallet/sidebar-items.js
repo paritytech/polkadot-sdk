@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["validate_runtime_call"],"mod":["pallet"]};

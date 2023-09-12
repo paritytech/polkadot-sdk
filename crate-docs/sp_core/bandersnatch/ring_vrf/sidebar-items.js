@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["KZG","RingContext","RingVrfSignature"],"type":["RingProof","RingProver","RingVerifier"]};

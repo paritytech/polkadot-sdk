@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Error","Role"],"fn":["new_worker_and_service","new_worker_and_service_with_config"],"struct":["Service","Worker","WorkerConfig"],"trait":["AuthorityDiscovery","NetworkProvider"]};

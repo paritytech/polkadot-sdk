@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["pallet","weights"],"struct":["Proposal"],"trait":["SpendFunds"],"type":["BalanceOf","NegativeImbalanceOf","PositiveImbalanceOf","ProposalIndex"]};

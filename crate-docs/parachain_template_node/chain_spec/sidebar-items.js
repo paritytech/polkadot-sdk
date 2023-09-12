@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["SAFE_XCM_VERSION"],"fn":["development_config","get_account_id_from_seed","get_collator_keys_from_seed","get_from_seed","local_testnet_config","template_session_keys","testnet_genesis"],"struct":["Extensions","ExtensionsFork"],"type":["AccountPublic","ChainSpec"]};

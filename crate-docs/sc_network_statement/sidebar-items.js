@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["config"],"struct":["StatementHandler","StatementHandlerPrototype"],"type":["StatementImportFuture","Statements"]};

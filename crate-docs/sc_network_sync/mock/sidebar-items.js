@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["__mock_MockChainSync","__mock_MockChainSync_ChainSyncT_10276329825751360305"],"struct":["MockChainSync"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["attest","claim","claim_attest","mint_claim","move_claim"]};

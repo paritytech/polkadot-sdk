@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["BlockCheckStatus"],"fn":["build_inprocess_relay_chain","check_block_in_chain"],"struct":["RelayChainInProcessInterface"]};

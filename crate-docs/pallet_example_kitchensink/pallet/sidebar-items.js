@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","HoldReason"],"fn":["__type_value_for_default_for_foo"],"mod":["dispatchables","storage_types"],"struct":["DefaultForFoo","GenesisConfig","Pallet"],"trait":["Config"],"type":["AlternativeSyntax","AlternativeSyntax2","Bar","Foo","FooWithDefault","Module","Origin","Quux","Qux"]};

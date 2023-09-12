@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["AFLocalCounter","AFLocalHistogram","LocalHistogram","LocalHistogramTimer","LocalHistogramVec"],"trait":["CounterDelegator","CounterWithValueType","HistogramDelegator","LocalMetric","MayFlush"],"type":["LocalCounter","LocalCounterVec","LocalIntCounter","LocalIntCounterVec"]};

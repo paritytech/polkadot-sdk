@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Call","Event"],"mod":["dispatchables","storage_types","warnings"],"static":["CALLSITE","META"],"struct":["Pallet"],"trait":["Config"],"type":["MessageId","Module","ParachainId","ReceivedDmp"]};

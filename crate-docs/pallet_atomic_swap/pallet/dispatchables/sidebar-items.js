@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["cancel_swap","claim_swap","create_swap"]};

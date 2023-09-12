@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["claim_rewards","deregister","register"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["REPUTATION_CHANGE_INTERVAL"],"fn":["add_reputation"],"struct":["ReputationAggregator"]};

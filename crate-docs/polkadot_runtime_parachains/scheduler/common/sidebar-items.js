@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["FreedReason"],"struct":["AssignmentProviderConfig","CoreAssignment"],"trait":["AssignmentProvider"]};

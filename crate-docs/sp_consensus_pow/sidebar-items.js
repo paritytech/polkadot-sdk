@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["POW_ENGINE_ID"],"trait":["DifficultyApi","TimestampApi","TotalDifficulty"],"type":["Seal"]};

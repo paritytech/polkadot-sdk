@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["ParentAsUmp","TakeFirstAssetTrader","XcmFeesTo32ByteAccount"],"trait":["ChargeWeightInFungibles","PriceForParentDelivery"]};

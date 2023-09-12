@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["set_operating_mode","set_owner","submit_parachain_heads"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ChainSpecBuilder"],"fn":["generate_authority_keys_and_store","generate_chain_spec","print_seeds"]};

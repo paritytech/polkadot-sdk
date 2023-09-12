@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["emergency_solution_cmd_kusama","emergency_solution_cmd_polkadot","emergency_solution_cmd_westend"],"macro":["emergency_solution_cmd_for"]};

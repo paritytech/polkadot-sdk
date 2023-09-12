@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["BRIDGE_HUB_WESTEND"],"type":["BridgeHubChainSpec","RuntimeApi"]};

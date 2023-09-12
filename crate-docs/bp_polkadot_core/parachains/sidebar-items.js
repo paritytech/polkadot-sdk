@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["ParaHead","ParaHeadsProof","ParaId"],"type":["ParaHash","ParaHasher"]};

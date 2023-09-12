@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["FeeDetails","InclusionFee","RuntimeDispatchInfo"],"trait":["TransactionPaymentApi","TransactionPaymentCallApi"]};

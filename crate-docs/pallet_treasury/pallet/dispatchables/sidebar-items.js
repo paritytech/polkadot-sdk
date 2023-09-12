@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["approve_proposal","propose_spend","reject_proposal","remove_approval","spend"]};

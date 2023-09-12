@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Runtime"],"fn":["main"],"static":["DEFAULT_VALUE"],"struct":["Opt"]};

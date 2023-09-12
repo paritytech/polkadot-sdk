@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["era_payout"],"struct":["DealWithFees","ToAuthor"]};

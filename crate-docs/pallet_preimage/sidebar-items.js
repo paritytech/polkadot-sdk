@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["RequestStatus"],"mod":["migration","pallet","weights"]};

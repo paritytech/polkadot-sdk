@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Error"],"struct":["LocalKeystore"],"trait":["Keystore"],"type":["Result"]};

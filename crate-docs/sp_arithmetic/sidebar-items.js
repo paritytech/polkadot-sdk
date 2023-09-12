@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ArithmeticError"],"fn":["normalize"],"macro":["assert_eq_error_rate"],"mod":["biguint","fixed_point","helpers_128bit","per_things","rational","traits"],"trait":["Normalizable","ThresholdOrd"]};

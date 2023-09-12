@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"derive":["Parse","ToTokens"],"fn":["clean_type_string","generate_crate_access","generate_crate_access_2018","generate_hidden_includes","get_doc_literals"],"mod":["syn_ext"]};

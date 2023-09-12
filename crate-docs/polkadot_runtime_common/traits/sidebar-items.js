@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["AuctionStatus","LeaseError"],"trait":["Auctioneer","Leaser","OnSwap","Registrar"]};

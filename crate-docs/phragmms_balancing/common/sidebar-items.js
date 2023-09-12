@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ElectionType"],"fn":["generate_random_npos_inputs","generate_random_npos_result","to_range"],"type":["AccountId"]};

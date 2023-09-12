@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["BlockAndTime","BlockAndTimeDeadline","StorageLock","StorageLockGuard","Time"],"trait":["Lockable"]};

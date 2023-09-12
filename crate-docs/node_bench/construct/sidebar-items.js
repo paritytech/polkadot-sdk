@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["ConstructionBenchmark","ConstructionBenchmarkDescription","PoolTransaction","Transactions","TransactionsIterator"]};

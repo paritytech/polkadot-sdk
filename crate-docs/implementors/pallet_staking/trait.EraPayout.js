@@ -1,5 +1,0 @@
-(function() {var implementors = {
-"pallet_staking":[],
-"polkadot_runtime":[["impl <a class=\"trait\" href=\"pallet_staking/trait.EraPayout.html\" title=\"trait pallet_staking::EraPayout\">EraPayout</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.70.0/std/primitive.u128.html\">u128</a>&gt; for <a class=\"struct\" href=\"polkadot_runtime/struct.EraPayout.html\" title=\"struct polkadot_runtime::EraPayout\">EraPayout</a>"]],
-"staging_kusama_runtime":[["impl <a class=\"trait\" href=\"pallet_staking/trait.EraPayout.html\" title=\"trait pallet_staking::EraPayout\">EraPayout</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.70.0/std/primitive.u128.html\">u128</a>&gt; for <a class=\"struct\" href=\"staging_kusama_runtime/struct.EraPayout.html\" title=\"struct staging_kusama_runtime::EraPayout\">EraPayout</a>"]]
-};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

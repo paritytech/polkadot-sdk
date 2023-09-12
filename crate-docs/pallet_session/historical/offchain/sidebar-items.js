@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["keep_newest","prove_session_membership","prune_older_than"]};

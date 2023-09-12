@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["MAX_UPWARD_MESSAGE_SIZE_BOUND"],"enum":["AggregateMessageOrigin","UmpQueueId"],"mod":["pallet"],"struct":["AvailabilityBitfieldRecord","CandidatePendingAvailability","TestWeightInfo"],"trait":["QueueFootprinter","RewardValidators","WeightInfo"],"type":["MaxUmpMessageLenOf"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["apply","migrate_candidates_to_recorded_deposit","migrate_members_to_recorded_deposit","migrate_runners_up_to_recorded_deposit","migrate_voters_to_recorded_deposit"],"trait":["V2ToV3"]};

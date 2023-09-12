@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"static":["DEFAULT_VALUE"],"struct":["BackGarbageCandidateOptions","BackGarbageCandidates"]};

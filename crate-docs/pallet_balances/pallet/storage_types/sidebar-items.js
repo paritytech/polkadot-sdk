@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["Account","Freezes","Holds","InactiveIssuance","Locks","Reserves","TotalIssuance"]};

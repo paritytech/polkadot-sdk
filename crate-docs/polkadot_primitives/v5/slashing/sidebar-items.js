@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["SlashingOffenceKind"],"struct":["DisputeProof","DisputesTimeSlot","OpaqueKeyOwnershipProof","PendingSlashes"]};

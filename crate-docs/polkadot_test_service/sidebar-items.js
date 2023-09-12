@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["construct_extrinsic","construct_transfer_extrinsic","new_full","node_config","run_collator_node","run_validator_node","test_prometheus_config"],"mod":["chain_spec"],"struct":["PolkadotTestNode"],"trait":["GetLastTimestamp"],"type":["Client","FullBackend"]};

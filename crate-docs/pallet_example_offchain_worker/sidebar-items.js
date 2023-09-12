@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["KEY_TYPE"],"mod":["crypto","pallet"],"struct":["PricePayload"]};

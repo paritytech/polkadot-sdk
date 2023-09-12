@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["assign","claim_revenue","configure","drop_contribution","drop_history","drop_region","drop_renewal","interlace","partition","pool","purchase","purchase_credit","renew","request_core_count","reserve","set_lease","start_sales","transfer","unreserve"]};

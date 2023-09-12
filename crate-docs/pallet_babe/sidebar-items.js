@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["migrations","pallet"],"struct":["CurrentBlockRandomness","EquivocationOffence","EquivocationReportSystem","ExternalTrigger","ParentBlockRandomness","RandomnessFromOneEpochAgo","RandomnessFromTwoEpochsAgo","SameAuthoritiesForever"],"trait":["EpochChangeTrigger","WeightInfo"],"type":["AuthorityId"]};

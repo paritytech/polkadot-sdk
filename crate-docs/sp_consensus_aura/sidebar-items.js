@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["AURA_ENGINE_ID"],"enum":["ConsensusLog"],"mod":["digests","ed25519","inherents","sr25519"],"struct":["Slot","SlotDuration"],"trait":["AuraApi"],"type":["AuthorityIndex"]};

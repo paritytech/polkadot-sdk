@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["SIGNER_ACCOUNT_WILL_EXIST"],"fn":["get_account_info","signer_uri_from_string"],"struct":["Signer"]};

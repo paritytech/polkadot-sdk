@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["prepare","prevalidate","worker_entrypoint"],"struct":["CompiledArtifact"]};

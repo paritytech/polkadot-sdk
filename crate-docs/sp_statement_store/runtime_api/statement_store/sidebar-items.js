@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["broadcasts","posted","posted_clear","remove","statements","submit_statement"],"struct":["HostFunctions"]};

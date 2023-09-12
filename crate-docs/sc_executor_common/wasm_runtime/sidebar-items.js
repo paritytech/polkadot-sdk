@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_HEAP_ALLOC_PAGES","DEFAULT_HEAP_ALLOC_STRATEGY"],"enum":["HeapAllocStrategy","InvokeMethod"],"struct":["AllocationStats"],"trait":["WasmInstance","WasmModule"]};

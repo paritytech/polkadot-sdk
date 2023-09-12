@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["ed25519","migration","pallet","sr25519","weights"],"struct":["Heartbeat","UnresponsivenessOffence"],"type":["AuthIndex","IdentificationTuple","ValidatorId"]};

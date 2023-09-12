@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["mock_helpers","pallet","weights"],"struct":["BookState","IntoU32","ItemHeader","MaxEncodedLenOf","MaxMessageLen","Neighbours","Page"],"trait":["OnQueueChanged"],"type":["BookStateOf","HeapSizeU32Of","MaxMessageLenOf","MaxOriginLenOf","MessageOriginOf","PageOf"]};

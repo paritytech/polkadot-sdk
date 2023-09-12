@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["Account","ForAll","ForAny","Signer","SubmitTransaction"],"trait":["AppCrypto","CreateSignedTransaction","SendSignedTransaction","SendTransactionTypes","SendUnsignedTransaction","SignMessage","SignedPayload","SigningTypes"]};

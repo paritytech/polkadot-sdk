@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["make_ferdie_keystore"]};

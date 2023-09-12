@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["AllowedRenewals","Configuration","InstaPoolContribution","InstaPoolHistory","InstaPoolIo","Leases","Regions","Reservations","SaleInfo","Status","Workload","Workplan"]};

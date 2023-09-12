@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["CodeInfo","CodeInfoOf_Storage_Instance","Migration","PristineCode_Storage_Instance"],"type":["CodeInfoOf","PristineCode"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["ED","PARA_ID_A","PARA_ID_B"],"fn":["genesis"]};

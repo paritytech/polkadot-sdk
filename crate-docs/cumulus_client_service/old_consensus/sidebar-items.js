@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["start_collator","start_collator_sync"],"struct":["StartCollatorParams"]};

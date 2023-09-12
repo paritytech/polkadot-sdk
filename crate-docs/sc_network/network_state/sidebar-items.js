@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Endpoint","PeerEndpoint"],"struct":["NetworkState","NotConnectedPeer","Peer"]};

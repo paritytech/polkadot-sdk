@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["MaybeTimeOfFlight"],"fn":["channel","unbounded"],"mod":["oneshot"],"struct":["CoarseDuration","Meter","MeteredReceiver","MeteredSender","Readout","UnboundedMeteredReceiver","UnboundedMeteredSender"]};

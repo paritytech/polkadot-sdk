@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"derive":["PassByCodec","PassByEnum","PassByInner"],"struct":["Codec","Enum","Inner"],"trait":["PassBy","PassByImpl","PassByInner"]};

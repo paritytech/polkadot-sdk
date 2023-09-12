@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["offchain","onchain","pallet"],"struct":["NoteHistoricalRoot","ProvingTrie"],"trait":["SessionManager"],"type":["IdentificationTuple"]};

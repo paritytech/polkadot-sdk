@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["COLLECTIVES_ID","STATEMINT_ID"]};
