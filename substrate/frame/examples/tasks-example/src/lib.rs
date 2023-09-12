@@ -25,6 +25,9 @@ use frame_support::dispatch::DispatchResult;
 pub use pallet::*;
 use sp_runtime::DispatchError;
 
+#[cfg(test)]
+pub mod mock;
+
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 
