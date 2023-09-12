@@ -113,8 +113,11 @@ pub fn unshare_user_namespace_and_change_root(
 	})
 }
 
-/// Delete all env vars to prevent malicious code from accessing them.
-pub fn remove_env_vars(worker_kind: WorkerKind) {
+/// Require env vars to have been removed when spawning the process, to prevent malicious code from
+/// accessing them.
+pub fn check_env_vars_were_cleared(worker_kind: WorkerKind, worker_pid: u32) -> bool {
+	let mut ok = true;
+
 	for (key, value) in std::env::vars_os() {
 		// TODO: *theoretically* the value (or mere presence) of `RUST_LOG` can be a source of
 		// randomness for malicious code. In the future we can remove it also and log in the host;
@@ -122,37 +125,25 @@ pub fn remove_env_vars(worker_kind: WorkerKind) {
 		if key == "RUST_LOG" {
 			continue
 		}
-
-		// In case of a key or value that would cause [`env::remove_var` to
-		// panic](https://doc.rust-lang.org/std/env/fn.remove_var.html#panics), we first log a
-		// warning and then proceed to attempt to remove the env var.
-		let mut err_reasons = vec![];
-		let (key_str, value_str) = (key.to_str(), value.to_str());
-		if key.is_empty() {
-			err_reasons.push("key is empty");
-		}
-		if key_str.is_some_and(|s| s.contains('=')) {
-			err_reasons.push("key contains '='");
-		}
-		if key_str.is_some_and(|s| s.contains('\0')) {
-			err_reasons.push("key contains null character");
-		}
-		if value_str.is_some_and(|s| s.contains('\0')) {
-			err_reasons.push("value contains null character");
-		}
-		if !err_reasons.is_empty() {
-			gum::warn!(
-				target: LOG_TARGET,
-				%worker_kind,
-				?key,
-				?value,
-				"Attempting to remove badly-formatted env var, this may cause the PVF worker to crash. Please remove it yourself. Reasons: {:?}",
-				err_reasons
-			);
+		// An exception for MacOS. This is not a secure platform anyway, so we let it slide.
+		#[cfg(target_os = "macos")]
+		if key == "__CF_USER_TEXT_ENCODING" {
+			continue
 		}
 
-		std::env::remove_var(key);
+		gum::error!(
+			target: LOG_TARGET,
+			%worker_kind,
+			%worker_pid,
+			?key,
+			?value,
+			"env var was present that should have been removed",
+		);
+
+		ok = false;
 	}
+
+	ok
 }
 
 /// The [landlock] docs say it best:

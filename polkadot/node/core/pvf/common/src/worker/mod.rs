@@ -191,8 +191,7 @@ pub fn worker_event_loop<F, Fut>(
 				"Node and worker version mismatch, node needs restarting, forcing shutdown",
 			);
 			kill_parent_node_in_emergency();
-			let err = String::from("Version mismatch");
-			worker_shutdown_message(worker_kind, worker_pid, err);
+			worker_shutdown_message(worker_kind, worker_pid, "Version mismatch");
 			return
 		}
 	}
@@ -226,7 +225,18 @@ pub fn worker_event_loop<F, Fut>(
 			worker_dir_path = std::path::Path::new("/").to_owned();
 		}
 
-		security::remove_env_vars(worker_kind);
+		if !security::check_env_vars_were_cleared(worker_kind, worker_pid) {
+			let err = "not all env vars were cleared when spawning the process";
+			gum::error!(
+				target: LOG_TARGET,
+				%worker_kind,
+				%worker_pid,
+				"{}",
+				err
+			);
+			worker_shutdown_message(worker_kind, worker_pid, err);
+			return
+		}
 	}
 
 	// Run the main worker loop.
@@ -263,7 +273,7 @@ pub fn worker_event_loop<F, Fut>(
 		// It's never `Ok` because it's `Ok(Never)`.
 		.unwrap_err();
 
-	worker_shutdown_message(worker_kind, worker_pid, err.to_string());
+	worker_shutdown_message(worker_kind, worker_pid, &err.to_string());
 
 	// We don't want tokio to wait for the tasks to finish. We want to bring down the worker as fast
 	// as possible and not wait for stalled validation to finish. This isn't strictly necessary now,
@@ -272,7 +282,7 @@ pub fn worker_event_loop<F, Fut>(
 }
 
 /// Provide a consistent message on worker shutdown.
-fn worker_shutdown_message(worker_kind: WorkerKind, worker_pid: u32, err: String) {
+fn worker_shutdown_message(worker_kind: WorkerKind, worker_pid: u32, err: &str) {
 	gum::debug!(target: LOG_TARGET, %worker_pid, "quitting pvf worker ({}): {}", worker_kind, err);
 }
 
