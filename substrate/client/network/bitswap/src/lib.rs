@@ -474,7 +474,7 @@ mod tests {
 		let ext = ExtrinsicBuilder::new_indexed_call(vec![0x13, 0x37, 0x13, 0x38]).build();
 		let pattern_index = ext.encoded_size() - 4;
 
-		block_builder.push(ext.clone()).unwrap();
+		block_builder.push(ext.clone(), None).unwrap();
 		let block = block_builder.build().unwrap().block;
 
 		client.import(BlockOrigin::File, block).await.unwrap();

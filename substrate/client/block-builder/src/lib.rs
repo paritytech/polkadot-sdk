@@ -376,7 +376,7 @@ mod tests {
 		)
 		.unwrap();
 
-		block_builder.push(ExtrinsicBuilder::new_read_and_panic(8).build()).unwrap_err();
+		block_builder.push(ExtrinsicBuilder::new_read_and_panic(8).build(), None).unwrap_err();
 
 		let block = block_builder.build().unwrap();
 
@@ -392,7 +392,7 @@ mod tests {
 		)
 		.unwrap();
 
-		block_builder.push(ExtrinsicBuilder::new_read(8).build()).unwrap();
+		block_builder.push(ExtrinsicBuilder::new_read(8).build(), None).unwrap();
 
 		let block = block_builder.build().unwrap();
 

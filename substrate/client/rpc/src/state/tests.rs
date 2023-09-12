@@ -294,11 +294,11 @@ async fn should_query_storage() {
 			let mut builder = client.new_block(Default::default()).unwrap();
 			// fake change: None -> None -> None
 			builder
-				.push(ExtrinsicBuilder::new_storage_change(vec![1], None).build())
+				.push(ExtrinsicBuilder::new_storage_change(vec![1], None).build(), None)
 				.unwrap();
 			// fake change: None -> Some(value) -> Some(value)
 			builder
-				.push(ExtrinsicBuilder::new_storage_change(vec![2], Some(vec![2])).build())
+				.push(ExtrinsicBuilder::new_storage_change(vec![2], Some(vec![2])).build(), None)
 				.unwrap();
 			// actual change: None -> Some(value) -> None
 			builder
@@ -308,6 +308,7 @@ async fn should_query_storage() {
 						if index == 0 { Some(vec![3]) } else { None },
 					)
 					.build(),
+					None,
 				)
 				.unwrap();
 			// actual change: None -> Some(value)
@@ -318,12 +319,14 @@ async fn should_query_storage() {
 						if index == 0 { None } else { Some(vec![4]) },
 					)
 					.build(),
+					None,
 				)
 				.unwrap();
 			// actual change: Some(value1) -> Some(value2)
 			builder
 				.push(
 					ExtrinsicBuilder::new_storage_change(vec![5], Some(vec![index as u8])).build(),
+					None,
 				)
 				.unwrap();
 			let block = builder.build().unwrap().block;

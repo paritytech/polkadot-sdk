@@ -148,7 +148,7 @@ pub fn create_benchmarking_transfer_extrinsics(
 			Some(0),
 		);
 
-		match block_builder.push(extrinsic.clone().into()) {
+		match block_builder.push(extrinsic.clone().into(), None) {
 			Ok(_) => {},
 			Err(ApplyExtrinsicFailed(Validity(TransactionValidityError::Invalid(
 				InvalidTransaction::ExhaustsResources,
@@ -250,10 +250,10 @@ pub fn set_glutton_parameters(
 	extrinsics.push(set_storage);
 
 	let mut block_builder = client.new_block(Default::default()).unwrap();
-	block_builder.push(extrinsic_set_time(client)).unwrap();
-	block_builder.push(extrinsic_set_validation_data(parent_header)).unwrap();
+	block_builder.push(extrinsic_set_time(client), None).unwrap();
+	block_builder.push(extrinsic_set_validation_data(parent_header), None).unwrap();
 	for extrinsic in extrinsics {
-		block_builder.push(extrinsic.into()).unwrap();
+		block_builder.push(extrinsic.into(), None).unwrap();
 	}
 
 	let built_block = block_builder.build().unwrap();

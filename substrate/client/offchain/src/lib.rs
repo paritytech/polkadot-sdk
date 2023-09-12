@@ -472,7 +472,7 @@ mod tests {
 		let value = &b"world"[..];
 		let mut block_builder = client.new_block(Default::default()).unwrap();
 		let ext = ExtrinsicBuilder::new_offchain_index_set(key.to_vec(), value.to_vec()).build();
-		block_builder.push(ext).unwrap();
+		block_builder.push(ext, None).unwrap();
 
 		let block = block_builder.build().unwrap().block;
 		block_on(client.import(BlockOrigin::Own, block)).unwrap();
@@ -481,7 +481,7 @@ mod tests {
 
 		let mut block_builder = client.new_block(Default::default()).unwrap();
 		let ext = ExtrinsicBuilder::new_offchain_index_clear(key.to_vec()).nonce(1).build();
-		block_builder.push(ext).unwrap();
+		block_builder.push(ext, None).unwrap();
 
 		let block = block_builder.build().unwrap().block;
 		block_on(client.import(BlockOrigin::Own, block)).unwrap();

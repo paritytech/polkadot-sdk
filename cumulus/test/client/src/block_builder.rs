@@ -108,7 +108,7 @@ fn init_block_builder(
 
 	inherents
 		.into_iter()
-		.for_each(|ext| block_builder.push(ext).expect("Pushes inherent"));
+		.for_each(|ext| block_builder.push(ext, None).expect("Pushes inherent"));
 
 	block_builder
 }

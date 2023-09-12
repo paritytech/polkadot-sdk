@@ -1188,7 +1188,7 @@ async fn syncs_indexed_blocks() {
 		|mut builder| {
 			let ex = ExtrinsicBuilder::new_indexed_call(n.to_le_bytes().to_vec()).nonce(n).build();
 			n += 1;
-			builder.push(ex).unwrap();
+			builder.push(ex, None).unwrap();
 			builder.build().unwrap().block
 		},
 		false,
@@ -1313,7 +1313,7 @@ async fn syncs_huge_blocks() {
 		// Add 32 extrinsics 32k each = 1MiB total
 		for _ in 0..32u64 {
 			let ex = ExtrinsicBuilder::new_include_data(vec![42u8; 32 * 1024]).nonce(nonce).build();
-			builder.push(ex).unwrap();
+			builder.push(ex, None).unwrap();
 			nonce += 1;
 		}
 		builder.build().unwrap().block

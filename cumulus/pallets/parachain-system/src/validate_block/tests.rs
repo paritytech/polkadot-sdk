@@ -92,7 +92,7 @@ fn build_block_with_witness(
 
 	validation_data.relay_parent_storage_root = relay_parent_storage_root;
 
-	extra_extrinsics.into_iter().for_each(|e| builder.push(e).unwrap());
+	extra_extrinsics.into_iter().for_each(|e| builder.push(e, None).unwrap());
 
 	let block = builder.build_parachain_block(*parent_head.state_root());
 
