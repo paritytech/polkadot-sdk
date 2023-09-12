@@ -63,6 +63,17 @@ impl AllPalletsDeclaration {
 			match item.ty.clone() {
 				syn::Type::Path(ref path) => {
 					let pallet_decl = PalletDeclaration::try_from(item.span(), item, path)?;
+
+					if let Some(used_pallet) =
+						names.insert(pallet_decl.name.clone(), pallet_decl.name.span())
+					{
+						let msg = "Two pallets with the same name!";
+
+						let mut err = syn::Error::new(used_pallet, &msg);
+						err.combine(syn::Error::new(pallet_decl.name.span(), &msg));
+						return Err(err)
+					}
+
 					pallet_decls.push(pallet_decl);
 				},
 				syn::Type::TraitObject(syn::TypeTraitObject { bounds, .. }) => {
@@ -75,15 +86,6 @@ impl AllPalletsDeclaration {
 						);
 						let mut err = syn::Error::new(used_pallet.span(), &msg);
 						err.combine(syn::Error::new(pallet.name.span(), msg));
-						return Err(err)
-					}
-
-					if let Some(used_pallet) = names.insert(pallet.name.clone(), pallet.name.span())
-					{
-						let msg = "Two pallets with the same name!";
-
-						let mut err = syn::Error::new(used_pallet, &msg);
-						err.combine(syn::Error::new(pallet.name.span(), &msg));
 						return Err(err)
 					}
 

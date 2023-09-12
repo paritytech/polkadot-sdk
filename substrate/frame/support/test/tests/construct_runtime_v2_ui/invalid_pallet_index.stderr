@@ -1,0 +1,5 @@
+error: expected integer literal
+  --> tests/construct_runtime_v2_ui/invalid_pallet_index.rs:26:31
+   |
+26 |         #[frame::pallet_index("0")]
+   |                               ^^^

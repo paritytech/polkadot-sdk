@@ -1,0 +1,5 @@
+error: expected one of: `RuntimeCall`, `RuntimeEvent`, `RuntimeError`, `RuntimeOrigin`, `RuntimeFreezeReason`, `RuntimeHoldReason`, `RuntimeSlashReason`, `RuntimeLockId`
+  --> tests/construct_runtime_v2_ui/invalid_runtime_type_derive.rs:24:21
+   |
+24 |     #[frame::derive(RuntimeInfo)]
+   |                     ^^^^^^^^^^^

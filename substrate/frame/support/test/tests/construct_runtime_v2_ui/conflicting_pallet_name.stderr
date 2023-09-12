@@ -1,0 +1,11 @@
+error: Two pallets with the same name!
+  --> tests/construct_runtime_v2_ui/conflicting_pallet_name.rs:39:9
+   |
+39 |         System: frame_system,
+   |         ^^^^^^
+
+error: Two pallets with the same name!
+  --> tests/construct_runtime_v2_ui/conflicting_pallet_name.rs:41:9
+   |
+41 |         System: pallet,
+   |         ^^^^^^
