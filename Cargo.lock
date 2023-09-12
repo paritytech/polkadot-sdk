@@ -19024,9 +19024,9 @@ dependencies = [
 
 [[package]]
 name = "trie-bench"
-version = "0.37.0"
+version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f54b4f9d51d368e62cf7e0730c7c1e18fc658cc84333656bab5b328f44aa964"
+checksum = "a4680cb226e31d2a096592d0edecdda91cc371743002f80c0f8cf80219819b3b"
 dependencies = [
  "criterion 0.4.0",
  "hash-db",
@@ -19040,9 +19040,9 @@ dependencies = [
 
 [[package]]
 name = "trie-db"
-version = "0.27.1"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "767abe6ffed88a1889671a102c2861ae742726f52e0a5a425b92c9fbfa7e9c85"
+checksum = "ff28e0f815c2fea41ebddf148e008b077d2faddb026c9555b29696114d602642"
 dependencies = [
  "hash-db",
  "hashbrown 0.13.2",
