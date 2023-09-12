@@ -28,15 +28,14 @@ use ::test_helpers::{
 use parity_scale_codec::Encode;
 use polkadot_node_primitives::{AvailableData, BlockData, InvalidCandidate, PoV};
 use polkadot_node_subsystem::{
-	jaeger,
 	messages::{
 		AllMessages, ChainApiMessage, DisputeCoordinatorMessage, RuntimeApiMessage,
 		RuntimeApiRequest,
 	},
-	ActivatedLeaf, ActiveLeavesUpdate, LeafStatus, SpawnGlue,
+	ActiveLeavesUpdate, SpawnGlue,
 };
 use polkadot_node_subsystem_test_helpers::{
-	make_subsystem_context, TestSubsystemContext, TestSubsystemContextHandle,
+	make_subsystem_context, mock::new_leaf, TestSubsystemContext, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
 	BlakeTwo256, CandidateCommitments, HashT, Header, PersistedValidationData, ValidationCode,
@@ -73,7 +72,8 @@ async fn participate_with_commitments_hash<Context>(
 	let session = 1;
 
 	let request_timer = participation.metrics.time_participation_pipeline();
-	let req = ParticipationRequest::new(candidate_receipt, session, request_timer);
+	let req =
+		ParticipationRequest::new(candidate_receipt, session, Default::default(), request_timer);
 
 	participation
 		.queue_participation(ctx, ParticipationPriority::BestEffort, req)
@@ -99,12 +99,7 @@ async fn activate_leaf<Context>(
 	participation
 		.process_active_leaves_update(
 			ctx,
-			&ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: block_hash,
-				span: Arc::new(jaeger::Span::Disabled),
-				number: block_number,
-				status: LeafStatus::Fresh,
-			}),
+			&ActiveLeavesUpdate::start_work(new_leaf(block_hash, block_number)),
 		)
 		.await
 }
@@ -120,7 +115,7 @@ pub async fn participation_full_happy_path(
 	assert_matches!(
 	ctx_handle.recv().await,
 	AllMessages::CandidateValidation(
-		CandidateValidationMessage::ValidateFromExhaustive(_, _, candidate_receipt, _, timeout, tx)
+		CandidateValidationMessage::ValidateFromExhaustive(_, _, candidate_receipt, _, _, timeout, tx)
 		) if timeout == PvfExecTimeoutKind::Approval => {
 			if expected_commitments_hash != candidate_receipt.commitments_hash {
 				tx.send(Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))).unwrap();
@@ -455,7 +450,7 @@ fn cast_invalid_vote_if_validation_fails_or_is_invalid() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive(_, _, _, _, timeout, tx)
+				CandidateValidationMessage::ValidateFromExhaustive(_, _, _, _, _, timeout, tx)
 			) if timeout == PvfExecTimeoutKind::Approval => {
 				tx.send(Ok(ValidationResult::Invalid(InvalidCandidate::Timeout))).unwrap();
 			},
@@ -492,7 +487,7 @@ fn cast_invalid_vote_if_commitments_dont_match() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive(_, _, _, _, timeout, tx)
+				CandidateValidationMessage::ValidateFromExhaustive(_, _, _, _, _, timeout, tx)
 			) if timeout == PvfExecTimeoutKind::Approval => {
 				tx.send(Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))).unwrap();
 			},
@@ -529,7 +524,7 @@ fn cast_valid_vote_if_validation_passes() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive(_, _, _, _, timeout, tx)
+				CandidateValidationMessage::ValidateFromExhaustive(_, _, _, _, _, timeout, tx)
 			) if timeout == PvfExecTimeoutKind::Approval => {
 				tx.send(Ok(ValidationResult::Valid(dummy_candidate_commitments(None), PersistedValidationData::default()))).unwrap();
 			},

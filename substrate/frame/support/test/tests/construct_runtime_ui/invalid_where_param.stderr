@@ -1,5 +1,5 @@
 error: expected one of: `Block`, `NodeBlock`, `UncheckedExtrinsic`
- --> $DIR/invalid_where_param.rs:7:3
-  |
-7 |         TypeX = Block,
-  |         ^^^^^
+  --> tests/construct_runtime_ui/invalid_where_param.rs:24:3
+   |
+24 |         TypeX = Block,
+   |         ^^^^^

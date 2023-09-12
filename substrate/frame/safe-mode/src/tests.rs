@@ -22,8 +22,8 @@
 use super::*;
 use crate::mock::{RuntimeCall, *};
 
-use frame_support::{assert_err, assert_noop, assert_ok, dispatch::Dispatchable, traits::Currency};
-use sp_runtime::TransactionOutcome;
+use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
+use sp_runtime::{traits::Dispatchable, TransactionOutcome};
 
 /// Do something hypothetically by rolling back any changes afterwards.
 ///
@@ -605,7 +605,7 @@ fn fails_when_explicit_origin_required() {
 }
 
 fn call_transfer() -> RuntimeCall {
-	RuntimeCall::Balances(pallet_balances::Call::transfer { dest: 1, value: 1 })
+	RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { dest: 1, value: 1 })
 }
 
 fn signed(who: u64) -> RuntimeOrigin {
