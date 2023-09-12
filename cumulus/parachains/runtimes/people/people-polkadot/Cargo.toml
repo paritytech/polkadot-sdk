@@ -28,6 +28,7 @@ pallet-aura = { path = "../../../../../substrate/frame/aura", default-features =
 pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false}
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false}
 pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false}
+pallet-identity = { path = "../../../../../substrate/frame/identity", default-features = false}
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false}
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false}
 pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false}
@@ -94,6 +95,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
+	"pallet-identity/std",
 	"pallet-multisig/std",
 	"pallet-session/std",
 	"pallet-timestamp/std",
@@ -138,6 +140,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
+	"pallet-identity/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
@@ -164,6 +167,7 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
+	"pallet-identity/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-timestamp/try-runtime",
