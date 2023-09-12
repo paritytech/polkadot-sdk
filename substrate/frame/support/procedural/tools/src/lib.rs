@@ -39,7 +39,11 @@ fn generate_hidden_includes_mod_name(unique_id: &str) -> Ident {
 /// Generates the access to the `frame-support` crate.
 pub fn generate_crate_access(unique_id: &str, def_crate: &str) -> TokenStream {
 	if std::env::var("CARGO_PKG_NAME").unwrap() == def_crate {
-		quote::quote!(frame_support)
+		let frame_support = match generate_crate_access_2018("frame-support") {
+			Ok(c) => c,
+			Err(e) => return e.into_compile_error().into(),
+		};
+		quote::quote!(#frame_support)
 	} else {
 		let mod_name = generate_hidden_includes_mod_name(unique_id);
 		quote::quote!( self::#mod_name::hidden_include )
