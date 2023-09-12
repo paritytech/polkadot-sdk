@@ -72,8 +72,8 @@ const BENEFIT_VALID_MESSAGE: Rep = Rep::BenefitMinor("Peer sent a valid message"
 const BENEFIT_VALID_MESSAGE_FIRST: Rep =
 	Rep::BenefitMinorFirst("Valid message with new information");
 
-const MAX_ASSIGNMENT_IMPORT_BATCH_SIZE: usize = 8;
-const MAX_ASSIGNMENT_IMPORT_BATCH_WAIT: Duration = Duration::from_millis(50);
+const MAX_ASSIGNMENT_IMPORT_BATCH_SIZE: usize = 16;
+const MAX_ASSIGNMENT_IMPORT_BATCH_WAIT: Duration = Duration::from_millis(100);
 /// The Approval Distribution subsystem.
 pub struct ApprovalDistribution {
 	metrics: Metrics,
@@ -223,8 +223,8 @@ struct State {
 	/// Approvals corresponding to assignments in `currently_checking_assignments`.
 	deferred_approvals: HashMap<PeerId, Vec<IndirectSignedApprovalVote>>,
 
-	/// Counts the number of deferred approvals. Avoids iterating possibly a large
-	/// `deferred_approvals` HashMap.
+	/// For backpressure purposes, counts the number of deferred approvals. Avoids iterating
+	/// possibly a large `deferred_approvals` HashMap.
 	deffered_approval_count: usize,
 }
 
@@ -817,32 +817,26 @@ impl State {
 		self.batched_assignment_checks.push((assignment, claimed_candidate_index, peer));
 
 		if self.batched_assignment_checks.len() >= MAX_ASSIGNMENT_IMPORT_BATCH_SIZE {
-			// Send the batch now.
-			loop {
-				if self.check_assignment_batch(ctx, metrics, rng).await == 0 {
-					break
-				}
-			}
+			self.check_assignment_batch(ctx, metrics, rng).await;
 		}
 	}
 
 	/// Batch checks and propagates assignments.
 	///
-	/// Invariant: All batches contain unique assignments.
+	/// Invariant: All batches sent to `approval-voting` contain only unique assignments.
 	///
-	/// Must be called in a loop until it returns 0 to consumne all assignments.
+	/// Duplicates are kept buffered until next call to the function.
 	pub async fn check_assignment_batch<Context, R>(
 		&mut self,
 		ctx: &mut Context,
 		metrics: &Metrics,
 		rng: &mut R,
-	) -> usize
-	where
+	) where
 		R: CryptoRng + Rng,
 	{
 		// Exit early when there are no assignments.
 		if self.batched_assignment_checks.is_empty() {
-			return 0
+			return
 		}
 
 		gum::trace!(
@@ -869,7 +863,7 @@ impl State {
 			let message_subject =
 				MessageSubject(block_hash, claimed_candidate_index, validator_index);
 			let message_kind = MessageKind::Assignment;
-			
+
 			if !unique_set.contains(&message_subject) {
 				let entry = self
 					.blocks
@@ -981,7 +975,7 @@ impl State {
 			Ok(results) => results,
 			Err(_) => {
 				gum::debug!(target: LOG_TARGET, "The approval voting subsystem is down");
-				return 0
+				return
 			},
 		};
 		drop(timer);
@@ -1104,8 +1098,6 @@ impl State {
 			}
 			self.deffered_approval_count = 0;
 		}
-
-		self.batched_assignment_checks.len()
 	}
 
 	// Propagate an assignment according to topology.
@@ -1370,7 +1362,7 @@ impl State {
 					.entry(peer)
 					.or_insert_with(|| Vec::new())
 					.push(vote.clone());
-					
+
 				self.deffered_approval_count += 1;
 				// The message will be processed as soon as the corresponding assignments are
 				// checked.
@@ -2181,12 +2173,7 @@ impl ApprovalDistribution {
 			select! {
 				_ = assignment_batch_delay => {
 					// Timer expired, we need to check/import whatever is in the queue.
-					// Consume all messages in queue.
-					loop {
-						if state.check_assignment_batch(&mut ctx, &self.metrics, rng).await == 0 {
-							break;
-						}
-					}
+					state.check_assignment_batch(&mut ctx, &self.metrics, rng).await;
 
 					assignment_batch_delay = new_assignment_batch_delay();
 				}

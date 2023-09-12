@@ -1903,11 +1903,8 @@ async fn check_and_import_assignments<Context>(
 		let clock = state.clock.clone();
 		let slot_duration_millis = state.slot_duration_millis;
 
-		assignment_contexts.push(AssignmentContext {
-			block_entry: block_entry.clone(),
-			assigned_candidate_hash,
-			candidate_entry,
-		});
+		assignment_contexts
+			.push(AssignmentContext { block_entry: block_entry.clone(), assigned_candidate_hash });
 
 		let check_task = Box::pin(async move {
 			check_assignment_span
@@ -1986,15 +1983,18 @@ async fn check_and_import_assignments<Context>(
 	let mut actions = Vec::new();
 
 	// Import succesfully checked assignments.
-	for (((assignment, tranche), result), mut context) in assignments
+	for (((assignment, tranche), result), context) in assignments
 		.into_iter()
 		.zip(results.iter_mut())
 		.zip(assignment_contexts.into_iter())
 	{
 		match result {
 			AssignmentCheckResult::Accepted | AssignmentCheckResult::AcceptedDuplicate => {
-				let approval_entry = context
-					.candidate_entry
+				let mut candidate_entry = db
+					.load_candidate_entry(&context.assigned_candidate_hash)?
+					.expect("Already checked above; qed");
+
+				let approval_entry = candidate_entry
 					.approval_entry_mut(&context.block_entry.block_hash())
 					.expect("Approval entry just fetched above; qed");
 
@@ -2005,15 +2005,19 @@ async fn check_and_import_assignments<Context>(
 
 				if is_duplicate {
 					*result = AssignmentCheckResult::AcceptedDuplicate;
-				} else {
-					gum::trace!(
-						target: LOG_TARGET,
-						validator = assignment.validator.0,
-						candidate_hash = ?context.assigned_candidate_hash,
-						para_id = ?context.candidate_entry.candidate_receipt().descriptor.para_id,
-						"Imported assignment.",
-					);
 				}
+
+				// TODO: remove this before merge.
+				let is_assigned = approval_entry.is_assigned(assignment.validator);
+				gum::trace!(
+					target: LOG_TARGET,
+					check_result = ?result,
+					validator = assignment.validator.0,
+					candidate_hash = ?context.assigned_candidate_hash,
+					para_id = ?candidate_entry.candidate_receipt().descriptor.para_id,
+					is_assigned,
+					"Imported assignment.",
+				);
 
 				// We've imported a new approval, so we need to schedule a wake-up for when that
 				// might no-show.
@@ -2022,7 +2026,7 @@ async fn check_and_import_assignments<Context>(
 						ctx.sender(),
 						session_info_provider,
 						&context.block_entry,
-						&context.candidate_entry,
+						&candidate_entry,
 					)
 					.await
 				{
@@ -2038,7 +2042,7 @@ async fn check_and_import_assignments<Context>(
 				}
 
 				// We also write the candidate entry as it now contains the new candidate.
-				db.write_candidate_entry(context.candidate_entry.into());
+				db.write_candidate_entry(candidate_entry.into());
 			},
 			_ => { /* nothing to do */ },
 		}
@@ -2050,7 +2054,6 @@ async fn check_and_import_assignments<Context>(
 struct AssignmentContext {
 	block_entry: BlockEntry,
 	assigned_candidate_hash: CandidateHash,
-	candidate_entry: CandidateEntry,
 }
 
 async fn check_and_import_approval<T, Sender>(
@@ -2158,6 +2161,14 @@ where
 			),))
 		},
 		Some(e) if !e.is_assigned(approval.validator) => {
+			gum::debug!(
+				target: LOG_TARGET,
+				?approved_candidate_hash,
+				block_hash = ?approval.block_hash,
+				candidate_index = ?approval.candidate_index,
+				validator_index = ?approval.validator,
+				"Assignment not found"
+			);
 			respond_early!(ApprovalCheckResult::Bad(ApprovalCheckError::NoAssignment(
 				approval.validator
 			),))
