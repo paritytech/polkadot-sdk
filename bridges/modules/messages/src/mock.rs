@@ -97,6 +97,7 @@ impl frame_system::Config for TestRuntime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
@@ -124,6 +125,7 @@ impl pallet_balances::Config for TestRuntime {
 	type Balance = Balance;
 	type DustRemoval = ();
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeTask = RuntimeTask;
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = frame_system::Pallet<TestRuntime>;
 	type WeightInfo = ();
