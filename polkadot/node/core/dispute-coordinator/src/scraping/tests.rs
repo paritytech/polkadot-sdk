@@ -686,16 +686,19 @@ fn inclusions_insertion() {
 	inclusions.insert(candidate_hash, block_number, block_hash);
 
 	// Check inclusions_inner
+	assert!(inclusions.inclusions_inner.len() == 1, "Expected inclusions_inner to have length 1");
 	assert!(
 		inclusions.inclusions_inner.contains_key(&candidate_hash),
 		"Expected candidate_hash to be present in inclusions_inner"
 	);
 	let inner_map = inclusions.inclusions_inner.get(&candidate_hash).unwrap();
+	assert!(inner_map.len() == 1, "Expected inner_map to have length 1");
 	assert!(
 		inner_map.contains_key(&block_number),
 		"Expected block_number to be present for the candidate_hash in inclusions_inner"
 	);
 	let hash_set = inner_map.get(&block_number).unwrap();
+	assert!(hash_set.len() == 1, "Expected hash_map to have length 1");
 	assert!(
 		hash_set.contains(&block_hash),
 		"Expected block_hash to be present for the block_number in inclusions_inner"
@@ -703,10 +706,18 @@ fn inclusions_insertion() {
 
 	// Check candidates_by_block_number
 	assert!(
+		inclusions.candidates_by_block_number.len() == 1,
+		"Expected candidates_by_block_number to have length 1"
+	);
+	assert!(
 		inclusions.candidates_by_block_number.contains_key(&block_number),
 		"Expected block_number to be present in candidates_by_block_number"
 	);
 	let candidate_set = inclusions.candidates_by_block_number.get(&block_number).unwrap();
+	assert!(
+		candidate_set.len() == 1,
+		"Expected candidate_set to have length 1 for the block_number in candidates_by_block_number"
+	);
 	assert!(
 		candidate_set.contains(&candidate_hash),
 		"Expected candidate_hash to be present for the block_number in candidates_by_block_number"
