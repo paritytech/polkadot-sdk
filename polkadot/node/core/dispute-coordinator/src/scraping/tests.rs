@@ -768,35 +768,51 @@ fn inclusions_iterative_removal() {
 	let candidate1 = make_candidate_receipt(BlakeTwo256::hash(&"c1".encode())).hash();
 	let candidate2 = make_candidate_receipt(BlakeTwo256::hash(&"c2".encode())).hash();
 	let candidate3 = make_candidate_receipt(BlakeTwo256::hash(&"c3".encode())).hash();
+	let candidate4 = make_candidate_receipt(BlakeTwo256::hash(&"c4".encode())).hash();
+	let candidate5 = make_candidate_receipt(BlakeTwo256::hash(&"c5".encode())).hash();
+
+	//	B	0	1	2	3
+	// C1	x
+	// C2		x
+	// C3	x		x
+	// C4			x
+	// C5				x	
 
 	inclusions.insert(candidate1, 0, get_block_number_hash(0));
 	inclusions.insert(candidate2, 1, get_block_number_hash(1));
 	inclusions.insert(candidate3, 0, get_block_number_hash(0));
 	inclusions.insert(candidate3, 2, get_block_number_hash(2));
+	inclusions.insert(candidate4, 2, get_block_number_hash(2));
+	inclusions.insert(candidate5, 3, get_block_number_hash(3));
 
-	// Remove a height that has no blocks and observe no changes
 	inclusions.remove_up_to_height(&0);
 	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
 	assert!(inclusions.contains(&candidate2), "Expected candidate2 to remain");
 	assert!(inclusions.contains(&candidate3), "Expected candidate3 to remain");
+	assert!(inclusions.contains(&candidate4), "Expected candidate4 to remain");
+	assert!(inclusions.contains(&candidate5), "Expected candidate5 to remain");
 
-	// Remove block 0 and check
 	inclusions.remove_up_to_height(&1);
 	assert!(!inclusions.contains(&candidate1), "Expected candidate1 to be removed");
 	assert!(inclusions.contains(&candidate2), "Expected candidate2 to remain");
 	assert!(inclusions.contains(&candidate3), "Expected candidate3 to remain");
+	assert!(inclusions.contains(&candidate4), "Expected candidate4 to remain");
+	assert!(inclusions.contains(&candidate5), "Expected candidate5 to remain");
 
-	// Remove block 1 and check
 	inclusions.remove_up_to_height(&2);
 	assert!(!inclusions.contains(&candidate1), "Expected candidate1 to be removed");
 	assert!(!inclusions.contains(&candidate2), "Expected candidate2 to be removed");
 	assert!(inclusions.contains(&candidate3), "Expected candidate3 to remain");
+	assert!(inclusions.contains(&candidate4), "Expected candidate4 to remain");
+	assert!(inclusions.contains(&candidate5), "Expected candidate5 to remain");
 
-	// Remove block 2 and check
-	inclusions.remove_up_to_height(&3);
+	inclusions.remove_up_to_height(&10);
 	assert!(!inclusions.contains(&candidate1), "Expected candidate1 to be removed");
 	assert!(!inclusions.contains(&candidate2), "Expected candidate2 to be removed");
 	assert!(!inclusions.contains(&candidate3), "Expected candidate3 to be removed");
+	assert!(!inclusions.contains(&candidate4), "Expected candidate4 to be removed");
+	assert!(!inclusions.contains(&candidate5), "Expected candidate4 to be removed");
+
 }
 
 #[test]
