@@ -956,16 +956,42 @@ async fn handle_incoming_peer_message<Context>(
 						target: LOG_TARGET,
 						?statement,
 						?origin,
-						"received a valid `CollationSeconded`",
+						"received a valid `CollationSeconded`, forwarding result to collator",
 					);
 					let _ = sender.send(CollationSecondedSignal { statement, relay_parent });
 				} else {
-					gum::debug!(
-						target: LOG_TARGET,
-						candidate_hash = ?&statement.payload().candidate_hash(),
-						?origin,
-						"received an unexpected `CollationSeconded`: unknown statement",
-					);
+					// Checking whether the `CollationSeconded` statement is unexpected
+					let relay_parent = match state.per_relay_parent.get(&relay_parent) {
+						Some(per_relay_parent) => per_relay_parent,
+						None => {
+							gum::debug!(
+								target: LOG_TARGET,
+								candidate_relay_parent = %relay_parent,
+								candidate_hash = ?&statement.payload().candidate_hash(),
+								"Seconded statement relay parent is out of our view",
+							);
+							return Ok(())
+						},
+					};
+					match relay_parent.collations.get(&statement.payload().candidate_hash()) {
+						Some(_) => {
+							// We've seen this collation before, so a seconded statement is expected
+							gum::trace!(
+								target: LOG_TARGET,
+								?statement,
+								?origin,
+								"received a valid `CollationSeconded`",
+							);
+						},
+						None => {
+							gum::debug!(
+								target: LOG_TARGET,
+								candidate_hash = ?&statement.payload().candidate_hash(),
+								?origin,
+								"received an unexpected `CollationSeconded`: unknown statement",
+							);
+						},
+					}
 				}
 			}
 		},
