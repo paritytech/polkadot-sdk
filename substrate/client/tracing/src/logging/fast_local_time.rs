@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use chrono::{Datelike, Timelike};
-use std::{cell::RefCell, fmt::Write, time::SystemTime};
+use std::{cell::RefCell, fmt, fmt::Write, time::SystemTime};
 use tracing_subscriber::fmt::time::FormatTime;
 
 /// A structure which, when `Display`d, will print out the current local time.
@@ -26,10 +26,10 @@ pub struct FastLocalTime {
 	/// Decides whenever the fractional timestamp with be included in the output.
 	///
 	/// If `false` the output will match the following `chrono` format string:
-	///   `%Y-%m-%d %H:%M:%S`
+	///   `%Y-%m-%d %H:%M:%S%:z`
 	///
 	/// If `true` the output will match the following `chrono` format string:
-	///   `%Y-%m-%d %H:%M:%S%.3f`
+	///   `%Y-%m-%d %H:%M:%S%.3f%:z`
 	pub with_fractional: bool,
 }
 
@@ -43,7 +43,7 @@ struct InlineString {
 }
 
 impl Write for InlineString {
-	fn write_str(&mut self, s: &str) -> std::fmt::Result {
+	fn write_str(&mut self, s: &str) -> fmt::Result {
 		let new_length = self.length + s.len();
 		assert!(
 			new_length <= TIMESTAMP_MAXIMUM_LENGTH,
@@ -66,6 +66,7 @@ impl InlineString {
 
 #[derive(Default)]
 struct CachedTimestamp {
+	timezone_offset: InlineString,
 	buffer: InlineString,
 	last_regenerated_at: u64,
 	last_fractional: u32,
@@ -76,7 +77,7 @@ thread_local! {
 }
 
 impl FormatTime for FastLocalTime {
-	fn format_time(&self, w: &mut dyn Write) -> std::fmt::Result {
+	fn format_time(&self, w: &mut dyn Write) -> fmt::Result {
 		const TIMESTAMP_PARTIAL_LENGTH: usize = "0000-00-00 00:00:00".len();
 
 		let elapsed = SystemTime::now()
@@ -106,6 +107,10 @@ impl FormatTime for FastLocalTime {
 					ts.second(),
 					fractional
 				)?;
+
+				if cache.timezone_offset.length == 0 {
+					write!(&mut cache.timezone_offset, "{}", ts.offset())?;
+				}
 			} else if self.with_fractional {
 				let fractional = elapsed.subsec_millis();
 
@@ -122,13 +127,16 @@ impl FormatTime for FastLocalTime {
 				slice = &slice[..TIMESTAMP_PARTIAL_LENGTH];
 			}
 
-			w.write_str(slice)
+			w.write_str(slice)?;
+			w.write_str(cache.timezone_offset.as_str())?;
+
+			Ok(())
 		})
 	}
 }
 
-impl std::fmt::Display for FastLocalTime {
-	fn fmt(&self, w: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl fmt::Display for FastLocalTime {
+	fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
 		self.format_time(w)
 	}
 }
@@ -136,18 +144,18 @@ impl std::fmt::Display for FastLocalTime {
 #[test]
 fn test_format_fast_local_time() {
 	assert_eq!(
-		chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string().len(),
+		chrono::Local::now().format("%Y-%m-%d %H:%M:%S%:z").to_string().len(),
 		FastLocalTime { with_fractional: false }.to_string().len()
 	);
 	assert_eq!(
-		chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string().len(),
+		chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f%:z").to_string().len(),
 		FastLocalTime { with_fractional: true }.to_string().len()
 	);
 
 	// A simple trick to make sure this test won't randomly fail if we so happen
 	// to land on the exact moment when we tick over to the next second.
 	let now_1 = FastLocalTime { with_fractional: false }.to_string();
-	let expected = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+	let expected = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%:z").to_string();
 	let now_2 = FastLocalTime { with_fractional: false }.to_string();
 
 	assert!(
