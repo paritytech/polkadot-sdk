@@ -33,7 +33,6 @@ use tokio::sync::Mutex;
 mod adder;
 mod worker_common;
 
-const PUPPET_EXE: &str = env!("CARGO_BIN_EXE_puppet_worker");
 const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
 const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(3);
 
@@ -51,10 +50,20 @@ impl TestHost {
 	where
 		F: FnOnce(&mut Config),
 	{
+		let mut workers_path = std::env::current_exe().unwrap();
+		workers_path.pop();
+		workers_path.pop();
+		let mut prepare_worker_path = workers_path.clone();
+		prepare_worker_path.push("polkadot-prepare-worker");
+		let mut execute_worker_path = workers_path.clone();
+		execute_worker_path.push("polkadot-execute-worker");
 		let cache_dir = tempfile::tempdir().unwrap();
-		let program_path = std::path::PathBuf::from(PUPPET_EXE);
-		let mut config =
-			Config::new(cache_dir.path().to_owned(), None, program_path.clone(), program_path);
+		let mut config = Config::new(
+			cache_dir.path().to_owned(),
+			None,
+			prepare_worker_path,
+			execute_worker_path,
+		);
 		f(&mut config);
 		let (host, task) = start(config, Metrics::default());
 		let _ = tokio::task::spawn(task);
@@ -258,7 +267,7 @@ async fn execute_queue_doesnt_stall_with_varying_executor_params() {
 #[tokio::test]
 async fn deleting_prepared_artifact_does_not_dispute() {
 	let host = TestHost::new();
-	let cache_dir = host.cache_dir.path().clone();
+	let cache_dir = host.cache_dir.path();
 
 	let result = host
 		.validate_candidate(

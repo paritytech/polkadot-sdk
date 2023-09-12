@@ -17,13 +17,13 @@ proc-macro = true
 [dependencies]
 derive-syn-parse = "0.1.5"
 Inflector = "0.11.4"
-cfg-expr = "0.15.4"
+cfg-expr = "0.15.5"
 itertools = "0.10.3"
 proc-macro2 = "1.0.56"
 quote = "1.0.28"
-syn = { version = "2.0.16", features = ["full"] }
+syn = { version = "2.0.32", features = ["full"] }
 frame-support-procedural-tools = { path = "tools" }
-proc-macro-warning = { version = "0.4.1", default-features = false }
+proc-macro-warning = { version = "0.4.2", default-features = false }
 macro_magic = { version = "0.4.2", features = ["proc_support"] }
 expander = "2.0.0"
 

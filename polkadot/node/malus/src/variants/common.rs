@@ -278,6 +278,7 @@ where
 						validation_code,
 						candidate_receipt,
 						pov,
+						executor_params,
 						timeout,
 						sender,
 					),
@@ -292,6 +293,7 @@ where
 									validation_code,
 									candidate_receipt,
 									pov,
+									executor_params,
 									timeout,
 									sender,
 								),
@@ -329,6 +331,7 @@ where
 										validation_code,
 										candidate_receipt,
 										pov,
+										executor_params,
 										timeout,
 										sender,
 									),
@@ -368,6 +371,7 @@ where
 										validation_code,
 										candidate_receipt,
 										pov,
+										executor_params,
 										timeout,
 										sender,
 									),
@@ -382,6 +386,7 @@ where
 							validation_code,
 							candidate_receipt,
 							pov,
+							executor_params,
 							timeout,
 							sender,
 						),
@@ -394,6 +399,7 @@ where
 					CandidateValidationMessage::ValidateFromChainState(
 						candidate_receipt,
 						pov,
+						executor_params,
 						timeout,
 						response_sender,
 					),
@@ -406,6 +412,7 @@ where
 								msg: CandidateValidationMessage::ValidateFromChainState(
 									candidate_receipt,
 									pov,
+									executor_params,
 									timeout,
 									response_sender,
 								),
@@ -435,6 +442,7 @@ where
 								msg: CandidateValidationMessage::ValidateFromChainState(
 									candidate_receipt,
 									pov,
+									executor_params,
 									timeout,
 									response_sender,
 								),
@@ -468,6 +476,7 @@ where
 									msg: CandidateValidationMessage::ValidateFromChainState(
 										candidate_receipt,
 										pov,
+										executor_params,
 										timeout,
 										response_sender,
 									),
@@ -479,6 +488,7 @@ where
 						msg: CandidateValidationMessage::ValidateFromChainState(
 							candidate_receipt,
 							pov,
+							executor_params,
 							timeout,
 							response_sender,
 						),
@@ -487,12 +497,5 @@ where
 			},
 			msg => Some(msg),
 		}
-	}
-
-	fn intercept_outgoing(
-		&self,
-		msg: overseer::CandidateValidationOutgoingMessages,
-	) -> Option<overseer::CandidateValidationOutgoingMessages> {
-		Some(msg)
 	}
 }

@@ -33,7 +33,7 @@ fn do_prepare_kusama_runtime(pvf: PvfPrepData) {
 }
 
 fn prepare_kusama_runtime(c: &mut Criterion) {
-	let blob = kusama_runtime::WASM_BINARY.unwrap();
+	let blob = staging_kusama_runtime::WASM_BINARY.unwrap();
 	let pvf = match sp_maybe_compressed_blob::decompress(&blob, 64 * 1024 * 1024) {
 		Ok(code) => PvfPrepData::from_code(
 			code.into_owned(),

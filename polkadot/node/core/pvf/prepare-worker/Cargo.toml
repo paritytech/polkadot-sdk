@@ -42,7 +42,7 @@ tracking-allocator = ["dep:tracking-allocator", "dep:tikv-jemallocator"]
 
 [dev-dependencies]
 criterion = { version = "0.4.0", default-features = false, features = ["cargo_bench_support"] }
-kusama-runtime = { path = "../../../../runtime/kusama" }
+staging-kusama-runtime = { path = "../../../../runtime/kusama" }
 
 [[bench]]
 name = "prepare_kusama_runtime"

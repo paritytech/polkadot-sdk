@@ -85,8 +85,8 @@ pub struct TrackingAllocator<A: GlobalAlloc>(pub A);
 
 impl<A: GlobalAlloc> TrackingAllocator<A> {
 	// SAFETY:
-	// * The following functions write to `static mut`. That is safe as the critical section
-	//   inside is isolated by an exclusive lock.
+	// * The following functions write to `static mut`. That is safe as the critical section inside
+	//   is isolated by an exclusive lock.
 
 	/// Start tracking
 	pub fn start_tracking(&self) {
