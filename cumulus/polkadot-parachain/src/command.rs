@@ -456,7 +456,93 @@ macro_rules! construct_benchmark_partials {
 				)?;
 				$code
 			},
-			_ => Err("The chain is not supported".into()),
+			Runtime::Shell => {
+				let $partials = new_partial::<shell_runtime::RuntimeApi, _>(
+					&$config,
+					crate::service::shell_build_import_queue,
+				)?;
+				$code
+			},
+			Runtime::Seedling => {
+				let $partials = new_partial::<seedling_runtime::RuntimeApi, _>(
+					&$config,
+					crate::service::shell_build_import_queue,
+				)?;
+				$code
+			},
+			Runtime::ContractsRococo => {
+				let $partials = new_partial::<contracts_rococo_runtime::RuntimeApi, _>(
+					&$config,
+					crate::service::contracts_rococo_build_import_queue,
+				)?;
+				$code
+			},
+			Runtime::BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotDevelopment => {
+					let $partials = new_partial::<chain_spec::bridge_hubs::polkadot::RuntimeApi, _>(
+						&$config,
+						crate::service::aura_build_import_queue::<_, AuraId>,
+					)?;
+
+					let task_manager = $partials.task_manager;
+					$code
+				},
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaLocal |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaDevelopment => {
+					let $partials = new_partial::<chain_spec::bridge_hubs::kusama::RuntimeApi, _>(
+						&$config,
+						crate::service::aura_build_import_queue::<_, AuraId>,
+					)?;
+
+					$code
+				},
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend => {
+					let $partials = new_partial::<chain_spec::bridge_hubs::westend::RuntimeApi, _>(
+						&$config,
+						crate::service::aura_build_import_queue::<_, AuraId>,
+					)?;
+
+					let task_manager = $partials.task_manager;
+					$code
+				},
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::Rococo |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoLocal |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoDevelopment => {
+					let $partials = new_partial::<chain_spec::bridge_hubs::rococo::RuntimeApi, _>(
+						&$config,
+						crate::service::aura_build_import_queue::<_, AuraId>,
+					)?;
+
+					$code
+				},
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::Wococo |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::WococoLocal => {
+					let $partials = new_partial::<chain_spec::bridge_hubs::wococo::RuntimeApi, _>(
+						&$config,
+						crate::service::aura_build_import_queue::<_, AuraId>,
+					)?;
+
+					let task_manager = $partials.task_manager;
+					$code
+				},
+			},
+			Runtime::Penpal(_) | Runtime::Default => {
+				let $partials = new_partial::<rococo_parachain_runtime::RuntimeApi, _>(
+					&$config,
+					crate::service::rococo_parachain_build_import_queue,
+				)?;
+				$code
+			},
+			Runtime::Glutton => {
+				let $partials = new_partial::<glutton_runtime::RuntimeApi, _>(
+					&$config,
+					crate::service::shell_build_import_queue,
+				)?;
+				$code
+			},
 		}
 	};
 }
@@ -679,10 +765,12 @@ pub fn run() -> Result<()> {
 				cmd.run(config, polkadot_config)
 			})
 		},
-		Some(Subcommand::ExportGenesisState(cmd)) =>
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(async move { cmd.run(&*config.chain_spec, &*components.client) })
-			}),
+		Some(Subcommand::ExportGenesisState(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.sync_run(|config| {
+				construct_benchmark_partials!(config, |partials| cmd.run(&*config.chain_spec, &*partials.client))
+			})
+		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|_config| {
