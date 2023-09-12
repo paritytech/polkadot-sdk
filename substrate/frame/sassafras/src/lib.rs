@@ -62,11 +62,7 @@ use sp_consensus_sassafras::{
 	TicketEnvelope, TicketId, RANDOMNESS_LENGTH, SASSAFRAS_ENGINE_ID,
 };
 use sp_io::hashing;
-use sp_runtime::{
-	generic::DigestItem,
-	traits::{One, Saturating},
-	BoundToRuntimeAppPublic,
-};
+use sp_runtime::{generic::DigestItem, traits::One, BoundToRuntimeAppPublic};
 use sp_std::prelude::Vec;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -75,10 +71,6 @@ mod benchmarking;
 mod mock;
 #[cfg(all(feature = "std", test))]
 mod tests;
-
-// To manage epoch changes via session pallet instead of the built-in method
-// method (`SameAuthoritiesForever`).
-pub mod session;
 
 // Re-export pallet symbols.
 pub use pallet::*;
@@ -262,7 +254,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Block initialization
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			// Since `initialize` can be called twice (e.g. if session pallet is used)
+			// Since `initialize` can be called twice (e.g. if an external session manager is used)
 			// let's ensure that we only do the initialization once per block.
 			if Self::initialized().is_some() {
 				return Weight::zero()
