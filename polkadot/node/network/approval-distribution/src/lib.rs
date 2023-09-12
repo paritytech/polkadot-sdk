@@ -1335,9 +1335,9 @@ impl State {
 
 				self.deferred_approvals
 					.entry(peer)
-					.and_modify(|approvals| approvals.push(vote.clone()))
-					.or_insert_with(|| vec![vote.clone()]);
-
+					.or_insert_with(|| Vec::new())
+					.push(vote.clone());
+					
 				self.deffered_approval_count += 1;
 				// The message will be processed as soon as the corresponding assignments are
 				// checked.
