@@ -230,13 +230,13 @@ impl<H: Hasher> Recorder<H> {
 
 impl<H: Hasher> crate::ProofSizeProvider for Recorder<H> {
 	fn estimate_encoded_size(&self) -> usize {
-		self.estimate_encoded_size()
+		Recorder::estimate_encoded_size(self)
 	}
 }
 
 impl<H: Hasher> crate::ProofSizeProvider for &Recorder<H> {
 	fn estimate_encoded_size(&self) -> usize {
-		(**self).estimate_encoded_size()
+		Recorder::estimate_encoded_size(*self)
 	}
 }
 
