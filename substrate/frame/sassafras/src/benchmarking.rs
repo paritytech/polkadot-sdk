@@ -19,35 +19,48 @@
 
 use super::*;
 
-use frame_benchmarking::benchmarks;
-use frame_system::RawOrigin;
-use sp_consensus_sassafras::VrfOutput;
+use sp_consensus_sassafras::AuthorityPair;
+use sp_core::crypto::Pair;
 
-// Makes a dummy ticket envelope.
-// The resulting ticket-id is not very important and is expected to be below the
-// configured threshold (which is guaranteed because we are using mock::TEST_EPOCH_CONFIGURATION).
-fn make_dummy_ticket(attempt_idx: u32) -> TicketEnvelope {
-	let mut output_enc: &[u8] = &[
-		0x0c, 0x1a, 0x83, 0x5e, 0x56, 0x9b, 0x18, 0xa0, 0xd9, 0x13, 0x39, 0x7e, 0xb9, 0x5a, 0x39,
-		0x83, 0xf3, 0xc5, 0x73, 0xf6, 0xb1, 0x35, 0xa6, 0x48, 0xa3, 0x83, 0xac, 0x3b, 0xb8, 0x43,
-		0xa7, 0x3d,
-	];
-	let output = VrfOutput::decode(&mut output_enc).unwrap();
-	let data = TicketData { attempt_idx, erased_public: Default::default() };
-	TicketEnvelope { data, vrf_preout: output, ring_proof: () }
+use frame_benchmarking::v2::*;
+// use frame_system::RawOrigin;
+
+// // Makes a dummy ticket envelope.
+// // The resulting ticket-id is not very important and is expected to be below the
+// // configured threshold (which is guaranteed because we are using
+// mock::TEST_EPOCH_CONFIGURATION). fn make_dummy_ticket(attempt_idx: u32) -> TicketEnvelope {
+// 	let mut output_enc: &[u8] = &[
+// 		0x0c, 0x1a, 0x83, 0x5e, 0x56, 0x9b, 0x18, 0xa0, 0xd9, 0x13, 0x39, 0x7e, 0xb9, 0x5a, 0x39,
+// 		0x83, 0xf3, 0xc5, 0x73, 0xf6, 0xb1, 0x35, 0xa6, 0x48, 0xa3, 0x83, 0xac, 0x3b, 0xb8, 0x43,
+// 		0xa7, 0x3d,
+// 	];
+// 	let output = VrfOutput::decode(&mut output_enc).unwrap();
+// 	let data = TicketData { attempt_idx, erased_public: Default::default() };
+// 	TicketEnvelope { data, vrf_preout: output, ring_proof: () }
+// }
+
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn check_ticket() {
+		#[block]
+		{
+			let _pks =
+				(0..10).map(|i| AuthorityPair::from_seed(&[i as u8; 32])).collect::<Vec<_>>();
+		}
+	}
 }
+// submit_tickets {
+// 	let x in 0 .. <T as Config>::MaxTickets::get();
 
-benchmarks! {
-	submit_tickets {
-		let x in 0 .. <T as Config>::MaxTickets::get();
+// 	// let tickets: BoundedVec<TicketEnvelope, <T as Config>::MaxTickets> =
+// 	// 	(0..x).map(make_dummy_ticket).collect::<Vec<_>>().try_into().unwrap();
+// }: _(RawOrigin::None, tickets)
 
-		let tickets: BoundedVec<TicketEnvelope, <T as Config>::MaxTickets> =
-			(0..x).map(make_dummy_ticket).collect::<Vec<_>>().try_into().unwrap();
-	}: _(RawOrigin::None, tickets)
-
-	impl_benchmark_test_suite!(
-		Pallet,
-		crate::mock::new_test_ext(1),
-		crate::mock::Test,
-	)
-}
+// impl_benchmark_test_suite!(
+// 	Pallet,
+// 	crate::mock::new_test_ext(1),
+// 	crate::mock::Test,
+// )
