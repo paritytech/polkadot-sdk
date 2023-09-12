@@ -3182,6 +3182,8 @@ mod tests {
 			let allowed_call =
 				RuntimeCall::System(SysCall::remark_with_event { remark: b"Hello".to_vec() });
 
+			assert_ok!( ctx.ext.call_runtime(allowed_call.clone()));
+
 			// transfers are disallowed by the `TestFiler` (see below)
 			let forbidden_call = RuntimeCall::Balances(BalanceCall::transfer_allow_death {
 				dest: CHARLIE,
