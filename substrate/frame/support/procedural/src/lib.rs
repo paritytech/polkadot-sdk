@@ -1690,6 +1690,62 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 	.into()
 }
 
+/// Construct a runtime, with the given name and the given pallets.
+///
+/// # Example:
+///
+/// ```ignore
+/// #[frame_support::construct_runtime_v2]
+/// mod runtime {
+///   // The main runtime
+///   #[frame::runtime]
+///   pub struct Runtime;
+///
+///   #[frame::pallets]
+///   // Runtime Types to be generated
+///   #[frame::derive(
+///       RuntimeCall,
+/// 	  RuntimeEvent,
+/// 	  RuntimeError,
+/// 	  RuntimeOrigin,
+/// 	  RuntimeFreezeReason,
+/// 	  RuntimeHoldReason,
+/// 	  RuntimeSlashReason,
+/// 	  RuntimeLockId
+///   )]
+///   pub struct Pallets {
+/// 	  #[frame::pallet_index(0)]
+///       System: frame_system,
+/// 	  #[frame::pallet_index(1)]
+/// 	  Test: path::to::test,
+///
+/// 	  // Pallet with instance.
+/// 	  #[frame::pallet_index(2)]
+/// 	  Test2_Instance1: test2<Instance1>,
+///
+/// 	  // Pallet with calls disabled.
+/// 	  #[frame::pallet_index(3)]
+/// 	  #[frame::disable_call]
+/// 	  Test3: test3,
+///
+/// 	  // Pallet with unsigned extrinsics disabled.
+/// 	  #[frame::pallet_index(4)]
+/// 	  #[frame::disable_unsigned]
+/// 	  Test4: test4,
+///    }
+/// }
+/// ```
+///
+/// # Note
+///
+/// The population of the genesis storage depends on the order of pallets. So, if one of your
+/// pallets depends on another pallet, the pallet that is depended upon needs to come before
+/// the pallet depending on it.
+///
+/// # Type definitions
+///
+/// * The macro generates a type alias for each pallet to their `Pallet`. E.g. `type System =
+///   frame_system::Pallet<Runtime>`
 #[proc_macro_attribute]
 pub fn construct_runtime_v2(attr: TokenStream, item: TokenStream) -> TokenStream {
 	construct_runtime_v2::construct_runtime(attr, item)
