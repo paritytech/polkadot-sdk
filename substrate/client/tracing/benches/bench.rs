@@ -19,9 +19,17 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use tracing_subscriber::fmt::time::{ChronoLocal, FormatTime};
 
 fn bench_fast_local_time(c: &mut Criterion) {
-	c.bench_function("fast_local_time", |b| {
+	c.bench_function("fast_local_time/local", |b| {
 		let mut buffer = String::new();
-		let t = sc_tracing::logging::FastLocalTime { with_fractional: true };
+		let t = sc_tracing::logging::FastLocalTime { utc: false, with_fractional: true };
+		b.iter(|| {
+			buffer.clear();
+			t.format_time(&mut buffer).unwrap();
+		})
+	});
+	c.bench_function("fast_local_time/utc", |b| {
+		let mut buffer = String::new();
+		let t = sc_tracing::logging::FastLocalTime { utc: true, with_fractional: true };
 		b.iter(|| {
 			buffer.clear();
 			t.format_time(&mut buffer).unwrap();
