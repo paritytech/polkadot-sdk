@@ -1586,6 +1586,13 @@
 <a href="#1586" id="1586">1586</a>
 <a href="#1587" id="1587">1587</a>
 <a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a>
+<a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
+<a href="#1592" id="1592">1592</a>
+<a href="#1593" id="1593">1593</a>
+<a href="#1594" id="1594">1594</a>
+<a href="#1595" id="1595">1595</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1889,6 +1896,13 @@
 		<span class="self">self</span>.participation.process_active_leaves_update(ctx, <span class="kw-2">&amp;</span>update).<span class="kw">await</span><span class="question-mark">?</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(new_leaf) = update.activated {
+			<span class="macro">gum::trace!</span>(
+				target: LOG_TARGET,
+				leaf_hash = <span class="question-mark">?</span>new_leaf.hash,
+				block_number = new_leaf.number,
+				<span class="string">&quot;Processing ActivatedLeaf&quot;
+			</span>);
+
 			<span class="kw">let </span>session_idx =
 				<span class="self">self</span>.runtime_info.get_session_index_for_child(ctx.sender(), new_leaf.hash).<span class="kw">await</span>;
 

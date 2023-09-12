@@ -461,6 +461,16 @@
 <a href="#461" id="461">461</a>
 <a href="#462" id="462">462</a>
 <a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -740,6 +750,11 @@
 			</span><span class="kw">match </span><span class="self">self</span>.priority.entry(comparator) {
 				Entry::Occupied(<span class="kw">_</span>) =&gt; req.discard_timer(),
 				Entry::Vacant(vac) =&gt; {
+					<span class="macro">gum::trace!</span>(
+						target: LOG_TARGET,
+						candidate_hash = <span class="question-mark">?</span>req.candidate_hash(),
+						<span class="string">&quot;Added to priority participation queue&quot;
+					</span>);
 					vac.insert(req);
 				},
 			}
@@ -758,6 +773,11 @@
 			</span><span class="kw">match </span><span class="self">self</span>.best_effort.entry(comparator) {
 				Entry::Occupied(<span class="kw">_</span>) =&gt; req.discard_timer(),
 				Entry::Vacant(vac) =&gt; {
+					<span class="macro">gum::trace!</span>(
+						target: LOG_TARGET,
+						candidate_hash = <span class="question-mark">?</span>req.candidate_hash(),
+						<span class="string">&quot;Added to best effort participation queue&quot;
+					</span>);
 					vac.insert(req);
 				},
 			}

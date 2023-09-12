@@ -425,6 +425,25 @@
 <a href="#425" id="425">425</a>
 <a href="#426" id="426">426</a>
 <a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -687,6 +706,13 @@
 		req: ParticipationRequest,
 		recent_head: Hash,
 	) -&gt; FatalResult&lt;()&gt; {
+		<span class="macro">gum::trace!</span>(
+			target: LOG_TARGET,
+			candidate_hash = <span class="question-mark">?</span>req.candidate_hash(),
+			session = req.session(),
+			<span class="string">&quot;Forking participation&quot;
+		</span>);
+
 		<span class="kw">let </span>participation_timer = <span class="self">self</span>.metrics.time_participation();
 		<span class="kw">if </span><span class="self">self</span>.running_participations.insert(<span class="kw-2">*</span>req.candidate_hash()) {
 			<span class="kw">let </span>sender = ctx.sender().clone();
@@ -741,12 +767,24 @@
 		</span>},
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(data)) =&gt; data,
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(RecoveryError::Invalid)) =&gt; {
+			<span class="macro">gum::debug!</span>(
+				target: LOG_TARGET,
+				candidate_hash = <span class="question-mark">?</span>req.candidate_hash(),
+				session = req.session(),
+				<span class="string">&quot;Invalid availability data during participation&quot;
+			</span>);
 			<span class="comment">// the available data was recovered but it is invalid, therefore we&#39;ll
 			// vote negatively for the candidate dispute
 			</span>send_result(<span class="kw-2">&amp;mut </span>result_sender, req, ParticipationOutcome::Invalid).<span class="kw">await</span>;
 			<span class="kw">return
 		</span>},
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(RecoveryError::Unavailable)) | <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(RecoveryError::ChannelClosed)) =&gt; {
+			<span class="macro">gum::debug!</span>(
+				target: LOG_TARGET,
+				candidate_hash = <span class="question-mark">?</span>req.candidate_hash(),
+				session = req.session(),
+				<span class="string">&quot;Can&#39;t fetch availability data in participation&quot;
+			</span>);
 			send_result(<span class="kw-2">&amp;mut </span>result_sender, req, ParticipationOutcome::Unavailable).<span class="kw">await</span>;
 			<span class="kw">return
 		</span>},
