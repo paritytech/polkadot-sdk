@@ -53,7 +53,8 @@ pub struct SharedParams {
 	pub detailed_log_output: bool,
 
 	/// Disable log color output.
-	#[arg(long)]
+	#[cfg_attr(not(windows), arg(long))]
+	#[cfg_attr(windows, arg(long, default_value_t = true, action = clap::ArgAction::Set))]
 	pub disable_log_color: bool,
 
 	/// Use UTC time in log output.
