@@ -2274,9 +2274,9 @@ dependencies = [
 
 [[package]]
 name = "cfg-expr"
-version = "0.15.4"
+version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b40ccee03b5175c18cde8f37e7d2a33bcef6f8ec8f7cc0d81090d1bb380949c9"
+checksum = "03915af431787e6ffdcc74c645077518c6b6e01f80b761e0fbbfa288536311b3"
 dependencies = [
  "smallvec",
 ]
@@ -3900,14 +3900,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-test-relay-validation-worker-provider"
-version = "0.1.0"
-dependencies = [
- "polkadot-node-core-pvf",
- "toml 0.7.6",
-]
-
-[[package]]
 name = "cumulus-test-runtime"
 version = "0.1.0"
 dependencies = [
@@ -3958,7 +3950,6 @@ dependencies = [
  "cumulus-relay-chain-minimal-node",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
- "cumulus-test-relay-validation-worker-provider",
  "cumulus-test-runtime",
  "frame-system",
  "frame-system-rpc-runtime-api",
@@ -4845,18 +4836,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a718c0675c555c5f976fff4ea9e2c150fa06cefa201cadef87cfbf9324075881"
 dependencies = [
  "blake3",
- "fs-err",
- "proc-macro2",
- "quote",
-]
-
-[[package]]
-name = "expander"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3774182a5df13c3d1690311ad32fbe913feef26baba609fa2dd5f72042bd2ab6"
-dependencies = [
- "blake2",
  "fs-err",
  "proc-macro2",
  "quote",
@@ -6906,6 +6885,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "layout-rs"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1164ef87cb9607c2d887216eca79f0fc92895affe1789bba805dd38d829584e0"
+dependencies = [
+ "log",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8701,9 +8689,9 @@ checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
 name = "orchestra"
-version = "0.0.5"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "227585216d05ba65c7ab0a0450a3cf2cbd81a98862a54c4df8e14d5ac6adb015"
+checksum = "46d78e1deb2a8d54fc1f063a544130db4da31dfe4d5d3b493186424910222a76"
 dependencies = [
  "async-trait",
  "dyn-clonable",
@@ -8718,12 +8706,16 @@ dependencies = [
 
 [[package]]
 name = "orchestra-proc-macro"
-version = "0.0.5"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2871aadd82a2c216ee68a69837a526dfe788ecbe74c4c5038a6acdbff6653066"
+checksum = "d035b1f968d91a826f2e34a9d6d02cb2af5aa7ca39ebd27922d850ab4b2dd2c6"
 dependencies = [
- "expander 0.0.6",
- "itertools 0.10.5",
+ "anyhow",
+ "expander 2.0.0",
+ "fs-err",
+ "indexmap 2.0.0",
+ "itertools 0.11.0",
+ "layout-rs",
  "petgraph",
  "proc-macro-crate",
  "proc-macro2",
@@ -12019,7 +12011,6 @@ dependencies = [
  "slotmap",
  "sp-core",
  "sp-maybe-compressed-blob",
- "sp-tracing",
  "sp-wasm-interface",
  "substrate-build-script-utils",
  "tempfile",
@@ -13321,9 +13312,9 @@ dependencies = [
 
 [[package]]
 name = "prioritized-metered-channel"
-version = "0.2.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "382698e48a268c832d0b181ed438374a6bb708a82a8ca273bb0f61c74cf209c4"
+checksum = "e99f0c89bd88f393aab44a4ab949351f7bc7e7e1179d11ecbfe50cbe4c47e342"
 dependencies = [
  "coarsetime",
  "crossbeam-queue",
@@ -18463,7 +18454,6 @@ dependencies = [
  "sp-keyring",
  "substrate-test-utils",
  "test-parachain-adder",
- "test-parachain-adder-collator",
  "tokio",
 ]
 
@@ -18512,7 +18502,6 @@ dependencies = [
  "sp-keyring",
  "substrate-test-utils",
  "test-parachain-undying",
- "test-parachain-undying-collator",
  "tokio",
 ]
 

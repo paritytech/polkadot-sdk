@@ -301,6 +301,13 @@ impl Initialized {
 		self.participation.process_active_leaves_update(ctx, &update).await?;
 
 		if let Some(new_leaf) = update.activated {
+			gum::trace!(
+				target: LOG_TARGET,
+				leaf_hash = ?new_leaf.hash,
+				block_number = new_leaf.number,
+				"Processing ActivatedLeaf"
+			);
+
 			let session_idx =
 				self.runtime_info.get_session_index_for_child(ctx.sender(), new_leaf.hash).await;
 
