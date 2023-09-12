@@ -56,9 +56,9 @@ xcm-emulator = { path = "../../../../xcm/xcm-emulator", default-features = false
 cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue" }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false}
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system" }
-bp-messages = { path = "../../../../bridges/primitives/messages" }
-pallet-bridge-messages = { path = "../../../../bridges/modules/messages" }
-bridge-runtime-common = { path = "../../../../bridges/bin/runtime-common" }
+bp-messages = { path = "../../../../../bridges/primitives/messages" }
+pallet-bridge-messages = { path = "../../../../../bridges/modules/messages" }
+bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common" }
 
 [features]
 runtime-benchmarks = [

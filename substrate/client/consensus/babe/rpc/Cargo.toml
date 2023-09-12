@@ -30,7 +30,7 @@ sp-keystore = { path = "../../../../primitives/keystore" }
 sp-runtime = { path = "../../../../primitives/runtime" }
 
 [dev-dependencies]
-serde_json = "1.0.85"
+serde_json = "1.0.106"
 tokio = "1.22.0"
 sc-consensus = { path = "../../common" }
 sc-keystore = { path = "../../../keystore" }
