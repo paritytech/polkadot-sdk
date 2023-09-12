@@ -151,7 +151,7 @@ pub mod memory_tracker {
 /// Module for dealing with the `ru_maxrss` (peak resident memory) stat from `getrusage`.
 ///
 /// NOTE: `getrusage` with the `RUSAGE_THREAD` parameter is only supported on Linux. `RUSAGE_SELF`
-/// works on MacOS, but we need to get the max rss only for the preparation thread. Gettng it for
+/// works on MacOS, but we need to get the max rss only for the preparation thread. Getting it for
 /// the current process would conflate the stats of previous jobs run by the process.
 #[cfg(target_os = "linux")]
 pub mod max_rss_stat {

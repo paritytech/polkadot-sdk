@@ -178,7 +178,7 @@ impl InstanceWrapper {
 	/// **Testing Only**.
 	pub(crate) fn base_ptr(&mut self) -> *const u8 {
 		let mem = self.store.data().memory();
-		mem.data_ptr(self.store.as_context_mut())
+		mem.data_ptr(&self.store)
 	}
 
 	/// Resolves a substrate entrypoint by the given name.
