@@ -806,6 +806,13 @@ impl State {
 		// compute metadata on the assignment.
 		let message_subject = MessageSubject(block_hash, claimed_candidate_index, validator_index);
 
+		gum::trace!(
+			target: LOG_TARGET,
+			?message_subject,
+			?peer,
+			"Assignment from peer queued for batch processing",
+		);
+
 		self.currently_checking_assignments.insert(message_subject);
 		self.batched_assignment_checks.push((assignment, claimed_candidate_index, peer));
 
@@ -837,26 +844,38 @@ impl State {
 		if self.batched_assignment_checks.is_empty() {
 			return 0
 		}
+
+		gum::trace!(
+			target: LOG_TARGET,
+			num_assigmnents = ?self.batched_assignment_checks.len(),
+			num_pending_approvals = self.deffered_approval_count,
+			"Filter unique assignments for batch import",
+		);
+
 		let assignments = std::mem::take(&mut self.batched_assignment_checks);
 
+		// TODO: use hashmap.
 		let mut unique_assignments = Vec::new();
 		let mut leftover = Vec::new();
-		for check in assignments {
-			if !unique_assignments.contains(&check) {
-				let block_hash = check.0.block_hash;
-				let validator_index = check.0.validator;
-				let peer_id = check.2;
-				let claimed_candidate_index = check.1;
+		let mut unique_set = HashSet::new();
 
+		for check in assignments {
+			let block_hash = check.0.block_hash;
+			let validator_index = check.0.validator;
+			let peer_id = check.2;
+			let claimed_candidate_index = check.1;
+
+			// compute metadata on the assignment.
+			let message_subject =
+				MessageSubject(block_hash, claimed_candidate_index, validator_index);
+			let message_kind = MessageKind::Assignment;
+			
+			if !unique_set.contains(&message_subject) {
 				let entry = self
 					.blocks
 					.get_mut(&block_hash)
 					.expect("Checked it is some before calling `check_assignment_batch`");
 
-				// compute metadata on the assignment.
-				let message_subject =
-					MessageSubject(block_hash, claimed_candidate_index, validator_index);
-				let message_kind = MessageKind::Assignment;
 				// check if our knowledge of the peer already contains this assignment
 				match entry.known_by.entry(peer_id) {
 					hash_map::Entry::Occupied(mut peer_knowledge) => {
@@ -898,6 +917,7 @@ impl State {
 							COST_UNEXPECTED_MESSAGE,
 						)
 						.await;
+						continue
 					},
 				}
 
@@ -917,8 +937,21 @@ impl State {
 					continue
 				}
 
+				gum::trace!(
+					target: LOG_TARGET,
+					?message_subject,
+					?peer_id,
+					"Assignment from peer dispatched for batch import",
+				);
 				unique_assignments.push(check);
+				unique_set.insert(message_subject);
 			} else {
+				gum::trace!(
+					target: LOG_TARGET,
+					?message_subject,
+					?peer_id,
+					"Leftover assignment from peer, maybe dispatched on next call",
+				);
 				leftover.push(check);
 			}
 		}

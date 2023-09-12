@@ -1863,6 +1863,15 @@ async fn check_and_import_assignments<Context>(
 				},
 			};
 
+		gum::trace!(
+			target: LOG_TARGET,
+			block_hash = ?assignment.block_hash,
+			validator = ?assignment.validator,
+			claimed_candidate_index = candidate_index,
+			?assigned_candidate_hash,
+			"Importing assignment.",
+		);
+
 		let candidate_entry = match db.load_candidate_entry(&assigned_candidate_hash).unwrap() {
 			Some(c) => c,
 			None => {
