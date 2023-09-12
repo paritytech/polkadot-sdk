@@ -54,12 +54,12 @@ use scale_info::TypeInfo;
 use frame_support::{traits::Get, weights::Weight, BoundedVec, WeakBoundedVec};
 use frame_system::{
 	offchain::{SendTransactionTypes, SubmitTransaction},
-	pallet_prelude::{BlockNumberFor, HeaderFor},
+	pallet_prelude::BlockNumberFor,
 };
 use sp_consensus_sassafras::{
 	digests::{ConsensusLog, NextEpochDescriptor, SlotClaim},
-	vrf, AuthorityId, Epoch, EpochConfiguration, EquivocationProof, Randomness, Slot, SlotDuration,
-	TicketBody, TicketEnvelope, TicketId, RANDOMNESS_LENGTH, SASSAFRAS_ENGINE_ID,
+	vrf, AuthorityId, Epoch, EpochConfiguration, Randomness, Slot, SlotDuration, TicketBody,
+	TicketEnvelope, TicketId, RANDOMNESS_LENGTH, SASSAFRAS_ENGINE_ID,
 };
 use sp_io::hashing;
 use sp_runtime::{
@@ -255,12 +255,6 @@ pub mod pallet {
 		fn build(&self) {
 			Pallet::<T>::initialize_genesis_authorities(&self.authorities);
 			EpochConfig::<T>::put(self.epoch_config.clone());
-
-			// TODO: davxy... remove for pallet tests
-			warn!(target: LOG_TARGET, "Constructing testing ring context (in build)");
-			let ring_ctx = vrf::RingContext::new_testing();
-			warn!(target: LOG_TARGET, "... done");
-			RingContext::<T>::set(Some(ring_ctx.clone()));
 		}
 	}
 
@@ -450,33 +444,6 @@ pub mod pallet {
 				Error::<T>::InvalidConfiguration
 			);
 			PendingEpochConfigChange::<T>::put(config);
-			Ok(())
-		}
-
-		/// Report authority equivocation.
-		///
-		/// This method will verify the equivocation proof and validate the given key ownership
-		/// proof against the extracted offender. If both are valid, the offence will be reported.
-		///
-		/// This extrinsic must be called unsigned and it is expected that only block authors will
-		/// call it (validated in `ValidateUnsigned`), as such if the block author is defined it
-		/// will be defined as the equivocation reporter.
-		///
-		/// TODO-SASS-P4: proper weight
-		#[pallet::call_index(2)]
-		#[pallet::weight({0})]
-		pub fn report_equivocation_unsigned(
-			origin: OriginFor<T>,
-			_equivocation_proof: EquivocationProof<HeaderFor<T>>,
-			//key_owner_proof: T::KeyOwnerProof,
-		) -> DispatchResult {
-			ensure_none(origin)?;
-
-			// Self::do_report_equivocation(
-			// 	T::HandleEquivocation::block_author(),
-			// 	*equivocation_proof,
-			// 	key_owner_proof,
-			// )
 			Ok(())
 		}
 	}
@@ -949,27 +916,6 @@ impl<T: Config> Pallet<T> {
 			Ok(_) => true,
 			Err(e) => {
 				error!(target: LOG_TARGET, "Error submitting tickets {:?}", e);
-				false
-			},
-		}
-	}
-
-	/// Submits an equivocation via an unsigned extrinsic.
-	///
-	/// Unsigned extrinsic is created with a call to `report_equivocation_unsigned`.
-	pub fn submit_unsigned_equivocation_report(
-		equivocation_proof: EquivocationProof<HeaderFor<T>>,
-		//key_owner_proof: T::KeyOwnerProof,
-	) -> bool {
-		let call = Call::report_equivocation_unsigned {
-			equivocation_proof,
-			//	key_owner_proof,
-		};
-
-		match SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()) {
-			Ok(()) => true,
-			Err(e) => {
-				error!(target: LOG_TARGET, "Error submitting equivocation report: {:?}", e);
 				false
 			},
 		}

@@ -80,37 +80,23 @@ impl<T: Config> EstimateNextSessionRotation<BlockNumberFor<T>> for Pallet<T> {
 	}
 
 	fn estimate_current_session_progress(_now: BlockNumberFor<T>) -> (Option<Permill>, Weight) {
-		let elapsed = CurrentSlot::<T>::get().saturating_sub(Self::current_epoch_start()) + 1;
-		let progress = Permill::from_rational(*elapsed, T::EpochDuration::get());
-
-		// TODO-SASS-P2:  Read: Current Slot, Epoch Index, Genesis Slot
-		(Some(progress), T::DbWeight::get().reads(3))
+		let elapsed_slots = Self::current_slot_index() + 1;
+		let progress = Permill::from_rational(elapsed_slots, T::EpochDuration::get());
+		// DB-Reads: CurrentSlot, GenesisSlot, EpochIndex, EpochDuration
+		(Some(progress), T::DbWeight::get().reads(4))
 	}
 
-	/// Return the _best guess_ block number, at which the next epoch change is predicted to happen.
+	/// Return the best guess block number at which the next epoch change is predicted to happen.
 	///
-	/// Returns None if the prediction is in the past; This implies an internal error and should
-	/// not happen under normal circumstances.
-	///
-	/// In other word, this is only accurate if no slots are missed. Given missed slots, the slot
-	/// number will grow while the block number will not. Hence, the result can be interpreted as an
-	/// upper bound.
-	//
-	// ## IMPORTANT NOTE
-	//
-	// This implementation is linked to how [`should_session_change`] is working. This might need
-	// to be updated accordingly, if the underlying mechanics of slot and epochs change.
+	/// This is only accurate if no slots are missed. Given missed slots, the slot number will grow
+	/// while the block number will not. Hence, the result can be interpreted as an upper bound.
 	fn estimate_next_session_rotation(
 		now: BlockNumberFor<T>,
 	) -> (Option<BlockNumberFor<T>>, Weight) {
-		let next_slot = Self::current_epoch_start().saturating_add(T::EpochDuration::get());
-		let upper_bound = next_slot.checked_sub(*CurrentSlot::<T>::get()).map(|slots_remaining| {
-			// This is a best effort guess. Drifts in the slot/block ratio will cause errors here.
-			let blocks_remaining: BlockNumberFor<T> = slots_remaining.saturated_into();
-			now.saturating_add(blocks_remaining)
-		});
-
-		// TODO-SASS-P2:  Read: Current Slot, Epoch Index, Genesis Slot
-		(upper_bound, T::DbWeight::get().reads(3))
+		let current_slot = Self::current_slot_index();
+		let remaining = T::EpochDuration::get().saturating_sub(current_slot);
+		let upper_bound: BlockNumberFor<T> = now.saturating_add(remaining.saturated_into());
+		// DB-Reads: CurrentSlot, GenesisSlot, EpochIndex, EpochDuration
+		(Some(upper_bound), T::DbWeight::get().reads(4))
 	}
 }

@@ -202,8 +202,8 @@ pub fn make_prover(pair: &AuthorityPair) -> RingProver {
 	prover
 }
 
-/// Construct at most `attempts` tickets envelopes for the given `slot`.
-/// TODO-SASS-P3: filter out invalid tickets according to test threshold.
+/// Construct `attempts` tickets envelopes for the next epoch.
+///
 /// E.g. by passing an optional threshold
 pub fn make_tickets(attempts: u32, pair: &AuthorityPair) -> Vec<TicketEnvelope> {
 	let prover = make_prover(pair);
