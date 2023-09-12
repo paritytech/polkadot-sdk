@@ -111,6 +111,7 @@ build-rustdoc:
             sed -i "s|</head>|$script_content</head>|" "$file"
         }
         export -f process_file
+        export script_content
 
         # Modify .html files in parallel using xargs, otherwise it can take a long time.
         find "$path" -name '*.html' | xargs -I {} -P "$(nproc)" bash -c 'process_file "$@"' _ {}
