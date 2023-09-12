@@ -70,7 +70,7 @@
 //! 		#[pallet::weight(0)]
 //! 		pub fn get_time(origin: OriginFor<T>) -> DispatchResult {
 //! 			let _sender = ensure_signed(origin)?;
-//! 			let _now = <timestamp::Pallet::<T>::get();
+//! 			let _now = timestamp::Pallet::<T>::get();
 //! 			Ok(())
 //! 		}
 //! 	}
