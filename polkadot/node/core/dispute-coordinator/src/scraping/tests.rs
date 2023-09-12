@@ -683,7 +683,7 @@ fn inclusions_insertion() {
 	let block_number = 0;
 	let block_hash = get_block_number_hash(block_number);
 
-	inclusions.insert(candidate_hash.clone(), block_number.clone(), block_hash.clone());
+	inclusions.insert(candidate_hash, block_number, block_hash);
 
 	// Check inclusions_inner
 	assert!(
@@ -725,7 +725,7 @@ fn inclusions_get() {
 		block_numbers.iter().map(|&num| get_block_number_hash(num)).collect();
 
 	for (&block_number, &block_hash) in block_numbers.iter().zip(&block_hashes) {
-		inclusions.insert(candidate_hash.clone(), block_number, block_hash);
+		inclusions.insert(candidate_hash, block_number, block_hash);
 	}
 
 	// Call the get method for that candidate
@@ -758,10 +758,10 @@ fn inclusions_iterative_removal() {
 	let candidate2 = make_candidate_receipt(BlakeTwo256::hash(&"c2".encode())).hash();
 	let candidate3 = make_candidate_receipt(BlakeTwo256::hash(&"c3".encode())).hash();
 
-	inclusions.insert(candidate1.clone(), 0, get_block_number_hash(0));
-	inclusions.insert(candidate2.clone(), 1, get_block_number_hash(1));
-	inclusions.insert(candidate3.clone(), 0, get_block_number_hash(0));
-	inclusions.insert(candidate3.clone(), 2, get_block_number_hash(2));
+	inclusions.insert(candidate1, 0, get_block_number_hash(0));
+	inclusions.insert(candidate2, 1, get_block_number_hash(1));
+	inclusions.insert(candidate3, 0, get_block_number_hash(0));
+	inclusions.insert(candidate3, 2, get_block_number_hash(2));
 
 	// Remove a height that has no blocks and observe no changes
 	inclusions.remove_up_to_height(&0);
@@ -798,10 +798,10 @@ fn inclusions_duplicate_insertion_same_height_and_block() {
 	let block_hash = get_block_number_hash(block_number);
 
 	// Insert the candidate once
-	inclusions.insert(candidate1.clone(), block_number, block_hash.clone());
+	inclusions.insert(candidate1, block_number, block_hash);
 
 	// Insert the same candidate again at the same height and block
-	inclusions.insert(candidate1.clone(), block_number, block_hash.clone());
+	inclusions.insert(candidate1, block_number, block_hash);
 
 	// Check inclusions_inner
 	assert!(
@@ -850,8 +850,8 @@ fn test_duplicate_insertion_same_height_different_blocks() {
 	let block_number = 0;
 	let block_hash1 = BlakeTwo256::hash(&"b1".encode());
 	let block_hash2 = BlakeTwo256::hash(&"b2".encode()); // Different block hash for the same height
-	inclusions.insert(candidate1.clone(), block_number, block_hash1.clone());
-	inclusions.insert(candidate1.clone(), block_number, block_hash2.clone());
+	inclusions.insert(candidate1, block_number, block_hash1);
+	inclusions.insert(candidate1, block_number, block_hash2);
 
 	// Check inclusions_inner
 	assert!(
