@@ -35,6 +35,25 @@ pub trait Client: 'static + Clone + Send + Sync {
 
 	/// Try to reconnect to source node.
 	async fn reconnect(&mut self) -> Result<(), Self::Error>;
+
+	/// Try to reconnect to the source node in an infinite loop until it succeeds.
+	async fn reconnect_until_success(&mut self, delay: Duration) {
+		loop {
+			match self.reconnect().await {
+				Ok(()) => break,
+				Err(error) => {
+					log::warn!(
+						target: "bridge",
+						"Failed to reconnect to client. Going to retry in {}s: {:?}",
+						delay.as_secs(),
+						error,
+					);
+
+					async_std::task::sleep(delay).await;
+				},
+			}
+		}
+	}
 }
 
 #[async_trait]
@@ -226,44 +245,18 @@ impl<SC, TC, LM> LoopMetrics<SC, TC, LM> {
 	}
 }
 
-/// Deal with the client who has returned connection error.
+/// Deal with the clients that have returned connection error.
 pub async fn reconnect_failed_client(
 	failed_client: FailedClient,
 	reconnect_delay: Duration,
 	source_client: &mut impl Client,
 	target_client: &mut impl Client,
 ) {
-	loop {
-		async_std::task::sleep(reconnect_delay).await;
-		if failed_client == FailedClient::Both || failed_client == FailedClient::Source {
-			match source_client.reconnect().await {
-				Ok(()) => (),
-				Err(error) => {
-					log::warn!(
-						target: "bridge",
-						"Failed to reconnect to source client. Going to retry in {}s: {:?}",
-						reconnect_delay.as_secs(),
-						error,
-					);
-					continue
-				},
-			}
-		}
-		if failed_client == FailedClient::Both || failed_client == FailedClient::Target {
-			match target_client.reconnect().await {
-				Ok(()) => (),
-				Err(error) => {
-					log::warn!(
-						target: "bridge",
-						"Failed to reconnect to target client. Going to retry in {}s: {:?}",
-						reconnect_delay.as_secs(),
-						error,
-					);
-					continue
-				},
-			}
-		}
+	if failed_client == FailedClient::Source || failed_client == FailedClient::Both {
+		source_client.reconnect_until_success(reconnect_delay).await;
+	}
 
-		break
+	if failed_client == FailedClient::Target || failed_client == FailedClient::Both {
+		target_client.reconnect_until_success(reconnect_delay).await;
 	}
 }
