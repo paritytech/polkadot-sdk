@@ -163,15 +163,19 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorMulti
 
 	fn validate(
 		dest: &mut Option<MultiLocation>,
-		xcm: &mut Option<Xcm<()>>,
+		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<Router::Ticket> {
 		let d = dest.ok_or(MissingArgument)?;
 		let devolved = ensure_is_remote(UniversalLocation::get(), d).map_err(|_| NotApplicable)?;
 		let (remote_network, remote_location) = devolved;
-		let xcm = xcm.take().ok_or(MissingArgument)?;
+		let xcm = msg.take().ok_or(MissingArgument)?;
 
-		let (bridge, maybe_payment) =
-			Bridges::exporter_for(&remote_network, &remote_location, &xcm).ok_or(NotApplicable)?;
+		// find exporter
+		let Some((bridge, maybe_payment)) = Bridges::exporter_for(&remote_network, &remote_location, &xcm) else {
+			// We need to make sure that msg is not consumed in case of `NotApplicable`.
+			*msg = Some(xcm);
+			return Err(SendError::NotApplicable)
+		};
 		ensure!(maybe_payment.is_none(), Unroutable);
 
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
@@ -224,13 +228,19 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorMulti
 
 	fn validate(
 		dest: &mut Option<MultiLocation>,
-		xcm: &mut Option<Xcm<()>>,
+		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<Router::Ticket> {
 		let d = *dest.as_ref().ok_or(MissingArgument)?;
 		let devolved = ensure_is_remote(UniversalLocation::get(), d).map_err(|_| NotApplicable)?;
 		let (remote_network, remote_location) = devolved;
+		let xcm = msg.take().ok_or(MissingArgument)?;
 
-		let xcm = xcm.take().ok_or(MissingArgument)?;
+		// find exporter
+		let Some((bridge, maybe_payment)) = Bridges::exporter_for(&remote_network, &remote_location, &xcm) else {
+			// We need to make sure that msg is not consumed in case of `NotApplicable`.
+			*msg = Some(xcm);
+			return Err(SendError::NotApplicable)
+		};
 
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
 		// an onward topic ID.
@@ -238,9 +248,6 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorMulti
 			Some(SetTopic(t)) => Some(forward_id_for(t)),
 			_ => None,
 		};
-
-		let (bridge, maybe_payment) =
-			Bridges::exporter_for(&remote_network, &remote_location, &xcm).ok_or(NotApplicable)?;
 
 		let local_from_bridge =
 			UniversalLocation::get().invert_target(&bridge).map_err(|_| Unroutable)?;
@@ -451,5 +458,81 @@ mod tests {
 		// If we don't have a consensus ancestor, then we cannot determine remoteness.
 		let x = ensure_is_remote((), (Parent, Polkadot, Parachain(1000)));
 		assert_eq!(x, Err((Parent, Polkadot, Parachain(1000)).into()));
+	}
+
+	pub struct OkSender;
+	impl SendXcm for OkSender {
+		type Ticket = ();
+
+		fn validate(
+			_destination: &mut Option<MultiLocation>,
+			_message: &mut Option<Xcm<()>>,
+		) -> SendResult<Self::Ticket> {
+			Ok(((), MultiAssets::new()))
+		}
+
+		fn deliver(_ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+			Ok([0; 32])
+		}
+	}
+
+	/// Generic test case asserting that dest and msg is not consumed by `validate` implementation
+	/// of `SendXcm` in case of expected result.
+	fn ensure_validate_does_not_consume_dest_or_msg<S: SendXcm>(
+		dest: MultiLocation,
+		assert_result: impl Fn(SendResult<S::Ticket>),
+	) {
+		let mut dest_wrapper = Some(dest);
+		let msg = Xcm::<()>::new();
+		let mut msg_wrapper = Some(msg.clone());
+
+		assert_result(S::validate(&mut dest_wrapper, &mut msg_wrapper));
+
+		// ensure dest and msg are untouched
+		assert_eq!(Some(dest), dest_wrapper);
+		assert_eq!(Some(msg), msg_wrapper);
+	}
+
+	#[test]
+	fn remote_exporters_does_not_consume_dest_or_msg_on_not_applicable() {
+		frame_support::parameter_types! {
+			pub Local: NetworkId = ByGenesis([0; 32]);
+			pub UniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Local::get()), Parachain(1234));
+			pub DifferentRemote: NetworkId = ByGenesis([22; 32]);
+			// no routers
+			pub BridgeTable: Vec<(NetworkId, MultiLocation, Option<MultiAsset>)> = vec![];
+		}
+
+		// check with local destination (should be remote)
+		let local_dest = (Parent, Parachain(5678)).into();
+		assert!(ensure_is_remote(UniversalLocation::get(), local_dest).is_err());
+
+		ensure_validate_does_not_consume_dest_or_msg::<
+			UnpaidRemoteExporter<NetworkExportTable<BridgeTable>, OkSender, UniversalLocation>,
+		>(local_dest, |result| assert_eq!(Err(NotApplicable), result));
+
+		ensure_validate_does_not_consume_dest_or_msg::<
+			SovereignPaidRemoteExporter<
+				NetworkExportTable<BridgeTable>,
+				OkSender,
+				UniversalLocation,
+			>,
+		>(local_dest, |result| assert_eq!(Err(NotApplicable), result));
+
+		// check with not applicable destination
+		let remote_dest = (Parent, Parent, DifferentRemote::get()).into();
+		assert!(ensure_is_remote(UniversalLocation::get(), remote_dest).is_ok());
+
+		ensure_validate_does_not_consume_dest_or_msg::<
+			UnpaidRemoteExporter<NetworkExportTable<BridgeTable>, OkSender, UniversalLocation>,
+		>(remote_dest, |result| assert_eq!(Err(NotApplicable), result));
+
+		ensure_validate_does_not_consume_dest_or_msg::<
+			SovereignPaidRemoteExporter<
+				NetworkExportTable<BridgeTable>,
+				OkSender,
+				UniversalLocation,
+			>,
+		>(remote_dest, |result| assert_eq!(Err(NotApplicable), result));
 	}
 }
