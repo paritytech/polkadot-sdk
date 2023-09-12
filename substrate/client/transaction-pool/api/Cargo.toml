@@ -1,11 +1,11 @@
 [package]
 name = "sc-transaction-pool-api"
 version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Transaction pool client facing API."
 
 [dependencies]
@@ -13,8 +13,8 @@ async-trait = "0.1.57"
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 futures = "0.3.21"
 log = "0.4.17"
-serde = { version = "1.0.163", features = ["derive"] }
-thiserror = "1.0.30"
+serde = { version = "1.0.188", features = ["derive"] }
+thiserror = "1.0.48"
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-core = { path = "../../../primitives/core", default-features = false}
 sp-runtime = { path = "../../../primitives/runtime", default-features = false}

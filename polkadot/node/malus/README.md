@@ -18,7 +18,7 @@ defined in the [(DSL[(**D**omain **S**pecific **L**anguage)]) doc](https://parit
 
 ## Usage
 
-> Assumes you already gained permissiones, ping in element @javier:matrix.parity.io to get access.
+> Assumes you already gained permissiones, ping in element `@javier:matrix.parity.io` to get access.
 > and you have cloned the [zombienet][zombienet] repo.
 
 To launch a test case in the development cluster use (e.g. for the  ./node/malus/integrationtests/0001-dispute-valid-block.toml):
@@ -48,7 +48,7 @@ This will also teardown the namespace after completion.
 ## Container Image Building Note
 
 In order to build the container image you need to have the latest changes from
-polkadot and substrate master branches.
+Polkadot and Substrate master branches.
 
 ```sh
 pwd # run this from the current dir

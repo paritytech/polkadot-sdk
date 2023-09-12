@@ -90,8 +90,8 @@ pub use hooks::{
 pub mod schedule;
 mod storage;
 pub use storage::{
-	Incrementable, Instance, PartialStorageInfoTrait, StorageInfo, StorageInfoTrait,
-	StorageInstance, TrackedStorageKey, WhitelistedStorageKeys,
+	Consideration, Footprint, Incrementable, Instance, PartialStorageInfoTrait, StorageInfo,
+	StorageInfoTrait, StorageInstance, TrackedStorageKey, WhitelistedStorageKeys,
 };
 
 mod dispatch;
@@ -111,9 +111,8 @@ pub use preimages::{Bounded, BoundedInline, FetchResult, Hash, QueryPreimage, St
 
 mod messages;
 pub use messages::{
-	EnqueueMessage, EnqueueWithOrigin, ExecuteOverweightError, Footprint, HandleMessage,
-	NoopServiceQueues, ProcessMessage, ProcessMessageError, QueuePausedQuery, ServiceQueues,
-	TransformOrigin,
+	EnqueueMessage, EnqueueWithOrigin, ExecuteOverweightError, HandleMessage, NoopServiceQueues,
+	ProcessMessage, ProcessMessageError, QueuePausedQuery, ServiceQueues, TransformOrigin,
 };
 
 mod safe_mode;

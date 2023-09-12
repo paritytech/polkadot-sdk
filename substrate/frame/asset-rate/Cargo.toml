@@ -2,11 +2,11 @@
 name = "pallet-asset-rate"
 version = "4.0.0-dev"
 description = "Whitelist non-native assets for treasury spending and provide conversion to native balance"
-authors = ["William Freudenberger <w.freude@icloud.com>"]
+authors.workspace = true
 homepage = "https://substrate.io"
-edition = "2021"
+edition.workspace = true
 license = "Apache-2.0"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 publish = false
 
 [package.metadata.docs.rs]

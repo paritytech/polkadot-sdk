@@ -28,7 +28,7 @@ pub enum ValidationError {
 }
 
 /// A description of an error raised during executing a PVF and can be attributed to the combination
-/// of the candidate [`polkadot_parachain::primitives::ValidationParams`] and the PVF.
+/// of the candidate [`polkadot_parachain_primitives::primitives::ValidationParams`] and the PVF.
 #[derive(Debug, Clone)]
 pub enum InvalidCandidate {
 	/// PVF preparation ended up with a deterministic error.
