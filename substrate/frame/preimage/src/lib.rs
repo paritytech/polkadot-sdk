@@ -160,7 +160,7 @@ pub mod pallet {
 		TooMany,
 	}
 
-	/// A reason for the pallet contracts placing a hold on funds.
+	/// A reason for this pallet placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
 		/// The funds are held as storage deposit for a preimage.
