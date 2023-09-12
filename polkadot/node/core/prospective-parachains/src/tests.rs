@@ -1,4 +1,4 @@
-// Copyright 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -24,7 +24,6 @@ use polkadot_node_subsystem::{
 	},
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
-use polkadot_node_subsystem_types::{jaeger, ActivatedLeaf, LeafStatus};
 use polkadot_primitives::{
 	vstaging::{AsyncBackingParams, BackingState, Constraints, InboundHrmpLimitations},
 	CommittedCandidateReceipt, HeadData, Header, PersistedValidationData, ScheduledCore,
@@ -32,6 +31,7 @@ use polkadot_primitives::{
 };
 use polkadot_primitives_test_helpers::make_candidate;
 use std::sync::Arc;
+use test_helpers::mock::new_leaf;
 
 const ALLOWED_ANCESTRY_LEN: u32 = 3;
 const ASYNC_BACKING_PARAMETERS: AsyncBackingParams =
@@ -197,12 +197,7 @@ async fn activate_leaf_with_params(
 ) {
 	let TestLeaf { number, hash, .. } = leaf;
 
-	let activated = ActivatedLeaf {
-		hash: *hash,
-		number: *number,
-		status: LeafStatus::Fresh,
-		span: Arc::new(jaeger::Span::Disabled),
-	};
+	let activated = new_leaf(*hash, *number);
 
 	virtual_overseer
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
@@ -497,12 +492,7 @@ fn should_do_no_work_if_async_backing_disabled_for_leaf() {
 		// Start work on some new parent.
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash, 1)),
 			)))
 			.await;
 
@@ -1318,12 +1308,7 @@ fn correctly_updates_leaves() {
 			.await;
 
 		// Activate a leaf and remove one at the same time.
-		let activated = ActivatedLeaf {
-			hash: leaf_c.hash,
-			number: leaf_c.number,
-			span: Arc::new(jaeger::Span::Disabled),
-			status: LeafStatus::Fresh,
-		};
+		let activated = new_leaf(leaf_c.hash, leaf_c.number);
 		let update = ActiveLeavesUpdate {
 			activated: Some(activated),
 			deactivated: [leaf_b.hash][..].into(),
@@ -1349,12 +1334,7 @@ fn correctly_updates_leaves() {
 			.await;
 
 		// Activate and deactivate the same leaf.
-		let activated = ActivatedLeaf {
-			hash: leaf_a.hash,
-			number: leaf_a.number,
-			span: Arc::new(jaeger::Span::Disabled),
-			status: LeafStatus::Fresh,
-		};
+		let activated = new_leaf(leaf_a.hash, leaf_a.number);
 		let update = ActiveLeavesUpdate {
 			activated: Some(activated),
 			deactivated: [leaf_a.hash][..].into(),
@@ -1578,12 +1558,7 @@ fn uses_ancestry_only_within_session() {
 			vec![Hash::repeat_byte(4), Hash::repeat_byte(3), Hash::repeat_byte(2)];
 		let session_change_hash = Hash::repeat_byte(3);
 
-		let activated = ActivatedLeaf {
-			hash,
-			number,
-			status: LeafStatus::Fresh,
-			span: Arc::new(jaeger::Span::Disabled),
-		};
+		let activated = new_leaf(hash, number);
 
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(

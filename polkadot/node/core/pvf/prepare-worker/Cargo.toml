@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-core-pvf-prepare-worker"
 description = "Polkadot crate that contains the logic for preparing PVFs. Used by the polkadot-prepare-worker binary."
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -17,7 +17,7 @@ tokio = { version = "1.24.2", features = ["fs", "process"] }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 
 polkadot-node-core-pvf-common = { path = "../common" }
-polkadot-parachain = { path = "../../../../parachain" }
+polkadot-parachain-primitives = { path = "../../../../parachain" }
 polkadot-primitives = { path = "../../../../primitives" }
 
 sc-executor = { path = "../../../../../substrate/client/executor" }
@@ -32,4 +32,7 @@ tikv-jemalloc-ctl = "0.5.0"
 
 [features]
 builder = []
-jemalloc-allocator = [ "dep:tikv-jemalloc-ctl" ]
+jemalloc-allocator = [
+	"dep:tikv-jemalloc-ctl",
+	"polkadot-node-core-pvf-common/jemalloc-allocator",
+]

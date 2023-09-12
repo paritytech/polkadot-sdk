@@ -22,10 +22,12 @@ use crate::{inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND, shared};
 use frame_support::{pallet_prelude::*, DefaultNoBound};
 use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
-use polkadot_parachain::primitives::{MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM};
+use polkadot_parachain_primitives::primitives::{
+	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
+};
 use primitives::{
-	vstaging::AsyncBackingParams, Balance, ExecutorParams, SessionIndex, MAX_CODE_SIZE,
-	MAX_HEAD_DATA_SIZE, MAX_POV_SIZE, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+	vstaging::AsyncBackingParams, Balance, ExecutorParams, SessionIndex, LEGACY_MIN_BACKING_VOTES,
+	MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::prelude::*;
@@ -94,8 +96,8 @@ pub struct HostConfiguration<BlockNumber> {
 	///
 	/// If PVF pre-checking is enabled this should be greater than the maximum number of blocks
 	/// PVF pre-checking can take. Intuitively, this number should be greater than the duration
-	/// specified by [`pvf_voting_ttl`]. Unlike, [`pvf_voting_ttl`], this parameter uses blocks
-	/// as a unit.
+	/// specified by [`pvf_voting_ttl`](Self::pvf_voting_ttl). Unlike,
+	/// [`pvf_voting_ttl`](Self::pvf_voting_ttl), this parameter uses blocks as a unit.
 	#[cfg_attr(feature = "std", serde(alias = "validation_upgrade_frequency"))]
 	pub validation_upgrade_cooldown: BlockNumber,
 	/// The delay, in blocks, after which an upgrade of the validation code is applied.
@@ -113,14 +115,15 @@ pub struct HostConfiguration<BlockNumber> {
 	/// been completed.
 	///
 	/// Note, there are situations in which `expected_at` in the past. For example, if
-	/// [`paras_availability_period`] is less than the delay set by
-	/// this field or if PVF pre-check took more time than the delay. In such cases, the upgrade is
-	/// further at the earliest possible time determined by [`minimum_validation_upgrade_delay`].
+	/// [`paras_availability_period`](Self::paras_availability_period) is less than the delay set
+	/// by this field or if PVF pre-check took more time than the delay. In such cases, the upgrade
+	/// is further at the earliest possible time determined by
+	/// [`minimum_validation_upgrade_delay`](Self::minimum_validation_upgrade_delay).
 	///
 	/// The rationale for this delay has to do with relay-chain reversions. In case there is an
 	/// invalid candidate produced with the new version of the code, then the relay-chain can
-	/// revert [`validation_upgrade_delay`] many blocks back and still find the new code in the
-	/// storage by hash.
+	/// revert [`validation_upgrade_delay`](Self::validation_upgrade_delay) many blocks back and
+	/// still find the new code in the storage by hash.
 	///
 	/// [#4601]: https://github.com/paritytech/polkadot/issues/4601
 	pub validation_upgrade_delay: BlockNumber,
@@ -187,11 +190,20 @@ pub struct HostConfiguration<BlockNumber> {
 	///
 	/// Must be non-zero.
 	pub group_rotation_frequency: BlockNumber,
-	/// The availability period, in blocks. This is the amount of blocks
-	/// after inclusion that validators have to make the block available and signal its
-	/// availability to the chain.
+	/// The minimum availability period, in blocks.
 	///
-	/// Must be at least 1.
+	/// This is the minimum amount of blocks after a core became occupied that validators have time
+	/// to make the block available.
+	///
+	/// This value only has effect on group rotations. If backers backed something at the end of
+	/// their rotation, the occupied core affects the backing group that comes afterwards. We limit
+	/// the effect one backing group can have on the next to `paras_availability_period` blocks.
+	///
+	/// Within a group rotation there is no timeout as backers are only affecting themselves.
+	///
+	/// Must be at least 1. With a value of 1, the previous group will not be able to negatively
+	/// affect the following group at the expense of a tight availability timeline at group
+	/// rotation boundaries.
 	pub paras_availability_period: BlockNumber,
 	/// The amount of blocks ahead to schedule paras.
 	pub scheduling_lookahead: u32,
@@ -229,7 +241,8 @@ pub struct HostConfiguration<BlockNumber> {
 	pub pvf_voting_ttl: SessionIndex,
 	/// The lower bound number of blocks an upgrade can be scheduled.
 	///
-	/// Typically, upgrade gets scheduled [`validation_upgrade_delay`] relay-chain blocks after
+	/// Typically, upgrade gets scheduled
+	/// [`validation_upgrade_delay`](Self::validation_upgrade_delay) relay-chain blocks after
 	/// the relay-parent of the parablock that signalled the validation code upgrade. However,
 	/// in the case a pre-checking voting was concluded in a longer duration the upgrade will be
 	/// scheduled to the next block.
@@ -240,8 +253,12 @@ pub struct HostConfiguration<BlockNumber> {
 	/// To prevent that, we introduce the minimum number of blocks after which the upgrade can be
 	/// scheduled. This number is controlled by this field.
 	///
-	/// This value should be greater than [`paras_availability_period`].
+	/// This value should be greater than
+	/// [`paras_availability_period`](Self::paras_availability_period).
 	pub minimum_validation_upgrade_delay: BlockNumber,
+	/// The minimum number of valid backing statements required to consider a parachain candidate
+	/// backable.
+	pub minimum_backing_votes: u32,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -292,6 +309,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			on_demand_fee_variability: Perbill::from_percent(3),
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_ttl: 5u32.into(),
+			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 		}
 	}
 }
@@ -328,6 +346,8 @@ pub enum InconsistentError<BlockNumber> {
 	MaxHrmpOutboundChannelsExceeded,
 	/// Maximum number of HRMP inbound channels exceeded.
 	MaxHrmpInboundChannelsExceeded,
+	/// `minimum_backing_votes` is set to zero.
+	ZeroMinimumBackingVotes,
 }
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
@@ -408,6 +428,10 @@ where
 			return Err(MaxHrmpInboundChannelsExceeded)
 		}
 
+		if self.minimum_backing_votes.is_zero() {
+			return Err(ZeroMinimumBackingVotes)
+		}
+
 		Ok(())
 	}
 
@@ -474,7 +498,8 @@ pub mod pallet {
 	/// v5-v6: <https://github.com/paritytech/polkadot/pull/6271> (remove UMP dispatch queue)
 	/// v6-v7: <https://github.com/paritytech/polkadot/pull/7396>
 	/// v7-v8: <https://github.com/paritytech/polkadot/pull/6969>
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
+	/// v8-v9: <https://github.com/paritytech/polkadot/pull/7577>
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(9);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1148,6 +1173,18 @@ pub mod pallet {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
 				config.on_demand_ttl = new;
+			})
+		}
+		/// Set the minimum backing votes threshold.
+		#[pallet::call_index(52)]
+		#[pallet::weight((
+			T::WeightInfo::set_config_with_u32(),
+			DispatchClass::Operational
+		))]
+		pub fn set_minimum_backing_votes(origin: OriginFor<T>, new: u32) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::schedule_config_update(|config| {
+				config.minimum_backing_votes = new;
 			})
 		}
 	}
