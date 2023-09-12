@@ -34,7 +34,7 @@ use sp_trie::{
 };
 use thiserror::Error;
 
-use novelpoly::{CodeParams, WrappedShard};
+use novelpoly::{log2, CodeParams, WrappedShard};
 
 // we are limited to the field order of GF(2^16), which is 65536
 const MAX_VALIDATORS: usize = novelpoly::f2e16::FIELD_SIZE;
@@ -111,6 +111,47 @@ fn code_params(n_validators: usize) -> Result<CodeParams, Error> {
 		novelpoly::Error::WantedShardCountTooLow(_) => Error::NotEnoughValidators,
 		_ => Error::UnknownCodeParam,
 	})
+}
+
+/// Check if x is a power of 2.
+///
+/// Zero is by definition not a power of 2.
+pub const fn is_power_of_2(x: usize) -> bool {
+	x > 0_usize && x & (x - 1) == 0
+}
+
+/// Tick up to the next higher power of 2 if
+/// the provided number is not a power of 2.
+pub const fn next_higher_power_of_2(k: usize) -> usize {
+	if is_power_of_2(k) {
+		k
+	} else {
+		1 << (log2(k) + 1)
+	}
+}
+
+/// Tick down to the next higher power of 2 if
+/// the provided number is not a power of 2.
+pub const fn next_lower_power_of_2(k: usize) -> usize {
+	if is_power_of_2(k) {
+		k
+	} else {
+		1 << log2(k)
+	}
+}
+
+pub fn derive_parameters(n: usize, k: usize) -> (usize, usize) {
+	let k_po2 = next_lower_power_of_2(k);
+	let n_po2 = next_higher_power_of_2(n);
+	// If the coding rate of the power of 2 variants, is higher,
+	// we would have to lower k by one order of magnitude base 2
+	// which is true by definition
+	assert!(n * k_po2 <= n_po2 * k);
+
+	if n_po2 > MAX_VALIDATORS as usize {
+		panic!();
+	}
+	(n_po2, k_po2)
 }
 
 /// Obtain erasure-coded chunks for v1 `AvailableData`, one for each validator.
@@ -347,6 +388,7 @@ impl<'a, I: Iterator<Item = &'a [u8]>> parity_scale_codec::Input for ShardInput<
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use novelpoly::shard;
 	use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 
 	// In order to adequately compute the number of entries in the Merkle
@@ -375,6 +417,36 @@ mod tests {
 				.cloned(),
 		)
 		.unwrap();
+
+		assert_eq!(reconstructed, available_data);
+	}
+
+	#[test]
+	fn systematic_chunks() {
+		let pov = PoV { block_data: BlockData((0..255).collect()) };
+		let n_validators = 20;
+		let threshold = recovery_threshold(n_validators).unwrap();
+		let (_, kpo2) = derive_parameters(n_validators, threshold);
+
+		let available_data = AvailableData { pov: pov.into(), validation_data: Default::default() };
+		let data_encoded = available_data.encode();
+		let chunks = obtain_chunks(n_validators, &available_data).unwrap();
+		let shard_len = chunks[0].len();
+
+		let mut systematic_bytes = Vec::with_capacity(data_encoded.len());
+		for i in (0..shard_len).step_by(2) {
+			for chunk in chunks[..kpo2].iter() {
+				systematic_bytes.push(chunk[i]);
+				systematic_bytes.push(chunk[i + 1]);
+			}
+		}
+
+		systematic_bytes.resize(data_encoded.len(), 0);
+
+		assert_eq!(data_encoded, systematic_bytes);
+
+		let reconstructed: AvailableData =
+			AvailableData::decode(&mut &systematic_bytes[..]).unwrap();
 
 		assert_eq!(reconstructed, available_data);
 	}
