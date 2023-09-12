@@ -2394,8 +2394,7 @@ dependencies = [
 [[package]]
 name = "ckb-merkle-mountain-range"
 version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56ccb671c5921be8a84686e6212ca184cb1d7c51cadcdbfcbd1cc3f042f5dfb8"
+source = "git+https://github.com/Lederstrumpf/merkle-mountain-range.git?branch=linearize-proof-rebase-v0.5.1#f3aed2bfdaa5ec83d89e97b37c89ecaac9f64497"
 dependencies = [
  "cfg-if",
 ]
