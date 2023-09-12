@@ -24,7 +24,7 @@ use sp_std::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	sync::Arc,
 };
-use sp_trie::{NodeCodec, StorageProof};
+use sp_trie::{NodeCodec, ProofSizeProvider, StorageProof};
 use trie_db::{Hasher, RecordedForKey, TrieAccess};
 
 /// A trie recorder that only keeps track of the proof size.
@@ -38,13 +38,12 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<
 	fn record(&mut self, access: TrieAccess<'_, H::Out>) {
 		let mut encoded_size_update = 0;
 		match access {
-			TrieAccess::NodeOwned { hash, node_owned } => {
+			TrieAccess::NodeOwned { hash, node_owned } =>
 				if !self.seen_nodes.get(&hash).is_some() {
 					let node = node_owned.to_encoded::<NodeCodec<H>>();
 					encoded_size_update += node.encoded_size();
 					self.seen_nodes.insert(hash);
-				}
-			},
+				},
 			TrieAccess::EncodedNode { hash, encoded_node } => {
 				if !self.seen_nodes.get(&hash).is_some() {
 					let node = encoded_node.into_owned();
@@ -85,10 +84,11 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<
 	}
 }
 
+#[derive(Clone)]
 pub(crate) struct SizeOnlyRecorderProvider<H: Hasher> {
-	seen_nodes: RefCell<BTreeSet<H::Out>>,
-	encoded_size: RefCell<usize>,
-	recorded_keys: RefCell<BTreeMap<Arc<[u8]>, RecordedForKey>>,
+	seen_nodes: Arc<RefCell<BTreeSet<H::Out>>>,
+	encoded_size: Arc<RefCell<usize>>,
+	recorded_keys: Arc<RefCell<BTreeMap<Arc<[u8]>, RecordedForKey>>>,
 }
 
 impl<H: Hasher> SizeOnlyRecorderProvider<H> {
@@ -116,6 +116,11 @@ impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for SizeOnlyRecorderPr
 		}
 	}
 
+	fn estimate_encoded_size(&self) -> usize {
+		*self.encoded_size.borrow()
+	}
+}
+impl<H: trie_db::Hasher> ProofSizeProvider for SizeOnlyRecorderProvider<H> {
 	fn estimate_encoded_size(&self) -> usize {
 		*self.encoded_size.borrow()
 	}
