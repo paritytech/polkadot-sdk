@@ -222,6 +222,10 @@ struct State {
 
 	/// Approvals corresponding to assignments in `currently_checking_assignments`.
 	deferred_approvals: HashMap<PeerId, Vec<IndirectSignedApprovalVote>>,
+
+	/// Counts the number of deferred approvals. Avoids iterating possibly a large
+	/// `deferred_approvals` HashMap.
+	deffered_approval_count: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -839,6 +843,80 @@ impl State {
 		let mut leftover = Vec::new();
 		for check in assignments {
 			if !unique_assignments.contains(&check) {
+				let block_hash = check.0.block_hash;
+				let validator_index = check.0.validator;
+				let peer_id = check.2;
+				let claimed_candidate_index = check.1;
+
+				let entry = self
+					.blocks
+					.get_mut(&block_hash)
+					.expect("Checked it is some before calling `check_assignment_batch`");
+
+				// compute metadata on the assignment.
+				let message_subject =
+					MessageSubject(block_hash, claimed_candidate_index, validator_index);
+				let message_kind = MessageKind::Assignment;
+				// check if our knowledge of the peer already contains this assignment
+				match entry.known_by.entry(peer_id) {
+					hash_map::Entry::Occupied(mut peer_knowledge) => {
+						let peer_knowledge = peer_knowledge.get_mut();
+						if peer_knowledge.contains(&message_subject, message_kind) {
+							// wasn't included before
+							if !peer_knowledge
+								.received
+								.insert(message_subject.clone(), message_kind)
+							{
+								gum::debug!(
+									target: LOG_TARGET,
+									?peer_id,
+									?message_subject,
+									"Duplicate assignment",
+								);
+								modify_reputation(
+									&mut self.reputation,
+									ctx.sender(),
+									peer_id,
+									COST_DUPLICATE_MESSAGE,
+								)
+								.await;
+							}
+							continue
+						}
+					},
+					hash_map::Entry::Vacant(_) => {
+						gum::debug!(
+							target: LOG_TARGET,
+							?peer_id,
+							?message_subject,
+							"Assignment from a peer is out of view",
+						);
+						modify_reputation(
+							&mut self.reputation,
+							ctx.sender(),
+							peer_id,
+							COST_UNEXPECTED_MESSAGE,
+						)
+						.await;
+					},
+				}
+
+				// if the assignment is known to be valid, reward the peer
+				if entry.knowledge.contains(&message_subject, message_kind) {
+					modify_reputation(
+						&mut self.reputation,
+						ctx.sender(),
+						peer_id,
+						BENEFIT_VALID_MESSAGE,
+					)
+					.await;
+					if let Some(peer_knowledge) = entry.known_by.get_mut(&peer_id) {
+						gum::trace!(target: LOG_TARGET, ?peer_id, ?message_subject, "Known assignment");
+						peer_knowledge.received.insert(message_subject, message_kind);
+					}
+					continue
+				}
+
 				unique_assignments.push(check);
 			} else {
 				leftover.push(check);
@@ -865,6 +943,7 @@ impl State {
 			.await;
 
 		let timer = metrics.time_awaiting_approval_voting();
+		// Wait for approval voting to check and import the batch.
 		let results = match rx.await {
 			Ok(results) => results,
 			Err(_) => {
@@ -974,19 +1053,23 @@ impl State {
 			.await;
 		}
 
-		// Process any pending approvals for the `currently_checking_assignments`.
-		self.currently_checking_assignments.clear();
-		let approvals = std::mem::take(&mut self.deferred_approvals);
-		for (peer_id, votes) in approvals {
-			for vote in votes {
-				self.import_and_circulate_approval_inner(
-					ctx,
-					metrics,
-					MessageSource::Peer(peer_id),
-					vote,
-				)
-				.await;
+		// We have to send approvals only after all assignments have been imported.
+		if self.batched_assignment_checks.is_empty() {
+			// Process any pending approvals for the `currently_checking_assignments`.
+			self.currently_checking_assignments.clear();
+			let approvals = std::mem::take(&mut self.deferred_approvals);
+			for (peer_id, votes) in approvals {
+				for vote in votes {
+					self.import_and_circulate_approval_inner(
+						ctx,
+						metrics,
+						MessageSource::Peer(peer_id),
+						vote,
+					)
+					.await;
+				}
 			}
+			self.deffered_approval_count = 0;
 		}
 
 		self.batched_assignment_checks.len()
@@ -1191,63 +1274,6 @@ impl State {
 		let message_kind = MessageKind::Assignment;
 
 		if let Some(peer_id) = source.peer_id() {
-			// check if our knowledge of the peer already contains this assignment
-			match entry.known_by.entry(peer_id) {
-				hash_map::Entry::Occupied(mut peer_knowledge) => {
-					let peer_knowledge = peer_knowledge.get_mut();
-					if peer_knowledge.contains(&message_subject, message_kind) {
-						// wasn't included before
-						if !peer_knowledge.received.insert(message_subject.clone(), message_kind) {
-							gum::debug!(
-								target: LOG_TARGET,
-								?peer_id,
-								?message_subject,
-								"Duplicate assignment",
-							);
-							modify_reputation(
-								&mut self.reputation,
-								ctx.sender(),
-								peer_id,
-								COST_DUPLICATE_MESSAGE,
-							)
-							.await;
-						}
-						return
-					}
-				},
-				hash_map::Entry::Vacant(_) => {
-					gum::debug!(
-						target: LOG_TARGET,
-						?peer_id,
-						?message_subject,
-						"Assignment from a peer is out of view",
-					);
-					modify_reputation(
-						&mut self.reputation,
-						ctx.sender(),
-						peer_id,
-						COST_UNEXPECTED_MESSAGE,
-					)
-					.await;
-				},
-			}
-
-			// if the assignment is known to be valid, reward the peer
-			if entry.knowledge.contains(&message_subject, message_kind) {
-				modify_reputation(
-					&mut self.reputation,
-					ctx.sender(),
-					peer_id,
-					BENEFIT_VALID_MESSAGE,
-				)
-				.await;
-				if let Some(peer_knowledge) = entry.known_by.get_mut(&peer_id) {
-					gum::trace!(target: LOG_TARGET, ?peer_id, ?message_subject, "Known assignment");
-					peer_knowledge.received.insert(message_subject, message_kind);
-				}
-				return
-			}
-
 			self.queue_assignment_check(
 				ctx,
 				metrics,
@@ -1312,6 +1338,7 @@ impl State {
 					.and_modify(|approvals| approvals.push(vote.clone()))
 					.or_insert_with(|| vec![vote.clone()]);
 
+				self.deffered_approval_count += 1;
 				// The message will be processed as soon as the corresponding assignments are
 				// checked.
 				return
