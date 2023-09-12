@@ -11,17 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 use sp_trie::ProofSizeProvider;
 
-#[cfg(feature = "std")]
 sp_externalities::decl_extension! {
 	/// The proof size extension to fetch the current storage proof size
 	/// in externalities.
 	pub struct ProofSizeExt(Box<dyn ProofSizeProvider + 'static + Sync + Send>);
 }
 
-#[cfg(feature = "std")]
 impl ProofSizeExt {
 	pub fn new<T: ProofSizeProvider + Sync + Send + 'static>(recorder: T) -> Self {
 		ProofSizeExt(Box::new(recorder))

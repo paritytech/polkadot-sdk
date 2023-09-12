@@ -12,14 +12,6 @@ description = "A crate which contains an externalities extension to fetch the pr
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-externalities = { path = "../externalities", default-features = false}
-sp-trie = { path = "../trie", default-features = false}
-sp-runtime = { path = "../runtime", default-features = false}
-
-[features]
-default = ["std"]
-std = [
-	"sp-externalities/std",
-	"sp-trie/std",
-	"sp-runtime/std",
-]
+sp-externalities = { path = "../externalities" }
+sp-trie = { path = "../trie" }
+sp-runtime = { path = "../runtime" }
