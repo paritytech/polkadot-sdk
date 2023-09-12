@@ -113,6 +113,67 @@ fn code_params(n_validators: usize) -> Result<CodeParams, Error> {
 	})
 }
 
+/// Reconstruct the v1 available data from the set of systematic chunks.
+///
+/// Provide a vector containing chunk data. If too few chunks are provided, recovery is not
+/// possible.
+pub fn reconstruct_from_systematic_v1(
+	n_validators: usize,
+	chunks: Vec<Vec<u8>>,
+) -> Result<AvailableData, Error> {
+	reconstruct_from_systematic(n_validators, chunks)
+}
+
+/// Reconstruct the available data from the set of systematic chunks.
+///
+/// Provide a vector containing chunk data. If too few chunks are provided, recovery is not
+/// possible.
+pub fn reconstruct_from_systematic<T: Decode>(
+	n_validators: usize,
+	chunks: Vec<Vec<u8>>,
+) -> Result<T, Error> {
+	let code_params = code_params(n_validators)?;
+	let kpow2 = code_params.k();
+
+	let Some(first_shard) = chunks.iter().next() else { return Err(Error::NotEnoughChunks) };
+	let shard_len = first_shard.len();
+
+	if shard_len == 0 {
+		return Err(Error::NonUniformChunks)
+	}
+
+	if shard_len % 2 != 0 {
+		return Err(Error::UnevenLength)
+	}
+
+	if chunks.len() <= kpow2 {
+		return Err(Error::NotEnoughChunks)
+	}
+
+	let mut check_shard_len = true;
+	let mut systematic_bytes = Vec::with_capacity(shard_len * kpow2);
+
+	for i in (0..shard_len).step_by(2) {
+		for chunk in chunks.iter().take(kpow2) {
+			if check_shard_len {
+				if chunk.len() != shard_len {
+					return Err(Error::NonUniformChunks)
+				}
+			}
+
+			// No need to check for index out of bounds because i goes up to shard_len and
+			// we return an error for non uniform chunks.
+			systematic_bytes.push(chunk[i]);
+			systematic_bytes.push(chunk[i + 1]);
+		}
+
+		// After the first check, stop checking the shard lengths.
+		check_shard_len = false;
+	}
+
+	Decode::decode(&mut &systematic_bytes[..]).map_err(|_| Error::BadPayload)
+}
+
 /// Obtain erasure-coded chunks for v1 `AvailableData`, one for each validator.
 ///
 /// Works only up to 65536 validators, and `n_validators` must be non-zero.
@@ -201,7 +262,7 @@ where
 		Ok(payload_bytes) => payload_bytes,
 	};
 
-	Decode::decode(&mut &payload_bytes[..]).or_else(|_e| Err(Error::BadPayload))
+	Decode::decode(&mut &payload_bytes[..]).map_err(|_| Error::BadPayload)
 }
 
 /// An iterator that yields merkle branches and chunk data for all chunks to
@@ -346,12 +407,40 @@ impl<'a, I: Iterator<Item = &'a [u8]>> parity_scale_codec::Input for ShardInput<
 
 #[cfg(test)]
 mod tests {
+	use std::sync::Arc;
+
 	use super::*;
 	use polkadot_node_primitives::{AvailableData, BlockData, PoV};
+	use polkadot_primitives::{HeadData, PersistedValidationData};
+	use quickcheck::{Arbitrary, Gen, QuickCheck};
 
 	// In order to adequately compute the number of entries in the Merkle
 	// trie, we must account for the fixed 16-ary trie structure.
 	const KEY_INDEX_NIBBLE_SIZE: usize = 4;
+
+	#[derive(Clone, Debug)]
+	struct ArbitraryAvailableData(AvailableData);
+
+	impl Arbitrary for ArbitraryAvailableData {
+		fn arbitrary(g: &mut Gen) -> Self {
+			// Limit the POV len to 1 mib, otherwise the test will take forever
+			let pov_len = u32::arbitrary(g).saturating_add(2) % (1024 * 1024);
+
+			let pov = (0..pov_len).map(|_| u8::arbitrary(g)).collect();
+
+			let pvd = PersistedValidationData {
+				parent_head: HeadData((0..u16::arbitrary(g)).map(|_| u8::arbitrary(g)).collect()),
+				relay_parent_number: u32::arbitrary(g),
+				relay_parent_storage_root: [u8::arbitrary(g); 32].into(),
+				max_pov_size: u32::arbitrary(g),
+			};
+
+			ArbitraryAvailableData(AvailableData {
+				pov: Arc::new(PoV { block_data: BlockData(pov) }),
+				validation_data: pvd,
+			})
+		}
+	}
 
 	#[test]
 	fn field_order_is_right_size() {
@@ -377,6 +466,20 @@ mod tests {
 		.unwrap();
 
 		assert_eq!(reconstructed, available_data);
+	}
+
+	#[test]
+	fn round_trip_systematic_works() {
+		fn property(available_data: ArbitraryAvailableData, n_validators: u16) {
+			let n_validators = n_validators.saturating_add(2);
+			let chunks = obtain_chunks(n_validators as usize, &available_data.0).unwrap();
+			assert_eq!(
+				reconstruct_from_systematic_v1(n_validators as usize, chunks).unwrap(),
+				available_data.0
+			);
+		}
+
+		QuickCheck::new().quickcheck(property as fn(ArbitraryAvailableData, u16))
 	}
 
 	#[test]
