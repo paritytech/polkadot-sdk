@@ -20,18 +20,21 @@
 use codec::Encode;
 
 use sp_std::{
+	alloc::rc::Rc,
 	cell::{RefCell, RefMut},
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	sync::Arc,
 };
 use sp_trie::{NodeCodec, ProofSizeProvider, StorageProof};
 use trie_db::{Hasher, RecordedForKey, TrieAccess};
 
 /// A trie recorder that only keeps track of the proof size.
+///
+/// The internal size counting logic should align
+/// with ['sp_trie::recorder::Recorder'].
 pub(crate) struct SizeOnlyRecorder<'a, H: Hasher> {
 	seen_nodes: RefMut<'a, BTreeSet<H::Out>>,
 	encoded_size: RefMut<'a, usize>,
-	recorded_keys: RefMut<'a, BTreeMap<Arc<[u8]>, RecordedForKey>>,
+	recorded_keys: RefMut<'a, BTreeMap<Rc<[u8]>, RecordedForKey>>,
 }
 
 impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<'a, H> {
@@ -86,9 +89,9 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<
 
 #[derive(Clone)]
 pub(crate) struct SizeOnlyRecorderProvider<H: Hasher> {
-	seen_nodes: Arc<RefCell<BTreeSet<H::Out>>>,
-	encoded_size: Arc<RefCell<usize>>,
-	recorded_keys: Arc<RefCell<BTreeMap<Arc<[u8]>, RecordedForKey>>>,
+	seen_nodes: Rc<RefCell<BTreeSet<H::Out>>>,
+	encoded_size: Rc<RefCell<usize>>,
+	recorded_keys: Rc<RefCell<BTreeMap<Rc<[u8]>, RecordedForKey>>>,
 }
 
 impl<H: Hasher> SizeOnlyRecorderProvider<H> {
@@ -185,7 +188,6 @@ mod tests {
 
 	#[test]
 	fn recorder_equivalence_cache() {
-		sp_tracing::try_init_simple();
 		let (db, root, test_data) = create_trie();
 
 		let mut rng = rand::thread_rng();
@@ -241,7 +243,6 @@ mod tests {
 
 	#[test]
 	fn recorder_equivalence_no_cache() {
-		sp_tracing::try_init_simple();
 		let (db, root, test_data) = create_trie();
 
 		let mut rng = rand::thread_rng();

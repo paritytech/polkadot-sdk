@@ -27,7 +27,6 @@ use polkadot_parachain_primitives::primitives::{
 };
 
 use codec::Encode;
-use environmental::environmental;
 use frame_support::traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType};
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
@@ -49,7 +48,9 @@ fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 	sp_externalities::with_externalities(f).expect("Environmental externalities not set.")
 }
 
-environmental!(rec: trait ProofSizeProvider);
+/// Recorder instance to be used during this validate_block call.
+/// Static mut is fine here because we are single-threaded in WASM.
+static mut RECORDER: Option<Box<dyn ProofSizeProvider + Send + Sync>> = None;
 
 /// Validate the given parachain block.
 ///
@@ -123,7 +124,7 @@ where
 
 	sp_std::mem::drop(storage_proof);
 
-	let mut recorder = SizeOnlyRecorderProvider::new();
+	let recorder = SizeOnlyRecorderProvider::new();
 	let cache_provider = trie_cache::CacheProvider::new();
 	// We use the storage root of the `parent_head` to ensure that it is the correct root.
 	// This is already being done above while creating the in-memory db, but let's be paranoid!!
@@ -134,6 +135,8 @@ where
 	)
 	.with_recorder(recorder.clone())
 	.build();
+
+	set_recorder(recorder);
 
 	let _guard = (
 		// Replace storage calls with our own implementations
@@ -176,61 +179,57 @@ where
 			.replace_implementation(host_current_storage_proof_size),
 	);
 
-	rec::using(&mut recorder, || {
-		run_with_externalities::<B, _, _>(&backend, || {
-			let relay_chain_proof = crate::RelayChainStateProof::new(
-				PSC::SelfParaId::get(),
-				inherent_data.validation_data.relay_parent_storage_root,
-				inherent_data.relay_chain_state.clone(),
-			)
-			.expect("Invalid relay chain state proof");
+	run_with_externalities::<B, _, _>(&backend, || {
+		let relay_chain_proof = crate::RelayChainStateProof::new(
+			PSC::SelfParaId::get(),
+			inherent_data.validation_data.relay_parent_storage_root,
+			inherent_data.relay_chain_state.clone(),
+		)
+		.expect("Invalid relay chain state proof");
 
-			let res = CI::check_inherents(&block, &relay_chain_proof);
+		let res = CI::check_inherents(&block, &relay_chain_proof);
 
-			if !res.ok() {
-				if log::log_enabled!(log::Level::Error) {
-					res.into_errors().for_each(|e| {
-						log::error!("Checking inherent with identifier `{:?}` failed", e.0)
-					});
-				}
-
-				panic!("Checking inherents failed");
+		if !res.ok() {
+			if log::log_enabled!(log::Level::Error) {
+				res.into_errors().for_each(|e| {
+					log::error!("Checking inherent with identifier `{:?}` failed", e.0)
+				});
 			}
-		})
+
+			panic!("Checking inherents failed");
+		}
 	});
 
-	rec::using(&mut recorder, || {
-		run_with_externalities::<B, _, _>(&backend, || {
-			let head_data = HeadData(block.header().encode());
+	run_with_externalities::<B, _, _>(&backend, || {
+		let head_data = HeadData(block.header().encode());
 
-			E::execute_block(block);
+		E::execute_block(block);
 
-			let new_validation_code = crate::NewValidationCode::<PSC>::get();
-			let upward_messages = crate::UpwardMessages::<PSC>::get().try_into().expect(
-				"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
-			);
-			let processed_downward_messages = crate::ProcessedDownwardMessages::<PSC>::get();
-			let horizontal_messages = crate::HrmpOutboundMessages::<PSC>::get().try_into().expect(
+		let new_validation_code = crate::NewValidationCode::<PSC>::get();
+		let upward_messages = crate::UpwardMessages::<PSC>::get().try_into().expect(
+			"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
+		);
+		let processed_downward_messages = crate::ProcessedDownwardMessages::<PSC>::get();
+		let horizontal_messages = crate::HrmpOutboundMessages::<PSC>::get().try_into().expect(
 			"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
 		);
-			let hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
+		let hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
 
-			let head_data =
-				if let Some(custom_head_data) = crate::CustomValidationHeadData::<PSC>::get() {
-					HeadData(custom_head_data)
-				} else {
-					head_data
-				};
+		let head_data =
+			if let Some(custom_head_data) = crate::CustomValidationHeadData::<PSC>::get() {
+				HeadData(custom_head_data)
+			} else {
+				head_data
+			};
 
-			ValidationResult {
-				head_data,
-				new_validation_code: new_validation_code.map(Into::into),
-				upward_messages,
-				processed_downward_messages,
-				horizontal_messages,
-				hrmp_watermark,
-			}
-		})
+		ValidationResult {
+			head_data,
+			new_validation_code: new_validation_code.map(Into::into),
+			upward_messages,
+			processed_downward_messages,
+			horizontal_messages,
+			hrmp_watermark,
+		}
 	})
 }
 
@@ -317,10 +316,11 @@ fn host_storage_clear(key: &[u8]) {
 }
 
 fn host_current_storage_proof_size() -> u32 {
-	rec::with(|rec| rec.estimate_encoded_size())
+	get_recorder_ref()
+		.map(|r| r.estimate_encoded_size())
 		.unwrap_or_default()
 		.try_into()
-		.unwrap()
+		.unwrap_or_default()
 }
 
 fn host_storage_root(version: StateVersion) -> Vec<u8> {
@@ -424,3 +424,14 @@ fn host_default_child_storage_next_key(storage_key: &[u8], key: &[u8]) -> Option
 fn host_offchain_index_set(_key: &[u8], _value: &[u8]) {}
 
 fn host_offchain_index_clear(_key: &[u8]) {}
+
+fn set_recorder<H: sp_core::Hasher + 'static>(recorder: SizeOnlyRecorderProvider<H>) {
+	// This is safe here, there is strictly sequential access.
+	unsafe {
+		RECORDER = Some(Box::new(recorder));
+	}
+}
+
+fn get_recorder_ref() -> Option<&'static Box<dyn ProofSizeProvider + Send + Sync>> {
+	unsafe { RECORDER.as_ref() }
+}

@@ -173,9 +173,9 @@ where
 
 		if record_proof.yes() {
 			api.record_proof();
-			let recorder =
-				api.proof_recorder().expect("We enable proof recording hte line before; qed");
-			api.register_extension(sp_proof_size_ext::ProofSizeExt::new(recorder));
+			if let Some(recorder) = api.proof_recorder() {
+				api.register_extension(sp_proof_size_ext::ProofSizeExt::new(recorder));
+			}
 		}
 
 		api.set_call_context(CallContext::Onchain);

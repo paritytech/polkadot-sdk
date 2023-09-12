@@ -867,10 +867,10 @@ where
 
 				if self.config.enable_import_proof_recording {
 					runtime_api.record_proof();
-					let recorder = runtime_api
-						.proof_recorder()
-						.expect("We enable proof recording hte line before; qed");
-					runtime_api.register_extension(sp_proof_size_ext::ProofSizeExt::new(recorder));
+					if let Some(recorder) = runtime_api.proof_recorder() {
+						runtime_api
+							.register_extension(sp_proof_size_ext::ProofSizeExt::new(recorder));
+					};
 				}
 
 				runtime_api.execute_block(
