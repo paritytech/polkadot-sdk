@@ -32,7 +32,6 @@ xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder" }
 
 [features]
 default = [ "std" ]
-experimental = [ "frame-support/experimental" ]
 std = [
 	"bounded-collections/std",
 	"codec/std",
