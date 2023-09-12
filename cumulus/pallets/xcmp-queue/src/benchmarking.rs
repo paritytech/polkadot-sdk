@@ -19,7 +19,7 @@ use crate::*;
 
 use codec::DecodeAll;
 use frame_benchmarking::v2::*;
-use frame_support::{traits::Hooks, StorageNoopGuard};
+use frame_support::traits::Hooks;
 use frame_system::RawOrigin;
 
 #[benchmarks]
@@ -124,7 +124,19 @@ mod benchmarks {
 
 	#[benchmark]
 	fn on_idle_migration() {
-		let _g = StorageNoopGuard::default();
+		use migration::v3;
+
+		let block = 5;
+		let para = ParaId::from(4);
+		let message = vec![123u8; 1 << 16]; // 64 KiB message
+		let message_metadata = vec![(block, XcmpMessageFormat::ConcatenatedVersionedXcm)];
+
+		v3::InboundXcmpMessages::<T>::insert(para, block, message);
+		v3::InboundXcmpStatus::<T>::set(Some(vec![v3::InboundChannelDetails {
+			sender: para,
+			state: v3::InboundState::Ok,
+			message_metadata,
+		}]));
 
 		#[block]
 		{

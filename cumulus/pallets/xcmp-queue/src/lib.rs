@@ -209,20 +209,25 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_idle(_block: BlockNumberFor<T>, weight: Weight) -> Weight {
+		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			use migration::v3;
-			let mut meter = WeightMeter::with_limit(weight);
+			let mut meter = WeightMeter::with_limit(limit);
+
+			if meter.try_consume(T::WeightInfo::on_idle()).is_err() {
+				log::debug!("Not enough weight for on_idle. {} < {}", T::WeightInfo::on_idle(), limit);
+				return meter.consumed();
+			}
 
 			let Some(mut states) = v3::InboundXcmpStatus::<T>::get() else {
-				log::info!("Lazy migration finished: item gone");
+				log::debug!("Lazy migration finished: item gone");
 				return meter.consumed();
 			};
 			let Some(ref mut next) = states.first_mut() else {
-				log::info!("Lazy migration finished: item empty");
+				log::debug!("Lazy migration finished: item empty");
 				v3::InboundXcmpStatus::<T>::kill();
 				return meter.consumed();
 			};
-			log::info!(
+			log::debug!(
 				"Migrating inbound HRMP channel with sibling {}, msgs left {}.",
 				next.sender,
 				next.message_metadata.len()
@@ -257,7 +262,7 @@ pub mod pallet {
 
 			// Finally; we have a proper message.
 			T::XcmpQueue::enqueue_message(msg.as_bounded_slice(), next.sender);
-			log::info!("Migrated HRMP message to MQ: {:?}", (next.sender, block_number));
+			log::debug!("Migrated HRMP message to MQ: {:?}", (next.sender, block_number));
 			v3::InboundXcmpStatus::<T>::put(states);
 
 			meter.consumed()

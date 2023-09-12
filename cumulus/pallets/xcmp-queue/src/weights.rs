@@ -53,11 +53,15 @@ pub trait WeightInfo {
 	fn suspend_channel() -> Weight;
 	fn resume_channel() -> Weight;
 	fn split_concatenated_xcm() -> Weight;
+	fn on_idle() -> Weight;
 }
 
 /// Weights for `cumulus_pallet_xcmp_queue` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	fn on_idle() -> Weight {
+		Weight::from_all(1)
+	}
 	/// Storage: `XcmpQueue::QueueConfig` (r:1 w:1)
 	/// Proof: `XcmpQueue::QueueConfig` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_config_with_u32() -> Weight {
@@ -185,5 +189,8 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 30_385_000 picoseconds.
 		Weight::from_parts(30_651_000, 0)
+	}
+	fn on_idle() -> Weight {
+		Weight::from_all(1)
 	}
 }

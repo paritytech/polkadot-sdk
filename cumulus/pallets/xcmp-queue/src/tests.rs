@@ -22,10 +22,12 @@ use XcmpMessageFormat::*;
 use codec::Compact;
 use cumulus_primitives_core::XcmpMessageHandler;
 use frame_support::{
+	assert_storage_noop,
 	assert_err, assert_noop, assert_ok, experimental_hypothetically,
 	traits::{Footprint, Hooks},
 	StorageNoopGuard,
 };
+use sp_runtime::traits::Zero;
 use mock::{new_test_ext, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::BadOrigin;
 use std::iter::{once, repeat};
@@ -692,5 +694,38 @@ fn lazy_migration_works() {
 		assert!(!InboundXcmpStatus::<Test>::exists());
 		assert_eq!(InboundXcmpMessages::<Test>::iter().count(), 0);
 		EnqueuedMessages::set(&vec![]);
+	});
+}
+
+#[test]
+fn lazy_migration_noop_when_out_of_weight() {
+	use crate::migration::v3::*;
+	assert!(!<Test as crate::Config>::WeightInfo::on_idle().is_zero(), "pre condition");
+
+	new_test_ext().execute_with(|| {
+		let _g = StorageNoopGuard::default(); // No storage is leaked.
+		let block = 5;
+		let para = ParaId::from(4);
+		let message_metadata = vec![(block, XcmpMessageFormat::ConcatenatedVersionedXcm)];
+
+		InboundXcmpMessages::<Test>::insert(para, block, vec![123u8]);
+		InboundXcmpStatus::<Test>::set(Some(vec![InboundChannelDetails {
+			sender: para,
+			state: InboundState::Ok,
+			message_metadata,
+		}]));
+
+		// Hypothetically, it would do something with enough weight limit:
+		experimental_hypothetically!({
+			XcmpQueue::on_idle(0u32.into(), Weight::MAX);
+			assert_eq!(EnqueuedMessages::get(), vec![(para, vec![123u8])]);
+		});
+		// But does not, since the limit is zero:
+		assert_storage_noop!({
+			XcmpQueue::on_idle(0u32.into(), Weight::zero())
+		});
+
+		InboundXcmpMessages::<Test>::remove(para, block);
+		InboundXcmpStatus::<Test>::kill();
 	});
 }
