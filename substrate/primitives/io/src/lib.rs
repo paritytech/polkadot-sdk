@@ -682,21 +682,27 @@ pub trait Trie {
 	}
 }
 
+#[cfg(feature = "std")]
+pub trait AuxiliaryDataStuff: 'static + Send {
+	fn encode(&self) -> Vec<u8>;
+}
 
 #[cfg(feature = "std")]
 sp_externalities::decl_extension! {
 	#[derive(Default)]
-	pub struct AuxilaryDataStore {
-		data: std::collection::BTreeMap<Vec<u8>, std::collections::BTreeMap<Vec<u8>, Vec<u8>>>,
-		data_: std::collection::BTreeMap<Vec<u8>, std::collections::BTreeMap<Vec<u8>, Vec<u8>>>,
-	}
+	pub struct AuxiliaryDataStore (
+		std::collections::BTreeMap<Vec<u8>, Box<dyn AuxiliaryDataStuff>>
+	);
 }
 
 #[runtime_interface]
-pub trait AuxilaryData {
-	fn hash(&self) -> Vec<u8> {
-		if let Some(store) = self.extension::<AuxilaryDataStore>() {
-			LayoutV1::<sp_core::Blake2Hasher>::ordered_trie_root(input)
+pub trait AuxiliaryData {
+	fn hash(&mut self) -> Vec<u8> {
+		if let Some(store) = self.extension::<AuxiliaryDataStore>() {
+			LayoutV1::<sp_core::Blake2Hasher>::ordered_trie_root(
+				store.0.iter().map(|(k, v)| [k.clone(), v.encode()]).flatten(),
+			)
+			.encode()
 		} else {
 			Vec::new()
 		}

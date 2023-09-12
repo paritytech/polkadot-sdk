@@ -1430,6 +1430,14 @@ impl<T: Config> Pallet<T> {
 		AllExtrinsicsLen::<T>::kill();
 		storage::unhashed::kill(well_known_keys::INTRABLOCK_ENTROPY);
 
+		let auxiliary_data_hash = sp_io::auxiliary_data::hash();
+
+		if !auxiliary_data_hash.is_empty() {
+			let hash = T::Hash::decode(&mut &auxiliary_data_hash[..]).unwrap();
+
+			Self::deposit_log(sp_runtime::DigestItem::AuxilaryData(hash.encode()));
+		}
+
 		// The following fields
 		//
 		// - <Events<T>>
