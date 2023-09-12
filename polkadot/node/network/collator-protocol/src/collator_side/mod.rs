@@ -93,13 +93,18 @@ const COST_APPARENT_FLOOD: Rep =
 /// For considerations on this value, see: https://github.com/paritytech/polkadot/issues/4386
 const MAX_UNSHARED_UPLOAD_TIME: Duration = Duration::from_millis(150);
 
-/// Ensure that collator issues a connection request at least once every this many seconds.
-/// Usually it's done when advertising new collation. However, if the core stays occupied or
-/// it's not our turn to produce a candidate, it's important to disconnect from previous
-/// peers.
+/// Ensure that collator updates its connection requests to validators
+/// this long after the most recent leaf.
+///
+/// The timeout is designed for substreams to be properly closed if they need to be
+/// reopened shortly after the next leaf.
+///
+/// Collators also update their connection requests on every new collation.
+/// This timeout is mostly about removing stale connections while avoiding races
+/// with new collations which may want to reactivate them.
 ///
 /// Validators are obtained from [`ValidatorGroupsBuffer::validators_to_connect`].
-const RECONNECT_TIMEOUT: Duration = Duration::from_secs(12);
+const RECONNECT_AFTER_LEAF_TIMEOUT: Duration = Duration::from_secs(4);
 
 /// Future that when resolved indicates that we should update reserved peer-set
 /// of validators we want to be connected to.
@@ -255,8 +260,8 @@ struct State {
 	/// Tracks which validators we want to stay connected to.
 	validator_groups_buf: ValidatorGroupsBuffer,
 
-	/// Timeout-future that enforces collator to update the peer-set at least once
-	/// every [`RECONNECT_TIMEOUT`] seconds.
+	/// Timeout-future which is reset after every leaf to [`RECONNECT_AFTER_LEAF_TIMEOUT`] seconds.
+	/// When it fires, we update our reserved peers.
 	reconnect_timeout: ReconnectTimeout,
 
 	/// Metrics.
@@ -443,7 +448,7 @@ async fn distribute_collation<Context>(
 	}
 
 	// Update a set of connected validators if necessary.
-	state.reconnect_timeout = connect_to_validators(ctx, &state.validator_groups_buf).await;
+	connect_to_validators(ctx, &state.validator_groups_buf).await;
 
 	if let Some(result_sender) = result_sender {
 		state.collation_result_senders.insert(candidate_hash, result_sender);
@@ -621,15 +626,12 @@ async fn declare<Context>(
 
 /// Updates a set of connected validators based on their advertisement-bits
 /// in a validators buffer.
-///
-/// Should be called again once a returned future resolves.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn connect_to_validators<Context>(
 	ctx: &mut Context,
 	validator_groups_buf: &ValidatorGroupsBuffer,
-) -> ReconnectTimeout {
+) {
 	let validator_ids = validator_groups_buf.validators_to_connect();
-	let is_disconnect = validator_ids.is_empty();
 
 	// ignore address resolution failure
 	// will reissue a new request on new collation
@@ -640,14 +642,6 @@ async fn connect_to_validators<Context>(
 		failed,
 	})
 	.await;
-
-	if is_disconnect {
-		gum::trace!(target: LOG_TARGET, "Disconnecting from all peers");
-		// Never resolves.
-		Fuse::terminated()
-	} else {
-		futures_timer::Delay::new(RECONNECT_TIMEOUT).fuse()
-	}
 }
 
 /// Advertise collation to the given `peer`.
@@ -1377,7 +1371,11 @@ async fn run_inner<Context>(
 						"Failed to process message"
 					)?;
 				},
-				FromOrchestra::Signal(ActiveLeaves(_update)) => {}
+				FromOrchestra::Signal(ActiveLeaves(update)) => {
+					if update.activated.is_some() {
+						*reconnect_timeout = futures_timer::Delay::new(RECONNECT_AFTER_LEAF_TIMEOUT).fuse();
+					}
+				}
 				FromOrchestra::Signal(BlockFinalized(..)) => {}
 				FromOrchestra::Signal(Conclude) => return Ok(()),
 			},
@@ -1454,12 +1452,11 @@ async fn run_inner<Context>(
 				}
 			}
 			_ = reconnect_timeout => {
-				state.reconnect_timeout =
-					connect_to_validators(&mut ctx, &state.validator_groups_buf).await;
+				connect_to_validators(&mut ctx, &state.validator_groups_buf).await;
 
 				gum::trace!(
 					target: LOG_TARGET,
-					timeout = ?RECONNECT_TIMEOUT,
+					timeout = ?RECONNECT_AFTER_LEAF_TIMEOUT,
 					"Peer-set updated due to a timeout"
 				);
 			},
