@@ -306,11 +306,9 @@ pub mod pallet {
 		DepositTooLow,
 		/// Could not update the candidate list.
 		UpdateCandidateListFailed,
-		/// Deposit amount is too low to take the target's slot in the
-		/// candidate list.
+		/// Deposit amount is too low to take the target's slot in the candidate list.
 		InsufficientBond,
-		/// The target account to be replaced in the candidate list is not a
-		/// candidate.
+		/// The target account to be replaced in the candidate list is not a candidate.
 		TargetIsNotCandidate,
 	}
 
@@ -331,8 +329,8 @@ pub mod pallet {
 		/// acceptable Invulnerables, and is not proposing a _set_ of new Invulnerables.
 		///
 		/// This call does not maintain mutual exclusivity of `Invulnerables` and `Candidates`. It
-		/// is recommended to use a batch of `add_invulnerable` and `remove_invulnerable` instead.
-		/// A `batch_all` can also be used to enforce atomicity. If any candidates are included in
+		/// is recommended to use a batch of `add_invulnerable` and `remove_invulnerable` instead. A
+		/// `batch_all` can also be used to enforce atomicity. If any candidates are included in
 		/// `new`, they should be removed with `remove_invulnerable_candidate` after execution.
 		///
 		/// Must be called by the `UpdateOrigin`.
@@ -582,12 +580,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Update the candidacy bond of collator candidate `origin` to a
-		/// new amount `new_deposit`.
+		/// Update the candidacy bond of collator candidate `origin` to a new amount `new_deposit`.
 		///
-		/// This call will fail if `origin` is not a collator candidate, the
-		/// updated bond is lower than the minimum candidacy bond, and/or
-		/// the amount cannot be reserved.
+		/// This call will fail if `origin` is not a collator candidate, the updated bond is lower
+		/// than the minimum candidacy bond, and/or the amount cannot be reserved.
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::update_bond(T::MaxCandidates::get()))]
 		pub fn update_bond(
@@ -596,10 +592,9 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			ensure!(new_deposit >= <CandidacyBond<T>>::get(), Error::<T>::DepositTooLow);
-			// The function below will try to mutate the `CandidateList` entry for
-			// the caller to update their deposit to the new value of
-			// `new_deposit`. The return value is a tuple of the position of
-			// the entry in the list, used for weight calculation, and the new
+			// The function below will try to mutate the `CandidateList` entry for the caller to
+			// update their deposit to the new value of `new_deposit`. The return value is a tuple
+			// of the position of the entry in the list, used for weight calculation, and the new
 			// bonded amount.
 			let (new_amount, length) = <CandidateList<T>>::try_mutate(
 				|candidates| -> Result<(BalanceOf<T>, usize), DispatchError> {
@@ -639,15 +634,13 @@ pub mod pallet {
 			Ok(Some(T::WeightInfo::update_bond(length as u32)).into())
 		}
 
-		/// The caller `origin` replaces a candidate `target` in the collator
-		/// candidate list by reserving `deposit`. The amount `deposit`
-		/// reserved by the caller must be greater than the existing bond of
-		/// the target it is trying to replace.
+		/// The caller `origin` replaces a candidate `target` in the collator candidate list by
+		/// reserving `deposit`. The amount `deposit` reserved by the caller must be greater than
+		/// the existing bond of the target it is trying to replace.
 		///
-		/// This call will fail if the caller is already a collator candidate
-		/// or invulnerable, the caller does not have registered session keys,
-		/// the target is not a collator candidate, and/or the `deposit` amount
-		/// cannot be reserved.
+		/// This call will fail if the caller is already a collator candidate or invulnerable, the
+		/// caller does not have registered session keys, the target is not a collator candidate,
+		/// and/or the `deposit` amount cannot be reserved.
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::take_candidate_slot(T::MaxCandidates::get()))]
 		pub fn take_candidate_slot(
@@ -696,8 +689,8 @@ pub mod pallet {
 				who.clone(),
 				frame_system::Pallet::<T>::block_number() + T::KickThreshold::get(),
 			);
-			// Replace the old candidate in the list with the new candidate and
-			// then move them up the list to the correct place, if necessary.
+			// Replace the old candidate in the list with the new candidate and then move them up
+			// the list to the correct place, if necessary.
 			<CandidateList<T>>::try_mutate(|list| {
 				let mut idx = target_info_idx;
 				list[idx].who = who.clone();
@@ -789,7 +782,7 @@ pub mod pallet {
 					let is_lazy = since_last >= kick_threshold;
 
 					if is_invulnerable {
-						// They are invulnerable. No reason for them to be in Candidates also.
+						// They are invulnerable. No reason for them to be in `CandidateList` also.
 						// We don't even care about the min collators here, because an Account
 						// should not be a collator twice.
 						let _ = Self::try_remove_candidate(&c, false);
