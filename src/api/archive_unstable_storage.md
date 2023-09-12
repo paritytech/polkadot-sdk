@@ -40,12 +40,12 @@ Where `subscription` is equal to the value returned by this function, and `resul
 
 ```
 {
-    "result": "started",
+    "event": "started",
     "discardedItems": ...
 }
 ```
 
-This return value indicates that the request has successfully started.
+This return value indicates that the request has successfully started. The `started` event is generated at most once and can only be the first generated event.
 
 Where `discardedItems` is an integer indicating the number of items at the back of the array of the `items` parameters that couldn't be processed.
 
