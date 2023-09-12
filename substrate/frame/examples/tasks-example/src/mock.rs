@@ -31,6 +31,7 @@ frame_support::construct_runtime!(
 	}
 );
 
+// TODO: use derive_impl
 impl frame_system::Config for Runtime {
 	type SS58Prefix = ();
 	type BaseCallFilter = frame_support::traits::Everything;
