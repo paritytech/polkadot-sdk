@@ -56,6 +56,9 @@ pub fn expand_outer_task(pallet_decls: &[Pallet], scrate: &TokenStream2) -> Toke
 
 	let prelude = quote!(#scrate::traits::tasks::prelude);
 
+	const INCOMPLETE_MATCH_QED: &'static str =
+		"cannot have an instantiated RuntimeTask without some Task variant in the runtime. QED";
+
 	let output = quote! {
 		/// An aggregation of all `Task` enums across all pallets included in the current runtime.
 		#[derive(
@@ -76,19 +79,22 @@ pub fn expand_outer_task(pallet_decls: &[Pallet], scrate: &TokenStream2) -> Toke
 
 			fn is_valid(&self) -> bool {
 				match self {
-					#(RuntimeTask::#variant_names(val) => val.is_valid()),*
+					#(RuntimeTask::#variant_names(val) => val.is_valid(),)*
+					_ => unreachable!(#INCOMPLETE_MATCH_QED),
 				}
 			}
 
 			fn run(&self) -> Result<(), #scrate::traits::tasks::prelude::DispatchError> {
 				match self {
-					#(RuntimeTask::#variant_names(val) => val.run()),*
+					#(RuntimeTask::#variant_names(val) => val.run(),)*
+					_ => unreachable!(#INCOMPLETE_MATCH_QED),
 				}
 			}
 
 			fn weight(&self) -> #scrate::pallet_prelude::Weight {
 				match self {
-					#(RuntimeTask::#variant_names(val) => val.weight()),*
+					#(RuntimeTask::#variant_names(val) => val.weight(),)*
+					_ => unreachable!(#INCOMPLETE_MATCH_QED),
 				}
 			}
 
