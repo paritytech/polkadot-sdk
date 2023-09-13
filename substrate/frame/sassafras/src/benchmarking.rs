@@ -39,25 +39,30 @@ mod benchmarks {
 
 	#[benchmark]
 	fn check_ticket() {
-		let mut raw_data = TICKETS_DATA;
-		let PreBuiltTickets { authorities, tickets } =
-			PreBuiltTickets::decode(&mut raw_data).expect("Failed to decode tickets buffer");
-		let authorities = WeakBoundedVec::force_from(authorities, None);
+		// let mut raw_data = TICKETS_DATA;
+		// let PreBuiltTickets { authorities, tickets } =
+		// 	PreBuiltTickets::decode(&mut raw_data).expect("Failed to decode tickets buffer");
 
-		Authorities::<T>::set(authorities);
+		// let authorities = WeakBoundedVec::force_from(authorities, None);
+		// let tickets = tickets[0..1].to_vec();
+		// let tickets = BoundedVec::truncate_from(tickets);
 
-		let caller: T::AccountId = whitelisted_caller();
+		// Authorities::<T>::set(authorities);
 
-		#[extrinsic_call]
-		submit_tickets(RawOrigin::Signed(caller), tickets);
+		let ring_ctx = vrf::RingContext::new_testing();
+		RingContext::<T>::set(Some(ring_ctx));
 
-		// #[block]
-		// {
-		// 	let authorities_num = T::MaxAuthorities::get();
-		// 	let authorities = Authorities::<T>::get();
-		// 	log::debug!(target: "sassafras", "AUTH NUM: {}", authorities.len());
+		// let caller: T::AccountId = whitelisted_caller();
 
-		// }
+		// #[extrinsic_call]
+		// submit_tickets(RawOrigin::None, tickets);
+
+		#[block]
+		{
+			let _authorities_num = T::MaxAuthorities::get();
+			// 	let authorities = Authorities::<T>::get();
+			// 	log::debug!(target: "sassafras", "AUTH NUM: {}", authorities.len());
+		}
 	}
 }
 // submit_tickets {

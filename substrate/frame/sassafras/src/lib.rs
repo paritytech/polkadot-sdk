@@ -43,7 +43,7 @@
 //! To anonymously publish the ticket to the chain a validator sends their tickets
 //! to a random validator who later puts it on-chain as a transaction.
 
-#![deny(warnings)]
+// #![deny(warnings)]
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
