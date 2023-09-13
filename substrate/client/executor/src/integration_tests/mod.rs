@@ -16,9 +16,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#[cfg(target_os = "linux")]
-mod linux;
-
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use sc_executor_common::{

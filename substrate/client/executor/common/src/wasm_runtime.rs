@@ -111,23 +111,6 @@ pub trait WasmInstance: Send {
 		self.call(method.into(), data)
 	}
 
-	/// **Testing Only**. This function also returns the base address of the linear memory.
-	///
-	/// This is meant to be the starting address of the memory mapped area for the linear memory.
-	/// This function is intended only for a specific test that measures physical memory
-	/// consumption.
-	///
-	/// Call an exported method on this WASM instance.
-	///
-	/// Before execution, instance is reset.
-	///
-	/// Returns the encoded result on success.
-	fn call_export_with_base_ptr(
-		&mut self,
-		method: &str,
-		data: &[u8],
-	) -> Result<(Vec<u8>, Option<*const u8>), Error>;
-
 	/// Get the value from a global with the given `name`.
 	///
 	/// This method is only suitable for getting immutable globals.

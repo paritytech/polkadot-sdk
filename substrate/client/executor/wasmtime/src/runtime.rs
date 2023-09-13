@@ -71,7 +71,7 @@ enum Strategy {
 }
 
 struct InstanceCreator {
-	engine: wasmtime::Engine,
+	engine: Engine,
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
 }
 
@@ -84,7 +84,7 @@ impl InstanceCreator {
 /// A `WasmModule` implementation using wasmtime to compile the runtime module to machine code
 /// and execute the compiled code.
 pub struct WasmtimeRuntime {
-	engine: wasmtime::Engine,
+	engine: Engine,
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
 	instantiation_strategy: InternalInstantiationStrategy,
 }
@@ -126,26 +126,6 @@ impl WasmtimeInstance {
 			},
 		}
 	}
-
-	/// **Testing Only**.
-	fn call_impl_with_base_ptr(
-		&mut self,
-		method: InvokeMethod,
-		data: &[u8],
-	) -> Result<(Vec<u8>, Option<*const u8>)> {
-		match &mut self.strategy {
-			Strategy::RecreateInstance(ref mut instance_creator) => {
-				let mut instance_wrapper = instance_creator.instantiate()?;
-				let heap_base = instance_wrapper.extract_heap_base()?;
-				let entrypoint = instance_wrapper.resolve_entrypoint(method)?;
-				let allocator = FreeingBumpHeapAllocator::new(heap_base);
-				let bytes =
-					perform_call(data, &mut instance_wrapper, entrypoint, allocator, &mut None)?;
-
-				Ok((bytes, Some(instance_wrapper.base_ptr())))
-			},
-		}
-	}
 }
 
 impl WasmInstance for WasmtimeInstance {
@@ -159,19 +139,10 @@ impl WasmInstance for WasmtimeInstance {
 		(result, allocation_stats)
 	}
 
-	fn call_export_with_base_ptr(
-		&mut self,
-		method: &str,
-		data: &[u8],
-	) -> std::result::Result<(Vec<u8>, Option<*const u8>), Error> {
-		self.call_impl_with_base_ptr(method.into(), data)
-	}
-
 	fn get_global_const(&mut self, name: &str) -> Result<Option<Value>> {
 		match &mut self.strategy {
-			Strategy::RecreateInstance(ref mut instance_creator) => {
-				instance_creator.instantiate()?.get_global_val(name)
-			},
+			Strategy::RecreateInstance(ref mut instance_creator) =>
+				instance_creator.instantiate()?.get_global_val(name),
 		}
 	}
 }
@@ -338,7 +309,7 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 ///
 /// See [here][stack_height] for more details of the instrumentation
 ///
-/// [stack_height]: https://github.com/paritytech/wasm-utils/blob/d9432baf/src/stack_height/mod.rs#L1-L50
+/// [stack_height]: https://github.com/paritytech/wasm-instrument/blob/master/src/stack_limiter/mod.rs
 #[derive(Clone)]
 pub struct DeterministicStackLimit {
 	/// A number of logical "values" that can be pushed on the wasm stack. A trap will be triggered

@@ -32,7 +32,7 @@ use crate::{instance_wrapper::MemoryWrapper, runtime::StoreData, util};
 pub struct HostState {
 	/// The allocator instance to keep track of allocated memory.
 	///
-	/// This is stored as an `Option` as we need to temporarly set this to `None` when we are
+	/// This is stored as an `Option` as we need to temporarily set this to `None` when we are
 	/// allocating/deallocating memory. The problem being that we can only mutable access `caller`
 	/// once.
 	allocator: Option<FreeingBumpHeapAllocator>,

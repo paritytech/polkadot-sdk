@@ -175,12 +175,6 @@ impl InstanceWrapper {
 		Ok(InstanceWrapper { instance, store })
 	}
 
-	/// **Testing Only**.
-	pub(crate) fn base_ptr(&mut self) -> *const u8 {
-		let mem = self.store.data().memory();
-		mem.data_ptr(&self.store)
-	}
-
 	/// Resolves a substrate entrypoint by the given name.
 	///
 	/// An entrypoint must have a signature `(i32, i32) -> i64`, otherwise this function will return
