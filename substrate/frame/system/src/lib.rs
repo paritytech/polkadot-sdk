@@ -294,6 +294,7 @@ pub mod pallet {
 			+ From<Call<Self>>;
 
 		/// This stores the number of previous transactions associated with a sender account.
+		#[pallet::no_default_bounds]
 		type Nonce: Parameter
 			+ Member
 			+ MaybeSerializeDeserialize
@@ -303,7 +304,7 @@ pub mod pallet {
 			+ AtLeast32Bit
 			+ Copy
 			+ MaxEncodedLen
-			+ TryFrom<BlockNumberFor<Self>>;
+			+ From<BlockNumberFor<Self>>;
 
 		/// The output of the `Hashing` function.
 		type Hash: Parameter
@@ -574,7 +575,7 @@ pub mod pallet {
 		T::AccountId,
 		AccountInfo<T::Nonce, T::AccountData>,
 		ValueQuery,
-		//GetDefaultAccountInfo<T>,
+		GetDefaultAccountInfo<T>,
 	>;
 
 	/// Total extrinsics count for the current block.
@@ -770,7 +771,7 @@ pub struct AccountInfo<Nonce, AccountData> {
 	pub data: AccountData,
 }
 
-/*type NonceOf<T> = <T as Config>::Nonce;
+type NonceOf<T> = <T as Config>::Nonce;
 type AccountDataOf<T> = <T as Config>::AccountData;
 type AccountInfoOf<T> = AccountInfo<NonceOf<T>, AccountDataOf<T>>;
 
@@ -778,11 +779,11 @@ pub struct GetDefaultAccountInfo<T>(PhantomData<T>);
 impl<T: pallet::Config> Get<AccountInfoOf<T>> for GetDefaultAccountInfo<T> {
 	fn get() -> AccountInfoOf<T> {
 		AccountInfo {
-			nonce: pallet::Number::<T>::get(),
+			nonce: pallet::Number::<T>::get().into(),
 			.. Default::default()
 		}
 	}
-}*/
+}
 
 /// Stores the `spec_version` and `spec_name` of when the last runtime upgrade
 /// happened.
