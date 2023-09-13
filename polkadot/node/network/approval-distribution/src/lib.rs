@@ -854,6 +854,12 @@ impl State {
 		let mut unique_set = HashSet::new();
 
 		for check in assignments {
+			let entry = match self.blocks.get_mut(&assignment.block_hash) {
+				Some(entry) => entry,
+				// Race with finality lost.
+				None => continue,
+			};
+
 			let block_hash = check.0.block_hash;
 			let validator_index = check.0.validator;
 			let peer_id = check.2;
@@ -865,11 +871,6 @@ impl State {
 			let message_kind = MessageKind::Assignment;
 
 			if !unique_set.contains(&message_subject) {
-				let entry = self
-					.blocks
-					.get_mut(&block_hash)
-					.expect("Checked it is some before calling `check_assignment_batch`");
-
 				// check if our knowledge of the peer already contains this assignment
 				match entry.known_by.entry(peer_id) {
 					hash_map::Entry::Occupied(mut peer_knowledge) => {
@@ -998,10 +999,11 @@ impl State {
 				MessageSubject(block_hash, *claimed_candidate_index, validator_index);
 			let message_kind = MessageKind::Assignment;
 
-			let entry = self
-				.blocks
-				.get_mut(&block_hash)
-				.expect("Checked it is some before calling `check_assignment_batch`");
+			let entry = match self.blocks.get_mut(&assignment.block_hash) {
+				Some(entry) => entry,
+				// Race with finality lost.
+				None => continue,
+			};
 
 			match result {
 				AssignmentCheckResult::Accepted => {
@@ -1117,10 +1119,11 @@ impl State {
 	{
 		metrics.on_assignment_imported();
 
-		let entry = self
-			.blocks
-			.get_mut(&assignment.block_hash)
-			.expect("Checked it is some before calling `check_assignment_batch`");
+		let entry = match self.blocks.get_mut(&assignment.block_hash) {
+			Some(entry) => entry,
+			// Race with finality lost.
+			None => return,
+		};
 
 		let topology = self.topologies.get_topology(entry.session);
 		let local = source == MessageSource::Local;
