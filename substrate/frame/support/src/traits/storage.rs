@@ -60,7 +60,8 @@ pub trait StorageInstance {
 	fn pallet_prefix() -> &'static str;
 
 	/// Return the prefix hash of pallet instance.
-	/// NOTE: This hash must be `twox_128(pallet_prefix())`
+	/// 
+	/// NOTE: This hash must be `twox_128(pallet_prefix())`.
 	/// Should not impl this function by hand. Only use the default or macro generated impls.
 	fn pallet_prefix_hash() -> [u8; 16] {
 		sp_io::hashing::twox_128(Self::pallet_prefix().as_bytes())
