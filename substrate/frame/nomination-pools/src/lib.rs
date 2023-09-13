@@ -1394,7 +1394,6 @@ impl<T: Config> RewardPool<T> {
 			Preservation::Expendable,
 			Fortitude::Polite,
 		)
-		.saturating_sub(T::Currency::minimum_balance())
 	}
 }
 
@@ -2734,6 +2733,11 @@ impl<T: Config> Pallet<T> {
 		ReversePoolIdLookup::<T>::remove(&bonded_account);
 		RewardPools::<T>::remove(bonded_pool.id);
 		SubPoolsStorage::<T>::remove(bonded_pool.id);
+		// remove the frozen ED from the reward account.
+		let _ = T::Currency::thaw(
+			&FreezeReason::PoolMinimumBalance,
+			&bonded_pool.reward_account(),
+		).defensive();
 
 		// Kill accounts from storage by making their balance go below ED. We assume that the
 		// accounts have no references that would prevent destruction once we get to this point. We

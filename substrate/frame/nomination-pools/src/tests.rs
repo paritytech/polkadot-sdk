@@ -302,31 +302,6 @@ mod reward_pool {
 	use crate::mock::RewardImbalance::{Deficit, Surplus};
 
 	#[test]
-	fn current_balance_only_counts_balance_over_existential_deposit() {
-		ExtBuilder::default().build_and_execute(|| {
-			let reward_account = Pools::create_reward_account(2);
-
-			// Given
-			assert_eq!(Balances::free_balance(&reward_account), 0);
-
-			// Then
-			assert_eq!(RewardPool::<Runtime>::current_balance(2), 0);
-
-			// Given
-			Currency::set_balance(&reward_account, Balances::minimum_balance());
-
-			// Then
-			assert_eq!(RewardPool::<Runtime>::current_balance(2), 0);
-
-			// Given
-			Currency::set_balance(&reward_account, Balances::minimum_balance() + 1);
-
-			// Then
-			assert_eq!(RewardPool::<Runtime>::current_balance(2), 1);
-		});
-	}
-
-	#[test]
 	fn ed_change_causes_reward_deficit() {
 		ExtBuilder::default().max_members_per_pool(Some(5)).build_and_execute(|| {
 			// original ED
@@ -3493,7 +3468,7 @@ mod withdraw_unbonded {
 				);
 				assert_eq!(
 					balances_events_since_last_call(),
-					vec![BEvent::BalanceSet { who: default_bonded_account(), free: 300 }]
+					vec![BEvent::Burned { who: default_bonded_account(), amount: 300 }]
 				);
 
 				// When
@@ -3560,6 +3535,7 @@ mod withdraw_unbonded {
 					balances_events_since_last_call(),
 					vec![
 						BEvent::Transfer { from: default_bonded_account(), to: 10, amount: 5 },
+						BEvent::Thawed { who: default_reward_account(), amount: 5 },
 						BEvent::Transfer { from: default_reward_account(), to: 10, amount: 5 }
 					]
 				);
@@ -3607,7 +3583,7 @@ mod withdraw_unbonded {
 				);
 				assert_eq!(
 					balances_events_since_last_call(),
-					vec![BEvent::BalanceSet { who: default_bonded_account(), free: 300 },]
+					vec![BEvent::Burned { who: default_bonded_account(), amount: 300 },]
 				);
 
 				CurrentEra::set(StakingMock::bonding_duration());
@@ -3689,6 +3665,7 @@ mod withdraw_unbonded {
 					balances_events_since_last_call(),
 					vec![
 						BEvent::Transfer { from: default_bonded_account(), to: 10, amount: 5 },
+						BEvent::Thawed { who: default_reward_account(), amount: 5 },
 						BEvent::Transfer { from: default_reward_account(), to: 10, amount: 5 }
 					]
 				);
