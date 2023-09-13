@@ -20,6 +20,7 @@ pallet-aura = { path = "../../../frame/aura", default-features = false}
 pallet-balances = { path = "../../../frame/balances", default-features = false}
 frame-support = { path = "../../../frame/support", default-features = false}
 pallet-grandpa = { path = "../../../frame/grandpa", default-features = false}
+pallet-sassafras = { path = "../../../frame/sassafras", default-features = false}
 pallet-sudo = { path = "../../../frame/sudo", default-features = false}
 frame-system = { path = "../../../frame/system", default-features = false}
 frame-try-runtime = { path = "../../../frame/try-runtime", default-features = false, optional = true }
@@ -68,6 +69,7 @@ std = [
 	"pallet-aura/std",
 	"pallet-balances/std",
 	"pallet-grandpa/std",
+	"pallet-sassafras/std",
 	"pallet-sudo/std",
 	"pallet-template/std",
 	"pallet-timestamp/std",
@@ -96,6 +98,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
+	"pallet-sassafras/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-template/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",

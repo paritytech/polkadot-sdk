@@ -34,6 +34,7 @@ sp-consensus-aura = { path = "../../../primitives/consensus/aura" }
 sc-consensus = { path = "../../../client/consensus/common" }
 sc-consensus-grandpa = { path = "../../../client/consensus/grandpa" }
 sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }
+sp-consensus-sassafras = { path = "../../../primitives/consensus/sassafras" }
 sc-client-api = { path = "../../../client/api" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-io = { path = "../../../primitives/io" }
