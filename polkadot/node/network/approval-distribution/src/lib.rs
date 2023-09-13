@@ -218,6 +218,8 @@ struct State {
 	currently_checking_assignments: HashSet<MessageSubject>,
 
 	/// Batch checks buffer.
+	/// TODO: `(IndirectAssignmentCert, CandidateIndex, PeerId)` makes code harder to read, a
+	/// struct would be better.
 	batched_assignment_checks: Vec<(IndirectAssignmentCert, CandidateIndex, PeerId)>,
 
 	/// Approvals corresponding to assignments in `currently_checking_assignments`.
@@ -853,17 +855,17 @@ impl State {
 		let mut leftover = Vec::new();
 		let mut unique_set = HashSet::new();
 
-		for check in assignments {
-			let entry = match self.blocks.get_mut(&assignment.block_hash) {
+		for assignment in assignments {
+			let entry = match self.blocks.get_mut(&assignment.0.block_hash) {
 				Some(entry) => entry,
 				// Race with finality lost.
 				None => continue,
 			};
 
-			let block_hash = check.0.block_hash;
-			let validator_index = check.0.validator;
-			let peer_id = check.2;
-			let claimed_candidate_index = check.1;
+			let block_hash = assignment.0.block_hash;
+			let validator_index = assignment.0.validator;
+			let peer_id = assignment.2;
+			let claimed_candidate_index = assignment.1;
 
 			// compute metadata on the assignment.
 			let message_subject =
@@ -938,7 +940,7 @@ impl State {
 					?peer_id,
 					"Assignment from peer dispatched for batch import",
 				);
-				unique_assignments.push(check);
+				unique_assignments.push(assignment);
 				unique_set.insert(message_subject);
 			} else {
 				gum::trace!(
@@ -947,7 +949,7 @@ impl State {
 					?peer_id,
 					"Leftover assignment from peer, maybe dispatched on next call",
 				);
-				leftover.push(check);
+				leftover.push(assignment);
 			}
 		}
 
