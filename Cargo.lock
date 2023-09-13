@@ -12446,6 +12446,7 @@ dependencies = [
  "assert_cmd",
  "asset-hub-kusama-runtime",
  "asset-hub-polkadot-runtime",
+ "asset-hub-rococo-runtime",
  "asset-hub-westend-runtime",
  "async-trait",
  "bridge-hub-kusama-runtime",
