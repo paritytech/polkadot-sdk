@@ -221,6 +221,8 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::Perbill;
+	use frame_support::traits::OriginTrait;
+
 
 	/// The current storage version.
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(15);
@@ -249,12 +251,18 @@ pub mod pallet {
 			+ Mutate<Self::AccountId>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
+		/// The runtime origin type.
+		type RuntimeOrigin: From<Origin<Self>>
+			+ OriginTrait<Call = <Self as Config>::RuntimeCall, AccountId = Self::AccountId>;
+
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
-		type RuntimeCall: Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
-			+ GetDispatchInfo
+		type RuntimeCall: Dispatchable<
+				RuntimeOrigin = <Self as pallet::Config>::RuntimeOrigin,
+				PostInfo = PostDispatchInfo,
+			> + GetDispatchInfo
 			+ codec::Decode
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
 
@@ -277,7 +285,7 @@ pub mod pallet {
 		/// Therefore please make sure to be restrictive about which dispatchables are allowed
 		/// in order to not introduce a new DoS vector like memory allocation patterns that can
 		/// be exploited to drive the runtime into a panic.
-		type CallFilter: Contains<<Self as frame_system::Config>::RuntimeCall>;
+		type CallFilter: Contains<<Self as Config>::RuntimeCall>;
 
 		/// Used to answer contracts' queries regarding the current weight price. This is **not**
 		/// used to calculate the actual fee and is only for informational purposes.
@@ -1125,6 +1133,15 @@ pub mod pallet {
 	pub enum Origin<T: Config> {
 		Root,
 		Signed(T::AccountId),
+	}
+}
+
+impl<T: Config> From<Origin<T>> for RawOrigin<T::AccountId> {
+	fn from(o: Origin<T>) -> Self {
+		match o {
+			Origin::Root => RawOrigin::Root,
+			Origin::Signed(t) => RawOrigin::Signed(t),
+		}
 	}
 }
 

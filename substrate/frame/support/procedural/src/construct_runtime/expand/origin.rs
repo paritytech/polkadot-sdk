@@ -287,10 +287,11 @@ pub fn expand_outer_origin(
 		impl From<RuntimeOrigin> for #scrate::__private::sp_std::result::Result<#system_path::Origin<#runtime>, RuntimeOrigin> {
 			/// NOTE: converting to pallet origin loses the origin filter information.
 			fn from(val: RuntimeOrigin) -> Self {
-				if let OriginCaller::system(l) = val.caller {
-					Ok(l)
-				} else {
-					Err(val)
+				match val.caller {
+					OriginCaller::system(l) => Ok(l),
+					// TODO generate this from new parameters passed to pallet::origin somehow.
+					OriginCaller::Contracts(l) => Ok(l.into()),
+					_ => Err(val),
 				}
 			}
 		}
