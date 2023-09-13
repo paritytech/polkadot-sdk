@@ -2356,7 +2356,7 @@ sp_api::impl_runtime_apis! {
 			use frame_benchmarking::baseline::Pallet as Baseline;
 			use xcm::latest::prelude::*;
 			use xcm_config::{
-				LocalCheckAccount, SovereignAccountOf, TreasuryAccount, Statemine, TokenLocation, XcmConfig,
+				LocalCheckAccount, SovereignAccountOf, Statemine, TokenLocation, XcmConfig,
 			};
 
 			impl pallet_session_benchmarking::Config for Runtime {}
