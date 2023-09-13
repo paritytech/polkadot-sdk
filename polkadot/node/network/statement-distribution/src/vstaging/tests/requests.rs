@@ -1438,7 +1438,7 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 				.await
 				.await;
 
-			let expected_statements = vec![signed.into_unchecked()]; // Seconded statement omitted here
+			let expected_statements = vec![signed.into_unchecked()];
 			assert_matches!(response, full_response => {
 				// Response is the same for vstaging.
 				let request_vstaging::AttestedCandidateResponse { candidate_receipt, persisted_validation_data, statements } =
