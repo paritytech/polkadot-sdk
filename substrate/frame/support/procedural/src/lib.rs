@@ -546,6 +546,42 @@ pub fn __create_tt_macro(input: TokenStream) -> TokenStream {
 	tt_macro::create_tt_return_macro(input)
 }
 
+/// Allows accessing on-chain pallet storage that is no longer accessible via the pallet.
+///
+/// This is especially useful when writing storage migraitons, when types of storage items are
+/// modified or outright removed, but the previous definition is required to perform the migration.
+///
+/// ## Example
+///
+/// Imagine a pallet with the following storage definition:
+/// ```ignore
+/// 	#[pallet::storage]
+/// 	pub type Value<T: Config> = StorageValue<_, u32>;
+/// ```
+/// `Value` can be accessed by calling `Value::<T>::get()`.
+///
+/// Now imagine the defintiion of `Value` is updated to a `(u32, u32)`:
+/// ```ignore
+/// 	#[pallet::storage]
+/// 	pub type Value<T: Config> = StorageValue<_, (u32, u32)>;
+/// ```
+/// The on-chain value of `Value` is `u32`, but `Value::<T>::get()` expects it to be `(u32, u32)`.
+///
+/// In this instance the developer must write a storage migration to reading the old value of
+/// `Value` and writing it back to storage in the new format, so that the on-chain storage layout is
+/// consistent with what is defined in the pallet.
+///
+/// We can read the old value of `Value` in the migration by creating a `storage_alias`:
+/// ```ignore
+/// pub(crate) mod old {
+/// 	use super::*;
+///
+/// 	#[storage_alias]
+/// 	pub type Value<T: crate::Config> = StorageValue<crate::Pallet<T>, u32>;
+/// }
+/// ```
+///
+/// The developer can now access the old value of `Value` by calling `old::Value::<T>::get()`.
 #[proc_macro_attribute]
 pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream {
 	storage_alias::storage_alias(attributes.into(), input.into())
