@@ -80,4 +80,3 @@ runtime-metrics = [
 	"polkadot-node-metrics/runtime-metrics",
 	"service/runtime-metrics",
 ]
-network-protocol-staging = [ "service/network-protocol-staging" ]
