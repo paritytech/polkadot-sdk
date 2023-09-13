@@ -2940,11 +2940,11 @@ impl<T: Config> Pallet<T> {
 			Preservation::Expendable,
 		)?;
 
-		let outcome = T::Currency::hold(
+		T::Currency::hold(
 			&HoldReason::PoolMinimumBalance.into(),
 			&bonded_pool.reward_account(),
 			T::Currency::minimum_balance(),
-		);
+		)?;
 
 		PoolMembers::<T>::insert(
 			who.clone(),
