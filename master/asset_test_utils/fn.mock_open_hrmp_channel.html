@@ -4,8 +4,8 @@
     included_head: &lt;&lt;C as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.Block" title="type frame_system::pallet::Config::Block">Block</a> as HeaderProvider&gt;::HeaderT,
     slot_digest: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u8.html">u8</a>]
 )<span class="where fmt-newline">where
-    C: Config,
-    T: <a class="trait" href="../frame_support/inherent/trait.ProvideInherent.html" title="trait frame_support::inherent::ProvideInherent">ProvideInherent</a>&lt;Call = Call&lt;C&gt;&gt;,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Helper function which emulates opening HRMP channel which is needed for <code>XcmpQueue</code> to pass.</p>
+    C: <a class="trait" href="../cumulus_pallet_parachain_system/pallet/trait.Config.html" title="trait cumulus_pallet_parachain_system::pallet::Config">Config</a>,
+    T: <a class="trait" href="../frame_support/inherent/trait.ProvideInherent.html" title="trait frame_support::inherent::ProvideInherent">ProvideInherent</a>&lt;Call = <a class="enum" href="../cumulus_pallet_parachain_system/pallet/enum.Call.html" title="enum cumulus_pallet_parachain_system::pallet::Call">Call</a>&lt;C&gt;&gt;,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Helper function which emulates opening HRMP channel which is needed for <code>XcmpQueue</code> to pass.</p>
 <p>Calls parachain-system’s <code>create_inherent</code> in case the channel hasn’t been opened before, and
 thus requires additional parameters for validating it: latest included parachain head and
 parachain AuRa-slot.</p>
