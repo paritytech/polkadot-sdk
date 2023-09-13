@@ -1963,20 +1963,33 @@ async fn check_and_import_assignments<Context>(
 		}
 	}
 
+	gum::trace!(
+		target: LOG_TARGET,
+		num_tasks =? check_results.len()
+		"Start waiting for vrf check tasks",
+	);
+
 	// Receive assignment signature check results from all running tasks.
-	for check_result in check_results {
+	for (index, check_result) in check_results.into_iter().enumerate() {
 		let result = match check_result.await {
 			Ok(result) => result,
 			Err(e) => {
 				gum::warn!(
 					target: LOG_TARGET,
 					error = ?e,
+					task_index = index,
 					"`check-assignment` canceled channel",
 				);
 				AssignmentCheckResult::Channel
 			},
 		};
 
+		gum::trace!(
+			target: LOG_TARGET,
+			num_tasks =? check_results.len()
+			task_index = index,
+			"Got result from task",
+		);
 		results.push(result);
 	}
 
