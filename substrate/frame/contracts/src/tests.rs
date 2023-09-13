@@ -74,7 +74,7 @@ frame_support::construct_runtime!(
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Randomness: pallet_insecure_randomness_collective_flip::{Pallet, Storage},
 		Utility: pallet_utility::{Pallet, Call, Storage, Event},
-		Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>, HoldReason},
+		Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>, HoldReason, Origin<T>},
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>},
 		Dummy: pallet_dummy
 	}
@@ -401,7 +401,9 @@ impl pallet_proxy::Config for Test {
 	type AnnouncementDepositFactor = ConstU64<1>;
 }
 
-impl pallet_dummy::Config for Test {}
+impl pallet_dummy::Config for Test {
+	type ContractOrigin = pallet_dummy::EnsureContract<Test>;
+}
 
 parameter_types! {
 	pub MySchedule: Schedule<Test> = {
@@ -5942,4 +5944,29 @@ fn balance_api_returns_free_balance() {
 			<Error<Test>>::ContractTrapped
 		);
 	});
+}
+
+#[test]
+fn dispatch_contract_only() {
+	use crate::Origin;
+	use frame_support::error::BadOrigin;
+	use sp_runtime::traits::Dispatchable;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let call = RuntimeCall::Dummy(pallet_dummy::Call::contract_only {});
+
+		// dispatch from signed contract origin
+		let origin = Origin::from_account_id(ALICE).into();
+		assert_ok!(call.clone().dispatch(origin));
+
+		// dispatch from root contract origin
+		let origin = Origin::Root.into();
+		assert_err!(call.clone().dispatch(origin), BadOrigin);
+
+		// dispatch from signed system origin
+		let origin: <Test as frame_system::Config>::RuntimeOrigin =
+			frame_system::RawOrigin::Signed(ALICE.into()).into();
+
+		assert_err!(call.dispatch(origin), BadOrigin);
+	})
 }

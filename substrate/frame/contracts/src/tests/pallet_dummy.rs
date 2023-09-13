@@ -15,14 +15,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::Origin;
+use core::marker::PhantomData;
+use frame_support::pallet_prelude::EnsureOrigin;
 pub use pallet::*;
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use frame_support::{
-		dispatch::{Pays, PostDispatchInfo},
+		dispatch::{DispatchResult, Pays, PostDispatchInfo},
 		ensure,
-		pallet_prelude::DispatchResultWithPostInfo,
+		pallet_prelude::{DispatchResultWithPostInfo, EnsureOrigin},
 		weights::Weight,
 	};
 	use frame_system::pallet_prelude::*;
@@ -31,7 +34,9 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {}
+	pub trait Config: frame_system::Config {
+		type ContractOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -49,5 +54,25 @@ pub mod pallet {
 			ensure!(pre_charge.any_gt(actual_weight), "pre_charge must be > actual_weight");
 			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee: Pays::Yes })
 		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(Weight::zero())]
+		pub fn contract_only(origin: OriginFor<T>) -> DispatchResult {
+			T::ContractOrigin::ensure_origin(origin)?;
+			Ok(())
+		}
+	}
+}
+
+pub struct EnsureContract<T>(PhantomData<T>);
+impl<O: Into<Result<Origin<T>, O>> + From<Origin<T>>, T: crate::Config> EnsureOrigin<O>
+	for EnsureContract<T>
+{
+	type Success = T::AccountId;
+	fn try_origin(o: O) -> Result<Self::Success, O> {
+		o.into().and_then(|o| match o {
+			Origin::Signed(id) => Ok(id),
+			r => Err(O::from(r)),
+		})
 	}
 }

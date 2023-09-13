@@ -1116,13 +1116,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type MigrationInProgress<T: Config> =
 		StorageValue<_, migration::Cursor, OptionQuery>;
-}
 
-/// The type of origins supported by the contracts pallet.
-#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebugNoBound)]
-pub enum Origin<T: Config> {
-	Root,
-	Signed(T::AccountId),
+	/// The type of origins supported by the contracts pallet.
+	#[pallet::origin]
+	#[derive(
+		Clone, Encode, Decode, PartialEq, Eq, TypeInfo, RuntimeDebugNoBound, MaxEncodedLen,
+	)]
+	pub enum Origin<T: Config> {
+		Root,
+		Signed(T::AccountId),
+	}
 }
 
 impl<T: Config> Origin<T> {
