@@ -165,6 +165,7 @@ fn get_block_announce_proto_config<B: BlockT>(
 			best_number,
 			best_hash,
 			genesis_hash,
+			true,
 		))),
 		// NOTE: `set_config` will be ignored by `protocol.rs` as the block announcement
 		// protocol is still hardcoded into the peerset.

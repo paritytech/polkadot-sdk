@@ -36,6 +36,8 @@ pub struct PeerInfo<Block: BlockT> {
 	pub best_hash: Block::Hash,
 	/// Their best block number.
 	pub best_number: NumberFor<Block>,
+	/// Whether peer is synced.
+	pub is_synced: bool,
 }
 
 /// Info about a peer's known state (both full and light).
@@ -47,11 +49,15 @@ pub struct ExtendedPeerInfo<B: BlockT> {
 	pub best_hash: B::Hash,
 	/// Peer best block number
 	pub best_number: NumberFor<B>,
+	/// Whether peer is synced.
+	pub is_synced: bool,
 }
 
 /// Reported sync state.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum SyncState<BlockNumber> {
+	/// Sync state can't be identified due to no known synced peers.
+	Pending,
 	/// Initial sync is complete, keep-up sync is active.
 	Idle,
 	/// Actively catching up with the chain.
