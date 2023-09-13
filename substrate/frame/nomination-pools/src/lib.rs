@@ -357,7 +357,7 @@ use frame_support::{
 	pallet_prelude::{MaxEncodedLen, *},
 	storage::bounded_btree_map::BoundedBTreeMap,
 	traits::{
-		fungible::{Inspect as FunInspect, Mutate as FunMutate, MutateHold as FunMutateHold},
+		fungible::{Inspect as FunInspect, Mutate as FunMutate, MutateFreeze as FunMutateFreeze},
 		tokens::{Fortitude, Preservation},
 		Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
 	},
@@ -381,7 +381,6 @@ use sp_runtime::TryRuntimeError;
 
 /// The log target of this pallet.
 pub const LOG_TARGET: &str = "runtime::nomination-pools";
-
 // syntactic sugar for logging.
 #[macro_export]
 macro_rules! log {
@@ -1534,12 +1533,7 @@ pub mod pallet {
 		type WeightInfo: weights::WeightInfo;
 
 		/// The currency type used for nomination pool.
-		type Currency: FunMutate<Self::AccountId>
-			+ FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
-
-
-		/// The reason to Hold the currency.
-		type RuntimeHoldReason: From<HoldReason>;
+		type Currency: FunMutate<Self::AccountId> + FunMutateFreeze<Self::AccountId, Id = FreezeReason>;
 
 		/// The type that is used for reward counter.
 		///
@@ -1889,10 +1883,22 @@ pub mod pallet {
 		}
 	}
 
-	/// A reason for holding funds.
-	#[pallet::composite_enum]
-	pub enum HoldReason {
-		/// The Pallet has held funds for maintaining the Existential Deposit of a NominationPool.
+	/// A reason for freezing funds.
+    #[derive(
+    Encode,
+    Decode,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    MaxEncodedLen,
+    TypeInfo,
+    RuntimeDebug,
+    )]
+	pub enum FreezeReason {
+		/// The Pallet has frozen funds for maintaining the Existential Deposit of a NominationPool.
 		#[codec(index = 0)]
 		PoolMinimumBalance,
 	}
@@ -2888,7 +2894,7 @@ impl<T: Config> Pallet<T> {
 			&bonded_pool.reward_account(),
 			member_account,
 			pending_rewards,
-			// defensive: the depositor has put existential deposit into the pool and it stays::Preservation
+			// defensive: the depositor has put existential deposit into the pool and it stays
 			// untouched, reward account shall not die.
 			Preservation::Preserve,
 		)?;
@@ -2940,8 +2946,8 @@ impl<T: Config> Pallet<T> {
 			Preservation::Expendable,
 		)?;
 
-		T::Currency::hold(
-			&HoldReason::PoolMinimumBalance.into(),
+		T::Currency::set_freeze(
+			&FreezeReason::PoolMinimumBalance,
 			&bonded_pool.reward_account(),
 			T::Currency::minimum_balance(),
 		)?;
