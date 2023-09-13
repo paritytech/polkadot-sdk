@@ -127,7 +127,7 @@ pub mod v2 {
 		use crate::mock::*;
 		ExtBuilder::default().build_and_execute(|| {
 			let join = |x| {
-				Balances::make_free_balance_be(&x, Balances::minimum_balance() + 10);
+				Currency::set_balance(&x, Balances::minimum_balance() + 10);
 				frame_support::assert_ok!(Pools::join(RuntimeOrigin::signed(x), 10, 1));
 			};
 

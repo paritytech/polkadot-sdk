@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::{self as pools};
-use frame_support::{assert_ok, parameter_types, PalletId};
+use frame_support::{assert_ok, parameter_types, PalletId, traits::fungible::Mutate};
 use frame_system::RawOrigin;
 use sp_runtime::{BuildStorage, FixedU128};
 use sp_staking::Stake;
@@ -29,6 +29,7 @@ pub type RewardCounter = FixedU128;
 // This sneaky little hack allows us to write code exactly as we would do in the pallet in the tests
 // as well, e.g. `StorageItem::<T>::get()`.
 pub type T = Runtime;
+pub type Currency = <T as Config>::Currency;
 
 // Ext builder creates a pool with id 1.
 pub fn default_bonded_account() -> AccountId {
@@ -60,7 +61,6 @@ pub enum TestId {
 }
 
 parameter_types! {
-	pub static MinJoinBondConfig: Balance = 2;
 	pub static CurrentEra: EraIndex = 0;
 	pub static BondingDuration: EraIndex = 3;
 	pub storage BondedBalanceMap: BTreeMap<AccountId, Balance> = Default::default();
@@ -240,9 +240,9 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type FreezeIdentifier = RuntimeFreezeReason;
+	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxHolds = ();
 }
 
@@ -270,7 +270,7 @@ impl pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Currency = Balances;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type RewardCounter = RewardCounter;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
@@ -288,7 +288,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Storage, Event<T>, Config<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Pools: pools::{Pallet, Call, Storage, Event<T>},
+		Pools: pools::{Pallet, Call, Storage, Event<T>, HoldReason},
 	}
 );
 
@@ -297,6 +297,8 @@ pub struct ExtBuilder {
 	max_members: Option<u32>,
 	max_members_per_pool: Option<u32>,
 	global_max_commission: Option<Perbill>,
+	min_join_bond: Option<Balance>,
+	min_create_bond: Option<Balance>,
 }
 
 impl Default for ExtBuilder {
@@ -306,6 +308,8 @@ impl Default for ExtBuilder {
 			max_members: Some(4),
 			max_members_per_pool: Some(3),
 			global_max_commission: Some(Perbill::from_percent(90)),
+			min_join_bond: Some(2),
+			min_create_bond: Some(2),
 		}
 	}
 }
@@ -328,8 +332,13 @@ impl ExtBuilder {
 		self
 	}
 
-	pub fn min_join_bond(self, min: Balance) -> Self {
-		MinJoinBondConfig::set(min);
+	pub fn min_join_bond(mut self, min: Balance) -> Self {
+		self.min_join_bond = Some(min);
+		self
+	}
+
+	pub fn min_create_bond(mut self, min: Balance) -> Self {
+		self.min_create_bond = Some(min);
 		self
 	}
 
@@ -359,8 +368,7 @@ impl ExtBuilder {
 			frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
 		let _ = crate::GenesisConfig::<Runtime> {
-			min_join_bond: MinJoinBondConfig::get(),
-			min_create_bond: 2,
+			_config: Default::default(),
 			max_pools: Some(2),
 			max_members_per_pool: self.max_members_per_pool,
 			max_members: self.max_members,
@@ -374,14 +382,18 @@ impl ExtBuilder {
 			// for events to be deposited.
 			frame_system::Pallet::<Runtime>::set_block_number(1);
 
+			// Default min join and create bond to 2.
+			MinJoinBond::<Runtime>::put(self.min_join_bond.unwrap_or(2));
+			MinCreateBond::<Runtime>::put(self.min_create_bond.unwrap_or(2));
+
 			// make a pool
 			let amount_to_bond = Pools::depositor_min_bond();
-			Balances::make_free_balance_be(&10, amount_to_bond * 5);
+			<Runtime as Config>::Currency::set_balance(&10, amount_to_bond * 5);
 			assert_ok!(Pools::create(RawOrigin::Signed(10).into(), amount_to_bond, 900, 901, 902));
 			assert_ok!(Pools::set_metadata(RuntimeOrigin::signed(900), 1, vec![1, 1]));
 			let last_pool = LastPoolId::<Runtime>::get();
 			for (account_id, bonded) in self.members {
-				Balances::make_free_balance_be(&account_id, bonded * 2);
+				<Runtime as Config>::Currency::set_balance(&account_id, bonded * 2);
 				assert_ok!(Pools::join(RawOrigin::Signed(account_id).into(), bonded, last_pool));
 			}
 		});
