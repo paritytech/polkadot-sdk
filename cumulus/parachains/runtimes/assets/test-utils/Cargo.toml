@@ -42,7 +42,7 @@ pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false}
 
 # Bridges
-pallet-xcm-bridge-hub-router = { path = "../../../../bridges/modules/xcm-bridge-hub-router", default-features = false }
+pallet-xcm-bridge-hub-router = { path = "../../../../../bridges/modules/xcm-bridge-hub-router", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.4.1"

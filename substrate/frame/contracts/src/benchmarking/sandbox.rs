@@ -58,7 +58,13 @@ impl<T: Config> From<&WasmModule<T>> for Sandbox {
 			.add_fuel(u64::MAX)
 			.expect("We've set up engine to fuel consuming mode; qed");
 
-		let entry_point = instance.get_export(&store, "call").unwrap().into_func().unwrap();
+		let entry_point = instance
+			.start(&mut store)
+			.unwrap()
+			.get_export(&store, "call")
+			.unwrap()
+			.into_func()
+			.unwrap();
 		Self { entry_point, store }
 	}
 }
