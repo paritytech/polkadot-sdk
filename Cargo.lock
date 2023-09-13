@@ -9623,6 +9623,7 @@ dependencies = [
  "frame-system",
  "frame-try-runtime",
  "log",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
  "sp-core",

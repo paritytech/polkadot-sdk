@@ -22,6 +22,7 @@ frame-support = { path = "../../support", default-features = false}
 frame-executive = { path = "../../executive", default-features = false}
 frame-system = { path = "../../system", default-features = false}
 frame-try-runtime = { path = "../../try-runtime", default-features = false, optional = true}
+pallet-balances = { path = "../../balances", default-features = false}
 sp-std = { path = "../../../primitives/std", default-features = false}
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-core = { path = "../../../primitives/core" }
@@ -35,6 +36,7 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime/std",
 	"frame-executive/std",
+	"pallet-balances/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -44,6 +46,7 @@ std = [
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
@@ -51,5 +54,6 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"frame-executive/try-runtime",
+	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]

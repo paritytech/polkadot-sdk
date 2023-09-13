@@ -123,13 +123,12 @@
 //! ## Scheduling the Migration to run next runtime upgrade
 //!
 //! We're almost done! The last step is to schedule the migration to run next runtime upgrade
-//! passing it as a generic parameter to your [`Executive`](frame_executive) pallet.
+//! passing it as a generic parameter to your [`Executive`](frame_executive) pallet:
 //!
-//! e.g.
 //! ```ignore
 //! type Migrations = (
 //! 	pallet_example_storage_migration::migrations::v1::VersionedV0ToV1
-//! 	// ...schedule additional migrations by adding them here
+//! 	// ...more migrations here
 //! );
 //! pub type Executive = frame_executive::Executive<
 //! 	Runtime,
@@ -153,6 +152,7 @@ pub use pallet::*;
 
 // We export the migrations so they may be used in the runtime.
 pub mod migrations;
+mod mock;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::StorageVersion;
 use sp_runtime::RuntimeDebug;

@@ -31,79 +31,171 @@ pub(crate) mod old {
 	pub type Value<T: crate::Config> = StorageValue<crate::Pallet<T>, u32>;
 }
 
-/// Implements [`OnRuntimeUpgrade`], migrating the state of this pallet from V0 to V1.
-///
-/// In V0 of the template [`crate::Value`] is just a `u32`.
-/// In V1, it has been upgraded to contain the struct [`crate::CurrentAndPreviousValue`].
-///
-/// In this migration, update the on-chain storage for the pallet to reflect the new storage layout.
+/// Put all unversioned logic in a private module so it cannot be accidentally used in the runtime.
+mod unversioned {
+	use super::*;
 
-pub struct VersionUncheckedV0ToV1<T: crate::Config>(sp_std::marker::PhantomData<T>);
-
-impl<T: crate::Config> OnRuntimeUpgrade for VersionUncheckedV0ToV1<T> {
-	/// Return the existing [`crate::Value`] so we can check that it was correctly set in
-	/// [`VersionUncheckedV0ToV1::post_upgrade`].
-	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		use codec::Encode;
-
-		// Access the old value using the `storage_alias` type
-		let old_value = old::Value::<T>::get();
-		// Return it as an encoded `Vec<u8>`
-		Ok(old_value.encode())
-	}
-
-	/// Migrate the storage from V0 to V1.
+	/// Implements [`OnRuntimeUpgrade`], migrating the state of this pallet from V0 to V1.
 	///
-	/// If the value doesn't exist, there is nothing to do.
+	/// In V0 of the template [`crate::Value`] is just a `u32`.
+	/// In V1, it has been upgraded to contain the struct [`crate::CurrentAndPreviousValue`].
 	///
-	/// If the value exists, it is read and then written back to storage inside a
-	/// [`crate::SomethingEntry`] with the `maybe_account_id` field set to `None`.
-	fn on_runtime_upgrade() -> frame_support::weights::Weight {
-		// Read the old value from storage
-		if let Some(old_value) = old::Value::<T>::get() {
-			// Write the new value to storage
-			let new = crate::CurrentAndPreviousValue { previous: None, current: old_value };
-			crate::Value::<T>::put(new);
-			// One read for the old value, one write for the new value
-			T::DbWeight::get().reads_writes(1, 1)
-		} else {
-			// One read for trying to access the old value
-			T::DbWeight::get().reads(1)
+	/// In this migration, update the on-chain storage for the pallet to reflect the new storage
+	/// layout.
+
+	pub struct MigrateV0ToV1<T: crate::Config>(sp_std::marker::PhantomData<T>);
+
+	impl<T: crate::Config> OnRuntimeUpgrade for MigrateV0ToV1<T> {
+		/// Return the existing [`crate::Value`] so we can check that it was correctly set in
+		/// [`VersionUncheckedV0ToV1::post_upgrade`].
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			use codec::Encode;
+
+			// Access the old value using the `storage_alias` type
+			let old_value = old::Value::<T>::get();
+			// Return it as an encoded `Vec<u8>`
+			Ok(old_value.encode())
+		}
+
+		/// Migrate the storage from V0 to V1.
+		///
+		/// If the value doesn't exist, there is nothing to do.
+		///
+		/// If the value exists, it is read and then written back to storage inside a
+		/// [`crate::SomethingEntry`] with the `maybe_account_id` field set to `None`.
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			// Read the old value from storage
+			if let Some(old_value) = old::Value::<T>::get() {
+				// Write the new value to storage
+				let new = crate::CurrentAndPreviousValue { previous: None, current: old_value };
+				crate::Value::<T>::put(new);
+				// One read for the old value, one write for the new value
+				T::DbWeight::get().reads_writes(1, 1)
+			} else {
+				// One read for trying to access the old value
+				T::DbWeight::get().reads(1)
+			}
+		}
+
+		/// Verifies the storage was migrated correctly.
+		///
+		/// If there was no old value, the new value should not be set.
+		///
+		/// If there was an old value, the new value should be a
+		/// [`crate::SomethingEntry`] with the `maybe_account_id` field set to `None`
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			use codec::Decode;
+			use frame_support::ensure;
+
+			let maybe_old_value = Option::<u32>::decode(&mut &state[..]).map_err(|_| {
+				sp_runtime::TryRuntimeError::Other("Failed to decode old value from storage")
+			})?;
+
+			match maybe_old_value {
+				Some(old_value) => {
+					let expected_new_value =
+						crate::CurrentAndPreviousValue { current: old_value, previous: None };
+					let actual_new_value = crate::Value::<T>::get();
+
+					ensure!(actual_new_value.is_some(), "New value not set");
+					ensure!(
+						actual_new_value == Some(expected_new_value),
+						"New value not set correctly"
+					);
+				},
+				None => {
+					ensure!(crate::Value::<T>::get().is_none(), "New value unexpectedly set");
+				},
+			};
+			Ok(())
 		}
 	}
 
-	/// Verifies the storage was migrated correctly.
+	/// Tests for our migration.
 	///
-	/// If there was no old value, the new value should not be set.
-	///
-	/// If there was an old value, the new value should be a
-	/// [`crate::SomethingEntry`] with the `maybe_account_id` field set to `None`
-	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		use codec::Decode;
-		use frame_support::ensure;
+	/// When writing migration tests, it is important to check:
+	/// 1. `on_runtime_upgrade` returns the expected weight
+	/// 2. `post_upgrade` succeeds when given the bytes returned by `pre_upgrade`
+	/// 3. The storage is in the expected state after the migration
+	#[cfg(all(feature = "try-runtime", test))]
+	mod test {
+		use super::*;
+		use crate::mock::{new_test_ext, Test};
+		use frame_support::assert_ok;
 
-		let maybe_old_value = Option::<u32>::decode(&mut &state[..]).map_err(|_| {
-			sp_runtime::TryRuntimeError::Other("Failed to decode old value from storage")
-		})?;
+		#[test]
+		fn handles_no_existing_value() {
+			new_test_ext().execute_with(|| {
+				// By default, no value should be set. Verify this assumption.
+				assert!(crate::Value::<Test>::get().is_none());
+				assert!(old::Value::<Test>::get().is_none());
 
-		match maybe_old_value {
-			Some(old_value) => {
-				let expected_new_value =
-					crate::CurrentAndPreviousValue { current: old_value, previous: None };
-				let actual_new_value = crate::Value::<T>::get();
+				// Get the pre_upgrade bytes
+				let bytes = match MigrateV0ToV1::<Test>::pre_upgrade() {
+					Ok(bytes) => bytes,
+					Err(e) => panic!("pre_upgrade failed: {:?}", e),
+				};
 
-				ensure!(actual_new_value.is_some(), "New value not set");
-				ensure!(
-					actual_new_value == Some(expected_new_value),
-					"New value not set correctly"
+				// Execute the migration
+				let weight = MigrateV0ToV1::<Test>::on_runtime_upgrade();
+
+				// Verify post_upgrade succeeds
+				assert_ok!(MigrateV0ToV1::<Test>::post_upgrade(bytes));
+
+				// The weight should be just 1 read for trying to access the old value.
+				assert_eq!(weight, <Test as frame_system::Config>::DbWeight::get().reads(1));
+
+				// After the migration, no value should have been set.
+				assert!(crate::Value::<Test>::get().is_none());
+			})
+		}
+
+		#[test]
+		fn handles_existing_value() {
+			new_test_ext().execute_with(|| {
+				// Set up an initial value
+				let initial_value = 42;
+				old::Value::<Test>::put(initial_value);
+
+				// Get the pre_upgrade bytes
+				let bytes = match MigrateV0ToV1::<Test>::pre_upgrade() {
+					Ok(bytes) => bytes,
+					Err(e) => panic!("pre_upgrade failed: {:?}", e),
+				};
+
+				// Execute the migration
+				let weight = MigrateV0ToV1::<Test>::on_runtime_upgrade();
+
+				// Verify post_upgrade succeeds
+				assert_ok!(MigrateV0ToV1::<Test>::post_upgrade(bytes));
+
+				// The weight used should be 1 read for the old value, and 1 write for the new
+				// value.
+				assert_eq!(
+					weight,
+					<Test as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
 				);
-			},
-			None => {
-				ensure!(crate::Value::<T>::get().is_none(), "New value unexpectedly set");
-			},
-		};
-		Ok(())
+
+				// After the migration, the new value should be set as the `current` value.
+				let expected_new_value =
+					crate::CurrentAndPreviousValue { current: initial_value, previous: None };
+				assert_eq!(crate::Value::<Test>::get(), Some(expected_new_value));
+			})
+		}
 	}
+}
+
+/// Versioned migration logic in a public module, for use in runtimes.
+pub mod versioned {
+	use super::*;
+
+	pub type MigrateV0ToV1<T> = frame_support::migrations::VersionedMigration<
+		0,
+		1,
+		unversioned::MigrateV0ToV1<T>,
+		crate::pallet::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
 }
