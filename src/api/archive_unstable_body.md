@@ -2,7 +2,7 @@
 
 **Parameters**:
 
-- `hash`: String containing an hexadecimal-encoded hash of the header of the block whose body to fetch.
+- `hash`: String containing a hexadecimal-encoded hash of the header of the block whose body will be retrieved.
 
 **Return value**: If a block with that hash is found, an array of strings containing the hexadecimal-encoded SCALE-codec-encoded transactions in that block. If no block with that hash is found, `null`.
 
