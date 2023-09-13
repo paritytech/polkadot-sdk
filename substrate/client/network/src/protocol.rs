@@ -95,9 +95,11 @@ pub struct Protocol<B: BlockT> {
 	sync_substream_validations: FuturesUnordered<PendingSyncSubstreamValidation>,
 	tx: TracingUnboundedSender<crate::event::SyncEvent<B>>,
 	_marker: std::marker::PhantomData<B>,
+	// TESTING ONLY
 	dummy_protocol_set_id: SetId,
 	dummy_connection_counter: usize,
 	server: Option<bool>,
+	// END OF TESTING ONLY
 }
 
 impl<B: BlockT> Protocol<B> {
