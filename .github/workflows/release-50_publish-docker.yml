@@ -1,10 +1,7 @@
 name: Release - Publish Docker Image
 
-# This workflow listens to pubished releases or can be triggered manually.
-# It includes releases and rc candidates.
-# It fetches the binaries, checks sha256 and GPG
-# signatures, then builds an injected docker
-# image and publishes it.
+# This workflow listens to published releases or can be triggered manually.
+# It builds and published releases and rc candidates.
 
 on:
   #TODO: activate automated run later
@@ -22,6 +19,7 @@ on:
             jq '.[] | { name: .name, id: .id }'
         required: true
         type: string
+
       image_type:
         description: Type of the image to be published
         required: true
@@ -30,16 +28,19 @@ on:
         options:
           - rc
           - release
+
       registry:
         description: Container registry
         required: true
         type: string
         default: docker.io
+
       owner:
         description: Owner of the container image repo
         required: true
         type: string
         default: parity
+
       binary:
         description: Binary to be published
         required: true
@@ -48,13 +49,10 @@ on:
         options:
           - polkadot
           - polkadot-parachain
+
       version:
         description: version to build/release
         default: v0.9.18
-        required: true
-      date:
-        description: release date of version
-        default: "2022-02-23T19:11:58Z"
         required: true
 
 permissions:
@@ -73,7 +71,7 @@ env:
   IMAGE_TYPE: ${{ inputs.image_type }}
 
 jobs:
-  fetch-artifacts: # this job will be triggerd for the polkadot-parachain rc and release or polkadot rc image build
+  fetch-artifacts: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
 
@@ -110,7 +108,7 @@ jobs:
           path: |
             ./release-artifacts/${{ env.BINARY }}/**/*
 
-  build-container: # this job will be triggerd for the polkadot-parachain rc and release or polkadot rc image build
+  build-container: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
     needs: fetch-artifacts
@@ -232,11 +230,23 @@ jobs:
          restore-keys: |
            ${{ runner.os }}-buildx-
 
-      - name: Login to Dockerhub
+      - name: Login to Docker Hub
         uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Fetch values
+        id: fetch-data
+        run: |
+          date=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+          version=$(apt show polkadot 2>/dev/null | grep "Version:" | awk '{print $2}')
+          echo "You passed ${{ inputs.version }}"
+          echo "We use the version from the Debian Package: $version"
+
+          echo "date=$date" >> $GITHUB_OUTPUT
+          echo "polkadot_apt_version=$version" >> $GITHUB_OUTPUT
+
 
       - name: Build and push
         id:   docker_build
@@ -246,11 +256,11 @@ jobs:
           file: docker/dockerfiles/polkadot/polkadot_injected_debian.Dockerfile
           tags: |
             parity/polkadot:latest
-            parity/polkadot:${{ inputs.version }}
+            parity/polkadot:v${{ steps.fetch-data.outputs.polkadot_apt_version }}
           build-args: |
-            POLKADOT_VERSION=${{ inputs.version }}
             VCS_REF=${{ github.ref }}
-            BUILD_DATE=${{ inputs.date }}
+            POLKADOT_VERSION=${{ steps.fetch-data.outputs.polkadot_apt_version }}
+            BUILD_DATE=${{ steps.fetch-data.outputs.date }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
       - name: Image digest
