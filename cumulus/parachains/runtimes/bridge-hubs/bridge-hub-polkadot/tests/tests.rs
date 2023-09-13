@@ -15,12 +15,12 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 pub use bridge_hub_polkadot_runtime::{
-	constants::fee::WeightToFee, xcm_config::XcmConfig, AllPalletsWithoutSystem, Balances,
-	ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeEvent, SessionKeys,
+	xcm_config::XcmConfig, AllPalletsWithoutSystem, Balances, ExistentialDeposit, ParachainSystem,
+	PolkadotXcm, Runtime, RuntimeEvent, SessionKeys,
 };
 use codec::Decode;
 use frame_support::parameter_types;
-use parachains_common::{AccountId, AuraId};
+use parachains_common::{polkadot::fee::WeightToFee, AccountId, AuraId};
 
 const ALICE: [u8; 32] = [1u8; 32];
 

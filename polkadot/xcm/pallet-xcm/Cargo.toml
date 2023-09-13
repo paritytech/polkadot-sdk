@@ -27,13 +27,11 @@ xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", def
 [dev-dependencies]
 pallet-balances = { path = "../../../substrate/frame/balances" }
 polkadot-runtime-parachains = { path = "../../runtime/parachains" }
-polkadot-parachain = { path = "../../parachain" }
+polkadot-parachain-primitives = { path = "../../parachain" }
 xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder" }
 
 [features]
 default = [ "std" ]
-# Enable `VersionedMigration` for the migrations using the experimental feature.
-experimental = [ "frame-support/experimental" ]
 std = [
 	"bounded-collections/std",
 	"codec/std",
@@ -54,7 +52,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
