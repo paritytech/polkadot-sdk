@@ -511,6 +511,11 @@ impl UnhandledResponse {
 		&self.response.identifier
 	}
 
+	/// Get the peer we made the request to.
+	pub fn requested_peer(&self) -> &PeerId {
+		&self.response.requested_peer
+	}
+
 	/// Validate the response. If the response is valid, this will yield the
 	/// candidate, the [`PersistedValidationData`] of the candidate, and requested
 	/// checked statements.
@@ -595,12 +600,19 @@ impl UnhandledResponse {
 					request_status: CandidateRequestStatus::Incomplete,
 				}
 			},
-			Err(RequestError::NetworkError(_) | RequestError::Canceled(_)) =>
+			Err(e @ RequestError::NetworkError(_) | e @ RequestError::Canceled(_)) => {
+				gum::trace!(
+					target: LOG_TARGET,
+					err = ?e,
+					peer = ?requested_peer,
+					"Request error"
+				);
 				return ResponseValidationOutput {
 					requested_peer,
 					reputation_changes: vec![],
 					request_status: CandidateRequestStatus::Incomplete,
-				},
+				}
+			},
 			Ok(response) => response,
 		};
 

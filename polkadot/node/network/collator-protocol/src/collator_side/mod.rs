@@ -108,6 +108,12 @@ const RECONNECT_TIMEOUT: Duration = Duration::from_secs(12);
 /// connected.
 type ReconnectTimeout = Fuse<futures_timer::Delay>;
 
+enum ShouldAdvertiseTo {
+	Yes,
+	NotAuthority,
+	AlreadyAdvertised,
+}
+
 /// Info about validators we are currently connected to.
 ///
 /// It keeps track to which validators we advertised our collation.
@@ -129,10 +135,10 @@ impl ValidatorGroup {
 		candidate_hash: &CandidateHash,
 		peer_ids: &HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
 		peer: &PeerId,
-	) -> bool {
+	) -> ShouldAdvertiseTo {
 		let authority_ids = match peer_ids.get(peer) {
 			Some(authority_ids) => authority_ids,
-			None => return false,
+			None => return ShouldAdvertiseTo::NotAuthority,
 		};
 
 		for id in authority_ids {
@@ -151,11 +157,13 @@ impl ValidatorGroup {
 				.get(candidate_hash)
 				.map_or(true, |advertised| !advertised[validator_index])
 			{
-				return true
+				return ShouldAdvertiseTo::Yes
+			} else {
+				return ShouldAdvertiseTo::AlreadyAdvertised
 			}
 		}
 
-		false
+		ShouldAdvertiseTo::NotAuthority
 	}
 
 	/// Should be called after we advertised our collation to the given `peer` to keep track of it.
@@ -687,22 +695,38 @@ async fn advertise_collation<Context>(
 				.validator_group
 				.should_advertise_to(candidate_hash, peer_ids, &peer);
 
-		if !should_advertise {
-			gum::debug!(
-				target: LOG_TARGET,
-				?relay_parent,
-				peer_id = %peer,
-				"Not advertising collation since validator is not interested",
-			);
-			continue
+		match should_advertise {
+			ShouldAdvertiseTo::Yes => {}
+			ShouldAdvertiseTo::NotAuthority => {
+				gum::trace!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?candidate_hash,
+					peer_id = %peer,
+					"Not advertising collation: not relevant to peer"
+				);
+				continue
+			}
+			ShouldAdvertiseTo::AlreadyAdvertised => {
+				gum::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?candidate_hash,
+					peer_id = %peer,
+					"Not advertising collation: already advertised"
+				);
+				continue
+			}
 		}
 
 		gum::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
+			?candidate_hash,
 			peer_id = %peer,
 			"Advertising collation.",
 		);
+
 		collation.status.advance_to_advertised();
 
 		let collation_message = match protocol_version {
@@ -926,16 +950,42 @@ async fn handle_incoming_peer_message<Context>(
 						target: LOG_TARGET,
 						?statement,
 						?origin,
-						"received a valid `CollationSeconded`",
+						"received a valid `CollationSeconded`, forwarding result to collator",
 					);
 					let _ = sender.send(CollationSecondedSignal { statement, relay_parent });
 				} else {
-					gum::debug!(
-						target: LOG_TARGET,
-						candidate_hash = ?&statement.payload().candidate_hash(),
-						?origin,
-						"received an unexpected `CollationSeconded`: unknown statement",
-					);
+					// Checking whether the `CollationSeconded` statement is unexpected
+					let relay_parent = match state.per_relay_parent.get(&relay_parent) {
+						Some(per_relay_parent) => per_relay_parent,
+						None => {
+							gum::debug!(
+								target: LOG_TARGET,
+								candidate_relay_parent = %relay_parent,
+								candidate_hash = ?&statement.payload().candidate_hash(),
+								"Seconded statement relay parent is out of our view",
+							);
+							return Ok(())
+						},
+					};
+					match relay_parent.collations.get(&statement.payload().candidate_hash()) {
+						Some(_) => {
+							// We've seen this collation before, so a seconded statement is expected
+							gum::trace!(
+								target: LOG_TARGET,
+								?statement,
+								?origin,
+								"received a valid `CollationSeconded`",
+							);
+						},
+						None => {
+							gum::debug!(
+								target: LOG_TARGET,
+								candidate_hash = ?&statement.payload().candidate_hash(),
+								?origin,
+								"received an unexpected `CollationSeconded`: unknown statement",
+							);
+						},
+					}
 				}
 			}
 		},
@@ -1131,7 +1181,8 @@ async fn handle_network_msg<Context>(
 		PeerConnected(peer_id, observed_role, protocol_version, maybe_authority) => {
 			// If it is possible that a disconnected validator would attempt a reconnect
 			// it should be handled here.
-			gum::trace!(target: LOG_TARGET, ?peer_id, ?observed_role, "Peer connected");
+			// TODO [now]: too verbose
+			gum::debug!(target: LOG_TARGET, ?peer_id, ?observed_role, ?maybe_authority, "Peer connected");
 
 			let version = match protocol_version.try_into() {
 				Ok(version) => version,
@@ -1182,7 +1233,11 @@ async fn handle_network_msg<Context>(
 		},
 		UpdatedAuthorityIds(peer_id, authority_ids) => {
 			gum::trace!(target: LOG_TARGET, ?peer_id, ?authority_ids, "Updated authority ids");
-			state.peer_ids.insert(peer_id, authority_ids);
+			if let Some(version) = state.peer_data.get(&peer_id).map(|d| d.version) {
+				if state.peer_ids.insert(peer_id, authority_ids).is_none() {
+					declare(ctx, state, &peer_id, version).await;
+				}
+			}
 		},
 		NewGossipTopology { .. } => {
 			// impossible!

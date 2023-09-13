@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use self::test_helpers::mock::new_leaf;
 use super::*;
 use ::test_helpers::{
 	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
@@ -24,12 +25,11 @@ use futures::{future, Future};
 use polkadot_node_primitives::{BlockData, InvalidCandidate, SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
-	jaeger,
 	messages::{
 		AllMessages, CollatorProtocolMessage, RuntimeApiMessage, RuntimeApiRequest,
 		ValidationFailed,
 	},
-	ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, LeafStatus, OverseerSignal, TimeoutExt,
+	ActiveLeavesUpdate, FromOrchestra, OverseerSignal, TimeoutExt,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
@@ -234,12 +234,7 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 	// Start work on some new parent.
 	virtual_overseer
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
-			ActivatedLeaf {
-				hash: test_state.relay_parent,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			},
+			new_leaf(test_state.relay_parent, 1),
 		))))
 		.await;
 

@@ -2255,23 +2255,26 @@ mod tests {
 		let n_validators = 300;
 		let group_size = 5;
 
-		let validator_indices = (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>();
+		let validator_indices =
+			(0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>();
 		let groups = validator_indices.chunks(group_size).map(|x| x.to_vec()).collect::<Vec<_>>();
 
 		let topology = SessionGridTopology::new(
 			(0..n_validators).collect::<Vec<_>>(),
-			(0..n_validators).map(|i| TopologyPeerInfo {
-				peer_ids: Vec::new(),
-				validator_index: ValidatorIndex(i as u32),
-				discovery_id: AuthorityDiscoveryPair::generate().0.public(),
-			}).collect(),
+			(0..n_validators)
+				.map(|i| TopologyPeerInfo {
+					peer_ids: Vec::new(),
+					validator_index: ValidatorIndex(i as u32),
+					discovery_id: AuthorityDiscoveryPair::generate().0.public(),
+				})
+				.collect(),
 		);
 
-		let computed_topologies = validator_indices.iter().cloned().map(|v| build_session_topology(
-			groups.iter(),
-			&topology,
-			Some(v),
-		)).collect::<Vec<_>>();
+		let computed_topologies = validator_indices
+			.iter()
+			.cloned()
+			.map(|v| build_session_topology(groups.iter(), &topology, Some(v)))
+			.collect::<Vec<_>>();
 
 		let pairwise_check_topologies = |i, j| {
 			let v_i = ValidatorIndex(i);
@@ -2282,11 +2285,21 @@ mod tests {
 				let g_j = computed_topologies[j as usize].group_views.get(&group).unwrap();
 
 				if g_i.sending.contains(&v_j) {
-					assert!(g_j.receiving.contains(&v_i), "{:?}: {:?}, sending but not receiving", group, &(i, j));
+					assert!(
+						g_j.receiving.contains(&v_i),
+						"{:?}: {:?}, sending but not receiving",
+						group,
+						&(i, j)
+					);
 				}
 
 				if g_j.sending.contains(&v_i) {
-					assert!(g_i.receiving.contains(&v_j), "{:?}: {:?}, sending but not receiving", group, &(j, i));
+					assert!(
+						g_i.receiving.contains(&v_j),
+						"{:?}: {:?}, sending but not receiving",
+						group,
+						&(j, i)
+					);
 				}
 
 				if g_i.receiving.contains(&v_j) {
