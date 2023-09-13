@@ -1,5 +1,5 @@
 [package]
-name = "kusama-runtime"
+name = "staging-kusama-runtime"
 build = "build.rs"
 version = "1.0.0"
 authors.workspace = true
@@ -77,7 +77,7 @@ pallet-recovery = { path = "../../../substrate/frame/recovery", default-features
 pallet-referenda = { path = "../../../substrate/frame/referenda", default-features = false }
 pallet-scheduler = { path = "../../../substrate/frame/scheduler", default-features = false }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false }
-pallet-society = { path = "../../../substrate/frame/society", default-features = false, features = ["experimental"] }
+pallet-society = { path = "../../../substrate/frame/society", default-features = false }
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
 pallet-state-trie-migration = { path = "../../../substrate/frame/state-trie-migration", default-features = false }
@@ -107,16 +107,16 @@ runtime-common = { package = "polkadot-runtime-common", path = "../common", defa
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
 
-xcm = { package = "xcm", path = "../../xcm", default-features = false }
-xcm-executor = { package = "xcm-executor", path = "../../xcm/xcm-executor", default-features = false }
-xcm-builder = { package = "xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
+xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
 
 [dev-dependencies]
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
 sp-trie = { path = "../../../substrate/primitives/trie" }
 separator = "0.4.1"
-serde_json = "1.0.96"
+serde_json = "1.0.106"
 remote-externalities = { package = "frame-remote-externalities" , path = "../../../substrate/utils/frame/remote-externalities" }
 tokio = { version = "1.24.2", features = ["macros"] }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
@@ -338,12 +338,6 @@ try-runtime = [
 	"runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-# When enabled, the runtime API will not be build.
-#
-# This is required by Cumulus to access certain types of the
-# runtime without clashing with the runtime API exported functions
-# in WASM.
-disable-runtime-api = []
 
 # A feature that should be enabled when the runtime should be build for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm

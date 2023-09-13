@@ -20,7 +20,6 @@ pub(crate) mod migration;
 mod origins;
 mod tracks;
 use crate::{
-	constants,
 	impls::ToParentTreasury,
 	weights,
 	xcm_config::{FellowshipAdminBodyId, UsdtAssetHub},
@@ -38,7 +37,8 @@ pub use origins::{
 };
 use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use polkadot_runtime_constants::time::HOURS;
+use parachains_common::polkadot::account;
+use polkadot_runtime_constants::{time::HOURS, xcm::body::FELLOWSHIP_ADMIN_INDEX};
 use sp_core::{ConstU128, ConstU32};
 use sp_runtime::traits::{AccountIdConversion, ConstU16, ConvertToValue, Replace, TakeFirst};
 use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
@@ -63,7 +63,7 @@ pub mod ranks {
 
 parameter_types! {
 	// Referenda pallet account, used to temporarily deposit slashed imbalance before teleporting.
-	pub ReferendaPalletAccount: AccountId = constants::account::REFERENDA_PALLET_ID.into_account_truncating();
+	pub ReferendaPalletAccount: AccountId = account::REFERENDA_PALLET_ID.into_account_truncating();
 }
 
 impl pallet_fellowship_origins::Config for Runtime {}

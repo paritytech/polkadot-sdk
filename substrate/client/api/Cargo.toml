@@ -37,6 +37,6 @@ sp-statement-store = { path = "../../primitives/statement-store" }
 sp-storage = { path = "../../primitives/storage" }
 
 [dev-dependencies]
-thiserror = "1.0.30"
+thiserror = "1.0.48"
 sp-test-primitives = { path = "../../primitives/test-primitives" }
 substrate-test-runtime = { path = "../../test-utils/runtime" }
