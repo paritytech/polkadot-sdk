@@ -75,7 +75,7 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 use frame_support::{
 	print,
 	traits::{
-		Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
+		Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced, Pot,
 		ReservableCurrency, WithdrawReasons,
 	},
 	weights::Weight,
@@ -624,5 +624,11 @@ impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Palle
 		let _ = T::Currency::resolve_creating(&Self::account_id(), amount);
 
 		Self::deposit_event(Event::Deposit { value: numeric_amount });
+	}
+}
+
+impl<T: Config<I>, I: 'static> Pot<T::AccountId> for Pallet<T, I> {
+	fn account_id() -> T::AccountId {
+		Self::account_id()
 	}
 }

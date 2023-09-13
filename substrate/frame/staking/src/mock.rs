@@ -26,7 +26,7 @@ use frame_support::{
 	assert_ok, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU32, ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance,
-		OnUnbalanced, OneSessionHandler,
+		OnUnbalanced, OneSessionHandler, Pot,
 	},
 	weights::constants::RocksDbWeight,
 	PalletId,
@@ -300,7 +300,7 @@ impl crate::pallet::pallet::Config for Test {
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type EraPayout = ConvertCurve<RewardCurve>;
-	type TreasuryPalletId = TreasuryPalletId;
+	type TreasuryPot = TreasuryPot;
 	type NextNewSession = Session;
 	type MaxNominatorRewardedPerValidator = ConstU32<64>;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
@@ -315,6 +315,13 @@ impl crate::pallet::pallet::Config for Test {
 	type EventListeners = EventListenerMock;
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
+}
+
+pub struct TreasuryPot;
+impl Pot<AccountId> for TreasuryPot {
+	fn account_id() -> AccountId {
+		TreasuryPalletId::get().into_account_truncating()
+	}
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;

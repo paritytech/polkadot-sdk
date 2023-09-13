@@ -25,8 +25,8 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveResult, DefensiveSaturating, EnsureOrigin,
-		EstimateNextNewSession, Get, LockIdentifier, LockableCurrency, OnUnbalanced, TryCollect,
-		UnixTime,
+		EstimateNextNewSession, Get, LockIdentifier, LockableCurrency, OnUnbalanced, Pot,
+		TryCollect, UnixTime,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -197,8 +197,8 @@ pub mod pallet {
 		/// See [Era payout](./index.html#era-payout).
 		type EraPayout: EraPayout<BalanceOf<Self>>;
 
-		/// The treasury pot account ID.
-		type TreasuryPalletId: Get<frame_support::PalletId>;
+		/// The treasury pot.
+		type TreasuryPot: Pot<Self::AccountId>;
 
 		/// Something that can estimate the next session change, accurately or as a best effort
 		/// guess.

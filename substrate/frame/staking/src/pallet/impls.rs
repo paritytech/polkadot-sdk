@@ -28,7 +28,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveResult, EstimateNextNewSession, Get, Imbalance,
-		LockableCurrency, OnUnbalanced, TryCollect, UnixTime, WithdrawReasons,
+		LockableCurrency, OnUnbalanced, Pot, TryCollect, UnixTime, WithdrawReasons,
 	},
 	weights::Weight,
 };
@@ -56,8 +56,6 @@ use crate::{
 
 use super::{pallet::*, STAKING_ID};
 
-use sp_runtime::traits::AccountIdConversion;
-
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
 #[cfg(any(test, feature = "try-runtime"))]
@@ -76,11 +74,6 @@ impl<T: Config> Pallet<T> {
 	pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
 		// Weight note: consider making the stake accessible through stash.
 		Self::bonded(stash).and_then(Self::ledger).map(|l| l.active).unwrap_or_default()
-	}
-
-	/// Derives the treasury account from the pallet's ID.
-	pub(crate) fn treasury_account_id() -> T::AccountId {
-		T::TreasuryPalletId::get().into_account_truncating()
 	}
 
 	/// Internal impl of [`Self::slashable_balance_of`] that returns [`VoteWeight`].
@@ -478,7 +471,7 @@ impl<T: Config> Pallet<T> {
 			// Pay treasury now, if relevant.
 			if !treasury_payout.is_zero() {
 				<T::Currency as Currency<T::AccountId>>::deposit_creating(
-					&Self::treasury_account_id(),
+					&<T::TreasuryPot as Pot<T::AccountId>>::account_id(),
 					treasury_payout,
 				);
 			}
