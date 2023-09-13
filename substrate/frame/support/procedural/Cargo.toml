@@ -26,6 +26,7 @@ frame-support-procedural-tools = { path = "tools" }
 proc-macro-warning = { version = "0.4.2", default-features = false }
 macro_magic = { version = "0.4.2", features = ["proc_support"] }
 expander = "2.0.0"
+sp-core-hashing = { path = "../../../primitives/core/hashing" }
 
 [features]
 default = [ "std" ]

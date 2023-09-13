@@ -61,7 +61,16 @@ pub trait StorageInstance {
 
 	/// Prefix given to a storage to isolate from other storages in the pallet.
 	const STORAGE_PREFIX: &'static str;
+
+	/// Return the prefix hash of storage instance.
+	///
+	/// NOTE: This hash must be `twox_128(pallet_prefix())++twox_128(STORAGE_PREFIX)`.
+	/// Should not impl this function by hand. Only use the default or macro generated impls.
+	fn prefix_hash() -> [u8; 32] {
+		crate::storage::storage_prefix(Self::pallet_prefix().as_bytes(), Self::STORAGE_PREFIX.as_bytes())
+	}
 }
+
 
 /// Metadata about storage from the runtime.
 #[derive(

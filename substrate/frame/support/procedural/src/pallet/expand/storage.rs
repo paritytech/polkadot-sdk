@@ -25,6 +25,7 @@ use crate::{
 use quote::ToTokens;
 use std::{collections::HashMap, ops::IndexMut};
 use syn::spanned::Spanned;
+use crate::storage_alias::impl_prefix_hash;
 
 /// Generate the prefix_ident related to the storage.
 /// prefix_ident is used for the prefix struct to be given to storage as first generic param.
@@ -638,6 +639,8 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			Metadata::CountedMap { .. } => {
 				let counter_prefix_struct_ident = counter_prefix_ident(&storage_def.ident);
 				let counter_prefix_struct_const = counter_prefix(&prefix_struct_const);
+				// let prefix_hash = impl_prefix_hash(&pallet_prefix.to_string(), &counter_prefix_struct_const);
+
 				quote::quote_spanned!(storage_def.attr_span =>
 					#(#cfg_attrs)*
 					#[doc(hidden)]
@@ -656,6 +659,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 							>::name::<Pallet<#type_use_gen>>()
 								.expect("No name found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`.")
 						}
+
 						const STORAGE_PREFIX: &'static str = #counter_prefix_struct_const;
 					}
 					#(#cfg_attrs)*

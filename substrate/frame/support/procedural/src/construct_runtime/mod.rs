@@ -407,7 +407,7 @@ fn construct_runtime_final_expansion(
 		where_section.map_or(None, |where_section| {
 			Some(proc_macro_warning::Warning::new_deprecated("WhereSection")
 			.old("use a `where` clause in `construct_runtime`")
-			.new("use `frame_system::Config` to set the `Block` type and delete this clause. 
+			.new("use `frame_system::Config` to set the `Block` type and delete this clause.
 				It is planned to be removed in December 2023")
 			.help_links(&["https://github.com/paritytech/substrate/pull/14437"])
 			.span(where_section.span)
@@ -699,6 +699,7 @@ fn decl_pallet_runtime_setup(
 		pub struct PalletInfo;
 
 		impl #scrate::traits::PalletInfo for PalletInfo {
+
 			fn index<P: 'static>() -> Option<usize> {
 				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
 				#(

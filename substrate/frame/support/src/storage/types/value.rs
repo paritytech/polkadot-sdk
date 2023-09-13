@@ -61,6 +61,9 @@ where
 	fn from_query_to_optional_value(v: Self::Query) -> Option<Value> {
 		QueryKind::from_query_to_optional_value(v)
 	}
+	fn storage_value_final_key() -> [u8; 32] {
+		Prefix::prefix_hash()
+	}
 }
 
 impl<Prefix, Value, QueryKind, OnEmpty> StorageValue<Prefix, Value, QueryKind, OnEmpty>
