@@ -35,7 +35,10 @@ use futures::{
 	task::{Context, Poll},
 };
 use schnellru::{ByLength, LruMap};
-use task::{FetchChunks, FetchChunksParams, FetchFull, FetchFullParams};
+use task::{
+	FetchChunks, FetchChunksParams, FetchFull, FetchFullParams, FetchSystematicChunks,
+	FetchSystematicChunksParams,
+};
 
 use fatality::Nested;
 use polkadot_erasure_coding::{
@@ -51,11 +54,11 @@ use polkadot_node_primitives::{AvailableData, ErasureChunk};
 use polkadot_node_subsystem::{
 	errors::RecoveryError,
 	jaeger,
-	messages::{AvailabilityRecoveryMessage, AvailabilityStoreMessage},
+	messages::{AvailabilityRecoveryMessage, AvailabilityStoreMessage, ChainApiMessage},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemContext, SubsystemError, SubsystemResult,
 };
-use polkadot_node_subsystem_util::request_session_info;
+use polkadot_node_subsystem_util::{request_session_info, shuffle_validator_indices};
 use polkadot_primitives::{
 	BlakeTwo256, BlockNumber, CandidateHash, CandidateReceipt, GroupIndex, Hash, HashT,
 	SessionIndex, SessionInfo, ValidatorIndex,
@@ -90,6 +93,8 @@ pub enum RecoveryStrategyKind {
 	BackersFirstIfSizeLower(usize),
 	/// We always recover using validator chunks.
 	ChunksAlways,
+	/// First try the backing group. Then systematic chunks.
+	BackersThenSystematicChunks,
 	/// Do not request data from the availability store.
 	/// This is the useful for nodes where the
 	/// availability-store subsystem is not expected to run,
@@ -448,16 +453,20 @@ async fn handle_recover<Context>(
 				}
 			};
 
+			let block_number =
+				get_block_number(ctx.sender(), receipt.descriptor.relay_parent).await?;
+			let shuffling = shuffle_validator_indices(block_number, session_info.validators.len());
+
 			let backing_validators = if let Some(backing_group) = backing_group {
 				session_info.validator_groups.get(backing_group)
 			} else {
 				None
 			};
 
-			let fetch_chunks_params = FetchChunksParams {
-				n_validators: session_info.validators.len(),
-				erasure_task_tx: erasure_task_tx.clone(),
-			};
+			// let fetch_chunks_params = FetchChunksParams {
+			// 	n_validators: session_info.validators.len(),
+			// 	erasure_task_tx: erasure_task_tx.clone(),
+			// };
 
 			let mut recovery_strategies: VecDeque<
 				Box<dyn RecoveryStrategy<<Context as SubsystemContext>::Sender>>,
@@ -470,13 +479,24 @@ async fn handle_recover<Context>(
 					(RecoveryStrategyKind::BypassAvailabilityStore, true) =>
 						recovery_strategies.push_back(Box::new(FetchFull::new(FetchFullParams {
 							validators: backing_validators.to_vec(),
-							erasure_task_tx,
+							erasure_task_tx: erasure_task_tx.clone(),
 						}))),
 					_ => {},
 				};
 			}
 
-			recovery_strategies.push_back(Box::new(FetchChunks::new(fetch_chunks_params)));
+			if recovery_strategy_kind == RecoveryStrategyKind::BackersThenSystematicChunks {
+				recovery_strategies.push_back(Box::new(FetchSystematicChunks::new(
+					FetchSystematicChunksParams {
+						validators: (0..recovery_threshold(session_info.validators.len()).unwrap())
+							.map(|i| (shuffling[i], ValidatorIndex(i as u32)))
+							.collect(),
+						erasure_task_tx,
+					},
+				)));
+			}
+
+			// recovery_strategies.push_back(Box::new(FetchChunks::new(fetch_chunks_params)));
 
 			launch_recovery_task(
 				state,
@@ -500,7 +520,7 @@ async fn handle_recover<Context>(
 	}
 }
 
-/// Queries a chunk from av-store.
+/// Queries the full `AvailableData` from av-store.
 #[overseer::contextbounds(AvailabilityRecovery, prefix = self::overseer)]
 async fn query_full_data<Context>(
 	ctx: &mut Context,
@@ -570,6 +590,19 @@ impl AvailabilityRecoverySubsystem {
 	) -> Self {
 		Self {
 			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(SMALL_POV_LIMIT),
+			req_receiver,
+			metrics,
+		}
+	}
+
+	/// Create a new instance of `AvailabilityRecoverySubsystem` which first requests full data
+	/// from backers, with a fallback to recover from systematic chunks.
+	pub fn with_fast_path_then_systematic_chunks(
+		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
+		metrics: Metrics,
+	) -> Self {
+		Self {
+			recovery_strategy_kind: RecoveryStrategyKind::BackersThenSystematicChunks,
 			req_receiver,
 			metrics,
 		}
@@ -650,6 +683,8 @@ impl AvailabilityRecoverySubsystem {
 							return Ok(());
 						}
 						FromOrchestra::Communication { msg } => {
+							gum::debug!(target: LOG_TARGET,
+								"Received message to recover available data");
 							match msg {
 								AvailabilityRecoveryMessage::RecoverAvailableData(
 									receipt,
@@ -815,5 +850,27 @@ async fn erasure_task_thread(
 				);
 			},
 		}
+	}
+}
+
+async fn get_block_number<Sender>(
+	sender: &mut Sender,
+	relay_parent: Hash,
+) -> error::Result<BlockNumber>
+where
+	Sender: overseer::SubsystemSender<ChainApiMessage>,
+{
+	let (tx, rx) = oneshot::channel();
+	sender.send_message(ChainApiMessage::BlockNumber(relay_parent, tx)).await;
+
+	let block_number = rx
+		.await
+		.map_err(error::Error::ChainApiSenderDropped)?
+		.map_err(error::Error::ChainApi)?;
+
+	if let Some(number) = block_number {
+		Ok(number)
+	} else {
+		Err(error::Error::BlockNumberNotFound)
 	}
 }

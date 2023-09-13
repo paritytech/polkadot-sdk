@@ -17,10 +17,12 @@
 //! The `Error` and `Result` types used by the subsystem.
 
 use futures::channel::oneshot;
+use polkadot_node_subsystem::ChainApiError;
 use thiserror::Error;
 
 /// Error type used by the Availability Recovery subsystem.
 #[derive(Debug, Error)]
+// TODO: add fatality
 pub enum Error {
 	#[error(transparent)]
 	Subsystem(#[from] polkadot_node_subsystem::SubsystemError),
@@ -42,6 +44,15 @@ pub enum Error {
 
 	#[error(transparent)]
 	Util(#[from] polkadot_node_subsystem_util::Error),
+
+	#[error("Oneshot for receiving response from Chain API got cancelled")]
+	ChainApiSenderDropped(#[source] oneshot::Canceled),
+
+	#[error("Retrieving response from Chain API unexpectedly failed with error: {0}")]
+	ChainApi(#[from] ChainApiError),
+
+	#[error("Cannot find block number for given relay parent")]
+	BlockNumberNotFound,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

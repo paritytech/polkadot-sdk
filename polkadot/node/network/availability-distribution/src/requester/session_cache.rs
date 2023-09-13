@@ -87,39 +87,28 @@ impl SessionCache {
 		}
 	}
 
-	/// Tries to retrieve `SessionInfo` and calls `with_info` if successful.
-	///
+	/// Tries to retrieve `SessionInfo`.
 	/// If this node is not a validator, the function will return `None`.
-	///
-	/// Use this function over any `fetch_session_info` if all you need is a reference to
-	/// `SessionInfo`, as it avoids an expensive clone.
-	pub async fn with_session_info<Context, F, R>(
-		&mut self,
+	pub async fn get_session_info<'a, Context>(
+		&'a mut self,
 		ctx: &mut Context,
 		runtime: &mut RuntimeInfo,
 		parent: Hash,
 		session_index: SessionIndex,
-		with_info: F,
-	) -> Result<Option<R>>
-	where
-		F: FnOnce(&SessionInfo) -> R,
-	{
-		if let Some(o_info) = self.session_info_cache.get(&session_index) {
-			gum::trace!(target: LOG_TARGET, session_index, "Got session from lru");
-			return Ok(Some(with_info(o_info)))
+	) -> Result<Option<&'a SessionInfo>> {
+		if self.session_info_cache.get(&session_index).is_none() {
+			if let Some(info) =
+				Self::query_info_from_runtime(ctx, runtime, parent, session_index).await?
+			{
+				gum::trace!(target: LOG_TARGET, session_index, "Calling `with_info`");
+				gum::trace!(target: LOG_TARGET, session_index, "Storing session info in lru!");
+				self.session_info_cache.insert(session_index, info);
+			} else {
+				return Ok(None)
+			}
 		}
 
-		if let Some(info) =
-			self.query_info_from_runtime(ctx, runtime, parent, session_index).await?
-		{
-			gum::trace!(target: LOG_TARGET, session_index, "Calling `with_info`");
-			let r = with_info(&info);
-			gum::trace!(target: LOG_TARGET, session_index, "Storing session info in lru!");
-			self.session_info_cache.insert(session_index, info);
-			Ok(Some(r))
-		} else {
-			Ok(None)
-		}
+		Ok(self.session_info_cache.get(&session_index).map(|i| &*i))
 	}
 
 	/// Variant of `report_bad` that never fails, but just logs errors.
@@ -171,7 +160,6 @@ impl SessionCache {
 	///
 	/// Returns: `None` if not a validator.
 	async fn query_info_from_runtime<Context>(
-		&self,
 		ctx: &mut Context,
 		runtime: &mut RuntimeInfo,
 		relay_parent: Hash,
@@ -187,6 +175,9 @@ impl SessionCache {
 		if let Some(our_index) = info.validator_info.our_index {
 			// Get our group index:
 			let our_group = info.validator_info.our_group;
+
+			// TODO: This shuffling is fine, as it only is used for knowing which validator to ask
+			// in order to get the chunk. The chunk index is coming from somewhere else.
 
 			// Shuffle validators in groups:
 			let mut rng = thread_rng();

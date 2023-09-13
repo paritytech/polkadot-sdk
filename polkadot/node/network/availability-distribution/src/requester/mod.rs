@@ -18,10 +18,7 @@
 //! availability.
 
 use std::{
-	collections::{
-		hash_map::{Entry, HashMap},
-		hash_set::HashSet,
-	},
+	collections::{hash_map::HashMap, hash_set::HashSet},
 	iter::IntoIterator,
 	pin::Pin,
 };
@@ -37,10 +34,16 @@ use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, RuntimeApiMessage},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, LeafStatus,
 };
-use polkadot_node_subsystem_util::runtime::{get_occupied_cores, RuntimeInfo};
-use polkadot_primitives::{CandidateHash, Hash, OccupiedCore, SessionIndex};
+use polkadot_node_subsystem_util::{
+	runtime::{get_occupied_cores, RuntimeInfo},
+	shuffle_validator_indices,
+};
+use polkadot_primitives::{
+	BlockNumber, CandidateHash, Hash, OccupiedCore, SessionIndex, ValidatorIndex,
+};
+use schnellru::{ByLength, LruMap};
 
-use super::{FatalError, Metrics, Result, LOG_TARGET};
+use super::{error::Error, FatalError, Metrics, Result, LOG_TARGET};
 
 #[cfg(test)]
 mod tests;
@@ -77,6 +80,8 @@ pub struct Requester {
 
 	/// Prometheus Metrics
 	metrics: Metrics,
+
+	chunk_index_cache: LruMap<BlockNumber, ValidatorIndex>,
 }
 
 #[overseer::contextbounds(AvailabilityDistribution, prefix = self::overseer)]
@@ -90,7 +95,14 @@ impl Requester {
 	/// by advancing the stream.
 	pub fn new(metrics: Metrics) -> Self {
 		let (tx, rx) = mpsc::channel(1);
-		Requester { fetches: HashMap::new(), session_cache: SessionCache::new(), tx, rx, metrics }
+		Requester {
+			fetches: HashMap::new(),
+			session_cache: SessionCache::new(),
+			tx,
+			rx,
+			metrics,
+			chunk_index_cache: LruMap::new(ByLength::new(10)),
+		}
 	}
 
 	/// Update heads that need availability distribution.
@@ -208,46 +220,75 @@ impl Requester {
 				.with_string_tag("leaf", format!("{:?}", leaf))
 				.with_candidate(core.candidate_hash)
 				.with_stage(jaeger::Stage::AvailabilityDistribution);
-			match self.fetches.entry(core.candidate_hash) {
-				Entry::Occupied(mut e) =>
+
+			if let Some(e) = self.fetches.get_mut(&core.candidate_hash) {
 				// Just book keeping - we are already requesting that chunk:
-				{
-					span.add_string_tag("already-requested-chunk", "true");
-					e.get_mut().add_leaf(leaf);
-				},
-				Entry::Vacant(e) => {
-					span.add_string_tag("already-requested-chunk", "false");
-					let tx = self.tx.clone();
-					let metrics = self.metrics.clone();
+				span.add_string_tag("already-requested-chunk", "true");
+				e.add_leaf(leaf);
+			} else {
+				span.add_string_tag("already-requested-chunk", "false");
+				let tx = self.tx.clone();
+				let metrics = self.metrics.clone();
+				// only interested in the map for (ourIndex) -> ValidatorIndex
+				// hold LruCache<Height, ValidatorIndex>
+				// alternatively, re-compute it according to algorithm
+				let block_number =
+					get_block_number(context.sender(), core.candidate_descriptor.relay_parent)
+						.await?;
 
-					let task_cfg = self
-						.session_cache
-						.with_session_info(
-							context,
-							runtime,
-							// We use leaf here, the relay_parent must be in the same session as
-							// the leaf. This is guaranteed by runtime which ensures that cores are
-							// cleared at session boundaries. At the same time, only leaves are
-							// guaranteed to be fetchable by the state trie.
-							leaf,
-							leaf_session_index,
-							|info| FetchTaskConfig::new(leaf, &core, tx, metrics, info, span),
-						)
-						.await
-						.map_err(|err| {
-							gum::warn!(
-								target: LOG_TARGET,
-								error = ?err,
-								"Failed to spawn a fetch task"
-							);
-							err
+				let session_info = self
+					.session_cache
+					.get_session_info(
+						context,
+						runtime,
+						// We use leaf here, the relay_parent must be in the same session as
+						// the leaf. This is guaranteed by runtime which ensures that cores are
+						// cleared at session boundaries. At the same time, only leaves are
+						// guaranteed to be fetchable by the state trie.
+						leaf,
+						leaf_session_index,
+					)
+					.await
+					.map_err(|err| {
+						gum::warn!(
+							target: LOG_TARGET,
+							error = ?err,
+							"Failed to spawn a fetch task"
+						);
+						err
+					})?;
+
+				if let Some(session_info) = session_info {
+					// TODO: optimise this n_validators calculation.
+					let n_validators =
+						session_info.validator_groups.iter().fold(0, |mut acc, group| {
+							acc += group.len();
+							acc
 						});
+					let chunk_index = self
+						.chunk_index_cache
+						.get_or_insert(block_number, || {
+							let shuffled_indices =
+								shuffle_validator_indices(block_number, n_validators);
+							shuffled_indices[session_info.our_index.0 as usize]
+						})
+						.expect("no expected");
 
-					if let Ok(Some(task_cfg)) = task_cfg {
-						e.insert(FetchTask::start(task_cfg, context).await?);
-					}
-					// Not a validator, nothing to do.
-				},
+					let task_cfg = FetchTaskConfig::new(
+						leaf,
+						&core,
+						tx,
+						metrics,
+						session_info,
+						*chunk_index,
+						span,
+					);
+
+					self.fetches
+						.insert(core.candidate_hash, FetchTask::start(task_cfg, context).await?);
+				} else {
+					// Error
+				}
 			}
 		}
 		Ok(())
@@ -348,4 +389,23 @@ where
 		.map_err(FatalError::ChainApiSenderDropped)?
 		.map_err(FatalError::ChainApi)?;
 	Ok(ancestors)
+}
+
+async fn get_block_number<Sender>(sender: &mut Sender, relay_parent: Hash) -> Result<BlockNumber>
+where
+	Sender: overseer::SubsystemSender<ChainApiMessage>,
+{
+	let (tx, rx) = oneshot::channel();
+	sender.send_message(ChainApiMessage::BlockNumber(relay_parent, tx)).await;
+
+	let block_number = rx
+		.await
+		.map_err(FatalError::ChainApiSenderDropped)?
+		.map_err(FatalError::ChainApi)?;
+
+	if let Some(number) = block_number {
+		Ok(number)
+	} else {
+		Err(Error::BlockNumberNotFound)
+	}
 }

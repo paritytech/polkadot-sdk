@@ -119,7 +119,7 @@ fn code_params(n_validators: usize) -> Result<CodeParams, Error> {
 /// possible.
 pub fn reconstruct_from_systematic_v1(
 	n_validators: usize,
-	chunks: Vec<Vec<u8>>,
+	chunks: Vec<&[u8]>,
 ) -> Result<AvailableData, Error> {
 	reconstruct_from_systematic(n_validators, chunks)
 }
@@ -130,7 +130,7 @@ pub fn reconstruct_from_systematic_v1(
 /// possible.
 pub fn reconstruct_from_systematic<T: Decode>(
 	n_validators: usize,
-	chunks: Vec<Vec<u8>>,
+	chunks: Vec<&[u8]>,
 ) -> Result<T, Error> {
 	let code_params = code_params(n_validators)?;
 	let kpow2 = code_params.k();
@@ -474,7 +474,11 @@ mod tests {
 			let n_validators = n_validators.saturating_add(2);
 			let chunks = obtain_chunks(n_validators as usize, &available_data.0).unwrap();
 			assert_eq!(
-				reconstruct_from_systematic_v1(n_validators as usize, chunks).unwrap(),
+				reconstruct_from_systematic_v1(
+					n_validators as usize,
+					chunks.iter().map(|v| &v[..]).collect()
+				)
+				.unwrap(),
 				available_data.0
 			);
 		}

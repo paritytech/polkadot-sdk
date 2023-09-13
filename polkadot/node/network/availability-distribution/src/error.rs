@@ -82,6 +82,9 @@ pub enum Error {
 
 	#[error("Given validator index could not be found in current session")]
 	InvalidValidatorIndex,
+
+	#[error("Cannot find block number for given relay parent")]
+	BlockNumberNotFound,
 }
 
 /// General result abbreviation type alias.
@@ -104,7 +107,8 @@ pub fn log_error(
 				JfyiError::InvalidValidatorIndex |
 				JfyiError::NoSuchCachedSession { .. } |
 				JfyiError::QueryAvailableDataResponseChannel(_) |
-				JfyiError::QueryChunkResponseChannel(_) => gum::warn!(target: LOG_TARGET, error = %jfyi, ctx),
+				JfyiError::QueryChunkResponseChannel(_) |
+				JfyiError::BlockNumberNotFound => gum::warn!(target: LOG_TARGET, error = %jfyi, ctx),
 				JfyiError::FetchPoV(_) |
 				JfyiError::SendResponse |
 				JfyiError::NoSuchPoV |

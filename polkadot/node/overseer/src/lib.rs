@@ -507,6 +507,7 @@ pub struct Overseer<SupportsParachains> {
 		NetworkBridgeTxMessage,
 		RuntimeApiMessage,
 		AvailabilityStoreMessage,
+		ChainApiMessage,
 	])]
 	availability_recovery: AvailabilityRecovery,
 

@@ -25,17 +25,18 @@
 
 #![warn(missing_docs)]
 
+pub use overseer::{
+	gen::{OrchestraError as OverseerError, Timeout},
+	Subsystem, TimeoutExt,
+};
 use polkadot_node_subsystem::{
 	errors::{RuntimeApiError, SubsystemError},
 	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
 	overseer, SubsystemSender,
 };
-use polkadot_primitives::{slashing, ExecutorParams};
-
-pub use overseer::{
-	gen::{OrchestraError as OverseerError, Timeout},
-	Subsystem, TimeoutExt,
-};
+use polkadot_primitives::{slashing, BlockNumber, ExecutorParams};
+use rand::seq::SliceRandom;
+use rand_chacha::ChaCha8Rng;
 
 pub use polkadot_node_metrics::{metrics, Metronome};
 
@@ -44,12 +45,13 @@ use parity_scale_codec::Encode;
 
 use polkadot_primitives::{
 	vstaging as vstaging_primitives, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, EncodeAs, GroupIndex, GroupRotationInfo, Hash,
-	Id as ParaId, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
+	ChunkIndex, CommittedCandidateReceipt, CoreState, EncodeAs, GroupIndex, GroupRotationInfo,
+	Hash, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
 	SessionIndex, SessionInfo, Signed, SigningContext, ValidationCode, ValidationCodeHash,
 	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 pub use rand;
+use rand::SeedableRng;
 use sp_application_crypto::AppCrypto;
 use sp_core::ByteArray;
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
@@ -439,4 +441,18 @@ impl Validator {
 	) -> Result<Option<Signed<Payload, RealPayload>>, KeystoreError> {
 		Signed::sign(&keystore, payload, &self.signing_context, self.index, &self.key)
 	}
+}
+
+pub fn shuffle_validator_indices(
+	block_number: BlockNumber,
+	n_validators: usize,
+) -> Vec<ChunkIndex> {
+	let seed = block_number.to_be_bytes();
+	let mut rng: ChaCha8Rng =
+		SeedableRng::from_seed(seed.repeat(8).try_into().expect("should never fail"));
+
+	let mut shuffled_indices: Vec<_> = (0..n_validators).map(|i| ValidatorIndex(i as _)).collect();
+
+	shuffled_indices.shuffle(&mut rng);
+	shuffled_indices
 }
