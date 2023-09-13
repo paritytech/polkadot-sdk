@@ -302,7 +302,8 @@ pub mod pallet {
 			+ MaybeDisplay
 			+ AtLeast32Bit
 			+ Copy
-			+ MaxEncodedLen;
+			+ MaxEncodedLen
+			+ TryFrom<BlockNumberFor<Self>>;
 
 		/// The output of the `Hashing` function.
 		type Hash: Parameter
@@ -573,6 +574,7 @@ pub mod pallet {
 		T::AccountId,
 		AccountInfo<T::Nonce, T::AccountData>,
 		ValueQuery,
+		//GetDefaultAccountInfo<T>,
 	>;
 
 	/// Total extrinsics count for the current block.
@@ -750,7 +752,9 @@ pub type RefCount = u32;
 /// Information of an account.
 #[derive(Clone, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct AccountInfo<Nonce, AccountData> {
-	/// The number of transactions this account has sent.
+	/// A value that increases with every transaction that the account has sent.
+	///
+	/// Gets reset when the account gets reaped and is initializes to the current block number.
 	pub nonce: Nonce,
 	/// The number of other modules that currently depend on this account's existence. The account
 	/// cannot be reaped until this is zero.
@@ -765,6 +769,20 @@ pub struct AccountInfo<Nonce, AccountData> {
 	/// chains.
 	pub data: AccountData,
 }
+
+/*type NonceOf<T> = <T as Config>::Nonce;
+type AccountDataOf<T> = <T as Config>::AccountData;
+type AccountInfoOf<T> = AccountInfo<NonceOf<T>, AccountDataOf<T>>;
+
+pub struct GetDefaultAccountInfo<T>(PhantomData<T>);
+impl<T: pallet::Config> Get<AccountInfoOf<T>> for GetDefaultAccountInfo<T> {
+	fn get() -> AccountInfoOf<T> {
+		AccountInfo {
+			nonce: pallet::Number::<T>::get(),
+			.. Default::default()
+		}
+	}
+}*/
 
 /// Stores the `spec_version` and `spec_name` of when the last runtime upgrade
 /// happened.
@@ -1593,7 +1611,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Increment a particular account's nonce by 1.
 	pub fn inc_account_nonce(who: impl EncodeLike<T::AccountId>) {
-		Account::<T>::mutate(who, |a| a.nonce += T::Nonce::one());
+		Account::<T>::mutate(who, |a| a.nonce.saturating_inc());
 	}
 
 	/// Note what the extrinsic data of the current extrinsic index is.
