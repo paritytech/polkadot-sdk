@@ -3,7 +3,7 @@
     type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights_ext/trait.WeightInfoExt.html" title="trait pallet_bridge_parachains::weights_ext::WeightInfoExt">WeightInfoExt</a>;
     type <a href="#associatedtype.BridgesGrandpaPalletInstance" class="associatedtype">BridgesGrandpaPalletInstance</a>: 'static;
     type <a href="#associatedtype.ParasPalletName" class="associatedtype">ParasPalletName</a>: Get&lt;&amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.str.html">str</a>&gt;;
-    type <a href="#associatedtype.ParaStoredHeaderDataBuilder" class="associatedtype">ParaStoredHeaderDataBuilder</a>: ParaStoredHeaderDataBuilder;
+    type <a href="#associatedtype.ParaStoredHeaderDataBuilder" class="associatedtype">ParaStoredHeaderDataBuilder</a>: <a class="trait" href="../../bp_parachains/trait.ParaStoredHeaderDataBuilder.html" title="trait bp_parachains::ParaStoredHeaderDataBuilder">ParaStoredHeaderDataBuilder</a>;
     type <a href="#associatedtype.HeadsToKeep" class="associatedtype">HeadsToKeep</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u32.html">u32</a>&gt;;
     type <a href="#associatedtype.MaxParaHeadDataSize" class="associatedtype">MaxParaHeadDataSize</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u32.html">u32</a>&gt;;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration trait of this pallet.</p>
@@ -20,7 +20,7 @@ we’re interested in.</p>
 chain.</p>
 <p>Please keep in mind that this should be the name of the <code>runtime_parachains::paras</code>
 pallet from polkadot repository, not the <code>pallet-bridge-parachains</code>.</p>
-</div></details><details class="toggle" open><summary><section id="associatedtype.ParaStoredHeaderDataBuilder" class="method"><a class="srclink rightside" href="../../src/pallet_bridge_parachains/lib.rs.html#192">source</a><h4 class="code-header">type <a href="#associatedtype.ParaStoredHeaderDataBuilder" class="associatedtype">ParaStoredHeaderDataBuilder</a>: ParaStoredHeaderDataBuilder</h4></section></summary><div class="docblock"><p>Parachain head data builder.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.ParaStoredHeaderDataBuilder" class="method"><a class="srclink rightside" href="../../src/pallet_bridge_parachains/lib.rs.html#192">source</a><h4 class="code-header">type <a href="#associatedtype.ParaStoredHeaderDataBuilder" class="associatedtype">ParaStoredHeaderDataBuilder</a>: <a class="trait" href="../../bp_parachains/trait.ParaStoredHeaderDataBuilder.html" title="trait bp_parachains::ParaStoredHeaderDataBuilder">ParaStoredHeaderDataBuilder</a></h4></section></summary><div class="docblock"><p>Parachain head data builder.</p>
 <p>We never store parachain heads here, since they may be too big (e.g. because of large
 digest items). Instead we’re using the same approach as <code>pallet-bridge-grandpa</code>
 pallet - we are only storing <code>bp_messages::StoredHeaderData</code> (number and state root),

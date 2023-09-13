@@ -1085,6 +1085,11 @@
 <a href="#1085" id="1085">1085</a>
 <a href="#1086" id="1086">1086</a>
 <a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1140,9 +1145,8 @@
 <span class="comment">// Short-Weierstrass form serialized sizes.
 </span><span class="kw">const </span>PUBLIC_SERIALIZED_LEN: usize = <span class="number">33</span>;
 <span class="kw">const </span>SIGNATURE_SERIALIZED_LEN: usize = <span class="number">65</span>;
+<span class="kw">const </span>RING_SIGNATURE_SERIALIZED_LEN: usize = <span class="number">755</span>;
 <span class="kw">const </span>PREOUT_SERIALIZED_LEN: usize = <span class="number">33</span>;
-<span class="kw">const </span>PEDERSEN_SIGNATURE_SERIALIZED_LEN: usize = <span class="number">163</span>;
-<span class="kw">const </span>RING_PROOF_SERIALIZED_LEN: usize = <span class="number">592</span>;
 
 <span class="comment">// Max size of serialized ring-vrf context params.
 //
@@ -1156,7 +1160,7 @@
 //  2048        → 295 KB
 // NOTE: This is quite big but looks like there is an upcoming fix
 // in the backend.
-</span><span class="kw">const </span>RING_CONTEXT_SERIALIZED_LEN: usize = <span class="number">147752</span>;
+</span><span class="kw">const </span>RING_CONTEXT_SERIALIZED_LEN: usize = <span class="number">147748</span>;
 
 <span class="doccomment">/// Bandersnatch public key.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;full_crypto&quot;</span>, derive(Hash))]
@@ -1365,7 +1369,7 @@
 		<span class="kw">let </span><span class="kw-2">mut </span>raw = [<span class="number">0</span>; PUBLIC_SERIALIZED_LEN];
 		public
 			.serialize_compressed(raw.as_mut_slice())
-			.expect(<span class="string">&quot;key buffer length is good; qed&quot;</span>);
+			.expect(<span class="string">&quot;serialization length is constant and checked by test; qed&quot;</span>);
 		Public::unchecked_from(raw)
 	}
 
@@ -1443,7 +1447,7 @@
 			<span class="kw">let </span><span class="kw-2">mut </span>bytes = [<span class="number">0</span>; PREOUT_SERIALIZED_LEN];
 			<span class="self">self</span>.<span class="number">0
 				</span>.serialize_compressed(bytes.as_mut_slice())
-				.expect(<span class="string">&quot;preout serialization can&#39;t fail&quot;</span>);
+				.expect(<span class="string">&quot;serialization length is constant and checked by test; qed&quot;</span>);
 			bytes.encode()
 		}
 	}
@@ -1593,7 +1597,7 @@
 		}
 
 		<span class="kw">fn </span>vrf_output(<span class="kw-2">&amp;</span><span class="self">self</span>, input: <span class="kw-2">&amp;</span><span class="self">Self</span>::VrfInput) -&gt; <span class="self">Self</span>::VrfOutput {
-			<span class="kw">let </span>output = <span class="self">self</span>.secret.<span class="number">0</span>.vrf_preout(<span class="kw-2">&amp;</span>input.<span class="number">0</span>);
+			<span class="kw">let </span>output = <span class="self">self</span>.secret.vrf_preout(<span class="kw-2">&amp;</span>input.<span class="number">0</span>);
 			VrfOutput(output)
 		}
 	}
@@ -1626,24 +1630,26 @@
 	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 	</span><span class="kw">impl </span>Pair {
 		<span class="kw">fn </span>vrf_sign_gen&lt;<span class="kw">const </span>N: usize&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>VrfSignData) -&gt; VrfSignature {
-			<span class="kw">let </span>ios: Vec&lt;<span class="kw">_</span>&gt; = data
-				.inputs
-				.iter()
-				.map(|i| <span class="self">self</span>.secret.clone().<span class="number">0</span>.vrf_inout(i.<span class="number">0</span>.clone()))
-				.collect();
+			<span class="kw">let </span>ios = core::array::from_fn(|i| {
+				<span class="kw">let </span>input = data.inputs[i].<span class="number">0</span>.clone();
+				<span class="self">self</span>.secret.vrf_inout(input)
+			});
 
-			<span class="kw">let </span>signature: ThinVrfSignature&lt;N&gt; =
-				<span class="self">self</span>.secret.sign_thin_vrf(data.transcript.clone(), ios.as_slice());
+			<span class="kw">let </span>thin_signature: ThinVrfSignature&lt;N&gt; =
+				<span class="self">self</span>.secret.sign_thin_vrf(data.transcript.clone(), <span class="kw-2">&amp;</span>ios);
 
-			<span class="kw">let </span><span class="kw-2">mut </span>sign_bytes = [<span class="number">0</span>; SIGNATURE_SERIALIZED_LEN];
-			signature
-				.signature
-				.serialize_compressed(sign_bytes.as_mut_slice())
-				.expect(<span class="string">&quot;serialization can&#39;t fail&quot;</span>);
-
-			<span class="kw">let </span>outputs: Vec&lt;<span class="kw">_</span>&gt; = signature.preoutputs.into_iter().map(VrfOutput).collect();
+			<span class="kw">let </span>outputs: Vec&lt;<span class="kw">_</span>&gt; = thin_signature.preouts.into_iter().map(VrfOutput).collect();
 			<span class="kw">let </span>outputs = VrfIosVec::truncate_from(outputs);
-			VrfSignature { signature: Signature(sign_bytes), outputs }
+
+			<span class="kw">let </span><span class="kw-2">mut </span>signature =
+				VrfSignature { signature: Signature([<span class="number">0</span>; SIGNATURE_SERIALIZED_LEN]), outputs };
+
+			thin_signature
+				.proof
+				.serialize_compressed(signature.signature.<span class="number">0</span>.as_mut_slice())
+				.expect(<span class="string">&quot;serialization length is constant and checked by test; qed&quot;</span>);
+
+			signature
 		}
 
 		<span class="doccomment">/// Generate an arbitrary number of bytes from the given `context` and VRF `input`.
@@ -1653,7 +1659,7 @@
 			input: <span class="kw-2">&amp;</span>VrfInput,
 		) -&gt; [u8; N] {
 			<span class="kw">let </span>transcript = Transcript::new_labeled(context);
-			<span class="kw">let </span>inout = <span class="self">self</span>.secret.clone().<span class="number">0</span>.vrf_inout(input.<span class="number">0</span>.clone());
+			<span class="kw">let </span>inout = <span class="self">self</span>.secret.vrf_inout(input.<span class="number">0</span>.clone());
 			inout.vrf_output_bytes(transcript)
 		}
 	}
@@ -1668,30 +1674,23 @@
 				<span class="kw">return </span><span class="bool-val">false
 			</span>};
 
-			<span class="kw">let </span><span class="prelude-val">Ok</span>(preouts) = signature
-				.outputs
-				.iter()
-				.map(|o| o.<span class="number">0</span>.clone())
-				.collect::&lt;arrayvec::ArrayVec&lt;bandersnatch_vrfs::VrfPreOut, N&gt;&gt;()
-				.into_inner()
-			<span class="kw">else </span>{
-				<span class="kw">return </span><span class="bool-val">false
-			</span>};
+			<span class="kw">let </span>preouts: [bandersnatch_vrfs::VrfPreOut; N] =
+				core::array::from_fn(|i| signature.outputs[i].<span class="number">0</span>.clone());
 
 			<span class="comment">// Deserialize only the proof, the rest has already been deserialized
 			// This is another hack used because backend signature type is generic over
 			// the number of ios.
-			</span><span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
+			</span><span class="kw">let </span><span class="prelude-val">Ok</span>(proof) =
 				ThinVrfSignature::&lt;<span class="number">0</span>&gt;::deserialize_compressed(signature.signature.as_ref())
-					.map(|s| s.signature)
+					.map(|s| s.proof)
 			<span class="kw">else </span>{
 				<span class="kw">return </span><span class="bool-val">false
 			</span>};
-			<span class="kw">let </span>signature = ThinVrfSignature { signature, preoutputs: preouts };
+			<span class="kw">let </span>signature = ThinVrfSignature { proof, preouts };
 
 			<span class="kw">let </span>inputs = data.inputs.iter().map(|i| i.<span class="number">0</span>.clone());
 
-			signature.verify_thin_vrf(data.transcript.clone(), inputs, <span class="kw-2">&amp;</span>public).is_ok()
+			public.verify_thin_vrf(data.transcript.clone(), inputs, <span class="kw-2">&amp;</span>signature).is_ok()
 		}
 	}
 
@@ -1714,7 +1713,7 @@
 </span><span class="kw">pub mod </span>ring_vrf {
 	<span class="kw">use super</span>::{vrf::<span class="kw-2">*</span>, <span class="kw-2">*</span>};
 	<span class="kw">pub use </span>bandersnatch_vrfs::ring::{RingProof, RingProver, RingVerifier, KZG};
-	<span class="kw">use </span>bandersnatch_vrfs::{CanonicalDeserialize, PedersenVrfSignature, PublicKey};
+	<span class="kw">use </span>bandersnatch_vrfs::{CanonicalDeserialize, PublicKey};
 
 	<span class="doccomment">/// Context used to produce ring signatures.
 	</span><span class="attr">#[derive(Clone)]
@@ -1736,7 +1735,7 @@
 			<span class="kw">let </span><span class="kw-2">mut </span>pks = Vec::with_capacity(public_keys.len());
 			<span class="kw">for </span>public_key <span class="kw">in </span>public_keys {
 				<span class="kw">let </span>pk = PublicKey::deserialize_compressed(public_key.as_slice()).ok()<span class="question-mark">?</span>;
-				pks.push(pk.<span class="number">0 </span>.<span class="number">0</span>.into());
+				pks.push(pk.<span class="number">0</span>.into());
 			}
 
 			<span class="kw">let </span>prover_key = <span class="self">self</span>.<span class="number">0</span>.prover_key(pks);
@@ -1749,7 +1748,7 @@
 			<span class="kw">let </span><span class="kw-2">mut </span>pks = Vec::with_capacity(public_keys.len());
 			<span class="kw">for </span>public_key <span class="kw">in </span>public_keys {
 				<span class="kw">let </span>pk = PublicKey::deserialize_compressed(public_key.as_slice()).ok()<span class="question-mark">?</span>;
-				pks.push(pk.<span class="number">0 </span>.<span class="number">0</span>.into());
+				pks.push(pk.<span class="number">0</span>.into());
 			}
 
 			<span class="kw">let </span>verifier_key = <span class="self">self</span>.<span class="number">0</span>.verifier_key(pks);
@@ -1763,7 +1762,7 @@
 			<span class="kw">let </span><span class="kw-2">mut </span>buf = Box::new([<span class="number">0</span>; RING_CONTEXT_SERIALIZED_LEN]);
 			<span class="self">self</span>.<span class="number">0
 				</span>.serialize_compressed(buf.as_mut_slice())
-				.expect(<span class="string">&quot;preout serialization can&#39;t fail&quot;</span>);
+				.expect(<span class="string">&quot;serialization length is constant and checked by test; qed&quot;</span>);
 			buf.encode()
 		}
 	}
@@ -1798,10 +1797,8 @@
 	</span><span class="kw">pub struct </span>RingVrfSignature {
 		<span class="doccomment">/// VRF (pre)outputs.
 		</span><span class="kw">pub </span>outputs: VrfIosVec&lt;VrfOutput&gt;,
-		<span class="doccomment">/// Pedersen VRF signature.
-		</span><span class="kw">pub </span>signature: [u8; PEDERSEN_SIGNATURE_SERIALIZED_LEN],
-		<span class="doccomment">/// Ring proof.
-		</span><span class="kw">pub </span>ring_proof: [u8; RING_PROOF_SERIALIZED_LEN],
+		<span class="doccomment">/// Ring signature.
+		</span><span class="kw">pub </span>signature: [u8; RING_SIGNATURE_SERIALIZED_LEN],
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
@@ -1828,31 +1825,27 @@
 			data: <span class="kw-2">&amp;</span>VrfSignData,
 			prover: <span class="kw-2">&amp;</span>RingProver,
 		) -&gt; RingVrfSignature {
-			<span class="kw">let </span>ios: Vec&lt;<span class="kw">_</span>&gt; = data
-				.inputs
-				.iter()
-				.map(|i| <span class="self">self</span>.secret.clone().<span class="number">0</span>.vrf_inout(i.<span class="number">0</span>.clone()))
-				.collect();
+			<span class="kw">let </span>ios = core::array::from_fn(|i| {
+				<span class="kw">let </span>input = data.inputs[i].<span class="number">0</span>.clone();
+				<span class="self">self</span>.secret.vrf_inout(input)
+			});
 
 			<span class="kw">let </span>ring_signature: bandersnatch_vrfs::RingVrfSignature&lt;N&gt; =
-				<span class="self">self</span>.secret.sign_ring_vrf(data.transcript.clone(), ios.as_slice(), prover);
+				bandersnatch_vrfs::RingProver { ring_prover: prover, secret: <span class="kw-2">&amp;</span><span class="self">self</span>.secret }
+					.sign_ring_vrf(data.transcript.clone(), <span class="kw-2">&amp;</span>ios);
 
-			<span class="kw">let </span>outputs: Vec&lt;<span class="kw">_</span>&gt; = ring_signature.preoutputs.into_iter().map(VrfOutput).collect();
+			<span class="kw">let </span>outputs: Vec&lt;<span class="kw">_</span>&gt; = ring_signature.preouts.into_iter().map(VrfOutput).collect();
 			<span class="kw">let </span>outputs = VrfIosVec::truncate_from(outputs);
 
-			<span class="kw">let </span><span class="kw-2">mut </span>signature = [<span class="number">0</span>; PEDERSEN_SIGNATURE_SERIALIZED_LEN];
-			ring_signature
-				.signature
-				.serialize_compressed(signature.as_mut_slice())
-				.expect(<span class="string">&quot;ped-signature serialization can&#39;t fail&quot;</span>);
+			<span class="kw">let </span><span class="kw-2">mut </span>signature =
+				RingVrfSignature { outputs, signature: [<span class="number">0</span>; RING_SIGNATURE_SERIALIZED_LEN] };
 
-			<span class="kw">let </span><span class="kw-2">mut </span>ring_proof = [<span class="number">0</span>; RING_PROOF_SERIALIZED_LEN];
 			ring_signature
-				.ring_proof
-				.serialize_compressed(ring_proof.as_mut_slice())
-				.expect(<span class="string">&quot;ring-proof serialization can&#39;t fail&quot;</span>);
+				.proof
+				.serialize_compressed(signature.signature.as_mut_slice())
+				.expect(<span class="string">&quot;serialization length is constant and checked by test; qed&quot;</span>);
 
-			RingVrfSignature { outputs, signature, ring_proof }
+			signature
 		}
 	}
 
@@ -1861,7 +1854,7 @@
 		///
 		/// The signature is verifiable if it has been produced by a member of the ring
 		/// from which the [`RingVerifier`] has been constructed.
-		</span><span class="kw">pub fn </span>verify(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>VrfSignData, verifier: <span class="kw-2">&amp;</span>RingVerifier) -&gt; bool {
+		</span><span class="kw">pub fn </span>ring_vrf_verify(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>VrfSignData, verifier: <span class="kw-2">&amp;</span>RingVerifier) -&gt; bool {
 			<span class="kw">const _</span>: () = <span class="macro">assert!</span>(MAX_VRF_IOS == <span class="number">3</span>, <span class="string">&quot;`MAX_VRF_IOS` expected to be 3&quot;</span>);
 			<span class="kw">let </span>preouts_len = <span class="self">self</span>.outputs.len();
 			<span class="kw">if </span>preouts_len != data.inputs.len() {
@@ -1869,43 +1862,37 @@
 			</span>}
 			<span class="comment">// Workaround to overcome backend signature generic over the number of IOs.
 			</span><span class="kw">match </span>preouts_len {
-				<span class="number">0 </span>=&gt; <span class="self">self</span>.verify_gen::&lt;<span class="number">0</span>&gt;(data, verifier),
-				<span class="number">1 </span>=&gt; <span class="self">self</span>.verify_gen::&lt;<span class="number">1</span>&gt;(data, verifier),
-				<span class="number">2 </span>=&gt; <span class="self">self</span>.verify_gen::&lt;<span class="number">2</span>&gt;(data, verifier),
-				<span class="number">3 </span>=&gt; <span class="self">self</span>.verify_gen::&lt;<span class="number">3</span>&gt;(data, verifier),
+				<span class="number">0 </span>=&gt; <span class="self">self</span>.ring_vrf_verify_gen::&lt;<span class="number">0</span>&gt;(data, verifier),
+				<span class="number">1 </span>=&gt; <span class="self">self</span>.ring_vrf_verify_gen::&lt;<span class="number">1</span>&gt;(data, verifier),
+				<span class="number">2 </span>=&gt; <span class="self">self</span>.ring_vrf_verify_gen::&lt;<span class="number">2</span>&gt;(data, verifier),
+				<span class="number">3 </span>=&gt; <span class="self">self</span>.ring_vrf_verify_gen::&lt;<span class="number">3</span>&gt;(data, verifier),
 				<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
 			}
 		}
 
-		<span class="kw">fn </span>verify_gen&lt;<span class="kw">const </span>N: usize&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>VrfSignData, verifier: <span class="kw-2">&amp;</span>RingVerifier) -&gt; bool {
-			<span class="kw">let </span><span class="prelude-val">Ok</span>(preoutputs) = <span class="self">self
-				</span>.outputs
-				.iter()
-				.map(|o| o.<span class="number">0</span>.clone())
-				.collect::&lt;arrayvec::ArrayVec&lt;bandersnatch_vrfs::VrfPreOut, N&gt;&gt;()
-				.into_inner()
+		<span class="kw">fn </span>ring_vrf_verify_gen&lt;<span class="kw">const </span>N: usize&gt;(
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
+			data: <span class="kw-2">&amp;</span>VrfSignData,
+			verifier: <span class="kw-2">&amp;</span>RingVerifier,
+		) -&gt; bool {
+			<span class="kw">let </span><span class="prelude-val">Ok</span>(vrf_signature) =
+				bandersnatch_vrfs::RingVrfSignature::&lt;<span class="number">0</span>&gt;::deserialize_compressed(
+					<span class="self">self</span>.signature.as_slice(),
+				)
 			<span class="kw">else </span>{
 				<span class="kw">return </span><span class="bool-val">false
 			</span>};
 
-			<span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
-				PedersenVrfSignature::deserialize_compressed(<span class="self">self</span>.signature.as_slice())
-			<span class="kw">else </span>{
-				<span class="kw">return </span><span class="bool-val">false
-			</span>};
+			<span class="kw">let </span>preouts: [bandersnatch_vrfs::VrfPreOut; N] =
+				core::array::from_fn(|i| <span class="self">self</span>.outputs[i].<span class="number">0</span>.clone());
 
-			<span class="kw">let </span><span class="prelude-val">Ok</span>(ring_proof) = RingProof::deserialize_compressed(<span class="self">self</span>.ring_proof.as_slice())
-			<span class="kw">else </span>{
-				<span class="kw">return </span><span class="bool-val">false
-			</span>};
-
-			<span class="kw">let </span>ring_signature =
-				bandersnatch_vrfs::RingVrfSignature { signature, preoutputs, ring_proof };
+			<span class="kw">let </span>signature =
+				bandersnatch_vrfs::RingVrfSignature { proof: vrf_signature.proof, preouts };
 
 			<span class="kw">let </span>inputs = data.inputs.iter().map(|i| i.<span class="number">0</span>.clone());
 
-			ring_signature
-				.verify_ring_vrf(data.transcript.clone(), inputs, verifier)
+			bandersnatch_vrfs::RingVerifier(verifier)
+				.verify_ring_vrf(data.transcript.clone(), inputs, <span class="kw-2">&amp;</span>signature)
 				.is_ok()
 		}
 	}
@@ -1927,17 +1914,42 @@
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>assumptions_sanity_check() {
-		<span class="comment">// Backend
-		</span><span class="kw">let </span>ring_ctx = RingContext::new_testing();
-		<span class="kw">let </span>pair = SecretKey::from_seed(DEV_SEED);
-		<span class="kw">let </span>public = pair.to_public();
+	</span><span class="kw">fn </span>backend_assumptions_sanity_check() {
+		<span class="kw">let </span>kzg = KZG::testing_kzg_setup([<span class="number">0</span>; <span class="number">32</span>], RING_DOMAIN_SIZE <span class="kw">as </span>u32);
+		<span class="macro">assert_eq!</span>(kzg.max_keyset_size(), RING_DOMAIN_SIZE - <span class="number">257</span>);
+		<span class="macro">assert_eq!</span>(kzg.compressed_size(), RING_CONTEXT_SERIALIZED_LEN);
 
-		<span class="macro">assert_eq!</span>(public.<span class="number">0</span>.size_of_serialized(), PUBLIC_SERIALIZED_LEN);
-		<span class="macro">assert_eq!</span>(ring_ctx.max_keyset_size(), RING_DOMAIN_SIZE - <span class="number">257</span>);
+		<span class="kw">let </span>pks: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..<span class="number">16</span>)
+			.map(|i| SecretKey::from_seed(<span class="kw-2">&amp;</span>[i <span class="kw">as </span>u8; <span class="number">32</span>]).to_public().<span class="number">0</span>.into())
+			.collect();
 
-		<span class="comment">// Wrapper
-		</span><span class="kw">let </span>inputs: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..MAX_VRF_IOS - <span class="number">1</span>).map(|<span class="kw">_</span>| VrfInput::new(<span class="string">b&quot;&quot;</span>, <span class="kw-2">&amp;</span>[])).collect();
+		<span class="kw">let </span>secret = SecretKey::from_seed(<span class="kw-2">&amp;</span>[<span class="number">0u8</span>; <span class="number">32</span>]);
+
+		<span class="kw">let </span>public = secret.to_public();
+		<span class="macro">assert_eq!</span>(public.compressed_size(), PUBLIC_SERIALIZED_LEN);
+
+		<span class="kw">let </span>input = VrfInput::new(<span class="string">b&quot;foo&quot;</span>, <span class="kw-2">&amp;</span>[]);
+		<span class="kw">let </span>preout = secret.vrf_preout(<span class="kw-2">&amp;</span>input.<span class="number">0</span>);
+		<span class="macro">assert_eq!</span>(preout.compressed_size(), PREOUT_SERIALIZED_LEN);
+
+		<span class="kw">let </span>prover_key = kzg.prover_key(pks);
+		<span class="kw">let </span>ring_prover = kzg.init_ring_prover(prover_key, <span class="number">0</span>);
+
+		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b&quot;mydata&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">b&quot;tdata&quot;</span>], <span class="prelude-val">None</span>);
+
+		<span class="kw">let </span>thin_signature: bandersnatch_vrfs::ThinVrfSignature&lt;<span class="number">0</span>&gt; =
+			secret.sign_thin_vrf(data.transcript.clone(), <span class="kw-2">&amp;</span>[]);
+		<span class="macro">assert_eq!</span>(thin_signature.compressed_size(), SIGNATURE_SERIALIZED_LEN);
+
+		<span class="kw">let </span>ring_signature: bandersnatch_vrfs::RingVrfSignature&lt;<span class="number">0</span>&gt; =
+			bandersnatch_vrfs::RingProver { ring_prover: <span class="kw-2">&amp;</span>ring_prover, secret: <span class="kw-2">&amp;</span>secret }
+				.sign_ring_vrf(data.transcript.clone(), <span class="kw-2">&amp;</span>[]);
+		<span class="macro">assert_eq!</span>(ring_signature.compressed_size(), RING_SIGNATURE_SERIALIZED_LEN);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>max_vrf_ios_bound_respected() {
+		<span class="kw">let </span>inputs: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..MAX_VRF_IOS - <span class="number">1</span>).map(|<span class="kw">_</span>| VrfInput::new(<span class="string">b&quot;&quot;</span>, <span class="kw-2">&amp;</span>[])).collect();
 		<span class="kw">let </span><span class="kw-2">mut </span>sign_data = VrfSignData::new(<span class="string">b&quot;&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">b&quot;&quot;</span>], inputs).unwrap();
 		<span class="kw">let </span>res = sign_data.push_vrf_input(VrfInput::new(<span class="string">b&quot;&quot;</span>, <span class="string">b&quot;&quot;</span>));
 		<span class="macro">assert!</span>(res.is_ok());
@@ -2074,7 +2086,7 @@
 		<span class="kw">let </span>signature = pair.ring_vrf_sign(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>prover);
 
 		<span class="kw">let </span>verifier = ring_ctx.verifier(<span class="kw-2">&amp;</span>pks).unwrap();
-		<span class="macro">assert!</span>(signature.verify(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>verifier));
+		<span class="macro">assert!</span>(signature.ring_vrf_verify(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>verifier));
 	}
 
 	<span class="attr">#[test]
@@ -2093,7 +2105,7 @@
 		<span class="kw">let </span>signature = pair.ring_vrf_sign(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>prover);
 
 		<span class="kw">let </span>verifier = ring_ctx.verifier(<span class="kw-2">&amp;</span>pks).unwrap();
-		<span class="macro">assert!</span>(!signature.verify(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>verifier));
+		<span class="macro">assert!</span>(!signature.ring_vrf_verify(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>verifier));
 	}
 
 	<span class="attr">#[test]
@@ -2149,10 +2161,8 @@
 
 		<span class="kw">let </span>bytes = expected.encode();
 
-		<span class="kw">let </span>expected_len = data.inputs.len() * PREOUT_SERIALIZED_LEN +
-			PEDERSEN_SIGNATURE_SERIALIZED_LEN +
-			RING_PROOF_SERIALIZED_LEN +
-			<span class="number">1</span>;
+		<span class="kw">let </span>expected_len =
+			data.inputs.len() * PREOUT_SERIALIZED_LEN + RING_SIGNATURE_SERIALIZED_LEN + <span class="number">1</span>;
 		<span class="macro">assert_eq!</span>(bytes.len(), expected_len);
 
 		<span class="kw">let </span>decoded = RingVrfSignature::decode(<span class="kw-2">&amp;mut </span>bytes.as_slice()).unwrap();
