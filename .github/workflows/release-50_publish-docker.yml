@@ -228,7 +228,7 @@ jobs:
         run: |
           apt update
           apt show polkadot
-          version=$(sudo apt show polkadot 2>/dev/null | grep "Version:" | awk '{print $2}')
+          version=$(apt show polkadot 2>/dev/null | grep "Version:" | awk '{print $2}')
           echo "polkadot_apt_version=v$version" >> $GITHUB_OUTPUT
           echo "You passed ${{ inputs.version }} but this is ignored"
           echo "We use the version from the Debian Package: $version"
