@@ -31,7 +31,7 @@ pub trait ArchiveApi<Hash> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[method(name = "archive_unstable_body")]
-	fn archive_unstable_body(&self, hash: Hash) -> RpcResult<Option<String>>;
+	fn archive_unstable_body(&self, hash: Hash) -> RpcResult<Option<Vec<String>>>;
 
 	/// Get the chain's genesis hash.
 	///

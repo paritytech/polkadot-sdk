@@ -18,8 +18,13 @@
 
 //! API implementation for `archive`.
 
+use super::ArchiveApiServer;
 use crate::{chain_head::hex_string, SubscriptionTaskExecutor};
-use sc_client_api::Backend;
+use codec::Encode;
+use jsonrpsee::core::{async_trait, RpcResult};
+use sc_client_api::{Backend, BlockBackend, BlockchainEvents, ExecutorProvider, StorageProvider};
+use sp_api::CallApiAt;
+use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc};
 
@@ -28,9 +33,9 @@ pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
 	/// Substrate client.
 	client: Arc<Client>,
 	/// Backend of the chain.
-	backend: Arc<BE>,
+	_backend: Arc<BE>,
 	/// Executor to spawn subscriptions.
-	executor: SubscriptionTaskExecutor,
+	_executor: SubscriptionTaskExecutor,
 	/// The hexadecimal encoded hash of the genesis block.
 	genesis_hash: String,
 	/// Phantom member to pin the block type.
@@ -46,6 +51,45 @@ impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {
 		genesis_hash: GenesisHash,
 	) -> Self {
 		let genesis_hash = hex_string(&genesis_hash.as_ref());
-		Self { client, backend: backend.clone(), executor, genesis_hash, _phantom: PhantomData }
+		Self {
+			client,
+			_backend: backend.clone(),
+			_executor: executor,
+			genesis_hash,
+			_phantom: PhantomData,
+		}
+	}
+}
+
+#[async_trait]
+impl<BE, Block, Client> ArchiveApiServer<Block::Hash> for Archive<BE, Block, Client>
+where
+	Block: BlockT + 'static,
+	Block::Header: Unpin,
+	BE: Backend<Block> + 'static,
+	Client: BlockBackend<Block>
+		+ ExecutorProvider<Block>
+		+ HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = BlockChainError>
+		+ BlockchainEvents<Block>
+		+ CallApiAt<Block>
+		+ StorageProvider<Block, BE>
+		+ 'static,
+{
+	fn archive_unstable_body(&self, hash: Block::Hash) -> RpcResult<Option<Vec<String>>> {
+		let Ok(Some(signed_block)) = self.client.block(hash) else { return Ok(None) };
+
+		let extrinsics = signed_block
+			.block
+			.extrinsics()
+			.iter()
+			.map(|extrinsic| hex_string(&extrinsic.encode()))
+			.collect();
+
+		Ok(Some(extrinsics))
+	}
+
+	fn archive_unstable_genesis_hash(&self) -> RpcResult<String> {
+		Ok(self.genesis_hash.clone())
 	}
 }
