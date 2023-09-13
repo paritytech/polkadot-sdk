@@ -123,7 +123,6 @@ where
 	fn storage_prefix() -> &'static [u8] {
 		Prefix::STORAGE_PREFIX.as_bytes()
 	}
-
 	fn prefix_hash() -> Vec<u8> {
 		Prefix::prefix_hash().to_vec()
 	}

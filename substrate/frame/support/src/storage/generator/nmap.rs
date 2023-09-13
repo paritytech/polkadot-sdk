@@ -67,12 +67,10 @@ pub trait StorageNMap<K: KeyGenerator, V: FullCodec> {
 	/// Storage prefix. Used for generating final key.
 	fn storage_prefix() -> &'static [u8];
 
-	// TODO: use [u8; 32]?
 	/// The full prefix; just the hash of `module_prefix` concatenated to the hash of
 	/// `storage_prefix`.
 	fn prefix_hash() -> Vec<u8> {
-		let result = storage_prefix(Self::module_prefix(), Self::storage_prefix());
-		result.to_vec()
+		storage_prefix(Self::module_prefix(), Self::storage_prefix()).to_vec()
 	}
 
 	/// Convert an optional value retrieved from storage to the type queried.

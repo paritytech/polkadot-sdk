@@ -48,7 +48,6 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	/// Storage prefix. Used for generating final key.
 	fn storage_prefix() -> &'static [u8];
 
-	// TODO: use [u8; 32]?
 	/// The full prefix; just the hash of `module_prefix` concatenated to the hash of
 	/// `storage_prefix`.
 	fn prefix_hash() -> Vec<u8> {

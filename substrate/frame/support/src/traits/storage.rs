@@ -72,7 +72,7 @@ pub trait StorageInstance {
 	/// Return the prefix hash of storage instance.
 	/// NOTE: This hash must be `twox_128(STORAGE_PREFIX)`.
 	fn storage_prefix_hash() -> [u8; 16] {
-		sp_io::hashing::twox_128(Self::pallet_prefix().as_bytes())
+		sp_io::hashing::twox_128(Self::STORAGE_PREFIX.as_bytes())
 	}
 
 	/// Return the prefix hash of storage instance instance.
