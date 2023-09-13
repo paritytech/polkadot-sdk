@@ -196,7 +196,7 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 		match (left, right) {
 			// Root is greater than anything.
 			(OriginCaller::system(frame_system::RawOrigin::Root), _) => Some(Ordering::Greater),
-			// Check which one has more yes.
+			// Check which one has more yes votes.
 			(
 				OriginCaller::Council(pallet_collective::RawOrigin::Members(l_yes_votes, l_count)),
 				OriginCaller::Council(pallet_collective::RawOrigin::Members(r_yes_votes, r_count)),
