@@ -703,6 +703,7 @@ fn serialize_test_tickets() {
 	use sp_core::crypto::Pair;
 
 	let authorities_count = 20;
+	let tickets_count = 20;
 
 	let (pairs, mut ext) = new_test_ext_with_pairs(authorities_count, true);
 	let pair = &pairs[0];
@@ -710,7 +711,7 @@ fn serialize_test_tickets() {
 	let authorities: Vec<_> = pairs.iter().map(|sk| sk.public()).collect();
 
 	ext.execute_with(|| {
-		let tickets = make_tickets(attempts, &pair);
+		let tickets = make_tickets(tickets_count, &pair);
 		let data = PreBuiltTickets { tickets, authorities };
 		tickets_data_write(data);
 	});

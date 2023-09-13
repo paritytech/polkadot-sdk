@@ -65,13 +65,6 @@ impl frame_system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-impl pallet_timestamp::Config for Test {
-	type Moment = u64;
-	type OnTimestampSet = (); //Sassafras;
-	type MinimumPeriod = ConstU64<1>;
-	type WeightInfo = ();
-}
-
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
 where
 	RuntimeCall: From<C>,
