@@ -19,12 +19,17 @@ build-linux-stable:
     RUN_UI_TESTS: 1
   script:
     - time cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
+    - time ROCOCO_EPOCH_DURATION=10  ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-10/
+    - time ROCOCO_EPOCH_DURATION=100 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-100/
+    - pwd
+    - ls -alR runtimes
     # pack artifacts
     - mkdir -p ./artifacts
     - VERSION="${CI_COMMIT_REF_NAME}" # will be tag or branch name
     - mv ./target/testnet/polkadot ./artifacts/.
     - mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
     - mv ./target/testnet/polkadot-execute-worker ./artifacts/.
+    - mv ./runtimes/ ./artifacts/.
     - pushd artifacts
     - sha256sum polkadot | tee polkadot.sha256
     - shasum -c polkadot.sha256
