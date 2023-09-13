@@ -44,7 +44,7 @@ pub use polkadot_core_primitives::v2::{
 // Export some polkadot-parachain primitives
 pub use polkadot_parachain_primitives::primitives::{
 	HeadData, HorizontalMessages, HrmpChannelId, Id, UpwardMessage, UpwardMessages, ValidationCode,
-	ValidationCodeHash, LOWEST_PUBLIC_ID, LOWEST_USER_ID,
+	ValidationCodeHash, LOWEST_PUBLIC_ID,
 };
 
 use serde::{Deserialize, Serialize};
