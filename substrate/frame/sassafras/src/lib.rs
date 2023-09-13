@@ -121,10 +121,17 @@ pub mod pallet {
 		/// Max number of authorities allowed
 		#[pallet::constant]
 		type MaxAuthorities: Get<u32>;
+	}
 
-		/// Max number of tickets that are considered for each epoch.
-		#[pallet::constant]
-		type MaxTickets: Get<u32>;
+	/// Max number of tickets allowed for the configuration.
+	///
+	/// In practice trims down the `Config::EpochDuration` value to at most u32::MAX.
+	pub struct MaxTicketsFor<T: Config>(sp_std::marker::PhantomData<T>);
+
+	impl<T: Config> Get<u32> for MaxTicketsFor<T> {
+		fn get() -> u32 {
+			T::EpochDuration::get().try_into().unwrap_or(u32::MAX)
+		}
 	}
 
 	/// Sassafras runtime errors.
@@ -176,8 +183,8 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
 
-	/// Temporary value (cleared at block finalization) which is `Some`
-	/// if per-block initialization has already been called for current block.
+	/// Temporary value which is `Some` if per-block initialization has already been called
+	/// for current block. Cleared on block finalization.
 	#[pallet::storage]
 	#[pallet::getter(fn initialized)]
 	pub type Initialized<T> = StorageValue<_, SlotClaim>;
@@ -194,6 +201,7 @@ pub mod pallet {
 
 	/// Pending epoch configuration change that will be set as `NextEpochConfig` when the next
 	/// epoch is enacted.
+	///
 	/// In other words, a config change submitted during epoch N will be enacted on epoch N+2.
 	/// This is to maintain coherence for already submitted tickets for epoch N+1 that where
 	/// computed using configuration parameters stored for epoch N+1.
@@ -205,6 +213,7 @@ pub mod pallet {
 	pub type TicketsMeta<T> = StorageValue<_, TicketsMetadata, ValueQuery>;
 
 	/// Tickets identifiers.
+	///
 	/// The key is a tuple composed by:
 	/// - `u8` equal to epoch-index mod 2
 	/// - `u32` equal to the slot-index.
@@ -216,14 +225,19 @@ pub mod pallet {
 	pub type TicketsData<T> = StorageMap<_, Identity, TicketId, TicketBody>;
 
 	/// Next epoch tickets accumulator.
-	/// Special `u32::MAX` key is reserved for a partially sorted segment.
-	// This bound is set as `MaxTickets` in the unlucky case where we receive one Ticket at a time.
-	// The max capacity is thus MaxTickets^2. Not much, given that we save `TicketIds` here.
+	///
+	/// Contains lists of tickets where each list represents a burst of tickets received
+	/// via the `submit_tickets` extrinsic.
+	/// Given that each list max capacity is bounded by the max tickets we can handle
+	/// in one epoch, there's enough space for tickets here.
+	///
+	/// Special `u32::MAX` key is reserved for the most recently sorted segment.
 	#[pallet::storage]
 	pub type NextTicketsSegments<T: Config> =
-		StorageMap<_, Identity, u32, BoundedVec<TicketId, T::MaxTickets>, ValueQuery>;
+		StorageMap<_, Identity, u32, BoundedVec<TicketId, MaxTicketsFor<T>>, ValueQuery>;
 
-	/// Parameters used to verify tickets validity via ring-proof
+	/// Parameters used to verify tickets validity via ring-proof.
+	///
 	/// In practice: Updatable Universal Reference String and the seed.
 	#[pallet::storage]
 	#[pallet::getter(fn ring_context)]
@@ -339,7 +353,7 @@ pub mod pallet {
 		#[pallet::weight({0})]
 		pub fn submit_tickets(
 			origin: OriginFor<T>,
-			tickets: BoundedVec<TicketEnvelope, T::MaxTickets>,
+			tickets: BoundedVec<TicketEnvelope, MaxTicketsFor<T>>,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 
@@ -842,7 +856,7 @@ impl<T: Config> Pallet<T> {
 	// next epoch tickets, else it is saved to be used by next calls to this function.
 	fn sort_tickets(mut max_segments: u32, epoch_tag: u8, metadata: &mut TicketsMetadata) {
 		max_segments = max_segments.min(metadata.segments_count);
-		let max_tickets = T::MaxTickets::get() as usize;
+		let max_tickets = MaxTicketsFor::<T>::get() as usize;
 
 		// Fetch the sorted result (if any).
 		let mut sorted_segment = NextTicketsSegments::<T>::take(u32::MAX).into_inner();

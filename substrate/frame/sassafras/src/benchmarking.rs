@@ -18,25 +18,20 @@
 //! Benchmarks for the Sassafras pallet.
 
 use super::*;
+use sp_std::vec;
 
-use sp_core::crypto::Pair;
+// use sp_consensus_sassafras::EpochConfiguration;
 
 use frame_benchmarking::v2::*;
-// use frame_system::RawOrigin;
+use frame_system::RawOrigin;
 
-// // Makes a dummy ticket envelope.
-// // The resulting ticket-id is not very important and is expected to be below the
-// // configured threshold (which is guaranteed because we are using
-// mock::TEST_EPOCH_CONFIGURATION). fn make_dummy_ticket(attempt_idx: u32) -> TicketEnvelope {
-// 	let mut output_enc: &[u8] = &[
-// 		0x0c, 0x1a, 0x83, 0x5e, 0x56, 0x9b, 0x18, 0xa0, 0xd9, 0x13, 0x39, 0x7e, 0xb9, 0x5a, 0x39,
-// 		0x83, 0xf3, 0xc5, 0x73, 0xf6, 0xb1, 0x35, 0xa6, 0x48, 0xa3, 0x83, 0xac, 0x3b, 0xb8, 0x43,
-// 		0xa7, 0x3d,
-// 	];
-// 	let output = VrfOutput::decode(&mut output_enc).unwrap();
-// 	let data = TicketData { attempt_idx, erased_public: Default::default() };
-// 	TicketEnvelope { data, vrf_preout: output, ring_proof: () }
-// }
+const TICKETS_DATA: &[u8] = include_bytes!("../tickets.bin");
+
+#[derive(Encode, Decode)]
+struct PreBuiltTickets {
+	authorities: Vec<AuthorityId>,
+	tickets: Vec<TicketEnvelope>,
+}
 
 #[benchmarks]
 mod benchmarks {
@@ -44,11 +39,25 @@ mod benchmarks {
 
 	#[benchmark]
 	fn check_ticket() {
-		#[block]
-		{
-			let _pks =
-				(0..10).map(|i| AuthorityPair::from_seed(&[i as u8; 32])).collect::<Vec<_>>();
-		}
+		let mut raw_data = TICKETS_DATA;
+		let PreBuiltTickets { authorities, tickets } =
+			PreBuiltTickets::decode(&mut raw_data).expect("Failed to decode tickets buffer");
+		let authorities = WeakBoundedVec::force_from(authorities, None);
+
+		Authorities::<T>::set(authorities);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		#[extrinsic_call]
+		submit_tickets(RawOrigin::Signed(caller), tickets);
+
+		// #[block]
+		// {
+		// 	let authorities_num = T::MaxAuthorities::get();
+		// 	let authorities = Authorities::<T>::get();
+		// 	log::debug!(target: "sassafras", "AUTH NUM: {}", authorities.len());
+
+		// }
 	}
 }
 // submit_tickets {
@@ -58,8 +67,17 @@ mod benchmarks {
 // 	// 	(0..x).map(make_dummy_ticket).collect::<Vec<_>>().try_into().unwrap();
 // }: _(RawOrigin::None, tickets)
 
-// impl_benchmark_test_suite!(
-// 	Pallet,
-// 	crate::mock::new_test_ext(1),
-// 	crate::mock::Test,
-// )
+// #[panic_handler]
+// #[no_mangle]
+// pub fn panic(info: &core::panic::PanicInfo) -> ! {
+// 	let message = sp_std::alloc::format!("{}", info);
+// 	#[cfg(feature = "improved_panic_error_reporting")]
+// 	{
+// 		panic_handler::abort_on_panic(&message);
+// 	}
+// 	#[cfg(not(feature = "improved_panic_error_reporting"))]
+// 	{
+// 		logging::log(LogLevel::Error, "runtime", message.as_bytes());
+// 		core::arch::wasm32::unreachable();
+// 	}
+// }

@@ -38,7 +38,6 @@ use sp_runtime::{
 
 const SLOT_DURATION: u64 = 1000;
 const EPOCH_DURATION: u64 = 10;
-const MAX_TICKETS: u32 = 6;
 
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -85,8 +84,7 @@ impl pallet_sassafras::Config for Test {
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 	type EpochDuration = ConstU64<EPOCH_DURATION>;
 	type EpochChangeTrigger = SameAuthoritiesForever;
-	type MaxAuthorities = ConstU32<20>;
-	type MaxTickets = ConstU32<MAX_TICKETS>;
+	type MaxAuthorities = ConstU32<100>;
 }
 
 frame_support::construct_runtime!(
@@ -252,15 +250,15 @@ pub fn persist_next_epoch_tickets_as_segments(
 	if segments_count > tickets.len() {
 		segments_count = tickets.len();
 	}
-	let segment_len = tickets.len() / segments_count;
+	let segment_len = 1 + (tickets.len() - 1) / segments_count;
 
 	// Update metadata
 	let mut meta = TicketsMeta::<Test>::get();
 	meta.segments_count += segments_count as u32;
 	TicketsMeta::<Test>::set(meta);
 
-	for i in 0..segments_count {
-		let segment: Vec<TicketId> = tickets[i * segment_len..(i + 1) * segment_len]
+	for (chunk_id, chunk) in tickets.chunks(segment_len).enumerate() {
+		let segment: Vec<TicketId> = chunk
 			.iter()
 			.map(|(id, body)| {
 				TicketsData::<Test>::set(id, Some(body.clone()));
@@ -268,7 +266,7 @@ pub fn persist_next_epoch_tickets_as_segments(
 			})
 			.collect();
 		let segment = BoundedVec::truncate_from(segment);
-		NextTicketsSegments::<Test>::insert(i as u32, segment);
+		NextTicketsSegments::<Test>::insert(chunk_id as u32, segment);
 	}
 }
 

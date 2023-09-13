@@ -43,14 +43,14 @@ fn genesis_values_assumptions_check() {
 #[test]
 fn slot_ticket_id_outside_in_fetch() {
 	let genesis_slot = Slot::from(100);
-	let max_tickets: u32 = <Test as Config>::MaxTickets::get();
-	assert_eq!(max_tickets, 6);
+	let tickets_count = 6;
 
 	// Current epoch tickets
-	let curr_tickets: Vec<TicketId> = (0..max_tickets).map(|i| i as TicketId).collect();
+	let curr_tickets: Vec<TicketId> = (0..tickets_count).map(|i| i as TicketId).collect();
 
+	// Next epoch tickets
 	let next_tickets: Vec<TicketId> =
-		(0..max_tickets - 1).map(|i| (i + max_tickets) as TicketId).collect();
+		(0..tickets_count - 1).map(|i| (i + tickets_count) as TicketId).collect();
 
 	new_test_ext(4).execute_with(|| {
 		curr_tickets
@@ -68,9 +68,9 @@ fn slot_ticket_id_outside_in_fetch() {
 			segments_count: 0,
 		});
 
-		// Before initializing `GenesisSlot` value the pallet always return the first slot
+		// Before initializing `GenesisSlot` value the pallet always return the first slot.
 		// This is a kind of special hardcoded case that should never happen in practice
-		// (i.e. the first thing the pallet does is to initialize the genesis slot).
+		// as the first thing the pallet does is to initialize the genesis slot.
 
 		assert_eq!(Sassafras::slot_ticket_id(0.into()), Some(curr_tickets[1]));
 		assert_eq!(Sassafras::slot_ticket_id(genesis_slot + 0), Some(curr_tickets[1]));
@@ -80,7 +80,7 @@ fn slot_ticket_id_outside_in_fetch() {
 		// Initialize genesis slot..
 		GenesisSlot::<Test>::set(genesis_slot);
 
-		// Try fetch a ticket for a slot before current epoch.
+		// Try to fetch a ticket for a slot before current epoch.
 		assert_eq!(Sassafras::slot_ticket_id(0.into()), None);
 
 		// Current epoch tickets.
@@ -107,7 +107,7 @@ fn slot_ticket_id_outside_in_fetch() {
 		assert_eq!(Sassafras::slot_ticket_id(genesis_slot + 18), Some(next_tickets[2]));
 		assert_eq!(Sassafras::slot_ticket_id(genesis_slot + 19), Some(next_tickets[0]));
 
-		// Try fetch tickets for slots beyend next epoch.
+		// Try to fetch tickets for slots beyend next epoch.
 		assert_eq!(Sassafras::slot_ticket_id(genesis_slot + 20), None);
 		assert_eq!(Sassafras::slot_ticket_id(genesis_slot + 42), None);
 	});
@@ -352,16 +352,14 @@ fn segments_incremental_sort_works() {
 	let start_block = 1;
 
 	ext.execute_with(|| {
-		let max_tickets: u32 = <Test as Config>::MaxTickets::get();
-		let tickets_count = segments_count * max_tickets;
+		let epoch_duration: u64 = <Test as Config>::EpochDuration::get();
+		let tickets_count = segments_count * epoch_duration as u32 - 3;
 
-		initialize_block(start_block, start_slot, Default::default(), &pairs[0]);
+		initialize_block(start_block, start_slot, Default::default(), pair);
 
 		// Manually populate the segments to skip the threshold check
 		let mut tickets = make_ticket_bodies(tickets_count, pair);
 		persist_next_epoch_tickets_as_segments(&tickets, segments_count as usize);
-
-		let epoch_duration: u64 = <Test as Config>::EpochDuration::get();
 
 		// Proceed to half of the epoch (sortition should not have been started yet)
 		let half_epoch_block = start_block + epoch_duration / 2;
@@ -401,25 +399,26 @@ fn segments_incremental_sort_works() {
 		// Bigger ticket ids were discarded during sortition.
 		let meta = TicketsMeta::<Test>::get();
 		assert_eq!(meta.segments_count, 0);
-		assert_eq!(meta.tickets_count, [0, max_tickets]);
+		assert_eq!(meta.tickets_count, [0, epoch_duration as u32]);
+		// Epoch change log should have been pushed as well
 		assert_eq!(header.digest.logs.len(), 1);
 		// No tickets for the current epoch
 		assert_eq!(TicketsIds::<Test>::get((0, 0)), None);
 
-		// Check persistence of good tickets
+		// Check persistence of "winning" tickets
 		tickets.sort_by_key(|t| t.0);
-		(0..max_tickets as usize).into_iter().for_each(|i| {
+		(0..epoch_duration as usize).into_iter().for_each(|i| {
 			let id = TicketsIds::<Test>::get((1, i as u32)).unwrap();
 			let body = TicketsData::<Test>::get(id).unwrap();
 			assert_eq!((id, body), tickets[i]);
 		});
-		// Check removal of bad tickets
-		(max_tickets as usize..tickets.len()).into_iter().for_each(|i| {
+		// Check removal of "loosing" tickets
+		(epoch_duration as usize..tickets.len()).into_iter().for_each(|i| {
 			assert!(TicketsIds::<Test>::get((1, i as u32)).is_none());
 			assert!(TicketsData::<Test>::get(tickets[i].0).is_none());
 		});
 
-		// The next block will be the first produced on the new epoch,
+		// The next block will be the first produced on the new epoch.
 		// At this point the tickets are found already sorted and ready to be used.
 		let slot = Sassafras::current_slot() + 1;
 		let number = System::block_number() + 1;
@@ -436,10 +435,9 @@ fn tickets_fetch_works_after_epoch_change() {
 	let pair = &pairs[0];
 	let start_slot = Slot::from(100);
 	let start_block = 1;
+	let tickets_count = 20;
 
 	ext.execute_with(|| {
-		let max_tickets: u32 = <Test as Config>::MaxTickets::get();
-
 		initialize_block(start_block, start_slot, Default::default(), pair);
 
 		// We don't want to trigger an epoch change in this test.
@@ -448,30 +446,35 @@ fn tickets_fetch_works_after_epoch_change() {
 		progress_to_block(2, &pairs[0]).unwrap();
 
 		// Persist tickets as three different segments.
-		let tickets = make_ticket_bodies(3 * max_tickets, pair);
+		let tickets = make_ticket_bodies(tickets_count, pair);
 		persist_next_epoch_tickets_as_segments(&tickets, 3);
+
+		assert_eq!(
+			TicketsMeta::<Test>::get(),
+			TicketsMetadata { segments_count: 3, tickets_count: [0, 0] },
+		);
 
 		// Progress up to the last epoch slot (do not enact epoch change)
 		progress_to_block(epoch_duration, &pairs[0]).unwrap();
 
-		// At this point next tickets should have been sorted and ready to be used
+		// At this point next epoch tickets should have been sorted and ready to be used
 		assert_eq!(
 			TicketsMeta::<Test>::get(),
-			TicketsMetadata { segments_count: 0, tickets_count: [0, 6] },
+			TicketsMetadata { segments_count: 0, tickets_count: [0, epoch_duration as u32] },
 		);
 
 		// Compute and sort the tickets ids (aka tickets scores)
 		let mut expected_ids: Vec<_> = tickets.into_iter().map(|(id, _)| id).collect();
 		expected_ids.sort();
-		expected_ids.truncate(max_tickets as usize);
+		expected_ids.truncate(epoch_duration as usize);
 
 		// Check if we can fetch next epoch tickets ids (outside-in).
 		let slot = Sassafras::current_slot();
 		assert_eq!(Sassafras::slot_ticket_id(slot + 1).unwrap(), expected_ids[1]);
 		assert_eq!(Sassafras::slot_ticket_id(slot + 2).unwrap(), expected_ids[3]);
 		assert_eq!(Sassafras::slot_ticket_id(slot + 3).unwrap(), expected_ids[5]);
-		assert!(Sassafras::slot_ticket_id(slot + 4).is_none());
-		assert!(Sassafras::slot_ticket_id(slot + 7).is_none());
+		assert_eq!(Sassafras::slot_ticket_id(slot + 4).unwrap(), expected_ids[7]);
+		assert_eq!(Sassafras::slot_ticket_id(slot + 7).unwrap(), expected_ids[6]);
 		assert_eq!(Sassafras::slot_ticket_id(slot + 8).unwrap(), expected_ids[4]);
 		assert_eq!(Sassafras::slot_ticket_id(slot + 9).unwrap(), expected_ids[2]);
 		assert_eq!(Sassafras::slot_ticket_id(slot + 10).unwrap(), expected_ids[0]);
@@ -483,15 +486,15 @@ fn tickets_fetch_works_after_epoch_change() {
 
 		let meta = TicketsMeta::<Test>::get();
 		assert_eq!(meta.segments_count, 0);
-		assert_eq!(meta.tickets_count, [0, 6]);
+		assert_eq!(meta.tickets_count, [0, 10]);
 
 		// Check if we can fetch thisepoch tickets ids (outside-in).
 		let slot = Sassafras::current_slot();
 		assert_eq!(Sassafras::slot_ticket_id(slot).unwrap(), expected_ids[1]);
 		assert_eq!(Sassafras::slot_ticket_id(slot + 1).unwrap(), expected_ids[3]);
 		assert_eq!(Sassafras::slot_ticket_id(slot + 2).unwrap(), expected_ids[5]);
-		assert!(Sassafras::slot_ticket_id(slot + 3).is_none());
-		assert!(Sassafras::slot_ticket_id(slot + 6).is_none());
+		assert_eq!(Sassafras::slot_ticket_id(slot + 3).unwrap(), expected_ids[7]);
+		assert_eq!(Sassafras::slot_ticket_id(slot + 6).unwrap(), expected_ids[6]);
 		assert_eq!(Sassafras::slot_ticket_id(slot + 7).unwrap(), expected_ids[4]);
 		assert_eq!(Sassafras::slot_ticket_id(slot + 8).unwrap(), expected_ids[2]);
 		assert_eq!(Sassafras::slot_ticket_id(slot + 9).unwrap(), expected_ids[0]);
@@ -606,21 +609,27 @@ fn obsolete_tickets_are_removed_on_epoch_change() {
 	})
 }
 
-fn tickets_read() -> Vec<TicketEnvelope> {
+#[derive(Encode, Decode)]
+struct PreBuiltTickets {
+	authorities: Vec<AuthorityId>,
+	tickets: Vec<TicketEnvelope>,
+}
+
+fn tickets_data_read() -> PreBuiltTickets {
 	use std::{fs::File, io::Read};
 
 	let mut file = File::open("tickets.bin").expect("Failed to open tickets file");
 	let mut buf = Vec::new();
 	file.read_to_end(&mut buf).expect("Failed to read tickets file");
 
-	Vec::<TicketEnvelope>::decode(&mut &buf[..]).expect("Failed to decode tickets buffer")
+	PreBuiltTickets::decode(&mut &buf[..]).expect("Failed to decode tickets buffer")
 }
 
-fn tickets_write(tickets: Vec<TicketEnvelope>) {
+fn tickets_data_write(data: PreBuiltTickets) {
 	use std::{fs::File, io::Write};
 
 	let mut file = File::create("tickets.bin").expect("Failed to create file");
-	let buf = tickets.encode();
+	let buf = data.encode();
 	println!("LEN: {}", buf.len());
 	file.write_all(&buf).expect("Failed to write to file");
 }
@@ -632,24 +641,29 @@ fn tickets_write(tickets: Vec<TicketEnvelope>) {
 // `submit_ticket` call which tests for ticket validity.
 #[test]
 fn submit_tickets_with_ring_proof_check_works() {
+	use sp_core::Pair as _;
+
 	let (pairs, mut ext) = new_test_ext_with_pairs(20, true);
+	let pair = &pairs[0];
 	let segments_count = 3;
 
-	let tickets = tickets_read();
+	let PreBuiltTickets { authorities, tickets } = tickets_data_read();
+
+	// Check if deserialized data has been generated for the correct set of authorities...
+	assert!(authorities.iter().zip(pairs.iter()).all(|(auth, pair)| auth == &pair.public()));
 
 	ext.execute_with(|| {
 		let start_slot = Slot::from(100);
 		let start_block = 1;
-		let max_tickets: u32 = <Test as Config>::MaxTickets::get();
-		let attempts_number = segments_count * max_tickets;
 
-		// Tweak the epoch config to discard some of the tickets
+		// Tweak the epoch config to discard more or less the 50% of the tickets
+		// Data is known and constant => tweak values the same...
 		let mut config = EpochConfig::<Test>::get();
-		config.redundancy_factor = 20;
-		config.attempts_number = attempts_number;
+		config.redundancy_factor = 1;
+		config.attempts_number = 1;
 		EpochConfig::<Test>::set(config);
 
-		initialize_block(start_block, start_slot, Default::default(), &pairs[0]);
+		initialize_block(start_block, start_slot, Default::default(), pair);
 
 		// Check state before tickets submission
 		assert_eq!(
@@ -678,19 +692,26 @@ fn submit_tickets_with_ring_proof_check_works() {
 		// Check against the expected results given the known inputs
 		assert_eq!(NextTicketsSegments::<Test>::get(0).len(), 3);
 		assert_eq!(NextTicketsSegments::<Test>::get(1).len(), 3);
-		assert_eq!(NextTicketsSegments::<Test>::get(2).len(), 5);
+		assert_eq!(NextTicketsSegments::<Test>::get(2).len(), 4);
 	})
 }
 
 #[test]
+#[ignore]
 fn serialize_test_tickets() {
+	use super::*;
+	use sp_core::crypto::Pair;
+
 	let attempts = 20;
 
 	let (pairs, mut ext) = new_test_ext_with_pairs(20, true);
 	let pair = &pairs[0];
 
+	let authorities: Vec<_> = pairs.iter().map(|sk| sk.public()).collect();
+
 	ext.execute_with(|| {
 		let tickets = make_tickets(attempts, &pair);
-		tickets_write(tickets);
+		let data = PreBuiltTickets { tickets, authorities };
+		tickets_data_write(data);
 	});
 }
