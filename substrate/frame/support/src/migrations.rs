@@ -24,7 +24,7 @@ use sp_core::Get;
 use sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
 use sp_std::marker::PhantomData;
 
-/// Make it easier to write versioned runtime upgrades.
+/// Handles storage migration pallet versioning.
 ///
 /// [`VersionedMigration`] allows developers to write migrations without worrying about checking and
 /// setting storage versions. Instead, the developer wraps their migration in this struct which
