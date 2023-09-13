@@ -26,7 +26,7 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 sp-state-machine = { path = "../../../substrate/primitives/state-machine", default-features = false }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
-trie-db = { version = "0.27.1", default-features = false }
+trie-db = { version = "0.28.0", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.4"
