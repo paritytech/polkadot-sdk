@@ -23,7 +23,7 @@ pyro = { package = "pyroscope", version = "0.5.3", optional = true }
 pyroscope_pprofrs = { version = "0.2", optional = true }
 
 service = { package = "polkadot-service", path = "../node/service", default-features = false, optional = true, version = "2.0.0" }
-polkadot-performance-test = { path = "../node/test/performance-test", optional = true, version = "1.0.0" }
+polkadot-performance-test = { path = "../node/test/performance-test", optional = true, version = "2.0.0" }
 sp-core = { version = "23.0.0", path = "../../substrate/primitives/core" }
 sp-io = { version = "25.0.0", path = "../../substrate/primitives/io" }
 sp-keyring = { version = "26.0.0", path = "../../substrate/primitives/keyring" }

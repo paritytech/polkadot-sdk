@@ -21961,10 +21961,10 @@ version = "0.0.0"
 path = "polkadot/primitives/test-helpers"
 
 [[crate]]
-publish = false
+publish = true
 name = "polkadot-performance-test"
 from = "1.0.0"
-to = "1.0.0"
+to = "2.0.0"
 bump = "unknown"
 reason = "changed"
 path = "polkadot/node/test/performance-test"
@@ -30566,7 +30566,7 @@ path = "polkadot/node/metrics"
 
 [[crate.rewrite_dep]]
 name = "polkadot-performance-test"
-version = "1.0.0"
+version = "2.0.0"
 path = "polkadot/node/test/performance-test"
 
 [[crate.rewrite_dep]]
