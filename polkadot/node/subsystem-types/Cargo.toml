@@ -19,6 +19,7 @@ sc-network = { path = "../../../substrate/client/network" }
 sp-api = { path = "../../../substrate/primitives/api" }
 sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
 sp-authority-discovery = { path = "../../../substrate/primitives/authority-discovery" }
+sc-client-api = { path = "../../../substrate/client/api" }
 sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
 smallvec = "1.8.0"
 substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
