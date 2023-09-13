@@ -40,7 +40,7 @@ pallet-timestamp = { path = "../../frame/timestamp", default-features = false}
 sp-consensus-grandpa = { path = "../../primitives/consensus/grandpa", default-features = false, features = ["serde"] }
 sp-trie = { path = "../../primitives/trie", default-features = false}
 sp-transaction-pool = { path = "../../primitives/transaction-pool", default-features = false}
-trie-db = { version = "0.27.0", default-features = false }
+trie-db = { version = "0.28.0", default-features = false }
 sc-service = { path = "../../client/service", default-features = false, features = ["test-helpers"], optional = true}
 sp-state-machine = { path = "../../primitives/state-machine", default-features = false}
 sp-externalities = { path = "../../primitives/externalities", default-features = false}
