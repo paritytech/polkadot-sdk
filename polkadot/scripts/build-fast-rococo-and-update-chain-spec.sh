@@ -6,7 +6,7 @@ CURRENT_DIR=$(pwd)
 POLKADOT_SDK_DIR=$(git rev-parse --show-toplevel)
 
 # required epoch duration:
-EPOCH_DURATION_IN_BLOCK=6
+EPOCH_DURATION_IN_BLOCK=10
 
 # polkadot command:
 DOCKER_IMAGE=paritypr/polkadot-debug:1539-2085d3f0
