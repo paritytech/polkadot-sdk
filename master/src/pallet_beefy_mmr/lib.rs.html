@@ -222,6 +222,19 @@
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -303,7 +316,7 @@
 			.to_eth_address()
 			.map(|v| v.to_vec())
 			.map_err(|<span class="kw">_</span>| {
-				<span class="macro">log::error!</span>(target: <span class="string">&quot;runtime::beefy&quot;</span>, <span class="string">&quot;Failed to convert BEEFY PublicKey to ETH address!&quot;</span>);
+				<span class="macro">log::debug!</span>(target: <span class="string">&quot;runtime::beefy&quot;</span>, <span class="string">&quot;Failed to convert BEEFY PublicKey to ETH address!&quot;</span>);
 			})
 			.unwrap_or_default()
 	}
@@ -423,7 +436,20 @@
 			.cloned()
 			.map(T::BeefyAuthorityToMerkleLeaf::convert)
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+		<span class="kw">let </span>default_eth_addr = [<span class="number">0u8</span>; <span class="number">20</span>];
 		<span class="kw">let </span>len = beefy_addresses.len() <span class="kw">as </span>u32;
+		<span class="kw">let </span>uninitialized_addresses = beefy_addresses
+			.iter()
+			.filter(|<span class="kw-2">&amp;</span>addr| addr.as_slice().eq(<span class="kw-2">&amp;</span>default_eth_addr))
+			.count();
+		<span class="kw">if </span>uninitialized_addresses &gt; <span class="number">0 </span>{
+			<span class="macro">log::error!</span>(
+				target: <span class="string">&quot;runtime::beefy&quot;</span>,
+				<span class="string">&quot;Failed to convert {} out of {} BEEFY PublicKeys to ETH addresses!&quot;</span>,
+				uninitialized_addresses,
+				len,
+			);
+		}
 		<span class="kw">let </span>keyset_commitment = binary_merkle_tree::merkle_root::&lt;
 			&lt;T <span class="kw">as </span>pallet_mmr::Config&gt;::Hashing,
 			<span class="kw">_</span>,

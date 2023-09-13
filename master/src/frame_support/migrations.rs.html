@@ -344,11 +344,6 @@
 <a href="#344" id="344">344</a>
 <a href="#345" id="345">345</a>
 <a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -375,9 +370,7 @@
 <span class="kw">use </span>sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
 <span class="kw">use </span>sp_std::marker::PhantomData;
 
-<span class="doccomment">/// EXPERIMENTAL: The API of this feature may change.
-///
-/// Make it easier to write versioned runtime upgrades.
+<span class="doccomment">/// Handles storage migration pallet versioning.
 ///
 /// [`VersionedMigration`] allows developers to write migrations without worrying about checking and
 /// setting storage versions. Instead, the developer wraps their migration in this struct which
@@ -420,15 +413,13 @@
 /// 	// other migrations...
 /// );
 /// ```
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
 </span><span class="kw">pub struct </span>VersionedMigration&lt;<span class="kw">const </span>FROM: u16, <span class="kw">const </span>TO: u16, Inner, Pallet, Weight&gt; {
 	_marker: PhantomData&lt;(Inner, Pallet, Weight)&gt;,
 }
 
 <span class="doccomment">/// A helper enum to wrap the pre_upgrade bytes like an Option before passing them to post_upgrade.
 /// This enum is used rather than an Option to make the API clearer to the developer.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
-#[derive(codec::Encode, codec::Decode)]
+</span><span class="attr">#[derive(codec::Encode, codec::Decode)]
 </span><span class="kw">pub enum </span>VersionedPostUpgradeData {
 	<span class="doccomment">/// The migration ran, inner vec contains pre_upgrade data.
 	</span>MigrationExecuted(sp_std::vec::Vec&lt;u8&gt;),
@@ -442,7 +433,6 @@
 /// version of the pallets storage matches `From`, and after the upgrade set the on-chain storage to
 /// `To`. If the versions do not match, it writes a log notifying the developer that the migration
 /// is a noop.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
 </span><span class="kw">impl</span>&lt;
 		<span class="kw">const </span>FROM: u16,
 		<span class="kw">const </span>TO: u16,

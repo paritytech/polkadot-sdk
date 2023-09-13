@@ -73,7 +73,6 @@
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -141,7 +140,6 @@
 	///
 	/// Wrapped in [`frame_support::migrations::VersionedMigration`] so the pre/post checks don&#39;t
 	/// begin failing after the upgrade is enacted on-chain.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
 	</span><span class="kw">pub type </span>VersionCheckedMigrateToV1&lt;T&gt; = frame_support::migrations::VersionedMigration&lt;
 		<span class="number">0</span>,
 		<span class="number">1</span>,
