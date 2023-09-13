@@ -16,6 +16,12 @@
 //! # Asset Hub Rococo Runtime
 //!
 //! Asset Hub Rococo, formerly known as "Rockmine", is the test network for its Kusama cousin.
+//!
+//! This runtime is also used for Asset Hub Wococo. But we dont want to create another exact copy of
+//! Asset Hub Rococo, so we injected some tweaks backed by `RuntimeFlavor` and `pub storage Flavor:
+//! RuntimeFlavor`. (For example this is needed for successful asset transfer between Asset Hub
+//! Rococo and Asset Hub Wococo, where we need to have correct `xcm_config::UniversalLocation` with
+//! correct `GlobalConsensus`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -78,7 +84,7 @@ use sp_runtime::RuntimeDebug;
 use xcm::opaque::v3::MultiLocation;
 use xcm_config::{
 	FellowshipLocation, ForeignAssetsConvertedConcreteId, GovernanceLocation,
-	PoolAssetsConvertedConcreteId, RocLocation, TrustBackedAssetsConvertedConcreteId, XcmConfig,
+	PoolAssetsConvertedConcreteId, TokenLocation, TrustBackedAssetsConvertedConcreteId, XcmConfig,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -95,6 +101,14 @@ use crate::xcm_config::{
 	TrustBackedAssetsPalletLocation,
 };
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
+
+/// Enum for handling differences in the runtime configuration for AssetHubRococo vs AssetHubWococo.
+#[derive(Default, Eq, PartialEq, Debug, Clone, Copy, Decode, Encode)]
+pub enum RuntimeFlavor {
+	#[default]
+	Rococo,
+	Wococo,
+}
 
 impl_opaque_keys! {
 	pub struct SessionKeys {
@@ -342,7 +356,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type MaxSwapPathLength = ConstU32<4>;
 	type MultiAssetId = Box<MultiLocation>;
 	type MultiAssetIdConverter =
-		MultiLocationConverter<RocLocation, LocalAndForeignAssetsMultiLocationMatcher>;
+		MultiLocationConverter<TokenLocation, LocalAndForeignAssetsMultiLocationMatcher>;
 	type MintMinLiquidity = ConstU128<100>;
 	type WeightInfo = weights::pallet_asset_conversion::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -809,31 +823,63 @@ impl pallet_nfts::Config for Runtime {
 	type Helper = ();
 }
 
-/// XCM router instance to BridgeHub with bridging capabilities for `Polkadot` global consensus with
-/// dynamic fees and back-pressure.
-pub type ToPolkadotXcmRouterInstance = pallet_assets::Instance1;
-impl pallet_xcm_bridge_hub_router::Config<ToPolkadotXcmRouterInstance> for Runtime {
+/// XCM router instance to BridgeHub with bridging capabilities for `Wococo` global
+/// consensus with dynamic fees and back-pressure.
+pub type ToWococoXcmRouterInstance = pallet_assets::Instance1;
+impl pallet_xcm_bridge_hub_router::Config<ToWococoXcmRouterInstance> for Runtime {
 	type WeightInfo = weights::pallet_xcm_bridge_hub_router::WeightInfo<Runtime>;
 
 	type UniversalLocation = xcm_config::UniversalLocation;
-	type BridgedNetworkId = xcm_config::bridging::PolkadotNetwork;
-	type Bridges = xcm_config::bridging::FilteredNetworkExportTable;
+	type BridgedNetworkId = xcm_config::bridging::to_wococo::WococoNetwork;
+	type Bridges = xcm_config::bridging::to_wococo::FilteredNetworkExportTable;
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type BridgeHubOrigin =
-		EnsureXcm<assets_common::matching::Equals<xcm_config::bridging::BridgeHubRococo>>;
+		EnsureXcm<assets_common::matching::Equals<xcm_config::bridging::SiblingBridgeHub>>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BridgeHubOrigin = EitherOfDiverse<
 		// for running benchmarks
 		EnsureRoot<AccountId>,
 		// for running tests with `--feature runtime-benchmarks`
-		EnsureXcm<assets_common::matching::Equals<xcm_config::bridging::BridgeHubRococo>>,
+		EnsureXcm<assets_common::matching::Equals<xcm_config::bridging::SiblingBridgeHub>>,
 	>;
 
 	type ToBridgeHubSender = XcmpQueue;
 	type WithBridgeHubChannel =
 		cumulus_pallet_xcmp_queue::bridging::InboundAndOutboundXcmpChannelCongestionStatusProvider<
-			xcm_config::bridging::BridgeHubRococoParaId,
+			xcm_config::bridging::SiblingBridgeHubParaId,
+			Runtime,
+		>;
+
+	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
+	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
+}
+
+/// XCM router instance to BridgeHub with bridging capabilities for `Rococo` global
+/// consensus with dynamic fees and back-pressure.
+pub type ToRococoXcmRouterInstance = pallet_assets::Instance2;
+impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime {
+	type WeightInfo = weights::pallet_xcm_bridge_hub_router::WeightInfo<Runtime>;
+
+	type UniversalLocation = xcm_config::UniversalLocation;
+	type BridgedNetworkId = xcm_config::bridging::to_rococo::RococoNetwork;
+	type Bridges = xcm_config::bridging::to_rococo::FilteredNetworkExportTable;
+
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type BridgeHubOrigin =
+		EnsureXcm<assets_common::matching::Equals<xcm_config::bridging::SiblingBridgeHub>>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BridgeHubOrigin = EitherOfDiverse<
+		// for running benchmarks
+		EnsureRoot<AccountId>,
+		// for running tests with `--feature runtime-benchmarks`
+		EnsureXcm<assets_common::matching::Equals<xcm_config::bridging::SiblingBridgeHub>>,
+	>;
+
+	type ToBridgeHubSender = XcmpQueue;
+	type WithBridgeHubChannel =
+		cumulus_pallet_xcmp_queue::bridging::InboundAndOutboundXcmpChannelCongestionStatusProvider<
+			xcm_config::bridging::SiblingBridgeHubParaId,
 			Runtime,
 		>;
 
@@ -878,7 +924,8 @@ construct_runtime!(
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 42,
 
 		// Bridge utilities.
-		ToPolkadotXcmRouter: pallet_xcm_bridge_hub_router::<Instance1>::{Pallet, Storage, Call} = 43,
+		ToWococoXcmRouter: pallet_xcm_bridge_hub_router::<Instance1>::{Pallet, Storage, Call} = 43,
+		ToRococoXcmRouter: pallet_xcm_bridge_hub_router::<Instance2>::{Pallet, Storage, Call} = 44,
 
 		// The main stage.
 		Assets: pallet_assets::<Instance1>::{Pallet, Call, Storage, Event<T>} = 50,
@@ -953,7 +1000,8 @@ mod benches {
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
-		[pallet_xcm_bridge_hub_router, XcmBridgeHubRouterBench<Runtime, ToPolkadotXcmRouterInstance>]
+		[pallet_xcm_bridge_hub_router, XcmBridgeHubRouterBench<Runtime, ToWococoXcmRouterInstance>]
+		[pallet_xcm_bridge_hub_router, XcmBridgeHubRouterBench<Runtime, ToRococoXcmRouterInstance>]
 		// XCM
 		[pallet_xcm, PolkadotXcm]
 		// NOTE: Make sure you point to the individual modules below.
@@ -1130,7 +1178,7 @@ impl_runtime_apis! {
 				{
 					let balance = Balances::free_balance(account.clone());
 					if balance > 0 {
-						vec![convert_balance::<RocLocation, Balance>(balance)?]
+						vec![convert_balance::<TokenLocation, Balance>(balance)?]
 					} else {
 						vec![]
 					}
@@ -1242,29 +1290,43 @@ impl_runtime_apis! {
 				Config as XcmBridgeHubRouterConfig,
 			};
 
-			impl XcmBridgeHubRouterConfig<ToPolkadotXcmRouterInstance> for Runtime {
+			impl XcmBridgeHubRouterConfig<ToWococoXcmRouterInstance> for Runtime {
 				fn make_congested() {
 					cumulus_pallet_xcmp_queue::bridging::suspend_channel_for_benchmarks::<Runtime>(
-						xcm_config::bridging::BridgeHubRococoParaId::get().into()
+						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
 				}
 				fn ensure_bridged_target_destination() -> MultiLocation {
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(
-						xcm_config::bridging::BridgeHubRococoParaId::get().into()
+						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
-					xcm_config::bridging::AssetHubPolkadot::get()
+					xcm_config::bridging::to_wococo::AssetHubWococo::get()
+				}
+			}
+			impl XcmBridgeHubRouterConfig<ToRococoXcmRouterInstance> for Runtime {
+				fn make_congested() {
+					cumulus_pallet_xcmp_queue::bridging::suspend_channel_for_benchmarks::<Runtime>(
+						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
+					);
+				}
+				fn ensure_bridged_target_destination() -> MultiLocation {
+					xcm_config::Flavor::set(&RuntimeFlavor::Wococo);
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(
+						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
+					);
+					xcm_config::bridging::to_rococo::AssetHubRococo::get()
 				}
 			}
 
 			use xcm::latest::prelude::*;
-			use xcm_config::{RocLocation, MaxAssetsIntoHolding};
+			use xcm_config::{TokenLocation, MaxAssetsIntoHolding};
 			use pallet_xcm_benchmarks::asset_instance_from;
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
-					Ok(RocLocation::get())
+					Ok(TokenLocation::get())
 				}
 				fn worst_case_holding(depositable_count: u32) -> MultiAssets {
 					// A mix of fungible, non-fungible, and concrete assets.
@@ -1286,7 +1348,7 @@ impl_runtime_apis! {
 						.collect::<Vec<_>>();
 
 					assets.push(MultiAsset {
-						id: Concrete(RocLocation::get()),
+						id: Concrete(TokenLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
 					});
 					assets.into()
@@ -1295,8 +1357,8 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub const TrustedTeleporter: Option<(MultiLocation, MultiAsset)> = Some((
-					RocLocation::get(),
-					MultiAsset { fun: Fungible(UNITS), id: Concrete(RocLocation::get()) },
+					TokenLocation::get(),
+					MultiAsset { fun: Fungible(UNITS), id: Concrete(TokenLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 				pub const TrustedReserve: Option<(MultiLocation, MultiAsset)> = None;
@@ -1311,7 +1373,7 @@ impl_runtime_apis! {
 
 				fn get_multi_asset() -> MultiAsset {
 					MultiAsset {
-						id: Concrete(RocLocation::get()),
+						id: Concrete(TokenLocation::get()),
 						fun: Fungible(UNITS),
 					}
 				}
@@ -1336,16 +1398,16 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(MultiLocation, RuntimeCall), BenchmarkError> {
-					Ok((RocLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					Ok((TokenLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
 				fn subscribe_origin() -> Result<MultiLocation, BenchmarkError> {
-					Ok(RocLocation::get())
+					Ok(TokenLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(MultiLocation, MultiLocation, MultiAssets), BenchmarkError> {
-					let origin = RocLocation::get();
-					let assets: MultiAssets = (Concrete(RocLocation::get()), 1_000 * UNITS).into();
+					let origin = TokenLocation::get();
+					let assets: MultiAssets = (Concrete(TokenLocation::get()), 1_000 * UNITS).into();
 					let ticket = MultiLocation { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}

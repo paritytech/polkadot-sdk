@@ -193,7 +193,7 @@ where
 		let universal_source = UniversalLocation::get();
 		log::trace!(
 			target: "xcm::contains",
-			"CheckOnlyForRemoteDestination dest: {:?}, assets: {:?}, universal_source: {:?}",
+			"ExcludeOnlyForRemoteDestination dest: {:?}, assets: {:?}, universal_source: {:?}",
 			dest_and_assets.0, dest_and_assets.1, universal_source
 		);
 
@@ -208,7 +208,7 @@ where
 				} else {
 					log::trace!(
 						target: "xcm::contains",
-						"CheckOnlyForRemoteDestination no exporter for dest: {:?}",
+						"ExcludeOnlyForRemoteDestination no exporter for dest: {:?}",
 						dest_and_assets.0
 					);
 					// no exporter means that we exclude by default
@@ -218,7 +218,7 @@ where
 			Err(_) => {
 				log::trace!(
 					target: "xcm::contains",
-					"CheckOnlyForRemoteDestination dest: {:?} is not remote to the universal_source: {:?}",
+					"ExcludeOnlyForRemoteDestination dest: {:?} is not remote to the universal_source: {:?}",
 					dest_and_assets.0, universal_source
 				);
 				// not a remote destination, do not exclude

@@ -82,6 +82,9 @@ assets-common = { path = "../common", default-features = false }
 # Bridges
 pallet-xcm-bridge-hub-router = { path = "../../../../bridges/modules/xcm-bridge-hub-router", default-features = false }
 bp-asset-hub-rococo = { path = "../../../../bridges/primitives/chain-asset-hub-rococo", default-features = false }
+bp-asset-hub-wococo = { path = "../../../../bridges/primitives/chain-asset-hub-wococo", default-features = false }
+bp-bridge-hub-rococo = { path = "../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }
+bp-bridge-hub-wococo = { path = "../../../../bridges/primitives/chain-bridge-hub-wococo", default-features = false }
 
 [dev-dependencies]
 asset-test-utils = { path = "../test-utils" }
@@ -165,6 +168,9 @@ try-runtime = [
 std = [
 	"assets-common/std",
 	"bp-asset-hub-rococo/std",
+	"bp-asset-hub-wococo/std",
+	"bp-bridge-hub-rococo/std",
+	"bp-bridge-hub-wococo/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-dmp-queue/std",
