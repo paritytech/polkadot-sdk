@@ -13,7 +13,6 @@ documentation = "https://docs.rs/sp-core"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-arrayvec = { version = "0.7.2", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive","max-encoded-len"] }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
@@ -21,7 +20,7 @@ serde = { version = "1.0.188", optional = true,  default-features = false, featu
 bounded-collections = { version = "0.1.8", default-features = false }
 primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "scale-info"] }
 impl-serde = { version = "0.4.0", default-features = false, optional = true }
-hash-db = { git = "https://github.com/paritytech/trie.git", branch = "lexnv/expose_merkle_value", default-features = false }
+hash-db = { version = "0.16.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 bs58 = { version = "0.5.0", default-features = false, optional = true }
 rand = { version = "0.8.5", features = ["small_rng"],  optional = true }
@@ -58,7 +57,7 @@ sp-runtime-interface = { path = "../runtime-interface", default-features = false
 # bls crypto
 w3f-bls = { version = "0.1.3", default-features = false, optional = true}
 # bandersnatch crypto
-bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "3119f51", default-features = false, optional = true }
+bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "f4fe253", default-features = false, optional = true }
 
 [dev-dependencies]
 criterion = "0.4.0"
@@ -76,7 +75,6 @@ bench = false
 default = [ "std" ]
 std = [
 	"array-bytes",
-	"arrayvec/std",
 	"bandersnatch_vrfs/getrandom",
 	"blake2/std",
 	"bounded-collections/std",
