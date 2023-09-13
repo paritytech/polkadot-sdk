@@ -123,6 +123,7 @@ runtime-benchmarks = [
 	"rococo-parachain-runtime/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks"
 ]
 try-runtime = [
 	"asset-hub-kusama-runtime/try-runtime",
