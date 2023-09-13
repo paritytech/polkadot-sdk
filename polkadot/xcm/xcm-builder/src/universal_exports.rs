@@ -482,7 +482,7 @@ mod tests {
 		dest: MultiLocation,
 		assert_result: impl Fn(SendResult<S::Ticket>),
 	) {
-		let mut dest_wrapper = Some(dest.clone());
+		let mut dest_wrapper = Some(dest);
 		let msg = Xcm::<()>::new();
 		let mut msg_wrapper = Some(msg.clone());
 
