@@ -387,12 +387,14 @@ struct TableContext {
 }
 
 impl TableContext {
+	// Returns `true` if the provided `ValidatorIndex` is in the disabled validators list
 	pub fn validator_is_disabled(&self, validator_idx: &ValidatorIndex) -> bool {
 		self.disabled_validators
 			.iter()
 			.any(|disabled_val_idx| *disabled_val_idx == *validator_idx)
 	}
 
+	// Returns `true` if the local validator is in the disabled validators list
 	pub fn local_validator_is_disabled(&self) -> Option<bool> {
 		self.validator.as_ref().map(|v| v.disabled())
 	}
@@ -1586,17 +1588,7 @@ async fn import_statement<Context>(
 
 	let stmt = primitive_statement_to_table(statement);
 
-	// Don't import statement if the sender is disabled
-	if rp_state.table_context.validator_is_disabled(&stmt.sender) {
-		gum::debug!(
-			target: LOG_TARGET,
-			sender_validator_idx = ?stmt.sender,
-			"Not importing statement because the sender is disabled"
-		);
-		return Ok(None)
-	} else {
-		Ok(rp_state.table.import_statement(&rp_state.table_context, stmt))
-	}
+	Ok(rp_state.table.import_statement(&rp_state.table_context, stmt))
 }
 
 /// Handles a summary received from [`import_statement`] and dispatches `Backed` notifications and
@@ -1760,6 +1752,12 @@ async fn kick_off_validation_work<Context>(
 	background_validation_tx: &mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	attesting: AttestingData,
 ) -> Result<(), Error> {
+	// Do nothing if the local validator is disabled
+	if rp_state.table_context.local_validator_is_disabled() == Some(true) {
+		gum::debug!(target: LOG_TARGET, "We are disabled - don't kick off validation");
+		return Ok(())
+	}
+
 	let candidate_hash = attesting.candidate.hash();
 	if rp_state.issued_statements.contains(&candidate_hash) {
 		return Ok(())
@@ -1816,6 +1814,16 @@ async fn maybe_validate_and_import<Context>(
 			return Ok(())
 		},
 	};
+
+	// Don't import statement if the sender is disabled
+	if rp_state.table_context.validator_is_disabled(&statement.validator_index()) {
+		gum::debug!(
+			target: LOG_TARGET,
+			sender_validator_idx = ?statement.validator_index(),
+			"Not importing statement because the sender is disabled"
+		);
+		return Ok(())
+	}
 
 	let res = import_statement(ctx, rp_state, &mut state.per_candidate, &statement).await;
 
@@ -1978,6 +1986,13 @@ async fn handle_second_message<Context>(
 		Some(r) => r,
 	};
 
+	// Just return if the local validator is disabled. If we are here the local node should be a
+	// validator but defensively use `unwrap_or(false)`) to continue processing in this case.
+	if rp_state.table_context.local_validator_is_disabled().unwrap_or(false) {
+		gum::warn!(target: LOG_TARGET, "Local validator is disabled. Don't validate and second");
+		return Ok(())
+	}
+
 	// Sanity check that candidate is from our assignment.
 	if Some(candidate.descriptor().para_id) != rp_state.assignment {
 		gum::debug!(
@@ -1987,13 +2002,6 @@ async fn handle_second_message<Context>(
 			"Subsystem asked to second for para outside of our assignment",
 		);
 
-		return Ok(())
-	}
-
-	// Just return if the local validator is disabled. If we are here the local node should be a
-	// validator but defensively use `unwrap_or(false)`) to continue processing in this case.
-	if rp_state.table_context.local_validator_is_disabled().unwrap_or(false) {
-		gum::warn!(target: LOG_TARGET, "Local validator is disabled. Don't validate and second");
 		return Ok(())
 	}
 
@@ -2031,6 +2039,7 @@ async fn handle_statement_message<Context>(
 ) -> Result<(), Error> {
 	let _timer = metrics.time_process_statement();
 
+	// Validator disabling is handled in `maybe_validate_and_import`
 	match maybe_validate_and_import(ctx, state, relay_parent, statement).await {
 		Err(Error::ValidationFailed(_)) => Ok(()),
 		Err(e) => Err(e),
