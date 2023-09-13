@@ -19,7 +19,7 @@
 use crate::{
 	config, error,
 	peer_store::{PeerStoreHandle, PeerStoreProvider},
-	protocol_controller::{self, SetId},
+	protocol_controller::{self, ProtocolHandle, SetId},
 	types::ProtocolName,
 };
 
@@ -34,7 +34,7 @@ use libp2p::{
 	},
 	Multiaddr, PeerId,
 };
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 
 use sc_network_common::{role::Roles, sync::message::BlockAnnouncesHandshake};
 use sc_utils::mpsc::{TracingUnboundedReceiver, TracingUnboundedSender};
@@ -77,6 +77,8 @@ type PendingSyncSubstreamValidation =
 pub struct Protocol<B: BlockT> {
 	/// Used to report reputation changes.
 	peer_store_handle: PeerStoreHandle,
+	/// TESTING ONLY. Dummy protocol handle.
+	dummy_protocol_handle: ProtocolHandle,
 	/// Handles opening the unique substream and sending and receiving raw messages.
 	behaviour: Notifications,
 	/// List of notifications protocols that have been registered.
@@ -94,6 +96,8 @@ pub struct Protocol<B: BlockT> {
 	tx: TracingUnboundedSender<crate::event::SyncEvent<B>>,
 	_marker: std::marker::PhantomData<B>,
 	dummy_protocol_set_id: SetId,
+	dummy_connection_counter: usize,
+	server: Option<bool>,
 }
 
 impl<B: BlockT> Protocol<B> {
@@ -107,6 +111,9 @@ impl<B: BlockT> Protocol<B> {
 		from_protocol_controllers: TracingUnboundedReceiver<protocol_controller::Message>,
 		tx: TracingUnboundedSender<crate::event::SyncEvent<B>>,
 	) -> error::Result<Self> {
+		// TESTING_ONLY
+		let dummy_protocol_handle = protocol_controller_handles.last().unwrap().clone();
+
 		let behaviour = {
 			Notifications::new(
 				protocol_controller_handles,
@@ -129,6 +136,7 @@ impl<B: BlockT> Protocol<B> {
 			)
 		};
 
+		// TESTING ONLY
 		let dummy_protocol_set_id = notification_protocols.len().into();
 
 		let protocol = Self {
@@ -137,6 +145,7 @@ impl<B: BlockT> Protocol<B> {
 			notification_protocols: iter::once(block_announces_protocol.notifications_protocol)
 				.chain(notification_protocols.iter().map(|s| s.notifications_protocol.clone()))
 				.collect(),
+			dummy_protocol_handle,
 			bad_handshake_substreams: Default::default(),
 			peers: HashMap::new(),
 			sync_substream_validations: FuturesUnordered::new(),
@@ -144,6 +153,8 @@ impl<B: BlockT> Protocol<B> {
 			// TODO: remove when `BlockAnnouncesHandshake` is moved away from `Protocol`
 			_marker: Default::default(),
 			dummy_protocol_set_id,
+			dummy_connection_counter: 0,
+			server: None,
 		};
 
 		Ok(protocol)
@@ -353,6 +364,13 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 								}
 							}));
 
+							// TESTING ONLY
+							if !inbound {
+								self.dummy_protocol_handle.set_reserved_only(true);
+								self.dummy_protocol_handle.add_reserved_peer(peer_id);
+								info!(target: "dummy", "Dummy protocol, adding reserved peer: {peer_id}");
+							}
+
 							CustomMessageOutcome::None
 						},
 						Ok(msg) => {
@@ -393,6 +411,14 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 											Err(_) => Err(peer_id),
 										}
 									}));
+
+									// TESTING ONLY
+									if !inbound {
+										self.dummy_protocol_handle.set_reserved_only(true);
+										self.dummy_protocol_handle.add_reserved_peer(peer_id);
+										info!(target: "dummy", "Dummy protocol, adding reserved peer: {peer_id}");
+									}
+
 									CustomMessageOutcome::None
 								},
 								Err(err2) => {
@@ -410,6 +436,24 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 							}
 						},
 					}
+				} else if set_id == self.dummy_protocol_set_id {
+					// TESTING ONLY
+					info!(
+						target: "dummy",
+						"Dummy protocol connected, counter: {}, inbound: {}, peer: {}",
+						self.dummy_connection_counter,
+						inbound,
+						peer_id
+					);
+					self.server = Some(inbound);
+					if !self.server.unwrap() && self.dummy_connection_counter == 0 {
+						// Immediately disconnect a peer on a dummy protocol
+						self.dummy_protocol_handle.remove_reserved_peer(peer_id);
+						info!(target: "dummy", "Dummy protocol, remove reserved peer {peer_id}");
+					}
+					self.dummy_connection_counter += 1;
+
+					CustomMessageOutcome::None
 				} else {
 					match (
 						Roles::decode_all(&mut &received_handshake[..]),
@@ -474,6 +518,15 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 						remote: peer_id,
 					});
 					self.peers.remove(&peer_id);
+					CustomMessageOutcome::None
+				} else if set_id == self.dummy_protocol_set_id {
+					// TESTING ONLY
+					info!(target: "dummy", "Dummy protocol disconnected, peer: {peer_id}");
+					if !self.server.unwrap() {
+						// Connect on dummy protocol again
+						self.dummy_protocol_handle.add_reserved_peer(peer_id);
+						info!(target: "dummy", "Dummy protocol, add reserved peer again {peer_id}");
+					}
 					CustomMessageOutcome::None
 				} else {
 					CustomMessageOutcome::NotificationStreamClosed {

@@ -276,7 +276,7 @@ where
 
 		// TESTING ONLY
 		notification_protocols.push(NonDefaultSetConfig {
-			notifications_protocol: "dummy_protocol".into(),
+			notifications_protocol: "/dummy_protocol/1.0".into(),
 			fallback_names: Default::default(),
 			handshake: None,
 			max_notification_size: 100_000,
