@@ -47,7 +47,6 @@ on:
         type: choice
         options:
           - polkadot
-          - staking-miner
           - polkadot-parachain
 
 permissions:
@@ -157,18 +156,6 @@ jobs:
           release=$( echo $VERSION | cut -f1 -d- )
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
-
-      - name: Build Injected Container image for polkadot/staking-miner
-        if: ${{ env.BINARY == 'polkadot' || env.BINARY == 'staking-miner' }}
-        env:
-          ARTIFACTS_FOLDER: ./release-artifacts
-          IMAGE_NAME: ${{ env.BINARY }}
-          OWNER: ${{ env.DOCKER_OWNER }}
-          TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
-        run: |
-          ls -al
-          echo "Building container for $BINARY"
-          ./docker/scripts/build-injected.sh
 
       - name: Build Injected Container image for polkadot-parachain
         if: ${{ env.BINARY == 'polkadot-parachain' }}

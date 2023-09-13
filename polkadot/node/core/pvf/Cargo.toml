@@ -6,11 +6,6 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
-[[bin]]
-name = "puppet_worker"
-path = "bin/puppet_worker.rs"
-required-features = ["test-utils"]
-
 [dependencies]
 always-assert = "0.1"
 futures = "0.3.21"
@@ -35,7 +30,6 @@ polkadot-primitives = { path = "../../../primitives" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 sp-wasm-interface = { path = "../../../../substrate/primitives/wasm-interface" }
 sp-maybe-compressed-blob = { path = "../../../../substrate/primitives/maybe-compressed-blob" }
-sp-tracing = { path = "../../../../substrate/primitives/tracing", optional = true }
 polkadot-node-core-pvf-prepare-worker = { path = "prepare-worker", optional = true }
 polkadot-node-core-pvf-execute-worker = { path = "execute-worker", optional = true }
 
@@ -56,9 +50,7 @@ halt = { package = "test-parachain-halt", path = "../../../parachain/test-parach
 ci-only-tests = []
 jemalloc-allocator = [ "polkadot-node-core-pvf-common/jemalloc-allocator" ]
 # This feature is used to export test code to other crates without putting it in the production build.
-# This is also used by the `puppet_worker` binary.
 test-utils = [
 	"polkadot-node-core-pvf-execute-worker",
 	"polkadot-node-core-pvf-prepare-worker",
-	"sp-tracing",
 ]
