@@ -18,6 +18,7 @@
 //! Tests for `tasks-example`.
 #![cfg(test)]
 use crate::mock::*;
+use frame_support::traits::Task;
 use sp_runtime::BuildStorage;
 
 // This function basically just builds a genesis storage key/value store according to
@@ -47,5 +48,12 @@ fn incrementing_and_decrementing_works() {
 			TasksExample::increment(RuntimeOrigin::root()).unwrap();
 		}
 		assert!(TasksExample::increment(RuntimeOrigin::root()).is_err());
+	});
+}
+
+#[test]
+fn task_enumerate_works() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(crate::pallet::Task::<Runtime>::enumerate().collect::<Vec<_>>().len(), 2);
 	});
 }
