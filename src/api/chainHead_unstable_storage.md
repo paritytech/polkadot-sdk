@@ -3,7 +3,7 @@
 **Parameters**:
 
 - `followSubscription`: An opaque string that was returned by `chainHead_unstable_follow`.
-- `hash`: String containing an hexadecimal-encoded hash of the header of the block whose storage to fetch.
+- `hash`: String containing a hexadecimal-encoded hash of the header of the block whose storage to fetch.
 - `items`: Array of objects. The structure of these objects is found below.
 - `childTrie`: `null` for main storage look-ups, or a string containing the hexadecimal-encoded key of the child trie of the "default" namespace.
 

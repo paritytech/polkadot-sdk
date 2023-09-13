@@ -2,9 +2,9 @@
 
 **Parameters**:
 
-- `height`: String containing an hexadecimal-encoded integer.
+- `height`: String containing a hexadecimal-encoded integer.
 
-**Return value**: Array (possibly empty) of strings containing an hexadecimal-encoded hash of a block header.
+**Return value**: Array (possibly empty) of strings containing a hexadecimal-encoded hash of a block header.
 
 The JSON-RPC client must find the blocks (zero, one, or more) whose height is the one passed as parameter. If the `height` is inferior or equal to the finalized block height, then only finalized blocks must be fetched and returned.
 
