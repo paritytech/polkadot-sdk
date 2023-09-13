@@ -38,6 +38,7 @@ pub use origins::pallet_origins as pallet_ambassador_origins;
 use origins::pallet_origins::{
 	EnsureAmbassadorsVoice, EnsureAmbassadorsVoiceFrom, EnsureHeadAmbassadorsVoice, Origin,
 };
+use parachains_common::polkadot::account;
 use sp_core::ConstU128;
 use sp_runtime::traits::{CheckedReduceBy, ConstU16, ConvertToValue, Replace};
 use xcm::prelude::*;
@@ -114,7 +115,7 @@ parameter_types! {
 	pub const SubmissionDeposit: Balance = 0;
 	pub const UndecidingTimeout: BlockNumber = 7 * DAYS;
 	// The Ambassador Referenda pallet account, used as a temporarily place to deposit a slashed imbalance before teleport to the treasury.
-	pub AmbassadorPalletAccount: AccountId = constants::account::AMBASSADOR_REFERENDA_PALLET_ID.into_account_truncating();
+	pub AmbassadorPalletAccount: AccountId = account::AMBASSADOR_REFERENDA_PALLET_ID.into_account_truncating();
 }
 
 pub type AmbassadorReferendaInstance = pallet_referenda::Instance2;

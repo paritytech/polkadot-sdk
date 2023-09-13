@@ -16,7 +16,7 @@
 //! The Ambassador Program's referenda voting tracks.
 
 use super::Origin;
-use crate::{constants::currency::DOLLARS, Balance, BlockNumber, RuntimeOrigin, DAYS, HOURS};
+use crate::{Balance, BlockNumber, RuntimeOrigin, DAYS, DOLLARS, HOURS};
 use sp_runtime::Perbill;
 
 /// Referendum `TrackId` type.

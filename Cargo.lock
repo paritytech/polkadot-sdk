@@ -2565,6 +2565,7 @@ dependencies = [
  "frame-support",
  "integration-tests-common",
  "pallet-assets",
+ "pallet-balances",
  "pallet-core-fellowship",
  "pallet-salary",
  "pallet-xcm",

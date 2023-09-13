@@ -15,6 +15,7 @@ sp-runtime = { path = "../../../../../../substrate/primitives/runtime", default-
 frame-support = { path = "../../../../../../substrate/frame/support", default-features = false}
 sp-core = { path = "../../../../../../substrate/primitives/core", default-features = false}
 pallet-assets = { path = "../../../../../../substrate/frame/assets", default-features = false}
+pallet-balances = { path = "../../../../../../substrate/frame/balances", default-features = false}
 pallet-core-fellowship = { path = "../../../../../../substrate/frame/core-fellowship", default-features = false}
 pallet-salary = { path = "../../../../../../substrate/frame/salary", default-features = false}
 

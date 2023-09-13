@@ -37,8 +37,7 @@ pub use origins::{
 };
 use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use parachains_common::polkadot::account;
-use polkadot_runtime_constants::{time::HOURS, xcm::body::FELLOWSHIP_ADMIN_INDEX};
+use parachains_common::{polkadot::account, HOURS};
 use sp_core::{ConstU128, ConstU32};
 use sp_runtime::traits::{AccountIdConversion, ConstU16, ConvertToValue, Replace, TakeFirst};
 use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
