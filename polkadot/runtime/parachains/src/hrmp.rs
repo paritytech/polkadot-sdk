@@ -681,8 +681,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let _caller = ensure_signed(origin)?;
 
-			// to recognize current chains needs
-			// https://github.com/paritytech/polkadot-sdk/pull/1406
+			// both chains must be system
 			ensure!(
 				sender.is_system() && recipient.is_system(),
 				Error::<T>::ChannelCreationNotAuthorized
