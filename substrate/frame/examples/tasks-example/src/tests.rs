@@ -57,3 +57,27 @@ fn task_enumerate_works() {
 		assert_eq!(crate::pallet::Task::<Runtime>::enumerate().collect::<Vec<_>>().len(), 2);
 	});
 }
+
+#[test]
+fn runtime_task_enumerate_works_via_frame_system_config() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(
+			<Runtime as frame_system::Config>::RuntimeTask::enumerate()
+				.collect::<Vec<_>>()
+				.len(),
+			2
+		);
+	});
+}
+
+#[test]
+fn runtime_task_enumerate_works_via_pallet_config() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(
+			<Runtime as crate::pallet::Config>::RuntimeTask::enumerate()
+				.collect::<Vec<_>>()
+				.len(),
+			2
+		);
+	});
+}
