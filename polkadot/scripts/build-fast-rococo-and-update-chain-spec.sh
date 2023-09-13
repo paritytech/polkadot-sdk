@@ -6,7 +6,7 @@ CURRENT_DIR=$(pwd)
 POLKADOT_SDK_DIR=$(git rev-parse --show-toplevel)
 
 # required epoch duration:
-EPOCH_DURATION_IN_BLOCK=10
+EPOCH_DURATION_IN_BLOCKS=10
 
 # polkadot command:
 DOCKER_IMAGE=paritypr/polkadot-debug:1539-2085d3f0
@@ -18,7 +18,7 @@ WASM_RUNTIME_BLOB_PATH=$POLKADOT_SDK_DIR/target/release/wbuild/rococo-runtime/ro
 
 # build rococo runtime with adjusted epoch diration
 pushd $POLKADOT_SDK_DIR
-ROCOCO_EPOCH_DURATION=$EPOCH_DURATION_IN_BLOCK cargo build --features fast-runtime --release -p rococo-runtime
+ROCOCO_EPOCH_DURATION=$EPOCH_DURATION_IN_BLOCKS cargo build --features fast-runtime --release -p rococo-runtime
 popd
 
 # do hexdump of runtime:
