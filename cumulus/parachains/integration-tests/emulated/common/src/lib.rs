@@ -94,7 +94,7 @@ decl_test_relay_chains! {
 			Balances: rococo_runtime::Balances,
 		}
 	},
-	#[api_version(5)]
+	#[api_version(7)]
 	pub struct Wococo {
 		genesis = rococo::genesis(),
 		on_init = (),
