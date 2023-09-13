@@ -446,7 +446,7 @@ impl Parse for PalletPartKeyword {
 
 impl PalletPartKeyword {
 	/// Returns the name of `Self`.
-	pub fn name(&self) -> &'static str {
+	fn name(&self) -> &'static str {
 		match self {
 			Self::Pallet(_) => "Pallet",
 			Self::Call(_) => "Call",
@@ -465,12 +465,12 @@ impl PalletPartKeyword {
 	}
 
 	/// Returns `true` if this pallet part is allowed to have generic arguments.
-	pub fn allows_generic(&self) -> bool {
+	fn allows_generic(&self) -> bool {
 		Self::all_generic_arg().iter().any(|n| *n == self.name())
 	}
 
 	/// Returns the names of all pallet parts that allow to have a generic argument.
-	pub fn all_generic_arg() -> &'static [&'static str] {
+	fn all_generic_arg() -> &'static [&'static str] {
 		&["Event", "Error", "Origin", "Config"]
 	}
 }
@@ -552,7 +552,7 @@ fn remove_kind(
 /// The declaration of a part without its generics
 #[derive(Debug, Clone)]
 pub struct PalletPartNoGeneric {
-	pub keyword: PalletPartKeyword,
+	keyword: PalletPartKeyword,
 }
 
 impl Parse for PalletPartNoGeneric {
