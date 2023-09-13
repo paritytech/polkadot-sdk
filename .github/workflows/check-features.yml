@@ -1,0 +1,19 @@
+name: Check Features
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  check-features:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch latest code
+        uses: actions/checkout@v4
+      - name: Setup  cargo-featalign
+        run: |
+          curl -L https://github.com/hack-ink/cargo-featalign/releases/download/v0.6.1/cargo-featalign-x86_64-unknown-linux-gnu.zst | zstd -o cargo-featalign -d
+          chmod u+x cargo-featalign
+          mv cargo-featalign ~/.cargo/bin
+      - name: Check features
+        run: cargo featalign polkadot/runtime/polkadot --features std,runtime-benchmarks,try-runtime,empty --workspace-only --default-std --depth -1 --sort --mode dry-run
