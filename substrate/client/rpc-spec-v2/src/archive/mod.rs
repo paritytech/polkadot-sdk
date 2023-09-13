@@ -23,5 +23,6 @@
 //! Methods are prefixed by `archive`.
 
 pub mod api;
+pub mod archive;
 
 pub use api::ArchiveApiServer;
