@@ -294,6 +294,7 @@ members = [
 	"substrate/frame/examples/kitchensink",
 	"substrate/frame/examples/offchain-worker",
 	"substrate/frame/examples/split",
+	"substrate/frame/examples/storage-migrations",
 	"substrate/frame/executive",
 	"substrate/frame/fast-unstake",
 	"substrate/frame/glutton",

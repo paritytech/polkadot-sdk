@@ -9614,6 +9614,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-example-storage-migrations"
+version = "4.0.0-dev"
+dependencies = [
+ "docify",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-try-runtime",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-examples"
 version = "4.0.0-dev"
 dependencies = [
@@ -9623,6 +9641,7 @@ dependencies = [
  "pallet-example-kitchensink",
  "pallet-example-offchain-worker",
  "pallet-example-split",
+ "pallet-example-storage-migrations",
 ]
 
 [[package]]
