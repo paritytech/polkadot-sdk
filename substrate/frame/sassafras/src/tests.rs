@@ -702,9 +702,9 @@ fn serialize_test_tickets() {
 	use super::*;
 	use sp_core::crypto::Pair;
 
-	let attempts = 20;
+	let authorities_count = 20;
 
-	let (pairs, mut ext) = new_test_ext_with_pairs(20, true);
+	let (pairs, mut ext) = new_test_ext_with_pairs(authorities_count, true);
 	let pair = &pairs[0];
 
 	let authorities: Vec<_> = pairs.iter().map(|sk| sk.public()).collect();

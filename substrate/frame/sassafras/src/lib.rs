@@ -406,7 +406,7 @@ pub mod pallet {
 
 				let sign_data = vrf::ticket_body_sign_data(&ticket.body, ticket_id_input);
 
-				if ticket.signature.verify(&sign_data, &verifier) {
+				if ticket.signature.ring_vrf_verify(&sign_data, &verifier) {
 					TicketsData::<T>::set(ticket_id, Some(ticket.body));
 					segment
 						.try_push(ticket_id)
