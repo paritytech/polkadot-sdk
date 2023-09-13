@@ -45,11 +45,13 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::SubmitCollationParams;
-use polkadot_node_subsystem::messages::CollationGenerationMessage;
+use polkadot_node_subsystem::messages::{
+	CollationGenerationMessage, RuntimeApiMessage, RuntimeApiRequest,
+};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 
-use futures::prelude::*;
+use futures::{channel::oneshot, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::standalone as aura_internal;
@@ -180,6 +182,17 @@ where
 
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
+
+			if !is_para_scheduled(relay_parent, params.para_id, &mut params.overseer_handle).await {
+				tracing::trace!(
+					target: crate::LOG_TARGET,
+					?relay_parent,
+					?params.para_id,
+					"Para is not scheduled on any core, skipping import notification",
+				);
+
+				continue
+			}
 
 			let max_pov_size = match params
 				.relay_client
@@ -443,4 +456,42 @@ async fn max_ancestry_lookback(
 			0
 		},
 	}
+}
+
+// Checks if there exists a scheduled core for the para at the provided relay parent.
+//
+// Falls back to `false` in case of an error.
+async fn is_para_scheduled(
+	relay_parent: PHash,
+	para_id: ParaId,
+	overseer_handle: &mut OverseerHandle,
+) -> bool {
+	let (tx, rx) = oneshot::channel();
+	let request = RuntimeApiRequest::AvailabilityCores(tx);
+	overseer_handle
+		.send_msg(RuntimeApiMessage::Request(relay_parent, request), "LookaheadCollator")
+		.await;
+
+	let cores = match rx.await {
+		Ok(Ok(cores)) => cores,
+		Ok(Err(error)) => {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				?error,
+				?relay_parent,
+				"Failed to query availability cores runtime API",
+			);
+			return false
+		},
+		Err(oneshot::Canceled) => {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				?relay_parent,
+				"Sender for availability cores runtime request dropped",
+			);
+			return false
+		},
+	};
+
+	cores.iter().any(|core| core.para_id() == Some(para_id))
 }
