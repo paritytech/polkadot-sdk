@@ -45,8 +45,7 @@ use runtime_parachains::{
 	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 	initializer as parachains_initializer, origin as parachains_origin, paras as parachains_paras,
-	paras_inherent as parachains_paras_inherent,
-	runtime_api_impl::v5 as parachains_runtime_api_impl,
+	paras_inherent as parachains_paras_inherent, runtime_api_impl as parachains_runtime_api_impl,
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
@@ -197,7 +196,7 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 		match (left, right) {
 			// Root is greater than anything.
 			(OriginCaller::system(frame_system::RawOrigin::Root), _) => Some(Ordering::Greater),
-			// Check which one has more yes votes.
+			// Check which one has more yes.
 			(
 				OriginCaller::Council(pallet_collective::RawOrigin::Members(l_yes_votes, l_count)),
 				OriginCaller::Council(pallet_collective::RawOrigin::Members(r_yes_votes, r_count)),
@@ -1713,29 +1712,30 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
+	#[api_version(7)]
 	impl primitives::runtime_api::ParachainHost<Block, Hash, BlockNumber> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
-			parachains_runtime_api_impl::validators::<Runtime>()
+			parachains_runtime_api_impl::v5::validators::<Runtime>()
 		}
 
 		fn validator_groups() -> (Vec<Vec<ValidatorIndex>>, GroupRotationInfo<BlockNumber>) {
-			parachains_runtime_api_impl::validator_groups::<Runtime>()
+			parachains_runtime_api_impl::v5::validator_groups::<Runtime>()
 		}
 
 		fn availability_cores() -> Vec<CoreState<Hash, BlockNumber>> {
-			parachains_runtime_api_impl::availability_cores::<Runtime>()
+			parachains_runtime_api_impl::v5::availability_cores::<Runtime>()
 		}
 
 		fn persisted_validation_data(para_id: ParaId, assumption: OccupiedCoreAssumption)
 			-> Option<PersistedValidationData<Hash, BlockNumber>> {
-			parachains_runtime_api_impl::persisted_validation_data::<Runtime>(para_id, assumption)
+			parachains_runtime_api_impl::v5::persisted_validation_data::<Runtime>(para_id, assumption)
 		}
 
 		fn assumed_validation_data(
 			para_id: ParaId,
 			expected_persisted_validation_data_hash: Hash,
 		) -> Option<(PersistedValidationData<Hash, BlockNumber>, ValidationCodeHash)> {
-			parachains_runtime_api_impl::assumed_validation_data::<Runtime>(
+			parachains_runtime_api_impl::v5::assumed_validation_data::<Runtime>(
 				para_id,
 				expected_persisted_validation_data_hash,
 			)
@@ -1745,24 +1745,24 @@ sp_api::impl_runtime_apis! {
 			para_id: ParaId,
 			outputs: primitives::CandidateCommitments,
 		) -> bool {
-			parachains_runtime_api_impl::check_validation_outputs::<Runtime>(para_id, outputs)
+			parachains_runtime_api_impl::v5::check_validation_outputs::<Runtime>(para_id, outputs)
 		}
 
 		fn session_index_for_child() -> SessionIndex {
-			parachains_runtime_api_impl::session_index_for_child::<Runtime>()
+			parachains_runtime_api_impl::v5::session_index_for_child::<Runtime>()
 		}
 
 		fn validation_code(para_id: ParaId, assumption: OccupiedCoreAssumption)
 			-> Option<ValidationCode> {
-			parachains_runtime_api_impl::validation_code::<Runtime>(para_id, assumption)
+			parachains_runtime_api_impl::v5::validation_code::<Runtime>(para_id, assumption)
 		}
 
 		fn candidate_pending_availability(para_id: ParaId) -> Option<CommittedCandidateReceipt<Hash>> {
-			parachains_runtime_api_impl::candidate_pending_availability::<Runtime>(para_id)
+			parachains_runtime_api_impl::v5::candidate_pending_availability::<Runtime>(para_id)
 		}
 
 		fn candidate_events() -> Vec<CandidateEvent<Hash>> {
-			parachains_runtime_api_impl::candidate_events::<Runtime, _>(|ev| {
+			parachains_runtime_api_impl::v5::candidate_events::<Runtime, _>(|ev| {
 				match ev {
 					RuntimeEvent::ParaInclusion(ev) => {
 						Some(ev)
@@ -1773,55 +1773,55 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn session_info(index: SessionIndex) -> Option<SessionInfo> {
-			parachains_runtime_api_impl::session_info::<Runtime>(index)
+			parachains_runtime_api_impl::v5::session_info::<Runtime>(index)
 		}
 
 		fn session_executor_params(session_index: SessionIndex) -> Option<ExecutorParams> {
-			parachains_runtime_api_impl::session_executor_params::<Runtime>(session_index)
+			parachains_runtime_api_impl::v5::session_executor_params::<Runtime>(session_index)
 		}
 
 		fn dmq_contents(recipient: ParaId) -> Vec<InboundDownwardMessage<BlockNumber>> {
-			parachains_runtime_api_impl::dmq_contents::<Runtime>(recipient)
+			parachains_runtime_api_impl::v5::dmq_contents::<Runtime>(recipient)
 		}
 
 		fn inbound_hrmp_channels_contents(
 			recipient: ParaId
 		) -> BTreeMap<ParaId, Vec<InboundHrmpMessage<BlockNumber>>> {
-			parachains_runtime_api_impl::inbound_hrmp_channels_contents::<Runtime>(recipient)
+			parachains_runtime_api_impl::v5::inbound_hrmp_channels_contents::<Runtime>(recipient)
 		}
 
 		fn validation_code_by_hash(hash: ValidationCodeHash) -> Option<ValidationCode> {
-			parachains_runtime_api_impl::validation_code_by_hash::<Runtime>(hash)
+			parachains_runtime_api_impl::v5::validation_code_by_hash::<Runtime>(hash)
 		}
 
 		fn on_chain_votes() -> Option<ScrapedOnChainVotes<Hash>> {
-			parachains_runtime_api_impl::on_chain_votes::<Runtime>()
+			parachains_runtime_api_impl::v5::on_chain_votes::<Runtime>()
 		}
 
 		fn submit_pvf_check_statement(
 			stmt: primitives::PvfCheckStatement,
 			signature: primitives::ValidatorSignature
 		) {
-			parachains_runtime_api_impl::submit_pvf_check_statement::<Runtime>(stmt, signature)
+			parachains_runtime_api_impl::v5::submit_pvf_check_statement::<Runtime>(stmt, signature)
 		}
 
 		fn pvfs_require_precheck() -> Vec<ValidationCodeHash> {
-			parachains_runtime_api_impl::pvfs_require_precheck::<Runtime>()
+			parachains_runtime_api_impl::v5::pvfs_require_precheck::<Runtime>()
 		}
 
 		fn validation_code_hash(para_id: ParaId, assumption: OccupiedCoreAssumption)
 			-> Option<ValidationCodeHash>
 		{
-			parachains_runtime_api_impl::validation_code_hash::<Runtime>(para_id, assumption)
+			parachains_runtime_api_impl::v5::validation_code_hash::<Runtime>(para_id, assumption)
 		}
 
 		fn disputes() -> Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)> {
-			parachains_runtime_api_impl::get_session_disputes::<Runtime>()
+			parachains_runtime_api_impl::v5::get_session_disputes::<Runtime>()
 		}
 
 		fn unapplied_slashes(
 		) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
-			parachains_runtime_api_impl::unapplied_slashes::<Runtime>()
+			parachains_runtime_api_impl::v5::unapplied_slashes::<Runtime>()
 		}
 
 		fn key_ownership_proof(
@@ -1838,10 +1838,22 @@ sp_api::impl_runtime_apis! {
 			dispute_proof: slashing::DisputeProof,
 			key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 		) -> Option<()> {
-			parachains_runtime_api_impl::submit_unsigned_slashing_report::<Runtime>(
+			parachains_runtime_api_impl::v5::submit_unsigned_slashing_report::<Runtime>(
 				dispute_proof,
 				key_ownership_proof,
 			)
+		}
+
+		fn minimum_backing_votes() -> u32 {
+			parachains_runtime_api_impl::v6::minimum_backing_votes::<Runtime>()
+		}
+
+		fn para_backing_state(para_id: ParaId) -> Option<primitives::async_backing::BackingState> {
+			parachains_runtime_api_impl::v7::backing_state::<Runtime>(para_id)
+		}
+
+		fn async_backing_params() -> primitives::AsyncBackingParams {
+			parachains_runtime_api_impl::v7::async_backing_params::<Runtime>()
 		}
 	}
 
@@ -2017,7 +2029,7 @@ sp_api::impl_runtime_apis! {
 
 	impl authority_discovery_primitives::AuthorityDiscoveryApi<Block> for Runtime {
 		fn authorities() -> Vec<AuthorityDiscoveryId> {
-			parachains_runtime_api_impl::relevant_authority_ids::<Runtime>()
+			parachains_runtime_api_impl::v5::relevant_authority_ids::<Runtime>()
 		}
 	}
 

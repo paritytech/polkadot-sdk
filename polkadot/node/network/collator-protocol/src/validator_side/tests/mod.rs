@@ -444,7 +444,7 @@ async fn assert_async_backing_params_request(virtual_overseer: &mut VirtualOvers
 		overseer_recv(virtual_overseer).await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 			relay_parent,
-			RuntimeApiRequest::StagingAsyncBackingParams(tx)
+			RuntimeApiRequest::AsyncBackingParams(tx)
 		)) => {
 			assert_eq!(relay_parent, hash);
 			tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();

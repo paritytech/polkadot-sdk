@@ -18,7 +18,7 @@
 
 use parity_scale_codec::{Decode, Encode};
 
-use polkadot_primitives::vstaging::{
+use polkadot_primitives::{
 	CandidateHash, CommittedCandidateReceipt, Hash, Id as ParaId, PersistedValidationData,
 	UncheckedSignedStatement,
 };

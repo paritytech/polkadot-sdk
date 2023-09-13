@@ -21,7 +21,7 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_std::vec::Vec;
 
-use primitives::{vstaging::AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
+use primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
 #[cfg(feature = "try-runtime")]
 use sp_std::prelude::*;
 

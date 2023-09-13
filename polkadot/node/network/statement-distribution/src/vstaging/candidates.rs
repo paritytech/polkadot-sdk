@@ -27,7 +27,7 @@
 
 use polkadot_node_network_protocol::PeerId;
 use polkadot_node_subsystem::messages::HypotheticalCandidate;
-use polkadot_primitives::vstaging::{
+use polkadot_primitives::{
 	CandidateHash, CommittedCandidateReceipt, GroupIndex, Hash, Id as ParaId,
 	PersistedValidationData,
 };

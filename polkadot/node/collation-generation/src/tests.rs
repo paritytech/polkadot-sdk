@@ -153,7 +153,7 @@ fn requests_availability_per_relay_parent() {
 				}
 				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_hash,
-					RuntimeApiRequest::StagingAsyncBackingParams(
+					RuntimeApiRequest::AsyncBackingParams(
 						tx,
 					),
 				))) => {
@@ -235,7 +235,7 @@ fn requests_validation_data_for_scheduled_matches() {
 				},
 				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_hash,
-					RuntimeApiRequest::StagingAsyncBackingParams(tx),
+					RuntimeApiRequest::AsyncBackingParams(tx),
 				))) => {
 					tx.send(Err(RuntimeApiError::NotSupported {
 						runtime_api_name: "doesnt_matter",
@@ -332,7 +332,7 @@ fn sends_distribute_collation_message() {
 				},
 				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_hash,
-					RuntimeApiRequest::StagingAsyncBackingParams(tx),
+					RuntimeApiRequest::AsyncBackingParams(tx),
 				))) => {
 					tx.send(Err(RuntimeApiError::NotSupported {
 						runtime_api_name: "doesnt_matter",
@@ -494,7 +494,7 @@ fn fallback_when_no_validation_code_hash_api() {
 				},
 				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_hash,
-					RuntimeApiRequest::StagingAsyncBackingParams(tx),
+					RuntimeApiRequest::AsyncBackingParams(tx),
 				))) => {
 					tx.send(Err(RuntimeApiError::NotSupported {
 						runtime_api_name: "doesnt_matter",

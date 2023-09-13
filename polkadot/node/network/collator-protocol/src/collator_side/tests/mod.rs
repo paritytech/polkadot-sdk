@@ -198,7 +198,7 @@ impl TestState {
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				relay_parent,
-				RuntimeApiRequest::StagingAsyncBackingParams(tx)
+				RuntimeApiRequest::AsyncBackingParams(tx)
 			)) => {
 				assert_eq!(relay_parent, self.relay_parent);
 				tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
@@ -330,7 +330,7 @@ async fn setup_system(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 		overseer_recv(virtual_overseer).await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 			relay_parent,
-			RuntimeApiRequest::StagingAsyncBackingParams(tx)
+			RuntimeApiRequest::AsyncBackingParams(tx)
 		)) => {
 			assert_eq!(relay_parent, test_state.relay_parent);
 			tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();

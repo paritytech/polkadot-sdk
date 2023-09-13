@@ -594,7 +594,7 @@ pub mod vstaging {
 	use bitvec::{order::Lsb0, slice::BitSlice, vec::BitVec};
 	use parity_scale_codec::{Decode, Encode};
 
-	use polkadot_primitives::vstaging::{
+	use polkadot_primitives::{
 		CandidateHash, CandidateIndex, CollatorId, CollatorSignature, GroupIndex, Hash,
 		Id as ParaId, UncheckedSignedAvailabilityBitfield, UncheckedSignedStatement,
 	};

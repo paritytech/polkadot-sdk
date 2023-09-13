@@ -31,7 +31,7 @@ use polkadot_node_subsystem::messages::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
-use polkadot_primitives::vstaging::{
+use polkadot_primitives::{
 	AssignmentPair, AsyncBackingParams, BlockNumber, CommittedCandidateReceipt, CoreState,
 	GroupRotationInfo, HeadData, Header, IndexedVec, PersistedValidationData, ScheduledCore,
 	SessionIndex, SessionInfo, ValidatorPair,
@@ -380,7 +380,7 @@ async fn handle_leaf_activation(
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
 		) if parent == *hash => {
 			tx.send(Ok(test_state.config.async_backing_params.unwrap_or(DEFAULT_ASYNC_BACKING_PARAMETERS))).unwrap();
 		}

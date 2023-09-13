@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Staging Primitives.
+use crate::{configuration, initializer};
 
-// Put any primitives used by staging APIs functions here
+/// Return the min backing votes threshold from the configuration.
+pub fn minimum_backing_votes<T: initializer::Config>() -> u32 {
+	<configuration::Pallet<T>>::config().minimum_backing_votes
+}

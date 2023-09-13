@@ -30,9 +30,8 @@ use parity_scale_codec::{Decode, Encode};
 
 use cumulus_primitives_core::{
 	relay_chain::{
-		slashing,
-		vstaging::{AsyncBackingParams, BackingState},
-		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+		async_backing::{AsyncBackingParams, BackingState},
+		slashing, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
 		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
 		PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
@@ -599,30 +598,22 @@ impl RelayChainRpcClient {
 	}
 
 	#[allow(missing_docs)]
-	pub async fn parachain_host_staging_async_backing_params(
+	pub async fn parachain_host_async_backing_params(
 		&self,
 		at: RelayHash,
 	) -> Result<AsyncBackingParams, RelayChainError> {
-		self.call_remote_runtime_function(
-			"ParachainHost_staging_async_backing_params",
-			at,
-			None::<()>,
-		)
-		.await
+		self.call_remote_runtime_function("ParachainHost_async_backing_params", at, None::<()>)
+			.await
 	}
 
 	#[allow(missing_docs)]
-	pub async fn parachain_host_staging_para_backing_state(
+	pub async fn parachain_host_para_backing_state(
 		&self,
 		at: RelayHash,
 		para_id: ParaId,
 	) -> Result<Option<BackingState>, RelayChainError> {
-		self.call_remote_runtime_function(
-			"ParachainHost_staging_para_backing_state",
-			at,
-			Some(para_id),
-		)
-		.await
+		self.call_remote_runtime_function("ParachainHost_para_backing_state", at, Some(para_id))
+			.await
 	}
 
 	fn send_register_message_to_worker(

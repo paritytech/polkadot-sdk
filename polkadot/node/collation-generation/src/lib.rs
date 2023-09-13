@@ -43,9 +43,8 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::{
-	request_availability_cores, request_persisted_validation_data,
-	request_staging_async_backing_params, request_validation_code, request_validation_code_hash,
-	request_validators,
+	request_async_backing_params, request_availability_cores, request_persisted_validation_data,
+	request_validation_code, request_validation_code_hash, request_validators,
 };
 use polkadot_primitives::{
 	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
@@ -208,7 +207,7 @@ async fn handle_new_activations<Context>(
 		let (availability_cores, validators, async_backing_params) = join!(
 			request_availability_cores(relay_parent, ctx.sender()).await,
 			request_validators(relay_parent, ctx.sender()).await,
-			request_staging_async_backing_params(relay_parent, ctx.sender()).await,
+			request_async_backing_params(relay_parent, ctx.sender()).await,
 		);
 
 		let availability_cores = availability_cores??;

@@ -45,8 +45,8 @@ use polkadot_node_network_protocol::{
 	vstaging::StatementFilter,
 	PeerId, UnifiedReputationChange as Rep,
 };
-use polkadot_primitives::vstaging::{
-	CandidateHash, CommittedCandidateReceipt, CompactStatement, GroupIndex, Hash, ParaId,
+use polkadot_primitives::{
+	CandidateHash, CommittedCandidateReceipt, CompactStatement, GroupIndex, Hash, Id as ParaId,
 	PersistedValidationData, SessionIndex, SignedStatement, SigningContext, ValidatorId,
 	ValidatorIndex,
 };

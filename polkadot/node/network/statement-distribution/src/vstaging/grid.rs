@@ -63,9 +63,7 @@
 use polkadot_node_network_protocol::{
 	grid_topology::SessionGridTopology, vstaging::StatementFilter,
 };
-use polkadot_primitives::vstaging::{
-	CandidateHash, CompactStatement, GroupIndex, Hash, ValidatorIndex,
-};
+use polkadot_primitives::{CandidateHash, CompactStatement, GroupIndex, Hash, ValidatorIndex};
 
 use std::collections::{
 	hash_map::{Entry, HashMap},

@@ -25,7 +25,7 @@
 
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use polkadot_node_network_protocol::vstaging::StatementFilter;
-use polkadot_primitives::vstaging::{
+use polkadot_primitives::{
 	CandidateHash, CompactStatement, GroupIndex, SignedStatement, ValidatorIndex,
 };
 use std::collections::hash_map::{Entry as HEntry, HashMap};

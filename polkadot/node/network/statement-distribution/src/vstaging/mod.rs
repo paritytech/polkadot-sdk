@@ -45,7 +45,7 @@ use polkadot_node_subsystem_util::{
 	reputation::ReputationAggregator,
 	runtime::{request_min_backing_votes, ProspectiveParachainsMode},
 };
-use polkadot_primitives::vstaging::{
+use polkadot_primitives::{
 	AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex, CoreState, GroupIndex,
 	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, SessionIndex, SessionInfo, SignedStatement,
 	SigningContext, UncheckedSignedStatement, ValidatorId, ValidatorIndex,
