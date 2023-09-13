@@ -10319,10 +10319,10 @@ feature = "try-runtime"
 value = "polkadot-runtime-parachains/try-runtime"
 
 [[crate]]
-publish = false
-name = "parachain-info"
-from = "0.0.0"
-to = "0.0.0"
+publish = true
+name = "staging-parachain-info"
+from = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/parachains/pallets/parachain-info"
@@ -26368,7 +26368,7 @@ path = "substrate/frame/sudo"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]
@@ -26534,7 +26534,7 @@ path = "polkadot/xcm/pallet-xcm"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]
@@ -27179,7 +27179,7 @@ path = "substrate/frame/try-runtime"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]
@@ -27571,7 +27571,7 @@ path = "polkadot/xcm/pallet-xcm-benchmarks"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]
@@ -27867,7 +27867,7 @@ path = "polkadot/xcm/pallet-xcm-benchmarks"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]
@@ -28178,7 +28178,7 @@ path = "polkadot/xcm/pallet-xcm-benchmarks"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]
@@ -28379,7 +28379,7 @@ path = "polkadot/xcm/pallet-xcm"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]
@@ -28590,7 +28590,7 @@ path = "polkadot/xcm/pallet-xcm-benchmarks"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]
@@ -28851,7 +28851,7 @@ path = "polkadot/xcm/pallet-xcm-benchmarks"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]
@@ -29192,7 +29192,7 @@ path = "polkadot/xcm/pallet-xcm-benchmarks"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]
@@ -29507,7 +29507,7 @@ path = "polkadot/xcm/pallet-xcm"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]
@@ -29797,7 +29797,7 @@ path = "polkadot/xcm/pallet-xcm"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]
@@ -30204,7 +30204,7 @@ path = "polkadot/xcm/pallet-xcm"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]
@@ -30440,7 +30440,7 @@ path = "polkadot/xcm/pallet-xcm"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]
@@ -30968,7 +30968,7 @@ path = "polkadot/xcm/pallet-xcm"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]
@@ -31109,7 +31109,7 @@ path = "substrate/frame/sudo"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]
@@ -31325,7 +31325,7 @@ path = "polkadot/xcm/pallet-xcm-benchmarks"
 
 [[crate.rewrite_dep]]
 name = "parachain-info"
-version = "0.0.0"
+version = "0.2.0"
 path = "cumulus/parachains/pallets/parachain-info"
 
 [[crate.rewrite_dep]]

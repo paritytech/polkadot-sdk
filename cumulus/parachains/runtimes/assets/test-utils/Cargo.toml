@@ -32,7 +32,7 @@ assets-common = { path = "../common", default-features = false, version = "0.2.0
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false, version = "0.2.0" }
 cumulus-primitives-parachain-inherent = { path = "../../../../primitives/parachain-inherent", default-features = false, version = "0.2.0" }
 cumulus-test-relay-sproof-builder = { path = "../../../../test/relay-sproof-builder", default-features = false, version = "0.2.0" }
-parachain-info = { path = "../../../pallets/parachain-info", default-features = false, version = "0.0.0" }
+parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false, version = "0.2.0" }
 parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false, version = "1.0.0" }
 
 # Polkadot

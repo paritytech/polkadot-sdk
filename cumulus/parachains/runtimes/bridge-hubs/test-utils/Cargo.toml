@@ -29,7 +29,7 @@ cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue", default-fea
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"], version = "0.2.0" }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, version = "0.2.0" }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false, version = "4.0.0" }
-parachain-info = { path = "../../../pallets/parachain-info", default-features = false, version = "0.0.0" }
+parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false, version = "0.2.0" }
 parachains-common = { path = "../../../common", default-features = false, version = "2.0.0" }
 parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false, version = "1.0.0" }
 

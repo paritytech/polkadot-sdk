@@ -30,7 +30,7 @@ sp-version = { path = "../../../../../substrate/primitives/version", default-fea
 # Cumulus
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"], version = "0.2.0" }
 cumulus-pallet-solo-to-para = { path = "../../../../pallets/solo-to-para", default-features = false, version = "0.2.0" }
-parachain-info = { path = "../../../pallets/parachain-info", default-features = false, version = "0.0.0" }
+parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false, version = "0.2.0" }
 parachains-common = { path = "../../../common", default-features = false, version = "2.0.0" }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false, version = "0.2.0" }
 
