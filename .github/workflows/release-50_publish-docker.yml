@@ -220,7 +220,7 @@ jobs:
     outputs:
       polkadot_apt_version: ${{ steps.fetch-latest-apt.outputs.polkadot_apt_version }}
     container:
-      image: paritytech/parity-keyring gpg
+      image: paritytech/parity-keyring
       options: --user root
     steps:
       - name: Get version
@@ -229,7 +229,7 @@ jobs:
           apt update
           apt show polkadot
           version=$(sudo apt show polkadot 2>/dev/null | grep "Version:" | awk '{print $2}')
-          echo "polkadot_apt_version=$version" >> $GITHUB_OUTPUT
+          echo "polkadot_apt_version=v$version" >> $GITHUB_OUTPUT
           echo "You passed ${{ inputs.version }} but this is ignored"
           echo "We use the version from the Debian Package: $version"
 
@@ -260,9 +260,6 @@ jobs:
 
       - name: Fetch values
         id: fetch-data
-        env:
-          GPG_KEYSERVER: keyserver.ubuntu.com
-          POLKADOT_GPGKEY: 9D4B2B6EB8F97156D19669A9FF0812D491B96798
         run: |
           date=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
           echo "date=$date" >> $GITHUB_OUTPUT
@@ -275,10 +272,10 @@ jobs:
           file: docker/dockerfiles/polkadot/polkadot_injected_debian.Dockerfile
           tags: |
             parity/polkadot:latest
-            parity/polkadot:v${{ needs.fetch-latest-debian-package-version.outputs.polkadot_apt_version }}
+            parity/polkadot:${{ needs.fetch-latest-debian-package-version.outputs.polkadot_apt_version }}
           build-args: |
             VCS_REF=${{ github.ref }}
-            POLKADOT_VERSION=${{ steps.fetch-data.outputs.polkadot_apt_version }}
+            POLKADOT_VERSION=${{ needs.fetch-latest-debian-package-version.outputs.polkadot_apt_version }}
             BUILD_DATE=${{ steps.fetch-data.outputs.date }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
