@@ -1,0 +1,28 @@
+[package]
+name = "substrate"
+description = "Next-generation framework for blockchain innovation"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+homepage = "https://substrate.io"
+repository.workspace = true
+authors.workspace = true
+edition.workspace = true
+version = "1.0.0"
+
+# The dependencies are only needed for docs.
+[dependencies]
+aquamarine = "0.3.2"
+
+subkey = { path = "../../substrate/bin/utils/subkey" }
+chain-spec-builder = { path = "../../substrate/bin/utils/chain-spec-builder" }
+
+sc-service = { path = "../../substrate/client/service" }
+sc-cli = { path = "../../substrate/client/cli" }
+sc-consensus-aura = { path = "../../substrate/client/consensus/aura" }
+sc-consensus-babe = { path = "../../substrate/client/consensus/babe" }
+sc-consensus-grandpa = { path = "../../substrate/client/consensus/grandpa" }
+sc-consensus-beefy = { path = "../../substrate/client/consensus/beefy" }
+sc-consensus-manual-seal = { path = "../../substrate/client/consensus/manual-seal" }
+sc-consensus-pow = { path = "../../substrate/client/consensus/pow" }
+
+sp-runtime = { path = "../../substrate/primitives/runtime" }
+frame-support = { path = "../../substrate/frame/support" }
