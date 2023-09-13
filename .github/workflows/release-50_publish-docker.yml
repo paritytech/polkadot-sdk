@@ -48,6 +48,14 @@ on:
         options:
           - polkadot
           - polkadot-parachain
+      version:
+        description: version to build/release
+        default: v0.9.18
+        required: true
+      date:
+        description: release date of version
+        default: "2022-02-23T19:11:58Z"
+        required: true
 
 permissions:
   contents: write
@@ -65,7 +73,8 @@ env:
   IMAGE_TYPE: ${{ inputs.image_type }}
 
 jobs:
-  fetch-artifacts:
+  fetch-artifacts: # this job will be triggerd for the polkadot-parachain rc and release or polkadot rc image build
+    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -101,7 +110,8 @@ jobs:
           path: |
             ./release-artifacts/${{ env.BINARY }}/**/*
 
-  build-container:
+  build-container: # this job will be triggerd for the polkadot-parachain rc and release or polkadot rc image build
+    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
     needs: fetch-artifacts
 
@@ -157,6 +167,18 @@ jobs:
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
 
+      - name: Build Injected Container image for polkadot rc
+        if: ${{ env.BINARY == 'polkadot' }}
+        env:
+          ARTIFACTS_FOLDER: ./release-artifacts
+          IMAGE_NAME: ${{ env.BINARY }}
+          OWNER: ${{ env.DOCKER_OWNER }}
+          TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
+        run: |
+          ls -al
+          echo "Building container for $BINARY"
+          ./docker/scripts/build-injected.sh
+
       - name: Build Injected Container image for polkadot-parachain
         if: ${{ env.BINARY == 'polkadot-parachain' }}
         env:
@@ -191,3 +213,45 @@ jobs:
         run: |
           echo "Checking tag ${RELEASE_TAG} for image ${REGISTRY}/${DOCKER_OWNER}/${BINARY}"
           $ENGINE run -i ${REGISTRY}/${DOCKER_OWNER}/${BINARY}:${RELEASE_TAG} --version
+
+  build-polkadot-release-container: # this job will be triggered for polkadot release build
+    if: ${{ inputs.binary == 'polkadot' && inputs.image_type == 'release' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@95cb08cb2672c73d4ffd2f422e6d11953d2a9c70 # v2.1.0
+
+      - name: Cache Docker layers
+        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+        with:
+         path: /tmp/.buildx-cache
+         key: ${{ runner.os }}-buildx-${{ github.sha }}
+         restore-keys: |
+           ${{ runner.os }}-buildx-
+
+      - name: Login to Dockerhub
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        id:   docker_build
+        uses: docker/build-push-action@v4
+        with:
+          push: true
+          file: docker/dockerfiles/polkadot/polkadot_injected_debian.Dockerfile
+          tags: |
+            parity/polkadot:latest
+            parity/polkadot:${{ inputs.version }}
+          build-args: |
+            POLKADOT_VERSION=${{ inputs.version }}
+            VCS_REF=${{ github.ref }}
+            BUILD_DATE=${{ inputs.date }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+      - name: Image digest
+        run: echo ${{ steps.docker_build.outputs.digest }}
