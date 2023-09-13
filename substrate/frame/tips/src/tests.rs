@@ -149,7 +149,6 @@ impl pallet_treasury::Config for Test {
 	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
-	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
@@ -176,7 +175,6 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
-	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type Paymaster = PayFromAccount<Balances, TreasuryAccount1>;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;

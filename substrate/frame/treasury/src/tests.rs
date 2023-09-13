@@ -209,7 +209,6 @@ impl Config for Test {
 	type SpendOrigin = TestSpendOrigin;
 	type AssetKind = u32;
 	type Beneficiary = u128;
-	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type Paymaster = TestPay;
 	type BalanceConverter = MulBy<ConstU64<2>>;
 	type PayoutPeriod = SpendPayoutPeriod;
@@ -699,15 +698,15 @@ fn spending_in_batch_respects_max_total() {
 		assert_ok!(RuntimeCall::from(UtilityCall::batch_all {
 			calls: vec![
 				RuntimeCall::from(TreasuryCall::spend {
-					asset_kind: 1,
+					asset_kind: Box::new(1),
 					amount: 1,
-					beneficiary: 100,
+					beneficiary: Box::new(100),
 					valid_from: None,
 				}),
 				RuntimeCall::from(TreasuryCall::spend {
-					asset_kind: 1,
+					asset_kind: Box::new(1),
 					amount: 1,
-					beneficiary: 101,
+					beneficiary: Box::new(101),
 					valid_from: None,
 				})
 			]
@@ -718,15 +717,15 @@ fn spending_in_batch_respects_max_total() {
 			RuntimeCall::from(UtilityCall::batch_all {
 				calls: vec![
 					RuntimeCall::from(TreasuryCall::spend {
-						asset_kind: 1,
+						asset_kind: Box::new(1),
 						amount: 2,
-						beneficiary: 100,
+						beneficiary: Box::new(100),
 						valid_from: None,
 					}),
 					RuntimeCall::from(TreasuryCall::spend {
-						asset_kind: 1,
+						asset_kind: Box::new(1),
 						amount: 2,
-						beneficiary: 101,
+						beneficiary: Box::new(101),
 						valid_from: None,
 					})
 				]
@@ -740,20 +739,20 @@ fn spending_in_batch_respects_max_total() {
 #[test]
 fn spend_origin_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), 1, 1, 6, None));
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), 1, 2, 6, None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
 		assert_noop!(
-			Treasury::spend(RuntimeOrigin::signed(10), 1, 3, 6, None),
+			Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 3, Box::new(6), None),
 			Error::<Test, _>::InsufficientPermission
 		);
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(11), 1, 5, 6, None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(11), Box::new(1), 5, Box::new(6), None));
 		assert_noop!(
-			Treasury::spend(RuntimeOrigin::signed(11), 1, 6, 6, None),
+			Treasury::spend(RuntimeOrigin::signed(11), Box::new(1), 6, Box::new(6), None),
 			Error::<Test, _>::InsufficientPermission
 		);
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(12), 1, 10, 6, None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(12), Box::new(1), 10, Box::new(6), None));
 		assert_noop!(
-			Treasury::spend(RuntimeOrigin::signed(12), 1, 11, 6, None),
+			Treasury::spend(RuntimeOrigin::signed(12), Box::new(1), 11, Box::new(6), None),
 			Error::<Test, _>::InsufficientPermission
 		);
 
@@ -766,7 +765,7 @@ fn spend_origin_works() {
 fn spend_works() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), 1, 2, 6, None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
 
 		assert_eq!(SpendCount::<Test, _>::get(), 1);
 		assert_eq!(
@@ -801,13 +800,13 @@ fn spend_expires() {
 
 		// spend `0` expires in 5 blocks after the creating.
 		System::set_block_number(1);
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), 1, 2, 6, None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
 		System::set_block_number(6);
 		assert_noop!(Treasury::payout(RuntimeOrigin::signed(1), 0), Error::<Test, _>::SpendExpired);
 
 		// spend cannot be approved since its already expired.
 		assert_noop!(
-			Treasury::spend(RuntimeOrigin::signed(10), 1, 2, 6, Some(0)),
+			Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), Some(0)),
 			Error::<Test, _>::SpendExpired
 		);
 	});
@@ -819,7 +818,7 @@ fn spend_payout_works() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
 		// approve a `2` coins spend of asset `1` to beneficiary `6`, the spend valid from now.
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), 1, 2, 6, None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
 		// payout the spend.
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
 		// beneficiary received `2` coins of asset `1`.
@@ -840,7 +839,7 @@ fn spend_payout_works() {
 fn payout_retry_works() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), 1, 2, 6, None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
 		assert_eq!(paid(6, 1), 2);
 		let payment_id = get_payment_id(0).expect("no payment attempt");
@@ -868,14 +867,26 @@ fn spend_valid_from_works() {
 		System::set_block_number(1);
 
 		// spend valid from block `2`.
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), 1, 2, 6, Some(2)));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(1),
+			2,
+			Box::new(6),
+			Some(2)
+		));
 		assert_noop!(Treasury::payout(RuntimeOrigin::signed(1), 0), Error::<Test, _>::EarlyPayout);
 		System::set_block_number(2);
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
 
 		System::set_block_number(5);
 		// spend approved even if `valid_from` in the past since the payout period has not passed.
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), 1, 2, 6, Some(4)));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(1),
+			2,
+			Box::new(6),
+			Some(4)
+		));
 		// spend paid.
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 1));
 	});
@@ -886,7 +897,13 @@ fn void_spend_works() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
 		// spend cannot be voided if already attempted.
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), 1, 2, 6, Some(1)));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(1),
+			2,
+			Box::new(6),
+			Some(1)
+		));
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
 		assert_noop!(
 			Treasury::void_spend(RuntimeOrigin::root(), 0),
@@ -894,7 +911,13 @@ fn void_spend_works() {
 		);
 
 		// void spend.
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), 1, 2, 6, Some(10)));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(1),
+			2,
+			Box::new(6),
+			Some(10)
+		));
 		assert_ok!(Treasury::void_spend(RuntimeOrigin::root(), 1));
 		assert_eq!(Spends::<Test, _>::get(1), None);
 	});
@@ -907,14 +930,14 @@ fn check_status_works() {
 		System::set_block_number(1);
 
 		// spend `0` expired and can be removed.
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), 1, 2, 6, None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
 		System::set_block_number(7);
 		let info = Treasury::check_status(RuntimeOrigin::signed(1), 0).unwrap();
 		assert_eq!(info.pays_fee, Pays::No);
 		System::assert_last_event(Event::<Test, _>::SpendProcessed { index: 0 }.into());
 
 		// spend `1` payment failed and expired hence can be removed.
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), 1, 2, 6, None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
 		assert_noop!(
 			Treasury::check_status(RuntimeOrigin::signed(1), 1),
 			Error::<Test, _>::NotAttempted
@@ -932,7 +955,7 @@ fn check_status_works() {
 		System::assert_last_event(Event::<Test, _>::SpendProcessed { index: 1 }.into());
 
 		// spend `2` payment succeed.
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), 1, 2, 6, None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 2));
 		let payment_id = get_payment_id(2).expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::Success);
@@ -941,7 +964,7 @@ fn check_status_works() {
 		System::assert_last_event(Event::<Test, _>::SpendProcessed { index: 2 }.into());
 
 		// spend `3` payment in process.
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), 1, 2, 6, None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 3));
 		let payment_id = get_payment_id(3).expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::InProgress);
@@ -951,7 +974,7 @@ fn check_status_works() {
 		);
 
 		// spend `4` removed since the payment status is unknown.
-		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), 1, 2, 6, None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 4));
 		let payment_id = get_payment_id(4).expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::Unknown);

@@ -679,7 +679,6 @@ impl pallet_treasury::Config for Runtime {
 	type SpendOrigin = TreasurySpender;
 	type AssetKind = LocatableAssetId;
 	type Beneficiary = MultiLocation;
-	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type Paymaster = PayOverXcm<
 		TreasuryInteriorLocation,
 		crate::xcm_config::XcmRouter,
