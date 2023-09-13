@@ -104,6 +104,7 @@ wait-timeout = "0.2"
 
 [features]
 default = []
+network-protocol-staging = ["polkadot-cli/network-protocol-staging"]
 runtime-benchmarks = [
 	"asset-hub-kusama-runtime/runtime-benchmarks",
 	"asset-hub-polkadot-runtime/runtime-benchmarks",
