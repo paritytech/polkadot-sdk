@@ -221,13 +221,11 @@ impl StatementStore {
 		let s_st = CompactStatement::Seconded(candidate_hash);
 		let v_st = CompactStatement::Valid(candidate_hash);
 
-		let fresh_seconded = validators
-			.iter()
-			.map(move |v| self.known_statements.get(&(*v, s_st.clone())));
+		let fresh_seconded =
+			validators.iter().map(move |v| self.known_statements.get(&(*v, s_st.clone())));
 
-		let fresh_valid = validators
-			.iter()
-			.map(move |v| self.known_statements.get(&(*v, v_st.clone())));
+		let fresh_valid =
+			validators.iter().map(move |v| self.known_statements.get(&(*v, v_st.clone())));
 
 		fresh_seconded
 			.chain(fresh_valid)
@@ -302,12 +300,10 @@ mod tests {
 
 		let valid_statement = CompactStatement::Valid(candidate_hash);
 		let seconded_statement = CompactStatement::Seconded(candidate_hash);
-		let signing_context = SigningContext { parent_hash: Hash::repeat_byte(0), session_index: 1 };
+		let signing_context =
+			SigningContext { parent_hash: Hash::repeat_byte(0), session_index: 1 };
 
-		let groups = Groups::new(
-			vec![vec![validator_a, validator_b]].into(),
-			2,
-		);
+		let groups = Groups::new(vec![vec![validator_a, validator_b]].into(), 2);
 
 		let mut store = StatementStore::new(&groups);
 
@@ -323,13 +319,10 @@ mod tests {
 				signature,
 				&signing_context,
 				&pair.public(),
-			).unwrap()
+			)
+			.unwrap()
 		};
-		store.insert(
-			&groups,
-			signed_valid_by_a,
-			StatementOrigin::Remote,
-		).unwrap();
+		store.insert(&groups, signed_valid_by_a, StatementOrigin::Remote).unwrap();
 
 		let signed_seconded_by_b = {
 			let payload = seconded_statement.signing_payload(&signing_context);
@@ -342,31 +335,24 @@ mod tests {
 				signature,
 				&signing_context,
 				&pair.public(),
-			).unwrap()
+			)
+			.unwrap()
 		};
-		store.insert(
-			&groups,
-			signed_seconded_by_b,
-			StatementOrigin::Remote,
-		).unwrap();
+		store.insert(&groups, signed_seconded_by_b, StatementOrigin::Remote).unwrap();
 
 		// Regardless of the order statements are requested,
 		// we will get them in the order [B, A] because seconded statements must be first.
 		let vals = &[validator_a, validator_b];
-		let statements = store.fresh_statements_for_backing(
-			vals,
-			candidate_hash,
-		).collect::<Vec<_>>();
+		let statements =
+			store.fresh_statements_for_backing(vals, candidate_hash).collect::<Vec<_>>();
 
 		assert_eq!(statements.len(), 2);
 		assert_eq!(statements[0].payload(), &seconded_statement);
 		assert_eq!(statements[1].payload(), &valid_statement);
 
 		let vals = &[validator_b, validator_a];
-		let statements = store.fresh_statements_for_backing(
-			vals,
-			candidate_hash,
-		).collect::<Vec<_>>();
+		let statements =
+			store.fresh_statements_for_backing(vals, candidate_hash).collect::<Vec<_>>();
 
 		assert_eq!(statements.len(), 2);
 		assert_eq!(statements[0].payload(), &seconded_statement);
