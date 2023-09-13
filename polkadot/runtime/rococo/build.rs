@@ -24,8 +24,7 @@ const ROCOCO_EPOCH_DURATION_ENV: &str = "ROCOCO_EPOCH_DURATION";
 fn main() {
 	let mut builder = WasmBuilder::new().with_current_project().import_memory().export_heap_base();
 
-	if env::var(ROCOCO_EPOCH_DURATION_ENV).is_ok() && env::var("CARGO_FEATURE_FAST_RUNTIME").is_ok()
-	{
+	if env::var(ROCOCO_EPOCH_DURATION_ENV).is_ok() {
 		builder = builder.enable_feature("fast-runtime")
 	};
 
