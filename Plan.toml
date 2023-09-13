@@ -28970,7 +28970,7 @@ version = "12.0.0"
 path = "substrate/utils/wasm-builder"
 
 [[crate]]
-publish = true
+publish = false
 name = "bridge-hub-rococo-runtime"
 from = "0.1.0"
 to = "0.2.0"
@@ -33387,7 +33387,7 @@ version = "7.0.0"
 path = "substrate/utils/build-script-utils"
 
 [[crate]]
-publish = true
+publish = false
 name = "polkadot-parachain-bin"
 from = "1.0.0"
 to = "2.0.0"
