@@ -673,6 +673,7 @@ impl_runtime_apis! {
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
+				type DeliveryHelper = (); // No requirements for UMP
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
 					Ok(DotRelayLocation::get())
 				}
