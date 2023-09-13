@@ -13,6 +13,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive
 log = { version = "0.4.19", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 num-traits = { version = "0.2", default-features = false}
+smallvec = "1.11.0"
 
 # Substrate
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
@@ -28,6 +29,11 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 # Polkadot
+kusama-runtime-constants = { path = "../../../polkadot/runtime/kusama/constants", default-features = false}
+polkadot-runtime-constants = { path = "../../../polkadot/runtime/polkadot/constants", default-features = false}
+rococo-runtime-constants = { path = "../../../polkadot/runtime/rococo/constants", default-features = false}
+westend-runtime-constants = { path = "../../../polkadot/runtime/westend/constants", default-features = false}
+polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false}
 polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false}
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
 xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false}
@@ -52,18 +58,23 @@ std = [
 	"cumulus-primitives-utility/std",
 	"frame-support/std",
 	"frame-system/std",
+	"kusama-runtime-constants/std",
 	"log/std",
 	"pallet-asset-tx-payment/std",
 	"pallet-assets/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
+	"polkadot-core-primitives/std",
 	"polkadot-primitives/std",
+	"polkadot-runtime-constants/std",
+	"rococo-runtime-constants/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

@@ -83,7 +83,7 @@ pallet-whitelist = { path = "../../../substrate/frame/whitelist", default-featur
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false }
 pallet-utility = { path = "../../../substrate/frame/utility", default-features = false }
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false }
-pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false, features=["experimental"] }
+pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -108,7 +108,7 @@ hex-literal = "0.4.1"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
 sp-trie = { path = "../../../substrate/primitives/trie" }
-serde_json = "1.0.96"
+serde_json = "1.0.106"
 separator = "0.4.1"
 remote-externalities = { package = "frame-remote-externalities" , path = "../../../substrate/utils/frame/remote-externalities" }
 tokio = { version = "1.24.2", features = ["macros"] }

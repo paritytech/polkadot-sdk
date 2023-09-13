@@ -231,7 +231,16 @@ impl<T: FullCodec + Clone + Eq + PartialEq + Debug + scale_info::TypeInfo + MaxE
 
 /// Simple amalgamation trait to collect together properties for a Balance under one roof.
 pub trait Balance:
-	AtLeast32BitUnsigned + FullCodec + Copy + Default + Debug + scale_info::TypeInfo + MaxEncodedLen
+	AtLeast32BitUnsigned
+	+ FullCodec
+	+ Copy
+	+ Default
+	+ Debug
+	+ scale_info::TypeInfo
+	+ MaxEncodedLen
+	+ Send
+	+ Sync
+	+ 'static
 {
 }
 impl<
@@ -241,7 +250,10 @@ impl<
 			+ Default
 			+ Debug
 			+ scale_info::TypeInfo
-			+ MaxEncodedLen,
+			+ MaxEncodedLen
+			+ Send
+			+ Sync
+			+ 'static,
 	> Balance for T
 {
 }

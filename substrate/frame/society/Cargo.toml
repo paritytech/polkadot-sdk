@@ -34,8 +34,6 @@ sp-io = { path = "../../primitives/io" }
 
 [features]
 default = [ "std" ]
-# Enable `VersionedMigration` for migrations using this feature.
-experimental = [ "frame-support/experimental" ]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
