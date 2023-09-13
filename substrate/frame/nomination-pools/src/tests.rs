@@ -520,7 +520,7 @@ mod join {
 
 			// Given
 			// The bonded balance is slashed in half
-			StakingMock::set_bonded_balance(Pools::create_bonded_account(1), 6);
+			StakingMock::slash_to(1, 6);
 
 			// And
 			Balances::make_free_balance_be(&12, ExistentialDeposit::get() + 12);
@@ -532,9 +532,12 @@ mod join {
 			// Then
 			assert_eq!(
 				pool_events_since_last_call(),
-				vec![Event::Bonded { member: 12, pool_id: 1, bonded: 12, joined: true }]
+				vec![
+					Event::PoolSlashed { pool_id: 1, balance: 6 },
+					Event::Bonded { member: 12, pool_id: 1, bonded: 12, joined: true }
+				]
 			);
-			assert_eq!(TotalValueLocked::<T>::get(), 24);
+			assert_eq!(TotalValueLocked::<T>::get(), 18);
 
 			assert_eq!(
 				PoolMembers::<Runtime>::get(12).unwrap(),
