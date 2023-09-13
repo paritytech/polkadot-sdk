@@ -29,7 +29,10 @@
 
 use crate::{
 	behaviour::{self, Behaviour, BehaviourOut},
-	config::{parse_addr, FullNetworkConfiguration, MultiaddrWithPeerId, Params, TransportConfig},
+	config::{
+		parse_addr, FullNetworkConfiguration, MultiaddrWithPeerId, NonDefaultSetConfig,
+		NonReservedPeerMode, Params, SetConfig, TransportConfig,
+	},
 	discovery::DiscoveryConfig,
 	error::Error,
 	event::{DhtEvent, Event},
@@ -151,7 +154,7 @@ where
 	/// `worker.service()`. The `NetworkService` can be shared through the codebase.
 	pub fn new(params: Params<B>) -> Result<Self, Error> {
 		let FullNetworkConfiguration {
-			notification_protocols,
+			mut notification_protocols,
 			request_response_protocols,
 			mut network_config,
 		} = params.network_config;
@@ -270,6 +273,20 @@ where
 
 		let (to_notifications, from_protocol_controllers) =
 			tracing_unbounded("mpsc_protocol_controllers_to_notifications", 10_000);
+
+		// TESTING ONLY
+		notification_protocols.push(NonDefaultSetConfig {
+			notifications_protocol: "dummy_protocol".into(),
+			fallback_names: Default::default(),
+			handshake: None,
+			max_notification_size: 100_000,
+			set_config: SetConfig {
+				in_peers: 100,
+				out_peers: 0,
+				reserved_nodes: Default::default(),
+				non_reserved_mode: NonReservedPeerMode::Accept,
+			},
+		});
 
 		// We must prepend a hardcoded default peer set to notification protocols.
 		let all_peer_sets_iter = iter::once(&network_config.default_peers_set)

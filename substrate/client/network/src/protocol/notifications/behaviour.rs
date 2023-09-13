@@ -378,6 +378,15 @@ impl Notifications {
 			})
 			.collect::<Vec<_>>();
 
+		for (set_id, protocol) in notif_protocols.iter().enumerate() {
+			trace!(
+				target: "sub-libp2p",
+				"Notifications protocol set id: {}, name: {}",
+				set_id,
+				protocol.name,
+			);
+		}
+
 		assert!(!notif_protocols.is_empty());
 
 		Self {

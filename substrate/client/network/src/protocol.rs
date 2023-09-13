@@ -93,6 +93,7 @@ pub struct Protocol<B: BlockT> {
 	sync_substream_validations: FuturesUnordered<PendingSyncSubstreamValidation>,
 	tx: TracingUnboundedSender<crate::event::SyncEvent<B>>,
 	_marker: std::marker::PhantomData<B>,
+	dummy_protocol_set_id: SetId,
 }
 
 impl<B: BlockT> Protocol<B> {
@@ -128,6 +129,8 @@ impl<B: BlockT> Protocol<B> {
 			)
 		};
 
+		let dummy_protocol_set_id = notification_protocols.len().into();
+
 		let protocol = Self {
 			peer_store_handle,
 			behaviour,
@@ -140,6 +143,7 @@ impl<B: BlockT> Protocol<B> {
 			tx,
 			// TODO: remove when `BlockAnnouncesHandshake` is moved away from `Protocol`
 			_marker: Default::default(),
+			dummy_protocol_set_id,
 		};
 
 		Ok(protocol)
