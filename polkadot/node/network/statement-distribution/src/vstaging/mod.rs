@@ -102,8 +102,6 @@ const COST_UNEXPECTED_MANIFEST_DISALLOWED: Rep =
 	Rep::CostMinor("Unexpected Manifest, Peer Disallowed");
 const COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN: Rep =
 	Rep::CostMinor("Unexpected Manifest, Peer Unknown");
-const COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN: Rep =
-	Rep::CostMinor("Unexpected Manifest, Peer Unknown");
 const COST_CONFLICTING_MANIFEST: Rep = Rep::CostMajor("Manifest conflicts with previous");
 const COST_INSUFFICIENT_MANIFEST: Rep =
 	Rep::CostMajor("Manifest statements insufficient to back candidate");

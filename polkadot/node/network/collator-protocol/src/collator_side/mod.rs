@@ -696,7 +696,7 @@ async fn advertise_collation<Context>(
 				.should_advertise_to(candidate_hash, peer_ids, &peer);
 
 		match should_advertise {
-			ShouldAdvertiseTo::Yes => {}
+			ShouldAdvertiseTo::Yes => {},
 			ShouldAdvertiseTo::NotAuthority => {
 				gum::trace!(
 					target: LOG_TARGET,
@@ -706,7 +706,7 @@ async fn advertise_collation<Context>(
 					"Not advertising collation: not relevant to peer"
 				);
 				continue
-			}
+			},
 			ShouldAdvertiseTo::AlreadyAdvertised => {
 				gum::debug!(
 					target: LOG_TARGET,
@@ -716,7 +716,7 @@ async fn advertise_collation<Context>(
 					"Not advertising collation: already advertised"
 				);
 				continue
-			}
+			},
 		}
 
 		gum::debug!(
