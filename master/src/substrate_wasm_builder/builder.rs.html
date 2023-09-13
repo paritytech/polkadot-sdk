@@ -287,6 +287,9 @@
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -492,7 +495,10 @@
 <span class="doccomment">/// Checks if the build of the WASM binary should be skipped.
 </span><span class="kw">fn </span>check_skip_build() -&gt; bool {
 	env::var(<span class="kw">crate</span>::SKIP_BUILD_ENV).is_ok() ||
-		env::var(generate_crate_skip_build_env_name()).is_ok()
+		env::var(generate_crate_skip_build_env_name()).is_ok() ||
+		<span class="comment">// If we are running in docs.rs, let&#39;s skip building.
+		// https://docs.rs/about/builds#detecting-docsrs
+		</span>env::var(<span class="string">&quot;DOCS_RS&quot;</span>).is_ok()
 }
 
 <span class="doccomment">/// Provide a dummy WASM binary if there doesn&#39;t exist one.
