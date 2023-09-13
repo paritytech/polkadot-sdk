@@ -357,7 +357,10 @@ use frame_support::{
 	pallet_prelude::{MaxEncodedLen, *},
 	storage::bounded_btree_map::BoundedBTreeMap,
 	traits::{
-		fungible::{Inspect as FunInspect, Mutate as FunMutate, MutateFreeze as FunMutateFreeze},
+		fungible::{
+			Inspect as FunInspect, InspectFreeze, Mutate as FunMutate,
+			MutateFreeze as FunMutateFreeze,
+		},
 		tokens::{Fortitude, Preservation},
 		Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
 	},
@@ -1045,6 +1048,9 @@ impl<T: Config> BondedPool<T> {
 		self.is_root(who)
 	}
 
+	fn is_depositor(&self, who: &T::AccountId) -> bool {
+		&self.roles.depositor == who
+	}
 	fn is_destroying(&self) -> bool {
 		matches!(self.state, PoolState::Destroying)
 	}
@@ -1512,7 +1518,7 @@ impl<T: Config> Get<u32> for TotalUnbondingPools<T> {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::traits::{tokens::Fortitude, StorageVersion};
+	use frame_support::traits::StorageVersion;
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use sp_runtime::Perbill;
 
@@ -1532,7 +1538,8 @@ pub mod pallet {
 		type WeightInfo: weights::WeightInfo;
 
 		/// The currency type used for nomination pool.
-		type Currency: FunMutate<Self::AccountId> + FunMutateFreeze<Self::AccountId, Id = FreezeReason>;
+		type Currency: FunMutate<Self::AccountId>
+			+ FunMutateFreeze<Self::AccountId, Id = FreezeReason>;
 
 		/// The type that is used for reward counter.
 		///
@@ -1857,8 +1864,8 @@ pub mod pallet {
 		InvalidPoolId,
 		/// Bonding extra is restricted to the exact pending reward amount.
 		BondExtraRestricted,
-		/// No reward deficit to top up.
-		NoRewardDeficit,
+		/// No imbalance in the ED deposit for the pool.
+		NothingToAdjust,
 	}
 
 	#[derive(Encode, Decode, PartialEq, TypeInfo, PalletError, RuntimeDebug)]
@@ -1883,23 +1890,24 @@ pub mod pallet {
 	}
 
 	/// A reason for freezing funds.
-    #[derive(
-    Encode,
-    Decode,
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    MaxEncodedLen,
-    TypeInfo,
-    RuntimeDebug,
-    )]
+	#[derive(
+		Encode,
+		Decode,
+		Copy,
+		Clone,
+		Eq,
+		PartialEq,
+		Ord,
+		PartialOrd,
+		MaxEncodedLen,
+		TypeInfo,
+		RuntimeDebug,
+	)]
 	pub enum FreezeReason {
-		/// The Pallet has frozen funds for maintaining the Existential Deposit of a NominationPool.
+		/// The Pallet has frozen funds for maintaining the Existential Deposit of a
+		/// NominationPool.
 		#[codec(index = 0)]
-		PoolMinimumBalance,
+		PoolMinBalance,
 	}
 
 	#[pallet::call]
@@ -2666,23 +2674,19 @@ pub mod pallet {
 			Self::do_claim_commission(who, pool_id)
 		}
 
-		/// Top up the reward deficit of a pool permissionlessly.
+		/// Top up the deficit or withdraw the excess ED from the pool.
 		///
-		/// This can happen in situations where ED has increased from the time the pool was created.
-		/// The increased ED eats up from the available rewards of the pool, and the pool can end up
-		/// with a net deficit.
+		/// When a pool is created, the pool depositor transfers ED to the reward account of the
+		/// pool. ED is subject to change and over time, the deposit in the reward account may be
+		/// insufficient to cover the ED deficit of the pool or vice-versa where there is excess
+		/// deposit to the pool. This call allows the pool operator to adjust the ED deposit of the
+		/// pool.
 		#[pallet::call_index(21)]
 		// FIXME(ank4n): bench + tests
 		#[pallet::weight(T::WeightInfo::claim_commission())]
-		pub fn top_up_reward_deficit(
-			origin: OriginFor<T>,
-			pool_id: PoolId,
-			#[pallet::compact] max_transfer: BalanceOf<T>,
-		) -> DispatchResult {
+		pub fn adjust_ed_deposit(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let caller_balance =
-				T::Currency::reducible_balance(&who, Preservation::Expendable, Fortitude::Polite);
-			Self::do_top_up_reward_deficit(who, pool_id, max_transfer.min(caller_balance))
+			Self::do_adjust_ed_deposit(who, pool_id)
 		}
 	}
 
@@ -2734,10 +2738,8 @@ impl<T: Config> Pallet<T> {
 		RewardPools::<T>::remove(bonded_pool.id);
 		SubPoolsStorage::<T>::remove(bonded_pool.id);
 		// remove the frozen ED from the reward account.
-		let _ = T::Currency::thaw(
-			&FreezeReason::PoolMinimumBalance,
-			&bonded_pool.reward_account(),
-		).defensive();
+		let _ = T::Currency::thaw(&FreezeReason::PoolMinBalance, &bonded_pool.reward_account())
+			.defensive();
 
 		// Kill accounts from storage by making their balance go below ED. We assume that the
 		// accounts have no references that would prevent destruction once we get to this point. We
@@ -2942,7 +2944,7 @@ impl<T: Config> Pallet<T> {
 		bonded_pool.try_inc_members()?;
 		let points = bonded_pool.try_bond_funds(&who, amount, BondType::Create)?;
 
-		// lock the minimum balance for the reward account.
+		// Transfer the minimum balance for the reward account.
 		T::Currency::transfer(
 			&who,
 			&bonded_pool.reward_account(),
@@ -2950,11 +2952,8 @@ impl<T: Config> Pallet<T> {
 			Preservation::Expendable,
 		)?;
 
-		T::Currency::set_freeze(
-			&FreezeReason::PoolMinimumBalance,
-			&bonded_pool.reward_account(),
-			T::Currency::minimum_balance(),
-		)?;
+		// Restrict reward account balance from going below ED.
+		Self::freeze_min_balance(&bonded_pool.reward_account())?;
 
 		PoolMembers::<T>::insert(
 			who.clone(),
@@ -3096,62 +3095,50 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn pool_pending_rewards(pool: PoolId) -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
-		let bonded_pool = BondedPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
-		let reward_pool = RewardPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
-
-		let current_rc = if !bonded_pool.points.is_zero() {
-			let commission = bonded_pool.commission.current();
-			reward_pool.current_reward_counter(pool, bonded_pool.points, commission)?.0
-		} else {
-			Default::default()
-		};
-
-		Ok(PoolMembers::<T>::iter()
-			.filter(|(_, d)| d.pool_id == pool)
-			.map(|(_, d)| d.pending_rewards(current_rc).unwrap_or_default())
-			.fold(0u32.into(), |acc: BalanceOf<T>, x| acc.saturating_add(x)))
+	fn freeze_min_balance(reward_acc: &T::AccountId) -> DispatchResult {
+		T::Currency::set_freeze(
+			&FreezeReason::PoolMinBalance,
+			reward_acc,
+			T::Currency::minimum_balance(),
+		)
 	}
+	fn do_adjust_ed_deposit(who: T::AccountId, pool: PoolId) -> DispatchResult {
+		let bonded_pool = BondedPool::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
+		// only depositor can adjust ED deposit.
+		ensure!(bonded_pool.is_depositor(&who), Error::<T>::DoesNotHavePermission);
 
-	fn do_top_up_reward_deficit(
-		who: T::AccountId,
-		pool: PoolId,
-		max_transfer: BalanceOf<T>,
-	) -> DispatchResult {
-		let pool_pending_rewards = Self::pool_pending_rewards(pool)?;
-		let reward_balance = RewardPool::<T>::current_balance(pool);
-		let deficit = pool_pending_rewards.saturating_sub(reward_balance);
+		let reward_acc = &bonded_pool.reward_account();
+		let pre_frozen_balance =
+			T::Currency::balance_frozen(&FreezeReason::PoolMinBalance, reward_acc);
+		let min_balance = T::Currency::minimum_balance();
 
-		ensure!(!deficit.is_zero(), Error::<T>::NoRewardDeficit);
+		if pre_frozen_balance == min_balance {
+			return Err(Error::<T>::NothingToAdjust.into())
+		}
 
-		// do not top up beyond the max transfer amount desired by the caller.
-		let top_up_amount = deficit.min(max_transfer);
-		T::Currency::transfer(
-			&who,
-			&Self::create_reward_account(pool),
-			top_up_amount,
-			Preservation::Preserve,
-		)?;
+		// Update frozen amount with current ED.
+		Self::freeze_min_balance(reward_acc)?;
 
-		// The topped up amount should not be claimable by delegators.
-		RewardPools::<T>::mutate(pool, |maybe_reward_pool| {
-			if let Some(pool) = maybe_reward_pool {
-				pool.last_recorded_total_payouts.saturating_accrue(top_up_amount);
-				Ok(())
-			} else {
-				Err(Error::<T>::PoolNotFound)
-			}
-		})?;
-
-		Self::deposit_event(Event::<T>::PoolToppedUp {
-			pool_id: pool,
-			top_up_value: top_up_amount,
-			deficit: deficit.saturating_sub(top_up_amount),
-		});
+		if pre_frozen_balance > min_balance {
+			// Transfer excess back to depositor.
+			T::Currency::transfer(
+				reward_acc,
+				&who,
+				pre_frozen_balance.saturating_sub(min_balance),
+				Preservation::Preserve,
+			)?;
+		} else {
+			// Transfer ED deficit from depositor to the pool
+			T::Currency::transfer(
+				&who,
+				reward_acc,
+				min_balance.saturating_sub(pre_frozen_balance),
+				Preservation::Expendable,
+			)?;
+		}
 
 		Ok(())
 	}
-
 	/// Ensure the correctness of the state of this pallet.
 	///
 	/// This should be valid before or after each state transition of this pallet.
@@ -3343,6 +3330,24 @@ impl<T: Config> Pallet<T> {
 		let points = PoolMembers::<T>::get(&member).map(|d| d.active_points()).unwrap_or_default();
 		let member_lookup = T::Lookup::unlookup(member);
 		Self::unbond(origin, member_lookup, points)
+	}
+
+	#[cfg(test)]
+	fn pool_pending_rewards(pool: PoolId) -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
+		let bonded_pool = BondedPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
+		let reward_pool = RewardPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
+
+		let current_rc = if !bonded_pool.points.is_zero() {
+			let commission = bonded_pool.commission.current();
+			reward_pool.current_reward_counter(pool, bonded_pool.points, commission)?.0
+		} else {
+			Default::default()
+		};
+
+		Ok(PoolMembers::<T>::iter()
+			.filter(|(_, d)| d.pool_id == pool)
+			.map(|(_, d)| d.pending_rewards(current_rc).unwrap_or_default())
+			.fold(0u32.into(), |acc: BalanceOf<T>, x| acc.saturating_add(x)))
 	}
 }
 

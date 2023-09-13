@@ -406,7 +406,7 @@ mod reward_pool {
 			Currency::set_balance(&99, 1000);
 			// caller can set safe ceiling for top up.
 			let max_top_up: Balance = 20;
-			assert_ok!(Pools::top_up_reward_deficit(RuntimeOrigin::signed(99), 1, max_top_up));
+			assert_ok!(Pools::adjust_ed_deposit(RuntimeOrigin::signed(99), 1));
 			// only upto max_transfer is topped up.
 			assert_eq!(
 				pool_events_since_last_call(),
@@ -419,7 +419,7 @@ mod reward_pool {
 			assert_eq!(reward_imbalance(1), Deficit(25));
 
 			// Top up the remaining deficit
-			assert_ok!(Pools::top_up_reward_deficit(RuntimeOrigin::signed(99), 1, 1000));
+			assert_ok!(Pools::adjust_ed_deposit(RuntimeOrigin::signed(99), 1));
 			assert_eq!(
 				pool_events_since_last_call(),
 				vec![Event::PoolToppedUp { pool_id: 1, top_up_value: 25, deficit: 0 },]
@@ -428,8 +428,8 @@ mod reward_pool {
 
 			// Trying to top up again does not work
 			assert_err!(
-				Pools::top_up_reward_deficit(RuntimeOrigin::signed(99), 1, 1000),
-				Error::<T>::NoRewardDeficit
+				Pools::adjust_ed_deposit(RuntimeOrigin::signed(99), 1),
+				Error::<T>::NothingToAdjust
 			);
 		});
 	}
@@ -447,8 +447,8 @@ mod reward_pool {
 
 			// Topping up fails
 			assert_err!(
-				Pools::top_up_reward_deficit(RuntimeOrigin::signed(11), 1, 100),
-				Error::<T>::NoRewardDeficit
+				Pools::adjust_ed_deposit(RuntimeOrigin::signed(11), 1),
+				Error::<T>::NothingToAdjust
 			);
 		});
 	}
@@ -4441,7 +4441,7 @@ mod create {
 			// make sure ED is frozen on pool creation.
 			assert_eq!(
 				Currency::balance_frozen(
-					&FreezeReason::PoolMinimumBalance,
+					&FreezeReason::PoolMinBalance,
 					&default_reward_account()
 				),
 				Currency::minimum_balance()
