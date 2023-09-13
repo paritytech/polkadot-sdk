@@ -93,6 +93,12 @@ pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 		JustTry,
 	>;
 
+/// Type to identify a particular NFT collection
+pub type CollectionId = u32;
+
+/// Type to identify a paritcular NFT in a collection
+pub type ItemId = u32;
+
 #[cfg(test)]
 mod tests {
 	use super::*;

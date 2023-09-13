@@ -63,7 +63,8 @@ mod weights;
 pub mod xcm_config;
 
 use assets_common::{
-	foreign_creators::ForeignCreators, matching::FromSiblingParachain, MultiLocationForAssetId,
+	foreign_creators::ForeignCreators, matching::FromSiblingParachain, CollectionId, ItemId,
+	MultiLocationForAssetId,
 };
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use sp_api::impl_runtime_apis;
@@ -670,8 +671,8 @@ parameter_types! {
 
 impl pallet_uniques::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type CollectionId = u32;
-	type ItemId = u32;
+	type CollectionId = CollectionId;
+	type ItemId = ItemId;
 	type Currency = Balances;
 	type ForceOrigin = AssetsForceOrigin;
 	type CollectionDeposit = UniquesCollectionDeposit;
@@ -702,8 +703,8 @@ parameter_types! {
 
 impl pallet_nfts::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type CollectionId = u32;
-	type ItemId = u32;
+	type CollectionId = CollectionId;
+	type ItemId = ItemId;
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = AssetsForceOrigin;
@@ -930,18 +931,18 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_nfts_runtime_api::NftsApi<Block, AccountId, u32, u32> for Runtime {
-		fn owner(collection: u32, item: u32) -> Option<AccountId> {
+	impl pallet_nfts_runtime_api::NftsApi<Block, AccountId, CollectionId, ItemId> for Runtime {
+		fn owner(collection: CollectionId, item: ItemId) -> Option<AccountId> {
 			<Nfts as Inspect<AccountId>>::owner(&collection, &item)
 		}
 
-		fn collection_owner(collection: u32) -> Option<AccountId> {
+		fn collection_owner(collection: CollectionId) -> Option<AccountId> {
 			<Nfts as Inspect<AccountId>>::collection_owner(&collection)
 		}
 
 		fn attribute(
-			collection: u32,
-			item: u32,
+			collection: CollectionId,
+			item: ItemId,
 			key: Vec<u8>,
 		) -> Option<Vec<u8>> {
 			<Nfts as Inspect<AccountId>>::attribute(&collection, &item, &key)
@@ -949,8 +950,8 @@ impl_runtime_apis! {
 
 		fn custom_attribute(
 			account: AccountId,
-			collection: u32,
-			item: u32,
+			collection: CollectionId,
+			item: ItemId,
 			key: Vec<u8>,
 		) -> Option<Vec<u8>> {
 			<Nfts as Inspect<AccountId>>::custom_attribute(
@@ -962,14 +963,14 @@ impl_runtime_apis! {
 		}
 
 		fn system_attribute(
-			collection: u32,
-			item: u32,
+			collection: CollectionId,
+			item: ItemId,
 			key: Vec<u8>,
 		) -> Option<Vec<u8>> {
 			<Nfts as Inspect<AccountId>>::system_attribute(&collection, &item, &key)
 		}
 
-		fn collection_attribute(collection: u32, key: Vec<u8>) -> Option<Vec<u8>> {
+		fn collection_attribute(collection: CollectionId, key: Vec<u8>) -> Option<Vec<u8>> {
 			<Nfts as Inspect<AccountId>>::collection_attribute(&collection, &key)
 		}
 	}
