@@ -47,7 +47,7 @@
 <span class="item-spacer"></span>    fn <a href="#tymethod.runtime_version" class="fn">runtime_version</a>(
         &amp;self,
         block: <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>&gt;
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../sp_version/struct.RuntimeVersion.html" title="struct sp_version::RuntimeVersion">RuntimeVersion</a>, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc::state::error::Error">Error</a>&gt;;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;RuntimeVersion, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc::state::error::Error">Error</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.query_storage" class="fn">query_storage</a>(
         &amp;self,
         from: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
@@ -125,7 +125,7 @@ prefix is returned, i.e. all the storage (double) maps that have this prefix.</p
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.runtime_version" class="method"><a class="srclink rightside" href="../../src/sc_rpc/state/mod.rs.html#123">source</a><h4 class="code-header">fn <a href="#tymethod.runtime_version" class="fn">runtime_version</a>(
     &amp;self,
     block: <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>&gt;
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../sp_version/struct.RuntimeVersion.html" title="struct sp_version::RuntimeVersion">RuntimeVersion</a>, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc::state::error::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Get the runtime version.</p>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;RuntimeVersion, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc::state::error::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Get the runtime version.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.query_storage" class="method"><a class="srclink rightside" href="../../src/sc_rpc/state/mod.rs.html#130-135">source</a><h4 class="code-header">fn <a href="#tymethod.query_storage" class="fn">query_storage</a>(
     &amp;self,
     from: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
