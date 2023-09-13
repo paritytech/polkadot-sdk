@@ -2,7 +2,7 @@
 
 **Parameters**:
 
-- `height`: String containing a hexadecimal-encoded integer.
+- `height`: Integer representing the height of the block.
 
 **Return value**: Array (possibly empty) of strings containing a hexadecimal-encoded hash of a block header.
 
