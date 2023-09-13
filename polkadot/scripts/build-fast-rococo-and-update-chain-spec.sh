@@ -3,7 +3,7 @@
 CURRENT_DIR=$(pwd)
 
 #directory were polkadot-sdk is checked out
-POLKADOT_SDK_DIR=/home/miszka/parity/10-genesis-config/polkadot-sdk-rococo
+POLKADOT_SDK_DIR=$(git rev-parse --show-toplevel)
 
 # required epoch duration:
 EPOCH_DURATION_IN_BLOCK=6
@@ -35,5 +35,3 @@ sed 's/1e+18/1000000000000000000/' -i $CURRENT_DIR/chainspec-nonraw.json
 
 # generate raw
 $POLKADOT_CMD build-spec --chain ./chainspec-nonraw.json --raw > $CURRENT_DIR/chainspec-raw.json
-
-
