@@ -300,7 +300,7 @@ impl crate::pallet::pallet::Config for Test {
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type EraPayout = ConvertCurve<RewardCurve>;
-	type TreasuryPot = TreasuryPot;
+	type InflationLevyDestination = TreasuryPot;
 	type NextNewSession = Session;
 	type MaxNominatorRewardedPerValidator = ConstU32<64>;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
@@ -356,7 +356,7 @@ pub struct ExtBuilder {
 	pub min_nominator_bond: Balance,
 	min_validator_bond: Balance,
 	balance_factor: Balance,
-	treasury_fraction: Percent,
+	inflation_levy_fraction: Percent,
 	status: BTreeMap<AccountId, StakerStatus<AccountId>>,
 	stakes: BTreeMap<AccountId, Balance>,
 	stakers: Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
@@ -369,7 +369,7 @@ impl Default for ExtBuilder {
 			validator_count: 2,
 			minimum_validator_count: 0,
 			balance_factor: 1,
-			treasury_fraction: Percent::from_percent(0),
+			inflation_levy_fraction: Percent::from_percent(0),
 			invulnerables: vec![],
 			has_stakers: true,
 			initialize_first_session: true,
@@ -457,8 +457,8 @@ impl ExtBuilder {
 		self.balance_factor = factor;
 		self
 	}
-	pub fn treasury_fraction(mut self, fraction: u8) -> Self {
-		self.treasury_fraction = Percent::from_parts(fraction);
+	pub fn levy_fraction(mut self, fraction: u8) -> Self {
+		self.inflation_levy_fraction = Percent::from_parts(fraction);
 		self
 	}
 	fn build(self) -> sp_io::TestExternalities {
@@ -548,7 +548,7 @@ impl ExtBuilder {
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: self.min_nominator_bond,
 			min_validator_bond: self.min_validator_bond,
-			treasury_inflation_fraction: self.treasury_fraction,
+			inflation_levy_fraction: self.inflation_levy_fraction,
 			..Default::default()
 		}
 		.assimilate_storage(&mut storage);

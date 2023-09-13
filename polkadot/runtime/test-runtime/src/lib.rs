@@ -69,8 +69,8 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		BlakeTwo256, Block as BlockT, ConvertInto, Extrinsic as ExtrinsicT, OpaqueKeys,
-		SaturatedConversion, StaticLookup, Verify,
+		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Extrinsic as ExtrinsicT,
+		OpaqueKeys, SaturatedConversion, StaticLookup, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, KeyTypeId, Perbill,
@@ -353,7 +353,7 @@ impl pallet_staking::Config for Runtime {
 	type AdminOrigin = frame_system::EnsureNever<()>;
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type TreasuryPalletId = BurnAccountId; // burn inflation if treasury fraction > 0.
+	type InflationLevyDestination = BurnPot; // burn inflation if treasury fraction > 0.
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type NextNewSession = Session;
@@ -369,6 +369,13 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = ();
 	type WeightInfo = ();
+}
+
+pub struct BurnPot;
+impl frame_support::traits::Pot<AccountId> for BurnPot {
+	fn account_id() -> AccountId {
+		BurnAccountId::get().into_account_truncating()
+	}
 }
 
 parameter_types! {

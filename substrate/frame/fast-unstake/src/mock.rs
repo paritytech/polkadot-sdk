@@ -24,7 +24,7 @@ use frame_support::{
 	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 };
 use sp_runtime::{
-	traits::{Convert, IdentityLookup},
+	traits::{AccountIdConversion, Convert, IdentityLookup},
 	BuildStorage,
 };
 
@@ -150,7 +150,7 @@ impl pallet_staking::Config for Runtime {
 	type BondingDuration = BondingDuration;
 	type SessionInterface = ();
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type TreasuryPalletId = BurnAccountId; // burn inflation if treasury fraction > 0.
+	type InflationLevyDestination = BurnPot; // burn inflation if treasury fraction > 0.
 	type NextNewSession = ();
 	type HistoryDepth = ConstU32<84>;
 	type MaxNominatorRewardedPerValidator = ConstU32<64>;
@@ -164,6 +164,13 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+}
+
+pub struct BurnPot;
+impl frame_support::traits::Pot<AccountId> for BurnPot {
+	fn account_id() -> AccountId {
+		BurnAccountId::get().into_account_truncating()
+	}
 }
 
 pub struct BalanceToU256;

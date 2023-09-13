@@ -95,7 +95,7 @@ pub use pallet_election_provider_multi_phase::Call as EPMCall;
 pub use pallet_staking::StakerStatus;
 use pallet_staking::UseValidatorsMap;
 pub use pallet_timestamp::Call as TimestampCall;
-use sp_runtime::traits::Get;
+use sp_runtime::traits::{AccountIdConversion, Get};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
@@ -637,7 +637,7 @@ impl pallet_staking::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type TreasuryPalletId = BurnAccountId; // burn inflation if treasury fraction > 0.
+	type InflationLevyDestination = BurnPot; // burn inflation if treasury fraction > 0.
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type NextNewSession = Session;
@@ -651,6 +651,13 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = NominationPools;
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
+}
+
+pub struct BurnPot;
+impl frame_support::traits::Pot<AccountId> for BurnPot {
+	fn account_id() -> AccountId {
+		BurnAccountId::get().into_account_truncating()
+	}
 }
 
 impl pallet_fast_unstake::Config for Runtime {

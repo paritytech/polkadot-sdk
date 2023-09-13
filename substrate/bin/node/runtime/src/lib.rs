@@ -653,7 +653,7 @@ impl pallet_staking::Config for Runtime {
 	>;
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type TreasuryPalletId = TreasuryPalletId;
+	type InflationLevyDestination = Treasury;
 	type NextNewSession = Session;
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;

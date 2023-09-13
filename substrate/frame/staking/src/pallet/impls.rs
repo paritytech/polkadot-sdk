@@ -455,11 +455,12 @@ impl<T: Config> Pallet<T> {
 			let (total_payout, remainder) =
 				T::EraPayout::era_payout(staked, issuance, era_duration);
 
-			let treasury_payout = <TreasuryInflationFraction<T>>::get() * total_payout;
+			// Levy to be paid in this era to the `T::InflationLevyDestination` account.
+			let levy_payout = <InflationLevyFraction<T>>::get() * total_payout;
 
 			let validator_payout = total_payout
-				.checked_sub(&treasury_payout)
-				.unwrap_or_else(|| treasury_payout.saturating_sub(total_payout));
+				.checked_sub(&levy_payout)
+				.unwrap_or_else(|| levy_payout.saturating_sub(total_payout));
 
 			Self::deposit_event(Event::<T>::EraPaid {
 				era_index: active_era.index,
@@ -467,11 +468,11 @@ impl<T: Config> Pallet<T> {
 				remainder,
 			});
 
-			// Pay treasury now, if relevant.
-			if !treasury_payout.is_zero() {
+			// Pay levy, if relevant.
+			if !levy_payout.is_zero() {
 				<T::Currency as Currency<T::AccountId>>::deposit_creating(
-					&<T::TreasuryPot as Pot<T::AccountId>>::account_id(),
-					treasury_payout,
+					&<T::InflationLevyDestination as Pot<T::AccountId>>::account_id(),
+					levy_payout,
 				);
 			}
 

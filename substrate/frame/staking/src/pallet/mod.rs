@@ -197,8 +197,10 @@ pub mod pallet {
 		/// See [Era payout](./index.html#era-payout).
 		type EraPayout: EraPayout<BalanceOf<Self>>;
 
-		/// The treasury pot.
-		type TreasuryPot: Pot<Self::AccountId>;
+		/// The destination acount for the minted era inflation that is not used to reward
+		/// validators. The portion of inflation to be paid to this account is calculated based on
+		/// `InflationLevyFraction`.
+		type InflationLevyDestination: Pot<Self::AccountId>;
 
 		/// Something that can estimate the next session change, accurately or as a best effort
 		/// guess.
@@ -583,9 +585,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
-	/// The percentage of the reward inflation that is minted directly into the treasury.
+	/// The percentage of the reward inflation that is minted directly into the the
+	/// `InflationLevyDestination` account.
 	#[pallet::storage]
-	pub type TreasuryInflationFraction<T: Config> = StorageValue<_, Percent, ValueQuery>;
+	pub type InflationLevyFraction<T: Config> = StorageValue<_, Percent, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -602,7 +605,7 @@ pub mod pallet {
 		pub min_validator_bond: BalanceOf<T>,
 		pub max_validator_count: Option<u32>,
 		pub max_nominator_count: Option<u32>,
-		pub treasury_inflation_fraction: Percent,
+		pub inflation_levy_fraction: Percent,
 	}
 
 	#[pallet::genesis_build]
@@ -616,7 +619,7 @@ pub mod pallet {
 			SlashRewardFraction::<T>::put(self.slash_reward_fraction);
 			MinNominatorBond::<T>::put(self.min_nominator_bond);
 			MinValidatorBond::<T>::put(self.min_validator_bond);
-			TreasuryInflationFraction::<T>::put(self.treasury_inflation_fraction);
+			InflationLevyFraction::<T>::put(self.inflation_levy_fraction);
 			if let Some(x) = self.max_validator_count {
 				MaxValidatorsCount::<T>::put(x);
 			}
@@ -1792,7 +1795,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_treasury_fraction())]
 		pub fn set_treasury_fraction(origin: OriginFor<T>, new: Percent) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			TreasuryInflationFraction::<T>::put(new);
+			InflationLevyFraction::<T>::put(new);
 			Ok(())
 		}
 	}

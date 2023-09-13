@@ -24,7 +24,7 @@ use frame_support::{
 	PalletId,
 };
 use sp_runtime::{
-	traits::{Convert, IdentityLookup},
+	traits::{AccountIdConversion, Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,
 };
 
@@ -123,7 +123,7 @@ impl pallet_staking::Config for Runtime {
 	type BondingDuration = BondingDuration;
 	type SessionInterface = ();
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type TreasuryPalletId = BurnAccountId; // burn inflation if treasury fraction > 0.
+	type InflationLevyDestination = BurnPot; // burn inflation if treasury fraction > 0.
 	type NextNewSession = ();
 	type MaxNominatorRewardedPerValidator = ConstU32<64>;
 	type OffendingValidatorsThreshold = ();
@@ -138,6 +138,13 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = Pools;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+}
+
+pub struct BurnPot;
+impl frame_support::traits::Pot<AccountId> for BurnPot {
+	fn account_id() -> AccountId {
+		BurnAccountId::get().into_account_truncating()
+	}
 }
 
 parameter_types! {

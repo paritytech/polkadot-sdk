@@ -27,7 +27,10 @@ use frame_support::{
 	parameter_types,
 	traits::{ConstU32, ConstU64},
 };
-use sp_runtime::{traits::IdentityLookup, BuildStorage};
+use sp_runtime::{
+	traits::{AccountIdConversion, IdentityLookup},
+	BuildStorage,
+};
 
 type AccountId = u64;
 type Nonce = u32;
@@ -172,7 +175,7 @@ impl pallet_staking::Config for Test {
 	type BondingDuration = ();
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type TreasuryPalletId = BurnAccountId; // burn inflation if treasury fraction > 0.
+	type InflationLevyDestination = BurnPot; // burn inflation if treasury fraction > 0.
 	type NextNewSession = Session;
 	type MaxNominatorRewardedPerValidator = ConstU32<64>;
 	type OffendingValidatorsThreshold = ();
@@ -186,6 +189,13 @@ impl pallet_staking::Config for Test {
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+}
+
+pub struct BurnPot;
+impl frame_support::traits::Pot<AccountId> for BurnPot {
+	fn account_id() -> AccountId {
+		BurnAccountId::get().into_account_truncating()
+	}
 }
 
 impl crate::Config for Test {}

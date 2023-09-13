@@ -31,7 +31,7 @@ use sp_runtime::{
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
 	testing,
-	traits::Zero,
+	traits::{AccountIdConversion, Zero},
 	transaction_validity, BuildStorage, PerU16, Perbill,
 };
 use sp_staking::{
@@ -271,7 +271,7 @@ impl pallet_staking::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>; // root can cancel slashes
 	type SessionInterface = Self;
 	type EraPayout = ();
-	type TreasuryPalletId = BurnAccountId; // burn inflation if treasury fraction > 0.
+	type InflationLevyDestination = BurnPot; // burn inflation if treasury fraction > 0.
 	type NextNewSession = Session;
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
@@ -285,6 +285,13 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = ();
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
+}
+
+pub struct BurnPot;
+impl frame_support::traits::Pot<AccountId> for BurnPot {
+	fn account_id() -> AccountId {
+		BurnAccountId::get().into_account_truncating()
+	}
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime

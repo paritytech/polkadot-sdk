@@ -31,7 +31,7 @@ use sp_core::H256;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	testing::UintAuthorityId,
-	traits::{BlakeTwo256, IdentityLookup, Zero},
+	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, Zero},
 	BuildStorage,
 };
 use sp_staking::{EraIndex, SessionIndex};
@@ -178,7 +178,7 @@ impl pallet_staking::Config for Test {
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type TreasuryPalletId = BurnAccountId; // burn inflation if treasury fraction > 0.
+	type InflationLevyDestination = BurnPot; // burn inflation if treasury fraction > 0.
 	type NextNewSession = Session;
 	type MaxNominatorRewardedPerValidator = ConstU32<64>;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
@@ -192,6 +192,13 @@ impl pallet_staking::Config for Test {
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+}
+
+pub struct BurnPot;
+impl frame_support::traits::Pot<AccountId> for BurnPot {
+	fn account_id() -> AccountId {
+		BurnAccountId::get().into_account_truncating()
+	}
 }
 
 impl pallet_session::historical::Config for Test {
