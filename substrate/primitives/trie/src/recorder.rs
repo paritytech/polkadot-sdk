@@ -386,7 +386,8 @@ impl<H: Hasher, I: DerefMut<Target = RecorderInner<H::Out>>> trie_db::TrieRecord
 					"Recorded inline value access for key",
 				);
 
-				// A value was accessed that is stored inline a node and we recorded all trie nodes to access this value.
+				// A value was accessed that is stored inline a node and we recorded all trie nodes
+				// to access this value.
 				self.update_recorded_keys(full_key, RecordedForKey::Value);
 			},
 		};
