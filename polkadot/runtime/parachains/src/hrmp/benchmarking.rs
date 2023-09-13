@@ -400,14 +400,21 @@ frame_benchmarking::benchmarks! {
 				mqc_head: None,
 			},
 		);
+		// Actually reserve the deposits.
+		let _ = T::Currency::reserve(&sender_id.into_account_truncating(), sender_deposit);
+		let _ = T::Currency::reserve(&recipient_id.into_account_truncating(), recipient_deposit);
 	}: _(frame_system::RawOrigin::Signed(caller), sender_id, recipient_id)
 	verify {
 		assert_last_event::<T>(
 			Event::<T>::OpenChannelDepositsUpdated(sender_id, recipient_id).into()
 		);
 		let channel = HrmpChannels::<T>::get(&channel_id).unwrap();
+		// Check that the deposit was updated in the channel state.
 		assert_eq!(channel.sender_deposit, 0);
 		assert_eq!(channel.recipient_deposit, 0);
+		// And that the funds were unreserved.
+		assert_eq!(T::Currency::reserved_balance(&sender_id.into_account_truncating()), 0u128.unique_saturated_into());
+		assert_eq!(T::Currency::reserved_balance(&recipient_id.into_account_truncating()), 0u128.unique_saturated_into());
 	}
 }
 

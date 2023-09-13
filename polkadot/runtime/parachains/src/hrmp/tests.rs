@@ -24,7 +24,7 @@ use crate::mock::{
 	Configuration, Hrmp, MockGenesisConfig, Paras, ParasShared, RuntimeEvent as MockEvent,
 	RuntimeOrigin, System, Test,
 };
-use frame_support::assert_noop;
+use frame_support::{assert_noop, assert_ok};
 use primitives::BlockNumber;
 use std::collections::BTreeMap;
 
@@ -315,6 +315,56 @@ fn open_system_channel_does_not_work_with_one_non_system_chain() {
 			Error::<Test>::ChannelCreationNotAuthorized
 		);
 		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
+fn poke_deposits_works() {
+	let para_a = 1.into();
+	let para_b = 2001.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// We need both A & B to be registered and live parachains.
+		register_parachain_with_balance(para_a, 200);
+		register_parachain_with_balance(para_b, 200);
+
+		let config = Configuration::config();
+		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
+
+		// Our normal establishment won't actually reserve deposits, so just insert them directly.
+		HrmpChannels::<Test>::insert(
+			&channel_id,
+			HrmpChannel {
+				sender_deposit: config.hrmp_sender_deposit,
+				recipient_deposit: config.hrmp_recipient_deposit,
+				max_capacity: config.hrmp_channel_max_capacity,
+				max_total_size: config.hrmp_channel_max_total_size,
+				max_message_size: config.hrmp_channel_max_message_size,
+				msg_count: 0,
+				total_size: 0,
+				mqc_head: None,
+			},
+		);
+		// reserve funds
+		assert_ok!(<Test as Config>::Currency::reserve(
+			&para_a.into_account_truncating(),
+			config.hrmp_sender_deposit
+		));
+		assert_ok!(<Test as Config>::Currency::reserve(
+			&para_b.into_account_truncating(),
+			config.hrmp_recipient_deposit
+		));
+
+		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b));
+
+		assert_eq!(
+			<Test as Config>::Currency::reserved_balance(&para_a.into_account_truncating()),
+			0
+		);
+		assert_eq!(
+			<Test as Config>::Currency::reserved_balance(&para_b.into_account_truncating()),
+			0
+		);
 	});
 }
 
