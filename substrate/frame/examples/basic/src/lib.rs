@@ -38,6 +38,7 @@
 //! - Inherited weight annotation for pallet calls, used to create less repetition for calls that
 //!   use the [`Config::WeightInfo`] trait to calculate call weights. This can also be overridden,
 //!   as demonstrated by [`Call::set_dummy`].
+//! - A private function that performs a storage update.
 //! - A simple signed extension implementation (see: [`sp_runtime::traits::SignedExtension`]) which
 //!   increases the priority of the [`Call::set_dummy`] if it's present and drops any transaction
 //!   with an encoded length higher than 200 bytes.
