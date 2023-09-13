@@ -133,7 +133,7 @@ impl sp_staking::StakingInterface for StakingMock {
 
 	fn withdraw_unbonded(who: Self::AccountId, _: u32) -> Result<bool, DispatchError> {
 		let mut unbonding_map = UnbondingBalanceMap::get();
-		let staker_map = unbonding_map.get_mut(&who).ok_or("not a staker")?;
+		let staker_map = unbonding_map.get_mut(&who).ok_or("Nothing to unbond")?;
 
 		let current_era = Self::current_era();
 		staker_map.retain(|(unlocking_at, _amount)| *unlocking_at > current_era);
