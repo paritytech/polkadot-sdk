@@ -80,8 +80,6 @@ impl Def {
 			})?
 			.1;
 
-
-
 		let mut config = None;
 		let mut pallet_struct = None;
 		let mut hooks = None;

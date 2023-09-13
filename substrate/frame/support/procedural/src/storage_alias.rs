@@ -17,11 +17,19 @@
 
 //! Implementation of the `storage_alias` attribute macro.
 
-use crate::counter_prefix;
+use crate::{counter_prefix, pallet::parse::helper};
 use frame_support_procedural_tools::generate_crate_access_2018;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
-use syn::{parenthesized, parse::{Parse, ParseStream}, punctuated::Punctuated, spanned::Spanned, token, visit::Visit, Attribute, Error, Ident, Result, Token, Type, TypeParam, Visibility, WhereClause};
+use syn::{
+	parenthesized,
+	parse::{Parse, ParseStream},
+	punctuated::Punctuated,
+	spanned::Spanned,
+	token,
+	visit::Visit,
+	Attribute, Error, Ident, Result, Token, Type, TypeParam, Visibility, WhereClause,
+};
 
 /// Extension trait for [`Type`].
 trait TypeExt {
@@ -608,12 +616,10 @@ fn generate_storage_instance(
 	let name = Ident::new(&name_str, Span::call_site());
 	let storage_name_str = storage_name.to_string();
 
-	println!("pallet_prefix: {}", pallet_prefix.to_string());
 	let counter_code = is_counted_map.then(|| {
 		let counter_name = Ident::new(&counter_prefix(&name_str), Span::call_site());
 		let counter_storage_name_str = counter_prefix(&storage_name_str);
-		// TODO: fix pallet prefix tokens.
-		let prefix_hash = impl_prefix_hash(&pallet_prefix.to_string(), &counter_storage_name_str);
+		let storage_prefix_hash = helper::two128_str(&counter_storage_name_str);
 
 		quote! {
 			#visibility struct #counter_name< #impl_generics >(
@@ -628,9 +634,8 @@ fn generate_storage_instance(
 				}
 
 				const STORAGE_PREFIX: &'static str = #counter_storage_name_str;
-
-				fn prefix_hash() -> [u8; 32] {
-					#prefix_hash
+				fn storage_prefix_hash() -> [u8; 16] {
+					#storage_prefix_hash
 				}
 			}
 
@@ -642,9 +647,7 @@ fn generate_storage_instance(
 		}
 	});
 
-	println!("pallet_prefix2: {}", pallet_prefix.to_string());
-	// TODO: fix pallet prefix tokens.
-	let prefix_hash = impl_prefix_hash(&pallet_prefix.to_string(), &storage_name_str);
+	let storage_prefix_hash = helper::two128_str(&storage_name_str);
 
 	// Implement `StorageInstance` trait.
 	let code = quote! {
@@ -661,9 +664,8 @@ fn generate_storage_instance(
 			}
 
 			const STORAGE_PREFIX: &'static str = #storage_name_str;
-
-			fn prefix_hash() -> [u8; 32] {
-				#prefix_hash
+			fn storage_prefix_hash() -> [u8; 16] {
+				#storage_prefix_hash
 			}
 		}
 
@@ -671,20 +673,4 @@ fn generate_storage_instance(
 	};
 
 	Ok(StorageInstance { name, code, generics: quote!( < #type_generics > ) })
-}
-
-pub(crate) fn impl_prefix_hash(pallet_prefix: &str, storage_name_str: &str) -> TokenStream {
-	let data1 = sp_core_hashing::twox_128(&pallet_prefix.as_bytes().to_vec()).to_vec();
-	let data2 = sp_core_hashing::twox_128(&storage_name_str.as_bytes().to_vec());
-
-	bytes_to_array(data1.into_iter().chain(data2.into_iter()))
-}
-
-pub(crate) fn bytes_to_array(bytes: impl IntoIterator<Item = u8>) -> TokenStream {
-	let bytes = bytes.into_iter();
-
-	quote!(
-		[ #( #bytes ),* ]
-	)
-		.into()
 }
