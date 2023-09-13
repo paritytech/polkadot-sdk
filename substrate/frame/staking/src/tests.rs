@@ -1732,7 +1732,7 @@ fn minting_into_treasury_works() {
 		.nominate(false)
 		.treasury_fraction(fraction_to_treasury)
 		.build_and_execute(|| {
-			assert_eq!(<TreasuryInflationFraction<Test>>::get().unwrap(), Percent::from_parts(20));
+			assert_eq!(<TreasuryInflationFraction<Test>>::get(), Percent::from_parts(20));
 
 			// check validators account state.
 			assert_eq!(Session::validators().len(), 2);
@@ -6146,11 +6146,11 @@ fn set_min_commission_works_with_admin_origin() {
 fn set_treasury_fraction_works_with_admin_origin() {
 	ExtBuilder::default().build_and_execute(|| {
 		// no treasury fraction set initially.
-		assert_eq!(TreasuryInflationFraction::<Test>::get().unwrap(), Zero::zero());
+		assert_eq!(TreasuryInflationFraction::<Test>::get(), Zero::zero());
 
 		// root can set tresury fraction.
 		assert_ok!(Staking::set_treasury_fraction(RuntimeOrigin::root(), Percent::from_parts(10)));
-		assert_eq!(TreasuryInflationFraction::<Test>::get(), Some(Percent::from_parts(10)));
+		assert_eq!(TreasuryInflationFraction::<Test>::get(), Percent::from_parts(10));
 
 		// non priviledged origin can not set treasury fraction.
 		assert_noop!(

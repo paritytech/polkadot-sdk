@@ -943,7 +943,7 @@ benchmarks! {
 		let treasury_fraction = Percent::max_value();
 	}: _(RawOrigin::Root, treasury_fraction)
 	verify {
-		assert_eq!(TreasuryInflationFraction::<T>::get(), Some(Percent::from_parts(100)));
+		assert_eq!(TreasuryInflationFraction::<T>::get(), Percent::from_parts(100));
 	}
 
 	impl_benchmark_test_suite!(

@@ -585,7 +585,7 @@ pub mod pallet {
 
 	/// The percentage of the reward inflation that is minted directly into the treasury.
 	#[pallet::storage]
-	pub type TreasuryInflationFraction<T: Config> = StorageValue<_, Percent, OptionQuery>;
+	pub type TreasuryInflationFraction<T: Config> = StorageValue<_, Percent, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -1786,7 +1786,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Sets the minimum amount of commission that each validators must maintain.
+		/// Sets the fraction of the era's inflation that should be minted directly into the
+		/// treasury.
 		#[pallet::call_index(26)]
 		#[pallet::weight(T::WeightInfo::set_treasury_fraction())]
 		pub fn set_treasury_fraction(origin: OriginFor<T>, new: Percent) -> DispatchResult {

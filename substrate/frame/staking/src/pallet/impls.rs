@@ -455,8 +455,7 @@ impl<T: Config> Pallet<T> {
 			let (total_payout, remainder) =
 				T::EraPayout::era_payout(staked, issuance, era_duration);
 
-			let treasury_payout =
-				<TreasuryInflationFraction<T>>::get().unwrap_or_default() * total_payout;
+			let treasury_payout = <TreasuryInflationFraction<T>>::get() * total_payout;
 
 			let validator_payout = total_payout
 				.checked_sub(&treasury_payout)
