@@ -47,8 +47,8 @@ USER parity
 
 # check if executable works in this container
 RUN /usr/bin/polkadot --version
-RUN /usr/lib/bin/polkadot-execute-worker --version
-RUN /usr/lib/bin/polkadot-prepare-worker --version
+RUN /usr/lib/polkadot/polkadot-execute-worker --version
+RUN /usr/lib/polkadot/polkadot-prepare-worker --version
 
 EXPOSE 30333 9933 9944 9615
 VOLUME ["/polkadot"]
