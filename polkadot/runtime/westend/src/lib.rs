@@ -1560,7 +1560,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(6)]
+	#[api_version(7)]
 	impl primitives::runtime_api::ParachainHost<Block, Hash, BlockNumber> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -1694,6 +1694,14 @@ sp_api::impl_runtime_apis! {
 
 		fn minimum_backing_votes() -> u32 {
 			parachains_runtime_api_impl::minimum_backing_votes::<Runtime>()
+		}
+
+		fn para_backing_state(para_id: ParaId) -> Option<primitives::async_backing::BackingState> {
+			parachains_runtime_api_impl::backing_state::<Runtime>(para_id)
+		}
+
+		fn async_backing_params() -> primitives::AsyncBackingParams {
+			parachains_runtime_api_impl::async_backing_params::<Runtime>()
 		}
 	}
 
