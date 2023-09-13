@@ -80,6 +80,7 @@ runtime-benchmarks = [
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
@@ -89,5 +90,4 @@ runtime-benchmarks = [
 	"rococo-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"westend-runtime/runtime-benchmarks",
-	"parachains-common/runtime-benchmarks"
 ]
