@@ -4388,6 +4388,7 @@ mod withdraw_unbonded {
 
 mod create {
 	use super::*;
+	use frame_support::traits::fungible::InspectFreeze;
 
 	#[test]
 	fn create_works() {
@@ -4445,6 +4446,9 @@ mod create {
 				RewardPools::<Runtime>::get(2).unwrap(),
 				RewardPool { ..Default::default() }
 			);
+
+			// make sure ED is frozen on pool creation.
+			assert_eq!(Currency::balance_frozen(&FreezeReason::PoolMinimumBalance, &default_reward_account()), Currency::minimum_balance());
 
 			assert_eq!(
 				pool_events_since_last_call(),
