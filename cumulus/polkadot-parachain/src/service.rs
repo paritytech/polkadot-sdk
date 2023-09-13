@@ -220,6 +220,30 @@ impl sc_executor::NativeExecutionDispatch for CoretimeKusamaRuntimeExecutor {
 	}
 }
 
+/// Native `CoretimeRococo` executor instance.
+pub struct CoretimeRococoRuntimeExecutor;
+impl sc_executor::NativeExecutionDispatch for CoretimeRococoRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		coretime_rococo_runtime::api::dispatch(method, data)
+	}
+	fn native_version() -> sc_executor::NativeVersion {
+		coretime_rococo_runtime::native_version()
+	}
+}
+
+/// Native `CoretimeWestend` executor instance.
+pub struct CoretimeWestendRuntimeExecutor;
+impl sc_executor::NativeExecutionDispatch for CoretimeWestendRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		coretime_westend_runtime::api::dispatch(method, data)
+	}
+	fn native_version() -> sc_executor::NativeVersion {
+		coretime_westend_runtime::native_version()
+	}
+}
+
 /// Native contracts executor instance.
 pub struct ContractsRococoRuntimeExecutor;
 
