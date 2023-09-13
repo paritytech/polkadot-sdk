@@ -11,106 +11,106 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-//! # Overview
-//!
-//! A set of utilities for node-side code to emulate the logic the runtime uses for checking
-//! parachain blocks in order to build prospective parachains that are produced ahead of the
-//! relay chain. These utilities allow the node-side to predict, with high accuracy, what
-//! the relay-chain will accept in the near future.
-//!
-//! This module has 2 key data types: [`Constraints`] and [`Fragment`]s. [`Constraints`]
-//! exhaustively define the set of valid inputs and outputs to parachain execution. A [`Fragment`]
-//! indicates a parachain block, anchored to the relay-chain at a particular relay-chain block,
-//! known as the relay-parent.
-//!
-//! ## Fragment Validity
-//!
-//! Every relay-parent is implicitly associated with a unique set of [`Constraints`] that describe
-//! the properties that must be true for a block to be included in a direct child of that block,
-//! assuming there is no intermediate parachain block pending availability.
-//!
-//! However, the key factor that makes asynchronously-grown prospective chains
-//! possible is the fact that the relay-chain accepts candidate blocks based on whether they
-//! are valid under the constraints of the present moment, not based on whether they were
-//! valid at the time of construction.
-//!
-//! As such, [`Fragment`]s are often, but not always constructed in such a way that they are
-//! invalid at first and become valid later on, as the relay chain grows.
-//!
-//! # Usage
-//!
-//! It's expected that the users of this module will be building up trees of
-//! [`Fragment`]s and consistently pruning and adding to the tree.
-//!
-//! ## Operating Constraints
-//!
-//! The *operating constraints* of a `Fragment` are the constraints with which that fragment
-//! was intended to comply. The operating constraints are defined as the base constraints
-//! of the relay-parent of the fragment modified by the cumulative modifications of all
-//! fragments between the relay-parent and the current fragment.
-//!
-//! What the operating constraints are, in practice, is a prediction about the state of the
-//! relay-chain in the future. The relay-chain is aware of some current state, and we want to
-//! make an intelligent prediction about what might be accepted in the future based on
-//! prior fragments that also exist off-chain.
-//!
-//! ## Fragment Trees
-//!
-//! As the relay-chain grows, some predictions come true and others come false.
-//! And new predictions get made. These three changes correspond distinctly to the
-//! 3 primary operations on fragment trees.
-//!
-//! A fragment tree is a mental model for thinking about a forking series of predictions
-//! about a single parachain. There may be one or more fragment trees per parachain.
-//!
-//! In expectation, most parachains will have a plausibly-unique authorship method which means that
-//! they should really be much closer to fragment-chains, maybe with an occasional fork.
-//!
-//! Avoiding fragment-tree blowup is beyond the scope of this module.
-//!
-//! ### Pruning Fragment Trees
-//!
-//! When the relay-chain advances, we want to compare the new constraints of that relay-parent to
-//! the roots of the fragment trees we have. There are 3 cases:
-//!
-//! 1. The root fragment is still valid under the new constraints. In this case, we do nothing. This
-//! is the "prediction still uncertain" case.
-//!
-//! 2. The root fragment is invalid under the new constraints because it has been subsumed by the
-//! relay-chain. In this case, we can discard the root and split & re-root the fragment tree under
-//! its descendents and compare to the new constraints again. This is the "prediction came true"
-//! case.
-//!
-//! 3. The root fragment is invalid under the new constraints because a competing parachain block
-//! has been included or it would never be accepted for some other reason. In this case we can
-//! discard the entire fragment tree. This is the "prediction came false" case.
-//!
-//! This is all a bit of a simplification because it assumes that the relay-chain advances without
-//! forks and is finalized instantly. In practice, the set of fragment-trees needs to be observable
-//! from the perspective of a few different possible forks of the relay-chain and not pruned
-//! too eagerly.
-//!
-//! Note that the fragments themselves don't need to change and the only thing we care about
-//! is whether the predictions they represent are still valid.
-//!
-//! ### Extending Fragment Trees
-//!
-//! As predictions fade into the past, new ones should be stacked on top.
-//!
-//! Every new relay-chain block is an opportunity to make a new prediction about the future.
-//! Higher-level logic should select the leaves of the fragment-trees to build upon or whether
-//! to create a new fragment-tree.
-//!
-//! ### Code Upgrades
-//!
-//! Code upgrades are the main place where this emulation fails. The on-chain PVF upgrade scheduling
-//! logic is very path-dependent and intricate so we just assume that code upgrades
-//! can't be initiated and applied within a single fragment-tree. Fragment-trees aren't deep,
-//! in practice and code upgrades are fairly rare. So what's likely to happen around code
-//! upgrades is that the entire fragment-tree has to get discarded at some point.
-//!
-//! That means a few blocks of execution time lost, which is not a big deal for code upgrades
-//! in practice at most once every few weeks.
+/// # Overview
+///
+/// A set of utilities for node-side code to emulate the logic the runtime uses for checking
+/// parachain blocks in order to build prospective parachains that are produced ahead of the
+/// relay chain. These utilities allow the node-side to predict, with high accuracy, what
+/// the relay-chain will accept in the near future.
+///
+/// This module has 2 key data types: [`Constraints`] and [`Fragment`]s. [`Constraints`]
+/// exhaustively define the set of valid inputs and outputs to parachain execution. A [`Fragment`]
+/// indicates a parachain block, anchored to the relay-chain at a particular relay-chain block,
+/// known as the relay-parent.
+///
+/// ## Fragment Validity
+///
+/// Every relay-parent is implicitly associated with a unique set of [`Constraints`] that describe
+/// the properties that must be true for a block to be included in a direct child of that block,
+/// assuming there is no intermediate parachain block pending availability.
+///
+/// However, the key factor that makes asynchronously-grown prospective chains
+/// possible is the fact that the relay-chain accepts candidate blocks based on whether they
+/// are valid under the constraints of the present moment, not based on whether they were
+/// valid at the time of construction.
+///
+/// As such, [`Fragment`]s are often, but not always constructed in such a way that they are
+/// invalid at first and become valid later on, as the relay chain grows.
+///
+/// # Usage
+///
+/// It's expected that the users of this module will be building up trees of
+/// [`Fragment`]s and consistently pruning and adding to the tree.
+///
+/// ## Operating Constraints
+///
+/// The *operating constraints* of a `Fragment` are the constraints with which that fragment
+/// was intended to comply. The operating constraints are defined as the base constraints
+/// of the relay-parent of the fragment modified by the cumulative modifications of all
+/// fragments between the relay-parent and the current fragment.
+///
+/// What the operating constraints are, in practice, is a prediction about the state of the
+/// relay-chain in the future. The relay-chain is aware of some current state, and we want to
+/// make an intelligent prediction about what might be accepted in the future based on
+/// prior fragments that also exist off-chain.
+///
+/// ## Fragment Trees
+///
+/// As the relay-chain grows, some predictions come true and others come false.
+/// And new predictions get made. These three changes correspond distinctly to the
+/// 3 primary operations on fragment trees.
+///
+/// A fragment tree is a mental model for thinking about a forking series of predictions
+/// about a single parachain. There may be one or more fragment trees per parachain.
+///
+/// In expectation, most parachains will have a plausibly-unique authorship method which means that
+/// they should really be much closer to fragment-chains, maybe with an occasional fork.
+///
+/// Avoiding fragment-tree blowup is beyond the scope of this module.
+///
+/// ### Pruning Fragment Trees
+///
+/// When the relay-chain advances, we want to compare the new constraints of that relay-parent to
+/// the roots of the fragment trees we have. There are 3 cases:
+///
+/// 1. The root fragment is still valid under the new constraints. In this case, we do nothing. This
+/// is the "prediction still uncertain" case.
+///
+/// 2. The root fragment is invalid under the new constraints because it has been subsumed by the
+/// relay-chain. In this case, we can discard the root and split & re-root the fragment tree under
+/// its descendents and compare to the new constraints again. This is the "prediction came true"
+/// case.
+///
+/// 3. The root fragment is invalid under the new constraints because a competing parachain block
+/// has been included or it would never be accepted for some other reason. In this case we can
+/// discard the entire fragment tree. This is the "prediction came false" case.
+///
+/// This is all a bit of a simplification because it assumes that the relay-chain advances without
+/// forks and is finalized instantly. In practice, the set of fragment-trees needs to be observable
+/// from the perspective of a few different possible forks of the relay-chain and not pruned
+/// too eagerly.
+///
+/// Note that the fragments themselves don't need to change and the only thing we care about
+/// is whether the predictions they represent are still valid.
+///
+/// ### Extending Fragment Trees
+///
+/// As predictions fade into the past, new ones should be stacked on top.
+///
+/// Every new relay-chain block is an opportunity to make a new prediction about the future.
+/// Higher-level logic should select the leaves of the fragment-trees to build upon or whether
+/// to create a new fragment-tree.
+///
+/// ### Code Upgrades
+///
+/// Code upgrades are the main place where this emulation fails. The on-chain PVF upgrade scheduling
+/// logic is very path-dependent and intricate so we just assume that code upgrades
+/// can't be initiated and applied within a single fragment-tree. Fragment-trees aren't deep,
+/// in practice and code upgrades are fairly rare. So what's likely to happen around code
+/// upgrades is that the entire fragment-tree has to get discarded at some point.
+///
+/// That means a few blocks of execution time lost, which is not a big deal for code upgrades
+/// in practice at most once every few weeks.
 
 use polkadot_primitives::{
 	async_backing::Constraints as PrimitiveConstraints, BlockNumber, CandidateCommitments,
