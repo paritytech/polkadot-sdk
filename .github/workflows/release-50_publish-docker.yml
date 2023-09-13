@@ -10,6 +10,24 @@ on:
   #    - published
   workflow_dispatch:
     inputs:
+      image_type:
+        description: Type of the image to be published
+        required: true
+        default: rc
+        type: choice
+        options:
+          - rc
+          - release
+
+      binary:
+        description: Binary to be published
+        required: true
+        default: polkadot
+        type: choice
+        options:
+          - polkadot
+          - polkadot-parachain
+
       release_id:
         description: |
           Release ID.
@@ -20,35 +38,19 @@ on:
         required: true
         type: string
 
-      image_type:
-        description: Type of the image to be published
-        required: true
-        default: rc
-        type: choice
-        options:
-          - rc
-          - release
-
       registry:
         description: Container registry
         required: true
         type: string
         default: docker.io
 
+      # The owner is often the same than the Docker Hub username but does ont have to be.
+      # In our case, it is not.
       owner:
         description: Owner of the container image repo
         required: true
         type: string
         default: parity
-
-      binary:
-        description: Binary to be published
-        required: true
-        default: polkadot
-        type: choice
-        options:
-          - polkadot
-          - polkadot-parachain
 
       version:
         description: version to build/release
@@ -238,15 +240,33 @@ jobs:
 
       - name: Fetch values
         id: fetch-data
+        env:
+          GPG_KEYSERVER: keyserver.ubuntu.com
+          POLKADOT_GPGKEY: 9D4B2B6EB8F97156D19669A9FF0812D491B96798
         run: |
           date=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-          version=$(apt show polkadot 2>/dev/null | grep "Version:" | awk '{print $2}')
-          echo "You passed ${{ inputs.version }}"
+          echo "You passed ${{ inputs.version }} but this is ignored"
+
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+           	libssl1.1 \
+           	ca-certificates \
+           	gnupg
+
+          gpg --keyserver ${GPG_KEYSERVER} --recv-keys ${POLKADOT_GPGKEY}
+          gpg --export ${POLKADOT_GPGKEY} > /usr/share/keyrings/parity.gpg
+          sudo mkdir -p /etc/apt/sources.list.d
+          sudo echo 'deb [signed-by=/usr/share/keyrings/parity.gpg] https://releases.parity.io/deb release main' > /etc/apt/sources.list.d/parity.list
+
+          sudo apt-get update
+
+          echo "DBG: 001"
+          sudo apt show polkadot
+          echo "DBG: 002"
+          version=$(sudo apt show polkadot 2>/dev/null | grep "Version:" | awk '{print $2}')
           echo "We use the version from the Debian Package: $version"
 
           echo "date=$date" >> $GITHUB_OUTPUT
           echo "polkadot_apt_version=$version" >> $GITHUB_OUTPUT
-
 
       - name: Build and push
         id:   docker_build
