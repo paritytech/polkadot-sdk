@@ -7,6 +7,9 @@ on:
 jobs:
   check-features:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runtime: [polkadot, kusama, westend, rococo]
     steps:
       - name: Fetch latest code
         uses: actions/checkout@v4
@@ -16,4 +19,4 @@ jobs:
           chmod u+x cargo-featalign
           mv cargo-featalign ~/.cargo/bin
       - name: Check features
-        run: cargo featalign polkadot/runtime/polkadot --features std,runtime-benchmarks,try-runtime,empty --workspace-only --default-std --depth -1 --sort --mode dry-run
+        run: cargo featalign polkadot/runtime/${{ matrix.runtime }} --features std,runtime-benchmarks,try-runtime,empty --workspace-only --default-std --depth -1 --sort --mode dry-run
