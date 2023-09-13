@@ -30,6 +30,6 @@ polkadot-primitives = { version = "2.0.0", path = "../../../polkadot/primitives"
 polkadot-parachain-primitives = { version = "1.0.0", path = "../../../polkadot/parachain" }
 cumulus-test-runtime = { version = "0.1.0", path = "../runtime" }
 cumulus-test-service = { version = "0.0.0", path = "../service" }
-cumulus-test-relay-sproof-builder = { version = "0.1.0", path = "../relay-sproof-builder" }
+cumulus-test-relay-sproof-builder = { version = "0.2.0", path = "../relay-sproof-builder" }
 cumulus-primitives-core = { version = "0.2.0", path = "../../primitives/core" }
 cumulus-primitives-parachain-inherent = { version = "0.2.0", path = "../../primitives/parachain-inherent" }

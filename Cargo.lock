@@ -3796,7 +3796,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-test-relay-sproof-builder"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cumulus-primitives-core",
  "parity-scale-codec",

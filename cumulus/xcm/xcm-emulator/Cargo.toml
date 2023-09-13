@@ -26,7 +26,7 @@ pallet-message-queue = { version = "26.0.0", path = "../../../substrate/frame/me
 cumulus-primitives-core = { version = "0.2.0", path = "../../primitives/core" }
 cumulus-pallet-parachain-system = { version = "0.2.0", path = "../../pallets/parachain-system" }
 cumulus-primitives-parachain-inherent = { version = "0.2.0", path = "../../primitives/parachain-inherent" }
-cumulus-test-relay-sproof-builder = { version = "0.1.0", path = "../../test/relay-sproof-builder" }
+cumulus-test-relay-sproof-builder = { version = "0.2.0", path = "../../test/relay-sproof-builder" }
 parachains-common = { version = "2.0.0", path = "../../parachains/common" }
 
 # Polkadot

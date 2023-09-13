@@ -26,7 +26,7 @@ sp-trie = { path = "../../../substrate/primitives/trie", default-features = fals
 # Cumulus
 cumulus-primitives-core = { path = "../core", default-features = false, version = "0.2.0" }
 cumulus-relay-chain-interface = { path = "../../client/relay-chain-interface", optional = true, version = "0.2.0" }
-cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder", optional = true, version = "0.1.0" }
+cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder", optional = true, version = "0.2.0" }
 
 [features]
 default = [ "std" ]

@@ -8751,10 +8751,10 @@ version = "21.0.0"
 path = "substrate/primitives/timestamp"
 
 [[crate]]
-publish = false
+publish = true
 name = "cumulus-test-relay-sproof-builder"
 from = "0.1.0"
-to = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/test/relay-sproof-builder"
@@ -23405,7 +23405,7 @@ path = "cumulus/client/relay-chain-interface"
 
 [[crate.rewrite_dep]]
 name = "cumulus-test-relay-sproof-builder"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/test/relay-sproof-builder"
 
 [[crate.rewrite_dep]]
@@ -24074,7 +24074,7 @@ path = "cumulus/test/client"
 
 [[crate.rewrite_dep]]
 name = "cumulus-test-relay-sproof-builder"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/test/relay-sproof-builder"
 
 [[crate.rewrite_dep]]
@@ -24216,7 +24216,7 @@ path = "cumulus/test/client"
 
 [[crate.rewrite_dep]]
 name = "cumulus-test-relay-sproof-builder"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/test/relay-sproof-builder"
 
 [[crate.rewrite_dep]]
@@ -25837,7 +25837,7 @@ path = "cumulus/test/client"
 
 [[crate.rewrite_dep]]
 name = "cumulus-test-relay-sproof-builder"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/test/relay-sproof-builder"
 
 [[crate.rewrite_dep]]
@@ -26494,7 +26494,7 @@ path = "cumulus/primitives/parachain-inherent"
 
 [[crate.rewrite_dep]]
 name = "cumulus-test-relay-sproof-builder"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/test/relay-sproof-builder"
 
 [[crate.rewrite_dep]]
@@ -27285,7 +27285,7 @@ path = "cumulus/primitives/parachain-inherent"
 
 [[crate.rewrite_dep]]
 name = "cumulus-test-relay-sproof-builder"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/test/relay-sproof-builder"
 
 [[crate.rewrite_dep]]
@@ -28339,7 +28339,7 @@ path = "cumulus/primitives/parachain-inherent"
 
 [[crate.rewrite_dep]]
 name = "cumulus-test-relay-sproof-builder"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/test/relay-sproof-builder"
 
 [[crate.rewrite_dep]]
@@ -32904,7 +32904,7 @@ path = "cumulus/client/relay-chain-minimal-node"
 
 [[crate.rewrite_dep]]
 name = "cumulus-test-relay-sproof-builder"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/test/relay-sproof-builder"
 
 [[crate.rewrite_dep]]
@@ -33730,7 +33730,7 @@ path = "cumulus/primitives/parachain-inherent"
 
 [[crate.rewrite_dep]]
 name = "cumulus-test-relay-sproof-builder"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/test/relay-sproof-builder"
 
 [[crate.rewrite_dep]]
