@@ -52,7 +52,13 @@ where
 	B: BlockT,
 {
 	/// Notify syncing state machine that a new sync peer has connected.
-	fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>);
+	fn add_peer(
+		&mut self,
+		peer_id: PeerId,
+		best_hash: B::Hash,
+		best_number: NumberFor<B>,
+		is_synced: bool,
+	);
 
 	/// Notify that a sync peer has disconnected.
 	fn remove_peer(&mut self, peer_id: &PeerId);
@@ -66,7 +72,7 @@ where
 		is_best: bool,
 		peer_id: PeerId,
 		announce: &BlockAnnounce<B::Header>,
-	) -> Option<(B::Hash, NumberFor<B>)>;
+	) -> Option<(B::Hash, NumberFor<B>, bool)>;
 
 	/// Configure an explicit fork sync request in case external code has detected that there is a
 	/// stale fork missing.

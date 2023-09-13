@@ -167,15 +167,16 @@ impl<B: BlockT> StateStrategy<B> {
 		is_best: bool,
 		peer_id: PeerId,
 		announce: &BlockAnnounce<B::Header>,
-	) -> Option<(B::Hash, NumberFor<B>)> {
-		is_best.then(|| {
+	) -> Option<(B::Hash, NumberFor<B>, bool)> {
+        is_best.then(|| {
 			let best_number = *announce.header.number();
 			let best_hash = announce.header.hash();
+			let is_synced = announce.is_synced;
 			if let Some(ref mut peer) = self.peers.get_mut(&peer_id) {
 				peer.best_number = best_number;
 			}
 			// Let `SyncingEngine` know that we should update the peer info.
-			(best_hash, best_number)
+			(best_hash, best_number, is_synced)
 		})
 	}
 

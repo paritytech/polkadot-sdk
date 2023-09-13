@@ -92,6 +92,7 @@ pub fn create_network_worker(
 			Zero::zero(),
 			runtime::Hash::zero(),
 			runtime::Hash::zero(),
+			true,
 		))),
 		SetConfig {
 			in_peers: 1,

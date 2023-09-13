@@ -231,7 +231,8 @@ impl TestNetworkBuilder {
 			chain_sync_network_handle,
 			import_queue.service(),
 			Arc::clone(&peer_store_handle),
-		)
+            true,
+        )
 		.unwrap();
 		let mut link = self.link.unwrap_or(Box::new(chain_sync_service.clone()));
 

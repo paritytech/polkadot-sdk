@@ -75,6 +75,7 @@ pub fn create_network_worker(
 			Zero::zero(),
 			genesis_hash,
 			genesis_hash,
+			true,
 		))),
 		SetConfig {
 			in_peers: 1,

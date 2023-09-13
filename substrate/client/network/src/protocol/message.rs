@@ -136,6 +136,8 @@ pub mod generic {
 		pub best_hash: Hash,
 		/// Genesis block hash.
 		pub genesis_hash: Hash,
+		/// Whether peer is synced.
+		pub is_synced: bool,
 	}
 
 	/// Status sent on connection.
@@ -153,6 +155,8 @@ pub mod generic {
 		pub best_hash: Hash,
 		/// Genesis block hash.
 		pub genesis_hash: Hash,
+		/// Whether peer is synced.
+		pub is_synced: bool,
 		/// DEPRECATED. Chain-specific status.
 		pub chain_status: Vec<u8>,
 	}
@@ -178,6 +182,7 @@ pub mod generic {
 				best_number,
 				best_hash,
 				genesis_hash,
+				is_synced,
 			} = compact;
 
 			Ok(Self {
@@ -187,6 +192,7 @@ pub mod generic {
 				best_number,
 				best_hash,
 				genesis_hash,
+				is_synced,
 				chain_status,
 			})
 		}

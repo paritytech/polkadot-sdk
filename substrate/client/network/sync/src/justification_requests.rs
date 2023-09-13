@@ -658,6 +658,7 @@ mod tests {
 				best_hash: Hash::random(),
 				best_number: u64::arbitrary(g),
 				state: ArbitraryPeerSyncState::arbitrary(g).0,
+				is_synced: bool::arbitrary(g),
 			};
 			ArbitraryPeerSync(ps)
 		}

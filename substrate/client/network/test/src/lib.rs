@@ -942,6 +942,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				chain_sync_network_handle,
 				import_queue.service(),
 				peer_store_handle.clone(),
+				true,
 			)
 			.unwrap();
 		let sync_service = Arc::new(sync_service.clone());
