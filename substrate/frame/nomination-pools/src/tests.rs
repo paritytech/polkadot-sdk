@@ -3305,10 +3305,7 @@ mod unbond {
 			assert_eq!(initial_reward_account, Currency::minimum_balance());
 			assert_eq!(initial_reward_account, 5);
 
-			Currency::set_balance(
-				&default_reward_account(),
-				4 * Currency::minimum_balance(),
-			);
+			Currency::set_balance(&default_reward_account(), 4 * Currency::minimum_balance());
 
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 2));
 			assert_eq!(
@@ -3324,10 +3321,7 @@ mod unbond {
 			);
 
 			CurrentEra::set(1);
-			Currency::set_balance(
-				&default_reward_account(),
-				4 * Currency::minimum_balance(),
-			);
+			Currency::set_balance(&default_reward_account(), 4 * Currency::minimum_balance());
 
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 3));
 			assert_eq!(
@@ -3340,10 +3334,7 @@ mod unbond {
 			);
 
 			CurrentEra::set(2);
-			Currency::set_balance(
-				&default_reward_account(),
-				4 * Currency::minimum_balance(),
-			);
+			Currency::set_balance(&default_reward_account(), 4 * Currency::minimum_balance());
 
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 5));
 			assert_eq!(
@@ -4448,7 +4439,13 @@ mod create {
 			);
 
 			// make sure ED is frozen on pool creation.
-			assert_eq!(Currency::balance_frozen(&FreezeReason::PoolMinimumBalance, &default_reward_account()), Currency::minimum_balance());
+			assert_eq!(
+				Currency::balance_frozen(
+					&FreezeReason::PoolMinimumBalance,
+					&default_reward_account()
+				),
+				Currency::minimum_balance()
+			);
 
 			assert_eq!(
 				pool_events_since_last_call(),
