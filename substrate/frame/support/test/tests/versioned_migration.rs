@@ -17,7 +17,7 @@
 
 //! Tests for [`VersionedMigration`]
 
-#![cfg(all(feature = "experimental", feature = "try-runtime"))]
+#![cfg(feature = "try-runtime")]
 
 use frame_support::{
 	construct_runtime, derive_impl,
