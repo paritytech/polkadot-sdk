@@ -43,6 +43,7 @@ fn construct_availability_bitfield_works() {
 		let future = construct_availability_bitfield(
 			relay_parent,
 			&jaeger::Span::Disabled,
+			10,
 			validator_index,
 			&mut sender,
 		)
@@ -68,6 +69,11 @@ fn construct_availability_bitfield_works() {
 
 						tx.send(c_hash == hash_a).unwrap();
 					},
+					AllMessages::ChainApi(
+						ChainApiMessage::BlockNumber(_, tx)
+					) => {
+						tx.send(Ok(Some(1))).unwrap();
+					}
 					o => panic!("Unknown message: {:?}", o),
 				},
 				r = future => match r {
