@@ -24,7 +24,7 @@
 
 // Executed Command:
 // ./target/release/polkadot-parachain
-// benchmark
+// benchmar
 // pallet
 // --chain=westmint-dev
 // --pallet=cumulus_pallet_xcmp_queue
@@ -60,7 +60,7 @@ pub trait WeightInfo {
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn on_idle() -> Weight {
-		Weight::from_all(1)
+		Weight::from_all(1) // FAIL-CI
 	}
 	/// Storage: `XcmpQueue::QueueConfig` (r:1 w:1)
 	/// Proof: `XcmpQueue::QueueConfig` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)

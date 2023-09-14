@@ -26,6 +26,8 @@ use frame_support::{
 /// The current storage version.
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
+pub const LOG: &str = "xcmp-queue-migration";
+
 /// Migrates the pallet storage to the most recent version.
 pub struct MigrationToV3<T: Config>(PhantomData<T>);
 

@@ -259,6 +259,7 @@ parameter_types! {
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
+	type WeightInfo = cumulus_pallet_dmp_queue::weights::SubstrateWeight<Runtime>;
 	type RuntimeEvent = crate::RuntimeEvent;
 	type DmpSink = frame_support::traits::EnqueueWithOrigin<crate::MessageQueue, RelayOrigin>;
 }

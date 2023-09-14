@@ -16,12 +16,12 @@
 
 //! Migrates the storage from the previously deleted DMP pallet.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
 use crate::*;
 use cumulus_primitives_core::relay_chain::BlockNumber as RelayBlockNumber;
 use frame_support::{pallet_prelude::*, storage_alias, traits::HandleMessage};
 use sp_std::vec::Vec;
+
+pub(crate) const LOG: &str = "dmp-queue-export-xcms";
 
 #[derive(Copy, Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct PageIndexData {

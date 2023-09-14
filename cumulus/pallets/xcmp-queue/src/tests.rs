@@ -22,14 +22,12 @@ use XcmpMessageFormat::*;
 use codec::Compact;
 use cumulus_primitives_core::XcmpMessageHandler;
 use frame_support::{
-	assert_storage_noop,
-	assert_err, assert_noop, assert_ok, experimental_hypothetically,
+	assert_err, assert_noop, assert_ok, assert_storage_noop, experimental_hypothetically,
 	traits::{Footprint, Hooks},
 	StorageNoopGuard,
 };
-use sp_runtime::traits::Zero;
 use mock::{new_test_ext, RuntimeOrigin as Origin, Test, XcmpQueue};
-use sp_runtime::traits::BadOrigin;
+use sp_runtime::traits::{BadOrigin, Zero};
 use std::iter::{once, repeat};
 
 #[test]
@@ -721,9 +719,7 @@ fn lazy_migration_noop_when_out_of_weight() {
 			assert_eq!(EnqueuedMessages::get(), vec![(para, vec![123u8])]);
 		});
 		// But does not, since the limit is zero:
-		assert_storage_noop!({
-			XcmpQueue::on_idle(0u32.into(), Weight::zero())
-		});
+		assert_storage_noop!({ XcmpQueue::on_idle(0u32.into(), Weight::zero()) });
 
 		InboundXcmpMessages::<Test>::remove(para, block);
 		InboundXcmpStatus::<Test>::kill();

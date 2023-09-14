@@ -64,6 +64,9 @@ use core::marker::PhantomData;
 /// Weight functions for `cumulus_pallet_xcmp_queue`.
 pub struct WeightInfo<T>(PhantomData<T>); // FAIL-CI re-run on ref HW
 impl<T: frame_system::Config> cumulus_pallet_xcmp_queue::WeightInfo for WeightInfo<T> {
+	fn on_idle() -> Weight {
+		Weight::from_all(1) // FAIL-CI
+	}
 	/// Storage: `XcmpQueue::QueueConfig` (r:1 w:1)
 	/// Proof: `XcmpQueue::QueueConfig` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_config_with_u32() -> Weight {

@@ -22,7 +22,8 @@ use super::{migration::*, mock::*};
 use crate::*;
 
 use frame_support::{
-	traits::{OnFinalize, OnInitialize},
+	pallet_prelude::*,
+	traits::{OnFinalize, OnIdle, OnInitialize},
 	StorageNoopGuard,
 };
 use sp_io::TestExternalities as TestExt;
@@ -125,7 +126,7 @@ fn migration_works() {
 
 		#[cfg(feature = "try-runtime")]
 		post_upgrade_checks::<Runtime>();
-		assert_eq!(RecordedMessages::take(), 10 * 16 + 5);
+		assert_eq!(RecordedMessages::take().len(), 10 * 16 + 5);
 
 		// Test the storage removal:
 		assert!(!PageIndex::<Runtime>::exists());
@@ -170,7 +171,7 @@ fn migration_too_long_ignored() {
 		#[cfg(feature = "try-runtime")]
 		post_upgrade_checks::<Runtime>();
 
-		assert_eq!(RecordedMessages::take(), 2);
+		assert_eq!(RecordedMessages::take(), vec![short.clone(), short]);
 
 		// Test the storage removal:
 		assert!(!PageIndex::<Runtime>::exists());
@@ -186,6 +187,7 @@ fn run_to_block(n: u64) {
 		AllPalletsWithSystem::on_finalize(System::block_number());
 		System::set_block_number(System::block_number() + 1);
 		AllPalletsWithSystem::on_initialize(System::block_number());
+		AllPalletsWithSystem::on_idle(System::block_number(), Weight::MAX);
 	}
 }
 

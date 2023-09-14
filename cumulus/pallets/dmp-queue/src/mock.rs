@@ -19,7 +19,7 @@
 
 use frame_support::{
 	parameter_types,
-	traits::{ConstU16, ConstU64, Footprint, HandleMessage},
+	traits::{ConstU16, ConstU64, HandleMessage, QueueFootprint},
 };
 use sp_core::{bounded_vec::BoundedSlice, ConstU32, H256};
 use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
@@ -67,19 +67,20 @@ parameter_types! {
 
 impl crate::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type DmpSink = MockedDmpHandler;
+	type DmpSink = RecordingDmpSink;
+	type WeightInfo = ();
 }
 
 parameter_types! {
-	pub static RecordedMessages: u32 = 0;
+	pub static RecordedMessages: Vec<Vec<u8>> = vec![];
 }
 
-pub struct MockedDmpHandler;
-impl HandleMessage for MockedDmpHandler {
+pub struct RecordingDmpSink;
+impl HandleMessage for RecordingDmpSink {
 	type MaxMessageLen = ConstU32<16>;
 
-	fn handle_message(_: BoundedSlice<u8, Self::MaxMessageLen>) {
-		RecordedMessages::mutate(|n| *n += 1);
+	fn handle_message(msg: BoundedSlice<u8, Self::MaxMessageLen>) {
+		RecordedMessages::mutate(|n| n.push(msg.to_vec()));
 	}
 
 	fn handle_messages<'a>(_: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>) {
@@ -90,7 +91,7 @@ impl HandleMessage for MockedDmpHandler {
 		unimplemented!()
 	}
 
-	fn footprint() -> Footprint {
+	fn footprint() -> QueueFootprint {
 		unimplemented!()
 	}
 }

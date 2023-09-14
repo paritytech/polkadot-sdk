@@ -123,7 +123,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn on_idle_migration() {
+	fn on_idle() {
 		use migration::v3;
 
 		let block = 5;
