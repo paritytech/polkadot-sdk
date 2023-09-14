@@ -24,6 +24,7 @@ use futures::never::Never;
 use std::{
 	any::Any,
 	fmt,
+	os::unix::net::UnixStream as StdUnixStream,
 	path::PathBuf,
 	sync::mpsc::{Receiver, RecvTimeoutError},
 	time::Duration,
@@ -180,13 +181,12 @@ pub fn worker_event_loop<F, Fut>(
 	gum::debug!(target: LOG_TARGET, %worker_pid, ?worker_dir_path, "starting pvf worker ({})", worker_kind);
 
 	// Connect to the socket.
-	let stream = || -> std::io::Result<UnixStream> {
+	let stream = || -> std::io::Result<StdUnixStream> {
 		let socket_path = worker_dir::socket(&worker_dir_path);
-		let std_stream = std::os::unix::net::UnixStream::connect(&socket_path)?;
-		std_stream.set_nonblocking(true)?; // See note for `from_std`.
-		let stream = UnixStream::from_std(std_stream);
+		let stream = StdUnixStream::connect(&socket_path)?;
+		stream.set_nonblocking(true)?; // See note for `from_std`.
 		std::fs::remove_file(&socket_path)?;
-		stream
+		Ok(stream)
 	}();
 	let stream = match stream {
 		Ok(s) => s,
@@ -284,7 +284,10 @@ pub fn worker_event_loop<F, Fut>(
 	// Run the main worker loop.
 	let rt = Runtime::new().expect("Creates tokio runtime. If this panics the worker will die and the host will detect that and deal with it.");
 	let err = rt
-		.block_on(event_loop(stream, worker_dir_path))
+		.block_on(async move {
+			let stream = UnixStream::from_std(std_stream)?;
+			event_loop(stream, worker_dir_path).await
+		})
 		// It's never `Ok` because it's `Ok(Never)`.
 		.unwrap_err();
 
