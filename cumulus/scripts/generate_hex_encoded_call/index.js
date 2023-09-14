@@ -106,6 +106,20 @@ function forceCreateAsset(endpoint, outputFile, assetId, assetOwnerAccountId, is
 		});
 }
 
+function setStorage(endpoint, outputFile, items) {
+	console.log(`Generating setStorage from RPC endpoint: ${endpoint} to outputFile: ${outputFile}, items: ${items}`);
+	connect(endpoint)
+		.then((api) => {
+			const call = api.tx.system.setStorage(JSON.parse(items));
+			writeHexEncodedBytesToOutput(call.method, outputFile);
+			exit(0);
+		})
+		.catch((e) => {
+			console.error(e);
+			exit(1);
+		});
+}
+
 if (!process.argv[2] || !process.argv[3]) {
 	console.log("usage: node ./script/generate_hex_encoded_call <type> <endpoint> <output hex-encoded data file> <input message>");
 	exit(1);
@@ -139,6 +153,9 @@ switch (type) {
 		break;
 	case 'force-create-asset':
 		forceCreateAsset(rpcEnpoint, output, inputArgs[0], inputArgs[1], inputArgs[2], inputArgs[3]);
+		break;
+	case 'set-storage':
+		setStorage(rpcEnpoint, output, inputArgs[0]);
 		break;
 	case 'check':
 		console.log(`Checking nodejs installation, if you see this everything is ready!`);
