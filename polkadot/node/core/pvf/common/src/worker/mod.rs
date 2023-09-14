@@ -285,7 +285,7 @@ pub fn worker_event_loop<F, Fut>(
 	let rt = Runtime::new().expect("Creates tokio runtime. If this panics the worker will die and the host will detect that and deal with it.");
 	let err = rt
 		.block_on(async move {
-			let stream = UnixStream::from_std(std_stream)?;
+			let stream = UnixStream::from_std(stream)?;
 			event_loop(stream, worker_dir_path).await
 		})
 		// It's never `Ok` because it's `Ok(Never)`.
