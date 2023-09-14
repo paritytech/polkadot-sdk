@@ -219,7 +219,7 @@ pub fn worker_event_loop<F, Fut>(
 					"Could not change root to be the worker cache path: {}",
 					err
 				);
-				worker_shutdown_message(worker_kind, worker_pid, err);
+				worker_shutdown_message(worker_kind, worker_pid, &err);
 				return
 			}
 			worker_dir_path = std::path::Path::new("/").to_owned();
@@ -247,6 +247,7 @@ pub fn worker_event_loop<F, Fut>(
 			let stream = UnixStream::connect(&socket_path).await?;
 			let _ = tokio::fs::remove_file(&socket_path).await;
 
+			// Enable landlock now so we don't need an exception for the socket.
 			#[cfg(target_os = "linux")]
 			if security_status.can_enable_landlock {
 				let landlock_status =
