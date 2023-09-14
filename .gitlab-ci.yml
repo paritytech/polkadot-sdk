@@ -233,12 +233,11 @@ test-linux-stable:
   script:
     - |
       time cargo nextest run \
-        --tests \
         --workspace \
         --locked \
         --release \
         --no-fail-fast \
-        --features try-runtime,experimental \
+        --features try-runtime,experimental
     # Upload tests results to Elasticsearch
     - echo "Upload test results to Elasticsearch"
     - cat target/nextest/default/junit.xml | xq . > target/nextest/default/junit.json
