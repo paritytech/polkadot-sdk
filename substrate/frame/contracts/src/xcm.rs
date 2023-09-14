@@ -34,6 +34,8 @@ pub trait XCM<T: Config> {
 
 	/// Execute an XCM message locally. see [`pallet_xcm::pallet::Pallet::execute`]
 	///
+	/// # Parameters
+	///
 	/// - `origin`: the origin of the call.
 	/// - `message`: the XCM message to be executed.
 	/// - `max_weight`: the maximum weight that can be consumed by the execution.
@@ -46,6 +48,8 @@ pub trait XCM<T: Config> {
 	/// Send an XCM message to be executed by a remote location. see
 	/// [`pallet_xcm::pallet::Pallet::send`]
 	///
+	/// # Parameters
+	///
 	/// - `origin`: the origin of the call.
 	/// - `dest`: the destination of the message.
 	/// - `msg`: the XCM message to be sent.
@@ -57,6 +61,8 @@ pub trait XCM<T: Config> {
 
 	/// Query a remote location. see [`xcm_executor::traits::QueryHandler::new_query`]
 	///
+	/// # Parameters
+	///
 	/// - `origin`: the origin of the call, used to determine the responder.
 	/// - `timeout`: the maximum block number that the query should be responded to.
 	/// - `match_querier`: the querier that the query should be responded to.
@@ -65,6 +71,13 @@ pub trait XCM<T: Config> {
 		timeout: BlockNumberFor<T>,
 		match_querier: VersionedMultiLocation,
 	) -> Result<Self::QueryId, DispatchError>;
+
+	/// Take an XCM response for the specified query. see
+	/// [`xcm_executor::traits::QueryHandler::take_response`]
+	///
+	/// # Parameters
+	///
+	/// - `query_id`: the query id returned by [`Self::query`].
 	fn take_response(query_id: Self::QueryId) -> QueryResponseStatus<BlockNumberFor<T>>;
 }
 
