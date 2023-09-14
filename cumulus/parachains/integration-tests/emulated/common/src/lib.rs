@@ -47,6 +47,8 @@ decl_test_relay_chains! {
 			XcmPallet: polkadot_runtime::XcmPallet,
 			Balances: polkadot_runtime::Balances,
 			Hrmp: polkadot_runtime::Hrmp,
+			Treasury: polkadot_runtime::Treasury,
+			AssetRate: polkadot_runtime::AssetRate,
 		}
 	},
 	#[api_version(5)]
@@ -62,6 +64,8 @@ decl_test_relay_chains! {
 			XcmPallet: kusama_runtime::XcmPallet,
 			Balances: kusama_runtime::Balances,
 			Hrmp: kusama_runtime::Hrmp,
+			Treasury: kusama_runtime::Treasury,
+			AssetRate: kusama_runtime::AssetRate,
 		}
 	},
 	#[api_version(6)]
