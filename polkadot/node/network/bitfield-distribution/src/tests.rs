@@ -1111,9 +1111,9 @@ fn network_protocol_versioning() {
 	let peer_c = PeerId::random();
 
 	let peers = [
-		(peer_a, ValidationVersion::VStaging),
+		(peer_a, ValidationVersion::V2),
 		(peer_b, ValidationVersion::V1),
-		(peer_c, ValidationVersion::VStaging),
+		(peer_c, ValidationVersion::V2),
 	];
 
 	// validator 0 key pair
@@ -1173,7 +1173,7 @@ fn network_protocol_versioning() {
 			&Default::default(),
 			NetworkBridgeEvent::PeerMessage(
 				peer_a,
-				msg.clone().into_network_message(ValidationVersion::VStaging.into()),
+				msg.clone().into_network_message(ValidationVersion::V2.into()),
 			),
 			&mut rng,
 		));
@@ -1201,14 +1201,14 @@ fn network_protocol_versioning() {
 			}
 		);
 
-		// vstaging gossip
+		// v2 gossip
 		assert_matches!(
 			handle.recv().await,
 			AllMessages::NetworkBridgeTx(
 				NetworkBridgeTxMessage::SendValidationMessage(peers, send_msg),
 			) => {
 				assert_eq!(peers, vec![peer_c]);
-				assert_eq!(send_msg, msg.clone().into_validation_protocol(ValidationVersion::VStaging.into()));
+				assert_eq!(send_msg, msg.clone().into_validation_protocol(ValidationVersion::V2.into()));
 			}
 		);
 

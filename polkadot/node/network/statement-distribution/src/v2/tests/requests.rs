@@ -19,7 +19,7 @@ use super::*;
 use bitvec::order::Lsb0;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_network_protocol::{
-	request_response::vstaging as request_vstaging, vstaging::BackedCandidateManifest,
+	request_response::v2 as request_v2, v2::BackedCandidateManifest,
 };
 use polkadot_primitives_test_helpers::make_candidate;
 use sc_network::config::{
@@ -109,7 +109,7 @@ fn cluster_peer_allowed_to_send_incomplete_statements() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_vstaging::StatementDistributionMessage::Statement(
+				protocol_v2::StatementDistributionMessage::Statement(
 					relay_parent,
 					a_seconded,
 				),
@@ -164,9 +164,9 @@ fn cluster_peer_allowed_to_send_incomplete_statements() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::VStaging(
-							protocol_vstaging::ValidationProtocol::StatementDistribution(
-								protocol_vstaging::StatementDistributionMessage::Statement(hash, statement),
+						Versioned::V2(
+							protocol_v2::ValidationProtocol::StatementDistribution(
+								protocol_v2::StatementDistributionMessage::Statement(hash, statement),
 							),
 						),
 					)
@@ -304,7 +304,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -376,7 +376,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -453,7 +453,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -568,7 +568,7 @@ fn peer_reported_for_not_enough_statements() {
 		send_peer_message(
 			&mut overseer,
 			peer_c.clone(),
-			protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(
+			protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
 				manifest.clone(),
 			),
 		)
@@ -752,7 +752,7 @@ fn peer_reported_for_duplicate_statements() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_vstaging::StatementDistributionMessage::Statement(
+				protocol_v2::StatementDistributionMessage::Statement(
 					relay_parent,
 					a_seconded,
 				),
@@ -812,9 +812,9 @@ fn peer_reported_for_duplicate_statements() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::VStaging(
-							protocol_vstaging::ValidationProtocol::StatementDistribution(
-								protocol_vstaging::StatementDistributionMessage::Statement(hash, statement),
+						Versioned::V2(
+							protocol_v2::ValidationProtocol::StatementDistribution(
+								protocol_v2::StatementDistributionMessage::Statement(hash, statement),
 							),
 						),
 					)
@@ -916,7 +916,7 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_vstaging::StatementDistributionMessage::Statement(
+				protocol_v2::StatementDistributionMessage::Statement(
 					relay_parent,
 					a_seconded,
 				),
@@ -1058,7 +1058,7 @@ fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_vstaging::StatementDistributionMessage::Statement(
+				protocol_v2::StatementDistributionMessage::Statement(
 					relay_parent,
 					a_seconded,
 				),
@@ -1191,7 +1191,7 @@ fn local_node_sanity_checks_incoming_requests() {
 				.send(RawIncomingRequest {
 					// Request from peer that received manifest.
 					peer: peer_c,
-					payload: request_vstaging::AttestedCandidateRequest {
+					payload: request_v2::AttestedCandidateRequest {
 						candidate_hash: candidate.hash(),
 						mask: mask.clone(),
 					}
@@ -1225,8 +1225,8 @@ fn local_node_sanity_checks_incoming_requests() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 					peers,
-					Versioned::VStaging(protocol_vstaging::ValidationProtocol::StatementDistribution(
-						protocol_vstaging::StatementDistributionMessage::Statement(
+					Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
+						protocol_v2::StatementDistributionMessage::Statement(
 							r,
 							s,
 						)
@@ -1250,7 +1250,7 @@ fn local_node_sanity_checks_incoming_requests() {
 				.send(RawIncomingRequest {
 					// Request from peer that received manifest.
 					peer: peer_d,
-					payload: request_vstaging::AttestedCandidateRequest {
+					payload: request_v2::AttestedCandidateRequest {
 						candidate_hash: candidate.hash(),
 						mask: mask.clone(),
 					}
@@ -1269,7 +1269,7 @@ fn local_node_sanity_checks_incoming_requests() {
 			let response = state
 				.send_request(
 					peer_c,
-					request_vstaging::AttestedCandidateRequest {
+					request_v2::AttestedCandidateRequest {
 						candidate_hash: candidate.hash(),
 						mask,
 					},
@@ -1296,7 +1296,7 @@ fn local_node_sanity_checks_incoming_requests() {
 			let response = state
 				.send_request(
 					peer_c,
-					request_vstaging::AttestedCandidateRequest {
+					request_v2::AttestedCandidateRequest {
 						candidate_hash: candidate.hash(),
 						mask: mask.clone(),
 					},
@@ -1455,7 +1455,7 @@ fn local_node_respects_statement_mask() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_vstaging::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -1479,7 +1479,7 @@ fn local_node_respects_statement_mask() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_vstaging::StatementDistributionMessage::Statement(
+				protocol_v2::StatementDistributionMessage::Statement(
 					relay_parent,
 					statement_b.clone(),
 				),
@@ -1511,9 +1511,9 @@ fn local_node_respects_statement_mask() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::VStaging(
-							protocol_vstaging::ValidationProtocol::StatementDistribution(
-								protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(manifest),
+						Versioned::V2(
+							protocol_v2::ValidationProtocol::StatementDistribution(
+								protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
 							),
 						),
 					)
@@ -1547,7 +1547,7 @@ fn local_node_respects_statement_mask() {
 			let response = state
 				.send_request(
 					peer_c,
-					request_vstaging::AttestedCandidateRequest {
+					request_v2::AttestedCandidateRequest {
 						candidate_hash: candidate.hash(),
 						mask,
 					},
@@ -1557,9 +1557,9 @@ fn local_node_respects_statement_mask() {
 
 			let expected_statements = vec![statement_b];
 			assert_matches!(response, full_response => {
-				// Response is the same for vstaging.
-				let request_vstaging::AttestedCandidateResponse { candidate_receipt, persisted_validation_data, statements } =
-					request_vstaging::AttestedCandidateResponse::decode(
+				// Response is the same for v2.
+				let request_v2::AttestedCandidateResponse { candidate_receipt, persisted_validation_data, statements } =
+					request_v2::AttestedCandidateResponse::decode(
 						&mut full_response.result.expect("We should have a proper answer").as_ref(),
 					).expect("Decoding should work");
 				assert_eq!(candidate_receipt, candidate);
@@ -1683,7 +1683,7 @@ fn should_delay_before_retrying_dropped_requests() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -1729,7 +1729,7 @@ fn should_delay_before_retrying_dropped_requests() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)

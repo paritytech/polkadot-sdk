@@ -452,7 +452,7 @@ where
 				// match void -> LLVM unreachable
 				match message {
 					Versioned::V1(m) => match m {},
-					Versioned::VStaging(m) => match m {},
+					Versioned::V2(m) => match m {},
 				}
 			},
 		}

@@ -23,11 +23,11 @@ use polkadot_node_network_protocol::{
 	peer_set::ValidationVersion,
 	request_response::{
 		incoming::OutgoingResponse,
-		vstaging::{AttestedCandidateRequest, AttestedCandidateResponse},
+		v2::{AttestedCandidateRequest, AttestedCandidateResponse},
 		IncomingRequest, IncomingRequestReceiver, Requests,
 		MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS,
 	},
-	vstaging::{self as protocol_vstaging, StatementFilter},
+	v2::{self as protocol_v2, StatementFilter},
 	IfDisconnected, PeerId, UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_primitives::{
@@ -323,7 +323,7 @@ pub(crate) async fn handle_network_update<Context>(
 		NetworkBridgeEvent::PeerConnected(peer_id, role, protocol_version, mut authority_ids) => {
 			gum::trace!(target: LOG_TARGET, ?peer_id, ?role, ?protocol_version, "Peer connected");
 
-			if protocol_version != ValidationVersion::VStaging.into() {
+			if protocol_version != ValidationVersion::V2.into() {
 				return
 			}
 
@@ -381,19 +381,19 @@ pub(crate) async fn handle_network_update<Context>(
 		},
 		NetworkBridgeEvent::PeerMessage(peer_id, message) => match message {
 			net_protocol::StatementDistributionMessage::V1(_) => return,
-			net_protocol::StatementDistributionMessage::VStaging(
-				protocol_vstaging::StatementDistributionMessage::V1Compatibility(_),
+			net_protocol::StatementDistributionMessage::V2(
+				protocol_v2::StatementDistributionMessage::V1Compatibility(_),
 			) => return,
-			net_protocol::StatementDistributionMessage::VStaging(
-				protocol_vstaging::StatementDistributionMessage::Statement(relay_parent, statement),
+			net_protocol::StatementDistributionMessage::V2(
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
 			) =>
 				handle_incoming_statement(ctx, state, peer_id, relay_parent, statement, reputation)
 					.await,
-			net_protocol::StatementDistributionMessage::VStaging(
-				protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(inner),
+			net_protocol::StatementDistributionMessage::V2(
+				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(inner),
 			) => handle_incoming_manifest(ctx, state, peer_id, inner, reputation).await,
-			net_protocol::StatementDistributionMessage::VStaging(
-				protocol_vstaging::StatementDistributionMessage::BackedCandidateKnown(inner),
+			net_protocol::StatementDistributionMessage::V2(
+				protocol_v2::StatementDistributionMessage::BackedCandidateKnown(inner),
 			) => handle_incoming_acknowledgement(ctx, state, peer_id, inner, reputation).await,
 		},
 		NetworkBridgeEvent::PeerViewChange(peer_id, view) =>
@@ -728,9 +728,9 @@ fn pending_statement_network_message(
 		.validator_statement(originator, compact)
 		.map(|s| s.as_unchecked().clone())
 		.map(|signed| {
-			protocol_vstaging::StatementDistributionMessage::Statement(relay_parent, signed)
+			protocol_v2::StatementDistributionMessage::Statement(relay_parent, signed)
 		})
-		.map(|msg| (vec![*peer], Versioned::VStaging(msg).into()))
+		.map(|msg| (vec![*peer], Versioned::V2(msg).into()))
 }
 
 /// Send a peer all pending cluster statements for a relay parent.
@@ -823,7 +823,7 @@ async fn send_pending_grid_messages<Context>(
 
 		match kind {
 			grid::ManifestKind::Full => {
-				let manifest = protocol_vstaging::BackedCandidateManifest {
+				let manifest = protocol_v2::BackedCandidateManifest {
 					relay_parent,
 					candidate_hash,
 					group_index,
@@ -847,8 +847,8 @@ async fn send_pending_grid_messages<Context>(
 
 				messages.push((
 					vec![*peer_id],
-					Versioned::VStaging(
-						protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(
+					Versioned::V2(
+						protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
 							manifest,
 						),
 					)
@@ -1192,7 +1192,7 @@ async fn circulate_statement<Context>(
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			statement_to,
-			Versioned::VStaging(protocol_vstaging::StatementDistributionMessage::Statement(
+			Versioned::V2(protocol_v2::StatementDistributionMessage::Statement(
 				relay_parent,
 				statement.as_unchecked().clone(),
 			))
@@ -1672,7 +1672,7 @@ async fn provide_candidate_to_grid<Context>(
 		filter.clone(),
 	);
 
-	let manifest = protocol_vstaging::BackedCandidateManifest {
+	let manifest = protocol_v2::BackedCandidateManifest {
 		relay_parent,
 		candidate_hash,
 		group_index,
@@ -1680,16 +1680,16 @@ async fn provide_candidate_to_grid<Context>(
 		parent_head_data_hash: confirmed_candidate.parent_head_data_hash(),
 		statement_knowledge: filter.clone(),
 	};
-	let acknowledgement = protocol_vstaging::BackedCandidateAcknowledgement {
+	let acknowledgement = protocol_v2::BackedCandidateAcknowledgement {
 		candidate_hash,
 		statement_knowledge: filter.clone(),
 	};
 
-	let manifest_message = Versioned::VStaging(
-		protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(manifest),
+	let manifest_message = Versioned::V2(
+		protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
 	);
-	let ack_message = Versioned::VStaging(
-		protocol_vstaging::StatementDistributionMessage::BackedCandidateKnown(acknowledgement),
+	let ack_message = Versioned::V2(
+		protocol_v2::StatementDistributionMessage::BackedCandidateKnown(acknowledgement),
 	);
 
 	let mut manifest_peers = Vec::new();
@@ -2062,8 +2062,8 @@ fn post_acknowledgement_statement_messages(
 			statement.payload(),
 		);
 
-		messages.push(Versioned::VStaging(
-			protocol_vstaging::StatementDistributionMessage::Statement(
+		messages.push(Versioned::V2(
+			protocol_v2::StatementDistributionMessage::Statement(
 				relay_parent,
 				statement.as_unchecked().clone(),
 			)
@@ -2079,7 +2079,7 @@ async fn handle_incoming_manifest<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	peer: PeerId,
-	manifest: net_protocol::vstaging::BackedCandidateManifest,
+	manifest: net_protocol::v2::BackedCandidateManifest,
 	reputation: &mut ReputationAggregator,
 ) {
 	gum::debug!(
@@ -2183,13 +2183,13 @@ fn acknowledgement_and_statement_messages(
 		Some(l) => l,
 	};
 
-	let acknowledgement = protocol_vstaging::BackedCandidateAcknowledgement {
+	let acknowledgement = protocol_v2::BackedCandidateAcknowledgement {
 		candidate_hash,
 		statement_knowledge: local_knowledge.clone(),
 	};
 
-	let msg = Versioned::VStaging(
-		protocol_vstaging::StatementDistributionMessage::BackedCandidateKnown(acknowledgement),
+	let msg = Versioned::V2(
+		protocol_v2::StatementDistributionMessage::BackedCandidateKnown(acknowledgement),
 	);
 
 	let mut messages = vec![(vec![peer], msg.into())];
@@ -2221,7 +2221,7 @@ async fn handle_incoming_acknowledgement<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	peer: PeerId,
-	acknowledgement: net_protocol::vstaging::BackedCandidateAcknowledgement,
+	acknowledgement: net_protocol::v2::BackedCandidateAcknowledgement,
 	reputation: &mut ReputationAggregator,
 ) {
 	// The key difference between acknowledgments and full manifests is that only

@@ -429,7 +429,7 @@ where
 pub enum ProspectiveParachainsMode {
 	/// Runtime API without support of `async_backing_params`: no prospective parachains.
 	Disabled,
-	/// vstaging runtime API: prospective parachains.
+	/// v6 runtime API: prospective parachains.
 	Enabled {
 		/// The maximum number of para blocks between the para head in a relay parent
 		/// and a new candidate. Restricts nodes from building arbitrary long chains

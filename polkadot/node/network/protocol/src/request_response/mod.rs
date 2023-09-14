@@ -55,7 +55,7 @@ pub use outgoing::{OutgoingRequest, OutgoingResult, Recipient, Requests, Respons
 pub mod v1;
 
 /// Actual versioned requests and responses that are sent over the wire.
-pub mod vstaging;
+pub mod v2;
 
 /// A protocol per subsystem seems to make the most sense, this way we don't need any dispatching
 /// within protocols.

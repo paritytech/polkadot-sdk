@@ -23,7 +23,7 @@ use sc_network::PeerId;
 
 use polkadot_primitives::AuthorityDiscoveryId;
 
-use super::{v1, vstaging, IsRequest, Protocol};
+use super::{v1, v2, IsRequest, Protocol};
 
 /// All requests that can be sent to the network bridge via `NetworkBridgeTxMessage::SendRequest`.
 #[derive(Debug)]
@@ -42,10 +42,10 @@ pub enum Requests {
 	DisputeSendingV1(OutgoingRequest<v1::DisputeRequest>),
 
 	/// Request a candidate and attestations.
-	AttestedCandidateVStaging(OutgoingRequest<vstaging::AttestedCandidateRequest>),
+	AttestedCandidateVStaging(OutgoingRequest<v2::AttestedCandidateRequest>),
 	/// Fetch a collation from a collator which previously announced it.
 	/// Compared to V1 it requires specifying which candidate is requested by its hash.
-	CollationFetchingVStaging(OutgoingRequest<vstaging::CollationFetchingRequest>),
+	CollationFetchingVStaging(OutgoingRequest<v2::CollationFetchingRequest>),
 }
 
 impl Requests {

@@ -226,8 +226,8 @@ async fn assert_collation_seconded(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessage(
 			peers,
-			Versioned::VStaging(protocol_vstaging::CollationProtocol::CollatorProtocol(
-				protocol_vstaging::CollatorProtocolMessage::CollationSeconded(
+			Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
+				protocol_v2::CollatorProtocolMessage::CollationSeconded(
 					_relay_parent,
 					..,
 				),
@@ -306,7 +306,7 @@ fn accept_advertisements_from_implicit_view() {
 			peer_a,
 			pair_a.clone(),
 			test_state.chain_ids[0],
-			CollationVersion::VStaging,
+			CollationVersion::V2,
 		)
 		.await;
 		connect_and_declare_collator(
@@ -314,7 +314,7 @@ fn accept_advertisements_from_implicit_view() {
 			peer_b,
 			pair_b.clone(),
 			test_state.chain_ids[1],
-			CollationVersion::VStaging,
+			CollationVersion::V2,
 		)
 		.await;
 
@@ -406,7 +406,7 @@ fn second_multiple_candidates_per_relay_parent() {
 			peer_a,
 			pair.clone(),
 			test_state.chain_ids[0],
-			CollationVersion::VStaging,
+			CollationVersion::V2,
 		)
 		.await;
 
@@ -457,7 +457,7 @@ fn second_multiple_candidates_per_relay_parent() {
 			let pov = PoV { block_data: BlockData(vec![1]) };
 
 			response_channel
-				.send(Ok(request_vstaging::CollationFetchingResponse::Collation(
+				.send(Ok(request_v2::CollationFetchingResponse::Collation(
 					candidate.clone(),
 					pov.clone(),
 				)
@@ -514,7 +514,7 @@ fn second_multiple_candidates_per_relay_parent() {
 			peer_b,
 			pair_b.clone(),
 			test_state.chain_ids[0],
-			CollationVersion::VStaging,
+			CollationVersion::V2,
 		)
 		.await;
 
@@ -562,7 +562,7 @@ fn fetched_collation_sanity_check() {
 			peer_a,
 			pair.clone(),
 			test_state.chain_ids[0],
-			CollationVersion::VStaging,
+			CollationVersion::V2,
 		)
 		.await;
 
@@ -611,7 +611,7 @@ fn fetched_collation_sanity_check() {
 		let pov = PoV { block_data: BlockData(vec![1]) };
 
 		response_channel
-			.send(Ok(request_vstaging::CollationFetchingResponse::Collation(
+			.send(Ok(request_v2::CollationFetchingResponse::Collation(
 				candidate.clone(),
 				pov.clone(),
 			)
@@ -668,7 +668,7 @@ fn advertisement_spam_protection() {
 			peer_a,
 			pair_a.clone(),
 			test_state.chain_ids[1],
-			CollationVersion::VStaging,
+			CollationVersion::V2,
 		)
 		.await;
 
@@ -748,7 +748,7 @@ fn backed_candidate_unblocks_advertisements() {
 			peer_a,
 			pair_a.clone(),
 			test_state.chain_ids[0],
-			CollationVersion::VStaging,
+			CollationVersion::V2,
 		)
 		.await;
 		connect_and_declare_collator(
@@ -756,7 +756,7 @@ fn backed_candidate_unblocks_advertisements() {
 			peer_b,
 			pair_b.clone(),
 			test_state.chain_ids[1],
-			CollationVersion::VStaging,
+			CollationVersion::V2,
 		)
 		.await;
 
@@ -856,7 +856,7 @@ fn active_leave_unblocks_advertisements() {
 				*peer_id,
 				peer.clone(),
 				test_state.chain_ids[0],
-				CollationVersion::VStaging,
+				CollationVersion::V2,
 			)
 			.await;
 		}

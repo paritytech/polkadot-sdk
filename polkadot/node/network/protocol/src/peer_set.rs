@@ -119,8 +119,8 @@ impl PeerSet {
 	/// of the main protocol name reported by [`PeerSetProtocolNames::get_main_name()`].
 	pub fn get_main_version(self) -> ProtocolVersion {
 		match self {
-			PeerSet::Validation => ValidationVersion::VStaging.into(),
-			PeerSet::Collation => CollationVersion::VStaging.into(),
+			PeerSet::Validation => ValidationVersion::V2.into(),
+			PeerSet::Collation => CollationVersion::V2.into(),
 		}
 	}
 
@@ -145,7 +145,7 @@ impl PeerSet {
 			PeerSet::Validation =>
 				if version == ValidationVersion::V1.into() {
 					Some("validation/1")
-				} else if version == ValidationVersion::VStaging.into() {
+				} else if version == ValidationVersion::V2.into() {
 					Some("validation/2")
 				} else {
 					None
@@ -153,7 +153,7 @@ impl PeerSet {
 			PeerSet::Collation =>
 				if version == CollationVersion::V1.into() {
 					Some("collation/1")
-				} else if version == CollationVersion::VStaging.into() {
+				} else if version == CollationVersion::V2.into() {
 					Some("collation/2")
 				} else {
 					None

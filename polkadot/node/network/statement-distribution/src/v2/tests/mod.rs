@@ -537,7 +537,7 @@ async fn connect_peer(
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Authority,
-					ValidationVersion::VStaging.into(),
+					ValidationVersion::V2.into(),
 					authority_ids,
 				),
 			),
@@ -570,12 +570,12 @@ async fn send_peer_view_change(virtual_overseer: &mut VirtualOverseer, peer: Pee
 async fn send_peer_message(
 	virtual_overseer: &mut VirtualOverseer,
 	peer: PeerId,
-	message: protocol_vstaging::StatementDistributionMessage,
+	message: protocol_v2::StatementDistributionMessage,
 ) {
 	virtual_overseer
 		.send(FromOrchestra::Communication {
 			msg: StatementDistributionMessage::NetworkBridgeUpdate(
-				NetworkBridgeEvent::PeerMessage(peer, Versioned::VStaging(message)),
+				NetworkBridgeEvent::PeerMessage(peer, Versioned::V2(message)),
 			),
 		})
 		.await;

@@ -34,9 +34,9 @@ use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet},
 	request_response::{
 		outgoing::{Recipient, RequestError},
-		v1 as request_v1, vstaging as request_vstaging, OutgoingRequest, Requests,
+		v1 as request_v1, v2 as request_v2, OutgoingRequest, Requests,
 	},
-	v1 as protocol_v1, vstaging as protocol_vstaging, OurView, PeerId,
+	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId,
 	UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_primitives::{SignedFullStatement, Statement};
@@ -624,9 +624,9 @@ async fn notify_collation_seconded(
 		CollationVersion::V1 => Versioned::V1(protocol_v1::CollationProtocol::CollatorProtocol(
 			protocol_v1::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
 		)),
-		CollationVersion::VStaging =>
-			Versioned::VStaging(protocol_vstaging::CollationProtocol::CollatorProtocol(
-				protocol_vstaging::CollatorProtocolMessage::CollationSeconded(
+		CollationVersion::V2 =>
+			Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
+				protocol_v2::CollatorProtocolMessage::CollationSeconded(
 					relay_parent,
 					statement,
 				),
@@ -694,10 +694,10 @@ async fn request_collation(
 			let requests = Requests::CollationFetchingV1(req);
 			(requests, response_recv.boxed())
 		},
-		(CollationVersion::VStaging, Some(ProspectiveCandidate { candidate_hash, .. })) => {
+		(CollationVersion::V2, Some(ProspectiveCandidate { candidate_hash, .. })) => {
 			let (req, response_recv) = OutgoingRequest::new(
 				Recipient::Peer(peer_id),
-				request_vstaging::CollationFetchingRequest {
+				request_v2::CollationFetchingRequest {
 					relay_parent,
 					para_id,
 					candidate_hash,
@@ -760,16 +760,16 @@ async fn process_incoming_peer_message<Context>(
 	origin: PeerId,
 	msg: Versioned<
 		protocol_v1::CollatorProtocolMessage,
-		protocol_vstaging::CollatorProtocolMessage,
+		protocol_v2::CollatorProtocolMessage,
 	>,
 ) {
 	use protocol_v1::CollatorProtocolMessage as V1;
-	use protocol_vstaging::CollatorProtocolMessage as VStaging;
+	use protocol_v2::CollatorProtocolMessage as VStaging;
 	use sp_runtime::traits::AppVerify;
 
 	match msg {
 		Versioned::V1(V1::Declare(collator_id, para_id, signature)) |
-		Versioned::VStaging(VStaging::Declare(collator_id, para_id, signature)) => {
+		Versioned::V2(VStaging::Declare(collator_id, para_id, signature)) => {
 			if collator_peer_id(&state.peer_data, &collator_id).is_some() {
 				modify_reputation(
 					&mut state.reputation,
@@ -881,7 +881,7 @@ async fn process_incoming_peer_message<Context>(
 					modify_reputation(&mut state.reputation, ctx.sender(), origin, rep).await;
 				}
 			},
-		Versioned::VStaging(VStaging::AdvertiseCollation {
+		Versioned::V2(VStaging::AdvertiseCollation {
 			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
@@ -901,7 +901,7 @@ async fn process_incoming_peer_message<Context>(
 					?relay_parent,
 					?candidate_hash,
 					error = ?err,
-					"Rejected vstaging advertisement",
+					"Rejected v2 advertisement",
 				);
 
 				if let Some(rep) = err.reputation_changes() {
@@ -909,7 +909,7 @@ async fn process_incoming_peer_message<Context>(
 				}
 			},
 		Versioned::V1(V1::CollationSeconded(..)) |
-		Versioned::VStaging(VStaging::CollationSeconded(..)) => {
+		Versioned::V2(VStaging::CollationSeconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				peer_id = ?origin,
@@ -1074,7 +1074,7 @@ where
 	};
 
 	if relay_parent_mode.is_enabled() && prospective_candidate.is_none() {
-		// Expected vstaging advertisement.
+		// Expected v2 advertisement.
 		return Err(AdvertisementError::ProtocolMismatch)
 	}
 

@@ -39,10 +39,10 @@ use crate::LOG_TARGET;
 use polkadot_node_network_protocol::{
 	request_response::{
 		outgoing::{Recipient as RequestRecipient, RequestError},
-		vstaging::{AttestedCandidateRequest, AttestedCandidateResponse},
+		v2::{AttestedCandidateRequest, AttestedCandidateResponse},
 		OutgoingRequest, OutgoingResult, MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS,
 	},
-	vstaging::StatementFilter,
+	v2::StatementFilter,
 	PeerId, UnifiedReputationChange as Rep,
 };
 use polkadot_primitives::{
