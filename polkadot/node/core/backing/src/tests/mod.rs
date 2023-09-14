@@ -295,6 +295,70 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 	);
 }
 
+async fn handle_validation_requests(virtual_overseer: &mut VirtualOverseer, validation_code: ValidationCode) {
+	assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
+			) if hash == validation_code.hash() => {
+				tx.send(Ok(Some(validation_code))).unwrap();
+			}
+		);
+
+	assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
+			) => {
+				tx.send(Ok(1u32.into())).unwrap();
+			}
+		);
+
+	assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
+			) if sess_idx == 1 => {
+				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+			}
+		);
+}
+
+async fn handle_validate_from_exhaustive(virtual_overseer: &mut VirtualOverseer, pvd: &PersistedValidationData, pov: &PoV, validation_code: &ValidationCode, candidate: &CommittedCandidateReceipt, expected_head_data: &HeadData, result_validation_data: PersistedValidationData) {
+	assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::CandidateValidation(
+				CandidateValidationMessage::ValidateFromExhaustive(
+					_pvd,
+					_validation_code,
+					candidate_receipt,
+					_pov,
+					_,
+					timeout,
+					tx,
+				),
+			) if _pvd == *pvd &&
+				_validation_code == *validation_code &&
+				*_pov == *pov && &candidate_receipt.descriptor == candidate.descriptor() &&
+				timeout == PvfExecTimeoutKind::Backing &&
+				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
+			{
+				tx.send(Ok(ValidationResult::Valid(
+					CandidateCommitments {
+						head_data: expected_head_data.clone(),
+						horizontal_messages: Default::default(),
+						upward_messages: Default::default(),
+						new_validation_code: None,
+						processed_downward_messages: 0,
+						hrmp_watermark: 0,
+					},
+					result_validation_data,
+				)))
+				.unwrap();
+			}
+		);
+}
+
 // Test that a `CandidateBackingMessage::Second` issues validation work
 // and in case validation is successful issues a `StatementDistributionMessage`.
 #[test]
@@ -330,65 +394,9 @@ fn backing_second_works() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-			) if hash == validation_code.hash() => {
-				tx.send(Ok(Some(validation_code.clone()))).unwrap();
-			}
-		);
+		handle_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-			) if sess_idx == 1 => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive(
-					_pvd,
-					_validation_code,
-					candidate_receipt,
-					_pov,
-					_,
-					timeout,
-					tx,
-				),
-			) if _pvd == pvd &&
-				_validation_code == validation_code &&
-				*_pov == pov && &candidate_receipt.descriptor == candidate.descriptor() &&
-				timeout == PvfExecTimeoutKind::Backing &&
-				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
-			{
-				tx.send(Ok(ValidationResult::Valid(
-					CandidateCommitments {
-						head_data: expected_head_data.clone(),
-						horizontal_messages: Default::default(),
-						upward_messages: Default::default(),
-						new_validation_code: None,
-						processed_downward_messages: 0,
-						hrmp_watermark: 0,
-					},
-					test_state.validation_data.clone(),
-				)))
-				.unwrap();
-			}
-		);
+		handle_validate_from_exhaustive(&mut virtual_overseer, &pvd, &pov, &validation_code, &candidate, expected_head_data, test_state.validation_data.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -495,32 +503,7 @@ fn backing_works() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-			) if hash == validation_code.hash() => {
-				tx.send(Ok(Some(validation_code.clone()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-			) if sess_idx == 1 => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
+		handle_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		// Sending a `Statement::Seconded` for our assignment will start
 		// validation process. The first thing requested is the PoV.
@@ -698,32 +681,7 @@ fn backing_works_while_validation_ongoing() {
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_a.clone());
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-			) if hash == validation_code.hash() => {
-				tx.send(Ok(Some(validation_code.clone()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-			) if sess_idx == 1 => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
+		handle_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		// Sending a `Statement::Seconded` for our assignment will start
 		// validation process. The first thing requested is PoV from the
@@ -889,32 +847,7 @@ fn backing_misbehavior_works() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-			) if hash == validation_code.hash() => {
-				tx.send(Ok(Some(validation_code.clone()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-			) if sess_idx == 1 => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
+		handle_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -1094,32 +1027,7 @@ fn backing_dont_second_invalid() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-			) if hash == validation_code_a.hash() => {
-				tx.send(Ok(Some(validation_code_a.clone()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-			) if sess_idx == 1 => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
+		handle_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -1159,32 +1067,7 @@ fn backing_dont_second_invalid() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-			) if hash == validation_code_b.hash() => {
-				tx.send(Ok(Some(validation_code_b.clone()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-			) if sess_idx == 1 => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
+		handle_validation_requests(&mut virtual_overseer, validation_code_b.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -1296,32 +1179,7 @@ fn backing_second_after_first_fails_works() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-			) if hash == validation_code.hash() => {
-				tx.send(Ok(Some(validation_code.clone()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-			) if sess_idx == 1 => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
+		handle_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		// Subsystem requests PoV and requests validation.
 		assert_matches!(
@@ -1404,32 +1262,7 @@ fn backing_second_after_first_fails_works() {
 		// triggered on the prev step.
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-			) if hash == validation_code_to_second.hash() => {
-				tx.send(Ok(Some(validation_code_to_second.clone()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-			) if sess_idx == 1 => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
+		handle_validation_requests(&mut virtual_overseer, validation_code_to_second.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -1490,32 +1323,7 @@ fn backing_works_after_failed_validation() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-			) if hash == validation_code.hash() => {
-				tx.send(Ok(Some(validation_code.clone()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-			) if sess_idx == 1 => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
+		handle_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		// Subsystem requests PoV and requests validation.
 		assert_matches!(
@@ -1718,32 +1526,7 @@ fn retry_works() {
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_a.clone());
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-			) if hash == validation_code.hash() => {
-				tx.send(Ok(Some(validation_code.clone()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-			) if sess_idx == 1 => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
+		handle_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		// Subsystem requests PoV and requests validation.
 		// We cancel - should mean retry on next backing statement.
@@ -1806,32 +1589,7 @@ fn retry_works() {
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_c.clone());
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-			) if hash == validation_code.hash() => {
-				tx.send(Ok(Some(validation_code.clone()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-			) if sess_idx == 1 => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
+		handle_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -2022,65 +1780,9 @@ fn cannot_second_multiple_candidates_per_parent() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-			) if hash == validation_code.hash() => {
-				tx.send(Ok(Some(validation_code.clone()))).unwrap();
-			}
-		);
+		handle_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-			) if sess_idx == 1 => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive(
-					_pvd,
-					_validation_code,
-					candidate_receipt,
-					_pov,
-					_,
-					timeout,
-					tx,
-				),
-			) if _pvd == pvd &&
-				_validation_code == validation_code &&
-				*_pov == pov && &candidate_receipt.descriptor == candidate.descriptor() &&
-				timeout == PvfExecTimeoutKind::Backing &&
-				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
-			{
-				tx.send(Ok(ValidationResult::Valid(
-					CandidateCommitments {
-						head_data: expected_head_data.clone(),
-						horizontal_messages: Default::default(),
-						upward_messages: Default::default(),
-						new_validation_code: None,
-						processed_downward_messages: 0,
-						hrmp_watermark: 0,
-					},
-					test_state.validation_data.clone(),
-				)))
-				.unwrap();
-			}
-		);
+		handle_validate_from_exhaustive(&mut virtual_overseer, &pvd, &pov, &validation_code, &candidate, expected_head_data, test_state.validation_data.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -2127,32 +1829,7 @@ fn cannot_second_multiple_candidates_per_parent() {
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
 		// The validation is still requested.
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-			) if hash == validation_code.hash() => {
-				tx.send(Ok(Some(validation_code.clone()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-			) if sess_idx == 1 => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
+		handle_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
