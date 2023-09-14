@@ -487,10 +487,10 @@ where
 
 		// Messages sent to `approval-distrbution` are known to have high `ToF`, so we send over an
 		// unbounded channel.
-		// overseer.send_unbounded_msg(
-		// 	ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag),
-		// 	std::any::type_name::<Self>(),
-		// ).await;
+		overseer.send_unbounded_msg(
+			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag),
+			std::any::type_name::<Self>(),
+		).await;
 
 		let (lag, subchain_head) = {
 			// Prevent sending flawed data to the dispute-coordinator.

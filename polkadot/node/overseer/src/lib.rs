@@ -196,7 +196,7 @@ impl Handle {
 	}
 
 	/// Send some message to one of the `Subsystem`s.
-	pub async fn unbounded_send_msg(&mut self, msg: impl Into<AllMessages>, origin: &'static str) {
+	pub async fn send_unbounded_msg(&mut self, msg: impl Into<AllMessages>, origin: &'static str) {
 		self.send_and_log_error(Event::UnboundedMsgToSubsystem { msg: msg.into(), origin })
 			.await
 	}
