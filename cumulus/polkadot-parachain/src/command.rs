@@ -381,7 +381,7 @@ impl SubstrateCli for RelayChainCli {
 }
 
 /// Creates partial components for the runtimes that are supported by the benchmarks.
-macro_rules! construct_benchmark_partials {
+macro_rules! construct_partials {
 	($config:expr, |$partials:ident| $code:expr) => {
 		match $config.chain_spec.runtime() {
 			Runtime::AssetHubKusama => {
@@ -768,7 +768,7 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::ExportGenesisState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| {
-				construct_benchmark_partials!(config, |partials| cmd.run(&*config.chain_spec, &*partials.client))
+				construct_partials!(config, |partials| cmd.run(&*config.chain_spec, &*partials.client))
 			})
 		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
@@ -792,7 +792,7 @@ pub fn run() -> Result<()> {
 							.into())
 					},
 				BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
-					construct_benchmark_partials!(config, |partials| cmd.run(partials.client))
+					construct_partials!(config, |partials| cmd.run(partials.client))
 				}),
 				#[cfg(not(feature = "runtime-benchmarks"))]
 				BenchmarkCmd::Storage(_) =>
@@ -804,7 +804,7 @@ pub fn run() -> Result<()> {
 					.into()),
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
-					construct_benchmark_partials!(config, |partials| {
+					construct_partials!(config, |partials| {
 						let db = partials.backend.expose_db();
 						let storage = partials.backend.expose_storage();
 
