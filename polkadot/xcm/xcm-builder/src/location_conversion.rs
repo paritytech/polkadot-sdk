@@ -84,6 +84,20 @@ impl DescribeLocation for DescribeAccountKey20Terminal {
 	}
 }
 
+/// Create a description of the remote treasury `location` if possible. No two locations should have
+/// the same descriptor.
+pub struct DescribeTreasuryVoiceTerminal;
+
+impl DescribeLocation for DescribeTreasuryVoiceTerminal {
+	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
+		match (l.parents, &l.interior) {
+			(0, X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice })) =>
+				Some(("Treasury").encode()),
+			_ => return None,
+		}
+	}
+}
+
 pub type DescribeAccountIdTerminal = (DescribeAccountId32Terminal, DescribeAccountKey20Terminal);
 
 pub type DescribeAllTerminal = (
@@ -91,6 +105,7 @@ pub type DescribeAllTerminal = (
 	DescribePalletTerminal,
 	DescribeAccountId32Terminal,
 	DescribeAccountKey20Terminal,
+	DescribeTreasuryVoiceTerminal,
 );
 
 pub struct DescribeFamily<DescribeInterior>(PhantomData<DescribeInterior>);
@@ -317,23 +332,6 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 	}
 }
 
-/// Create a description of the remote treasury `location` if possible. No two locations should have
-/// the same descriptor.
-pub struct DescribeTreasuryVoice;
-
-impl DescribeLocation for DescribeTreasuryVoice {
-	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
-		match (l.parents, &l.interior) {
-			(0, X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice })) =>
-				Some(("Treasury").encode()),
-			_ => return None,
-		}
-	}
-}
-
-pub type ForeignChainAliasTreasuryAccount<AccountId> =
-	HashedDescription<AccountId, DescribeFamily<DescribeTreasuryVoice>>;
-
 /// Extracts the `AccountId32` from the passed Treasury plurality if the network matches.
 pub struct LocalTreasuryVoiceConvertsVia<TreasuryAccount, AccountId>(
 	PhantomData<(TreasuryAccount, AccountId)>,
@@ -470,6 +468,9 @@ mod tests {
 
 	pub type ForeignChainAliasAccount<AccountId> =
 		HashedDescription<AccountId, LegacyDescribeForeignChainAccount>;
+
+	pub type ForeignChainAliasTreasuryAccount<AccountId> =
+		HashedDescription<AccountId, DescribeFamily<DescribeTreasuryVoiceTerminal>>;
 
 	use frame_support::parameter_types;
 	use xcm::latest::Junction;
