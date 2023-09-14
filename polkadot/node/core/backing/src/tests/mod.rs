@@ -295,7 +295,7 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 	);
 }
 
-async fn test_validation_requests(
+async fn assert_validation_requests(
 	virtual_overseer: &mut VirtualOverseer,
 	validation_code: ValidationCode,
 ) {
@@ -327,7 +327,7 @@ async fn test_validation_requests(
 	);
 }
 
-async fn test_validate_from_exhaustive(
+async fn assert_validate_from_exhaustive(
 	virtual_overseer: &mut VirtualOverseer,
 	pvd: &PersistedValidationData,
 	pov: &PoV,
@@ -405,9 +405,9 @@ fn backing_second_works() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		test_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
+		assert_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
-		test_validate_from_exhaustive(
+		assert_validate_from_exhaustive(
 			&mut virtual_overseer,
 			&pvd,
 			&pov,
@@ -523,7 +523,7 @@ fn backing_works() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		test_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
+		assert_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		// Sending a `Statement::Seconded` for our assignment will start
 		// validation process. The first thing requested is the PoV.
@@ -701,7 +701,7 @@ fn backing_works_while_validation_ongoing() {
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_a.clone());
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		test_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
+		assert_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		// Sending a `Statement::Seconded` for our assignment will start
 		// validation process. The first thing requested is PoV from the
@@ -867,7 +867,7 @@ fn backing_misbehavior_works() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		test_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
+		assert_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -1047,7 +1047,7 @@ fn backing_dont_second_invalid() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		test_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
+		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -1087,7 +1087,7 @@ fn backing_dont_second_invalid() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		test_validation_requests(&mut virtual_overseer, validation_code_b.clone()).await;
+		assert_validation_requests(&mut virtual_overseer, validation_code_b.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -1199,7 +1199,7 @@ fn backing_second_after_first_fails_works() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		test_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
+		assert_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		// Subsystem requests PoV and requests validation.
 		assert_matches!(
@@ -1282,7 +1282,7 @@ fn backing_second_after_first_fails_works() {
 		// triggered on the prev step.
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		test_validation_requests(&mut virtual_overseer, validation_code_to_second.clone()).await;
+		assert_validation_requests(&mut virtual_overseer, validation_code_to_second.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -1343,7 +1343,7 @@ fn backing_works_after_failed_validation() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		test_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
+		assert_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		// Subsystem requests PoV and requests validation.
 		assert_matches!(
@@ -1546,7 +1546,7 @@ fn retry_works() {
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_a.clone());
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		test_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
+		assert_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		// Subsystem requests PoV and requests validation.
 		// We cancel - should mean retry on next backing statement.
@@ -1609,7 +1609,7 @@ fn retry_works() {
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_c.clone());
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		test_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
+		assert_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -1800,9 +1800,9 @@ fn cannot_second_multiple_candidates_per_parent() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		test_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
+		assert_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
-		test_validate_from_exhaustive(
+		assert_validate_from_exhaustive(
 			&mut virtual_overseer,
 			&pvd,
 			&pov,
@@ -1858,7 +1858,7 @@ fn cannot_second_multiple_candidates_per_parent() {
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
 		// The validation is still requested.
-		test_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
+		assert_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
