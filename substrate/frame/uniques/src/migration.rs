@@ -25,7 +25,7 @@ pub fn migrate_to_v1<T: Config<I>, I: 'static, P: GetStorageVersion + PalletInfo
 	let on_chain_storage_version = <P as GetStorageVersion>::on_chain_storage_version();
 	log::info!(
 		target: LOG_TARGET,
-		"Running migration storage v1 for uniques with storage version {:?}",
+		" Running migration storage v1 for uniques with storage version {:?}",
 		on_chain_storage_version,
 	);
 
