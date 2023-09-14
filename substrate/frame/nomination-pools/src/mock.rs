@@ -388,7 +388,7 @@ impl ExtBuilder {
 
 			// make a pool
 			let amount_to_bond = Pools::depositor_min_bond();
-			<Runtime as Config>::Currency::set_balance(&10, amount_to_bond * 5);
+			Currency::set_balance(&10, amount_to_bond * 5);
 			assert_ok!(Pools::create(RawOrigin::Signed(10).into(), amount_to_bond, 900, 901, 902));
 			assert_ok!(Pools::set_metadata(RuntimeOrigin::signed(900), 1, vec![1, 1]));
 			let last_pool = LastPoolId::<Runtime>::get();

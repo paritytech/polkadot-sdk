@@ -1788,8 +1788,10 @@ pub mod pallet {
 		},
 		/// Pool commission has been claimed.
 		PoolCommissionClaimed { pool_id: PoolId, commission: BalanceOf<T> },
-		/// Pool topped up in case of a reward deficit.
-		PoolToppedUp { pool_id: PoolId, top_up_value: BalanceOf<T>, deficit: BalanceOf<T> },
+		/// Topped up deficit in frozen ED of the reward pool.
+		MinBalanceDeficitAdjusted { pool_id: PoolId, amount: BalanceOf<T> },
+		/// Claimed excess frozen ED of af the reward pool.
+		MinBalanceExcessAdjusted { pool_id: PoolId, amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -2727,8 +2729,9 @@ impl<T: Config> Pallet<T> {
 		RewardPools::<T>::remove(bonded_pool.id);
 		SubPoolsStorage::<T>::remove(bonded_pool.id);
 		// remove the frozen ED from the reward account.
-		let _ = T::Currency::thaw(&FreezeReason::PoolMinBalance.into(), &bonded_pool.reward_account())
-			.defensive();
+		let _ =
+			T::Currency::thaw(&FreezeReason::PoolMinBalance.into(), &bonded_pool.reward_account())
+				.defensive();
 
 		// Kill accounts from storage by making their balance go below ED. We assume that the
 		// accounts have no references that would prevent destruction once we get to this point. We
@@ -3110,20 +3113,14 @@ impl<T: Config> Pallet<T> {
 
 		if pre_frozen_balance > min_balance {
 			// Transfer excess back to depositor.
-			T::Currency::transfer(
-				reward_acc,
-				&who,
-				pre_frozen_balance.saturating_sub(min_balance),
-				Preservation::Preserve,
-			)?;
+			let excess = pre_frozen_balance.saturating_sub(min_balance);
+			T::Currency::transfer(reward_acc, &who, excess, Preservation::Preserve)?;
+			Self::deposit_event(Event::<T>::MinBalanceExcessAdjusted { pool_id: pool, amount: excess });
 		} else {
 			// Transfer ED deficit from depositor to the pool
-			T::Currency::transfer(
-				&who,
-				reward_acc,
-				min_balance.saturating_sub(pre_frozen_balance),
-				Preservation::Expendable,
-			)?;
+			let deficit = min_balance.saturating_sub(pre_frozen_balance);
+			T::Currency::transfer(&who, reward_acc, deficit, Preservation::Expendable)?;
+			Self::deposit_event(Event::<T>::MinBalanceDeficitAdjusted { pool_id: pool, amount: deficit });
 		}
 
 		Ok(())

@@ -375,7 +375,7 @@ mod reward_pool {
 	}
 
 	#[test]
-	fn top_up_fixes_reward_deficit() {
+	fn ed_adjust_fixes_reward_deficit() {
 		ExtBuilder::default().max_members_per_pool(Some(5)).build_and_execute(|| {
 			// Given: pool has a reward deficit
 
@@ -394,7 +394,6 @@ mod reward_pool {
 			assert_ok!(Pools::join(RuntimeOrigin::signed(12), 10, 1));
 
 			// When: pool ends up in reward deficit
-
 			// increase ED
 			ExistentialDeposit::set(50);
 			assert_eq!(reward_imbalance(1), Deficit(45));
@@ -402,35 +401,55 @@ mod reward_pool {
 			// clear events
 			pool_events_since_last_call();
 
-			// Then: top up reduces the deficit
-			Currency::set_balance(&99, 1000);
-			// caller can set safe ceiling for top up.
-			let max_top_up: Balance = 20;
-			assert_ok!(Pools::adjust_ed_deposit(RuntimeOrigin::signed(99), 1));
-			// only upto max_transfer is topped up.
+			// Then:
+			// Only depositor (10) can adjust ED deposit. Others do not have permission.
+			assert_ok!(Currency::mint_into(&99, 100));
+			assert_err!(
+				Pools::adjust_ed_deposit(RuntimeOrigin::signed(99), 1),
+				Error::<T>::DoesNotHavePermission
+			);
+
+			// make sure depositor has enough funds..
+			assert_ok!(Currency::mint_into(&10, 100));
+			let pre_dep_balance = Currency::free_balance(&10);
+			// adjust ED
+			assert_ok!(Pools::adjust_ed_deposit(RuntimeOrigin::signed(10), 1));
+			// depositor's balance should decrease by 45
+			assert_eq!(Currency::free_balance(&10), pre_dep_balance - 45);
+			assert_eq!(reward_imbalance(1), Surplus(0));
+
 			assert_eq!(
 				pool_events_since_last_call(),
-				vec![Event::PoolToppedUp {
+				vec![Event::MinBalanceDeficitAdjusted {
 					pool_id: 1,
-					top_up_value: max_top_up,
-					deficit: 45 - max_top_up
+					amount: 45,
 				},]
 			);
-			assert_eq!(reward_imbalance(1), Deficit(25));
-
-			// Top up the remaining deficit
-			assert_ok!(Pools::adjust_ed_deposit(RuntimeOrigin::signed(99), 1));
-			assert_eq!(
-				pool_events_since_last_call(),
-				vec![Event::PoolToppedUp { pool_id: 1, top_up_value: 25, deficit: 0 },]
-			);
-			assert_eq!(reward_imbalance(1), Surplus(0));
 
 			// Trying to top up again does not work
 			assert_err!(
-				Pools::adjust_ed_deposit(RuntimeOrigin::signed(99), 1),
+				Pools::adjust_ed_deposit(RuntimeOrigin::signed(10), 1),
 				Error::<T>::NothingToAdjust
 			);
+
+			// When: ED is decreased and reward account has excess ED frozen
+			ExistentialDeposit::set(5);
+
+			// And:: adjust ED deposit is called
+			assert_ok!(Pools::adjust_ed_deposit(RuntimeOrigin::signed(10), 1));
+
+			// Then: excess ED is transferred back to depositor
+			assert_eq!(Currency::free_balance(&10), pre_dep_balance);
+
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![Event::MinBalanceExcessAdjusted {
+					pool_id: 1,
+					amount: 45,
+				},]
+			);
+
+
 		});
 	}
 
@@ -447,7 +466,7 @@ mod reward_pool {
 
 			// Topping up fails
 			assert_err!(
-				Pools::adjust_ed_deposit(RuntimeOrigin::signed(11), 1),
+				Pools::adjust_ed_deposit(RuntimeOrigin::signed(10), 1),
 				Error::<T>::NothingToAdjust
 			);
 		});
