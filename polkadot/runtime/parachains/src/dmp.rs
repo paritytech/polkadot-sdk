@@ -44,7 +44,7 @@
 
 use crate::{
 	configuration::{self, HostConfiguration},
-	initializer, FeeTracker,
+	initializer, FeeTracker, TransportDestination,
 };
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -362,7 +362,10 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {
-	fn get_fee_factor(para: ParaId) -> FixedU128 {
-		DeliveryFeeFactor::<T>::get(para)
+	fn get_fee_factor(destination: TransportDestination) -> FixedU128 {
+		match destination {
+			TransportDestination::Relay => u128::MAX, // DMP doesn't transport to Relay
+			TransportDestination::Para(para) => DeliveryFeeFactor::<T>::get(para),
+		}
 	}
 }
