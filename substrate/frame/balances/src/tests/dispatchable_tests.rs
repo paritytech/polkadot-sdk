@@ -50,7 +50,8 @@ fn dust_account_removal_should_work() {
 			assert_ok!(Balances::transfer_allow_death(Some(2).into(), 5, 1901));
 			assert_eq!(Balances::total_balance(&2), 0);
 			assert_eq!(Balances::total_balance(&5), 1901);
-			assert_eq!(System::account_nonce(&2), 0);
+			// Account reaped
+			assert_eq!(System::account_nonce(&2), 1);
 		});
 }
 
