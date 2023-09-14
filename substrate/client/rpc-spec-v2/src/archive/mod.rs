@@ -22,6 +22,9 @@
 //!
 //! Methods are prefixed by `archive`.
 
+#[cfg(test)]
+mod tests;
+
 pub mod api;
 pub mod archive;
 
