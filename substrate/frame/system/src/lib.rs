@@ -304,7 +304,7 @@ pub mod pallet {
 			+ AtLeast32Bit
 			+ Copy
 			+ MaxEncodedLen
-			+ From<BlockNumberFor<Self>>;
+			+ TryFrom<BlockNumberFor<Self>>;
 
 		/// The output of the `Hashing` function.
 		type Hash: Parameter
@@ -778,7 +778,10 @@ type AccountInfoOf<T> = AccountInfo<NonceOf<T>, AccountDataOf<T>>;
 pub struct GetDefaultAccountInfo<T>(PhantomData<T>);
 impl<T: pallet::Config> Get<AccountInfoOf<T>> for GetDefaultAccountInfo<T> {
 	fn get() -> AccountInfoOf<T> {
-		AccountInfo { nonce: pallet::Number::<T>::get().into(), ..Default::default() }
+		AccountInfo {
+			nonce: pallet::Number::<T>::get().try_into().unwrap_or_default(),
+			..Default::default()
+		}
 	}
 }
 
