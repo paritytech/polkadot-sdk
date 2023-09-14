@@ -8690,7 +8690,7 @@ checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 [[package]]
 name = "orchestra"
 version = "0.3.3"
-source = "git+https://github.com/paritytech/orchestra.git?branch=sandreim/orchestra_rx_option#84cca8289330ded71b71cbb3119d11d34ea33f8d"
+source = "git+https://github.com/paritytech/orchestra.git?rev=4a90a790bb54bc8ff7e4d304aa53c3f007b519c8#4a90a790bb54bc8ff7e4d304aa53c3f007b519c8"
 dependencies = [
  "async-trait",
  "dyn-clonable",
@@ -8698,7 +8698,7 @@ dependencies = [
  "futures-timer",
  "orchestra-proc-macro",
  "pin-project",
- "prioritized-metered-channel 0.5.1 (git+https://github.com/paritytech/orchestra.git?branch=sandreim/orchestra_rx_option)",
+ "prioritized-metered-channel 0.5.1 (git+https://github.com/paritytech/orchestra.git?rev=4a90a790bb54bc8ff7e4d304aa53c3f007b519c8)",
  "thiserror",
  "tracing",
 ]
@@ -8706,7 +8706,7 @@ dependencies = [
 [[package]]
 name = "orchestra-proc-macro"
 version = "0.3.3"
-source = "git+https://github.com/paritytech/orchestra.git?branch=sandreim/orchestra_rx_option#84cca8289330ded71b71cbb3119d11d34ea33f8d"
+source = "git+https://github.com/paritytech/orchestra.git?rev=4a90a790bb54bc8ff7e4d304aa53c3f007b519c8#4a90a790bb54bc8ff7e4d304aa53c3f007b519c8"
 dependencies = [
  "anyhow",
  "expander 2.0.0",
@@ -13327,7 +13327,7 @@ dependencies = [
 [[package]]
 name = "prioritized-metered-channel"
 version = "0.5.1"
-source = "git+https://github.com/paritytech/orchestra.git?branch=sandreim/orchestra_rx_option#84cca8289330ded71b71cbb3119d11d34ea33f8d"
+source = "git+https://github.com/paritytech/orchestra.git?rev=4a90a790bb54bc8ff7e4d304aa53c3f007b519c8#4a90a790bb54bc8ff7e4d304aa53c3f007b519c8"
 dependencies = [
  "coarsetime",
  "crossbeam-queue",

@@ -312,12 +312,25 @@ enum Error {
 #[async_trait::async_trait]
 pub trait OverseerHandleT: Clone + Send + Sync {
 	async fn send_msg<M: Send + Into<AllMessages>>(&mut self, msg: M, origin: &'static str);
+	async fn send_unbounded_msg<M: Send + Into<AllMessages>>(
+		&mut self,
+		msg: M,
+		origin: &'static str,
+	);
 }
 
 #[async_trait::async_trait]
 impl OverseerHandleT for Handle {
 	async fn send_msg<M: Send + Into<AllMessages>>(&mut self, msg: M, origin: &'static str) {
 		Handle::send_msg(self, msg, origin).await
+	}
+
+	async fn send_unbounded_msg<M: Send + Into<AllMessages>>(
+		&mut self,
+		msg: M,
+		origin: &'static str,
+	) {
+		Handle::send_unbounded_msg(self, msg, origin).await
 	}
 }
 
@@ -472,25 +485,12 @@ where
 		let lag = initial_leaf_number.saturating_sub(subchain_number);
 		self.metrics.note_approval_checking_finality_lag(lag);
 
-		// Messages sent to `approval-distrbution` are known to have high `ToF`, we need to spawn a
-		// task for sending the message to not block here and delay finality.
-		if let Some(spawn_handle) = &self.spawn_handle {
-			let mut overseer_handle = self.overseer.clone();
-			let lag_update_task = async move {
-				overseer_handle
-					.send_msg(
-						ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag),
-						std::any::type_name::<Self>(),
-					)
-					.await;
-			};
-
-			spawn_handle.spawn(
-				"approval-checking-lag-update",
-				Some("relay-chain-selection"),
-				Box::pin(lag_update_task),
-			);
-		}
+		// Messages sent to `approval-distrbution` are known to have high `ToF`, so we send over an
+		// unbounded channel.
+		overseer.send_unbounded_msg(
+			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag),
+			std::any::type_name::<Self>(),
+		).await;
 
 		let (lag, subchain_head) = {
 			// Prevent sending flawed data to the dispute-coordinator.

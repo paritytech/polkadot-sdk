@@ -195,6 +195,11 @@ impl Handle {
 		self.send_and_log_error(Event::MsgToSubsystem { msg: msg.into(), origin }).await
 	}
 
+	/// Send some message to one of the `Subsystem`s.
+	pub async fn unbounded_send_msg(&mut self, msg: impl Into<AllMessages>, origin: &'static str) {
+		self.send_and_log_error(Event::UnboundedMsgToSubsystem { msg: msg.into(), origin })
+			.await
+	}
 	/// Send a message not providing an origin.
 	#[inline(always)]
 	pub async fn send_msg_anon(&mut self, msg: impl Into<AllMessages>) {
@@ -286,6 +291,13 @@ pub enum Event {
 	BlockFinalized(BlockInfo),
 	/// Message as sent to a subsystem.
 	MsgToSubsystem {
+		/// The actual message.
+		msg: AllMessages,
+		/// The originating subsystem name.
+		origin: &'static str,
+	},
+	/// Message as sent to a subsystem via unbounded channel
+	UnboundedMsgToSubsystem {
 		/// The actual message.
 		msg: AllMessages,
 		/// The originating subsystem name.
@@ -769,7 +781,11 @@ where
 				msg = self.events_rx.select_next_some() => {
 					match msg {
 						Event::MsgToSubsystem { msg, origin } => {
-							self.route_message(msg.into(), origin).await?;
+							self.route_message(msg.into(), origin, false).await?;
+							self.metrics.on_message_relayed();
+						}
+						Event::UnboundedMsgToSubsystem { msg, origin } => {
+							self.route_message(msg.into(), origin, true).await?;
 							self.metrics.on_message_relayed();
 						}
 						Event::Stop => {
