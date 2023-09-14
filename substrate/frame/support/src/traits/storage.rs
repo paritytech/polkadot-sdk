@@ -77,7 +77,7 @@ pub trait StorageInstance {
 		sp_io::hashing::twox_128(Self::STORAGE_PREFIX.as_bytes())
 	}
 
-	/// Return the prefix hash of storage instance instance.
+	/// Return the prefix hash of instance.
 	///
 	/// NOTE: This hash must be `twox_128(pallet_prefix())++twox_128(STORAGE_PREFIX)`.
 	/// Should not impl this function by hand. Only use the default or macro generated impls.

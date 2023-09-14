@@ -69,9 +69,7 @@ pub trait StorageNMap<K: KeyGenerator, V: FullCodec> {
 
 	/// The full prefix; just the hash of `module_prefix` concatenated to the hash of
 	/// `storage_prefix`.
-	fn prefix_hash() -> Vec<u8> {
-		storage_prefix(Self::module_prefix(), Self::storage_prefix()).to_vec()
-	}
+	fn prefix_hash() -> Vec<u8>;
 
 	/// Convert an optional value retrieved from storage to the type queried.
 	fn from_optional_value_to_query(v: Option<V>) -> Self::Query;

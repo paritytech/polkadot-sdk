@@ -120,6 +120,7 @@ where
 	fn module_prefix() -> &'static [u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
+
 	fn storage_prefix() -> &'static [u8] {
 		Prefix::STORAGE_PREFIX.as_bytes()
 	}

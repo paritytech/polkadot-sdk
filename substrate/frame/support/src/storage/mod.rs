@@ -191,7 +191,7 @@ pub trait StorageList<V: FullCodec> {
 
 	/// Append a single element.
 	///
-	/// Should not be called repeatedly; use `append_many` instead.  
+	/// Should not be called repeatedly; use `append_many` instead.
 	/// Worst case linear `O(len)` with `len` being the number if elements in the list.
 	fn append_one<EncodeLikeValue>(item: EncodeLikeValue)
 	where
@@ -202,7 +202,7 @@ pub trait StorageList<V: FullCodec> {
 
 	/// Append many elements.
 	///
-	/// Should not be called repeatedly; use `appender` instead.  
+	/// Should not be called repeatedly; use `appender` instead.
 	/// Worst case linear `O(len + items.count())` with `len` beings the number if elements in the
 	/// list.
 	fn append_many<EncodeLikeValue, I>(items: I)
@@ -1716,6 +1716,10 @@ mod test {
 				fn from_query_to_optional_value(v: Self::Query) -> Option<Digest> {
 					Some(v)
 				}
+
+				fn storage_value_final_key() -> [u8; 32] {
+					storage_prefix(Self::module_prefix(), Self::storage_prefix())
+				}
 			}
 
 			Storage::append(DigestItem::Other(Vec::new()));
@@ -1742,6 +1746,10 @@ mod test {
 
 				fn storage_prefix() -> &'static [u8] {
 					b"MyStorageMap"
+				}
+
+				fn prefix_hash() -> Vec<u8> {
+					storage_prefix(Self::module_prefix(), Self::storage_prefix()).to_vec()
 				}
 
 				fn from_optional_value_to_query(v: Option<u64>) -> Self::Query {

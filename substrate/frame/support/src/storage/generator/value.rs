@@ -44,9 +44,7 @@ pub trait StorageValue<T: FullCodec> {
 	fn from_query_to_optional_value(v: Self::Query) -> Option<T>;
 
 	/// Generate the full key used in top storage.
-	fn storage_value_final_key() -> [u8; 32] {
-		crate::storage::storage_prefix(Self::module_prefix(), Self::storage_prefix())
-	}
+	fn storage_value_final_key() -> [u8; 32];
 }
 
 impl<T: FullCodec, G: StorageValue<T>> storage::StorageValue<T> for G {
@@ -97,10 +95,6 @@ impl<T: FullCodec, G: StorageValue<T>> storage::StorageValue<T> for G {
 		}
 	}
 
-	fn kill() {
-		unhashed::kill(&Self::storage_value_final_key())
-	}
-
 	fn mutate<R, F: FnOnce(&mut G::Query) -> R>(f: F) -> R {
 		Self::try_mutate(|v| Ok::<R, Never>(f(v))).expect("`Never` can not be constructed; qed")
 	}
@@ -140,6 +134,10 @@ impl<T: FullCodec, G: StorageValue<T>> storage::StorageValue<T> for G {
 			}
 		}
 		ret
+	}
+
+	fn kill() {
+		unhashed::kill(&Self::storage_value_final_key())
 	}
 
 	fn take() -> G::Query {
