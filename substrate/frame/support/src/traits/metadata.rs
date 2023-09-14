@@ -284,8 +284,8 @@ pub trait GetStorageVersion {
 
 #[cfg(test)]
 mod tests {
-	use sp_core::twox_128;
 	use super::*;
+	use sp_core::twox_128;
 
 	struct Pallet1;
 	impl PalletInfoAccess for Pallet1 {
