@@ -303,7 +303,7 @@ where
 	/// balance is zero.
 	fn to_asset_balance(
 		balance: BalanceOf<F, T>,
-		asset_id: AssetIdOf<T, I>,
+		asset_id: &AssetIdOf<T, I>,
 	) -> Result<AssetBalanceOf<T, I>, ConversionError> {
 		let asset = Asset::<T, I>::get(asset_id).ok_or(ConversionError::AssetMissing)?;
 		// only sufficient assets have a min balance with reliable value

@@ -60,7 +60,7 @@ where
 		let amount = WeightToFee::weight_to_fee(&weight);
 		// If the amount gotten is not at least the ED, then make it be the ED of the asset
 		// This is to avoid burning assets and decreasing the supply
-		let asset_amount = BalanceConverter::to_asset_balance(amount, asset_id)
+		let asset_amount = BalanceConverter::to_asset_balance(amount, &asset_id)
 			.map_err(|_| XcmError::TooExpensive)?;
 		Ok(asset_amount)
 	}

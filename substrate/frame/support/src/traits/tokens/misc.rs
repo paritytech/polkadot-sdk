@@ -261,8 +261,10 @@ impl<
 /// Converts a balance value into an asset balance.
 pub trait ConversionToAssetBalance<InBalance, AssetId, AssetBalance> {
 	type Error;
-	fn to_asset_balance(balance: InBalance, asset_id: AssetId)
-		-> Result<AssetBalance, Self::Error>;
+	fn to_asset_balance(
+		balance: InBalance,
+		asset_id: &AssetId,
+	) -> Result<AssetBalance, Self::Error>;
 }
 
 /// Converts an asset balance value into balance.
