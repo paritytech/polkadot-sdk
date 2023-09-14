@@ -496,8 +496,6 @@
 <a href="#496" id="496">496</a>
 <a href="#497" id="497">497</a>
 <a href="#498" id="498">498</a>
-<a href="#499" id="499">499</a>
-<a href="#500" id="500">500</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -617,14 +615,12 @@
 		<span class="self">self</span>.candidates_by_block_number = not_stale;
 
 		<span class="kw">for </span>candidate <span class="kw">in </span>stale.into_values().flatten() {
-			<span class="macro">debug_assert!</span>(<span class="self">self</span>.inclusions_inner.get(<span class="kw-2">&amp;</span>candidate).is_some());
 			<span class="kw">match </span><span class="self">self</span>.inclusions_inner.entry(candidate) {
 				Entry::Vacant(<span class="kw">_</span>) =&gt; {
-					<span class="macro">gum::debug!</span>(
-						target: LOG_TARGET,
-						<span class="string">&quot;Inconsistency in `Inclusions` detected on pruning!&quot;
-					</span>);
-				},
+					<span class="comment">// Rare case where same candidate was present on multiple heights, but all are
+					// pruned at the same time. This candidate was already pruned in the previous
+					// occurence so it is skipped now.
+				</span>},
 				Entry::Occupied(<span class="kw-2">mut </span>e) =&gt; {
 					<span class="kw">let </span><span class="kw-2">mut </span>blocks_including = std::mem::take(e.get_mut());
 					<span class="comment">// Returns everything after the given key, including the key. This works because
