@@ -37,7 +37,7 @@ sp-keyring = { path = "../../../substrate/primitives/keyring" }
 # Polkadot
 polkadot-primitives = { path = "../../../polkadot/primitives" }
 polkadot-test-client = { path = "../../../polkadot/node/test/client" }
-metered = { package = "prioritized-metered-channel", version = "0.2.0" }
+metered = { package = "prioritized-metered-channel", version = "0.5.1", default-features = false, features=["futures_channel"] }
 
 # Cumulus
 cumulus-test-service = { path = "../../test/service" }
