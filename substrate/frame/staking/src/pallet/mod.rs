@@ -25,7 +25,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveResult, DefensiveSaturating, EnsureOrigin,
-		EstimateNextNewSession, Get, LockIdentifier, LockableCurrency, OnUnbalanced, Pot,
+		EstimateNextNewSession, Get, LockIdentifier, LockableCurrency, OnUnbalanced,
 		TryCollect, UnixTime,
 	},
 	weights::Weight,
@@ -200,7 +200,7 @@ pub mod pallet {
 		/// The destination acount for the minted era inflation that is not used to reward
 		/// validators. The portion of inflation to be paid to this account is calculated based on
 		/// `InflationLevyFraction`.
-		type InflationLevyDestination: Pot<Self::AccountId>;
+		type InflationLevyDestination: Get<Self::AccountId>;
 
 		/// Something that can estimate the next session change, accurately or as a best effort
 		/// guess.

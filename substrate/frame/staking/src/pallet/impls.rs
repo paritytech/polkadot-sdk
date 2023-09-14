@@ -28,7 +28,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveResult, EstimateNextNewSession, Get, Imbalance,
-		LockableCurrency, OnUnbalanced, Pot, TryCollect, UnixTime, WithdrawReasons,
+		LockableCurrency, OnUnbalanced, TryCollect, UnixTime, WithdrawReasons,
 	},
 	weights::Weight,
 };
@@ -471,7 +471,7 @@ impl<T: Config> Pallet<T> {
 			// Pay levy, if relevant.
 			if !levy_payout.is_zero() {
 				<T::Currency as Currency<T::AccountId>>::deposit_creating(
-					&<T::InflationLevyDestination as Pot<T::AccountId>>::account_id(),
+					&<T::InflationLevyDestination as Get<T::AccountId>>::get(),
 					levy_payout,
 				);
 			}

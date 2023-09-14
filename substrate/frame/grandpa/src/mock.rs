@@ -213,8 +213,8 @@ impl pallet_staking::Config for Test {
 }
 
 pub struct BurnPot;
-impl frame_support::traits::Pot<u64> for BurnPot {
-	fn account_id() -> u64 {
+impl sp_runtime::traits::Get<u64> for BurnPot {
+	fn get() -> u64 {
 		BurnAccountId::get().into_account_truncating()
 	}
 }

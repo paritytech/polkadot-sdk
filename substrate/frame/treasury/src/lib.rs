@@ -75,7 +75,7 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 use frame_support::{
 	print,
 	traits::{
-		Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced, Pot,
+		Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
 		ReservableCurrency, WithdrawReasons,
 	},
 	weights::Weight,
@@ -627,8 +627,8 @@ impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Palle
 	}
 }
 
-impl<T: Config<I>, I: 'static> Pot<T::AccountId> for Pallet<T, I> {
-	fn account_id() -> T::AccountId {
+impl<T: Config<I>, I: 'static> Get<T::AccountId> for Pallet<T, I> {
+	fn get() -> T::AccountId {
 		Self::account_id()
 	}
 }

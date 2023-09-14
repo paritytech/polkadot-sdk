@@ -654,8 +654,8 @@ impl pallet_staking::Config for Runtime {
 }
 
 pub struct BurnPot;
-impl frame_support::traits::Pot<AccountId> for BurnPot {
-	fn account_id() -> AccountId {
+impl Get<AccountId> for BurnPot {
+	fn get() -> AccountId {
 		BurnAccountId::get().into_account_truncating()
 	}
 }

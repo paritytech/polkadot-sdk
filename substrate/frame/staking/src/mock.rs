@@ -26,7 +26,7 @@ use frame_support::{
 	assert_ok, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU32, ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance,
-		OnUnbalanced, OneSessionHandler, Pot,
+		OnUnbalanced, OneSessionHandler,
 	},
 	weights::constants::RocksDbWeight,
 	PalletId,
@@ -318,8 +318,8 @@ impl crate::pallet::pallet::Config for Test {
 }
 
 pub struct TreasuryPot;
-impl Pot<AccountId> for TreasuryPot {
-	fn account_id() -> AccountId {
+impl Get<AccountId> for TreasuryPot {
+	fn get() -> AccountId {
 		TreasuryPalletId::get().into_account_truncating()
 	}
 }

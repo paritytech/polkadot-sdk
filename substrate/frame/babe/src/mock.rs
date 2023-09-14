@@ -211,8 +211,8 @@ impl pallet_staking::Config for Test {
 }
 
 pub struct BurnPot;
-impl frame_support::traits::Pot<DummyValidatorId> for BurnPot {
-	fn account_id() -> DummyValidatorId {
+impl sp_runtime::traits::Get<DummyValidatorId> for BurnPot {
+	fn get() -> DummyValidatorId {
 		BurnAccountId::get().into_account_truncating()
 	}
 }

@@ -858,12 +858,6 @@ pub trait OffchainWorker<BlockNumber> {
 	fn offchain_worker(_n: BlockNumber) {}
 }
 
-/// An entity that exposes an account ID that is derived at the origin.
-pub trait Pot<AccountId> {
-	/// The account ID of the pot.
-	fn account_id() -> AccountId;
-}
-
 /// Some amount of backing from a group. The precise definition of what it means to "back" something
 /// is left flexible.
 pub struct Backing {
