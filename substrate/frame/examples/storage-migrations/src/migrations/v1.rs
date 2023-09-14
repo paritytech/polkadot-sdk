@@ -23,7 +23,7 @@ use frame_support::{
 /// Collection of storage item formats from the previous storage version.
 ///
 /// Required so we can read values in the old storage format during the migration.
-mod old {
+pub(crate) mod old {
 	use super::*;
 
 	/// V0 type for [`crate::Value`].
@@ -33,21 +33,21 @@ mod old {
 
 /// Private module containing *version unchecked* migration logic.
 ///
-/// Should only be used by the [`VersionedMigration`] type in this module to create something to
-/// export.
+/// Should only be used by the [`VersionedMigration`](frame_support::migrations::VersionedMigration)
+/// type in this module to create something to export.
 ///
 /// We keep this private so the unversioned migration cannot accidentally be used in any runtimes.
 ///
 /// For more about this pattern of keeping items private, see
-/// - https://github.com/rust-lang/rust/issues/30905
-/// - https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40
-mod version_unchecked {
+/// - <https://github.com/rust-lang/rust/issues/30905>
+/// - <https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40>
+pub(crate) mod version_unchecked {
 	use super::*;
 
 	/// Implements [`OnRuntimeUpgrade`], migrating the state of this pallet from V0 to V1.
 	///
-	/// In V0 of the template [`crate::Value`] is just a `u32`.
-	/// In V1, it has been upgraded to contain the struct [`crate::CurrentAndPreviousValue`].
+	/// In V0 of the template [`crate::Value`] is just a `u32`. In V1, it has been upgraded to
+	/// contain the struct [`crate::CurrentAndPreviousValue`].
 	///
 	/// In this migration, update the on-chain storage for the pallet to reflect the new storage
 	/// layout.
@@ -56,7 +56,7 @@ mod version_unchecked {
 
 	impl<T: crate::Config> OnRuntimeUpgrade for MigrateV0ToV1<T> {
 		/// Return the existing [`crate::Value`] so we can check that it was correctly set in
-		/// [`VersionUncheckedV0ToV1::post_upgrade`].
+		/// [`version_unchecked::MigrateV0ToV1::post_upgrade`].
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 			use codec::Encode;
@@ -72,7 +72,7 @@ mod version_unchecked {
 		/// If the value doesn't exist, there is nothing to do.
 		///
 		/// If the value exists, it is read and then written back to storage inside a
-		/// [`crate::SomethingEntry`] with the `maybe_account_id` field set to `None`.
+		/// [`crate::CurrentAndPreviousValue`].
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			// Read the old value from storage
 			if let Some(old_value) = old::Value::<T>::get() {
@@ -91,8 +91,7 @@ mod version_unchecked {
 		///
 		/// If there was no old value, the new value should not be set.
 		///
-		/// If there was an old value, the new value should be a
-		/// [`crate::SomethingEntry`] with the `maybe_account_id` field set to `None`
+		/// If there was an old value, the new value should be a [`crate::CurrentAndPreviousValue`].
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 			use codec::Decode;
@@ -132,6 +131,11 @@ mod version_unchecked {
 pub mod versioned {
 	use super::*;
 
+	/// [`version_unchecked::MigrateV0ToV1`] wrapped in a
+	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), which ensures that:
+	/// - The migration only runs once when the on-chain storage version is 0
+	/// - The on-chain storage version is updated to `1` after the migration executes
+	/// - Reads/Writes from checking/settings the on-chain storage version are accounted for
 	pub type MigrateV0ToV1<T> = frame_support::migrations::VersionedMigration<
 		0, // The migration will only execute when the on-chain storage version is 0
 		1, // The on-chain storage version will be set to 1 after the migration is complete

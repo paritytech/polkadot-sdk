@@ -31,7 +31,8 @@
 //!   between current and on-chain [`StorageVersion`]s
 
 //! ## How to read these docs
-//! - Run `cargo doc --features try-runtime --package pallet-example-storage-migrations --open`
+//! - Run `cargo doc --features try-runtime --package pallet-example-storage-migrations
+//!   --document-private-items --open`
 //! to view the documentation in your browser.
 //! - Follow along reading the source code referenced in the docs.
 //!
@@ -101,24 +102,51 @@
 //! ## Writing the Migration
 //!
 //! All code related to our migration can be found under
-//! [`v1.rs`](crate::migrations::v1). See the migration source code for detailed comments.
+//! [`v1.rs`](migrations::v1).
 //!
-//! **First**, we define a [`storage_alias`](frame_support::storage_alias) for the old [`Value`]
+//! See the migration source code for detailed comments.
+//!
+//! To keep our migration logic organised, it is split across different modules:
+//!
+//! ### `mod old`
+//!
+//! Here we define a [`storage_alias`](frame_support::storage_alias) for the old [`Value`]
 //! format.
 //!
 //! This allows reading the old value from storage during the migration.
 //!
-//! **Second**, we define a struct
-//! [`VersionUncheckedV0ToV1`](crate::migrations::v1::VersionUncheckedV0ToV1) which implements the
-//! [`OnRuntimeUpgrade`](frame_support::traits::OnRuntimeUpgrade) trait and write basic unit tests.
+//! ### `mod version_unchecked`
 //!
-//! **Finally**, we wrap [`VersionUncheckedV0ToV1`](crate::migrations::v1::VersionUncheckedV0ToV1)
-//! in a [`VersionedMigration`](frame_support::migrations::VersionedMigration) to create
-//! [`VersionCheckedV0ToV1`](crate::migrations::v1::VersionCheckedV0ToV1).
+//! Here we define our raw migration logic,
+//! [`MigrateV0ToV1`](crate::migrations::v1::version_unchecked::MigrateV0ToV1) which implements the
+//! [`OnRuntimeUpgrade`](frame_support::traits::OnRuntimeUpgrade) trait.
 //!
+//! Importantly, it is kept in a private module so that it cannot be accidentally used in a runtime.
+//!
+//! ### `pub mod versioned`
+//!
+//! Here we wrap our
+//! [`version_unchecked::MigrateV0ToV1`](crate::migrations::v1::version_unchecked::MigrateV0ToV1)
+//! migration in a [`VersionedMigration`](frame_support::migrations::VersionedMigration) to get
+//! [`versioned::MigrateV0ToV1`](crate::migrations::v1::versioned::MigrateV0ToV1) which we can use
+//! in our runtimes.
+//!
+//! Wrapping our raw V0 to V1 migration in
 //! [`VersionedMigration`](frame_support::migrations::VersionedMigration) ensures that
-//! - The migration only runs once, when the storage version is 0
-//! - The version is updated to 1 after the migration is run
+//! - The migration only runs once when the on-chain storage version is `0`
+//! - The on-chain storage version is updated to `1` after the migration executes
+//! - Reads/Writes from checking/settings the on-chain storage version are accounted for
+//!
+//! This is the only public module.
+//!
+//! ### `mod test`
+//!
+//! Here we define some basic unit tests for our migration.
+//!
+//! When writing migration tests, it is important to check:
+//! - `on_runtime_upgrade` returns the expected weight
+//! - `post_upgrade` succeeds when given the bytes returned by `pre_upgrade`
+//! - The storage is in the expected state after the migration
 //!
 //! ## Scheduling the Migration to run next runtime upgrade
 //!

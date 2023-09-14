@@ -294,8 +294,8 @@ pub trait IntegrityTest {
 /// > because they are not part of the consensus/main block building logic. See
 /// > [`OffchainWorker`](crate::traits::misc::OffchainWorker) for more information.
 ///
-/// To learn more about the execution of hooks see the FRAME [`Executive`](frame_executive) pallet
-/// which is in charge of dispatching extrinsics and calling hooks in the correct order.
+/// To learn more about the execution of hooks see the FRAME `Executive` pallet which is in charge
+/// of dispatching extrinsics and calling hooks in the correct order.
 pub trait Hooks<BlockNumber> {
 	/// Block initialization hook. This is called at the very beginning of block execution.
 	///
@@ -347,8 +347,8 @@ pub trait Hooks<BlockNumber> {
 		Weight::zero()
 	}
 
-	/// Hook executed when a code change (aka. a "runtime upgrade") is detected by the
-	/// [`Executive`](frame_executive) pallet.
+	/// Hook executed when a code change (aka. a "runtime upgrade") is detected by the FRAME
+	/// `Executive` pallet.
 	///
 	/// Be aware that this is called before [`Hooks::on_initialize`] of any pallet; therefore, a lot
 	/// of the critical storage items such as `block_number` in system pallet might have not been
