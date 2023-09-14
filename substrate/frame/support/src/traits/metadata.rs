@@ -184,7 +184,7 @@ impl StorageVersion {
 	/// See [`STORAGE_VERSION_STORAGE_KEY_POSTFIX`] on how this key is built.
 	pub fn storage_key<P: PalletInfoAccess>() -> [u8; 32] {
 		let pallet_name = P::name();
-		crate::storage::storage_instance_prefix(pallet_name.as_bytes(), STORAGE_VERSION_STORAGE_KEY_POSTFIX)
+		crate::storage::storage_prefix(pallet_name.as_bytes(), STORAGE_VERSION_STORAGE_KEY_POSTFIX)
 	}
 
 	/// Put this storage version for the given pallet into the storage.
@@ -284,6 +284,7 @@ pub trait GetStorageVersion {
 
 #[cfg(test)]
 mod tests {
+	use sp_core::twox_128;
 	use super::*;
 
 	struct Pallet1;
@@ -293,6 +294,9 @@ mod tests {
 		}
 		fn name() -> &'static str {
 			"Pallet1"
+		}
+		fn name_hash() -> [u8; 16] {
+			twox_128(Self::name().as_bytes())
 		}
 		fn module_name() -> &'static str {
 			"pallet1"
@@ -309,6 +313,11 @@ mod tests {
 		fn name() -> &'static str {
 			"Pallet2"
 		}
+
+		fn name_hash() -> [u8; 16] {
+			twox_128(Self::name().as_bytes())
+		}
+
 		fn module_name() -> &'static str {
 			"pallet2"
 		}
