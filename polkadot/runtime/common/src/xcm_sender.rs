@@ -22,7 +22,7 @@ use parity_scale_codec::Encode;
 use primitives::Id as ParaId;
 use runtime_parachains::{
 	configuration::{self, HostConfiguration},
-	dmp, FeeTracker, TransportDestination,
+	dmp, FeeTracker,
 };
 use sp_runtime::FixedPointNumber;
 use sp_std::{marker::PhantomData, prelude::*};
@@ -211,7 +211,7 @@ impl EnsureForParachain for () {
 mod tests {
 	use super::*;
 	use frame_support::parameter_types;
-	use runtime_parachains::{FeeTracker, TransportDestination};
+	use runtime_parachains::FeeTracker;
 	use sp_runtime::FixedU128;
 
 	parameter_types! {
@@ -222,7 +222,8 @@ mod tests {
 
 	struct TestFeeTracker;
 	impl FeeTracker for TestFeeTracker {
-		fn get_fee_factor(_: TransportDestination) -> FixedU128 {
+		type Id = ();
+		fn get_fee_factor(_: Self::Id) -> FixedU128 {
 			FixedU128::from_rational(101, 100)
 		}
 	}
@@ -238,21 +239,21 @@ mod tests {
 
 		// F * (B + msg_length * M)
 		// message_length = 1
-		let result: u128 = TestFeeTracker::get_fee_factor(TransportDestination::Para(id)).saturating_mul_int(b + m);
+		let result: u128 = TestFeeTracker::get_fee_factor(()).saturating_mul_int(b + m);
 		assert_eq!(
 			TestExponentialPrice::price_for_parachain_delivery(id, &Xcm(vec![])),
 			(FeeAssetId::get(), result).into()
 		);
 
 		// message size = 2
-		let result: u128 = TestFeeTracker::get_fee_factor(TransportDestination::Para(id)).saturating_mul_int(b + (2 * m));
+		let result: u128 = TestFeeTracker::get_fee_factor(()).saturating_mul_int(b + (2 * m));
 		assert_eq!(
 			TestExponentialPrice::price_for_parachain_delivery(id, &Xcm(vec![ClearOrigin])),
 			(FeeAssetId::get(), result).into()
 		);
 
 		// message size = 4
-		let result: u128 = TestFeeTracker::get_fee_factor(TransportDestination::Para(id)).saturating_mul_int(b + (4 * m));
+		let result: u128 = TestFeeTracker::get_fee_factor(()).saturating_mul_int(b + (4 * m));
 		assert_eq!(
 			TestExponentialPrice::price_for_parachain_delivery(
 				id,

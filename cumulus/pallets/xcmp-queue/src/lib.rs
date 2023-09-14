@@ -1231,7 +1231,9 @@ impl<T: Config> SendXcm for Pallet<T> {
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {
-	fn get_fee_factor(para: ParaId) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::get(para)
+	type Id = ParaId;
+
+	fn get_fee_factor(id: Self::Id) -> FixedU128 {
+		<DeliveryFeeFactor<T>>::get(id)
 	}
 }

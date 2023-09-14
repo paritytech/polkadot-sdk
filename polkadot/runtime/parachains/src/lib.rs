@@ -57,15 +57,11 @@ pub use paras::ParaLifecycle;
 use primitives::{HeadData, Id as ParaId, ValidationCode};
 use sp_runtime::{DispatchResult, FixedU128};
 
-pub enum TransportDestination {
-	Relay,
-	Para(ParaId),
-}
-
 /// Trait for tracking message delivery fees on a transport protocol.
 pub trait FeeTracker {
+	type Id; // A destination id
 	/// The evolving exponential fee factor which will be used to calculate the delivery fees.
-	fn get_fee_factor(destination: TransportDestination) -> FixedU128;
+	fn get_fee_factor(id: Self::Id) -> FixedU128;
 }
 
 /// Schedule a para to be initialized at the start of the next session with the given genesis data.
