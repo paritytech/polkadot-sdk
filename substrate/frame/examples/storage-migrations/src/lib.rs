@@ -127,7 +127,7 @@
 //!
 //! ```ignore
 //! type Migrations = (
-//! 	pallet_example_storage_migration::migrations::v1::VersionedV0ToV1
+//! 	pallet_example_storage_migration::migrations::v1::versioned::MigrateV0ToV1
 //! 	// ...more migrations here
 //! );
 //! pub type Executive = frame_executive::Executive<

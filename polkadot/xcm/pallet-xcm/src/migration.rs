@@ -27,49 +27,51 @@ pub mod v1 {
 	use super::*;
 	use crate::{CurrentMigration, VersionMigrationStage};
 
-	/// Named with the 'VersionUnchecked'-prefix because although this implements some version
-	/// checking, the version checking is not complete as it will begin failing after the upgrade is
-	/// enacted on-chain.
-	///
-	/// Use experimental [`VersionCheckedMigrateToV1`] instead.
-	pub struct VersionUncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
-		fn on_runtime_upgrade() -> Weight {
-			let mut weight = T::DbWeight::get().reads(1);
+	mod version_unchecked {
+		use super::*;
 
-			if StorageVersion::get::<Pallet<T>>() != 0 {
-				log::warn!("skipping v1, should be removed");
-				return weight
+		pub struct MigrateV0ToV1<T>(sp_std::marker::PhantomData<T>);
+		impl<T: Config> OnRuntimeUpgrade for MigrateV0ToV1<T> {
+			fn on_runtime_upgrade() -> Weight {
+				let mut weight = T::DbWeight::get().reads(1);
+
+				if StorageVersion::get::<Pallet<T>>() != 0 {
+					log::warn!("skipping v1, should be removed");
+					return weight
+				}
+
+				weight.saturating_accrue(T::DbWeight::get().writes(1));
+				CurrentMigration::<T>::put(VersionMigrationStage::default());
+
+				let translate = |pre: (u64, u64, u32)| -> Option<(u64, Weight, u32)> {
+					weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+					let translated = (pre.0, Weight::from_parts(pre.1, DEFAULT_PROOF_SIZE), pre.2);
+					log::info!("Migrated VersionNotifyTarget {:?} to {:?}", pre, translated);
+					Some(translated)
+				};
+
+				VersionNotifyTargets::<T>::translate_values(translate);
+
+				log::info!("v1 applied successfully");
+				weight.saturating_accrue(T::DbWeight::get().writes(1));
+				StorageVersion::new(1).put::<Pallet<T>>();
+				weight
 			}
-
-			weight.saturating_accrue(T::DbWeight::get().writes(1));
-			CurrentMigration::<T>::put(VersionMigrationStage::default());
-
-			let translate = |pre: (u64, u64, u32)| -> Option<(u64, Weight, u32)> {
-				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-				let translated = (pre.0, Weight::from_parts(pre.1, DEFAULT_PROOF_SIZE), pre.2);
-				log::info!("Migrated VersionNotifyTarget {:?} to {:?}", pre, translated);
-				Some(translated)
-			};
-
-			VersionNotifyTargets::<T>::translate_values(translate);
-
-			log::info!("v1 applied successfully");
-			weight.saturating_accrue(T::DbWeight::get().writes(1));
-			StorageVersion::new(1).put::<Pallet<T>>();
-			weight
 		}
 	}
 
-	/// Version checked migration to v1.
-	///
-	/// Wrapped in [`frame_support::migrations::VersionedMigration`] so the pre/post checks don't
-	/// begin failing after the upgrade is enacted on-chain.
-	pub type VersionCheckedMigrateToV1<T> = frame_support::migrations::VersionedMigration<
-		0,
-		1,
-		VersionUncheckedMigrateToV1<T>,
-		crate::pallet::Pallet<T>,
-		<T as frame_system::Config>::DbWeight,
-	>;
+	pub mod versioned {
+		/// Version checked migration to v1.
+		///
+		/// Wrapped in [`frame_support::migrations::VersionedMigration`] so the pre/post checks
+		/// don't begin failing after the upgrade is enacted on-chain.
+		use super::*;
+		pub type VersionCheckedMigrateToV1<T> = frame_support::migrations::VersionedMigration<
+			0,
+			1,
+			version_unchecked::MigrateV0ToV1<T>,
+			crate::pallet::Pallet<T>,
+			<T as frame_system::Config>::DbWeight,
+		>;
+	}
 }

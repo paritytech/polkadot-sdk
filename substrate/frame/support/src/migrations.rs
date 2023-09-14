@@ -43,6 +43,10 @@ use sp_std::marker::PhantomData;
 /// Otherwise, a warning is logged notifying the developer that the upgrade was a noop and should
 /// probably be removed.
 ///
+/// It is STRONGLY RECOMMENDED to write the unversioned migration logic in a private module and
+/// only export the versioned migration logic to prevent accidentally using the unversioned
+/// migration in any runtimes.
+///
 /// ### Examples
 /// ```ignore
 /// // In file defining migrations
@@ -58,24 +62,24 @@ use sp_std::marker::PhantomData;
 /// /// - https://github.com/rust-lang/rust/issues/30905
 /// /// - https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40
 /// mod version_unchecked {
-///  	use super::*;
+/// 	use super::*;
 /// 	pub struct MigrateV5ToV6<T>(sp_std::marker::PhantomData<T>);
 /// 	impl<T: Config> OnRuntimeUpgrade for  VersionUncheckedMigrateV5ToV6<T> {
-/// 		 	// OnRuntimeUpgrade implementation...
+/// 		// OnRuntimeUpgrade implementation...
 /// 	}
 /// }
 ///
 /// /// Public module containing *version checked* migration logic.
 /// ///
 /// /// This is the only module that should be exported from a migration module.
-/// pub mod version_checked {
+/// pub mod versioned {
 /// 	use super::*;
-/// 	pub type VersionCheckedMigrateV5ToV6<T, I> =
+/// 	pub type MigrateV5ToV6<T, I> =
 /// 		VersionedMigration<
 /// 			5,
 /// 			6,
-/// 			VersionUncheckedMigrateV5ToV6<T, I>,
-/// 	 		crate::pallet::Pallet<T, I>,
+/// 			version_unchecked::MigrateV5ToV6<T, I>,
+/// 			crate::pallet::Pallet<T, I>,
 /// 			<T as frame_system::Config>::DbWeight
 /// 		>;
 /// }
@@ -83,7 +87,7 @@ use sp_std::marker::PhantomData;
 /// // Migrations tuple to pass to the Executive pallet:
 /// pub type Migrations = (
 /// 	// other migrations...
-/// 	version_checked::MigrateV5ToV6<T, ()>,
+/// 	versioned::MigrateV5ToV6<T, ()>,
 /// 	// other migrations...
 /// );
 /// ```

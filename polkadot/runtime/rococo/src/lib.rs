@@ -1544,14 +1544,14 @@ pub mod migrations {
 
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
-		pallet_society::migrations::VersionCheckedMigrateToV2<Runtime, (), ()>,
+		pallet_society::migrations::v2::versioned::MigrateV0ToV2<Runtime, (), ()>,
 		pallet_im_online::migration::v1::Migration<Runtime>,
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
-		assigned_slots::migration::v1::VersionCheckedMigrateToV1<Runtime>,
+		assigned_slots::migration::v1::versioned::MigrateV0ToV1<Runtime>,
 		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
-		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ()>,
+		paras_registrar::migration::v1::versioned::MigrateV0ToV1<Runtime, ()>,
 	);
 }
 

@@ -24,47 +24,55 @@ pub struct ParaInfoV1<Account, Balance> {
 	locked: bool,
 }
 
-pub struct VersionUncheckedMigrateToV1<T, UnlockParaIds>(
-	sp_std::marker::PhantomData<(T, UnlockParaIds)>,
-);
-impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
-	for VersionUncheckedMigrateToV1<T, UnlockParaIds>
-{
-	fn on_runtime_upgrade() -> Weight {
-		let mut count = 0u64;
-		Paras::<T>::translate::<ParaInfoV1<T::AccountId, BalanceOf<T>>, _>(|key, v1| {
-			count.saturating_inc();
-			Some(ParaInfo {
-				manager: v1.manager,
-				deposit: v1.deposit,
-				locked: if UnlockParaIds::contains(&key) { None } else { Some(v1.locked) },
-			})
-		});
+pub mod v1 {
+	use super::*;
 
-		log::info!(target: "runtime::registrar", "Upgraded {} storages to version 1", count);
-		T::DbWeight::get().reads_writes(count, count)
+	mod version_unchecked {
+		use super::*;
+
+		pub struct MigrateV0ToV1<T, UnlockParaIds>(sp_std::marker::PhantomData<(T, UnlockParaIds)>);
+		impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
+			for MigrateV0ToV1<T, UnlockParaIds>
+		{
+			fn on_runtime_upgrade() -> Weight {
+				let mut count = 0u64;
+				Paras::<T>::translate::<ParaInfoV1<T::AccountId, BalanceOf<T>>, _>(|key, v1| {
+					count.saturating_inc();
+					Some(ParaInfo {
+						manager: v1.manager,
+						deposit: v1.deposit,
+						locked: if UnlockParaIds::contains(&key) { None } else { Some(v1.locked) },
+					})
+				});
+
+				log::info!(target: "runtime::registrar", "Upgraded {} storages to version 1", count);
+				T::DbWeight::get().reads_writes(count, count)
+			}
+
+			#[cfg(feature = "try-runtime")]
+			fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+				Ok((Paras::<T>::iter_keys().count() as u32).encode())
+			}
+
+			#[cfg(feature = "try-runtime")]
+			fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+				let old_count = u32::decode(&mut &state[..]).expect("Known good");
+				let new_count = Paras::<T>::iter_values().count() as u32;
+
+				ensure!(old_count == new_count, "Paras count should not change");
+				Ok(())
+			}
+		}
 	}
 
-	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		Ok((Paras::<T>::iter_keys().count() as u32).encode())
-	}
-
-	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		let old_count = u32::decode(&mut &state[..]).expect("Known good");
-		let new_count = Paras::<T>::iter_values().count() as u32;
-
-		ensure!(old_count == new_count, "Paras count should not change");
-		Ok(())
+	pub mod versioned {
+		use super::*;
+		pub type MigrateV0ToV1<T, UnlockParaIds> = frame_support::migrations::VersionedMigration<
+			0,
+			1,
+			version_unchecked::MigrateV0ToV1<T, UnlockParaIds>,
+			super::Pallet<T>,
+			<T as frame_system::Config>::DbWeight,
+		>;
 	}
 }
-
-pub type VersionCheckedMigrateToV1<T, UnlockParaIds> =
-	frame_support::migrations::VersionedMigration<
-		0,
-		1,
-		VersionUncheckedMigrateToV1<T, UnlockParaIds>,
-		super::Pallet<T>,
-		<T as frame_system::Config>::DbWeight,
-	>;

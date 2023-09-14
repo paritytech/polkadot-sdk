@@ -17,7 +17,7 @@
 
 use super::*;
 use hex_literal::hex;
-use pallet_society::migrations::from_raw_past_payouts;
+use pallet_society::migrations::v2::from_raw_past_payouts;
 
 parameter_types! {
 	pub PastPayouts: Vec<(AccountId, Balance)> = from_raw_past_payouts::<Runtime, ()>(vec![

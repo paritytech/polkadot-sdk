@@ -129,7 +129,7 @@ mod version_unchecked {
 ///
 /// See [`VersionedMigration`](frame_support::migrations::VersionedMigration) docs for more about
 /// how it works.
-pub mod version_checked {
+pub mod versioned {
 	use super::*;
 
 	pub type MigrateV0ToV1<T> = frame_support::migrations::VersionedMigration<

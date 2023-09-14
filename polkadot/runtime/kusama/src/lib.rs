@@ -1727,7 +1727,7 @@ pub mod migrations {
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
 		init_state_migration::InitMigrate,
-		pallet_society::migrations::VersionCheckedMigrateToV2<
+		pallet_society::migrations::v2::versioned::MigrateV0ToV2<
 			Runtime,
 			(),
 			past_payouts::PastPayouts,
@@ -1756,7 +1756,7 @@ pub mod migrations {
 
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		// Migrate parachain info format
-		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ParachainsToUnlock>,
+		paras_registrar::migration::v1::versioned::MigrateV0ToV1<Runtime, ParachainsToUnlock>,
 	);
 }
 
