@@ -51,6 +51,8 @@
 //!
 //! In [`StorageVersion`] V1 of the pallet a new struct [`CurrentAndPreviousValue`] is introduced:
 //!
+#[doc = docify::embed!("src/lib.rs", test)]
+//!
 //! ```
 //! pub struct CurrentAndPreviousValue {
 //! 	/// The most recently set value.
@@ -237,6 +239,7 @@ use sp_runtime::RuntimeDebug;
 
 /// Example struct holding the most recently set [`u32`] and the
 /// second most recently set [`u32`] (if one existed).
+#[docify::export(test)]
 #[derive(
 	Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
 )]
