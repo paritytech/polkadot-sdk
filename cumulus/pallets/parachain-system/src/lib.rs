@@ -335,6 +335,14 @@ pub mod pallet {
 				UpwardMessages::<T>::put(&up[..num as usize]);
 				*up = up.split_off(num as usize);
 
+				let threshold = Self::get_ump_threshold(host_config.max_upward_queue_size);
+				let remaining_total_size = up.iter().fold(0, |size_so_far, current_message| {
+					size_so_far + current_message.len()
+				});
+				if remaining_total_size <= threshold as usize {
+					Self::decrement_ump_fee_factor();
+				}
+
 				(num, total_size)
 			});
 
@@ -1013,6 +1021,15 @@ impl<T: Config> Pallet<T> {
 			*f
 		})
 	}
+
+	/// Get the threshold for UMP used to increase or decrease fees.
+	/// The threshold is a factor of the max possible size of the queue.
+	/// It should be checked against the total size in the queue and not the
+	/// number of messages, since messages could be big or small
+	// TODO: Should this be `config.max_upward_queue_size` or `MAX_POSSIBLE_ALLOCATION`?
+	fn get_ump_threshold(max_upward_queue_size: u32) -> u32 {
+		max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR)
+	}
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {
@@ -1531,9 +1548,7 @@ impl<T: Config> Pallet<T> {
 			if message_len > cfg.max_upward_message_size as usize {
 				return Err(MessageSendError::TooBig)
 			}
-			// The threshold to increase fee is a factor of the max length in the queue
-			// TODO: Should this be `config.max_upward_queue_size` or `MAX_POSSIBLE_ALLOCATION`?
-			let threshold = cfg.max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR);
+			let threshold = Self::get_ump_threshold(cfg.max_upward_queue_size);
 			// We check the threshold against total size and not number of messages since messages could be big or small
 			let pending_messages = PendingUpwardMessages::<T>::get();
 			let total_size = pending_messages.iter().fold(0, |size_so_far, current_message| {
