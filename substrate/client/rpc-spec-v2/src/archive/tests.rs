@@ -20,7 +20,7 @@ use crate::chain_head::hex_string;
 
 use super::{archive::Archive, *};
 
-use codec::Encode;
+use codec::{Decode, Encode};
 use jsonrpsee::{types::EmptyServerParams as EmptyParams, RpcModule};
 use sc_block_builder::BlockBuilderProvider;
 
@@ -32,7 +32,9 @@ use substrate_test_runtime_client::{
 };
 
 const CHAIN_GENESIS: [u8; 32] = [0; 32];
+const INVALID_HASH: [u8; 32] = [1; 32];
 
+type Header = substrate_test_runtime_client::runtime::Header;
 type Block = substrate_test_runtime_client::runtime::Block;
 
 fn setup_api() -> (Arc<Client<Backend>>, RpcModule<Archive<Backend, Block, Client<Backend>>>) {
@@ -60,6 +62,11 @@ async fn archive_genesis() {
 async fn archive_body() {
 	let (mut client, api) = setup_api();
 
+	// Invalid block hash.
+	let invalid_hash = hex_string(&INVALID_HASH);
+	let res: Option<Vec<String>> = api.call("archive_unstable_body", [invalid_hash]).await.unwrap();
+	assert!(res.is_none());
+
 	// Import a new block with an extrinsic.
 	let mut builder = client.new_block(Default::default()).unwrap();
 	builder
@@ -78,4 +85,33 @@ async fn archive_body() {
 
 	let body: Vec<String> = api.call("archive_unstable_body", [block_hash]).await.unwrap();
 	assert_eq!(vec![expected_tx], body);
+}
+
+#[tokio::test]
+async fn archive_header() {
+	let (mut client, api) = setup_api();
+
+	// Invalid block hash.
+	let invalid_hash = hex_string(&INVALID_HASH);
+	let res: Option<String> = api.call("archive_unstable_header", [invalid_hash]).await.unwrap();
+	assert!(res.is_none());
+
+	// Import a new block with an extrinsic.
+	let mut builder = client.new_block(Default::default()).unwrap();
+	builder
+		.push_transfer(runtime::Transfer {
+			from: AccountKeyring::Alice.into(),
+			to: AccountKeyring::Ferdie.into(),
+			amount: 42,
+			nonce: 0,
+		})
+		.unwrap();
+	let block = builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	let header: String = api.call("archive_unstable_header", [block_hash]).await.unwrap();
+	let bytes = array_bytes::hex2bytes(&header).unwrap();
+	let header: Header = Decode::decode(&mut &bytes[..]).unwrap();
+	assert_eq!(header, block.header);
 }
