@@ -863,7 +863,11 @@ impl<T: Config> Pallet<T> {
 	// The resulting sorted vector is optionally truncated to contain at most `MaxTickets`
 	// entries. If all the segments were consumed then the sorted vector is saved as the
 	// next epoch tickets, else it is saved to be used by next calls to this function.
-	fn sort_tickets(mut max_segments: u32, epoch_tag: u8, metadata: &mut TicketsMetadata) {
+	pub(crate) fn sort_tickets(
+		mut max_segments: u32,
+		epoch_tag: u8,
+		metadata: &mut TicketsMetadata,
+	) {
 		max_segments = max_segments.min(metadata.segments_count);
 		let max_tickets = MaxTicketsFor::<T>::get() as usize;
 
