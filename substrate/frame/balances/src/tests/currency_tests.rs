@@ -339,7 +339,7 @@ fn reserved_balance_should_prevent_reclaim_count() {
 			assert_ok!(System::dec_providers(&2));
 			assert_eq!(System::providers(&2), 0);
 			// account deleted
-			assert_eq!(System::account_nonce(&2), 0); // nonce zero
+			assert_eq!(System::account_nonce(&2), 1); // nonce same as block number
 			assert_eq!(Balances::total_balance(&2), 0);
 
 			// account 4 tries to take index 1 again for account 6.
