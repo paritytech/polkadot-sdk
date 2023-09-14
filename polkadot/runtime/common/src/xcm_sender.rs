@@ -70,7 +70,7 @@ impl<A: Get<AssetId>, B: Get<u128>, M: Get<u128>, F: FeeTracker> PriceForParacha
 	fn price_for_parachain_delivery(para: ParaId, msg: &Xcm<()>) -> MultiAssets {
 		let msg_fee = (msg.encoded_size() as u128).saturating_mul(M::get());
 		let fee_sum = B::get().saturating_add(msg_fee);
-		let amount = F::get_fee_factor(TransportDestination::Para(para)).saturating_mul_int(fee_sum);
+		let amount = F::get_fee_factor(para).saturating_mul_int(fee_sum);
 		(A::get(), amount).into()
 	}
 }
