@@ -322,21 +322,17 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 pub struct DescribeTreasuryVoice;
 
 impl DescribeLocation for DescribeTreasuryVoice {
-	fn describe_location(location: &MultiLocation) -> Option<Vec<u8>> {
-		Some(match location {
-			// Used on the relay chain for sending paras that use 32 byte accounts
-			MultiLocation {
-				parents: 1,
-				interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
-			} => (b"ParentChain", "Treasury").encode(),
-			// No other conversions provided
+	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
+		match (l.parents, &l.interior) {
+			(0, X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice })) =>
+				Some(("Treasury").encode()),
 			_ => return None,
-		})
+		}
 	}
 }
 
 pub type ForeignChainAliasTreasuryAccount<AccountId> =
-	HashedDescription<AccountId, DescribeTreasuryVoice>;
+	HashedDescription<AccountId, DescribeFamily<DescribeTreasuryVoice>>;
 
 /// Extracts the `AccountId32` from the passed Treasury plurality if the network matches.
 pub struct LocalTreasuryVoiceConvertsVia<TreasuryAccount, AccountId>(
@@ -474,9 +470,6 @@ mod tests {
 
 	pub type ForeignChainAliasAccount<AccountId> =
 		HashedDescription<AccountId, LegacyDescribeForeignChainAccount>;
-
-	pub type ForeignChainAliasTreasuryAccount<AccountId> =
-		HashedDescription<AccountId, DescribeTreasuryVoice>;
 
 	use frame_support::parameter_types;
 	use xcm::latest::Junction;
@@ -980,8 +973,8 @@ mod tests {
 
 		assert_eq!(
 			[
-				128, 166, 237, 68, 141, 208, 22, 171, 109, 209, 245, 209, 146, 93, 164, 90, 13, 49,
-				146, 204, 252, 157, 96, 95, 93, 150, 206, 140, 98, 193, 120, 176
+				103, 157, 82, 57, 235, 216, 82, 162, 31, 148, 162, 21, 44, 34, 218, 173, 202, 123,
+				235, 14, 186, 214, 16, 211, 10, 13, 72, 194, 254, 71, 87, 96
 			],
 			actual_description
 		);
