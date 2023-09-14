@@ -44,7 +44,7 @@
 //! For the purposes of this exercise, we imagine that in [`StorageVersion`] V0 of this pallet
 //! [`Value`](pallet::Value) is a `u32`, and this what is currently stored on-chain.
 //!
-//! ```ignore
+//! ```rust
 //! // V0 Storage Value
 //! pub type Value<T: Config> = StorageValue<_, u32>;
 //! ```
@@ -52,7 +52,7 @@
 //!
 //! In [`StorageVersion`] V1 of the pallet a new struct [`CurrentAndPreviousValue`] is introduced:
 //!
-//! ```ignore
+//! ```rust
 //! pub struct CurrentAndPreviousValue {
 //! 	/// The most recently set value.
 //! 	pub current: u32,
@@ -63,7 +63,7 @@
 //!
 //! and [`Value`](pallet::Value) is updated to store this new struct instead of a `u32`:
 //!
-//! ```ignore
+//! ```rust
 //! // V1 Storage Value
 //! pub type Value<T: Config> = StorageValue<_, CurrentAndPreviousValue>;
 //! ```
@@ -99,6 +99,13 @@
 //! This structure allows us to keep the migration logic separate from the pallet definition, and
 //! easily add new migrations in the future.
 //!
+//! Note that we're opting to write our storage migration logic attached to a standalone struct
+//! implementing [`OnRuntimeUpgrade`](frame_support::traits::OnRuntimeUpgrade), rather
+//! than implementing the
+//! [`Hooks::on_runtime_upgrade`](frame_support::traits::Hooks::on_runtime_upgrade) hook directly on
+//! our pallet. The pallet hook is better suited for executing other types of logic that needs to
+//! execute on runtime upgrade, but not so much storage migrations.
+//!
 //! ## Writing the Migration
 //!
 //! All code related to our migration can be found under
@@ -128,14 +135,15 @@
 //! Here we wrap our
 //! [`version_unchecked::MigrateV0ToV1`](crate::migrations::v1::version_unchecked::MigrateV0ToV1)
 //! migration in a [`VersionedMigration`](frame_support::migrations::VersionedMigration) to get
-//! [`versioned::MigrateV0ToV1`](crate::migrations::v1::versioned::MigrateV0ToV1) which we can use
-//! in our runtimes.
+//! [`versioned::MigrateV0ToV1`](crate::migrations::v1::versioned::MigrateV0ToV1) which may be used
+//! in runtimes.
 //!
 //! Wrapping our raw V0 to V1 migration in
 //! [`VersionedMigration`](frame_support::migrations::VersionedMigration) ensures that
 //! - The migration only runs once when the on-chain storage version is `0`
 //! - The on-chain storage version is updated to `1` after the migration executes
-//! - Reads/Writes from checking/settings the on-chain storage version are accounted for
+//! - Reads and writes from checking and setting the on-chain storage version are accounted for in
+//!   the final [`Weight`](frame_support::weights::Weight)
 //!
 //! This is the only public module.
 //!
@@ -153,7 +161,7 @@
 //! We're almost done! The last step is to schedule the migration to run next runtime upgrade
 //! passing it as a generic parameter to your [`Executive`](frame_executive) pallet:
 //!
-//! ```ignore
+//! ```rust
 //! // Tuple of migrations (structs that implement `OnRuntimeUpgrade`)
 //! type Migrations = (
 //! 	pallet_example_storage_migration::migrations::v1::versioned::MigrateV0ToV1
@@ -169,9 +177,43 @@
 //! >;
 //! ```
 //!
-//! ## IMPORTANT: Testing your migration with real state
+//! ## Ensuring Migraiton Safety
 //!
-//! - Dry-running migrations with real state using [`try-runtime-cli`](https://paritytech.github.io/try-runtime-cli/try_runtime_core/commands/enum.Action.html#variant.OnRuntimeUpgrade)
+//! We've written unit tests for our migration and they pass, so it should be safe to deploy right?
+//!
+//! No! Unit tests execute the migration in a very simple test environment, and cannot account
+//! for the complexities of a real runtime or real on-chain state.
+//!
+//! Prior to deploying our migrations, we must perform additional checks to ensure that when run
+//! in our real runtime they will not:
+//! - Panic, bricking our parachain
+//! - Touch too many storage keys resulting an excessively large PoV, bricking our parachain
+//! - Take too long to execute, bricking our parachain
+//!
+//! The [`try-runtime-cli`](https://github.com/paritytech/try-runtime-cli) tool has a sub-command
+//! [`on-runtime-upgrade`](https://paritytech.github.io/try-runtime-cli/try_runtime_core/commands/enum.Action.html#variant.OnRuntimeUpgrade)
+//! which is designed to help with exactly this.
+//!
+//! Developers MUST run this command before deploying migrations to ensure they will not
+//! inadvertently result in a bricked chain.
+//!
+//! ### A Note on the Manipulability of PoV Size and Execution Time
+//!
+//! While [`try-runtime-cli`](https://github.com/paritytech/try-runtime-cli) can help ensure with
+//! very high certianty that a migration will succeed given **existing** on-chain state, it cannot
+//! prevent a malicious actor from manipulating state in a way that will cause the migration to take
+//! longer or produce a PoV much larger than previously measured.
+//!
+//! Therefore, it is important to write migrations in such a way that the execution time or PoV size
+//! it adds to the block cannot be easily manipulated. e.g., in your migration, do not iterate over
+//! storage that can quickly or cheaply be bloated.
+//!
+//! ### A Note on Multi-Block Migrations
+//!
+//! For large migrations that cannot be safely executed in a single block, a feature for writing
+//! simple and safe [multi-block migrations](https://github.com/paritytech/polkadot-sdk/issues/198)
+//! feature is [under active development](https://github.com/paritytech/substrate/pull/14275) and
+//! planned for release before the end of 2023.
 
 // We make sure this pallet uses `no_std` for compiling to Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
