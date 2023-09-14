@@ -309,7 +309,7 @@ mod tests {
 				Proof {
 					leaf_indices: vec![1],
 					leaf_count: 9,
-					items: vec![H256::repeat_byte(1), H256::repeat_byte(2)],
+					items: vec![(1, H256::repeat_byte(1)), (2, H256::repeat_byte(2))],
 				}
 				.encode(),
 			),
@@ -336,7 +336,7 @@ mod tests {
 				Proof {
 					leaf_indices: vec![1, 2],
 					leaf_count: 9,
-					items: vec![H256::repeat_byte(1), H256::repeat_byte(2)],
+					items: vec![(1, H256::repeat_byte(1)), (2, H256::repeat_byte(2))],
 				}
 				.encode(),
 			),

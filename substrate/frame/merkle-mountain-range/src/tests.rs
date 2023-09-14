@@ -287,9 +287,9 @@ fn should_generate_proofs_correctly() {
 					leaf_indices: vec![0],
 					leaf_count: 7,
 					items: vec![
-						hex("ad4cbc033833612ccd4626d5f023b9dfc50a35e838514dd1f3c86f8506728705"),
-						hex("cb24f4614ad5b2a5430344c99545b421d9af83c46fd632d70a332200884b4d46"),
-						hex("dca421199bdcc55bb773c6b6967e8d16675de69062b52285ca63685241fdf626"),
+						(1, hex("ad4cbc033833612ccd4626d5f023b9dfc50a35e838514dd1f3c86f8506728705")),
+						(5, hex("cb24f4614ad5b2a5430344c99545b421d9af83c46fd632d70a332200884b4d46")),
+						(9, hex("dca421199bdcc55bb773c6b6967e8d16675de69062b52285ca63685241fdf626")),
 					],
 				}
 			)
@@ -318,9 +318,9 @@ fn should_generate_proofs_correctly() {
 					leaf_indices: vec![2],
 					leaf_count: 7,
 					items: vec![
-						hex("1b14c1dc7d3e4def11acdf31be0584f4b85c3673f1ff72a3af467b69a3b0d9d0"),
-						hex("672c04a9cd05a644789d769daa552d35d8de7c33129f8a7cbf49e595234c4854"),
-						hex("dca421199bdcc55bb773c6b6967e8d16675de69062b52285ca63685241fdf626"),
+						(2, hex("672c04a9cd05a644789d769daa552d35d8de7c33129f8a7cbf49e595234c4854")),
+						(4, hex("1b14c1dc7d3e4def11acdf31be0584f4b85c3673f1ff72a3af467b69a3b0d9d0")),
+						(9, hex("dca421199bdcc55bb773c6b6967e8d16675de69062b52285ca63685241fdf626")),
 					],
 				}
 			)
@@ -337,9 +337,9 @@ fn should_generate_proofs_correctly() {
 				Proof {
 					leaf_indices: vec![2],
 					leaf_count: 3,
-					items: vec![hex(
+					items: vec![(2, hex(
 						"672c04a9cd05a644789d769daa552d35d8de7c33129f8a7cbf49e595234c4854"
-					)],
+					))],
 				}
 			)
 		);
@@ -358,9 +358,9 @@ fn should_generate_proofs_correctly() {
 					leaf_indices: vec![2],
 					leaf_count: 5,
 					items: vec![
-						hex("1b14c1dc7d3e4def11acdf31be0584f4b85c3673f1ff72a3af467b69a3b0d9d0"),
-						hex("672c04a9cd05a644789d769daa552d35d8de7c33129f8a7cbf49e595234c4854"),
-						hex("3b031d22e24f1126c8f7d2f394b663f9b960ed7abbedb7152e17ce16112656d0")
+						(2, hex("672c04a9cd05a644789d769daa552d35d8de7c33129f8a7cbf49e595234c4854")),
+						(4, hex("1b14c1dc7d3e4def11acdf31be0584f4b85c3673f1ff72a3af467b69a3b0d9d0")),
+						(7, hex("3b031d22e24f1126c8f7d2f394b663f9b960ed7abbedb7152e17ce16112656d0")),
 					],
 				}
 			)
@@ -376,9 +376,9 @@ fn should_generate_proofs_correctly() {
 					leaf_indices: vec![4],
 					leaf_count: 7,
 					items: vec![
-						hex("ae88a0825da50e953e7a359c55fe13c8015e48d03d301b8bdfc9193874da9252"),
-						hex("8ed25570209d8f753d02df07c1884ddb36a3d9d4770e4608b188322151c657fe"),
-						hex("611c2174c6164952a66d985cfe1ec1a623794393e3acff96b136d198f37a648c"),
+						(6, hex("ae88a0825da50e953e7a359c55fe13c8015e48d03d301b8bdfc9193874da9252")),
+						(8, hex("8ed25570209d8f753d02df07c1884ddb36a3d9d4770e4608b188322151c657fe")),
+						(10, hex("611c2174c6164952a66d985cfe1ec1a623794393e3acff96b136d198f37a648c")),
 					],
 				}
 			)
@@ -390,9 +390,9 @@ fn should_generate_proofs_correctly() {
 				Proof {
 					leaf_indices: vec![4],
 					leaf_count: 5,
-					items: vec![hex(
+					items: vec![(6, hex(
 						"ae88a0825da50e953e7a359c55fe13c8015e48d03d301b8bdfc9193874da9252"
-					),],
+					)),],
 				}
 			)
 		);
@@ -406,8 +406,8 @@ fn should_generate_proofs_correctly() {
 					leaf_indices: vec![6],
 					leaf_count: 7,
 					items: vec![
-						hex("ae88a0825da50e953e7a359c55fe13c8015e48d03d301b8bdfc9193874da9252"),
-						hex("7e4316ae2ebf7c3b6821cb3a46ca8b7a4f9351a9b40fcf014bb0a4fd8e8f29da"),
+						(6, hex("ae88a0825da50e953e7a359c55fe13c8015e48d03d301b8bdfc9193874da9252")),
+						(9, hex("7e4316ae2ebf7c3b6821cb3a46ca8b7a4f9351a9b40fcf014bb0a4fd8e8f29da")),
 					],
 				}
 			)
@@ -438,9 +438,9 @@ fn should_generate_batch_proof_correctly() {
 				leaf_indices: vec![0, 4, 5],
 				leaf_count: 7,
 				items: vec![
-					hex("ad4cbc033833612ccd4626d5f023b9dfc50a35e838514dd1f3c86f8506728705"),
-					hex("cb24f4614ad5b2a5430344c99545b421d9af83c46fd632d70a332200884b4d46"),
-					hex("611c2174c6164952a66d985cfe1ec1a623794393e3acff96b136d198f37a648c"),
+					(1, hex("ad4cbc033833612ccd4626d5f023b9dfc50a35e838514dd1f3c86f8506728705")),
+					(5, hex("cb24f4614ad5b2a5430344c99545b421d9af83c46fd632d70a332200884b4d46")),
+					(10, hex("611c2174c6164952a66d985cfe1ec1a623794393e3acff96b136d198f37a648c")),
 				],
 			}
 		);
@@ -455,8 +455,8 @@ fn should_generate_batch_proof_correctly() {
 				leaf_indices: vec![0, 4, 5],
 				leaf_count: 6,
 				items: vec![
-					hex("ad4cbc033833612ccd4626d5f023b9dfc50a35e838514dd1f3c86f8506728705"),
-					hex("cb24f4614ad5b2a5430344c99545b421d9af83c46fd632d70a332200884b4d46"),
+					(1, hex("ad4cbc033833612ccd4626d5f023b9dfc50a35e838514dd1f3c86f8506728705")),
+					(5, hex("cb24f4614ad5b2a5430344c99545b421d9af83c46fd632d70a332200884b4d46")),
 				],
 			}
 		);
