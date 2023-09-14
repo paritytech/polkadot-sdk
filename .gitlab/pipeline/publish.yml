@@ -328,24 +328,6 @@ build-push-image-substrate-pr:
 #       # this artifact is used in zombienet-tests job
 #       dotenv: ./artifacts/malus.env
 
-# publish-staking-miner-image:
-#   stage: publish
-#   extends:
-#     - .kubernetes-env
-#     - .build-push-image
-#     - .publish-refs
-#   variables:
-#     CI_IMAGE: ${BUILDAH_IMAGE}
-#     # scripts/ci/dockerfiles/staking-miner/staking-miner_injected.Dockerfile
-#     DOCKERFILE: ci/dockerfiles/staking-miner/staking-miner_injected.Dockerfile
-#     IMAGE_NAME: docker.io/paritytech/staking-miner
-#     GIT_STRATEGY: none
-#     DOCKER_USER: ${Docker_Hub_User_Parity}
-#     DOCKER_PASS: ${Docker_Hub_Pass_Parity}
-#   needs:
-#     - job: build-staking-miner
-#       artifacts: true
-
 # substrate
 
 # publish-substrate-image-pr:
