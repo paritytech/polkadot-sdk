@@ -9,14 +9,19 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        runtime: [polkadot, kusama, westend, rococo]
+        runtime:
+          [
+            polkadot/runtime/polkadot,
+            polkadot/runtime/kusama,
+            polkadot/runtime/westend,
+            polkadot/runtime/rococo,
+          ]
     steps:
       - name: Fetch latest code
         uses: actions/checkout@v4
-      - name: Setup  cargo-featalign
-        run: |
-          curl -L https://github.com/hack-ink/cargo-featalign/releases/download/v0.6.1/cargo-featalign-x86_64-unknown-linux-gnu.zst | zstd -o cargo-featalign -d
-          chmod u+x cargo-featalign
-          mv cargo-featalign ~/.cargo/bin
-      - name: Check features
-        run: cargo featalign polkadot/runtime/${{ matrix.runtime }} --features std,runtime-benchmarks,try-runtime,empty --workspace-only --default-std --depth -1 --sort --mode dry-run
+      - name: Check
+        uses: hack-ink/cargo-featalign-action@v0.1.0
+        with:
+          crate: ${{ matrix.runtime }}
+          features: std,runtime-benchmarks,try-runtime
+          default-std: true
