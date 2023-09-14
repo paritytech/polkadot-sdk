@@ -111,7 +111,6 @@ impl pallet_preimage::Config for Test {
 	type WeightInfo = ();
 	type Currency = Balances;
 	type ManagerOrigin = EnsureRoot<u64>;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type Consideration = ();
 }
 

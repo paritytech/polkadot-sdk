@@ -459,7 +459,6 @@ impl pallet_preimage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureRoot<AccountId>;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type Consideration = HoldConsideration<
 		AccountId,
 		Balances,
