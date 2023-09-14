@@ -29,6 +29,7 @@ std = [
 	"pallet-example-kitchensink/std",
 	"pallet-example-offchain-worker/std",
 	"pallet-example-split/std",
+	"pallet-example-storage-migrations/std"
 ]
 try-runtime = [
 	"pallet-default-config-example/try-runtime",
