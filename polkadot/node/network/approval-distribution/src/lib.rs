@@ -966,26 +966,32 @@ impl State {
 			.map(|(cert, candidate_index, _)| (cert, candidate_index))
 			.collect::<Vec<_>>();
 		let (tx, rx) = oneshot::channel();
-		ctx.send_message(ApprovalVotingMessage::CheckAndImportAssignments(batched_assignments, tx))
-			.await;
+		
+		let results = if !batched_assignments.is_empty() {
+			ctx.send_message(ApprovalVotingMessage::CheckAndImportAssignments(batched_assignments, tx))
+				.await;
 
-		let timer = metrics.time_awaiting_approval_voting();
-		// Wait for approval voting to check and import the batch.
-		let results = match rx.await {
-			Ok(results) => results,
-			Err(_) => {
-				gum::debug!(target: LOG_TARGET, "The approval voting subsystem is down");
-				return
-			},
+			let _timer = metrics.time_awaiting_approval_voting();
+			// Wait for approval voting to check and import the batch.
+			let results = match rx.await {
+				Ok(results) => results,
+				Err(_) => {
+					gum::debug!(target: LOG_TARGET, "The approval voting subsystem is down");
+					return
+				},
+			};
+
+			gum::trace!(
+				target: LOG_TARGET,
+				count = ?assignments.len(),
+				?results,
+				"Checked assignments",
+			);
+			results
+		} else {
+			// We don't return here since we want to process any defered approvals
+			Vec::new()
 		};
-		drop(timer);
-
-		gum::trace!(
-			target: LOG_TARGET,
-			count = ?assignments.len(),
-			?results,
-			"Checked assignments",
-		);
 
 		for (result, (assignment, claimed_candidate_index, peer_id)) in
 			results.into_iter().zip(assignments.iter())
@@ -1346,7 +1352,7 @@ impl State {
 		source: MessageSource,
 		vote: IndirectSignedApprovalVote,
 	) {
-		// Local messages are never defered.
+		// Local messages are never deferred.
 		if let Some(peer) = source.peer_id() {
 			let block_hash = vote.block_hash;
 			let validator_index = vote.validator;
