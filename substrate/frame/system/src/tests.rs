@@ -774,6 +774,9 @@ fn test_default_account_nonce() {
 
 		System::set_block_number(5);
 		assert_eq!(System::account_nonce(&1), 3);
+
+		Account::<Test>::remove(&1);
+		assert_eq!(System::account_nonce(&1), 5);
 	});
 }
 
