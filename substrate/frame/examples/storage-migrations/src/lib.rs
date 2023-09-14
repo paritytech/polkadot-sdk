@@ -43,7 +43,7 @@
 //! For the purposes of this exercise, we imagine that in [`StorageVersion`] V0 of this pallet
 //! [`Value`](pallet::Value) is a `u32`, and this what is currently stored on-chain.
 //!
-//! ```
+//! ```ignore
 //! // V0 Storage Value
 //! pub type Value<T: Config> = StorageValue<_, u32>;
 //! ```
@@ -51,7 +51,7 @@
 //!
 //! In [`StorageVersion`] V1 of the pallet a new struct [`CurrentAndPreviousValue`] is introduced:
 //!
-//! ```
+//! ```ignore
 //! pub struct CurrentAndPreviousValue {
 //! 	/// The most recently set value.
 //! 	pub current: u32,
@@ -62,7 +62,7 @@
 //!
 //! and [`Value`](pallet::Value) is updated to store this new struct instead of a `u32`:
 //!
-//! ```
+//! ```ignore
 //! // V1 Storage Value
 //! pub type Value<T: Config> = StorageValue<_, CurrentAndPreviousValue>;
 //! ```
@@ -161,7 +161,7 @@
 //! Almost done! The last step is to schedule the migration to run next runtime upgrade passing it
 //! as a generic parameter to your [`Executive`](frame_executive) pallet:
 //!
-//! ```
+//! ```ignore
 //! // Tuple of migrations (structs that implement `OnRuntimeUpgrade`)
 //! type Migrations = (
 //! 	pallet_example_storage_migration::migrations::v1::versioned::MigrateV0ToV1
