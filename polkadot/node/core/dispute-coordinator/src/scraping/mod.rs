@@ -113,20 +113,15 @@ impl Inclusions {
 	/// The candidates at the block height are NOT removed.
 	pub fn remove_up_to_height(&mut self, height: &BlockNumber) {
 		let not_stale = self.candidates_by_block_number.split_off(&height);
-		let stale: HashSet<_> = std::mem::take(&mut self.candidates_by_block_number)
-			.into_values()
-			.flatten()
-			.collect();
+		let stale = std::mem::take(&mut self.candidates_by_block_number);
 		self.candidates_by_block_number = not_stale;
 
-		for candidate in stale {
-			debug_assert!(self.inclusions_inner.get(&candidate).is_some());
+		for candidate in stale.into_values().flatten() {
 			match self.inclusions_inner.entry(candidate) {
 				Entry::Vacant(_) => {
-					gum::debug!(
-						target: LOG_TARGET,
-						"Inconsistency in `Inclusions` detected on pruning!"
-					);
+					// Rare case where same candidate was present on multiple heights, but all are
+					// pruned at the same time. This candidate was already pruned in the previous
+					// occurence so it is skipped now.
 				},
 				Entry::Occupied(mut e) => {
 					let mut blocks_including = std::mem::take(e.get_mut());
