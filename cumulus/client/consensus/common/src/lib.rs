@@ -20,8 +20,8 @@ use polkadot_primitives::{
 };
 
 use cumulus_primitives_core::{
-	relay_chain::{BlockId as RBlockId, OccupiedCoreAssumption},
-	ParaId,
+	relay_chain::{self, BlockId as RBlockId, OccupiedCoreAssumption},
+	AbridgedHostConfiguration, ParaId,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 
@@ -411,4 +411,19 @@ pub fn relay_slot_and_timestamp(
 			(slot, t)
 		})
 		.ok()
+}
+
+/// Reads abridged host configuration from the relay chain storage at the given relay parent.
+pub async fn load_abridged_host_configuration(
+	relay_parent: PHash,
+	relay_client: &impl RelayChainInterface,
+) -> Result<Option<AbridgedHostConfiguration>, RelayChainError> {
+	relay_client
+		.get_storage_by_key(relay_parent, relay_chain::well_known_keys::ACTIVE_CONFIG)
+		.await?
+		.map(|bytes| {
+			AbridgedHostConfiguration::decode(&mut &bytes[..])
+				.map_err(RelayChainError::DeserializationError)
+		})
+		.transpose()
 }

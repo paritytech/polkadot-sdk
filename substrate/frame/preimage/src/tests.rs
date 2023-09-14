@@ -254,7 +254,7 @@ fn user_noted_then_requested_preimage_is_refunded_once_only() {
 		assert_ok!(Preimage::request_preimage(RuntimeOrigin::signed(1), hashed([1])));
 		assert_ok!(Preimage::unrequest_preimage(RuntimeOrigin::signed(1), hashed([1])));
 		assert_ok!(Preimage::unnote_preimage(RuntimeOrigin::signed(2), hashed([1])));
-		// Still have freeze from `vec[1; 3]`.
+		// Still have hold from `vec[1; 3]`.
 		assert_eq!(Balances::balance_on_hold(&(), &2), 5);
 	});
 }
@@ -487,5 +487,29 @@ fn store_preimage_bound_too_large_errors() {
 		// Works with `MAX_LENGTH-4`.
 		let data: Vec<u8> = vec![0; len - 4];
 		assert_ok!(<Preimage as StorePreimage>::bound(data.clone()));
+	});
+}
+
+#[test]
+fn ensure_updated_works() {
+	#![allow(deprecated)]
+	new_test_ext().execute_with(|| {
+		let alice = 2;
+
+		for i in 0..100 {
+			let hashes =
+				(0..100).map(|j| insert_old_unrequested::<Test>(j, alice)).collect::<Vec<_>>();
+			let old = hashes.iter().take(i).cloned().collect::<Vec<_>>();
+			let bad = vec![hashed([0; 32]); 100 - i];
+
+			let hashes = [old.as_slice(), bad.as_slice()].concat();
+			let res = Preimage::ensure_updated(RuntimeOrigin::signed(alice), hashes).unwrap();
+
+			// Alice pays a fee when less than 90% of the hashes are new.
+			assert_eq!(res.pays_fee, (i < 90).into());
+
+			assert_eq!(RequestStatusFor::<Test>::iter().count(), i);
+			assert_eq!(StatusFor::<Test>::iter().count(), 100 - i);
+		}
 	});
 }

@@ -255,3 +255,25 @@ where
 }
 
 impl_incrementable!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_core::ConstU64;
+
+	#[test]
+	fn linear_storage_price_works() {
+		type Linear = LinearStoragePrice<ConstU64<7>, ConstU64<3>, u64>;
+		let p = |count, size| Linear::convert(Footprint { count, size });
+
+		assert_eq!(p(0, 0), 7);
+		assert_eq!(p(0, 1), 7);
+		assert_eq!(p(1, 0), 7);
+
+		assert_eq!(p(1, 1), 10);
+		assert_eq!(p(8, 1), 31);
+		assert_eq!(p(1, 8), 31);
+
+		assert_eq!(p(u64::MAX, u64::MAX), u64::MAX);
+	}
+}

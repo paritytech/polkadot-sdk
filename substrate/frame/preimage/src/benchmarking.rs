@@ -18,7 +18,7 @@
 //! Preimage pallet benchmarking.
 
 use super::*;
-use frame_benchmarking::v1::{benchmarks, whitelisted_caller, BenchmarkError};
+use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller, BenchmarkError};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
@@ -217,8 +217,9 @@ benchmarks! {
 
 	ensure_updated {
 		let n in 0..MAX_HASH_UPGRADE_BULK_COUNT;
+
 		let caller = funded_account::<T>();
-		let hashes = (0..n).map(|i| insert_old_unrequested::<T>(i, caller.clone())).collect::<Vec<_>>();
+		let hashes = (0..n).map(|i| insert_old_unrequested::<T>(i)).collect::<Vec<_>>();
 	}: _(RawOrigin::Signed(caller), hashes)
 	verify {
 		assert_eq!(RequestStatusFor::<T>::iter_keys().count(), n as usize);
@@ -230,10 +231,10 @@ benchmarks! {
 	impl_benchmark_test_suite!(Preimage, crate::mock::new_test_ext(), crate::mock::Test);
 }
 
-fn insert_old_unrequested<T: Config>(
-	s: u32,
-	acc: T::AccountId,
-) -> <T as frame_system::Config>::Hash {
+fn insert_old_unrequested<T: Config>(s: u32) -> <T as frame_system::Config>::Hash {
+	let acc = account("old", s, 0);
+	T::Currency::make_free_balance_be(&acc, BalanceOf::<T>::max_value() / 2u32.into());
+
 	// The preimage size does not matter here as it is not touched.
 	let preimage = s.to_le_bytes();
 	let hash = <T as frame_system::Config>::Hashing::hash(&preimage[..]);
