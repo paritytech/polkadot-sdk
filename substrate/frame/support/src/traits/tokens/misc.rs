@@ -270,7 +270,7 @@ pub trait ConversionFromAssetBalance<AssetBalance, AssetId, OutBalance> {
 	type Error;
 	fn from_asset_balance(
 		balance: AssetBalance,
-		asset_id: &AssetId,
+		asset_id: AssetId,
 	) -> Result<OutBalance, Self::Error>;
 }
 

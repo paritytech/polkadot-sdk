@@ -234,7 +234,7 @@ where
 
 	fn from_asset_balance(
 		balance: BalanceOf<T>,
-		asset_kind: &AssetKindOf<T>,
+		asset_kind: AssetKindOf<T>,
 	) -> Result<BalanceOf<T>, pallet::Error<T>> {
 		let rate = pallet::ConversionRateToNative::<T>::get(asset_kind)
 			.ok_or(pallet::Error::<T>::UnknownAssetKind.into())?;
