@@ -76,7 +76,7 @@ impl<T: Config> XCM<T> for () {
 		_message: VersionedXcm<CallOf<T>>,
 		_max_weight: Weight,
 	) -> DispatchResultWithPostInfo {
-		Err(Error::<T>::XcmDisabled.into()).into()
+		Err(Error::<T>::XcmDisabled.into())
 	}
 	fn send(
 		_origin: &AccountIdOf<T>,

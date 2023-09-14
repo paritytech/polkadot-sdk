@@ -40,6 +40,8 @@ use sp_runtime::{
 use sp_std::{fmt, prelude::*};
 use wasmi::{core::HostError, errors::LinkerError, Linker, Memory, Store};
 
+// type XcmOf<E> = <<E::T as Config>::Xcm as XCM<E::T>>;
+
 /// The maximum nesting depth a contract can use when encoding types.
 const MAX_DECODE_NESTING: u32 = 256;
 
@@ -2652,7 +2654,6 @@ pub mod env {
 	///
 	/// # Parameters
 	///
-	/// - `max_weight_ptr`: the pointer into the linear memory where the maximum weight is placed.
 	/// - `msg_ptr`: the pointer into the linear memory where the XCM message is placed.
 	/// - `msg_len`: the length of the XCM message in bytes.
 	///
@@ -2664,7 +2665,6 @@ pub mod env {
 	fn xcm_execute(
 		ctx: _,
 		memory: _,
-		max_weight_ptr: u32,
 		msg_ptr: u32,
 		msg_len: u32,
 	) -> Result<ReturnCode, TrapReason> {
@@ -2673,14 +2673,13 @@ pub mod env {
 		use xcm::VersionedXcm;
 
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
-		let max_weight: Weight = ctx.read_sandbox_memory_as(memory, max_weight_ptr)?;
-		let weight =
-			max_weight.saturating_add(<<E::T as Config>::Xcm as XCM<E::T>>::WeightInfo::execute());
-
 		let message: VersionedXcm<CallOf<E::T>> =
 			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
 
-		let dispatch_info = DispatchInfo { weight, ..Default::default() };
+		let max_weight = ctx.ext.gas_meter().gas_left();
+		let max_weight =
+			max_weight.max(<<E::T as Config>::Xcm as XCM<E::T>>::WeightInfo::execute());
+		let dispatch_info = DispatchInfo { weight: max_weight, ..Default::default() };
 
 		ctx.call_dispatchable(dispatch_info, |ext| {
 			<<E::T as Config>::Xcm as XCM<E::T>>::execute(ext.address(), message, max_weight)

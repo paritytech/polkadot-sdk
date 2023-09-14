@@ -101,11 +101,6 @@ fn test_xcm_execute() {
 				beneficiary: AccountId32 { network: None, id: BOB.clone().into() }.into(),
 			},
 		]);
-		let message = VersionedXcm::V3(message);
-
-		// Execute the XCM message, through the contract.
-		let max_weight = Weight::from_all(10_000_000_000);
-		let data = (max_weight, message.clone()).encode();
 
 		assert_ok!(
 			ParachainContracts::bare_call(
@@ -114,7 +109,7 @@ fn test_xcm_execute() {
 				0,
 				Weight::MAX,
 				None,
-				data,
+				VersionedXcm::V3(message).encode(),
 				DebugInfo::UnsafeDebug,
 				CollectEvents::UnsafeCollect,
 				Determinism::Enforced,
