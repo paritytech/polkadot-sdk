@@ -50,6 +50,10 @@
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
 <a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -100,6 +104,10 @@
 			.saturating_add(DbWeight::get().writes(<span class="number">10 </span>+ <span class="number">3 </span>* max_nominators_per_validator <span class="kw">as </span>u64))
 			<span class="comment">// fetching set id -&gt; session index mappings
 			</span>.saturating_add(DbWeight::get().reads(<span class="number">2</span>))
+	}
+
+	<span class="kw">fn </span>set_new_genesis() -&gt; Weight {
+		DbWeight::get().writes(<span class="number">1</span>)
 	}
 }
 </code></pre></div></section></main></body></html>
