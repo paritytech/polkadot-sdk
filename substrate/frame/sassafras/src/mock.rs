@@ -78,6 +78,7 @@ impl pallet_sassafras::Config for Test {
 	type EpochDuration = ConstU64<EPOCH_DURATION>;
 	type EpochChangeTrigger = SameAuthoritiesForever;
 	type MaxAuthorities = ConstU32<100>;
+	type WeightInfo = ();
 }
 
 frame_support::construct_runtime!(

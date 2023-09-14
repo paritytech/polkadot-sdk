@@ -51,7 +51,12 @@ use log::{debug, error, warn};
 use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
-use frame_support::{traits::Get, weights::Weight, BoundedVec, WeakBoundedVec};
+use frame_support::{
+	dispatch::{DispatchResultWithPostInfo, Pays},
+	traits::Get,
+	weights::Weight,
+	BoundedVec, WeakBoundedVec,
+};
 use frame_system::{
 	offchain::{SendTransactionTypes, SubmitTransaction},
 	pallet_prelude::BlockNumberFor,
@@ -71,6 +76,9 @@ mod benchmarking;
 mod mock;
 #[cfg(all(feature = "std", test))]
 mod tests;
+
+pub mod weights;
+pub use weights::WeightInfo;
 
 // Re-export pallet symbols.
 pub use pallet::*;
@@ -111,6 +119,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type EpochDuration: Get<u64>;
 
+		/// Max number of authorities allowed
+		#[pallet::constant]
+		type MaxAuthorities: Get<u32>;
+
 		/// Sassafras requires some logic to be triggered on every block to query for whether an
 		/// epoch has ended and to perform the transition to the next epoch.
 		///
@@ -118,9 +130,8 @@ pub mod pallet {
 		/// be used when no other module is responsible for changing authority set.
 		type EpochChangeTrigger: EpochChangeTrigger;
 
-		/// Max number of authorities allowed
-		#[pallet::constant]
-		type MaxAuthorities: Get<u32>;
+		/// Weight information for all calls of this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	/// Max number of tickets allowed for the configuration.
@@ -348,13 +359,13 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Submit next epoch tickets.
 		///
-		/// TODO-SASS-P3: this is an unsigned extrinsic. Can we remove the weight?
+		/// TODO-SASS-P3: this is an unsigned extrinsic. Can we remove the weight in this case?
 		#[pallet::call_index(0)]
-		#[pallet::weight({0})]
+		#[pallet::weight(T::WeightInfo::submit_tickets(tickets.len() as u32))]
 		pub fn submit_tickets(
 			origin: OriginFor<T>,
 			tickets: BoundedVec<TicketEnvelope, MaxTicketsFor<T>>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 
 			debug!(target: LOG_TARGET, "Received {} tickets", tickets.len());
@@ -425,7 +436,7 @@ pub mod pallet {
 				TicketsMeta::<T>::set(metadata);
 			}
 
-			Ok(())
+			Ok(Pays::No.into())
 		}
 
 		/// Plan an epoch config change.
@@ -435,10 +446,8 @@ pub mod pallet {
 		/// In other words the configuration will be activated one epoch after.
 		/// Multiple calls to this method will replace any existing planned config change that had
 		/// not been enacted yet.
-		///
-		/// TODO-SASS-P4: proper weight
 		#[pallet::call_index(1)]
-		#[pallet::weight({0})]
+		#[pallet::weight(T::WeightInfo::plan_config_change())]
 		pub fn plan_config_change(
 			origin: OriginFor<T>,
 			config: EpochConfiguration,

@@ -18,11 +18,10 @@
 //! Benchmarks for the Sassafras pallet.
 
 use super::*;
+use sp_consensus_sassafras::EpochConfiguration;
 use sp_std::vec;
 
-// use sp_consensus_sassafras::EpochConfiguration;
-
-use frame_benchmarking::v2::*;
+use frame_benchmarking::v2::{ParamRange, *};
 use frame_system::RawOrigin;
 
 const TICKETS_DATA: &[u8] = include_bytes!("../tickets.bin");
@@ -37,52 +36,46 @@ struct PreBuiltTickets {
 mod benchmarks {
 	use super::*;
 
+	const LOG_TARGET: &str = "sassafras::benchmark";
+
 	#[benchmark]
-	fn check_ticket() {
-		// let mut raw_data = TICKETS_DATA;
-		// let PreBuiltTickets { authorities, tickets } =
-		// 	PreBuiltTickets::decode(&mut raw_data).expect("Failed to decode tickets buffer");
+	fn submit_tickets(x: Linear<0, 3>) {
+		let tickets_count = x as usize;
 
-		// let authorities = WeakBoundedVec::force_from(authorities, None);
-		// let tickets = tickets[0..1].to_vec();
-		// let tickets = BoundedVec::truncate_from(tickets);
+		let mut raw_data = TICKETS_DATA;
+		let PreBuiltTickets { authorities, tickets } =
+			PreBuiltTickets::decode(&mut raw_data).expect("Failed to decode tickets buffer");
 
-		// Authorities::<T>::set(authorities);
+		log::debug!(target: LOG_TARGET, "PreBuiltTickets: {} tickets, {} authorities", tickets.len(), authorities.len());
+
+		let authorities = WeakBoundedVec::force_from(authorities, None);
+		Authorities::<T>::set(authorities);
+
+		let tickets = tickets[..tickets_count].to_vec();
+		let tickets = BoundedVec::truncate_from(tickets);
 
 		let ring_ctx = vrf::RingContext::new_testing();
 		RingContext::<T>::set(Some(ring_ctx));
 
-		// let caller: T::AccountId = whitelisted_caller();
+		log::debug!(target: LOG_TARGET, "Submitting {} tickets", tickets_count);
 
-		// #[extrinsic_call]
-		// submit_tickets(RawOrigin::None, tickets);
+		#[extrinsic_call]
+		submit_tickets(RawOrigin::None, tickets);
 
-		#[block]
-		{
-			let _authorities_num = T::MaxAuthorities::get();
-			// 	let authorities = Authorities::<T>::get();
-			// 	log::debug!(target: "sassafras", "AUTH NUM: {}", authorities.len());
-		}
+		// #[block]
+		// {
+		// 	let _authorities_num = T::MaxAuthorities::get();
+		// 	// 	let authorities = Authorities::<T>::get();
+		// 	// 	log::debug!(target: "sassafras", "AUTH NUM: {}", authorities.len());
+		// }
+	}
+
+	#[benchmark]
+	fn plan_config_change() {
+		// Use some valid values
+		let config = EpochConfiguration { redundancy_factor: 1, attempts_number: 10 };
+
+		#[extrinsic_call]
+		plan_config_change(RawOrigin::Root, config);
 	}
 }
-// submit_tickets {
-// 	let x in 0 .. <T as Config>::MaxTickets::get();
-
-// 	// let tickets: BoundedVec<TicketEnvelope, <T as Config>::MaxTickets> =
-// 	// 	(0..x).map(make_dummy_ticket).collect::<Vec<_>>().try_into().unwrap();
-// }: _(RawOrigin::None, tickets)
-
-// #[panic_handler]
-// #[no_mangle]
-// pub fn panic(info: &core::panic::PanicInfo) -> ! {
-// 	let message = sp_std::alloc::format!("{}", info);
-// 	#[cfg(feature = "improved_panic_error_reporting")]
-// 	{
-// 		panic_handler::abort_on_panic(&message);
-// 	}
-// 	#[cfg(not(feature = "improved_panic_error_reporting"))]
-// 	{
-// 		logging::log(LogLevel::Error, "runtime", message.as_bytes());
-// 		core::arch::wasm32::unreachable();
-// 	}
-// }

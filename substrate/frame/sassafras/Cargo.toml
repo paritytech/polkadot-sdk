@@ -28,6 +28,7 @@ sp-std = { path = "../../primitives/std", default-features = false }
 [dev-dependencies]
 array-bytes = "6.1"
 env_logger = "0.10"
+sp-core = { path = "../../primitives/core" }
 
 [features]
 default = ["std"]

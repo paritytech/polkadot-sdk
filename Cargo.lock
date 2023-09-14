@@ -4959,13 +4959,13 @@ dependencies = [
 [[package]]
 name = "fflonk"
 version = "0.1.0"
-source = "git+https://github.com/w3f/fflonk#26a5045b24e169cffc1f9328ca83d71061145c40"
 dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-poly",
  "ark-serialize",
  "ark-std",
+ "log",
  "merlin 3.0.0",
 ]
 
@@ -10278,6 +10278,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-consensus-sassafras",
+ "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
