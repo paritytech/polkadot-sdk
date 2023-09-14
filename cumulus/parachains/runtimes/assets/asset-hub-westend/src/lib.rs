@@ -1402,7 +1402,6 @@ pub mod migrations {
 	};
 	use parachains_common::impls::AccountIdOf;
 	use sp_runtime::{traits::StaticLookup, Saturating};
-	use xcm::latest::prelude::*;
 
 	/// Temporary migration because of bug with native asset, it can be removed once applied on
 	/// `AssetHubWestend`. Migrates pools with `MultiLocation { parents: 0, interior: Here }` to
