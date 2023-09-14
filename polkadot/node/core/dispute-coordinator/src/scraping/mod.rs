@@ -113,10 +113,10 @@ impl Inclusions {
 	/// The candidates at the block height are NOT removed.
 	pub fn remove_up_to_height(&mut self, height: &BlockNumber) {
 		let not_stale = self.candidates_by_block_number.split_off(&height);
-		let stale = std::mem::take(&mut self.candidates_by_block_number);
+		let stale: HashSet<_> = std::mem::take(&mut self.candidates_by_block_number).into_values().flatten().collect();
 		self.candidates_by_block_number = not_stale;
 
-		for candidate in stale.into_values().flatten() {
+		for candidate in stale {
 			debug_assert!(self.inclusions_inner.get(&candidate).is_some());
 			match self.inclusions_inner.entry(candidate) {
 				Entry::Vacant(_) => {
