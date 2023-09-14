@@ -676,7 +676,7 @@ impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
 		}
 
 		if FellowshipReferenda::on_chain_storage_version() == StorageVersion::new(0) {
-			StorageVersion::new(4).put::<FellowshipReferenda>();
+			StorageVersion::new(1).put::<FellowshipReferenda>();
 			writes.saturating_inc();
 		}
 
