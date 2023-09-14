@@ -1539,8 +1539,9 @@ pub mod pallet {
 
 		/// The currency type used for nomination pool.
 		type Currency: FunMutate<Self::AccountId>
-			+ FunMutateFreeze<Self::AccountId, Id = FreezeReason>;
+			+ FunMutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>;
 
+		type RuntimeFreezeReason: From<FreezeReason>;
 		/// The type that is used for reward counter.
 		///
 		/// The arithmetic of the reward counter might saturate based on the size of the
@@ -1890,19 +1891,7 @@ pub mod pallet {
 	}
 
 	/// A reason for freezing funds.
-	#[derive(
-		Encode,
-		Decode,
-		Copy,
-		Clone,
-		Eq,
-		PartialEq,
-		Ord,
-		PartialOrd,
-		MaxEncodedLen,
-		TypeInfo,
-		RuntimeDebug,
-	)]
+	#[pallet::composite_enum]
 	pub enum FreezeReason {
 		/// The Pallet has frozen funds for maintaining the Existential Deposit of a
 		/// NominationPool.
@@ -2738,7 +2727,7 @@ impl<T: Config> Pallet<T> {
 		RewardPools::<T>::remove(bonded_pool.id);
 		SubPoolsStorage::<T>::remove(bonded_pool.id);
 		// remove the frozen ED from the reward account.
-		let _ = T::Currency::thaw(&FreezeReason::PoolMinBalance, &bonded_pool.reward_account())
+		let _ = T::Currency::thaw(&FreezeReason::PoolMinBalance.into(), &bonded_pool.reward_account())
 			.defensive();
 
 		// Kill accounts from storage by making their balance go below ED. We assume that the
@@ -3097,7 +3086,7 @@ impl<T: Config> Pallet<T> {
 
 	fn freeze_min_balance(reward_acc: &T::AccountId) -> DispatchResult {
 		T::Currency::set_freeze(
-			&FreezeReason::PoolMinBalance,
+			&FreezeReason::PoolMinBalance.into(),
 			reward_acc,
 			T::Currency::minimum_balance(),
 		)
@@ -3109,7 +3098,7 @@ impl<T: Config> Pallet<T> {
 
 		let reward_acc = &bonded_pool.reward_account();
 		let pre_frozen_balance =
-			T::Currency::balance_frozen(&FreezeReason::PoolMinBalance, reward_acc);
+			T::Currency::balance_frozen(&FreezeReason::PoolMinBalance.into(), reward_acc);
 		let min_balance = T::Currency::minimum_balance();
 
 		if pre_frozen_balance == min_balance {

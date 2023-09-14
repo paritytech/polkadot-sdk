@@ -4441,7 +4441,7 @@ mod create {
 			// make sure ED is frozen on pool creation.
 			assert_eq!(
 				Currency::balance_frozen(
-					&FreezeReason::PoolMinBalance,
+					&FreezeReason::PoolMinBalance.into(),
 					&default_reward_account()
 				),
 				Currency::minimum_balance()
