@@ -302,6 +302,12 @@
 <a href="#302" id="302">302</a>
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -463,6 +469,11 @@
 	}
 }
 
+<span class="doccomment">/// Creates a meaningless signature
+</span><span class="kw">pub fn </span>dummy_signature() -&gt; polkadot_primitives::ValidatorSignature {
+	sp_core::crypto::UncheckedFrom::unchecked_from([<span class="number">1u8</span>; <span class="number">64</span>])
+}
+
 <span class="doccomment">/// Create a meaningless candidate, returning its receipt and PVD.
 </span><span class="kw">pub fn </span>make_candidate(
 	relay_parent_hash: Hash,
@@ -548,6 +559,11 @@
 	descriptor.signature = signature;
 }
 
+<span class="doccomment">/// Extracts validators&#39;s public keus (`ValidatorId`) from `Sr25519Keyring`
+</span><span class="kw">pub fn </span>validator_pubkeys(val_ids: <span class="kw-2">&amp;</span>[Sr25519Keyring]) -&gt; Vec&lt;ValidatorId&gt; {
+	val_ids.iter().map(|v| v.public().into()).collect()
+}
+
 <span class="doccomment">/// Builder for `CandidateReceipt`.
 </span><span class="kw">pub struct </span>TestCandidateBuilder {
 	<span class="kw">pub </span>para_id: ParaId,
@@ -601,9 +617,5 @@
 		<span class="self">self</span>.fill_bytes(dest);
 		<span class="prelude-val">Ok</span>(())
 	}
-}
-
-<span class="kw">pub fn </span>dummy_signature() -&gt; polkadot_primitives::ValidatorSignature {
-	sp_core::crypto::UncheckedFrom::unchecked_from([<span class="number">1u8</span>; <span class="number">64</span>])
 }
 </code></pre></div></section></main></body></html>
