@@ -2,7 +2,7 @@
 
 **Parameters**: *none*
 
-**Return value**: String containing the hexadecimal-encoded height of the current finalized block of the chain.
+**Return value**: An integer height of the current finalized block of the chain.
 
 The value returned by this function must only ever increase over time. In other words, if calling this function returns `N`, then calling it again later must return a value superior or equal to `N`.
 
