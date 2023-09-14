@@ -101,7 +101,7 @@ pub mod v2 {
 
 	pub mod versioned {
 		use super::*;
-		/// [`version_unchecked::MigrateV0ToV2`] wrapped in a
+		/// `version_unchecked::MigrateV0ToV2` wrapped in a
 		/// [`frame_support::migrations::VersionedMigration`], ensuring the migration is only
 		/// performed when on-chain version is 0.
 		pub type MigrateV0ToV2<T, I, PastPayouts> = frame_support::migrations::VersionedMigration<
