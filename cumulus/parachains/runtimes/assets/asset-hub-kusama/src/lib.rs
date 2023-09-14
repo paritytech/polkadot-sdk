@@ -916,8 +916,8 @@ impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
 			writes.saturating_inc();
 		}
 
-		if Multisig::on_chain_storage_version() == StorageVersion::new(0) {
-			StorageVersion::new(1).put::<Multisig>();
+		if Nfts::on_chain_storage_version() == StorageVersion::new(0) {
+			StorageVersion::new(1).put::<Nfts>();
 			writes.saturating_inc();
 		}
 
