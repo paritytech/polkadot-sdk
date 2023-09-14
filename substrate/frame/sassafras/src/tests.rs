@@ -609,6 +609,8 @@ fn obsolete_tickets_are_removed_on_epoch_change() {
 	})
 }
 
+const TICKETS_FILE: &str = "tickets.bin";
+
 #[derive(Encode, Decode)]
 struct PreBuiltTickets {
 	authorities: Vec<AuthorityId>,
@@ -617,25 +619,21 @@ struct PreBuiltTickets {
 
 fn tickets_data_read() -> PreBuiltTickets {
 	use std::{fs::File, io::Read};
-
-	let mut file = File::open("tickets.bin").expect("Failed to open tickets file");
+	let mut file = File::open(TICKETS_FILE).unwrap();
 	let mut buf = Vec::new();
-	file.read_to_end(&mut buf).expect("Failed to read tickets file");
-
-	PreBuiltTickets::decode(&mut &buf[..]).expect("Failed to decode tickets buffer")
+	file.read_to_end(&mut buf).unwrap();
+	PreBuiltTickets::decode(&mut &buf[..]).unwrap()
 }
 
 fn tickets_data_write(data: PreBuiltTickets) {
 	use std::{fs::File, io::Write};
-
-	let mut file = File::create("tickets.bin").expect("Failed to create file");
+	let mut file = File::create(TICKETS_FILE).unwrap();
 	let buf = data.encode();
-	println!("LEN: {}", buf.len());
-	file.write_all(&buf).expect("Failed to write to file");
+	file.write_all(&buf).unwrap();
 }
 
-// TODO davxy: create a read_tickets method which reads pre-constructed good tickets
-// from a file. Creating this stuff "on-the-fly" is just too much expensive
+// For this test we use a set pre-constructed tickets from a file.
+// Creating "too many" tickets on the fly is too much expensive.
 //
 // A valid ring-context is required for this test since we are passing though the
 // `submit_ticket` call which tests for ticket validity.

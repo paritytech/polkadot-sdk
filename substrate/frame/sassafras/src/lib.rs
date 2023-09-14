@@ -311,7 +311,7 @@ pub mod pallet {
 
 		/// Block finalization
 		fn on_finalize(_now: BlockNumberFor<T>) {
-			// TODO @davxy: check if is a disabled validator?
+			// TODO @davxy: check if the validator has been disabled during execution.
 
 			// At the end of the block, we can safely include the new VRF output from
 			// this block into the randomness accumulator. If we've determined
@@ -358,8 +358,6 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Submit next epoch tickets.
-		///
-		/// TODO-SASS-P3: this is an unsigned extrinsic. Can we remove the weight in this case?
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit_tickets(tickets.len() as u32))]
 		pub fn submit_tickets(
@@ -482,7 +480,7 @@ pub mod pallet {
 				);
 
 				if source == TransactionSource::External {
-					// TODO-SASS-P2: double check this `Local` requirement...
+					// TODO @davxy: BRAINSTORM this `Local` requirement...
 					// If we only allow these txs on block production, then there is less chance to
 					// submit our tickets if we don't have enough authoring slots.
 					// If we have 0 slots => we have zero chances.
@@ -490,7 +488,7 @@ pub mod pallet {
 					// In short the question is >>> WHO HAS THE RIGHT TO SUBMIT A TICKET? <<<
 					//  A) The current epoch validators
 					//  B) Doesn't matter as far as the tickets are good (i.e. RVRF verify is ok)
-					// TODO @davxy: maybe we also provide a signed extrinsic to submit tickets
+					// Maybe we also provide a signed extrinsic to submit tickets
 					// where the submitter doesn't pay if the tickets are good?
 					warn!(
 						target: LOG_TARGET,
@@ -927,7 +925,7 @@ impl<T: Config> Pallet<T> {
 	/// extrinsic is called within the first half of the epoch. Tickets received during the
 	/// second half are dropped.
 	///
-	/// TODO-SASS-P3: use pass a bounded vector???
+	/// TODO @davxy: directly use a bounded vector???
 	pub fn submit_tickets_unsigned_extrinsic(tickets: Vec<TicketEnvelope>) -> bool {
 		let tickets = BoundedVec::truncate_from(tickets);
 		let call = Call::submit_tickets { tickets };
