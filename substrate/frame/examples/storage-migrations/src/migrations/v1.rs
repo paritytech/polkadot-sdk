@@ -23,6 +23,9 @@ use frame_support::{
 /// Collection of storage item formats from the previous storage version.
 ///
 /// Required so we can read values in the old storage format during the migration.
+///
+/// Note: this is only `pub(crate)` visibility so it can be referenced in the tutorial docs.
+/// In regular migrations the visibility would just be `mod`.
 pub(crate) mod old {
 	use super::*;
 
@@ -41,6 +44,9 @@ pub(crate) mod old {
 /// For more about this pattern of keeping items private, see
 /// - <https://github.com/rust-lang/rust/issues/30905>
 /// - <https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40>
+///
+/// Note: this is only `pub(crate)` visibility so it can be referenced in the tutorial docs.
+/// In regular migrations the visibility would just be `mod`.
 pub(crate) mod version_unchecked {
 	use super::*;
 
