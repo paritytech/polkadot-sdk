@@ -92,4 +92,10 @@ where
 	fn archive_unstable_genesis_hash(&self) -> RpcResult<String> {
 		Ok(self.genesis_hash.clone())
 	}
+
+	fn archive_unstable_header(&self, hash: Block::Hash) -> RpcResult<Option<String>> {
+		let Ok(Some(header)) = self.client.header(hash) else { return Ok(None) };
+
+		Ok(Some(hex_string(&header.encode())))
+	}
 }

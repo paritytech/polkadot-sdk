@@ -42,4 +42,15 @@ pub trait ArchiveApi<Hash> {
 	/// This method is unstable and subject to change in the future.
 	#[method(name = "archive_unstable_genesisHash")]
 	fn archive_unstable_genesis_hash(&self) -> RpcResult<String>;
+
+	/// Get the block's header.
+	///
+	/// Returns a string containing the hexadecimal-encoded SCALE-codec encoding header of the
+	/// block.
+	///
+	/// # Unstable
+	///
+	/// This method is unstable and subject to change in the future.
+	#[method(name = "archive_unstable_header")]
+	fn archive_unstable_header(&self, hash: Hash) -> RpcResult<Option<String>>;
 }
