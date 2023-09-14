@@ -125,10 +125,6 @@ test-rust-feature-propagation:
 # Check runtime migrations for relay chains
 check-runtime-migration-polkadot:
   stage: check
-  # DAG
-  needs:
-    - job: check-runtime-migration-westend
-      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
@@ -142,10 +138,6 @@ check-runtime-migration-polkadot:
 
 check-runtime-migration-kusama:
   stage: check
-  # DAG
-  needs:
-    - job: check-runtime-migration-westend
-      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
@@ -172,10 +164,6 @@ check-runtime-migration-westend:
 
 check-runtime-migration-rococo:
   stage: check
-  # DAG
-  needs:
-    - job: check-runtime-migration-westend
-      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
@@ -190,10 +178,6 @@ check-runtime-migration-rococo:
 # Check runtime migrations for asset hub chains
 check-runtime-migration-asset-hub-polkadot:
   stage: check
-  # DAG
-  needs:
-    - job: check-runtime-migration-westend
-      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
@@ -206,10 +190,6 @@ check-runtime-migration-asset-hub-polkadot:
 
 check-runtime-migration-asset-hub-kusama:
   stage: check
-  # DAG
-  needs:
-    - job: check-runtime-migration-westend
-      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
@@ -222,10 +202,6 @@ check-runtime-migration-asset-hub-kusama:
 
 check-runtime-migration-asset-hub-westend:
   stage: check
-  # DAG
-  needs:
-    - job: check-runtime-migration-westend
-      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
@@ -239,10 +215,6 @@ check-runtime-migration-asset-hub-westend:
 # Check runtime migrations for bridge hub chains
 check-runtime-migration-bridge-hub-polkadot:
   stage: check
-  # DAG
-  needs:
-    - job: check-runtime-migration-westend
-      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
@@ -255,10 +227,6 @@ check-runtime-migration-bridge-hub-polkadot:
 
 check-runtime-migration-bridge-hub-kusama:
   stage: check
-  # DAG
-  needs:
-    - job: check-runtime-migration-westend
-      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
@@ -271,10 +239,6 @@ check-runtime-migration-bridge-hub-kusama:
 
 check-runtime-migration-bridge-hub-rococo:
   stage: check
-  # DAG
-  needs:
-    - job: check-runtime-migration-westend
-      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
@@ -288,10 +252,6 @@ check-runtime-migration-bridge-hub-rococo:
 # Check runtime migrations for collective chains
 check-runtime-migration-collectives-polkadot:
   stage: check
-  # DAG
-  needs:
-    - job: check-runtime-migration-westend
-      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
@@ -305,10 +265,6 @@ check-runtime-migration-collectives-polkadot:
 # Check runtime migrations for contracts chains
 check-runtime-migration-contracts-rococo:
   stage: check
-  # DAG
-  needs:
-    - job: check-runtime-migration-westend
-      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
