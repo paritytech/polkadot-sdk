@@ -25,7 +25,7 @@ use jsonrpsee::core::{async_trait, RpcResult};
 use sc_client_api::{Backend, BlockBackend, BlockchainEvents, ExecutorProvider, StorageProvider};
 use sp_api::CallApiAt;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::{traits::Block as BlockT, SaturatedConversion};
 use std::{marker::PhantomData, sync::Arc};
 
 /// An API for archive RPC calls.
@@ -82,5 +82,9 @@ where
 		let Ok(Some(header)) = self.client.header(hash) else { return Ok(None) };
 
 		Ok(Some(hex_string(&header.encode())))
+	}
+
+	fn archive_unstable_finalized_height(&self) -> RpcResult<u64> {
+		Ok(self.client.info().best_number.saturated_into())
 	}
 }

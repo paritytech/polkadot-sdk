@@ -53,4 +53,14 @@ pub trait ArchiveApi<Hash> {
 	/// This method is unstable and subject to change in the future.
 	#[method(name = "archive_unstable_header")]
 	fn archive_unstable_header(&self, hash: Hash) -> RpcResult<Option<String>>;
+
+	/// Get the height of the current finalized block.
+	///
+	/// Returns an integer height of the current finalized block of the chain.
+	///
+	/// # Unstable
+	///
+	/// This method is unstable and subject to change in the future.
+	#[method(name = "archive_unstable_finalizedHeight")]
+	fn archive_unstable_finalized_height(&self) -> RpcResult<u64>;
 }
