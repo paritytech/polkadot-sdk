@@ -370,3 +370,27 @@ pub trait Transfer<AccountId>: Inspect<AccountId> {
 		Err(TokenError::Unsupported.into())
 	}
 }
+
+/// Trait for trading non-fungible items.
+pub trait Trading<AccountId, ItemPrice>: Inspect<AccountId> {
+	/// Allows `buyer` to buy an `item` of `collection` if it's up for sale with a `bid_price` to
+	/// pay.
+	fn buy_item(
+		collection: &Self::CollectionId,
+		item: &Self::ItemId,
+		buyer: &AccountId,
+		bid_price: &ItemPrice,
+	) -> DispatchResult;
+
+	/// Set the item price of `item` of `collection` to make it available for sale
+	fn set_price(
+		collection: &Self::CollectionId,
+		item: &Self::ItemId,
+		sender: &AccountId,
+		price: Option<ItemPrice>,
+		whitelisted_buyer: Option<AccountId>,
+	) -> DispatchResult;
+
+	/// Returns the item price of `item` of `collection`, or `None` if the item is not for sale
+	fn item_price(collection: &Self::CollectionId, item: &Self::ItemId) -> Option<ItemPrice>;
+}

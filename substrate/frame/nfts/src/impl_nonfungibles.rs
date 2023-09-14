@@ -398,6 +398,31 @@ impl<T: Config<I>, I: 'static> Transfer<T::AccountId> for Pallet<T, I> {
 	}
 }
 
+impl<T: Config<I>, I: 'static> Trading<T::AccountId, ItemPrice<T, I>> for Pallet<T, I> {
+	fn buy_item(
+		collection: &Self::CollectionId,
+		item: &Self::ItemId,
+		buyer: &T::AccountId,
+		bid_price: &ItemPrice<T, I>,
+	) -> DispatchResult {
+		Self::do_buy_item(*collection, *item, buyer.clone(), *bid_price)
+	}
+
+	fn set_price(
+		collection: &Self::CollectionId,
+		item: &Self::ItemId,
+		sender: &T::AccountId,
+		price: Option<ItemPrice<T, I>>,
+		whitelisted_buyer: Option<T::AccountId>,
+	) -> DispatchResult {
+		Self::do_set_price(*collection, *item, sender.clone(), price, whitelisted_buyer)
+	}
+
+	fn item_price(collection: &Self::CollectionId, item: &Self::ItemId) -> Option<ItemPrice<T, I>> {
+		ItemPriceOf::<T, I>::get(collection, item).map(|a| a.0)
+	}
+}
+
 impl<T: Config<I>, I: 'static> InspectEnumerable<T::AccountId> for Pallet<T, I> {
 	type CollectionsIterator = KeyPrefixIterator<<T as Config<I>>::CollectionId>;
 	type ItemsIterator = KeyPrefixIterator<<T as Config<I>>::ItemId>;
