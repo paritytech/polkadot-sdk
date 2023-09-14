@@ -3753,7 +3753,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-service",
  "polkadot-test-client",
- "prioritized-metered-channel",
+ "prioritized-metered-channel 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sc-cli",
  "sc-client-api",
  "sc-sysinfo",
@@ -8690,8 +8690,7 @@ checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 [[package]]
 name = "orchestra"
 version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46d78e1deb2a8d54fc1f063a544130db4da31dfe4d5d3b493186424910222a76"
+source = "git+https://github.com/paritytech/orchestra.git?branch=sandreim/orchestra_rx_option#84cca8289330ded71b71cbb3119d11d34ea33f8d"
 dependencies = [
  "async-trait",
  "dyn-clonable",
@@ -8699,7 +8698,7 @@ dependencies = [
  "futures-timer",
  "orchestra-proc-macro",
  "pin-project",
- "prioritized-metered-channel",
+ "prioritized-metered-channel 0.5.1 (git+https://github.com/paritytech/orchestra.git?branch=sandreim/orchestra_rx_option)",
  "thiserror",
  "tracing",
 ]
@@ -8707,8 +8706,7 @@ dependencies = [
 [[package]]
 name = "orchestra-proc-macro"
 version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d035b1f968d91a826f2e34a9d6d02cb2af5aa7ca39ebd27922d850ab4b2dd2c6"
+source = "git+https://github.com/paritytech/orchestra.git?branch=sandreim/orchestra_rx_option#84cca8289330ded71b71cbb3119d11d34ea33f8d"
 dependencies = [
  "anyhow",
  "expander 2.0.0",
@@ -12157,7 +12155,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-test-service",
- "prioritized-metered-channel",
+ "prioritized-metered-channel 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prometheus-parse",
  "sc-cli",
  "sc-service",
@@ -12299,7 +12297,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
- "prioritized-metered-channel",
+ "prioritized-metered-channel 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.8.5",
  "sc-client-api",
  "schnellru",
@@ -12329,7 +12327,7 @@ dependencies = [
  "polkadot-node-subsystem-types",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
- "prioritized-metered-channel",
+ "prioritized-metered-channel 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sc-client-api",
  "schnellru",
  "sp-api",
@@ -13314,6 +13312,21 @@ name = "prioritized-metered-channel"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e99f0c89bd88f393aab44a4ab949351f7bc7e7e1179d11ecbfe50cbe4c47e342"
+dependencies = [
+ "coarsetime",
+ "crossbeam-queue",
+ "derive_more",
+ "futures",
+ "futures-timer",
+ "nanorand",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "prioritized-metered-channel"
+version = "0.5.1"
+source = "git+https://github.com/paritytech/orchestra.git?branch=sandreim/orchestra_rx_option#84cca8289330ded71b71cbb3119d11d34ea33f8d"
 dependencies = [
  "coarsetime",
  "crossbeam-queue",

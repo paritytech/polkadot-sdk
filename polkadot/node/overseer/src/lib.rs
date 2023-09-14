@@ -724,7 +724,7 @@ where
 impl<S, SupportsParachains> Overseer<S, SupportsParachains>
 where
 	SupportsParachains: HeadSupportsParachains,
-	S: Spawner,
+	S: Spawner + Clone + 'static,
 {
 	/// Stop the `Overseer`.
 	async fn stop(mut self) {
@@ -743,6 +743,26 @@ where
 	async fn run_inner(mut self) -> SubsystemResult<()> {
 		let metrics = self.metrics.clone();
 		spawn_metronome_metrics(&mut self, metrics)?;
+		let spawner = self.spawner.clone();
+		let mut to_orchestra_rx =
+			self.to_orchestra_rx.take().expect("Orchestrate always sets this to some; qed");
+
+		let orchestra_rx = Box::pin(async move {
+			loop {
+				let msg = to_orchestra_rx.select_next_some().await;
+				match msg {
+					ToOrchestra::SpawnJob { name, subsystem, s } => {
+						spawner.spawn(name, subsystem, s);
+					},
+					ToOrchestra::SpawnBlockingJob { name, subsystem, s } => {
+						spawner.spawn_blocking(name, subsystem, s);
+					},
+				};
+			}
+		});
+
+		// Spawn a separate task to handle launching tasks via overseer.
+		self.spawner.spawn("orchestra-rx", Some("overseer"), orchestra_rx);
 
 		loop {
 			select! {
@@ -764,16 +784,6 @@ where
 						}
 						Event::ExternalRequest(request) => {
 							self.handle_external_request(request);
-						}
-					}
-				},
-				msg = self.to_orchestra_rx.select_next_some() => {
-					match msg {
-						ToOrchestra::SpawnJob { name, subsystem, s } => {
-							self.spawn_job(name, subsystem, s);
-						}
-						ToOrchestra::SpawnBlockingJob { name, subsystem, s } => {
-							self.spawn_blocking_job(name, subsystem, s);
 						}
 					}
 				},
@@ -937,23 +947,5 @@ where
 				}
 			},
 		}
-	}
-
-	fn spawn_job(
-		&mut self,
-		task_name: &'static str,
-		subsystem_name: Option<&'static str>,
-		j: BoxFuture<'static, ()>,
-	) {
-		self.spawner.spawn(task_name, subsystem_name, j);
-	}
-
-	fn spawn_blocking_job(
-		&mut self,
-		task_name: &'static str,
-		subsystem_name: Option<&'static str>,
-		j: BoxFuture<'static, ()>,
-	) {
-		self.spawner.spawn_blocking(task_name, subsystem_name, j);
 	}
 }
