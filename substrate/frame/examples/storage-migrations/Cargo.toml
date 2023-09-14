@@ -8,6 +8,9 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME example pallet demonstrating best-practices for writing storage migrations."
 
+[lib]
+doctest = false
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
