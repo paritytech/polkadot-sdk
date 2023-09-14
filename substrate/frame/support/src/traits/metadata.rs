@@ -61,6 +61,8 @@ pub trait PalletInfoAccess {
 	fn index() -> usize;
 	/// Name of the pallet as configured in the runtime.
 	fn name() -> &'static str;
+	/// Two128 hash of name.
+	fn name_hash() -> [u8; 16];
 	/// Name of the Rust module containing the pallet.
 	fn module_name() -> &'static str;
 	/// Version of the crate containing the pallet.
@@ -182,7 +184,7 @@ impl StorageVersion {
 	/// See [`STORAGE_VERSION_STORAGE_KEY_POSTFIX`] on how this key is built.
 	pub fn storage_key<P: PalletInfoAccess>() -> [u8; 32] {
 		let pallet_name = P::name();
-		crate::storage::storage_prefix(pallet_name.as_bytes(), STORAGE_VERSION_STORAGE_KEY_POSTFIX)
+		crate::storage::storage_instance_prefix(pallet_name.as_bytes(), STORAGE_VERSION_STORAGE_KEY_POSTFIX)
 	}
 
 	/// Put this storage version for the given pallet into the storage.
