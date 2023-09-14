@@ -515,6 +515,7 @@ pub struct Overseer<SupportsParachains> {
 		AvailabilityStoreMessage,
 		RuntimeApiMessage,
 		BitfieldDistributionMessage,
+		ChainApiMessage
 	])]
 	bitfield_signing: BitfieldSigning,
 

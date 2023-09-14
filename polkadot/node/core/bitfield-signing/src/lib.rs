@@ -30,13 +30,16 @@ use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	jaeger,
 	messages::{
-		AvailabilityStoreMessage, BitfieldDistributionMessage, RuntimeApiMessage, RuntimeApiRequest,
+		AvailabilityStoreMessage, BitfieldDistributionMessage, ChainApiMessage, RuntimeApiMessage,
+		RuntimeApiRequest,
 	},
-	overseer, ActivatedLeaf, FromOrchestra, LeafStatus, OverseerSignal, PerLeafSpan,
+	overseer, ActivatedLeaf, ChainApiError, FromOrchestra, LeafStatus, OverseerSignal, PerLeafSpan,
 	SpawnedSubsystem, SubsystemError, SubsystemResult, SubsystemSender,
 };
-use polkadot_node_subsystem_util::{self as util, Validator};
-use polkadot_primitives::{AvailabilityBitfield, CoreState, Hash, ValidatorIndex};
+use polkadot_node_subsystem_util::{
+	self as util, request_validators, shuffle_availability_chunks, Validator,
+};
+use polkadot_primitives::{AvailabilityBitfield, BlockNumber, CoreState, Hash, ValidatorIndex};
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 use std::{collections::HashMap, iter::FromIterator, time::Duration};
 use wasm_timer::{Delay, Instant};
@@ -73,31 +76,44 @@ pub enum Error {
 
 	#[error("Keystore failed: {0:?}")]
 	Keystore(KeystoreError),
+
+	#[error("Cannot find block number for given relay parent")]
+	BlockNumberNotFound,
+
+	#[error("Oneshot for receiving response from Chain API got cancelled")]
+	ChainApiSenderDropped(#[source] oneshot::Canceled),
+
+	#[error("Retrieving response from Chain API unexpectedly failed with error: {0}")]
+	ChainApi(#[from] ChainApiError),
 }
 
 /// If there is a candidate pending availability, query the Availability Store
 /// for whether we have the availability chunk for our validator index.
 async fn get_core_availability(
 	core: &CoreState,
+	n_validators: usize,
 	validator_idx: ValidatorIndex,
-	sender: &Mutex<&mut impl SubsystemSender<overseer::BitfieldSigningOutgoingMessages>>,
+	sender: &Mutex<&mut impl overseer::BitfieldSigningSenderTrait>,
 	span: &jaeger::Span,
 ) -> Result<bool, Error> {
 	if let CoreState::Occupied(core) = core {
 		let _span = span.child("query-chunk-availability");
 
+		let block_number =
+			get_block_number(*sender.lock().await, core.candidate_descriptor.relay_parent).await?;
+		let shuffled_chunk_indices = shuffle_availability_chunks(block_number, n_validators);
+		let chunk_index = shuffled_chunk_indices[usize::try_from(validator_idx.0)
+			.expect("usize is at least u32 bytes on all modern targets.")];
+
 		let (tx, rx) = oneshot::channel();
 		sender
 			.lock()
 			.await
-			.send_message(
-				AvailabilityStoreMessage::QueryChunkAvailability(
-					core.candidate_hash,
-					validator_idx,
-					tx,
-				)
-				.into(),
-			)
+			.send_message(AvailabilityStoreMessage::QueryChunkAvailability(
+				core.candidate_hash,
+				chunk_index,
+				tx,
+			))
 			.await;
 
 		let res = rx.await.map_err(Into::into);
@@ -142,8 +158,9 @@ async fn get_availability_cores(
 async fn construct_availability_bitfield(
 	relay_parent: Hash,
 	span: &jaeger::Span,
+	n_validators: usize,
 	validator_idx: ValidatorIndex,
-	sender: &mut impl SubsystemSender<overseer::BitfieldSigningOutgoingMessages>,
+	sender: &mut impl overseer::BitfieldSigningSenderTrait,
 ) -> Result<AvailabilityBitfield, Error> {
 	// get the set of availability cores from the runtime
 	let availability_cores = {
@@ -163,7 +180,7 @@ async fn construct_availability_bitfield(
 	let results = future::try_join_all(
 		availability_cores
 			.iter()
-			.map(|core| get_core_availability(core, validator_idx, &sender, span)),
+			.map(|core| get_core_availability(core, n_validators, validator_idx, &sender, span)),
 	)
 	.await?;
 
@@ -271,13 +288,16 @@ where
 	let span_delay = span.child("delay");
 	let wait_until = Instant::now() + SPAWNED_TASK_DELAY;
 
+	let validators = request_validators(leaf.hash, &mut sender).await.await??;
+
 	// now do all the work we can before we need to wait for the availability store
 	// if we're not a validator, we can just succeed effortlessly
-	let validator = match Validator::new(leaf.hash, keystore.clone(), &mut sender).await {
-		Ok(validator) => validator,
-		Err(util::Error::NotAValidator) => return Ok(()),
-		Err(err) => return Err(Error::Util(err)),
-	};
+	let validator =
+		match Validator::new(&validators, leaf.hash, keystore.clone(), &mut sender).await {
+			Ok(validator) => validator,
+			Err(util::Error::NotAValidator) => return Ok(()),
+			Err(err) => return Err(Error::Util(err)),
+		};
 
 	// wait a bit before doing anything else
 	Delay::new_at(wait_until).await?;
@@ -292,6 +312,7 @@ where
 	let bitfield = match construct_availability_bitfield(
 		leaf.hash,
 		&span_availability,
+		validators.len(),
 		validator.index(),
 		&mut sender,
 	)
@@ -331,4 +352,23 @@ where
 		.await;
 
 	Ok(())
+}
+
+async fn get_block_number<Sender>(
+	sender: &mut Sender,
+	relay_parent: Hash,
+) -> Result<BlockNumber, Error>
+where
+	Sender: overseer::SubsystemSender<ChainApiMessage>,
+{
+	let (tx, rx) = oneshot::channel();
+	sender.send_message(ChainApiMessage::BlockNumber(relay_parent, tx)).await;
+
+	let block_number = rx.await.map_err(Error::ChainApiSenderDropped)?.map_err(Error::ChainApi)?;
+
+	if let Some(number) = block_number {
+		Ok(number)
+	} else {
+		Err(Error::BlockNumberNotFound)
+	}
 }

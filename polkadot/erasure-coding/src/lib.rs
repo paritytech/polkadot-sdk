@@ -96,6 +96,14 @@ pub const fn recovery_threshold(n_validators: usize) -> Result<usize, Error> {
 	Ok(needed + 1)
 }
 
+/// Obtain the threshold of systematic chunks that should be enough to recover the data.
+///
+/// If the regular `recovery_threshold` is a power of two, then it returns the same value.
+/// Otherwise, it returns the next power of two.
+pub fn systematic_recovery_threshold(n_validators: usize) -> Result<usize, Error> {
+	code_params(n_validators).map(|params| params.k())
+}
+
 fn code_params(n_validators: usize) -> Result<CodeParams, Error> {
 	// we need to be able to reconstruct from 1/3 - eps
 
@@ -132,8 +140,7 @@ pub fn reconstruct_from_systematic<T: Decode>(
 	n_validators: usize,
 	chunks: Vec<&[u8]>,
 ) -> Result<T, Error> {
-	let code_params = code_params(n_validators)?;
-	let kpow2 = code_params.k();
+	let kpow2 = systematic_recovery_threshold(n_validators)?;
 
 	let Some(first_shard) = chunks.iter().next() else { return Err(Error::NotEnoughChunks) };
 	let shard_len = first_shard.len();
@@ -146,7 +153,7 @@ pub fn reconstruct_from_systematic<T: Decode>(
 		return Err(Error::UnevenLength)
 	}
 
-	if chunks.len() <= kpow2 {
+	if chunks.len() < kpow2 {
 		return Err(Error::NotEnoughChunks)
 	}
 
@@ -472,11 +479,12 @@ mod tests {
 	fn round_trip_systematic_works() {
 		fn property(available_data: ArbitraryAvailableData, n_validators: u16) {
 			let n_validators = n_validators.saturating_add(2);
+			let kpow2 = systematic_recovery_threshold(n_validators as usize).unwrap();
 			let chunks = obtain_chunks(n_validators as usize, &available_data.0).unwrap();
 			assert_eq!(
 				reconstruct_from_systematic_v1(
 					n_validators as usize,
-					chunks.iter().map(|v| &v[..]).collect()
+					chunks.iter().take(kpow2).map(|v| &v[..]).collect()
 				)
 				.unwrap(),
 				available_data.0

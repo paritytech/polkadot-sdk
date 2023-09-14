@@ -21,6 +21,7 @@ use executor::block_on;
 use futures::{channel::mpsc, executor, FutureExt, SinkExt, StreamExt};
 use polkadot_primitives_test_helpers::AlwaysZeroRng;
 use std::{
+	collections::HashSet,
 	sync::{
 		atomic::{AtomicUsize, Ordering},
 		Arc,
@@ -93,4 +94,16 @@ fn subset_predefined_generation_check() {
 		// our PRG that returns zeroes will shuffle 0 and 1, 1 and 2, ... len-2 and len-1
 		assert_eq!(v as usize, idx + 1);
 	}
+}
+
+#[test]
+// Just a simple test to make sure that the shuffling is indeed a permutation, to prevent future
+// mistakes.
+fn test_shuffle_availability_chunks() {
+	let block_number = 89;
+	let n_validators = 200;
+	let shuffle = shuffle_availability_chunks(block_number, n_validators);
+
+	assert_eq!(shuffle.len(), n_validators);
+	assert_eq!(shuffle.iter().collect::<HashSet<_>>().len(), n_validators);
 }

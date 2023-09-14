@@ -109,6 +109,8 @@ pub trait TypeIndex {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
 pub struct ValidatorIndex(pub u32);
 
+/// Type alias for chunk index. The chunk index held by a validator may not always be equal to its
+/// `ValidatorIndex`, so we use a separate type to make code easier to read.
 pub type ChunkIndex = ValidatorIndex;
 
 // We should really get https://github.com/paritytech/polkadot/issues/2403 going ..

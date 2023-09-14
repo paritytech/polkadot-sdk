@@ -385,23 +385,20 @@ pub struct Validator {
 impl Validator {
 	/// Get a struct representing this node's validator if this node is in fact a validator in the
 	/// context of the given block.
-	pub async fn new<S>(parent: Hash, keystore: KeystorePtr, sender: &mut S) -> Result<Self, Error>
+	pub async fn new<S>(
+		validators: &[ValidatorId],
+		parent: Hash,
+		keystore: KeystorePtr,
+		sender: &mut S,
+	) -> Result<Self, Error>
 	where
 		S: SubsystemSender<RuntimeApiMessage>,
 	{
-		// Note: request_validators and request_session_index_for_child do not and cannot
-		// run concurrently: they both have a mutable handle to the same sender.
-		// However, each of them returns a oneshot::Receiver, and those are resolved concurrently.
-		let (validators, session_index) = futures::try_join!(
-			request_validators(parent, sender).await,
-			request_session_index_for_child(parent, sender).await,
-		)?;
+		let session_index = request_session_index_for_child(parent, sender).await.await??;
 
-		let signing_context = SigningContext { session_index: session_index?, parent_hash: parent };
+		let signing_context = SigningContext { session_index, parent_hash: parent };
 
-		let validators = validators?;
-
-		Self::construct(&validators, signing_context, keystore)
+		Self::construct(validators, signing_context, keystore)
 	}
 
 	/// Construct a validator instance without performing runtime fetches.
@@ -443,13 +440,21 @@ impl Validator {
 	}
 }
 
-pub fn shuffle_validator_indices(
+/// Shuffle the availability chunk indices, returning a mapping of (`ValidatorIndex -> ChunkIndex`).
+///
+/// The vector indices represent validator indices.
+/// `BlockNumber` is used a randomness seed, so that other validators have a common view of the
+/// shuffle at a given block height.
+pub fn shuffle_availability_chunks(
 	block_number: BlockNumber,
 	n_validators: usize,
 ) -> Vec<ChunkIndex> {
 	let seed = block_number.to_be_bytes();
-	let mut rng: ChaCha8Rng =
-		SeedableRng::from_seed(seed.repeat(8).try_into().expect("should never fail"));
+	let mut rng: ChaCha8Rng = SeedableRng::from_seed(
+		seed.repeat(8)
+			.try_into()
+			.expect("vector of 32 bytes is safe to cast to array of 32 bytes. qed."),
+	);
 
 	let mut shuffled_indices: Vec<_> = (0..n_validators).map(|i| ValidatorIndex(i as _)).collect();
 

@@ -36,7 +36,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	runtime::{get_occupied_cores, RuntimeInfo},
-	shuffle_validator_indices,
+	shuffle_availability_chunks,
 };
 use polkadot_primitives::{
 	BlockNumber, CandidateHash, Hash, OccupiedCore, SessionIndex, ValidatorIndex,
@@ -269,7 +269,7 @@ impl Requester {
 						.chunk_index_cache
 						.get_or_insert(block_number, || {
 							let shuffled_indices =
-								shuffle_validator_indices(block_number, n_validators);
+								shuffle_availability_chunks(block_number, n_validators);
 							shuffled_indices[session_info.our_index.0 as usize]
 						})
 						.expect("no expected");

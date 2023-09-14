@@ -19,7 +19,7 @@
 #![warn(missing_docs)]
 
 use std::{
-	collections::{HashMap, VecDeque},
+	collections::{BTreeMap, HashMap, VecDeque},
 	iter::Iterator,
 	num::NonZeroUsize,
 	pin::Pin,
@@ -42,7 +42,8 @@ use task::{
 
 use fatality::Nested;
 use polkadot_erasure_coding::{
-	branch_hash, branches, obtain_chunks_v1, recovery_threshold, Error as ErasureEncodingError,
+	branch_hash, branches, obtain_chunks_v1, recovery_threshold, systematic_recovery_threshold,
+	Error as ErasureEncodingError,
 };
 use task::{RecoveryParams, RecoveryStrategy, RecoveryTask};
 
@@ -58,7 +59,7 @@ use polkadot_node_subsystem::{
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemContext, SubsystemError, SubsystemResult,
 };
-use polkadot_node_subsystem_util::{request_session_info, shuffle_validator_indices};
+use polkadot_node_subsystem_util::{request_session_info, shuffle_availability_chunks};
 use polkadot_primitives::{
 	BlakeTwo256, BlockNumber, CandidateHash, CandidateReceipt, GroupIndex, Hash, HashT,
 	SessionIndex, SessionInfo, ValidatorIndex,
@@ -100,6 +101,8 @@ pub enum RecoveryStrategyKind {
 	/// availability-store subsystem is not expected to run,
 	/// such as collators.
 	BypassAvailabilityStore,
+	/// Always recover using systematic chunks, fall back to regular chunks.
+	SystematicChunks,
 }
 
 /// The Availability Recovery Subsystem.
@@ -455,7 +458,8 @@ async fn handle_recover<Context>(
 
 			let block_number =
 				get_block_number(ctx.sender(), receipt.descriptor.relay_parent).await?;
-			let shuffling = shuffle_validator_indices(block_number, session_info.validators.len());
+			let shuffling =
+				shuffle_availability_chunks(block_number, session_info.validators.len());
 
 			let backing_validators = if let Some(backing_group) = backing_group {
 				session_info.validator_groups.get(backing_group)
@@ -463,10 +467,22 @@ async fn handle_recover<Context>(
 				None
 			};
 
-			// let fetch_chunks_params = FetchChunksParams {
-			// 	n_validators: session_info.validators.len(),
-			// 	erasure_task_tx: erasure_task_tx.clone(),
-			// };
+			let fetch_chunks_params = FetchChunksParams {
+				validators: shuffling
+					.iter()
+					.enumerate()
+					.map(|(v_index, c_index)| {
+						(
+							*c_index,
+							ValidatorIndex(
+								u32::try_from(v_index)
+									.expect("validator numbers should not exceed u32"),
+							),
+						)
+					})
+					.collect(),
+				erasure_task_tx: erasure_task_tx.clone(),
+			};
 
 			let mut recovery_strategies: VecDeque<
 				Box<dyn RecoveryStrategy<<Context as SubsystemContext>::Sender>>,
@@ -476,7 +492,8 @@ async fn handle_recover<Context>(
 				match (&recovery_strategy_kind, prefer_backing_group) {
 					(RecoveryStrategyKind::BackersFirstAlways, true) |
 					(RecoveryStrategyKind::BackersFirstIfSizeLower(_), true) |
-					(RecoveryStrategyKind::BypassAvailabilityStore, true) =>
+					(RecoveryStrategyKind::BypassAvailabilityStore, true) |
+					(RecoveryStrategyKind::BackersThenSystematicChunks, true) =>
 						recovery_strategies.push_back(Box::new(FetchFull::new(FetchFullParams {
 							validators: backing_validators.to_vec(),
 							erasure_task_tx: erasure_task_tx.clone(),
@@ -485,18 +502,39 @@ async fn handle_recover<Context>(
 				};
 			}
 
-			if recovery_strategy_kind == RecoveryStrategyKind::BackersThenSystematicChunks {
-				recovery_strategies.push_back(Box::new(FetchSystematicChunks::new(
-					FetchSystematicChunksParams {
-						validators: (0..recovery_threshold(session_info.validators.len()).unwrap())
-							.map(|i| (shuffling[i], ValidatorIndex(i as u32)))
-							.collect(),
-						erasure_task_tx,
+			if matches!(
+				recovery_strategy_kind,
+				RecoveryStrategyKind::BackersThenSystematicChunks |
+					RecoveryStrategyKind::SystematicChunks
+			) {
+				let systematic_threshold =
+					systematic_recovery_threshold(session_info.validators.len())?;
+
+				let validators = shuffling.into_iter().enumerate().fold(
+					BTreeMap::new(),
+					|mut acc, (v_index, c_index)| {
+						if usize::try_from(c_index.0)
+							.expect("usize is at least u32 bytes on all modern targets.") <
+							systematic_threshold
+						{
+							acc.insert(
+								c_index,
+								ValidatorIndex(
+									u32::try_from(v_index)
+										.expect("validator numbers should not exceed u32"),
+								),
+							);
+						}
+						acc
 					},
+				);
+
+				recovery_strategies.push_back(Box::new(FetchSystematicChunks::new(
+					FetchSystematicChunksParams { validators, erasure_task_tx },
 				)));
 			}
 
-			// recovery_strategies.push_back(Box::new(FetchChunks::new(fetch_chunks_params)));
+			recovery_strategies.push_back(Box::new(FetchChunks::new(fetch_chunks_params)));
 
 			launch_recovery_task(
 				state,
@@ -603,6 +641,19 @@ impl AvailabilityRecoverySubsystem {
 	) -> Self {
 		Self {
 			recovery_strategy_kind: RecoveryStrategyKind::BackersThenSystematicChunks,
+			req_receiver,
+			metrics,
+		}
+	}
+
+	/// Create a new instance of `AvailabilityRecoverySubsystem` which first attempts to request
+	/// systematic chunks, with a fallback to requesting regular chunks.
+	pub fn with_systematic_chunks(
+		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
+		metrics: Metrics,
+	) -> Self {
+		Self {
+			recovery_strategy_kind: RecoveryStrategyKind::SystematicChunks,
 			req_receiver,
 			metrics,
 		}
