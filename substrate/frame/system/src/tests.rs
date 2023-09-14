@@ -763,6 +763,20 @@ fn ensure_signed_stuff_works() {
 	}
 }
 
+#[test]
+fn test_default_account_nonce() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(2);
+		assert_eq!(System::account_nonce(&1), 2);
+
+		System::inc_account_nonce(&1);
+		assert_eq!(System::account_nonce(&1), 3);
+
+		System::set_block_number(5);
+		assert_eq!(System::account_nonce(&1), 3);
+	});
+}
+
 pub fn from_actual_ref_time(ref_time: Option<u64>) -> PostDispatchInfo {
 	PostDispatchInfo {
 		actual_weight: ref_time.map(|t| Weight::from_all(t)),

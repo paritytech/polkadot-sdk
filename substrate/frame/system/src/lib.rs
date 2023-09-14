@@ -778,10 +778,7 @@ type AccountInfoOf<T> = AccountInfo<NonceOf<T>, AccountDataOf<T>>;
 pub struct GetDefaultAccountInfo<T>(PhantomData<T>);
 impl<T: pallet::Config> Get<AccountInfoOf<T>> for GetDefaultAccountInfo<T> {
 	fn get() -> AccountInfoOf<T> {
-		AccountInfo {
-			nonce: pallet::Number::<T>::get().into(),
-			.. Default::default()
-		}
+		AccountInfo { nonce: pallet::Number::<T>::get().into(), ..Default::default() }
 	}
 }
 
