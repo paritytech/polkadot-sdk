@@ -18,7 +18,7 @@ use self::test_helpers::mock::new_leaf;
 use super::*;
 use ::test_helpers::{
 	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
-	dummy_committed_candidate_receipt, dummy_hash,
+	dummy_committed_candidate_receipt, dummy_hash, validator_pubkeys
 };
 use assert_matches::assert_matches;
 use futures::{future, Future};
@@ -47,10 +47,6 @@ mod prospective_parachains;
 
 const ASYNC_BACKING_DISABLED_ERROR: RuntimeApiError =
 	RuntimeApiError::NotSupported { runtime_api_name: "test-runtime" };
-
-fn validator_pubkeys(val_ids: &[Sr25519Keyring]) -> Vec<ValidatorId> {
-	val_ids.iter().map(|v| v.public().into()).collect()
-}
 
 fn table_statement_to_primitive(statement: TableStatement) -> Statement {
 	match statement {
