@@ -30,7 +30,7 @@ use frame_support::{
 };
 use polkadot_runtime_common::xcm_sender::{ConstantPrice, ExponentialPrice};
 use polkadot_runtime_parachains::FeeTracker;
-use sp_runtime::{traits::Saturating, SaturatedConversion, FixedPointNumber};
+use sp_runtime::{traits::Saturating, FixedPointNumber, SaturatedConversion};
 use sp_std::{marker::PhantomData, prelude::*};
 use xcm::{latest::prelude::*, WrapVersion};
 use xcm_builder::TakeRevenue;
@@ -52,7 +52,9 @@ impl<T: Get<MultiAssets>> PriceForParentDelivery for ConstantPrice<T> {
 	}
 }
 
-impl<A: Get<AssetId>, B: Get<u128>, M: Get<u128>, F: FeeTracker> PriceForParentDelivery for ExponentialPrice<A, B, M, F> {
+impl<A: Get<AssetId>, B: Get<u128>, M: Get<u128>, F: FeeTracker> PriceForParentDelivery
+	for ExponentialPrice<A, B, M, F>
+{
 	fn price_for_parent_delivery(message: &Xcm<()>) -> MultiAssets {
 		let message_fee = (message.encoded_size() as u128).saturating_mul(M::get());
 		let fee_sum = B::get().saturating_add(message_fee);

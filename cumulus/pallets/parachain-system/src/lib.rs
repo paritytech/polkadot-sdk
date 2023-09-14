@@ -53,7 +53,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
 		ValidTransaction,
 	},
-	DispatchError, RuntimeDebug, FixedU128, Saturating,
+	DispatchError, FixedU128, RuntimeDebug, Saturating,
 };
 use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
 use xcm::latest::XcmHash;
@@ -336,9 +336,9 @@ pub mod pallet {
 				*up = up.split_off(num as usize);
 
 				let threshold = Self::get_ump_threshold(host_config.max_upward_queue_size);
-				let remaining_total_size = up.iter().fold(0, |size_so_far, current_message| {
-					size_so_far + current_message.len()
-				});
+				let remaining_total_size = up
+					.iter()
+					.fold(0, |size_so_far, current_message| size_so_far + current_message.len());
 				if remaining_total_size <= threshold as usize {
 					Self::decrement_ump_fee_factor();
 				}
@@ -1017,7 +1017,8 @@ impl<T: Config> Pallet<T> {
 	/// Returns the new delivery fee factor after the decrement.
 	pub(crate) fn decrement_ump_fee_factor() -> FixedU128 {
 		<UpwardDeliveryFeeFactor<T>>::mutate(|f| {
-			*f = UpwardInitialDeliveryFeeFactor::get().max(*f / ump_constants::EXPONENTIAL_FEE_BASE);
+			*f =
+				UpwardInitialDeliveryFeeFactor::get().max(*f / ump_constants::EXPONENTIAL_FEE_BASE);
 			*f
 		})
 	}
@@ -1549,11 +1550,12 @@ impl<T: Config> Pallet<T> {
 				return Err(MessageSendError::TooBig)
 			}
 			let threshold = Self::get_ump_threshold(cfg.max_upward_queue_size);
-			// We check the threshold against total size and not number of messages since messages could be big or small
+			// We check the threshold against total size and not number of messages since messages
+			// could be big or small
 			let pending_messages = PendingUpwardMessages::<T>::get();
-			let total_size = pending_messages.iter().fold(0, |size_so_far, current_message| {
-				size_so_far + current_message.len()
-			});
+			let total_size = pending_messages
+				.iter()
+				.fold(0, |size_so_far, current_message| size_so_far + current_message.len());
 			if total_size > threshold as usize {
 				let message_size_factor =
 					FixedU128::from_u32(message_len.saturating_div(1024) as u32)
