@@ -44,7 +44,7 @@
 //! For the purposes of this exercise, we imagine that in [`StorageVersion`] V0 of this pallet
 //! [`Value`](pallet::Value) is a `u32`, and this what is currently stored on-chain.
 //!
-//! ```rust
+//! ```
 //! // V0 Storage Value
 //! pub type Value<T: Config> = StorageValue<_, u32>;
 //! ```
@@ -52,7 +52,7 @@
 //!
 //! In [`StorageVersion`] V1 of the pallet a new struct [`CurrentAndPreviousValue`] is introduced:
 //!
-//! ```rust
+//! ```
 //! pub struct CurrentAndPreviousValue {
 //! 	/// The most recently set value.
 //! 	pub current: u32,
@@ -63,7 +63,7 @@
 //!
 //! and [`Value`](pallet::Value) is updated to store this new struct instead of a `u32`:
 //!
-//! ```rust
+//! ```
 //! // V1 Storage Value
 //! pub type Value<T: Config> = StorageValue<_, CurrentAndPreviousValue>;
 //! ```
@@ -162,7 +162,7 @@
 //! Almost done! The last step is to schedule the migration to run next runtime upgrade passing it
 //! as a generic parameter to your [`Executive`](frame_executive) pallet:
 //!
-//! ```rust
+//! ```
 //! // Tuple of migrations (structs that implement `OnRuntimeUpgrade`)
 //! type Migrations = (
 //! 	pallet_example_storage_migration::migrations::v1::versioned::MigrateV0ToV1
@@ -198,7 +198,7 @@
 //! Developers MUST run this command before deploying migrations to ensure they will not
 //! inadvertently result in a bricked chain.
 //!
-//! ### A Note on the Manipulability of PoV Size and Execution Time
+//! ### Note on the Manipulability of PoV Size and Execution Time
 //!
 //! While [`try-runtime-cli`](https://github.com/paritytech/try-runtime-cli) can help ensure with
 //! very high certianty that a migration will succeed given **existing** on-chain state, it cannot
@@ -209,12 +209,18 @@
 //! it adds to the block cannot be easily manipulated. e.g., in your migration, do not iterate over
 //! storage that can quickly or cheaply be bloated.
 //!
-//! ### A Note on Multi-Block Migrations
+//! ### Note on Multi-Block Migrations
 //!
 //! For large migrations that cannot be safely executed in a single block, a feature for writing
 //! simple and safe [multi-block migrations](https://github.com/paritytech/polkadot-sdk/issues/198)
 //! feature is [under active development](https://github.com/paritytech/substrate/pull/14275) and
 //! planned for release before the end of 2023.
+//!
+//! ### Note on Other Tools
+//!
+//! [`Chopsticks`](https://github.com/AcalaNetwork/chopsticks) is another tool in the Substrate
+//! ecosystem which developers may find useful to use in addition to `try-runtime-cli` when testing
+//! their migrations.
 
 // We make sure this pallet uses `no_std` for compiling to Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -224,6 +230,7 @@ pub use pallet::*;
 
 // Export migrations so they may be used in the runtime.
 pub mod migrations;
+#[doc(hidden)]
 mod mock;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::StorageVersion;
