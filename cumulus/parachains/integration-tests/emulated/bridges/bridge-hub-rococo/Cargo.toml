@@ -23,8 +23,8 @@ pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-featu
 parachains-common = { version = "2.0.0", path = "../../../../common" }
 cumulus-pallet-xcmp-queue = { path = "../../../../../pallets/xcmp-queue", default-features = false, version = "0.2.0" }
 cumulus-pallet-dmp-queue = { path = "../../../../../pallets/dmp-queue", default-features = false, version = "0.2.0" }
-pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false, version = "0.1.0" }
-bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false, version = "0.1.0" }
+pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false, version = "0.2.0" }
+bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false, version = "0.2.0" }
 
 # Local
 xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false, version = "0.0.0" }

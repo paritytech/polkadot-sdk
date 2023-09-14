@@ -1,10 +1,9 @@
 [package]
 name = "asset-test-utils"
-version = "1.0.0"
+version = "2.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Test utils for Asset Hub runtimes."
-publish = false
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
@@ -33,7 +32,7 @@ cumulus-primitives-core = { path = "../../../../primitives/core", default-featur
 cumulus-primitives-parachain-inherent = { path = "../../../../primitives/parachain-inherent", default-features = false, version = "0.2.0" }
 cumulus-test-relay-sproof-builder = { path = "../../../../test/relay-sproof-builder", default-features = false, version = "0.2.0" }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false, version = "0.2.0" }
-parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false, version = "1.0.0" }
+parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false, version = "2.0.0" }
 
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "2.0.0" }

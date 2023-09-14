@@ -1,11 +1,10 @@
 [package]
 name = "bp-polkadot-core"
 description = "Primitives of Polkadot-like runtime."
-version = "0.1.0"
+version = "0.2.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive"] }
@@ -15,8 +14,8 @@ serde = { version = "1.0", optional = true, features = ["derive"] }
 
 # Bridge Dependencies
 
-bp-messages = { path = "../messages", default-features = false, version = "0.1.0" }
-bp-runtime = { path = "../runtime", default-features = false, version = "0.1.0" }
+bp-messages = { path = "../messages", default-features = false, version = "0.2.0" }
+bp-runtime = { path = "../runtime", default-features = false, version = "0.2.0" }
 
 # Substrate Based Dependencies
 

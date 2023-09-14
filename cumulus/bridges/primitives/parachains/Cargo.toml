@@ -1,11 +1,10 @@
 [package]
 name = "bp-parachains"
 description = "Primitives of parachains module."
-version = "0.1.0"
+version = "0.2.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive"] }
@@ -14,9 +13,9 @@ scale-info = { version = "2.9.0", default-features = false, features = ["derive"
 
 # Bridge dependencies
 
-bp-header-chain = { path = "../header-chain", default-features = false, version = "0.1.0" }
-bp-polkadot-core = { path = "../polkadot-core", default-features = false, version = "0.1.0" }
-bp-runtime = { path = "../runtime", default-features = false, version = "0.1.0" }
+bp-header-chain = { path = "../header-chain", default-features = false, version = "0.2.0" }
+bp-polkadot-core = { path = "../polkadot-core", default-features = false, version = "0.2.0" }
+bp-runtime = { path = "../runtime", default-features = false, version = "0.2.0" }
 
 # Substrate dependencies
 

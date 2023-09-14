@@ -1,17 +1,16 @@
 [package]
 name = "bp-test-utils"
-version = "0.1.0"
+version = "0.2.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-publish = false
 description = "bp-test-utils"
 
 [dependencies]
-bp-header-chain = { path = "../header-chain", default-features = false, version = "0.1.0" }
-bp-parachains = { path = "../parachains", default-features = false, version = "0.1.0" }
-bp-polkadot-core = { path = "../polkadot-core", default-features = false, version = "0.1.0" }
-bp-runtime = { path = "../runtime", default-features = false, version = "0.1.0" }
+bp-header-chain = { path = "../header-chain", default-features = false, version = "0.2.0" }
+bp-parachains = { path = "../parachains", default-features = false, version = "0.2.0" }
+bp-polkadot-core = { path = "../polkadot-core", default-features = false, version = "0.2.0" }
+bp-runtime = { path = "../runtime", default-features = false, version = "0.2.0" }
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false }
 ed25519-dalek = { version = "1.0", default-features = false, features = ["u64_backend"] }
 finality-grandpa = { version = "0.16.2", default-features = false }

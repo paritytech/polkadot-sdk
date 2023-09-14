@@ -922,7 +922,7 @@ dependencies = [
 
 [[package]]
 name = "asset-test-utils"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "assets-common",
  "cumulus-pallet-dmp-queue",
@@ -1962,7 +1962,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-test-utils"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "assert_matches",
  "asset-test-utils",
@@ -10871,7 +10871,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-runtimes-test-utils"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "assets-common",
  "cumulus-pallet-dmp-queue",

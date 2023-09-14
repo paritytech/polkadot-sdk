@@ -1520,10 +1520,10 @@ feature = "std"
 value = "sp-tracing/std"
 
 [[crate]]
-publish = false
+publish = true
 name = "bp-xcm-bridge-hub-router"
 from = "0.0.0"
-to = "0.0.0"
+to = "0.1.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/primitives/xcm-bridge-hub-router"
@@ -2939,7 +2939,7 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-xcm-bridge-hub-router"
-version = "0.0.0"
+version = "0.1.0"
 path = "cumulus/bridges/primitives/xcm-bridge-hub-router"
 
 [[crate.rewrite_dep]]
@@ -2960,7 +2960,7 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-xcm-bridge-hub-router"
-version = "0.0.0"
+version = "0.1.0"
 path = "cumulus/bridges/primitives/xcm-bridge-hub-router"
 
 [[crate.rewrite_dep]]
@@ -3191,10 +3191,10 @@ version = "0.0.0"
 path = "substrate/test-utils/runtime"
 
 [[crate]]
-publish = false
+publish = true
 name = "bp-runtime"
 from = "0.1.0"
-to = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/primitives/runtime"
@@ -4611,10 +4611,10 @@ version = "12.0.0"
 path = "substrate/utils/wasm-builder"
 
 [[crate]]
-publish = false
+publish = true
 name = "bp-header-chain"
 from = "0.1.0"
-to = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/primitives/header-chain"
@@ -4623,7 +4623,7 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -4653,7 +4653,7 @@ path = "substrate/primitives/std"
 
 [[crate.rewrite_dep]]
 name = "bp-test-utils"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/test-utils"
 
 [[crate]]
@@ -8575,10 +8575,10 @@ version = "23.0.0"
 path = "substrate/primitives/core"
 
 [[crate]]
-publish = false
+publish = true
 name = "bp-messages"
 from = "0.1.0"
-to = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/primitives/messages"
@@ -8587,12 +8587,12 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-header-chain"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/header-chain"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -10867,10 +10867,10 @@ feature = "runtime-benchmarks"
 value = "primitives/runtime-benchmarks"
 
 [[crate]]
-publish = false
+publish = true
 name = "bp-polkadot-core"
 from = "0.1.0"
-to = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/primitives/polkadot-core"
@@ -10879,12 +10879,12 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/messages"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -10913,10 +10913,10 @@ version = "10.0.0"
 path = "substrate/primitives/std"
 
 [[crate]]
-publish = false
+publish = true
 name = "bp-relayers"
 from = "0.1.0"
-to = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/primitives/relayers"
@@ -10925,12 +10925,12 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/messages"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -11528,10 +11528,10 @@ feature = "try-runtime"
 value = "pallet-balances/try-runtime"
 
 [[crate]]
-publish = false
+publish = true
 name = "pallet-bridge-messages"
 from = "0.1.0"
-to = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/modules/messages"
@@ -11539,12 +11539,12 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/messages"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -11579,7 +11579,7 @@ path = "substrate/primitives/std"
 
 [[crate.rewrite_dep]]
 name = "bp-test-utils"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/test-utils"
 
 [[crate.rewrite_dep]]
@@ -12364,7 +12364,7 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-xcm-bridge-hub-router"
-version = "0.0.0"
+version = "0.1.0"
 path = "cumulus/bridges/primitives/xcm-bridge-hub-router"
 
 [[crate.rewrite_dep]]
@@ -13135,10 +13135,10 @@ version = "0.0.0"
 path = "substrate/test-utils/runtime/client"
 
 [[crate]]
-publish = false
+publish = true
 name = "bp-bridge-hub-cumulus"
 from = "0.1.0"
-to = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/primitives/chain-bridge-hub-cumulus"
@@ -13147,17 +13147,17 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/messages"
 
 [[crate.rewrite_dep]]
 name = "bp-polkadot-core"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/polkadot-core"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -13198,17 +13198,17 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-header-chain"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/header-chain"
 
 [[crate.rewrite_dep]]
 name = "bp-polkadot-core"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/polkadot-core"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -13227,10 +13227,10 @@ version = "10.0.0"
 path = "substrate/primitives/std"
 
 [[crate]]
-publish = false
+publish = true
 name = "bp-parachains"
 from = "0.1.0"
-to = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/primitives/parachains"
@@ -13239,17 +13239,17 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-header-chain"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/header-chain"
 
 [[crate.rewrite_dep]]
 name = "bp-polkadot-core"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/polkadot-core"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -13285,17 +13285,17 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-header-chain"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/header-chain"
 
 [[crate.rewrite_dep]]
 name = "bp-polkadot-core"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/polkadot-core"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -13326,17 +13326,17 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-header-chain"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/header-chain"
 
 [[crate.rewrite_dep]]
 name = "bp-polkadot-core"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/polkadot-core"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -13702,10 +13702,10 @@ feature = "std"
 value = "sp-staking/std"
 
 [[crate]]
-publish = false
+publish = true
 name = "pallet-bridge-relayers"
 from = "0.1.0"
-to = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/modules/relayers"
@@ -13713,17 +13713,17 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/messages"
 
 [[crate.rewrite_dep]]
 name = "bp-relayers"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/relayers"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -13743,7 +13743,7 @@ path = "substrate/frame/system"
 
 [[crate.rewrite_dep]]
 name = "pallet-bridge-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/modules/messages"
 
 [[crate.rewrite_dep]]
@@ -13763,7 +13763,7 @@ path = "substrate/primitives/std"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -14931,10 +14931,10 @@ version = "2.0.0"
 path = "polkadot/primitives"
 
 [[crate]]
-publish = false
+publish = true
 name = "bp-bridge-hub-kusama"
 from = "0.0.0"
-to = "0.0.0"
+to = "0.1.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/primitives/chain-bridge-hub-kusama"
@@ -14943,17 +14943,17 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-bridge-hub-cumulus"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/chain-bridge-hub-cumulus"
 
 [[crate.rewrite_dep]]
 name = "bp-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/messages"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -14977,10 +14977,10 @@ version = "10.0.0"
 path = "substrate/primitives/std"
 
 [[crate]]
-publish = false
+publish = true
 name = "bp-bridge-hub-polkadot"
 from = "0.0.0"
-to = "0.0.0"
+to = "0.1.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/primitives/chain-bridge-hub-polkadot"
@@ -14989,17 +14989,17 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-bridge-hub-cumulus"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/chain-bridge-hub-cumulus"
 
 [[crate.rewrite_dep]]
 name = "bp-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/messages"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -15023,10 +15023,10 @@ version = "10.0.0"
 path = "substrate/primitives/std"
 
 [[crate]]
-publish = false
+publish = true
 name = "bp-bridge-hub-rococo"
 from = "0.1.0"
-to = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/primitives/chain-bridge-hub-rococo"
@@ -15035,17 +15035,17 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-bridge-hub-cumulus"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/chain-bridge-hub-cumulus"
 
 [[crate.rewrite_dep]]
 name = "bp-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/messages"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -15069,10 +15069,10 @@ version = "10.0.0"
 path = "substrate/primitives/std"
 
 [[crate]]
-publish = false
+publish = true
 name = "bp-bridge-hub-wococo"
 from = "0.1.0"
-to = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/primitives/chain-bridge-hub-wococo"
@@ -15081,17 +15081,17 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-bridge-hub-cumulus"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/chain-bridge-hub-cumulus"
 
 [[crate.rewrite_dep]]
 name = "bp-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/messages"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -15115,10 +15115,10 @@ version = "10.0.0"
 path = "substrate/primitives/std"
 
 [[crate]]
-publish = false
+publish = true
 name = "bp-test-utils"
-from = "0.1.0"
-to = "0.1.0"
+from = "2.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/primitives/test-utils"
@@ -15127,22 +15127,22 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-header-chain"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/header-chain"
 
 [[crate.rewrite_dep]]
 name = "bp-parachains"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/parachains"
 
 [[crate.rewrite_dep]]
 name = "bp-polkadot-core"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/polkadot-core"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -15188,12 +15188,12 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-header-chain"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/header-chain"
 
 [[crate.rewrite_dep]]
 name = "bp-polkadot-core"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/polkadot-core"
 
 [[crate.rewrite_dep]]
@@ -15203,7 +15203,7 @@ path = "cumulus/bridges/primitives/chain-rococo"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -16265,10 +16265,10 @@ version = "22.0.0"
 path = "substrate/primitives/weights"
 
 [[crate]]
-publish = false
+publish = true
 name = "pallet-bridge-grandpa"
 from = "0.1.0"
-to = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/modules/grandpa"
@@ -16277,17 +16277,17 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-header-chain"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/header-chain"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
 name = "bp-test-utils"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/test-utils"
 
 [[crate.rewrite_dep]]
@@ -17390,10 +17390,10 @@ version = "12.0.0"
 path = "substrate/primitives/tracing"
 
 [[crate]]
-publish = false
+publish = true
 name = "pallet-bridge-parachains"
 from = "0.1.0"
-to = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/modules/parachains"
@@ -17402,22 +17402,22 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-header-chain"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/header-chain"
 
 [[crate.rewrite_dep]]
 name = "bp-parachains"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/parachains"
 
 [[crate.rewrite_dep]]
 name = "bp-polkadot-core"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/polkadot-core"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -17437,7 +17437,7 @@ path = "substrate/frame/system"
 
 [[crate.rewrite_dep]]
 name = "pallet-bridge-grandpa"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/modules/grandpa"
 
 [[crate.rewrite_dep]]
@@ -17457,12 +17457,12 @@ path = "substrate/primitives/trie"
 
 [[crate.rewrite_dep]]
 name = "bp-header-chain"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/header-chain"
 
 [[crate.rewrite_dep]]
 name = "bp-test-utils"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/test-utils"
 
 [[crate.rewrite_dep]]
@@ -18950,10 +18950,10 @@ version = "12.0.0"
 path = "substrate/utils/wasm-builder"
 
 [[crate]]
-publish = false
+publish = true
 name = "bridge-runtime-common"
 from = "0.1.0"
-to = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/bridges/bin/runtime-common"
@@ -18961,37 +18961,37 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-header-chain"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/header-chain"
 
 [[crate.rewrite_dep]]
 name = "bp-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/messages"
 
 [[crate.rewrite_dep]]
 name = "bp-parachains"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/parachains"
 
 [[crate.rewrite_dep]]
 name = "bp-polkadot-core"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/polkadot-core"
 
 [[crate.rewrite_dep]]
 name = "bp-relayers"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/relayers"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
 name = "bp-xcm-bridge-hub-router"
-version = "0.0.0"
+version = "0.1.0"
 path = "cumulus/bridges/primitives/xcm-bridge-hub-router"
 
 [[crate.rewrite_dep]]
@@ -19006,22 +19006,22 @@ path = "substrate/frame/system"
 
 [[crate.rewrite_dep]]
 name = "pallet-bridge-grandpa"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/modules/grandpa"
 
 [[crate.rewrite_dep]]
 name = "pallet-bridge-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/modules/messages"
 
 [[crate.rewrite_dep]]
 name = "pallet-bridge-parachains"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/modules/parachains"
 
 [[crate.rewrite_dep]]
 name = "pallet-bridge-relayers"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/modules/relayers"
 
 [[crate.rewrite_dep]]
@@ -19076,7 +19076,7 @@ path = "polkadot/xcm/xcm-builder"
 
 [[crate.rewrite_dep]]
 name = "bp-test-utils"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/test-utils"
 
 [[crate.rewrite_dep]]
@@ -26452,10 +26452,10 @@ version = "12.0.0"
 path = "substrate/utils/wasm-builder"
 
 [[crate]]
-publish = false
+publish = true
 name = "parachains-runtimes-test-utils"
 from = "1.0.0"
-to = "1.0.0"
+to = "2.0.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/parachains/runtimes/test-utils"
@@ -27676,7 +27676,7 @@ path = "polkadot/xcm/xcm-executor"
 
 [[crate.rewrite_dep]]
 name = "asset-test-utils"
-version = "1.0.0"
+version = "2.0.0"
 path = "cumulus/parachains/runtimes/assets/test-utils"
 
 [[crate.rewrite_dep]]
@@ -27977,7 +27977,7 @@ path = "polkadot/xcm/xcm-executor"
 
 [[crate.rewrite_dep]]
 name = "asset-test-utils"
-version = "1.0.0"
+version = "2.0.0"
 path = "cumulus/parachains/runtimes/assets/test-utils"
 
 [[crate.rewrite_dep]]
@@ -28283,7 +28283,7 @@ path = "polkadot/xcm/xcm-executor"
 
 [[crate.rewrite_dep]]
 name = "asset-test-utils"
-version = "1.0.0"
+version = "2.0.0"
 path = "cumulus/parachains/runtimes/assets/test-utils"
 
 [[crate.rewrite_dep]]
@@ -28297,10 +28297,10 @@ version = "12.0.0"
 path = "substrate/utils/wasm-builder"
 
 [[crate]]
-publish = false
+publish = true
 name = "asset-test-utils"
 from = "1.0.0"
-to = "1.0.0"
+to = "2.0.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/parachains/runtimes/assets/test-utils"
@@ -28389,7 +28389,7 @@ path = "cumulus/parachains/common"
 
 [[crate.rewrite_dep]]
 name = "parachains-runtimes-test-utils"
-version = "1.0.0"
+version = "2.0.0"
 path = "cumulus/parachains/runtimes/test-utils"
 
 [[crate.rewrite_dep]]
@@ -28695,7 +28695,7 @@ path = "polkadot/xcm/xcm-executor"
 
 [[crate.rewrite_dep]]
 name = "bridge-hub-test-utils"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/parachains/runtimes/bridge-hubs/test-utils"
 
 [[crate.rewrite_dep]]
@@ -28961,7 +28961,7 @@ path = "polkadot/xcm/xcm-executor"
 
 [[crate.rewrite_dep]]
 name = "bridge-hub-test-utils"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/parachains/runtimes/bridge-hubs/test-utils"
 
 [[crate.rewrite_dep]]
@@ -28982,37 +28982,37 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-bridge-hub-rococo"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/chain-bridge-hub-rococo"
 
 [[crate.rewrite_dep]]
 name = "bp-bridge-hub-wococo"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/chain-bridge-hub-wococo"
 
 [[crate.rewrite_dep]]
 name = "bp-header-chain"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/header-chain"
 
 [[crate.rewrite_dep]]
 name = "bp-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/messages"
 
 [[crate.rewrite_dep]]
 name = "bp-parachains"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/parachains"
 
 [[crate.rewrite_dep]]
 name = "bp-polkadot-core"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/polkadot-core"
 
 [[crate.rewrite_dep]]
 name = "bp-relayers"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/relayers"
 
 [[crate.rewrite_dep]]
@@ -29022,7 +29022,7 @@ path = "cumulus/bridges/primitives/chain-rococo"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
@@ -29032,7 +29032,7 @@ path = "cumulus/bridges/primitives/chain-wococo"
 
 [[crate.rewrite_dep]]
 name = "bridge-runtime-common"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/bin/runtime-common"
 
 [[crate.rewrite_dep]]
@@ -29127,22 +29127,22 @@ path = "substrate/frame/balances"
 
 [[crate.rewrite_dep]]
 name = "pallet-bridge-grandpa"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/modules/grandpa"
 
 [[crate.rewrite_dep]]
 name = "pallet-bridge-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/modules/messages"
 
 [[crate.rewrite_dep]]
 name = "pallet-bridge-parachains"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/modules/parachains"
 
 [[crate.rewrite_dep]]
 name = "pallet-bridge-relayers"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/modules/relayers"
 
 [[crate.rewrite_dep]]
@@ -29302,12 +29302,12 @@ path = "polkadot/xcm/xcm-executor"
 
 [[crate.rewrite_dep]]
 name = "bridge-hub-test-utils"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/parachains/runtimes/bridge-hubs/test-utils"
 
 [[crate.rewrite_dep]]
 name = "bridge-runtime-common"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/bin/runtime-common"
 
 [[crate.rewrite_dep]]
@@ -31173,10 +31173,10 @@ version = "12.0.0"
 path = "substrate/utils/wasm-builder"
 
 [[crate]]
-publish = false
+publish = true
 name = "bridge-hub-test-utils"
 from = "0.1.0"
-to = "0.1.0"
+to = "0.2.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/parachains/runtimes/bridge-hubs/test-utils"
@@ -31185,57 +31185,57 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "asset-test-utils"
-version = "1.0.0"
+version = "2.0.0"
 path = "cumulus/parachains/runtimes/assets/test-utils"
 
 [[crate.rewrite_dep]]
 name = "bp-bridge-hub-rococo"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/chain-bridge-hub-rococo"
 
 [[crate.rewrite_dep]]
 name = "bp-bridge-hub-wococo"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/chain-bridge-hub-wococo"
 
 [[crate.rewrite_dep]]
 name = "bp-header-chain"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/header-chain"
 
 [[crate.rewrite_dep]]
 name = "bp-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/messages"
 
 [[crate.rewrite_dep]]
 name = "bp-parachains"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/parachains"
 
 [[crate.rewrite_dep]]
 name = "bp-polkadot-core"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/polkadot-core"
 
 [[crate.rewrite_dep]]
 name = "bp-relayers"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/relayers"
 
 [[crate.rewrite_dep]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/runtime"
 
 [[crate.rewrite_dep]]
 name = "bp-test-utils"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/test-utils"
 
 [[crate.rewrite_dep]]
 name = "bridge-runtime-common"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/bin/runtime-common"
 
 [[crate.rewrite_dep]]
@@ -31280,22 +31280,22 @@ path = "substrate/frame/balances"
 
 [[crate.rewrite_dep]]
 name = "pallet-bridge-grandpa"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/modules/grandpa"
 
 [[crate.rewrite_dep]]
 name = "pallet-bridge-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/modules/messages"
 
 [[crate.rewrite_dep]]
 name = "pallet-bridge-parachains"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/modules/parachains"
 
 [[crate.rewrite_dep]]
 name = "pallet-bridge-relayers"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/modules/relayers"
 
 [[crate.rewrite_dep]]
@@ -31335,7 +31335,7 @@ path = "cumulus/parachains/common"
 
 [[crate.rewrite_dep]]
 name = "parachains-runtimes-test-utils"
-version = "1.0.0"
+version = "2.0.0"
 path = "cumulus/parachains/runtimes/test-utils"
 
 [[crate.rewrite_dep]]
@@ -31507,7 +31507,7 @@ path = "substrate/primitives/consensus/beefy"
 
 [[crate.rewrite_dep]]
 name = "bp-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/messages"
 
 [[crate.rewrite_dep]]
@@ -31527,7 +31527,7 @@ path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo"
 
 [[crate.rewrite_dep]]
 name = "bridge-runtime-common"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/bin/runtime-common"
 
 [[crate.rewrite_dep]]
@@ -31582,7 +31582,7 @@ path = "substrate/frame/assets"
 
 [[crate.rewrite_dep]]
 name = "pallet-bridge-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/modules/messages"
 
 [[crate.rewrite_dep]]
@@ -32446,7 +32446,7 @@ verify = true
 
 [[crate.rewrite_dep]]
 name = "bp-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/primitives/messages"
 
 [[crate.rewrite_dep]]
@@ -32471,7 +32471,7 @@ path = "cumulus/parachains/integration-tests/emulated/common"
 
 [[crate.rewrite_dep]]
 name = "pallet-bridge-messages"
-version = "0.1.0"
+version = "0.2.0"
 path = "cumulus/bridges/modules/messages"
 
 [[crate.rewrite_dep]]

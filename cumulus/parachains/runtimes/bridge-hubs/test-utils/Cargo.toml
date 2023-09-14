@@ -1,10 +1,9 @@
 [package]
 name = "bridge-hub-test-utils"
-version = "0.1.0"
+version = "0.2.0"
 authors.workspace = true
 edition.workspace = true
 description = "Utils for BridgeHub testing"
-publish = false
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
@@ -24,14 +23,14 @@ sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-fea
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "23.0.0" }
 pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false, version = "23.0.0" }
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false, version = "23.0.0" }
-asset-test-utils = { version = "1.0.0", path = "../../assets/test-utils" }
+asset-test-utils = { version = "2.0.0", path = "../../assets/test-utils" }
 cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue", default-features = false, version = "0.2.0" }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"], version = "0.2.0" }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, version = "0.2.0" }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false, version = "4.0.0" }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false, version = "0.2.0" }
 parachains-common = { path = "../../../common", default-features = false, version = "2.0.0" }
-parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false, version = "1.0.0" }
+parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false, version = "2.0.0" }
 
 # Polkadot
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "2.0.0" }
@@ -41,20 +40,20 @@ xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "2.0.0" }
 
 # Bridges
-bp-bridge-hub-rococo = { path = "../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false, version = "0.1.0" }
-bp-bridge-hub-wococo = { path = "../../../../bridges/primitives/chain-bridge-hub-wococo", default-features = false, version = "0.1.0" }
-bp-header-chain = { path = "../../../../bridges/primitives/header-chain", default-features = false, version = "0.1.0" }
-bp-messages = { path = "../../../../bridges/primitives/messages", default-features = false, version = "0.1.0" }
-bp-parachains = { path = "../../../../bridges/primitives/parachains", default-features = false, version = "0.1.0" }
-bp-polkadot-core = { path = "../../../../bridges/primitives/polkadot-core", default-features = false, version = "0.1.0" }
-bp-relayers = { path = "../../../../bridges/primitives/relayers", default-features = false, version = "0.1.0" }
-bp-runtime = { path = "../../../../bridges/primitives/runtime", default-features = false, version = "0.1.0" }
-bp-test-utils = { path = "../../../../bridges/primitives/test-utils", default-features = false, version = "0.1.0" }
-pallet-bridge-grandpa = { path = "../../../../bridges/modules/grandpa", default-features = false, version = "0.1.0" }
-pallet-bridge-parachains = { path = "../../../../bridges/modules/parachains", default-features = false, version = "0.1.0" }
-pallet-bridge-messages = { path = "../../../../bridges/modules/messages", default-features = false, version = "0.1.0" }
-pallet-bridge-relayers = { path = "../../../../bridges/modules/relayers", default-features = false, version = "0.1.0" }
-bridge-runtime-common = { path = "../../../../bridges/bin/runtime-common", default-features = false, version = "0.1.0" }
+bp-bridge-hub-rococo = { path = "../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false, version = "0.2.0" }
+bp-bridge-hub-wococo = { path = "../../../../bridges/primitives/chain-bridge-hub-wococo", default-features = false, version = "0.2.0" }
+bp-header-chain = { path = "../../../../bridges/primitives/header-chain", default-features = false, version = "0.2.0" }
+bp-messages = { path = "../../../../bridges/primitives/messages", default-features = false, version = "0.2.0" }
+bp-parachains = { path = "../../../../bridges/primitives/parachains", default-features = false, version = "0.2.0" }
+bp-polkadot-core = { path = "../../../../bridges/primitives/polkadot-core", default-features = false, version = "0.2.0" }
+bp-relayers = { path = "../../../../bridges/primitives/relayers", default-features = false, version = "0.2.0" }
+bp-runtime = { path = "../../../../bridges/primitives/runtime", default-features = false, version = "0.2.0" }
+bp-test-utils = { path = "../../../../bridges/primitives/test-utils", default-features = false, version = "0.2.0" }
+pallet-bridge-grandpa = { path = "../../../../bridges/modules/grandpa", default-features = false, version = "0.2.0" }
+pallet-bridge-parachains = { path = "../../../../bridges/modules/parachains", default-features = false, version = "0.2.0" }
+pallet-bridge-messages = { path = "../../../../bridges/modules/messages", default-features = false, version = "0.2.0" }
+pallet-bridge-relayers = { path = "../../../../bridges/modules/relayers", default-features = false, version = "0.2.0" }
+bridge-runtime-common = { path = "../../../../bridges/bin/runtime-common", default-features = false, version = "0.2.0" }
 
 [features]
 default = [ "std" ]

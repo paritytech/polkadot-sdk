@@ -1,10 +1,9 @@
 [package]
 name = "pallet-bridge-grandpa"
-version = "0.1.0"
+version = "0.2.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-publish = false
 description = "pallet-bridge-grandpa"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -17,8 +16,8 @@ scale-info = { version = "2.9.0", default-features = false, features = ["derive"
 
 # Bridge Dependencies
 
-bp-runtime = { path = "../../primitives/runtime", default-features = false, version = "0.1.0" }
-bp-header-chain = { path = "../../primitives/header-chain", default-features = false, version = "0.1.0" }
+bp-runtime = { path = "../../primitives/runtime", default-features = false, version = "0.2.0" }
+bp-header-chain = { path = "../../primitives/header-chain", default-features = false, version = "0.2.0" }
 
 # Substrate Dependencies
 
@@ -30,7 +29,7 @@ sp-std = { path = "../../../../substrate/primitives/std", default-features = fal
 sp-trie = { path = "../../../../substrate/primitives/trie", default-features = false, version = "24.0.0" }
 
 # Optional Benchmarking Dependencies
-bp-test-utils = { path = "../../primitives/test-utils", default-features = false, optional = true, version = "0.1.0" }
+bp-test-utils = { path = "../../primitives/test-utils", default-features = false, optional = true, version = "0.2.0" }
 frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "23.0.0" }
 
 [dev-dependencies]
