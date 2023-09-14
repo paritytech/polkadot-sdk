@@ -420,10 +420,7 @@ mod reward_pool {
 
 			assert_eq!(
 				pool_events_since_last_call(),
-				vec![Event::MinBalanceDeficitAdjusted {
-					pool_id: 1,
-					amount: 45,
-				},]
+				vec![Event::MinBalanceDeficitAdjusted { pool_id: 1, amount: 45 },]
 			);
 
 			// Trying to top up again does not work
@@ -443,13 +440,8 @@ mod reward_pool {
 
 			assert_eq!(
 				pool_events_since_last_call(),
-				vec![Event::MinBalanceExcessAdjusted {
-					pool_id: 1,
-					amount: 45,
-				},]
+				vec![Event::MinBalanceExcessAdjusted { pool_id: 1, amount: 45 },]
 			);
-
-
 		});
 	}
 

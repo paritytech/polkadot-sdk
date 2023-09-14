@@ -3115,12 +3115,18 @@ impl<T: Config> Pallet<T> {
 			// Transfer excess back to depositor.
 			let excess = pre_frozen_balance.saturating_sub(min_balance);
 			T::Currency::transfer(reward_acc, &who, excess, Preservation::Preserve)?;
-			Self::deposit_event(Event::<T>::MinBalanceExcessAdjusted { pool_id: pool, amount: excess });
+			Self::deposit_event(Event::<T>::MinBalanceExcessAdjusted {
+				pool_id: pool,
+				amount: excess,
+			});
 		} else {
 			// Transfer ED deficit from depositor to the pool
 			let deficit = min_balance.saturating_sub(pre_frozen_balance);
 			T::Currency::transfer(&who, reward_acc, deficit, Preservation::Expendable)?;
-			Self::deposit_event(Event::<T>::MinBalanceDeficitAdjusted { pool_id: pool, amount: deficit });
+			Self::deposit_event(Event::<T>::MinBalanceDeficitAdjusted {
+				pool_id: pool,
+				amount: deficit,
+			});
 		}
 
 		Ok(())

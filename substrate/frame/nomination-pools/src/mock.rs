@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::{self as pools};
-use frame_support::{assert_ok, parameter_types, PalletId, traits::fungible::Mutate};
+use frame_support::{assert_ok, parameter_types, traits::fungible::Mutate, PalletId};
 use frame_system::RawOrigin;
 use sp_runtime::{BuildStorage, FixedU128};
 use sp_staking::Stake;
@@ -39,25 +39,6 @@ pub fn default_bonded_account() -> AccountId {
 // Ext builder creates a pool with id 1.
 pub fn default_reward_account() -> AccountId {
 	Pools::create_reward_account(1)
-}
-
-#[derive(
-Encode,
-Decode,
-Copy,
-Clone,
-Eq,
-PartialEq,
-Ord,
-PartialOrd,
-MaxEncodedLen,
-TypeInfo,
-RuntimeDebug,
-)]
-pub enum TestId {
-	Foo,
-	Bar,
-	Baz,
 }
 
 parameter_types! {

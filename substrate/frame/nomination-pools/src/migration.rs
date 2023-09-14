@@ -304,7 +304,7 @@ pub mod v2 {
 							&reward_account,
 							&bonded_pool.roles.depositor,
 							leftover,
-							Preservation::Preserve
+							Preservation::Preserve,
 						);
 						log!(warn, "paying {:?} leftover to the depositor: {:?}", leftover, o);
 					}
