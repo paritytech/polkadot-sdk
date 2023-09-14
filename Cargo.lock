@@ -3718,9 +3718,13 @@ dependencies = [
 name = "cumulus-primitives-reclaim"
 version = "0.1.0"
 dependencies = [
+ "sp-core",
  "sp-externalities",
+ "sp-io",
  "sp-proof-size-ext",
  "sp-runtime-interface",
+ "sp-state-machine",
+ "sp-trie",
 ]
 
 [[package]]
