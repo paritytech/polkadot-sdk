@@ -162,7 +162,7 @@ pub mod pallet {
 			T::CreateOrigin::ensure_origin(origin)?;
 
 			ensure!(
-				!ConversionRateToNative::<T>::contains_key(*asset_kind.clone()),
+				!ConversionRateToNative::<T>::contains_key(asset_kind.as_ref()),
 				Error::<T>::AlreadyExists
 			);
 			ConversionRateToNative::<T>::set(*asset_kind.clone(), Some(rate));
