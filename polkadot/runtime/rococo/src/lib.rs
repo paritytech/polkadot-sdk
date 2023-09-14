@@ -31,7 +31,9 @@ use primitives::{
 };
 use runtime_common::{
 	assigned_slots, auctions, claims, crowdloan, impl_runtime_weights,
-	impls::{LocatableAssetId, LocatableAssetIdConverter, ToAuthor},
+	impls::{
+		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
+	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots, BlockHashCount, BlockLength,
 	SlowAdjustingFeeUpdate,
 };
@@ -76,7 +78,7 @@ use sp_core::{ConstU128, OpaqueMetadata, H256};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, CloneIdentity, ConstU32, ConvertInto,
+		AccountIdLookup, BlakeTwo256, Block as BlockT, ConstU32, ConvertInto,
 		Extrinsic as ExtrinsicT, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
@@ -87,7 +89,10 @@ use sp_staking::SessionIndex;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
-use xcm::latest::{InteriorMultiLocation, Junction, Junction::PalletInstance, MultiLocation};
+use xcm::{
+	latest::{InteriorMultiLocation, Junction, Junction::PalletInstance},
+	VersionedMultiLocation,
+};
 use xcm_builder::PayOverXcm;
 
 pub use frame_system::Call as SystemCall;
@@ -581,8 +586,8 @@ impl pallet_treasury::Config for Runtime {
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type SpendFunds = Bounties;
 	type SpendOrigin = EnsureRootWithSuccess<AccountId, MaxBalance>;
-	type AssetKind = LocatableAssetId;
-	type Beneficiary = MultiLocation;
+	type AssetKind = VersionedLocatableAsset;
+	type Beneficiary = VersionedMultiLocation;
 	type Paymaster = PayOverXcm<
 		TreasuryInteriorLocation,
 		crate::xcm_config::XcmRouter,
@@ -590,8 +595,8 @@ impl pallet_treasury::Config for Runtime {
 		ConstU32<{ 6 * HOURS }>,
 		Self::Beneficiary,
 		Self::AssetKind,
-		LocatableAssetIdConverter,
-		CloneIdentity,
+		LocatableAssetConverter,
+		VersionedMultiLocationConverter,
 	>;
 	type BalanceConverter = AssetRate;
 	type PayoutPeriod = PayoutSpendPeriod;

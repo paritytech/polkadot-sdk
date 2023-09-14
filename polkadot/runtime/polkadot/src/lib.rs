@@ -23,7 +23,10 @@
 use pallet_transaction_payment::CurrencyAdapter;
 use runtime_common::{
 	auctions, claims, crowdloan, impl_runtime_weights,
-	impls::{DealWithFees, LocatableAssetId, LocatableAssetIdConverter},
+	impls::{
+		DealWithFees, LocatableAssetConverter, VersionedLocatableAsset,
+		VersionedMultiLocationConverter,
+	},
 	paras_registrar, prod_or_fast, slots, BlockHashCount, BlockLength, CurrencyToVote,
 	SlowAdjustingFeeUpdate,
 };
@@ -76,8 +79,8 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, CloneIdentity, ConvertInto,
-		Extrinsic as ExtrinsicT, OpaqueKeys, SaturatedConversion, Verify,
+		AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, Extrinsic as ExtrinsicT,
+		OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill, RuntimeDebug,
@@ -87,7 +90,10 @@ use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::latest::{InteriorMultiLocation, Junction, Junction::PalletInstance, MultiLocation};
+use xcm::{
+	latest::{InteriorMultiLocation, Junction, Junction::PalletInstance},
+	VersionedMultiLocation,
+};
 use xcm_builder::PayOverXcm;
 
 pub use frame_system::Call as SystemCall;
@@ -677,8 +683,8 @@ impl pallet_treasury::Config for Runtime {
 	type MaxApprovals = MaxApprovals;
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type SpendOrigin = TreasurySpender;
-	type AssetKind = LocatableAssetId;
-	type Beneficiary = MultiLocation;
+	type AssetKind = VersionedLocatableAsset;
+	type Beneficiary = VersionedMultiLocation;
 	type Paymaster = PayOverXcm<
 		TreasuryInteriorLocation,
 		crate::xcm_config::XcmRouter,
@@ -686,8 +692,8 @@ impl pallet_treasury::Config for Runtime {
 		ConstU32<{ 6 * HOURS }>,
 		Self::Beneficiary,
 		Self::AssetKind,
-		LocatableAssetIdConverter,
-		CloneIdentity,
+		LocatableAssetConverter,
+		VersionedMultiLocationConverter,
 	>;
 	type BalanceConverter = AssetRate;
 	type PayoutPeriod = PayoutSpendPeriod;
