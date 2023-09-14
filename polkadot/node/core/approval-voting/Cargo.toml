@@ -17,6 +17,7 @@ schnorrkel = "0.9.1"
 kvdb = "0.13.0"
 derive_more = "0.99.17"
 thiserror = "1.0.48"
+tokio = "1.24.2"
 
 polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }

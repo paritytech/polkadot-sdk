@@ -966,10 +966,13 @@ impl State {
 			.map(|(cert, candidate_index, _)| (cert, candidate_index))
 			.collect::<Vec<_>>();
 		let (tx, rx) = oneshot::channel();
-		
+
 		let results = if !batched_assignments.is_empty() {
-			ctx.send_message(ApprovalVotingMessage::CheckAndImportAssignments(batched_assignments, tx))
-				.await;
+			ctx.send_message(ApprovalVotingMessage::CheckAndImportAssignments(
+				batched_assignments,
+				tx,
+			))
+			.await;
 
 			let _timer = metrics.time_awaiting_approval_voting();
 			// Wait for approval voting to check and import the batch.

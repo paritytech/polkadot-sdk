@@ -1951,16 +1951,8 @@ async fn check_and_import_assignments<Context>(
 			let _ = tx.send(AssignmentCheckResult::Accepted);
 		});
 
-		if let Err(err) = ctx.spawn("check-assignment", check_task) {
-			gum::warn!(
-				target: LOG_TARGET,
-				error = ?err,
-				"Failed to spawn `check-assignment` task",
-			);
-			results.push(AssignmentCheckResult::TaskSpawn);
-		} else {
-			check_results.push(rx.boxed());
-		}
+		tokio::spawn(check_task);
+		check_results.push(rx.boxed());
 	}
 
 	gum::trace!(

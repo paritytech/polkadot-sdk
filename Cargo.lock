@@ -11754,6 +11754,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "thiserror",
+ "tokio",
  "tracing-gum",
 ]
 
