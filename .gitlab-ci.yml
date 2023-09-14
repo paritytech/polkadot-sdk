@@ -233,7 +233,7 @@ test-linux-stable:
   script:
     - |
       time cargo nextest run \
-        --all \
+        --tests \
         --workspace \
         --locked \
         --release \
