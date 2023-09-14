@@ -135,7 +135,7 @@ fn convert_works() {
 			BalanceOf<Test>,
 			<Test as pallet_asset_rate::Config>::AssetKind,
 			BalanceOf<Test>,
-		>>::from_asset_balance(10, ASSET_ID);
+		>>::from_asset_balance(10, &ASSET_ID);
 		assert_eq!(conversion.expect("Conversion rate exists for asset"), 25);
 	});
 }
@@ -147,7 +147,7 @@ fn convert_unknown_throws() {
 			BalanceOf<Test>,
 			<Test as pallet_asset_rate::Config>::AssetKind,
 			BalanceOf<Test>,
-		>>::from_asset_balance(10, ASSET_ID);
+		>>::from_asset_balance(10, &ASSET_ID);
 		assert!(conversion.is_err());
 	});
 }
