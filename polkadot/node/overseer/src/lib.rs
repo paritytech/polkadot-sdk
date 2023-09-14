@@ -276,6 +276,11 @@ impl From<FinalityNotification<Block>> for BlockInfo {
 /// as the substrate framework or user interaction.
 pub enum Event {
 	/// A new block was imported.
+	///
+	/// This event is not sent if the block was already known
+	/// and we reorged to it e.g. due to a reversion.
+	///
+	/// Also, these events are not sent during a major sync.
 	BlockImported(BlockInfo),
 	/// A block was finalized with i.e. babe or another consensus algorithm.
 	BlockFinalized(BlockInfo),
