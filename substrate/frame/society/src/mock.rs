@@ -160,7 +160,7 @@ impl EnvBuilder {
 				assert!(Society::found_society(Origin::signed(1), 10, 10, 8, 2, 25, r).is_ok());
 			}
 			let r = f();
-			migrations::assert_internal_consistency::<Test, ()>();
+			migrations::v2::assert_internal_consistency::<Test, ()>();
 			r
 		})
 	}

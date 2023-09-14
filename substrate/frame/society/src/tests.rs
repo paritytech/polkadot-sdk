@@ -18,7 +18,7 @@
 //! Tests for the module.
 
 use super::*;
-use migrations::old;
+use migrations::v2::old;
 use mock::*;
 
 use frame_support::{assert_noop, assert_ok};
@@ -77,8 +77,8 @@ fn migration_works() {
 			.collect::<Vec<_>>();
 		old::Bids::<Test, ()>::put(bids);
 
-		migrations::from_original::<Test, ()>(&mut [][..]).expect("migration failed");
-		migrations::assert_internal_consistency::<Test, ()>();
+		migrations::v2::from_original::<Test, ()>(&mut [][..]).expect("migration failed");
+		migrations::v2::assert_internal_consistency::<Test, ()>();
 
 		assert_eq!(
 			membership(),
