@@ -21,19 +21,28 @@
 
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::MessageNonce;
-use bp_runtime::{decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain};
+use bp_runtime::{
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis,
+	extensions::{
+		CheckEra, CheckGenesis, CheckNonZeroSender, CheckNonce, CheckSpecVersion, CheckTxVersion,
+		CheckWeight, GenericSignedExtension, GenericSignedExtensionSchema,
+	},
+	Chain, TransactionEra,
+};
+use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 use frame_system::limits;
-use sp_runtime::Perbill;
+use scale_info::TypeInfo;
+use sp_runtime::{traits::DispatchInfoOf, transaction_validity::TransactionValidityError, Perbill};
 
 // This chain reuses most of Polkadot primitives.
 pub use bp_polkadot_core::{
-	AccountId, Balance, BlockNumber, Hash, Hasher, Header, Nonce, Signature,
-	AVERAGE_HEADER_SIZE_IN_JUSTIFICATION, MAX_HEADER_SIZE,
+	AccountAddress, AccountId, Balance, Block, BlockNumber, Hash, Hasher, Header, Nonce, Signature,
+	SignedBlock, UncheckedExtrinsic, AVERAGE_HEADER_SIZE_IN_JUSTIFICATION, MAX_HEADER_SIZE,
 	REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY,
 };
 
@@ -61,6 +70,94 @@ pub const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 1024;
 /// Maximal number of unconfirmed messages at inbound lane for Cumulus-based parachains.
 pub const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 4096;
 
+/// This signed extension is used to ensure that the chain transactions are signed by proper
+pub type ValidateSigned = GenericSignedExtensionSchema<(), ()>;
+
+/// Signed extension schema, used by Polkadot Bulletin.
+pub type SignedExtensionSchema = GenericSignedExtension<(
+	(
+		CheckNonZeroSender,
+		CheckSpecVersion,
+		CheckTxVersion,
+		CheckGenesis<Hash>,
+		CheckEra<Hash>,
+		CheckNonce<Nonce>,
+		CheckWeight,
+	),
+	ValidateSigned,
+)>;
+
+/// Signed extension, used by Polkadot Bulletin.
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
+pub struct SignedExtension(SignedExtensionSchema);
+
+impl sp_runtime::traits::SignedExtension for SignedExtension {
+	const IDENTIFIER: &'static str = "Not needed.";
+	type AccountId = ();
+	type Call = ();
+	type AdditionalSigned =
+		<SignedExtensionSchema as sp_runtime::traits::SignedExtension>::AdditionalSigned;
+	type Pre = ();
+
+	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
+		self.0.additional_signed()
+	}
+
+	fn pre_dispatch(
+		self,
+		_who: &Self::AccountId,
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		Ok(())
+	}
+}
+
+impl SignedExtension {
+	/// Create signed extension from its components.
+	pub fn from_params(
+		spec_version: u32,
+		transaction_version: u32,
+		era: TransactionEra<BlockNumber, Hash>,
+		genesis_hash: Hash,
+		nonce: Nonce,
+	) -> Self {
+		Self(GenericSignedExtension::new(
+			(
+				(
+					(),              // non-zero sender
+					(),              // spec version
+					(),              // tx version
+					(),              // genesis
+					era.frame_era(), // era
+					nonce.into(),    // nonce (compact encoding)
+					(),              // Check weight
+				),
+				(),
+			),
+			Some((
+				(
+					(),
+					spec_version,
+					transaction_version,
+					genesis_hash,
+					era.signed_payload(genesis_hash),
+					(),
+					(),
+				),
+				(),
+			)),
+		))
+	}
+
+	/// Return transaction nonce.
+	pub fn nonce(&self) -> Nonce {
+		let common_payload = self.0.payload.0;
+		common_payload.5 .0
+	}
+}
+
 parameter_types! {
 	/// We allow for 2 seconds of compute with a 6 second average block time.
 	pub BlockWeights: limits::BlockWeights = limits::BlockWeights::with_sensible_defaults(
@@ -86,6 +183,9 @@ impl Chain for PolkadotBulletin {
 	type Header = Header;
 
 	type AccountId = AccountId;
+	// The Bulletin Chain is a permissioned blockchain without any balances. Our `Chain` trait
+	// requires balance type, which is then used by various bridge infrastructure code. However
+	// this code is optional and we are not planning to use it in our bridge.
 	type Balance = Balance;
 	type Nonce = Nonce;
 	type Signature = Signature;
@@ -111,5 +211,5 @@ impl ChainWithGrandpa for PolkadotBulletin {
 	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = AVERAGE_HEADER_SIZE_IN_JUSTIFICATION;
 }
 
-decl_bridge_finality_runtime_apis!(polkadot_bulletin);
+decl_bridge_finality_runtime_apis!(polkadot_bulletin, grandpa);
 decl_bridge_messages_runtime_apis!(polkadot_bulletin);

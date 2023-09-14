@@ -30,7 +30,7 @@ use bridge_runtime_common::{
 	messages_xcm_extension::{SenderAndLane, XcmBlobHauler, XcmBlobHaulerAdapter},
 	refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedParachainMessages, RefundableMessagesLane,
-		RefundableParachain,
+		RefundableParachain, RefundSignedExtensionAdapter,
 	},
 };
 use codec::Encode;
@@ -157,14 +157,14 @@ impl ThisChainWithMessages for ThisChain {
 
 // TODO: rework once dynamic lanes are supported (https://github.com/paritytech/parity-bridges-common/issues/1760)
 /// Signed extension that refunds relayers that are delivering messages from the kusama BridgeHub.
-pub type BridgeRefundBridgeHubKusamaMessages = RefundBridgedParachainMessages<
+pub type BridgeRefundBridgeHubKusamaMessages = RefundSignedExtensionAdapter<RefundBridgedParachainMessages<
 	Runtime,
 	RefundableParachain<BridgeParachainKusamaInstance, BridgeHubKusama>,
 	RefundableMessagesLane<WithBridgeHubKusamaMessagesInstance, StatemintToStatemineMessageLane>,
 	ActualFeeRefund<Runtime>,
 	PriorityBoostPerMessage,
 	StrBridgeRefundBridgeHubKusamaMessages,
->;
+>>;
 bp_runtime::generate_static_str_provider!(BridgeRefundBridgeHubKusamaMessages);
 
 // TODO: rework once dynamic lanes are supported (https://github.com/paritytech/parity-bridges-common/issues/1760)

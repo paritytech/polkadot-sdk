@@ -16,11 +16,20 @@
 
 //! Definitions, related to bridge with Polkadot Bulletin Chain.
 
-use crate::BridgePolkadotBulletinGrandpa;
+use crate::{
+	bridge_kusama_config::PriorityBoostPerMessage,
+	BridgeGrandpaBulletinInstance, BridgePolkadotBulletinGrandpa, Runtime, WithPolkadotBulletinMessagesInstance,
+};
 
 use bp_messages::LaneId;
 use bp_runtime::{ChainId, UnderlyingChainProvider};
-use bridge_runtime_common::messages::{self, MessageBridge, ThisChainWithMessages};
+use bridge_runtime_common::{
+	messages::{self, MessageBridge, ThisChainWithMessages},
+	refund_relayer_extension::{
+		ActualFeeRefund, RefundBridgedGrandpaMessages, RefundableMessagesLane,
+		RefundSignedExtensionAdapter,
+	},
+};
 use frame_support::parameter_types;
 use sp_runtime::RuntimeDebug;
 
@@ -41,6 +50,8 @@ parameter_types! {
 	/// Chain identifier of Polkadot Bulletin Chain.
 	pub const PolkadotBulletinChainId: bp_runtime::ChainId = POLKADOT_BULLETIN_CHAIN_ID;
 
+	/// The only lane we are using to bridge with Polkadot Bulletin Chain.
+	pub const WithPolkadotBulletinLane: LaneId = LaneId([0, 0, 0, 0]);
 	/// All active lanes in the with Polkadot Bulletin Chain  bridge.
 	pub ActiveOutboundLanesToPolkadotBulletin: &'static [LaneId] = &[WITH_POLKADOT_BULLETIN_LANE];
 }
@@ -85,3 +96,15 @@ impl UnderlyingChainProvider for ThisChain {
 impl ThisChainWithMessages for ThisChain {
 	type RuntimeOrigin = crate::RuntimeOrigin;
 }
+
+/// Signed extension that refunds relayers that are delivering messages from the Bulletin chain.
+pub type BridgeRefundPolkadotBulletinMessages = RefundSignedExtensionAdapter<RefundBridgedGrandpaMessages<
+	Runtime,
+	BridgeGrandpaBulletinInstance,
+	RefundableMessagesLane<WithPolkadotBulletinMessagesInstance, WithPolkadotBulletinLane>,
+	ActualFeeRefund<Runtime>,
+	// we could reuse the same priority boost as we do for with-Kusama bridge
+	PriorityBoostPerMessage,
+	BridgeRefundPolkadotBulletinMessages,
+>>;
+bp_runtime::generate_static_str_provider!(BridgeRefundPolkadotBulletinMessages);

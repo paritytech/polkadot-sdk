@@ -85,7 +85,7 @@ use crate::{
 		WithBridgeHubKusamaMessageBridge,
 	},
 	bridge_bulletin_config::{
-		WithPolkadotBulletinMessageBridge,
+		BridgeRefundPolkadotBulletinMessages, WithPolkadotBulletinMessageBridge,
 	},
 	xcm_config::{UniversalLocation, XcmRouter},
 };
@@ -122,6 +122,7 @@ pub type SignedExtra = (
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	BridgeRejectObsoleteHeadersAndMessages,
 	BridgeRefundBridgeHubKusamaMessages,
+	BridgeRefundPolkadotBulletinMessages
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -612,12 +613,16 @@ construct_runtime!(
 
 bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	RuntimeCall, AccountId,
-	// Grandpa
+	// with-Kusama Grandpa
 	BridgeKusamaGrandpa,
-	// Parachains
+	// with-Kusama Parachains
 	BridgeKusamaParachain,
-	// Messages
-	BridgeKusamaMessages
+	// with-Kusama Messages
+	BridgeKusamaMessages,
+	// with Bulletin Grandpa
+	BridgePolkadotBulletinGrandpa,
+	// with Bulletin Messages
+	BridgePolkadotBulletinMessages
 }
 
 #[cfg(feature = "runtime-benchmarks")]
