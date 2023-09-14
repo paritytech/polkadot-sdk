@@ -216,7 +216,7 @@ impl From<ProtocolVersion> for u32 {
 pub enum ValidationVersion {
 	/// The first version.
 	V1 = 1,
-	/// The staging version.
+	/// The second version.
 	V2 = 2,
 }
 
@@ -225,7 +225,7 @@ pub enum ValidationVersion {
 pub enum CollationVersion {
 	/// The first version.
 	V1 = 1,
-	/// The staging version.
+	/// The second version.
 	V2 = 2,
 }
 
