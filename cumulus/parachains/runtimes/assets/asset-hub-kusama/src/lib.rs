@@ -38,7 +38,9 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, Verify},
+	traits::{
+		AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, Saturating, Verify,
+	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Permill,
 };
@@ -55,7 +57,7 @@ use frame_support::{
 	ord_parameter_types, parameter_types,
 	traits::{
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse,
-		InstanceFilter,
+		InstanceFilter, StorageVersion,
 	},
 	weights::{ConstantMultiplier, Weight},
 	BoundedVec, PalletId,
@@ -889,7 +891,51 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 /// Migrations to apply on runtime upgrade.
-pub type Migrations = (pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,);
+pub type Migrations =
+	(pallet_collator_selection::migration::v1::MigrateToV1<Runtime>, InitStorageVersions);
+
+/// Migration to initialize storage versions for pallets added after genesis.
+///
+/// Ideally this would be done automatically (see
+/// <https://github.com/paritytech/polkadot-sdk/pull/1297>), but it probably won't be ready for some
+/// time and it's beneficial to get try-runtime-cli on-runtime-upgrade checks into the CI, so we're
+/// doing it manually.
+pub struct InitStorageVersions;
+
+impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
+	fn on_runtime_upgrade() -> Weight {
+		use frame_support::traits::GetStorageVersion;
+
+		let mut writes = 0;
+
+		if PolkadotXcm::on_chain_storage_version() == StorageVersion::new(0) {
+			StorageVersion::new(1).put::<PolkadotXcm>();
+			writes.saturating_inc();
+		}
+
+		if Multisig::on_chain_storage_version() == StorageVersion::new(0) {
+			StorageVersion::new(1).put::<Multisig>();
+			writes.saturating_inc();
+		}
+
+		if Nfts::on_chain_storage_version() == StorageVersion::new(0) {
+			StorageVersion::new(1).put::<Nfts>();
+			writes.saturating_inc();
+		}
+
+		if ForeignAssets::on_chain_storage_version() == StorageVersion::new(0) {
+			StorageVersion::new(1).put::<ForeignAssets>();
+			writes.saturating_inc();
+		}
+
+		if PoolAssets::on_chain_storage_version() == StorageVersion::new(0) {
+			StorageVersion::new(1).put::<PoolAssets>();
+			writes.saturating_inc();
+		}
+
+		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(5, writes)
+	}
+}
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<

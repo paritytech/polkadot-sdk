@@ -639,7 +639,53 @@ type Migrations = (
 	import_kusama_fellowship::Migration<Runtime, FellowshipCollectiveInstance>,
 	// unreleased
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	// unreleased
+	InitStorageVersions,
 );
+
+/// Migration to initialize storage versions for pallets added after genesis.
+///
+/// Ideally this would be done automatically (see
+/// <https://github.com/paritytech/polkadot-sdk/pull/1297>), but it probably won't be ready for some
+/// time and it's beneficial to get try-runtime-cli on-runtime-upgrade checks into the CI, so we're
+/// doing it manually.
+pub struct InitStorageVersions;
+
+impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
+	fn on_runtime_upgrade() -> Weight {
+		use frame_support::traits::{GetStorageVersion, StorageVersion};
+		use sp_runtime::traits::Saturating;
+
+		let mut writes = 0;
+
+		if PolkadotXcm::on_chain_storage_version() == StorageVersion::new(0) {
+			StorageVersion::new(1).put::<PolkadotXcm>();
+			writes.saturating_inc();
+		}
+
+		if Multisig::on_chain_storage_version() == StorageVersion::new(0) {
+			StorageVersion::new(1).put::<Multisig>();
+			writes.saturating_inc();
+		}
+
+		if Preimage::on_chain_storage_version() == StorageVersion::new(0) {
+			StorageVersion::new(1).put::<Preimage>();
+			writes.saturating_inc();
+		}
+
+		if Scheduler::on_chain_storage_version() == StorageVersion::new(0) {
+			StorageVersion::new(4).put::<Scheduler>();
+			writes.saturating_inc();
+		}
+
+		if FellowshipReferenda::on_chain_storage_version() == StorageVersion::new(0) {
+			StorageVersion::new(4).put::<FellowshipReferenda>();
+			writes.saturating_inc();
+		}
+
+		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(5, writes)
+	}
+}
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
