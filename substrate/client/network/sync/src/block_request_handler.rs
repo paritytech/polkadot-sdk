@@ -564,7 +564,7 @@ impl FullBlockDownloader {
 
 #[async_trait::async_trait]
 impl<B: BlockT> BlockDownloader<B> for FullBlockDownloader {
-	async fn download_block(
+	async fn download_blocks(
 		&self,
 		who: PeerId,
 		request: BlockRequest<B>,

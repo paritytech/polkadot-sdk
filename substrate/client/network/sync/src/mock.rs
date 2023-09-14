@@ -98,7 +98,7 @@ mockall::mock! {
 
 	#[async_trait::async_trait]
 	impl<Block: BlockT> BlockDownloaderT<Block> for BlockDownloader<Block> {
-		async fn download_block(
+		async fn download_blocks(
 			&self,
 			who: PeerId,
 			request: BlockRequest<Block>,

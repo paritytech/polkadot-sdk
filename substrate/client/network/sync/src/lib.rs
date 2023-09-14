@@ -1192,7 +1192,7 @@ where
 					(
 						who,
 						PeerRequest::Block(request.clone()),
-						downloader.download_block(who, request).await,
+						downloader.download_blocks(who, request).await,
 					)
 				}),
 			);
