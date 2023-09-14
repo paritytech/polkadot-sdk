@@ -1,4 +1,4 @@
-// Copyright 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@ pub type CollectivesPolkadotChainSpec =
 	sc_service::GenericChainSpec<collectives_polkadot_runtime::RuntimeGenesisConfig, Extensions>;
 
 const COLLECTIVES_POLKADOT_ED: CollectivesBalance =
-	collectives_polkadot_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
 
 /// Generate the session keys from individual elements.
 ///

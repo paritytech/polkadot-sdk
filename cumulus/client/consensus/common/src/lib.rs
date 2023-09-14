@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -20,8 +20,8 @@ use polkadot_primitives::{
 };
 
 use cumulus_primitives_core::{
-	relay_chain::{BlockId as RBlockId, OccupiedCoreAssumption},
-	ParaId,
+	relay_chain::{self, BlockId as RBlockId, OccupiedCoreAssumption},
+	AbridgedHostConfiguration, ParaId,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 
@@ -211,6 +211,7 @@ pub trait ParachainBlockImportMarker {}
 impl<B: BlockT, BI, BE> ParachainBlockImportMarker for ParachainBlockImport<B, BI, BE> {}
 
 /// Parameters when searching for suitable parents to build on top of.
+#[derive(Debug)]
 pub struct ParentSearchParams {
 	/// The relay-parent that is intended to be used.
 	pub relay_parent: PHash,
@@ -228,6 +229,7 @@ pub struct ParentSearchParams {
 }
 
 /// A potential parent block returned from [`find_potential_parents`]
+#[derive(Debug, PartialEq)]
 pub struct PotentialParent<B: BlockT> {
 	/// The hash of the block.
 	pub hash: B::Hash,
@@ -411,4 +413,19 @@ pub fn relay_slot_and_timestamp(
 			(slot, t)
 		})
 		.ok()
+}
+
+/// Reads abridged host configuration from the relay chain storage at the given relay parent.
+pub async fn load_abridged_host_configuration(
+	relay_parent: PHash,
+	relay_client: &impl RelayChainInterface,
+) -> Result<Option<AbridgedHostConfiguration>, RelayChainError> {
+	relay_client
+		.get_storage_by_key(relay_parent, relay_chain::well_known_keys::ACTIVE_CONFIG)
+		.await?
+		.map(|bytes| {
+			AbridgedHostConfiguration::decode(&mut &bytes[..])
+				.map_err(RelayChainError::DeserializationError)
+		})
+		.transpose()
 }
