@@ -11,7 +11,6 @@ chain = "wococo-local"
 	validator = true
 	rpc_port = 9935
 	ws_port = 9945
-	extra_args = ["--no-mdns --bootnodes {{'bob-wococo-validator'|zombie('multiAddress')}}"]
 	balance = 2000000000000
 
 	[[relaychain.nodes]]
@@ -19,7 +18,6 @@ chain = "wococo-local"
 	validator = true
 	rpc_port = 9936
 	ws_port = 9946
-	extra_args = ["--no-mdns --bootnodes {{'alice-wococo-validator'|zombie('multiAddress')}}"]
 	balance = 2000000000000
 
 	[[relaychain.nodes]]
@@ -27,7 +25,6 @@ chain = "wococo-local"
 	validator = true
 	rpc_port = 9937
 	ws_port = 9947
-	extra_args = ["--no-mdns --bootnodes {{'alice-wococo-validator'|zombie('multiAddress')}}"]
 	balance = 2000000000000
 
 [[parachains]]
@@ -44,10 +41,8 @@ cumulus_based = true
 	ws_port = 8945
 	args = [
 		"-lparachain=debug,runtime::mmr=info,substrate=info,runtime=info,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace",
-	]
-	extra_args = [
-		"--force-authoring", "--no-mdns", "--bootnodes {{'bridge-hub-wococo-collator2'|zombie('multiAddress')}}",
-		"-- --port 41335 --rpc-port 48935 --ws-port 48945 --no-mdns", "--bootnodes {{'alice-wococo-validator'|zombie('multiAddress')}}"
+		"--force-authoring",
+		"--", "--port 41335", "--rpc-port 48935", "--ws-port 48945"
 	]
 
 	# run bob as parachain collator
@@ -59,10 +54,8 @@ cumulus_based = true
 	ws_port = 8946
 	args = [
 		"-lparachain=trace,runtime::mmr=info,substrate=info,runtime=info,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace",
-	]
-	extra_args = [
-		"--force-authoring", "--no-mdns", "--bootnodes {{'bridge-hub-wococo-collator1'|zombie('multiAddress')}}",
-		"-- --port 41336 --rpc-port 48936 --ws-port 48946 --no-mdns", "--bootnodes {{'bob-wococo-validator'|zombie('multiAddress')}}"
+		"--force-authoring",
+		"--", "--port 41336", "--rpc-port 48936", "--ws-port 48946"
 	]
 
 [[parachains]]
@@ -77,10 +70,7 @@ cumulus_based = true
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WOCOCO}}"
 	args = [
 		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace",
-	]
-	extra_args = [
-		"--no-mdns", "--bootnodes {{'asset-hub-wococo-collator2'|zombie('multiAddress')}}",
-		"-- --port 31333 --rpc-port 38933 --ws-port 38943 --no-mdns", "--bootnodes {{'alice-wococo-validator'|zombie('multiAddress')}}"
+		"--", "--port 31333", "--rpc-port 38933", "--ws-port 38943"
 	]
 
 	[[parachains.collators]]
@@ -88,10 +78,7 @@ cumulus_based = true
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WOCOCO}}"
 	args = [
 		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace",
-	]
-	extra_args = [
-		"--no-mdns", "--bootnodes {{'asset-hub-wococo-collator1'|zombie('multiAddress')}}",
-		"-- --port 31433 --rpc-port 38833 --ws-port 38843 --no-mdns", "--bootnodes {{'alice-wococo-validator'|zombie('multiAddress')}}"
+		"--", "--port 31433", "--rpc-port 38833", "--ws-port 38843"
 	]
 
 #[[hrmp_channels]]
