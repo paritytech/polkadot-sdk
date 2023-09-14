@@ -17,7 +17,7 @@
 
 //! Test utilities for Sassafras pallet.
 
-use crate::{self as pallet_sassafras, SameAuthoritiesForever, *};
+use crate::{self as pallet_sassafras, EpochChangeInternalTrigger, *};
 
 use frame_support::traits::{ConstU32, ConstU64, OnFinalize, OnInitialize};
 use sp_consensus_sassafras::{
@@ -76,8 +76,8 @@ where
 impl pallet_sassafras::Config for Test {
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 	type EpochDuration = ConstU64<EPOCH_DURATION>;
-	type EpochChangeTrigger = SameAuthoritiesForever;
 	type MaxAuthorities = ConstU32<100>;
+	type EpochChangeTrigger = EpochChangeInternalTrigger;
 	type WeightInfo = ();
 }
 

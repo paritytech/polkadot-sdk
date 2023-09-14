@@ -21,7 +21,7 @@ use super::*;
 use sp_consensus_sassafras::EpochConfiguration;
 use sp_std::vec;
 
-use frame_benchmarking::v2::{ParamRange, *};
+use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 
 const TICKETS_DATA: &[u8] = include_bytes!("../tickets.bin");
@@ -71,6 +71,7 @@ mod benchmarks {
 		plan_config_change(RawOrigin::Root, config);
 	}
 
+	// Construction of ring verifier benchmark
 	#[benchmark]
 	fn recompute_ring_verifier(x: Linear<1, 20>) {
 		let authorities_count = x as usize;
@@ -88,34 +89,11 @@ mod benchmarks {
 			let ring_ctx = RingContext::<T>::get().unwrap();
 
 			let pks: Vec<_> = authorities.iter().map(|auth| *auth.as_ref()).collect();
-			let verifier = ring_ctx.verifier(&pks[..]);
+			let _verifier = ring_ctx.verifier(&pks[..]);
 		}
 	}
 
-	#[benchmark]
-	fn recompute_ring_verifier_in_memory(x: Linear<1, 20>) {
-		let authorities_count = x as usize;
-
-		let ring_ctx = vrf::RingContext::new_testing();
-		RingContext::<T>::set(Some(ring_ctx.clone()));
-
-		let mut raw_data = TICKETS_DATA;
-		let PreBuiltTickets { authorities, tickets: _ } =
-			PreBuiltTickets::decode(&mut raw_data).expect("Failed to decode tickets buffer");
-		let authorities: Vec<_> = authorities[..authorities_count].to_vec();
-
-		let mut buf: Vec<u8> = ring_ctx.encode();
-
-		#[block]
-		{
-			let ring_ctx = vrf::RingContext::decode(&mut buf.as_slice()).unwrap();
-
-			let pks: Vec<_> = authorities.iter().map(|auth| *auth.as_ref()).collect();
-			let verifier = ring_ctx.verifier(&pks[..]);
-		}
-	}
-
-	// Internal function benchmarks
+	// Tickets segments sorting function benchmark.
 	#[benchmark]
 	fn sort_segments(x: Linear<1, 1800>, y: Linear<1, 2>) {
 		use sp_consensus_sassafras::EphemeralPublic;

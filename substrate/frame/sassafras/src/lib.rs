@@ -298,7 +298,7 @@ pub mod pallet {
 			// On the first non-zero block (i.e. block #1) this is where the first epoch
 			// (epoch #0) actually starts. We need to adjust internal storage accordingly.
 			if *GenesisSlot::<T>::get() == 0 {
-	.			Self::initialize_genesis_epoch(claim.slot)
+				Self::initialize_genesis_epoch(claim.slot)
 			}
 
 			Initialized::<T>::put(claim);
@@ -738,7 +738,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn initialize_genesis_epoch(genesis_slot: Slot) {
-		debug!(target: LOG_TARGET, "Genesis slot: {}", genesis_slot);
+		debug!(target: LOG_TARGET, "Genesis slot: {:?}", genesis_slot);
 
 		GenesisSlot::<T>::put(genesis_slot);
 
@@ -952,9 +952,9 @@ pub trait EpochChangeTrigger {
 ///
 /// In practice this means that the epoch change logic is left to some external component
 /// (e.g. pallet-session)
-pub struct ExternalTrigger;
+pub struct EpochChangeExternalTrigger;
 
-impl EpochChangeTrigger for ExternalTrigger {
+impl EpochChangeTrigger for EpochChangeExternalTrigger {
 	fn trigger<T: Config>(_: BlockNumberFor<T>) {} // nothing - trigger is external.
 }
 
@@ -962,9 +962,9 @@ impl EpochChangeTrigger for ExternalTrigger {
 ///
 /// The internal trigger should only be used when no other module is responsible for
 /// changing authority set.
-pub struct InternalTrigger;
+pub struct EpochChangeInternalTrigger;
 
-impl EpochChangeTrigger for SameAuthoritiesForever {
+impl EpochChangeTrigger for EpochChangeInternalTrigger {
 	fn trigger<T: Config>(now: BlockNumberFor<T>) {
 		if <Pallet<T>>::should_end_epoch(now) {
 			let authorities = <Pallet<T>>::authorities();
