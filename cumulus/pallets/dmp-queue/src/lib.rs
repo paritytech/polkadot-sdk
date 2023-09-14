@@ -164,6 +164,28 @@ pub mod pallet {
 			Self::deposit_event(Event::OverweightServiced { overweight_index: index, weight_used });
 			Ok(Some(weight_used.saturating_add(Weight::from_parts(1_000_000, 0))).into())
 		}
+
+		/// Overwrite the maximum amount of weight any individual DMP message may consume.
+		/// Messages above this weight go into the overweight queue and may only be serviced
+		/// explicitly by the `ExecuteOverweightOrigin`.
+		///
+		/// - `origin`: Must pass `Root`.
+		/// - `new`: Desired value for `ConfigData.max_individual`.
+		#[pallet::call_index(1)]
+		#[pallet::weight(
+			Weight::from_parts(3_000_000_u64, 0)
+				.saturating_add(T::DbWeight::get().reads(1_u64))
+				.saturating_add(T::DbWeight::get().writes(1_u64))
+		)]
+		pub fn update_dmp_max_individual_weight(
+			origin: OriginFor<T>,
+			new: Weight,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Configuration::<T>::mutate(|data| data.max_individual = new);
+
+			Ok(())
+		}
 	}
 
 	#[pallet::event]
@@ -412,7 +434,7 @@ mod tests {
 
 	use codec::Encode;
 	use cumulus_primitives_core::ParaId;
-	use frame_support::{assert_noop, parameter_types, traits::OnIdle};
+	use frame_support::{assert_noop, assert_ok, parameter_types, traits::OnIdle};
 	use sp_core::H256;
 	use sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup},
@@ -909,6 +931,25 @@ mod tests {
 				(MAX_MESSAGES_PER_BLOCK..MAX_MESSAGES_PER_BLOCK + 6)
 					.map(|i| msg_complete(1000 + i as u64))
 					.collect::<Vec<_>>(),
+			);
+		});
+	}
+
+	#[test]
+	fn update_dmp_max_individual_weight_works() {
+		new_test_ext().execute_with(|| {
+			let default_config = Configuration::<Test>::get();
+			assert_eq!(default_config, ConfigData::default());
+
+			assert_ok!(DmpQueue::update_dmp_max_individual_weight(
+				RuntimeOrigin::root(),
+				Weight::from_parts(10_000_000_000, 100_000)
+			));
+
+			let custom_config = Configuration::<Test>::get();
+			assert_eq!(
+				custom_config,
+				ConfigData { max_individual: Weight::from_parts(10_000_000_000, 100_000) }
 			);
 		});
 	}
