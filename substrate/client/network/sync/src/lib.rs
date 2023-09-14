@@ -1838,7 +1838,7 @@ where
 							},
 							Err(BlockResponseError::ExtractionFailed(e)) => {
 								debug!(
-									target: "sync",
+									target: LOG_TARGET,
 									"Failed to extract blocks from peer response {:?}: {:?}.",
 									id,
 									e
