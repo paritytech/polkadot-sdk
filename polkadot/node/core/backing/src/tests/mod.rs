@@ -18,7 +18,7 @@ use self::test_helpers::mock::new_leaf;
 use super::*;
 use ::test_helpers::{
 	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
-	dummy_committed_candidate_receipt, dummy_hash, validator_pubkeys
+	dummy_committed_candidate_receipt, dummy_hash, validator_pubkeys,
 };
 use assert_matches::assert_matches;
 use futures::{future, Future};
@@ -295,68 +295,79 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 	);
 }
 
-async fn test_validation_requests(virtual_overseer: &mut VirtualOverseer, validation_code: ValidationCode) {
+async fn test_validation_requests(
+	virtual_overseer: &mut VirtualOverseer,
+	validation_code: ValidationCode,
+) {
 	assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-			) if hash == validation_code.hash() => {
-				tx.send(Ok(Some(validation_code))).unwrap();
-			}
-		);
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
+		) if hash == validation_code.hash() => {
+			tx.send(Ok(Some(validation_code))).unwrap();
+		}
+	);
 
 	assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
+		) => {
+			tx.send(Ok(1u32.into())).unwrap();
+		}
+	);
 
 	assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-			) if sess_idx == 1 => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
+		) if sess_idx == 1 => {
+			tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+		}
+	);
 }
 
-async fn test_validate_from_exhaustive(virtual_overseer: &mut VirtualOverseer, pvd: &PersistedValidationData, pov: &PoV, validation_code: &ValidationCode, candidate: &CommittedCandidateReceipt, expected_head_data: &HeadData, result_validation_data: PersistedValidationData) {
+async fn test_validate_from_exhaustive(
+	virtual_overseer: &mut VirtualOverseer,
+	pvd: &PersistedValidationData,
+	pov: &PoV,
+	validation_code: &ValidationCode,
+	candidate: &CommittedCandidateReceipt,
+	expected_head_data: &HeadData,
+	result_validation_data: PersistedValidationData,
+) {
 	assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive(
-					_pvd,
-					_validation_code,
-					candidate_receipt,
-					_pov,
-					_,
-					timeout,
-					tx,
-				),
-			) if _pvd == *pvd &&
-				_validation_code == *validation_code &&
-				*_pov == *pov && &candidate_receipt.descriptor == candidate.descriptor() &&
-				timeout == PvfExecTimeoutKind::Backing &&
-				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
-			{
-				tx.send(Ok(ValidationResult::Valid(
-					CandidateCommitments {
-						head_data: expected_head_data.clone(),
-						horizontal_messages: Default::default(),
-						upward_messages: Default::default(),
-						new_validation_code: None,
-						processed_downward_messages: 0,
-						hrmp_watermark: 0,
-					},
-					result_validation_data,
-				)))
-				.unwrap();
-			}
-		);
+		virtual_overseer.recv().await,
+		AllMessages::CandidateValidation(
+			CandidateValidationMessage::ValidateFromExhaustive(
+				_pvd,
+				_validation_code,
+				candidate_receipt,
+				_pov,
+				_,
+				timeout,
+				tx,
+			),
+		) if _pvd == *pvd &&
+			_validation_code == *validation_code &&
+			*_pov == *pov && &candidate_receipt.descriptor == candidate.descriptor() &&
+			timeout == PvfExecTimeoutKind::Backing &&
+			candidate.commitments.hash() == candidate_receipt.commitments_hash =>
+		{
+			tx.send(Ok(ValidationResult::Valid(
+				CandidateCommitments {
+					head_data: expected_head_data.clone(),
+					horizontal_messages: Default::default(),
+					upward_messages: Default::default(),
+					new_validation_code: None,
+					processed_downward_messages: 0,
+					hrmp_watermark: 0,
+				},
+				result_validation_data,
+			)))
+			.unwrap();
+		}
+	);
 }
 
 // Test that a `CandidateBackingMessage::Second` issues validation work
@@ -396,7 +407,16 @@ fn backing_second_works() {
 
 		test_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
-		test_validate_from_exhaustive(&mut virtual_overseer, &pvd, &pov, &validation_code, &candidate, expected_head_data, test_state.validation_data.clone()).await;
+		test_validate_from_exhaustive(
+			&mut virtual_overseer,
+			&pvd,
+			&pov,
+			&validation_code,
+			&candidate,
+			expected_head_data,
+			test_state.validation_data.clone(),
+		)
+		.await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -1782,7 +1802,16 @@ fn cannot_second_multiple_candidates_per_parent() {
 
 		test_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
-		test_validate_from_exhaustive(&mut virtual_overseer, &pvd, &pov, &validation_code, &candidate, expected_head_data, test_state.validation_data.clone()).await;
+		test_validate_from_exhaustive(
+			&mut virtual_overseer,
+			&pvd,
+			&pov,
+			&validation_code,
+			&candidate,
+			expected_head_data,
+			test_state.validation_data.clone(),
+		)
+		.await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
