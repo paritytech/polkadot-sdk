@@ -914,7 +914,7 @@ fn inclusions_removal_one_candidate_one_height_one_branch() {
 
 	let candidate1 = make_candidate_receipt(BlakeTwo256::hash(&"c1".encode())).hash();
 
-	//	B	0
+	// B	0
 	// C1	0
 	inclusions.insert(candidate1, 0, get_relay_block_hash(0, 0));
 
@@ -939,7 +939,7 @@ fn inclusions_removal_one_candidate_one_height_multi_branch() {
 
 	let candidate1 = make_candidate_receipt(BlakeTwo256::hash(&"c1".encode())).hash();
 
-	//	B	0
+	// B	0
 	// C1	0&1
 	inclusions.insert(candidate1, 0, get_relay_block_hash(0, 0));
 	inclusions.insert(candidate1, 0, get_relay_block_hash(0, 1));
@@ -966,7 +966,7 @@ fn inclusions_removal_one_candidate_multi_height_one_branch() {
 
 	let candidate1 = make_candidate_receipt(BlakeTwo256::hash(&"c1".encode())).hash();
 
-	//	B	0	1	2	3	4
+	// B	0	1	2	3	4
 	// C1		0		0
 	inclusions.insert(candidate1, 1, get_relay_block_hash(1, 0));
 	inclusions.insert(candidate1, 3, get_relay_block_hash(3, 0));
@@ -1006,7 +1006,7 @@ fn inclusions_removal_multi_candidate_one_height_one_branch() {
 	let candidate2 = make_candidate_receipt(BlakeTwo256::hash(&"c2".encode())).hash();
 	let candidate3 = make_candidate_receipt(BlakeTwo256::hash(&"c3".encode())).hash();
 
-	//	B	0
+	// B	0
 	// C1	0
 	// C2	0
 	// C3	0
@@ -1039,7 +1039,7 @@ fn inclusions_removal_multi_candidate_multi_height_one_branch() {
 	let candidate2 = make_candidate_receipt(BlakeTwo256::hash(&"c2".encode())).hash();
 	let candidate3 = make_candidate_receipt(BlakeTwo256::hash(&"c3".encode())).hash();
 
-	//	B	0	1	2	3
+	// B	0	1	2	3
 	// C1	0		0
 	// C2	0
 	// C3			0
@@ -1087,7 +1087,7 @@ fn inclusions_removal_one_candidate_multi_height_multi_branch() {
 
 	let candidate1 = make_candidate_receipt(BlakeTwo256::hash(&"c1".encode())).hash();
 
-	//	B	0	1	2
+	// B	0	1	2
 	// C1	0	0&1	1
 	inclusions.insert(candidate1, 0, get_relay_block_hash(0, 0));
 	inclusions.insert(candidate1, 1, get_relay_block_hash(1, 0));
@@ -1129,7 +1129,7 @@ fn inclusions_removal_multi_candidate_one_height_multi_branch() {
 	let candidate2 = make_candidate_receipt(BlakeTwo256::hash(&"c2".encode())).hash();
 	let candidate3 = make_candidate_receipt(BlakeTwo256::hash(&"c3".encode())).hash();
 
-	//	B	0
+	// B	0
 	// C1	0
 	// C2	0&1
 	// C3	1
@@ -1164,7 +1164,7 @@ fn inclusions_removal_multi_candidate_multi_height_multi_branch() {
 	let candidate3 = make_candidate_receipt(BlakeTwo256::hash(&"c3".encode())).hash();
 	let candidate4 = make_candidate_receipt(BlakeTwo256::hash(&"c4".encode())).hash();
 
-	//	B	0	1	2
+	// B	0	1	2
 	// C1	0&1	0	0	//shouldn't get pruned as long as one of the forks need it
 	// C2		1	1
 	// C3	0	1
@@ -1225,7 +1225,7 @@ fn inclusions_removal_multi_candidate_multi_height_multi_branch_multi_height_pru
 	let candidate3 = make_candidate_receipt(BlakeTwo256::hash(&"c3".encode())).hash();
 	let candidate4 = make_candidate_receipt(BlakeTwo256::hash(&"c4".encode())).hash();
 
-	//	B	0	1	2
+	// B	0	1	2
 	// C1	0&1	0	0
 	// C2		1	1
 	// C3	0	1
