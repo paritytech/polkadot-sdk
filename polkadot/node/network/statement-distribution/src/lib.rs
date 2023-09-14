@@ -26,9 +26,7 @@ use error::{log_error, FatalResult};
 use std::time::Duration;
 
 use polkadot_node_network_protocol::{
-	request_response::{
-		v1 as request_v1, v2::AttestedCandidateRequest, IncomingRequestReceiver,
-	},
+	request_response::{v1 as request_v1, v2::AttestedCandidateRequest, IncomingRequestReceiver},
 	v2 as protocol_v2, Versioned,
 };
 use polkadot_node_primitives::StatementWithPVD;
@@ -286,8 +284,7 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 					);
 				},
 				MuxedMessage::Response(result) => {
-					v2::handle_response(&mut ctx, &mut state, result, &mut self.reputation)
-						.await;
+					v2::handle_response(&mut ctx, &mut state, result, &mut self.reputation).await;
 				},
 				MuxedMessage::RetryRequest(()) => {
 					// A pending request is ready to retry. This is only a signal to call
@@ -423,13 +420,11 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 
 					if target.targets_current() {
 						// pass to v2.
-						v2::handle_network_update(ctx, state, event, &mut self.reputation)
-							.await;
+						v2::handle_network_update(ctx, state, event, &mut self.reputation).await;
 					}
 				},
 				StatementDistributionMessage::Backed(candidate_hash) => {
-					crate::v2::handle_backed_candidate_message(ctx, state, candidate_hash)
-						.await;
+					crate::v2::handle_backed_candidate_message(ctx, state, candidate_hash).await;
 				},
 			},
 		}

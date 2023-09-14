@@ -26,8 +26,8 @@ use polkadot_node_network_protocol::{
 	self as net_protocol,
 	grid_topology::{RandomRouting, RequiredRouting, SessionGridTopologies, SessionGridTopology},
 	peer_set::{ValidationVersion, MAX_NOTIFICATION_SIZE},
-	v1 as protocol_v1, v2 as protocol_v2, PeerId, UnifiedReputationChange as Rep,
-	Versioned, VersionedValidationProtocol, View,
+	v1 as protocol_v1, v2 as protocol_v2, PeerId, UnifiedReputationChange as Rep, Versioned,
+	VersionedValidationProtocol, View,
 };
 use polkadot_node_primitives::approval::{
 	AssignmentCert, BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
@@ -602,9 +602,7 @@ impl State {
 	{
 		match msg {
 			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Assignments(assignments)) |
-			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Assignments(
-				assignments,
-			)) => {
+			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Assignments(assignments)) => {
 				gum::trace!(
 					target: LOG_TARGET,
 					peer_id = %peer_id,
@@ -644,9 +642,7 @@ impl State {
 				}
 			},
 			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(approvals)) |
-			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(
-				approvals,
-			)) => {
+			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(approvals)) => {
 				gum::trace!(
 					target: LOG_TARGET,
 					peer_id = %peer_id,

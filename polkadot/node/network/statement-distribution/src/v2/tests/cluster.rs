@@ -836,10 +836,7 @@ fn cluster_messages_imported_after_confirmed_candidate_importable_check() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
-					relay_parent,
-					a_seconded,
-				),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -971,10 +968,7 @@ fn cluster_messages_imported_after_new_leaf_importable_check() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
-					relay_parent,
-					a_seconded,
-				),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 

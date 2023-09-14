@@ -1268,12 +1268,7 @@ fn network_protocol_versioning_subsystem_msg() {
 		let peer = PeerId::random();
 
 		network_handle
-			.connect_peer(
-				peer,
-				ValidationVersion::V2,
-				PeerSet::Validation,
-				ObservedRole::Full,
-			)
+			.connect_peer(peer, ValidationVersion::V2, PeerSet::Validation, ObservedRole::Full)
 			.await;
 
 		// bridge will inform about all connected peers.

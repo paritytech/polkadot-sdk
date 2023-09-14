@@ -22,8 +22,7 @@ use futures::{future::BoxFuture, stream::FuturesUnordered};
 
 use polkadot_node_network_protocol::{
 	request_response::{
-		incoming::OutgoingResponse, v1 as protocol_v1, v2 as protocol_v2,
-		IncomingRequest,
+		incoming::OutgoingResponse, v1 as protocol_v1, v2 as protocol_v2, IncomingRequest,
 	},
 	PeerId,
 };
@@ -89,7 +88,7 @@ pub struct WaitingCollationFetches {
 /// Backwards-compatible wrapper for incoming collations requests.
 pub enum VersionedCollationRequest {
 	V1(IncomingRequest<protocol_v1::CollationFetchingRequest>),
-	VStaging(IncomingRequest<protocol_v2::CollationFetchingRequest>),
+	V2(IncomingRequest<protocol_v2::CollationFetchingRequest>),
 }
 
 impl From<IncomingRequest<protocol_v1::CollationFetchingRequest>> for VersionedCollationRequest {
@@ -98,9 +97,7 @@ impl From<IncomingRequest<protocol_v1::CollationFetchingRequest>> for VersionedC
 	}
 }
 
-impl From<IncomingRequest<protocol_v2::CollationFetchingRequest>>
-	for VersionedCollationRequest
-{
+impl From<IncomingRequest<protocol_v2::CollationFetchingRequest>> for VersionedCollationRequest {
 	fn from(req: IncomingRequest<protocol_v2::CollationFetchingRequest>) -> Self {
 		Self::V2(req)
 	}

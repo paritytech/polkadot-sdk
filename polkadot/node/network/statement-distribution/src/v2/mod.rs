@@ -727,9 +727,7 @@ fn pending_statement_network_message(
 	statement_store
 		.validator_statement(originator, compact)
 		.map(|s| s.as_unchecked().clone())
-		.map(|signed| {
-			protocol_v2::StatementDistributionMessage::Statement(relay_parent, signed)
-		})
+		.map(|signed| protocol_v2::StatementDistributionMessage::Statement(relay_parent, signed))
 		.map(|msg| (vec![*peer], Versioned::V2(msg).into()))
 }
 
@@ -1685,9 +1683,8 @@ async fn provide_candidate_to_grid<Context>(
 		statement_knowledge: filter.clone(),
 	};
 
-	let manifest_message = Versioned::V2(
-		protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
-	);
+	let manifest_message =
+		Versioned::V2(protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest));
 	let ack_message = Versioned::V2(
 		protocol_v2::StatementDistributionMessage::BackedCandidateKnown(acknowledgement),
 	);
@@ -2188,9 +2185,9 @@ fn acknowledgement_and_statement_messages(
 		statement_knowledge: local_knowledge.clone(),
 	};
 
-	let msg = Versioned::V2(
-		protocol_v2::StatementDistributionMessage::BackedCandidateKnown(acknowledgement),
-	);
+	let msg = Versioned::V2(protocol_v2::StatementDistributionMessage::BackedCandidateKnown(
+		acknowledgement,
+	));
 
 	let mut messages = vec![(vec![peer], msg.into())];
 
@@ -2521,7 +2518,7 @@ pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut St
 	) {
 		// Peer is supposedly connected.
 		ctx.send_message(NetworkBridgeTxMessage::SendRequests(
-			vec![Requests::AttestedCandidateVStaging(request)],
+			vec![Requests::AttestedCandidateV2(request)],
 			IfDisconnected::ImmediateError,
 		))
 		.await;

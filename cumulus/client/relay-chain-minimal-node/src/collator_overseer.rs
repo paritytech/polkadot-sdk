@@ -64,8 +64,7 @@ pub(crate) struct CollatorOverseerGenArgs<'a> {
 	/// Receiver for collation request protocol v1.
 	pub collation_req_receiver_v1: IncomingRequestReceiver<v1::CollationFetchingRequest>,
 	/// Receiver for collation request protocol v2.
-	pub collation_req_receiver_v2:
-		IncomingRequestReceiver<v2::CollationFetchingRequest>,
+	pub collation_req_receiver_v2: IncomingRequestReceiver<v2::CollationFetchingRequest>,
 	/// Receiver for availability request protocol
 	pub available_data_req_receiver: IncomingRequestReceiver<AvailableDataFetchingRequest>,
 	/// Prometheus registry, commonly used for production systems, less so for test.

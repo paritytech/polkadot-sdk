@@ -21,8 +21,7 @@ use polkadot_node_network_protocol::{
 	grid_topology::{GridNeighbors, RequiredRouting, SessionBoundGridTopologyStorage},
 	peer_set::{IsAuthority, PeerSet, ValidationVersion},
 	v1::{self as protocol_v1, StatementMetadata},
-	v2 as protocol_v2, IfDisconnected, PeerId, UnifiedReputationChange as Rep,
-	Versioned, View,
+	v2 as protocol_v2, IfDisconnected, PeerId, UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_primitives::{
 	SignedFullStatement, Statement, StatementWithPVD, UncheckedSignedFullStatement,
@@ -1443,9 +1442,7 @@ async fn handle_incoming_message<'a, Context>(
 
 	let message = match message {
 		Versioned::V1(m) => m,
-		Versioned::V2(protocol_v2::StatementDistributionMessage::V1Compatibility(
-			m,
-		)) => m,
+		Versioned::V2(protocol_v2::StatementDistributionMessage::V1Compatibility(m)) => m,
 		Versioned::V2(_) => {
 			// The higher-level subsystem code is supposed to filter out
 			// all non v1 messages.
@@ -2170,8 +2167,7 @@ fn compatible_v1_message(
 ) -> net_protocol::StatementDistributionMessage {
 	match version {
 		ValidationVersion::V1 => Versioned::V1(message),
-		ValidationVersion::V2 => Versioned::V2(
-			protocol_v2::StatementDistributionMessage::V1Compatibility(message),
-		),
+		ValidationVersion::V2 =>
+			Versioned::V2(protocol_v2::StatementDistributionMessage::V1Compatibility(message)),
 	}
 }

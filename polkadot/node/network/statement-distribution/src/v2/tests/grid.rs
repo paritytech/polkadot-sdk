@@ -17,9 +17,7 @@
 use super::*;
 
 use bitvec::order::Lsb0;
-use polkadot_node_network_protocol::v2::{
-	BackedCandidateAcknowledgement, BackedCandidateManifest,
-};
+use polkadot_node_network_protocol::v2::{BackedCandidateAcknowledgement, BackedCandidateManifest};
 use polkadot_node_subsystem::messages::CandidateBackingMessage;
 use polkadot_primitives_test_helpers::make_candidate;
 

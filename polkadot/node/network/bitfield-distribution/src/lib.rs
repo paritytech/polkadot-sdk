@@ -31,8 +31,8 @@ use polkadot_node_network_protocol::{
 		GridNeighbors, RandomRouting, RequiredRouting, SessionBoundGridTopologyStorage,
 	},
 	peer_set::{ProtocolVersion, ValidationVersion},
-	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId,
-	UnifiedReputationChange as Rep, Versioned, View,
+	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId, UnifiedReputationChange as Rep,
+	Versioned, View,
 };
 use polkadot_node_subsystem::{
 	jaeger, messages::*, overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, PerLeafSpan,
@@ -502,8 +502,7 @@ async fn relay_message<Context>(
 		};
 
 		let v1_interested_peers = filter_by_version(&interested_peers, ValidationVersion::V1);
-		let v2_interested_peers =
-			filter_by_version(&interested_peers, ValidationVersion::V2);
+		let v2_interested_peers = filter_by_version(&interested_peers, ValidationVersion::V2);
 
 		if !v1_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(

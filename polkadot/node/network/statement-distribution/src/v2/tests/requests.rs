@@ -109,10 +109,7 @@ fn cluster_peer_allowed_to_send_incomplete_statements() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
-					relay_parent,
-					a_seconded,
-				),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -568,9 +565,7 @@ fn peer_reported_for_not_enough_statements() {
 		send_peer_message(
 			&mut overseer,
 			peer_c.clone(),
-			protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
-				manifest.clone(),
-			),
+			protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest.clone()),
 		)
 		.await;
 
@@ -752,10 +747,7 @@ fn peer_reported_for_duplicate_statements() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
-					relay_parent,
-					a_seconded,
-				),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -916,10 +908,7 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
-					relay_parent,
-					a_seconded,
-				),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1058,10 +1047,7 @@ fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
-					relay_parent,
-					a_seconded,
-				),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1269,10 +1255,7 @@ fn local_node_sanity_checks_incoming_requests() {
 			let response = state
 				.send_request(
 					peer_c,
-					request_v2::AttestedCandidateRequest {
-						candidate_hash: candidate.hash(),
-						mask,
-					},
+					request_v2::AttestedCandidateRequest { candidate_hash: candidate.hash(), mask },
 				)
 				.await
 				.await;
@@ -1547,10 +1530,7 @@ fn local_node_respects_statement_mask() {
 			let response = state
 				.send_request(
 					peer_c,
-					request_v2::AttestedCandidateRequest {
-						candidate_hash: candidate.hash(),
-						mask,
-					},
+					request_v2::AttestedCandidateRequest { candidate_hash: candidate.hash(), mask },
 				)
 				.await
 				.await;
@@ -1696,7 +1676,7 @@ fn should_delay_before_retrying_dropped_requests() {
 					assert_eq!(requests.len(), 1);
 					assert_matches!(
 						requests.pop().unwrap(),
-						Requests::AttestedCandidateVStaging(outgoing) => {
+						Requests::AttestedCandidateV2(outgoing) => {
 							assert_eq!(outgoing.peer, Recipient::Peer(peer_c));
 							assert_eq!(outgoing.payload.candidate_hash, candidate_hash_1);
 							assert_eq!(outgoing.payload.mask, mask);

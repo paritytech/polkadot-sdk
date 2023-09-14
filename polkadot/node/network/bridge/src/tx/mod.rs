@@ -296,13 +296,11 @@ where
 					Requests::AvailableDataFetchingV1(_) =>
 						metrics.on_message("available_data_fetching_v1"),
 					Requests::CollationFetchingV1(_) => metrics.on_message("collation_fetching_v1"),
-					Requests::CollationFetchingVStaging(_) =>
-						metrics.on_message("collation_fetching_v2"),
+					Requests::CollationFetchingV2(_) => metrics.on_message("collation_fetching_v2"),
 					Requests::PoVFetchingV1(_) => metrics.on_message("pov_fetching_v1"),
 					Requests::DisputeSendingV1(_) => metrics.on_message("dispute_sending_v1"),
 					Requests::StatementFetchingV1(_) => metrics.on_message("statement_fetching_v1"),
-					Requests::AttestedCandidateVStaging(_) =>
-						metrics.on_message("attested_candidate_v2"),
+					Requests::AttestedCandidateV2(_) => metrics.on_message("attested_candidate_v2"),
 				}
 
 				network_service

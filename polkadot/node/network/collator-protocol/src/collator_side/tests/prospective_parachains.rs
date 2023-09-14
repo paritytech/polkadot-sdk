@@ -203,8 +203,7 @@ fn distribute_collation_from_implicit_view() {
 				.into_iter()
 				.zip(validator_peer_ids.clone())
 			{
-				connect_peer(virtual_overseer, peer, CollationVersion::V2, Some(val.clone()))
-					.await;
+				connect_peer(virtual_overseer, peer, CollationVersion::V2, Some(val.clone())).await;
 			}
 
 			// Collator declared itself to each peer.

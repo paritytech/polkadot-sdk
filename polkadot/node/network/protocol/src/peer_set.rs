@@ -217,7 +217,7 @@ pub enum ValidationVersion {
 	/// The first version.
 	V1 = 1,
 	/// The staging version.
-	VStaging = 2,
+	V2 = 2,
 }
 
 /// Supported collation protocol versions. Only versions defined here must be used in the codebase.
@@ -226,7 +226,7 @@ pub enum CollationVersion {
 	/// The first version.
 	V1 = 1,
 	/// The staging version.
-	VStaging = 2,
+	V2 = 2,
 }
 
 /// Marker indicating the version is unknown.

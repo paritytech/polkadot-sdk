@@ -943,13 +943,8 @@ fn advertise_collation_v2_protocol() {
 			.await;
 			// The rest with v2.
 			for (val, peer) in validators.iter().zip(peer_ids.iter()).skip(1) {
-				connect_peer(
-					virtual_overseer,
-					*peer,
-					CollationVersion::V2,
-					Some(val.clone()),
-				)
-				.await;
+				connect_peer(virtual_overseer, *peer, CollationVersion::V2, Some(val.clone()))
+					.await;
 			}
 
 			// Declare messages.

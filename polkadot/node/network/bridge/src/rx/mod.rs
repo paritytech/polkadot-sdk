@@ -816,10 +816,8 @@ fn update_our_view<Net, Context>(
 	let v1_validation_peers = filter_by_version(&validation_peers, ValidationVersion::V1.into());
 	let v1_collation_peers = filter_by_version(&collation_peers, CollationVersion::V1.into());
 
-	let v2_validation_peers =
-		filter_by_version(&validation_peers, ValidationVersion::V2.into());
-	let v2_collation_peers =
-		filter_by_version(&collation_peers, ValidationVersion::V2.into());
+	let v2_validation_peers = filter_by_version(&validation_peers, ValidationVersion::V2.into());
+	let v2_collation_peers = filter_by_version(&collation_peers, ValidationVersion::V2.into());
 
 	send_validation_message_v1(
 		net,

@@ -253,16 +253,16 @@ impl View {
 
 /// A protocol-versioned type.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Versioned<V1, VStaging> {
+pub enum Versioned<V1, V2> {
 	/// V1 type.
 	V1(V1),
-	/// VStaging type.
-	VStaging(VStaging),
+	/// V2 type.
+	V2(V2),
 }
 
-impl<V1: Clone, VStaging: Clone> Versioned<&'_ V1, &'_ VStaging> {
+impl<V1: Clone, V2: Clone> Versioned<&'_ V1, &'_ V2> {
 	/// Convert to a fully-owned version of the message.
-	pub fn clone_inner(&self) -> Versioned<V1, VStaging> {
+	pub fn clone_inner(&self) -> Versioned<V1, V2> {
 		match *self {
 			Versioned::V1(inner) => Versioned::V1(inner.clone()),
 			Versioned::V2(inner) => Versioned::V2(inner.clone()),
@@ -271,8 +271,7 @@ impl<V1: Clone, VStaging: Clone> Versioned<&'_ V1, &'_ VStaging> {
 }
 
 /// All supported versions of the validation protocol message.
-pub type VersionedValidationProtocol =
-	Versioned<v1::ValidationProtocol, v2::ValidationProtocol>;
+pub type VersionedValidationProtocol = Versioned<v1::ValidationProtocol, v2::ValidationProtocol>;
 
 impl From<v1::ValidationProtocol> for VersionedValidationProtocol {
 	fn from(v1: v1::ValidationProtocol) -> Self {
@@ -343,8 +342,7 @@ macro_rules! impl_versioned_try_from {
 				#[allow(unreachable_patterns)] // when there is only one variant
 				match x {
 					Versioned::V1($v1_pat) => Ok(Versioned::V1($v1_out.clone())),
-					Versioned::V2($v2_pat) =>
-						Ok(Versioned::V2($v2_out.clone())),
+					Versioned::V2($v2_pat) => Ok(Versioned::V2($v2_out.clone())),
 					_ => Err(crate::WrongVariant),
 				}
 			}

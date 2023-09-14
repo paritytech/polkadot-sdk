@@ -33,8 +33,8 @@ use polkadot_node_network_protocol::{
 		incoming::{self, OutgoingResponse},
 		v1 as request_v1, v2 as request_v2, IncomingRequestReceiver,
 	},
-	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId,
-	UnifiedReputationChange as Rep, Versioned, View,
+	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId, UnifiedReputationChange as Rep,
+	Versioned, View,
 };
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
@@ -598,9 +598,7 @@ fn declare_message(
 				para_id,
 				state.collator_pair.sign(&declare_signature_payload),
 			);
-			Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
-				wire_message,
-			))
+			Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
 		},
 	})
 }
@@ -712,9 +710,7 @@ async fn advertise_collation<Context>(
 					candidate_hash: *candidate_hash,
 					parent_head_data_hash: collation.parent_head_data_hash,
 				};
-				Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
-					wire_message,
-				))
+				Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
 			},
 			CollationVersion::V1 => {
 				let wire_message =
@@ -868,16 +864,13 @@ async fn handle_incoming_peer_message<Context>(
 	runtime: &mut RuntimeInfo,
 	state: &mut State,
 	origin: PeerId,
-	msg: Versioned<
-		protocol_v1::CollatorProtocolMessage,
-		protocol_v2::CollatorProtocolMessage,
-	>,
+	msg: Versioned<protocol_v1::CollatorProtocolMessage, protocol_v2::CollatorProtocolMessage>,
 ) -> Result<()> {
 	use protocol_v1::CollatorProtocolMessage as V1;
-	use protocol_v2::CollatorProtocolMessage as VStaging;
+	use protocol_v2::CollatorProtocolMessage as V2;
 
 	match msg {
-		Versioned::V1(V1::Declare(..)) | Versioned::V2(VStaging::Declare(..)) => {
+		Versioned::V1(V1::Declare(..)) | Versioned::V2(V2::Declare(..)) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -888,8 +881,7 @@ async fn handle_incoming_peer_message<Context>(
 			ctx.send_message(NetworkBridgeTxMessage::DisconnectPeer(origin, PeerSet::Collation))
 				.await;
 		},
-		Versioned::V1(V1::AdvertiseCollation(_)) |
-		Versioned::V2(VStaging::AdvertiseCollation { .. }) => {
+		Versioned::V1(V1::AdvertiseCollation(_)) | Versioned::V2(V2::AdvertiseCollation { .. }) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -904,7 +896,7 @@ async fn handle_incoming_peer_message<Context>(
 				.await;
 		},
 		Versioned::V1(V1::CollationSeconded(relay_parent, statement)) |
-		Versioned::V2(VStaging::CollationSeconded(relay_parent, statement)) => {
+		Versioned::V2(V2::CollationSeconded(relay_parent, statement)) => {
 			if !matches!(statement.unchecked_payload(), Statement::Seconded(_)) {
 				gum::warn!(
 					target: LOG_TARGET,
@@ -1476,7 +1468,7 @@ async fn run_inner<Context>(
 
 				log_error(
 					handle_incoming_request(&mut ctx, &mut state, request).await,
-					"Handling incoming collation fetch request VStaging"
+					"Handling incoming collation fetch request V2"
 				)?;
 			}
 		}

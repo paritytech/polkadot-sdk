@@ -479,7 +479,7 @@ async fn handle_sent_request(
 			assert_eq!(requests.len(), 1);
 			assert_matches!(
 				requests.pop().unwrap(),
-				Requests::AttestedCandidateVStaging(outgoing) => {
+				Requests::AttestedCandidateV2(outgoing) => {
 					assert_eq!(outgoing.peer, Recipient::Peer(peer));
 					assert_eq!(outgoing.payload.candidate_hash, candidate_hash);
 					assert_eq!(outgoing.payload.mask, mask);

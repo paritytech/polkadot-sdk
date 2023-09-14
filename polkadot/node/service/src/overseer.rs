@@ -105,16 +105,14 @@ where
 	/// Collations request receiver for network protocol v1.
 	pub collation_req_v1_receiver: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
 	/// Collations request receiver for network protocol v2.
-	pub collation_req_v2_receiver:
-		IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
+	pub collation_req_v2_receiver: IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
 	/// Receiver for available data requests.
 	pub available_data_req_receiver:
 		IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
 	/// Receiver for incoming large statement requests.
 	pub statement_req_receiver: IncomingRequestReceiver<request_v1::StatementFetchingRequest>,
 	/// Receiver for incoming candidate requests.
-	pub candidate_req_v2_receiver:
-		IncomingRequestReceiver<request_v2::AttestedCandidateRequest>,
+	pub candidate_req_v2_receiver: IncomingRequestReceiver<request_v2::AttestedCandidateRequest>,
 	/// Receiver for incoming disputes.
 	pub dispute_req_receiver: IncomingRequestReceiver<request_v1::DisputeRequest>,
 	/// Prometheus registry, commonly used for production systems, less so for test.

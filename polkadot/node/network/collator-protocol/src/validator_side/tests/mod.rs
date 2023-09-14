@@ -357,7 +357,7 @@ async fn assert_fetch_collation_request(
 			),
 			Some(candidate_hash) => assert_matches!(
 				req,
-				Requests::CollationFetchingVStaging(req) => {
+				Requests::CollationFetchingV2(req) => {
 					let payload = req.payload;
 					assert_eq!(payload.relay_parent, relay_parent);
 					assert_eq!(payload.para_id, para_id);
@@ -394,12 +394,11 @@ async fn connect_and_declare_collator(
 			para_id,
 			collator.sign(&protocol_v1::declare_signature_payload(&peer)),
 		)),
-		CollationVersion::V2 =>
-			Versioned::V2(protocol_v2::CollatorProtocolMessage::Declare(
-				collator.public(),
-				para_id,
-				collator.sign(&protocol_v1::declare_signature_payload(&peer)),
-			)),
+		CollationVersion::V2 => Versioned::V2(protocol_v2::CollatorProtocolMessage::Declare(
+			collator.public(),
+			para_id,
+			collator.sign(&protocol_v1::declare_signature_payload(&peer)),
+		)),
 	};
 
 	overseer_send(

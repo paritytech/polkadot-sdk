@@ -84,8 +84,7 @@ pub enum ProtocolSide {
 		/// Receiver for v1 collation fetching requests.
 		request_receiver_v1: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
 		/// Receiver for v2 collation fetching requests.
-		request_receiver_v2:
-			IncomingRequestReceiver<protocol_v2::CollationFetchingRequest>,
+		request_receiver_v2: IncomingRequestReceiver<protocol_v2::CollationFetchingRequest>,
 		/// Metrics.
 		metrics: collator_side::Metrics,
 	},

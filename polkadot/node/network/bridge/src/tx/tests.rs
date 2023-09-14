@@ -404,9 +404,8 @@ fn network_protocol_versioning_send() {
 				dummy_collator_signature(),
 			);
 
-			let msg = protocol_v2::CollationProtocol::CollatorProtocol(
-				collator_protocol_message.clone(),
-			);
+			let msg =
+				protocol_v2::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
 
 			let receivers = vec![peer_ids[1], peer_ids[2]];
 
