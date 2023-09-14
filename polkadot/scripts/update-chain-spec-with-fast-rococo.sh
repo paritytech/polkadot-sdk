@@ -20,7 +20,7 @@ shift 2
 
 CHAIN_NAME="westend-staging"
 
-while getopts "x" o; do
+while getopts "c:" o; do
     case "${o}" in
         c)
             CHAIN_NAME=${OPTARG}
