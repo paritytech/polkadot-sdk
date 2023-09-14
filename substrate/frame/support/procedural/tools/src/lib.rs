@@ -50,10 +50,24 @@ pub fn generate_crate_access(unique_id: &str, def_crate: &str) -> TokenStream {
 	}
 }
 
+/// Check if a path is using the `frame` crate or not.
+///
+/// This will usually check the output of [`generate_crate_access_2018`].
+pub fn is_using_frame_crate(path: &syn::Path) -> bool {
+	path.segments.first().map(|s| s.ident == "frame").unwrap_or(false)
+}
+
 /// Generate the crate access for the crate using 2018 syntax.
 ///
-/// It tries to find `<def_crate>` and returns it as a path.
+/// If `frame` is in scope, it will use `frame::deps::<def_crate>`. Else, it will try and find
+/// `<def_crate>` directly.
 pub fn generate_crate_access_2018(def_crate: &str) -> Result<syn::Path, Error> {
+	if let Ok(FoundCrate::Name(name)) = crate_name(&"frame") {
+		let path = format!("{}::deps::{}", name, def_crate.to_string().replace("-", "_"));
+		let path = syn::parse_str::<syn::Path>(&path)?;
+		return Ok(path)
+	}
+
 	let indent = match crate_name(def_crate) {
 		Ok(FoundCrate::Itself) => {
 			let name = def_crate.to_string().replace("-", "_");
