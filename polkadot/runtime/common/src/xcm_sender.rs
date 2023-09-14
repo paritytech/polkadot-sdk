@@ -55,7 +55,7 @@ impl<T: Get<MultiAssets>> PriceForParachainDelivery for ConstantPrice<T> {
 ///
 /// `F * (B + encoded_msg_len * M)`
 ///
-/// Thus, if F = 1 and M = 1, this type is equivalent to [`ConstantPrice<B>`].
+/// Thus, if F = 1 and M = 0, this type is equivalent to [`ConstantPrice<B>`].
 ///
 /// The type parameters are understood as follows:
 ///
