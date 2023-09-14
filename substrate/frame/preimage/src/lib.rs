@@ -113,10 +113,8 @@ pub mod pallet {
 		/// The Weight information for this pallet.
 		type WeightInfo: weights::WeightInfo;
 
-		type RuntimeHoldReason: From<HoldReason>;
-
 		/// Currency type for this pallet.
-		// TODO: Remove.
+		// TODO#1569: Remove.
 		type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// An origin that can request a preimage be placed on-chain without a deposit or fee, or
