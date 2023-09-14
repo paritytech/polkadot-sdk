@@ -85,6 +85,6 @@ where
 	}
 
 	fn archive_unstable_finalized_height(&self) -> RpcResult<u64> {
-		Ok(self.client.info().best_number.saturated_into())
+		Ok(self.client.info().finalized_number.saturated_into())
 	}
 }

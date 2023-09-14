@@ -23,8 +23,10 @@ use super::{archive::Archive, *};
 use codec::{Decode, Encode};
 use jsonrpsee::{types::EmptyServerParams as EmptyParams, RpcModule};
 use sc_block_builder::BlockBuilderProvider;
-
+use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
+use sp_core::testing::TaskExecutor;
+use sp_runtime::SaturatedConversion;
 use std::sync::Arc;
 use substrate_test_runtime_client::{
 	prelude::*, runtime, Backend, BlockBuilderExt, Client, ClientBlockImportExt,
@@ -110,4 +112,16 @@ async fn archive_header() {
 	let bytes = array_bytes::hex2bytes(&header).unwrap();
 	let header: Header = Decode::decode(&mut &bytes[..]).unwrap();
 	assert_eq!(header, block.header);
+}
+
+#[tokio::test]
+async fn archive_finalized_height() {
+	let (client, api) = setup_api();
+
+	let client_height: u64 = client.info().finalized_number.saturated_into();
+
+	let height: u64 =
+		api.call("archive_unstable_finalizedHeight", EmptyParams::new()).await.unwrap();
+
+	assert_eq!(client_height, height);
 }
