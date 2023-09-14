@@ -15,8 +15,9 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 sp-std = { path = "../../../substrate/primitives/std", default-features = false}
 
 # Polkadot
-polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false}
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
+polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false }
+polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false}
 xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false}
 
@@ -31,6 +32,7 @@ std = [
 	"cumulus-primitives-core/std",
 	"frame-support/std",
 	"polkadot-runtime-common/std",
+	"polkadot-runtime-parachains/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",

@@ -64,7 +64,7 @@ impl<T: Get<MultiAssets>> PriceForParachainDelivery for ConstantPrice<T> {
 /// - `M`: The fee to pay for each and every byte of the message after encoding it.
 /// - `F`: A fee factor multiplier. It can be understood as the exponent term in the formula.
 pub struct ExponentialPrice<A, B, M, F>(sp_std::marker::PhantomData<(A, B, M, F)>);
-impl<A: Get<AssetId>, B: Get<u128>, M: Get<u128>, F: FeeTracker> PriceForParachainDelivery
+impl<A: Get<AssetId>, B: Get<u128>, M: Get<u128>, F: FeeTracker<ParaId>> PriceForParachainDelivery
 	for ExponentialPrice<A, B, M, F>
 {
 	fn price_for_parachain_delivery(para: ParaId, msg: &Xcm<()>) -> MultiAssets {
@@ -222,8 +222,7 @@ mod tests {
 
 	struct TestFeeTracker;
 	impl FeeTracker for TestFeeTracker {
-		type Id = ();
-		fn get_fee_factor(_: Self::Id) -> FixedU128 {
+		fn get_fee_factor(_: ()) -> FixedU128 {
 			FixedU128::from_rational(101, 100)
 		}
 	}

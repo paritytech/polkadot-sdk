@@ -45,6 +45,7 @@ use frame_support::{
 };
 use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
+use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash},
@@ -52,7 +53,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
 		ValidTransaction,
 	},
-	DispatchError, RuntimeDebug,
+	DispatchError, RuntimeDebug, FixedU128, Saturating,
 };
 use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
 use xcm::latest::XcmHash;
@@ -178,9 +179,11 @@ where
 }
 
 mod ump_constants {
-	const THRESHOLD_FACTOR: u32 = 2; // The price starts to increase when queue is half full
-	const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
-	const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
+	use super::FixedU128;
+
+	pub const THRESHOLD_FACTOR: u32 = 2; // The price starts to increase when queue is half full
+	pub const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
+	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 }
 
 #[frame_support::pallet]
@@ -993,7 +996,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns the new delivery fee factor after the increment.
 	pub(crate) fn increment_ump_fee_factor(message_size_factor: FixedU128) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::mutate(|f| {
+		<UpwardDeliveryFeeFactor<T>>::mutate(|f| {
 			*f = f.saturating_mul(ump_constants::EXPONENTIAL_FEE_BASE + message_size_factor);
 			*f
 		})
@@ -1005,17 +1008,15 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns the new delivery fee factor after the decrement.
 	pub(crate) fn decrement_ump_fee_factor() -> FixedU128 {
-		<DeliveryFeeFactor<T>>::mutate(|f| {
-			*f = InitialFactor::get().max(*f / ump_constants::EXPONENTIAL_FEE_BASE);
+		<UpwardDeliveryFeeFactor<T>>::mutate(|f| {
+			*f = UpwardInitialDeliveryFeeFactor::get().max(*f / ump_constants::EXPONENTIAL_FEE_BASE);
 			*f
 		})
 	}
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {
-	type Id = ();
-
-	fn get_fee_factor(_: Self::Id) -> FixedU128 {
+	fn get_fee_factor(_: ()) -> FixedU128 {
 		UpwardDeliveryFeeFactor::<T>::get()
 	}
 }
@@ -1530,6 +1531,20 @@ impl<T: Config> Pallet<T> {
 			if message_len > cfg.max_upward_message_size as usize {
 				return Err(MessageSendError::TooBig)
 			}
+			// The threshold to increase fee is a factor of the max length in the queue
+			// TODO: Should this be `config.max_upward_queue_size` or `MAX_POSSIBLE_ALLOCATION`?
+			let threshold = cfg.max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR);
+			// We check the threshold against total size and not number of messages since messages could be big or small
+			let pending_messages = PendingUpwardMessages::<T>::get();
+			let total_size = pending_messages.iter().fold(0, |size_so_far, current_message| {
+				size_so_far + current_message.len()
+			});
+			if total_size > threshold as usize {
+				let message_size_factor =
+					FixedU128::from_u32(message_len.saturating_div(1024) as u32)
+						.saturating_mul(ump_constants::MESSAGE_SIZE_FEE_BASE);
+				Self::increment_ump_fee_factor(message_size_factor);
+			}
 		} else {
 			// This storage field should carry over from the previous block. So if it's None
 			// then it must be that this is an edge-case where a message is attempted to be
@@ -1541,21 +1556,6 @@ impl<T: Config> Pallet<T> {
 			//
 			// Thus fall through here.
 		};
-
-		// The threshold to increase fee is a factor of the max length in the queue
-		// TODO: Should this be `config.max_upward_queue_size` or `MAX_POSSIBLE_ALLOCATION`?
-		let threshold = config.max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR);
-		// We check the threshold against total size and not number of messages since messages could be big or small
-		let pending_messages = PendingUpwardMessages::<T>::get();
-		let total_size = pending_messages.iter().fold(0, |size_so_far, current_message| {
-			size_so_far + current_message.len()
-		});
-		if total_size > threshold {
-			let message_size_factor =
-				FixedU128::from_u32(message_len.saturating_div(1024) as u32)
-					.saturating_mul(ump_constants::MESSAGE_SIZE_FEE_BASE);
-			Self::increment_ump_fee_factor(message_size_factor);
-		}
 
 		<PendingUpwardMessages<T>>::append(message.clone());
 
