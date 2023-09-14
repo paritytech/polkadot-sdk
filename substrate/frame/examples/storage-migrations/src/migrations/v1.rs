@@ -26,7 +26,8 @@ use frame_support::{
 ///
 /// This module is `pub` so it can be referenced in the docs of this example pallet.
 ///
-/// Regular migrations should declare this module as private.
+/// Real migrations should declare this module as private by declaring `mod old`
+/// instead of `pub mod old`.
 pub mod old {
 	use super::*;
 
@@ -39,7 +40,8 @@ pub mod old {
 ///
 /// This module is `pub` so it can be referenced in the docs of this example pallet.
 ///
-/// Regular migrations should declare this module as private.
+/// Real migrations should declare this module as private by declaring `mod version_unchecked`
+/// instead of `pub mod version_unchecked`.
 ///
 /// Should only be used by the [`VersionedMigration`](frame_support::migrations::VersionedMigration)
 /// type in this module to create something to export.
