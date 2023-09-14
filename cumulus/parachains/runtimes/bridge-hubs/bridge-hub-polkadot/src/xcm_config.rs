@@ -19,8 +19,10 @@ use super::{
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 use crate::{
+	bridge_bulletin_config::ToPolkadotBulletinHaulBlobExporter,
 	bridge_kusama_config::ToBridgeHubKusamaHaulBlobExporter, BridgeGrandpaKusamaInstance,
-	DeliveryRewardInBalance, RequiredStakeForStakeAndSlash,
+	FromBulletinDeliveryRewardInBalance, FromKusamaDeliveryRewardInBalance,
+	RequiredStakeForStakeAndSlash,
 };
 use frame_support::{
 	match_types, parameter_types,
@@ -138,7 +140,8 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 		match call {
 			RuntimeCall::System(frame_system::Call::set_storage { items })
 				if items.iter().all(|(k, _)| {
-					k.eq(&DeliveryRewardInBalance::key()) |
+					k.eq(&FromBulletinDeliveryRewardInBalance::key()) |
+						k.eq(&FromKusamaDeliveryRewardInBalance::key()) |
 						k.eq(&RequiredStakeForStakeAndSlash::key())
 				}) =>
 				return true,
@@ -230,7 +233,7 @@ impl xcm_executor::Config for XcmConfig {
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type FeeManager = ();
-	type MessageExporter = ToBridgeHubKusamaHaulBlobExporter;
+	type MessageExporter = (ToBridgeHubKusamaHaulBlobExporter, ToPolkadotBulletinHaulBlobExporter);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;

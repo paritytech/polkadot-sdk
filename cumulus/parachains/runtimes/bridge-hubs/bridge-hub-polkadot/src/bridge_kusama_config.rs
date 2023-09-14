@@ -29,8 +29,8 @@ use bridge_runtime_common::{
 	},
 	messages_xcm_extension::{SenderAndLane, XcmBlobHauler, XcmBlobHaulerAdapter},
 	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedParachainMessages, RefundableMessagesLane,
-		RefundableParachain, RefundSignedExtensionAdapter,
+		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
+		RefundableMessagesLane, RefundableParachain,
 	},
 };
 use codec::Encode;
@@ -88,7 +88,7 @@ pub type ToBridgeHubKusamaMessagesDeliveryProof =
 	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_kusama::Hash>;
 
 /// Dispatches received XCM messages from other bridge
-pub type OnThisChainBlobDispatcher<UniversalLocation> =
+pub type FromKusamaBlobDispatcher<UniversalLocation> =
 	BridgeBlobDispatcher<XcmRouter, UniversalLocation, BridgeKusamaMessagesPalletInstance>;
 
 /// Export XCM messages to be relayed to the other side.
@@ -157,14 +157,19 @@ impl ThisChainWithMessages for ThisChain {
 
 // TODO: rework once dynamic lanes are supported (https://github.com/paritytech/parity-bridges-common/issues/1760)
 /// Signed extension that refunds relayers that are delivering messages from the kusama BridgeHub.
-pub type BridgeRefundBridgeHubKusamaMessages = RefundSignedExtensionAdapter<RefundBridgedParachainMessages<
-	Runtime,
-	RefundableParachain<BridgeParachainKusamaInstance, BridgeHubKusama>,
-	RefundableMessagesLane<WithBridgeHubKusamaMessagesInstance, StatemintToStatemineMessageLane>,
-	ActualFeeRefund<Runtime>,
-	PriorityBoostPerMessage,
-	StrBridgeRefundBridgeHubKusamaMessages,
->>;
+pub type BridgeRefundBridgeHubKusamaMessages = RefundSignedExtensionAdapter<
+	RefundBridgedParachainMessages<
+		Runtime,
+		RefundableParachain<BridgeParachainKusamaInstance, BridgeHubKusama>,
+		RefundableMessagesLane<
+			WithBridgeHubKusamaMessagesInstance,
+			StatemintToStatemineMessageLane,
+		>,
+		ActualFeeRefund<Runtime>,
+		PriorityBoostPerMessage,
+		StrBridgeRefundBridgeHubKusamaMessages,
+	>,
+>;
 bp_runtime::generate_static_str_provider!(BridgeRefundBridgeHubKusamaMessages);
 
 // TODO: rework once dynamic lanes are supported (https://github.com/paritytech/parity-bridges-common/issues/1760)

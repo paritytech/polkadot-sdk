@@ -16,7 +16,7 @@
 
 use bp_polkadot_core::Signature;
 pub use bridge_hub_polkadot_runtime::{
-	bridge_kusama_config,
+	bridge_bulletin_config, bridge_kusama_config,
 	xcm_config::{DotRelayLocation, RelayNetwork, XcmConfig},
 	AllPalletsWithoutSystem, Balances, BridgeGrandpaKusamaInstance,
 	BridgeRejectObsoleteHeadersAndMessages, ExistentialDeposit, ParachainSystem, PolkadotXcm,
@@ -24,7 +24,7 @@ pub use bridge_hub_polkadot_runtime::{
 };
 use bridge_hub_polkadot_runtime::{
 	bridge_kusama_config::WithBridgeHubKusamaMessageBridge, BridgeParachainKusamaInstance,
-	DeliveryRewardInBalance, Executive, RequiredStakeForStakeAndSlash, SignedExtra,
+	Executive, FromKusamaDeliveryRewardInBalance, RequiredStakeForStakeAndSlash, SignedExtra,
 	UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
@@ -61,6 +61,7 @@ fn construct_extrinsic(
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		bridge_kusama_config::BridgeRefundBridgeHubKusamaMessages::default(),
+		bridge_bulletin_config::BridgeRefundPolkadotBulletinMessages::default(),
 	);
 	let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));
@@ -134,13 +135,18 @@ fn initialize_bridge_by_governance_works() {
 fn change_delivery_reward_by_governance_works() {
 	bridge_hub_test_utils::test_cases::change_storage_constant_by_governance_works::<
 		Runtime,
-		DeliveryRewardInBalance,
+		FromKusamaDeliveryRewardInBalance,
 		u64,
 	>(
 		collator_session_keys(),
 		bp_bridge_hub_polkadot::BRIDGE_HUB_POLKADOT_PARACHAIN_ID,
 		Box::new(|call| RuntimeCall::System(call).encode()),
-		|| (DeliveryRewardInBalance::key().to_vec(), DeliveryRewardInBalance::get()),
+		|| {
+			(
+				FromKusamaDeliveryRewardInBalance::key().to_vec(),
+				FromKusamaDeliveryRewardInBalance::get(),
+			)
+		},
 		|old_value| old_value.checked_mul(2).unwrap(),
 	)
 }

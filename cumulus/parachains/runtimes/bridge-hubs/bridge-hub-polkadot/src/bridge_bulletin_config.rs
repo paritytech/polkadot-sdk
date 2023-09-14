@@ -16,31 +16,45 @@
 
 //! Definitions, related to bridge with Polkadot Bulletin Chain.
 
+// TODO: this file assumes that there'll be sibling chain (called Kawabunga) that will
+// be sending messages to Polkadot Bulletin chain. We'll need to change that once it
+// is decidec.
+
 use crate::{
-	bridge_kusama_config::PriorityBoostPerMessage,
-	BridgeGrandpaBulletinInstance, BridgePolkadotBulletinGrandpa, Runtime, WithPolkadotBulletinMessagesInstance,
+	bridge_kusama_config::PriorityBoostPerMessage, BridgeGrandpaBulletinInstance,
+	BridgePolkadotBulletinGrandpa, BridgePolkadotBulletinMessages, Runtime,
+	WithPolkadotBulletinMessagesInstance, XcmRouter,
 };
 
 use bp_messages::LaneId;
-use bp_runtime::{ChainId, UnderlyingChainProvider};
+use bp_runtime::UnderlyingChainProvider;
 use bridge_runtime_common::{
 	messages::{self, MessageBridge, ThisChainWithMessages},
+	messages_xcm_extension::{SenderAndLane, XcmBlobHauler, XcmBlobHaulerAdapter},
 	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedGrandpaMessages, RefundableMessagesLane,
-		RefundSignedExtensionAdapter,
+		ActualFeeRefund, RefundBridgedGrandpaMessages, RefundSignedExtensionAdapter,
+		RefundableMessagesLane,
 	},
 };
-use frame_support::parameter_types;
+use frame_support::{parameter_types, traits::PalletInfoAccess};
 use sp_runtime::RuntimeDebug;
+use xcm::{latest::prelude::*, prelude::NetworkId};
+use xcm_builder::{BridgeBlobDispatcher, HaulBlobExporter};
 
-/// A chain identifier of the Polkadot Bulletin Chain.
-///
-/// This type (and the constant) will be removed in the future versions, so it is here.
-pub const POLKADOT_BULLETIN_CHAIN_ID: ChainId = *b"pbch";
 /// The only lane we are using to bridge with Polkadot Bulletin Chain.
 pub const WITH_POLKADOT_BULLETIN_LANE: LaneId = LaneId([0, 0, 0, 0]);
 
 parameter_types! {
+	/// Network identifier of the Polkadot Bulletin chain.
+	pub PolkadotBulletinGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis([42u8; 32]); // TODO
+	/// Identifier of the Kawabunga parachain.
+	pub KawabungaParaId: cumulus_primitives_core::ParaId = 42.into();
+
+	/// Interior location of the with-Polakdot Bulletin messages pallet within this runtime.
+	pub WithPolkadotBulletinMessagesPalletLocation: InteriorMultiLocation = X1(PalletInstance(
+		<BridgePolkadotBulletinMessages as PalletInfoAccess>::index() as u8,
+	));
+
 	/// Maximal number of unrewarded relayer entries.
 	pub const MaxUnrewardedRelayerEntriesAtInboundLane: bp_messages::MessageNonce =
 		bp_polkadot_bulletin::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
@@ -48,12 +62,29 @@ parameter_types! {
 	pub const MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_polkadot_bulletin::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	/// Chain identifier of Polkadot Bulletin Chain.
-	pub const PolkadotBulletinChainId: bp_runtime::ChainId = POLKADOT_BULLETIN_CHAIN_ID;
+	pub const PolkadotBulletinChainId: bp_runtime::ChainId =
+		bp_runtime::POLKADOT_BULLETIN_CHAIN_ID;
 
 	/// The only lane we are using to bridge with Polkadot Bulletin Chain.
 	pub const WithPolkadotBulletinLane: LaneId = LaneId([0, 0, 0, 0]);
 	/// All active lanes in the with Polkadot Bulletin Chain  bridge.
 	pub ActiveOutboundLanesToPolkadotBulletin: &'static [LaneId] = &[WITH_POLKADOT_BULLETIN_LANE];
+
+	/// Sending chain location and lane used to communicate with Polkadot Bulletin chain.
+	pub FromKawabungaToPolkadotBulletinRoute: SenderAndLane = SenderAndLane::new(
+		ParentThen(X1(Parachain(KawabungaParaId::get().into()))).into(),
+		WITH_POLKADOT_BULLETIN_LANE,
+	);
+
+	// Following constants are set to `None` assuming that the communication with Polkadot Bulletin
+	// chain is the "system-to-system" communication and noone pays any fees anywhere. So we don't
+	// need any congestion/uncongestion mechanisms here. If it will ever change, we'll need to
+	// support that.
+
+	/// Message that is sent to Kawabunga when the bridge becomes congested.
+	pub CongestedMessage: Option<Xcm<()>> = None;
+	/// Message that is sent to Kawabunga when the bridge becomes uncongested.
+	pub UncongestedMessage: Option<Xcm<()>> = None;
 }
 
 /// Message verifier for PolkadotBulletin messages sent from ThisChain
@@ -97,14 +128,37 @@ impl ThisChainWithMessages for ThisChain {
 	type RuntimeOrigin = crate::RuntimeOrigin;
 }
 
+/// Dispatches received XCM messages from the Polkadot Bulletin chain.
+pub type FromPolkadotBulletinBlobDispatcher<UniversalLocation> =
+	BridgeBlobDispatcher<XcmRouter, UniversalLocation, WithPolkadotBulletinMessagesPalletLocation>;
+
+/// Export XCM messages to be relayed to the Polkadot Bulletin chain.
+pub type ToPolkadotBulletinHaulBlobExporter = HaulBlobExporter<
+	XcmBlobHaulerAdapter<ToPolkadotBulletinXcmBlobHauler>,
+	PolkadotBulletinGlobalConsensusNetwork,
+	(),
+>;
+pub struct ToPolkadotBulletinXcmBlobHauler;
+impl XcmBlobHauler for ToPolkadotBulletinXcmBlobHauler {
+	type Runtime = Runtime;
+	type MessagesInstance = WithPolkadotBulletinMessagesInstance;
+	type SenderAndLane = FromKawabungaToPolkadotBulletinRoute;
+
+	type ToSourceChainSender = crate::XcmRouter;
+	type CongestedMessage = CongestedMessage;
+	type UncongestedMessage = UncongestedMessage;
+}
+
 /// Signed extension that refunds relayers that are delivering messages from the Bulletin chain.
-pub type BridgeRefundPolkadotBulletinMessages = RefundSignedExtensionAdapter<RefundBridgedGrandpaMessages<
-	Runtime,
-	BridgeGrandpaBulletinInstance,
-	RefundableMessagesLane<WithPolkadotBulletinMessagesInstance, WithPolkadotBulletinLane>,
-	ActualFeeRefund<Runtime>,
-	// we could reuse the same priority boost as we do for with-Kusama bridge
-	PriorityBoostPerMessage,
-	BridgeRefundPolkadotBulletinMessages,
->>;
+pub type BridgeRefundPolkadotBulletinMessages = RefundSignedExtensionAdapter<
+	RefundBridgedGrandpaMessages<
+		Runtime,
+		BridgeGrandpaBulletinInstance,
+		RefundableMessagesLane<WithPolkadotBulletinMessagesInstance, WithPolkadotBulletinLane>,
+		ActualFeeRefund<Runtime>,
+		// we could reuse the same priority boost as we do for with-Kusama bridge
+		PriorityBoostPerMessage,
+		StrBridgeRefundPolkadotBulletinMessages,
+	>,
+>;
 bp_runtime::generate_static_str_provider!(BridgeRefundPolkadotBulletinMessages);

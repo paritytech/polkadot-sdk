@@ -80,12 +80,13 @@ use parachains_common::{
 };
 
 use crate::{
-	bridge_kusama_config::{
-		BridgeRefundBridgeHubKusamaMessages, OnThisChainBlobDispatcher,
-		WithBridgeHubKusamaMessageBridge,
-	},
 	bridge_bulletin_config::{
-		BridgeRefundPolkadotBulletinMessages, WithPolkadotBulletinMessageBridge,
+		BridgeRefundPolkadotBulletinMessages, FromPolkadotBulletinBlobDispatcher,
+		WithPolkadotBulletinMessageBridge,
+	},
+	bridge_kusama_config::{
+		BridgeRefundBridgeHubKusamaMessages, FromKusamaBlobDispatcher,
+		WithBridgeHubKusamaMessageBridge,
 	},
 	xcm_config::{UniversalLocation, XcmRouter},
 };
@@ -122,7 +123,7 @@ pub type SignedExtra = (
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	BridgeRejectObsoleteHeadersAndMessages,
 	BridgeRefundBridgeHubKusamaMessages,
-	BridgeRefundPolkadotBulletinMessages
+	BridgeRefundPolkadotBulletinMessages,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -448,7 +449,9 @@ parameter_types! {
 
 	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";
 	// Just initial value, and concrete values will be set up by governance call (`set_storage`) with `initialize` bridge call as a part of cutover plan (https://github.com/paritytech/parity-bridges-common/issues/1730)
-	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
+	pub storage FromKusamaDeliveryRewardInBalance: u64 = 1_000_000;
+	// Just initial value, and concrete values will be set up by governance call (`set_storage`) with `initialize` bridge call as a part of cutover plan (https://github.com/paritytech/parity-bridges-common/issues/1730)
+	pub storage FromBulletinDeliveryRewardInBalance: u64 = 1_000_000;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -496,11 +499,11 @@ impl pallet_bridge_messages::Config<WithBridgeHubKusamaMessagesInstance> for Run
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
 		WithBridgeHubKusamaMessagesInstance,
-		DeliveryRewardInBalance,
+		FromKusamaDeliveryRewardInBalance,
 	>;
 	type SourceHeaderChain = SourceHeaderChainAdapter<WithBridgeHubKusamaMessageBridge>;
 	type MessageDispatch = XcmBlobMessageDispatch<
-		OnThisChainBlobDispatcher<UniversalLocation>,
+		FromKusamaBlobDispatcher<UniversalLocation>,
 		Self::WeightInfo,
 		cumulus_pallet_xcmp_queue::bridging::OutboundXcmpChannelCongestionStatusProvider<
 			bridge_kusama_config::AssetHubPolkadotParaId,
@@ -556,10 +559,14 @@ impl pallet_bridge_messages::Config<WithPolkadotBulletinMessagesInstance> for Ru
 	type DeliveryPayments = ();
 	type TargetHeaderChain = TargetHeaderChainAdapter<WithPolkadotBulletinMessageBridge>;
 	type LaneMessageVerifier = bridge_bulletin_config::ToPolkadotBulletinMessageVerifier;
-	type DeliveryConfirmationPayments = (); // TODO
+	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
+		Runtime,
+		WithPolkadotBulletinMessagesInstance,
+		FromBulletinDeliveryRewardInBalance,
+	>;
 	type SourceHeaderChain = SourceHeaderChainAdapter<WithPolkadotBulletinMessageBridge>;
 	type MessageDispatch = XcmBlobMessageDispatch<
-		OnThisChainBlobDispatcher<UniversalLocation>,
+		FromPolkadotBulletinBlobDispatcher<UniversalLocation>,
 		Self::WeightInfo,
 		(),
 	>;
@@ -1151,6 +1158,7 @@ mod tests {
 			pallet_transaction_payment::ChargeTransactionPayment::from(10),
 			BridgeRejectObsoleteHeadersAndMessages::default(),
 			BridgeRefundBridgeHubKusamaMessages::default(),
+			BridgeRefundPolkadotBulletinMessages::default(),
 		);
 		use bp_bridge_hub_polkadot::SignedExtension as BridgeHubSignedExtension;
 		use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
