@@ -24,9 +24,10 @@ use frame_support::{
 ///
 /// Required so we can read values in the old storage format during the migration.
 ///
-/// Note: this is only `pub(crate)` visibility so it can be referenced in the tutorial docs.
-/// In regular migrations the visibility would just be `mod`.
-pub(crate) mod old {
+/// This module is `pub` so it can be referenced in the docs of this example pallet.
+///
+/// Regular migrations should declare this module as private.
+pub mod old {
 	use super::*;
 
 	/// V0 type for [`crate::Value`].
@@ -36,18 +37,20 @@ pub(crate) mod old {
 
 /// Private module containing *version unchecked* migration logic.
 ///
+/// This module is `pub` so it can be referenced in the docs of this example pallet.
+///
+/// Regular migrations should declare this module as private.
+///
 /// Should only be used by the [`VersionedMigration`](frame_support::migrations::VersionedMigration)
 /// type in this module to create something to export.
 ///
-/// We keep this private so the unversioned migration cannot accidentally be used in any runtimes.
+/// The unversioned migration should be kept private so the unversioned migration cannot
+/// accidentally be used in any runtimes.
 ///
 /// For more about this pattern of keeping items private, see
 /// - <https://github.com/rust-lang/rust/issues/30905>
 /// - <https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40>
-///
-/// Note: this is only `pub(crate)` visibility so it can be referenced in the tutorial docs.
-/// In regular migrations the visibility would just be `mod`.
-pub(crate) mod version_unchecked {
+pub mod version_unchecked {
 	use super::*;
 
 	/// Implements [`OnRuntimeUpgrade`], migrating the state of this pallet from V0 to V1.

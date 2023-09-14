@@ -31,8 +31,7 @@
 //!   between current and on-chain [`StorageVersion`]s
 
 //! ## How to read these docs
-//! - Run `cargo doc --features try-runtime --package pallet-example-storage-migrations
-//!   --document-private-items --open`
+//! - Run `cargo doc --features try-runtime --package pallet-example-storage-migrations --open`
 //! to view the documentation in your browser.
 //! - Read the relevant source code as your read the docs.
 //!
