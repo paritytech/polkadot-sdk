@@ -640,6 +640,8 @@ type Migrations = (
 	// unreleased
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
 	// unreleased
+	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+	// unreleased
 	InitStorageVersions,
 );
 
@@ -663,11 +665,6 @@ impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
 			writes.saturating_inc();
 		}
 
-		if Multisig::on_chain_storage_version() == StorageVersion::new(0) {
-			StorageVersion::new(1).put::<Multisig>();
-			writes.saturating_inc();
-		}
-
 		if Preimage::on_chain_storage_version() == StorageVersion::new(0) {
 			StorageVersion::new(1).put::<Preimage>();
 			writes.saturating_inc();
@@ -683,7 +680,7 @@ impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
 			writes.saturating_inc();
 		}
 
-		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(5, writes)
+		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(4, writes)
 	}
 }
 

@@ -45,8 +45,6 @@ pub mod v1 {
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
-			ensure!(onchain < 1, "this migration can be deleted");
-
 			log!(info, "Number of calls to refund and delete: {}", Calls::<T>::iter().count());
 
 			Ok(Vec::new())
@@ -73,8 +71,6 @@ pub mod v1 {
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 			let onchain = Pallet::<T>::on_chain_storage_version();
-			ensure!(onchain < 2, "this migration needs to be removed");
-			ensure!(onchain == 1, "this migration needs to be run");
 			ensure!(
 				Calls::<T>::iter().count() == 0,
 				"there are some dangling calls that need to be destroyed and refunded"
