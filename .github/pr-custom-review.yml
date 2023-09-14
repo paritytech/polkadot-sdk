@@ -8,7 +8,7 @@ rules:
     check_type: changed_files
     condition:
       include: ^\.gitlab-ci\.yml|^docker/.*|^\.github/.*|^\.gitlab/.*|^\.config/nextest.toml|^\.cargo/.*
-      exclude: ^./gitlab/pipeline/zombienet.yml$
+      exclude: ^\.gitlab/pipeline/zombienet.*
     min_approvals: 2
     teams:
       - ci
