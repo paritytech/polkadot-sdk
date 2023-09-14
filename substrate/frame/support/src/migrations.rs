@@ -48,24 +48,44 @@ use sp_std::marker::PhantomData;
 /// ### Examples
 /// ```ignore
 /// // In file defining migrations
-/// pub struct VersionUncheckedMigrateV5ToV6<T>(sp_std::marker::PhantomData<T>);
-/// impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV5ToV6<T> {
-/// 	// OnRuntimeUpgrade implementation...
+///
+/// /// Private module containing *version unchecked* migration logic.
+/// ///
+/// /// Should only be used by the [`VersionedMigration`] type in this module to create something to
+/// /// export.
+/// ///
+/// /// We keep this private so the unversioned migration cannot accidentally be used in any runtimes.
+/// ///
+/// /// For more about this pattern of keeping items private, see
+/// /// - https://github.com/rust-lang/rust/issues/30905
+/// /// - https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40
+/// mod version_unchecked {
+///  	use super::*;
+/// 	pub struct MigrateV5ToV6<T>(sp_std::marker::PhantomData<T>);
+/// 	impl<T: Config> OnRuntimeUpgrade for  VersionUncheckedMigrateV5ToV6<T> {
+/// 		 	// OnRuntimeUpgrade implementation...
+/// 	}
 /// }
 ///
-/// pub type VersionCheckedMigrateV5ToV6<T, I> =
-/// 	VersionedMigration<
-/// 		5,
-/// 		6,
-/// 		VersionUncheckedMigrateV5ToV6<T, I>,
-/// 		crate::pallet::Pallet<T, I>,
-/// 		<T as frame_system::Config>::DbWeight
-/// 	>;
+/// /// Public module containing *version checked* migration logic.
+/// ///
+/// /// This is the only module that should be exported from a migration module.
+/// pub mod version_checked {
+/// 	use super::*;
+/// 	pub type VersionCheckedMigrateV5ToV6<T, I> =
+/// 		VersionedMigration<
+/// 			5,
+/// 			6,
+/// 			VersionUncheckedMigrateV5ToV6<T, I>,
+/// 	 		crate::pallet::Pallet<T, I>,
+/// 			<T as frame_system::Config>::DbWeight
+/// 		>;
+/// }
 ///
 /// // Migrations tuple to pass to the Executive pallet:
 /// pub type Migrations = (
 /// 	// other migrations...
-/// 	VersionCheckedMigrateV5ToV6<T, ()>,
+/// 	version_checked::MigrateV5ToV6<T, ()>,
 /// 	// other migrations...
 /// );
 /// ```

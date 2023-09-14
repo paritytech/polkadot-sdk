@@ -23,7 +23,7 @@ use frame_support::{
 /// Collection of storage item formats from the previous storage version.
 ///
 /// Required so we can read values in the old storage format during the migration.
-pub(crate) mod old {
+mod old {
 	use super::*;
 
 	/// V0 type for [`crate::Value`].
@@ -31,8 +31,17 @@ pub(crate) mod old {
 	pub type Value<T: crate::Config> = StorageValue<crate::Pallet<T>, u32>;
 }
 
-/// Put all unversioned logic in a private module so it cannot be accidentally used in the runtime.
-mod unversioned {
+/// Private module containing *version unchecked* migration logic.
+///
+/// Should only be used by the [`VersionedMigration`] type in this module to create something to
+/// export.
+///
+/// We keep this private so the unversioned migration cannot accidentally be used in any runtimes.
+///
+/// For more about this pattern of keeping items private, see
+/// - https://github.com/rust-lang/rust/issues/30905
+/// - https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40
+mod version_unchecked {
 	use super::*;
 
 	/// Implements [`OnRuntimeUpgrade`], migrating the state of this pallet from V0 to V1.
@@ -112,90 +121,93 @@ mod unversioned {
 			Ok(())
 		}
 	}
-
-	/// Tests for our migration.
-	///
-	/// When writing migration tests, it is important to check:
-	/// 1. `on_runtime_upgrade` returns the expected weight
-	/// 2. `post_upgrade` succeeds when given the bytes returned by `pre_upgrade`
-	/// 3. The storage is in the expected state after the migration
-	#[cfg(all(feature = "try-runtime", test))]
-	mod test {
-		use super::*;
-		use crate::mock::{new_test_ext, Test};
-		use frame_support::assert_ok;
-
-		#[test]
-		fn handles_no_existing_value() {
-			new_test_ext().execute_with(|| {
-				// By default, no value should be set. Verify this assumption.
-				assert!(crate::Value::<Test>::get().is_none());
-				assert!(old::Value::<Test>::get().is_none());
-
-				// Get the pre_upgrade bytes
-				let bytes = match MigrateV0ToV1::<Test>::pre_upgrade() {
-					Ok(bytes) => bytes,
-					Err(e) => panic!("pre_upgrade failed: {:?}", e),
-				};
-
-				// Execute the migration
-				let weight = MigrateV0ToV1::<Test>::on_runtime_upgrade();
-
-				// Verify post_upgrade succeeds
-				assert_ok!(MigrateV0ToV1::<Test>::post_upgrade(bytes));
-
-				// The weight should be just 1 read for trying to access the old value.
-				assert_eq!(weight, <Test as frame_system::Config>::DbWeight::get().reads(1));
-
-				// After the migration, no value should have been set.
-				assert!(crate::Value::<Test>::get().is_none());
-			})
-		}
-
-		#[test]
-		fn handles_existing_value() {
-			new_test_ext().execute_with(|| {
-				// Set up an initial value
-				let initial_value = 42;
-				old::Value::<Test>::put(initial_value);
-
-				// Get the pre_upgrade bytes
-				let bytes = match MigrateV0ToV1::<Test>::pre_upgrade() {
-					Ok(bytes) => bytes,
-					Err(e) => panic!("pre_upgrade failed: {:?}", e),
-				};
-
-				// Execute the migration
-				let weight = MigrateV0ToV1::<Test>::on_runtime_upgrade();
-
-				// Verify post_upgrade succeeds
-				assert_ok!(MigrateV0ToV1::<Test>::post_upgrade(bytes));
-
-				// The weight used should be 1 read for the old value, and 1 write for the new
-				// value.
-				assert_eq!(
-					weight,
-					<Test as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
-				);
-
-				// After the migration, the new value should be set as the `current` value.
-				let expected_new_value =
-					crate::CurrentAndPreviousValue { current: initial_value, previous: None };
-				assert_eq!(crate::Value::<Test>::get(), Some(expected_new_value));
-			})
-		}
-	}
 }
 
-/// Versioned migration logic in a public module, for use in runtimes.
-pub mod versioned {
+/// Public module containing *version checked* migration logic.
+///
+/// This is the only module that should be exported from this module.
+///
+/// See [`VersionedMigration`](frame_support::migrations::VersionedMigration) docs for more about
+/// how it works.
+pub mod version_checked {
 	use super::*;
 
 	pub type MigrateV0ToV1<T> = frame_support::migrations::VersionedMigration<
-		0,
-		1,
-		unversioned::MigrateV0ToV1<T>,
+		0, // The migration will only execute when the on-chain storage version is 0
+		1, // The on-chain storage version will be set to 1 after the migration is complete
+		version_unchecked::MigrateV0ToV1<T>,
 		crate::pallet::Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
+}
+
+/// Tests for our migration.
+///
+/// When writing migration tests, it is important to check:
+/// 1. `on_runtime_upgrade` returns the expected weight
+/// 2. `post_upgrade` succeeds when given the bytes returned by `pre_upgrade`
+/// 3. The storage is in the expected state after the migration
+#[cfg(all(feature = "try-runtime", test))]
+mod test {
+	use super::*;
+	use crate::mock::{new_test_ext, Test};
+	use frame_support::assert_ok;
+	use version_unchecked::MigrateV0ToV1;
+
+	#[test]
+	fn handles_no_existing_value() {
+		new_test_ext().execute_with(|| {
+			// By default, no value should be set. Verify this assumption.
+			assert!(crate::Value::<Test>::get().is_none());
+			assert!(old::Value::<Test>::get().is_none());
+
+			// Get the pre_upgrade bytes
+			let bytes = match MigrateV0ToV1::<Test>::pre_upgrade() {
+				Ok(bytes) => bytes,
+				Err(e) => panic!("pre_upgrade failed: {:?}", e),
+			};
+
+			// Execute the migration
+			let weight = MigrateV0ToV1::<Test>::on_runtime_upgrade();
+
+			// Verify post_upgrade succeeds
+			assert_ok!(MigrateV0ToV1::<Test>::post_upgrade(bytes));
+
+			// The weight should be just 1 read for trying to access the old value.
+			assert_eq!(weight, <Test as frame_system::Config>::DbWeight::get().reads(1));
+
+			// After the migration, no value should have been set.
+			assert!(crate::Value::<Test>::get().is_none());
+		})
+	}
+
+	#[test]
+	fn handles_existing_value() {
+		new_test_ext().execute_with(|| {
+			// Set up an initial value
+			let initial_value = 42;
+			old::Value::<Test>::put(initial_value);
+
+			// Get the pre_upgrade bytes
+			let bytes = match MigrateV0ToV1::<Test>::pre_upgrade() {
+				Ok(bytes) => bytes,
+				Err(e) => panic!("pre_upgrade failed: {:?}", e),
+			};
+
+			// Execute the migration
+			let weight = MigrateV0ToV1::<Test>::on_runtime_upgrade();
+
+			// Verify post_upgrade succeeds
+			assert_ok!(MigrateV0ToV1::<Test>::post_upgrade(bytes));
+
+			// The weight used should be 1 read for the old value, and 1 write for the new
+			// value.
+			assert_eq!(weight, <Test as frame_system::Config>::DbWeight::get().reads_writes(1, 1));
+
+			// After the migration, the new value should be set as the `current` value.
+			let expected_new_value =
+				crate::CurrentAndPreviousValue { current: initial_value, previous: None };
+			assert_eq!(crate::Value::<Test>::get(), Some(expected_new_value));
+		})
+	}
 }
