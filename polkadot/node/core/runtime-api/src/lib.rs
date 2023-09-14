@@ -101,6 +101,9 @@ where
 				self.requests_cache.cache_authorities(relay_parent, authorities),
 			Validators(relay_parent, validators) =>
 				self.requests_cache.cache_validators(relay_parent, validators),
+			MinimumBackingVotes(_, session_index, minimum_backing_votes) => self
+				.requests_cache
+				.cache_minimum_backing_votes(session_index, minimum_backing_votes),
 			ValidatorGroups(relay_parent, groups) =>
 				self.requests_cache.cache_validator_groups(relay_parent, groups),
 			AvailabilityCores(relay_parent, cores) =>
@@ -301,6 +304,15 @@ where
 			Request::StagingAsyncBackingParams(sender) =>
 				query!(staging_async_backing_params(), sender)
 					.map(|sender| Request::StagingAsyncBackingParams(sender)),
+			Request::MinimumBackingVotes(index, sender) => {
+				if let Some(value) = self.requests_cache.minimum_backing_votes(index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value));
+					None
+				} else {
+					Some(Request::MinimumBackingVotes(index, sender))
+				}
+			},
 		}
 	}
 
@@ -549,6 +561,12 @@ where
 			SubmitReportDisputeLost,
 			submit_report_dispute_lost(dispute_proof, key_ownership_proof),
 			ver = Request::SUBMIT_REPORT_DISPUTE_LOST_RUNTIME_REQUIREMENT,
+			sender
+		),
+		Request::MinimumBackingVotes(index, sender) => query!(
+			MinimumBackingVotes,
+			minimum_backing_votes(index),
+			ver = Request::MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT,
 			sender
 		),
 

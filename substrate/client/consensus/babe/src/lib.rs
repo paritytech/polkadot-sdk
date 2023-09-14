@@ -723,12 +723,12 @@ where
 	B: BlockT,
 	C: ProvideRuntimeApi<B> + HeaderBackend<B> + HeaderMetadata<B, Error = ClientError>,
 	C::Api: BabeApi<B>,
-	E: Environment<B, Error = Error> + Sync,
+	E: Environment<B, Error = Error> + Send + Sync,
 	E::Proposer: Proposer<B, Error = Error>,
 	I: BlockImport<B> + Send + Sync + 'static,
 	SO: SyncOracle + Send + Clone + Sync,
 	L: sc_consensus::JustificationSyncLink<B>,
-	BS: BackoffAuthoringBlocksStrategy<NumberFor<B>> + Sync,
+	BS: BackoffAuthoringBlocksStrategy<NumberFor<B>> + Send + Sync,
 	Error: std::error::Error + Send + From<ConsensusError> + From<I::Error> + 'static,
 {
 	type Claim = (PreDigest, AuthorityId);
@@ -769,7 +769,7 @@ where
 	}
 
 	async fn claim_slot(
-		&self,
+		&mut self,
 		_parent_header: &B::Header,
 		slot: Slot,
 		epoch_descriptor: &ViableEpochDescriptor<B::Hash, NumberFor<B>, Epoch>,

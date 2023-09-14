@@ -1,7 +1,7 @@
 [package]
 name = "rococo-runtime"
 build = "build.rs"
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,7 +10,7 @@ license.workspace = true
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
-serde = { version = "1.0.163", default-features = false }
+serde = { version = "1.0.188", default-features = false }
 serde_derive = { version = "1.0.117", optional = true }
 static_assertions = "1.1.0"
 smallvec = "1.8.0"
@@ -65,7 +65,7 @@ pallet-proxy = { path = "../../../substrate/frame/proxy", default-features = fal
 pallet-recovery = { path = "../../../substrate/frame/recovery", default-features = false }
 pallet-scheduler = { path = "../../../substrate/frame/scheduler", default-features = false }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false }
-pallet-society = { path = "../../../substrate/frame/society", default-features = false, features = ["experimental"] }
+pallet-society = { path = "../../../substrate/frame/society", default-features = false }
 pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false }
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
@@ -76,7 +76,7 @@ pallet-tips = { path = "../../../substrate/frame/tips", default-features = false
 pallet-treasury = { path = "../../../substrate/frame/treasury", default-features = false }
 pallet-utility = { path = "../../../substrate/frame/utility", default-features = false }
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false }
-pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false, features=["experimental"] }
+pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -84,14 +84,14 @@ frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-fea
 frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
 hex-literal = { version = "0.4.1" }
 
-runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, features=["experimental"] }
+runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
-polkadot-parachain = { path = "../../parachain", default-features = false }
+polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
 
-xcm = { package = "xcm", path = "../../xcm", default-features = false }
-xcm-executor = { package = "xcm-executor", path = "../../xcm/xcm-executor", default-features = false }
-xcm-builder = { package = "xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
+xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
 
 [dev-dependencies]
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
@@ -99,7 +99,7 @@ keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyrin
 remote-externalities = { package = "frame-remote-externalities" , path = "../../../substrate/utils/frame/remote-externalities" }
 sp-trie = { path = "../../../substrate/primitives/trie" }
 separator = "0.4.1"
-serde_json = "1.0.96"
+serde_json = "1.0.106"
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
 tokio = { version = "1.24.2", features = ["macros"] }
 
@@ -113,9 +113,12 @@ std = [
 	"authority-discovery-primitives/std",
 	"babe-primitives/std",
 	"beefy-primitives/std",
+	"binary-merkle-tree/std",
 	"block-builder-api/std",
+	"frame-benchmarking?/std",
 	"frame-executive/std",
 	"frame-support/std",
+	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime/std",
@@ -159,9 +162,10 @@ std = [
 	"pallet-treasury/std",
 	"pallet-utility/std",
 	"pallet-vesting/std",
+	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm/std",
 	"parity-scale-codec/std",
-	"polkadot-parachain/std",
+	"polkadot-parachain-primitives/std",
 	"primitives/std",
 	"rococo-runtime-constants/std",
 	"runtime-common/std",
@@ -177,6 +181,8 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-std/std",
+	"sp-storage/std",
+	"sp-tracing/std",
 	"sp-version/std",
 	"tx-pool-api/std",
 	"xcm-builder/std",
@@ -187,7 +193,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
@@ -202,14 +207,17 @@ runtime-benchmarks = [
 	"pallet-indices/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-mmr/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-nis/runtime-benchmarks",
+	"pallet-offences/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-recovery/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-society/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
+	"pallet-state-trie-migration/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-tips/runtime-benchmarks",
@@ -218,15 +226,21 @@ runtime-benchmarks = [
 	"pallet-vesting/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"primitives/runtime-benchmarks",
 	"runtime-common/runtime-benchmarks",
 	"runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame-try-runtime",
+	"frame-try-runtime/try-runtime",
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-babe/try-runtime",
@@ -266,13 +280,8 @@ try-runtime = [
 	"pallet-xcm/try-runtime",
 	"runtime-common/try-runtime",
 	"runtime-parachains/try-runtime",
+	"sp-runtime/try-runtime",
 ]
-# When enabled, the runtime API will not be build.
-#
-# This is required by Cumulus to access certain types of the
-# runtime without clashing with the runtime API exported functions
-# in WASM.
-disable-runtime-api = []
 
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
 fast-runtime = []

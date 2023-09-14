@@ -1,4 +1,4 @@
-// Copyright 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -24,11 +24,9 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod bridge_hub_rococo_config;
 pub mod bridge_hub_wococo_config;
-pub mod constants;
 mod weights;
 pub mod xcm_config;
 
-use constants::{consensus::*, currency::*};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -79,7 +77,6 @@ use crate::{
 		BridgeRefundBridgeHubRococoMessages, OnBridgeHubWococoBlobDispatcher,
 		WithBridgeHubRococoMessageBridge,
 	},
-	constants::fee::WeightToFee,
 	xcm_config::XcmRouter,
 };
 use bridge_runtime_common::{
@@ -87,8 +84,10 @@ use bridge_runtime_common::{
 	messages_xcm_extension::{XcmAsPlainPayload, XcmBlobMessageDispatch},
 };
 use parachains_common::{
-	impls::DealWithFees, AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
-	AVERAGE_ON_INITIALIZE_RATIO, HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+	impls::DealWithFees,
+	rococo::{consensus::*, currency::*, fee::WeightToFee},
+	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
+	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
 use xcm_executor::XcmExecutor;
 
@@ -1040,7 +1039,11 @@ impl_runtime_apis! {
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;
 			type XcmGeneric = pallet_xcm_benchmarks::generic::Pallet::<Runtime>;
 
-			use bridge_runtime_common::messages_benchmarking::{prepare_message_delivery_proof_from_parachain, prepare_message_proof_from_parachain};
+			use bridge_runtime_common::messages_benchmarking::{
+				prepare_message_delivery_proof_from_parachain,
+				prepare_message_proof_from_parachain,
+				generate_xcm_builder_bridge_message_sample,
+			};
 			use pallet_bridge_messages::benchmarking::{
 				Config as BridgeMessagesConfig,
 				Pallet as BridgeMessagesBench,
@@ -1072,7 +1075,7 @@ impl_runtime_apis! {
 						Runtime,
 						BridgeGrandpaWococoInstance,
 						bridge_hub_rococo_config::WithBridgeHubWococoMessageBridge,
-					>(params, X2(GlobalConsensus(Rococo), Parachain(42)))
+					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(Rococo), Parachain(42))))
 				}
 
 				fn prepare_message_delivery_proof(
@@ -1115,7 +1118,7 @@ impl_runtime_apis! {
 						Runtime,
 						BridgeGrandpaRococoInstance,
 						bridge_hub_wococo_config::WithBridgeHubRococoMessageBridge,
-					>(params, X2(GlobalConsensus(Wococo), Parachain(42)))
+					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(Wococo), Parachain(42))))
 				}
 
 				fn prepare_message_delivery_proof(
@@ -1240,55 +1243,67 @@ cumulus_pallet_parachain_system::register_validate_block! {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use bp_runtime::TransactionEra;
-	use bridge_hub_test_utils::test_header;
 	use codec::Encode;
-
-	pub type TestBlockHeader =
-		sp_runtime::generic::Header<bp_polkadot_core::BlockNumber, bp_polkadot_core::Hasher>;
+	use sp_runtime::{
+		generic::Era,
+		traits::{SignedExtension, Zero},
+	};
 
 	#[test]
 	fn ensure_signed_extension_definition_is_compatible_with_relay() {
-		let payload: SignedExtra = (
-			frame_system::CheckNonZeroSender::new(),
-			frame_system::CheckSpecVersion::new(),
-			frame_system::CheckTxVersion::new(),
-			frame_system::CheckGenesis::new(),
-			frame_system::CheckEra::from(sp_runtime::generic::Era::Immortal),
-			frame_system::CheckNonce::from(10),
-			frame_system::CheckWeight::new(),
-			pallet_transaction_payment::ChargeTransactionPayment::from(10),
-			BridgeRejectObsoleteHeadersAndMessages {},
-			(
-				BridgeRefundBridgeHubRococoMessages::default(),
-				BridgeRefundBridgeHubWococoMessages::default(),
-			),
-		);
+		use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 
-		{
-			use bp_bridge_hub_rococo::BridgeHubSignedExtension;
-			let bhr_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
-				10,
-				10,
-				TransactionEra::Immortal,
-				test_header::<TestBlockHeader>(1).hash(),
-				10,
-				10,
+		sp_io::TestExternalities::default().execute_with(|| {
+			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
+			let payload: SignedExtra = (
+				frame_system::CheckNonZeroSender::new(),
+				frame_system::CheckSpecVersion::new(),
+				frame_system::CheckTxVersion::new(),
+				frame_system::CheckGenesis::new(),
+				frame_system::CheckEra::from(Era::Immortal),
+				frame_system::CheckNonce::from(10),
+				frame_system::CheckWeight::new(),
+				pallet_transaction_payment::ChargeTransactionPayment::from(10),
+				BridgeRejectObsoleteHeadersAndMessages,
+				(
+					BridgeRefundBridgeHubRococoMessages::default(),
+					BridgeRefundBridgeHubWococoMessages::default(),
+				),
 			);
-			assert_eq!(payload.encode(), bhr_indirect_payload.encode());
-		}
 
-		{
-			use bp_bridge_hub_wococo::BridgeHubSignedExtension;
-			let bhw_indirect_payload = bp_bridge_hub_wococo::SignedExtension::from_params(
-				10,
-				10,
-				TransactionEra::Immortal,
-				test_header::<TestBlockHeader>(1).hash(),
-				10,
-				10,
-			);
-			assert_eq!(payload.encode(), bhw_indirect_payload.encode());
-		}
+			{
+				let bhr_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
+					VERSION.spec_version,
+					VERSION.transaction_version,
+					bp_runtime::TransactionEra::Immortal,
+					System::block_hash(BlockNumber::zero()),
+					10,
+					10,
+					(((), ()), ((), ())),
+				);
+				assert_eq!(payload.encode(), bhr_indirect_payload.encode());
+				assert_eq!(
+					payload.additional_signed().unwrap().encode(),
+					bhr_indirect_payload.additional_signed().unwrap().encode()
+				)
+			}
+
+			{
+				let bhw_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
+					VERSION.spec_version,
+					VERSION.transaction_version,
+					bp_runtime::TransactionEra::Immortal,
+					System::block_hash(BlockNumber::zero()),
+					10,
+					10,
+					(((), ()), ((), ())),
+				);
+				assert_eq!(payload.encode(), bhw_indirect_payload.encode());
+				assert_eq!(
+					payload.additional_signed().unwrap().encode(),
+					bhw_indirect_payload.additional_signed().unwrap().encode()
+				)
+			}
+		});
 	}
 }
