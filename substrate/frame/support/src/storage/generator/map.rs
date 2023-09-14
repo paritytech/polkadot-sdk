@@ -28,7 +28,7 @@ use sp_std::prelude::*;
 ///
 /// By default each key value is stored at:
 /// ```nocompile
-/// Twox128(module_prefix) ++ Twox128(storage_prefix) ++ Hasher(encode(key))
+/// Twox128(pallet_prefix) ++ Twox128(storage_prefix) ++ Hasher(encode(key))
 /// ```
 ///
 /// # Warning
@@ -42,13 +42,13 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	/// Hasher. Used for generating final key.
 	type Hasher: StorageHasher;
 
-	/// Module prefix. Used for generating final key.
-	fn module_prefix() -> &'static [u8];
+	/// Pallet prefix. Used for generating final key.
+	fn pallet_prefix() -> &'static [u8];
 
 	/// Storage prefix. Used for generating final key.
 	fn storage_prefix() -> &'static [u8];
 
-	/// The full prefix; just the hash of `module_prefix` concatenated to the hash of
+	/// The full prefix; just the hash of `pallet_prefix` concatenated to the hash of
 	/// `storage_prefix`.
 	fn prefix_hash() -> Vec<u8>;
 
@@ -63,7 +63,7 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	where
 		KeyArg: EncodeLike<K>,
 	{
-		let storage_prefix = storage_prefix(Self::module_prefix(), Self::storage_prefix());
+		let storage_prefix = storage_prefix(Self::pallet_prefix(), Self::storage_prefix());
 		let key_hashed = key.using_encoded(Self::Hasher::hash);
 
 		let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.as_ref().len());
@@ -336,7 +336,7 @@ impl<K: FullEncode, V: FullCodec, G: StorageMap<K, V>> storage::StorageMap<K, V>
 
 	fn migrate_key<OldHasher: StorageHasher, KeyArg: EncodeLike<K>>(key: KeyArg) -> Option<V> {
 		let old_key = {
-			let storage_prefix = storage_prefix(Self::module_prefix(), Self::storage_prefix());
+			let storage_prefix = storage_prefix(Self::pallet_prefix(), Self::storage_prefix());
 			let key_hashed = key.using_encoded(OldHasher::hash);
 
 			let mut final_key =

@@ -33,7 +33,7 @@ use sp_std::prelude::*;
 ///
 /// Thus value for (key1, key2) is stored at:
 /// ```nocompile
-/// Twox128(module_prefix) ++ Twox128(storage_prefix) ++ Hasher1(encode(key1)) ++ Hasher2(encode(key2))
+/// Twox128(pallet_prefix) ++ Twox128(storage_prefix) ++ Hasher1(encode(key1)) ++ Hasher2(encode(key2))
 /// ```
 ///
 /// # Warning
@@ -53,13 +53,13 @@ pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 	/// Hasher for the second key.
 	type Hasher2: StorageHasher;
 
-	/// Module prefix. Used for generating final key.
-	fn module_prefix() -> &'static [u8];
+	/// Pallet prefix. Used for generating final key.
+	fn pallet_prefix() -> &'static [u8];
 
 	/// Storage prefix. Used for generating final key.
 	fn storage_prefix() -> &'static [u8];
 
-	/// The full prefix; just the hash of `module_prefix` concatenated to the hash of
+	/// The full prefix; just the hash of `pallet_prefix` concatenated to the hash of
 	/// `storage_prefix`.
 	fn prefix_hash() -> Vec<u8>;
 
@@ -74,7 +74,7 @@ pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 	where
 		KArg1: EncodeLike<K1>,
 	{
-		let storage_prefix = storage_prefix(Self::module_prefix(), Self::storage_prefix());
+		let storage_prefix = storage_prefix(Self::pallet_prefix(), Self::storage_prefix());
 		let key_hashed = k1.using_encoded(Self::Hasher1::hash);
 
 		let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.as_ref().len());
@@ -91,7 +91,7 @@ pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 		KArg1: EncodeLike<K1>,
 		KArg2: EncodeLike<K2>,
 	{
-		let storage_prefix = storage_prefix(Self::module_prefix(), Self::storage_prefix());
+		let storage_prefix = storage_prefix(Self::pallet_prefix(), Self::storage_prefix());
 		let key1_hashed = k1.using_encoded(Self::Hasher1::hash);
 		let key2_hashed = k2.using_encoded(Self::Hasher2::hash);
 
@@ -331,7 +331,7 @@ where
 		key2: KeyArg2,
 	) -> Option<V> {
 		let old_key = {
-			let storage_prefix = storage_prefix(Self::module_prefix(), Self::storage_prefix());
+			let storage_prefix = storage_prefix(Self::pallet_prefix(), Self::storage_prefix());
 
 			let key1_hashed = key1.using_encoded(OldHasher1::hash);
 			let key2_hashed = key2.using_encoded(OldHasher2::hash);

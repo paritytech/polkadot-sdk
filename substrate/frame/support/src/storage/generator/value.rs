@@ -25,14 +25,14 @@ use codec::{Decode, Encode, EncodeLike, FullCodec};
 ///
 /// By default value is stored at:
 /// ```nocompile
-/// Twox128(module_prefix) ++ Twox128(storage_prefix)
+/// Twox128(pallet_prefix) ++ Twox128(storage_prefix)
 /// ```
 pub trait StorageValue<T: FullCodec> {
 	/// The type that get/take returns.
 	type Query;
 
-	/// Module prefix. Used for generating final key.
-	fn module_prefix() -> &'static [u8];
+	/// Pallet prefix. Used for generating final key.
+	fn pallet_prefix() -> &'static [u8];
 
 	/// Storage prefix. Used for generating final key.
 	fn storage_prefix() -> &'static [u8];
