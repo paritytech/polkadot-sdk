@@ -126,6 +126,7 @@
 //! passing it as a generic parameter to your [`Executive`](frame_executive) pallet:
 //!
 //! ```ignore
+//! // Tuple of migrations (structs that implement `OnRuntimeUpgrade`)
 //! type Migrations = (
 //! 	pallet_example_storage_migration::migrations::v1::versioned::MigrateV0ToV1
 //! 	// ...more migrations here
@@ -136,7 +137,7 @@
 //! 	frame_system::ChainContext<Runtime>,
 //! 	Runtime,
 //! 	AllPalletsWithSystem,
-//! 	Migrations,
+//! 	Migrations, // <-- pass your migrations to Executive here
 //! >;
 //! ```
 //!
@@ -157,9 +158,9 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::StorageVersion;
 use sp_runtime::RuntimeDebug;
 
-/// Example struct holding the most recently set [`u32`] and the second most recently set [`u32`]
-/// (if one existed).
-#[docify::export]
+/// Example struct holding the most recently set [`u32`] and the
+/// second most recently set [`u32`] (if one existed).
+#[docify::export(test)]
 #[derive(
 	Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
 )]
