@@ -87,7 +87,7 @@ use polkadot_node_subsystem_types::messages::{
 pub use polkadot_node_subsystem_types::{
 	errors::{SubsystemError, SubsystemResult},
 	jaeger, ActivatedLeaf, ActiveLeavesUpdate, LeafStatus, OverseerSignal,
-	RuntimeApiSubsystemClient,
+	RuntimeApiSubsystemClient, UnpinHandle,
 };
 
 pub mod metrics;
@@ -107,7 +107,7 @@ pub use orchestra::{
 	contextbounds, orchestra, subsystem, FromOrchestra, MapSubsystem, MessagePacket,
 	OrchestraError as OverseerError, SignalsReceived, Spawner, Subsystem, SubsystemContext,
 	SubsystemIncomingMessages, SubsystemInstance, SubsystemMeterReadouts, SubsystemMeters,
-	SubsystemSender, TimeoutExt, ToOrchestra,
+	SubsystemSender, TimeoutExt, ToOrchestra, TrySendError,
 };
 
 /// Store 2 days worth of blocks, not accounting for forks,
@@ -245,23 +245,35 @@ impl Handle {
 /// `HeaderBackend::block_number_from_id()`.
 #[derive(Debug, Clone)]
 pub struct BlockInfo {
-	/// hash of the block.
+	/// Hash of the block.
 	pub hash: Hash,
-	/// hash of the parent block.
+	/// Hash of the parent block.
 	pub parent_hash: Hash,
-	/// block's number.
+	/// Block's number.
 	pub number: BlockNumber,
+	/// A handle to unpin the block on drop.
+	pub unpin_handle: UnpinHandle,
 }
 
 impl From<BlockImportNotification<Block>> for BlockInfo {
 	fn from(n: BlockImportNotification<Block>) -> Self {
-		BlockInfo { hash: n.hash, parent_hash: n.header.parent_hash, number: n.header.number }
+		let hash = n.hash;
+		let parent_hash = n.header.parent_hash;
+		let number = n.header.number;
+		let unpin_handle = n.into_unpin_handle();
+
+		BlockInfo { hash, parent_hash, number, unpin_handle }
 	}
 }
 
 impl From<FinalityNotification<Block>> for BlockInfo {
 	fn from(n: FinalityNotification<Block>) -> Self {
-		BlockInfo { hash: n.hash, parent_hash: n.header.parent_hash, number: n.header.number }
+		let hash = n.hash;
+		let parent_hash = n.header.parent_hash;
+		let number = n.header.number;
+		let unpin_handle = n.into_unpin_handle();
+
+		BlockInfo { hash, parent_hash, number, unpin_handle }
 	}
 }
 
@@ -792,6 +804,7 @@ where
 				hash: block.hash,
 				number: block.number,
 				status,
+				unpin_handle: block.unpin_handle,
 				span,
 			}),
 			None => ActiveLeavesUpdate::default(),

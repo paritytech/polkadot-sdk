@@ -301,6 +301,13 @@ impl Initialized {
 		self.participation.process_active_leaves_update(ctx, &update).await?;
 
 		if let Some(new_leaf) = update.activated {
+			gum::trace!(
+				target: LOG_TARGET,
+				leaf_hash = ?new_leaf.hash,
+				block_number = new_leaf.number,
+				"Processing ActivatedLeaf"
+			);
+
 			let session_idx =
 				self.runtime_info.get_session_index_for_child(ctx.sender(), new_leaf.hash).await;
 
@@ -308,6 +315,8 @@ impl Initialized {
 				Ok(session_idx)
 					if self.gaps_in_cache || session_idx > self.highest_session_seen =>
 				{
+					// Pin the block from the new session.
+					self.runtime_info.pin_block(session_idx, new_leaf.unpin_handle);
 					// Fetch the last `DISPUTE_WINDOW` number of sessions unless there are no gaps
 					// in cache and we are not missing too many `SessionInfo`s
 					let mut lower_bound = session_idx.saturating_sub(DISPUTE_WINDOW.get() - 1);
@@ -387,26 +396,28 @@ impl Initialized {
 				"Processing unapplied validator slashes",
 			);
 
+			let pinned_hash = self.runtime_info.get_block_in_session(session_index);
 			let inclusions = self.scraper.get_blocks_including_candidate(&candidate_hash);
-			if inclusions.is_empty() {
+			if pinned_hash.is_none() && inclusions.is_empty() {
 				gum::info!(
 					target: LOG_TARGET,
-					"Couldn't find inclusion parent for an unapplied slash",
+					?session_index,
+					"Couldn't find blocks in the session for an unapplied slash",
 				);
 				return
 			}
 
-			// Find the first inclusion parent that we can use
+			// Find a relay block that we can use
 			// to generate key ownership proof on.
-			// We use inclusion parents because of the proper session index.
+			// We use inclusion parents as a fallback.
 			let mut key_ownership_proofs = Vec::new();
 			let mut dispute_proofs = Vec::new();
 
-			for (_height, inclusion_parent) in inclusions {
+			let blocks_in_the_session =
+				pinned_hash.into_iter().chain(inclusions.into_iter().map(|(_n, h)| h));
+			for hash in blocks_in_the_session {
 				for (validator_index, validator_id) in pending.keys.iter() {
-					let res =
-						key_ownership_proof(ctx.sender(), inclusion_parent, validator_id.clone())
-							.await;
+					let res = key_ownership_proof(ctx.sender(), hash, validator_id.clone()).await;
 
 					match res {
 						Ok(Some(key_ownership_proof)) => {
