@@ -3087,7 +3087,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn freeze_min_balance(reward_acc: &T::AccountId) -> DispatchResult {
+	pub(crate) fn freeze_min_balance(reward_acc: &T::AccountId) -> DispatchResult {
 		T::Currency::set_freeze(
 			&FreezeReason::PoolMinBalance.into(),
 			reward_acc,
@@ -3324,8 +3324,10 @@ impl<T: Config> Pallet<T> {
 		Self::unbond(origin, member_lookup, points)
 	}
 
-	#[cfg(test)]
-	fn pool_pending_rewards(pool: PoolId) -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	pub(crate) fn pool_pending_rewards(
+		pool: PoolId,
+	) -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
 		let bonded_pool = BondedPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
 		let reward_pool = RewardPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
 
