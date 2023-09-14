@@ -2,7 +2,8 @@ use crate::*;
 use frame_support::{traits::ConstU64, weights::constants::ParityDbWeight};
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
-// Reexport crate as its pallet name for construct_runtime.
+
+// Re-export crate as its pallet name for construct_runtime.
 use crate as pallet_example_storage_migration;
 
 type Block = frame_system::mocking::MockBlock<Test>;

@@ -20,8 +20,8 @@
 //! An example pallet explaining why storage migrations are necessary and demonstrating
 //! best-practices for writing them.
 //!
-//! It is intended to be used as a reference for writing migrations in other pallets, and is not
-//! meant to be used in production.
+//! It is intended to be a resource for guiding a developer from knowing nothing about storage
+//! migrations to being able to write safe, well tested, versioned migrations for their own pallets.
 //!
 //! ## Prerequisites
 //!
@@ -34,7 +34,7 @@
 //! - Run `cargo doc --features try-runtime --package pallet-example-storage-migrations
 //!   --document-private-items --open`
 //! to view the documentation in your browser.
-//! - Follow along reading the source code referenced in the docs.
+//! - Read the relevant source code as your read the docs.
 //!
 //! ## Pallet Overview
 //!
@@ -74,18 +74,18 @@
 //!
 //! ## Why a migration is necessary
 //!
-//! There now exists a discrepancy between the on-chain storage for [`Value`] (in V0 it is a `u32`)
-//! and the current storage for [`Value`] (in V1 it is a [`CurrentAndPreviousValue`] struct).
+//! Without a migration, there will be a discrepancy between the on-chain storage for [`Value`] (in
+//! V0 it is a `u32`) and the current storage for [`Value`] (in V1 it was changed to a
+//! [`CurrentAndPreviousValue`] struct).
 //!
-//! If this pallet was deployed without a migration, the on-chain storage for [`Value`] would be a
-//! `u32` but the runtime would try to read it as a [`CurrentAndPreviousValue`]. This would
-//! result in unacceptable undefined behavior.
+//! The on-chain storage for [`Value`] would be a `u32` but the runtime would try to read it as a
+//! [`CurrentAndPreviousValue`]. This would result in unacceptable undefined behavior.
 //!
 //! ## Adding a migration module
 //!
-//! Writing a migration module is not required, but highly recommended.
+//! Containing a pallets migrations in a seperate module is strongly recommended.
 //!
-//! Here's how we structure our migration module for this pallet:
+//! Here's how the migration module is defined for this pallet:
 //!
 //! ```text
 //! substrate/frame/examples/storage-migrations/src/
@@ -96,24 +96,17 @@
 //!    └── v1.rs     <-- migration logic for the V0 to V1 transition
 //! ```
 //!
-//! This structure allows us to keep the migration logic separate from the pallet definition, and
-//! easily add new migrations in the future.
-//!
-//! Note that we're opting to write our storage migration logic attached to a standalone struct
-//! implementing [`OnRuntimeUpgrade`](frame_support::traits::OnRuntimeUpgrade), rather
-//! than implementing the
-//! [`Hooks::on_runtime_upgrade`](frame_support::traits::Hooks::on_runtime_upgrade) hook directly on
-//! our pallet. The pallet hook is better suited for executing other types of logic that needs to
-//! execute on runtime upgrade, but not so much storage migrations.
+//! This structure allows keeping migration logic separate from the pallet logic and
+//! easily adding new migrations in the future.
 //!
 //! ## Writing the Migration
 //!
-//! All code related to our migration can be found under
+//! All code related to the migration can be found under
 //! [`v1.rs`](migrations::v1).
 //!
 //! See the migration source code for detailed comments.
 //!
-//! To keep our migration logic organised, it is split across different modules:
+//! To keep the migration logic organised, it is split across additional modules:
 //!
 //! ### `mod old`
 //!
@@ -130,36 +123,44 @@
 //!
 //! Importantly, it is kept in a private module so that it cannot be accidentally used in a runtime.
 //!
+//! #### Standalone Struct or Pallet Hook?
+//!
+//! Note that the storage migration logic is attached to a standalone struct implementing
+//! [`OnRuntimeUpgrade`](frame_support::traits::OnRuntimeUpgrade), rather than implementing the
+//! [`Hooks::on_runtime_upgrade`](frame_support::traits::Hooks::on_runtime_upgrade) hook directly on
+//! the pallet. The pallet hook is better suited for executing other types of logic that needs to
+//! execute on runtime upgrade, but not so much storage migrations.
+//!
 //! ### `pub mod versioned`
 //!
-//! Here we wrap our
-//! [`version_unchecked::MigrateV0ToV1`](crate::migrations::v1::version_unchecked::MigrateV0ToV1)
-//! migration in a [`VersionedMigration`](frame_support::migrations::VersionedMigration) to get
-//! [`versioned::MigrateV0ToV1`](crate::migrations::v1::versioned::MigrateV0ToV1) which may be used
+//! Here,
+//! [`version_unchecked::MigrateV0ToV1`](crate::migrations::v1::version_unchecked::MigrateV0ToV1) is
+//! wrapped in a [`VersionedMigration`](frame_support::migrations::VersionedMigration) to define
+//! [`versioned::MigrateV0ToV1`](crate::migrations::v1::versioned::MigrateV0ToV1), which may be used
 //! in runtimes.
 //!
-//! Wrapping our raw V0 to V1 migration in
+//! Using
 //! [`VersionedMigration`](frame_support::migrations::VersionedMigration) ensures that
 //! - The migration only runs once when the on-chain storage version is `0`
 //! - The on-chain storage version is updated to `1` after the migration executes
 //! - Reads and writes from checking and setting the on-chain storage version are accounted for in
 //!   the final [`Weight`](frame_support::weights::Weight)
 //!
-//! This is the only public module.
+//! This is the only public module exported from `v1`.
 //!
 //! ### `mod test`
 //!
-//! Here we define some basic unit tests for our migration.
+//! Here basic unit tests are defined for the migration.
 //!
-//! When writing migration tests, it is important to check:
+//! When writing migration tests, don't forget to check:
 //! - `on_runtime_upgrade` returns the expected weight
 //! - `post_upgrade` succeeds when given the bytes returned by `pre_upgrade`
-//! - The storage is in the expected state after the migration
+//! - Pallet storage is in the expected state after the migration
 //!
-//! ## Scheduling the Migration to run next runtime upgrade
+//! ## Scheduling the Migration to Run Next Runtime Upgrade
 //!
-//! We're almost done! The last step is to schedule the migration to run next runtime upgrade
-//! passing it as a generic parameter to your [`Executive`](frame_executive) pallet:
+//! Almost done! The last step is to schedule the migration to run next runtime upgrade passing it
+//! as a generic parameter to your [`Executive`](frame_executive) pallet:
 //!
 //! ```rust
 //! // Tuple of migrations (structs that implement `OnRuntimeUpgrade`)
@@ -179,16 +180,17 @@
 //!
 //! ## Ensuring Migraiton Safety
 //!
-//! We've written unit tests for our migration and they pass, so it should be safe to deploy right?
+//! "My migration unit tests pass, so it should be safe to deploy right?"
 //!
 //! No! Unit tests execute the migration in a very simple test environment, and cannot account
 //! for the complexities of a real runtime or real on-chain state.
 //!
-//! Prior to deploying our migrations, we must perform additional checks to ensure that when run
-//! in our real runtime they will not:
-//! - Panic, bricking our parachain
-//! - Touch too many storage keys resulting an excessively large PoV, bricking our parachain
-//! - Take too long to execute, bricking our parachain
+//! Prior to deploying migrations, it is CRITICAL to perform additional checks to ensure that when
+//! run in our real runtime they will not:
+//! - Panic (bricking the chain!)
+//! - Touch too many storage keys resulting an excessively large PoV (potentially bricking the
+//!   chain)
+//! - Take too long to execute (potentially bricking the chain)
 //!
 //! The [`try-runtime-cli`](https://github.com/paritytech/try-runtime-cli) tool has a sub-command
 //! [`on-runtime-upgrade`](https://paritytech.github.io/try-runtime-cli/try_runtime_core/commands/enum.Action.html#variant.OnRuntimeUpgrade)
@@ -221,7 +223,7 @@
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
 
-// We export the migrations so they may be used in the runtime.
+// Export migrations so they may be used in the runtime.
 pub mod migrations;
 mod mock;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -230,7 +232,6 @@ use sp_runtime::RuntimeDebug;
 
 /// Example struct holding the most recently set [`u32`] and the
 /// second most recently set [`u32`] (if one existed).
-#[docify::export(test)]
 #[derive(
 	Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
 )]
@@ -241,15 +242,14 @@ pub struct CurrentAndPreviousValue {
 	pub previous: Option<u32>,
 }
 
-// All pallet logic is defined in its own module and must be annotated by the `pallet` attribute.
+// Pallet for demonstrating storage migrations.
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	// Import various useful types required by all FRAME pallets.
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	/// Here we define the current [`StorageVersion`] of the pallet.
+	/// Define the current [`StorageVersion`] of the pallet.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -267,10 +267,8 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		pub fn set_value(origin: OriginFor<T>, value: u32) -> DispatchResult {
-			// Check that the extrinsic was signed.
 			ensure_signed(origin)?;
 
-			// Set the value in storage.
 			let previous = Value::<T>::get().map(|v| v.current);
 			let new_struct = CurrentAndPreviousValue { current: value, previous };
 			<Value<T>>::put(new_struct);
