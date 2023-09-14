@@ -208,7 +208,7 @@ async fn assert_validate_seconded_candidate(
 	expected_head_data: &HeadData,
 	fetch_pov: bool,
 ) {
-	handle_validation_requests(virtual_overseer, validation_code.clone()).await;
+	test_validation_requests(virtual_overseer, validation_code.clone()).await;
 
 	if fetch_pov {
 		assert_matches!(
