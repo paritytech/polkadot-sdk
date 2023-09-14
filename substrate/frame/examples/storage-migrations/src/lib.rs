@@ -50,8 +50,7 @@
 //!
 //!
 //! In [`StorageVersion`] V1 of the pallet a new struct [`CurrentAndPreviousValue`] is introduced:
-//!
-#[doc = docify::embed!("src/lib.rs", test)]
+#![doc = docify::embed!("src/lib.rs", test)]
 //!
 //! ```
 //! pub struct CurrentAndPreviousValue {
