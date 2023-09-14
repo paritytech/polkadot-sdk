@@ -6427,7 +6427,11 @@
 			// reward math rounds down, we might accumulate some dust here.
 			</span><span class="kw">let </span>pending_rewards_lt_leftover_bal = RewardPool::&lt;T&gt;::current_balance(id) &gt;=
 				pools_members_pending_rewards.get(<span class="kw-2">&amp;</span>id).copied().unwrap_or_default();
-			<span class="kw">if </span>!pending_rewards_lt_leftover_bal {
+
+			<span class="comment">// this is currently broken in Kusama, a fix is being worked on in
+			// &lt;https://github.com/paritytech/polkadot-sdk/pull/1255&gt;. until it is fixed, log a
+			// warning instead of panicing with an `ensure` statement.
+			</span><span class="kw">if </span>!pending_rewards_lt_leftover_bal {
 				<span class="macro">log::warn!</span>(
 					<span class="string">&quot;pool {:?}, sum pending rewards = {:?}, remaining balance = {:?}&quot;</span>,
 					id,
@@ -6435,10 +6439,6 @@
 					RewardPool::&lt;T&gt;::current_balance(id)
 				);
 			}
-			<span class="macro">ensure!</span>(
-				pending_rewards_lt_leftover_bal,
-				<span class="string">&quot;The sum of the pending rewards must be less than the leftover balance.&quot;
-			</span>);
 			<span class="prelude-val">Ok</span>(())
 		})<span class="question-mark">?</span>;
 
