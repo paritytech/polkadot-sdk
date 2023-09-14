@@ -37,4 +37,5 @@ try-runtime = [
 	"pallet-example-kitchensink/try-runtime",
 	"pallet-example-offchain-worker/try-runtime",
 	"pallet-example-split/try-runtime",
+	"pallet-example-storage-migrations/try-runtime"
 ]
