@@ -93,8 +93,7 @@ pub struct TicketsMetadata {
 	/// Number of tickets available into the tickets buffers.
 	/// The array index is computed as epoch index modulo 2.
 	pub tickets_count: [u32; 2],
-	/// Number of outstanding tickets segments requiring to be sorted and stored
-	/// in one of the epochs tickets buffer
+	/// Number of outstanding tickets segments requiring to be sorted.
 	pub segments_count: u32,
 }
 
@@ -123,11 +122,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxAuthorities: Get<u32>;
 
-		/// Sassafras requires some logic to be triggered on every block to query for whether an
-		/// epoch has ended and to perform the transition to the next epoch.
+		/// Epoch change trigger.
 		///
-		/// Typically, the `ExternalTrigger` type should be used. An internal trigger should only
-		/// be used when no other module is responsible for changing authority set.
+		/// Logic to be triggered on every block to query for whether an epoch has ended
+		/// and to perform the transition to the next epoch.
 		type EpochChangeTrigger: EpochChangeTrigger;
 
 		/// Weight information for all calls of this pallet.
@@ -170,6 +168,7 @@ pub mod pallet {
 		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
 
 	/// The slot at which the first epoch started.
+	///
 	/// This is `None` until the first block is imported on chain.
 	#[pallet::storage]
 	#[pallet::getter(fn genesis_slot)]
@@ -195,7 +194,9 @@ pub mod pallet {
 	pub type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
 
 	/// Temporary value which is `Some` if per-block initialization has already been called
-	/// for current block. Cleared on block finalization.
+	/// for current block.
+	///
+	/// Cleared on block finalization.
 	#[pallet::storage]
 	#[pallet::getter(fn initialized)]
 	pub type Initialized<T> = StorageValue<_, SlotClaim>;
@@ -297,8 +298,7 @@ pub mod pallet {
 			// On the first non-zero block (i.e. block #1) this is where the first epoch
 			// (epoch #0) actually starts. We need to adjust internal storage accordingly.
 			if *GenesisSlot::<T>::get() == 0 {
-				debug!(target: LOG_TARGET, ">>> GENESIS SLOT: {:?}", claim.slot);
-				Self::initialize_genesis_epoch(claim.slot)
+	.			Self::initialize_genesis_epoch(claim.slot)
 			}
 
 			Initialized::<T>::put(claim);
@@ -738,6 +738,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn initialize_genesis_epoch(genesis_slot: Slot) {
+		debug!(target: LOG_TARGET, "Genesis slot: {}", genesis_slot);
+
 		GenesisSlot::<T>::put(genesis_slot);
 
 		// Deposit a log because this is the first block in epoch #0.
@@ -946,17 +948,21 @@ pub trait EpochChangeTrigger {
 	fn trigger<T: Config>(now: BlockNumberFor<T>);
 }
 
-/// A type signifying to Sassafras that an external trigger for epoch changes
-/// (e.g. pallet-session) is used.
+/// An `EpochChangeTrigger` which does nothing.
+///
+/// In practice this means that the epoch change logic is left to some external component
+/// (e.g. pallet-session)
 pub struct ExternalTrigger;
 
 impl EpochChangeTrigger for ExternalTrigger {
 	fn trigger<T: Config>(_: BlockNumberFor<T>) {} // nothing - trigger is external.
 }
 
-/// A type signifying to Sassafras that it should perform epoch changes with an internal
-/// trigger, recycling the same authorities forever.
-pub struct SameAuthoritiesForever;
+/// An `EpochChangeTrigger` which recycle the same authorities set forever.
+///
+/// The internal trigger should only be used when no other module is responsible for
+/// changing authority set.
+pub struct InternalTrigger;
 
 impl EpochChangeTrigger for SameAuthoritiesForever {
 	fn trigger<T: Config>(now: BlockNumberFor<T>) {
