@@ -891,8 +891,11 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 /// Migrations to apply on runtime upgrade.
-pub type Migrations =
-	(pallet_collator_selection::migration::v1::MigrateToV1<Runtime>, InitStorageVersions);
+pub type Migrations = (
+	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+	InitStorageVersions,
+);
 
 /// Migration to initialize storage versions for pallets added after genesis.
 ///
@@ -918,11 +921,6 @@ impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
 			writes.saturating_inc();
 		}
 
-		if Nfts::on_chain_storage_version() == StorageVersion::new(0) {
-			StorageVersion::new(1).put::<Nfts>();
-			writes.saturating_inc();
-		}
-
 		if ForeignAssets::on_chain_storage_version() == StorageVersion::new(0) {
 			StorageVersion::new(1).put::<ForeignAssets>();
 			writes.saturating_inc();
@@ -933,7 +931,7 @@ impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
 			writes.saturating_inc();
 		}
 
-		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(5, writes)
+		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(4, writes)
 	}
 }
 
