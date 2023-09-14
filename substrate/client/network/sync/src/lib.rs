@@ -1826,7 +1826,7 @@ where
 							},
 							Err(BlockResponseError::DecodeFailed(e)) => {
 								debug!(
-									target: "sync",
+									target: LOG_TARGET,
 									"Failed to decode block response from peer {:?}: {:?}.",
 									id,
 									e
