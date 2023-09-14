@@ -33,7 +33,7 @@ use sp_std::prelude::*;
 pub fn verify_leaves_proof<H, L>(
 	root: H::Output,
 	leaves: Vec<Node<H, L>>,
-	proof: primitives::Proof<H::Output>,
+	proof: primitives::Proof<(u64, H::Output)>,
 ) -> Result<bool, Error>
 where
 	H: sp_runtime::traits::Hash,
@@ -54,7 +54,7 @@ where
 
 	let p = mmr_lib::MerkleProof::<Node<H, L>, Hasher<H, L>>::new(
 		size,
-		proof.items.into_iter().map(Node::Hash).collect(),
+		proof.items.into_iter().map(|(index, hash)| (index, Node::Hash(hash))).collect(),
 	);
 	p.verify(Node::Hash(root), leaves_and_position_data)
 		.map_err(|e| Error::Verify.log_debug(e))
@@ -95,11 +95,11 @@ where
 	pub fn verify_leaves_proof(
 		&self,
 		leaves: Vec<L>,
-		proof: primitives::Proof<HashOf<T, I>>,
+		proof: primitives::Proof<(u64, HashOf<T, I>)>,
 	) -> Result<bool, Error> {
 		let p = mmr_lib::MerkleProof::<NodeOf<T, I, L>, Hasher<HashingOf<T, I>, L>>::new(
 			self.mmr.mmr_size(),
-			proof.items.into_iter().map(Node::Hash).collect(),
+			proof.items.into_iter().map(|(index, hash)| (index, Node::Hash(hash))).collect(),
 		);
 
 		if leaves.len() != proof.leaf_indices.len() {
@@ -166,7 +166,7 @@ where
 	pub fn generate_proof(
 		&self,
 		leaf_indices: Vec<NodeIndex>,
-	) -> Result<(Vec<L>, primitives::Proof<HashOf<T, I>>), Error> {
+	) -> Result<(Vec<L>, primitives::Proof<(u64, HashOf<T, I>)>), Error> {
 		let positions = leaf_indices
 			.iter()
 			.map(|index| mmr_lib::leaf_index_to_pos(*index))
@@ -187,7 +187,7 @@ where
 			.map(|p| primitives::Proof {
 				leaf_indices,
 				leaf_count,
-				items: p.proof_items().iter().map(|x| x.hash()).collect(),
+				items: p.proof_items().iter().map(|(index, item)| (*index, item.hash())).collect(),
 			})
 			.map(|p| (leaves, p))
 	}

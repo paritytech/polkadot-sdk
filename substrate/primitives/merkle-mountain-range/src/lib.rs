@@ -442,7 +442,7 @@ sp_api::decl_runtime_apis! {
 		/// Note this function will use on-chain MMR root hash and check if the proof matches the hash.
 		/// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
 		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [Proof]
-		fn verify_proof(leaves: Vec<EncodableOpaqueLeaf>, proof: Proof<Hash>) -> Result<(), Error>;
+		fn verify_proof(leaves: Vec<EncodableOpaqueLeaf>, proof: Proof<(u64, Hash)>) -> Result<(), Error>;
 
 		/// Verify MMR proof against given root hash for a batch of leaves.
 		///
@@ -451,7 +451,7 @@ sp_api::decl_runtime_apis! {
 		///
 		/// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
 		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [Proof]
-		fn verify_proof_stateless(root: Hash, leaves: Vec<EncodableOpaqueLeaf>, proof: Proof<Hash>)
+		fn verify_proof_stateless(root: Hash, leaves: Vec<EncodableOpaqueLeaf>, proof: Proof<(u64, Hash)>)
 			-> Result<(), Error>;
 	}
 }

@@ -2394,7 +2394,7 @@ dependencies = [
 [[package]]
 name = "ckb-merkle-mountain-range"
 version = "0.5.2"
-source = "git+https://github.com/Lederstrumpf/merkle-mountain-range.git?branch=linearize-proof-rebase-v0.5.1#f3aed2bfdaa5ec83d89e97b37c89ecaac9f64497"
+source = "git+https://github.com/Lederstrumpf/merkle-mountain-range.git?branch=linearize-proof-rebase-v0.5.1#b55b6805d35b6ccbd8dc83c30caf1cae19943981"
 dependencies = [
  "cfg-if",
 ]
