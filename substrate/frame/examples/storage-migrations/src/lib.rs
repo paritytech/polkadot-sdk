@@ -186,11 +186,10 @@
 //! for the complexities of a real runtime or real on-chain state.
 //!
 //! Prior to deploying migrations, it is CRITICAL to perform additional checks to ensure that when
-//! run in our real runtime they will not:
-//! - Panic (bricking the chain!)
-//! - Touch too many storage keys resulting an excessively large PoV (potentially bricking the
-//!   chain)
-//! - Take too long to execute (potentially bricking the chain)
+//! run in our real runtime they will not brick the chain due to:
+//! - Panicing
+//! - Touching too many storage keys and resulting in an excessively large PoV
+//! - Taking too long to execute
 //!
 //! The [`try-runtime-cli`](https://github.com/paritytech/try-runtime-cli) tool has a sub-command
 //! [`on-runtime-upgrade`](https://paritytech.github.io/try-runtime-cli/try_runtime_core/commands/enum.Action.html#variant.OnRuntimeUpgrade)
