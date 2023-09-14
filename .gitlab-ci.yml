@@ -223,8 +223,8 @@ test-linux-stable:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
+    # - .run-immediately
+    # - .pipeline-stopper-artifacts
   variables:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
