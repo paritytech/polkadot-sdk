@@ -3264,10 +3264,45 @@ mod pool_withdraw_unbonded {
 			CurrentEra::set(StakingMock::current_era() + StakingMock::bonding_duration() + 1);
 			assert_ok!(Pools::pool_withdraw_unbonded(RuntimeOrigin::signed(10), 1, 0));
 
-			// Then there unbonding balance is no longer locked
+			// Then their unbonding balance is no longer locked
 			assert_eq!(StakingMock::active_stake(&default_bonded_account()), Ok(15));
 			assert_eq!(StakingMock::total_stake(&default_bonded_account()), Ok(15));
 			assert_eq!(Balances::free_balance(&default_bonded_account()), 20);
+		});
+	}
+	#[test]
+	fn pool_withdraw_unbonded_creates_tvl_diff() {
+		ExtBuilder::default().add_members(vec![(20, 10)]).build_and_execute(|| {
+			// Given 10 unbond'ed directly against the pool account
+			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 5));
+
+			assert_eq!(StakingMock::active_stake(&default_bonded_account()), Ok(15));
+			assert_eq!(StakingMock::total_stake(&default_bonded_account()), Ok(20));
+			assert_eq!(Balances::free_balance(&default_bonded_account()), 20);
+			assert_eq!(TotalValueLocked::<T>::get(), 20);
+
+			// When
+			CurrentEra::set(StakingMock::current_era() + StakingMock::bonding_duration() + 1);
+			assert_ok!(Pools::pool_withdraw_unbonded(RuntimeOrigin::signed(10), 1, 0));
+			assert_eq!(TotalValueLocked::<T>::get(), 15);
+
+			let member_balance = PoolMembers::<T>::iter()
+				.map(|(_, member)| member.total_balance())
+				.reduce(|acc, total_balance| acc + total_balance)
+				.unwrap_or_default();
+
+			// Then their unbonding balance is no longer locked
+			assert_eq!(StakingMock::active_stake(&default_bonded_account()), Ok(15));
+			assert_eq!(StakingMock::total_stake(&default_bonded_account()), Ok(15));
+			assert_eq!(Balances::free_balance(&default_bonded_account()), 20);
+
+			// The difference between TVL and member_balance is exactly the difference between
+			// `total_stake` and the `free_balance`.
+			// This relation is not guaranteed in the wild as arbitrary transfers towards
+			// `free_balance` can be made to the pool that are not accounted for.
+			let non_locked_balance = Balances::free_balance(&default_bonded_account()) -
+				StakingMock::total_stake(&default_bonded_account()).unwrap();
+			assert_eq!(member_balance, TotalValueLocked::<T>::get() + non_locked_balance);
 		});
 	}
 }
