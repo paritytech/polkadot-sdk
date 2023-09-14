@@ -529,8 +529,12 @@ x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
 
-# [patch."https://github.com/w3f/ring-vrf"]
-# bandersnatch_vrfs = { path = "../../w3f/ring-vrf/bandersnatch_vrfs" }
+[patch."https://github.com/w3f/ring-vrf"]
+bandersnatch_vrfs = { path = "../../w3f/ring-vrf/bandersnatch_vrfs" }
 
-# [patch."https://github.com/w3f/ring-proof"]
-# ring = { path = "../../w3f/ring-proof/ring" }
+[patch."https://github.com/w3f/ring-proof"]
+ring = { path = "../../w3f/ring-proof/ring" }
+common = { path = "../../w3f/ring-proof/common" }
+
+[patch."https://github.com/w3f/fflonk"]
+fflonk = { path = "../../w3f/fflonk" }
