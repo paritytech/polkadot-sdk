@@ -585,6 +585,23 @@ impl<T: Config> Pallet<T> {
 		TicketsMeta::<T>::set(Default::default());
 	}
 
+	fn update_ring_verifier(authorities: &[AuthorityId]) -> Result {
+		debug!(target: LOG_TARGET, "Loading ring context");
+		let Some(ring_ctx) = RingContext::<T>::get() else {
+			debug!(target: LOG_TARGET, "Ring context not initialized");
+			return
+		};
+
+		let pks: Vec<_> = authorities.iter().map(|auth| *auth.as_ref()).collect();
+
+		debug!(target: LOG_TARGET, "Building ring verifier (ring size {}", pks.len());
+		let _verifier = ring_ctx
+			.verifier(pks.as_slice())
+			.expect("Failed to build ring verifier. This is a bug");
+
+		// TODO: Persist the verifier...
+	}
+
 	/// Enact an epoch change.
 	///
 	/// Should be done on every block where `should_end_epoch` has returned `true`, and the caller
@@ -602,6 +619,13 @@ impl<T: Config> Pallet<T> {
 		// PRECONDITION: caller has done initialization.
 		// If using the internal trigger or the session pallet then this is guaranteed.
 		debug_assert!(Self::initialized().is_some());
+
+		let current_authorities = <Pallet<T>>::authorities();
+		if current_authorities != authorities {
+			Self::update_ring_verifier(&authorities);
+		}
+
+		// TODO @davxy WHAT if `authorities != NextAuthorities`?
 
 		// Update authorities
 		Authorities::<T>::put(authorities);
