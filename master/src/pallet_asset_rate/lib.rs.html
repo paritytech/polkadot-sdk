@@ -236,6 +236,11 @@
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -299,6 +304,7 @@
 
 </span><span class="kw">use </span>frame_support::traits::{fungible::Inspect, tokens::ConversionFromAssetBalance};
 <span class="kw">use </span>sp_runtime::{traits::Zero, FixedPointNumber, FixedU128};
+<span class="kw">use </span>sp_std::boxed::Box;
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>weights::WeightInfo;
@@ -393,18 +399,18 @@
 		#[pallet::weight(T::WeightInfo::create())]
 		</span><span class="kw">pub fn </span>create(
 			origin: OriginFor&lt;T&gt;,
-			asset_kind: T::AssetKind,
+			asset_kind: Box&lt;T::AssetKind&gt;,
 			rate: FixedU128,
 		) -&gt; DispatchResult {
 			T::CreateOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 
 			<span class="macro">ensure!</span>(
-				!ConversionRateToNative::&lt;T&gt;::contains_key(asset_kind.clone()),
+				!ConversionRateToNative::&lt;T&gt;::contains_key(asset_kind.as_ref()),
 				Error::&lt;T&gt;::AlreadyExists
 			);
-			ConversionRateToNative::&lt;T&gt;::set(asset_kind.clone(), <span class="prelude-val">Some</span>(rate));
+			ConversionRateToNative::&lt;T&gt;::set(asset_kind.as_ref(), <span class="prelude-val">Some</span>(rate));
 
-			<span class="self">Self</span>::deposit_event(Event::AssetRateCreated { asset_kind, rate });
+			<span class="self">Self</span>::deposit_event(Event::AssetRateCreated { asset_kind: <span class="kw-2">*</span>asset_kind, rate });
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -416,13 +422,13 @@
 		#[pallet::weight(T::WeightInfo::update())]
 		</span><span class="kw">pub fn </span>update(
 			origin: OriginFor&lt;T&gt;,
-			asset_kind: T::AssetKind,
+			asset_kind: Box&lt;T::AssetKind&gt;,
 			rate: FixedU128,
 		) -&gt; DispatchResult {
 			T::UpdateOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span><span class="kw-2">mut </span>old = FixedU128::zero();
-			ConversionRateToNative::&lt;T&gt;::mutate(asset_kind.clone(), |maybe_rate| {
+			ConversionRateToNative::&lt;T&gt;::mutate(asset_kind.as_ref(), |maybe_rate| {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(r) = maybe_rate {
 					old = <span class="kw-2">*</span>r;
 					<span class="kw-2">*</span>r = rate;
@@ -433,7 +439,11 @@
 				}
 			})<span class="question-mark">?</span>;
 
-			<span class="self">Self</span>::deposit_event(Event::AssetRateUpdated { asset_kind, old, new: rate });
+			<span class="self">Self</span>::deposit_event(Event::AssetRateUpdated {
+				asset_kind: <span class="kw-2">*</span>asset_kind,
+				old,
+				new: rate,
+			});
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -443,16 +453,16 @@
 		/// - O(1)
 		</span><span class="attr">#[pallet::call_index(<span class="number">2</span>)]
 		#[pallet::weight(T::WeightInfo::remove())]
-		</span><span class="kw">pub fn </span>remove(origin: OriginFor&lt;T&gt;, asset_kind: T::AssetKind) -&gt; DispatchResult {
+		</span><span class="kw">pub fn </span>remove(origin: OriginFor&lt;T&gt;, asset_kind: Box&lt;T::AssetKind&gt;) -&gt; DispatchResult {
 			T::RemoveOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 
 			<span class="macro">ensure!</span>(
-				ConversionRateToNative::&lt;T&gt;::contains_key(asset_kind.clone()),
+				ConversionRateToNative::&lt;T&gt;::contains_key(asset_kind.as_ref()),
 				Error::&lt;T&gt;::UnknownAssetKind
 			);
-			ConversionRateToNative::&lt;T&gt;::remove(asset_kind.clone());
+			ConversionRateToNative::&lt;T&gt;::remove(asset_kind.as_ref());
 
-			<span class="self">Self</span>::deposit_event(Event::AssetRateRemoved { asset_kind });
+			<span class="self">Self</span>::deposit_event(Event::AssetRateRemoved { asset_kind: <span class="kw-2">*</span>asset_kind });
 			<span class="prelude-val">Ok</span>(())
 		}
 	}
