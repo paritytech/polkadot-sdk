@@ -64,8 +64,8 @@ use sc_network_common::{
 		},
 		warp::{EncodedProof, WarpProofRequest, WarpSyncPhase, WarpSyncProgress},
 		BadPeer, ChainSync as ChainSyncT, ImportResult, Metrics, OnBlockData, OnBlockJustification,
-		OnStateData, OpaqueStateRequest, OpaqueStateResponse, PeerInfo, PeerRequest,
-		SyncMode, SyncState, SyncStatus,
+		OnStateData, OpaqueStateRequest, OpaqueStateResponse, PeerInfo, PeerRequest, SyncMode,
+		SyncState, SyncStatus,
 	},
 };
 use sp_arithmetic::traits::Saturating;

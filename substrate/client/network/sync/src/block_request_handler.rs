@@ -32,7 +32,6 @@ use futures::{channel::oneshot, stream::StreamExt};
 use libp2p::PeerId;
 use log::debug;
 use prost::Message;
-use schnellru::{ByLength, LruMap};
 use sc_client_api::BlockBackend;
 use sc_network::{
 	config::ProtocolId,
@@ -42,6 +41,7 @@ use sc_network::{
 	types::ProtocolName,
 };
 use sc_network_common::sync::message::{BlockAttributes, BlockData, BlockRequest, FromBlock};
+use schnellru::{ByLength, LruMap};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
 	generic::BlockId,
