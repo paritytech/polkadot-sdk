@@ -19,8 +19,9 @@ pub mod xcm_helpers;
 
 use constants::{
 	accounts::{ALICE, BOB},
-	asset_hub_kusama, asset_hub_polkadot, asset_hub_westend, bridge_hub_kusama,
-	bridge_hub_polkadot, bridge_hub_rococo, collectives, kusama, penpal, polkadot, rococo, westend,
+	asset_hub_kusama, asset_hub_polkadot, asset_hub_rococo, asset_hub_westend, asset_hub_wococo,
+	bridge_hub_kusama, bridge_hub_polkadot, bridge_hub_rococo, collectives, kusama, penpal,
+	polkadot, rococo, westend,
 };
 use impls::{RococoWococoMessageHandler, WococoRococoMessageHandler};
 
@@ -327,56 +328,22 @@ decl_test_parachains! {
 			Balances: bridge_hub_rococo_runtime::Balances,
 		}
 	},
-	// AssetHubRococo (aka Rockmine/Rockmine2) mirrors AssetHubKusama
+	// AssetHubRococo
 	pub struct AssetHubRococo {
-		genesis = asset_hub_kusama::genesis(),
+		genesis = asset_hub_rococo::genesis(),
 		on_init = {
-			asset_hub_polkadot_runtime::AuraExt::on_initialize(1);
+			asset_hub_rococo_runtime::AuraExt::on_initialize(1);
 		},
-		runtime = asset_hub_kusama_runtime,
+		runtime = asset_hub_rococo_runtime,
 		core = {
-			XcmpMessageHandler: asset_hub_kusama_runtime::XcmpQueue,
-			DmpMessageHandler: asset_hub_kusama_runtime::DmpQueue,
-			LocationToAccountId: asset_hub_kusama_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: asset_hub_kusama_runtime::ParachainInfo,
+			XcmpMessageHandler: asset_hub_rococo_runtime::XcmpQueue,
+			DmpMessageHandler: asset_hub_rococo_runtime::DmpQueue,
+			LocationToAccountId: asset_hub_rococo_runtime::xcm_config::LocationToAccountId,
+			ParachainInfo: asset_hub_rococo_runtime::ParachainInfo,
 		},
 		pallets = {
-			PolkadotXcm: asset_hub_kusama_runtime::PolkadotXcm,
-			Assets: asset_hub_kusama_runtime::Assets,
-		}
-	},
-	// Wococo Parachains
-	pub struct BridgeHubWococo {
-		genesis = bridge_hub_rococo::genesis(),
-		on_init = {
-			bridge_hub_rococo_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = bridge_hub_rococo_runtime,
-		core = {
-			XcmpMessageHandler: bridge_hub_rococo_runtime::XcmpQueue,
-			DmpMessageHandler: bridge_hub_rococo_runtime::DmpQueue,
-			LocationToAccountId: bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: bridge_hub_rococo_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: bridge_hub_rococo_runtime::PolkadotXcm,
-		}
-	},
-	pub struct AssetHubWococo {
-		genesis = asset_hub_polkadot::genesis(),
-		on_init = {
-			asset_hub_polkadot_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = asset_hub_polkadot_runtime,
-		core = {
-			XcmpMessageHandler: asset_hub_polkadot_runtime::XcmpQueue,
-			DmpMessageHandler: asset_hub_polkadot_runtime::DmpQueue,
-			LocationToAccountId: asset_hub_polkadot_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: asset_hub_polkadot_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: asset_hub_polkadot_runtime::PolkadotXcm,
-			Assets: asset_hub_polkadot_runtime::Assets,
+			PolkadotXcm: asset_hub_rococo_runtime::PolkadotXcm,
+			Assets: asset_hub_rococo_runtime::Assets,
 		}
 	},
 	pub struct PenpalRococoA {
@@ -394,6 +361,42 @@ decl_test_parachains! {
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
+		}
+	},
+	// Wococo Parachains
+	pub struct BridgeHubWococo {
+		genesis = bridge_hub_rococo::genesis(),
+		on_init = {
+			bridge_hub_rococo_runtime::AuraExt::on_initialize(1);
+			// TODO: manage to set_wococo_flavor with `set_storage`
+		},
+		runtime = bridge_hub_rococo_runtime,
+		core = {
+			XcmpMessageHandler: bridge_hub_rococo_runtime::XcmpQueue,
+			DmpMessageHandler: bridge_hub_rococo_runtime::DmpQueue,
+			LocationToAccountId: bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
+			ParachainInfo: bridge_hub_rococo_runtime::ParachainInfo,
+		},
+		pallets = {
+			PolkadotXcm: bridge_hub_rococo_runtime::PolkadotXcm,
+		}
+	},
+	pub struct AssetHubWococo {
+		genesis = asset_hub_wococo::genesis(),
+		on_init = {
+			asset_hub_rococo_runtime::AuraExt::on_initialize(1);
+			// TODO: manage to set_wococo_flavor with `set_storage`
+		},
+		runtime = asset_hub_rococo_runtime,
+		core = {
+			XcmpMessageHandler: asset_hub_rococo_runtime::XcmpQueue,
+			DmpMessageHandler: asset_hub_rococo_runtime::DmpQueue,
+			LocationToAccountId: asset_hub_rococo_runtime::xcm_config::LocationToAccountId,
+			ParachainInfo: asset_hub_rococo_runtime::ParachainInfo,
+		},
+		pallets = {
+			PolkadotXcm: asset_hub_rococo_runtime::PolkadotXcm,
+			Assets: asset_hub_rococo_runtime::Assets,
 		}
 	}
 }
