@@ -445,6 +445,10 @@ async fn handle_recover<Context>(
 						enabled = prefer_backing_group,
 						"Prefer fetch from backing group",
 					);
+				} else {
+					// we have a POV limit but were not able to query the chunk size, so don't use
+					// the backing group.
+					prefer_backing_group = false;
 				}
 			};
 
