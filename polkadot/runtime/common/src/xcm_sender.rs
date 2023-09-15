@@ -221,8 +221,8 @@ mod tests {
 	}
 
 	struct TestFeeTracker;
-	impl FeeTracker for TestFeeTracker {
-		fn get_fee_factor(_: ()) -> FixedU128 {
+	impl FeeTracker<ParaId> for TestFeeTracker {
+		fn get_fee_factor(_: ParaId) -> FixedU128 {
 			FixedU128::from_rational(101, 100)
 		}
 	}
@@ -238,21 +238,21 @@ mod tests {
 
 		// F * (B + msg_length * M)
 		// message_length = 1
-		let result: u128 = TestFeeTracker::get_fee_factor(()).saturating_mul_int(b + m);
+		let result: u128 = TestFeeTracker::get_fee_factor(id).saturating_mul_int(b + m);
 		assert_eq!(
 			TestExponentialPrice::price_for_parachain_delivery(id, &Xcm(vec![])),
 			(FeeAssetId::get(), result).into()
 		);
 
 		// message size = 2
-		let result: u128 = TestFeeTracker::get_fee_factor(()).saturating_mul_int(b + (2 * m));
+		let result: u128 = TestFeeTracker::get_fee_factor(id).saturating_mul_int(b + (2 * m));
 		assert_eq!(
 			TestExponentialPrice::price_for_parachain_delivery(id, &Xcm(vec![ClearOrigin])),
 			(FeeAssetId::get(), result).into()
 		);
 
 		// message size = 4
-		let result: u128 = TestFeeTracker::get_fee_factor(()).saturating_mul_int(b + (4 * m));
+		let result: u128 = TestFeeTracker::get_fee_factor(id).saturating_mul_int(b + (4 * m));
 		assert_eq!(
 			TestExponentialPrice::price_for_parachain_delivery(
 				id,
