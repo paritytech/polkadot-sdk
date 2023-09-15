@@ -3089,13 +3089,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn freeze_min_balance(reward_acc: &T::AccountId) -> DispatchResult {
-		T::Currency::set_freeze(
-			&FreezeReason::PoolMinBalance.into(),
-			reward_acc,
-			T::Currency::minimum_balance(),
-		)
-	}
 	fn do_adjust_ed_deposit(who: T::AccountId, pool: PoolId) -> DispatchResult {
 		let bonded_pool = BondedPool::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
 		// only depositor can adjust ED deposit.
@@ -3132,6 +3125,13 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(())
+	}
+	pub(crate) fn freeze_min_balance(reward_acc: &T::AccountId) -> DispatchResult {
+		T::Currency::set_freeze(
+			&FreezeReason::PoolMinBalance.into(),
+			reward_acc,
+			T::Currency::minimum_balance(),
+		)
 	}
 	/// Ensure the correctness of the state of this pallet.
 	///
@@ -3338,6 +3338,14 @@ impl<T: Config> Pallet<T> {
 
 		ensure!(failed == 0, "Some pools do not have correct ED frozen");
 		Ok(())
+	}
+
+	#[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
+	pub fn remove_ed_freeze(pool_id: PoolId) {
+		let _ = T::Currency::thaw(
+			&FreezeReason::PoolMinBalance.into(),
+			&Self::create_reward_account(pool_id),
+		);
 	}
 	/// Fully unbond the shares of `member`, when executed from `origin`.
 	///

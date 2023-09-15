@@ -807,11 +807,14 @@ frame_benchmarking::benchmarks! {
 		// Create a pool
 		let (depositor, _) = create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
 
+		// Remove ed freeze to create a scenario where the ed deposit needs to be adjusted.
+		let _ = Pools::<T>::remove_ed_freeze(1);
+		assert!(&Pools::<T>::check_ed_imbalance().is_err());
 
 		whitelist_account!(depositor);
 	}:_(RuntimeOrigin::Signed(depositor), 1)
 	verify {
-		// assert_eq!(Metadata::<T>::get(&1), metadata);
+		assert!(&Pools::<T>::check_ed_imbalance().is_ok());
 	}
 
 	impl_benchmark_test_suite!(
