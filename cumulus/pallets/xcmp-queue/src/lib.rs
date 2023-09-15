@@ -213,8 +213,8 @@ pub mod pallet {
 			use migration::{v3, LOG};
 			let mut meter = WeightMeter::with_limit(limit);
 
-			if meter.try_consume(T::WeightInfo::on_idle()).is_err() {
-				log::debug!(target: LOG, "Not enough weight for on_idle. {} < {}", T::WeightInfo::on_idle(), limit);
+			if meter.try_consume(Self::on_idle_weight()).is_err() {
+				log::debug!(target: LOG, "Not enough weight for on_idle. {} < {}", Self::on_idle_weight(), limit);
 				return meter.consumed()
 			}
 
@@ -622,6 +622,11 @@ impl<T: Config> Pallet<T> {
 		}
 		.try_into()
 		.map_err(|_| ())
+	}
+
+	pub fn on_idle_weight() -> Weight {
+		<T as crate::Config>::WeightInfo::on_idle_good_msg()
+			.max(<T as crate::Config>::WeightInfo::on_idle_large_msg())
 	}
 }
 

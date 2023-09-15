@@ -698,7 +698,7 @@ fn lazy_migration_works() {
 #[test]
 fn lazy_migration_noop_when_out_of_weight() {
 	use crate::migration::v3::*;
-	assert!(!<Test as crate::Config>::WeightInfo::on_idle().is_zero(), "pre condition");
+	assert!(!XcmpQueue::on_idle_weight().is_zero(), "pre condition");
 
 	new_test_ext().execute_with(|| {
 		let _g = StorageNoopGuard::default(); // No storage is leaked.
