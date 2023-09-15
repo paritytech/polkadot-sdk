@@ -19,7 +19,6 @@
 //! API trait of the archive methods.
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
-use serde::{Deserialize, Serialize};
 
 #[rpc(client, server)]
 pub trait ArchiveApi<Hash> {
@@ -87,35 +86,5 @@ pub trait ArchiveApi<Hash> {
 		hash: Hash,
 		function: String,
 		call_parameters: String,
-	) -> RpcResult<ArchiveCallResult>;
-}
-
-/// The successful result of `archive_unstable_call`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ArchiveCallOk {
-	/// True if the call was successful.
-	pub success: bool,
-	/// The result of the call.
-	pub value: String,
-}
-
-/// The error result of `archive_unstable_call`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ArchiveCallError {
-	/// True if the call was successful.
-	pub success: bool,
-	/// The error reason.
-	pub error: String,
-}
-
-/// The result of `archive_unstable_call`.
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
-#[serde(untagged)]
-pub enum ArchiveCallResult {
-	/// The call was successful.
-	Ok(ArchiveCallOk),
-	/// The call produced an error.
-	Err(ArchiveCallError),
+	) -> RpcResult<String>;
 }

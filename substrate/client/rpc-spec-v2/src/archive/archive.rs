@@ -19,13 +19,10 @@
 //! API implementation for `archive`.
 
 use crate::{
-	archive::{
-		api::{ArchiveCallError, ArchiveCallOk, ArchiveCallResult},
-		error::Error as ArchiveError,
-		ArchiveApiServer,
-	},
+	archive::{error::Error as ArchiveError, ArchiveApiServer},
 	chain_head::hex_string,
 };
+
 use codec::Encode;
 use jsonrpsee::core::{async_trait, RpcResult};
 use sc_client_api::{
@@ -161,21 +158,13 @@ where
 		hash: Block::Hash,
 		function: String,
 		call_parameters: String,
-	) -> RpcResult<ArchiveCallResult> {
+	) -> RpcResult<String> {
 		let call_parameters = Bytes::from(parse_hex_param(call_parameters)?);
 
-		Ok(self
-			.client
+		self.client
 			.executor()
 			.call(hash, &function, &call_parameters, CallContext::Offchain)
-			.map(|result| {
-				ArchiveCallResult::Ok(ArchiveCallOk { success: true, value: hex_string(&result) })
-			})
-			.unwrap_or_else(|error| {
-				ArchiveCallResult::Err(ArchiveCallError {
-					success: false,
-					error: error.to_string(),
-				})
-			}))
+			.map(|result| hex_string(&result))
+			.map_err(|error| ArchiveError::RuntimeCall(error.to_string()).into())
 	}
 }

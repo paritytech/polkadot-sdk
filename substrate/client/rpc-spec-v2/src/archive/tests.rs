@@ -20,12 +20,16 @@ use crate::chain_head::hex_string;
 
 use super::{archive::Archive, *};
 
+use assert_matches::assert_matches;
 use codec::{Decode, Encode};
-use jsonrpsee::{types::EmptyServerParams as EmptyParams, RpcModule};
+use jsonrpsee::{
+	core::error::Error,
+	types::{error::CallError, EmptyServerParams as EmptyParams},
+	RpcModule,
+};
 use sc_block_builder::BlockBuilderProvider;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
-use sp_core::testing::TaskExecutor;
 use sp_runtime::SaturatedConversion;
 use std::sync::Arc;
 use substrate_test_runtime::Transfer;
@@ -41,9 +45,10 @@ type Block = substrate_test_runtime_client::runtime::Block;
 
 fn setup_api() -> (Arc<Client<Backend>>, RpcModule<Archive<Backend, Block, Client<Backend>>>) {
 	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
 	let client = Arc::new(builder.build());
 
-	let api = Archive::new(client.clone(), CHAIN_GENESIS).into_rpc();
+	let api = Archive::new(client.clone(), backend, CHAIN_GENESIS).into_rpc();
 
 	(client, api)
 }
@@ -199,4 +204,60 @@ async fn archive_hash_by_height() {
 	height += 1;
 	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [height]).await.unwrap();
 	assert!(hashes.is_empty());
+}
+
+#[tokio::test]
+async fn archive_call() {
+	let (mut client, api) = setup_api();
+	let invalid_hash = hex_string(&INVALID_HASH);
+
+	// Invalid parameter (non-hex).
+	let err = api
+		.call::<_, serde_json::Value>(
+			"archive_unstable_call",
+			[&invalid_hash, "BabeApi_current_epoch", "0x00X"],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err, Error::Call(CallError::Custom(ref err)) if err.code() == 3001 && err.message().contains("Invalid parameter"));
+
+	// Pass an invalid parameters that cannot be decode.
+	let err = api
+		.call::<_, serde_json::Value>(
+			"archive_unstable_call",
+			// 0x0 is invalid.
+			[&invalid_hash, "BabeApi_current_epoch", "0x0"],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err, Error::Call(CallError::Custom(ref err)) if err.code() == 3001 && err.message().contains("Invalid parameter"));
+
+	// Invalid hash.
+	let err = api
+		.call::<_, serde_json::Value>(
+			"archive_unstable_call",
+			[&invalid_hash, "BabeApi_current_epoch", "0x00"],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::Call(CallError::Custom(ref err)) if err.code() == 3002 && err.message().contains("Runtime call")
+	);
+
+	let block_1 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block_1_hash = block_1.header.hash();
+	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
+
+	// Valid call.
+	let alice_id = AccountKeyring::Alice.to_account_id();
+	// Hex encoded scale encoded bytes representing the call parameters.
+	let call_parameters = hex_string(&alice_id.encode());
+	let response: String = api
+		.call(
+			"archive_unstable_call",
+			[&format!("{:?}", block_1_hash), "AccountNonceApi_account_nonce", &call_parameters],
+		)
+		.await
+		.unwrap();
+	assert_eq!(response, "0x0000000000000000");
 }

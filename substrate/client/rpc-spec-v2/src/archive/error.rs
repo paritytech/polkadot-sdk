@@ -29,12 +29,17 @@ pub enum Error {
 	/// Invalid parameter provided to the RPC method.
 	#[error("Invalid parameter: {0}")]
 	InvalidParam(String),
+	/// Runtime call failed.
+	#[error("Runtime call: {0}")]
+	RuntimeCall(String),
 }
 
 // Base code for all `archive` errors.
 const BASE_ERROR: i32 = 3000;
 /// Invalid parameter error.
 const INVALID_PARAM_ERROR: i32 = BASE_ERROR + 1;
+/// Runtime call error.
+const RUNTIME_CALL_ERROR: i32 = BASE_ERROR + 2;
 
 impl From<Error> for ErrorObject<'static> {
 	fn from(e: Error) -> Self {
@@ -42,6 +47,7 @@ impl From<Error> for ErrorObject<'static> {
 
 		match e {
 			Error::InvalidParam(_) => ErrorObject::owned(INVALID_PARAM_ERROR, msg, None::<()>),
+			Error::RuntimeCall(_) => ErrorObject::owned(RUNTIME_CALL_ERROR, msg, None::<()>),
 		}
 		.into()
 	}
