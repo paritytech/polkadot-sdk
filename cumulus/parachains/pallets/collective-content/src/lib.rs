@@ -127,8 +127,6 @@ pub mod pallet {
 		/// Parameters:
 		/// - `origin`: Must be the [Config::CharterOrigin].
 		/// - `cid`: [CID](super::OpaqueCid) of the IPFS document of the collective charter.
-		///
-		/// Weight: `O(1)`.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_charter())]
 		pub fn set_charter(origin: OriginFor<T>, cid: OpaqueCid) -> DispatchResult {
@@ -148,8 +146,6 @@ pub mod pallet {
 		/// - `maybe_expire`: Expiration block of the announcement. If `None`
 		///   [`Config::AnnouncementLifetime`]
 		/// used as a default.
-		///
-		/// Weight: `O(1)`.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::announce())]
 		pub fn announce(
@@ -182,8 +178,6 @@ pub mod pallet {
 		/// - `origin`: Must be the [Config::AnnouncementOrigin] or signed for expired
 		///   announcements.
 		/// - `cid`: [CID](super::OpaqueCid) of the IPFS document to remove.
-		///
-		/// Weight: `O(1)`.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::remove_announcement())]
 		pub fn remove_announcement(
