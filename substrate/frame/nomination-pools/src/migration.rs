@@ -41,36 +41,37 @@ pub mod v6 {
 	impl<T: Config> MigrateToV6<T> {
 		fn freeze_ed(pool_id: PoolId) -> Result<(), ()> {
 			let reward_acc = Pallet::<T>::create_reward_account(pool_id);
-			Pallet::<T>::freeze_min_balance(&reward_acc).map_err(|_| ())
+			Pallet::<T>::freeze_min_balance(&reward_acc).map_err(|e| {
+				log!(error, "Failed to freeze ED for pool {} with error: {:?}", pool_id, e);
+				()
+			})
 		}
 	}
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV6<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let mut failed = 0;
-			let mut success = 0;
+			let mut success = 0u64;
+			let mut fail = 0u64;
 
 			BondedPools::<T>::iter_keys().for_each(|p| {
 				if Self::freeze_ed(p).is_ok() {
-					success += 1;
+					success.saturating_inc();
 				} else {
-					failed += 1;
+					fail.saturating_inc();
 				}
 			});
 
-			log!(info, "Freezing ED succeeded for {} pools, failed for {} pools", success, failed);
-
-			// fixme(ank4n)
-			T::DbWeight::get().reads_writes(1, 1)
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			Ok(().encode())
+			log!(info, "Freezing ED succeeded for {} pools, and failed for {} pools", success, fail);
+			let total = success + fail;
+			// freeze_ed = r:2 w:2
+			// reads: (freeze_ed + bonded pool key) * total
+			// writes: freeze_ed * total
+			T::DbWeight::get().reads_writes(3*total, 2*total)
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
-			Ok(())
+			// there should be no ED imbalances anymore..
+			Pallet::<T>::check_ed_imbalance()
 		}
 	}
 }

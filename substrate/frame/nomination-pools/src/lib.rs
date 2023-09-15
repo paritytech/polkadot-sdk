@@ -1523,7 +1523,7 @@ pub mod pallet {
 	use sp_runtime::Perbill;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(6);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -3307,9 +3307,35 @@ impl<T: Config> Pallet<T> {
 			);
 		}
 
+		// Warn if any pool has incorrect ED frozen. We don't want to fail hard as this could be a
+		// result of an intentional ED change.
+		let _ = Self::check_ed_imbalance()?;
+
 		Ok(())
 	}
 
+	#[cfg(any(feature = "try-runtime", test))]
+	pub fn check_ed_imbalance() -> Result<(), TryRuntimeError> {
+		let mut failed: u32 = 0;
+		BondedPools::<T>::iter_keys().for_each(|id| {
+			let reward_acc = Self::create_reward_account(id);
+			let frozen_balance =
+				T::Currency::balance_frozen(&FreezeReason::PoolMinBalance.into(), &reward_acc);
+
+			let expected_frozen_balance = T::Currency::minimum_balance();
+			if frozen_balance != expected_frozen_balance {
+				failed += 1;
+				log::warn!(
+					"pool {:?} has incorrect ED frozen that can result from change in ED. Expected  = {:?},  Actual = {:?}",
+					id,
+					expected_frozen_balance,
+					frozen_balance,
+				);
+			}
+		});
+
+		ensure!(failed == 0, "Some pools do not have correct ED frozen");
+	}
 	/// Fully unbond the shares of `member`, when executed from `origin`.
 	///
 	/// This is useful for backwards compatibility with the majority of tests that only deal with
