@@ -23,15 +23,23 @@ use crate::chain_head::hex_string;
 use codec::Encode;
 use jsonrpsee::core::{async_trait, RpcResult};
 use sc_client_api::{Backend, BlockBackend, BlockchainEvents, ExecutorProvider, StorageProvider};
-use sp_api::CallApiAt;
-use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
-use sp_runtime::{traits::Block as BlockT, SaturatedConversion};
+use sp_api::{CallApiAt, NumberFor};
+use sp_blockchain::{
+	Backend as BlockChainBackend, Error as BlockChainError, HashAndNumber, HeaderBackend,
+	HeaderMetadata,
+};
+use sp_runtime::{
+	traits::{Block as BlockT, One},
+	SaturatedConversion, Saturating,
+};
 use std::{marker::PhantomData, sync::Arc};
 
 /// An API for archive RPC calls.
 pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
 	/// Substrate client.
 	client: Arc<Client>,
+	/// Backend of the chain.
+	backend: Arc<BE>,
 	/// The hexadecimal encoded hash of the genesis block.
 	genesis_hash: String,
 	/// Phantom member to pin the block type.
@@ -40,9 +48,13 @@ pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
 
 impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {
 	/// Create a new [`Archive`].
-	pub fn new<GenesisHash: AsRef<[u8]>>(client: Arc<Client>, genesis_hash: GenesisHash) -> Self {
+	pub fn new<GenesisHash: AsRef<[u8]>>(
+		client: Arc<Client>,
+		backend: Arc<BE>,
+		genesis_hash: GenesisHash,
+	) -> Self {
 		let genesis_hash = hex_string(&genesis_hash.as_ref());
-		Self { client, genesis_hash, _phantom: PhantomData }
+		Self { client, backend, genesis_hash, _phantom: PhantomData }
 	}
 }
 
@@ -84,7 +96,39 @@ where
 		Ok(Some(hex_string(&header.encode())))
 	}
 
-	fn archive_unstable_finalized_height(&self) -> RpcResult<u64> {
+	fn archive_unstable_finalized_height(&self) -> RpcResult<u32> {
 		Ok(self.client.info().finalized_number.saturated_into())
+	}
+
+	fn archive_unstable_hash_by_height(&self, height: u32) -> RpcResult<Vec<String>> {
+		let height: NumberFor<Block> = height.into();
+		let finalized_num = self.client.info().finalized_number;
+
+		if finalized_num >= height {
+			let Ok(Some(hash)) = self.client.block_hash(height.into()) else { return Ok(vec![]) };
+			return Ok(vec![hex_string(&hash.as_ref())])
+		}
+
+		let mut result = Vec::new();
+		let mut next_hash: Vec<HashAndNumber<Block>> = Vec::new();
+
+		next_hash
+			.push(HashAndNumber { number: finalized_num, hash: self.client.info().finalized_hash });
+
+		while let Some(parent) = next_hash.pop() {
+			if parent.number == height {
+				result.push(parent.hash);
+				continue
+			}
+
+			let Ok(blocks) = self.backend.blockchain().children(parent.hash) else { continue };
+
+			let child_number: NumberFor<Block> = parent.number.saturating_add(One::one());
+			for child_hash in blocks {
+				next_hash.push(HashAndNumber { number: child_number, hash: child_hash });
+			}
+		}
+
+		Ok(vec![])
 	}
 }

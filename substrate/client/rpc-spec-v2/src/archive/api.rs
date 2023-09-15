@@ -62,5 +62,16 @@ pub trait ArchiveApi<Hash> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[method(name = "archive_unstable_finalizedHeight")]
-	fn archive_unstable_finalized_height(&self) -> RpcResult<u64>;
+	fn archive_unstable_finalized_height(&self) -> RpcResult<u32>;
+
+	/// Get the hashes of blocks from the given height.
+	///
+	/// Returns an array (possibly empty) of strings containing an hexadecimal-encoded hash of a
+	/// block header.
+	///
+	/// # Unstable
+	///
+	/// This method is unstable and subject to change in the future.
+	#[method(name = "archive_unstable_hashByHeight")]
+	fn archive_unstable_hash_by_height(&self, height: u32) -> RpcResult<Vec<String>>;
 }

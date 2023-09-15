@@ -118,9 +118,9 @@ async fn archive_header() {
 async fn archive_finalized_height() {
 	let (client, api) = setup_api();
 
-	let client_height: u64 = client.info().finalized_number.saturated_into();
+	let client_height: u32 = client.info().finalized_number.saturated_into();
 
-	let height: u64 =
+	let height: u32 =
 		api.call("archive_unstable_finalizedHeight", EmptyParams::new()).await.unwrap();
 
 	assert_eq!(client_height, height);
