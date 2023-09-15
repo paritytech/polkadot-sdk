@@ -30,6 +30,7 @@ struct MetricsInner {
 	to_subsystem_bounded_sent: prometheus::GaugeVec<prometheus::U64>,
 	to_subsystem_bounded_received: prometheus::GaugeVec<prometheus::U64>,
 	to_subsystem_bounded_blocked: prometheus::GaugeVec<prometheus::U64>,
+	to_subsystem_bounded_channel_len: prometheus::GaugeVec<prometheus::U64>,
 
 	to_subsystem_unbounded_tof: prometheus::HistogramVec,
 	to_subsystem_unbounded_sent: prometheus::GaugeVec<prometheus::U64>,
@@ -100,6 +101,11 @@ impl Metrics {
 						.to_subsystem_bounded_blocked
 						.with_label_values(&[name])
 						.set(readouts.bounded.blocked as u64);
+
+					metrics
+						.to_subsystem_bounded_channel_len
+						.with_label_values(&[name])
+						.set(readouts.bounded.channel_len as u64);
 
 					metrics
 						.to_subsystem_unbounded_sent
@@ -199,6 +205,16 @@ impl MetricsTrait for Metrics {
 					prometheus::Opts::new(
 						"polkadot_parachain_subsystem_bounded_blocked",
 						"Number of times senders blocked while sending messages to a subsystem",
+					),
+					&["subsystem_name"],
+				)?,
+				registry,
+			)?,
+			to_subsystem_bounded_channel_len: prometheus::register(
+				prometheus::GaugeVec::<prometheus::U64>::new(
+					prometheus::Opts::new(
+						"polkadot_parachain_subsystem_bounded_channel_len",
+						"Number of elements in the unbounded channel",
 					),
 					&["subsystem_name"],
 				)?,

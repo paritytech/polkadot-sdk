@@ -16,7 +16,7 @@ polkadot-node-primitives = { path = "../primitives" }
 polkadot-node-subsystem-types = { path = "../subsystem-types" }
 polkadot-node-metrics = { path = "../metrics" }
 polkadot-primitives = { path = "../../primitives" }
-orchestra = { git = "https://github.com/paritytech/orchestra.git", rev="4a90a790bb54bc8ff7e4d304aa53c3f007b519c8", default-features = false, features=["futures_channel"] }
+orchestra = { git = "https://github.com/paritytech/orchestra.git", rev="c21d4b174b1bac8897625cd2626c24b9bb9aaa8b", default-features = false, features=["futures_channel"] }
 gum = { package = "tracing-gum", path = "../gum" }
 schnellru = "0.2.1"
 sp-core = { path = "../../../substrate/primitives/core" }
