@@ -55,7 +55,7 @@ pub use outgoing::{OutgoingRequest, OutgoingResult, Recipient, Requests, Respons
 pub mod v1;
 
 /// Actual versioned requests and responses that are sent over the wire.
-pub mod vstaging;
+pub mod v2;
 
 /// A protocol per subsystem seems to make the most sense, this way we don't need any dispatching
 /// within protocols.
@@ -66,7 +66,7 @@ pub enum Protocol {
 	/// Protocol for fetching collations from collators.
 	CollationFetchingV1,
 	/// Protocol for fetching collations from collators when async backing is enabled.
-	CollationFetchingVStaging,
+	CollationFetchingV2,
 	/// Protocol for fetching seconded PoVs from validators of the same group.
 	PoVFetchingV1,
 	/// Protocol for fetching available data.
@@ -78,7 +78,7 @@ pub enum Protocol {
 
 	/// Protocol for requesting candidates with attestations in statement distribution
 	/// when async backing is enabled.
-	AttestedCandidateVStaging,
+	AttestedCandidateV2,
 }
 
 /// Minimum bandwidth we expect for validators - 500Mbit/s is the recommendation, so approximately
@@ -147,7 +147,7 @@ const POV_RESPONSE_SIZE: u64 = MAX_POV_SIZE as u64 + 10_000;
 /// This is `MAX_CODE_SIZE` plus some additional space for protocol overhead.
 const STATEMENT_RESPONSE_SIZE: u64 = MAX_CODE_SIZE as u64 + 10_000;
 
-/// Maximum response sizes for `AttestedCandidateVStaging`.
+/// Maximum response sizes for `AttestedCandidateV2`.
 ///
 /// This is `MAX_CODE_SIZE` plus some additional space for protocol overhead and
 /// additional backing statements.
@@ -199,7 +199,7 @@ impl Protocol {
 				request_timeout: CHUNK_REQUEST_TIMEOUT,
 				inbound_queue: tx,
 			},
-			Protocol::CollationFetchingV1 | Protocol::CollationFetchingVStaging =>
+			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 =>
 				RequestResponseConfig {
 					name,
 					fallback_names,
@@ -254,7 +254,7 @@ impl Protocol {
 				request_timeout: DISPUTE_REQUEST_TIMEOUT,
 				inbound_queue: tx,
 			},
-			Protocol::AttestedCandidateVStaging => RequestResponseConfig {
+			Protocol::AttestedCandidateV2 => RequestResponseConfig {
 				name,
 				fallback_names,
 				max_request_size: 1_000,
@@ -275,7 +275,7 @@ impl Protocol {
 			// as well.
 			Protocol::ChunkFetchingV1 => 100,
 			// 10 seems reasonable, considering group sizes of max 10 validators.
-			Protocol::CollationFetchingV1 | Protocol::CollationFetchingVStaging => 10,
+			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 => 10,
 			// 10 seems reasonable, considering group sizes of max 10 validators.
 			Protocol::PoVFetchingV1 => 10,
 			// Validators are constantly self-selecting to request available data which may lead
@@ -307,7 +307,7 @@ impl Protocol {
 			// failure, so having a good value here is mostly about performance tuning.
 			Protocol::DisputeSendingV1 => 100,
 
-			Protocol::AttestedCandidateVStaging => {
+			Protocol::AttestedCandidateV2 => {
 				// We assume we can utilize up to 70% of the available bandwidth for statements.
 				// This is just a guess/estimate, with the following considerations: If we are
 				// faster than that, queue size will stay low anyway, even if not - requesters will
@@ -344,8 +344,8 @@ impl Protocol {
 			Protocol::DisputeSendingV1 => Some("/polkadot/send_dispute/1"),
 
 			// Introduced after legacy names became legacy.
-			Protocol::AttestedCandidateVStaging => None,
-			Protocol::CollationFetchingVStaging => None,
+			Protocol::AttestedCandidateV2 => None,
+			Protocol::CollationFetchingV2 => None,
 		}
 	}
 }
@@ -402,8 +402,8 @@ impl ReqProtocolNames {
 			Protocol::StatementFetchingV1 => "/req_statement/1",
 			Protocol::DisputeSendingV1 => "/send_dispute/1",
 
-			Protocol::CollationFetchingVStaging => "/req_collation/2",
-			Protocol::AttestedCandidateVStaging => "/req_attested_candidate/2",
+			Protocol::CollationFetchingV2 => "/req_collation/2",
+			Protocol::AttestedCandidateV2 => "/req_attested_candidate/2",
 		};
 
 		format!("{}{}", prefix, short_name).into()

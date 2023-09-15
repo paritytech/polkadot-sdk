@@ -24,7 +24,7 @@ use polkadot_primitives::{
 };
 
 use super::{IsRequest, Protocol};
-use crate::vstaging::StatementFilter;
+use crate::v2::StatementFilter;
 
 /// Request a candidate with statements.
 #[derive(Debug, Clone, Encode, Decode)]
@@ -56,7 +56,7 @@ pub struct AttestedCandidateResponse {
 
 impl IsRequest for AttestedCandidateRequest {
 	type Response = AttestedCandidateResponse;
-	const PROTOCOL: Protocol = Protocol::AttestedCandidateVStaging;
+	const PROTOCOL: Protocol = Protocol::AttestedCandidateV2;
 }
 
 /// Responses as sent by collators.
@@ -76,5 +76,5 @@ pub struct CollationFetchingRequest {
 impl IsRequest for CollationFetchingRequest {
 	// The response is the same as for V1.
 	type Response = CollationFetchingResponse;
-	const PROTOCOL: Protocol = Protocol::CollationFetchingVStaging;
+	const PROTOCOL: Protocol = Protocol::CollationFetchingV2;
 }
