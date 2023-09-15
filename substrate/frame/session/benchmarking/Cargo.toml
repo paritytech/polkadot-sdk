@@ -49,9 +49,9 @@ std = [
 	"rand/std",
 	"sp-core/std",
 	"sp-io/std",
-	"sp-staking/std",
 	"sp-runtime/std",
 	"sp-session/std",
+	"sp-staking/std",
 	"sp-std/std",
 ]
 
