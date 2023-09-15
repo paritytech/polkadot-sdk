@@ -61,6 +61,7 @@ runtime-benchmarks = [
 	"pallet-glutton/runtime-benchmarks",
 	"pallet-sudo?/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

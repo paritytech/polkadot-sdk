@@ -32,8 +32,6 @@ xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder" }
 
 [features]
 default = [ "std" ]
-# Enable `VersionedMigration` for the migrations using the experimental feature.
-experimental = [ "frame-support/experimental" ]
 std = [
 	"bounded-collections/std",
 	"codec/std",
