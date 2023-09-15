@@ -2,7 +2,7 @@
 
 This deprecation process makes sense while we don’t use [SemVer](https://semver.org/).
 After that, this process will most likely change.
-As deprecation and removal of existing features can happen on any release, we need to be mindful that external builders
+As deprecation and removal of existing code can happen on any release, we need to be mindful that external builders
 could be impacted by the changes we make.
 The deprecation process tries to mitigate this impact, while still keeping the developer experience, the DevEx, as
 smooth as possible.
@@ -14,21 +14,21 @@ Then these are the actions to take:
 
 The warning message shall include a removal month and year, which is suggested to be 6 months after the deprecation
 notice is released.
-This means that the feature will be removed in a release within that month (or after, but never before). Something
-along these lines:
+This means that the code will be removed in a release within that month (or after, but never before). Something along
+these lines:
 
 ```rust
 #[deprecated(note = "`GenesisConfig` is planned to be removed in December 2023. 
 Use `RuntimeGenesisConfig` instead.")]
 ```
 
-Some features cannot be labeled as deprecated, like [reexports](https://github.com/rust-lang/rust/issues/30827) or
-[dispatchables](https://github.com/paritytech/polkadot-sdk/issues/182#issuecomment-1691684159), for instance.
+Some pieces of code cannot be labeled as deprecated, like [reexports](https://github.com/rust-lang/rust/issues/30827)
+or [dispatchables](https://github.com/paritytech/polkadot-sdk/issues/182#issuecomment-1691684159), for instance.
 On cases like that we can only make a visible enough comment, and make sure that we [announce the deprecation properly](#announce-the-deprecation-and-removal).
 
-## Remove usage of the deprecated feature in the code base
+## Remove usage of the deprecated code in the code base
 
-Just make sure that we are not using the deprecated feature ourselves.
+Just make sure that we are not using the deprecated code ourselves.
 If you added the deprecation warning from the previous step, this can be done by making sure that warning is not shown
 when building the code.
 
@@ -39,7 +39,7 @@ We also want [https://docs.substrate.io/](https://docs.substrate.io/) to be upda
 
 ## Announce the deprecation and removal
 
-**At minimum they should be noted in the release log.**
+**At minimum they should be noted in the release log.** Please see how to document a PR [here](https://github.com/paritytech/polkadot-sdk/blob/master/docs/CONTRIBUTING.md#documentation).
 Sometimes the release note is not enough.
 Make sure you are as loud as you need to be for the magnitude of the breaking change. Some breaking changes have a
 bigger impact than others.
@@ -50,9 +50,9 @@ Depending on the removal date indicated in the deprecation warning in the [first
 the nature and the importance of the change, it might make sense to coordinate the release with other developers and
 with the Release team.
 
-## Deprecated feature is removed
+## Deprecated code is removed
 
-The deprecated feature finally gets removed.
+The deprecated code finally gets removed.
 Don’t forget to [announce this accordingly](#announce-the-deprecation-and-removal).
 
 ✅ In order to not forget any of these steps, consider using this template in your deprecation issue:
@@ -60,11 +60,11 @@ Don’t forget to [announce this accordingly](#announce-the-deprecation-and-remo
 ```markdown
 ### Tasks
 
-- [ ] Deprecate feature by adding a warning message
-- [ ] Remove usage of the deprecated feature in the code base
+- [ ] Deprecate code by adding a warning message
+- [ ] Remove usage of the deprecated code in the code base
 - [ ] Update examples and tutorials
-- [ ] Announce feature deprecation
+- [ ] Announce code deprecation
 - [ ] Plan removal version
-- [ ] Announce feature removal
-- [ ] Remove deprecated feature
+- [ ] Announce code removal
+- [ ] Remove deprecated code
 ```
