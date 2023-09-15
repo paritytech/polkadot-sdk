@@ -122,8 +122,32 @@ mod benchmarks {
 		}
 	}
 
+	/// Benchmark the migration for a maximal sized message.
 	#[benchmark]
-	fn on_idle() {
+	fn on_idle_good_msg() {
+		use migration::v3;
+
+		let block = 5;
+		let para = ParaId::from(4);
+		let message = vec![123u8; MaxXcmpMessageLenOf::<T>::get() as usize];
+		let message_metadata = vec![(block, XcmpMessageFormat::ConcatenatedVersionedXcm)];
+
+		v3::InboundXcmpMessages::<T>::insert(para, block, message);
+		v3::InboundXcmpStatus::<T>::set(Some(vec![v3::InboundChannelDetails {
+			sender: para,
+			state: v3::InboundState::Ok,
+			message_metadata,
+		}]));
+
+		#[block]
+		{
+			Pallet::<T>::on_idle(0u32.into(), Weight::MAX);
+		}
+	}
+
+	/// Benchmark the migration with a 64 KiB message that will not be possible to enqueue.
+	#[benchmark]
+	fn on_idle_large_msg() {
 		use migration::v3;
 
 		let block = 5;

@@ -30,6 +30,8 @@ pub mod weights;
 
 pub use weights::WeightInfo;
 
+pub type MaxDmpMessageLenOf<T> = <<T as Config>::DmpSink as frame_support::traits::HandleMessage>::MaxMessageLen;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -104,7 +106,7 @@ pub mod pallet {
 		fn on_idle(now: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
 
-			if meter.try_consume(T::WeightInfo::on_idle()).is_err() {
+			if meter.try_consume(on_idle_weight::<T>()).is_err() {
 				log::debug!(target: LOG, "Not enough weight for on_idle migration.");
 				return meter.consumed()
 			}
@@ -209,5 +211,9 @@ pub mod pallet {
 
 			meter.consumed()
 		}
+	}
+
+	pub fn on_idle_weight<T: crate::Config>() -> Weight {
+		<T as crate::Config>::WeightInfo::on_idle_good_ok().max(<T as crate::Config>::WeightInfo::on_idle_large_msg())
 	}
 }

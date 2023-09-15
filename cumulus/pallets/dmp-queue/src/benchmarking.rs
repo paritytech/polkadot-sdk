@@ -27,9 +27,27 @@ use sp_std::vec;
 mod benchmarks {
 	use super::*;
 
+	/// This benchmarks uses the proper maximal message length.
 	#[benchmark]
-	fn on_idle_migration() {
-		let msg = vec![123; 1 << 16]; // 64 KiB message
+	fn on_idle_good_ok() {
+		let msg = vec![123; MaxDmpMessageLenOf::<T>::get() as usize];
+
+		Pages::<T>::insert(0, vec![(123, msg.clone())]);
+		PageIndex::<T>::put(PageIndexData { begin_used: 0, end_used: 1, overweight_count: 0 });
+		MigrationStatus::<T>::set(MigrationState::StartedExport { next_begin_used: 0 });
+
+		#[block]
+		{
+			Pallet::<T>::on_idle(0u32.into(), Weight::MAX);
+		}
+
+		assert_last_event::<T>(Event::Exported { page: 0 }.into());
+	}
+
+	/// This benchmarks uses 64 KiB messages to emulate a large old message.
+	#[benchmark]
+	fn on_idle_large_msg() {
+		let msg = vec![123; 1 << 16];
 
 		Pages::<T>::insert(0, vec![(123, msg.clone())]);
 		PageIndex::<T>::put(PageIndexData { begin_used: 0, end_used: 1, overweight_count: 0 });
