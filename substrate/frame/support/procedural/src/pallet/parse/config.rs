@@ -292,19 +292,16 @@ fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool
 	};
 
 	expected_system_config
-	.segments
-	.push(syn::PathSegment::from(syn::Ident::new("Config", path.span())));
+		.segments
+		.push(syn::PathSegment::from(syn::Ident::new("Config", path.span())));
 	// the parse path might be something like `frame_system::Config<...>`, so we
 	// only compare the idents along the path.
 	expected_system_config
 		.segments
 		.into_iter()
 		.map(|ps| ps.ident)
-		.collect::<Vec<_>>() == path
-		.segments
-		.into_iter()
-		.map(|ps| ps.ident)
-		.collect::<Vec<_>>()
+		.collect::<Vec<_>>() ==
+		path.segments.into_iter().map(|ps| ps.ident).collect::<Vec<_>>()
 }
 
 /// Replace ident `Self` by `T`
@@ -364,9 +361,8 @@ impl ConfigDef {
 		};
 
 		let has_frame_system_supertrait = item.supertraits.iter().any(|s| {
-			syn::parse2::<syn::Path>(s.to_token_stream()).map_or(false, |b| {
-				has_expected_system_config(b, frame_system)
-			})
+			syn::parse2::<syn::Path>(s.to_token_stream())
+				.map_or(false, |b| has_expected_system_config(b, frame_system))
 		});
 
 		let mut has_event_type = false;
