@@ -81,6 +81,7 @@ pub mod weights;
 use frame_support::traits::{BalanceStatus, Currency, OnUnbalanced, ReservableCurrency};
 use sp_runtime::traits::{AppendZerosInput, Hash, Saturating, StaticLookup, Zero};
 use sp_std::prelude::*;
+use types::IdentityInformationProvider;
 pub use weights::WeightInfo;
 
 pub use pallet::*;
@@ -98,6 +99,8 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 
 #[frame_support::pallet]
 pub mod pallet {
+	use crate::types::IdentityInformationProvider;
+
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
@@ -114,10 +117,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type BasicDeposit: Get<BalanceOf<Self>>;
 
-		/// The amount held on deposit per additional field for a registered identity.
-		#[pallet::constant]
-		type FieldDeposit: Get<BalanceOf<Self>>;
-
 		/// The amount held on deposit for a registered subaccount. This should account for the fact
 		/// that one storage item's value will increase by the size of an account ID, and there will
 		/// be another trie item whose value is the size of an account ID plus 32 bytes.
@@ -130,8 +129,7 @@ pub mod pallet {
 
 		/// Maximum number of additional fields that may be stored in an ID. Needed to bound the I/O
 		/// required to access an identity, but can be pretty high.
-		#[pallet::constant]
-		type MaxAdditionalFields: Get<u32>;
+		type IdentityInformation: IdentityInformationProvider;
 
 		/// Maxmimum number of registrars allowed in the system. Needed to bound the complexity
 		/// of, e.g., updating judgements.
@@ -163,7 +161,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AccountId,
-		Registration<BalanceOf<T>, T::MaxRegistrars, T::MaxAdditionalFields>,
+		Registration<BalanceOf<T>, T::MaxRegistrars, T::IdentityInformation>,
 		OptionQuery,
 	>;
 
@@ -325,40 +323,26 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight( T::WeightInfo::set_identity(
 			T::MaxRegistrars::get(), // R
-			T::MaxAdditionalFields::get(), // X
+			0, // X
 		))]
 		pub fn set_identity(
 			origin: OriginFor<T>,
-			info: Box<IdentityInfo<T::MaxAdditionalFields>>,
+			info: Box<T::IdentityInformation>,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
-			let extra_fields = info.additional.len() as u32;
-			ensure!(extra_fields <= T::MaxAdditionalFields::get(), Error::<T>::TooManyFields);
-			let fd = <BalanceOf<T>>::from(extra_fields) * T::FieldDeposit::get();
 
-			let mut id = match <IdentityOf<T>>::get(&sender) {
+			let id = match <IdentityOf<T>>::get(&sender) {
 				Some(mut id) => {
 					// Only keep non-positive judgements.
 					id.judgements.retain(|j| j.1.is_sticky());
 					id.info = *info;
 					id
 				},
-				None => Registration {
-					info: *info,
-					judgements: BoundedVec::default(),
-					deposit: Zero::zero(),
+				None => {
+					T::Currency::reserve(&sender, T::BasicDeposit::get())?;
+					Registration { info: *info, judgements: BoundedVec::default() }
 				},
 			};
-
-			let old_deposit = id.deposit;
-			id.deposit = T::BasicDeposit::get() + fd;
-			if id.deposit > old_deposit {
-				T::Currency::reserve(&sender, id.deposit - old_deposit)?;
-			}
-			if old_deposit > id.deposit {
-				let err_amount = T::Currency::unreserve(&sender, old_deposit - id.deposit);
-				debug_assert!(err_amount.is_zero());
-			}
 
 			let judgements = id.judgements.len();
 			<IdentityOf<T>>::insert(&sender, id);
@@ -366,7 +350,7 @@ pub mod pallet {
 
 			Ok(Some(T::WeightInfo::set_identity(
 				judgements as u32, // R
-				extra_fields,      // X
+				0,                 // X
 			))
 			.into())
 		}
@@ -463,14 +447,14 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::clear_identity(
 			T::MaxRegistrars::get(), // R
 			T::MaxSubAccounts::get(), // S
-			T::MaxAdditionalFields::get(), // X
+			0, // X
 		))]
 		pub fn clear_identity(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
 
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&sender);
 			let id = <IdentityOf<T>>::take(&sender).ok_or(Error::<T>::NotNamed)?;
-			let deposit = id.total_deposit() + subs_deposit;
+			let deposit = T::BasicDeposit::get() + subs_deposit;
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
 			}
@@ -481,9 +465,9 @@ pub mod pallet {
 			Self::deposit_event(Event::IdentityCleared { who: sender, deposit });
 
 			Ok(Some(T::WeightInfo::clear_identity(
-				id.judgements.len() as u32,      // R
-				sub_ids.len() as u32,            // S
-				id.info.additional.len() as u32, // X
+				id.judgements.len() as u32, // R
+				sub_ids.len() as u32,       // S
+				0,                          // X
 			))
 			.into())
 		}
@@ -512,7 +496,7 @@ pub mod pallet {
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::request_judgement(
 			T::MaxRegistrars::get(), // R
-			T::MaxAdditionalFields::get(), // X
+			0, // X
 		))]
 		pub fn request_judgement(
 			origin: OriginFor<T>,
@@ -543,7 +527,6 @@ pub mod pallet {
 			T::Currency::reserve(&sender, registrar.fee)?;
 
 			let judgements = id.judgements.len();
-			let extra_fields = id.info.additional.len();
 			<IdentityOf<T>>::insert(&sender, id);
 
 			Self::deposit_event(Event::JudgementRequested {
@@ -551,8 +534,7 @@ pub mod pallet {
 				registrar_index: reg_index,
 			});
 
-			Ok(Some(T::WeightInfo::request_judgement(judgements as u32, extra_fields as u32))
-				.into())
+			Ok(Some(T::WeightInfo::request_judgement(judgements as u32, 0)).into())
 		}
 
 		/// Cancel a previous request.
@@ -573,7 +555,7 @@ pub mod pallet {
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::cancel_request(
 			T::MaxRegistrars::get(), // R
-			T::MaxAdditionalFields::get(), // X
+			0, // X
 		))]
 		pub fn cancel_request(
 			origin: OriginFor<T>,
@@ -595,7 +577,6 @@ pub mod pallet {
 			let err_amount = T::Currency::unreserve(&sender, fee);
 			debug_assert!(err_amount.is_zero());
 			let judgements = id.judgements.len();
-			let extra_fields = id.info.additional.len();
 			<IdentityOf<T>>::insert(&sender, id);
 
 			Self::deposit_event(Event::JudgementUnrequested {
@@ -603,7 +584,7 @@ pub mod pallet {
 				registrar_index: reg_index,
 			});
 
-			Ok(Some(T::WeightInfo::cancel_request(judgements as u32, extra_fields as u32)).into())
+			Ok(Some(T::WeightInfo::cancel_request(judgements as u32, 0)).into())
 		}
 
 		/// Set the fee required for a judgement to be requested from a registrar.
@@ -741,7 +722,7 @@ pub mod pallet {
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::provide_judgement(
 			T::MaxRegistrars::get(), // R
-			T::MaxAdditionalFields::get(), // X
+			0, // X
 		))]
 		pub fn provide_judgement(
 			origin: OriginFor<T>,
@@ -785,12 +766,10 @@ pub mod pallet {
 			}
 
 			let judgements = id.judgements.len();
-			let extra_fields = id.info.additional.len();
 			<IdentityOf<T>>::insert(&target, id);
 			Self::deposit_event(Event::JudgementGiven { target, registrar_index: reg_index });
 
-			Ok(Some(T::WeightInfo::provide_judgement(judgements as u32, extra_fields as u32))
-				.into())
+			Ok(Some(T::WeightInfo::provide_judgement(judgements as u32, 0)).into())
 		}
 
 		/// Remove an account's identity and sub-account information and slash the deposits.
@@ -815,7 +794,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::kill_identity(
 			T::MaxRegistrars::get(), // R
 			T::MaxSubAccounts::get(), // S
-			T::MaxAdditionalFields::get(), // X
+			0, // X
 		))]
 		pub fn kill_identity(
 			origin: OriginFor<T>,
@@ -828,7 +807,7 @@ pub mod pallet {
 			// Grab their deposit (and check that they have one).
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&target);
 			let id = <IdentityOf<T>>::take(&target).ok_or(Error::<T>::NotNamed)?;
-			let deposit = id.total_deposit() + subs_deposit;
+			let deposit = T::BasicDeposit::get() + subs_deposit;
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
 			}
@@ -838,9 +817,9 @@ pub mod pallet {
 			Self::deposit_event(Event::IdentityKilled { who: target, deposit });
 
 			Ok(Some(T::WeightInfo::kill_identity(
-				id.judgements.len() as u32,      // R
-				sub_ids.len() as u32,            // S
-				id.info.additional.len() as u32, // X
+				id.judgements.len() as u32, // R
+				sub_ids.len() as u32,       // S
+				0,                          // X
 			))
 			.into())
 		}
@@ -975,6 +954,6 @@ impl<T: Config> Pallet<T> {
 	/// Check if the account has corresponding identity information by the identity field.
 	pub fn has_identity(who: &T::AccountId, fields: u64) -> bool {
 		IdentityOf::<T>::get(who)
-			.map_or(false, |registration| (registration.info.fields().0.bits() & fields) == fields)
+			.map_or(false, |registration| (registration.info.has_identity(fields)))
 	}
 }
