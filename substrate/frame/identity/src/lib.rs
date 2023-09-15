@@ -73,6 +73,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
+mod simple;
 #[cfg(test)]
 mod tests;
 mod types;
@@ -85,10 +86,8 @@ use types::IdentityInformationProvider;
 pub use weights::WeightInfo;
 
 pub use pallet::*;
-pub use types::{
-	Data, IdentityField, IdentityFields, IdentityInfo, Judgement, RegistrarIndex, RegistrarInfo,
-	Registration,
-};
+pub use simple::{Data, IdentityField, IdentityFields, IdentityInfo};
+pub use types::{Judgement, RegistrarIndex, RegistrarInfo, Registration};
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
