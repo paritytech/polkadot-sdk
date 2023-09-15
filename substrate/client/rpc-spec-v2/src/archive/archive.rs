@@ -117,7 +117,7 @@ where
 
 		while let Some(parent) = next_hash.pop() {
 			if parent.number == height {
-				result.push(parent.hash);
+				result.push(hex_string(&parent.hash.as_ref()));
 				continue
 			}
 
@@ -129,6 +129,6 @@ where
 			}
 		}
 
-		Ok(vec![])
+		Ok(result)
 	}
 }

@@ -28,6 +28,7 @@ use sp_consensus::BlockOrigin;
 use sp_core::testing::TaskExecutor;
 use sp_runtime::SaturatedConversion;
 use std::sync::Arc;
+use substrate_test_runtime::Transfer;
 use substrate_test_runtime_client::{
 	prelude::*, runtime, Backend, BlockBuilderExt, Client, ClientBlockImportExt,
 };
@@ -124,4 +125,78 @@ async fn archive_finalized_height() {
 		api.call("archive_unstable_finalizedHeight", EmptyParams::new()).await.unwrap();
 
 	assert_eq!(client_height, height);
+}
+
+#[tokio::test]
+async fn archive_hash_by_height() {
+	let (mut client, api) = setup_api();
+
+	// Genesis height.
+	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [0]).await.unwrap();
+	assert_eq!(hashes, vec![format!("{:?}", client.genesis_hash())]);
+
+	// Block tree:
+	// genesis -> finalized -> block 1 -> block 2 -> block 3
+	//                      -> block 1 -> block 4
+	//
+	//                          ^^^ h = N
+	//                                     ^^^ h =  N + 1
+	//                                                 ^^^ h = N + 2
+	let finalized = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let finalized_hash = finalized.header.hash();
+	client.import(BlockOrigin::Own, finalized.clone()).await.unwrap();
+	client.finalize_block(finalized_hash, None).unwrap();
+
+	let block_1 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block_1_hash = block_1.header.hash();
+	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
+
+	let block_2 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block_2_hash = block_2.header.hash();
+	client.import(BlockOrigin::Own, block_2.clone()).await.unwrap();
+	let block_3 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block_3_hash = block_3.header.hash();
+	client.import(BlockOrigin::Own, block_3.clone()).await.unwrap();
+
+	// Import block 4 fork.
+	let mut block_builder = client.new_block_at(block_1_hash, Default::default(), false).unwrap();
+	// This push is required as otherwise block 3 has the same hash as block 1 and won't get
+	// imported
+	block_builder
+		.push_transfer(Transfer {
+			from: AccountKeyring::Alice.into(),
+			to: AccountKeyring::Ferdie.into(),
+			amount: 41,
+			nonce: 0,
+		})
+		.unwrap();
+	let block_4 = block_builder.build().unwrap().block;
+	let block_4_hash = block_4.header.hash();
+	client.import(BlockOrigin::Own, block_4.clone()).await.unwrap();
+
+	// Check finalized height.
+	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [1]).await.unwrap();
+	assert_eq!(hashes, vec![format!("{:?}", finalized_hash)]);
+
+	// Test nonfinalized heights.
+	// Height N must include block 1.
+	let mut height = block_1.header.number;
+	println!("Heigh {:?}", height);
+	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [height]).await.unwrap();
+	assert_eq!(hashes, vec![format!("{:?}", block_1_hash)]);
+
+	// Height (N + 1) must include block 2 and 4.
+	height += 1;
+	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [height]).await.unwrap();
+	assert_eq!(hashes, vec![format!("{:?}", block_4_hash), format!("{:?}", block_2_hash)]);
+
+	// Height (N + 2) must include block 3.
+	height += 1;
+	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [height]).await.unwrap();
+	assert_eq!(hashes, vec![format!("{:?}", block_3_hash)]);
+
+	// Height (N + 3) has no blocks.
+	height += 1;
+	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [height]).await.unwrap();
+	assert!(hashes.is_empty());
 }
