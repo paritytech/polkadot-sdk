@@ -29,7 +29,7 @@ use frame_support::{
 	assert_ok, ensure,
 	traits::{
 		fungible::{Inspect, Mutate, Unbalanced},
-		tokens::{Preservation, Fortitude},
+		tokens::{Fortitude, Preservation},
 		Get,
 	},
 };

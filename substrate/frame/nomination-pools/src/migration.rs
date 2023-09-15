@@ -60,12 +60,17 @@ pub mod v6 {
 				}
 			});
 
-			log!(info, "Freezing ED succeeded for {} pools, and failed for {} pools", success, fail);
+			log!(
+				info,
+				"Freezing ED succeeded for {} pools, and failed for {} pools",
+				success,
+				fail
+			);
 			let total = success + fail;
 			// freeze_ed = r:2 w:2
 			// reads: (freeze_ed + bonded pool key) * total
 			// writes: freeze_ed * total
-			T::DbWeight::get().reads_writes(3*total, 2*total)
+			T::DbWeight::get().reads_writes(3 * total, 2 * total)
 		}
 
 		#[cfg(feature = "try-runtime")]

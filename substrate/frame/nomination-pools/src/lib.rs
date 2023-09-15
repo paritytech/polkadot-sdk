@@ -3361,7 +3361,7 @@ impl<T: Config> Pallet<T> {
 		Self::unbond(origin, member_lookup, points)
 	}
 
-	#[cfg(test)]
+	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub(crate) fn pool_pending_rewards(
 		pool: PoolId,
 	) -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
