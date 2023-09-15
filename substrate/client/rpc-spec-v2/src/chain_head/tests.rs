@@ -2765,7 +2765,7 @@ async fn storage_closest_merkle_value() {
 		merkle_values_lhs.get(&hex_string(b":AAAB")).unwrap(),
 		merkle_values_rhs.get(&hex_string(b":AAAB")).unwrap()
 	);
-	// However the AAAA branch leaf remains unchenged.
+	// However the AAAA branch leaf remains unchanged.
 	assert_eq!(
 		merkle_values_lhs.get(&hex_string(b":AAAA")).unwrap(),
 		merkle_values_rhs.get(&hex_string(b":AAAA")).unwrap()
