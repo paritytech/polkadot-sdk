@@ -57,7 +57,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{ensure, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::{traits::BadOrigin, ArithmeticError::Overflow, Saturating};
+	use sp_runtime::{traits::BadOrigin, Saturating};
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -116,12 +116,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn announcements)]
 	pub type Announcements<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, OpaqueCid, BlockNumberFor<T>, OptionQuery>;
-
-	/// The current count of the announcements.
-	#[pallet::storage]
-	#[pallet::getter(fn announcements_count)]
-	pub type AnnouncementsCount<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery>;
+		CountedStorageMap<_, Blake2_128Concat, OpaqueCid, BlockNumberFor<T>, OptionQuery>;
 
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -168,10 +163,6 @@ pub mod pallet {
 			ensure!(expire_at > now, Error::<T, I>::InvalidExpiration);
 
 			<Announcements<T, I>>::insert(cid.clone(), expire_at);
-			<AnnouncementsCount<T, I>>::try_mutate(|count| -> DispatchResult {
-				*count = count.checked_add(1).ok_or(Overflow)?;
-				Ok(())
-			})?;
 
 			Self::deposit_event(Event::<T, I>::AnnouncementAnnounced { cid, expire_at });
 			Ok(())
@@ -203,7 +194,6 @@ pub mod pallet {
 			ensure!(maybe_who.is_none() || now >= expire_at, BadOrigin);
 
 			<Announcements<T, I>>::remove(cid.clone());
-			<AnnouncementsCount<T, I>>::mutate(|count| count.saturating_dec());
 
 			Self::deposit_event(Event::<T, I>::AnnouncementRemoved { cid });
 
