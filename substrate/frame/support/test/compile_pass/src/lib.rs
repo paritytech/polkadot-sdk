@@ -50,7 +50,7 @@ parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 }
 
-impl frame_system::Config for Runtime {
+impl renamed_frame_system::Config for Runtime {
 	type BaseCallFilter = Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
@@ -82,6 +82,6 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, Sign
 
 construct_runtime!(
 	pub struct Runtime {
-		System: frame_system,
+		System: renamed_frame_system,
 	}
 );
