@@ -519,16 +519,16 @@ async fn handle_recover<Context>(
 				let systematic_threshold =
 					systematic_recovery_threshold(session_info.validators.len())?;
 
-				let validators =
-					shuffling.into_iter().fold(BTreeMap::new(), |mut acc, (c_index, v_index)| {
-						if usize::try_from(c_index.0)
+				// Only get the validators according to the threshold.
+				let validators = shuffling
+					.clone()
+					.into_iter()
+					.filter(|(c_index, _)| {
+						usize::try_from(c_index.0)
 							.expect("usize is at least u32 bytes on all modern targets.") <
 							systematic_threshold
-						{
-							acc.insert(*c_index, *v_index);
-						}
-						acc
-					});
+					})
+					.collect();
 
 				recovery_strategies.push_back(Box::new(FetchSystematicChunks::new(
 					FetchSystematicChunksParams { validators, erasure_task_tx },

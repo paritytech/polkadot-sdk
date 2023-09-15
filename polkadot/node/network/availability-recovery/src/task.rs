@@ -107,7 +107,7 @@ pub struct State {
 	received_chunks: BTreeMap<ChunkIndex, ErasureChunk>,
 	/// Collection of in-flight requests.
 	requesting_chunks:
-		FuturesUndead<Result<Option<ErasureChunk>, (ChunkIndex, ValidatorIndex, RequestError)>>,
+		FuturesUndead<(ChunkIndex, ValidatorIndex, Result<Option<ErasureChunk>, RequestError>)>,
 }
 
 impl State {
@@ -184,7 +184,15 @@ impl State {
 		let candidate_hash = &params.candidate_hash;
 		let already_requesting_count = self.requesting_chunks.len();
 
-		let mut requests = Vec::with_capacity(desired_requests_count - already_requesting_count);
+		let to_launch = desired_requests_count - already_requesting_count;
+		let mut requests = Vec::with_capacity(to_launch);
+
+		gum::trace!(
+			target: LOG_TARGET,
+			?candidate_hash,
+			"Attempting to launch {} requests",
+			to_launch
+		);
 
 		while self.requesting_chunks.len() < desired_requests_count {
 			if let Some((chunk_index, validator_index)) = validators.pop_back() {
@@ -212,12 +220,14 @@ impl State {
 
 				self.requesting_chunks.push(Box::pin(async move {
 					let _timer = timer;
-					match res.await {
+					let res = match res.await {
 						Ok(req_res::v1::ChunkFetchingResponse::Chunk(chunk)) =>
 							Ok(Some(chunk.recombine_into_chunk(&raw_request))),
 						Ok(req_res::v1::ChunkFetchingResponse::NoSuchChunk) => Ok(None),
-						Err(e) => Err((chunk_index, validator_index, e)),
-					}
+						Err(e) => Err(e),
+					};
+
+					(chunk_index, validator_index, res)
 				}));
 			} else {
 				break
@@ -247,10 +257,12 @@ impl State {
 		// Wait for all current requests to conclude or time-out, or until we reach enough chunks.
 		// We also declare requests undead, once `TIMEOUT_START_NEW_REQUESTS` is reached and will
 		// return in that case for `launch_parallel_requests` to fill up slots again.
-		while let Some(request_result) =
+		while let Some(res) =
 			self.requesting_chunks.next_with_timeout(TIMEOUT_START_NEW_REQUESTS).await
 		{
 			total_received_responses += 1;
+
+			let (chunk_index, validator_index, request_result) = res;
 
 			match request_result {
 				Ok(Some(chunk)) =>
@@ -259,7 +271,8 @@ impl State {
 						gum::trace!(
 							target: LOG_TARGET,
 							candidate_hash = ?params.candidate_hash,
-							chunk_index = ?chunk.index,
+							chunk_index = ?chunk_index,
+							?validator_index,
 							"Received valid chunk",
 						);
 						self.insert_chunk(chunk.index, chunk);
@@ -269,28 +282,36 @@ impl State {
 					},
 				Ok(None) => {
 					metrics.on_chunk_request_no_such_chunk();
+					gum::trace!(
+						target: LOG_TARGET,
+						candidate_hash = ?params.candidate_hash,
+						chunk_index = ?chunk_index,
+						?validator_index,
+						"Validator did not have the requested chunk",
+					);
 					error_count += 1;
 				},
-				Err((chunk_index, validator_index, e)) => {
+				Err(err) => {
 					error_count += 1;
 
 					gum::trace!(
 						target: LOG_TARGET,
 						candidate_hash= ?params.candidate_hash,
-						err = ?e,
+						?err,
+						chunk_index = ?chunk_index,
 						?validator_index,
-						?chunk_index,
 						"Failure requesting chunk",
 					);
 
-					match e {
+					match err {
 						RequestError::InvalidResponse(_) => {
 							metrics.on_chunk_request_invalid();
 
 							gum::debug!(
 								target: LOG_TARGET,
 								candidate_hash = ?params.candidate_hash,
-								err = ?e,
+								?err,
+								chunk_index = ?chunk_index,
 								?validator_index,
 								"Chunk fetching response was invalid",
 							);
@@ -328,7 +349,7 @@ impl State {
 					received_chunks_count = ?self.chunk_count(),
 					requested_chunks_count = ?self.requesting_chunks.len(),
 					threshold = ?params.threshold,
-					"Can conclude availability for a candidate",
+					"Can conclude availability recovery for a candidate",
 				);
 				break
 			}
@@ -558,8 +579,10 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 /// `RecoveryStrategy` that attempts to recover the systematic chunks from the validators that
 /// hold them, in order to bypass the erasure code reconstruction step, which is costly.
 pub struct FetchSystematicChunks {
+	/// Systematic recovery threshold.
 	threshold: usize,
-	validators: BTreeMap<ChunkIndex, ValidatorIndex>,
+	/// Validators that hold the systematic chunks.
+	validators: VecDeque<(ChunkIndex, ValidatorIndex)>,
 	/// Channel to the erasure task handler.
 	erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 }
@@ -567,7 +590,7 @@ pub struct FetchSystematicChunks {
 /// Parameters needed for fetching systematic chunks.
 pub struct FetchSystematicChunksParams {
 	/// Validators that hold the systematic chunks.
-	pub validators: BTreeMap<ChunkIndex, ValidatorIndex>,
+	pub validators: VecDeque<(ChunkIndex, ValidatorIndex)>,
 	/// Channel to the erasure task handler.
 	pub erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 }
@@ -656,7 +679,7 @@ impl FetchSystematicChunks {
 						target: LOG_TARGET,
 						candidate_hash = ?common_params.candidate_hash,
 						erasure_root = ?common_params.erasure_root,
-						"Data recovery from systematic chunks complete",
+						"Recovery from systematic chunks complete",
 					);
 
 					Ok(data)
@@ -711,11 +734,11 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 		if !common_params.bypass_availability_store {
 			let local_chunk_indices = state.populate_from_av_store(common_params, sender).await;
 
-			for c_index in &local_chunk_indices {
+			for our_c_index in &local_chunk_indices {
 				// If we are among the systematic validators but hold an invalid chunk, we cannot
 				// perform the systematic recovery. Fall through to the next strategy.
-				if self.validators.contains_key(c_index) &&
-					!state.received_chunks.contains_key(c_index)
+				if self.validators.iter().find(|(c_index, _)| c_index == our_c_index).is_some() &&
+					!state.received_chunks.contains_key(our_c_index)
 				{
 					gum::debug!(
 						target: LOG_TARGET,
@@ -724,6 +747,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 						requesting = %state.requesting_chunks.len(),
 						total_requesting = %state.requesting_chunks.total_len(),
 						n_validators = %common_params.n_validators,
+						chunk_index = ?our_c_index,
 						"Systematic chunk recovery is not possible. We are among the systematic validators but hold an invalid chunk",
 					);
 					return Err(RecoveryError::Unavailable)
@@ -731,25 +755,23 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			}
 		}
 
-		let mut systematic_chunk_count = self
-			.validators
-			.iter()
-			.filter(|(c_index, _)| state.received_chunks.contains_key(c_index))
-			.count();
+		// Instead of counting the chunks we already have, perform the difference after we remove
+		// them from the queue.
+		let mut systematic_chunk_count = self.validators.len();
 
 		// No need to query the validators that have the chunks we already received.
 		self.validators
-			.retain(|c_index, _| !state.received_chunks.contains_key(c_index));
+			.retain(|(c_index, _)| !state.received_chunks.contains_key(c_index));
+
+		systematic_chunk_count -= self.validators.len();
 
 		// Safe to `take` here, as we're consuming `self` anyway and we're not using the
 		// `validators` field in other methods.
-		let mut validators_queue: VecDeque<_> =
-			std::mem::take(&mut self.validators).into_iter().collect();
+		let mut validators_queue: VecDeque<_> = std::mem::take(&mut self.validators);
 
 		loop {
 			// If received_chunks has `systematic_chunk_threshold` entries, attempt to recover the
-			// data. If that fails, or a re-encoding of it doesn't match the expected erasure root,
-			// return Err(RecoveryError::Invalid)
+			// data.
 			if systematic_chunk_count >= self.threshold {
 				return self.attempt_systematic_recovery(state, common_params).await
 			}
@@ -764,11 +786,11 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					target: LOG_TARGET,
 					candidate_hash = ?common_params.candidate_hash,
 					erasure_root = ?common_params.erasure_root,
-					received = %systematic_chunk_count,
+					%systematic_chunk_count,
 					requesting = %state.requesting_chunks.len(),
 					total_requesting = %state.requesting_chunks.total_len(),
 					n_validators = %common_params.n_validators,
-					threshold = ?self.threshold,
+					systematic_threshold = ?self.threshold,
 					"Data recovery is not possible",
 				);
 
@@ -783,7 +805,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 				?common_params.candidate_hash,
 				?desired_requests_count,
 				total_received = ?systematic_chunk_count,
-				threshold = ?self.threshold,
+				systematic_threshold = ?self.threshold,
 				?already_requesting_count,
 				"Requesting systematic availability chunks for a candidate",
 			);
@@ -803,22 +825,24 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					&mut validators_queue,
 					|unrequested_validators,
 					 in_flight_reqs,
+					 // Don't use this chunk count, as it may contain non-systematic chunks.
 					 _chunk_count,
 					 error_count,
 					 success_responses| {
+						let chunk_count = systematic_chunk_count + success_responses;
 						let is_unavailable = Self::is_unavailable(
 							unrequested_validators,
 							in_flight_reqs,
-							systematic_chunk_count + success_responses,
+							chunk_count,
 							self.threshold,
 						);
 
-						error_count > 0 ||
-							(systematic_chunk_count + success_responses) >= self.threshold ||
-							is_unavailable
+						error_count > 0 || chunk_count >= self.threshold || is_unavailable
 					},
 				)
 				.await;
+
+			systematic_chunk_count += total_responses - error_count;
 
 			// We can't afford any errors, as we need all the systematic chunks for this to work.
 			if error_count > 0 {
@@ -830,14 +854,12 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					requesting = %state.requesting_chunks.len(),
 					total_requesting = %state.requesting_chunks.total_len(),
 					n_validators = %common_params.n_validators,
-					threshold = ?self.threshold,
-					"Systematic chunk recovery is not possible. ",
+					systematic_threshold = ?self.threshold,
+					"Systematic chunk recovery is not possible. Got an error while requesting a chunk",
 				);
 
 				return Err(RecoveryError::Unavailable)
 			}
-
-			systematic_chunk_count += total_responses;
 		}
 	}
 }
@@ -848,17 +870,15 @@ pub struct FetchChunks {
 	error_count: usize,
 	/// Total number of responses that have been received, including failed ones.
 	total_received_responses: usize,
-
-	/// A random shuffling of the validators which indicates the order in which we connect to the
-	/// validators and request the chunk from them.
+	/// The collection of chunk indices and the respective validators holding the chunks.
 	validators: VecDeque<(ChunkIndex, ValidatorIndex)>,
-
 	/// Channel to the erasure task handler.
 	erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 }
 
 /// Parameters specific to the `FetchChunks` strategy.
 pub struct FetchChunksParams {
+	/// The collection of chunk indices and the respective validators holding the chunks.
 	pub validators: VecDeque<(ChunkIndex, ValidatorIndex)>,
 	/// Channel to the erasure task handler.
 	pub erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
@@ -867,7 +887,10 @@ pub struct FetchChunksParams {
 impl FetchChunks {
 	/// Instantiate a new strategy.
 	pub fn new(mut params: FetchChunksParams) -> Self {
+		// Shuffle the validators to make sure that we don't request chunks from the same
+		// validators over and over.
 		params.validators.make_contiguous().shuffle(&mut rand::thread_rng());
+
 		Self {
 			error_count: 0,
 			total_received_responses: 0,

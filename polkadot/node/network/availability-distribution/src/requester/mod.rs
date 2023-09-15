@@ -259,10 +259,9 @@ impl Requester {
 					})?;
 
 				if let Some(session_info) = session_info {
-					// TODO: optimise this n_validators calculation.
 					let n_validators =
-						session_info.validator_groups.iter().fold(0, |mut acc, group| {
-							acc += group.len();
+						session_info.validator_groups.iter().fold(0usize, |mut acc, group| {
+							acc = acc.saturating_add(group.len());
 							acc
 						});
 					let chunk_index = self

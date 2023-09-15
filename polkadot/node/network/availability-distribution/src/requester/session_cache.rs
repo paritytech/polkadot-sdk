@@ -176,9 +176,6 @@ impl SessionCache {
 			// Get our group index:
 			let our_group = info.validator_info.our_group;
 
-			// TODO: This shuffling is fine, as it only is used for knowing which validator to ask
-			// in order to get the chunk. The chunk index is coming from somewhere else.
-
 			// Shuffle validators in groups:
 			let mut rng = thread_rng();
 			for g in validator_groups.iter_mut() {
