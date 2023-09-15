@@ -739,10 +739,16 @@ pub mod bridging {
 		use super::*;
 
 		parameter_types! {
-			pub SiblingBridgeHubWithBridgeHubWococoInstance: MultiLocation = MultiLocation::new(1, X2(Parachain(SiblingBridgeHubParaId::get()), PalletInstance(46)));
+			pub SiblingBridgeHubWithBridgeHubWococoInstance: MultiLocation = MultiLocation::new(
+				1,
+				X2(
+					Parachain(SiblingBridgeHubParaId::get()),
+					PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_WOCOCO_MESSAGES_PALLET_INDEX)
+				)
+			);
 
 			pub const WococoNetwork: NetworkId = NetworkId::Wococo;
-			pub AssetHubWococo: MultiLocation =  MultiLocation::new(2, X2(GlobalConsensus(WococoNetwork::get()), Parachain(1000)));
+			pub AssetHubWococo: MultiLocation =  MultiLocation::new(2, X2(GlobalConsensus(WococoNetwork::get()), Parachain(bp_asset_hub_wococo::ASSET_HUB_WOCOCO_PARACHAIN_ID)));
 			pub WocLocation: MultiLocation =  MultiLocation::new(2, X1(GlobalConsensus(WococoNetwork::get())));
 
 			/// Set up exporters configuration.
@@ -833,10 +839,16 @@ pub mod bridging {
 		use super::*;
 
 		parameter_types! {
-			pub SiblingBridgeHubWithBridgeHubRococoInstance: MultiLocation = MultiLocation::new(1, X2(Parachain(SiblingBridgeHubParaId::get()), PalletInstance(45)));
+			pub SiblingBridgeHubWithBridgeHubRococoInstance: MultiLocation = MultiLocation::new(
+				1,
+				X2(
+					Parachain(SiblingBridgeHubParaId::get()),
+					PalletInstance(bp_bridge_hub_wococo::WITH_BRIDGE_ROCOCO_MESSAGES_PALLET_INDEX)
+				)
+			);
 
 			pub const RococoNetwork: NetworkId = NetworkId::Rococo;
-			pub AssetHubRococo: MultiLocation =  MultiLocation::new(2, X2(GlobalConsensus(RococoNetwork::get()), Parachain(1000)));
+			pub AssetHubRococo: MultiLocation =  MultiLocation::new(2, X2(GlobalConsensus(RococoNetwork::get()), Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)));
 			pub RocLocation: MultiLocation =  MultiLocation::new(2, X1(GlobalConsensus(RococoNetwork::get())));
 
 			/// Set up exporters configuration.

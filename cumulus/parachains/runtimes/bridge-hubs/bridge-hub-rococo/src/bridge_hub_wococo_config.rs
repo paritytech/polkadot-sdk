@@ -260,5 +260,10 @@ mod tests {
 			WithBridgeHubRococoMessagesInstance,
 			PriorityBoostPerMessage,
 		>(FEE_BOOST_PER_MESSAGE);
+
+		assert_eq!(
+			BridgeRococoMessagesPalletInstance::get(),
+			X1(PalletInstance(bp_bridge_hub_wococo::WITH_BRIDGE_ROCOCO_MESSAGES_PALLET_INDEX))
+		);
 	}
 }
