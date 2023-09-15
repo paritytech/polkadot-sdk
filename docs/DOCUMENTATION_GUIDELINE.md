@@ -350,3 +350,22 @@ Consider the fact that, similar to dispatchables, these docs will be part of the
 and might be used by wallets and explorers.
 
 Specifically for `error`, explain why the error has happened, and what can be done in order to avoid it.
+
+---
+
+# Documentation Requests and Review Process
+
+To standardize the documentation process, updates have been made to the way the docs team addresses content requests and reviews. The overarching goal is to ensure the maintenance of content standards and the verification of all documents before publishing.
+
+Moving forward, for all content-specific requests (Issues and PRs), please use the label "T13-Documentation." This label will serve as a notification to the docs team, allowing them to plan and execute the task accordingly.
+
+Key points to bear in mind:
+
+- The developer responsible for the feature is expected to provide the base content. The docs team will review and offer necessary suggestions before publishing. In cases of minor content changes, developers may bypass the documentation review process and publish the content. However, for significant content updates, it is mandatory to review the content with the docs team.
+
+- If the base content is unavailable, the docs team will collaborate with the developers to create the content. Following review by the development team, the content will then be published.
+
+You can monitor the status of content requests raised by visiting the [Documentation Board](https://github.com/orgs/paritytech/projects/118/views/1?layout=board).
+
+
+
