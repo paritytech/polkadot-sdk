@@ -130,7 +130,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		/// Set the collective  charter.
+		/// Set the collective charter.
 		///
 		/// Parameters:
 		/// - `origin`: Must be the [Config::CharterOrigin].
