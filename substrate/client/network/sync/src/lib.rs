@@ -63,9 +63,9 @@ use sc_network_common::{
 			BlockResponse, Direction, FromBlock,
 		},
 		warp::{EncodedProof, WarpProofRequest, WarpSyncPhase, WarpSyncProgress},
-		BadPeer, ChainSync as ChainSyncT, ImportResult, Metrics, OnBlockData, OnBlockJustification,
-		OnStateData, OpaqueStateRequest, OpaqueStateResponse, PeerInfo, PeerRequest, SyncMode,
-		SyncState, SyncStatus,
+		BadPeer, ChainSync as ChainSyncT, Metrics, OnBlockData, OnBlockJustification, OnStateData,
+		OpaqueStateRequest, OpaqueStateResponse, PeerInfo, PeerRequest, SyncMode, SyncState,
+		SyncStatus,
 	},
 };
 use sp_arithmetic::traits::Saturating;
@@ -1172,15 +1172,7 @@ where
 	fn poll(&mut self, cx: &mut std::task::Context) -> Poll<()> {
 		self.process_outbound_requests();
 
-		while let Poll::Ready(result) = self.poll_pending_responses(cx) {
-			match result {
-				ImportResult::BlockImport(origin, blocks) => self.import_blocks(origin, blocks),
-				ImportResult::JustificationImport(who, hash, number, justifications) =>
-					self.import_justifications(who, hash, number, justifications),
-			}
-		}
-
-		Poll::Pending
+		self.poll_pending_responses(cx)
 	}
 
 	fn send_block_request(&mut self, who: PeerId, request: BlockRequest<B>) {
@@ -1698,7 +1690,7 @@ where
 		peer_id: PeerId,
 		request: BlockRequest<B>,
 		blocks: Vec<BlockData<B>>,
-	) -> Option<ImportResult<B>> {
+	) {
 		let block_response = BlockResponse::<B> { id: request.id, blocks };
 
 		let blocks_range = || match (
@@ -1723,53 +1715,42 @@ where
 
 		if request.fields == BlockAttributes::JUSTIFICATION {
 			match self.on_block_justification(peer_id, block_response) {
-				Ok(OnBlockJustification::Nothing) => None,
+				Ok(OnBlockJustification::Nothing) => {},
 				Ok(OnBlockJustification::Import { peer, hash, number, justifications }) => {
 					self.import_justifications(peer, hash, number, justifications);
-					None
 				},
 				Err(BadPeer(id, repu)) => {
 					self.network_service
 						.disconnect_peer(id, self.block_announce_protocol_name.clone());
 					self.network_service.report_peer(id, repu);
-					None
 				},
 			}
 		} else {
 			match self.on_block_data(&peer_id, Some(request), block_response) {
 				Ok(OnBlockData::Import(origin, blocks)) => {
 					self.import_blocks(origin, blocks);
-					None
 				},
 				Ok(OnBlockData::Request(peer, req)) => {
 					self.send_block_request(peer, req);
-					None
 				},
-				Ok(OnBlockData::Continue) => None,
+				Ok(OnBlockData::Continue) => {},
 				Err(BadPeer(id, repu)) => {
 					self.network_service
 						.disconnect_peer(id, self.block_announce_protocol_name.clone());
 					self.network_service.report_peer(id, repu);
-					None
 				},
 			}
 		}
 	}
 
-	pub fn on_state_response(
-		&mut self,
-		peer_id: PeerId,
-		response: OpaqueStateResponse,
-	) -> Option<ImportResult<B>> {
+	pub fn on_state_response(&mut self, peer_id: PeerId, response: OpaqueStateResponse) {
 		match self.on_state_data(&peer_id, response) {
-			Ok(OnStateData::Import(origin, block)) =>
-				Some(ImportResult::BlockImport(origin, vec![block])),
-			Ok(OnStateData::Continue) => None,
+			Ok(OnStateData::Import(origin, block)) => self.import_blocks(origin, vec![block]),
+			Ok(OnStateData::Continue) => {},
 			Err(BadPeer(id, repu)) => {
 				self.network_service
 					.disconnect_peer(id, self.block_announce_protocol_name.clone());
 				self.network_service.report_peer(id, repu);
-				None
 			},
 		}
 	}
@@ -1800,7 +1781,7 @@ where
 		}
 	}
 
-	fn poll_pending_responses(&mut self, cx: &mut std::task::Context) -> Poll<ImportResult<B>> {
+	fn poll_pending_responses(&mut self, cx: &mut std::task::Context) -> Poll<()> {
 		let ready_responses = self
 			.pending_responses
 			.values_mut()
@@ -1820,9 +1801,7 @@ where
 					PeerRequest::Block(req) => {
 						match self.block_downloader.block_response_into_blocks(&req, resp) {
 							Ok(blocks) => {
-								if let Some(import) = self.on_block_response(id, req, blocks) {
-									return Poll::Ready(import)
-								}
+								self.on_block_response(id, req, blocks);
 							},
 							Err(BlockResponseError::DecodeFailed(e)) => {
 								debug!(
@@ -1863,9 +1842,7 @@ where
 							},
 						};
 
-						if let Some(import) = self.on_state_response(id, response) {
-							return Poll::Ready(import)
-						}
+						self.on_state_response(id, response);
 					},
 					PeerRequest::WarpProof => {
 						self.on_warp_sync_response(id, EncodedProof(resp));
