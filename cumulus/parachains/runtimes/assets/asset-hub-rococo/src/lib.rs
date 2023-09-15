@@ -1300,7 +1300,7 @@ impl_runtime_apis! {
 					);
 				}
 				fn ensure_bridged_target_destination() -> MultiLocation {
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
 						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
 					xcm_config::bridging::to_wococo::AssetHubWococo::get()
@@ -1314,7 +1314,7 @@ impl_runtime_apis! {
 				}
 				fn ensure_bridged_target_destination() -> MultiLocation {
 					xcm_config::Flavor::set(&RuntimeFlavor::Wococo);
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
 						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
 					xcm_config::bridging::to_rococo::AssetHubRococo::get()
