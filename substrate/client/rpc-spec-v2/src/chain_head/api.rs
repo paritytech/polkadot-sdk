@@ -30,7 +30,7 @@ pub trait ChainHeadApi<Hash> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[subscription(
-		name = "chainHead_unstable_follow",
+		name = "chainHead_unstable_follow" => "chainHead_unstable_followEvent",
 		unsubscribe = "chainHead_unstable_unfollow",
 		item = FollowEvent<Hash>,
 	)]
