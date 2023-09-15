@@ -300,6 +300,9 @@ struct State {
 
 	/// An LRU cache of recently recovered data.
 	availability_lru: LruMap<CandidateHash, CachedRecovery>,
+
+	/// Cache of the chunk indices shuffle based on the relay parent block.
+	chunk_indices_cache: LruMap<BlockNumber, VecDeque<(ChunkIndex, ValidatorIndex)>>,
 }
 
 impl Default for State {
@@ -308,6 +311,7 @@ impl Default for State {
 			ongoing_recoveries: FuturesUnordered::new(),
 			live_block: (0, Hash::default()),
 			availability_lru: LruMap::new(ByLength::new(LRU_SIZE)),
+			chunk_indices_cache: LruMap::new(ByLength::new(LRU_SIZE)),
 		}
 	}
 }
@@ -458,8 +462,25 @@ async fn handle_recover<Context>(
 
 			let block_number =
 				get_block_number(ctx.sender(), receipt.descriptor.relay_parent).await?;
-			let shuffling =
-				shuffle_availability_chunks(block_number, session_info.validators.len());
+
+			let shuffling = state
+				.chunk_indices_cache
+				.get_or_insert(block_number, || {
+					shuffle_availability_chunks(block_number, session_info.validators.len())
+						.iter()
+						.enumerate()
+						.map(|(v_index, c_index)| {
+							(
+								*c_index,
+								ValidatorIndex(
+									u32::try_from(v_index)
+										.expect("validator numbers should not exceed u32"),
+								),
+							)
+						})
+						.collect()
+				})
+				.expect("The shuffling was just inserted");
 
 			let backing_validators = if let Some(backing_group) = backing_group {
 				session_info.validator_groups.get(backing_group)
@@ -468,19 +489,7 @@ async fn handle_recover<Context>(
 			};
 
 			let fetch_chunks_params = FetchChunksParams {
-				validators: shuffling
-					.iter()
-					.enumerate()
-					.map(|(v_index, c_index)| {
-						(
-							*c_index,
-							ValidatorIndex(
-								u32::try_from(v_index)
-									.expect("validator numbers should not exceed u32"),
-							),
-						)
-					})
-					.collect(),
+				validators: shuffling.clone(),
 				erasure_task_tx: erasure_task_tx.clone(),
 			};
 
@@ -510,24 +519,16 @@ async fn handle_recover<Context>(
 				let systematic_threshold =
 					systematic_recovery_threshold(session_info.validators.len())?;
 
-				let validators = shuffling.into_iter().enumerate().fold(
-					BTreeMap::new(),
-					|mut acc, (v_index, c_index)| {
+				let validators =
+					shuffling.into_iter().fold(BTreeMap::new(), |mut acc, (c_index, v_index)| {
 						if usize::try_from(c_index.0)
 							.expect("usize is at least u32 bytes on all modern targets.") <
 							systematic_threshold
 						{
-							acc.insert(
-								c_index,
-								ValidatorIndex(
-									u32::try_from(v_index)
-										.expect("validator numbers should not exceed u32"),
-								),
-							);
+							acc.insert(*c_index, *v_index);
 						}
 						acc
-					},
-				);
+					});
 
 				recovery_strategies.push_back(Box::new(FetchSystematicChunks::new(
 					FetchSystematicChunksParams { validators, erasure_task_tx },

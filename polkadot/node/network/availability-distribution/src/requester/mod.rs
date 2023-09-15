@@ -39,7 +39,7 @@ use polkadot_node_subsystem_util::{
 	shuffle_availability_chunks,
 };
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, Hash, OccupiedCore, SessionIndex, ValidatorIndex,
+	BlockNumber, CandidateHash, ChunkIndex, Hash, OccupiedCore, SessionIndex,
 };
 use schnellru::{ByLength, LruMap};
 
@@ -81,7 +81,8 @@ pub struct Requester {
 	/// Prometheus Metrics
 	metrics: Metrics,
 
-	chunk_index_cache: LruMap<BlockNumber, ValidatorIndex>,
+	/// Cache of our chunk indices based on the relay parent block.
+	chunk_index_cache: LruMap<BlockNumber, ChunkIndex>,
 }
 
 #[overseer::contextbounds(AvailabilityDistribution, prefix = self::overseer)]
@@ -101,7 +102,9 @@ impl Requester {
 			tx,
 			rx,
 			metrics,
-			chunk_index_cache: LruMap::new(ByLength::new(10)),
+			// Candidates shouldn't be pending avilability for many blocks, so keep our index for
+			// the last two relay parents.
+			chunk_index_cache: LruMap::new(ByLength::new(2)),
 		}
 	}
 
@@ -229,9 +232,6 @@ impl Requester {
 				span.add_string_tag("already-requested-chunk", "false");
 				let tx = self.tx.clone();
 				let metrics = self.metrics.clone();
-				// only interested in the map for (ourIndex) -> ValidatorIndex
-				// hold LruCache<Height, ValidatorIndex>
-				// alternatively, re-compute it according to algorithm
 				let block_number =
 					get_block_number(context.sender(), core.candidate_descriptor.relay_parent)
 						.await?;
@@ -270,9 +270,10 @@ impl Requester {
 						.get_or_insert(block_number, || {
 							let shuffled_indices =
 								shuffle_availability_chunks(block_number, n_validators);
-							shuffled_indices[session_info.our_index.0 as usize]
+							shuffled_indices[usize::try_from(session_info.our_index.0)
+								.expect("usize is at least u32 bytes on all modern targets.")]
 						})
-						.expect("no expected");
+						.expect("The index was just inserted");
 
 					let task_cfg = FetchTaskConfig::new(
 						leaf,
