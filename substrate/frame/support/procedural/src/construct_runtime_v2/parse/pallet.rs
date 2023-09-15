@@ -17,7 +17,7 @@
 
 use crate::construct_runtime::parse::{Pallet, PalletPart, PalletPartKeyword, PalletPath};
 use quote::ToTokens;
-use syn::{punctuated::Punctuated, spanned::Spanned, token, Error};
+use syn::{punctuated::Punctuated, spanned::Spanned, token, Error, Ident, PathArguments};
 
 mod keyword {
 	syn::custom_keyword!(frame);
@@ -130,20 +130,16 @@ impl Pallet {
 		))?;
 
 		let mut instance = None;
-		// Todo: revisit this
 		if let Some(segment) = path.inner.segments.iter_mut().find(|seg| !seg.arguments.is_empty())
 		{
-			if let syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
-				args,
-				..
+			if let PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
+				args, ..
 			}) = segment.arguments.clone()
 			{
 				if let Some(syn::GenericArgument::Type(syn::Type::Path(arg_path))) = args.first() {
-					instance = Some(syn::Ident::new(
-						&arg_path.to_token_stream().to_string(),
-						arg_path.span(),
-					));
-					segment.arguments = syn::PathArguments::None;
+					instance =
+						Some(Ident::new(&arg_path.to_token_stream().to_string(), arg_path.span()));
+					segment.arguments = PathArguments::None;
 				}
 			}
 		}

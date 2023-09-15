@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use quote::ToTokens;
-use syn::{spanned::Spanned, Attribute, Error, Ident};
+use syn::{spanned::Spanned, Attribute, Error, Ident, PathArguments};
 
 /// The declaration of a pallet.
 #[derive(Debug, Clone)]
@@ -45,19 +45,15 @@ impl PalletDeclaration {
 		let mut path = path.path.clone();
 
 		let mut instance = None;
-		// Todo: revisit this
 		if let Some(segment) = path.segments.iter_mut().find(|seg| !seg.arguments.is_empty()) {
-			if let syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
-				args,
-				..
+			if let PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
+				args, ..
 			}) = segment.arguments.clone()
 			{
 				if let Some(syn::GenericArgument::Type(syn::Type::Path(arg_path))) = args.first() {
-					instance = Some(syn::Ident::new(
-						&arg_path.to_token_stream().to_string(),
-						arg_path.span(),
-					));
-					segment.arguments = syn::PathArguments::None;
+					instance =
+						Some(Ident::new(&arg_path.to_token_stream().to_string(), arg_path.span()));
+					segment.arguments = PathArguments::None;
 				}
 			}
 		}
