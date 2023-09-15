@@ -1,6 +1,7 @@
 # Deprecation Process
 
-This deprecation process makes sense while we don’t [SemVer](https://semver.org/), after that this process will most likely change.
+This deprecation process makes sense while we don’t use [SemVer](https://semver.org/).
+After that, this process will most likely change.
 
 As deprecation and removal of existing features can happen on any release we need to be mindful that external builders can be impacted by the changes we make.
 
