@@ -49,7 +49,7 @@ sp-externalities = { path = "../../primitives/externalities", default-features =
 array-bytes = { version = "6.1", optional = true }
 log = { version = "0.4.17", default-features = false }
 serde = { version = "1.0.188", features = ["alloc", "derive"], default-features = false }
-serde_json = { version = "1.0.106", default-features = false, features = ["alloc"] }
+serde_json = { version = "1.0.107", default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 futures = "0.3.21"
