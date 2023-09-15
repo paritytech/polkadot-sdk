@@ -47,3 +47,6 @@ frame_support::parameter_types! {
 	/// (initially was calculated `170733333` + `10%` by test `BridgeHubWococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer`)
 	pub const BridgeHubWococoBaseFeeInWocs: u128 = 187806666;
 }
+
+/// Identifier of AssetHubWococo in the Wococo relay chain.
+pub const ASSET_HUB_WOCOCO_PARACHAIN_ID: u32 = 1000;

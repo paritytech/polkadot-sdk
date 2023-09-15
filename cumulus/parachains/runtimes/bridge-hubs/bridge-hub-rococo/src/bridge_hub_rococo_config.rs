@@ -33,6 +33,7 @@ use bridge_runtime_common::{
 		RefundableParachain,
 	},
 };
+use codec::Encode;
 use frame_support::{parameter_types, traits::PalletInfoAccess};
 use sp_runtime::RuntimeDebug;
 use xcm::{
@@ -51,12 +52,37 @@ parameter_types! {
 	pub BridgeHubRococoUniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Rococo), Parachain(ParachainInfo::parachain_id().into()));
 	pub WococoGlobalConsensusNetwork: NetworkId = NetworkId::Wococo;
 	pub ActiveOutboundLanesToBridgeHubWococo: &'static [bp_messages::LaneId] = &[DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO];
-	pub PriorityBoostPerMessage: u64 = 921_900_294;
+	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
+	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
+
+	pub AssetHubRococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID.into();
 
 	pub FromAssetHubRococoToAssetHubWococoRoute: SenderAndLane = SenderAndLane::new(
-		ParentThen(X1(Parachain(1000))).into(),
+		ParentThen(X1(Parachain(AssetHubRococoParaId::get().into()))).into(),
 		DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO,
 	);
+
+	pub CongestedMessage: Xcm<()> = sp_std::vec![Transact {
+		origin_kind: OriginKind::Xcm,
+		require_weight_at_most: bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+		call: bp_asset_hub_rococo::Call::ToWococoXcmRouter(
+			bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
+				bridge_id: Default::default(),
+				is_congested: true,
+			}
+		).encode().into(),
+	}].into();
+
+	pub UncongestedMessage: Xcm<()> = sp_std::vec![Transact {
+		origin_kind: OriginKind::Xcm,
+		require_weight_at_most: bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+		call: bp_asset_hub_rococo::Call::ToWococoXcmRouter(
+			bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
+				bridge_id: Default::default(),
+				is_congested: false,
+			}
+		).encode().into(),
+	}].into();
 }
 
 /// Proof of messages, coming from Wococo.
@@ -73,7 +99,7 @@ pub type OnBridgeHubRococoBlobDispatcher = BridgeBlobDispatcher<
 	BridgeWococoMessagesPalletInstance,
 >;
 
-/// Export XCM messages to be relayed to the otherside
+/// Export XCM messages to be relayed to the other side
 pub type ToBridgeHubWococoHaulBlobExporter = HaulBlobExporter<
 	XcmBlobHaulerAdapter<ToBridgeHubWococoXcmBlobHauler>,
 	WococoGlobalConsensusNetwork,
@@ -86,10 +112,13 @@ impl XcmBlobHauler for ToBridgeHubWococoXcmBlobHauler {
 	type SenderAndLane = FromAssetHubRococoToAssetHubWococoRoute;
 
 	type ToSourceChainSender = crate::XcmRouter;
-	type CongestedMessage = ();
-	type UncongestedMessage = ();
+	type CongestedMessage = CongestedMessage;
+	type UncongestedMessage = UncongestedMessage;
 }
 pub const DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO: LaneId = LaneId([0, 0, 0, 1]);
+
+/// On messages delivered callback.
+pub type OnMessagesDelivered = XcmBlobHaulerAdapter<ToBridgeHubWococoXcmBlobHauler>;
 
 /// Messaging Bridge configuration for BridgeHubRococo -> BridgeHubWococo
 pub struct WithBridgeHubWococoMessageBridge;
@@ -162,6 +191,18 @@ mod tests {
 			AssertCompleteBridgeConstants,
 		},
 	};
+	use parachains_common::{rococo, Balance};
+
+	/// Every additional message in the message delivery transaction boosts its priority.
+	/// So the priority of transaction with `N+1` messages is larger than priority of
+	/// transaction with `N` messages by the `PriorityBoostPerMessage`.
+	///
+	/// Economically, it is an equivalent of adding tip to the transaction with `N` messages.
+	/// The `FEE_BOOST_PER_MESSAGE` constant is the value of this tip.
+	///
+	/// We want this tip to be large enough (delivery transactions with more messages = less
+	/// operational costs and a faster bridge), so this value should be significant.
+	const FEE_BOOST_PER_MESSAGE: Balance = 2 * rococo::currency::UNITS;
 
 	#[test]
 	fn ensure_bridge_hub_rococo_message_lane_weights_are_correct() {
@@ -213,5 +254,11 @@ mod tests {
 					bp_bridge_hub_wococo::WITH_BRIDGE_HUB_WOCOCO_MESSAGES_PALLET_NAME,
 			},
 		});
+
+		bridge_runtime_common::priority_calculator::ensure_priority_boost_is_sane::<
+			Runtime,
+			WithBridgeHubWococoMessagesInstance,
+			PriorityBoostPerMessage,
+		>(FEE_BOOST_PER_MESSAGE);
 	}
 }

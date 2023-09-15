@@ -47,3 +47,6 @@ frame_support::parameter_types! {
 	/// (initially was calculated `170733333` + `10%` by test `BridgeHubRococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer`)
 	pub const BridgeHubRococoBaseFeeInRocs: u128 = 187806666;
 }
+
+/// Identifier of AssetHubRococo in the Rococo relay chain.
+pub const ASSET_HUB_ROCOCO_PARACHAIN_ID: u32 = 1000;

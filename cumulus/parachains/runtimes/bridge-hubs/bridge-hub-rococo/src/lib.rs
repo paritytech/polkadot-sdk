@@ -439,7 +439,7 @@ parameter_types! {
 	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";
 }
 
-/// Add parachain bridge pallet to track Wococo bridge hub parachain
+/// Add parachain bridge pallet to track Wococo BridgeHub parachain
 pub type BridgeParachainWococoInstance = pallet_bridge_parachains::Instance1;
 impl pallet_bridge_parachains::Config<BridgeParachainWococoInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -452,7 +452,7 @@ impl pallet_bridge_parachains::Config<BridgeParachainWococoInstance> for Runtime
 	type MaxParaHeadDataSize = MaxWococoParaHeadDataSize;
 }
 
-/// Add parachain bridge pallet to track Rococo bridge hub parachain
+/// Add parachain bridge pallet to track Rococo BridgeHub parachain
 pub type BridgeParachainRococoInstance = pallet_bridge_parachains::Instance2;
 impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -494,9 +494,15 @@ impl pallet_bridge_messages::Config<WithBridgeHubWococoMessagesInstance> for Run
 	>;
 
 	type SourceHeaderChain = SourceHeaderChainAdapter<WithBridgeHubWococoMessageBridge>;
-	type MessageDispatch =
-		XcmBlobMessageDispatch<OnBridgeHubRococoBlobDispatcher, Self::WeightInfo, ()>;
-	type OnMessagesDelivered = ();
+	type MessageDispatch = XcmBlobMessageDispatch<
+		OnBridgeHubRococoBlobDispatcher,
+		Self::WeightInfo,
+		cumulus_pallet_xcmp_queue::bridging::OutboundXcmpChannelCongestionStatusProvider<
+			bridge_hub_rococo_config::AssetHubRococoParaId,
+			Runtime,
+		>,
+	>;
+	type OnMessagesDelivered = bridge_hub_rococo_config::OnMessagesDelivered;
 }
 
 /// Add XCM messages support for BridgeHubWococo to support Wococo->Rococo XCM messages
@@ -528,9 +534,15 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 	>;
 
 	type SourceHeaderChain = SourceHeaderChainAdapter<WithBridgeHubRococoMessageBridge>;
-	type MessageDispatch =
-		XcmBlobMessageDispatch<OnBridgeHubWococoBlobDispatcher, Self::WeightInfo, ()>;
-	type OnMessagesDelivered = ();
+	type MessageDispatch = XcmBlobMessageDispatch<
+		OnBridgeHubWococoBlobDispatcher,
+		Self::WeightInfo,
+		cumulus_pallet_xcmp_queue::bridging::OutboundXcmpChannelCongestionStatusProvider<
+			bridge_hub_wococo_config::AssetHubWococoParaId,
+			Runtime,
+		>,
+	>;
+	type OnMessagesDelivered = bridge_hub_wococo_config::OnMessagesDelivered;
 }
 
 /// Allows collect and claim rewards for relayers
@@ -583,16 +595,16 @@ construct_runtime!(
 		Utility: pallet_utility::{Pallet, Call, Event} = 40,
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 36,
 
-		// Rococo and Wococo Bridge Hubs are sharing the runtime, so this runtime has two sets of
+		// Rococo and Wococo BridgeHubs are sharing the runtime, so this runtime has two sets of
 		// bridge pallets. Both are deployed at both runtimes, but only one set is actually used
 		// at particular runtime.
 
-		// With-Wococo bridge modules that are active (used) at Rococo Bridge Hub runtime.
+		// With-Wococo bridge modules that are active (used) at Rococo BridgeHub runtime.
 		BridgeWococoGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 41,
 		BridgeWococoParachain: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage, Event<T>} = 42,
 		BridgeWococoMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 46,
 
-		// With-Rococo bridge modules that are active (used) at Wococo Bridge Hub runtime.
+		// With-Rococo bridge modules that are active (used) at Wococo BridgeHub runtime.
 		BridgeRococoGrandpa: pallet_bridge_grandpa::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 43,
 		BridgeRococoParachain: pallet_bridge_parachains::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,
 		BridgeRococoMessages: pallet_bridge_messages::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 45,
