@@ -18,16 +18,25 @@
 
 //! API implementation for `archive`.
 
-use super::ArchiveApiServer;
-use crate::chain_head::hex_string;
+use crate::{
+	archive::{
+		api::{ArchiveCallError, ArchiveCallOk, ArchiveCallResult},
+		error::Error as ArchiveError,
+		ArchiveApiServer,
+	},
+	chain_head::hex_string,
+};
 use codec::Encode;
 use jsonrpsee::core::{async_trait, RpcResult};
-use sc_client_api::{Backend, BlockBackend, BlockchainEvents, ExecutorProvider, StorageProvider};
-use sp_api::{CallApiAt, NumberFor};
+use sc_client_api::{
+	Backend, BlockBackend, BlockchainEvents, CallExecutor, ExecutorProvider, StorageProvider,
+};
+use sp_api::{CallApiAt, CallContext, NumberFor};
 use sp_blockchain::{
 	Backend as BlockChainBackend, Error as BlockChainError, HashAndNumber, HeaderBackend,
 	HeaderMetadata,
 };
+use sp_core::Bytes;
 use sp_runtime::{
 	traits::{Block as BlockT, One},
 	SaturatedConversion, Saturating,
@@ -55,6 +64,21 @@ impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {
 	) -> Self {
 		let genesis_hash = hex_string(&genesis_hash.as_ref());
 		Self { client, backend, genesis_hash, _phantom: PhantomData }
+	}
+}
+
+/// Parse hex-encoded string parameter as raw bytes.
+///
+/// If the parsing fails, returns an error propagated to the RPC method.
+fn parse_hex_param(param: String) -> Result<Vec<u8>, ArchiveError> {
+	// Methods can accept empty parameters.
+	if param.is_empty() {
+		return Ok(Default::default())
+	}
+
+	match array_bytes::hex2bytes(&param) {
+		Ok(bytes) => Ok(bytes),
+		Err(_) => Err(ArchiveError::InvalidParam(param)),
 	}
 }
 
@@ -130,5 +154,28 @@ where
 		}
 
 		Ok(result)
+	}
+
+	fn archive_unstable_call(
+		&self,
+		hash: Block::Hash,
+		function: String,
+		call_parameters: String,
+	) -> RpcResult<ArchiveCallResult> {
+		let call_parameters = Bytes::from(parse_hex_param(call_parameters)?);
+
+		Ok(self
+			.client
+			.executor()
+			.call(hash, &function, &call_parameters, CallContext::Offchain)
+			.map(|result| {
+				ArchiveCallResult::Ok(ArchiveCallOk { success: true, value: hex_string(&result) })
+			})
+			.unwrap_or_else(|error| {
+				ArchiveCallResult::Err(ArchiveCallError {
+					success: false,
+					error: error.to_string(),
+				})
+			}))
 	}
 }
