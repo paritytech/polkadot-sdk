@@ -998,6 +998,16 @@
 <a href="#998" id="998">998</a>
 <a href="#999" id="999">999</a>
 <a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1050,10 +1060,10 @@
 <span class="kw">use </span>sc_network_common::role::Roles;
 <span class="kw">use </span>sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 <span class="kw">use </span>sc_network_sync::{
-	block_request_handler::BlockRequestHandler, engine::SyncingEngine,
-	service::network::NetworkServiceProvider, state_request_handler::StateRequestHandler,
-	warp::WarpSyncParams, warp_request_handler::RequestHandler <span class="kw">as </span>WarpSyncRequestHandler,
-	SyncingService,
+	block_relay_protocol::BlockRelayParams, block_request_handler::BlockRequestHandler,
+	engine::SyncingEngine, service::network::NetworkServiceProvider,
+	state_request_handler::StateRequestHandler, warp::WarpSyncParams,
+	warp_request_handler::RequestHandler <span class="kw">as </span>WarpSyncRequestHandler, SyncingService,
 };
 <span class="kw">use </span>sc_rpc::{
 	author::AuthorApiServer,
@@ -1696,6 +1706,9 @@
 		<span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>FnOnce(Arc&lt;TCl&gt;) -&gt; Box&lt;<span class="kw">dyn </span>BlockAnnounceValidator&lt;TBl&gt; + Send&gt; + Send&gt;&gt;,
 	<span class="doccomment">/// Optional warp sync params.
 	</span><span class="kw">pub </span>warp_sync_params: <span class="prelude-ty">Option</span>&lt;WarpSyncParams&lt;TBl&gt;&gt;,
+	<span class="doccomment">/// User specified block relay params. If not specified, the default
+	/// block request handler will be used.
+	</span><span class="kw">pub </span>block_relay: <span class="prelude-ty">Option</span>&lt;BlockRelayParams&lt;TBl&gt;&gt;,
 }
 
 <span class="doccomment">/// Build the network service, the network status sinks and an RPC sender.
@@ -1734,6 +1747,7 @@
 		import_queue,
 		block_announce_validator_builder,
 		warp_sync_params,
+		block_relay,
 	} = params;
 
 	<span class="kw">if </span>warp_sync_params.is_none() &amp;&amp; config.network.sync_mode.is_warp() {
@@ -1757,19 +1771,26 @@
 		Box::new(DefaultBlockAnnounceValidator)
 	};
 
-	<span class="kw">let </span>(block_request_protocol_config, block_request_protocol_name) = {
-		<span class="comment">// Allow both outgoing and incoming requests.
-		</span><span class="kw">let </span>(handler, protocol_config) = BlockRequestHandler::new(
-			<span class="kw-2">&amp;</span>protocol_id,
-			config.chain_spec.fork_id(),
-			client.clone(),
-			net_config.network_config.default_peers_set.in_peers <span class="kw">as </span>usize +
-				net_config.network_config.default_peers_set.out_peers <span class="kw">as </span>usize,
-		);
-		<span class="kw">let </span>config_name = protocol_config.name.clone();
-		spawn_handle.spawn(<span class="string">&quot;block-request-handler&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), handler.run());
-		(protocol_config, config_name)
+	<span class="kw">let </span>(chain_sync_network_provider, chain_sync_network_handle) = NetworkServiceProvider::new();
+	<span class="kw">let </span>(<span class="kw-2">mut </span>block_server, block_downloader, block_request_protocol_config) = <span class="kw">match </span>block_relay {
+		<span class="prelude-val">Some</span>(params) =&gt; (params.server, params.downloader, params.request_response_config),
+		<span class="prelude-val">None </span>=&gt; {
+			<span class="comment">// Custom protocol was not specified, use the default block handler.
+			// Allow both outgoing and incoming requests.
+			</span><span class="kw">let </span>params = BlockRequestHandler::new(
+				chain_sync_network_handle.clone(),
+				<span class="kw-2">&amp;</span>protocol_id,
+				config.chain_spec.fork_id(),
+				client.clone(),
+				config.network.default_peers_set.in_peers <span class="kw">as </span>usize +
+					config.network.default_peers_set.out_peers <span class="kw">as </span>usize,
+			);
+			(params.server, params.downloader, params.request_response_config)
+		},
 	};
+	spawn_handle.spawn(<span class="string">&quot;block-request-handler&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), <span class="kw">async move </span>{
+		block_server.run().<span class="kw">await</span>;
+	});
 
 	<span class="kw">let </span>(state_request_protocol_config, state_request_protocol_name) = {
 		<span class="kw">let </span>num_peer_hint = net_config.network_config.default_peers_set_num_full <span class="kw">as </span>usize +
@@ -1860,7 +1881,6 @@
 	spawn_handle.spawn(<span class="string">&quot;peer-store&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), peer_store.run());
 
 	<span class="kw">let </span>(tx, rx) = sc_utils::mpsc::tracing_unbounded(<span class="string">&quot;mpsc_syncing_engine_protocol&quot;</span>, <span class="number">100_000</span>);
-	<span class="kw">let </span>(chain_sync_network_provider, chain_sync_network_handle) = NetworkServiceProvider::new();
 	<span class="kw">let </span>(engine, sync_service, block_announce_config) = SyncingEngine::new(
 		Roles::from(<span class="kw-2">&amp;</span>config.role),
 		client.clone(),
@@ -1872,7 +1892,7 @@
 		warp_sync_params,
 		chain_sync_network_handle,
 		import_queue.service(),
-		block_request_protocol_name,
+		block_downloader,
 		state_request_protocol_name,
 		warp_request_protocol_name,
 		rx,

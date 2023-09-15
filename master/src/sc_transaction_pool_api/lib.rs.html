@@ -523,6 +523,7 @@
 <a href="#523" id="523">523</a>
 <a href="#524" id="524">524</a>
 <a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -547,6 +548,7 @@
 </span><span class="kw">pub mod </span>error;
 
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>codec::Codec;
 <span class="kw">use </span>futures::{Future, Stream};
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
 <span class="kw">use </span>sp_core::offchain::TransactionPoolExt;
@@ -712,7 +714,7 @@
 	<span class="doccomment">/// Block type.
 	</span><span class="kw">type </span>Block: BlockT;
 	<span class="doccomment">/// Transaction hash type.
-	</span><span class="kw">type </span>Hash: Hash + Eq + Member + Serialize + DeserializeOwned;
+	</span><span class="kw">type </span>Hash: Hash + Eq + Member + Serialize + DeserializeOwned + Codec;
 	<span class="doccomment">/// In-pool transaction type.
 	</span><span class="kw">type </span>InPoolTransaction: InPoolTransaction&lt;
 		Transaction = TransactionFor&lt;<span class="self">Self</span>&gt;,

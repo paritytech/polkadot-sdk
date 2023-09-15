@@ -95,6 +95,21 @@
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -113,15 +128,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="doccomment">//! Contains a mock implementation of `ChainSync` that can be used
-//! for testing calls made to `ChainSync`.
+</span><span class="doccomment">//! Contains mock implementations of `ChainSync` and &#39;BlockDownloader&#39;.
 
-</span><span class="kw">use </span>futures::task::Poll;
+</span><span class="kw">use </span><span class="kw">crate</span>::block_relay_protocol::{BlockDownloader <span class="kw">as </span>BlockDownloaderT, BlockResponseError};
+
+<span class="kw">use </span>futures::{channel::oneshot, task::Poll};
 <span class="kw">use </span>libp2p::PeerId;
+<span class="kw">use </span>sc_network::RequestFailure;
 <span class="kw">use </span>sc_network_common::sync::{
 	message::{BlockAnnounce, BlockData, BlockRequest, BlockResponse},
-	BadPeer, ChainSync <span class="kw">as </span>ChainSyncT, Metrics, OnBlockData, OnBlockJustification,
-	OpaqueBlockResponse, PeerInfo, SyncStatus,
+	BadPeer, ChainSync <span class="kw">as </span>ChainSyncT, Metrics, OnBlockData, OnBlockJustification, PeerInfo,
+	SyncStatus,
 };
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
 
@@ -176,11 +193,6 @@
 		);
 		<span class="kw">fn </span>peer_disconnected(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>PeerId);
 		<span class="kw">fn </span>metrics(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Metrics;
-		<span class="kw">fn </span>block_response_into_blocks(
-			<span class="kw-2">&amp;</span><span class="self">self</span>,
-			request: <span class="kw-2">&amp;</span>BlockRequest&lt;Block&gt;,
-			response: OpaqueBlockResponse,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BlockData&lt;Block&gt;&gt;, String&gt;;
 		<span class="kw">fn </span>poll&lt;<span class="lifetime">&#39;a</span>&gt;(
 			<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 			cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;a</span>&gt;,
@@ -190,6 +202,24 @@
 			who: PeerId,
 			request: BlockRequest&lt;Block&gt;,
 		);
+	}
+}
+
+<span class="macro">mockall::mock! </span>{
+	<span class="kw">pub </span>BlockDownloader&lt;Block: BlockT&gt; {}
+
+	<span class="attr">#[async_trait::async_trait]
+	</span><span class="kw">impl</span>&lt;Block: BlockT&gt; BlockDownloaderT&lt;Block&gt; <span class="kw">for </span>BlockDownloader&lt;Block&gt; {
+		<span class="kw">async fn </span>download_blocks(
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
+			who: PeerId,
+			request: BlockRequest&lt;Block&gt;,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;, oneshot::Canceled&gt;;
+		<span class="kw">fn </span>block_response_into_blocks(
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
+			request: <span class="kw-2">&amp;</span>BlockRequest&lt;Block&gt;,
+			response: Vec&lt;u8&gt;,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BlockData&lt;Block&gt;&gt;, BlockResponseError&gt;;
 	}
 }
 </code></pre></div></section></main></body></html>

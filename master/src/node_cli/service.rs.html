@@ -888,6 +888,7 @@
 <a href="#888" id="888">888</a>
 <a href="#889" id="889">889</a>
 <a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1278,6 +1279,7 @@
 			import_queue,
 			block_announce_validator_builder: <span class="prelude-val">None</span>,
 			warp_sync_params: <span class="prelude-val">Some</span>(WarpSyncParams::WithProvider(warp_sync)),
+			block_relay: <span class="prelude-val">None</span>,
 		})<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>role = config.role.clone();

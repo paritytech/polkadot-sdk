@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["generate_protocol_config"],"struct":["BlockRequestHandler"]};
+window.SIDEBAR_ITEMS = {"fn":["generate_protocol_config"],"struct":["BlockRequestHandler","FullBlockDownloader"]};

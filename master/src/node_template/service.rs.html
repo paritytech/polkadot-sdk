@@ -334,6 +334,7 @@
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
 <a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 </span><span class="kw">use </span>futures::FutureExt;
@@ -519,6 +520,7 @@
 			import_queue,
 			block_announce_validator_builder: <span class="prelude-val">None</span>,
 			warp_sync_params: <span class="prelude-val">Some</span>(WarpSyncParams::WithProvider(warp_sync)),
+			block_relay: <span class="prelude-val">None</span>,
 		})<span class="question-mark">?</span>;
 
 	<span class="kw">if </span>config.offchain_worker.enabled {

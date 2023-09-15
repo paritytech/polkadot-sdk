@@ -331,7 +331,7 @@ var sourcesIndex = JSON.parse('{\
 "sc_network_gossip":["",[],["bridge.rs","lib.rs","state_machine.rs","validator.rs"]],\
 "sc_network_light":["",[["light_client_requests",[],["handler.rs"]]],["lib.rs","light_client_requests.rs","schema.rs"]],\
 "sc_network_statement":["",[],["config.rs","lib.rs"]],\
-"sc_network_sync":["",[["service",[],["chain_sync.rs","mock.rs","mod.rs","network.rs"]]],["block_announce_validator.rs","block_request_handler.rs","blocks.rs","engine.rs","extra_requests.rs","futures_stream.rs","lib.rs","mock.rs","schema.rs","state.rs","state_request_handler.rs","warp.rs","warp_request_handler.rs"]],\
+"sc_network_sync":["",[["service",[],["chain_sync.rs","mock.rs","mod.rs","network.rs"]]],["block_announce_validator.rs","block_relay_protocol.rs","block_request_handler.rs","blocks.rs","engine.rs","extra_requests.rs","futures_stream.rs","lib.rs","mock.rs","schema.rs","state.rs","state_request_handler.rs","warp.rs","warp_request_handler.rs"]],\
 "sc_network_test":["",[],["lib.rs"]],\
 "sc_network_transactions":["",[],["config.rs","lib.rs"]],\
 "sc_offchain":["",[["api",[],["http.rs","timestamp.rs"]]],["api.rs","lib.rs"]],\

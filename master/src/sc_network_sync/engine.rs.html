@@ -999,6 +999,7 @@
 <a href="#999" id="999">999</a>
 <a href="#1000" id="1000">1000</a>
 <a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1024,6 +1025,7 @@
 	block_announce_validator::{
 		BlockAnnounceValidationResult, BlockAnnounceValidator <span class="kw">as </span>BlockAnnounceValidatorStream,
 	},
+	block_relay_protocol::BlockDownloader,
 	service::{<span class="self">self</span>, chain_sync::ToServiceCommand},
 	warp::WarpSyncParams,
 	ChainSync, ClientError, SyncingService,
@@ -1301,7 +1303,7 @@
 		warp_sync_params: <span class="prelude-ty">Option</span>&lt;WarpSyncParams&lt;B&gt;&gt;,
 		network_service: service::network::NetworkServiceHandle,
 		import_queue: Box&lt;<span class="kw">dyn </span>ImportQueueService&lt;B&gt;&gt;,
-		block_request_protocol_name: ProtocolName,
+		block_downloader: Arc&lt;<span class="kw">dyn </span>BlockDownloader&lt;B&gt;&gt;,
 		state_request_protocol_name: ProtocolName,
 		warp_sync_protocol_name: <span class="prelude-ty">Option</span>&lt;ProtocolName&gt;,
 		rx: sc_utils::mpsc::TracingUnboundedReceiver&lt;sc_network::SyncEvent&lt;B&gt;&gt;,
@@ -1393,7 +1395,7 @@
 			metrics_registry,
 			network_service.clone(),
 			import_queue,
-			block_request_protocol_name,
+			block_downloader,
 			state_request_protocol_name,
 			warp_sync_protocol_name,
 		)<span class="question-mark">?</span>;

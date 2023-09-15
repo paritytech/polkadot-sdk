@@ -413,7 +413,7 @@
 	<span class="kw">impl</span>&lt;I: Get&lt;u32&gt;&gt; EnsureSuccessful <span class="kw">for </span>OpenHrmpChannel&lt;I&gt; {
 		<span class="kw">fn </span>ensure_successful() {
 			<span class="kw">if let </span>ChannelStatus::Closed = ParachainSystem::get_channel_status(I::get().into()) {
-				ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(I::get().into())
+				ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(I::get().into())
 			}
 		}
 	}

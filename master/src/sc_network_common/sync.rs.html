@@ -376,35 +376,6 @@
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
-<a href="#394" id="394">394</a>
-<a href="#395" id="395">395</a>
-<a href="#396" id="396">396</a>
-<a href="#397" id="397">397</a>
-<a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
-<a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -429,12 +400,12 @@
 <span class="kw">pub mod </span>metrics;
 <span class="kw">pub mod </span>warp;
 
-<span class="kw">use crate</span>::{role::Roles, sync::message::BlockAnnounce, types::ReputationChange};
+<span class="kw">use crate</span>::{role::Roles, types::ReputationChange};
 <span class="kw">use </span>futures::Stream;
 
 <span class="kw">use </span>libp2p_identity::PeerId;
 
-<span class="kw">use </span>message::{BlockData, BlockRequest, BlockResponse};
+<span class="kw">use </span>message::{BlockAnnounce, BlockRequest, BlockResponse};
 <span class="kw">use </span>sc_consensus::{import_queue::RuntimeOrigin, IncomingBlock};
 <span class="kw">use </span>sp_consensus::BlockOrigin;
 <span class="kw">use </span>sp_runtime::{
@@ -633,28 +604,6 @@
 	}
 }
 
-<span class="doccomment">/// Wrapper for implementation-specific block request.
-///
-/// NOTE: Implementation must be able to encode and decode it for network purposes.
-</span><span class="kw">pub struct </span>OpaqueBlockRequest(<span class="kw">pub </span>Box&lt;<span class="kw">dyn </span>Any + Send&gt;);
-
-<span class="kw">impl </span>fmt::Debug <span class="kw">for </span>OpaqueBlockRequest {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-		f.debug_struct(<span class="string">&quot;OpaqueBlockRequest&quot;</span>).finish()
-	}
-}
-
-<span class="doccomment">/// Wrapper for implementation-specific block response.
-///
-/// NOTE: Implementation must be able to encode and decode it for network purposes.
-</span><span class="kw">pub struct </span>OpaqueBlockResponse(<span class="kw">pub </span>Box&lt;<span class="kw">dyn </span>Any + Send&gt;);
-
-<span class="kw">impl </span>fmt::Debug <span class="kw">for </span>OpaqueBlockResponse {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-		f.debug_struct(<span class="string">&quot;OpaqueBlockResponse&quot;</span>).finish()
-	}
-}
-
 <span class="doccomment">/// Provides high-level status of syncing.
 </span><span class="attr">#[async_trait::async_trait]
 </span><span class="kw">pub trait </span>SyncStatusProvider&lt;Block: BlockT&gt;: Send + Sync {
@@ -798,13 +747,6 @@
 
 	<span class="doccomment">/// Return some key metrics.
 	</span><span class="kw">fn </span>metrics(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Metrics;
-
-	<span class="doccomment">/// Access blocks from implementation-specific block response.
-	</span><span class="kw">fn </span>block_response_into_blocks(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		request: <span class="kw-2">&amp;</span>BlockRequest&lt;Block&gt;,
-		response: OpaqueBlockResponse,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BlockData&lt;Block&gt;&gt;, String&gt;;
 
 	<span class="doccomment">/// Advance the state of `ChainSync`
 	</span><span class="kw">fn </span>poll(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>std::task::Context) -&gt; Poll&lt;()&gt;;

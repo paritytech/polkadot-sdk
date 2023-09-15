@@ -2379,7 +2379,7 @@
 				) -&gt; (bridge_hub_rococo_config::FromWococoBridgeHubMessagesProof, Weight) {
 					<span class="kw">use </span>cumulus_primitives_core::XcmpMessageSource;
 					<span class="macro">assert!</span>(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(<span class="number">42</span>.into());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(<span class="number">42</span>.into());
 					prepare_message_proof_from_parachain::&lt;
 						Runtime,
 						BridgeGrandpaWococoInstance,
@@ -2422,7 +2422,7 @@
 				) -&gt; (bridge_hub_wococo_config::FromRococoBridgeHubMessagesProof, Weight) {
 					<span class="kw">use </span>cumulus_primitives_core::XcmpMessageSource;
 					<span class="macro">assert!</span>(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(<span class="number">42</span>.into());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(<span class="number">42</span>.into());
 					prepare_message_proof_from_parachain::&lt;
 						Runtime,
 						BridgeGrandpaRococoInstance,
