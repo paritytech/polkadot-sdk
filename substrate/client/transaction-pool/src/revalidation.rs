@@ -25,14 +25,12 @@ use std::{
 };
 
 use crate::{
-	graph::{ChainApi, ExtrinsicHash, NumberFor, Pool, ValidatedTransaction},
+	graph::{BlockHash, ChainApi, ExtrinsicHash, Pool, ValidatedTransaction},
 	LOG_TARGET,
 };
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::{
-	generic::BlockId,
-	traits::{SaturatedConversion, Zero},
-	transaction_validity::TransactionValidityError,
+	generic::BlockId, traits::SaturatedConversion, transaction_validity::TransactionValidityError,
 };
 
 use futures::prelude::*;
@@ -44,7 +42,7 @@ const MIN_BACKGROUND_REVALIDATION_BATCH_SIZE: usize = 20;
 
 /// Payload from queue to worker.
 struct WorkerPayload<Api: ChainApi> {
-	at: NumberFor<Api>,
+	at: BlockHash<Api>,
 	transactions: Vec<ExtrinsicHash<Api>>,
 }
 
@@ -54,9 +52,9 @@ struct WorkerPayload<Api: ChainApi> {
 struct RevalidationWorker<Api: ChainApi> {
 	api: Arc<Api>,
 	pool: Arc<Pool<Api>>,
-	best_block: NumberFor<Api>,
-	block_ordered: BTreeMap<NumberFor<Api>, HashSet<ExtrinsicHash<Api>>>,
-	members: HashMap<ExtrinsicHash<Api>, NumberFor<Api>>,
+	best_block: BlockHash<Api>,
+	block_ordered: BTreeMap<BlockHash<Api>, HashSet<ExtrinsicHash<Api>>>,
+	members: HashMap<ExtrinsicHash<Api>, BlockHash<Api>>,
 }
 
 impl<Api: ChainApi> Unpin for RevalidationWorker<Api> {}
@@ -68,7 +66,7 @@ impl<Api: ChainApi> Unpin for RevalidationWorker<Api> {}
 async fn batch_revalidate<Api: ChainApi>(
 	pool: Arc<Pool<Api>>,
 	api: Arc<Api>,
-	at: NumberFor<Api>,
+	at: BlockHash<Api>,
 	batch: impl IntoIterator<Item = ExtrinsicHash<Api>>,
 ) {
 	let mut invalid_hashes = Vec::new();
@@ -76,11 +74,21 @@ async fn batch_revalidate<Api: ChainApi>(
 
 	let validation_results = futures::future::join_all(batch.into_iter().filter_map(|ext_hash| {
 		pool.validated_pool().ready_by_hash(&ext_hash).map(|ext| {
-			api.validate_transaction(&BlockId::Number(at), ext.source, ext.data.clone())
+			api.validate_transaction(at, ext.source, ext.data.clone())
 				.map(move |validation_result| (validation_result, ext_hash, ext))
 		})
 	}))
 	.await;
+
+	//todo:
+	let block_number = api
+		.block_id_to_number(&BlockId::Hash(at))
+		.and_then(|n| {
+			n.ok_or(
+				sc_transaction_pool_api::error::Error::InvalidBlockId(format!("{:?}", at)).into(),
+			)
+		})
+		.expect("hash to number should work");
 
 	for (validation_result, ext_hash, ext) in validation_results {
 		match validation_result {
@@ -107,7 +115,7 @@ async fn batch_revalidate<Api: ChainApi>(
 				revalidated.insert(
 					ext_hash,
 					ValidatedTransaction::valid_at(
-						at.saturated_into::<u64>(),
+						block_number.saturated_into::<u64>(),
 						ext_hash,
 						ext.source,
 						ext.data.clone(),
@@ -141,7 +149,7 @@ impl<Api: ChainApi> RevalidationWorker<Api> {
 			pool,
 			block_ordered: Default::default(),
 			members: Default::default(),
-			best_block: Zero::zero(),
+			best_block: Default::default(),
 		}
 	}
 
@@ -328,7 +336,7 @@ where
 	/// revalidation is actually done.
 	pub async fn revalidate_later(
 		&self,
-		at: NumberFor<Api>,
+		at: BlockHash<Api>,
 		transactions: Vec<ExtrinsicHash<Api>>,
 	) {
 		if transactions.len() > 0 {
@@ -376,14 +384,14 @@ mod tests {
 			amount: 5,
 			nonce: 0,
 		});
-		let uxt_hash = block_on(pool.submit_one(
-			&BlockId::number(0),
-			TransactionSource::External,
-			uxt.clone(),
-		))
-		.expect("Should be valid");
 
-		block_on(queue.revalidate_later(0, vec![uxt_hash]));
+		let hash_of_block0 = api.expect_hash_from_number(0);
+
+		let uxt_hash =
+			block_on(pool.submit_one(hash_of_block0, TransactionSource::External, uxt.clone()))
+				.expect("Should be valid");
+
+		block_on(queue.revalidate_later(hash_of_block0, vec![uxt_hash]));
 
 		// revalidated in sync offload 2nd time
 		assert_eq!(api.validation_requests().len(), 2);

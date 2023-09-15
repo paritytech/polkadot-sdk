@@ -254,46 +254,43 @@ where
 
 	fn submit_at(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
 	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
 		let pool = self.pool.clone();
-		let at = *at;
 
 		self.metrics
 			.report(|metrics| metrics.submitted_transactions.inc_by(xts.len() as u64));
 
-		async move { pool.submit_at(&at, source, xts).await }.boxed()
+		async move { pool.submit_at(at, source, xts).await }.boxed()
 	}
 
 	fn submit_one(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
 		let pool = self.pool.clone();
-		let at = *at;
 
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
-		async move { pool.submit_one(&at, source, xt).await }.boxed()
+		async move { pool.submit_one(at, source, xt).await }.boxed()
 	}
 
 	fn submit_and_watch(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
-		let at = *at;
 		let pool = self.pool.clone();
 
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
 		async move {
-			let watcher = pool.submit_and_watch(&at, source, xt).await?;
+			let watcher = pool.submit_and_watch(at, source, xt).await?;
 
 			Ok(watcher.into_stream().boxed())
 		}
@@ -434,7 +431,7 @@ where
 		let validity = self
 			.api
 			.validate_transaction_blocking(
-				&BlockId::hash(at),
+				at,
 				TransactionSource::Local,
 				xt.clone(),
 			)?
@@ -578,7 +575,7 @@ async fn prune_known_txs_for_block<Block: BlockT, Api: graph::ChainApi<Block = B
 	};
 
 	if let Err(e) = pool
-		.prune(&BlockId::Hash(block_hash), &BlockId::hash(*header.parent_hash()), &extrinsics)
+		.prune(block_hash, *header.parent_hash(), &extrinsics)
 		.await
 	{
 		log::error!("Cannot prune known in the pool: {}", e);
@@ -691,7 +688,7 @@ where
 
 			if let Err(e) = pool
 				.resubmit_at(
-					&BlockId::Hash(*hash),
+					*hash,
 					// These transactions are coming from retracted blocks, we should
 					// simply consider them external.
 					TransactionSource::External,
@@ -717,7 +714,7 @@ where
 
 		if next_action.revalidate {
 			let hashes = pool.validated_pool().ready().map(|tx| tx.hash).collect();
-			self.revalidation_queue.revalidate_later(*block_number, hashes).await;
+			self.revalidation_queue.revalidate_later(*hash, hashes).await;
 
 			self.revalidation_strategy.lock().clear();
 		}

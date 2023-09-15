@@ -27,7 +27,6 @@ use futures::{Future, Stream};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_core::offchain::TransactionPoolExt;
 use sp_runtime::{
-	generic::BlockId,
 	traits::{Block as BlockT, Member, NumberFor},
 };
 use std::{collections::HashMap, hash::Hash, marker::PhantomData, pin::Pin, sync::Arc};
@@ -202,7 +201,7 @@ pub trait TransactionPool: Send + Sync {
 	/// Returns a future that imports a bunch of unverified transactions to the pool.
 	fn submit_at(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
 	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error>;
@@ -210,7 +209,7 @@ pub trait TransactionPool: Send + Sync {
 	/// Returns a future that imports one unverified transaction to the pool.
 	fn submit_one(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error>;
@@ -219,7 +218,7 @@ pub trait TransactionPool: Send + Sync {
 	/// pool.
 	fn submit_and_watch(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error>;
