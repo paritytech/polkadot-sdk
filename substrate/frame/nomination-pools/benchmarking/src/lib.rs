@@ -800,6 +800,25 @@ frame_benchmarking::benchmarks! {
 		);
 	}
 
+	adjust_ed_deposit {
+		let min_bond = Pools::<T>::depositor_min_bond();
+
+		// Set ED to 0 so no balance is frozen
+		ExistentialDeposit::set(0);
+
+		// Create a pool
+		let (depositor, _) = create_pool_account::<T>(0, min_bond * 2u32.into(), None);
+
+		// assert frozen 0
+		// Restore ED
+		ExistentialDeposit::set(0);
+
+		whitelist_account!(depositor);
+	}:_(RuntimeOrigin::Signed(depositor), 1)
+	verify {
+		// assert_eq!(Metadata::<T>::get(&1), metadata);
+	}
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::new_test_ext(),

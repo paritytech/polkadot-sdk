@@ -371,6 +371,10 @@ mod reward_pool {
 			deposit_rewards(35);
 			// No deficit anymore
 			assert_eq!(reward_imbalance(1), Surplus(0));
+
+			// fix the ed deficit
+			assert_ok!(Currency::mint_into(&10, 45));
+			assert_ok!(Pools::adjust_ed_deposit(RuntimeOrigin::signed(10), 1));
 		});
 	}
 

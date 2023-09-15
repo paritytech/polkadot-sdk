@@ -2673,8 +2673,7 @@ pub mod pallet {
 		/// deposit to the pool. This call allows the pool operator to adjust the ED deposit of the
 		/// pool.
 		#[pallet::call_index(21)]
-		// FIXME(ank4n): bench + tests
-		#[pallet::weight(T::WeightInfo::claim_commission())]
+		#[pallet::weight(T::WeightInfo::adjust_ed_deposit())]
 		pub fn adjust_ed_deposit(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_adjust_ed_deposit(who, pool_id)
@@ -3314,7 +3313,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	#[cfg(any(feature = "try-runtime", test))]
+	#[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 	pub fn check_ed_imbalance() -> Result<(), TryRuntimeError> {
 		let mut failed: u32 = 0;
 		BondedPools::<T>::iter_keys().for_each(|id| {
@@ -3335,6 +3334,7 @@ impl<T: Config> Pallet<T> {
 		});
 
 		ensure!(failed == 0, "Some pools do not have correct ED frozen");
+		Ok(())
 	}
 	/// Fully unbond the shares of `member`, when executed from `origin`.
 	///
@@ -3350,7 +3350,7 @@ impl<T: Config> Pallet<T> {
 		Self::unbond(origin, member_lookup, points)
 	}
 
-	#[cfg(any(feature = "runtime-benchmarks", test))]
+	#[cfg(test)]
 	pub(crate) fn pool_pending_rewards(
 		pool: PoolId,
 	) -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
