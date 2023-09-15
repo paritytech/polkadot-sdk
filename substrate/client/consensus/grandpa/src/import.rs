@@ -552,7 +552,6 @@ where
 							.into(),
 					))
 				}
-				assert!(block.justifications.is_some());
 				let mut authority_set = self.authority_set.inner_locked();
 				authority_set.authority_set_changes.insert(number);
 				crate::aux_schema::update_authority_set::<Block, _, _>(

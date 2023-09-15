@@ -111,6 +111,9 @@ build-rustdoc:
             sed -i "s|</head>|$script_content</head>|" "$file"
         }
         export -f process_file
+        # xargs runs process_file in seperate shells without access to outer variables.
+        # to make script_content available inside process_file, export it as an env var here.
+        export script_content
 
         # Modify .html files in parallel using xargs, otherwise it can take a long time.
         find "$path" -name '*.html' | xargs -I {} -P "$(nproc)" bash -c 'process_file "$@"' _ {}
@@ -143,7 +146,7 @@ build-short-benchmark:
     - .run-immediately
     - .collect-artifacts
   script:
-    - cargo build --profile release --locked --features=runtime-benchmarks --bin polkadot --workspace
+    - cargo build --profile release --locked --features=runtime-benchmarks,on-chain-release-build --bin polkadot --workspace
     - mkdir -p artifacts
     - target/release/polkadot --version
     - cp ./target/release/polkadot ./artifacts/
@@ -270,7 +273,7 @@ build-short-benchmark-cumulus:
     - .run-immediately
     - .collect-artifacts
   script:
-    - cargo build --profile release --locked --features=runtime-benchmarks -p polkadot-parachain-bin --bin polkadot-parachain
+    - cargo build --profile release --locked --features=runtime-benchmarks,on-chain-release-build -p polkadot-parachain-bin --bin polkadot-parachain --workspace
     - mkdir -p artifacts
     - target/release/polkadot-parachain --version
     - cp ./target/release/polkadot-parachain ./artifacts/
