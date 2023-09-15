@@ -14,6 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+//! # Bridge Hub Rococo Runtime
+//!
+//! This runtime is also used for Bridge Hub Wococo. But we dont want to create another exact copy
+//! of Bridge Hub Rococo, so we injected some tweaks backed by `RuntimeFlavor` and `pub storage
+//! Flavor: RuntimeFlavor`. (For example this is needed for successful asset transfer between Asset
+//! Hub Rococo and Asset Hub Wococo, where we need to have correct `xcm_config::UniversalLocation`
+//! with correct `GlobalConsensus`.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
@@ -27,6 +35,7 @@ pub mod bridge_hub_wococo_config;
 mod weights;
 pub mod xcm_config;
 
+use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -90,6 +99,14 @@ use parachains_common::{
 	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
 use xcm_executor::XcmExecutor;
+
+/// Enum for handling differences in the runtime configuration for AssetHubRococo vs AssetHubWococo.
+#[derive(Default, Eq, PartialEq, Debug, Clone, Copy, Decode, Encode)]
+pub enum RuntimeFlavor {
+	#[default]
+	Rococo,
+	Wococo,
+}
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;

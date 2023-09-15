@@ -467,6 +467,15 @@ case "$1" in
           1014 1000 4 524288
       ;;
   init-bridge-hub-wococo-local)
+      # set Wococo flavor - set_storage with:
+      # - `key` is `HexDisplay::from(&bridge_hub_rococo_runtime::xcm_config::Flavor::key())`
+      # - `value` is `HexDisplay::from(&bridge_hub_rococo_runtime::RuntimeFlavor::Wococo.encode())`
+      set_storage \
+          "ws://127.0.0.1:9945" \
+          "//Alice" \
+          1014 \
+          "ws://127.0.0.1:8945" \
+          "$(jq --null-input '[["0x48297505634037ef48c848c99c0b1f1b", "0x01"]]')"
       # SA of sibling asset hub pays for the execution
       transfer_balance \
           "ws://127.0.0.1:8945" \

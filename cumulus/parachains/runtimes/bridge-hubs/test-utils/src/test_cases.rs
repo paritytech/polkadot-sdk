@@ -144,6 +144,7 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 	expected_lane_id: LaneId,
 	existential_deposit: Option<MultiAsset>,
 	maybe_paid_export_message: Option<MultiAsset>,
+	ensure_configuration: impl Fn(),
 ) where
 	Runtime: frame_system::Config
 		+ pallet_balances::Config
@@ -168,6 +169,8 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 		.with_tracing()
 		.build()
 		.execute_with(|| {
+			ensure_configuration();
+
 			// check queue before
 			assert_eq!(
 				pallet_bridge_messages::OutboundLanes::<Runtime, MessagesPalletInstance>::try_get(
@@ -263,6 +266,7 @@ pub fn message_dispatch_routing_works<
 		dyn Fn(Vec<u8>) -> Option<cumulus_pallet_xcmp_queue::Event<Runtime>>,
 	>,
 	expected_lane_id: LaneId,
+	ensure_configuration: impl Fn(),
 ) where
 	Runtime: frame_system::Config
 		+ pallet_balances::Config
@@ -300,6 +304,8 @@ pub fn message_dispatch_routing_works<
 		.with_tracing()
 		.build()
 		.execute_with(|| {
+			ensure_configuration();
+
 			let mut alice = [0u8; 32];
 			alice[0] = 1;
 
@@ -376,6 +382,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, XcmConfi
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
 	lane_id: LaneId,
+	ensure_configuration: impl Fn(),
 ) where
 	Runtime: frame_system::Config
 	+ pallet_balances::Config
@@ -421,6 +428,8 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, XcmConfi
 		.with_tracing()
 		.build()
 		.execute_with(|| {
+			ensure_configuration();
+
 			let mut alice = [0u8; 32];
 			alice[0] = 1;
 
@@ -599,6 +608,7 @@ pub fn complex_relay_extrinsic_works<Runtime, AllPalletsWithoutSystem, XcmConfig
 		sp_keyring::AccountKeyring,
 		pallet_utility::Call::<Runtime>
 	) -> sp_runtime::DispatchOutcome,
+	ensure_configuration: impl Fn(),
 ) where
 	Runtime: frame_system::Config
 	+ pallet_balances::Config
@@ -659,6 +669,8 @@ pub fn complex_relay_extrinsic_works<Runtime, AllPalletsWithoutSystem, XcmConfig
 		.with_tracing()
 		.build()
 		.execute_with(|| {
+			ensure_configuration();
+
 			let mut alice = [0u8; 32];
 			alice[0] = 1;
 

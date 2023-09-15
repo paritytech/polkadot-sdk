@@ -56,7 +56,6 @@ use cumulus_primitives_core::ParaId;
 
 parameter_types! {
 	pub storage Flavor: RuntimeFlavor = RuntimeFlavor::default();
-	// Native token location
 	pub const TokenLocation: MultiLocation = MultiLocation::parent();
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorMultiLocation =

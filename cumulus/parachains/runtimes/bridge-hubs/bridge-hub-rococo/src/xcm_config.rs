@@ -17,8 +17,8 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Balances, BridgeGrandpaRococoInstance,
 	BridgeGrandpaWococoInstance, DeliveryRewardInBalance, ParachainInfo, ParachainSystem,
-	PolkadotXcm, RequiredStakeForStakeAndSlash, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	WeightToFee, XcmpQueue,
+	PolkadotXcm, RequiredStakeForStakeAndSlash, Runtime, RuntimeCall, RuntimeEvent, RuntimeFlavor,
+	RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 use crate::{
 	bridge_hub_rococo_config::ToBridgeHubWococoHaulBlobExporter,
@@ -48,6 +48,7 @@ use xcm_executor::{
 };
 
 parameter_types! {
+	pub storage Flavor: RuntimeFlavor = RuntimeFlavor::default();
 	pub const TokenLocation: MultiLocation = MultiLocation::parent();
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorMultiLocation =
@@ -56,6 +57,7 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
+/// Adapter for resolving `NetworkId` based on `pub storage Flavor: RuntimeFlavor`.
 pub struct RelayNetwork;
 impl Get<Option<NetworkId>> for RelayNetwork {
 	fn get() -> Option<NetworkId> {
@@ -64,10 +66,9 @@ impl Get<Option<NetworkId>> for RelayNetwork {
 }
 impl Get<NetworkId> for RelayNetwork {
 	fn get() -> NetworkId {
-		match u32::from(ParachainInfo::parachain_id()) {
-			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID => NetworkId::Rococo,
-			bp_bridge_hub_wococo::BRIDGE_HUB_WOCOCO_PARACHAIN_ID => NetworkId::Wococo,
-			para_id => unreachable!("Not supported for para_id: {}", para_id),
+		match Flavor::get() {
+			RuntimeFlavor::Rococo => NetworkId::Rococo,
+			RuntimeFlavor::Wococo => NetworkId::Wococo,
 		}
 	}
 }
@@ -156,7 +157,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				if items.iter().all(|(k, _)| {
 					k.eq(&DeliveryRewardInBalance::key()) |
 						k.eq(&RequiredStakeForStakeAndSlash::key())
-				}) =>
+				}) || items.iter().all(|(k, _)| k.eq(&Flavor::key())) =>
 				return true,
 			_ => (),
 		};
