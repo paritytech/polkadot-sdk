@@ -122,6 +122,11 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 	let asset_native = Box::new(asset_hub_kusama_runtime::xcm_config::KsmLocation::get());
 
+	let local_asset1_at_penpal = Box::new(MultiLocation {
+		parents: 0,
+		interior: X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())),
+	});
+
 	let foreign_asset1_at_asset_hub_kusama = Box::new(MultiLocation {
 		parents: 1,
 		interior: X3(
@@ -131,9 +136,9 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		),
 	});
 
-	let assets_para_destination: VersionedMultiLocation =
-		MultiLocation { parents: 1, interior: X1(Parachain(AssetHubKusama::para_id().into())) }
-			.into();
+	let assets_para_destination =
+		MultiLocation { parents: 1, interior: X1(Parachain(AssetHubKusama::para_id().into())) };
+	let assets_para_destination_versioned: VersionedMultiLocation = assets_para_destination.into();
 
 	let penpal_location =
 		MultiLocation { parents: 1, interior: X1(Parachain(PenpalKusamaA::para_id().into())) };
@@ -159,6 +164,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 	AssetHubKusama::fund_accounts(vec![
 		(AssetHubKusamaSender::get().into(), 5_000_000 * KUSAMA_ED), /* An account to swap dot
 		                                                              * for something else. */
+		(PenpalKusamaASender::get().into(), 1_000_000_000_000),
 		(sov_penpal_on_asset_hub_kusama.clone().into(), 1000_000_000_000_000_000 * KUSAMA_ED),
 	]);
 
@@ -168,6 +174,10 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			network: None,
 			id: sov_penpal_on_asset_hub_kusama.clone().into(),
 		}),
+	};
+	let penpal_sender_multilocation: MultiLocation = MultiLocation {
+		parents: 0,
+		interior: X1(AccountId32Junction { network: None, id: PenpalKusamaASender::get().into() }),
 	};
 
 	let call_foreign_assets_create =
@@ -204,9 +214,23 @@ fn swap_locally_on_chain_using_foreign_assets() {
 	// Send XCM message from penpal => asset_hub_kusama
 	let sudo_penpal_origin = <PenpalKusamaA as Chain>::RuntimeOrigin::root();
 	PenpalKusamaA::execute_with(|| {
+		// Mint asset:
+		assert_ok!(<PenpalKusamaA as PenpalKusamaAPallet>::Assets::mint(
+			<PenpalKusamaA as Chain>::RuntimeOrigin::signed(PenpalKusamaASender::get()),
+			ASSET_ID.into(),
+			PenpalKusamaASender::get().into(),
+			3_000_000_000_000,
+		));
+		assert_expected_events!(
+			PenpalKusamaA,
+			vec![
+				RuntimeEvent::Assets(pallet_assets::Event::Issued { .. }) => {},
+			]
+		);
+
 		assert_ok!(<PenpalKusamaA as PenpalKusamaAPallet>::PolkadotXcm::send(
 			sudo_penpal_origin.clone(),
-			bx!(assets_para_destination.clone()),
+			bx!(assets_para_destination_versioned.clone()),
 			bx!(xcm),
 		));
 
@@ -220,28 +244,46 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		);
 	});
 
+	PenpalKusamaA::execute_with(|| {
+		// The following message acts within asset_hub context:
+		let receive_teleport_xcm = Xcm(vec![
+			SetFeesMode { jit_withdraw: true },
+			DepositAsset {
+				assets: Wild(AllCounted(2 /* max assets */)),
+				beneficiary: sov_penpal_on_asset_hub_kusama_as_location.clone(),
+			},
+		]);
+
+		let multi_asset1 =
+			MultiAsset { id: Concrete(*local_asset1_at_penpal), fun: Fungible(3_000_000_000_000) };
+
+		let xcm = VersionedXcm::from(Xcm(vec![
+			WithdrawAsset { 0: vec![buy_execution_fee.clone(), multi_asset1.clone()].into() },
+			BuyExecution { fees: buy_execution_fee.clone(), weight_limit: Unlimited },
+			InitiateTeleport {
+				assets: MultiAssetFilter::Definite(vec![multi_asset1].into()),
+				dest: assets_para_destination,
+				xcm: receive_teleport_xcm,
+			},
+			RefundSurplus,
+			DepositAsset { assets: All.into(), beneficiary: penpal_sender_multilocation },
+		]));
+		assert_ok!(<PenpalKusamaA as PenpalKusamaAPallet>::PolkadotXcm::execute(
+			<PenpalKusamaA as Chain>::RuntimeOrigin::signed(PenpalKusamaASender::get()),
+			bx!(xcm),
+			Weight::from_parts(10_100_000_000_000, 400_000)
+		));
+	});
+
 	// Receive XCM message in Assets Parachain
 	AssetHubKusama::execute_with(|| {
 		assert!(<AssetHubKusama as AssetHubKusamaPallet>::ForeignAssets::asset_exists(
 			*foreign_asset1_at_asset_hub_kusama
 		));
 
-		// 3: Mint foreign asset on asset_hub_kusama:
-		//
-		// (While it might be nice to use batch,
-		// currently that's disabled due to safe call filters.)
-
 		type RuntimeEvent = <AssetHubKusama as Chain>::RuntimeEvent;
-		// 3. Mint foreign asset (in reality this should be a teleport or some such)
-		assert_ok!(<AssetHubKusama as AssetHubKusamaPallet>::ForeignAssets::mint(
-			<AssetHubKusama as Chain>::RuntimeOrigin::signed(
-				sov_penpal_on_asset_hub_kusama.clone().into()
-			),
-			*foreign_asset1_at_asset_hub_kusama,
-			sov_penpal_on_asset_hub_kusama.clone().into(),
-			3_000_000_000_000,
-		));
 
+		// 3. The foreign assests should have been minted by the previous teleport instruction:
 		assert_expected_events!(
 			AssetHubKusama,
 			vec![

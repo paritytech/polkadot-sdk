@@ -95,7 +95,14 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	ConvertedConcreteId<
 		AssetIdPalletAssets,
 		Balance,
-		AsPrefixedGeneralIndex<SystemAssetHubAssetsPalletLocation, AssetIdPalletAssets, JustTry>,
+		(
+			AsPrefixedGeneralIndex<AssetsPalletLocation, AssetIdPalletAssets, JustTry>,
+			AsPrefixedGeneralIndex<
+				SystemAssetHubAssetsPalletLocation,
+				AssetIdPalletAssets,
+				JustTry,
+			>,
+		),
 		JustTry,
 	>,
 	// Convert an XCM MultiLocation into a local account id:
@@ -265,6 +272,10 @@ parameter_types! {
 	// the Relay Chain's Asset Hub's Assets pallet index
 	pub SystemAssetHubAssetsPalletLocation: MultiLocation =
 		MultiLocation::new(1, X2(Parachain(1000), PalletInstance(50)));
+
+	pub AssetsPalletLocation: MultiLocation =
+		MultiLocation::new(0, X1(PalletInstance(50)));
+
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 }
 
@@ -322,9 +333,7 @@ impl pallet_xcm::Config for Runtime {
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmRouter = XcmRouter;
 	type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
-	type XcmExecuteFilter = Nothing;
-	// ^ Disable dispatchable execute on the XCM pallet.
-	// Needs to be `Everything` for local testing.
+	type XcmExecuteFilter = Everything;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;

@@ -89,6 +89,7 @@ impl<T: Contains<MultiLocation>> ShouldExecute for AllowTopLevelPaidExecutionFro
 			})?
 			.skip_inst_while(|inst| matches!(inst, ClearOrigin))?
 			.match_next_inst(|inst| match inst {
+				SetFeesMode { jit_withdraw: true } => Ok(()),
 				BuyExecution { weight_limit: Limited(ref mut weight), .. }
 					if weight.all_gte(max_weight) =>
 				{
