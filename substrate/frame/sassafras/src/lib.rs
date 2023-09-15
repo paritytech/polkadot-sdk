@@ -198,8 +198,7 @@ pub mod pallet {
 	///
 	/// Cleared on block finalization.
 	#[pallet::storage]
-	#[pallet::getter(fn initialized)]
-	pub type Initialized<T> = StorageValue<_, SlotClaim>;
+	pub(crate) type RandomnessVrfOutput<T> = StorageValue<_, vrf::VrfOutput>;
 
 	/// The configuration for the current epoch.
 	#[pallet::storage]
@@ -280,12 +279,6 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Block initialization
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			// Since `initialize` can be called twice (e.g. if an external session manager is used)
-			// let's ensure that we only do the initialization once per block.
-			if Self::initialized().is_some() {
-				return Weight::zero()
-			}
-
 			let claim = <frame_system::Pallet<T>>::digest()
 				.logs
 				.iter()
@@ -301,7 +294,12 @@ pub mod pallet {
 				Self::initialize_genesis_epoch(claim.slot)
 			}
 
-			Initialized::<T>::put(claim);
+			let vrf_output = claim
+				.vrf_signature
+				.outputs
+				.get(0)
+				.expect("Presence should have been already checked by the client; qed");
+			RandomnessVrfOutput::<T>::put(vrf_output);
 
 			// Enact epoch change, if necessary.
 			T::EpochChangeTrigger::trigger::<T>(now);
@@ -317,27 +315,21 @@ pub mod pallet {
 			// this block into the randomness accumulator. If we've determined
 			// that this block was the first in a new epoch, the changeover logic has
 			// already occurred at this point.
-			let claim = Initialized::<T>::take()
-				.expect("Finalization is called after initialization; qed.");
-
-			let claim_input = vrf::slot_claim_input(
+			let randomness_input = vrf::slot_claim_input(
 				&Self::randomness(),
 				CurrentSlot::<T>::get(),
 				EpochIndex::<T>::get(),
 			);
-			let claim_output = claim
-				.vrf_signature
-				.outputs
-				.get(0)
-				.expect("Presence should have been already checked by the client; qed");
-			let randomness =
-				claim_output.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &claim_input);
+			let randomness_output = RandomnessVrfOutput::<T>::take()
+				.expect("Finalization is called after initialization; qed");
+			let randomness = randomness_output
+				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
 
 			Self::deposit_randomness(&randomness);
 
 			// If we are in the epoch's second half, we start sorting the next epoch tickets.
 			let epoch_duration = T::EpochDuration::get();
-			let current_slot_idx = Self::slot_index(claim.slot);
+			let current_slot_idx = Self::current_slot_index();
 			if current_slot_idx >= epoch_duration / 2 {
 				let mut metadata = TicketsMeta::<T>::get();
 				if metadata.segments_count != 0 {
@@ -585,7 +577,7 @@ impl<T: Config> Pallet<T> {
 		TicketsMeta::<T>::set(Default::default());
 	}
 
-	fn update_ring_verifier(authorities: &[AuthorityId]) -> Result {
+	fn update_ring_verifier(authorities: &[AuthorityId]) {
 		debug!(target: LOG_TARGET, "Loading ring context");
 		let Some(ring_ctx) = RingContext::<T>::get() else {
 			debug!(target: LOG_TARGET, "Ring context not initialized");
@@ -616,10 +608,6 @@ impl<T: Config> Pallet<T> {
 		authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 		next_authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 	) {
-		// PRECONDITION: caller has done initialization.
-		// If using the internal trigger or the session pallet then this is guaranteed.
-		debug_assert!(Self::initialized().is_some());
-
 		let current_authorities = <Pallet<T>>::authorities();
 		if current_authorities != authorities {
 			Self::update_ring_verifier(&authorities);

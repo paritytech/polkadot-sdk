@@ -125,7 +125,7 @@ fn on_first_block_after_genesis() {
 
 		// Post-initialization status
 
-		assert!(Initialized::<Test>::get().is_some());
+		assert!(RandomnessVrfOutput::<Test>::get().is_some());
 		assert_eq!(Sassafras::genesis_slot(), start_slot);
 		assert_eq!(Sassafras::current_slot(), start_slot);
 		assert_eq!(Sassafras::epoch_index(), 0);
@@ -139,7 +139,7 @@ fn on_first_block_after_genesis() {
 
 		// Post-finalization status
 
-		assert!(Initialized::<Test>::get().is_none());
+		assert!(RandomnessVrfOutput::<Test>::get().is_none());
 		assert_eq!(Sassafras::genesis_slot(), start_slot);
 		assert_eq!(Sassafras::current_slot(), start_slot);
 		assert_eq!(Sassafras::epoch_index(), 0);
@@ -190,7 +190,7 @@ fn on_normal_block() {
 
 		// Post-initialization status
 
-		assert!(Initialized::<Test>::get().is_some());
+		assert!(RandomnessVrfOutput::<Test>::get().is_some());
 		assert_eq!(Sassafras::genesis_slot(), start_slot);
 		assert_eq!(Sassafras::current_slot(), start_slot + 1);
 		assert_eq!(Sassafras::epoch_index(), 0);
@@ -208,7 +208,7 @@ fn on_normal_block() {
 
 		// Post-finalization status
 
-		assert!(Initialized::<Test>::get().is_none());
+		assert!(RandomnessVrfOutput::<Test>::get().is_none());
 		assert_eq!(Sassafras::genesis_slot(), start_slot);
 		assert_eq!(Sassafras::current_slot(), start_slot + 1);
 		assert_eq!(Sassafras::epoch_index(), 0);
@@ -247,7 +247,7 @@ fn produce_epoch_change_digest_no_config() {
 
 		// Post-initialization status
 
-		assert!(Initialized::<Test>::get().is_some());
+		assert!(RandomnessVrfOutput::<Test>::get().is_some());
 		assert_eq!(Sassafras::genesis_slot(), start_slot);
 		assert_eq!(Sassafras::current_slot(), start_slot + epoch_duration);
 		assert_eq!(Sassafras::epoch_index(), 1);
@@ -269,7 +269,7 @@ fn produce_epoch_change_digest_no_config() {
 
 		// Post-finalization status
 
-		assert!(Initialized::<Test>::get().is_none());
+		assert!(RandomnessVrfOutput::<Test>::get().is_none());
 		assert_eq!(Sassafras::genesis_slot(), start_slot);
 		assert_eq!(Sassafras::current_slot(), start_slot + epoch_duration);
 		assert_eq!(Sassafras::epoch_index(), 1);
@@ -525,7 +525,7 @@ fn block_allowed_to_skip_epochs() {
 
 		// Post-initialization status
 
-		assert!(Initialized::<Test>::get().is_some());
+		assert!(RandomnessVrfOutput::<Test>::get().is_some());
 		assert_eq!(Sassafras::genesis_slot(), start_slot);
 		assert_eq!(Sassafras::current_slot(), start_slot + offset);
 		assert_eq!(Sassafras::epoch_index(), 3);
