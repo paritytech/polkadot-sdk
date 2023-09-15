@@ -57,15 +57,18 @@ use frame_support::traits::{DefensiveOption, Incrementable};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-
+#[cfg(test)]
+mod mock;
+mod swap;
+#[cfg(test)]
+mod tests;
 mod types;
 pub mod weights;
 
-#[cfg(test)]
-mod tests;
-
-#[cfg(test)]
-mod mock;
+pub use pallet::*;
+pub use swap::Swap;
+pub use types::*;
+pub use weights::WeightInfo;
 
 use codec::Codec;
 use frame_support::{
@@ -76,7 +79,6 @@ use frame_system::{
 	ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
 };
-pub use pallet::*;
 use sp_arithmetic::traits::Unsigned;
 use sp_runtime::{
 	traits::{
@@ -85,8 +87,6 @@ use sp_runtime::{
 	DispatchError,
 };
 use sp_std::prelude::*;
-pub use types::*;
-pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -1235,50 +1235,6 @@ pub mod pallet {
 				.or(T::PoolAssetId::initial_value())
 				.expect("Next pool asset ID can not be None")
 		}
-	}
-}
-
-impl<T: Config> Swap<T::AccountId, T::HigherPrecisionBalance, T::MultiAssetId> for Pallet<T> {
-	fn swap_exact_tokens_for_tokens(
-		sender: T::AccountId,
-		path: Vec<T::MultiAssetId>,
-		amount_in: T::HigherPrecisionBalance,
-		amount_out_min: Option<T::HigherPrecisionBalance>,
-		send_to: T::AccountId,
-		keep_alive: bool,
-	) -> Result<T::HigherPrecisionBalance, DispatchError> {
-		let path = path.try_into().map_err(|_| Error::<T>::PathError)?;
-		let amount_out_min = amount_out_min.map(Self::convert_hpb_to_asset_balance).transpose()?;
-		let amount_out = Self::do_swap_exact_tokens_for_tokens(
-			sender,
-			path,
-			Self::convert_hpb_to_asset_balance(amount_in)?,
-			amount_out_min,
-			send_to,
-			keep_alive,
-		)?;
-		Ok(amount_out.into())
-	}
-
-	fn swap_tokens_for_exact_tokens(
-		sender: T::AccountId,
-		path: Vec<T::MultiAssetId>,
-		amount_out: T::HigherPrecisionBalance,
-		amount_in_max: Option<T::HigherPrecisionBalance>,
-		send_to: T::AccountId,
-		keep_alive: bool,
-	) -> Result<T::HigherPrecisionBalance, DispatchError> {
-		let path = path.try_into().map_err(|_| Error::<T>::PathError)?;
-		let amount_in_max = amount_in_max.map(Self::convert_hpb_to_asset_balance).transpose()?;
-		let amount_in = Self::do_swap_tokens_for_exact_tokens(
-			sender,
-			path,
-			Self::convert_hpb_to_asset_balance(amount_out)?,
-			amount_in_max,
-			send_to,
-			keep_alive,
-		)?;
-		Ok(amount_in.into())
 	}
 }
 
