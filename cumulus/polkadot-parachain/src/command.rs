@@ -69,7 +69,9 @@ impl RuntimeResolver for PathBuf {
 			id: String,
 		}
 
-		let file = std::fs::File::open(self).expect("Failed to open file");
+		let file = std::fs::File::open(self)
+			.unwrap_or_else(|e| panic!("Failed to open chainspec '{}': {e}", self.display()));
+
 		let reader = std::io::BufReader::new(file);
 		let chain_spec: EmptyChainSpecWithId = serde_json::from_reader(reader)
 			.expect("Failed to read 'json' file with ChainSpec configuration");
