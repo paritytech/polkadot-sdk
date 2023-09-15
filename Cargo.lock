@@ -1001,6 +1001,7 @@ dependencies = [
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
  "sp-consensus-aura",
  "sp-core",
  "sp-io",

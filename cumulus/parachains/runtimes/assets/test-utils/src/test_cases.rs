@@ -18,7 +18,7 @@
 use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{fungibles::InspectEnumerable, Get, OnFinalize, OnInitialize, OriginTrait},
+	traits::{fungibles::InspectEnumerable, fungible::Mutate, Get, OnFinalize, OnInitialize, OriginTrait},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -27,11 +27,12 @@ use parachains_runtimes_test_utils::{
 	assert_metadata, assert_total, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder,
 	ValidatorIdOf, XcmReceivedFrom,
 };
+use polkadot_runtime_common::xcm_sender::PriceForParachainDelivery;
 use sp_runtime::{
 	traits::{MaybeEquivalence, StaticLookup, Zero},
 	DispatchError, Saturating,
 };
-use xcm::latest::prelude::*;
+use xcm::{latest::prelude::*, VersionedXcm};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
@@ -368,7 +369,7 @@ pub fn teleports_for_foreign_assets_works<
 		fun: Fungible(buy_execution_fee_amount),
 	};
 
-	let teleported_foreign_asset_amount = 10000000000000;
+	let teleported_foreign_asset_amount = 10_000_000_000_000;
 	let runtime_para_id = 1000;
 	ExtBuilder::<Runtime>::default()
 		.with_collators(collator_session_keys.collators())
@@ -398,11 +399,11 @@ pub fn teleports_for_foreign_assets_works<
 				<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
 				existential_deposit
 			);
+			// check `CheckingAccount` before
 			assert_eq!(
 				<pallet_balances::Pallet<Runtime>>::free_balance(&CheckingAccount::get()),
 				existential_deposit
 			);
-			// check `CheckingAccount` before
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
 					foreign_asset_id_multilocation.into(),
@@ -538,6 +539,31 @@ pub fn teleports_for_foreign_assets_works<
 						.into()
 				);
 
+				// Build expected message sent by the `teleport_assets` extrinsic
+				let context = <XcmConfig as xcm_executor::Config>::UniversalLocation::get();
+				let assets_to_teleport: MultiAsset = (foreign_asset_id_multilocation.clone(), asset_to_teleport_away.clone()).into();
+				let assets_to_teleport = assets_to_teleport
+					.reanchored(&dest, context).expect("We know location is invertible; qed");
+				let topic = [
+					107u8, 174, 76, 190, 37, 87, 84, 110, 10, 244, 5, 222, 143, 53, 203, 227,
+					9, 9, 142, 76, 177, 63, 74, 39, 66, 99, 249, 239, 166, 208, 164, 191,
+				];
+				let weight_limit = Limited(Weight::from_parts(163_503_000, 0));
+				let expected_message = Xcm::<()>(vec![
+					ReceiveTeleportedAsset(assets_to_teleport.clone().into()),
+					ClearOrigin,
+					BuyExecution { fees: assets_to_teleport.clone().into(), weight_limit },
+					DepositAsset { assets: Wild(AllCounted(1)), beneficiary: dest_beneficiary },
+					SetTopic(topic),
+				]);
+
+				// Make sure the target account has enough native asset to pay for delivery fees
+				let delivery_fees = <
+					<Runtime as cumulus_pallet_xcmp_queue::Config>::PriceForSiblingDelivery as PriceForParachainDelivery
+				>::price_for_parachain_delivery(foreign_para_id.into(), &expected_message);
+				let Fungible(amount_to_mint) = delivery_fees.inner()[0].fun else { unreachable!("Asset is fungible; qed") };
+				<pallet_balances::Pallet<Runtime>>::mint_into(&target_account, amount_to_mint.into()).unwrap();
+
 				assert_ok!(RuntimeHelper::<Runtime>::do_teleport_assets::<HrmpChannelOpener>(
 					RuntimeHelper::<Runtime>::origin_of(target_account.clone()),
 					dest,
@@ -547,6 +573,13 @@ pub fn teleports_for_foreign_assets_works<
 					included_head,
 					&alice,
 				));
+
+				// Real xcm sent should match the expected
+				let real_xcm = RuntimeHelper::<
+					<Runtime as cumulus_pallet_parachain_system::Config>::OutboundXcmpMessageSource,
+					AllPalletsWithoutSystem
+				>::take_xcm(foreign_para_id.into()).unwrap();
+				assert_eq!(&VersionedXcm::V3(expected_message), &real_xcm);
 
 				// check balances
 				assert_eq!(
