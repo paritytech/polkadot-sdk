@@ -14,10 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use polkadot_node_subsystem::prometheus::HistogramVec;
 use polkadot_node_subsystem_util::metrics::{
 	self,
-	prometheus::{self, Counter, CounterVec, Histogram, Opts, PrometheusError, Registry, U64},
+	prometheus::{
+		self, prometheus::HistogramTimer, Counter, CounterVec, Histogram, Opts, PrometheusError,
+		Registry, U64,
+	},
 };
+
+/// Label value used for regular chunk fetching.
+pub const REGULAR_CHUNK_LABEL: &str = "regular";
+
+/// Label value used for systematic chunk fetching.
+pub const SYSTEMATIC_CHUNK_LABEL: &str = "systematic";
 
 /// Availability Distribution metrics.
 #[derive(Clone, Default)]
@@ -28,11 +38,17 @@ struct MetricsInner {
 	/// Number of sent chunk requests.
 	///
 	/// Gets incremented on each sent chunk requests.
-	chunk_requests_issued: Counter<U64>,
+	///
+	/// Split by chunk type:
+	/// - `regular`
+	/// - `systematic`
+	chunk_requests_issued: CounterVec<U64>,
 
 	/// A counter for finished chunk requests.
 	///
-	/// Split by result:
+	/// Split by the chunk type (`regular` or `systematic`)
+	///
+	/// Also split by result:
 	/// - `no_such_chunk` ... peer did not have the requested chunk
 	/// - `timeout` ... request timed out.
 	/// - `network_error` ... Some networking issue except timeout
@@ -41,10 +57,19 @@ struct MetricsInner {
 	chunk_requests_finished: CounterVec<U64>,
 
 	/// The duration of request to response.
-	time_chunk_request: Histogram,
+	///
+	/// Split by chunk type (`regular` or `systematic`).
+	time_chunk_request: HistogramVec,
 
 	/// The duration between the pure recovery and verification.
-	time_erasure_recovery: Histogram,
+	///
+	/// Split by chunk type (`regular` or `systematic`).
+	time_erasure_recovery: HistogramVec,
+
+	/// How much time it takes to reconstruct the available data from chunks.
+	///
+	/// Split by chunk type (`regular` or `systematic`), ass the algorithms are different.
+	time_erasure_reconstruct: HistogramVec,
 
 	/// How much time it takes to re-encode the data into erasure chunks in order to verify
 	/// the root hash of the provided Merkle tree. See `reconstructed_data_matches_root`.
@@ -55,6 +80,9 @@ struct MetricsInner {
 	time_full_recovery: Histogram,
 
 	/// Number of full recoveries that have been finished one way or the other.
+	///
+	/// Split by recovery `strategy_type` (`full_from_backers, systematic_chunks, regular_chunks`)
+	/// Also split by `result` type.
 	full_recoveries_finished: CounterVec<U64>,
 
 	/// Number of full recoveries that have been started on this subsystem.
@@ -70,72 +98,98 @@ impl Metrics {
 		Metrics(None)
 	}
 
-	/// Increment counter on fetched labels.
-	pub fn on_chunk_request_issued(&self) {
+	/// Increment counter for chunk requests.
+	pub fn on_chunk_request_issued(&self, chunk_type: &str) {
 		if let Some(metrics) = &self.0 {
-			metrics.chunk_requests_issued.inc()
+			metrics.chunk_requests_issued.with_label_values(&[chunk_type]).inc()
 		}
 	}
 
 	/// A chunk request timed out.
-	pub fn on_chunk_request_timeout(&self) {
+	pub fn on_chunk_request_timeout(&self, chunk_type: &str) {
 		if let Some(metrics) = &self.0 {
-			metrics.chunk_requests_finished.with_label_values(&["timeout"]).inc()
+			metrics
+				.chunk_requests_finished
+				.with_label_values(&[chunk_type, "timeout"])
+				.inc()
 		}
 	}
 
 	/// A chunk request failed because validator did not have its chunk.
-	pub fn on_chunk_request_no_such_chunk(&self) {
+	pub fn on_chunk_request_no_such_chunk(&self, chunk_type: &str) {
 		if let Some(metrics) = &self.0 {
-			metrics.chunk_requests_finished.with_label_values(&["no_such_chunk"]).inc()
+			metrics
+				.chunk_requests_finished
+				.with_label_values(&[chunk_type, "no_such_chunk"])
+				.inc()
 		}
 	}
 
 	/// A chunk request failed for some non timeout related network error.
-	pub fn on_chunk_request_error(&self) {
+	pub fn on_chunk_request_error(&self, chunk_type: &str) {
 		if let Some(metrics) = &self.0 {
-			metrics.chunk_requests_finished.with_label_values(&["error"]).inc()
+			metrics.chunk_requests_finished.with_label_values(&[chunk_type, "error"]).inc()
 		}
 	}
 
 	/// A chunk request succeeded, but was not valid.
-	pub fn on_chunk_request_invalid(&self) {
+	pub fn on_chunk_request_invalid(&self, chunk_type: &str) {
 		if let Some(metrics) = &self.0 {
-			metrics.chunk_requests_finished.with_label_values(&["invalid"]).inc()
+			metrics
+				.chunk_requests_finished
+				.with_label_values(&[chunk_type, "invalid"])
+				.inc()
 		}
 	}
 
 	/// A chunk request succeeded.
-	pub fn on_chunk_request_succeeded(&self) {
+	pub fn on_chunk_request_succeeded(&self, chunk_type: &str) {
 		if let Some(metrics) = &self.0 {
-			metrics.chunk_requests_finished.with_label_values(&["success"]).inc()
+			metrics
+				.chunk_requests_finished
+				.with_label_values(&[chunk_type, "success"])
+				.inc()
 		}
 	}
 
 	/// Get a timer to time request/response duration.
-	pub fn time_chunk_request(&self) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
-		self.0.as_ref().map(|metrics| metrics.time_chunk_request.start_timer())
+	pub fn time_chunk_request(&self, chunk_type: &str) -> Option<HistogramTimer> {
+		self.0.as_ref().map(|metrics| {
+			metrics.time_chunk_request.with_label_values(&[chunk_type]).start_timer()
+		})
 	}
 
 	/// Get a timer to time erasure code recover.
-	pub fn time_erasure_recovery(&self) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
-		self.0.as_ref().map(|metrics| metrics.time_erasure_recovery.start_timer())
+	pub fn time_erasure_recovery(&self, chunk_type: &str) -> Option<HistogramTimer> {
+		self.0.as_ref().map(|metrics| {
+			metrics.time_erasure_recovery.with_label_values(&[chunk_type]).start_timer()
+		})
+	}
+
+	/// Get a timer for available data reconstruction.
+	pub fn time_erasure_reconstruct(&self, chunk_type: &str) -> Option<HistogramTimer> {
+		self.0.as_ref().map(|metrics| {
+			metrics.time_erasure_reconstruct.with_label_values(&[chunk_type]).start_timer()
+		})
 	}
 
 	/// Get a timer to time chunk encoding.
-	pub fn time_reencode_chunks(&self) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
+	pub fn time_reencode_chunks(&self) -> Option<HistogramTimer> {
 		self.0.as_ref().map(|metrics| metrics.time_reencode_chunks.start_timer())
 	}
 
 	/// Get a timer to measure the time of the complete recovery process.
-	pub fn time_full_recovery(&self) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
+	pub fn time_full_recovery(&self) -> Option<HistogramTimer> {
 		self.0.as_ref().map(|metrics| metrics.time_full_recovery.start_timer())
 	}
 
 	/// A full recovery succeeded.
-	pub fn on_recovery_succeeded(&self) {
+	pub fn on_recovery_succeeded(&self, strategy_type: &str) {
 		if let Some(metrics) = &self.0 {
-			metrics.full_recoveries_finished.with_label_values(&["success"]).inc()
+			metrics
+				.full_recoveries_finished
+				.with_label_values(&["success", strategy_type])
+				.inc()
 		}
 	}
 
@@ -147,9 +201,12 @@ impl Metrics {
 	}
 
 	/// A full recovery failed (data was recovered, but invalid).
-	pub fn on_recovery_invalid(&self) {
+	pub fn on_recovery_invalid(&self, strategy_type: &str) {
 		if let Some(metrics) = &self.0 {
-			metrics.full_recoveries_finished.with_label_values(&["invalid"]).inc()
+			metrics
+				.full_recoveries_finished
+				.with_label_values(&["invalid", strategy_type])
+				.inc()
 		}
 	}
 
@@ -165,9 +222,10 @@ impl metrics::Metrics for Metrics {
 	fn try_register(registry: &Registry) -> Result<Self, PrometheusError> {
 		let metrics = MetricsInner {
 			chunk_requests_issued: prometheus::register(
-				Counter::new(
-					"polkadot_parachain_availability_recovery_chunk_requests_issued",
-					"Total number of issued chunk requests.",
+				CounterVec::new(
+					Opts::new("polkadot_parachain_availability_recovery_chunk_requests_issued",
+					"Total number of issued chunk requests."),
+					&["type"]
 				)?,
 				registry,
 			)?,
@@ -177,22 +235,29 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_availability_recovery_chunk_requests_finished",
 						"Total number of chunk requests finished.",
 					),
-					&["result"],
+					&["result", "type"],
 				)?,
 				registry,
 			)?,
 			time_chunk_request: prometheus::register(
-				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
+				prometheus::HistogramVec::new(prometheus::HistogramOpts::new(
 					"polkadot_parachain_availability_recovery_time_chunk_request",
 					"Time spent waiting for a response to a chunk request",
-				))?,
+				), &["type"])?,
 				registry,
 			)?,
 			time_erasure_recovery: prometheus::register(
-				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
+				prometheus::HistogramVec::new(prometheus::HistogramOpts::new(
 					"polkadot_parachain_availability_recovery_time_erasure_recovery",
 					"Time spent to recover the erasure code and verify the merkle root by re-encoding as erasure chunks",
-				))?,
+				), &["type"])?,
+				registry,
+			)?,
+			time_erasure_reconstruct: prometheus::register(
+				prometheus::HistogramVec::new(prometheus::HistogramOpts::new(
+					"polkadot_parachain_availability_recovery_time_erasure_reconstruct",
+					"Time spent to reconstruct the data from chunks",
+				), &["type"])?,
 				registry,
 			)?,
 			time_reencode_chunks: prometheus::register(
@@ -215,7 +280,7 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_availability_recovery_recoveries_finished",
 						"Total number of recoveries that finished.",
 					),
-					&["result"],
+					&["result", "strategy_type"],
 				)?,
 				registry,
 			)?,
