@@ -37,7 +37,7 @@ use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, ChunkIndex, Hash,
 use rand::seq::SliceRandom;
 use sc_network::{IfDisconnected, OutboundFailure, RequestFailure};
 use std::{
-	collections::{BTreeMap, HashMap, VecDeque},
+	collections::{BTreeMap, VecDeque},
 	time::Duration,
 };
 
@@ -101,7 +101,10 @@ pub struct RecoveryParams {
 /// same `RecoveryTask`.
 pub struct State {
 	/// Chunks received so far.
-	received_chunks: HashMap<ValidatorIndex, ErasureChunk>,
+	/// This MUST be a `BTreeMap` in order for systematic recovery to work (the algorithm assumes
+	/// that chunks are ordered by their index). If we ever switch this to some non-ordered
+	/// collection, we need to add a sort step to the systematic recovery.
+	received_chunks: BTreeMap<ChunkIndex, ErasureChunk>,
 	/// Collection of in-flight requests.
 	requesting_chunks:
 		FuturesUndead<Result<Option<ErasureChunk>, (ChunkIndex, ValidatorIndex, RequestError)>>,
@@ -109,7 +112,7 @@ pub struct State {
 
 impl State {
 	fn new() -> Self {
-		Self { received_chunks: HashMap::new(), requesting_chunks: FuturesUndead::new() }
+		Self { received_chunks: BTreeMap::new(), requesting_chunks: FuturesUndead::new() }
 	}
 
 	fn insert_chunk(&mut self, validator: ValidatorIndex, chunk: ErasureChunk) {
@@ -614,16 +617,21 @@ impl FetchSystematicChunks {
 		common_params: &RecoveryParams,
 	) -> Result<AvailableData, RecoveryError> {
 		let recovery_duration = common_params.metrics.time_erasure_recovery();
-		let mut chunks = state
+		let chunks = state
 			.received_chunks
-			.iter()
-			.filter(|(c_index, _)| (c_index.0 as usize) < self.threshold)
+			.range(
+				ValidatorIndex(0)..
+					ValidatorIndex(
+						u32::try_from(self.threshold)
+							.expect("validator numbers should not exceed u32"),
+					),
+			)
+			.map(|(_, chunk)| &chunk.chunk[..])
 			.collect::<Vec<_>>();
-		chunks.sort_by(|(index_a, _), (index_b, _)| index_a.cmp(index_b));
 
 		let available_data = polkadot_erasure_coding::reconstruct_from_systematic_v1(
 			common_params.n_validators,
-			chunks.into_iter().map(|(_, chunk)| &chunk.chunk[..]).collect(),
+			chunks,
 		);
 
 		match available_data {

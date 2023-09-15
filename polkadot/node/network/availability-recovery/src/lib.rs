@@ -19,7 +19,7 @@
 #![warn(missing_docs)]
 
 use std::{
-	collections::{BTreeMap, HashMap, VecDeque},
+	collections::{BTreeMap, VecDeque},
 	iter::Iterator,
 	num::NonZeroUsize,
 	pin::Pin,
@@ -61,7 +61,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{request_session_info, shuffle_availability_chunks};
 use polkadot_primitives::{
-	BlakeTwo256, BlockNumber, CandidateHash, CandidateReceipt, GroupIndex, Hash, HashT,
+	BlakeTwo256, BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, GroupIndex, Hash, HashT,
 	SessionIndex, SessionInfo, ValidatorIndex,
 };
 
@@ -120,7 +120,7 @@ pub enum ErasureTask {
 	/// Reconstructs `AvailableData` from chunks given `n_validators`.
 	Reconstruct(
 		usize,
-		HashMap<ValidatorIndex, ErasureChunk>,
+		BTreeMap<ChunkIndex, ErasureChunk>,
 		oneshot::Sender<Result<AvailableData, ErasureEncodingError>>,
 	),
 	/// Re-encode `AvailableData` into erasure chunks in order to verify the provided root hash of
@@ -875,7 +875,13 @@ async fn erasure_task_thread(
 			Some(ErasureTask::Reconstruct(n_validators, chunks, sender)) => {
 				let _ = sender.send(polkadot_erasure_coding::reconstruct_v1(
 					n_validators,
-					chunks.values().map(|c| (&c.chunk[..], c.index.0 as usize)),
+					chunks.iter().map(|(c_index, chunk)| {
+						(
+							&chunk.chunk[..],
+							usize::try_from(c_index.0)
+								.expect("usize is at least u32 bytes on all modern targets."),
+						)
+					}),
 				));
 			},
 			Some(ErasureTask::Reencode(n_validators, root, available_data, sender)) => {
