@@ -366,15 +366,15 @@ pub mod pallet {
 			};
 			debug!(target: LOG_TARGET, "... Loaded");
 
-			// TODO @davxy this should be done once per epoch and with the NEXT EPOCH AUTHORITIES!!!
+			let next_authorities = Self::next_authorities();
+			// TODO @davxy this should be done once per epoch.
 			// For this we need the `ProofVerifier` to be serializable @svasilyev
-			let pks: Vec<_> = Self::authorities().iter().map(|auth| *auth.as_ref()).collect();
+			let pks: Vec<_> = next_authorities.iter().map(|auth| *auth.as_ref()).collect();
 			debug!(target: LOG_TARGET, "Building verifier. Ring size {}", pks.len());
 			let verifier = ring_ctx.verifier(pks.as_slice()).unwrap();
 			debug!(target: LOG_TARGET, "... Built");
 
 			// Check tickets score
-			let next_auth = Self::next_authorities();
 			let next_config = Self::next_config().unwrap_or_else(|| Self::config());
 			// Current slot should be less than half of epoch duration.
 			let epoch_duration = T::EpochDuration::get();
@@ -382,7 +382,7 @@ pub mod pallet {
 				next_config.redundancy_factor,
 				epoch_duration as u32,
 				next_config.attempts_number,
-				next_auth.len() as u32,
+				next_authorities.len() as u32,
 			);
 
 			// Get next epoch params
@@ -608,12 +608,9 @@ impl<T: Config> Pallet<T> {
 		authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 		next_authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 	) {
-		let current_authorities = <Pallet<T>>::authorities();
-		if current_authorities != authorities {
-			Self::update_ring_verifier(&authorities);
+		if next_authorities != authorities {
+			Self::update_ring_verifier(&next_authorities);
 		}
-
-		// TODO @davxy WHAT if `authorities != NextAuthorities`?
 
 		// Update authorities
 		Authorities::<T>::put(authorities);
