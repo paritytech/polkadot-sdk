@@ -17,11 +17,11 @@
 use super::*;
 use frame_support::{assert_err, assert_ok, assert_storage_noop};
 use keyring::Sr25519Keyring;
-use primitives::{BlockNumber, ValidatorId, PARACHAIN_KEY_TYPE_ID};
+use primitives::{BlockNumber, PARACHAIN_KEY_TYPE_ID};
 use sc_keystore::LocalKeystore;
 use sp_keystore::{Keystore, KeystorePtr};
 use std::sync::Arc;
-use test_helpers::{dummy_head_data, dummy_validation_code};
+use test_helpers::{dummy_head_data, dummy_validation_code, validator_pubkeys};
 
 use crate::{
 	configuration::HostConfiguration,
@@ -38,10 +38,6 @@ static VALIDATORS: &[Sr25519Keyring] = &[
 	Sr25519Keyring::Dave,
 	Sr25519Keyring::Ferdie,
 ];
-
-fn validator_pubkeys(val_ids: &[Sr25519Keyring]) -> Vec<ValidatorId> {
-	val_ids.iter().map(|v| v.public().into()).collect()
-}
 
 fn sign_and_include_pvf_check_statement(stmt: PvfCheckStatement) {
 	let validators = &[
