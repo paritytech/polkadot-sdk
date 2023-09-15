@@ -148,6 +148,7 @@ impl pallet_referenda::Config<AmbassadorReferendaInstance> for Runtime {
 
 parameter_types! {
 	pub const AnnouncementLifetime: BlockNumber = 180 * DAYS;
+	pub const MaxAnnouncements: u32 = 50;
 }
 
 pub type AmbassadorContentInstance = pallet_collective_content::Instance1;
@@ -166,6 +167,7 @@ impl pallet_collective_content::Config<AmbassadorContentInstance> for Runtime {
 		>,
 		EnsureAmbassadorsVoice,
 	>;
+	type MaxAnnouncements = MaxAnnouncements;
 	type WeightInfo = weights::pallet_collective_content::WeightInfo<Runtime>;
 }
 

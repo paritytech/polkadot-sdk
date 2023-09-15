@@ -43,12 +43,14 @@ ord_parameter_types! {
 
 parameter_types! {
 	pub const AnnouncementLifetime: u64 = 100;
+	pub const MaxAnnouncements: u32 = 5;
 }
 
 impl pallet_collective_content::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type AnnouncementLifetime = AnnouncementLifetime;
 	type AnnouncementOrigin = EnsureSignedBy<AnnouncementManager, AccountId>;
+	type MaxAnnouncements = MaxAnnouncements;
 	type CharterOrigin = EnsureSignedBy<CharterManager, AccountId>;
 	type WeightInfo = CCWeightInfo;
 }

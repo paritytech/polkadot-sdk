@@ -79,6 +79,10 @@ pub mod pallet {
 		/// The origin to control the collective announcements.
 		type AnnouncementOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
+		/// Maximum number of announcements in the storage.
+		#[pallet::constant]
+		type MaxAnnouncements: Get<u32>;
+
 		/// The origin to control the collective charter.
 		type CharterOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
@@ -109,12 +113,10 @@ pub mod pallet {
 
 	/// The collective charter.
 	#[pallet::storage]
-	#[pallet::getter(fn charter)]
 	pub type Charter<T: Config<I>, I: 'static = ()> = StorageValue<_, OpaqueCid, OptionQuery>;
 
 	/// The collective announcements.
 	#[pallet::storage]
-	#[pallet::getter(fn announcements)]
 	pub type Announcements<T: Config<I>, I: 'static = ()> =
 		CountedStorageMap<_, Blake2_128Concat, OpaqueCid, BlockNumberFor<T>, OptionQuery>;
 
@@ -161,6 +163,10 @@ pub mod pallet {
 			let expire_at = maybe_expire
 				.map_or(now.saturating_add(T::AnnouncementLifetime::get()), |e| e.evaluate(now));
 			ensure!(expire_at > now, Error::<T, I>::InvalidExpiration);
+			ensure!(
+				T::MaxAnnouncements::get() > <Announcements<T, I>>::count(),
+				Error::<T, I>::TooManyAnnouncements
+			);
 
 			<Announcements<T, I>>::insert(cid.clone(), expire_at);
 

@@ -42,7 +42,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(origin as T::RuntimeOrigin, cid.clone());
 
-		assert_eq!(CollectiveContent::<T, I>::charter(), Some(cid.clone()));
+		assert_eq!(Charter::<T, I>::get(), Some(cid.clone()));
 		assert_last_event::<T, I>(Event::NewCharterSet { cid }.into());
 		Ok(())
 	}
@@ -58,7 +58,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(origin as T::RuntimeOrigin, cid.clone(), Some(expire_at.clone()));
 
-		assert_eq!(CollectiveContent::<T, I>::announcements_count(), 1);
+		assert_eq!(<Announcements<T, I>>::count(), 1);
 		assert_last_event::<T, I>(
 			Event::AnnouncementAnnounced { cid, expire_at: expire_at.evaluate(now) }.into(),
 		);
@@ -73,12 +73,12 @@ mod benchmarks {
 			.map_err(|_| BenchmarkError::Weightless)?;
 		CollectiveContent::<T, I>::announce(origin.clone(), cid.clone(), None)
 			.expect("could not publish an announcement");
-		assert_eq!(CollectiveContent::<T, I>::announcements_count(), 1);
+		assert_eq!(<Announcements<T, I>>::count(), 1);
 
 		#[extrinsic_call]
 		_(origin as T::RuntimeOrigin, cid.clone());
 
-		assert_eq!(CollectiveContent::<T, I>::announcements_count(), 0);
+		assert_eq!(<Announcements<T, I>>::count(), 0);
 		assert_last_event::<T, I>(Event::AnnouncementRemoved { cid }.into());
 
 		Ok(())

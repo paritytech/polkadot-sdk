@@ -37,7 +37,7 @@ fn set_charter_works() {
 		let cid = create_cid(2);
 
 		assert_ok!(CollectiveContent::set_charter(origin, cid.clone()));
-		assert_eq!(CollectiveContent::charter(), Some(cid.clone()));
+		assert_eq!(Charter::<Test, _>::get(), Some(cid.clone()));
 		System::assert_last_event(RuntimeEvent::CollectiveContent(Event::NewCharterSet { cid }));
 
 		// reset. success.
@@ -45,7 +45,7 @@ fn set_charter_works() {
 		let cid = create_cid(3);
 
 		assert_ok!(CollectiveContent::set_charter(origin, cid.clone()));
-		assert_eq!(CollectiveContent::charter(), Some(cid.clone()));
+		assert_eq!(Charter::<Test, _>::get(), Some(cid.clone()));
 		System::assert_last_event(RuntimeEvent::CollectiveContent(Event::NewCharterSet { cid }));
 	});
 }
@@ -114,6 +114,17 @@ fn announce_works() {
 			cid,
 			expire_at: maybe_expire_at.evaluate(now),
 		}));
+
+		// one more with earlier expire. success.
+		let origin = RuntimeOrigin::signed(AnnouncementManager::get());
+		let cid = create_cid(7);
+		let maybe_expire_at = DispatchTime::<_>::At(now + 5);
+
+		assert_eq!(<Announcements<Test, _>>::count(), MaxAnnouncements::get());
+		assert_noop!(
+			CollectiveContent::announce(origin, cid.clone(), Some(maybe_expire_at)),
+			Error::<Test>::TooManyAnnouncements
+		);
 	});
 }
 
