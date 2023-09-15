@@ -26,8 +26,8 @@ use scale_info::{
 	build::{Fields, Variants},
 	meta_type, Path, Type, TypeInfo, TypeParameter,
 };
-use sp_runtime::{traits::Zero, RuntimeDebug};
-use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
+use sp_runtime::RuntimeDebug;
+use sp_std::{fmt::Debug, iter::once, prelude::*};
 
 /// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
@@ -364,6 +364,12 @@ impl<FieldLimit: Get<u32>> IdentityInfo<FieldLimit> {
 	}
 }
 
+pub trait IdentityInformationProvider:
+	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo
+{
+	fn has_identity(&self, fields: u64) -> bool;
+}
+
 /// Information concerning the identity of the controller of an account.
 ///
 /// NOTE: This is stored separately primarily to facilitate the addition of extra fields in a
@@ -376,43 +382,25 @@ impl<FieldLimit: Get<u32>> IdentityInfo<FieldLimit> {
 pub struct Registration<
 	Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
 	MaxJudgements: Get<u32>,
-	MaxAdditionalFields: Get<u32>,
+	II: IdentityInformationProvider,
 > {
 	/// Judgements from the registrars on this identity. Stored ordered by `RegistrarIndex`. There
 	/// may be only a single judgement from each registrar.
 	pub judgements: BoundedVec<(RegistrarIndex, Judgement<Balance>), MaxJudgements>,
 
-	/// Amount held on deposit for this information.
-	pub deposit: Balance,
-
 	/// Information on the identity.
-	pub info: IdentityInfo<MaxAdditionalFields>,
-}
-
-impl<
-		Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq + Zero + Add,
-		MaxJudgements: Get<u32>,
-		MaxAdditionalFields: Get<u32>,
-	> Registration<Balance, MaxJudgements, MaxAdditionalFields>
-{
-	pub(crate) fn total_deposit(&self) -> Balance {
-		self.deposit +
-			self.judgements
-				.iter()
-				.map(|(_, ref j)| if let Judgement::FeePaid(fee) = j { *fee } else { Zero::zero() })
-				.fold(Zero::zero(), |a, i| a + i)
-	}
+	pub info: II,
 }
 
 impl<
 		Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
 		MaxJudgements: Get<u32>,
-		MaxAdditionalFields: Get<u32>,
-	> Decode for Registration<Balance, MaxJudgements, MaxAdditionalFields>
+		II: IdentityInformationProvider,
+	> Decode for Registration<Balance, MaxJudgements, II>
 {
 	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
-		let (judgements, deposit, info) = Decode::decode(&mut AppendZerosInput::new(input))?;
-		Ok(Self { judgements, deposit, info })
+		let (judgements, info) = Decode::decode(&mut AppendZerosInput::new(input))?;
+		Ok(Self { judgements, info })
 	}
 }
 
