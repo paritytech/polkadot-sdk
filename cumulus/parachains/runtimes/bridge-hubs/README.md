@@ -44,7 +44,7 @@ Copy the apropriate binary (zombienet-linux) from the latest release to ~/local_
 # 2. Build polkadot binary
 
 # If you want to test Kusama/Polkadot bridge, we need "sudo pallet + fast-runtime",
-# so we need to use sudoif in polkadot directory.
+# so we need to use sudofi in polkadot directory.
 #
 # Install sudofi: (skip if already installed)
 # cd <somewhere-outside-polkadot-sdk-git-repo-dir>
@@ -52,8 +52,8 @@ Copy the apropriate binary (zombienet-linux) from the latest release to ~/local_
 # cd parachain-utils # -> this is <parachain-utils-git-repo-dir>
 # cargo build --release --bin sudofi
 #
-# cd <polkadot-sdk-git-repo-dir>/pokladot
-# <parachain-utils-git-repo-dir>/target/release/sudoif
+# cd <polkadot-sdk-git-repo-dir>/polkadot
+# <parachain-utils-git-repo-dir>/target/release/sudofi
 
 cd <polkadot-sdk-git-repo-dir>
 cargo build --release --features fast-runtime --bin polkadot
@@ -108,7 +108,7 @@ POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=~/local_bridge_testing/bin/p
 ```
 cd <polkadot-sdk-git-repo-dir>
 
-# Wococo + BridgeHubWococo + AssetHub for Wococo
+# Wococo + BridgeHubWococo + AssetHub for Wococo (mirroring Polkadot)
 POLKADOT_BINARY_PATH=~/local_bridge_testing/bin/polkadot \
 POLKADOT_PARACHAIN_BINARY_PATH=~/local_bridge_testing/bin/polkadot-parachain \
 POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WOCOCO=~/local_bridge_testing/bin/polkadot-parachain-asset-hub \
