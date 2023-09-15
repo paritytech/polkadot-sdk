@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use ::test_helpers::{dummy_digest, dummy_hash};
+use ::test_helpers::{dummy_digest, dummy_hash, validator_pubkeys};
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
 use polkadot_node_subsystem::{
 	messages::{
@@ -93,10 +93,6 @@ struct TestState {
 }
 
 const OUR_VALIDATOR: Sr25519Keyring = Sr25519Keyring::Alice;
-
-fn validator_pubkeys(val_ids: &[Sr25519Keyring]) -> Vec<ValidatorId> {
-	val_ids.iter().map(|v| v.public().into()).collect()
-}
 
 impl TestState {
 	fn new() -> Self {
