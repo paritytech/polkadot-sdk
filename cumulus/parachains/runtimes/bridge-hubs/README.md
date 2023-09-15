@@ -46,7 +46,7 @@ Copy the apropriate binary (zombienet-linux) from the latest release to ~/local_
 # If you want to test Kusama/Polkadot bridge, we need "sudo pallet + fast-runtime",
 # so we need to use sudoif in polkadot directory.
 #
-# Install sudoif: (skip if already installed)
+# Install sudofi: (skip if already installed)
 # cd <somewhere-outside-polkadot-sdk-git-repo-dir>
 # git clone https://github.com/paritytech/parachain-utils.git
 # cd parachain-utils # -> this is <parachain-utils-git-repo-dir>

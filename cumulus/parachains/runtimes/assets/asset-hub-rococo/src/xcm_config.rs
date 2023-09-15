@@ -759,7 +759,7 @@ pub mod bridging {
 					// base delivery fee to local `BridgeHub`
 					Some((
 						XcmBridgeHubRouterFeeAssetId::get(),
-						bp_asset_hub_wococo::BridgeHubWococoBaseFeeInWocs::get(),
+						bp_asset_hub_rococo::BridgeHubRococoBaseFeeInRocs::get(),
 					).into())
 				)
 			];
@@ -853,7 +853,7 @@ pub mod bridging {
 					// base delivery fee to local `BridgeHub`
 					Some((
 						XcmBridgeHubRouterFeeAssetId::get(),
-						bp_asset_hub_rococo::BridgeHubRococoBaseFeeInRocs::get(),
+						bp_asset_hub_wococo::BridgeHubRococoBaseFeeInWocs::get(),
 					).into())
 				)
 			];

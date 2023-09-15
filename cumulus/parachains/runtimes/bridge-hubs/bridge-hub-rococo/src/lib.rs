@@ -948,19 +948,19 @@ impl_runtime_apis! {
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
 			use xcm::latest::prelude::*;
-			use xcm_config::RelayLocation;
+			use xcm_config::TokenLocation;
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
-					Ok(RelayLocation::get())
+					Ok(TokenLocation::get())
 				}
 				fn worst_case_holding(_depositable_count: u32) -> MultiAssets {
 					// just concrete assets according to relay chain.
 					let assets: Vec<MultiAsset> = vec![
 						MultiAsset {
-							id: Concrete(RelayLocation::get()),
+							id: Concrete(TokenLocation::get()),
 							fun: Fungible(1_000_000 * UNITS),
 						}
 					];
@@ -970,8 +970,8 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub const TrustedTeleporter: Option<(MultiLocation, MultiAsset)> = Some((
-					RelayLocation::get(),
-					MultiAsset { fun: Fungible(UNITS), id: Concrete(RelayLocation::get()) },
+					TokenLocation::get(),
+					MultiAsset { fun: Fungible(UNITS), id: Concrete(TokenLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 				pub const TrustedReserve: Option<(MultiLocation, MultiAsset)> = None;
@@ -986,7 +986,7 @@ impl_runtime_apis! {
 
 				fn get_multi_asset() -> MultiAsset {
 					MultiAsset {
-						id: Concrete(RelayLocation::get()),
+						id: Concrete(TokenLocation::get()),
 						fun: Fungible(UNITS),
 					}
 				}
@@ -1008,16 +1008,16 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(MultiLocation, RuntimeCall), BenchmarkError> {
-					Ok((RelayLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					Ok((TokenLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
 				fn subscribe_origin() -> Result<MultiLocation, BenchmarkError> {
-					Ok(RelayLocation::get())
+					Ok(TokenLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(MultiLocation, MultiLocation, MultiAssets), BenchmarkError> {
-					let origin = RelayLocation::get();
-					let assets: MultiAssets = (Concrete(RelayLocation::get()), 1_000 * UNITS).into();
+					let origin = TokenLocation::get();
+					let assets: MultiAssets = (Concrete(TokenLocation::get()), 1_000 * UNITS).into();
 					let ticket = MultiLocation { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}
@@ -1028,7 +1028,7 @@ impl_runtime_apis! {
 
 				fn export_message_origin_and_destination(
 				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
-					Ok((RelayLocation::get(), NetworkId::Wococo, X1(Parachain(100))))
+					Ok((TokenLocation::get(), NetworkId::Wococo, X1(Parachain(100))))
 				}
 
 				fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {

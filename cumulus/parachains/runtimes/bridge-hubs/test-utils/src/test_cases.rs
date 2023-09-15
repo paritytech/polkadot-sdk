@@ -46,10 +46,16 @@ use parachains_runtimes_test_utils::{
 };
 use sp_core::H256;
 use sp_keyring::AccountKeyring::*;
-use sp_runtime::{traits::Header as HeaderT, AccountId32};
+use sp_runtime::{
+	traits::{Header as HeaderT, Zero},
+	AccountId32,
+};
 use xcm::latest::prelude::*;
 use xcm_builder::DispatchBlobError;
-use xcm_executor::{traits::TransactAsset, XcmExecutor};
+use xcm_executor::{
+	traits::{TransactAsset, WeightBounds},
+	XcmExecutor,
+};
 
 // Re-export test_case from assets
 pub use asset_test_utils::include_teleports_for_native_asset_works;
@@ -824,6 +830,112 @@ pub fn complex_relay_extrinsic_works<Runtime, AllPalletsWithoutSystem, XcmConfig
 				count => assert!(false, "Unexpected messages count: {:?}", count),
 			}
 		})
+}
+
+/// Estimates fee for paid `ExportMessage` processing.
+pub fn can_calculate_weight_for_paid_export_message_with_reserve_transfer<
+	Runtime,
+	XcmConfig,
+	WeightToFee,
+>() -> u128
+where
+	Runtime: frame_system::Config + pallet_balances::Config,
+	XcmConfig: xcm_executor::Config,
+	WeightToFee: frame_support::weights::WeightToFee<Balance = BalanceOf<Runtime>>,
+	<WeightToFee as frame_support::weights::WeightToFee>::Balance: From<u128> + Into<u128>,
+{
+	// data here are not relevant for weighing
+	let mut xcm = Xcm(vec![
+		WithdrawAsset(MultiAssets::from(vec![MultiAsset {
+			id: Concrete(MultiLocation { parents: 1, interior: Here }),
+			fun: Fungible(34333299),
+		}])),
+		BuyExecution {
+			fees: MultiAsset {
+				id: Concrete(MultiLocation { parents: 1, interior: Here }),
+				fun: Fungible(34333299),
+			},
+			weight_limit: Unlimited,
+		},
+		ExportMessage {
+			network: Polkadot,
+			destination: X1(Parachain(1000)),
+			xcm: Xcm(vec![
+				ReserveAssetDeposited(MultiAssets::from(vec![MultiAsset {
+					id: Concrete(MultiLocation {
+						parents: 2,
+						interior: X1(GlobalConsensus(Kusama)),
+					}),
+					fun: Fungible(1000000000000),
+				}])),
+				ClearOrigin,
+				BuyExecution {
+					fees: MultiAsset {
+						id: Concrete(MultiLocation {
+							parents: 2,
+							interior: X1(GlobalConsensus(Kusama)),
+						}),
+						fun: Fungible(1000000000000),
+					},
+					weight_limit: Unlimited,
+				},
+				DepositAsset {
+					assets: Wild(AllCounted(1)),
+					beneficiary: MultiLocation {
+						parents: 0,
+						interior: X1(xcm::latest::prelude::AccountId32 {
+							network: None,
+							id: [
+								212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159,
+								214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165,
+								109, 162, 125,
+							],
+						}),
+					},
+				},
+				SetTopic([
+					116, 82, 194, 132, 171, 114, 217, 165, 23, 37, 161, 177, 165, 179, 247, 114,
+					137, 101, 147, 70, 28, 157, 168, 32, 154, 63, 74, 228, 152, 180, 5, 63,
+				]),
+			]),
+		},
+		RefundSurplus,
+		DepositAsset {
+			assets: Wild(All),
+			beneficiary: MultiLocation { parents: 1, interior: X1(Parachain(1000)) },
+		},
+		SetTopic([
+			36, 224, 250, 165, 82, 195, 67, 110, 160, 170, 140, 87, 217, 62, 201, 164, 42, 98, 219,
+			157, 124, 105, 248, 25, 131, 218, 199, 36, 109, 173, 100, 122,
+		]),
+	]);
+
+	// get weight
+	let weight = XcmConfig::Weigher::weight(&mut xcm);
+	assert_ok!(weight);
+	let weight = weight.unwrap();
+	// check if sane
+	let max_expected = Runtime::BlockWeights::get().max_block / 10;
+	assert!(
+		weight.all_lte(max_expected),
+		"calculated weight: {:?}, max_expected: {:?}",
+		weight,
+		max_expected
+	);
+
+	// check fee, should not be 0
+	let estimated_fee = WeightToFee::weight_to_fee(&weight);
+	assert!(estimated_fee > BalanceOf::<Runtime>::zero());
+
+	sp_tracing::try_init_simple();
+	log::error!(
+		target: "bridges::estimate",
+		"Estimate fee: {:?} for `ExportMessage` for runtime: {:?}",
+		estimated_fee,
+		Runtime::Version::get(),
+	);
+
+	estimated_fee.into()
 }
 
 pub mod test_data {

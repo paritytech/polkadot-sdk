@@ -2062,6 +2062,8 @@ dependencies = [
 name = "bridge-hub-rococo-runtime"
 version = "0.1.0"
 dependencies = [
+ "bp-asset-hub-rococo",
+ "bp-asset-hub-wococo",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-wococo",
  "bp-header-chain",
