@@ -30,7 +30,8 @@ pub mod weights;
 
 pub use weights::WeightInfo;
 
-pub type MaxDmpMessageLenOf<T> = <<T as Config>::DmpSink as frame_support::traits::HandleMessage>::MaxMessageLen;
+pub type MaxDmpMessageLenOf<T> =
+	<<T as Config>::DmpSink as frame_support::traits::HandleMessage>::MaxMessageLen;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -214,6 +215,7 @@ pub mod pallet {
 	}
 
 	pub fn on_idle_weight<T: crate::Config>() -> Weight {
-		<T as crate::Config>::WeightInfo::on_idle_good_ok().max(<T as crate::Config>::WeightInfo::on_idle_large_msg())
+		<T as crate::Config>::WeightInfo::on_idle_good_ok()
+			.max(<T as crate::Config>::WeightInfo::on_idle_large_msg())
 	}
 }
