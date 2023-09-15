@@ -14,12 +14,17 @@ Then these are the actions to take:
 
 The warning message shall include a removal month and year, which is suggested to be 6 months after the deprecation
 notice is released.
-This means that the code will be removed in a release within that month (or after, but never before). Something along
-these lines:
+This means that the code will be removed in a release within that month (or after, but never before). Please use this
+template, doing so makes it easy to search through the code base:
 
 ```rust
-#[deprecated(note = "`GenesisConfig` is planned to be removed in December 2023. 
-Use `RuntimeGenesisConfig` instead.")]
+#[deprecated(note = "[DEPRECATED] will be removed after [DATE]. [ALTERNATIVE]")]
+```
+`[ALTERNATIVE]` won't always be possible but offer it if it is.
+
+E.g.
+```rust
+#[deprecated(note = "`GenesisConfig` will be removed after December 2023. Use `RuntimeGenesisConfig` instead.")]
 ```
 
 Some pieces of code cannot be labeled as deprecated, like [reexports](https://github.com/rust-lang/rust/issues/30827)
