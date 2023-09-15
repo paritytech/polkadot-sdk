@@ -224,7 +224,7 @@ pub fn teleports_for_native_asset_works<
 
 				// Build expected message sent by the `teleport_assets` extrinsic
 				let context = <XcmConfig as xcm_executor::Config>::UniversalLocation::get();
-				let assets_to_teleport: MultiAsset = (native_asset_id.clone(), native_asset_to_teleport_away.into()).into();
+				let assets_to_teleport: MultiAsset = (native_asset_id, native_asset_to_teleport_away.into()).into();
 				let assets_to_teleport = assets_to_teleport
 					.reanchored(&dest, context).expect("We know location is invertible; qed");
 				let topic = [
@@ -572,7 +572,7 @@ pub fn teleports_for_foreign_assets_works<
 
 				// Build expected message sent by the `teleport_assets` extrinsic
 				let context = <XcmConfig as xcm_executor::Config>::UniversalLocation::get();
-				let assets_to_teleport: MultiAsset = (foreign_asset_id_multilocation.clone(), asset_to_teleport_away.clone()).into();
+				let assets_to_teleport: MultiAsset = (foreign_asset_id_multilocation, asset_to_teleport_away).into();
 				let assets_to_teleport = assets_to_teleport
 					.reanchored(&dest, context).expect("We know location is invertible; qed");
 				let topic = [
