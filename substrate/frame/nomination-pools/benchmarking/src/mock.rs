@@ -75,7 +75,7 @@ impl pallet_balances::Config for Runtime {
 	type AccountStore = System;
 	type WeightInfo = ();
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = ();
+	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = ();
 	type MaxHolds = ();
 }
@@ -160,7 +160,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Currency = Balances;
-	type RuntimeFreezeReason = Self::RuntimeFreezeReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RewardCounter = FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
@@ -200,8 +200,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	.assimilate_storage(&mut storage);
 	let mut ext = sp_io::TestExternalities::from(storage);
 	ext.execute_with(|| {
-		MinJoinBond::<Runtime>::put(2);
-		MinCreateBond::<Runtime>::put(2);
+		pallet_nomination_pools::MinJoinBond::<Runtime>::put(2);
+		pallet_nomination_pools::MinCreateBond::<Runtime>::put(2);
 	});
 
 	ext

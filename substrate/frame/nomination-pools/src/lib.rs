@@ -1011,7 +1011,10 @@ impl<T: Config> BondedPool<T> {
 	/// The pools balance that is transferrable.
 	fn transferrable_balance(&self) -> BalanceOf<T> {
 		let account = self.bonded_account();
-		T::Currency::reducible_balance(&account, Preservation::Expendable, Fortitude::Polite)
+		// fixme(ank4n): Since pooled account has a provider (staking pallet), the account
+		// is not expendable by Nomination Pallet. This means transferable balance is always
+		// after leaving the ED in the account.
+		T::Currency::balance(&account)
 			.saturating_sub(T::Staking::active_stake(&account).unwrap_or_default())
 	}
 
