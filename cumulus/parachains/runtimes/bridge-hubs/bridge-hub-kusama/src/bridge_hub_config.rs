@@ -29,7 +29,7 @@ use bridge_runtime_common::{
 	},
 	messages_xcm_extension::{SenderAndLane, XcmBlobHauler, XcmBlobHaulerAdapter},
 	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedParachainMessages, RefundableMessagesLane,
+		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter, RefundableMessagesLane,
 		RefundableParachain,
 	},
 };
@@ -157,13 +157,15 @@ impl ThisChainWithMessages for ThisChain {
 
 // TODO: rework once dynamic lanes are supported (https://github.com/paritytech/parity-bridges-common/issues/1760)
 /// Signed extension that refunds relayers that are delivering messages from the Polkadot BridgeHub.
-pub type BridgeRefundBridgeHubPolkadotMessages = RefundBridgedParachainMessages<
-	Runtime,
-	RefundableParachain<BridgeParachainPolkadotInstance, BridgeHubPolkadot>,
-	RefundableMessagesLane<WithBridgeHubPolkadotMessagesInstance, StatemineToStatemintMessageLane>,
-	ActualFeeRefund<Runtime>,
-	PriorityBoostPerMessage,
-	StrBridgeRefundBridgeHubPolkadotMessages,
+pub type BridgeRefundBridgeHubPolkadotMessages = RefundSignedExtensionAdapter<
+	RefundBridgedParachainMessages<
+		Runtime,
+		RefundableParachain<BridgeParachainPolkadotInstance, BridgeHubPolkadot>,
+		RefundableMessagesLane<WithBridgeHubPolkadotMessagesInstance, StatemineToStatemintMessageLane>,
+		ActualFeeRefund<Runtime>,
+		PriorityBoostPerMessage,
+		StrBridgeRefundBridgeHubPolkadotMessages,
+	>
 >;
 bp_runtime::generate_static_str_provider!(BridgeRefundBridgeHubPolkadotMessages);
 

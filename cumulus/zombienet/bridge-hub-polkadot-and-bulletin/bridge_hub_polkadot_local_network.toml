@@ -65,16 +65,16 @@ cumulus_based = true
 		"-- --port 41336 --rpc-port 48936 --ws-port 48946 --no-mdns", "--bootnodes {{'bob-validator-dot'|zombie('multiAddress')}}"
 	]
 
-# TODO: add other system parachain here!!!
+# TODO: add other system parachain (Kawabunga) here!!!
 
-[[hrmp_channels]]
-sender = 1000
-recipient = 1002
-max_capacity = 4
-max_message_size = 524288
+#[[hrmp_channels]]
+#sender = 1000
+#recipient = 1002
+#max_capacity = 4
+#max_message_size = 524288
 
-[[hrmp_channels]]
-sender = 1002
-recipient = 1000
-max_capacity = 4
-max_message_size = 524288
+#[[hrmp_channels]]
+#sender = 1002
+#recipient = 1000
+#max_capacity = 4
+#max_message_size = 524288

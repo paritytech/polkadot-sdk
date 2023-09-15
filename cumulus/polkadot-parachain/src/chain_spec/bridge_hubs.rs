@@ -646,6 +646,14 @@ pub mod polkadot {
 				..Default::default()
 			},
 			bridge_kusama_messages: bridge_hub_polkadot_runtime::BridgeKusamaMessagesConfig {
+				owner: bridges_pallet_owner.clone(),
+				..Default::default()
+			},
+			bridge_polkadot_bulletin_grandpa: bridge_hub_polkadot_runtime::BridgePolkadotBulletinGrandpaConfig {
+				owner: bridges_pallet_owner.clone(),
+				..Default::default()
+			},
+			bridge_polkadot_bulletin_messages: bridge_hub_polkadot_runtime::BridgePolkadotBulletinMessagesConfig {
 				owner: bridges_pallet_owner,
 				..Default::default()
 			},
