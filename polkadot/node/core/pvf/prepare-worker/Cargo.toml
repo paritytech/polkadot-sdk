@@ -38,7 +38,11 @@ jemalloc-allocator = [
 	"dep:tikv-jemalloc-ctl",
 	"polkadot-node-core-pvf-common/jemalloc-allocator",
 ]
-tracking-allocator = [ "dep:tikv-jemallocator", "dep:tracking-allocator" ]
+tracking-allocator = [
+	"dep:tikv-jemallocator",
+	"dep:tracking-allocator",
+	"polkadot-node-core-pvf-common/tracking-allocator",
+]
 
 [dev-dependencies]
 criterion = { version = "0.4.0", default-features = false, features = ["cargo_bench_support"] }

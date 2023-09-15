@@ -35,6 +35,9 @@ pub struct MemoryStats {
 	/// `ru_maxrss` from `getrusage`. `None` if an error occurred.
 	#[cfg(target_os = "linux")]
 	pub max_rss: Option<i64>,
+	/// Peak allocation in bytes measured by tracking allocator
+	#[cfg(feature = "tracking-allocator")]
+	pub peak_alloc: u64,
 }
 
 /// Statistics of collected memory metrics.

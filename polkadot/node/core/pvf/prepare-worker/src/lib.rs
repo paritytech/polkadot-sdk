@@ -176,34 +176,24 @@ pub fn worker_entrypoint(
 					Arc::clone(&condvar),
 					WaitOutcome::TimedOut,
 				)?;
+
+				#[cfg(feature = "tracking-allocator")]
+				ALLOC.start_tracking();
+
 				// Spawn another thread for preparation.
 				let prepare_thread = thread::spawn_worker_thread(
 					"prepare thread",
 					move || {
 						// Try to enable landlock.
 						#[cfg(target_os = "linux")]
-					let landlock_status = polkadot_node_core_pvf_common::worker::security::landlock::try_restrict_thread()
+						let landlock_status = polkadot_node_core_pvf_common::worker::security::landlock::try_restrict_thread()
 						.map(LandlockStatus::from_ruleset_status)
 						.map_err(|e| e.to_string());
 						#[cfg(not(target_os = "linux"))]
 						let landlock_status: Result<LandlockStatus, String> = Ok(LandlockStatus::NotEnforced);
 
-						#[cfg(feature = "tracking-allocator")]
-						ALLOC.start_tracking();
-
 						#[allow(unused_mut)]
 						let mut result = prepare_artifact(pvf, cpu_time_start);
-
-						#[cfg(feature = "tracking-allocator")]
-						{
-							let peak = ALLOC.end_tracking();
-							gum::debug!(
-								target: LOG_TARGET,
-								%worker_pid,
-								"prepare job peak allocation is {} bytes",
-								peak,
-							);
-						}
 
 						// Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
 						#[cfg(target_os = "linux")]
@@ -229,6 +219,18 @@ pub fn worker_entrypoint(
 				)?;
 
 				let outcome = thread::wait_for_threads(condvar);
+
+				#[cfg(feature = "tracking-allocator")]
+				let peak_alloc = {
+					let peak = ALLOC.end_tracking();
+					gum::debug!(
+						target: LOG_TARGET,
+						%worker_pid,
+						"prepare job peak allocation is {} bytes",
+						peak,
+					);
+					peak
+				};
 
 				let result = match outcome {
 					WaitOutcome::Finished => {
@@ -262,6 +264,8 @@ pub fn worker_entrypoint(
 									memory_tracker_stats,
 									#[cfg(target_os = "linux")]
 									max_rss: extract_max_rss_stat(max_rss, worker_pid),
+									#[cfg(feature = "tracking-allocator")]
+									peak_alloc: peak_alloc as u64,
 								};
 
 								// Log if landlock threw an error.

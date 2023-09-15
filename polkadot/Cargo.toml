@@ -73,6 +73,7 @@ tracking-allocator = [
 	"dep:tracking-allocator",
 	"jemalloc-allocator",
 	"polkadot-node-core-pvf-prepare-worker/tracking-allocator",
+	"polkadot-node-core-pvf/tracking-allocator",
 ]
 
 # Enables timeout-based tests supposed to be run only in CI environment as they may be flaky

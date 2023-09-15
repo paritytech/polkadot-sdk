@@ -39,3 +39,4 @@ tempfile = "3.3.0"
 # Also used for building the puppet worker.
 test-utils = []
 jemalloc-allocator = []
+tracking-allocator = []
