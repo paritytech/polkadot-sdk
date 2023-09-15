@@ -61,6 +61,7 @@
 
 use frame_support::traits::{fungible::Inspect, tokens::ConversionFromAssetBalance};
 use sp_runtime::{traits::Zero, FixedPointNumber, FixedU128};
+use sp_std::boxed::Box;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -155,18 +156,18 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::create())]
 		pub fn create(
 			origin: OriginFor<T>,
-			asset_kind: T::AssetKind,
+			asset_kind: Box<T::AssetKind>,
 			rate: FixedU128,
 		) -> DispatchResult {
 			T::CreateOrigin::ensure_origin(origin)?;
 
 			ensure!(
-				!ConversionRateToNative::<T>::contains_key(asset_kind.clone()),
+				!ConversionRateToNative::<T>::contains_key(asset_kind.as_ref()),
 				Error::<T>::AlreadyExists
 			);
-			ConversionRateToNative::<T>::set(asset_kind.clone(), Some(rate));
+			ConversionRateToNative::<T>::set(asset_kind.as_ref(), Some(rate));
 
-			Self::deposit_event(Event::AssetRateCreated { asset_kind, rate });
+			Self::deposit_event(Event::AssetRateCreated { asset_kind: *asset_kind, rate });
 			Ok(())
 		}
 
@@ -178,13 +179,13 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::update())]
 		pub fn update(
 			origin: OriginFor<T>,
-			asset_kind: T::AssetKind,
+			asset_kind: Box<T::AssetKind>,
 			rate: FixedU128,
 		) -> DispatchResult {
 			T::UpdateOrigin::ensure_origin(origin)?;
 
 			let mut old = FixedU128::zero();
-			ConversionRateToNative::<T>::mutate(asset_kind.clone(), |maybe_rate| {
+			ConversionRateToNative::<T>::mutate(asset_kind.as_ref(), |maybe_rate| {
 				if let Some(r) = maybe_rate {
 					old = *r;
 					*r = rate;
@@ -195,7 +196,11 @@ pub mod pallet {
 				}
 			})?;
 
-			Self::deposit_event(Event::AssetRateUpdated { asset_kind, old, new: rate });
+			Self::deposit_event(Event::AssetRateUpdated {
+				asset_kind: *asset_kind,
+				old,
+				new: rate,
+			});
 			Ok(())
 		}
 
@@ -205,16 +210,16 @@ pub mod pallet {
 		/// - O(1)
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::remove())]
-		pub fn remove(origin: OriginFor<T>, asset_kind: T::AssetKind) -> DispatchResult {
+		pub fn remove(origin: OriginFor<T>, asset_kind: Box<T::AssetKind>) -> DispatchResult {
 			T::RemoveOrigin::ensure_origin(origin)?;
 
 			ensure!(
-				ConversionRateToNative::<T>::contains_key(asset_kind.clone()),
+				ConversionRateToNative::<T>::contains_key(asset_kind.as_ref()),
 				Error::<T>::UnknownAssetKind
 			);
-			ConversionRateToNative::<T>::remove(asset_kind.clone());
+			ConversionRateToNative::<T>::remove(asset_kind.as_ref());
 
-			Self::deposit_event(Event::AssetRateRemoved { asset_kind });
+			Self::deposit_event(Event::AssetRateRemoved { asset_kind: *asset_kind });
 			Ok(())
 		}
 	}
