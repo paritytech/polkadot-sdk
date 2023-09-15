@@ -25,8 +25,6 @@ pub trait WeightInfo {
 	fn announce() -> Weight;
 	/// Returns the weight of the remove_announcement extrinsic.
 	fn remove_announcement() -> Weight;
-	/// Returns the weight of the action.
-	fn cleanup_announcements(x: u32) -> Weight;
 }
 
 /// Unit implementation of the [WeightInfo].
@@ -38,9 +36,6 @@ impl WeightInfo for () {
 		Weight::zero()
 	}
 	fn remove_announcement() -> Weight {
-		Weight::zero()
-	}
-	fn cleanup_announcements(_x: u32) -> Weight {
 		Weight::zero()
 	}
 }

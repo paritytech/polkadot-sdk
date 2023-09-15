@@ -91,26 +91,4 @@ impl<T: frame_system::Config> pallet_collective_content::WeightInfo for WeightIn
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
-	/// Storage: `AmbassadorContent::NextAnnouncementExpireAt` (r:1 w:1)
-	/// Proof: `AmbassadorContent::NextAnnouncementExpireAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// Storage: `AmbassadorContent::Announcements` (r:101 w:100)
-	/// Proof: `AmbassadorContent::Announcements` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
-	/// Storage: `AmbassadorContent::AnnouncementsCount` (r:0 w:1)
-	/// Proof: `AmbassadorContent::AnnouncementsCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// The range of component `x` is `[0, 100]`.
-	fn cleanup_announcements(x: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `167 + x * (96 ±0)`
-		//  Estimated: `3555 + x * (2565 ±0)`
-		// Minimum execution time: 37_000_000 picoseconds.
-		Weight::from_parts(144_774_246, 0)
-			.saturating_add(Weight::from_parts(0, 3555))
-			// Standard Error: 329_536
-			.saturating_add(Weight::from_parts(138_770_008, 0).saturating_mul(x.into()))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(x.into())))
-			.saturating_add(T::DbWeight::get().writes(1))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(x.into())))
-			.saturating_add(Weight::from_parts(0, 2565).saturating_mul(x.into()))
-	}
 }

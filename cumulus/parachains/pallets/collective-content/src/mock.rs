@@ -89,10 +89,6 @@ impl WeightInfo for CCWeightInfo {
 	fn remove_announcement() -> Weight {
 		Weight::zero()
 	}
-	fn cleanup_announcements(_x: u32) -> Weight {
-		// used in tests.
-		Weight::from_parts(10, 0)
-	}
 }
 
 // Build test environment.

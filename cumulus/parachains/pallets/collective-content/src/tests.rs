@@ -16,9 +16,7 @@
 //! Tests.
 
 use super::{mock::*, *};
-use frame_support::{
-	assert_noop, assert_ok, error::BadOrigin, pallet_prelude::Pays, traits::Hooks, weights::Weight,
-};
+use frame_support::{assert_noop, assert_ok, error::BadOrigin, pallet_prelude::Pays};
 
 /// returns CID hash of 68 bytes of given `i`.
 fn create_cid(i: u8) -> OpaqueCid {
@@ -69,10 +67,6 @@ fn announce_works() {
 		let maybe_expire_at = None;
 
 		assert_ok!(CollectiveContent::announce(origin, cid.clone(), maybe_expire_at));
-		assert_eq!(
-			NextAnnouncementExpireAt::<Test>::get(),
-			Some(now.saturating_add(AnnouncementLifetime::get()))
-		);
 		assert_eq!(AnnouncementsCount::<Test>::get(), 1);
 		System::assert_last_event(RuntimeEvent::CollectiveContent(Event::AnnouncementAnnounced {
 			cid,
@@ -85,10 +79,6 @@ fn announce_works() {
 		let maybe_expire_at = None;
 
 		assert_ok!(CollectiveContent::announce(origin, cid.clone(), maybe_expire_at));
-		assert_eq!(
-			NextAnnouncementExpireAt::<Test>::get(),
-			Some(now.saturating_add(AnnouncementLifetime::get()))
-		);
 		assert_eq!(AnnouncementsCount::<Test>::get(), 2);
 		System::assert_last_event(RuntimeEvent::CollectiveContent(Event::AnnouncementAnnounced {
 			cid,
@@ -101,7 +91,6 @@ fn announce_works() {
 		let maybe_expire_at = DispatchTime::<_>::After(10);
 
 		assert_ok!(CollectiveContent::announce(origin, cid.clone(), Some(maybe_expire_at)));
-		assert_eq!(NextAnnouncementExpireAt::<Test>::get(), Some(maybe_expire_at.evaluate(now)));
 		assert_eq!(AnnouncementsCount::<Test>::get(), 3);
 		System::assert_last_event(RuntimeEvent::CollectiveContent(Event::AnnouncementAnnounced {
 			cid,
@@ -111,14 +100,9 @@ fn announce_works() {
 		// one more with later expire. success.
 		let origin = RuntimeOrigin::signed(AnnouncementManager::get());
 		let cid = create_cid(5);
-		let prev_maybe_expire_at = DispatchTime::<_>::After(10);
 		let maybe_expire_at = DispatchTime::<_>::At(now + 20);
 
 		assert_ok!(CollectiveContent::announce(origin, cid.clone(), Some(maybe_expire_at)));
-		assert_eq!(
-			NextAnnouncementExpireAt::<Test>::get(),
-			Some(prev_maybe_expire_at.evaluate(now))
-		);
 		assert_eq!(AnnouncementsCount::<Test>::get(), 4);
 		System::assert_last_event(RuntimeEvent::CollectiveContent(Event::AnnouncementAnnounced {
 			cid,
@@ -131,7 +115,6 @@ fn announce_works() {
 		let maybe_expire_at = DispatchTime::<_>::At(now + 5);
 
 		assert_ok!(CollectiveContent::announce(origin, cid.clone(), Some(maybe_expire_at)));
-		assert_eq!(NextAnnouncementExpireAt::<Test>::get(), Some(maybe_expire_at.evaluate(now)));
 		assert_eq!(AnnouncementsCount::<Test>::get(), 5);
 		System::assert_last_event(RuntimeEvent::CollectiveContent(Event::AnnouncementAnnounced {
 			cid,
@@ -217,63 +200,6 @@ fn remove_announcement_works() {
 		assert_noop!(
 			CollectiveContent::remove_announcement(origin, cid),
 			Error::<Test>::MissingAnnouncement
-		);
-	});
-}
-
-#[test]
-fn clean_announcements_works() {
-	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
-		let cleanup_block = 5;
-
-		let announcements: [(_, _); 8] = [
-			(create_cid(1), Some(cleanup_block + 5)),
-			// expired
-			(create_cid(2), Some(cleanup_block - 1)),
-			(create_cid(3), Some(cleanup_block + 2)),
-			// expired
-			(create_cid(4), Some(cleanup_block)),
-			(create_cid(5), None),
-			// expired
-			(create_cid(6), Some(cleanup_block - 2)),
-			(create_cid(7), Some(cleanup_block + 3)),
-			(create_cid(8), Some(cleanup_block + 4)),
-		];
-		let origin = RuntimeOrigin::signed(AnnouncementManager::get());
-		for (cid, maybe_expire_at) in announcements.into_iter() {
-			assert_ok!(CollectiveContent::announce(
-				origin.clone(),
-				cid,
-				maybe_expire_at.map_or(None, |expire_at| Some(DispatchTime::<_>::At(expire_at)))
-			));
-		}
-		assert_eq!(<Announcements<Test>>::iter_keys().count(), 8);
-		assert_eq!(AnnouncementsCount::<Test>::get(), 8);
-		System::set_block_number(cleanup_block);
-
-		// invoke `clean_announcements` through the on_idle hook.
-		assert_eq!(
-			<CollectiveContent as Hooks<_>>::on_idle(cleanup_block, Weight::from_parts(20, 0)),
-			Weight::from_parts(10, 0)
-		);
-		assert_eq!(<Announcements<Test>>::iter_keys().count(), 5);
-		assert_eq!(AnnouncementsCount::<Test>::get(), 5);
-		assert_eq!(<NextAnnouncementExpireAt<Test>>::get(), Some(cleanup_block + 2));
-		System::assert_has_event(RuntimeEvent::CollectiveContent(Event::AnnouncementRemoved {
-			cid: create_cid(2),
-		}));
-		System::assert_has_event(RuntimeEvent::CollectiveContent(Event::AnnouncementRemoved {
-			cid: create_cid(4),
-		}));
-		System::assert_has_event(RuntimeEvent::CollectiveContent(Event::AnnouncementRemoved {
-			cid: create_cid(6),
-		}));
-
-		// on_idle. not enough weight.
-		assert_eq!(
-			<CollectiveContent as Hooks<_>>::on_idle(cleanup_block, Weight::from_parts(9, 0)),
-			Weight::from_parts(0, 0)
 		);
 	});
 }

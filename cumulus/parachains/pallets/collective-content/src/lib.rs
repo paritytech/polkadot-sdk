@@ -123,11 +123,6 @@ pub mod pallet {
 	#[pallet::getter(fn announcements_count)]
 	pub type AnnouncementsCount<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery>;
 
-	/// The closest expiration block number of an announcement.
-	#[pallet::storage]
-	pub type NextAnnouncementExpireAt<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, BlockNumberFor<T>, OptionQuery>;
-
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Set the collective charter.
@@ -178,10 +173,6 @@ pub mod pallet {
 				Ok(())
 			})?;
 
-			if NextAnnouncementExpireAt::<T, I>::get().map_or(true, |n| n > expire_at) {
-				NextAnnouncementExpireAt::<T, I>::put(expire_at);
-			}
-
 			Self::deposit_event(Event::<T, I>::AnnouncementAnnounced { cid, expire_at });
 			Ok(())
 		}
@@ -220,48 +211,6 @@ pub mod pallet {
 				return Ok(Pays::No.into())
 			}
 			Ok(Pays::Yes.into())
-		}
-	}
-
-	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		/// Clean up expired announcements.
-		pub fn cleanup_announcements(now: BlockNumberFor<T>) {
-			if NextAnnouncementExpireAt::<T, I>::get().map_or(true, |next| next > now) {
-				// no expired announcements expected.
-				return
-			}
-			let mut maybe_next: Option<BlockNumberFor<T>> = None;
-			let mut count = 0;
-			<Announcements<T, I>>::translate(|cid, expire_at: BlockNumberFor<T>| {
-				if now >= expire_at {
-					Self::deposit_event(Event::<T, I>::AnnouncementRemoved { cid });
-					None
-				} else {
-					// determine `NextAnnouncementExpireAt`.
-					maybe_next = match maybe_next {
-						Some(next) if expire_at > next => Some(next),
-						_ => Some(expire_at),
-					};
-					count += 1;
-					// return translated `maybe_expire_at`.
-					Some(expire_at)
-				}
-			});
-			<NextAnnouncementExpireAt<T, I>>::set(maybe_next);
-			<AnnouncementsCount<T, I>>::set(count);
-		}
-	}
-
-	#[pallet::hooks]
-	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
-		/// Clean up expired announcements if there is enough `remaining_weight` weight left.
-		fn on_idle(now: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-			let weight = T::WeightInfo::cleanup_announcements(<AnnouncementsCount<T, I>>::get());
-			if remaining_weight.any_lt(weight) {
-				return T::DbWeight::get().reads(1)
-			}
-			Self::cleanup_announcements(now);
-			weight
 		}
 	}
 }

@@ -84,33 +84,5 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
-	fn cleanup_announcements(x: Linear<0, 100>) -> Result<(), BenchmarkError> {
-		let origin = T::AnnouncementOrigin::try_successful_origin().unwrap();
-
-		let max_count = x;
-		for i in 0..max_count {
-			let cid: OpaqueCid = create_cid(i as u8);
-			CollectiveContent::<T, I>::announce(
-				origin.clone(),
-				cid,
-				Some(DispatchTime::<_>::At(5u32.into())),
-			)
-			.expect("could not publish an announcement");
-		}
-		assert_eq!(CollectiveContent::<T, I>::announcements_count(), max_count);
-		frame_system::Pallet::<T>::set_block_number(10u32.into());
-
-		#[block]
-		{
-			CollectiveContent::<T, I>::cleanup_announcements(10u32.into());
-		}
-
-		assert_eq!(CollectiveContent::<T, I>::announcements_count(), 0);
-		assert_eq!(frame_system::Pallet::<T>::events().len() as u32, max_count);
-
-		Ok(())
-	}
-
 	impl_benchmark_test_suite!(CollectiveContent, super::mock::new_bench_ext(), super::mock::Test);
 }
