@@ -29,7 +29,7 @@ parking_lot = { version = "0.12.1", optional = true }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.48", optional = true }
 tracing = { version = "0.1.29", optional = true }
-trie-db = { version = "0.27.0", default-features = false }
+trie-db = { version = "0.28.0", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }
 sp-core = { path = "../core", default-features = false}
 sp-std = { path = "../std", default-features = false}
@@ -38,7 +38,7 @@ schnellru = { version = "0.2.1", optional = true }
 [dev-dependencies]
 array-bytes = "6.1"
 criterion = "0.4.0"
-trie-bench = "0.37.0"
+trie-bench = "0.38.0"
 trie-standardmap = "0.16.0"
 sp-runtime = { path = "../runtime" }
 
