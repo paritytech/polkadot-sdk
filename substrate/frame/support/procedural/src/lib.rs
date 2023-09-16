@@ -554,9 +554,10 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 }
 
 /// This attribute can be used to derive a full implementation of a trait based on a local partial
-/// impl and an external impl containing defaults that can be overriden in the local impl.
+/// impl and an external impl containing defaults that can be overridden in the local impl.
 ///
-/// For a full end-to-end example, see [below](#use-case-auto-derive-test-pallet-config-traits).
+/// For a full end-to-end example, see
+/// [below](#use-case-example-auto-derive-test-pallet-config-traits).
 ///
 /// # Usage
 ///
