@@ -47,7 +47,7 @@ use sc_client_api::{
 use sc_consensus::{
 	BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxJustificationImport,
 	ForkChoiceStrategy, ImportQueue, ImportResult, JustificationImport, JustificationSyncLink,
-	LongestChain, Verifier,
+	LongestChain, SharedBlockImport, Verifier,
 };
 use sc_network::{
 	config::{
@@ -775,7 +775,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		let import_queue = Box::new(BasicQueue::new(
 			verifier.clone(),
-			Box::new(block_import.clone()),
+			SharedBlockImport::new(block_import.clone()),
 			justification_import,
 			&sp_core::testing::TaskExecutor::new(),
 			None,

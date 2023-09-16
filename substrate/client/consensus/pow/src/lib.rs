@@ -50,8 +50,8 @@ use log::*;
 use prometheus_endpoint::Registry;
 use sc_client_api::{self, backend::AuxStore, BlockOf, BlockchainEvents};
 use sc_consensus::{
-	BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport,
-	BoxJustificationImport, ForkChoiceStrategy, ImportResult, Verifier,
+	BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxJustificationImport,
+	ForkChoiceStrategy, ImportResult, SharedBlockImport, Verifier,
 };
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
@@ -460,7 +460,7 @@ pub type PowImportQueue<B> = BasicQueue<B>;
 
 /// Import queue for PoW engine.
 pub fn import_queue<B, Algorithm>(
-	block_import: BoxBlockImport<B>,
+	block_import: SharedBlockImport<B>,
 	justification_import: Option<BoxJustificationImport<B>>,
 	algorithm: Algorithm,
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
@@ -486,7 +486,7 @@ where
 /// `pre_runtime` is a parameter that allows a custom additional pre-runtime digest to be inserted
 /// for blocks being built. This can encode authorship information, or just be a graffiti.
 pub fn start_mining_worker<Block, C, S, Algorithm, E, SO, L, CIDP>(
-	block_import: BoxBlockImport<Block>,
+	block_import: SharedBlockImport<Block>,
 	client: Arc<C>,
 	select_chain: S,
 	algorithm: Algorithm,

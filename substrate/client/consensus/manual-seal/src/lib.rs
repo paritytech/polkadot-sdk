@@ -28,7 +28,7 @@ use sc_client_api::{
 };
 use sc_consensus::{
 	block_import::{BlockImport, BlockImportParams, ForkChoiceStrategy},
-	import_queue::{BasicQueue, BoxBlockImport, Verifier},
+	import_queue::{BasicQueue, SharedBlockImport, Verifier},
 };
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{Environment, Proposer, SelectChain};
@@ -76,7 +76,7 @@ impl<B: BlockT> Verifier<B> for ManualSealVerifier {
 
 /// Instantiate the import queue for the manual seal consensus engine.
 pub fn import_queue<Block>(
-	block_import: BoxBlockImport<Block>,
+	block_import: SharedBlockImport<Block>,
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
 	registry: Option<&Registry>,
 ) -> BasicQueue<Block>

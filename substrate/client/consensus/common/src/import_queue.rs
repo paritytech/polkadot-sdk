@@ -27,9 +27,14 @@
 //! instantiated. The `BasicQueue` and `BasicVerifier` traits allow serial
 //! queues to be instantiated simply.
 
+use async_lock::RwLock;
 use log::{debug, trace};
 use std::{
 	fmt,
+	future::Future,
+	ops::Deref,
+	pin::Pin,
+	sync::Arc,
 	time::{Duration, Instant},
 };
 
@@ -61,7 +66,33 @@ pub mod buffered_link;
 pub mod mock;
 
 /// Shared block import struct used by the queue.
-pub type BoxBlockImport<B> = Box<dyn BlockImport<B, Error = ConsensusError> + Send + Sync>;
+pub struct SharedBlockImport<Block: BlockT>(
+	Arc<RwLock<dyn BlockImport<Block, Error = ConsensusError> + Send + Sync>>,
+);
+
+impl<Block: BlockT> Clone for SharedBlockImport<Block> {
+	fn clone(&self) -> Self {
+		Self(Arc::clone(&self.0))
+	}
+}
+
+impl<Block: BlockT> Deref for SharedBlockImport<Block> {
+	type Target = RwLock<dyn BlockImport<Block, Error = ConsensusError> + Send + Sync>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl<Block: BlockT> SharedBlockImport<Block> {
+	/// New instance
+	pub fn new<BI>(block_import: BI) -> Self
+	where
+		BI: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
+	{
+		Self(Arc::new(RwLock::new(block_import)))
+	}
+}
 
 /// Shared justification import struct used by the queue.
 pub type BoxJustificationImport<B> =
@@ -113,6 +144,26 @@ pub trait Verifier<B: BlockT>: Send + Sync {
 	/// Verify the given block data and return the `BlockImportParams` to
 	/// continue the block import process.
 	async fn verify(&self, block: BlockImportParams<B>) -> Result<BlockImportParams<B>, String>;
+}
+
+impl<Block> Verifier<Block> for Arc<dyn Verifier<Block>>
+where
+	Block: BlockT,
+{
+	fn supports_stateless_verification(&self) -> bool {
+		(**self).supports_stateless_verification()
+	}
+
+	fn verify<'life0, 'async_trait>(
+		&'life0 self,
+		block: BlockImportParams<Block>,
+	) -> Pin<Box<dyn Future<Output = Result<BlockImportParams<Block>, String>> + Send + 'async_trait>>
+	where
+		'life0: 'async_trait,
+		Self: 'async_trait,
+	{
+		(**self).verify(block)
+	}
 }
 
 /// Blocks import queue API.
@@ -233,12 +284,16 @@ pub enum BlockImportError {
 type BlockImportResult<B> = Result<BlockImportStatus<NumberFor<B>>, BlockImportError>;
 
 /// Single block import function.
-pub async fn import_single_block<B: BlockT, V: Verifier<B>>(
-	import_handle: &mut impl BlockImport<B, Error = ConsensusError>,
+pub async fn import_single_block<Block, BI>(
+	import_handle: &mut BI,
 	block_origin: BlockOrigin,
-	block: IncomingBlock<B>,
-	verifier: &mut V,
-) -> BlockImportResult<B> {
+	block: IncomingBlock<Block>,
+	verifier: &dyn Verifier<Block>,
+) -> BlockImportResult<Block>
+where
+	Block: BlockT,
+	BI: BlockImport<Block, Error = ConsensusError>,
+{
 	match verify_single_block_metered(import_handle, block_origin, block, verifier, None).await? {
 		SingleBlockVerificationOutcome::Imported(import_status) => Ok(import_status),
 		SingleBlockVerificationOutcome::Verified(import_parameters) =>
@@ -303,13 +358,17 @@ pub(crate) struct SingleBlockImportParameters<Block: BlockT> {
 }
 
 /// Single block import function with metering.
-pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
-	import_handle: &impl BlockImport<B, Error = ConsensusError>,
+pub(crate) async fn verify_single_block_metered<Block, BI>(
+	import_handle: &BI,
 	block_origin: BlockOrigin,
-	block: IncomingBlock<B>,
-	verifier: &mut V,
+	block: IncomingBlock<Block>,
+	verifier: &dyn Verifier<Block>,
 	metrics: Option<&Metrics>,
-) -> Result<SingleBlockVerificationOutcome<B>, BlockImportError> {
+) -> Result<SingleBlockVerificationOutcome<Block>, BlockImportError>
+where
+	Block: BlockT,
+	BI: BlockImport<Block, Error = ConsensusError>,
+{
 	let peer = block.origin;
 
 	let (header, justifications) = match (block.header, block.justifications) {
@@ -330,7 +389,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	let hash = block.hash;
 	let parent_hash = *header.parent_hash();
 
-	match import_handler::<B>(
+	match import_handler::<Block>(
 		number,
 		hash,
 		parent_hash,
@@ -403,11 +462,15 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	}))
 }
 
-pub(crate) async fn import_single_block_metered<Block: BlockT>(
-	import_handle: &mut impl BlockImport<Block, Error = ConsensusError>,
+pub(crate) async fn import_single_block_metered<Block, BI>(
+	import_handle: &mut BI,
 	import_parameters: SingleBlockImportParameters<Block>,
 	metrics: Option<&Metrics>,
-) -> BlockImportResult<Block> {
+) -> BlockImportResult<Block>
+where
+	Block: BlockT,
+	BI: BlockImport<Block, Error = ConsensusError>,
+{
 	let started = Instant::now();
 
 	let SingleBlockImportParameters { import_block, hash, block_origin, verification_time } =
