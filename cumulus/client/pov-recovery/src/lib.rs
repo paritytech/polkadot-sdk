@@ -453,7 +453,7 @@ where
 
 	/// Import the given `block`.
 	///
-	/// This will also recursivley drain `waiting_for_parent` and import them as well.
+	/// This will also recursively drain `waiting_for_parent` and import them as well.
 	async fn import_block(&mut self, block: Block) {
 		let mut blocks = VecDeque::new();
 
