@@ -20,7 +20,10 @@
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 use sp_core::RuntimeDebug;
-use sp_runtime::{traits::Convert, ArithmeticError, DispatchError, TokenError};
+use sp_runtime::{
+	traits::{Convert, MaybeSerializeDeserialize},
+	ArithmeticError, DispatchError, TokenError,
+};
 use sp_std::fmt::Debug;
 
 /// The origin of funds to be used for a deposit operation.
@@ -240,6 +243,7 @@ pub trait Balance:
 	+ MaxEncodedLen
 	+ Send
 	+ Sync
+	+ MaybeSerializeDeserialize
 	+ 'static
 {
 }
@@ -253,6 +257,7 @@ impl<
 			+ MaxEncodedLen
 			+ Send
 			+ Sync
+			+ MaybeSerializeDeserialize
 			+ 'static,
 	> Balance for T
 {

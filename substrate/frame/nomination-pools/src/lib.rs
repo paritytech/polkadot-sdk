@@ -1684,8 +1684,8 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		#[serde(skip)]
-		pub _config: PhantomData<T>,
+		pub min_join_bond: BalanceOf<T>,
+		pub min_create_bond: BalanceOf<T>,
 		pub max_pools: Option<u32>,
 		pub max_members_per_pool: Option<u32>,
 		pub max_members: Option<u32>,
@@ -1695,7 +1695,8 @@ pub mod pallet {
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
 			Self {
-				_config: Default::default(),
+				min_join_bond: Zero::zero(),
+				min_create_bond: Zero::zero(),
 				max_pools: Some(16),
 				max_members_per_pool: Some(32),
 				max_members: Some(16 * 32),
@@ -1707,6 +1708,9 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
+			MinJoinBond::<T>::put(self.min_join_bond);
+			MinCreateBond::<T>::put(self.min_create_bond);
+
 			if let Some(max_pools) = self.max_pools {
 				MaxPools::<T>::put(max_pools);
 			}

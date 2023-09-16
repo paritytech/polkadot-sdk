@@ -42,6 +42,7 @@ pub fn default_reward_account() -> AccountId {
 }
 
 parameter_types! {
+	pub static MinJoinBondConfig: Balance = 2;
 	pub static CurrentEra: EraIndex = 0;
 	pub static BondingDuration: EraIndex = 3;
 	pub storage BondedBalanceMap: BTreeMap<AccountId, Balance> = Default::default();
@@ -278,8 +279,6 @@ pub struct ExtBuilder {
 	max_members: Option<u32>,
 	max_members_per_pool: Option<u32>,
 	global_max_commission: Option<Perbill>,
-	min_join_bond: Option<Balance>,
-	min_create_bond: Option<Balance>,
 }
 
 impl Default for ExtBuilder {
@@ -289,8 +288,6 @@ impl Default for ExtBuilder {
 			max_members: Some(4),
 			max_members_per_pool: Some(3),
 			global_max_commission: Some(Perbill::from_percent(90)),
-			min_join_bond: Some(2),
-			min_create_bond: Some(2),
 		}
 	}
 }
@@ -313,13 +310,8 @@ impl ExtBuilder {
 		self
 	}
 
-	pub fn min_join_bond(mut self, min: Balance) -> Self {
-		self.min_join_bond = Some(min);
-		self
-	}
-
-	pub fn min_create_bond(mut self, min: Balance) -> Self {
-		self.min_create_bond = Some(min);
+	pub fn min_join_bond(self, min: Balance) -> Self {
+		MinJoinBondConfig::set(min);
 		self
 	}
 
@@ -349,7 +341,8 @@ impl ExtBuilder {
 			frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
 		let _ = crate::GenesisConfig::<Runtime> {
-			_config: Default::default(),
+			min_join_bond: MinJoinBondConfig::get(),
+			min_create_bond: 2,
 			max_pools: Some(2),
 			max_members_per_pool: self.max_members_per_pool,
 			max_members: self.max_members,
@@ -362,10 +355,6 @@ impl ExtBuilder {
 		ext.execute_with(|| {
 			// for events to be deposited.
 			frame_system::Pallet::<Runtime>::set_block_number(1);
-
-			// Default min join and create bond to 2.
-			MinJoinBond::<Runtime>::put(self.min_join_bond.unwrap_or(2));
-			MinCreateBond::<Runtime>::put(self.min_create_bond.unwrap_or(2));
 
 			// make a pool
 			let amount_to_bond = Pools::depositor_min_bond();

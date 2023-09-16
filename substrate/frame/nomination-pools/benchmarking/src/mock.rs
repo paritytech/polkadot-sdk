@@ -191,18 +191,13 @@ frame_support::construct_runtime!(
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 	let _ = pallet_nomination_pools::GenesisConfig::<Runtime> {
-		_config: Default::default(),
+		min_join_bond: 2,
+		min_create_bond: 2,
 		max_pools: Some(3),
 		max_members_per_pool: Some(3),
 		max_members: Some(3 * 3),
 		global_max_commission: Some(Perbill::from_percent(50)),
 	}
 	.assimilate_storage(&mut storage);
-	let mut ext = sp_io::TestExternalities::from(storage);
-	ext.execute_with(|| {
-		pallet_nomination_pools::MinJoinBond::<Runtime>::put(2);
-		pallet_nomination_pools::MinCreateBond::<Runtime>::put(2);
-	});
-
-	ext
+	sp_io::TestExternalities::from(storage)
 }
