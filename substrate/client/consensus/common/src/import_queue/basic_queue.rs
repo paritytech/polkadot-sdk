@@ -197,7 +197,7 @@ impl<B: BlockT> ImportQueue<B> for BasicQueue<B> {
 	}
 }
 
-/// Messages destinated to the background worker.
+/// Messages designated to the background worker.
 mod worker_messages {
 	use super::*;
 
@@ -268,7 +268,7 @@ impl<B: BlockT> BlockImportWorker<B> {
 		let (justification_sender, mut justification_port) =
 			tracing_unbounded("mpsc_import_queue_worker_justification", 100_000);
 
-		let (block_import_sender, block_import_port) =
+		let (block_import_sender, block_import_receiver) =
 			tracing_unbounded("mpsc_import_queue_worker_blocks", 100_000);
 
 		let mut worker = BlockImportWorker { result_sender, justification_import, metrics };
@@ -285,7 +285,7 @@ impl<B: BlockT> BlockImportWorker<B> {
 				block_import,
 				verifier,
 				worker.result_sender.clone(),
-				block_import_port,
+				block_import_receiver,
 				worker.metrics.clone(),
 			);
 			futures::pin_mut!(block_import_process);
