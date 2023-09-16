@@ -65,7 +65,7 @@ struct ManualSealVerifier;
 #[async_trait::async_trait]
 impl<B: BlockT> Verifier<B> for ManualSealVerifier {
 	async fn verify(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<B>,
 	) -> Result<BlockImportParams<B>, String> {
 		block.finalized = false;

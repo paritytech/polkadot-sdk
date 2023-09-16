@@ -1197,7 +1197,7 @@ where
 
 struct Verifier<Client, AuraId> {
 	client: Arc<Client>,
-	aura_verifier: BuildOnAccess<Box<dyn VerifierT<Block>>>,
+	aura_verifier: Mutex<BuildOnAccess<Box<dyn VerifierT<Block>>>>,
 	relay_chain_verifier: Box<dyn VerifierT<Block>>,
 	_phantom: PhantomData<AuraId>,
 }
@@ -1210,7 +1210,7 @@ where
 	AuraId: Send + Sync + Codec,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		block_import: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
 		if self
@@ -1219,7 +1219,7 @@ where
 			.has_api::<dyn AuraApi<Block, AuraId>>(*block_import.header.parent_hash())
 			.unwrap_or(false)
 		{
-			self.aura_verifier.get_mut().verify(block_import).await
+			self.aura_verifier.lock().await.get_mut().verify(block_import).await
 		} else {
 			self.relay_chain_verifier.verify(block_import).await
 		}
@@ -1279,7 +1279,7 @@ where
 	let verifier = Verifier {
 		client,
 		relay_chain_verifier,
-		aura_verifier: BuildOnAccess::Uninitialized(Some(Box::new(aura_verifier))),
+		aura_verifier: Mutex::new(BuildOnAccess::Uninitialized(Some(Box::new(aura_verifier)))),
 		_phantom: PhantomData,
 	};
 
