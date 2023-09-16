@@ -29,7 +29,7 @@ E.g.
 
 Some pieces of code cannot be labeled as deprecated, like [reexports](https://github.com/rust-lang/rust/issues/30827)
 or [dispatchables](https://github.com/paritytech/polkadot-sdk/issues/182#issuecomment-1691684159), for instance.
-On cases like that we can only make a visible enough comment, and make sure that we [announce the deprecation properly](#announce-the-deprecation-and-removal).
+In cases like that we can only make a visible enough comment, and make sure that we [announce the deprecation properly](#announce-the-deprecation-and-removal).
 
 ## Remove usage of the deprecated code in the code base
 
@@ -40,7 +40,8 @@ when building the code.
 ## Update examples and tutorials
 
 Make sure that the rust docs are updated.
-We also want [https://docs.substrate.io/](https://docs.substrate.io/) to be updated, you can open an issue on [https://github.com/substrate-developer-hub/substrate-docs](https://github.com/substrate-developer-hub/substrate-docs).
+We also need [https://docs.substrate.io/](https://docs.substrate.io/) to be updated accordingly. The repo behind it is
+[https://github.com/substrate-developer-hub/substrate-docs](https://github.com/substrate-developer-hub/substrate-docs).
 
 ## Announce the deprecation and removal
 
