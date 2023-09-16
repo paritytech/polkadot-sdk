@@ -22,7 +22,7 @@ use super::*;
 use authorship::claim_slot;
 use sc_block_builder::{BlockBuilder, BlockBuilderProvider};
 use sc_client_api::{BlockchainEvents, Finalizer};
-use sc_consensus::{BoxBlockImport, BoxJustificationImport};
+use sc_consensus::{BoxJustificationImport, SharedBlockImport};
 use sc_consensus_epochs::{EpochIdentifier, EpochIdentifierPosition};
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
 use sc_network_test::{Block as TestBlock, *};
@@ -204,7 +204,7 @@ impl Verifier<TestBlock> for TestVerifier {
 
 pub struct PeerData {
 	link: BabeLink<TestBlock>,
-	block_import: Mutex<Option<BoxBlockImport<TestBlock>>>,
+	block_import: SharedBlockImport<TestBlock>,
 }
 
 impl TestNetFactory for BabeTestNet {
@@ -228,8 +228,7 @@ impl TestNetFactory for BabeTestNet {
 
 		let block_import = PanickingBlockImport(block_import);
 
-		let data_block_import =
-			Mutex::new(Some(Box::new(block_import.clone()) as BoxBlockImport<_>));
+		let data_block_import = SharedBlockImport::new(block_import.clone());
 		(
 			BlockImportAdapter::new(block_import),
 			None,
@@ -370,7 +369,7 @@ async fn run_one_test(mutator: impl Fn(&mut TestHeader, Stage) + Send + Sync + '
 		let client_clone = client.clone();
 		babe_futures.push(
 			start_babe(BabeParams {
-				block_import: data.block_import.lock().take().expect("import set up during init"),
+				block_import: data.block_import.clone(),
 				select_chain,
 				client,
 				env: environ,
@@ -614,7 +613,7 @@ async fn propose_and_import_block(
 	parent: &TestHeader,
 	slot: Option<Slot>,
 	proposer_factory: &mut DummyFactory,
-	block_import: &mut BoxBlockImport<TestBlock>,
+	block_import: &mut SharedBlockImport<TestBlock>,
 ) -> Hash {
 	let mut proposer = proposer_factory.init(parent).await.unwrap();
 
@@ -684,7 +683,7 @@ async fn propose_and_import_block(
 async fn propose_and_import_blocks(
 	client: &PeersFullClient,
 	proposer_factory: &mut DummyFactory,
-	block_import: &mut BoxBlockImport<TestBlock>,
+	block_import: &mut SharedBlockImport<TestBlock>,
 	parent_hash: Hash,
 	n: usize,
 ) -> Vec<Hash> {
@@ -715,7 +714,7 @@ async fn importing_block_one_sets_genesis_epoch() {
 		mutator: Arc::new(|_, _| ()),
 	};
 
-	let mut block_import = data.block_import.lock().take().expect("import set up during init");
+	let mut block_import = data.block_import.clone();
 
 	let genesis_header = client.header(client.chain_info().genesis_hash).unwrap().unwrap();
 
@@ -749,7 +748,7 @@ async fn revert_prunes_epoch_changes_and_removes_weights() {
 
 	let client = peer.client().as_client();
 	let backend = peer.client().as_backend();
-	let mut block_import = data.block_import.lock().take().expect("import set up during init");
+	let mut block_import = data.block_import.clone();
 	let epoch_changes = data.link.epoch_changes.clone();
 
 	let mut proposer_factory = DummyFactory {
@@ -837,7 +836,7 @@ async fn revert_not_allowed_for_finalized() {
 
 	let client = peer.client().as_client();
 	let backend = peer.client().as_backend();
-	let mut block_import = data.block_import.lock().take().expect("import set up during init");
+	let mut block_import = data.block_import.clone();
 
 	let mut proposer_factory = DummyFactory {
 		client: client.clone(),
@@ -876,7 +875,7 @@ async fn importing_epoch_change_block_prunes_tree() {
 	let data = peer.data.as_ref().expect("babe link set up during initialization");
 
 	let client = peer.client().as_client();
-	let mut block_import = data.block_import.lock().take().expect("import set up during init");
+	let mut block_import = data.block_import.clone();
 	let epoch_changes = data.link.epoch_changes.clone();
 
 	let mut proposer_factory = DummyFactory {
@@ -975,7 +974,7 @@ async fn verify_slots_are_strictly_increasing() {
 	let data = peer.data.as_ref().expect("babe link set up during initialization");
 
 	let client = peer.client().as_client();
-	let mut block_import = data.block_import.lock().take().expect("import set up during init");
+	let mut block_import = data.block_import.clone();
 
 	let mut proposer_factory = DummyFactory {
 		client: client.clone(),
@@ -1022,7 +1021,7 @@ async fn obsolete_blocks_aux_data_cleanup() {
 		mutator: Arc::new(|_, _| ()),
 	};
 
-	let mut block_import = data.block_import.lock().take().expect("import set up during init");
+	let mut block_import = data.block_import.clone();
 
 	let aux_data_check = |hashes: &[Hash], expected: bool| {
 		hashes.iter().all(|hash| {
@@ -1099,7 +1098,7 @@ async fn allows_skipping_epochs() {
 	let data = peer.data.as_ref().expect("babe link set up during initialization");
 
 	let client = peer.client().as_client();
-	let mut block_import = data.block_import.lock().take().expect("import set up during init");
+	let mut block_import = data.block_import.clone();
 
 	let mut proposer_factory = DummyFactory {
 		client: client.clone(),
@@ -1228,7 +1227,7 @@ async fn allows_skipping_epochs_on_some_forks() {
 	let data = peer.data.as_ref().expect("babe link set up during initialization");
 
 	let client = peer.client().as_client();
-	let mut block_import = data.block_import.lock().take().expect("import set up during init");
+	let mut block_import = data.block_import.clone();
 
 	let mut proposer_factory = DummyFactory {
 		client: client.clone(),

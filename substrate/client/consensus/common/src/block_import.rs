@@ -317,12 +317,12 @@ pub trait BlockImport<B: BlockT> {
 }
 
 #[async_trait::async_trait]
-impl<B: BlockT> BlockImport<B> for crate::import_queue::BoxBlockImport<B> {
+impl<B: BlockT> BlockImport<B> for crate::import_queue::SharedBlockImport<B> {
 	type Error = sp_consensus::error::Error;
 
 	/// Check block preconditions.
 	async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
-		(**self).check_block(block).await
+		self.read().await.check_block(block).await
 	}
 
 	/// Import a block.
@@ -330,7 +330,7 @@ impl<B: BlockT> BlockImport<B> for crate::import_queue::BoxBlockImport<B> {
 		&mut self,
 		block: BlockImportParams<B>,
 	) -> Result<ImportResult, Self::Error> {
-		(**self).import_block(block).await
+		self.write().await.import_block(block).await
 	}
 }
 

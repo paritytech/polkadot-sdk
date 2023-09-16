@@ -20,7 +20,7 @@ use cumulus_client_consensus_common::ParachainBlockImportMarker;
 
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
-	BlockImport, BlockImportParams,
+	BlockImport, BlockImportParams, SharedBlockImport,
 };
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
@@ -125,5 +125,5 @@ where
 {
 	let verifier = Verifier::new(client, create_inherent_data_providers);
 
-	Ok(BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry))
+	Ok(BasicQueue::new(verifier, SharedBlockImport::new(block_import), None, spawner, registry))
 }

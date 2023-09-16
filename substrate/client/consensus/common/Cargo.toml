@@ -13,6 +13,7 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+async-lock = "2.8.0"
 async-trait = "0.1.57"
 futures = { version = "0.3.21", features = ["thread-pool"] }
 futures-timer = "3.0.1"

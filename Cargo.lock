@@ -14683,6 +14683,7 @@ dependencies = [
 name = "sc-consensus"
 version = "0.10.0-dev"
 dependencies = [
+ "async-lock",
  "async-trait",
  "futures",
  "futures-timer",

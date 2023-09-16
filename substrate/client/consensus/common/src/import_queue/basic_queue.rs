@@ -33,8 +33,9 @@ use crate::{
 	import_queue::{
 		buffered_link::{self, BufferedLinkReceiver, BufferedLinkSender},
 		import_single_block_metered, verify_single_block_metered, BlockImportError,
-		BlockImportStatus, BoxBlockImport, BoxJustificationImport, ImportQueue, ImportQueueService,
-		IncomingBlock, Link, RuntimeOrigin, SingleBlockVerificationOutcome, Verifier, LOG_TARGET,
+		BlockImportStatus, BoxJustificationImport, ImportQueue, ImportQueueService, IncomingBlock,
+		Link, RuntimeOrigin, SharedBlockImport, SingleBlockVerificationOutcome, Verifier,
+		LOG_TARGET,
 	},
 	metrics::Metrics,
 };
@@ -62,7 +63,7 @@ impl<B: BlockT> BasicQueue<B> {
 	/// This creates a background task, and calls `on_start` on the justification importer.
 	pub fn new<V>(
 		verifier: V,
-		block_import: BoxBlockImport<B>,
+		block_import: SharedBlockImport<B>,
 		justification_import: Option<BoxJustificationImport<B>>,
 		spawner: &impl sp_core::traits::SpawnEssentialNamed,
 		prometheus_registry: Option<&Registry>,
@@ -221,7 +222,7 @@ mod worker_messages {
 ///
 /// Returns when `block_import` ended.
 async fn block_import_process<B: BlockT>(
-	mut block_import: BoxBlockImport<B>,
+	mut block_import: SharedBlockImport<B>,
 	mut verifier: impl Verifier<B>,
 	mut result_sender: BufferedLinkSender<B>,
 	mut block_import_receiver: TracingUnboundedReceiver<worker_messages::ImportBlocks<B>>,
@@ -258,7 +259,7 @@ impl<B: BlockT> BlockImportWorker<B> {
 	fn new<V>(
 		result_sender: BufferedLinkSender<B>,
 		verifier: V,
-		block_import: BoxBlockImport<B>,
+		block_import: SharedBlockImport<B>,
 		justification_import: Option<BoxJustificationImport<B>>,
 		metrics: Option<Metrics>,
 	) -> (
@@ -385,7 +386,7 @@ struct ImportManyBlocksResult<B: BlockT> {
 /// This will yield after each imported block once, to ensure that other futures can
 /// be called as well.
 async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
-	import_handle: &mut BoxBlockImport<B>,
+	import_handle: &mut SharedBlockImport<B>,
 	blocks_origin: BlockOrigin,
 	blocks: Vec<IncomingBlock<B>>,
 	verifier: &mut V,
@@ -589,8 +590,13 @@ mod tests {
 	fn prioritizes_finality_work_over_block_import() {
 		let (result_sender, mut result_port) = buffered_link::buffered_link(100_000);
 
-		let (worker, finality_sender, block_import_sender) =
-			BlockImportWorker::new(result_sender, (), Box::new(()), Some(Box::new(())), None);
+		let (worker, finality_sender, block_import_sender) = BlockImportWorker::new(
+			result_sender,
+			(),
+			SharedBlockImport::new(()),
+			Some(Box::new(())),
+			None,
+		);
 		futures::pin_mut!(worker);
 
 		let import_block = |n| {

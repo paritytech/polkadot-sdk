@@ -23,7 +23,7 @@ use futures::executor::block_on;
 use sc_block_builder::BlockBuilderProvider;
 use sc_consensus::{
 	import_single_block, BasicQueue, BlockImportError, BlockImportStatus, ImportedAux,
-	IncomingBlock,
+	IncomingBlock, SharedBlockImport,
 };
 use sp_consensus::BlockOrigin;
 use substrate_test_runtime_client::{
@@ -118,7 +118,7 @@ fn async_import_queue_drops() {
 
 		let queue = BasicQueue::new(
 			verifier,
-			Box::new(substrate_test_runtime_client::new()),
+			SharedBlockImport::new(substrate_test_runtime_client::new()),
 			None,
 			&executor,
 			None,

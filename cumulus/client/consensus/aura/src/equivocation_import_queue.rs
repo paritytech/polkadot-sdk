@@ -26,7 +26,7 @@ use schnellru::{ByLength, LruMap};
 
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
-	BlockImport, BlockImportParams, ForkChoiceStrategy,
+	BlockImport, BlockImportParams, ForkChoiceStrategy, SharedBlockImport,
 };
 use sc_consensus_aura::standalone as aura_internal;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
@@ -246,5 +246,5 @@ where
 		_phantom: std::marker::PhantomData,
 	};
 
-	BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry)
+	BasicQueue::new(verifier, SharedBlockImport::new(block_import), None, spawner, registry)
 }

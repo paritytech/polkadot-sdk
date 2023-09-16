@@ -46,7 +46,7 @@ use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use futures::lock::Mutex;
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
-	BlockImportParams, ImportQueue,
+	BlockImportParams, ImportQueue, SharedBlockImport,
 };
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{config::FullNetworkConfiguration, NetworkBlock};
@@ -1111,7 +1111,7 @@ where
 	let registry = config.prometheus_registry();
 	let spawner = task_manager.spawn_essential_handle();
 
-	Ok(BasicQueue::new(verifier, Box::new(block_import), None, &spawner, registry))
+	Ok(BasicQueue::new(verifier, SharedBlockImport::new(block_import), None, &spawner, registry))
 }
 
 /// Start an aura powered parachain node. Asset Hub and Collectives use this.
