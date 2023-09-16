@@ -3318,7 +3318,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	#[cfg(any(feature = "try-runtime", feature = "runtime-benchmarks", test, debug_assertions))]
-	pub fn check_ed_imbalance() -> Result<(), TryRuntimeError> {
+	pub fn check_ed_imbalance() -> Result<(), DispatchError> {
 		let mut failed: u32 = 0;
 		BondedPools::<T>::iter_keys().for_each(|id| {
 			let reward_acc = Self::create_reward_account(id);
