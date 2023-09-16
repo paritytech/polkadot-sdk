@@ -312,10 +312,7 @@ where
 {
 	type Error = ConsensusError;
 
-	async fn check_block(
-		&mut self,
-		block: BlockCheckParams<B>,
-	) -> Result<ImportResult, Self::Error> {
+	async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await.map_err(Into::into)
 	}
 
