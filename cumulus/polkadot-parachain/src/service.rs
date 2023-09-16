@@ -28,6 +28,7 @@ use cumulus_client_service::{
 };
 use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
+use futures::lock::Mutex;
 use sc_rpc::DenyUnsafe;
 
 use jsonrpsee::RpcModule;
@@ -518,23 +519,24 @@ impl<R> BuildOnAccess<R> {
 
 struct Verifier<Client, AuraId> {
 	client: Arc<Client>,
-	aura_verifier: BuildOnAccess<Box<dyn VerifierT<Block>>>,
+	aura_verifier: Mutex<BuildOnAccess<Box<dyn VerifierT<Block>>>>,
 	relay_chain_verifier: Box<dyn VerifierT<Block>>,
 	_phantom: PhantomData<AuraId>,
 }
 
 #[async_trait::async_trait]
-impl<Client, AuraId: AuraIdT> VerifierT<Block> for Verifier<Client, AuraId>
+impl<Client, AuraId> VerifierT<Block> for Verifier<Client, AuraId>
 where
 	Client: sp_api::ProvideRuntimeApi<Block> + Send + Sync,
 	Client::Api: AuraRuntimeApi<Block, AuraId>,
+	AuraId: AuraIdT + Sync,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		block_import: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
 		if self.client.runtime_api().has_aura_api(*block_import.header.parent_hash()) {
-			self.aura_verifier.get_mut().verify(block_import).await
+			self.aura_verifier.lock().await.get_mut().verify(block_import).await
 		} else {
 			self.relay_chain_verifier.verify(block_import).await
 		}
@@ -543,7 +545,7 @@ where
 
 /// Build the import queue for parachain runtimes that started with relay chain consensus and
 /// switched to aura.
-pub fn build_relay_to_aura_import_queue<RuntimeApi, AuraId: AuraIdT>(
+pub fn build_relay_to_aura_import_queue<RuntimeApi, AuraId>(
 	client: Arc<ParachainClient<RuntimeApi>>,
 	block_import: ParachainBlockImport<RuntimeApi>,
 	config: &Configuration,
@@ -553,6 +555,7 @@ pub fn build_relay_to_aura_import_queue<RuntimeApi, AuraId: AuraIdT>(
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	AuraId: AuraIdT + Sync,
 {
 	let verifier_client = client.clone();
 
@@ -592,7 +595,7 @@ where
 	let verifier = Verifier {
 		client,
 		relay_chain_verifier,
-		aura_verifier: BuildOnAccess::Uninitialized(Some(Box::new(aura_verifier))),
+		aura_verifier: Mutex::new(BuildOnAccess::Uninitialized(Some(Box::new(aura_verifier)))),
 		_phantom: PhantomData,
 	};
 
@@ -632,7 +635,7 @@ pub async fn start_generic_aura_lookahead_node<Net: NetworkBackend<Block, Hash>>
 ///
 /// Uses the lookahead collator to support async backing.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
-pub async fn start_asset_hub_lookahead_node<RuntimeApi, AuraId: AuraIdT, Net>(
+pub async fn start_asset_hub_lookahead_node<RuntimeApi, AuraId, Net>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -644,6 +647,7 @@ where
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+	AuraId: AuraIdT + Sync,
 	Net: NetworkBackend<Block, Hash>,
 {
 	start_node_impl::<RuntimeApi, _, _, _, Net>(
