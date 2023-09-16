@@ -130,6 +130,16 @@ impl ExecutorParams {
 		}
 		None
 	}
+
+	/// Returns pre-checking memory limit, if any
+	pub fn prechecking_max_memory(&self) -> Option<u64> {
+		for param in &self.0 {
+			if let ExecutorParam::PrecheckingMaxMemory(limit) = param {
+				return Some(*limit)
+			}
+		}
+		None
+	}
 }
 
 impl Deref for ExecutorParams {

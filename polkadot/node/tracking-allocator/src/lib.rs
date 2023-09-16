@@ -18,11 +18,13 @@
 
 use core::alloc::{GlobalAlloc, Layout};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::ptr::null_mut;
 
 struct TrackingAllocatorData {
 	lock: AtomicBool,
 	current: isize,
 	peak: isize,
+	limit: isize,
 }
 
 impl TrackingAllocatorData {
@@ -53,33 +55,37 @@ impl TrackingAllocatorData {
 		self.lock.store(false, Ordering::Release);
 	}
 
-	fn start_tracking(&mut self) {
+	fn start_tracking(&mut self, limit: isize) {
 		self.lock();
 		self.current = 0;
 		self.peak = 0;
+		self.limit = limit;
 		self.unlock();
 	}
 
-	fn end_tracking(&self) -> isize {
+	fn end_tracking(&mut self) -> isize {
 		self.lock();
 		let peak = self.peak;
+		self.limit = 0;
 		self.unlock();
 		peak
 	}
 
 	#[inline]
-	fn track(&mut self, alloc: isize) {
+	fn track(&mut self, alloc: isize) -> bool {
 		self.lock();
 		self.current += alloc;
 		if self.current > self.peak {
 			self.peak = self.current;
 		}
+		let within_limits = self.limit == 0 || self.peak <= self.limit;
 		self.unlock();
+		within_limits
 	}
 }
 
 static mut ALLOCATOR_DATA: TrackingAllocatorData =
-	TrackingAllocatorData { lock: AtomicBool::new(false), current: 0, peak: 0 };
+	TrackingAllocatorData { lock: AtomicBool::new(false), current: 0, peak: 0, limit: 0 };
 
 pub struct TrackingAllocator<A: GlobalAlloc>(pub A);
 
@@ -89,9 +95,9 @@ impl<A: GlobalAlloc> TrackingAllocator<A> {
 	//   is isolated by an exclusive lock.
 
 	/// Start tracking
-	pub fn start_tracking(&self) {
+	pub fn start_tracking(&self, limit: Option<isize>) {
 		unsafe {
-			ALLOCATOR_DATA.start_tracking();
+			ALLOCATOR_DATA.start_tracking(limit.unwrap_or(0));
 		}
 	}
 
@@ -108,14 +114,20 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for TrackingAllocator<A> {
 
 	#[inline]
 	unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-		ALLOCATOR_DATA.track(layout.size() as isize);
-		self.0.alloc(layout)
+		if ALLOCATOR_DATA.track(layout.size() as isize) {
+			self.0.alloc(layout)
+		} else {
+			null_mut()
+		}
 	}
 
 	#[inline]
 	unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
-		ALLOCATOR_DATA.track(layout.size() as isize);
-		self.0.alloc_zeroed(layout)
+		if ALLOCATOR_DATA.track(layout.size() as isize) {
+			self.0.alloc_zeroed(layout)
+		} else {
+			null_mut()
+		}
 	}
 
 	#[inline]
@@ -126,7 +138,10 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for TrackingAllocator<A> {
 
 	#[inline]
 	unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
-		ALLOCATOR_DATA.track((new_size as isize) - (layout.size() as isize));
-		self.0.realloc(ptr, layout, new_size)
+		if ALLOCATOR_DATA.track((new_size as isize) - (layout.size() as isize)) {
+			self.0.realloc(ptr, layout, new_size)
+		} else {
+			null_mut()
+		}
 	}
 }

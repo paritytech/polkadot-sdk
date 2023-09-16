@@ -21,11 +21,19 @@ use polkadot_node_core_pvf::{
 	start, Config, InvalidCandidate, Metrics, PrepareJobKind, PvfPrepData, ValidationError,
 	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
-use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
+use polkadot_parachain_primitives::primitives::{
+	BlockData as GenericBlockData, ValidationParams, ValidationResult,
+};
 use polkadot_primitives::ExecutorParams;
 
-#[cfg(feature = "ci-only-tests")]
+#[cfg(any(feature = "ci-only-tests", feature = "tracking-allocator"))]
 use polkadot_primitives::ExecutorParam;
+
+#[cfg(feature = "tracking-allocator")]
+use ::adder::{hash_state, BlockData, HeadData};
+
+#[cfg(feature = "tracking-allocator")]
+use polkadot_primitives::HeadData as GenericHeadData;
 
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -111,7 +119,7 @@ async fn terminates_on_timeout() {
 		.validate_candidate(
 			halt::wasm_binary_unwrap(),
 			ValidationParams {
-				block_data: BlockData(Vec::new()),
+				block_data: GenericBlockData(Vec::new()),
 				parent_head: Default::default(),
 				relay_parent_number: 1,
 				relay_parent_storage_root: Default::default(),
@@ -138,7 +146,7 @@ async fn ensure_parallel_execution() {
 	let execute_pvf_future_1 = host.validate_candidate(
 		halt::wasm_binary_unwrap(),
 		ValidationParams {
-			block_data: BlockData(Vec::new()),
+			block_data: GenericBlockData(Vec::new()),
 			parent_head: Default::default(),
 			relay_parent_number: 1,
 			relay_parent_storage_root: Default::default(),
@@ -148,7 +156,7 @@ async fn ensure_parallel_execution() {
 	let execute_pvf_future_2 = host.validate_candidate(
 		halt::wasm_binary_unwrap(),
 		ValidationParams {
-			block_data: BlockData(Vec::new()),
+			block_data: GenericBlockData(Vec::new()),
 			parent_head: Default::default(),
 			relay_parent_number: 1,
 			relay_parent_storage_root: Default::default(),
@@ -191,7 +199,7 @@ async fn execute_queue_doesnt_stall_if_workers_died() {
 		host.validate_candidate(
 			halt::wasm_binary_unwrap(),
 			ValidationParams {
-				block_data: BlockData(Vec::new()),
+				block_data: GenericBlockData(Vec::new()),
 				parent_head: Default::default(),
 				relay_parent_number: 1,
 				relay_parent_storage_root: Default::default(),
@@ -233,7 +241,7 @@ async fn execute_queue_doesnt_stall_with_varying_executor_params() {
 		host.validate_candidate(
 			halt::wasm_binary_unwrap(),
 			ValidationParams {
-				block_data: BlockData(Vec::new()),
+				block_data: GenericBlockData(Vec::new()),
 				parent_head: Default::default(),
 				relay_parent_number: 1,
 				relay_parent_storage_root: Default::default(),
@@ -273,7 +281,7 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 		.validate_candidate(
 			halt::wasm_binary_unwrap(),
 			ValidationParams {
-				block_data: BlockData(Vec::new()),
+				block_data: GenericBlockData(Vec::new()),
 				parent_head: Default::default(),
 				relay_parent_number: 1,
 				relay_parent_storage_root: Default::default(),
@@ -303,7 +311,7 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 		.validate_candidate(
 			halt::wasm_binary_unwrap(),
 			ValidationParams {
-				block_data: BlockData(Vec::new()),
+				block_data: GenericBlockData(Vec::new()),
 				parent_head: Default::default(),
 				relay_parent_number: 1,
 				relay_parent_storage_root: Default::default(),
@@ -314,6 +322,68 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 
 	match result {
 		Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)) => {},
+		r => panic!("{:?}", r),
+	}
+}
+
+// This test checks if the adder parachain runtime can be prepared with 10Mb preparation memory
+// limit enforced. At the moment of writing, the limit if far enough to prepare the PVF. If it
+// starts failing, either Wasmtime version has changed, or the PVF code itself has changed, and
+// more memory is required now. Multi-threaded preparation, if ever enabled, may also affect
+// memory consumption.
+#[cfg(feature = "tracking-allocator")]
+#[tokio::test]
+async fn prechecking_within_memory_limits() {
+	let host = TestHost::new();
+	let parent_head = HeadData { number: 0, parent_hash: [0; 32], post_state: hash_state(0) };
+	let block_data = BlockData { state: 0, add: 512 };
+	let result = host
+		.validate_candidate(
+			::adder::wasm_binary_unwrap(),
+			ValidationParams {
+				parent_head: GenericHeadData(parent_head.encode()),
+				block_data: GenericBlockData(block_data.encode()),
+				relay_parent_number: 1,
+				relay_parent_storage_root: Default::default(),
+			},
+			ExecutorParams::from(&[ExecutorParam::PrecheckingMaxMemory(10 * 1024 * 1024)][..]),
+		)
+		.await;
+
+	match result {
+		Ok(_) => (),
+		r => panic!("{:?}", r),
+	}
+}
+
+// This test checks if the adder parachain runtime can be prepared with 512Kb preparation memory
+// limit enforced. At the moment of writing, the limit if not enough to prepare the PVF, and the
+// preparation is supposed to generate an error. If the test starts failing, either Wasmtime
+// version has changed, or the PVF code itself has changed, and less memory is required now.
+#[cfg(feature = "tracking-allocator")]
+#[tokio::test]
+async fn prechecking_out_of_memory() {
+	use polkadot_node_core_pvf::ValidationError::InternalError;
+	use polkadot_node_core_pvf_common::error::InternalValidationError::NonDeterministicPrepareError;
+
+	let host = TestHost::new();
+	let parent_head = HeadData { number: 0, parent_hash: [0; 32], post_state: hash_state(0) };
+	let block_data = BlockData { state: 0, add: 512 };
+	let result = host
+		.validate_candidate(
+			::adder::wasm_binary_unwrap(),
+			ValidationParams {
+				parent_head: GenericHeadData(parent_head.encode()),
+				block_data: GenericBlockData(block_data.encode()),
+				relay_parent_number: 1,
+				relay_parent_storage_root: Default::default(),
+			},
+			ExecutorParams::from(&[ExecutorParam::PrecheckingMaxMemory(512 * 1024)][..]),
+		)
+		.await;
+
+	match result {
+		Err(InternalError(NonDeterministicPrepareError(_))) => (),
 		r => panic!("{:?}", r),
 	}
 }

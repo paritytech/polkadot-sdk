@@ -178,7 +178,7 @@ pub fn worker_entrypoint(
 				)?;
 
 				#[cfg(feature = "tracking-allocator")]
-				ALLOC.start_tracking();
+				ALLOC.start_tracking(executor_params.prechecking_max_memory().map(|v| v as isize));
 
 				// Spawn another thread for preparation.
 				let prepare_thread = thread::spawn_worker_thread(
