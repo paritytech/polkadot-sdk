@@ -29,6 +29,11 @@ use frame_support::{
 use mock::{new_test_ext, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::{BadOrigin, Zero};
 use std::iter::{once, repeat};
+use super::*;
+use cumulus_primitives_core::{ParaId, XcmpMessageHandler};
+use frame_support::{assert_noop, assert_ok};
+use mock::{new_test_ext, ParachainSystem, RuntimeCall, RuntimeOrigin, Test, XcmpQueue};
+use sp_runtime::traits::BadOrigin;
 
 #[test]
 fn empty_concatenated_works() {
@@ -724,4 +729,33 @@ fn lazy_migration_noop_when_out_of_weight() {
 		InboundXcmpMessages::<Test>::remove(para, block);
 		InboundXcmpStatus::<Test>::kill();
 	});
+}
+
+#[test]
+fn xcmp_queue_send_xcm_works() {
+	new_test_ext().execute_with(|| {
+		let sibling_para_id = ParaId::from(12345);
+		let dest = (Parent, X1(Parachain(sibling_para_id.into()))).into();
+		let msg = Xcm(vec![ClearOrigin]);
+
+		// try to send without opened HRMP channel to the sibling_para_id
+		assert_eq!(
+			send_xcm::<XcmpQueue>(dest, msg.clone()),
+			Err(SendError::Transport("NoChannel")),
+		);
+
+		// open HRMP channel to the sibling_para_id
+		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(sibling_para_id);
+
+		// check empty outbound queue
+		assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+
+		// now send works
+		assert_ok!(send_xcm::<XcmpQueue>(dest, msg));
+
+		// check outbound queue contains message/page for sibling_para_id
+		assert!(XcmpQueue::take_outbound_messages(usize::MAX)
+			.iter()
+			.any(|(para_id, _)| para_id == &sibling_para_id));
+	})
 }
