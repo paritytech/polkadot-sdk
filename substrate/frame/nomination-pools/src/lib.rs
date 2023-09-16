@@ -3317,7 +3317,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	#[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
+	#[cfg(any(feature = "try-runtime", feature = "runtime-benchmarks", test, debug_assertions))]
 	pub fn check_ed_imbalance() -> Result<(), TryRuntimeError> {
 		let mut failed: u32 = 0;
 		BondedPools::<T>::iter_keys().for_each(|id| {
@@ -3341,7 +3341,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	#[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
+	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub fn remove_ed_freeze(pool_id: PoolId) {
 		let _ = T::Currency::thaw(
 			&FreezeReason::PoolMinBalance.into(),
