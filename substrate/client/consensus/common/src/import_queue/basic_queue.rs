@@ -19,7 +19,6 @@ use futures::{
 	prelude::*,
 	task::{Context, Poll},
 };
-use futures_timer::Delay;
 use log::{debug, trace};
 use prometheus_endpoint::Registry;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
@@ -28,7 +27,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	Justification, Justifications,
 };
-use std::{pin::Pin, time::Duration};
+use std::pin::Pin;
 
 use crate::{
 	import_queue::{
@@ -224,7 +223,6 @@ async fn block_import_process<B: BlockT>(
 	mut result_sender: BufferedLinkSender<B>,
 	mut block_import_receiver: TracingUnboundedReceiver<worker_messages::ImportBlocks<B>>,
 	metrics: Option<Metrics>,
-	delay_between_blocks: Duration,
 ) {
 	loop {
 		let worker_messages::ImportBlocks(origin, blocks) = match block_import_receiver.next().await
@@ -239,15 +237,9 @@ async fn block_import_process<B: BlockT>(
 			},
 		};
 
-		let res = import_many_blocks(
-			&mut block_import,
-			origin,
-			blocks,
-			&mut verifier,
-			delay_between_blocks,
-			metrics.clone(),
-		)
-		.await;
+		let res =
+			import_many_blocks(&mut block_import, origin, blocks, &mut verifier, metrics.clone())
+				.await;
 
 		result_sender.blocks_processed(res.imported, res.block_count, res.results);
 	}
@@ -281,8 +273,6 @@ impl<B: BlockT> BlockImportWorker<B> {
 
 		let mut worker = BlockImportWorker { result_sender, justification_import, metrics };
 
-		let delay_between_blocks = Duration::default();
-
 		let future = async move {
 			// Let's initialize `justification_import`
 			if let Some(justification_import) = worker.justification_import.as_mut() {
@@ -297,7 +287,6 @@ impl<B: BlockT> BlockImportWorker<B> {
 				worker.result_sender.clone(),
 				block_import_port,
 				worker.metrics.clone(),
-				delay_between_blocks,
 			);
 			futures::pin_mut!(block_import_process);
 
@@ -394,7 +383,6 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 	blocks_origin: BlockOrigin,
 	blocks: Vec<IncomingBlock<B>>,
 	verifier: &mut V,
-	delay_between_blocks: Duration,
 	metrics: Option<Metrics>,
 ) -> ImportManyBlocksResult<B> {
 	let count = blocks.len();
@@ -460,11 +448,7 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 
 		results.push((import_result, block_hash));
 
-		if delay_between_blocks != Duration::default() && !has_error {
-			Delay::new(delay_between_blocks).await;
-		} else {
-			Yield::new().await
-		}
+		Yield::new().await
 	}
 }
 
