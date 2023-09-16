@@ -32,6 +32,7 @@ sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-core = { path = "../../../primitives/core" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
+tokio = "1.32.0"
 
 [dev-dependencies]
 sp-test-primitives = { path = "../../../primitives/test-primitives" }
