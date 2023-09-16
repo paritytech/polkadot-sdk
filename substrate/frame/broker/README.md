@@ -4,7 +4,7 @@ Brokerage tool for managing Polkadot Core scheduling.
 
 Properly described in RFC-0001 Agile Coretime.
 
-## Implemnentation Specifics
+## Implementation Specifics
 
 ### Core Mask Bits
 
