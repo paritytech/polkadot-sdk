@@ -32,9 +32,9 @@ use std::pin::Pin;
 use crate::{
 	import_queue::{
 		buffered_link::{self, BufferedLinkReceiver, BufferedLinkSender},
-		import_single_block_metered, BlockImportError, BlockImportStatus, BoxBlockImport,
-		BoxJustificationImport, ImportQueue, ImportQueueService, IncomingBlock, Link,
-		RuntimeOrigin, Verifier, LOG_TARGET,
+		import_single_block_metered, verify_single_block_metered, BlockImportError,
+		BlockImportStatus, BoxBlockImport, BoxJustificationImport, ImportQueue, ImportQueueService,
+		IncomingBlock, Link, RuntimeOrigin, SingleBlockVerificationOutcome, Verifier, LOG_TARGET,
 	},
 	metrics::Metrics,
 };
@@ -419,15 +419,22 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 		let import_result = if has_error {
 			Err(BlockImportError::Cancelled)
 		} else {
-			// The actual import.
-			import_single_block_metered(
+			let verification_fut = verify_single_block_metered(
 				import_handle,
 				blocks_origin,
 				block,
 				verifier,
-				metrics.clone(),
-			)
-			.await
+				metrics.as_ref(),
+			);
+			match verification_fut.await {
+				Ok(SingleBlockVerificationOutcome::Imported(import_status)) => Ok(import_status),
+				Ok(SingleBlockVerificationOutcome::Verified(import_parameters)) => {
+					// The actual import.
+					import_single_block_metered(import_handle, import_parameters, metrics.as_ref())
+						.await
+				},
+				Err(e) => Err(e),
+			}
 		};
 
 		if let Some(metrics) = metrics.as_ref() {

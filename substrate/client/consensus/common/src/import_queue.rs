@@ -28,7 +28,10 @@
 //! queues to be instantiated simply.
 
 use log::{debug, trace};
-use std::fmt;
+use std::{
+	fmt,
+	time::{Duration, Instant},
+};
 
 use sp_consensus::{error::Error as ConsensusError, BlockOrigin};
 use sp_runtime::{
@@ -225,7 +228,11 @@ pub async fn import_single_block<B: BlockT, V: Verifier<B>>(
 	block: IncomingBlock<B>,
 	verifier: &mut V,
 ) -> BlockImportResult<B> {
-	import_single_block_metered(import_handle, block_origin, block, verifier, None).await
+	match verify_single_block_metered(import_handle, block_origin, block, verifier, None).await? {
+		SingleBlockVerificationOutcome::Imported(import_status) => Ok(import_status),
+		SingleBlockVerificationOutcome::Verified(import_parameters) =>
+			import_single_block_metered(import_handle, import_parameters, None).await,
+	}
 }
 
 fn import_handler<Block>(
@@ -270,14 +277,28 @@ where
 	}
 }
 
+pub(crate) enum SingleBlockVerificationOutcome<Block: BlockT> {
+	/// Block is already imported.
+	Imported(BlockImportStatus<NumberFor<Block>>),
+	/// Block is verified, but needs to be imported.
+	Verified(SingleBlockImportParameters<Block>),
+}
+
+pub(crate) struct SingleBlockImportParameters<Block: BlockT> {
+	import_block: BlockImportParams<Block>,
+	hash: Block::Hash,
+	block_origin: Option<RuntimeOrigin>,
+	verification_time: Duration,
+}
+
 /// Single block import function with metering.
-pub(crate) async fn import_single_block_metered<B: BlockT, V: Verifier<B>>(
+pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	import_handle: &mut impl BlockImport<B, Error = ConsensusError>,
 	block_origin: BlockOrigin,
 	block: IncomingBlock<B>,
 	verifier: &mut V,
-	metrics: Option<Metrics>,
-) -> BlockImportResult<B> {
+	metrics: Option<&Metrics>,
+) -> Result<SingleBlockVerificationOutcome<B>, BlockImportError> {
 	let peer = block.origin;
 
 	let (header, justifications) = match (block.header, block.justifications) {
@@ -315,10 +336,13 @@ pub(crate) async fn import_single_block_metered<B: BlockT, V: Verifier<B>>(
 			.await,
 	)? {
 		BlockImportStatus::ImportedUnknown { .. } => (),
-		r => return Ok(r), // Any other successful result means that the block is already imported.
+		r => {
+			// Any other successful result means that the block is already imported.
+			return Ok(SingleBlockVerificationOutcome::Imported(r))
+		},
 	}
 
-	let started = std::time::Instant::now();
+	let started = Instant::now();
 
 	let mut import_block = BlockImportParams::new(block_origin, header);
 	import_block.body = block.body;
@@ -349,19 +373,42 @@ pub(crate) async fn import_single_block_metered<B: BlockT, V: Verifier<B>>(
 		} else {
 			trace!(target: LOG_TARGET, "Verifying {}({}) failed: {}", number, hash, msg);
 		}
-		if let Some(metrics) = metrics.as_ref() {
+		if let Some(metrics) = metrics {
 			metrics.report_verification(false, started.elapsed());
 		}
 		BlockImportError::VerificationFailed(peer, msg)
 	})?;
 
-	if let Some(metrics) = metrics.as_ref() {
-		metrics.report_verification(true, started.elapsed());
+	let verification_time = started.elapsed();
+	if let Some(metrics) = metrics {
+		metrics.report_verification(true, verification_time);
 	}
 
+	Ok(SingleBlockVerificationOutcome::Verified(SingleBlockImportParameters {
+		import_block,
+		hash,
+		block_origin: peer,
+		verification_time,
+	}))
+}
+
+pub(crate) async fn import_single_block_metered<Block: BlockT>(
+	import_handle: &mut impl BlockImport<Block, Error = ConsensusError>,
+	import_parameters: SingleBlockImportParameters<Block>,
+	metrics: Option<&Metrics>,
+) -> BlockImportResult<Block> {
+	let started = Instant::now();
+
+	let SingleBlockImportParameters { import_block, hash, block_origin, verification_time } =
+		import_parameters;
+
+	let number = *import_block.header.number();
+	let parent_hash = *import_block.header.parent_hash();
+
 	let imported = import_handle.import_block(import_block).await;
-	if let Some(metrics) = metrics.as_ref() {
-		metrics.report_verification_and_import(started.elapsed());
+	if let Some(metrics) = metrics {
+		metrics.report_verification_and_import(started.elapsed() + verification_time);
 	}
-	import_handler::<B>(number, hash, parent_hash, peer, imported)
+
+	import_handler::<Block>(number, hash, parent_hash, block_origin, imported)
 }
