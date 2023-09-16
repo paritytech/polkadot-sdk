@@ -138,11 +138,11 @@ thread_local! {
 pub struct PanickingBlockImport<B>(B);
 
 #[async_trait::async_trait]
-impl<B: BlockImport<TestBlock>> BlockImport<TestBlock> for PanickingBlockImport<B>
+impl<BI> BlockImport<TestBlock> for PanickingBlockImport<BI>
 where
-	B: Send,
+	BI: BlockImport<TestBlock> + Send + Sync,
 {
-	type Error = B::Error;
+	type Error = BI::Error;
 
 	async fn import_block(
 		&mut self,
@@ -152,7 +152,7 @@ where
 	}
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<TestBlock>,
 	) -> Result<ImportResult, Self::Error> {
 		Ok(self.0.check_block(block).await.expect("checking block failed"))

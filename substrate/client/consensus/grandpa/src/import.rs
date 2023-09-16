@@ -515,7 +515,7 @@ where
 	Client: ClientForGrandpa<Block, BE>,
 	Client::Api: GrandpaApi<Block>,
 	for<'a> &'a Client: BlockImport<Block, Error = ConsensusError>,
-	SC: Send,
+	SC: Send + Sync,
 {
 	type Error = ConsensusError;
 
@@ -694,7 +694,7 @@ where
 	}
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await

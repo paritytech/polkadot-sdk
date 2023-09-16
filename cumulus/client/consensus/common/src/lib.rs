@@ -155,13 +155,13 @@ impl<Block: BlockT, I: Clone, BE> Clone for ParachainBlockImport<Block, I, BE> {
 impl<Block, BI, BE> BlockImport<Block> for ParachainBlockImport<Block, BI, BE>
 where
 	Block: BlockT,
-	BI: BlockImport<Block> + Send,
+	BI: BlockImport<Block> + Send + Sync,
 	BE: Backend<Block>,
 {
 	type Error = BI::Error;
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: sc_consensus::BlockCheckParams<Block>,
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
 		self.inner.check_block(block).await

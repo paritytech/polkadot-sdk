@@ -293,7 +293,7 @@ pub(crate) struct SingleBlockImportParameters<Block: BlockT> {
 
 /// Single block import function with metering.
 pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
-	import_handle: &mut impl BlockImport<B, Error = ConsensusError>,
+	import_handle: &impl BlockImport<B, Error = ConsensusError>,
 	block_origin: BlockOrigin,
 	block: IncomingBlock<B>,
 	verifier: &mut V,
