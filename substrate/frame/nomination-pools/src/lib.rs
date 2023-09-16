@@ -1009,7 +1009,7 @@ impl<T: Config> BondedPool<T> {
 	}
 
 	/// The pools balance that is transferable provided it is expendable by staking pallet.
-	fn transferrable_balance(&self) -> BalanceOf<T> {
+	fn transferable_balance(&self) -> BalanceOf<T> {
 		let account = self.bonded_account();
 		// Note on why we can't use `Currency::reducible_balance`: Since pooled account has a
 		// provider (staking pallet), the account can not be set expendable by Nomination Pallet.
@@ -2177,7 +2177,7 @@ pub mod pallet {
 			ensure!(!withdrawn_points.is_empty(), Error::<T>::CannotWithdrawAny);
 
 			// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
-			// `transferrable_balance` is correct.
+			// `transferable_balance` is correct.
 			let stash_killed =
 				T::Staking::withdraw_unbonded(bonded_pool.bonded_account(), num_slashing_spans)?;
 
@@ -2212,7 +2212,7 @@ pub mod pallet {
 				// don't exist. This check is also defensive in cases where the unbond pool does not
 				// update its balance (e.g. a bug in the slashing hook.) We gracefully proceed in
 				// order to ensure members can leave the pool and it can be destroyed.
-				.min(bonded_pool.transferrable_balance());
+				.min(bonded_pool.transferable_balance());
 
 			T::Currency::transfer(
 				&bonded_pool.bonded_account(),
@@ -2274,7 +2274,7 @@ pub mod pallet {
 		/// # Note
 		///
 		/// In addition to `amount`, the caller will transfer the existential deposit; so the caller
-		/// needs at have at least `amount + existential_deposit` transferrable.
+		/// needs at have at least `amount + existential_deposit` transferable.
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::create())]
 		pub fn create(
