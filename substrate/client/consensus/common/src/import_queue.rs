@@ -28,6 +28,7 @@
 //! queues to be instantiated simply.
 
 use log::{debug, trace};
+use std::fmt;
 
 use sp_consensus::{error::Error as ConsensusError, BlockOrigin};
 use sp_runtime::{
@@ -166,16 +167,16 @@ pub trait Link<B: BlockT>: Send {
 
 /// Block import successful result.
 #[derive(Debug, PartialEq)]
-pub enum BlockImportStatus<N: std::fmt::Debug + PartialEq> {
+pub enum BlockImportStatus<BlockNumber: fmt::Debug + PartialEq> {
 	/// Imported known block.
-	ImportedKnown(N, Option<RuntimeOrigin>),
+	ImportedKnown(BlockNumber, Option<RuntimeOrigin>),
 	/// Imported unknown block.
-	ImportedUnknown(N, ImportedAux, Option<RuntimeOrigin>),
+	ImportedUnknown(BlockNumber, ImportedAux, Option<RuntimeOrigin>),
 }
 
-impl<N: std::fmt::Debug + PartialEq> BlockImportStatus<N> {
+impl<BlockNumber: fmt::Debug + PartialEq> BlockImportStatus<BlockNumber> {
 	/// Returns the imported block number.
-	pub fn number(&self) -> &N {
+	pub fn number(&self) -> &BlockNumber {
 		match self {
 			BlockImportStatus::ImportedKnown(n, _) |
 			BlockImportStatus::ImportedUnknown(n, _, _) => n,
@@ -227,6 +228,48 @@ pub async fn import_single_block<B: BlockT, V: Verifier<B>>(
 	import_single_block_metered(import_handle, block_origin, block, verifier, None).await
 }
 
+fn import_handler<Block>(
+	number: NumberFor<Block>,
+	hash: Block::Hash,
+	parent_hash: Block::Hash,
+	block_origin: Option<RuntimeOrigin>,
+	import: Result<ImportResult, ConsensusError>,
+) -> Result<BlockImportStatus<NumberFor<Block>>, BlockImportError>
+where
+	Block: BlockT,
+{
+	match import {
+		Ok(ImportResult::AlreadyInChain) => {
+			trace!(target: LOG_TARGET, "Block already in chain {}: {:?}", number, hash);
+			Ok(BlockImportStatus::ImportedKnown(number, block_origin))
+		},
+		Ok(ImportResult::Imported(aux)) =>
+			Ok(BlockImportStatus::ImportedUnknown(number, aux, block_origin)),
+		Ok(ImportResult::MissingState) => {
+			debug!(
+				target: LOG_TARGET,
+				"Parent state is missing for {}: {:?}, parent: {:?}", number, hash, parent_hash
+			);
+			Err(BlockImportError::MissingState)
+		},
+		Ok(ImportResult::UnknownParent) => {
+			debug!(
+				target: LOG_TARGET,
+				"Block with unknown parent {}: {:?}, parent: {:?}", number, hash, parent_hash
+			);
+			Err(BlockImportError::UnknownParent)
+		},
+		Ok(ImportResult::KnownBad) => {
+			debug!(target: LOG_TARGET, "Peer gave us a bad block {}: {:?}", number, hash);
+			Err(BlockImportError::BadBlock(block_origin))
+		},
+		Err(e) => {
+			debug!(target: LOG_TARGET, "Error importing block {}: {:?}: {}", number, hash, e);
+			Err(BlockImportError::Other(e))
+		},
+	}
+}
+
 /// Single block import function with metering.
 pub(crate) async fn import_single_block_metered<B: BlockT, V: Verifier<B>>(
 	import_handle: &mut impl BlockImport<B, Error = ConsensusError>,
@@ -255,38 +298,11 @@ pub(crate) async fn import_single_block_metered<B: BlockT, V: Verifier<B>>(
 	let hash = block.hash;
 	let parent_hash = *header.parent_hash();
 
-	let import_handler = |import| match import {
-		Ok(ImportResult::AlreadyInChain) => {
-			trace!(target: LOG_TARGET, "Block already in chain {}: {:?}", number, hash);
-			Ok(BlockImportStatus::ImportedKnown(number, peer))
-		},
-		Ok(ImportResult::Imported(aux)) =>
-			Ok(BlockImportStatus::ImportedUnknown(number, aux, peer)),
-		Ok(ImportResult::MissingState) => {
-			debug!(
-				target: LOG_TARGET,
-				"Parent state is missing for {}: {:?}, parent: {:?}", number, hash, parent_hash
-			);
-			Err(BlockImportError::MissingState)
-		},
-		Ok(ImportResult::UnknownParent) => {
-			debug!(
-				target: LOG_TARGET,
-				"Block with unknown parent {}: {:?}, parent: {:?}", number, hash, parent_hash
-			);
-			Err(BlockImportError::UnknownParent)
-		},
-		Ok(ImportResult::KnownBad) => {
-			debug!(target: LOG_TARGET, "Peer gave us a bad block {}: {:?}", number, hash);
-			Err(BlockImportError::BadBlock(peer))
-		},
-		Err(e) => {
-			debug!(target: LOG_TARGET, "Error importing block {}: {:?}: {}", number, hash, e);
-			Err(BlockImportError::Other(e))
-		},
-	};
-
-	match import_handler(
+	match import_handler::<B>(
+		number,
+		hash,
+		parent_hash,
+		peer,
 		import_handle
 			.check_block(BlockCheckParams {
 				hash,
@@ -347,5 +363,5 @@ pub(crate) async fn import_single_block_metered<B: BlockT, V: Verifier<B>>(
 	if let Some(metrics) = metrics.as_ref() {
 		metrics.report_verification_and_import(started.elapsed());
 	}
-	import_handler(imported)
+	import_handler::<B>(number, hash, parent_hash, peer, imported)
 }
