@@ -209,7 +209,7 @@ impl BlockImport<Block> for PeersClient {
 	type Error = ConsensusError;
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.client.check_block(block).await
@@ -594,7 +594,7 @@ where
 	type Error = ConsensusError;
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await

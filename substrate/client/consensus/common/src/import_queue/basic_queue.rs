@@ -513,7 +513,7 @@ mod tests {
 		type Error = sp_consensus::Error;
 
 		async fn check_block(
-			&mut self,
+			&self,
 			_block: BlockCheckParams<Block>,
 		) -> Result<ImportResult, Self::Error> {
 			Ok(ImportResult::imported(false))

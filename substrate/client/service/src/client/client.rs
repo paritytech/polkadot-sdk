@@ -1770,7 +1770,7 @@ where
 
 	/// Check block preconditions.
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let BlockCheckParams {
@@ -1852,10 +1852,10 @@ where
 	}
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
-		(&*self).check_block(block).await
+		(&self).check_block(block).await
 	}
 }
 
