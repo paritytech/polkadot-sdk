@@ -294,7 +294,9 @@ where
 	Block: BlockT,
 	BI: BlockImport<Block, Error = ConsensusError>,
 {
-	match verify_single_block_metered(import_handle, block_origin, block, verifier, None).await? {
+	match verify_single_block_metered(import_handle, block_origin, block, verifier, false, None)
+		.await?
+	{
 		SingleBlockVerificationOutcome::Imported(import_status) => Ok(import_status),
 		SingleBlockVerificationOutcome::Verified(import_parameters) =>
 			import_single_block_metered(import_handle, import_parameters, None).await,
@@ -363,6 +365,7 @@ pub(crate) async fn verify_single_block_metered<Block, BI>(
 	block_origin: BlockOrigin,
 	block: IncomingBlock<Block>,
 	verifier: &dyn Verifier<Block>,
+	allow_missing_parent: bool,
 	metrics: Option<&Metrics>,
 ) -> Result<SingleBlockVerificationOutcome<Block>, BlockImportError>
 where
@@ -401,7 +404,7 @@ where
 				parent_hash,
 				allow_missing_state: block.allow_missing_state,
 				import_existing: block.import_existing,
-				allow_missing_parent: block.state.is_some(),
+				allow_missing_parent: allow_missing_parent || block.state.is_some(),
 			})
 			.await,
 	)? {
