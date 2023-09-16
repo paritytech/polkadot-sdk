@@ -20,20 +20,18 @@ use super::{
 use XcmpMessageFormat::*;
 
 use codec::Compact;
-use cumulus_primitives_core::XcmpMessageHandler;
+use cumulus_primitives_core::{ParaId, XcmpMessageHandler};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, assert_storage_noop, experimental_hypothetically,
 	traits::{Footprint, Hooks},
 	StorageNoopGuard,
 };
-use mock::{new_test_ext, RuntimeOrigin as Origin, Test, XcmpQueue};
+use mock::{
+	new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test,
+	XcmpQueue,
+};
 use sp_runtime::traits::{BadOrigin, Zero};
 use std::iter::{once, repeat};
-use super::*;
-use cumulus_primitives_core::{ParaId, XcmpMessageHandler};
-use frame_support::{assert_noop, assert_ok};
-use mock::{new_test_ext, ParachainSystem, RuntimeCall, RuntimeOrigin, Test, XcmpQueue};
-use sp_runtime::traits::BadOrigin;
 
 #[test]
 fn empty_concatenated_works() {

@@ -275,7 +275,7 @@ fn inherent_processed_messages_are_ignored() {
 			HANDLED_DMP_MESSAGES.with(|m| {
 				let m = m.borrow();
 				// NOTE: if this fails, then run the test without benchmark features.
-				assert_eq!(&*m, &[mk_dmp(3).msg]); // FAIL-CI master requires it to be process twice
+				assert_eq!(&*m, &[mk_dmp(3).msg]);
 			});
 			HANDLED_XCMP_MESSAGES.with(|m| {
 				let m = m.borrow_mut();
