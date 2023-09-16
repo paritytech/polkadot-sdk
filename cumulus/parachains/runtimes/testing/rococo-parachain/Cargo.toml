@@ -105,6 +105,7 @@ std = [
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+	"cumulus-primitives-utility/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
@@ -113,6 +114,7 @@ runtime-benchmarks = [
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",

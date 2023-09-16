@@ -2047,7 +2047,7 @@ sp_api::impl_runtime_apis! {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationConverter;
 				type DeliveryHelper = runtime_common::xcm_sender::ToParachainDeliveryHelper<
-					XcmConfig,
+					xcm_config::XcmConfig,
 					ExistentialDepositMultiAsset,
 					xcm_config::PriceForChildParachainDelivery,
 					ToParachain,
