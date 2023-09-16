@@ -477,9 +477,7 @@ pub enum RewardImbalance {
 	Deficit(Balance),
 }
 
-pub fn pool_pending_rewards(
-	pool: PoolId,
-) -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
+pub fn pool_pending_rewards(pool: PoolId) -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
 	let bonded_pool = BondedPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
 	let reward_pool = RewardPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
 
