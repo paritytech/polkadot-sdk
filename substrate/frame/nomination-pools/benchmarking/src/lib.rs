@@ -29,7 +29,6 @@ use frame_support::{
 	assert_ok, ensure,
 	traits::{
 		fungible::{Inspect, Mutate, Unbalanced},
-		tokens::{Fortitude, Preservation},
 		Get,
 	},
 };
@@ -450,8 +449,7 @@ frame_benchmarking::benchmarks! {
 	}: withdraw_unbonded(RuntimeOrigin::Signed(joiner.clone()), joiner_lookup, s)
 	verify {
 		assert_eq!(
-			CurrencyOf::<T>::reducible_balance(&joiner, Preservation::Expendable, Fortitude::Polite),
-			min_join_bond * 2u32.into()
+			CurrencyOf::<T>::balance(&joiner), min_join_bond * 2u32.into()
 		);
 		// The unlocking chunk was removed
 		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 0);
