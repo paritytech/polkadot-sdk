@@ -361,11 +361,7 @@ pub fn testnet_genesis(
 		safe_mode: Default::default(),
 		tx_pause: Default::default(),
 		alliance_motion: Default::default(),
-		nomination_pools: NominationPoolsConfig {
-			min_create_bond: 10 * DOLLARS,
-			min_join_bond: 1 * DOLLARS,
-			..Default::default()
-		},
+		nomination_pools: Default::default(),
 		glutton: Default::default(),
 	}
 }
