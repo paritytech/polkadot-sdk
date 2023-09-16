@@ -17,6 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 use futures::{
 	prelude::*,
+	stream::FuturesOrdered,
 	task::{Context, Poll},
 };
 use log::{debug, trace};
@@ -27,7 +28,11 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	Justification, Justifications,
 };
-use std::pin::Pin;
+use std::{
+	num::NonZeroUsize,
+	pin::Pin,
+	sync::atomic::{AtomicBool, Ordering},
+};
 
 use crate::{
 	import_queue::{
@@ -221,7 +226,7 @@ mod worker_messages {
 ///
 /// Returns when `block_import` ended.
 async fn block_import_process<B: BlockT>(
-	mut block_import: BoxBlockImport<B>,
+	block_import: BoxBlockImport<B>,
 	verifier: impl Verifier<B>,
 	mut result_sender: BufferedLinkSender<B>,
 	mut block_import_receiver: TracingUnboundedReceiver<worker_messages::ImportBlocks<B>>,
@@ -240,8 +245,15 @@ async fn block_import_process<B: BlockT>(
 			},
 		};
 
-		let res =
-			import_many_blocks(&mut block_import, origin, blocks, &verifier, metrics.clone()).await;
+		let res = import_many_blocks_with_verification_concurrency(
+			&block_import,
+			origin,
+			blocks,
+			&verifier,
+			metrics.as_ref(),
+			verifier.verification_concurrency(),
+		)
+		.await;
 
 		result_sender.blocks_processed(res.imported, res.block_count, res.results);
 	}
@@ -383,12 +395,16 @@ struct ImportManyBlocksResult<B: BlockT> {
 ///
 /// This will yield after each imported block once, to ensure that other futures can
 /// be called as well.
-async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
-	import_handle: &mut BoxBlockImport<B>,
+///
+/// When verification concurrency is set to value higher than 1, block verification will happen in
+/// parallel to block import, reducing overall time required.
+async fn import_many_blocks_with_verification_concurrency<B: BlockT, V: Verifier<B>>(
+	import_handle: &BoxBlockImport<B>,
 	blocks_origin: BlockOrigin,
 	blocks: Vec<IncomingBlock<B>>,
 	verifier: &V,
-	metrics: Option<Metrics>,
+	metrics: Option<&Metrics>,
+	verification_concurrency: NonZeroUsize,
 ) -> ImportManyBlocksResult<B> {
 	let count = blocks.len();
 
@@ -403,46 +419,58 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 
 	trace!(target: LOG_TARGET, "Starting import of {} blocks {}", count, blocks_range);
 
-	let mut imported = 0;
-	let mut results = vec![];
-	let mut has_error = false;
-	let mut blocks = blocks.into_iter();
+	let has_error = &AtomicBool::new(false);
+
+	let verify_block_task = |index, block: IncomingBlock<B>| {
+		async move {
+			let block_number = block.header.as_ref().map(|h| *h.number());
+			let block_hash = block.hash;
+
+			let result = if has_error.load(Ordering::Acquire) {
+				Err(BlockImportError::Cancelled)
+			} else {
+				verify_single_block_metered(
+					import_handle,
+					blocks_origin,
+					block,
+					verifier,
+					// Check parent for the first block, but skip for others since blocks are
+					// verified concurrently before being imported.
+					index != 0,
+					metrics,
+				)
+				.await
+			};
+
+			(block_number, block_hash, result)
+		}
+	};
 
 	// Blocks in the response/drain should be in ascending order.
-	loop {
-		// Is there any block left to import?
-		let block = match blocks.next() {
-			Some(b) => b,
-			None => {
-				// No block left to import, success!
-				return ImportManyBlocksResult { block_count: count, imported, results }
-			},
-		};
+	let mut blocks_to_verify = blocks.into_iter().enumerate();
+	let mut verified_blocks = blocks_to_verify
+		.by_ref()
+		.take(verification_concurrency.get())
+		.map(|(index, block)| verify_block_task(index, block))
+		.collect::<FuturesOrdered<_>>();
 
-		let block_number = block.header.as_ref().map(|h| *h.number());
-		let block_hash = block.hash;
-		let import_result = if has_error {
+	let mut imported = 0;
+	let mut results = vec![];
+
+	while let Some((block_number, block_hash, verification_result)) = verified_blocks.next().await {
+		let import_result = if has_error.load(Ordering::Acquire) {
 			Err(BlockImportError::Cancelled)
 		} else {
-			let verification_fut = verify_single_block_metered(
-				import_handle,
-				blocks_origin,
-				block,
-				verifier,
-				metrics.as_ref(),
-			);
-			match verification_fut.await {
+			// The actual import.
+			match verification_result {
 				Ok(SingleBlockVerificationOutcome::Imported(import_status)) => Ok(import_status),
-				Ok(SingleBlockVerificationOutcome::Verified(import_parameters)) => {
-					// The actual import.
-					import_single_block_metered(import_handle, import_parameters, metrics.as_ref())
-						.await
-				},
+				Ok(SingleBlockVerificationOutcome::Verified(import_parameters)) =>
+					import_single_block_metered(import_handle, import_parameters, metrics).await,
 				Err(e) => Err(e),
 			}
 		};
 
-		if let Some(metrics) = metrics.as_ref() {
+		if let Some(metrics) = metrics {
 			metrics.report_import::<B>(&import_result);
 		}
 
@@ -455,13 +483,21 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 			);
 			imported += 1;
 		} else {
-			has_error = true;
+			has_error.store(true, Ordering::Release);
 		}
 
 		results.push((import_result, block_hash));
 
+		// Add more blocks into verification queue if there are any
+		if let Some((index, block)) = blocks_to_verify.next() {
+			verified_blocks.push_back(verify_block_task(index, block));
+		}
+
 		Yield::new().await
 	}
+
+	// No block left to import, success!
+	ImportManyBlocksResult { block_count: count, imported, results }
 }
 
 /// A future that will always `yield` on the first call of `poll` but schedules the
