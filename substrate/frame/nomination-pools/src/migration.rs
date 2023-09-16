@@ -727,6 +727,9 @@ pub mod v5 {
 }
 
 /// This migration accumulates and initializes the [`TotalValueLocked`] for all pools.
+///
+/// WARNING: This migration works under the assumption that the [`BondedPools`] cannot be inflated
+/// arbitrarily. Otherwise this migration could fail due to too high weight.
 pub mod v6 {
 	use super::*;
 
