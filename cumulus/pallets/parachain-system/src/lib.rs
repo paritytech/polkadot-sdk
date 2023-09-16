@@ -1400,12 +1400,12 @@ impl<T: Config> Pallet<T> {
 		CustomValidationHeadData::<T>::put(head_data);
 	}
 
-	/// Open HRMP channel for using it in benchmarks.
+	/// Open HRMP channel for using it in benchmarks or tests.
 	///
 	/// The caller assumes that the pallet will accept regular outbound message to the sibling
 	/// `target_parachain` after this call. No other assumptions are made.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn open_outbound_hrmp_channel_for_benchmarks(target_parachain: ParaId) {
+	#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
+	pub fn open_outbound_hrmp_channel_for_benchmarks_or_tests(target_parachain: ParaId) {
 		RelevantMessagingState::<T>::put(MessagingStateSnapshot {
 			dmq_mqc_head: Default::default(),
 			relay_dispatch_queue_remaining_capacity: Default::default(),
