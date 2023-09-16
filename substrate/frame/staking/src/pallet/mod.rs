@@ -82,9 +82,36 @@ pub mod pallet {
 		Remove,
 	}
 
-	#[pallet::config]
+	/// Some default provided implementations of [`DefaultConfig`], which can be used to implement
+	/// [`Config`] in the runtime.
+	pub mod config_preludes {
+		use super::*;
+		use frame_support::derive_impl;
+
+		/// Provides a simple default config of staking pallet to derive a testing pallet config in
+		/// mocked runtimes.
+		pub struct TestDefaultConfig;
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+		#[frame_support::register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			type CurrencyBalance = u64;
+			type SessionsPerEra = ConstU32<3>;
+			type BondingDuration = ConstU32<3>;
+			type SlashDeferDuration = ConstU32<0>;
+			type MaxNominatorRewardedPerValidator = ConstU32<64>;
+			type MaxUnlockingChunks = ConstU32<32>;
+			type HistoryDepth = ConstU32<84>;
+			type WeightInfo = ();
+		}
+	}
+
+	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The staking balance.
+		#[pallet::no_default]
 		type Currency: LockableCurrency<
 			Self::AccountId,
 			Moment = BlockNumberFor<Self>,
@@ -101,10 +128,12 @@ pub mod pallet {
 			+ From<u64>
 			+ TypeInfo
 			+ MaxEncodedLen;
+
 		/// Time used for computing era duration.
 		///
 		/// It is guaranteed to start being called from the first `on_finalize`. Thus value at
 		/// genesis is not used.
+		#[pallet::no_default]
 		type UnixTime: UnixTime;
 
 		/// Convert a balance into a number used for election calculation. This must fit into a
@@ -113,9 +142,11 @@ pub mod pallet {
 		/// in 128.
 		/// Consequently, the backward convert is used convert the u128s from sp-elections back to a
 		/// [`BalanceOf`].
+		#[pallet::no_default]
 		type CurrencyToVote: sp_staking::currency_to_vote::CurrencyToVote<BalanceOf<Self>>;
 
 		/// Something that provides the election functionality.
+		#[pallet::no_default]
 		type ElectionProvider: ElectionProvider<
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
@@ -123,6 +154,7 @@ pub mod pallet {
 			DataProvider = Pallet<Self>,
 		>;
 		/// Something that provides the election functionality at genesis.
+		#[pallet::no_default]
 		type GenesisElectionProvider: ElectionProvider<
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
@@ -130,6 +162,7 @@ pub mod pallet {
 		>;
 
 		/// Something that defines the maximum number of nominations per nominator.
+		#[pallet::no_default]
 		type NominationsQuota: NominationsQuota<BalanceOf<Self>>;
 
 		/// Number of eras to keep in history.
@@ -157,17 +190,21 @@ pub mod pallet {
 
 		/// Tokens have been minted and are unused for validator-reward.
 		/// See [Era payout](./index.html#era-payout).
+		#[pallet::no_default]
 		type RewardRemainder: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
 		/// The overarching event type.
+		#[pallet::no_default]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Handler for the unbalanced reduction when slashing a staker.
+		#[pallet::no_default]
 		type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
 		/// Handler for the unbalanced increment when rewarding a staker.
 		/// NOTE: in most cases, the implementation of `OnUnbalanced` should modify the total
 		/// issuance.
+		#[pallet::no_default]
 		type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 
 		/// Number of sessions per era.
@@ -188,17 +225,21 @@ pub mod pallet {
 		/// The origin which can manage less critical staking parameters that does not require root.
 		///
 		/// Supported actions: (1) cancel deferred slash, (2) set minimum commission.
+		#[pallet::no_default]
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Interface for interacting with a session pallet.
+		#[pallet::no_default]
 		type SessionInterface: SessionInterface<Self::AccountId>;
 
 		/// The payout for validators and the system for the current era.
 		/// See [Era payout](./index.html#era-payout).
+		#[pallet::no_default]
 		type EraPayout: EraPayout<BalanceOf<Self>>;
 
 		/// Something that can estimate the next session change, accurately or as a best effort
 		/// guess.
+		#[pallet::no_default]
 		type NextNewSession: EstimateNextNewSession<BlockNumberFor<Self>>;
 
 		/// The maximum number of nominators rewarded for each validator.
@@ -210,6 +251,7 @@ pub mod pallet {
 
 		/// The fraction of the validator set that is safe to be offending.
 		/// After the threshold is reached a new era will be forced.
+		#[pallet::no_default]
 		type OffendingValidatorsThreshold: Get<Perbill>;
 
 		/// Something that provides a best-effort sorted list of voters aka electing nominators,
@@ -223,6 +265,7 @@ pub mod pallet {
 		/// staker. In case of `bags-list`, this always means using `rebag` and `putInFrontOf`.
 		///
 		/// Invariant: what comes out of this list will always be a nominator.
+		#[pallet::no_default]
 		type VoterList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
 
 		/// WIP: This is a noop as of now, the actual business logic that's described below is going
@@ -245,6 +288,7 @@ pub mod pallet {
 		/// validators, they can chill at any point, and their approval stakes will still be
 		/// recorded. This implies that what comes out of iterating this list MIGHT NOT BE AN ACTIVE
 		/// VALIDATOR.
+		#[pallet::no_default]
 		type TargetList: SortedListProvider<Self::AccountId, Score = BalanceOf<Self>>;
 
 		/// The maximum number of `unlocking` chunks a [`StakingLedger`] can
@@ -264,9 +308,11 @@ pub mod pallet {
 		/// receives.
 		///
 		/// WARNING: this only reports slashing events for the time being.
+		#[pallet::no_default]
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
 		/// Some parameters of the benchmarking.
+		#[pallet::no_default]
 		type BenchmarkingConfig: BenchmarkingConfig;
 
 		/// Weight information for extrinsics in this pallet.
