@@ -17,8 +17,10 @@
 //! Tracking global allocator. Calculates the peak allocation between two checkpoints.
 
 use core::alloc::{GlobalAlloc, Layout};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::ptr::null_mut;
+use std::{
+	ptr::null_mut,
+	sync::atomic::{AtomicBool, Ordering},
+};
 
 struct TrackingAllocatorData {
 	lock: AtomicBool,
