@@ -26,10 +26,7 @@ use frame_support::{
 	traits::{Footprint, Hooks},
 	StorageNoopGuard,
 };
-use mock::{
-	new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test,
-	XcmpQueue,
-};
+use mock::{new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::{BadOrigin, Zero};
 use std::iter::{once, repeat};
 
