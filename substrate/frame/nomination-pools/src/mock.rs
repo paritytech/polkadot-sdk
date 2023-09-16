@@ -453,10 +453,6 @@ pub fn fully_unbond_permissioned(member: AccountId) -> DispatchResult {
 	Pools::unbond(RuntimeOrigin::signed(member), member, points)
 }
 
-pub fn pending_rewards_for_pool(pool: PoolId) -> Balance {
-	Pools::pool_pending_rewards(pool).expect("pool should exist")
-}
-
 pub fn pending_rewards_for_delegator(delegator: AccountId) -> Balance {
 	let member = PoolMembers::<T>::get(delegator).unwrap();
 	let bonded_pool = BondedPools::<T>::get(member.pool_id).unwrap();
@@ -482,7 +478,7 @@ pub enum RewardImbalance {
 }
 
 pub fn reward_imbalance(pool: PoolId) -> RewardImbalance {
-	let pending_rewards = pending_rewards_for_pool(pool);
+	let pending_rewards = Pools::pool_pending_rewards(pool).expect("pool should exist");
 	let current_balance = RewardPool::<Runtime>::current_balance(pool);
 
 	if pending_rewards > current_balance {
