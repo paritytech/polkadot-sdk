@@ -3361,26 +3361,6 @@ impl<T: Config> Pallet<T> {
 		let member_lookup = T::Lookup::unlookup(member);
 		Self::unbond(origin, member_lookup, points)
 	}
-
-	#[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
-	pub(crate) fn pool_pending_rewards(
-		pool: PoolId,
-	) -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
-		let bonded_pool = BondedPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
-		let reward_pool = RewardPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
-
-		let current_rc = if !bonded_pool.points.is_zero() {
-			let commission = bonded_pool.commission.current();
-			reward_pool.current_reward_counter(pool, bonded_pool.points, commission)?.0
-		} else {
-			Default::default()
-		};
-
-		Ok(PoolMembers::<T>::iter()
-			.filter(|(_, d)| d.pool_id == pool)
-			.map(|(_, d)| d.pending_rewards(current_rc).unwrap_or_default())
-			.fold(0u32.into(), |acc: BalanceOf<T>, x| acc.saturating_add(x)))
-	}
 }
 
 impl<T: Config> Pallet<T> {

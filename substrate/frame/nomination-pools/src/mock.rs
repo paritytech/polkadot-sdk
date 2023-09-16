@@ -477,8 +477,27 @@ pub enum RewardImbalance {
 	Deficit(Balance),
 }
 
+pub fn pool_pending_rewards(
+	pool: PoolId,
+) -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
+	let bonded_pool = BondedPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
+	let reward_pool = RewardPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
+
+	let current_rc = if !bonded_pool.points.is_zero() {
+		let commission = bonded_pool.commission.current();
+		reward_pool.current_reward_counter(pool, bonded_pool.points, commission)?.0
+	} else {
+		Default::default()
+	};
+
+	Ok(PoolMembers::<T>::iter()
+		.filter(|(_, d)| d.pool_id == pool)
+		.map(|(_, d)| d.pending_rewards(current_rc).unwrap_or_default())
+		.fold(0u32.into(), |acc: BalanceOf<T>, x| acc.saturating_add(x)))
+}
+
 pub fn reward_imbalance(pool: PoolId) -> RewardImbalance {
-	let pending_rewards = Pools::pool_pending_rewards(pool).expect("pool should exist");
+	let pending_rewards = pool_pending_rewards(pool).expect("pool should exist");
 	let current_balance = RewardPool::<Runtime>::current_balance(pool);
 
 	if pending_rewards > current_balance {
