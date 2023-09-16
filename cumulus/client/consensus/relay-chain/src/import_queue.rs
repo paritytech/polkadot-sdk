@@ -52,7 +52,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()>,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		mut block_params: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
 		// Skip checks that include execution, if being told so, or when importing only state.

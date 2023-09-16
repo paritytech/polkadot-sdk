@@ -193,7 +193,7 @@ impl Verifier<TestBlock> for TestVerifier {
 	/// new set of validators to import. If not, err with an Error-Message
 	/// presented to the User in the logs.
 	async fn verify(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<TestBlock>,
 	) -> Result<BlockImportParams<TestBlock>, String> {
 		// apply post-sealing mutations (i.e. stripping seal, if desired).

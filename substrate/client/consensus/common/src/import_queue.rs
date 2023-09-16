@@ -97,11 +97,22 @@ pub struct IncomingBlock<B: BlockT> {
 
 /// Verify a justification of a block
 #[async_trait::async_trait]
-pub trait Verifier<B: BlockT>: Send {
+pub trait Verifier<B: BlockT>: Send + Sync {
+	/// Whether verifier supports stateless verification.
+	///
+	/// Stateless verification means that verification on blocks can be done in arbitrary order,
+	/// doesn't expect parent block to be imported first, etc.
+	///
+	/// Verifiers that support stateless verification can verify multiple blocks concurrently,
+	/// significantly improving sync speed.
+	fn supports_stateless_verification(&self) -> bool {
+		// Unless re-defined by verifier is assumed to not support stateless verification.
+		false
+	}
+
 	/// Verify the given block data and return the `BlockImportParams` to
 	/// continue the block import process.
-	async fn verify(&mut self, block: BlockImportParams<B>)
-		-> Result<BlockImportParams<B>, String>;
+	async fn verify(&self, block: BlockImportParams<B>) -> Result<BlockImportParams<B>, String>;
 }
 
 /// Blocks import queue API.

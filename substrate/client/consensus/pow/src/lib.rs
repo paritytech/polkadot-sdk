@@ -439,7 +439,7 @@ where
 	Algorithm::Difficulty: 'static + Send,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<B>,
 	) -> Result<BlockImportParams<B>, String> {
 		let hash = block.header.hash();
