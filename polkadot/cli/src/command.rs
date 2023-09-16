@@ -55,7 +55,8 @@ impl SubstrateCli for Cli {
 	}
 
 	fn impl_version() -> String {
-		NODE_VERSION.into()
+		let commit_hash = env!("SUBSTRATE_CLI_COMMIT_HASH");
+		format!("{NODE_VERSION}-{commit_hash}")
 	}
 
 	fn description() -> String {
