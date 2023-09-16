@@ -104,7 +104,8 @@ pub trait Verifier<B: BlockT>: Send {
 ///
 /// The `import_*` methods can be called in order to send elements for the import queue to verify.
 pub trait ImportQueueService<B: BlockT>: Send {
-	/// Import bunch of blocks.
+	/// Import bunch of blocks, every next block must be an ancestor of the previous block in the
+	/// list.
 	fn import_blocks(&mut self, origin: BlockOrigin, blocks: Vec<IncomingBlock<B>>);
 
 	/// Import block justifications.
