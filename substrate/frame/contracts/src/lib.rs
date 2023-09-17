@@ -340,7 +340,8 @@ pub mod pallet {
 		///
 		/// The value should be chosen carefully taking into the account the overall memory limit
 		/// your runtime has, as well as the [maximum allowed callstack
-		/// depth](#associatedtype.CallStack). Look into the `on_construct_runtime()` for some insights.
+		/// depth](#associatedtype.CallStack). Look into the `on_construct_runtime()` for some
+		/// insights.
 		#[pallet::constant]
 		type MaxCodeLen: Get<u32>;
 
