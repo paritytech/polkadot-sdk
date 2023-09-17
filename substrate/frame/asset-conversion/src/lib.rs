@@ -369,7 +369,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn integrity_test() {
+		fn on_construct_runtime() {
 			assert!(
 				T::MaxSwapPathLength::get() > 1,
 				"the `MaxSwapPathLength` should be greater than 1",

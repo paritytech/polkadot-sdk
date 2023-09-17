@@ -218,13 +218,13 @@ impl OnRuntimeUpgrade for Tuple {
 	}
 }
 
-/// See [`Hooks::integrity_test`].
+/// See [`Hooks::on_construct_runtime`].
 #[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
 #[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
 #[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
 pub trait IntegrityTest {
-	/// See [`Hooks::integrity_test`].
-	fn integrity_test() {}
+	/// See [`Hooks::on_construct_runtime`].
+	fn on_construct_runtime() {}
 }
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
@@ -427,7 +427,7 @@ pub trait Hooks<BlockNumber> {
 	///
 	/// Any code located in this hook is placed in an auto-generated test, and generated as a part
 	/// of [`crate::construct_runtime`]'s expansion. Look for a test case with a name along the
-	/// lines of: `__construct_runtime_integrity_test`.
+	/// lines of: `__construct_runtime_check_test`.
 	///
 	/// This hook is the location where the values/types provided to the `Config` trait
 	/// of the pallet can be tested for correctness. For example, if two `type Foo: Get<u32>` and
@@ -436,7 +436,7 @@ pub trait Hooks<BlockNumber> {
 	///
 	/// Note that this hook is executed in an externality environment, provided by
 	/// `sp_io::TestExternalities`. This makes it possible to access the storage.
-	fn integrity_test() {}
+	fn on_construct_runtime() {}
 }
 
 /// A trait to define the build function of a genesis config for both runtime and pallets.

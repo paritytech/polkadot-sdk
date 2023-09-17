@@ -80,7 +80,7 @@ pub mod pallet {
 				Weight::from_parts(31, 0)
 			}
 		}
-		fn integrity_test() {}
+		fn on_construct_runtime() {}
 	}
 
 	#[pallet::call]

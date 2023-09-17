@@ -176,7 +176,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn integrity_test() {
+		fn on_construct_runtime() {
 			assert!(
 				!T::WeightInfo::waste_ref_time_iter(1).ref_time().is_zero(),
 				"Weight zero; would get stuck in an infinite loop"

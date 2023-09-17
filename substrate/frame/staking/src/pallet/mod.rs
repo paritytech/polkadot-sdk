@@ -783,7 +783,7 @@ pub mod pallet {
 			// `on_finalize` weight is tracked in `on_initialize`
 		}
 
-		fn integrity_test() {
+		fn on_construct_runtime() {
 			// ensure that we funnel the correct value to the `DataProvider::MaxVotesPerVoter`;
 			assert_eq!(
 				MaxNominationsOf::<T>::get(),

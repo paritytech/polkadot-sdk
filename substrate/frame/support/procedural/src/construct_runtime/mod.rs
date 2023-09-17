@@ -400,14 +400,14 @@ fn construct_runtime_final_expansion(
 	let hold_reason = expand::expand_outer_hold_reason(&pallets, &scrate);
 	let lock_id = expand::expand_outer_lock_id(&pallets, &scrate);
 	let slash_reason = expand::expand_outer_slash_reason(&pallets, &scrate);
-	let integrity_test = decl_integrity_test(&scrate);
+	let construct_runtime_check = decl_on_construct_runtime_check(&scrate);
 	let static_assertions = decl_static_assertions(&name, &pallets, &scrate);
 
 	let warning =
 		where_section.map_or(None, |where_section| {
 			Some(proc_macro_warning::Warning::new_deprecated("WhereSection")
 			.old("use a `where` clause in `construct_runtime`")
-			.new("use `frame_system::Config` to set the `Block` type and delete this clause. 
+			.new("use `frame_system::Config` to set the `Block` type and delete this clause.
 				It is planned to be removed in December 2023")
 			.help_links(&["https://github.com/paritytech/substrate/pull/14437"])
 			.span(where_section.span)
@@ -488,7 +488,7 @@ fn construct_runtime_final_expansion(
 
 		#slash_reason
 
-		#integrity_test
+		#construct_runtime_check
 
 		#static_assertions
 	);
@@ -752,16 +752,16 @@ fn decl_pallet_runtime_setup(
 	)
 }
 
-fn decl_integrity_test(scrate: &TokenStream2) -> TokenStream2 {
+fn decl_on_construct_runtime_check(scrate: &TokenStream2) -> TokenStream2 {
 	quote!(
 		#[cfg(test)]
-		mod __construct_runtime_integrity_test {
+		mod __construct_runtime_check_test {
 			use super::*;
 
 			#[test]
 			pub fn runtime_integrity_tests() {
 				#scrate::__private::sp_tracing::try_init_simple();
-				<AllPalletsWithSystem as #scrate::traits::IntegrityTest>::integrity_test();
+				<AllPalletsWithSystem as #scrate::traits::IntegrityTest>::on_construct_runtime();
 			}
 		}
 	)

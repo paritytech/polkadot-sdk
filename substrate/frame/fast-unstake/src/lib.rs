@@ -281,7 +281,7 @@ pub mod pallet {
 			Self::do_on_idle(remaining_weight)
 		}
 
-		fn integrity_test() {
+		fn on_construct_runtime() {
 			// Ensure that the value of `ErasToCheckPerBlock` is less or equal to
 			// `T::MaxErasToCheckPerBlock`.
 			assert!(

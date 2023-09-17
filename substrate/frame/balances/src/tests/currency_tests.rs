@@ -1079,7 +1079,7 @@ fn zero_ed_is_prohibited() {
 	// These functions all use `mutate_account` which may introduce a storage change when
 	// the account never existed to begin with, and shouldn't exist in the end.
 	ExtBuilder::default().existential_deposit(0).build_and_execute_with(|| {
-		Balances::integrity_test();
+		Balances::on_construct_runtime();
 	});
 }
 

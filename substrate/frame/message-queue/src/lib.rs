@@ -166,7 +166,7 @@
 //! The pallet will execute at least one unprocessed message per block, if there is any. Ensuring
 //! this property needs careful consideration of the concrete weights, since it is possible that the
 //! weight limit of `on_initialize` never allows for the execution of even one message; trivially if
-//! the limit is set to zero. `integrity_test` can be used to ensure that this property holds.
+//! the limit is set to zero. `on_construct_runtime` can be used to ensure that this property holds.
 //!
 //! **Fairness - Enqueuing**
 //!
@@ -584,7 +584,7 @@ pub mod pallet {
 		}
 
 		/// Check all compile-time assumptions about [`crate::Config`].
-		fn integrity_test() {
+		fn on_construct_runtime() {
 			assert!(!MaxMessageLenOf::<T>::get().is_zero(), "HeapSize too low");
 		}
 	}

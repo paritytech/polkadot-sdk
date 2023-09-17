@@ -232,7 +232,7 @@ mod pallet {
 	fn duplicate_in_bags_threshold_panics() {
 		const DUPE_THRESH: &[VoteWeight; 4] = &[10, 20, 30, 30];
 		BagThresholds::set(DUPE_THRESH);
-		BagsList::integrity_test();
+		BagsList::on_construct_runtime();
 	}
 
 	#[test]
@@ -240,7 +240,7 @@ mod pallet {
 	fn decreasing_in_bags_threshold_panics() {
 		const DECREASING_THRESH: &[VoteWeight; 4] = &[10, 30, 20, 40];
 		BagThresholds::set(DECREASING_THRESH);
-		BagsList::integrity_test();
+		BagsList::on_construct_runtime();
 	}
 
 	#[test]

@@ -765,7 +765,7 @@ impl<T: MinerConfig> Miner<T> {
 		// ----- Start building support. First, we need one more closure.
 		let stake_of = helpers::stake_of_fn::<T>(&snapshot_voters, &cache);
 
-		// This might fail if the normalization fails. Very unlikely. See `integrity_test`.
+		// This might fail if the normalization fails. Very unlikely. See `on_construct_runtime`.
 		let staked_assignments = assignment_ratio_to_staked_normalized(assignments, stake_of)
 			.map_err::<FeasibilityError, _>(Into::into)?;
 		let supports = sp_npos_elections::to_supports(&staked_assignments);

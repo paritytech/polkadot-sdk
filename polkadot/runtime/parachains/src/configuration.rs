@@ -1191,7 +1191,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn integrity_test() {
+		fn on_construct_runtime() {
 			assert_eq!(
 				&ActiveConfig::<T>::hashed_key(),
 				primitives::well_known_keys::ACTIVE_CONFIG,
