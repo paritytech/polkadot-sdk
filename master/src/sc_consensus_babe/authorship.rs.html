@@ -307,7 +307,6 @@
 <a href="#307" id="307">307</a>
 <a href="#308" id="308">308</a>
 <a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -442,23 +441,22 @@
 	keystore: <span class="kw-2">&amp;</span>KeystorePtr,
 	author_secondary_vrf: bool,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;(PreDigest, AuthorityId)&gt; {
-	<span class="kw">let </span>Epoch { authorities, randomness, <span class="kw-2">mut </span>epoch_index, .. } = epoch;
-
-	<span class="kw">if </span>authorities.is_empty() {
+	<span class="kw">if </span>epoch.authorities.is_empty() {
 		<span class="kw">return </span><span class="prelude-val">None
 	</span>}
 
+	<span class="kw">let </span><span class="kw-2">mut </span>epoch_index = epoch.epoch_index;
 	<span class="kw">if </span>epoch.end_slot() &lt;= slot {
 		<span class="comment">// Slot doesn&#39;t strictly belong to the epoch, create a clone with fixed values.
 		</span>epoch_index = epoch.clone_for_slot(slot).epoch_index;
 	}
 
-	<span class="kw">let </span>expected_author = secondary_slot_author(slot, authorities, <span class="kw-2">*</span>randomness)<span class="question-mark">?</span>;
+	<span class="kw">let </span>expected_author = secondary_slot_author(slot, <span class="kw-2">&amp;</span>epoch.authorities, epoch.randomness)<span class="question-mark">?</span>;
 
 	<span class="kw">for </span>(authority_id, authority_index) <span class="kw">in </span>keys {
 		<span class="kw">if </span>authority_id == expected_author {
 			<span class="kw">let </span>pre_digest = <span class="kw">if </span>author_secondary_vrf {
-				<span class="kw">let </span>data = make_vrf_sign_data(randomness, slot, epoch_index);
+				<span class="kw">let </span>data = make_vrf_sign_data(<span class="kw-2">&amp;</span>epoch.randomness, slot, epoch_index);
 				<span class="kw">let </span>result =
 					keystore.sr25519_vrf_sign(AuthorityId::ID, authority_id.as_ref(), <span class="kw-2">&amp;</span>data);
 				<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(vrf_signature)) = result {
@@ -542,19 +540,18 @@
 	keystore: <span class="kw-2">&amp;</span>KeystorePtr,
 	keys: <span class="kw-2">&amp;</span>[(AuthorityId, usize)],
 ) -&gt; <span class="prelude-ty">Option</span>&lt;(PreDigest, AuthorityId)&gt; {
-	<span class="kw">let </span>Epoch { authorities, randomness, <span class="kw-2">mut </span>epoch_index, .. } = epoch;
-
+	<span class="kw">let </span><span class="kw-2">mut </span>epoch_index = epoch.epoch_index;
 	<span class="kw">if </span>epoch.end_slot() &lt;= slot {
 		<span class="comment">// Slot doesn&#39;t strictly belong to the epoch, create a clone with fixed values.
 		</span>epoch_index = epoch.clone_for_slot(slot).epoch_index;
 	}
 
-	<span class="kw">let </span>data = make_vrf_sign_data(randomness, slot, epoch_index);
+	<span class="kw">let </span>data = make_vrf_sign_data(<span class="kw-2">&amp;</span>epoch.randomness, slot, epoch_index);
 
 	<span class="kw">for </span>(authority_id, authority_index) <span class="kw">in </span>keys {
 		<span class="kw">let </span>result = keystore.sr25519_vrf_sign(AuthorityId::ID, authority_id.as_ref(), <span class="kw-2">&amp;</span>data);
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(vrf_signature)) = result {
-			<span class="kw">let </span>threshold = calculate_primary_threshold(c, authorities, <span class="kw-2">*</span>authority_index);
+			<span class="kw">let </span>threshold = calculate_primary_threshold(c, <span class="kw-2">&amp;</span>epoch.authorities, <span class="kw-2">*</span>authority_index);
 
 			<span class="kw">let </span>can_claim = authority_id
 				.as_inner_ref()
@@ -584,7 +581,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>sp_consensus_babe::{AllowedSlots, AuthorityId, BabeEpochConfiguration};
+	<span class="kw">use </span>sp_consensus_babe::{AllowedSlots, AuthorityId, BabeEpochConfiguration, Epoch};
 	<span class="kw">use </span>sp_core::{crypto::Pair <span class="kw">as _</span>, sr25519::Pair};
 	<span class="kw">use </span>sp_keystore::testing::MemoryKeystore;
 
@@ -610,7 +607,8 @@
 				c: (<span class="number">3</span>, <span class="number">10</span>),
 				allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
 			},
-		};
+		}
+		.into();
 
 		<span class="macro">assert!</span>(claim_slot(<span class="number">10</span>.into(), <span class="kw-2">&amp;</span>epoch, <span class="kw-2">&amp;</span>keystore).is_none());
 

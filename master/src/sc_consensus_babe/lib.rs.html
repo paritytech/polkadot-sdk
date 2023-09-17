@@ -1934,9 +1934,6 @@
 <a href="#1934" id="1934">1934</a>
 <a href="#1935" id="1935">1935</a>
 <a href="#1936" id="1936">1936</a>
-<a href="#1937" id="1937">1937</a>
-<a href="#1938" id="1938">1938</a>
-<a href="#1939" id="1939">1939</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2008,6 +2005,7 @@
 </span><span class="kw">use </span>std::{
 	collections::HashSet,
 	future::Future,
+	ops::{Deref, DerefMut},
 	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
@@ -2095,20 +2093,27 @@
 </span><span class="kw">const </span>AUTHORING_SCORE_LENGTH: usize = <span class="number">16</span>;
 
 <span class="doccomment">/// BABE epoch information
-</span><span class="attr">#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, scale_info::TypeInfo)]
-</span><span class="kw">pub struct </span>Epoch {
-	<span class="doccomment">/// The epoch index.
-	</span><span class="kw">pub </span>epoch_index: u64,
-	<span class="doccomment">/// The starting slot of the epoch.
-	</span><span class="kw">pub </span>start_slot: Slot,
-	<span class="doccomment">/// The duration of this epoch.
-	</span><span class="kw">pub </span>duration: u64,
-	<span class="doccomment">/// The authorities and their weights.
-	</span><span class="kw">pub </span>authorities: Vec&lt;(AuthorityId, BabeAuthorityWeight)&gt;,
-	<span class="doccomment">/// Randomness for this epoch.
-	</span><span class="kw">pub </span>randomness: Randomness,
-	<span class="doccomment">/// Configuration of the epoch.
-	</span><span class="kw">pub </span>config: BabeEpochConfiguration,
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
+</span><span class="kw">pub struct </span>Epoch(sp_consensus_babe::Epoch);
+
+<span class="kw">impl </span>Deref <span class="kw">for </span>Epoch {
+	<span class="kw">type </span>Target = sp_consensus_babe::Epoch;
+
+	<span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
+		<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
+	</span>}
+}
+
+<span class="kw">impl </span>DerefMut <span class="kw">for </span>Epoch {
+	<span class="kw">fn </span>deref_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self</span>::Target {
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>.<span class="number">0
+	</span>}
+}
+
+<span class="kw">impl </span>From&lt;sp_consensus_babe::Epoch&gt; <span class="kw">for </span>Epoch {
+	<span class="kw">fn </span>from(epoch: sp_consensus_babe::Epoch) -&gt; <span class="self">Self </span>{
+		Epoch(epoch)
+	}
 }
 
 <span class="kw">impl </span>EpochT <span class="kw">for </span>Epoch {
@@ -2119,7 +2124,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		(descriptor, config): (NextEpochDescriptor, BabeEpochConfiguration),
 	) -&gt; Epoch {
-		Epoch {
+		sp_consensus_babe::Epoch {
 			epoch_index: <span class="self">self</span>.epoch_index + <span class="number">1</span>,
 			start_slot: <span class="self">self</span>.start_slot + <span class="self">self</span>.duration,
 			duration: <span class="self">self</span>.duration,
@@ -2127,6 +2132,7 @@
 			randomness: descriptor.randomness,
 			config,
 		}
+		.into()
 	}
 
 	<span class="kw">fn </span>start_slot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Slot {
@@ -2138,25 +2144,12 @@
 	}
 }
 
-<span class="kw">impl </span>From&lt;sp_consensus_babe::Epoch&gt; <span class="kw">for </span>Epoch {
-	<span class="kw">fn </span>from(epoch: sp_consensus_babe::Epoch) -&gt; <span class="self">Self </span>{
-		Epoch {
-			epoch_index: epoch.epoch_index,
-			start_slot: epoch.start_slot,
-			duration: epoch.duration,
-			authorities: epoch.authorities,
-			randomness: epoch.randomness,
-			config: epoch.config,
-		}
-	}
-}
-
 <span class="kw">impl </span>Epoch {
 	<span class="doccomment">/// Create the genesis epoch (epoch #0).
 	///
 	/// This is defined to start at the slot of the first block, so that has to be provided.
 	</span><span class="kw">pub fn </span>genesis(genesis_config: <span class="kw-2">&amp;</span>BabeConfiguration, slot: Slot) -&gt; Epoch {
-		Epoch {
+		sp_consensus_babe::Epoch {
 			epoch_index: <span class="number">0</span>,
 			start_slot: slot,
 			duration: genesis_config.epoch_length,
@@ -2167,6 +2160,7 @@
 				allowed_slots: genesis_config.allowed_slots,
 			},
 		}
+		.into()
 	}
 
 	<span class="doccomment">/// Clone and tweak epoch information to refer to the specified slot.

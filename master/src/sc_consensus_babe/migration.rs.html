@@ -75,6 +75,8 @@
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -139,10 +141,11 @@
 	}
 }
 
-<span class="kw">impl </span>EpochV0 {
+<span class="comment">// Implement From&lt;EpochV0&gt; for Epoch
+</span><span class="kw">impl </span>EpochV0 {
 	<span class="doccomment">/// Migrate the sturct to current epoch version.
 	</span><span class="kw">pub fn </span>migrate(<span class="self">self</span>, config: <span class="kw-2">&amp;</span>BabeConfiguration) -&gt; Epoch {
-		Epoch {
+		sp_consensus_babe::Epoch {
 			epoch_index: <span class="self">self</span>.epoch_index,
 			start_slot: <span class="self">self</span>.start_slot,
 			duration: <span class="self">self</span>.duration,
@@ -150,6 +153,7 @@
 			randomness: <span class="self">self</span>.randomness,
 			config: BabeEpochConfiguration { c: config.c, allowed_slots: config.allowed_slots },
 		}
+		.into()
 	}
 }
 </code></pre></div></section></main></body></html>
