@@ -43,7 +43,7 @@ PERSONAL NOTES:
 	- Timeslice = 2 relay blocks
 	- Region length = 3 timeslices, i.e. 6 relay blocks
 	- Advance notice = 2 relay blocks. This means tasks will be added to the workload
-		2 blocks before teh start of the bulk period. 
+		2 blocks before teh start of the bulk period.
 	- When `do_start_sales` is called the next bulk period starts after a timeslice.
 */
 
@@ -664,6 +664,39 @@ fn partition_then_interlace_works() {
 					}
 				),
 			]
+		);
+	});
+}
+
+#[test]
+fn interlacing_after_assignment_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		// We will initially allocate a task to a purchased region, and after that
+		// we will proceed to interlace the region.
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region, None, 1001, Provisional));
+		let (region1, _region) =
+			Broker::do_interlace(region, None, CoreMask::from_chunk(0, 40)).unwrap();
+		// Interlacing the region won't affect the assignment. The entire region will still
+		// be assigned to `Task(1001)`.
+		//
+		// However, after we assign a task to `region1` the `_region` won't be assigned
+		// to `Task(1001)` anymore. It will become idle.
+		assert_ok!(Broker::do_assign(region1, None, 1002, Provisional));
+		advance_to(10);
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![(
+				6,
+				AssignCore {
+					core: 0,
+					begin: 8,
+					assignment: vec![(Idle, 28800), (Task(1002), 28800)],
+					end_hint: None
+				}
+			),]
 		);
 	});
 }
