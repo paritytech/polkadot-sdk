@@ -669,6 +669,46 @@ fn partition_then_interlace_works() {
 }
 
 #[test]
+fn partitioning_after_assignment_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		// We will initially allocate a task to a purchased region, and after that
+		// we will proceed to partition the region.
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region, None, 1001, Provisional));
+		let (_region, region1) = Broker::do_partition(region, None, 2).unwrap();
+		// After the partitioning if we assign a new task to `region` the other region
+		// will still be assigned to `Task(1001)`.
+		assert_ok!(Broker::do_assign(region1, None, 1002, Provisional));
+		advance_to(10);
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![
+				(
+					6,
+					AssignCore {
+						core: 0,
+						begin: 8,
+						assignment: vec![(Task(1001), 57600),],
+						end_hint: None
+					}
+				),
+				(
+					10,
+					AssignCore {
+						core: 0,
+						begin: 12,
+						assignment: vec![(Task(1002), 57600),],
+						end_hint: None
+					}
+				),
+			]
+		);
+	});
+}
+
+#[test]
 fn interlacing_after_assignment_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
