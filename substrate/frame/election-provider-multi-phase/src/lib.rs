@@ -1372,12 +1372,12 @@ impl<T: Config> SnapshotWrapper<T> {
 	}
 
 	/// Check if all of the storage items exist
-	pub fn exist() -> bool {
+	pub fn exists() -> bool {
 		<Snapshot<T>>::exists() && <SnapshotMetadata<T>>::exists() && <DesiredTargets<T>>::exists()
 	}
 
 	/// Check if all of the storage items do not exist
-	pub fn not_exist() -> bool {
+	pub fn not_exists() -> bool {
 		!<Snapshot<T>>::exists() &&
 			!<SnapshotMetadata<T>>::exists() &&
 			!<DesiredTargets<T>>::exists()
@@ -1641,7 +1641,7 @@ impl<T: Config> Pallet<T> {
 	// - [`DesiredTargets`] exists if and only if [`Snapshot`] is present.
 	// - [`SnapshotMetadata`] exist if and only if [`Snapshot`] is present.
 	fn try_state_snapshot() -> Result<(), TryRuntimeError> {
-		if SnapshotWrapper::exist() || SnapshotWrapper::not_exist() {
+		if SnapshotWrapper::exists() || SnapshotWrapper::not_exists() {
 			Ok(())
 		} else {
 			Err("If snapshot exists, metadata and desired targets should be set too. Otherwise, none should be set.".into())
