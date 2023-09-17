@@ -36,7 +36,7 @@ use sp_runtime::{
 };
 
 parameter_types! {
-	pub static IntegrityTestExec: u32 = 0;
+	pub static ConstructRuntimeExec: u32 = 0;
 }
 
 #[frame_support::pallet(dev_mode)]
@@ -93,7 +93,7 @@ mod module2 {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_construct_runtime() {
-			IntegrityTestExec::mutate(|i| *i += 1);
+			ConstructRuntimeExec::mutate(|i| *i += 1);
 		}
 	}
 
@@ -140,7 +140,7 @@ mod nested {
 		#[pallet::hooks]
 		impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 			fn on_construct_runtime() {
-				IntegrityTestExec::mutate(|i| *i += 1);
+				ConstructRuntimeExec::mutate(|i| *i += 1);
 			}
 		}
 
@@ -427,7 +427,7 @@ fn check_modules_error_type() {
 #[test]
 fn integrity_test_works() {
 	__construct_runtime_check_test::runtime_check_tests();
-	assert_eq!(IntegrityTestExec::get(), 2);
+	assert_eq!(ConstructRuntimeExec::get(), 2);
 }
 
 #[test]
