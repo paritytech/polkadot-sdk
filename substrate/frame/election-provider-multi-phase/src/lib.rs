@@ -1641,7 +1641,7 @@ impl<T: Config> Pallet<T> {
 	// - [`DesiredTargets`] exists if and only if [`Snapshot`] is present.
 	// - [`SnapshotMetadata`] exist if and only if [`Snapshot`] is present.
 	fn try_state_snapshot() -> Result<(), TryRuntimeError> {
-		if SnapshotWrapper::exists() || SnapshotWrapper::not_exists() {
+		if SnapshotWrapper::<T>::exists() || SnapshotWrapper::<T>::not_exists() {
 			Ok(())
 		} else {
 			Err("If snapshot exists, metadata and desired targets should be set too. Otherwise, none should be set.".into())
