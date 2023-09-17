@@ -15,7 +15,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 async-trait = "0.1.57"
-scale-info = { version = "2.5.0", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 futures = "0.3.21"
 log = "0.4.17"
@@ -45,10 +44,8 @@ sp-keystore = { path = "../../../primitives/keystore" }
 sp-runtime = { path = "../../../primitives/runtime" }
 
 [dev-dependencies]
-rand_chacha = "0.2.2"
 sc-block-builder = { path = "../../block-builder" }
 sp-keyring = { path = "../../../primitives/keyring" }
-sc-network = { path = "../../network" }
 sc-network-test = { path = "../../network/test" }
 sp-timestamp = { path = "../../../primitives/timestamp" }
 sp-tracing = { path = "../../../primitives/tracing" }

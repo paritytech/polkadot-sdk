@@ -89,8 +89,7 @@ impl pallet_preimage::Config for Test {
 	type WeightInfo = ();
 	type Currency = Balances;
 	type ManagerOrigin = EnsureRoot<u64>;
-	type BaseDeposit = ();
-	type ByteDeposit = ();
+	type Consideration = ();
 }
 impl pallet_scheduler::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

@@ -501,7 +501,7 @@ fn claim_epoch_slots() {
 	let authority = Sr25519Keyring::Alice;
 	let keystore = create_keystore(authority);
 
-	let mut epoch = Epoch {
+	let mut epoch: Epoch = sp_consensus_babe::Epoch {
 		start_slot: 0.into(),
 		authorities: vec![(authority.public().into(), 1)],
 		randomness: [0; 32],
@@ -511,7 +511,8 @@ fn claim_epoch_slots() {
 			c: (3, 10),
 			allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
 		},
-	};
+	}
+	.into();
 
 	let claim_slot_wrap = |s, e| match claim_slot(Slot::from(s as u64), &e, &keystore) {
 		None => 0,
@@ -551,7 +552,7 @@ fn claim_vrf_check() {
 
 	let public = authority.public();
 
-	let epoch = Epoch {
+	let epoch: Epoch = sp_consensus_babe::Epoch {
 		start_slot: 0.into(),
 		authorities: vec![(public.into(), 1)],
 		randomness: [0; 32],
@@ -561,7 +562,8 @@ fn claim_vrf_check() {
 			c: (3, 10),
 			allowed_slots: AllowedSlots::PrimaryAndSecondaryVRFSlots,
 		},
-	};
+	}
+	.into();
 
 	// We leverage the predictability of claim types given a constant randomness.
 
