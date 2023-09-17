@@ -2786,6 +2786,11 @@
 <a href="#2786" id="2786">2786</a>
 <a href="#2787" id="2787">2787</a>
 <a href="#2788" id="2788">2788</a>
+<a href="#2789" id="2789">2789</a>
+<a href="#2790" id="2790">2790</a>
+<a href="#2791" id="2791">2791</a>
+<a href="#2792" id="2792">2792</a>
+<a href="#2793" id="2793">2793</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2823,11 +2828,12 @@
 	pallet_prelude::Get,
 	parameter_types,
 	traits::{
-		fungible::{Balanced, Credit, ItemOf},
+		fungible::{Balanced, Credit, HoldConsideration, ItemOf},
 		tokens::{nonfungibles_v2::Inspect, GetSalary, PayFromAccount},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Contains, Currency,
 		EitherOfDiverse, EqualPrivilegeOnly, Imbalance, InsideBoth, InstanceFilter,
-		KeyOwnerProofSystem, LockIdentifier, Nothing, OnUnbalanced, WithdrawReasons,
+		KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, Nothing, OnUnbalanced,
+		WithdrawReasons,
 	},
 	weights::{
 		constants::{
@@ -3235,10 +3241,10 @@
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>PreimageMaxSize: u32 = <span class="number">4096 </span>* <span class="number">1024</span>;
 	<span class="kw">pub const </span>PreimageBaseDeposit: Balance = <span class="number">1 </span>* DOLLARS;
 	<span class="comment">// One cent: $10,000 / MB
 	</span><span class="kw">pub const </span>PreimageByteDeposit: Balance = <span class="number">1 </span>* CENTS;
+	<span class="kw">pub const </span>PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
 <span class="kw">impl </span>pallet_preimage::Config <span class="kw">for </span>Runtime {
@@ -3246,8 +3252,12 @@
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>ManagerOrigin = EnsureRoot&lt;AccountId&gt;;
-	<span class="kw">type </span>BaseDeposit = PreimageBaseDeposit;
-	<span class="kw">type </span>ByteDeposit = PreimageByteDeposit;
+	<span class="kw">type </span>Consideration = HoldConsideration&lt;
+		AccountId,
+		Balances,
+		PreimageHoldReason,
+		LinearStoragePrice&lt;PreimageBaseDeposit, PreimageByteDeposit, Balance&gt;,
+	&gt;;
 }
 
 <span class="macro">parameter_types! </span>{

@@ -2319,6 +2319,12 @@
 <a href="#2319" id="2319">2319</a>
 <a href="#2320" id="2320">2320</a>
 <a href="#2321" id="2321">2321</a>
+<a href="#2322" id="2322">2322</a>
+<a href="#2323" id="2323">2323</a>
+<a href="#2324" id="2324">2324</a>
+<a href="#2325" id="2325">2325</a>
+<a href="#2326" id="2326">2326</a>
+<a href="#2327" id="2327">2327</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2381,8 +2387,9 @@
 <span class="kw">use </span>frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		Contains, EitherOfDiverse, InstanceFilter, KeyOwnerProofSystem, LockIdentifier,
-		PrivilegeCmp, ProcessMessage, ProcessMessageError, StorageMapShim, WithdrawReasons,
+		fungible::HoldConsideration, Contains, EitherOfDiverse, InstanceFilter,
+		KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, PrivilegeCmp, ProcessMessage,
+		ProcessMessageError, StorageMapShim, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -2545,6 +2552,7 @@
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>PreimageBaseDeposit: Balance = deposit(<span class="number">2</span>, <span class="number">64</span>);
 	<span class="kw">pub const </span>PreimageByteDeposit: Balance = deposit(<span class="number">0</span>, <span class="number">1</span>);
+	<span class="kw">pub const </span>PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
 <span class="kw">impl </span>pallet_preimage::Config <span class="kw">for </span>Runtime {
@@ -2552,8 +2560,12 @@
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>ManagerOrigin = EnsureRoot&lt;AccountId&gt;;
-	<span class="kw">type </span>BaseDeposit = PreimageBaseDeposit;
-	<span class="kw">type </span>ByteDeposit = PreimageByteDeposit;
+	<span class="kw">type </span>Consideration = HoldConsideration&lt;
+		AccountId,
+		Balances,
+		PreimageHoldReason,
+		LinearStoragePrice&lt;PreimageBaseDeposit, PreimageByteDeposit, Balance&gt;,
+	&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -3770,7 +3782,7 @@
 		</span>Multisig: pallet_multisig::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">31</span>,
 
 		<span class="comment">// Preimage registrar.
-		</span>Preimage: pallet_preimage::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">32</span>,
+		</span>Preimage: pallet_preimage::{Pallet, Call, Storage, Event&lt;T&gt;, HoldReason} = <span class="number">32</span>,
 
 		<span class="comment">// Bounties modules.
 		</span>Bounties: pallet_bounties::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">35</span>,

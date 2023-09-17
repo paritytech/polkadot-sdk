@@ -2599,6 +2599,11 @@
 <a href="#2599" id="2599">2599</a>
 <a href="#2600" id="2600">2600</a>
 <a href="#2601" id="2601">2601</a>
+<a href="#2602" id="2602">2602</a>
+<a href="#2603" id="2603">2603</a>
+<a href="#2604" id="2604">2604</a>
+<a href="#2605" id="2605">2605</a>
+<a href="#2606" id="2606">2606</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2648,8 +2653,9 @@
 <span class="kw">use </span>frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		ConstU32, Contains, EitherOf, EitherOfDiverse, InstanceFilter, KeyOwnerProofSystem,
-		PrivilegeCmp, ProcessMessage, ProcessMessageError, WithdrawReasons,
+		fungible::HoldConsideration, ConstU32, Contains, EitherOf, EitherOfDiverse, InstanceFilter,
+		KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage, ProcessMessageError,
+		WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -2822,9 +2828,9 @@
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>PreimageMaxSize: u32 = <span class="number">4096 </span>* <span class="number">1024</span>;
 	<span class="kw">pub const </span>PreimageBaseDeposit: Balance = deposit(<span class="number">2</span>, <span class="number">64</span>);
 	<span class="kw">pub const </span>PreimageByteDeposit: Balance = deposit(<span class="number">0</span>, <span class="number">1</span>);
+	<span class="kw">pub const </span>PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
 <span class="kw">impl </span>pallet_preimage::Config <span class="kw">for </span>Runtime {
@@ -2832,8 +2838,12 @@
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>ManagerOrigin = EnsureRoot&lt;AccountId&gt;;
-	<span class="kw">type </span>BaseDeposit = PreimageBaseDeposit;
-	<span class="kw">type </span>ByteDeposit = PreimageByteDeposit;
+	<span class="kw">type </span>Consideration = HoldConsideration&lt;
+		AccountId,
+		Balances,
+		PreimageHoldReason,
+		LinearStoragePrice&lt;PreimageBaseDeposit, PreimageByteDeposit, Balance&gt;,
+	&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -2898,7 +2908,7 @@
 	<span class="kw">type </span>WeightInfo = weights::pallet_balances::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
 	<span class="kw">type </span>FreezeIdentifier = ();
-	<span class="kw">type </span>MaxHolds = ConstU32&lt;<span class="number">0</span>&gt;;
+	<span class="kw">type </span>MaxHolds = ConstU32&lt;<span class="number">1</span>&gt;;
 	<span class="kw">type </span>MaxFreezes = ConstU32&lt;<span class="number">0</span>&gt;;
 }
 
@@ -3927,7 +3937,7 @@
 		<span class="comment">// Basic stuff; balances is uncallable initially.
 		</span>System: frame_system::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = <span class="number">0</span>,
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">1</span>,
-		Preimage: pallet_preimage::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">10</span>,
+		Preimage: pallet_preimage::{Pallet, Call, Storage, Event&lt;T&gt;, HoldReason} = <span class="number">10</span>,
 
 		<span class="comment">// Babe must be before session.
 		</span>Babe: pallet_babe::{Pallet, Call, Storage, Config&lt;T&gt;, ValidateUnsigned} = <span class="number">2</span>,

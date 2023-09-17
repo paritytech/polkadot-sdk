@@ -266,6 +266,9 @@
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -305,7 +308,7 @@
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebug)]
-	</span><span class="kw">pub enum </span>RequestStatus&lt;AccountId, Balance&gt; {
+	</span><span class="kw">pub enum </span>OldRequestStatus&lt;AccountId, Balance&gt; {
 		Unrequested(<span class="prelude-ty">Option</span>&lt;(AccountId, Balance)&gt;),
 		Requested(u32),
 	}
@@ -323,7 +326,7 @@
 		Pallet&lt;T&gt;,
 		Identity,
 		&lt;T <span class="kw">as </span>frame_system::Config&gt;::Hash,
-		RequestStatus&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, BalanceOf&lt;T&gt;&gt;,
+		OldRequestStatus&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, BalanceOf&lt;T&gt;&gt;,
 	&gt;;
 
 	<span class="doccomment">/// Returns the number of images or `None` if the storage is corrupted.
@@ -395,22 +398,23 @@
 				</span>}
 
 				<span class="kw">let </span>status = <span class="kw">match </span>status {
-					v0::RequestStatus::Unrequested(deposit) =&gt; <span class="kw">match </span>deposit {
-						<span class="prelude-val">Some</span>(deposit) =&gt; RequestStatus::Unrequested { deposit, len },
+					v0::OldRequestStatus::Unrequested(deposit) =&gt; <span class="kw">match </span>deposit {
+						<span class="prelude-val">Some</span>(deposit) =&gt; OldRequestStatus::Unrequested { deposit, len },
 						<span class="comment">// `None` depositor becomes system-requested.
 						</span><span class="prelude-val">None </span>=&gt;
-							RequestStatus::Requested { deposit: <span class="prelude-val">None</span>, count: <span class="number">1</span>, len: <span class="prelude-val">Some</span>(len) },
+							OldRequestStatus::Requested { deposit: <span class="prelude-val">None</span>, count: <span class="number">1</span>, len: <span class="prelude-val">Some</span>(len) },
 					},
-					v0::RequestStatus::Requested(count) <span class="kw">if </span>count == <span class="number">0 </span>=&gt; {
+					v0::OldRequestStatus::Requested(count) <span class="kw">if </span>count == <span class="number">0 </span>=&gt; {
 						<span class="macro">log::error!</span>(target: TARGET, <span class="string">&quot;preimage has counter of zero: {:?}&quot;</span>, hash);
 						<span class="kw">continue
 					</span>},
-					v0::RequestStatus::Requested(count) =&gt;
-						RequestStatus::Requested { deposit: <span class="prelude-val">None</span>, count, len: <span class="prelude-val">Some</span>(len) },
+					v0::OldRequestStatus::Requested(count) =&gt;
+						OldRequestStatus::Requested { deposit: <span class="prelude-val">None</span>, count, len: <span class="prelude-val">Some</span>(len) },
 				};
 				<span class="macro">log::trace!</span>(target: TARGET, <span class="string">&quot;Moving preimage {:?} with len {}&quot;</span>, hash, len);
 
-				<span class="kw">crate</span>::StatusFor::&lt;T&gt;::insert(hash, status);
+				<span class="attr">#[allow(deprecated)]
+				</span><span class="kw">crate</span>::StatusFor::&lt;T&gt;::insert(hash, status);
 				<span class="kw">crate</span>::PreimageFor::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>(hash, len), preimage);
 
 				weight.saturating_accrue(T::DbWeight::get().writes(<span class="number">2</span>));
@@ -444,7 +448,8 @@
 	</span><span class="kw">pub fn </span>image_count&lt;T: Config&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
 		<span class="comment">// Use iter_values() to ensure that the values are decodable.
 		</span><span class="kw">let </span>images = <span class="kw">crate</span>::PreimageFor::&lt;T&gt;::iter_values().count() <span class="kw">as </span>u32;
-		<span class="kw">let </span>status = <span class="kw">crate</span>::StatusFor::&lt;T&gt;::iter_values().count() <span class="kw">as </span>u32;
+		<span class="attr">#[allow(deprecated)]
+		</span><span class="kw">let </span>status = <span class="kw">crate</span>::StatusFor::&lt;T&gt;::iter_values().count() <span class="kw">as </span>u32;
 
 		<span class="kw">if </span>images == status {
 			<span class="prelude-val">Some</span>(images)
@@ -457,7 +462,8 @@
 <span class="attr">#[cfg(test)]
 #[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 </span><span class="kw">mod </span>test {
-	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="attr">#![allow(deprecated)]
+	</span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::mock::{Test <span class="kw">as </span>T, <span class="kw-2">*</span>};
 
 	<span class="kw">use </span>sp_runtime::bounded_vec;
@@ -471,19 +477,19 @@
 			// Case 1: Unrequested without deposit
 			</span><span class="kw">let </span>(p, h) = preimage::&lt;T&gt;(<span class="number">128</span>);
 			v0::PreimageFor::&lt;T&gt;::insert(h, p);
-			v0::StatusFor::&lt;T&gt;::insert(h, v0::RequestStatus::Unrequested(<span class="prelude-val">None</span>));
+			v0::StatusFor::&lt;T&gt;::insert(h, v0::OldRequestStatus::Unrequested(<span class="prelude-val">None</span>));
 			<span class="comment">// Case 2: Unrequested with deposit
 			</span><span class="kw">let </span>(p, h) = preimage::&lt;T&gt;(<span class="number">1024</span>);
 			v0::PreimageFor::&lt;T&gt;::insert(h, p);
-			v0::StatusFor::&lt;T&gt;::insert(h, v0::RequestStatus::Unrequested(<span class="prelude-val">Some</span>((<span class="number">1</span>, <span class="number">1</span>))));
+			v0::StatusFor::&lt;T&gt;::insert(h, v0::OldRequestStatus::Unrequested(<span class="prelude-val">Some</span>((<span class="number">1</span>, <span class="number">1</span>))));
 			<span class="comment">// Case 3: Requested by 0 (invalid)
 			</span><span class="kw">let </span>(p, h) = preimage::&lt;T&gt;(<span class="number">8192</span>);
 			v0::PreimageFor::&lt;T&gt;::insert(h, p);
-			v0::StatusFor::&lt;T&gt;::insert(h, v0::RequestStatus::Requested(<span class="number">0</span>));
+			v0::StatusFor::&lt;T&gt;::insert(h, v0::OldRequestStatus::Requested(<span class="number">0</span>));
 			<span class="comment">// Case 4: Requested by 10
 			</span><span class="kw">let </span>(p, h) = preimage::&lt;T&gt;(<span class="number">65536</span>);
 			v0::PreimageFor::&lt;T&gt;::insert(h, p);
-			v0::StatusFor::&lt;T&gt;::insert(h, v0::RequestStatus::Requested(<span class="number">10</span>));
+			v0::StatusFor::&lt;T&gt;::insert(h, v0::OldRequestStatus::Requested(<span class="number">10</span>));
 
 			<span class="macro">assert_eq!</span>(v0::image_count::&lt;T&gt;(), <span class="prelude-val">Some</span>(<span class="number">4</span>));
 			<span class="macro">assert_eq!</span>(v1::image_count::&lt;T&gt;(), <span class="prelude-val">None</span>, <span class="string">&quot;V1 storage should be corrupted&quot;</span>);
@@ -502,14 +508,14 @@
 			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::PreimageFor::&lt;T&gt;::get(<span class="kw-2">&amp;</span>(h, <span class="number">128</span>)), <span class="prelude-val">Some</span>(p));
 			<span class="macro">assert_eq!</span>(
 				<span class="kw">crate</span>::StatusFor::&lt;T&gt;::get(h),
-				<span class="prelude-val">Some</span>(RequestStatus::Requested { deposit: <span class="prelude-val">None</span>, count: <span class="number">1</span>, len: <span class="prelude-val">Some</span>(<span class="number">128</span>) })
+				<span class="prelude-val">Some</span>(OldRequestStatus::Requested { deposit: <span class="prelude-val">None</span>, count: <span class="number">1</span>, len: <span class="prelude-val">Some</span>(<span class="number">128</span>) })
 			);
 			<span class="comment">// Case 2: Unrequested with deposit becomes unrequested
 			</span><span class="kw">let </span>(p, h) = preimage::&lt;T&gt;(<span class="number">1024</span>);
 			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::PreimageFor::&lt;T&gt;::get(<span class="kw-2">&amp;</span>(h, <span class="number">1024</span>)), <span class="prelude-val">Some</span>(p));
 			<span class="macro">assert_eq!</span>(
 				<span class="kw">crate</span>::StatusFor::&lt;T&gt;::get(h),
-				<span class="prelude-val">Some</span>(RequestStatus::Unrequested { deposit: (<span class="number">1</span>, <span class="number">1</span>), len: <span class="number">1024 </span>})
+				<span class="prelude-val">Some</span>(OldRequestStatus::Unrequested { deposit: (<span class="number">1</span>, <span class="number">1</span>), len: <span class="number">1024 </span>})
 			);
 			<span class="comment">// Case 3: Requested by 0 should be skipped
 			</span><span class="kw">let </span>(<span class="kw">_</span>, h) = preimage::&lt;T&gt;(<span class="number">8192</span>);
@@ -520,7 +526,7 @@
 			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::PreimageFor::&lt;T&gt;::get(<span class="kw-2">&amp;</span>(h, <span class="number">65536</span>)), <span class="prelude-val">Some</span>(p));
 			<span class="macro">assert_eq!</span>(
 				<span class="kw">crate</span>::StatusFor::&lt;T&gt;::get(h),
-				<span class="prelude-val">Some</span>(RequestStatus::Requested { deposit: <span class="prelude-val">None</span>, count: <span class="number">10</span>, len: <span class="prelude-val">Some</span>(<span class="number">65536</span>) })
+				<span class="prelude-val">Some</span>(OldRequestStatus::Requested { deposit: <span class="prelude-val">None</span>, count: <span class="number">10</span>, len: <span class="prelude-val">Some</span>(<span class="number">65536</span>) })
 			);
 		});
 	}

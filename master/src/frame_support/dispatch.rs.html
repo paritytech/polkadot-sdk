@@ -1081,6 +1081,15 @@
 <a href="#1081" id="1081">1081</a>
 <a href="#1082" id="1082">1082</a>
 <a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1218,6 +1227,15 @@
 <span class="kw">impl </span>From&lt;Pays&gt; <span class="kw">for </span>PostDispatchInfo {
 	<span class="kw">fn </span>from(pays_fee: Pays) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ actual_weight: <span class="prelude-val">None</span>, pays_fee }
+	}
+}
+
+<span class="kw">impl </span>From&lt;bool&gt; <span class="kw">for </span>Pays {
+	<span class="kw">fn </span>from(b: bool) -&gt; <span class="self">Self </span>{
+		<span class="kw">match </span>b {
+			<span class="bool-val">true </span>=&gt; <span class="self">Self</span>::Yes,
+			<span class="bool-val">false </span>=&gt; <span class="self">Self</span>::No,
+		}
 	}
 }
 

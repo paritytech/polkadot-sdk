@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["note_preimage","request_preimage","unnote_preimage","unrequest_preimage"]};
+window.SIDEBAR_ITEMS = {"fn":["ensure_updated","note_preimage","request_preimage","unnote_preimage","unrequest_preimage"]};
