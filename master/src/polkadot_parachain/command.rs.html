@@ -1168,6 +1168,42 @@
 <a href="#1168" id="1168">1168</a>
 <a href="#1169" id="1169">1169</a>
 <a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
+<a href="#1200" id="1200">1200</a>
+<a href="#1201" id="1201">1201</a>
+<a href="#1202" id="1202">1202</a>
+<a href="#1203" id="1203">1203</a>
+<a href="#1204" id="1204">1204</a>
+<a href="#1205" id="1205">1205</a>
+<a href="#1206" id="1206">1206</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1551,7 +1587,7 @@
 }
 
 <span class="doccomment">/// Creates partial components for the runtimes that are supported by the benchmarks.
-</span><span class="macro">macro_rules! </span>construct_benchmark_partials {
+</span><span class="macro">macro_rules! </span>construct_partials {
 	(<span class="macro-nonterminal">$config</span>:expr, |<span class="macro-nonterminal">$partials</span>:ident| <span class="macro-nonterminal">$code</span>:expr) =&gt; {
 		<span class="kw">match </span><span class="macro-nonterminal">$config</span>.chain_spec.runtime() {
 			Runtime::AssetHubKusama =&gt; {
@@ -1626,7 +1662,41 @@
 				)<span class="question-mark">?</span>;
 				<span class="macro-nonterminal">$code
 			</span>},
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;The chain is not supported&quot;</span>.into()),
+			Runtime::Shell =&gt; {
+				<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;shell_runtime::RuntimeApi, <span class="kw">_</span>&gt;(
+					<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
+					<span class="kw">crate</span>::service::shell_build_import_queue,
+				)<span class="question-mark">?</span>;
+				<span class="macro-nonterminal">$code
+			</span>},
+			Runtime::Seedling =&gt; {
+				<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;seedling_runtime::RuntimeApi, <span class="kw">_</span>&gt;(
+					<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
+					<span class="kw">crate</span>::service::shell_build_import_queue,
+				)<span class="question-mark">?</span>;
+				<span class="macro-nonterminal">$code
+			</span>},
+			Runtime::ContractsRococo =&gt; {
+				<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;contracts_rococo_runtime::RuntimeApi, <span class="kw">_</span>&gt;(
+					<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
+					<span class="kw">crate</span>::service::contracts_rococo_build_import_queue,
+				)<span class="question-mark">?</span>;
+				<span class="macro-nonterminal">$code
+			</span>},
+			Runtime::Penpal(<span class="kw">_</span>) | Runtime::Default =&gt; {
+				<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;rococo_parachain_runtime::RuntimeApi, <span class="kw">_</span>&gt;(
+					<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
+					<span class="kw">crate</span>::service::rococo_parachain_build_import_queue,
+				)<span class="question-mark">?</span>;
+				<span class="macro-nonterminal">$code
+			</span>},
+			Runtime::Glutton =&gt; {
+				<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;glutton_runtime::RuntimeApi, <span class="kw">_</span>&gt;(
+					<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
+					<span class="kw">crate</span>::service::shell_build_import_queue,
+				)<span class="question-mark">?</span>;
+				<span class="macro-nonterminal">$code
+			</span>},
 		}
 	};
 }
@@ -1849,10 +1919,12 @@
 				cmd.run(config, polkadot_config)
 			})
 		},
-		<span class="prelude-val">Some</span>(Subcommand::ExportGenesisState(cmd)) =&gt;
-			<span class="macro">construct_async_run!</span>(|components, cli, cmd, config| {
-				<span class="prelude-val">Ok</span>(<span class="kw">async move </span>{ cmd.run(<span class="kw-2">&amp;*</span>config.chain_spec, <span class="kw-2">&amp;*</span>components.client) })
-			}),
+		<span class="prelude-val">Some</span>(Subcommand::ExportGenesisState(cmd)) =&gt; {
+			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
+			runner.sync_run(|config| {
+				<span class="macro">construct_partials!</span>(config, |partials| cmd.run(<span class="kw-2">&amp;*</span>config.chain_spec, <span class="kw-2">&amp;*</span>partials.client))
+			})
+		},
 		<span class="prelude-val">Some</span>(Subcommand::ExportGenesisWasm(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 			runner.sync_run(|_config| {
@@ -1874,7 +1946,7 @@
 							</span>.into())
 					},
 				BenchmarkCmd::Block(cmd) =&gt; runner.sync_run(|config| {
-					<span class="macro">construct_benchmark_partials!</span>(config, |partials| cmd.run(partials.client))
+					<span class="macro">construct_partials!</span>(config, |partials| cmd.run(partials.client))
 				}),
 				<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
 				</span>BenchmarkCmd::Storage(<span class="kw">_</span>) =&gt;
@@ -1886,7 +1958,7 @@
 					.into()),
 				<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 				</span>BenchmarkCmd::Storage(cmd) =&gt; runner.sync_run(|config| {
-					<span class="macro">construct_benchmark_partials!</span>(config, |partials| {
+					<span class="macro">construct_partials!</span>(config, |partials| {
 						<span class="kw">let </span>db = partials.backend.expose_db();
 						<span class="kw">let </span>storage = partials.backend.expose_storage();
 
