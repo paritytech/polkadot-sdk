@@ -22,13 +22,13 @@ use super::*;
 use crate as pallet_preimage;
 use frame_support::{
 	ord_parameter_types,
-	traits::{ConstU32, ConstU64, Everything},
+	traits::{fungible::HoldConsideration, ConstU32, ConstU64, Everything},
 	weights::constants::RocksDbWeight,
 };
 use frame_system::EnsureSignedBy;
 use sp_core::H256;
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, Convert, IdentityLookup},
 	BuildStorage,
 };
 
@@ -80,13 +80,20 @@ impl pallet_balances::Config for Test {
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
 	type FreezeIdentifier = ();
-	type MaxFreezes = ();
+	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type MaxHolds = ConstU32<2>;
 }
 
 ord_parameter_types! {
 	pub const One: u64 = 1;
+}
+
+pub struct ConvertDeposit;
+impl Convert<Footprint, u64> for ConvertDeposit {
+	fn convert(a: Footprint) -> u64 {
+		a.count * 2 + a.size
+	}
 }
 
 impl Config for Test {
@@ -94,8 +101,7 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureSignedBy<One, u64>;
-	type BaseDeposit = ConstU64<2>;
-	type ByteDeposit = ConstU64<1>;
+	type Consideration = HoldConsideration<u64, Balances, (), ConvertDeposit>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -109,4 +115,21 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 pub fn hashed(data: impl AsRef<[u8]>) -> H256 {
 	BlakeTwo256::hash(data.as_ref())
+}
+
+/// Insert an un-migrated preimage.
+pub fn insert_old_unrequested<T: Config>(
+	s: u32,
+	acc: T::AccountId,
+) -> <T as frame_system::Config>::Hash {
+	// The preimage size does not matter here as it is not touched.
+	let preimage = s.to_le_bytes();
+	let hash = <T as frame_system::Config>::Hashing::hash(&preimage[..]);
+
+	#[allow(deprecated)]
+	StatusFor::<T>::insert(
+		&hash,
+		OldRequestStatus::Unrequested { deposit: (acc, 123u32.into()), len: preimage.len() as u32 },
+	);
+	hash
 }
