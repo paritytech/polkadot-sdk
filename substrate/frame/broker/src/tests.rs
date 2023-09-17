@@ -38,6 +38,15 @@ fn basic_initialize_works() {
 	});
 }
 
+/*
+PERSONAL NOTES:
+	- Timeslice = 2 relay blocks
+	- Region length = 3 timeslices, i.e. 6 relay blocks
+	- Advance notice = 2 relay blocks. This means tasks will be added to the workload
+		2 blocks before teh start of the bulk period. 
+	- When `do_start_sales` is called the next bulk period starts after a timeslice.
+*/
+
 #[test]
 fn drop_region_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
@@ -77,7 +86,9 @@ fn drop_renewal_works() {
 		let e = Error::<Test>::StillValid;
 		assert_noop!(Broker::do_drop_renewal(region.core, region.begin + 3), e);
 		advance_to(12);
+		assert_eq!(AllowedRenewals::<Test>::iter().count(), 1);
 		assert_ok!(Broker::do_drop_renewal(region.core, region.begin + 3));
+		assert_eq!(AllowedRenewals::<Test>::iter().count(), 0);
 		let e = Error::<Test>::UnknownRenewal;
 		assert_noop!(Broker::do_drop_renewal(region.core, region.begin + 3), e);
 	});
@@ -90,7 +101,10 @@ fn drop_contribution_works() {
 		advance_to(2);
 		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
 		// Place region in pool. Active in pool timeslices 4, 5, 6 = rcblocks 8, 10, 12; we
-		// expect the contribution record to timeout 3 timeslices following 7 = 10
+		// expect the contribution record to timeout 3 timeslices following 7 = 14
+		//
+		// Due to the contribution_timeout being configured for 3 timeslices, the contribution
+		// can only be discarded at timeslice 10, i.e. rcblock 20.
 		assert_ok!(Broker::do_pool(region, Some(1), 1, Final));
 		assert_eq!(InstaPoolContribution::<Test>::iter().count(), 1);
 		advance_to(19);
@@ -866,7 +880,7 @@ fn assign_should_drop_invalid_region() {
 		advance_to(10);
 		assert_ok!(Broker::do_assign(region, Some(1), 1001, Provisional));
 		region.begin = 7;
-		System::assert_last_event(Event::RegionDropped { region_id: region, duration: 0 }.into());
+		System::assert_last_event(Event::RegionDropped { region_id: region, duration: 3 }.into());
 	});
 }
 
@@ -879,7 +893,7 @@ fn pool_should_drop_invalid_region() {
 		advance_to(10);
 		assert_ok!(Broker::do_pool(region, Some(1), 1001, Provisional));
 		region.begin = 7;
-		System::assert_last_event(Event::RegionDropped { region_id: region, duration: 0 }.into());
+		System::assert_last_event(Event::RegionDropped { region_id: region, duration: 3 }.into());
 	});
 }
 
