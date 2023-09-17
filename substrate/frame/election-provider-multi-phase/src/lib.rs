@@ -1378,9 +1378,9 @@ impl<T: Config> SnapshotWrapper<T> {
 
 	/// Check if all of the storage items do not exist
 	pub fn not_exist() -> bool {
-		!<Snapshot<T>>::exists()
-			&& !<SnapshotMetadata<T>>::exists()
-			&& !<DesiredTargets<T>>::exists()
+		!<Snapshot<T>>::exists() &&
+			!<SnapshotMetadata<T>>::exists() &&
+			!<DesiredTargets<T>>::exists()
 	}
 }
 
@@ -1692,7 +1692,7 @@ impl<T: Config> Pallet<T> {
 					)
 				} else {
 					Ok(())
-			},
+				},
 		}
 	}
 
@@ -1706,7 +1706,7 @@ impl<T: Config> Pallet<T> {
 					Err("Snapshot must be none when in Phase::Off".into())
 				} else {
 					Ok(())
-			},
+				},
 		}
 	}
 }
