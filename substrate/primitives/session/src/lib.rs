@@ -30,8 +30,11 @@ use sp_core::{crypto::KeyTypeId, RuntimeDebug};
 use sp_staking::SessionIndex;
 use sp_std::vec::Vec;
 
+pub use sp_runtime::traits::GeneratedSessionKeys;
+
 sp_api::decl_runtime_apis! {
 	/// Session keys runtime api.
+	#[api_version(2)]
 	pub trait SessionKeys {
 		/// Generate a set of session keys with optionally using the given seed.
 		/// The keys should be stored within the keystore exposed via runtime
@@ -40,6 +43,9 @@ sp_api::decl_runtime_apis! {
 		/// The seed needs to be a valid `utf8` string.
 		///
 		/// Returns the concatenated SCALE encoded public keys.
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> GeneratedSessionKeys;
+
+		#[changed_in(2)]
 		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8>;
 
 		/// Decode the given public session keys.
@@ -119,7 +125,7 @@ where
 	T: ProvideRuntimeApi<Block>,
 	T::Api: SessionKeys<Block>,
 {
-	use sp_api::ApiExt;
+	use sp_api::{ApiError, ApiExt};
 
 	if seeds.is_empty() {
 		return Ok(())
@@ -127,10 +133,22 @@ where
 
 	let mut runtime_api = client.runtime_api();
 
+	let version = runtime_api.api_version::<dyn SessionKeys<Block>>(at)?.ok_or_else(|| {
+		ApiError::Application(Box::from("Could not find `SessionKeys` runtime api"))
+	})?;
+
 	runtime_api.register_extension(sp_keystore::KeystoreExt::from(keystore));
 
 	for seed in seeds {
-		runtime_api.generate_session_keys(at, Some(seed.as_bytes().to_vec()))?;
+		let seed = Some(seed.as_bytes().to_vec());
+
+		if version < 2 {
+			#[allow(deprecated)]
+			runtime_api.generate_session_keys_before_version_2(at, seed.clone())?;
+		} else {
+			// `owner` isn't important here as we don't need a `proof`.
+			runtime_api.generate_session_keys(at, vec![], seed.clone())?;
+		}
 	}
 
 	Ok(())

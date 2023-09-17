@@ -302,8 +302,8 @@ impl_runtime_apis! {
 			Some(Vec::new())
 		}
 
-		fn generate_session_keys(_: Option<Vec<u8>>) -> Vec<u8> {
-			Vec::new()
+		fn generate_session_keys(_: Vec<u8>, _: Option<Vec<u8>>) -> sp_session::GeneratedSessionKeys {
+			sp_session::GeneratedSessionKeys { keys: Vec::new(), proof: Vec::new() }
 		}
 	}
 

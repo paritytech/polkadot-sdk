@@ -25,6 +25,20 @@ use sp_core::Bytes;
 pub mod error;
 pub mod hash;
 
+/// Output of [`AuthorApi::rotate_keys_with_owner`].
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct GeneratedSessionKeys {
+	/// The public session keys for registering them on chain.
+	pub keys: Bytes,
+
+	/// The `proof` for verifying ownership of the generated session keys.
+	///
+	/// This will be `None` iff the chain doesn't support generating the `proof`.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default)]
+	pub proof: Option<Bytes>,
+}
+
 /// Substrate authoring RPC API
 #[rpc(client, server)]
 pub trait AuthorApi<Hash, BlockHash> {
@@ -39,6 +53,15 @@ pub trait AuthorApi<Hash, BlockHash> {
 	/// Generate new session keys and returns the corresponding public keys.
 	#[method(name = "author_rotateKeys")]
 	fn rotate_keys(&self) -> RpcResult<Bytes>;
+
+	/// Generate new session keys and returns the corresponding public keys.
+	///
+	/// The `owner` should be something that can be used on chain for verifying the ownership of the
+	/// generated keys using the returned `proof`. For example `owner` could be set to the account
+	/// id of the account registering the returned public session keys. The actual data to pass for
+	/// `owner` depends on the runtime logic verifying the `proof`.
+	#[method(name = "author_rotateKeysWithOwner")]
+	fn rotate_keys_with_owner(&self, owner: Bytes) -> RpcResult<GeneratedSessionKeys>;
 
 	/// Checks if the keystore has private keys for the given session public keys.
 	///

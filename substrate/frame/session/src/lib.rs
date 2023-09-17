@@ -588,7 +588,10 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_keys())]
 		pub fn set_keys(origin: OriginFor<T>, keys: T::Keys, proof: Vec<u8>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(keys.ownership_proof_is_valid(&proof), Error::<T>::InvalidProof);
+			ensure!(
+				who.using_encoded(|who| keys.ownership_proof_is_valid(who, &proof)),
+				Error::<T>::InvalidProof,
+			);
 
 			Self::do_set_keys(&who, keys)?;
 			Ok(())

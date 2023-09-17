@@ -22,8 +22,11 @@ use crate as pallet_session;
 #[cfg(feature = "historical")]
 use crate::historical as pallet_session_historical;
 
-use std::collections::BTreeMap;
-
+use codec::Encode;
+use frame_support::{
+	parameter_types,
+	traits::{ConstU32, ConstU64},
+};
 use sp_core::{crypto::key_types::DUMMY, H256};
 use sp_runtime::{
 	impl_opaque_keys,
@@ -33,11 +36,7 @@ use sp_runtime::{
 };
 use sp_staking::SessionIndex;
 use sp_state_machine::BasicExternalities;
-
-use frame_support::{
-	parameter_types,
-	traits::{ConstU32, ConstU64},
-};
+use std::collections::BTreeMap;
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -73,6 +72,10 @@ impl OpaqueKeys for PreUpgradeMockSessionKeys {
 			i if i == KEY_ID_B => &self.b[..],
 			_ => &[],
 		}
+	}
+
+	fn ownership_proof_is_valid(&self, _: &[u8], _: &[u8]) -> bool {
+		true
 	}
 }
 
@@ -206,6 +209,10 @@ pub fn before_session_end_called() -> bool {
 
 pub fn reset_before_session_end_called() {
 	BeforeSessionEndCalled::mutate(|b| *b = false);
+}
+
+pub fn create_set_keys_proof(owner: u64, public: &UintAuthorityId) -> Vec<u8> {
+	public.sign(&owner.encode()).unwrap().encode()
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

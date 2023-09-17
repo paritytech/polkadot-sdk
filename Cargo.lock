@@ -17270,6 +17270,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-core",
  "sp-io",
+ "sp-keystore",
  "sp-state-machine",
  "sp-std",
  "sp-tracing",
