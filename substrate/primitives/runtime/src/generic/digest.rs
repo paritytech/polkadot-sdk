@@ -197,6 +197,7 @@ pub enum DigestItemRef<'a> {
 	Other(&'a [u8]),
 	/// Runtime code or heap pages updated.
 	RuntimeEnvironmentUpdated,
+	AuxiliaryData(&'a [u8]),
 }
 
 /// Type of the digest item. Used to gain explicit control over `DigestItem` encoding
@@ -211,6 +212,7 @@ pub enum DigestItemType {
 	Seal = 5,
 	PreRuntime = 6,
 	RuntimeEnvironmentUpdated = 8,
+	AuxiliaryData = 8,
 }
 
 /// Type of a digest item that contains raw data; this also names the consensus engine ID where
@@ -321,6 +323,7 @@ impl Decode for DigestItem {
 			},
 			DigestItemType::Other => Ok(Self::Other(Decode::decode(input)?)),
 			DigestItemType::RuntimeEnvironmentUpdated => Ok(Self::RuntimeEnvironmentUpdated),
+			DigestItemType:: => Ok(Self::RuntimeEnvironmentUpdated),
 		}
 	}
 }
