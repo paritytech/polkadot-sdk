@@ -28,7 +28,7 @@ use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
 	execute::{Handshake, Response},
 	executor_intf::NATIVE_STACK_MAX,
-	framed_recv, framed_send,
+	framed_recv_blocking, framed_send_blocking,
 	worker::{
 		cpu_time_monitor_loop, stringify_panic_payload,
 		thread::{self, WaitOutcome},
@@ -37,11 +37,12 @@ use polkadot_node_core_pvf_common::{
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use std::{
+	os::unix::net::UnixStream,
 	path::PathBuf,
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
-use tokio::{io, net::UnixStream};
+use tokio::io;
 
 // Wasmtime powers the Substrate Executor. It compiles the wasm bytecode into native code.
 // That native code does not create any stacks and just reuses the stack of the thread that
@@ -79,8 +80,8 @@ use tokio::{io, net::UnixStream};
 /// The stack size for the execute thread.
 pub const EXECUTE_THREAD_STACK_SIZE: usize = 2 * 1024 * 1024 + NATIVE_STACK_MAX as usize;
 
-async fn recv_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
-	let handshake_enc = framed_recv(stream).await?;
+fn recv_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
+	let handshake_enc = framed_recv_blocking(stream)?;
 	let handshake = Handshake::decode(&mut &handshake_enc[..]).map_err(|_| {
 		io::Error::new(
 			io::ErrorKind::Other,
@@ -90,9 +91,9 @@ async fn recv_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 	Ok(handshake)
 }
 
-async fn recv_request(stream: &mut UnixStream) -> io::Result<(Vec<u8>, Duration)> {
-	let params = framed_recv(stream).await?;
-	let execution_timeout = framed_recv(stream).await?;
+fn recv_request(stream: &mut UnixStream) -> io::Result<(Vec<u8>, Duration)> {
+	let params = framed_recv_blocking(stream)?;
+	let execution_timeout = framed_recv_blocking(stream)?;
 	let execution_timeout = Duration::decode(&mut &execution_timeout[..]).map_err(|_| {
 		io::Error::new(
 			io::ErrorKind::Other,
@@ -102,8 +103,8 @@ async fn recv_request(stream: &mut UnixStream) -> io::Result<(Vec<u8>, Duration)
 	Ok((params, execution_timeout))
 }
 
-async fn send_response(stream: &mut UnixStream, response: Response) -> io::Result<()> {
-	framed_send(stream, &response.encode()).await
+fn send_response(stream: &mut UnixStream, response: Response) -> io::Result<()> {
+	framed_send_blocking(stream, &response.encode())
 }
 
 /// The entrypoint that the spawned execute worker should start with.
@@ -135,13 +136,13 @@ pub fn worker_entrypoint(
 			let worker_pid = std::process::id();
 			let artifact_path = worker_dir::execute_artifact(&worker_dir_path);
 
-			let Handshake { executor_params } = recv_handshake(&mut stream).await?;
+			let Handshake { executor_params } = recv_handshake(&mut stream)?;
 			let executor = Executor::new(executor_params).map_err(|e| {
 				io::Error::new(io::ErrorKind::Other, format!("cannot create executor: {}", e))
 			})?;
 
 			loop {
-				let (params, execution_timeout) = recv_request(&mut stream).await?;
+				let (params, execution_timeout) = recv_request(&mut stream)?;
 				gum::debug!(
 					target: LOG_TARGET,
 					%worker_pid,
@@ -156,7 +157,7 @@ pub fn worker_entrypoint(
 						let response = Response::InternalError(
 							InternalValidationError::CouldNotOpenFile(err.to_string()),
 						);
-						send_response(&mut stream, response).await?;
+						send_response(&mut stream, response)?;
 						continue
 					},
 				};
@@ -238,7 +239,13 @@ pub fn worker_entrypoint(
 					),
 				};
 
-				send_response(&mut stream, response).await?;
+				gum::trace!(
+					target: LOG_TARGET,
+					%worker_pid,
+					"worker: sending response to host: {:?}",
+					response
+				);
+				send_response(&mut stream, response)?;
 			}
 		},
 	);

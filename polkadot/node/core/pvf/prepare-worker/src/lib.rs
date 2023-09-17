@@ -33,7 +33,7 @@ use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
 	executor_intf::Executor,
-	framed_recv, framed_send,
+	framed_recv_blocking, framed_send_blocking,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
 	worker::{
@@ -45,11 +45,12 @@ use polkadot_node_core_pvf_common::{
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
+	os::unix::net::UnixStream,
 	path::PathBuf,
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
-use tokio::{io, net::UnixStream};
+use tokio::io;
 
 /// Contains the bytes for a successfully compiled artifact.
 pub struct CompiledArtifact(Vec<u8>);
@@ -67,8 +68,8 @@ impl AsRef<[u8]> for CompiledArtifact {
 	}
 }
 
-async fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
-	let pvf = framed_recv(stream).await?;
+fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
+	let pvf = framed_recv_blocking(stream)?;
 	let pvf = PvfPrepData::decode(&mut &pvf[..]).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
@@ -78,8 +79,8 @@ async fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
 	Ok(pvf)
 }
 
-async fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<()> {
-	framed_send(stream, &result.encode()).await
+fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<()> {
+	framed_send_blocking(stream, &result.encode())
 }
 
 /// The entrypoint that the spawned prepare worker should start with.
@@ -131,7 +132,7 @@ pub fn worker_entrypoint(
 			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_dir_path);
 
 			loop {
-				let pvf = recv_request(&mut stream).await?;
+				let pvf = recv_request(&mut stream)?;
 				gum::debug!(
 					target: LOG_TARGET,
 					%worker_pid,
@@ -278,7 +279,13 @@ pub fn worker_entrypoint(
 					),
 				};
 
-				send_response(&mut stream, result).await?;
+				gum::trace!(
+					target: LOG_TARGET,
+					%worker_pid,
+					"worker: sending response to host: {:?}",
+					result
+				);
+				send_response(&mut stream, result)?;
 			}
 		},
 	);

@@ -19,15 +19,14 @@
 use crate::{
 	metrics::Metrics,
 	worker_intf::{
-		clear_worker_dir_path, spawn_with_program_path, IdleWorker, SpawnErr, WorkerDir,
-		WorkerHandle, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
+		SpawnErr, WorkerDir, WorkerHandle, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 	},
 	LOG_TARGET,
 };
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
-	framed_recv, framed_send,
 	prepare::PrepareStats,
 	pvf::PvfPrepData,
 	worker_dir, SecurityStatus,
@@ -274,21 +273,18 @@ where
 	// Create the tmp file here so that the child doesn't need any file creation rights. This will
 	// be cleared at the end of this function.
 	let tmp_file = worker_dir::prepare_tmp_artifact(&worker_dir.path);
-	match tokio::fs::write(&tmp_file, &[]).await {
-		Ok(()) => (),
-		Err(err) => {
-			gum::warn!(
-				target: LOG_TARGET,
-				worker_pid = %pid,
-				?worker_dir,
-				"failed to create a temp file for the artifact: {:?}",
-				err,
-			);
-			return Outcome::CreateTmpFileErr {
-				worker: IdleWorker { stream, pid, worker_dir },
-				err: format!("{:?}", err),
-			}
-		},
+	if let Err(err) = tokio::fs::File::create(&tmp_file).await {
+		gum::warn!(
+			target: LOG_TARGET,
+			worker_pid = %pid,
+			?worker_dir,
+			"failed to create a temp file for the artifact: {:?}",
+			err,
+		);
+		return Outcome::CreateTmpFileErr {
+			worker: IdleWorker { stream, pid, worker_dir },
+			err: format!("{:?}", err),
+		}
 	};
 
 	let worker_dir_path = worker_dir.path.clone();

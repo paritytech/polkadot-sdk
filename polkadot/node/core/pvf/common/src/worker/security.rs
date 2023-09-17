@@ -211,14 +211,14 @@ pub fn check_env_vars_were_cleared(worker_kind: WorkerKind, worker_pid: u32) -> 
 /// [landlock]: https://docs.rs/landlock/latest/landlock/index.html
 #[cfg(target_os = "linux")]
 pub mod landlock {
-	pub use landlock::{path_beneath_rules, Access, AccessFs};
+	pub use landlock::RulesetStatus;
 
-	use crate::worker::WorkerKind;
-	use landlock::{
-		PathBeneath, PathFd, Ruleset, RulesetAttr, RulesetCreatedAttr, RulesetError, RulesetStatus,
-		ABI,
+	use crate::{worker::WorkerKind, LOG_TARGET};
+	use landlock::*;
+	use std::{
+		fmt,
+		path::{Path, PathBuf},
 	};
-	use std::path::Path;
 
 	/// Landlock ABI version. We use ABI V1 because:
 	///
@@ -249,29 +249,56 @@ pub mod landlock {
 	/// supports it or if it introduces some new feature that is beneficial to security.
 	pub const LANDLOCK_ABI: ABI = ABI::V1;
 
-	/// Tried to enable landlock for the given kind of worker.
+	#[derive(Debug)]
+	pub enum TryRestrictError {
+		InvalidExceptionPath(PathBuf),
+		RulesetError(RulesetError),
+	}
+
+	impl From<RulesetError> for TryRestrictError {
+		fn from(err: RulesetError) -> Self {
+			Self::RulesetError(err)
+		}
+	}
+
+	impl fmt::Display for TryRestrictError {
+		fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+			match self {
+				Self::InvalidExceptionPath(path) => write!(f, "invalid exception path: {:?}", path),
+				Self::RulesetError(err) => write!(f, "ruleset error: {}", err.to_string()),
+			}
+		}
+	}
+
+	impl std::error::Error for TryRestrictError {}
+
+	/// Try to enable landlock for the given kind of worker.
 	pub fn enable_for_worker(
 		worker_kind: WorkerKind,
+		worker_pid: u32,
 		worker_dir_path: &Path,
-	) -> Result<RulesetStatus, String> {
-		use crate::worker_dir;
-
-		match worker_kind {
+	) -> Result<RulesetStatus, Box<dyn std::error::Error>> {
+		let exceptions: Vec<(PathBuf, BitFlags<AccessFs>)> = match worker_kind {
 			WorkerKind::Prepare => {
-				let temp_artifact_dest = worker_dir::prepare_tmp_artifact(worker_dir_path);
-
-				// Allow an exception for writing to the known file in the worker cache.
-				try_restrict(path_beneath_rules(&[&temp_artifact_dest], AccessFs::WriteFile))
-					.map_err(|e| e.to_string())
+				vec![(worker_dir_path.to_owned(), AccessFs::WriteFile.into())]
 			},
 			WorkerKind::Execute => {
-				let artifact_path = worker_dir::execute_artifact(worker_dir_path);
-
-				// Allow an exception for reading from the known artifact path.
-				try_restrict(path_beneath_rules(&[&artifact_path], AccessFs::ReadFile))
-					.map_err(|e| e.to_string())
+				vec![(worker_dir_path.to_owned(), AccessFs::ReadFile.into())]
 			},
-		}
+			WorkerKind::CheckPivotRoot =>
+				panic!("this should only be passed for checking pivot_root; qed"),
+		};
+
+		gum::debug!(
+			target: LOG_TARGET,
+			%worker_kind,
+			%worker_pid,
+			?worker_dir_path,
+			"enabling landlock with exceptions: {:?}",
+			exceptions,
+		);
+
+		Ok(try_restrict(exceptions)?)
 	}
 
 	// TODO: <https://github.com/landlock-lsm/rust-landlock/issues/36>
@@ -279,7 +306,9 @@ pub mod landlock {
 	/// ABI is fully enabled on the current Linux environment.
 	pub fn check_is_fully_enabled() -> bool {
 		let status_from_thread: Result<RulesetStatus, Box<dyn std::error::Error>> =
-			match std::thread::spawn(|| try_restrict(std::iter::empty())).join() {
+			match std::thread::spawn(|| try_restrict(std::iter::empty::<(PathBuf, AccessFs)>()))
+				.join()
+			{
 				Ok(Ok(status)) => Ok(status),
 				Ok(Err(ruleset_err)) => Err(ruleset_err.into()),
 				Err(_err) => Err("a panic occurred in try_restrict".into()),
@@ -299,14 +328,24 @@ pub mod landlock {
 	/// # Returns
 	///
 	/// The status of the restriction (whether it was fully, partially, or not-at-all enforced).
-	fn try_restrict(
-		fs_exceptions: impl Iterator<Item = Result<PathBeneath<PathFd>, RulesetError>>,
-	) -> Result<RulesetStatus, RulesetError> {
-		let status = Ruleset::new()
-			.handle_access(AccessFs::from_all(LANDLOCK_ABI))?
-			.create()?
-			.add_rules(fs_exceptions)?
-			.restrict_self()?;
+	fn try_restrict<I, P, A>(fs_exceptions: I) -> Result<RulesetStatus, TryRestrictError>
+	where
+		I: IntoIterator<Item = (P, A)>,
+		P: AsRef<Path>,
+		A: Into<BitFlags<AccessFs>>,
+	{
+		let mut ruleset =
+			Ruleset::new().handle_access(AccessFs::from_all(LANDLOCK_ABI))?.create()?;
+		for (fs_path, access_bits) in fs_exceptions {
+			let paths = &[fs_path.as_ref().to_owned()];
+			let mut rules = path_beneath_rules(paths, access_bits).peekable();
+			if rules.peek().is_none() {
+				// `path_beneath_rules` silently ignores missing paths, so check for it manually.
+				return Err(TryRestrictError::InvalidExceptionPath(fs_path.as_ref().to_owned()))
+			}
+			ruleset = ruleset.add_rules(rules)?;
+		}
+		let status = ruleset.restrict_self()?;
 		Ok(status.ruleset)
 	}
 
@@ -341,10 +380,7 @@ pub mod landlock {
 					assert_eq!(s, TEXT);
 
 					// Apply Landlock with a read exception for only one of the files.
-					let status = try_restrict(path_beneath_rules(
-						&[path1],
-						AccessFs::from_read(LANDLOCK_ABI),
-					));
+					let status = try_restrict(vec![(path1, AccessFs::ReadFile)]);
 					if !matches!(status, Ok(RulesetStatus::FullyEnforced)) {
 						panic!("Ruleset should be enforced since we checked if landlock is enabled: {:?}", status);
 					}
@@ -362,7 +398,7 @@ pub mod landlock {
 					));
 
 					// Apply Landlock for all files.
-					let status = try_restrict(std::iter::empty());
+					let status = try_restrict(std::iter::empty::<(PathBuf, AccessFs)>());
 					if !matches!(status, Ok(RulesetStatus::FullyEnforced)) {
 						panic!("Ruleset should be enforced since we checked if landlock is enabled: {:?}", status);
 					}
@@ -400,10 +436,7 @@ pub mod landlock {
 					fs::write(path2, TEXT).unwrap();
 
 					// Apply Landlock with a write exception for only one of the files.
-					let status = try_restrict(path_beneath_rules(
-						&[path1],
-						AccessFs::from_write(LANDLOCK_ABI),
-					));
+					let status = try_restrict(vec![(path1, AccessFs::WriteFile)]);
 					if !matches!(status, Ok(RulesetStatus::FullyEnforced)) {
 						panic!("Ruleset should be enforced since we checked if landlock is enabled: {:?}", status);
 					}
@@ -418,7 +451,7 @@ pub mod landlock {
 					));
 
 					// Apply Landlock for all files.
-					let status = try_restrict(std::iter::empty());
+					let status = try_restrict(std::iter::empty::<(PathBuf, AccessFs)>());
 					if !matches!(status, Ok(RulesetStatus::FullyEnforced)) {
 						panic!("Ruleset should be enforced since we checked if landlock is enabled: {:?}", status);
 					}

@@ -67,93 +67,71 @@ pub async fn spawn_with_program_path(
 ) -> Result<(IdleWorker, WorkerHandle), SpawnErr> {
 	let program_path = program_path.into();
 	let worker_dir = WorkerDir::new(debug_id, cache_path).await?;
+	let socket_path = worker_dir::socket(&worker_dir.path);
 
-	with_transient_socket_path(&worker_dir.path.clone(), |socket_path| {
-		let socket_path = socket_path.to_owned();
-		let extra_args: Vec<String> = extra_args.iter().map(|arg| arg.to_string()).collect();
+	let extra_args: Vec<String> = extra_args.iter().map(|arg| arg.to_string()).collect();
 
-		async move {
-			let listener = UnixListener::bind(&socket_path).map_err(|err| {
+	let listener = UnixListener::bind(&socket_path).map_err(|err| {
+		gum::warn!(
+			target: LOG_TARGET,
+			%debug_id,
+			?program_path,
+			?extra_args,
+			?worker_dir,
+			?socket_path,
+			"cannot bind unix socket: {:?}",
+			err,
+		);
+		SpawnErr::Bind
+	})?;
+
+	let handle = WorkerHandle::spawn(&program_path, &extra_args, &worker_dir.path, security_status)
+		.map_err(|err| {
+			gum::warn!(
+				target: LOG_TARGET,
+				%debug_id,
+				?program_path,
+				?extra_args,
+				?worker_dir.path,
+				?socket_path,
+				"cannot spawn a worker: {:?}",
+				err,
+			);
+			SpawnErr::ProcessSpawn
+		})?;
+
+	let worker_dir_path = worker_dir.path.clone();
+	futures::select! {
+		accept_result = listener.accept().fuse() => {
+			let (stream, _) = accept_result.map_err(|err| {
 				gum::warn!(
 					target: LOG_TARGET,
 					%debug_id,
 					?program_path,
 					?extra_args,
-					?worker_dir,
+					?worker_dir_path,
 					?socket_path,
-					"cannot bind unix socket: {:?}",
+					"cannot accept a worker: {:?}",
 					err,
 				);
-				SpawnErr::Bind
+				SpawnErr::Accept
 			})?;
-
-			let handle =
-				WorkerHandle::spawn(&program_path, &extra_args, &worker_dir.path, security_status)
-					.map_err(|err| {
-						gum::warn!(
-							target: LOG_TARGET,
-							%debug_id,
-							?program_path,
-							?extra_args,
-							?worker_dir.path,
-							?socket_path,
-							"cannot spawn a worker: {:?}",
-							err,
-						);
-						SpawnErr::ProcessSpawn
-					})?;
-
-			let worker_dir_path = worker_dir.path.clone();
-			futures::select! {
-				accept_result = listener.accept().fuse() => {
-					let (stream, _) = accept_result.map_err(|err| {
-						gum::warn!(
-							target: LOG_TARGET,
-							%debug_id,
-							?program_path,
-							?extra_args,
-							?worker_dir_path,
-							?socket_path,
-							"cannot accept a worker: {:?}",
-							err,
-						);
-						SpawnErr::Accept
-					})?;
-					Ok((IdleWorker { stream, pid: handle.id(), worker_dir }, handle))
-				}
-				_ = Delay::new(spawn_timeout).fuse() => {
-					gum::warn!(
-						target: LOG_TARGET,
-						%debug_id,
-						?program_path,
-						?extra_args,
-						?worker_dir_path,
-						?socket_path,
-						?spawn_timeout,
-						"spawning and connecting to socket timed out",
-					);
-					Err(SpawnErr::AcceptTimeout)
-				}
-			}
+			Ok((IdleWorker { stream, pid: handle.id(), worker_dir }, handle))
 		}
-	})
-	.await
-}
-
-async fn with_transient_socket_path<T, F, Fut>(worker_dir_path: &Path, f: F) -> Result<T, SpawnErr>
-where
-	F: FnOnce(&Path) -> Fut,
-	Fut: futures::Future<Output = Result<T, SpawnErr>> + 'static,
-{
-	let socket_path = worker_dir::socket(worker_dir_path);
-
-	let result = f(&socket_path).await;
-
-	// Best effort to remove the socket file. Under normal circumstances the socket will be removed
-	// by the worker. We make sure that it is removed here, just in case a failed rendezvous.
-	let _ = tokio::fs::remove_file(socket_path).await;
-
-	result
+		_ = Delay::new(spawn_timeout).fuse() => {
+			gum::warn!(
+				target: LOG_TARGET,
+				%debug_id,
+				?program_path,
+				?extra_args,
+				?worker_dir_path,
+				?socket_path,
+				?spawn_timeout,
+				"spawning and connecting to socket timed out",
+			);
+			Err(SpawnErr::AcceptTimeout)
+		}
+	}
 }
 
 /// Returns a path under the given `dir`. The path name will start with the given prefix.

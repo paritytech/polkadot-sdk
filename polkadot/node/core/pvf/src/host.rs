@@ -893,16 +893,22 @@ fn check_can_unshare_user_namespace_and_change_root(
 ) -> bool {
 	#[cfg(target_os = "linux")]
 	{
-		match std::process::Command::new(prepare_worker_program_path)
+		let output = std::process::Command::new(prepare_worker_program_path)
 			.arg("--check-can-unshare-user-namespace-and-change-root")
-			.status()
-		{
-			Ok(status) if status.success() => true,
-			Ok(status) => {
+			.output();
+
+		match output {
+			Ok(output) if output.status.success() => true,
+			Ok(output) => {
+				let stderr = std::str::from_utf8(&output.stderr)
+					.expect("child process writes a UTF-8 string to stderr; qed")
+					.trim();
 				gum::warn!(
 					target: LOG_TARGET,
 					?prepare_worker_program_path,
-					?status,
+					// Docs say to always print status using `Display` implementation.
+					status = %output.status,
+					%stderr,
 					"Cannot unshare user namespace and change root, which are Linux-specific kernel security features. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running with support for unsharing user namespaces for maximum security."
 				);
 				false

@@ -19,8 +19,8 @@
 use crate::{
 	artifacts::ArtifactPathId,
 	worker_intf::{
-		clear_worker_dir_path, spawn_with_program_path, IdleWorker, SpawnErr, WorkerDir,
-		WorkerHandle, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
+		SpawnErr, WorkerDir, WorkerHandle, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 	},
 	LOG_TARGET,
 };
@@ -30,7 +30,7 @@ use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
 	execute::{Handshake, Response},
-	framed_recv, framed_send, worker_dir, SecurityStatus,
+	worker_dir, SecurityStatus,
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::ExecutorParams;

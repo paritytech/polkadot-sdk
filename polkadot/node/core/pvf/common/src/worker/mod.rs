@@ -24,12 +24,12 @@ use futures::never::Never;
 use std::{
 	any::Any,
 	fmt,
-	os::unix::net::UnixStream as StdUnixStream,
+	os::unix::net::UnixStream,
 	path::PathBuf,
 	sync::mpsc::{Receiver, RecvTimeoutError},
 	time::Duration,
 };
-use tokio::{io, net::UnixStream, runtime::Runtime};
+use tokio::{io, runtime::Runtime};
 
 /// Use this macro to declare a `fn main() {}` that will create an executable that can be used for
 /// spawning the desired worker.
@@ -49,6 +49,8 @@ macro_rules! decl_worker_main {
 			// TODO: Remove this dependency, and `pub use sp_tracing` in `lib.rs`.
 			// See <https://github.com/paritytech/polkadot/issues/7117>.
 			$crate::sp_tracing::try_init_simple();
+
+			let worker_pid = std::process::id();
 
 			let args = std::env::args().collect::<Vec<_>>();
 			if args.len() == 1 {
@@ -75,20 +77,25 @@ macro_rules! decl_worker_main {
 				},
 				"--check-can-unshare-user-namespace-and-change-root" => {
 					#[cfg(target_os = "linux")]
-					let status = if security::unshare_user_namespace_and_change_root(
-						$crate::worker::WorkerKind::Execute,
+					let status = if let Err(err) = security::unshare_user_namespace_and_change_root(
+						$crate::worker::WorkerKind::CheckPivotRoot,
+						worker_pid,
 						// We're not accessing any files, so we can try to pivot_root in the temp
 						// dir without conflicts with other processes.
 						&std::env::temp_dir(),
-					)
-					.is_ok()
-					{
-						0
-					} else {
+					) {
+						// Write the error to stderr, log it on the host-side.
+						eprintln!("{}", err);
 						-1
+					} else {
+						0
 					};
 					#[cfg(not(target_os = "linux"))]
-					let status = -1;
+					let status = {
+						// Write the error to stderr, log it on the host-side.
+						eprintln!("not available on macos");
+						-1
+					};
 					std::process::exit(status)
 				},
 
@@ -153,6 +160,7 @@ pub const JOB_TIMEOUT_OVERHEAD: Duration = Duration::from_millis(50);
 pub enum WorkerKind {
 	Prepare,
 	Execute,
+	CheckPivotRoot,
 }
 
 impl fmt::Display for WorkerKind {
@@ -160,6 +168,7 @@ impl fmt::Display for WorkerKind {
 		match self {
 			Self::Prepare => write!(f, "prepare"),
 			Self::Execute => write!(f, "execute"),
+			Self::CheckPivotRoot => write!(f, "check pivot root"),
 		}
 	}
 }
@@ -178,30 +187,14 @@ pub fn worker_event_loop<F, Fut>(
 	Fut: futures::Future<Output = io::Result<Never>>,
 {
 	let worker_pid = std::process::id();
-	gum::debug!(target: LOG_TARGET, %worker_pid, ?worker_dir_path, "starting pvf worker ({})", worker_kind);
-
-	// Connect to the socket.
-	let stream = || -> std::io::Result<StdUnixStream> {
-		let socket_path = worker_dir::socket(&worker_dir_path);
-		let stream = StdUnixStream::connect(&socket_path)?;
-		stream.set_nonblocking(true)?; // See note for `from_std`.
-		std::fs::remove_file(&socket_path)?;
-		Ok(stream)
-	}();
-	let stream = match stream {
-		Ok(s) => s,
-		Err(err) => {
-			gum::error!(
-				target: LOG_TARGET,
-				%worker_kind,
-				%worker_pid,
-				"{}",
-				err
-			);
-			worker_shutdown_message(worker_kind, worker_pid, &err.to_string());
-			return
-		},
-	};
+	gum::debug!(
+		target: LOG_TARGET,
+		%worker_pid,
+		?worker_dir_path,
+		?security_status,
+		"starting pvf worker ({})",
+		worker_kind
+	);
 
 	// Check for a mismatch between the node and worker versions.
 	if let (Some(node_version), Some(worker_version)) = (node_version, worker_version) {
@@ -220,6 +213,53 @@ pub fn worker_event_loop<F, Fut>(
 		}
 	}
 
+	// Make sure that we can read the worker dir path, and log its contents.
+	let entries = || -> Result<Vec<_>, io::Error> {
+		std::fs::read_dir(&worker_dir_path)?
+			.map(|res| res.map(|e| e.file_name()))
+			.collect()
+	}();
+	match entries {
+		Ok(entries) =>
+			gum::trace!(target: LOG_TARGET, %worker_pid, ?worker_dir_path, "content of worker dir: {:?}", entries),
+		Err(err) => {
+			gum::error!(
+				target: LOG_TARGET,
+				%worker_kind,
+				%worker_pid,
+				?worker_dir_path,
+				"Could not read worker dir: {}",
+				err.to_string()
+			);
+			worker_shutdown_message(worker_kind, worker_pid, &err.to_string());
+			return
+		},
+	}
+
+	// Connect to the socket.
+	let socket_path = worker_dir::socket(&worker_dir_path);
+	let stream = || -> std::io::Result<UnixStream> {
+		let stream = UnixStream::connect(&socket_path)?;
+		// Remove the socket here. We don't also need to do this on the host-side; on failed
+		// rendezvous, the host will delete the whole worker dir.
+		std::fs::remove_file(&socket_path)?;
+		Ok(stream)
+	}();
+	let stream = match stream {
+		Ok(s) => s,
+		Err(err) => {
+			gum::error!(
+				target: LOG_TARGET,
+				%worker_kind,
+				%worker_pid,
+				"{}",
+				err
+			);
+			worker_shutdown_message(worker_kind, worker_pid, &err.to_string());
+			return
+		},
+	};
+
 	// Enable some security features.
 	{
 		// Call based on whether we can change root. Error out if it should work but fails.
@@ -230,9 +270,11 @@ pub fn worker_event_loop<F, Fut>(
 		//       > CLONE_NEWUSER requires that the calling process is not threaded.
 		#[cfg(target_os = "linux")]
 		if security_status.can_unshare_user_namespace_and_change_root {
-			if let Err(err) =
-				security::unshare_user_namespace_and_change_root(worker_kind, &worker_dir_path)
-			{
+			if let Err(err) = security::unshare_user_namespace_and_change_root(
+				worker_kind,
+				worker_pid,
+				&worker_dir_path,
+			) {
 				// The filesystem may be in an inconsistent state, bail out.
 				gum::error!(
 					target: LOG_TARGET,
@@ -251,7 +293,7 @@ pub fn worker_event_loop<F, Fut>(
 		#[cfg(target_os = "linux")]
 		if security_status.can_enable_landlock {
 			let landlock_status =
-				security::landlock::enable_for_worker(worker_kind, &worker_dir_path);
+				security::landlock::enable_for_worker(worker_kind, worker_pid, &worker_dir_path);
 			if !matches!(landlock_status, Ok(landlock::RulesetStatus::FullyEnforced)) {
 				// We previously were able to enable, so this should never happen.
 				//
@@ -284,10 +326,7 @@ pub fn worker_event_loop<F, Fut>(
 	// Run the main worker loop.
 	let rt = Runtime::new().expect("Creates tokio runtime. If this panics the worker will die and the host will detect that and deal with it.");
 	let err = rt
-		.block_on(async move {
-			let stream = UnixStream::from_std(stream)?;
-			event_loop(stream, worker_dir_path).await
-		})
+		.block_on(event_loop(stream, worker_dir_path))
 		// It's never `Ok` because it's `Ok(Never)`.
 		.unwrap_err();
 
