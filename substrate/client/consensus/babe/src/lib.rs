@@ -69,6 +69,7 @@
 use std::{
 	collections::HashSet,
 	future::Future,
+	ops::{Deref, DerefMut},
 	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
@@ -156,20 +157,27 @@ const AUTHORING_SCORE_VRF_CONTEXT: &[u8] = b"substrate-babe-vrf";
 const AUTHORING_SCORE_LENGTH: usize = 16;
 
 /// BABE epoch information
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, scale_info::TypeInfo)]
-pub struct Epoch {
-	/// The epoch index.
-	pub epoch_index: u64,
-	/// The starting slot of the epoch.
-	pub start_slot: Slot,
-	/// The duration of this epoch.
-	pub duration: u64,
-	/// The authorities and their weights.
-	pub authorities: Vec<(AuthorityId, BabeAuthorityWeight)>,
-	/// Randomness for this epoch.
-	pub randomness: Randomness,
-	/// Configuration of the epoch.
-	pub config: BabeEpochConfiguration,
+#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
+pub struct Epoch(sp_consensus_babe::Epoch);
+
+impl Deref for Epoch {
+	type Target = sp_consensus_babe::Epoch;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl DerefMut for Epoch {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
+}
+
+impl From<sp_consensus_babe::Epoch> for Epoch {
+	fn from(epoch: sp_consensus_babe::Epoch) -> Self {
+		Epoch(epoch)
+	}
 }
 
 impl EpochT for Epoch {
@@ -180,7 +188,7 @@ impl EpochT for Epoch {
 		&self,
 		(descriptor, config): (NextEpochDescriptor, BabeEpochConfiguration),
 	) -> Epoch {
-		Epoch {
+		sp_consensus_babe::Epoch {
 			epoch_index: self.epoch_index + 1,
 			start_slot: self.start_slot + self.duration,
 			duration: self.duration,
@@ -188,6 +196,7 @@ impl EpochT for Epoch {
 			randomness: descriptor.randomness,
 			config,
 		}
+		.into()
 	}
 
 	fn start_slot(&self) -> Slot {
@@ -199,25 +208,12 @@ impl EpochT for Epoch {
 	}
 }
 
-impl From<sp_consensus_babe::Epoch> for Epoch {
-	fn from(epoch: sp_consensus_babe::Epoch) -> Self {
-		Epoch {
-			epoch_index: epoch.epoch_index,
-			start_slot: epoch.start_slot,
-			duration: epoch.duration,
-			authorities: epoch.authorities,
-			randomness: epoch.randomness,
-			config: epoch.config,
-		}
-	}
-}
-
 impl Epoch {
 	/// Create the genesis epoch (epoch #0).
 	///
 	/// This is defined to start at the slot of the first block, so that has to be provided.
 	pub fn genesis(genesis_config: &BabeConfiguration, slot: Slot) -> Epoch {
-		Epoch {
+		sp_consensus_babe::Epoch {
 			epoch_index: 0,
 			start_slot: slot,
 			duration: genesis_config.epoch_length,
@@ -228,6 +224,7 @@ impl Epoch {
 				allowed_slots: genesis_config.allowed_slots,
 			},
 		}
+		.into()
 	}
 
 	/// Clone and tweak epoch information to refer to the specified slot.
