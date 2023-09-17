@@ -45,27 +45,15 @@
 //!
 //! ```ignore
 //! // V0 Storage Value
+//! #[pallet::storage]
 //! pub type Value<T: Config> = StorageValue<_, u32>;
 //! ```
 //!
 //!
 //! In [`StorageVersion`] V1 of the pallet a new struct [`CurrentAndPreviousValue`] is introduced:
-//!
-//! ```ignore
-//! pub struct CurrentAndPreviousValue {
-//! 	/// The most recently set value.
-//! 	pub current: u32,
-//! 	/// The previous value, if one existed.
-//! 	pub previous: Option<u32>,
-//! }
-//! ```
-//!
+#![doc = docify::embed!("src/lib.rs", CurrentAndPreviousValue)]
 //! and [`Value`](pallet::Value) is updated to store this new struct instead of a `u32`:
-//!
-//! ```ignore
-//! // V1 Storage Value
-//! pub type Value<T: Config> = StorageValue<_, CurrentAndPreviousValue>;
-//! ```
+#![doc = docify::embed!("src/lib.rs", Value)]
 //!
 //! In StorageVersion V1 of the pallet when [`set_value`](crate::Call::set_value) is called, the
 //! new value is stored in the `current` field of [`CurrentAndPreviousValue`], and the previous
@@ -237,6 +225,7 @@ use sp_runtime::RuntimeDebug;
 
 /// Example struct holding the most recently set [`u32`] and the
 /// second most recently set [`u32`] (if one existed).
+#[docify::export]
 #[derive(
 	Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
 )]
@@ -265,6 +254,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {}
 
 	/// [`StorageVersion`] V1 of [`Value`].
+	#[docify::export]
 	#[pallet::storage]
 	pub type Value<T: Config> = StorageValue<_, CurrentAndPreviousValue>;
 

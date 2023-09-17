@@ -15,7 +15,7 @@ doctest = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-docify = "0.2.2"
+docify = "0.2.3"
 log = { version = "0.4.20", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
 	"derive",
