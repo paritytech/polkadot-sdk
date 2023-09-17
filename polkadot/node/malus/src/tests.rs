@@ -94,7 +94,7 @@ where
 }
 
 #[test]
-fn integrity_test_intercept() {
+fn construct_runtime_intercept() {
 	launch_harness(|mut overseer| {
 		let sub = DummySubsystem;
 
@@ -117,7 +117,7 @@ fn integrity_test_intercept() {
 }
 
 #[test]
-fn integrity_test_pass() {
+fn construct_runtime_pass() {
 	launch_harness(|mut overseer| {
 		let sub = DummySubsystem;
 

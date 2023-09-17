@@ -247,7 +247,7 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 		// Integrity tests are only required for when `std` is enabled.
 		#frame_support::std_enabled! {
 			impl<#type_impl_gen>
-				#frame_support::traits::IntegrityTest
+				#frame_support::traits::ConstructRuntime
 			for #pallet_ident<#type_use_gen> #where_clause
 			{
 				fn on_construct_runtime() {

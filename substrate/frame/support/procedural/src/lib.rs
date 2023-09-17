@@ -1066,7 +1066,7 @@ pub fn storage_version(_: TokenStream, _: TokenStream) -> TokenStream {
 /// ## Macro expansion
 ///
 /// The macro implements the traits `OnInitialize`, `OnIdle`, `OnFinalize`, `OnRuntimeUpgrade`,
-/// `OffchainWorker`, and `IntegrityTest` using the provided `Hooks` implementation.
+/// `OffchainWorker`, and `ConstructRuntime` using the provided `Hooks` implementation.
 ///
 /// NOTE: `OnRuntimeUpgrade` is implemented with `Hooks::on_runtime_upgrade` and some
 /// additional logic. E.g. logic to write the pallet version into storage.
