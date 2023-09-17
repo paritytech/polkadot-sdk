@@ -31,19 +31,57 @@ use crate::{worker::WorkerKind, LOG_TARGET};
 /// Unshare the user namespace and change root to be the artifact directory.
 ///
 /// NOTE: This should not be called in a multi-threaded context. `unshare(2)`:
-///
-///       > CLONE_NEWUSER requires that the calling process is not threaded.
+///       "CLONE_NEWUSER requires that the calling process is not threaded."
 #[cfg(target_os = "linux")]
 pub fn unshare_user_namespace_and_change_root(
 	worker_kind: WorkerKind,
+	worker_pid: u32,
 	worker_dir_path: &std::path::Path,
 ) -> Result<(), String> {
-	use std::{ffi::CString, os::unix::ffi::OsStrExt, ptr};
+	use std::{env, ffi::CString, os::unix::ffi::OsStrExt, path::Path, ptr};
+
+	// The following was copied from the `cstr_core` crate.
+	//
+	// TODO: Remove this once this is stable: https://github.com/rust-lang/rust/issues/105723
+	#[inline]
+	#[doc(hidden)]
+	const fn cstr_is_valid(bytes: &[u8]) -> bool {
+		if bytes.is_empty() || bytes[bytes.len() - 1] != 0 {
+			return false
+		}
+
+		let mut index = 0;
+		while index < bytes.len() - 1 {
+			if bytes[index] == 0 {
+				return false
+			}
+			index += 1;
+		}
+		true
+	}
+
+	macro_rules! cstr {
+		($e:expr) => {{
+			const STR: &[u8] = concat!($e, "\0").as_bytes();
+			const STR_VALID: bool = cstr_is_valid(STR);
+			let _ = [(); 0 - (!(STR_VALID) as usize)];
+			#[allow(unused_unsafe)]
+			unsafe {
+				core::ffi::CStr::from_bytes_with_nul_unchecked(STR)
+			}
+		}}
+	}
+
+	gum::debug!(
+		target: LOG_TARGET,
+		%worker_kind,
+		%worker_pid,
+		?worker_dir_path,
+		"unsharing the user namespace and calling pivot_root",
+	);
 
 	let worker_dir_path_c = CString::new(worker_dir_path.as_os_str().as_bytes())
 		.expect("on unix; the path will never contain 0 bytes; qed");
-	let root_c = CString::new("/").expect("input contains no 0 bytes; qed");
-	let dot_c = CString::new(".").expect("input contains no 0 bytes; qed");
 
 	// Wrapper around all the work to prevent repetitive error handling.
 	//
@@ -68,7 +106,7 @@ pub fn unshare_user_namespace_and_change_root(
 			// the initial mount namespace.
 			if libc::mount(
 				ptr::null(),
-				root_c.as_ptr(),
+				cstr!("/").as_ptr(),
 				ptr::null(),
 				libc::MS_REC | libc::MS_PRIVATE,
 				ptr::null(),
@@ -76,15 +114,16 @@ pub fn unshare_user_namespace_and_change_root(
 			{
 				return Err("mount MS_PRIVATE")
 			}
-			if libc::chdir(worker_dir_path_c.as_ptr()) < 0 {
-				return Err("chdir to worker dir path")
-			}
 			// Ensure that the new root is a mount point.
 			let additional_flags =
-				if let WorkerKind::Execute = worker_kind { libc::MS_RDONLY } else { 0 };
+				if let WorkerKind::Execute | WorkerKind::CheckPivotRoot = worker_kind {
+					libc::MS_RDONLY
+				} else {
+					0
+				};
 			if libc::mount(
-				dot_c.as_ptr(),
-				dot_c.as_ptr(),
+				worker_dir_path_c.as_ptr(),
+				worker_dir_path_c.as_ptr(),
 				ptr::null(), // ignored when MS_BIND is used
 				libc::MS_BIND |
 					libc::MS_REC | libc::MS_NOEXEC |
@@ -97,10 +136,13 @@ pub fn unshare_user_namespace_and_change_root(
 			}
 
 			// 3. `pivot_root` to the artifact directory.
-			if libc::syscall(libc::SYS_pivot_root, &dot_c, &dot_c) < 0 {
+			if libc::chdir(worker_dir_path_c.as_ptr()) < 0 {
+				return Err("chdir to worker dir path")
+			}
+			if libc::syscall(libc::SYS_pivot_root, cstr!(".").as_ptr(), cstr!(".").as_ptr()) < 0 {
 				return Err("pivot_root")
 			}
-			if libc::umount2(dot_c.as_ptr(), libc::MNT_DETACH) < 0 {
+			if libc::umount2(cstr!(".").as_ptr(), libc::MNT_DETACH) < 0 {
 				return Err("umount the old root mount point")
 			}
 		}
@@ -110,7 +152,18 @@ pub fn unshare_user_namespace_and_change_root(
 	.map_err(|err_ctx| {
 		let err = std::io::Error::last_os_error();
 		format!("{}: {}", err_ctx, err)
-	})
+	})?;
+
+	// Do some assertions.
+	if env::current_dir().map_err(|err| err.to_string())? != Path::new("/") {
+		return Err("expected current dir after pivot_root to be `/`".into())
+	}
+	env::set_current_dir("..").map_err(|err| err.to_string())?;
+	if env::current_dir().map_err(|err| err.to_string())? != Path::new("/") {
+		return Err("expected not to be able to break out of new root by doing `..`".into())
+	}
+
+	Ok(())
 }
 
 /// Require env vars to have been removed when spawning the process, to prevent malicious code from
