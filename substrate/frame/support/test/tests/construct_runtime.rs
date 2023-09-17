@@ -425,7 +425,7 @@ fn check_modules_error_type() {
 }
 
 #[test]
-fn integrity_test_works() {
+fn construct_runtime_works() {
 	__construct_runtime_check_test::runtime_check_tests();
 	assert_eq!(ConstructRuntimeExec::get(), 2);
 }

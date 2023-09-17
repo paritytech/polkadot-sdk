@@ -222,7 +222,7 @@ impl OnRuntimeUpgrade for Tuple {
 #[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
 #[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
 #[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
-pub trait IntegrityTest {
+pub trait ConstructRuntime {
 	/// See [`Hooks::on_construct_runtime`].
 	fn on_construct_runtime() {}
 }
@@ -235,7 +235,7 @@ pub trait IntegrityTest {
 /// - [`OnRuntimeUpgrade`]
 /// - [`crate::traits::misc::OffchainWorker`]
 /// - [`OnIdle`]
-/// - [`IntegrityTest`]
+/// - [`ConstructRuntime`]
 ///
 /// ## Ordering
 ///

@@ -83,7 +83,7 @@ mod hooks;
 #[allow(deprecated)]
 pub use hooks::GenesisBuild;
 pub use hooks::{
-	BuildGenesisConfig, Hooks, IntegrityTest, OnFinalize, OnGenesis, OnIdle, OnInitialize,
+	BuildGenesisConfig, Hooks, ConstructRuntime, OnFinalize, OnGenesis, OnIdle, OnInitialize,
 	OnRuntimeUpgrade, OnTimestampSet,
 };
 

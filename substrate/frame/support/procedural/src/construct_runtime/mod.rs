@@ -761,9 +761,9 @@ fn decl_on_construct_runtime_check(scrate: &TokenStream2) -> TokenStream2 {
 			use super::*;
 
 			#[test]
-			pub fn runtime_integrity_tests() {
+			pub fn runtime_check_tests() {
 				#scrate::__private::sp_tracing::try_init_simple();
-				<AllPalletsWithSystem as #scrate::traits::IntegrityTest>::on_construct_runtime();
+				<AllPalletsWithSystem as #scrate::traits::ConstructRuntime>::on_construct_runtime();
 			}
 		}
 	)

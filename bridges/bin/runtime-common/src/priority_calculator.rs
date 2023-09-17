@@ -26,8 +26,8 @@ use bp_messages::MessageNonce;
 use frame_support::traits::Get;
 use sp_runtime::transaction_validity::TransactionPriority;
 
-// reexport everything from `integrity_tests` module
-pub use integrity_tests::*;
+// reexport everything from `construct_runtime` module
+pub use construct_runtime::*;
 
 /// Compute priority boost for message delivery transaction that delivers
 /// given number of messages.
@@ -42,10 +42,10 @@ where
 }
 
 #[cfg(not(feature = "integrity-test"))]
-mod integrity_tests {}
+mod construct_runtime {}
 
 #[cfg(feature = "integrity-test")]
-mod integrity_tests {
+mod construct_runtime {
 	use super::compute_priority_boost;
 
 	use bp_messages::MessageNonce;
