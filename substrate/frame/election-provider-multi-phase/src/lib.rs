@@ -1776,8 +1776,8 @@ mod feasibility_check {
 			assert!(MultiPhase::current_phase().is_signed());
 			let solution = raw_solution();
 
-			// kill all `Snapshot, `SnapshotMetadata` and `DesiredTargets` for the storage state to be
-			// consistent, by using the `SnapshotWrapper` for the try_state checks to pass.
+			// kill all `Snapshot, `SnapshotMetadata` and `DesiredTargets` for the storage state to
+			// be consistent, by using the `SnapshotWrapper` for the try_state checks to pass.
 			<SnapshotWrapper<Runtime>>::kill();
 			assert_noop!(
 				MultiPhase::feasibility_check(solution, COMPUTE),
