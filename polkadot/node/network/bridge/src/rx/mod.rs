@@ -20,9 +20,7 @@ use super::*;
 
 use always_assert::never;
 use bytes::Bytes;
-use futures::{
-	stream::{BoxStream, StreamExt},
-};
+use futures::stream::{BoxStream, StreamExt};
 use parity_scale_codec::{Decode, DecodeAll};
 
 use sc_network::Event as NetworkEvent;
