@@ -18,7 +18,9 @@
 use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{fungibles::InspectEnumerable, fungible::Mutate, Get, OnFinalize, OnInitialize, OriginTrait},
+	traits::{
+		fungible::Mutate, fungibles::InspectEnumerable, Get, OnFinalize, OnInitialize, OriginTrait,
+	},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
