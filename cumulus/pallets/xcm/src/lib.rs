@@ -69,6 +69,9 @@ pub mod pallet {
 		SiblingParachain(ParaId),
 	}
 
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {}
+
 	impl From<ParaId> for Origin {
 		fn from(id: ParaId) -> Origin {
 			Origin::SiblingParachain(id)

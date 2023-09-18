@@ -229,9 +229,7 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 		origin: ParaId,
 	) {
 		let mut msgs = EnqueuedMessages::get();
-		for message in iter {
-			msgs.push((origin, message.to_vec()));
-		}
+		msgs.extend(iter.map(|m| (origin, m.to_vec())));
 		EnqueuedMessages::set(msgs);
 		T::on_queue_changed(origin, Self::footprint(origin));
 	}
@@ -273,13 +271,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
 
-/// A para that we have a HRMP channel with.
-pub const MAGIC_PARA_ID: u32 = 7777;
+/// A para that we have an HRMP channel with.
+pub const HRMP_PARA_ID: u32 = 7777;
 
 pub struct MockedChannelInfo;
 impl GetChannelInfo for MockedChannelInfo {
 	fn get_channel_status(id: ParaId) -> ChannelStatus {
-		if id == MAGIC_PARA_ID.into() {
+		if id == HRMP_PARA_ID.into() {
 			return ChannelStatus::Ready(128, usize::MAX)
 		}
 
@@ -287,7 +285,7 @@ impl GetChannelInfo for MockedChannelInfo {
 	}
 
 	fn get_channel_max(id: ParaId) -> Option<usize> {
-		if id == MAGIC_PARA_ID.into() {
+		if id == HRMP_PARA_ID.into() {
 			return Some(128)
 		}
 

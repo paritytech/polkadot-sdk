@@ -297,8 +297,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 impl parachain_info::Config for Runtime {}
 
 parameter_types! {
-	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(25) *
-		RuntimeBlockWeights::get().max_block; // FAIL-CI this is probably too conservative.
+	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * 		RuntimeBlockWeights::get().max_block;
 }
 
 impl pallet_message_queue::Config for Runtime {
@@ -350,7 +349,6 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 }
 
 parameter_types! {
-	pub const DmpQueuePalletName: &'static str = "DmpQueue";
 	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 }
 

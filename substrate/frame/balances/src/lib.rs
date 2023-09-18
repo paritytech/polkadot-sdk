@@ -454,6 +454,7 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Named reserves on some account balances.
 	#[pallet::storage]
 	#[pallet::getter(fn reserves)]
 	pub type Reserves<T: Config<I>, I: 'static = ()> = StorageMap<
