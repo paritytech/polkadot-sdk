@@ -20,10 +20,12 @@ use quote::ToTokens;
 use syn::{punctuated::Punctuated, spanned::Spanned, token, Error, Ident, PathArguments};
 
 mod keyword {
-	syn::custom_keyword!(frame);
-	syn::custom_keyword!(pallet_index);
-	syn::custom_keyword!(disable_call);
-	syn::custom_keyword!(disable_unsigned);
+	use syn::custom_keyword;
+
+	custom_keyword!(frame);
+	custom_keyword!(pallet_index);
+	custom_keyword!(disable_call);
+	custom_keyword!(disable_unsigned);
 }
 
 enum PalletAttr {

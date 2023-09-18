@@ -143,51 +143,52 @@ fn construct_runtime_final_expansion(
 	let block = quote!(<#name as #frame_system::Config>::Block);
 	let unchecked_extrinsic = quote!(<#block as #scrate::sp_runtime::traits::Block>::Extrinsic);
 
-	let mut dispatch = quote!();
-	let mut outer_event = quote!();
-	let mut outer_error = quote!();
-	let mut outer_origin = quote!();
-	let mut freeze_reason = quote!();
-	let mut hold_reason = quote!();
-	let mut slash_reason = quote!();
-	let mut lock_id = quote!();
+	let mut dispatch = None;
+	let mut outer_event = None;
+	let mut outer_error = None;
+	let mut outer_origin = None;
+	let mut freeze_reason = None;
+	let mut hold_reason = None;
+	let mut slash_reason = None;
+	let mut lock_id = None;
 
 	for runtime_type in runtime_types.iter() {
 		match runtime_type {
 			RuntimeType::RuntimeCall(_) => {
-				dispatch = expand::expand_outer_dispatch(&name, system_pallet, &pallets, &scrate);
+				dispatch =
+					Some(expand::expand_outer_dispatch(&name, system_pallet, &pallets, &scrate));
 			},
 			RuntimeType::RuntimeEvent(_) => {
-				outer_event = expand::expand_outer_enum(
+				outer_event = Some(expand::expand_outer_enum(
 					&name,
 					&pallets,
 					&scrate,
 					expand::OuterEnumType::Event,
-				)?;
+				)?);
 			},
 			RuntimeType::RuntimeError(_) => {
-				outer_error = expand::expand_outer_enum(
+				outer_error = Some(expand::expand_outer_enum(
 					&name,
 					&pallets,
 					&scrate,
 					expand::OuterEnumType::Error,
-				)?;
+				)?);
 			},
 			RuntimeType::RuntimeOrigin(_) => {
 				outer_origin =
-					expand::expand_outer_origin(&name, system_pallet, &pallets, &scrate)?;
+					Some(expand::expand_outer_origin(&name, system_pallet, &pallets, &scrate)?);
 			},
 			RuntimeType::RuntimeFreezeReason(_) => {
-				freeze_reason = expand::expand_outer_freeze_reason(&pallets, &scrate);
+				freeze_reason = Some(expand::expand_outer_freeze_reason(&pallets, &scrate));
 			},
 			RuntimeType::RuntimeHoldReason(_) => {
-				hold_reason = expand::expand_outer_hold_reason(&pallets, &scrate);
+				hold_reason = Some(expand::expand_outer_hold_reason(&pallets, &scrate));
 			},
 			RuntimeType::RuntimeSlashReason(_) => {
-				slash_reason = expand::expand_outer_slash_reason(&pallets, &scrate);
+				slash_reason = Some(expand::expand_outer_slash_reason(&pallets, &scrate));
 			},
 			RuntimeType::RuntimeLockId(_) => {
-				lock_id = expand::expand_outer_lock_id(&pallets, &scrate);
+				lock_id = Some(expand::expand_outer_lock_id(&pallets, &scrate));
 			},
 		}
 	}

@@ -21,14 +21,16 @@ use syn::{
 };
 
 mod keyword {
-	syn::custom_keyword!(RuntimeCall);
-	syn::custom_keyword!(RuntimeEvent);
-	syn::custom_keyword!(RuntimeError);
-	syn::custom_keyword!(RuntimeOrigin);
-	syn::custom_keyword!(RuntimeFreezeReason);
-	syn::custom_keyword!(RuntimeHoldReason);
-	syn::custom_keyword!(RuntimeSlashReason);
-	syn::custom_keyword!(RuntimeLockId);
+	use syn::custom_keyword;
+
+	custom_keyword!(RuntimeCall);
+	custom_keyword!(RuntimeEvent);
+	custom_keyword!(RuntimeError);
+	custom_keyword!(RuntimeOrigin);
+	custom_keyword!(RuntimeFreezeReason);
+	custom_keyword!(RuntimeHoldReason);
+	custom_keyword!(RuntimeSlashReason);
+	custom_keyword!(RuntimeLockId);
 }
 
 #[derive(Debug, Clone, PartialEq)]
