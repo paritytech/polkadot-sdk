@@ -3259,9 +3259,8 @@ impl<T: Config> Pallet<T> {
 			let pending_rewards_lt_leftover_bal = RewardPool::<T>::current_balance(id) >=
 				pools_members_pending_rewards.get(&id).copied().unwrap_or_default();
 
-			// this is currently broken in Kusama, a fix is being worked on in
-			// <https://github.com/paritytech/polkadot-sdk/pull/1255>. until it is fixed, log a
-			// warning instead of panicing with an `ensure` statement.
+			// If this happens, this is most likely due to an old bug and not a recent code change.
+			// We warn about this in try-runtime checks but do not panic.
 			if !pending_rewards_lt_leftover_bal {
 				log::warn!(
 					"pool {:?}, sum pending rewards = {:?}, remaining balance = {:?}",
