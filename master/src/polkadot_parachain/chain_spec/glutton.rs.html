@@ -99,6 +99,30 @@
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -117,8 +141,11 @@
 
 </span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{get_account_id_from_seed, Extensions};
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
+<span class="kw">use </span>parachains_common::AuraId;
 <span class="kw">use </span>sc_service::ChainType;
 <span class="kw">use </span>sp_core::sr25519;
+
+<span class="kw">use </span><span class="kw">super</span>::get_collator_keys_from_seed;
 
 <span class="doccomment">/// Specialized `ChainSpec` for the Glutton parachain runtime.
 </span><span class="kw">pub type </span>GluttonChainSpec =
@@ -131,7 +158,7 @@
 		<span class="comment">// ID
 		</span><span class="string">&quot;glutton_dev&quot;</span>,
 		ChainType::Local,
-		<span class="kw">move </span>|| glutton_genesis(para_id),
+		<span class="kw">move </span>|| glutton_genesis(para_id, <span class="macro">vec!</span>[get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>)]),
 		Vec::new(),
 		<span class="prelude-val">None</span>,
 		<span class="prelude-val">None</span>,
@@ -148,7 +175,15 @@
 		<span class="comment">// ID
 		</span><span class="string">&quot;glutton_local&quot;</span>,
 		ChainType::Local,
-		<span class="kw">move </span>|| glutton_genesis(para_id),
+		<span class="kw">move </span>|| {
+			glutton_genesis(
+				para_id,
+				<span class="macro">vec!</span>[
+					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
+					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Bob&quot;</span>),
+				],
+			)
+		},
 		Vec::new(),
 		<span class="prelude-val">None</span>,
 		<span class="prelude-val">None</span>,
@@ -168,7 +203,15 @@
 		<span class="comment">// ID
 		</span><span class="macro">format!</span>(<span class="string">&quot;glutton-kusama-{}&quot;</span>, para_id).as_str(),
 		ChainType::Live,
-		<span class="kw">move </span>|| glutton_genesis(para_id),
+		<span class="kw">move </span>|| {
+			glutton_genesis(
+				para_id,
+				<span class="macro">vec!</span>[
+					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
+					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Bob&quot;</span>),
+				],
+			)
+		},
 		Vec::new(),
 		<span class="prelude-val">None</span>,
 		<span class="comment">// Protocol ID
@@ -179,7 +222,10 @@
 	)
 }
 
-<span class="kw">fn </span>glutton_genesis(parachain_id: ParaId) -&gt; glutton_runtime::RuntimeGenesisConfig {
+<span class="kw">fn </span>glutton_genesis(
+	parachain_id: ParaId,
+	collators: Vec&lt;AuraId&gt;,
+) -&gt; glutton_runtime::RuntimeGenesisConfig {
 	glutton_runtime::RuntimeGenesisConfig {
 		system: glutton_runtime::SystemConfig {
 			code: glutton_runtime::WASM_BINARY
@@ -195,6 +241,8 @@
 			trash_data_count: Default::default(),
 			..Default::default()
 		},
+		aura: glutton_runtime::AuraConfig { authorities: collators },
+		aura_ext: Default::default(),
 		sudo: glutton_runtime::SudoConfig {
 			key: <span class="prelude-val">Some</span>(get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>)),
 		},

@@ -95,7 +95,7 @@ var sourcesIndex = JSON.parse('{\
 "frame_try_runtime":["",[],["lib.rs"]],\
 "gen_ref_constants":["",[],["gen_ref_constants.rs"]],\
 "generate_bags":["",[],["lib.rs"]],\
-"glutton_runtime":["",[["weights",[],["mod.rs","pallet_glutton.rs"]]],["lib.rs","xcm_config.rs"]],\
+"glutton_runtime":["",[["weights",[],["mod.rs","pallet_glutton.rs","pallet_timestamp.rs"]]],["lib.rs","xcm_config.rs"]],\
 "integration_tests_common":["",[],["constants.rs","impls.rs","lib.rs","xcm_helpers.rs"]],\
 "kitchensink_runtime":["",[],["assets_api.rs","constants.rs","impls.rs","lib.rs","voter_bags.rs"]],\
 "kusama_runtime_constants":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs"]],\

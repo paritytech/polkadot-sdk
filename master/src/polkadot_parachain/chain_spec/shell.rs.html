@@ -49,6 +49,16 @@
 <a href="#49" id="49">49</a>
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -67,7 +77,10 @@
 
 </span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::Extensions;
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
+<span class="kw">use </span>parachains_common::AuraId;
 <span class="kw">use </span>sc_service::ChainType;
+
+<span class="kw">use </span><span class="kw">super</span>::get_collator_keys_from_seed;
 
 <span class="doccomment">/// Specialized `ChainSpec` for the shell parachain runtime.
 </span><span class="kw">pub type </span>ShellChainSpec =
@@ -78,7 +91,9 @@
 		<span class="string">&quot;Shell Local Testnet&quot;</span>,
 		<span class="string">&quot;shell_local_testnet&quot;</span>,
 		ChainType::Local,
-		<span class="kw">move </span>|| shell_testnet_genesis(<span class="number">1000</span>.into()),
+		<span class="kw">move </span>|| {
+			shell_testnet_genesis(<span class="number">1000</span>.into(), <span class="macro">vec!</span>[get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>)])
+		},
 		Vec::new(),
 		<span class="prelude-val">None</span>,
 		<span class="prelude-val">None</span>,
@@ -88,7 +103,10 @@
 	)
 }
 
-<span class="kw">fn </span>shell_testnet_genesis(parachain_id: ParaId) -&gt; shell_runtime::RuntimeGenesisConfig {
+<span class="kw">fn </span>shell_testnet_genesis(
+	parachain_id: ParaId,
+	collators: Vec&lt;AuraId&gt;,
+) -&gt; shell_runtime::RuntimeGenesisConfig {
 	shell_runtime::RuntimeGenesisConfig {
 		system: shell_runtime::SystemConfig {
 			code: shell_runtime::WASM_BINARY
@@ -98,6 +116,8 @@
 		},
 		parachain_info: shell_runtime::ParachainInfoConfig { parachain_id, ..Default::default() },
 		parachain_system: Default::default(),
+		aura: shell_runtime::AuraConfig { authorities: collators },
+		aura_ext: Default::default(),
 	}
 }
 </code></pre></div></section></main></body></html>

@@ -63,6 +63,12 @@
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -81,9 +87,11 @@
 
 </span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{get_account_id_from_seed, Extensions};
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
-<span class="kw">use </span>parachains_common::AccountId;
+<span class="kw">use </span>parachains_common::{AccountId, AuraId};
 <span class="kw">use </span>sc_service::ChainType;
 <span class="kw">use </span>sp_core::sr25519;
+
+<span class="kw">use </span><span class="kw">super</span>::get_collator_keys_from_seed;
 
 <span class="doccomment">/// Specialized `ChainSpec` for the seedling parachain runtime.
 </span><span class="kw">pub type </span>SeedlingChainSpec =
@@ -98,6 +106,7 @@
 			seedling_testnet_genesis(
 				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
 				<span class="number">2000</span>.into(),
+				<span class="macro">vec!</span>[get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>)],
 			)
 		},
 		Vec::new(),
@@ -112,6 +121,7 @@
 <span class="kw">fn </span>seedling_testnet_genesis(
 	root_key: AccountId,
 	parachain_id: ParaId,
+	collators: Vec&lt;AuraId&gt;,
 ) -&gt; seedling_runtime::RuntimeGenesisConfig {
 	seedling_runtime::RuntimeGenesisConfig {
 		system: seedling_runtime::SystemConfig {
@@ -126,6 +136,8 @@
 			..Default::default()
 		},
 		parachain_system: Default::default(),
+		aura: seedling_runtime::AuraConfig { authorities: collators },
+		aura_ext: Default::default(),
 	}
 }
 </code></pre></div></section></main></body></html>
