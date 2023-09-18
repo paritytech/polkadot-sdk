@@ -111,6 +111,7 @@ pub type NegativeImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currenc
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+type BeneficiaryLookupOf<T, I> = <<T as Config<I>>::BeneficiaryLookup as StaticLookup>::Source;
 
 /// A trait to allow the Treasury Pallet to spend it's funds for other purposes.
 /// There is an expectation that the implementer of this trait will correctly manage
@@ -264,6 +265,9 @@ pub mod pallet {
 
 		/// Type parameter used to identify the beneficiaries eligible to receive treasury spend.
 		type Beneficiary: Parameter + MaxEncodedLen;
+
+		/// Converting trait to take a source type and convert to [`Self::Beneficiary`].
+		type BeneficiaryLookup: StaticLookup<Target = Self::Beneficiary>;
 
 		/// Type for processing spends of [Self::AssetKind] in favor of [`Self::Beneficiary`].
 		type Paymaster: Pay<Beneficiary = Self::Beneficiary, AssetKind = Self::AssetKind>;
@@ -715,10 +719,11 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			asset_kind: Box<T::AssetKind>,
 			#[pallet::compact] amount: AssetBalanceOf<T, I>,
-			beneficiary: Box<T::Beneficiary>,
+			beneficiary: Box<BeneficiaryLookupOf<T, I>>,
 			valid_from: Option<BlockNumberFor<T>>,
 		) -> DispatchResult {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
+			let beneficiary = T::BeneficiaryLookup::lookup(*beneficiary)?;
 
 			let now = frame_system::Pallet::<T>::block_number();
 			let valid_from = valid_from.unwrap_or(now);
@@ -755,7 +760,7 @@ pub mod pallet {
 				SpendStatus {
 					asset_kind: *asset_kind.clone(),
 					amount,
-					beneficiary: *beneficiary.clone(),
+					beneficiary: beneficiary.clone(),
 					valid_from,
 					expire_at,
 					status: PaymentState::Pending,
@@ -767,7 +772,7 @@ pub mod pallet {
 				index,
 				asset_kind: *asset_kind,
 				amount,
-				beneficiary: *beneficiary,
+				beneficiary,
 				valid_from,
 				expire_at,
 			});

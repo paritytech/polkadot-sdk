@@ -209,6 +209,7 @@ impl Config for Test {
 	type SpendOrigin = TestSpendOrigin;
 	type AssetKind = u32;
 	type Beneficiary = u128;
+	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type Paymaster = TestPay;
 	type BalanceConverter = MulBy<ConstU64<2>>;
 	type PayoutPeriod = SpendPayoutPeriod;

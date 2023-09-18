@@ -304,6 +304,7 @@ mod tests {
 		type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
 		type AssetKind = ();
 		type Beneficiary = Self::AccountId;
+		type BeneficiaryLookup = IdentityLookup<Self::AccountId>;
 		type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
 		type BalanceConverter = UnityAssetBalanceConversion;
 		type PayoutPeriod = ConstU64<0>;

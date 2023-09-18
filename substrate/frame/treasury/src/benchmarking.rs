@@ -98,10 +98,11 @@ fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::
 // Create the arguments for the `spend` dispatchable.
 fn create_spend_arguments<T: Config<I>, I: 'static>(
 	seed: u32,
-) -> (T::AssetKind, AssetBalanceOf<T, I>, T::Beneficiary) {
+) -> (T::AssetKind, AssetBalanceOf<T, I>, T::Beneficiary, BeneficiaryLookupOf<T, I>) {
 	let asset_kind = T::BenchmarkHelper::create_asset_kind(seed);
 	let beneficiary = T::BenchmarkHelper::create_beneficiary([seed.try_into().unwrap(); 32]);
-	(asset_kind, 100u32.into(), beneficiary)
+	let beneficiary_lookup = T::BeneficiaryLookup::unlookup(beneficiary.clone());
+	(asset_kind, 100u32.into(), beneficiary, beneficiary_lookup)
 }
 
 #[instance_benchmarks]
@@ -220,7 +221,8 @@ mod benchmarks {
 	fn spend() -> Result<(), BenchmarkError> {
 		let origin =
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let (asset_kind, amount, beneficiary) = create_spend_arguments::<T, _>(SEED);
+		let (asset_kind, amount, beneficiary, beneficiary_lookup) =
+			create_spend_arguments::<T, _>(SEED);
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
 
 		#[extrinsic_call]
@@ -228,7 +230,7 @@ mod benchmarks {
 			origin as T::RuntimeOrigin,
 			Box::new(asset_kind.clone()),
 			amount,
-			Box::new(beneficiary.clone()),
+			Box::new(beneficiary_lookup),
 			None,
 		);
 
@@ -251,13 +253,14 @@ mod benchmarks {
 	#[benchmark]
 	fn payout() -> Result<(), BenchmarkError> {
 		let origin = T::SpendOrigin::try_successful_origin().map_err(|_| "No origin")?;
-		let (asset_kind, amount, beneficiary) = create_spend_arguments::<T, _>(SEED);
+		let (asset_kind, amount, beneficiary, beneficiary_lookup) =
+			create_spend_arguments::<T, _>(SEED);
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
 		Treasury::<T, _>::spend(
 			origin,
 			Box::new(asset_kind.clone()),
 			amount,
-			Box::new(beneficiary.clone()),
+			Box::new(beneficiary_lookup),
 			None,
 		)?;
 		T::Paymaster::ensure_successful(&beneficiary, asset_kind, amount);
@@ -281,13 +284,14 @@ mod benchmarks {
 	#[benchmark]
 	fn check_status() -> Result<(), BenchmarkError> {
 		let origin = T::SpendOrigin::try_successful_origin().map_err(|_| "No origin")?;
-		let (asset_kind, amount, beneficiary) = create_spend_arguments::<T, _>(SEED);
+		let (asset_kind, amount, beneficiary, beneficiary_lookup) =
+			create_spend_arguments::<T, _>(SEED);
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
 		Treasury::<T, _>::spend(
 			origin,
 			Box::new(asset_kind.clone()),
 			amount,
-			Box::new(beneficiary.clone()),
+			Box::new(beneficiary_lookup),
 			None,
 		)?;
 		T::Paymaster::ensure_successful(&beneficiary, asset_kind, amount);
@@ -312,13 +316,13 @@ mod benchmarks {
 	#[benchmark]
 	fn void_spend() -> Result<(), BenchmarkError> {
 		let origin = T::SpendOrigin::try_successful_origin().map_err(|_| "No origin")?;
-		let (asset_kind, amount, beneficiary) = create_spend_arguments::<T, _>(SEED);
+		let (asset_kind, amount, _, beneficiary_lookup) = create_spend_arguments::<T, _>(SEED);
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
 		Treasury::<T, _>::spend(
 			origin,
 			Box::new(asset_kind.clone()),
 			amount,
-			Box::new(beneficiary),
+			Box::new(beneficiary_lookup),
 			None,
 		)?;
 		assert!(Spends::<T, I>::get(0).is_some());
