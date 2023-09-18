@@ -40,9 +40,10 @@ publish-rustdoc:
     - cp README.md /tmp/doc/
     # we don't need to commit changes because we copy docs to /tmp
     - git checkout gh-pages --force
+    # Enable if docs needed for other refs
     # Install `index-tpl-crud` and generate index.html based on RUSTDOCS_DEPLOY_REFS
-    - which index-tpl-crud &> /dev/null || yarn global add @substrate/index-tpl-crud
-    - index-tpl-crud upsert ./index.html ${CI_COMMIT_REF_NAME}
+    # - which index-tpl-crud &> /dev/null || yarn global add @substrate/index-tpl-crud
+    # - index-tpl-crud upsert ./index.html ${CI_COMMIT_REF_NAME}
     # Ensure the destination dir doesn't exist.
     - rm -rf ${CI_COMMIT_REF_NAME}
     - mv -f /tmp/doc ${CI_COMMIT_REF_NAME}
