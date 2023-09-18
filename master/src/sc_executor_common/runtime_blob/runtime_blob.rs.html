@@ -204,21 +204,6 @@
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -241,8 +226,8 @@
 <span class="kw">use </span>wasm_instrument::{
 	export_mutable_globals,
 	parity_wasm::elements::{
-		deserialize_buffer, serialize, DataSegment, ExportEntry, External, Internal, MemorySection,
-		MemoryType, Module, Section,
+		deserialize_buffer, serialize, ExportEntry, External, Internal, MemorySection, MemoryType,
+		Module, Section,
 	},
 };
 
@@ -271,11 +256,6 @@
 		<span class="kw">let </span>raw_module: Module = deserialize_buffer(wasm_code)
 			.map_err(|e| WasmError::Other(<span class="macro">format!</span>(<span class="string">&quot;cannot deserialize module: {:?}&quot;</span>, e)))<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ raw_module })
-	}
-
-	<span class="doccomment">/// Extract the data segments from the given wasm code.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>data_segments(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;DataSegment&gt; {
-		<span class="self">self</span>.raw_module.data_section().map(|ds| ds.entries()).unwrap_or(<span class="kw-2">&amp;</span>[]).to_vec()
 	}
 
 	<span class="doccomment">/// The number of globals defined in locally in this module.
@@ -409,16 +389,6 @@
 			<span class="kw-2">*</span>memory_ty = MemoryType::new(min, max);
 		}
 		<span class="prelude-val">Ok</span>(())
-	}
-
-	<span class="doccomment">/// Returns an iterator of all globals which were exported by [`expose_mutable_globals`].
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>exported_internal_global_names(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span>str&gt; {
-		<span class="kw">let </span>exports = <span class="self">self</span>.raw_module.export_section().map(|es| es.entries()).unwrap_or(<span class="kw-2">&amp;</span>[]);
-		exports.iter().filter_map(|export| <span class="kw">match </span>export.internal() {
-			Internal::Global(<span class="kw">_</span>) <span class="kw">if </span>export.field().starts_with(<span class="string">&quot;exported_internal_global&quot;</span>) =&gt;
-				<span class="prelude-val">Some</span>(export.field()),
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-		})
 	}
 
 	<span class="doccomment">/// Scans the wasm blob for the first section with the name that matches the given. Returns the

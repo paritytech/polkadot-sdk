@@ -309,100 +309,6 @@
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
 <a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
-<a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
-<a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
-<a href="#361" id="361">361</a>
-<a href="#362" id="362">362</a>
-<a href="#363" id="363">363</a>
-<a href="#364" id="364">364</a>
-<a href="#365" id="365">365</a>
-<a href="#366" id="366">366</a>
-<a href="#367" id="367">367</a>
-<a href="#368" id="368">368</a>
-<a href="#369" id="369">369</a>
-<a href="#370" id="370">370</a>
-<a href="#371" id="371">371</a>
-<a href="#372" id="372">372</a>
-<a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
-<a href="#394" id="394">394</a>
-<a href="#395" id="395">395</a>
-<a href="#396" id="396">396</a>
-<a href="#397" id="397">397</a>
-<a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
-<a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -521,12 +427,12 @@
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>MemoryWrapper&lt;<span class="lifetime">&#39;a</span>, C&gt;(<span class="kw">pub </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>wasmtime::Memory, <span class="kw">pub </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>C);
 
 <span class="kw">impl</span>&lt;C: AsContextMut&gt; sc_allocator::Memory <span class="kw">for </span>MemoryWrapper&lt;<span class="lifetime">&#39;_</span>, C&gt; {
-	<span class="kw">fn </span>with_access&lt;R&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, run: <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;</span>[u8]) -&gt; R) -&gt; R {
-		run(<span class="self">self</span>.<span class="number">0</span>.data(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">1</span>))
-	}
-
 	<span class="kw">fn </span>with_access_mut&lt;R&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, run: <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;mut </span>[u8]) -&gt; R) -&gt; R {
 		run(<span class="self">self</span>.<span class="number">0</span>.data_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>.<span class="number">1</span>))
+	}
+
+	<span class="kw">fn </span>with_access&lt;R&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, run: <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;</span>[u8]) -&gt; R) -&gt; R {
+		run(<span class="self">self</span>.<span class="number">0</span>.data(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">1</span>))
 	}
 
 	<span class="kw">fn </span>grow(<span class="kw-2">&amp;mut </span><span class="self">self</span>, additional: u32) -&gt; std::result::Result&lt;(), ()&gt; {
@@ -558,11 +464,6 @@
 /// routines.
 </span><span class="kw">pub struct </span>InstanceWrapper {
 	instance: Instance,
-	<span class="doccomment">/// The memory instance of the `instance`.
-	///
-	/// It is important to make sure that we don&#39;t make any copies of this to make it easier to
-	/// proof
-	</span>memory: Memory,
 	store: Store,
 }
 
@@ -582,7 +483,7 @@
 		store.data_mut().memory = <span class="prelude-val">Some</span>(memory);
 		store.data_mut().table = table;
 
-		<span class="prelude-val">Ok</span>(InstanceWrapper { instance, memory, store })
+		<span class="prelude-val">Ok</span>(InstanceWrapper { instance, store })
 	}
 
 	<span class="doccomment">/// Resolves a substrate entrypoint by the given name.
@@ -685,11 +586,6 @@
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;Unknown value type&quot;</span>.into()),
 		}
 	}
-
-	<span class="doccomment">/// Get a global with the given `name`.
-	</span><span class="kw">pub fn </span>get_global(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;wasmtime::Global&gt; {
-		<span class="self">self</span>.instance.get_global(<span class="kw-2">&amp;mut </span><span class="self">self</span>.store, name)
-	}
 }
 
 <span class="doccomment">/// Extract linear memory instance from the given instance.
@@ -716,76 +612,6 @@
 
 <span class="doccomment">/// Functions related to memory.
 </span><span class="kw">impl </span>InstanceWrapper {
-	<span class="doccomment">/// Returns the pointer to the first byte of the linear memory for this instance.
-	</span><span class="kw">pub fn </span>base_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*const </span>u8 {
-		<span class="self">self</span>.memory.data_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>.store)
-	}
-
-	<span class="doccomment">/// If possible removes physical backing from the allocated linear memory which
-	/// leads to returning the memory back to the system; this also zeroes the memory
-	/// as a side-effect.
-	</span><span class="kw">pub fn </span>decommit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-		<span class="kw">if </span><span class="self">self</span>.memory.data_size(<span class="kw-2">&amp;</span><span class="self">self</span>.store) == <span class="number">0 </span>{
-			<span class="kw">return
-		</span>}
-
-		<span class="macro">cfg_if::cfg_if! </span>{
-			<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)] </span>{
-				<span class="kw">use </span>std::sync::Once;
-
-				<span class="kw">unsafe </span>{
-					<span class="kw">let </span>ptr = <span class="self">self</span>.memory.data_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>.store);
-					<span class="kw">let </span>len = <span class="self">self</span>.memory.data_size(<span class="kw-2">&amp;</span><span class="self">self</span>.store);
-
-					<span class="comment">// Linux handles MADV_DONTNEED reliably. The result is that the given area
-					// is unmapped and will be zeroed on the next pagefault.
-					</span><span class="kw">if </span>libc::madvise(ptr <span class="kw">as _</span>, len, libc::MADV_DONTNEED) != <span class="number">0 </span>{
-						<span class="kw">static </span>LOGGED: Once = Once::new();
-						LOGGED.call_once(|| {
-							<span class="macro">log::warn!</span>(
-								<span class="string">&quot;madvise(MADV_DONTNEED) failed: {}&quot;</span>,
-								std::io::Error::last_os_error(),
-							);
-						});
-					} <span class="kw">else </span>{
-						<span class="kw">return</span>;
-					}
-				}
-			} <span class="kw">else if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;macos&quot;</span>)] </span>{
-				<span class="kw">use </span>std::sync::Once;
-
-				<span class="kw">unsafe </span>{
-					<span class="kw">let </span>ptr = <span class="self">self</span>.memory.data_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>.store);
-					<span class="kw">let </span>len = <span class="self">self</span>.memory.data_size(<span class="kw-2">&amp;</span><span class="self">self</span>.store);
-
-					<span class="comment">// On MacOS we can simply overwrite memory mapping.
-					</span><span class="kw">if </span>libc::mmap(
-						ptr <span class="kw">as _</span>,
-						len,
-						libc::PROT_READ | libc::PROT_WRITE,
-						libc::MAP_FIXED | libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
-						-<span class="number">1</span>,
-						<span class="number">0</span>,
-					) == libc::MAP_FAILED {
-						<span class="kw">static </span>LOGGED: Once = Once::new();
-						LOGGED.call_once(|| {
-							<span class="macro">log::warn!</span>(
-								<span class="string">&quot;Failed to decommit WASM instance memory through mmap: {}&quot;</span>,
-								std::io::Error::last_os_error(),
-							);
-						});
-					} <span class="kw">else </span>{
-						<span class="kw">return</span>;
-					}
-				}
-			}
-		}
-
-		<span class="comment">// If we&#39;re on an unsupported OS or the memory couldn&#39;t have been
-		// decommited for some reason then just manually zero it out.
-		</span><span class="self">self</span>.memory.data_mut(<span class="self">self</span>.store.as_context_mut()).fill(<span class="number">0</span>);
-	}
-
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Store {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.store
 	}
@@ -793,19 +619,5 @@
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>store_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Store {
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>.store
 	}
-}
-
-<span class="attr">#[test]
-</span><span class="kw">fn </span>decommit_works() {
-	<span class="kw">let </span>engine = wasmtime::Engine::default();
-	<span class="kw">let </span>code = wat::parse_str(<span class="string">&quot;(module (memory (export \&quot;memory\&quot;) 1 4))&quot;</span>).unwrap();
-	<span class="kw">let </span>module = wasmtime::Module::new(<span class="kw-2">&amp;</span>engine, code).unwrap();
-	<span class="kw">let </span>linker = wasmtime::Linker::new(<span class="kw-2">&amp;</span>engine);
-	<span class="kw">let </span>instance_pre = linker.instantiate_pre(<span class="kw-2">&amp;</span>module).unwrap();
-	<span class="kw">let </span><span class="kw-2">mut </span>wrapper = InstanceWrapper::new(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>instance_pre).unwrap();
-	<span class="kw">unsafe </span>{ <span class="kw-2">*</span>wrapper.memory.data_ptr(<span class="kw-2">&amp;</span>wrapper.store) = <span class="number">42 </span>};
-	<span class="macro">assert_eq!</span>(<span class="kw">unsafe </span>{ <span class="kw-2">*</span>wrapper.memory.data_ptr(<span class="kw-2">&amp;</span>wrapper.store) }, <span class="number">42</span>);
-	wrapper.decommit();
-	<span class="macro">assert_eq!</span>(<span class="kw">unsafe </span>{ <span class="kw-2">*</span>wrapper.memory.data_ptr(<span class="kw-2">&amp;</span>wrapper.store) }, <span class="number">0</span>);
 }
 </code></pre></div></section></main></body></html>

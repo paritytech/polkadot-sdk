@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["DataSegmentsSnapshot","ExposedMutableGlobalsSet","GlobalsSnapshot","RuntimeBlob"],"trait":["InstanceGlobals"]};
+window.SIDEBAR_ITEMS = {"struct":["RuntimeBlob"]};

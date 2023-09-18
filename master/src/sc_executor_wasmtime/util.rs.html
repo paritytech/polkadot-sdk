@@ -147,30 +147,6 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -194,32 +170,8 @@
 	error::{Error, <span class="prelude-ty">Result</span>},
 	util::checked_range,
 };
-<span class="kw">use </span>sp_wasm_interface::{Pointer, Value};
+<span class="kw">use </span>sp_wasm_interface::Pointer;
 <span class="kw">use </span>wasmtime::{AsContext, AsContextMut};
-
-<span class="doccomment">/// Converts a [`wasmtime::Val`] into a substrate runtime interface [`Value`].
-///
-/// Panics if the given value doesn&#39;t have a corresponding variant in `Value`.
-</span><span class="kw">pub fn </span>from_wasmtime_val(val: wasmtime::Val) -&gt; Value {
-	<span class="kw">match </span>val {
-		wasmtime::Val::I32(v) =&gt; Value::I32(v),
-		wasmtime::Val::I64(v) =&gt; Value::I64(v),
-		wasmtime::Val::F32(f_bits) =&gt; Value::F32(f_bits),
-		wasmtime::Val::F64(f_bits) =&gt; Value::F64(f_bits),
-		v =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Given value type is unsupported by Substrate: {:?}&quot;</span>, v),
-	}
-}
-
-<span class="doccomment">/// Converts a sp_wasm_interface&#39;s [`Value`] into the corresponding variant in wasmtime&#39;s
-/// [`wasmtime::Val`].
-</span><span class="kw">pub fn </span>into_wasmtime_val(value: Value) -&gt; wasmtime::Val {
-	<span class="kw">match </span>value {
-		Value::I32(v) =&gt; wasmtime::Val::I32(v),
-		Value::I64(v) =&gt; wasmtime::Val::I64(v),
-		Value::F32(f_bits) =&gt; wasmtime::Val::F32(f_bits),
-		Value::F64(f_bits) =&gt; wasmtime::Val::F64(f_bits),
-	}
-}
 
 <span class="doccomment">/// Read data from the instance memory into a slice.
 ///
@@ -313,8 +265,8 @@
 
 		<span class="comment">// These strategies require a working `madvise` to be sound.
 		</span>InstantiationStrategy::PoolingCopyOnWrite =&gt; InstantiationStrategy::Pooling,
-		InstantiationStrategy::RecreateInstanceCopyOnWrite |
-		InstantiationStrategy::LegacyInstanceReuse =&gt; InstantiationStrategy::RecreateInstance,
+		InstantiationStrategy::RecreateInstanceCopyOnWrite =&gt;
+			InstantiationStrategy::RecreateInstance,
 	};
 
 	<span class="kw">use </span>std::sync::OnceLock;
