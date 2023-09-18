@@ -222,9 +222,9 @@
 
 		<span class="kw">let </span>last_committed_timeslice = status.last_committed_timeslice;
 		<span class="kw">if </span>region_id.begin &lt;= last_committed_timeslice {
+			<span class="kw">let </span>duration = region.end.saturating_sub(region_id.begin);
 			region_id.begin = last_committed_timeslice + <span class="number">1</span>;
 			<span class="kw">if </span>region_id.begin &gt;= region.end {
-				<span class="kw">let </span>duration = region.end.saturating_sub(region_id.begin);
 				<span class="self">Self</span>::deposit_event(Event::RegionDropped { region_id, duration });
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 			}

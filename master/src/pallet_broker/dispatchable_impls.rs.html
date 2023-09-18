@@ -508,7 +508,7 @@
 			last_timeslice: <span class="self">Self</span>::current_timeslice(),
 		};
 		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
-		<span class="kw">let </span>dummy_sale = SaleInfoRecord {
+		<span class="kw">let </span>new_sale = SaleInfoRecord {
 			sale_start: now,
 			leadin_length: Zero::zero(),
 			price,
@@ -521,7 +521,7 @@
 			cores_sold: <span class="number">0</span>,
 		};
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::SalesStarted { price, core_count });
-		<span class="self">Self</span>::rotate_sale(dummy_sale, <span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>status);
+		<span class="self">Self</span>::rotate_sale(new_sale, <span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>status);
 		Status::&lt;T&gt;::put(<span class="kw-2">&amp;</span>status);
 		<span class="prelude-val">Ok</span>(())
 	}
