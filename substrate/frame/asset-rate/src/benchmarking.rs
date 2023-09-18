@@ -54,7 +54,7 @@ mod benchmarks {
 	fn create() -> Result<(), BenchmarkError> {
 		let asset_kind: T::AssetKind = T::BenchmarkHelper::create_asset_kind(SEED);
 		#[extrinsic_call]
-		_(RawOrigin::Root, asset_kind.clone(), default_conversion_rate());
+		_(RawOrigin::Root, Box::new(asset_kind.clone()), default_conversion_rate());
 
 		assert_eq!(
 			pallet_asset_rate::ConversionRateToNative::<T>::get(asset_kind),
@@ -68,12 +68,12 @@ mod benchmarks {
 		let asset_kind: T::AssetKind = T::BenchmarkHelper::create_asset_kind(SEED);
 		assert_ok!(AssetRate::<T>::create(
 			RawOrigin::Root.into(),
-			asset_kind.clone(),
+			Box::new(asset_kind.clone()),
 			default_conversion_rate()
 		));
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, asset_kind.clone(), FixedU128::from_u32(2));
+		_(RawOrigin::Root, Box::new(asset_kind.clone()), FixedU128::from_u32(2));
 
 		assert_eq!(
 			pallet_asset_rate::ConversionRateToNative::<T>::get(asset_kind),
@@ -87,12 +87,12 @@ mod benchmarks {
 		let asset_kind: T::AssetKind = T::BenchmarkHelper::create_asset_kind(SEED);
 		assert_ok!(AssetRate::<T>::create(
 			RawOrigin::Root.into(),
-			asset_kind.clone(),
+			Box::new(asset_kind.clone()),
 			default_conversion_rate()
 		));
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, asset_kind.clone());
+		_(RawOrigin::Root, Box::new(asset_kind.clone()));
 
 		assert!(pallet_asset_rate::ConversionRateToNative::<T>::get(asset_kind).is_none());
 		Ok(())

@@ -208,32 +208,7 @@ async fn assert_validate_seconded_candidate(
 	expected_head_data: &HeadData,
 	fetch_pov: bool,
 ) {
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-		) if parent == relay_parent && hash == validation_code.hash() => {
-			tx.send(Ok(Some(validation_code.clone()))).unwrap();
-		}
-	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-		) => {
-			tx.send(Ok(1u32.into())).unwrap();
-		}
-	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-		) if sess_idx == 1 => {
-			tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-		}
-	);
+	assert_validation_requests(virtual_overseer, validation_code.clone()).await;
 
 	if fetch_pov {
 		assert_matches!(
