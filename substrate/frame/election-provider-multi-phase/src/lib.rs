@@ -1356,6 +1356,8 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 }
 
+/// This Wrapper is created for handling the synchronization of `Snapshot`, `SnapshotMetadata` and
+/// `DesiredTargets` storage items
 pub struct SnapshotWrapper<T>(PhantomData<T>);
 
 impl<T: Config> SnapshotWrapper<T> {
