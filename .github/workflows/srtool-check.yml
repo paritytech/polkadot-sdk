@@ -45,6 +45,8 @@ jobs:
           . ./.github/scripts/common/lib.sh
           MATRIX=$(find_runtimes)
           echo $MATRIX
+
+          SKIP=(kitchensink sp bp)
           echo "runtime=$MATRIX" >> $GITHUB_OUTPUT
 
   srtool:
@@ -62,7 +64,7 @@ jobs:
 
       - name: Srtool build
         id: srtool_build
-        uses: chevdor/srtool-actions@v0.7.0
+        uses: chevdor/srtool-actions@v0.8.0
         with:
           chain: ${{ matrix.chain }}
           runtime_dir: ${{ matrix.runtime_dir }}
