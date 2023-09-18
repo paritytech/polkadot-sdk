@@ -17,10 +17,17 @@
 
 //! # Basic Example Pallet
 //!
-//! A simple example of a FRAME pallet demonstrating concepts, APIs and structures common to most
-//! FRAME runtimes.
+//! A pallet demonstrating concepts, APIs and structures common to most FRAME runtimes.
 //!
 //! **This pallet serves as an example and is not meant to be used in production.**
+//!
+//! > Made with *Substrate*, for *Polkadot*.
+//!
+//! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/examples/basic)
+//! [![polkadot]](https://polkadot.network)
+//!
+//! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
+//! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
 //!
 //! ## Pallet API
 //!
