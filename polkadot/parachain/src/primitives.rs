@@ -203,9 +203,6 @@ impl From<i32> for Id {
 const SYSTEM_INDEX_END: u32 = 1999;
 const PUBLIC_INDEX_START: u32 = 2000;
 
-/// The ID of the first user (non-system) parachain.
-pub const LOWEST_USER_ID: Id = Id(PUBLIC_INDEX_START);
-
 /// The ID of the first publicly registrable parachain.
 pub const LOWEST_PUBLIC_ID: Id = Id(PUBLIC_INDEX_START);
 

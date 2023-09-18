@@ -10502,6 +10502,7 @@ dependencies = [
 name = "pallet-timestamp"
 version = "4.0.0-dev"
 dependencies = [
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -11395,7 +11396,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -11528,7 +11529,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-cli"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "clap 4.4.3",
  "frame-benchmarking-cli",
@@ -12340,7 +12341,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-parachain-bin"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "assert_cmd",
  "asset-hub-kusama-runtime",
@@ -14754,17 +14755,14 @@ dependencies = [
  "num-traits",
  "parity-scale-codec",
  "parking_lot 0.12.1",
- "rand_chacha 0.2.2",
  "sc-block-builder",
  "sc-client-api",
  "sc-consensus",
  "sc-consensus-epochs",
  "sc-consensus-slots",
- "sc-network",
  "sc-network-test",
  "sc-telemetry",
  "sc-transaction-pool-api",
- "scale-info",
  "sp-api",
  "sp-application-crypto",
  "sp-block-builder",
