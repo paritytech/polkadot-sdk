@@ -18,11 +18,13 @@
 //! Traits for encoding data related to pallet's storage items.
 
 use codec::{Encode, FullCodec, MaxEncodedLen};
+use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::TypeInfo;
 pub use sp_core::storage::TrackedStorageKey;
+use sp_core::Get;
 use sp_runtime::{
-	traits::{Member, Saturating},
+	traits::{Convert, Member, Saturating},
 	DispatchError, RuntimeDebug,
 };
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
@@ -152,6 +154,20 @@ impl Footprint {
 	}
 }
 
+/// A storage price that increases linearly with the number of elements and their size.
+pub struct LinearStoragePrice<Base, Slope, Balance>(PhantomData<(Base, Slope, Balance)>);
+impl<Base, Slope, Balance> Convert<Footprint, Balance> for LinearStoragePrice<Base, Slope, Balance>
+where
+	Base: Get<Balance>,
+	Slope: Get<Balance>,
+	Balance: From<u64> + sp_runtime::Saturating,
+{
+	fn convert(a: Footprint) -> Balance {
+		let s: Balance = (a.count.saturating_mul(a.size)).into();
+		s.saturating_mul(Slope::get()).saturating_add(Base::get())
+	}
+}
+
 /// Some sort of cost taken from account temporarily in order to offset the cost to the chain of
 /// holding some data [`Footprint`] in state.
 ///
@@ -239,3 +255,25 @@ where
 }
 
 impl_incrementable!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_core::ConstU64;
+
+	#[test]
+	fn linear_storage_price_works() {
+		type Linear = LinearStoragePrice<ConstU64<7>, ConstU64<3>, u64>;
+		let p = |count, size| Linear::convert(Footprint { count, size });
+
+		assert_eq!(p(0, 0), 7);
+		assert_eq!(p(0, 1), 7);
+		assert_eq!(p(1, 0), 7);
+
+		assert_eq!(p(1, 1), 10);
+		assert_eq!(p(8, 1), 31);
+		assert_eq!(p(1, 8), 31);
+
+		assert_eq!(p(u64::MAX, u64::MAX), u64::MAX);
+	}
+}
