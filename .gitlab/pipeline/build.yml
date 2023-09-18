@@ -127,7 +127,7 @@ build-implementers-guide:
     - .kubernetes-env
     - .common-refs
     - .run-immediately
-    # - .collect-artifacts
+    - .collect-artifacts
   # git depth is set on purpose: https://github.com/paritytech/polkadot/issues/6284
   variables:
     GIT_STRATEGY: clone
