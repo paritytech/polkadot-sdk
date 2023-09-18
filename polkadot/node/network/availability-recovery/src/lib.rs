@@ -467,10 +467,12 @@ async fn handle_recover<Context>(
 				get_block_number(ctx.sender(), receipt.descriptor.relay_parent).await?;
 
 			if state.chunk_indices_cache.peek(&block_number).is_none() {
-				let maybe_av_chunk_shuffling_params =
-				// TODO: think some more if this relay parent is ok to use
-					request_availability_chunk_shuffling_params(state.live_block.1, ctx.sender())
-						.await.map_err(error::Error::RequestAvailabilityChunkShufflingParams)?;
+				let maybe_av_chunk_shuffling_params = request_availability_chunk_shuffling_params(
+					receipt.descriptor.relay_parent,
+					ctx.sender(),
+				)
+				.await
+				.map_err(error::Error::RequestAvailabilityChunkShufflingParams)?;
 
 				let chunk_indices = availability_chunk_indices(
 					maybe_av_chunk_shuffling_params,

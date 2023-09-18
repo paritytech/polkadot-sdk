@@ -267,9 +267,11 @@ impl Requester {
 
 					if self.chunk_index_cache.peek(&block_number).is_none() {
 						let maybe_av_chunk_shuffling_params =
-						// TODO: think some more if this relay parent is ok to use
-							request_availability_chunk_shuffling_params(leaf, context.sender())
-								.await?;
+							request_availability_chunk_shuffling_params(
+								core.candidate_descriptor.relay_parent,
+								context.sender(),
+							)
+							.await?;
 
 						let chunk_indices = availability_chunk_indices(
 							maybe_av_chunk_shuffling_params,
