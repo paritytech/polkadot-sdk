@@ -1,13 +1,13 @@
-# Deprecation Process
+# Deprecation Checklist
 
-This deprecation process makes sense while we don’t use [SemVer](https://semver.org/).
-After that, this process will most likely change.
+This deprecation checklist makes sense while we don’t use [SemVer](https://semver.org/).
+After that, this document will most likely change.
 As deprecation and removal of existing code can happen on any release, we need to be mindful that external builders
 could be impacted by the changes we make.
-The deprecation process tries to mitigate this impact, while still keeping the developer experience, the DevEx, as
+The deprecation checklist tries to mitigate this impact, while still keeping the developer experience, the DevEx, as
 smooth as possible.
 
-To start a deprecation process a new issue with the label `I11-deprecation` needs to be created for correct tracking.
+To start a deprecation process, a new issue with the label `I11-deprecation` needs to be created for correct tracking.
 Then these are the actions to take:
 
 ## Hard deprecate by adding a warning message
@@ -46,9 +46,12 @@ We also need [https://docs.substrate.io/](https://docs.substrate.io/) to be upda
 ## Announce the deprecation and removal
 
 **At minimum they should be noted in the release log.** Please see how to document a PR [here](https://github.com/paritytech/polkadot-sdk/blob/master/docs/CONTRIBUTING.md#documentation).
-Sometimes the release note is not enough.
-Make sure you are as loud as you need to be for the magnitude of the breaking change. Some breaking changes have a
-bigger impact than others.
+There you can give instructions based on the audience and tell them what they need to do to upgrade the code.
+
+Some breaking changes have a bigger impact than others. When the impact is big the release note is not enough, though
+it should still be the primary place for the notice. You can link back to the changelog files in other channels if you
+want to announce it somewhere else.
+Make sure you are as loud as you need to be for the magnitude of the breaking change.
 
 ## Removal version is planned
 
