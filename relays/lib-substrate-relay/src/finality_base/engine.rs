@@ -50,7 +50,7 @@ pub trait Engine<C: Chain>: Send {
 	/// Type of finality proofs, used by consensus engine.
 	type FinalityProof: FinalityProof<HashOf<C>, BlockNumberOf<C>> + Decode + Encode;
 	/// The context needed for verifying finality proofs.
-	type FinalityVerificationContext: Send;
+	type FinalityVerificationContext: Debug + Send;
 	/// The type of the equivocation proof used by the consensus engine.
 	type EquivocationProof: Clone + Debug + Send + Sync;
 	/// The equivocations finder.

@@ -142,8 +142,8 @@ pub trait TransactionTracker: Send {
 }
 
 /// Future associated with `TransactionTracker`, monitoring the transaction status.
-pub type TrackedTransactionFuture<T> =
-	BoxFuture<'static, TrackedTransactionStatus<<T as TransactionTracker>::HeaderId>>;
+pub type TrackedTransactionFuture<'a, T> =
+	BoxFuture<'a, TrackedTransactionStatus<<T as TransactionTracker>::HeaderId>>;
 
 /// Stringified error that may be either connection-related or not.
 #[derive(Error, Debug)]

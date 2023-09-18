@@ -32,6 +32,10 @@ impl<P: FinalityPipeline, SC: SourceClientBase<P>> FinalityProofsStream<P, SC> {
 		Self { stream: None }
 	}
 
+	pub fn from_stream(stream: SC::FinalityProofsStream) -> Self {
+		Self { stream: Some(Box::pin(stream)) }
+	}
+
 	fn next(&mut self) -> Option<<SC::FinalityProofsStream as Stream>::Item> {
 		let stream = match &mut self.stream {
 			Some(stream) => stream,
@@ -130,12 +134,6 @@ impl<P: FinalityPipeline> FinalityProofsBuf<P> {
 mod tests {
 	use super::*;
 	use crate::mock::*;
-
-	impl<P: FinalityPipeline, SC: SourceClientBase<P>> FinalityProofsStream<P, SC> {
-		fn from_stream(stream: SC::FinalityProofsStream) -> Self {
-			Self { stream: Some(Box::pin(stream)) }
-		}
-	}
 
 	#[test]
 	fn finality_proofs_buf_fill_works() {

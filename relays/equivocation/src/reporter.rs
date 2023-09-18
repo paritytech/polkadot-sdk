@@ -25,11 +25,11 @@ use std::{
 	task::{Context, Poll},
 };
 
-pub struct EquivocationsReporter<P: EquivocationDetectionPipeline, SC: SourceClient<P>> {
-	pending_reports: Vec<TrackedTransactionFuture<SC::TransactionTracker>>,
+pub struct EquivocationsReporter<'a, P: EquivocationDetectionPipeline, SC: SourceClient<P>> {
+	pending_reports: Vec<TrackedTransactionFuture<'a, SC::TransactionTracker>>,
 }
 
-impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>> EquivocationsReporter<P, SC> {
+impl<'a, P: EquivocationDetectionPipeline, SC: SourceClient<P>> EquivocationsReporter<'a, P, SC> {
 	pub fn new() -> Self {
 		Self { pending_reports: vec![] }
 	}
@@ -79,5 +79,51 @@ impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>> EquivocationsReporte
 	/// and log the ones that finished.
 	pub async fn process_pending_reports(&mut self) {
 		poll_fn(|cx| self.do_process_pending_reports(cx)).await
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::mock::*;
+	use relay_utils::HeaderId;
+	use std::sync::Mutex;
+
+	#[async_std::test]
+	async fn process_pending_reports_works() {
+		let polled_reports = Mutex::new(vec![]);
+		let finished_reports = Mutex::new(vec![]);
+
+		let mut reporter =
+			EquivocationsReporter::<TestEquivocationDetectionPipeline, TestSourceClient> {
+				pending_reports: vec![
+					Box::pin(async {
+						polled_reports.lock().unwrap().push(1);
+						finished_reports.lock().unwrap().push(1);
+						TrackedTransactionStatus::Finalized(HeaderId(1, 1))
+					}),
+					Box::pin(async {
+						polled_reports.lock().unwrap().push(2);
+						finished_reports.lock().unwrap().push(2);
+						TrackedTransactionStatus::Finalized(HeaderId(2, 2))
+					}),
+					Box::pin(async {
+						polled_reports.lock().unwrap().push(3);
+						std::future::pending::<()>().await;
+						finished_reports.lock().unwrap().push(3);
+						TrackedTransactionStatus::Finalized(HeaderId(3, 3))
+					}),
+					Box::pin(async {
+						polled_reports.lock().unwrap().push(4);
+						finished_reports.lock().unwrap().push(4);
+						TrackedTransactionStatus::Finalized(HeaderId(4, 4))
+					}),
+				],
+			};
+
+		reporter.process_pending_reports().await;
+		assert_eq!(*polled_reports.lock().unwrap(), vec![1, 2, 3, 4]);
+		assert_eq!(*finished_reports.lock().unwrap(), vec![1, 2, 4]);
+		assert_eq!(reporter.pending_reports.len(), 1);
 	}
 }
