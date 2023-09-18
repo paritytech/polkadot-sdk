@@ -16,9 +16,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#[cfg(target_os = "linux")]
-mod linux;
-
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use sc_executor_common::{
@@ -79,14 +76,6 @@ macro_rules! test_wasm_execution {
 				let _ = sp_tracing::try_init_simple();
 				$method_name(WasmExecutionMethod::Compiled {
 					instantiation_strategy: sc_executor_wasmtime::InstantiationStrategy::Pooling
-				});
-			}
-
-			#[test]
-			fn [<$method_name _compiled_legacy_instance_reuse>]() {
-				let _ = sp_tracing::try_init_simple();
-				$method_name(WasmExecutionMethod::Compiled {
-					instantiation_strategy: sc_executor_wasmtime::InstantiationStrategy::LegacyInstanceReuse
 				});
 			}
 		}
