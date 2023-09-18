@@ -806,7 +806,7 @@ frame_benchmarking::benchmarks! {
 		let (depositor, _) = create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
 
 		// Remove ed freeze to create a scenario where the ed deposit needs to be adjusted.
-		let _ = Pools::<T>::remove_ed_freeze(1);
+		let _ = Pools::<T>::remove_ed_freeze(&Pools::<T>::create_reward_account(1));
 		assert!(&Pools::<T>::check_ed_imbalance().is_err());
 
 		whitelist_account!(depositor);

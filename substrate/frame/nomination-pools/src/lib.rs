@@ -1055,6 +1055,7 @@ impl<T: Config> BondedPool<T> {
 	fn is_depositor(&self, who: &T::AccountId) -> bool {
 		&self.roles.depositor == who
 	}
+
 	fn is_destroying(&self) -> bool {
 		matches!(self.state, PoolState::Destroying)
 	}
@@ -1545,7 +1546,9 @@ pub mod pallet {
 		type Currency: FunMutate<Self::AccountId>
 			+ FunMutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>;
 
+		/// The overarching freeze reason
 		type RuntimeFreezeReason: From<FreezeReason>;
+
 		/// The type that is used for reward counter.
 		///
 		/// The arithmetic of the reward counter might saturate based on the size of the
@@ -1903,8 +1906,7 @@ pub mod pallet {
 	/// A reason for freezing funds.
 	#[pallet::composite_enum]
 	pub enum FreezeReason {
-		/// The Pallet has frozen funds for maintaining the Existential Deposit of a
-		/// NominationPool.
+		/// Pool reward account is restricted from going below Existential Deposit.
 		#[codec(index = 0)]
 		PoolMinBalance,
 	}
@@ -2735,10 +2737,9 @@ impl<T: Config> Pallet<T> {
 		ReversePoolIdLookup::<T>::remove(&bonded_account);
 		RewardPools::<T>::remove(bonded_pool.id);
 		SubPoolsStorage::<T>::remove(bonded_pool.id);
-		// remove the frozen ED from the reward account.
-		let _ =
-			T::Currency::thaw(&FreezeReason::PoolMinBalance.into(), &bonded_pool.reward_account())
-				.defensive();
+
+		// remove the ED restriction from the pool reward account.
+		let _ = Self::remove_ed_freeze(&bonded_pool.reward_account()).defensive();
 
 		// Kill accounts from storage by making their balance go below ED. We assume that the
 		// accounts have no references that would prevent destruction once we get to this point. We
@@ -3131,6 +3132,8 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
+
+	/// Apply freeze on reward account to restrict it from going below ED.
 	pub(crate) fn freeze_min_balance(reward_acc: &T::AccountId) -> DispatchResult {
 		T::Currency::set_freeze(
 			&FreezeReason::PoolMinBalance.into(),
@@ -3138,6 +3141,12 @@ impl<T: Config> Pallet<T> {
 			T::Currency::minimum_balance(),
 		)
 	}
+
+	/// Removes the ED freeze on the reward account of `pool_id`.
+	pub fn remove_ed_freeze(reward_acc: &T::AccountId) -> DispatchResult {
+		T::Currency::thaw(&FreezeReason::PoolMinBalance.into(), reward_acc)
+	}
+
 	/// Ensure the correctness of the state of this pallet.
 	///
 	/// This should be valid before or after each state transition of this pallet.
@@ -3321,6 +3330,9 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Check if any pool have an incorrect amount of ED frozen.
+	///
+	/// This can happen if the ED has changed since the pool was created.
 	#[cfg(any(feature = "try-runtime", feature = "runtime-benchmarks", test, debug_assertions))]
 	pub fn check_ed_imbalance() -> Result<(), DispatchError> {
 		let mut failed: u32 = 0;
@@ -3343,14 +3355,6 @@ impl<T: Config> Pallet<T> {
 
 		ensure!(failed == 0, "Some pools do not have correct ED frozen");
 		Ok(())
-	}
-
-	#[cfg(any(feature = "runtime-benchmarks", test))]
-	pub fn remove_ed_freeze(pool_id: PoolId) {
-		let _ = T::Currency::thaw(
-			&FreezeReason::PoolMinBalance.into(),
-			&Self::create_reward_account(pool_id),
-		);
 	}
 	/// Fully unbond the shares of `member`, when executed from `origin`.
 	///
