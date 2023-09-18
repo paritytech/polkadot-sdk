@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Integration tests concerning the Fellowship.
+//! Integration tests concerning the Ambassador Program.
 
 use crate::*;
 use collectives_polkadot_runtime::ambassador::AmbassadorSalaryPaymaster;
