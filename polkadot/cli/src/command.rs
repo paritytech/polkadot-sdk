@@ -99,7 +99,7 @@ impl SubstrateCli for Cli {
 			#[cfg(feature = "rococo-native")]
 			"rococo-staging" => Box::new(service::chain_spec::rococo_staging_testnet_config()?),
 			#[cfg(not(feature = "rococo-native"))]
-			name if name.starts_with("rococo-") && !name.ends_with(".json") =>
+			name if name.starts_with("rococo-") && !name.ends_with(".json") || name == "dev" =>
 				Err(format!("`{}` only supported with `rococo-native` feature enabled.", name))?,
 			"westend" => Box::new(service::chain_spec::westend_config()?),
 			#[cfg(feature = "westend-native")]
