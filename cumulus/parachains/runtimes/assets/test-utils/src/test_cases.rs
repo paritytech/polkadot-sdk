@@ -565,7 +565,7 @@ pub fn teleports_for_foreign_assets_works<
 				let assets_to_teleport = assets_to_teleport
 					.reanchored(&dest, context).expect("We know location is invertible; qed");
 				let weight_limit = Limited(Weight::from_parts(163_503_000, 0));
-				let mut expected_message = Xcm::<()>(vec![
+				let expected_message = Xcm::<()>(vec![
 					ReceiveTeleportedAsset(assets_to_teleport.clone().into()),
 					ClearOrigin,
 					BuyExecution { fees: assets_to_teleport.clone().into(), weight_limit },
