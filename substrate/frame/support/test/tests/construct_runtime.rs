@@ -36,7 +36,7 @@ use sp_runtime::{
 };
 
 parameter_types! {
-	pub static ConstructRuntimeExec: u32 = 0;
+	pub static PostRuntimeCheckExec: u32 = 0;
 }
 
 #[frame_support::pallet(dev_mode)]
@@ -92,8 +92,8 @@ mod module2 {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_construct_runtime() {
-			ConstructRuntimeExec::mutate(|i| *i += 1);
+		fn on_post_runtime_check() {
+			PostRuntimeCheckExec::mutate(|i| *i += 1);
 		}
 	}
 
@@ -139,8 +139,8 @@ mod nested {
 
 		#[pallet::hooks]
 		impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-			fn on_construct_runtime() {
-				ConstructRuntimeExec::mutate(|i| *i += 1);
+			fn on_post_runtime_check() {
+				PostRuntimeCheckExec::mutate(|i| *i += 1);
 			}
 		}
 
@@ -425,9 +425,9 @@ fn check_modules_error_type() {
 }
 
 #[test]
-fn construct_runtime_works() {
-	__construct_runtime_check_test::runtime_check_tests();
-	assert_eq!(ConstructRuntimeExec::get(), 2);
+fn post_runtime_check_works() {
+	__post_runtime_check::runtime_tests();
+	assert_eq!(PostRuntimeCheckExec::get(), 2);
 }
 
 #[test]

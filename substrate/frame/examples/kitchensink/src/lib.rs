@@ -250,7 +250,7 @@ pub mod pallet {
 	/// info.
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_construct_runtime() {}
+		fn on_post_runtime_check() {}
 
 		fn offchain_worker(_n: BlockNumberFor<T>) {
 			unimplemented!()

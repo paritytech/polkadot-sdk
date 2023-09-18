@@ -417,7 +417,7 @@ pub mod pallet {
 		}
 
 		#[cfg(feature = "std")]
-		fn on_construct_runtime() {
+		fn on_post_runtime_check() {
 			// given weight == u64, we build multipliers from `diff` of two weight values, which can
 			// at most be maximum block weight. Make sure that this can fit in a multiplier without
 			// loss.

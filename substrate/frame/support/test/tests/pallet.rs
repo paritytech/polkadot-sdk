@@ -197,7 +197,7 @@ pub mod pallet {
 			Self::deposit_event(Event::Something(30));
 			Weight::from_parts(30, 0)
 		}
-		fn on_construct_runtime() {
+		fn on_post_runtime_check() {
 			let _ = T::AccountId::from(SomeType1); // Test for where clause
 			let _ = T::AccountId::from(SomeType2); // Test for where clause
 		}

@@ -143,7 +143,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_construct_runtime() {
+		fn on_post_runtime_check() {
 			// If you hit this error, you need to try to `Box` big dispatchable parameters.
 			assert!(
 				sp_std::mem::size_of::<<T as Config>::RuntimeCall>() as u32 <= CALL_ALIGN,

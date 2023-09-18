@@ -400,7 +400,7 @@ fn construct_runtime_final_expansion(
 	let hold_reason = expand::expand_outer_hold_reason(&pallets, &scrate);
 	let lock_id = expand::expand_outer_lock_id(&pallets, &scrate);
 	let slash_reason = expand::expand_outer_slash_reason(&pallets, &scrate);
-	let construct_runtime_check = decl_construct_runtime_check(&scrate);
+	let post_runtime_check = decl_on_post_runtime_check(&scrate);
 	let static_assertions = decl_static_assertions(&name, &pallets, &scrate);
 
 	let warning = where_section.map_or(None, |where_section| {
@@ -490,7 +490,7 @@ fn construct_runtime_final_expansion(
 
 		#slash_reason
 
-		#construct_runtime_check
+		#post_runtime_check
 
 		#static_assertions
 	);
@@ -754,16 +754,16 @@ fn decl_pallet_runtime_setup(
 	)
 }
 
-fn decl_construct_runtime_check(scrate: &TokenStream2) -> TokenStream2 {
+fn decl_on_post_runtime_check(scrate: &TokenStream2) -> TokenStream2 {
 	quote!(
 		#[cfg(test)]
-		mod __construct_runtime_check_test {
+		mod __post_runtime_check {
 			use super::*;
 
 			#[test]
-			pub fn runtime_check_tests() {
+			pub fn runtime_tests() {
 				#scrate::__private::sp_tracing::try_init_simple();
-				<AllPalletsWithSystem as #scrate::traits::ConstructRuntime>::on_construct_runtime();
+				<AllPalletsWithSystem as #scrate::traits::PostRuntimeCheck>::on_post_runtime_check();
 			}
 		}
 	)

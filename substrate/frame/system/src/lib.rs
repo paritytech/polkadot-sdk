@@ -409,7 +409,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		#[cfg(feature = "std")]
-		fn on_construct_runtime() {
+		fn on_post_runtime_check() {
 			T::BlockWeights::get().validate().expect("The weights are invalid.");
 		}
 	}

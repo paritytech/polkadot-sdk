@@ -94,7 +94,7 @@ where
 }
 
 #[test]
-fn construct_runtime_intercept() {
+fn post_runtime_check_intercept() {
 	launch_harness(|mut overseer| {
 		let sub = DummySubsystem;
 
@@ -117,7 +117,7 @@ fn construct_runtime_intercept() {
 }
 
 #[test]
-fn construct_runtime_pass() {
+fn post_runtime_check_pass() {
 	launch_harness(|mut overseer| {
 		let sub = DummySubsystem;
 

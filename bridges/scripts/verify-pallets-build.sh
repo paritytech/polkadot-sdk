@@ -139,7 +139,7 @@ cargo check -p pallet-xcm-bridge-hub-router --features runtime-benchmarks
 cargo check -p pallet-xcm-bridge-hub-router --features try-runtime
 cargo check -p bridge-runtime-common
 cargo check -p bridge-runtime-common --features runtime-benchmarks
-cargo check -p bridge-runtime-common --features integrity-test
+cargo check -p bridge-runtime-common --features post-runtime-check
 
 # we're removing lock file after all chechs are done. Otherwise we may use different
 # Substrate/Polkadot/Cumulus commits and our checks will fail

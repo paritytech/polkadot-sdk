@@ -281,7 +281,7 @@ pub mod pallet {
 			Self::do_on_idle(remaining_weight)
 		}
 
-		fn on_construct_runtime() {
+		fn on_post_runtime_check() {
 			// Ensure that the value of `ErasToCheckPerBlock` is less or equal to
 			// `T::MaxErasToCheckPerBlock`.
 			assert!(

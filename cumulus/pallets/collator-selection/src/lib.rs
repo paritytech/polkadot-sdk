@@ -292,7 +292,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_construct_runtime() {
+		fn on_post_runtime_check() {
 			assert!(T::MinEligibleCollators::get() > 0, "chain must require at least one collator");
 		}
 	}

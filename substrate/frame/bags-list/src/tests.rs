@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::{assert_noop, assert_ok, assert_storage_noop, traits::ConstructRuntime};
+use frame_support::{assert_noop, assert_ok, assert_storage_noop, traits::PostRuntimeCheck};
 
 use super::*;
 use frame_election_provider_support::{SortedListProvider, VoteWeight};
@@ -232,7 +232,7 @@ mod pallet {
 	fn duplicate_in_bags_threshold_panics() {
 		const DUPE_THRESH: &[VoteWeight; 4] = &[10, 20, 30, 30];
 		BagThresholds::set(DUPE_THRESH);
-		BagsList::on_construct_runtime();
+		BagsList::on_post_runtime_check();
 	}
 
 	#[test]
@@ -240,7 +240,7 @@ mod pallet {
 	fn decreasing_in_bags_threshold_panics() {
 		const DECREASING_THRESH: &[VoteWeight; 4] = &[10, 30, 20, 40];
 		BagThresholds::set(DECREASING_THRESH);
-		BagsList::on_construct_runtime();
+		BagsList::on_post_runtime_check();
 	}
 
 	#[test]

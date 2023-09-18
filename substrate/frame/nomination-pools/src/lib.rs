@@ -2640,7 +2640,7 @@ pub mod pallet {
 			Self::do_try_state(u8::MAX)
 		}
 
-		fn on_construct_runtime() {
+		fn on_post_runtime_check() {
 			assert!(
 				T::MaxPointsToBalance::get() > 0,
 				"Minimum points to balance ratio must be greater than 0"

@@ -81,7 +81,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
-const PROOF_ENCODE: &str = "Tuple::max_encoded_len() < Cursor::max_encoded_len()` is verified in `Self::on_construct_runtime()`; qed";
+const PROOF_ENCODE: &str = "Tuple::max_encoded_len() < Cursor::max_encoded_len()` is verified in `Self::on_post_runtime_check()`; qed";
 const PROOF_DECODE: &str =
 	"We encode to the same type in this trait only. No other code touches this item; qed";
 
@@ -117,7 +117,7 @@ pub trait MigrationStep: Codec + MaxEncodedLen + Default {
 
 	/// Verify that the migration step fits into `Cursor`, and that `max_step_weight` is not greater
 	/// than `max_block_weight`.
-	fn on_construct_runtime(max_block_weight: Weight) {
+	fn on_post_runtime_check(max_block_weight: Weight) {
 		if Self::max_step_weight().any_gt(max_block_weight) {
 			panic!(
 				"Invalid max_step_weight for Migration {}. Value should be lower than {}",
@@ -214,7 +214,7 @@ pub trait MigrateSequence: private::Sealed {
 
 	/// Verify that the migration step fits into `Cursor`, and that `max_step_weight` is not greater
 	/// than `max_block_weight`.
-	fn on_construct_runtime(max_block_weight: Weight);
+	fn on_post_runtime_check(max_block_weight: Weight);
 
 	/// Returns whether migrating from `in_storage` to `target` is supported.
 	///
@@ -353,9 +353,9 @@ pub enum StepResult {
 impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 	/// Verify that each migration's step of the [`Config::Migrations`] sequence fits into
 	/// `Cursor`.
-	pub(crate) fn on_construct_runtime() {
+	pub(crate) fn on_post_runtime_check() {
 		let max_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
-		T::Migrations::on_construct_runtime(max_weight)
+		T::Migrations::on_post_runtime_check(max_weight)
 	}
 
 	/// Migrate
@@ -513,10 +513,10 @@ impl MigrateSequence for Tuple {
 		invalid_version(version)
 	}
 
-	fn on_construct_runtime(max_block_weight: Weight) {
+	fn on_post_runtime_check(max_block_weight: Weight) {
 		for_tuples!(
 			#(
-				Tuple::on_construct_runtime(max_block_weight);
+				Tuple::on_post_runtime_check(max_block_weight);
 			)*
 		);
 	}

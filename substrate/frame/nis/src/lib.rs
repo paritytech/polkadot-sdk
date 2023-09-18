@@ -514,7 +514,7 @@ pub mod pallet {
 			weight_counter.used
 		}
 
-		fn on_construct_runtime() {
+		fn on_post_runtime_check() {
 			assert!(!T::IntakePeriod::get().is_zero());
 			assert!(!T::MaxQueueLen::get().is_zero());
 		}

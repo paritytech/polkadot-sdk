@@ -843,7 +843,7 @@ pub mod pallet {
 			};
 		}
 
-		fn on_construct_runtime() {
+		fn on_post_runtime_check() {
 			use sp_std::mem::size_of;
 			// The index type of both voters and targets need to be smaller than that of usize (very
 			// unlikely to be the case, but anyhow)..

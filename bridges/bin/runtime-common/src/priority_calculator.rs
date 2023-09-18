@@ -26,8 +26,8 @@ use bp_messages::MessageNonce;
 use frame_support::traits::Get;
 use sp_runtime::transaction_validity::TransactionPriority;
 
-// reexport everything from `construct_runtime` module
-pub use construct_runtime::*;
+// reexport everything from `post_runtime_check` module
+pub use post_runtime_check::*;
 
 /// Compute priority boost for message delivery transaction that delivers
 /// given number of messages.
@@ -41,11 +41,11 @@ where
 	PriorityBoostPerMessage::get().saturating_mul(messages - 1)
 }
 
-#[cfg(not(feature = "integrity-test"))]
-mod construct_runtime {}
+#[cfg(not(feature = "post-runtime-check"))]
+mod post_runtime_check {}
 
-#[cfg(feature = "integrity-test")]
-mod construct_runtime {
+#[cfg(feature = "post-runtime-check")]
+mod post_runtime_check {
 	use super::compute_priority_boost;
 
 	use bp_messages::MessageNonce;
@@ -116,7 +116,7 @@ mod construct_runtime {
 	}
 
 	/// Compute priority boost that we give to message delivery transaction for additional message.
-	#[cfg(feature = "integrity-test")]
+	#[cfg(feature = "post-runtime-check")]
 	fn compute_priority_boost_per_message<Runtime, MessagesInstance>(
 		tip_boost_per_message: BalanceOf<Runtime>,
 	) -> TransactionPriority
@@ -148,7 +148,7 @@ mod construct_runtime {
 	}
 
 	/// Estimate message delivery transaction priority.
-	#[cfg(feature = "integrity-test")]
+	#[cfg(feature = "post-runtime-check")]
 	fn estimate_message_delivery_transaction_priority<Runtime, MessagesInstance>(
 		messages: MessageNonce,
 		tip: BalanceOf<Runtime>,

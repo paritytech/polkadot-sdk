@@ -340,7 +340,7 @@ pub mod pallet {
 		///
 		/// The value should be chosen carefully taking into the account the overall memory limit
 		/// your runtime has, as well as the [maximum allowed callstack
-		/// depth](#associatedtype.CallStack). Look into the `on_construct_runtime()` for some
+		/// depth](#associatedtype.CallStack). Look into the `on_post_runtime_check()` for some
 		/// insights.
 		#[pallet::constant]
 		type MaxCodeLen: Get<u32>;
@@ -431,8 +431,8 @@ pub mod pallet {
 				.saturating_add(T::WeightInfo::on_process_deletion_queue_batch())
 		}
 
-		fn on_construct_runtime() {
-			Migration::<T>::on_construct_runtime();
+		fn on_post_runtime_check() {
+			Migration::<T>::on_post_runtime_check();
 
 			// Total runtime memory limit
 			let max_runtime_mem: u32 = T::Schedule::get().limits.runtime_memory;

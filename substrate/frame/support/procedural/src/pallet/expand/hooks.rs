@@ -247,16 +247,16 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 		// Integrity tests are only required for when `std` is enabled.
 		#frame_support::std_enabled! {
 			impl<#type_impl_gen>
-				#frame_support::traits::ConstructRuntime
+				#frame_support::traits::PostRuntimeCheck
 			for #pallet_ident<#type_use_gen> #where_clause
 			{
-				fn on_construct_runtime() {
+				fn on_post_runtime_check() {
 					#frame_support::__private::sp_io::TestExternalities::default().execute_with(|| {
 						<
 							Self as #frame_support::traits::Hooks<
 								#frame_system::pallet_prelude::BlockNumberFor::<T>
 							>
-						>::on_construct_runtime()
+						>::on_post_runtime_check()
 					});
 				}
 			}

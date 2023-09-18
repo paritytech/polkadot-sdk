@@ -36,7 +36,7 @@ pub mod refund_relayer_extension;
 
 mod mock;
 
-#[cfg(feature = "integrity-test")]
+#[cfg(feature = "post-runtime-check")]
 pub mod integrity;
 
 const LOG_TARGET_BRIDGE_DISPATCH: &str = "runtime::bridge-dispatch";

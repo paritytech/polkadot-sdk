@@ -296,7 +296,7 @@ pub mod pallet {
 			}
 		}
 
-		fn on_construct_runtime() {
+		fn on_post_runtime_check() {
 			let block_weight = T::BlockWeights::get().max_block;
 			// mind the order.
 			let election_weight = T::WeightInfo::election_phragmen(
