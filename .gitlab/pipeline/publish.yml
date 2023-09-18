@@ -16,6 +16,8 @@ publish-rustdoc:
   needs:
     - job: build-rustdoc
       artifacts: true
+    - job: build-implementers-guide
+      artifacts: true
   script:
     # If $CI_COMMIT_REF_NAME doesn't match one of $RUSTDOCS_DEPLOY_REFS space-separated values, we
     # exit immediately.
@@ -34,6 +36,7 @@ publish-rustdoc:
     - git fetch origin gh-pages
     # Save README and docs
     - cp -r ./crate-docs/ /tmp/doc/
+    - cp -r ./artifacts/book/ /tmp/
     - cp README.md /tmp/doc/
     # we don't need to commit changes because we copy docs to /tmp
     - git checkout gh-pages --force
