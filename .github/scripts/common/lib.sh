@@ -268,21 +268,25 @@ function check_gpg() {
 # Find all the runtimes, it returns the result as JSON as an array of
 # arrays containing the crate name and the runtime_dir
 function find_runtimes() {
-  tomls=($(git ls-files '**/Cargo.toml'))
+  libs=($(git grep -I -r --cached --max-depth 20 --files-with-matches 'construct_runtime!' -- '*lib.rs'))
   re=".*-runtime$"
-
   JSON=$(jq --null-input '{ "include": [] }')
-  for file in "${tomls[@]}"; do
-      name=$(toml get -r $file 'package.name')
+
+  for lib in "${libs[@]}"; do
+      crate_dir=$(dirname $lib)
+      cargo_toml="$crate_dir/../Cargo.toml"
+
+      name=$(toml get -r $cargo_toml 'package.name')
+
       if [[ "$name" =~ $re ]]; then
-          runtime_dir=$(dirname $file)
+          runtime_dir=$(dirname $lib)
           chain=${name//-runtime/}
           ITEM=$(jq --null-input \
             --arg chain "$chain" \
             --arg name "$name" \
             --arg runtime_dir "$runtime_dir" \
             '{ "chain": $chain, "crate": $name, "runtime_dir": $runtime_dir }')
-         JSON=$(echo $JSON | jq ".include += [$ITEM]")
+        JSON=$(echo $JSON | jq ".include += [$ITEM]")
       fi
   done
   echo $JSON
