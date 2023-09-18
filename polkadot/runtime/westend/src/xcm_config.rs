@@ -35,10 +35,10 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	CurrencyAdapter as XcmCurrencyAdapter, IsChildSystemParachain, IsConcrete, MintLocation,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	ChildParachainConvertsVia, CurrencyAdapter as XcmCurrencyAdapter, IsChildSystemParachain,
+	IsConcrete, MintLocation, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::XcmExecutor;
 
@@ -74,7 +74,6 @@ type LocalOriginConverter = (
 	SovereignSignedViaLocation<LocationConverter, RuntimeOrigin>,
 	ChildParachainAsNative<parachains_origin::Origin, RuntimeOrigin>,
 	SignedAccountId32AsNative<ThisNetwork, RuntimeOrigin>,
-	ChildSystemParachainAsSuperuser<ParaId, RuntimeOrigin>,
 );
 
 /// The XCM router. When we want to send an XCM message, we use this type. It amalgamates all of our
