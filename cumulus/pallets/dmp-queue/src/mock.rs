@@ -61,10 +61,6 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-parameter_types! {
-	pub const PalletName: &'static str = "DmpQueue";
-}
-
 impl crate::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DmpSink = RecordingDmpSink;
@@ -72,9 +68,11 @@ impl crate::Config for Runtime {
 }
 
 parameter_types! {
+	/// All messages that came into the `DmpSink`.
 	pub static RecordedMessages: Vec<Vec<u8>> = vec![];
 }
 
+/// Can be used as [`Config::DmpSink`] to record all messages that came in.
 pub struct RecordingDmpSink;
 impl HandleMessage for RecordingDmpSink {
 	type MaxMessageLen = ConstU32<16>;

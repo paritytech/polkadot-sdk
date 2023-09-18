@@ -200,9 +200,10 @@ impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
 }
 
 parameter_types! {
-	pub storage EnqueuedMessages: Vec<(ParaId, Vec<u8>)> = Default::default();
+	pub static EnqueuedMessages: Vec<(ParaId, Vec<u8>)> = Default::default();
 }
 
+/// An `EnqueueMessage` implementation that puts all messages in thread-local storage.
 pub struct EnqueueToLocalStorage<T>(PhantomData<T>);
 
 pub fn enqueued_messages(origin: ParaId) -> Vec<Vec<u8>> {
@@ -219,7 +220,7 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 	fn enqueue_message(message: BoundedSlice<u8, Self::MaxMessageLen>, origin: ParaId) {
 		let mut msgs = EnqueuedMessages::get();
 		msgs.push((origin, message.to_vec()));
-		EnqueuedMessages::set(&msgs);
+		EnqueuedMessages::set(msgs);
 		T::on_queue_changed(origin, Self::footprint(origin));
 	}
 
@@ -231,14 +232,14 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 		for message in iter {
 			msgs.push((origin, message.to_vec()));
 		}
-		EnqueuedMessages::set(&msgs);
+		EnqueuedMessages::set(msgs);
 		T::on_queue_changed(origin, Self::footprint(origin));
 	}
 
 	fn sweep_queue(origin: ParaId) {
 		let mut msgs = EnqueuedMessages::get();
 		msgs.retain(|(o, _)| o != &origin);
-		EnqueuedMessages::set(&msgs);
+		EnqueuedMessages::set(msgs);
 		T::on_queue_changed(origin, Self::footprint(origin));
 	}
 
@@ -298,15 +299,12 @@ pub(crate) fn mk_page() -> Vec<u8> {
 	let mut page = Vec::<u8>::new();
 
 	for i in 0..100 {
-		page.extend(match i % 5 {
+		page.extend(match i % 2 {
 			0 => v2_xcm().encode(),
 			1 => v3_xcm().encode(),
 			// We cannot push an undecodable XCM here since it would break the decode stream.
 			// This is expected and the whole reason to introduce `MaybeDoubleEncodedVersionedXcm`
 			// instead.
-			2 => MaybeDoubleEncodedVersionedXcm(v2_xcm()).encode(),
-			3 => MaybeDoubleEncodedVersionedXcm(v3_xcm()).encode(),
-			4 => MaybeDoubleEncodedVersionedXcm(undecodable_xcm()).encode(),
 			_ => unreachable!(),
 		});
 	}
@@ -322,15 +320,4 @@ pub(crate) fn v2_xcm() -> VersionedXcm<()> {
 pub(crate) fn v3_xcm() -> VersionedXcm<()> {
 	let instr = xcm::v3::Instruction::<()>::Trap(1);
 	VersionedXcm::V3(xcm::v3::Xcm::<()>(vec![instr; 3]))
-}
-
-/// A too deeply nested XCM.
-pub(crate) fn undecodable_xcm() -> VersionedXcm<()> {
-	let mut xcm = Xcm(vec![ClearOrigin]);
-	for _ in 0..MAX_XCM_DECODE_DEPTH {
-		xcm = Xcm(vec![SetAppendix(xcm)]);
-	}
-	let xcm = VersionedXcm::V3(xcm);
-	assert!(validate_xcm_nesting(&xcm).is_err());
-	xcm
 }

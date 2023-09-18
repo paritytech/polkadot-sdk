@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Test the migration.
+//! Test the lazy migration.
 
 #![cfg(test)]
 
@@ -48,29 +48,31 @@ fn migration_works() {
 		}
 		testing_only::Configuration::<Runtime>::put(123);
 	});
-	// Otherwise the keys are removed from the overlay, not the backend.
+	// We need to commit, otherwise the keys are removed from the overlay; not the backend.
 	ext.commit_all().unwrap();
 	ext.execute_with(|| {
-		// Run the migration:
-		#[cfg(feature = "try-runtime")]
+		// Run one step of the migration:
 		pre_upgrade_checks::<Runtime>();
 		run_to_block(1);
 		// First we expect a StartedExport event:
 		assert_only_event(Event::StartedExport);
+
 		// Then we expect 10 Exported events:
 		for page in 0..10 {
 			run_to_block(2 + page);
 			assert_only_event(Event::Exported { page: page as u32 + 10 });
-			assert!(!Pages::<Runtime>::contains_key(page as u32));
+			assert!(!Pages::<Runtime>::contains_key(page as u32), "Page is gone");
 			assert_eq!(
 				MigrationStatus::<Runtime>::get(),
 				MigrationState::StartedExport { next_begin_used: page as u32 + 11 }
 			);
 		}
+
 		// Then we expect a CompletedExport event:
 		run_to_block(12);
 		assert_only_event(Event::CompletedExport);
 		assert_eq!(MigrationStatus::<Runtime>::get(), MigrationState::CompletedExport);
+
 		// Then we expect a StartedOverweightExport event:
 		run_to_block(13);
 		assert_only_event(Event::StartedOverweightExport);
@@ -78,16 +80,18 @@ fn migration_works() {
 			MigrationStatus::<Runtime>::get(),
 			MigrationState::StartedOverweightExport { next_overweight_index: 0 }
 		);
+
 		// Then we expect 5 ExportedOverweight events:
 		for index in 0..5 {
 			run_to_block(14 + index);
 			assert_only_event(Event::ExportedOverweight { index });
-			assert!(!Overweight::<Runtime>::contains_key(index));
+			assert!(!Overweight::<Runtime>::contains_key(index), "Overweight msg is gone");
 			assert_eq!(
 				MigrationStatus::<Runtime>::get(),
 				MigrationState::StartedOverweightExport { next_overweight_index: index + 1 }
 			);
 		}
+
 		// Then we expect a CompletedOverweightExport event:
 		run_to_block(19);
 		assert_only_event(Event::CompletedOverweightExport);
@@ -102,6 +106,7 @@ fn migration_works() {
 		);
 	});
 	ext.commit_all().unwrap();
+	// Then it cleans up the remaining storage items:
 	ext.execute_with(|| {
 		run_to_block(21);
 		assert_only_event(Event::CleanedSome { keys_removed: 2 });
@@ -124,7 +129,6 @@ fn migration_works() {
 		System::reset_events();
 		assert_eq!(MigrationStatus::<Runtime>::get(), MigrationState::Completed);
 
-		#[cfg(feature = "try-runtime")]
 		post_upgrade_checks::<Runtime>();
 		assert_eq!(RecordedMessages::take().len(), 10 * 16 + 5);
 
@@ -134,7 +138,7 @@ fn migration_works() {
 		assert_eq!(Pages::<Runtime>::iter_keys().count(), 0);
 		assert_eq!(Overweight::<Runtime>::iter_keys().count(), 0);
 
-		// The MigrationStatus never disappears and there are no more storage changes:
+		// The `MigrationStatus` never disappears and there are no more storage changes:
 		{
 			let _g = StorageNoopGuard::default();
 
@@ -147,6 +151,7 @@ fn migration_works() {
 	});
 }
 
+/// Too long messages are dropped by the migration.
 #[test]
 fn migration_too_long_ignored() {
 	TestExt::default().execute_with(|| {
@@ -165,10 +170,8 @@ fn migration_too_long_ignored() {
 		Overweight::<Runtime>::insert(1, (0, long.clone()));
 
 		// Run the migration:
-		#[cfg(feature = "try-runtime")]
 		pre_upgrade_checks::<Runtime>();
 		run_to_block(100);
-		#[cfg(feature = "try-runtime")]
 		post_upgrade_checks::<Runtime>();
 
 		assert_eq!(RecordedMessages::take(), vec![short.clone(), short]);
@@ -198,8 +201,7 @@ fn assert_only_event(e: Event<Runtime>) {
 }
 
 /// TESTING ONLY
-#[cfg(feature = "try-runtime")]
-pub(crate) fn pre_upgrade_checks<T: crate::Config>() {
+fn pre_upgrade_checks<T: crate::Config>() {
 	let index = PageIndex::<T>::get();
 
 	// Check that all pages are present.
@@ -216,8 +218,7 @@ pub(crate) fn pre_upgrade_checks<T: crate::Config>() {
 }
 
 /// TESTING ONLY
-#[cfg(feature = "try-runtime")]
-pub(crate) fn post_upgrade_checks<T: crate::Config>() {
+fn post_upgrade_checks<T: crate::Config>() {
 	let index = PageIndex::<T>::get();
 
 	// Check that all pages are removed.

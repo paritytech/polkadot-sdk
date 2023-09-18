@@ -118,7 +118,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::split_concatenated_xcms(&mut &data[..], &mut WeightMeter::new()).unwrap();
+			Pallet::<T>::split_concatenated_xcm(&mut &data[..], &mut WeightMeter::new()).unwrap();
 		}
 	}
 

@@ -39,11 +39,12 @@ pub mod weights;
 pub use weights::WeightInfo;
 
 use bounded_collections::BoundedBTreeSet;
-use codec::{Decode, DecodeLimit, Encode, Input};
+use codec::{Decode, DecodeLimit, Encode};
 use cumulus_primitives_core::{
 	relay_chain::BlockNumber as RelayBlockNumber, ChannelStatus, GetChannelInfo, MessageSendError,
 	ParaId, XcmpMessageFormat, XcmpMessageHandler, XcmpMessageSource,
 };
+
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{EnqueueMessage, EnsureOrigin, Get, QueueFootprint, QueuePausedQuery},
@@ -53,15 +54,16 @@ use frame_support::{
 use pallet_message_queue::OnQueueChanged;
 use polkadot_runtime_common::xcm_sender::PriceForParachainDelivery;
 use scale_info::TypeInfo;
-use sp_runtime::{Either, RuntimeDebug};
+use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
-use xcm::{latest::prelude::*, DoubleEncoded, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
+use xcm::{latest::prelude::*, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::traits::ConvertOrigin;
 
 pub use pallet::*;
 
 /// Index used to identify overweight XCMs.
 pub type OverweightIndex = u64;
+/// The maximal length of an XCMP message.
 pub type MaxXcmpMessageLenOf<T> =
 	<<T as Config>::XcmpQueue as EnqueueMessage<ParaId>>::MaxMessageLen;
 
@@ -92,8 +94,7 @@ pub mod pallet {
 		/// Enqueue an inbound horizontal message for later processing.
 		///
 		/// This defines the maximal message length via [`crate::MaxXcmpMessageLenOf`]. The pallet
-		/// assumes that this hook will eventually process all the pushed messages. No further
-		/// explicit nudging is required.
+		/// assumes that this hook will eventually process all the pushed messages.
 		type XcmpQueue: EnqueueMessage<ParaId>;
 
 		/// The maximum number of inbound XCMP channels that can be suspended simultaneously.
@@ -209,6 +210,12 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			let w = Self::on_idle_weight();
+			assert!(w != Weight::zero());
+			assert!(w.all_lte(T::BlockWeights::get().max_block));
+		}
+
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			use migration::{v3, LOG};
 			let mut meter = WeightMeter::with_limit(limit);
@@ -255,12 +262,12 @@ pub mod pallet {
 			};
 
 			let Ok(msg): Result<BoundedVec<_, _>, _> = msg.try_into() else {
-				log::warn!(target: LOG, "Message dropped: too big");
+				log::error!(target: LOG, "Message dropped: too big");
 				v3::InboundXcmpStatus::<T>::put(states);
 				return meter.consumed();
 			};
 
-			// Finally; we have a proper message.
+			// Finally! We have a proper message.
 			T::XcmpQueue::enqueue_message(msg.as_bounded_slice(), next.sender);
 			log::debug!(target: LOG, "Migrated HRMP message to MQ: {:?}", (next.sender, block_number));
 			v3::InboundXcmpStatus::<T>::put(states);
@@ -413,11 +420,11 @@ pub struct QueueConfigData {
 impl Default for QueueConfigData {
 	fn default() -> Self {
 		// NOTE that these default values are only used on genesis. They should give a rough idea of
-		// what to set these values to, but is in no way a recommendation.
+		// what to set these values to, but is in no way a requirement.
 		#![allow(deprecated)]
 		Self {
-			suspend_threshold: 32, // 64KiB * 32 = 2MiB
 			drop_threshold: 48,    // 64KiB * 48 = 3MiB
+			suspend_threshold: 32, // 64KiB * 32 = 2MiB
 			resume_threshold: 8,   // 64KiB * 8 = 512KiB
 			// unused:
 			threshold_weight: Weight::from_parts(100_000, 0),
@@ -546,7 +553,7 @@ impl<T: Config> Pallet<T> {
 		<OutboundXcmpStatus<T>>::mutate(|s| {
 			if let Some(details) = s.iter_mut().find(|item| item.recipient == target) {
 				let ok = details.state == OutboundState::Ok;
-				debug_assert!(ok, "WARNING: Attempt to suspend channel that was not Ok.");
+				defensive_assert!(ok, "WARNING: Attempt to suspend channel that was not Ok.");
 				details.state = OutboundState::Suspended;
 			} else {
 				s.push(OutboundChannelDetails::new(target).with_suspended_state());
@@ -582,6 +589,7 @@ impl<T: Config> Pallet<T> {
 			defensive!("Out of weight: cannot enqueue XCMP messages; dropping msg");
 			return Err(())
 		}
+
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
 		let fp = T::XcmpQueue::footprint(sender);
 		// Assume that it will not fit into the current page:
@@ -601,7 +609,7 @@ impl<T: Config> Pallet<T> {
 	/// individual items.
 	///
 	/// We directly encode them again since that is needed later on.
-	pub(crate) fn split_concatenated_xcms(
+	pub(crate) fn split_concatenated_xcm(
 		data: &mut &[u8],
 		meter: &mut WeightMeter,
 	) -> Result<BoundedVec<u8, MaxXcmpMessageLenOf<T>>, ()> {
@@ -614,16 +622,11 @@ impl<T: Config> Pallet<T> {
 			return Err(())
 		}
 
-		match MaybeDoubleEncodedVersionedXcm::decode(data).map_err(|_| ())? {
-			// Ugly legacy case: we have to decode and re-encode the XCM.
-			Either::Left(xcm) => xcm.encode(),
-			// New case: we dont have to de/encode the XCM at all.
-			Either::Right(double) => double.into_encoded(),
-		}
-		.try_into()
-		.map_err(|_| ())
+		let xcm = VersionedXcm::<()>::decode(data).map_err(|_| ())?;
+		xcm.encode().try_into().map_err(|_| ())
 	}
 
+	/// The worst-case weight of `on_idle`.
 	pub fn on_idle_weight() -> Weight {
 		<T as crate::Config>::WeightInfo::on_idle_good_msg()
 			.max(<T as crate::Config>::WeightInfo::on_idle_large_msg())
@@ -667,6 +670,7 @@ impl<T: Config> QueuePausedQuery<ParaId> for Pallet<T> {
 			return false
 		}
 
+		// Make an exception for the superuser queue:
 		let sender_origin = T::ControllerOriginConverter::convert_origin(
 			(Parent, Parachain((*para).into())),
 			OriginKind::Superuser,
@@ -689,7 +693,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 			let format = match XcmpMessageFormat::decode(&mut data) {
 				Ok(f) => f,
 				Err(_) => {
-					defensive!("Unknown XCMP message format. Message silently dropped.");
+					defensive!("Unknown XCMP message format - dropping");
 					continue
 				},
 			};
@@ -704,7 +708,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							)
 							.is_err()
 						{
-							defensive!("Not enough weight to process signals - dropping.");
+							defensive!("Not enough weight to process signals - dropping");
 							break
 						}
 
@@ -712,14 +716,14 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							Ok(ChannelSignal::Suspend) => Self::suspend_channel(sender),
 							Ok(ChannelSignal::Resume) => Self::resume_channel(sender),
 							Err(_) => {
-								defensive!("Undecodable channel signal. Message silently dropped.");
+								defensive!("Undecodable channel signal - dropping");
 								break
 							},
 						}
 					},
 				XcmpMessageFormat::ConcatenatedVersionedXcm => {
 					while !data.is_empty() {
-						let Ok(xcm) = Self::split_concatenated_xcms(&mut data, &mut meter) else {
+						let Ok(xcm) = Self::split_concatenated_xcm(&mut data, &mut meter) else {
 							defensive!("HRMP inbound decode stream broke; page will be dropped.",);
 							break
 						};
@@ -740,7 +744,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 					}
 				},
 				XcmpMessageFormat::ConcatenatedEncodedBlob => {
-					defensive!("Blob messages not handled");
+					defensive!("Blob messages are unhandled - dropping");
 					continue
 				},
 			}
@@ -826,7 +830,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				// TODO: #274 This means that the channel's max message size has changed since
 				//   the message was sent. We should parse it and split into smaller messages but
 				//   since it's so unlikely then for now we just drop it.
-				defensive!("WARNING: oversize message in queue. silently dropping.");
+				defensive!("WARNING: oversize message in queue - dropping");
 			} else {
 				result.push((para_id, page));
 			}
@@ -885,7 +889,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 				let xcm = msg.take().ok_or(SendError::MissingArgument)?;
 				let id = ParaId::from(*id);
 				let price = T::PriceForSiblingDelivery::price_for_parachain_delivery(id, &xcm);
-				let versioned_xcm: VersionedXcm<()> = T::VersionWrapper::wrap_version(&d, xcm)
+				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm)
 					.map_err(|()| SendError::DestinationUnsupported)?;
 				validate_xcm_nesting(&versioned_xcm)
 					.map_err(|()| SendError::ExceedsMaxMessageSize)?;
@@ -903,92 +907,24 @@ impl<T: Config> SendXcm for Pallet<T> {
 
 	fn deliver((id, xcm): (ParaId, VersionedXcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		debug_assert!(validate_xcm_nesting(&xcm).is_ok(), "Tickets are validated; qed");
+		debug_assert!(validate_xcm_nesting(&xcm).is_ok(), "Tickets are valid; qed");
 
-		// To enable double encoding; use `MaybeDoubleEncodedVersionedXcm(xcm)` instead of `xcm`.
 		match Self::send_fragment(id, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm) {
 			Ok(_) => {
 				Self::deposit_event(Event::XcmpMessageSent { message_hash: hash });
 				Ok(hash)
 			},
-			Err(e) => Err(SendError::Transport(<&'static str>::from(e))),
+			Err(e) => Err(SendError::Transport(e.into())),
 		}
 	}
 }
 
 /// Checks that the XCM is decodable with `MAX_XCM_DECODE_DEPTH`.
+///
+/// Note that this uses the limit of the sender - not the receiver. It it best effort.
 pub(crate) fn validate_xcm_nesting(xcm: &VersionedXcm<()>) -> Result<(), ()> {
 	xcm.using_encoded(|mut enc| {
 		VersionedXcm::<()>::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ())
 	})
 	.map_err(|_| ())
-}
-
-/// Double-encodes a `VersionedXcm` while staying backwards compatible with non-double encoded
-/// `VersionedXcm`s.
-///
-/// So to say: This can decode either a `VersionedXcm` or a `DoubleEncoded` one, while always
-/// encoding to the latter.
-pub struct MaybeDoubleEncodedVersionedXcm(pub VersionedXcm<()>);
-
-/// Magic number used by [MaybeDoubleEncodedVersionedXcm] to identify a `VersionedXcm`.
-///
-/// THERE MUST NEVER BE A `VersionedXcm` WITH THIS ENUM DISCRIMINANT.
-pub const MAGIC_MAYBE_DOUBLE_ENC_VXCM: u8 = 0;
-
-impl Encode for MaybeDoubleEncodedVersionedXcm {
-	fn size_hint(&self) -> usize {
-		self.0.size_hint().saturating_add(1)
-	}
-
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let buff: Vec<u8> = self.0.encode();
-		(MAGIC_MAYBE_DOUBLE_ENC_VXCM, &buff).using_encoded(f)
-	}
-}
-
-impl MaybeDoubleEncodedVersionedXcm {
-	/// Decode either a plain `VersionedXcm` or a double-encoded one.
-	pub fn decode<I: Input>(
-		input: &mut I,
-	) -> Result<Either<VersionedXcm<()>, DoubleEncoded<VersionedXcm<()>>>, codec::Error> {
-		let meta_version: u8 = input.read_byte()?;
-
-		if meta_version == MAGIC_MAYBE_DOUBLE_ENC_VXCM {
-			let data = Vec::<u8>::decode(input)?;
-			Ok(Either::Right(data.into()))
-		} else {
-			// There is no `unget` so we need to splice together the Inputs.
-			let a: &mut dyn Input = &mut &[meta_version][..];
-			let mut input = InputSplicer { a, b: input };
-
-			Ok(Either::Left(VersionedXcm::<()>::decode_with_depth_limit(
-				MAX_XCM_DECODE_DEPTH,
-				&mut input,
-			)?))
-		}
-	}
-}
-
-/// Splices together two [`Input`]s lime an `impl_for_tuples` would do.
-///
-/// Both inputs are assumed to be `fuse`.
-struct InputSplicer<'a, A: ?Sized, B: ?Sized> {
-	a: &'a mut A,
-	b: &'a mut B,
-}
-
-impl<'a, A: Input + ?Sized, B: Input + ?Sized> Input for InputSplicer<'a, A, B> {
-	fn remaining_len(&mut self) -> Result<Option<usize>, codec::Error> {
-		Ok(match (self.a.remaining_len()?, self.b.remaining_len()?) {
-			(Some(a), Some(b)) => Some(a.saturating_add(b)),
-			(Some(c), None) | (None, Some(c)) => Some(c),
-			(None, None) => None,
-		})
-	}
-
-	fn read(&mut self, into: &mut [u8]) -> Result<(), codec::Error> {
-		// NOTE: Do not remove the closure; `Result::or` does not work here.
-		self.a.read(into).or_else(|_| self.b.read(into))
-	}
 }

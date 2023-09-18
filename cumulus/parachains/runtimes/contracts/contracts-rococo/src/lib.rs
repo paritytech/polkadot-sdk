@@ -101,7 +101,7 @@ pub type Migrations = (
 	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::MigrationToV3<Runtime>,
 	pallet_contracts::Migration<Runtime>,
-	// unreleased// FAIL-CI migrate DMP
+	// unreleased
 );
 
 type EventRecord = frame_system::EventRecord<

@@ -32,7 +32,7 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `cumulus_pallet_dmp_queue`.
 pub trait WeightInfo {
-	fn on_idle_good_ok() -> Weight;
+	fn on_idle_good_msg() -> Weight;
 	fn on_idle_large_msg() -> Weight;
 }
 
@@ -51,7 +51,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `MessageQueue::ServiceHead` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `MaxEncodedLen`)
 	/// Storage: `MessageQueue::Pages` (r:0 w:1)
 	/// Proof: `MessageQueue::Pages` (`max_values`: None, `max_size`: Some(65585), added: 68060, mode: `MaxEncodedLen`)
-	fn on_idle_good_ok() -> Weight {
+	fn on_idle_good_msg() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `65696`
 		//  Estimated: `69161`
@@ -91,7 +91,7 @@ impl WeightInfo for () {
 	/// Proof: `MessageQueue::ServiceHead` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `MaxEncodedLen`)
 	/// Storage: `MessageQueue::Pages` (r:0 w:1)
 	/// Proof: `MessageQueue::Pages` (`max_values`: None, `max_size`: Some(65585), added: 68060, mode: `MaxEncodedLen`)
-	fn on_idle_good_ok() -> Weight {
+	fn on_idle_good_msg() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `65696`
 		//  Estimated: `69161`

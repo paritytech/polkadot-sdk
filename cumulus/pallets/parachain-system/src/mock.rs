@@ -149,7 +149,10 @@ impl pallet_message_queue::Config for Test {
 	type WeightInfo = ();
 }
 
+/// A `XcmpMessageSource` that takes messages from thread-local.
 pub struct FromThreadLocal;
+
+/// A `MessageProcessor` that stores all messages in thread-local.
 pub struct SaveIntoThreadLocal;
 
 std::thread_local! {

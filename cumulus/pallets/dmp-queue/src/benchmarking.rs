@@ -27,9 +27,9 @@ use sp_std::vec;
 mod benchmarks {
 	use super::*;
 
-	/// This benchmarks uses the proper maximal message length.
+	/// This benchmark uses the proper maximal message length.
 	#[benchmark]
-	fn on_idle_good_ok() {
+	fn on_idle_good_msg() {
 		let msg = vec![123; MaxDmpMessageLenOf::<T>::get() as usize];
 
 		Pages::<T>::insert(0, vec![(123, msg.clone())]);
@@ -44,7 +44,7 @@ mod benchmarks {
 		assert_last_event::<T>(Event::Exported { page: 0 }.into());
 	}
 
-	/// This benchmarks uses 64 KiB messages to emulate a large old message.
+	/// This benchmark uses 64 KiB messages to emulate a large old message.
 	#[benchmark]
 	fn on_idle_large_msg() {
 		let msg = vec![123; 1 << 16];
@@ -65,7 +65,6 @@ mod benchmarks {
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	let events = frame_system::Pallet::<T>::events();
 	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
-	// compare to the last event record
 	let frame_system::EventRecord { event, .. } = events.last().expect("Event expected");
-	assert_eq!(event, &system_event);
+	assert_eq!(event, &system_event.into());
 }

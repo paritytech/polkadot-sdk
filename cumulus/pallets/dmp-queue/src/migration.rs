@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Migrates the storage from the previously deleted DMP pallet.
 
@@ -23,6 +23,7 @@ use sp_std::vec::Vec;
 
 pub(crate) const LOG: &str = "dmp-queue-export-xcms";
 
+/// The old `PageIndexData` struct.
 #[derive(Copy, Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct PageIndexData {
 	/// The lowest used page index.
@@ -33,12 +34,16 @@ pub struct PageIndexData {
 	pub overweight_count: OverweightIndex,
 }
 
+/// The old `MigrationState` type.
 pub type OverweightIndex = u64;
+/// The old `MigrationState` type.
 pub type PageCounter = u32;
 
+/// The old `PageIndex` storage item.
 #[storage_alias]
 pub type PageIndex<T: Config> = StorageValue<Pallet<T>, PageIndexData, ValueQuery>;
 
+/// The old `Pages` storage item.
 #[storage_alias]
 pub type Pages<T: Config> = StorageMap<
 	Pallet<T>,
@@ -48,6 +53,7 @@ pub type Pages<T: Config> = StorageMap<
 	ValueQuery,
 >;
 
+/// The old `Overweight` storage item.
 #[storage_alias]
 pub type Overweight<T: Config> = CountedStorageMap<
 	Pallet<T>,
@@ -57,43 +63,47 @@ pub type Overweight<T: Config> = CountedStorageMap<
 	OptionQuery,
 >;
 
-// These alias is not used by the migration but only for testing.
 pub(crate) mod testing_only {
 	use super::*;
 
-	// Note that the alias value type is wrong on purpose.
+	/// This alias is not used by the migration but only for testing.
+	///
+	/// Note that the alias type is wrong on purpose.
 	#[storage_alias]
 	pub type Configuration<T: Config> = StorageValue<Pallet<T>, u32>;
 }
 
+/// Migrates a single page to the `DmpSink`.
 pub(crate) fn migrate_page<T: crate::Config>(p: PageCounter) {
 	let page = Pages::<T>::take(p);
-	log::info!(target: LOG, "Migrating page #{p} with {} messages ...", page.len());
+	log::debug!(target: LOG, "Migrating page #{p} with {} messages ...", page.len());
 	if page.is_empty() {
 		log::error!(target: LOG, "Page #{p}: EMPTY - storage corrupted?");
+		return
 	}
 
 	for (m, (block, msg)) in page.iter().enumerate() {
 		let Ok(bound) = BoundedVec::<u8, _>::try_from(msg.clone()) else {
-			log::error!(target: LOG, "[Page {p}] Message #{m}: TOO LONG - ignoring");
+			log::error!(target: LOG, "[Page {p}] Message #{m}: TOO LONG - dropping");
 			continue
 		};
 
 		T::DmpSink::handle_message(bound.as_bounded_slice());
-		log::info!(target: LOG, "[Page {p}] Migrated message #{m} from block {block}");
+		log::debug!(target: LOG, "[Page {p}] Migrated message #{m} from block {block}");
 	}
 }
 
+/// Migrates a single overweight message to the `DmpSink`.
 pub(crate) fn migrate_overweight<T: crate::Config>(i: OverweightIndex) {
 	let Some((block, msg)) = Overweight::<T>::take(i) else {
 		log::error!(target: LOG, "[Overweight {i}] Message: EMPTY - storage corrupted?");
 		return
 	};
 	let Ok(bound) = BoundedVec::<u8, _>::try_from(msg) else {
-		log::error!(target: LOG, "[Overweight {i}] Message: TOO LONG - ignoring");
+		log::error!(target: LOG, "[Overweight {i}] Message: TOO LONG - dropping");
 		return
 	};
 
 	T::DmpSink::handle_message(bound.as_bounded_slice());
-	log::info!(target: LOG, "[Overweight {i}] Migrated message from block {block}");
+	log::debug!(target: LOG, "[Overweight {i}] Migrated message from block {block}");
 }

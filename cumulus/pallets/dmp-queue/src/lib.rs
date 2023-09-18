@@ -30,6 +30,7 @@ pub mod weights;
 
 pub use weights::WeightInfo;
 
+/// The maximal length of a DMP message.
 pub type MaxDmpMessageLenOf<T> =
 	<<T as Config>::DmpSink as frame_support::traits::HandleMessage>::MaxMessageLen;
 
@@ -55,27 +56,34 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
+	/// The migration state of this pallet.
 	#[pallet::storage]
 	pub type MigrationStatus<T> = StorageValue<_, MigrationState, ValueQuery>;
 
+	/// The lazy-migration stat of the pallet.
 	#[derive(
 		codec::Encode, codec::Decode, Debug, PartialEq, Eq, Clone, MaxEncodedLen, TypeInfo,
 	)]
 	pub enum MigrationState {
+		/// Migration did ont yet start.
 		NotStarted,
+		/// The export of pages started.
 		StartedExport {
 			/// The next page that should be exported.
 			next_begin_used: PageCounter,
 		},
+		/// The page export completed.
 		CompletedExport,
+		/// The export of overweight messages started.
 		StartedOverweightExport {
 			/// The next overweight index that should be exported.
 			next_overweight_index: u64,
 		},
+		/// The export of overweight messages completed.
 		CompletedOverweightExport,
-		StartedCleanup {
-			cursor: Option<BoundedVec<u8, ConstU32<1024>>>,
-		},
+		/// The storage cleanup started.
+		StartedCleanup { cursor: Option<BoundedVec<u8, ConstU32<1024>>> },
+		/// The migration finished. The pallet can now be un-deployed.
 		Completed,
 	}
 
@@ -104,11 +112,17 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			let w = Self::on_idle_weight();
+			assert!(w != Weight::zero());
+			assert!(w.all_lte(T::BlockWeights::get().max_block));
+		}
+
 		fn on_idle(now: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
 
-			if meter.try_consume(on_idle_weight::<T>()).is_err() {
-				log::debug!(target: LOG, "Not enough weight for on_idle migration.");
+			if meter.try_consume(Self::on_idle_weight()).is_err() {
+				log::debug!(target: LOG, "Not enough weight for on_idle. {} < {}", Self::on_idle_weight(), limit);
 				return meter.consumed()
 			}
 
@@ -130,16 +144,16 @@ pub mod pallet {
 
 					if next_begin_used == index.end_used {
 						MigrationStatus::<T>::put(MigrationState::CompletedExport);
-						Self::deposit_event(Event::CompletedExport);
 						log::debug!(target: LOG, "CompletedExport");
+						Self::deposit_event(Event::CompletedExport);
 					} else {
 						migration::migrate_page::<T>(next_begin_used);
 
 						MigrationStatus::<T>::put(MigrationState::StartedExport {
 							next_begin_used: next_begin_used + 1,
 						});
-						Self::deposit_event(Event::Exported { page: next_begin_used });
 						log::debug!(target: LOG, "Exported page {}", next_begin_used);
+						Self::deposit_event(Event::Exported { page: next_begin_used });
 					}
 				},
 				MigrationState::CompletedExport => {
@@ -155,18 +169,18 @@ pub mod pallet {
 
 					if next_overweight_index == index.overweight_count {
 						MigrationStatus::<T>::put(MigrationState::CompletedOverweightExport);
-						Self::deposit_event(Event::CompletedOverweightExport);
 						log::debug!(target: LOG, "CompletedOverweightExport");
+						Self::deposit_event(Event::CompletedOverweightExport);
 					} else {
 						migration::migrate_overweight::<T>(next_overweight_index);
 
 						MigrationStatus::<T>::put(MigrationState::StartedOverweightExport {
-							next_overweight_index: next_overweight_index + 1,
+							next_overweight_index: next_overweight_index.saturating_add(1),
 						});
+						log::debug!(target: LOG, "Exported overweight index {next_overweight_index}");
 						Self::deposit_event(Event::ExportedOverweight {
 							index: next_overweight_index,
 						});
-						log::debug!(target: LOG, "Exported overweight index {}", next_overweight_index);
 					}
 				},
 				MigrationState::CompletedOverweightExport => {
@@ -186,6 +200,7 @@ pub mod pallet {
 						cursor.as_ref().map(|c| c.as_ref()),
 					);
 					Self::deposit_event(Event::CleanedSome { keys_removed: result.backend });
+
 					// GOTCHA! We deleted *all* pallet storage; hence we also our own
 					// `MigrationState`. BUT we insert it back:
 					if let Some(unbound_cursor) = result.maybe_cursor {
@@ -196,17 +211,17 @@ pub mod pallet {
 							});
 						} else {
 							MigrationStatus::<T>::put(MigrationState::Completed);
+							log::error!(target: LOG, "Completed with error: could not bound cursor");
 							Self::deposit_event(Event::Completed { error: true });
-							log::debug!(target: LOG, "Completed with error: could not bound cursor");
 						}
 					} else {
 						MigrationStatus::<T>::put(MigrationState::Completed);
-						Self::deposit_event(Event::Completed { error: false });
 						log::debug!(target: LOG, "Completed");
+						Self::deposit_event(Event::Completed { error: false });
 					}
 				},
 				MigrationState::Completed => {
-					log::debug!(target: LOG, "Idle; you can remove the pallet");
+					log::debug!(target: LOG, "Idle; you can remove this pallet");
 				},
 			}
 
@@ -214,8 +229,11 @@ pub mod pallet {
 		}
 	}
 
-	pub fn on_idle_weight<T: crate::Config>() -> Weight {
-		<T as crate::Config>::WeightInfo::on_idle_good_ok()
-			.max(<T as crate::Config>::WeightInfo::on_idle_large_msg())
+	impl<T: Config> Pallet<T> {
+		/// The worst-case weight of [`Self::on_idle`].
+		pub fn on_idle_weight() -> Weight {
+			<T as crate::Config>::WeightInfo::on_idle_good_msg()
+				.max(<T as crate::Config>::WeightInfo::on_idle_large_msg())
+		}
 	}
 }

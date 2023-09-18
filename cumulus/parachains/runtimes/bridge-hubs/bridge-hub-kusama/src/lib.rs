@@ -109,7 +109,7 @@ pub type UncheckedExtrinsic =
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
-	// unreleased// FAIL-CI migrate DMP
+	// unreleased
 );
 
 /// Executive: handles dispatch to the various modules.

@@ -46,15 +46,6 @@ pub mod pallet {
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 	}
 
-	#[pallet::error]
-	pub enum Error<T> {}
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
-
 	#[pallet::event]
 	pub enum Event<T: Config> {
 		/// Downward message is invalid XCM.

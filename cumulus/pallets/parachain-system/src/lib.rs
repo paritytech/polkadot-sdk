@@ -1092,18 +1092,17 @@ impl<T: Config> Pallet<T> {
 			for m in &downward_messages {
 				dmq_head.extend_downward(m);
 			}
-			// Note: we are not using `.defensive()` here since that prints the whole value to
-			// console. In case that the message is too long, this clogs up the log quite badly.
-			let bounded =
-				downward_messages
-					.iter()
-					.filter_map(|m| match BoundedSlice::try_from(&m.msg[..]) {
-						Ok(bounded) => Some(bounded),
-						Err(_) => {
-							defensive!("Inbound Downward message was too long; dropping");
-							None
-						},
-					});
+			let bounded = downward_messages
+				.iter()
+				// Note: we are not using `.defensive()` here since that prints the whole value to
+				// console. In case that the message is too long, this clogs up the log quite badly.
+				.filter_map(|m| match BoundedSlice::try_from(&m.msg[..]) {
+					Ok(bounded) => Some(bounded),
+					Err(_) => {
+						defensive!("Inbound Downward message was too long; dropping");
+						None
+					},
+				});
 			T::DmpQueue::handle_messages(bounded);
 			<LastDmqMqcHead<T>>::put(&dmq_head);
 

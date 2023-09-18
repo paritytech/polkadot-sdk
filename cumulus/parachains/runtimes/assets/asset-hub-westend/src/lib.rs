@@ -891,7 +891,7 @@ pub type Migrations = (
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
 	// unreleased
 	migrations::NativeAssetParents0ToParents1Migration<Runtime>,
-	// unreleased// FAIL-CI migrate DMP
+	// unreleased
 );
 
 /// Executive: handles dispatch to the various modules.

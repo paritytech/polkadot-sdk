@@ -29,6 +29,9 @@ mod benchmarks {
 	use super::*;
 
 	/// Enqueue `n` messages via `enqueue_inbound_downward_messages`.
+	///
+	/// The limit is set to `1000` for benchmarking purposes as the actual limit is only known at
+	/// runtime. However, the limit (and default) for Dotsama are magnitudes smaller.
 	#[benchmark]
 	fn enqueue_inbound_downward_messages(n: Linear<0, 1000>) {
 		let msg = InboundDownwardMessage {
