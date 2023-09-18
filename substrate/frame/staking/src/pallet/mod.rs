@@ -155,7 +155,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type HistoryDepth: Get<u32>;
 
-		/// Tokens have been minted and are unused for validator-reward.
+		/// Tokens have been minted and are unused for validator-reward or minted into the treasury
+		/// (if relevant).
 		/// See [Era payout](./index.html#era-payout).
 		type RewardRemainder: OnUnbalanced<NegativeImbalanceOf<Self>>;
 

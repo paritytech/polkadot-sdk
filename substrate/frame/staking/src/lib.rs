@@ -193,12 +193,17 @@
 //! [`Config::EraPayout`] as such:
 //!
 //! ```nocompile
-//! staker_payout = yearly_inflation(npos_token_staked / total_tokens) * total_tokens / era_per_year
+//! total_payout = yearly_inflation(npos_token_staked / total_tokens) * total_tokens / era_per_year
 //! ```
-//! This payout is used to reward stakers as defined in next section
+//! This payout is used to reward stakers and, if defined, pay a treasury account.
+//!
+//! The runtime may define a percentage of the total payout that is minted directly into an account
+//! (usually a treasury), instead of being used to reward validators.
+//!
+//! From the total payout, there may be a remainder payout depending on the following computation:
 //!
 //! ```nocompile
-//! remaining_payout = max_yearly_inflation * total_tokens / era_per_year - staker_payout
+//! remaining_payout = max_yearly_inflation * total_tokens / era_per_year - total_payout
 //! ```
 //! The remaining reward is send to the configurable end-point
 //! [`Config::RewardRemainder`].
