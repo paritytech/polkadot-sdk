@@ -265,6 +265,10 @@ function check_gpg() {
     gpg --no-tty --verify -q $1.asc $1
 }
 
+function relative_parent() {
+  echo "$1" | sed -E 's/(.*)\/(.*)\/\.\./\1/g'
+}
+
 # Find all the runtimes, it returns the result as JSON as an array of
 # arrays containing the crate name and the runtime_dir
 function find_runtimes() {
@@ -280,7 +284,7 @@ function find_runtimes() {
 
       if [[ "$name" =~ $re ]]; then
           lib_dir=$(dirname "$lib")
-          runtime_dir=$(builtin cd "$lib_dir/.."; pwd)
+          runtime_dir=$(relative_parent "$lib_dir/..")
           chain=${name//-runtime/}
           ITEM=$(jq --null-input \
             --arg chain "$chain" \
