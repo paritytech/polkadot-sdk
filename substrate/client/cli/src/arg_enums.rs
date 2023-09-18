@@ -38,12 +38,6 @@ pub enum WasmtimeInstantiationStrategy {
 
 	/// Recreate the instance from scratch on every instantiation. Very slow.
 	RecreateInstance,
-
-	/// Legacy instance reuse mechanism. DEPRECATED. Will be removed in the future.
-	///
-	/// Should only be used in case of encountering any issues with the new default
-	/// instantiation strategy.
-	LegacyInstanceReuse,
 }
 
 /// The default [`WasmtimeInstantiationStrategy`].
@@ -92,8 +86,6 @@ pub fn execution_method_from_cli(
 				sc_service::config::WasmtimeInstantiationStrategy::Pooling,
 			WasmtimeInstantiationStrategy::RecreateInstance =>
 				sc_service::config::WasmtimeInstantiationStrategy::RecreateInstance,
-			WasmtimeInstantiationStrategy::LegacyInstanceReuse =>
-				sc_service::config::WasmtimeInstantiationStrategy::LegacyInstanceReuse,
 		},
 	}
 }
