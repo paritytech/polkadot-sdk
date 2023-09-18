@@ -32,11 +32,12 @@ jobs:
       - name: Install tooling
         run: |
           TOML_CLI_VERSION=0.2.4
-          curl -L
-          https://github.com/chevdor/toml-cli/releases/download/v${TOML_CLI_VERSION}/toml_linux_amd64_v${TOML_CLI_VERSION}.deb
-          --output toml.deb
+          URL=https://github.com/chevdor/toml-cli/releases/download/v${TOML_CLI_VERSION}/toml_linux_amd64_v${TOML_CLI_VERSION}.deb
+          curl -L $URL --output toml.deb
           dpkg -i toml.deb
           toml --version
+
+          jq --version
 
       - name: Find runtimes
         id: scan-runtimes
