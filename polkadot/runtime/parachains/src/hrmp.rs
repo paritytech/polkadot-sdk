@@ -27,8 +27,9 @@ use primitives::{
 	SessionIndex,
 };
 use scale_info::TypeInfo;
-use sp_runtime::traits::{
-	AccountIdConversion, BlakeTwo256, Hash as HashT, UniqueSaturatedInto, Zero,
+use sp_runtime::{
+	traits::{AccountIdConversion, BlakeTwo256, Hash as HashT, UniqueSaturatedInto, Zero},
+	ArithmeticError,
 };
 use sp_std::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
@@ -747,35 +748,50 @@ pub mod pallet {
 
 					// sender
 					if current_sender_deposit > new_sender_deposit {
+						// Can never underflow, but be paranoid.
+						let amount = current_sender_deposit
+							.checked_sub(new_sender_deposit)
+							.ok_or(ArithmeticError::Underflow)?;
 						T::Currency::unreserve(
 							&channel_id.sender.into_account_truncating(),
-							(current_sender_deposit - new_sender_deposit).unique_saturated_into(),
+							// The difference should always be convertable into `Balance`, but be
+							// paranoid and do nothing in case.
+							amount.try_into().unwrap_or(Zero::zero()),
 						);
 					} else if current_sender_deposit < new_sender_deposit {
+						let amount = new_sender_deposit
+							.checked_sub(current_sender_deposit)
+							.ok_or(ArithmeticError::Underflow)?;
 						T::Currency::reserve(
 							&channel_id.sender.into_account_truncating(),
-							(new_sender_deposit - current_sender_deposit).unique_saturated_into(),
+							amount.try_into().unwrap_or(Zero::zero()),
 						)?;
 					}
 
 					// recipient
 					if current_recipient_deposit > new_recipient_deposit {
+						let amount = current_recipient_deposit
+							.checked_sub(new_recipient_deposit)
+							.ok_or(ArithmeticError::Underflow)?;
 						T::Currency::unreserve(
 							&channel_id.recipient.into_account_truncating(),
-							(current_recipient_deposit - new_recipient_deposit)
-								.unique_saturated_into(),
+							amount.try_into().unwrap_or(Zero::zero()),
 						);
 					} else if current_recipient_deposit < new_recipient_deposit {
+						let amount = new_recipient_deposit
+							.checked_sub(current_recipient_deposit)
+							.ok_or(ArithmeticError::Underflow)?;
 						T::Currency::reserve(
 							&channel_id.recipient.into_account_truncating(),
-							(new_recipient_deposit - current_recipient_deposit)
-								.unique_saturated_into(),
+							amount.try_into().unwrap_or(Zero::zero()),
 						)?;
 					}
 
 					// update storage
 					channel.sender_deposit = new_sender_deposit;
 					channel.recipient_deposit = new_recipient_deposit;
+				} else {
+					return Err(Error::<T>::OpenHrmpChannelDoesntExist.into())
 				}
 				Ok(())
 			})?;
@@ -961,7 +977,7 @@ impl<T: Config> Pallet<T> {
 				"can't be `None` due to the invariant that the list contains the same items as the set; qed",
 			);
 
-			let system_channel = request.sender_deposit.is_zero();
+			let system_channel = channel_id.sender.is_system() || channel_id.recipient.is_system();
 			let sender_deposit = request.sender_deposit;
 			let recipient_deposit = if system_channel { 0 } else { config.hrmp_recipient_deposit };
 
