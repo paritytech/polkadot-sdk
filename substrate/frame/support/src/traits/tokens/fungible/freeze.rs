@@ -18,7 +18,13 @@
 //! The traits for putting freezes within a single fungible token class.
 
 use scale_info::TypeInfo;
-use sp_runtime::DispatchResult;
+use sp_arithmetic::{
+	traits::{CheckedAdd, CheckedSub},
+	ArithmeticError,
+};
+use sp_runtime::{DispatchResult, TokenError};
+
+use crate::{ensure, traits::tokens::Fortitude};
 
 /// Trait for inspecting a fungible asset which can be frozen. Freezing is essentially setting a
 /// minimum balance bellow which the total balance (inclusive of any funds placed on hold) may not
@@ -65,4 +71,53 @@ pub trait Mutate<AccountId>: Inspect<AccountId> {
 
 	/// Remove an existing lock.
 	fn thaw(id: &Self::Id, who: &AccountId) -> DispatchResult;
+
+	/// Attempt to alter the amount frozen under the given `id` to `amount`.
+	///
+	/// Fail if the account of `who` has fewer freezable funds than `amount`, unless `fortitude` is
+	/// `Fortitude::Force`.
+	fn set_frozen(
+		id: &Self::Id,
+		who: &AccountId,
+		amount: Self::Balance,
+		fortitude: Fortitude,
+	) -> DispatchResult {
+		let force = fortitude == Fortitude::Force;
+		ensure!(force || Self::balance_freezable(who) >= amount, TokenError::FundsUnavailable);
+		Self::set_freeze(id, who, amount)
+	}
+
+	/// Attempt to set the amount frozen under the given `id` to `amount`, iff this would increase
+	/// the amount frozen under `id`. Do nothing otherwise.
+	///
+	/// Fail if the account of `who` has fewer freezable funds than `amount`, unless `fortitude` is
+	/// `Fortitude::Force`.
+	fn ensure_frozen(
+		id: &Self::Id,
+		who: &AccountId,
+		amount: Self::Balance,
+		fortitude: Fortitude,
+	) -> DispatchResult {
+		let force = fortitude == Fortitude::Force;
+		ensure!(force || Self::balance_freezable(who) >= amount, TokenError::FundsUnavailable);
+		Self::extend_freeze(id, who, amount)
+	}
+
+	/// Decrease the amount which is being frozen for a particular freeze, failing in the case of
+	/// underflow.
+	fn decrease_frozen(id: &Self::Id, who: &AccountId, amount: Self::Balance) -> DispatchResult {
+		let a = Self::balance_frozen(id, who)
+			.checked_sub(&amount)
+			.ok_or(ArithmeticError::Underflow)?;
+		Self::set_freeze(id, who, a)
+	}
+
+	/// Increase the amount which is being frozen for a particular freeze, failing in the case that
+	/// too little balance is available for being frozen.
+	fn increase_frozen(id: &Self::Id, who: &AccountId, amount: Self::Balance) -> DispatchResult {
+		let a = Self::balance_frozen(id, who)
+			.checked_add(&amount)
+			.ok_or(ArithmeticError::Overflow)?;
+		Self::set_frozen(id, who, a, Fortitude::Polite)
+	}
 }
