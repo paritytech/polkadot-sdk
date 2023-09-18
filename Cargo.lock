@@ -14641,6 +14641,7 @@ dependencies = [
  "sp-statement-store",
  "sp-storage",
  "sp-test-primitives",
+ "sp-trie",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime",
  "thiserror",
