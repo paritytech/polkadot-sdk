@@ -1,6 +1,6 @@
 name: Bug Report
 description: Let us know about an issue you experienced with this software
-labels: [ I2-bug ]
+labels: [ I2-bug, I10-unconfirmed ]
 
 body:
   - type: checkboxes
