@@ -1,6 +1,7 @@
 name: Bug Report
 description: Let us know about an issue you experienced with this software
-# labels: ["some existing label","another one"]
+labels: [ I2-bug, I10-unconfirmed ]
+
 body:
   - type: checkboxes
     attributes:
@@ -20,7 +21,7 @@ body:
     id: bug
     attributes:
       label: Description of bug
-      # description: What seems to be the problem?
+      description: What seems to be the problem?
       # placeholder: Describe the problem.
     validations:
       required: true
