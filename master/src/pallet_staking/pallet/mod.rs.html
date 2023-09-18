@@ -1783,6 +1783,10 @@
 <a href="#1783" id="1783">1783</a>
 <a href="#1784" id="1784">1784</a>
 <a href="#1785" id="1785">1785</a>
+<a href="#1786" id="1786">1786</a>
+<a href="#1787" id="1787">1787</a>
+<a href="#1788" id="1788">1788</a>
+<a href="#1789" id="1789">1789</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2449,8 +2453,12 @@
 		<span class="doccomment">/// The era payout has been set; the first balance is the validator-payout; the second is
 		/// the remainder from the maximum amount of reward.
 		</span>EraPaid { era_index: EraIndex, validator_payout: BalanceOf&lt;T&gt;, remainder: BalanceOf&lt;T&gt; },
-		<span class="doccomment">/// The nominator has been rewarded by this amount.
-		</span>Rewarded { stash: T::AccountId, amount: BalanceOf&lt;T&gt; },
+		<span class="doccomment">/// The nominator has been rewarded by this amount to this destination.
+		</span>Rewarded {
+			stash: T::AccountId,
+			dest: RewardDestination&lt;T::AccountId&gt;,
+			amount: BalanceOf&lt;T&gt;,
+		},
 		<span class="doccomment">/// A staker (validator or nominator) has been slashed by the given amount.
 		</span>Slashed { staker: T::AccountId, amount: BalanceOf&lt;T&gt; },
 		<span class="doccomment">/// A slash for the given validator, for the given percentage of their stake, at the given

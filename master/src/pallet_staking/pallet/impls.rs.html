@@ -1883,6 +1883,13 @@
 <a href="#1883" id="1883">1883</a>
 <a href="#1884" id="1884">1884</a>
 <a href="#1885" id="1885">1885</a>
+<a href="#1886" id="1886">1886</a>
+<a href="#1887" id="1887">1887</a>
+<a href="#1888" id="1888">1888</a>
+<a href="#1889" id="1889">1889</a>
+<a href="#1890" id="1890">1890</a>
+<a href="#1891" id="1891">1891</a>
+<a href="#1892" id="1892">1892</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2121,11 +2128,12 @@
 
 		<span class="kw">let </span><span class="kw-2">mut </span>total_imbalance = PositiveImbalanceOf::&lt;T&gt;::zero();
 		<span class="comment">// We can now make total validator payout:
-		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(imbalance) =
+		</span><span class="kw">if let </span><span class="prelude-val">Some</span>((imbalance, dest)) =
 			<span class="self">Self</span>::make_payout(<span class="kw-2">&amp;</span>ledger.stash, validator_staking_payout + validator_commission_payout)
 		{
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Rewarded {
 				stash: ledger.stash,
+				dest,
 				amount: imbalance.peek(),
 			});
 			total_imbalance.subsume(imbalance);
@@ -2144,11 +2152,14 @@
 			<span class="kw">let </span>nominator_reward: BalanceOf&lt;T&gt; =
 				nominator_exposure_part * validator_leftover_payout;
 			<span class="comment">// We can now make nominator payout:
-			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(imbalance) = <span class="self">Self</span>::make_payout(<span class="kw-2">&amp;</span>nominator.who, nominator_reward) {
+			</span><span class="kw">if let </span><span class="prelude-val">Some</span>((imbalance, dest)) = <span class="self">Self</span>::make_payout(<span class="kw-2">&amp;</span>nominator.who, nominator_reward) {
 				<span class="comment">// Note: this logic does not count payouts for `RewardDestination::None`.
 				</span>nominator_payout_count += <span class="number">1</span>;
-				<span class="kw">let </span>e =
-					Event::&lt;T&gt;::Rewarded { stash: nominator.who.clone(), amount: imbalance.peek() };
+				<span class="kw">let </span>e = Event::&lt;T&gt;::Rewarded {
+					stash: nominator.who.clone(),
+					dest,
+					amount: imbalance.peek(),
+				};
 				<span class="self">Self</span>::deposit_event(e);
 				total_imbalance.subsume(imbalance);
 			}
@@ -2178,9 +2189,11 @@
 
 	<span class="doccomment">/// Actually make a payment to a staker. This uses the currency&#39;s reward function
 	/// to pay the right payee for the given staker account.
-	</span><span class="kw">fn </span>make_payout(stash: <span class="kw-2">&amp;</span>T::AccountId, amount: BalanceOf&lt;T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;PositiveImbalanceOf&lt;T&gt;&gt; {
-		<span class="kw">let </span>dest = <span class="self">Self</span>::payee(stash);
-		<span class="kw">match </span>dest {
+	</span><span class="kw">fn </span>make_payout(
+		stash: <span class="kw-2">&amp;</span>T::AccountId,
+		amount: BalanceOf&lt;T&gt;,
+	) -&gt; <span class="prelude-ty">Option</span>&lt;(PositiveImbalanceOf&lt;T&gt;, RewardDestination&lt;T::AccountId&gt;)&gt; {
+		<span class="kw">let </span>maybe_imbalance = <span class="kw">match </span><span class="self">Self</span>::payee(stash) {
 			RewardDestination::Controller =&gt; <span class="self">Self</span>::bonded(stash)
 				.map(|controller| T::Currency::deposit_creating(<span class="kw-2">&amp;</span>controller, amount)),
 			RewardDestination::Stash =&gt; T::Currency::deposit_into_existing(stash, amount).ok(),
@@ -2196,7 +2209,8 @@
 			RewardDestination::Account(dest_account) =&gt;
 				<span class="prelude-val">Some</span>(T::Currency::deposit_creating(<span class="kw-2">&amp;</span>dest_account, amount)),
 			RewardDestination::None =&gt; <span class="prelude-val">None</span>,
-		}
+		};
+		maybe_imbalance.map(|imbalance| (imbalance, <span class="self">Self</span>::payee(stash)))
 	}
 
 	<span class="doccomment">/// Plan a new session potentially trigger a new era.
