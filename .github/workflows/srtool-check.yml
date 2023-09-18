@@ -29,6 +29,15 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
+      - name: Install tooling
+        run: |
+          TOML_CLI_VERSION=0.2.4
+          curl -L
+          https://github.com/chevdor/toml-cli/releases/download/v${TOML_CLI_VERSION}/toml_linux_amd64_v${TOML_CLI_VERSION}.deb
+          --output toml.deb
+          dpkg -i toml.deb
+          toml --version
+
       - name: Find runtimes
         id: scan-runtimes
         run: |
