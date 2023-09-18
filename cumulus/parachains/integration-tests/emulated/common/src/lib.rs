@@ -303,7 +303,9 @@ decl_test_parachains! {
 	},
 	pub struct CollectivesWestend {
 		genesis = collectives::genesis(),
-		on_init = (),
+		on_init = {
+			collectives_polkadot_runtime::AuraExt::on_initialize(1);
+		},
 		runtime = collectives_polkadot_runtime,
 		core = {
 			XcmpMessageHandler: collectives_polkadot_runtime::XcmpQueue,
