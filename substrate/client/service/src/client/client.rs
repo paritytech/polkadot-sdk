@@ -78,7 +78,7 @@ use sp_state_machine::{
 	ChildStorageCollection, KeyValueStates, KeyValueStorageLevel, StorageCollection,
 	MAX_NESTED_TRIE_DEPTH,
 };
-use sp_trie::{CompactProof, StorageProof};
+use sp_trie::{CompactProof, MerkleValue, StorageProof};
 use std::{
 	collections::{HashMap, HashSet},
 	marker::PhantomData,
@@ -1543,6 +1543,27 @@ where
 	) -> sp_blockchain::Result<Option<Block::Hash>> {
 		self.state_at(hash)?
 			.child_storage_hash(child_info, &key.0)
+			.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))
+	}
+
+	fn closest_merkle_value(
+		&self,
+		hash: <Block as BlockT>::Hash,
+		key: &StorageKey,
+	) -> blockchain::Result<Option<MerkleValue<<Block as BlockT>::Hash>>> {
+		self.state_at(hash)?
+			.closest_merkle_value(&key.0)
+			.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))
+	}
+
+	fn child_closest_merkle_value(
+		&self,
+		hash: <Block as BlockT>::Hash,
+		child_info: &ChildInfo,
+		key: &StorageKey,
+	) -> blockchain::Result<Option<MerkleValue<<Block as BlockT>::Hash>>> {
+		self.state_at(hash)?
+			.child_closest_merkle_value(child_info, &key.0)
 			.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))
 	}
 }
