@@ -59,7 +59,7 @@ pub enum TaskAttrType {
 		index: LitInt,
 	},
 	#[peek(keywords::task_condition, name = "#[pallet::task_condition(..)")]
-	Condition {
+	TaskCondition {
 		_condition: keywords::task_condition,
 		#[paren]
 		_paren: Paren,
@@ -72,7 +72,8 @@ pub enum TaskAttrType {
 		#[inside(_paren)]
 		expr: Expr,
 	},
-	// TODO: Tasks
+	#[peek(keywords::tasks, name = "#[pallet::tasks]")]
+	Tasks { _tasks: keywords::tasks },
 }
 
 #[derive(Parse)]
@@ -117,4 +118,12 @@ fn test_parse_pallet_task_condition() {
 	parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(|_x| some_expr())])).unwrap();
 	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(x.is_some())])).is_err());
 	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(|| something())])).is_err());
+}
+
+#[test]
+fn test_parse_pallet_tasks() {
+	parse2::<PalletTaskAttr>(quote!(#[pallet::tasks])).unwrap();
+	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::taskss])).is_err());
+	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::tasks_])).is_err());
+	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::tasks()])).is_err());
 }
