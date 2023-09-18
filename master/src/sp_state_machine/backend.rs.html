@@ -431,6 +431,16 @@
 <a href="#431" id="431">431</a>
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -463,7 +473,7 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>sp_core::traits::RuntimeCode;
 <span class="kw">use </span>sp_std::vec::Vec;
-<span class="kw">use </span>sp_trie::PrefixedMemoryDB;
+<span class="kw">use </span>sp_trie::{MerkleValue, PrefixedMemoryDB};
 
 <span class="doccomment">/// A struct containing arguments for iterating over the storage.
 </span><span class="attr">#[derive(Default)]
@@ -628,7 +638,17 @@
 	<span class="doccomment">/// Get keyed storage value hash or None if there is nothing associated.
 	</span><span class="kw">fn </span>storage_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;H::Out&gt;, <span class="self">Self</span>::Error&gt;;
 
-	<span class="doccomment">/// Get keyed child storage or None if there is nothing associated.
+	<span class="doccomment">/// Get the merkle value or None if there is nothing associated.
+	</span><span class="kw">fn </span>closest_merkle_value(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;MerkleValue&lt;H::Out&gt;&gt;, <span class="self">Self</span>::Error&gt;;
+
+	<span class="doccomment">/// Get the child merkle value or None if there is nothing associated.
+	</span><span class="kw">fn </span>child_closest_merkle_value(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		child_info: <span class="kw-2">&amp;</span>ChildInfo,
+		key: <span class="kw-2">&amp;</span>[u8],
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;MerkleValue&lt;H::Out&gt;&gt;, <span class="self">Self</span>::Error&gt;;
+
+	<span class="doccomment">/// Get child keyed child storage or None if there is nothing associated.
 	</span><span class="kw">fn </span>child_storage(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		child_info: <span class="kw-2">&amp;</span>ChildInfo,

@@ -209,6 +209,22 @@
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -239,6 +255,7 @@
 	backend::{AsTrieBackend, Backend <span class="kw">as </span>StateBackend},
 	BackendTransaction, IterArgs, StorageIterator, StorageKey, StorageValue, TrieBackend,
 };
+<span class="kw">use </span>sp_trie::MerkleValue;
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="doccomment">/// State abstraction for recording stats about state access.
@@ -353,6 +370,21 @@
 		key: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;B::Hash&gt;, <span class="self">Self</span>::Error&gt; {
 		<span class="self">self</span>.state.child_storage_hash(child_info, key)
+	}
+
+	<span class="kw">fn </span>closest_merkle_value(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		key: <span class="kw-2">&amp;</span>[u8],
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;MerkleValue&lt;B::Hash&gt;&gt;, <span class="self">Self</span>::Error&gt; {
+		<span class="self">self</span>.state.closest_merkle_value(key)
+	}
+
+	<span class="kw">fn </span>child_closest_merkle_value(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		child_info: <span class="kw-2">&amp;</span>ChildInfo,
+		key: <span class="kw-2">&amp;</span>[u8],
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;MerkleValue&lt;B::Hash&gt;&gt;, <span class="self">Self</span>::Error&gt; {
+		<span class="self">self</span>.state.child_closest_merkle_value(child_info, key)
 	}
 
 	<span class="kw">fn </span>exists_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;bool, <span class="self">Self</span>::Error&gt; {

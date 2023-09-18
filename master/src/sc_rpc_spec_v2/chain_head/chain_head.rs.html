@@ -481,15 +481,6 @@
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
-<a href="#486" id="486">486</a>
-<a href="#487" id="487">487</a>
-<a href="#488" id="488">488</a>
-<a href="#489" id="489">489</a>
-<a href="#490" id="490">490</a>
-<a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -519,7 +510,7 @@
 		api::ChainHeadApiServer,
 		chain_head_follow::ChainHeadFollower,
 		error::Error <span class="kw">as </span>ChainHeadRpcError,
-		event::{FollowEvent, MethodResponse, OperationError, StorageQuery, StorageQueryType},
+		event::{FollowEvent, MethodResponse, OperationError, StorageQuery},
 		hex_string,
 		subscription::{SubscriptionManagement, SubscriptionManagementError},
 	},
@@ -821,19 +812,10 @@
 		</span><span class="kw">let </span>items = items
 			.into_iter()
 			.map(|query| {
-				<span class="kw">if </span>query.query_type == StorageQueryType::ClosestDescendantMerkleValue {
-					<span class="comment">// Note: remove this once all types are implemented.
-					</span><span class="kw">return </span><span class="prelude-val">Err</span>(ChainHeadRpcError::InvalidParam(
-						<span class="string">&quot;Storage query type not supported&quot;</span>.into(),
-					))
-				}
-
-				<span class="prelude-val">Ok</span>(StorageQuery {
-					key: StorageKey(parse_hex_param(query.key)<span class="question-mark">?</span>),
-					query_type: query.query_type,
-				})
+				<span class="kw">let </span>key = StorageKey(parse_hex_param(query.key)<span class="question-mark">?</span>);
+				<span class="prelude-val">Ok</span>(StorageQuery { key, query_type: query.query_type })
 			})
-			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, ChainHeadRpcError&gt;&gt;()<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>child_trie = child_trie
 			.map(|child_trie| parse_hex_param(child_trie))

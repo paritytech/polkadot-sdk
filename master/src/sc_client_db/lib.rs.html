@@ -4408,6 +4408,21 @@
 <a href="#4408" id="4408">4408</a>
 <a href="#4409" id="4409">4409</a>
 <a href="#4410" id="4410">4410</a>
+<a href="#4411" id="4411">4411</a>
+<a href="#4412" id="4412">4412</a>
+<a href="#4413" id="4413">4413</a>
+<a href="#4414" id="4414">4414</a>
+<a href="#4415" id="4415">4415</a>
+<a href="#4416" id="4416">4416</a>
+<a href="#4417" id="4417">4417</a>
+<a href="#4418" id="4418">4418</a>
+<a href="#4419" id="4419">4419</a>
+<a href="#4420" id="4420">4420</a>
+<a href="#4421" id="4421">4421</a>
+<a href="#4422" id="4422">4422</a>
+<a href="#4423" id="4423">4423</a>
+<a href="#4424" id="4424">4424</a>
+<a href="#4425" id="4425">4425</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4500,7 +4515,7 @@
 	OffchainChangesCollection, StateMachineStats, StorageCollection, StorageIterator, StorageKey,
 	StorageValue, UsageInfo <span class="kw">as </span>StateUsageInfo,
 };
-<span class="kw">use </span>sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, PrefixedMemoryDB};
+<span class="kw">use </span>sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB};
 
 <span class="comment">// Re-export the Database trait so that one can pass an implementation of it.
 </span><span class="kw">pub use </span>sc_state_db::PruningMode;
@@ -4622,6 +4637,21 @@
 		key: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;B::Hash&gt;, <span class="self">Self</span>::Error&gt; {
 		<span class="self">self</span>.state.child_storage_hash(child_info, key)
+	}
+
+	<span class="kw">fn </span>closest_merkle_value(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		key: <span class="kw-2">&amp;</span>[u8],
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;MerkleValue&lt;B::Hash&gt;&gt;, <span class="self">Self</span>::Error&gt; {
+		<span class="self">self</span>.state.closest_merkle_value(key)
+	}
+
+	<span class="kw">fn </span>child_closest_merkle_value(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		child_info: <span class="kw-2">&amp;</span>ChildInfo,
+		key: <span class="kw-2">&amp;</span>[u8],
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;MerkleValue&lt;B::Hash&gt;&gt;, <span class="self">Self</span>::Error&gt; {
+		<span class="self">self</span>.state.child_closest_merkle_value(child_info, key)
 	}
 
 	<span class="kw">fn </span>exists_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;bool, <span class="self">Self</span>::Error&gt; {

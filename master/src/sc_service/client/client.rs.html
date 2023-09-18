@@ -2131,6 +2131,27 @@
 <a href="#2131" id="2131">2131</a>
 <a href="#2132" id="2132">2132</a>
 <a href="#2133" id="2133">2133</a>
+<a href="#2134" id="2134">2134</a>
+<a href="#2135" id="2135">2135</a>
+<a href="#2136" id="2136">2136</a>
+<a href="#2137" id="2137">2137</a>
+<a href="#2138" id="2138">2138</a>
+<a href="#2139" id="2139">2139</a>
+<a href="#2140" id="2140">2140</a>
+<a href="#2141" id="2141">2141</a>
+<a href="#2142" id="2142">2142</a>
+<a href="#2143" id="2143">2143</a>
+<a href="#2144" id="2144">2144</a>
+<a href="#2145" id="2145">2145</a>
+<a href="#2146" id="2146">2146</a>
+<a href="#2147" id="2147">2147</a>
+<a href="#2148" id="2148">2148</a>
+<a href="#2149" id="2149">2149</a>
+<a href="#2150" id="2150">2150</a>
+<a href="#2151" id="2151">2151</a>
+<a href="#2152" id="2152">2152</a>
+<a href="#2153" id="2153">2153</a>
+<a href="#2154" id="2154">2154</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2211,7 +2232,7 @@
 	ChildStorageCollection, KeyValueStates, KeyValueStorageLevel, StorageCollection,
 	MAX_NESTED_TRIE_DEPTH,
 };
-<span class="kw">use </span>sp_trie::{CompactProof, StorageProof};
+<span class="kw">use </span>sp_trie::{CompactProof, MerkleValue, StorageProof};
 <span class="kw">use </span>std::{
 	collections::{HashMap, HashSet},
 	marker::PhantomData,
@@ -3676,6 +3697,27 @@
 	) -&gt; sp_blockchain::Result&lt;<span class="prelude-ty">Option</span>&lt;Block::Hash&gt;&gt; {
 		<span class="self">self</span>.state_at(hash)<span class="question-mark">?
 			</span>.child_storage_hash(child_info, <span class="kw-2">&amp;</span>key.<span class="number">0</span>)
+			.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))
+	}
+
+	<span class="kw">fn </span>closest_merkle_value(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
+		key: <span class="kw-2">&amp;</span>StorageKey,
+	) -&gt; blockchain::Result&lt;<span class="prelude-ty">Option</span>&lt;MerkleValue&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt;&gt; {
+		<span class="self">self</span>.state_at(hash)<span class="question-mark">?
+			</span>.closest_merkle_value(<span class="kw-2">&amp;</span>key.<span class="number">0</span>)
+			.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))
+	}
+
+	<span class="kw">fn </span>child_closest_merkle_value(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
+		child_info: <span class="kw-2">&amp;</span>ChildInfo,
+		key: <span class="kw-2">&amp;</span>StorageKey,
+	) -&gt; blockchain::Result&lt;<span class="prelude-ty">Option</span>&lt;MerkleValue&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt;&gt; {
+		<span class="self">self</span>.state_at(hash)<span class="question-mark">?
+			</span>.child_closest_merkle_value(child_info, <span class="kw-2">&amp;</span>key.<span class="number">0</span>)
 			.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))
 	}
 }
