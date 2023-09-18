@@ -27,7 +27,7 @@ pub mod keywords {
 
 	custom_keyword!(tasks);
 	custom_keyword!(task_list);
-	custom_keyword!(condition);
+	custom_keyword!(task_condition);
 	custom_keyword!(task_index);
 	custom_keyword!(pallet);
 }
@@ -36,7 +36,6 @@ pub struct TasksDef;
 
 impl TasksDef {
 	pub fn try_from(_span: Span, _index: usize, _item: &mut Item) -> Result<Self> {
-		// TODO: fill in
 		Ok(TasksDef {})
 	}
 }
@@ -59,9 +58,9 @@ pub enum TaskAttrType {
 		#[inside(_paren)]
 		index: LitInt,
 	},
-	#[peek(keywords::condition, name = "#[pallet::condition(..)")]
+	#[peek(keywords::task_condition, name = "#[pallet::task_condition(..)")]
 	Condition {
-		_condition: keywords::condition,
+		_condition: keywords::task_condition,
 		#[paren]
 		_paren: Paren,
 		#[inside(_paren)]
@@ -113,9 +112,9 @@ fn test_parse_pallet_task_index() {
 }
 
 #[test]
-fn test_parse_pallet_condition() {
-	parse2::<PalletTaskAttr>(quote!(#[pallet::condition(|x| x.is_some())])).unwrap();
-	parse2::<PalletTaskAttr>(quote!(#[pallet::condition(|_x| some_expr())])).unwrap();
-	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::condition(x.is_some())])).is_err());
-	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::condition(|| something())])).is_err());
+fn test_parse_pallet_task_condition() {
+	parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(|x| x.is_some())])).unwrap();
+	parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(|_x| some_expr())])).unwrap();
+	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(x.is_some())])).is_err());
+	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(|| something())])).is_err());
 }
