@@ -23,21 +23,14 @@ use sp_std::prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use primitives::RuntimeDebug;
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 
 /// Useful type alias for Para IDs.
 pub type ParaId = Id;
 
 /// Candidate's acceptance limitations for asynchronous backing per relay parent.
 #[derive(
-	RuntimeDebug,
-	Copy,
-	Clone,
-	PartialEq,
-	Encode,
-	Decode,
-	TypeInfo,
-	serde::Serialize,
-	serde::Deserialize,
+	RuntimeDebug, Copy, Clone, PartialEq, Encode, Decode, TypeInfo, Serialize, Deserialize,
 )]
 
 pub struct AsyncBackingParams {
@@ -140,7 +133,9 @@ pub struct BackingState<H = Hash, N = BlockNumber> {
 /// Previously, the ChunkIndex assigned to a validator was equal to its ValidatorIndex.
 ///
 /// This enables us to shuffle the chunk indices, per-block.
-#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(
+	RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo, Default, Serialize, Deserialize,
+)]
 pub struct AvailabilityChunkShufflingParams {
 	/// If it's `None`, it's not enabled. If it's some block number, consider it's enabled at this
 	/// specific block height.

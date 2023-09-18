@@ -128,7 +128,5 @@ pub fn minimum_backing_votes<T: initializer::Config>() -> u32 {
 /// Return whether the shuffling of availability chunk indices is enabled.
 pub fn availability_chunk_shuffling_params<T: initializer::Config>(
 ) -> AvailabilityChunkShufflingParams {
-	// TODO: add this value to the state and add a migration for it.
-
-	AvailabilityChunkShufflingParams { activate_at: None }
+	<configuration::Pallet<T>>::config().availability_chunk_shuffling_params
 }

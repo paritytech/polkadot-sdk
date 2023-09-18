@@ -99,7 +99,7 @@ pub const fn recovery_threshold(n_validators: usize) -> Result<usize, Error> {
 /// Obtain the threshold of systematic chunks that should be enough to recover the data.
 ///
 /// If the regular `recovery_threshold` is a power of two, then it returns the same value.
-/// Otherwise, it returns the next power of two.
+/// Otherwise, it returns the next lower power of two.
 pub fn systematic_recovery_threshold(n_validators: usize) -> Result<usize, Error> {
 	code_params(n_validators).map(|params| params.k())
 }

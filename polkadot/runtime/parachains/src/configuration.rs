@@ -26,8 +26,9 @@ use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 use primitives::{
-	vstaging::AsyncBackingParams, Balance, ExecutorParams, SessionIndex, LEGACY_MIN_BACKING_VOTES,
-	MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+	vstaging::{AsyncBackingParams, AvailabilityChunkShufflingParams},
+	Balance, ExecutorParams, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE,
+	MAX_HEAD_DATA_SIZE, MAX_POV_SIZE, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::prelude::*;
@@ -259,6 +260,8 @@ pub struct HostConfiguration<BlockNumber> {
 	/// The minimum number of valid backing statements required to consider a parachain candidate
 	/// backable.
 	pub minimum_backing_votes: u32,
+	/// Parameters for availability chunk shuffling.
+	pub availability_chunk_shuffling_params: AvailabilityChunkShufflingParams,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -310,6 +313,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_ttl: 5u32.into(),
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
+			availability_chunk_shuffling_params: Default::default(),
 		}
 	}
 }
@@ -499,7 +503,8 @@ pub mod pallet {
 	/// v6-v7: <https://github.com/paritytech/polkadot/pull/7396>
 	/// v7-v8: <https://github.com/paritytech/polkadot/pull/6969>
 	/// v8-v9: <https://github.com/paritytech/polkadot/pull/7577>
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(9);
+	/// TODO: add PR link here
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(10);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1185,6 +1190,21 @@ pub mod pallet {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
 				config.minimum_backing_votes = new;
+			})
+		}
+		/// Set availability chunk shuffling params.
+		#[pallet::call_index(53)]
+		#[pallet::weight((
+			T::WeightInfo::set_config_with_option_u32(), // TODO: The same size in bytes? Benchmark.
+			DispatchClass::Operational
+		))]
+		pub fn set_availability_chunk_shuffling_params(
+			origin: OriginFor<T>,
+			new: AvailabilityChunkShufflingParams,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::schedule_config_update(|config| {
+				config.availability_chunk_shuffling_params = new;
 			})
 		}
 	}
