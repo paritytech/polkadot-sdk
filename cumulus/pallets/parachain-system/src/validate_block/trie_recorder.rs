@@ -74,6 +74,12 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<
 					.and_modify(|e| *e = RecordedForKey::Value)
 					.or_insert_with(|| RecordedForKey::Value);
 			},
+			TrieAccess::InlineValue { full_key } => {
+				self.recorded_keys
+					.entry(full_key.into())
+					.and_modify(|e| *e = RecordedForKey::Value)
+					.or_insert_with(|| RecordedForKey::Value);
+			},
 		};
 
 		*self.encoded_size += encoded_size_update;
