@@ -101,6 +101,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-service/runtime-benchmarks",

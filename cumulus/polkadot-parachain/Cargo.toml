@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-parachain-bin"
-version = "1.0.0"
+version = "1.1.0"
 authors.workspace = true
 build = "build.rs"
 edition.workspace = true
@@ -18,7 +18,7 @@ futures = "0.3.28"
 hex-literal = "0.4.1"
 log = "0.4.20"
 serde = { version = "1.0.188", features = ["derive"] }
-serde_json = "1.0.106"
+serde_json = "1.0.107"
 
 # Local
 rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parachain" }
@@ -116,6 +116,7 @@ runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"glutton-runtime/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
