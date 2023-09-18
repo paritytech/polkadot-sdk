@@ -114,7 +114,7 @@ default:
     - !reference [.rust-info-script, script]
     - !reference [.rusty-cachier, before_script]
   tags:
-    - linux-docker-vm-c2
+    - linux-docker
 
 # rusty-cachier's hidden job. Parts of this job are used to instrument the pipeline's other real jobs with rusty-cachier
 # rusty-cachier's commands are described here: https://gitlab.parity.io/parity/infrastructure/ci_cd/rusty-cachier/client#description

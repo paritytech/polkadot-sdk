@@ -1,10 +1,7 @@
 name: Release - Publish Docker Image
 
-# This workflow listens to pubished releases or can be triggered manually.
-# It includes releases and rc candidates.
-# It fetches the binaries, checks sha256 and GPG
-# signatures, then builds an injected docker
-# image and publishes it.
+# This workflow listens to published releases or can be triggered manually.
+# It builds and published releases and rc candidates.
 
 on:
   #TODO: activate automated run later
@@ -13,6 +10,24 @@ on:
   #    - published
   workflow_dispatch:
     inputs:
+      image_type:
+        description: Type of the image to be published
+        required: true
+        default: rc
+        type: choice
+        options:
+          - rc
+          - release
+
+      binary:
+        description: Binary to be published
+        required: true
+        default: polkadot
+        type: choice
+        options:
+          - polkadot
+          - polkadot-parachain
+
       release_id:
         description: |
           Release ID.
@@ -22,32 +37,25 @@ on:
             jq '.[] | { name: .name, id: .id }'
         required: true
         type: string
-      image_type:
-        description: Type of the image to be published
-        required: true
-        default: rc
-        type: choice
-        options:
-          - rc
-          - release
+
       registry:
         description: Container registry
         required: true
         type: string
         default: docker.io
+
+      # The owner is often the same than the Docker Hub username but does ont have to be.
+      # In our case, it is not.
       owner:
         description: Owner of the container image repo
         required: true
         type: string
         default: parity
-      binary:
-        description: Binary to be published
+
+      version:
+        description: version to build/release
+        default: v0.9.18
         required: true
-        default: polkadot
-        type: choice
-        options:
-          - polkadot
-          - polkadot-parachain
 
 permissions:
   contents: write
@@ -65,7 +73,8 @@ env:
   IMAGE_TYPE: ${{ inputs.image_type }}
 
 jobs:
-  fetch-artifacts:
+  fetch-artifacts: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
+    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -101,7 +110,8 @@ jobs:
           path: |
             ./release-artifacts/${{ env.BINARY }}/**/*
 
-  build-container:
+  build-container: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
+    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
     needs: fetch-artifacts
 
@@ -157,6 +167,18 @@ jobs:
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
 
+      - name: Build Injected Container image for polkadot rc
+        if: ${{ env.BINARY == 'polkadot' }}
+        env:
+          ARTIFACTS_FOLDER: ./release-artifacts
+          IMAGE_NAME: ${{ env.BINARY }}
+          OWNER: ${{ env.DOCKER_OWNER }}
+          TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
+        run: |
+          ls -al
+          echo "Building container for $BINARY"
+          ./docker/scripts/build-injected.sh
+
       - name: Build Injected Container image for polkadot-parachain
         if: ${{ env.BINARY == 'polkadot-parachain' }}
         env:
@@ -191,3 +213,73 @@ jobs:
         run: |
           echo "Checking tag ${RELEASE_TAG} for image ${REGISTRY}/${DOCKER_OWNER}/${BINARY}"
           $ENGINE run -i ${REGISTRY}/${DOCKER_OWNER}/${BINARY}:${RELEASE_TAG} --version
+
+  fetch-latest-debian-package-version: # this job will be triggered for polkadot release build
+    if: ${{ inputs.binary == 'polkadot' && inputs.image_type == 'release' }}
+    runs-on: ubuntu-latest
+    outputs:
+      polkadot_apt_version: ${{ steps.fetch-latest-apt.outputs.polkadot_apt_version }}
+    container:
+      image: paritytech/parity-keyring
+      options: --user root
+    steps:
+      - name: Get version
+        id: fetch-latest-apt
+        run: |
+          apt update
+          apt show polkadot
+          version=$(apt show polkadot 2>/dev/null | grep "Version:" | awk '{print $2}')
+          echo "polkadot_apt_version=v$version" >> $GITHUB_OUTPUT
+          echo "You passed ${{ inputs.version }} but this is ignored"
+          echo "We use the version from the Debian Package: $version"
+
+  build-polkadot-release-container: # this job will be triggered for polkadot release build
+    if: ${{ inputs.binary == 'polkadot' && inputs.image_type == 'release' }}
+    runs-on: ubuntu-latest
+    needs: fetch-latest-debian-package-version
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@95cb08cb2672c73d4ffd2f422e6d11953d2a9c70 # v2.1.0
+
+      - name: Cache Docker layers
+        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+        with:
+         path: /tmp/.buildx-cache
+         key: ${{ runner.os }}-buildx-${{ github.sha }}
+         restore-keys: |
+           ${{ runner.os }}-buildx-
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Fetch values
+        id: fetch-data
+        run: |
+          date=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+          echo "date=$date" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        id:   docker_build
+        uses: docker/build-push-action@v4
+        with:
+          push: true
+          file: docker/dockerfiles/polkadot/polkadot_injected_debian.Dockerfile
+          # TODO: The owner should be used below but buildx does not resolve the VARs
+          # TODO: It would be good to get rid of this GHA that we don't really need.
+          tags: |
+            parity/polkadot:latest
+            parity/polkadot:${{ needs.fetch-latest-debian-package-version.outputs.polkadot_apt_version }}
+          build-args: |
+            VCS_REF=${{ github.ref }}
+            POLKADOT_VERSION=${{ needs.fetch-latest-debian-package-version.outputs.polkadot_apt_version }}
+            BUILD_DATE=${{ steps.fetch-data.outputs.date }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+      - name: Image digest
+        run: echo ${{ steps.docker_build.outputs.digest }}
