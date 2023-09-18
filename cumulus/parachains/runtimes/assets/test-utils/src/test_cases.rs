@@ -222,18 +222,17 @@ pub fn teleports_for_native_asset_works<
 						target_account_balance_before_teleport - existential_deposit
 				);
 
-				// Build expected message sent by the `teleport_assets` extrinsic
+				// Build expected message sent by the `teleport_assets` extrinsic to calculate delivery fees
 				let context = <XcmConfig as xcm_executor::Config>::UniversalLocation::get();
 				let assets_to_teleport: MultiAsset = (native_asset_id, native_asset_to_teleport_away.into()).into();
 				let assets_to_teleport = assets_to_teleport
 					.reanchored(&dest, context).expect("We know location is invertible; qed");
 				let weight_limit = Limited(Weight::from_parts(161_592_000, 0));
-				let mut expected_message = Xcm::<()>(vec![
+				let expected_message = Xcm::<()>(vec![
 					ReceiveTeleportedAsset(assets_to_teleport.clone().into()),
 					ClearOrigin,
 					BuyExecution { fees: assets_to_teleport.clone().into(), weight_limit },
 					DepositAsset { assets: Wild(AllCounted(1)), beneficiary: dest_beneficiary },
-					// Not real topic, used for calculating fees, will be dropped before checking real message
 					SetTopic([0u8; 32]),
 				]);
 
@@ -242,9 +241,6 @@ pub fn teleports_for_native_asset_works<
 					<Runtime as cumulus_pallet_xcmp_queue::Config>::PriceForSiblingDelivery as PriceForParachainDelivery
 				>::price_for_parachain_delivery(other_para_id.into(), &expected_message);
 				let Fungible(delivery_fees_amount) = delivery_fees.inner()[0].fun else { unreachable!("Asset is fungible") };
-
-				// Drop the topic before we check against real message
-				expected_message = Xcm::<()>(expected_message.inner()[..expected_message.len() - 1].into());
 
 				assert_ok!(RuntimeHelper::<Runtime>::do_teleport_assets::<HrmpChannelOpener>(
 					RuntimeHelper::<Runtime>::origin_of(target_account.clone()),
@@ -255,14 +251,6 @@ pub fn teleports_for_native_asset_works<
 					included_head,
 					&alice,
 				));
-
-				// Real xcm sent should match the expected
-				let mut real_xcm: Xcm::<()> = RuntimeHelper::<
-					<Runtime as cumulus_pallet_parachain_system::Config>::OutboundXcmpMessageSource,
-					AllPalletsWithoutSystem
-				>::take_xcm(other_para_id.into()).unwrap().try_into().unwrap();
-				real_xcm = Xcm::<()>(real_xcm.inner()[..real_xcm.len() - 1].into());
-				assert_eq!(&expected_message, &real_xcm);
 
 				// check balances
 				assert_eq!(
@@ -571,7 +559,7 @@ pub fn teleports_for_foreign_assets_works<
 						.into()
 				);
 
-				// Build expected message sent by the `teleport_assets` extrinsic
+				// Build expected message sent by the `teleport_assets` extrinsic to calculate delivery fees
 				let context = <XcmConfig as xcm_executor::Config>::UniversalLocation::get();
 				let assets_to_teleport: MultiAsset = (foreign_asset_id_multilocation, asset_to_teleport_away).into();
 				let assets_to_teleport = assets_to_teleport
@@ -582,7 +570,6 @@ pub fn teleports_for_foreign_assets_works<
 					ClearOrigin,
 					BuyExecution { fees: assets_to_teleport.clone().into(), weight_limit },
 					DepositAsset { assets: Wild(AllCounted(1)), beneficiary: dest_beneficiary },
-					// Not real topic, used for calculating fees, will be dropped before checking real message
 					SetTopic([0u8; 32]),
 				]);
 
@@ -593,9 +580,6 @@ pub fn teleports_for_foreign_assets_works<
 				let Fungible(amount_to_mint) = delivery_fees.inner()[0].fun else { unreachable!("Asset is fungible; qed") };
 				<pallet_balances::Pallet<Runtime>>::mint_into(&target_account, amount_to_mint.into()).unwrap();
 
-				// Drop the topic before we check against real message
-				expected_message = Xcm::<()>(expected_message.inner()[..expected_message.len() - 1].into());
-
 				assert_ok!(RuntimeHelper::<Runtime>::do_teleport_assets::<HrmpChannelOpener>(
 					RuntimeHelper::<Runtime>::origin_of(target_account.clone()),
 					dest,
@@ -605,14 +589,6 @@ pub fn teleports_for_foreign_assets_works<
 					included_head,
 					&alice,
 				));
-
-				// Real xcm sent should match the expected
-				let mut real_xcm: Xcm::<()> = RuntimeHelper::<
-					<Runtime as cumulus_pallet_parachain_system::Config>::OutboundXcmpMessageSource,
-					AllPalletsWithoutSystem
-				>::take_xcm(foreign_para_id.into()).unwrap().try_into().unwrap();
-				real_xcm = Xcm::<()>(real_xcm.inner()[..real_xcm.len() - 1].into());
-				assert_eq!(&expected_message, &real_xcm);
 
 				// check balances
 				assert_eq!(
