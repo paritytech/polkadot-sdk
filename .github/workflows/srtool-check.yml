@@ -51,10 +51,10 @@ jobs:
 
   srtool:
     runs-on: ubuntu-latest
-    continue-on-error: true
     needs:
       - find-runtimes
     strategy:
+      fail-fast: false
       matrix: ${{ fromJSON(needs.find-runtimes.outputs.runtime) }}
 
     steps:
