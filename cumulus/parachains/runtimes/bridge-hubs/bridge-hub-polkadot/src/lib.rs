@@ -24,6 +24,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod bridge_bulletin_config;
 pub mod bridge_kusama_config;
+mod messages_generator;
 mod weights;
 pub mod xcm_config;
 
@@ -573,6 +574,8 @@ impl pallet_bridge_messages::Config<WithPolkadotBulletinMessagesInstance> for Ru
 	type OnMessagesDelivered = ();
 }
 
+impl messages_generator::Config for Runtime {}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -615,6 +618,7 @@ construct_runtime!(
 		// Polkadot<>Bulletin bridge pallets
 		BridgePolkadotBulletinGrandpa: pallet_bridge_grandpa::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 55,
 		BridgePolkadotBulletinMessages: pallet_bridge_messages::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 56,
+		BridgePolkadotBulletinMessagesGenerator: messages_generator::{Pallet} = 57,
 	}
 );
 
@@ -856,6 +860,31 @@ impl_runtime_apis! {
 		fn synced_headers_grandpa_info(
 		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_polkadot_bulletin::Header>> {
 			BridgePolkadotBulletinGrandpa::synced_headers_grandpa_info()
+		}
+	}
+
+	impl bp_polkadot_bulletin::FromPolkadotBulletinInboundLaneApi<Block> for Runtime {
+		fn message_details(
+			lane: bp_messages::LaneId,
+			messages: Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
+		) -> Vec<bp_messages::InboundMessageDetails> {
+			bridge_runtime_common::messages_api::inbound_message_details::<
+				Runtime,
+				WithPolkadotBulletinMessagesInstance,
+			>(lane, messages)
+		}
+	}
+
+	impl bp_polkadot_bulletin::ToPolkadotBulletinOutboundLaneApi<Block> for Runtime {
+		fn message_details(
+			lane: bp_messages::LaneId,
+			begin: bp_messages::MessageNonce,
+			end: bp_messages::MessageNonce,
+		) -> Vec<bp_messages::OutboundMessageDetails> {
+			bridge_runtime_common::messages_api::outbound_message_details::<
+				Runtime,
+				WithPolkadotBulletinMessagesInstance,
+			>(lane, begin, end)
 		}
 	}
 
