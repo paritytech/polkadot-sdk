@@ -250,7 +250,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			SetFeesMode { jit_withdraw: true },
 			DepositAsset {
 				assets: Wild(AllCounted(2 /* max assets */)),
-				beneficiary: sov_penpal_on_asset_hub_kusama_as_location.clone(),
+				beneficiary: sov_penpal_on_asset_hub_kusama_as_location,
 			},
 		]);
 
