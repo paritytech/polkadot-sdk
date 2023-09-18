@@ -745,7 +745,6 @@ where
 
 	futures::pin_mut!(orchestra_signal_handler);
 
-	// TODO: use `select_with_strategy` here to prefer signals processing
 	futures::future::select(orchestra_signal_handler, network_event_handler)
 		.await
 		.factor_first()
