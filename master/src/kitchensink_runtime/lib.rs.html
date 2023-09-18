@@ -2791,6 +2791,8 @@
 <a href="#2791" id="2791">2791</a>
 <a href="#2792" id="2792">2792</a>
 <a href="#2793" id="2793">2793</a>
+<a href="#2794" id="2794">2794</a>
+<a href="#2795" id="2795">2795</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2851,7 +2853,7 @@
 <span class="kw">use </span>node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 <span class="kw">use </span>pallet_asset_conversion::{NativeOrAssetId, NativeOrAssetIdConverter};
 <span class="kw">use </span>pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
-<span class="kw">use </span>pallet_election_provider_multi_phase::SolutionAccuracyOf;
+<span class="kw">use </span>pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 <span class="kw">use </span>pallet_im_online::sr25519::AuthorityId <span class="kw">as </span>ImOnlineId;
 <span class="kw">use </span>pallet_nfts::PalletFeatures;
 <span class="kw">use </span>pallet_nis::WithMaximumOf;
@@ -3487,7 +3489,8 @@
 
 	<span class="comment">// signed config
 	</span><span class="kw">pub const </span>SignedRewardBase: Balance = <span class="number">1 </span>* DOLLARS;
-	<span class="kw">pub const </span>SignedDepositBase: Balance = <span class="number">1 </span>* DOLLARS;
+	<span class="kw">pub const </span>SignedFixedDeposit: Balance = <span class="number">1 </span>* DOLLARS;
+	<span class="kw">pub const </span>SignedDepositIncreaseFactor: Percent = Percent::from_percent(<span class="number">10</span>);
 	<span class="kw">pub const </span>SignedDepositByte: Balance = <span class="number">1 </span>* CENTS;
 
 	<span class="kw">pub </span>BetterUnsignedThreshold: Perbill = Perbill::from_rational(<span class="number">1u32</span>, <span class="number">10_000</span>);
@@ -3615,7 +3618,8 @@
 	<span class="kw">type </span>MinerConfig = <span class="self">Self</span>;
 	<span class="kw">type </span>SignedMaxSubmissions = ConstU32&lt;<span class="number">10</span>&gt;;
 	<span class="kw">type </span>SignedRewardBase = SignedRewardBase;
-	<span class="kw">type </span>SignedDepositBase = SignedDepositBase;
+	<span class="kw">type </span>SignedDepositBase =
+		GeometricDepositBase&lt;Balance, SignedFixedDeposit, SignedDepositIncreaseFactor&gt;;
 	<span class="kw">type </span>SignedDepositByte = SignedDepositByte;
 	<span class="kw">type </span>SignedMaxRefunds = ConstU32&lt;<span class="number">3</span>&gt;;
 	<span class="kw">type </span>SignedDepositWeight = ();

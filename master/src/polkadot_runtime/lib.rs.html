@@ -2604,6 +2604,9 @@
 <a href="#2604" id="2604">2604</a>
 <a href="#2605" id="2605">2605</a>
 <a href="#2606" id="2606">2606</a>
+<a href="#2607" id="2607">2607</a>
+<a href="#2608" id="2608">2608</a>
+<a href="#2609" id="2609">2609</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2696,7 +2699,7 @@
 
 <span class="kw">pub use </span>frame_system::Call <span class="kw">as </span>SystemCall;
 <span class="kw">pub use </span>pallet_balances::Call <span class="kw">as </span>BalancesCall;
-<span class="kw">pub use </span>pallet_election_provider_multi_phase::Call <span class="kw">as </span>EPMCall;
+<span class="kw">pub use </span>pallet_election_provider_multi_phase::{Call <span class="kw">as </span>EPMCall, GeometricDepositBase};
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub use </span>pallet_staking::StakerStatus;
 <span class="kw">use </span>pallet_staking::UseValidatorsMap;
@@ -2988,6 +2991,8 @@
 	<span class="comment">// signed config
 	</span><span class="kw">pub const </span>SignedMaxSubmissions: u32 = <span class="number">16</span>;
 	<span class="kw">pub const </span>SignedMaxRefunds: u32 = <span class="number">16 </span>/ <span class="number">4</span>;
+	<span class="kw">pub const </span>SignedFixedDeposit: Balance = deposit(<span class="number">2</span>, <span class="number">0</span>);
+	<span class="kw">pub const </span>SignedDepositIncreaseFactor: Percent = Percent::from_percent(<span class="number">10</span>);
 	<span class="comment">// 40 DOTs fixed deposit..
 	</span><span class="kw">pub const </span>SignedDepositBase: Balance = deposit(<span class="number">2</span>, <span class="number">0</span>);
 	<span class="comment">// 0.01 DOT per KB of solution data.
@@ -3062,7 +3067,8 @@
 	<span class="kw">type </span>SignedMaxSubmissions = SignedMaxSubmissions;
 	<span class="kw">type </span>SignedMaxRefunds = SignedMaxRefunds;
 	<span class="kw">type </span>SignedRewardBase = SignedRewardBase;
-	<span class="kw">type </span>SignedDepositBase = SignedDepositBase;
+	<span class="kw">type </span>SignedDepositBase =
+		GeometricDepositBase&lt;Balance, SignedFixedDeposit, SignedDepositIncreaseFactor&gt;;
 	<span class="kw">type </span>SignedDepositByte = SignedDepositByte;
 	<span class="kw">type </span>SignedDepositWeight = ();
 	<span class="kw">type </span>SignedMaxWeight =
@@ -4958,7 +4964,7 @@
 	</span><span class="kw">fn </span>signed_deposit_is_sensible() {
 		<span class="comment">// ensure this number does not change, or that it is checked after each change.
 		// a 1 MB solution should take (40 + 10) DOTs of deposit.
-		</span><span class="kw">let </span>deposit = SignedDepositBase::get() + (SignedDepositByte::get() * <span class="number">1024 </span>* <span class="number">1024</span>);
+		</span><span class="kw">let </span>deposit = SignedFixedDeposit::get() + (SignedDepositByte::get() * <span class="number">1024 </span>* <span class="number">1024</span>);
 		<span class="macro">assert_eq_error_rate!</span>(deposit, <span class="number">50 </span>* DOLLARS, DOLLARS);
 	}
 }

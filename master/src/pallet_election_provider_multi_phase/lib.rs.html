@@ -2695,6 +2695,7 @@
 <a href="#2695" id="2695">2695</a>
 <a href="#2696" id="2696">2696</a>
 <a href="#2697" id="2697">2697</a>
+<a href="#2698" id="2698">2698</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2976,8 +2977,8 @@
 <span class="kw">pub use </span>weights::WeightInfo;
 
 <span class="kw">pub use </span>signed::{
-	BalanceOf, NegativeImbalanceOf, PositiveImbalanceOf, SignedSubmission, SignedSubmissionOf,
-	SignedSubmissions, SubmissionIndicesOf,
+	BalanceOf, GeometricDepositBase, NegativeImbalanceOf, PositiveImbalanceOf, SignedSubmission,
+	SignedSubmissionOf, SignedSubmissions, SubmissionIndicesOf,
 };
 <span class="kw">pub use </span>unsigned::{Miner, MinerConfig};
 
@@ -3269,6 +3270,7 @@
 	<span class="kw">use </span>frame_election_provider_support::{InstantElectionProvider, NposSolver};
 	<span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, traits::EstimateCallFee};
 	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
+	<span class="kw">use </span>sp_runtime::traits::Convert;
 
 	<span class="attr">#[pallet::config]
 	</span><span class="kw">pub trait </span>Config: frame_system::Config + SendTransactionTypes&lt;Call&lt;<span class="self">Self</span>&gt;&gt; {
@@ -3346,10 +3348,6 @@
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>SignedRewardBase: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
-		<span class="doccomment">/// Base deposit for a signed solution.
-		</span><span class="attr">#[pallet::constant]
-		</span><span class="kw">type </span>SignedDepositBase: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
-
 		<span class="doccomment">/// Per-byte deposit for a signed solution.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>SignedDepositByte: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
@@ -3364,6 +3362,10 @@
 		/// Note: This must always be greater or equal to `T::DataProvider::desired_targets()`.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>MaxWinners: Get&lt;u32&gt;;
+
+		<span class="doccomment">/// Something that calculates the signed deposit base based on the signed submissions queue
+		/// size.
+		</span><span class="kw">type </span>SignedDepositBase: Convert&lt;usize, BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// The maximum number of electing voters and electable targets to put in the snapshot.
 		/// At the moment, snapshots are only over a single block, but once multi-block elections

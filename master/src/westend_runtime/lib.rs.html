@@ -2226,6 +2226,8 @@
 <a href="#2226" id="2226">2226</a>
 <a href="#2227" id="2227">2227</a>
 <a href="#2228" id="2228">2228</a>
+<a href="#2229" id="2229">2229</a>
+<a href="#2230" id="2230">2230</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2307,7 +2309,7 @@
 		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill,
+	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent,
 };
 <span class="kw">use </span>sp_staking::SessionIndex;
 <span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, prelude::<span class="kw-2">*</span>};
@@ -2318,7 +2320,7 @@
 
 <span class="kw">pub use </span>frame_system::Call <span class="kw">as </span>SystemCall;
 <span class="kw">pub use </span>pallet_balances::Call <span class="kw">as </span>BalancesCall;
-<span class="kw">pub use </span>pallet_election_provider_multi_phase::Call <span class="kw">as </span>EPMCall;
+<span class="kw">pub use </span>pallet_election_provider_multi_phase::{Call <span class="kw">as </span>EPMCall, GeometricDepositBase};
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub use </span>pallet_staking::StakerStatus;
 <span class="kw">use </span>pallet_staking::UseValidatorsMap;
@@ -2709,7 +2711,8 @@
 	<span class="comment">// signed config
 	</span><span class="kw">pub const </span>SignedMaxSubmissions: u32 = <span class="number">128</span>;
 	<span class="kw">pub const </span>SignedMaxRefunds: u32 = <span class="number">128 </span>/ <span class="number">4</span>;
-	<span class="kw">pub const </span>SignedDepositBase: Balance = deposit(<span class="number">2</span>, <span class="number">0</span>);
+	<span class="kw">pub const </span>SignedFixedDeposit: Balance = deposit(<span class="number">2</span>, <span class="number">0</span>);
+	<span class="kw">pub const </span>SignedDepositIncreaseFactor: Percent = Percent::from_percent(<span class="number">10</span>);
 	<span class="kw">pub const </span>SignedDepositByte: Balance = deposit(<span class="number">0</span>, <span class="number">10</span>) / <span class="number">1024</span>;
 	<span class="comment">// Each good submission will get 1 WND as reward
 	</span><span class="kw">pub </span>SignedRewardBase: Balance = <span class="number">1 </span>* UNITS;
@@ -2781,7 +2784,8 @@
 	<span class="kw">type </span>SignedMaxSubmissions = SignedMaxSubmissions;
 	<span class="kw">type </span>SignedMaxRefunds = SignedMaxRefunds;
 	<span class="kw">type </span>SignedRewardBase = SignedRewardBase;
-	<span class="kw">type </span>SignedDepositBase = SignedDepositBase;
+	<span class="kw">type </span>SignedDepositBase =
+		GeometricDepositBase&lt;Balance, SignedFixedDeposit, SignedDepositIncreaseFactor&gt;;
 	<span class="kw">type </span>SignedDepositByte = SignedDepositByte;
 	<span class="kw">type </span>SignedDepositWeight = ();
 	<span class="kw">type </span>SignedMaxWeight =

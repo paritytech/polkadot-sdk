@@ -1395,6 +1395,85 @@
 <a href="#1395" id="1395">1395</a>
 <a href="#1396" id="1396">1396</a>
 <a href="#1397" id="1397">1397</a>
+<a href="#1398" id="1398">1398</a>
+<a href="#1399" id="1399">1399</a>
+<a href="#1400" id="1400">1400</a>
+<a href="#1401" id="1401">1401</a>
+<a href="#1402" id="1402">1402</a>
+<a href="#1403" id="1403">1403</a>
+<a href="#1404" id="1404">1404</a>
+<a href="#1405" id="1405">1405</a>
+<a href="#1406" id="1406">1406</a>
+<a href="#1407" id="1407">1407</a>
+<a href="#1408" id="1408">1408</a>
+<a href="#1409" id="1409">1409</a>
+<a href="#1410" id="1410">1410</a>
+<a href="#1411" id="1411">1411</a>
+<a href="#1412" id="1412">1412</a>
+<a href="#1413" id="1413">1413</a>
+<a href="#1414" id="1414">1414</a>
+<a href="#1415" id="1415">1415</a>
+<a href="#1416" id="1416">1416</a>
+<a href="#1417" id="1417">1417</a>
+<a href="#1418" id="1418">1418</a>
+<a href="#1419" id="1419">1419</a>
+<a href="#1420" id="1420">1420</a>
+<a href="#1421" id="1421">1421</a>
+<a href="#1422" id="1422">1422</a>
+<a href="#1423" id="1423">1423</a>
+<a href="#1424" id="1424">1424</a>
+<a href="#1425" id="1425">1425</a>
+<a href="#1426" id="1426">1426</a>
+<a href="#1427" id="1427">1427</a>
+<a href="#1428" id="1428">1428</a>
+<a href="#1429" id="1429">1429</a>
+<a href="#1430" id="1430">1430</a>
+<a href="#1431" id="1431">1431</a>
+<a href="#1432" id="1432">1432</a>
+<a href="#1433" id="1433">1433</a>
+<a href="#1434" id="1434">1434</a>
+<a href="#1435" id="1435">1435</a>
+<a href="#1436" id="1436">1436</a>
+<a href="#1437" id="1437">1437</a>
+<a href="#1438" id="1438">1438</a>
+<a href="#1439" id="1439">1439</a>
+<a href="#1440" id="1440">1440</a>
+<a href="#1441" id="1441">1441</a>
+<a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
+<a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
+<a href="#1447" id="1447">1447</a>
+<a href="#1448" id="1448">1448</a>
+<a href="#1449" id="1449">1449</a>
+<a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
+<a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1414,7 +1493,9 @@
 
 </span><span class="doccomment">//! The signed phase implementation.
 
-</span><span class="kw">use crate</span>::{
+</span><span class="kw">use </span>core::marker::PhantomData;
+
+<span class="kw">use crate</span>::{
 	unsigned::MinerConfig, Config, ElectionCompute, Pallet, QueuedSolution, RawSolution,
 	ReadySolution, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
 	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
@@ -1429,8 +1510,8 @@
 <span class="kw">use </span>sp_core::bounded::BoundedVec;
 <span class="kw">use </span>sp_npos_elections::ElectionScore;
 <span class="kw">use </span>sp_runtime::{
-	traits::{Saturating, Zero},
-	RuntimeDebug,
+	traits::{Convert, Saturating, Zero},
+	FixedPointNumber, FixedPointOperand, FixedU128, Percent, RuntimeDebug,
 };
 <span class="kw">use </span>sp_std::{
 	cmp::Ordering,
@@ -1745,6 +1826,32 @@
 	}
 }
 
+<span class="doccomment">/// Type that can be used to calculate the deposit base for signed submissions.
+///
+/// The deposit base is calculated as a geometric progression based on the number of signed
+/// submissions in the queue. The size of the queue represents the progression term.
+</span><span class="kw">pub struct </span>GeometricDepositBase&lt;Balance, Fixed, Inc&gt; {
+	_marker: (PhantomData&lt;Balance&gt;, PhantomData&lt;Fixed&gt;, PhantomData&lt;Inc&gt;),
+}
+
+<span class="kw">impl</span>&lt;Balance, Fixed, Inc&gt; Convert&lt;usize, Balance&gt; <span class="kw">for </span>GeometricDepositBase&lt;Balance, Fixed, Inc&gt;
+<span class="kw">where
+	</span>Balance: FixedPointOperand,
+	Fixed: Get&lt;Balance&gt;,
+	Inc: Get&lt;Percent&gt;,
+{
+	<span class="comment">// Calculates the base deposit as a geometric progression based on the number of signed
+	// submissions.
+	//
+	// The nth term is obtained by calculating `base * (1 + increase_factor)^nth`. Example: factor
+	// 5, with initial deposit of 1000 and 10% of increase factor is 1000 * (1 + 0.1)^5.
+	</span><span class="kw">fn </span>convert(queue_len: usize) -&gt; Balance {
+		<span class="kw">let </span>increase_factor: FixedU128 = FixedU128::from_u32(<span class="number">1</span>) + Inc::get().into();
+
+		increase_factor.saturating_pow(queue_len).saturating_mul_int(Fixed::get())
+	}
+}
+
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 	<span class="doccomment">/// `Self` accessor for `SignedSubmission&lt;T&gt;`.
 	</span><span class="kw">pub fn </span>signed_submissions() -&gt; SignedSubmissions&lt;T&gt; {
@@ -1917,14 +2024,14 @@
 		size: SolutionOrSnapshotSize,
 	) -&gt; BalanceOf&lt;T&gt; {
 		<span class="kw">let </span>encoded_len: u32 = raw_solution.encoded_size().saturated_into();
-		<span class="kw">let </span>encoded_len: BalanceOf&lt;T&gt; = encoded_len.into();
+		<span class="kw">let </span>encoded_len_balance: BalanceOf&lt;T&gt; = encoded_len.into();
 		<span class="kw">let </span>feasibility_weight = <span class="self">Self</span>::solution_weight_of(raw_solution, size);
 
-		<span class="kw">let </span>len_deposit = T::SignedDepositByte::get().saturating_mul(encoded_len);
+		<span class="kw">let </span>len_deposit = T::SignedDepositByte::get().saturating_mul(encoded_len_balance);
 		<span class="kw">let </span>weight_deposit = T::SignedDepositWeight::get()
 			.saturating_mul(feasibility_weight.ref_time().saturated_into());
 
-		T::SignedDepositBase::get()
+		T::SignedDepositBase::convert(<span class="self">Self</span>::signed_submissions().len())
 			.saturating_add(len_deposit)
 			.saturating_add(weight_deposit)
 	}
@@ -1938,6 +2045,7 @@
 		Phase,
 	};
 	<span class="kw">use </span>frame_support::{assert_noop, assert_ok, assert_storage_noop};
+	<span class="kw">use </span>sp_runtime::Percent;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>cannot_submit_too_early() {
@@ -2174,6 +2282,56 @@
 				Error::&lt;Runtime&gt;::SignedQueueFull,
 			);
 		})
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>geometric_deposit_queue_size_works() {
+		<span class="kw">let </span>constant = <span class="macro">vec!</span>[<span class="number">1000</span>; <span class="number">10</span>];
+		<span class="comment">// geometric progression with 10% increase in each iteration for 10 terms.
+		</span><span class="kw">let </span>progression_10 = <span class="macro">vec!</span>[<span class="number">1000</span>, <span class="number">1100</span>, <span class="number">1210</span>, <span class="number">1331</span>, <span class="number">1464</span>, <span class="number">1610</span>, <span class="number">1771</span>, <span class="number">1948</span>, <span class="number">2143</span>, <span class="number">2357</span>];
+		<span class="kw">let </span>progression_40 = <span class="macro">vec!</span>[<span class="number">1000</span>, <span class="number">1400</span>, <span class="number">1960</span>, <span class="number">2744</span>, <span class="number">3841</span>, <span class="number">5378</span>, <span class="number">7529</span>, <span class="number">10541</span>, <span class="number">14757</span>, <span class="number">20661</span>];
+
+		<span class="kw">let </span>check_progressive_base_fee = |expected: <span class="kw-2">&amp;</span>Vec&lt;u64&gt;| {
+			<span class="kw">for </span>s <span class="kw">in </span><span class="number">0</span>..SignedMaxSubmissions::get() {
+				<span class="kw">let </span>account = <span class="number">99 </span>+ s <span class="kw">as </span>u64;
+				Balances::make_free_balance_be(<span class="kw-2">&amp;</span>account, <span class="number">10000000</span>);
+				<span class="kw">let </span><span class="kw-2">mut </span>solution = raw_solution();
+				solution.score.minimal_stake -= s <span class="kw">as </span>u128;
+
+				<span class="macro">assert_ok!</span>(MultiPhase::submit(RuntimeOrigin::signed(account), Box::new(solution)));
+				<span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span>account).<span class="number">1</span>, expected[s <span class="kw">as </span>usize])
+			}
+		};
+
+		ExtBuilder::default()
+			.signed_max_submission(<span class="number">10</span>)
+			.signed_base_deposit(<span class="number">1000</span>, <span class="bool-val">true</span>, Percent::from_percent(<span class="number">0</span>))
+			.build_and_execute(|| {
+				roll_to_signed();
+				<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+
+				check_progressive_base_fee(<span class="kw-2">&amp;</span>constant);
+			});
+
+		ExtBuilder::default()
+			.signed_max_submission(<span class="number">10</span>)
+			.signed_base_deposit(<span class="number">1000</span>, <span class="bool-val">true</span>, Percent::from_percent(<span class="number">10</span>))
+			.build_and_execute(|| {
+				roll_to_signed();
+				<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+
+				check_progressive_base_fee(<span class="kw-2">&amp;</span>progression_10);
+			});
+
+		ExtBuilder::default()
+			.signed_max_submission(<span class="number">10</span>)
+			.signed_base_deposit(<span class="number">1000</span>, <span class="bool-val">true</span>, Percent::from_percent(<span class="number">40</span>))
+			.build_and_execute(|| {
+				roll_to_signed();
+				<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+
+				check_progressive_base_fee(<span class="kw-2">&amp;</span>progression_40);
+			});
 	}
 
 	<span class="attr">#[test]
