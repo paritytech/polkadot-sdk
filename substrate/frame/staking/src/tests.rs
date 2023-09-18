@@ -1807,10 +1807,7 @@ fn reap_stash_works() {
 
 			// no easy way to cause an account to go below ED, we tweak their staking ledger
 			// instead.
-			Ledger::<Test>::insert(
-				11,
-				StakingLedger::<Test>::new(11, 5, 5, bounded_vec![], bounded_vec![]),
-			);
+			Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 5, bounded_vec![]));
 
 			// reap-able
 			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
@@ -5521,7 +5518,10 @@ fn proportional_slash_stop_slashing_if_remaining_zero() {
 	let unlocking = bounded_vec![c(1, 10), c(2, 10)];
 
 	// Given
-	let mut ledger = StakingLedger::<Test>::new(123, 40, 20, unlocking, bounded_vec![]);
+	let mut ledger = StakingLedger::<Test>::new(123, 20, bounded_vec![]);
+	ledger.total = 40;
+	ledger.unlocking = unlocking;
+
 	assert_eq!(BondingDuration::get(), 3);
 
 	// should not slash more than the amount requested, by accidentally slashing the first chunk.
@@ -5532,7 +5532,7 @@ fn proportional_slash_stop_slashing_if_remaining_zero() {
 fn proportional_ledger_slash_works() {
 	let c = |era, value| UnlockChunk::<Balance> { era, value };
 	// Given
-	let mut ledger = StakingLedger::<Test>::new(123, 10, 10, bounded_vec![], bounded_vec![]);
+	let mut ledger = StakingLedger::<Test>::new(123, 10, bounded_vec![]);
 	assert_eq!(BondingDuration::get(), 3);
 
 	// When we slash a ledger with no unlocking chunks

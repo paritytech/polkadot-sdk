@@ -860,8 +860,6 @@ pub mod pallet {
 			let ledger = StakingLedger::<T>::new(
 				stash.clone(),
 				value,
-				value,
-				Default::default(),
 				(last_reward_era..current_era)
 					.try_collect()
 					// Since last_reward_era is calculated as `current_era -

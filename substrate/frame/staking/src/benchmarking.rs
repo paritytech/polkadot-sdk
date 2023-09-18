@@ -687,8 +687,6 @@ benchmarks! {
 		let l = StakingLedger::<T>::new(
 			stash.clone(),
 			T::Currency::minimum_balance() - One::one(),
-			T::Currency::minimum_balance() - One::one(),
-			Default::default(),
 			Default::default(),
 		);
 		Ledger::<T>::insert(&controller, l);

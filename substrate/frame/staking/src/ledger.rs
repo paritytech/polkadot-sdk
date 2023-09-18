@@ -40,27 +40,22 @@ use sp_staking::{EraIndex, StakingAccount};
 use sp_std::prelude::*;
 
 use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger, UnlockChunk,
-	STAKING_ID,
+	BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger, STAKING_ID,
 };
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
-use {
-	codec::{Decode, Encode, MaxEncodedLen},
-	scale_info::TypeInfo,
-	sp_runtime::traits::Zero,
-};
+use sp_runtime::traits::Zero;
 
 impl<T: Config> StakingLedger<T> {
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub fn default_from(stash: T::AccountId) -> Self {
 		Self {
-			stash,
+			stash: stash.clone(),
 			total: Zero::zero(),
 			active: Zero::zero(),
 			unlocking: Default::default(),
 			claimed_rewards: Default::default(),
-			controller: Default::default(),
+			controller: Some(stash),
 		}
 	}
 
@@ -73,16 +68,14 @@ impl<T: Config> StakingLedger<T> {
 	/// controller account.
 	pub fn new(
 		stash: T::AccountId,
-		active_stake: BalanceOf<T>,
-		total_stake: BalanceOf<T>,
-		unlocking: BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>,
+		stake: BalanceOf<T>,
 		claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
 	) -> Self {
 		Self {
 			stash: stash.clone(),
-			active: active_stake,
-			total: total_stake,
-			unlocking,
+			active: stake,
+			total: stake,
+			unlocking: Default::default(),
 			claimed_rewards,
 			// controllers are deprecated and mapped 1-1 to stashes.
 			controller: Some(stash),
@@ -129,7 +122,7 @@ impl<T: Config> StakingLedger<T> {
 				ledger.controller = Some(controller.clone());
 				ledger
 			})
-			.ok_or_else(|| Error::<T>::NotController)
+			.ok_or(Error::<T>::NotController)
 	}
 
 	/// Returns the reward destination of a staking ledger, stored in [`Payee`].
@@ -160,9 +153,10 @@ impl<T: Config> StakingLedger<T> {
 	/// [`Ledger`] instead of through the methods exposed in [`StakingLedger`]. If the ledger does
 	/// not exist in storage, it returns `None`.
 	pub(crate) fn controller(&self) -> Option<T::AccountId> {
-		self.controller
-			.clone()
-			.or_else(|| Self::paired_account(StakingAccount::Stash(self.stash.clone())))
+		self.controller.clone().or_else(|| {
+			defensive!("fetched a controller on a ledger instance without it.");
+			Self::paired_account(StakingAccount::Stash(self.stash.clone()))
+		})
 	}
 
 	/// Inserts/updates a staking ledger account.
@@ -228,6 +222,13 @@ impl<T: Config> StakingLedger<T> {
 		})?
 	}
 }
+
+#[cfg(test)]
+use {
+	crate::UnlockChunk,
+	codec::{Decode, Encode, MaxEncodedLen},
+	scale_info::TypeInfo,
+};
 
 // This structs makes it easy to write tests to compare staking ledgers fetched from storage. This
 // is required because the controller field is not stored in storage and it is private.

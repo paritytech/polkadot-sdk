@@ -1123,13 +1123,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		<Bonded<T>>::insert(voter.clone(), voter.clone());
 		<Ledger<T>>::insert(
 			voter.clone(),
-			StakingLedger::<T>::new(
-				voter.clone(),
-				stake,
-				stake,
-				Default::default(),
-				Default::default(),
-			),
+			StakingLedger::<T>::new(voter.clone(), stake, Default::default()),
 		);
 
 		Self::do_add_nominator(&voter, Nominations { targets, submitted_in: 0, suppressed: false });
@@ -1141,13 +1135,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		<Bonded<T>>::insert(target.clone(), target.clone());
 		<Ledger<T>>::insert(
 			target.clone(),
-			StakingLedger::<T>::new(
-				target.clone(),
-				stake,
-				stake,
-				Default::default(),
-				Default::default(),
-			),
+			StakingLedger::<T>::new(target.clone(), stake, Default::default()),
 		);
 		Self::do_add_validator(
 			&target,
@@ -1182,13 +1170,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			<Bonded<T>>::insert(v.clone(), v.clone());
 			<Ledger<T>>::insert(
 				v.clone(),
-				StakingLedger::<T>::new(
-					v.clone(),
-					stake,
-					stake,
-					Default::default(),
-					Default::default(),
-				),
+				StakingLedger::<T>::new(v.clone(), stake, Default::default()),
 			);
 			Self::do_add_validator(
 				&v,
@@ -1203,13 +1185,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			<Bonded<T>>::insert(v.clone(), v.clone());
 			<Ledger<T>>::insert(
 				v.clone(),
-				StakingLedger::<T>::new(
-					v.clone(),
-					stake,
-					stake,
-					Default::default(),
-					Default::default(),
-				),
+				StakingLedger::<T>::new(v.clone(), stake, Default::default()),
 			);
 			Self::do_add_nominator(
 				&v,
