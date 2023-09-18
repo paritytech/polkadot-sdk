@@ -71,6 +71,7 @@ pallet-session = { path = "../../../substrate/frame/session", default-features =
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
 pallet-staking-reward-curve = { path = "../../../substrate/frame/staking/reward-curve" }
+pallet-staking-reward-fn = { path = "../../../substrate/frame/staking/reward-fn", default-features = false }
 pallet-staking-runtime-api = { path = "../../../substrate/frame/staking/runtime-api", default-features = false }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false }
