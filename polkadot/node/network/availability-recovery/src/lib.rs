@@ -424,63 +424,58 @@ async fn handle_recover<Context>(
 	let _span = span.child("session-info-ctx-received");
 	match session_info {
 		Some(session_info) => {
-			let mut prefer_backing_group = true;
-
-			if let RecoveryStrategyKind::BackersFirstIfSizeLower(small_pov_limit) =
-				recovery_strategy_kind
-			{
-				// Get our own chunk size to get an estimate of the PoV size.
-				let chunk_size: Result<Option<usize>, error::Error> =
-					query_chunk_size(ctx, candidate_hash).await;
-				if let Ok(Some(chunk_size)) = chunk_size {
-					let pov_size_estimate =
-						chunk_size.saturating_mul(session_info.validators.len()) / 3;
-					prefer_backing_group = pov_size_estimate < small_pov_limit;
-
-					gum::trace!(
-						target: LOG_TARGET,
-						?candidate_hash,
-						pov_size_estimate,
-						small_pov_limit,
-						enabled = prefer_backing_group,
-						"Prefer fetch from backing group",
-					);
-				} else {
-					// we have a POV limit but were not able to query the chunk size, so don't use
-					// the backing group.
-					prefer_backing_group = false;
-				}
-			};
-
-			let backing_validators = if let Some(backing_group) = backing_group {
-				session_info.validator_groups.get(backing_group)
-			} else {
-				None
-			};
-
-			let fetch_chunks_params = FetchChunksParams {
-				n_validators: session_info.validators.len(),
-				erasure_task_tx: erasure_task_tx.clone(),
-			};
-
 			let mut recovery_strategies: VecDeque<
 				Box<dyn RecoveryStrategy<<Context as SubsystemContext>::Sender>>,
 			> = VecDeque::with_capacity(2);
 
-			if let Some(backing_validators) = backing_validators {
-				match (&recovery_strategy_kind, prefer_backing_group) {
-					(RecoveryStrategyKind::BackersFirstAlways, true) |
-					(RecoveryStrategyKind::BackersFirstIfSizeLower(_), true) |
-					(RecoveryStrategyKind::BypassAvailabilityStore, true) =>
-						recovery_strategies.push_back(Box::new(FetchFull::new(FetchFullParams {
-							validators: backing_validators.to_vec(),
-							erasure_task_tx,
-						}))),
-					_ => {},
-				};
+			if let Some(backing_group) = backing_group {
+				if let Some(backing_validators) = session_info.validator_groups.get(backing_group) {
+					let mut small_pov_size = true;
+
+					if let RecoveryStrategyKind::BackersFirstIfSizeLower(small_pov_limit) =
+						recovery_strategy_kind
+					{
+						// Get our own chunk size to get an estimate of the PoV size.
+						let chunk_size: Result<Option<usize>, error::Error> =
+							query_chunk_size(ctx, candidate_hash).await;
+						if let Ok(Some(chunk_size)) = chunk_size {
+							let pov_size_estimate =
+								chunk_size.saturating_mul(session_info.validators.len()) / 3;
+							small_pov_size = pov_size_estimate < small_pov_limit;
+
+							gum::trace!(
+								target: LOG_TARGET,
+								?candidate_hash,
+								pov_size_estimate,
+								small_pov_limit,
+								enabled = small_pov_size,
+								"Prefer fetch from backing group",
+							);
+						} else {
+							// we have a POV limit but were not able to query the chunk size, so
+							// don't use the backing group.
+							small_pov_size = false;
+						}
+					};
+
+					match (&recovery_strategy_kind, small_pov_size) {
+						(RecoveryStrategyKind::BackersFirstAlways, _) |
+						(RecoveryStrategyKind::BypassAvailabilityStore, _) |
+						(RecoveryStrategyKind::BackersFirstIfSizeLower(_), true) => recovery_strategies.push_back(
+							Box::new(FetchFull::new(FetchFullParams {
+								validators: backing_validators.to_vec(),
+								erasure_task_tx: erasure_task_tx.clone(),
+							})),
+						),
+						_ => {},
+					};
+				}
 			}
 
-			recovery_strategies.push_back(Box::new(FetchChunks::new(fetch_chunks_params)));
+			recovery_strategies.push_back(Box::new(FetchChunks::new(FetchChunksParams {
+				n_validators: session_info.validators.len(),
+				erasure_task_tx,
+			})));
 
 			launch_recovery_task(
 				state,
