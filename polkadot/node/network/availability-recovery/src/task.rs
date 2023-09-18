@@ -222,7 +222,7 @@ impl State {
 		sender
 			.send_message(NetworkBridgeTxMessage::SendRequests(
 				requests,
-				IfDisconnected::ImmediateError,
+				IfDisconnected::TryConnect,
 			))
 			.await;
 	}
