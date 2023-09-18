@@ -17,7 +17,7 @@
 use codec::Codec;
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
-use cumulus_client_consensus_aura::collators::{	
+use cumulus_client_consensus_aura::collators::{
 	basic::{self as basic_aura, Params as BasicAuraParams},
 	lookahead::{self as aura, Params as AuraParams},
 };
@@ -1210,7 +1210,7 @@ where
 	.await
 }
 
-/// Start an aura powered parachain node. Asset Hub and Collectives use this.
+/// Start an aura powered parachain node which uses the lookahead collator to support async backing.
 pub async fn start_lookahead_aura_node<RuntimeApi, AuraId: AppCrypto>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
