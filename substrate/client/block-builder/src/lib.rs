@@ -249,7 +249,7 @@ where
 			.map_err(sp_blockchain::Error::StorageChanges)?;
 
 		Ok(BuiltBlock {
-			block: <Block as BlockT>::new(header, self.extrinsics),
+			block: <Block as BlockT>::new(header, self.extrinsics, Vec::new()),
 			storage_changes,
 			proof,
 		})

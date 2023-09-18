@@ -1435,7 +1435,7 @@ impl<T: Config> Pallet<T> {
 		if !auxiliary_data_hash.is_empty() {
 			let hash = T::Hash::decode(&mut &auxiliary_data_hash[..]).unwrap();
 
-			Self::deposit_log(sp_runtime::DigestItem::AuxilaryData(hash.encode()));
+			Self::deposit_log(sp_runtime::DigestItem::AuxiliaryData(hash.encode()));
 		}
 
 		// The following fields

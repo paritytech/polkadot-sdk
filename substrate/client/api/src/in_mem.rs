@@ -61,9 +61,10 @@ impl<B: BlockT> StoredBlock<B> {
 		header: B::Header,
 		body: Option<Vec<B::Extrinsic>>,
 		just: Option<Justifications>,
+		auxiliary_data: Vec<u8>,
 	) -> Self {
 		match body {
-			Some(body) => StoredBlock::Full(B::new(header, body), just),
+			Some(body) => StoredBlock::Full(B::new(header, body, auxiliary_data), just),
 			None => StoredBlock::Header(header, just),
 		}
 	}
@@ -88,12 +89,12 @@ impl<B: BlockT> StoredBlock<B> {
 		}
 	}
 
-	fn into_inner(self) -> (B::Header, Option<Vec<B::Extrinsic>>, Option<Justifications>) {
+	fn into_inner(self) -> (B::Header, Option<Vec<B::Extrinsic>>, Vec<u8>, Option<Justifications>) {
 		match self {
-			StoredBlock::Header(header, just) => (header, None, just),
+			StoredBlock::Header(header, just) => (header, None, Vec::new(), just),
 			StoredBlock::Full(block, just) => {
-				let (header, body) = block.deconstruct();
-				(header, Some(body), just)
+				let (header, body, auxiliary_data) = block.deconstruct();
+				(header, Some(body), auxiliary_data, just)
 			},
 		}
 	}
@@ -158,6 +159,7 @@ impl<Block: BlockT> Blockchain<Block> {
 		header: <Block as BlockT>::Header,
 		justifications: Option<Justifications>,
 		body: Option<Vec<<Block as BlockT>::Extrinsic>>,
+		auxiliary_data: Vec<u8>,
 		new_state: NewBlockState,
 	) -> sp_blockchain::Result<()> {
 		let number = *header.number();
@@ -168,7 +170,9 @@ impl<Block: BlockT> Blockchain<Block> {
 		{
 			let mut storage = self.storage.write();
 			storage.leaves.import(hash, number, *header.parent_hash());
-			storage.blocks.insert(hash, StoredBlock::new(header, body, justifications));
+			storage
+				.blocks
+				.insert(hash, StoredBlock::new(header, body, justifications, auxiliary_data));
 
 			if let NewBlockState::Final = new_state {
 				storage.finalized_hash = hash;
@@ -529,10 +533,13 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 		_indexed_body: Option<Vec<Vec<u8>>>,
 		justifications: Option<Justifications>,
 		state: NewBlockState,
+		auxiliary_data: Vec<u8>,
 	) -> sp_blockchain::Result<()> {
 		assert!(self.pending_block.is_none(), "Only one block per operation is allowed");
-		self.pending_block =
-			Some(PendingBlock { block: StoredBlock::new(header, body, justifications), state });
+		self.pending_block = Some(PendingBlock {
+			block: StoredBlock::new(header, body, justifications, auxiliary_data),
+			state,
+		});
 		Ok(())
 	}
 
@@ -693,7 +700,7 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 
 		if let Some(pending_block) = operation.pending_block {
 			let old_state = &operation.old_state;
-			let (header, body, justification) = pending_block.block.into_inner();
+			let (header, body, auxiliary_data, justification) = pending_block.block.into_inner();
 
 			let hash = header.hash();
 
@@ -704,7 +711,14 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 
 			self.states.write().insert(hash, new_state);
 
-			self.blockchain.insert(hash, header, justification, body, pending_block.state)?;
+			self.blockchain.insert(
+				hash,
+				header,
+				justification,
+				body,
+				auxiliary_data,
+				pending_block.state,
+			)?;
 		}
 
 		if !operation.aux.is_empty() {

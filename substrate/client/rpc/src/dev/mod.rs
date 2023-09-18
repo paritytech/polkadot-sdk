@@ -71,11 +71,11 @@ where
 		let block = {
 			let block = self.client.block(hash).map_err(|e| Error::BlockQueryError(Box::new(e)))?;
 			if let Some(block) = block {
-				let (mut header, body) = block.block.deconstruct();
+				let (mut header, body, auxiliary_data) = block.block.deconstruct();
 				// Remove the `Seal` to ensure we have the number of digests as expected by the
 				// runtime.
 				header.digest_mut().logs.retain(|item| !matches!(item, DigestItem::Seal(_, _)));
-				Block::new(header, body)
+				Block::new(header, body, auxiliary_data)
 			} else {
 				return Ok(None)
 			}

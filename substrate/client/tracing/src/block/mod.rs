@@ -210,7 +210,7 @@ where
 		// Remove all `Seal`s as they are added by the consensus engines after building the block.
 		// On import they are normally removed by the consensus engine.
 		header.digest_mut().logs.retain(|d| d.as_seal().is_none());
-		let block = Block::new(header, extrinsics);
+		let block = Block::new(header, extrinsics, Vec::new());
 
 		let targets = if let Some(t) = &self.targets { t } else { DEFAULT_TARGETS };
 		let block_subscriber = BlockSubscriber::new(targets);

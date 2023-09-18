@@ -724,7 +724,7 @@ impl Encode for EncodeOpaqueValue {
 	}
 }
 
-/// Auxialiary structure for appending a value to a storage item.
+/// Auxiliary structure for appending a value to a storage item.
 pub(crate) struct StorageAppend<'a>(&'a mut Vec<u8>);
 
 impl<'a> StorageAppend<'a> {

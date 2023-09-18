@@ -266,7 +266,7 @@ where
 		Self::initialize_block(block.header());
 		Self::initial_checks(&block);
 
-		let (header, extrinsics) = block.deconstruct();
+		let (header, extrinsics, _) = block.deconstruct();
 
 		let try_apply_extrinsic = |uxt: Block::Extrinsic| -> ApplyExtrinsicResult {
 			sp_io::init_tracing();
@@ -505,7 +505,7 @@ where
 			Self::initial_checks(&block);
 
 			// execute extrinsics
-			let (header, extrinsics) = block.deconstruct();
+			let (header, extrinsics, _) = block.deconstruct();
 			Self::execute_extrinsics_with_book_keeping(extrinsics, *header.number());
 
 			// any final checks

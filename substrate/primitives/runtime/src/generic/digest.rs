@@ -112,7 +112,7 @@ pub enum DigestItem {
 	/// It represents the SCALE-encoded hash of this auxilary data.
 	///
 	/// If this digest item isn't present, the block has no auxliary data associated.
-	AuxilaryData(Vec<u8>),
+	AuxiliaryData(Vec<u8>),
 }
 
 #[cfg(feature = "serde")]
@@ -212,7 +212,7 @@ pub enum DigestItemType {
 	Seal = 5,
 	PreRuntime = 6,
 	RuntimeEnvironmentUpdated = 8,
-	AuxiliaryData = 8,
+	AuxiliaryData = 9,
 }
 
 /// Type of a digest item that contains raw data; this also names the consensus engine ID where
@@ -238,6 +238,7 @@ impl DigestItem {
 			Self::Seal(ref v, ref s) => DigestItemRef::Seal(v, s),
 			Self::Other(ref v) => DigestItemRef::Other(v),
 			Self::RuntimeEnvironmentUpdated => DigestItemRef::RuntimeEnvironmentUpdated,
+			Self::AuxiliaryData(ref v) => DigestItemRef::AuxiliaryData(v)
 		}
 	}
 
@@ -323,7 +324,7 @@ impl Decode for DigestItem {
 			},
 			DigestItemType::Other => Ok(Self::Other(Decode::decode(input)?)),
 			DigestItemType::RuntimeEnvironmentUpdated => Ok(Self::RuntimeEnvironmentUpdated),
-			DigestItemType:: => Ok(Self::RuntimeEnvironmentUpdated),
+			DigestItemType::AuxiliaryData => Ok(Self::AuxiliaryData(Decode::decode(input)?)),
 		}
 	}
 }
@@ -438,6 +439,10 @@ impl<'a> Encode for DigestItemRef<'a> {
 			Self::RuntimeEnvironmentUpdated => {
 				DigestItemType::RuntimeEnvironmentUpdated.encode_to(&mut v);
 			},
+			Self::AuxiliaryData(val) => {
+				DigestItemType::AuxiliaryData.encode_to(&mut v);
+				val.encode_to(&mut v);
+			}
 		}
 
 		v

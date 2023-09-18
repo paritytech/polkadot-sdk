@@ -79,6 +79,7 @@ pub fn construct_genesis_block<Block: BlockT>(
 			Default::default(),
 		),
 		Default::default(),
+		Vec::new(),
 	)
 }
 
