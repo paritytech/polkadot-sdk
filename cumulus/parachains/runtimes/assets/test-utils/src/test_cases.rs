@@ -227,17 +227,14 @@ pub fn teleports_for_native_asset_works<
 				let assets_to_teleport: MultiAsset = (native_asset_id, native_asset_to_teleport_away.into()).into();
 				let assets_to_teleport = assets_to_teleport
 					.reanchored(&dest, context).expect("We know location is invertible; qed");
-				let topic = [
-					233, 54, 126, 48, 202, 61, 104, 83, 26, 134, 191, 227, 183, 110, 21, 231,
-					224, 241, 220, 54, 22, 206, 9, 95, 65, 171, 80, 148, 77, 121, 225, 188,
-				];
 				let weight_limit = Limited(Weight::from_parts(163_503_000, 0));
 				let expected_message = Xcm::<()>(vec![
 					ReceiveTeleportedAsset(assets_to_teleport.clone().into()),
 					ClearOrigin,
 					BuyExecution { fees: assets_to_teleport.clone().into(), weight_limit },
 					DepositAsset { assets: Wild(AllCounted(1)), beneficiary: dest_beneficiary },
-					SetTopic(topic),
+					// Not real topic, used for calculating fees, will be dropped before checking real message
+					SetTopic([0u8; 32]),
 				]);
 
 				// Make sure the target account has enough native asset to pay for delivery fees
@@ -245,6 +242,9 @@ pub fn teleports_for_native_asset_works<
 					<Runtime as cumulus_pallet_xcmp_queue::Config>::PriceForSiblingDelivery as PriceForParachainDelivery
 				>::price_for_parachain_delivery(other_para_id.into(), &expected_message);
 				let Fungible(delivery_fees_amount) = delivery_fees.inner()[0].fun else { unreachable!("Asset is fungible") };
+
+				// Drop the topic before we check against real message
+				let expected_message = Xcm::<()>(expected_message.inner()[..expected_message.len() - 1].into());
 
 				assert_ok!(RuntimeHelper::<Runtime>::do_teleport_assets::<HrmpChannelOpener>(
 					RuntimeHelper::<Runtime>::origin_of(target_account.clone()),
@@ -257,11 +257,12 @@ pub fn teleports_for_native_asset_works<
 				));
 
 				// Real xcm sent should match the expected
-				let real_xcm = RuntimeHelper::<
+				let real_xcm: Xcm::<()> = RuntimeHelper::<
 					<Runtime as cumulus_pallet_parachain_system::Config>::OutboundXcmpMessageSource,
 					AllPalletsWithoutSystem
-				>::take_xcm(other_para_id.into()).unwrap();
-				assert_eq!(&VersionedXcm::V3(expected_message), &real_xcm);
+				>::take_xcm(other_para_id.into()).unwrap().try_into().unwrap();
+				let real_xcm = Xcm::<()>(real_xcm.inner()[..real_xcm.len() - 1].into());
+				assert_eq!(&expected_message, &real_xcm);
 
 				// check balances
 				assert_eq!(
