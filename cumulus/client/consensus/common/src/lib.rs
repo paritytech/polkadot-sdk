@@ -211,6 +211,7 @@ pub trait ParachainBlockImportMarker {}
 impl<B: BlockT, BI, BE> ParachainBlockImportMarker for ParachainBlockImport<B, BI, BE> {}
 
 /// Parameters when searching for suitable parents to build on top of.
+#[derive(Debug)]
 pub struct ParentSearchParams {
 	/// The relay-parent that is intended to be used.
 	pub relay_parent: PHash,
@@ -228,6 +229,7 @@ pub struct ParentSearchParams {
 }
 
 /// A potential parent block returned from [`find_potential_parents`]
+#[derive(Debug, PartialEq)]
 pub struct PotentialParent<B: BlockT> {
 	/// The hash of the block.
 	pub hash: B::Hash,
