@@ -149,7 +149,8 @@
 //! while this binary lives in the Polkadot repository, this particular subcommand of it can work
 //! against any substrate-based chain.
 //!
-//! See the `staking-miner` documentation in the Polkadot repository for more information.
+//! See the [`staking-miner`](https://github.com/paritytech/staking-miner-v2) docs for more
+//! information.
 //!
 //! ## Feasible Solution (correct solution)
 //!
