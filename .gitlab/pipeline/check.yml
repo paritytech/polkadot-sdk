@@ -19,7 +19,7 @@ check-try-runtime:
     - time cargo check --locked -p parachain-template-node --features try-runtime
     # add after https://github.com/paritytech/substrate/pull/14502 is merged
     # experimental code may rely on try-runtime and vice-versa
-    - time cargo check --locked --features try-runtime,experimental
+    - time cargo check --locked --all --features try-runtime,experimental
 
 cargo-fmt-manifest:
   stage: check
