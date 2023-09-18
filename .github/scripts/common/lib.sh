@@ -271,7 +271,7 @@ function find_runtimes() {
   tomls=($(git ls-files '**/Cargo.toml'))
   re=".*-runtime$"
 
-  JSON=$(jq --null-input '[]')
+  JSON=$(jq --null-input '{ "include": [] }')
   for file in "${tomls[@]}"; do
       name=$(toml get -r $file 'package.name')
       if [[ "$name" =~ $re ]]; then
@@ -282,7 +282,7 @@ function find_runtimes() {
             --arg name "$name" \
             --arg runtime_dir "$runtime_dir" \
             '{ "chain": $chain, "crate": $name, "runtime_dir": $runtime_dir }')
-         JSON=$(echo $JSON | jq ". + [$ITEM]")
+         JSON=$(echo $JSON | jq ".include += [$ITEM]")
       fi
   done
   echo $JSON

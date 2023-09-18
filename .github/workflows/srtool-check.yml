@@ -34,6 +34,7 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
           MATRIX=$(find_runtimes)
+          echo $MATRIX
           echo "runtime=$MATRIX" >> $GITHUB_OUTPUT
 
   srtool:
@@ -42,8 +43,7 @@ jobs:
     needs:
       - find-runtimes
     strategy:
-      matrix:
-        include: ${{ fromJSON(needs.find-runtimes.outputs.runtime) }}
+      matrix: ${{ fromJSON(needs.find-runtimes.outputs.runtime) }}
 
     steps:
       - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
