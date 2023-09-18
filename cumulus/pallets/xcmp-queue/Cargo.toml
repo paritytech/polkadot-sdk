@@ -38,7 +38,7 @@ pallet-balances = { path = "../../../substrate/frame/balances" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder" }
 
 # Cumulus
-cumulus-pallet-parachain-system = { path = "../parachain-system" }
+cumulus-pallet-parachain-system = { path = "../parachain-system", features = ["parameterized-consensus-hook"] }
 
 [features]
 default = [ "std" ]
