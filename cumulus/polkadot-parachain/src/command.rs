@@ -52,31 +52,30 @@ enum Runtime {
 }
 
 trait RuntimeResolver {
-	fn runtime(&self) -> Runtime;
+	fn runtime(&self) -> Result<Runtime>;
 }
 
 impl RuntimeResolver for dyn ChainSpec {
-	fn runtime(&self) -> Runtime {
-		runtime(self.id())
+	fn runtime(&self) -> Result<Runtime> {
+		Ok(runtime(self.id()))
 	}
 }
 
 /// Implementation, that can resolve [`Runtime`] from any json configuration file
 impl RuntimeResolver for PathBuf {
-	fn runtime(&self) -> Runtime {
+	fn runtime(&self) -> Result<Runtime> {
 		#[derive(Debug, serde::Deserialize)]
 		struct EmptyChainSpecWithId {
 			id: String,
 		}
 
-		let file = std::fs::File::open(self)
-			.unwrap_or_else(|e| panic!("Failed to open chainspec '{}': {e}", self.display()));
+		let file = std::fs::File::open(self)?;
 
 		let reader = std::io::BufReader::new(file);
 		let chain_spec: EmptyChainSpecWithId = serde_json::from_reader(reader)
 			.expect("Failed to read 'json' file with ChainSpec configuration");
 
-		runtime(&chain_spec.id)
+		Ok(runtime(&chain_spec.id))
 	}
 }
 
@@ -245,7 +244,10 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		// -- Loading a specific spec from disk
 		path => {
 			let path: PathBuf = path.into();
-			match path.runtime() {
+			match path
+				.runtime()
+				.map_err(|e| format!("Failed to open chainspec '{}': {e}", path.display()))?
+			{
 				Runtime::AssetHubPolkadot => Box::new(
 					chain_spec::asset_hubs::AssetHubPolkadotChainSpec::from_json_file(path)?,
 				),
@@ -385,7 +387,7 @@ impl SubstrateCli for RelayChainCli {
 /// Creates partial components for the runtimes that are supported by the benchmarks.
 macro_rules! construct_benchmark_partials {
 	($config:expr, |$partials:ident| $code:expr) => {
-		match $config.chain_spec.runtime() {
+		match $config.chain_spec.runtime()? {
 			Runtime::AssetHubKusama => {
 				let $partials = new_partial::<asset_hub_kusama_runtime::RuntimeApi, _>(
 					&$config,
@@ -466,7 +468,7 @@ macro_rules! construct_benchmark_partials {
 macro_rules! construct_async_run {
 	(|$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* ) => {{
 		let runner = $cli.create_runner($cmd)?;
-		match runner.config().chain_spec.runtime() {
+		match runner.config().chain_spec.runtime()? {
 			Runtime::AssetHubWestend => {
 				runner.async_run(|$config| {
 					let $components = new_partial::<asset_hub_westend_runtime::RuntimeApi, _>(
@@ -801,7 +803,7 @@ pub fn run() -> Result<()> {
 				info!("Parachain Account: {}", parachain_account);
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
-				match config.chain_spec.runtime() {
+				match config.chain_spec.runtime()? {
 					Runtime::AssetHubPolkadot => crate::service::start_generic_aura_node::<
 						asset_hub_polkadot_runtime::RuntimeApi,
 						AssetHubPolkadotAuraId,
@@ -1137,36 +1139,36 @@ mod tests {
 			&temp_dir,
 			Box::new(create_default_with_extensions("shell-1", Extensions1::default())),
 		);
-		assert_eq!(Runtime::Shell, path.runtime());
+		assert_eq!(Runtime::Shell, path.runtime().unwrap());
 
 		let path = store_configuration(
 			&temp_dir,
 			Box::new(create_default_with_extensions("shell-2", Extensions2::default())),
 		);
-		assert_eq!(Runtime::Shell, path.runtime());
+		assert_eq!(Runtime::Shell, path.runtime().unwrap());
 
 		let path = store_configuration(
 			&temp_dir,
 			Box::new(create_default_with_extensions("seedling", Extensions2::default())),
 		);
-		assert_eq!(Runtime::Seedling, path.runtime());
+		assert_eq!(Runtime::Seedling, path.runtime().unwrap());
 
 		let path = store_configuration(
 			&temp_dir,
 			Box::new(crate::chain_spec::rococo_parachain::rococo_parachain_local_config()),
 		);
-		assert_eq!(Runtime::Default, path.runtime());
+		assert_eq!(Runtime::Default, path.runtime().unwrap());
 
 		let path = store_configuration(
 			&temp_dir,
 			Box::new(crate::chain_spec::asset_hubs::asset_hub_kusama_local_config()),
 		);
-		assert_eq!(Runtime::AssetHubKusama, path.runtime());
+		assert_eq!(Runtime::AssetHubKusama, path.runtime().unwrap());
 
 		let path = store_configuration(
 			&temp_dir,
 			Box::new(crate::chain_spec::contracts::contracts_rococo_local_config()),
 		);
-		assert_eq!(Runtime::ContractsRococo, path.runtime());
+		assert_eq!(Runtime::ContractsRococo, path.runtime().unwrap());
 	}
 }
