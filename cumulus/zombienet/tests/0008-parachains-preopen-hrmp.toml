@@ -1,0 +1,60 @@
+[settings]
+timeout = 1000
+
+[relaychain]
+#default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
+default_command = "/home/bparity/local_bridge_testing/bin-rowo/polkadot"
+default_args = [ "-lparachain=debug,xcm=trace" ]
+chain = "rococo-local"
+
+
+  [[relaychain.nodes]]
+  name = "alice"
+  args = [ "-lparachain=debug,runtime=debug" ]
+
+  [[relaychain.nodes]]
+  name = "bob"
+  args = [ "-lparachain=debug,runtime=debug" ]
+
+  [[relaychain.nodes]]
+  name = "charlie"
+  args = [ "-lparachain=debug,runtime=debug" ]
+
+  [[relaychain.nodes]]
+  name = "dave"
+  args = [ "-lparachain=debug,runtime=debug" ]
+
+
+[[parachains]]
+id = 2000
+cumulus_based = true
+
+  [parachains.collator]
+  name = "collator01"
+  validator = true
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lparachain=debug"]
+
+[[parachains]]
+id = 2001
+cumulus_based = true
+
+  [parachains.collator]
+  name = "collator02"
+  validator = false
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lparachain=debug"]
+
+[[hrmp_channels]]
+sender = 2000
+recipient = 2001
+max_capacity = 2
+max_message_size = 262144
+
+[[hrmp_channels]]
+sender = 2001
+recipient = 2000
+max_capacity = 2
+max_message_size = 262144
