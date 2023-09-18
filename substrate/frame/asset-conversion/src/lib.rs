@@ -1030,7 +1030,7 @@ pub mod pallet {
 				for assets_pair in path.windows(2).rev() {
 					if let [asset1, asset2] = assets_pair {
 						let (reserve_in, reserve_out) = Self::get_reserves(asset1, asset2).ok()?;
-						result = reserve_out * result / reserve_in;
+						result = Self::quote(&reserve_out, &reserve_in, &result).ok()?;
 					}
 				}
 				result
@@ -1051,7 +1051,7 @@ pub mod pallet {
 				for assets_pair in path.windows(2).rev() {
 					if let [asset1, asset2] = assets_pair {
 						let (reserve_in, reserve_out) = Self::get_reserves(asset1, asset2).ok()?;
-						result = reserve_in * result / reserve_out;
+						result = Self::quote(&reserve_in, &reserve_out, &result).ok()?;
 					}
 				}
 				result
