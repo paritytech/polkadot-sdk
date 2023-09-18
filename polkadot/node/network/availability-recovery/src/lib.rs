@@ -59,7 +59,10 @@ use polkadot_node_subsystem::{
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemContext, SubsystemError, SubsystemResult,
 };
-use polkadot_node_subsystem_util::{request_session_info, shuffle_availability_chunks};
+use polkadot_node_subsystem_util::{
+	availability_chunk_indices, request_session_info,
+	runtime::request_availability_chunk_shuffling_params,
+};
 use polkadot_primitives::{
 	BlakeTwo256, BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, GroupIndex, Hash, HashT,
 	SessionIndex, SessionInfo, ValidatorIndex,
@@ -463,23 +466,35 @@ async fn handle_recover<Context>(
 			let block_number =
 				get_block_number(ctx.sender(), receipt.descriptor.relay_parent).await?;
 
-			let shuffling = state
-				.chunk_indices_cache
-				.get_or_insert(block_number, || {
-					shuffle_availability_chunks(block_number, session_info.validators.len())
-						.iter()
-						.enumerate()
-						.map(|(v_index, c_index)| {
-							(
-								*c_index,
-								ValidatorIndex(
-									u32::try_from(v_index)
-										.expect("validator numbers should not exceed u32"),
-								),
-							)
-						})
-						.collect()
+			if state.chunk_indices_cache.peek(&block_number).is_none() {
+				let maybe_av_chunk_shuffling_params =
+				// TODO: think some more if this relay parent is ok to use
+					request_availability_chunk_shuffling_params(state.live_block.1, ctx.sender())
+						.await.map_err(error::Error::RequestAvailabilityChunkShufflingParams)?;
+
+				let chunk_indices = availability_chunk_indices(
+					maybe_av_chunk_shuffling_params,
+					block_number,
+					session_info.validators.len(),
+				)
+				.iter()
+				.enumerate()
+				.map(|(v_index, c_index)| {
+					(
+						*c_index,
+						ValidatorIndex(
+							u32::try_from(v_index)
+								.expect("validator numbers should not exceed u32"),
+						),
+					)
 				})
+				.collect();
+				state.chunk_indices_cache.insert(block_number, chunk_indices);
+			}
+
+			let chunk_indices = state
+				.chunk_indices_cache
+				.get(&block_number)
 				.expect("The shuffling was just inserted");
 
 			let backing_validators = if let Some(backing_group) = backing_group {
@@ -489,7 +504,7 @@ async fn handle_recover<Context>(
 			};
 
 			let fetch_chunks_params = FetchChunksParams {
-				validators: shuffling.clone(),
+				validators: chunk_indices.clone(),
 				erasure_task_tx: erasure_task_tx.clone(),
 			};
 
@@ -520,7 +535,7 @@ async fn handle_recover<Context>(
 					systematic_recovery_threshold(session_info.validators.len())?;
 
 				// Only get the validators according to the threshold.
-				let validators = shuffling
+				let validators = chunk_indices
 					.clone()
 					.into_iter()
 					.filter(|(c_index, _)| {

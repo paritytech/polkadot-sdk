@@ -35,8 +35,8 @@ use polkadot_node_subsystem::{
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, LeafStatus,
 };
 use polkadot_node_subsystem_util::{
-	runtime::{get_occupied_cores, RuntimeInfo},
-	shuffle_availability_chunks,
+	availability_chunk_indices,
+	runtime::{get_occupied_cores, request_availability_chunk_shuffling_params, RuntimeInfo},
 };
 use polkadot_primitives::{
 	BlockNumber, CandidateHash, ChunkIndex, Hash, OccupiedCore, SessionIndex,
@@ -264,14 +264,28 @@ impl Requester {
 							acc = acc.saturating_add(group.len());
 							acc
 						});
+
+					if self.chunk_index_cache.peek(&block_number).is_none() {
+						let maybe_av_chunk_shuffling_params =
+						// TODO: think some more if this relay parent is ok to use
+							request_availability_chunk_shuffling_params(leaf, context.sender())
+								.await?;
+
+						let chunk_indices = availability_chunk_indices(
+							maybe_av_chunk_shuffling_params,
+							block_number,
+							n_validators,
+						);
+						self.chunk_index_cache.insert(
+							block_number,
+							chunk_indices[usize::try_from(session_info.our_index.0)
+								.expect("usize is at least u32 bytes on all modern targets.")],
+						);
+					}
+
 					let chunk_index = self
 						.chunk_index_cache
-						.get_or_insert(block_number, || {
-							let shuffled_indices =
-								shuffle_availability_chunks(block_number, n_validators);
-							shuffled_indices[usize::try_from(session_info.our_index.0)
-								.expect("usize is at least u32 bytes on all modern targets.")]
-						})
+						.get(&block_number)
 						.expect("The index was just inserted");
 
 					let task_cfg = FetchTaskConfig::new(
@@ -286,8 +300,6 @@ impl Requester {
 
 					self.fetches
 						.insert(core.candidate_hash, FetchTask::start(task_cfg, context).await?);
-				} else {
-					// Error
 				}
 			}
 		}

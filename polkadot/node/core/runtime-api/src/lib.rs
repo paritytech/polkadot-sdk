@@ -166,6 +166,9 @@ where
 				.requests_cache
 				.cache_key_ownership_proof((relay_parent, validator_id), key_ownership_proof),
 			SubmitReportDisputeLost(_, _, _, _) => {},
+			AvailabilityChunkShufflingParams(relay_parent, params) => self
+				.requests_cache
+				.cache_availability_chunk_shuffling_params(relay_parent, params),
 
 			StagingParaBackingState(relay_parent, para_id, constraints) => self
 				.requests_cache
@@ -313,6 +316,9 @@ where
 					Some(Request::MinimumBackingVotes(index, sender))
 				}
 			},
+			Request::AvailabilityChunkShufflingParams(sender) =>
+				query!(availability_chunk_shuffling_params(), sender)
+					.map(|sender| Request::AvailabilityChunkShufflingParams(sender)),
 		}
 	}
 
@@ -567,6 +573,12 @@ where
 			MinimumBackingVotes,
 			minimum_backing_votes(index),
 			ver = Request::MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT,
+			sender
+		),
+		Request::AvailabilityChunkShufflingParams(sender) => query!(
+			AvailabilityChunkShufflingParams,
+			availability_chunk_shuffling_params(),
+			ver = Request::AVAILABILITY_CHUNK_SHUFFLING_PARAMS_RUNTIME_REQUIREMENT,
 			sender
 		),
 

@@ -96,11 +96,12 @@ impl SessionCache {
 		parent: Hash,
 		session_index: SessionIndex,
 	) -> Result<Option<&'a SessionInfo>> {
+		gum::trace!(target: LOG_TARGET, session_index, "Calling `get_session_info`");
+
 		if self.session_info_cache.get(&session_index).is_none() {
 			if let Some(info) =
 				Self::query_info_from_runtime(ctx, runtime, parent, session_index).await?
 			{
-				gum::trace!(target: LOG_TARGET, session_index, "Calling `with_info`");
 				gum::trace!(target: LOG_TARGET, session_index, "Storing session info in lru!");
 				self.session_info_cache.insert(session_index, info);
 			} else {

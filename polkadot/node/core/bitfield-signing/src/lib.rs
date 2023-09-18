@@ -27,7 +27,6 @@ use futures::{
 	FutureExt,
 };
 use polkadot_node_subsystem::{
-	errors::RuntimeApiError,
 	jaeger,
 	messages::{
 		AvailabilityStoreMessage, BitfieldDistributionMessage, ChainApiMessage, RuntimeApiMessage,
@@ -37,7 +36,8 @@ use polkadot_node_subsystem::{
 	SpawnedSubsystem, SubsystemError, SubsystemResult, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	self as util, request_validators, shuffle_availability_chunks, Validator,
+	self as util, availability_chunk_indices, request_validators,
+	runtime::request_availability_chunk_shuffling_params, Validator,
 };
 use polkadot_primitives::{AvailabilityBitfield, BlockNumber, CoreState, Hash, ValidatorIndex};
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
@@ -72,7 +72,7 @@ pub enum Error {
 	MpscSend(#[from] mpsc::SendError),
 
 	#[error(transparent)]
-	Runtime(#[from] RuntimeApiError),
+	Runtime(#[from] util::runtime::Error),
 
 	#[error("Keystore failed: {0:?}")]
 	Keystore(KeystoreError),
@@ -90,6 +90,7 @@ pub enum Error {
 /// If there is a candidate pending availability, query the Availability Store
 /// for whether we have the availability chunk for our validator index.
 async fn get_core_availability(
+	relay_parent: Hash,
 	core: &CoreState,
 	n_validators: usize,
 	validator_idx: ValidatorIndex,
@@ -101,8 +102,13 @@ async fn get_core_availability(
 
 		let block_number =
 			get_block_number(*sender.lock().await, core.candidate_descriptor.relay_parent).await?;
-		let shuffled_chunk_indices = shuffle_availability_chunks(block_number, n_validators);
-		let chunk_index = shuffled_chunk_indices[usize::try_from(validator_idx.0)
+		let maybe_av_chunk_shuffling_params =
+			request_availability_chunk_shuffling_params(relay_parent, *sender.lock().await)
+				.await
+				.map_err(Error::from)?;
+		let chunk_indices =
+			availability_chunk_indices(maybe_av_chunk_shuffling_params, block_number, n_validators);
+		let chunk_index = chunk_indices[usize::try_from(validator_idx.0)
 			.expect("usize is at least u32 bytes on all modern targets.")];
 
 		let (tx, rx) = oneshot::channel();
@@ -146,7 +152,7 @@ async fn get_availability_cores(
 		.await;
 	match rx.await {
 		Ok(Ok(out)) => Ok(out),
-		Ok(Err(runtime_err)) => Err(runtime_err.into()),
+		Ok(Err(runtime_err)) => Err(Error::Runtime(runtime_err.into())),
 		Err(err) => Err(err.into()),
 	}
 }
@@ -177,11 +183,9 @@ async fn construct_availability_bitfield(
 
 	// Handle all cores concurrently
 	// `try_join_all` returns all results in the same order as the input futures.
-	let results = future::try_join_all(
-		availability_cores
-			.iter()
-			.map(|core| get_core_availability(core, n_validators, validator_idx, &sender, span)),
-	)
+	let results = future::try_join_all(availability_cores.iter().map(|core| {
+		get_core_availability(relay_parent, core, n_validators, validator_idx, &sender, span)
+	}))
 	.await?;
 
 	let core_bits = FromIterator::from_iter(results.into_iter());
@@ -288,7 +292,11 @@ where
 	let span_delay = span.child("delay");
 	let wait_until = Instant::now() + SPAWNED_TASK_DELAY;
 
-	let validators = request_validators(leaf.hash, &mut sender).await.await??;
+	let validators = request_validators(leaf.hash, &mut sender)
+		.await
+		.await
+		.map_err(|e| Error::Runtime(e.into()))?
+		.map_err(|e| Error::Runtime(e.into()))?;
 
 	// now do all the work we can before we need to wait for the availability store
 	// if we're not a validator, we can just succeed effortlessly

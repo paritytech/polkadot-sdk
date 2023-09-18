@@ -247,6 +247,11 @@ sp_api::decl_runtime_apis! {
 		#[api_version(6)]
 		fn minimum_backing_votes() -> u32;
 
+		/// Get the availability-chunk shuffling params.
+		/// This is a staging method! Do not use on production runtimes!
+		#[api_version(7)]
+		fn availability_chunk_shuffling_params() -> vstaging::AvailabilityChunkShufflingParams;
+
 		/***** Asynchronous backing *****/
 
 		/// Returns the state of parachain backing for a given para.

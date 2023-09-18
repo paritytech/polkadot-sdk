@@ -99,10 +99,10 @@ fn subset_predefined_generation_check() {
 #[test]
 // Just a simple test to make sure that the shuffling is indeed a permutation, to prevent future
 // mistakes.
-fn test_shuffle_availability_chunks() {
+fn test_availability_chunk_indices() {
 	let block_number = 89;
 	let n_validators = 200;
-	let shuffle = shuffle_availability_chunks(block_number, n_validators);
+	let shuffle = availability_chunk_indices(block_number, n_validators);
 
 	assert_eq!(shuffle.len(), n_validators);
 	assert_eq!(shuffle.iter().collect::<HashSet<_>>().len(), n_validators);

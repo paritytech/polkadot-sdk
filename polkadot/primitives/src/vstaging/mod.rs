@@ -135,3 +135,18 @@ pub struct BackingState<H = Hash, N = BlockNumber> {
 	/// constraints and each subsequent builds on top of the previous head-data.
 	pub pending_availability: Vec<CandidatePendingAvailability<H, N>>,
 }
+
+/// Parameters for availability chunk shuffling.
+/// Previously, the ChunkIndex assigned to a validator was equal to its ValidatorIndex.
+///
+/// This enables us to shuffle the chunk indices, per-block.
+#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
+pub struct AvailabilityChunkShufflingParams {
+	/// If it's `None`, it's not enabled. If it's some block number, consider it's enabled at this
+	/// specific block height.
+	///
+	/// It can't simply return a bool as this may break availability recovery. If a
+	/// runtime upgrade were to set this value to bool, parachain candidates that were backed in
+	/// previous blocks couldn't be recovered, because we'd use the new, breaking, shuffle.
+	pub activate_at: Option<BlockNumber>,
+}

@@ -30,7 +30,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	vstaging, CandidateEvent, CandidateHash, CoreState, EncodeAs, ExecutorParams, GroupIndex,
+	vstaging::{self, AvailabilityChunkShufflingParams},
+	CandidateEvent, CandidateHash, CoreState, EncodeAs, ExecutorParams, GroupIndex,
 	GroupRotationInfo, Hash, IndexedVec, OccupiedCore, ScrapedOnChainVotes, SessionIndex,
 	SessionInfo, Signed, SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash,
 	ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
@@ -506,5 +507,32 @@ pub async fn request_min_backing_votes(
 		Ok(LEGACY_MIN_BACKING_VOTES)
 	} else {
 		min_backing_votes_res
+	}
+}
+
+/// Request the availability chunk shuffling params.
+/// Prior to runtime API version 7, just return `None`.
+pub async fn request_availability_chunk_shuffling_params(
+	parent: Hash,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<Option<AvailabilityChunkShufflingParams>> {
+	let res = recv_runtime(
+		request_from_runtime(parent, sender, |tx| {
+			RuntimeApiRequest::AvailabilityChunkShufflingParams(tx)
+		})
+		.await,
+	)
+	.await;
+
+	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
+		gum::trace!(
+			target: LOG_TARGET,
+			?parent,
+			"Querying the availability chunk shuffling params from the runtime is not supported by the current Runtime API",
+		);
+
+		Ok(None)
+	} else {
+		res.map(Some)
 	}
 }

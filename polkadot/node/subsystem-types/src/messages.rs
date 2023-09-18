@@ -39,14 +39,15 @@ use polkadot_node_primitives::{
 	ValidationResult,
 };
 use polkadot_primitives::{
-	slashing, vstaging as vstaging_primitives, AuthorityDiscoveryId, BackedCandidate, BlockNumber,
-	CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt, CollatorId,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, Header as BlockHeader, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, PvfExecTimeoutKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
-	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	slashing,
+	vstaging::{self as vstaging_primitives, AvailabilityChunkShufflingParams},
+	AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateEvent, CandidateHash,
+	CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreState,
+	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Header as BlockHeader,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, PvfExecTimeoutKind,
+	SessionIndex, SessionInfo, SignedAvailabilityBitfield, SignedAvailabilityBitfields,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -695,6 +696,8 @@ pub enum RuntimeApiRequest {
 	),
 	/// Get the minimum required backing votes.
 	MinimumBackingVotes(SessionIndex, RuntimeApiSender<u32>),
+	/// Get the params for availability chunk shuffling.
+	AvailabilityChunkShufflingParams(RuntimeApiSender<AvailabilityChunkShufflingParams>),
 
 	/// Get the backing state of the given para.
 	/// This is a staging API that will not be available on production runtimes.
@@ -725,6 +728,9 @@ impl RuntimeApiRequest {
 
 	/// `MinimumBackingVotes`
 	pub const MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT: u32 = 6;
+
+	/// `AvailabilityChunkShufflingParams`
+	pub const AVAILABILITY_CHUNK_SHUFFLING_PARAMS_RUNTIME_REQUIREMENT: u32 = 7;
 
 	/// Minimum version for backing state, required for async backing.
 	///

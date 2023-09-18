@@ -34,7 +34,9 @@ use polkadot_node_subsystem::{
 	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
 	overseer, SubsystemSender,
 };
-use polkadot_primitives::{slashing, BlockNumber, ExecutorParams};
+use polkadot_primitives::{
+	slashing, vstaging::AvailabilityChunkShufflingParams, BlockNumber, ExecutorParams,
+};
 use rand::seq::SliceRandom;
 use rand_chacha::ChaCha8Rng;
 
@@ -440,24 +442,35 @@ impl Validator {
 	}
 }
 
-/// Shuffle the availability chunk indices, returning a mapping of (`ValidatorIndex -> ChunkIndex`).
+/// Return a mapping of the availability chunk indices(`ValidatorIndex -> ChunkIndex`).
 ///
 /// The vector indices represent validator indices.
-/// `BlockNumber` is used a randomness seed, so that other validators have a common view of the
-/// shuffle at a given block height.
-pub fn shuffle_availability_chunks(
+/// If it's enabled, shuffle the indices using the `BlockNumber` as a randomness seed, so that other
+/// validators have a common view of the shuffle at a given block height.
+/// Otherwise, return the identity vector.
+pub fn availability_chunk_indices(
+	maybe_params: Option<AvailabilityChunkShufflingParams>,
 	block_number: BlockNumber,
 	n_validators: usize,
 ) -> Vec<ChunkIndex> {
-	let seed = block_number.to_be_bytes();
-	let mut rng: ChaCha8Rng = SeedableRng::from_seed(
-		seed.repeat(8)
-			.try_into()
-			.expect("vector of 32 bytes is safe to cast to array of 32 bytes. qed."),
-	);
+	let mut indices: Vec<_> = (0..n_validators)
+		.map(|i| ValidatorIndex(u32::try_from(i).expect("validator numbers should not exceed u32")))
+		.collect();
 
-	let mut shuffled_indices: Vec<_> = (0..n_validators).map(|i| ValidatorIndex(i as _)).collect();
+	if let Some(AvailabilityChunkShufflingParams { activate_at: Some(activation_block_number) }) =
+		maybe_params
+	{
+		if block_number >= activation_block_number {
+			let seed = block_number.to_be_bytes();
+			let mut rng: ChaCha8Rng = SeedableRng::from_seed(
+				seed.repeat(8)
+					.try_into()
+					.expect("vector of 32 bytes is safe to cast to array of 32 bytes. qed."),
+			);
 
-	shuffled_indices.shuffle(&mut rng);
-	shuffled_indices
+			indices.shuffle(&mut rng);
+		}
+	}
+
+	indices
 }
