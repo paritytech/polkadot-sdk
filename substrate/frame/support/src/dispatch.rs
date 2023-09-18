@@ -138,6 +138,15 @@ impl From<Pays> for PostDispatchInfo {
 	}
 }
 
+impl From<bool> for Pays {
+	fn from(b: bool) -> Self {
+		match b {
+			true => Self::Yes,
+			false => Self::No,
+		}
+	}
+}
+
 /// A generalized group of dispatch types.
 ///
 /// NOTE whenever upgrading the enum make sure to also update
