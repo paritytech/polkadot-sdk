@@ -273,13 +273,14 @@ function find_runtimes() {
   JSON=$(jq --null-input '{ "include": [] }')
 
   for lib in "${libs[@]}"; do
-      crate_dir=$(dirname $lib)
+      crate_dir=$(dirname "$lib")
       cargo_toml="$crate_dir/../Cargo.toml"
 
       name=$(toml get -r $cargo_toml 'package.name')
 
       if [[ "$name" =~ $re ]]; then
-          runtime_dir=$(dirname $lib)
+          lib_dir=$(dirname "$lib")
+          runtime_dir=$(builtin cd "$lib_dir/.."; pwd)
           chain=${name//-runtime/}
           ITEM=$(jq --null-input \
             --arg chain "$chain" \
