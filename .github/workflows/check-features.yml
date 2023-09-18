@@ -7,21 +7,12 @@ on:
 jobs:
   check-features:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        runtime:
-          [
-            polkadot/runtime/polkadot,
-            polkadot/runtime/kusama,
-            polkadot/runtime/westend,
-            polkadot/runtime/rococo,
-          ]
     steps:
       - name: Fetch latest code
         uses: actions/checkout@v4
       - name: Check
         uses: hack-ink/cargo-featalign-action@v0.1.0
         with:
-          crate: ${{ matrix.runtime }}
+          crate: substrate/bin/node/runtime
           features: std,runtime-benchmarks,try-runtime
           default-std: true
