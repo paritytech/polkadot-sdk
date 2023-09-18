@@ -312,6 +312,52 @@
 <a href="#312" id="312">312</a>
 <a href="#313" id="313">313</a>
 <a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -329,53 +375,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="doccomment">//! # Timestamp Pallet
+</span><span class="doccomment">//! &gt; Made with *Substrate*, for *Polkadot*.
 //!
-//! The Timestamp pallet provides functionality to get and set the on-chain time.
+//! [![github]](https://github.com/paritytech/polkadot-sdk/substrate/frame/timestamp)
+//! [![polkadot]](https://polkadot.network)
 //!
-//! - [`Config`]
-//! - [`Call`]
-//! - [`Pallet`]
+//! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&amp;logo=polkadot&amp;logoColor=white
+//! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&amp;labelColor=555555&amp;logo=github
 //!
+//! # Timestamp Pallet
+//!
+//! A pallet that provides a way for consensus systems to set and check the onchain time.
+//!
+//! ## Pallet API
+//!
+//! See the [`pallet`] module for more information about the interfaces this pallet exposes,
+//! including its configuration trait, dispatchables, storage items, events and errors.
+//!  
 //! ## Overview
 //!
-//! The Timestamp pallet allows the validators to set and validate a timestamp with each block.
+//! The Timestamp pallet is designed to create a consensus-based time source. This helps ensure that
+//! nodes maintain a synchronized view of time that all network participants can agree on.
 //!
-//! It uses inherents for timestamp data, which is provided by the block author and
-//! validated/verified by other validators. The timestamp can be set only once per block and must be
-//! set each block. There could be a constraint on how much time must pass before setting the new
-//! timestamp.
+//! It defines an _acceptable range_ using a configurable constant to specify how much time must
+//! pass before setting the new timestamp. Validator nodes in the network must verify that the
+//! timestamp falls within this acceptable range and reject blocks that do not.
 //!
-//! **NOTE:** The Timestamp pallet is the recommended way to query the on-chain time instead of
-//! using an approach based on block numbers. The block number based time measurement can cause
-//! issues because of cumulative calculation errors and hence should be avoided.
+//! &gt; **Note:** The timestamp set by this pallet is the recommended way to query the onchain time
+//! &gt; instead of using block numbers alone. Measuring time with block numbers can cause cumulative
+//! &gt; calculation errors if depended upon in time critical operations and hence should generally be
+//! &gt; avoided.
 //!
-//! ## Interface
+//! ## Example
 //!
-//! ### Dispatchable Functions
-//!
-//! * `set` - Sets the current time.
-//!
-//! ### Public functions
-//!
-//! * `get` - Gets the current time for the current block. If this function is called prior to
-//! setting the timestamp, it will return the timestamp of the previous block.
-//!
-//! ### Config Getters
-//!
-//! * `MinimumPeriod` - Gets the minimum (and advised) period between blocks for the chain.
-//!
-//! ## Usage
-//!
-//! The following example shows how to use the Timestamp pallet in your custom pallet to query the
-//! current timestamp.
-//!
-//! ### Prerequisites
-//!
-//! Import the Timestamp pallet into your custom pallet and derive the pallet configuration
-//! trait from the timestamp trait.
-//!
-//! ### Get current timestamp
+//! To get the current time for the current block in another pallet:
 //!
 //! ```
 //! use pallet_timestamp::{self as timestamp};
@@ -397,7 +430,7 @@
 //! 		#[pallet::weight(0)]
 //! 		pub fn get_time(origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
 //! 			let _sender = ensure_signed(origin)?;
-//! 			let _now = &lt;timestamp::Pallet&lt;T&gt;&gt;::get();
+//! 			let _now = timestamp::Pallet::&lt;T&gt;::get();
 //! 			Ok(())
 //! 		}
 //! 	}
@@ -405,16 +438,53 @@
 //! # fn main() {}
 //! ```
 //!
-//! ### Example from the FRAME
+//!  If [`Pallet::get`] is called prior to setting the timestamp, it will return the timestamp of
+//! the previous block.
 //!
-//! The [Session pallet](https://github.com/paritytech/substrate/blob/master/frame/session/src/lib.rs) uses
-//! the Timestamp pallet for session management.
+//! ## Low Level / Implementation Details
 //!
-//! ## Related Pallets
+//! A timestamp is added to the chain using an _inherent extrinsic_ that only a block author can
+//! submit. Inherents are a special type of extrinsic in Substrate chains that will always be
+//! included in a block.
 //!
-//! * [Session](../pallet_session/index.html)
-
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+//! To provide inherent data to the runtime, this pallet implements
+//! [`ProvideInherent`](frame_support::inherent::ProvideInherent). It will only create an inherent
+//! if the [`Call::set`] dispatchable is called, using the
+//! [`inherent`](frame_support::pallet_macros::inherent) macro which enables validator nodes to call
+//! into the runtime to check that the timestamp provided is valid.
+//! The implementation of [`ProvideInherent`](frame_support::inherent::ProvideInherent) specifies a
+//! constant called `MAX_TIMESTAMP_DRIFT_MILLIS` which is used to determine the acceptable range for
+//! a valid timestamp. If a block author sets a timestamp to anything that is more than this
+//! constant, a validator node will reject the block.
+//!
+//! The pallet also ensures that a timestamp is set at the start of each block by running an
+//! assertion in the `on_finalize` runtime hook. See [`frame_support::traits::Hooks`] for more
+//! information about how hooks work.
+//!
+//! Because inherents are applied to a block in the order they appear in the runtime
+//! construction, the index of this pallet in
+//! [`construct_runtime`](frame_support::construct_runtime) must always be less than any other
+//! pallet that depends on it.
+//!
+//! The [`Config::OnTimestampSet`] configuration trait can be set to another pallet we want to
+//! notify that the timestamp has been updated, as long as it implements [`OnTimestampSet`].
+//! Examples are the Babe and Aura pallets.
+//! This pallet also implements [`Time`] and [`UnixTime`] so it can be used to configure other
+//! pallets that require these types (e.g. in Staking pallet).
+//!
+//! ## Panics
+//!
+//! There are 3 cases where this pallet could cause the runtime to panic.
+//!
+//! 1. If no timestamp is set at the end of a block.
+//!
+//! 2. If a timestamp is set more than once per block:
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests.rs&quot;</span>, double_timestamp_should_fail)]
+</span><span class="doccomment">//!
+//! 3. If a timestamp is set before the [`Config::MinimumPeriod`] is elapsed:
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests.rs&quot;</span>, block_period_minimum_enforced)]
+#![deny(missing_docs)]
+#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">mod </span>benchmarking;
 <span class="attr">#[cfg(test)]
@@ -437,10 +507,9 @@
 	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 
-	<span class="doccomment">/// The pallet configuration trait
-	</span><span class="attr">#[pallet::config]
+	<span class="attr">#[pallet::config]
 	</span><span class="kw">pub trait </span>Config: frame_system::Config {
-		<span class="doccomment">/// Type used for expressing timestamp.
+		<span class="doccomment">/// Type used for expressing a timestamp.
 		</span><span class="kw">type </span>Moment: Parameter
 			+ Default
 			+ AtLeast32Bit
@@ -449,14 +518,17 @@
 			+ MaxEncodedLen
 			+ scale_info::StaticTypeInfo;
 
-		<span class="doccomment">/// Something which can be notified when the timestamp is set. Set this to `()` if not
-		/// needed.
+		<span class="doccomment">/// Something which can be notified (e.g. another pallet) when the timestamp is set.
+		///
+		/// This can be set to `()` if it is not needed.
 		</span><span class="kw">type </span>OnTimestampSet: OnTimestampSet&lt;<span class="self">Self</span>::Moment&gt;;
 
-		<span class="doccomment">/// The minimum period between blocks. Beware that this is different to the *expected*
-		/// period that the block production apparatus provides. Your chosen consensus system will
-		/// generally work with this to determine a sensible block time. e.g. For Aura, it will be
-		/// double this period on default settings.
+		<span class="doccomment">/// The minimum period between blocks.
+		///
+		/// Be aware that this is different to the *expected* period that the block production
+		/// apparatus provides. Your chosen consensus system will generally work with this to
+		/// determine a sensible block time. For example, in the Aura pallet it will be double this
+		/// period on default settings.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>MinimumPeriod: Get&lt;<span class="self">Self</span>::Moment&gt;;
 
@@ -467,24 +539,32 @@
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
-	<span class="doccomment">/// Current time for the current block.
+	<span class="doccomment">/// The current time for the current block.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>now)]
 	</span><span class="kw">pub type </span>Now&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, T::Moment, ValueQuery&gt;;
 
-	<span class="doccomment">/// Did the timestamp get updated in this block?
+	<span class="doccomment">/// Whether the timestamp has been updated in this block.
+	///
+	/// This value is updated to `true` upon successful submission of a timestamp by a node.
+	/// It is then checked at the end of each block execution in the `on_finalize` hook.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>DidUpdate&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, bool, ValueQuery&gt;;
 
 	<span class="attr">#[pallet::hooks]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
-		<span class="doccomment">/// dummy `on_initialize` to return the weight used in `on_finalize`.
+		<span class="doccomment">/// A dummy `on_initialize` to return the amount of weight that `on_finalize` requires to
+		/// execute.
 		</span><span class="kw">fn </span>on_initialize(_n: BlockNumberFor&lt;T&gt;) -&gt; Weight {
 			<span class="comment">// weight of `on_finalize`
 			</span>T::WeightInfo::on_finalize()
 		}
 
-		<span class="doccomment">/// ## Complexity
+		<span class="doccomment">/// At the end of block execution, the `on_finalize` hook checks that the timestamp was
+		/// updated. Upon success, it removes the boolean value from storage. If the value resolves
+		/// to `false`, the pallet will panic.
+		///
+		/// ## Complexity
 		/// - `O(1)`
 		</span><span class="kw">fn </span>on_finalize(_n: BlockNumberFor&lt;T&gt;) {
 			<span class="macro">assert!</span>(DidUpdate::&lt;T&gt;::take(), <span class="string">&quot;Timestamp must be updated once in the block&quot;</span>);
@@ -499,13 +579,17 @@
 		/// phase, if this call hasn&#39;t been invoked by that time.
 		///
 		/// The timestamp should be greater than the previous one by the amount specified by
-		/// `MinimumPeriod`.
+		/// [`Config::MinimumPeriod`].
 		///
-		/// The dispatch origin for this call must be `Inherent`.
+		/// The dispatch origin for this call must be _None_.
+		///
+		/// This dispatch class is _Mandatory_ to ensure it gets executed in the block. Be aware
+		/// that changing the complexity of this call could result exhausting the resources in a
+		/// block to execute any other calls.
 		///
 		/// ## Complexity
 		/// - `O(1)` (Note that implementations of `OnTimestampSet` must also be `O(1)`)
-		/// - 1 storage read and 1 storage mutation (codec `O(1)`). (because of `DidUpdate::take` in
+		/// - 1 storage read and 1 storage mutation (codec `O(1)` because of `DidUpdate::take` in
 		///   `on_finalize`)
 		/// - 1 event handler `on_timestamp_set`. Must be `O(1)`.
 		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
@@ -530,7 +614,15 @@
 		}
 	}
 
-	<span class="attr">#[pallet::inherent]
+	<span class="doccomment">/// To check the inherent is valid, we simply take the max value between the current timestamp
+	/// and the current timestamp plus the [`Config::MinimumPeriod`].
+	/// We also check that the timestamp has not already been set in this block.
+	///
+	/// ## Errors:
+	/// - [`InherentError::TooFarInFuture`]: If the timestamp is larger than the current timestamp +
+	///   minimum drift period.
+	/// - [`InherentError::TooEarly`]: If the timestamp is less than the current + minimum period.
+	</span><span class="attr">#[pallet::inherent]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; ProvideInherent <span class="kw">for </span>Pallet&lt;T&gt; {
 		<span class="kw">type </span>Call = Call&lt;T&gt;;
 		<span class="kw">type </span>Error = InherentError;
@@ -599,10 +691,10 @@
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Time <span class="kw">for </span>Pallet&lt;T&gt; {
-	<span class="kw">type </span>Moment = T::Moment;
+	<span class="doccomment">/// A type that represents a unit of time.
+	</span><span class="kw">type </span>Moment = T::Moment;
 
-	<span class="doccomment">/// Before the first set of now with inherent the value returned is zero.
-	</span><span class="kw">fn </span>now() -&gt; <span class="self">Self</span>::Moment {
+	<span class="kw">fn </span>now() -&gt; <span class="self">Self</span>::Moment {
 		<span class="self">Self</span>::now()
 	}
 }

@@ -417,8 +417,6 @@
 <a href="#417" id="417">417</a>
 <a href="#418" id="418">418</a>
 <a href="#419" id="419">419</a>
-<a href="#420" id="420">420</a>
-<a href="#421" id="421">421</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -620,13 +618,11 @@
 	}
 }
 
-<span class="kw">const </span>USER_INDEX_START: u32 = <span class="number">1000</span>;
+<span class="comment">// System parachain ID is considered `&lt; 2000`.
+</span><span class="kw">const </span>SYSTEM_INDEX_END: u32 = <span class="number">1999</span>;
 <span class="kw">const </span>PUBLIC_INDEX_START: u32 = <span class="number">2000</span>;
 
-<span class="doccomment">/// The ID of the first user (non-system) parachain.
-</span><span class="kw">pub const </span>LOWEST_USER_ID: Id = Id(USER_INDEX_START);
-
-<span class="doccomment">/// The ID of the first publicly registerable parachain.
+<span class="doccomment">/// The ID of the first publicly registrable parachain.
 </span><span class="kw">pub const </span>LOWEST_PUBLIC_ID: Id = Id(PUBLIC_INDEX_START);
 
 <span class="kw">impl </span>Id {
@@ -644,7 +640,7 @@
 
 <span class="kw">impl </span>IsSystem <span class="kw">for </span>Id {
 	<span class="kw">fn </span>is_system(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="self">self</span>.<span class="number">0 </span>&lt; USER_INDEX_START
+		<span class="self">self</span>.<span class="number">0 </span>&lt;= SYSTEM_INDEX_END
 	}
 }
 

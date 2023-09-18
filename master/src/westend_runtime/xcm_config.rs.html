@@ -192,7 +192,6 @@
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -230,10 +229,10 @@
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter, IsChildSystemParachain, IsConcrete, MintLocation,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	ChildParachainConvertsVia, CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter, IsChildSystemParachain,
+	IsConcrete, MintLocation, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
@@ -269,7 +268,6 @@
 	SovereignSignedViaLocation&lt;LocationConverter, RuntimeOrigin&gt;,
 	ChildParachainAsNative&lt;parachains_origin::Origin, RuntimeOrigin&gt;,
 	SignedAccountId32AsNative&lt;ThisNetwork, RuntimeOrigin&gt;,
-	ChildSystemParachainAsSuperuser&lt;ParaId, RuntimeOrigin&gt;,
 );
 
 <span class="doccomment">/// The XCM router. When we want to send an XCM message, we use this type. It amalgamates all of our

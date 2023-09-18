@@ -203,6 +203,8 @@
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -225,7 +227,7 @@
 	tokens::{Pay, PaymentStatus},
 	Get,
 };
-<span class="kw">use </span>sp_runtime::traits::Convert;
+<span class="kw">use </span>sp_runtime::traits::TryConvert;
 <span class="kw">use </span>sp_std::{marker::PhantomData, vec};
 <span class="kw">use </span>xcm::{opaque::lts::Weight, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm_executor::traits::{QueryHandler, QueryResponseStatus};
@@ -276,8 +278,8 @@
 		Timeout: Get&lt;Querier::BlockNumber&gt;,
 		Beneficiary: Clone,
 		AssetKind,
-		AssetKindToLocatableAsset: Convert&lt;AssetKind, LocatableAssetId&gt;,
-		BeneficiaryRefToLocation: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Convert&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Beneficiary, MultiLocation&gt;,
+		AssetKindToLocatableAsset: TryConvert&lt;AssetKind, LocatableAssetId&gt;,
+		BeneficiaryRefToLocation: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryConvert&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Beneficiary, MultiLocation&gt;,
 	&gt; Pay
 	<span class="kw">for </span>PayOverXcm&lt;
 		Interior,
@@ -301,12 +303,14 @@
 		asset_kind: <span class="self">Self</span>::AssetKind,
 		amount: <span class="self">Self</span>::Balance,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Id, <span class="self">Self</span>::Error&gt; {
-		<span class="kw">let </span>locatable = AssetKindToLocatableAsset::convert(asset_kind);
+		<span class="kw">let </span>locatable = AssetKindToLocatableAsset::try_convert(asset_kind)
+			.map_err(|<span class="kw">_</span>| xcm::latest::Error::InvalidLocation)<span class="question-mark">?</span>;
 		<span class="kw">let </span>LocatableAssetId { asset_id, location: asset_location } = locatable;
 		<span class="kw">let </span>destination = Querier::UniversalLocation::get()
 			.invert_target(<span class="kw-2">&amp;</span>asset_location)
 			.map_err(|()| <span class="self">Self</span>::Error::LocationNotInvertible)<span class="question-mark">?</span>;
-		<span class="kw">let </span>beneficiary = BeneficiaryRefToLocation::convert(<span class="kw-2">&amp;</span>who);
+		<span class="kw">let </span>beneficiary = BeneficiaryRefToLocation::try_convert(<span class="kw-2">&amp;</span>who)
+			.map_err(|<span class="kw">_</span>| xcm::latest::Error::InvalidLocation)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>query_id = Querier::new_query(asset_location, Timeout::get(), Interior::get());
 
@@ -401,11 +405,11 @@
 <span class="doccomment">/// Adapter `struct` which implements a conversion from any `AssetKind` into a [`LocatableAssetId`]
 /// value using a fixed `Location` for the `location` field.
 </span><span class="kw">pub struct </span>FixedLocation&lt;Location&gt;(sp_std::marker::PhantomData&lt;Location&gt;);
-<span class="kw">impl</span>&lt;Location: Get&lt;MultiLocation&gt;, AssetKind: Into&lt;AssetId&gt;&gt; Convert&lt;AssetKind, LocatableAssetId&gt;
+<span class="kw">impl</span>&lt;Location: Get&lt;MultiLocation&gt;, AssetKind: Into&lt;AssetId&gt;&gt; TryConvert&lt;AssetKind, LocatableAssetId&gt;
 	<span class="kw">for </span>FixedLocation&lt;Location&gt;
 {
-	<span class="kw">fn </span>convert(value: AssetKind) -&gt; LocatableAssetId {
-		LocatableAssetId { asset_id: value.into(), location: Location::get() }
+	<span class="kw">fn </span>try_convert(value: AssetKind) -&gt; <span class="prelude-ty">Result</span>&lt;LocatableAssetId, AssetKind&gt; {
+		<span class="prelude-val">Ok</span>(LocatableAssetId { asset_id: value.into(), location: Location::get() })
 	}
 }
 </code></pre></div></section></main></body></html>

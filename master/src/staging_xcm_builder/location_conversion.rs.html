@@ -946,7 +946,7 @@
 <span class="kw">use </span>frame_support::traits::Get;
 <span class="kw">use </span>parity_scale_codec::{Compact, Decode, Encode};
 <span class="kw">use </span>sp_io::hashing::blake2_256;
-<span class="kw">use </span>sp_runtime::traits::{AccountIdConversion, Convert, TrailingZeroInput};
+<span class="kw">use </span>sp_runtime::traits::{AccountIdConversion, TrailingZeroInput, TryConvert};
 <span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_executor::traits::ConvertLocation;
@@ -1250,10 +1250,10 @@
 /// network (provided by `Network`) and the `AccountId`&#39;s `[u8; 32]` datum for the `id`.
 </span><span class="kw">pub struct </span>AliasesIntoAccountId32&lt;Network, AccountId&gt;(PhantomData&lt;(Network, AccountId)&gt;);
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, Network: Get&lt;<span class="prelude-ty">Option</span>&lt;NetworkId&gt;&gt;, AccountId: Clone + Into&lt;[u8; <span class="number">32</span>]&gt; + Clone&gt;
-	Convert&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AccountId, MultiLocation&gt; <span class="kw">for </span>AliasesIntoAccountId32&lt;Network, AccountId&gt;
+	TryConvert&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AccountId, MultiLocation&gt; <span class="kw">for </span>AliasesIntoAccountId32&lt;Network, AccountId&gt;
 {
-	<span class="kw">fn </span>convert(who: <span class="kw-2">&amp;</span>AccountId) -&gt; MultiLocation {
-		AccountId32 { network: Network::get(), id: who.clone().into() }.into()
+	<span class="kw">fn </span>try_convert(who: <span class="kw-2">&amp;</span>AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;MultiLocation, <span class="kw-2">&amp;</span>AccountId&gt; {
+		<span class="prelude-val">Ok</span>(AccountId32 { network: Network::get(), id: who.clone().into() }.into())
 	}
 }
 

@@ -306,9 +306,6 @@
 <a href="#306" id="306">306</a>
 <a href="#307" id="307">307</a>
 <a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -348,11 +345,10 @@
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter, IsChildSystemParachain, IsConcrete, MintLocation,
-	OriginToPluralityVoice, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	ChildParachainConvertsVia, CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter, IsChildSystemParachain,
+	IsConcrete, MintLocation, OriginToPluralityVoice, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
+	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
 
 <span class="macro">parameter_types! </span>{
@@ -406,8 +402,6 @@
 	</span>ChildParachainAsNative&lt;parachains_origin::Origin, RuntimeOrigin&gt;,
 	<span class="comment">// The AccountId32 location type can be expressed natively as a `Signed` origin.
 	</span>SignedAccountId32AsNative&lt;ThisNetwork, RuntimeOrigin&gt;,
-	<span class="comment">// A system child parachain, expressed as a Superuser, converts to the `Root` origin.
-	</span>ChildSystemParachainAsSuperuser&lt;ParaId, RuntimeOrigin&gt;,
 );
 
 <span class="macro">parameter_types! </span>{

@@ -3158,7 +3158,7 @@
 		<span class="comment">// all para-ids that are not active.
 		</span><span class="kw">let </span>auctioned_slots = Paras::parachains()
 			.into_iter()
-			<span class="comment">// all active para-ids that do not belong to a system or common good chain is the number
+			<span class="comment">// all active para-ids that do not belong to a system chain is the number
 			// of parachains that we should take into account for inflation.
 			</span>.filter(|i| <span class="kw-2">*</span>i &gt;= LOWEST_PUBLIC_ID)
 			.count() <span class="kw">as </span>u64;
