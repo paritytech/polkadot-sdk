@@ -264,3 +264,26 @@ function check_gpg() {
     echo "Checking GPG Signature for $1"
     gpg --no-tty --verify -q $1.asc $1
 }
+
+# Find all the runtimes, it returns the result as JSON as an array of
+# arrays containing the crate name and the runtime_dir
+function find_runtimes() {
+  tomls=($(git ls-files '**/Cargo.toml'))
+  re=".*-runtime$"
+
+  JSON=$(jq --null-input '[]')
+  for file in "${tomls[@]}"; do
+      name=$(toml get -r $file 'package.name')
+      if [[ "$name" =~ $re ]]; then
+          runtime_dir=$(dirname $file)
+          chain=${name//-runtime/}
+          ITEM=$(jq --null-input \
+            --arg chain "$chain" \
+            --arg name "$name" \
+            --arg runtime_dir "$runtime_dir" \
+            '{ "chain": $chain, "crate": $name, "runtime_dir": $runtime_dir }')
+         JSON=$(echo $JSON | jq ". + [$ITEM]")
+      fi
+  done
+  echo $JSON
+}
