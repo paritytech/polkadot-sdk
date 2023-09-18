@@ -16,24 +16,27 @@
 
 mod block_checker;
 mod equivocation_loop;
+mod mock;
 mod reporter;
 
 use async_trait::async_trait;
 use bp_header_chain::{FinalityProof, FindEquivocations};
 use finality_relay::{FinalityPipeline, SourceClientBase};
-use relay_utils::{
-	relay_loop::{Client as RelayClient, RECONNECT_DELAY},
-	MaybeConnectionError, TransactionTracker,
-};
-use std::fmt::Debug;
+use relay_utils::{relay_loop::Client as RelayClient, MaybeConnectionError, TransactionTracker};
+use std::{fmt::Debug, time::Duration};
 
 pub use equivocation_loop::run;
+
+#[cfg(not(test))]
+const RECONNECT_DELAY: Duration = relay_utils::relay_loop::RECONNECT_DELAY;
+#[cfg(test)]
+const RECONNECT_DELAY: Duration = mock::TEST_RECONNECT_DELAY;
 
 pub trait EquivocationDetectionPipeline: FinalityPipeline {
 	/// Block number of the target chain.
 	type TargetNumber: relay_utils::BlockNumberBase;
 	/// The context needed for validating finality proofs.
-	type FinalityVerificationContext: Send;
+	type FinalityVerificationContext: Debug + Send;
 	/// The type of the equivocation proof.
 	type EquivocationProof: Clone + Debug + Send + Sync;
 	/// The equivocations finder.
@@ -91,6 +94,7 @@ pub trait TargetClient<P: EquivocationDetectionPipeline>: RelayClient {
 }
 
 /// The context needed for finding equivocations inside finality proofs and reporting them.
+#[derive(Debug, PartialEq)]
 struct EquivocationReportingContext<P: EquivocationDetectionPipeline> {
 	pub synced_header_hash: P::Hash,
 	pub synced_verification_context: P::FinalityVerificationContext,
