@@ -778,7 +778,7 @@ pub mod pallet {
 					channel.recipient_deposit = new_recipient_deposit;
 				}
 				Ok(())
-			});
+			})?;
 
 			Self::deposit_event(Event::OpenChannelDepositsUpdated(sender, recipient));
 
