@@ -21,7 +21,7 @@ use crate::{
 
 use crate::block_checker::BlockChecker;
 use finality_relay::{FinalityProofsBuf, FinalityProofsStream};
-use futures::{select, FutureExt};
+use futures::{select_biased, FutureExt};
 use num_traits::Saturating;
 use relay_utils::{metrics::MetricsParams, FailedClient};
 use std::{future::Future, time::Duration};
@@ -38,7 +38,7 @@ struct EquivocationDetectionLoop<
 	from_block_num: Option<P::TargetNumber>,
 	until_block_num: Option<P::TargetNumber>,
 
-	reporter: EquivocationsReporter<P, SC>,
+	reporter: EquivocationsReporter<'static, P, SC>,
 
 	finality_proofs_stream: FinalityProofsStream<P, SC>,
 	finality_proofs_buf: FinalityProofsBuf<P>,
@@ -116,11 +116,11 @@ impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
 					.await;
 				current_block_number = current_block_number.saturating_add(1.into());
 			}
-			self.until_block_num = Some(current_block_number);
+			self.from_block_num = Some(current_block_number);
 
-			select! {
-				_ = async_std::task::sleep(tick).fuse() => {},
+			select_biased! {
 				_ = exit_signal => return,
+				_ = async_std::task::sleep(tick).fuse() => {},
 			}
 		}
 	}
@@ -171,4 +171,138 @@ pub async fn run<P: EquivocationDetectionPipeline>(
 			},
 		)
 		.await
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::mock::*;
+	use futures::{channel::mpsc::UnboundedSender, StreamExt};
+	use std::{
+		collections::{HashMap, VecDeque},
+		sync::{Arc, Mutex},
+	};
+
+	fn best_finalized_header_number(
+		best_finalized_headers: &Mutex<VecDeque<Result<TestTargetNumber, TestClientError>>>,
+		exit_sender: &UnboundedSender<()>,
+	) -> Result<TestTargetNumber, TestClientError> {
+		let mut best_finalized_headers = best_finalized_headers.lock().unwrap();
+		let result = best_finalized_headers.pop_front().unwrap();
+		if best_finalized_headers.is_empty() {
+			exit_sender.unbounded_send(()).unwrap();
+		}
+		result
+	}
+
+	#[async_std::test]
+	async fn multiple_blocks_are_checked_correctly() {
+		let best_finalized_headers = Arc::new(Mutex::new(VecDeque::from([Ok(10), Ok(12), Ok(13)])));
+		let (exit_sender, exit_receiver) = futures::channel::mpsc::unbounded();
+
+		let source_client = TestSourceClient {
+			finality_proofs: Arc::new(Mutex::new(vec![
+				TestFinalityProof(2, vec!["2-1"]),
+				TestFinalityProof(3, vec!["3-1", "3-2"]),
+				TestFinalityProof(4, vec!["4-1"]),
+				TestFinalityProof(5, vec!["5-1"]),
+				TestFinalityProof(6, vec!["6-1", "6-2"]),
+				TestFinalityProof(7, vec!["7-1", "7-2"]),
+			])),
+			..Default::default()
+		};
+		let reported_equivocations = source_client.reported_equivocations.clone();
+		let target_client = TestTargetClient {
+			best_finalized_header_number: Arc::new(move || {
+				best_finalized_header_number(&best_finalized_headers, &exit_sender)
+			}),
+			best_synced_header_hash: HashMap::from([
+				(9, Ok(Some(1))),
+				(10, Ok(Some(3))),
+				(11, Ok(Some(5))),
+				(12, Ok(Some(6))),
+			]),
+			finality_verification_context: HashMap::from([
+				(9, Ok(TestFinalityVerificationContext { check_equivocations: true })),
+				(10, Ok(TestFinalityVerificationContext { check_equivocations: true })),
+				(11, Ok(TestFinalityVerificationContext { check_equivocations: false })),
+				(12, Ok(TestFinalityVerificationContext { check_equivocations: true })),
+			]),
+			synced_headers_finality_info: HashMap::from([
+				(
+					10,
+					Ok(vec![new_header_finality_info(2, None), new_header_finality_info(3, None)]),
+				),
+				(
+					11,
+					Ok(vec![
+						new_header_finality_info(4, None),
+						new_header_finality_info(5, Some(false)),
+					]),
+				),
+				(12, Ok(vec![new_header_finality_info(6, None)])),
+				(13, Ok(vec![new_header_finality_info(7, None)])),
+			]),
+			..Default::default()
+		};
+
+		assert!(run::<TestEquivocationDetectionPipeline>(
+			source_client,
+			target_client,
+			Duration::from_secs(0),
+			MetricsParams { address: None, registry: Default::default() },
+			exit_receiver.into_future().map(|(_, _)| ()),
+		)
+		.await
+		.is_ok());
+		assert_eq!(
+			*reported_equivocations.lock().unwrap(),
+			HashMap::from([
+				(1, vec!["2-1", "3-1", "3-2"]),
+				(3, vec!["4-1", "5-1"]),
+				(6, vec!["7-1", "7-2"])
+			])
+		);
+	}
+
+	#[async_std::test]
+	async fn blocks_following_error_are_checked_correctly() {
+		let best_finalized_headers = Mutex::new(VecDeque::from([Ok(10), Ok(11)]));
+		let (exit_sender, exit_receiver) = futures::channel::mpsc::unbounded();
+
+		let source_client = TestSourceClient {
+			finality_proofs: Arc::new(Mutex::new(vec![
+				TestFinalityProof(2, vec!["2-1"]),
+				TestFinalityProof(3, vec!["3-1"]),
+			])),
+			..Default::default()
+		};
+		let reported_equivocations = source_client.reported_equivocations.clone();
+		let target_client = TestTargetClient {
+			best_finalized_header_number: Arc::new(move || {
+				best_finalized_header_number(&best_finalized_headers, &exit_sender)
+			}),
+			best_synced_header_hash: HashMap::from([(9, Ok(Some(1))), (10, Ok(Some(2)))]),
+			finality_verification_context: HashMap::from([
+				(9, Ok(TestFinalityVerificationContext { check_equivocations: true })),
+				(10, Ok(TestFinalityVerificationContext { check_equivocations: true })),
+			]),
+			synced_headers_finality_info: HashMap::from([
+				(10, Err(TestClientError::NonConnection)),
+				(11, Ok(vec![new_header_finality_info(3, None)])),
+			]),
+			..Default::default()
+		};
+
+		assert!(run::<TestEquivocationDetectionPipeline>(
+			source_client,
+			target_client,
+			Duration::from_secs(0),
+			MetricsParams { address: None, registry: Default::default() },
+			exit_receiver.into_future().map(|(_, _)| ()),
+		)
+		.await
+		.is_ok());
+		assert_eq!(*reported_equivocations.lock().unwrap(), HashMap::from([(2, vec!["3-1"]),]));
+	}
 }
