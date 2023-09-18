@@ -38,15 +38,6 @@ fn basic_initialize_works() {
 	});
 }
 
-/*
-PERSONAL NOTES:
-	- Timeslice = 2 relay blocks
-	- Region length = 3 timeslices, i.e. 6 relay blocks
-	- Advance notice = 2 relay blocks. This means tasks will be added to the workload
-		2 blocks before teh start of the bulk period.
-	- When `do_start_sales` is called the next bulk period starts after a timeslice.
-*/
-
 #[test]
 fn drop_region_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
@@ -389,6 +380,41 @@ fn instapool_partial_core_payouts_work() {
 		assert_eq!(balance(2), 5);
 		assert_eq!(balance(3), 15);
 		assert_eq!(pot(), 0);
+	});
+}
+
+#[test]
+fn instapool_core_payouts_work_with_partitioned_region() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let (region1, region2) = Broker::do_partition(region, None, 2).unwrap();
+		// `region1` duration is from rcblock 8 to rcblock 12. This means that the
+		// coretime purchased during this time period will be purchased from `region1`
+		//
+		// `region2` duration is from rcblock 12 to rcblock 14 and during this period
+		// coretime will be purchased from `region2`.
+		assert_ok!(Broker::do_pool(region1, None, 2, Final));
+		assert_ok!(Broker::do_pool(region2, None, 3, Final));
+		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
+		advance_to(8);
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+		advance_to(11);
+		assert_eq!(pot(), 20);
+		assert_eq!(revenue(), 100);
+		assert_ok!(Broker::do_claim_revenue(region1, 100));
+		assert_eq!(pot(), 10);
+		assert_eq!(balance(2), 10);
+		advance_to(12);
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+		advance_to(15);
+		assert_eq!(pot(), 10);
+		assert_ok!(Broker::do_claim_revenue(region2, 100));
+		assert_eq!(pot(), 0);
+		// The balance of account `2` remains unchanged.
+		assert_eq!(balance(2), 10);
+		assert_eq!(balance(3), 10);
 	});
 }
 
