@@ -649,14 +649,16 @@ pub mod polkadot {
 				owner: bridges_pallet_owner.clone(),
 				..Default::default()
 			},
-			bridge_polkadot_bulletin_grandpa: bridge_hub_polkadot_runtime::BridgePolkadotBulletinGrandpaConfig {
-				owner: bridges_pallet_owner.clone(),
-				..Default::default()
-			},
-			bridge_polkadot_bulletin_messages: bridge_hub_polkadot_runtime::BridgePolkadotBulletinMessagesConfig {
-				owner: bridges_pallet_owner,
-				..Default::default()
-			},
+			bridge_polkadot_bulletin_grandpa:
+				bridge_hub_polkadot_runtime::BridgePolkadotBulletinGrandpaConfig {
+					owner: bridges_pallet_owner.clone(),
+					..Default::default()
+				},
+			bridge_polkadot_bulletin_messages:
+				bridge_hub_polkadot_runtime::BridgePolkadotBulletinMessagesConfig {
+					owner: bridges_pallet_owner,
+					..Default::default()
+				},
 		}
 	}
 }

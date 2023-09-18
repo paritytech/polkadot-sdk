@@ -29,8 +29,8 @@ use bridge_runtime_common::{
 	},
 	messages_xcm_extension::{SenderAndLane, XcmBlobHauler, XcmBlobHaulerAdapter},
 	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter, RefundableMessagesLane,
-		RefundableParachain,
+		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
+		RefundableMessagesLane, RefundableParachain,
 	},
 };
 use frame_support::{parameter_types, traits::PalletInfoAccess};
@@ -144,7 +144,7 @@ pub type BridgeRefundBridgeHubRococoMessages = RefundSignedExtensionAdapter<
 		ActualFeeRefund<Runtime>,
 		PriorityBoostPerMessage,
 		StrBridgeRefundBridgeHubRococoMessages,
-	>
+	>,
 >;
 bp_runtime::generate_static_str_provider!(BridgeRefundBridgeHubRococoMessages);
 

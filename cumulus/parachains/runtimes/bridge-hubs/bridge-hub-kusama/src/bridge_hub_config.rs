@@ -29,8 +29,8 @@ use bridge_runtime_common::{
 	},
 	messages_xcm_extension::{SenderAndLane, XcmBlobHauler, XcmBlobHaulerAdapter},
 	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter, RefundableMessagesLane,
-		RefundableParachain,
+		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
+		RefundableMessagesLane, RefundableParachain,
 	},
 };
 use codec::Encode;
@@ -161,11 +161,14 @@ pub type BridgeRefundBridgeHubPolkadotMessages = RefundSignedExtensionAdapter<
 	RefundBridgedParachainMessages<
 		Runtime,
 		RefundableParachain<BridgeParachainPolkadotInstance, BridgeHubPolkadot>,
-		RefundableMessagesLane<WithBridgeHubPolkadotMessagesInstance, StatemineToStatemintMessageLane>,
+		RefundableMessagesLane<
+			WithBridgeHubPolkadotMessagesInstance,
+			StatemineToStatemintMessageLane,
+		>,
 		ActualFeeRefund<Runtime>,
 		PriorityBoostPerMessage,
 		StrBridgeRefundBridgeHubPolkadotMessages,
-	>
+	>,
 >;
 bp_runtime::generate_static_str_provider!(BridgeRefundBridgeHubPolkadotMessages);
 
