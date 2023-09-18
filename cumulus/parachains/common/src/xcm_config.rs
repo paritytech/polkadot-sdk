@@ -79,7 +79,7 @@ impl<Location: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
 	}
 }
 
-/// Accepts an asset if it is a native asset from the system (Relay Chain or system parachain).
+/// Accepts an asset if it is a concrete asset from the system (Relay Chain or system parachain).
 pub struct ConcreteAssetFromSystem<AssetLocation>(PhantomData<AssetLocation>);
 impl<AssetLocation: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
 	for ConcreteAssetFromSystem<AssetLocation>
@@ -113,18 +113,18 @@ mod tests {
 	}
 
 	#[test]
-	fn native_asset_from_relay_works() {
+	fn concrete_asset_from_relay_works() {
 		let expected_asset: MultiAsset = (Parent, 1000000).into();
 		let expected_origin: MultiLocation = (Parent, Here).into();
 
-		assert!(<ConcreteAssetFromSystem<AssetLocation>>::contains(
+		assert!(<ConcreteAssetFromSystem<RelayLocation>>::contains(
 			&expected_asset,
 			&expected_origin
 		));
 	}
 
 	#[test]
-	fn native_asset_from_sibling_system_para_fails_for_wrong_asset() {
+	fn concrete_asset_from_sibling_system_para_fails_for_wrong_asset() {
 		let unexpected_assets: Vec<MultiAsset> = vec![
 			(Here, 1000000).into(),
 			((PalletInstance(50), GeneralIndex(1)), 1000000).into(),
@@ -133,12 +133,12 @@ mod tests {
 		let expected_origin: MultiLocation = (Parent, Parachain(1000)).into();
 
 		unexpected_assets.iter().for_each(|asset| {
-			assert!(!<ConcreteAssetFromSystem<AssetLocation>>::contains(asset, &expected_origin));
+			assert!(!<ConcreteAssetFromSystem<RelayLocation>>::contains(asset, &expected_origin));
 		});
 	}
 
 	#[test]
-	fn native_asset_from_sibling_system_para_works_for_correct_asset() {
+	fn concrete_asset_from_sibling_system_para_works_for_correct_asset() {
 		// (para_id, expected_result)
 		let test_data = vec![
 			(0, true),
@@ -155,7 +155,7 @@ mod tests {
 			let origin: MultiLocation = (Parent, Parachain(para_id)).into();
 			assert_eq!(
 				expected_result,
-				<ConcreteAssetFromSystem<AssetLocation>>::contains(&expected_asset, &origin)
+				<ConcreteAssetFromSystem<RelayLocation>>::contains(&expected_asset, &origin)
 			);
 		}
 	}
