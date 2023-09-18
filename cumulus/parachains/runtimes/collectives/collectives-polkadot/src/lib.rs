@@ -20,7 +20,7 @@
 //!
 //! ### Governance
 //!
-//! As a common good parachain, Collectives defers its governance (namely, its `Root` origin), to
+//! As a system parachain, Collectives defers its governance (namely, its `Root` origin), to
 //! its Relay Chain parent, Polkadot.
 //!
 //! ### Collator Selection
@@ -69,8 +69,8 @@ use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
 	traits::{
-		ConstBool, ConstU16, ConstU32, ConstU64, ConstU8, EitherOfDiverse, InstanceFilter,
-		TransformOrigin,
+		fungible::HoldConsideration, ConstBool, ConstU16, ConstU32, ConstU64, ConstU8,
+		EitherOfDiverse, InstanceFilter, LinearStoragePrice, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
@@ -213,7 +213,7 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
+	type MaxHolds = ConstU32<1>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -583,6 +583,7 @@ impl pallet_scheduler::Config for Runtime {
 parameter_types! {
 	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
 	pub const PreimageByteDeposit: Balance = deposit(0, 1);
+	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
 impl pallet_preimage::Config for Runtime {
@@ -590,8 +591,12 @@ impl pallet_preimage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureRoot<AccountId>;
-	type BaseDeposit = PreimageBaseDeposit;
-	type ByteDeposit = PreimageByteDeposit;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		PreimageHoldReason,
+		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+	>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -628,7 +633,7 @@ construct_runtime!(
 		Utility: pallet_utility::{Pallet, Call, Event} = 40,
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 41,
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 42,
-		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 43,
+		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason} = 43,
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 44,
 
 		// The main stage.
