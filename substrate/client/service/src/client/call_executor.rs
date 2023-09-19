@@ -293,7 +293,7 @@ where
 			&mut self.execution_extensions.extensions(
 				at_hash,
 				at_number,
-				None::<&sp_trie::recorder::Recorder<HashingFor<Block>>>,
+				None,
 			),
 		)
 		.map_err(Into::into)

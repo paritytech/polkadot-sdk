@@ -158,7 +158,7 @@ pub struct UnimplementedRecorderProvider<H> {
 	// replacement for the [`sp_trie::recorder::Recorder`] in no-std contexts.
 	_phantom: core::marker::PhantomData<H>,
 	// Statically prevents construction.
-	_infallible: core::convert::Infallible,
+	_void: sp_core::Void,
 }
 
 #[cfg(not(feature = "std"))]
