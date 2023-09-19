@@ -386,7 +386,7 @@ where
 	///
 	/// This only returns `Some` when there was a recorder set.
 	pub fn extract_proof(mut self) -> Option<StorageProof> {
-		self.essence.recorder.take().map(|r| r.drain_storage_proof()).flatten()
+		self.essence.recorder.take().and_then(|r| r.drain_storage_proof())
 	}
 }
 

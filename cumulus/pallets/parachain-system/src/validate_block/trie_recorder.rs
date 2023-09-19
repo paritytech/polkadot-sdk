@@ -148,7 +148,7 @@ mod tests {
 	use rand::Rng;
 	use sp_trie::{
 		cache::{CacheSize, SharedTrieCache},
-		MemoryDB, TrieRecorderProvider,
+		MemoryDB, ProofSizeProvider, TrieRecorderProvider,
 	};
 	use trie_db::{Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieMut, TrieRecorder};
 	use trie_standardmap::{Alphabet, StandardMap, ValueMode};
