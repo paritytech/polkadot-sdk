@@ -30,15 +30,14 @@ use sc_client_api::{
 };
 use sp_api::{CallApiAt, CallContext, NumberFor};
 use sp_blockchain::{
-	Backend as BlockChainBackend, Error as BlockChainError, HashAndNumber, HeaderBackend,
-	HeaderMetadata,
+	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata,
 };
 use sp_core::Bytes;
 use sp_runtime::{
-	traits::{Block as BlockT, One},
-	SaturatedConversion, Saturating,
+	traits::{Block as BlockT, Header},
+	SaturatedConversion,
 };
-use std::{marker::PhantomData, sync::Arc};
+use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 
 /// An API for archive RPC calls.
 pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
@@ -130,23 +129,39 @@ where
 			return Ok(vec![hex_string(&hash.as_ref())])
 		}
 
+		let blockchain = self.backend.blockchain();
+		// Fetch all the leaves of the blockchain that are on a higher or equal height.
+		let mut headers: Vec<_> = blockchain
+			.leaves()
+			.map_err(|error| ArchiveError::FetchLeaves(error.to_string()))?
+			.into_iter()
+			.filter_map(|hash| {
+				let Ok(Some(header)) = self.client.header(hash) else { return None };
+
+				if header.number() < &height {
+					return None
+				}
+
+				Some(header)
+			})
+			.collect();
+
 		let mut result = Vec::new();
-		let mut next_hash: Vec<HashAndNumber<Block>> = Vec::new();
+		let mut visited = HashSet::new();
 
-		next_hash
-			.push(HashAndNumber { number: finalized_num, hash: self.client.info().finalized_hash });
-
-		while let Some(parent) = next_hash.pop() {
-			if parent.number == height {
-				result.push(hex_string(&parent.hash.as_ref()));
+		while let Some(header) = headers.pop() {
+			if header.number() == &height {
+				result.push(hex_string(&header.hash().as_ref()));
 				continue
 			}
 
-			let Ok(blocks) = self.backend.blockchain().children(parent.hash) else { continue };
+			let parent_hash = *header.parent_hash();
+			let Ok(Some(next_header)) = self.client.header(parent_hash) else { continue };
 
-			let child_number: NumberFor<Block> = parent.number.saturating_add(One::one());
-			for child_hash in blocks {
-				next_hash.push(HashAndNumber { number: child_number, hash: child_hash });
+			// Continue the iteration for unique hashes.
+			// Forks might intersect on a common chain that is not yet finalized.
+			if visited.insert(parent_hash) {
+				headers.push(next_header);
 			}
 		}
 

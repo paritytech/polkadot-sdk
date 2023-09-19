@@ -32,6 +32,9 @@ pub enum Error {
 	/// Runtime call failed.
 	#[error("Runtime call: {0}")]
 	RuntimeCall(String),
+	/// Failed to fetch leaves.
+	#[error("Failed to fetch leaves of the chain: {0}")]
+	FetchLeaves(String),
 }
 
 // Base code for all `archive` errors.
@@ -40,6 +43,8 @@ const BASE_ERROR: i32 = 3000;
 const INVALID_PARAM_ERROR: i32 = BASE_ERROR + 1;
 /// Runtime call error.
 const RUNTIME_CALL_ERROR: i32 = BASE_ERROR + 2;
+/// Failed to fetch leaves.
+const FETCH_LEAVES_ERROR: i32 = BASE_ERROR + 3;
 
 impl From<Error> for ErrorObject<'static> {
 	fn from(e: Error) -> Self {
@@ -48,6 +53,7 @@ impl From<Error> for ErrorObject<'static> {
 		match e {
 			Error::InvalidParam(_) => ErrorObject::owned(INVALID_PARAM_ERROR, msg, None::<()>),
 			Error::RuntimeCall(_) => ErrorObject::owned(RUNTIME_CALL_ERROR, msg, None::<()>),
+			Error::FetchLeaves(_) => ErrorObject::owned(FETCH_LEAVES_ERROR, msg, None::<()>),
 		}
 		.into()
 	}
