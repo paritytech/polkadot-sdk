@@ -68,7 +68,7 @@
 //! The `construct_runtime_v2` macro uses the `tt_call` to get the default pallet parts via
 //! the `tt_default_parts_v2` macro defined by each pallet. The pallet parts are then returned as
 //! input to the `match_and_replace` macro.
-//! The `match_and_replace` then will modify the the `construct_runtime_v2` to expand the implicit
+//! The `match_and_replace` then will modify the `construct_runtime_v2` to expand the implicit
 //! definition to the explicit one.
 //!
 //! For example,
