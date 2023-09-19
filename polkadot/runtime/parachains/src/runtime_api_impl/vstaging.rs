@@ -21,7 +21,7 @@ use primitives::vstaging::ApprovalVotingParams;
 use crate::{configuration, dmp, hrmp, inclusion, initializer, paras, shared};
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{
-	vstaging::{
+	v6::async_backing::{
 		AsyncBackingParams, BackingState, CandidatePendingAvailability, Constraints,
 		InboundHrmpLimitations, OutboundHrmpChannelLimitations,
 	},

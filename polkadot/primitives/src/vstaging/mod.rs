@@ -17,7 +17,7 @@
 //! Staging Primitives.
 
 // Put any primitives used by staging APIs functions here
-pub use crate::v5::*;
+pub use crate::v6::*;
 use sp_std::prelude::*;
 
 use parity_scale_codec::{Decode, Encode};

@@ -592,8 +592,8 @@ pub mod v2 {
 	use parity_scale_codec::{Decode, Encode};
 
 	use polkadot_primitives::{
-		CandidateHash, CandidateIndex, CollatorId, CollatorSignature, GroupIndex, Hash,
-		Id as ParaId, UncheckedSignedAvailabilityBitfield, UncheckedSignedStatement,
+		CandidateHash, CollatorId, CollatorSignature, GroupIndex, Hash, Id as ParaId,
+		UncheckedSignedAvailabilityBitfield, UncheckedSignedStatement,
 	};
 
 	use polkadot_node_primitives::{

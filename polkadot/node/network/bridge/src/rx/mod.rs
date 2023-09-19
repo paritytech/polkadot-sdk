@@ -262,7 +262,7 @@ where
 								),
 								&metrics,
 							),
-							ValidationVersion::V2 => send_message(
+							ValidationVersion::V2 => send_validation_message_v2(
 								&mut network_service,
 								vec![peer],
 								&peerset_protocol_names,
@@ -300,7 +300,7 @@ where
 								),
 								&metrics,
 							),
-							CollationVersion::V2 => send_message(
+							CollationVersion::V2 => send_collation_message_v2(
 								&mut network_service,
 								vec![peer],
 								&peerset_protocol_names,
@@ -917,78 +917,6 @@ fn handle_peer_messages<RawMessage: Decode, OutMessage: From<RawMessage>>(
 	}
 
 	(outgoing_events, reports)
-}
-
-fn send_validation_message_v1(
-	net: &mut impl Network,
-	peers: Vec<PeerId>,
-	peerset_protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_v1::ValidationProtocol>,
-	metrics: &Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V1.into(),
-		peerset_protocol_names,
-		message,
-		metrics,
-	);
-}
-
-fn send_collation_message_v1(
-	net: &mut impl Network,
-	peers: Vec<PeerId>,
-	peerset_protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_v1::CollationProtocol>,
-	metrics: &Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Collation,
-		CollationVersion::V1.into(),
-		peerset_protocol_names,
-		message,
-		metrics,
-	);
-}
-
-fn send_validation_message_v2(
-	net: &mut impl Network,
-	peers: Vec<PeerId>,
-	protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_v2::ValidationProtocol>,
-	metrics: &Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V2.into(),
-		protocol_names,
-		message,
-		metrics,
-	);
-}
-
-fn send_collation_message_v2(
-	net: &mut impl Network,
-	peers: Vec<PeerId>,
-	protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_v2::CollationProtocol>,
-	metrics: &Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Collation,
-		CollationVersion::V2.into(),
-		protocol_names,
-		message,
-		metrics,
-	);
 }
 
 async fn dispatch_validation_event_to_all(

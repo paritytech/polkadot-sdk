@@ -32,7 +32,7 @@ use polkadot_node_network_protocol::{
 		CollationVersion, PeerSet, PeerSetProtocolNames, ProtocolVersion, ValidationVersion,
 	},
 	request_response::{OutgoingRequest, Recipient, ReqProtocolNames, Requests},
-	v1 as protocol_v1, vstaging as protocol_vstaging, PeerId,
+	v1 as protocol_v1, v2 as protocol_v2, PeerId,
 };
 use polkadot_primitives::{AuthorityDiscoveryId, Block, Hash};
 
@@ -69,7 +69,7 @@ pub(crate) fn send_validation_message_v2(
 	net: &mut impl Network,
 	peers: Vec<PeerId>,
 	peerset_protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_vstaging::ValidationProtocol>,
+	message: WireMessage<protocol_v2::ValidationProtocol>,
 	metrics: &Metrics,
 ) {
 	gum::trace!(target: LOG_TARGET, ?peers, ?message, "Sending validation v2 message to peers",);
@@ -78,7 +78,7 @@ pub(crate) fn send_validation_message_v2(
 		net,
 		peers,
 		PeerSet::Validation,
-		ValidationVersion::VStaging.into(),
+		ValidationVersion::V2.into(),
 		peerset_protocol_names,
 		message,
 		metrics,
@@ -111,14 +111,14 @@ pub(crate) fn send_collation_message_v2(
 	net: &mut impl Network,
 	peers: Vec<PeerId>,
 	peerset_protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_vstaging::CollationProtocol>,
+	message: WireMessage<protocol_v2::CollationProtocol>,
 	metrics: &Metrics,
 ) {
 	send_message(
 		net,
 		peers,
 		PeerSet::Collation,
-		CollationVersion::VStaging.into(),
+		CollationVersion::V2.into(),
 		peerset_protocol_names,
 		message,
 		metrics,

@@ -55,9 +55,9 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	vstaging::{ApprovalVoteMultipleCandidates, ApprovalVotingParams},
-	BlockNumber, CandidateHash, CandidateIndex, CandidateReceipt, DisputeStatement, GroupIndex,
-	Hash, PvfExecTimeoutKind, SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId,
-	ValidatorIndex, ValidatorPair, ValidatorSignature,
+	BlockNumber, CandidateHash, CandidateIndex, CandidateReceipt, DisputeStatement, ExecutorParams,
+	GroupIndex, Hash, PvfExecTimeoutKind, SessionIndex, SessionInfo, ValidDisputeStatementKind,
+	ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
@@ -2939,6 +2939,7 @@ async fn process_wakeup<Context>(
 						candidate: candidate_receipt,
 						backing_group,
 						distribute_assignment,
+						executor_params: executor_params.clone(),
 					});
 				},
 				Err(err) => {

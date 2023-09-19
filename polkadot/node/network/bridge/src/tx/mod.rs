@@ -18,9 +18,7 @@
 use super::*;
 
 use polkadot_node_network_protocol::{
-	peer_set::{CollationVersion, PeerSet, PeerSetProtocolNames, ValidationVersion},
-	request_response::ReqProtocolNames,
-	v1 as protocol_v1, v2 as protocol_v2, PeerId, Versioned,
+	peer_set::PeerSetProtocolNames, request_response::ReqProtocolNames, Versioned,
 };
 
 use polkadot_node_subsystem::{
@@ -390,76 +388,4 @@ where
 	.await?;
 
 	Ok(())
-}
-
-fn send_validation_message_v1(
-	net: &mut impl Network,
-	peers: Vec<PeerId>,
-	protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_v1::ValidationProtocol>,
-	metrics: &Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V1.into(),
-		protocol_names,
-		message,
-		metrics,
-	);
-}
-
-fn send_collation_message_v1(
-	net: &mut impl Network,
-	peers: Vec<PeerId>,
-	protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_v1::CollationProtocol>,
-	metrics: &Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Collation,
-		CollationVersion::V1.into(),
-		protocol_names,
-		message,
-		metrics,
-	);
-}
-
-fn send_validation_message_v2(
-	net: &mut impl Network,
-	peers: Vec<PeerId>,
-	protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_v2::ValidationProtocol>,
-	metrics: &Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V2.into(),
-		protocol_names,
-		message,
-		metrics,
-	);
-}
-
-fn send_collation_message_v2(
-	net: &mut impl Network,
-	peers: Vec<PeerId>,
-	protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_v2::CollationProtocol>,
-	metrics: &Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Collation,
-		CollationVersion::V2.into(),
-		protocol_names,
-		message,
-		metrics,
-	);
 }
