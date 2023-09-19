@@ -93,7 +93,7 @@ impl syn::parse::Parse for TaskDef {
 		let task_attrs: Vec<TaskAttrType> = task_attrs
 			.into_iter()
 			.map(|attr| parse2::<TaskAttrType>(attr.to_token_stream()))
-			.collect::<Result<_>>()?; // Propagate the error if any of the `parse2` calls fail.
+			.collect::<Result<_>>()?;
 
 		Ok(TaskDef { task_attrs, item })
 	}
