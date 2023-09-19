@@ -18,6 +18,8 @@
 
 //! Defines the compiled Wasm runtime that uses Wasmtime internally.
 
+pub use wasmtime::ModuleVersionStrategy;
+
 use crate::{
 	host::HostState,
 	instance_wrapper::{EntryPoint, InstanceWrapper, MemoryWrapper},
@@ -354,7 +356,7 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 /// See [here][stack_height] for more details of the instrumentation
 ///
 /// [stack_height]: https://github.com/paritytech/wasm-instrument/blob/master/src/stack_limiter/mod.rs
-#[derive(Clone)]
+#[derive(Debug, Clone, codec::Encode)]
 pub struct DeterministicStackLimit {
 	/// A number of logical "values" that can be pushed on the wasm stack. A trap will be triggered
 	/// if exceeded.
@@ -384,7 +386,7 @@ pub struct DeterministicStackLimit {
 /// If the CoW variant of a strategy is unsupported the executor will
 /// fall back to the non-CoW equivalent.
 #[non_exhaustive]
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, codec::Encode)]
 pub enum InstantiationStrategy {
 	/// Pool the instances to avoid initializing everything from scratch
 	/// on each instantiation. Use copy-on-write memory when possible.
@@ -408,7 +410,7 @@ enum InternalInstantiationStrategy {
 	Builtin,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, codec::Encode)]
 pub struct Semantics {
 	/// The instantiation strategy to use.
 	pub instantiation_strategy: InstantiationStrategy,
@@ -484,7 +486,12 @@ enum CodeSupplyMode<'a> {
 	///
 	/// We use a `Path` here instead of simply passing a byte slice to allow `wasmtime` to
 	/// map the runtime's linear memory on supported platforms in a copy-on-write fashion.
-	Precompiled(&'a Path),
+	Precompiled {
+		/// Path to the precompiled artifact
+		compiled_artifact_path: &'a Path,
+		/// Configure the strategy used for versioning check in deserializing precompiled artifact
+		module_version_strategy: ModuleVersionStrategy,
+	},
 
 	/// The runtime is instantiated using a precompiled module with the given bytes.
 	///
@@ -527,12 +534,13 @@ where
 /// different configuration flags. In such case the caller will receive an `Err` deterministically.
 pub unsafe fn create_runtime_from_artifact<H>(
 	compiled_artifact_path: &Path,
+	module_version_strategy: ModuleVersionStrategy,
 	config: Config,
 ) -> std::result::Result<WasmtimeRuntime, WasmError>
 where
 	H: HostFunctions,
 {
-	do_create_runtime::<H>(CodeSupplyMode::Precompiled(compiled_artifact_path), config)
+	do_create_runtime::<H>(CodeSupplyMode::Precompiled { compiled_artifact_path, module_version_strategy }, config)
 }
 
 /// The same as [`create_runtime`] but takes the bytes of a precompiled artifact,
@@ -574,6 +582,13 @@ where
 	replace_strategy_if_broken(&mut config.semantics.instantiation_strategy);
 
 	let mut wasmtime_config = common_config(&config.semantics)?;
+
+	if let CodeSupplyMode::Precompiled { ref module_version_strategy, .. } = code_supply_mode {
+		wasmtime_config
+			.module_version(module_version_strategy.clone())
+			.map_err(|e| WasmError::Other(format!("fail to apply module_version_strategy: {:#}", e)))?;
+	}
+
 	if let Some(ref cache_path) = config.cache_path {
 		if let Err(reason) = setup_wasmtime_caching(cache_path, &mut wasmtime_config) {
 			log::warn!(
@@ -602,7 +617,7 @@ where
 					(module, InternalInstantiationStrategy::Builtin),
 			}
 		},
-		CodeSupplyMode::Precompiled(compiled_artifact_path) => {
+		CodeSupplyMode::Precompiled { compiled_artifact_path, .. } => {
 			// SAFETY: The unsafety of `deserialize_file` is covered by this function. The
 			//         responsibilities to maintain the invariants are passed to the caller.
 			//
@@ -661,6 +676,7 @@ fn prepare_blob_for_compilation(
 /// can then be used for calling [`create_runtime`] avoiding long compilation times.
 pub fn prepare_runtime_artifact(
 	blob: RuntimeBlob,
+	module_version_strategy: ModuleVersionStrategy,
 	semantics: &Semantics,
 ) -> std::result::Result<Vec<u8>, WasmError> {
 	let mut semantics = semantics.clone();
@@ -668,8 +684,14 @@ pub fn prepare_runtime_artifact(
 
 	let blob = prepare_blob_for_compilation(blob, &semantics)?;
 
-	let engine = Engine::new(&common_config(&semantics)?)
-		.map_err(|e| WasmError::Other(format!("cannot create the engine: {:#}", e)))?;
+	let mut wasmtime_config = common_config(&semantics)?;
+
+	wasmtime_config.module_version(module_version_strategy)
+		.map_err(|e| WasmError::Other(format!("fail to apply module_version_strategy: {:#}", e)))?;
+
+	let engine = Engine::new(
+		&wasmtime_config
+	).map_err(|e| WasmError::Other(format!("cannot create the engine: {:#}", e)))?;
 
 	engine
 		.precompile_module(&blob.serialize())

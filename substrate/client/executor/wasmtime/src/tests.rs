@@ -146,6 +146,7 @@ impl RuntimeBuilder {
 				wasm_bulk_memory: false,
 				wasm_reference_types: false,
 				wasm_simd: false,
+				module_version_strategy: Default::default(),
 			},
 		};
 
@@ -156,9 +157,9 @@ impl RuntimeBuilder {
 			// Delay the removal of the temporary directory until we're dropped.
 			self.tmpdir = Some(dir);
 
-			let artifact = crate::prepare_runtime_artifact(blob, &config.semantics).unwrap();
+			let artifact = crate::prepare_runtime_artifact(blob, Default::default(), &config.semantics).unwrap();
 			std::fs::write(&path, artifact).unwrap();
-			unsafe { crate::create_runtime_from_artifact::<HostFunctions>(&path, config) }
+			unsafe { crate::create_runtime_from_artifact::<HostFunctions>(&path, Default::default(), config) }
 		} else {
 			crate::create_runtime::<HostFunctions>(blob, config)
 		}
@@ -473,6 +474,7 @@ fn test_instances_without_reuse_are_not_leaked() {
 				wasm_bulk_memory: false,
 				wasm_reference_types: false,
 				wasm_simd: false,
+				module_version_strategy: Default::default(),
 			},
 		},
 	)

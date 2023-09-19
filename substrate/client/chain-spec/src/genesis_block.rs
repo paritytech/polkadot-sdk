@@ -23,7 +23,11 @@ use std::{marker::PhantomData, sync::Arc};
 use codec::Encode;
 use sc_client_api::{backend::Backend, BlockImportOperation};
 use sc_executor::RuntimeVersionOf;
-use sp_core::storage::{well_known_keys, StateVersion, Storage};
+use sp_core::{
+	storage::{well_known_keys, StateVersion, Storage},
+	Blake2Hasher,
+};
+
 use sp_runtime::{
 	traits::{Block as BlockT, Hash as HashT, HashingFor, Header as HeaderT, Zero},
 	BuildStorage,
@@ -45,7 +49,10 @@ where
 		let runtime_code = sp_core::traits::RuntimeCode {
 			code_fetcher: &code_fetcher,
 			heap_pages: None,
-			hash: <H as HashT>::hash(wasm).encode(),
+			hash: {
+				use sp_core::Hasher;
+				Blake2Hasher::hash(&wasm.to_vec()).as_ref().to_vec()
+			},
 		};
 		let runtime_version = RuntimeVersionOf::runtime_version(executor, &mut ext, &runtime_code)
 			.map_err(|e| sp_blockchain::Error::VersionInvalid(e.to_string()))?;

@@ -252,6 +252,7 @@ where
 			ClientConfig {
 				offchain_worker_enabled: config.offchain_worker.enabled,
 				offchain_indexing_api: config.offchain_worker.indexing_enabled,
+				wasmtime_precompiled: config.executor.wasmtime_precompiled.clone(),
 				wasm_runtime_overrides: config.wasm_runtime_overrides.clone(),
 				no_genesis: config.no_genesis(),
 				wasm_runtime_substitutes,
@@ -278,16 +279,21 @@ pub fn new_native_or_wasm_executor<D: NativeExecutionDispatch>(
 
 /// Creates a [`WasmExecutor`] according to [`ExecutorConfiguration`].
 pub fn new_wasm_executor<H: HostFunctions>(config: &ExecutorConfiguration) -> WasmExecutor<H> {
-	let strategy = config
+	let strategy: HeapAllocStrategy = config
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |p| HeapAllocStrategy::Static { extra_pages: p as _ });
-	WasmExecutor::<H>::builder()
+	let mut wasm_builder = WasmExecutor::<H>::builder()
 		.with_execution_method(config.wasm_method)
 		.with_onchain_heap_alloc_strategy(strategy)
 		.with_offchain_heap_alloc_strategy(strategy)
 		.with_max_runtime_instances(config.max_runtime_instances)
-		.with_runtime_cache_size(config.runtime_cache_size)
-		.build()
+		.with_runtime_cache_size(config.runtime_cache_size);
+
+	if let Some(ref wasmtime_precompiled_path) = config.wasmtime_precompiled {
+		wasm_builder = wasm_builder.with_wasmtime_precompiled_path(wasmtime_precompiled_path);
+	}
+
+	wasm_builder.build()
 }
 
 /// Create an instance of default DB-backend backend.

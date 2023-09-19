@@ -266,6 +266,7 @@ mod tests {
 					.build(),
 				),
 				executor: ExecutorConfiguration::default(),
+				wasmtime_precompiled: None,
 				wasm_runtime_overrides: None,
 				rpc: RpcConfiguration {
 					addr: None,

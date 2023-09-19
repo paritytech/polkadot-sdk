@@ -201,6 +201,8 @@ pub struct ClientConfig<Block: BlockT> {
 	pub wasm_runtime_substitutes: HashMap<NumberFor<Block>, Vec<u8>>,
 	/// Enable recording of storage proofs during block import
 	pub enable_import_proof_recording: bool,
+	/// Path where precompiled wasmtime modules exist.
+	pub wasmtime_precompiled: Option<PathBuf>,
 }
 
 impl<Block: BlockT> Default for ClientConfig<Block> {
@@ -212,6 +214,7 @@ impl<Block: BlockT> Default for ClientConfig<Block> {
 			no_genesis: false,
 			wasm_runtime_substitutes: HashMap::new(),
 			enable_import_proof_recording: false,
+			wasmtime_precompiled: None,
 		}
 	}
 }

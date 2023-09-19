@@ -38,6 +38,7 @@ tokio = { features = ["parking_lot", "rt-multi-thread", "signal"], workspace = t
 sc-client-api.workspace = true
 sc-client-api.default-features = true
 sc-client-db.workspace = true
+sc-executor.workspace = true
 sc-keystore.workspace = true
 sc-keystore.default-features = true
 sc-mixnet.workspace = true
@@ -67,6 +68,9 @@ sp-runtime.workspace = true
 sp-runtime.default-features = true
 sp-version.workspace = true
 sp-version.default-features = true
+sp-state-machine.workspace = true
+sp-storage.workspace = true
+
 
 [dev-dependencies]
 tempfile = { workspace = true }

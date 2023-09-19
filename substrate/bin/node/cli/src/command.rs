@@ -228,5 +228,13 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run::<Block>(&config))
 		},
+		Some(Subcommand::PrecompileWasm(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let PartialComponents { task_manager, backend, .. } =
+					new_partial(&config, None)?;
+				Ok((cmd.run(backend, config.chain_spec), task_manager))
+			})
+		},
 	}
 }

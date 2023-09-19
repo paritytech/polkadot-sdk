@@ -30,7 +30,9 @@ wasmtime = { features = [
 	"parallel-compilation",
 	"pooling-allocator",
 ], workspace = true }
-anyhow = { workspace = true }
+anyhow.version = "1.0.68"
+anyhow.workspace = true
+codec = { package = "parity-scale-codec", version = "3.6.1" }
 sc-allocator.workspace = true
 sc-allocator.default-features = true
 sc-executor-common.workspace = true
@@ -50,8 +52,7 @@ rustix = { features = ["fs", "mm", "param", "std", "use-libc"], workspace = true
 [dev-dependencies]
 wat = { workspace = true }
 sc-runtime-test = { path = "../runtime-test" }
-sp-io = { default-features = true, path = "../../../primitives/io" }
-tempfile = { workspace = true }
-paste = { workspace = true, default-features = true }
-codec = { workspace = true, default-features = true }
-cargo_metadata = { workspace = true }
+sp-io = { path = "../../../primitives/io" }
+tempfile = "3.3.0"
+paste = "1.0"
+cargo_metadata = "0.15.4"

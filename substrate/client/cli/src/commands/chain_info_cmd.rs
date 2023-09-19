@@ -17,9 +17,9 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{CliConfiguration, DatabaseParams, PruningParams, Result as CliResult, SharedParams};
-use codec::{Decode, Encode};
 use sc_client_api::{backend::Backend as BackendT, blockchain::HeaderBackend};
 use sp_blockchain::Info;
+use sp_runtime::codec::{Decode, Encode};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use std::{fmt::Debug, io};
 

@@ -66,12 +66,13 @@ fn initialize(
 					wasm_bulk_memory: false,
 					wasm_reference_types: false,
 					wasm_simd: false,
+					module_version_strategy: Default::default(),
 				},
 			};
 
 			if precompile {
 				let precompiled_blob =
-					sc_executor_wasmtime::prepare_runtime_artifact(blob, &config.semantics)
+					sc_executor_wasmtime::prepare_runtime_artifact(blob, Default::default(), &config.semantics)
 						.unwrap();
 
 				// Create a fresh temporary directory to make absolutely sure
@@ -84,7 +85,7 @@ fn initialize(
 				unsafe {
 					sc_executor_wasmtime::create_runtime_from_artifact::<
 						sp_io::SubstrateHostFunctions,
-					>(&path, config)
+					>(&path, Default::defaut(), config)
 				}
 			} else {
 				sc_executor_wasmtime::create_runtime::<sp_io::SubstrateHostFunctions>(blob, config)
