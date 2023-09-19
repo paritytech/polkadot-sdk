@@ -15,11 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::panic;
+
 use derive_syn_parse::Parse;
-use proc_macro2::Span;
+use proc_macro2::{Punct, Span, TokenTree};
+use quote::ToTokens;
 use syn::{
+	parse2,
 	token::{Bracket, Paren},
-	Expr, Ident, Item, LitInt, Result, Token,
+	Expr, Ident, ImplItemFn, Item, LitInt, Result, Token,
 };
 
 pub mod keywords {
@@ -40,7 +44,45 @@ impl TasksDef {
 	}
 }
 
-#[derive(Parse)]
+pub struct TaskDef {
+	task_attrs: Vec<TaskAttrType>,
+	item: ImplItemFn,
+}
+
+impl syn::parse::Parse for TaskDef {
+	fn parse(input: syn::parse::ParseStream) -> Result<Self> {
+		let mut item = input.parse::<ImplItemFn>()?;
+		// we only want to activate TaskAttrType parsing errors for tasks-related attributes,
+		// so we filter them here
+		let (task_attrs, normal_attrs) = item.attrs.into_iter().partition(|attr| {
+			let mut path_tokens = attr.path().to_token_stream().into_iter();
+			let (
+				Some(TokenTree::Ident(prefix)),
+				Some(TokenTree::Punct(_)),
+				Some(TokenTree::Ident(suffix)),
+			) = (path_tokens.next(), path_tokens.next(), path_tokens.next())
+			else {
+				return false
+			};
+			// N.B: the `PartialEq` impl between `Ident` and `&str` is more efficient than
+			// parsing and makes no allocations
+			prefix == "pallet" &&
+				(suffix == "tasks" ||
+					suffix == "tasks_list" ||
+					suffix == "task_condition" ||
+					suffix == "task_index")
+		});
+		item.attrs = normal_attrs;
+		let task_attrs: Vec<TaskAttrType> = task_attrs
+			.into_iter()
+			.map(|attr| parse2::<TaskAttrType>(attr.to_token_stream()))
+			.collect::<Result<_>>()?; // Propagate the error if any of the `parse2` calls fail.
+
+		Ok(TaskDef { task_attrs, item })
+	}
+}
+
+#[derive(Parse, Debug)]
 pub enum TaskAttrType {
 	#[peek(keywords::task_list, name = "#[pallet::task_list(..)]")]
 	TaskList {
@@ -76,7 +118,7 @@ pub enum TaskAttrType {
 	Tasks { _tasks: keywords::tasks },
 }
 
-#[derive(Parse)]
+#[derive(Parse, Debug)]
 pub struct PalletTaskAttr {
 	_pound: Token![#],
 	#[bracket]
@@ -88,9 +130,6 @@ pub struct PalletTaskAttr {
 	#[inside(_bracket)]
 	_attr: TaskAttrType,
 }
-
-#[cfg(test)]
-use syn::parse2;
 
 #[cfg(test)]
 use quote::quote;
@@ -110,6 +149,12 @@ fn test_parse_pallet_task_index() {
 	parse2::<PalletTaskAttr>(quote!(#[pallet::task_index(17)])).unwrap();
 	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_index])).is_err());
 	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_index("hey")])).is_err());
+	assert_eq!(
+		parse2::<PalletTaskAttr>(quote!(#[pallet::task_index("hey")]))
+			.unwrap_err()
+			.to_string(),
+		"expected integer literal"
+	);
 }
 
 #[test]
