@@ -125,11 +125,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxSubAccounts: Get<u32>;
 
-		/// Maximum number of additional fields that may be stored in an ID. Needed to bound the I/O
-		/// required to access an identity, but can be pretty high.
+		/// Structure holding information about an identity.
 		type IdentityInformation: IdentityInformationProvider;
 
-		/// TODO
+		/// All fields in `IdentityInformation`, representable as bit flags.
 		type IdentityField: IdentityFieldProvider;
 
 		/// Maxmimum number of registrars allowed in the system. Needed to bound the complexity
@@ -227,8 +226,6 @@ pub mod pallet {
 		InvalidIndex,
 		/// The target is invalid.
 		InvalidTarget,
-		/// Too many additional fields.
-		TooManyFields,
 		/// Maximum amount of registrars reached. Cannot add any more.
 		TooManyRegistrars,
 		/// Account ID is already named.
@@ -321,14 +318,10 @@ pub mod pallet {
 		/// Emits `IdentitySet` if successful.
 		///
 		/// ## Complexity
-		/// - `O(X + X' + R)`
-		///   - where `X` additional-field-count (deposit-bounded and code-bounded)
+		/// - `O(R)`
 		///   - where `R` judgements-count (registrar-count-bounded)
 		#[pallet::call_index(1)]
-		#[pallet::weight( T::WeightInfo::set_identity(
-			T::MaxRegistrars::get(), // R
-			0, // X
-		))]
+		#[pallet::weight(T::WeightInfo::set_identity(T::MaxRegistrars::get()))]
 		pub fn set_identity(
 			origin: OriginFor<T>,
 			info: Box<T::IdentityInformation>,
@@ -352,11 +345,7 @@ pub mod pallet {
 			<IdentityOf<T>>::insert(&sender, id);
 			Self::deposit_event(Event::IdentitySet { who: sender });
 
-			Ok(Some(T::WeightInfo::set_identity(
-				judgements as u32, // R
-				0,                 // X
-			))
-			.into())
+			Ok(Some(T::WeightInfo::set_identity(judgements as u32)).into()) // R
 		}
 
 		/// Set the sub-accounts of the sender.
@@ -443,15 +432,13 @@ pub mod pallet {
 		/// Emits `IdentityCleared` if successful.
 		///
 		/// ## Complexity
-		/// - `O(R + S + X)`
+		/// - `O(R + S)`
 		///   - where `R` registrar-count (governance-bounded).
 		///   - where `S` subs-count (hard- and deposit-bounded).
-		///   - where `X` additional-field-count (deposit-bounded and code-bounded).
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::clear_identity(
 			T::MaxRegistrars::get(), // R
 			T::MaxSubAccounts::get(), // S
-			0, // X
 		))]
 		pub fn clear_identity(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
@@ -471,7 +458,6 @@ pub mod pallet {
 			Ok(Some(T::WeightInfo::clear_identity(
 				id.judgements.len() as u32, // R
 				sub_ids.len() as u32,       // S
-				0,                          // X
 			))
 			.into())
 		}
@@ -494,14 +480,10 @@ pub mod pallet {
 		/// Emits `JudgementRequested` if successful.
 		///
 		/// ## Complexity
-		/// - `O(R + X)`.
+		/// - `O(R)`.
 		///   - where `R` registrar-count (governance-bounded).
-		///   - where `X` additional-field-count (deposit-bounded and code-bounded).
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::request_judgement(
-			T::MaxRegistrars::get(), // R
-			0, // X
-		))]
+		#[pallet::weight(T::WeightInfo::request_judgement(T::MaxRegistrars::get()))]
 		pub fn request_judgement(
 			origin: OriginFor<T>,
 			#[pallet::compact] reg_index: RegistrarIndex,
@@ -538,7 +520,7 @@ pub mod pallet {
 				registrar_index: reg_index,
 			});
 
-			Ok(Some(T::WeightInfo::request_judgement(judgements as u32, 0)).into())
+			Ok(Some(T::WeightInfo::request_judgement(judgements as u32)).into()) // R
 		}
 
 		/// Cancel a previous request.
@@ -553,14 +535,10 @@ pub mod pallet {
 		/// Emits `JudgementUnrequested` if successful.
 		///
 		/// ## Complexity
-		/// - `O(R + X)`.
+		/// - `O(R)`.
 		///   - where `R` registrar-count (governance-bounded).
-		///   - where `X` additional-field-count (deposit-bounded and code-bounded).
 		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::cancel_request(
-			T::MaxRegistrars::get(), // R
-			0, // X
-		))]
+		#[pallet::weight(T::WeightInfo::cancel_request(T::MaxRegistrars::get()))]
 		pub fn cancel_request(
 			origin: OriginFor<T>,
 			reg_index: RegistrarIndex,
@@ -588,7 +566,7 @@ pub mod pallet {
 				registrar_index: reg_index,
 			});
 
-			Ok(Some(T::WeightInfo::cancel_request(judgements as u32, 0)).into())
+			Ok(Some(T::WeightInfo::cancel_request(judgements as u32)).into()) // R
 		}
 
 		/// Set the fee required for a judgement to be requested from a registrar.
@@ -700,10 +678,7 @@ pub mod pallet {
 					.ok_or_else(|| DispatchError::from(Error::<T>::InvalidIndex))?;
 				Ok(rs.len())
 			})?;
-			Ok(Some(T::WeightInfo::set_fields(
-				registrars as u32, // R
-			))
-			.into())
+			Ok(Some(T::WeightInfo::set_fields(registrars as u32)).into()) // R
 		}
 
 		/// Provide a judgement for an account's identity.
@@ -720,14 +695,10 @@ pub mod pallet {
 		/// Emits `JudgementGiven` if successful.
 		///
 		/// ## Complexity
-		/// - `O(R + X)`.
+		/// - `O(R)`.
 		///   - where `R` registrar-count (governance-bounded).
-		///   - where `X` additional-field-count (deposit-bounded and code-bounded).
 		#[pallet::call_index(9)]
-		#[pallet::weight(T::WeightInfo::provide_judgement(
-			T::MaxRegistrars::get(), // R
-			0, // X
-		))]
+		#[pallet::weight(T::WeightInfo::provide_judgement(T::MaxRegistrars::get()))] // R
 		pub fn provide_judgement(
 			origin: OriginFor<T>,
 			#[pallet::compact] reg_index: RegistrarIndex,
@@ -773,7 +744,7 @@ pub mod pallet {
 			<IdentityOf<T>>::insert(&target, id);
 			Self::deposit_event(Event::JudgementGiven { target, registrar_index: reg_index });
 
-			Ok(Some(T::WeightInfo::provide_judgement(judgements as u32, 0)).into())
+			Ok(Some(T::WeightInfo::provide_judgement(judgements as u32)).into()) // R
 		}
 
 		/// Remove an account's identity and sub-account information and slash the deposits.
@@ -790,15 +761,13 @@ pub mod pallet {
 		/// Emits `IdentityKilled` if successful.
 		///
 		/// ## Complexity
-		/// - `O(R + S + X)`
+		/// - `O(R + S)`
 		///   - where `R` registrar-count (governance-bounded).
 		///   - where `S` subs-count (hard- and deposit-bounded).
-		///   - where `X` additional-field-count (deposit-bounded and code-bounded).
 		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::kill_identity(
 			T::MaxRegistrars::get(), // R
 			T::MaxSubAccounts::get(), // S
-			0, // X
 		))]
 		pub fn kill_identity(
 			origin: OriginFor<T>,
@@ -823,7 +792,6 @@ pub mod pallet {
 			Ok(Some(T::WeightInfo::kill_identity(
 				id.judgements.len() as u32, // R
 				sub_ids.len() as u32,       // S
-				0,                          // X
 			))
 			.into())
 		}

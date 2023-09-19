@@ -234,6 +234,8 @@ pub trait IdentityInformationProvider:
 	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo
 {
 	fn has_identity(&self, fields: u64) -> bool;
+	#[cfg(feature = "runtime-benchmarks")]
+	fn create_identity_info() -> Self;
 }
 
 pub trait IdentityFieldProvider:

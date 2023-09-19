@@ -18,7 +18,10 @@
 // Tests for Identity Pallet
 
 use super::*;
-use crate as pallet_identity;
+use crate::{
+	self as pallet_identity,
+	simple::{IdentityField as SimpleIdentityField, IdentityInfo},
+};
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -102,10 +105,10 @@ impl pallet_identity::Config for Test {
 	type Currency = Balances;
 	type Slashed = ();
 	type BasicDeposit = ConstU64<10>;
-	type FieldDeposit = ConstU64<10>;
 	type SubAccountDeposit = ConstU64<10>;
 	type MaxSubAccounts = ConstU32<2>;
-	type MaxAdditionalFields = MaxAdditionalFields;
+	type IdentityInformation = IdentityInfo;
+	type IdentityField = SimpleIdentityField;
 	type MaxRegistrars = MaxRegistrars;
 	type RegistrarOrigin = EnsureOneOrRoot;
 	type ForceOrigin = EnsureTwoOrRoot;
@@ -122,7 +125,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	t.into()
 }
 
-fn ten() -> IdentityInfo<MaxAdditionalFields> {
+fn ten() -> IdentityInfo {
 	IdentityInfo {
 		display: Data::Raw(b"ten".to_vec().try_into().unwrap()),
 		legal: Data::Raw(b"The Right Ordinal Ten, Esq.".to_vec().try_into().unwrap()),
@@ -130,7 +133,7 @@ fn ten() -> IdentityInfo<MaxAdditionalFields> {
 	}
 }
 
-fn twenty() -> IdentityInfo<MaxAdditionalFields> {
+fn twenty() -> IdentityInfo {
 	IdentityInfo {
 		display: Data::Raw(b"twenty".to_vec().try_into().unwrap()),
 		legal: Data::Raw(b"The Right Ordinal Twenty, Esq.".to_vec().try_into().unwrap()),
@@ -232,7 +235,7 @@ fn adding_registrar_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
 		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
-		let fields = IdentityFields(IdentityField::Display | IdentityField::Legal);
+		let fields = IdentityFields(SimpleIdentityField::Display | SimpleIdentityField::Legal);
 		assert_ok!(Identity::set_fields(RuntimeOrigin::signed(3), 0, fields));
 		assert_eq!(
 			Identity::registrars(),
@@ -260,10 +263,6 @@ fn registration_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
 		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
-		let mut three_fields = ten();
-		three_fields.additional.try_push(Default::default()).unwrap();
-		three_fields.additional.try_push(Default::default()).unwrap();
-		assert!(three_fields.additional.try_push(Default::default()).is_err());
 		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten())));
 		assert_eq!(Identity::identity(10).unwrap().info, ten());
 		assert_eq!(Balances::free_balance(10), 90);
@@ -561,33 +560,6 @@ fn provide_judgement_should_return_judgement_payment_failed_error() {
 }
 
 #[test]
-fn field_deposit_should_work() {
-	new_test_ext().execute_with(|| {
-		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
-		assert_ok!(Identity::set_identity(
-			RuntimeOrigin::signed(10),
-			Box::new(IdentityInfo {
-				additional: vec![
-					(
-						Data::Raw(b"number".to_vec().try_into().unwrap()),
-						Data::Raw(10u32.encode().try_into().unwrap())
-					),
-					(
-						Data::Raw(b"text".to_vec().try_into().unwrap()),
-						Data::Raw(b"10".to_vec().try_into().unwrap())
-					),
-				]
-				.try_into()
-				.unwrap(),
-				..Default::default()
-			})
-		));
-		assert_eq!(Balances::free_balance(10), 70);
-	});
-}
-
-#[test]
 fn setting_account_id_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
@@ -607,15 +579,17 @@ fn setting_account_id_should_work() {
 fn test_has_identity() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten())));
-		assert!(Identity::has_identity(&10, IdentityField::Display as u64));
-		assert!(Identity::has_identity(&10, IdentityField::Legal as u64));
+		assert!(Identity::has_identity(&10, SimpleIdentityField::Display as u64));
+		assert!(Identity::has_identity(&10, SimpleIdentityField::Legal as u64));
 		assert!(Identity::has_identity(
 			&10,
-			IdentityField::Display as u64 | IdentityField::Legal as u64
+			SimpleIdentityField::Display as u64 | SimpleIdentityField::Legal as u64
 		));
 		assert!(!Identity::has_identity(
 			&10,
-			IdentityField::Display as u64 | IdentityField::Legal as u64 | IdentityField::Web as u64
+			SimpleIdentityField::Display as u64 |
+				SimpleIdentityField::Legal as u64 |
+				SimpleIdentityField::Web as u64
 		));
 	});
 }
