@@ -41,7 +41,7 @@ use super::parse::runtime_types::RuntimeType;
 /// The fixed name of the system pallet.
 const SYSTEM_PALLET_NAME: &str = "System";
 
-pub fn expand(def: Def) -> proc_macro2::TokenStream {
+pub fn expand(def: Def) -> TokenStream2 {
 	let input = def.input;
 
 	let res = match def.pallets {
