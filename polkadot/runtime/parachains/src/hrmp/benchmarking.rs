@@ -304,14 +304,13 @@ frame_benchmarking::benchmarks! {
 		let sender_origin: crate::Origin = 1u32.into();
 		let recipient_id: ParaId = 2u32.into();
 
-		// make sure para is registered, and has enough balance.
+		// Make sure para is registered. The sender does actually need the normal deposit because it
+		// is first going the "init" route.
 		let ed = T::Currency::minimum_balance();
 		let sender_deposit: BalanceOf<T> =
 			Configuration::<T>::config().hrmp_sender_deposit.unique_saturated_into();
-		let recipient_deposit: BalanceOf<T> =
-			Configuration::<T>::config().hrmp_recipient_deposit.unique_saturated_into();
 		register_parachain_with_balance::<T>(sender_id, sender_deposit + ed);
-		register_parachain_with_balance::<T>(recipient_id, recipient_deposit + ed);
+		register_parachain_with_balance::<T>(recipient_id, Zero::zero());
 
 		let capacity = Configuration::<T>::config().hrmp_channel_max_capacity;
 		let message_size = Configuration::<T>::config().hrmp_channel_max_message_size;
@@ -350,6 +349,72 @@ frame_benchmarking::benchmarks! {
 		assert_last_event::<T>(
 			Event::<T>::HrmpChannelForceOpened(sender_id, recipient_id, capacity, message_size).into()
 		);
+	}
+
+	establish_system_channel {
+		let sender_id: ParaId = 1u32.into();
+		let recipient_id: ParaId = 2u32.into();
+
+		let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+		let config = Configuration::<T>::config();
+
+		// make sure para is registered, and has zero balance.
+		register_parachain_with_balance::<T>(sender_id, Zero::zero());
+		register_parachain_with_balance::<T>(recipient_id, Zero::zero());
+
+		let capacity = config.hrmp_channel_max_capacity;
+		let message_size = config.hrmp_channel_max_message_size;
+	}: _(frame_system::RawOrigin::Signed(caller), sender_id, recipient_id)
+	verify {
+		assert_last_event::<T>(
+			Event::<T>::HrmpSystemChannelOpened(sender_id, recipient_id, capacity, message_size).into()
+		);
+	}
+
+	poke_channel_deposits {
+		let sender_id: ParaId = 1u32.into();
+		let recipient_id: ParaId = 2u32.into();
+		let channel_id = HrmpChannelId {sender: sender_id, recipient: recipient_id };
+
+		let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+		let config = Configuration::<T>::config();
+
+		// make sure para is registered, and has balance to reserve.
+		let ed = T::Currency::minimum_balance();
+		let sender_deposit: BalanceOf<T> = config.hrmp_sender_deposit.unique_saturated_into();
+		let recipient_deposit: BalanceOf<T> = config.hrmp_recipient_deposit.unique_saturated_into();
+		register_parachain_with_balance::<T>(sender_id, ed + sender_deposit);
+		register_parachain_with_balance::<T>(recipient_id, ed + recipient_deposit);
+
+		// Our normal establishment won't actually reserve deposits, so just insert them directly.
+		HrmpChannels::<T>::insert(
+			&channel_id,
+			HrmpChannel {
+				sender_deposit: config.hrmp_sender_deposit,
+				recipient_deposit: config.hrmp_recipient_deposit,
+				max_capacity: config.hrmp_channel_max_capacity,
+				max_total_size: config.hrmp_channel_max_total_size,
+				max_message_size: config.hrmp_channel_max_message_size,
+				msg_count: 0,
+				total_size: 0,
+				mqc_head: None,
+			},
+		);
+		// Actually reserve the deposits.
+		let _ = T::Currency::reserve(&sender_id.into_account_truncating(), sender_deposit);
+		let _ = T::Currency::reserve(&recipient_id.into_account_truncating(), recipient_deposit);
+	}: _(frame_system::RawOrigin::Signed(caller), sender_id, recipient_id)
+	verify {
+		assert_last_event::<T>(
+			Event::<T>::OpenChannelDepositsUpdated(sender_id, recipient_id).into()
+		);
+		let channel = HrmpChannels::<T>::get(&channel_id).unwrap();
+		// Check that the deposit was updated in the channel state.
+		assert_eq!(channel.sender_deposit, 0);
+		assert_eq!(channel.recipient_deposit, 0);
+		// And that the funds were unreserved.
+		assert_eq!(T::Currency::reserved_balance(&sender_id.into_account_truncating()), 0u128.unique_saturated_into());
+		assert_eq!(T::Currency::reserved_balance(&recipient_id.into_account_truncating()), 0u128.unique_saturated_into());
 	}
 }
 
