@@ -86,8 +86,8 @@ use types::IdentityInformationProvider;
 pub use weights::WeightInfo;
 
 pub use pallet::*;
-pub use simple::{Data, IdentityField, IdentityFields, IdentityInfo};
-pub use types::{Judgement, RegistrarIndex, RegistrarInfo, Registration};
+pub use simple::Data;
+pub use types::{IdentityFields, Judgement, RegistrarIndex, RegistrarInfo, Registration};
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -98,7 +98,7 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 
 #[frame_support::pallet]
 pub mod pallet {
-	use crate::types::IdentityInformationProvider;
+	use crate::types::{IdentityFieldProvider, IdentityInformationProvider};
 
 	use super::*;
 	use frame_support::pallet_prelude::*;
@@ -129,6 +129,9 @@ pub mod pallet {
 		/// Maximum number of additional fields that may be stored in an ID. Needed to bound the I/O
 		/// required to access an identity, but can be pretty high.
 		type IdentityInformation: IdentityInformationProvider;
+
+		/// TODO
+		type IdentityField: IdentityFieldProvider;
 
 		/// Maxmimum number of registrars allowed in the system. Needed to bound the complexity
 		/// of, e.g., updating judgements.
@@ -194,7 +197,10 @@ pub mod pallet {
 	#[pallet::getter(fn registrars)]
 	pub(super) type Registrars<T: Config> = StorageValue<
 		_,
-		BoundedVec<Option<RegistrarInfo<BalanceOf<T>, T::AccountId>>, T::MaxRegistrars>,
+		BoundedVec<
+			Option<RegistrarInfo<BalanceOf<T>, T::AccountId, T::IdentityField>>,
+			T::MaxRegistrars,
+		>,
 		ValueQuery,
 	>;
 
@@ -677,7 +683,7 @@ pub mod pallet {
 		pub fn set_fields(
 			origin: OriginFor<T>,
 			#[pallet::compact] index: RegistrarIndex,
-			fields: IdentityFields,
+			fields: IdentityFields<T::IdentityField>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
