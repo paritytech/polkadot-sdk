@@ -17,7 +17,7 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use enumflags2::{bitflags, BitFlags};
-use scale_info::TypeInfo;
+use scale_info::{build::Variants, Path, Type, TypeInfo};
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 
@@ -27,16 +27,66 @@ use crate::types::{Data, IdentityFieldProvider, IdentityFields, U64BitFlag};
 /// in the `IdentityInfo` struct.
 #[bitflags]
 #[repr(u64)]
-#[derive(Encode, Decode, MaxEncodedLen, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(MaxEncodedLen, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
 pub enum IdentityField {
-	Display = 0b0000000000000000000000000000000000000000000000000000000000000001,
-	Legal = 0b0000000000000000000000000000000000000000000000000000000000000010,
-	Web = 0b0000000000000000000000000000000000000000000000000000000000000100,
-	Riot = 0b0000000000000000000000000000000000000000000000000000000000001000,
-	Email = 0b0000000000000000000000000000000000000000000000000000000000010000,
-	PgpFingerprint = 0b0000000000000000000000000000000000000000000000000000000000100000,
-	Image = 0b0000000000000000000000000000000000000000000000000000000001000000,
-	Twitter = 0b0000000000000000000000000000000000000000000000000000000010000000,
+	Display = 1u64 << 0,
+	Legal = 1u64 << 1,
+	Web = 1u64 << 2,
+	Riot = 1u64 << 3,
+	Email = 1u64 << 4,
+	PgpFingerprint = 1u64 << 5,
+	Image = 1u64 << 6,
+	Twitter = 1u64 << 7,
+}
+
+impl TypeInfo for IdentityField {
+	type Identity = Self;
+
+	fn type_info() -> scale_info::Type {
+		Type::builder().path(Path::new("IdentityField", module_path!())).variant(
+			Variants::new()
+				.variant("Display", |v| v.index(0))
+				.variant("Legal", |v| v.index(1))
+				.variant("Web", |v| v.index(2))
+				.variant("Riot", |v| v.index(3))
+				.variant("Email", |v| v.index(4))
+				.variant("PgpFingerprint", |v| v.index(5))
+				.variant("Image", |v| v.index(6))
+				.variant("Twitter", |v| v.index(7)),
+		)
+	}
+}
+
+impl Encode for IdentityField {
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		let x: u8 = match self {
+			IdentityField::Display => 0,
+			IdentityField::Legal => 1,
+			IdentityField::Web => 2,
+			IdentityField::Riot => 3,
+			IdentityField::Email => 4,
+			IdentityField::PgpFingerprint => 5,
+			IdentityField::Image => 6,
+			IdentityField::Twitter => 7,
+		};
+		f(&x.encode())
+	}
+}
+
+impl Decode for IdentityField {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		match u8::decode(input) {
+			Ok(0) => Ok(IdentityField::Display),
+			Ok(1) => Ok(IdentityField::Legal),
+			Ok(2) => Ok(IdentityField::Web),
+			Ok(3) => Ok(IdentityField::Riot),
+			Ok(4) => Ok(IdentityField::Email),
+			Ok(5) => Ok(IdentityField::PgpFingerprint),
+			Ok(6) => Ok(IdentityField::Image),
+			Ok(7) => Ok(IdentityField::Twitter),
+			_ => Err("Invalid IdentityField representation".into()),
+		}
+	}
 }
 
 impl U64BitFlag for IdentityField {}
