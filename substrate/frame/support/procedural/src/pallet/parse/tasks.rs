@@ -15,10 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::panic;
-
 use derive_syn_parse::Parse;
-use proc_macro2::{Punct, Span, TokenTree};
+use proc_macro2::{Span, TokenTree};
 use quote::ToTokens;
 use syn::{
 	parse2,
@@ -137,8 +135,8 @@ use quote::quote;
 #[test]
 fn test_parse_pallet_task_list_() {
 	parse2::<PalletTaskAttr>(quote!(#[pallet::task_list(Something::iter())])).unwrap();
+	parse2::<PalletTaskAttr>(quote!(#[pallet::task_list(iter())])).unwrap();
 	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_list()])).is_err());
-	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_list(iter())])).is_err());
 	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_list])).is_err());
 }
 
