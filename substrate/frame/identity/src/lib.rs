@@ -86,8 +86,7 @@ use types::IdentityInformationProvider;
 pub use weights::WeightInfo;
 
 pub use pallet::*;
-pub use simple::Data;
-pub use types::{IdentityFields, Judgement, RegistrarIndex, RegistrarInfo, Registration};
+pub use types::{Data, IdentityFields, Judgement, RegistrarIndex, RegistrarInfo, Registration};
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
