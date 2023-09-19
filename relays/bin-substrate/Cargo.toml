@@ -26,6 +26,7 @@ bp-header-chain = { path = "../../primitives/header-chain" }
 bp-messages = { path = "../../primitives/messages" }
 bp-parachains = { path = "../../primitives/parachains" }
 bp-millau = { path = "../../primitives/chain-millau" }
+bp-polkadot-bulletin = { path = "../../primitives/chain-polkadot-bulletin" }
 bp-polkadot-core = { path = "../../primitives/polkadot-core" }
 bp-rialto = { path = "../../primitives/chain-rialto" }
 bp-rialto-parachain = { path = "../../primitives/chain-rialto-parachain" }
@@ -43,6 +44,7 @@ relay-bridge-hub-rococo-client = { path = "../client-bridge-hub-rococo" }
 relay-bridge-hub-wococo-client = { path = "../client-bridge-hub-wococo" }
 relay-kusama-client = { path = "../client-kusama" }
 relay-polkadot-client = { path = "../client-polkadot" }
+relay-polkadot-bulletin-client = { path = "../client-polkadot-bulletin" }
 relay-rococo-client = { path = "../client-rococo" }
 relay-substrate-client = { path = "../client-substrate" }
 relay-utils = { path = "../utils" }

@@ -44,6 +44,10 @@ use crate::{
 			kusama_parachains_to_bridge_hub_polkadot::BridgeHubKusamaToBridgeHubPolkadotCliBridge,
 			polkadot_parachains_to_bridge_hub_kusama::BridgeHubPolkadotToBridgeHubKusamaCliBridge,
 		},
+		polkadot_bulletin::{
+			polkadot_bulletin_headers_to_bridge_hub_polkadot::PolkadotBulletinToBridgeHubPolkadotCliBridge,
+			polkadot_parachains_to_polkadot_bulletin::PolkadotToPolkadotBulletinCliBridge,
+		},
 		rialto_millau::{
 			millau_headers_to_rialto::MillauToRialtoCliBridge,
 			rialto_headers_to_millau::RialtoToMillauCliBridge,
@@ -77,7 +81,9 @@ use relay_substrate_client::{
 use relay_utils::metrics::MetricsParams;
 use sp_core::Pair;
 use substrate_relay_helper::{
-	messages_lane::MessagesRelayParams, on_demand::OnDemandRelay, TaggedAccount, TransactionParams,
+	messages_lane::{MessagesRelayLimits, MessagesRelayParams},
+	on_demand::OnDemandRelay,
+	TaggedAccount, TransactionParams,
 };
 
 /// Parameters that have the same names across all bridges.
@@ -176,6 +182,7 @@ where
 		source_to_target_headers_relay: Arc<dyn OnDemandRelay<Source, Target>>,
 		target_to_source_headers_relay: Arc<dyn OnDemandRelay<Target, Source>>,
 		lane_id: LaneId,
+		maybe_limits: Option<MessagesRelayLimits>,
 	) -> MessagesRelayParams<Bridge::MessagesLane> {
 		MessagesRelayParams {
 			source_client: self.source.client.clone(),
@@ -185,6 +192,7 @@ where
 			source_to_target_headers_relay: Some(source_to_target_headers_relay),
 			target_to_source_headers_relay: Some(target_to_source_headers_relay),
 			lane_id,
+			limits: maybe_limits,
 			metrics_params: self.metrics_params.clone().disable(),
 		}
 	}
@@ -202,6 +210,7 @@ declare_chain_cli_schema!(Kusama, kusama);
 declare_chain_cli_schema!(BridgeHubKusama, bridge_hub_kusama);
 declare_chain_cli_schema!(Polkadot, polkadot);
 declare_chain_cli_schema!(BridgeHubPolkadot, bridge_hub_polkadot);
+declare_chain_cli_schema!(PolkadotBulletin, polkadot_bulletin);
 // Means to override signers of different layer transactions.
 declare_chain_cli_schema!(MillauHeadersToRialto, millau_headers_to_rialto);
 declare_chain_cli_schema!(MillauHeadersToRialtoParachain, millau_headers_to_rialto_parachain);
@@ -227,11 +236,21 @@ declare_chain_cli_schema!(
 	PolkadotParachainsToBridgeHubKusama,
 	polkadot_parachains_to_bridge_hub_kusama
 );
+declare_chain_cli_schema!(
+	PolkadotBulletinHeadersToBridgeHubPolkadot,
+	polkadot_bulletin_headers_to_bridge_hub_polkadot
+);
+declare_chain_cli_schema!(PolkadotHeadersToPolkadotBulletin, polkadot_headers_to_polkadot_bulletin);
+declare_chain_cli_schema!(
+	PolkadotParachainsToPolkadotBulletin,
+	polkadot_parachains_to_polkadot_bulletin
+);
 // All supported bridges.
 declare_relay_to_relay_bridge_schema!(Millau, Rialto);
 declare_relay_to_parachain_bridge_schema!(Millau, RialtoParachain, Rialto);
 declare_parachain_to_parachain_bridge_schema!(BridgeHubRococo, Rococo, BridgeHubWococo, Wococo);
 declare_parachain_to_parachain_bridge_schema!(BridgeHubKusama, Kusama, BridgeHubPolkadot, Polkadot);
+declare_relay_to_parachain_bridge_schema!(PolkadotBulletin, BridgeHubPolkadot, Polkadot);
 
 /// Base portion of the bidirectional complex relay.
 ///
@@ -370,6 +389,7 @@ where
 				left_to_right_on_demand_headers.clone(),
 				right_to_left_on_demand_headers.clone(),
 				lane,
+				Self::L2R::maybe_messages_limits(),
 			))
 			.map_err(|e| anyhow::format_err!("{}", e))
 			.boxed();
@@ -381,6 +401,7 @@ where
 				right_to_left_on_demand_headers.clone(),
 				left_to_right_on_demand_headers.clone(),
 				lane,
+				Self::R2L::maybe_messages_limits(),
 			))
 			.map_err(|e| anyhow::format_err!("{}", e))
 			.boxed();
@@ -500,6 +521,32 @@ impl Full2WayBridge for BridgeHubKusamaBridgeHubPolkadotFull2WayBridge {
 	}
 }
 
+/// `PolkadotBulletin` <> `BridgeHubPolkadot` complex relay.
+pub struct PolkadotBulletinBridgeHubPolkadotFull2WayBridge {
+	base: <Self as Full2WayBridge>::Base,
+}
+
+#[async_trait]
+impl Full2WayBridge for PolkadotBulletinBridgeHubPolkadotFull2WayBridge {
+	type Base = RelayToParachainBridge<Self::L2R, Self::R2L>;
+	type Left = relay_polkadot_bulletin_client::PolkadotBulletin;
+	type Right = relay_bridge_hub_polkadot_client::BridgeHubPolkadot;
+	type L2R = PolkadotBulletinToBridgeHubPolkadotCliBridge;
+	type R2L = PolkadotToPolkadotBulletinCliBridge;
+
+	fn new(base: Self::Base) -> anyhow::Result<Self> {
+		Ok(Self { base })
+	}
+
+	fn base(&self) -> &Self::Base {
+		&self.base
+	}
+
+	fn mut_base(&mut self) -> &mut Self::Base {
+		&mut self.base
+	}
+}
+
 /// Complex headers+messages relay.
 #[derive(Debug, PartialEq, StructOpt)]
 pub enum RelayHeadersAndMessages {
@@ -511,6 +558,8 @@ pub enum RelayHeadersAndMessages {
 	BridgeHubRococoBridgeHubWococo(BridgeHubRococoBridgeHubWococoHeadersAndMessages),
 	/// BridgeHubKusama <> BridgeHubPolkadot relay.
 	BridgeHubKusamaBridgeHubPolkadot(BridgeHubKusamaBridgeHubPolkadotHeadersAndMessages),
+	/// `PolkadotBulletin` <> `BridgeHubPolkadot` relay.
+	PolkadotBulletinBridgeHubPolkadot(PolkadotBulletinBridgeHubPolkadotHeadersAndMessages),
 }
 
 impl RelayHeadersAndMessages {
@@ -529,6 +578,10 @@ impl RelayHeadersAndMessages {
 					.await,
 			RelayHeadersAndMessages::BridgeHubKusamaBridgeHubPolkadot(params) =>
 				BridgeHubKusamaBridgeHubPolkadotFull2WayBridge::new(params.into_bridge().await?)?
+					.run()
+					.await,
+			RelayHeadersAndMessages::PolkadotBulletinBridgeHubPolkadot(params) =>
+				PolkadotBulletinBridgeHubPolkadotFull2WayBridge::new(params.into_bridge().await?)?
 					.run()
 					.await,
 		}

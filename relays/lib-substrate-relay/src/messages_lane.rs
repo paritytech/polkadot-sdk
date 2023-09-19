@@ -105,8 +105,19 @@ pub struct MessagesRelayParams<P: SubstrateMessageLane> {
 		Option<Arc<dyn OnDemandRelay<P::TargetChain, P::SourceChain>>>,
 	/// Identifier of lane that needs to be served.
 	pub lane_id: LaneId,
+	/// Messages relay limits. If not provided, the relay tries to determine it automatically,
+	/// using `TransactionPayment` pallet runtime API.
+	pub limits: Option<MessagesRelayLimits>,
 	/// Metrics parameters.
 	pub metrics_params: MetricsParams,
+}
+
+/// Delivery transaction limits.
+pub struct MessagesRelayLimits {
+	/// Maximal number of messages in the delivery transaction.
+	pub max_messages_in_single_batch: MessageNonce,
+	/// Maximal cumulative weight of messages in the delivery transaction.
+	pub max_messages_weight_in_single_batch: Weight,
 }
 
 /// Batch transaction that brings headers + and messages delivery/receiving confirmations to the
@@ -178,15 +189,18 @@ where
 	let max_messages_size_in_single_batch = P::TargetChain::max_extrinsic_size() / 3;
 	// we don't know exact weights of the Polkadot runtime. So to guess weights we'll be using
 	// weights from Rialto and then simply dividing it by x2.
+	let limits = match params.limits {
+		Some(limits) => limits,
+		None =>
+			select_delivery_transaction_limits_rpc::<P>(
+				&params,
+				P::TargetChain::max_extrinsic_weight(),
+				P::SourceChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
+			)
+			.await?,
+	};
 	let (max_messages_in_single_batch, max_messages_weight_in_single_batch) =
-		select_delivery_transaction_limits_rpc::<P>(
-			&params,
-			P::TargetChain::max_extrinsic_weight(),
-			P::SourceChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
-		)
-		.await?;
-	let (max_messages_in_single_batch, max_messages_weight_in_single_batch) =
-		(max_messages_in_single_batch / 2, max_messages_weight_in_single_batch / 2);
+		(limits.max_messages_in_single_batch / 2, limits.max_messages_weight_in_single_batch / 2);
 
 	let source_client = params.source_client;
 	let target_client = params.target_client;
@@ -457,7 +471,7 @@ async fn select_delivery_transaction_limits_rpc<P: SubstrateMessageLane>(
 	params: &MessagesRelayParams<P>,
 	max_extrinsic_weight: Weight,
 	max_unconfirmed_messages_at_inbound_lane: MessageNonce,
-) -> anyhow::Result<(MessageNonce, Weight)>
+) -> anyhow::Result<MessagesRelayLimits>
 where
 	AccountIdOf<P::SourceChain>: From<<AccountKeyPairOf<P::SourceChain> as Pair>::Public>,
 {
@@ -515,7 +529,10 @@ where
 		"Relay shall be able to deliver messages with dispatch weight = max_extrinsic_weight / 2",
 	);
 
-	Ok((max_number_of_messages, weight_for_messages_dispatch))
+	Ok(MessagesRelayLimits {
+		max_messages_in_single_batch: max_number_of_messages,
+		max_messages_weight_in_single_batch: weight_for_messages_dispatch,
+	})
 }
 
 /// Returns dummy message delivery transaction with zero messages and `1kb` proof.

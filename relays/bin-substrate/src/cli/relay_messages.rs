@@ -24,6 +24,10 @@ use crate::bridges::{
 		bridge_hub_kusama_messages_to_bridge_hub_polkadot::BridgeHubKusamaToBridgeHubPolkadotMessagesCliBridge,
 		bridge_hub_polkadot_messages_to_bridge_hub_kusama::BridgeHubPolkadotToBridgeHubKusamaMessagesCliBridge,
 	},
+	polkadot_bulletin::{
+		bridge_hub_polkadot_messages_to_polkadot_bulletin::BridgeHubPolkadotToPolkadotBulletinMessagesCliBridge,
+		polkadot_bulletin_messages_to_bridge_hub_polkadot::PolkadotBulletinToBridgeHubPolkadotMessagesCliBridge,
+	},
 	rialto_millau::{
 		millau_headers_to_rialto::MillauToRialtoCliBridge,
 		rialto_headers_to_millau::RialtoToMillauCliBridge,
@@ -93,6 +97,7 @@ where
 			source_to_target_headers_relay: None,
 			target_to_source_headers_relay: None,
 			lane_id: data.lane.into(),
+			limits: Self::maybe_messages_limits(),
 			metrics_params: data.prometheus_params.into_metrics_params()?,
 		})
 		.await
@@ -108,6 +113,8 @@ impl MessagesRelayer for BridgeHubRococoToBridgeHubWococoMessagesCliBridge {}
 impl MessagesRelayer for BridgeHubWococoToBridgeHubRococoMessagesCliBridge {}
 impl MessagesRelayer for BridgeHubKusamaToBridgeHubPolkadotMessagesCliBridge {}
 impl MessagesRelayer for BridgeHubPolkadotToBridgeHubKusamaMessagesCliBridge {}
+impl MessagesRelayer for PolkadotBulletinToBridgeHubPolkadotMessagesCliBridge {}
+impl MessagesRelayer for BridgeHubPolkadotToPolkadotBulletinMessagesCliBridge {}
 
 impl RelayMessages {
 	/// Run the command.
@@ -127,6 +134,10 @@ impl RelayMessages {
 				BridgeHubKusamaToBridgeHubPolkadotMessagesCliBridge::relay_messages(self),
 			FullBridge::BridgeHubPolkadotToBridgeHubKusama =>
 				BridgeHubPolkadotToBridgeHubKusamaMessagesCliBridge::relay_messages(self),
+			FullBridge::PolkadotBulletinToBridgeHubPolkadot =>
+				PolkadotBulletinToBridgeHubPolkadotMessagesCliBridge::relay_messages(self),
+			FullBridge::BridgeHubPolkadotToPolkadotBulletin =>
+				BridgeHubPolkadotToPolkadotBulletinMessagesCliBridge::relay_messages(self),
 		}
 		.await
 	}

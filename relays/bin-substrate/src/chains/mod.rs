@@ -19,6 +19,7 @@
 mod kusama;
 mod millau;
 mod polkadot;
+mod polkadot_bulletin;
 mod rialto;
 mod rialto_parachain;
 mod rococo;

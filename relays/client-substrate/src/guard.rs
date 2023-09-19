@@ -17,7 +17,7 @@
 //! Pallet provides a set of guard functions that are running in background threads
 //! and are aborting process if some condition fails.
 
-use crate::{error::Error, Chain, ChainWithBalances, Client};
+use crate::{error::Error, Chain, Client};
 
 use async_trait::async_trait;
 use sp_version::RuntimeVersion;
@@ -28,7 +28,7 @@ use std::{
 
 /// Guards environment.
 #[async_trait]
-pub trait Environment<C: ChainWithBalances>: Send + Sync + 'static {
+pub trait Environment<C>: Send + Sync + 'static {
 	/// Error type.
 	type Error: Display + Send + Sync + 'static;
 
@@ -52,7 +52,7 @@ pub trait Environment<C: ChainWithBalances>: Send + Sync + 'static {
 }
 
 /// Abort when runtime spec version is different from specified.
-pub fn abort_on_spec_version_change<C: ChainWithBalances>(
+pub fn abort_on_spec_version_change<C: Chain>(
 	mut env: impl Environment<C>,
 	expected_spec_version: u32,
 ) {
@@ -98,7 +98,7 @@ fn conditions_check_delay<C: Chain>() -> Duration {
 }
 
 #[async_trait]
-impl<C: ChainWithBalances> Environment<C> for Client<C> {
+impl<C: Chain> Environment<C> for Client<C> {
 	type Error = Error;
 
 	async fn runtime_version(&mut self) -> Result<RuntimeVersion, Self::Error> {
