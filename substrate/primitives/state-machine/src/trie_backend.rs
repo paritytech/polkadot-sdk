@@ -111,7 +111,7 @@ pub struct UnimplementedCacheProvider<H> {
 	// replacement for the `LocalTrieCache` in no-std contexts.
 	_phantom: core::marker::PhantomData<H>,
 	// Statically prevents construction.
-	_infallible: core::convert::Infallible,
+	_void: sp_core::Void,
 }
 
 #[cfg(not(feature = "std"))]
@@ -154,13 +154,15 @@ impl<H: Hasher> TrieCacheProvider<H> for UnimplementedCacheProvider<H> {
 	}
 }
 
+/// Recorder provider that allows construction of a [`TrieBackend`] and satisfies the requirements,
+/// but can never be instantiated.
 #[cfg(not(feature = "std"))]
 pub struct UnimplementedRecorderProvider<H> {
 	// Not strictly necessary, but the H bound allows to use this as a drop-in
 	// replacement for the [`sp_trie::recorder::Recorder`] in no-std contexts.
 	_phantom: core::marker::PhantomData<H>,
 	// Statically prevents construction.
-	_infallible: core::convert::Infallible,
+	_void: sp_core::Void,
 }
 
 #[cfg(not(feature = "std"))]

@@ -1,5 +1,5 @@
 [package]
-name = "cumulus-primitives-reclaim"
+name = "cumulus-primitives-pov-reclaim"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
