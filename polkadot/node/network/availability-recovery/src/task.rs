@@ -102,13 +102,11 @@ pub struct RecoveryParams {
 pub struct State {
 	/// Chunks received so far.
 	received_chunks: HashMap<ValidatorIndex, ErasureChunk>,
-	/// Collection of in-flight requests.
-	requesting_chunks: FuturesUndead<Result<Option<ErasureChunk>, (ValidatorIndex, RequestError)>>,
 }
 
 impl State {
 	fn new() -> Self {
-		Self { received_chunks: HashMap::new(), requesting_chunks: FuturesUndead::new() }
+		Self { received_chunks: HashMap::new() }
 	}
 
 	fn insert_chunk(&mut self, validator: ValidatorIndex, chunk: ErasureChunk) {
@@ -174,15 +172,18 @@ impl State {
 		sender: &mut Sender,
 		desired_requests_count: usize,
 		validators: &mut VecDeque<ValidatorIndex>,
+		requesting_chunks: &mut FuturesUndead<
+			Result<Option<ErasureChunk>, (ValidatorIndex, RequestError)>,
+		>,
 	) where
 		Sender: overseer::AvailabilityRecoverySenderTrait,
 	{
 		let candidate_hash = &params.candidate_hash;
-		let already_requesting_count = self.requesting_chunks.len();
+		let already_requesting_count = requesting_chunks.len();
 
 		let mut requests = Vec::with_capacity(desired_requests_count - already_requesting_count);
 
-		while self.requesting_chunks.len() < desired_requests_count {
+		while requesting_chunks.len() < desired_requests_count {
 			if let Some(validator_index) = validators.pop_back() {
 				let validator = params.validator_authority_keys[validator_index.0 as usize].clone();
 				gum::trace!(
@@ -205,7 +206,7 @@ impl State {
 				params.metrics.on_chunk_request_issued();
 				let timer = params.metrics.time_chunk_request();
 
-				self.requesting_chunks.push(Box::pin(async move {
+				requesting_chunks.push(Box::pin(async move {
 					let _timer = timer;
 					match res.await {
 						Ok(req_res::v1::ChunkFetchingResponse::Chunk(chunk)) =>
@@ -232,6 +233,9 @@ impl State {
 		&mut self,
 		params: &RecoveryParams,
 		validators: &mut VecDeque<ValidatorIndex>,
+		requesting_chunks: &mut FuturesUndead<
+			Result<Option<ErasureChunk>, (ValidatorIndex, RequestError)>,
+		>,
 		can_conclude: impl Fn(usize, usize, usize, &RecoveryParams, usize) -> bool,
 	) -> (usize, usize) {
 		let metrics = &params.metrics;
@@ -243,7 +247,7 @@ impl State {
 		// We also declare requests undead, once `TIMEOUT_START_NEW_REQUESTS` is reached and will
 		// return in that case for `launch_parallel_requests` to fill up slots again.
 		while let Some(request_result) =
-			self.requesting_chunks.next_with_timeout(TIMEOUT_START_NEW_REQUESTS).await
+			requesting_chunks.next_with_timeout(TIMEOUT_START_NEW_REQUESTS).await
 		{
 			total_received_responses += 1;
 
@@ -313,7 +317,7 @@ impl State {
 			// or have gotten firm 'No' responses from enough validators.
 			if can_conclude(
 				validators.len(),
-				self.requesting_chunks.total_len(),
+				requesting_chunks.total_len(),
 				self.chunk_count(),
 				params,
 				error_count,
@@ -322,7 +326,7 @@ impl State {
 					target: LOG_TARGET,
 					candidate_hash = ?params.candidate_hash,
 					received_chunks_count = ?self.chunk_count(),
-					requested_chunks_count = ?self.requesting_chunks.len(),
+					requested_chunks_count = ?requesting_chunks.len(),
 					threshold = ?params.threshold,
 					"Can conclude availability for a candidate",
 				);
@@ -394,11 +398,6 @@ where
 		let _timer = self.params.metrics.time_full_recovery();
 
 		while let Some(mut current_strategy) = self.strategies.pop_front() {
-			// Make sure we are not referencing futures from past RecoveryStrategy runs.
-			if self.state.requesting_chunks.total_len() != 0 {
-				self.state.requesting_chunks = FuturesUndead::new();
-			}
-
 			gum::debug!(
 				target: LOG_TARGET,
 				candidate_hash = ?self.params.candidate_hash,
@@ -555,11 +554,11 @@ pub struct FetchChunks {
 	error_count: usize,
 	/// Total number of responses that have been received, including failed ones.
 	total_received_responses: usize,
-
+	/// Collection of in-flight requests.
+	requesting_chunks: FuturesUndead<Result<Option<ErasureChunk>, (ValidatorIndex, RequestError)>>,
 	/// A random shuffling of the validators which indicates the order in which we connect to the
 	/// validators and request the chunk from them.
 	validators: VecDeque<ValidatorIndex>,
-
 	/// Channel to the erasure task handler.
 	erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 }
@@ -583,6 +582,7 @@ impl FetchChunks {
 		Self {
 			error_count: 0,
 			total_received_responses: 0,
+			requesting_chunks: FuturesUndead::new(),
 			validators: shuffling.into(),
 			erasure_task_tx: params.erasure_task_tx,
 		}
@@ -732,7 +732,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 			if Self::is_unavailable(
 				self.validators.len(),
-				state.requesting_chunks.total_len(),
+				self.requesting_chunks.total_len(),
 				state.chunk_count(),
 				common_params.threshold,
 			) {
@@ -741,8 +741,8 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					candidate_hash = ?common_params.candidate_hash,
 					erasure_root = ?common_params.erasure_root,
 					received = %state.chunk_count(),
-					requesting = %state.requesting_chunks.len(),
-					total_requesting = %state.requesting_chunks.total_len(),
+					requesting = %self.requesting_chunks.len(),
+					total_requesting = %self.requesting_chunks.total_len(),
 					n_validators = %common_params.n_validators,
 					"Data recovery from chunks is not possible",
 				);
@@ -752,7 +752,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 			let desired_requests_count =
 				self.get_desired_request_count(state.chunk_count(), common_params.threshold);
-			let already_requesting_count = state.requesting_chunks.len();
+			let already_requesting_count = self.requesting_chunks.len();
 			gum::debug!(
 				target: LOG_TARGET,
 				?common_params.candidate_hash,
@@ -769,6 +769,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					sender,
 					desired_requests_count,
 					&mut self.validators,
+					&mut self.requesting_chunks,
 				)
 				.await;
 
@@ -776,6 +777,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 				.wait_for_chunks(
 					common_params,
 					&mut self.validators,
+					&mut self.requesting_chunks,
 					|unrequested_validators, reqs, chunk_count, params, _error_count| {
 						chunk_count >= params.threshold ||
 							Self::is_unavailable(
