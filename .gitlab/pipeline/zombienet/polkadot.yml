@@ -109,8 +109,6 @@ zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:
     - .zombienet-polkadot-common
   before_script:
-    - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
-    - export COL_IMAGE="docker.io/paritypr/colander:4519" # The collator image is fixed
     - echo "Zombienet Tests Config"
     - echo "gh-dir ${GH_DIR}"
     - echo "local-dir ${LOCAL_DIR}"
@@ -126,8 +124,6 @@ zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:
   extends:
     - .zombienet-polkadot-common
   before_script:
-    - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
-    - export COL_IMAGE="docker.io/parity/polkadot-collator:latest" # Use cumulus lastest image
     - echo "Zombienet Tests Config"
     - echo "gh-dir ${GH_DIR}"
     - echo "local-dir ${LOCAL_DIR}"
