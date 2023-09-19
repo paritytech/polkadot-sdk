@@ -1,6 +1,6 @@
 name: Feature Request
 description: Submit your requests and suggestions to improve!
-labels: ["J0-enhancement"]
+labels: [ I5-enhancement ]
 body:
   - type: checkboxes
     id: existing
