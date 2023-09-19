@@ -72,10 +72,7 @@ fn parse_hex_param(param: String) -> Result<Vec<u8>, ArchiveError> {
 		return Ok(Default::default())
 	}
 
-	match array_bytes::hex2bytes(&param) {
-		Ok(bytes) => Ok(bytes),
-		Err(_) => Err(ArchiveError::InvalidParam(param)),
-	}
+	array_bytes::hex2bytes(&param).map_err(|_| ArchiveError::InvalidParam(param))
 }
 
 #[async_trait]
