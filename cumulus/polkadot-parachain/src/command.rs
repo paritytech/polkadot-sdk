@@ -427,7 +427,7 @@ macro_rules! construct_partials {
 				)?;
 				$code
 			},
-			Runtime::AssetHubRococo => {
+			Runtime::AssetHubRococo | Runtime::AssetHubWococo => {
 				let $partials = new_partial::<asset_hub_rococo_runtime::RuntimeApi, _>(
 					&$config,
 					crate::service::aura_build_import_queue::<_, AuraId>,
