@@ -99,11 +99,6 @@ pub enum RecoveryStrategyKind {
 	ChunksAlways,
 	/// First try the backing group. Then systematic chunks.
 	BackersThenSystematicChunks,
-	/// Do not request data from the availability store.
-	/// This is the useful for nodes where the
-	/// availability-store subsystem is not expected to run,
-	/// such as collators.
-	BypassAvailabilityStore,
 	/// Always recover using systematic chunks, fall back to regular chunks.
 	SystematicChunks,
 }
@@ -112,6 +107,11 @@ pub enum RecoveryStrategyKind {
 pub struct AvailabilityRecoverySubsystem {
 	/// PoV recovery strategy to use.
 	recovery_strategy_kind: RecoveryStrategyKind,
+	// If this is true, do not request data from the availability store.
+	/// This is the useful for nodes where the
+	/// availability-store subsystem is not expected to run,
+	/// such as collators.
+	bypass_availability_store: bool,
 	/// Receiver for available data requests.
 	req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
 	/// Metrics for this subsystem.
@@ -404,6 +404,7 @@ async fn handle_recover<Context>(
 	metrics: &Metrics,
 	erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 	recovery_strategy_kind: RecoveryStrategyKind,
+	bypass_availability_store: bool,
 ) -> error::Result<()> {
 	let candidate_hash = receipt.hash();
 
@@ -439,30 +440,6 @@ async fn handle_recover<Context>(
 	let _span = span.child("session-info-ctx-received");
 	match session_info {
 		Some(session_info) => {
-			let mut prefer_backing_group = true;
-
-			if let RecoveryStrategyKind::BackersFirstIfSizeLower(small_pov_limit) =
-				recovery_strategy_kind
-			{
-				// Get our own chunk size to get an estimate of the PoV size.
-				let chunk_size: Result<Option<usize>, error::Error> =
-					query_chunk_size(ctx, candidate_hash).await;
-				if let Ok(Some(chunk_size)) = chunk_size {
-					let pov_size_estimate =
-						chunk_size.saturating_mul(session_info.validators.len()) / 3;
-					prefer_backing_group = pov_size_estimate < small_pov_limit;
-
-					gum::trace!(
-						target: LOG_TARGET,
-						?candidate_hash,
-						pov_size_estimate,
-						small_pov_limit,
-						enabled = prefer_backing_group,
-						"Prefer fetch from backing group",
-					);
-				}
-			};
-
 			let block_number =
 				get_block_number(ctx.sender(), receipt.descriptor.relay_parent).await?;
 
@@ -499,33 +476,52 @@ async fn handle_recover<Context>(
 				.get(&block_number)
 				.expect("The shuffling was just inserted");
 
-			let backing_validators = if let Some(backing_group) = backing_group {
-				session_info.validator_groups.get(backing_group)
-			} else {
-				None
-			};
-
-			let fetch_chunks_params = FetchChunksParams {
-				validators: chunk_indices.clone(),
-				erasure_task_tx: erasure_task_tx.clone(),
-			};
-
 			let mut recovery_strategies: VecDeque<
 				Box<dyn RecoveryStrategy<<Context as SubsystemContext>::Sender>>,
 			> = VecDeque::with_capacity(2);
 
-			if let Some(backing_validators) = backing_validators {
-				match (&recovery_strategy_kind, prefer_backing_group) {
-					(RecoveryStrategyKind::BackersFirstAlways, true) |
-					(RecoveryStrategyKind::BackersFirstIfSizeLower(_), true) |
-					(RecoveryStrategyKind::BypassAvailabilityStore, true) |
-					(RecoveryStrategyKind::BackersThenSystematicChunks, true) =>
-						recovery_strategies.push_back(Box::new(FetchFull::new(FetchFullParams {
-							validators: backing_validators.to_vec(),
-							erasure_task_tx: erasure_task_tx.clone(),
-						}))),
-					_ => {},
-				};
+			if let Some(backing_group) = backing_group {
+				if let Some(backing_validators) = session_info.validator_groups.get(backing_group) {
+					let mut small_pov_size = true;
+
+					if let RecoveryStrategyKind::BackersFirstIfSizeLower(small_pov_limit) =
+						recovery_strategy_kind
+					{
+						// Get our own chunk size to get an estimate of the PoV size.
+						let chunk_size: Result<Option<usize>, error::Error> =
+							query_chunk_size(ctx, candidate_hash).await;
+						if let Ok(Some(chunk_size)) = chunk_size {
+							let pov_size_estimate =
+								chunk_size.saturating_mul(session_info.validators.len()) / 3;
+							small_pov_size = pov_size_estimate < small_pov_limit;
+
+							gum::trace!(
+								target: LOG_TARGET,
+								?candidate_hash,
+								pov_size_estimate,
+								small_pov_limit,
+								enabled = small_pov_size,
+								"Prefer fetch from backing group",
+							);
+						} else {
+							// we have a POV limit but were not able to query the chunk size, so
+							// don't use the backing group.
+							small_pov_size = false;
+						}
+					};
+
+					match (&recovery_strategy_kind, small_pov_size) {
+						(RecoveryStrategyKind::BackersFirstAlways, _) |
+						(RecoveryStrategyKind::BackersFirstIfSizeLower(_), true) |
+						(RecoveryStrategyKind::BackersThenSystematicChunks, _) => recovery_strategies.push_back(
+							Box::new(FetchFull::new(FetchFullParams {
+								validators: backing_validators.to_vec(),
+								erasure_task_tx: erasure_task_tx.clone(),
+							})),
+						),
+						_ => {},
+					};
+				}
 			}
 
 			if matches!(
@@ -548,11 +544,17 @@ async fn handle_recover<Context>(
 					.collect();
 
 				recovery_strategies.push_back(Box::new(FetchSystematicChunks::new(
-					FetchSystematicChunksParams { validators, erasure_task_tx },
+					FetchSystematicChunksParams {
+						validators,
+						erasure_task_tx: erasure_task_tx.clone(),
+					},
 				)));
 			}
 
-			recovery_strategies.push_back(Box::new(FetchChunks::new(fetch_chunks_params)));
+			recovery_strategies.push_back(Box::new(FetchChunks::new(FetchChunksParams {
+				validators: chunk_indices.clone(),
+				erasure_task_tx,
+			})));
 
 			launch_recovery_task(
 				state,
@@ -562,7 +564,7 @@ async fn handle_recover<Context>(
 				response_sender,
 				metrics,
 				recovery_strategies,
-				recovery_strategy_kind == RecoveryStrategyKind::BypassAvailabilityStore,
+				bypass_availability_store,
 			)
 			.await
 		},
@@ -611,7 +613,8 @@ impl AvailabilityRecoverySubsystem {
 		metrics: Metrics,
 	) -> Self {
 		Self {
-			recovery_strategy_kind: RecoveryStrategyKind::BypassAvailabilityStore,
+			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(SMALL_POV_LIMIT),
+			bypass_availability_store: true,
 			req_receiver,
 			metrics,
 		}
@@ -625,6 +628,7 @@ impl AvailabilityRecoverySubsystem {
 	) -> Self {
 		Self {
 			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstAlways,
+			bypass_availability_store: false,
 			req_receiver,
 			metrics,
 		}
@@ -635,7 +639,12 @@ impl AvailabilityRecoverySubsystem {
 		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
 		metrics: Metrics,
 	) -> Self {
-		Self { recovery_strategy_kind: RecoveryStrategyKind::ChunksAlways, req_receiver, metrics }
+		Self {
+			recovery_strategy_kind: RecoveryStrategyKind::ChunksAlways,
+			bypass_availability_store: false,
+			req_receiver,
+			metrics,
+		}
 	}
 
 	/// Create a new instance of `AvailabilityRecoverySubsystem` which requests chunks if PoV is
@@ -646,6 +655,7 @@ impl AvailabilityRecoverySubsystem {
 	) -> Self {
 		Self {
 			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(SMALL_POV_LIMIT),
+			bypass_availability_store: false,
 			req_receiver,
 			metrics,
 		}
@@ -659,6 +669,7 @@ impl AvailabilityRecoverySubsystem {
 	) -> Self {
 		Self {
 			recovery_strategy_kind: RecoveryStrategyKind::BackersThenSystematicChunks,
+			bypass_availability_store: false,
 			req_receiver,
 			metrics,
 		}
@@ -672,6 +683,7 @@ impl AvailabilityRecoverySubsystem {
 	) -> Self {
 		Self {
 			recovery_strategy_kind: RecoveryStrategyKind::SystematicChunks,
+			bypass_availability_store: false,
 			req_receiver,
 			metrics,
 		}
@@ -679,7 +691,8 @@ impl AvailabilityRecoverySubsystem {
 
 	async fn run<Context>(self, mut ctx: Context) -> SubsystemResult<()> {
 		let mut state = State::default();
-		let Self { mut req_receiver, metrics, recovery_strategy_kind } = self;
+		let Self { mut req_receiver, metrics, recovery_strategy_kind, bypass_availability_store } =
+			self;
 
 		let (erasure_task_tx, erasure_task_rx) = futures::channel::mpsc::channel(16);
 		let mut erasure_task_rx = erasure_task_rx.fuse();
@@ -771,6 +784,7 @@ impl AvailabilityRecoverySubsystem {
 										&metrics,
 										erasure_task_tx.clone(),
 										recovery_strategy_kind.clone(),
+										bypass_availability_store
 									).await {
 										gum::warn!(
 											target: LOG_TARGET,
@@ -786,7 +800,7 @@ impl AvailabilityRecoverySubsystem {
 				in_req = recv_req => {
 					match in_req.into_nested().map_err(|fatal| SubsystemError::with_origin("availability-recovery", fatal))? {
 						Ok(req) => {
-							if recovery_strategy_kind == RecoveryStrategyKind::BypassAvailabilityStore {
+							if bypass_availability_store {
 								gum::debug!(
 									target: LOG_TARGET,
 									"Skipping request to availability-store.",

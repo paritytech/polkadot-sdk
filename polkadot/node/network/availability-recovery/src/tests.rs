@@ -989,7 +989,7 @@ fn recovers_from_only_chunks_if_pov_large() {
 			AvailabilityRecoveryMessage::RecoverAvailableData(
 				new_candidate.clone(),
 				test_state.session_index,
-				None,
+				Some(GroupIndex(0)),
 				tx,
 			),
 		)
