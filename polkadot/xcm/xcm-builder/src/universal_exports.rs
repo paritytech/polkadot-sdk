@@ -171,7 +171,9 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorMulti
 		let xcm = msg.take().ok_or(MissingArgument)?;
 
 		// find exporter
-		let Some((bridge, maybe_payment)) = Bridges::exporter_for(&remote_network, &remote_location, &xcm) else {
+		let Some((bridge, maybe_payment)) =
+			Bridges::exporter_for(&remote_network, &remote_location, &xcm)
+		else {
 			// We need to make sure that msg is not consumed in case of `NotApplicable`.
 			*msg = Some(xcm);
 			return Err(SendError::NotApplicable)
@@ -236,7 +238,9 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorMulti
 		let xcm = msg.take().ok_or(MissingArgument)?;
 
 		// find exporter
-		let Some((bridge, maybe_payment)) = Bridges::exporter_for(&remote_network, &remote_location, &xcm) else {
+		let Some((bridge, maybe_payment)) =
+			Bridges::exporter_for(&remote_network, &remote_location, &xcm)
+		else {
 			// We need to make sure that msg is not consumed in case of `NotApplicable`.
 			*msg = Some(xcm);
 			return Err(SendError::NotApplicable)

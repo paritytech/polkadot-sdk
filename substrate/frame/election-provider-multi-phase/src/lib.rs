@@ -1381,9 +1381,9 @@ impl<T: Config> SnapshotWrapper<T> {
 
 	/// Check if all of the storage items do not exist
 	pub fn not_exists() -> bool {
-		!<Snapshot<T>>::exists()
-			&& !<SnapshotMetadata<T>>::exists()
-			&& !<DesiredTargets<T>>::exists()
+		!<Snapshot<T>>::exists() &&
+			!<SnapshotMetadata<T>>::exists() &&
+			!<DesiredTargets<T>>::exists()
 	}
 }
 
@@ -1779,8 +1779,8 @@ mod feasibility_check {
 			assert!(MultiPhase::current_phase().is_signed());
 			let solution = raw_solution();
 
-			// kill all `Snapshot, `SnapshotMetadata` and `DesiredTargets` for the storage state to be
-			// consistent, by using the `SnapshotWrapper` for the try_state checks to pass.
+			// kill all `Snapshot, `SnapshotMetadata` and `DesiredTargets` for the storage state to
+			// be consistent, by using the `SnapshotWrapper` for the try_state checks to pass.
 			<SnapshotWrapper<Runtime>>::kill();
 
 			assert_noop!(
