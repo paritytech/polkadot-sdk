@@ -1024,7 +1024,7 @@ mod tests {
 			upgrade,
 		},
 		identity::Keypair,
-		kad, noise,
+		noise,
 		swarm::{Executor, Swarm, SwarmBuilder, SwarmEvent},
 		yamux, Multiaddr,
 	};
