@@ -17,13 +17,16 @@
 
 use super::*;
 use codec::{Decode, Encode, MaxEncodedLen};
+use enumflags2::{BitFlag, BitFlags, _internal::RawBitFlags};
 use frame_support::{traits::Get, BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
-use scale_info::TypeInfo;
+use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
 use sp_runtime::RuntimeDebug;
 use sp_std::{fmt::Debug, prelude::*};
 
 /// An identifier for a single name registrar/identity verification service.
 pub type RegistrarIndex = u32;
+
+pub trait U64BitFlag: BitFlag + RawBitFlags<Numeric = u64> {}
 
 /// An attestation of a registrar over how accurate some `IdentityInfo` is in describing an account.
 ///
@@ -76,6 +79,11 @@ pub trait IdentityInformationProvider:
 	fn has_identity(&self, fields: u64) -> bool;
 }
 
+pub trait IdentityFieldProvider:
+	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag
+{
+}
+
 /// Information concerning the identity of the controller of an account.
 ///
 /// NOTE: This is stored separately primarily to facilitate the addition of extra fields in a
@@ -115,6 +123,7 @@ impl<
 pub struct RegistrarInfo<
 	Balance: Encode + Decode + Clone + Debug + Eq + PartialEq,
 	AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq,
+	IdField: IdentityFieldProvider,
 > {
 	/// The account of the registrar.
 	pub account: AccountId,
@@ -124,5 +133,48 @@ pub struct RegistrarInfo<
 
 	/// Relevant fields for this registrar. Registrar judgements are limited to attestations on
 	/// these fields.
-	pub fields: IdentityFields,
+	pub fields: IdentityFields<IdField>,
+}
+
+/// Wrapper type for `BitFlags<IdentityField>` that implements `Codec`.
+#[derive(Clone, Copy, PartialEq, RuntimeDebug)]
+pub struct IdentityFields<IdField: BitFlag>(pub BitFlags<IdField>);
+
+impl<IdField: U64BitFlag> Default for IdentityFields<IdField> {
+	fn default() -> Self {
+		Self(Default::default())
+	}
+}
+
+impl<IdField: U64BitFlag> MaxEncodedLen for IdentityFields<IdField>
+where
+	IdentityFields<IdField>: Encode,
+{
+	fn max_encoded_len() -> usize {
+		u64::max_encoded_len()
+	}
+}
+
+impl<IdField: U64BitFlag + PartialEq> Eq for IdentityFields<IdField> {}
+impl<IdField: Encode + Decode + U64BitFlag> Encode for IdentityFields<IdField> {
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		let bits: u64 = self.0.bits();
+		bits.using_encoded(f)
+	}
+}
+impl<IdField: Encode + Decode + U64BitFlag> Decode for IdentityFields<IdField> {
+	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
+		let field = u64::decode(input)?;
+		Ok(Self(<BitFlags<IdField>>::from_bits(field).map_err(|_| "invalid value")?))
+	}
+}
+impl<IdField: IdentityFieldProvider> TypeInfo for IdentityFields<IdField> {
+	type Identity = Self;
+
+	fn type_info() -> Type {
+		Type::builder()
+			.path(Path::new("BitFlags", module_path!()))
+			.type_params(vec![TypeParameter::new("T", Some(meta_type::<IdField>()))])
+			.composite(Fields::unnamed().field(|f| f.ty::<u64>().type_name("IdentityField")))
+	}
 }

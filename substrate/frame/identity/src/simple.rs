@@ -20,10 +20,12 @@ use enumflags2::{bitflags, BitFlags};
 use frame_support::{traits::ConstU32, BoundedVec};
 use scale_info::{
 	build::{Fields, Variants},
-	meta_type, Path, Type, TypeInfo, TypeParameter,
+	Path, Type, TypeInfo,
 };
 use sp_runtime::RuntimeDebug;
 use sp_std::{iter::once, prelude::*};
+
+use crate::types::{IdentityFieldProvider, IdentityFields, U64BitFlag};
 
 /// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
@@ -180,7 +182,7 @@ impl Default for Data {
 /// in the `IdentityInfo` struct.
 #[bitflags]
 #[repr(u64)]
-#[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub enum IdentityField {
 	Display = 0b0000000000000000000000000000000000000000000000000000000000000001,
 	Legal = 0b0000000000000000000000000000000000000000000000000000000000000010,
@@ -192,38 +194,8 @@ pub enum IdentityField {
 	Twitter = 0b0000000000000000000000000000000000000000000000000000000010000000,
 }
 
-/// Wrapper type for `BitFlags<IdentityField>` that implements `Codec`.
-#[derive(Clone, Copy, PartialEq, Default, RuntimeDebug)]
-pub struct IdentityFields(pub BitFlags<IdentityField>);
-
-impl MaxEncodedLen for IdentityFields {
-	fn max_encoded_len() -> usize {
-		u64::max_encoded_len()
-	}
-}
-
-impl Eq for IdentityFields {}
-impl Encode for IdentityFields {
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		self.0.bits().using_encoded(f)
-	}
-}
-impl Decode for IdentityFields {
-	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
-		let field = u64::decode(input)?;
-		Ok(Self(<BitFlags<IdentityField>>::from_bits(field as u64).map_err(|_| "invalid value")?))
-	}
-}
-impl TypeInfo for IdentityFields {
-	type Identity = Self;
-
-	fn type_info() -> Type {
-		Type::builder()
-			.path(Path::new("BitFlags", module_path!()))
-			.type_params(vec![TypeParameter::new("T", Some(meta_type::<IdentityField>()))])
-			.composite(Fields::unnamed().field(|f| f.ty::<u64>().type_name("IdentityField")))
-	}
-}
+impl U64BitFlag for IdentityField {}
+impl IdentityFieldProvider for IdentityField {}
 
 /// Information concerning the identity of the controller of an account.
 ///
@@ -276,7 +248,7 @@ pub struct IdentityInfo {
 
 impl IdentityInfo {
 	#[allow(unused)]
-	pub(crate) fn fields(&self) -> IdentityFields {
+	pub(crate) fn fields(&self) -> IdentityFields<IdentityField> {
 		let mut res = <BitFlags<IdentityField>>::empty();
 		if !self.display.is_none() {
 			res.insert(IdentityField::Display);
