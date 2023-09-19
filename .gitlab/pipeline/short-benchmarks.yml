@@ -5,7 +5,7 @@
 
 # run short-benchmarks for relay chain runtimes from polkadot
 
-short-benchmark-polkadot: &short-bench
+short-benchmark-westend: &short-bench
   stage: short-benchmarks
   extends:
     - .docker-env
@@ -14,21 +14,11 @@ short-benchmark-polkadot: &short-bench
     - job: build-short-benchmark
       artifacts: true
   variables:
-    RUNTIME: polkadot
+    RUNTIME: westend
   tags:
     - benchmark
   script:
     - ./artifacts/polkadot benchmark pallet --chain $RUNTIME-dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
-
-short-benchmark-kusama:
-  <<: *short-bench
-  variables:
-    RUNTIME: kusama
-
-short-benchmark-westend:
-  <<: *short-bench
-  variables:
-    RUNTIME: westend
 
 # run short-benchmarks for system parachain runtimes from cumulus
 
