@@ -21,32 +21,32 @@ futures = "0.3.21"
 log = "0.4.16"
 parking_lot = "0.12.0"
 thiserror = "1.0"
-fork-tree = { version = "3.0.0", path = "../../../utils/fork-tree" }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", version = "0.10.0-dev", path = "../../../utils/prometheus" }
-sc-client-api = { version = "4.0.0-dev", path = "../../api" }
-sc-consensus = { version = "0.10.0-dev", path = "../../../client/consensus/common" }
-sc-consensus-epochs = { version = "0.10.0-dev", path = "../epochs" }
-sc-consensus-slots = { version = "0.10.0-dev", path = "../slots" }
-sc-telemetry = { version = "4.0.0-dev", path = "../../telemetry" }
-sc-transaction-pool-api = { version = "4.0.0-dev", path = "../../transaction-pool/api" }
-sp-api = { version = "4.0.0-dev", path = "../../../primitives/api" }
-sp-application-crypto = { version = "23.0.0", path = "../../../primitives/application-crypto" }
-sp-block-builder = { version = "4.0.0-dev", path = "../../../primitives/block-builder" }
-sp-blockchain = { version = "4.0.0-dev", path = "../../../primitives/blockchain" }
-sp-consensus = { version = "0.10.0-dev", path = "../../../primitives/consensus/common" }
-sp-consensus-sassafras = { version = "0.3.4-dev", path = "../../../primitives/consensus/sassafras" }
-sp-consensus-slots = { version = "0.10.0-dev", path = "../../../primitives/consensus/slots" }
-sp-core = { version = "21.0.0", path = "../../../primitives/core" }
-sp-inherents = { version = "4.0.0-dev", path = "../../../primitives/inherents" }
-sp-keystore = { version = "0.27.0", path = "../../../primitives/keystore" }
-sp-runtime = { version = "24.0.0", path = "../../../primitives/runtime" }
-sp-timestamp = { version = "4.0.0-dev", path = "../../../primitives/timestamp" }
+fork-tree = { path = "../../../utils/fork-tree" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
+sc-client-api = { path = "../../api" }
+sc-consensus = { path = "../../../client/consensus/common" }
+sc-consensus-epochs = { path = "../epochs" }
+sc-consensus-slots = { path = "../slots" }
+sc-telemetry = { path = "../../telemetry" }
+sc-transaction-pool-api = { path = "../../transaction-pool/api" }
+sp-api = { path = "../../../primitives/api" }
+sp-application-crypto = { path = "../../../primitives/application-crypto" }
+sp-block-builder = { path = "../../../primitives/block-builder" }
+sp-blockchain = { path = "../../../primitives/blockchain" }
+sp-consensus = { path = "../../../primitives/consensus/common" }
+sp-consensus-sassafras = { path = "../../../primitives/consensus/sassafras" }
+sp-consensus-slots = { path = "../../../primitives/consensus/slots" }
+sp-core = { path = "../../../primitives/core" }
+sp-inherents = { path = "../../../primitives/inherents" }
+sp-keystore = { path = "../../../primitives/keystore" }
+sp-runtime = { path = "../../../primitives/runtime" }
+sp-timestamp = { path = "../../../primitives/timestamp" }
 env_logger = "0.10.0"
 
 [dev-dependencies]
-sc-block-builder = { version = "0.10.0-dev", path = "../../block-builder" }
-sc-keystore = { version = "4.0.0-dev", path = "../../keystore" }
-sc-network-test = { version = "0.8.0", path = "../../network/test" }
-sp-keyring = { version = "24.0.0", path = "../../../primitives/keyring" }
-substrate-test-runtime-client = { version = "2.0.0", path = "../../../test-utils/runtime/client" }
+sc-block-builder = { path = "../../block-builder" }
+sc-keystore = { path = "../../keystore" }
+sc-network-test = { path = "../../network/test" }
+sp-keyring = { path = "../../../primitives/keyring" }
+substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
 tokio = "1.22.0"
