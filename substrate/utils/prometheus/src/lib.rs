@@ -111,7 +111,11 @@ async fn init_prometheus_with_listener(
 		}
 	});
 
-	let server = Server::builder(listener).serve(service);
+	// Shutdown server when "signal" is dropped
+	let (_signal, on_exit) = exit_future::signal();
+	let server = Server::builder(listener).serve(service).with_graceful_shutdown(async {
+		on_exit.await;
+	});
 
 	let result = server.await.map_err(Into::into);
 

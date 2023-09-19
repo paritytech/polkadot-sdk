@@ -18035,6 +18035,7 @@ dependencies = [
 name = "substrate-prometheus-endpoint"
 version = "0.10.0-dev"
 dependencies = [
+ "exit-future",
  "hyper",
  "log",
  "prometheus",
