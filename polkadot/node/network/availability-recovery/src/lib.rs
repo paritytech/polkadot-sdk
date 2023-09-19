@@ -90,17 +90,17 @@ pub enum RecoveryStrategyKind {
 	BackersFirstIfSizeLower(usize),
 	/// We always recover using validator chunks.
 	ChunksAlways,
-	/// Do not request data from the availability store.
-	/// This is the useful for nodes where the
-	/// availability-store subsystem is not expected to run,
-	/// such as collators.
-	BypassAvailabilityStore,
 }
 
 /// The Availability Recovery Subsystem.
 pub struct AvailabilityRecoverySubsystem {
 	/// PoV recovery strategy to use.
 	recovery_strategy_kind: RecoveryStrategyKind,
+	// If this is true, do not request data from the availability store.
+	/// This is the useful for nodes where the
+	/// availability-store subsystem is not expected to run,
+	/// such as collators.
+	bypass_availability_store: bool,
 	/// Receiver for available data requests.
 	req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
 	/// Metrics for this subsystem.
@@ -389,6 +389,7 @@ async fn handle_recover<Context>(
 	metrics: &Metrics,
 	erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 	recovery_strategy_kind: RecoveryStrategyKind,
+	bypass_availability_store: bool,
 ) -> error::Result<()> {
 	let candidate_hash = receipt.hash();
 
@@ -460,7 +461,6 @@ async fn handle_recover<Context>(
 
 					match (&recovery_strategy_kind, small_pov_size) {
 						(RecoveryStrategyKind::BackersFirstAlways, _) |
-						(RecoveryStrategyKind::BypassAvailabilityStore, _) |
 						(RecoveryStrategyKind::BackersFirstIfSizeLower(_), true) => recovery_strategies.push_back(
 							Box::new(FetchFull::new(FetchFullParams {
 								validators: backing_validators.to_vec(),
@@ -485,7 +485,7 @@ async fn handle_recover<Context>(
 				response_sender,
 				metrics,
 				recovery_strategies,
-				recovery_strategy_kind == RecoveryStrategyKind::BypassAvailabilityStore,
+				bypass_availability_store,
 			)
 			.await
 		},
@@ -534,7 +534,8 @@ impl AvailabilityRecoverySubsystem {
 		metrics: Metrics,
 	) -> Self {
 		Self {
-			recovery_strategy_kind: RecoveryStrategyKind::BypassAvailabilityStore,
+			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(SMALL_POV_LIMIT),
+			bypass_availability_store: true,
 			req_receiver,
 			metrics,
 		}
@@ -548,6 +549,7 @@ impl AvailabilityRecoverySubsystem {
 	) -> Self {
 		Self {
 			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstAlways,
+			bypass_availability_store: false,
 			req_receiver,
 			metrics,
 		}
@@ -558,7 +560,12 @@ impl AvailabilityRecoverySubsystem {
 		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
 		metrics: Metrics,
 	) -> Self {
-		Self { recovery_strategy_kind: RecoveryStrategyKind::ChunksAlways, req_receiver, metrics }
+		Self {
+			recovery_strategy_kind: RecoveryStrategyKind::ChunksAlways,
+			bypass_availability_store: false,
+			req_receiver,
+			metrics,
+		}
 	}
 
 	/// Create a new instance of `AvailabilityRecoverySubsystem` which requests chunks if PoV is
@@ -569,6 +576,7 @@ impl AvailabilityRecoverySubsystem {
 	) -> Self {
 		Self {
 			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(SMALL_POV_LIMIT),
+			bypass_availability_store: false,
 			req_receiver,
 			metrics,
 		}
@@ -576,7 +584,8 @@ impl AvailabilityRecoverySubsystem {
 
 	async fn run<Context>(self, mut ctx: Context) -> SubsystemResult<()> {
 		let mut state = State::default();
-		let Self { mut req_receiver, metrics, recovery_strategy_kind } = self;
+		let Self { mut req_receiver, metrics, recovery_strategy_kind, bypass_availability_store } =
+			self;
 
 		let (erasure_task_tx, erasure_task_rx) = futures::channel::mpsc::channel(16);
 		let mut erasure_task_rx = erasure_task_rx.fuse();
@@ -666,6 +675,7 @@ impl AvailabilityRecoverySubsystem {
 										&metrics,
 										erasure_task_tx.clone(),
 										recovery_strategy_kind.clone(),
+										bypass_availability_store
 									).await {
 										gum::warn!(
 											target: LOG_TARGET,
@@ -681,7 +691,7 @@ impl AvailabilityRecoverySubsystem {
 				in_req = recv_req => {
 					match in_req.into_nested().map_err(|fatal| SubsystemError::with_origin("availability-recovery", fatal))? {
 						Ok(req) => {
-							if recovery_strategy_kind == RecoveryStrategyKind::BypassAvailabilityStore {
+							if bypass_availability_store {
 								gum::debug!(
 									target: LOG_TARGET,
 									"Skipping request to availability-store.",
