@@ -1176,19 +1176,23 @@ where
 	}
 
 	fn send_block_request(&mut self, who: PeerId, request: BlockRequest<B>) {
-		if self.peers.contains_key(&who) {
-			let downloader = self.block_downloader.clone();
-			self.pending_responses.insert(
-				who,
-				Box::pin(async move {
-					(
-						who,
-						PeerRequest::Block(request.clone()),
-						downloader.download_blocks(who, request).await,
-					)
-				}),
-			);
+		if !self.is_peer_known(&who) {
+			trace!(target: LOG_TARGET, "Cannot send block request to unknown peer {who}");
+			debug_assert!(false);
+			return
 		}
+
+		let downloader = self.block_downloader.clone();
+		self.pending_responses.insert(
+			who,
+			Box::pin(async move {
+				(
+					who,
+					PeerRequest::Block(request.clone()),
+					downloader.download_blocks(who, request).await,
+				)
+			}),
+		);
 	}
 }
 
@@ -1516,6 +1520,11 @@ where
 			.any(|(_, p)| p.state == PeerSyncState::DownloadingStale(*hash))
 	}
 
+	/// Is the peer know to the sync state machine?
+	pub fn is_peer_known(&self, peer_id: &PeerId) -> bool {
+		self.peers.contains_key(peer_id)
+	}
+
 	/// Get the set of downloaded blocks that are ready to be queued for import.
 	fn ready_blocks(&mut self) -> Vec<IncomingBlock<B>> {
 		self.blocks
@@ -1634,12 +1643,16 @@ where
 	}
 
 	fn send_state_request(&mut self, who: PeerId, request: OpaqueStateRequest) {
+		if !self.is_peer_known(&who) {
+			trace!(target: LOG_TARGET, "Cannot send state request to unknown peer {who}");
+			debug_assert!(false);
+			return
+		}
+
 		let (tx, rx) = oneshot::channel();
 
-		if self.peers.contains_key(&who) {
-			self.pending_responses
-				.insert(who, Box::pin(async move { (who, PeerRequest::State, rx.await) }));
-		}
+		self.pending_responses
+			.insert(who, Box::pin(async move { (who, PeerRequest::State, rx.await) }));
 
 		match self.encode_state_request(&request) {
 			Ok(data) => {
@@ -1661,12 +1674,16 @@ where
 	}
 
 	fn send_warp_sync_request(&mut self, who: PeerId, request: WarpProofRequest<B>) {
+		if !self.is_peer_known(&who) {
+			trace!(target: LOG_TARGET, "Cannot send warp proof request to unknown peer {who}");
+			debug_assert!(false);
+			return
+		}
+
 		let (tx, rx) = oneshot::channel();
 
-		if self.peers.contains_key(&who) {
-			self.pending_responses
-				.insert(who, Box::pin(async move { (who, PeerRequest::WarpProof, rx.await) }));
-		}
+		self.pending_responses
+			.insert(who, Box::pin(async move { (who, PeerRequest::WarpProof, rx.await) }));
 
 		match &self.warp_sync_protocol_name {
 			Some(name) => self.network_service.start_request(
@@ -1690,7 +1707,7 @@ where
 		peer_id: PeerId,
 		request: BlockRequest<B>,
 		blocks: Vec<BlockData<B>>,
-	) {
+	) -> Option<(PeerId, BlockRequest<B>)> {
 		let block_response = BlockResponse::<B> { id: request.id, blocks };
 
 		let blocks_range = || match (
@@ -1715,29 +1732,31 @@ where
 
 		if request.fields == BlockAttributes::JUSTIFICATION {
 			match self.on_block_justification(peer_id, block_response) {
-				Ok(OnBlockJustification::Nothing) => {},
+				Ok(OnBlockJustification::Nothing) => None,
 				Ok(OnBlockJustification::Import { peer, hash, number, justifications }) => {
 					self.import_justifications(peer, hash, number, justifications);
+					None
 				},
 				Err(BadPeer(id, repu)) => {
 					self.network_service
 						.disconnect_peer(id, self.block_announce_protocol_name.clone());
 					self.network_service.report_peer(id, repu);
+					None
 				},
 			}
 		} else {
 			match self.on_block_data(&peer_id, Some(request), block_response) {
 				Ok(OnBlockData::Import(origin, blocks)) => {
 					self.import_blocks(origin, blocks);
+					None
 				},
-				Ok(OnBlockData::Request(peer, req)) => {
-					self.send_block_request(peer, req);
-				},
-				Ok(OnBlockData::Continue) => {},
+				Ok(OnBlockData::Request(peer, req)) => Some((peer, req)),
+				Ok(OnBlockData::Continue) => None,
 				Err(BadPeer(id, repu)) => {
 					self.network_service
 						.disconnect_peer(id, self.block_announce_protocol_name.clone());
 					self.network_service.report_peer(id, repu);
+					None
 				},
 			}
 		}
@@ -1772,7 +1791,7 @@ where
 			self.send_state_request(id, request);
 		}
 
-		for (id, request) in self.justification_requests().collect::<Vec<_>>() {
+		for (id, request) in self.justification_requests() {
 			self.send_block_request(id, request);
 		}
 
@@ -1801,7 +1820,11 @@ where
 					PeerRequest::Block(req) => {
 						match self.block_downloader.block_response_into_blocks(&req, resp) {
 							Ok(blocks) => {
-								self.on_block_response(id, req, blocks);
+								if let Some((peer_id, new_req)) =
+									self.on_block_response(id, req, blocks)
+								{
+									self.send_block_request(peer_id, new_req);
+								}
 							},
 							Err(BlockResponseError::DecodeFailed(e)) => {
 								debug!(
@@ -1912,12 +1935,12 @@ where
 		Ok(request.encode_to_vec())
 	}
 
-	fn justification_requests<'a>(
-		&'a mut self,
-	) -> Box<dyn Iterator<Item = (PeerId, BlockRequest<B>)> + 'a> {
+	fn justification_requests(
+		&mut self,
+	) -> Vec<(PeerId, BlockRequest<B>)> {
 		let peers = &mut self.peers;
 		let mut matcher = self.extra_justifications.matcher();
-		Box::new(std::iter::from_fn(move || {
+		std::iter::from_fn(move || {
 			if let Some((peer, request)) = matcher.next(peers) {
 				peers
 					.get_mut(&peer)
@@ -1936,7 +1959,8 @@ where
 			} else {
 				None
 			}
-		}))
+		})
+		.collect()
 	}
 
 	fn block_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
@@ -2063,7 +2087,6 @@ where
 				}
 			})
 			.collect()
-		// Box::new(iter)
 	}
 
 	fn state_request(&mut self) -> Option<(PeerId, OpaqueStateRequest)> {
@@ -2834,7 +2857,8 @@ mod test {
 		// the justification request should be scheduled to that peer
 		assert!(sync
 			.justification_requests()
-			.any(|(who, request)| { who == peer_id && request.from == FromBlock::Hash(a1_hash) }));
+			.iter()
+			.any(|(who, request)| { *who == peer_id && request.from == FromBlock::Hash(a1_hash) }));
 
 		// there are no extra pending requests
 		assert_eq!(sync.extra_justifications.pending_requests().count(), 0);
@@ -2921,8 +2945,8 @@ mod test {
 
 		// the justification request should be scheduled to the
 		// new peer which is at the given block
-		assert!(sync.justification_requests().any(|(p, r)| {
-			p == peer_id3 &&
+		assert!(sync.justification_requests().iter().any(|(p, r)| {
+			*p == peer_id3 &&
 				r.fields == BlockAttributes::JUSTIFICATION &&
 				r.from == FromBlock::Hash(b1_hash)
 		}));
@@ -3757,7 +3781,7 @@ mod test {
 
 		// the justification request should be scheduled to the
 		// new peer which is at the given block
-		let mut requests = sync.justification_requests().collect::<Vec<_>>();
+		let mut requests = sync.justification_requests();
 		assert_eq!(requests.len(), 1);
 		let (peer, request) = requests.remove(0);
 		sync.send_block_request(peer, request);
