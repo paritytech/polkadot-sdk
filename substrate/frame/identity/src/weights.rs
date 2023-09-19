@@ -53,17 +53,17 @@ use core::marker::PhantomData;
 /// Weight functions needed for pallet_identity.
 pub trait WeightInfo {
 	fn add_registrar(r: u32, ) -> Weight;
-	fn set_identity(r: u32, x: u32, ) -> Weight;
+	fn set_identity(r: u32, ) -> Weight;
 	fn set_subs_new(s: u32, ) -> Weight;
 	fn set_subs_old(p: u32, ) -> Weight;
-	fn clear_identity(r: u32, s: u32, x: u32, ) -> Weight;
-	fn request_judgement(r: u32, x: u32, ) -> Weight;
-	fn cancel_request(r: u32, x: u32, ) -> Weight;
+	fn clear_identity(r: u32, s: u32, ) -> Weight;
+	fn request_judgement(r: u32, ) -> Weight;
+	fn cancel_request(r: u32, ) -> Weight;
 	fn set_fee(r: u32, ) -> Weight;
 	fn set_account_id(r: u32, ) -> Weight;
 	fn set_fields(r: u32, ) -> Weight;
-	fn provide_judgement(r: u32, x: u32, ) -> Weight;
-	fn kill_identity(r: u32, s: u32, x: u32, ) -> Weight;
+	fn provide_judgement(r: u32, ) -> Weight;
+	fn kill_identity(r: u32, s: u32, ) -> Weight;
 	fn add_sub(s: u32, ) -> Weight;
 	fn rename_sub(s: u32, ) -> Weight;
 	fn remove_sub(s: u32, ) -> Weight;
@@ -90,8 +90,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: Identity IdentityOf (r:1 w:1)
 	/// Proof: Identity IdentityOf (max_values: None, max_size: Some(7538), added: 10013, mode: MaxEncodedLen)
 	/// The range of component `r` is `[1, 20]`.
-	/// The range of component `x` is `[0, 100]`.
-	fn set_identity(r: u32, x: u32, ) -> Weight {
+	fn set_identity(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `442 + r * (5 ±0)`
 		//  Estimated: `11003`
@@ -99,8 +98,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(31_329_634, 11003)
 			// Standard Error: 4_496
 			.saturating_add(Weight::from_parts(203_570, 0).saturating_mul(r.into()))
-			// Standard Error: 877
-			.saturating_add(Weight::from_parts(429_346, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -153,9 +150,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `r` is `[1, 20]`.
 	/// The range of component `s` is `[0, 100]`.
 	/// The range of component `x` is `[0, 100]`.
-	fn clear_identity(r: u32, s: u32, x: u32, ) -> Weight {
+	fn clear_identity(r: u32, s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `469 + r * (5 ±0) + s * (32 ±0) + x * (66 ±0)`
+		//  Measured:  `469 + r * (5 ±0) + s * (32 ±0)`
 		//  Estimated: `11003`
 		// Minimum execution time: 55_687_000 picoseconds.
 		Weight::from_parts(30_695_182, 11003)
@@ -163,8 +160,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(162_357, 0).saturating_mul(r.into()))
 			// Standard Error: 1_937
 			.saturating_add(Weight::from_parts(1_427_998, 0).saturating_mul(s.into()))
-			// Standard Error: 1_937
-			.saturating_add(Weight::from_parts(247_578, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(s.into())))
@@ -174,17 +169,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: Identity IdentityOf (r:1 w:1)
 	/// Proof: Identity IdentityOf (max_values: None, max_size: Some(7538), added: 10013, mode: MaxEncodedLen)
 	/// The range of component `r` is `[1, 20]`.
-	/// The range of component `x` is `[0, 100]`.
-	fn request_judgement(r: u32, x: u32, ) -> Weight {
+	fn request_judgement(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `367 + r * (57 ±0) + x * (66 ±0)`
+		//  Measured:  `367 + r * (57 ±0)`
 		//  Estimated: `11003`
 		// Minimum execution time: 34_876_000 picoseconds.
 		Weight::from_parts(32_207_018, 11003)
 			// Standard Error: 5_247
 			.saturating_add(Weight::from_parts(249_156, 0).saturating_mul(r.into()))
-			// Standard Error: 1_023
-			.saturating_add(Weight::from_parts(458_329, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -192,16 +184,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: Identity IdentityOf (max_values: None, max_size: Some(7538), added: 10013, mode: MaxEncodedLen)
 	/// The range of component `r` is `[1, 20]`.
 	/// The range of component `x` is `[0, 100]`.
-	fn cancel_request(r: u32, x: u32, ) -> Weight {
+	fn cancel_request(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `398 + x * (66 ±0)`
+		//  Measured:  `398`
 		//  Estimated: `11003`
 		// Minimum execution time: 30_689_000 picoseconds.
 		Weight::from_parts(31_967_170, 11003)
 			// Standard Error: 5_387
 			.saturating_add(Weight::from_parts(42_676, 0).saturating_mul(r.into()))
-			// Standard Error: 1_051
-			.saturating_add(Weight::from_parts(446_213, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -253,16 +243,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: Identity IdentityOf (max_values: None, max_size: Some(7538), added: 10013, mode: MaxEncodedLen)
 	/// The range of component `r` is `[1, 19]`.
 	/// The range of component `x` is `[0, 100]`.
-	fn provide_judgement(r: u32, x: u32, ) -> Weight {
+	fn provide_judgement(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `445 + r * (57 ±0) + x * (66 ±0)`
+		//  Measured:  `445 + r * (57 ±0)`
 		//  Estimated: `11003`
 		// Minimum execution time: 24_073_000 picoseconds.
 		Weight::from_parts(17_817_684, 11003)
 			// Standard Error: 8_612
 			.saturating_add(Weight::from_parts(406_251, 0).saturating_mul(r.into()))
-			// Standard Error: 1_593
-			.saturating_add(Weight::from_parts(755_225, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -277,9 +265,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `r` is `[1, 20]`.
 	/// The range of component `s` is `[0, 100]`.
 	/// The range of component `x` is `[0, 100]`.
-	fn kill_identity(r: u32, s: u32, x: u32, ) -> Weight {
+	fn kill_identity(r: u32, s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `676 + r * (5 ±0) + s * (32 ±0) + x * (66 ±0)`
+		//  Measured:  `676 + r * (5 ±0) + s * (32 ±0)`
 		//  Estimated: `11003`
 		// Minimum execution time: 73_981_000 picoseconds.
 		Weight::from_parts(51_684_057, 11003)
@@ -287,8 +275,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(145_285, 0).saturating_mul(r.into()))
 			// Standard Error: 2_472
 			.saturating_add(Weight::from_parts(1_421_039, 0).saturating_mul(s.into()))
-			// Standard Error: 2_472
-			.saturating_add(Weight::from_parts(240_907, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(s.into())))
@@ -385,7 +371,7 @@ impl WeightInfo for () {
 	/// Proof: Identity IdentityOf (max_values: None, max_size: Some(7538), added: 10013, mode: MaxEncodedLen)
 	/// The range of component `r` is `[1, 20]`.
 	/// The range of component `x` is `[0, 100]`.
-	fn set_identity(r: u32, x: u32, ) -> Weight {
+	fn set_identity(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `442 + r * (5 ±0)`
 		//  Estimated: `11003`
@@ -393,8 +379,6 @@ impl WeightInfo for () {
 		Weight::from_parts(31_329_634, 11003)
 			// Standard Error: 4_496
 			.saturating_add(Weight::from_parts(203_570, 0).saturating_mul(r.into()))
-			// Standard Error: 877
-			.saturating_add(Weight::from_parts(429_346, 0).saturating_mul(x.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -446,8 +430,7 @@ impl WeightInfo for () {
 	/// Proof: Identity SuperOf (max_values: None, max_size: Some(114), added: 2589, mode: MaxEncodedLen)
 	/// The range of component `r` is `[1, 20]`.
 	/// The range of component `s` is `[0, 100]`.
-	/// The range of component `x` is `[0, 100]`.
-	fn clear_identity(r: u32, s: u32, x: u32, ) -> Weight {
+	fn clear_identity(r: u32, s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `469 + r * (5 ±0) + s * (32 ±0) + x * (66 ±0)`
 		//  Estimated: `11003`
@@ -457,8 +440,6 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(162_357, 0).saturating_mul(r.into()))
 			// Standard Error: 1_937
 			.saturating_add(Weight::from_parts(1_427_998, 0).saturating_mul(s.into()))
-			// Standard Error: 1_937
-			.saturating_add(Weight::from_parts(247_578, 0).saturating_mul(x.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(s.into())))
@@ -468,8 +449,7 @@ impl WeightInfo for () {
 	/// Storage: Identity IdentityOf (r:1 w:1)
 	/// Proof: Identity IdentityOf (max_values: None, max_size: Some(7538), added: 10013, mode: MaxEncodedLen)
 	/// The range of component `r` is `[1, 20]`.
-	/// The range of component `x` is `[0, 100]`.
-	fn request_judgement(r: u32, x: u32, ) -> Weight {
+	fn request_judgement(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `367 + r * (57 ±0) + x * (66 ±0)`
 		//  Estimated: `11003`
@@ -477,25 +457,20 @@ impl WeightInfo for () {
 		Weight::from_parts(32_207_018, 11003)
 			// Standard Error: 5_247
 			.saturating_add(Weight::from_parts(249_156, 0).saturating_mul(r.into()))
-			// Standard Error: 1_023
-			.saturating_add(Weight::from_parts(458_329, 0).saturating_mul(x.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: Identity IdentityOf (r:1 w:1)
 	/// Proof: Identity IdentityOf (max_values: None, max_size: Some(7538), added: 10013, mode: MaxEncodedLen)
 	/// The range of component `r` is `[1, 20]`.
-	/// The range of component `x` is `[0, 100]`.
-	fn cancel_request(r: u32, x: u32, ) -> Weight {
+	fn cancel_request(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `398 + x * (66 ±0)`
+		//  Measured:  `398`
 		//  Estimated: `11003`
 		// Minimum execution time: 30_689_000 picoseconds.
 		Weight::from_parts(31_967_170, 11003)
 			// Standard Error: 5_387
 			.saturating_add(Weight::from_parts(42_676, 0).saturating_mul(r.into()))
-			// Standard Error: 1_051
-			.saturating_add(Weight::from_parts(446_213, 0).saturating_mul(x.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -546,8 +521,7 @@ impl WeightInfo for () {
 	/// Storage: Identity IdentityOf (r:1 w:1)
 	/// Proof: Identity IdentityOf (max_values: None, max_size: Some(7538), added: 10013, mode: MaxEncodedLen)
 	/// The range of component `r` is `[1, 19]`.
-	/// The range of component `x` is `[0, 100]`.
-	fn provide_judgement(r: u32, x: u32, ) -> Weight {
+	fn provide_judgement(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `445 + r * (57 ±0) + x * (66 ±0)`
 		//  Estimated: `11003`
@@ -555,8 +529,6 @@ impl WeightInfo for () {
 		Weight::from_parts(17_817_684, 11003)
 			// Standard Error: 8_612
 			.saturating_add(Weight::from_parts(406_251, 0).saturating_mul(r.into()))
-			// Standard Error: 1_593
-			.saturating_add(Weight::from_parts(755_225, 0).saturating_mul(x.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -570,8 +542,7 @@ impl WeightInfo for () {
 	/// Proof: Identity SuperOf (max_values: None, max_size: Some(114), added: 2589, mode: MaxEncodedLen)
 	/// The range of component `r` is `[1, 20]`.
 	/// The range of component `s` is `[0, 100]`.
-	/// The range of component `x` is `[0, 100]`.
-	fn kill_identity(r: u32, s: u32, x: u32, ) -> Weight {
+	fn kill_identity(r: u32, s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `676 + r * (5 ±0) + s * (32 ±0) + x * (66 ±0)`
 		//  Estimated: `11003`
@@ -581,8 +552,6 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(145_285, 0).saturating_mul(r.into()))
 			// Standard Error: 2_472
 			.saturating_add(Weight::from_parts(1_421_039, 0).saturating_mul(s.into()))
-			// Standard Error: 2_472
-			.saturating_add(Weight::from_parts(240_907, 0).saturating_mul(x.into()))
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(s.into())))
