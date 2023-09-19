@@ -96,62 +96,10 @@ POLKADOT_PARACHAIN_BINARY_PATH=~/local_bridge_testing/bin/polkadot-parachain \
 ~/dev/polkadot-sdk/cumulus/scripts/bridges_polkadot_bulletin.sh run-relay
 ```
 
-
-### 4. Open explorers
+### 3. Open explorers
 
 - Polkadot: https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:9945#/parachains
 - Polkadot Bridge Hub: https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8945#/rpc
 - Polkadot Bulletin: https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:9942#/rpc
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-### 2. Init bridge and run relayer (BridgeHubKusama, BridgeHubPolkadot)
-
-```
-cd <cumulus-git-repo-dir>
-./scripts/bridges_kusama_polkadot.sh run-relay
-```
-
-### 3. Initialize transfer asset over bridge (DOTs/KSMs)
-
-This initialization does several things:
-- creates `ForeignAssets` for wrappedDOTs/wrappedKSMs
-- drips SA for AssetHubKusama on AssetHubPolkadot (and vice versa) which holds reserved assets on source chains
-```
-./scripts/bridges_kusama_polkadot.sh init-asset-hub-kusama-local
-./scripts/bridges_kusama_polkadot.sh init-bridge-hub-kusama-local
-./scripts/bridges_kusama_polkadot.sh init-asset-hub-polkadot-local
-./scripts/bridges_kusama_polkadot.sh init-bridge-hub-polkadot-local
-```
-
-### 4. Send messages - transfer asset over bridge (DOTs/KSMs)
-
-Do (asset) transfers:
-```
-# KSMs from Kusama's Asset Hub to Polkadot's.
-./scripts/bridges_kusama_polkadot.sh reserve-transfer-assets-from-asset-hub-kusama-local
-```
-```
-# DOTs from Polkadot's Asset Hub to Kusama's.
-./scripts/bridges_kusama_polkadot.sh reserve-transfer-assets-from-asset-hub-polkadot-local
-```
-
-- open explorers: (see zombienets)
-	- AssetHubKusama (see events `xcmpQueue.XcmpMessageSent`, `polkadotXcm.Attempted`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:9910#/explorer
-	- BridgeHubKusama (see `bridgePolkadotMessages.MessageAccepted`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8943#/explorer
-	- BridgeHubPolkadot (see `bridgeKusamaMessages.MessagesReceived`, `xcmpQueue.XcmpMessageSent`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8945#/explorer
-	- AssetHubPolkadot (see `foreignAssets.Issued`, `xcmpQueue.Success`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:9010#/explorer
-	- BridgeHubKusama (see `bridgePolkadotMessages.MessagesDelivered`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8943#/explorer
+Polkadot BH is currently configured to send messages to Polkadot Bulletin chain at every block.

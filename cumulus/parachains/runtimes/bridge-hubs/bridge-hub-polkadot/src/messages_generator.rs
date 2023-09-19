@@ -46,7 +46,7 @@ pub mod pallet {
 		fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
 			// see `encoded_test_xcm_message_to_bulletin_chain` test in the Bulletin
 			// chain runtime
-			let encoded_xcm_message = hex_literal::hex!("030109002a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a030406020700c817a804017d100000042a");
+			let encoded_xcm_message = hex_literal::hex!("030109002a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a030406020700c817a804017d5c00040420746573745f6b657928746573745f76616c7565");
 
 			// send message to the Bulletin Chain
 			let artifacts = BridgePolkadotBulletinMessages::send_message(
