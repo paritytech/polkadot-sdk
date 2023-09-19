@@ -80,7 +80,9 @@ impl<H> Default for RecorderInner<H> {
 
 /// The trie recorder.
 ///
-/// It can be used to record accesses to the trie and then to convert them into a [`StorageProof`].
+/// Owns a [`RecorderInner`] containing the recorded data. Is used to transform data into a storage
+/// proof and to provide transaction support. The `as_trie_recorder` method provides a
+/// [`trie_db::TrieDB`] compatible recorder that implements the actual recording logic.
 pub struct Recorder<H: Hasher> {
 	inner: Arc<Mutex<RecorderInner<H::Out>>>,
 	/// The estimated encoded size of the storage proof this recorder will produce.

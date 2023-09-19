@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Tools for reclaiming PoV weight in parachain runtimes.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use sp_externalities::ExternalitiesExt;
@@ -23,8 +25,10 @@ use sp_runtime_interface::runtime_interface;
 #[cfg(feature = "std")]
 use sp_trie::proof_size_extension::ProofSizeExt;
 
+/// Interface that provides access to the current storage proof size.
 #[runtime_interface]
 pub trait PovReclaimHostFunctions {
+	/// Returns the current storage proof size.
 	fn current_storage_proof_size(&mut self) -> u32 {
 		match self.extension::<ProofSizeExt>() {
 			Some(ext) => ext.current_storage_proof_size(),
