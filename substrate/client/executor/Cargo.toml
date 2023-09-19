@@ -21,6 +21,7 @@ name = "bench"
 harness = false
 
 [dependencies]
+log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 tracing = { workspace = true, default-features = true }

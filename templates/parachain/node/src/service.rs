@@ -84,19 +84,22 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h as _ });
 
-	let executor = ParachainExecutor::builder()
+	let mut wasm_builder = WasmExecutor::builder()
 		.with_execution_method(config.executor.wasm_method)
 		.with_onchain_heap_alloc_strategy(heap_pages)
 		.with_offchain_heap_alloc_strategy(heap_pages)
 		.with_max_runtime_instances(config.executor.max_runtime_instances)
-		.with_runtime_cache_size(config.executor.runtime_cache_size)
-		.build();
+		.with_runtime_cache_size(config.executor.runtime_cache_size);
+	if let Some(ref wasmtime_precompiled_path) = config.executor.wasmtime_precompiled {
+		wasm_builder = wasm_builder.with_wasmtime_precompiled_path(wasmtime_precompiled_path);
+	}
+	let wasm = wasm_builder.build();
 
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts_record_import::<Block, RuntimeApi, _>(
 			config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
-			executor,
+			wasm,
 			true,
 		)?;
 	let client = Arc::new(client);

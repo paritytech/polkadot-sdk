@@ -24,6 +24,7 @@ sp-maybe-compressed-blob.default-features = true
 sp-maybe-compressed-blob.workspace = true
 sp-wasm-interface.default-features = true
 sp-wasm-interface.workspace = true
+codec = { features = ["derive"], workspace = true }
 thiserror = { workspace = true }
 wasm-instrument = { workspace = true, default-features = true }
 

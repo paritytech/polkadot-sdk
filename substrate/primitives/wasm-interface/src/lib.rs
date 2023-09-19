@@ -46,6 +46,8 @@ if_wasmtime_is_enabled! {
 	pub use anyhow;
 }
 
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// Result type used by traits in this crate.
 pub type Result<T> = core::result::Result<T, String>;
 

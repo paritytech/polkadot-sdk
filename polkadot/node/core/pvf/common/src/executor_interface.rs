@@ -191,7 +191,7 @@ pub fn prepare(
 	executor_params: &ExecutorParams,
 ) -> Result<Vec<u8>, sc_executor_common::error::WasmError> {
 	let (semantics, _) = params_to_wasmtime_semantics(executor_params);
-	sc_executor_wasmtime::prepare_runtime_artifact(blob, &semantics)
+	sc_executor_wasmtime::prepare_runtime_artifact(blob, Default::default(), &semantics)
 }
 
 /// Available host functions. We leave out:

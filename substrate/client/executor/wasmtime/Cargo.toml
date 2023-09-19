@@ -17,6 +17,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 log = { workspace = true, default-features = true }
+codec = { workspace = true, default-features = true }
+cfg-if = { workspace = true }
+libc = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 
 # When bumping wasmtime do not forget to also bump rustix
@@ -46,9 +49,9 @@ wasmtime = { features = [
 rustix = { features = ["fs", "mm", "param", "std", "use-libc"], workspace = true }
 
 [dev-dependencies]
+paste = { workspace = true, default-features = true }
 cargo_metadata = { workspace = true }
 codec = { workspace = true, default-features = true }
-paste = { workspace = true, default-features = true }
 sc-runtime-test = { workspace = true }
 sp-io = { default-features = true, workspace = true }
 tempfile = { workspace = true }
