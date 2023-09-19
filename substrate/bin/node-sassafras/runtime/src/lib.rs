@@ -199,11 +199,11 @@ impl pallet_sassafras::Config for Runtime {
 	type SlotDuration = ConstU64<SLOT_DURATION_IN_MILLISECONDS>;
 	type EpochDuration = ConstU64<EPOCH_DURATION_IN_SLOTS>;
 	type MaxAuthorities = ConstU32<MAX_AUTHORITIES>;
-	type MaxTickets = ConstU32<{ EPOCH_DURATION_IN_SLOTS as u32 }>;
+	type WeightInfo = ();
 	#[cfg(feature = "use-session-pallet")]
-	type EpochChangeTrigger = pallet_sassafras::ExternalTrigger;
+	type EpochChangeTrigger = pallet_sassafras::EpochChangeExternalTrigger;
 	#[cfg(not(feature = "use-session-pallet"))]
-	type EpochChangeTrigger = pallet_sassafras::SameAuthoritiesForever;
+	type EpochChangeTrigger = pallet_sassafras::EpochChangeInternalTrigger;
 }
 
 impl pallet_grandpa::Config for Runtime {

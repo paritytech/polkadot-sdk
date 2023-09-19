@@ -2703,7 +2703,7 @@ dependencies = [
 [[package]]
 name = "common"
 version = "0.1.0"
-source = "git+https://github.com/w3f/ring-proof?rev=8657210#86572101f4210647984ab4efedba6b3fcc890895"
+source = "git+https://github.com/davxy/ring-proof?branch=davxy-patch#3a945d2e842bccc85da9d49eee9316dd84cafcb0"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4964,7 +4964,7 @@ dependencies = [
 [[package]]
 name = "fflonk"
 version = "0.1.0"
-source = "git+https://github.com/w3f/fflonk#26a5045b24e169cffc1f9328ca83d71061145c40"
+source = "git+https://github.com/davxy/fflonk?branch=davxy-patch#bb08c234b51e457180ea74c36751e0d0b02fc30c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -8366,7 +8366,7 @@ dependencies = [
 name = "node-sassafras"
 version = "0.3.4-dev"
 dependencies = [
- "clap 4.4.1",
+ "clap 4.4.3",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",
@@ -10353,7 +10353,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-sassafras"
-version = "0.3.4-dev"
+version = "0.3.5-dev"
 dependencies = [
  "array-bytes",
  "env_logger 0.10.0",
@@ -10362,7 +10362,6 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-session",
- "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "sp-consensus-sassafras",
@@ -14061,7 +14060,7 @@ dependencies = [
 [[package]]
 name = "ring"
 version = "0.1.0"
-source = "git+https://github.com/w3f/ring-proof?rev=8657210#86572101f4210647984ab4efedba6b3fcc890895"
+source = "git+https://github.com/davxy/ring-proof?branch=davxy-patch#3a945d2e842bccc85da9d49eee9316dd84cafcb0"
 dependencies = [
  "ark-ec",
  "ark-ff",

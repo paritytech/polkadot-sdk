@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,12 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Sassafras implementation of traits required by session pallet.
+//! Implementation for traits required by Session pallet.
 
 use super::*;
 use frame_support::traits::{EstimateNextSessionRotation, Hooks, OneSessionHandler};
 use pallet_session::ShouldEndSession;
-use sp_runtime::{traits::SaturatedConversion, Permill};
+use sp_runtime::{
+	traits::{SaturatedConversion, Saturating},
+	Permill,
+};
 
 impl<T: Config> ShouldEndSession<BlockNumberFor<T>> for Pallet<T> {
 	fn should_end_session(now: BlockNumberFor<T>) -> bool {

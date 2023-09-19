@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +17,7 @@
 
 //! Test utilities for Sassafras pallet.
 
-use crate::{self as pallet_sassafras, SameAuthoritiesForever, *};
+use crate::{self as pallet_sassafras, EpochChangeInternalTrigger, *};
 
 use frame_support::traits::{ConstU32, ConstU64, OnFinalize, OnInitialize};
 use sp_consensus_sassafras::{
@@ -38,7 +38,6 @@ use sp_runtime::{
 
 const SLOT_DURATION: u64 = 1000;
 const EPOCH_DURATION: u64 = 10;
-const MAX_TICKETS: u32 = 6;
 
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -66,13 +65,6 @@ impl frame_system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-impl pallet_timestamp::Config for Test {
-	type Moment = u64;
-	type OnTimestampSet = (); //Sassafras;
-	type MinimumPeriod = ConstU64<1>;
-	type WeightInfo = ();
-}
-
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
 where
 	RuntimeCall: From<C>,
@@ -84,9 +76,9 @@ where
 impl pallet_sassafras::Config for Test {
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 	type EpochDuration = ConstU64<EPOCH_DURATION>;
-	type EpochChangeTrigger = SameAuthoritiesForever;
-	type MaxAuthorities = ConstU32<10>;
-	type MaxTickets = ConstU32<MAX_TICKETS>;
+	type MaxAuthorities = ConstU32<100>;
+	type EpochChangeTrigger = EpochChangeInternalTrigger;
+	type WeightInfo = ();
 }
 
 frame_support::construct_runtime!(
@@ -202,8 +194,8 @@ pub fn make_prover(pair: &AuthorityPair) -> RingProver {
 	prover
 }
 
-/// Construct at most `attempts` tickets envelopes for the given `slot`.
-/// TODO-SASS-P3: filter out invalid tickets according to test threshold.
+/// Construct `attempts` tickets envelopes for the next epoch.
+///
 /// E.g. by passing an optional threshold
 pub fn make_tickets(attempts: u32, pair: &AuthorityPair) -> Vec<TicketEnvelope> {
 	let prover = make_prover(pair);
@@ -252,15 +244,15 @@ pub fn persist_next_epoch_tickets_as_segments(
 	if segments_count > tickets.len() {
 		segments_count = tickets.len();
 	}
-	let segment_len = tickets.len() / segments_count;
+	let segment_len = 1 + (tickets.len() - 1) / segments_count;
 
 	// Update metadata
 	let mut meta = TicketsMeta::<Test>::get();
 	meta.segments_count += segments_count as u32;
 	TicketsMeta::<Test>::set(meta);
 
-	for i in 0..segments_count {
-		let segment: Vec<TicketId> = tickets[i * segment_len..(i + 1) * segment_len]
+	for (chunk_id, chunk) in tickets.chunks(segment_len).enumerate() {
+		let segment: Vec<TicketId> = chunk
 			.iter()
 			.map(|(id, body)| {
 				TicketsData::<Test>::set(id, Some(body.clone()));
@@ -268,7 +260,7 @@ pub fn persist_next_epoch_tickets_as_segments(
 			})
 			.collect();
 		let segment = BoundedVec::truncate_from(segment);
-		NextTicketsSegments::<Test>::insert(i as u32, segment);
+		NextTicketsSegments::<Test>::insert(chunk_id as u32, segment);
 	}
 }
 

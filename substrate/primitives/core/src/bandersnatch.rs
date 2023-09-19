@@ -615,6 +615,8 @@ pub mod vrf {
 			inout.vrf_output_bytes(transcript)
 		}
 	}
+
+	impl EncodeLike for VrfOutput {}
 }
 
 /// Bandersnatch Ring-VRF types and operations.

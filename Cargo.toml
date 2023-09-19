@@ -333,9 +333,9 @@ members = [
 	"substrate/frame/root-testing",
 	"substrate/frame/safe-mode",
 	"substrate/frame/salary",
+	"substrate/frame/sassafras",
 	"substrate/frame/scheduler",
 	"substrate/frame/scored-pool",
-	"substrate/frame/sassafras",
 	"substrate/frame/session",
 	"substrate/frame/session/benchmarking",
 	"substrate/frame/society",
@@ -531,3 +531,16 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+# [patch."https://github.com/w3f/ring-vrf"]
+# bandersnatch_vrfs = { path = "../../w3f/ring-vrf/bandersnatch_vrfs" }
+
+[patch."https://github.com/w3f/ring-proof"]
+ring = { git = "https://github.com/davxy/ring-proof", branch = "davxy-patch" }
+common = { git = "https://github.com/davxy/ring-proof", branch = "davxy-patch" }
+# ring = { path = "../../w3f/ring-proof/ring" }
+# common = { path = "../../w3f/ring-proof/common" }
+
+[patch."https://github.com/w3f/fflonk"]
+fflonk = { git = "https://github.com/davxy/fflonk", branch = "davxy-patch" }
+# fflonk = { path = "../../w3f/fflonk" }

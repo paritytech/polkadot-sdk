@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,7 +43,7 @@
 //! To anonymously publish the ticket to the chain a validator sends their tickets
 //! to a random validator who later puts it on-chain as a transaction.
 
-#![deny(warnings)]
+// #![deny(warnings)]
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -51,7 +51,12 @@ use log::{debug, error, warn};
 use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
-use frame_support::{traits::Get, weights::Weight, BoundedVec, WeakBoundedVec};
+use frame_support::{
+	dispatch::{DispatchResultWithPostInfo, Pays},
+	traits::Get,
+	weights::Weight,
+	BoundedVec, WeakBoundedVec,
+};
 use frame_system::{
 	offchain::{SendTransactionTypes, SubmitTransaction},
 	pallet_prelude::{BlockNumberFor, HeaderFor},
@@ -62,11 +67,7 @@ use sp_consensus_sassafras::{
 	TicketBody, TicketEnvelope, TicketId, RANDOMNESS_LENGTH, SASSAFRAS_ENGINE_ID,
 };
 use sp_io::hashing;
-use sp_runtime::{
-	generic::DigestItem,
-	traits::{One, Saturating},
-	BoundToRuntimeAppPublic,
-};
+use sp_runtime::{generic::DigestItem, traits::One, BoundToRuntimeAppPublic};
 use sp_std::prelude::Vec;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -78,7 +79,10 @@ mod tests;
 
 // To manage epoch changes via session pallet instead of the built-in method
 // method (`SameAuthoritiesForever`).
+#[cfg(feature = "session-pallet-support")]
 pub mod session;
+pub mod weights;
+pub use weights::WeightInfo;
 
 // Re-export pallet symbols.
 pub use pallet::*;
@@ -93,8 +97,7 @@ pub struct TicketsMetadata {
 	/// Number of tickets available into the tickets buffers.
 	/// The array index is computed as epoch index modulo 2.
 	pub tickets_count: [u32; 2],
-	/// Number of outstanding tickets segments requiring to be sorted and stored
-	/// in one of the epochs tickets buffer
+	/// Number of outstanding tickets segments requiring to be sorted.
 	pub segments_count: u32,
 }
 
@@ -119,20 +122,29 @@ pub mod pallet {
 		#[pallet::constant]
 		type EpochDuration: Get<u64>;
 
-		/// Sassafras requires some logic to be triggered on every block to query for whether an
-		/// epoch has ended and to perform the transition to the next epoch.
-		///
-		/// Typically, the `ExternalTrigger` type should be used. An internal trigger should only
-		/// be used when no other module is responsible for changing authority set.
-		type EpochChangeTrigger: EpochChangeTrigger;
-
 		/// Max number of authorities allowed
 		#[pallet::constant]
 		type MaxAuthorities: Get<u32>;
 
-		/// Max number of tickets that are considered for each epoch.
-		#[pallet::constant]
-		type MaxTickets: Get<u32>;
+		/// Epoch change trigger.
+		///
+		/// Logic to be triggered on every block to query for whether an epoch has ended
+		/// and to perform the transition to the next epoch.
+		type EpochChangeTrigger: EpochChangeTrigger;
+
+		/// Weight information for all calls of this pallet.
+		type WeightInfo: WeightInfo;
+	}
+
+	/// Max number of tickets allowed for the configuration.
+	///
+	/// In practice trims down the `Config::EpochDuration` value to at most u32::MAX.
+	pub struct MaxTicketsFor<T: Config>(sp_std::marker::PhantomData<T>);
+
+	impl<T: Config> Get<u32> for MaxTicketsFor<T> {
+		fn get() -> u32 {
+			T::EpochDuration::get().try_into().unwrap_or(u32::MAX)
+		}
 	}
 
 	/// Sassafras runtime errors.
@@ -160,6 +172,7 @@ pub mod pallet {
 		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
 
 	/// The slot at which the first epoch started.
+	///
 	/// This is `None` until the first block is imported on chain.
 	#[pallet::storage]
 	#[pallet::getter(fn genesis_slot)]
@@ -184,11 +197,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
 
-	/// Temporary value (cleared at block finalization) which is `Some`
-	/// if per-block initialization has already been called for current block.
+	/// Temporary value which is `Some` if per-block initialization has already been called
+	/// for current block.
+	///
+	/// Cleared on block finalization.
 	#[pallet::storage]
-	#[pallet::getter(fn initialized)]
-	pub type Initialized<T> = StorageValue<_, SlotClaim>;
+	pub(crate) type RandomnessVrfOutput<T> = StorageValue<_, vrf::VrfOutput>;
 
 	/// The configuration for the current epoch.
 	#[pallet::storage]
@@ -202,6 +216,7 @@ pub mod pallet {
 
 	/// Pending epoch configuration change that will be set as `NextEpochConfig` when the next
 	/// epoch is enacted.
+	///
 	/// In other words, a config change submitted during epoch N will be enacted on epoch N+2.
 	/// This is to maintain coherence for already submitted tickets for epoch N+1 that where
 	/// computed using configuration parameters stored for epoch N+1.
@@ -213,6 +228,7 @@ pub mod pallet {
 	pub type TicketsMeta<T> = StorageValue<_, TicketsMetadata, ValueQuery>;
 
 	/// Tickets identifiers.
+	///
 	/// The key is a tuple composed by:
 	/// - `u8` equal to epoch-index mod 2
 	/// - `u32` equal to the slot-index.
@@ -224,14 +240,19 @@ pub mod pallet {
 	pub type TicketsData<T> = StorageMap<_, Identity, TicketId, TicketBody>;
 
 	/// Next epoch tickets accumulator.
-	/// Special `u32::MAX` key is reserved for a partially sorted segment.
-	// This bound is set as `MaxTickets` in the unlucky case where we receive one Ticket at a time.
-	// The max capacity is thus MaxTickets^2. Not much, given that we save `TicketIds` here.
+	///
+	/// Contains lists of tickets where each list represents a burst of tickets received
+	/// via the `submit_tickets` extrinsic.
+	/// Given that each list max capacity is bounded by the max tickets we can handle
+	/// in one epoch, there's enough space for tickets here.
+	///
+	/// Special `u32::MAX` key is reserved for the most recently sorted segment.
 	#[pallet::storage]
 	pub type NextTicketsSegments<T: Config> =
-		StorageMap<_, Identity, u32, BoundedVec<TicketId, T::MaxTickets>, ValueQuery>;
+		StorageMap<_, Identity, u32, BoundedVec<TicketId, MaxTicketsFor<T>>, ValueQuery>;
 
-	/// Parameters used to verify tickets validity via ring-proof
+	/// Parameters used to verify tickets validity via ring-proof.
+	///
 	/// In practice: Updatable Universal Reference String and the seed.
 	#[pallet::storage]
 	#[pallet::getter(fn ring_context)]
@@ -255,12 +276,6 @@ pub mod pallet {
 		fn build(&self) {
 			Pallet::<T>::initialize_genesis_authorities(&self.authorities);
 			EpochConfig::<T>::put(self.epoch_config.clone());
-
-			// TODO: davxy... remove for pallet tests
-			warn!(target: LOG_TARGET, "Constructing testing ring context (in build)");
-			let ring_ctx = vrf::RingContext::new_testing();
-			warn!(target: LOG_TARGET, "... done");
-			RingContext::<T>::set(Some(ring_ctx.clone()));
 		}
 	}
 
@@ -268,9 +283,11 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Block initialization
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			// Since `initialize` can be called twice (e.g. if session pallet is used)
-			// let's ensure that we only do the initialization once per block.
-			if Self::initialized().is_some() {
+			// Since `on_initialize` can be called twice (e.g. if `session` pallet
+			// is used as the session manager) let's ensure that we only do the the
+			// initialization once per block.
+			#[cfg(feature = "session-pallet-support")]
+			if Self::is_initialized() {
 				return Weight::zero()
 			}
 
@@ -286,11 +303,15 @@ pub mod pallet {
 			// On the first non-zero block (i.e. block #1) this is where the first epoch
 			// (epoch #0) actually starts. We need to adjust internal storage accordingly.
 			if *GenesisSlot::<T>::get() == 0 {
-				debug!(target: LOG_TARGET, ">>> GENESIS SLOT: {:?}", claim.slot);
 				Self::initialize_genesis_epoch(claim.slot)
 			}
 
-			Initialized::<T>::put(claim);
+			let vrf_output = claim
+				.vrf_signature
+				.outputs
+				.get(0)
+				.expect("Presence should have been already checked by the client; qed");
+			RandomnessVrfOutput::<T>::put(vrf_output);
 
 			// Enact epoch change, if necessary.
 			T::EpochChangeTrigger::trigger::<T>(now);
@@ -300,33 +321,27 @@ pub mod pallet {
 
 		/// Block finalization
 		fn on_finalize(_now: BlockNumberFor<T>) {
-			// TODO @davxy: check if is a disabled validator?
+			// TODO @davxy: check if the validator has been disabled during execution.
 
 			// At the end of the block, we can safely include the new VRF output from
 			// this block into the randomness accumulator. If we've determined
 			// that this block was the first in a new epoch, the changeover logic has
 			// already occurred at this point.
-			let claim = Initialized::<T>::take()
-				.expect("Finalization is called after initialization; qed.");
-
-			let claim_input = vrf::slot_claim_input(
+			let randomness_input = vrf::slot_claim_input(
 				&Self::randomness(),
 				CurrentSlot::<T>::get(),
 				EpochIndex::<T>::get(),
 			);
-			let claim_output = claim
-				.vrf_signature
-				.outputs
-				.get(0)
-				.expect("Presence should have been already checked by the client; qed");
-			let randomness =
-				claim_output.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &claim_input);
+			let randomness_output = RandomnessVrfOutput::<T>::take()
+				.expect("Finalization is called after initialization; qed");
+			let randomness = randomness_output
+				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
 
 			Self::deposit_randomness(&randomness);
 
 			// If we are in the epoch's second half, we start sorting the next epoch tickets.
 			let epoch_duration = T::EpochDuration::get();
-			let current_slot_idx = Self::slot_index(claim.slot);
+			let current_slot_idx = Self::current_slot_index();
 			if current_slot_idx >= epoch_duration / 2 {
 				let mut metadata = TicketsMeta::<T>::get();
 				if metadata.segments_count != 0 {
@@ -347,14 +362,12 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Submit next epoch tickets.
-		///
-		/// TODO-SASS-P3: this is an unsigned extrinsic. Can we remove the weight?
 		#[pallet::call_index(0)]
-		#[pallet::weight({0})]
+		#[pallet::weight(T::WeightInfo::submit_tickets(tickets.len() as u32))]
 		pub fn submit_tickets(
 			origin: OriginFor<T>,
-			tickets: BoundedVec<TicketEnvelope, T::MaxTickets>,
-		) -> DispatchResult {
+			tickets: BoundedVec<TicketEnvelope, MaxTicketsFor<T>>,
+		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 
 			debug!(target: LOG_TARGET, "Received {} tickets", tickets.len());
@@ -365,15 +378,15 @@ pub mod pallet {
 			};
 			debug!(target: LOG_TARGET, "... Loaded");
 
-			// TODO @davxy this should be done once per epoch and with the NEXT EPOCH AUTHORITIES!!!
+			let next_authorities = Self::next_authorities();
+			// TODO @davxy this should be done once per epoch.
 			// For this we need the `ProofVerifier` to be serializable @svasilyev
-			let pks: Vec<_> = Self::authorities().iter().map(|auth| *auth.as_ref()).collect();
+			let pks: Vec<_> = next_authorities.iter().map(|auth| *auth.as_ref()).collect();
 			debug!(target: LOG_TARGET, "Building verifier. Ring size {}", pks.len());
 			let verifier = ring_ctx.verifier(pks.as_slice()).unwrap();
 			debug!(target: LOG_TARGET, "... Built");
 
 			// Check tickets score
-			let next_auth = Self::next_authorities();
 			let next_config = Self::next_config().unwrap_or_else(|| Self::config());
 			// Current slot should be less than half of epoch duration.
 			let epoch_duration = T::EpochDuration::get();
@@ -381,7 +394,7 @@ pub mod pallet {
 				next_config.redundancy_factor,
 				epoch_duration as u32,
 				next_config.attempts_number,
-				next_auth.len() as u32,
+				next_authorities.len() as u32,
 			);
 
 			// Get next epoch params
@@ -406,7 +419,7 @@ pub mod pallet {
 
 				let sign_data = vrf::ticket_body_sign_data(&ticket.body, ticket_id_input);
 
-				if ticket.signature.verify(&sign_data, &verifier) {
+				if ticket.signature.ring_vrf_verify(&sign_data, &verifier) {
 					TicketsData::<T>::set(ticket_id, Some(ticket.body));
 					segment
 						.try_push(ticket_id)
@@ -425,7 +438,7 @@ pub mod pallet {
 				TicketsMeta::<T>::set(metadata);
 			}
 
-			Ok(())
+			Ok(Pays::No.into())
 		}
 
 		/// Plan an epoch config change.
@@ -435,10 +448,8 @@ pub mod pallet {
 		/// In other words the configuration will be activated one epoch after.
 		/// Multiple calls to this method will replace any existing planned config change that had
 		/// not been enacted yet.
-		///
-		/// TODO-SASS-P4: proper weight
 		#[pallet::call_index(1)]
-		#[pallet::weight({0})]
+		#[pallet::weight(T::WeightInfo::plan_config_change())]
 		pub fn plan_config_change(
 			origin: OriginFor<T>,
 			config: EpochConfiguration,
@@ -500,7 +511,7 @@ pub mod pallet {
 				);
 
 				if source == TransactionSource::External {
-					// TODO-SASS-P2: double check this `Local` requirement...
+					// TODO @davxy: BRAINSTORM this `Local` requirement...
 					// If we only allow these txs on block production, then there is less chance to
 					// submit our tickets if we don't have enough authoring slots.
 					// If we have 0 slots => we have zero chances.
@@ -508,7 +519,7 @@ pub mod pallet {
 					// In short the question is >>> WHO HAS THE RIGHT TO SUBMIT A TICKET? <<<
 					//  A) The current epoch validators
 					//  B) Doesn't matter as far as the tickets are good (i.e. RVRF verify is ok)
-					// TODO @davxy: maybe we also provide a signed extrinsic to submit tickets
+					// Maybe we also provide a signed extrinsic to submit tickets
 					// where the submitter doesn't pay if the tickets are good?
 					warn!(
 						target: LOG_TARGET,
@@ -545,6 +556,11 @@ pub mod pallet {
 
 // Inherent methods
 impl<T: Config> Pallet<T> {
+	fn is_initialized() -> bool {
+		// We rely on the only ephemeral value to check if `on_initialize` has been called.
+		RandomnessVrfOutput::<T>::exists()
+	}
+
 	/// Determine whether an epoch change should take place at this block.
 	/// Assumes that initialization has already taken place.
 	pub fn should_end_epoch(now: BlockNumberFor<T>) -> bool {
@@ -605,6 +621,23 @@ impl<T: Config> Pallet<T> {
 		TicketsMeta::<T>::set(Default::default());
 	}
 
+	fn update_ring_verifier(authorities: &[AuthorityId]) {
+		debug!(target: LOG_TARGET, "Loading ring context");
+		let Some(ring_ctx) = RingContext::<T>::get() else {
+			debug!(target: LOG_TARGET, "Ring context not initialized");
+			return
+		};
+
+		let pks: Vec<_> = authorities.iter().map(|auth| *auth.as_ref()).collect();
+
+		debug!(target: LOG_TARGET, "Building ring verifier (ring size {}", pks.len());
+		let _verifier = ring_ctx
+			.verifier(pks.as_slice())
+			.expect("Failed to build ring verifier. This is a bug");
+
+		// TODO: Persist the verifier...
+	}
+
 	/// Enact an epoch change.
 	///
 	/// Should be done on every block where `should_end_epoch` has returned `true`, and the caller
@@ -619,9 +652,11 @@ impl<T: Config> Pallet<T> {
 		authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 		next_authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 	) {
-		// PRECONDITION: caller has done initialization.
-		// If using the internal trigger or the session pallet then this is guaranteed.
-		debug_assert!(Self::initialized().is_some());
+		debug_assert!(Self::is_initialized());
+
+		if next_authorities != authorities {
+			Self::update_ring_verifier(&next_authorities);
+		}
 
 		// Update authorities
 		Authorities::<T>::put(authorities);
@@ -758,6 +793,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn initialize_genesis_epoch(genesis_slot: Slot) {
+		debug!(target: LOG_TARGET, "Genesis slot: {:?}", genesis_slot);
+
 		GenesisSlot::<T>::put(genesis_slot);
 
 		// Deposit a log because this is the first block in epoch #0.
@@ -881,9 +918,13 @@ impl<T: Config> Pallet<T> {
 	// The resulting sorted vector is optionally truncated to contain at most `MaxTickets`
 	// entries. If all the segments were consumed then the sorted vector is saved as the
 	// next epoch tickets, else it is saved to be used by next calls to this function.
-	fn sort_tickets(mut max_segments: u32, epoch_tag: u8, metadata: &mut TicketsMetadata) {
+	pub(crate) fn sort_tickets(
+		mut max_segments: u32,
+		epoch_tag: u8,
+		metadata: &mut TicketsMetadata,
+	) {
 		max_segments = max_segments.min(metadata.segments_count);
-		let max_tickets = T::MaxTickets::get() as usize;
+		let max_tickets = MaxTicketsFor::<T>::get() as usize;
 
 		// Fetch the sorted result (if any).
 		let mut sorted_segment = NextTicketsSegments::<T>::take(u32::MAX).into_inner();
@@ -941,7 +982,7 @@ impl<T: Config> Pallet<T> {
 	/// extrinsic is called within the first half of the epoch. Tickets received during the
 	/// second half are dropped.
 	///
-	/// TODO-SASS-P3: use pass a bounded vector???
+	/// TODO @davxy: directly use a bounded vector???
 	pub fn submit_tickets_unsigned_extrinsic(tickets: Vec<TicketEnvelope>) -> bool {
 		let tickets = BoundedVec::truncate_from(tickets);
 		let call = Call::submit_tickets { tickets };
@@ -983,19 +1024,23 @@ pub trait EpochChangeTrigger {
 	fn trigger<T: Config>(now: BlockNumberFor<T>);
 }
 
-/// A type signifying to Sassafras that an external trigger for epoch changes
-/// (e.g. pallet-session) is used.
-pub struct ExternalTrigger;
+/// An `EpochChangeTrigger` which does nothing.
+///
+/// In practice this means that the epoch change logic is left to some external component
+/// (e.g. pallet-session)
+pub struct EpochChangeExternalTrigger;
 
-impl EpochChangeTrigger for ExternalTrigger {
+impl EpochChangeTrigger for EpochChangeExternalTrigger {
 	fn trigger<T: Config>(_: BlockNumberFor<T>) {} // nothing - trigger is external.
 }
 
-/// A type signifying to Sassafras that it should perform epoch changes with an internal
-/// trigger, recycling the same authorities forever.
-pub struct SameAuthoritiesForever;
+/// An `EpochChangeTrigger` which recycle the same authorities set forever.
+///
+/// The internal trigger should only be used when no other module is responsible for
+/// changing authority set.
+pub struct EpochChangeInternalTrigger;
 
-impl EpochChangeTrigger for SameAuthoritiesForever {
+impl EpochChangeTrigger for EpochChangeInternalTrigger {
 	fn trigger<T: Config>(now: BlockNumberFor<T>) {
 		if <Pallet<T>>::should_end_epoch(now) {
 			let authorities = <Pallet<T>>::authorities();
