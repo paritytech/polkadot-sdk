@@ -208,6 +208,7 @@ pub fn node_config(
 			..ExecutorConfiguration::default()
 		},
 		wasm_runtime_overrides: Default::default(),
+		wasmtime_precompiled: Default::default(),
 		rpc: RpcConfiguration {
 			addr: Default::default(),
 			max_request_size: Default::default(),

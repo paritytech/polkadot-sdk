@@ -46,7 +46,7 @@ pub use sp_version::{NativeVersion, RuntimeVersion};
 #[doc(hidden)]
 pub use sp_wasm_interface;
 pub use sp_wasm_interface::HostFunctions;
-pub use wasm_runtime::{read_embedded_version, WasmExecutionMethod};
+pub use wasm_runtime::{read_embedded_version, precompile_and_serialize_versioned_wasm_runtime, WasmExecutionMethod};
 
 pub use sc_executor_common::{
 	error,

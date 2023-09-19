@@ -17258,6 +17258,7 @@ dependencies = [
  "rpassword",
  "sc-client-api",
  "sc-client-db",
+ "sc-executor",
  "sc-keystore",
  "sc-mixnet",
  "sc-network",
@@ -17273,6 +17274,8 @@ dependencies = [
  "sp-keystore",
  "sp-panic-handler",
  "sp-runtime",
+ "sp-state-machine",
+ "sp-storage",
  "sp-tracing",
  "sp-version",
  "tempfile",
@@ -17718,6 +17721,7 @@ dependencies = [
  "array-bytes",
  "assert_matches",
  "criterion",
+ "log",
  "num_cpus",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -17754,6 +17758,7 @@ dependencies = [
 name = "sc-executor-common"
 version = "0.35.0"
 dependencies = [
+ "parity-scale-codec",
  "polkavm 0.9.3",
  "sc-allocator",
  "sp-maybe-compressed-blob",

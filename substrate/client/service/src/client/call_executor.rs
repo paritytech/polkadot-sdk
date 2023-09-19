@@ -16,7 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use super::{code_provider::CodeProvider, ClientConfig};
+use super::{
+	code_provider::CodeProvider, wasm_override::WasmOverride, wasm_substitutes::WasmSubstitutes,
+	ClientConfig,
+};
 use sc_client_api::{
 	backend, call_executor::CallExecutor, execution_extensions::ExecutionExtensions, HeaderBackend,
 };
@@ -29,7 +32,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, HashingFor},
 };
 use sp_state_machine::{backend::AsTrieBackend, OverlayedChanges, StateMachine, StorageProof};
-use std::{cell::RefCell, sync::Arc};
+use std::{cell::RefCell, path::PathBuf, sync::Arc};
 
 /// Call executor that executes methods locally, querying all required
 /// data from local backend.
@@ -37,6 +40,9 @@ pub struct LocalCallExecutor<Block: BlockT, B, E> {
 	backend: Arc<B>,
 	executor: E,
 	code_provider: CodeProvider<Block, B, E>,
+	wasm_override: Arc<Option<WasmOverride>>,
+	wasm_substitutes: WasmSubstitutes<Block, E, B>,
+	wasmtime_precompiled_path: Option<PathBuf>,
 	execution_extensions: Arc<ExecutionExtensions<Block>>,
 }
 
@@ -54,10 +60,25 @@ where
 	) -> sp_blockchain::Result<Self> {
 		let code_provider = CodeProvider::new(&client_config, executor.clone(), backend.clone())?;
 
+		let wasm_override = client_config
+			.wasm_runtime_overrides
+			.as_ref()
+			.map(|p| WasmOverride::new(p.clone(), &executor))
+			.transpose()?;
+
+		let wasm_substitutes = WasmSubstitutes::new(
+			client_config.wasm_runtime_substitutes,
+			executor.clone().into(),
+			backend.clone(),
+		)?;
+
 		Ok(LocalCallExecutor {
 			backend,
 			executor,
 			code_provider,
+			wasm_override: Arc::new(wasm_override),
+			wasm_substitutes,
+			wasmtime_precompiled_path: client_config.wasmtime_precompiled,
 			execution_extensions: Arc::new(execution_extensions),
 		})
 	}
@@ -72,6 +93,9 @@ where
 			backend: self.backend.clone(),
 			executor: self.executor.clone(),
 			code_provider: self.code_provider.clone(),
+			wasm_override: self.wasm_override.clone(),
+			wasm_substitutes: self.wasm_substitutes.clone(),
+			wasmtime_precompiled_path: self.wasmtime_precompiled_path.clone(),
 			execution_extensions: self.execution_extensions.clone(),
 		}
 	}

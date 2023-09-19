@@ -900,6 +900,8 @@ pub fn node_config(
 		data_path: root,
 		base_path,
 		wasm_runtime_overrides: None,
+		wasmtime_precompiled: None,
+		runtime_cache_size: 2,
 	})
 }
 
