@@ -3720,7 +3720,6 @@ dependencies = [
  "sp-core",
  "sp-externalities",
  "sp-io",
- "sp-proof-size-ext",
  "sp-runtime-interface",
  "sp-state-machine",
  "sp-trie",
@@ -14656,7 +14655,6 @@ dependencies = [
  "sp-core",
  "sp-database",
  "sp-externalities",
- "sp-proof-size-ext",
  "sp-runtime",
  "sp-state-machine",
  "sp-statement-store",
@@ -15618,7 +15616,6 @@ dependencies = [
  "sp-core",
  "sp-externalities",
  "sp-keystore",
- "sp-proof-size-ext",
  "sp-runtime",
  "sp-session",
  "sp-state-machine",
@@ -17264,15 +17261,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp-proof-size-ext"
-version = "4.0.0-dev"
-dependencies = [
- "sp-externalities",
- "sp-runtime",
- "sp-trie",
-]
-
-[[package]]
 name = "sp-rpc"
 version = "6.0.0"
 dependencies = [
@@ -17547,6 +17535,7 @@ dependencies = [
  "scale-info",
  "schnellru",
  "sp-core",
+ "sp-externalities",
  "sp-runtime",
  "sp-std",
  "thiserror",

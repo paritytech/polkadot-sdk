@@ -18,10 +18,10 @@
 
 use sp_externalities::ExternalitiesExt;
 
-#[cfg(feature = "std")]
-use sp_proof_size_ext::ProofSizeExt;
-
 use sp_runtime_interface::runtime_interface;
+
+#[cfg(feature = "std")]
+use sp_trie::proof_size_extension::ProofSizeExt;
 
 #[runtime_interface]
 pub trait PovReclaimHostFunctions {
@@ -36,9 +36,11 @@ pub trait PovReclaimHostFunctions {
 #[cfg(test)]
 mod tests {
 	use sp_core::Blake2Hasher;
-	use sp_proof_size_ext::ProofSizeExt;
 	use sp_state_machine::TestExternalities;
-	use sp_trie::{recorder::Recorder, LayoutV1, PrefixedMemoryDB, TrieDBMutBuilder, TrieMut};
+	use sp_trie::{
+		proof_size_extension::ProofSizeExt, recorder::Recorder, LayoutV1, PrefixedMemoryDB,
+		TrieDBMutBuilder, TrieMut,
+	};
 
 	use crate::pov_reclaim_host_functions;
 

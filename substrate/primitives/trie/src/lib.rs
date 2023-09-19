@@ -30,6 +30,9 @@ mod storage_proof;
 mod trie_codec;
 mod trie_stream;
 
+#[cfg(feature = "std")]
+pub mod proof_size_extension;
+
 /// Our `NodeCodec`-specific error.
 pub use error::Error;
 /// Various re-exports from the `hash-db` crate.

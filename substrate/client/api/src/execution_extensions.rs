@@ -128,7 +128,7 @@ impl<Block: BlockT> ExecutionExtensions<Block> {
 
 		extensions.register(ReadRuntimeVersionExt::new(self.read_runtime_version.clone()));
 		if let Some(recorder) = proof_recorder {
-			extensions.register(sp_proof_size_ext::ProofSizeExt::new(recorder.clone()));
+			extensions.register(sp_trie::proof_size_extension::ProofSizeExt::new(recorder.clone()));
 		};
 
 		extensions
