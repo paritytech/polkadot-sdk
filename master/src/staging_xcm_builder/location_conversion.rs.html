@@ -926,6 +926,17 @@
 <a href="#926" id="926">926</a>
 <a href="#927" id="927">927</a>
 <a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1014,11 +1025,22 @@
 
 <span class="kw">pub type </span>DescribeAccountIdTerminal = (DescribeAccountId32Terminal, DescribeAccountKey20Terminal);
 
+<span class="kw">pub struct </span>DescribeBodyTerminal;
+<span class="kw">impl </span>DescribeLocation <span class="kw">for </span>DescribeBodyTerminal {
+	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+		<span class="kw">match </span>(l.parents, <span class="kw-2">&amp;</span>l.interior) {
+			(<span class="number">0</span>, X1(Plurality { id, part })) =&gt; <span class="prelude-val">Some</span>((<span class="string">b&quot;Body&quot;</span>, id, part).encode()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
+		}
+	}
+}
+
 <span class="kw">pub type </span>DescribeAllTerminal = (
 	DescribeTerminus,
 	DescribePalletTerminal,
 	DescribeAccountId32Terminal,
 	DescribeAccountKey20Terminal,
+	DescribeBodyTerminal,
 );
 
 <span class="kw">pub struct </span>DescribeFamily&lt;DescribeInterior&gt;(PhantomData&lt;DescribeInterior&gt;);

@@ -306,6 +306,9 @@
 <a href="#306" id="306">306</a>
 <a href="#307" id="307">307</a>
 <a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -345,10 +348,11 @@
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter, IsChildSystemParachain,
-	IsConcrete, MintLocation, OriginToPluralityVoice, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	ChildParachainConvertsVia, CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter, DescribeBodyTerminal,
+	DescribeFamily, HashedDescription, IsChildSystemParachain, IsConcrete, MintLocation,
+	OriginToPluralityVoice, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
 
 <span class="macro">parameter_types! </span>{
@@ -375,6 +379,8 @@
 	</span>ChildParachainConvertsVia&lt;ParaId, AccountId&gt;,
 	<span class="comment">// We can directly alias an `AccountId32` into a local account.
 	</span>AccountId32Aliases&lt;ThisNetwork, AccountId&gt;,
+	<span class="comment">// Allow governance body to be used as a sovereign account.
+	</span>HashedDescription&lt;AccountId, DescribeFamily&lt;DescribeBodyTerminal&gt;&gt;,
 );
 
 <span class="doccomment">/// Our asset transactor. This is what allows us to interest with the runtime facilities from the

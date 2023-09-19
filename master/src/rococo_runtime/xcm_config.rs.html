@@ -227,6 +227,13 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -265,10 +272,11 @@
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter, FixedWeightBounds,
-	IsChildSystemParachain, IsConcrete, MintLocation, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	ChildParachainConvertsVia, CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter, DescribeBodyTerminal,
+	DescribeFamily, FixedWeightBounds, HashedDescription, IsChildSystemParachain, IsConcrete,
+	MintLocation, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
+	TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin,
+	WithUniqueTopic,
 };
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
@@ -280,8 +288,14 @@
 	<span class="kw">pub </span>LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
 }
 
-<span class="kw">pub type </span>LocationConverter =
-	(ChildParachainConvertsVia&lt;ParaId, AccountId&gt;, AccountId32Aliases&lt;ThisNetwork, AccountId&gt;);
+<span class="kw">pub type </span>LocationConverter = (
+	<span class="comment">// We can convert a child parachain using the standard `AccountId` conversion.
+	</span>ChildParachainConvertsVia&lt;ParaId, AccountId&gt;,
+	<span class="comment">// We can directly alias an `AccountId32` into a local account.
+	</span>AccountId32Aliases&lt;ThisNetwork, AccountId&gt;,
+	<span class="comment">// Allow governance body to be used as a sovereign account.
+	</span>HashedDescription&lt;AccountId, DescribeFamily&lt;DescribeBodyTerminal&gt;&gt;,
+);
 
 <span class="doccomment">/// Our asset transactor. This is what allows us to interest with the runtime facilities from the
 /// point of view of XCM-only concepts like `MultiLocation` and `MultiAsset`.

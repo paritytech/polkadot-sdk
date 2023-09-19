@@ -192,6 +192,12 @@
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -229,10 +235,10 @@
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter, IsChildSystemParachain,
-	IsConcrete, MintLocation, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	ChildParachainConvertsVia, CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter, DescribeBodyTerminal,
+	DescribeFamily, HashedDescription, IsChildSystemParachain, IsConcrete, MintLocation,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
@@ -248,8 +254,14 @@
 	</span><span class="kw">pub const </span>BaseDeliveryFee: u128 = CENTS.saturating_mul(<span class="number">3</span>);
 }
 
-<span class="kw">pub type </span>LocationConverter =
-	(ChildParachainConvertsVia&lt;ParaId, AccountId&gt;, AccountId32Aliases&lt;ThisNetwork, AccountId&gt;);
+<span class="kw">pub type </span>LocationConverter = (
+	<span class="comment">// We can convert a child parachain using the standard `AccountId` conversion.
+	</span>ChildParachainConvertsVia&lt;ParaId, AccountId&gt;,
+	<span class="comment">// We can directly alias an `AccountId32` into a local account.
+	</span>AccountId32Aliases&lt;ThisNetwork, AccountId&gt;,
+	<span class="comment">// Allow governance body to be used as a sovereign account.
+	</span>HashedDescription&lt;AccountId, DescribeFamily&lt;DescribeBodyTerminal&gt;&gt;,
+);
 
 <span class="kw">pub type </span>LocalAssetTransactor = XcmCurrencyAdapter&lt;
 	<span class="comment">// Use this currency:
