@@ -26,6 +26,7 @@ use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 use primitives::{
+	vstaging::{ApprovalVotingParams, AsyncBackingParams},
 	AsyncBackingParams, Balance, ExecutorParams, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 	MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
@@ -259,6 +260,9 @@ pub struct HostConfiguration<BlockNumber> {
 	/// The minimum number of valid backing statements required to consider a parachain candidate
 	/// backable.
 	pub minimum_backing_votes: u32,
+	/// Params used by approval-voting
+	/// TODO: fixme this is not correctly migrated
+	pub approval_voting_params: ApprovalVotingParams,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -304,6 +308,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			pvf_voting_ttl: 2u32.into(),
 			minimum_validation_upgrade_delay: 2.into(),
 			executor_params: Default::default(),
+			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
 			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 			on_demand_base_fee: 10_000_000u128,
 			on_demand_fee_variability: Perbill::from_percent(3),
@@ -431,6 +436,8 @@ where
 		if self.minimum_backing_votes.is_zero() {
 			return Err(ZeroMinimumBackingVotes)
 		}
+
+		// TODO: add consistency check for approval-voting-params
 
 		Ok(())
 	}
@@ -1175,6 +1182,7 @@ pub mod pallet {
 				config.on_demand_ttl = new;
 			})
 		}
+
 		/// Set the minimum backing votes threshold.
 		#[pallet::call_index(52)]
 		#[pallet::weight((
@@ -1185,6 +1193,22 @@ pub mod pallet {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
 				config.minimum_backing_votes = new;
+			})
+		}
+
+		/// Set approval-voting-params.
+		#[pallet::call_index(53)]
+		#[pallet::weight((
+			T::WeightInfo::set_config_with_executor_params(),
+			DispatchClass::Operational,
+		))]
+		pub fn set_approval_voting_params(
+			origin: OriginFor<T>,
+			new: ApprovalVotingParams,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::schedule_config_update(|config| {
+				config.approval_voting_params = new;
 			})
 		}
 	}

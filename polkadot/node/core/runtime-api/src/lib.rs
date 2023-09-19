@@ -165,6 +165,8 @@ where
 			KeyOwnershipProof(relay_parent, validator_id, key_ownership_proof) => self
 				.requests_cache
 				.cache_key_ownership_proof((relay_parent, validator_id), key_ownership_proof),
+			RequestResult::ApprovalVotingParams(relay_parent, params) =>
+				self.requests_cache.cache_approval_voting_params(relay_parent, params),
 			SubmitReportDisputeLost(_, _, _, _) => {},
 			ParaBackingState(relay_parent, para_id, constraints) => self
 				.requests_cache
@@ -300,6 +302,8 @@ where
 				.map(|sender| Request::ParaBackingState(para, sender)),
 			Request::AsyncBackingParams(sender) => query!(async_backing_params(), sender)
 				.map(|sender| Request::AsyncBackingParams(sender)),
+			Request::ApprovalVotingParams(sender) => query!(approval_voting_params(), sender)
+				.map(|sender| Request::ApprovalVotingParams(sender)),
 			Request::MinimumBackingVotes(index, sender) => {
 				if let Some(value) = self.requests_cache.minimum_backing_votes(index) {
 					self.metrics.on_cached_request();
@@ -553,6 +557,9 @@ where
 			ver = Request::KEY_OWNERSHIP_PROOF_RUNTIME_REQUIREMENT,
 			sender
 		),
+		Request::ApprovalVotingParams(sender) => {
+			query!(ApprovalVotingParams, approval_voting_params(), ver = 6, sender)
+		},
 		Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender) => query!(
 			SubmitReportDisputeLost,
 			submit_report_dispute_lost(dispute_proof, key_ownership_proof),

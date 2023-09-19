@@ -357,6 +357,11 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	) -> Result<Option<BackingState>, ApiError> {
 		Ok(self.rpc_client.parachain_host_para_backing_state(at, para_id).await?)
 	}
+
+	/// Approval voting configuration parameters
+	async fn approval_voting_params(&self, at: Hash) -> Result<ApprovalVotingParams, ApiError> {
+		Ok(self.rpc_client.parachain_host_staging_approval_voting_params(at).await?)
+	}
 }
 
 #[async_trait::async_trait]

@@ -41,7 +41,10 @@ use crate::validator_discovery;
 /// Actual interfacing to the network based on the `Network` trait.
 ///
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
-use crate::network::{send_message, Network};
+use crate::network::{
+	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
+	send_validation_message_v2, Network,
+};
 
 use crate::metrics::Metrics;
 
@@ -187,6 +190,7 @@ where
 			gum::trace!(
 				target: LOG_TARGET,
 				action = "SendValidationMessages",
+				?msg,
 				num_messages = 1usize,
 			);
 
@@ -212,6 +216,7 @@ where
 				target: LOG_TARGET,
 				action = "SendValidationMessages",
 				num_messages = %msgs.len(),
+				?msgs,
 			);
 
 			for (peers, msg) in msgs {

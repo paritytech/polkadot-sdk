@@ -114,7 +114,7 @@
 //! separated from the stable primitives.
 
 use crate::{
-	async_backing, slashing, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateEvent,
+	vstaging::{self, ApprovalVotingParams},async_backing, slashing, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateEvent,
 	CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams,
 	GroupRotationInfo, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
 	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
@@ -248,7 +248,10 @@ sp_api::decl_runtime_apis! {
 		#[api_version(6)]
 		fn minimum_backing_votes() -> u32;
 
-		/***** Added in v7: Asynchronous backing *****/
+		/// Approval voting configuration parameters
+		#[api_version(99)]
+		fn approval_voting_params() -> ApprovalVotingParams;
+		/***** Asynchronous backing *****/
 
 		/// Returns the state of parachain backing for a given para.
 		#[api_version(7)]

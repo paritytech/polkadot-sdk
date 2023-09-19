@@ -312,7 +312,6 @@ macro_rules! impl_versioned_full_protocol_from {
 		}
 	};
 }
-
 /// Implement `TryFrom` for one versioned enum variant into the inner type.
 /// `$m_ty::$variant(inner) -> Ok(inner)`
 macro_rules! impl_versioned_try_from {
@@ -439,7 +438,7 @@ pub mod v1 {
 	};
 
 	use polkadot_node_primitives::{
-		approval::{IndirectAssignmentCert, IndirectSignedApprovalVote},
+		approval::v1::{IndirectAssignmentCert, IndirectSignedApprovalVote},
 		UncheckedSignedFullStatement,
 	};
 
@@ -598,7 +597,7 @@ pub mod v2 {
 	};
 
 	use polkadot_node_primitives::{
-		approval::{IndirectAssignmentCert, IndirectSignedApprovalVote},
+		approval::v2::{CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 		UncheckedSignedFullStatement,
 	};
 
@@ -767,13 +766,16 @@ pub mod v2 {
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 	pub enum ApprovalDistributionMessage {
 		/// Assignments for candidates in recent, unfinalized blocks.
+		/// We use a bitfield to reference claimed candidates, where the bit index is equal to
+		/// candidate index.
 		///
 		/// Actually checking the assignment may yield a different result.
+		/// TODO: Look at getting rid of bitfield in the future.
 		#[codec(index = 0)]
-		Assignments(Vec<(IndirectAssignmentCert, CandidateIndex)>),
+		Assignments(Vec<(IndirectAssignmentCertV2, CandidateBitfield)>),
 		/// Approvals for candidates in some recent, unfinalized block.
 		#[codec(index = 1)]
-		Approvals(Vec<IndirectSignedApprovalVote>),
+		Approvals(Vec<IndirectSignedApprovalVoteV2>),
 	}
 
 	/// Dummy network message type, so we will receive connect/disconnect events.
@@ -838,4 +840,12 @@ pub mod v2 {
 		payload.extend_from_slice(b"COLL");
 		payload
 	}
+}
+
+/// Returns the subset of `peers` with the specified `version`.
+pub fn filter_by_peer_version(
+	peers: &[(PeerId, peer_set::ProtocolVersion)],
+	version: peer_set::ProtocolVersion,
+) -> Vec<PeerId> {
+	peers.iter().filter(|(_, v)| v == &version).map(|(p, _)| *p).collect::<Vec<_>>()
 }

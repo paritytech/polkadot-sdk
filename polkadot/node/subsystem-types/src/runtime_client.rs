@@ -16,7 +16,7 @@
 
 use async_trait::async_trait;
 use polkadot_primitives::{
-	async_backing, runtime_api::ParachainHost, slashing, Block, BlockNumber, CandidateCommitments,
+	vstaging::{self, ApprovalVotingParams}, async_backing, runtime_api::ParachainHost, slashing, Block, BlockNumber, CandidateCommitments,
 	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
 	ExecutorParams, GroupRotationInfo, Hash, Id, InboundDownwardMessage, InboundHrmpMessage,
 	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
@@ -479,6 +479,11 @@ where
 		);
 
 		runtime_api.submit_report_dispute_lost(at, dispute_proof, key_ownership_proof)
+	}
+
+	/// Approval voting configuration parameters
+	async fn approval_voting_params(&self, at: Hash) -> Result<ApprovalVotingParams, ApiError> {
+		self.client.runtime_api().approval_voting_params(at)
 	}
 
 	async fn minimum_backing_votes(
