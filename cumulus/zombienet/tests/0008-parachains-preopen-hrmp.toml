@@ -2,8 +2,8 @@
 timeout = 1000
 
 [relaychain]
-#default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
-default_command = "/home/bparity/local_bridge_testing/bin-rowo/polkadot"
+default_image = "{{RELAY_IMAGE}}"
+default_command = "polkadot"
 default_args = [ "-lparachain=debug,xcm=trace" ]
 chain = "rococo-local"
 
