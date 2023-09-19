@@ -60,12 +60,8 @@
 //!         - which has sent a `BackedCandidateAcknowledgement`
 //!   - 1st-hop nodes do the same thing
 
-use polkadot_node_network_protocol::{
-	grid_topology::SessionGridTopology, vstaging::StatementFilter,
-};
-use polkadot_primitives::vstaging::{
-	CandidateHash, CompactStatement, GroupIndex, Hash, ValidatorIndex,
-};
+use polkadot_node_network_protocol::{grid_topology::SessionGridTopology, v2::StatementFilter};
+use polkadot_primitives::{CandidateHash, CompactStatement, GroupIndex, Hash, ValidatorIndex};
 
 use std::collections::{
 	hash_map::{Entry, HashMap},
