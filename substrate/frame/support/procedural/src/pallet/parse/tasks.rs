@@ -68,7 +68,7 @@ impl syn::parse::Parse for TaskDef {
 			// parsing and makes no allocations
 			prefix == "pallet" &&
 				(suffix == "tasks" ||
-					suffix == "tasks_list" ||
+					suffix == "task_list" ||
 					suffix == "task_condition" ||
 					suffix == "task_index")
 		});
@@ -138,7 +138,7 @@ use quote::quote;
 fn test_parse_pallet_task_list_() {
 	parse2::<PalletTaskAttr>(quote!(#[pallet::task_list(Something::iter())])).unwrap();
 	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_list()])).is_err());
-	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::tasks_list(iter())])).is_err());
+	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_list(iter())])).is_err());
 	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_list])).is_err());
 }
 
