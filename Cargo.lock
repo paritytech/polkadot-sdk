@@ -5360,6 +5360,7 @@ dependencies = [
  "proc-macro2",
  "proc-utils",
  "quote",
+ "regex",
  "syn 2.0.33",
 ]
 

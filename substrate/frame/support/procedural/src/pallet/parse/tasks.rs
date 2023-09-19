@@ -24,6 +24,25 @@ use syn::{
 	Expr, Ident, ImplItemFn, Item, LitInt, Result, Token,
 };
 
+#[cfg(test)]
+macro_rules! assert_error_matches {
+	($expr:expr, $reg:literal) => {
+		match $expr {
+			Ok(_) => panic!("Expected an `Error(..)`, but got Ok(..)"),
+			Err(e) => {
+				let error_message = e.to_string();
+				let re = regex::Regex::new($reg).expect("Invalid regex pattern");
+				assert!(
+					re.is_match(&error_message),
+					"Error message \"{}\" does not match the pattern \"{}\"",
+					error_message,
+					$reg
+				);
+			},
+		}
+	};
+}
+
 pub mod keywords {
 	use syn::custom_keyword;
 
@@ -136,8 +155,14 @@ use quote::quote;
 fn test_parse_pallet_task_list_() {
 	parse2::<PalletTaskAttr>(quote!(#[pallet::task_list(Something::iter())])).unwrap();
 	parse2::<PalletTaskAttr>(quote!(#[pallet::task_list(iter())])).unwrap();
-	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_list()])).is_err());
-	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_list])).is_err());
+	assert_error_matches!(
+		parse2::<PalletTaskAttr>(quote!(#[pallet::task_list()])),
+		"expected an expression"
+	);
+	assert_error_matches!(
+		parse2::<PalletTaskAttr>(quote!(#[pallet::task_list])),
+		"expected parentheses"
+	);
 }
 
 #[test]
@@ -145,12 +170,16 @@ fn test_parse_pallet_task_index() {
 	parse2::<PalletTaskAttr>(quote!(#[pallet::task_index(3)])).unwrap();
 	parse2::<PalletTaskAttr>(quote!(#[pallet::task_index(0)])).unwrap();
 	parse2::<PalletTaskAttr>(quote!(#[pallet::task_index(17)])).unwrap();
-	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_index])).is_err());
-	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_index("hey")])).is_err());
-	assert_eq!(
-		parse2::<PalletTaskAttr>(quote!(#[pallet::task_index("hey")]))
-			.unwrap_err()
-			.to_string(),
+	assert_error_matches!(
+		parse2::<PalletTaskAttr>(quote!(#[pallet::task_index])),
+		"expected parentheses"
+	);
+	assert_error_matches!(
+		parse2::<PalletTaskAttr>(quote!(#[pallet::task_index("hey")])),
+		"expected integer literal"
+	);
+	assert_error_matches!(
+		parse2::<PalletTaskAttr>(quote!(#[pallet::task_index(0.3)])),
 		"expected integer literal"
 	);
 }
@@ -159,14 +188,20 @@ fn test_parse_pallet_task_index() {
 fn test_parse_pallet_task_condition() {
 	parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(|x| x.is_some())])).unwrap();
 	parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(|_x| some_expr())])).unwrap();
-	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(x.is_some())])).is_err());
-	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(|| something())])).is_err());
+	assert_error_matches!(
+		parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(x.is_some())])),
+		"expected `|`"
+	);
+	assert_error_matches!(
+		parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(|| something())])),
+		"expected identifier"
+	);
 }
 
 #[test]
 fn test_parse_pallet_tasks() {
 	parse2::<PalletTaskAttr>(quote!(#[pallet::tasks])).unwrap();
-	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::taskss])).is_err());
-	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::tasks_])).is_err());
-	assert!(parse2::<PalletTaskAttr>(quote!(#[pallet::tasks()])).is_err());
+	assert_error_matches!(parse2::<PalletTaskAttr>(quote!(#[pallet::taskss])), "expected one of");
+	assert_error_matches!(parse2::<PalletTaskAttr>(quote!(#[pallet::tasks_])), "expected one of");
+	assert_error_matches!(parse2::<PalletTaskAttr>(quote!(#[pallet::tasks()])), "unexpected token");
 }
