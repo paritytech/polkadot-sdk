@@ -15,11 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::construct_runtime_v2::{
-	parse::pallets::{
-		AllPalletsDeclaration, ExplicitAllPalletsDeclaration, ImplicitAllPalletsDeclaration,
+use super::parse::runtime_types::RuntimeType;
+use crate::{
+	construct_runtime::{
+		check_pallet_number, decl_all_pallets, decl_integrity_test, decl_pallet_runtime_setup,
+		decl_static_assertions, expand,
 	},
-	Def,
+	construct_runtime_v2::{
+		parse::pallets::{
+			AllPalletsDeclaration, ExplicitAllPalletsDeclaration, ImplicitAllPalletsDeclaration,
+		},
+		Def,
+	},
 };
 use cfg_expr::Predicate;
 use frame_support_procedural_tools::{
@@ -29,14 +36,6 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use std::collections::HashSet;
 use syn::{Ident, Result};
-
-use crate::construct_runtime::{check_pallet_number, expand};
-
-use crate::construct_runtime::{
-	decl_all_pallets, decl_integrity_test, decl_pallet_runtime_setup, decl_static_assertions,
-};
-
-use super::parse::runtime_types::RuntimeType;
 
 /// The fixed name of the system pallet.
 const SYSTEM_PALLET_NAME: &str = "System";
