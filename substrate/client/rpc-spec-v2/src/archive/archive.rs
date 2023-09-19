@@ -153,11 +153,11 @@ where
 			}
 
 			let parent_hash = *header.parent_hash();
-			let Ok(Some(next_header)) = self.client.header(parent_hash) else { continue };
 
 			// Continue the iteration for unique hashes.
 			// Forks might intersect on a common chain that is not yet finalized.
 			if visited.insert(parent_hash) {
+				let Ok(Some(next_header)) = self.client.header(parent_hash) else { continue };
 				headers.push(next_header);
 			}
 		}
