@@ -234,12 +234,6 @@ impl<H: Hasher> crate::ProofSizeProvider for Recorder<H> {
 	}
 }
 
-impl<H: Hasher> crate::ProofSizeProvider for &Recorder<H> {
-	fn estimate_encoded_size(&self) -> usize {
-		Recorder::estimate_encoded_size(*self)
-	}
-}
-
 /// The [`TrieRecorder`](trie_db::TrieRecorder) implementation.
 pub struct TrieRecorder<'a, H: Hasher> {
 	inner: MutexGuard<'a, RecorderInner<H::Out>>,
@@ -251,16 +245,12 @@ pub struct TrieRecorder<'a, H: Hasher> {
 impl<H: Hasher> crate::TrieRecorderProvider<H> for Recorder<H> {
 	type Recorder<'a> = TrieRecorder<'a, H> where H: 'a;
 
-	fn drain_storage_proof(self) -> StorageProof {
-		Recorder::drain_storage_proof(self)
+	fn drain_storage_proof(self) -> Option<StorageProof> {
+		Some(Recorder::drain_storage_proof(self))
 	}
 
 	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_> {
 		Recorder::as_trie_recorder(&self, storage_root)
-	}
-
-	fn estimate_encoded_size(&self) -> usize {
-		Recorder::estimate_encoded_size(&self)
 	}
 }
 

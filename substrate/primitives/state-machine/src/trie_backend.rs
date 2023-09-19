@@ -179,15 +179,11 @@ impl<H: Hasher> trie_db::TrieRecorder<H::Out> for UnimplementedRecorderProvider<
 impl<H: Hasher> TrieRecorderProvider<H> for UnimplementedRecorderProvider<H> {
 	type Recorder<'a> = UnimplementedRecorderProvider<H> where H: 'a;
 
-	fn drain_storage_proof(self) -> StorageProof {
+	fn drain_storage_proof(self) -> Option<StorageProof> {
 		unimplemented!()
 	}
 
 	fn as_trie_recorder(&self, _storage_root: H::Out) -> Self::Recorder<'_> {
-		unimplemented!()
-	}
-
-	fn estimate_encoded_size(&self) -> usize {
 		unimplemented!()
 	}
 }
@@ -390,7 +386,7 @@ where
 	///
 	/// This only returns `Some` when there was a recorder set.
 	pub fn extract_proof(mut self) -> Option<StorageProof> {
-		self.essence.recorder.take().map(|r| r.drain_storage_proof())
+		self.essence.recorder.take().map(|r| r.drain_storage_proof()).flatten()
 	}
 }
 

@@ -120,8 +120,8 @@ impl<H: Hasher> SizeOnlyRecorderProvider<H> {
 impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for SizeOnlyRecorderProvider<H> {
 	type Recorder<'a> = SizeOnlyRecorder<'a, H> where H: 'a;
 
-	fn drain_storage_proof(self) -> StorageProof {
-		unimplemented!("Draining storage proof not supported!")
+	fn drain_storage_proof(self) -> Option<StorageProof> {
+		None
 	}
 
 	fn as_trie_recorder(&self, _storage_root: H::Out) -> Self::Recorder<'_> {
@@ -131,11 +131,8 @@ impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for SizeOnlyRecorderPr
 			recorded_keys: self.recorded_keys.borrow_mut(),
 		}
 	}
-
-	fn estimate_encoded_size(&self) -> usize {
-		*self.encoded_size.borrow()
-	}
 }
+
 impl<H: trie_db::Hasher> ProofSizeProvider for SizeOnlyRecorderProvider<H> {
 	fn estimate_encoded_size(&self) -> usize {
 		*self.encoded_size.borrow()

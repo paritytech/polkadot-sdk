@@ -157,17 +157,13 @@ pub trait TrieRecorderProvider<H: Hasher> {
 		Self: 'a;
 
 	/// Create a [`StorageProof`] derived from the internal state.
-	fn drain_storage_proof(self) -> StorageProof;
+	fn drain_storage_proof(self) -> Option<StorageProof>;
 
 	/// Provide a recorder implementing [`trie_db::TrieRecorder`].
 	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_>;
-
-	/// Provide an estimation of the current storage proof size.
-	fn estimate_encoded_size(&self) -> usize;
 }
 
-/// Object-safe trait implemented by types that are able to provide a proof
-/// size estimation.
+/// Type that is able to provide a proof size estimation.
 pub trait ProofSizeProvider {
 	fn estimate_encoded_size(&self) -> usize;
 }
