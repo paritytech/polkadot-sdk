@@ -20,8 +20,9 @@ use schnellru::{ByLength, LruMap};
 use sp_consensus_babe::Epoch;
 
 use polkadot_primitives::{
+	async_backing, slashing,
 	vstaging::{self, ApprovalVotingParams},
-	async_backing, slashing, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
 	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
 	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
@@ -62,10 +63,8 @@ pub(crate) struct RequestResultCache {
 	version: LruMap<Hash, u32>,
 	disputes: LruMap<Hash, Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>>,
 	approval_voting_params: LruMap<Hash, ApprovalVotingParams>,
-	unapplied_slashes:
-		LruMap<Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
-	key_ownership_proof:
-		LruMap<(Hash, ValidatorId), Option<slashing::OpaqueKeyOwnershipProof>>,
+	unapplied_slashes: LruMap<Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
+	key_ownership_proof: LruMap<(Hash, ValidatorId), Option<slashing::OpaqueKeyOwnershipProof>>,
 	minimum_backing_votes: LruMap<SessionIndex, u32>,
 	para_backing_state: LruMap<(Hash, ParaId), Option<async_backing::BackingState>>,
 	async_backing_params: LruMap<Hash, async_backing::AsyncBackingParams>,
