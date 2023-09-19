@@ -29,10 +29,17 @@ pub use relay_substrate_client::calls::{SystemCall, UtilityCall};
 /// Unchecked BridgeHubPolkadot extrinsic.
 pub type UncheckedExtrinsic = bp_bridge_hub_polkadot::UncheckedExtrinsic<Call, SignedExtension>;
 
-// The indirect pallet call used to sync `Kusama` GRANDPA finality to `BHPolkadot`.
+/// The indirect pallet call used to sync `Kusama` GRANDPA finality to `BHPolkadot`.
 pub type BridgeKusamaGrandpaCall = BridgeGrandpaCallOf<bp_kusama::Kusama>;
-// The indirect pallet call used to sync `BridgeHubKusama` messages to `BridgeHubPolkadot`.
+/// The indirect pallet call used to sync `BridgeHubKusama` messages to `BridgeHubPolkadot`.
 pub type BridgeKusamaMessagesCall = BridgeMessagesCallOf<bp_bridge_hub_kusama::BridgeHubKusama>;
+
+/// The indirect pallet call used to sync `PolkadotBulletin` GRANDPA finality to `BHPolkadot`.
+pub type BridgePolkadotBulletinGrandpaCall =
+	BridgeGrandpaCallOf<bp_polkadot_bulletin::PolkadotBulletin>;
+/// The indirect pallet call used to sync `PolkadotBulletin` messages to `BridgeHubPolkadot`.
+pub type BridgePolkadotBulletinMessagesCall =
+	BridgeMessagesCallOf<bp_polkadot_bulletin::PolkadotBulletin>;
 
 /// `BridgeHubPolkadot` Runtime `Call` enum.
 ///
@@ -52,15 +59,22 @@ pub enum Call {
 	#[codec(index = 40)]
 	Utility(UtilityCall<Call>),
 
-	/// Kusama bridge pallet.
+	/// Kusama grandpa bridge pallet.
 	#[codec(index = 51)]
 	BridgeKusamaGrandpa(BridgeKusamaGrandpaCall),
-	/// Kusama parachain bridge pallet.
+	/// Kusama parachains bridge pallet.
 	#[codec(index = 52)]
 	BridgeKusamaParachain(BridgeParachainCall),
 	/// Kusama messages bridge pallet.
 	#[codec(index = 53)]
 	BridgeKusamaMessages(BridgeKusamaMessagesCall),
+
+	/// Polkadot Bulletin grandpa bridge pallet.
+	#[codec(index = 55)]
+	BridgePolkadotBulletinGrandpa(BridgePolkadotBulletinGrandpaCall),
+	/// Polkadot Bulletin messages bridge pallet.
+	#[codec(index = 56)]
+	BridgePolkadotBulletinMessages(BridgePolkadotBulletinMessagesCall),
 }
 
 impl From<UtilityCall<Call>> for Call {

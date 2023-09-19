@@ -23,6 +23,10 @@ use crate::{
 			kusama_headers_to_bridge_hub_polkadot::KusamaToBridgeHubPolkadotCliBridge,
 			polkadot_headers_to_bridge_hub_kusama::PolkadotToBridgeHubKusamaCliBridge,
 		},
+		polkadot_bulletin::{
+			polkadot_bulletin_headers_to_bridge_hub_polkadot::PolkadotBulletinToBridgeHubPolkadotCliBridge,
+			polkadot_headers_to_polkadot_bulletin::PolkadotToPolkadotBulletinCliBridge,
+		},
 		rialto_millau::{
 			millau_headers_to_rialto::MillauToRialtoCliBridge,
 			rialto_headers_to_millau::RialtoToMillauCliBridge,
@@ -72,6 +76,8 @@ pub enum InitBridgeName {
 	WococoToBridgeHubRococo,
 	KusamaToBridgeHubPolkadot,
 	PolkadotToBridgeHubKusama,
+	PolkadotToPolkadotBulletin,
+	PolkadotBulletinToBridgeHubPolkadot,
 }
 
 #[async_trait]
@@ -232,6 +238,37 @@ impl BridgeInitializer for PolkadotToBridgeHubKusamaCliBridge {
 	}
 }
 
+impl BridgeInitializer for PolkadotToPolkadotBulletinCliBridge {
+	type Engine = GrandpaFinalityEngine<Self::Source>;
+
+	fn encode_init_bridge(
+		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
+	) -> <Self::Target as Chain>::Call {
+		type RuntimeCall = relay_polkadot_bulletin_client::RuntimeCall;
+		type BridgePolkadotGrandpaCall = relay_polkadot_bulletin_client::BridgePolkadotGrandpaCall;
+		type SudoCall = relay_polkadot_bulletin_client::SudoCall;
+
+		let initialize_call =
+			RuntimeCall::BridgePolkadotGrandpa(BridgePolkadotGrandpaCall::initialize { init_data });
+
+		RuntimeCall::Sudo(SudoCall::sudo { call: Box::new(initialize_call) })
+	}
+}
+
+impl BridgeInitializer for PolkadotBulletinToBridgeHubPolkadotCliBridge {
+	type Engine = GrandpaFinalityEngine<Self::Source>;
+
+	fn encode_init_bridge(
+		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
+	) -> <Self::Target as Chain>::Call {
+		relay_bridge_hub_polkadot_client::runtime::Call::BridgePolkadotBulletinGrandpa(
+			relay_bridge_hub_polkadot_client::runtime::BridgePolkadotBulletinGrandpaCall::initialize {
+				init_data,
+			},
+		)
+	}
+}
+
 impl InitBridge {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
@@ -249,6 +286,10 @@ impl InitBridge {
 				KusamaToBridgeHubPolkadotCliBridge::init_bridge(self),
 			InitBridgeName::PolkadotToBridgeHubKusama =>
 				PolkadotToBridgeHubKusamaCliBridge::init_bridge(self),
+			InitBridgeName::PolkadotToPolkadotBulletin =>
+				PolkadotToPolkadotBulletinCliBridge::init_bridge(self),
+			InitBridgeName::PolkadotBulletinToBridgeHubPolkadot =>
+				PolkadotBulletinToBridgeHubPolkadotCliBridge::init_bridge(self),
 		}
 		.await
 	}

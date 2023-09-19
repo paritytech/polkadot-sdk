@@ -109,18 +109,8 @@ impl SendMessage {
 				MillauToRialtoParachainCliBridge::send_message(self),
 			FullBridge::RialtoParachainToMillau =>
 				RialtoParachainToMillauCliBridge::send_message(self),
-			FullBridge::BridgeHubRococoToBridgeHubWococo => unimplemented!(
-				"Sending message from BridgeHubRococo to BridgeHubWococo is not supported"
-			),
-			FullBridge::BridgeHubWococoToBridgeHubRococo => unimplemented!(
-				"Sending message from BridgeHubWococo to BridgeHubRococo is not supported"
-			),
-			FullBridge::BridgeHubKusamaToBridgeHubPolkadot => unimplemented!(
-				"Sending message from BridgeHubKusama to BridgeHubPolkadot is not supported"
-			),
-			FullBridge::BridgeHubPolkadotToBridgeHubKusama => unimplemented!(
-				"Sending message from BridgeHubPolkadot to BridgeHubKusama is not supported"
-			),
+			// all our (soon to retire_ testnets are above, so if is fine to use `_`
+			_ => unimplemented!("Sending message from in {:?} is not supported", self.bridge,),
 		}
 		.await
 	}
