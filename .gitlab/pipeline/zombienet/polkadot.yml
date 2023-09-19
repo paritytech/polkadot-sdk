@@ -109,6 +109,8 @@ zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:
     - .zombienet-polkadot-common
   before_script:
+    - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
+    - export COL_IMAGE="${COLANDER_IMAGE}":${PIPELINE_IMAGE_TAG}
     - echo "Zombienet Tests Config"
     - echo "gh-dir ${GH_DIR}"
     - echo "local-dir ${LOCAL_DIR}"
@@ -124,6 +126,8 @@ zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:
   extends:
     - .zombienet-polkadot-common
   before_script:
+    - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
+    - export COL_IMAGE="${COLANDER_IMAGE}":${PIPELINE_IMAGE_TAG}
     - echo "Zombienet Tests Config"
     - echo "gh-dir ${GH_DIR}"
     - echo "local-dir ${LOCAL_DIR}"
