@@ -114,7 +114,7 @@ pub struct RuntimeExecutor;
 
 impl sc_executor::NativeExecutionDispatch for RuntimeExecutor {
 	type ExtendHostFunctions =
-		cumulus_primitives_reclaim::pov_reclaim_host_functions::HostFunctions;
+		cumulus_primitives_pov_reclaim::pov_reclaim_host_functions::HostFunctions;
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
 		cumulus_test_runtime::api::dispatch(method, data)

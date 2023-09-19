@@ -290,11 +290,7 @@ where
 			method,
 			call_data,
 			&runtime_code,
-			&mut self.execution_extensions.extensions(
-				at_hash,
-				at_number,
-				None,
-			),
+			&mut self.execution_extensions.extensions(at_hash, at_number, None),
 		)
 		.map_err(Into::into)
 	}

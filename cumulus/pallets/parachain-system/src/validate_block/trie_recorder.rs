@@ -14,6 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <http://www.gnu.org/licenses/>.
 
+//! Module for defining classes that provide a specialized trie-recorder
+//! and provider for use in validate-block.
+//!
+//! This file defines two main structs, [`SizeOnlyRecorder`] and
+//! [`SizeOnlyRecorderProvider`]. They are used to track the current
+//! proof-size without actually recording the accessed nodes themselves.
+//!
+//! # Panics
+//! The `drain_storage_proof` method is not implemented and will panic if called.
+
 use codec::Encode;
 
 use sp_std::{
@@ -69,6 +79,12 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<
 					.or_insert_with(|| RecordedForKey::Hash);
 			},
 			TrieAccess::NonExisting { full_key } => {
+				self.recorded_keys
+					.entry(full_key.into())
+					.and_modify(|e| *e = RecordedForKey::Value)
+					.or_insert_with(|| RecordedForKey::Value);
+			},
+			TrieAccess::InlineValue { full_key } => {
 				self.recorded_keys
 					.entry(full_key.into())
 					.and_modify(|e| *e = RecordedForKey::Value)

@@ -27,6 +27,7 @@ use polkadot_parachain_primitives::primitives::{
 };
 
 use codec::Encode;
+
 use frame_support::traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType};
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
@@ -44,6 +45,7 @@ type TrieBackend<B> = sp_state_machine::TrieBackend<
 >;
 
 type Ext<'a, B> = sp_state_machine::Ext<'a, HashingFor<B>, TrieBackend<B>>;
+
 fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 	sp_externalities::with_externalities(f).expect("Environmental externalities not set.")
 }
@@ -175,7 +177,7 @@ where
 			.replace_implementation(host_default_child_storage_next_key),
 		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
-		cumulus_primitives_reclaim::pov_reclaim_host_functions::host_current_storage_proof_size
+		cumulus_primitives_pov_reclaim::pov_reclaim_host_functions::host_current_storage_proof_size
 			.replace_implementation(host_current_storage_proof_size),
 	);
 

@@ -38,6 +38,7 @@ use sp_trie::{
 #[cfg(not(feature = "std"))]
 use sp_trie::{Error, NodeCodec};
 use sp_trie::{MerkleValue, PrefixedMemoryDB, StorageProof, TrieRecorderProvider};
+
 use trie_db::TrieCache as TrieCacheT;
 #[cfg(not(feature = "std"))]
 use trie_db::{node::NodeOwned, CachedValue};
@@ -109,7 +110,7 @@ pub struct UnimplementedCacheProvider<H> {
 	// replacement for the `LocalTrieCache` in no-std contexts.
 	_phantom: core::marker::PhantomData<H>,
 	// Statically prevents construction.
-	_infallible: core::convert::Infallible,
+	_void: sp_core::Void,
 }
 
 #[cfg(not(feature = "std"))]
@@ -152,6 +153,8 @@ impl<H: Hasher> TrieCacheProvider<H> for UnimplementedCacheProvider<H> {
 	}
 }
 
+/// Recorder provider that allows construction of a [`TrieBackend`] and satisfies the requirements,
+/// but can never be instantiated.
 #[cfg(not(feature = "std"))]
 pub struct UnimplementedRecorderProvider<H> {
 	// Not strictly necessary, but the H bound allows to use this as a drop-in

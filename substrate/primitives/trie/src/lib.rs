@@ -146,16 +146,28 @@ where
 	}
 }
 
+/// Type that is able to provide a [`trie_db::TrieRecorder`].
+///
+/// Types implementing this trait can be used to maintain recorded state
+/// across operations on different [`trie_db::TrieDB`] instances.
 pub trait TrieRecorderProvider<H: Hasher> {
+	/// Recorder type that is going to be returned by implementors of this trait.
 	type Recorder<'a>: trie_db::TrieRecorder<H::Out> + 'a
 	where
 		Self: 'a;
 
+	/// Create a [`StorageProof`] derived from the internal state.
 	fn drain_storage_proof(self) -> StorageProof;
+
+	/// Provide a recorder implementing [`trie_db::TrieRecorder`].
 	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_>;
+
+	/// Provide an estimation of the current storage proof size.
 	fn estimate_encoded_size(&self) -> usize;
 }
 
+/// Object-safe trait implemented by types that are able to provide a proof
+/// size estimation.
 pub trait ProofSizeProvider {
 	fn estimate_encoded_size(&self) -> usize;
 }

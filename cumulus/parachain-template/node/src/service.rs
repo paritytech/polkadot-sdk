@@ -41,7 +41,7 @@ pub struct ParachainNativeExecutor;
 
 impl sc_executor::NativeExecutionDispatch for ParachainNativeExecutor {
 	type ExtendHostFunctions = (
-		cumulus_primitives_reclaim::pov_reclaim_host_functions::HostFunctions,
+		cumulus_primitives_pov_reclaim::pov_reclaim_host_functions::HostFunctions,
 		frame_benchmarking::benchmarking::HostFunctions,
 	);
 
