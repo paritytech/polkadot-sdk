@@ -697,7 +697,7 @@ fn receive_reserve_asset_deposited_dot_from_asset_hub_polkadot_works() {
 		AccountId::from([73; 32]),
 		AccountId::from(BLOCK_AUTHOR_ACCOUNT),
 		// receiving DOTs
-		(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Polkadot)) }, 1000000000000, 1_000_000_000),
+		(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Polkadot)) }, 1000000000000, 1_00_000_000),
 		bridging_to_asset_hub_polkadot,
 		(X1(PalletInstance(53)), GlobalConsensus(Polkadot), X1(Parachain(1000)))
 	)

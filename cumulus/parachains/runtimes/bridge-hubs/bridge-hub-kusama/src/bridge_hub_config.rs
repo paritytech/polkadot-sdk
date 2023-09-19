@@ -160,7 +160,10 @@ impl ThisChainWithMessages for ThisChain {
 pub type BridgeRefundBridgeHubPolkadotMessages = RefundBridgedParachainMessages<
 	Runtime,
 	RefundableParachain<BridgeParachainPolkadotInstance, BridgeHubPolkadot>,
-	RefundableMessagesLane<WithBridgeHubPolkadotMessagesInstance, StatemineToStatemintMessageLane>,
+	RefundableMessagesLane<
+		WithBridgeHubPolkadotMessagesInstance,
+		AssetHubKusamaToAssetHubPolkadotMessageLane,
+	>,
 	ActualFeeRefund<Runtime>,
 	PriorityBoostPerMessage,
 	StrBridgeRefundBridgeHubPolkadotMessages,
@@ -173,7 +176,7 @@ bp_runtime::generate_static_str_provider!(BridgeRefundBridgeHubPolkadotMessages)
 pub const ASSET_HUB_KUSAMA_TO_ASSET_HUB_POLKADOT_LANE_ID: LaneId = LaneId([0, 0, 0, 0]);
 parameter_types! {
 	pub ActiveOutboundLanesToBridgeHubPolkadot: &'static [bp_messages::LaneId] = &[ASSET_HUB_KUSAMA_TO_ASSET_HUB_POLKADOT_LANE_ID];
-	pub const StatemineToStatemintMessageLane: bp_messages::LaneId = ASSET_HUB_KUSAMA_TO_ASSET_HUB_POLKADOT_LANE_ID;
+	pub const AssetHubKusamaToAssetHubPolkadotMessageLane: bp_messages::LaneId = ASSET_HUB_KUSAMA_TO_ASSET_HUB_POLKADOT_LANE_ID;
 }
 
 #[cfg(test)]

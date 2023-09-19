@@ -7,28 +7,25 @@ default_args = [ "-lparachain=debug,xcm=trace" ]
 chain = "polkadot-local"
 
 	[[relaychain.nodes]]
-	name = "alice-validator-dot"
+	name = "alice-polkadot-validator"
 	validator = true
 	rpc_port = 9935
 	ws_port = 9945
-	extra_args = ["--no-mdns --bootnodes {{'bob-validator-dot'|zombie('multiAddress')}}"]
-	balance = 2000000000000
+	balance = 20000000000000
 
 	[[relaychain.nodes]]
-	name = "bob-validator-dot"
+	name = "bob-polkadot-validator"
 	validator = true
 	rpc_port = 9936
 	ws_port = 9946
-	extra_args = ["--no-mdns --bootnodes {{'alice-validator-dot'|zombie('multiAddress')}}"]
-	balance = 2000000000000
+	balance = 20000000000000
 
 	[[relaychain.nodes]]
-	name = "charlie-validator-dot"
+	name = "charlie-polkadot-validator"
 	validator = true
 	rpc_port = 9937
 	ws_port = 9947
-	extra_args = ["--no-mdns --bootnodes {{'alice-validator-dot'|zombie('multiAddress')}}"]
-	balance = 2000000000000
+	balance = 20000000000000
 
 [[parachains]]
 id = 1002
@@ -37,32 +34,28 @@ cumulus_based = true
 
 	# run alice as parachain collator
 	[[parachains.collators]]
-	name = "alice-collator-dot"
+	name = "bridge-hub-polkadot-collator1"
 	validator = true
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH}}"
 	rpc_port = 8935
 	ws_port = 8945
 	args = [
 		"-lparachain=debug,runtime::mmr=info,substrate=info,runtime=info,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace",
-	]
-	extra_args = [
-		"--force-authoring", "--no-mdns", "--bootnodes {{'bob-collator-dot'|zombie('multiAddress')}}",
-		"-- --port 41335 --rpc-port 48935 --ws-port 48945 --no-mdns", "--bootnodes {{'alice-validator-dot'|zombie('multiAddress')}}"
+		"--force-authoring",
+		"--", "--port 41335", "--rpc-port 48935", "--ws-port 48945"
 	]
 
 	# run bob as parachain collator
 	[[parachains.collators]]
-	name = "bob-collator-dot"
+	name = "bridge-hub-polkadot-collator2"
 	validator = true
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH}}"
 	rpc_port = 8936
 	ws_port = 8946
 	args = [
 		"-lparachain=trace,runtime::mmr=info,substrate=info,runtime=info,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace",
-	]
-	extra_args = [
-		"--force-authoring", "--no-mdns", "--bootnodes {{'alice-collator-dot'|zombie('multiAddress')}}",
-		"-- --port 41336 --rpc-port 48936 --ws-port 48946 --no-mdns", "--bootnodes {{'bob-validator-dot'|zombie('multiAddress')}}"
+		"--force-authoring",
+		"--", "--port 41336", "--rpc-port 48936", "--ws-port 48946"
 	]
 
 [[parachains]]
@@ -77,10 +70,7 @@ cumulus_based = true
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_POLKADOT}}"
 	args = [
 		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace",
-	]
-	extra_args = [
-		"--no-mdns", "--bootnodes {{'asset-hub-polkadot-collator2'|zombie('multiAddress')}}",
-		"-- --port 31333 --rpc-port 38933 --ws-port 38943 --no-mdns", "--bootnodes {{'alice-validator-dot'|zombie('multiAddress')}}"
+		"--", "--port 31333", "--rpc-port 38933", "--ws-port 38943"
 	]
 
 	[[parachains.collators]]
@@ -88,10 +78,7 @@ cumulus_based = true
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_POLKADOT}}"
 	args = [
 		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace",
-	]
-	extra_args = [
-		"--no-mdns", "--bootnodes {{'asset-hub-polkadot-collator1'|zombie('multiAddress')}}",
-		"-- --port 31433 --rpc-port 38833 --ws-port 38843 --no-mdns", "--bootnodes {{'alice-validator-dot'|zombie('multiAddress')}}"
+		"--", "--port 31433", "--rpc-port 38833", "--ws-port 38843"
 	]
 
 #[[hrmp_channels]]

@@ -47,16 +47,16 @@ Copy the apropriate binary (zombienet-linux) from the latest release to ~/local_
 # 2. Build polkadot binary
 
 # If you want to test Kusama/Polkadot bridge, we need "sudo pallet + fast-runtime",
-# so we need to use sudoif in polkadot directory.
+# so we need to use sudofi in polkadot directory.
 #
-# Install sudoif: (skip if already installed)
+# Install sudofi: (skip if already installed)
 # cd <somewhere-outside-polkadot-sdk-git-repo-dir>
 # git clone https://github.com/paritytech/parachain-utils.git
 # cd parachain-utils # -> this is <parachain-utils-git-repo-dir>
 # cargo build --release --bin sudofi
 #
-# cd <polkadot-sdk-git-repo-dir>/pokladot
-# <parachain-utils-git-repo-dir>/target/release/sudoif
+# cd <polkadot-sdk-git-repo-dir>/polkadot
+# <parachain-utils-git-repo-dir>/target/release/sudofi
 
 cd <polkadot-sdk-git-repo-dir>
 cargo build --release --features fast-runtime --bin polkadot
@@ -67,6 +67,7 @@ cp target/release/polkadot-prepare-worker ~/local_bridge_testing/bin/polkadot-pr
 
 cargo build --release --features fast-runtime --bin polkadot-execute-worker
 cp target/release/polkadot-execute-worker ~/local_bridge_testing/bin/polkadot-execute-worker
+
 
 ---
 # 3. Build substrate-relay binary
@@ -87,20 +88,11 @@ cp target/release/substrate-relay ~/local_bridge_testing/bin/substrate-relay
 # 4. Build cumulus polkadot-parachain binary
 cd <polkadot-sdk-git-repo-dir>
 
-# checkout desired branch or use master:
-# git checkout -b master --track origin/master
-
-cargo build --release --locked --bin polkadot-parachain
+cargo build --release -p polkadot-parachain-bin
 cp target/release/polkadot-parachain ~/local_bridge_testing/bin/polkadot-parachain
 cp target/release/polkadot-parachain ~/local_bridge_testing/bin/polkadot-parachain-asset-hub
-
-# For Rococo/Wococo local bridge testing: (obsolete)
-#
-# build AssetHubs (polkadot-parachain-asset-hub) from branch:
-# git checkout -b bko-transfer-asset-via-bridge-pallet-xcm-ro-wo --track origin/bko-transfer-asset-via-bridge-pallet-xcm-ro-wo
-# cargo build --release --locked --bin polkadot-parachain
-# cp target/release/polkadot-parachain ~/local_bridge_testing/bin/polkadot-parachain-asset-hub
 ```
+
 
 ## How to test local Rococo <-> Wococo bridge
 
@@ -278,13 +270,13 @@ Do (asset) transfers:
 ```
 cd <polkadot-sdk-git-repo-dir>
 
-# KSMs from Kusama's Asset Hub to Polkadot's.
+# 2.5 KSMs from Kusama's Asset Hub to Polkadot's.
 ./cumulus/scripts/bridges_kusama_polkadot.sh reserve-transfer-assets-from-asset-hub-kusama-local
 ```
 ```
 cd <polkadot-sdk-git-repo-dir>
 
-# DOTs from Polkadot's Asset Hub to Kusama's.
+# 30 DOTs from Polkadot's Asset Hub to Kusama's.
 ./cumulus/scripts/bridges_kusama_polkadot.sh reserve-transfer-assets-from-asset-hub-polkadot-local
 ```
 
