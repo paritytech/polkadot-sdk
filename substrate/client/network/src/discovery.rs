@@ -970,8 +970,6 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 				// variant
 				// ToSwarm::ReportObservedAddr { address, score } =>
 				// 	return Poll::Ready(ToSwarm::ReportObservedAddr { address, score }),
-				// ToSwarm::CloseConnection { peer_id, connection } =>
-				// 	return Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
 				ToSwarm::CloseConnection { peer_id, connection } =>
 					return Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
 				ToSwarm::NewExternalAddrCandidate(observed) =>
