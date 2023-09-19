@@ -98,3 +98,21 @@ rules:
       - min_approvals: 1
         teams:
           - frame-coders
+
+  # Protection of THIS file
+  - name: Review Bot
+    condition:
+      include: 
+        - review-bot\.yml
+    min_approvals: 2
+    type: "and"
+    reviewers:
+      - min_approvals: 1
+        teams:
+          - opstooling
+      - min_approvals: 1
+        teams:
+          - locks-review
+      - min_approvals: 1
+        teams:
+          - ci
