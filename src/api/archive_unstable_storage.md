@@ -2,7 +2,7 @@
 
 **Parameters**:
 
-- `hash`: String containing an hexadecimal-encoded hash of the header of the block whose storage to fetch.
+- `hash`: String containing a hexadecimal-encoded hash of the header of the block whose storage to fetch.
 - `key`: String containing the hexadecimal-encoded key to fetch in the storage.
 - `childTrie`: `null` for main storage look-ups, or a string containing the hexadecimal-encoded key of the child trie of the "default" namespace.
 - `includeDescendants`: Boolean indicating whether the key-values of all the descendants of the `key` should be returned as well.

@@ -3,7 +3,7 @@
 **Parameters**:
 
 - `followSubscription`: An opaque string that was returned by `chainHead_unstable_follow`.
-- `hash`: String containing an hexadecimal-encoded hash of the header of the block whose body to fetch.
+- `hash`: String containing a hexadecimal-encoded hash of the header of the block whose body will be retrieved.
 
 **Return value**: A JSON object.
 
