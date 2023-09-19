@@ -33,10 +33,10 @@ sp-database = { path = "../../primitives/database" }
 sp-externalities = { path = "../../primitives/externalities" }
 sp-runtime = { path = "../../primitives/runtime", default-features = false}
 sp-proof-size-ext = { path = "../../primitives/proof-size-ext" }
-sp-trie = { path = "../../primitives/trie", default-features = false}
 sp-state-machine = { path = "../../primitives/state-machine" }
 sp-statement-store = { path = "../../primitives/statement-store" }
 sp-storage = { path = "../../primitives/storage" }
+sp-trie = { path = "../../primitives/trie" }
 
 [dev-dependencies]
 thiserror = "1.0.48"
