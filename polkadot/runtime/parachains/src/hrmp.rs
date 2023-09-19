@@ -705,8 +705,8 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Update the deposits held for an HRMP channel. If at least one of the chains is a system
-		/// chain, any deposits held will be unreserved.
+		/// Update the deposits held for an HRMP channel to the latest `Configuration`. Channels
+		/// with system chains do not require a deposit.
 		///
 		/// Arguments:
 		///
@@ -1464,7 +1464,7 @@ impl<T: Config> Pallet<T> {
 		if !deposit.is_zero() {
 			T::Currency::reserve(
 				&origin.into_account_truncating(),
-				config.hrmp_recipient_deposit.unique_saturated_into(),
+				deposit.unique_saturated_into(),
 			)?;
 		}
 
