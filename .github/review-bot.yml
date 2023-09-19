@@ -16,6 +16,24 @@ rules:
       - ci
       - release-engineering
 
+  - name: Audit rules
+    type: basic
+    condition:
+      include: 
+        - ^polkadot/runtime\/(kusama|polkadot|common)\/.*
+        - ^polkadot/primitives/src\/.+\.rs$
+        - ^substrate/primitives/.*
+        - ^substrate/frame/.*
+      exclude: 
+        - ^polkadot/runtime\/(kusama|polkadot)\/src\/weights\/.+\.rs$
+        - ^substrate\/frame\/.+\.md$
+    min_approvals: 2
+    allowedToSkipRule:
+      teams:
+        - core-devs
+    teams:
+      - srlabs
+
   - name: Core developers
     countAuthor: true
     condition:
