@@ -283,6 +283,13 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(self.import_params().map(|x| x.wasm_method()).unwrap_or_default())
 	}
 
+	/// Get the path where WASM precompiled artifacts live.
+	///
+	/// By default this is `None`.
+	fn wasmtime_precompiled(&self) -> Option<PathBuf> {
+		self.import_params().map(|x| x.wasmtime_precompiled()).unwrap_or_default()
+	}
+
 	/// Get the path where WASM overrides live.
 	///
 	/// By default this is `None`.
@@ -491,6 +498,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			state_pruning: self.state_pruning()?,
 			blocks_pruning: self.blocks_pruning()?,
 			wasm_method: self.wasm_method()?,
+			wasmtime_precompiled: self.wasmtime_precompiled(),
 			wasm_runtime_overrides: self.wasm_runtime_overrides(),
 			rpc_addr: self.rpc_addr(DCV::rpc_listen_port())?,
 			rpc_methods: self.rpc_methods()?,

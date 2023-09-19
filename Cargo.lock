@@ -14596,6 +14596,7 @@ dependencies = [
  "rpassword",
  "sc-client-api",
  "sc-client-db",
+ "sc-executor",
  "sc-keystore",
  "sc-network",
  "sc-service",
@@ -14610,6 +14611,7 @@ dependencies = [
  "sp-keystore",
  "sp-panic-handler",
  "sp-runtime",
+ "sp-state-machine",
  "sp-tracing",
  "sp-version",
  "tempfile",
@@ -15085,6 +15087,7 @@ dependencies = [
 name = "sc-executor-common"
 version = "0.10.0-dev"
 dependencies = [
+ "parity-scale-codec",
  "sc-allocator",
  "sp-maybe-compressed-blob",
  "sp-wasm-interface",
@@ -15107,6 +15110,7 @@ dependencies = [
  "sc-allocator",
  "sc-executor-common",
  "sc-runtime-test",
+ "sp-core",
  "sp-io",
  "sp-runtime-interface",
  "sp-wasm-interface",

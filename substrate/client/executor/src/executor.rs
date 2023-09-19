@@ -92,6 +92,7 @@ pub struct WasmExecutorBuilder<H> {
 	max_runtime_instances: usize,
 	cache_path: Option<PathBuf>,
 	allow_missing_host_functions: bool,
+	wasmtime_precompiled_path: Option<PathBuf>,
 	runtime_cache_size: u8,
 }
 
@@ -110,6 +111,7 @@ impl<H> WasmExecutorBuilder<H> {
 			runtime_cache_size: 4,
 			allow_missing_host_functions: false,
 			cache_path: None,
+			wasmtime_precompiled_path: None,
 		}
 	}
 
@@ -193,6 +195,17 @@ impl<H> WasmExecutorBuilder<H> {
 		self
 	}
 
+	/// Create the wasm executor with the given `wasmtime_precompiled_path`.
+	///
+	/// The `wasmtime_precompiled_path` is a path to a directory where the executor load precompiled
+	/// wasmtime modules.
+	///
+	/// By default there is no `wasmtime_precompiled_path` given.
+	pub fn with_wasmtime_precompiled_path(mut self, wasmtime_precompiled_path: impl Into<PathBuf>) -> Self {
+		self.wasmtime_precompiled_path = Some(wasmtime_precompiled_path.into());
+		self
+	}
+
 	/// Build the configured [`WasmExecutor`].
 	pub fn build(self) -> WasmExecutor<H> {
 		WasmExecutor {
@@ -211,6 +224,7 @@ impl<H> WasmExecutorBuilder<H> {
 			)),
 			cache_path: self.cache_path,
 			allow_missing_host_functions: self.allow_missing_host_functions,
+			wasmtime_precompiled_path: self.wasmtime_precompiled_path,
 			phantom: PhantomData,
 		}
 	}
@@ -234,6 +248,8 @@ pub struct WasmExecutor<H> {
 	cache_path: Option<PathBuf>,
 	/// Ignore missing function imports.
 	allow_missing_host_functions: bool,
+	/// TODO
+	wasmtime_precompiled_path: Option<PathBuf>,
 	phantom: PhantomData<H>,
 }
 
@@ -247,6 +263,7 @@ impl<H> Clone for WasmExecutor<H> {
 			cache: self.cache.clone(),
 			cache_path: self.cache_path.clone(),
 			allow_missing_host_functions: self.allow_missing_host_functions,
+			wasmtime_precompiled_path: self.wasmtime_precompiled_path.clone(),
 			phantom: self.phantom,
 		}
 	}
@@ -298,6 +315,7 @@ where
 			)),
 			cache_path,
 			allow_missing_host_functions: false,
+			wasmtime_precompiled_path: None,
 			phantom: PhantomData,
 		}
 	}
@@ -345,6 +363,7 @@ where
 			runtime_code,
 			ext,
 			self.method,
+			self.wasmtime_precompiled_path.as_deref(),
 			heap_alloc_strategy,
 			self.allow_missing_host_functions,
 			|module, instance, version, ext| {
@@ -422,6 +441,8 @@ where
 			runtime_blob,
 			allow_missing_host_functions,
 			self.cache_path.as_deref(),
+			None,
+			&[],
 		)
 		.map_err(|e| format!("Failed to create module: {}", e))?;
 

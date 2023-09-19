@@ -64,6 +64,16 @@ pub struct ImportParams {
 	)]
 	pub wasmtime_instantiation_strategy: WasmtimeInstantiationStrategy,
 
+	/// Specify the path where local precompiled WASM runtimes are stored.
+	/// Only has an effect when `wasm-execution` is set to `compiled`.
+	/// 
+	/// The precompiled runtimes must have been generated using the `precompile-runtimes` subcommand
+	/// with the same version of wasmtime and the exact same configuration. 
+	/// The file name must end with the hash of the configuration. This hash must match, otherwise
+	/// the runtime will be recompiled.
+	#[arg(long, value_name = "PATH")]
+	pub wasmtime_precompiled: Option<PathBuf>,
+
 	/// Specify the path where local WASM runtimes are stored.
 	/// These runtimes will override on-chain runtimes when the version matches.
 	#[arg(long, value_name = "PATH")]
@@ -103,6 +113,12 @@ impl ImportParams {
 		self.execution_strategies.check_usage_and_print_deprecation_warning();
 
 		crate::execution_method_from_cli(self.wasm_method, self.wasmtime_instantiation_strategy)
+	}
+
+	/// Enable using precompiled WASM module with locally-stored artifacts
+	/// by specifying the path where artifacts are stored.
+	pub fn wasmtime_precompiled(&self) -> Option<PathBuf> {
+		self.wasmtime_precompiled.clone()
 	}
 
 	/// Enable overriding on-chain WASM with locally-stored WASM

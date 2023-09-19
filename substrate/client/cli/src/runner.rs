@@ -264,6 +264,7 @@ mod tests {
 					NoExtension::None,
 				)),
 				wasm_method: Default::default(),
+				wasmtime_precompiled: None,
 				wasm_runtime_overrides: None,
 				rpc_addr: None,
 				rpc_max_connections: Default::default(),

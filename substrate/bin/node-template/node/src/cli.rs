@@ -48,4 +48,7 @@ pub enum Subcommand {
 
 	/// Db meta columns information.
 	ChainInfo(sc_cli::ChainInfoCmd),
+
+	/// Precompile the WASM runtime into native code
+	PrecompileWasm(sc_cli::PrecompileWasmCmd),
 }

@@ -172,6 +172,7 @@ pub fn node_config(
 			instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
 		},
 		wasm_runtime_overrides: Default::default(),
+		wasmtime_precompiled: Default::default(),
 		rpc_addr: Default::default(),
 		rpc_max_request_size: Default::default(),
 		rpc_max_response_size: Default::default(),

@@ -29,7 +29,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, HashingFor},
 };
 use sp_state_machine::{backend::AsTrieBackend, Ext, OverlayedChanges, StateMachine, StorageProof};
-use std::{cell::RefCell, sync::Arc};
+use std::{cell::RefCell, path::PathBuf, sync::Arc};
 
 /// Call executor that executes methods locally, querying all required
 /// data from local backend.
@@ -38,6 +38,7 @@ pub struct LocalCallExecutor<Block: BlockT, B, E> {
 	executor: E,
 	wasm_override: Arc<Option<WasmOverride>>,
 	wasm_substitutes: WasmSubstitutes<Block, E, B>,
+	wasmtime_precompiled_path: Option<PathBuf>,
 	execution_extensions: Arc<ExecutionExtensions<Block>>,
 }
 
@@ -70,6 +71,7 @@ where
 			executor,
 			wasm_override: Arc::new(wasm_override),
 			wasm_substitutes,
+			wasmtime_precompiled_path: client_config.wasmtime_precompiled,
 			execution_extensions: Arc::new(execution_extensions),
 		})
 	}
@@ -140,6 +142,7 @@ where
 			executor: self.executor.clone(),
 			wasm_override: self.wasm_override.clone(),
 			wasm_substitutes: self.wasm_substitutes.clone(),
+			wasmtime_precompiled_path: self.wasmtime_precompiled_path.clone(),
 			execution_extensions: self.execution_extensions.clone(),
 		}
 	}

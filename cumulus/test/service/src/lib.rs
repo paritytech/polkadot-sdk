@@ -789,6 +789,7 @@ pub fn node_config(
 		base_path,
 		informant_output_format: Default::default(),
 		wasm_runtime_overrides: None,
+		wasmtime_precompiled: None,
 		runtime_cache_size: 2,
 	})
 }

@@ -14,6 +14,7 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1" }
 thiserror = "1.0.48"
 wasm-instrument = "0.3"
 sc-allocator = { path = "../../allocator" }

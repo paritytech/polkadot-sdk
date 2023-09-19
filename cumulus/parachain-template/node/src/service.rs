@@ -91,13 +91,18 @@ pub fn new_partial(
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h as _ });
 
-	let wasm = WasmExecutor::builder()
+	let mut wasm_builder = WasmExecutor::builder()
 		.with_execution_method(config.wasm_method)
 		.with_onchain_heap_alloc_strategy(heap_pages)
 		.with_offchain_heap_alloc_strategy(heap_pages)
 		.with_max_runtime_instances(config.max_runtime_instances)
-		.with_runtime_cache_size(config.runtime_cache_size)
-		.build();
+		.with_runtime_cache_size(config.runtime_cache_size);
+
+	if let Some(ref wasmtime_precompiled_path) = config.wasmtime_precompiled {
+		wasm_builder = wasm_builder.with_wasmtime_precompiled_path(wasmtime_precompiled_path);
+	}
+
+	let wasm = wasm_builder.build();
 
 	let executor = ParachainExecutor::new_with_wasm_executor(wasm);
 

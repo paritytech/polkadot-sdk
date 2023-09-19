@@ -76,6 +76,10 @@ pub struct Configuration {
 	pub chain_spec: Box<dyn ChainSpec>,
 	/// Wasm execution method.
 	pub wasm_method: WasmExecutionMethod,
+	/// Directory where local WASM precompiled artifacts live. These wasm modules
+	/// take precedence over runtimes when the spec and wasm config matches. Set to `None` to
+	/// disable (default).
+	pub wasmtime_precompiled: Option<PathBuf>,
 	/// Directory where local WASM runtimes live. These runtimes take precedence
 	/// over on-chain runtimes when the spec version matches. Set to `None` to
 	/// disable overrides (default).
