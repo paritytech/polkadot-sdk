@@ -16,17 +16,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Substrate JSON-RPC interface v2.
+//! Substrate archive API.
 //!
-//! Specification [document](https://paritytech.github.io/json-rpc-interface-spec/).
+//! # Note
+//!
+//! Methods are prefixed by `archive`.
 
-#![warn(missing_docs)]
-#![deny(unused_crate_dependencies)]
+#[cfg(test)]
+mod tests;
 
+pub mod api;
 pub mod archive;
-pub mod chain_head;
-pub mod chain_spec;
-pub mod transaction;
 
-/// Task executor that is being used by RPC subscriptions.
-pub type SubscriptionTaskExecutor = std::sync::Arc<dyn sp_core::traits::SpawnNamed>;
+pub use api::ArchiveApiServer;
