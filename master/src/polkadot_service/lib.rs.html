@@ -1435,10 +1435,6 @@
 <a href="#1435" id="1435">1435</a>
 <a href="#1436" id="1436">1436</a>
 <a href="#1437" id="1437">1437</a>
-<a href="#1438" id="1438">1438</a>
-<a href="#1439" id="1439">1439</a>
-<a href="#1440" id="1440">1440</a>
-<a href="#1441" id="1441">1441</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1525,7 +1521,7 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
 </span><span class="kw">use </span>telemetry::{Telemetry, TelemetryWorkerHandle};
 
-<span class="kw">pub use </span>chain_spec::{KusamaChainSpec, PolkadotChainSpec, RococoChainSpec, WestendChainSpec};
+<span class="kw">pub use </span>chain_spec::{GenericChainSpec, RococoChainSpec, WestendChainSpec};
 <span class="kw">pub use </span>consensus_common::{Proposal, SelectChain};
 <span class="kw">use </span>frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 <span class="kw">use </span>mmr_gadget::MmrGadget;
@@ -1545,10 +1541,6 @@
 	traits::{<span class="self">self </span><span class="kw">as </span>runtime_traits, BlakeTwo256, Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor},
 };
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;kusama-native&quot;</span>)]
-</span><span class="kw">pub use </span>{kusama_runtime, kusama_runtime_constants};
-<span class="attr">#[cfg(feature = <span class="string">&quot;polkadot-native&quot;</span>)]
-</span><span class="kw">pub use </span>{polkadot_runtime, polkadot_runtime_constants};
 <span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
 </span><span class="kw">pub use </span>{rococo_runtime, rococo_runtime_constants};
 <span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
