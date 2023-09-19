@@ -21,7 +21,9 @@ use scale_info::{build::Variants, Path, Type, TypeInfo};
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 
-use crate::types::{Data, IdentityFieldProvider, IdentityFields, U64BitFlag};
+use crate::types::{
+	Data, IdentityFieldProvider, IdentityFields, IdentityInformationProvider, U64BitFlag,
+};
 
 /// The fields that we use to identify the owner of an account with. Each corresponds to a field
 /// in the `IdentityInfo` struct.
@@ -139,6 +141,28 @@ pub struct IdentityInfo {
 
 	/// The Twitter identity. The leading `@` character may be elided.
 	pub twitter: Data,
+}
+
+impl IdentityInformationProvider for IdentityInfo {
+	fn has_identity(&self, _fields: u64) -> bool {
+		todo!()
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn create_identity_info() -> Self {
+		let data = Data::Raw(vec![0; 32].try_into().unwrap());
+
+		IdentityInfo {
+			display: data.clone(),
+			legal: data.clone(),
+			web: data.clone(),
+			riot: data.clone(),
+			email: data.clone(),
+			pgp_fingerprint: Some([0; 20]),
+			image: data.clone(),
+			twitter: data,
+		}
+	}
 }
 
 impl IdentityInfo {
