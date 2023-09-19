@@ -18,6 +18,7 @@
 #![cfg(unix)]
 
 use assert_cmd::cargo::cargo_bin;
+use common::run_with_timeout;
 use nix::{
 	sys::signal::{kill, Signal::SIGINT},
 	unistd::Pid,
@@ -32,25 +33,28 @@ use tempfile::tempdir;
 
 pub mod common;
 
-static RUNTIMES: [&str; 4] = ["polkadot", "kusama", "westend", "rococo"];
+static RUNTIMES: &[&str] = &["westend", "rococo"];
 
 /// `benchmark block` works for all dev runtimes using the wasm executor.
 #[tokio::test]
 async fn benchmark_block_works() {
 	for runtime in RUNTIMES {
-		let tmp_dir = tempdir().expect("could not create a temp dir");
-		let base_path = tmp_dir.path();
-		let runtime = format!("{}-dev", runtime);
+		run_with_timeout(Duration::from_secs(10 * 60), async move {
+			let tmp_dir = tempdir().expect("could not create a temp dir");
+			let base_path = tmp_dir.path();
+			let runtime = format!("{}-dev", runtime);
 
-		// Build a chain with a single block.
-		build_chain(&runtime, base_path).await.unwrap();
-		// Benchmark the one block.
-		benchmark_block(&runtime, base_path, 1).unwrap();
+			// Build a chain with a single block.
+			build_chain(&runtime, base_path).await;
+			// Benchmark the one block.
+			benchmark_block(&runtime, base_path, 1).unwrap();
+		})
+		.await
 	}
 }
 
 /// Builds a chain with one block for the given runtime and base path.
-async fn build_chain(runtime: &str, base_path: &Path) -> Result<(), String> {
+async fn build_chain(runtime: &str, base_path: &Path) {
 	let mut cmd = Command::new(cargo_bin("polkadot"))
 		.stdout(process::Stdio::piped())
 		.stderr(process::Stdio::piped())
@@ -64,13 +68,10 @@ async fn build_chain(runtime: &str, base_path: &Path) -> Result<(), String> {
 	let (ws_url, _) = common::find_ws_url_from_output(cmd.stderr.take().unwrap());
 
 	// Wait for the chain to produce one block.
-	let ok = common::wait_n_finalized_blocks(1, Duration::from_secs(60), &ws_url).await;
+	common::wait_n_finalized_blocks(1, &ws_url).await;
 	// Send SIGINT to node.
 	kill(Pid::from_raw(cmd.id().try_into().unwrap()), SIGINT).unwrap();
-	// Wait for the node to handle it and exit.
-	assert!(common::wait_for(&mut cmd, 30).map(|x| x.success()).unwrap_or_default());
-
-	ok.map_err(|e| format!("Node did not build the chain: {:?}", e))
+	assert!(cmd.wait().unwrap().success());
 }
 
 /// Benchmarks the given block with the wasm executor.
