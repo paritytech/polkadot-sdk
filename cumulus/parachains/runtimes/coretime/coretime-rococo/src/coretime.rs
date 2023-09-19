@@ -15,17 +15,29 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::*;
-use frame_support::{parameter_types, traits::{OnUnbalanced, fungible::{Balanced, Credit}}};
+use frame_support::{
+	parameter_types,
+	traits::{
+		fungible::{Balanced, Credit},
+		OnUnbalanced,
+	},
+};
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
-use parachains_common::{AccountId, Balance, BlockNumber};
+use parachains_common::{impls::AccountIdOf, AccountId, Balance, BlockNumber};
+use sp_std::marker::PhantomData;
 
-// TODO: impl this for `ToStakingPot`.
-pub struct IntoAuthor;
-impl OnUnbalanced<Credit<AccountId, Balances>> for IntoAuthor {
-	fn on_nonzero_unbalanced(credit: Credit<AccountId, Balances>) {
-		if let Some(author) = Authorship::author() {
-			let _ = <Balances as Balanced<_>>::resolve(&author, credit);
-		}
+pub struct CreditToStakingPot<R>(PhantomData<R>);
+impl<R> OnUnbalanced<Credit<AccountIdOf<R>, Balances>> for CreditToStakingPot<R>
+where
+	R: pallet_balances::Config
+		+ pallet_collator_selection::Config
+		+ frame_system::Config<AccountId = sp_runtime::AccountId32>,
+	AccountIdOf<R>:
+		From<polkadot_core_primitives::AccountId> + Into<polkadot_core_primitives::AccountId>,
+{
+	fn on_nonzero_unbalanced(credit: Credit<AccountIdOf<R>, Balances>) {
+		let staking_pot = <pallet_collator_selection::Pallet<R>>::account_id();
+		let _ = <Balances as Balanced<_>>::resolve(&staking_pot, credit);
 	}
 }
 
@@ -79,7 +91,7 @@ impl CoretimeInterface for CoretimeProvider {
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type OnRevenue = IntoAuthor;
+	type OnRevenue = CreditToStakingPot<Runtime>;
 	type TimeslicePeriod = ConstU32<2>;
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;
