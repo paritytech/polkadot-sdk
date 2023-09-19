@@ -19,8 +19,10 @@ use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumbe
 use relay_substrate_client::{Chain, ChainWithTransactions, Parachain, RelayChain};
 use strum::{EnumString, EnumVariantNames};
 use substrate_relay_helper::{
-	equivocation::SubstrateEquivocationDetectionPipeline, finality::SubstrateFinalitySyncPipeline,
-	messages_lane::SubstrateMessageLane, parachains::SubstrateParachainsPipeline,
+	equivocation::SubstrateEquivocationDetectionPipeline,
+	finality::SubstrateFinalitySyncPipeline,
+	messages_lane::{MessagesRelayLimits, SubstrateMessageLane},
+	parachains::SubstrateParachainsPipeline,
 };
 
 #[derive(Debug, PartialEq, Eq, EnumString, EnumVariantNames)]
@@ -35,6 +37,8 @@ pub enum FullBridge {
 	BridgeHubWococoToBridgeHubRococo,
 	BridgeHubKusamaToBridgeHubPolkadot,
 	BridgeHubPolkadotToBridgeHubKusama,
+	PolkadotBulletinToBridgeHubPolkadot,
+	BridgeHubPolkadotToPolkadotBulletin,
 }
 
 /// Minimal bridge representation that can be used from the CLI.
@@ -109,4 +113,11 @@ where
 pub trait MessagesCliBridge: CliBridgeBase {
 	/// The Source -> Destination messages synchronization pipeline.
 	type MessagesLane: SubstrateMessageLane<SourceChain = Self::Source, TargetChain = Self::Target>;
+
+	/// Optional messages delivery transaction limits that the messages relay is going
+	/// to use. If it returns `None`, limits are estimated using `TransactionPayment` API
+	/// at the target chain.
+	fn maybe_messages_limits() -> Option<MessagesRelayLimits> {
+		None
+	}
 }

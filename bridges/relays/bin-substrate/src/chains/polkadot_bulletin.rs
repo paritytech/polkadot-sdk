@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright 2022 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -14,11 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Declaration of all bridges that the relay is able to serve.
+//! Polkadot + Polkadot parachains specification for CLI.
 
-pub mod kusama_polkadot;
-pub mod polkadot_bulletin;
-pub mod rialto_millau;
-pub mod rialto_parachain_millau;
-pub mod rococo_wococo;
-pub mod westend_millau;
+use crate::cli::CliChain;
+use relay_polkadot_bulletin_client::PolkadotBulletin;
+use relay_substrate_client::SimpleRuntimeVersion;
+
+impl CliChain for PolkadotBulletin {
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
+		Some(SimpleRuntimeVersion { spec_version: 100, transaction_version: 1 });
+}
