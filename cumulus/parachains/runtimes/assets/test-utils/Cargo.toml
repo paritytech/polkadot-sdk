@@ -4,7 +4,6 @@ version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Test utils for Asset Hub runtimes."
-publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
@@ -42,7 +41,7 @@ pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false}
 
 # Bridges
-pallet-xcm-bridge-hub-router = { path = "../../../../bridges/modules/xcm-bridge-hub-router", default-features = false }
+pallet-xcm-bridge-hub-router = { path = "../../../../../bridges/modules/xcm-bridge-hub-router", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.4.1"
