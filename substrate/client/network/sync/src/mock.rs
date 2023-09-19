@@ -16,15 +16,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Contains a mock implementation of `ChainSync` that can be used
-//! for testing calls made to `ChainSync`.
+//! Contains mock implementations of `ChainSync` and 'BlockDownloader'.
 
-use futures::task::Poll;
+use crate::block_relay_protocol::{BlockDownloader as BlockDownloaderT, BlockResponseError};
+
+use futures::{channel::oneshot, task::Poll};
 use libp2p::PeerId;
+use sc_network::RequestFailure;
 use sc_network_common::sync::{
 	message::{BlockAnnounce, BlockData, BlockRequest, BlockResponse},
-	BadPeer, ChainSync as ChainSyncT, Metrics, OnBlockData, OnBlockJustification,
-	OpaqueBlockResponse, PeerInfo, PollBlockAnnounceValidation, SyncStatus,
+	BadPeer, ChainSync as ChainSyncT, Metrics, OnBlockData, OnBlockJustification, PeerInfo,
+	SyncStatus,
 };
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
@@ -71,32 +73,40 @@ mockall::mock! {
 			success: bool,
 		);
 		fn on_block_finalized(&mut self, hash: &Block::Hash, number: NumberFor<Block>);
-		fn push_block_announce_validation(
+		fn on_validated_block_announce(
 			&mut self,
-			who: PeerId,
-			hash: Block::Hash,
-			announce: BlockAnnounce<Block::Header>,
 			is_best: bool,
+			who: PeerId,
+			announce: &BlockAnnounce<Block::Header>,
 		);
-		fn poll_block_announce_validation<'a>(
-			&mut self,
-			cx: &mut std::task::Context<'a>,
-		) -> Poll<PollBlockAnnounceValidation<Block::Header>>;
 		fn peer_disconnected(&mut self, who: &PeerId);
 		fn metrics(&self) -> Metrics;
-		fn block_response_into_blocks(
-			&self,
-			request: &BlockRequest<Block>,
-			response: OpaqueBlockResponse,
-		) -> Result<Vec<BlockData<Block>>, String>;
 		fn poll<'a>(
 			&mut self,
 			cx: &mut std::task::Context<'a>,
-		) -> Poll<PollBlockAnnounceValidation<Block::Header>>;
+		) -> Poll<()>;
 		fn send_block_request(
 			&mut self,
 			who: PeerId,
 			request: BlockRequest<Block>,
 		);
+	}
+}
+
+mockall::mock! {
+	pub BlockDownloader<Block: BlockT> {}
+
+	#[async_trait::async_trait]
+	impl<Block: BlockT> BlockDownloaderT<Block> for BlockDownloader<Block> {
+		async fn download_blocks(
+			&self,
+			who: PeerId,
+			request: BlockRequest<Block>,
+		) -> Result<Result<Vec<u8>, RequestFailure>, oneshot::Canceled>;
+		fn block_response_into_blocks(
+			&self,
+			request: &BlockRequest<Block>,
+			response: Vec<u8>,
+		) -> Result<Vec<BlockData<Block>>, BlockResponseError>;
 	}
 }

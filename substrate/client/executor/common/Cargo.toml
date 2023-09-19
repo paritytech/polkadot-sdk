@@ -14,7 +14,7 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-thiserror = "1.0.30"
+thiserror = "1.0.48"
 wasm-instrument = "0.3"
 sc-allocator = { path = "../../allocator" }
 sp-maybe-compressed-blob = { path = "../../../primitives/maybe-compressed-blob" }

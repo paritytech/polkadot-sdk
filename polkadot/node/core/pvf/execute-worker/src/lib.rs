@@ -37,7 +37,7 @@ use polkadot_node_core_pvf_common::{
 		worker_event_loop,
 	},
 };
-use polkadot_parachain::primitives::ValidationResult;
+use polkadot_parachain_primitives::primitives::ValidationResult;
 use std::{
 	path::PathBuf,
 	sync::{mpsc::channel, Arc},

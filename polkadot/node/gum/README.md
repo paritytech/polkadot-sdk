@@ -52,6 +52,6 @@ when providing to any of the log macros (`warn!`, `info!`, etc.).
 The crate has to be used throughout the entire codebase to work consistently, to
 disambiguate, the prefix `gum::` is used.
 
-Feature parity with `tracing::{warn!,..}` is not desired. We want consistency
+Feature Parity with `tracing::{warn!,..}` is not desired. We want consistency
 more than anything. All currently used features _are_ supported with _gum_ as
 well.

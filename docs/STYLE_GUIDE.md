@@ -2,19 +2,19 @@
 title: Style Guide for Rust in the Polkadot-SDK
 ---
 
-Where possible these styles are enforced by settings in `rustfmt.toml` so if you run `cargo fmt` 
+Where possible these styles are enforced by settings in `rustfmt.toml` so if you run `cargo fmt`
 then you will adhere to most of these style guidelines automatically.
 
 # Formatting
 
--   Indent using tabs.
--   Lines should be longer than 100 characters long only in exceptional circumstances and certainly
+- Indent using tabs.
+- Lines should be longer than 100 characters long only in exceptional circumstances and certainly
     no longer than 120. For this purpose, tabs are considered 4 characters wide.
--   Indent levels should be greater than 5 only in exceptional circumstances and certainly no
+- Indent levels should be greater than 5 only in exceptional circumstances and certainly no
     greater than 8. If they are greater than 5, then consider using `let` or auxiliary functions in
     order to strip out complex inline expressions.
--   Never have spaces on a line prior to a non-whitespace character
--   Follow-on lines are only ever a single indent from the original line.
+- Never have spaces on a line prior to a non-whitespace character
+- Follow-on lines are only ever a single indent from the original line.
 
 ```rust
 fn calculation(some_long_variable_a: i8, some_long_variable_b: i8) -> bool {
@@ -25,7 +25,7 @@ fn calculation(some_long_variable_a: i8, some_long_variable_b: i8) -> bool {
 }
 ```
 
--   Indent level should follow open parens/brackets, but should be collapsed to the smallest number
+- Indent level should follow open parens/brackets, but should be collapsed to the smallest number
     of levels actually used:
 
 ```rust
@@ -45,8 +45,8 @@ fn calculate(
 }
 ```
 
--   `where` is indented, and its items are indented one further.
--   Argument lists or function invocations that are too long to fit on one line are indented
+- `where` is indented, and its items are indented one further.
+- Argument lists or function invocations that are too long to fit on one line are indented
     similarly to code blocks, and once one param is indented in such a way, all others should be,
     too. Run-on parameter lists are also acceptable for single-line run-ons of basic function calls.
 
@@ -92,7 +92,7 @@ fn foo(really_long_parameter_name_1: SomeLongTypeName, really_long_parameter_nam
 }
 ```
 
--   Always end last item of a multi-line comma-delimited set with `,` when legal:
+- Always end last item of a multi-line comma-delimited set with `,` when legal:
 
 ```rust
 struct Point<T> {
@@ -104,7 +104,7 @@ struct Point<T> {
 enum Meal { Breakfast, Lunch, Dinner };
 ```
 
--   Avoid trailing `;`s where unneeded.
+- Avoid trailing `;`s where unneeded.
 
 ```rust
 if condition {
@@ -112,8 +112,8 @@ if condition {
 }
 ```
 
--   `match` arms may be either blocks or have a trailing `,` but not both.
--   Blocks should not be used unnecessarily.
+- `match` arms may be either blocks or have a trailing `,` but not both.
+- Blocks should not be used unnecessarily.
 
 ```rust
 match meal {
@@ -126,7 +126,7 @@ match meal {
 
 # Style
 
--   Panickers require explicit proofs they don't trigger. Calling `unwrap` is discouraged. The
+- Panickers require explicit proofs they don't trigger. Calling `unwrap` is discouraged. The
     exception to this rule is test code. Avoiding panickers by restructuring code is preferred if
     feasible.
 
@@ -139,14 +139,14 @@ let mut target_path =
 	);
 ```
 
--   Unsafe code requires explicit proofs just as panickers do. When introducing unsafe code,
+- Unsafe code requires explicit proofs just as panickers do. When introducing unsafe code,
     consider trade-offs between efficiency on one hand and reliability, maintenance costs, and
     security on the other. Here is a list of questions that may help evaluating the trade-off while
     preparing or reviewing a PR:
-    -   how much more performant or compact the resulting code will be using unsafe code,
-    -   how likely is it that invariants could be violated,
-    -   are issues stemming from the use of unsafe code caught by existing tests/tooling,
-    -   what are the consequences if the problems slip into production.
+    - how much more performant or compact the resulting code will be using unsafe code,
+    - how likely is it that invariants could be violated,
+    - are issues stemming from the use of unsafe code caught by existing tests/tooling,
+    - what are the consequences if the problems slip into production.
 
 # Manifest Formatting
 

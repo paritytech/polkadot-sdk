@@ -18,5 +18,5 @@ xcm = { package = "staging-xcm", path = ".." }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor" }
 xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder" }
 polkadot-core-primitives = { path = "../../core-primitives" }
-polkadot-parachain = { path = "../../parachain" }
+polkadot-parachain-primitives = { path = "../../parachain" }
 polkadot-runtime-parachains = { path = "../../runtime/parachains" }

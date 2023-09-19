@@ -16,8 +16,8 @@ Only one account can be the sudo key at a time.
 
 Only the sudo key can call the dispatchable functions from the Sudo module.
 
-* `sudo` - Make a `Root` call to a dispatchable function.
-* `set_key` - Assign a new account to be the sudo key.
+- `sudo` - Make a `Root` call to a dispatchable function.
+- `set_key` - Assign a new account to be the sudo key.
 
 ## Usage
 
@@ -68,7 +68,7 @@ You need to set an initial superuser account as the sudo `key`.
 
 ## Related Modules
 
-* [Democracy](https://docs.rs/pallet-democracy/latest/pallet_democracy/)
+- [Democracy](https://docs.rs/pallet-democracy/latest/pallet_democracy/)
 
 [`Call`]: ./enum.Call.html
 [`Config`]: ./trait.Config.html

@@ -44,7 +44,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
-use polkadot_parachain::primitives::RelayChainBlockNumber;
+use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash},
@@ -1400,12 +1400,12 @@ impl<T: Config> Pallet<T> {
 		CustomValidationHeadData::<T>::put(head_data);
 	}
 
-	/// Open HRMP channel for using it in benchmarks.
+	/// Open HRMP channel for using it in benchmarks or tests.
 	///
 	/// The caller assumes that the pallet will accept regular outbound message to the sibling
 	/// `target_parachain` after this call. No other assumptions are made.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn open_outbound_hrmp_channel_for_benchmarks(target_parachain: ParaId) {
+	#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
+	pub fn open_outbound_hrmp_channel_for_benchmarks_or_tests(target_parachain: ParaId) {
 		RelevantMessagingState::<T>::put(MessagingStateSnapshot {
 			dmq_mqc_head: Default::default(),
 			relay_dispatch_queue_remaining_capacity: Default::default(),
@@ -1429,7 +1429,7 @@ impl<T: Config> Pallet<T> {
 	pub fn initialize_for_set_code_benchmark(max_code_size: u32) {
 		// insert dummy ValidationData
 		let vfp = PersistedValidationData {
-			parent_head: polkadot_parachain::primitives::HeadData(Default::default()),
+			parent_head: polkadot_parachain_primitives::primitives::HeadData(Default::default()),
 			relay_parent_number: 1,
 			relay_parent_storage_root: Default::default(),
 			max_pov_size: 1_000,

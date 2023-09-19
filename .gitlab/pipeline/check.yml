@@ -19,7 +19,7 @@ check-try-runtime:
     - time cargo check --locked -p parachain-template-node --features try-runtime
     # add after https://github.com/paritytech/substrate/pull/14502 is merged
     # experimental code may rely on try-runtime and vice-versa
-    - time cargo check --locked --features try-runtime,experimental
+    - time cargo check --locked --all --features try-runtime,experimental
 
 cargo-fmt-manifest:
   stage: check
@@ -103,7 +103,6 @@ test-rust-feature-propagation:
     - zepter lint propagate-feature --feature try-runtime --left-side-feature-missing=ignore --workspace --feature-enables-dep="try-runtime:frame-try-runtime" --locked
     - zepter lint propagate-feature --feature runtime-benchmarks --left-side-feature-missing=ignore --workspace --feature-enables-dep="runtime-benchmarks:frame-benchmarking" --locked
     - zepter lint propagate-feature --feature std --left-side-feature-missing=ignore --workspace --locked
-  allow_failure: true # Experimental
 
 # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
 .check-runtime-migration:
