@@ -100,7 +100,7 @@ impl IdentityFieldProvider for IdentityField {}
 /// fields in a backwards compatible way through a specialized `Decode` impl.
 #[derive(Clone, Encode, Decode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
 #[codec(mel_bound())]
-#[cfg_attr(test, derive(frame_support::Default))]
+#[cfg_attr(test, derive(Default))]
 pub struct IdentityInfo {
 	/// A reasonable display name for the controller of the account. This should be whatever it is
 	/// that it is typically known as and should not be confusable with other entities, given
@@ -144,8 +144,8 @@ pub struct IdentityInfo {
 }
 
 impl IdentityInformationProvider for IdentityInfo {
-	fn has_identity(&self, _fields: u64) -> bool {
-		todo!()
+	fn has_identity(&self, fields: u64) -> bool {
+		self.fields().0.bits() & fields == fields
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

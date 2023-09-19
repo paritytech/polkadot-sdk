@@ -221,7 +221,7 @@ benchmarks! {
 		// Create their main identity
 		let info = T::IdentityInformation::create_identity_info();
 		let caller: T::AccountId = whitelisted_caller();
-		let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller));
+		let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
 		Identity::<T>::set_identity(caller_origin, Box::new(info))?;
 	}: _(RawOrigin::Signed(caller.clone()), r - 1, 10u32.into())
 	verify {
