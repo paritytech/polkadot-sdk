@@ -1139,7 +1139,7 @@ pub fn apply_tree_commit<H: Hash>(commit: TrieCommit<H::Out>, db_tree_support: b
 		let hash = commit.main.root_hash();
 		match commit.main.root {
 			sp_trie::ChangesetNodeRef::Existing(node) => {
-				tx.reference(columns::STATE, DbHash::from_slice(node.hash.as_ref()));
+				tx.reference_tree(columns::STATE, DbHash::from_slice(node.hash.as_ref()));
 			}
 			new_node @ sp_trie::ChangesetNodeRef::New(_) => {
 				if let sp_database::NodeRef::New(n) = convert::<H>(new_node) {
@@ -1151,7 +1151,7 @@ pub fn apply_tree_commit<H: Hash>(commit: TrieCommit<H::Out>, db_tree_support: b
 			let hash = c.root_hash();
 			match c.root {
 				sp_trie::ChangesetNodeRef::Existing(node) => {
-					tx.reference(columns::STATE, DbHash::from_slice(node.hash.as_ref()));
+					tx.reference_tree(columns::STATE, DbHash::from_slice(node.hash.as_ref()));
 				}
 				new_node @ sp_trie::ChangesetNodeRef::New(_) => {
 					if let sp_database::NodeRef::New(n) = convert::<H>(new_node) {
@@ -2017,7 +2017,7 @@ impl<Block: BlockT> Backend<Block>{
 		if clean_state {
 			match self.blockchain.header_metadata(hash) {
 				Ok(hdr) => {
-					transaction.release(columns::STATE, DbHash::from_slice(hdr.state_root.as_ref()));
+					transaction.release_tree(columns::STATE, DbHash::from_slice(hdr.state_root.as_ref()));
 				}
 				Err(e) => {
 					log::debug!(target: "db", "Failed to get header metadata for block #{}: {:?}", id, e)

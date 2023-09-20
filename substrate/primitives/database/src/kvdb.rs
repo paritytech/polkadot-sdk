@@ -82,7 +82,7 @@ impl<D: KeyValueDB, H: Clone + AsRef<[u8]>> Database<H> for DbAdapter<D> {
 						tx.put_vec(col, key.as_ref(), value);
 					},
 				},
-				Change::Reference(col, key) => {
+				Change::Reference(col, key) | Change::ReferenceTree(col, key) => {
 					if let (counter_key, Some(mut counter)) =
 						self.read_counter(col, key.as_ref())?
 					{
@@ -90,7 +90,7 @@ impl<D: KeyValueDB, H: Clone + AsRef<[u8]>> Database<H> for DbAdapter<D> {
 						tx.put(col, &counter_key, &counter.to_le_bytes());
 					}
 				},
-				Change::Release(col, key) => {
+				Change::Release(col, key) | Change::ReleaseTree(col, key) => {
 					if let (counter_key, Some(mut counter)) =
 						self.read_counter(col, key.as_ref())?
 					{

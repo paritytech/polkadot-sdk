@@ -115,6 +115,9 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 						return None
 					}
 				},
+				Change::ReferenceTree(col, key) => {
+					(col as u8, Operation::ReferenceTree(key.as_ref().to_vec()))
+				},
 				Change::Release(col, key) =>
 					if ref_counted_column(col) {
 						(col as u8, Operation::Dereference(key.as_ref().to_vec()))
@@ -124,6 +127,8 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 						}
 						return None
 					},
+				Change::ReleaseTree(col, key) =>
+					(col as u8, Operation::DereferenceTree(key.as_ref().to_vec())),
 				Change::StoreTree(col, key, tree) => {
 					(col as u8, Operation::InsertTree(key.as_ref().to_vec(), tree))
 				},

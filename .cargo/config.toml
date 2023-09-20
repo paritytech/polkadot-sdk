@@ -1,3 +1,5 @@
+paths=["../trie", "../parity-db"]
+
 #
 # An auto defined `clippy` feature was introduced,
 # but it was found to clash with user defined features,

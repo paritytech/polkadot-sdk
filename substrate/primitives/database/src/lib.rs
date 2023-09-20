@@ -39,6 +39,8 @@ pub enum Change<H> {
 	Reference(ColumnId, H),
 	Release(ColumnId, H),
 	StoreTree(ColumnId, H, NewTree),
+	ReferenceTree(ColumnId, H),
+	ReleaseTree(ColumnId, H),
 }
 
 /// A series of changes to the database that can be committed atomically. They do not take effect
@@ -75,11 +77,22 @@ impl<H> Transaction<H> {
 	pub fn reference(&mut self, col: ColumnId, hash: H) {
 		self.0.push(Change::Reference(col, hash))
 	}
+	/// Increase the number of references for `hash` in the database.
+	pub fn reference_tree(&mut self, col: ColumnId, hash: H) {
+		self.0.push(Change::ReferenceTree(col, hash))
+	}
 	/// Release the preimage of `hash` from the database. An equal number of these to the number of
 	/// corresponding `store`s must have been given before it is legal for `Database::get` to
 	/// be unable to provide the preimage.
 	pub fn release(&mut self, col: ColumnId, hash: H) {
 		self.0.push(Change::Release(col, hash))
+	}
+
+	/// Release the preimage of `hash` from the database. An equal number of these to the number of
+	/// corresponding `store`s must have been given before it is legal for `Database::get` to
+	/// be unable to provide the preimage.
+	pub fn release_tree(&mut self, col: ColumnId, hash: H) {
+		self.0.push(Change::ReleaseTree(col, hash))
 	}
 
 	/// Insert a new new tree into the database.

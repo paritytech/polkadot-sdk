@@ -46,14 +46,14 @@ where
 						.and_modify(|(c, _)| *c += 1)
 						.or_insert_with(|| (1, value));
 				},
-				Change::Reference(col, hash) => {
+				Change::Reference(col, hash) | Change::ReferenceTree(col, hash) => {
 					if let Entry::Occupied(mut entry) =
 						s.entry(col).or_default().entry(hash.as_ref().to_vec())
 					{
 						entry.get_mut().0 += 1;
 					}
 				},
-				Change::Release(col, hash) => {
+				Change::Release(col, hash) | Change::ReleaseTree(col, hash) => {
 					if let Entry::Occupied(mut entry) =
 						s.entry(col).or_default().entry(hash.as_ref().to_vec())
 					{
