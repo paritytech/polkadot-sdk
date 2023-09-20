@@ -31,7 +31,10 @@ pub use frame_support::{
 	BoundedVec,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use pallet_identity::{Data, IdentityInfo, Judgement};
+use pallet_identity::{
+	simple::{IdentityField, IdentityInfo},
+	Data, Judgement,
+};
 
 pub use crate as pallet_alliance;
 
@@ -135,10 +138,10 @@ impl pallet_identity::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type BasicDeposit = BasicDeposit;
-	type FieldDeposit = FieldDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
-	type MaxAdditionalFields = MaxAdditionalFields;
+	type IdentityInformation = IdentityInfo;
+	type IdentityField = IdentityField;
 	type MaxRegistrars = MaxRegistrars;
 	type Slashed = ();
 	type RegistrarOrigin = EnsureOneOrRoot;
@@ -281,7 +284,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 1));
 
 		let info = IdentityInfo {
-			additional: BoundedVec::default(),
 			display: Data::Raw(b"name".to_vec().try_into().unwrap()),
 			legal: Data::default(),
 			web: Data::Raw(b"website".to_vec().try_into().unwrap()),
