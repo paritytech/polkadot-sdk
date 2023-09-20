@@ -341,11 +341,14 @@ frame_support::construct_runtime!(
 	pub struct Runtime
 	{
 		// Exclude part `Storage` in order not to check its metadata in tests.
-		System: frame_system exclude_parts { Storage },
-		Example: pallet,
-		Instance1Example: pallet::<Instance1>,
-		Example2: pallet2,
-		Instance1Example2: pallet2::<Instance1>,
+		System: frame_system exclude_parts { Storage } = 0,
+		Example: pallet = 1,
+		// Changing the order of these pallets using the index declaration breaks the
+		// `pallet_metadata_expands` test. `OnInitialize` executes based on the order of
+		// `AllPalletsWithSystem`, so it will also respect the declared indices.
+		Instance1Example: pallet::<Instance1> = 3,
+		Example2: pallet2 = 2,
+		Instance1Example2: pallet2::<Instance1> = 4,
 	}
 );
 
