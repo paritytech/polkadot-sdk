@@ -32,7 +32,7 @@ pub use integration_tests_common::{
 	AssetHubWestend, AssetHubWestendPallet, AssetHubWestendReceiver, AssetHubWestendSender,
 	CollectivesWestend, CollectivesWestendReceiver, PenpalWestendA, PenpalWestendAPallet,
 	PenpalWestendAReceiver, PenpalWestendASender, Westend, WestendPallet, WestendReceiver,
-	WestendSender,
+	WestendSender, BridgeHubWestend, BridgeHubWestendReceiver,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{

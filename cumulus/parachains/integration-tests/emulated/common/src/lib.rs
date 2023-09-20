@@ -318,6 +318,22 @@ decl_test_parachains! {
 			Balances: collectives_polkadot_runtime::Balances,
 		}
 	},
+	pub struct BridgeHubWestend {
+		genesis = bridge_hub_kusama::genesis(),
+		on_init = {
+			bridge_hub_kusama_runtime::AuraExt::on_initialize(1);
+		},
+		runtime = bridge_hub_kusama_runtime,
+		core = {
+			XcmpMessageHandler: bridge_hub_kusama_runtime::XcmpQueue,
+			DmpMessageHandler: bridge_hub_kusama_runtime::DmpQueue,
+			LocationToAccountId: bridge_hub_kusama_runtime::xcm_config::LocationToAccountId,
+			ParachainInfo: bridge_hub_kusama_runtime::ParachainInfo,
+		},
+		pallets = {
+			PolkadotXcm: bridge_hub_kusama_runtime::PolkadotXcm,
+		}
+	},
 	pub struct PenpalWestendA {
 		genesis = penpal::genesis(penpal::PARA_ID_A),
 		on_init = {
@@ -458,6 +474,7 @@ decl_test_networks! {
 		parachains = vec![
 			AssetHubWestend,
 			CollectivesWestend,
+			BridgeHubWestend,
 			PenpalWestendA,
 		],
 		bridge = ()
@@ -589,6 +606,7 @@ decl_test_sender_receiver_accounts_parameter_types! {
 	// Bridged Hubs
 	BridgeHubPolkadot { sender: ALICE, receiver: BOB },
 	BridgeHubKusama { sender: ALICE, receiver: BOB },
+	BridgeHubWestend { sender: ALICE, receiver: BOB },
 	BridgeHubRococo { sender: ALICE, receiver: BOB },
 	BridgeHubWococo { sender: ALICE, receiver: BOB },
 	// Penpals

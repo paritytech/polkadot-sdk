@@ -369,7 +369,7 @@ fn teleport_to_other_system_parachains_works() {
 
 	test_parachain_is_trusted_teleporter!(
 		AssetHubWestend,          // Origin
-		vec![CollectivesWestend], // Destinations
+		vec![CollectivesWestend, BridgeHubWestend], // Destinations
 		(native_asset, amount)
 	);
 }
