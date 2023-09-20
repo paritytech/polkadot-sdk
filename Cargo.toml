@@ -335,6 +335,7 @@ members = [
 	"substrate/frame/session",
 	"substrate/frame/session/benchmarking",
 	"substrate/frame/society",
+	"substrate/frame/stake-tracker",
 	"substrate/frame/staking",
 	"substrate/frame/staking/reward-curve",
 	"substrate/frame/staking/reward-fn",
