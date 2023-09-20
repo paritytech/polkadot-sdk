@@ -417,9 +417,16 @@ pub mod pallet {
 					debug!(target: LOG_TARGET, "Missing ticket vrf output from ring signature");
 					continue
 				};
+
 				let ticket_id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_output);
+
 				if ticket_id >= ticket_threshold {
-					debug!(target: LOG_TARGET, "Over threshold");
+					debug!(target: LOG_TARGET, "Ignoring ticket over threshold ({} >= {})", ticket_id, ticket_threshold);
+					continue
+				}
+
+				if TicketsData::<T>::contains_key(ticket_id) {
+					debug!(target: LOG_TARGET, "Ignoring duplicate ticket ({})", ticket_id);
 					continue
 				}
 
