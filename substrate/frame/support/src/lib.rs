@@ -2201,7 +2201,7 @@ pub mod pallet_macros {
 	/// See [`genesis_build`] for an example.
 	pub use frame_support_procedural::genesis_config;
 
-	/// Allows you to define how the state of your pallet at genesis is build is built. This
+	/// Allows you to define how the state of your pallet at genesis is built. This
 	/// takes as input the `GenesisConfig` type (as `self`) and constructs the pallet's initial
 	/// state.
 	///
