@@ -43,24 +43,15 @@ frame_support::construct_runtime!(
 impl frame_system::Config for Test {
 	type Block = Block;
 	type BlockHashCount = ConstU32<250>;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
-	type BaseCallFilter = TestBaseCallFilter;
-	type PalletInfo = PalletInfo;
-	type OnSetCode = ();
-
 	type AccountData = pallet_balances::AccountData<u64>;
+	// This pallet wishes to overwrite this.
+	type BaseCallFilter = TestBaseCallFilter;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeHoldReason = ();
 	type ReserveIdentifier = [u8; 8];
-	type DustRemoval = ();
 	type AccountStore = System;
-	type ExistentialDeposit = ConstU64<1>;
 }
 
 pub struct TestBaseCallFilter;
