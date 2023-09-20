@@ -17,12 +17,9 @@
 //! To be removed file that sends messages to the Polkadot Bulletin chain.
 //!
 //! Right now we miss the Kawabunga chain, so let's emulate it by sending
-//! messages to the Polkadot Bulletin chain. 
+//! messages to the Polkadot Bulletin chain.
 
-use crate::{
-	bridge_bulletin_config::WITH_POLKADOT_BULLETIN_LANE,
-	BridgePolkadotBulletinMessages,
-};
+use crate::{bridge_bulletin_config::WITH_POLKADOT_BULLETIN_LANE, BridgePolkadotBulletinMessages};
 
 use bp_messages::source_chain::MessagesBridge;
 
@@ -35,8 +32,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-	}
+	pub trait Config: frame_system::Config {}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -52,7 +48,8 @@ pub mod pallet {
 			let artifacts = BridgePolkadotBulletinMessages::send_message(
 				WITH_POLKADOT_BULLETIN_LANE,
 				encoded_xcm_message.to_vec(),
-			).expect("Something wrong with test config");
+			)
+			.expect("Something wrong with test config");
 			log::trace!(
 				target: "runtime::bridge-messsages-generator",
 				"Sent message {} to Bulletin Chain",

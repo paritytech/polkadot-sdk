@@ -42,8 +42,8 @@ use sp_runtime::{traits::DispatchInfoOf, transaction_validity::TransactionValidi
 // This chain reuses most of Polkadot primitives.
 pub use bp_polkadot_core::{
 	AccountAddress, AccountId, Balance, Block, BlockNumber, Hash, Hasher, Header, Nonce, Signature,
-	SignedBlock, UncheckedExtrinsic, AVERAGE_HEADER_SIZE_IN_JUSTIFICATION, MAX_HEADER_SIZE,
-	REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY,
+	SignedBlock, UncheckedExtrinsic, AVERAGE_HEADER_SIZE_IN_JUSTIFICATION,
+	EXTRA_STORAGE_PROOF_SIZE, MAX_HEADER_SIZE, REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY,
 };
 
 /// Maximal number of GRANDPA authorities at Polkadot Bulletin chain.

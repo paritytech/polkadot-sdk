@@ -27,7 +27,7 @@ cd <cumulus-git-repo-dir>
 # this will update new git branches from bridges repo
 # there could be unresolved conflicts, but don't worry,
 # lots of them are caused because of removed unneeded files with patch step,
-BRANCH=polkadot-staging ./scripts/bridges_update_subtree.sh fetch
+BRANCH=polkadot-polkadot-1.0.0-audited ./scripts/bridges_update_subtree.sh fetch
 
 # so, after fetch and before solving conflicts just run patch,
 # this will remove unneeded files and checks if subtree modules compiles

@@ -482,7 +482,7 @@ impl pallet_bridge_parachains::Config<BridgeParachainKusamaInstance> for Runtime
 pub type WithBridgeHubKusamaMessagesInstance = pallet_bridge_messages::Instance1;
 impl pallet_bridge_messages::Config<WithBridgeHubKusamaMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_bridge_messages::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_bridge_messages_bridge_messages_bench_runtime_with_bridge_hub_kusama_messages_instance::WeightInfo<Runtime>;
 	type BridgedChainId = bridge_kusama_config::BridgeHubKusamaChainId;
 	type ActiveOutboundLanes = bridge_kusama_config::ActiveOutboundLanesToBridgeHubKusama;
 	type MaxUnrewardedRelayerEntriesAtInboundLane =
@@ -538,14 +538,20 @@ impl pallet_bridge_grandpa::Config<BridgeGrandpaBulletinInstance> for Runtime {
 	type BridgedChain = bp_polkadot_bulletin::PolkadotBulletin;
 	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
 	type HeadersToKeep = RelayChainHeadersToKeep;
-	type WeightInfo = (); // TODO
+	// technically this is incorrect - we have two pallet instances and ideally we shall
+	// benchmark every instance separately. But the benchmarking engine has a flaw - it
+	// messes with components. E.g. in Kusama maximal validators count is 1024 and in
+	// Bulletin chain it is 100. But benchmarking engine runs Bulletin benchmarks using
+	// components range, computed for Kusama => it causes an error.
+	// TODO: log it?
+	type WeightInfo = weights::pallet_bridge_grandpa::WeightInfo<Runtime>;
 }
 
 /// Add XCM messages support for Polkadot<->Bulletin XCM messages
 pub type WithPolkadotBulletinMessagesInstance = pallet_bridge_messages::Instance2;
 impl pallet_bridge_messages::Config<WithPolkadotBulletinMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = (); // TODO
+	type WeightInfo = weights::pallet_bridge_messages_bridge_messages_bench_runtime_with_polkadot_bulletin_messages_instance::WeightInfo<Runtime>;
 	type BridgedChainId = bridge_bulletin_config::PolkadotBulletinChainId;
 	type ActiveOutboundLanes = bridge_bulletin_config::ActiveOutboundLanesToPolkadotBulletin;
 	type MaxUnrewardedRelayerEntriesAtInboundLane =
@@ -660,6 +666,8 @@ mod benches {
 		[pallet_bridge_grandpa, BridgeKusamaGrandpa]
 		[pallet_bridge_parachains, BridgeParachainsBench::<Runtime, BridgeParachainKusamaInstance>]
 		[pallet_bridge_messages, BridgeMessagesBench::<Runtime, WithBridgeHubKusamaMessagesInstance>]
+		// Bridge pallets for Polkadot Bulletin
+		[pallet_bridge_messages, BridgeMessagesBench::<Runtime, WithPolkadotBulletinMessagesInstance>]
 		// Bridge relayer pallets
 		[pallet_bridge_relayers, BridgeRelayersBench::<Runtime>]
 	);
@@ -1050,7 +1058,9 @@ impl_runtime_apis! {
 
 			use bridge_runtime_common::messages_benchmarking::{
 				generate_xcm_builder_bridge_message_sample,
+				prepare_message_delivery_proof_from_grandpa_chain,
 				prepare_message_delivery_proof_from_parachain,
+				prepare_message_proof_from_grandpa_chain,
 				prepare_message_proof_from_parachain
 			};
 			use pallet_bridge_messages::benchmarking::{
@@ -1128,6 +1138,49 @@ impl_runtime_apis! {
 						parachain_head_size,
 						proof_size,
 					)
+				}
+			}
+
+			impl BridgeMessagesConfig<WithPolkadotBulletinMessagesInstance> for Runtime {
+				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
+					let bench_lane_id = <Self as BridgeMessagesConfig<WithPolkadotBulletinMessagesInstance>>::bench_lane_id();
+					let bridged_chain_id = bp_runtime::POLKADOT_BULLETIN_CHAIN_ID;
+					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
+						relayer,
+						bp_relayers::RewardsAccountParams::new(
+							bench_lane_id,
+							bridged_chain_id,
+							bp_relayers::RewardsAccountOwner::BridgedChain
+						)
+					).is_some()
+				}
+				fn prepare_message_proof(
+					params: MessageProofParams,
+				) -> (bridge_bulletin_config::FromPolkadotBulletinMessagesProof, Weight) {
+					use cumulus_primitives_core::XcmpMessageSource;
+					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(42.into());
+					prepare_message_proof_from_grandpa_chain::<
+						Runtime,
+						BridgeGrandpaBulletinInstance,
+						bridge_bulletin_config::WithPolkadotBulletinMessageBridge,
+					>(params, generate_xcm_builder_bridge_message_sample(
+						X2(GlobalConsensus(xcm_config::RelayNetwork::get().unwrap()),
+						Parachain(42),
+					)))
+				}
+				fn prepare_message_delivery_proof(
+					params: MessageDeliveryProofParams<AccountId>,
+				) -> bridge_bulletin_config::ToPolkadotBulletinMessagesDeliveryProof {
+					prepare_message_delivery_proof_from_grandpa_chain::<
+						Runtime,
+						BridgeGrandpaBulletinInstance,
+						bridge_bulletin_config::WithPolkadotBulletinMessageBridge,
+					>(params)
+				}
+				fn is_message_successfully_dispatched(_nonce: bp_messages::MessageNonce) -> bool {
+					use cumulus_primitives_core::XcmpMessageSource;
+					!XcmpQueue::take_outbound_messages(usize::MAX).is_empty()
 				}
 			}
 

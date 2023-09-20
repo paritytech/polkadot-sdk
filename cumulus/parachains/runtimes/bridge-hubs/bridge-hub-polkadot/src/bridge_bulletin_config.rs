@@ -128,6 +128,14 @@ impl ThisChainWithMessages for ThisChain {
 	type RuntimeOrigin = crate::RuntimeOrigin;
 }
 
+/// Proof of messages, coming from Polkadot Bulletin chain.
+pub type FromPolkadotBulletinMessagesProof =
+	messages::target::FromBridgedChainMessagesProof<bp_polkadot_bulletin::Hash>;
+
+/// Message delivery proof for Polkadot Bulletin messages.
+pub type ToPolkadotBulletinMessagesDeliveryProof =
+	messages::source::FromBridgedChainMessagesDeliveryProof<bp_polkadot_bulletin::Hash>;
+
 /// Dispatches received XCM messages from the Polkadot Bulletin chain.
 pub type FromPolkadotBulletinBlobDispatcher<UniversalLocation> =
 	BridgeBlobDispatcher<XcmRouter, UniversalLocation, WithPolkadotBulletinMessagesPalletLocation>;
@@ -162,3 +170,70 @@ pub type BridgeRefundPolkadotBulletinMessages = RefundSignedExtensionAdapter<
 	>,
 >;
 bp_runtime::generate_static_str_provider!(BridgeRefundPolkadotBulletinMessages);
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::BridgeGrandpaBulletinInstance;
+	use bridge_runtime_common::{
+		assert_complete_bridge_types,
+		integrity::{
+			assert_complete_bridge_constants, check_message_lane_weights,
+			AssertBridgeMessagesPalletConstants, AssertBridgePalletNames, AssertChainConstants,
+			AssertCompleteBridgeConstants,
+		},
+	};
+
+	#[test]
+	fn ensure_lane_weights_are_correct() {
+		check_message_lane_weights::<
+			bp_bridge_hub_polkadot::BridgeHubPolkadot,
+			Runtime,
+			WithPolkadotBulletinMessagesInstance,
+		>(
+			bp_polkadot_bulletin::EXTRA_STORAGE_PROOF_SIZE,
+			bp_bridge_hub_polkadot::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
+			bp_bridge_hub_polkadot::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
+			true,
+		);
+	}
+
+	#[test]
+	fn ensure_bridge_integrity() {
+		assert_complete_bridge_types!(
+			runtime: Runtime,
+			with_bridged_chain_grandpa_instance: BridgeGrandpaBulletinInstance,
+			with_bridged_chain_messages_instance: WithPolkadotBulletinMessagesInstance,
+			bridge: WithPolkadotBulletinMessageBridge,
+			this_chain: bp_polkadot::Polkadot,
+			bridged_chain: bp_polkadot_bulletin::PolkadotBulletin,
+		);
+
+		assert_complete_bridge_constants::<
+			Runtime,
+			BridgeGrandpaBulletinInstance,
+			WithPolkadotBulletinMessagesInstance,
+			WithPolkadotBulletinMessageBridge,
+		>(AssertCompleteBridgeConstants {
+			this_chain_constants: AssertChainConstants {
+				block_length: bp_bridge_hub_polkadot::BlockLength::get(),
+				block_weights: bp_bridge_hub_polkadot::BlockWeights::get(),
+			},
+			messages_pallet_constants: AssertBridgeMessagesPalletConstants {
+				max_unrewarded_relayers_in_bridged_confirmation_tx:
+					bp_polkadot_bulletin::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
+				max_unconfirmed_messages_in_bridged_confirmation_tx:
+					bp_polkadot_bulletin::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
+				bridged_chain_id: bp_runtime::POLKADOT_BULLETIN_CHAIN_ID,
+			},
+			pallet_names: AssertBridgePalletNames {
+				with_this_chain_messages_pallet_name:
+					bp_bridge_hub_polkadot::WITH_BRIDGE_HUB_POLKADOT_MESSAGES_PALLET_NAME,
+				with_bridged_chain_grandpa_pallet_name:
+					bp_polkadot_bulletin::WITH_POLKADOT_BULLETIN_GRANDPA_PALLET_NAME,
+				with_bridged_chain_messages_pallet_name:
+					bp_polkadot_bulletin::WITH_POLKADOT_BULLETIN_MESSAGES_PALLET_NAME,
+			},
+		});
+	}
+}

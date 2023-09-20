@@ -23,7 +23,8 @@ pub mod extrinsic_weights;
 pub mod frame_system;
 pub mod pallet_balances;
 pub mod pallet_bridge_grandpa;
-pub mod pallet_bridge_messages;
+pub mod pallet_bridge_messages_bridge_messages_bench_runtime_with_bridge_hub_kusama_messages_instance;
+pub mod pallet_bridge_messages_bridge_messages_bench_runtime_with_polkadot_bulletin_messages_instance;
 pub mod pallet_bridge_parachains;
 pub mod pallet_bridge_relayers;
 pub mod pallet_collator_selection;
@@ -47,10 +48,26 @@ use frame_support::weights::Weight;
 use ::pallet_bridge_relayers::WeightInfoExt as _;
 
 impl ::pallet_bridge_messages::WeightInfoExt
-	for pallet_bridge_messages::WeightInfo<crate::Runtime>
+	for pallet_bridge_messages_bridge_messages_bench_runtime_with_bridge_hub_kusama_messages_instance::WeightInfo<crate::Runtime>
 {
 	fn expected_extra_storage_proof_size() -> u32 {
 		bp_bridge_hub_kusama::EXTRA_STORAGE_PROOF_SIZE
+	}
+
+	fn receive_messages_proof_overhead_from_runtime() -> Weight {
+		pallet_bridge_relayers::WeightInfo::<crate::Runtime>::receive_messages_proof_overhead_from_runtime()
+	}
+
+	fn receive_messages_delivery_proof_overhead_from_runtime() -> Weight {
+		pallet_bridge_relayers::WeightInfo::<crate::Runtime>::receive_messages_delivery_proof_overhead_from_runtime()
+	}
+}
+
+impl ::pallet_bridge_messages::WeightInfoExt
+	for pallet_bridge_messages_bridge_messages_bench_runtime_with_polkadot_bulletin_messages_instance::WeightInfo<crate::Runtime>
+{
+	fn expected_extra_storage_proof_size() -> u32 {
+		bp_polkadot_bulletin::EXTRA_STORAGE_PROOF_SIZE
 	}
 
 	fn receive_messages_proof_overhead_from_runtime() -> Weight {
