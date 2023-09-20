@@ -293,7 +293,7 @@ benchmarks! {
 			.expect("RegistrarOrigin has no successful origin required for the benchmark");
 		Identity::<T>::add_registrar(registrar_origin, caller_lookup)?;
 		let fields = IdentityFields(
-			T::IdentityField::all()
+			<T::IdentityInformation as IdentityInformationProvider>::IdentityField::all()
 		);
 		let registrars = Registrars::<T>::get();
 		ensure!(registrars[r as usize].as_ref().unwrap().fields == Default::default(), "fields already set.");

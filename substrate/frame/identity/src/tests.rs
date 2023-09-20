@@ -108,7 +108,6 @@ impl pallet_identity::Config for Test {
 	type SubAccountDeposit = ConstU64<10>;
 	type MaxSubAccounts = ConstU32<2>;
 	type IdentityInformation = IdentityInfo;
-	type IdentityField = SimpleIdentityField;
 	type MaxRegistrars = MaxRegistrars;
 	type RegistrarOrigin = EnsureOneOrRoot;
 	type ForceOrigin = EnsureTwoOrRoot;

@@ -21,9 +21,7 @@ use scale_info::{build::Variants, Path, Type, TypeInfo};
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 
-use crate::types::{
-	Data, IdentityFieldProvider, IdentityFields, IdentityInformationProvider, U64BitFlag,
-};
+use crate::types::{Data, IdentityFields, IdentityInformationProvider, U64BitFlag};
 
 /// The fields that we use to identify the owner of an account with. Each corresponds to a field
 /// in the `IdentityInfo` struct.
@@ -92,7 +90,6 @@ impl Decode for IdentityField {
 }
 
 impl U64BitFlag for IdentityField {}
-impl IdentityFieldProvider for IdentityField {}
 
 /// Information concerning the identity of the controller of an account.
 ///
@@ -144,6 +141,8 @@ pub struct IdentityInfo {
 }
 
 impl IdentityInformationProvider for IdentityInfo {
+	type IdentityField = IdentityField;
+
 	fn has_identity(&self, fields: u64) -> bool {
 		self.fields().0.bits() & fields == fields
 	}

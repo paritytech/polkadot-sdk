@@ -97,8 +97,6 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 
 #[frame_support::pallet]
 pub mod pallet {
-	use crate::types::{IdentityFieldProvider, IdentityInformationProvider};
-
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
@@ -127,9 +125,6 @@ pub mod pallet {
 
 		/// Structure holding information about an identity.
 		type IdentityInformation: IdentityInformationProvider;
-
-		/// All fields in `IdentityInformation`, representable as bit flags.
-		type IdentityField: IdentityFieldProvider;
 
 		/// Maxmimum number of registrars allowed in the system. Needed to bound the complexity
 		/// of, e.g., updating judgements.
@@ -196,7 +191,13 @@ pub mod pallet {
 	pub(super) type Registrars<T: Config> = StorageValue<
 		_,
 		BoundedVec<
-			Option<RegistrarInfo<BalanceOf<T>, T::AccountId, T::IdentityField>>,
+			Option<
+				RegistrarInfo<
+					BalanceOf<T>,
+					T::AccountId,
+					<T::IdentityInformation as IdentityInformationProvider>::IdentityField,
+				>,
+			>,
 			T::MaxRegistrars,
 		>,
 		ValueQuery,
@@ -660,7 +661,9 @@ pub mod pallet {
 		pub fn set_fields(
 			origin: OriginFor<T>,
 			#[pallet::compact] index: RegistrarIndex,
-			fields: IdentityFields<T::IdentityField>,
+			fields: IdentityFields<
+				<T::IdentityInformation as IdentityInformationProvider>::IdentityField,
+			>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
