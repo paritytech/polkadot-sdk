@@ -787,6 +787,8 @@ pub mod pallet {
 
 		/// Teleport some assets from the local chain to some destination chain.
 		///
+		/// **This function is deprecated: Use `limited_teleport_assets` instead.**
+		///
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
 		/// index `fee_asset_item`. The weight limit for fees is not provided and thus is unlimited,
 		/// with all fees taken as needed from the asset.
@@ -830,11 +832,13 @@ pub mod pallet {
 			assets: Box<VersionedMultiAssets>,
 			fee_asset_item: u32,
 		) -> DispatchResult {
-			Self::do_teleport_assets(origin, dest, beneficiary, assets, fee_asset_item, None)
+			Self::do_teleport_assets(origin, dest, beneficiary, assets, fee_asset_item, Unlimited)
 		}
 
 		/// Transfer some assets from the local chain to the sovereign account of a destination
 		/// chain and forward a notification XCM.
+		///
+		/// **This function is deprecated: Use `limited_reserve_transfer_assets` instead.**
 		///
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
 		/// index `fee_asset_item`. The weight limit for fees is not provided and thus is unlimited,
@@ -879,7 +883,7 @@ pub mod pallet {
 				beneficiary,
 				assets,
 				fee_asset_item,
-				None,
+				Unlimited,
 			)
 		}
 
@@ -1055,7 +1059,7 @@ pub mod pallet {
 				beneficiary,
 				assets,
 				fee_asset_item,
-				Some(weight_limit),
+				weight_limit,
 			)
 		}
 
@@ -1109,7 +1113,7 @@ pub mod pallet {
 				beneficiary,
 				assets,
 				fee_asset_item,
-				Some(weight_limit),
+				weight_limit,
 			)
 		}
 
@@ -1197,7 +1201,7 @@ impl<T: Config> Pallet<T> {
 		beneficiary: Box<VersionedMultiLocation>,
 		assets: Box<VersionedMultiAssets>,
 		fee_asset_item: u32,
-		maybe_weight_limit: Option<WeightLimit>,
+		weight_limit: WeightLimit,
 	) -> DispatchResult {
 		let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 		let dest = (*dest).try_into().map_err(|()| Error::<T>::BadVersion)?;
@@ -1218,22 +1222,6 @@ impl<T: Config> Pallet<T> {
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 		let max_assets = assets.len() as u32;
 		let assets: MultiAssets = assets.into();
-		let weight_limit = match maybe_weight_limit {
-			Some(weight_limit) => weight_limit,
-			None => {
-				let fees = fees.clone();
-				let mut remote_message = Xcm(vec![
-					ReserveAssetDeposited(assets.clone()),
-					ClearOrigin,
-					BuyExecution { fees, weight_limit: Limited(Weight::zero()) },
-					DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
-				]);
-				// use local weight for remote message and hope for the best.
-				let remote_weight = T::Weigher::weight(&mut remote_message)
-					.map_err(|()| Error::<T>::UnweighableMessage)?;
-				Limited(remote_weight)
-			},
-		};
 		let xcm = Xcm(vec![
 			BuyExecution { fees, weight_limit },
 			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
@@ -1257,7 +1245,7 @@ impl<T: Config> Pallet<T> {
 		beneficiary: Box<VersionedMultiLocation>,
 		assets: Box<VersionedMultiAssets>,
 		fee_asset_item: u32,
-		maybe_weight_limit: Option<WeightLimit>,
+		weight_limit: WeightLimit,
 	) -> DispatchResult {
 		let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 		let dest = (*dest).try_into().map_err(|()| Error::<T>::BadVersion)?;
@@ -1278,22 +1266,6 @@ impl<T: Config> Pallet<T> {
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 		let max_assets = assets.len() as u32;
 		let assets: MultiAssets = assets.into();
-		let weight_limit = match maybe_weight_limit {
-			Some(weight_limit) => weight_limit,
-			None => {
-				let fees = fees.clone();
-				let mut remote_message = Xcm(vec![
-					ReceiveTeleportedAsset(assets.clone()),
-					ClearOrigin,
-					BuyExecution { fees, weight_limit: Limited(Weight::zero()) },
-					DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
-				]);
-				// use local weight for remote message and hope for the best.
-				let remote_weight = T::Weigher::weight(&mut remote_message)
-					.map_err(|()| Error::<T>::UnweighableMessage)?;
-				Limited(remote_weight)
-			},
-		};
 		let xcm = Xcm(vec![
 			BuyExecution { fees, weight_limit },
 			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
