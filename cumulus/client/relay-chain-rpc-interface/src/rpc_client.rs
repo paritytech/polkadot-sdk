@@ -1,4 +1,4 @@
-// Copyright 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -585,6 +585,16 @@ impl RelayChainRpcClient {
 		at: RelayHash,
 	) -> Result<Vec<InboundDownwardMessage>, RelayChainError> {
 		self.call_remote_runtime_function("ParachainHost_dmq_contents", at, Some(para_id))
+			.await
+	}
+
+	/// Get the minimum number of backing votes for a candidate.
+	pub async fn parachain_host_minimum_backing_votes(
+		&self,
+		at: RelayHash,
+		_session_index: SessionIndex,
+	) -> Result<u32, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_minimum_backing_votes", at, None::<()>)
 			.await
 	}
 

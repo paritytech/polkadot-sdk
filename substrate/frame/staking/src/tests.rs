@@ -3759,6 +3759,16 @@ fn test_payout_stakers() {
 		);
 		assert!(RewardOnUnbalanceWasCalled::get());
 
+		// `Rewarded` events are being executed.
+		assert!(matches!(
+			staking_events_since_last_call().as_slice(),
+			&[
+				..,
+				Event::Rewarded { stash: 1037, dest: RewardDestination::Controller, amount: 108 },
+				Event::Rewarded { stash: 1036, dest: RewardDestination::Controller, amount: 108 }
+			]
+		));
+
 		// Top 64 nominators of validator 11 automatically paid out, including the validator
 		// Validator payout goes to controller.
 		assert!(Balances::free_balance(&11) > balance);

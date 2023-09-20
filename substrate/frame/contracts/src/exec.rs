@@ -21,18 +21,16 @@ use crate::{
 	storage::{self, meter::Diff, WriteOutcome},
 	BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
 	DebugBufferVec, Determinism, Error, Event, Nonce, Origin, Pallet as Contracts, Schedule,
-	WasmBlob, LOG_TARGET,
+	LOG_TARGET,
 };
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
-	dispatch::{
-		fmt::Debug, DispatchError, DispatchResult, DispatchResultWithPostInfo, Dispatchable,
-	},
+	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	ensure,
 	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::{Inspect, Mutate},
-		tokens::Preservation,
+		tokens::{Fortitude, Preservation},
 		Contains, OriginTrait, Randomness, Time,
 	},
 	weights::Weight,
@@ -47,8 +45,11 @@ use sp_core::{
 	Get,
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
-use sp_runtime::traits::{Convert, Hash, Zero};
-use sp_std::{marker::PhantomData, mem, prelude::*, vec::Vec};
+use sp_runtime::{
+	traits::{Convert, Dispatchable, Hash, Zero},
+	DispatchError,
+};
+use sp_std::{fmt::Debug, marker::PhantomData, mem, prelude::*, vec::Vec};
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type MomentOf<T> = <<T as Config>::Time as Time>::Moment;
@@ -317,6 +318,22 @@ pub trait Ext: sealing::Sealed {
 	/// Returns a nonce that is incremented for every instantiated contract.
 	fn nonce(&mut self) -> u64;
 
+	/// Increment the reference count of a of a stored code by one.
+	///
+	/// # Errors
+	///
+	/// [`Error::CodeNotFound`] is returned if no stored code found having the specified
+	/// `code_hash`.
+	fn increment_refcount(code_hash: CodeHash<Self::T>) -> Result<(), DispatchError>;
+
+	/// Decrement the reference count of a stored code by one.
+	///
+	/// # Note
+	///
+	/// A contract whose reference count dropped to zero isn't automatically removed. A
+	/// `remove_code` transaction must be submitted by the original uploader to do so.
+	fn decrement_refcount(code_hash: CodeHash<Self::T>);
+
 	/// Adds a delegate dependency to [`ContractInfo`]'s `delegate_dependencies` field.
 	///
 	/// This ensures that the delegated contract is not removed while it is still in use. It
@@ -379,22 +396,6 @@ pub trait Executable<T: Config>: Sized {
 		code_hash: CodeHash<T>,
 		gas_meter: &mut GasMeter<T>,
 	) -> Result<Self, DispatchError>;
-
-	/// Increment the reference count of a of a stored code by one.
-	///
-	/// # Errors
-	///
-	/// [`Error::CodeNotFound`] is returned if no stored code found having the specified
-	/// `code_hash`.
-	fn increment_refcount(code_hash: CodeHash<T>) -> Result<(), DispatchError>;
-
-	/// Decrement the reference count of a stored code by one.
-	///
-	/// # Note
-	///
-	/// A contract whose reference count dropped to zero isn't automatically removed. A
-	/// `remove_code` transaction must be submitted by the original uploader to do so.
-	fn decrement_refcount(code_hash: CodeHash<T>);
 
 	/// Execute the specified exported function and return the result.
 	///
@@ -1284,10 +1285,10 @@ where
 
 		info.queue_trie_for_deletion();
 		ContractInfoOf::<T>::remove(&frame.account_id);
-		E::decrement_refcount(info.code_hash);
+		Self::decrement_refcount(info.code_hash);
 
 		for (code_hash, deposit) in info.delegate_dependencies() {
-			E::decrement_refcount(*code_hash);
+			Self::decrement_refcount(*code_hash);
 			frame
 				.nested_storage
 				.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(*deposit));
@@ -1367,7 +1368,11 @@ where
 	}
 
 	fn balance(&self) -> BalanceOf<T> {
-		T::Currency::balance(&self.top_frame().account_id)
+		T::Currency::reducible_balance(
+			&self.top_frame().account_id,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		)
 	}
 
 	fn value_transferred(&self) -> BalanceOf<T> {
@@ -1486,8 +1491,8 @@ where
 
 		frame.nested_storage.charge_deposit(frame.account_id.clone(), deposit);
 
-		E::increment_refcount(hash)?;
-		E::decrement_refcount(prev_hash);
+		Self::increment_refcount(hash)?;
+		Self::decrement_refcount(prev_hash);
 		Contracts::<Self::T>::deposit_event(
 			vec![T::Hashing::hash_of(&frame.account_id), hash, prev_hash],
 			Event::ContractCodeUpdated {
@@ -1520,6 +1525,25 @@ where
 		}
 	}
 
+	fn increment_refcount(code_hash: CodeHash<Self::T>) -> Result<(), DispatchError> {
+		<CodeInfoOf<Self::T>>::mutate(code_hash, |existing| -> Result<(), DispatchError> {
+			if let Some(info) = existing {
+				*info.refcount_mut() = info.refcount().saturating_add(1);
+				Ok(())
+			} else {
+				Err(Error::<T>::CodeNotFound.into())
+			}
+		})
+	}
+
+	fn decrement_refcount(code_hash: CodeHash<T>) {
+		<CodeInfoOf<T>>::mutate(code_hash, |existing| {
+			if let Some(info) = existing {
+				*info.refcount_mut() = info.refcount().saturating_sub(1);
+			}
+		});
+	}
+
 	fn add_delegate_dependency(
 		&mut self,
 		code_hash: CodeHash<Self::T>,
@@ -1532,7 +1556,7 @@ where
 		let deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_info.deposit());
 
 		info.add_delegate_dependency(code_hash, deposit)?;
-		<WasmBlob<T>>::increment_refcount(code_hash)?;
+		Self::increment_refcount(code_hash)?;
 		frame
 			.nested_storage
 			.charge_deposit(frame.account_id.clone(), StorageDeposit::Charge(deposit));
@@ -1547,8 +1571,7 @@ where
 		let info = frame.contract_info.get(&frame.account_id);
 
 		let deposit = info.remove_delegate_dependency(code_hash)?;
-		<WasmBlob<T>>::decrement_refcount(*code_hash);
-
+		Self::decrement_refcount(*code_hash);
 		frame
 			.nested_storage
 			.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(deposit));
@@ -1595,11 +1618,7 @@ mod tests {
 	use pallet_contracts_primitives::ReturnFlags;
 	use pretty_assertions::assert_eq;
 	use sp_runtime::{traits::Hash, DispatchError};
-	use std::{
-		cell::RefCell,
-		collections::hash_map::{Entry, HashMap},
-		rc::Rc,
-	};
+	use std::{cell::RefCell, collections::hash_map::HashMap, rc::Rc};
 
 	type System = frame_system::Pallet<Test>;
 
@@ -1620,17 +1639,16 @@ mod tests {
 	}
 
 	struct MockCtx<'a> {
-		ext: &'a mut dyn Ext<T = Test>,
+		ext: &'a mut MockStack<'a>,
 		input_data: Vec<u8>,
 	}
 
 	#[derive(Clone)]
 	struct MockExecutable {
-		func: Rc<dyn Fn(MockCtx, &Self) -> ExecResult + 'static>,
+		func: Rc<dyn for<'a> Fn(MockCtx<'a>, &Self) -> ExecResult + 'static>,
 		func_type: ExportedFunction,
 		code_hash: CodeHash<Test>,
 		code_info: CodeInfo<Test>,
-		refcount: u64,
 	}
 
 	#[derive(Default, Clone)]
@@ -1659,36 +1677,10 @@ mod tests {
 						func_type,
 						code_hash: hash,
 						code_info: CodeInfo::<Test>::new(ALICE),
-						refcount: 1,
 					},
 				);
 				hash
 			})
-		}
-
-		fn increment_refcount(code_hash: CodeHash<Test>) -> Result<(), DispatchError> {
-			Loader::mutate(|loader| {
-				match loader.map.entry(code_hash) {
-					Entry::Vacant(_) => Err(<Error<Test>>::CodeNotFound)?,
-					Entry::Occupied(mut entry) => entry.get_mut().refcount += 1,
-				}
-				Ok(())
-			})
-		}
-
-		fn decrement_refcount(code_hash: CodeHash<Test>) {
-			use std::collections::hash_map::Entry::Occupied;
-			Loader::mutate(|loader| {
-				let mut entry = match loader.map.entry(code_hash) {
-					Occupied(e) => e,
-					_ => panic!("code_hash does not exist"),
-				};
-				let refcount = &mut entry.get_mut().refcount;
-				*refcount -= 1;
-				if *refcount == 0 {
-					entry.remove();
-				}
-			});
 		}
 	}
 
@@ -1702,14 +1694,6 @@ mod tests {
 			})
 		}
 
-		fn increment_refcount(code_hash: CodeHash<Test>) -> Result<(), DispatchError> {
-			MockLoader::increment_refcount(code_hash)
-		}
-
-		fn decrement_refcount(code_hash: CodeHash<Test>) {
-			MockLoader::decrement_refcount(code_hash);
-		}
-
 		fn execute<E: Ext<T = Test>>(
 			self,
 			ext: &mut E,
@@ -1717,8 +1701,18 @@ mod tests {
 			input_data: Vec<u8>,
 		) -> ExecResult {
 			if let &Constructor = function {
-				Self::increment_refcount(self.code_hash).unwrap();
+				E::increment_refcount(self.code_hash).unwrap();
 			}
+			// # Safety
+			//
+			// We know that we **always** call execute with a `MockStack` in this test.
+			//
+			// # Note
+			//
+			// The transmute is necessary because `execute` has to be generic over all
+			// `E: Ext`. However, `MockExecutable` can't be generic over `E` as it would
+			// constitute a cycle.
+			let ext = unsafe { mem::transmute(ext) };
 			if function == &self.func_type {
 				(self.func)(MockCtx { ext, input_data }, &self)
 			} else {

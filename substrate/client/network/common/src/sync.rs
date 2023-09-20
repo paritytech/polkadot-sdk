@@ -27,7 +27,7 @@ use futures::Stream;
 
 use libp2p_identity::PeerId;
 
-use message::{BlockAnnounce, BlockData, BlockRequest, BlockResponse};
+use message::{BlockAnnounce, BlockRequest, BlockResponse};
 use sc_consensus::{import_queue::RuntimeOrigin, IncomingBlock};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
@@ -157,38 +157,6 @@ pub enum ImportResult<B: BlockT> {
 	JustificationImport(RuntimeOrigin, B::Hash, NumberFor<B>, Justifications),
 }
 
-/// Value polled from `ChainSync`
-#[derive(Debug)]
-pub enum PollResult<B: BlockT> {
-	Import(ImportResult<B>),
-	Announce(PollBlockAnnounceValidation<B::Header>),
-}
-
-/// Result of [`ChainSync::poll_block_announce_validation`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PollBlockAnnounceValidation<H> {
-	/// The announcement failed at validation.
-	///
-	/// The peer reputation should be decreased.
-	Failure {
-		/// Who sent the processed block announcement?
-		who: PeerId,
-		/// Should the peer be disconnected?
-		disconnect: bool,
-	},
-	/// The announcement does not require further handling.
-	Nothing {
-		/// Who sent the processed block announcement?
-		who: PeerId,
-		/// Was this their new best block?
-		is_best: bool,
-		/// The announcement.
-		announce: BlockAnnounce<H>,
-	},
-	/// The block announcement should be skipped.
-	Skip,
-}
-
 /// Sync operation mode.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SyncMode {
@@ -255,28 +223,6 @@ pub struct OpaqueStateResponse(pub Box<dyn Any + Send>);
 impl fmt::Debug for OpaqueStateResponse {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("OpaqueStateResponse").finish()
-	}
-}
-
-/// Wrapper for implementation-specific block request.
-///
-/// NOTE: Implementation must be able to encode and decode it for network purposes.
-pub struct OpaqueBlockRequest(pub Box<dyn Any + Send>);
-
-impl fmt::Debug for OpaqueBlockRequest {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("OpaqueBlockRequest").finish()
-	}
-}
-
-/// Wrapper for implementation-specific block response.
-///
-/// NOTE: Implementation must be able to encode and decode it for network purposes.
-pub struct OpaqueBlockResponse(pub Box<dyn Any + Send>);
-
-impl fmt::Debug for OpaqueBlockResponse {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("OpaqueBlockResponse").finish()
 	}
 }
 
@@ -408,28 +354,13 @@ pub trait ChainSync<Block: BlockT>: Send {
 	/// Notify about finalization of the given block.
 	fn on_block_finalized(&mut self, hash: &Block::Hash, number: NumberFor<Block>);
 
-	/// Push a block announce validation.
-	///
-	/// It is required that [`ChainSync::poll_block_announce_validation`] is called
-	/// to check for finished block announce validations.
-	fn push_block_announce_validation(
+	/// Notify about pre-validated block announcement.
+	fn on_validated_block_announce(
 		&mut self,
-		who: PeerId,
-		hash: Block::Hash,
-		announce: BlockAnnounce<Block::Header>,
 		is_best: bool,
+		who: PeerId,
+		announce: &BlockAnnounce<Block::Header>,
 	);
-
-	/// Poll block announce validation.
-	///
-	/// Block announce validations can be pushed by using
-	/// [`ChainSync::push_block_announce_validation`].
-	///
-	/// This should be polled until it returns [`Poll::Pending`].
-	fn poll_block_announce_validation(
-		&mut self,
-		cx: &mut std::task::Context<'_>,
-	) -> Poll<PollBlockAnnounceValidation<Block::Header>>;
 
 	/// Call when a peer has disconnected.
 	/// Canceled obsolete block request may result in some blocks being ready for
@@ -439,22 +370,8 @@ pub trait ChainSync<Block: BlockT>: Send {
 	/// Return some key metrics.
 	fn metrics(&self) -> Metrics;
 
-	/// Access blocks from implementation-specific block response.
-	fn block_response_into_blocks(
-		&self,
-		request: &BlockRequest<Block>,
-		response: OpaqueBlockResponse,
-	) -> Result<Vec<BlockData<Block>>, String>;
-
 	/// Advance the state of `ChainSync`
-	///
-	/// Internally calls [`ChainSync::poll_block_announce_validation()`] and
-	/// this function should be polled until it returns [`Poll::Pending`] to
-	/// consume all pending events.
-	fn poll(
-		&mut self,
-		cx: &mut std::task::Context,
-	) -> Poll<PollBlockAnnounceValidation<Block::Header>>;
+	fn poll(&mut self, cx: &mut std::task::Context) -> Poll<()>;
 
 	/// Send block request to peer
 	fn send_block_request(&mut self, who: PeerId, request: BlockRequest<Block>);

@@ -5,9 +5,9 @@ error: use of deprecated constant `pallet::warnings::ImplicitCallIndex_0::_w`:
                For more info see:
                    <https://github.com/paritytech/substrate/pull/12891>
                    <https://github.com/paritytech/substrate/pull/11381>
-  --> tests/pallet_ui/dev_mode_without_arg_max_encoded_len.rs:25:10
+  --> tests/pallet_ui/dev_mode_without_arg_max_encoded_len.rs:42:10
    |
-25 |         pub fn my_call(_origin: OriginFor<T>) -> DispatchResult {
+42 |         pub fn my_call(_origin: OriginFor<T>) -> DispatchResult {
    |                ^^^^^^^
    |
    = note: `-D deprecated` implied by `-D warnings`
@@ -18,15 +18,15 @@ error: use of deprecated constant `pallet::warnings::ConstantWeight_0::_w`:
 
                For more info see:
                    <https://github.com/paritytech/substrate/pull/13798>
-  --> tests/pallet_ui/dev_mode_without_arg_max_encoded_len.rs:24:20
+  --> tests/pallet_ui/dev_mode_without_arg_max_encoded_len.rs:41:20
    |
-24 |         #[pallet::weight(0)]
+41 |         #[pallet::weight(0)]
    |                          ^
 
 error[E0277]: the trait bound `Vec<u8>: MaxEncodedLen` is not satisfied
-  --> tests/pallet_ui/dev_mode_without_arg_max_encoded_len.rs:11:12
+  --> tests/pallet_ui/dev_mode_without_arg_max_encoded_len.rs:28:12
    |
-11 |     #[pallet::pallet]
+28 |     #[pallet::pallet]
    |               ^^^^^^ the trait `MaxEncodedLen` is not implemented for `Vec<u8>`
    |
    = help: the following other types implement trait `MaxEncodedLen`:

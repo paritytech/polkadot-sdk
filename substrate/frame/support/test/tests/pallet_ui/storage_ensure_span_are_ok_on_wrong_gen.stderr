@@ -1,7 +1,7 @@
 error[E0277]: the trait bound `Bar: WrapperTypeDecode` is not satisfied
-  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:10:12
+  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:27:12
    |
-10 |     #[pallet::without_storage_info]
+27 |     #[pallet::without_storage_info]
    |               ^^^^^^^^^^^^^^^^^^^^ the trait `WrapperTypeDecode` is not implemented for `Bar`
    |
    = help: the following other types implement trait `WrapperTypeDecode`:
@@ -14,9 +14,9 @@ error[E0277]: the trait bound `Bar: WrapperTypeDecode` is not satisfied
    = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `PartialStorageInfoTrait`
 
 error[E0277]: the trait bound `Bar: EncodeLike` is not satisfied
-  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:10:12
+  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:27:12
    |
-10 |     #[pallet::without_storage_info]
+27 |     #[pallet::without_storage_info]
    |               ^^^^^^^^^^^^^^^^^^^^ the trait `EncodeLike` is not implemented for `Bar`
    |
    = help: the following other types implement trait `EncodeLike<T>`:
@@ -34,9 +34,9 @@ error[E0277]: the trait bound `Bar: EncodeLike` is not satisfied
    = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `PartialStorageInfoTrait`
 
 error[E0277]: the trait bound `Bar: WrapperTypeEncode` is not satisfied
-  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:10:12
+  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:27:12
    |
-10 |     #[pallet::without_storage_info]
+27 |     #[pallet::without_storage_info]
    |               ^^^^^^^^^^^^^^^^^^^^ the trait `WrapperTypeEncode` is not implemented for `Bar`
    |
    = help: the following other types implement trait `WrapperTypeEncode`:
@@ -55,9 +55,9 @@ error[E0277]: the trait bound `Bar: WrapperTypeEncode` is not satisfied
    = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `PartialStorageInfoTrait`
 
 error[E0277]: the trait bound `Bar: TypeInfo` is not satisfied
-  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:21:12
+  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
    |
-21 |     #[pallet::storage]
+38 |     #[pallet::storage]
    |               ^^^^^^^ the trait `TypeInfo` is not implemented for `Bar`
    |
    = help: the following other types implement trait `TypeInfo`:
@@ -74,9 +74,9 @@ error[E0277]: the trait bound `Bar: TypeInfo` is not satisfied
    = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `StorageEntryMetadataBuilder`
 
 error[E0277]: the trait bound `Bar: WrapperTypeDecode` is not satisfied
-  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:21:12
+  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
    |
-21 |     #[pallet::storage]
+38 |     #[pallet::storage]
    |               ^^^^^^^ the trait `WrapperTypeDecode` is not implemented for `Bar`
    |
    = help: the following other types implement trait `WrapperTypeDecode`:
@@ -89,9 +89,9 @@ error[E0277]: the trait bound `Bar: WrapperTypeDecode` is not satisfied
    = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `StorageEntryMetadataBuilder`
 
 error[E0277]: the trait bound `Bar: EncodeLike` is not satisfied
-  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:21:12
+  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
    |
-21 |     #[pallet::storage]
+38 |     #[pallet::storage]
    |               ^^^^^^^ the trait `EncodeLike` is not implemented for `Bar`
    |
    = help: the following other types implement trait `EncodeLike<T>`:
@@ -109,9 +109,9 @@ error[E0277]: the trait bound `Bar: EncodeLike` is not satisfied
    = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `StorageEntryMetadataBuilder`
 
 error[E0277]: the trait bound `Bar: WrapperTypeEncode` is not satisfied
-  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:21:12
+  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
    |
-21 |     #[pallet::storage]
+38 |     #[pallet::storage]
    |               ^^^^^^^ the trait `WrapperTypeEncode` is not implemented for `Bar`
    |
    = help: the following other types implement trait `WrapperTypeEncode`:

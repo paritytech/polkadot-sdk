@@ -1,4 +1,4 @@
-// Copyright 2020-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -484,6 +484,7 @@ where
 		import_queue,
 		block_announce_validator_builder: Some(Box::new(move |_| block_announce_validator)),
 		warp_sync_params,
+		block_relay: None,
 	})
 }
 

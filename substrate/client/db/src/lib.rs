@@ -89,7 +89,7 @@ use sp_state_machine::{
 	StateMachineStats, StorageCollection, StorageIterator, StorageKey, StorageValue,
 	UsageInfo as StateUsageInfo, DBLocation, HashDB, TrieCommit,
 };
-use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB};
+use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue};
 
 // Re-export the Database trait so that one can pass an implementation of it.
 pub use sc_state_db::PruningMode;
@@ -207,6 +207,21 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		key: &[u8],
 	) -> Result<Option<B::Hash>, Self::Error> {
 		self.state.child_storage_hash(child_info, key)
+	}
+
+	fn closest_merkle_value(
+		&self,
+		key: &[u8],
+	) -> Result<Option<MerkleValue<B::Hash>>, Self::Error> {
+		self.state.closest_merkle_value(key)
+	}
+
+	fn child_closest_merkle_value(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<Option<MerkleValue<B::Hash>>, Self::Error> {
+		self.state.child_closest_merkle_value(child_info, key)
 	}
 
 	fn exists_storage(&self, key: &[u8]) -> Result<bool, Self::Error> {

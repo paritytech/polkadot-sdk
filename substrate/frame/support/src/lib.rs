@@ -49,7 +49,7 @@ pub mod __private {
 	pub use sp_metadata_ir as metadata_ir;
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
-	pub use sp_runtime::{RuntimeDebug, StateVersion};
+	pub use sp_runtime::{traits::Dispatchable, RuntimeDebug, StateVersion};
 	#[cfg(feature = "std")]
 	pub use sp_state_machine::BasicExternalities;
 	pub use sp_std;
@@ -806,10 +806,7 @@ pub mod testing_prelude {
 /// Prelude to be used alongside pallet macro, for ease of use.
 pub mod pallet_prelude {
 	pub use crate::{
-		dispatch::{
-			DispatchClass, DispatchError, DispatchResult, DispatchResultWithPostInfo, Parameter,
-			Pays,
-		},
+		dispatch::{DispatchClass, DispatchResult, DispatchResultWithPostInfo, Parameter, Pays},
 		ensure,
 		inherent::{InherentData, InherentIdentifier, ProvideInherent},
 		storage,
@@ -855,7 +852,7 @@ pub mod pallet_prelude {
 			TransactionTag, TransactionValidity, TransactionValidityError, UnknownTransaction,
 			ValidTransaction,
 		},
-		RuntimeDebug, MAX_MODULE_ERROR_ENCODED_SIZE,
+		DispatchError, RuntimeDebug, MAX_MODULE_ERROR_ENCODED_SIZE,
 	};
 	pub use sp_std::marker::PhantomData;
 	pub use sp_weights::Weight;
@@ -1266,8 +1263,9 @@ pub mod pallet_prelude {
 /// Field types in enum variants must also implement [`PalletError`](traits::PalletError),
 /// otherwise the pallet will fail to compile. Rust primitive types have already implemented
 /// the [`PalletError`](traits::PalletError) trait along with some commonly used stdlib types
-/// such as [`Option`] and [`PhantomData`](`frame_support::dispatch::marker::PhantomData`), and
-/// hence in most use cases, a manual implementation is not necessary and is discouraged.
+/// such as [`Option`] and
+/// [`PhantomData`](`frame_support::__private::sp_std::marker::PhantomData`), and hence in most
+/// use cases, a manual implementation is not necessary and is discouraged.
 ///
 /// The generic `T` must not bound anything and a `where` clause is not allowed. That said,
 /// bounds and/or a where clause should not needed for any use-case.

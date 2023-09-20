@@ -9,7 +9,7 @@ Run `cargo doc --package pallet-example-basic --open` to view this pallet's docu
 
 **This pallet serves as an example and is not meant to be used in production.**
 
-### Documentation Guidelines:
+## Documentation Guidelines
 
 <!-- Original author of paragraph: Various. Based on collation of review comments to PRs addressing issues with -->
 <!-- label 'S3-FRAME' in https://github.com/paritytech/substrate-developer-hub/issues -->

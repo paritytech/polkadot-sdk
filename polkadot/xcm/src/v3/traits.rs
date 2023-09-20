@@ -449,8 +449,8 @@ pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
 /// # Example
 /// ```rust
 /// # use parity_scale_codec::Encode;
-/// # use xcm::v3::{prelude::*, Weight};
-/// # use xcm::VersionedXcm;
+/// # use staging_xcm::v3::{prelude::*, Weight};
+/// # use staging_xcm::VersionedXcm;
 /// # use std::convert::Infallible;
 ///
 /// /// A sender that only passes the message through and does nothing.

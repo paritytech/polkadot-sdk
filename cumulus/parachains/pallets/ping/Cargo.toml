@@ -13,7 +13,7 @@ sp-runtime = { path = "../../../../substrate/primitives/runtime", default-featur
 frame-support = { path = "../../../../substrate/frame/support", default-features = false}
 frame-system = { path = "../../../../substrate/frame/system", default-features = false}
 
-xcm = { path = "../../../../polkadot/xcm", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false}
 
 cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
 cumulus-pallet-xcm = { path = "../../../pallets/xcm", default-features = false }

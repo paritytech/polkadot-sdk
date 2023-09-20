@@ -1,4 +1,4 @@
-// Copyright 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -336,6 +336,14 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 			.rpc_client
 			.parachain_host_submit_report_dispute_lost(at, dispute_proof, key_ownership_proof)
 			.await?)
+	}
+
+	async fn minimum_backing_votes(
+		&self,
+		at: Hash,
+		session_index: polkadot_primitives::SessionIndex,
+	) -> Result<u32, ApiError> {
+		Ok(self.rpc_client.parachain_host_minimum_backing_votes(at, session_index).await?)
 	}
 
 	async fn staging_async_backing_params(&self, at: Hash) -> Result<AsyncBackingParams, ApiError> {

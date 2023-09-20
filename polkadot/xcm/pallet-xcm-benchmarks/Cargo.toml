@@ -16,10 +16,10 @@ frame-system = { path = "../../../substrate/frame/system", default-features = fa
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
 sp-std = { path = "../../../substrate/primitives/std", default-features = false}
 sp-io = { path = "../../../substrate/primitives/io", default-features = false}
-xcm-executor = { path = "../xcm-executor", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false}
-xcm = { path = "..", default-features = false }
-xcm-builder = { path = "../xcm-builder", default-features = false }
+xcm = { package = "staging-xcm", path = "..", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false }
 log = "0.4.17"
 
 [dev-dependencies]
@@ -27,7 +27,7 @@ pallet-balances = { path = "../../../substrate/frame/balances" }
 pallet-assets = { path = "../../../substrate/frame/assets" }
 sp-core = { path = "../../../substrate/primitives/core" }
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
-xcm = { path = ".." }
+xcm = { package = "staging-xcm", path = ".." }
 # temp
 pallet-xcm = { path = "../pallet-xcm" }
 polkadot-runtime-common = { path = "../../runtime/common" }

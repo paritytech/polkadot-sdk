@@ -16,9 +16,9 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false}
 
 # Polkadot
 polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false}
-xcm = { path = "../../../polkadot/xcm", default-features = false}
-xcm-executor = { path = "../../../polkadot/xcm/xcm-executor", default-features = false}
-xcm-builder = { path = "../../../polkadot/xcm/xcm-builder", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
+xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false}
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false}
 
 
 # Cumulus
@@ -37,4 +37,12 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+]
+
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 ]

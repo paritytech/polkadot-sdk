@@ -28,11 +28,10 @@ pub use crate::{
 use frame_support::traits::{ContainsPair, Everything};
 pub use frame_support::{
 	dispatch::{
-		DispatchError, DispatchInfo, DispatchResultWithPostInfo, Dispatchable, GetDispatchInfo,
-		Parameter, PostDispatchInfo,
+		DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, Parameter, PostDispatchInfo,
 	},
 	ensure, match_types, parameter_types,
-	sp_runtime::DispatchErrorWithPostInfo,
+	sp_runtime::{traits::Dispatchable, DispatchError, DispatchErrorWithPostInfo},
 	traits::{ConstU32, Contains, Get, IsInVec},
 };
 pub use parity_scale_codec::{Decode, Encode};

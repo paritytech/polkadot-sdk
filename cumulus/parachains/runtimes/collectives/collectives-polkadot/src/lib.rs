@@ -1,4 +1,4 @@
-// Copyright (C) 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +20,7 @@
 //!
 //! ### Governance
 //!
-//! As a common good parachain, Collectives defers its governance (namely, its `Root` origin), to
+//! As a system parachain, Collectives defers its governance (namely, its `Root` origin), to
 //! its Relay Chain parent, Polkadot.
 //!
 //! ### Collator Selection
@@ -36,7 +36,6 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod constants;
 pub mod impls;
 mod weights;
 pub mod xcm_config;
@@ -64,12 +63,14 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use constants::{consensus::*, currency::*, fee::WeightToFee};
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
 	parameter_types,
-	traits::{ConstBool, ConstU16, ConstU32, ConstU64, ConstU8, EitherOfDiverse, InstanceFilter},
+	traits::{
+		fungible::HoldConsideration, ConstBool, ConstU16, ConstU32, ConstU64, ConstU8,
+		EitherOfDiverse, InstanceFilter, LinearStoragePrice,
+	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
@@ -79,7 +80,9 @@ use frame_system::{
 };
 pub use parachains_common as common;
 use parachains_common::{
-	impls::DealWithFees, AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
+	impls::DealWithFees,
+	polkadot::{account::*, consensus::*, currency::*, fee::WeightToFee},
+	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 	AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT, MINUTES, NORMAL_DISPATCH_RATIO,
 	SLOT_DURATION,
 };
@@ -209,7 +212,7 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
+	type MaxHolds = ConstU32<1>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -484,8 +487,8 @@ parameter_types! {
 	pub const AllyDeposit: Balance = 1_000 * UNITS; // 1,000 DOT bond to join as an Ally
 	// The Alliance pallet account, used as a temporary place to deposit a slashed imbalance
 	// before the teleport to the Treasury.
-	pub AlliancePalletAccount: AccountId = constants::account::ALLIANCE_PALLET_ID.into_account_truncating();
-	pub PolkadotTreasuryAccount: AccountId = constants::account::POLKADOT_TREASURY_PALLET_ID.into_account_truncating();
+	pub AlliancePalletAccount: AccountId = ALLIANCE_PALLET_ID.into_account_truncating();
+	pub PolkadotTreasuryAccount: AccountId = POLKADOT_TREASURY_PALLET_ID.into_account_truncating();
 	// The number of blocks a member must wait between giving a retirement notice and retiring.
 	// Supposed to be greater than time required to `kick_member` with alliance motion.
 	pub const AllianceRetirementPeriod: BlockNumber = (90 * DAYS) + ALLIANCE_MOTION_DURATION;
@@ -545,6 +548,7 @@ impl pallet_scheduler::Config for Runtime {
 parameter_types! {
 	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
 	pub const PreimageByteDeposit: Balance = deposit(0, 1);
+	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
 impl pallet_preimage::Config for Runtime {
@@ -552,8 +556,12 @@ impl pallet_preimage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureRoot<AccountId>;
-	type BaseDeposit = PreimageBaseDeposit;
-	type ByteDeposit = PreimageByteDeposit;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		PreimageHoldReason,
+		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+	>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -589,7 +597,7 @@ construct_runtime!(
 		Utility: pallet_utility::{Pallet, Call, Event} = 40,
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 41,
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 42,
-		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 43,
+		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason} = 43,
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 44,
 
 		// The main stage.
