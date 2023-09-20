@@ -37,6 +37,8 @@ macro_rules! test_parachain_is_trusted_teleporter {
 						$crate::AccountId32 { network: None, id: receiver.clone().into() }.into();
 
 					// Send XCM message from Origin Parachain
+					// We are only testing the limited teleport version, which should be ok since success will
+					// depend only on a proper `XcmConfig` at destination.
 					<$sender_para>::execute_with(|| {
 						assert_ok!(<$sender_para as [<$sender_para Pallet>]>::PolkadotXcm::limited_teleport_assets(
 							origin.clone(),
