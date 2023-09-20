@@ -573,6 +573,9 @@
 <a href="#573" id="573">573</a>
 <a href="#574" id="574">574</a>
 <a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -731,6 +734,8 @@
 		</span>NotRequested,
 		<span class="doccomment">/// More than `MAX_HASH_UPGRADE_BULK_COUNT` hashes were requested to be upgraded at once.
 		</span>TooMany,
+		<span class="doccomment">/// Too few hashes were requested to be upgraded (i.e. zero).
+		</span>TooFew,
 	}
 
 	<span class="doccomment">/// A reason for this pallet placing a hold on funds.
@@ -817,6 +822,7 @@
 			hashes: Vec&lt;T::Hash&gt;,
 		) -&gt; DispatchResultWithPostInfo {
 			ensure_signed(origin)<span class="question-mark">?</span>;
+			<span class="macro">ensure!</span>(hashes.len() &gt; <span class="number">0</span>, Error::&lt;T&gt;::TooFew);
 			<span class="macro">ensure!</span>(hashes.len() &lt;= MAX_HASH_UPGRADE_BULK_COUNT <span class="kw">as </span>usize, Error::&lt;T&gt;::TooMany);
 
 			<span class="kw">let </span>updated = hashes.iter().map(<span class="self">Self</span>::do_ensure_updated).filter(|b| <span class="kw-2">*</span>b).count() <span class="kw">as </span>u32;
