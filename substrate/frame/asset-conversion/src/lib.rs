@@ -53,7 +53,6 @@
 //! (This can be run against the kitchen sync node in the `node` folder of this repo.)
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
-use frame_support::traits::{DefensiveOption, Incrementable};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -73,15 +72,18 @@ pub use weights::WeightInfo;
 use codec::Codec;
 use frame_support::{
 	traits::{
-		fungible::{Inspect as InspectFungible, Mutate as MutateFungible},
-		fungibles::{Create, Inspect, Mutate},
+		fungible::{
+			Balanced as BalancedFungible, Credit as CreditFungible, Inspect as InspectFungible,
+			Mutate as MutateFungible,
+		},
+		fungibles::{Balanced, Create, Credit as CreditFungibles, Inspect, Mutate},
 		tokens::{
 			AssetId, Balance,
 			Fortitude::Polite,
 			Precision::Exact,
 			Preservation::{Expendable, Preserve},
 		},
-		AccountTouch, ContainsPair,
+		AccountTouch, ContainsPair, Imbalance, Incrementable,
 	},
 	BoundedBTreeSet, PalletId,
 };
@@ -90,7 +92,7 @@ use sp_runtime::{
 		CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Ensure, IntegerSquareRoot, MaybeDisplay,
 		One, TrailingZeroInput, Zero,
 	},
-	DispatchError, Saturating,
+	BoundedVec, DispatchError, Saturating,
 };
 
 #[frame_support::pallet]
@@ -110,7 +112,8 @@ pub mod pallet {
 
 		/// Currency type that this works on.
 		type Currency: InspectFungible<Self::AccountId, Balance = Self::Balance>
-			+ MutateFungible<Self::AccountId>;
+			+ MutateFungible<Self::AccountId>
+			+ BalancedFungible<Self::AccountId>;
 
 		/// The `Currency::Balance` type of the native currency.
 		type Balance: Balance;
@@ -151,7 +154,8 @@ pub mod pallet {
 		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetId, Balance = Self::AssetBalance>
 			+ Mutate<Self::AccountId>
 			+ AccountTouch<Self::AssetId, Self::AccountId>
-			+ ContainsPair<Self::AssetId, Self::AccountId>;
+			+ ContainsPair<Self::AssetId, Self::AccountId>
+			+ Balanced<Self::AccountId>;
 
 		/// Registry for the lp tokens. Ideally only this pallet should have create permissions on
 		/// the assets.
@@ -350,10 +354,8 @@ pub mod pallet {
 		NonUniquePath,
 		/// It was not possible to get or increment the Id of the pool.
 		IncorrectPoolAssetId,
-		/// Unable to find an element in an array/vec that should have one-to-one correspondence
-		/// with another. For example, an array of assets constituting a `path` should have a
-		/// corresponding array of `amounts` along the path.
-		CorrespondenceError,
+		/// Account cannot exist with the funds that would be given.
+		BelowMinimum,
 	}
 
 	#[pallet::hooks]
@@ -702,6 +704,9 @@ pub mod pallet {
 		/// respecting `keep_alive`.
 		///
 		/// If successful, returns the amount of `path[1]` acquired for the `amount_in`.
+		///
+		/// Note:
+		/// * this function might modify storage even if an error occurs.
 		pub fn do_swap_exact_tokens_for_tokens(
 			sender: T::AccountId,
 			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
@@ -716,11 +721,9 @@ pub mod pallet {
 			}
 
 			Self::validate_swap_path(&path)?;
+			let path = Self::balance_path_from_amount_in(amount_in, path)?;
 
-			let amounts = Self::get_amounts_out(&amount_in, &path)?;
-			let amount_out =
-				*amounts.last().defensive_ok_or("get_amounts_out() returned an empty result")?;
-
+			let amount_out = path.last().map(|(_, a)| a.clone()).ok_or(Error::<T>::InvalidPath)?;
 			if let Some(amount_out_min) = amount_out_min {
 				ensure!(
 					amount_out >= amount_out_min,
@@ -728,7 +731,15 @@ pub mod pallet {
 				);
 			}
 
-			Self::do_swap(sender, &amounts, path, send_to, keep_alive)?;
+			Self::transfer_swap(&sender, &path, &send_to, keep_alive)?;
+
+			Self::deposit_event(Event::SwapExecuted {
+				who: sender,
+				send_to,
+				amount_in,
+				amount_out,
+				path: BoundedVec::truncate_from(path.into_iter().map(|(a, _)| a).collect()),
+			});
 			Ok(amount_out)
 		}
 
@@ -740,6 +751,9 @@ pub mod pallet {
 		/// respecting `keep_alive`.
 		///
 		/// If successful returns the amount of the `path[0]` taken to provide `path[1]`.
+		///
+		/// Note:
+		/// * this function might modify storage even if an error occurs.
 		pub fn do_swap_tokens_for_exact_tokens(
 			sender: T::AccountId,
 			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
@@ -754,11 +768,9 @@ pub mod pallet {
 			}
 
 			Self::validate_swap_path(&path)?;
+			let path = Self::balance_path_from_amount_out(amount_out, path)?;
 
-			let amounts = Self::get_amounts_in(&amount_out, &path)?;
-			let amount_in =
-				*amounts.first().defensive_ok_or("get_amounts_in() returned an empty result")?;
-
+			let amount_in = path.first().map(|(_, a)| a.clone()).ok_or(Error::<T>::InvalidPath)?;
 			if let Some(amount_in_max) = amount_in_max {
 				ensure!(
 					amount_in <= amount_in_max,
@@ -766,7 +778,16 @@ pub mod pallet {
 				);
 			}
 
-			Self::do_swap(sender, &amounts, path, send_to, keep_alive)?;
+			Self::transfer_swap(&sender, &path, &send_to, keep_alive)?;
+
+			Self::deposit_event(Event::SwapExecuted {
+				who: sender,
+				send_to,
+				amount_in,
+				amount_out,
+				path: BoundedVec::truncate_from(path.into_iter().map(|(a, _)| a).collect()),
+			});
+
 			Ok(amount_in)
 		}
 
@@ -809,6 +830,40 @@ pub mod pallet {
 			result
 		}
 
+		/// The balance of `who` is increased in order to counter `credit`. If the whole of `credit`
+		/// cannot be countered, then nothing is changed and the original `credit` is returned in an
+		/// `Err`.
+		fn resolve(who: &T::AccountId, credit: Credit<T>) -> Result<(), Credit<T>> {
+			match credit {
+				Credit::Native(c) => T::Currency::resolve(who, c).map_err(|c| c.into()),
+				Credit::Asset(c) => T::Assets::resolve(who, c).map_err(|c| c.into()),
+			}
+		}
+
+		/// Removes `value` balance of `asset` from `who` account if possible.
+		fn withdraw(
+			asset: &T::MultiAssetId,
+			who: &T::AccountId,
+			value: T::AssetBalance,
+			keep_alive: bool,
+		) -> Result<Credit<T>, DispatchError> {
+			let preservation = match keep_alive {
+				true => Preserve,
+				false => Expendable,
+			};
+			match T::MultiAssetIdConverter::try_convert(asset) {
+				MultiAssetIdConversionResult::Converted(asset) =>
+					T::Assets::withdraw(asset, who, value, Exact, preservation, Polite)
+						.map(|c| c.into()),
+				MultiAssetIdConversionResult::Native => {
+					let value = Self::convert_asset_balance_to_native_balance(value)?;
+					T::Currency::withdraw(who, value, Exact, preservation, Polite).map(|c| c.into())
+				},
+				MultiAssetIdConversionResult::Unsupported(_) =>
+					Err(Error::<T>::UnsupportedAsset.into()),
+			}
+		}
+
 		/// Convert a `Balance` type to an `AssetBalance`.
 		pub(crate) fn convert_native_balance_to_asset_balance(
 			amount: T::Balance,
@@ -834,63 +889,80 @@ pub mod pallet {
 			amount.try_into().map_err(|_| Error::<T>::Overflow)
 		}
 
-		/// Swap assets along a `path`, depositing in `send_to`.
-		pub(crate) fn do_swap(
-			sender: T::AccountId,
-			amounts: &Vec<T::AssetBalance>,
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
-			send_to: T::AccountId,
+		/// Swap assets along the `path`, withdrawing from `sender` and depositing in `send_to`.
+		///
+		/// Note:
+		/// * this function might modify storage even if an error occurs.
+		/// * it's assumed that the provided `path` is valid.
+		fn transfer_swap(
+			sender: &T::AccountId,
+			path: &BalancePath<T>,
+			send_to: &T::AccountId,
 			keep_alive: bool,
 		) -> Result<(), DispatchError> {
-			ensure!(amounts.len() > 1, Error::<T>::CorrespondenceError);
-			if let Some([asset1, asset2]) = &path.get(0..2) {
-				let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
-				let pool_account = Self::get_pool_account(&pool_id);
-				// amounts should always contain a corresponding element to path.
-				let first_amount = amounts.first().ok_or(Error::<T>::CorrespondenceError)?;
+			let (asset_in, amount_in) = path.first().ok_or(Error::<T>::InvalidPath)?;
+			let credit_in = Self::withdraw(asset_in, sender, *amount_in, keep_alive)?;
 
-				Self::transfer(asset1, &sender, &pool_account, *first_amount, keep_alive)?;
+			let credit_out = Self::credit_swap(credit_in, path).map_err(|(_, e)| e)?;
+			Self::resolve(send_to, credit_out).map_err(|_| Error::<T>::BelowMinimum)?;
 
-				let mut i = 0;
-				let path_len = path.len() as u32;
-				for assets_pair in path.windows(2) {
-					if let [asset1, asset2] = assets_pair {
-						let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
-						let pool_account = Self::get_pool_account(&pool_id);
+			Ok(())
+		}
 
-						let amount_out =
-							amounts.get((i + 1) as usize).ok_or(Error::<T>::CorrespondenceError)?;
+		/// Swap assets along the specified `path`, consuming `credit_in` and producing
+		/// `credit_out`.
+		///
+		/// Note:
+		/// * this function might modify storage even if an error occurs.
+		/// * if an error occurs, `credit_in` is returned back.
+		/// * it's assumed that the provided `path` is valid and `credit_in` corresponds to the
+		///   first asset in the `path`.
+		fn credit_swap(
+			credit_in: Credit<T>,
+			path: &BalancePath<T>,
+		) -> Result<Credit<T>, (Credit<T>, DispatchError)> {
+			let resolve_path = || -> Result<Credit<T>, DispatchError> {
+				for pos in 0..=path.len() {
+					if let Some([(asset1, _), (asset2, amount_out)]) = path.get(pos..=pos + 1) {
+						let pool_from = Self::get_pool_account(&Self::get_pool_id(
+							asset1.clone(),
+							asset2.clone(),
+						));
 
-						let to = if i < path_len - 2 {
-							let asset3 = path.get((i + 2) as usize).ok_or(Error::<T>::PathError)?;
-							Self::get_pool_account(&Self::get_pool_id(
-								asset2.clone(),
-								asset3.clone(),
-							))
-						} else {
-							send_to.clone()
-						};
-
-						let reserve = Self::get_balance(&pool_account, asset2)?;
+						let reserve = Self::get_balance(&pool_from, asset2)?;
 						let reserve_left = reserve.saturating_sub(*amount_out);
 						Self::validate_minimal_amount(reserve_left, asset2)
 							.map_err(|_| Error::<T>::ReserveLeftLessThanMinimal)?;
 
-						Self::transfer(asset2, &pool_account, &to, *amount_out, true)?;
+						if let Some((asset3, _)) = path.get(pos + 2) {
+							let pool_to = Self::get_pool_account(&Self::get_pool_id(
+								asset2.clone(),
+								asset3.clone(),
+							));
+							Self::transfer(asset2, &pool_from, &pool_to, *amount_out, true)?;
+						} else {
+							let credit_out = Self::withdraw(asset2, &pool_from, *amount_out, true)?;
+							return Ok(credit_out)
+						}
 					}
-					i.saturating_inc();
 				}
-				Self::deposit_event(Event::SwapExecuted {
-					who: sender,
-					send_to,
-					path,
-					amount_in: *first_amount,
-					amount_out: *amounts.last().expect("Always has more than 1 element"),
-				});
-			} else {
 				return Err(Error::<T>::InvalidPath.into())
-			}
-			Ok(())
+			};
+
+			let credit_out = match resolve_path() {
+				Ok(c) => c,
+				Err(e) => return Err((credit_in, e)),
+			};
+
+			let pool_to = if let Some([(asset1, _), (asset2, _)]) = path.get(0..2) {
+				Self::get_pool_account(&Self::get_pool_id(asset1.clone(), asset2.clone()))
+			} else {
+				return Err((credit_in, Error::<T>::InvalidPath.into()))
+			};
+
+			Self::resolve(&pool_to, credit_in).map_err(|c| (c, Error::<T>::BelowMinimum.into()))?;
+
+			Ok(credit_out)
 		}
 
 		/// The account ID of the pool.
@@ -967,42 +1039,52 @@ pub mod pallet {
 		}
 
 		/// Leading to an amount at the end of a `path`, get the required amounts in.
-		pub(crate) fn get_amounts_in(
-			amount_out: &T::AssetBalance,
-			path: &BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
-		) -> Result<Vec<T::AssetBalance>, DispatchError> {
-			let mut amounts: Vec<T::AssetBalance> = vec![*amount_out];
+		pub(crate) fn balance_path_from_amount_out(
+			amount_out: T::AssetBalance,
+			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+		) -> Result<BalancePath<T>, DispatchError> {
+			let mut balance_path: BalancePath<T> = Vec::with_capacity(path.len());
+			let mut amount_out: T::AssetBalance = amount_out;
 
-			for assets_pair in path.windows(2).rev() {
-				if let [asset1, asset2] = assets_pair {
-					let (reserve_in, reserve_out) = Self::get_reserves(asset1, asset2)?;
-					let prev_amount = amounts.last().expect("Always has at least one element");
-					let amount_in = Self::get_amount_in(prev_amount, &reserve_in, &reserve_out)?;
-					amounts.push(amount_in);
-				}
+			let mut iter = path.into_iter().rev().peekable();
+			while let Some(asset2) = iter.next() {
+				let asset1 = match iter.peek() {
+					Some(a) => a,
+					None => {
+						balance_path.push((asset2, amount_out));
+						break
+					},
+				};
+				let (reserve_in, reserve_out) = Self::get_reserves(asset1, &asset2)?;
+				balance_path.push((asset2, amount_out));
+				amount_out = Self::get_amount_in(&amount_out, &reserve_in, &reserve_out)?;
 			}
-
-			amounts.reverse();
-			Ok(amounts)
+			balance_path.reverse();
+			Ok(balance_path)
 		}
 
 		/// Following an amount into a `path`, get the corresponding amounts out.
-		pub(crate) fn get_amounts_out(
-			amount_in: &T::AssetBalance,
-			path: &BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
-		) -> Result<Vec<T::AssetBalance>, DispatchError> {
-			let mut amounts: Vec<T::AssetBalance> = vec![*amount_in];
+		pub(crate) fn balance_path_from_amount_in(
+			amount_in: T::AssetBalance,
+			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+		) -> Result<BalancePath<T>, DispatchError> {
+			let mut balance_path: BalancePath<T> = Vec::with_capacity(path.len());
+			let mut amount_out: T::AssetBalance = amount_in;
 
-			for assets_pair in path.windows(2) {
-				if let [asset1, asset2] = assets_pair {
-					let (reserve_in, reserve_out) = Self::get_reserves(asset1, asset2)?;
-					let prev_amount = amounts.last().expect("Always has at least one element");
-					let amount_out = Self::get_amount_out(prev_amount, &reserve_in, &reserve_out)?;
-					amounts.push(amount_out);
-				}
+			let mut iter = path.into_iter().peekable();
+			while let Some(asset1) = iter.next() {
+				let asset2 = match iter.peek() {
+					Some(a) => a,
+					None => {
+						balance_path.push((asset1, amount_out));
+						break
+					},
+				};
+				let (reserve_in, reserve_out) = Self::get_reserves(&asset1, asset2)?;
+				balance_path.push((asset1, amount_out));
+				amount_out = Self::get_amount_out(&amount_out, &reserve_in, &reserve_out)?;
 			}
-
-			Ok(amounts)
+			Ok(balance_path)
 		}
 
 		/// Used by the RPC service to provide current prices.

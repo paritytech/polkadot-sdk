@@ -27,6 +27,17 @@ use sp_std::{cmp::Ordering, marker::PhantomData};
 /// migration.
 pub(super) type PoolIdOf<T> = (<T as Config>::MultiAssetId, <T as Config>::MultiAssetId);
 
+/// Represents a swap path with associated amounts for input and output.
+///
+/// Each pair of neighboring assets forms a pool.
+///
+/// Example:
+/// Given path [(asset1, amount_in), (asset2, amount_out2), (asset3, amount_out3)], can be resolved:
+/// 1. `asset(asset1, amount_in)` take from `user` and move to the pool(asset1, asset2);
+/// 2. `asset(asset2, amount_out2)` transfer from pool(asset1, asset2) to pool(asset2, asset3);
+/// 3. `asset(asset3, amount_out3)` move from pool(asset2, asset3) to `user`.
+pub(super) type BalancePath<T> = Vec<(<T as Config>::MultiAssetId, <T as Config>::AssetBalance)>;
+
 /// Stores the lp_token asset id a particular pool has been assigned.
 #[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
 pub struct PoolInfo<PoolAssetId> {
@@ -146,6 +157,74 @@ impl<AssetId: Ord + Clone> MultiAssetIdConverter<NativeOrAssetId<AssetId>, Asset
 		match asset {
 			NativeOrAssetId::Asset(asset) => MultiAssetIdConversionResult::Converted(asset.clone()),
 			NativeOrAssetId::Native => MultiAssetIdConversionResult::Native,
+		}
+	}
+}
+
+/// Credit of [Config::Currency].
+pub type NativeCredit<T> =
+	CreditFungible<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
+
+/// Credit of [Config::Assets].
+pub type AssetCredit<T> =
+	CreditFungibles<<T as frame_system::Config>::AccountId, <T as Config>::Assets>;
+
+/// Credit that can be either [`NativeCredit`] or [`AssetCredit`].
+pub enum Credit<T: Config> {
+	/// Native credit.
+	Native(NativeCredit<T>),
+	/// Asset credit.
+	Asset(AssetCredit<T>),
+}
+
+impl<T: Config> From<NativeCredit<T>> for Credit<T> {
+	fn from(value: NativeCredit<T>) -> Self {
+		Credit::Native(value)
+	}
+}
+
+impl<T: Config> From<AssetCredit<T>> for Credit<T> {
+	fn from(value: AssetCredit<T>) -> Self {
+		Credit::Asset(value)
+	}
+}
+
+impl<T: Config> Credit<T> {
+	/// Amount of `self`.
+	pub fn peek(&self) -> Result<T::AssetBalance, DispatchError> {
+		let amount = match self {
+			Credit::Native(c) => T::HigherPrecisionBalance::from(c.peek())
+				.try_into()
+				.map_err(|_| Error::<T>::Overflow)?,
+			Credit::Asset(c) => c.peek(),
+		};
+		Ok(amount)
+	}
+
+	/// Asset class of `self`.
+	pub fn asset(&self) -> T::MultiAssetId {
+		match self {
+			Credit::Native(_) => T::MultiAssetIdConverter::get_native(),
+			Credit::Asset(c) => c.asset().into(),
+		}
+	}
+
+	/// Consume `self` and return two independent instances; the first is guaranteed to be at most
+	/// `amount` and the second will be the remainder.
+	pub fn split(self, amount: T::AssetBalance) -> Result<(Self, Self), (Self, DispatchError)> {
+		match self {
+			Credit::Native(c) => {
+				let amount = match T::HigherPrecisionBalance::from(amount).try_into() {
+					Ok(a) => a,
+					Err(_) => return Err((Self::Native(c), Error::<T>::Overflow.into())),
+				};
+				let (left, right) = c.split(amount);
+				Ok((left.into(), right.into()))
+			},
+			Credit::Asset(c) => {
+				let (left, right) = c.split(amount);
+				Ok((left.into(), right.into()))
+			},
 		}
 	}
 }
