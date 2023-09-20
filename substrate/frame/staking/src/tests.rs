@@ -3841,8 +3841,17 @@ fn test_multi_page_payout_stakers_by_page() {
 		assert_eq_error_rate!(Balances::total_issuance(), pre_payout_total_issuance + payout, 2);
 		assert!(RewardOnUnbalanceWasCalled::get());
 
-		// verify all nominators of validator 11 are paid out, including the validator
-		// Validator payout goes to controller.
+		// verify `Rewarded` events are being executed
+		assert!(matches!(
+			staking_events_since_last_call().as_slice(),
+			&[
+				..,
+				Event::Rewarded { stash: 1037, dest: RewardDestination::Controller, amount: 108 },
+				Event::Rewarded { stash: 1036, dest: RewardDestination::Controller, amount: 108 }
+			]
+		));
+
+		// Top 64 nominators of validator 11 automatically paid out, including the validator
 		assert!(Balances::free_balance(&11) > balance);
 		for i in 0..100 {
 			assert!(Balances::free_balance(&(1000 + i)) > balance + i as Balance);

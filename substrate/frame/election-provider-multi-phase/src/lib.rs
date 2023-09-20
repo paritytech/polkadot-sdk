@@ -149,7 +149,8 @@
 //! while this binary lives in the Polkadot repository, this particular subcommand of it can work
 //! against any substrate-based chain.
 //!
-//! See the `staking-miner` documentation in the Polkadot repository for more information.
+//! See the [`staking-miner`](https://github.com/paritytech/staking-miner-v2) docs for more
+//! information.
 //!
 //! ## Feasible Solution (correct solution)
 //!
@@ -278,8 +279,8 @@ use unsigned::VoterOf;
 pub use weights::WeightInfo;
 
 pub use signed::{
-	BalanceOf, NegativeImbalanceOf, PositiveImbalanceOf, SignedSubmission, SignedSubmissionOf,
-	SignedSubmissions, SubmissionIndicesOf,
+	BalanceOf, GeometricDepositBase, NegativeImbalanceOf, PositiveImbalanceOf, SignedSubmission,
+	SignedSubmissionOf, SignedSubmissions, SubmissionIndicesOf,
 };
 pub use unsigned::{Miner, MinerConfig};
 
@@ -571,6 +572,7 @@ pub mod pallet {
 	use frame_election_provider_support::{InstantElectionProvider, NposSolver};
 	use frame_support::{pallet_prelude::*, traits::EstimateCallFee};
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::traits::Convert;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
@@ -648,10 +650,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type SignedRewardBase: Get<BalanceOf<Self>>;
 
-		/// Base deposit for a signed solution.
-		#[pallet::constant]
-		type SignedDepositBase: Get<BalanceOf<Self>>;
-
 		/// Per-byte deposit for a signed solution.
 		#[pallet::constant]
 		type SignedDepositByte: Get<BalanceOf<Self>>;
@@ -666,6 +664,10 @@ pub mod pallet {
 		/// Note: This must always be greater or equal to `T::DataProvider::desired_targets()`.
 		#[pallet::constant]
 		type MaxWinners: Get<u32>;
+
+		/// Something that calculates the signed deposit base based on the signed submissions queue
+		/// size.
+		type SignedDepositBase: Convert<usize, BalanceOf<Self>>;
 
 		/// The maximum number of electing voters and electable targets to put in the snapshot.
 		/// At the moment, snapshots are only over a single block, but once multi-block elections

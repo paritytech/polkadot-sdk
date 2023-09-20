@@ -36,12 +36,13 @@ impl<T: Config> Pallet<T> {
 	/// - Request revenue information for a previous timeslice
 	/// - Initialize an instantaneous core pool historical revenue record
 	pub(crate) fn do_tick() -> Weight {
+		let mut meter = WeightMeter::new();
+		meter.consume(T::WeightInfo::do_tick_base());
+
 		let (mut status, config) = match (Status::<T>::get(), Configuration::<T>::get()) {
 			(Some(s), Some(c)) => (s, c),
-			_ => return Weight::zero(),
+			_ => return meter.consumed(),
 		};
-
-		let mut meter = WeightMeter::new();
 
 		if Self::process_core_count(&mut status) {
 			meter.consume(T::WeightInfo::process_core_count(status.core_count.into()));
