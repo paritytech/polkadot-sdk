@@ -18,7 +18,7 @@ use crate::universal_exports::ensure_is_remote;
 use frame_support::traits::Get;
 use parity_scale_codec::{Compact, Decode, Encode};
 use sp_io::hashing::blake2_256;
-use sp_runtime::traits::{AccountIdConversion, Convert, TrailingZeroInput};
+use sp_runtime::traits::{AccountIdConversion, TrailingZeroInput, TryConvert};
 use sp_std::{marker::PhantomData, prelude::*};
 use xcm::latest::prelude::*;
 use xcm_executor::traits::ConvertLocation;
@@ -86,11 +86,22 @@ impl DescribeLocation for DescribeAccountKey20Terminal {
 
 pub type DescribeAccountIdTerminal = (DescribeAccountId32Terminal, DescribeAccountKey20Terminal);
 
+pub struct DescribeBodyTerminal;
+impl DescribeLocation for DescribeBodyTerminal {
+	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
+		match (l.parents, &l.interior) {
+			(0, X1(Plurality { id, part })) => Some((b"Body", id, part).encode()),
+			_ => return None,
+		}
+	}
+}
+
 pub type DescribeAllTerminal = (
 	DescribeTerminus,
 	DescribePalletTerminal,
 	DescribeAccountId32Terminal,
 	DescribeAccountKey20Terminal,
+	DescribeBodyTerminal,
 );
 
 pub struct DescribeFamily<DescribeInterior>(PhantomData<DescribeInterior>);
@@ -322,10 +333,10 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 /// network (provided by `Network`) and the `AccountId`'s `[u8; 32]` datum for the `id`.
 pub struct AliasesIntoAccountId32<Network, AccountId>(PhantomData<(Network, AccountId)>);
 impl<'a, Network: Get<Option<NetworkId>>, AccountId: Clone + Into<[u8; 32]> + Clone>
-	Convert<&'a AccountId, MultiLocation> for AliasesIntoAccountId32<Network, AccountId>
+	TryConvert<&'a AccountId, MultiLocation> for AliasesIntoAccountId32<Network, AccountId>
 {
-	fn convert(who: &AccountId) -> MultiLocation {
-		AccountId32 { network: Network::get(), id: who.clone().into() }.into()
+	fn try_convert(who: &AccountId) -> Result<MultiLocation, &AccountId> {
+		Ok(AccountId32 { network: Network::get(), id: who.clone().into() }.into())
 	}
 }
 

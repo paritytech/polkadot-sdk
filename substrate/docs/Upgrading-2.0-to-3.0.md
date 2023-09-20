@@ -4,7 +4,8 @@ An incomplete guide.
 
 ## Refreshing the node-template
 
-Not much has changed on the top and API level for developing Substrate between 2.0 and 3.0. If you've made only small changes to the node-template, we recommend to do the following - it is easiest and quickest path forward:
+Not much has changed on the top and API level for developing Substrate between 2.0 and 3.0. If you've made only small
+changes to the node-template, we recommend to do the following - it is easiest and quickest path forward:
 1. take a diff between 2.0 and your changes
 2. store that diff
 3. remove everything, copy over the 3.0 node-template
@@ -12,19 +13,30 @@ Not much has changed on the top and API level for developing Substrate between 2
 
 ## In-Depth guide on the changes
 
-If you've made significant changes or diverted from the node-template a lot, starting out with that is probably not helping. For that case, we'll take a look at all changes between 2.0 and 3.0 to the fully-implemented node and explain them one by one, so you can follow up, what needs to be changing for your node.
+If you've made significant changes or diverted from the node-template a lot, starting out with that is probably not
+helping. For that case, we'll take a look at all changes between 2.0 and 3.0 to the fully-implemented node and explain
+them one by one, so you can follow up, what needs to be changing for your node.
 
 _Note_: Of course, step 1 is to upgrade your `Cargo.toml`'s to use the latest version of Substrate and all dependencies.
 
-We'll be taking the diff from 2.0.1 to 3.0.0 on `bin/node` as the baseline of what has changed between these two versions in terms of adapting ones code base. We will not be covering the changes made on the tests and bench-marking as they are mostly reactions to the other changes.
+We'll be taking the diff from 2.0.1 to 3.0.0 on `bin/node` as the baseline of what has changed between these two
+versions in terms of adapting ones code base. We will not be covering the changes made on the tests and bench-marking as
+they are mostly reactions to the other changes.
 
 ### Versions upgrade
 
-First and foremost you have to upgrade the version pf the dependencies of course, that's `0.8.x -> 0.9.0` and `2.0.x -> 3.0.0` for all `sc-`, `sp-`, `frame-`, and `pallet-` coming from Parity. Further more this release also upgraded its own dependencies, most notably, we are now using `parity-scale-codec 2.0`, `parking_lot 0.11` and `substrate-wasm-builder 3.0.0` (as build dependency). All other dependency upgrades should resolve automatically or are just internal. However you might see some error that another dependency/type you have as a dependency and one of our upgraded crates don't match up, if so please check the version of said dependency - we've probably upgraded it.
+First and foremost you have to upgrade the version pf the dependencies of course, that's `0.8.x -> 0.9.0` and `2.0.x ->
+3.0.0` for all `sc-`, `sp-`, `frame-`, and `pallet-` coming from Parity. Further more this release also upgraded its own
+dependencies, most notably, we are now using `parity-scale-codec 2.0`, `parking_lot 0.11` and `substrate-wasm-builder
+3.0.0` (as build dependency). All other dependency upgrades should resolve automatically or are just internal. However
+you might see some error that another dependency/type you have as a dependency and one of our upgraded crates don't
+match up, if so please check the version of said dependency - we've probably upgraded it.
 
 ### WASM-Builder
 
-The new version of wasm-builder has gotten a bit smarter and a lot faster (you should definitely switch). Once you've upgraded the dependency, in most cases you just have to remove the now obsolete `with_wasm_builder_from_crates_or_path`-function and you are good to go:
+The new version of wasm-builder has gotten a bit smarter and a lot faster (you should definitely switch). Once you've
+upgraded the dependency, in most cases you just have to remove the now obsolete
+`with_wasm_builder_from_crates_or_path`-function and you are good to go:
 
 ```diff: rust
 --- a/bin/node/runtime/build.rs
@@ -49,11 +61,15 @@ The new version of wasm-builder has gotten a bit smarter and a lot faster (you s
 
 #### FRAME 2.0
 
-The new FRAME 2.0 macros are a lot nicer to use and easier to read. While we were on that change though, we also cleaned up some mainly internal names and traits. The old `macro`'s still work and also produce the new structure, however, when plugging all that together as a Runtime, there's some things we have to adapt now:
+The new FRAME 2.0 macros are a lot nicer to use and easier to read. While we were on that change though, we also cleaned
+up some mainly internal names and traits. The old `macro`'s still work and also produce the new structure, however, when
+plugging all that together as a Runtime, there's some things we have to adapt now:
 
 ##### `::Trait for Runtime` becomes `::Config for Runtime`
 
-The most visible and significant change is that the macros no longer generate the `$pallet::Trait` but now a much more aptly named `$pallet::Config`. Thus, we need to rename all `::Trait for Runtime` into`::Config for Runtime`, e.g. for the `sudo` pallet we must do:
+The most visible and significant change is that the macros no longer generate the `$pallet::Trait` but now a much more
+aptly named `$pallet::Config`. Thus, we need to rename all `::Trait for Runtime` into`::Config for Runtime`, e.g. for
+the `sudo` pallet we must do:
 
 ```diff
 -impl pallet_sudo::Trait for Runtime {
@@ -65,11 +81,15 @@ The same goes for all `<Self as frame_system::Trait>` and alike, which simply be
 #### SS58 Prefix is now a runtime param
 
 
-Since [#7810](https://github.com/paritytech/substrate/pull/7810) we don't define the ss58 prefix in the chainspec anymore but moved it into the runtime. Namely, `frame_system` now needs a new `SS58Prefix`, which in substrate node we have defined for ourselves as: `pub const SS58Prefix: u8 = 42;`. Use your own chain-specific value there.
+Since [#7810](https://github.com/paritytech/substrate/pull/7810) we don't define the ss58 prefix in the chainspec
+anymore but moved it into the runtime. Namely, `frame_system` now needs a new `SS58Prefix`, which in Substrate node we
+have defined for ourselves as: `pub const SS58Prefix: u8 = 42;`. Use your own chain-specific value there.
 
 #### Weight Definition
 
-`type WeightInfo` has changed and instead on `weights::pallet_$name::WeightInfo` is now bound to the Runtime as `pallet_$name::weights::SubstrateWeight<Runtime>`. As a result we have to the change the type definitions everywhere in our Runtime accordingly:
+`type WeightInfo` has changed and instead on `weights::pallet_$name::WeightInfo` is now bound to the Runtime as
+`pallet_$name::weights::SubstrateWeight<Runtime>`. As a result we have to the change the type definitions everywhere in
+our Runtime accordingly:
 
 ```diff
 -	type WeightInfo = weights::pallet_$name::WeightInfo;
@@ -170,24 +190,29 @@ And update the overall definition for weights on frame and a few related types a
 +	type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
 ```
 
-#### Pallets:
+#### Pallets
 
 ##### Assets
 
 The assets pallet has seen a variety of changes:
-- [Features needed for reserve-backed stablecoins #7152 ](https://github.com/paritytech/substrate/pull/7152)
-- [Freeze Assets and Asset Metadata #7346 ](https://github.com/paritytech/substrate/pull/7346)
-- [Introduces account existence providers reference counting #7363 ]((https://github.com/paritytech/substrate/pull/7363))
+- [Features needed for reserve-backed stablecoins #7152](https://github.com/paritytech/substrate/pull/7152)
+- [Freeze Assets and Asset Metadata #7346](https://github.com/paritytech/substrate/pull/7346)
+- [Introduces account existence providers reference counting #7363]((https://github.com/paritytech/substrate/pull/7363))
 
-have all altered the feature set and changed the concepts. However, it has some of the best documentation and explains the current state very well. If you are using the assets pallet and need to upgrade from an earlier version, we recommend you use the current docs to guide your way!
+have all altered the feature set and changed the concepts. However, it has some of the best documentation and explains
+the current state very well. If you are using the assets pallet and need to upgrade from an earlier version, we
+recommend you use the current docs to guide your way!
 
 ##### Contracts
 
-As noted in the changelog, the `contracts`-pallet is still undergoing massive changes and is not yet part of this release. We are expecting for it to be released a few weeks after. If your chain is dependent on this pallet, we recommend to wait until it has been released as the currently released version is not compatible with FRAME 2.0.
+As noted in the changelog, the `contracts`-pallet is still undergoing massive changes and is not yet part of this
+release. We are expecting for it to be released a few weeks after. If your chain is dependent on this pallet, we
+recommend to wait until it has been released as the currently released version is not compatible with FRAME 2.0.
 
 #### (changes) Treasury
 
-As mentioned above, Bounties, Tips and Lottery have been extracted out of treasury into their own pallets - removing these options here. Secondly we must now specify the `BurnDestination`  and `SpendFunds`, which now go the `Bounties`.
+As mentioned above, Bounties, Tips and Lottery have been extracted out of treasury into their own pallets - removing
+these options here. Secondly we must now specify the `BurnDestination`  and `SpendFunds`, which now go the `Bounties`.
 
 ```diff
 -	type Tippers = Elections;
@@ -206,9 +231,10 @@ As mentioned above, Bounties, Tips and Lottery have been extracted out of treasu
 +	type SpendFunds = Bounties;
 ```
 
-Factoring out Bounties and Tips means most of these definitions have now moved there, while the parameter types can be left as they were:
+Factoring out Bounties and Tips means most of these definitions have now moved there, while the parameter types can be
+left as they were:
 
-###### 🆕 Bounties
+##### 🆕 Bounties
 
 ```rust=
 impl pallet_bounties::Config for Runtime {
@@ -241,11 +267,15 @@ impl pallet_tips::Config for Runtime {
 
 #### `FinalityTracker` removed
 
-Finality Tracker has been removed in favor of a different approach to handle the issue in GRANDPA, [see #7228 for details](https://github.com/paritytech/substrate/pull/7228). With latest GRANDPA this is not needed anymore and can be removed without worry.
+Finality Tracker has been removed in favor of a different approach to handle the issue in GRANDPA, [see #7228 for
+details](https://github.com/paritytech/substrate/pull/7228). With latest GRANDPA this is not needed anymore and can be
+removed without worry.
 
 #### (changes) Elections Phragmen
 
-The pallet has been moved to a new system in which the exact amount of deposit for each voter, candidate, member, or runner-up is now deposited on-chain. Moreover, the concept of a `defunct_voter` is removed, since votes now have adequate deposit associated with them. A number of configuration parameters has changed to reflect this, as shown below:
+The pallet has been moved to a new system in which the exact amount of deposit for each voter, candidate, member, or
+runner-up is now deposited on-chain. Moreover, the concept of a `defunct_voter` is removed, since votes now have
+adequate deposit associated with them. A number of configuration parameters has changed to reflect this, as shown below:
 
 ```diff=
  parameter_types! {
@@ -277,11 +307,16 @@ The pallet has been moved to a new system in which the exact amount of deposit f
  	type TermDuration = TermDuration;
  ```
 
- **This upgrade requires storage [migration](https://github.com/paritytech/substrate/blob/master/frame/elections-phragmen/src/migrations_3_0_0.rs)**. Further details can be found in the [pallet-specific changelog](https://github.com/paritytech/substrate/blob/master/frame/elections-phragmen/CHANGELOG.md#security).
+ **This upgrade requires storage
+ [migration](https://github.com/paritytech/substrate/blob/master/frame/elections-phragmen/src/migrations_3_0_0.rs)**.
+ Further details can be found in the [pallet-specific
+ changelog](https://github.com/paritytech/substrate/blob/master/frame/elections-phragmen/CHANGELOG.md#security).
 
 #### (changes) Democracy
 
-Democracy brings three new settings with this release, all to allow for better influx- and spam-control. Namely these allow to specify the maximum number of proposals at a time, who can blacklist and who can cancel proposals. This diff acts as a good starting point:
+Democracy brings three new settings with this release, all to allow for better influx- and spam-control. Namely these
+allow to specify the maximum number of proposals at a time, who can blacklist and who can cancel proposals. This diff
+acts as a good starting point:
 
 ```diff=
 @@ -508,6 +537,14 @@ impl pallet_democracy::Trait for Runtime {
@@ -311,7 +346,9 @@ Democracy brings three new settings with this release, all to allow for better i
 
 ### Primitives
 
-The shared primitives define the API between Client and Runtime. Usually, you don't have to touch nor directly interact with them, unless you created your own client or frame-less runtime. Therefore we'd expect you to understand whether you are effected by changes and how to update your code yourself.
+The shared primitives define the API between Client and Runtime. Usually, you don't have to touch nor directly interact
+with them, unless you created your own client or frame-less runtime. Therefore we'd expect you to understand whether you
+are effected by changes and how to update your code yourself.
 
 ----
 
@@ -321,10 +358,17 @@ The shared primitives define the API between Client and Runtime. Usually, you do
 
 A few minor things have changed in the `cli` (compared to 2.0.1):
 
-1. we've [replaced the newly added `BuildSyncSpec` subcommand with an RPC API](https://github.com/paritytech/substrate/commit/65cc9af9b8df8d36928f6144ee7474cefbd70454#diff-c57da6fbeff8c46ce15f55ea42fedaa5a4684d79578006ce4af01ae04fd6b8f8) in an on-going effort to make light-client-support smoother, see below
-2. we've [removed double accounts from our chainspec-builder](https://github.com/paritytech/substrate/commit/31499cd29ed30df932fb71b7459796f7160d0272)
-3. we [don't fallback to `--chain flaming-fir` anymore](https://github.com/paritytech/substrate/commit/13cdf1c8cd2ee62d411f82b64dc7eba860c9c6c6), if no chain is given our substrate-node will error.
-4. [the `subkey`-integration has seen a fix to the `insert`-command](https://github.com/paritytech/substrate/commit/54bde60cfd2c544c54e9e8623b6b8725b99557f8) that requires you to now add the `&cli` as a param.
+1. we've [replaced the newly added `BuildSyncSpec` subcommand with an RPC
+   API](https://github.com/paritytech/substrate/commit/65cc9af9b8df8d36928f6144ee7474cefbd70454#diff-c57da6fbeff8c46ce15f55ea42fedaa5a4684d79578006ce4af01ae04fd6b8f8)
+   in an on-going effort to make light-client-support smoother, see below
+2. we've [removed double accounts from our
+   chainspec-builder](https://github.com/paritytech/substrate/commit/31499cd29ed30df932fb71b7459796f7160d0272)
+3. we [don't fallback to `--chain flaming-fir`
+   anymore](https://github.com/paritytech/substrate/commit/13cdf1c8cd2ee62d411f82b64dc7eba860c9c6c6), if no chain is
+   given our `substrate-node` will error.
+4. [the `subkey`-integration has seen a fix to the
+   `insert`-command](https://github.com/paritytech/substrate/commit/54bde60cfd2c544c54e9e8623b6b8725b99557f8) that
+   requires you to now add the `&cli` as a param.
     ```diff=
     --- a/bin/node/cli/src/command.rs
     +++ b/bin/node/cli/src/command.rs
@@ -344,7 +388,8 @@ A few minor things have changed in the `cli` (compared to 2.0.1):
 
 ##### Light client support
 
-As said, we've added a new optional RPC service for improved light client support. For that to work, we need to pass the `chain_spec` and give access  to the `AuxStore` to our `rpc`:
+As said, we've added a new optional RPC service for improved light client support. For that to work, we need to pass the
+`chain_spec` and give access  to the `AuxStore` to our `rpc`:
 
 
 ```diff=
@@ -438,17 +483,30 @@ and add the new service:
 
 ##### Telemetry
 
-The telemetry subsystem has seen a few fixes and refactorings to allow for a more flexible handling, in particular in regards to parachains. Most notably `sc_service::spawn_tasks` now returns the `telemetry_connection_notifier` as the second member of the tuple, (`let (_rpc_handlers, telemetry_connection_notifier) = sc_service::spawn_tasks(`), which should be passed to `telemetry_on_connect` of `new_full_base` now: `telemetry_on_connect: telemetry_connection_notifier.map(|x| x.on_connect_stream()),` (see the service-section below for a full diff).
+The telemetry subsystem has seen a few fixes and refactorings to allow for a more flexible handling, in particular in
+regards to parachains. Most notably `sc_service::spawn_tasks` now returns the `telemetry_connection_notifier` as the
+second member of the tuple, (`let (_rpc_handlers, telemetry_connection_notifier) = sc_service::spawn_tasks(`), which
+should be passed to `telemetry_on_connect` of `new_full_base` now: `telemetry_on_connect:
+telemetry_connection_notifier.map(|x| x.on_connect_stream()),` (see the service-section below for a full diff).
 
 ##### Async & Remote Keystore support
 
-In order to allow for remote-keystores, the keystore-subsystem has been reworked to support async operations and generally refactored to not provide the keys itself but only sign on request. This allows for remote-keystore to never hand out keys and thus to operate any substrate-based node in a manner without ever having the private keys in the local system memory.
+In order to allow for remote-keystores, the keystore-subsystem has been reworked to support async operations and
+generally refactored to not provide the keys itself but only sign on request. This allows for remote-keystore to never
+hand out keys and thus to operate any Substrate-based node in a manner without ever having the private keys in the local
+system memory.
 
-There are some operations, however, that the keystore must be local for performance reasons and for which a remote keystore won't work (in particular around parachains). As such, the keystore has both a slot for remote but also always a local instance, where some operations hard bind to the local variant, while most subsystems just ask the generic keystore which prefers a remote signer if given. To reflect this change, `sc_service::new_full_parts` now returns a `KeystoreContainer` rather than the keystore, and the other subsystems (e.g. `sc_service::PartialComponents`) expect to be given that.
+There are some operations, however, that the keystore must be local for performance reasons and for which a remote
+keystore won't work (in particular around parachains). As such, the keystore has both a slot for remote but also always
+a local instance, where some operations hard bind to the local variant, while most subsystems just ask the generic
+keystore which prefers a remote signer if given. To reflect this change, `sc_service::new_full_parts` now returns a
+`KeystoreContainer` rather than the keystore, and the other subsystems (e.g. `sc_service::PartialComponents`) expect to
+be given that.
 
-###### on RPC:
+###### on RPC
 
-This has most visible changes for the rpc, where we are switching from the previous `KeyStorePtr` to the new `SyncCryptoStorePtr`:
+This has most visible changes for the rpc, where we are switching from the previous `KeyStorePtr` to the new
+`SyncCryptoStorePtr`:
 
 ```diff
 
@@ -483,9 +541,15 @@ This has most visible changes for the rpc, where we are switching from the previ
 
 ##### GRANDPA
 
-As already in the changelog, a few things significant things have changed in regards to GRANDPA: the finality tracker has been replaced, an RPC command has been added and WARP-sync-support for faster light client startup has been implemented. All this means we have to do a few changes to our GRANDPA setup procedures in the client.
+As already in the changelog, a few things significant things have changed in regards to GRANDPA: the finality tracker
+has been replaced, an RPC command has been added and WARP-sync-support for faster light client startup has been
+implemented. All this means we have to do a few changes to our GRANDPA setup procedures in the client.
 
-First and foremost, grandpa internalised a few aspects, and thus `new_partial` doesn't expect a tuple but only the `grandpa::SharedVoterState` as input now, and unpacking that again later is not needed anymore either. On the opposite side `grandpa::FinalityProofProvider::new_for_service` now requires the `Some(shared_authority_set)` to be passed as a new third parameter. This set also becomes relevant when adding warp-sync-support, which is added as an extra-protocol-layer to the networking as:
+First and foremost, grandpa internalised a few aspects, and thus `new_partial` doesn't expect a tuple but only the
+`grandpa::SharedVoterState` as input now, and unpacking that again later is not needed anymore either. On the opposite
+side `grandpa::FinalityProofProvider::new_for_service` now requires the `Some(shared_authority_set)` to be passed as a
+new third parameter. This set also becomes relevant when adding warp-sync-support, which is added as an
+extra-protocol-layer to the networking as:
 ```diff=
 
 +	config.network.extra_sets.push(grandpa::grandpa_peers_set_config());
@@ -496,11 +560,13 @@ First and foremost, grandpa internalised a few aspects, and thus `new_partial` d
 +	));
 ```
 
-As these changes pull through the entirety of `cli/src/service.rs`, we recommend looking at the final diff below for guidance.
+As these changes pull through the entirety of `cli/src/service.rs`, we recommend looking at the final diff below for
+guidance.
 
 ##### In a nutshell
 
-Altogether this accumulates to the following diff for `node/cli/src/service.rs`. If you want these features and have modified your chain you should probably try to apply these patches:
+Altogether this accumulates to the following diff for `node/cli/src/service.rs`. If you want these features and have
+modified your chain you should probably try to apply these patches:
 
 
 ```diff=

@@ -19,7 +19,7 @@ sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compres
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
 schnorrkel = "0.9.1"
-thiserror = "1.0.31"
+thiserror = "1.0.48"
 serde = { version = "1.0.188", features = ["derive"] }
 
 [target.'cfg(not(target_os = "unknown"))'.dependencies]

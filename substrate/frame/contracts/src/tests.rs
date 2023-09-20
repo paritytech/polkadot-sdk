@@ -564,7 +564,9 @@ where
 {
 	let fixture_path = [
 		// When `CARGO_MANIFEST_DIR` is not set, Rust resolves relative paths from the root folder
-		std::env::var("CARGO_MANIFEST_DIR").as_deref().unwrap_or("frame/contracts"),
+		std::env::var("CARGO_MANIFEST_DIR")
+			.as_deref()
+			.unwrap_or("substrate/frame/contracts"),
 		"/fixtures/",
 		fixture_name,
 		".wat",
@@ -856,6 +858,27 @@ fn deposit_event_max_value_limit() {
 				(<Test as Config>::Schedule::get().limits.payload_len + 1).encode(),
 			),
 			Error::<Test>::ValueTooLarge,
+		);
+	});
+}
+
+// Fail out of fuel (ref_time weight) inside the start function.
+#[test]
+fn run_out_of_fuel_start_fun() {
+	let (wasm, _code_hash) = compile_module::<Test>("run_out_of_gas_start_fn").unwrap();
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		assert_err_ignore_postinfo!(
+			Contracts::instantiate_with_code(
+				RuntimeOrigin::signed(ALICE),
+				0,
+				Weight::from_parts(1_000_000_000_000, u64::MAX),
+				None,
+				wasm,
+				vec![],
+				vec![],
+			),
+			Error::<Test>::OutOfGas,
 		);
 	});
 }

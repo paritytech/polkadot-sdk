@@ -100,10 +100,6 @@ mod worker_intf;
 #[cfg(feature = "test-utils")]
 pub mod testing;
 
-// Used by `decl_puppet_worker_main!`.
-#[cfg(feature = "test-utils")]
-pub use sp_tracing;
-
 pub use error::{InvalidCandidate, ValidationError};
 pub use host::{start, Config, ValidationHost, EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME};
 pub use metrics::Metrics;
@@ -116,12 +112,6 @@ pub use polkadot_node_core_pvf_common::{
 	prepare::{PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
 };
-
-// Re-export worker entrypoints.
-#[cfg(feature = "test-utils")]
-pub use polkadot_node_core_pvf_execute_worker::worker_entrypoint as execute_worker_entrypoint;
-#[cfg(feature = "test-utils")]
-pub use polkadot_node_core_pvf_prepare_worker::worker_entrypoint as prepare_worker_entrypoint;
 
 /// The log target for this crate.
 pub const LOG_TARGET: &str = "parachain::pvf";

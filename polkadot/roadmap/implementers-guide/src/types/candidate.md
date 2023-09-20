@@ -1,15 +1,18 @@
 # Candidate Types
 
-Para candidates are some of the most common types, both within the runtime and on the Node-side.
-Candidates are the fundamental datatype for advancing parachains, encapsulating the collator's signature, the context of the parablock, the commitments to the output, and a commitment to the data which proves it valid.
+Para candidates are some of the most common types, both within the runtime and on the Node-side. Candidates are the
+fundamental datatype for advancing parachains, encapsulating the collator's signature, the context of the parablock, the
+commitments to the output, and a commitment to the data which proves it valid.
 
-In a way, this entire guide is about these candidates: how they are scheduled, constructed, backed, included, and challenged.
+In a way, this entire guide is about these candidates: how they are scheduled, constructed, backed, included, and
+challenged.
 
 This section will describe the base candidate type, its components, and variants that contain extra data.
 
 ## Para Id
 
-A unique 32-bit identifier referring to a specific para (chain or thread). The relay-chain runtime guarantees that `ParaId`s are unique for the duration of any session, but recycling and reuse over a longer period of time is permitted.
+A unique 32-bit identifier referring to a specific para (chain or thread). The relay-chain runtime guarantees that
+`ParaId`s are unique for the duration of any session, but recycling and reuse over a longer period of time is permitted.
 
 ```rust
 struct ParaId(u32);
@@ -17,9 +20,12 @@ struct ParaId(u32);
 
 ## Candidate Receipt
 
-Much info in a [`FullCandidateReceipt`](#full-candidate-receipt) is duplicated from the relay-chain state. When the corresponding relay-chain state is considered widely available, the Candidate Receipt should be favored over the `FullCandidateReceipt`.
+Much info in a [`FullCandidateReceipt`](#full-candidate-receipt) is duplicated from the relay-chain state. When the
+corresponding relay-chain state is considered widely available, the Candidate Receipt should be favored over the
+`FullCandidateReceipt`.
 
-Examples of situations where the state is readily available includes within the scope of work done by subsystems working on a given relay-parent, or within the logic of the runtime importing a backed candidate.
+Examples of situations where the state is readily available includes within the scope of work done by subsystems working
+on a given relay-parent, or within the logic of the runtime importing a backed candidate.
 
 ```rust
 /// A candidate-receipt.
@@ -33,9 +39,13 @@ struct CandidateReceipt {
 
 ## Full Candidate Receipt
 
-This is the full receipt type. The `PersistedValidationData` are technically redundant with the `inner.relay_parent`, which uniquely describes the block in the blockchain from whose state these values are derived. The [`CandidateReceipt`](#candidate-receipt) variant is often used instead for this reason.
+This is the full receipt type. The `PersistedValidationData` are technically redundant with the `inner.relay_parent`,
+which uniquely describes the block in the blockchain from whose state these values are derived. The
+[`CandidateReceipt`](#candidate-receipt) variant is often used instead for this reason.
 
-However, the Full Candidate Receipt type is useful as a means of avoiding the implicit dependency on availability of old blockchain state. In situations such as availability and approval, having the full description of the candidate within a self-contained struct is convenient.
+However, the Full Candidate Receipt type is useful as a means of avoiding the implicit dependency on availability of old
+blockchain state. In situations such as availability and approval, having the full description of the candidate within a
+self-contained struct is convenient.
 
 ```rust
 /// All data pertaining to the execution of a para candidate.
@@ -47,9 +57,13 @@ struct FullCandidateReceipt {
 
 ## Committed Candidate Receipt
 
-This is a variant of the candidate receipt which includes the commitments of the candidate receipt alongside the descriptor. This should be favored over the [`Candidate Receipt`](#candidate-receipt) in situations where the candidate is not going to be executed but the actual data committed to is important. This is often the case in the backing phase.
+This is a variant of the candidate receipt which includes the commitments of the candidate receipt alongside the
+descriptor. This should be favored over the [`Candidate Receipt`](#candidate-receipt) in situations where the candidate
+is not going to be executed but the actual data committed to is important. This is often the case in the backing phase.
 
-The hash of the committed candidate receipt will be the same as the corresponding [`Candidate Receipt`](#candidate-receipt), because it is computed by first hashing the encoding of the commitments to form a plain [`Candidate Receipt`](#candidate-receipt).
+The hash of the committed candidate receipt will be the same as the corresponding [`Candidate
+Receipt`](#candidate-receipt), because it is computed by first hashing the encoding of the commitments to form a plain
+[`Candidate Receipt`](#candidate-receipt).
 
 ```rust
 /// A candidate-receipt with commitments directly included.
@@ -110,15 +124,24 @@ pub struct ValidationParams {
 
 ## `PersistedValidationData`
 
-The validation data provides information about how to create the inputs for validation of a candidate. This information is derived from the chain state and will vary from para to para, although some of the fields may be the same for every para.
+The validation data provides information about how to create the inputs for validation of a candidate. This information
+is derived from the chain state and will vary from para to para, although some of the fields may be the same for every
+para.
 
-Since this data is used to form inputs to the validation function, it needs to be persisted by the availability system to avoid dependence on availability of the relay-chain state.
+Since this data is used to form inputs to the validation function, it needs to be persisted by the availability system
+to avoid dependence on availability of the relay-chain state.
 
-Furthermore, the validation data acts as a way to authorize the additional data the collator needs to pass to the validation function. For example, the validation function can check whether the incoming messages (e.g. downward messages) were actually sent by using the data provided in the validation data using so called MQC heads.
+Furthermore, the validation data acts as a way to authorize the additional data the collator needs to pass to the
+validation function. For example, the validation function can check whether the incoming messages (e.g. downward
+messages) were actually sent by using the data provided in the validation data using so called MQC heads.
 
-Since the commitments of the validation function are checked by the relay-chain, approval checkers can rely on the invariant that the relay-chain only includes para-blocks for which these checks have already been done. As such, there is no need for the validation data used to inform validators and collators about the checks the relay-chain will perform to be persisted by the availability system.
+Since the commitments of the validation function are checked by the relay-chain, approval checkers can rely on the
+invariant that the relay-chain only includes para-blocks for which these checks have already been done. As such, there
+is no need for the validation data used to inform validators and collators about the checks the relay-chain will perform
+to be persisted by the availability system.
 
-The `PersistedValidationData` should be relatively lightweight primarily because it is constructed during inclusion for each candidate and therefore lies on the critical path of inclusion.
+The `PersistedValidationData` should be relatively lightweight primarily because it is constructed during inclusion for
+each candidate and therefore lies on the critical path of inclusion.
 
 ```rust
 struct PersistedValidationData {
@@ -150,7 +173,8 @@ struct HeadData(Vec<u8>);
 
 ## Candidate Commitments
 
-The execution and validation of parachain candidates produces a number of values which either must be committed to blocks on the relay chain or committed to the state of the relay chain.
+The execution and validation of parachain candidates produces a number of values which either must be committed to
+blocks on the relay chain or committed to the state of the relay chain.
 
 ```rust
 /// Commitments made in a `CandidateReceipt`. Many of these are outputs of validation.
@@ -174,7 +198,9 @@ struct CandidateCommitments {
 
 ## Signing Context
 
-This struct provides context to signatures by combining with various payloads to localize the signature to a particular session index and relay-chain hash. Having these fields included in the signature makes misbehavior attribution much simpler.
+This struct provides context to signatures by combining with various payloads to localize the signature to a particular
+session index and relay-chain hash. Having these fields included in the signature makes misbehavior attribution much
+simpler.
 
 ```rust
 struct SigningContext {
