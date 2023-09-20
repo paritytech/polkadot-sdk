@@ -42,7 +42,8 @@ run the node directly from the command-line.
 
 ## Building
 
-Since the Polkadot node is based on Substrate, first set up your build environment according to the instructions at [docs.substrate.io](https://docs.substrate.io/install/).
+Since the Polkadot node is based on Substrate, first set up your build environment according to the instructions at
+[docs.substrate.io](https://docs.substrate.io/install/).
 
 ### Install via Cargo
 
@@ -132,7 +133,9 @@ You can see your node on [telemetry] (set a custom name with `--name "my custom 
 ### Obtaining DOTs
 
 If you want to do anything on Polkadot, Kusama, or Westend, then you'll need to get an account and
-some DOT, KSM, or WND tokens, respectively. Follow the [instructions](https://wiki.polkadot.network/docs/learn-DOT#obtaining-testnet-tokens) on the Wiki to obtain tokens for your testnet of choice.
+some DOT, KSM, or WND tokens, respectively. Follow the
+[instructions](https://wiki.polkadot.network/docs/learn-DOT#obtaining-testnet-tokens) on the Wiki to obtain tokens for
+your testnet of choice.
 
 ## Hacking on Polkadot
 
