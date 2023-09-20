@@ -233,14 +233,19 @@ impl<Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + Part
 pub trait IdentityInformationProvider:
 	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo
 {
+	type IdentityField: Encode
+		+ Decode
+		+ MaxEncodedLen
+		+ Clone
+		+ Debug
+		+ Eq
+		+ PartialEq
+		+ TypeInfo
+		+ U64BitFlag;
+
 	fn has_identity(&self, fields: u64) -> bool;
 	#[cfg(feature = "runtime-benchmarks")]
 	fn create_identity_info() -> Self;
-}
-
-pub trait IdentityFieldProvider:
-	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag
-{
 }
 
 /// Information concerning the identity of the controller of an account.
@@ -255,21 +260,21 @@ pub trait IdentityFieldProvider:
 pub struct Registration<
 	Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
 	MaxJudgements: Get<u32>,
-	II: IdentityInformationProvider,
+	IdentityInfo: IdentityInformationProvider,
 > {
 	/// Judgements from the registrars on this identity. Stored ordered by `RegistrarIndex`. There
 	/// may be only a single judgement from each registrar.
 	pub judgements: BoundedVec<(RegistrarIndex, Judgement<Balance>), MaxJudgements>,
 
 	/// Information on the identity.
-	pub info: II,
+	pub info: IdentityInfo,
 }
 
 impl<
 		Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
 		MaxJudgements: Get<u32>,
-		II: IdentityInformationProvider,
-	> Decode for Registration<Balance, MaxJudgements, II>
+		IdentityInfo: IdentityInformationProvider,
+	> Decode for Registration<Balance, MaxJudgements, IdentityInfo>
 {
 	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
 		let (judgements, info) = Decode::decode(&mut AppendZerosInput::new(input))?;
@@ -282,7 +287,7 @@ impl<
 pub struct RegistrarInfo<
 	Balance: Encode + Decode + Clone + Debug + Eq + PartialEq,
 	AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq,
-	IdField: IdentityFieldProvider,
+	IdField: Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag,
 > {
 	/// The account of the registrar.
 	pub account: AccountId,
@@ -327,7 +332,10 @@ impl<IdField: Encode + Decode + U64BitFlag> Decode for IdentityFields<IdField> {
 		Ok(Self(<BitFlags<IdField>>::from_bits(field).map_err(|_| "invalid value")?))
 	}
 }
-impl<IdField: IdentityFieldProvider> TypeInfo for IdentityFields<IdField> {
+impl<
+		IdField: Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag,
+	> TypeInfo for IdentityFields<IdField>
+{
 	type Identity = Self;
 
 	fn type_info() -> Type {
