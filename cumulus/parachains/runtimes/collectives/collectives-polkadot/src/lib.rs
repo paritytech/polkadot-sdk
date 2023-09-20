@@ -20,7 +20,7 @@
 //!
 //! ### Governance
 //!
-//! As a common good parachain, Collectives defers its governance (namely, its `Root` origin), to
+//! As a system parachain, Collectives defers its governance (namely, its `Root` origin), to
 //! its Relay Chain parent, Polkadot.
 //!
 //! ### Collator Selection
