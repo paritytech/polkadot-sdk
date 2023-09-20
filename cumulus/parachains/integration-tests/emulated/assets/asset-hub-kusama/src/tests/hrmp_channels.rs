@@ -108,8 +108,6 @@ fn open_hrmp_channel_between_paras_works() {
 		PenpalKusamaB::assert_xcm_pallet_sent();
 	});
 
-	PenpalKusamaB::execute_with(|| {});
-
 	Kusama::execute_with(|| {
 		type RuntimeEvent = <Kusama as Chain>::RuntimeEvent;
 
