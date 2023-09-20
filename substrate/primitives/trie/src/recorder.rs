@@ -80,7 +80,7 @@ impl<H> Default for RecorderInner<H> {
 
 /// The trie recorder.
 ///
-/// Owns a [`RecorderInner`] containing the recorded data. Is used to transform data into a storage
+/// Owns the recorded data. Is used to transform data into a storage
 /// proof and to provide transaction support. The `as_trie_recorder` method provides a
 /// [`trie_db::TrieDB`] compatible recorder that implements the actual recording logic.
 pub struct Recorder<H: Hasher> {
