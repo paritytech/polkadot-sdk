@@ -2514,7 +2514,7 @@ fn validate_blocks<Block: BlockT>(
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::{mock::MockBlockDownloader, service::network::NetworkServiceProvider};
+	use crate::service::network::NetworkServiceProvider;
 	use futures::executor::block_on;
 	use sc_block_builder::BlockBuilderProvider;
 	use sc_network_common::{
@@ -2669,9 +2669,11 @@ mod test {
 		let block_requests = sync.restart();
 
 		// which should make us send out block requests to the first two peers
-		assert!(block_requests
-			.map(|r| r.unwrap())
-			.all(|(p, _)| { p == peer_id1 || p == peer_id2 }));
+		assert!(block_requests.map(|r| r.unwrap()).all(
+			|PeerBlockRequest { peer_id, request, .. }| {
+				(peer_id == peer_id1 || peer_id == peer_id2) && request.is_some()
+			}
+		));
 
 		// peer 3 should be unaffected it was downloading finality data
 		assert_eq!(
@@ -3455,10 +3457,14 @@ mod test {
 		// add new peer and request blocks from them
 		sync.new_peer(peers[0], Hash::random(), 42).unwrap();
 
+		// we don't actually perform any requests, just keep track of peers waiting for a response
+		let mut pending_responses = HashSet::new();
+
 		// we wil send block requests to these peers
 		// for these blocks we don't know about
-		for (peer, request) in sync.block_requests() {
-			sync.send_block_request(peer, request);
+		for (peer, _request) in sync.block_requests() {
+			// "send" request
+			pending_responses.insert(peer);
 		}
 
 		// add a new peer at a known block
@@ -3471,8 +3477,9 @@ mod test {
 		// new peer which is at the given block
 		let mut requests = sync.justification_requests();
 		assert_eq!(requests.len(), 1);
-		let (peer, request) = requests.remove(0);
-		sync.send_block_request(peer, request);
+		let (peer, _request) = requests.remove(0);
+		// "send" request
+		assert!(pending_responses.insert(peer));
 
 		assert!(!std::matches!(
 			sync.peers.get(&peers[0]).unwrap().state,
@@ -3482,18 +3489,26 @@ mod test {
 			sync.peers.get(&peers[1]).unwrap().state,
 			PeerSyncState::DownloadingJustification(b1_hash),
 		);
-		assert_eq!(sync.pending_responses.len(), 2);
+		assert_eq!(pending_responses.len(), 2);
 
+		// restart sync
 		let requests = sync.restart().collect::<Vec<_>>();
-		assert!(requests.iter().any(|res| res.as_ref().unwrap().0 == peers[0]));
+		for request in requests.iter() {
+			let PeerBlockRequest { peer_id, request: _, drop_pending_response } =
+				request.as_ref().unwrap();
+			drop_pending_response.then(|| pending_responses.remove(&peer_id));
+		}
+		assert!(requests.iter().any(|res| res.as_ref().unwrap().peer_id == peers[0] &&
+			res.as_ref().unwrap().request.is_some()));
 
-		assert_eq!(sync.pending_responses.len(), 1);
-		assert!(sync.pending_responses.get(&peers[1]).is_some());
+		assert_eq!(pending_responses.len(), 1);
+		assert!(pending_responses.contains(&peers[1]));
 		assert_eq!(
 			sync.peers.get(&peers[1]).unwrap().state,
 			PeerSyncState::DownloadingJustification(b1_hash),
 		);
 		sync.peer_disconnected(&peers[1]);
-		assert_eq!(sync.pending_responses.len(), 0);
+		pending_responses.remove(&peers[1]);
+		assert_eq!(pending_responses.len(), 0);
 	}
 }
