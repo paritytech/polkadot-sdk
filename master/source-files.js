@@ -237,7 +237,7 @@ var sourcesIndex = JSON.parse('{\
 "polkadot_approval_distribution":["",[],["lib.rs","metrics.rs"]],\
 "polkadot_availability_bitfield_distribution":["",[],["lib.rs","metrics.rs"]],\
 "polkadot_availability_distribution":["",[["pov_requester",[],["mod.rs"]],["requester",[["fetch_task",[],["mod.rs"]]],["mod.rs","session_cache.rs"]]],["error.rs","lib.rs","metrics.rs","responder.rs"]],\
-"polkadot_availability_recovery":["",[],["error.rs","futures_undead.rs","lib.rs","metrics.rs"]],\
+"polkadot_availability_recovery":["",[],["error.rs","futures_undead.rs","lib.rs","metrics.rs","task.rs"]],\
 "polkadot_cli":["",[],["cli.rs","command.rs","error.rs","lib.rs"]],\
 "polkadot_collator_protocol":["",[["collator_side",[],["collation.rs","metrics.rs","mod.rs","validators_buffer.rs"]],["validator_side",[],["collation.rs","metrics.rs","mod.rs"]]],["error.rs","lib.rs"]],\
 "polkadot_core_primitives":["",[],["lib.rs"]],\

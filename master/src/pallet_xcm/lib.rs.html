@@ -2230,34 +2230,6 @@
 <a href="#2230" id="2230">2230</a>
 <a href="#2231" id="2231">2231</a>
 <a href="#2232" id="2232">2232</a>
-<a href="#2233" id="2233">2233</a>
-<a href="#2234" id="2234">2234</a>
-<a href="#2235" id="2235">2235</a>
-<a href="#2236" id="2236">2236</a>
-<a href="#2237" id="2237">2237</a>
-<a href="#2238" id="2238">2238</a>
-<a href="#2239" id="2239">2239</a>
-<a href="#2240" id="2240">2240</a>
-<a href="#2241" id="2241">2241</a>
-<a href="#2242" id="2242">2242</a>
-<a href="#2243" id="2243">2243</a>
-<a href="#2244" id="2244">2244</a>
-<a href="#2245" id="2245">2245</a>
-<a href="#2246" id="2246">2246</a>
-<a href="#2247" id="2247">2247</a>
-<a href="#2248" id="2248">2248</a>
-<a href="#2249" id="2249">2249</a>
-<a href="#2250" id="2250">2250</a>
-<a href="#2251" id="2251">2251</a>
-<a href="#2252" id="2252">2252</a>
-<a href="#2253" id="2253">2253</a>
-<a href="#2254" id="2254">2254</a>
-<a href="#2255" id="2255">2255</a>
-<a href="#2256" id="2256">2256</a>
-<a href="#2257" id="2257">2257</a>
-<a href="#2258" id="2258">2258</a>
-<a href="#2259" id="2259">2259</a>
-<a href="#2260" id="2260">2260</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3047,6 +3019,8 @@
 
 		<span class="doccomment">/// Teleport some assets from the local chain to some destination chain.
 		///
+		/// **This function is deprecated: Use `limited_teleport_assets` instead.**
+		///
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
 		/// index `fee_asset_item`. The weight limit for fees is not provided and thus is unlimited,
 		/// with all fees taken as needed from the asset.
@@ -3090,11 +3064,13 @@
 			assets: Box&lt;VersionedMultiAssets&gt;,
 			fee_asset_item: u32,
 		) -&gt; DispatchResult {
-			<span class="self">Self</span>::do_teleport_assets(origin, dest, beneficiary, assets, fee_asset_item, <span class="prelude-val">None</span>)
+			<span class="self">Self</span>::do_teleport_assets(origin, dest, beneficiary, assets, fee_asset_item, Unlimited)
 		}
 
 		<span class="doccomment">/// Transfer some assets from the local chain to the sovereign account of a destination
 		/// chain and forward a notification XCM.
+		///
+		/// **This function is deprecated: Use `limited_reserve_transfer_assets` instead.**
 		///
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
 		/// index `fee_asset_item`. The weight limit for fees is not provided and thus is unlimited,
@@ -3139,7 +3115,7 @@
 				beneficiary,
 				assets,
 				fee_asset_item,
-				<span class="prelude-val">None</span>,
+				Unlimited,
 			)
 		}
 
@@ -3315,7 +3291,7 @@
 				beneficiary,
 				assets,
 				fee_asset_item,
-				<span class="prelude-val">Some</span>(weight_limit),
+				weight_limit,
 			)
 		}
 
@@ -3369,7 +3345,7 @@
 				beneficiary,
 				assets,
 				fee_asset_item,
-				<span class="prelude-val">Some</span>(weight_limit),
+				weight_limit,
 			)
 		}
 
@@ -3457,7 +3433,7 @@
 		beneficiary: Box&lt;VersionedMultiLocation&gt;,
 		assets: Box&lt;VersionedMultiAssets&gt;,
 		fee_asset_item: u32,
-		maybe_weight_limit: <span class="prelude-ty">Option</span>&lt;WeightLimit&gt;,
+		weight_limit: WeightLimit,
 	) -&gt; DispatchResult {
 		<span class="kw">let </span>origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 		<span class="kw">let </span>dest = (<span class="kw-2">*</span>dest).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
@@ -3478,22 +3454,6 @@
 			.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::CannotReanchor)<span class="question-mark">?</span>;
 		<span class="kw">let </span>max_assets = assets.len() <span class="kw">as </span>u32;
 		<span class="kw">let </span>assets: MultiAssets = assets.into();
-		<span class="kw">let </span>weight_limit = <span class="kw">match </span>maybe_weight_limit {
-			<span class="prelude-val">Some</span>(weight_limit) =&gt; weight_limit,
-			<span class="prelude-val">None </span>=&gt; {
-				<span class="kw">let </span>fees = fees.clone();
-				<span class="kw">let </span><span class="kw-2">mut </span>remote_message = Xcm(<span class="macro">vec!</span>[
-					ReserveAssetDeposited(assets.clone()),
-					ClearOrigin,
-					BuyExecution { fees, weight_limit: Limited(Weight::zero()) },
-					DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
-				]);
-				<span class="comment">// use local weight for remote message and hope for the best.
-				</span><span class="kw">let </span>remote_weight = T::Weigher::weight(<span class="kw-2">&amp;mut </span>remote_message)
-					.map_err(|()| Error::&lt;T&gt;::UnweighableMessage)<span class="question-mark">?</span>;
-				Limited(remote_weight)
-			},
-		};
 		<span class="kw">let </span>xcm = Xcm(<span class="macro">vec!</span>[
 			BuyExecution { fees, weight_limit },
 			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
@@ -3517,7 +3477,7 @@
 		beneficiary: Box&lt;VersionedMultiLocation&gt;,
 		assets: Box&lt;VersionedMultiAssets&gt;,
 		fee_asset_item: u32,
-		maybe_weight_limit: <span class="prelude-ty">Option</span>&lt;WeightLimit&gt;,
+		weight_limit: WeightLimit,
 	) -&gt; DispatchResult {
 		<span class="kw">let </span>origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 		<span class="kw">let </span>dest = (<span class="kw-2">*</span>dest).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
@@ -3538,22 +3498,6 @@
 			.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::CannotReanchor)<span class="question-mark">?</span>;
 		<span class="kw">let </span>max_assets = assets.len() <span class="kw">as </span>u32;
 		<span class="kw">let </span>assets: MultiAssets = assets.into();
-		<span class="kw">let </span>weight_limit = <span class="kw">match </span>maybe_weight_limit {
-			<span class="prelude-val">Some</span>(weight_limit) =&gt; weight_limit,
-			<span class="prelude-val">None </span>=&gt; {
-				<span class="kw">let </span>fees = fees.clone();
-				<span class="kw">let </span><span class="kw-2">mut </span>remote_message = Xcm(<span class="macro">vec!</span>[
-					ReceiveTeleportedAsset(assets.clone()),
-					ClearOrigin,
-					BuyExecution { fees, weight_limit: Limited(Weight::zero()) },
-					DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
-				]);
-				<span class="comment">// use local weight for remote message and hope for the best.
-				</span><span class="kw">let </span>remote_weight = T::Weigher::weight(<span class="kw-2">&amp;mut </span>remote_message)
-					.map_err(|()| Error::&lt;T&gt;::UnweighableMessage)<span class="question-mark">?</span>;
-				Limited(remote_weight)
-			},
-		};
 		<span class="kw">let </span>xcm = Xcm(<span class="macro">vec!</span>[
 			BuyExecution { fees, weight_limit },
 			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },

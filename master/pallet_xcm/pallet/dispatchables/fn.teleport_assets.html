@@ -4,6 +4,7 @@
     assets: <a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;<a class="enum" href="../../../staging_xcm/enum.VersionedMultiAssets.html" title="enum staging_xcm::VersionedMultiAssets">VersionedMultiAssets</a>&gt;,
     fee_asset_item: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u32.html">u32</a>
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Teleport some assets from the local chain to some destination chain.</p>
+<p><strong>This function is deprecated: Use <code>limited_teleport_assets</code> instead.</strong></p>
 <p>Fee payment on the destination side is made from the asset in the <code>assets</code> vector of
 index <code>fee_asset_item</code>. The weight limit for fees is not provided and thus is unlimited,
 with all fees taken as needed from the asset.</p>
