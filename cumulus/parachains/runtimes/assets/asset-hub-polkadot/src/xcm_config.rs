@@ -29,6 +29,7 @@ use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{impls::ToStakingPot, xcm_config::AssetFeeAsExistentialDepositMultiplier};
 use polkadot_parachain_primitives::primitives::Sibling;
+use sp_core::crypto::Ss58AddressFormat;
 use sp_runtime::traits::ConvertInto;
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -71,6 +72,26 @@ pub type LocationToAccountId = (
 	// description.
 	HashedDescription<AccountId, DescribeFamily<DescribePalletTerminal>>,
 );
+
+#[test]
+fn print_account_addresses() {
+	use sp_core::crypto::Ss58Codec;
+	use xcm_executor::traits::ConvertLocation;
+
+	let f = Ss58AddressFormat::custom(0);
+
+	let collectives_ambassador_salary =
+		MultiLocation::new(1, X2(Parachain(1001), PalletInstance(74)));
+	let ambassador_salary =
+		LocationToAccountId::convert_location(&collectives_ambassador_salary).unwrap();
+	println!("{}", ambassador_salary.to_ss58check_with_version(f));
+
+	let collectives_fellowship_salary =
+		MultiLocation::new(1, X2(Parachain(1001), PalletInstance(64)));
+	let fellowship_salary =
+		LocationToAccountId::convert_location(&collectives_fellowship_salary).unwrap();
+	println!("{}", fellowship_salary.to_ss58check_with_version(f));
+}
 
 /// Means for transacting the native currency on this chain.
 pub type CurrencyTransactor = CurrencyAdapter<
