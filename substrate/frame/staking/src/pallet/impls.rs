@@ -297,7 +297,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Actually make a payment to a staker. This uses the currency's reward function
 	/// to pay the right payee for the given staker account.
-	fn make_payout(stash: &T::AccountId, amount: BalanceOf<T>) -> Option<(PositiveImbalanceOf<T>, PayoutDestination<T::AccountId>)> {
+	fn make_payout(
+		stash: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> Option<(PositiveImbalanceOf<T>, PayoutDestination<T::AccountId>)> {
 		// NOTE: temporary getter while `Payee` -> `Payees` lazy migration is taking place.
 		// Can replace with `dest = Self:payees(stash);` once migration is done.
 		let dest = Self::bonded(stash)
@@ -335,7 +338,7 @@ impl<T: Config> Pallet<T> {
 				Some(T::Currency::deposit_creating(&deposit_to, amount)),
 			PayoutDestination::Forgo => None,
 		};
-		
+
 		maybe_imbalance.map(|imbalance| (imbalance, Self::payees(stash)))
 	}
 
