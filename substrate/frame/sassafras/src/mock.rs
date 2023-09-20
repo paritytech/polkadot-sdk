@@ -39,6 +39,8 @@ use sp_runtime::{
 const SLOT_DURATION: u64 = 1000;
 const EPOCH_DURATION: u64 = 10;
 
+pub const LOG_TARGET: &str = "sassafras::tests";
+
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -130,7 +132,7 @@ pub fn new_test_ext_with_pairs(
 
 	if with_ring_context {
 		ext.execute_with(|| {
-			log::debug!("Building new testing ring context");
+			log::debug!(target: LOG_TARGET, "Building new testing ring context");
 			let ring_ctx = vrf::RingContext::new_testing();
 			RingContext::<Test>::set(Some(ring_ctx.clone()));
 		});

@@ -258,6 +258,9 @@ pub mod pallet {
 	#[pallet::getter(fn ring_context)]
 	pub type RingContext<T: Config> = StorageValue<_, vrf::RingContext>;
 
+	#[pallet::storage]
+	pub type RingVerifierData<T: Config> = StorageValue<_, vrf::RingVerifierData>;
+
 	/// Genesis configuration for Sassafras protocol.
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -323,6 +326,7 @@ pub mod pallet {
 			RandomnessVrfOutput::<T>::put(vrf_output);
 
 			// Enact epoch change, if necessary.
+
 			T::EpochChangeTrigger::trigger::<T>(now);
 
 			Weight::zero()
@@ -381,19 +385,12 @@ pub mod pallet {
 
 			debug!(target: LOG_TARGET, "Received {} tickets", tickets.len());
 
-			debug!(target: LOG_TARGET, "LOADING RING CTX");
-			let Some(ring_ctx) = RingContext::<T>::get() else {
+			debug!(target: LOG_TARGET, "Loading ring-verifier");
+			let Some(verifier) = RingVerifierData::<T>::get().map(|vd| vd.into()) else {
 				return Err("Ring context not initialized".into())
 			};
-			debug!(target: LOG_TARGET, "... Loaded");
 
 			let next_authorities = Self::next_authorities();
-			// TODO @davxy this should be done once per epoch.
-			// For this we need the `ProofVerifier` to be serializable @svasilyev
-			let pks: Vec<_> = next_authorities.iter().map(|auth| *auth.as_ref()).collect();
-			debug!(target: LOG_TARGET, "Building verifier. Ring size {}", pks.len());
-			let verifier = ring_ctx.verifier(pks.as_slice()).unwrap();
-			debug!(target: LOG_TARGET, "... Built");
 
 			// Check tickets score
 			let next_config = Self::next_config().unwrap_or_else(|| Self::config());
@@ -639,12 +636,12 @@ impl<T: Config> Pallet<T> {
 
 		let pks: Vec<_> = authorities.iter().map(|auth| *auth.as_ref()).collect();
 
-		debug!(target: LOG_TARGET, "Building ring verifier (ring size {}", pks.len());
-		let _verifier = ring_ctx
-			.verifier(pks.as_slice())
+		debug!(target: LOG_TARGET, "Building ring verifier (ring-size: {})", pks.len());
+		let verifier_data = ring_ctx
+			.verifier_data(pks.as_slice())
 			.expect("Failed to build ring verifier. This is a bug");
 
-		// TODO: Persist the verifier...
+		RingVerifierData::<T>::put(verifier_data);
 	}
 
 	/// Enact an epoch change.
@@ -657,6 +654,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// If we detect one or more skipped epochs the policy is to use the authorities and values
 	/// from the first skipped epoch. The tickets are invalidated.
+	// TODO @davxy just take a reference to the vectors
 	pub(crate) fn enact_epoch_change(
 		authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 		next_authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
@@ -806,14 +804,17 @@ impl<T: Config> Pallet<T> {
 
 		GenesisSlot::<T>::put(genesis_slot);
 
+		let next_authorities = Self::next_authorities().to_vec();
+		Self::update_ring_verifier(&next_authorities);
+
 		// Deposit a log because this is the first block in epoch #0.
 		// We use the same values as genesis because we haven't collected any randomness yet.
-		let next = NextEpochDescriptor {
-			authorities: Self::authorities().to_vec(),
+		let next_epoch = NextEpochDescriptor {
+			authorities: next_authorities,
 			randomness: Self::randomness(),
 			config: None,
 		};
-		Self::deposit_consensus(ConsensusLog::NextEpochData(next));
+		Self::deposit_consensus(ConsensusLog::NextEpochData(next_epoch));
 	}
 
 	/// Current epoch information.
@@ -1054,7 +1055,6 @@ impl EpochChangeTrigger for EpochChangeInternalTrigger {
 		if <Pallet<T>>::should_end_epoch(now) {
 			let authorities = <Pallet<T>>::authorities();
 			let next_authorities = authorities.clone();
-
 			<Pallet<T>>::enact_epoch_change(authorities, next_authorities);
 		}
 	}

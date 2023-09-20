@@ -48,14 +48,17 @@ mod benchmarks {
 
 		log::debug!(target: LOG_TARGET, "PreBuiltTickets: {} tickets, {} authorities", tickets.len(), authorities.len());
 
+		Pallet::<T>::update_ring_verifier(&authorities);
+
+		let next_config = EpochConfiguration { attempts_number: 20, redundancy_factor: u32::MAX };
+		NextEpochConfig::<T>::set(Some(next_config));
+
+		// Use the authorities in the pre-build tickets
 		let authorities = WeakBoundedVec::force_from(authorities, None);
-		Authorities::<T>::set(authorities);
+		NextAuthorities::<T>::set(authorities);
 
 		let tickets = tickets[..tickets_count].to_vec();
 		let tickets = BoundedVec::truncate_from(tickets);
-
-		let ring_ctx = vrf::RingContext::new_testing();
-		RingContext::<T>::set(Some(ring_ctx));
 
 		log::debug!(target: LOG_TARGET, "Submitting {} tickets", tickets_count);
 
