@@ -82,7 +82,7 @@ impl syn::parse::Parse for TaskDef {
 				return false
 			};
 			// N.B: the `PartialEq` impl between `Ident` and `&str` is more efficient than
-			// parsing and makes no allocations
+			// parsing and makes no stack or heap allocations
 			prefix == "pallet" &&
 				(suffix == "tasks" ||
 					suffix == "task_list" ||
