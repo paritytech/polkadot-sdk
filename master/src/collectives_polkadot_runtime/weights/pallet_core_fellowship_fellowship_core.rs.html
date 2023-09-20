@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/parachains/runtimes/collectives/collectives-polkadot/src/weights/pallet_core_fellowship.rs`."><title>pallet_core_fellowship.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ba5701c5741a7b69.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="collectives_polkadot_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0 (90c541806 2023-05-31)" data-search-js="search-e077946657036a58.js" data-settings-js="settings-298e1ea74db45b39.js" data-settings-css="settings-7bfb4c59cc6bc502.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../../static.files/source-script-905937fbbdc8e9ea.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-f61008743c98d196.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../collectives_polkadot_runtime/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/parachains/runtimes/collectives/collectives-polkadot/src/weights/pallet_core_fellowship_fellowship_core.rs`."><title>pallet_core_fellowship_fellowship_core.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ba5701c5741a7b69.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="collectives_polkadot_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0 (90c541806 2023-05-31)" data-search-js="search-e077946657036a58.js" data-settings-js="settings-298e1ea74db45b39.js" data-settings-css="settings-7bfb4c59cc6bc502.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../../static.files/source-script-905937fbbdc8e9ea.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-f61008743c98d196.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../collectives_polkadot_runtime/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -221,9 +221,6 @@
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -243,24 +240,21 @@
 </span><span class="doccomment">//! Autogenerated weights for `pallet_core_fellowship`
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
-//! DATE: 2023-07-31, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
+//! DATE: 2023-08-11, STEPS: `2`, REPEAT: `2`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `runner-ynta1nyy-project-238-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
-//! EXECUTION: ``, WASM-EXECUTION: `Compiled`, CHAIN: `Some(&quot;collectives-polkadot-dev&quot;)`, DB CACHE: 1024
+//! HOSTNAME: `cob`, CPU: `&lt;UNKNOWN&gt;`
+//! WASM-EXECUTION: `Compiled`, CHAIN: `Some(&quot;collectives-polkadot-dev&quot;)`, DB CACHE: 1024
 
 </span><span class="comment">// Executed Command:
-// ./target/production/polkadot-parachain
+// target/release/polkadot-parachain
 // benchmark
 // pallet
 // --chain=collectives-polkadot-dev
 // --wasm-execution=compiled
 // --pallet=pallet_core_fellowship
-// --no-storage-info
-// --no-median-slopes
-// --no-min-squares
 // --extrinsic=*
-// --steps=50
-// --repeat=20
+// --steps=2
+// --repeat=2
 // --json
 // --header=./file_header.txt
 // --output=./parachains/runtimes/collectives/collectives-polkadot/src/weights/
@@ -282,8 +276,8 @@
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 9_077_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">9_356_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 11_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">12_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
 	}
@@ -301,10 +295,10 @@
 	/// Proof: `FellowshipCore::MemberEvidence` (`max_values`: None, `max_size`: Some(65581), added: 68056, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>bump_offboard() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `66111`
+		//  Measured:  `66144`
 		//  Estimated: `69046`
-		// Minimum execution time: 128_419_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">149_318_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 109_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">125_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">69046</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">6</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">4</span>))
@@ -323,10 +317,10 @@
 	/// Proof: `FellowshipCore::MemberEvidence` (`max_values`: None, `max_size`: Some(65581), added: 68056, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>bump_demote() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `66221`
+		//  Measured:  `66254`
 		//  Estimated: `69046`
-		// Minimum execution time: 127_629_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">130_928_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 112_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">114_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">69046</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">6</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">4</span>))
@@ -337,10 +331,10 @@
 	/// Proof: `FellowshipCore::Member` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>set_active() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `460`
+		//  Measured:  `493`
 		//  Estimated: `3514`
-		// Minimum execution time: 18_655_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">19_331_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 22_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">27_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">3514</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">2</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
@@ -357,10 +351,10 @@
 	/// Proof: `FellowshipCollective::IdToIndex` (`max_values`: None, `max_size`: Some(54), added: 2529, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>induct() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `218`
+		//  Measured:  `251`
 		//  Estimated: `3514`
-		// Minimum execution time: 28_764_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">29_385_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 35_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">36_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">3514</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">3</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">5</span>))
@@ -381,10 +375,10 @@
 	/// Proof: `FellowshipCollective::IdToIndex` (`max_values`: None, `max_size`: Some(54), added: 2529, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>promote() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `66089`
+		//  Measured:  `66122`
 		//  Estimated: `69046`
-		// Minimum execution time: 123_179_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">125_302_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 97_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">129_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">69046</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">5</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">6</span>))
@@ -397,10 +391,10 @@
 	/// Proof: `FellowshipCore::MemberEvidence` (`max_values`: None, `max_size`: Some(65581), added: 68056, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>offboard() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `431`
+		//  Measured:  `464`
 		//  Estimated: `3514`
-		// Minimum execution time: 19_700_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">20_319_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 22_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">22_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">3514</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">2</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">2</span>))
@@ -411,10 +405,10 @@
 	/// Proof: `FellowshipCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>import() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `385`
+		//  Measured:  `418`
 		//  Estimated: `3514`
-		// Minimum execution time: 18_048_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">18_345_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 20_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">24_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">3514</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">2</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
@@ -427,10 +421,10 @@
 	/// Proof: `FellowshipCore::MemberEvidence` (`max_values`: None, `max_size`: Some(65581), added: 68056, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>approve() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `66067`
+		//  Measured:  `66100`
 		//  Estimated: `69046`
-		// Minimum execution time: 108_578_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">111_311_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 89_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">119_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">69046</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">3</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">2</span>))
@@ -441,10 +435,10 @@
 	/// Proof: `FellowshipCore::MemberEvidence` (`max_values`: None, `max_size`: Some(65581), added: 68056, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>submit_evidence() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `151`
+		//  Measured:  `184`
 		//  Estimated: `69046`
-		// Minimum execution time: 94_484_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">97_930_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 43_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">52_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">69046</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">2</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))

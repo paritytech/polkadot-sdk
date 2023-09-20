@@ -237,14 +237,6 @@
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -267,11 +259,12 @@
 <span class="kw">mod </span>origins;
 <span class="kw">mod </span>tracks;
 <span class="kw">use crate</span>::{
-	impls::ToParentTreasury, weights, AccountId, Balance, Balances, FellowshipReferenda,
-	GovernanceLocation, PolkadotTreasuryAccount, Preimage, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, Scheduler, DAYS,
+	impls::ToParentTreasury,
+	weights,
+	xcm_config::{FellowshipAdminBodyId, UsdtAssetHub},
+	AccountId, Balance, Balances, FellowshipReferenda, GovernanceLocation, PolkadotTreasuryAccount,
+	Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, DAYS,
 };
-<span class="kw">use </span>cumulus_primitives_core::Junction::GeneralIndex;
 <span class="kw">use </span>frame_support::{
 	parameter_types,
 	traits::{EitherOf, EitherOfDiverse, MapSuccess, OriginTrait, TryWithMorphedArg},
@@ -283,12 +276,10 @@
 };
 <span class="kw">use </span>pallet_ranked_collective::EnsureOfRank;
 <span class="kw">use </span>pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-<span class="kw">use </span>parachains_common::polkadot::account;
-<span class="kw">use </span>polkadot_runtime_constants::{time::HOURS, xcm::body::FELLOWSHIP_ADMIN_INDEX};
+<span class="kw">use </span>parachains_common::{polkadot::account, HOURS};
 <span class="kw">use </span>sp_core::{ConstU128, ConstU32};
 <span class="kw">use </span>sp_runtime::traits::{AccountIdConversion, ConstU16, ConvertToValue, Replace, TakeFirst};
-<span class="kw">use </span>xcm::latest::BodyId;
-<span class="kw">use </span>xcm_builder::{AliasesIntoAccountId32, LocatableAssetId, PayOverXcm};
+<span class="kw">use </span>xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::impls::benchmarks::{OpenHrmpChannel, PayWithEnsure};
@@ -311,7 +302,6 @@
 <span class="macro">parameter_types! </span>{
 	<span class="comment">// Referenda pallet account, used to temporarily deposit slashed imbalance before teleporting.
 	</span><span class="kw">pub </span>ReferendaPalletAccount: AccountId = account::REFERENDA_PALLET_ID.into_account_truncating();
-	<span class="kw">pub const </span>FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
 }
 
 <span class="kw">impl </span>pallet_fellowship_origins::Config <span class="kw">for </span>Runtime {}
@@ -319,7 +309,7 @@
 <span class="kw">pub type </span>FellowshipReferendaInstance = pallet_referenda::Instance1;
 
 <span class="kw">impl </span>pallet_referenda::Config&lt;FellowshipReferendaInstance&gt; <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>WeightInfo = weights::pallet_referenda::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::pallet_referenda_fellowship_referenda::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>RuntimeCall = RuntimeCall;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Scheduler = Scheduler;
@@ -354,7 +344,7 @@
 <span class="kw">pub type </span>FellowshipCollectiveInstance = pallet_ranked_collective::Instance1;
 
 <span class="kw">impl </span>pallet_ranked_collective::Config&lt;FellowshipCollectiveInstance&gt; <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>WeightInfo = weights::pallet_ranked_collective::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::pallet_ranked_collective_fellowship_collective::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 
 	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
@@ -386,7 +376,7 @@
 <span class="kw">pub type </span>FellowshipCoreInstance = pallet_core_fellowship::Instance1;
 
 <span class="kw">impl </span>pallet_core_fellowship::Config&lt;FellowshipCoreInstance&gt; <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>WeightInfo = weights::pallet_core_fellowship::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::pallet_core_fellowship_fellowship_core::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Members = pallet_ranked_collective::Pallet&lt;Runtime, FellowshipCollectiveInstance&gt;;
 	<span class="kw">type </span>Balance = Balance;
@@ -444,12 +434,6 @@
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>AssetHub: MultiLocation = (Parent, Parachain(<span class="number">1000</span>)).into();
-	<span class="kw">pub </span>AssetHubUsdtId: AssetId = (PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1984</span>)).into();
-	<span class="kw">pub </span>UsdtAsset: LocatableAssetId = LocatableAssetId {
-		location: AssetHub::get(),
-		asset_id: AssetHubUsdtId::get(),
-	};
 	<span class="comment">// The interior location on AssetHub for the paying account. This is the Fellowship Salary
 	// pallet instance (which sits at index 64). This sovereign account will need funding.
 	</span><span class="kw">pub </span>Interior: InteriorMultiLocation = PalletInstance(<span class="number">64</span>).into();
@@ -465,12 +449,12 @@
 	ConstU32&lt;{ <span class="number">6 </span>* HOURS }&gt;,
 	AccountId,
 	(),
-	ConvertToValue&lt;UsdtAsset&gt;,
+	ConvertToValue&lt;UsdtAssetHub&gt;,
 	AliasesIntoAccountId32&lt;(), AccountId&gt;,
 &gt;;
 
 <span class="kw">impl </span>pallet_salary::Config&lt;FellowshipSalaryInstance&gt; <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>WeightInfo = weights::pallet_salary::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::pallet_salary_fellowship_salary::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 
 	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]

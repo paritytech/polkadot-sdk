@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/parachains/runtimes/collectives/collectives-polkadot/src/weights/pallet_referenda.rs`."><title>pallet_referenda.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ba5701c5741a7b69.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="collectives_polkadot_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0 (90c541806 2023-05-31)" data-search-js="search-e077946657036a58.js" data-settings-js="settings-298e1ea74db45b39.js" data-settings-css="settings-7bfb4c59cc6bc502.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../../static.files/source-script-905937fbbdc8e9ea.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-f61008743c98d196.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../collectives_polkadot_runtime/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/parachains/runtimes/collectives/collectives-polkadot/src/weights/pallet_referenda_ambassador_referenda.rs`."><title>pallet_referenda_ambassador_referenda.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ba5701c5741a7b69.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="collectives_polkadot_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0 (90c541806 2023-05-31)" data-search-js="search-e077946657036a58.js" data-settings-js="settings-298e1ea74db45b39.js" data-settings-css="settings-7bfb4c59cc6bc502.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../../static.files/source-script-905937fbbdc8e9ea.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-f61008743c98d196.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../collectives_polkadot_runtime/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -534,10 +534,7 @@
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-</pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
+</pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -556,24 +553,21 @@
 </span><span class="doccomment">//! Autogenerated weights for `pallet_referenda`
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
-//! DATE: 2023-07-31, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
+//! DATE: 2023-08-11, STEPS: `2`, REPEAT: `2`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `runner-ynta1nyy-project-238-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
-//! EXECUTION: ``, WASM-EXECUTION: `Compiled`, CHAIN: `Some(&quot;collectives-polkadot-dev&quot;)`, DB CACHE: 1024
+//! HOSTNAME: `cob`, CPU: `&lt;UNKNOWN&gt;`
+//! WASM-EXECUTION: `Compiled`, CHAIN: `Some(&quot;collectives-polkadot-dev&quot;)`, DB CACHE: 1024
 
 </span><span class="comment">// Executed Command:
-// ./target/production/polkadot-parachain
+// target/release/polkadot-parachain
 // benchmark
 // pallet
 // --chain=collectives-polkadot-dev
 // --wasm-execution=compiled
 // --pallet=pallet_referenda
-// --no-storage-info
-// --no-median-slopes
-// --no-min-squares
 // --extrinsic=*
-// --steps=50
-// --repeat=20
+// --steps=2
+// --repeat=2
 // --json
 // --header=./file_header.txt
 // --output=./parachains/runtimes/collectives/collectives-polkadot/src/weights/
@@ -589,150 +583,150 @@
 <span class="doccomment">/// Weight functions for `pallet_referenda`.
 </span><span class="kw">pub struct </span>WeightInfo&lt;T&gt;(PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: frame_system::Config&gt; pallet_referenda::WeightInfo <span class="kw">for </span>WeightInfo&lt;T&gt; {
-	<span class="doccomment">/// Storage: `FellowshipCollective::Members` (r:1 w:0)
-	/// Proof: `FellowshipCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::ReferendumCount` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorCollective::Members` (r:1 w:0)
+	/// Proof: `AmbassadorCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::ReferendumCount` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:1 w:1)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:0 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:0 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>submit() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `355`
+		//  Measured:  `255`
 		//  Estimated: `159279`
-		// Minimum execution time: 29_271_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">30_285_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 32_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">34_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">159279</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">3</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">3</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:2 w:2)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>place_decision_deposit_preparing() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `366`
 		//  Estimated: `317568`
-		// Minimum execution time: 52_128_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">53_504_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 63_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">68_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">317568</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">3</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">3</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::DecidingCount` (r:1 w:0)
-	/// Proof: `FellowshipReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::TrackQueue` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(812), added: 3287, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::DecidingCount` (r:1 w:0)
+	/// Proof: `AmbassadorReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::TrackQueue` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(171), added: 2646, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:1 w:1)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>place_decision_deposit_queued() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `2004`
+		//  Measured:  `1165`
 		//  Estimated: `159279`
-		// Minimum execution time: 110_018_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">114_369_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 97_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">123_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">159279</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">4</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">3</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::DecidingCount` (r:1 w:0)
-	/// Proof: `FellowshipReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::TrackQueue` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(812), added: 3287, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::DecidingCount` (r:1 w:0)
+	/// Proof: `AmbassadorReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::TrackQueue` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(171), added: 2646, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:1 w:1)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>place_decision_deposit_not_queued() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `2045`
+		//  Measured:  `1173`
 		//  Estimated: `159279`
-		// Minimum execution time: 110_231_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">114_517_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 104_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">111_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">159279</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">4</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">3</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::DecidingCount` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipCollective::MemberCount` (r:1 w:0)
-	/// Proof: `FellowshipCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::DecidingCount` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorCollective::MemberCount` (r:1 w:0)
+	/// Proof: `AmbassadorCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:2 w:2)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>place_decision_deposit_passing() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `802`
+		//  Measured:  `702`
 		//  Estimated: `317568`
-		// Minimum execution time: 195_619_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">207_157_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 140_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">150_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">317568</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">5</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">4</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::DecidingCount` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipCollective::MemberCount` (r:1 w:0)
-	/// Proof: `FellowshipCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::DecidingCount` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorCollective::MemberCount` (r:1 w:0)
+	/// Proof: `AmbassadorCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:2 w:2)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>place_decision_deposit_failing() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `701`
+		//  Measured:  `601`
 		//  Estimated: `317568`
-		// Minimum execution time: 64_020_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">65_463_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 81_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">82_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">317568</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">5</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">4</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>refund_decision_deposit() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `317`
 		//  Estimated: `4365`
-		// Minimum execution time: 30_701_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">31_528_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 38_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">38_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">4365</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">1</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>refund_submission_deposit() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `167`
 		//  Estimated: `4365`
-		// Minimum execution time: 15_173_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">15_787_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 17_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">18_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">4365</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">1</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:2 w:2)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>cancel() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `311`
 		//  Estimated: `317568`
-		// Minimum execution time: 37_886_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">38_679_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 44_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">45_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">317568</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">3</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">3</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:2 w:2)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
@@ -749,328 +743,328 @@
 	/// Proof: `ParachainSystem::HostConfiguration` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `ParachainSystem::PendingUpwardMessages` (r:1 w:1)
 	/// Proof: `ParachainSystem::PendingUpwardMessages` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `FellowshipReferenda::MetadataOf` (r:1 w:0)
-	/// Proof: `FellowshipReferenda::MetadataOf` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::MetadataOf` (r:1 w:0)
+	/// Proof: `AmbassadorReferenda::MetadataOf` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>kill() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `517`
+		//  Measured:  `626`
 		//  Estimated: `317568`
-		// Minimum execution time: 152_111_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">155_738_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 183_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">187_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">317568</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">11</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">6</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::TrackQueue` (r:1 w:0)
-	/// Proof: `FellowshipReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(812), added: 3287, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::DecidingCount` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::TrackQueue` (r:1 w:0)
+	/// Proof: `AmbassadorReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(171), added: 2646, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::DecidingCount` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>one_fewer_deciding_queue_empty() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `140`
-		//  Estimated: `4277`
-		// Minimum execution time: 10_712_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">10_976_000</span>, <span class="number">0</span>)
-			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">4277</span>))
+		//  Estimated: `3636`
+		// Minimum execution time: 12_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">12_000_000</span>, <span class="number">0</span>)
+			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">3636</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">2</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::TrackQueue` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(812), added: 3287, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipCollective::MemberCount` (r:1 w:0)
-	/// Proof: `FellowshipCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::TrackQueue` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(171), added: 2646, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorCollective::MemberCount` (r:1 w:0)
+	/// Proof: `AmbassadorCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:1 w:1)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>one_fewer_deciding_failing() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `2418`
+		//  Measured:  `1412`
 		//  Estimated: `159279`
-		// Minimum execution time: 97_671_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">104_911_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 88_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">97_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">159279</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">4</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">3</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::TrackQueue` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(812), added: 3287, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipCollective::MemberCount` (r:1 w:0)
-	/// Proof: `FellowshipCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::TrackQueue` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(171), added: 2646, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorCollective::MemberCount` (r:1 w:0)
+	/// Proof: `AmbassadorCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:1 w:1)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>one_fewer_deciding_passing() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `2418`
+		//  Measured:  `1412`
 		//  Estimated: `159279`
-		// Minimum execution time: 104_019_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">108_208_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 87_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">92_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">159279</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">4</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">3</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:0)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::TrackQueue` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(812), added: 3287, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:0)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::TrackQueue` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(171), added: 2646, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>nudge_referendum_requeued_insertion() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `1807`
+		//  Measured:  `935`
 		//  Estimated: `4365`
-		// Minimum execution time: 50_199_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">54_350_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 43_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">46_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">4365</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">2</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:0)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::TrackQueue` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(812), added: 3287, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:0)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::TrackQueue` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(171), added: 2646, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>nudge_referendum_requeued_slide() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `1774`
+		//  Measured:  `935`
 		//  Estimated: `4365`
-		// Minimum execution time: 52_459_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">54_382_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 39_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">43_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">4365</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">2</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::DecidingCount` (r:1 w:0)
-	/// Proof: `FellowshipReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::TrackQueue` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(812), added: 3287, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::DecidingCount` (r:1 w:0)
+	/// Proof: `AmbassadorReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::TrackQueue` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(171), added: 2646, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>nudge_referendum_queued() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `1790`
+		//  Measured:  `951`
 		//  Estimated: `4365`
-		// Minimum execution time: 57_810_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">63_690_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 48_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">50_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">4365</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">3</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">2</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::DecidingCount` (r:1 w:0)
-	/// Proof: `FellowshipReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::TrackQueue` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(812), added: 3287, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::DecidingCount` (r:1 w:0)
+	/// Proof: `AmbassadorReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::TrackQueue` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::TrackQueue` (`max_values`: None, `max_size`: Some(171), added: 2646, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>nudge_referendum_not_queued() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `1831`
+		//  Measured:  `959`
 		//  Estimated: `4365`
-		// Minimum execution time: 56_778_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">59_556_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 42_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">48_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">4365</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">3</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">2</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:1 w:1)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>nudge_referendum_no_deposit() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `263`
 		//  Estimated: `159279`
-		// Minimum execution time: 24_377_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">27_031_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 28_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">30_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">159279</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">2</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">2</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:1 w:1)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>nudge_referendum_preparing() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `311`
 		//  Estimated: `159279`
-		// Minimum execution time: 24_717_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">25_578_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 26_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">28_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">159279</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">2</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">2</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>nudge_referendum_timed_out() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `208`
 		//  Estimated: `4365`
-		// Minimum execution time: 17_280_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">17_845_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 19_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">20_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">4365</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">1</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::DecidingCount` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipCollective::MemberCount` (r:1 w:0)
-	/// Proof: `FellowshipCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::DecidingCount` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorCollective::MemberCount` (r:1 w:0)
+	/// Proof: `AmbassadorCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:1 w:1)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>nudge_referendum_begin_deciding_failing() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `646`
+		//  Measured:  `546`
 		//  Estimated: `159279`
-		// Minimum execution time: 36_996_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">37_970_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 42_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">46_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">159279</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">4</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">3</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::DecidingCount` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipCollective::MemberCount` (r:1 w:0)
-	/// Proof: `FellowshipCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::DecidingCount` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::DecidingCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorCollective::MemberCount` (r:1 w:0)
+	/// Proof: `AmbassadorCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:1 w:1)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>nudge_referendum_begin_deciding_passing() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `747`
+		//  Measured:  `647`
 		//  Estimated: `159279`
-		// Minimum execution time: 91_681_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">98_640_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 87_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">93_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">159279</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">4</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">3</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipCollective::MemberCount` (r:1 w:0)
-	/// Proof: `FellowshipCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorCollective::MemberCount` (r:1 w:0)
+	/// Proof: `AmbassadorCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:1 w:1)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>nudge_referendum_begin_confirming() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `800`
+		//  Measured:  `700`
 		//  Estimated: `159279`
-		// Minimum execution time: 149_940_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">167_561_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 100_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">120_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">159279</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">3</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">2</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipCollective::MemberCount` (r:1 w:0)
-	/// Proof: `FellowshipCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorCollective::MemberCount` (r:1 w:0)
+	/// Proof: `AmbassadorCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:1 w:1)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>nudge_referendum_end_confirming() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `783`
+		//  Measured:  `683`
 		//  Estimated: `159279`
-		// Minimum execution time: 157_443_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">168_023_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 90_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">100_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">159279</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">3</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">2</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipCollective::MemberCount` (r:1 w:0)
-	/// Proof: `FellowshipCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorCollective::MemberCount` (r:1 w:0)
+	/// Proof: `AmbassadorCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:1 w:1)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>nudge_referendum_continue_not_confirming() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `800`
+		//  Measured:  `700`
 		//  Estimated: `159279`
-		// Minimum execution time: 155_539_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">161_877_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 77_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">82_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">159279</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">3</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">2</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipCollective::MemberCount` (r:1 w:0)
-	/// Proof: `FellowshipCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorCollective::MemberCount` (r:1 w:0)
+	/// Proof: `AmbassadorCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:1 w:1)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>nudge_referendum_continue_confirming() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `804`
+		//  Measured:  `704`
 		//  Estimated: `159279`
-		// Minimum execution time: 82_000_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">87_101_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 68_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">77_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">159279</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">3</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">2</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipCollective::MemberCount` (r:1 w:0)
-	/// Proof: `FellowshipCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorCollective::MemberCount` (r:1 w:0)
+	/// Proof: `AmbassadorCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:2 w:2)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Lookup` (r:1 w:1)
 	/// Proof: `Scheduler::Lookup` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>nudge_referendum_approved() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `804`
+		//  Measured:  `704`
 		//  Estimated: `317568`
-		// Minimum execution time: 154_590_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">186_418_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 99_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">104_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">317568</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">5</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">4</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipCollective::MemberCount` (r:1 w:0)
-	/// Proof: `FellowshipCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorCollective::MemberCount` (r:1 w:0)
+	/// Proof: `AmbassadorCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:1 w:1)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(155814), added: 158289, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>nudge_referendum_rejected() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `800`
+		//  Measured:  `700`
 		//  Estimated: `159279`
-		// Minimum execution time: 149_822_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">164_866_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 87_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">100_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">159279</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">3</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">2</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:0)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:0)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
 	/// Storage: `Preimage::StatusFor` (r:1 w:0)
 	/// Proof: `Preimage::StatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::MetadataOf` (r:0 w:1)
-	/// Proof: `FellowshipReferenda::MetadataOf` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::MetadataOf` (r:0 w:1)
+	/// Proof: `AmbassadorReferenda::MetadataOf` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>set_some_metadata() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `386`
+		//  Measured:  `419`
 		//  Estimated: `4365`
-		// Minimum execution time: 21_413_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">21_938_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 23_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">25_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">4365</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">2</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
 	}
-	<span class="doccomment">/// Storage: `FellowshipReferenda::ReferendumInfoFor` (r:1 w:0)
-	/// Proof: `FellowshipReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipReferenda::MetadataOf` (r:1 w:1)
-	/// Proof: `FellowshipReferenda::MetadataOf` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
+	<span class="doccomment">/// Storage: `AmbassadorReferenda::ReferendumInfoFor` (r:1 w:0)
+	/// Proof: `AmbassadorReferenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(900), added: 3375, mode: `MaxEncodedLen`)
+	/// Storage: `AmbassadorReferenda::MetadataOf` (r:1 w:1)
+	/// Proof: `AmbassadorReferenda::MetadataOf` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>clear_metadata() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `285`
 		//  Estimated: `4365`
-		// Minimum execution time: 18_927_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">19_423_000</span>, <span class="number">0</span>)
+		// Minimum execution time: 20_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">21_000_000</span>, <span class="number">0</span>)
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">4365</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">2</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))

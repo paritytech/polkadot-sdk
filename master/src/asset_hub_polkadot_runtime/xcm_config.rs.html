@@ -532,6 +532,10 @@
 <a href="#532" id="532">532</a>
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -720,6 +724,9 @@
 	<span class="kw">pub type </span>FellowshipSalaryPallet: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
 		MultiLocation { parents: <span class="number">1</span>, interior: X2(Parachain(<span class="number">1001</span>), PalletInstance(<span class="number">64</span>)) }
 	};
+	<span class="kw">pub type </span>AmbassadorSalaryPallet: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
+		MultiLocation { parents: <span class="number">1</span>, interior: X2(Parachain(<span class="number">1001</span>), PalletInstance(<span class="number">74</span>)) }
+	};
 }
 
 <span class="doccomment">/// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
@@ -906,6 +913,7 @@
 						ParentOrParentsPlurality,
 						FellowsPlurality,
 						FellowshipSalaryPallet,
+						AmbassadorSalaryPallet,
 					)&gt;,
 					<span class="comment">// Subscriptions for version tracking are OK.
 					</span>AllowSubscriptionsFrom&lt;ParentOrSiblings&gt;,

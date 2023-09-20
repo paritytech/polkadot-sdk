@@ -39,7 +39,7 @@ var sourcesIndex = JSON.parse('{\
 "call":["",[],["call.rs"]],\
 "chain_spec_builder":["",[],["lib.rs"]],\
 "collectives_polkadot_integration_tests":["",[],["lib.rs"]],\
-"collectives_polkadot_runtime":["",[["fellowship",[],["migration.rs","mod.rs","origins.rs","tracks.rs"]],["weights",[],["block_weights.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_alliance.rs","pallet_balances.rs","pallet_collator_selection.rs","pallet_collective.rs","pallet_core_fellowship.rs","pallet_multisig.rs","pallet_preimage.rs","pallet_proxy.rs","pallet_ranked_collective.rs","pallet_referenda.rs","pallet_salary.rs","pallet_scheduler.rs","pallet_session.rs","pallet_timestamp.rs","pallet_utility.rs","pallet_xcm.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["impls.rs","lib.rs","xcm_config.rs"]],\
+"collectives_polkadot_runtime":["",[["ambassador",[],["mod.rs","origins.rs","tracks.rs"]],["fellowship",[],["migration.rs","mod.rs","origins.rs","tracks.rs"]],["weights",[],["block_weights.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_alliance.rs","pallet_balances.rs","pallet_collator_selection.rs","pallet_collective.rs","pallet_collective_content.rs","pallet_core_fellowship_ambassador_core.rs","pallet_core_fellowship_fellowship_core.rs","pallet_multisig.rs","pallet_preimage.rs","pallet_proxy.rs","pallet_ranked_collective_ambassador_collective.rs","pallet_ranked_collective_fellowship_collective.rs","pallet_referenda_ambassador_referenda.rs","pallet_referenda_fellowship_referenda.rs","pallet_salary_ambassador_salary.rs","pallet_salary_fellowship_salary.rs","pallet_scheduler.rs","pallet_session.rs","pallet_timestamp.rs","pallet_utility.rs","pallet_xcm.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["impls.rs","lib.rs","xcm_config.rs"]],\
 "compact":["",[],["compact.rs"]],\
 "contracts_rococo_runtime":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["contracts.rs","lib.rs","xcm_config.rs"]],\
 "cumulus_client_cli":["",[],["lib.rs"]],\
@@ -140,6 +140,7 @@ var sourcesIndex = JSON.parse('{\
 "pallet_child_bounties":["",[],["lib.rs","weights.rs"]],\
 "pallet_collator_selection":["",[],["lib.rs","migration.rs","weights.rs"]],\
 "pallet_collective":["",[["migrations",[],["mod.rs","v4.rs"]]],["lib.rs","weights.rs"]],\
+"pallet_collective_content":["",[],["lib.rs","weights.rs"]],\
 "pallet_contracts":["",[["migration",[],["v09.rs","v10.rs","v11.rs","v12.rs","v13.rs","v14.rs","v15.rs"]],["storage",[],["meter.rs"]],["wasm",[],["mod.rs","prepare.rs","runtime.rs"]]],["address.rs","chain_extension.rs","debug.rs","exec.rs","gas.rs","lib.rs","migration.rs","schedule.rs","storage.rs","weights.rs"]],\
 "pallet_contracts_primitives":["",[],["lib.rs"]],\
 "pallet_contracts_proc_macro":["",[],["lib.rs"]],\
