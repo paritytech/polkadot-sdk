@@ -217,13 +217,11 @@ impl TestState {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				relay_parent,
+				_relay_parent,
 				RuntimeApiRequest::AvailabilityChunkShufflingParams(
 					tx,
 				)
 			)) => {
-				// assert_eq!(relay_parent, self.current);
-
 				tx.send(Ok(
 					AvailabilityChunkShufflingParams {
 						activate_at: None

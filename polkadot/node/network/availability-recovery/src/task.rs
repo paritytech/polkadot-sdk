@@ -765,7 +765,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			for our_c_index in &local_chunk_indices {
 				// If we are among the systematic validators but hold an invalid chunk, we cannot
 				// perform the systematic recovery. Fall through to the next strategy.
-				if self.validators.iter().find(|(c_index, _)| c_index == our_c_index).is_some() &&
+				if self.validators.iter().any(|(c_index, _)| c_index == our_c_index) &&
 					!state.received_chunks.contains_key(our_c_index)
 				{
 					gum::debug!(

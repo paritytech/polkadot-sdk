@@ -141,7 +141,7 @@ pub struct AvailabilityChunkShufflingParams {
 	/// specific block height.
 	///
 	/// It can't simply return a bool as this may break availability recovery. If a
-	/// runtime upgrade were to set this value to bool, parachain candidates that were backed in
+	/// runtime upgrade were to set this value to true, parachain candidates that were backed in
 	/// previous blocks couldn't be recovered, because we'd use the new, breaking, shuffle.
 	pub activate_at: Option<BlockNumber>,
 }
