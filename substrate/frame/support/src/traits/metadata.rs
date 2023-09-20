@@ -261,8 +261,8 @@ pub struct NoStorageVersionSet;
 /// environment, and the on-chain storage version is the version of the pallet actually deployed
 /// on-chain.
 ///
-/// Storage versions should be only ever be out of sync when a migration has been written locally
-/// which increments the current version of a pallet, but the migration has not yet been executed
+/// Storage versions should be only ever be out of sync when a pallet has been updated to a new
+/// version and the current version is incremented, but the migration has not yet been executed
 /// on-chain as part of a runtime upgrade.
 ///
 /// It is the responsibility of the developer to ensure that the on-chain storage version is set
