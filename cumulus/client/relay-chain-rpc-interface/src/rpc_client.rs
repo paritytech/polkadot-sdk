@@ -31,7 +31,7 @@ use parity_scale_codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{
 		slashing,
-		vstaging::{AsyncBackingParams, BackingState},
+		vstaging::{AsyncBackingParams, AvailabilityChunkShufflingParams, BackingState},
 		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
 		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
@@ -596,6 +596,18 @@ impl RelayChainRpcClient {
 	) -> Result<u32, RelayChainError> {
 		self.call_remote_runtime_function("ParachainHost_minimum_backing_votes", at, None::<()>)
 			.await
+	}
+
+	pub async fn parachain_host_availability_chunk_shuffling_params(
+		&self,
+		at: RelayHash,
+	) -> Result<AvailabilityChunkShufflingParams, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_availability_chunk_shuffling_params",
+			at,
+			None::<()>,
+		)
+		.await
 	}
 
 	#[allow(missing_docs)]
