@@ -31,12 +31,12 @@ sp-io = { path = "../../../primitives/io", default-features = false }
 [features]
 default = [ "std" ]
 std = [
-	"log/std",
 	"codec/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",
 	"frame-try-runtime/std",
+	"log/std",
 	"pallet-balances/std",
 	"scale-info/std",
 	"sp-core/std",
