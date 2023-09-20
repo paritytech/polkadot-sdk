@@ -146,7 +146,6 @@ impl RuntimeBuilder {
 				wasm_bulk_memory: false,
 				wasm_reference_types: false,
 				wasm_simd: false,
-				module_version_strategy: Default::default(),
 			},
 		};
 
@@ -478,7 +477,6 @@ fn test_instances_without_reuse_are_not_leaked() {
 				wasm_bulk_memory: false,
 				wasm_reference_types: false,
 				wasm_simd: false,
-				module_version_strategy: Default::default(),
 			},
 		},
 	)
