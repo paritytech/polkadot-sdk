@@ -241,7 +241,7 @@ pub mod pallet {
 			#[inject_runtime_type]
 			type PalletInfo = ();
 			type BaseCallFilter = frame_support::traits::Everything;
-			type BlockHashCount = frame_support::traits::ConstU64<10>;
+			type BlockHashCount = frame_support::traits::ConstU32<10>;
 			type OnSetCode = ();
 		}
 	}
