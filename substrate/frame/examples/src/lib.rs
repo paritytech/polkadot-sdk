@@ -39,5 +39,5 @@
 //! - [**`pallet-example-split`**](./split): A simple example of a FRAME pallet demonstrating the
 //!   ability to split sections across multiple files.
 //!
-//! - [`pallet-example-storage-migrations`]: An example pallet
-//!   demonstrating best-practices for writing storage migrations.
+//! - [`pallet-example-storage-migrations`]: An example pallet demonstrating best-practices for
+//!   writing storage migrations.
