@@ -16,9 +16,9 @@
 use crate::*;
 
 /// Relay Chain should be able to execute `Transact` instructions in System Parachain
-/// when `OriginKind::Superuser` and signer is `sudo`
+/// when `OriginKind::Superuser`.
 #[test]
-fn send_transact_sudo_from_relay_to_system_para_works() {
+fn send_transact_superuser_from_relay_to_system_para_works() {
 	// Init tests variables
 	let root_origin = <Polkadot as Chain>::RuntimeOrigin::root();
 	let system_para_destination = Polkadot::child_location_of(AssetHubPolkadot::para_id()).into();

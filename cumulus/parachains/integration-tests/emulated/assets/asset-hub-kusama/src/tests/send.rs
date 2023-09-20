@@ -16,9 +16,9 @@
 use crate::*;
 
 /// Relay Chain should be able to execute `Transact` instructions in System Parachain
-/// when `OriginKind::Superuser` and signer is `sudo`
+/// when `OriginKind::Superuser`.
 #[test]
-fn send_transact_sudo_from_relay_to_system_para_works() {
+fn send_transact_superuser_from_relay_to_system_para_works() {
 	// Init tests variables
 	let root_origin = <Kusama as Chain>::RuntimeOrigin::root();
 	let system_para_destination = Kusama::child_location_of(AssetHubKusama::para_id()).into();
@@ -60,6 +60,7 @@ fn send_transact_sudo_from_relay_to_system_para_works() {
 		assert!(<AssetHubKusama as AssetHubKusamaPallet>::Assets::asset_exists(ASSET_ID));
 	});
 }
+
 
 /// Relay Chain shouldn't be able to execute `Transact` instructions in System Parachain
 /// when `OriginKind::Native`
