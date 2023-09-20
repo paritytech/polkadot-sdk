@@ -42,8 +42,12 @@
 //!
 //! For the purposes of this exercise, we imagine that in [`StorageVersion`] V0 of this pallet
 //! [`Value`](pallet::Value) is a `u32`, and this what is currently stored on-chain.
-#![doc = docify::embed!("src/lib.rs", Value__V0)]
 //!
+//! ```ignore
+//! 	// (Old) Storage Version V0 representation of `Value`
+//! 	#[pallet::storage]
+//! 	pub type Value<T: Config> = StorageValue<_, u32>;
+//! ```
 //!
 //! In [`StorageVersion`] V1 of the pallet a new struct [`CurrentAndPreviousValue`] is introduced:
 #![doc = docify::embed!("src/lib.rs", CurrentAndPreviousValue)]
@@ -250,13 +254,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {}
-
-	/// [`StorageVersion`] V0 of [`Value`].
-	///
-	/// Not used anywhere anymore. Here for demonstration purposes only.
-	#[docify::export]
-	#[pallet::storage]
-	pub type Value__V0<T: Config> = StorageValue<_, u32>;
 
 	/// [`StorageVersion`] V1 of [`Value`].
 	///
