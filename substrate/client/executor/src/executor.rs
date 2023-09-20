@@ -201,7 +201,10 @@ impl<H> WasmExecutorBuilder<H> {
 	/// wasmtime modules.
 	///
 	/// By default there is no `wasmtime_precompiled_path` given.
-	pub fn with_wasmtime_precompiled_path(mut self, wasmtime_precompiled_path: impl Into<PathBuf>) -> Self {
+	pub fn with_wasmtime_precompiled_path(
+		mut self,
+		wasmtime_precompiled_path: impl Into<PathBuf>,
+	) -> Self {
 		self.wasmtime_precompiled_path = Some(wasmtime_precompiled_path.into());
 		self
 	}

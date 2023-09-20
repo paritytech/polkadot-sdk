@@ -157,9 +157,17 @@ impl RuntimeBuilder {
 			// Delay the removal of the temporary directory until we're dropped.
 			self.tmpdir = Some(dir);
 
-			let artifact = crate::prepare_runtime_artifact(blob, Default::default(), &config.semantics).unwrap();
+			let artifact =
+				crate::prepare_runtime_artifact(blob, Default::default(), &config.semantics)
+					.unwrap();
 			std::fs::write(&path, artifact).unwrap();
-			unsafe { crate::create_runtime_from_artifact::<HostFunctions>(&path, Default::default(), config) }
+			unsafe {
+				crate::create_runtime_from_artifact::<HostFunctions>(
+					&path,
+					Default::default(),
+					config,
+				)
+			}
 		} else {
 			crate::create_runtime::<HostFunctions>(blob, config)
 		}

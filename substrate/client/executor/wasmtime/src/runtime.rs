@@ -496,7 +496,10 @@ pub unsafe fn create_runtime_from_artifact<H>(
 where
 	H: HostFunctions,
 {
-	do_create_runtime::<H>(CodeSupplyMode::Precompiled { compiled_artifact_path, module_version_strategy }, config)
+	do_create_runtime::<H>(
+		CodeSupplyMode::Precompiled { compiled_artifact_path, module_version_strategy },
+		config,
+	)
 }
 
 /// The same as [`create_runtime`] but takes the bytes of a precompiled artifact,
@@ -540,9 +543,9 @@ where
 	let mut wasmtime_config = common_config(&config.semantics)?;
 
 	if let CodeSupplyMode::Precompiled { ref module_version_strategy, .. } = code_supply_mode {
-		wasmtime_config
-			.module_version(module_version_strategy.clone())
-			.map_err(|e| WasmError::Other(format!("fail to apply module_version_strategy: {:#}", e)))?;
+		wasmtime_config.module_version(module_version_strategy.clone()).map_err(|e| {
+			WasmError::Other(format!("fail to apply module_version_strategy: {:#}", e))
+		})?;
 	}
 
 	if let Some(ref cache_path) = config.cache_path {
@@ -637,12 +640,12 @@ pub fn prepare_runtime_artifact(
 
 	let mut wasmtime_config = common_config(&semantics)?;
 
-	wasmtime_config.module_version(module_version_strategy)
+	wasmtime_config
+		.module_version(module_version_strategy)
 		.map_err(|e| WasmError::Other(format!("fail to apply module_version_strategy: {:#}", e)))?;
 
-	let engine = Engine::new(
-		&wasmtime_config
-	).map_err(|e| WasmError::Other(format!("cannot create the engine: {:#}", e)))?;
+	let engine = Engine::new(&wasmtime_config)
+		.map_err(|e| WasmError::Other(format!("cannot create the engine: {:#}", e)))?;
 
 	engine
 		.precompile_module(&blob.serialize())

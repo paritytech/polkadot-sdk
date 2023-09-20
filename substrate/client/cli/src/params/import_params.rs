@@ -66,9 +66,9 @@ pub struct ImportParams {
 
 	/// Specify the path where local precompiled WASM runtimes are stored.
 	/// Only has an effect when `wasm-execution` is set to `compiled`.
-	/// 
-	/// The precompiled runtimes must have been generated using the `precompile-runtimes` subcommand
-	/// with the same version of wasmtime and the exact same configuration. 
+	///
+	/// The precompiled runtimes must have been generated using the `precompile-runtimes`
+	/// subcommand with the same version of wasmtime and the exact same configuration.
 	/// The file name must end with the hash of the configuration. This hash must match, otherwise
 	/// the runtime will be recompiled.
 	#[arg(long, value_name = "PATH")]

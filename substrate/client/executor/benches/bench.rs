@@ -71,9 +71,12 @@ fn initialize(
 			};
 
 			if precompile {
-				let precompiled_blob =
-					sc_executor_wasmtime::prepare_runtime_artifact(blob, Default::default(), &config.semantics)
-						.unwrap();
+				let precompiled_blob = sc_executor_wasmtime::prepare_runtime_artifact(
+					blob,
+					Default::default(),
+					&config.semantics,
+				)
+				.unwrap();
 
 				// Create a fresh temporary directory to make absolutely sure
 				// we'll use the right module.
