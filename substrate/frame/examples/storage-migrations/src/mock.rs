@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::*;
-use frame_support::{derive_impl, traits::ConstU64};
+use frame_support::{derive_impl, traits::ConstU64, weights::constants::ParityDbWeight};
 
 // Re-export crate as its pallet name for construct_runtime.
 use crate as pallet_example_storage_migration;
@@ -36,6 +36,7 @@ frame_support::construct_runtime!(
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type DbWeight = ParityDbWeight;
 }
 
 impl pallet_balances::Config for Test {
