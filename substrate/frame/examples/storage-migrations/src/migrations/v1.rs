@@ -23,12 +23,7 @@ use frame_support::{
 /// Collection of storage item formats from the previous storage version.
 ///
 /// Required so we can read values in the old storage format during the migration.
-///
-/// This module is `pub` so it can be referenced in the docs of this example pallet.
-///
-/// Real migrations should declare this module as private by declaring `mod old`
-/// instead of `pub mod old`.
-pub mod old {
+mod old {
 	use super::*;
 
 	/// V0 type for [`crate::Value`].
@@ -37,11 +32,6 @@ pub mod old {
 }
 
 /// Private module containing *version unchecked* migration logic.
-///
-/// This module is `pub` so it can be referenced in the docs of this example pallet.
-///
-/// Real migrations should declare this module as private by declaring `mod version_unchecked`
-/// instead of `pub mod version_unchecked`.
 ///
 /// Should only be used by the [`VersionedMigration`](frame_support::migrations::VersionedMigration)
 /// type in this module to create something to export.
@@ -52,7 +42,7 @@ pub mod old {
 /// For more about this pattern of keeping items private, see
 /// - <https://github.com/rust-lang/rust/issues/30905>
 /// - <https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40>
-pub mod version_unchecked {
+mod version_unchecked {
 	use super::*;
 
 	/// Implements [`OnRuntimeUpgrade`], migrating the state of this pallet from V0 to V1.
@@ -67,7 +57,7 @@ pub mod version_unchecked {
 
 	impl<T: crate::Config> OnRuntimeUpgrade for MigrateV0ToV1<T> {
 		/// Return the existing [`crate::Value`] so we can check that it was correctly set in
-		/// [`version_unchecked::MigrateV0ToV1::post_upgrade`].
+		/// `version_unchecked::MigrateV0ToV1::post_upgrade`.
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 			use codec::Encode;
@@ -142,7 +132,7 @@ pub mod version_unchecked {
 pub mod versioned {
 	use super::*;
 
-	/// [`version_unchecked::MigrateV0ToV1`] wrapped in a
+	/// `version_unchecked::MigrateV0ToV1` wrapped in a
 	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), which ensures that:
 	/// - The migration only runs once when the on-chain storage version is 0
 	/// - The on-chain storage version is updated to `1` after the migration executes
@@ -162,7 +152,7 @@ pub mod versioned {
 /// 1. `on_runtime_upgrade` returns the expected weight
 /// 2. `post_upgrade` succeeds when given the bytes returned by `pre_upgrade`
 /// 3. The storage is in the expected state after the migration
-#[cfg(all(feature = "try-runtime", test))]
+#[cfg(any(all(feature = "try-runtime", test), doc))]
 mod test {
 	use super::*;
 	use crate::mock::{new_test_ext, Test};

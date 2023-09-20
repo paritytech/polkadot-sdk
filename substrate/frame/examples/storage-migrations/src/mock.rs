@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg(any(all(feature = "try-runtime", test), doc))]
+
 use crate::*;
 use frame_support::{derive_impl, traits::ConstU64, weights::constants::ParityDbWeight};
 
@@ -57,7 +59,6 @@ impl pallet_balances::Config for Test {
 
 impl Config for Test {}
 
-#[cfg(all(feature = "try-runtime", test))]
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	use sp_runtime::BuildStorage;
 

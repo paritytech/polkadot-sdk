@@ -105,10 +105,12 @@
 //! ### `mod version_unchecked`
 //!
 //! Here we define our raw migration logic,
-//! [`MigrateV0ToV1`](crate::migrations::v1::version_unchecked::MigrateV0ToV1) which implements the
+//! `version_unchecked::MigrateV0ToV1` which implements the
 //! [`OnRuntimeUpgrade`](frame_support::traits::OnRuntimeUpgrade) trait.
 //!
 //! Importantly, it is kept in a private module so that it cannot be accidentally used in a runtime.
+//!
+//! Private modules cannot be referenced in docs, so please read the code directly.
 //!
 //! #### Standalone Struct or Pallet Hook?
 //!
@@ -120,9 +122,8 @@
 //!
 //! ### `pub mod versioned`
 //!
-//! Here,
-//! [`version_unchecked::MigrateV0ToV1`](crate::migrations::v1::version_unchecked::MigrateV0ToV1) is
-//! wrapped in a [`VersionedMigration`](frame_support::migrations::VersionedMigration) to define
+//! Here, `version_unchecked::MigrateV0ToV1` is wrapped in a
+//! [`VersionedMigration`](frame_support::migrations::VersionedMigration) to define
 //! [`versioned::MigrateV0ToV1`](crate::migrations::v1::versioned::MigrateV0ToV1), which may be used
 //! in runtimes.
 //!
