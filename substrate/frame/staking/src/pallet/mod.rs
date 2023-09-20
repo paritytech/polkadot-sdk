@@ -682,7 +682,7 @@ pub mod pallet {
 		/// The nominator has been rewarded by this amount to this destination.
 		Rewarded {
 			stash: T::AccountId,
-			dest: RewardDestination<T::AccountId>,
+			dest: PayoutDestination<T::AccountId>,
 			amount: BalanceOf<T>,
 		},
 		/// A staker (validator or nominator) has been slashed by the given amount.

@@ -3864,8 +3864,8 @@ fn test_payout_stakers() {
 			staking_events_since_last_call().as_slice(),
 			&[
 				..,
-				Event::Rewarded { stash: 1037, dest: RewardDestination::Controller, amount: 108 },
-				Event::Rewarded { stash: 1036, dest: RewardDestination::Controller, amount: 108 }
+				Event::Rewarded { stash: 1037, dest: PayoutDestination::Deposit(_), amount: 108 },
+				Event::Rewarded { stash: 1036, dest: PayoutDestination::Deposit(_), amount: 108 }
 			]
 		));
 
