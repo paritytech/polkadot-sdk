@@ -23,7 +23,8 @@ use crate::{
 	block_announce_validator::{
 		BlockAnnounceValidationResult, BlockAnnounceValidator as BlockAnnounceValidatorStream,
 	},
-	block_relay_protocol::BlockDownloader,
+	block_relay_protocol::{BlockDownloader, BlockResponseError},
+	schema::v1::{StateRequest, StateResponse},
 	service::{self, chain_sync::ToServiceCommand},
 	warp::WarpSyncParams,
 	ChainSync, ClientError, SyncingService,
@@ -33,27 +34,32 @@ use codec::{Decode, Encode};
 use futures::{
 	channel::oneshot,
 	future::{BoxFuture, Fuse},
-	FutureExt, StreamExt,
+	Future, FutureExt, StreamExt,
 };
 use futures_timer::Delay;
-use libp2p::PeerId;
+use libp2p::{request_response::OutboundFailure, PeerId};
+use log::{debug, trace};
 use prometheus_endpoint::{
 	register, Gauge, GaugeVec, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
 };
+use prost::Message;
 use schnellru::{ByLength, LruMap};
 
 use sc_client_api::{BlockBackend, HeaderBackend, ProofProvider};
 use sc_consensus::import_queue::ImportQueueService;
 use sc_network::{
 	config::{FullNetworkConfiguration, NonDefaultSetConfig, ProtocolId},
+	request_responses::{IfDisconnected, RequestFailure},
 	utils::LruHashSet,
 	NotificationsSink, ProtocolName, ReputationChange,
 };
 use sc_network_common::{
 	role::Roles,
 	sync::{
-		message::{BlockAnnounce, BlockAnnouncesHandshake, BlockState},
-		BadPeer, ChainSync as ChainSyncT, ExtendedPeerInfo, SyncEvent,
+		message::{BlockAnnounce, BlockAnnouncesHandshake, BlockRequest, BlockState},
+		warp::{EncodedProof, WarpProofRequest},
+		BadPeer, ChainSync as ChainSyncT, ExtendedPeerInfo, OpaqueStateRequest,
+		OpaqueStateResponse, PeerRequest, SyncEvent,
 	},
 };
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
@@ -64,6 +70,7 @@ use sp_runtime::traits::{Block as BlockT, Header, NumberFor, Zero};
 use std::{
 	collections::{HashMap, HashSet},
 	num::NonZeroUsize,
+	pin::Pin,
 	sync::{
 		atomic::{AtomicBool, AtomicUsize, Ordering},
 		Arc,
@@ -106,6 +113,14 @@ mod rep {
 	pub const BAD_BLOCK_ANNOUNCEMENT: Rep = Rep::new(-(1 << 12), "Bad block announcement");
 	/// Block announce substream with the peer has been inactive too long
 	pub const INACTIVE_SUBSTREAM: Rep = Rep::new(-(1 << 10), "Inactive block announce substream");
+	/// We received a message that failed to decode.
+	pub const BAD_MESSAGE: Rep = Rep::new(-(1 << 12), "Bad message");
+	/// Peer is on unsupported protocol version.
+	pub const BAD_PROTOCOL: Rep = Rep::new_fatal("Unsupported protocol");
+	/// Reputation change when a peer refuses a request.
+	pub const REFUSED: Rep = Rep::new(-(1 << 10), "Request refused");
+	/// Reputation change when a peer doesn't respond in time to our messages.
+	pub const TIMEOUT: Rep = Rep::new(-(1 << 10), "Request timeout");
 }
 
 struct Metrics {
@@ -188,6 +203,18 @@ pub struct Peer<B: BlockT> {
 	/// Is the peer inbound.
 	inbound: bool,
 }
+
+type PendingResponse<B> = Pin<
+	Box<
+		dyn Future<
+				Output = (
+					PeerId,
+					PeerRequest<B>,
+					Result<Result<Vec<u8>, RequestFailure>, oneshot::Canceled>,
+				),
+			> + Send,
+	>,
+>;
 
 pub struct SyncingEngine<B: BlockT, Client> {
 	/// State machine that handles the list of in-progress requests. Only full node peers are
@@ -277,6 +304,18 @@ pub struct SyncingEngine<B: BlockT, Client> {
 
 	/// Instant when the last notification was sent or received.
 	last_notification_io: Instant,
+
+	/// Pending responses
+	pending_responses: HashMap<PeerId, PendingResponse<B>>,
+
+	/// Block downloader
+	block_downloader: Arc<dyn BlockDownloader<B>>,
+
+	/// Protocol name used to send out state requests
+	state_request_protocol_name: ProtocolName,
+
+	/// Protocol name used to send out warp sync requests
+	warp_sync_protocol_name: Option<ProtocolName>,
 }
 
 impl<B: BlockT, Client> SyncingEngine<B, Client>
@@ -393,9 +432,9 @@ where
 			metrics_registry,
 			network_service.clone(),
 			import_queue,
-			block_downloader,
-			state_request_protocol_name,
-			warp_sync_protocol_name,
+			block_downloader.clone(),
+			state_request_protocol_name.clone(),
+			warp_sync_protocol_name.clone(),
 		)?;
 
 		let block_announce_protocol_name = block_announce_config.notifications_protocol.clone();
@@ -455,6 +494,10 @@ where
 				} else {
 					None
 				},
+				pending_responses: HashMap::new(),
+				block_downloader,
+				state_request_protocol_name,
+				warp_sync_protocol_name,
 			},
 			SyncingService::new(tx, num_connected, is_major_syncing),
 			block_announce_config,
@@ -817,8 +860,11 @@ where
 			Poll::Pending => {},
 		}
 
-		// Drive `ChainSync`.
-		while let Poll::Ready(()) = self.chain_sync.poll(cx) {}
+		// Send outbound requests on `ChanSync`'s behalf.
+		self.send_chain_sync_requests();
+
+		// Poll & process pending responses.
+		let _ = self.poll_pending_responses(cx);
 
 		// Poll block announce validations last, because if a block announcement was received
 		// through the event stream between `SyncingEngine` and `Protocol` and the validation
@@ -998,5 +1044,245 @@ where
 			.retain(|stream| stream.unbounded_send(SyncEvent::PeerConnected(peer_id)).is_ok());
 
 		Ok(())
+	}
+
+	fn send_chain_sync_requests(&mut self) {
+		for (id, request) in self.chain_sync.block_requests() {
+			self.send_block_request(id, request);
+		}
+
+		if let Some((id, request)) = self.chain_sync.state_request() {
+			self.send_state_request(id, request);
+		}
+
+		for (id, request) in self.chain_sync.justification_requests() {
+			self.send_block_request(id, request);
+		}
+
+		if let Some((id, request)) = self.chain_sync.warp_sync_request() {
+			self.send_warp_sync_request(id, request);
+		}
+	}
+
+	fn send_block_request(&mut self, who: PeerId, request: BlockRequest<B>) {
+		if !self.chain_sync.is_peer_known(&who) {
+			trace!(target: LOG_TARGET, "Cannot send block request to unknown peer {who}");
+			debug_assert!(false);
+			return
+		}
+
+		let downloader = self.block_downloader.clone();
+		self.pending_responses.insert(
+			who,
+			Box::pin(async move {
+				(
+					who,
+					PeerRequest::Block(request.clone()),
+					downloader.download_blocks(who, request).await,
+				)
+			}),
+		);
+	}
+
+	fn send_state_request(&mut self, who: PeerId, request: OpaqueStateRequest) {
+		if !self.chain_sync.is_peer_known(&who) {
+			trace!(target: LOG_TARGET, "Cannot send state request to unknown peer {who}");
+			debug_assert!(false);
+			return
+		}
+
+		let (tx, rx) = oneshot::channel();
+
+		self.pending_responses
+			.insert(who, Box::pin(async move { (who, PeerRequest::State, rx.await) }));
+
+		match Self::encode_state_request(&request) {
+			Ok(data) => {
+				self.network_service.start_request(
+					who,
+					self.state_request_protocol_name.clone(),
+					data,
+					tx,
+					IfDisconnected::ImmediateError,
+				);
+			},
+			Err(err) => {
+				log::warn!(
+					target: LOG_TARGET,
+					"Failed to encode state request {request:?}: {err:?}",
+				);
+			},
+		}
+	}
+
+	fn send_warp_sync_request(&mut self, who: PeerId, request: WarpProofRequest<B>) {
+		if !self.chain_sync.is_peer_known(&who) {
+			trace!(target: LOG_TARGET, "Cannot send warp proof request to unknown peer {who}");
+			debug_assert!(false);
+			return
+		}
+
+		let (tx, rx) = oneshot::channel();
+
+		self.pending_responses
+			.insert(who, Box::pin(async move { (who, PeerRequest::WarpProof, rx.await) }));
+
+		match &self.warp_sync_protocol_name {
+			Some(name) => self.network_service.start_request(
+				who,
+				name.clone(),
+				request.encode(),
+				tx,
+				IfDisconnected::ImmediateError,
+			),
+			None => {
+				log::warn!(
+					target: LOG_TARGET,
+					"Trying to send warp sync request when no protocol is configured {request:?}",
+				);
+			},
+		}
+	}
+
+	fn encode_state_request(request: &OpaqueStateRequest) -> Result<Vec<u8>, String> {
+		let request: &StateRequest = request.0.downcast_ref().ok_or_else(|| {
+			"Failed to downcast opaque state response during encoding, this is an \
+				implementation bug."
+				.to_string()
+		})?;
+
+		Ok(request.encode_to_vec())
+	}
+
+	fn decode_state_response(response: &[u8]) -> Result<OpaqueStateResponse, String> {
+		let response = StateResponse::decode(response)
+			.map_err(|error| format!("Failed to decode state response: {error}"))?;
+
+		Ok(OpaqueStateResponse(Box::new(response)))
+	}
+
+	fn poll_pending_responses(&mut self, cx: &mut std::task::Context) -> Poll<()> {
+		let ready_responses = self
+			.pending_responses
+			.values_mut()
+			.filter_map(|future| match future.poll_unpin(cx) {
+				Poll::Pending => None,
+				Poll::Ready(result) => Some(result),
+			})
+			.collect::<Vec<_>>();
+
+		for (id, request, response) in ready_responses {
+			self.pending_responses
+				.remove(&id)
+				.expect("Logic error: peer id from pending response is missing in the map.");
+
+			match response {
+				Ok(Ok(resp)) => match request {
+					PeerRequest::Block(req) => {
+						match self.block_downloader.block_response_into_blocks(&req, resp) {
+							Ok(blocks) => {
+								if let Some((peer_id, new_req)) =
+									self.chain_sync.on_block_response(id, req, blocks)
+								{
+									self.send_block_request(peer_id, new_req);
+								}
+							},
+							Err(BlockResponseError::DecodeFailed(e)) => {
+								debug!(
+									target: LOG_TARGET,
+									"Failed to decode block response from peer {:?}: {:?}.",
+									id,
+									e
+								);
+								self.network_service.report_peer(id, rep::BAD_MESSAGE);
+								self.network_service
+									.disconnect_peer(id, self.block_announce_protocol_name.clone());
+								continue
+							},
+							Err(BlockResponseError::ExtractionFailed(e)) => {
+								debug!(
+									target: LOG_TARGET,
+									"Failed to extract blocks from peer response {:?}: {:?}.",
+									id,
+									e
+								);
+								self.network_service.report_peer(id, rep::BAD_MESSAGE);
+								continue
+							},
+						}
+					},
+					PeerRequest::State => {
+						let response = match Self::decode_state_response(&resp[..]) {
+							Ok(proto) => proto,
+							Err(e) => {
+								debug!(
+									target: LOG_TARGET,
+									"Failed to decode state response from peer {id:?}: {e:?}.",
+								);
+								self.network_service.report_peer(id, rep::BAD_MESSAGE);
+								self.network_service
+									.disconnect_peer(id, self.block_announce_protocol_name.clone());
+								continue
+							},
+						};
+
+						self.chain_sync.on_state_response(id, response);
+					},
+					PeerRequest::WarpProof => {
+						self.chain_sync.on_warp_sync_response(id, EncodedProof(resp));
+					},
+				},
+				Ok(Err(e)) => {
+					debug!(target: LOG_TARGET, "Request to peer {id:?} failed: {e:?}.");
+
+					match e {
+						RequestFailure::Network(OutboundFailure::Timeout) => {
+							self.network_service.report_peer(id, rep::TIMEOUT);
+							self.network_service
+								.disconnect_peer(id, self.block_announce_protocol_name.clone());
+						},
+						RequestFailure::Network(OutboundFailure::UnsupportedProtocols) => {
+							self.network_service.report_peer(id, rep::BAD_PROTOCOL);
+							self.network_service
+								.disconnect_peer(id, self.block_announce_protocol_name.clone());
+						},
+						RequestFailure::Network(OutboundFailure::DialFailure) => {
+							self.network_service
+								.disconnect_peer(id, self.block_announce_protocol_name.clone());
+						},
+						RequestFailure::Refused => {
+							self.network_service.report_peer(id, rep::REFUSED);
+							self.network_service
+								.disconnect_peer(id, self.block_announce_protocol_name.clone());
+						},
+						RequestFailure::Network(OutboundFailure::ConnectionClosed) |
+						RequestFailure::NotConnected => {
+							self.network_service
+								.disconnect_peer(id, self.block_announce_protocol_name.clone());
+						},
+						RequestFailure::UnknownProtocol => {
+							debug_assert!(false, "Block request protocol should always be known.");
+						},
+						RequestFailure::Obsolete => {
+							debug_assert!(
+								false,
+								"Can not receive `RequestFailure::Obsolete` after dropping the \
+								 response receiver.",
+							);
+						},
+					}
+				},
+				Err(oneshot::Canceled) => {
+					trace!(
+						target: LOG_TARGET,
+						"Request to peer {id:?} failed due to oneshot being canceled.",
+					);
+					self.network_service
+						.disconnect_peer(id, self.block_announce_protocol_name.clone());
+				},
+			}
+		}
+
+		Poll::Pending
 	}
 }

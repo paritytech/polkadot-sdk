@@ -1702,7 +1702,7 @@ where
 		}
 	}
 
-	fn on_block_response(
+	pub(crate) fn on_block_response(
 		&mut self,
 		peer_id: PeerId,
 		request: BlockRequest<B>,
@@ -1935,9 +1935,7 @@ where
 		Ok(request.encode_to_vec())
 	}
 
-	fn justification_requests(
-		&mut self,
-	) -> Vec<(PeerId, BlockRequest<B>)> {
+	fn justification_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
 		let peers = &mut self.peers;
 		let mut matcher = self.extra_justifications.matcher();
 		std::iter::from_fn(move || {
