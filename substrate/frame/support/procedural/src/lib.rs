@@ -555,15 +555,15 @@ pub fn __create_tt_macro(input: TokenStream) -> TokenStream {
 ///
 /// Imagine a pallet with the following storage definition:
 /// ```ignore
-/// 	#[pallet::storage]
-/// 	pub type Value<T: Config> = StorageValue<_, u32>;
+/// #[pallet::storage]
+/// pub type Value<T: Config> = StorageValue<_, u32>;
 /// ```
 /// `Value` can be accessed by calling `Value::<T>::get()`.
 ///
-/// Now imagine the defintiion of `Value` is updated to a `(u32, u32)`:
+/// Now imagine the definition of `Value` is updated to a `(u32, u32)`:
 /// ```ignore
-/// 	#[pallet::storage]
-/// 	pub type Value<T: Config> = StorageValue<_, (u32, u32)>;
+/// #[pallet::storage]
+/// pub type Value<T: Config> = StorageValue<_, (u32, u32)>;
 /// ```
 /// The on-chain value of `Value` is `u32`, but `Value::<T>::get()` expects it to be `(u32, u32)`.
 ///
