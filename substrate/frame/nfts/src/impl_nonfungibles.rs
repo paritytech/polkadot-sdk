@@ -319,6 +319,33 @@ impl<T: Config<I>, I: 'static> Mutate<<T as SystemConfig>::AccountId, ItemConfig
 			})
 		})
 	}
+	
+	fn set_metadata(
+		who: &T::AccountId,
+		collection: &Self::CollectionId,
+		item: &Self::ItemId,
+		data: &[u8],
+	) -> DispatchResult {
+		Self::do_set_item_metadata(
+			Some(who.clone()),
+			*collection,
+			*item,
+			Self::construct_metadata(data.to_vec())?,
+			None
+		)
+	}
+
+	fn set_collection_metadata(
+		who: &T::AccountId,
+		collection: &Self::CollectionId,
+		data: &[u8],
+	) -> DispatchResult {
+		Self::do_set_collection_metadata(
+			Some(who.clone()),
+			*collection,
+			Self::construct_metadata(data.to_vec())?,
+		)
+	}
 
 	fn clear_attribute(
 		collection: &Self::CollectionId,
@@ -361,6 +388,28 @@ impl<T: Config<I>, I: 'static> Mutate<<T as SystemConfig>::AccountId, ItemConfig
 		key.using_encoded(|k| {
 			<Self as Mutate<T::AccountId, ItemConfig>>::clear_collection_attribute(collection, k)
 		})
+	}
+
+	fn clear_metadata(
+		who: &T::AccountId,
+		collection: &Self::CollectionId,
+		item: &Self::ItemId,
+	) -> DispatchResult {
+		Self::do_clear_item_metadata(
+			Some(who.clone()),
+			*collection,
+			*item,
+		)
+	}
+
+	fn clear_collection_metadata(
+		who: &T::AccountId,
+		collection: &Self::CollectionId,
+	) -> DispatchResult {
+		Self::do_clear_collection_metadata(
+			Some(who.clone()),
+			*collection,
+		)
 	}
 }
 

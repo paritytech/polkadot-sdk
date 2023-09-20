@@ -307,6 +307,29 @@ pub trait Mutate<AccountId, ItemConfig>: Inspect<AccountId> {
 		})
 	}
 
+	/// Set the metadata `data` of an `item` of `collection`.
+	///
+	/// By default, this is not a supported operation.
+	fn set_metadata(
+		_who: &AccountId,
+		_collection: &Self::CollectionId,
+		_item: &Self::ItemId,
+		_data: &[u8],
+	) -> DispatchResult {
+		Err(TokenError::Unsupported.into())
+	}
+
+	/// Set the metadata `data` of a `collection`.
+	///
+	/// By default, this is not a supported operation.
+	fn set_collection_metadata(
+		_who: &AccountId,
+		_collection: &Self::CollectionId,
+		_data: &[u8],
+	) -> DispatchResult {
+		Err(TokenError::Unsupported.into())
+	}
+
 	/// Clear attribute of `item` of `collection`'s `key`.
 	///
 	/// By default, this is not a supported operation.
@@ -344,6 +367,27 @@ pub trait Mutate<AccountId, ItemConfig>: Inspect<AccountId> {
 		key: &K,
 	) -> DispatchResult {
 		key.using_encoded(|k| Self::clear_collection_attribute(collection, k))
+	}
+
+	/// Clear the metadata of an `item` of `collection`.
+	///
+	/// By default, this is not a supported operation.
+	fn clear_metadata(
+		_who: &AccountId,
+		_collection: &Self::CollectionId,
+		_item: &Self::ItemId,
+	) -> DispatchResult {
+		Err(TokenError::Unsupported.into())
+	}
+
+	/// Clear the metadata of a `collection`.
+	///
+	/// By default, this is not a supported operation.
+	fn clear_collection_metadata(
+		_who: &AccountId,
+		_collection: &Self::CollectionId,
+	) -> DispatchResult {
+		Err(TokenError::Unsupported.into())
 	}
 }
 
