@@ -70,15 +70,14 @@ mod version_unchecked {
 
 		/// Migrate the storage from V0 to V1.
 		///
-		/// If the value doesn't exist, there is nothing to do.
-		///
-		/// If the value exists, it is read and then written back to storage inside a
+		/// - If the value doesn't exist, there is nothing to do.
+		/// - If the value exists, it is read and then written back to storage inside a
 		/// [`crate::CurrentAndPreviousValue`].
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			// Read the old value from storage
 			if let Some(old_value) = old::Value::<T>::get() {
 				// Write the new value to storage
-				let new = crate::CurrentAndPreviousValue { previous: None, current: old_value };
+				let new = crate::CurrentAndPreviousValue { current: old_value, previous: None };
 				crate::Value::<T>::put(new);
 				// One read for the old value, one write for the new value
 				T::DbWeight::get().reads_writes(1, 1)
@@ -90,9 +89,9 @@ mod version_unchecked {
 
 		/// Verifies the storage was migrated correctly.
 		///
-		/// If there was no old value, the new value should not be set.
-		///
-		/// If there was an old value, the new value should be a [`crate::CurrentAndPreviousValue`].
+		/// - If there was no old value, the new value should not be set.
+		/// - If there was an old value, the new value should be a
+		///   [`crate::CurrentAndPreviousValue`].
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 			use codec::Decode;
@@ -155,7 +154,7 @@ pub mod versioned {
 #[cfg(any(all(feature = "try-runtime", test), doc))]
 mod test {
 	use super::*;
-	use crate::mock::{new_test_ext, Test};
+	use crate::mock::{new_test_ext, MockRuntime};
 	use frame_support::assert_ok;
 	use version_unchecked::MigrateV0ToV1;
 
@@ -163,26 +162,26 @@ mod test {
 	fn handles_no_existing_value() {
 		new_test_ext().execute_with(|| {
 			// By default, no value should be set. Verify this assumption.
-			assert!(crate::Value::<Test>::get().is_none());
-			assert!(old::Value::<Test>::get().is_none());
+			assert!(crate::Value::<MockRuntime>::get().is_none());
+			assert!(old::Value::<MockRuntime>::get().is_none());
 
 			// Get the pre_upgrade bytes
-			let bytes = match MigrateV0ToV1::<Test>::pre_upgrade() {
+			let bytes = match MigrateV0ToV1::<MockRuntime>::pre_upgrade() {
 				Ok(bytes) => bytes,
 				Err(e) => panic!("pre_upgrade failed: {:?}", e),
 			};
 
 			// Execute the migration
-			let weight = MigrateV0ToV1::<Test>::on_runtime_upgrade();
+			let weight = MigrateV0ToV1::<MockRuntime>::on_runtime_upgrade();
 
 			// Verify post_upgrade succeeds
-			assert_ok!(MigrateV0ToV1::<Test>::post_upgrade(bytes));
+			assert_ok!(MigrateV0ToV1::<MockRuntime>::post_upgrade(bytes));
 
 			// The weight should be just 1 read for trying to access the old value.
-			assert_eq!(weight, <Test as frame_system::Config>::DbWeight::get().reads(1));
+			assert_eq!(weight, <MockRuntime as frame_system::Config>::DbWeight::get().reads(1));
 
 			// After the migration, no value should have been set.
-			assert!(crate::Value::<Test>::get().is_none());
+			assert!(crate::Value::<MockRuntime>::get().is_none());
 		})
 	}
 
@@ -191,28 +190,31 @@ mod test {
 		new_test_ext().execute_with(|| {
 			// Set up an initial value
 			let initial_value = 42;
-			old::Value::<Test>::put(initial_value);
+			old::Value::<MockRuntime>::put(initial_value);
 
 			// Get the pre_upgrade bytes
-			let bytes = match MigrateV0ToV1::<Test>::pre_upgrade() {
+			let bytes = match MigrateV0ToV1::<MockRuntime>::pre_upgrade() {
 				Ok(bytes) => bytes,
 				Err(e) => panic!("pre_upgrade failed: {:?}", e),
 			};
 
 			// Execute the migration
-			let weight = MigrateV0ToV1::<Test>::on_runtime_upgrade();
+			let weight = MigrateV0ToV1::<MockRuntime>::on_runtime_upgrade();
 
 			// Verify post_upgrade succeeds
-			assert_ok!(MigrateV0ToV1::<Test>::post_upgrade(bytes));
+			assert_ok!(MigrateV0ToV1::<MockRuntime>::post_upgrade(bytes));
 
 			// The weight used should be 1 read for the old value, and 1 write for the new
 			// value.
-			assert_eq!(weight, <Test as frame_system::Config>::DbWeight::get().reads_writes(1, 1));
+			assert_eq!(
+				weight,
+				<MockRuntime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+			);
 
 			// After the migration, the new value should be set as the `current` value.
 			let expected_new_value =
 				crate::CurrentAndPreviousValue { current: initial_value, previous: None };
-			assert_eq!(crate::Value::<Test>::get(), Some(expected_new_value));
+			assert_eq!(crate::Value::<MockRuntime>::get(), Some(expected_new_value));
 		})
 	}
 }
