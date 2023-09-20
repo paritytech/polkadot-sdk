@@ -42,12 +42,7 @@
 //!
 //! For the purposes of this exercise, we imagine that in [`StorageVersion`] V0 of this pallet
 //! [`Value`](pallet::Value) is a `u32`, and this what is currently stored on-chain.
-//!
-//! ```ignore
-//! // V0 Storage Value
-//! #[pallet::storage]
-//! pub type Value<T: Config> = StorageValue<_, u32>;
-//! ```
+#![doc = docify::embed!("src/lib.rs", Value__V0)]
 //!
 //!
 //! In [`StorageVersion`] V1 of the pallet a new struct [`CurrentAndPreviousValue`] is introduced:
@@ -58,6 +53,7 @@
 //! In StorageVersion V1 of the pallet when [`set_value`](crate::Call::set_value) is called, the
 //! new value is stored in the `current` field of [`CurrentAndPreviousValue`], and the previous
 //! value (if it exists) is stored in the `previous` field.
+#![doc = docify::embed!("src/lib.rs", pallet_calls)]
 //!
 //! ## Why a migration is necessary
 //!
@@ -211,6 +207,8 @@
 
 // We make sure this pallet uses `no_std` for compiling to Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
+// allow non-camel-case names for storage version V0 value
+#![allow(non_camel_case_types)]
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
@@ -253,11 +251,21 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {}
 
+	/// [`StorageVersion`] V0 of [`Value`].
+	///
+	/// Not used anywhere anymore. Here for demonstration purposes only.
+	#[docify::export]
+	#[pallet::storage]
+	pub type Value__V0<T: Config> = StorageValue<_, u32>;
+
 	/// [`StorageVersion`] V1 of [`Value`].
+	///
+	/// Currently used.
 	#[docify::export]
 	#[pallet::storage]
 	pub type Value<T: Config> = StorageValue<_, CurrentAndPreviousValue>;
 
+	#[docify::export(pallet_calls)]
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
