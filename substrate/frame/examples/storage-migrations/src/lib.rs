@@ -44,9 +44,9 @@
 //! [`Value`](pallet::Value) is a `u32`, and this what is currently stored on-chain.
 //!
 //! ```ignore
-//! 	// (Old) Storage Version V0 representation of `Value`
-//! 	#[pallet::storage]
-//! 	pub type Value<T: Config> = StorageValue<_, u32>;
+//! // (Old) Storage Version V0 representation of `Value`
+//! #[pallet::storage]
+//! pub type Value<T: Config> = StorageValue<_, u32>;
 //! ```
 //!
 //! In [`StorageVersion`] V1 of the pallet a new struct [`CurrentAndPreviousValue`] is introduced:
