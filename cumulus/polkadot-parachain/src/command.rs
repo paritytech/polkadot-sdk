@@ -954,7 +954,7 @@ pub fn run() -> Result<()> {
 						.map(|r| r.0)
 						.map_err(Into::into),
 					Runtime::Glutton =>
-						crate::service::start_lookahead_aura_node::<
+						crate::service::start_basic_lookahead_node::<
 							glutton_runtime::RuntimeApi,
 							AuraId,
 						>(config, polkadot_config, collator_options, id, hwbench)
