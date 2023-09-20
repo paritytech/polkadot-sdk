@@ -512,7 +512,7 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 #[test]
 fn deposit_event_topics() {
 	new_test_ext().execute_with(|| {
-		const BLOCK_NUMBER: u32 = 1;
+		const BLOCK_NUMBER: u64 = 1;
 
 		System::reset_events();
 		System::initialize(&BLOCK_NUMBER, &[0u8; 32].into(), &Default::default());
