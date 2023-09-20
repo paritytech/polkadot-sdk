@@ -8,32 +8,30 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME example pallet demonstrating best-practices for writing storage migrations."
 
-[lib]
-doctest = false
-
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-docify = "0.2.3"
+docify = { version = "0.2.3", default-features = false }
 log = { version = "0.4.20", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
 	"derive",
 ] }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-frame-support = { path = "../../support", default-features = false}
-frame-executive = { path = "../../executive", default-features = false}
-frame-system = { path = "../../system", default-features = false}
-frame-try-runtime = { path = "../../try-runtime", default-features = false, optional = true}
-pallet-balances = { path = "../../balances", default-features = false}
-sp-std = { path = "../../../primitives/std", default-features = false}
-sp-runtime = { path = "../../../primitives/runtime" }
-sp-core = { path = "../../../primitives/core" }
-sp-io = { path = "../../../primitives/io" }
+frame-support = { path = "../../support", default-features = false }
+frame-executive = { path = "../../executive", default-features = false }
+frame-system = { path = "../../system", default-features = false }
+frame-try-runtime = { path = "../../try-runtime", default-features = false, optional = true }
+pallet-balances = { path = "../../balances", default-features = false }
+sp-std = { path = "../../../primitives/std", default-features = false }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false }
+sp-core = { path = "../../../primitives/core", default-features = false }
+sp-io = { path = "../../../primitives/io", default-features = false }
 
 [features]
 default = [ "std" ]
 std = [
+	"log/std",
 	"codec/std",
 	"frame-executive/std",
 	"frame-support/std",

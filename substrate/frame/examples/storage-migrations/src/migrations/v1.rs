@@ -20,6 +20,9 @@ use frame_support::{
 	traits::{Get, OnRuntimeUpgrade},
 };
 
+#[cfg(feature = "try-runtime")]
+use sp_std::vec::Vec;
+
 /// Collection of storage item formats from the previous storage version.
 ///
 /// Required so we can read values in the old storage format during the migration.
