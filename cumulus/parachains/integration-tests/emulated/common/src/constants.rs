@@ -616,6 +616,41 @@ pub mod rococo {
 				key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
 			},
 			configuration: rococo_runtime::ConfigurationConfig { config: get_host_config() },
+			paras: rococo_runtime::ParasConfig {
+				paras: vec![
+					(
+						asset_hub_rococo::PARA_ID.into(),
+						ParaGenesisArgs {
+							genesis_head: HeadData::default(),
+							validation_code: ValidationCode(
+								asset_hub_rococo_runtime::WASM_BINARY.unwrap().to_vec(),
+							),
+							para_kind: ParaKind::Parachain,
+						},
+					),
+					(
+						penpal::PARA_ID_A.into(),
+						ParaGenesisArgs {
+							genesis_head: HeadData::default(),
+							validation_code: ValidationCode(
+								penpal_runtime::WASM_BINARY.unwrap().to_vec(),
+							),
+							para_kind: ParaKind::Parachain,
+						},
+					),
+					(
+						penpal::PARA_ID_B.into(),
+						ParaGenesisArgs {
+							genesis_head: HeadData::default(),
+							validation_code: ValidationCode(
+								penpal_runtime::WASM_BINARY.unwrap().to_vec(),
+							),
+							para_kind: ParaKind::Parachain,
+						},
+					),
+				],
+				..Default::default()
+			},
 			registrar: rococo_runtime::RegistrarConfig {
 				next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
 				..Default::default()
@@ -815,7 +850,7 @@ pub mod asset_hub_rococo {
 				balances: accounts::init_balances()
 					.iter()
 					.cloned()
-					.map(|k| (k, ED * 4096))
+					.map(|k| (k, ED * 4096 * 4096))
 					.collect(),
 			},
 			parachain_info: asset_hub_rococo_runtime::ParachainInfoConfig {

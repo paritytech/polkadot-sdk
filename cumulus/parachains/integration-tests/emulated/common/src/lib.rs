@@ -93,6 +93,7 @@ decl_test_relay_chains! {
 			XcmPallet: rococo_runtime::XcmPallet,
 			Sudo: rococo_runtime::Sudo,
 			Balances: rococo_runtime::Balances,
+			Hrmp: rococo_runtime::Hrmp,
 		}
 	},
 	#[api_version(5)]
@@ -344,10 +345,31 @@ decl_test_parachains! {
 		pallets = {
 			PolkadotXcm: asset_hub_rococo_runtime::PolkadotXcm,
 			Assets: asset_hub_rococo_runtime::Assets,
+			ForeignAssets: asset_hub_rococo_runtime::ForeignAssets,
+			PoolAssets: asset_hub_rococo_runtime::PoolAssets,
+			AssetConversion: asset_hub_rococo_runtime::AssetConversion,
+			Balances: asset_hub_rococo_runtime::Balances,
 		}
 	},
 	pub struct PenpalRococoA {
 		genesis = penpal::genesis(penpal::PARA_ID_A),
+		on_init = {
+			penpal_runtime::AuraExt::on_initialize(1);
+		},
+		runtime = penpal_runtime,
+		core = {
+			XcmpMessageHandler: penpal_runtime::XcmpQueue,
+			DmpMessageHandler: penpal_runtime::DmpQueue,
+			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
+			ParachainInfo: penpal_runtime::ParachainInfo,
+		},
+		pallets = {
+			PolkadotXcm: penpal_runtime::PolkadotXcm,
+			Assets: penpal_runtime::Assets,
+		}
+	},
+	pub struct PenpalRococoB {
+		genesis = penpal::genesis(penpal::PARA_ID_B),
 		on_init = {
 			penpal_runtime::AuraExt::on_initialize(1);
 		},
@@ -397,6 +419,10 @@ decl_test_parachains! {
 		pallets = {
 			PolkadotXcm: asset_hub_rococo_runtime::PolkadotXcm,
 			Assets: asset_hub_rococo_runtime::Assets,
+			ForeignAssets: asset_hub_rococo_runtime::ForeignAssets,
+			PoolAssets: asset_hub_rococo_runtime::PoolAssets,
+			AssetConversion: asset_hub_rococo_runtime::AssetConversion,
+			Balances: asset_hub_rococo_runtime::Balances,
 		}
 	}
 }
@@ -441,6 +467,7 @@ decl_test_networks! {
 			AssetHubRococo,
 			BridgeHubRococo,
 			PenpalRococoA,
+			PenpalRococoB,
 		],
 		bridge = RococoWococoMockBridge
 	},
@@ -495,6 +522,7 @@ impl_assert_events_helpers_for_relay_chain!(Westend);
 // Rococo implementation
 impl_accounts_helpers_for_relay_chain!(Rococo);
 impl_assert_events_helpers_for_relay_chain!(Rococo);
+impl_hrmp_channels_helpers_for_relay_chain!(Rococo);
 
 // Wococo implementation
 impl_accounts_helpers_for_relay_chain!(Wococo);
@@ -515,6 +543,11 @@ impl_accounts_helpers_for_parachain!(AssetHubWestend);
 impl_assets_helpers_for_parachain!(AssetHubWestend, Westend);
 impl_assert_events_helpers_for_parachain!(AssetHubWestend);
 
+// AssetHubRococo implementation
+impl_accounts_helpers_for_parachain!(AssetHubRococo);
+impl_assets_helpers_for_parachain!(AssetHubRococo, Rococo);
+impl_assert_events_helpers_for_parachain!(AssetHubRococo);
+
 // PenpalPolkadot implementations
 impl_assert_events_helpers_for_parachain!(PenpalPolkadotA);
 impl_assert_events_helpers_for_parachain!(PenpalPolkadotB);
@@ -533,6 +566,10 @@ impl_assert_events_helpers_for_parachain!(Collectives);
 // BridgeHubRococo implementation
 impl_accounts_helpers_for_parachain!(BridgeHubRococo);
 impl_assert_events_helpers_for_parachain!(BridgeHubRococo);
+
+// PenpalRococo implementations
+impl_assert_events_helpers_for_parachain!(PenpalRococoA);
+impl_assert_events_helpers_for_parachain!(PenpalRococoB);
 
 decl_test_sender_receiver_accounts_parameter_types! {
 	// Relays
@@ -560,5 +597,6 @@ decl_test_sender_receiver_accounts_parameter_types! {
 	PenpalKusamaA { sender: ALICE, receiver: BOB },
 	PenpalKusamaB { sender: ALICE, receiver: BOB },
 	PenpalWestendA { sender: ALICE, receiver: BOB },
-	PenpalRococoA { sender: ALICE, receiver: BOB }
+	PenpalRococoA { sender: ALICE, receiver: BOB },
+	PenpalRococoB { sender: ALICE, receiver: BOB }
 }
