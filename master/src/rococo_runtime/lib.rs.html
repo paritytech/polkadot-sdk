@@ -2325,6 +2325,9 @@
 <a href="#2325" id="2325">2325</a>
 <a href="#2326" id="2326">2326</a>
 <a href="#2327" id="2327">2327</a>
+<a href="#2328" id="2328">2328</a>
+<a href="#2329" id="2329">2329</a>
+<a href="#2330" id="2330">2330</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2387,7 +2390,7 @@
 <span class="kw">use </span>frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		fungible::HoldConsideration, Contains, EitherOfDiverse, InstanceFilter,
+		fungible::HoldConsideration, Contains, EitherOfDiverse, EverythingBut, InstanceFilter,
 		KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, PrivilegeCmp, ProcessMessage,
 		ProcessMessageError, StorageMapShim, WithdrawReasons,
 	},
@@ -2462,12 +2465,15 @@
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-<span class="doccomment">/// We currently allow all calls.
-</span><span class="kw">pub struct </span>BaseFilter;
-<span class="kw">impl </span>Contains&lt;RuntimeCall&gt; <span class="kw">for </span>BaseFilter {
-	<span class="kw">fn </span>contains(_call: <span class="kw-2">&amp;</span>RuntimeCall) -&gt; bool {
-		<span class="bool-val">true
-	</span>}
+<span class="doccomment">/// A type to identify calls to the Identity pallet. These will be filtered to prevent invocation,
+/// locking the state of the pallet and preventing further updates to identities and sub-identities.
+/// The locked state will be the genesis state of a new system chain and then removed from the Relay
+/// Chain.
+</span><span class="kw">pub struct </span>IdentityCalls;
+<span class="kw">impl </span>Contains&lt;RuntimeCall&gt; <span class="kw">for </span>IdentityCalls {
+	<span class="kw">fn </span>contains(c: <span class="kw-2">&amp;</span>RuntimeCall) -&gt; bool {
+		<span class="macro">matches!</span>(c, RuntimeCall::Identity(<span class="kw">_</span>))
+	}
 }
 
 <span class="macro">parameter_types! </span>{
@@ -2476,7 +2482,7 @@
 }
 
 <span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>BaseCallFilter = BaseFilter;
+	<span class="kw">type </span>BaseCallFilter = EverythingBut&lt;IdentityCalls&gt;;
 	<span class="kw">type </span>BlockWeights = BlockWeights;
 	<span class="kw">type </span>BlockLength = BlockLength;
 	<span class="kw">type </span>DbWeight = RocksDbWeight;

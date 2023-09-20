@@ -2736,6 +2736,9 @@
 <a href="#2736" id="2736">2736</a>
 <a href="#2737" id="2737">2737</a>
 <a href="#2738" id="2738">2738</a>
+<a href="#2739" id="2739">2739</a>
+<a href="#2740" id="2740">2740</a>
+<a href="#2741" id="2741">2741</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2801,9 +2804,9 @@
 <span class="kw">use </span>frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		fungible::HoldConsideration, ConstU32, Contains, EitherOf, EitherOfDiverse, InstanceFilter,
-		KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage, ProcessMessageError,
-		StorageMapShim, WithdrawReasons,
+		fungible::HoldConsideration, ConstU32, Contains, EitherOf, EitherOfDiverse, EverythingBut,
+		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage,
+		ProcessMessageError, StorageMapShim, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -2896,12 +2899,15 @@
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-<span class="doccomment">/// We currently allow all calls.
-</span><span class="kw">pub struct </span>BaseFilter;
-<span class="kw">impl </span>Contains&lt;RuntimeCall&gt; <span class="kw">for </span>BaseFilter {
-	<span class="kw">fn </span>contains(_c: <span class="kw-2">&amp;</span>RuntimeCall) -&gt; bool {
-		<span class="bool-val">true
-	</span>}
+<span class="doccomment">/// A type to identify calls to the Identity pallet. These will be filtered to prevent invocation,
+/// locking the state of the pallet and preventing further updates to identities and sub-identities.
+/// The locked state will be the genesis state of a new system chain and then removed from the Relay
+/// Chain.
+</span><span class="kw">pub struct </span>IdentityCalls;
+<span class="kw">impl </span>Contains&lt;RuntimeCall&gt; <span class="kw">for </span>IdentityCalls {
+	<span class="kw">fn </span>contains(c: <span class="kw-2">&amp;</span>RuntimeCall) -&gt; bool {
+		<span class="macro">matches!</span>(c, RuntimeCall::Identity(<span class="kw">_</span>))
+	}
 }
 
 <span class="macro">parameter_types! </span>{
@@ -2910,7 +2916,7 @@
 }
 
 <span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
+	<span class="kw">type </span>BaseCallFilter = EverythingBut&lt;IdentityCalls&gt;;
 	<span class="kw">type </span>BlockWeights = BlockWeights;
 	<span class="kw">type </span>BlockLength = BlockLength;
 	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;

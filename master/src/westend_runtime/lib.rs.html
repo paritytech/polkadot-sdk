@@ -2228,6 +2228,18 @@
 <a href="#2228" id="2228">2228</a>
 <a href="#2229" id="2229">2229</a>
 <a href="#2230" id="2230">2230</a>
+<a href="#2231" id="2231">2231</a>
+<a href="#2232" id="2232">2232</a>
+<a href="#2233" id="2233">2233</a>
+<a href="#2234" id="2234">2234</a>
+<a href="#2235" id="2235">2235</a>
+<a href="#2236" id="2236">2236</a>
+<a href="#2237" id="2237">2237</a>
+<a href="#2238" id="2238">2238</a>
+<a href="#2239" id="2239">2239</a>
+<a href="#2240" id="2240">2240</a>
+<a href="#2241" id="2241">2241</a>
+<a href="#2242" id="2242">2242</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2259,8 +2271,9 @@
 <span class="kw">use </span>frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		fungible::HoldConsideration, ConstU32, InstanceFilter, KeyOwnerProofSystem,
-		LinearStoragePrice, ProcessMessage, ProcessMessageError, WithdrawReasons,
+		fungible::HoldConsideration, ConstU32, Contains, EverythingBut, InstanceFilter,
+		KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError,
+		WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -2371,13 +2384,24 @@
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
+<span class="doccomment">/// A type to identify calls to the Identity pallet. These will be filtered to prevent invocation,
+/// locking the state of the pallet and preventing further updates to identities and sub-identities.
+/// The locked state will be the genesis state of a new system chain and then removed from the Relay
+/// Chain.
+</span><span class="kw">pub struct </span>IdentityCalls;
+<span class="kw">impl </span>Contains&lt;RuntimeCall&gt; <span class="kw">for </span>IdentityCalls {
+	<span class="kw">fn </span>contains(c: <span class="kw-2">&amp;</span>RuntimeCall) -&gt; bool {
+		<span class="macro">matches!</span>(c, RuntimeCall::Identity(<span class="kw">_</span>))
+	}
+}
+
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>Version: RuntimeVersion = VERSION;
 	<span class="kw">pub const </span>SS58Prefix: u8 = <span class="number">42</span>;
 }
 
 <span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
+	<span class="kw">type </span>BaseCallFilter = EverythingBut&lt;IdentityCalls&gt;;
 	<span class="kw">type </span>BlockWeights = BlockWeights;
 	<span class="kw">type </span>BlockLength = BlockLength;
 	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;

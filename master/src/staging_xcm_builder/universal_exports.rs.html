@@ -536,6 +536,10 @@
 <a href="#536" id="536">536</a>
 <a href="#537" id="537">537</a>
 <a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -709,7 +713,9 @@
 		<span class="kw">let </span>xcm = msg.take().ok_or(MissingArgument)<span class="question-mark">?</span>;
 
 		<span class="comment">// find exporter
-		</span><span class="kw">let </span><span class="prelude-val">Some</span>((bridge, maybe_payment)) = Bridges::exporter_for(<span class="kw-2">&amp;</span>remote_network, <span class="kw-2">&amp;</span>remote_location, <span class="kw-2">&amp;</span>xcm) <span class="kw">else </span>{
+		</span><span class="kw">let </span><span class="prelude-val">Some</span>((bridge, maybe_payment)) =
+			Bridges::exporter_for(<span class="kw-2">&amp;</span>remote_network, <span class="kw-2">&amp;</span>remote_location, <span class="kw-2">&amp;</span>xcm)
+		<span class="kw">else </span>{
 			<span class="comment">// We need to make sure that msg is not consumed in case of `NotApplicable`.
 			</span><span class="kw-2">*</span>msg = <span class="prelude-val">Some</span>(xcm);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(SendError::NotApplicable)
@@ -774,7 +780,9 @@
 		<span class="kw">let </span>xcm = msg.take().ok_or(MissingArgument)<span class="question-mark">?</span>;
 
 		<span class="comment">// find exporter
-		</span><span class="kw">let </span><span class="prelude-val">Some</span>((bridge, maybe_payment)) = Bridges::exporter_for(<span class="kw-2">&amp;</span>remote_network, <span class="kw-2">&amp;</span>remote_location, <span class="kw-2">&amp;</span>xcm) <span class="kw">else </span>{
+		</span><span class="kw">let </span><span class="prelude-val">Some</span>((bridge, maybe_payment)) =
+			Bridges::exporter_for(<span class="kw-2">&amp;</span>remote_network, <span class="kw-2">&amp;</span>remote_location, <span class="kw-2">&amp;</span>xcm)
+		<span class="kw">else </span>{
 			<span class="comment">// We need to make sure that msg is not consumed in case of `NotApplicable`.
 			</span><span class="kw-2">*</span>msg = <span class="prelude-val">Some</span>(xcm);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(SendError::NotApplicable)
