@@ -22,6 +22,7 @@ use frame_support::{
 use log;
 use sp_runtime::traits::Get;
 use xcm::latest::prelude::*;
+use cumulus_primitives_core::{IsSystem, ParaId};
 
 /// A `ChargeFeeInFungibles` implementation that converts the output of
 /// a given WeightToFee implementation an amount charged in
@@ -90,8 +91,7 @@ impl<AssetLocation: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
 			// The Relay Chain
 			MultiLocation { parents: 1, interior: Here } => true,
 			// System parachain
-			// TODO: reuse SystemParachains matcher when https://github.com/paritytech/polkadot-sdk/pull/1234 is merged
-			MultiLocation { parents: 1, interior: X1(Parachain(id)) } => *id < 2000,
+			MultiLocation { parents: 1, interior: X1(Parachain(id)) } => ParaId::from(*id).is_system(),
 			// Others
 			_ => false,
 		};
