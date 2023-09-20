@@ -276,6 +276,15 @@ pub mod pallet {
 		fn build(&self) {
 			Pallet::<T>::initialize_genesis_authorities(&self.authorities);
 			EpochConfig::<T>::put(self.epoch_config.clone());
+
+			// TODO @davxy : this is a temporary solution for node-sassafras development.
+			// (load a pre-constructed one from chain-spec?)
+			#[cfg(feature = "construct-dummy-ring-context")]
+			{
+				debug!(target: LOG_TARGET, "Constructing dummy ring context");
+				let ring_ctx = vrf::RingContext::new_testing();
+				RingContext::<T>::put(ring_ctx);
+			}
 		}
 	}
 

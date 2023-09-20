@@ -48,4 +48,7 @@ std = [
 ]
 runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
 try-runtime = ["frame-support/try-runtime"]
+# Expose traits implementations required by pallet-session
 session-pallet-support = ["pallet-session"]
+# Construct dummy ring context (useful for development)
+construct-dummy-ring-context = []
