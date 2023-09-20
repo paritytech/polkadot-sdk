@@ -700,8 +700,8 @@ where
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
 ///
 /// This is the actual implementation that is abstract over the executor and the runtime api.
-/// 
-/// This node is basic in the sense that it doesn't support functionality like transaction 
+///
+/// This node is basic in the sense that it doesn't support functionality like transaction
 /// payment. Intended to replace start_shell_node in use for glutton, shell, and seedling.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
 async fn start_basic_lookahead_node_impl<RuntimeApi, RB, BIQ, SC>(
@@ -726,7 +726,7 @@ where
 		+ cumulus_primitives_core::CollectCollationInfo<Block>
 		+ frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	RB: Fn(Arc<ParachainClient<RuntimeApi>>) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error>
-	+ 'static,
+		+ 'static,
 	BIQ: FnOnce(
 		Arc<ParachainClient<RuntimeApi>>,
 		ParachainBlockImport<RuntimeApi>,
@@ -1390,7 +1390,7 @@ where
 }
 
 /// Start an aura powered parachain node which uses the lookahead collator to support async backing.
-/// This node is basic in the sense that its runtime api doesn't include common contents such as 
+/// This node is basic in the sense that its runtime api doesn't include common contents such as
 /// transaction payment. Used for aura glutton.
 pub async fn start_basic_lookahead_node<RuntimeApi, AuraId: AppCrypto>(
 	parachain_config: Configuration,
