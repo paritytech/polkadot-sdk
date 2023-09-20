@@ -209,6 +209,8 @@ pub trait SimpleSlotWorker<B: BlockT> {
 			)
 			.map_err(|e| sp_consensus::Error::ClientImport(e.to_string()));
 
+		debug!(target: log_target, ">>>>>>> PROPOSAL TIME {}", proposing_remaining_duration.as_millis());
+
 		let proposal = match futures::future::select(
 			proposing,
 			Delay::new(proposing_remaining_duration),

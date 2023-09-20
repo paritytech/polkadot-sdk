@@ -277,17 +277,17 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			Pallet::<T>::initialize_genesis_authorities(&self.authorities);
-			EpochConfig::<T>::put(self.epoch_config.clone());
-
-			// TODO @davxy : this is a temporary solution for node-sassafras development.
-			// (load a pre-constructed one from chain-spec?)
 			#[cfg(feature = "construct-dummy-ring-context")]
 			{
+				// TODO @davxy : this is a temporary solution for node-sassafras development.
+				// Should be called before `initialize_genesis_authorities`
+				// (load a pre-constructed one from chain-spec?)
 				debug!(target: LOG_TARGET, "Constructing dummy ring context");
 				let ring_ctx = vrf::RingContext::new_testing();
 				RingContext::<T>::put(ring_ctx);
 			}
+			Pallet::<T>::initialize_genesis_authorities(&self.authorities);
+			EpochConfig::<T>::put(self.epoch_config.clone());
 		}
 	}
 
@@ -385,8 +385,9 @@ pub mod pallet {
 
 			debug!(target: LOG_TARGET, "Received {} tickets", tickets.len());
 
-			debug!(target: LOG_TARGET, "Loading ring-verifier");
+			debug!(target: LOG_TARGET, "Loading ring verifier");
 			let Some(verifier) = RingVerifierData::<T>::get().map(|vd| vd.into()) else {
+				warn!(target: LOG_TARGET, "Ring verifier not initialized");
 				return Err("Ring context not initialized".into())
 			};
 
@@ -668,9 +669,11 @@ impl<T: Config> Pallet<T> {
 	) {
 		debug_assert!(Self::is_initialized());
 
-		if next_authorities != authorities {
-			Self::update_ring_verifier(&next_authorities);
-		}
+		// TODO: @davxy
+		// This is expensive. Indeed it makes miss the slot deadline on first attempt
+		// if next_authorities != authorities {
+		Self::update_ring_verifier(&next_authorities);
+		// }
 
 		// Update authorities
 		Authorities::<T>::put(authorities);
@@ -799,6 +802,8 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
+		Self::update_ring_verifier(&authorities);
+
 		let bounded_authorities =
 			WeakBoundedVec::<_, T::MaxAuthorities>::try_from(authorities.to_vec())
 				.expect("Initial number of authorities should be lower than T::MaxAuthorities");
@@ -812,7 +817,6 @@ impl<T: Config> Pallet<T> {
 		GenesisSlot::<T>::put(genesis_slot);
 
 		let next_authorities = Self::next_authorities().to_vec();
-		Self::update_ring_verifier(&next_authorities);
 
 		// Deposit a log because this is the first block in epoch #0.
 		// We use the same values as genesis because we haven't collected any randomness yet.

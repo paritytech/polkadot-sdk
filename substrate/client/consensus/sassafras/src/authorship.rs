@@ -99,10 +99,6 @@ pub(crate) fn claim_slot(
 		.ok()
 		.flatten()?;
 
-	if let Some(output) = vrf_signature.outputs.get(1) {
-		warn!(target: LOG_TARGET, "{:?}", output);
-	}
-
 	let claim = SlotClaim { authority_idx, slot, vrf_signature, ticket_claim };
 
 	Some((claim, authority_id.clone()))
