@@ -87,7 +87,7 @@ fn initialize(
 				unsafe {
 					sc_executor_wasmtime::create_runtime_from_artifact::<
 						sp_io::SubstrateHostFunctions,
-					>(&path, Default::defaut(), config)
+					>(&path, sc_executor_wasmtime::ModuleVersionStrategy::defaut(), config)
 				}
 			} else {
 				sc_executor_wasmtime::create_runtime::<sp_io::SubstrateHostFunctions>(blob, config)

@@ -79,11 +79,10 @@ pub struct PrecompileWasmCmd {
 
 impl PrecompileWasmCmd {
 	/// Run the precompile-wasm command
-	pub async fn run<B, BA, C>(&self, backend: Arc<BA>) -> error::Result<()>
+	pub async fn run<B, BA>(&self, backend: Arc<BA>) -> error::Result<()>
 	where
 		B: BlockT,
 		BA: Backend<B>,
-		C: UsageProvider<B>,
 	{
 		let state = backend.state_at(backend.blockchain().info().finalized_hash)?;
 
