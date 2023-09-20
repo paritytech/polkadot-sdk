@@ -27,7 +27,7 @@ use crate::{
 	schema::v1::{StateRequest, StateResponse},
 	service::{self, chain_sync::ToServiceCommand},
 	warp::WarpSyncParams,
-	ChainSync, ClientError, SyncingService,
+	ChainSync, ClientError, PeerBlockRequest, SyncingService,
 };
 
 use codec::{Decode, Encode};
@@ -432,9 +432,6 @@ where
 			metrics_registry,
 			network_service.clone(),
 			import_queue,
-			block_downloader.clone(),
-			state_request_protocol_name.clone(),
-			warp_sync_protocol_name.clone(),
 		)?;
 
 		let block_announce_protocol_name = block_announce_config.notifications_protocol.clone();
@@ -725,7 +722,14 @@ where
 				ToServiceCommand::BlocksProcessed(imported, count, results) => {
 					for result in self.chain_sync.on_blocks_processed(imported, count, results) {
 						match result {
-							Ok((id, req)) => self.chain_sync.send_block_request(id, req),
+							Ok(PeerBlockRequest { peer_id, request, drop_pending_response }) => {
+								if drop_pending_response {
+									self.pending_responses.remove(&peer_id);
+								}
+								if let Some(request) = request {
+									self.send_block_request(peer_id, request);
+								}
+							},
 							Err(BadPeer(id, repu)) => {
 								self.network_service
 									.disconnect_peer(id, self.block_announce_protocol_name.clone());
@@ -758,7 +762,7 @@ where
 					let _ = tx.send(status);
 				},
 				ToServiceCommand::NumActivePeers(tx) => {
-					let _ = tx.send(self.chain_sync.num_active_peers());
+					let _ = tx.send(self.num_active_peers());
 				},
 				ToServiceCommand::SyncState(tx) => {
 					let _ = tx.send(self.chain_sync.status());
@@ -906,6 +910,7 @@ where
 			}
 
 			self.chain_sync.peer_disconnected(&peer_id);
+			self.pending_responses.remove(&peer_id);
 			self.event_streams.retain(|stream| {
 				stream.unbounded_send(SyncEvent::PeerDisconnected(peer_id)).is_ok()
 			});
@@ -1037,7 +1042,7 @@ where
 		}
 
 		if let Some(req) = req {
-			self.chain_sync.send_block_request(peer_id, req);
+			self.send_block_request(peer_id, req);
 		}
 
 		self.event_streams
@@ -1284,5 +1289,10 @@ where
 		}
 
 		Poll::Pending
+	}
+
+	/// Returns the number of peers we're connected to and that are being queried.
+	fn num_active_peers(&self) -> usize {
+		self.pending_responses.len()
 	}
 }

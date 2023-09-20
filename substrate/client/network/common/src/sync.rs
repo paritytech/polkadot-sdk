@@ -36,7 +36,7 @@ use sp_runtime::{
 };
 use warp::WarpSyncProgress;
 
-use std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc, task::Poll};
+use std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc};
 
 /// The sync status of a peer we are trying to sync with
 #[derive(Debug)]
@@ -289,9 +289,6 @@ pub trait ChainSync<Block: BlockT>: Send {
 	/// Returns the current number of peers stored within this state machine.
 	fn num_peers(&self) -> usize;
 
-	/// Returns the number of peers we're connected to and that are being queried.
-	fn num_active_peers(&self) -> usize;
-
 	/// Handle a new connected peer.
 	///
 	/// Call this method whenever we connect to a new peer.
@@ -369,10 +366,4 @@ pub trait ChainSync<Block: BlockT>: Send {
 
 	/// Return some key metrics.
 	fn metrics(&self) -> Metrics;
-
-	/// Advance the state of `ChainSync`
-	fn poll(&mut self, cx: &mut std::task::Context) -> Poll<()>;
-
-	/// Send block request to peer
-	fn send_block_request(&mut self, who: PeerId, request: BlockRequest<Block>);
 }
