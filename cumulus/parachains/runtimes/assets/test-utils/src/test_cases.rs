@@ -343,7 +343,7 @@ pub fn teleports_for_foreign_assets_works<
 		From<<Runtime as frame_system::Config>::AccountId>,
 	ForeignAssetsPalletInstance: 'static,
 {
-	// foreign parachain with the same consenus currency as asset
+	// foreign parachain with the same consensus currency as asset
 	let foreign_para_id = 2222;
 	let foreign_asset_id_multilocation = MultiLocation {
 		parents: 1,

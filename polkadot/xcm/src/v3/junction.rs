@@ -437,6 +437,14 @@ impl Junction {
 			_ => {},
 		}
 	}
+
+	/// Specifies whether junction identifies a chain.
+	pub fn is_chain_identifier(&self) -> bool {
+		match self {
+			Junction::Parachain(_) | Junction::GlobalConsensus(_) => true,
+			_ => false,
+		}
+	}
 }
 
 #[cfg(test)]
