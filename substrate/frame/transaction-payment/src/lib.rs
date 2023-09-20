@@ -321,19 +321,13 @@ pub mod pallet {
 
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::derive_impl;
+		use frame_support::{derive_impl, weights::NoFee};
 
-		pub struct SolochainDefaultConfig;
-
-		#[derive_impl(frame_system::config_preludes::SolochainDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
-		impl frame_system::DefaultConfig for SolochainDefaultConfig {}
-
-		#[frame_support::register_default_impl(SolochainDefaultConfig)]
-		impl DefaultConfig for SolochainDefaultConfig {
-			type FeeMultiplierUpdate = ();
-			type OperationalFeeMultiplier = ();
-		}
-
+		/// Default prelude sensible to be used in a testing environment.
+		///
+		/// ## Assumptions:
+		///
+		/// - The balance type being u128.
 		pub struct TestDefaultConfig;
 
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
@@ -341,15 +335,19 @@ pub mod pallet {
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
 		impl DefaultConfig for TestDefaultConfig {
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
 			type FeeMultiplierUpdate = ();
 			type OperationalFeeMultiplier = ();
+			type LengthToFee = NoFee<u128>;
+			type WeightToFee = NoFee<u128>;
 		}
 	}
 
 	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Handler for withdrawing, refunding and depositing the transaction fee.
@@ -362,11 +360,11 @@ pub mod pallet {
 		type OnChargeTransaction: OnChargeTransaction<Self>;
 
 		/// Convert a weight value into a deductible fee based on the currency type.
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type WeightToFee: WeightToFee<Balance = BalanceOf<Self>>;
 
 		/// Convert a length value into a deductible fee based on the currency type.
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type LengthToFee: WeightToFee<Balance = BalanceOf<Self>>;
 
 		/// Update the multiplier of the next block, based on the previous block's weight.

@@ -23,7 +23,7 @@
 #![warn(missing_docs)]
 
 use jsonrpsee::RpcModule;
-use runtime::interface::{AccountId, Index, OpaqueBlock};
+use runtime::interface::{AccountId, Nonce, OpaqueBlock};
 use sc_transaction_pool_api::TransactionPool;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
@@ -58,7 +58,7 @@ where
 	C: Send + Sync + 'static,
 	P: TransactionPool + 'static,
 	C::Api: BlockBuilder<OpaqueBlock>,
-	C::Api: substrate_frame_rpc_system::AccountNonceApi<OpaqueBlock, AccountId, Index>,
+	C::Api: substrate_frame_rpc_system::AccountNonceApi<OpaqueBlock, AccountId, Nonce>,
 {
 	use substrate_frame_rpc_system::{System, SystemApiServer};
 

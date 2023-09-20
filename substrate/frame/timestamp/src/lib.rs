@@ -159,17 +159,9 @@ pub mod pallet {
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
 		impl DefaultConfig for TestDefaultConfig {
-			type WeightInfo = ();
-		}
-
-		/// Default prelude sensible to be used in a solo-chain environment.
-		pub struct SolochainDefaultConfig;
-
-		#[derive_impl(frame_system::config_preludes::SolochainDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
-		impl frame_system::DefaultConfig for SolochainDefaultConfig {}
-
-		#[frame_support::register_default_impl(SolochainDefaultConfig)]
-		impl DefaultConfig for SolochainDefaultConfig {
+			type Moment = u64;
+			type OnTimestampSet = ();
+			type MinimumPeriod = frame_support::traits::ConstU64<1>;
 			type WeightInfo = ();
 		}
 	}
@@ -178,7 +170,7 @@ pub mod pallet {
 	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// Type used for expressing a timestamp.
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type Moment: Parameter
 			+ Default
 			+ AtLeast32Bit
@@ -190,7 +182,6 @@ pub mod pallet {
 		/// Something which can be notified (e.g. another pallet) when the timestamp is set.
 		///
 		/// This can be set to `()` if it is not needed.
-		#[pallet::no_default]
 		type OnTimestampSet: OnTimestampSet<Self::Moment>;
 
 		/// The minimum period between blocks.
@@ -200,7 +191,6 @@ pub mod pallet {
 		/// determine a sensible block time. For example, in the Aura pallet it will be double this
 		/// period on default settings.
 		#[pallet::constant]
-		#[pallet::no_default]
 		type MinimumPeriod: Get<Self::Moment>;
 
 		/// Weight information for extrinsics in this pallet.

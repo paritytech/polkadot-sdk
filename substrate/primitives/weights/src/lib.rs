@@ -248,7 +248,7 @@ where
 	}
 }
 
-/// Implementor of `WeightToFee` such that it maps any unit of weight to a fixed fee.
+/// Implementor of [`WeightToFee`] such that it maps any unit of weight to a fixed fee.
 pub struct FixedFee<const F: u32, T>(sp_std::marker::PhantomData<T>);
 
 impl<const F: u32, T> WeightToFee for FixedFee<F, T>
@@ -261,6 +261,9 @@ where
 		F.into()
 	}
 }
+
+/// An implementation of [`WeightToFee`] that collects no fee.
+pub type NoFee<T> = FixedFee<0, T>;
 
 /// Implementor of [`WeightToFee`] that uses a constant multiplier.
 ///

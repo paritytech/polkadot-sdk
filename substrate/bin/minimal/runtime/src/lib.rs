@@ -22,20 +22,27 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use frame::{
-	deps::frame_support::weights::FixedFee,
+	deps::frame_support::weights::FixedFee, // TODO: needs to come from somewhere reasonable.
 	prelude::*,
 	runtime::{
-		apis::{self, *},
+		apis::{
+			// TODO: cleaner imports.
+			self,
+			impl_runtime_apis,
+			ApplyExtrinsicResult,
+			CheckInherentsResult,
+			OpaqueMetadata,
+		},
 		prelude::*,
-		types_common,
 	},
 };
+
 #[runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("minimal-runtime"),
 	impl_name: create_runtime_str!("minimal-runtime"),
 	authoring_version: 1,
-	spec_version: 100,
+	spec_version: 0,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -59,17 +66,13 @@ type SignedExtra = (
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
 
-type Block = types_common::BlockOf<Runtime, SignedExtra>;
-type RuntimeExecutive =
-	Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
-
 construct_runtime!(
 	pub struct Runtime {
 		System: frame_system = 0,
 		Balances: pallet_balances = 1,
 		Sudo: pallet_sudo = 2,
-		// TODO: this is causing some issues in the JS side.
-		// Timestamp: pallet_timestamp = 3,
+		// TODO (juan) this is causing some issues in the JS side.
+		Timestamp: pallet_timestamp = 3,
 		TransactionPayment: pallet_transaction_payment = 4,
 	}
 );
@@ -80,66 +83,33 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::SolochainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
-	type PalletInfo = PalletInfo;
-	type Version = Version;
-	type OnSetCode = ();
-
 	type Block = Block;
-	type BlockHashCount = ();
-
-	/// TODO: The default account-data provided by frame-system unfortunately cannot include a sane
-	/// value for this, as it relies on pallet-balances. Perhaps we should make an exception here,
-	/// and provide a `frame_system::config_preludes::SolochainDefaultConfigWithBalances` and
-	/// `frame_system::config_preludes::SolochainDefaultConfigWithAssets`?
+	type Version = Version;
+	type BlockHashCount = ConstU32<1024>;
 	type AccountData = pallet_balances::AccountData<<Runtime as pallet_balances::Config>::Balance>;
 }
 
-#[derive_impl(pallet_balances::config_preludes::SolochainDefaultConfig as pallet_balances::DefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type DustRemoval = ();
 	type AccountStore = System;
-	type ExistentialDeposit = ConstU64<1>;
 }
 
-#[derive_impl(pallet_sudo::config_preludes::SolochainDefaultConfig as pallet_sudo::DefaultConfig)]
-impl pallet_sudo::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
-}
+#[derive_impl(pallet_sudo::config_preludes::TestDefaultConfig as pallet_sudo::DefaultConfig)]
+impl pallet_sudo::Config for Runtime {}
 
-#[derive_impl(pallet_timestamp::config_preludes::SolochainDefaultConfig as pallet_timestamp::DefaultConfig)]
-impl pallet_timestamp::Config for Runtime {
-	type Moment = u64;
-	type OnTimestampSet = ();
-	type MinimumPeriod = ();
-}
+#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig as pallet_timestamp::DefaultConfig)]
+impl pallet_timestamp::Config for Runtime {}
 
-#[derive_impl(pallet_transaction_payment::config_preludes::SolochainDefaultConfig as pallet_transaction_payment::DefaultConfig)]
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig as pallet_transaction_payment::DefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
-	type WeightToFee = FixedFee<0, interface::Balance>;
-	type LengthToFee = FixedFee<1, interface::Balance>;
 }
 
-/// Some re-exports that the node side code needs to know. Some are useful in this context as well.
-///
-/// Other types should preferably be private.
-pub mod interface {
-	use super::*;
-	pub type OpaqueBlock = types_common::OpaqueBlockOf<Runtime>;
-	pub type AccountId = <Runtime as frame_system::Config>::AccountId;
-	pub type Index = <Runtime as frame_system::Config>::Nonce;
-	pub type Hash = <Runtime as frame_system::Config>::Hash;
-	pub type Balance = <Runtime as pallet_balances::Config>::Balance;
-	pub type MinimumBalance = <Runtime as pallet_balances::Config>::ExistentialDeposit;
-}
+type Block = frame::runtime::types_common::BlockOf<Runtime, SignedExtra>;
+type Header = HeaderFor<Runtime>;
+
+type RuntimeExecutive =
+	Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
 
 impl_runtime_apis! {
 	impl apis::Core<Block> for Runtime {
@@ -151,7 +121,7 @@ impl_runtime_apis! {
 			RuntimeExecutive::execute_block(block)
 		}
 
-		fn initialize_block(header: &HeaderFor<Runtime>) {
+		fn initialize_block(header: &Header) {
 			RuntimeExecutive::initialize_block(header)
 		}
 	}
@@ -201,6 +171,9 @@ impl_runtime_apis! {
 	}
 
 	impl apis::OffchainWorkerApi<Block> for Runtime {
+		// TODO: in `HeaderFor<Runtime>` you should think that using `HeaderFor<Self>` would be
+		// equivalent, but it is not. A simple patch to `impl_runtime_apis` should simply prevent
+		// the use of `Self` in this block of code.
 		fn offchain_worker(header: &HeaderFor<Runtime>) {
 			RuntimeExecutive::offchain_worker(header)
 		}
@@ -218,9 +191,26 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl apis::AccountNonceApi<Block, interface::AccountId, interface::Index,> for Runtime {
-		fn account_nonce(account: interface::AccountId) -> interface::Index {
+	impl apis::AccountNonceApi<Block, interface::AccountId, interface::Nonce> for Runtime {
+		fn account_nonce(account: interface::AccountId) -> interface::Nonce {
 			System::account_nonce(account)
 		}
 	}
+}
+
+/// Some re-exports that the node side code needs to know. Some are useful in this context as well.
+///
+/// Other types should preferably be private.
+// TODO: this should be standardized in some way, see:
+// https://github.com/paritytech/substrate/issues/10579#issuecomment-1600537558
+pub mod interface {
+	use super::*;
+
+	pub type OpaqueBlock = frame::runtime::types_common::OpaqueBlockOf<Runtime>;
+	pub type AccountId = <Runtime as frame_system::Config>::AccountId;
+	pub type Nonce = <Runtime as frame_system::Config>::Nonce;
+	pub type Hash = <Runtime as frame_system::Config>::Hash;
+	pub type Balance = <Runtime as pallet_balances::Config>::Balance;
+
+	pub type MinimumBalance = <Runtime as pallet_balances::Config>::ExistentialDeposit;
 }
