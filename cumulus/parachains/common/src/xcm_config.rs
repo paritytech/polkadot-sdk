@@ -15,6 +15,7 @@
 
 use crate::impls::AccountIdOf;
 use core::marker::PhantomData;
+use cumulus_primitives_core::{IsSystem, ParaId};
 use frame_support::{
 	traits::{fungibles::Inspect, tokens::ConversionToAssetBalance, ContainsPair},
 	weights::Weight,
@@ -22,7 +23,6 @@ use frame_support::{
 use log;
 use sp_runtime::traits::Get;
 use xcm::latest::prelude::*;
-use cumulus_primitives_core::{IsSystem, ParaId};
 
 /// A `ChargeFeeInFungibles` implementation that converts the output of
 /// a given WeightToFee implementation an amount charged in
@@ -91,7 +91,8 @@ impl<AssetLocation: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
 			// The Relay Chain
 			MultiLocation { parents: 1, interior: Here } => true,
 			// System parachain
-			MultiLocation { parents: 1, interior: X1(Parachain(id)) } => ParaId::from(*id).is_system(),
+			MultiLocation { parents: 1, interior: X1(Parachain(id)) } =>
+				ParaId::from(*id).is_system(),
 			// Others
 			_ => false,
 		};
