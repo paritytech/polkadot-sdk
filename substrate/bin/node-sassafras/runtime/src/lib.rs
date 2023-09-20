@@ -199,7 +199,7 @@ impl pallet_sassafras::Config for Runtime {
 	type SlotDuration = ConstU64<SLOT_DURATION_IN_MILLISECONDS>;
 	type EpochDuration = ConstU64<EPOCH_DURATION_IN_SLOTS>;
 	type MaxAuthorities = ConstU32<MAX_AUTHORITIES>;
-	type WeightInfo = ();
+	type WeightInfo = pallet_sassafras::weights::SubstrateWeight<Runtime>;
 	#[cfg(feature = "use-session-pallet")]
 	type EpochChangeTrigger = pallet_sassafras::EpochChangeExternalTrigger;
 	#[cfg(not(feature = "use-session-pallet"))]
@@ -538,8 +538,8 @@ impl_runtime_apis! {
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch, TrackedStorageKey};
-
+			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
+			use sp_storage::TrackedStorageKey;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
 
