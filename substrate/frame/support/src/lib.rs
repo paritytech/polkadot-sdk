@@ -2236,7 +2236,7 @@ pub mod pallet_macros {
 	///
 	/// ## Former Usage
 	///
-	/// Priori to <https://github.com/paritytech/substrate/pull/14306>, the following syntax was used.
+	/// Prior to <https://github.com/paritytech/substrate/pull/14306>, the following syntax was used.
 	/// This is deprecated and will soon be removed.
 	///
 	/// ```
