@@ -645,7 +645,7 @@ pub mod bridging {
 
 		/// Allowed reserve transfer assets per destination.
 		/// Means that runtime allows to transfer reserve assets to these locations.
-		pub AllowedReserveTransferAssetsLocations: sp_std::vec::Vec<FilteredLocation> = sp_std::vec![
+		pub AllowedReserveTransferAssetsLocations: sp_std::vec::Vec<LocationWithAssetFilter> = sp_std::vec![
 			// allow to transfer assets to AssetHubKusama
 			(
 				AssetHubKusama::get(),
