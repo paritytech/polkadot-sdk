@@ -621,8 +621,6 @@
 <a href="#621" id="621">621</a>
 <a href="#622" id="622">622</a>
 <a href="#623" id="623">623</a>
-<a href="#624" id="624">624</a>
-<a href="#625" id="625">625</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -754,18 +752,16 @@
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(pending_change) = &lt;PendingChange&lt;T&gt;&gt;::get() {
 				<span class="comment">// emit signal if we&#39;re at the block that scheduled the change
 				</span><span class="kw">if </span>block_number == pending_change.scheduled_at {
+					<span class="kw">let </span>next_authorities = pending_change.next_authorities.to_vec();
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(median) = pending_change.forced {
 						<span class="self">Self</span>::deposit_log(ConsensusLog::ForcedChange(
 							median,
-							ScheduledChange {
-								delay: pending_change.delay,
-								next_authorities: pending_change.next_authorities.to_vec(),
-							},
+							ScheduledChange { delay: pending_change.delay, next_authorities },
 						))
 					} <span class="kw">else </span>{
 						<span class="self">Self</span>::deposit_log(ConsensusLog::ScheduledChange(ScheduledChange {
 							delay: pending_change.delay,
-							next_authorities: pending_change.next_authorities.to_vec(),
+							next_authorities,
 						}));
 					}
 				}
@@ -774,7 +770,7 @@
 				</span><span class="kw">if </span>block_number == pending_change.scheduled_at + pending_change.delay {
 					<span class="self">Self</span>::set_grandpa_authorities(<span class="kw-2">&amp;</span>pending_change.next_authorities);
 					<span class="self">Self</span>::deposit_event(Event::NewAuthorities {
-						authority_set: pending_change.next_authorities.to_vec(),
+						authority_set: pending_change.next_authorities.into_inner(),
 					});
 					&lt;PendingChange&lt;T&gt;&gt;::kill();
 				}
