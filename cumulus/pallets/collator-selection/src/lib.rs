@@ -316,6 +316,14 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
 			assert!(T::MinEligibleCollators::get() > 0, "chain must require at least one collator");
+			assert!(
+				T::MaxCandidates::get() <= u32::MAX,
+				"the extrinsics below rely on `MaxCandidates` fitting in a `u32`"
+			);
+			assert!(
+				T::MinEligibleCollators::get() <= u32::MAX,
+				"the extrinsics below rely `MinEligibleCollators` fitting in a `u32`"
+			);
 		}
 	}
 
@@ -341,9 +349,10 @@ pub mod pallet {
 
 			// don't wipe out the collator set
 			if new.is_empty() {
+				// Casting `u32` to `usize` should be safe on all machines running this.
 				ensure!(
 					CandidateList::<T>::decode_len().unwrap_or_default() >=
-						T::MinEligibleCollators::get().try_into().unwrap(),
+						T::MinEligibleCollators::get() as usize,
 					Error::<T>::TooFewEligibleCollators
 				);
 			}
@@ -777,8 +786,8 @@ pub mod pallet {
 		///
 		/// This is done on the fly, as frequent as we are told to do so, as the session manager.
 		pub fn assemble_collators() -> Vec<T::AccountId> {
-			let desired_candidates: usize =
-				<DesiredCandidates<T>>::get().try_into().unwrap_or(usize::MAX);
+			// Casting `u32` to `usize` should be safe on all machines running this.
+			let desired_candidates = <DesiredCandidates<T>>::get() as usize;
 			let mut collators = Self::invulnerables().to_vec();
 			collators.extend(
 				<CandidateList<T>>::get()
@@ -865,18 +874,23 @@ pub mod pallet {
 				<frame_system::Pallet<T>>::block_number(),
 			);
 
-			let candidates_len_before = <CandidateList<T>>::decode_len().unwrap_or_default();
+			// The `expect` below is safe because the list is a `BoundedVec` with a max size of
+			// `T::MaxCandidates`, which is a `u32`. When `decode_len` returns `Some(len)`, `len`
+			// must be valid and at most `u32::MAX`, which must always be able to convert to `u32`.
+			let candidates_len_before: u32 = <CandidateList<T>>::decode_len()
+				.unwrap_or_default()
+				.try_into()
+				.expect("length is at most `T::MaxCandidates`, so it must fit in `u32`; qed");
 			let active_candidates_count = Self::kick_stale_candidates(
 				<CandidateList<T>>::get()
 					.iter()
 					.map(|candidate_info| candidate_info.who.clone()),
 			);
-			let removed = candidates_len_before
-				.saturating_sub(active_candidates_count.try_into().unwrap_or_default());
+			let removed = candidates_len_before.saturating_sub(active_candidates_count);
 			let result = Self::assemble_collators();
 
 			frame_system::Pallet::<T>::register_extra_weight_unchecked(
-				T::WeightInfo::new_session(candidates_len_before as u32, removed as u32),
+				T::WeightInfo::new_session(candidates_len_before, removed),
 				DispatchClass::Mandatory,
 			);
 			Some(result)
