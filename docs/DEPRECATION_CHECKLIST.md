@@ -7,7 +7,7 @@ could be impacted by the changes we make.
 The deprecation checklist tries to mitigate this impact, while still keeping the developer experience, the DevEx, as
 smooth as possible.
 
-To start a deprecation process, a new issue with the label `I11-deprecation` needs to be created for correct tracking.
+To start a deprecation process, a new issue with the label `T15-deprecation` needs to be created for correct tracking.
 Then these are the actions to take:
 
 ## Hard deprecate by adding a warning message
