@@ -1551,7 +1551,7 @@ pub mod migrations {
 		// Migrate parachain info format
 		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ParachainsToUnlock>,
 		// Freeze ED Deposits for pools
-		pallet_nomination_pools::migration::v6::VersionedMigrateV6<Runtime>,
+		pallet_nomination_pools::migration::versioned_migrations::V5toV6<Runtime>,
 	);
 }
 

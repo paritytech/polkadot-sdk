@@ -28,7 +28,7 @@ pub mod versioned_migrations {
 	use super::*;
 
 	/// Wrapper over `MigrateToV6` with convenience version checks.
-	pub type VersionedMigrateV6<T> = frame_support::migrations::VersionedMigration<
+	pub type V5toV6<T> = frame_support::migrations::VersionedMigration<
 		5,
 		6,
 		v6::MigrateToV6<T>,
