@@ -504,3 +504,18 @@ cargo-hfuzz:
     - cargo hfuzz build
     - for target in $(cargo read-manifest | jq -r '.targets | .[] | .name'); do
       cargo hfuzz run "$target" || { printf "fuzzing failure for %s\n" "$target"; exit 1; }; done
+
+# cf https://github.com/paritytech/polkadot-sdk/issues/1652
+test-syscalls:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+  variables:
+    SKIP_WASM_BUILD: 1
+  script:
+    - cargo build --locked --profile production --target x86_64-unknown-linux-musl --bin polkadot-execute-worker --bin polkadot-prepare-worker
+    - cd polkadot/scripts/list-syscalls
+    - ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-execute-worker --only-used-syscalls | diff -u execute-worker-syscalls -
+    - ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker --only-used-syscalls | diff -u prepare-worker-syscalls -
