@@ -1,5 +1,5 @@
 error: Invalid duplicated attribute
-  --> $DIR/duplicate_call_attr.rs:22:12
+  --> tests/pallet_ui/duplicate_call_attr.rs:39:12
    |
-22 |     #[pallet::call]
+39 |     #[pallet::call]
    |               ^^^^

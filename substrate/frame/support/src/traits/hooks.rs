@@ -359,7 +359,7 @@ pub trait Hooks<BlockNumber> {
 	/// done. This is helpful to prevent accidental repetitive execution of this hook, which can be
 	/// catastrophic.
 	///
-	/// Alternatively, `migrations::VersionedRuntimeUpgrade` can be used to assist with
+	/// Alternatively, [`frame_support::migrations::VersionedMigration`] can be used to assist with
 	/// this.
 	///
 	/// ## Implementation Note: Runtime Level Migration

@@ -1,14 +1,22 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Substrate
 use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
 use grandpa::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId, Balance, BlockNumber};
-use polkadot_parachain::primitives::{HeadData, ValidationCode};
-use polkadot_primitives::{AssignmentId, ValidatorId};
-use polkadot_runtime_parachains::{
-	configuration::HostConfiguration,
-	paras::{ParaGenesisArgs, ParaKind},
-};
-use polkadot_service::chain_spec::get_authority_keys_from_seed_no_beefy;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, storage::Storage, Pair, Public};
@@ -16,6 +24,16 @@ use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
 	BuildStorage, MultiSignature, Perbill,
 };
+
+// Cumulus
+use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId, Balance, BlockNumber};
+use polkadot_parachain_primitives::primitives::{HeadData, ValidationCode};
+use polkadot_primitives::{AssignmentId, ValidatorId};
+use polkadot_runtime_parachains::{
+	configuration::HostConfiguration,
+	paras::{ParaGenesisArgs, ParaKind},
+};
+use polkadot_service::chain_spec::get_authority_keys_from_seed_no_beefy;
 use xcm;
 
 pub const XCM_V2: u32 = 3;
@@ -613,7 +631,7 @@ pub mod rococo {
 pub mod asset_hub_polkadot {
 	use super::*;
 	pub const PARA_ID: u32 = 1000;
-	pub const ED: Balance = asset_hub_polkadot_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	pub const ED: Balance = parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = asset_hub_polkadot_runtime::RuntimeGenesisConfig {
@@ -670,7 +688,7 @@ pub mod asset_hub_polkadot {
 pub mod asset_hub_westend {
 	use super::*;
 	pub const PARA_ID: u32 = 1000;
-	pub const ED: Balance = asset_hub_westend_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	pub const ED: Balance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = asset_hub_westend_runtime::RuntimeGenesisConfig {
@@ -727,7 +745,7 @@ pub mod asset_hub_westend {
 pub mod asset_hub_kusama {
 	use super::*;
 	pub const PARA_ID: u32 = 1000;
-	pub const ED: Balance = asset_hub_kusama_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	pub const ED: Balance = parachains_common::kusama::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = asset_hub_kusama_runtime::RuntimeGenesisConfig {
@@ -845,7 +863,7 @@ pub mod penpal {
 pub mod collectives {
 	use super::*;
 	pub const PARA_ID: u32 = 1001;
-	pub const ED: Balance = collectives_polkadot_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	pub const ED: Balance = parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = collectives_polkadot_runtime::RuntimeGenesisConfig {
@@ -902,7 +920,7 @@ pub mod collectives {
 pub mod bridge_hub_kusama {
 	use super::*;
 	pub const PARA_ID: u32 = 1002;
-	pub const ED: Balance = bridge_hub_kusama_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	pub const ED: Balance = parachains_common::kusama::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = bridge_hub_kusama_runtime::RuntimeGenesisConfig {
@@ -959,7 +977,7 @@ pub mod bridge_hub_kusama {
 pub mod bridge_hub_polkadot {
 	use super::*;
 	pub const PARA_ID: u32 = 1002;
-	pub const ED: Balance = bridge_hub_polkadot_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	pub const ED: Balance = parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = bridge_hub_polkadot_runtime::RuntimeGenesisConfig {
@@ -1016,7 +1034,7 @@ pub mod bridge_hub_polkadot {
 pub mod bridge_hub_rococo {
 	use super::*;
 	pub const PARA_ID: u32 = 1013;
-	pub const ED: Balance = bridge_hub_rococo_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	pub const ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = bridge_hub_rococo_runtime::RuntimeGenesisConfig {

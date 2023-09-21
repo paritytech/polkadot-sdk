@@ -47,8 +47,9 @@ use frame_election_provider_support::{
 use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		ConstU32, EitherOf, EitherOfDiverse, InstanceFilter, KeyOwnerProofSystem, PrivilegeCmp,
-		ProcessMessage, ProcessMessageError, WithdrawReasons,
+		fungible::HoldConsideration, ConstU32, Contains, EitherOf, EitherOfDiverse, EverythingBut,
+		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage,
+		ProcessMessageError, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -89,7 +90,7 @@ use xcm::latest::Junction;
 
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
-pub use pallet_election_provider_multi_phase::Call as EPMCall;
+pub use pallet_election_provider_multi_phase::{Call as EPMCall, GeometricDepositBase};
 #[cfg(feature = "std")]
 pub use pallet_staking::StakerStatus;
 use pallet_staking::UseValidatorsMap;
@@ -130,10 +131,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	authoring_version: 0,
 	spec_version: 9430,
 	impl_version: 0,
-	#[cfg(not(feature = "disable-runtime-api"))]
 	apis: RUNTIME_API_VERSIONS,
-	#[cfg(feature = "disable-runtime-api")]
-	apis: sp_version::create_apis_vec![[]],
 	transaction_version: 24,
 	state_version: 0,
 };
@@ -151,13 +149,24 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
+/// A type to identify calls to the Identity pallet. These will be filtered to prevent invocation,
+/// locking the state of the pallet and preventing further updates to identities and sub-identities.
+/// The locked state will be the genesis state of a new system chain and then removed from the Relay
+/// Chain.
+pub struct IdentityCalls;
+impl Contains<RuntimeCall> for IdentityCalls {
+	fn contains(c: &RuntimeCall) -> bool {
+		matches!(c, RuntimeCall::Identity(_))
+	}
+}
+
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub const SS58Prefix: u8 = 0;
 }
 
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = frame_support::traits::Everything;
+	type BaseCallFilter = EverythingBut<IdentityCalls>;
 	type BlockWeights = BlockWeights;
 	type BlockLength = BlockLength;
 	type RuntimeOrigin = RuntimeOrigin;
@@ -215,7 +224,8 @@ impl pallet_scheduler::Config for Runtime {
 	type MaximumWeight = MaximumSchedulerWeight;
 	// The goal of having ScheduleOrigin include AuctionAdmin is to allow the auctions track of
 	// OpenGov to schedule periodic auctions.
-	type ScheduleOrigin = EitherOf<EnsureRoot<AccountId>, AuctionAdmin>;
+	// Also allow Treasurer to schedule recurring payments.
+	type ScheduleOrigin = EitherOf<EitherOf<EnsureRoot<AccountId>, AuctionAdmin>, Treasurer>;
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
 	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
 	type OriginPrivilegeCmp = OriginPrivilegeCmp;
@@ -223,9 +233,9 @@ impl pallet_scheduler::Config for Runtime {
 }
 
 parameter_types! {
-	pub const PreimageMaxSize: u32 = 4096 * 1024;
 	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
 	pub const PreimageByteDeposit: Balance = deposit(0, 1);
+	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
 impl pallet_preimage::Config for Runtime {
@@ -233,8 +243,12 @@ impl pallet_preimage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureRoot<AccountId>;
-	type BaseDeposit = PreimageBaseDeposit;
-	type ByteDeposit = PreimageByteDeposit;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		PreimageHoldReason,
+		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+	>;
 }
 
 parameter_types! {
@@ -299,7 +313,7 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
+	type MaxHolds = ConstU32<1>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -379,6 +393,8 @@ parameter_types! {
 	// signed config
 	pub const SignedMaxSubmissions: u32 = 16;
 	pub const SignedMaxRefunds: u32 = 16 / 4;
+	pub const SignedFixedDeposit: Balance = deposit(2, 0);
+	pub const SignedDepositIncreaseFactor: Percent = Percent::from_percent(10);
 	// 40 DOTs fixed deposit..
 	pub const SignedDepositBase: Balance = deposit(2, 0);
 	// 0.01 DOT per KB of solution data.
@@ -453,7 +469,8 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type SignedMaxSubmissions = SignedMaxSubmissions;
 	type SignedMaxRefunds = SignedMaxRefunds;
 	type SignedRewardBase = SignedRewardBase;
-	type SignedDepositBase = SignedDepositBase;
+	type SignedDepositBase =
+		GeometricDepositBase<Balance, SignedFixedDeposit, SignedDepositIncreaseFactor>;
 	type SignedDepositByte = SignedDepositByte;
 	type SignedDepositWeight = ();
 	type SignedMaxWeight =
@@ -549,7 +566,7 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
 		// all para-ids that are not active.
 		let auctioned_slots = Paras::parachains()
 			.into_iter()
-			// all active para-ids that do not belong to a system or common good chain is the number
+			// all active para-ids that do not belong to a system chain is the number
 			// of parachains that we should take into account for inflation.
 			.filter(|i| *i >= LOWEST_PUBLIC_ID)
 			.count() as u64;
@@ -1093,6 +1110,7 @@ impl parachains_paras::Config for Runtime {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
+	type OnNewHead = Registrar;
 }
 
 parameter_types! {
@@ -1327,7 +1345,7 @@ construct_runtime! {
 		// Basic stuff; balances is uncallable initially.
 		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>} = 0,
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 1,
-		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
+		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason} = 10,
 
 		// Babe must be before session.
 		Babe: pallet_babe::{Pallet, Call, Storage, Config<T>, ValidateUnsigned} = 2,
@@ -1505,6 +1523,19 @@ pub mod migrations {
 		type PalletName = TipsPalletName;
 	}
 
+	pub struct ParachainsToUnlock;
+	impl Contains<ParaId> for ParachainsToUnlock {
+		fn contains(id: &ParaId) -> bool {
+			let id: u32 = (*id).into();
+			// polkadot parachains/parathreads that are locked and never produced block
+			match id {
+				2003 | 2015 | 2017 | 2018 | 2025 | 2028 | 2036 | 2038 | 2053 | 2055 | 2090 |
+				2097 | 2106 | 3336 | 3338 | 3342 => true,
+				_ => false,
+			}
+		}
+	}
+
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
 		pallet_im_online::migration::v1::Migration<Runtime>,
@@ -1525,6 +1556,10 @@ pub mod migrations {
 		frame_support::migrations::RemovePallet<PhragmenElectionPalletName, <Runtime as frame_system::Config>::DbWeight>,
 		frame_support::migrations::RemovePallet<TechnicalMembershipPalletName, <Runtime as frame_system::Config>::DbWeight>,
 		frame_support::migrations::RemovePallet<TipsPalletName, <Runtime as frame_system::Config>::DbWeight>,
+
+		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
+		// Migrate parachain info format
+		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ParachainsToUnlock>,
 	);
 }
 
@@ -1599,7 +1634,6 @@ mod benches {
 	);
 }
 
-#[cfg(not(feature = "disable-runtime-api"))]
 sp_api::impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
@@ -2332,7 +2366,7 @@ mod test_fees {
 	fn signed_deposit_is_sensible() {
 		// ensure this number does not change, or that it is checked after each change.
 		// a 1 MB solution should take (40 + 10) DOTs of deposit.
-		let deposit = SignedDepositBase::get() + (SignedDepositByte::get() * 1024 * 1024);
+		let deposit = SignedFixedDeposit::get() + (SignedDepositByte::get() * 1024 * 1024);
 		assert_eq_error_rate!(deposit, 50 * DOLLARS, DOLLARS);
 	}
 }

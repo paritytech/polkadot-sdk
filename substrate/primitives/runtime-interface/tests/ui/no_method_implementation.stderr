@@ -1,5 +1,5 @@
 error: Methods need to have an implementation.
- --> $DIR/no_method_implementation.rs:5:2
-  |
-5 |     fn test();
-  |     ^^
+  --> tests/ui/no_method_implementation.rs:22:2
+   |
+22 |     fn test();
+   |     ^^

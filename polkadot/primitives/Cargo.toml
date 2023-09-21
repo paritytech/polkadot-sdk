@@ -10,7 +10,7 @@ bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 hex-literal = "0.4.1"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["bit-vec", "derive"] }
 scale-info = { version = "2.5.0", default-features = false, features = ["bit-vec", "derive", "serde"] }
-serde = { version = "1.0.163", default-features = false, features = ["derive", "alloc"] }
+serde = { version = "1.0.188", default-features = false, features = ["derive", "alloc"] }
 
 application-crypto = { package = "sp-application-crypto", path = "../../substrate/primitives/application-crypto", default-features = false, features = ["serde"] }
 inherents = { package = "sp-inherents", path = "../../substrate/primitives/inherents", default-features = false }
@@ -26,7 +26,7 @@ sp-staking = { path = "../../substrate/primitives/staking", default-features = f
 sp-std = { package = "sp-std", path = "../../substrate/primitives/std", default-features = false }
 
 polkadot-core-primitives = { path = "../core-primitives", default-features = false }
-polkadot-parachain = { path = "../parachain", default-features = false }
+polkadot-parachain-primitives = { path = "../parachain", default-features = false }
 
 [features]
 default = [ "std" ]
@@ -36,7 +36,7 @@ std = [
 	"inherents/std",
 	"parity-scale-codec/std",
 	"polkadot-core-primitives/std",
-	"polkadot-parachain/std",
+	"polkadot-parachain-primitives/std",
 	"primitives/std",
 	"runtime_primitives/std",
 	"scale-info/std",
@@ -51,7 +51,7 @@ std = [
 	"sp-std/std",
 ]
 runtime-benchmarks = [
-	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
 	"runtime_primitives/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]

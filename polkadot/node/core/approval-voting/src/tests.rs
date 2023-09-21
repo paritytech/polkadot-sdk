@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use self::test_helpers::mock::new_leaf;
 use super::*;
 use polkadot_node_primitives::{
 	approval::{
@@ -26,7 +27,7 @@ use polkadot_node_subsystem::{
 	messages::{
 		AllMessages, ApprovalVotingMessage, AssignmentCheckResult, AvailabilityRecoveryMessage,
 	},
-	ActivatedLeaf, ActiveLeavesUpdate, LeafStatus,
+	ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
@@ -777,12 +778,7 @@ async fn import_block(
 	overseer_send(
 		overseer,
 		FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
-			ActivatedLeaf {
-				hash: *new_head,
-				number,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			},
+			new_leaf(*new_head, number),
 		))),
 	)
 	.await;
@@ -908,6 +904,19 @@ async fn import_block(
 					// Make sure all SessionInfo calls are not made for the leaf (but for its relay parent)
 					assert_ne!(req_block_hash, hashes[(number-1) as usize].0);
 					si_tx.send(Ok(Some(session_info.clone()))).unwrap();
+				}
+			);
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(
+						req_block_hash,
+						RuntimeApiRequest::SessionExecutorParams(_, si_tx),
+					)
+				) => {
+					// Make sure all SessionExecutorParams calls are not made for the leaf (but for its relay parent)
+					assert_ne!(req_block_hash, hashes[(number-1) as usize].0);
+					si_tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 				}
 			);
 		}
@@ -2376,7 +2385,7 @@ async fn handle_double_assignment_import(
 
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
-		AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive(_, _, _, _, timeout, tx)) if timeout == PvfExecTimeoutKind::Approval => {
+		AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive(_, _, _, _, _, timeout, tx)) if timeout == PvfExecTimeoutKind::Approval => {
 			tx.send(Ok(ValidationResult::Valid(Default::default(), Default::default())))
 				.unwrap();
 		}

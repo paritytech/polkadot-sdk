@@ -1,5 +1,5 @@
 error: expected `,`
-  --> tests/pallet_ui/storage_result_query_parenthesized_generics.rs:18:55
+  --> tests/pallet_ui/storage_result_query_parenthesized_generics.rs:35:55
    |
-18 |     type Foo<T: Config> = StorageValue<_, u8, ResultQuery(NonExistentValue)>;
+35 |     type Foo<T: Config> = StorageValue<_, u8, ResultQuery(NonExistentValue)>;
    |                                                          ^

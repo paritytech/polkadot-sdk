@@ -22,7 +22,7 @@ Installation from the Debian repository will create a `systemd` service that can
 Polkadot node. This is disabled by default, and can be started by running `systemctl start polkadot`
 on demand (use `systemctl enable polkadot` to make it auto-start after reboot). By default, it will
 run as the `polkadot` user.  Command-line flags passed to the binary can be customized by editing
-`/etc/default/polkadot`. This file will not be overwritten on updating polkadot. You may also just
+`/etc/default/polkadot`. This file will not be overwritten on updating Polkadot. You may also just
 run the node directly from the command-line.
 
 ### Debian-based (Debian, Ubuntu)
@@ -128,7 +128,7 @@ Connect to the global Polkadot Mainnet network by running:
 
 You can see your node on [telemetry] (set a custom name with `--name "my custom name"`).
 
-[telemetry]: https://telemetry.polkadot.io/#list/Polkadot
+[telemetry](https://telemetry.polkadot.io/#list/Polkadot): https://telemetry.polkadot.io/#list/Polkadot
 
 ### Connect to the "Kusama" Canary Network
 
@@ -140,7 +140,7 @@ Connect to the global Kusama canary network by running:
 
 You can see your node on [telemetry] (set a custom name with `--name "my custom name"`).
 
-[telemetry]: https://telemetry.polkadot.io/#list/Kusama
+[telemetry](https://telemetry.polkadot.io/#list/Kusama): https://telemetry.polkadot.io/#list/Kusama
 
 ### Connect to the Westend Testnet
 
@@ -152,7 +152,7 @@ Connect to the global Westend testnet by running:
 
 You can see your node on [telemetry] (set a custom name with `--name "my custom name"`).
 
-[telemetry]: https://telemetry.polkadot.io/#list/Westend
+[telemetry](https://telemetry.polkadot.io/#list/Westend): https://telemetry.polkadot.io/#list/Westend
 
 ### Obtaining DOTs
 

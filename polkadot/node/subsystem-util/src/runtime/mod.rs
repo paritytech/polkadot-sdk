@@ -24,27 +24,31 @@ use sp_core::crypto::ByteArray;
 use sp_keystore::{Keystore, KeystorePtr};
 
 use polkadot_node_subsystem::{
-	errors::RuntimeApiError, messages::RuntimeApiMessage, overseer, SubsystemSender,
+	errors::RuntimeApiError,
+	messages::{RuntimeApiMessage, RuntimeApiRequest},
+	overseer, SubsystemSender,
 };
+use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	vstaging, CandidateEvent, CandidateHash, CoreState, EncodeAs, GroupIndex, GroupRotationInfo,
-	Hash, IndexedVec, OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
-	SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex,
+	vstaging, CandidateEvent, CandidateHash, CoreState, EncodeAs, ExecutorParams, GroupIndex,
+	GroupRotationInfo, Hash, IndexedVec, OccupiedCore, ScrapedOnChainVotes, SessionIndex,
+	SessionInfo, Signed, SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
 };
 
 use crate::{
-	request_availability_cores, request_candidate_events, request_key_ownership_proof,
-	request_on_chain_votes, request_session_index_for_child, request_session_info,
-	request_staging_async_backing_params, request_submit_report_dispute_lost,
-	request_unapplied_slashes, request_validation_code_by_hash, request_validator_groups,
+	request_availability_cores, request_candidate_events, request_from_runtime,
+	request_key_ownership_proof, request_on_chain_votes, request_session_executor_params,
+	request_session_index_for_child, request_session_info, request_staging_async_backing_params,
+	request_submit_report_dispute_lost, request_unapplied_slashes, request_validation_code_by_hash,
+	request_validator_groups,
 };
 
 /// Errors that can happen on runtime fetches.
 mod error;
 
-use error::{recv_runtime, Result};
-pub use error::{Error, FatalError, JfyiError};
+use error::Result;
+pub use error::{recv_runtime, Error, FatalError, JfyiError};
 
 const LOG_TARGET: &'static str = "parachain::runtime-info";
 
@@ -72,6 +76,10 @@ pub struct RuntimeInfo {
 	/// Look up cached sessions by `SessionIndex`.
 	session_info_cache: LruMap<SessionIndex, ExtendedSessionInfo>,
 
+	/// Unpin handle of *some* block in the session.
+	/// Only blocks pinned explicitly by `pin_block` are stored here.
+	pinned_blocks: LruMap<SessionIndex, UnpinHandle>,
+
 	/// Key store for determining whether we are a validator and what `ValidatorIndex` we have.
 	keystore: Option<KeystorePtr>,
 }
@@ -82,6 +90,8 @@ pub struct ExtendedSessionInfo {
 	pub session_info: SessionInfo,
 	/// Contains useful information about ourselves, in case this node is a validator.
 	pub validator_info: ValidatorInfo,
+	/// Session executor parameters
+	pub executor_params: ExecutorParams,
 }
 
 /// Information about ourselves, in case we are an `Authority`.
@@ -115,6 +125,7 @@ impl RuntimeInfo {
 		Self {
 			session_index_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size.max(10))),
 			session_info_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
+			pinned_blocks: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
 			keystore: cfg.keystore,
 		}
 	}
@@ -138,6 +149,17 @@ impl RuntimeInfo {
 				Ok(index)
 			},
 		}
+	}
+
+	/// Pin a given block in the given session if none are pinned in that session.
+	/// Unpinning will happen automatically when LRU cache grows over the limit.
+	pub fn pin_block(&mut self, session_index: SessionIndex, unpin_handle: UnpinHandle) {
+		self.pinned_blocks.get_or_insert(session_index, || unpin_handle);
+	}
+
+	/// Get the hash of a pinned block for the given session index, if any.
+	pub fn get_block_in_session(&self, session_index: SessionIndex) -> Option<Hash> {
+		self.pinned_blocks.peek(&session_index).map(|h| h.hash())
 	}
 
 	/// Get `ExtendedSessionInfo` by relay parent hash.
@@ -172,9 +194,15 @@ impl RuntimeInfo {
 				recv_runtime(request_session_info(parent, session_index, sender).await)
 					.await?
 					.ok_or(JfyiError::NoSuchSession(session_index))?;
+
+			let executor_params =
+				recv_runtime(request_session_executor_params(parent, session_index, sender).await)
+					.await?
+					.ok_or(JfyiError::NoExecutorParams(session_index))?;
+
 			let validator_info = self.get_validator_info(&session_info)?;
 
-			let full_info = ExtendedSessionInfo { session_info, validator_info };
+			let full_info = ExtendedSessionInfo { session_info, validator_info, executor_params };
 
 			self.session_info_cache.insert(session_index, full_info);
 		}
@@ -449,5 +477,34 @@ where
 			max_candidate_depth: max_candidate_depth as _,
 			allowed_ancestry_len: allowed_ancestry_len as _,
 		})
+	}
+}
+
+/// Request the min backing votes value.
+/// Prior to runtime API version 6, just return a hardcoded constant.
+pub async fn request_min_backing_votes(
+	parent: Hash,
+	session_index: SessionIndex,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<u32> {
+	let min_backing_votes_res = recv_runtime(
+		request_from_runtime(parent, sender, |tx| {
+			RuntimeApiRequest::MinimumBackingVotes(session_index, tx)
+		})
+		.await,
+	)
+	.await;
+
+	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = min_backing_votes_res
+	{
+		gum::trace!(
+			target: LOG_TARGET,
+			?parent,
+			"Querying the backing threshold from the runtime is not supported by the current Runtime API",
+		);
+
+		Ok(LEGACY_MIN_BACKING_VOTES)
+	} else {
+		min_backing_votes_res
 	}
 }

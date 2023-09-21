@@ -677,9 +677,7 @@ mod tests {
 	use crate::{auctions, mock::TestRegistrar};
 	use ::test_helpers::{dummy_hash, dummy_head_data, dummy_validation_code};
 	use frame_support::{
-		assert_noop, assert_ok, assert_storage_noop,
-		dispatch::DispatchError::BadOrigin,
-		ord_parameter_types, parameter_types,
+		assert_noop, assert_ok, assert_storage_noop, ord_parameter_types, parameter_types,
 		traits::{ConstU32, EitherOfDiverse, OnFinalize, OnInitialize},
 	};
 	use frame_system::{EnsureRoot, EnsureSignedBy};
@@ -689,6 +687,7 @@ mod tests {
 	use sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup},
 		BuildStorage,
+		DispatchError::BadOrigin,
 	};
 	use std::{cell::RefCell, collections::BTreeMap};
 

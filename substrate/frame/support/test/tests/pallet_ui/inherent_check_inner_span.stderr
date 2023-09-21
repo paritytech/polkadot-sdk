@@ -1,7 +1,7 @@
 error[E0046]: not all trait items implemented, missing: `Call`, `Error`, `INHERENT_IDENTIFIER`, `create_inherent`, `is_inherent`
-  --> $DIR/inherent_check_inner_span.rs:19:2
+  --> tests/pallet_ui/inherent_check_inner_span.rs:36:2
    |
-19 |     impl<T: Config> ProvideInherent for Pallet<T> {}
+36 |     impl<T: Config> ProvideInherent for Pallet<T> {}
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ missing `Call`, `Error`, `INHERENT_IDENTIFIER`, `create_inherent`, `is_inherent` in implementation
    |
    = help: implement the missing item: `type Call = Type;`

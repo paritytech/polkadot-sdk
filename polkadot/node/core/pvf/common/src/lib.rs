@@ -25,11 +25,8 @@ pub mod worker;
 
 pub use cpu_time::ProcessTime;
 
-/// DO NOT USE - internal for macros only.
-#[doc(hidden)]
-pub mod __private {
-	pub use sp_tracing::try_init_simple;
-}
+// Used by `decl_worker_main!`.
+pub use sp_tracing;
 
 const LOG_TARGET: &str = "parachain::pvf-common";
 
