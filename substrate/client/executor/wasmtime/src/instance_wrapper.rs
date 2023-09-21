@@ -25,7 +25,9 @@ use sc_executor_common::{
 	wasm_runtime::InvokeMethod,
 };
 use sp_wasm_interface::{Pointer, Value, WordSize};
-use wasmtime::{AsContext, AsContextMut, Engine, Extern, Func, Instance, InstancePre, Memory, Table, Val};
+use wasmtime::{
+	AsContext, AsContextMut, Engine, Extern, Func, Instance, InstancePre, Memory, Table, Val,
+};
 
 /// Invoked entrypoint format.
 pub enum EntryPointType {
@@ -80,10 +82,8 @@ impl EntryPoint {
 			});
 
 			if let Some(message) = host_state.take_panic_message() {
-				// todo!("1");
 				Error::AbortedDueToPanic(MessageWithBacktrace { message, backtrace })
 			} else {
-				// todo!("2");
 				let message = trap.root_cause().to_string();
 				Error::AbortedDueToTrap(MessageWithBacktrace { message, backtrace })
 			}
@@ -303,9 +303,7 @@ fn get_table(instance: &Instance, ctx: &mut Store) -> Option<Table> {
 
 /// Extract export `alloc` func from the given instance.
 fn get_export_alloc(instance: &Instance, ctx: impl AsContextMut) -> Option<Func> {
-	 instance
-		.get_export(ctx, "alloc")
-		.and_then(Extern::into_func)
+	instance.get_export(ctx, "alloc").and_then(Extern::into_func)
 }
 
 /// Functions related to memory.

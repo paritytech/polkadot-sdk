@@ -127,7 +127,13 @@ impl WasmtimeInstance {
 				} else {
 					let heap_base = instance_wrapper.extract_heap_base()?;
 					let allocator = FreeingBumpHeapAllocator::new(heap_base);
-					perform_call(data, &mut instance_wrapper, entrypoint, allocator, allocation_stats)
+					perform_call(
+						data,
+						&mut instance_wrapper,
+						entrypoint,
+						allocator,
+						allocation_stats,
+					)
 				}
 			},
 		}
@@ -680,10 +686,6 @@ fn perform_call_v1(
 		.call(instance_wrapper.store_mut(), data_ptr, data_len)
 		.map(unpack_ptr_and_len);
 
-	// Reset the host state
-	let host_state = instance_wrapper.store_mut().data_mut().host_state.take().expect(
-		"the host state is always set before calling into WASM so it can't be None here; qed",
-	);
 	let (output_ptr, output_len) = ret?;
 	let output = extract_output_data(instance_wrapper, output_ptr, output_len)?;
 
@@ -709,14 +711,16 @@ fn inject_input_data_v1(
 	data: &[u8],
 ) -> Result<(Pointer<u8>, WordSize)> {
 	let data_len = data.len() as WordSize;
-	let params = [Val::I32(data_len as _ )];
-	let mut results = [Val::I32(1)];
+	let params = [Val::I32(data_len as _)];
+	let mut results = [Val::I32(0)];
 
-	alloc.call(instance.store_mut(), &params, &mut results).expect("alloc must success; qed");
+	alloc
+		.call(instance.store_mut(), &params, &mut results)
+		.expect("alloc must success; qed");
 	let data_ptr = results[0].i32().unwrap();
-	let data_ptr = Pointer::new( data_ptr as u32);
+	let data_ptr = Pointer::new(data_ptr as u32);
 	util::write_memory_from(instance.store_mut(), data_ptr, data)?;
-	println!("inject_input_data_v1 data {data:?} data_ptr: {data_ptr:?}");
+
 	Ok((data_ptr, data_len))
 }
 

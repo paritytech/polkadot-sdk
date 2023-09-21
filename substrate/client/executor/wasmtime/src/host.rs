@@ -92,9 +92,11 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 			let params = [Val::I32(size as i32)];
 			let mut results = [Val::I32(0)];
 
-			alloc.call(self.caller.as_context_mut(), &params, &mut results);
+			alloc
+				.call(self.caller.as_context_mut(), &params, &mut results)
+				.expect("alloc must success; qed");
 			let data_ptr = results[0].i32().unwrap();
-			let data_ptr = Pointer::new( data_ptr as u32);
+			let data_ptr = Pointer::new(data_ptr as u32);
 
 			Ok(data_ptr)
 		} else {
@@ -116,22 +118,26 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 	}
 
 	fn deallocate_memory(&mut self, ptr: Pointer<u8>) -> sp_wasm_interface::Result<()> {
-		log::info!("deallocate_memory");
 		let memory = self.caller.data().memory();
-		let mut allocator = self
-			.host_state_mut()
-			.allocator
-			.take()
-			.expect("allocator is not empty when calling a function in wasm; qed");
+		if let Some(_alloc) = self.caller.data().alloc {
+			// TODO: maybe we need to support it.
+			unreachable!("The `deallocate_memory` never be used in allocator v1");
+		} else {
+			let mut allocator = self
+				.host_state_mut()
+				.allocator
+				.take()
+				.expect("allocator is not empty when calling a function in wasm; qed");
 
-		// We can not return on error early, as we need to store back allocator.
-		let res = allocator
-			.deallocate(&mut MemoryWrapper(&memory, &mut self.caller), ptr)
-			.map_err(|e| e.to_string());
+			// We can not return on error early, as we need to store back allocator.
+			let res = allocator
+				.deallocate(&mut MemoryWrapper(&memory, &mut self.caller), ptr)
+				.map_err(|e| e.to_string());
 
-		self.host_state_mut().allocator = Some(allocator);
+			self.host_state_mut().allocator = Some(allocator);
 
-		res
+			res
+		}
 	}
 
 	fn register_panic_error_message(&mut self, message: &str) {

@@ -52,6 +52,14 @@ impl RuntimeBlob {
 		Ok(Self { raw_module })
 	}
 
+	/// Return true if wasm contains a export function.
+	pub fn contain_export_func(&self, func: &str) -> bool {
+		self.raw_module.export_section().map(|section| {
+			section.entries().iter().any(|entry| entry.field() == func)
+		})
+			.unwrap_or(false)
+	}
+
 	/// The number of globals defined in locally in this module.
 	pub fn declared_globals_count(&self) -> u32 {
 		self.raw_module
@@ -160,6 +168,8 @@ impl RuntimeBlob {
 		&mut self,
 		heap_alloc_strategy: HeapAllocStrategy,
 	) -> Result<(), WasmError> {
+		let is_allocator_v1 = self.contain_export_func("v1");
+
 		let memory_section = self
 			.raw_module
 			.memory_section_mut()
@@ -168,6 +178,7 @@ impl RuntimeBlob {
 		if memory_section.entries().is_empty() {
 			return Err(WasmError::Other("memory section is empty".into()))
 		}
+
 		for memory_ty in memory_section.entries_mut() {
 			let initial = memory_ty.limits().initial();
 			let (min, max) = match heap_alloc_strategy {
@@ -177,7 +188,13 @@ impl RuntimeBlob {
 				},
 				HeapAllocStrategy::Static { extra_pages } => {
 					let pages = initial.saturating_add(extra_pages);
-					(pages, Some(pages))
+					// The runtime-customized allocator may rely on this init memory page,
+					// so this value cannot be modified at will, otherwise it will cause errors in the allocator logic.
+					if is_allocator_v1 {
+						(initial, Some(pages))
+					} else {
+						(pages, Some(pages))
+					}
 				},
 			};
 			*memory_ty = MemoryType::new(min, max);
