@@ -49,10 +49,7 @@ where
 	}
 }
 
-impl<T: Config> XCM<T> for PalletXCMAdapter<T>
-where
-	T: pallet_xcm::Config,
-{
+impl<T: Config + pallet_xcm::Config> XCM<T> for PalletXCMAdapter<T> {
 	type QueryId = <pallet_xcm::Pallet<T> as QueryHandler>::QueryId;
 	type WeightInfo = Self;
 
