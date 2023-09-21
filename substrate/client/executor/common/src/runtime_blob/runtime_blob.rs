@@ -54,9 +54,9 @@ impl RuntimeBlob {
 
 	/// Return true if wasm contains a export function.
 	pub fn contain_export_func(&self, func: &str) -> bool {
-		self.raw_module.export_section().map(|section| {
-			section.entries().iter().any(|entry| entry.field() == func)
-		})
+		self.raw_module
+			.export_section()
+			.map(|section| section.entries().iter().any(|entry| entry.field() == func))
 			.unwrap_or(false)
 	}
 
@@ -189,7 +189,8 @@ impl RuntimeBlob {
 				HeapAllocStrategy::Static { extra_pages } => {
 					let pages = initial.saturating_add(extra_pages);
 					// The runtime-customized allocator may rely on this init memory page,
-					// so this value cannot be modified at will, otherwise it will cause errors in the allocator logic.
+					// so this value cannot be modified at will, otherwise it will cause errors in
+					// the allocator logic.
 					if is_allocator_v1 {
 						(initial, Some(pages))
 					} else {
