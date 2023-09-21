@@ -93,7 +93,7 @@ pub struct IsTrustedBridgedReserveLocationForConcreteAsset<UniversalLocation, Re
 );
 impl<
 		UniversalLocation: Get<InteriorMultiLocation>,
-		Reserves: Get<sp_std::vec::Vec<FilteredLocation>>,
+		Reserves: Get<sp_std::vec::Vec<LocationWithAssetFilter>>,
 	> ContainsPair<MultiAsset, MultiLocation>
 	for IsTrustedBridgedReserveLocationForConcreteAsset<UniversalLocation, Reserves>
 {
@@ -144,7 +144,7 @@ impl<
 pub struct DisallowConcreteAssetUnless<LocationAssetFilters>(
 	sp_std::marker::PhantomData<LocationAssetFilters>,
 );
-impl<LocationAssetFilters: Get<sp_std::vec::Vec<FilteredLocation>>>
+impl<LocationAssetFilters: Get<sp_std::vec::Vec<LocationWithAssetFilter>>>
 	Contains<(MultiLocation, sp_std::vec::Vec<MultiAsset>)>
 	for DisallowConcreteAssetUnless<LocationAssetFilters>
 {
@@ -193,7 +193,7 @@ where
 		let universal_source = UniversalLocation::get();
 		log::trace!(
 			target: "xcm::contains",
-			"CheckOnlyForRemoteDestination dest: {:?}, assets: {:?}, universal_source: {:?}",
+			"ExcludeOnlyForRemoteDestination dest: {:?}, assets: {:?}, universal_source: {:?}",
 			dest_and_assets.0, dest_and_assets.1, universal_source
 		);
 
@@ -208,7 +208,7 @@ where
 				} else {
 					log::trace!(
 						target: "xcm::contains",
-						"CheckOnlyForRemoteDestination no exporter for dest: {:?}",
+						"ExcludeOnlyForRemoteDestination no exporter for dest: {:?}",
 						dest_and_assets.0
 					);
 					// no exporter means that we exclude by default
@@ -218,7 +218,7 @@ where
 			Err(_) => {
 				log::trace!(
 					target: "xcm::contains",
-					"CheckOnlyForRemoteDestination dest: {:?} is not remote to the universal_source: {:?}",
+					"ExcludeOnlyForRemoteDestination dest: {:?} is not remote to the universal_source: {:?}",
 					dest_and_assets.0, universal_source
 				);
 				// not a remote destination, do not exclude
@@ -228,19 +228,10 @@ where
 	}
 }
 
-/// Location as `MultiLocation` with `AssetFilter`.
-pub type FilteredLocation = (MultiLocation, AssetFilter);
+/// A type alias for referring to the `LocationFilter<MultiLocation>`.
+/// (`MultiLocation` represents here `AssetId::Concrete(location)`).
+pub type AssetFilter = LocationFilter<MultiLocation>;
 
-/// Simple asset location filter.
-#[derive(Debug)]
-pub enum AssetFilter {
-	ByMultiLocation(LocationFilter<MultiLocation>),
-}
-
-impl MatchesLocation<MultiLocation> for AssetFilter {
-	fn matches(&self, asset_location: &MultiLocation) -> bool {
-		match self {
-			AssetFilter::ByMultiLocation(by_location) => by_location.matches(asset_location),
-		}
-	}
-}
+/// A type alias for referring to the `MultiLocation` with `AssetFilter` capabilities.
+/// E.g. for `MultiLocation` we can accept assets that match `AssetFilter`.
+pub type LocationWithAssetFilter = (MultiLocation, AssetFilter);

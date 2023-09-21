@@ -752,7 +752,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToKusamaXcmRouterInstance> for Runtime
 
 	type ToBridgeHubSender = XcmpQueue;
 	type WithBridgeHubChannel =
-		cumulus_pallet_xcmp_queue::bridging::InboundAndOutboundXcmpChannelCongestionStatusProvider<
+		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<
 			xcm_config::bridging::BridgeHubPolkadotParaId,
 			Runtime,
 		>;

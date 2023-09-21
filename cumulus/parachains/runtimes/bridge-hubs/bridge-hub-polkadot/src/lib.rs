@@ -497,7 +497,7 @@ impl pallet_bridge_messages::Config<WithBridgeHubKusamaMessagesInstance> for Run
 	type MessageDispatch = XcmBlobMessageDispatch<
 		OnThisChainBlobDispatcher<UniversalLocation>,
 		Self::WeightInfo,
-		cumulus_pallet_xcmp_queue::bridging::OutboundXcmpChannelCongestionStatusProvider<
+		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<
 			bridge_hub_config::AssetHubPolkadotParaId,
 			Runtime,
 		>,

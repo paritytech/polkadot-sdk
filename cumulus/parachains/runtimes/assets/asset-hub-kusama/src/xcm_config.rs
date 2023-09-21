@@ -720,16 +720,14 @@ pub mod bridging {
 
 		/// Set up trusted bridged reserve locations.
 		/// Locations from which the runtime accepts reserved assets.
-		pub TrustedBridgedReserveLocations: sp_std::vec::Vec<FilteredLocation> = sp_std::vec![
+		pub TrustedBridgedReserveLocations: sp_std::vec::Vec<LocationWithAssetFilter> = sp_std::vec![
 			// trust assets from AssetHubPolkadot
 			(
 				AssetHubPolkadot::get(),
-				AssetFilter::ByMultiLocation(
-					LocationFilter::default()
-						// allow receive DOT
-						.add_equals(DotLocation::get())
-						// and nothing else
-				)
+				LocationFilter::default()
+					// allow receive DOT
+					.add_equals(DotLocation::get())
+					// and nothing else
 			)
 		];
 
