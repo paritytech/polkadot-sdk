@@ -468,3 +468,82 @@ fn emit_events_with_changing_freezes() {
 		assert_eq!(events(), [RuntimeEvent::Balances(crate::Event::Thawed { who: 1, amount: 15 })]);
 	});
 }
+
+#[test]
+fn transfer_and_preserve_account() {
+	ExtBuilder::default()
+		.existential_deposit(10)
+		.monied(false)
+		.build_and_execute_with(|| {
+			<Balances as fungible::Mutate<_>>::set_balance(&1, 11);
+			<Balances as fungible::Mutate<_>>::set_balance(&2, 11);
+			assert_noop!(
+				<Balances as fungible::Mutate<_>>::transfer(&1, &2, 2, Preserve),
+				TokenError::NotExpendable
+			);
+			assert_eq!(<Balances as fungible::Inspect<_>>::balance(&1), 11);
+		});
+}
+
+#[test]
+fn withdraw_and_preserve_account() {
+	ExtBuilder::default()
+		.existential_deposit(10)
+		.monied(false)
+		.build_and_execute_with(|| {
+			<Balances as fungible::Mutate<_>>::set_balance(&1, 11);
+			assert!(<Balances as fungible::Balanced<_>>::withdraw(&1, 2, Exact, Preserve, Polite)
+				.is_err());
+			assert_eq!(<Balances as fungible::Inspect<_>>::balance(&1), 11);
+		});
+}
+
+#[test]
+fn settle_and_preserve_account() {
+	ExtBuilder::default()
+		.existential_deposit(10)
+		.monied(false)
+		.build_and_execute_with(|| {
+			<Balances as fungible::Mutate<_>>::set_balance(&1, 11);
+			let debt = <Balances as fungible::Balanced<_>>::rescind(2);
+			assert!(<Balances as fungible::Balanced<_>>::settle(&1, debt, Preserve).is_err());
+			assert_eq!(<Balances as fungible::Inspect<_>>::balance(&1), 11);
+		});
+}
+
+#[test]
+fn decrease_balance_and_preserve_account() {
+	ExtBuilder::default()
+		.existential_deposit(10)
+		.monied(false)
+		.build_and_execute_with(|| {
+			<Balances as fungible::Mutate<_>>::set_balance(&1, 11);
+			assert!(<Balances as fungible::Unbalanced<_>>::decrease_balance(
+				&1, 2, Exact, Preserve, Polite
+			)
+			.is_err());
+			assert_eq!(<Balances as fungible::Inspect<_>>::balance(&1), 11);
+		});
+}
+
+#[test]
+fn transfer_hold_and_preserve_account() {
+	ExtBuilder::default()
+		.existential_deposit(10)
+		.monied(false)
+		.build_and_execute_with(|| {
+			<Balances as fungible::Mutate<_>>::set_balance(&1, 11);
+			<Balances as fungible::Mutate<_>>::set_balance(&2, 11);
+			assert!(<Balances as fungible::MutateHold<_>>::transfer_and_hold(
+				&TestId::Foo,
+				&1,
+				&2,
+				2,
+				Exact,
+				Preserve,
+				Polite
+			)
+			.is_err());
+			assert_eq!(<Balances as fungible::Inspect<_>>::balance(&1), 11);
+		});
+}
