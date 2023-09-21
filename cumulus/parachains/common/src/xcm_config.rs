@@ -27,7 +27,7 @@ use frame_support::{
 };
 use log;
 use sp_runtime::traits::Get;
-use xcm::{latest::prelude::*, DoubleEncoded};
+use xcm::latest::prelude::*;
 use xcm_builder::{CreateMatcher, ExporterFor, MatchXcm};
 use xcm_executor::traits::ShouldExecute;
 
@@ -177,8 +177,8 @@ impl<
 	}
 }
 
-/// Allows execution from `origin` if it is contained in `AllowedOrigin`
-/// and if it is just a straight `Transact` which contains `AllowedCall`.
+/// Allows execution from `origin` (only with `OriginKind::Xcm`) if it is contained in
+/// `AllowedOrigin` and if it is just a straight `Transact` which passes `AllowedCall` matcher.
 pub struct AllowUnpaidTransactsFrom<RuntimeCall, AllowedCall, AllowedOrigin>(
 	sp_std::marker::PhantomData<(RuntimeCall, AllowedCall, AllowedOrigin)>,
 );
@@ -191,13 +191,13 @@ impl<
 	fn should_execute<Call>(
 		origin: &MultiLocation,
 		instructions: &mut [Instruction<Call>],
-		max_weight: Weight,
+		_max_weight: Weight,
 		_properties: &mut xcm_executor::traits::Properties,
 	) -> Result<(), ProcessMessageError> {
 		log::trace!(
 			target: "xcm::barriers",
 			"AllowUnpaidTransactFrom origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, max_weight, _properties,
+			origin, instructions, _max_weight, _properties,
 		);
 
 		// we only allow from configured origins
@@ -209,17 +209,15 @@ impl<
 			.assert_remaining_insts(1)?
 			.match_next_inst(|inst| match inst {
 				Transact { origin_kind: OriginKind::Xcm, call: encoded_call, .. } => {
-					// this is a hack - don't know if there's a way to do that properly
-					// or else we can simply allow all calls
-					let mut decoded_call = DoubleEncoded::<RuntimeCall>::from(encoded_call.clone());
-					ensure!(
-						AllowedCall::contains(
-							decoded_call
-								.ensure_decoded()
-								.map_err(|_| ProcessMessageError::BadFormat)?
-						),
-						ProcessMessageError::BadFormat,
-					);
+					// Generic `Call` to `RuntimeCall` conversion - don't know if there's a way to
+					// do that properly?
+					let runtime_call: RuntimeCall = encoded_call
+						.clone()
+						.into::<RuntimeCall>()
+						.try_into()
+						.map_err(|_| ProcessMessageError::BadFormat)?;
+
+					ensure!(AllowedCall::contains(&runtime_call), ProcessMessageError::Unsupported);
 
 					Ok(())
 				},
@@ -233,6 +231,7 @@ impl<
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use codec::{Decode, Encode};
 
 	#[test]
 	fn filtered_network_export_table_works() {
@@ -271,6 +270,83 @@ mod tests {
 					&network,
 					&remote_location,
 					&Xcm::default()
+				),
+				expected_result,
+			)
+		}
+	}
+
+	#[test]
+	fn allow_unpaid_transacts_from_works() {
+		#[derive(Encode, Decode)]
+		enum RuntimeCall {
+			CallA,
+			CallB,
+		}
+		frame_support::match_types! {
+			pub type AcceptOnlyFromSibling1002: impl Contains<MultiLocation> = {
+				MultiLocation { parents: 1, interior: X1(Parachain(1002)) }
+			};
+			pub type AcceptOnlyRuntimeCallA: impl Contains<RuntimeCall> = { RuntimeCall::CallA };
+		}
+
+		fn transact(origin_kind: OriginKind, encoded_data: impl Encode) -> Instruction<()> {
+			Transact {
+				origin_kind,
+				require_weight_at_most: Default::default(),
+				call: encoded_data.encode().into(),
+			}
+		}
+
+		type Barrier = AllowUnpaidTransactsFrom<
+			RuntimeCall,
+			AcceptOnlyRuntimeCallA,
+			AcceptOnlyFromSibling1002,
+		>;
+
+		let test_data: Vec<(MultiLocation, Vec<Instruction<()>>, Result<(), ProcessMessageError>)> = vec![
+			// success case
+			(
+				MultiLocation { parents: 1, interior: X1(Parachain(1002)) },
+				vec![transact(OriginKind::Xcm, RuntimeCall::CallA)],
+				Ok(()),
+			),
+			// invalid message - more instruction than just one `Transact`
+			(
+				MultiLocation { parents: 1, interior: X1(Parachain(1002)) },
+				vec![transact(OriginKind::Xcm, RuntimeCall::CallA), ClearOrigin],
+				Err(ProcessMessageError::BadFormat),
+			),
+			// invalid `OriginKind`
+			(
+				MultiLocation { parents: 1, interior: X1(Parachain(1002)) },
+				vec![transact(OriginKind::Native, RuntimeCall::CallA)],
+				Err(ProcessMessageError::BadFormat),
+			),
+			// unsupported call
+			(
+				MultiLocation { parents: 1, interior: X1(Parachain(1002)) },
+				vec![transact(OriginKind::Xcm, RuntimeCall::CallB)],
+				Err(ProcessMessageError::Unsupported),
+			),
+			// unsupported origin
+			(
+				MultiLocation { parents: 1, interior: X1(Parachain(2105)) },
+				vec![transact(OriginKind::Xcm, RuntimeCall::CallA)],
+				Err(ProcessMessageError::Unsupported),
+			),
+		];
+
+		for (origin, mut xcm, expected_result) in test_data {
+			assert_eq!(
+				Barrier::should_execute(
+					&origin,
+					&mut xcm,
+					Default::default(),
+					&mut xcm_executor::traits::Properties {
+						weight_credit: Default::default(),
+						message_id: None,
+					},
 				),
 				expected_result,
 			)
