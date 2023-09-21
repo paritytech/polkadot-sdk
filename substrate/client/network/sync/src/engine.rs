@@ -48,7 +48,10 @@ use schnellru::{ByLength, LruMap};
 use sc_client_api::{BlockBackend, HeaderBackend, ProofProvider};
 use sc_consensus::import_queue::ImportQueueService;
 use sc_network::{
-	config::{FullNetworkConfiguration, NonDefaultSetConfig, ProtocolId},
+	config::{
+		FullNetworkConfiguration, NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake,
+		ProtocolId, SetConfig,
+	},
 	request_responses::{IfDisconnected, RequestFailure},
 	utils::LruHashSet,
 	NotificationsSink, ProtocolName, ReputationChange,
@@ -69,6 +72,7 @@ use sp_runtime::traits::{Block as BlockT, Header, NumberFor, Zero};
 
 use std::{
 	collections::{HashMap, HashSet},
+	iter,
 	num::NonZeroUsize,
 	pin::Pin,
 	sync::{
@@ -104,6 +108,9 @@ const INACTIVITY_EVICT_THRESHOLD: Duration = Duration::from_secs(30);
 /// To prevent this from happening, define a threshold for how long `SyncingEngine` should wait
 /// before it starts evicting peers.
 const INITIAL_EVICTION_WAIT_PERIOD: Duration = Duration::from_secs(2 * 60);
+
+/// Maximum allowed size for a block announce.
+const MAX_BLOCK_ANNOUNCE_SIZE: u64 = 1024 * 1024;
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
@@ -420,12 +427,24 @@ where
 		let warp_sync_target_block_header_rx = warp_sync_target_block_header_rx
 			.map_or(futures::future::pending().boxed().fuse(), |rx| rx.boxed().fuse());
 
-		let (chain_sync, block_announce_config) = ChainSync::new(
-			mode,
-			client.clone(),
+		let block_announce_config = Self::get_block_announce_proto_config(
 			protocol_id,
 			fork_id,
 			roles,
+			client.info().best_number,
+			client.info().best_hash,
+			client
+				.block_hash(Zero::zero())
+				.ok()
+				.flatten()
+				.expect("Genesis block exists; qed"),
+		);
+		let block_announce_protocol_name = block_announce_config.notifications_protocol.clone();
+
+		let chain_sync = ChainSync::new(
+			mode,
+			client.clone(),
+			block_announce_protocol_name.clone(),
 			max_parallel_downloads,
 			max_blocks_per_request,
 			warp_sync_config,
@@ -434,7 +453,6 @@ where
 			import_queue,
 		)?;
 
-		let block_announce_protocol_name = block_announce_config.notifications_protocol.clone();
 		let (tx, service_rx) = tracing_unbounded("mpsc_chain_sync", 100_000);
 		let num_connected = Arc::new(AtomicUsize::new(0));
 		let is_major_syncing = Arc::new(AtomicBool::new(false));
@@ -1294,5 +1312,51 @@ where
 	/// Returns the number of peers we're connected to and that are being queried.
 	fn num_active_peers(&self) -> usize {
 		self.pending_responses.len()
+	}
+
+	/// Get config for the block announcement protocol
+	fn get_block_announce_proto_config(
+		protocol_id: ProtocolId,
+		fork_id: &Option<String>,
+		roles: Roles,
+		best_number: NumberFor<B>,
+		best_hash: B::Hash,
+		genesis_hash: B::Hash,
+	) -> NonDefaultSetConfig {
+		let block_announces_protocol = {
+			let genesis_hash = genesis_hash.as_ref();
+			if let Some(ref fork_id) = fork_id {
+				format!(
+					"/{}/{}/block-announces/1",
+					array_bytes::bytes2hex("", genesis_hash),
+					fork_id
+				)
+			} else {
+				format!("/{}/block-announces/1", array_bytes::bytes2hex("", genesis_hash))
+			}
+		};
+
+		NonDefaultSetConfig {
+			notifications_protocol: block_announces_protocol.into(),
+			fallback_names: iter::once(
+				format!("/{}/block-announces/1", protocol_id.as_ref()).into(),
+			)
+			.collect(),
+			max_notification_size: MAX_BLOCK_ANNOUNCE_SIZE,
+			handshake: Some(NotificationHandshake::new(BlockAnnouncesHandshake::<B>::build(
+				roles,
+				best_number,
+				best_hash,
+				genesis_hash,
+			))),
+			// NOTE: `set_config` will be ignored by `protocol.rs` as the block announcement
+			// protocol is still hardcoded into the peerset.
+			set_config: SetConfig {
+				in_peers: 0,
+				out_peers: 0,
+				reserved_nodes: Vec::new(),
+				non_reserved_mode: NonReservedPeerMode::Deny,
+			},
+		}
 	}
 }

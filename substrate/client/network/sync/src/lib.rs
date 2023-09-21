@@ -45,23 +45,15 @@ use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{
 	import_queue::ImportQueueService, BlockImportError, BlockImportStatus, IncomingBlock,
 };
-use sc_network::{
-	config::{
-		NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake, ProtocolId, SetConfig,
+use sc_network::types::ProtocolName;
+use sc_network_common::sync::{
+	message::{
+		BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction,
+		FromBlock,
 	},
-	types::ProtocolName,
-};
-use sc_network_common::{
-	role::Roles,
-	sync::{
-		message::{
-			BlockAnnounce, BlockAnnouncesHandshake, BlockAttributes, BlockData, BlockRequest,
-			BlockResponse, Direction, FromBlock,
-		},
-		warp::{EncodedProof, WarpProofRequest, WarpSyncPhase, WarpSyncProgress},
-		BadPeer, ChainSync as ChainSyncT, Metrics, OnBlockData, OnBlockJustification, OnStateData,
-		OpaqueStateRequest, OpaqueStateResponse, PeerInfo, SyncMode, SyncState, SyncStatus,
-	},
+	warp::{EncodedProof, WarpProofRequest, WarpSyncPhase, WarpSyncProgress},
+	BadPeer, ChainSync as ChainSyncT, Metrics, OnBlockData, OnBlockJustification, OnStateData,
+	OpaqueStateRequest, OpaqueStateResponse, PeerInfo, SyncMode, SyncState, SyncStatus,
 };
 use sp_arithmetic::traits::Saturating;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
@@ -76,7 +68,6 @@ use sp_runtime::{
 
 use std::{
 	collections::{HashMap, HashSet},
-	iter,
 	ops::Range,
 	sync::Arc,
 };
@@ -124,9 +115,6 @@ const MAJOR_SYNC_BLOCKS: u8 = 5;
 
 /// Number of peers that need to be connected before warp sync is started.
 const MIN_PEERS_TO_START_WARP_SYNC: usize = 3;
-
-/// Maximum allowed size for a block announce.
-const MAX_BLOCK_ANNOUNCE_SIZE: u64 = 1024 * 1024;
 
 /// Maximum blocks per response.
 pub(crate) const MAX_BLOCKS_IN_RESPONSE: usize = 128;
@@ -243,6 +231,8 @@ struct GapSync<B: BlockT> {
 	target: NumberFor<B>,
 }
 
+/// A struct used to notify [`engine::SyncingEngine`] if we want to perform a block request
+/// and/or drop an obsolete pending response.
 struct PeerBlockRequest<B: BlockT> {
 	peer_id: PeerId,
 	request: Option<BlockRequest<B>>,
@@ -1149,29 +1139,14 @@ where
 	pub fn new(
 		mode: SyncMode,
 		client: Arc<Client>,
-		protocol_id: ProtocolId,
-		fork_id: &Option<String>,
-		roles: Roles,
+		block_announce_protocol_name: ProtocolName,
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
 		warp_sync_config: Option<WarpSyncConfig<B>>,
 		metrics_registry: Option<&Registry>,
 		network_service: service::network::NetworkServiceHandle,
 		import_queue: Box<dyn ImportQueueService<B>>,
-	) -> Result<(Self, NonDefaultSetConfig), ClientError> {
-		let block_announce_config = Self::get_block_announce_proto_config(
-			protocol_id,
-			fork_id,
-			roles,
-			client.info().best_number,
-			client.info().best_hash,
-			client
-				.block_hash(Zero::zero())
-				.ok()
-				.flatten()
-				.expect("Genesis block exists; qed"),
-		);
-
+	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
 			peers: HashMap::new(),
@@ -1193,10 +1168,7 @@ where
 			network_service,
 			warp_sync_config,
 			warp_sync_target_block_header: None,
-			block_announce_protocol_name: block_announce_config
-				.notifications_protocol
-				.clone()
-				.into(),
+			block_announce_protocol_name,
 			import_queue,
 			metrics: if let Some(r) = &metrics_registry {
 				match SyncingMetrics::register(r) {
@@ -1215,7 +1187,7 @@ where
 		};
 
 		sync.reset_sync_start_point()?;
-		Ok((sync, block_announce_config))
+		Ok(sync)
 	}
 
 	/// Returns the median seen block number.
@@ -1524,52 +1496,6 @@ where
 		}
 
 		None
-	}
-
-	/// Get config for the block announcement protocol
-	pub fn get_block_announce_proto_config(
-		protocol_id: ProtocolId,
-		fork_id: &Option<String>,
-		roles: Roles,
-		best_number: NumberFor<B>,
-		best_hash: B::Hash,
-		genesis_hash: B::Hash,
-	) -> NonDefaultSetConfig {
-		let block_announces_protocol = {
-			let genesis_hash = genesis_hash.as_ref();
-			if let Some(ref fork_id) = fork_id {
-				format!(
-					"/{}/{}/block-announces/1",
-					array_bytes::bytes2hex("", genesis_hash),
-					fork_id
-				)
-			} else {
-				format!("/{}/block-announces/1", array_bytes::bytes2hex("", genesis_hash))
-			}
-		};
-
-		NonDefaultSetConfig {
-			notifications_protocol: block_announces_protocol.into(),
-			fallback_names: iter::once(
-				format!("/{}/block-announces/1", protocol_id.as_ref()).into(),
-			)
-			.collect(),
-			max_notification_size: MAX_BLOCK_ANNOUNCE_SIZE,
-			handshake: Some(NotificationHandshake::new(BlockAnnouncesHandshake::<B>::build(
-				roles,
-				best_number,
-				best_hash,
-				genesis_hash,
-			))),
-			// NOTE: `set_config` will be ignored by `protocol.rs` as the block announcement
-			// protocol is still hardcoded into the peerset.
-			set_config: SetConfig {
-				in_peers: 0,
-				out_peers: 0,
-				reserved_nodes: Vec::new(),
-				non_reserved_mode: NonReservedPeerMode::Deny,
-			},
-		}
 	}
 
 	pub(crate) fn on_block_response(
@@ -2517,10 +2443,7 @@ mod test {
 	use crate::service::network::NetworkServiceProvider;
 	use futures::executor::block_on;
 	use sc_block_builder::BlockBuilderProvider;
-	use sc_network_common::{
-		role::Role,
-		sync::message::{BlockAnnounce, BlockData, BlockState, FromBlock},
-	};
+	use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockState, FromBlock};
 	use sp_blockchain::HeaderBackend;
 	use substrate_test_runtime_client::{
 		runtime::{Block, Hash, Header},
@@ -2540,12 +2463,10 @@ mod test {
 		let import_queue = Box::new(sc_consensus::import_queue::mock::MockImportQueueHandle::new());
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			1,
 			64,
 			None,
@@ -2604,12 +2525,10 @@ mod test {
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
 
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			1,
 			64,
 			None,
@@ -2777,12 +2696,10 @@ mod test {
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
 
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			5,
 			64,
 			None,
@@ -2900,12 +2817,10 @@ mod test {
 			NetworkServiceProvider::new();
 		let info = client.info();
 
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			5,
 			64,
 			None,
@@ -3054,12 +2969,10 @@ mod test {
 
 		let info = client.info();
 
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			5,
 			64,
 			None,
@@ -3193,12 +3106,10 @@ mod test {
 
 		let info = client.info();
 
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			5,
 			64,
 			None,
@@ -3334,12 +3245,10 @@ mod test {
 		let mut client = Arc::new(TestClientBuilder::new().build());
 		let blocks = (0..3).map(|_| build_block(&mut client, None, false)).collect::<Vec<_>>();
 
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			1,
 			64,
 			None,
@@ -3376,12 +3285,10 @@ mod test {
 
 		let empty_client = Arc::new(TestClientBuilder::new().build());
 
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			empty_client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			1,
 			64,
 			None,
@@ -3425,12 +3332,10 @@ mod test {
 		let import_queue = Box::new(sc_consensus::import_queue::mock::MockImportQueueHandle::new());
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			1,
 			64,
 			None,
