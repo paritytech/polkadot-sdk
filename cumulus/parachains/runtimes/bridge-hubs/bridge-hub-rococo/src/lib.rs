@@ -514,7 +514,7 @@ impl pallet_bridge_messages::Config<WithBridgeHubWococoMessagesInstance> for Run
 	type MessageDispatch = XcmBlobMessageDispatch<
 		OnBridgeHubRococoBlobDispatcher,
 		Self::WeightInfo,
-		cumulus_pallet_xcmp_queue::bridging::OutboundXcmpChannelCongestionStatusProvider<
+		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<
 			bridge_hub_rococo_config::AssetHubRococoParaId,
 			Runtime,
 		>,
@@ -554,7 +554,7 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 	type MessageDispatch = XcmBlobMessageDispatch<
 		OnBridgeHubWococoBlobDispatcher,
 		Self::WeightInfo,
-		cumulus_pallet_xcmp_queue::bridging::OutboundXcmpChannelCongestionStatusProvider<
+		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<
 			bridge_hub_wococo_config::AssetHubWococoParaId,
 			Runtime,
 		>,

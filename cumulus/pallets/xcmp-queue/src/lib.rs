@@ -402,13 +402,6 @@ pub struct InboundChannelDetails {
 	message_metadata: Vec<(RelayBlockNumber, XcmpMessageFormat)>,
 }
 
-impl InboundChannelDetails {
-	#[cfg(feature = "bridging")]
-	pub(crate) fn is_suspended(&self) -> bool {
-		self.state == InboundState::Suspended
-	}
-}
-
 /// Struct containing detailed information about the outbound channel.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct OutboundChannelDetails {
@@ -443,16 +436,6 @@ impl OutboundChannelDetails {
 	pub fn with_suspended_state(mut self) -> OutboundChannelDetails {
 		self.state = OutboundState::Suspended;
 		self
-	}
-
-	#[cfg(feature = "bridging")]
-	pub(crate) fn is_suspended(&self) -> bool {
-		self.state == OutboundState::Suspended
-	}
-
-	#[cfg(feature = "bridging")]
-	pub(crate) fn queued_pages(&self) -> u16 {
-		self.last_index.saturating_sub(self.first_index)
 	}
 }
 
@@ -965,6 +948,24 @@ impl<T: Config> Pallet<T> {
 				debug_assert!(false, "WARNING: Attempt to resume channel that was not suspended.");
 			}
 		});
+	}
+
+	#[cfg(feature = "bridging")]
+	fn is_inbound_channel_suspended(sender: ParaId) -> bool {
+		<InboundXcmpStatus<T>>::get()
+			.iter()
+			.find(|c| c.sender == sender)
+			.map(|c| c.state == InboundState::Suspended)
+			.unwrap_or(false)
+	}
+
+	#[cfg(feature = "bridging")]
+	/// Returns tuple of `OutboundState` and number of queued pages.
+	fn outbound_channel_state(target: ParaId) -> Option<(OutboundState, u16)> {
+		<OutboundXcmpStatus<T>>::get().iter().find(|c| c.recipient == target).map(|c| {
+			let queued_pages = c.last_index.saturating_sub(c.first_index);
+			(c.state, queued_pages)
+		})
 	}
 }
 
