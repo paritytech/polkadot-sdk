@@ -771,31 +771,27 @@ pub mod bridging {
 
 			/// Set up trusted bridged reserve locations.
 			/// Locations from which the runtime accepts reserved assets.
-			pub TrustedBridgedReserveLocations: sp_std::vec::Vec<FilteredLocation> = sp_std::vec![
+			pub TrustedBridgedReserveLocations: sp_std::vec::Vec<LocationWithAssetFilter> = sp_std::vec![
 				// trust assets from AssetHubWococo
 				(
 					AssetHubWococo::get(),
-					AssetFilter::ByMultiLocation(
-						LocationFilter::default()
-							// allow receive WOC
-							.add_equals(WocLocation::get())
-							// and nothing else
-					)
+					LocationFilter::default()
+						// allow receive WOC
+						.add_equals(WocLocation::get())
+						// and nothing else
 				)
 			];
 
 			/// Allowed reserve transfer assets per destination.
 			/// Means that runtime allows to transfer reserve assets to these locations.
-			pub AllowedReserveTransferAssetsLocations: sp_std::vec::Vec<FilteredLocation> = sp_std::vec![
+			pub AllowedReserveTransferAssetsLocations: sp_std::vec::Vec<LocationWithAssetFilter> = sp_std::vec![
 				// allow to transfer assets to AssetHubWococo
 				(
 					AssetHubWococo::get(),
-					AssetFilter::ByMultiLocation(
-						LocationFilter::default()
-							// allow send only WOC
-							.add_equals(TokenLocation::get())
-							// and nothing else
-					)
+					LocationFilter::default()
+						// allow send only ROC
+						.add_equals(TokenLocation::get())
+						// and nothing else
 				)
 			];
 
@@ -871,31 +867,27 @@ pub mod bridging {
 
 			/// Set up trusted bridged reserve locations.
 			/// Locations from which the runtime accepts reserved assets.
-			pub TrustedBridgedReserveLocations: sp_std::vec::Vec<FilteredLocation> = sp_std::vec![
-				// trust assets from AssetHubWococo
+			pub TrustedBridgedReserveLocations: sp_std::vec::Vec<LocationWithAssetFilter> = sp_std::vec![
+				// trust assets from AssetHubRococo
 				(
 					AssetHubRococo::get(),
-					AssetFilter::ByMultiLocation(
-						LocationFilter::default()
-							// allow receive WOC
-							.add_equals(RocLocation::get())
-							// and nothing else
-					)
+					LocationFilter::default()
+						// allow receive ROC
+						.add_equals(RocLocation::get())
+						// and nothing else
 				)
 			];
 
 			/// Allowed reserve transfer assets per destination.
 			/// Means that runtime allows to transfer reserve assets to these locations.
-			pub AllowedReserveTransferAssetsLocations: sp_std::vec::Vec<FilteredLocation> = sp_std::vec![
+			pub AllowedReserveTransferAssetsLocations: sp_std::vec::Vec<LocationWithAssetFilter> = sp_std::vec![
 				// allow to transfer assets to AssetHubRococo
 				(
 					AssetHubRococo::get(),
-					AssetFilter::ByMultiLocation(
-						LocationFilter::default()
-							// allow send only ROC
-							.add_equals(TokenLocation::get())
-							// and nothing else
-					)
+					LocationFilter::default()
+						// allow send only WOC
+						.add_equals(TokenLocation::get())
+						// and nothing else
 				)
 			];
 

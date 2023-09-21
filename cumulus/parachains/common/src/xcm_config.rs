@@ -92,7 +92,7 @@ pub trait MatchesLocation<Location> {
 	fn matches(&self, location: &Location) -> bool;
 }
 
-/// Simple `MultiLocation` filter utility.
+/// Simple `Location` filter utility.
 #[derive(Debug, DefaultNoBound)]
 pub struct LocationFilter<Location> {
 	/// Requested location equals to `Location`.
