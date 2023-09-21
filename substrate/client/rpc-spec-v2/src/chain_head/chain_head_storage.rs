@@ -221,11 +221,8 @@ where
 		}
 
 		// Save the next key if any to continue the iteration.
-		let maybe_next_query = next_pagination_key.map(|pagination_start_key| QueryIter {
-			ty,
-			query_key,
-			pagination_start_key: Some(pagination_start_key),
-		});
+		let maybe_next_query =
+			keys_iter.next().map(|_| QueryIter { ty, query_key, pagination_start_key });
 		Ok((ret, maybe_next_query))
 	}
 
