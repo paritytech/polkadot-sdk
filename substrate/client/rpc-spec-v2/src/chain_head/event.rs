@@ -39,6 +39,10 @@ pub struct ErrorEvent {
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeVersionEvent {
 	/// The runtime version.
+	#[serde(
+		serialize_with = "custom_serialize::serialize_runtime_version",
+		deserialize_with = "custom_serialize::deserialize_runtime_version"
+	)]
 	pub spec: RuntimeVersion,
 }
 
@@ -349,6 +353,148 @@ pub struct MethodResponseStarted {
 	pub discarded_items: Option<usize>,
 }
 
+mod custom_serialize {
+	use serde::{de, ser::SerializeMap, Deserialize, Serialize, Serializer};
+
+	pub fn serialize_runtime_version<S>(
+		runtime_version: &sp_version::RuntimeVersion,
+		ser: S,
+	) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		let representation = RuntimeVersionV2::from(runtime_version);
+		representation.serialize(ser)
+	}
+
+	pub fn deserialize_runtime_version<'de, D>(
+		deserializer: D,
+	) -> Result<sp_version::RuntimeVersion, D::Error>
+	where
+		D: de::Deserializer<'de>,
+	{
+		let representation = RuntimeVersionV2Owned::deserialize(deserializer)?;
+		Ok(representation.into())
+	}
+
+	#[derive(Serialize)]
+	#[serde(rename_all = "camelCase")]
+	struct RuntimeVersionV2<'a> {
+		spec_name: &'a str,
+		impl_name: &'a str,
+		spec_version: u32,
+		impl_version: u32,
+		#[serde(serialize_with = "serialize_apis_vec_as_map")]
+		apis: &'a sp_version::ApisVec,
+		transaction_version: u32,
+	}
+
+	impl<'a> From<&'a sp_version::RuntimeVersion> for RuntimeVersionV2<'a> {
+		fn from(value: &'a sp_version::RuntimeVersion) -> Self {
+			RuntimeVersionV2 {
+				spec_name: &value.spec_name,
+				impl_name: &value.impl_name,
+				spec_version: value.spec_version,
+				impl_version: value.impl_version,
+				apis: &value.apis,
+				transaction_version: value.transaction_version,
+			}
+		}
+	}
+
+	#[derive(Deserialize)]
+	#[serde(rename_all = "camelCase")]
+	struct RuntimeVersionV2Owned {
+		spec_name: sp_runtime::RuntimeString,
+		impl_name: sp_runtime::RuntimeString,
+		spec_version: u32,
+		impl_version: u32,
+		#[serde(deserialize_with = "deserialize_apis_vec_as_map")]
+		apis: sp_version::ApisVec,
+		transaction_version: u32,
+	}
+
+	impl From<RuntimeVersionV2Owned> for sp_version::RuntimeVersion {
+		fn from(value: RuntimeVersionV2Owned) -> Self {
+			sp_version::RuntimeVersion {
+				spec_name: value.spec_name,
+				impl_name: value.impl_name,
+				spec_version: value.spec_version,
+				impl_version: value.impl_version,
+				apis: value.apis,
+				transaction_version: value.transaction_version,
+				..Default::default()
+			}
+		}
+	}
+
+	pub fn serialize_apis_vec_as_map<S>(apis: &[([u8; 8], u32)], ser: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		let len = apis.len();
+		let mut map = ser.serialize_map(Some(len))?;
+		for (api, ver) in apis.iter() {
+			let api = ApiId(api);
+			map.serialize_entry(&api, ver)?;
+		}
+		map.end()
+	}
+
+	pub fn deserialize_apis_vec_as_map<'de, D>(
+		deserializer: D,
+	) -> Result<sp_version::ApisVec, D::Error>
+	where
+		D: de::Deserializer<'de>,
+	{
+		struct Visitor;
+		impl<'de> de::Visitor<'de> for Visitor {
+			type Value = sp_version::ApisVec;
+
+			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+				formatter.write_str("a map from api id to version")
+			}
+
+			fn visit_map<V>(self, mut visitor: V) -> Result<Self::Value, V::Error>
+			where
+				V: de::MapAccess<'de>,
+			{
+				let mut apis = Vec::new();
+				while let Some((key, value)) = visitor.next_entry::<ApiIdOwned, u32>()? {
+					apis.push((key.0, value));
+				}
+				Ok(apis.into())
+			}
+		}
+		deserializer.deserialize_map(Visitor)
+	}
+
+	#[derive(Serialize)]
+	struct ApiId<'a>(#[serde(serialize_with = "serialize_api_id")] &'a sp_version::ApiId);
+
+	#[derive(Deserialize)]
+	struct ApiIdOwned(#[serde(deserialize_with = "deserialize_api_id")] sp_version::ApiId);
+
+	pub fn serialize_api_id<S>(&api_id: &&sp_version::ApiId, ser: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		impl_serde::serialize::serialize(api_id, ser)
+	}
+
+	pub fn deserialize_api_id<'de, D>(d: D) -> Result<sp_version::ApiId, D::Error>
+	where
+		D: de::Deserializer<'de>,
+	{
+		let mut arr = [0; 8];
+		impl_serde::serialize::deserialize_check_len(
+			d,
+			impl_serde::serialize::ExpectedLen::Exact(&mut arr[..]),
+		)?;
+		Ok(arr)
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -391,8 +537,8 @@ mod tests {
 		let ser = serde_json::to_string(&event).unwrap();
 		let exp = concat!(
 			r#"{"event":"initialized","finalizedBlockHash":"0x1","#,
-			r#""finalizedBlockRuntime":{"type":"valid","spec":{"specName":"ABC","implName":"Impl","authoringVersion":0,"#,
-			r#""specVersion":1,"implVersion":0,"apis":{},"transactionVersion":0,"stateVersion":0}}}"#,
+			r#""finalizedBlockRuntime":{"type":"valid","spec":{"specName":"ABC","implName":"Impl","#,
+			r#""specVersion":1,"implVersion":0,"apis":{},"transactionVersion":0}}}"#,
 		);
 		assert_eq!(ser, exp);
 
@@ -446,8 +592,8 @@ mod tests {
 		let ser = serde_json::to_string(&event).unwrap();
 		let exp = concat!(
 			r#"{"event":"newBlock","blockHash":"0x1","parentBlockHash":"0x2","#,
-			r#""newRuntime":{"type":"valid","spec":{"specName":"ABC","implName":"Impl","authoringVersion":0,"#,
-			r#""specVersion":1,"implVersion":0,"apis":{"0x0000000000000000":2,"0x0100000000000000":3},"transactionVersion":0,"stateVersion":0}}}"#,
+			r#""newRuntime":{"type":"valid","spec":{"specName":"ABC","implName":"Impl","#,
+			r#""specVersion":1,"implVersion":0,"apis":{"0x0000000000000000":2,"0x0100000000000000":3},"transactionVersion":0}}}"#,
 		);
 		assert_eq!(ser, exp);
 
