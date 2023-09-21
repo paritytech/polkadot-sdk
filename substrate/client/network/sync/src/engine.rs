@@ -38,7 +38,7 @@ use futures::{
 };
 use futures_timer::Delay;
 use libp2p::{request_response::OutboundFailure, PeerId};
-use log::{debug, trace};
+use log::{debug, error, trace};
 use prometheus_endpoint::{
 	register, Gauge, GaugeVec, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
 };
@@ -1097,7 +1097,7 @@ where
 		}
 
 		let downloader = self.block_downloader.clone();
-		self.pending_responses.insert(
+		if let Some(_) = self.pending_responses.insert(
 			peer_id,
 			Box::pin(async move {
 				(
@@ -1106,7 +1106,10 @@ where
 					downloader.download_blocks(peer_id, request).await,
 				)
 			}),
-		);
+		) {
+			error!(target: LOG_TARGET, "Discarded block pending response from peer {peer_id}");
+			debug_assert!(false);
+		}
 	}
 
 	fn send_state_request(&mut self, peer_id: PeerId, request: OpaqueStateRequest) {
@@ -1118,8 +1121,13 @@ where
 
 		let (tx, rx) = oneshot::channel();
 
-		self.pending_responses
-			.insert(peer_id, Box::pin(async move { (peer_id, PeerRequest::State, rx.await) }));
+		if let Some(_) = self
+			.pending_responses
+			.insert(peer_id, Box::pin(async move { (peer_id, PeerRequest::State, rx.await) }))
+		{
+			error!(target: LOG_TARGET, "Discarded state pending response from peer {peer_id}");
+			debug_assert!(false);
+		}
 
 		match Self::encode_state_request(&request) {
 			Ok(data) => {
@@ -1149,8 +1157,13 @@ where
 
 		let (tx, rx) = oneshot::channel();
 
-		self.pending_responses
-			.insert(peer_id, Box::pin(async move { (peer_id, PeerRequest::WarpProof, rx.await) }));
+		if let Some(_) = self
+			.pending_responses
+			.insert(peer_id, Box::pin(async move { (peer_id, PeerRequest::WarpProof, rx.await) }))
+		{
+			error!(target: LOG_TARGET, "Discarded warp proof pending response from peer {peer_id}");
+			debug_assert!(false);
+		}
 
 		match &self.warp_sync_protocol_name {
 			Some(name) => self.network_service.start_request(
