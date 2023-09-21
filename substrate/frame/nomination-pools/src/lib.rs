@@ -2678,10 +2678,10 @@ pub mod pallet {
 		/// deposit to the pool. This call allows the pool operator to adjust the ED deposit of the
 		/// pool.
 		#[pallet::call_index(21)]
-		#[pallet::weight(T::WeightInfo::adjust_ed_deposit())]
-		pub fn adjust_ed_deposit(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::adjust_pool_deposit())]
+		pub fn adjust_pool_deposit(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_adjust_ed_deposit(who, pool_id)
+			Self::do_adjust_pool_deposit(who, pool_id)
 		}
 	}
 
@@ -3092,7 +3092,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn do_adjust_ed_deposit(who: T::AccountId, pool: PoolId) -> DispatchResult {
+	fn do_adjust_pool_deposit(who: T::AccountId, pool: PoolId) -> DispatchResult {
 		let bonded_pool = BondedPool::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
 		// only depositor can adjust ED deposit.
 		ensure!(bonded_pool.is_depositor(&who), Error::<T>::DoesNotHavePermission);

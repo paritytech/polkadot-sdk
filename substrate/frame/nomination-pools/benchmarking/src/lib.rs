@@ -801,7 +801,7 @@ frame_benchmarking::benchmarks! {
 		);
 	}
 
-	adjust_ed_deposit {
+	adjust_pool_deposit {
 		// Create a pool
 		let (depositor, _) = create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
 

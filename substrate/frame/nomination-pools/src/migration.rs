@@ -66,17 +66,17 @@ mod v6 {
 				}
 			});
 
-			log!(
-				info,
-				"Freezing ED succeeded for {} pools, and failed for {} pools",
-				success,
-				fail
-			);
-			let total = success + fail;
+			if fail > 0 {
+				log!(error, "Failed to freeze ED for {} pools", fail);
+			} else {
+				log!(info, "Freezing ED succeeded for {} pools", success);
+			}
+
+			let total = success.saturating_add(fail);
 			// freeze_ed = r:2 w:2
 			// reads: (freeze_ed + bonded pool key) * total
 			// writes: freeze_ed * total
-			T::DbWeight::get().reads_writes(3 * total, 2 * total)
+			T::DbWeight::get().reads_writes(3u64.saturating_mul(total), 2u64.saturating_mul(total))
 		}
 
 		#[cfg(feature = "try-runtime")]

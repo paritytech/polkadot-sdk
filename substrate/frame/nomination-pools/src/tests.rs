@@ -374,7 +374,7 @@ mod reward_pool {
 
 			// fix the ed deficit
 			assert_ok!(Currency::mint_into(&10, 45));
-			assert_ok!(Pools::adjust_ed_deposit(RuntimeOrigin::signed(10), 1));
+			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(10), 1));
 		});
 	}
 
@@ -409,7 +409,7 @@ mod reward_pool {
 			// Only depositor (10) can adjust ED deposit. Others do not have permission.
 			assert_ok!(Currency::mint_into(&99, 100));
 			assert_err!(
-				Pools::adjust_ed_deposit(RuntimeOrigin::signed(99), 1),
+				Pools::adjust_pool_deposit(RuntimeOrigin::signed(99), 1),
 				Error::<T>::DoesNotHavePermission
 			);
 
@@ -417,7 +417,7 @@ mod reward_pool {
 			assert_ok!(Currency::mint_into(&10, 100));
 			let pre_dep_balance = Currency::free_balance(&10);
 			// adjust ED
-			assert_ok!(Pools::adjust_ed_deposit(RuntimeOrigin::signed(10), 1));
+			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(10), 1));
 			// depositor's balance should decrease by 45
 			assert_eq!(Currency::free_balance(&10), pre_dep_balance - 45);
 			assert_eq!(reward_imbalance(1), Surplus(0));
@@ -429,7 +429,7 @@ mod reward_pool {
 
 			// Trying to top up again does not work
 			assert_err!(
-				Pools::adjust_ed_deposit(RuntimeOrigin::signed(10), 1),
+				Pools::adjust_pool_deposit(RuntimeOrigin::signed(10), 1),
 				Error::<T>::NothingToAdjust
 			);
 
@@ -437,7 +437,7 @@ mod reward_pool {
 			ExistentialDeposit::set(5);
 
 			// And:: adjust ED deposit is called
-			assert_ok!(Pools::adjust_ed_deposit(RuntimeOrigin::signed(10), 1));
+			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(10), 1));
 
 			// Then: excess ED is transferred back to depositor
 			assert_eq!(Currency::free_balance(&10), pre_dep_balance);
@@ -462,7 +462,7 @@ mod reward_pool {
 
 			// Topping up fails
 			assert_err!(
-				Pools::adjust_ed_deposit(RuntimeOrigin::signed(10), 1),
+				Pools::adjust_pool_deposit(RuntimeOrigin::signed(10), 1),
 				Error::<T>::NothingToAdjust
 			);
 		});

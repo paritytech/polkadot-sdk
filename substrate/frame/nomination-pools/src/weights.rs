@@ -69,7 +69,7 @@ pub trait WeightInfo {
 	fn set_commission_change_rate() -> Weight;
 	fn set_claim_permission() -> Weight;
 	fn claim_commission() -> Weight;
-	fn adjust_ed_deposit() -> Weight;
+	fn adjust_pool_deposit() -> Weight;
 }
 
 /// Weights for `pallet_nomination_pools` using the Substrate node and recommended hardware.
@@ -613,7 +613,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Locks` (r:1 w:0)
 	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1299), added: 3774, mode: `MaxEncodedLen`)
-	fn adjust_ed_deposit() -> Weight {
+	fn adjust_pool_deposit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `900`
 		//  Estimated: `4764`
@@ -1164,7 +1164,7 @@ impl WeightInfo for () {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Locks` (r:1 w:0)
 	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1299), added: 3774, mode: `MaxEncodedLen`)
-	fn adjust_ed_deposit() -> Weight {
+	fn adjust_pool_deposit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `900`
 		//  Estimated: `4764`
