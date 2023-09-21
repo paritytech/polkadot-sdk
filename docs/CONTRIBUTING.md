@@ -150,7 +150,8 @@ To simplify the updating of the UI test output there is a script
 Or if you have opened PR and you're member of `paritytech` - you can use command-bot to run the tests for you in CI:
 - `bot update-ui` - will run the tests for the current rust version
 - `bot update-ui latest --rust_version=1.70.0` - will run the tests for the specified rust version
-- `bot update-ui latest -v CMD_IMAGE=paritytech/ci-unified:bullseye-1.70.0-2023-05-23 --rust_version=1.70.0` - will run the tests for the specified rust version and specified image
+- `bot update-ui latest -v CMD_IMAGE=paritytech/ci-unified:bullseye-1.70.0-2023-05-23 --rust_version=1.70.0` -
+will run the tests for the specified rust version and specified image
 
 ## Command Bot
 
