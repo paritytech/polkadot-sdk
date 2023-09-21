@@ -365,6 +365,20 @@ fn handle_mux(
 
 					Ok(())
 				},
+				Outcome::OutOfMemory => {
+					if attempt_retire(metrics, spawned, worker) {
+						reply(
+							from_pool,
+							FromPool::Concluded {
+								worker,
+								rip: true,
+								result: Err(PrepareError::OutOfMemory),
+							},
+						)?;
+					}
+
+					Ok(())
+				},
 			}
 		},
 	}

@@ -26,25 +26,36 @@ pub type PrepareResult = Result<PrepareStats, PrepareError>;
 #[derive(Debug, Clone, Encode, Decode)]
 pub enum PrepareError {
 	/// During the prevalidation stage of preparation an issue was found with the PVF.
+	#[codec(index = 0)]
 	Prevalidation(String),
 	/// Compilation failed for the given PVF.
+	#[codec(index = 1)]
 	Preparation(String),
 	/// Instantiation of the WASM module instance failed.
+	#[codec(index = 2)]
 	RuntimeConstruction(String),
 	/// An unexpected panic has occurred in the preparation worker.
+	#[codec(index = 3)]
 	Panic(String),
 	/// Failed to prepare the PVF due to the time limit.
+	#[codec(index = 4)]
 	TimedOut,
 	/// An IO error occurred. This state is reported by either the validation host or by the
 	/// worker.
+	#[codec(index = 5)]
 	IoErr(String),
 	/// The temporary file for the artifact could not be created at the given cache path. This
 	/// state is reported by the validation host (not by the worker).
+	#[codec(index = 6)]
 	CreateTmpFileErr(String),
 	/// The response from the worker is received, but the file cannot be renamed (moved) to the
 	/// final destination location. This state is reported by the validation host (not by the
 	/// worker).
+	#[codec(index = 7)]
 	RenameTmpFileErr(String),
+	/// Memory limit reached
+	#[codec(index = 8)]
+	OutOfMemory,
 }
 
 impl PrepareError {
@@ -57,7 +68,7 @@ impl PrepareError {
 	pub fn is_deterministic(&self) -> bool {
 		use PrepareError::*;
 		match self {
-			Prevalidation(_) | Preparation(_) | Panic(_) => true,
+			Prevalidation(_) | Preparation(_) | Panic(_) | OutOfMemory => true,
 			TimedOut | IoErr(_) | CreateTmpFileErr(_) | RenameTmpFileErr(_) => false,
 			// Can occur due to issues with the PVF, but also due to local errors.
 			RuntimeConstruction(_) => false,
@@ -77,6 +88,7 @@ impl fmt::Display for PrepareError {
 			IoErr(err) => write!(f, "prepare: io error while receiving response: {}", err),
 			CreateTmpFileErr(err) => write!(f, "prepare: error creating tmp file: {}", err),
 			RenameTmpFileErr(err) => write!(f, "prepare: error renaming tmp file: {}", err),
+			OutOfMemory => write!(f, "prepare: out of memory"),
 		}
 	}
 }

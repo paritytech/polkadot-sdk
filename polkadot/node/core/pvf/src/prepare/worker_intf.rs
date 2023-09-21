@@ -73,6 +73,8 @@ pub enum Outcome {
 	///
 	/// This doesn't return an idle worker instance, thus this worker is no longer usable.
 	IoErr(String),
+	/// The worker ran out of memory and is aborting. The worker should be ripped.
+	OutOfMemory,
 }
 
 /// Given the idle token of a worker and parameters of work, communicates with the worker and
@@ -122,6 +124,14 @@ pub async fn start_work(
 
 		match result {
 			// Received bytes from worker within the time limit.
+			Ok(Ok(Err(PrepareError::OutOfMemory))) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					worker_pid = %pid,
+					"worker is out of memory",
+				);
+				Outcome::OutOfMemory
+			},
 			Ok(Ok(prepare_result)) =>
 				handle_response(
 					metrics,

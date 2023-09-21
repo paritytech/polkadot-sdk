@@ -60,6 +60,10 @@ use tracking_allocator::TrackingAllocator;
 #[cfg(feature = "tracking-allocator")]
 #[global_allocator]
 static ALLOC: TrackingAllocator<Jemalloc> = TrackingAllocator(Jemalloc);
+#[cfg(feature = "tracking-allocator")]
+use crash_handler::{CrashEventResult, CrashHandler};
+#[cfg(feature = "tracking-allocator")]
+use std::os::fd::AsRawFd;
 
 /// Contains the bytes for a successfully compiled artifact.
 pub struct CompiledArtifact(Vec<u8>);
@@ -178,6 +182,37 @@ pub fn worker_entrypoint(
 				)?;
 
 				#[cfg(feature = "tracking-allocator")]
+				let fd = stream.as_raw_fd();
+				#[cfg(feature = "tracking-allocator")]
+				let crash_event = unsafe {
+					crash_handler::make_crash_event(move |context| {
+						ALLOC.end_tracking();
+						if context.siginfo.ssi_signo as i32 == libc::SIGABRT {
+							// We're inside `SIGABRT` handler. The process state is compromised so
+							// no sudden movements please. Avoid allocations and make no assumptions
+							// based on the state of the stack.
+
+							// Send pre-encoded `Err(PrepareError::OutOfMemory)` to the host, close
+							// the connection, bail out.
+							libc::write(
+								fd,
+								b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08" as *const _
+									as *const libc::c_void,
+								10,
+							);
+							libc::close(fd);
+							std::process::exit(1);
+						}
+						CrashEventResult::Handled(true)
+					})
+				};
+
+				#[cfg(feature = "tracking-allocator")]
+				let _crash_handler = CrashHandler::attach(crash_event).map_err(|_| {
+					io::Error::new(io::ErrorKind::Other, "Failed to install crash handler")
+				})?;
+
+				#[cfg(feature = "tracking-allocator")]
 				ALLOC.start_tracking(executor_params.prechecking_max_memory().map(|v| v as isize));
 
 				// Spawn another thread for preparation.
@@ -265,7 +300,11 @@ pub fn worker_entrypoint(
 									#[cfg(target_os = "linux")]
 									max_rss: extract_max_rss_stat(max_rss, worker_pid),
 									#[cfg(feature = "tracking-allocator")]
-									peak_alloc: peak_alloc as u64,
+									peak_alloc: if peak_alloc > 0 {
+										peak_alloc as u64
+									} else {
+										0u64
+									},
 								};
 
 								// Log if landlock threw an error.

@@ -363,8 +363,7 @@ async fn prechecking_within_memory_limits() {
 #[cfg(feature = "tracking-allocator")]
 #[tokio::test]
 async fn prechecking_out_of_memory() {
-	use polkadot_node_core_pvf::ValidationError::InternalError;
-	use polkadot_node_core_pvf_common::error::InternalValidationError::NonDeterministicPrepareError;
+	use polkadot_node_core_pvf::{InvalidCandidate, ValidationError};
 
 	let host = TestHost::new();
 	let parent_head = HeadData { number: 0, parent_hash: [0; 32], post_state: hash_state(0) };
@@ -383,7 +382,9 @@ async fn prechecking_out_of_memory() {
 		.await;
 
 	match result {
-		Err(InternalError(NonDeterministicPrepareError(_))) => (),
+		Err(ValidationError::InvalidCandidate(InvalidCandidate::PrepareError(err)))
+			if err == "prepare: out of memory" =>
+			(),
 		r => panic!("{:?}", r),
 	}
 }

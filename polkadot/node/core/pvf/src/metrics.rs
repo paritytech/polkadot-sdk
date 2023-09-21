@@ -282,7 +282,7 @@ impl metrics::Metrics for Metrics {
 			preparation_peak_allocation: prometheus::register(
 				prometheus::Histogram::with_opts(
 					prometheus::HistogramOpts::new(
-						"polkadot_pvf_preparation_peak_allocattion",
+						"polkadot_pvf_preparation_peak_allocation",
 						"peak allocation observed for preparation (in kilobytes)",
 					).buckets(
 						prometheus::exponential_buckets(8192.0, 2.0, 10)
