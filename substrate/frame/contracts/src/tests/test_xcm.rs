@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	assert_return_code,
 	tests::{
 		compile_module,
 		mock_network::{
@@ -25,13 +26,13 @@ use crate::{
 			relay_chain, MockNet, ParaA, ParachainBalances, ParachainPalletXcm, Relay, ALICE, BOB,
 			INITIAL_BALANCE,
 		},
+		RuntimeReturnCode,
 	},
 	xcm::XCM,
 	CollectEvents, DebugInfo, Determinism,
 };
 use codec::{Decode, Encode};
 use frame_support::{
-	assert_ok,
 	pallet_prelude::Weight,
 	traits::{fungibles::Mutate, Currency},
 };
@@ -102,26 +103,60 @@ fn test_xcm_execute() {
 			},
 		]);
 
-		assert_ok!(
-			ParachainContracts::bare_call(
-				ALICE,
-				contract_addr.clone(),
-				0,
-				Weight::MAX,
-				None,
-				VersionedXcm::V3(message).encode(),
-				DebugInfo::UnsafeDebug,
-				CollectEvents::UnsafeCollect,
-				Determinism::Enforced,
-			)
-			.result
-		);
+		let result = ParachainContracts::bare_call(
+			ALICE,
+			contract_addr.clone(),
+			0,
+			Weight::MAX,
+			None,
+			VersionedXcm::V3(message).encode(),
+			DebugInfo::UnsafeDebug,
+			CollectEvents::UnsafeCollect,
+			Determinism::Enforced,
+		)
+		.result
+		.unwrap();
+
+		assert_return_code!(result, RuntimeReturnCode::Success);
 
 		// Check if the funds are subtracted from the account of Alice and added to the account of
 		// Bob.
 		let initial = INITIAL_BALANCE;
 		assert_eq!(parachain::Assets::balance(0, contract_addr), initial - fee);
 		assert_eq!(ParachainBalances::free_balance(BOB), initial + amount);
+	});
+}
+
+#[test]
+fn test_xcm_execute_filtered_call() {
+	MockNet::reset();
+
+	let contract_addr = instantiate_test_contract("xcm_execute");
+
+	ParaA::execute_with(|| {
+		// `remark` transact inside the Xcm message should be rejected, as CallFilter is set to `Nothing`.
+		let call = parachain::RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+		let message: Xcm<parachain::RuntimeCall> = Xcm(vec![Transact {
+			origin_kind: OriginKind::Native,
+			require_weight_at_most: Weight::MAX,
+			call: call.encode().into(),
+		}]);
+
+		let result = ParachainContracts::bare_call(
+			ALICE,
+			contract_addr.clone(),
+			0,
+			Weight::MAX,
+			None,
+			VersionedXcm::V3(message).encode(),
+			DebugInfo::UnsafeDebug,
+			CollectEvents::UnsafeCollect,
+			Determinism::Enforced,
+		)
+		.result
+		.unwrap();
+
+		assert_return_code!(result, RuntimeReturnCode::CallRuntimeFailed);
 	});
 }
 
@@ -142,21 +177,21 @@ fn test_xcm_send() {
 			LockAsset { asset: (Here, 5 * CENTS).into(), unlocker: (Parachain(1)).into() },
 		]);
 		let message = VersionedXcm::V3(message);
+		let result = ParachainContracts::bare_call(
+			ALICE,
+			contract_addr.clone(),
+			0,
+			Weight::MAX,
+			None,
+			(dest, message).encode(),
+			DebugInfo::UnsafeDebug,
+			CollectEvents::UnsafeCollect,
+			Determinism::Enforced,
+		)
+		.result
+		.unwrap();
 
-		assert_ok!(
-			ParachainContracts::bare_call(
-				ALICE,
-				contract_addr.clone(),
-				0,
-				Weight::MAX,
-				None,
-				(dest, message).encode(),
-				DebugInfo::UnsafeDebug,
-				CollectEvents::UnsafeCollect,
-				Determinism::Enforced,
-			)
-			.result
-		);
+		assert_return_code!(result, RuntimeReturnCode::Success);
 	});
 
 	Relay::execute_with(|| {

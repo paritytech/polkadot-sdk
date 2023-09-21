@@ -19,10 +19,12 @@ use crate::{
 	xcm::{CallOf, WeightInfo, XCM},
 	AccountIdOf, Box, Config, RawOrigin,
 };
-use frame_support::{pallet_prelude::DispatchResultWithPostInfo, weights::Weight};
+use frame_support::{
+	dispatch::PostDispatchInfo, pallet_prelude::DispatchResultWithPostInfo, weights::Weight,
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_xcm::WeightInfo as XcmWeightInfo;
-use sp_runtime::{DispatchError, DispatchResult};
+use sp_runtime::{DispatchError, DispatchErrorWithPostInfo, DispatchResult};
 use xcm::{v3::MultiLocation, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 
@@ -59,9 +61,38 @@ where
 		message: VersionedXcm<CallOf<T>>,
 		max_weight: Weight,
 	) -> DispatchResultWithPostInfo {
+		// TODO since we are doing more than just calling pallet_xcm::Pallet::<T>::execute, we
+		// should benchmark the filtering part
+		use frame_support::traits::Contains;
+		use xcm::prelude::{Transact, Xcm};
+
+		let mut message: Xcm<CallOf<T>> =
+			message.try_into().map_err(|_| pallet_xcm::Error::<T>::BadVersion)?;
+
+		message
+			.iter_mut()
+			.try_for_each(|inst| -> Result<(), DispatchError> {
+				let Transact { ref mut call, .. } = inst else { return Ok(()) };
+				let call = call.ensure_decoded().map_err(|_| pallet_xcm::Error::<T>::BadVersion)?;
+
+				if !<T as Config>::CallFilter::contains(call) {
+					return Err(frame_system::Error::<T>::CallFiltered.into())
+				}
+
+				Ok(())
+			})
+			.map_err(|err| DispatchErrorWithPostInfo {
+				post_info: PostDispatchInfo {
+					actual_weight: Some(Weight::zero()),
+					pays_fee: Default::default(),
+				},
+				error: err.into(),
+			})?;
+
 		let origin = RawOrigin::Signed(origin.clone()).into();
-		pallet_xcm::Pallet::<T>::execute(origin, Box::new(message), max_weight)
+		pallet_xcm::Pallet::<T>::execute(origin, Box::new(VersionedXcm::from(message)), max_weight)
 	}
+
 	fn send(
 		origin: &AccountIdOf<T>,
 		dest: VersionedMultiLocation,

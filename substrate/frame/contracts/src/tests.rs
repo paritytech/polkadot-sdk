@@ -82,6 +82,7 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[macro_export]
 macro_rules! assert_return_code {
 	( $x:expr , $y:expr $(,)? ) => {{
 		assert_eq!(u32::from_le_bytes($x.data[..].try_into().unwrap()), $y as u32);

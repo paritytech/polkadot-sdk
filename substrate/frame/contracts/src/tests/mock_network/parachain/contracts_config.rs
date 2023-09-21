@@ -25,7 +25,7 @@ use crate::{
 };
 use frame_support::{
 	parameter_types,
-	traits::{ConstBool, ConstU32, Everything, Randomness},
+	traits::{ConstBool, ConstU32, Nothing, Randomness},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -61,7 +61,7 @@ impl Convert<Weight, BalanceOf<Self>> for Runtime {
 
 impl Config for Runtime {
 	type AddressGenerator = crate::DefaultAddressGenerator;
-	type CallFilter = Everything;
+	type CallFilter = Nothing;
 	type CallStack = [crate::Frame<Self>; 5];
 	type ChainExtension = ();
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
