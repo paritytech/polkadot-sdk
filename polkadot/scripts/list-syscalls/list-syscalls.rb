@@ -2,10 +2,13 @@
 
 # A script to statically list syscalls used by a given binary.
 #
-# Syntax: list-syscalls.rb <binary> [--only-used-syscalls]
+# Syntax:  list-syscalls.rb <binary> [--only-used-syscalls]
 #
-# Author: @koute
-# Source: https://gist.github.com/koute/166f82bfee5e27324077891008fca6eb
+# NOTE:    For accurate results, build the binary with musl and LTO enabled.
+# Example: ./polkadot/scripts/list-syscalls/list-syscalls.rb target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker --only-used-syscalls
+#
+# Author:  @koute
+# Source:  https://gist.github.com/koute/166f82bfee5e27324077891008fca6eb
 
 require 'shellwords'
 require 'set'
