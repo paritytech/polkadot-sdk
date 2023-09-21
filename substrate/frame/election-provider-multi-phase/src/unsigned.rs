@@ -464,7 +464,8 @@ impl<T: MinerConfig> Miner<T> {
 		voters: Vec<(T::AccountId, VoteWeight, BoundedVec<T::AccountId, T::MaxVotesPerVoter>)>,
 		targets: Vec<T::AccountId>,
 		desired_targets: u32,
-	) -> Result<(SolutionOf<T>, ElectionScore, SolutionOrSnapshotSize, TrimmingStatus), MinerError> {
+	) -> Result<(SolutionOf<T>, ElectionScore, SolutionOrSnapshotSize, TrimmingStatus), MinerError>
+	{
 		// now make some helper closures.
 		let cache = helpers::generate_voter_cache::<T>(&voters);
 		let voter_index = helpers::voter_index_fn::<T>(&cache);
