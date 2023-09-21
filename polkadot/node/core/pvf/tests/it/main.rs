@@ -24,10 +24,7 @@ use polkadot_node_core_pvf::{
 use polkadot_parachain_primitives::primitives::{
 	BlockData as GenericBlockData, ValidationParams, ValidationResult,
 };
-use polkadot_primitives::ExecutorParams;
-
-#[cfg(any(feature = "ci-only-tests", feature = "tracking-allocator"))]
-use polkadot_primitives::ExecutorParam;
+use polkadot_primitives::{ExecutorParam, ExecutorParams};
 
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -352,7 +349,6 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 // starts failing, either Wasmtime version has changed, or the PVF code itself has changed, and
 // more memory is required now. Multi-threaded preparation, if ever enabled, may also affect
 // memory consumption.
-#[cfg(feature = "tracking-allocator")]
 #[tokio::test]
 async fn prechecking_within_memory_limits() {
 	let host = TestHost::new();
@@ -373,7 +369,6 @@ async fn prechecking_within_memory_limits() {
 // limit enforced. At the moment of writing, the limit if not enough to prepare the PVF, and the
 // preparation is supposed to generate an error. If the test starts failing, either Wasmtime
 // version has changed, or the PVF code itself has changed, and less memory is required now.
-#[cfg(feature = "tracking-allocator")]
 #[tokio::test]
 async fn prechecking_out_of_memory() {
 	use polkadot_node_core_pvf::PrepareError;

@@ -29,6 +29,7 @@ const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
 use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
+use crash_handler::{CrashEventResult, CrashHandler};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
@@ -47,23 +48,22 @@ use polkadot_node_core_pvf_common::{
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
+	os::fd::AsRawFd,
 	path::PathBuf,
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
 use tokio::{io, net::UnixStream};
-
-#[cfg(feature = "tracking-allocator")]
-use tikv_jemallocator::Jemalloc;
-#[cfg(feature = "tracking-allocator")]
 use tracking_allocator::TrackingAllocator;
-#[cfg(feature = "tracking-allocator")]
+
+#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 #[global_allocator]
-static ALLOC: TrackingAllocator<Jemalloc> = TrackingAllocator(Jemalloc);
-#[cfg(feature = "tracking-allocator")]
-use crash_handler::{CrashEventResult, CrashHandler};
-#[cfg(feature = "tracking-allocator")]
-use std::os::fd::AsRawFd;
+static ALLOC: TrackingAllocator<tikv_jemallocator::Jemalloc> =
+	TrackingAllocator(tikv_jemallocator::Jemalloc);
+
+#[cfg(not(any(target_os = "linux", feature = "jemalloc-allocator")))]
+#[global_allocator]
+static ALLOC: TrackingAllocator<std::alloc::System> = TrackingAllocator(std::alloc::System);
 
 /// Contains the bytes for a successfully compiled artifact.
 pub struct CompiledArtifact(Vec<u8>);
@@ -181,9 +181,7 @@ pub fn worker_entrypoint(
 					WaitOutcome::TimedOut,
 				)?;
 
-				#[cfg(feature = "tracking-allocator")]
 				let fd = stream.as_raw_fd();
-				#[cfg(feature = "tracking-allocator")]
 				let crash_event = unsafe {
 					crash_handler::make_crash_event(move |context| {
 						ALLOC.end_tracking();
@@ -207,12 +205,10 @@ pub fn worker_entrypoint(
 					})
 				};
 
-				#[cfg(feature = "tracking-allocator")]
 				let _crash_handler = CrashHandler::attach(crash_event).map_err(|_| {
 					io::Error::new(io::ErrorKind::Other, "Failed to install crash handler")
 				})?;
 
-				#[cfg(feature = "tracking-allocator")]
 				ALLOC.start_tracking(executor_params.prechecking_max_memory().map(|v| v as isize));
 
 				// Spawn another thread for preparation.
@@ -255,7 +251,6 @@ pub fn worker_entrypoint(
 
 				let outcome = thread::wait_for_threads(condvar);
 
-				#[cfg(feature = "tracking-allocator")]
 				let peak_alloc = {
 					let peak = ALLOC.end_tracking();
 					gum::debug!(
@@ -299,7 +294,6 @@ pub fn worker_entrypoint(
 									memory_tracker_stats,
 									#[cfg(target_os = "linux")]
 									max_rss: extract_max_rss_stat(max_rss, worker_pid),
-									#[cfg(feature = "tracking-allocator")]
 									peak_alloc: if peak_alloc > 0 {
 										peak_alloc as u64
 									} else {

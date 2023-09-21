@@ -94,7 +94,6 @@ impl Metrics {
 				metrics.preparation_max_allocated.observe(max_allocated_kb);
 			}
 
-			#[cfg(feature = "tracking-allocator")]
 			metrics
 				.preparation_peak_allocation
 				.observe((memory_stats.peak_alloc / 1024) as f64);
@@ -119,7 +118,6 @@ struct MetricsInner {
 	preparation_max_allocated: prometheus::Histogram,
 	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 	preparation_max_resident: prometheus::Histogram,
-	#[cfg(feature = "tracking-allocator")]
 	preparation_peak_allocation: prometheus::Histogram,
 }
 
@@ -278,7 +276,6 @@ impl metrics::Metrics for Metrics {
 				)?,
 				registry,
 			)?,
-			#[cfg(feature = "tracking-allocator")]
 			preparation_peak_allocation: prometheus::register(
 				prometheus::Histogram::with_opts(
 					prometheus::HistogramOpts::new(

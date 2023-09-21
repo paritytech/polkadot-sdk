@@ -11,11 +11,11 @@ futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../../gum" }
 libc = "0.2.139"
 rayon = "1.5.1"
-tikv-jemalloc-ctl = { version = "0.5.0", optional = true }
+crash-handler = { version = "0.6.0" }
 tokio = { version = "1.24.2", features = ["fs", "process"] }
-tracking-allocator = { path = "../../../tracking-allocator", optional = true }
+tracking-allocator = { path = "../../../tracking-allocator" }
+tikv-jemalloc-ctl = { version = "0.5.0", optional = true }
 tikv-jemallocator = { version = "0.5.0", optional = true }
-crash-handler = { version = "0.6.0", optional = true }
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 
@@ -31,19 +31,15 @@ sp-maybe-compressed-blob = { path = "../../../../../substrate/primitives/maybe-c
 sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+tikv-jemallocator = "0.5.0"
 tikv-jemalloc-ctl = "0.5.0"
 
 [features]
 builder = []
 jemalloc-allocator = [
 	"dep:tikv-jemalloc-ctl",
-	"polkadot-node-core-pvf-common/jemalloc-allocator",
-]
-tracking-allocator = [
-	"dep:crash-handler",
 	"dep:tikv-jemallocator",
-	"dep:tracking-allocator",
-	"polkadot-node-core-pvf-common/tracking-allocator",
+	"polkadot-node-core-pvf-common/jemalloc-allocator",
 ]
 
 [dev-dependencies]
