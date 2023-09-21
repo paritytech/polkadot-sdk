@@ -47,3 +47,6 @@ frame_support::parameter_types! {
 	/// (initially was calculated `170733333` + `10%` by test `BridgeHubKusama::can_calculate_weight_for_paid_export_message_with_reserve_transfer`)
 	pub const BridgeHubKusamaBaseFeeInDots: u128 = 187806666;
 }
+
+/// Identifier of AssetHubKusama in the Kusama relay chain.
+pub const ASSET_HUB_KUSAMA_PARACHAIN_ID: u32 = 1000;

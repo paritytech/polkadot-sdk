@@ -47,3 +47,6 @@ frame_support::parameter_types! {
 	/// (initially was calculated `51220000` + `10%` by test `BridgeHubPolkadot::can_calculate_weight_for_paid_export_message_with_reserve_transfer`)
 	pub const BridgeHubPolkadotBaseFeeInDots: u128 = 56342000;
 }
+
+/// Identifier of AssetHubPolkadot in the Polkadot relay chain.
+pub const ASSET_HUB_POLKADOT_PARACHAIN_ID: u32 = 1000;

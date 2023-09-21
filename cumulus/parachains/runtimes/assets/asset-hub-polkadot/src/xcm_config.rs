@@ -603,7 +603,7 @@ pub mod bridging {
 		pub BridgeHubPolkadot: MultiLocation = MultiLocation::new(1, X1(Parachain(BridgeHubPolkadotParaId::get())));
 		pub BridgeHubPolkadotWithBridgeHubKusamaInstance: MultiLocation = MultiLocation::new(1, X2(Parachain(BridgeHubPolkadotParaId::get()), PalletInstance(53)));
 		pub const KusamaNetwork: NetworkId = NetworkId::Kusama;
-		pub AssetHubKusama: MultiLocation =  MultiLocation::new(2, X2(GlobalConsensus(KusamaNetwork::get()), Parachain(1000)));
+		pub AssetHubKusama: MultiLocation =  MultiLocation::new(2, X2(GlobalConsensus(KusamaNetwork::get()), Parachain(bp_asset_hub_kusama::ASSET_HUB_KUSAMA_PARACHAIN_ID)));
 		pub KsmLocation: MultiLocation =  MultiLocation::new(2, X1(GlobalConsensus(KusamaNetwork::get())));
 
 		/// Router expects payment with this `AssetId`.

@@ -723,6 +723,7 @@ dependencies = [
  "asset-test-utils",
  "assets-common",
  "bp-asset-hub-kusama",
+ "bp-asset-hub-polkadot",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -820,6 +821,7 @@ version = "0.9.420"
 dependencies = [
  "asset-test-utils",
  "assets-common",
+ "bp-asset-hub-kusama",
  "bp-asset-hub-polkadot",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",

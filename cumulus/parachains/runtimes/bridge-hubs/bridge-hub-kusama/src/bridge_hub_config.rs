@@ -50,7 +50,7 @@ parameter_types! {
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	pub PriorityBoostPerMessage: u64 = 91_022_222_222_222;
 
-	pub AssetHubKusamaParaId: cumulus_primitives_core::ParaId = 1000.into();
+	pub AssetHubKusamaParaId: cumulus_primitives_core::ParaId = bp_asset_hub_kusama::ASSET_HUB_KUSAMA_PARACHAIN_ID.into();
 
 	pub FromAssetHubKusamaToAssetHubPolkadotRoute: SenderAndLane = SenderAndLane::new(
 		ParentThen(X1(Parachain(AssetHubKusamaParaId::get().into()))).into(),
