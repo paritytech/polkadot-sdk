@@ -159,6 +159,12 @@
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
 <a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -272,9 +278,15 @@
 		}
 	});
 
-	<span class="kw">let </span>server = Server::builder(listener).serve(service);
+	<span class="kw">let </span>(signal, on_exit) = tokio::sync::oneshot::channel::&lt;()&gt;();
+	<span class="kw">let </span>server = Server::builder(listener).serve(service).with_graceful_shutdown(<span class="kw">async </span>{
+		<span class="kw">let _ </span>= on_exit.<span class="kw">await</span>;
+	});
 
 	<span class="kw">let </span>result = server.<span class="kw">await</span>.map_err(Into::into);
+
+	<span class="comment">// Gracefully shutdown server, otherwise the server does not stop if it has open connections
+	</span><span class="kw">let _ </span>= signal.send(());
 
 	result
 }
