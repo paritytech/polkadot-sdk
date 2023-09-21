@@ -494,7 +494,7 @@ where
 		let mut batch_size = Self::INITIAL_BATCH_SIZE;
 		let total_payloads = payloads.len();
 
-		while start_index <= total_payloads {
+		while all_data.len() < total_payloads {
 			log::debug!(
 				target: LOG_TARGET,
 				"Remaining payloads: {} Batch request size: {}",
