@@ -41,7 +41,7 @@ use sp_runtime::{
 };
 use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
-use xcm_executor::traits::{ConvertOrigin, Properties};
+use xcm_executor::traits::{AssetTransferFilter, ConvertOrigin, Properties};
 
 use frame_support::{
 	dispatch::GetDispatchInfo, pallet_prelude::*, traits::WithdrawReasons, PalletId,
@@ -206,7 +206,7 @@ pub mod pallet {
 		type XcmExecuteFilter: Contains<(MultiLocation, Xcm<<Self as Config>::RuntimeCall>)>;
 
 		/// Something to execute an XCM message.
-		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall>;
+		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + AssetTransferFilter;
 
 		/// Our XCM filter which messages to be teleported using the dedicated extrinsic must pass.
 		type XcmTeleportFilter: Contains<(MultiLocation, Vec<MultiAsset>)>;
@@ -1212,6 +1212,18 @@ impl<T: Config> Pallet<T> {
 		let value = (origin_location, assets.into_inner());
 		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
 		let (origin_location, assets) = value;
+		// Don't allow inclusion of teleportable assets in this reserve-based-transfer (other than
+		// fee asset).
+		for (idx, asset) in assets.iter().enumerate() {
+			ensure!(
+				idx == fee_asset_item as usize ||
+					!<T::XcmExecutor as AssetTransferFilter>::IsTeleporter::contains(
+						asset, &dest
+					),
+				Error::<T>::Filtered
+			);
+		}
+
 		let context = T::UniversalLocation::get();
 		let fees = assets
 			.get(fee_asset_item as usize)
@@ -1256,6 +1268,12 @@ impl<T: Config> Pallet<T> {
 		let value = (origin_location, assets.into_inner());
 		ensure!(T::XcmTeleportFilter::contains(&value), Error::<T>::Filtered);
 		let (origin_location, assets) = value;
+		for asset in assets.iter() {
+			ensure!(
+				<T::XcmExecutor as AssetTransferFilter>::IsTeleporter::contains(asset, &dest),
+				Error::<T>::Filtered
+			);
+		}
 		let context = T::UniversalLocation::get();
 		let fees = assets
 			.get(fee_asset_item as usize)

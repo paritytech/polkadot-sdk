@@ -42,8 +42,8 @@ type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 // Re-export test_case from `parachains-runtimes-test-utils`
 pub use parachains_runtimes_test_utils::test_cases::change_storage_constant_by_governance_works;
 
-/// Test-case makes sure that `Runtime` can receive native asset from relay chain
-/// and can teleport it back and to the other parachains
+/// Test-case makes sure that `Runtime` can receive native asset from relay chain and can teleport
+/// it back
 pub fn teleports_for_native_asset_works<
 	Runtime,
 	AllPalletsWithoutSystem,
@@ -56,9 +56,6 @@ pub fn teleports_for_native_asset_works<
 	existential_deposit: BalanceOf<Runtime>,
 	target_account: AccountIdOf<Runtime>,
 	unwrap_pallet_xcm_event: Box<dyn Fn(Vec<u8>) -> Option<pallet_xcm::Event<Runtime>>>,
-	unwrap_xcmp_queue_event: Box<
-		dyn Fn(Vec<u8>) -> Option<cumulus_pallet_xcmp_queue::Event<Runtime>>,
-	>,
 	runtime_para_id: u32,
 ) where
 	Runtime: frame_system::Config
@@ -204,7 +201,8 @@ pub fn teleports_for_native_asset_works<
 				);
 			}
 
-			// 3. try to teleport asset away to other parachain (1234)
+			// 3. try to teleport assets away to other parachain (1234): should not work as we don't
+			//    trust `IsTeleporter` for `(relay-native-asset, para(1234))` pair
 			{
 				let other_para_id = 1234;
 				let dest = MultiLocation::new(1, X1(Parachain(other_para_id)));
@@ -217,41 +215,38 @@ pub fn teleports_for_native_asset_works<
 
 				let target_account_balance_before_teleport =
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account);
+
 				let native_asset_to_teleport_away = native_asset_amount_unit * 3.into();
 				assert!(
 					native_asset_to_teleport_away <
 						target_account_balance_before_teleport - existential_deposit
 				);
-
-				assert_ok!(RuntimeHelper::<Runtime>::do_teleport_assets::<HrmpChannelOpener>(
-					RuntimeHelper::<Runtime>::origin_of(target_account.clone()),
-					dest,
-					dest_beneficiary,
-					(native_asset_id, native_asset_to_teleport_away.into()),
-					Some((runtime_para_id, other_para_id)),
-					included_head,
-					&alice,
-				));
+				assert_eq!(
+					RuntimeHelper::<Runtime>::do_teleport_assets::<HrmpChannelOpener>(
+						RuntimeHelper::<Runtime>::origin_of(target_account.clone()),
+						dest,
+						dest_beneficiary,
+						(native_asset_id, native_asset_to_teleport_away.into()),
+						Some((runtime_para_id, other_para_id)),
+						included_head,
+						&alice,
+					),
+					Err(DispatchError::Module(sp_runtime::ModuleError {
+						index: 31,
+						error: [2, 0, 0, 0,],
+						message: Some("Filtered",),
+					},),)
+				);
 
 				// check balances
 				assert_eq!(
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
-					target_account_balance_before_teleport - native_asset_to_teleport_away
+					target_account_balance_before_teleport
 				);
 				assert_eq!(
 					<pallet_balances::Pallet<Runtime>>::free_balance(&CheckingAccount::get()),
 					0.into()
 				);
-
-				// check events
-				RuntimeHelper::<Runtime>::assert_pallet_xcm_event_outcome(
-					&unwrap_pallet_xcm_event,
-					|outcome| {
-						assert_ok!(outcome.ensure_complete());
-					},
-				);
-				assert!(RuntimeHelper::<Runtime>::xcmp_queue_message_sent(unwrap_xcmp_queue_event)
-					.is_some());
 			}
 		})
 }
@@ -268,7 +263,6 @@ macro_rules! include_teleports_for_native_asset_works(
 		$collator_session_key:expr,
 		$existential_deposit:expr,
 		$unwrap_pallet_xcm_event:expr,
-		$unwrap_xcmp_queue_event:expr,
 		$runtime_para_id:expr
 	) => {
 		#[test]
@@ -288,15 +282,14 @@ macro_rules! include_teleports_for_native_asset_works(
 				$existential_deposit,
 				target_account,
 				$unwrap_pallet_xcm_event,
-				$unwrap_xcmp_queue_event,
 				$runtime_para_id
 			)
 		}
 	}
 );
 
-/// Test-case makes sure that `Runtime` can receive teleported assets from sibling parachain relay
-/// chain
+/// Test-case makes sure that `Runtime` can receive teleported assets from sibling parachain, and
+/// can teleport it back
 pub fn teleports_for_foreign_assets_works<
 	Runtime,
 	AllPalletsWithoutSystem,
@@ -442,7 +435,7 @@ pub fn teleports_for_foreign_assets_works<
 			>(foreign_asset_id_multilocation, 0, 0);
 			assert!(teleported_foreign_asset_amount > asset_minimum_asset_balance);
 
-			// 1. process received teleported assets from relaychain
+			// 1. process received teleported assets from sibling parachain (foreign_para_id)
 			let xcm = Xcm(vec![
 				// BuyExecution with relaychain native token
 				WithdrawAsset(buy_execution_fee.clone().into()),
