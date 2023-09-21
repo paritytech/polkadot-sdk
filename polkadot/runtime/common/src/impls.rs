@@ -19,7 +19,7 @@
 use crate::NegativeImbalance;
 use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
 use primitives::Balance;
-use sp_runtime::Perquintill;
+use sp_runtime::{Percent, Perquintill};
 
 /// Logic for the author to get a portion of fees.
 pub struct ToAuthor<R>(sp_std::marker::PhantomData<R>);
@@ -64,6 +64,7 @@ pub fn era_payout(
 	total_stakable: Balance,
 	max_annual_inflation: Perquintill,
 	period_fraction: Perquintill,
+	min_fraction_remainder: Percent,
 	auctioned_slots: u64,
 ) -> (Balance, Balance) {
 	use pallet_staking_reward_fn::compute_inflation;
@@ -86,8 +87,12 @@ pub fn era_payout(
 		min_annual_inflation.saturating_add(delta_annual_inflation * adjustment);
 
 	let max_payout = period_fraction * max_annual_inflation * total_stakable;
-	let staking_payout = (period_fraction * staking_inflation) * total_stakable;
-	let rest = max_payout.saturating_sub(staking_payout);
+	let min_remainder = min_fraction_remainder * max_payout;
+	let staking_payout =
+		((period_fraction * staking_inflation) * total_stakable).min(max_payout - min_remainder);
+	let other_remainder = max_payout - (min_remainder + staking_payout);
+
+	let rest = min_remainder + other_remainder;
 
 	let other_issuance = total_stakable.saturating_sub(total_staked);
 	if total_staked > other_issuance {

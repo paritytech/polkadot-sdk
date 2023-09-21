@@ -561,6 +561,7 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
 	fn era_payout(
 		total_staked: Balance,
 		total_issuance: Balance,
+		min_fraction_remainder: Percent,
 		era_duration_millis: u64,
 	) -> (Balance, Balance) {
 		// all para-ids that are not active.
@@ -579,6 +580,7 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
 			total_issuance,
 			MAX_ANNUAL_INFLATION,
 			Perquintill::from_rational(era_duration_millis, MILLISECONDS_PER_YEAR),
+			min_fraction_remainder,
 			auctioned_slots,
 		)
 	}

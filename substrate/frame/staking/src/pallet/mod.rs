@@ -485,6 +485,12 @@ pub mod pallet {
 	#[pallet::getter(fn force_era)]
 	pub type ForceEra<T> = StorageValue<_, Forcing, ValueQuery>;
 
+	/// Minimum of the reward remainder per era, i.e. the percentage of the era inflation that
+	/// is not used for rewards.
+	/// See [Era payout](./index.html#era-payout).
+	#[pallet::storage]
+	pub type MinRemainderPayout<T> = StorageValue<_, Percent, ValueQuery>;
+
 	/// The percentage of the slash that is distributed to reporters.
 	///
 	/// The rest of the slashed value is handled by the `Slash`.

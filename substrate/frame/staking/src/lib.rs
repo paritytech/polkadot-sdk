@@ -310,7 +310,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	traits::{AtLeast32BitUnsigned, Convert, Saturating, StaticLookup, Zero},
-	Perbill, Perquintill, Rounding, RuntimeDebug,
+	Perbill, Percent, Perquintill, Rounding, RuntimeDebug,
 };
 pub use sp_staking::StakerStatus;
 use sp_staking::{
@@ -845,6 +845,7 @@ pub trait EraPayout<Balance> {
 	fn era_payout(
 		total_staked: Balance,
 		total_issuance: Balance,
+		min_fraction_remainder: Percent,
 		era_duration_millis: u64,
 	) -> (Balance, Balance);
 }
@@ -853,6 +854,7 @@ impl<Balance: Default> EraPayout<Balance> for () {
 	fn era_payout(
 		_total_staked: Balance,
 		_total_issuance: Balance,
+		_min_fraction_remainder: Percent,
 		_era_duration_millis: u64,
 	) -> (Balance, Balance) {
 		(Default::default(), Default::default())
@@ -868,6 +870,7 @@ impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'sta
 	fn era_payout(
 		total_staked: Balance,
 		total_issuance: Balance,
+		_min_fraction_remainder: Percent,
 		era_duration_millis: u64,
 	) -> (Balance, Balance) {
 		let (validator_payout, max_payout) = inflation::compute_total_payout(

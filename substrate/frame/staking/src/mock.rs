@@ -213,6 +213,7 @@ parameter_types! {
 
 parameter_types! {
 	pub static RewardRemainderUnbalanced: u128 = 0;
+	pub static MinRewardRemainder: Percent = Percent::from_parts(20);
 }
 
 pub struct RewardRemainderMock;
@@ -661,6 +662,7 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 	let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
 		Staking::eras_total_stake(active_era()),
 		Balances::total_issuance(),
+		MinRewardRemainder::get(),
 		duration,
 	);
 	assert!(payout > 0);
@@ -671,6 +673,7 @@ pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
 	let (payout, rest) = <Test as Config>::EraPayout::era_payout(
 		Staking::eras_total_stake(active_era()),
 		Balances::total_issuance(),
+		MinRewardRemainder::get(),
 		duration,
 	);
 	payout + rest
