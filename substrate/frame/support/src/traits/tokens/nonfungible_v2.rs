@@ -119,7 +119,7 @@ pub trait InspectEnumerable<AccountId>: Inspect<AccountId> {
 }
 
 /// Trait for providing an interface for NFT-like items which may be minted, burned and/or have
-/// attributes set on them.
+/// attributes and metadata set on them.
 pub trait Mutate<AccountId, ItemConfig>: Inspect<AccountId> {
 	/// Mint some `item` to be owned by `who`.
 	///

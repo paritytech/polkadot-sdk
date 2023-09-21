@@ -233,7 +233,7 @@ pub trait Destroy<AccountId>: Inspect<AccountId> {
 }
 
 /// Trait for providing an interface for multiple collections of NFT-like items which may be
-/// minted, burned and/or have attributes set on them.
+/// minted, burned and/or have attributes and metadata set on them.
 pub trait Mutate<AccountId, ItemConfig>: Inspect<AccountId> {
 	/// Mint some `item` of `collection` to be owned by `who`.
 	///
