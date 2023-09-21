@@ -53,6 +53,8 @@ pub fn generate_crate_access(unique_id: &str, def_crate: &str) -> TokenStream {
 /// Check if a path is using the `frame` crate or not.
 ///
 /// This will usually check the output of [`generate_crate_access_2018`].
+/// We want to know if whatever the `path` takes us to, is exported from `frame` or not. In that
+/// case `path` would start with `frame`, something like `frame::x::y:z`.
 pub fn is_using_frame_crate(path: &syn::Path) -> bool {
 	path.segments.first().map(|s| s.ident == "frame").unwrap_or(false)
 }
