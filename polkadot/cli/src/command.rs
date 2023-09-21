@@ -34,12 +34,6 @@ pub use polkadot_performance_test::PerfCheckError;
 #[cfg(feature = "pyroscope")]
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 
-impl From<String> for Error {
-	fn from(s: String) -> Self {
-		Self::Other(s)
-	}
-}
-
 type Result<T> = std::result::Result<T, Error>;
 
 fn get_exec_name() -> Option<String> {
@@ -92,29 +86,20 @@ impl SubstrateCli for Cli {
 		};
 		Ok(match id {
 			"kusama" => Box::new(service::chain_spec::kusama_config()?),
-			#[cfg(feature = "kusama-native")]
-			"kusama-dev" => Box::new(service::chain_spec::kusama_development_config()?),
-			#[cfg(feature = "kusama-native")]
-			"kusama-local" => Box::new(service::chain_spec::kusama_local_testnet_config()?),
-			#[cfg(feature = "kusama-native")]
-			"kusama-staging" => Box::new(service::chain_spec::kusama_staging_testnet_config()?),
-			#[cfg(not(feature = "kusama-native"))]
 			name if name.starts_with("kusama-") && !name.ends_with(".json") =>
-				Err(format!("`{}` only supported with `kusama-native` feature enabled.", name))?,
+				Err(format!("`{name}` is not supported anymore as the kusama native runtime no longer part of the node."))?,
 			"polkadot" => Box::new(service::chain_spec::polkadot_config()?),
-			#[cfg(feature = "polkadot-native")]
-			"polkadot-dev" | "dev" => Box::new(service::chain_spec::polkadot_development_config()?),
-			#[cfg(feature = "polkadot-native")]
-			"polkadot-local" => Box::new(service::chain_spec::polkadot_local_testnet_config()?),
+			name if name.starts_with("polkadot-") && !name.ends_with(".json") =>
+				Err(format!("`{name}` is not supported anymore as the polkadot native runtime no longer part of the node."))?,
 			"rococo" => Box::new(service::chain_spec::rococo_config()?),
 			#[cfg(feature = "rococo-native")]
-			"rococo-dev" => Box::new(service::chain_spec::rococo_development_config()?),
+			"dev" | "rococo-dev" => Box::new(service::chain_spec::rococo_development_config()?),
 			#[cfg(feature = "rococo-native")]
 			"rococo-local" => Box::new(service::chain_spec::rococo_local_testnet_config()?),
 			#[cfg(feature = "rococo-native")]
 			"rococo-staging" => Box::new(service::chain_spec::rococo_staging_testnet_config()?),
 			#[cfg(not(feature = "rococo-native"))]
-			name if name.starts_with("rococo-") && !name.ends_with(".json") =>
+			name if name.starts_with("rococo-") && !name.ends_with(".json") || name == "dev" =>
 				Err(format!("`{}` only supported with `rococo-native` feature enabled.", name))?,
 			"westend" => Box::new(service::chain_spec::westend_config()?),
 			#[cfg(feature = "westend-native")]
@@ -146,7 +131,7 @@ impl SubstrateCli for Cli {
 			path => {
 				let path = std::path::PathBuf::from(path);
 
-				let chain_spec = Box::new(service::PolkadotChainSpec::from_json_file(path.clone())?)
+				let chain_spec = Box::new(service::GenericChainSpec::from_json_file(path.clone())?)
 					as Box<dyn service::ChainSpec>;
 
 				// When `force_*` is given or the file name starts with the name of one of the known
@@ -158,7 +143,7 @@ impl SubstrateCli for Cli {
 				{
 					Box::new(service::RococoChainSpec::from_json_file(path)?)
 				} else if self.run.force_kusama || chain_spec.is_kusama() {
-					Box::new(service::KusamaChainSpec::from_json_file(path)?)
+					Box::new(service::GenericChainSpec::from_json_file(path)?)
 				} else if self.run.force_westend || chain_spec.is_westend() {
 					Box::new(service::WestendChainSpec::from_json_file(path)?)
 				} else {
@@ -180,17 +165,6 @@ fn set_default_ss58_version(spec: &Box<dyn service::ChainSpec>) {
 	.into();
 
 	sp_core::crypto::set_default_ss58_version(ss58_version);
-}
-
-const DEV_ONLY_ERROR_PATTERN: &'static str =
-	"can only use subcommand with --chain [polkadot-dev, kusama-dev, westend-dev, rococo-dev, wococo-dev], got ";
-
-fn ensure_dev(spec: &Box<dyn service::ChainSpec>) -> std::result::Result<(), String> {
-	if spec.is_dev() {
-		Ok(())
-	} else {
-		Err(format!("{}{}", DEV_ONLY_ERROR_PATTERN, spec.id()))
-	}
 }
 
 /// Runs performance checks.
@@ -471,8 +445,7 @@ pub fn run() -> Result<()> {
 					cmd.run(client.clone()).map_err(Error::SubstrateCli)
 				}),
 				// These commands are very similar and can be handled in nearly the same way.
-				BenchmarkCmd::Extrinsic(_) | BenchmarkCmd::Overhead(_) => {
-					ensure_dev(chain_spec).map_err(Error::Other)?;
+				BenchmarkCmd::Extrinsic(_) | BenchmarkCmd::Overhead(_) =>
 					runner.sync_run(|mut config| {
 						let (client, _, _, _) = service::new_chain_ops(&mut config, None)?;
 						let header = client.header(client.info().genesis_hash).unwrap().unwrap();
@@ -508,11 +481,9 @@ pub fn run() -> Result<()> {
 								.map_err(Error::SubstrateCli),
 							_ => unreachable!("Ensured by the outside match; qed"),
 						}
-					})
-				},
+					}),
 				BenchmarkCmd::Pallet(cmd) => {
 					set_default_ss58_version(chain_spec);
-					ensure_dev(chain_spec).map_err(Error::Other)?;
 
 					if cfg!(feature = "runtime-benchmarks") {
 						runner.sync_run(|config| {

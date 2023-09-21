@@ -92,8 +92,7 @@ impl pallet_preimage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureRoot<Self::AccountId>;
-	type BaseDeposit = ConstU64<1>;
-	type ByteDeposit = ConstU64<1>;
+	type Consideration = ();
 	type WeightInfo = ();
 }
 
