@@ -20,7 +20,7 @@ use polkadot_node_core_pvf_prepare_worker::{prepare, prevalidate};
 use polkadot_primitives::ExecutorParams;
 use std::time::Duration;
 
-fn do_prepare_kusama_runtime(pvf: PvfPrepData) {
+fn do_prepare_runtime(pvf: PvfPrepData) {
 	let blob = match prevalidate(&pvf.code()) {
 		Err(err) => panic!("{:?}", err),
 		Ok(b) => b,
@@ -51,7 +51,9 @@ fn prepare_kusama_runtime(c: &mut Criterion) {
 	group.sample_size(20);
 	group.measurement_time(Duration::from_secs(240));
 	group.bench_function("prepare Kusama runtime", |b| {
-		b.iter(|| do_prepare_kusama_runtime(pvf.clone()))
+		// `PvfPrepData` is designed to be cheap to clone, so cloning shouldn't affect the
+		// benchmark accuracy
+		b.iter(|| do_prepare_runtime(pvf.clone()))
 	});
 	group.finish();
 }

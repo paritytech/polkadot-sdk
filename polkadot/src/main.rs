@@ -21,9 +21,8 @@
 use color_eyre::eyre;
 
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-#[doc(hidden)]
 #[global_allocator]
-pub static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 fn main() -> eyre::Result<()> {
 	color_eyre::install()?;

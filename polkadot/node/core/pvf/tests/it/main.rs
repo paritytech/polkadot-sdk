@@ -18,8 +18,8 @@
 use assert_matches::assert_matches;
 use parity_scale_codec::Encode as _;
 use polkadot_node_core_pvf::{
-	start, Config, InvalidCandidate, Metrics, PrepareJobKind, PvfPrepData, ValidationError,
-	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+	start, Config, InvalidCandidate, Metrics, PrepareError, PrepareJobKind, PrepareStats,
+	PvfPrepData, ValidationError, ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_parachain_primitives::primitives::{
 	BlockData as GenericBlockData, ValidationParams, ValidationResult,
@@ -28,12 +28,6 @@ use polkadot_primitives::ExecutorParams;
 
 #[cfg(any(feature = "ci-only-tests", feature = "tracking-allocator"))]
 use polkadot_primitives::ExecutorParam;
-
-#[cfg(feature = "tracking-allocator")]
-use ::adder::{hash_state, BlockData, HeadData};
-
-#[cfg(feature = "tracking-allocator")]
-use polkadot_primitives::HeadData as GenericHeadData;
 
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -76,6 +70,33 @@ impl TestHost {
 		let (host, task) = start(config, Metrics::default());
 		let _ = tokio::task::spawn(task);
 		Self { cache_dir, host: Mutex::new(host) }
+	}
+
+	async fn precheck_pvf(
+		&self,
+		code: &[u8],
+		executor_params: ExecutorParams,
+	) -> Result<PrepareStats, PrepareError> {
+		let (result_tx, result_rx) = futures::channel::oneshot::channel();
+
+		let code = sp_maybe_compressed_blob::decompress(code, 16 * 1024 * 1024)
+			.expect("Compression works");
+
+		self.host
+			.lock()
+			.await
+			.precheck_pvf(
+				PvfPrepData::from_code(
+					code.into(),
+					executor_params,
+					TEST_PREPARATION_TIMEOUT,
+					PrepareJobKind::Prechecking,
+				),
+				result_tx,
+			)
+			.await
+			.unwrap();
+		result_rx.await.unwrap()
 	}
 
 	async fn validate_candidate(
@@ -335,17 +356,9 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 #[tokio::test]
 async fn prechecking_within_memory_limits() {
 	let host = TestHost::new();
-	let parent_head = HeadData { number: 0, parent_hash: [0; 32], post_state: hash_state(0) };
-	let block_data = BlockData { state: 0, add: 512 };
 	let result = host
-		.validate_candidate(
+		.precheck_pvf(
 			::adder::wasm_binary_unwrap(),
-			ValidationParams {
-				parent_head: GenericHeadData(parent_head.encode()),
-				block_data: GenericBlockData(block_data.encode()),
-				relay_parent_number: 1,
-				relay_parent_storage_root: Default::default(),
-			},
 			ExecutorParams::from(&[ExecutorParam::PrecheckingMaxMemory(10 * 1024 * 1024)][..]),
 		)
 		.await;
@@ -363,28 +376,17 @@ async fn prechecking_within_memory_limits() {
 #[cfg(feature = "tracking-allocator")]
 #[tokio::test]
 async fn prechecking_out_of_memory() {
-	use polkadot_node_core_pvf::{InvalidCandidate, ValidationError};
+	use polkadot_node_core_pvf::PrepareError;
 
 	let host = TestHost::new();
-	let parent_head = HeadData { number: 0, parent_hash: [0; 32], post_state: hash_state(0) };
-	let block_data = BlockData { state: 0, add: 512 };
 	let result = host
-		.validate_candidate(
+		.precheck_pvf(
 			::adder::wasm_binary_unwrap(),
-			ValidationParams {
-				parent_head: GenericHeadData(parent_head.encode()),
-				block_data: GenericBlockData(block_data.encode()),
-				relay_parent_number: 1,
-				relay_parent_storage_root: Default::default(),
-			},
 			ExecutorParams::from(&[ExecutorParam::PrecheckingMaxMemory(512 * 1024)][..]),
 		)
 		.await;
-
 	match result {
-		Err(ValidationError::InvalidCandidate(InvalidCandidate::PrepareError(err)))
-			if err == "prepare: out of memory" =>
-			(),
+		Err(PrepareError::OutOfMemory) => (),
 		r => panic!("{:?}", r),
 	}
 }
