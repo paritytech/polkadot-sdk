@@ -62,7 +62,7 @@ Returned when the `type` of the query was `"value"`:
 
 Returned when the `type` of the query was `"descendantsValues"`:
 
-- `key` is guaranteed to start with one of the `key`s provided as parameter
+- `key` is guaranteed to start with one of the `key`s provided as a parameter
 - `value` is a string containing the hexadecimal-encoded value of the storage entry.
 
 ### Hash
