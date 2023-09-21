@@ -156,8 +156,9 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 			RuntimeCall::System(frame_system::Call::set_storage { items })
 				if items.iter().all(|(k, _)| {
 					k.eq(&DeliveryRewardInBalance::key()) |
-						k.eq(&RequiredStakeForStakeAndSlash::key())
-				}) || items.iter().all(|(k, _)| k.eq(&Flavor::key())) =>
+						k.eq(&RequiredStakeForStakeAndSlash::key()) |
+						k.eq(&Flavor::key())
+				}) =>
 				return true,
 			_ => (),
 		};
