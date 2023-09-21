@@ -352,20 +352,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Codec;
-use frame_support::{
-	defensive, defensive_assert, ensure,
-	pallet_prelude::{MaxEncodedLen, *},
-	storage::bounded_btree_map::BoundedBTreeMap,
-	traits::{
-		fungible::{
-			Inspect as FunInspect, InspectFreeze, Mutate as FunMutate,
-			MutateFreeze as FunMutateFreeze,
-		},
-		tokens::{Fortitude, Preservation},
-		Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
+use frame_support::{defensive, ensure, pallet_prelude::{MaxEncodedLen, *}, storage::bounded_btree_map::BoundedBTreeMap, traits::{
+	fungible::{
+		Inspect as FunInspect, InspectFreeze, Mutate as FunMutate,
+		MutateFreeze as FunMutateFreeze,
 	},
-	DefaultNoBound, PalletError,
-};
+	tokens::{Fortitude, Preservation},
+	Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
+}, DefaultNoBound, PalletError, defensive_assert};
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
 use sp_core::U256;
@@ -2749,14 +2743,8 @@ impl<T: Config> Pallet<T> {
 		// consumers anyway.
 		// 2. the bonded account should become a 'killed stash' in the staking system, and all of
 		//    its consumers removed.
-		defensive_assert!(
-			frame_system::Pallet::<T>::consumers(&reward_account) == 0,
-			"reward account of dissolving pool should have no consumers"
-		);
-		defensive_assert!(
-			frame_system::Pallet::<T>::consumers(&bonded_account) == 0,
-			"bonded account of dissolving pool should have no consumers"
-		);
+		defensive_assert!(frame_system::Pallet::<T>::consumers(&reward_account) ==  0, "reward account of dissolving pool should have no consumers");
+		defensive_assert!(frame_system::Pallet::<T>::consumers(&bonded_account) == 0, "bonded account of dissolving pool should have no consumers");
 		defensive_assert!(
 			T::Staking::total_stake(&bonded_account).unwrap_or_default() == Zero::zero(),
 			"dissolving pool should not have any stake in the staking pallet"
@@ -2776,14 +2764,8 @@ impl<T: Config> Pallet<T> {
 			Preservation::Expendable,
 		);
 
-		defensive_assert!(
-			T::Currency::total_balance(&reward_account) == Zero::zero(),
-			"could not transfer all amount to depositor while dissolving pool"
-		);
-		defensive_assert!(
-			T::Currency::total_balance(&bonded_pool.bonded_account()) == Zero::zero(),
-			"dissolving pool should not have any balance"
-		);
+		defensive_assert!(T::Currency::total_balance(&reward_account) == Zero::zero(), "could not transfer all amount to depositor while dissolving pool");
+		defensive_assert!(T::Currency::total_balance(&bonded_pool.bonded_account()) == Zero::zero(), "dissolving pool should not have any balance");
 		// NOTE: Defensively force set balance to zero.
 		T::Currency::set_balance(&reward_account, Zero::zero());
 		T::Currency::set_balance(&bonded_pool.bonded_account(), Zero::zero());
