@@ -728,7 +728,6 @@ pub mod ring_vrf {
 	}
 
 	/// Context used to produce ring signatures.
-
 	#[derive(Clone)]
 	pub struct RingContext(KZG);
 
