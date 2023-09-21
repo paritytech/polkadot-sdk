@@ -13,8 +13,11 @@ frame-executive = { path = "../../../../../substrate/frame/executive", default-f
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false}
 frame-system = { path = "../../../../../substrate/frame/system", default-features = false}
 frame-try-runtime = { path = "../../../../../substrate/frame/try-runtime", default-features = false, optional = true }
+pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false}
+pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
 sp-api = { path = "../../../../../substrate/primitives/api", default-features = false}
 sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false}
+sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false }
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
 sp-inherents = { path = "../../../../../substrate/primitives/inherents", default-features = false}
 sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false}
@@ -30,6 +33,7 @@ xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
 
 # Cumulus
+cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
@@ -43,6 +47,7 @@ substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder",
 default = [ "std" ]
 std = [
 	"codec/std",
+	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-xcm/std",
 	"cumulus-primitives-core/std",
@@ -50,11 +55,14 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"frame-try-runtime?/std",
+	"pallet-aura/std",
+	"pallet-timestamp/std",
 	"parachain-info/std",
 	"parachains-common/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
+	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-inherents/std",
 	"sp-offchain/std",
@@ -69,12 +77,17 @@ std = [
 	"xcm/std",
 ]
 try-runtime = [
+	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
 	"cumulus-pallet-xcm/try-runtime",
 	"frame-executive/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-aura/try-runtime",
+	"pallet-timestamp/try-runtime",
 	"parachain-info/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+
+experimental = [ "pallet-aura/experimental" ]
