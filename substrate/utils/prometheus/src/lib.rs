@@ -111,13 +111,15 @@ async fn init_prometheus_with_listener(
 		}
 	});
 
-	// Shutdown server when "signal" is dropped
-	let (_signal, on_exit) = exit_future::signal();
+	let (signal, on_exit) = tokio::sync::oneshot::channel::<()>();
 	let server = Server::builder(listener).serve(service).with_graceful_shutdown(async {
-		on_exit.await;
+		let _ = on_exit.await;
 	});
 
 	let result = server.await.map_err(Into::into);
+
+	// Gracefully shutdown server, otherwise the server does not stop if it has open connections
+	let _ = signal.send(());
 
 	result
 }
