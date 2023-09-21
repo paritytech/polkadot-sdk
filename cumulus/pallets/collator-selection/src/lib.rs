@@ -316,10 +316,12 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
 			assert!(T::MinEligibleCollators::get() > 0, "chain must require at least one collator");
+			#[allow(clippy::absurd_extreme_comparisons)]
 			assert!(
 				T::MaxCandidates::get() <= u32::MAX,
 				"the extrinsics below rely on `MaxCandidates` fitting in a `u32`"
 			);
+			#[allow(clippy::absurd_extreme_comparisons)]
 			assert!(
 				T::MinEligibleCollators::get() <= u32::MAX,
 				"the extrinsics below rely `MinEligibleCollators` fitting in a `u32`"
