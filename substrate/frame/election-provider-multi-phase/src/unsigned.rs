@@ -108,7 +108,7 @@ impl From<FeasibilityError> for MinerError {
 	}
 }
 
-/// Reports the trimming result of mined solution
+/// Reports the trimming result of a mined solution
 #[derive(Debug, Clone)]
 pub struct TrimmingStatus {
 	weight: usize,
@@ -1303,7 +1303,7 @@ mod tests {
 				roll_to_unsigned();
 				assert!(MultiPhase::current_phase().is_unsigned());
 
-				let (raw, witness, _) = MultiPhase::mine_solution().unwrap();
+				let (raw, witness, t) = MultiPhase::mine_solution().unwrap();
 				let solution_weight = <Runtime as MinerConfig>::solution_weight(
 					witness.voters,
 					witness.targets,
@@ -1313,11 +1313,12 @@ mod tests {
 				// default solution will have 5 edges (5 * 5 + 10)
 				assert_eq!(solution_weight, Weight::from_parts(35, 0));
 				assert_eq!(raw.solution.voter_count(), 5);
+				assert_eq!(t.trimmed_weight(), 0);
 
 				// now reduce the max weight
 				<MinerMaxWeight>::set(Weight::from_parts(25, u64::MAX));
 
-				let (raw, witness, _) = MultiPhase::mine_solution().unwrap();
+				let (raw, witness, t) = MultiPhase::mine_solution().unwrap();
 				let solution_weight = <Runtime as MinerConfig>::solution_weight(
 					witness.voters,
 					witness.targets,
@@ -1327,6 +1328,7 @@ mod tests {
 				// default solution will have 5 edges (5 * 5 + 10)
 				assert_eq!(solution_weight, Weight::from_parts(25, 0));
 				assert_eq!(raw.solution.voter_count(), 3);
+				assert_eq!(t.trimmed_weight(), 2);
 			})
 	}
 
@@ -1804,7 +1806,7 @@ mod tests {
 			let solution_clone = solution.clone();
 
 			// when
-			Miner::<Runtime>::trim_assignments_length(
+			let trimmed_len = Miner::<Runtime>::trim_assignments_length(
 				encoded_len,
 				&mut assignments,
 				encoded_size_of,
@@ -1814,6 +1816,7 @@ mod tests {
 			// then
 			let solution = SolutionOf::<Runtime>::try_from(assignments.as_slice()).unwrap();
 			assert_eq!(solution, solution_clone);
+			assert_eq!(trimmed_len, 0);
 		});
 	}
 
@@ -1829,7 +1832,7 @@ mod tests {
 			let solution_clone = solution.clone();
 
 			// when
-			Miner::<Runtime>::trim_assignments_length(
+			let trimmed_len = Miner::<Runtime>::trim_assignments_length(
 				encoded_len as u32 - 1,
 				&mut assignments,
 				encoded_size_of,
@@ -1840,6 +1843,7 @@ mod tests {
 			let solution = SolutionOf::<Runtime>::try_from(assignments.as_slice()).unwrap();
 			assert_ne!(solution, solution_clone);
 			assert!(solution.encoded_size() < encoded_len);
+			assert_eq!(trimmed_len, 1);
 		});
 	}
 
