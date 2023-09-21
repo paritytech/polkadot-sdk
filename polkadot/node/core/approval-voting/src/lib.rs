@@ -2350,7 +2350,7 @@ async fn process_wakeup<Context>(
 		match get_extended_session_info(
 			session_info_provider,
 			ctx.sender(),
-			block_entry.parent_hash(),
+			block_entry.block_hash(),
 			block_entry.session(),
 		)
 		.await

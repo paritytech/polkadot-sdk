@@ -8,7 +8,7 @@ With child bounties, a large bounty proposal can be divided into smaller chunks,
 for parallel execution, and for efficient governance and tracking of spent funds.
 A child bounty is a smaller piece of work, extracted from a parent bounty.
 A curator is assigned after the child bounty is created by the parent bounty curator,
-to be delegated with the responsibility of assigning a payout address once 
+to be delegated with the responsibility of assigning a payout address once
 the specified set of tasks is completed.
 
 ## Interface
