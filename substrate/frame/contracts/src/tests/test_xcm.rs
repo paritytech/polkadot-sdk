@@ -33,6 +33,7 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::{
+	assert_err,
 	pallet_prelude::Weight,
 	traits::{fungibles::Mutate, Currency},
 };
@@ -153,11 +154,17 @@ fn test_xcm_execute_filtered_call() {
 			DebugInfo::UnsafeDebug,
 			CollectEvents::UnsafeCollect,
 			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		);
 
-		assert_return_code!(result, RuntimeReturnCode::CallRuntimeFailed);
+		// The debug message should say that the call was filtered.
+		assert_eq!(
+			std::str::from_utf8(&result.debug_message).unwrap(),
+			"call failed with: CallFiltered"
+		);
+
+		// The call should fail, with an `OutOfGas` error, as the failed xcm::execute will not
+		// refund the max_weight gas passed to it.
+		assert_err!(result.result, crate::Error::<parachain::Runtime>::OutOfGas);
 	});
 }
 

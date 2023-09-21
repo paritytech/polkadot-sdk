@@ -19,19 +19,17 @@ use crate::{
 	xcm::{CallOf, WeightInfo, XCM},
 	AccountIdOf, Box, Config, RawOrigin,
 };
-use frame_support::{
-	dispatch::PostDispatchInfo, pallet_prelude::DispatchResultWithPostInfo, weights::Weight,
-};
+use frame_support::{pallet_prelude::DispatchResultWithPostInfo, weights::Weight};
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_xcm::WeightInfo as XcmWeightInfo;
-use sp_runtime::{DispatchError, DispatchErrorWithPostInfo, DispatchResult};
+use sp_runtime::{DispatchError, DispatchResult};
 use xcm::{v3::MultiLocation, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 
 /// A pallet-xcm adapter for the XCM trait.
-pub struct PalletXCMAdapter<T: pallet_xcm::Config>(sp_std::marker::PhantomData<T>);
+pub struct XCMAdapter<T: pallet_xcm::Config>(sp_std::marker::PhantomData<T>);
 
-impl<T> WeightInfo for PalletXCMAdapter<T>
+impl<T> WeightInfo for XCMAdapter<T>
 where
 	T: pallet_xcm::Config,
 {
@@ -49,8 +47,8 @@ where
 	}
 }
 
-impl<T: Config + pallet_xcm::Config> PalletXCMAdapter<T> {
-	/// Ensure that the message is executable, by checking that it does not contain any Transact
+impl<T: Config + pallet_xcm::Config> XCMAdapter<T> {
+	/// Ensure that the message is executable, by checking that it does not contain any [`Transact`]
 	/// instruction with a call that is not allowed by the CallFilter.
 	fn ensure_executable(
 		message: VersionedXcm<CallOf<T>>,
@@ -76,7 +74,7 @@ impl<T: Config + pallet_xcm::Config> PalletXCMAdapter<T> {
 	}
 }
 
-impl<T: Config + pallet_xcm::Config> XCM<T> for PalletXCMAdapter<T> {
+impl<T: Config + pallet_xcm::Config> XCM<T> for XCMAdapter<T> {
 	type QueryId = <pallet_xcm::Pallet<T> as QueryHandler>::QueryId;
 	type WeightInfo = Self;
 
@@ -85,16 +83,7 @@ impl<T: Config + pallet_xcm::Config> XCM<T> for PalletXCMAdapter<T> {
 		message: VersionedXcm<CallOf<T>>,
 		max_weight: Weight,
 	) -> DispatchResultWithPostInfo {
-		// TODO since we are doing more than just calling pallet_xcm::Pallet::<T>::execute, we
-		// should benchmark this ensure_executable
-		let msg = Self::ensure_executable(message).map_err(|err| DispatchErrorWithPostInfo {
-			post_info: PostDispatchInfo {
-				actual_weight: Some(Weight::zero()),
-				pays_fee: Default::default(),
-			},
-			error: err.into(),
-		})?;
-
+		let msg = Self::ensure_executable(message)?;
 		let origin = RawOrigin::Signed(origin.clone()).into();
 		pallet_xcm::Pallet::<T>::execute(origin, msg, max_weight)
 	}

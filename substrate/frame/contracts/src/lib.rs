@@ -407,7 +407,7 @@ pub mod pallet {
 		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
 		/// execute XCM messages.
 		///
-		/// Use [`xcm::PalletXCMAdapter`] to enable or `()` to disable.
+		/// Use [`xcm::XCMAdapter`] to enable or `()` to disable.
 		type Xcm: XCM<Self>;
 	}
 

@@ -23,9 +23,9 @@ use sp_runtime::{DispatchError, DispatchResult};
 use xcm::{VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::QueryResponseStatus;
 
-pub mod pallet_xcm_adapter;
+pub mod adapter;
 
-pub use pallet_xcm_adapter::PalletXCMAdapter;
+pub use adapter::XCMAdapter;
 pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 pub trait XCM<T: Config> {
