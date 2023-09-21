@@ -230,9 +230,12 @@ impl<Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + Part
 	}
 }
 
+/// Information concerning the identity of the controller of an account.
 pub trait IdentityInformationProvider:
 	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo
 {
+	/// Type capable of representing all of the fields present in the identity information as bit
+	/// flags in `u64` format.
 	type IdentityField: Encode
 		+ Decode
 		+ MaxEncodedLen
@@ -248,10 +251,11 @@ pub trait IdentityInformationProvider:
 	fn create_identity_info() -> Self;
 }
 
-/// Information concerning the identity of the controller of an account.
+/// Information on an identity along with judgements from registrars.
 ///
 /// NOTE: This is stored separately primarily to facilitate the addition of extra fields in a
-/// backwards compatible way through a specialized `Decode` impl.
+/// backwards compatible way through a specialized `Decode` impl. Is this still the case? We need to
+/// do a migration if we removed the additional fields.
 #[derive(
 	CloneNoBound, Encode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
@@ -277,6 +281,7 @@ impl<
 	> Decode for Registration<Balance, MaxJudgements, IdentityInfo>
 {
 	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
+		// TODO consider removing this, will probably do migration
 		let (judgements, info) = Decode::decode(&mut AppendZerosInput::new(input))?;
 		Ok(Self { judgements, info })
 	}
