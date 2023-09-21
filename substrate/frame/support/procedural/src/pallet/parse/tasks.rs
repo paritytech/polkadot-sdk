@@ -16,12 +16,14 @@
 // limitations under the License.
 
 use derive_syn_parse::Parse;
-use proc_macro2::{Span, TokenTree};
+use proc_macro2::Span;
 use quote::ToTokens;
 use syn::{
+	parse::ParseStream,
 	parse2,
+	spanned::Spanned,
 	token::{Bracket, Paren},
-	Expr, Ident, ImplItemFn, Item, LitInt, Result, Token,
+	Attribute, Error, Expr, Ident, ImplItemFn, Item, ItemImpl, LitInt, Result, Token,
 };
 
 #[cfg(test)]
@@ -53,46 +55,91 @@ pub mod keywords {
 	custom_keyword!(pallet);
 }
 
-pub struct TasksDef;
+pub struct TasksDef {
+	normal_attrs: Vec<Attribute>,
+	tasks_attr: PalletTasksAttr,
+	tasks: Vec<TaskDef>,
+}
 
-impl TasksDef {
-	pub fn try_from(_span: Span, _index: usize, _item: &mut Item) -> Result<Self> {
-		Ok(TasksDef {})
+impl syn::parse::Parse for TasksDef {
+	fn parse(input: ParseStream) -> Result<Self> {
+		let item_impl: ItemImpl = input.parse()?;
+		let (tasks_attrs, normal_attrs): (Vec<_>, Vec<_>) =
+			item_impl.attrs.into_iter().partition(|attr| {
+				let mut path_segs = attr.path().segments.iter();
+				let (Some(prefix), Some(suffix)) = (path_segs.next(), path_segs.next()) else {
+					return false
+				};
+				prefix.ident == "pallet" && suffix.ident == "tasks"
+			});
+		let Some(tasks_attr) = tasks_attrs.first() else {
+			return Err(Error::new(
+				item_impl.impl_token.span(),
+				"expected `#[pallet::tasks]` attribute",
+			))
+		};
+		if let Some(extra_tasks_attr) = tasks_attrs.get(1) {
+			return Err(Error::new(
+				extra_tasks_attr.span(),
+				"unexpected extra `#[pallet::tasks]` attribute",
+			))
+		}
+		let tasks_attr = parse2::<PalletTasksAttr>(tasks_attr.to_token_stream())?;
+		let tasks: Vec<TaskDef> = item_impl
+			.items
+			.into_iter()
+			.map(|item| parse2::<TaskDef>(item.to_token_stream()))
+			.collect::<Result<_>>()?;
+		Ok(TasksDef { normal_attrs, tasks_attr, tasks })
 	}
 }
 
+impl TasksDef {
+	pub fn try_from(_span: Span, _index: usize, _item: &mut Item) -> Result<Self> {
+		todo!()
+	}
+}
+
+#[derive(Parse, Debug)]
+pub struct PalletTasksAttr {
+	_pound: Token![#],
+	#[bracket]
+	_bracket: Bracket,
+	#[inside(_bracket)]
+	_pallet: keywords::pallet,
+	#[inside(_bracket)]
+	_colons: Token![::],
+	#[inside(_bracket)]
+	_attr: keywords::tasks,
+}
+
 pub struct TaskDef {
-	task_attrs: Vec<TaskAttrType>,
+	task_attrs: Vec<PalletTaskAttr>,
 	item: ImplItemFn,
 }
 
 impl syn::parse::Parse for TaskDef {
-	fn parse(input: syn::parse::ParseStream) -> Result<Self> {
+	fn parse(input: ParseStream) -> Result<Self> {
 		let mut item = input.parse::<ImplItemFn>()?;
 		// we only want to activate TaskAttrType parsing errors for tasks-related attributes,
 		// so we filter them here
 		let (task_attrs, normal_attrs) = item.attrs.into_iter().partition(|attr| {
-			let mut path_tokens = attr.path().to_token_stream().into_iter();
-			let (
-				Some(TokenTree::Ident(prefix)),
-				Some(TokenTree::Punct(_)),
-				Some(TokenTree::Ident(suffix)),
-			) = (path_tokens.next(), path_tokens.next(), path_tokens.next())
-			else {
+			let mut path_segs = attr.path().segments.iter();
+			let (Some(prefix), Some(suffix)) = (path_segs.next(), path_segs.next()) else {
 				return false
 			};
 			// N.B: the `PartialEq` impl between `Ident` and `&str` is more efficient than
 			// parsing and makes no stack or heap allocations
-			prefix == "pallet" &&
-				(suffix == "tasks" ||
-					suffix == "task_list" ||
-					suffix == "task_condition" ||
-					suffix == "task_index")
+			prefix.ident == "pallet" &&
+				(suffix.ident == "tasks" ||
+					suffix.ident == "task_list" ||
+					suffix.ident == "task_condition" ||
+					suffix.ident == "task_index")
 		});
 		item.attrs = normal_attrs;
-		let task_attrs: Vec<TaskAttrType> = task_attrs
+		let task_attrs: Vec<PalletTaskAttr> = task_attrs
 			.into_iter()
-			.map(|attr| parse2::<TaskAttrType>(attr.to_token_stream()))
+			.map(|attr| parse2(attr.to_token_stream()))
 			.collect::<Result<_>>()?;
 
 		Ok(TaskDef { task_attrs, item })
@@ -131,8 +178,6 @@ pub enum TaskAttrType {
 		#[inside(_paren)]
 		expr: Expr,
 	},
-	#[peek(keywords::tasks, name = "#[pallet::tasks]")]
-	Tasks { _tasks: keywords::tasks },
 }
 
 #[derive(Parse, Debug)]
@@ -154,6 +199,7 @@ use quote::quote;
 #[test]
 fn test_parse_pallet_task_list_() {
 	parse2::<PalletTaskAttr>(quote!(#[pallet::task_list(Something::iter())])).unwrap();
+	parse2::<PalletTaskAttr>(quote!(#[pallet::task_list(Numbers::<T, I>::iter_keys())])).unwrap();
 	parse2::<PalletTaskAttr>(quote!(#[pallet::task_list(iter())])).unwrap();
 	assert_error_matches!(
 		parse2::<PalletTaskAttr>(quote!(#[pallet::task_list()])),
@@ -199,9 +245,35 @@ fn test_parse_pallet_task_condition() {
 }
 
 #[test]
-fn test_parse_pallet_tasks() {
-	parse2::<PalletTaskAttr>(quote!(#[pallet::tasks])).unwrap();
-	assert_error_matches!(parse2::<PalletTaskAttr>(quote!(#[pallet::taskss])), "expected one of");
-	assert_error_matches!(parse2::<PalletTaskAttr>(quote!(#[pallet::tasks_])), "expected one of");
-	assert_error_matches!(parse2::<PalletTaskAttr>(quote!(#[pallet::tasks()])), "unexpected token");
+fn test_parse_pallet_tasks_attr() {
+	parse2::<PalletTasksAttr>(quote!(#[pallet::tasks])).unwrap();
+	assert_error_matches!(parse2::<PalletTasksAttr>(quote!(#[pallet::taskss])), "expected `tasks`");
+	assert_error_matches!(parse2::<PalletTasksAttr>(quote!(#[pallet::tasks_])), "expected `tasks`");
+	assert_error_matches!(parse2::<PalletTasksAttr>(quote!(#[pal::tasks])), "expected `pallet`");
+	assert_error_matches!(
+		parse2::<PalletTasksAttr>(quote!(#[pallet::tasks()])),
+		"unexpected token"
+	);
+}
+
+#[test]
+fn test_parse_tasks_def_basic() {
+	parse2::<TasksDef>(quote! {
+		#[pallet::tasks]
+		impl<T: Config<I>, I: 'static> Pallet<T, I> {
+			/// Add a pair of numbers into the totals and remove them.
+			#[pallet::task_list(Numbers::<T, I>::iter_keys())]
+			#[pallet::task_condition(|i| Numbers::<T, I>::contains_key(i))]
+			#[pallet::task_index(0)]
+			pub fn add_number_into_total(i: u32) -> DispatchResult {
+				let v = Numbers::<T, I>::take(i).ok_or(Error::<T, I>::NotFound)?;
+				Total::<T, I>::mutate(|(total_keys, total_values)| {
+					*total_keys += i;
+					*total_values += v;
+				});
+				Ok(())
+			}
+		}
+	})
+	.unwrap();
 }
