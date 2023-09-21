@@ -22,17 +22,23 @@ use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
-pub mod v6 {
+
+/// Exports for versioned migration `type`s for this pallet.
+pub mod versioned_migrations {
 	use super::*;
 
 	/// Wrapper over `MigrateToV6` with convenience version checks.
 	pub type VersionedMigrateV6<T> = frame_support::migrations::VersionedMigration<
 		5,
 		6,
-		MigrateToV6<T>,
+		v6::MigrateToV6<T>,
 		crate::pallet::Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
+}
+
+mod v6 {
+	use super::*;
 
 	/// This migration would restrict reward account of pools to go below ED by doing a named
 	/// freeze on all the existing pools.
