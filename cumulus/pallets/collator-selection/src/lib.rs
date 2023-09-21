@@ -479,6 +479,9 @@ pub mod pallet {
 			})?;
 
 			Self::deposit_event(Event::CandidateAdded { account_id: who, deposit });
+			// Safe to do unchecked add here because we ensure above that `length <
+			// T::MaxCandidates::get()`, and since `T::MaxCandidates` is `u32` it can be at most
+			// `u32::MAX`, therefore `length + 1` cannot overflow.
 			Ok(Some(T::WeightInfo::register_as_candidate(length + 1)).into())
 		}
 
@@ -609,7 +612,15 @@ pub mod pallet {
 						T::Currency::unreserve(&who, old_deposit - new_deposit);
 					}
 					candidates[idx].deposit = new_deposit;
+					// Since `idx` is at most `T::MaxCandidates - 1`, because it's the position of
+					// an entry in a list that is at most `T::MaxCandidates` long, it will never be
+					// an out of bounds index access. Furthermore, the increment will not be an
+					// overflow since `idx` is `usize` and it can be at most `T::MaxCandidates`,
+					// which is `u32`.
 					if new_deposit > old_deposit && idx < candidate_count {
+						// Since the lowest value for `idx` would be `0`, the first element in the
+						// list`, and the fact we do an increment of `idx` before iterating, we
+						// ensure the `idx - 1` list access in the loop is not an underflow.
 						idx += 1;
 						while idx < candidate_count && candidates[idx].deposit < new_deposit {
 							candidates.as_mut().swap(idx - 1, idx);
@@ -661,15 +672,26 @@ pub mod pallet {
 			ensure!(deposit >= Self::candidacy_bond(), Error::<T>::InsufficientBond);
 
 			let length = <CandidateList<T>>::decode_len().unwrap_or_default();
+			// The closure below iterates through all elements of the candidate list to ensure that
+			// the caller isn't already a candidate and to find the target it's trying to replace in
+			// the list. The return value is a tuple of the position of the candidate to be replaced
+			// in the list along with its candidate information.
 			let (target_info_idx, target_info) =
 				<CandidateList<T>>::try_mutate(
 					|candidates| -> Result<
 						(usize, CandidateInfo<T::AccountId, BalanceOf<T>>),
 						DispatchError,
 					> {
+						// Find the position in the list of the candidate that is being replaced.
 						let mut target_info_idx = None;
 						for (idx, candidate_info) in candidates.iter().enumerate() {
+							// While iterating through the candidates trying to find the target,
+							// also ensure on the same pass that our caller isn't already a
+							// candidate.
 							ensure!(candidate_info.who != who, Error::<T>::AlreadyCandidate);
+							// If we find our target, update the position but do not stop the
+							// iteration since we're also checking that the caller isn't already a
+							// candidate.
 							if candidate_info.who == target {
 								target_info_idx = Some(idx);
 							}
@@ -693,6 +715,13 @@ pub mod pallet {
 				let mut idx = target_info_idx;
 				list[idx].who = who.clone();
 				list[idx].deposit = deposit;
+				// Since `idx` is at most `T::MaxCandidates - 1`, because it's the position of an
+				// entry in a list that is at most `T::MaxCandidates` long, it will never be an out
+				// of bounds index access. Furthermore, the increment will not be an overflow since
+				// `idx` is `usize` and it can be at most `T::MaxCandidates`, which is `u32`. Since
+				// the lowest value for `idx` would be `0`, the first element in the list`, and the
+				// fact we do an increment of `idx` before iterating, we ensure the `idx - 1` list
+				// access in the loop is not an underflow.
 				idx += 1;
 				while idx < list.len() && list[idx].deposit < deposit {
 					list.as_mut().swap(idx - 1, idx);
