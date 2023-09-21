@@ -4,10 +4,13 @@
 #
 # Syntax: list-syscalls.rb <binary> [--only-used-syscalls]
 #
-# From: https://gist.github.com/koute/166f82bfee5e27324077891008fca6eb
+# Author: @koute
+# Source: https://gist.github.com/koute/166f82bfee5e27324077891008fca6eb
 
 require 'shellwords'
 require 'set'
+
+SYNTAX_STRING = 'Syntax: list-syscalls.rb <binary> [--only-used-syscalls]'.freeze
 
 # Generated from `libc` using the following regex:
 #   'pub const SYS_([a-z0-9_]+): ::c_long = (\d+);'
@@ -455,18 +458,29 @@ REGS_R8 = %w[
 REG_MAP = (REGS_R64.map { |r| [r, r] } + REGS_R32.zip(REGS_R64) + REGS_R16.zip(REGS_R64) + REGS_R8.zip(REGS_R64)).to_h
 REGS_R = (REGS_R64 + REGS_R32 + REGS_R16 + REGS_R8).join('|')
 
-if ARGV.length != 1
-  warn 'Syntax: list-syscalls.rb <binary> [--only-used-syscalls]'
+if ARGV.empty?
+  warn SYNTAX_STRING
   exit 1
 end
 
-raise "no such file: #{ARGV[0]}" unless File.exist? ARGV[0]
+file_path = ARGV[0]
+raise "no such file: #{file_path}" unless File.exist? file_path
 
-puts 'Running objdump...'
-dump = `objdump -wd -j .text -M intel #{ARGV[0].shellescape}`
+only_used_syscalls = false
+ARGV[1..].each do |arg|
+  if arg == '--only-used-syscalls'
+    only_used_syscalls = true
+  else
+    warn "invalid argument '#{arg}':\n#{SYNTAX_STRING}"
+    exit 1
+  end
+end
+
+puts 'Running objdump...' unless only_used_syscalls
+dump = `objdump -wd -j .text -M intel #{file_path.shellescape}`
 raise 'objdump failed' unless $?.exitstatus == 0
 
-puts 'Parsing objdump output...'
+puts 'Parsing objdump output...' unless only_used_syscalls
 current_fn = nil
 code_for_fn = {}
 fns_with_syscall = Set.new
@@ -490,8 +504,10 @@ dump.split("\n").each do |line|
   fns_with_indirect_syscall.add(current_fn) if code =~ /<(syscall|__syscall_cp)>/
 end
 
-puts "Found #{fns_with_syscall.length} functions doing direct syscalls"
-puts "Found #{fns_with_indirect_syscall.length} functions doing indirect syscalls"
+unless only_used_syscalls
+  puts "Found #{fns_with_syscall.length} functions doing direct syscalls"
+  puts "Found #{fns_with_indirect_syscall.length} functions doing indirect syscalls"
+end
 
 syscalls_for_fn = {}
 not_found_count = 0
@@ -570,16 +586,20 @@ syscalls_for_fn.each do |fn_name, syscalls|
   end
 end
 
-puts 'Functions per syscall:'
-fns_for_syscall.sort_by { |sc, _| sc }.each do |syscall, fn_names|
-  fn_names = fn_names.sort.uniq
+if only_used_syscalls
+  puts syscalls_for_fn.values.flatten.sort.uniq.map { |sc| SYSCALLS[sc] || sc }.join("\n")
+else
+  puts 'Functions per syscall:'
+  fns_for_syscall.sort_by { |sc, _| sc }.each do |syscall, fn_names|
+    fn_names = fn_names.sort.uniq
 
-  puts "    #{SYSCALLS[syscall] || syscall} [#{fn_names.length} functions]"
-  fn_names.each do |fn_name|
-    puts "        #{fn_name}"
+    puts "    #{SYSCALLS[syscall] || syscall} [#{fn_names.length} functions]"
+    fn_names.each do |fn_name|
+      puts "        #{fn_name}"
+    end
   end
-end
 
-puts
-puts 'Used syscalls:'
-puts '    ' + syscalls_for_fn.values.flatten.sort.uniq.map { |sc| SYSCALLS[sc] || sc }.join("\n    ")
+  puts
+  puts 'Used syscalls:'
+  puts '    ' + syscalls_for_fn.values.flatten.sort.uniq.map { |sc| SYSCALLS[sc] || sc }.join("\n    ")
+end
