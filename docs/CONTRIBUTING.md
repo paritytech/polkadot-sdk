@@ -43,7 +43,7 @@ The set of labels and their description can be found [here](https://paritytech.g
 2. Please tag each PR with minimum one `T*` label. The respective `T*` labels should signal the
    component that was changed, they are also used by downstream users to track changes and to
    include these changes properly into their own releases.
-3. If your’re still working on your PR, please submit as “Draft”. Once a PR is ready for review change
+3. If you’re still working on your PR, please submit as “Draft”. Once a PR is ready for review change
    the status to “Open”, so that the maintainers get to review your PR. Generally PRs should sit for
    48 hours in order to garner feedback. It may be merged before if all relevant parties had a look at it.
 4. If you’re introducing a major change, that might impact the documentation please add the label
