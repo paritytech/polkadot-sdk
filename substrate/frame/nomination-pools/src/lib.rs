@@ -2734,7 +2734,7 @@ impl<T: Config> Pallet<T> {
 		SubPoolsStorage::<T>::remove(bonded_pool.id);
 
 		// remove the ED restriction from the pool reward account.
-		let _ = Self::remove_ed_freeze(&bonded_pool.reward_account()).defensive();
+		let _ = Self::unfreeze_pool_deposit(&bonded_pool.reward_account()).defensive();
 
 		// Kill accounts from storage by making their balance go below ED. We assume that the
 		// accounts have no references that would prevent destruction once we get to this point. We
@@ -2950,7 +2950,7 @@ impl<T: Config> Pallet<T> {
 		)?;
 
 		// Restrict reward account balance from going below ED.
-		Self::freeze_min_balance(&bonded_pool.reward_account())?;
+		Self::freeze_pool_deposit(&bonded_pool.reward_account())?;
 
 		PoolMembers::<T>::insert(
 			who.clone(),
@@ -3107,7 +3107,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Update frozen amount with current ED.
-		Self::freeze_min_balance(reward_acc)?;
+		Self::freeze_pool_deposit(reward_acc)?;
 
 		if pre_frozen_balance > min_balance {
 			// Transfer excess back to depositor.
@@ -3131,7 +3131,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Apply freeze on reward account to restrict it from going below ED.
-	pub(crate) fn freeze_min_balance(reward_acc: &T::AccountId) -> DispatchResult {
+	pub(crate) fn freeze_pool_deposit(reward_acc: &T::AccountId) -> DispatchResult {
 		T::Currency::set_freeze(
 			&FreezeReason::PoolMinBalance.into(),
 			reward_acc,
@@ -3140,7 +3140,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Removes the ED freeze on the reward account of `pool_id`.
-	pub fn remove_ed_freeze(reward_acc: &T::AccountId) -> DispatchResult {
+	pub fn unfreeze_pool_deposit(reward_acc: &T::AccountId) -> DispatchResult {
 		T::Currency::thaw(&FreezeReason::PoolMinBalance.into(), reward_acc)
 	}
 

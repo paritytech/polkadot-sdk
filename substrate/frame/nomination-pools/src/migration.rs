@@ -47,7 +47,7 @@ mod v6 {
 	impl<T: Config> MigrateToV6<T> {
 		fn freeze_ed(pool_id: PoolId) -> Result<(), ()> {
 			let reward_acc = Pallet::<T>::create_reward_account(pool_id);
-			Pallet::<T>::freeze_min_balance(&reward_acc).map_err(|e| {
+			Pallet::<T>::freeze_pool_deposit(&reward_acc).map_err(|e| {
 				log!(error, "Failed to freeze ED for pool {} with error: {:?}", pool_id, e);
 				()
 			})
