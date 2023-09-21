@@ -737,12 +737,10 @@ pub mod bridging {
 			// allow to transfer assets to AssetHubPolkadot
 			(
 				AssetHubPolkadot::get(),
-				AssetFilter::ByMultiLocation(
-					LocationFilter::default()
-						// allow send only KSM
-						.add_equals(KsmLocation::get())
-						// and nothing else
-				)
+				LocationFilter::default()
+					// allow send only KSM
+					.add_equals(KsmLocation::get())
+					// and nothing else
 			)
 		];
 

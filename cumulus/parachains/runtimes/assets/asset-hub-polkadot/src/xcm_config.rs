@@ -649,12 +649,10 @@ pub mod bridging {
 			// allow to transfer assets to AssetHubKusama
 			(
 				AssetHubKusama::get(),
-				AssetFilter::ByMultiLocation(
-					LocationFilter::default()
-						// allow send only DOT
-						.add_equals(DotLocation::get())
-						// and nothing else
-				)
+				LocationFilter::default()
+					// allow send only DOT
+					.add_equals(DotLocation::get())
+					// and nothing else
 			)
 		];
 
