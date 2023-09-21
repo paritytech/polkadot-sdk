@@ -1070,46 +1070,46 @@ where
 	}
 
 	fn send_chain_sync_requests(&mut self) {
-		for (id, request) in self.chain_sync.block_requests() {
-			self.send_block_request(id, request);
+		for (peer_id, request) in self.chain_sync.block_requests() {
+			self.send_block_request(peer_id, request);
 		}
 
-		if let Some((id, request)) = self.chain_sync.state_request() {
-			self.send_state_request(id, request);
+		if let Some((peer_id, request)) = self.chain_sync.state_request() {
+			self.send_state_request(peer_id, request);
 		}
 
-		for (id, request) in self.chain_sync.justification_requests() {
-			self.send_block_request(id, request);
+		for (peer_id, request) in self.chain_sync.justification_requests() {
+			self.send_block_request(peer_id, request);
 		}
 
-		if let Some((id, request)) = self.chain_sync.warp_sync_request() {
-			self.send_warp_sync_request(id, request);
+		if let Some((peer_id, request)) = self.chain_sync.warp_sync_request() {
+			self.send_warp_sync_request(peer_id, request);
 		}
 	}
 
-	fn send_block_request(&mut self, who: PeerId, request: BlockRequest<B>) {
-		if !self.chain_sync.is_peer_known(&who) {
-			trace!(target: LOG_TARGET, "Cannot send block request to unknown peer {who}");
+	fn send_block_request(&mut self, peer_id: PeerId, request: BlockRequest<B>) {
+		if !self.chain_sync.is_peer_known(&peer_id) {
+			trace!(target: LOG_TARGET, "Cannot send block request to unknown peer {peer_id}");
 			debug_assert!(false);
 			return
 		}
 
 		let downloader = self.block_downloader.clone();
 		self.pending_responses.insert(
-			who,
+			peer_id,
 			Box::pin(async move {
 				(
-					who,
+					peer_id,
 					PeerRequest::Block(request.clone()),
-					downloader.download_blocks(who, request).await,
+					downloader.download_blocks(peer_id, request).await,
 				)
 			}),
 		);
 	}
 
-	fn send_state_request(&mut self, who: PeerId, request: OpaqueStateRequest) {
-		if !self.chain_sync.is_peer_known(&who) {
-			trace!(target: LOG_TARGET, "Cannot send state request to unknown peer {who}");
+	fn send_state_request(&mut self, peer_id: PeerId, request: OpaqueStateRequest) {
+		if !self.chain_sync.is_peer_known(&peer_id) {
+			trace!(target: LOG_TARGET, "Cannot send state request to unknown peer {peer_id}");
 			debug_assert!(false);
 			return
 		}
@@ -1117,12 +1117,12 @@ where
 		let (tx, rx) = oneshot::channel();
 
 		self.pending_responses
-			.insert(who, Box::pin(async move { (who, PeerRequest::State, rx.await) }));
+			.insert(peer_id, Box::pin(async move { (peer_id, PeerRequest::State, rx.await) }));
 
 		match Self::encode_state_request(&request) {
 			Ok(data) => {
 				self.network_service.start_request(
-					who,
+					peer_id,
 					self.state_request_protocol_name.clone(),
 					data,
 					tx,
@@ -1138,9 +1138,9 @@ where
 		}
 	}
 
-	fn send_warp_sync_request(&mut self, who: PeerId, request: WarpProofRequest<B>) {
-		if !self.chain_sync.is_peer_known(&who) {
-			trace!(target: LOG_TARGET, "Cannot send warp proof request to unknown peer {who}");
+	fn send_warp_sync_request(&mut self, peer_id: PeerId, request: WarpProofRequest<B>) {
+		if !self.chain_sync.is_peer_known(&peer_id) {
+			trace!(target: LOG_TARGET, "Cannot send warp proof request to unknown peer {peer_id}");
 			debug_assert!(false);
 			return
 		}
@@ -1148,11 +1148,11 @@ where
 		let (tx, rx) = oneshot::channel();
 
 		self.pending_responses
-			.insert(who, Box::pin(async move { (who, PeerRequest::WarpProof, rx.await) }));
+			.insert(peer_id, Box::pin(async move { (peer_id, PeerRequest::WarpProof, rx.await) }));
 
 		match &self.warp_sync_protocol_name {
 			Some(name) => self.network_service.start_request(
-				who,
+				peer_id,
 				name.clone(),
 				request.encode(),
 				tx,
