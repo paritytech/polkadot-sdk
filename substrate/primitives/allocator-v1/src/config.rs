@@ -56,7 +56,7 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
 	}
 	#[cfg(not(feature = "improved_panic_error_reporting"))]
 	{
-		sp_io::logging::log(LogLevel::Error, "runtime", message.as_bytes());
+		sp_io::logging::log(sp_core::LogLevel::Error, "runtime", message.as_bytes());
 		core::arch::wasm32::unreachable();
 	}
 }
@@ -72,7 +72,7 @@ pub fn oom(_layout: core::alloc::Layout) -> ! {
 	}
 	#[cfg(not(feature = "improved_panic_error_reporting"))]
 	{
-		sp_io::logging::log(LogLevel::Error, "runtime", b"Runtime memory exhausted. Aborting");
+		sp_io::logging::log(sp_core::LogLevel::Error, "runtime", b"Runtime memory exhausted. Aborting");
 		core::arch::wasm32::unreachable();
 	}
 }
