@@ -117,7 +117,7 @@ pub struct TrimmingStatus {
 
 impl TrimmingStatus {
 	pub fn is_trimmed(&self) -> bool {
-		self.weight > 0 ||  self.length > 0
+		self.weight > 0 || self.length > 0
 	}
 
 	pub fn trimmed_weight(&self) -> usize {
