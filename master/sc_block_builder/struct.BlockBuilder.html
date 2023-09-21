@@ -3,7 +3,7 @@
     Block: <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>,
     A: ProvideRuntimeApi&lt;Block&gt; + 'a,
     A::Api: <a class="trait" href="trait.BlockBuilderApi.html" title="trait sc_block_builder::BlockBuilderApi">BlockBuilderApi</a>&lt;Block&gt; + ApiExt&lt;Block&gt;,
-    B: Backend&lt;Block&gt;,</span></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.new" class="method"><a class="srclink rightside" href="../src/sc_block_builder/lib.rs.html#154-194">source</a><h4 class="code-header">pub fn <a href="#method.new" class="fn">new</a>(
+    B: <a class="trait" href="../sc_client_api/backend/trait.Backend.html" title="trait sc_client_api::backend::Backend">Backend</a>&lt;Block&gt;,</span></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.new" class="method"><a class="srclink rightside" href="../src/sc_block_builder/lib.rs.html#154-194">source</a><h4 class="code-header">pub fn <a href="#method.new" class="fn">new</a>(
     api: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.reference.html">&amp;'a A</a>,
     parent_hash: Block::<a class="associatedtype" href="../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
     parent_number: <a class="type" href="../sp_runtime/traits/type.NumberFor.html" title="type sp_runtime::traits::NumberFor">NumberFor</a>&lt;Block&gt;,
