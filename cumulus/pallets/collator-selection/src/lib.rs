@@ -593,11 +593,10 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(new_deposit >= <CandidacyBond<T>>::get(), Error::<T>::DepositTooLow);
 			// The function below will try to mutate the `CandidateList` entry for the caller to
-			// update their deposit to the new value of `new_deposit`. The return value is a tuple
-			// of the position of the entry in the list, used for weight calculation, and the new
-			// bonded amount.
-			let (new_amount, length) = <CandidateList<T>>::try_mutate(
-				|candidates| -> Result<(BalanceOf<T>, usize), DispatchError> {
+			// update their deposit to the new value of `new_deposit`. The return value is the
+			// position of the entry in the list, used for weight calculation.
+			let length =
+				<CandidateList<T>>::try_mutate(|candidates| -> Result<usize, DispatchError> {
 					let mut idx = candidates
 						.iter()
 						.position(|candidate_info| candidate_info.who == who)
@@ -623,13 +622,12 @@ pub mod pallet {
 						}
 					}
 
-					Ok((new_deposit, candidate_count))
-				},
-			)?;
+					Ok(candidate_count)
+				})?;
 
 			Self::deposit_event(Event::CandidateBondUpdated {
 				account_id: who,
-				deposit: new_amount,
+				deposit: new_deposit,
 			});
 			Ok(Some(T::WeightInfo::update_bond(length as u32)).into())
 		}
