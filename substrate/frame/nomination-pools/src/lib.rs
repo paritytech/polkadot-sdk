@@ -353,7 +353,7 @@
 
 use codec::Codec;
 use frame_support::{
-	defensive, ensure,
+	defensive, defensive_assert, ensure,
 	pallet_prelude::{MaxEncodedLen, *},
 	storage::bounded_btree_map::BoundedBTreeMap,
 	traits::{
@@ -1012,9 +1012,10 @@ impl<T: Config> BondedPool<T> {
 	fn transferable_balance(&self) -> BalanceOf<T> {
 		let account = self.bonded_account();
 		// Note on why we can't use `Currency::reducible_balance`: Since pooled account has a
-		// provider (staking pallet), the account can not be set expendable by Nomination Pallet.
-		// This means reducible balance always returns balance preserving ED in the account. What
-		// we want though is transferable balance given the account can be dusted.
+		// provider (staking pallet), the account can not be set expendable by
+		// `pallet-nomination-pool`. This means reducible balance always returns balance preserving
+		// ED in the account. What we want though is transferable balance given the account can be
+		// dusted.
 		T::Currency::balance(&account)
 			.saturating_sub(T::Staking::active_stake(&account).unwrap_or_default())
 	}
@@ -1546,7 +1547,7 @@ pub mod pallet {
 		type Currency: FunMutate<Self::AccountId>
 			+ FunMutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>;
 
-		/// The overarching freeze reason
+		/// The overarching freeze reason.
 		type RuntimeFreezeReason: From<FreezeReason>;
 
 		/// The type that is used for reward counter.
@@ -2748,15 +2749,21 @@ impl<T: Config> Pallet<T> {
 		// consumers anyway.
 		// 2. the bonded account should become a 'killed stash' in the staking system, and all of
 		//    its consumers removed.
-		debug_assert_eq!(frame_system::Pallet::<T>::consumers(&reward_account), 0);
-		debug_assert_eq!(frame_system::Pallet::<T>::consumers(&bonded_account), 0);
-		debug_assert_eq!(
-			T::Staking::total_stake(&bonded_account).unwrap_or_default(),
-			Zero::zero()
+		defensive_assert!(
+			frame_system::Pallet::<T>::consumers(&reward_account) == 0,
+			"reward account of dissolving pool should have no consumers"
+		);
+		defensive_assert!(
+			frame_system::Pallet::<T>::consumers(&bonded_account) == 0,
+			"bonded account of dissolving pool should have no consumers"
+		);
+		defensive_assert!(
+			T::Staking::total_stake(&bonded_account).unwrap_or_default() == Zero::zero(),
+			"dissolving pool should not have any stake in the staking pallet"
 		);
 
 		// This shouldn't fail, but if it does we don't really care. Remaining balance can consist
-		// of unclaimed pending commission, errorneous transfers to the reward account, etc.
+		// of unclaimed pending commission, erroneous transfers to the reward account, etc.
 		let reward_pool_remaining = T::Currency::reducible_balance(
 			&reward_account,
 			Preservation::Expendable,
@@ -2769,7 +2776,15 @@ impl<T: Config> Pallet<T> {
 			Preservation::Expendable,
 		);
 
-		// NOTE: this is purely defensive.
+		defensive_assert!(
+			T::Currency::total_balance(&reward_account) == Zero::zero(),
+			"could not transfer all amount to depositor while dissolving pool"
+		);
+		defensive_assert!(
+			T::Currency::total_balance(&bonded_pool.bonded_account()) == Zero::zero(),
+			"dissolving pool should not have any balance"
+		);
+		// NOTE: Defensively force set balance to zero.
 		T::Currency::set_balance(&reward_account, Zero::zero());
 		T::Currency::set_balance(&bonded_pool.bonded_account(), Zero::zero());
 
