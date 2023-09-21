@@ -406,6 +406,7 @@ mod tests {
 				backend.clone(),
 			)
 			.unwrap(),
+			wasmtime_precompiled_path: None,
 			execution_extensions: Arc::new(ExecutionExtensions::new(
 				None,
 				Arc::new(executor.clone()),
