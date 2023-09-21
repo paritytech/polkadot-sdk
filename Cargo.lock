@@ -16643,6 +16643,7 @@ name = "sp-allocator-v1"
 version = "7.0.0"
 dependencies = [
  "lol_alloc",
+ "sp-core",
  "sp-io",
  "sp-std",
 ]
