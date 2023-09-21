@@ -24,6 +24,12 @@ if [ "$#" -e 1 ]; then
   fi
 fi
 
+# Ensure we run the ui tests
+export RUN_UI_TESTS=1
+# We don't need any wasm files for ui tests
+export SKIP_WASM_BUILD=1
+# Let trybuild overwrite the .stderr files
+export TRYBUILD=overwrite
 
 # ./substrate
 $RUSTUP_RUN cargo test -p sp-runtime-interface ui
