@@ -156,6 +156,8 @@ pub mod pallet {
 		NotRequested,
 		/// More than `MAX_HASH_UPGRADE_BULK_COUNT` hashes were requested to be upgraded at once.
 		TooMany,
+		/// Too few hashes were requested to be upgraded (i.e. zero).
+		TooFew,
 	}
 
 	/// A reason for this pallet placing a hold on funds.
@@ -242,6 +244,7 @@ pub mod pallet {
 			hashes: Vec<T::Hash>,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
+			ensure!(hashes.len() > 0, Error::<T>::TooFew);
 			ensure!(hashes.len() <= MAX_HASH_UPGRADE_BULK_COUNT as usize, Error::<T>::TooMany);
 
 			let updated = hashes.iter().map(Self::do_ensure_updated).filter(|b| *b).count() as u32;
