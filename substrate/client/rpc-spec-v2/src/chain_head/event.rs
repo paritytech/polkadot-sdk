@@ -392,7 +392,7 @@ mod tests {
 		let exp = concat!(
 			r#"{"event":"initialized","finalizedBlockHash":"0x1","#,
 			r#""finalizedBlockRuntime":{"type":"valid","spec":{"specName":"ABC","implName":"Impl","authoringVersion":0,"#,
-			r#""specVersion":1,"implVersion":0,"apis":[],"transactionVersion":0,"stateVersion":0}}}"#,
+			r#""specVersion":1,"implVersion":0,"apis":{},"transactionVersion":0,"stateVersion":0}}}"#,
 		);
 		assert_eq!(ser, exp);
 
@@ -429,6 +429,7 @@ mod tests {
 			spec_name: "ABC".into(),
 			impl_name: "Impl".into(),
 			spec_version: 1,
+			apis: vec![([0, 0, 0, 0, 0, 0, 0, 0], 2), ([1, 0, 0, 0, 0, 0, 0, 0], 3)].into(),
 			..Default::default()
 		};
 
@@ -446,7 +447,7 @@ mod tests {
 		let exp = concat!(
 			r#"{"event":"newBlock","blockHash":"0x1","parentBlockHash":"0x2","#,
 			r#""newRuntime":{"type":"valid","spec":{"specName":"ABC","implName":"Impl","authoringVersion":0,"#,
-			r#""specVersion":1,"implVersion":0,"apis":[],"transactionVersion":0,"stateVersion":0}}}"#,
+			r#""specVersion":1,"implVersion":0,"apis":{"0x0000000000000000":2,"0x0100000000000000":3},"transactionVersion":0,"stateVersion":0}}}"#,
 		);
 		assert_eq!(ser, exp);
 

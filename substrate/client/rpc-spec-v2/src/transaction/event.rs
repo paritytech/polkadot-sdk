@@ -45,7 +45,6 @@ pub struct TransactionBlock<Hash> {
 	/// The hash of the block the transaction was included into.
 	pub hash: Hash,
 	/// The index (zero-based) of the transaction within the body of the block.
-	#[serde(with = "as_string")]
 	pub index: usize,
 }
 
@@ -288,7 +287,7 @@ mod tests {
 			}));
 		let ser = serde_json::to_string(&event).unwrap();
 
-		let exp = r#"{"event":"bestChainBlockIncluded","block":{"hash":"0x0000000000000000000000000000000000000000000000000000000000000001","index":"2"}}"#;
+		let exp = r#"{"event":"bestChainBlockIncluded","block":{"hash":"0x0000000000000000000000000000000000000000000000000000000000000001","index":2}}"#;
 		assert_eq!(ser, exp);
 
 		let event_dec: TransactionEvent<H256> = serde_json::from_str(exp).unwrap();
@@ -303,7 +302,7 @@ mod tests {
 		});
 		let ser = serde_json::to_string(&event).unwrap();
 
-		let exp = r#"{"event":"finalized","block":{"hash":"0x0000000000000000000000000000000000000000000000000000000000000001","index":"10"}}"#;
+		let exp = r#"{"event":"finalized","block":{"hash":"0x0000000000000000000000000000000000000000000000000000000000000001","index":10}}"#;
 		assert_eq!(ser, exp);
 
 		let event_dec: TransactionEvent<H256> = serde_json::from_str(exp).unwrap();
