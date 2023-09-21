@@ -27,7 +27,7 @@ use crate::{
 	schema::v1::{StateRequest, StateResponse},
 	service::{self, chain_sync::ToServiceCommand},
 	warp::WarpSyncParams,
-	ChainSync, ClientError, PeerBlockRequest, SyncingService,
+	BlockRequestEvent, ChainSync, ClientError, SyncingService,
 };
 
 use codec::{Decode, Encode};
@@ -740,13 +740,15 @@ where
 				ToServiceCommand::BlocksProcessed(imported, count, results) => {
 					for result in self.chain_sync.on_blocks_processed(imported, count, results) {
 						match result {
-							Ok(PeerBlockRequest { peer_id, request, drop_pending_response }) => {
-								if drop_pending_response {
+							Ok(event) => match event {
+								BlockRequestEvent::SendRequest { peer_id, request } => {
+									// drop obsolete pending response first
 									self.pending_responses.remove(&peer_id);
-								}
-								if let Some(request) = request {
 									self.send_block_request(peer_id, request);
-								}
+								},
+								BlockRequestEvent::RemoveStale { peer_id } => {
+									self.pending_responses.remove(&peer_id);
+								},
 							},
 							Err(BadPeer(id, repu)) => {
 								self.network_service

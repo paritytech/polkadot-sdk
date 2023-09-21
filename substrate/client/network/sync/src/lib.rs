@@ -231,12 +231,11 @@ struct GapSync<B: BlockT> {
 	target: NumberFor<B>,
 }
 
-/// A struct used to notify [`engine::SyncingEngine`] if we want to perform a block request
-/// and/or drop an obsolete pending response.
-struct PeerBlockRequest<B: BlockT> {
-	peer_id: PeerId,
-	request: Option<BlockRequest<B>>,
-	drop_pending_response: bool,
+/// An event used to notify [`engine::SyncingEngine`] if we want to perform a block request
+/// or drop an obsolete pending response.
+enum BlockRequestEvent<B: BlockT> {
+	SendRequest { peer_id: PeerId, request: BlockRequest<B> },
+	RemoveStale { peer_id: PeerId },
 }
 
 /// The main data structure which contains all the state for a chains
@@ -1311,7 +1310,7 @@ where
 	/// Restart the sync process. This will reset all pending block requests and return an iterator
 	/// of new block requests to make to peers. Peers that were downloading finality data (i.e.
 	/// their state was `DownloadingJustification`) are unaffected and will stay in the same state.
-	fn restart(&mut self) -> impl Iterator<Item = Result<PeerBlockRequest<B>, BadPeer>> + '_ {
+	fn restart(&mut self) -> impl Iterator<Item = Result<BlockRequestEvent<B>, BadPeer>> + '_ {
 		self.blocks.clear();
 		if let Err(e) = self.reset_sync_start_point() {
 			warn!(target: LOG_TARGET, "💔  Unable to restart sync: {e}");
@@ -1325,30 +1324,20 @@ where
 		);
 		let old_peers = std::mem::take(&mut self.peers);
 
-		old_peers.into_iter().filter_map(move |(id, mut p)| {
+		old_peers.into_iter().filter_map(move |(peer_id, mut p)| {
 			// peers that were downloading justifications
 			// should be kept in that state.
 			if let PeerSyncState::DownloadingJustification(_) = p.state {
 				// We make sure our commmon number is at least something we have.
 				p.common_number = self.best_queued_number;
-				self.peers.insert(id, p);
+				self.peers.insert(peer_id, p);
 				return None
 			}
 
 			// handle peers that were in other states.
-			match self.new_peer(id, p.best_hash, p.best_number) {
-				Ok(None) => Some(Ok(PeerBlockRequest {
-					peer_id: id,
-					request: None,
-					// remove obsolete pending response since it's not a justification
-					drop_pending_response: true,
-				})),
-				Ok(Some(x)) => Some(Ok(PeerBlockRequest {
-					peer_id: id,
-					request: Some(x),
-					// remove obsolete pending response since it's not a justification
-					drop_pending_response: true,
-				})),
+			match self.new_peer(peer_id, p.best_hash, p.best_number) {
+				Ok(None) => Some(Ok(BlockRequestEvent::RemoveStale { peer_id })),
+				Ok(Some(request)) => Some(Ok(BlockRequestEvent::SendRequest { peer_id, request })),
 				Err(e) => Some(Err(e)),
 			}
 		})
@@ -1935,7 +1924,7 @@ where
 		imported: usize,
 		count: usize,
 		results: Vec<(Result<BlockImportStatus<NumberFor<B>>, BlockImportError>, B::Hash)>,
-	) -> Box<dyn Iterator<Item = Result<PeerBlockRequest<B>, BadPeer>>> {
+	) -> Box<dyn Iterator<Item = Result<BlockRequestEvent<B>, BadPeer>>> {
 		trace!(target: LOG_TARGET, "Imported {imported} of {count}");
 
 		let mut output = Vec::new();
@@ -2588,11 +2577,11 @@ mod test {
 		let block_requests = sync.restart();
 
 		// which should make us send out block requests to the first two peers
-		assert!(block_requests.map(|r| r.unwrap()).all(
-			|PeerBlockRequest { peer_id, request, .. }| {
-				(peer_id == peer_id1 || peer_id == peer_id2) && request.is_some()
-			}
-		));
+		assert!(block_requests.map(|r| r.unwrap()).all(|event| match event {
+			BlockRequestEvent::SendRequest { peer_id, .. } =>
+				peer_id == peer_id1 || peer_id == peer_id2,
+			BlockRequestEvent::RemoveStale { .. } => false,
+		}));
 
 		// peer 3 should be unaffected it was downloading finality data
 		assert_eq!(
@@ -3397,14 +3386,25 @@ mod test {
 		assert_eq!(pending_responses.len(), 2);
 
 		// restart sync
-		let requests = sync.restart().collect::<Vec<_>>();
-		for request in requests.iter() {
-			let PeerBlockRequest { peer_id, request: _, drop_pending_response } =
-				request.as_ref().unwrap();
-			drop_pending_response.then(|| pending_responses.remove(&peer_id));
+		let request_events = sync.restart().collect::<Vec<_>>();
+		for event in request_events.iter() {
+			match event.as_ref().unwrap() {
+				BlockRequestEvent::RemoveStale { peer_id } => {
+					pending_responses.remove(&peer_id);
+				},
+				BlockRequestEvent::SendRequest { peer_id, .. } => {
+					// we drop obsolete response, but don't register a new request, it's checked in
+					// the `assert!` below
+					pending_responses.remove(&peer_id);
+				},
+			}
 		}
-		assert!(requests.iter().any(|res| res.as_ref().unwrap().peer_id == peers[0] &&
-			res.as_ref().unwrap().request.is_some()));
+		assert!(request_events.iter().any(|event| {
+			match event.as_ref().unwrap() {
+				BlockRequestEvent::RemoveStale { .. } => false,
+				BlockRequestEvent::SendRequest { peer_id, .. } => peer_id == &peers[0],
+			}
+		}));
 
 		assert_eq!(pending_responses.len(), 1);
 		assert!(pending_responses.contains(&peers[1]));
