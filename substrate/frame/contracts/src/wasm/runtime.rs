@@ -2676,13 +2676,17 @@ pub mod env {
 		let message: VersionedXcm<CallOf<E::T>> =
 			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
 
-		let max_weight = ctx.ext.gas_meter().gas_left();
-		let max_weight =
-			max_weight.max(<<E::T as Config>::Xcm as XCM<E::T>>::WeightInfo::execute());
-		let dispatch_info = DispatchInfo { weight: max_weight, ..Default::default() };
+		let gas_left = ctx.ext.gas_meter().gas_left();
+		let execute_weight = <<E::T as Config>::Xcm as XCM<E::T>>::WeightInfo::execute();
+		let dispatch_info =
+			DispatchInfo { weight: gas_left.max(execute_weight), ..Default::default() };
 
 		ctx.call_dispatchable(dispatch_info, |ext| {
-			<<E::T as Config>::Xcm as XCM<E::T>>::execute(ext.address(), message, max_weight)
+			<<E::T as Config>::Xcm as XCM<E::T>>::execute(
+				ext.address(),
+				message,
+				gas_left.saturating_sub(execute_weight),
+			)
 		})
 	}
 
