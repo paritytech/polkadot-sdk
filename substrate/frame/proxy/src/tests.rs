@@ -62,6 +62,7 @@ impl pallet_balances::Config for Test {
 	type RuntimeHoldReason = ();
 	type ReserveIdentifier = [u8; 8];
 	type DustRemoval = ();
+	type AccountId = u32;
 	type AccountStore = System;
 	type ExistentialDeposit = ConstU64<1>;
 }
