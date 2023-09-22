@@ -72,31 +72,13 @@ pub struct Extensions {
 	pub light_sync_state: sc_sync_state_rpc::LightSyncStateExtension,
 }
 
-// Generic chain spec, in case when we don't have the native runtime.
-pub type GenericChainSpec = service::GenericChainSpec<(), Extensions>;
-
 /// The `ChainSpec` parameterized for the westend runtime.
 #[cfg(feature = "westend-native")]
 pub type WestendChainSpec = service::GenericChainSpec<westend::RuntimeGenesisConfig, Extensions>;
 
-/// The `ChainSpec` parameterized for the westend runtime.
-// Dummy chain spec, but that is fine when we don't have the native runtime.
-#[cfg(not(feature = "westend-native"))]
-pub type WestendChainSpec = GenericChainSpec;
-
 /// The `ChainSpec` parameterized for the rococo runtime.
 #[cfg(feature = "rococo-native")]
 pub type RococoChainSpec = service::GenericChainSpec<RococoGenesisExt, Extensions>;
-
-/// The `ChainSpec` parameterized for the `versi` runtime.
-///
-/// As of now `Versi` will just be a clone of `Rococo`, until we need it to differ.
-pub type VersiChainSpec = RococoChainSpec;
-
-/// The `ChainSpec` parameterized for the rococo runtime.
-// Dummy chain spec, but that is fine when we don't have the native runtime.
-#[cfg(not(feature = "rococo-native"))]
-pub type RococoChainSpec = GenericChainSpec;
 
 /// Extension for the Rococo genesis config to support a custom changes to the genesis state.
 #[derive(serde::Serialize, serde::Deserialize)]
