@@ -6,7 +6,7 @@ set -e
 # by default current rust stable will be used
 RUSTUP_RUN=""
 # check if we have a parameter
-# ./substrate/.maintain/update-rust-stable.sh 1.70
+# ./scripts/update-ui-tests.sh 1.70
 if [ ! -z "$1" ]; then
  echo "RUST_VERSION: $1"
   # This will run all UI tests with the rust stable 1.70.
