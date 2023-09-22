@@ -223,7 +223,6 @@ mod benchmarks {
 		let deposit: BalanceOf<T> = config.hrmp_sender_deposit.unique_saturated_into();
 
 		let para: ParaId = 1u32.into();
-		let para_origin: crate::Origin = 1u32.into();
 		register_parachain_with_balance::<T>(para, deposit);
 		T::Currency::make_free_balance_be(&para.into_account_truncating(), deposit * 256u32.into());
 
