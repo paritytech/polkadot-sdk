@@ -23,7 +23,6 @@ pub mod extensions;
 
 pub mod messages_api;
 pub mod messages_benchmarking;
-pub mod messages_call_ext;
 pub mod parachains_benchmarking;
 
 mod mock;

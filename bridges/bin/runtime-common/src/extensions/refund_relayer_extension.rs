@@ -19,9 +19,6 @@
 //! with calls that are: delivering new message and all necessary underlying headers
 //! (parachain or relay chain).
 
-use crate::messages_call_ext::{
-	CallHelper as MessagesCallHelper, CallInfo as MessagesCallInfo, MessagesCallSubType,
-};
 use bp_messages::{ChainWithMessages, LaneId, MessageNonce};
 use bp_relayers::{ExplicitOrAccountParams, RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::{Chain, Parachain, RangeInclusiveExt, StaticStrProvider};
@@ -35,7 +32,10 @@ use frame_support::{
 use pallet_bridge_grandpa::{
 	CallSubType as GrandpaCallSubType, SubmitFinalityProofHelper, SubmitFinalityProofInfo,
 };
-use pallet_bridge_messages::Config as MessagesConfig;
+use pallet_bridge_messages::{
+	CallHelper as MessagesCallHelper, CallInfo as MessagesCallInfo,
+	CallSubType as MessagesCallSubType, Config as MessagesConfig,
+};
 use pallet_bridge_parachains::{
 	BoundedBridgeGrandpaConfig, CallSubType as ParachainsCallSubType, Config as ParachainsConfig,
 	RelayBlockNumber, SubmitParachainHeadsHelper, SubmitParachainHeadsInfo,
@@ -935,13 +935,7 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::{
-		messages_call_ext::{
-			BaseMessagesProofInfo, ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo,
-			UnrewardedRelayerOccupation,
-		},
-		mock::*,
-	};
+	use crate::mock::*;
 	use bp_header_chain::StoredHeaderDataBuilder;
 	use bp_messages::{
 		source_chain::FromBridgedChainMessagesDeliveryProof,
@@ -959,7 +953,10 @@ pub(crate) mod tests {
 		weights::Weight,
 	};
 	use pallet_bridge_grandpa::{Call as GrandpaCall, Pallet as GrandpaPallet, StoredAuthoritySet};
-	use pallet_bridge_messages::{Call as MessagesCall, Pallet as MessagesPallet};
+	use pallet_bridge_messages::{
+		BaseMessagesProofInfo, Call as MessagesCall, Pallet as MessagesPallet,
+		ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo, UnrewardedRelayerOccupation,
+	};
 	use pallet_bridge_parachains::{
 		Call as ParachainsCall, Pallet as ParachainsPallet, RelayBlockHash,
 	};
