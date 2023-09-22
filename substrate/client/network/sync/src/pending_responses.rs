@@ -16,8 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! `PendingResponses` is responsible for keeping track of pending responses and
-//! polling them, The [`Stream`] implemented by `PendingResponses` never terminates.
+//! [`PendingResponses`] is responsible for keeping track of pending responses and
+//! polling them, The [`Stream`] implemented by [`PendingResponses`] never terminates.
 
 use futures::{channel::oneshot, future::BoxFuture, stream::Stream, FutureExt};
 use libp2p::PeerId;
@@ -33,9 +33,10 @@ use std::{
 /// Log target for this file.
 const LOG_TARGET: &'static str = "sync";
 
-/// Response result
+/// Response result.
 type ResponseResult = Result<Result<Vec<u8>, RequestFailure>, oneshot::Canceled>;
 
+/// A future yielding [`ResponseResult`].
 type ResponseFuture = BoxFuture<'static, ResponseResult>;
 
 /// An event we receive once a pending response future resolves.
