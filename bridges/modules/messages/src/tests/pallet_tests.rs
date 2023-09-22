@@ -168,7 +168,7 @@ fn pallet_rejects_transactions_if_halted() {
 #[test]
 fn receive_messages_fails_if_dispatcher_is_inactive() {
 	run_test(|| {
-		TestMessageDispatch::deactivate();
+		TestMessageDispatch::deactivate(test_lane_id());
 		let proof = prepare_messages_proof(vec![message(1, REGULAR_PAYLOAD)], None);
 		assert_noop!(
 			Pallet::<TestRuntime>::receive_messages_proof(
@@ -178,7 +178,7 @@ fn receive_messages_fails_if_dispatcher_is_inactive() {
 				1,
 				REGULAR_PAYLOAD.declared_weight,
 			),
-			Error::<TestRuntime, ()>::MessageDispatchInactive,
+			Error::<TestRuntime, ()>::LanesManager(LanesManagerError::LaneDispatcherInactive),
 		);
 	});
 }

@@ -341,6 +341,14 @@ impl DeliveryConfirmationPayments<AccountId> for TestDeliveryConfirmationPayment
 pub struct TestMessageDispatch;
 
 impl TestMessageDispatch {
+	pub fn deactivate(lane: LaneId) {
+		// "enqueue" enough (to deactivate dispatcher) messages at dispatcher
+		let latest_received_nonce = BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX + 1;
+		for _ in 1..=latest_received_nonce {
+			Self::emulate_enqueued_message(lane);
+		}
+	}
+
 	pub fn emulate_enqueued_message(lane: LaneId) {
 		let key = (b"dispatched", lane).encode();
 		let dispatched = frame_support::storage::unhashed::get_or_default::<MessageNonce>(&key[..]);

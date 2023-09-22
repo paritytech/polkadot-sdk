@@ -97,8 +97,8 @@ impl<C: Chain> HeaderChain<C> for () {
 
 	fn verify_storage_proof(
 		_header_hash: HashOf<C>,
-		_db: UnverifiedStorageProof,
-	) -> Result<VerifiedStorageProof, HeaderChainError> {
+		_storage_proof: RawStorageProof,
+	) -> Result<StorageProofChecker<HasherOf<C>>, HeaderChainError> {
 		Err(HeaderChainError::UnknownHeader)
 	}
 }
