@@ -1358,7 +1358,7 @@ pub mod pallet {
 
 /// This wrapper is created for handling the synchronization of [`Snapshot`], [`SnapshotMetadata`]
 /// and [`DesiredTargets`] storage items.
-pub struct SnapshotWrapper<T>(PhantomData<T>);
+pub struct SnapshotWrapper<T>(sp_std::marker::PhantomData<T>);
 
 impl<T: Config> SnapshotWrapper<T> {
 	/// Kill all snapshot related storage items at the same time.
@@ -1531,11 +1531,6 @@ impl<T: Config> Pallet<T> {
 			weight,
 			DispatchClass::Mandatory,
 		);
-	}
-
-	/// Kill everything created by [`Pallet::create_snapshot`].
-	pub fn kill_snapshot() {
-		SnapshotWrapper::<T>::kill();
 	}
 
 	/// Checks the feasibility of a solution.
