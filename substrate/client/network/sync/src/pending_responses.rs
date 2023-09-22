@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! [`PendingResponses`] is responsible for keeping track of pending responses and
-//! polling them, The [`Stream`] implemented by [`PendingResponses`] never terminates.
+//! polling them. The [`Stream`] implemented by [`PendingResponses`] never terminates.
 
 use futures::{channel::oneshot, future::BoxFuture, stream::Stream, FutureExt};
 use libp2p::PeerId;
