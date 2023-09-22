@@ -42,8 +42,8 @@ run the node directly from the command-line.
 
 ## Building
 
-Since the Polkadot node is based on Substrate, first set up your build environment according to the instructions at
-[docs.substrate.io](https://docs.substrate.io/install/).
+Since the Polkadot node is based on Substrate, first set up your build environment according to the
+[Substrate installation instructions](https://docs.substrate.io/install/).
 
 ### Install via Cargo
 
