@@ -1356,30 +1356,30 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 }
 
-/// This Wrapper is created for handling the synchronization of `Snapshot`, `SnapshotMetadata` and
-/// `DesiredTargets` storage items
+/// This wrapper is created for handling the synchronization of [`Snapshot`], [`SnapshotMetadata`]
+/// and [`DesiredTargets`] storage items.
 pub struct SnapshotWrapper<T>(PhantomData<T>);
 
 impl<T: Config> SnapshotWrapper<T> {
-	/// kill all snapshot related storage items at the same time
+	/// Kill all snapshot related storage items at the same time.
 	pub fn kill() {
 		<Snapshot<T>>::kill();
 		<SnapshotMetadata<T>>::kill();
 		<DesiredTargets<T>>::kill();
 	}
-	/// Set all snapshot related storage items at the same time
+	/// Set all snapshot related storage items at the same time.
 	pub fn set(metadata: SolutionOrSnapshotSize, desired_targets: u32, buffer: Vec<u8>) {
 		<SnapshotMetadata<T>>::put(metadata);
 		<DesiredTargets<T>>::put(desired_targets);
 		sp_io::storage::set(&<Snapshot<T>>::hashed_key(), &buffer);
 	}
 
-	/// Check if all of the storage items exist
+	/// Check if all of the storage items exist.
 	pub fn exists() -> bool {
 		<Snapshot<T>>::exists() && <SnapshotMetadata<T>>::exists() && <DesiredTargets<T>>::exists()
 	}
 
-	/// Check if all of the storage items do not exist
+	/// Check if all of the storage items do not exist.
 	pub fn not_exists() -> bool {
 		!<Snapshot<T>>::exists() &&
 			!<SnapshotMetadata<T>>::exists() &&
