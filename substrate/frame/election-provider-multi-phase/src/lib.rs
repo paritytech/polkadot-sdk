@@ -276,8 +276,6 @@ pub mod signed;
 pub mod unsigned;
 pub mod weights;
 
-use frame_support::pallet_prelude::PhantomData;
-
 pub use signed::{
 	BalanceOf, GeometricDepositBase, NegativeImbalanceOf, PositiveImbalanceOf, SignedSubmission,
 	SignedSubmissionOf, SignedSubmissions, SubmissionIndicesOf,
@@ -1567,8 +1565,8 @@ impl<T: Config> Pallet<T> {
 		// Phase is off now.
 		Self::phase_transition(Phase::Off);
 
-		// Kill snapshots.
-		Self::kill_snapshot();
+		// Kill snapshots (everything created by [`Pallet::create_snapshot`]).
+		SnapshotWrapper::<T>::kill();
 	}
 
 	fn do_elect() -> Result<BoundedSupportsOf<Self>, ElectionError<T>> {
