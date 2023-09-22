@@ -1725,6 +1725,35 @@ fn rebond_emits_right_value_in_event() {
 }
 
 #[test]
+fn min_remainder_treasury_works() {
+	let min_remainder = 20;
+
+	ExtBuilder::default()
+		.nominate(true)
+		.min_remainder(min_remainder)
+		.build_and_execute(|| {
+			assert_eq!(<MinRemainderPayout<Test>>::get(), Percent::from_parts(20));
+
+			// check validators account state.
+			assert_eq!(Session::validators().len(), 2);
+			assert!(Session::validators().contains(&11) & Session::validators().contains(&21));
+			// balance of the mock treasury account is 0
+			assert_eq!(RewardRemainderUnbalanced::get(), 0);
+
+			start_active_era(1);
+
+			let treasury_payout = RewardRemainderUnbalanced::get();
+			let validators_payout = ErasValidatorReward::<Test>::get(0).unwrap();
+
+			// treasury fraction is correctly distributed (i.e. treasury payout is at least 20%).
+			assert!(
+				treasury_payout * 100 / (treasury_payout + validators_payout) >
+					min_remainder as Balance
+			);
+		})
+}
+
+#[test]
 fn reward_to_stake_works() {
 	ExtBuilder::default()
 		.nominate(false)
@@ -6058,6 +6087,27 @@ fn set_min_commission_works_with_admin_origin() {
 			RuntimeOrigin::signed(11),
 			ValidatorPrefs { commission: Perbill::from_percent(15), blocked: false }
 		));
+	})
+}
+
+#[test]
+fn set_treasury_fraction_works_with_admin_origin() {
+	ExtBuilder::default().build_and_execute(|| {
+		// no treasury fraction set initially.
+		assert_eq!(MinRemainderPayout::<Test>::get(), Zero::zero());
+
+		// root can set tresury fraction.
+		assert_ok!(Staking::set_min_treasury_fraction(
+			RuntimeOrigin::root(),
+			Percent::from_parts(10)
+		));
+		assert_eq!(MinRemainderPayout::<Test>::get(), Percent::from_parts(10));
+
+		// non priviledged origin can not set treasury fraction.
+		assert_noop!(
+			Staking::set_min_treasury_fraction(RuntimeOrigin::signed(2), Percent::from_parts(15)),
+			BadOrigin
+		);
 	})
 }
 

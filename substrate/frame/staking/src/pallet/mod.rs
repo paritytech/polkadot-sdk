@@ -597,6 +597,7 @@ pub mod pallet {
 		pub canceled_payout: BalanceOf<T>,
 		pub stakers:
 			Vec<(T::AccountId, T::AccountId, BalanceOf<T>, crate::StakerStatus<T::AccountId>)>,
+		pub min_remainder: Percent,
 		pub min_nominator_bond: BalanceOf<T>,
 		pub min_validator_bond: BalanceOf<T>,
 		pub max_validator_count: Option<u32>,
@@ -612,6 +613,7 @@ pub mod pallet {
 			ForceEra::<T>::put(self.force_era);
 			CanceledSlashPayout::<T>::put(self.canceled_payout);
 			SlashRewardFraction::<T>::put(self.slash_reward_fraction);
+			MinRemainderPayout::<T>::put(self.min_remainder);
 			MinNominatorBond::<T>::put(self.min_nominator_bond);
 			MinValidatorBond::<T>::put(self.min_validator_bond);
 			if let Some(x) = self.max_validator_count {
@@ -1784,6 +1786,16 @@ pub mod pallet {
 		pub fn set_min_commission(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			MinCommission::<T>::put(new);
+			Ok(())
+		}
+
+		/// Sets the minimum fraction of the era's inflation that should be minted directly into
+		/// the treasury.
+		#[pallet::call_index(26)]
+		#[pallet::weight(T::WeightInfo::set_min_treasury_fraction())]
+		pub fn set_min_treasury_fraction(origin: OriginFor<T>, new: Percent) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			MinRemainderPayout::<T>::put(new);
 			Ok(())
 		}
 	}

@@ -213,7 +213,7 @@ parameter_types! {
 
 parameter_types! {
 	pub static RewardRemainderUnbalanced: u128 = 0;
-	pub static MinRewardRemainder: Percent = Percent::from_parts(20);
+	pub static MinRewardRemainder: Percent = Percent::default();
 }
 
 pub struct RewardRemainderMock;
@@ -346,6 +346,7 @@ pub struct ExtBuilder {
 	initialize_first_session: bool,
 	pub min_nominator_bond: Balance,
 	min_validator_bond: Balance,
+	min_remainder: Percent,
 	balance_factor: Balance,
 	status: BTreeMap<AccountId, StakerStatus<AccountId>>,
 	stakes: BTreeMap<AccountId, Balance>,
@@ -364,6 +365,7 @@ impl Default for ExtBuilder {
 			initialize_first_session: true,
 			min_nominator_bond: ExistentialDeposit::get(),
 			min_validator_bond: ExistentialDeposit::get(),
+			min_remainder: Percent::default(),
 			status: Default::default(),
 			stakes: Default::default(),
 			stakers: Default::default(),
@@ -444,6 +446,10 @@ impl ExtBuilder {
 	}
 	pub fn balance_factor(mut self, factor: Balance) -> Self {
 		self.balance_factor = factor;
+		self
+	}
+	pub fn min_remainder(mut self, fraction: u8) -> Self {
+		self.min_remainder = Percent::from_parts(fraction);
 		self
 	}
 	fn build(self) -> sp_io::TestExternalities {
@@ -533,6 +539,7 @@ impl ExtBuilder {
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: self.min_nominator_bond,
 			min_validator_bond: self.min_validator_bond,
+			min_remainder: self.min_remainder,
 			..Default::default()
 		}
 		.assimilate_storage(&mut storage);

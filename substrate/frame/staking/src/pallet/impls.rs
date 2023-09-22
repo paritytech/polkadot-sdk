@@ -473,6 +473,8 @@ impl<T: Config> Pallet<T> {
 
 			// Set ending era reward.
 			<ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
+
+			// issue the remainder
 			T::RewardRemainder::on_unbalanced(T::Currency::issue(remainder));
 
 			// Clear offending validators.

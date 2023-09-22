@@ -287,11 +287,56 @@ mod tests {
 	#[test]
 	fn era_payout_should_give_sensible_results() {
 		assert_eq!(
-			era_payout(75, 100, Perquintill::from_percent(10), Perquintill::one(), 0,),
+			era_payout(
+				75,
+				100,
+				Perquintill::from_percent(10),
+				Perquintill::one(),
+				Percent::zero(),
+				0
+			),
 			(10, 0)
 		);
 		assert_eq!(
-			era_payout(80, 100, Perquintill::from_percent(10), Perquintill::one(), 0,),
+			era_payout(
+				80,
+				100,
+				Perquintill::from_percent(10),
+				Perquintill::one(),
+				Percent::zero(),
+				0
+			),
+			(6, 4)
+		);
+	}
+
+	#[test]
+	fn era_payout_min_remainder_works() {
+		// minimum remainder is set to 50% of total payout for the era, so the validator payout
+		// takes a cut.
+		assert_eq!(
+			era_payout(
+				75,
+				100,
+				Perquintill::from_percent(10),
+				Perquintill::one(),
+				Percent::from_parts(50),
+				0
+			),
+			(5, 5)
+		);
+		// minimum remainder is 10%. the validator payout does not take a cut because the payout
+		// remainder (`payout_remainder = max_payout - validator_payout`) is larger than the set
+		// minimum remainder.
+		assert_eq!(
+			era_payout(
+				80,
+				100,
+				Perquintill::from_percent(10),
+				Perquintill::one(),
+				Percent::from_parts(10),
+				0
+			),
 			(6, 4)
 		);
 	}
