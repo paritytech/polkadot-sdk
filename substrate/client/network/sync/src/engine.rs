@@ -23,6 +23,7 @@ use crate::{
 	block_announce_validator::{
 		BlockAnnounceValidationResult, BlockAnnounceValidator as BlockAnnounceValidatorStream,
 	},
+	block_relay_protocol::BlockDownloader,
 	service::{self, chain_sync::ToServiceCommand},
 	warp::WarpSyncParams,
 	ChainSync, ClientError, SyncingService,
@@ -304,7 +305,7 @@ where
 		warp_sync_params: Option<WarpSyncParams<B>>,
 		network_service: service::network::NetworkServiceHandle,
 		import_queue: Box<dyn ImportQueueService<B>>,
-		block_request_protocol_name: ProtocolName,
+		block_downloader: Arc<dyn BlockDownloader<B>>,
 		state_request_protocol_name: ProtocolName,
 		warp_sync_protocol_name: Option<ProtocolName>,
 		peer_store_handle: PeerStoreHandle,
@@ -396,7 +397,7 @@ where
 			metrics_registry,
 			network_service.clone(),
 			import_queue,
-			block_request_protocol_name,
+			block_downloader,
 			state_request_protocol_name,
 			warp_sync_protocol_name,
 		)?;
