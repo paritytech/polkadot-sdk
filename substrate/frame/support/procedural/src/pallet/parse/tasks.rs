@@ -147,7 +147,7 @@ impl syn::parse::Parse for TaskDef {
 }
 
 #[derive(Parse, Debug)]
-pub enum TaskAttrType {
+pub enum TaskAttrMeta {
 	#[peek(keywords::task_list, name = "#[pallet::task_list(..)]")]
 	TaskList {
 		_tasks: keywords::task_list,
@@ -190,7 +190,7 @@ pub struct PalletTaskAttr {
 	#[inside(_bracket)]
 	_colons: Token![::],
 	#[inside(_bracket)]
-	_attr: TaskAttrType,
+	_attr: TaskAttrMeta,
 }
 
 #[cfg(test)]
