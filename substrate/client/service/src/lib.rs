@@ -544,10 +544,9 @@ mod tests {
 			to: AccountKeyring::Bob.into(),
 		}
 		.into_unchecked_extrinsic();
-		block_on(pool.submit_one(&BlockId::hash(best.hash()), source, transaction.clone()))
-			.unwrap();
+		block_on(pool.submit_one(best.hash(), source, transaction.clone())).unwrap();
 		block_on(pool.submit_one(
-			&BlockId::hash(best.hash()),
+			best.hash(),
 			source,
 			ExtrinsicBuilder::new_call_do_not_propagate().nonce(1).build(),
 		))
