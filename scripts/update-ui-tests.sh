@@ -36,6 +36,3 @@ $RUSTUP_RUN cargo test -p sp-runtime-interface ui
 $RUSTUP_RUN cargo test -p sp-api-test ui
 $RUSTUP_RUN cargo test -p frame-election-provider-solution-type ui
 $RUSTUP_RUN cargo test -p frame-support-test ui
-
-# ./polkadot
-$RUSTUP_RUN cargo test -p orchestra ui
