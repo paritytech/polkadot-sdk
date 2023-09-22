@@ -83,6 +83,7 @@ assets-common = { path = "../common", default-features = false }
 pallet-xcm-bridge-hub-router = { path = "../../../../../bridges/modules/xcm-bridge-hub-router", default-features = false }
 bp-asset-hub-kusama = { path = "../../../../../bridges/primitives/chain-asset-hub-kusama", default-features = false }
 bp-asset-hub-polkadot = { path = "../../../../../bridges/primitives/chain-asset-hub-polkadot", default-features = false }
+bp-bridge-hub-kusama = { path = "../../../../../bridges/primitives/chain-bridge-hub-kusama", default-features = false }
 
 [dev-dependencies]
 asset-test-utils = { path = "../test-utils" }
@@ -169,6 +170,7 @@ std = [
 	"assets-common/std",
 	"bp-asset-hub-kusama/std",
 	"bp-asset-hub-polkadot/std",
+	"bp-bridge-hub-kusama/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-dmp-queue/std",
