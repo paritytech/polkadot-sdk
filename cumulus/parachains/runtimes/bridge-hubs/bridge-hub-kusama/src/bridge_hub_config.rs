@@ -261,5 +261,10 @@ mod tests {
 			WithBridgeHubPolkadotMessagesInstance,
 			PriorityBoostPerMessage,
 		>(FEE_BOOST_PER_MESSAGE);
+
+		assert_eq!(
+			BridgePolkadotMessagesPalletInstance::get(),
+			X1(PalletInstance(bp_bridge_hub_kusama::WITH_BRIDGE_POLKADOT_MESSAGES_PALLET_INDEX))
+		);
 	}
 }

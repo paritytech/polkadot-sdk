@@ -69,5 +69,8 @@ pub const WITH_BRIDGE_HUB_POLKADOT_MESSAGES_PALLET_NAME: &str = "BridgePolkadotM
 /// chains.
 pub const WITH_BRIDGE_HUB_POLKADOT_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
 
+/// Pallet index of `BridgeKusamaMessages: pallet_bridge_messages::<Instance1>`.
+pub const WITH_BRIDGE_KUSAMA_MESSAGES_PALLET_INDEX: u8 = 53;
+
 decl_bridge_finality_runtime_apis!(bridge_hub_polkadot);
 decl_bridge_messages_runtime_apis!(bridge_hub_polkadot);

@@ -689,7 +689,13 @@ pub mod bridging {
 	parameter_types! {
 		pub BridgeHubKusamaParaId: u32 = 1002;
 		pub BridgeHubKusama: MultiLocation = MultiLocation::new(1, X1(Parachain(BridgeHubKusamaParaId::get())));
-		pub BridgeHubKusamaWithBridgeHubPolkadotInstance: MultiLocation = MultiLocation::new(1, X2(Parachain(BridgeHubKusamaParaId::get()), PalletInstance(53)));
+		pub BridgeHubKusamaWithBridgeHubPolkadotInstance: MultiLocation = MultiLocation::new(
+			1,
+			X2(
+				Parachain(BridgeHubKusamaParaId::get()),
+				PalletInstance(bp_bridge_hub_kusama::WITH_BRIDGE_POLKADOT_MESSAGES_PALLET_INDEX)
+			)
+		);
 		pub const PolkadotNetwork: NetworkId = NetworkId::Polkadot;
 		pub AssetHubPolkadot: MultiLocation =  MultiLocation::new(2, X2(GlobalConsensus(PolkadotNetwork::get()), Parachain(bp_asset_hub_polkadot::ASSET_HUB_POLKADOT_PARACHAIN_ID)));
 		pub DotLocation: MultiLocation =  MultiLocation::new(2, X1(GlobalConsensus(PolkadotNetwork::get())));
