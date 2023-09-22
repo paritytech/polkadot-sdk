@@ -72,6 +72,7 @@ use codec::{Decode, Encode};
 use frame_support::{dispatch::PostDispatchInfo, ensure, fail, traits::Get, DefaultNoBound};
 use sp_std::{marker::PhantomData, prelude::*};
 
+mod call_ext;
 mod inbound_lane;
 mod lanes_manager;
 mod outbound_lane;
@@ -84,6 +85,7 @@ pub mod weights;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+pub use call_ext::*;
 pub use pallet::*;
 #[cfg(feature = "test-helpers")]
 pub use tests::*;
