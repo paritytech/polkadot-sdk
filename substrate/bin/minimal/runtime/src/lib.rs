@@ -68,12 +68,12 @@ type SignedExtra = (
 
 construct_runtime!(
 	pub struct Runtime {
-		System: frame_system = 0,
-		Balances: pallet_balances = 1,
-		Sudo: pallet_sudo = 2,
-		// TODO (juan) this is causing some issues in the JS side.
-		Timestamp: pallet_timestamp = 3,
-		TransactionPayment: pallet_transaction_payment = 4,
+		System: frame_system,
+		Timestamp: pallet_timestamp,
+
+		Balances: pallet_balances,
+		Sudo: pallet_sudo,
+		TransactionPayment: pallet_transaction_payment,
 	}
 );
 
@@ -102,6 +102,9 @@ impl pallet_timestamp::Config for Runtime {}
 
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig as pallet_transaction_payment::DefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
+	// TODO: this a hack to make all transactions have a fixed amount of fee. We declare length to
+	// fee function as a constant of 1, and no weight to fee.
+	type WeightToFee = FixedFee<1, <Self as pallet_balances::Config>::Balance>;
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
 }
 
@@ -110,6 +113,8 @@ type Header = HeaderFor<Runtime>;
 
 type RuntimeExecutive =
 	Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
+
+use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 
 impl_runtime_apis! {
 	impl apis::Core<Block> for Runtime {
@@ -194,6 +199,24 @@ impl_runtime_apis! {
 	impl apis::AccountNonceApi<Block, interface::AccountId, interface::Nonce> for Runtime {
 		fn account_nonce(account: interface::AccountId) -> interface::Nonce {
 			System::account_nonce(account)
+		}
+	}
+
+	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
+		Block,
+		interface::Balance,
+	> for Runtime {
+		fn query_info(uxt: ExtrinsicFor<Runtime>, len: u32) -> RuntimeDispatchInfo<interface::Balance> {
+			TransactionPayment::query_info(uxt, len)
+		}
+		fn query_fee_details(uxt: ExtrinsicFor<Runtime>, len: u32) -> FeeDetails<interface::Balance> {
+			TransactionPayment::query_fee_details(uxt, len)
+		}
+		fn query_weight_to_fee(weight: Weight) -> interface::Balance {
+			TransactionPayment::weight_to_fee(weight)
+		}
+		fn query_length_to_fee(length: u32) -> interface::Balance {
+			TransactionPayment::length_to_fee(length)
 		}
 	}
 }

@@ -25,7 +25,7 @@ pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig>;
 fn props() -> Properties {
 	let mut properties = Properties::new();
 	properties.insert("tokenDecimals".to_string(), 0.into());
-	properties.insert("tokenSymbol".to_string(), "TEST".into());
+	properties.insert("tokenSymbol".to_string(), "MINI".into());
 	properties
 }
 
@@ -35,23 +35,6 @@ pub fn development_config() -> Result<ChainSpec, String> {
 		"Development",
 		"dev",
 		ChainType::Development,
-		move || testnet_genesis(wasm_binary),
-		vec![],
-		None,
-		None,
-		None,
-		Some(props()),
-		None,
-	))
-}
-
-pub fn local_testnet_config() -> Result<ChainSpec, String> {
-	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
-
-	Ok(ChainSpec::from_genesis(
-		"Local Testnet",
-		"local_testnet",
-		ChainType::Local,
 		move || testnet_genesis(wasm_binary),
 		vec![],
 		None,

@@ -66,7 +66,7 @@ where
 	let FullDeps { client, pool, deny_unsafe } = deps;
 
 	module.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
-	// NOTE: we have intentionally ignored adding tx-pool's custom RPC here.
+	// NOTE: we have intentionally ignored adding tx-payments's custom RPC here.
 
 	Ok(module)
 }
