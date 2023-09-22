@@ -203,10 +203,7 @@ where
 		let mut ret = Vec::with_capacity(self.operation_max_storage_items);
 		let mut next_pagination_key = None;
 		for _ in 0..self.operation_max_storage_items {
-			let Some(key) = keys_iter.next() else {
-				next_pagination_key = None;
-				break
-			};
+			let Some(key) = keys_iter.next() else { break };
 
 			next_pagination_key = Some(key.clone());
 
@@ -221,8 +218,11 @@ where
 		}
 
 		// Save the next key if any to continue the iteration.
-		let maybe_next_query =
-			keys_iter.next().map(|_| QueryIter { ty, query_key, pagination_start_key });
+		let maybe_next_query = keys_iter.next().map(|_| QueryIter {
+			ty,
+			query_key,
+			pagination_start_key: next_pagination_key,
+		});
 		Ok((ret, maybe_next_query))
 	}
 
