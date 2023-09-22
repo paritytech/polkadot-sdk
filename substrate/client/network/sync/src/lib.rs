@@ -77,6 +77,7 @@ pub use service::chain_sync::SyncingService;
 mod block_announce_validator;
 mod extra_requests;
 mod futures_stream;
+mod pending_responses;
 mod schema;
 
 pub mod block_relay_protocol;

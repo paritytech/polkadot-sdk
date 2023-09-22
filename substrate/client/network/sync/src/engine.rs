@@ -24,6 +24,7 @@ use crate::{
 		BlockAnnounceValidationResult, BlockAnnounceValidator as BlockAnnounceValidatorStream,
 	},
 	block_relay_protocol::{BlockDownloader, BlockResponseError},
+	pending_responses::{PendingResponses, ResponseEvent},
 	schema::v1::{StateRequest, StateResponse},
 	service::{self, chain_sync::ToServiceCommand},
 	warp::WarpSyncParams,
@@ -34,11 +35,11 @@ use codec::{Decode, Encode};
 use futures::{
 	channel::oneshot,
 	future::{BoxFuture, Fuse},
-	Future, FutureExt, StreamExt,
+	FutureExt, StreamExt,
 };
 use futures_timer::Delay;
 use libp2p::{request_response::OutboundFailure, PeerId};
-use log::{debug, error, trace};
+use log::{debug, trace};
 use prometheus_endpoint::{
 	register, Gauge, GaugeVec, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
 };
@@ -74,7 +75,6 @@ use std::{
 	collections::{HashMap, HashSet},
 	iter,
 	num::NonZeroUsize,
-	pin::Pin,
 	sync::{
 		atomic::{AtomicBool, AtomicUsize, Ordering},
 		Arc,
@@ -211,18 +211,6 @@ pub struct Peer<B: BlockT> {
 	inbound: bool,
 }
 
-type PendingResponse<B> = Pin<
-	Box<
-		dyn Future<
-				Output = (
-					PeerId,
-					PeerRequest<B>,
-					Result<Result<Vec<u8>, RequestFailure>, oneshot::Canceled>,
-				),
-			> + Send,
-	>,
->;
-
 pub struct SyncingEngine<B: BlockT, Client> {
 	/// State machine that handles the list of in-progress requests. Only full node peers are
 	/// registered.
@@ -313,7 +301,7 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	last_notification_io: Instant,
 
 	/// Pending responses
-	pending_responses: HashMap<PeerId, PendingResponse<B>>,
+	pending_responses: PendingResponses<B>,
 
 	/// Block downloader
 	block_downloader: Arc<dyn BlockDownloader<B>>,
@@ -509,7 +497,7 @@ where
 				} else {
 					None
 				},
-				pending_responses: HashMap::new(),
+				pending_responses: PendingResponses::new(),
 				block_downloader,
 				state_request_protocol_name,
 				warp_sync_protocol_name,
@@ -888,7 +876,9 @@ where
 		self.send_chain_sync_requests();
 
 		// Poll & process pending responses.
-		let _ = self.poll_pending_responses(cx);
+		while let Poll::Ready(Some(event)) = self.pending_responses.poll_next_unpin(cx) {
+			self.process_response_event(event);
+		}
 
 		// Poll block announce validations last, because if a block announcement was received
 		// through the event stream between `SyncingEngine` and `Protocol` and the validation
@@ -1097,19 +1087,12 @@ where
 		}
 
 		let downloader = self.block_downloader.clone();
-		if let Some(_) = self.pending_responses.insert(
+
+		self.pending_responses.insert(
 			peer_id,
-			Box::pin(async move {
-				(
-					peer_id,
-					PeerRequest::Block(request.clone()),
-					downloader.download_blocks(peer_id, request).await,
-				)
-			}),
-		) {
-			error!(target: LOG_TARGET, "Discarded block pending response from peer {peer_id}");
-			debug_assert!(false);
-		}
+			PeerRequest::Block(request.clone()),
+			async move { downloader.download_blocks(peer_id, request).await }.boxed(),
+		);
 	}
 
 	fn send_state_request(&mut self, peer_id: PeerId, request: OpaqueStateRequest) {
@@ -1121,13 +1104,7 @@ where
 
 		let (tx, rx) = oneshot::channel();
 
-		if let Some(_) = self
-			.pending_responses
-			.insert(peer_id, Box::pin(async move { (peer_id, PeerRequest::State, rx.await) }))
-		{
-			error!(target: LOG_TARGET, "Discarded state pending response from peer {peer_id}");
-			debug_assert!(false);
-		}
+		self.pending_responses.insert(peer_id, PeerRequest::State, rx.boxed());
 
 		match Self::encode_state_request(&request) {
 			Ok(data) => {
@@ -1157,13 +1134,7 @@ where
 
 		let (tx, rx) = oneshot::channel();
 
-		if let Some(_) = self
-			.pending_responses
-			.insert(peer_id, Box::pin(async move { (peer_id, PeerRequest::WarpProof, rx.await) }))
-		{
-			error!(target: LOG_TARGET, "Discarded warp proof pending response from peer {peer_id}");
-			debug_assert!(false);
-		}
+		self.pending_responses.insert(peer_id, PeerRequest::WarpProof, rx.boxed());
 
 		match &self.warp_sync_protocol_name {
 			Some(name) => self.network_service.start_request(
@@ -1199,129 +1170,118 @@ where
 		Ok(OpaqueStateResponse(Box::new(response)))
 	}
 
-	fn poll_pending_responses(&mut self, cx: &mut std::task::Context) -> Poll<()> {
-		let ready_responses = self
-			.pending_responses
-			.values_mut()
-			.filter_map(|future| match future.poll_unpin(cx) {
-				Poll::Pending => None,
-				Poll::Ready(result) => Some(result),
-			})
-			.collect::<Vec<_>>();
+	fn process_response_event(&mut self, response_event: ResponseEvent<B>) {
+		let ResponseEvent { peer_id, request, response } = response_event;
 
-		for (id, request, response) in ready_responses {
-			self.pending_responses
-				.remove(&id)
-				.expect("Logic error: peer id from pending response is missing in the map.");
-
-			match response {
-				Ok(Ok(resp)) => match request {
-					PeerRequest::Block(req) => {
-						match self.block_downloader.block_response_into_blocks(&req, resp) {
-							Ok(blocks) => {
-								if let Some((peer_id, new_req)) =
-									self.chain_sync.on_block_response(id, req, blocks)
-								{
-									self.send_block_request(peer_id, new_req);
-								}
-							},
-							Err(BlockResponseError::DecodeFailed(e)) => {
-								debug!(
-									target: LOG_TARGET,
-									"Failed to decode block response from peer {:?}: {:?}.",
-									id,
-									e
-								);
-								self.network_service.report_peer(id, rep::BAD_MESSAGE);
-								self.network_service
-									.disconnect_peer(id, self.block_announce_protocol_name.clone());
-								continue
-							},
-							Err(BlockResponseError::ExtractionFailed(e)) => {
-								debug!(
-									target: LOG_TARGET,
-									"Failed to extract blocks from peer response {:?}: {:?}.",
-									id,
-									e
-								);
-								self.network_service.report_peer(id, rep::BAD_MESSAGE);
-								continue
-							},
-						}
-					},
-					PeerRequest::State => {
-						let response = match Self::decode_state_response(&resp[..]) {
-							Ok(proto) => proto,
-							Err(e) => {
-								debug!(
-									target: LOG_TARGET,
-									"Failed to decode state response from peer {id:?}: {e:?}.",
-								);
-								self.network_service.report_peer(id, rep::BAD_MESSAGE);
-								self.network_service
-									.disconnect_peer(id, self.block_announce_protocol_name.clone());
-								continue
-							},
-						};
-
-						self.chain_sync.on_state_response(id, response);
-					},
-					PeerRequest::WarpProof => {
-						self.chain_sync.on_warp_sync_response(id, EncodedProof(resp));
-					},
-				},
-				Ok(Err(e)) => {
-					debug!(target: LOG_TARGET, "Request to peer {id:?} failed: {e:?}.");
-
-					match e {
-						RequestFailure::Network(OutboundFailure::Timeout) => {
-							self.network_service.report_peer(id, rep::TIMEOUT);
-							self.network_service
-								.disconnect_peer(id, self.block_announce_protocol_name.clone());
+		match response {
+			Ok(Ok(resp)) => match request {
+				PeerRequest::Block(req) => {
+					match self.block_downloader.block_response_into_blocks(&req, resp) {
+						Ok(blocks) => {
+							if let Some((peer_id, new_req)) =
+								self.chain_sync.on_block_response(peer_id, req, blocks)
+							{
+								self.send_block_request(peer_id, new_req);
+							}
 						},
-						RequestFailure::Network(OutboundFailure::UnsupportedProtocols) => {
-							self.network_service.report_peer(id, rep::BAD_PROTOCOL);
-							self.network_service
-								.disconnect_peer(id, self.block_announce_protocol_name.clone());
-						},
-						RequestFailure::Network(OutboundFailure::DialFailure) => {
-							self.network_service
-								.disconnect_peer(id, self.block_announce_protocol_name.clone());
-						},
-						RequestFailure::Refused => {
-							self.network_service.report_peer(id, rep::REFUSED);
-							self.network_service
-								.disconnect_peer(id, self.block_announce_protocol_name.clone());
-						},
-						RequestFailure::Network(OutboundFailure::ConnectionClosed) |
-						RequestFailure::NotConnected => {
-							self.network_service
-								.disconnect_peer(id, self.block_announce_protocol_name.clone());
-						},
-						RequestFailure::UnknownProtocol => {
-							debug_assert!(false, "Block request protocol should always be known.");
-						},
-						RequestFailure::Obsolete => {
-							debug_assert!(
-								false,
-								"Can not receive `RequestFailure::Obsolete` after dropping the \
-								 response receiver.",
+						Err(BlockResponseError::DecodeFailed(e)) => {
+							debug!(
+								target: LOG_TARGET,
+								"Failed to decode block response from peer {:?}: {:?}.",
+								peer_id,
+								e
 							);
+							self.network_service.report_peer(peer_id, rep::BAD_MESSAGE);
+							self.network_service.disconnect_peer(
+								peer_id,
+								self.block_announce_protocol_name.clone(),
+							);
+							return
+						},
+						Err(BlockResponseError::ExtractionFailed(e)) => {
+							debug!(
+								target: LOG_TARGET,
+								"Failed to extract blocks from peer response {:?}: {:?}.",
+								peer_id,
+								e
+							);
+							self.network_service.report_peer(peer_id, rep::BAD_MESSAGE);
+							return
 						},
 					}
 				},
-				Err(oneshot::Canceled) => {
-					trace!(
-						target: LOG_TARGET,
-						"Request to peer {id:?} failed due to oneshot being canceled.",
-					);
-					self.network_service
-						.disconnect_peer(id, self.block_announce_protocol_name.clone());
-				},
-			}
-		}
+				PeerRequest::State => {
+					let response = match Self::decode_state_response(&resp[..]) {
+						Ok(proto) => proto,
+						Err(e) => {
+							debug!(
+								target: LOG_TARGET,
+								"Failed to decode state response from peer {peer_id:?}: {e:?}.",
+							);
+							self.network_service.report_peer(peer_id, rep::BAD_MESSAGE);
+							self.network_service.disconnect_peer(
+								peer_id,
+								self.block_announce_protocol_name.clone(),
+							);
+							return
+						},
+					};
 
-		Poll::Pending
+					self.chain_sync.on_state_response(peer_id, response);
+				},
+				PeerRequest::WarpProof => {
+					self.chain_sync.on_warp_sync_response(peer_id, EncodedProof(resp));
+				},
+			},
+			Ok(Err(e)) => {
+				debug!(target: LOG_TARGET, "Request to peer {peer_id:?} failed: {e:?}.");
+
+				match e {
+					RequestFailure::Network(OutboundFailure::Timeout) => {
+						self.network_service.report_peer(peer_id, rep::TIMEOUT);
+						self.network_service
+							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
+					},
+					RequestFailure::Network(OutboundFailure::UnsupportedProtocols) => {
+						self.network_service.report_peer(peer_id, rep::BAD_PROTOCOL);
+						self.network_service
+							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
+					},
+					RequestFailure::Network(OutboundFailure::DialFailure) => {
+						self.network_service
+							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
+					},
+					RequestFailure::Refused => {
+						self.network_service.report_peer(peer_id, rep::REFUSED);
+						self.network_service
+							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
+					},
+					RequestFailure::Network(OutboundFailure::ConnectionClosed) |
+					RequestFailure::NotConnected => {
+						self.network_service
+							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
+					},
+					RequestFailure::UnknownProtocol => {
+						debug_assert!(false, "Block request protocol should always be known.");
+					},
+					RequestFailure::Obsolete => {
+						debug_assert!(
+							false,
+							"Can not receive `RequestFailure::Obsolete` after dropping the \
+								response receiver.",
+						);
+					},
+				}
+			},
+			Err(oneshot::Canceled) => {
+				trace!(
+					target: LOG_TARGET,
+					"Request to peer {peer_id:?} failed due to oneshot being canceled.",
+				);
+				self.network_service
+					.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
+			},
+		}
 	}
 
 	/// Returns the number of peers we're connected to and that are being queried.

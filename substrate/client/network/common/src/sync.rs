@@ -204,6 +204,23 @@ pub enum PeerRequest<B: BlockT> {
 	WarpProof,
 }
 
+#[derive(Debug)]
+pub enum PeerRequestType {
+	Block,
+	State,
+	WarpProof,
+}
+
+impl<B: BlockT> PeerRequest<B> {
+	pub fn get_type(&self) -> PeerRequestType {
+		match self {
+			PeerRequest::Block(_) => PeerRequestType::Block,
+			PeerRequest::State => PeerRequestType::State,
+			PeerRequest::WarpProof => PeerRequestType::WarpProof,
+		}
+	}
+}
+
 /// Wrapper for implementation-specific state request.
 ///
 /// NOTE: Implementation must be able to encode and decode it for network purposes.
