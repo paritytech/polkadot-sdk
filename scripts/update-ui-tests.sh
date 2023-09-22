@@ -7,12 +7,15 @@ set -e
 RUSTUP_RUN=""
 # check if we have a parameter
 # ./substrate/.maintain/update-rust-stable.sh 1.70
-if [ "$#" -e 1 ]; then
+if [ ! -z "$1" ]; then
+ echo "RUST_VERSION: $1"
   # This will run all UI tests with the rust stable 1.70.
   # The script requires that rustup is installed.
   RUST_VERSION=$1
-  RUSTUP_RUN=rustup run $RUST_VERSION
+  RUSTUP_RUN="rustup run $RUST_VERSION"
 
+
+  echo "installing rustup $RUST_VERSION"
   rustup install $RUST_VERSION
   rustup component add rust-src --toolchain $RUST_VERSION
 
