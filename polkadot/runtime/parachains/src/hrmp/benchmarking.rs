@@ -22,7 +22,7 @@ use crate::{
 	paras::{Pallet as Paras, ParaKind, ParachainsCache},
 	shared::Pallet as Shared,
 };
-use frame_benchmarking::v2::*;
+use frame_benchmarking::{impl_benchmark_test_suite, v2::*, whitelisted_caller};
 use frame_support::{assert_ok, traits::Currency};
 
 type BalanceOf<T> =
@@ -421,7 +421,7 @@ mod benchmarks {
 		let sender_id: ParaId = 1u32.into();
 		let recipient_id: ParaId = 2u32.into();
 
-		let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+		let caller: T::AccountId = whitelisted_caller();
 		let config = Configuration::<T>::config();
 
 		// make sure para is registered, and has zero balance.
@@ -446,7 +446,7 @@ mod benchmarks {
 		let recipient_id: ParaId = 2u32.into();
 		let channel_id = HrmpChannelId { sender: sender_id, recipient: recipient_id };
 
-		let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+		let caller: T::AccountId = whitelisted_caller();
 		let config = Configuration::<T>::config();
 
 		// make sure para is registered, and has balance to reserve.
@@ -494,10 +494,10 @@ mod benchmarks {
 			0u128.unique_saturated_into()
 		);
 	}
-}
 
-frame_benchmarking::impl_benchmark_test_suite!(
-	Hrmp,
-	crate::mock::new_test_ext(crate::hrmp::tests::GenesisConfigBuilder::default().build()),
-	crate::mock::Test
-);
+	impl_benchmark_test_suite!(
+		Hrmp,
+		crate::mock::new_test_ext(crate::hrmp::tests::GenesisConfigBuilder::default().build()),
+		crate::mock::Test
+	);
+}
