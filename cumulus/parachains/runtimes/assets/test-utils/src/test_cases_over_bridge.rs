@@ -56,7 +56,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 	unwrap_xcmp_queue_event: Box<
 		dyn Fn(Vec<u8>) -> Option<cumulus_pallet_xcmp_queue::Event<Runtime>>,
 	>,
-	ensure_configuration: fn() -> TestBridgingConfig,
+	prepare_configuration: fn() -> TestBridgingConfig,
 	weight_limit: WeightLimit,
 	maybe_paid_export_message: Option<AssetId>,
 ) where
@@ -108,7 +108,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				local_bridge_hub_para_id,
 				bridged_target_location: target_location_from_different_consensus,
 				..
-			} = ensure_configuration();
+			} = prepare_configuration();
 
 			let reserve_account =
 				LocationToAccountId::convert_location(&target_location_from_different_consensus)
@@ -286,7 +286,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 		transfered_foreign_asset_id_amount,
 		foreign_asset_id_minimum_balance,
 	): (MultiLocation, u128, u128),
-	ensure_configuration: fn() -> TestBridgingConfig,
+	prepare_configuration: fn() -> TestBridgingConfig,
 	(bridge_instance, universal_origin, descend_origin): (Junctions, Junction, Junctions), /* bridge adds origin manipulation on the way */
 ) where
 	Runtime: frame_system::Config
@@ -330,7 +330,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			);
 
 			// prepare bridge config
-			let TestBridgingConfig { local_bridge_hub_location, .. } = ensure_configuration();
+			let TestBridgingConfig { local_bridge_hub_location, .. } = prepare_configuration();
 
 			// drip 'ED' user target account
 			let _ = <pallet_balances::Pallet<Runtime>>::deposit_creating(
@@ -537,7 +537,7 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 	unwrap_xcmp_queue_event: Box<
 		dyn Fn(Vec<u8>) -> Option<cumulus_pallet_xcmp_queue::Event<Runtime>>,
 	>,
-	ensure_configuration: fn() -> TestBridgingConfig,
+	prepare_configuration: fn() -> TestBridgingConfig,
 	weight_limit: WeightLimit,
 	maybe_paid_export_message: Option<AssetId>,
 	congested_message: fn() -> Xcm<XcmConfig::RuntimeCall>,
@@ -591,14 +591,14 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 				alice_account,
 				unwrap_pallet_xcm_event,
 				unwrap_xcmp_queue_event,
-				ensure_configuration,
+				prepare_configuration,
 				weight_limit,
 				maybe_paid_export_message,
 			);
 
 			let report_brigde_status = |is_congested: bool| {
 				// prepare bridge config
-				let TestBridgingConfig { local_bridge_hub_location, .. } = ensure_configuration();
+				let TestBridgingConfig { local_bridge_hub_location, .. } = prepare_configuration();
 
 				// Call received XCM execution
 				let xcm = if is_congested { congested_message() } else { uncongested_message() };
