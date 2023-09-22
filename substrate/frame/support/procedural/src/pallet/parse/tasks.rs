@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashSet;
+
 use derive_syn_parse::Parse;
 use proc_macro2::Span;
 use quote::ToTokens;
@@ -22,7 +24,7 @@ use syn::{
 	parse::ParseStream,
 	parse2,
 	spanned::Spanned,
-	token::{Bracket, Paren},
+	token::{Brace, Bracket, Paren, PathSep, Pound},
 	Attribute, Error, Expr, Ident, ImplItemFn, Item, ItemImpl, LitInt, Result, Token,
 };
 
@@ -90,6 +92,8 @@ impl syn::parse::Parse for TasksDef {
 			.into_iter()
 			.map(|item| parse2::<TaskDef>(item.to_token_stream()))
 			.collect::<Result<_>>()?;
+		let mut task_indices = HashSet::<LitInt>::new();
+		//for task in tasks {}
 		Ok(TasksDef { normal_attrs, tasks_attr, tasks })
 	}
 }
@@ -100,21 +104,10 @@ impl TasksDef {
 	}
 }
 
-#[derive(Parse, Debug)]
-pub struct PalletTasksAttr {
-	_pound: Token![#],
-	#[bracket]
-	_bracket: Bracket,
-	#[inside(_bracket)]
-	_pallet: keywords::pallet,
-	#[inside(_bracket)]
-	_colons: Token![::],
-	#[inside(_bracket)]
-	_attr: keywords::tasks,
-}
+pub type PalletTasksAttr = PalletTaskAttr<keywords::tasks>;
 
 pub struct TaskDef {
-	task_attrs: Vec<PalletTaskAttr>,
+	task_attrs: Vec<PalletTaskAttr<TaskAttrMeta>>,
 	item: ImplItemFn,
 }
 
@@ -137,7 +130,7 @@ impl syn::parse::Parse for TaskDef {
 					suffix.ident == "task_index")
 		});
 		item.attrs = normal_attrs;
-		let task_attrs: Vec<PalletTaskAttr> = task_attrs
+		let task_attrs: Vec<TaskAttr> = task_attrs
 			.into_iter()
 			.map(|attr| parse2(attr.to_token_stream()))
 			.collect::<Result<_>>()?;
@@ -190,65 +183,64 @@ pub struct TaskConditionAttrMeta {
 }
 
 #[derive(Parse, Debug)]
-pub struct PalletTaskAttr {
-	_pound: Token![#],
+pub struct PalletTaskAttr<T: syn::parse::Parse + core::fmt::Debug> {
+	_pound: Pound,
 	#[bracket]
 	_bracket: Bracket,
 	#[inside(_bracket)]
 	_pallet: keywords::pallet,
 	#[inside(_bracket)]
-	_colons: Token![::],
+	_colons: PathSep,
 	#[inside(_bracket)]
-	_attr: TaskAttrMeta,
+	attr: T,
 }
+
+pub type TaskAttr = PalletTaskAttr<TaskAttrMeta>;
 
 #[cfg(test)]
 use quote::quote;
 
 #[test]
 fn test_parse_pallet_task_list_() {
-	parse2::<PalletTaskAttr>(quote!(#[pallet::task_list(Something::iter())])).unwrap();
-	parse2::<PalletTaskAttr>(quote!(#[pallet::task_list(Numbers::<T, I>::iter_keys())])).unwrap();
-	parse2::<PalletTaskAttr>(quote!(#[pallet::task_list(iter())])).unwrap();
+	parse2::<TaskAttr>(quote!(#[pallet::task_list(Something::iter())])).unwrap();
+	parse2::<TaskAttr>(quote!(#[pallet::task_list(Numbers::<T, I>::iter_keys())])).unwrap();
+	parse2::<TaskAttr>(quote!(#[pallet::task_list(iter())])).unwrap();
 	assert_error_matches!(
-		parse2::<PalletTaskAttr>(quote!(#[pallet::task_list()])),
+		parse2::<TaskAttr>(quote!(#[pallet::task_list()])),
 		"expected an expression"
 	);
-	assert_error_matches!(
-		parse2::<PalletTaskAttr>(quote!(#[pallet::task_list])),
-		"expected parentheses"
-	);
+	assert_error_matches!(parse2::<TaskAttr>(quote!(#[pallet::task_list])), "expected parentheses");
 }
 
 #[test]
 fn test_parse_pallet_task_index() {
-	parse2::<PalletTaskAttr>(quote!(#[pallet::task_index(3)])).unwrap();
-	parse2::<PalletTaskAttr>(quote!(#[pallet::task_index(0)])).unwrap();
-	parse2::<PalletTaskAttr>(quote!(#[pallet::task_index(17)])).unwrap();
+	parse2::<TaskAttr>(quote!(#[pallet::task_index(3)])).unwrap();
+	parse2::<TaskAttr>(quote!(#[pallet::task_index(0)])).unwrap();
+	parse2::<TaskAttr>(quote!(#[pallet::task_index(17)])).unwrap();
 	assert_error_matches!(
-		parse2::<PalletTaskAttr>(quote!(#[pallet::task_index])),
+		parse2::<TaskAttr>(quote!(#[pallet::task_index])),
 		"expected parentheses"
 	);
 	assert_error_matches!(
-		parse2::<PalletTaskAttr>(quote!(#[pallet::task_index("hey")])),
+		parse2::<TaskAttr>(quote!(#[pallet::task_index("hey")])),
 		"expected integer literal"
 	);
 	assert_error_matches!(
-		parse2::<PalletTaskAttr>(quote!(#[pallet::task_index(0.3)])),
+		parse2::<TaskAttr>(quote!(#[pallet::task_index(0.3)])),
 		"expected integer literal"
 	);
 }
 
 #[test]
 fn test_parse_pallet_task_condition() {
-	parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(|x| x.is_some())])).unwrap();
-	parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(|_x| some_expr())])).unwrap();
+	parse2::<TaskAttr>(quote!(#[pallet::task_condition(|x| x.is_some())])).unwrap();
+	parse2::<TaskAttr>(quote!(#[pallet::task_condition(|_x| some_expr())])).unwrap();
 	assert_error_matches!(
-		parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(x.is_some())])),
+		parse2::<TaskAttr>(quote!(#[pallet::task_condition(x.is_some())])),
 		"expected `|`"
 	);
 	assert_error_matches!(
-		parse2::<PalletTaskAttr>(quote!(#[pallet::task_condition(|| something())])),
+		parse2::<TaskAttr>(quote!(#[pallet::task_condition(|| something())])),
 		"expected identifier"
 	);
 }
