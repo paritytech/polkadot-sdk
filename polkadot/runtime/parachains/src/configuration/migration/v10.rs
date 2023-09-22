@@ -222,10 +222,7 @@ mod tests {
 		assert_eq!(v10.on_demand_cores, 0);
 		assert_eq!(v10.on_demand_base_fee, 10_000_000);
 		assert_eq!(v10.minimum_backing_votes, LEGACY_MIN_BACKING_VOTES);
-		assert_eq!(
-			v10.client_features,
-			ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING
-		);
+		assert_eq!(v10.client_features, ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING);
 	}
 
 	#[test]
