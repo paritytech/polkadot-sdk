@@ -5063,7 +5063,7 @@
 			<span class="macro">assert_eq!</span>(MultiPhase::desired_targets().unwrap(), <span class="number">2</span>);
 
 			<span class="comment">// mine seq_phragmen solution with 2 iters.
-			</span><span class="kw">let </span>(solution, witness) = MultiPhase::mine_solution().unwrap();
+			</span><span class="kw">let </span>(solution, witness, <span class="kw">_</span>) = MultiPhase::mine_solution().unwrap();
 
 			<span class="comment">// ensure this solution is valid.
 			</span><span class="macro">assert!</span>(MultiPhase::queued_solution().is_none());
@@ -5345,7 +5345,7 @@
 			<span class="comment">// set the solution balancing to get the desired score.
 			</span><span class="kw">crate</span>::mock::Balancing::set(<span class="prelude-val">Some</span>(BalancingConfig { iterations: <span class="number">2</span>, tolerance: <span class="number">0 </span>}));
 
-			<span class="kw">let </span>(solution, <span class="kw">_</span>) = MultiPhase::mine_solution().unwrap();
+			<span class="kw">let </span>(solution, <span class="kw">_</span>, <span class="kw">_</span>) = MultiPhase::mine_solution().unwrap();
 			<span class="comment">// Default solution&#39;s score.
 			</span><span class="macro">assert!</span>(<span class="macro">matches!</span>(solution.score, ElectionScore { minimal_stake: <span class="number">50</span>, .. }));
 

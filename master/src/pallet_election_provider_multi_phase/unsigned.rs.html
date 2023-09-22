@@ -1913,6 +1913,45 @@
 <a href="#1913" id="1913">1913</a>
 <a href="#1914" id="1914">1914</a>
 <a href="#1915" id="1915">1915</a>
+<a href="#1916" id="1916">1916</a>
+<a href="#1917" id="1917">1917</a>
+<a href="#1918" id="1918">1918</a>
+<a href="#1919" id="1919">1919</a>
+<a href="#1920" id="1920">1920</a>
+<a href="#1921" id="1921">1921</a>
+<a href="#1922" id="1922">1922</a>
+<a href="#1923" id="1923">1923</a>
+<a href="#1924" id="1924">1924</a>
+<a href="#1925" id="1925">1925</a>
+<a href="#1926" id="1926">1926</a>
+<a href="#1927" id="1927">1927</a>
+<a href="#1928" id="1928">1928</a>
+<a href="#1929" id="1929">1929</a>
+<a href="#1930" id="1930">1930</a>
+<a href="#1931" id="1931">1931</a>
+<a href="#1932" id="1932">1932</a>
+<a href="#1933" id="1933">1933</a>
+<a href="#1934" id="1934">1934</a>
+<a href="#1935" id="1935">1935</a>
+<a href="#1936" id="1936">1936</a>
+<a href="#1937" id="1937">1937</a>
+<a href="#1938" id="1938">1938</a>
+<a href="#1939" id="1939">1939</a>
+<a href="#1940" id="1940">1940</a>
+<a href="#1941" id="1941">1941</a>
+<a href="#1942" id="1942">1942</a>
+<a href="#1943" id="1943">1943</a>
+<a href="#1944" id="1944">1944</a>
+<a href="#1945" id="1945">1945</a>
+<a href="#1946" id="1946">1946</a>
+<a href="#1947" id="1947">1947</a>
+<a href="#1948" id="1948">1948</a>
+<a href="#1949" id="1949">1949</a>
+<a href="#1950" id="1950">1950</a>
+<a href="#1951" id="1951">1951</a>
+<a href="#1952" id="1952">1952</a>
+<a href="#1953" id="1953">1953</a>
+<a href="#1954" id="1954">1954</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2023,6 +2062,27 @@
 	}
 }
 
+<span class="doccomment">/// Reports the trimming result of a mined solution
+</span><span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>TrimmingStatus {
+	weight: usize,
+	length: usize,
+}
+
+<span class="kw">impl </span>TrimmingStatus {
+	<span class="kw">pub fn </span>is_trimmed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		<span class="self">self</span>.weight &gt; <span class="number">0 </span>|| <span class="self">self</span>.length &gt; <span class="number">0
+	</span>}
+
+	<span class="kw">pub fn </span>trimmed_weight(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+		<span class="self">self</span>.weight
+	}
+
+	<span class="kw">pub fn </span>trimmed_length(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+		<span class="self">self</span>.length
+	}
+}
+
 <span class="doccomment">/// Save a given call into OCW storage.
 </span><span class="kw">fn </span>save_solution&lt;T: Config&gt;(call: <span class="kw-2">&amp;</span>Call&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), MinerError&gt; {
 	<span class="macro">log!</span>(debug, <span class="string">&quot;saving a call to the offchain storage.&quot;</span>);
@@ -2077,16 +2137,21 @@
 	///
 	/// The Npos Solver type, `S`, must have the same AccountId and Error type as the
 	/// [`crate::Config::Solver`] in order to create a unified return type.
-	</span><span class="kw">pub fn </span>mine_solution(
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(RawSolution&lt;SolutionOf&lt;T::MinerConfig&gt;&gt;, SolutionOrSnapshotSize), MinerError&gt; {
+	</span><span class="kw">pub fn </span>mine_solution() -&gt; <span class="prelude-ty">Result</span>&lt;
+		(RawSolution&lt;SolutionOf&lt;T::MinerConfig&gt;&gt;, SolutionOrSnapshotSize, TrimmingStatus),
+		MinerError,
+	&gt; {
 		<span class="kw">let </span>RoundSnapshot { voters, targets } =
 			<span class="self">Self</span>::snapshot().ok_or(MinerError::SnapshotUnAvailable)<span class="question-mark">?</span>;
 		<span class="kw">let </span>desired_targets = <span class="self">Self</span>::desired_targets().ok_or(MinerError::SnapshotUnAvailable)<span class="question-mark">?</span>;
-		<span class="kw">let </span>(solution, score, size) = Miner::&lt;T::MinerConfig&gt;::mine_solution_with_snapshot::&lt;
-			T::Solver,
-		&gt;(voters, targets, desired_targets)<span class="question-mark">?</span>;
+		<span class="kw">let </span>(solution, score, size, is_trimmed) =
+			Miner::&lt;T::MinerConfig&gt;::mine_solution_with_snapshot::&lt;T::Solver&gt;(
+				voters,
+				targets,
+				desired_targets,
+			)<span class="question-mark">?</span>;
 		<span class="kw">let </span>round = <span class="self">Self</span>::round();
-		<span class="prelude-val">Ok</span>((RawSolution { solution, score, round }, size))
+		<span class="prelude-val">Ok</span>((RawSolution { solution, score, round }, size, is_trimmed))
 	}
 
 	<span class="doccomment">/// Attempt to restore a solution from cache. Otherwise, compute it fresh. Either way, submit
@@ -2147,7 +2212,7 @@
 	<span class="doccomment">/// Mine a new solution as a call. Performs all checks.
 	</span><span class="kw">pub fn </span>mine_checked_call() -&gt; <span class="prelude-ty">Result</span>&lt;Call&lt;T&gt;, MinerError&gt; {
 		<span class="comment">// get the solution, with a load of checks to ensure if submitted, IT IS ABSOLUTELY VALID.
-		</span><span class="kw">let </span>(raw_solution, witness) = <span class="self">Self</span>::mine_and_check()<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>(raw_solution, witness, <span class="kw">_</span>) = <span class="self">Self</span>::mine_and_check()<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>score = raw_solution.score;
 		<span class="kw">let </span>call: Call&lt;T&gt; = Call::submit_unsigned { raw_solution: Box::new(raw_solution), witness };
@@ -2197,11 +2262,13 @@
 	/// If you want an unchecked solution, use [`Pallet::mine_solution`].
 	/// If you want a checked solution and submit it at the same time, use
 	/// [`Pallet::mine_check_save_submit`].
-	</span><span class="kw">pub fn </span>mine_and_check(
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(RawSolution&lt;SolutionOf&lt;T::MinerConfig&gt;&gt;, SolutionOrSnapshotSize), MinerError&gt; {
-		<span class="kw">let </span>(raw_solution, witness) = <span class="self">Self</span>::mine_solution()<span class="question-mark">?</span>;
+	</span><span class="kw">pub fn </span>mine_and_check() -&gt; <span class="prelude-ty">Result</span>&lt;
+		(RawSolution&lt;SolutionOf&lt;T::MinerConfig&gt;&gt;, SolutionOrSnapshotSize, TrimmingStatus),
+		MinerError,
+	&gt; {
+		<span class="kw">let </span>(raw_solution, witness, is_trimmed) = <span class="self">Self</span>::mine_solution()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::basic_checks(<span class="kw-2">&amp;</span>raw_solution, <span class="string">&quot;mined&quot;</span>)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>((raw_solution, witness))
+		<span class="prelude-val">Ok</span>((raw_solution, witness, is_trimmed))
 	}
 
 	<span class="doccomment">/// Checks if an execution of the offchain worker is permitted at the given block number, or
@@ -2323,7 +2390,7 @@
 		voters: Vec&lt;(T::AccountId, VoteWeight, BoundedVec&lt;T::AccountId, T::MaxVotesPerVoter&gt;)&gt;,
 		targets: Vec&lt;T::AccountId&gt;,
 		desired_targets: u32,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(SolutionOf&lt;T&gt;, ElectionScore, SolutionOrSnapshotSize), MinerError&gt;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(SolutionOf&lt;T&gt;, ElectionScore, SolutionOrSnapshotSize, TrimmingStatus), MinerError&gt;
 	<span class="kw">where
 		</span>S: NposSolver&lt;AccountId = T::AccountId&gt;,
 	{
@@ -2351,7 +2418,8 @@
 		voters: Vec&lt;(T::AccountId, VoteWeight, BoundedVec&lt;T::AccountId, T::MaxVotesPerVoter&gt;)&gt;,
 		targets: Vec&lt;T::AccountId&gt;,
 		desired_targets: u32,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(SolutionOf&lt;T&gt;, ElectionScore, SolutionOrSnapshotSize), MinerError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(SolutionOf&lt;T&gt;, ElectionScore, SolutionOrSnapshotSize, TrimmingStatus), MinerError&gt;
+	{
 		<span class="comment">// now make some helper closures.
 		</span><span class="kw">let </span>cache = helpers::generate_voter_cache::&lt;T&gt;(<span class="kw-2">&amp;</span>voters);
 		<span class="kw">let </span>voter_index = helpers::voter_index_fn::&lt;T&gt;(<span class="kw-2">&amp;</span>cache);
@@ -2410,13 +2478,13 @@
 		<span class="comment">// trim assignments list for weight and length.
 		</span><span class="kw">let </span>size =
 			SolutionOrSnapshotSize { voters: voters.len() <span class="kw">as </span>u32, targets: targets.len() <span class="kw">as </span>u32 };
-		<span class="self">Self</span>::trim_assignments_weight(
+		<span class="kw">let </span>weight_trimmed = <span class="self">Self</span>::trim_assignments_weight(
 			desired_targets,
 			size,
 			T::MaxWeight::get(),
 			<span class="kw-2">&amp;mut </span>index_assignments,
 		);
-		<span class="self">Self</span>::trim_assignments_length(
+		<span class="kw">let </span>length_trimmed = <span class="self">Self</span>::trim_assignments_length(
 			T::MaxLength::get(),
 			<span class="kw-2">&amp;mut </span>index_assignments,
 			<span class="kw-2">&amp;</span>encoded_size_of,
@@ -2428,7 +2496,9 @@
 		<span class="comment">// re-calc score.
 		</span><span class="kw">let </span>score = solution.clone().score(stake_of, voter_at, target_at)<span class="question-mark">?</span>;
 
-		<span class="prelude-val">Ok</span>((solution, score, size))
+		<span class="kw">let </span>is_trimmed = TrimmingStatus { weight: weight_trimmed, length: length_trimmed };
+
+		<span class="prelude-val">Ok</span>((solution, score, size, is_trimmed))
 	}
 
 	<span class="doccomment">/// Greedily reduce the size of the solution to fit into the block w.r.t length.
@@ -2449,7 +2519,7 @@
 		max_allowed_length: u32,
 		assignments: <span class="kw-2">&amp;mut </span>Vec&lt;IndexAssignmentOf&lt;T&gt;&gt;,
 		encoded_size_of: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>[IndexAssignmentOf&lt;T&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;usize, sp_npos_elections::Error&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), MinerError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;usize, MinerError&gt; {
 		<span class="comment">// Perform a binary search for the max subset of which can fit into the allowed
 		// length. Having discovered that, we can truncate efficiently.
 		</span><span class="kw">let </span>max_allowed_length: usize = max_allowed_length.saturated_into();
@@ -2458,7 +2528,7 @@
 
 		<span class="comment">// not much we can do if assignments are already empty.
 		</span><span class="kw">if </span>high == low {
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="number">0</span>)
 		}
 
 		<span class="kw">while </span>high - low &gt; <span class="number">1 </span>{
@@ -2492,16 +2562,18 @@
 		// after this point, we never error.
 		// check before edit.
 
-		</span><span class="macro">log_no_system!</span>(
+		</span><span class="kw">let </span>remove = assignments.len().saturating_sub(maximum_allowed_voters);
+
+		<span class="macro">log_no_system!</span>(
 			debug,
 			<span class="string">&quot;from {} assignments, truncating to {} for length, removing {}&quot;</span>,
 			assignments.len(),
 			maximum_allowed_voters,
-			assignments.len().saturating_sub(maximum_allowed_voters),
+			remove
 		);
 		assignments.truncate(maximum_allowed_voters);
 
-		<span class="prelude-val">Ok</span>(())
+		<span class="prelude-val">Ok</span>(remove)
 	}
 
 	<span class="doccomment">/// Greedily reduce the size of the solution to fit into the block w.r.t. weight.
@@ -2524,7 +2596,7 @@
 		size: SolutionOrSnapshotSize,
 		max_weight: Weight,
 		assignments: <span class="kw-2">&amp;mut </span>Vec&lt;IndexAssignmentOf&lt;T&gt;&gt;,
-	) {
+	) -&gt; usize {
 		<span class="kw">let </span>maximum_allowed_voters =
 			<span class="self">Self</span>::maximum_voter_for_weight(desired_targets, size, max_weight);
 		<span class="kw">let </span>removing: usize =
@@ -2537,6 +2609,8 @@
 			removing,
 		);
 		assignments.truncate(maximum_allowed_voters <span class="kw">as </span>usize);
+
+		removing
 	}
 
 	<span class="doccomment">/// Find the maximum `len` that a solution can have in order to fit into the block weight.
@@ -3145,7 +3219,7 @@
 			<span class="macro">assert_eq!</span>(MultiPhase::desired_targets().unwrap(), <span class="number">2</span>);
 
 			<span class="comment">// mine seq_phragmen solution with 2 iters.
-			</span><span class="kw">let </span>(solution, witness) = MultiPhase::mine_solution().unwrap();
+			</span><span class="kw">let </span>(solution, witness, <span class="kw">_</span>) = MultiPhase::mine_solution().unwrap();
 
 			<span class="comment">// ensure this solution is valid.
 			</span><span class="macro">assert!</span>(MultiPhase::queued_solution().is_none());
@@ -3183,7 +3257,7 @@
 				roll_to_unsigned();
 				<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
 
-				<span class="kw">let </span>(raw, witness) = MultiPhase::mine_solution().unwrap();
+				<span class="kw">let </span>(raw, witness, t) = MultiPhase::mine_solution().unwrap();
 				<span class="kw">let </span>solution_weight = &lt;Runtime <span class="kw">as </span>MinerConfig&gt;::solution_weight(
 					witness.voters,
 					witness.targets,
@@ -3193,11 +3267,12 @@
 				<span class="comment">// default solution will have 5 edges (5 * 5 + 10)
 				</span><span class="macro">assert_eq!</span>(solution_weight, Weight::from_parts(<span class="number">35</span>, <span class="number">0</span>));
 				<span class="macro">assert_eq!</span>(raw.solution.voter_count(), <span class="number">5</span>);
+				<span class="macro">assert_eq!</span>(t.trimmed_weight(), <span class="number">0</span>);
 
 				<span class="comment">// now reduce the max weight
 				</span>&lt;MinerMaxWeight&gt;::set(Weight::from_parts(<span class="number">25</span>, u64::MAX));
 
-				<span class="kw">let </span>(raw, witness) = MultiPhase::mine_solution().unwrap();
+				<span class="kw">let </span>(raw, witness, t) = MultiPhase::mine_solution().unwrap();
 				<span class="kw">let </span>solution_weight = &lt;Runtime <span class="kw">as </span>MinerConfig&gt;::solution_weight(
 					witness.voters,
 					witness.targets,
@@ -3207,6 +3282,7 @@
 				<span class="comment">// default solution will have 5 edges (5 * 5 + 10)
 				</span><span class="macro">assert_eq!</span>(solution_weight, Weight::from_parts(<span class="number">25</span>, <span class="number">0</span>));
 				<span class="macro">assert_eq!</span>(raw.solution.voter_count(), <span class="number">3</span>);
+				<span class="macro">assert_eq!</span>(t.trimmed_weight(), <span class="number">2</span>);
 			})
 	}
 
@@ -3218,7 +3294,7 @@
 			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
 
 			<span class="comment">// Force the number of winners to be bigger to fail
-			</span><span class="kw">let </span>(<span class="kw-2">mut </span>solution, <span class="kw">_</span>) = MultiPhase::mine_solution().unwrap();
+			</span><span class="kw">let </span>(<span class="kw-2">mut </span>solution, <span class="kw">_</span>, <span class="kw">_</span>) = MultiPhase::mine_solution().unwrap();
 			solution.solution.votes1[<span class="number">0</span>].<span class="number">1 </span>= <span class="number">4</span>;
 
 			<span class="macro">assert_eq!</span>(
@@ -3257,7 +3333,7 @@
 				<span class="kw">let </span>RoundSnapshot { voters, targets } = MultiPhase::snapshot().unwrap();
 				<span class="kw">let </span>desired_targets = MultiPhase::desired_targets().unwrap();
 
-				<span class="kw">let </span>(raw, score, witness) =
+				<span class="kw">let </span>(raw, score, witness, <span class="kw">_</span>) =
 					Miner::&lt;Runtime&gt;::prepare_election_result_with_snapshot(
 						result,
 						voters.clone(),
@@ -3286,7 +3362,7 @@
 						},
 					],
 				};
-				<span class="kw">let </span>(raw, score, <span class="kw">_</span>) = Miner::&lt;Runtime&gt;::prepare_election_result_with_snapshot(
+				<span class="kw">let </span>(raw, score, <span class="kw">_</span>, <span class="kw">_</span>) = Miner::&lt;Runtime&gt;::prepare_election_result_with_snapshot(
 					result,
 					voters.clone(),
 					targets.clone(),
@@ -3315,7 +3391,7 @@
 						},
 					],
 				};
-				<span class="kw">let </span>(raw, score, witness) =
+				<span class="kw">let </span>(raw, score, witness, <span class="kw">_</span>) =
 					Miner::&lt;Runtime&gt;::prepare_election_result_with_snapshot(
 						result,
 						voters.clone(),
@@ -3684,7 +3760,7 @@
 			<span class="kw">let </span>solution_clone = solution.clone();
 
 			<span class="comment">// when
-			</span>Miner::&lt;Runtime&gt;::trim_assignments_length(
+			</span><span class="kw">let </span>trimmed_len = Miner::&lt;Runtime&gt;::trim_assignments_length(
 				encoded_len,
 				<span class="kw-2">&amp;mut </span>assignments,
 				encoded_size_of,
@@ -3694,6 +3770,7 @@
 			<span class="comment">// then
 			</span><span class="kw">let </span>solution = SolutionOf::&lt;Runtime&gt;::try_from(assignments.as_slice()).unwrap();
 			<span class="macro">assert_eq!</span>(solution, solution_clone);
+			<span class="macro">assert_eq!</span>(trimmed_len, <span class="number">0</span>);
 		});
 	}
 
@@ -3709,7 +3786,7 @@
 			<span class="kw">let </span>solution_clone = solution.clone();
 
 			<span class="comment">// when
-			</span>Miner::&lt;Runtime&gt;::trim_assignments_length(
+			</span><span class="kw">let </span>trimmed_len = Miner::&lt;Runtime&gt;::trim_assignments_length(
 				encoded_len <span class="kw">as </span>u32 - <span class="number">1</span>,
 				<span class="kw-2">&amp;mut </span>assignments,
 				encoded_size_of,
@@ -3720,6 +3797,7 @@
 			</span><span class="kw">let </span>solution = SolutionOf::&lt;Runtime&gt;::try_from(assignments.as_slice()).unwrap();
 			<span class="macro">assert_ne!</span>(solution, solution_clone);
 			<span class="macro">assert!</span>(solution.encoded_size() &lt; encoded_len);
+			<span class="macro">assert_eq!</span>(trimmed_len, <span class="number">1</span>);
 		});
 	}
 

@@ -2824,7 +2824,7 @@
 				roll_to_signed();
 				<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
 
-				<span class="kw">let </span>(raw, witness) = MultiPhase::mine_solution().unwrap();
+				<span class="kw">let </span>(raw, witness, <span class="kw">_</span>) = MultiPhase::mine_solution().unwrap();
 				<span class="kw">let </span>solution_weight = &lt;Runtime <span class="kw">as </span>MinerConfig&gt;::solution_weight(
 					witness.voters,
 					witness.targets,
