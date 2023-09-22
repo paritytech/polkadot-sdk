@@ -948,6 +948,8 @@ fn can_swap_with_realistic_values() {
 		assert!(events().contains(&Event::<Test>::SwapExecuted {
 			who: user,
 			send_to: user,
+			amount_in: 10 * UNIT,      // usd
+			amount_out: 1_993_980_120, // About 2 dot after div by UNIT.
 			path: bvec![(usd, 10 * UNIT), (dot, 1_993_980_120)],
 		}));
 	});

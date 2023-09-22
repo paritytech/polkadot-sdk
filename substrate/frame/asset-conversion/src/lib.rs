@@ -277,12 +277,20 @@ pub mod pallet {
 			who: T::AccountId,
 			/// The account that the assets were transferred to.
 			send_to: T::AccountId,
+			/// The amount of the first asset that was swapped.
+			amount_in: T::AssetBalance,
+			/// The amount of the second asset that was received.
+			amount_out: T::AssetBalance,
 			/// The route of asset ids with amounts that the swap went through.
 			/// E.g. (A, amount_in) -> (Dot, amount_out) -> (B, amount_out)
 			path: BalancePath<T>,
 		},
 		/// Assets have been converted from one to another.
 		CreditSwapExecuted {
+			/// The amount of the first asset that was swapped.
+			amount_in: T::AssetBalance,
+			/// The amount of the second asset that was received.
+			amount_out: T::AssetBalance,
 			/// The route of asset ids with amounts that the swap went through.
 			/// E.g. (A, amount_in) -> (Dot, amount_out) -> (B, amount_out)
 			path: BalancePath<T>,
@@ -726,7 +734,13 @@ pub mod pallet {
 
 			Self::swap(&sender, &path, &send_to, keep_alive)?;
 
-			Self::deposit_event(Event::SwapExecuted { who: sender, send_to, path });
+			Self::deposit_event(Event::SwapExecuted {
+				who: sender,
+				send_to,
+				amount_in,
+				amount_out,
+				path,
+			});
 			Ok(amount_out)
 		}
 
@@ -768,7 +782,13 @@ pub mod pallet {
 
 			Self::swap(&sender, &path, &send_to, keep_alive)?;
 
-			Self::deposit_event(Event::SwapExecuted { who: sender, send_to, path });
+			Self::deposit_event(Event::SwapExecuted {
+				who: sender,
+				send_to,
+				amount_in,
+				amount_out,
+				path,
+			});
 
 			Ok(amount_in)
 		}
@@ -805,16 +825,16 @@ pub mod pallet {
 					amount_out_min.map_or(true, |a| amount_out >= a),
 					Error::<T>::ProvidedMinimumNotSufficientForSwap
 				);
-				Ok(path)
+				Ok((path, amount_out))
 			};
-			let path = match inspect_path(credit_in.asset()) {
-				Ok(p) => p,
+			let (path, amount_out) = match inspect_path(credit_in.asset()) {
+				Ok((p, a)) => (p, a),
 				Err(e) => return Err((credit_in, e)),
 			};
 
 			let credit_out = Self::credit_swap(credit_in, &path)?;
 
-			Self::deposit_event(Event::CreditSwapExecuted { path });
+			Self::deposit_event(Event::CreditSwapExecuted { amount_in, amount_out, path });
 
 			Ok(credit_out)
 		}
@@ -864,7 +884,7 @@ pub mod pallet {
 			let (credit_in, credit_change) = credit_in.split(amount_in)?;
 			let credit_out = Self::credit_swap(credit_in, &path)?;
 
-			Self::deposit_event(Event::CreditSwapExecuted { path });
+			Self::deposit_event(Event::CreditSwapExecuted { amount_in, amount_out, path });
 
 			Ok((credit_out, credit_change))
 		}
