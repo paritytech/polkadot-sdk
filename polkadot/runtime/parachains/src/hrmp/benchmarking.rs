@@ -363,7 +363,11 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn force_open_hrmp_channel() {
+	fn force_open_hrmp_channel(
+		// Weight parameter only accepts `u32`, `0` and `1` used to represent `false` and `true`,
+		// respectively.
+		c: Linear<0, 1>,
+	) {
 		let sender_id: ParaId = 1u32.into();
 		let sender_origin: crate::Origin = 1u32.into();
 		let recipient_id: ParaId = 2u32.into();
@@ -379,31 +383,26 @@ mod benchmarks {
 		let capacity = Configuration::<T>::config().hrmp_channel_max_capacity;
 		let message_size = Configuration::<T>::config().hrmp_channel_max_message_size;
 
-		// Weight parameter only accepts `u32`, `0` and `1` used to represent `false` and `true`,
-		// respectively.
-		let c = [0, 1];
 		let channel_id = HrmpChannelId { sender: sender_id, recipient: recipient_id };
-		for channels_to_close in c {
-			if channels_to_close == 1 {
-				// this will consume more weight if a channel _request_ already exists, because it
-				// will need to clear the request.
-				assert_ok!(Hrmp::<T>::hrmp_init_open_channel(
+		if c == 1 {
+			// this will consume more weight if a channel _request_ already exists, because it
+			// will need to clear the request.
+			assert_ok!(Hrmp::<T>::hrmp_init_open_channel(
+				sender_origin.clone().into(),
+				recipient_id,
+				capacity,
+				message_size
+			));
+			assert!(HrmpOpenChannelRequests::<T>::get(&channel_id).is_some());
+		} else {
+			if HrmpOpenChannelRequests::<T>::get(&channel_id).is_some() {
+				assert_ok!(Hrmp::<T>::hrmp_cancel_open_request(
 					sender_origin.clone().into(),
-					recipient_id,
-					capacity,
-					message_size
+					channel_id.clone(),
+					MAX_UNIQUE_CHANNELS,
 				));
-				assert!(HrmpOpenChannelRequests::<T>::get(&channel_id).is_some());
-			} else {
-				if HrmpOpenChannelRequests::<T>::get(&channel_id).is_some() {
-					assert_ok!(Hrmp::<T>::hrmp_cancel_open_request(
-						sender_origin.clone().into(),
-						channel_id.clone(),
-						MAX_UNIQUE_CHANNELS,
-					));
-				}
-				assert!(HrmpOpenChannelRequests::<T>::get(&channel_id).is_none());
 			}
+			assert!(HrmpOpenChannelRequests::<T>::get(&channel_id).is_none());
 		}
 
 		// but the _channel_ should not exist
