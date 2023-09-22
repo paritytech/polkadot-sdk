@@ -104,13 +104,19 @@ fn test_availability_chunk_indices() {
 	let shuffle = availability_chunk_indices(None, block_number, n_validators);
 	assert_eq!(shuffle, (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>());
 
-	let shuffle = availability_chunk_indices(Some(ClientFeatures::empty()), block_number, n_validators);
+	let shuffle =
+		availability_chunk_indices(Some(ClientFeatures::empty()), block_number, n_validators);
 	assert_eq!(shuffle, (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>());
 
-	let shuffle = availability_chunk_indices(ClientFeatures::from_bits(0b10), block_number, n_validators);
+	let shuffle =
+		availability_chunk_indices(ClientFeatures::from_bits(0b10), block_number, n_validators);
 	assert_eq!(shuffle, (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>());
 
-	let shuffle = availability_chunk_indices(Some(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING), block_number, n_validators);
+	let shuffle = availability_chunk_indices(
+		Some(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING),
+		block_number,
+		n_validators,
+	);
 	assert_ne!(shuffle, (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>());
 	assert_eq!(shuffle.len(), n_validators);
 	assert_eq!(shuffle.iter().collect::<HashSet<_>>().len(), n_validators);
