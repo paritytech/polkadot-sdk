@@ -16,15 +16,14 @@ if [ ! -z "$1" ]; then
 
 
   echo "installing rustup $RUST_VERSION"
-  rustup install $RUST_VERSION
-  rustup component add rust-src --toolchain $RUST_VERSION
-
-
   if ! command -v rustup &> /dev/null
   then
     echo "rustup needs to be installed"
     exit
   fi
+  
+  rustup install $RUST_VERSION
+  rustup component add rust-src --toolchain $RUST_VERSION
 fi
 
 # Ensure we run the ui tests
