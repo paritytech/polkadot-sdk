@@ -18,7 +18,6 @@
 		;; Input data layout.
 		;; [0..4) - size of the call
 		;; [4..12) - query_id
-		;; [12..) - response
 
 		;; Just use the call passed as input and store result to memory
 		(i32.store (i32.const 0)

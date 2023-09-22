@@ -19,14 +19,13 @@
 		;; [0..4) - size of the call
 		;; [4..12) - timeout
 		;; [12..49) - match_querier
-		;; [8..10)  response
 
 		;; Just use the call passed as input and store result to memory
 		(i32.store (i32.const 0)
 			(call $xcm_query
 				(i32.const 4)   ;; Pointer where the timeout is stored
 				(i32.const 12)	;; Pointer where the match_querier is stored
-				(i32.const 49)	;; ...
+				(i32.const 49)	;; Pointer to the where the query_id is stored
 			)
 		)
 		(call $seal_return
