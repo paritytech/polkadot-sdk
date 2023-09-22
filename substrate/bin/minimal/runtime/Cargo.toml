@@ -24,13 +24,16 @@ substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true
 [features]
 default = [ "std" ]
 std = [
+	"parity-scale-codec/std",
+	"scale-info/std",
+
 	"frame/std",
+
 	"pallet-balances/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
-	"parity-scale-codec/std",
-	"scale-info/std",
+
 	"substrate-wasm-builder",
 ]
