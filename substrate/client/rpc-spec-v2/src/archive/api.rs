@@ -62,7 +62,7 @@ pub trait ArchiveApi<Hash> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[method(name = "archive_unstable_finalizedHeight")]
-	fn archive_unstable_finalized_height(&self) -> RpcResult<u32>;
+	fn archive_unstable_finalized_height(&self) -> RpcResult<u64>;
 
 	/// Get the hashes of blocks from the given height.
 	///
@@ -73,7 +73,7 @@ pub trait ArchiveApi<Hash> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[method(name = "archive_unstable_hashByHeight")]
-	fn archive_unstable_hash_by_height(&self, height: u32) -> RpcResult<Vec<String>>;
+	fn archive_unstable_hash_by_height(&self, height: u64) -> RpcResult<Vec<String>>;
 
 	/// Call into the Runtime API at a specified block's state.
 	///

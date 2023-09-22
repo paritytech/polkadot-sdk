@@ -34,7 +34,7 @@ use sp_blockchain::{
 };
 use sp_core::Bytes;
 use sp_runtime::{
-	traits::{Block as BlockT, Header},
+	traits::{Block as BlockT, Header as HeaderT},
 	SaturatedConversion,
 };
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
@@ -80,6 +80,7 @@ impl<BE, Block, Client> ArchiveApiServer<Block::Hash> for Archive<BE, Block, Cli
 where
 	Block: BlockT + 'static,
 	Block::Header: Unpin,
+	<<Block as BlockT>::Header as HeaderT>::Number: From<u64>,
 	BE: Backend<Block> + 'static,
 	Client: BlockBackend<Block>
 		+ ExecutorProvider<Block>
@@ -113,11 +114,11 @@ where
 		Ok(Some(hex_string(&header.encode())))
 	}
 
-	fn archive_unstable_finalized_height(&self) -> RpcResult<u32> {
+	fn archive_unstable_finalized_height(&self) -> RpcResult<u64> {
 		Ok(self.client.info().finalized_number.saturated_into())
 	}
 
-	fn archive_unstable_hash_by_height(&self, height: u32) -> RpcResult<Vec<String>> {
+	fn archive_unstable_hash_by_height(&self, height: u64) -> RpcResult<Vec<String>> {
 		let height: NumberFor<Block> = height.into();
 		let finalized_num = self.client.info().finalized_number;
 
