@@ -163,7 +163,7 @@ async fn ensure_parallel_execution() {
 	let execute_pvf_future_1 = host.validate_candidate(
 		halt::wasm_binary_unwrap(),
 		ValidationParams {
-			block_data: GenericBlockData(Vec::new()),
+			block_data: BlockData(Vec::new()),
 			parent_head: Default::default(),
 			relay_parent_number: 1,
 			relay_parent_storage_root: Default::default(),
@@ -173,7 +173,7 @@ async fn ensure_parallel_execution() {
 	let execute_pvf_future_2 = host.validate_candidate(
 		halt::wasm_binary_unwrap(),
 		ValidationParams {
-			block_data: GenericBlockData(Vec::new()),
+			block_data: BlockData(Vec::new()),
 			parent_head: Default::default(),
 			relay_parent_number: 1,
 			relay_parent_storage_root: Default::default(),
@@ -258,7 +258,7 @@ async fn execute_queue_doesnt_stall_with_varying_executor_params() {
 		host.validate_candidate(
 			halt::wasm_binary_unwrap(),
 			ValidationParams {
-				block_data: GenericBlockData(Vec::new()),
+				block_data: BlockData(Vec::new()),
 				parent_head: Default::default(),
 				relay_parent_number: 1,
 				relay_parent_storage_root: Default::default(),
