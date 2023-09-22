@@ -524,15 +524,24 @@ where
 						return Err(e.to_string())
 					}
 
-					batch_size = 1;
 					retries += 1;
-					log::warn!(
-						target: LOG_TARGET,
-						"Batch request failed ({}/{} retries). Setting batch size to 1 and trying again. Error: {}",
+					let failure_log = format!(
+						"Batch request failed ({}/{} retries). Error: {}",
 						retries,
 						Self::MAX_RETRIES,
 						e.to_string()
 					);
+					// after 3 subsequent failures something very wrong is happening. log a warning
+					// and reset the batch size down to 1.
+					if retries >= 3 {
+						log::warn!("{}", failure_log);
+						batch_size = 1;
+					} else {
+						log::debug!("{}", failure_log);
+						// Decrease batch size by DECREASE_FACTOR
+						batch_size =
+							(batch_size as f32 * Self::BATCH_SIZE_DECREASE_FACTOR) as usize;
+					}
 					continue
 				},
 			};
