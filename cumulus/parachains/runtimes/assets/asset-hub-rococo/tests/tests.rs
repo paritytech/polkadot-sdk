@@ -703,7 +703,11 @@ mod asset_hub_rococo_tests {
 			// receiving WOCs
 			(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Wococo)) }, 1000000000000, 1_000_000_000),
 			bridging_to_asset_hub_wococo,
-			(X1(PalletInstance(46)), GlobalConsensus(Wococo), X1(Parachain(1000)))
+			(
+				X1(PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_WOCOCO_MESSAGES_PALLET_INDEX)),
+				GlobalConsensus(Wococo),
+				X1(Parachain(1000))
+			)
 		)
 	}
 
@@ -898,7 +902,11 @@ mod asset_hub_wococo_tests {
 			// receiving ROCs
 			(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Rococo)) }, 1000000000000, 1_000_000_000),
 			with_wococo_flavor_bridging_to_asset_hub_rococo,
-			(X1(PalletInstance(45)), GlobalConsensus(Rococo), X1(Parachain(1000)))
+			(
+				X1(PalletInstance(bp_bridge_hub_wococo::WITH_BRIDGE_ROCOCO_MESSAGES_PALLET_INDEX)),
+				GlobalConsensus(Rococo),
+				X1(Parachain(1000))
+			)
 		)
 	}
 
