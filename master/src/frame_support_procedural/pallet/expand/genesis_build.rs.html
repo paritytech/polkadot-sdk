@@ -87,7 +87,7 @@
 		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 			</span><span class="kw">impl</span>&lt;#type_impl_gen&gt; #frame_support::sp_runtime::BuildStorage <span class="kw">for </span>#gen_cfg_ident&lt;#gen_cfg_use_gen&gt; #where_clause
 			{
-				<span class="kw">fn </span>assimilate_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, storage: <span class="kw-2">&amp;mut </span>sp_runtime::Storage) -&gt; std::result::Result&lt;(), std::string::String&gt; {
+				<span class="kw">fn </span>assimilate_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, storage: <span class="kw-2">&amp;mut </span>#frame_support::sp_runtime::Storage) -&gt; std::result::Result&lt;(), std::string::String&gt; {
 					#frame_support::__private::BasicExternalities::execute_with_storage(storage, || {
 						<span class="self">self</span>.build();
 						<span class="prelude-val">Ok</span>(())

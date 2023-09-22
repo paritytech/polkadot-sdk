@@ -1106,7 +1106,7 @@
 /// return the instance if found for `GenesisBuild`
 /// return None for BuildGenesisConfig
 </span><span class="kw">pub fn </span>check_genesis_builder_usage(type_: <span class="kw-2">&amp;</span>syn::Path) -&gt; syn::Result&lt;<span class="prelude-ty">Option</span>&lt;InstanceUsage&gt;&gt; {
-	<span class="kw">let </span>expected = <span class="string">&quot;expected `GenesisBuild&lt;T&gt;` or `GenesisBuild&lt;T, I&gt;`&quot;</span>;
+	<span class="kw">let </span>expected = <span class="string">&quot;expected `BuildGenesisConfig` (or the deprecated `GenesisBuild&lt;T&gt;` or `GenesisBuild&lt;T, I&gt;`)&quot;</span>;
 	<span class="kw">pub struct </span>Checker(<span class="prelude-ty">Option</span>&lt;InstanceUsage&gt;);
 	<span class="kw">impl </span>syn::parse::Parse <span class="kw">for </span>Checker {
 		<span class="kw">fn </span>parse(input: syn::parse::ParseStream) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
