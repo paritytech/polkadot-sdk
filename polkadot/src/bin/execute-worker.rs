@@ -19,5 +19,5 @@
 polkadot_node_core_pvf_common::decl_worker_main!(
 	"execute-worker",
 	polkadot_node_core_pvf_execute_worker::worker_entrypoint,
-	env!("SUBSTRATE_CLI_IMPL_VERSION")
+	polkadot_cli::NODE_VERSION,
 );

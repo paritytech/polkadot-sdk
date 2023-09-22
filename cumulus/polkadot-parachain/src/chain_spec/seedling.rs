@@ -16,9 +16,11 @@
 
 use crate::chain_spec::{get_account_id_from_seed, Extensions};
 use cumulus_primitives_core::ParaId;
-use parachains_common::AccountId;
+use parachains_common::{AccountId, AuraId};
 use sc_service::ChainType;
 use sp_core::sr25519;
+
+use super::get_collator_keys_from_seed;
 
 /// Specialized `ChainSpec` for the seedling parachain runtime.
 pub type SeedlingChainSpec = sc_service::GenericChainSpec<(), Extensions>;
@@ -34,16 +36,22 @@ pub fn get_seedling_chain_spec() -> SeedlingChainSpec {
 	.with_genesis_config_patch(seedling_testnet_genesis(
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		2000.into(),
+		vec![get_collator_keys_from_seed::<AuraId>("Alice")],
 	))
 	.with_boot_nodes(Vec::new())
 	.build()
 }
 
-fn seedling_testnet_genesis(root_key: AccountId, parachain_id: ParaId) -> serde_json::Value {
+fn seedling_testnet_genesis(
+	root_key: AccountId,
+	parachain_id: ParaId,
+	collators: Vec<AuraId>,
+) -> serde_json::Value {
 	serde_json::json!({
 		"sudo": { "key": Some(root_key) },
 		"parachainInfo":  {
 			"parachainId": parachain_id,
 		},
+		"aura": { "authorities": collators },
 	})
 }

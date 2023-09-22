@@ -1,4 +1,4 @@
-// Copyright Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -16,8 +16,11 @@
 
 use crate::chain_spec::{get_account_id_from_seed, Extensions};
 use cumulus_primitives_core::ParaId;
+use parachains_common::AuraId;
 use sc_service::ChainType;
 use sp_core::sr25519;
+
+use super::get_collator_keys_from_seed;
 
 /// Specialized `ChainSpec` for the Glutton parachain runtime.
 pub type GluttonChainSpec =
@@ -31,7 +34,7 @@ pub fn glutton_development_config(para_id: ParaId) -> GluttonChainSpec {
 		// ID
 		"glutton_dev",
 		ChainType::Local,
-		move || glutton_genesis(para_id),
+		move || glutton_genesis(para_id, vec![get_collator_keys_from_seed::<AuraId>("Alice")]),
 		Vec::new(),
 		None,
 		None,
@@ -50,7 +53,15 @@ pub fn glutton_local_config(para_id: ParaId) -> GluttonChainSpec {
 		// ID
 		"glutton_local",
 		ChainType::Local,
-		move || glutton_genesis(para_id),
+		move || {
+			glutton_genesis(
+				para_id,
+				vec![
+					get_collator_keys_from_seed::<AuraId>("Alice"),
+					get_collator_keys_from_seed::<AuraId>("Bob"),
+				],
+			)
+		},
 		Vec::new(),
 		None,
 		None,
@@ -72,7 +83,15 @@ pub fn glutton_config(para_id: ParaId) -> GluttonChainSpec {
 		// ID
 		format!("glutton-kusama-{}", para_id).as_str(),
 		ChainType::Live,
-		move || glutton_genesis(para_id),
+		move || {
+			glutton_genesis(
+				para_id,
+				vec![
+					get_collator_keys_from_seed::<AuraId>("Alice"),
+					get_collator_keys_from_seed::<AuraId>("Bob"),
+				],
+			)
+		},
 		Vec::new(),
 		None,
 		// Protocol ID
@@ -84,7 +103,10 @@ pub fn glutton_config(para_id: ParaId) -> GluttonChainSpec {
 	)
 }
 
-fn glutton_genesis(parachain_id: ParaId) -> glutton_runtime::RuntimeGenesisConfig {
+fn glutton_genesis(
+	parachain_id: ParaId,
+	collators: Vec<AuraId>,
+) -> glutton_runtime::RuntimeGenesisConfig {
 	glutton_runtime::RuntimeGenesisConfig {
 		system: glutton_runtime::SystemConfig::default(),
 		parachain_info: glutton_runtime::ParachainInfoConfig { parachain_id, ..Default::default() },
@@ -95,6 +117,8 @@ fn glutton_genesis(parachain_id: ParaId) -> glutton_runtime::RuntimeGenesisConfi
 			trash_data_count: Default::default(),
 			..Default::default()
 		},
+		aura: glutton_runtime::AuraConfig { authorities: collators },
+		aura_ext: Default::default(),
 		sudo: glutton_runtime::SudoConfig {
 			key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
 		},
