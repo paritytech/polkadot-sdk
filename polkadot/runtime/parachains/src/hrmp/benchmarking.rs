@@ -208,6 +208,9 @@ mod benchmarks {
 		assert_ok!(
 			Configuration::<T>::set_hrmp_max_parachain_inbound_channels(frame_system::RawOrigin::Root.into(), i + 1)
 		);
+		assert_ok!(
+			Configuration::<T>::set_max_downward_message_size(frame_system::RawOrigin::Root.into(), 1024)
+		);
 		// .. and enact it.
 		Configuration::<T>::initializer_on_new_session(&Shared::<T>::scheduled_session());
 
