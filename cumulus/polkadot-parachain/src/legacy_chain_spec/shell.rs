@@ -44,7 +44,10 @@ pub fn get_shell_chain_spec() -> ShellChainSpec {
 	)
 }
 
-fn shell_testnet_genesis(parachain_id: ParaId) -> shell_runtime::RuntimeGenesisConfig {
+fn shell_testnet_genesis(
+	parachain_id: ParaId,
+	collators: Vec<AuraId>,
+) -> shell_runtime::RuntimeGenesisConfig {
 	shell_runtime::RuntimeGenesisConfig {
 		system: shell_runtime::SystemConfig::default(),
 		parachain_info: shell_runtime::ParachainInfoConfig { parachain_id, ..Default::default() },
