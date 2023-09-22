@@ -42,7 +42,7 @@ pub fn get_shell_chain_spec() -> ShellChainSpec {
 
 fn shell_testnet_genesis(parachain_id: ParaId, collators: Vec<AuraId>) -> serde_json::Value {
 	serde_json::json!({
-		"parachainInfo": { "parachainId": ParaId::from(1000) },
+		"parachainInfo": { "parachainId": parachain_id},
 		"aura": { "authorities": collators },
 	})
 }
