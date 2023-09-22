@@ -53,16 +53,16 @@ The JSON objects in the `"result"` field can have one of the following formats b
 }
 ```
 
-The JSON object corresponds to one of the requested items whose `type` was `"value"` or `"descendantsValues"`
+The JSON object corresponds to one of the requested items whose `type` was `"value"` or `"descendantsValues"`.
 
 Returned when the `type` of the query was `"value"`:
 
-- `key` is guaranteed to be equal to one of the `key`s provided as parameter
+- `key` is guaranteed to be equal to one of the `key`s provided.
 - `value` is a string containing the hexadecimal-encoded value of the storage entry.
 
 Returned when the `type` of the query was `"descendantsValues"`:
 
-- `key` is guaranteed to start with one of the `key`s provided as a parameter
+- `key` is guaranteed to start with one of the `key`s provided.
 - `value` is a string containing the hexadecimal-encoded value of the storage entry.
 
 ### Hash
@@ -74,16 +74,16 @@ Returned when the `type` of the query was `"descendantsValues"`:
 }
 ```
 
-The JSON object corresponds to one of the requested items whose `type` was `"hash"` or `"descendantsHashes"`
+The JSON object corresponds to one of the requested items whose `type` was `"hash"` or `"descendantsHashes"`.
 
 Returned when the `type` of the query was `"hash"`:
 
-- `key` is guaranteed to be equal to one of the `key`s provided as parameter
+- `key` is guaranteed to be equal to one of the `key`s provided.
 - `hash` is a string containing the hexadecimal-encoded value of the storage entry.
 
 Returned when the `type` of the query was `"descendantsHashes"`:
 
-- `key` is guaranteed to start with one of the `key`s provided as parameter
+- `key` is guaranteed to start with one of the `key`s provided.
 - `hash` is a string containing the hexadecimal-encoded value of the storage entry.
 
 
@@ -98,8 +98,8 @@ Returned when the `type` of the query was `"descendantsHashes"`:
 
 The JSON object corresponds to one of the requested items whose `type` was `"closestDescendantMerkleValue"`.
 
-- `key` is guaranteed to be equal to one of the `key`s provided as parameter
-- `closestDescendantMerkleValue`: the closest trie Merkle value of the `key`
+- `key` is guaranteed to be equal to one of the `key`s provided.
+- `closestDescendantMerkleValue` is the closest trie Merkle value of the `key`.
 
 If `key` doesn't exist in the trie, then the Merkle value of the closest descendant of `key` (including branch nodes) is provided. If `key` doesn't have any descendant in the trie, then the result will not contain any relevant item.
 
