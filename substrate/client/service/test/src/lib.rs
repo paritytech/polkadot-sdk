@@ -501,7 +501,7 @@ pub fn sync<G, E, Fb, F, B, ExF, U>(
 	info!("Checking extrinsic propagation");
 	let first_service = network.full_nodes[0].1.clone();
 	let first_user_data = &network.full_nodes[0].2;
-	let best_block = BlockId::number(first_service.client().info().best_number);
+	let best_block = first_service.client().info().best_hash;
 	let extrinsic = extrinsic_factory(&first_service, first_user_data);
 	let source = sc_transaction_pool_api::TransactionSource::External;
 
