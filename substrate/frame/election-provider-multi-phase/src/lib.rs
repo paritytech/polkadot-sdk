@@ -1372,16 +1372,16 @@ impl<T: Config> SnapshotWrapper<T> {
 		sp_io::storage::set(&<Snapshot<T>>::hashed_key(), &buffer);
 	}
 
-	/// Check if all of the storage items exist.
-	pub fn exists() -> bool {
-		<Snapshot<T>>::exists() && <SnapshotMetadata<T>>::exists() && <DesiredTargets<T>>::exists()
-	}
-
-	/// Check if all of the storage items do not exist.
-	pub fn not_exists() -> bool {
-		!<Snapshot<T>>::exists() &&
-			!<SnapshotMetadata<T>>::exists() &&
-			!<DesiredTargets<T>>::exists()
+	/// Check if all of the storage items exist at the same time or all of the storage items do not
+	/// exist.
+	#[cfg(feature = "try-runtime")]
+	pub fn is_consistent() -> bool {
+		(<Snapshot<T>>::exists() &&
+			<SnapshotMetadata<T>>::exists() &&
+			<DesiredTargets<T>>::exists()) ||
+			(!<Snapshot<T>>::exists() &&
+				!<SnapshotMetadata<T>>::exists() &&
+				!<DesiredTargets<T>>::exists())
 	}
 }
 
@@ -1637,7 +1637,7 @@ impl<T: Config> Pallet<T> {
 	// - [`DesiredTargets`] exists if and only if [`Snapshot`] is present.
 	// - [`SnapshotMetadata`] exist if and only if [`Snapshot`] is present.
 	fn try_state_snapshot() -> Result<(), TryRuntimeError> {
-		if SnapshotWrapper::<T>::exists() || SnapshotWrapper::<T>::not_exists() {
+		if SnapshotWrapper::<T>::is_consistent() {
 			Ok(())
 		} else {
 			Err("If snapshot exists, metadata and desired targets should be set too. Otherwise, none should be set.".into())
