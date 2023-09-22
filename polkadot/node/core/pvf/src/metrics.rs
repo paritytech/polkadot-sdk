@@ -95,8 +95,8 @@ impl Metrics {
 			}
 
 			metrics
-				.preparation_peak_allocation
-				.observe((memory_stats.peak_alloc / 1024) as f64);
+				.preparation_peak_tracked_allocation
+				.observe((memory_stats.peak_tracked_alloc / 1024) as f64);
 		}
 	}
 }
@@ -114,11 +114,14 @@ struct MetricsInner {
 	execution_time: prometheus::Histogram,
 	#[cfg(target_os = "linux")]
 	preparation_max_rss: prometheus::Histogram,
+	// Max. allocated memory, tracked by Jemallocator, polling-based
 	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 	preparation_max_allocated: prometheus::Histogram,
+	// Max. resident memory, tracked by Jemallocator, polling-based
 	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 	preparation_max_resident: prometheus::Histogram,
-	preparation_peak_allocation: prometheus::Histogram,
+	// Peak allocation value, tracked by tracking-allocator
+	preparation_peak_tracked_allocation: prometheus::Histogram,
 }
 
 impl metrics::Metrics for Metrics {
@@ -276,7 +279,7 @@ impl metrics::Metrics for Metrics {
 				)?,
 				registry,
 			)?,
-			preparation_peak_allocation: prometheus::register(
+			preparation_peak_tracked_allocation: prometheus::register(
 				prometheus::Histogram::with_opts(
 					prometheus::HistogramOpts::new(
 						"polkadot_pvf_preparation_peak_allocation",

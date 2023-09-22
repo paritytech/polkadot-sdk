@@ -11435,7 +11435,6 @@ dependencies = [
  "tempfile",
  "tikv-jemallocator",
  "tokio",
- "tracking-allocator",
 ]
 
 [[package]]

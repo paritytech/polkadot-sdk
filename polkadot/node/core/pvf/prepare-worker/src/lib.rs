@@ -31,7 +31,7 @@ use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
-	error::{PrepareError, PrepareResult},
+	error::{PrepareError, PrepareResult, OOM_PAYLOAD},
 	executor_intf::Executor,
 	framed_recv, framed_send,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
@@ -188,9 +188,8 @@ pub fn worker_entrypoint(
 						// are possible
 						libc::write(
 							fd,
-							b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08" as *const _
-								as *const libc::c_void,
-							10,
+							OOM_PAYLOAD as *const _ as *const libc::c_void,
+							OOM_PAYLOAD.len(),
 						);
 						libc::close(fd);
 						std::process::exit(1);
@@ -280,7 +279,10 @@ pub fn worker_entrypoint(
 									memory_tracker_stats,
 									#[cfg(target_os = "linux")]
 									max_rss: extract_max_rss_stat(max_rss, worker_pid),
-									peak_alloc: if peak_alloc > 0 {
+									// Negative peak allocation values are legit; they are narrow
+									// corner cases and shouldn't affect overall statistics
+									// significantly
+									peak_tracked_alloc: if peak_alloc > 0 {
 										peak_alloc as u64
 									} else {
 										0u64

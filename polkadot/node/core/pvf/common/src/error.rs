@@ -23,6 +23,7 @@ use std::fmt;
 pub type PrepareResult = Result<PrepareStats, PrepareError>;
 
 /// An error that occurred during the prepare part of the PVF pipeline.
+// Codec indexes are intended to stabilize pre-encoded payloads (see `OOM_PAYLOAD` below)
 #[derive(Debug, Clone, Encode, Decode)]
 pub enum PrepareError {
 	/// During the prevalidation stage of preparation an issue was found with the PVF.
@@ -57,6 +58,9 @@ pub enum PrepareError {
 	#[codec(index = 8)]
 	OutOfMemory,
 }
+
+/// Pre-encoded length-prefixed `PrepareResult::Err(PrepareError::OutOfMemory)`
+pub const OOM_PAYLOAD: &[u8] = b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08";
 
 impl PrepareError {
 	/// Returns whether this is a deterministic error, i.e. one that should trigger reliably. Those
@@ -123,4 +127,12 @@ impl fmt::Display for InternalValidationError {
 			NonDeterministicPrepareError(err) => write!(f, "validation: prepare: {}", err),
 		}
 	}
+}
+
+#[test]
+fn pre_encoded_payloads() {
+	let oom_enc = PrepareResult::Err(PrepareError::OutOfMemory).encode();
+	let mut oom_payload = oom_enc.len().to_le_bytes().to_vec();
+	oom_payload.extend(oom_enc);
+	assert_eq!(oom_payload, OOM_PAYLOAD);
 }

@@ -14,16 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(feature = "ci-only-tests")]
+//! General PVF host integration tests checking the functionality of the PVF host itself.
+
 use assert_matches::assert_matches;
 use parity_scale_codec::Encode as _;
 use polkadot_node_core_pvf::{
 	start, Config, InvalidCandidate, Metrics, PrepareError, PrepareJobKind, PrepareStats,
 	PvfPrepData, ValidationError, ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
-use polkadot_parachain_primitives::primitives::{
-	BlockData as GenericBlockData, ValidationParams, ValidationResult,
-};
+use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::{ExecutorParam, ExecutorParams};
 
 use std::time::Duration;
@@ -137,7 +136,7 @@ async fn terminates_on_timeout() {
 		.validate_candidate(
 			halt::wasm_binary_unwrap(),
 			ValidationParams {
-				block_data: GenericBlockData(Vec::new()),
+				block_data: BlockData(Vec::new()),
 				parent_head: Default::default(),
 				relay_parent_number: 1,
 				relay_parent_storage_root: Default::default(),
@@ -217,7 +216,7 @@ async fn execute_queue_doesnt_stall_if_workers_died() {
 		host.validate_candidate(
 			halt::wasm_binary_unwrap(),
 			ValidationParams {
-				block_data: GenericBlockData(Vec::new()),
+				block_data: BlockData(Vec::new()),
 				parent_head: Default::default(),
 				relay_parent_number: 1,
 				relay_parent_storage_root: Default::default(),
@@ -299,7 +298,7 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 		.validate_candidate(
 			halt::wasm_binary_unwrap(),
 			ValidationParams {
-				block_data: GenericBlockData(Vec::new()),
+				block_data: BlockData(Vec::new()),
 				parent_head: Default::default(),
 				relay_parent_number: 1,
 				relay_parent_storage_root: Default::default(),
@@ -329,7 +328,7 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 		.validate_candidate(
 			halt::wasm_binary_unwrap(),
 			ValidationParams {
-				block_data: GenericBlockData(Vec::new()),
+				block_data: BlockData(Vec::new()),
 				parent_head: Default::default(),
 				relay_parent_number: 1,
 				relay_parent_storage_root: Default::default(),
@@ -359,10 +358,7 @@ async fn prechecking_within_memory_limits() {
 		)
 		.await;
 
-	match result {
-		Ok(_) => (),
-		r => panic!("{:?}", r),
-	}
+	assert_matches!(result, Ok(_));
 }
 
 // This test checks if the adder parachain runtime can be prepared with 512Kb preparation memory
@@ -380,8 +376,6 @@ async fn prechecking_out_of_memory() {
 			ExecutorParams::from(&[ExecutorParam::PrecheckingMaxMemory(512 * 1024)][..]),
 		)
 		.await;
-	match result {
-		Err(PrepareError::OutOfMemory) => (),
-		r => panic!("{:?}", r),
-	}
+
+	assert_matches!(result, Err(PrepareError::OutOfMemory));
 }

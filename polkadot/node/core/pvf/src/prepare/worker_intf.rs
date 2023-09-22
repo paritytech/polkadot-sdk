@@ -124,14 +124,6 @@ pub async fn start_work(
 
 		match result {
 			// Received bytes from worker within the time limit.
-			Ok(Ok(Err(PrepareError::OutOfMemory))) => {
-				gum::warn!(
-					target: LOG_TARGET,
-					worker_pid = %pid,
-					"worker is out of memory",
-				);
-				Outcome::OutOfMemory
-			},
 			Ok(Ok(prepare_result)) =>
 				handle_response(
 					metrics,
@@ -184,6 +176,7 @@ async fn handle_response(
 		Ok(result) => result,
 		// Timed out on the child. This should already be logged by the child.
 		Err(PrepareError::TimedOut) => return Outcome::TimedOut,
+		Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
 		Err(_) => return Outcome::Concluded { worker, result },
 	};
 
