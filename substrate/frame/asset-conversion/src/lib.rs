@@ -877,14 +877,14 @@ pub mod pallet {
 			amount: T::AssetBalance,
 			keep_alive: bool,
 		) -> Result<T::AssetBalance, DispatchError> {
+			let preservation = match keep_alive {
+				true => Preserve,
+				false => Expendable,
+			};
 			match T::MultiAssetIdConverter::try_convert(asset_id) {
 				MultiAssetIdConversionResult::Converted(asset_id) =>
-					T::Assets::transfer(asset_id, from, to, amount, Expendable),
+					T::Assets::transfer(asset_id, from, to, amount, preservation),
 				MultiAssetIdConversionResult::Native => {
-					let preservation = match keep_alive {
-						true => Preserve,
-						false => Expendable,
-					};
 					let amount = Self::convert_asset_balance_to_native_balance(amount)?;
 					Ok(Self::convert_native_balance_to_asset_balance(T::Currency::transfer(
 						from,
@@ -1213,7 +1213,7 @@ pub mod pallet {
 			reserve1: &T::AssetBalance,
 			reserve2: &T::AssetBalance,
 		) -> Result<T::AssetBalance, Error<T>> {
-			// amount * reserve2 / reserve1
+			// (amount * reserve2) / reserve1
 			Self::mul_div(amount, reserve2, reserve1)
 		}
 
