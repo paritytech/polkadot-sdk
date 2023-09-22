@@ -146,7 +146,7 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn hrmp_init_open_channel () {
+	fn hrmp_init_open_channel() {
 		let sender_id: ParaId = 1u32.into();
 		let sender_origin: crate::Origin = 1u32.into();
 
@@ -154,7 +154,8 @@ mod benchmarks {
 
 		// make sure para is registered, and has enough balance.
 		let ed = T::Currency::minimum_balance();
-		let deposit: BalanceOf<T> = Configuration::<T>::config().hrmp_sender_deposit.unique_saturated_into();
+		let deposit: BalanceOf<T> =
+			Configuration::<T>::config().hrmp_sender_deposit.unique_saturated_into();
 		register_parachain_with_balance::<T>(sender_id, deposit + ed);
 		register_parachain_with_balance::<T>(recipient_id, deposit + ed);
 
@@ -165,12 +166,13 @@ mod benchmarks {
 		_(sender_origin, recipient_id, capacity, message_size);
 
 		assert_last_event::<T>(
-			Event::<T>::OpenChannelRequested(sender_id, recipient_id, capacity, message_size).into()
+			Event::<T>::OpenChannelRequested(sender_id, recipient_id, capacity, message_size)
+				.into(),
 		);
 	}
 
 	#[benchmark]
-	fn hrmp_accept_open_channel () {
+	fn hrmp_accept_open_channel() {
 		let [(sender, _), (recipient, recipient_origin)] =
 			establish_para_connection::<T>(1, 2, ParachainSetupStep::Requested);
 
@@ -181,7 +183,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn hrmp_close_channel () {
+	fn hrmp_close_channel() {
 		let [(sender, sender_origin), (recipient, _)] =
 			establish_para_connection::<T>(1, 2, ParachainSetupStep::Established);
 		let channel_id = HrmpChannelId { sender, recipient };
@@ -195,22 +197,25 @@ mod benchmarks {
 	// NOTE: a single parachain should have the maximum number of allowed ingress and egress
 	// channels.
 	#[benchmark]
-	fn force_clean_hrmp (
+	fn force_clean_hrmp(
 		// ingress channels to a single leaving parachain that need to be closed.
 		i: Linear<0, { HRMP_MAX_INBOUND_CHANNELS_BOUND - 1 }>,
 		// egress channels to a single leaving parachain that need to be closed.
-		e: Linear<0, { HRMP_MAX_OUTBOUND_CHANNELS_BOUND - 1 }>
+		e: Linear<0, { HRMP_MAX_OUTBOUND_CHANNELS_BOUND - 1 }>,
 	) {
 		// first, update the configs to support this many open channels...
-		assert_ok!(
-			Configuration::<T>::set_hrmp_max_parachain_outbound_channels(frame_system::RawOrigin::Root.into(), e + 1)
-		);
-		assert_ok!(
-			Configuration::<T>::set_hrmp_max_parachain_inbound_channels(frame_system::RawOrigin::Root.into(), i + 1)
-		);
-		assert_ok!(
-			Configuration::<T>::set_max_downward_message_size(frame_system::RawOrigin::Root.into(), 1024)
-		);
+		assert_ok!(Configuration::<T>::set_hrmp_max_parachain_outbound_channels(
+			frame_system::RawOrigin::Root.into(),
+			e + 1
+		));
+		assert_ok!(Configuration::<T>::set_hrmp_max_parachain_inbound_channels(
+			frame_system::RawOrigin::Root.into(),
+			i + 1
+		));
+		assert_ok!(Configuration::<T>::set_max_downward_message_size(
+			frame_system::RawOrigin::Root.into(),
+			1024
+		));
 		// .. and enact it.
 		Configuration::<T>::initializer_on_new_session(&Shared::<T>::scheduled_session());
 
@@ -225,7 +230,11 @@ mod benchmarks {
 		for ingress_para_id in 0..i {
 			// establish ingress channels to `para`.
 			let ingress_para_id = ingress_para_id + PREFIX_0;
-			let _ = establish_para_connection::<T>(ingress_para_id, para.into(), ParachainSetupStep::Established);
+			let _ = establish_para_connection::<T>(
+				ingress_para_id,
+				para.into(),
+				ParachainSetupStep::Established,
+			);
 		}
 
 		// nothing should be left unprocessed.
@@ -234,7 +243,11 @@ mod benchmarks {
 		for egress_para_id in 0..e {
 			// establish egress channels to `para`.
 			let egress_para_id = egress_para_id + PREFIX_1;
-			let _ = establish_para_connection::<T>(para.into(), egress_para_id, ParachainSetupStep::Established);
+			let _ = establish_para_connection::<T>(
+				para.into(),
+				egress_para_id,
+				ParachainSetupStep::Established,
+			);
 		}
 
 		// nothing should be left unprocessed.
@@ -254,13 +267,17 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn force_process_hrmp_open (
+	fn force_process_hrmp_open(
 		// number of channels that need to be processed. Worse case is an N-M relation: unique
 		// sender and recipients for all channels.
-		c: Linear<0, MAX_UNIQUE_CHANNELS>
+		c: Linear<0, MAX_UNIQUE_CHANNELS>,
 	) {
-		for id in 0 .. c {
-			let _ = establish_para_connection::<T>(PREFIX_0 + id, PREFIX_1 + id, ParachainSetupStep::Accepted);
+		for id in 0..c {
+			let _ = establish_para_connection::<T>(
+				PREFIX_0 + id,
+				PREFIX_1 + id,
+				ParachainSetupStep::Accepted,
+			);
 		}
 		assert_eq!(HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32, c);
 
@@ -271,13 +288,17 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn force_process_hrmp_close (
+	fn force_process_hrmp_close(
 		// number of channels that need to be processed. Worse case is an N-M relation: unique
 		// sender and recipients for all channels.
-		c: Linear<0, MAX_UNIQUE_CHANNELS>
+		c: Linear<0, MAX_UNIQUE_CHANNELS>,
 	) {
-		for id in 0 .. c {
-			let _ = establish_para_connection::<T>(PREFIX_0 + id, PREFIX_1 + id, ParachainSetupStep::CloseRequested);
+		for id in 0..c {
+			let _ = establish_para_connection::<T>(
+				PREFIX_0 + id,
+				PREFIX_1 + id,
+				ParachainSetupStep::CloseRequested,
+			);
 		}
 
 		assert_eq!(HrmpCloseChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32, c);
@@ -289,18 +310,25 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn hrmp_cancel_open_request (
+	fn hrmp_cancel_open_request(
 		// number of items already existing in the `HrmpOpenChannelRequestsList`, other than the
 		// one that we remove.
-		c: Linear<0, MAX_UNIQUE_CHANNELS>
+		c: Linear<0, MAX_UNIQUE_CHANNELS>,
 	) {
-		for id in 0 .. c {
-			let _ = establish_para_connection::<T>(PREFIX_0 + id, PREFIX_1 + id, ParachainSetupStep::Requested);
+		for id in 0..c {
+			let _ = establish_para_connection::<T>(
+				PREFIX_0 + id,
+				PREFIX_1 + id,
+				ParachainSetupStep::Requested,
+			);
 		}
 
 		let [(sender, sender_origin), (recipient, _)] =
 			establish_para_connection::<T>(1, 2, ParachainSetupStep::Requested);
-		assert_eq!(HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32, c + 1);
+		assert_eq!(
+			HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32,
+			c + 1
+		);
 		let channel_id = HrmpChannelId { sender, recipient };
 
 		#[extrinsic_call]
@@ -313,10 +341,13 @@ mod benchmarks {
 	// the recipient need to be cleaned. This enforces the deposit of at least one to be processed.
 	// No code path for triggering two deposit process exists.
 	#[benchmark]
-	fn clean_open_channel_requests (c: Linear<0, MAX_UNIQUE_CHANNELS>) {
-
-		for id in 0 .. c {
-			let _ = establish_para_connection::<T>(PREFIX_0 + id, PREFIX_1 + id, ParachainSetupStep::Requested);
+	fn clean_open_channel_requests(c: Linear<0, MAX_UNIQUE_CHANNELS>) {
+		for id in 0..c {
+			let _ = establish_para_connection::<T>(
+				PREFIX_0 + id,
+				PREFIX_1 + id,
+				ParachainSetupStep::Requested,
+			);
 		}
 
 		assert_eq!(HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32, c);
@@ -332,7 +363,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn force_open_hrmp_channel () {
+	fn force_open_hrmp_channel() {
 		let sender_id: ParaId = 1u32.into();
 		let sender_origin: crate::Origin = 1u32.into();
 		let recipient_id: ParaId = 2u32.into();
@@ -382,12 +413,13 @@ mod benchmarks {
 		_(frame_system::Origin::<T>::Root, sender_id, recipient_id, capacity, message_size);
 
 		assert_last_event::<T>(
-			Event::<T>::HrmpChannelForceOpened(sender_id, recipient_id, capacity, message_size).into()
+			Event::<T>::HrmpChannelForceOpened(sender_id, recipient_id, capacity, message_size)
+				.into(),
 		);
 	}
 
 	#[benchmark]
-	fn establish_system_channel () {
+	fn establish_system_channel() {
 		let sender_id: ParaId = 1u32.into();
 		let recipient_id: ParaId = 2u32.into();
 
@@ -405,15 +437,16 @@ mod benchmarks {
 		_(frame_system::RawOrigin::Signed(caller), sender_id, recipient_id);
 
 		assert_last_event::<T>(
-			Event::<T>::HrmpSystemChannelOpened(sender_id, recipient_id, capacity, message_size).into()
+			Event::<T>::HrmpSystemChannelOpened(sender_id, recipient_id, capacity, message_size)
+				.into(),
 		);
 	}
 
 	#[benchmark]
-	fn poke_channel_deposits () {
+	fn poke_channel_deposits() {
 		let sender_id: ParaId = 1u32.into();
 		let recipient_id: ParaId = 2u32.into();
-		let channel_id = HrmpChannelId {sender: sender_id, recipient: recipient_id };
+		let channel_id = HrmpChannelId { sender: sender_id, recipient: recipient_id };
 
 		let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
 		let config = Configuration::<T>::config();
@@ -447,15 +480,21 @@ mod benchmarks {
 		_(frame_system::RawOrigin::Signed(caller), sender_id, recipient_id);
 
 		assert_last_event::<T>(
-			Event::<T>::OpenChannelDepositsUpdated(sender_id, recipient_id).into()
+			Event::<T>::OpenChannelDepositsUpdated(sender_id, recipient_id).into(),
 		);
 		let channel = HrmpChannels::<T>::get(&channel_id).unwrap();
 		// Check that the deposit was updated in the channel state.
 		assert_eq!(channel.sender_deposit, 0);
 		assert_eq!(channel.recipient_deposit, 0);
 		// And that the funds were unreserved.
-		assert_eq!(T::Currency::reserved_balance(&sender_id.into_account_truncating()), 0u128.unique_saturated_into());
-		assert_eq!(T::Currency::reserved_balance(&recipient_id.into_account_truncating()), 0u128.unique_saturated_into());
+		assert_eq!(
+			T::Currency::reserved_balance(&sender_id.into_account_truncating()),
+			0u128.unique_saturated_into()
+		);
+		assert_eq!(
+			T::Currency::reserved_balance(&recipient_id.into_account_truncating()),
+			0u128.unique_saturated_into()
+		);
 	}
 }
 
