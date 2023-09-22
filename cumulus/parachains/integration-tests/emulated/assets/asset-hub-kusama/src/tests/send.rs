@@ -19,27 +19,13 @@ use crate::*;
 /// when `OriginKind::Superuser`.
 #[test]
 fn send_transact_superuser_from_relay_to_system_para_works() {
-	// Init tests variables
-	let root_origin = <Kusama as Chain>::RuntimeOrigin::root();
-	let system_para_destination = Kusama::child_location_of(AssetHubKusama::para_id()).into();
 	let asset_owner: AccountId = AssetHubKusamaSender::get().into();
-	let xcm = AssetHubKusama::force_create_asset_xcm(
-		OriginKind::Superuser,
-		ASSET_ID,
-		asset_owner.clone(),
-		true,
-		1000,
-	);
-	// Send XCM message from Relay Chain
-	Kusama::execute_with(|| {
-		assert_ok!(<Kusama as KusamaPallet>::XcmPallet::send(
-			root_origin,
-			bx!(system_para_destination),
-			bx!(xcm),
-		));
 
-		Kusama::assert_xcm_pallet_sent();
-	});
+	Kusama::send_transact_to_parachain(
+		OriginKind::Superuser,
+		AssetHubKusama::para_id(),
+		AssetHubKusama::force_create_asset_call(ASSET_ID, asset_owner.clone(), true, 1000),
+	);
 
 	// Receive XCM message in Assets Parachain
 	AssetHubKusama::execute_with(|| {
@@ -60,7 +46,6 @@ fn send_transact_superuser_from_relay_to_system_para_works() {
 		assert!(<AssetHubKusama as AssetHubKusamaPallet>::Assets::asset_exists(ASSET_ID));
 	});
 }
-
 
 /// Relay Chain shouldn't be able to execute `Transact` instructions in System Parachain
 /// when `OriginKind::Native`
@@ -110,7 +95,7 @@ fn send_transact_native_from_system_para_to_relay_fails() {
 
 	let xcm = xcm_transact_unpaid_execution(call, origin_kind);
 
-	// Send XCM message from Relay Chain
+	// Send XCM message from parachain
 	AssetHubKusama::execute_with(|| {
 		assert_err!(
 			<AssetHubKusama as AssetHubKusamaPallet>::PolkadotXcm::send(

@@ -54,7 +54,7 @@ pub use polkadot_runtime_parachains::{
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 pub use xcm::{
-	prelude::{OriginKind, Outcome, VersionedXcm, Weight},
+	prelude::{MultiLocation, OriginKind, Outcome, VersionedXcm, Weight},
 	v3::Error,
 	DoubleEncoded,
 };
@@ -349,6 +349,38 @@ macro_rules! impl_hrmp_channels_helpers_for_relay_chain {
 
 						// Check the HRMP channel has been successfully registrered
 						assert!(hrmp_channel_exist)
+					});
+				}
+			}
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! impl_send_transact_helpers_for_relay_chain {
+	( $chain:ident ) => {
+		$crate::impls::paste::paste! {
+			impl $chain {
+				/// A root origin (as governance) sends `xcm::Transact` with encoded `call` to child parachain.
+				pub fn send_transact_to_parachain(
+					origin_kind: $crate::impls::OriginKind,
+					recipient: $crate::impls::ParaId,
+					call: $crate::impls::DoubleEncoded<()>
+				) {
+					use $crate::impls::{bx, Chain, RelayChain};
+
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						let root_origin = <Self as Chain>::RuntimeOrigin::root();
+						let destination:  $crate::impls::MultiLocation = <Self as RelayChain>::child_location_of(recipient);
+						let xcm = $crate::impls::xcm_transact_unpaid_execution(call, origin_kind);
+
+						// Send XCM `Transact`
+						$crate::impls::assert_ok!(<Self as [<$chain Pallet>]>::XcmPallet::send(
+							root_origin,
+							bx!(destination.into()),
+							bx!(xcm),
+						));
+						Self::assert_xcm_pallet_sent();
 					});
 				}
 			}

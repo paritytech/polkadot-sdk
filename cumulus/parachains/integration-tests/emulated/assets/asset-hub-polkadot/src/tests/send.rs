@@ -112,7 +112,7 @@ fn send_transact_native_from_system_para_to_relay_fails() {
 
 	let xcm = xcm_transact_unpaid_execution(call, origin_kind);
 
-	// Send XCM message from Relay Chain
+	// Send XCM message from parachain
 	AssetHubPolkadot::execute_with(|| {
 		assert_err!(
 			<AssetHubPolkadot as AssetHubPolkadotPallet>::PolkadotXcm::send(

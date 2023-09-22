@@ -484,6 +484,7 @@ impl_hrmp_channels_helpers_for_relay_chain!(Polkadot);
 impl_accounts_helpers_for_relay_chain!(Kusama);
 impl_assert_events_helpers_for_relay_chain!(Kusama);
 impl_hrmp_channels_helpers_for_relay_chain!(Kusama);
+impl_send_transact_helpers_for_relay_chain!(Kusama);
 
 // Westend implementation
 impl_accounts_helpers_for_relay_chain!(Westend);
