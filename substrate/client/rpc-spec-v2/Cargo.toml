@@ -22,6 +22,8 @@ sp-core = { path = "../../primitives/core" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-api = { path = "../../primitives/api" }
 sp-blockchain = { path = "../../primitives/blockchain" }
+sp-keystore = { path = "../../primitives/keystore" }
+sp-session = { path = "../../primitives/session" }
 sp-version = { path = "../../primitives/version" }
 sc-client-api = { path = "../api" }
 sc-utils = { path = "../utils" }
