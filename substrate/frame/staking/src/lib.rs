@@ -200,6 +200,13 @@
 //! ```nocompile
 //! remaining_payout = max_yearly_inflation * total_tokens / era_per_year - staker_payout
 //! ```
+//!
+//! Note, however, that it is possible to set a minimum `remaining_payout` through the
+//! `MinRemainderPayout` storage type. The `era_payout` implementor must ensure that the
+//! `max_payout >= min_remainder_payout + staker_payout`. The excess should be taken from the
+//! `staker_payout` to ensure that the `max_payout` per era is not exceeded and the
+//! `min_remainder_payout` is respected.
+//!
 //! The remaining reward is send to the configurable end-point
 //! [`Config::RewardRemainder`].
 //!
