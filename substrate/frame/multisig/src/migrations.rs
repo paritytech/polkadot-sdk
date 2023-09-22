@@ -73,8 +73,6 @@ pub mod v1 {
 				// Writes: Drain Calls + Unreserves + Set version
 				call_count.saturating_mul(2).saturating_add(1),
 			)
-
-			// <T as frame_system::Config>::BlockWeights::get().max_block
 		}
 
 		#[cfg(feature = "try-runtime")]
