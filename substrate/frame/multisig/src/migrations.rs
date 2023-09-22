@@ -49,6 +49,8 @@ pub mod v1 {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
+			use sp_runtime::Saturating;
+
 			let current = Pallet::<T>::current_storage_version();
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
@@ -57,13 +59,22 @@ pub mod v1 {
 				return T::DbWeight::get().reads(1)
 			}
 
+			let mut call_count = 0u64;
 			Calls::<T>::drain().for_each(|(_call_hash, (_data, caller, deposit))| {
 				T::Currency::unreserve(&caller, deposit);
+				call_count.saturating_inc();
 			});
 
 			current.put::<Pallet<T>>();
 
-			<T as frame_system::Config>::BlockWeights::get().max_block
+			T::DbWeight::get().reads_writes(
+				// Reads: Get Calls + Get Version
+				call_count.saturating_add(1),
+				// Writes: Drain Calls + Unreserves + Set version
+				call_count.saturating_mul(2).saturating_add(1),
+			)
+
+			// <T as frame_system::Config>::BlockWeights::get().max_block
 		}
 
 		#[cfg(feature = "try-runtime")]
