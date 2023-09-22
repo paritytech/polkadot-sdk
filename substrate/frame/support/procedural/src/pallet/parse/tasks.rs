@@ -149,35 +149,44 @@ impl syn::parse::Parse for TaskDef {
 #[derive(Parse, Debug)]
 pub enum TaskAttrMeta {
 	#[peek(keywords::task_list, name = "#[pallet::task_list(..)]")]
-	TaskList {
-		_tasks: keywords::task_list,
-		#[paren]
-		_paren: Paren,
-		#[inside(_paren)]
-		expr: Expr,
-	},
+	TaskList(TaskListAttrMeta),
 	#[peek(keywords::task_index, name = "#[pallet::task_index(..)")]
-	TaskIndex {
-		_task_index: keywords::task_index,
-		#[paren]
-		_paren: Paren,
-		#[inside(_paren)]
-		index: LitInt,
-	},
+	TaskIndex(TaskIndexAttrMeta),
 	#[peek(keywords::task_condition, name = "#[pallet::task_condition(..)")]
-	TaskCondition {
-		_condition: keywords::task_condition,
-		#[paren]
-		_paren: Paren,
-		#[inside(_paren)]
-		_pipe1: Token![|],
-		#[inside(_paren)]
-		_ident: Ident,
-		#[inside(_paren)]
-		_pipe2: Token![|],
-		#[inside(_paren)]
-		expr: Expr,
-	},
+	TaskCondition(TaskConditionAttrMeta),
+}
+
+#[derive(Parse, Debug)]
+pub struct TaskListAttrMeta {
+	_tasks: keywords::task_list,
+	#[paren]
+	_paren: Paren,
+	#[inside(_paren)]
+	expr: Expr,
+}
+
+#[derive(Parse, Debug)]
+pub struct TaskIndexAttrMeta {
+	_task_index: keywords::task_index,
+	#[paren]
+	_paren: Paren,
+	#[inside(_paren)]
+	index: LitInt,
+}
+
+#[derive(Parse, Debug)]
+pub struct TaskConditionAttrMeta {
+	_condition: keywords::task_condition,
+	#[paren]
+	_paren: Paren,
+	#[inside(_paren)]
+	_pipe1: Token![|],
+	#[inside(_paren)]
+	_ident: Ident,
+	#[inside(_paren)]
+	_pipe2: Token![|],
+	#[inside(_paren)]
+	expr: Expr,
 }
 
 #[derive(Parse, Debug)]
