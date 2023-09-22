@@ -26,9 +26,7 @@ use codec::Codec;
 use futures::{Future, Stream};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_core::offchain::TransactionPoolExt;
-use sp_runtime::{
-	traits::{Block as BlockT, Member, NumberFor},
-};
+use sp_runtime::traits::{Block as BlockT, Member, NumberFor};
 use std::{collections::HashMap, hash::Hash, marker::PhantomData, pin::Pin, sync::Arc};
 
 const LOG_TARGET: &str = "txpool::api";

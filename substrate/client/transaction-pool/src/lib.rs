@@ -430,11 +430,7 @@ where
 
 		let validity = self
 			.api
-			.validate_transaction_blocking(
-				at,
-				TransactionSource::Local,
-				xt.clone(),
-			)?
+			.validate_transaction_blocking(at, TransactionSource::Local, xt.clone())?
 			.map_err(|e| {
 				Self::Error::Pool(match e {
 					TransactionValidityError::Invalid(i) => TxPoolError::InvalidTransaction(i),
@@ -574,10 +570,7 @@ async fn prune_known_txs_for_block<Block: BlockT, Api: graph::ChainApi<Block = B
 		},
 	};
 
-	if let Err(e) = pool
-		.prune(block_hash, *header.parent_hash(), &extrinsics)
-		.await
-	{
+	if let Err(e) = pool.prune(block_hash, *header.parent_hash(), &extrinsics).await {
 		log::error!("Cannot prune known in the pool: {}", e);
 	}
 
