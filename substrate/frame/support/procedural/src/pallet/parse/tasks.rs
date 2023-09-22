@@ -18,13 +18,13 @@
 use std::collections::HashSet;
 
 use derive_syn_parse::Parse;
-use proc_macro2::Span;
-use quote::ToTokens;
+use proc_macro2::{Span, TokenStream as TokenStream2};
+use quote::{quote, ToTokens};
 use syn::{
 	parse::ParseStream,
 	parse2,
 	spanned::Spanned,
-	token::{Brace, Bracket, Paren, PathSep, Pound},
+	token::{Bracket, Paren, PathSep, Pound},
 	Attribute, Error, Expr, Ident, ImplItemFn, Item, ItemImpl, LitInt, Result, Token,
 };
 
@@ -93,7 +93,15 @@ impl syn::parse::Parse for TasksDef {
 			.map(|item| parse2::<TaskDef>(item.to_token_stream()))
 			.collect::<Result<_>>()?;
 		let mut task_indices = HashSet::<LitInt>::new();
-		//for task in tasks {}
+		for task in tasks.iter() {
+			let task_index = &task.index_attr.meta.index;
+			if !task_indices.insert(task_index.clone()) {
+				return Err(Error::new(
+					task_index.span(),
+					format!("duplicate task index `{}`", task_index),
+				))
+			}
+		}
 		Ok(TasksDef { normal_attrs, tasks_attr, tasks })
 	}
 }
@@ -105,41 +113,86 @@ impl TasksDef {
 }
 
 pub type PalletTasksAttr = PalletTaskAttr<keywords::tasks>;
+pub type TaskAttr = PalletTaskAttr<TaskAttrMeta>;
+pub type TaskIndexAttr = PalletTaskAttr<TaskIndexAttrMeta>;
+pub type TaskConditionAttr = PalletTaskAttr<TaskConditionAttrMeta>;
+pub type TaskListAttr = PalletTaskAttr<TaskListAttrMeta>;
 
+#[derive(Debug, Clone)]
 pub struct TaskDef {
-	task_attrs: Vec<PalletTaskAttr<TaskAttrMeta>>,
-	item: ImplItemFn,
+	index_attr: TaskIndexAttr,
+	condition_attr: TaskConditionAttr,
+	list_attr: TaskListAttr,
+	normal_attrs: Vec<Attribute>,
 }
 
 impl syn::parse::Parse for TaskDef {
 	fn parse(input: ParseStream) -> Result<Self> {
-		let mut item = input.parse::<ImplItemFn>()?;
+		let item = input.parse::<ImplItemFn>()?;
 		// we only want to activate TaskAttrType parsing errors for tasks-related attributes,
 		// so we filter them here
-		let (task_attrs, normal_attrs) = item.attrs.into_iter().partition(|attr| {
-			let mut path_segs = attr.path().segments.iter();
-			let (Some(prefix), Some(suffix)) = (path_segs.next(), path_segs.next()) else {
-				return false
-			};
-			// N.B: the `PartialEq` impl between `Ident` and `&str` is more efficient than
-			// parsing and makes no stack or heap allocations
-			prefix.ident == "pallet" &&
-				(suffix.ident == "tasks" ||
-					suffix.ident == "task_list" ||
-					suffix.ident == "task_condition" ||
-					suffix.ident == "task_index")
-		});
-		item.attrs = normal_attrs;
+		let (task_attrs, normal_attrs): (Vec<_>, Vec<_>) =
+			item.attrs.into_iter().partition(|attr| {
+				let mut path_segs = attr.path().segments.iter();
+				let (Some(prefix), Some(suffix)) = (path_segs.next(), path_segs.next()) else {
+					return false
+				};
+				// N.B: the `PartialEq` impl between `Ident` and `&str` is more efficient than
+				// parsing and makes no stack or heap allocations
+				prefix.ident == "pallet" &&
+					(suffix.ident == "tasks" ||
+						suffix.ident == "task_list" ||
+						suffix.ident == "task_condition" ||
+						suffix.ident == "task_index")
+			});
+
 		let task_attrs: Vec<TaskAttr> = task_attrs
 			.into_iter()
 			.map(|attr| parse2(attr.to_token_stream()))
 			.collect::<Result<_>>()?;
 
-		Ok(TaskDef { task_attrs, item })
+		let Some(index_attr) = task_attrs
+			.iter()
+			.find(|attr| matches!(attr.meta, TaskAttrMeta::TaskIndex(_)))
+			.cloned()
+		else {
+			return Err(Error::new(
+				item.sig.ident.span(),
+				"missing `#[pallet::task_index(..)]` attribute",
+			))
+		};
+
+		let Some(condition_attr) = task_attrs
+			.iter()
+			.find(|attr| matches!(attr.meta, TaskAttrMeta::TaskCondition(_)))
+			.cloned()
+		else {
+			return Err(Error::new(
+				item.sig.ident.span(),
+				"missing `#[pallet::task_index(..)]` attribute",
+			))
+		};
+
+		let Some(list_attr) = task_attrs
+			.iter()
+			.find(|attr| matches!(attr.meta, TaskAttrMeta::TaskList(_)))
+			.cloned()
+		else {
+			return Err(Error::new(
+				item.sig.ident.span(),
+				"missing `#[pallet::task_index(..)]` attribute",
+			))
+		};
+
+		let index_attr = index_attr.try_into().expect("we check the type above; QED");
+		let condition_attr = condition_attr.try_into().expect("we check the type above; QED");
+		let list_attr = list_attr.try_into().expect("we check the type above; QED");
+
+		Ok(TaskDef { index_attr, condition_attr, list_attr, normal_attrs })
 	}
 }
 
-#[derive(Parse, Debug)]
+#[derive(Parse, Debug, Clone)]
 pub enum TaskAttrMeta {
 	#[peek(keywords::task_list, name = "#[pallet::task_list(..)]")]
 	TaskList(TaskListAttrMeta),
@@ -149,56 +202,152 @@ pub enum TaskAttrMeta {
 	TaskCondition(TaskConditionAttrMeta),
 }
 
-#[derive(Parse, Debug)]
+#[derive(Parse, Debug, Clone)]
 pub struct TaskListAttrMeta {
-	_tasks: keywords::task_list,
+	task_list: keywords::task_list,
 	#[paren]
 	_paren: Paren,
 	#[inside(_paren)]
 	expr: Expr,
 }
 
-#[derive(Parse, Debug)]
+#[derive(Parse, Debug, Clone)]
 pub struct TaskIndexAttrMeta {
-	_task_index: keywords::task_index,
+	task_index: keywords::task_index,
 	#[paren]
 	_paren: Paren,
 	#[inside(_paren)]
 	index: LitInt,
 }
 
-#[derive(Parse, Debug)]
+#[derive(Parse, Debug, Clone)]
 pub struct TaskConditionAttrMeta {
-	_condition: keywords::task_condition,
+	task_condition: keywords::task_condition,
 	#[paren]
 	_paren: Paren,
 	#[inside(_paren)]
-	_pipe1: Token![|],
+	pipe1: Token![|],
 	#[inside(_paren)]
-	_ident: Ident,
+	ident: Ident,
 	#[inside(_paren)]
-	_pipe2: Token![|],
+	pipe2: Token![|],
 	#[inside(_paren)]
 	expr: Expr,
 }
 
-#[derive(Parse, Debug)]
-pub struct PalletTaskAttr<T: syn::parse::Parse + core::fmt::Debug> {
-	_pound: Pound,
+#[derive(Parse, Debug, Clone)]
+pub struct PalletTaskAttr<T: syn::parse::Parse + core::fmt::Debug + ToTokens> {
+	pound: Pound,
 	#[bracket]
 	_bracket: Bracket,
 	#[inside(_bracket)]
-	_pallet: keywords::pallet,
+	pallet: keywords::pallet,
 	#[inside(_bracket)]
-	_colons: PathSep,
+	colons: PathSep,
 	#[inside(_bracket)]
-	attr: T,
+	meta: T,
 }
 
-pub type TaskAttr = PalletTaskAttr<TaskAttrMeta>;
+impl ToTokens for TaskListAttrMeta {
+	fn to_tokens(&self, tokens: &mut TokenStream2) {
+		let task_list = self.task_list;
+		let expr = &self.expr;
+		tokens.extend(quote!(#task_list(#expr)));
+	}
+}
 
-#[cfg(test)]
-use quote::quote;
+impl ToTokens for TaskConditionAttrMeta {
+	fn to_tokens(&self, tokens: &mut TokenStream2) {
+		let task_condition = self.task_condition;
+		let pipe1 = self.pipe1;
+		let ident = &self.ident;
+		let pipe2 = self.pipe2;
+		let expr = &self.expr;
+		tokens.extend(quote!(#task_condition(#pipe1 #ident #pipe2 #expr)));
+	}
+}
+
+impl ToTokens for TaskIndexAttrMeta {
+	fn to_tokens(&self, tokens: &mut TokenStream2) {
+		let task_index = self.task_index;
+		let index = &self.index;
+		tokens.extend(quote!(#task_index(#index)))
+	}
+}
+
+impl ToTokens for TaskAttrMeta {
+	fn to_tokens(&self, tokens: &mut TokenStream2) {
+		match self {
+			TaskAttrMeta::TaskList(list) => tokens.extend(list.to_token_stream()),
+			TaskAttrMeta::TaskIndex(index) => tokens.extend(index.to_token_stream()),
+			TaskAttrMeta::TaskCondition(condition) => tokens.extend(condition.to_token_stream()),
+		}
+	}
+}
+
+impl<T: syn::parse::Parse + core::fmt::Debug + ToTokens> ToTokens for PalletTaskAttr<T> {
+	fn to_tokens(&self, tokens: &mut TokenStream2) {
+		let pound = self.pound;
+		let pallet = self.pallet;
+		let colons = self.colons;
+		let meta = &self.meta;
+		tokens.extend(quote!(#pound[#pallet #colons #meta]));
+	}
+}
+
+impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskIndexAttr {
+	type Error = syn::Error;
+
+	fn try_from(value: PalletTaskAttr<TaskAttrMeta>) -> Result<Self> {
+		let pound = value.pound;
+		let pallet = value.pallet;
+		let colons = value.colons;
+		match value.meta {
+			TaskAttrMeta::TaskIndex(meta) => parse2(quote!(#pound[#pallet #colons #meta])),
+			_ =>
+				return Err(Error::new(
+					value.span(),
+					format!("`{:?}` cannot be converted to a `TaskIndexAttr`", value.meta),
+				)),
+		}
+	}
+}
+
+impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskConditionAttr {
+	type Error = syn::Error;
+
+	fn try_from(value: PalletTaskAttr<TaskAttrMeta>) -> Result<Self> {
+		let pound = value.pound;
+		let pallet = value.pallet;
+		let colons = value.colons;
+		match value.meta {
+			TaskAttrMeta::TaskCondition(meta) => parse2(quote!(#pound[#pallet #colons #meta])),
+			_ =>
+				return Err(Error::new(
+					value.span(),
+					format!("`{:?}` cannot be converted to a `TaskConditionAttr`", value.meta),
+				)),
+		}
+	}
+}
+
+impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskListAttr {
+	type Error = syn::Error;
+
+	fn try_from(value: PalletTaskAttr<TaskAttrMeta>) -> Result<Self> {
+		let pound = value.pound;
+		let pallet = value.pallet;
+		let colons = value.colons;
+		match value.meta {
+			TaskAttrMeta::TaskList(meta) => parse2(quote!(#pound[#pallet #colons #meta])),
+			_ =>
+				return Err(Error::new(
+					value.span(),
+					format!("`{:?}` cannot be converted to a `TaskListAttr`", value.meta),
+				)),
+		}
+	}
+}
 
 #[test]
 fn test_parse_pallet_task_list_() {
