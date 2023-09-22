@@ -27,6 +27,7 @@ struct TrackingAllocatorData {
 	current: isize,
 	peak: isize,
 	limit: isize,
+	failure_handler: Option<Box<dyn Fn()>>,
 }
 
 impl TrackingAllocatorData {
@@ -57,11 +58,12 @@ impl TrackingAllocatorData {
 		self.lock.store(false, Ordering::Release);
 	}
 
-	fn start_tracking(&mut self, limit: isize) {
+	fn start_tracking(&mut self, limit: isize, failure_handler: Option<Box<dyn Fn()>>) {
 		self.lock();
 		self.current = 0;
 		self.peak = 0;
 		self.limit = limit;
+		self.failure_handler = failure_handler;
 		self.unlock();
 	}
 
@@ -69,6 +71,7 @@ impl TrackingAllocatorData {
 		self.lock();
 		let peak = self.peak;
 		self.limit = 0;
+		self.failure_handler = None;
 		self.unlock();
 		peak
 	}
@@ -81,13 +84,20 @@ impl TrackingAllocatorData {
 			self.peak = self.current;
 		}
 		let within_limits = self.limit == 0 || self.peak <= self.limit;
-		self.unlock();
+		if within_limits {
+			self.unlock()
+		}
 		within_limits
 	}
 }
 
-static mut ALLOCATOR_DATA: TrackingAllocatorData =
-	TrackingAllocatorData { lock: AtomicBool::new(false), current: 0, peak: 0, limit: 0 };
+static mut ALLOCATOR_DATA: TrackingAllocatorData = TrackingAllocatorData {
+	lock: AtomicBool::new(false),
+	current: 0,
+	peak: 0,
+	limit: 0,
+	failure_handler: None,
+};
 
 pub struct TrackingAllocator<A: GlobalAlloc>(pub A);
 
@@ -97,9 +107,9 @@ impl<A: GlobalAlloc> TrackingAllocator<A> {
 	//   is isolated by an exclusive lock.
 
 	/// Start tracking
-	pub fn start_tracking(&self, limit: Option<isize>) {
+	pub fn start_tracking(&self, limit: Option<isize>, failure_handler: Option<Box<dyn Fn()>>) {
 		unsafe {
-			ALLOCATOR_DATA.start_tracking(limit.unwrap_or(0));
+			ALLOCATOR_DATA.start_tracking(limit.unwrap_or(0), failure_handler);
 		}
 	}
 
@@ -119,6 +129,10 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for TrackingAllocator<A> {
 		if ALLOCATOR_DATA.track(layout.size() as isize) {
 			self.0.alloc(layout)
 		} else {
+			if let Some(failure_handler) = &ALLOCATOR_DATA.failure_handler {
+				failure_handler()
+			}
+			ALLOCATOR_DATA.unlock();
 			null_mut()
 		}
 	}
@@ -128,6 +142,10 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for TrackingAllocator<A> {
 		if ALLOCATOR_DATA.track(layout.size() as isize) {
 			self.0.alloc_zeroed(layout)
 		} else {
+			if let Some(failure_handler) = &ALLOCATOR_DATA.failure_handler {
+				failure_handler()
+			}
+			ALLOCATOR_DATA.unlock();
 			null_mut()
 		}
 	}
@@ -143,6 +161,10 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for TrackingAllocator<A> {
 		if ALLOCATOR_DATA.track((new_size as isize) - (layout.size() as isize)) {
 			self.0.realloc(ptr, layout, new_size)
 		} else {
+			if let Some(failure_handler) = &ALLOCATOR_DATA.failure_handler {
+				failure_handler()
+			}
+			ALLOCATOR_DATA.unlock();
 			null_mut()
 		}
 	}

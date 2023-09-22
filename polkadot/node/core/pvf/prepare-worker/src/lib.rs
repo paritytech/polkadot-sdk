@@ -29,7 +29,6 @@ const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
 use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
-use crash_handler::{CrashEventResult, CrashHandler};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
@@ -182,34 +181,21 @@ pub fn worker_entrypoint(
 				)?;
 
 				let fd = stream.as_raw_fd();
-				let crash_event = unsafe {
-					crash_handler::make_crash_event(move |context| {
-						ALLOC.end_tracking();
-						if context.siginfo.ssi_signo as i32 == libc::SIGABRT {
-							// We're inside `SIGABRT` handler. The process state is compromised so
-							// no sudden movements please. Avoid allocations and make no assumptions
-							// based on the state of the stack.
-
-							// Send pre-encoded `Err(PrepareError::OutOfMemory)` to the host, close
-							// the connection, bail out.
-							libc::write(
-								fd,
-								b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08" as *const _
-									as *const libc::c_void,
-								10,
-							);
-							libc::close(fd);
-							std::process::exit(1);
-						}
-						CrashEventResult::Handled(true)
-					})
-				};
-
-				let _crash_handler = CrashHandler::attach(crash_event).map_err(|_| {
-					io::Error::new(io::ErrorKind::Other, "Failed to install crash handler")
-				})?;
-
-				ALLOC.start_tracking(executor_params.prechecking_max_memory().map(|v| v as isize));
+				ALLOC.start_tracking(
+					executor_params.prechecking_max_memory().map(|v| v as isize),
+					Some(Box::new(move || unsafe {
+						// Inside the failure handler, the allocator is locked and no allocations
+						// are possible
+						libc::write(
+							fd,
+							b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08" as *const _
+								as *const libc::c_void,
+							10,
+						);
+						libc::close(fd);
+						std::process::exit(1);
+					})),
+				);
 
 				// Spawn another thread for preparation.
 				let prepare_thread = thread::spawn_worker_thread(
