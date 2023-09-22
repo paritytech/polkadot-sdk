@@ -60,8 +60,7 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::{
-	availability_chunk_indices, request_session_info,
-	runtime::request_availability_chunk_shuffling_params,
+	availability_chunk_indices, request_session_info, runtime::request_client_features,
 };
 use polkadot_primitives::{
 	BlakeTwo256, BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, GroupIndex, Hash, HashT,
@@ -444,15 +443,13 @@ async fn handle_recover<Context>(
 				get_block_number(ctx.sender(), receipt.descriptor.relay_parent).await?;
 
 			if state.chunk_indices_cache.peek(&block_number).is_none() {
-				let maybe_av_chunk_shuffling_params = request_availability_chunk_shuffling_params(
-					receipt.descriptor.relay_parent,
-					ctx.sender(),
-				)
-				.await
-				.map_err(error::Error::RequestAvailabilityChunkShufflingParams)?;
+				let maybe_client_features =
+					request_client_features(receipt.descriptor.relay_parent, ctx.sender())
+						.await
+						.map_err(error::Error::RequestClientFeatures)?;
 
 				let chunk_indices = availability_chunk_indices(
-					maybe_av_chunk_shuffling_params,
+					maybe_client_features,
 					block_number,
 					session_info.validators.len(),
 				)

@@ -36,8 +36,8 @@ use polkadot_node_subsystem::{
 	SpawnedSubsystem, SubsystemError, SubsystemResult, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	self as util, availability_chunk_indices, request_validators,
-	runtime::request_availability_chunk_shuffling_params, Validator,
+	self as util, availability_chunk_indices, request_validators, runtime::request_client_features,
+	Validator,
 };
 use polkadot_primitives::{AvailabilityBitfield, BlockNumber, CoreState, Hash, ValidatorIndex};
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
@@ -102,12 +102,11 @@ async fn get_core_availability(
 
 		let block_number =
 			get_block_number(*sender.lock().await, core.candidate_descriptor.relay_parent).await?;
-		let maybe_av_chunk_shuffling_params =
-			request_availability_chunk_shuffling_params(relay_parent, *sender.lock().await)
-				.await
-				.map_err(Error::from)?;
+		let maybe_client_features = request_client_features(relay_parent, *sender.lock().await)
+			.await
+			.map_err(Error::from)?;
 		let chunk_indices =
-			availability_chunk_indices(maybe_av_chunk_shuffling_params, block_number, n_validators);
+			availability_chunk_indices(maybe_client_features, block_number, n_validators);
 		let chunk_index = chunk_indices[usize::try_from(validator_idx.0)
 			.expect("usize is at least u32 bytes on all modern targets.")];
 

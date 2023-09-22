@@ -23,7 +23,7 @@ use polkadot_core_primitives::{Block, BlockNumber, Hash, Header};
 use polkadot_overseer::RuntimeApiSubsystemClient;
 use polkadot_primitives::{
 	slashing,
-	vstaging::{AsyncBackingParams, AvailabilityChunkShufflingParams, BackingState},
+	vstaging::{AsyncBackingParams, BackingState, ClientFeatures},
 };
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};
 use sp_api::{ApiError, RuntimeApiInfo};
@@ -346,11 +346,8 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		Ok(self.rpc_client.parachain_host_minimum_backing_votes(at, session_index).await?)
 	}
 
-	async fn availability_chunk_shuffling_params(
-		&self,
-		at: Hash,
-	) -> Result<AvailabilityChunkShufflingParams, ApiError> {
-		Ok(self.rpc_client.parachain_host_availability_chunk_shuffling_params(at).await?)
+	async fn client_features(&self, at: Hash) -> Result<ClientFeatures, ApiError> {
+		Ok(self.rpc_client.parachain_host_client_features(at).await?)
 	}
 
 	async fn staging_async_backing_params(&self, at: Hash) -> Result<AsyncBackingParams, ApiError> {

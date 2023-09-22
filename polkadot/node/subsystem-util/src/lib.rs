@@ -34,9 +34,7 @@ use polkadot_node_subsystem::{
 	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
 	overseer, SubsystemSender,
 };
-use polkadot_primitives::{
-	slashing, vstaging::AvailabilityChunkShufflingParams, BlockNumber, ExecutorParams,
-};
+use polkadot_primitives::{slashing, vstaging::ClientFeatures, BlockNumber, ExecutorParams};
 use rand::seq::SliceRandom;
 use rand_chacha::ChaCha8Rng;
 
@@ -449,7 +447,7 @@ impl Validator {
 /// validators have a common view of the shuffle at a given block height.
 /// Otherwise, return the identity vector.
 pub fn availability_chunk_indices(
-	maybe_params: Option<AvailabilityChunkShufflingParams>,
+	maybe_client_features: Option<ClientFeatures>,
 	block_number: BlockNumber,
 	n_validators: usize,
 ) -> Vec<ChunkIndex> {
@@ -457,10 +455,8 @@ pub fn availability_chunk_indices(
 		.map(|i| ValidatorIndex(u32::try_from(i).expect("validator numbers should not exceed u32")))
 		.collect();
 
-	if let Some(AvailabilityChunkShufflingParams { activate_at: Some(activation_block_number) }) =
-		maybe_params
-	{
-		if block_number >= activation_block_number {
+	if let Some(features) = maybe_client_features {
+		if features.contains(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING) {
 			let seed = block_number.to_be_bytes();
 			let mut rng: ChaCha8Rng = SeedableRng::from_seed(
 				seed.repeat(8)

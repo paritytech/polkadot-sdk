@@ -40,7 +40,7 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	vstaging::AvailabilityChunkShufflingParams, AuthorityDiscoveryId, Hash, HeadData, IndexedVec,
+	vstaging::ClientFeatures, AuthorityDiscoveryId, Hash, HeadData, IndexedVec,
 	PersistedValidationData, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
@@ -213,19 +213,17 @@ impl TestState {
 		);
 	}
 
-	async fn test_runtime_api_chunk_shuffling(&self, virtual_overseer: &mut VirtualOverseer) {
+	async fn test_runtime_api_client_features(&self, virtual_overseer: &mut VirtualOverseer) {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				_relay_parent,
-				RuntimeApiRequest::AvailabilityChunkShufflingParams(
+				RuntimeApiRequest::ClientFeatures(
 					tx,
 				)
 			)) => {
 				tx.send(Ok(
-					AvailabilityChunkShufflingParams {
-						activate_at: None
-					}
+					ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING
 				)).unwrap();
 			}
 		);
@@ -553,7 +551,7 @@ fn availability_is_recovered_from_chunks_if_no_group_provided() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_chunk_shuffling(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -642,7 +640,7 @@ fn availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunk
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_chunk_shuffling(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -731,7 +729,7 @@ fn bad_merkle_path_leads_to_recovery_error() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_chunk_shuffling(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -792,7 +790,7 @@ fn wrong_chunk_index_leads_to_recovery_error() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_chunk_shuffling(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -869,7 +867,7 @@ fn invalid_erasure_coding_leads_to_invalid_error() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_chunk_shuffling(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
@@ -920,7 +918,7 @@ fn fast_path_backing_group_recovers() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_chunk_shuffling(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -974,7 +972,7 @@ fn recovers_from_only_chunks_if_pov_large() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_chunk_shuffling(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -1083,7 +1081,7 @@ fn fast_path_backing_group_recovers_if_pov_small() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_chunk_shuffling(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -1144,7 +1142,7 @@ fn no_answers_in_fast_path_causes_chunk_requests() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_chunk_shuffling(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -1208,7 +1206,7 @@ fn task_canceled_when_receivers_dropped() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_chunk_shuffling(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 
 		for _ in 0..test_state.validators.len() {
 			match virtual_overseer.recv().timeout(TIMEOUT).await {
@@ -1252,7 +1250,7 @@ fn chunks_retry_until_all_nodes_respond() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_chunk_shuffling(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -1315,7 +1313,7 @@ fn not_returning_requests_wont_stall_retrieval() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_chunk_shuffling(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -1389,7 +1387,7 @@ fn all_not_returning_requests_still_recovers_on_return() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_chunk_shuffling(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -1468,7 +1466,7 @@ fn returns_early_if_we_have_the_data() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_chunk_shuffling(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 		test_state.respond_to_available_data_query(&mut virtual_overseer, true).await;
 
 		assert_eq!(rx.await.unwrap().unwrap(), test_state.available_data);
@@ -1507,7 +1505,7 @@ fn does_not_query_local_validator() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_chunk_shuffling(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 		test_state.respond_to_query_all_request(&mut virtual_overseer, |i| i == 0).await;
 
@@ -1568,7 +1566,7 @@ fn invalid_local_chunk_is_ignored() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_chunk_shuffling(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 		test_state
 			.respond_to_query_all_request_invalid(&mut virtual_overseer, |i| i == 0)

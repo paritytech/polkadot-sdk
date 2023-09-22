@@ -23,8 +23,8 @@
 use pallet_nis::WithMaximumOf;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
-	slashing, vstaging::AvailabilityChunkShufflingParams, AccountId, AccountIndex, Balance,
-	BlockNumber, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
+	slashing, vstaging::ClientFeatures, AccountId, AccountIndex, Balance, BlockNumber,
+	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
 	ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
 	InboundHrmpMessage, Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData,
 	ScrapedOnChainVotes, SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId,
@@ -1862,8 +1862,8 @@ sp_api::impl_runtime_apis! {
 			parachains_staging_runtime_api_impl::minimum_backing_votes::<Runtime>()
 		}
 
-		fn availability_chunk_shuffling_params() -> AvailabilityChunkShufflingParams {
-			parachains_staging_runtime_api_impl::availability_chunk_shuffling_params::<Runtime>()
+		fn client_features() -> ClientFeatures {
+			parachains_staging_runtime_api_impl::client_features::<Runtime>()
 		}
 	}
 

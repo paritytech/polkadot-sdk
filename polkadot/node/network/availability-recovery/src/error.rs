@@ -33,8 +33,8 @@ pub enum Error {
 	#[error("failed to query session info")]
 	CanceledSessionInfo(#[source] oneshot::Canceled),
 
-	#[error("failed to query availability chunks shuffling params")]
-	RequestAvailabilityChunkShufflingParams(#[source] polkadot_node_subsystem_util::runtime::Error),
+	#[error("failed to query client features from runtime")]
+	RequestClientFeatures(#[source] polkadot_node_subsystem_util::runtime::Error),
 
 	#[error("failed to send response")]
 	CanceledResponseSender,

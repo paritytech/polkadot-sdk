@@ -20,7 +20,7 @@ use polkadot_node_primitives::{BabeAllowedSlots, BabeEpoch, BabeEpochConfigurati
 use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 use polkadot_primitives::{
-	vstaging::{self, AvailabilityChunkShufflingParams},
+	vstaging::{self, ClientFeatures},
 	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
 	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
@@ -269,10 +269,7 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		todo!("Not required for tests")
 	}
 
-	async fn availability_chunk_shuffling_params(
-		&self,
-		_: Hash,
-	) -> Result<AvailabilityChunkShufflingParams, ApiError> {
+	async fn client_features(&self, _: Hash) -> Result<ClientFeatures, ApiError> {
 		todo!("Not required for tests")
 	}
 }

@@ -250,7 +250,7 @@ sp_api::decl_runtime_apis! {
 		/// Get the availability-chunk shuffling params.
 		/// This is a staging method! Do not use on production runtimes!
 		#[api_version(7)]
-		fn availability_chunk_shuffling_params() -> vstaging::AvailabilityChunkShufflingParams;
+		fn client_features() -> vstaging::ClientFeatures;
 
 		/***** Asynchronous backing *****/
 

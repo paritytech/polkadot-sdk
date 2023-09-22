@@ -318,9 +318,7 @@ fn setting_pending_config_members() {
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_ttl: 5u32,
 			minimum_backing_votes: 5,
-			availability_chunk_shuffling_params: AvailabilityChunkShufflingParams {
-				activate_at: Some(100),
-			},
+			client_features: ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING,
 		};
 
 		Configuration::set_validation_upgrade_cooldown(
@@ -476,9 +474,11 @@ fn setting_pending_config_members() {
 			new_config.minimum_backing_votes,
 		)
 		.unwrap();
-		Configuration::set_availability_chunk_shuffling_params(
+		Configuration::set_availability_chunk_shuffling_client_feature(
 			RuntimeOrigin::root(),
-			new_config.availability_chunk_shuffling_params.clone(),
+			new_config
+				.client_features
+				.contains(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING),
 		)
 		.unwrap();
 

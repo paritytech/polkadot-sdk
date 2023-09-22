@@ -26,7 +26,7 @@ use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 use primitives::{
-	vstaging::{AsyncBackingParams, AvailabilityChunkShufflingParams},
+	vstaging::{AsyncBackingParams, ClientFeatures},
 	Balance, ExecutorParams, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE,
 	MAX_HEAD_DATA_SIZE, MAX_POV_SIZE, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
@@ -260,8 +260,8 @@ pub struct HostConfiguration<BlockNumber> {
 	/// The minimum number of valid backing statements required to consider a parachain candidate
 	/// backable.
 	pub minimum_backing_votes: u32,
-	/// Parameters for availability chunk shuffling.
-	pub availability_chunk_shuffling_params: AvailabilityChunkShufflingParams,
+	/// Client features enablement.
+	pub client_features: ClientFeatures,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -313,7 +313,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_ttl: 5u32.into(),
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
-			availability_chunk_shuffling_params: Default::default(),
+			client_features: ClientFeatures::empty(),
 		}
 	}
 }
@@ -1195,16 +1195,16 @@ pub mod pallet {
 		/// Set availability chunk shuffling params.
 		#[pallet::call_index(53)]
 		#[pallet::weight((
-			T::WeightInfo::set_config_with_option_u32(), // TODO: The same size in bytes? Benchmark.
+			T::WeightInfo::set_config_with_u32(), // TODO: add set config with bool
 			DispatchClass::Operational
 		))]
-		pub fn set_availability_chunk_shuffling_params(
+		pub fn set_availability_chunk_shuffling_client_feature(
 			origin: OriginFor<T>,
-			new: AvailabilityChunkShufflingParams,
+			enable: bool,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.availability_chunk_shuffling_params = new;
+				config.client_features.set(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING, enable)
 			})
 		}
 	}

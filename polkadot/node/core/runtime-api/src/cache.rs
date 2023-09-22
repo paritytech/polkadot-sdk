@@ -66,7 +66,7 @@ pub(crate) struct RequestResultCache {
 	key_ownership_proof:
 		LruMap<(Hash, ValidatorId), Option<vstaging::slashing::OpaqueKeyOwnershipProof>>,
 	minimum_backing_votes: LruMap<SessionIndex, u32>,
-	availability_chunk_shuffling_params: LruMap<Hash, vstaging::AvailabilityChunkShufflingParams>,
+	client_features: LruMap<Hash, vstaging::ClientFeatures>,
 
 	staging_para_backing_state: LruMap<(Hash, ParaId), Option<vstaging::BackingState>>,
 	staging_async_backing_params: LruMap<Hash, vstaging::AsyncBackingParams>,
@@ -100,7 +100,7 @@ impl Default for RequestResultCache {
 			unapplied_slashes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			key_ownership_proof: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			minimum_backing_votes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
-			availability_chunk_shuffling_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			client_features: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 
 			staging_para_backing_state: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			staging_async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
@@ -450,19 +450,12 @@ impl RequestResultCache {
 		self.minimum_backing_votes.insert(session_index, minimum_backing_votes);
 	}
 
-	pub(crate) fn availability_chunk_shuffling_params(
-		&mut self,
-		key: &Hash,
-	) -> Option<&vstaging::AvailabilityChunkShufflingParams> {
-		self.availability_chunk_shuffling_params.get(key).map(|v| &*v)
+	pub(crate) fn client_features(&mut self, key: &Hash) -> Option<vstaging::ClientFeatures> {
+		self.client_features.get(key).copied()
 	}
 
-	pub(crate) fn cache_availability_chunk_shuffling_params(
-		&mut self,
-		key: Hash,
-		params: vstaging::AvailabilityChunkShufflingParams,
-	) {
-		self.availability_chunk_shuffling_params.insert(key, params);
+	pub(crate) fn cache_client_features(&mut self, key: Hash, features: vstaging::ClientFeatures) {
+		self.client_features.insert(key, features);
 	}
 
 	pub(crate) fn staging_para_backing_state(
@@ -541,7 +534,7 @@ pub(crate) enum RequestResult {
 		vstaging::slashing::OpaqueKeyOwnershipProof,
 		Option<()>,
 	),
-	AvailabilityChunkShufflingParams(Hash, vstaging::AvailabilityChunkShufflingParams),
+	ClientFeatures(Hash, vstaging::ClientFeatures),
 
 	StagingParaBackingState(Hash, ParaId, Option<vstaging::BackingState>),
 	StagingAsyncBackingParams(Hash, vstaging::AsyncBackingParams),

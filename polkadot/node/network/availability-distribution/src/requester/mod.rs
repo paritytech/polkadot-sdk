@@ -36,7 +36,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	availability_chunk_indices,
-	runtime::{get_occupied_cores, request_availability_chunk_shuffling_params, RuntimeInfo},
+	runtime::{get_occupied_cores, request_client_features, RuntimeInfo},
 };
 use polkadot_primitives::{
 	BlockNumber, CandidateHash, ChunkIndex, Hash, OccupiedCore, SessionIndex,
@@ -266,15 +266,14 @@ impl Requester {
 						});
 
 					if self.chunk_index_cache.peek(&block_number).is_none() {
-						let maybe_av_chunk_shuffling_params =
-							request_availability_chunk_shuffling_params(
-								core.candidate_descriptor.relay_parent,
-								context.sender(),
-							)
-							.await?;
+						let maybe_client_features = request_client_features(
+							core.candidate_descriptor.relay_parent,
+							context.sender(),
+						)
+						.await?;
 
 						let chunk_indices = availability_chunk_indices(
-							maybe_av_chunk_shuffling_params,
+							maybe_client_features,
 							block_number,
 							n_validators,
 						);

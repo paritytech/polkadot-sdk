@@ -20,9 +20,8 @@ use crate::{configuration, dmp, hrmp, inclusion, initializer, paras, shared};
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{
 	vstaging::{
-		AsyncBackingParams, AvailabilityChunkShufflingParams, BackingState,
-		CandidatePendingAvailability, Constraints, InboundHrmpLimitations,
-		OutboundHrmpChannelLimitations,
+		AsyncBackingParams, BackingState, CandidatePendingAvailability, ClientFeatures,
+		Constraints, InboundHrmpLimitations, OutboundHrmpChannelLimitations,
 	},
 	Id as ParaId,
 };
@@ -125,8 +124,7 @@ pub fn minimum_backing_votes<T: initializer::Config>() -> u32 {
 	<configuration::Pallet<T>>::config().minimum_backing_votes
 }
 
-/// Return whether the shuffling of availability chunk indices is enabled.
-pub fn availability_chunk_shuffling_params<T: initializer::Config>(
-) -> AvailabilityChunkShufflingParams {
-	<configuration::Pallet<T>>::config().availability_chunk_shuffling_params
+/// Returns the current state of the client features.
+pub fn client_features<T: initializer::Config>() -> ClientFeatures {
+	<configuration::Pallet<T>>::config().client_features
 }

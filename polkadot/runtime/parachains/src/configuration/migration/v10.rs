@@ -23,7 +23,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{SessionIndex, LEGACY_MIN_BACKING_VOTES};
+use primitives::{vstaging::ClientFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES};
 use sp_runtime::Perbill;
 use sp_std::vec::Vec;
 
@@ -152,7 +152,7 @@ on_demand_fee_variability                : Perbill::from_percent(3),
 on_demand_target_queue_utilization       : Perbill::from_percent(25),
 on_demand_ttl                            : 5u32.into(),
 minimum_backing_votes                    : LEGACY_MIN_BACKING_VOTES,
-availability_chunk_shuffling_params      : Default::default()
+client_features                          : ClientFeatures::empty()
 		}
 	};
 
@@ -178,8 +178,6 @@ availability_chunk_shuffling_params      : Default::default()
 
 #[cfg(test)]
 mod tests {
-	use primitives::vstaging::AvailabilityChunkShufflingParams;
-
 	use super::*;
 	use crate::mock::{new_test_ext, Test};
 
@@ -206,7 +204,7 @@ mod tests {
 		// doesn't need to be read and also leaving it as one line allows to easily copy it.
 		let raw_config =
 	hex_literal::hex!["
-	0000300000800000080000000000100000c8000005000000050000000200000002000000000000000000000000005000000010000400000000000000000000000000000000000000000000000000000000000000000000000800000000200000040000000000100000b004000000000000000000001027000080b2e60e80c3c901809698000000000000000000000000000500000014000000040000000100000001050000000006000000640000000200000019000000000000000a000000020000000200000005000000020000000164000000"
+	0000300000800000080000000000100000c8000005000000050000000200000002000000000000000000000000005000000010000400000000000000000000000000000000000000000000000000000000000000000000000800000000200000040000000000100000b004000000000000000000001027000080b2e60e80c3c901809698000000000000000000000000000500000014000000040000000100000001050000000006000000640000000200000019000000000000000a0000000200000002000000050000000200000001"
 	];
 
 		let v10 =
@@ -225,8 +223,8 @@ mod tests {
 		assert_eq!(v10.on_demand_base_fee, 10_000_000);
 		assert_eq!(v10.minimum_backing_votes, LEGACY_MIN_BACKING_VOTES);
 		assert_eq!(
-			v10.availability_chunk_shuffling_params,
-			AvailabilityChunkShufflingParams { activate_at: Some(100) }
+			v10.client_features,
+			ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING
 		);
 	}
 
@@ -305,6 +303,7 @@ mod tests {
 					assert_eq!(v9.async_backing_params.max_candidate_depth , v10.async_backing_params.max_candidate_depth);
 					assert_eq!(v9.executor_params						   , v10.executor_params);
 				    assert_eq!(v9.minimum_backing_votes					   , v10.minimum_backing_votes);
+				    assert_eq!(v9.client_features					       , v10.client_features);
 				}; // ; makes this a statement. `rustfmt::skip` cannot be put on an expression.
 			}
 		});

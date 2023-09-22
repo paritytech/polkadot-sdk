@@ -40,7 +40,7 @@ use polkadot_node_primitives::{
 };
 use polkadot_primitives::{
 	slashing,
-	vstaging::{self as vstaging_primitives, AvailabilityChunkShufflingParams},
+	vstaging::{self as vstaging_primitives, ClientFeatures},
 	AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateEvent, CandidateHash,
 	CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreState,
 	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Header as BlockHeader,
@@ -696,8 +696,8 @@ pub enum RuntimeApiRequest {
 	),
 	/// Get the minimum required backing votes.
 	MinimumBackingVotes(SessionIndex, RuntimeApiSender<u32>),
-	/// Get the params for availability chunk shuffling.
-	AvailabilityChunkShufflingParams(RuntimeApiSender<AvailabilityChunkShufflingParams>),
+	/// Get the client features.
+	ClientFeatures(RuntimeApiSender<ClientFeatures>),
 
 	/// Get the backing state of the given para.
 	/// This is a staging API that will not be available on production runtimes.
@@ -729,8 +729,8 @@ impl RuntimeApiRequest {
 	/// `MinimumBackingVotes`
 	pub const MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT: u32 = 6;
 
-	/// `AvailabilityChunkShufflingParams`
-	pub const AVAILABILITY_CHUNK_SHUFFLING_PARAMS_RUNTIME_REQUIREMENT: u32 = 7;
+	/// `Client features`
+	pub const CLIENT_FEATURES_RUNTIME_REQUIREMENT: u32 = 7;
 
 	/// Minimum version for backing state, required for async backing.
 	///

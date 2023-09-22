@@ -16,13 +16,12 @@
 
 use async_trait::async_trait;
 use polkadot_primitives::{
-	runtime_api::ParachainHost,
-	vstaging::{self, AvailabilityChunkShufflingParams},
-	Block, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
-	Id, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	runtime_api::ParachainHost, vstaging, Block, BlockNumber, CandidateCommitments, CandidateEvent,
+	CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams,
+	GroupRotationInfo, Hash, Id, InboundDownwardMessage, InboundHrmpMessage,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiError, ApiExt, ProvideRuntimeApi};
@@ -241,11 +240,8 @@ pub trait RuntimeApiSubsystemClient {
 		session_index: SessionIndex,
 	) -> Result<u32, ApiError>;
 
-	/// Get the parameters for availability-chunk shuffling.
-	async fn availability_chunk_shuffling_params(
-		&self,
-		at: Hash,
-	) -> Result<AvailabilityChunkShufflingParams, ApiError>;
+	/// Get the client features.
+	async fn client_features(&self, at: Hash) -> Result<vstaging::ClientFeatures, ApiError>;
 
 	// === Asynchronous backing API ===
 
@@ -496,11 +492,8 @@ where
 		self.client.runtime_api().minimum_backing_votes(at)
 	}
 
-	async fn availability_chunk_shuffling_params(
-		&self,
-		at: Hash,
-	) -> Result<AvailabilityChunkShufflingParams, ApiError> {
-		self.client.runtime_api().availability_chunk_shuffling_params(at)
+	async fn client_features(&self, at: Hash) -> Result<vstaging::ClientFeatures, ApiError> {
+		self.client.runtime_api().client_features(at)
 	}
 
 	async fn staging_para_backing_state(
