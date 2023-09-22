@@ -71,6 +71,7 @@ pub use weights::WeightInfo;
 
 use codec::Codec;
 use frame_support::{
+	storage::{with_storage_layer, with_transaction},
 	traits::{
 		fungible::{
 			Balanced as BalancedFungible, Credit as CreditFungible, Inspect as InspectFungible,
@@ -92,7 +93,7 @@ use sp_runtime::{
 		CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Ensure, IntegerSquareRoot, MaybeDisplay,
 		One, TrailingZeroInput, Zero,
 	},
-	BoundedVec, DispatchError, Saturating,
+	BoundedVec, DispatchError, Saturating, TransactionOutcome,
 };
 
 #[frame_support::pallet]

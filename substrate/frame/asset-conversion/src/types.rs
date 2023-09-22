@@ -199,6 +199,11 @@ impl<T: Config> From<AssetCredit<T>> for Credit<T> {
 }
 
 impl<T: Config> Credit<T> {
+	/// Create zero native credit.
+	pub fn native_zero() -> Self {
+		NativeCredit::<T>::zero().into()
+	}
+
 	/// Amount of `self`.
 	pub fn peek(&self) -> Result<T::AssetBalance, DispatchError> {
 		let amount = match self {
