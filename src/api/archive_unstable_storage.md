@@ -14,11 +14,11 @@ Each element in `items` must be an object containing the following fields:
 
 **Note**:
 
-The JSON-RPC server must obtain the value of the entry with the given `key` from the storage, either from the main trie of from `childTrie`. If `includeDescendants` is `true`, then the values of all the descendants must be obtained as well.
+For each item in `items`, the JSON-RPC server must start obtaining the value of the entry with the given `key` from the storage, either from the main trie or from `childTrie`. If `type` is `descendantsValues` or `descendantsHashes`, then it must also obtain the values of all the descendants of the entry.
 
-If the block was previously returned by `archive_unstable_hashByHeight` at a height inferior or equal to the current finalized block height (as indicated by `archive_unstable_finalizedHeight`), then calling this method multiple times is guaranteed to always return non-null and always the same results.
+If the height of the block hash provided is less than or equal to the current finalized block height (which can be obtained via archive_unstable_finalizedHeight), then calling this method with the same parameters will always return the same response.
 
-If the block was previously returned by `archive_unstable_hashByHeight` at a height strictly superior to the current finalized block height (as indicated by `archive_unstable_finalizedHeight`), then the block might "disappear" and calling this function might return `null` at any point.
+If the height of the block hash provided is greater than the current finalized block height, then the block might be pruned at any time and calling this method may return null.
 
 **Return value**: A JSON object.
 
