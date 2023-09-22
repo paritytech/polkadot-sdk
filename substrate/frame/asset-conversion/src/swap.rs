@@ -56,6 +56,43 @@ pub trait Swap<AccountId, Balance, MultiAssetId> {
 	) -> Result<Balance, DispatchError>;
 }
 
+/// Trait providing methods to swap between the various asset classes.
+pub trait SwapCredit<AccountId> {
+	/// Measure units of the asset classes for swapping.
+	type Balance;
+	/// Kind of assets that are going to be swapped.
+	type MultiAssetId;
+	/// Credit implying a negative imbalance in the system that can be placed into an account or
+	/// alter the total supply.
+	type Credit;
+
+	/// Swap exactly `credit_in` of asset `path[0]` for asset `path[last]`.  If `amount_out_min` is
+	/// provided and the swap can't achieve at least this amount, an error is returned.
+	///
+	/// On a successful swap, the function returns the `credit_out` of `path[last]` obtained from
+	/// the `credit_in`. On failure, it returns an `Err` containing the original `credit_in` and the
+	/// associated error code.
+	fn swap_exact_tokens_for_tokens(
+		path: Vec<Self::MultiAssetId>,
+		credit_in: Self::Credit,
+		amount_out_min: Option<Self::Balance>,
+	) -> Result<Self::Credit, (Self::Credit, DispatchError)>;
+
+	/// Swaps a portion of `credit_in` of `path[0]` asset to obtain the desired `amount_out` of
+	/// the `path[last]` asset. The provided `credit_in` must be adequate to achieve the target
+	/// `amount_out`, or an error will occur.
+	///
+	/// On success, the function returns a (`credit_out`, `credit_change`) tuple, where `credit_out`
+	/// represents the acquired amount of the `path[last]` asset, and `credit_change` is the
+	/// remaining portion from the `credit_in`. On failure, an `Err` with the initial `credit_in`
+	/// and error code is returned.
+	fn swap_tokens_for_exact_tokens(
+		path: Vec<Self::MultiAssetId>,
+		credit_in: Self::Credit,
+		amount_out: Self::Balance,
+	) -> Result<(Self::Credit, Self::Credit), (Self::Credit, DispatchError)>;
+}
+
 impl<T: Config> Swap<T::AccountId, T::HigherPrecisionBalance, T::MultiAssetId> for Pallet<T> {
 	fn swap_exact_tokens_for_tokens(
 		sender: T::AccountId,
@@ -97,5 +134,35 @@ impl<T: Config> Swap<T::AccountId, T::HigherPrecisionBalance, T::MultiAssetId> f
 			keep_alive,
 		)?;
 		Ok(amount_in.into())
+	}
+}
+
+impl<T: Config> SwapCredit<T::AccountId> for Pallet<T> {
+	type Balance = T::AssetBalance;
+	type MultiAssetId = T::MultiAssetId;
+	type Credit = Credit<T>;
+
+	fn swap_exact_tokens_for_tokens(
+		path: Vec<Self::MultiAssetId>,
+		credit_in: Self::Credit,
+		amount_out_min: Option<Self::Balance>,
+	) -> Result<Self::Credit, (Self::Credit, DispatchError)> {
+		let path = match path.try_into() {
+			Ok(p) => p,
+			Err(_) => return Err((credit_in, Error::<T>::PathError.into())),
+		};
+		Self::do_swap_exact_credit_tokens_for_tokens(path, credit_in, amount_out_min)
+	}
+
+	fn swap_tokens_for_exact_tokens(
+		path: Vec<Self::MultiAssetId>,
+		credit_in: Self::Credit,
+		amount_out: Self::Balance,
+	) -> Result<(Self::Credit, Self::Credit), (Self::Credit, DispatchError)> {
+		let path = match path.try_into() {
+			Ok(p) => p,
+			Err(_) => return Err((credit_in, Error::<T>::PathError.into())),
+		};
+		Self::do_swap_credit_tokens_for_exact_tokens(path, credit_in, amount_out)
 	}
 }

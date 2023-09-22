@@ -27,7 +27,7 @@ use sp_std::{cmp::Ordering, marker::PhantomData};
 /// migration.
 pub(super) type PoolIdOf<T> = (<T as Config>::MultiAssetId, <T as Config>::MultiAssetId);
 
-/// Represents a swap path with associated amounts for input and output.
+/// Represents a swap path with associated asset amounts for input and output.
 ///
 /// Each pair of neighboring assets forms a pool.
 ///
@@ -162,14 +162,23 @@ impl<AssetId: Ord + Clone> MultiAssetIdConverter<NativeOrAssetId<AssetId>, Asset
 }
 
 /// Credit of [Config::Currency].
+///
+/// Implies a negative imbalance in the system that can be placed into an account or alter the total
+/// supply.
 pub type NativeCredit<T> =
 	CreditFungible<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
-/// Credit of [Config::Assets].
+/// Credit (aka negative imbalance) of [Config::Assets].
+///
+/// Implies a negative imbalance in the system that can be placed into an account or alter the total
+/// supply.
 pub type AssetCredit<T> =
 	CreditFungibles<<T as frame_system::Config>::AccountId, <T as Config>::Assets>;
 
 /// Credit that can be either [`NativeCredit`] or [`AssetCredit`].
+///
+/// Implies a negative imbalance in the system that can be placed into an account or alter the total
+/// supply.
 pub enum Credit<T: Config> {
 	/// Native credit.
 	Native(NativeCredit<T>),

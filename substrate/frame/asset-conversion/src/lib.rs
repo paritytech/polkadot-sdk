@@ -65,7 +65,7 @@ mod types;
 pub mod weights;
 
 pub use pallet::*;
-pub use swap::Swap;
+pub use swap::*;
 pub use types::*;
 pub use weights::WeightInfo;
 
@@ -276,24 +276,15 @@ pub mod pallet {
 			who: T::AccountId,
 			/// The account that the assets were transferred to.
 			send_to: T::AccountId,
-			/// The route of asset ids that the swap went through.
-			/// E.g. A -> Dot -> B
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
-			/// The amount of the first asset that was swapped.
-			amount_in: T::AssetBalance,
-			/// The amount of the second asset that was received.
-			amount_out: T::AssetBalance,
+			/// The route of asset ids with amounts that the swap went through.
+			/// E.g. (A, amount_in) -> (Dot, amount_out) -> (B, amount_out)
+			path: BalancePath<T>,
 		},
-		/// An amount has been transferred from one account to another.
-		Transfer {
-			/// The account that the assets were transferred from.
-			from: T::AccountId,
-			/// The account that the assets were transferred to.
-			to: T::AccountId,
-			/// The asset that was transferred.
-			asset: T::MultiAssetId,
-			/// The amount of the asset that was transferred.
-			amount: T::AssetBalance,
+		/// Assets have been converted from one to another.
+		CreditSwapExecuted {
+			/// The route of asset ids with amounts that the swap went through.
+			/// E.g. (A, amount_in) -> (Dot, amount_out) -> (B, amount_out)
+			path: BalancePath<T>,
 		},
 	}
 
@@ -705,9 +696,10 @@ pub mod pallet {
 		///
 		/// If successful, returns the amount of `path[1]` acquired for the `amount_in`.
 		///
-		/// Note:
-		/// * this function might modify storage even if an error occurs.
-		pub fn do_swap_exact_tokens_for_tokens(
+		/// WARNING: This may return an error after a partial storage mutation. It should be used
+		/// only inside a transactional storage context and an Err result must imply a storage
+		/// rollback.
+		pub(crate) fn do_swap_exact_tokens_for_tokens(
 			sender: T::AccountId,
 			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
 			amount_in: T::AssetBalance,
@@ -723,7 +715,7 @@ pub mod pallet {
 			Self::validate_swap_path(&path)?;
 			let path = Self::balance_path_from_amount_in(amount_in, path)?;
 
-			let amount_out = path.last().map(|(_, a)| a.clone()).ok_or(Error::<T>::InvalidPath)?;
+			let amount_out = path.last().map(|(_, a)| *a).ok_or(Error::<T>::InvalidPath)?;
 			if let Some(amount_out_min) = amount_out_min {
 				ensure!(
 					amount_out >= amount_out_min,
@@ -731,15 +723,9 @@ pub mod pallet {
 				);
 			}
 
-			Self::transfer_swap(&sender, &path, &send_to, keep_alive)?;
+			Self::swap(&sender, &path, &send_to, keep_alive)?;
 
-			Self::deposit_event(Event::SwapExecuted {
-				who: sender,
-				send_to,
-				amount_in,
-				amount_out,
-				path: BoundedVec::truncate_from(path.into_iter().map(|(a, _)| a).collect()),
-			});
+			Self::deposit_event(Event::SwapExecuted { who: sender, send_to, path });
 			Ok(amount_out)
 		}
 
@@ -752,9 +738,10 @@ pub mod pallet {
 		///
 		/// If successful returns the amount of the `path[0]` taken to provide `path[1]`.
 		///
-		/// Note:
-		/// * this function might modify storage even if an error occurs.
-		pub fn do_swap_tokens_for_exact_tokens(
+		/// WARNING: This may return an error after a partial storage mutation. It should be used
+		/// only inside a transactional storage context and an Err result must imply a storage
+		/// rollback.
+		pub(crate) fn do_swap_tokens_for_exact_tokens(
 			sender: T::AccountId,
 			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
 			amount_out: T::AssetBalance,
@@ -770,7 +757,7 @@ pub mod pallet {
 			Self::validate_swap_path(&path)?;
 			let path = Self::balance_path_from_amount_out(amount_out, path)?;
 
-			let amount_in = path.first().map(|(_, a)| a.clone()).ok_or(Error::<T>::InvalidPath)?;
+			let amount_in = path.first().map(|(_, a)| *a).ok_or(Error::<T>::InvalidPath)?;
 			if let Some(amount_in_max) = amount_in_max {
 				ensure!(
 					amount_in <= amount_in_max,
@@ -778,17 +765,107 @@ pub mod pallet {
 				);
 			}
 
-			Self::transfer_swap(&sender, &path, &send_to, keep_alive)?;
+			Self::swap(&sender, &path, &send_to, keep_alive)?;
 
-			Self::deposit_event(Event::SwapExecuted {
-				who: sender,
-				send_to,
-				amount_in,
-				amount_out,
-				path: BoundedVec::truncate_from(path.into_iter().map(|(a, _)| a).collect()),
-			});
+			Self::deposit_event(Event::SwapExecuted { who: sender, send_to, path });
 
 			Ok(amount_in)
+		}
+
+		/// Swap exactly `credit_in` of asset `path[0]` for asset `path[last]`.  If `amount_out_min`
+		/// is provided and the swap can't achieve at least this amount, an error is returned.
+		///
+		/// On a successful swap, the function returns the `credit_out` of `path[last]` obtained
+		/// from the `credit_in`. On failure, it returns an `Err` containing the original
+		/// `credit_in` and the associated error code.
+		///
+		/// WARNING: This may return an error after a partial storage mutation. It should be used
+		/// only inside a transactional storage context and an Err result must imply a storage
+		/// rollback.
+		pub(crate) fn do_swap_exact_credit_tokens_for_tokens(
+			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			credit_in: Credit<T>,
+			amount_out_min: Option<T::AssetBalance>,
+		) -> Result<Credit<T>, (Credit<T>, DispatchError)> {
+			let amount_in = match credit_in.peek() {
+				Ok(a) => a,
+				Err(e) => return Err((credit_in, e)),
+			};
+			let inspect_path = |credit_asset| {
+				ensure!(path.get(0).map_or(false, |a| *a == credit_asset), Error::<T>::InvalidPath);
+				ensure!(!amount_in.is_zero(), Error::<T>::ZeroAmount);
+				ensure!(amount_out_min.map_or(true, |a| !a.is_zero()), Error::<T>::ZeroAmount);
+
+				Self::validate_swap_path(&path)?;
+				let path = Self::balance_path_from_amount_in(amount_in, path)?;
+
+				let amount_out = path.last().map(|(_, a)| *a).ok_or(Error::<T>::InvalidPath)?;
+				ensure!(
+					amount_out_min.map_or(true, |a| amount_out >= a),
+					Error::<T>::ProvidedMinimumNotSufficientForSwap
+				);
+				Ok(path)
+			};
+			let path = match inspect_path(credit_in.asset()) {
+				Ok(p) => p,
+				Err(e) => return Err((credit_in, e)),
+			};
+
+			let credit_out = Self::credit_swap(credit_in, &path)?;
+
+			Self::deposit_event(Event::CreditSwapExecuted { path });
+
+			Ok(credit_out)
+		}
+
+		/// Swaps a portion of `credit_in` of `path[0]` asset to obtain the desired `amount_out` of
+		/// the `path[last]` asset. The provided `credit_in` must be adequate to achieve the target
+		/// `amount_out`, or an error will occur.
+		///
+		/// On success, the function returns a (`credit_out`, `credit_change`) tuple, where
+		/// `credit_out` represents the acquired amount of the `path[last]` asset, and
+		/// `credit_change` is the remaining portion from the `credit_in`. On failure, an `Err` with
+		/// the initial `credit_in` and error code is returned.
+		///
+		/// WARNING: This may return an error after a partial storage mutation. It should be used
+		/// only inside a transactional storage context and an Err result must imply a storage
+		/// rollback.
+		pub(crate) fn do_swap_credit_tokens_for_exact_tokens(
+			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			credit_in: Credit<T>,
+			amount_out: T::AssetBalance,
+		) -> Result<(Credit<T>, Credit<T>), (Credit<T>, DispatchError)> {
+			let amount_in_max = match credit_in.peek() {
+				Ok(a) => a,
+				Err(e) => return Err((credit_in, e)),
+			};
+			let inspect_path = |credit_asset| {
+				ensure!(path.get(0).map_or(false, |a| a == &credit_asset), Error::<T>::InvalidPath);
+				ensure!(amount_in_max > Zero::zero(), Error::<T>::ZeroAmount);
+				ensure!(amount_out > Zero::zero(), Error::<T>::ZeroAmount);
+
+				Self::validate_swap_path(&path)?;
+				let path = Self::balance_path_from_amount_out(amount_out, path)?;
+
+				let amount_in = path.first().map(|(_, a)| *a).ok_or(Error::<T>::InvalidPath)?;
+				ensure!(
+					amount_in <= amount_in_max,
+					Error::<T>::ProvidedMaximumNotSufficientForSwap
+				);
+
+				Ok((path, amount_in))
+			};
+			let (path, amount_in) = match inspect_path(credit_in.asset()) {
+				Ok((p, a)) => (p, a),
+				Err(e) => return Err((credit_in, e)),
+			};
+
+			let (credit_in, credit_change) = credit_in.split(amount_in)?;
+			let credit_out = Self::credit_swap(credit_in, &path)?;
+
+			Self::deposit_event(Event::CreditSwapExecuted { path });
+
+			Ok((credit_out, credit_change))
 		}
 
 		/// Transfer an `amount` of `asset_id`, respecting the `keep_alive` requirements.
@@ -799,7 +876,7 @@ pub mod pallet {
 			amount: T::AssetBalance,
 			keep_alive: bool,
 		) -> Result<T::AssetBalance, DispatchError> {
-			let result = match T::MultiAssetIdConverter::try_convert(asset_id) {
+			match T::MultiAssetIdConverter::try_convert(asset_id) {
 				MultiAssetIdConversionResult::Converted(asset_id) =>
 					T::Assets::transfer(asset_id, from, to, amount, Expendable),
 				MultiAssetIdConversionResult::Native => {
@@ -817,17 +894,7 @@ pub mod pallet {
 				},
 				MultiAssetIdConversionResult::Unsupported(_) =>
 					Err(Error::<T>::UnsupportedAsset.into()),
-			};
-
-			if result.is_ok() {
-				Self::deposit_event(Event::Transfer {
-					from: from.clone(),
-					to: to.clone(),
-					asset: (*asset_id).clone(),
-					amount,
-				});
 			}
-			result
 		}
 
 		/// The balance of `who` is increased in order to counter `credit`. If the whole of `credit`
@@ -891,10 +958,12 @@ pub mod pallet {
 
 		/// Swap assets along the `path`, withdrawing from `sender` and depositing in `send_to`.
 		///
-		/// Note:
-		/// * this function might modify storage even if an error occurs.
-		/// * it's assumed that the provided `path` is valid.
-		fn transfer_swap(
+		/// Note: It's assumed that the provided `path` is valid.
+		///
+		/// WARNING: This may return an error after a partial storage mutation. It should be used
+		/// only inside a transactional storage context and an Err result must imply a storage
+		/// rollback.
+		fn swap(
 			sender: &T::AccountId,
 			path: &BalancePath<T>,
 			send_to: &T::AccountId,
@@ -912,11 +981,14 @@ pub mod pallet {
 		/// Swap assets along the specified `path`, consuming `credit_in` and producing
 		/// `credit_out`.
 		///
-		/// Note:
-		/// * this function might modify storage even if an error occurs.
-		/// * if an error occurs, `credit_in` is returned back.
-		/// * it's assumed that the provided `path` is valid and `credit_in` corresponds to the
-		///   first asset in the `path`.
+		/// If an error occurs, `credit_in` is returned back.
+		///
+		/// Note: It's assumed that the provided `path` is valid and `credit_in` corresponds to the
+		/// first asset in the `path`.
+		///
+		/// WARNING: This may return an error after a partial storage mutation. It should be used
+		/// only inside a transactional storage context and an Err result must imply a storage
+		/// rollback.
 		fn credit_swap(
 			credit_in: Credit<T>,
 			path: &BalancePath<T>,
@@ -1044,22 +1116,23 @@ pub mod pallet {
 			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
 		) -> Result<BalancePath<T>, DispatchError> {
 			let mut balance_path: BalancePath<T> = Vec::with_capacity(path.len());
-			let mut amount_out: T::AssetBalance = amount_out;
+			let mut amount_in: T::AssetBalance = amount_out;
 
 			let mut iter = path.into_iter().rev().peekable();
 			while let Some(asset2) = iter.next() {
 				let asset1 = match iter.peek() {
 					Some(a) => a,
 					None => {
-						balance_path.push((asset2, amount_out));
+						balance_path.push((asset2, amount_in));
 						break
 					},
 				};
 				let (reserve_in, reserve_out) = Self::get_reserves(asset1, &asset2)?;
-				balance_path.push((asset2, amount_out));
-				amount_out = Self::get_amount_in(&amount_out, &reserve_in, &reserve_out)?;
+				balance_path.push((asset2, amount_in));
+				amount_in = Self::get_amount_in(&amount_in, &reserve_in, &reserve_out)?;
 			}
 			balance_path.reverse();
+
 			Ok(balance_path)
 		}
 
