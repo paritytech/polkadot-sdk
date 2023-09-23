@@ -213,7 +213,7 @@ parameter_types! {
 
 parameter_types! {
 	pub static RewardRemainderUnbalanced: u128 = 0;
-	pub static MinRewardRemainder: Percent = Percent::default();
+	static MaxStakedRewards: Percent = Percent::from_parts(100);
 }
 
 pub struct RewardRemainderMock;
@@ -346,7 +346,7 @@ pub struct ExtBuilder {
 	initialize_first_session: bool,
 	pub min_nominator_bond: Balance,
 	min_validator_bond: Balance,
-	min_remainder: Percent,
+	max_staked_rewards: Percent,
 	balance_factor: Balance,
 	status: BTreeMap<AccountId, StakerStatus<AccountId>>,
 	stakes: BTreeMap<AccountId, Balance>,
@@ -365,7 +365,7 @@ impl Default for ExtBuilder {
 			initialize_first_session: true,
 			min_nominator_bond: ExistentialDeposit::get(),
 			min_validator_bond: ExistentialDeposit::get(),
-			min_remainder: Percent::default(),
+			max_staked_rewards: Percent::from_parts(100),
 			status: Default::default(),
 			stakes: Default::default(),
 			stakers: Default::default(),
@@ -448,8 +448,8 @@ impl ExtBuilder {
 		self.balance_factor = factor;
 		self
 	}
-	pub fn min_remainder(mut self, fraction: u8) -> Self {
-		self.min_remainder = Percent::from_parts(fraction);
+	pub fn max_staked_rewards(mut self, fraction: u8) -> Self {
+		self.max_staked_rewards = Percent::from_parts(fraction);
 		self
 	}
 	fn build(self) -> sp_io::TestExternalities {
@@ -539,7 +539,7 @@ impl ExtBuilder {
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: self.min_nominator_bond,
 			min_validator_bond: self.min_validator_bond,
-			min_remainder: self.min_remainder,
+			max_staked_rewards: self.max_staked_rewards,
 			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
@@ -669,7 +669,7 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 	let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
 		Staking::eras_total_stake(active_era()),
 		Balances::total_issuance(),
-		MinRewardRemainder::get(),
+		MaxStakedRewards::get(),
 		duration,
 	);
 	assert!(payout > 0);
@@ -680,7 +680,7 @@ pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
 	let (payout, rest) = <Test as Config>::EraPayout::era_payout(
 		Staking::eras_total_stake(active_era()),
 		Balances::total_issuance(),
-		MinRewardRemainder::get(),
+		MaxStakedRewards::get(),
 		duration,
 	);
 	payout + rest

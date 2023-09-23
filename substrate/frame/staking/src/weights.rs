@@ -82,7 +82,7 @@ pub trait WeightInfo {
 	fn chill_other() -> Weight;
 	fn force_apply_min_commission() -> Weight;
 	fn set_min_commission() -> Weight;
-	fn set_min_treasury_fraction() -> Weight;
+	fn set_max_staked_rewards() -> Weight;
 }
 
 /// Weights for pallet_staking using the Substrate node and recommended hardware.
@@ -796,7 +796,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 
 	// TODO(gpestana): run bench bot
-	fn set_min_treasury_fraction() -> Weight {
+	fn set_max_staked_rewards() -> Weight {
 		Weight::default()
 	}
 }
@@ -1511,7 +1511,7 @@ impl WeightInfo for () {
 	}
 
 	// TODO(gpestana): run bench bot
-	fn set_min_treasury_fraction() -> Weight {
+	fn set_max_staked_rewards() -> Weight {
 		Weight::default()
 	}
 }

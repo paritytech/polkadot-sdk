@@ -201,11 +201,10 @@
 //! remaining_payout = max_yearly_inflation * total_tokens / era_per_year - staker_payout
 //! ```
 //!
-//! Note, however, that it is possible to set a minimum `remaining_payout` through the
-//! `MinRemainderPayout` storage type. The `era_payout` implementor must ensure that the
-//! `max_payout >= min_remainder_payout + staker_payout`. The excess should be taken from the
-//! `staker_payout` to ensure that the `max_payout` per era is not exceeded and the
-//! `min_remainder_payout` is respected.
+//! Note, however, that it is possible to set a cap on the total `staker_payout` for the era through
+//! the `MaxStakersRewards` storage type. The `era_payout` implementor must ensure that the
+//! `max_payout = remaining_payout + (staker_payout * max_stakers_rewards)`. The excess payout that
+//! is not allocated for stakers is the era remaining reward.
 //!
 //! The remaining reward is send to the configurable end-point
 //! [`Config::RewardRemainder`].
@@ -852,7 +851,7 @@ pub trait EraPayout<Balance> {
 	fn era_payout(
 		total_staked: Balance,
 		total_issuance: Balance,
-		min_fraction_remainder: Percent,
+		max_staking_payout: Percent,
 		era_duration_millis: u64,
 	) -> (Balance, Balance);
 }
@@ -861,7 +860,7 @@ impl<Balance: Default> EraPayout<Balance> for () {
 	fn era_payout(
 		_total_staked: Balance,
 		_total_issuance: Balance,
-		_min_fraction_remainder: Percent,
+		_max_staking_payout: Percent,
 		_era_duration_millis: u64,
 	) -> (Balance, Balance) {
 		(Default::default(), Default::default())
@@ -879,7 +878,7 @@ where
 	fn era_payout(
 		total_staked: Balance,
 		total_issuance: Balance,
-		min_fraction_remainder: Percent,
+		max_staking_payout: Percent,
 		era_duration_millis: u64,
 	) -> (Balance, Balance) {
 		let (validator_payout, max_payout) = inflation::compute_total_payout(
@@ -889,10 +888,9 @@ where
 			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
 			era_duration_millis,
 		);
-		let min_remainder = min_fraction_remainder * max_payout;
-		let validator_payout = validator_payout.min(max_payout - min_remainder);
-		let other_remainder = max_payout - (min_remainder + validator_payout);
-		let rest = min_remainder + other_remainder;
+		// impose the limit on the staking payout basded on `max_staking_payout`.
+		let validator_payout = validator_payout.min(max_staking_payout * max_payout);
+		let rest = max_payout.saturating_sub(validator_payout);
 		(validator_payout, rest)
 	}
 }

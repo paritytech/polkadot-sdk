@@ -64,7 +64,7 @@ pub fn era_payout(
 	total_stakable: Balance,
 	max_annual_inflation: Perquintill,
 	period_fraction: Perquintill,
-	min_fraction_remainder: Percent,
+	max_staking_payout: Percent,
 	auctioned_slots: u64,
 ) -> (Balance, Balance) {
 	use pallet_staking_reward_fn::compute_inflation;
@@ -87,12 +87,9 @@ pub fn era_payout(
 		min_annual_inflation.saturating_add(delta_annual_inflation * adjustment);
 
 	let max_payout = period_fraction * max_annual_inflation * total_stakable;
-	let min_remainder = min_fraction_remainder * max_payout;
-	let staking_payout =
-		((period_fraction * staking_inflation) * total_stakable).min(max_payout - min_remainder);
-	let other_remainder = max_payout - (min_remainder + staking_payout);
-
-	let rest = min_remainder + other_remainder;
+	let staking_payout = ((period_fraction * staking_inflation) * total_stakable)
+		.min(max_staking_payout * max_payout);
+	let rest = max_payout - staking_payout;
 
 	let other_issuance = total_stakable.saturating_sub(total_staked);
 	if total_staked > other_issuance {
@@ -292,7 +289,8 @@ mod tests {
 				100,
 				Perquintill::from_percent(10),
 				Perquintill::one(),
-				Percent::zero(),
+				// no cap on max staking rewards.
+				Percent::from_parts(100),
 				0
 			),
 			(10, 0)
@@ -303,7 +301,8 @@ mod tests {
 				100,
 				Perquintill::from_percent(10),
 				Perquintill::one(),
-				Percent::zero(),
+				// no cap on max staking rewards.
+				Percent::from_parts(100),
 				0
 			),
 			(6, 4)
@@ -312,7 +311,7 @@ mod tests {
 
 	#[test]
 	fn era_payout_min_remainder_works() {
-		// minimum remainder is set to 50% of total payout for the era, so the validator payout
+		// maximum rewards is set to 50% of total payout for the era, so the validator payout
 		// takes a cut.
 		assert_eq!(
 			era_payout(
@@ -325,16 +324,15 @@ mod tests {
 			),
 			(5, 5)
 		);
-		// minimum remainder is 10%. the validator payout does not take a cut because the payout
-		// remainder (`payout_remainder = max_payout - validator_payout`) is larger than the set
-		// minimum remainder.
+		// maximum staking payout is 90%. the validator payout does not take a cut because the
+		// validator payout is below the max cap.
 		assert_eq!(
 			era_payout(
 				80,
 				100,
 				Perquintill::from_percent(10),
 				Perquintill::one(),
-				Percent::from_parts(10),
+				Percent::from_parts(90),
 				0
 			),
 			(6, 4)

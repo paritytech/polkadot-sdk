@@ -461,7 +461,7 @@ impl<T: Config> Pallet<T> {
 			let (validator_payout, remainder) = T::EraPayout::era_payout(
 				staked,
 				issuance,
-				MinRemainderPayout::<T>::get(),
+				MaxStakedRewards::<T>::get(),
 				era_duration,
 			);
 

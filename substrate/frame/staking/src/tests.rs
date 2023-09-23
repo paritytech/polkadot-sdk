@@ -1725,14 +1725,14 @@ fn rebond_emits_right_value_in_event() {
 }
 
 #[test]
-fn min_remainder_treasury_works() {
-	let min_remainder = 20;
+fn max_staked_rewards_works() {
+	let max_staked_rewards = 80;
 
 	ExtBuilder::default()
 		.nominate(true)
-		.min_remainder(min_remainder)
+		.max_staked_rewards(max_staked_rewards)
 		.build_and_execute(|| {
-			assert_eq!(<MinRemainderPayout<Test>>::get(), Percent::from_parts(20));
+			assert_eq!(<MaxStakedRewards<Test>>::get(), Percent::from_parts(80));
 
 			// check validators account state.
 			assert_eq!(Session::validators().len(), 2);
@@ -1745,10 +1745,10 @@ fn min_remainder_treasury_works() {
 			let treasury_payout = RewardRemainderUnbalanced::get();
 			let validators_payout = ErasValidatorReward::<Test>::get(0).unwrap();
 
-			// treasury fraction is correctly distributed (i.e. treasury payout is at least 20%).
+			// validators payout is less than `max_staked_rewards`.
 			assert!(
-				treasury_payout * 100 / (treasury_payout + validators_payout) >
-					min_remainder as Balance
+				validators_payout * 100 / (treasury_payout + validators_payout) <
+					max_staked_rewards as Balance
 			);
 		})
 }
@@ -6091,21 +6091,17 @@ fn set_min_commission_works_with_admin_origin() {
 }
 
 #[test]
-fn set_treasury_fraction_works_with_admin_origin() {
+fn set_max_staked_rewards_with_admin_origin_works() {
 	ExtBuilder::default().build_and_execute(|| {
-		// no treasury fraction set initially.
-		assert_eq!(MinRemainderPayout::<Test>::get(), Zero::zero());
+		assert_eq!(MaxStakedRewards::<Test>::get(), Percent::from_parts(100));
 
-		// root can set tresury fraction.
-		assert_ok!(Staking::set_min_treasury_fraction(
-			RuntimeOrigin::root(),
-			Percent::from_parts(10)
-		));
-		assert_eq!(MinRemainderPayout::<Test>::get(), Percent::from_parts(10));
+		// root can set the max staked rewards.
+		assert_ok!(Staking::set_max_staked_rewards(RuntimeOrigin::root(), Percent::from_parts(10)));
+		assert_eq!(MaxStakedRewards::<Test>::get(), Percent::from_parts(10));
 
-		// non priviledged origin can not set treasury fraction.
+		// non priviledged origin cannot set max staked rewards.
 		assert_noop!(
-			Staking::set_min_treasury_fraction(RuntimeOrigin::signed(2), Percent::from_parts(15)),
+			Staking::set_max_staked_rewards(RuntimeOrigin::signed(2), Percent::from_parts(15)),
 			BadOrigin
 		);
 	})

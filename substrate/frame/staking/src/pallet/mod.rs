@@ -485,11 +485,11 @@ pub mod pallet {
 	#[pallet::getter(fn force_era)]
 	pub type ForceEra<T> = StorageValue<_, Forcing, ValueQuery>;
 
-	/// Minimum of the reward remainder per era, i.e. the percentage of the era inflation that
-	/// is not used for rewards.
+	/// Maximum staked rewards, i.e. the percentage of the era inflation that
+	/// is used for stake rewards.
 	/// See [Era payout](./index.html#era-payout).
 	#[pallet::storage]
-	pub type MinRemainderPayout<T> = StorageValue<_, Percent, ValueQuery>;
+	pub type MaxStakedRewards<T> = StorageValue<_, Percent, ValueQuery>;
 
 	/// The percentage of the slash that is distributed to reporters.
 	///
@@ -597,7 +597,7 @@ pub mod pallet {
 		pub canceled_payout: BalanceOf<T>,
 		pub stakers:
 			Vec<(T::AccountId, T::AccountId, BalanceOf<T>, crate::StakerStatus<T::AccountId>)>,
-		pub min_remainder: Percent,
+		pub max_staked_rewards: Percent,
 		pub min_nominator_bond: BalanceOf<T>,
 		pub min_validator_bond: BalanceOf<T>,
 		pub max_validator_count: Option<u32>,
@@ -613,7 +613,7 @@ pub mod pallet {
 			ForceEra::<T>::put(self.force_era);
 			CanceledSlashPayout::<T>::put(self.canceled_payout);
 			SlashRewardFraction::<T>::put(self.slash_reward_fraction);
-			MinRemainderPayout::<T>::put(self.min_remainder);
+			MaxStakedRewards::<T>::put(self.max_staked_rewards);
 			MinNominatorBond::<T>::put(self.min_nominator_bond);
 			MinValidatorBond::<T>::put(self.min_validator_bond);
 			if let Some(x) = self.max_validator_count {
@@ -1789,13 +1789,12 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Sets the minimum fraction of the era's inflation that should be minted directly into
-		/// the treasury.
+		/// Sets the fraction of the maximum staked rewards of the era's inflation.
 		#[pallet::call_index(26)]
-		#[pallet::weight(T::WeightInfo::set_min_treasury_fraction())]
-		pub fn set_min_treasury_fraction(origin: OriginFor<T>, new: Percent) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::set_max_staked_rewards())]
+		pub fn set_max_staked_rewards(origin: OriginFor<T>, new: Percent) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			MinRemainderPayout::<T>::put(new);
+			MaxStakedRewards::<T>::put(new);
 			Ok(())
 		}
 	}
