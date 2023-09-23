@@ -1417,57 +1417,11 @@ pub fn type_value(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::genesis_config]` attribute allows you to define the genesis configuration
-/// for the pallet.
-///
-/// Item is defined as either an enum or a struct. It needs to be public and implement the
-/// trait `GenesisBuild` with [`#[pallet::genesis_build]`](`macro@genesis_build`). The type
-/// generics are constrained to be either none, or `T` or `T: Config`.
-///
-/// E.g:
-///
-/// ```ignore
-/// #[pallet::genesis_config]
-/// pub struct GenesisConfig<T: Config> {
-/// 	_myfield: BalanceOf<T>,
-/// }
-/// ```
 #[proc_macro_attribute]
 pub fn genesis_config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::genesis_build]` attribute allows you to define how `genesis_configuration`
-/// is built. This takes as input the `GenesisConfig` type (as `self`) and constructs the pallet's
-/// initial state.
-///
-/// The impl must be defined as:
-///
-/// ```ignore
-/// #[pallet::genesis_build]
-/// impl<T: Config> GenesisBuild<T> for GenesisConfig<$maybe_generics> {
-/// 	fn build(&self) { $expr }
-/// }
-/// ```
-///
-/// I.e. a trait implementation with generic `T: Config`, of trait `GenesisBuild<T>` on
-/// type `GenesisConfig` with generics none or `T`.
-///
-/// E.g.:
-///
-/// ```ignore
-/// #[pallet::genesis_build]
-/// impl<T: Config> GenesisBuild<T> for GenesisConfig {
-/// 	fn build(&self) {}
-/// }
-/// ```
-///
-/// ## Macro expansion
-///
-/// The macro will add the following attribute:
-/// * `#[cfg(feature = "std")]`
-///
-/// The macro will implement `sp_runtime::BuildStorage`.
 #[proc_macro_attribute]
 pub fn genesis_build(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
