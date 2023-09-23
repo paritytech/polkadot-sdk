@@ -796,7 +796,7 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 
 	// TODO(gpestana): run bench bot
 	fn set_max_staked_rewards() -> Weight {
-		Weight::default()
+		todo!()
 	}
 
 }
