@@ -158,9 +158,11 @@ enum InnerNotificationEvent {
 #[derive(Debug)]
 pub enum NotificationCommand {
 	/// Instruct `Notifications` to open a substream to peer.
+	#[allow(unused)]
 	OpenSubstream(PeerId),
 
 	/// Instruct `Notifications` to close the substream to peer.
+	#[allow(unused)]
 	CloseSubstream(PeerId),
 
 	/// Set handshake for the notifications protocol.

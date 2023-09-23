@@ -20,7 +20,6 @@ use super::*;
 
 use always_assert::never;
 use bytes::Bytes;
-use futures::stream::{BoxStream, StreamExt};
 use parity_scale_codec::{Decode, DecodeAll};
 use parking_lot::Mutex;
 
