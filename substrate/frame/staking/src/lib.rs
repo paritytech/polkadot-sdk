@@ -888,7 +888,7 @@ where
 			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
 			era_duration_millis,
 		);
-		// impose the limit on the staking payout basded on `max_staking_payout`.
+		// impose the limit on the staking payout based on `max_staking_payout`.
 		let validator_payout = validator_payout.min(max_staking_payout * max_payout);
 		let rest = max_payout.saturating_sub(validator_payout);
 		(validator_payout, rest)

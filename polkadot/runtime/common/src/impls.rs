@@ -87,9 +87,10 @@ pub fn era_payout(
 		min_annual_inflation.saturating_add(delta_annual_inflation * adjustment);
 
 	let max_payout = period_fraction * max_annual_inflation * total_stakable;
+	// staking payout is capped by `max_staking_payout` % of the payout for this era.
 	let staking_payout = ((period_fraction * staking_inflation) * total_stakable)
 		.min(max_staking_payout * max_payout);
-	let rest = max_payout - staking_payout;
+	let rest = max_payout.saturating_sub(staking_payout);
 
 	let other_issuance = total_stakable.saturating_sub(total_staked);
 	if total_staked > other_issuance {
