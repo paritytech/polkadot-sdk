@@ -965,11 +965,8 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 				ToSwarm::Dial { .. } => {
 					unreachable!("mDNS never dials!");
 				},
-				ToSwarm::NotifyHandler { event, .. } => match event {}, /* `event` is an */
-				// enum with no
-				// variant
-				// ToSwarm::ReportObservedAddr { address, score } =>
-				// 	return Poll::Ready(ToSwarm::ReportObservedAddr { address, score }),
+				// `event` is an enum with no variant
+				ToSwarm::NotifyHandler { event, .. } => match event {},
 				ToSwarm::CloseConnection { peer_id, connection } =>
 					return Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
 				ToSwarm::NewExternalAddrCandidate(observed) =>

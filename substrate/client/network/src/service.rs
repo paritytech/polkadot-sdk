@@ -1622,13 +1622,13 @@ where
 					let reason = match cause {
 						Some(ConnectionError::IO(_)) => "transport-error",
 						Some(ConnectionError::Handler(Either::Left(Either::Left(
-							Either::Left(Either::Right(_)),
-						)))) => "ping-timeout",
-						Some(ConnectionError::Handler(Either::Left(Either::Left(
-							Either::Left(Either::Left(
+							Either::Left(Either::Right(
 								NotifsHandlerError::SyncNotificationsClogged,
 							)),
 						)))) => "sync-notifications-clogged",
+						Some(ConnectionError::Handler(Either::Left(Either::Left(
+							Either::Right(Either::Left(_)),
+						)))) => "ping-timeout",
 						Some(ConnectionError::Handler(_)) => "protocol-error",
 						Some(ConnectionError::KeepAliveTimeout) => "keep-alive-timeout",
 						None => "actively-closed",
