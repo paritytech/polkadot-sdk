@@ -184,6 +184,7 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 		if let BestEffort = precision {
 			amount = amount.min(free);
 		}
+		ensure!(free >= amount, TokenError::FundsUnavailable);
 		let new_balance = old_balance.checked_sub(&amount).ok_or(TokenError::FundsUnavailable)?;
 		if let Some(dust) = Self::write_balance(who, new_balance)? {
 			Self::handle_dust(Dust(dust));
