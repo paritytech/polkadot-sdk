@@ -146,7 +146,7 @@ fn unbalanced_trait_decrease_balance_works_2() {
 		assert_eq!(Balances::total_balance_on_hold(&1337), 60);
 		assert_noop!(
 			Balances::decrease_balance(&1337, 40, Exact, Expendable, Polite),
-			Error::<Test>::InsufficientBalance
+			TokenError::FundsUnavailable,
 		);
 		assert_eq!(Balances::decrease_balance(&1337, 39, Exact, Expendable, Polite), Ok(39));
 		assert_eq!(<Balances as fungible::Inspect<_>>::balance(&1337), 1);
@@ -493,7 +493,7 @@ fn withdraw_and_preserve_account() {
 		.build_and_execute_with(|| {
 			<Balances as fungible::Mutate<_>>::set_balance(&1, 11);
 			assert!(<Balances as fungible::Balanced<_>>::withdraw(&1, 2, Exact, Preserve, Polite)
-				.is_err());
+				.is_err_and(|e| e == TokenError::FundsUnavailable.into()));
 			assert_eq!(<Balances as fungible::Inspect<_>>::balance(&1), 11);
 		});
 }
@@ -518,10 +518,12 @@ fn decrease_balance_and_preserve_account() {
 		.monied(false)
 		.build_and_execute_with(|| {
 			<Balances as fungible::Mutate<_>>::set_balance(&1, 11);
-			assert!(<Balances as fungible::Unbalanced<_>>::decrease_balance(
-				&1, 2, Exact, Preserve, Polite
-			)
-			.is_err());
+			assert_noop!(
+				<Balances as fungible::Unbalanced<_>>::decrease_balance(
+					&1, 2, Exact, Preserve, Polite
+				),
+				TokenError::FundsUnavailable
+			);
 			assert_eq!(<Balances as fungible::Inspect<_>>::balance(&1), 11);
 		});
 }
@@ -534,16 +536,18 @@ fn transfer_hold_and_preserve_account() {
 		.build_and_execute_with(|| {
 			<Balances as fungible::Mutate<_>>::set_balance(&1, 11);
 			<Balances as fungible::Mutate<_>>::set_balance(&2, 11);
-			assert!(<Balances as fungible::MutateHold<_>>::transfer_and_hold(
-				&TestId::Foo,
-				&1,
-				&2,
-				2,
-				Exact,
-				Preserve,
-				Polite
-			)
-			.is_err());
+			assert_noop!(
+				<Balances as fungible::MutateHold<_>>::transfer_and_hold(
+					&TestId::Foo,
+					&1,
+					&2,
+					2,
+					Exact,
+					Preserve,
+					Polite
+				),
+				TokenError::FundsUnavailable
+			);
 			assert_eq!(<Balances as fungible::Inspect<_>>::balance(&1), 11);
 		});
 }

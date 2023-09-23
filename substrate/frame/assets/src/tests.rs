@@ -1775,3 +1775,77 @@ fn asset_destroy_refund_existence_deposit() {
 		assert_eq!(Balances::reserved_balance(&admin), 0);
 	});
 }
+
+#[test]
+fn transfer_and_preserve_account() {
+	new_test_ext().execute_with(|| {
+		use frame_support::traits::tokens::Preservation::Preserve;
+
+		let id = 42;
+		Balances::make_free_balance_be(&1, 10);
+		Balances::make_free_balance_be(&2, 10);
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), id, 1, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), id, 1, 11));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), id, 2, 20));
+		assert_noop!(
+			<Assets as fungibles::Mutate<_>>::transfer(id, &1, &2, 2, Preserve),
+			TokenError::NotExpendable
+		);
+		assert_eq!(<Assets as fungibles::Inspect<_>>::balance(id, &1), 11);
+	});
+}
+
+#[test]
+fn withdraw_and_preserve_account() {
+	new_test_ext().execute_with(|| {
+		use frame_support::traits::tokens::{
+			Fortitude::Polite, Precision::Exact, Preservation::Preserve,
+		};
+
+		let id = 42;
+		Balances::make_free_balance_be(&1, 10);
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), id, 1, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), id, 1, 11));
+
+		assert!(<Assets as fungibles::Balanced<_>>::withdraw(id, &1, 2, Exact, Preserve, Polite)
+			.is_err_and(|e| e == Error::<Test>::BalanceLow.into()));
+		assert_eq!(<Assets as fungibles::Inspect<_>>::balance(id, &1), 11);
+	});
+}
+
+#[test]
+fn settle_and_preserve_account() {
+	new_test_ext().execute_with(|| {
+		use frame_support::traits::tokens::Preservation::Preserve;
+
+		let id = 42;
+		Balances::make_free_balance_be(&1, 10);
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), id, 1, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), id, 1, 11));
+
+		let debt = <Assets as fungibles::Balanced<_>>::rescind(id, 2);
+		assert!(<Assets as fungibles::Balanced<_>>::settle(&1, debt, Preserve).is_err());
+		assert_eq!(<Assets as fungibles::Inspect<_>>::balance(id, &1), 11);
+	});
+}
+
+#[test]
+fn decrease_balance_and_preserve_account() {
+	new_test_ext().execute_with(|| {
+		use frame_support::traits::tokens::{
+			Fortitude::Polite, Precision::Exact, Preservation::Preserve,
+		};
+
+		let id = 42;
+		Balances::make_free_balance_be(&1, 10);
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), id, 1, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), id, 1, 11));
+		assert_noop!(
+			<Assets as fungibles::Unbalanced<_>>::decrease_balance(
+				id, &1, 2, Exact, Preserve, Polite
+			),
+			Error::<Test>::BalanceLow
+		);
+		assert_eq!(<Assets as fungibles::Inspect<_>>::balance(id, &1), 11);
+	});
+}
