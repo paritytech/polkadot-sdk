@@ -6,8 +6,8 @@
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;A&gt;, <a class="enum" href="../../sp_consensus/error/enum.Error.html" title="enum sp_consensus::error::Error">ConsensusError</a>&gt;<span class="where fmt-newline">where
     A: Codec + <a class="trait" href="https://doc.rust-lang.org/1.70.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a>,
     B: <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>,
-    C: ProvideRuntimeApi&lt;B&gt;,
-    C::Api: <a class="trait" href="../trait.AuraApi.html" title="trait sc_consensus_aura::AuraApi">AuraApi</a>&lt;B, A&gt;,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Fetch the current set of authorities from the runtime at a specific block.</p>
+    C: <a class="trait" href="../../sp_api/trait.ProvideRuntimeApi.html" title="trait sp_api::ProvideRuntimeApi">ProvideRuntimeApi</a>&lt;B&gt;,
+    C::<a class="associatedtype" href="../../sp_api/trait.ProvideRuntimeApi.html#associatedtype.Api" title="type sp_api::ProvideRuntimeApi::Api">Api</a>: <a class="trait" href="../trait.AuraApi.html" title="trait sc_consensus_aura::AuraApi">AuraApi</a>&lt;B, A&gt;,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Fetch the current set of authorities from the runtime at a specific block.</p>
 <p>The compatibility mode and context block number informs this function whether
 to initialize the hypothetical block created by the runtime API as backwards compatibility
 for older chains.</p>
