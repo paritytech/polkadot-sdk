@@ -31,8 +31,6 @@ Closes # (issue number, *if applicable*)
   required)
 - [ ] I have made corresponding changes to the documentation (if applicable)
 - [ ] I have added tests that prove my fix is effective or that my feature works (if applicable)
-- [ ] If this PR alters any external APIs or interfaces used by the Polkadot runtimes,
-     the corresponding `polkadot-fellows/runtimes` PR is ready as well (optional)
 
 You can remove the "Checklist" section once all have been checked. Thank you for your contribution!
 
