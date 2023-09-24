@@ -20,6 +20,7 @@ mod executor_intf;
 mod memory_stats;
 
 pub use executor_intf::{prepare, prevalidate};
+use libc::{c_int, exit, rusage, write};
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
@@ -37,18 +38,17 @@ use polkadot_node_core_pvf_common::{
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
 	worker::{
-		bytes_to_path, cpu_time_monitor_loop,
+		bytes_to_path,
 		security::LandlockStatus,
-		stringify_panic_payload,
-		thread::{self, WaitOutcome},
+		thread::{self},
 		worker_event_loop,
 	},
-	ProcessTime,
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
+	ffi::c_void,
+	mem,
 	path::PathBuf,
-	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
 use tokio::{io, net::UnixStream};
@@ -143,173 +143,56 @@ pub fn worker_entrypoint(
 				let prepare_job_kind = pvf.prep_kind();
 				let executor_params = (*pvf.executor_params()).clone();
 
-				// Conditional variable to notify us when a thread is done.
-				let condvar = thread::get_condvar();
-
-				// Run the memory tracker in a regular, non-worker thread.
-				#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-				let condvar_memory = Arc::clone(&condvar);
-				#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-				let memory_tracker_thread = std::thread::spawn(|| memory_tracker_loop(condvar_memory));
-
-				let cpu_time_start = ProcessTime::now();
-
-				// Spawn a new thread that runs the CPU time monitor.
-				let (cpu_time_monitor_tx, cpu_time_monitor_rx) = channel::<()>();
-				let cpu_time_monitor_thread = thread::spawn_worker_thread(
-					"cpu time monitor thread",
-					move || {
-						cpu_time_monitor_loop(
-							cpu_time_start,
-							preparation_timeout,
-							cpu_time_monitor_rx,
-						)
-					},
-					Arc::clone(&condvar),
-					WaitOutcome::TimedOut,
-				)?;
-				// Spawn another thread for preparation.
-				let prepare_thread = thread::spawn_worker_thread(
-					"prepare thread",
-					move || {
-						// Try to enable landlock.
-						#[cfg(target_os = "linux")]
-					let landlock_status = polkadot_node_core_pvf_common::worker::security::landlock::try_restrict_thread()
-						.map(LandlockStatus::from_ruleset_status)
-						.map_err(|e| e.to_string());
-						#[cfg(not(target_os = "linux"))]
-						let landlock_status: Result<LandlockStatus, String> = Ok(LandlockStatus::NotEnforced);
-
-						#[allow(unused_mut)]
-						let mut result = prepare_artifact(pvf, cpu_time_start);
-
-						// Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
-						#[cfg(target_os = "linux")]
-						let mut result = result
-							.map(|(artifact, elapsed)| (artifact, elapsed, get_max_rss_thread()));
-
-						// If we are pre-checking, check for runtime construction errors.
-						//
-						// As pre-checking is more strict than just preparation in terms of memory
-						// and time, it is okay to do extra checks here. This takes negligible time
-						// anyway.
-						if let PrepareJobKind::Prechecking = prepare_job_kind {
-							result = result.and_then(|output| {
-								runtime_construction_check(output.0.as_ref(), executor_params)?;
-								Ok(output)
-							});
-						}
-
-						(result, landlock_status)
-					},
-					Arc::clone(&condvar),
-					WaitOutcome::Finished,
-				)?;
-
-				let outcome = thread::wait_for_threads(condvar);
-
-				let result = match outcome {
-					WaitOutcome::Finished => {
-						let _ = cpu_time_monitor_tx.send(());
-
-						match prepare_thread.join().unwrap_or_else(|err| {
-							(
-								Err(PrepareError::Panic(stringify_panic_payload(err))),
-								Ok(LandlockStatus::Unavailable),
-							)
-						}) {
-							(Err(err), _) => {
-								// Serialized error will be written into the socket.
-								Err(err)
-							},
-							(Ok(ok), landlock_status) => {
-								#[cfg(not(target_os = "linux"))]
-								let (artifact, cpu_time_elapsed) = ok;
-								#[cfg(target_os = "linux")]
-								let (artifact, cpu_time_elapsed, max_rss) = ok;
-
-								// Stop the memory stats worker and get its observed memory stats.
-								#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-								let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, worker_pid)
-									.await;
-								let memory_stats = MemoryStats {
-									#[cfg(any(
-										target_os = "linux",
-										feature = "jemalloc-allocator"
-									))]
-									memory_tracker_stats,
-									#[cfg(target_os = "linux")]
-									max_rss: extract_max_rss_stat(max_rss, worker_pid),
-								};
-
-								// Log if landlock threw an error.
-								if let Err(err) = landlock_status {
-									gum::warn!(
-										target: LOG_TARGET,
-										%worker_pid,
-										"error enabling landlock: {}",
-										err
-									);
-								}
-
-								// Write the serialized artifact into a temp file.
-								//
-								// PVF host only keeps artifacts statuses in its memory,
-								// successfully compiled code gets stored on the disk (and
-								// consequently deserialized by execute-workers). The prepare worker
-								// is only required to send `Ok` to the pool to indicate the
-								// success.
-
-								gum::debug!(
-									target: LOG_TARGET,
-									%worker_pid,
-									"worker: writing artifact to {}",
-									temp_artifact_dest.display(),
-								);
-								tokio::fs::write(&temp_artifact_dest, &artifact).await?;
-
-								Ok(PrepareStats { cpu_time_elapsed, memory_stats })
-							},
-						}
-					},
-					// If the CPU thread is not selected, we signal it to end, the join handle is
-					// dropped and the thread will finish in the background.
-					WaitOutcome::TimedOut => {
-						match cpu_time_monitor_thread.join() {
-							Ok(Some(cpu_time_elapsed)) => {
-								// Log if we exceed the timeout and the other thread hasn't
-								// finished.
-								gum::warn!(
-									target: LOG_TARGET,
-									%worker_pid,
-									"prepare job took {}ms cpu time, exceeded prepare timeout {}ms",
-									cpu_time_elapsed.as_millis(),
-									preparation_timeout.as_millis(),
-								);
-								Err(PrepareError::TimedOut)
-							},
-							Ok(None) => Err(PrepareError::IoErr(
-								"error communicating over closed channel".into(),
-							)),
-							// Errors in this thread are independent of the PVF.
-							Err(err) => Err(PrepareError::IoErr(stringify_panic_payload(err))),
-						}
-					},
-					WaitOutcome::Pending => unreachable!(
-						"we run wait_while until the outcome is no longer pending; qed"
-					),
+				let mut rusage_before = unsafe { mem::zeroed() };
+				let mut rusage_after = unsafe { mem::zeroed() };
+				if unsafe { libc::getrusage(libc::RUSAGE_CHILDREN, &mut rusage_before) } == -1 {
+					send_response(&mut stream,
+										 Err(PrepareError::Panic(format!("error getting children resource usage for worker pid {}", worker_pid))))
+						.await?;
 				};
+				let mut pipe_fds = [0; 2];
+				if unsafe { libc::pipe(pipe_fds.as_mut_ptr()) } == -1 {
+					send_response(&mut stream, Err(PrepareError::Panic(format!("error creating pipe {}", worker_pid)))).await?;
+				}
 
+				let pipe_read = pipe_fds[0];
+				let pipe_write = pipe_fds[1];
+				let result = match unsafe { libc::fork() } {
+					// error
+					-1 => Err(PrepareError::Panic(String::from("error forking"))),
+					// child
+					0 => {
+						unsafe {
+							handle_child_process(
+								pvf,
+								pipe_write,
+								pipe_read,
+								preparation_timeout,
+								prepare_job_kind,
+								executor_params,
+							).await;
+							Err(PrepareError::Panic(String::from("unreachable")))
+						}
+					},
+					// parent
+					_ => unsafe { handle_parent_process(
+								&mut rusage_after,
+								rusage_before,
+								pipe_read,
+								pipe_write,
+								temp_artifact_dest,
+								preparation_timeout,
+								worker_pid,
+							).await
+						}
+				};
 				send_response(&mut stream, result).await?;
 			}
 		},
 	);
 }
 
-fn prepare_artifact(
-	pvf: PvfPrepData,
-	cpu_time_start: ProcessTime,
-) -> Result<(CompiledArtifact, Duration), PrepareError> {
+fn prepare_artifact(pvf: PvfPrepData) -> Result<CompiledArtifact, PrepareError> {
 	let blob = match prevalidate(&pvf.code()) {
 		Err(err) => return Err(PrepareError::Prevalidation(format!("{:?}", err))),
 		Ok(b) => b,
@@ -319,7 +202,6 @@ fn prepare_artifact(
 		Ok(compiled_artifact) => Ok(CompiledArtifact::new(compiled_artifact)),
 		Err(err) => Err(PrepareError::Preparation(format!("{:?}", err))),
 	}
-	.map(|artifact| (artifact, cpu_time_start.elapsed()))
 }
 
 /// Try constructing the runtime to catch any instantiation errors during pre-checking.
@@ -336,3 +218,180 @@ fn runtime_construction_check(
 		.map(|_runtime| ())
 		.map_err(|err| PrepareError::RuntimeConstruction(format!("{:?}", err)))
 }
+
+struct Response {
+	artifact_result: Result<CompiledArtifact, PrepareError>,
+	landlock_status: Result<LandlockStatus, String>,
+	memory_stats: MemoryStats,
+}
+
+async unsafe fn handle_child_process(
+	pvf: PvfPrepData,
+	pipe_write: c_int,
+	pipe_read: c_int,
+	preparation_timeout: Duration,
+	prepare_job_kind: PrepareJobKind,
+	executor_params: ExecutorParams,
+) {
+	if libc::close(pipe_read) == -1 {
+		exit(libc::EXIT_FAILURE)
+	}
+
+	let worker_pid = std::process::id();
+	// Run the memory tracker in a regular, non-worker thread.
+	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+	let condvar_memory = thread::get_condvar();
+	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+	let memory_tracker_thread = std::thread::spawn(|| memory_tracker_loop(condvar_memory));
+    if libc::setrlimit(
+		libc::RLIMIT_CPU,
+		&mut libc::rlimit {
+			rlim_cur: preparation_timeout.as_secs(),
+			rlim_max: preparation_timeout.as_secs(),
+		},
+	) == -1 {
+	exit(libc::EXIT_FAILURE);
+};
+
+	// Try to enable landlock.
+	#[cfg(target_os = "linux")]
+	let landlock_status =
+		polkadot_node_core_pvf_common::worker::security::landlock::try_restrict_thread()
+			.map(LandlockStatus::from_ruleset_status)
+			.map_err(|e| e.to_string());
+	#[cfg(not(target_os = "linux"))]
+	let landlock_status: Result<LandlockStatus, String> = Ok(LandlockStatus::NotEnforced);
+
+	#[allow(unused_mut)]
+	let mut artifact_result = prepare_artifact(pvf);
+
+	// If we are pre-checking, check for runtime construction errors.
+	//
+	// As pre-checking is more strict than just preparation in terms of memory
+	// and time, it is okay to do extra checks here. This takes negligible time
+	// anyway.
+	if let PrepareJobKind::Prechecking = prepare_job_kind {
+		artifact_result = artifact_result.and_then(|output| {
+			runtime_construction_check(output.as_ref(), executor_params)?;
+			Ok(output)
+		});
+	}
+
+	// Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
+	#[cfg(target_os = "linux")]
+	let max_rss = get_max_rss_thread();
+
+	// // Stop the memory stats worker and get its observed memory stats.
+	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+	let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, worker_pid).await;
+
+	let memory_stats = MemoryStats {
+		#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+		memory_tracker_stats,
+		#[cfg(target_os = "linux")]
+		max_rss: extract_max_rss_stat(max_rss, worker_pid),
+	};
+
+	let response = Response { artifact_result, landlock_status, memory_stats };
+
+	if write(pipe_write, &response as *const _ as *const c_void, mem::size_of::<Response>()) == -1 {
+		exit(libc::EXIT_FAILURE);
+	}
+
+	if libc::close(pipe_write) == -1 {
+		exit(libc::EXIT_FAILURE);
+	}
+}
+
+async unsafe fn handle_parent_process(
+	rusage_after: &mut rusage,
+	rusage_before: rusage,
+	pipe_read: c_int,
+	pipe_write: c_int,
+	temp_artifact_dest: PathBuf,
+	preparation_timeout: Duration,
+	worker_pid: u32
+) -> Result<PrepareStats, PrepareError> {
+	if libc::close(pipe_write) == -1 {
+		return Err(PrepareError::Panic(String::from("error closing pipe write end on the parent process")));
+	}
+
+	let mut status: c_int = 0;
+	if libc::wait(&mut status) == -1 {
+		return Err(PrepareError::Panic(String::from("error waiting for child")))
+	}
+
+	if libc::getrusage(libc::RUSAGE_CHILDREN, rusage_after) == -1 {
+		return Err(PrepareError::Panic(String::from("error getting resource usage from child")))
+	};
+
+	let cpu_tv = rusage_after.ru_utime.tv_sec;
+	let cpu_duration = Duration::from_micros(cpu_tv as u64);
+
+	return match status {
+		libc::EXIT_SUCCESS => {
+			let mut result: Response = mem::zeroed();
+			let data_size = mem::size_of::<Response>();
+
+			if libc::read(pipe_read, &mut result as *mut _ as *mut c_void, data_size) == -1 {
+				return Err(PrepareError::Panic(String::from("error reading pipe from child")))
+			};
+
+			if libc::close(pipe_read) == -1 {
+				return Err(PrepareError::Panic(String::from("error reading pipe from child")))
+			}
+
+			match result.artifact_result {
+				Err(err) => Err(err),
+				Ok(artifact) => {
+
+					// Log if landlock threw an error.
+					if let Err(err) = &result.landlock_status {
+						gum::warn!(
+							target: LOG_TARGET,
+							%worker_pid,
+							"error enabling landlock: {}",
+							err
+						);
+					}
+
+					// Write the serialized artifact into a temp file.
+					//
+					// PVF host only keeps artifacts statuses in its memory,
+					// successfully compiled code gets stored on the disk (and
+					// consequently deserialized by execute-workers). The prepare worker
+					// is only required to send `Ok` to the pool to indicate the
+					// success.
+					gum::debug!(
+						target: LOG_TARGET,
+						%worker_pid,
+						"worker: writing artifact to {}",
+						temp_artifact_dest.display(),
+					);
+					if let Err(err) = tokio::fs::write(&temp_artifact_dest, &artifact).await {
+						return Err(PrepareError::Panic(format!("{:?}", err)));
+					};
+
+					Ok(PrepareStats {
+						cpu_time_elapsed: cpu_duration,
+						memory_stats: result.memory_stats,
+					})
+				},
+			}
+		},
+		libc::SIGXCPU => {
+			// Log if we exceed the timeout and the other thread hasn't
+			// finished.
+			gum::warn!(
+				target: LOG_TARGET,
+				%worker_pid,
+				"prepare job took {}ms cpu time, exceeded prepare timeout {}ms",
+				cpu_duration.as_millis(),
+				preparation_timeout.as_millis(),
+			);
+			Err(PrepareError::TimedOut)
+		},
+		status => Err(PrepareError::Panic(format!("child failed with status {}", status))),
+	}
+}
+
