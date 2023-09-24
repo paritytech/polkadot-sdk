@@ -45,12 +45,7 @@ use polkadot_node_core_pvf_common::{
 	},
 };
 use polkadot_primitives::ExecutorParams;
-use std::{
-	ffi::c_void,
-	mem,
-	path::PathBuf,
-	time::Duration,
-};
+use std::{ffi::c_void, mem, path::PathBuf, time::Duration};
 use tokio::{io, net::UnixStream};
 
 /// Contains the bytes for a successfully compiled artifact.
@@ -146,13 +141,22 @@ pub fn worker_entrypoint(
 				let mut rusage_before = unsafe { mem::zeroed() };
 				let mut rusage_after = unsafe { mem::zeroed() };
 				if unsafe { libc::getrusage(libc::RUSAGE_CHILDREN, &mut rusage_before) } == -1 {
-					send_response(&mut stream,
-										 Err(PrepareError::Panic(format!("error getting children resource usage for worker pid {}", worker_pid))))
-						.await?;
+					send_response(
+						&mut stream,
+						Err(PrepareError::Panic(format!(
+							"error getting children resource usage for worker pid {}",
+							worker_pid
+						))),
+					)
+					.await?;
 				};
 				let mut pipe_fds = [0; 2];
 				if unsafe { libc::pipe(pipe_fds.as_mut_ptr()) } == -1 {
-					send_response(&mut stream, Err(PrepareError::Panic(format!("error creating pipe {}", worker_pid)))).await?;
+					send_response(
+						&mut stream,
+						Err(PrepareError::Panic(format!("error creating pipe {}", worker_pid))),
+					)
+					.await?;
 				}
 
 				let pipe_read = pipe_fds[0];
@@ -161,30 +165,31 @@ pub fn worker_entrypoint(
 					// error
 					-1 => Err(PrepareError::Panic(String::from("error forking"))),
 					// child
-					0 => {
-						unsafe {
-							handle_child_process(
-								pvf,
-								pipe_write,
-								pipe_read,
-								preparation_timeout,
-								prepare_job_kind,
-								executor_params,
-							).await;
-							Err(PrepareError::Panic(String::from("unreachable")))
-						}
+					0 => unsafe {
+						handle_child_process(
+							pvf,
+							pipe_write,
+							pipe_read,
+							preparation_timeout,
+							prepare_job_kind,
+							executor_params,
+						)
+						.await;
+						Err(PrepareError::Panic(String::from("unreachable")))
 					},
 					// parent
-					_ => unsafe { handle_parent_process(
-								&mut rusage_after,
-								rusage_before,
-								pipe_read,
-								pipe_write,
-								temp_artifact_dest,
-								preparation_timeout,
-								worker_pid,
-							).await
-						}
+					_ => unsafe {
+						handle_parent_process(
+							&mut rusage_after,
+							rusage_before,
+							pipe_read,
+							pipe_write,
+							temp_artifact_dest,
+							preparation_timeout,
+							worker_pid,
+						)
+						.await
+					},
 				};
 				send_response(&mut stream, result).await?;
 			}
@@ -243,15 +248,16 @@ async unsafe fn handle_child_process(
 	let condvar_memory = thread::get_condvar();
 	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 	let memory_tracker_thread = std::thread::spawn(|| memory_tracker_loop(condvar_memory));
-    if libc::setrlimit(
+	if libc::setrlimit(
 		libc::RLIMIT_CPU,
 		&mut libc::rlimit {
 			rlim_cur: preparation_timeout.as_secs(),
 			rlim_max: preparation_timeout.as_secs(),
 		},
-	) == -1 {
-	exit(libc::EXIT_FAILURE);
-};
+	) == -1
+	{
+		exit(libc::EXIT_FAILURE);
+	};
 
 	// Try to enable landlock.
 	#[cfg(target_os = "linux")]
@@ -310,10 +316,12 @@ async unsafe fn handle_parent_process(
 	pipe_write: c_int,
 	temp_artifact_dest: PathBuf,
 	preparation_timeout: Duration,
-	worker_pid: u32
+	worker_pid: u32,
 ) -> Result<PrepareStats, PrepareError> {
 	if libc::close(pipe_write) == -1 {
-		return Err(PrepareError::Panic(String::from("error closing pipe write end on the parent process")));
+		return Err(PrepareError::Panic(String::from(
+			"error closing pipe write end on the parent process",
+		)))
 	}
 
 	let mut status: c_int = 0;
@@ -345,7 +353,6 @@ async unsafe fn handle_parent_process(
 			match result.artifact_result {
 				Err(err) => Err(err),
 				Ok(artifact) => {
-
 					// Log if landlock threw an error.
 					if let Err(err) = &result.landlock_status {
 						gum::warn!(
@@ -370,7 +377,7 @@ async unsafe fn handle_parent_process(
 						temp_artifact_dest.display(),
 					);
 					if let Err(err) = tokio::fs::write(&temp_artifact_dest, &artifact).await {
-						return Err(PrepareError::Panic(format!("{:?}", err)));
+						return Err(PrepareError::Panic(format!("{:?}", err)))
 					};
 
 					Ok(PrepareStats {
@@ -397,6 +404,8 @@ async unsafe fn handle_parent_process(
 }
 
 fn get_total_cpu_usage(rusage: libc::rusage) -> i64 {
-	return rusage.ru_utime.tv_sec * 1000000 + rusage.ru_utime.tv_usec + rusage.ru_stime.tv_sec * 1000000 + rusage.ru_stime.tv_usec;
+	return rusage.ru_utime.tv_sec * 1000000 +
+		(rusage.ru_utime.tv_usec as i64) +
+		rusage.ru_stime.tv_sec * 1000000 +
+		(rusage.ru_stime.tv_usec as i64)
 }
-
