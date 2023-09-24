@@ -18,7 +18,7 @@ rust-version = "1.64.0"
 readme = "README.md"
 authors.workspace = true
 edition.workspace = true
-version = "1.0.0"
+version = "1.1.0"
 default-run = "polkadot"
 
 [dependencies]
@@ -26,11 +26,7 @@ color-eyre = { version = "0.6.1", default-features = false }
 tikv-jemallocator = { version = "0.5.0", optional = true }
 
 # Crates in our workspace, defined as dependencies so we can pass them feature flags.
-polkadot-cli = { path = "cli", features = [
-	"kusama-native",
-	"westend-native",
-	"rococo-native",
-] }
+polkadot-cli = { path = "cli", features = [ "westend-native", "rococo-native" ]  }
 polkadot-node-core-pvf = { path = "node/core/pvf" }
 polkadot-node-core-pvf-prepare-worker = { path = "node/core/pvf/prepare-worker" }
 polkadot-overseer = { path = "node/overseer" }
