@@ -325,7 +325,8 @@ async unsafe fn handle_parent_process(
 		return Err(PrepareError::Panic(String::from("error getting resource usage from child")))
 	};
 
-	let cpu_tv = rusage_after.ru_utime.tv_sec;
+	// Get total cpu usage for current child
+	let cpu_tv = get_total_cpu_usage(*rusage_after) - get_total_cpu_usage(rusage_before);
 	let cpu_duration = Duration::from_micros(cpu_tv as u64);
 
 	return match status {
@@ -393,5 +394,9 @@ async unsafe fn handle_parent_process(
 		},
 		status => Err(PrepareError::Panic(format!("child failed with status {}", status))),
 	}
+}
+
+fn get_total_cpu_usage(rusage: libc::rusage) -> i64 {
+	return rusage.ru_utime.tv_sec * 1000000 + rusage.ru_utime.tv_usec + rusage.ru_stime.tv_sec * 1000000 + rusage.ru_stime.tv_usec;
 }
 
