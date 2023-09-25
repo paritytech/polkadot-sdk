@@ -18,50 +18,8 @@ use crate::*;
 /// Relay Chain should be able to execute `Transact` instructions in System Parachain
 /// when `OriginKind::Superuser`.
 #[test]
-fn send_transact_superuser_from_relay_to_system_para_works() {
-	// Init tests variables
-	let root_origin = <Westend as Chain>::RuntimeOrigin::root();
-	let system_para_destination = Westend::child_location_of(AssetHubWestend::para_id()).into();
-	let asset_owner: AccountId = AssetHubWestendSender::get().into();
-	let xcm = AssetHubWestend::force_create_asset_xcm(
-		OriginKind::Superuser,
-		ASSET_ID,
-		asset_owner.clone(),
-		true,
-		1000,
-	);
-	// Send XCM message from Relay Chain
-	Westend::execute_with(|| {
-		assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
-			root_origin,
-			bx!(system_para_destination),
-			bx!(xcm),
-		));
-
-		Westend::assert_xcm_pallet_sent();
-	});
-
-	// Receive XCM message in Assets Parachain
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-
-		AssetHubWestend::assert_dmp_queue_complete(Some(Weight::from_parts(
-			1_019_445_000,
-			200_000,
-		)));
-
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![
-				RuntimeEvent::Assets(pallet_assets::Event::ForceCreated { asset_id, owner }) => {
-					asset_id: *asset_id == ASSET_ID,
-					owner: *owner == asset_owner,
-				},
-			]
-		);
-
-		assert!(<AssetHubWestend as AssetHubWestendPallet>::Assets::asset_exists(ASSET_ID));
-	});
+fn send_transact_as_superuser_from_relay_to_system_para_works() {
+	super::do_force_create_asset_from_relay_to_system_para(OriginKind::Superuser);
 }
 
 /// Parachain should be able to send XCM paying its fee with sufficient asset

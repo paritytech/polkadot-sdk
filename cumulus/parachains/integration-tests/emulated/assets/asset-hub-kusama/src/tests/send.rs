@@ -18,62 +18,8 @@ use crate::*;
 /// Relay Chain should be able to execute `Transact` instructions in System Parachain
 /// when `OriginKind::Superuser`.
 #[test]
-fn send_transact_superuser_from_relay_to_system_para_works() {
-	let asset_owner: AccountId = AssetHubKusamaSender::get().into();
-
-	Kusama::send_transact_to_parachain(
-		OriginKind::Superuser,
-		AssetHubKusama::para_id(),
-		AssetHubKusama::force_create_asset_call(ASSET_ID, asset_owner.clone(), true, 1000),
-	);
-
-	// Receive XCM message in Assets Parachain
-	AssetHubKusama::execute_with(|| {
-		type RuntimeEvent = <AssetHubKusama as Chain>::RuntimeEvent;
-
-		AssetHubKusama::assert_dmp_queue_complete(Some(Weight::from_parts(1_019_445_000, 200_000)));
-
-		assert_expected_events!(
-			AssetHubKusama,
-			vec![
-				RuntimeEvent::Assets(pallet_assets::Event::ForceCreated { asset_id, owner }) => {
-					asset_id: *asset_id == ASSET_ID,
-					owner: *owner == asset_owner,
-				},
-			]
-		);
-
-		assert!(<AssetHubKusama as AssetHubKusamaPallet>::Assets::asset_exists(ASSET_ID));
-	});
-}
-
-/// Relay Chain shouldn't be able to execute `Transact` instructions in System Parachain
-/// when `OriginKind::Native`
-#[test]
-fn send_transact_native_from_relay_to_system_para_fails() {
-	// Init tests variables
-	let signed_origin = <Kusama as Chain>::RuntimeOrigin::signed(KusamaSender::get().into());
-	let system_para_destination = Kusama::child_location_of(AssetHubKusama::para_id()).into();
-	let asset_owner = AssetHubKusamaSender::get().into();
-	let xcm = AssetHubKusama::force_create_asset_xcm(
-		OriginKind::Native,
-		ASSET_ID,
-		asset_owner,
-		true,
-		1000,
-	);
-
-	// Send XCM message from Relay Chain
-	Kusama::execute_with(|| {
-		assert_err!(
-			<Kusama as KusamaPallet>::XcmPallet::send(
-				signed_origin,
-				bx!(system_para_destination),
-				bx!(xcm)
-			),
-			DispatchError::BadOrigin
-		);
-	});
+fn send_transact_as_superuser_from_relay_to_system_para_works() {
+	super::do_force_create_asset_from_relay_to_system_para(OriginKind::Superuser);
 }
 
 /// System Parachain shouldn't be able to execute `Transact` instructions in Relay Chain

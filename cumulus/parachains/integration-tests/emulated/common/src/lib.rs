@@ -479,6 +479,7 @@ decl_test_bridges! {
 impl_accounts_helpers_for_relay_chain!(Polkadot);
 impl_assert_events_helpers_for_relay_chain!(Polkadot);
 impl_hrmp_channels_helpers_for_relay_chain!(Polkadot);
+impl_send_transact_helpers_for_relay_chain!(Polkadot);
 
 // Kusama implementation
 impl_accounts_helpers_for_relay_chain!(Kusama);
@@ -489,14 +490,17 @@ impl_send_transact_helpers_for_relay_chain!(Kusama);
 // Westend implementation
 impl_accounts_helpers_for_relay_chain!(Westend);
 impl_assert_events_helpers_for_relay_chain!(Westend);
+impl_send_transact_helpers_for_relay_chain!(Westend);
 
 // Rococo implementation
 impl_accounts_helpers_for_relay_chain!(Rococo);
 impl_assert_events_helpers_for_relay_chain!(Rococo);
+impl_send_transact_helpers_for_relay_chain!(Rococo);
 
 // Wococo implementation
 impl_accounts_helpers_for_relay_chain!(Wococo);
 impl_assert_events_helpers_for_relay_chain!(Wococo);
+impl_send_transact_helpers_for_relay_chain!(Wococo);
 
 // AssetHubPolkadot implementation
 impl_accounts_helpers_for_parachain!(AssetHubPolkadot);

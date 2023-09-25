@@ -18,79 +18,8 @@ use crate::*;
 /// Relay Chain should be able to execute `Transact` instructions in System Parachain
 /// when `OriginKind::Superuser`.
 #[test]
-fn send_transact_superuser_from_relay_to_system_para_works() {
-	// Init tests variables
-	let root_origin = <Polkadot as Chain>::RuntimeOrigin::root();
-	let system_para_destination = Polkadot::child_location_of(AssetHubPolkadot::para_id()).into();
-	let asset_owner: AccountId = AssetHubPolkadotSender::get().into();
-	let xcm = AssetHubPolkadot::force_create_asset_xcm(
-		OriginKind::Superuser,
-		ASSET_ID,
-		asset_owner.clone(),
-		true,
-		1000,
-	);
-	// Send XCM message from Relay Chain
-	Polkadot::execute_with(|| {
-		assert_ok!(<Polkadot as PolkadotPallet>::XcmPallet::send(
-			root_origin,
-			bx!(system_para_destination),
-			bx!(xcm),
-		));
-
-		Polkadot::assert_xcm_pallet_sent();
-	});
-
-	// Receive XCM message in Assets Parachain
-	AssetHubPolkadot::execute_with(|| {
-		type RuntimeEvent = <AssetHubPolkadot as Chain>::RuntimeEvent;
-
-		AssetHubPolkadot::assert_dmp_queue_complete(Some(Weight::from_parts(
-			1_019_445_000,
-			200_000,
-		)));
-
-		assert_expected_events!(
-			AssetHubPolkadot,
-			vec![
-				RuntimeEvent::Assets(pallet_assets::Event::ForceCreated { asset_id, owner }) => {
-					asset_id: *asset_id == ASSET_ID,
-					owner: *owner == asset_owner,
-				},
-			]
-		);
-
-		assert!(<AssetHubPolkadot as AssetHubPolkadotPallet>::Assets::asset_exists(ASSET_ID));
-	});
-}
-
-/// Relay Chain shouldn't be able to execute `Transact` instructions in System Parachain
-/// when `OriginKind::Native`
-#[test]
-fn send_transact_native_from_relay_to_system_para_fails() {
-	// Init tests variables
-	let signed_origin = <Polkadot as Chain>::RuntimeOrigin::signed(PolkadotSender::get().into());
-	let system_para_destination = Polkadot::child_location_of(AssetHubPolkadot::para_id()).into();
-	let asset_owner = AssetHubPolkadotSender::get().into();
-	let xcm = AssetHubPolkadot::force_create_asset_xcm(
-		OriginKind::Native,
-		ASSET_ID,
-		asset_owner,
-		true,
-		1000,
-	);
-
-	// Send XCM message from Relay Chain
-	Polkadot::execute_with(|| {
-		assert_err!(
-			<Polkadot as PolkadotPallet>::XcmPallet::send(
-				signed_origin,
-				bx!(system_para_destination),
-				bx!(xcm)
-			),
-			DispatchError::BadOrigin
-		);
-	});
+fn send_transact_as_superuser_from_relay_to_system_para_works() {
+	super::do_force_create_asset_from_relay_to_system_para(OriginKind::Superuser);
 }
 
 /// System Parachain shouldn't be able to execute `Transact` instructions in Relay Chain

@@ -13,8 +13,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::*;
+
 mod hrmp_channels;
 mod reserve_transfer;
 mod send;
 mod set_xcm_versions;
 mod teleport;
+
+/// Relay Chain sends `Transact` instruction with `force_create_asset` to System Parachain.
+pub fn do_force_create_asset_from_relay_to_system_para(origin_kind: OriginKind) {
+	let asset_owner: AccountId = AssetHubPolkadotSender::get().into();
+
+	Polkadot::send_transact_to_parachain(
+		origin_kind,
+		AssetHubPolkadot::para_id(),
+		AssetHubPolkadot::force_create_asset_call(ASSET_ID, asset_owner.clone(), true, 1000),
+	);
+
+	// Receive XCM message in Assets Parachain
+	AssetHubPolkadot::execute_with(|| {
+		type RuntimeEvent = <AssetHubPolkadot as Chain>::RuntimeEvent;
+
+		AssetHubPolkadot::assert_dmp_queue_complete(Some(Weight::from_parts(
+			1_019_445_000,
+			200_000,
+		)));
+
+		assert_expected_events!(
+			AssetHubPolkadot,
+			vec![
+				RuntimeEvent::Assets(pallet_assets::Event::ForceCreated { asset_id, owner }) => {
+					asset_id: *asset_id == ASSET_ID,
+					owner: *owner == asset_owner,
+				},
+			]
+		);
+
+		assert!(<AssetHubPolkadot as AssetHubPolkadotPallet>::Assets::asset_exists(ASSET_ID));
+	});
+}

@@ -47,32 +47,21 @@ fn relay_sets_system_para_xcm_supported_version() {
 #[test]
 fn system_para_sets_relay_xcm_supported_version() {
 	// Init test variables
-	let sudo_origin = <Kusama as Chain>::RuntimeOrigin::root();
 	let parent_location = AssetHubKusama::parent_location();
-	let system_para_destination: VersionedMultiLocation =
-		Kusama::child_location_of(AssetHubKusama::para_id()).into();
-	let call = <AssetHubKusama as Chain>::RuntimeCall::PolkadotXcm(pallet_xcm::Call::<
-		<AssetHubKusama as Chain>::Runtime,
-	>::force_xcm_version {
-		location: bx!(parent_location),
-		version: XCM_V3,
-	})
-	.encode()
-	.into();
-	let origin_kind = OriginKind::Superuser;
 
-	let xcm = xcm_transact_unpaid_execution(call, origin_kind);
-
-	// System Parachain sets supported version for Relay Chain throught it
-	Kusama::execute_with(|| {
-		assert_ok!(<Kusama as KusamaPallet>::XcmPallet::send(
-			sudo_origin,
-			bx!(system_para_destination),
-			bx!(xcm),
-		));
-
-		Kusama::assert_xcm_pallet_sent();
-	});
+	// System Parachain sets supported version for Relay Chain through it
+	Kusama::send_transact_to_parachain(
+		OriginKind::Superuser,
+		AssetHubKusama::para_id(),
+		<AssetHubKusama as Chain>::RuntimeCall::PolkadotXcm(pallet_xcm::Call::<
+			<AssetHubKusama as Chain>::Runtime,
+		>::force_xcm_version {
+			location: bx!(parent_location),
+			version: XCM_V3,
+		})
+		.encode()
+		.into(),
+	);
 
 	// System Parachain receive the XCM message
 	AssetHubKusama::execute_with(|| {
