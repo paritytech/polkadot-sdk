@@ -45,7 +45,7 @@ pub trait Xcm<T: Config> {
 		max_weight: Weight,
 	) -> DispatchResultWithPostInfo;
 
-	/// Send an XCM message to be executed by a remote location. see
+	/// Send an XCM to be executed by a remote location. see
 	/// [`pallet_xcm::pallet::Pallet::send`]
 	///
 	/// # Parameters
