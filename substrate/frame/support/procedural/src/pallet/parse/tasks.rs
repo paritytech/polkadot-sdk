@@ -469,3 +469,20 @@ fn test_parse_tasks_def_missing_task_list() {
 		r"missing `#\[pallet::task_list\(\.\.\)\]`"
 	);
 }
+
+#[test]
+fn test_parse_tasks_def_missing_task_condition() {
+	assert_error_matches!(
+		parse2::<TasksDef>(quote! {
+			#[pallet::tasks]
+			impl<T: Config<I>, I: 'static> Pallet<T, I> {
+				#[pallet::task_list(Something::iter())]
+				#[pallet::task_index(0)]
+				pub fn foo(i: u32) -> DispatchResult {
+					Ok(())
+				}
+			}
+		}),
+		r"missing `#\[pallet::task_condition\(\.\.\)\]`"
+	);
+}
