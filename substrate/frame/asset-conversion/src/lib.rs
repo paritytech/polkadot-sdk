@@ -95,6 +95,7 @@ use sp_runtime::{
 	},
 	BoundedVec, DispatchError, Saturating, TokenError, TransactionOutcome,
 };
+use sp_std::vec::Vec;
 
 #[frame_support::pallet]
 pub mod pallet {
