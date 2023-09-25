@@ -38,6 +38,10 @@ use sp_consensus_grandpa::{
 use sp_runtime::{traits::Header as HeaderT, Digest, RuntimeDebug, SaturatedConversion};
 use sp_std::{boxed::Box, vec::Vec};
 
+pub use call_info::{BridgeGrandpaCall, BridgeGrandpaCallOf, SubmitFinalityProofInfo};
+
+mod call_info;
+
 pub mod justification;
 pub mod storage_keys;
 
@@ -240,39 +244,6 @@ pub trait FindEquivocations<FinalityProof, FinalityVerificationContext, Equivoca
 		source_proofs: &[FinalityProof],
 	) -> Result<Vec<EquivocationProof>, Self::Error>;
 }
-
-/// A minimized version of `pallet-bridge-grandpa::Call` that can be used without a runtime.
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
-#[allow(non_camel_case_types)]
-pub enum BridgeGrandpaCall<Header: HeaderT> {
-	/// `pallet-bridge-grandpa::Call::submit_finality_proof`
-	#[codec(index = 0)]
-	submit_finality_proof {
-		/// The header that we are going to finalize.
-		finality_target: Box<Header>,
-		/// Finality justification for the `finality_target`.
-		justification: justification::GrandpaJustification<Header>,
-	},
-	/// `pallet-bridge-grandpa::Call::initialize`
-	#[codec(index = 1)]
-	initialize {
-		/// All data, required to initialize the pallet.
-		init_data: InitializationData<Header>,
-	},
-	/// `pallet-bridge-grandpa::Call::submit_finality_proof_ex`
-	#[codec(index = 4)]
-	submit_finality_proof_ex {
-		/// The header that we are going to finalize.
-		finality_target: Box<Header>,
-		/// Finality justification for the `finality_target`.
-		justification: justification::GrandpaJustification<Header>,
-		/// An identifier of the validators set, that have signed the justification.
-		current_set_id: SetId,
-	},
-}
-
-/// The `BridgeGrandpaCall` used by a chain.
-pub type BridgeGrandpaCallOf<C> = BridgeGrandpaCall<HeaderOf<C>>;
 
 /// Substrate-based chain that is using direct GRANDPA finality.
 ///
