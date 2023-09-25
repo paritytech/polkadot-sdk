@@ -107,6 +107,20 @@ pub enum SpotTrafficCalculationErr {
 	Division,
 }
 
+/// Assignments as provided by the on-demand `AssignmentProvider`.
+struct OnDemandAssignment {
+	/// The assigned para id.
+	para_id: ParaId,
+	/// The core index the para got assigned to.
+	core_index: CoreIndex,
+}
+
+impl Assignment for OnDemandAssignment {
+	fn para_id(&self) -> &ParaId {
+		&self.para_id
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 
@@ -545,6 +559,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		// Only decrease the affinity of the previous para if it exists.
 		// A nonexistant `ParaId` indicates that the scheduler has not processed any
 		// `ParaId` this session.
+		// TODO: This will not work if cores assigned to us will change over time!
 		if let Some(previous_para_id) = previous_para {
 			Pallet::<T>::decrease_affinity(previous_para_id, core_idx)
 		}

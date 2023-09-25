@@ -16,7 +16,12 @@
 
 //! The Polkadot multiplexing assignment provider.
 //! Provides blockspace assignments for both bulk and on demand parachains.
+//!
+
+use scale_info::TypeInfo;
+
 use frame_system::pallet_prelude::BlockNumberFor;
+use sp_std::prelude::*;
 use primitives::{CoreIndex, Id as ParaId};
 
 use crate::{
@@ -36,14 +41,37 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + configuration::Config + paras::Config {
-		type ParachainsAssignmentProvider: AssignmentProvider<BlockNumberFor<Self>>;
-		type OnDemandAssignmentProvider: AssignmentProvider<BlockNumberFor<Self>>;
+		type ParachainsAssignmentProvider: AssignmentProvider<BlockNumberFor<Self>, LegacyAssignment>;
+		type OnDemandAssignmentProvider: AssignmentProvider<BlockNumberFor<Self>, OnDemandAssignment>;
 	}
+
 }
 
 // Aliases to make the impl more readable.
 type ParachainAssigner<T> = <T as Config>::ParachainsAssignmentProvider;
 type OnDemandAssigner<T> = <T as Config>::OnDemandAssignmentProvider;
+
+/// Assignments as of this top-level assignment provider.
+#[derive(Copy, Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebug)]
+enum GenericAssignment {
+	/// Assignment came from on-demand assignment provider.
+	OnDemand(OnDemandAssignment),
+	/// Assignment came from new bulk assignment provider.
+	Bulk(BulkAssignment),
+	/// Assignment came from legacy auction based assignment provider.
+	LegacyAuction(LegacyAssignment),
+}
+
+
+impl Assignment for GenericAssignment {
+	fn para_id(&self) -> &ParaId {
+		match &self {
+			Self::OnDemand(on_demand) => on_demand.para_id(),
+			Self::Bulk(bulk) => bulk.para_id(),
+			Self::LegacyAuction(legacy) => legacy.para_id(),
+		}
+	}
+}
 
 impl<T: Config> Pallet<T> {
 	// Helper fn for the AssignmentProvider implementation.

@@ -25,19 +25,11 @@ use sp_std::prelude::*;
 #[allow(unused)]
 use crate::configuration::HostConfiguration;
 
-/// An assignment for a parachain scheduled to be backed and included in a relay chain block.
-#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebug)]
-pub struct Assignment {
-	/// Assignment's ParaId
-	pub para_id: ParaId,
+pub trait Assignment {
+	/// Para id this assignment refers to.
+	fn para_id(&self) -> &ParaId;
 }
 
-impl Assignment {
-	/// Create a new `Assignment`.
-	pub fn new(para_id: ParaId) -> Self {
-		Self { para_id }
-	}
-}
 
 /// A set of variables required by the scheduler in order to operate.
 pub struct AssignmentProviderConfig<BlockNumber> {
@@ -50,7 +42,7 @@ pub struct AssignmentProviderConfig<BlockNumber> {
 	pub ttl: BlockNumber,
 }
 
-pub trait AssignmentProvider<BlockNumber> {
+pub trait AssignmentProvider<BlockNumber, A: Assignment> {
 	/// How many cores are allocated to this provider.
 	fn session_core_count() -> u32;
 
@@ -60,12 +52,18 @@ pub trait AssignmentProvider<BlockNumber> {
 	fn pop_assignment_for_core(
 		core_idx: CoreIndex,
 		concluded_para: Option<ParaId>,
-	) -> Option<Assignment>;
+	) -> Option<A>;
 
-	/// Push back an already popped assignment. Intended for provider implementations
-	/// that need to be able to keep track of assignments over session boundaries,
-	/// such as the on demand assignment provider.
-	fn push_assignment_for_core(core_idx: CoreIndex, assignment: Assignment);
+	/// A previously popped `Assignment` has been fully processed.
+	///
+	/// Report back to the assignment provider that an assignment is done and no longer present in the scheduler.
+	fn report_processed(assignment: A);
+
+	/// Push back a previously popped assignment.
+	///
+	/// If the assignment could not be processed within the current session, it can be pushed back to the assignment
+	/// provider in order to be poppped again later.
+	fn push_assignment_for_core(core_idx: CoreIndex, assignment: A);
 
 	/// Returns a set of variables needed by the scheduler
 	fn get_provider_config(core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber>;
