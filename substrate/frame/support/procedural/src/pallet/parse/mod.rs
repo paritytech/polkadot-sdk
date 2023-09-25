@@ -105,7 +105,6 @@ impl Def {
 			// find manually specified `Task` enum, if present
 			if let syn::Item::Enum(item_enum) = item {
 				if item_enum.ident == "Task" {
-					println!("found task enum while parsing Def!");
 					task_enum = Some(item_enum.clone());
 				}
 			}
